@@ -460,6 +460,8 @@ def load_plugin_hooks(plugin_root) -> dict:
     if not isinstance(hooks_block, dict):
         return {}
     substituted = _substitute_plugin_root(hooks_block, str(plugin_root))
+    from halo_harness.packs.interpreter import expand_hooks  # 3.2.0.0 R7: ${halo_python}, Halo's own interpreter
+    substituted = expand_hooks(substituted)
     return normalize_hooks(substituted, default_source="plugin", plugin_root=str(plugin_root), scope="global")
 
 
@@ -995,6 +997,8 @@ class HookRunner:
         env["CLAUDE_CODE_REMOTE"] = "false"
         if hook.plugin_root:
             env["CLAUDE_PLUGIN_ROOT"] = hook.plugin_root
+            from halo_harness.packs.interpreter import pack_env  # 3.2.0.0 R7: a pack's script imports halo_harness.ext
+            env = pack_env(hook.plugin_root, env)
         if self.effort:
             env["CLAUDE_EFFORT"] = self.effort
         if event in _ENV_FILE_EVENTS:

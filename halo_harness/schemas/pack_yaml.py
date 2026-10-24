@@ -90,7 +90,7 @@ def pack() -> dict:
     contributes = obj({"agents": _NAMES, "teams": _NAMES, "skills": STRING, "commands": STRING, "hooks": STRING,
                        "mcp": {"type": "array", "items": mcp_entry}, "studio": studio(), "fleet": fleet(),
                        "artifacts": _NAMES, "events": {"type": "array", "items": event}, "workflows": _NAMES})
-    migration = obj({"from": _VERSION, "to": _VERSION, "note": STRING})
+    migration = obj({"from": _VERSION, "to": _VERSION, "note": STRING, "settings": MAPPING})  # settings: 3.2.0.0 R7 renames
     props = {"id": STRING, "name": STRING, "version": STRING, "description": STRING, "author": author,
              "license": STRING, "halo_api": _RANGE, "halo": _RANGE, "capabilities": _NAMES, "requires": requires,
              "contributes": contributes, "config": obj({"schema": MAPPING, "defaults": MAPPING}),

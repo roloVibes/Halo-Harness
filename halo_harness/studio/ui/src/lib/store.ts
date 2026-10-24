@@ -122,7 +122,7 @@ export function bootLiveSession(): string {
 
 /** `?mode=` wins, then the section saved for this browser; nothing saved: Session while a session is live here, else Roles. */
 function initialSection(): SectionId {
-  const asked = /[?&]mode=(orchestra|roles|design|fleet|team|session)\b/.exec(location.search);
+  const asked = /[?&]mode=(orchestra|roles|design|fleet|team|session|packs)\b/.exec(location.search); // packs: 3.2.0.0 R7
   if (asked) return asked[1] as SectionId;
   const saved = readLocal("halo.studio.section") || readLocal("halo-studio-mode");
   if ((SECTION_IDS as string[]).includes(saved)) return saved as SectionId;

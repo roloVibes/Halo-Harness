@@ -24,8 +24,10 @@ Once enabled, its own section "Docs review" comes after the core sections.
 
 `halo_api: {min: "1.0", max: "1.9"}`: it is written against extension API
 1.0 (`halo_harness.ext.API_VERSION`), and a 1.x Halo keeps every name it
-uses. `halo: {min: "3.1"}` is the Halo it needs. Install refuses a pack
-whose range this Halo is outside, with one line saying which.
+uses. `halo` is the Halo it needs (the release it ships in: `{min: "3.2"}`
+from 3.2.0.0). Install refuses a pack whose range this Halo is outside, with
+one line saying which: `pack doc-review needs extension API 1.2 to 1.9; this
+Halo has 1.0`.
 
 ## Make your own pack from this one
 
@@ -45,6 +47,38 @@ whose range this Halo is outside, with one line saying which.
    then `halo pack install my-checks`.
 
 A pack's Python imports `halo_harness.ext` and nothing else of Halo.
+
+## Versioning your pack
+
+- **Ranges.** `halo_api: {min, max}` says which extension API versions it
+  works with: `min` is the one you wrote it against; a minor version only
+  adds names, so `max: "1.9"` (or no `max`, which means "this major only")
+  is safe; a new major may drop a name that `halo pack doctor` has warned
+  about for a minor version first. `halo: {min, max}` names Halo releases,
+  when your pack needs something a release added.
+- **Your own version** is semver (`version: 1.2.0`): a fix is a patch, a
+  new part a minor, a change a user must act on a major.
+- **Migrations.** For each change a user must know about, add an entry to
+  `migrations`:
+
+  ```yaml
+  migrations:
+    - {from: 1.1.0, to: 1.3.0, note: settings key lint.level is now lint.strictness, settings: {lint.level: lint.strictness}}
+  ```
+
+  `halo pack update` prints every note between the installed and the new version
+  before it replaces anything, and moves each `settings` key you list from
+  the old name to the new one in the user's `packs.settings.<id>` (a key the
+  user already set under the new name wins). That rename is the only change
+  Halo makes for you; say everything else in the note.
+- **Test an update** before you publish it: install the old version, point
+  it at the new folder (or bump `version` in your working copy) and run
+  `halo pack update <id> --dry-run`: it prints the notes, the files that
+  change and the settings it renames, and changes nothing. Then `halo pack
+  update <id>`; if something is off, `halo pack rollback <id>` brings the old
+  version back (and its settings names).
+- **A new id is a new pack.** Renaming a pack's id makes users install it
+  again; nothing carries over from the old id.
 
 ## Every file
 
@@ -78,7 +112,9 @@ with `halo config set packs.settings.doc-review.style long`.
 
 Permissions it requests: `bash` (the reviewer's tools, the docs.review
 capability), `hooks` (hooks/hooks.json) and `mcp:lint` (the lint server).
-The hook and the server run with the `python` on your PATH; where that
-Python cannot import Halo they keep to their defaults.
+The hook and the server run with Halo's own Python: `.mcp.json` and
+`hooks/hooks.json` name it `${halo_python}`, which Halo expands when it
+starts them, and their `PYTHONPATH` starts with Halo's package root. Run by
+hand with a Python that cannot import Halo, they keep to their defaults.
 
 More: docs/PACKS.md (using packs) and docs/EXTENSION_API.md (the contract).

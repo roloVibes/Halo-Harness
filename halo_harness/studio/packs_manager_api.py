@@ -11,7 +11,10 @@ Studio -- this page too -- reads the manager and the registry again.
     POST pack/sources {add | remove: <folder|url>}     halo pack sources add|remove
     POST pack/<id>/enable {grants?: [NAME], grant_all?}  halo pack enable <id> --grant NAME ... | --grant-all
     POST pack/<id>/grant {need, on}                    halo pack grant <id> <need> [--off]
-    POST pack/<id>/disable | pack/<id>/update          halo pack disable | update <id>
+    POST pack/<id>/disable                             halo pack disable <id>
+    POST pack/<id>/update {dry_run?}                   halo pack update <id> [--dry-run] (3.2.0.0 R7: Studio asks with
+                                                       dry_run first and shows its lines: the migration notes, the plan)
+    POST pack/<id>/rollback                            halo pack rollback <id> (3.2.0.0 R7)
     POST pack/<id>/remove {keep_config?}               halo pack remove <id> [--keep-config]
     GET|POST pack/<id>/settings                        R3's settings form (studio/packs_studio_api.py
                                                        get_config / post_config) for any pack installed here,
@@ -26,7 +29,7 @@ from __future__ import annotations
 
 import re
 
-VERBS = ("enable", "grant", "disable", "update", "remove", "settings")
+VERBS = ("enable", "grant", "disable", "update", "rollback", "remove", "settings")
 _VERB = re.compile(r"^pack/(?P<id>[a-z][a-z0-9-]*)/(?P<verb>" + "|".join(VERBS) + r")$")
 
 
@@ -101,7 +104,10 @@ def _verb(req, pack_id: str, verb: str):
         return G.disable(pack_id, state_dir=req.state_dir)
     if verb == "update":
         from halo_harness.packs.install import update
-        return update(pack_id, cwd=req.cwd, state_dir=req.state_dir)
+        return update(pack_id, dry_run=body.get("dry_run") is True, cwd=req.cwd, state_dir=req.state_dir)
+    if verb == "rollback":
+        from halo_harness.packs.rollback import rollback
+        return rollback(pack_id, cwd=req.cwd, state_dir=req.state_dir)
     from halo_harness.packs.remove import remove
     return remove(pack_id, keep_config=body.get("keep_config") is True, cwd=req.cwd, state_dir=req.state_dir)
 

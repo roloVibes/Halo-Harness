@@ -11,6 +11,8 @@ cycle; a contribution whose permission is not granted (it does not run);
 settings that do not fit the pack's schema; a bio's capability set no
 catalog model has and a bio's need not granted (3.2.0.0 R2, packs/roles.py);
 a fleet capability not available here, with why (3.2.0.0 R4, packs/contrib_views.py);
+a permission the installed version requests that its version before the last update did not and that is not
+granted, and a use of an extension API name announced for removal (3.2.0.0 R7, packs/deprecations.py);
 two packs, or a pack and you,
 offering one name; a pack shadowed by a same-id project pack; a state.json
 record whose folder is gone; a bio or lineup file the manifest does not
@@ -102,6 +104,10 @@ def problems(*, cwd=None, state_dir=None) -> "list[dict]":
             from halo_harness.packs import contrib_views as CW  # 3.2.0.0 R4: a fleet capability not available here
             out += [_p(pack.id, r["severity"], r["check"], r["text"], r["fix"], r["path"])
                     for r in CW.doctor_rows(pack, S.granted(pack.id, snap.state), cwd=cwd, state_dir=state_dir)]
+            from halo_harness.packs.deprecations import update_request_rows  # 3.2.0.0 R7: a grant the update asked for
+            out += update_request_rows(pack, S.entry(pack.id, data=snap.state) or {}, S.granted(pack.id, snap.state))
+        from halo_harness.packs.deprecations import deprecated_rows  # 3.2.0.0 R7: an ext name announced for removal
+        out += deprecated_rows(pack)
         out += [_p(pack.id, "warns", "undeclared", line, "list it in pack.yaml", yaml_path)
                 for line in undeclared_lines(pack)]
         out += [_p(pack.id, "warns", "privacy", line, "take it out of the pack's file", yaml_path)

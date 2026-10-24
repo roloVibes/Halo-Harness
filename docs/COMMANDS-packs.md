@@ -1,6 +1,6 @@
 # Commands: packs
 
-Read this when you list, inspect, install, enable, grant, update or remove a pack, or name where packs come from, on the command line (`halo pack`).
+Read this when you list, inspect, install, enable, grant, update, roll back or remove a pack, or name where packs come from, on the command line (`halo pack`).
 
 Part of [Commands](COMMANDS.md), which lists every part.
 
@@ -143,22 +143,45 @@ files stay; its grants clear (the next `enable` states them again).
 ### `halo pack update`
 
 `halo pack update <id>` reads the pack's recorded source again (a folder, or
-a fresh clone of its url) and, through the journal, replaces each file the
-pack wrote that you have not changed; a file you changed or added stays and
-is listed. The `migrations` notes between the installed and the new version
-are printed.
+a fresh clone of its url) and makes install's checks on it (a new version
+that fails one is refused with its lines, and `<id> <version> stays as it
+is`). 3.2.0.0 R7: it prints the `migrations` notes between the installed and
+the new version first (`doc-review 1.1.0 -> 1.3.0: <note>`), stages the new
+version beside the pack (each file the pack wrote that you have not changed
+replaced; a file you changed or added carried over and listed) and swaps it
+in by two renames, keeping the old version as `<id>.previous/`; then it
+renames the `packs.settings.<id>` keys the notes declare (one line each). A
+copy or rename error leaves the old version in place, in one line. From the
+same source with nothing new: `<id> <version> is up to date`.
+
+#### `--dry-run`
+
+Print the notes and what the update would do (the files that change, the
+settings it renames, your files it keeps), ending `dry run: nothing is
+changed (halo pack update <id> makes these changes)`; change nothing.
+
+### `halo pack rollback`
+
+3.2.0.0 R7: `halo pack rollback <id>` swaps `<id>.previous/` (the version
+the last update replaced) back in: your files changed since the update stay,
+the settings that update renamed move back, the grants and the enabled state
+stay, and the version rolled back from is deleted (`halo pack update <id>`
+brings it back). One version back only. With none kept: `<id> has no earlier
+version to go back to: an update keeps the version it replaces as
+<id>.previous until the next update`.
 
 ### `halo pack remove`
 
-`halo pack remove <id>` deletes the pack's own files only and drops its
-record. Your bios and lineups named `<id>--*`, your lineups naming its bios,
+`halo pack remove <id>` deletes the pack's own files only, its `<id>.previous/`
+(3.2.0.0 R7) and drops its record. Your bios and lineups named `<id>--*`, your lineups naming its bios,
 their memory folders (`~/.halo/teams/<id>--*/`), your `packs.settings.<id>`
 and a `team:` naming its lineup stay, each listed.
 
 #### `--keep-config`
 
 Keep the pack's record (disabled, with its grants), so installing it again
-starts with the same grants.
+starts with the same grants; a kept `<id>.previous/` stays with it, and
+`halo pack rollback <id>` installs that version again.
 
 ### `halo pack sources`
 

@@ -65,11 +65,11 @@ def test_a_missing_or_disabled_dependency(ctx: Ctx):
 @test
 def test_an_incompatible_api_or_halo_version(ctx: Ctx):
     order, problems = _resolve([_pack("app", api={"min": "2.0"})])
-    ctx.check(f"API: one line, got {problems}", order == [] and problems["app"] == ["app needs extension API >= 2.0; this Halo has 1.0"])
+    ctx.check(f"API: one line, got {problems}", order == [] and problems["app"] == ["pack app needs extension API 2.0 or a later 2.x; this Halo has 1.0"])
     order, problems = _resolve([_pack("app", api={"min": "0.5", "max": "0.9"})])
     ctx.check("an API range that ends below 1.0", order == [] and "0.5 to 0.9" in problems["app"][0])
     order, problems = _resolve([_pack("app", halo={"min": "3.3"})])
-    ctx.check(f"Halo: one line, got {problems}", order == [] and problems["app"] == ["app needs Halo >= 3.3; this is 3.2.0.0"])
+    ctx.check(f"Halo: one line, got {problems}", order == [] and problems["app"] == ["pack app needs Halo >= 3.3; this is 3.2.0.0"])
     order, _problems = _resolve([_pack("app", halo={"min": "3.1", "max": "3.2"})])
     ctx.check("Halo 3.2.0.0 is inside 3.1 to 3.2", order == ["app"])
     from halo_harness.packs.resolve import compat_lines

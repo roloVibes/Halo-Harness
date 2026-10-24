@@ -10,6 +10,8 @@ skipped without one), over a fresh home with no pack installed:
    the grant for Enable (its button names the command);
 4. Enable: the row runs with 1/3 granted, the pack's section tab follows Packs
    on Alt+8; a Grant toggle on the enabled pack grants at once (state.json);
+4b. 3.2.0.0 R7: Update asks first with the dry run's lines, swaps the new
+   version in (Details names the grant it asks for), Roll back brings 1.0.0 back;
 5. Templates: Run review opens Orchestra's form, filled in with the workflow;
 6. a disabled pack's row: disabled, 0/3, Enable back, its tab gone;
 7. Remove with its confirm (the command, --keep-config when ticked): the
@@ -94,6 +96,25 @@ def test_enable_and_grant(ctx: Ctx):
               got.get("tabs_on") == CORE + ["Docs review"] and got.get("pack_kbd") == "Alt8")
     ctx.check(f"a toggle on the enabled pack grants at once, got {got.get('granted_more')!r} {got.get('state_json')}",
               got.get("granted_more") == "2/3 granted" and got.get("state_json") == [True, ["bash", "hooks"]])
+
+
+@test
+def test_update_asks_first_and_rollback_brings_it_back(ctx: Ctx):
+    """3.2.0.0 R7: the dry run's lines in Update's confirm (the CLI's words), the swap, the grant the new version asks
+    for in Details, Roll back."""
+    got = _got(ctx)
+    lines = got.get("update_lines") or []
+    ctx.check(f"Update shows the dry run first, nothing changed yet, got {lines}", got.get("untouched") is True and lines[:1]
+              == ["doc-review 1.0.0 -> 1.0.1: it also asks for network"] and lines[-1].startswith("dry run: nothing is changed"))
+    ctx.check(f"the confirm names the command, got {got.get('update_cmd')!r}", got.get("update_cmd") == "halo pack update doc-review")
+    last = got.get("updated_last") or []
+    ctx.check(f"update's own lines, the note first, got {last[:2]}", last[:1] == ["doc-review 1.0.0 -> 1.0.1: it also asks for network"]
+              and len(last) > 1 and last[1].startswith("updated doc-review 1.0.0 -> 1.0.1 (") and got.get("version_after") == "1.0.1")
+    ctx.check(f"Roll back names the version kept, got {got.get('rollback_label')!r}", got.get("rollback_label") == "Roll back to 1.0.0")
+    ctx.check(f"Details names the grant the new version asks for, got {got.get('compat_after')}", got.get("compat_after") ==
+              ["doc-review 1.0.1 requests network, which 1.0.0 did not; it is not granted, so what needs it does not run"])
+    ctx.check(f"Roll back's own first line, got {got.get('rolled_last')!r}", str(got.get("rolled_last")).startswith(
+        "rolled back doc-review 1.0.1 -> 1.0.0: doc-review.previous is doc-review/ again") and got.get("previous_gone") is True)
 
 
 @test

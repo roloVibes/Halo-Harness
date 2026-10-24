@@ -180,7 +180,7 @@ it; Save writes the lineup's YAML and Apply makes it the lineup new sessions use
 
 ### Six sections, one window
 
-<a href="docs/media/studio-modes.png"><img alt="Halo Studio's six sections side by side, each under its key: Session (Alt+1), Team (Alt+2), Roles (Alt+3), Fleet (Alt+4), Design (Alt+5) and Orchestra (Alt+6)" src="docs/media/studio-modes.png" width="100%"></a>
+<a href="docs/media/studio-modes.png"><img alt="Halo Studio's seven sections side by side, each under its key: Session (Alt+1), Team (Alt+2), Roles (Alt+3), Fleet (Alt+4), Design (Alt+5), Orchestra (Alt+6) and Packs (Alt+7)" src="docs/media/studio-modes.png" width="100%"></a>
 
 `Alt+1` to `Alt+6` switch between **Session**, **Team**, **Roles**, **Fleet**,
 **Design** and **Orchestra**. Each section opens on a Start view that says what it is for,

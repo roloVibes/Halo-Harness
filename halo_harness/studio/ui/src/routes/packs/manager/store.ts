@@ -8,7 +8,7 @@
 import { api, ApiError } from "../../../lib/api";
 import { onEvent } from "../../../lib/events";
 import { createStore, setSectionStatus, toast, useStore } from "../../../lib/store";
-import type { Done, Manager, PackRow } from "./types";
+import type { Done, Manager, PackRow, UpdatePreview } from "./types";
 
 export type MgrState = {
   data: Manager | null;
@@ -22,9 +22,11 @@ export type MgrState = {
   last: Done | null;
   /** The Remove confirm, open for this pack id. */
   removing: string;
+  /** 3.2.0.0 R7: the Update confirm, with what the dry run said (the migration notes first). */
+  updating: UpdatePreview | null;
 };
 
-export const mgr = createStore<MgrState>({ data: null, loaded: false, error: "", sel: "", busy: "", picks: {}, last: null, removing: "" });
+export const mgr = createStore<MgrState>({ data: null, loaded: false, error: "", sel: "", busy: "", picks: {}, last: null, removing: "", updating: null });
 
 export function useMgr<S>(select: (s: MgrState) => S): S {
   return useStore(mgr, select);
@@ -111,7 +113,8 @@ const grantArgs = (names: string[]) => names.map((n) => ` --grant ${n}`).join(""
 export const cli = {
   enable: (id: string, names: string[]) => `halo pack enable ${id}${grantArgs(names)}`,
   disable: (id: string) => `halo pack disable ${id}`,
-  update: (id: string) => `halo pack update ${id}`,
+  update: (id: string, dry = false) => `halo pack update ${id}${dry ? " --dry-run" : ""}`,
+  rollback: (id: string) => `halo pack rollback ${id}`,
   remove: (id: string, keep: boolean) => `halo pack remove ${id}${keep ? " --keep-config" : ""}`,
   install: (id: string, project: boolean) => `halo pack install ${id}${project ? " --project" : ""}`,
   grant: (id: string, need: string, on: boolean) => `halo pack grant ${id} ${need}${on ? "" : " --off"}`,
@@ -120,6 +123,21 @@ export const cli = {
 export const enablePack = (id: string, names: string[]) => act(`pack/${id}/enable`, { grants: names }, `Enable ${id}`);
 export const disablePack = (id: string) => act(`pack/${id}/disable`, {}, `Disable ${id}`);
 export const updatePack = (id: string) => act(`pack/${id}/update`, {}, `Update ${id}`);
+export const rollbackPack = (id: string) => act(`pack/${id}/rollback`, {}, `Roll back ${id}`);
+
+/** 3.2.0.0 R7: Update asks first -- the dry run's lines (its migration notes, what changes) in a confirm. */
+export async function previewUpdate(id: string): Promise<void> {
+  mgr.update(() => ({ busy: `Update ${id}` }));
+  try {
+    const r = await api.post<{ ok: boolean; lines: string[] }>(`pack/${id}/update`, { dry_run: true });
+    mgr.update(() => ({ updating: { id, ok: true, lines: r.lines || [] } }));
+  } catch (e) {
+    const lines = e instanceof ApiError && e.problems.length ? e.problems : [e instanceof Error ? e.message : String(e)];
+    mgr.update(() => ({ updating: { id, ok: false, lines } }));
+  } finally {
+    mgr.update(() => ({ busy: "" }));
+  }
+}
 export const removePack = (id: string, keep: boolean) => act(`pack/${id}/remove`, { keep_config: keep }, `Remove ${id}`);
 export const grantPack = (id: string, need: string, on: boolean) => act(`pack/${id}/grant`, { need, on }, `${on ? "Grant" : "Take back"} ${need}`);
 export const installPack = (source: string, project: boolean, id: string) => act("pack/install", { source, project }, `Install ${id}`);

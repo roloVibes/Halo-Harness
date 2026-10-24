@@ -1,0 +1,8 @@
+# A failure fixture (3.2.0.0 R7, tests/test_packs_failures.py): an id that is not a pack id
+id: Doc_Review
+name: Bad id
+version: 1.0.0
+description: an id that is not a pack id
+author: Halo fixtures
+license: MIT
+halo_api: {min: "1.0"}

@@ -1,0 +1,7 @@
+# A failure fixture (3.2.0.0 R7, tests/test_packs_failures.py): no id
+name: No id
+version: 1.0.0
+description: no id
+author: Halo fixtures
+license: MIT
+halo_api: {min: "1.0"}

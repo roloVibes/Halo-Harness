@@ -1,0 +1,4 @@
+# A failure fixture (3.2.0.0 R7, tests/test_packs_failures.py): pack.yaml is not YAML (an unclosed list)
+id: bad-yaml
+name: [unclosed
+version: 1.0.0
