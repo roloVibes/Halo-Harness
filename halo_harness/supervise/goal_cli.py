@@ -3,6 +3,7 @@ docs/COMMANDS-supervise.md): the supervisor's goal queue from a terminal.
 
     halo goal add "<what>" [--repo DIR] [--done-when ..] [--stop-when ..]
                  [--budget USD] [--lineup NAME] [--as orchestra|job] [--file F ...] [--test CMD] [--review]
+                 [--workflow PACK/NAME] [--input K=V ...]
                  [--replan none|auto|review]
     halo goal list [--json]
     halo goal show <id> [--json]            the goal and its history lines
@@ -34,7 +35,7 @@ def cmd_goal(argv: list) -> int:
     p = argparse.ArgumentParser(prog="halo goal", description="The supervisor's goal queue (docs/SUPERVISE.md).")
     sub = p.add_subparsers(dest="cmd")
     a = sub.add_parser("add", help="queue a goal")
-    a.add_argument("what", help="what the goal is")
+    a.add_argument("what", nargs="?", default="", help="what the goal is (not needed with --workflow)")
     a.add_argument("--repo", default=None, help="the repo it works on (default: the current folder)")
     a.add_argument("--done-when", dest="done_when", default="", help="DONE WHEN")
     a.add_argument("--stop-when", dest="stop_when", default="", help="STOP WHEN")
@@ -46,6 +47,9 @@ def cmd_goal(argv: list) -> int:
     a.add_argument("--review", action="store_true", help="pause for the plan's review before it runs (orchestra)")
     a.add_argument("--replan", choices=("none", "auto", "review"), default="",
                    help="what the supervisor does when the run drifts (default: supervise.replan)")
+    a.add_argument("--workflow", default="", metavar="PACK/NAME",
+                   help="a pack's workflow to compile and queue (3.2.0.0 R5, workflows/goal.py); `what` is then its name")
+    a.add_argument("--input", dest="inputs", action="append", default=None, metavar="K=V", help="a workflow input (repeatable)")
     for name in ("list",):
         s = sub.add_parser(name, help="every goal")
         s.add_argument("--json", action="store_true")
@@ -75,6 +79,12 @@ def cmd_goal(argv: list) -> int:
 
 
 def _add(state_dir, args) -> int:
+    if getattr(args, "workflow", ""):  # 3.2.0.0 R5: a pack's workflow, compiled to a run folder and queued
+        from halo_harness.workflows.goal import cli_add
+        return cli_add(state_dir, args)
+    if not args.what:
+        print("halo goal add: say what the goal is (or give --workflow PACK/NAME)", file=sys.stderr)
+        return 2
     try:
         goal = queue.add(state_dir, args.what, done_when=args.done_when, stop_when=args.stop_when, repo=args.repo,
                          budget_usd=args.budget, lineup=args.lineup, kind=args.kind, files=args.files, test=args.test,

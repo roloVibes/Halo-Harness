@@ -264,8 +264,17 @@ event schemas, their check and view hint), `packs/events_log.py` (each pack's
 kept events, the running check), `packs/event_triggers.py` (a bio's trigger on
 `<pack>:<kind>`), `packs/memory_meta.py` (a memory entry's provenance, sharing
 and retention), `studio/workflow_api.py` (a run's artifact and an artifact
-panel's latest); the compile itself is `halo_harness/workflows/` (spec, inputs,
-conditions, compile, bounds, pinned, runtime, gate, outputs, cli, goal).
+panel's latest); the compile itself is `halo_harness/workflows/`:
+`workflows/spec.py` (a pack's workflow, found by its reference), `workflows/inputs.py`
+(the typed inputs and their check), `workflows/conditions.py` (a stage's `when`),
+`workflows/compile.py` (a workflow and its inputs compiled to a Goal, its hand-offs
+and a pinned plan), `workflows/bounds.py` (the compiled block in goal.json),
+`workflows/pinned.py` (the lead's split of a workflow run, the stage set pinned),
+`workflows/runtime.py` (a lane's stage each time its worker starts),
+`workflows/gate.py` (the quality gate widened with typed outputs and evidence),
+`workflows/outputs.py` (a run's outputs and its part of the report),
+`workflows/cli.py` (`halo workflow`) and `workflows/goal.py` (a workflow run as a
+goal of the supervisor, `halo goal add --workflow`).
 
 **The extension API** (`halo_harness/ext/`, API 1.0, docs/EXTENSION_API.md):
 `ext/names.py` (the name rules), `ext/yamlio.py` (`read_yaml`, `write_yaml`),

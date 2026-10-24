@@ -80,6 +80,27 @@ Focus: packs -- "one harness, one Studio, multiple independently maintained capa
 
 - A pack's `contributes.fleet` was stored and never read; the capabilities catalog is now also gathered afresh when Studio sees a pack change made in another terminal.
 
+### R5: workflows and artifacts
+
+#### Added
+
+- A pack ships workflows: `workflows/<name>.yaml` (named in `contributes.workflows`) declares its prerequisites (tools, grants, capabilities, files), typed inputs (text, path, json, artifact:<schema>) and outputs, and stages that run in order (`after`) or at once, one job per file (`for_each`), each with its role (a bio of the pack), capability needs, a condition (`when` on an input or an upstream output), what it gives and takes, retries, a timeout, a budget, a gate and what verifies it. The workflow compiles to an Orchestra goal, its hand-offs and a pinned plan; the existing pipeline runs it. `halo workflow list | show | check | run <pack>/<name> [--input K=V] [--as orchestra|goal]`, `halo orchestra new --workflow`, `halo goal add --workflow`.
+- Typed artifacts: a pack's `artifacts/<schema>.json` (listed under `contributes.artifacts`, with an `x-halo-view` of table, markdown or keyvalue). A workflow output of type `artifact:<schema>` is checked against it at the gate, copied to `<run>/artifacts/<name>/` and listed in the run's report; Studio draws it in the pack's own section (a panel of kind `artifact`) and in the Report panel's new Artifacts tab.
+- Typed events: a pack's event kind may have a schema (`events/<kind>.json`). A mismatching event is published with its problems (Studio shows them under the line), every event is kept in the pack's events log, a bio's trigger can start on a pack event (`{event: doc-review:review.done}`) and a workflow stage can wait for one (`after_event`).
+- Memory with provenance: `ext.memory.write(namespace, text, provenance)` writes a note and its `_meta.json` (where it came from, the run and stage, when, how long to keep it, the packs it is shared with). Recall reads a pack's namespace plus what other packs share with it; `halo recall --namespace <pack>/<name> --provenance` lists the entries and `halo recall prune` removes the ones past their days.
+- `halo pack inspect` lists a pack's workflows, artifact schemas and event schemas in its "contributes:" block.
+
+#### Changed
+
+- `publish_event` refuses a pack that does not run here with one line instead of publishing for it, checks a declared kind's data against its schema, and keeps every event in `~/.halo/packs/.data/<id>/events.jsonl`.
+- The Orchestra pipeline has workflow hooks, each a no-op for a goal without a workflow: the lead refines the briefs of a pinned plan (never the stage set), a lane carries its stage and can be skipped by its condition, the gate also checks typed outputs (a mismatch sends the lane back with each problem, up to the stage's retries), a stage's timeout is its worker's time limit and its budget stops the run before the lane starts.
+- The doc-review fixture pack gains the review workflow, the review-report artifact schema with a "Last review report" panel, and review.done's schema; new failure fixtures wf-cycle, wf-unknown-role, wf-no-giver, wf-input-type.
+
+#### Fixed
+
+- A lane whose worker failed after the gate sent its piece back now says why in the run's stop reason.
+- `contributes.workflows`, `contributes.artifacts` and the event names were read for their names only; a workflow file, an artifact schema and an event schema are now checked with the manifest, one line per problem naming the key and its line.
+
 ## [3.1.9.0] - unreleased
 
 Focus: Auto -- the main agent knows what each model is good at and builds the orchestration itself (the owner, 2026-10-21: "an auto role template ... whatever agent is main should know which model is the best from cost, intelligence, what they are best at").
@@ -141,6 +162,21 @@ Focus: the supervisor -- Halo runs goals without a terminal, and Studio keeps up
 #### Fixed
 
 - A resumed Orchestra lane keeps its job's bio and model (a reviewed plan's model was lost after a resume); the run report's cost counts every lane file; a time stop beats a replan pause.
+
+### R3: verified outcomes
+
+#### Added
+
+- Every agent task ends with evidence of its kind, read out of its own transcript (nothing new is asked of the model): the test runs with their command, exit, passed count and failing names; the files it wrote with their diff; the sources it read (WebFetch, WebSearch, Read, Grep, a curl); a check's commands and what they printed; the bio's acceptance on the final text -- the agent's own summary kept apart. An Orchestra lane's is `<run>/lanes/<n>/evidence.json`; a sub-agent's sits beside its transcript.
+- The Orchestra gate reads the evidence: a code lane whose work ran no test (when the goal has one) goes back once with "no test run in this lane's work: run <test>", a research lane with no source with "no source fetched or read"; the conflict judge's prompt gains the lanes' tests, sources and reproductions; the run report and `halo orchestra report` list each lane's evidence lines; a stopped goal keeps them and `halo goal show` prints them.
+- `~/.halo/coach/outcomes.jsonl`, one row per agent task (an Orchestra lane, a session's sub-agent): bio, model, kind, outcome and what checked it, returns, cost, tests and sources. `halo outcomes [--bio] [--model] [--kind] [--since] [--limit] [--json]` prints them.
+- Measured success per model and task kind: `halo models --measured` (`--json`), the table at the end of `halo models analyze`, "measured: code 4/5" on the best-at line (and in Studio's model picker), the roster's model line, a catalog row's `measured.outcomes`.
+- `models.preference: measured`: the model is picked when the agent spawns by the best measured first-time success here for the bio's kind (from 3 checked tasks), else as `auto`; the reason says which ("(measured 4/5 code)" on the Roles pill and in the Live tab), and the Roles canvas and `halo teams show` name the source `measured`.
+
+#### Changed
+
+- A sub-agent's acceptance verdict (met, why, attempts) is recorded in its evidence and its outcome row.
+- The coach's runs.json gains `outcomes: n`; the best-at cache is rebuilt when a measured number it shows moves.
 
 ### R6: Studio keeps up with the terminal
 
