@@ -76,8 +76,8 @@ jobs:
       # first (pip refuses any file whose hash differs), then this repo.
       - name: Install pinned dependencies (requirements.lock, hashes enforced)
         run: |
-          pip install --require-hashes --no-deps -r requirements.lock
-          pip install --require-hashes --no-deps -r requirements-ci.lock
+          python -m pip install --require-hashes --no-deps -r requirements.lock
+          python -m pip install --require-hashes --no-deps -r requirements-ci.lock
 
       # No dependency resolution and no build isolation: the build backend
       # (setuptools) comes from requirements-ci.lock above.
@@ -219,8 +219,8 @@ jobs:
       # first (pip refuses any file whose hash differs), then this repo.
       - name: Install pinned dependencies (requirements.lock, hashes enforced)
         run: |
-          pip install --require-hashes --no-deps -r requirements.lock
-          pip install --require-hashes --no-deps -r requirements-ci.lock
+          python -m pip install --require-hashes --no-deps -r requirements.lock
+          python -m pip install --require-hashes --no-deps -r requirements-ci.lock
 
       # No dependency resolution and no build isolation: the build backend
       # (setuptools) comes from requirements-ci.lock above.
@@ -340,8 +340,8 @@ jobs:
 
       - name: Install pinned dependencies (requirements.lock, hashes enforced)
         run: |
-          pip install --require-hashes --no-deps -r requirements.lock
-          pip install --require-hashes --no-deps -r requirements-ci.lock
+          python -m pip install --require-hashes --no-deps -r requirements.lock
+          python -m pip install --require-hashes --no-deps -r requirements-ci.lock
 
       - name: Fresh test home
         run: |
