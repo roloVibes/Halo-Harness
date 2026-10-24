@@ -37,6 +37,7 @@ from halo_harness.orchestra.gate import run_tests, send_back
 from halo_harness.orchestra.goal import repo_root_of
 from halo_harness.orchestra.hunks import apply_resolution, extract_hunks, parse_resolution
 from halo_harness.orchestra.split import StopRun
+from halo_harness.outcomes.lane import with_evidence  # 3.1.8.0 R3: the judge reads the lanes' evidence
 
 
 @dataclass
@@ -131,7 +132,7 @@ def _resolve(run_dir, goal, lane, cwd: Path, judge: Callable, attempt: int, stat
         path = cwd / rel
         text = path.read_text(encoding="utf-8")
         hunks = extract_hunks(text)
-        answer = _judge_answer(judge(hunks, goal, rel))
+        answer = _judge_answer(judge(hunks, with_evidence(goal, run_dir, lane.n, rel), rel))  # 3.1.8.0 R3
         texts = parse_resolution(answer["text"], len(hunks))
         row = {"lane": lane.n, "file": rel, "attempt": attempt, "hunks": hunks,
                "judge_session": answer["session_id"] or f"judge-{lane.n}-{attempt}-{len(state['conflicts']) + 1}",

@@ -14,7 +14,8 @@
 
 `outcome(...)` reads how a goal ended -- report.json, or the job's
 status.json and its result JSON -- as `{state, why, cost_usd, failure}`;
-`failure` is `{kind: crash | worker | gate | budget | time | cancelled, step, last_event, report?}`.
+`failure` is `{kind: crash | worker | gate | budget | time | cancelled, step, last_event, report?}`;
+3.1.8.0 R3: `report.evidence` is `{lane: its evidence lines}` from the run report (outcomes/lane.py).
 `ADAPTERS` and `POPEN` are the seams tests set (no model is called).
 """
 
@@ -54,7 +55,9 @@ def failure(kind: str, run_dir=None, text: str = "", report: Optional[dict] = No
         out["last_event"] = text or (str(last[-1].get("text") or "") if last else "")
     if report is not None:
         out["report"] = {"status": report.get("status"), "stop_reason": report.get("stop_reason"),
-                         "path": str(Path(run_dir) / "report.json") if run_dir is not None else None}
+                         "path": str(Path(run_dir) / "report.json") if run_dir is not None else None,
+                         "evidence": {str(l.get("lane")): l["evidence"] for l in report.get("lanes") or []  # 3.1.8.0 R3
+                                      if isinstance(l, dict) and l.get("evidence")}}
     return out
 
 

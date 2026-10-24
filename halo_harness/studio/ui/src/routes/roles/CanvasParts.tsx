@@ -65,15 +65,17 @@ function LiveBadge({ list, activity, card }: { list: LiveAgent[]; activity: stri
   );
 }
 
-/** 3.1.9.0 R2: the pill of an `auto` card with an agent on it names the picked model; its reason is the title. */
+/** 3.1.9.0 R2: the pill of an `auto` card with an agent on it names the picked model; its reason is the title.
+ *  3.1.8.0 R3: a `measured` card the same, its reason ending "(measured 4/5 code)". */
 function pillOf(n: GraphNode, live: LiveAgent[], lead: LiveAgent | undefined): { text: string; title: string; picked?: string } {
-  const auto = n.model === "auto" || n.model_source === "auto";
+  const word = n.model === "measured" || n.model_source === "measured" ? "measured" : "auto";
+  const auto = word === "measured" || n.model === "auto" || n.model_source === "auto";
   const pick = auto ? (lead?.model_reason ? lead : live.find((a) => a.model_reason)) : undefined;
   if (pick) {
     const more = live.length > 1 ? ` (${live.length} agents on this card: the Live tab names each one's)` : "";
-    return { text: pick.model.replace(/^or:[^/]+\//, ""), title: `auto: ${pick.model} -- ${pick.model_reason}${more}`, picked: pick.model };
+    return { text: pick.model.replace(/^or:[^/]+\//, ""), title: `${word}: ${pick.model} -- ${pick.model_reason}${more}`, picked: pick.model };
   }
-  const from = auto ? ": " + sourceText("auto", n.agent) : n.model_source ? ", from " + sourceText(n.model_source, n.agent) : "";
+  const from = auto ? ": " + sourceText(word, n.agent) : n.model_source ? ", from " + sourceText(n.model_source, n.agent) : "";
   const title = n.model ? `${n.model}${from}${n.fallback ? " · fallback " + n.fallback : ""}` : "no model resolves for this slot";
   return { text: n.model ? n.model.replace(/^or:[^/]+\//, "") : "no model resolves", title: `${title}: click to change it (the Inspector's MODEL strip)` };
 }

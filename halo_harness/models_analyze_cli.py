@@ -3,7 +3,8 @@
 the way `halo models` lists it, then print one line per model (its kinds and
 its best-at line) and, per kind, the cheapest and the strongest model.
 `--json` prints the cache itself (`built`, `sources` by file name, `rows`,
-`best`). Reads cached catalogs only: `halo models --refresh` re-pulls them.
+`best`; 3.1.8.0 R3: and `measured`, the `halo models --measured` rows).
+Reads cached catalogs only: `halo models --refresh` re-pulls them.
 """
 
 from __future__ import annotations
@@ -19,8 +20,9 @@ def _price(facts: dict) -> str:
     return f"{pin} / {pout}"
 
 
-def summary_lines(cache: dict) -> list:
-    """The text `halo models analyze` prints (also handy for a test)."""
+def summary_lines(cache: dict, state_dir=None) -> list:
+    """The text `halo models analyze` prints (also handy for a test); 3.1.8.0 R3: with `state_dir`, the
+    measured success per model and kind last (outcomes/measured.py)."""
     rows = cache.get("rows") or {}
     lines = [f"{len(rows)} model(s) analyzed -- kinds a model is good at, then what the catalog states and this host measured:"]
     for ref in sorted(rows):
@@ -37,6 +39,11 @@ def summary_lines(cache: dict) -> list:
             if cheap and cheap != strong:
                 text += f" · cheapest {cheap} ({_price((rows.get(cheap) or {}).get('facts') or {})})"
             lines.append(text)
+    from halo_harness.outcomes.measured import success_by_model_kind, table_lines  # 3.1.8.0 R3
+    stats = success_by_model_kind(state_dir) if state_dir is not None else {}
+    if stats:
+        lines.append("Measured success per model and kind here (`halo models --measured`):")
+        lines += [f"  {line}" for line in table_lines(stats)]
     return lines
 
 
@@ -52,10 +59,13 @@ def cmd_models_analyze(argv) -> int:
     state_dir = bridge_home()
     cache = rebuild(state_dir, catalog_rows(state_dir))
     if args.json:
-        print(json.dumps(cache, indent=1, ensure_ascii=False))
+        from halo_harness.outcomes.cli import measured_rows  # 3.1.8.0 R3: the measured rows beside the cache
+        from halo_harness.outcomes.measured import success_by_model_kind
+        print(json.dumps(dict(cache, measured=measured_rows(success_by_model_kind(state_dir))), indent=1,
+                         ensure_ascii=False))
         return 0
     if not cache.get("rows"):
         print("No models in the catalog yet: `halo models --refresh` pulls every enabled provider's list.")
         return 1
-    print("\n".join(summary_lines(cache)))
+    print("\n".join(summary_lines(cache, state_dir)))
     return 0

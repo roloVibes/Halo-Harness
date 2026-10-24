@@ -114,6 +114,20 @@ queue's. A lane that would pass a cap does not start: the run stops with
 `stop_reason: budget` and the goal parks with a `goal budget` row. A `job`
 goal runs with `--max-budget-usd`, which `halo -p` enforces itself.
 
+## Verified outcomes
+
+Halo 3.1.8.0 R3 ([OUTCOMES.md](OUTCOMES.md)). An Orchestra goal's lanes each
+end with evidence read out of their workers' transcripts -- the tests run,
+the sources read, the files written -- and the gate reads it: a code lane
+that ran no test (when the goal has one) goes back once with "no test run in
+this lane's work: run <test>", a research lane with no source with "no
+source fetched or read". When a goal stops, its `failure.report` keeps each
+lane's evidence lines (`failure.report.evidence`, `{lane: [lines]}`), and
+`halo goal show` prints them under the failure: what the lanes actually ran,
+not what they said.
+Every lane's outcome is one row of `~/.halo/coach/outcomes.jsonl`
+(`halo outcomes`); `halo models --measured` rates them per model and kind.
+
 ## Replanning
 
 Halo 3.1.8.0 R2. A budget, a gate and a crash only stop a run. With

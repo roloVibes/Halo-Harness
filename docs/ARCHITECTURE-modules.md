@@ -207,6 +207,18 @@ R2 (replanning while it runs): `supervise/drift.py` (when a run drifts), `superv
 `supervise/replan_plan.py` (the answer checked), `supervise/replan_moves.py` (the moves and the diff),
 `supervise/replan_apply.py` (the plan written into the run), `supervise/replan_rows.py` (the owner's answer).
 
+**Outcomes** (`halo_harness/outcomes/`, Halo 3.1.8.0 R3, docs/OUTCOMES.md):
+verified outcomes and measured routing -- `outcomes/transcript.py` (a
+transcript's tool calls with their results; a session's log file),
+`outcomes/kinds.py` (the task kinds and what a test run looks like),
+`outcomes/evidence.py` (`gather` -> Evidence, evidence.json),
+`outcomes/lines.py` (the evidence lines a person and the judge read),
+`outcomes/lane.py` (a lane's evidence, the gate's once-only send-back, the
+judge's block), `outcomes/session.py` (a sub-agent's evidence and outcome
+at its end), `outcomes/records.py` (outcomes.jsonl), `outcomes/measured.py`
+(success per model and kind), `outcomes/routing.py` (`models.preference:
+measured`) and `outcomes/cli.py` (`halo outcomes`, `halo models --measured`).
+
 **Packs** (`halo_harness/packs/`, Halo 3.2.0.0 R1, docs/PACKS.md): the
 names (`packs/names.py`: ids, `<id>--<name>`, the `pack:<id>` label and
 `read_only_source`), `packs/semver.py` (versions and ranges),

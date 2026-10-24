@@ -262,7 +262,13 @@ def cmd_models(argv) -> int:
     parser.add_argument("--media", nargs="?", const="all", default=None, choices=["image", "video", "audio", "all"],
                          help="List the ComfyUI media models (diffusion, video, upscale, TTS and their LoRAs, VAEs, "
                               "encoders) by what they produce; with --refresh, rescans the server")
+    parser.add_argument("--measured", action="store_true",  # 3.1.8.0 R3 (outcomes/measured.py)
+                         help="Measured success per model and task kind here: checked tasks, first-time passes, "
+                              "the rate and the mean cost (outcomes.jsonl)")
     args = parser.parse_args(argv)
+    if args.measured:
+        from halo_harness.outcomes.cli import cmd_models_measured
+        return cmd_models_measured(as_json=args.json)
     from halo_harness.capabilities import OUTPUT_KINDS
     if args.best_for and args.best_for.strip().lower() in OUTPUT_KINDS:
         from halo_harness.catalog_media_cli import cmd_best_for_media

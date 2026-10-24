@@ -36,6 +36,7 @@ from dataclasses import dataclass, field
 from typing import NamedTuple, Optional
 
 AUTO = "auto"
+MEASURED = "measured"  # 3.1.8.0 R3: picked at spawn by measured success (outcomes/routing.py), else as `auto`
 BANDS = ("low", "mid", "high")
 DEFAULT_BAND = "mid"
 NEEDS = ("vision", "audio", "video", "pdf", "reasoning", "tools", "long-context")
@@ -73,7 +74,17 @@ class Pick:
 
 
 def is_auto(value) -> bool:
-    return isinstance(value, str) and value.strip().lower() == AUTO
+    """A model picked when the agent spawns: `auto`, or (3.1.8.0 R3) `measured`."""
+    return isinstance(value, str) and value.strip().lower() in (AUTO, MEASURED)
+
+
+def is_measured(value) -> bool:
+    return isinstance(value, str) and value.strip().lower() == MEASURED
+
+
+def spawn_word(value) -> str:
+    """`measured` or `auto`: the source word a picked-at-spawn model shows."""
+    return MEASURED if is_measured(value) else AUTO
 
 
 def _attachment_need(item) -> Optional[str]:
