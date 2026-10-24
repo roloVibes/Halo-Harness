@@ -459,9 +459,11 @@ def load_plugin_hooks(plugin_root) -> dict:
     hooks_block = raw.get("hooks", raw)
     if not isinstance(hooks_block, dict):
         return {}
-    substituted = _substitute_plugin_root(hooks_block, str(plugin_root))
-    from halo_harness.packs.interpreter import expand_hooks  # 3.2.0.0 R7: ${halo_python}, Halo's own interpreter
-    substituted = expand_hooks(substituted)
+    # 3.2.0.0 R7: ${halo_python}, Halo's own interpreter. 3.2.1.0 R4: per field -- a shell `command` gets
+    # ${CLAUDE_PLUGIN_ROOT} as its shell reads it (forward slashes on Windows, quoted for where it sits;
+    # packs/interpreter.py), then every other field (`args`, a url, a prompt) the path as it is.
+    from halo_harness.packs.interpreter import expand_hooks
+    substituted = _substitute_plugin_root(expand_hooks(hooks_block, root=str(plugin_root)), str(plugin_root))
     return normalize_hooks(substituted, default_source="plugin", plugin_root=str(plugin_root), scope="global")
 
 

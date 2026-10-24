@@ -391,12 +391,36 @@ every problem in one line each.
 $ halo pack update doc-review --dry-run
 doc-review 1.1.0 -> 1.3.0: settings key `lint.level` is now `lint.strictness`
 would update doc-review 1.1.0 -> 1.3.0 (4 file(s) changed; 1.1.0 kept as doc-review.previous)
+  agents/reviewer.yaml (changed)
+  pack.yaml (changed)
+  skills/check-links/SKILL.md (changed)
+  studio/notes.md (changed)
 would rename packs.settings.doc-review.lint.level to lint.strictness (your value 'high')
 dry run: nothing is changed (halo pack update doc-review makes these changes)
 ```
 
-`halo pack update doc-review` prints the same notes first, then puts the new
-version in place in one step: it is staged beside the pack (with every file
+3.2.1.0 R4: run in a terminal, `halo pack update doc-review` shows the same
+lines (the notes, the files that change, the settings it renames, your files
+it keeps) and asks before it changes anything:
+
+```
+$ halo pack update doc-review
+doc-review 1.1.0 -> 1.3.0: settings key `lint.level` is now `lint.strictness`
+would update doc-review 1.1.0 -> 1.3.0 (4 file(s) changed; 1.1.0 kept as doc-review.previous)
+  ...
+Apply? [y/N] y
+updated doc-review 1.1.0 -> 1.3.0 (4 file(s) changed); 1.1.0 is kept as doc-review.previous (halo pack rollback doc-review)
+```
+
+`n`, Enter or the end of input leave the pack as it is (`doc-review 1.1.0
+stays as it is`, exit 1). `--yes` skips the question; `--json`, `--dry-run`
+and a run that is not in a terminal (a pipe, a script, CI) never ask, as
+before. The look and the swap read the same fetched source, so what you are
+shown is what goes in. The Pack Manager's Update confirm in Studio is the same
+look: it shows these lines and Update runs the update.
+
+Then (after `y`, with `--yes`, or at once where nothing asks) the update puts
+the new version in place in one step: it is staged beside the pack (with every file
 of yours from the pack's folder carried over) and swapped in by two renames,
 so a copy error or a file in use leaves the old version exactly as it was
 (`update of doc-review stopped: <why>; 1.1.0 stays as it was (nothing was
@@ -410,12 +434,14 @@ line until you grant it.
 Changed your mind? `halo pack rollback doc-review` swaps `doc-review.previous`
 back, moves the renamed settings back, keeps your grants (and a file you
 changed since the update), and deletes the version rolled back from; `halo
-pack update doc-review` brings it back again. Halo keeps one version back:
-the next update replaces it. `halo pack remove doc-review` deletes it too;
-with `--keep-config` it stays beside the record and `halo pack rollback
-doc-review` installs it again. In Studio, Update shows the dry run's lines in
-its confirm first, and "Roll back to <version>" appears once an update kept
-one ([STUDIO-packs.md](STUDIO-packs.md)). The procedure, step by step, is in
+pack update doc-review` brings it back again. Halo keeps one version back,
+and that is the rule: `<id>.previous` is the one version kept, the next
+update replaces it, and there is no version history on disk (to go back
+further, install the version you want from its folder or url). `halo pack
+remove doc-review` deletes it too; with `--keep-config` it stays beside the
+record and `halo pack rollback doc-review` installs it again. In Studio,
+"Roll back to <version>" appears once an update kept one
+([STUDIO-packs.md](STUDIO-packs.md)). The procedure, step by step, is in
 [EXTENSION_API.md](EXTENSION_API.md#updating-a-pack).
 
 ## When a pack cannot run
@@ -462,10 +488,25 @@ where the `python` on your PATH is another one (a `uv tool` install):
 {"hooks": {"PostToolUse": [{"matcher": "Write", "hooks": [{"type": "command", "args": ["${halo_python}", "${CLAUDE_PLUGIN_ROOT}/hooks/note.py"]}]}]}}
 ```
 
-In a hook's shell `command` the path is quoted for the shell the hook runs
-in; the exec form (`args`, no shell) is the same on every platform, which is
-why the reference pack uses it. Every process started from a pack's folder
-also gets `PYTHONPATH` with Halo's package root first, so a script run by
+Both hook forms work on Windows and Linux, in a pack's `hooks/hooks.json` and
+in any Claude Code plugin's. In a hook's shell `command` (Git Bash runs it on
+Windows, `/bin/sh` elsewhere) `${halo_python}` and `${CLAUDE_PLUGIN_ROOT}` go
+in as that shell reads them (3.2.1.0 R4): forward slashes on Windows, quoted
+when the path holds a space or another character the shell reads
+(`${halo_python}` always), and escaped instead when you wrote the placeholder
+inside your own `"..."` or `'...'`:
+
+```
+"command": "sh ${CLAUDE_PLUGIN_ROOT}/hooks/run.sh"
+  Windows, the pack in D:\Tools\My Packs\lint  ->  sh 'D:/Tools/My Packs/lint'/hooks/run.sh
+  Linux,   the pack in /opt/packs/lint          ->  sh /opt/packs/lint/hooks/run.sh
+```
+
+The exec form (`args`, no shell) gets both paths as they are and is the same
+on every platform, so it stays the recommended one and the reference pack
+uses it; `shell: "powershell"` gets the plugin root as it is too, and so does
+the hook's `CLAUDE_PLUGIN_ROOT` environment variable. Every process started
+from a pack's folder also gets `PYTHONPATH` with Halo's package root first, so a script run by
 another Python finds `halo_harness.ext` as well. A plain Claude-plugin folder
 (no pack.yaml) gets `${halo_python}` but not the PYTHONPATH.
 

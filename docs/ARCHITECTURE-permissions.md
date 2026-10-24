@@ -92,6 +92,18 @@ its own: a hook is entirely the user's own gate.
   payload), `agent` (same as `prompt`, semantically -- both are
   "informational only" about which model runs it, always the session's
   small model).
+- **A plugin's `${CLAUDE_PLUGIN_ROOT}`** (3.2.1.0 R4): a plugin's (or a
+  pack's) `hooks/hooks.json` is filled per field. In a `command` hook's
+  shell `command` the path goes in as the hook's shell reads it: forward
+  slashes on Windows (Git Bash runs it, and would eat a backslash), quoted
+  when it holds a space or another character the shell reads (bare:
+  `sh ${CLAUDE_PLUGIN_ROOT}/run.sh` from `D:\Tools\My Packs\p` is
+  `sh 'D:/Tools/My Packs/p'/run.sh`; on Linux from `/opt/packs/p` it is
+  `sh /opt/packs/p/run.sh`), and escaped instead inside the command's own
+  `"..."` or `'...'`. `shell: "powershell"`, the exec form's `args` (no
+  shell), every other field and the child's `CLAUDE_PLUGIN_ROOT` env var
+  get the path as it is. Both forms run on every platform; the exec form
+  is the recommended one (`packs/interpreter.py` `expand_hook`).
 - **Matcher**: omitted/`""`/`"*"` → matches everything; a
   `^[A-Za-z0-9_,|-]*$`-shaped string → an exact name list split on `,`/`|`;
   anything else → an unanchored regex (an invalid one skips that hook with

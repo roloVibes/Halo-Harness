@@ -1,0 +1,12 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {"type": "command", "command": "sh ${CLAUDE_PLUGIN_ROOT}/hooks/root.sh ${CLAUDE_PLUGIN_ROOT}"},
+          {"type": "command", "command": "echo \"root=${CLAUDE_PLUGIN_ROOT}\""}
+        ]
+      }
+    ]
+  }
+}

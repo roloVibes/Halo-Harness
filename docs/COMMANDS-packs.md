@@ -154,11 +154,25 @@ renames the `packs.settings.<id>` keys the notes declare (one line each). A
 copy or rename error leaves the old version in place, in one line. From the
 same source with nothing new: `<id> <version> is up to date`.
 
+3.2.1.0 R4: in a terminal (stdin and stdout both one) it asks before the
+swap: it prints the dry run's lines (the notes, the files that change, the
+settings it renames, your files it keeps), then `Apply? [y/N]`. `y` makes the
+update and prints its own lines; `n`, Enter or the end of input print `<id>
+<version> stays as it is` and exit 1, nothing changed. A run that is not in a
+terminal (a pipe, a script, CI), `--json` and `--dry-run` never ask. The Pack
+Manager's Update confirm in Studio is the same look.
+
 #### `--dry-run`
 
-Print the notes and what the update would do (the files that change, the
-settings it renames, your files it keeps), ending `dry run: nothing is
-changed (halo pack update <id> makes these changes)`; change nothing.
+Print the notes and what the update would do (the files that change, one
+line each: `  <file> (changed|new|dropped)`, the settings it renames, your
+files it keeps), ending `dry run: nothing is changed (halo pack update <id>
+makes these changes)`; change nothing.
+
+#### `--yes`
+
+3.2.1.0 R4: do not ask before the swap in a terminal; the update runs as
+it does where nothing asks.
 
 ### `halo pack rollback`
 
@@ -166,7 +180,9 @@ changed (halo pack update <id> makes these changes)`; change nothing.
 the last update replaced) back in: your files changed since the update stay,
 the settings that update renamed move back, the grants and the enabled state
 stay, and the version rolled back from is deleted (`halo pack update <id>`
-brings it back). One version back only. With none kept: `<id> has no earlier
+brings it back). One version back only: `<id>.previous` is the one version
+kept, the next update replaces it, and there is no version history on disk
+(3.2.1.0 R4 writes it down as the rule). With none kept: `<id> has no earlier
 version to go back to: an update keeps the version it replaces as
 <id>.previous until the next update`.
 

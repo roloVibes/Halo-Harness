@@ -120,8 +120,11 @@ def test_cli_plugin_root_hooks_load_with_plugin_root_substituted(ctx: Ctx):
                                 extra_plugin_roots=[str(root)])
     ctx.check("PreToolUse hooks loaded from the CLI plugin root", runner.has_hooks("PreToolUse") is True)
     hdef = runner.hooks_by_event["PreToolUse"][0]
+    # 3.2.1.0 R4: a shell `command` gets the path as its shell reads it (forward slashes on Windows, Git Bash)
+    from halo_harness.packs.interpreter import shell_path
     ctx.check(f"${{CLAUDE_PLUGIN_ROOT}} was substituted, got {hdef.command!r}",
-              str(root) in (hdef.command or "") and "${CLAUDE_PLUGIN_ROOT}" not in (hdef.command or ""))
+              shell_path(str(root)) in (hdef.command or "") and "${CLAUDE_PLUGIN_ROOT}" not in (hdef.command or "")
+              and "\\" not in (hdef.command or ""))
     ctx.check("plugin_root recorded on the HookDef", hdef.plugin_root == str(root))
 
 
