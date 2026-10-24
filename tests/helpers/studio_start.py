@@ -69,7 +69,11 @@ def glossary(c, url: str) -> dict:
     c.click_on("document.querySelector('[data-testid=\"section-help-item\"]')")
     c.wait("!!document.querySelector('[data-testid=\"section-help\"]')", 5)
     out["terms"] = c.js(f"[...{Q}('[data-testid=\"help-term\"]')].map((b) => b.textContent)")
-    c.click_on(f"[...{Q}('[data-testid=\"help-term\"]')].find((b) => b.textContent === 'tier')")
+    term = f"[...{Q}('[data-testid=\"help-term\"]')].find((b) => b.textContent === 'tier')"
+    # 3.2.1.0 R5: on Linux (WSL's Chromium: a 757 px tall viewport, wider fonts) the WORDS row sits below the
+    # dialog's fold, under its footer, and the click landed on the footer: scroll the word into view first
+    c.js(f"{term}.scrollIntoView({{block: 'center'}}); 1")
+    c.click_on(term)
     out["opened_on"] = c.wait("document.querySelector('[data-testid=\"glossary-word\"][open] summary')?.textContent", 10)
     out["help_closed"] = c.js("!document.querySelector('[data-testid=\"section-help\"]')")
     c.key("Escape")

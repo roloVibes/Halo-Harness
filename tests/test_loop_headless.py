@@ -272,8 +272,10 @@ def test_version_flag(ctx: Ctx):
     art, ascii_ = BANNER_ART.split("\n"), BANNER.split("\n")
     ctx.check(f"the banner block prints first, got {result.stdout!r}",
               lines[:len(art)] == art or lines[:len(ascii_)] == ascii_)
+    # 3.2.1.0 R5: `git rev-parse --short` gives 7 hex digits in a small clone and more in a big one (git's auto
+    # abbreviation grows with the object count): a full clone on WSL printed `(fc884ac8)`, CI's shallow one 7
     ctx.check(f"last line prints halo {__version__}, optionally with (commit, branch), got {lines[-1]!r}",
-              re.match(rf"^halo {re.escape(__version__)}( \([0-9a-f]{{7}}(, \S+)?\))?\s*$",
+              re.match(rf"^halo {re.escape(__version__)}( \([0-9a-f]{{7,40}}(, \S+)?\))?\s*$",
                         lines[-1]) is not None)
 
 

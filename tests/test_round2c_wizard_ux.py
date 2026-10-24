@@ -43,6 +43,12 @@ class _Env:
     fixes.py::_Env` already uses)."""
 
     def __enter__(self):
+        # 3.2.1.0 R5: the same step list on every box. A Linux box with no rg on PATH offers the Linux-fixes
+        # step, and the full walk's Next on it downloaded ripgrep into the REAL ~/.local/bin (the WSL pass found
+        # it); that step has its own pilot below, with its fixes stubbed.
+        from halo_harness.tui.dialogs import init_wizard
+        self._wizard, self._needed = init_wizard, init_wizard.linux_fixes_needed
+        init_wizard.linux_fixes_needed = lambda: False
         self._saved = {k: os.environ.get(k) for k in ("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR")}
         d = Path(tempfile.mkdtemp(prefix="round2c-"))
         os.environ["BRIDGE_TEST_HOME"] = str(d)
@@ -53,6 +59,7 @@ class _Env:
         return self
 
     def __exit__(self, *exc):
+        self._wizard.linux_fixes_needed = self._needed
         for k, v in self._saved.items():
             if v is None:
                 os.environ.pop(k, None)
@@ -276,6 +283,45 @@ def test_full_setup_walks_every_step(ctx: Ctx):
                           seen == ["ProvidersStep", "LocalModelsStep", "DefaultModelStep", "PermissionModeStep",
                                    "ThemeStep", "TeamStep", "SummaryStep"])
     run(body())
+
+
+@test
+def test_the_linux_fixes_step_sits_before_the_summary_with_its_fixes_stubbed(ctx: Ctx):
+    """3.2.1.0 R5: on a box that needs them (no rg on PATH, ~/.local/bin off the non-interactive PATH) the
+    Linux-fixes step comes right before the Summary, and its Next applies both fixes; here the two fixes are
+    stubs that record their call, so nothing is downloaded and no rc file is written."""
+    import shutil
+    from halo_harness import linux_fixes
+    from halo_harness.tui.dialogs import init_wizard
+
+    calls = []
+    stubs = {"install_static_ripgrep": lambda dest, **kw: (calls.append(("rg", str(dest))) or (True, str(dest) + "/rg")),
+             "ensure_local_bin_on_rc": lambda **kw: (calls.append(("rc", "")) or (True, Path("rc"))),
+             "local_bin_on_noninteractive_path": lambda **kw: False}
+    saved = {name: getattr(linux_fixes, name) for name in stubs}
+
+    async def body():
+        with _Env():
+            init_wizard.linux_fixes_needed = lambda: True
+            keys = init_wizard.full_step_keys()
+            ctx.check(f"linux_fixes is the step before summary, got {keys}", keys[-2:] == ("linux_fixes", "summary"))
+            state = init_wizard.WizardState(cwd=REPO_DIR, step_keys=keys, index=len(keys) - 2, no_live=True)
+            app = init_wizard.InitWizardApp(state)
+            async with app.run_test(size=(120, 40)) as pilot:
+                await pilot.pause(0.15)
+                ctx.check(f"it opens on the step, got {type(app.screen).__name__}", type(app.screen).__name__ == "LinuxFixesStep")
+                app.screen.action_do_next()
+                await pilot.pause(0.25)
+                ctx.check(f"Next goes on to the Summary, got {type(app.screen).__name__}", type(app.screen).__name__ == "SummaryStep")
+    for name, fn in stubs.items():
+        setattr(linux_fixes, name, fn)
+    try:
+        run(body())
+    finally:
+        for name, fn in saved.items():
+            setattr(linux_fixes, name, fn)
+    want = ([("rg", str(Path.home() / ".local" / "bin"))] if not shutil.which("rg") else []) + [("rc", "")]
+    ctx.check(f"Next applied the fixes this box needs, through the stubs only, got {calls}", calls == want)
 
 
 # ---------------------------------------------------------------------------
