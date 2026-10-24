@@ -716,6 +716,14 @@ double-click a box's name to rename it; its `...` menu sets the model, the
 trigger and `max_parallel`, or deletes it (its cards fall to the implicit
 last tier; tier 0 stays) -- see [STUDIO-team-roles.md](STUDIO-team-roles.md).
 
+**A tier's tool list (Halo 3.1.8.0 R5).** A tier may also carry
+`tools: {capabilities: [read, web]}`: its members are built with only the
+tools of those capabilities, unless the member's own card names a list
+(`agents[i].tools.capabilities`), and before its bio's or the lineup's own
+`tools.capabilities`. The same lineup may declare `isolation` and `secrets`
+for its Orchestra workers. The table, the order and where it shows are in
+[ISOLATION.md](ISOLATION.md#toolscapabilities).
+
 ## Lanes and fallbacks (Halo 2.0.5 round 4)
 
 Roles interact with the Governor's routing layer in two ways:

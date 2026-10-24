@@ -10,7 +10,9 @@
   Orchestra tools are live in it and its holder is its own session. (The
   in-process sub-agent path, agent/subagent.py `run_agent_call`, takes the
   parent's cwd and the process-wide environment, so it cannot give each
-  lane its own folder and lane number; a child process can.)
+  lane its own folder and lane number; a child process can.) 3.1.8.0 R5: a
+  lane's opt-ins (isolation, secrets, the tool list) apply right before it
+  runs (isolation/lane.py `prepare`); nothing declared, nothing changes.
 * `fresh_judge(model, role, cwd)` -> `judge(hunks, goal, file)`: a
   brand-new bare session per conflict whose whole input is the judge prompt
   (the goal and the hunks). It reports how many messages its log held
@@ -108,6 +110,9 @@ def spawn_worker(model: Optional[str], role: str = "subagent", *, run_dir, runne
     """`spawn(lane)`: a fresh `halo -p` in the lane's worktree. 3.1.6.0 R2 (the coach's probe runs,
     orchestra/probe_overlay.py): `team` adds `--team <lineup>`; `cwd_overlay(lane)` writes an overlay into
     the worktree before the worker starts and answers extra worker flags. Both None: the argv as before."""
+    from halo_harness.isolation import Stop
+    from halo_harness.isolation.lane import prepare
+    from halo_harness.isolation.secrets import scrub
     from halo_harness.orchestra.workers import child_env
     ref = role_model(role, model)
 
@@ -115,13 +120,17 @@ def spawn_worker(model: Optional[str], role: str = "subagent", *, run_dir, runne
         env = child_env(run_dir, lane.n, os.environ)
         env.setdefault("PYTHONIOENCODING", "utf-8")
         env.update(fleet_parent_env())
+        values: tuple = ()
         try:
             job = lane.job  # 3.0.9.0 R2: a reviewed plan may give the lane its own bio and model
             argv = worker_argv(lane.prompt, getattr(job, "model", "") or ref, getattr(job, "bio", "") or None)
             argv += (["--team", team] if team else []) + (list(cwd_overlay(lane) or []) if cwd_overlay else [])
+            argv, env, values = prepare(lane, argv, env, run_dir=run_dir, team=team)  # 3.1.8.0 R5 (docs/ISOLATION.md)
             proc = runner(argv, cwd=str(lane.worktree), env=env, capture_output=True,
                           text=True, encoding="utf-8", errors="replace", timeout=timeout_s,
                           stdin=subprocess.DEVNULL)
+        except Stop as e:  # 3.1.8.0 R5: the lane cannot run as declared -- its one line, like a dead harness
+            return {"ok": False, "error": str(e)}
         except subprocess.TimeoutExpired:
             return {"ok": False, "error": f"the worker ran past {timeout_s}s"}
         except OSError as e:
@@ -129,10 +138,11 @@ def spawn_worker(model: Optional[str], role: str = "subagent", *, run_dir, runne
         obj = _last_json(proc.stdout)
         if obj is None:
             tail = (proc.stderr or proc.stdout or "").strip().splitlines()[-3:]
-            return {"ok": False, "error": f"the worker exited {proc.returncode} without a result: {' | '.join(tail)}"}
-        out = {"ok": not obj.get("is_error"), "text": str(obj.get("result") or ""),
+            return {"ok": False, "error": scrub(f"the worker exited {proc.returncode} without a result: {' | '.join(tail)}",
+                                                values)}
+        out = {"ok": not obj.get("is_error"), "text": scrub(str(obj.get("result") or ""), values),
                "cost_usd": float(obj.get("total_cost_usd") or 0.0), "session_id": obj.get("session_id"),
-               "error": "" if not obj.get("is_error") else str(obj.get("result") or "worker error")[:500]}
+               "error": "" if not obj.get("is_error") else scrub(str(obj.get("result") or "worker error")[:500], values)}
         extra = (("model", str(obj.get("model") or "")), ("denied", list(obj.get("permission_denials") or [])))
         return dict(out, **{k: v for k, v in extra if v})  # 3.0.9.0 R3: the coach's evidence, when the result has it
     return spawn

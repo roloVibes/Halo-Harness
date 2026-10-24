@@ -1615,6 +1615,12 @@ def _cmd_explain(args: str, facade: HeadlessFacade) -> str:
     return explain_text(thing)[1] if thing else list_text()
 
 
+def _cmd_tools(args: str, facade: HeadlessFacade) -> str:
+    """3.1.8.0 R5: the tools this session's agent sees, by capability, and what narrowed them."""
+    from halo_harness.isolation.tools_view import tools_command
+    return tools_command(args, facade)
+
+
 def _cmd_tasks(args: str, facade: HeadlessFacade) -> str:
     """H8 scope A: lists every background Bash job this session has
     started (via `run_in_background` or a timed-out foreground command
@@ -1786,6 +1792,8 @@ _BUILTIN_SPECS = {
     "recall": ("core", "Semantic search over memory topics and past sessions (local embeddings; --fleet: every harness)",
                "[--fleet] <query>", _cmd_recall),
     "tasks": ("core", "List background Bash jobs started this session", None, _cmd_tasks),
+    "tools": ("core", "List the tools this session's agent sees, by capability, and what narrowed them", None,
+              _cmd_tools),  # 3.1.8.0 R5 (docs/ISOLATION.md)
     "orchestra": ("core", "Show the latest Orchestra run: its steps, worker lanes and run log", "[run]",
                   _cmd_orchestra),
     "coach": ("core", "The post-run coach's card for a run: --model asks the lead, --apply ID writes, --undo puts back, "

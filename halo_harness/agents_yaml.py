@@ -46,6 +46,9 @@ _NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
 # like every other section (child's key wins inside one).
 BIO_SECTIONS = ("models", "tools", "context", "limits", "output", "environment", "acceptance",
                 "hooks", "schedule", "triggers")
+# Halo 3.1.8.0 R5: the opt-ins a bio may declare beside its sections (docs/ISOLATION.md): they inherit
+# through `extends:` like a section; isolation/spec.py checks them (`isolation` may be one word).
+OPT_IN_SECTIONS = ("isolation", "secrets")
 HOOK_EVENT_KEYS = ("pre_tool", "post_tool", "on_start", "on_finish")
 SCHEDULE_TRIGGER_KINDS = ("file_change", "event", "message")
 IDENTITY_FIELDS = ("name", "description", "version", "tags", "kind", "extends")
@@ -238,7 +241,7 @@ def resolve_agent_bio(name: str, *, cwd=None, state_dir=None, _chain: "Optional[
     else:
         parent = None
     resolved = dict(parent) if parent else {}
-    for section in BIO_SECTIONS:
+    for section in BIO_SECTIONS + OPT_IN_SECTIONS:
         resolved[section] = _merge_section((parent or {}).get(section), raw.get(section))
     if isinstance(resolved.get("models"), dict):
         _substitute_default_model_reference(resolved["models"])
@@ -456,6 +459,8 @@ def validate_agent_bio(data, *, name: "Optional[str]" = None, cwd=None, state_di
         if not isinstance(needs, list) or any(n not in NEEDS for n in needs):
             problems.append(f'"models.needs" must be a list of {", ".join(NEEDS)}')
     problems.extend(validate_hook_section(data.get("hooks")))
+    from halo_harness.isolation.spec import bio_problems  # 3.1.8.0 R5: isolation, secrets, tools.capabilities
+    problems.extend(bio_problems(data))
     problems.extend(validate_schedule_section(data.get("schedule")))
     problems.extend(validate_trigger_section(data.get("triggers")))
     extends = data.get("extends")

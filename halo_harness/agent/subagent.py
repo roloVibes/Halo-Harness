@@ -483,6 +483,9 @@ def _build_child_session_inner(*, runtime: AgentRuntime, spec: AgentSpec, agent_
                       else parent.tool_registry.names())
     tool_names = spec.resolved_tools(catalog_names)
     child_registry = parent.tool_registry.filtered(tool_names)
+    from halo_harness.isolation.capabilities import narrow_member  # 3.1.8.0 R5: the member's tools.capabilities
+    child_registry, _opt_ins = narrow_member(child_registry, getattr(runtime, "team_control", None),
+                                             role_override or spec.role)
 
     ctx = SessionContext(
         cwd=child_cwd, model_label=parent.model_label, model_family="generic",
@@ -908,6 +911,7 @@ def _build_child_session_inner(*, runtime: AgentRuntime, spec: AgentSpec, agent_
     # row's `model_reason`, its meta.json) and opens its transcript.
     from halo_harness.models_auto_spawn import record as _record_auto_pick
     _model_reason = _record_auto_pick(child, _auto.get("pick"), ran_on=model_ref.raw)
+    child.opt_ins = _opt_ins  # 3.1.8.0 R5: "tools: ... (by lineup X)" on its agent row
     # Halo 3.0.5.0 (Fleet): the child joins the session's live agent tree.
     _agent_tree.register_child(parent, child, agent_id=agent_id, spec=spec, model=model_ref.raw,
                                role=_effective_role_name, background=background, team_control=team_control,

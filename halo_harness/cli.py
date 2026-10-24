@@ -497,6 +497,12 @@ def _main(argv: Optional[list] = None) -> int:
         # 3.1.8.0 R1: the supervisor's goal queue (halo goal add|list|show|...).
         from halo_harness.supervise.goal_cli import cmd_goal
         return cmd_goal(argv[1:])
+    if argv and argv[0] == "isolation":  # 3.1.8.0 R5: opt-in isolation for workers (docs/ISOLATION.md)
+        from halo_harness.isolation.cli import cmd_isolation
+        return cmd_isolation(argv[1:])
+    if argv and argv[0] == "secrets":  # 3.1.8.0 R5: the secret broker and each ref, names only
+        from halo_harness.isolation.secrets import cmd_secrets
+        return cmd_secrets(argv[1:])
     if argv and argv[0] == "init":
         from halo_harness.init_cli import cmd_init
         return cmd_init(argv[1:])

@@ -75,7 +75,7 @@ def register_child(parent, child, *, agent_id: str, spec, model: Optional[str], 
         tree.add(agent_id, session=child, parent=agent_key(parent), name=spec.name,
                  role=role, bio=bio, lineup=getattr(team_control, "name", None), model=model, state="queued",
                  kind="background" if background else ("member" if member else "subagent"), transcript=_log_path(child),
-                 model_reason=model_reason)
+                 model_reason=model_reason, opt_ins=getattr(child, "opt_ins", None))
     except Exception:
         pass
 

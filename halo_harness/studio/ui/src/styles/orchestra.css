@@ -176,4 +176,5 @@
 /* 3.1.2.0 R2 (orchestra/stale.py): a stale lane's badge and its re-base line */
 .og-stale { margin-left: 6px; font-size: 10px; padding: 0 5px; color: var(--warn); border-color: var(--warn); background: var(--warn-soft); }
 .og-rebase { margin-left: 6px; font-size: 10.5px; color: var(--accent-2); }
+.og-optins { display: block; font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } /* 3.1.8.0 R5 */
 .og-rebase[data-conflict] { color: var(--warn); }
