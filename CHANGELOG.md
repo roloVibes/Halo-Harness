@@ -174,7 +174,7 @@ Focus: Auto -- the main agent knows what each model is good at and builds the or
 
 - The `auto` pick, the roster's per-kind leaders and `halo models --measured` / `analyze` now read what was measured here; with nothing measured (or `models.learn: false`) they are exactly as before.
 
-## [3.1.8.0] - unreleased
+## [3.1.8.0] - 2026-10-24
 
 Focus: the supervisor -- Halo runs goals without a terminal, and Studio keeps up with it (the outside review the owner pasted 2026-10-20; "apply all those suggestions").
 
