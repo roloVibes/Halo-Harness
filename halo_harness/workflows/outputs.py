@@ -104,14 +104,18 @@ def part(run_dir, goal, lanes: list, gate, status: str) -> dict:
 
 
 def lines(report: dict) -> "list[str]":
-    """The CLI report's workflow lines: each artifact and each bound not enforced yet."""
+    """The CLI report's workflow lines: each artifact, the workflow's budget with the spend (3.2.1.0 R2) and each
+    bound not enforced yet."""
     out = []
     for a in report.get("artifacts") or []:
         where = a.get("path") or a.get("why") or ""
         mark = "ok" if a.get("ok", True) and a.get("state") == "saved" else a.get("state")
         out.append(f"  artifact {a['name']:<12} {mark:<8} {a.get('schema') or a.get('type')} ({a.get('view')}) {where}")
     for b in (report.get("workflow") or {}).get("bounds") or []:
-        if not b.get("enforced"):
+        if b.get("key") == "budget_usd" and not b.get("stage") and b.get("enforced"):
+            out.append(f"  budget: the run spent {float(report.get('cost_usd') or 0):.4f} of {float(b['value']):.4f} USD "
+                       "(the workflow's budget_usd, a stop)")
+        elif not b.get("enforced"):
             out.append(f"  not enforced yet: {(b.get('stage') + ' ') if b.get('stage') else ''}{b['key']} {b['value']} -- {b['how']}")
     return out
 

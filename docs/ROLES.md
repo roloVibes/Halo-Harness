@@ -465,10 +465,12 @@ names the pack. Any lineup's `acceptance` may also say `test: <command>` and
 starts with that test and pauses for the plan's review, unless you give
 `--test`; 3.2.1.0 R1: so do `halo goal add --lineup` and Studio's Orchestra
 goal form. A pack lineup's `workflows: [...]` names its pack's workflows
-([PACKS.md](PACKS.md) "A pack's lineups"). A pack's bios ask for their model
-by tag (`models.capabilities`): `long-context`, `vision`, `audio`, `video`,
-`files`, `image-out`, `tools`, `local`, and (3.2.1.0 R1, from the enriched
-catalog rows) `reasoning`, `open-weights`, `audio-out`.
+([PACKS.md](PACKS.md) "A pack's lineups"); 3.2.1.0 R2: any lineup may name
+one as `<pack>/<name>`, the way `halo workflow run` does, a bare name
+resolving inside its own pack ([PACKS.md](PACKS.md#a-lineups-workflows)). A
+pack's bios ask for their model by tag (`models.capabilities`): `long-context`,
+`vision`, `audio`, `video`, `files`, `image-out`, `tools`, `local`, and (3.2.1.0
+R1, from the enriched catalog rows) `reasoning`, `open-weights`, `audio-out`.
 
 ## How an agent gets a role
 

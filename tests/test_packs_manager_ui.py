@@ -13,7 +13,9 @@ skipped without one), over a fresh home with no pack installed:
 4b. 3.2.0.0 R7: Update asks first with the dry run's lines, swaps the new
    version in (Details names the grant it asks for), Roll back brings 1.0.0 back;
 5. Templates: Run review opens Orchestra's form, filled in with the workflow;
-6. a disabled pack's row: disabled, 0/3, Enable back, its tab gone;
+5b. 3.2.1.0 R2: Orchestra's own Start view, no workflow filled in: the picker
+   under the goal form lists the running pack's workflows, a pick fills the form;
+6. a disabled pack's row: disabled, 0/3, Enable back, its tab gone, no picker;
 7. Remove with its confirm (the command, --keep-config when ticked): the
    pack's folder goes and Sources offers Install again.
 Run: python -m tests.test_packs_manager_ui
@@ -128,12 +130,25 @@ def test_run_a_workflow_fills_the_orchestra_form(ctx: Ctx):
 
 
 @test
+def test_orchestras_start_view_picks_a_packs_workflow(ctx: Ctx):
+    """3.2.1.0 R2: the picker under the goal form; a pick is the same form Run <workflow> fills."""
+    got = _got(ctx)
+    ctx.check(f"under the goal form, the running pack's workflow, got {got.get('pick_options')} {got.get('pick_under_goal')}",
+              got.get("pick_under_goal") is True and got.get("pick_options") == ["", "doc-review/review"])
+    ctx.check(f"its label, got {got.get('pick_label')!r}", str(got.get("pick_label") or "").startswith("OR RUN A PACK'S WORKFLOW"))
+    ctx.check(f"a pick fills the workflow's form, got {got.get('picked_ref')!r} {got.get('picked_inputs')} {got.get('picked_title')!r}",
+              got.get("picked_ref") == "doc-review/review" and got.get("picked_inputs") == [["docs", ""], ["style", "short"]]
+              and got.get("picked_title") == "Run the workflow review")
+
+
+@test
 def test_a_disabled_packs_row(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"disabled, its grants cleared, Enable back, got {got.get('disabled_state')!r} {got.get('disabled_grants')!r}",
               got.get("disabled_state") == "disabled" and got.get("disabled_grants") == "0/3 granted" and got.get("disabled_enable") is True)
     ctx.check(f"its section tab is gone, got {got.get('tabs_off')}", got.get("tabs_off") == CORE)
     ctx.check("Templates says to enable it first", got.get("templates_off") is True)
+    ctx.check("3.2.1.0 R2: no running pack with a workflow, no picker on Orchestra's Start view", got.get("picker_off") is True)
 
 
 @test

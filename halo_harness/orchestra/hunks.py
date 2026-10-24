@@ -72,7 +72,9 @@ def judge_prompt(hunks: list, goal, file: str) -> str:
     ]
     evidence = goal.get("evidence") if isinstance(goal, dict) else getattr(goal, "evidence", None)
     if evidence:  # 3.1.8.0 R3 (outcomes/lane.py): what the lanes ran and read, never their own summary
-        parts.append("EVIDENCE (what each lane's worker ran and read, from its transcript):\n"
+        files = any(": evidence " in str(line) for line in evidence)  # 3.2.1.0 R2: a workflow stage's evidence files
+        parts.append("EVIDENCE (what each lane's worker ran and read, from its transcript"
+                     + ("; a workflow stage's evidence files, by size and sha256" if files else "") + "):\n"
                      + "\n".join(f"- {line}" for line in evidence))
     for h in hunks:
         parts.append(f"--- hunk {h['index']} (lines {h['start_line']}-{h['end_line']}) ---\n"

@@ -11,8 +11,12 @@ On top of the tests and the record check the gate already runs:
 * every `verify.evidence` item is read -- an output or a give of the stage
   (what its lanes saved), or a file on the finished branch -- and must be
   there and not empty. The evidence joins the record check (`record` rows
-  `evidence:<item>`, `artifact:<name>`): the judge reads these files, not a
-  worker's summary (3.1.8.0 R3 will widen what the judge reads);
+  `evidence:<item>`, `artifact:<name>`), and (3.2.1.0 R2) the verdict's own
+  evidence: one line per item under its lane in `GateResult.evidence`,
+  `evidence <item>: <bytes> bytes, sha256 <12 chars>` or `evidence <item>:
+  missing`, which the run report prints under the lane; the conflict judge
+  reads the incoming lane's same lines (outcomes/lane.py `judge_evidence`,
+  `lane_evidence` here with the lane's own worktree), never a summary;
 * when the run's tests fail and name no worker's unit, each stage's own
   `verify.test` runs alone to find the stage that fails, and that stage's
   lanes go back with the tail;
@@ -73,20 +77,43 @@ def _digest(path: Path) -> "tuple[int, str]":
     return len(data), hashlib.sha256(data).hexdigest()[:16]
 
 
-def _evidence(run_dir, goal, lanes, cwd, record: list, problems: dict) -> None:
+def stage_of(goal, lane) -> str:
+    return str((((goal.workflow or {}).get("jobs") or {}).get(lane.job.id) or {}).get("stage") or "")
+
+
+def lane_evidence(run_dir, goal, lane, cwd) -> "list[dict]":
+    """`{item, bytes, sha256, there, saved}` per `verify.evidence` item of the lane's stage: a give or an output the
+    lane saved, else the file in `cwd`; [] for a stage with none and a lane its `when` skipped."""
+    st = next((s for s in (goal.workflow or {}).get("stages") or [] if s.get("id") == stage_of(goal, lane)), {})
+    items = ((st.get("verify") or {}) if isinstance(st.get("verify"), dict) else {}).get("evidence") or []
+    if not items or lane.data().get("skipped"):
+        return []
+    out = []
+    for item in items:
+        rows = _rows(lane, item)
+        paths = [Path(run_dir) / r["path"] for r in rows if r.get("kind") != "files"] if rows else [Path(cwd) / item]
+        there = [p for p in paths if p.is_file() and p.stat().st_size > 0]
+        size, sha = _digest(there[0]) if there else (0, "")
+        out.append({"item": str(item), "bytes": size, "sha256": sha, "there": bool(there), "saved": bool(rows)})
+    return out
+
+
+def evidence_line(e: dict) -> str:
+    """`evidence <item>: <bytes> bytes, sha256 <12 chars>`, or `evidence <item>: missing`."""
+    return f"evidence {e['item']}: {e['bytes']} bytes, sha256 {e['sha256'][:12]}" if e["there"] else f"evidence {e['item']}: missing"
+
+
+def _evidence(run_dir, goal, lanes, cwd, record: list, problems: dict, said: dict) -> None:
     for st in (goal.workflow or {}).get("stages") or []:
-        items = ((st.get("verify") or {}) if isinstance(st.get("verify"), dict) else {}).get("evidence") or []
-        for lane in _lanes_of(goal, lanes, st.get("id")) if items else []:
-            for item in items:
-                rows = _rows(lane, item)
-                paths = [Path(run_dir) / r["path"] for r in rows if r.get("kind") != "files"] if rows else [Path(cwd) / item]
-                there = [p for p in paths if p.is_file() and p.stat().st_size > 0]
-                size, sha = _digest(there[0]) if there else (0, "")
-                record.append({"lane": lane.n, "key": f"evidence:{item}", "equal": bool(there), "judge": False,
-                               "evidence": item, "bytes": size, "sha256": sha})
-                if not there:
+        for lane in _lanes_of(goal, lanes, st.get("id")):
+            for e in lane_evidence(run_dir, goal, lane, cwd):
+                item = e["item"]
+                record.append({"lane": lane.n, "key": f"evidence:{item}", "equal": e["there"], "judge": False,
+                               "evidence": item, "bytes": e["bytes"], "sha256": e["sha256"]})
+                said.setdefault(lane.n, []).append(evidence_line(e))
+                if not e["there"]:
                     problems.setdefault(lane.n, []).append(
-                        f"evidence {item}: " + ("empty or not saved" if rows else f"{item} is not on the finished branch"))
+                        f"evidence {item}: " + ("empty or not saved" if e["saved"] else f"{item} is not on the finished branch"))
 
 
 def _stage_tests(run_dir, goal, lanes, cwd, problems: dict) -> None:
@@ -109,8 +136,9 @@ def _cap(goal, lane) -> int:
 def widen(result, run_dir, goal, lanes: list, cwd):
     """`result` (the tests and the record check) with the workflow's outputs, evidence and stage tests."""
     record, problems = list(result.record), {}
+    evidence = {n: list(v) for n, v in (result.evidence or {}).items()}  # 3.2.1.0 R2: the stage's evidence lines join it
     _artifacts(run_dir, goal, lanes, record, problems)
-    _evidence(run_dir, goal, lanes, cwd, record, problems)
+    _evidence(run_dir, goal, lanes, cwd, record, problems, evidence)
     if not result.tests.ok and not result.back:
         _stage_tests(run_dir, goal, lanes, cwd, problems)
     extra_ok = all(r.get("equal") for r in record[len(result.record):])
@@ -119,11 +147,11 @@ def widen(result, run_dir, goal, lanes: list, cwd):
     capped = [n for n in back if by_n[n].pieces_returned >= _cap(goal, by_n[n])]
     record_ok = result.record_ok and extra_ok
     if not back:
-        return replace(result, record=record, record_ok=record_ok)
+        return replace(result, record=record, record_ok=record_ok, evidence=evidence)
     if capped:
         why = "; ".join(problems.get(n, ["the tests still fail"])[0].splitlines()[0] for n in capped)
         stages = ", ".join(f"{n} ({(goal.workflow.get('jobs') or {}).get(by_n[n].job.id, {}).get('stage')})" for n in capped)
-        return replace(result, ok=False, record=record, record_ok=record_ok, back=[],
+        return replace(result, ok=False, record=record, record_ok=record_ok, back=[], evidence=evidence,
                        stop_reason=f"lane {stages} reached the return cap ({max(_cap(goal, by_n[n]) for n in capped)}) "
                                    f"and its piece still fails the gate: {why}")
     from halo_harness.orchestra import events as run_events
@@ -132,4 +160,5 @@ def widen(result, run_dir, goal, lanes: list, cwd):
                        + problems[n][0].splitlines()[0], lane=n, problems=problems[n])
     notes = {n: "The gate sent your piece back:\n" + "\n".join(f"- {p}" for p in problems[n])
              + "\nFix every one; save the artifact again where it was." for n in problems}
-    return replace(result, ok=False, record=record, record_ok=record_ok, back=back, stop_reason="", notes=notes)
+    return replace(result, ok=False, record=record, record_ok=record_ok, back=back, stop_reason="", notes=notes,
+                   evidence=evidence)

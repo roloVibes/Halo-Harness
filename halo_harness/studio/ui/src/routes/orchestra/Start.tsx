@@ -6,7 +6,8 @@
 // or with "open the workspace anyway". 3.0.9.0 R2: while the open run is
 // `planned` the plan panel (plan/PlanPanel.tsx) takes the console's place.
 // 3.2.0.0 R6: while the Pack Manager's Run <workflow> has filled one in, the
-// workflow's form (WorkflowForm.tsx) shows instead of the goal form.
+// workflow's form (WorkflowForm.tsx) shows instead of the goal form; 3.2.1.0
+// R2: with none, the picker under the goal form (WorkflowPicker.tsx) fills one.
 import { useEffect } from "react";
 import { Surface } from "../../lib/ui";
 import { Workspace } from "../../lib/workspace/Workspace";
@@ -14,6 +15,7 @@ import type { PanelSpec } from "../../lib/workspace/types";
 import { SECTION_HELP } from "../sectionHelp";
 import { GoalForm } from "./GoalForm";
 import { WorkflowForm } from "./WorkflowForm";
+import { WorkflowPicker } from "./WorkflowPicker";
 import { useWfRun } from "./workflowRun";
 import { PastRuns } from "./OrchRail";
 import { planPanels } from "./plan/PlanPanel";
@@ -36,7 +38,14 @@ export function StartView() {
         </header>
         <div className="fl-start-grid">
           <Surface className="fl-start-form" motion="idle">
-            {wf ? <WorkflowForm /> : <GoalForm start />}
+            {wf ? (
+              <WorkflowForm />
+            ) : (
+              <>
+                <GoalForm start />
+                <WorkflowPicker />
+              </>
+            )}
           </Surface>
           <aside className="fl-start-side">
             <ol className="fl-explain">

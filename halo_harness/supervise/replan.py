@@ -4,7 +4,13 @@ drifts gets a new plan for the lanes left (Halo 3.1.8.0 R2, docs/SUPERVISE.md
 
     mode(goal, cfg)        none | auto | review: the goal's own `replan` (`halo goal add --replan`), else
                            supervise.replan; a goal with plan: review always reviews (unless none)
-    allowed(goal, cfg)     '' when a replan may be asked, else why not (none, supervise.replan_max, the cooldown)
+    allowed(goal, cfg)     '' when a replan may be asked, else why not (a workflow run first, then none,
+                           supervise.replan_max, the cooldown)
+    pinned_by(goal)        3.2.1.0 R2: the `<pack>/<name>` a goal's run is compiled from ('' for none): the goal
+                           row's `workflow`, its goal.json `workflow` block, or split.json `workflow.pinned`.
+                           A workflow run keeps its stage set: the replanner never pauses it (its moves are
+                           checked and applied as one plan, and a split or a specialist adds a lane), and
+                           with a replan mode set the goal row's `replan_off` and one `state` line say so once
     check_and_pause(...)   drift.py over the run; drifting and allowed: the run pauses (below)
     spawn_hook(...)        budget.Guard's `before`: no lane starts while the run pauses for a replan, and a
                            drift found before a lane starts (returns, forecast) pauses it
@@ -40,6 +46,7 @@ from halo_harness.supervise import decisions, queue
 REC, PLAN = "replan.json", "replan.plan.json"
 PAUSE = "paused for a replan"
 LIVE = ("pausing", "asking")
+PINNED = "a workflow run keeps its stage set (its plan is pinned by {ref})"
 
 
 def mode(goal: dict, cfg: dict) -> str:
@@ -62,8 +69,40 @@ def pausing(run_dir) -> bool:
     return record(run_dir).get("state") in LIVE
 
 
-def allowed(goal: dict, cfg: dict, now: Optional[float] = None) -> str:
+def pinned_by(goal: dict, run_dir=None) -> str:
+    """The workflow the goal's run is compiled from (`<pack>/<name>`), '' for a run without one."""
+    ref = goal.get("workflow") if isinstance(goal, dict) else None
+    if isinstance(ref, str) and ref.strip():
+        return ref.strip()
+    rd = run_dir or (goal.get("run_dir") if isinstance(goal, dict) else None)
+    if not rd:
+        return ""
+    block = (jsonl.read_json(Path(rd) / "goal.json", {}) or {}).get("workflow")
+    if isinstance(block, dict) and block:
+        return str(block.get("ref") or "its workflow")
+    pin = (jsonl.read_json(Path(rd) / "split.json", {}) or {}).get("workflow")
+    return "its workflow" if isinstance(pin, dict) and pin.get("pinned") else ""
+
+
+def off_line(goal: dict, cfg: dict, run_dir=None) -> str:
+    """The one line a workflow goal's row and `halo goal show` print ('' when no replan mode is set, or no workflow)."""
+    ref = pinned_by(goal, run_dir)
+    return PINNED.format(ref=ref) if ref and mode(goal, cfg) != "none" else ""
+
+
+def _note_off(state_dir, gid: str, run_dir, line: str) -> None:
+    """Once per goal: the row's `replan_off` and a `state` line in the run's events.jsonl."""
+    seen: list = []
+    queue.update(state_dir, gid, lambda g: seen.append(g.get("replan_off")) or g.update(replan_off=line))
+    if seen and seen[0] != line:
+        event(run_dir, "replan_off", line)
+
+
+def allowed(goal: dict, cfg: dict, now: Optional[float] = None, run_dir=None) -> str:
     now = time.time() if now is None else now
+    ref = pinned_by(goal, run_dir)
+    if ref:
+        return PINNED.format(ref=ref)
     if mode(goal, cfg) == "none":
         return "supervise.replan is none"
     eps = goal.get("replans") or []
@@ -119,7 +158,14 @@ def check_and_pause(state_dir, gid: str, run_dir, cfg: dict, now: Optional[float
     from halo_harness.supervise.budget import others_spent
     from halo_harness.supervise.drift import drift
     goal = queue.load(state_dir, gid)
-    if goal is None or pausing(run_dir) or allowed(goal, cfg, now) or P.is_planned(run_dir):
+    if goal is None or pausing(run_dir):
+        return []
+    off = off_line(goal, cfg, run_dir)
+    if off:  # 3.2.1.0 R2: a workflow run is never paused for a replan; its row says so once
+        if goal.get("replan_off") != off:
+            _note_off(state_dir, gid, run_dir, off)
+        return []
+    if allowed(goal, cfg, now, run_dir) or P.is_planned(run_dir):
         return []
     found = drift(run_dir, cfg, now=now, others_usd=others_spent(state_dir, gid))
     return found if found and pause(state_dir, gid, run_dir, found, now) else []

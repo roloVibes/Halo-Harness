@@ -88,7 +88,8 @@ halo goal rm g-ab12          # drop a goal (not one that runs)
 
 - `--workflow PACK/NAME`: a pack's workflow (3.2.0.0 R5, [WORKFLOWS.md](WORKFLOWS.md)): compiled to a
   run folder first, then queued as an Orchestra goal the supervisor resumes from its checkpoint; `what`
-  is not needed;
+  is not needed; the replanner never pauses it (3.2.1.0 R2: `halo goal show` says "replan: off -- a
+  workflow run keeps its stage set (its plan is pinned by PACK/NAME)" when a replan mode is set);
 - `--input K=V`: a workflow input (repeatable).
 
 ### `halo goal list` / `show` flags
