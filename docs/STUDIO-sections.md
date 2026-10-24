@@ -352,18 +352,9 @@ when. Log: every claim, merge, gate decision and note, with its time.
 
 ### Packs' sections and panels
 
-A pack you enable may add sections of its own after Orchestra (the tab strip
-and the rail show them after a thin "packs" divider, Alt+7 to Alt+9; the six
-sections keep their order and keys), panels in a core section (under its own,
-as strips), palette lines in a "pack <id>" group, its settings form, its own
-lines in Session's Live column and Fleet's Activity, and its own attention
-rows. Every one is declared in the pack's `pack.yaml` and drawn by Studio's
-own components from one registry the server builds from the packs that run
-(`GET /api/pack/registry`); a pack panel's title bar says "from pack <id>" and
-its `?` shows the pack's help. A panel that is the pack's own script waits
-for `halo pack enable <id> --grant studio-script` and says so. Disabling the
-pack takes all of it away at once, without a reload. docs/PACKS.md "In
-Studio" is the tour; docs/EXTENSION_API.md "Studio contributions" the shape.
+A pack you enable may add sections after Orchestra (Alt+7 to Alt+9, behind a thin "packs" divider),
+panels in the six sections, palette lines, a settings form, feed lines and attention rows -- declared in
+its `pack.yaml`, drawn by Studio's own components, gone when the pack is disabled: [PACKS.md](PACKS.md) "In Studio".
 
 ## The live feed
 
