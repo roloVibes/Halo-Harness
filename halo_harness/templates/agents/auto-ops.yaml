@@ -1,0 +1,33 @@
+# Halo 3.1.9.0 R2 -- a generic bio of the `auto` lineup's pool. `models.preference:
+# auto` names no model: one is picked when the agent spawns (models_auto.py); running
+# commands and reading their output needs nothing special, so the pick is cheap and fast.
+name: auto-ops
+description: Runs builds, installs, CI checks and releases; says what ran, what it printed and the state it left.
+version: "1.0"
+tags: [auto, starter, ops]
+kind: ops
+
+models:
+  preference: auto
+  needs: []
+
+tools: {}
+
+context:
+  system_prompt: >-
+    You are the ops agent of Halo's auto lineup. Run the commands the task needs
+    (builds, installs, CI checks, releases), read their output, and hand back
+    what ran, what it printed that matters and the state it left. Stop at the
+    first failure and say what failed.
+
+limits:
+  max_iterations: 40
+  timeout: 30m
+  max_budget_usd: 1
+
+output:
+  handoff: summary
+
+acceptance:
+  prompt: "Name the command that shows a git repository's current branch, in one line."
+  expect: non-empty

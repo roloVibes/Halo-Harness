@@ -1287,6 +1287,15 @@ def _check_permission_mode(cwd: Optional[Path] = None, settings_flag: Optional[s
             f"permission_mode auto` to set one)")
 
 
+def _check_lineup() -> str:
+    """3.1.9.0 R2: `Lineup: auto (default) -- ...; change it with ...` (lineup_default.py)."""
+    try:
+        from halo_harness.lineup_default import lineup_line
+        return f"{OK} {lineup_line()}"
+    except Exception as e:
+        return f"{OK} Lineup: could not be read ({type(e).__name__})"
+
+
 def _dbx_probe_target():
     """`(host, token)` from the real discovery chain, or `(host, None)`
     when a step has a host but no matching token ("host-only" -- scope E),
@@ -1749,6 +1758,7 @@ def _check_entries(cwd: Optional[Path] = None, settings_flag: Optional[str] = No
     entries.append(("permission_rules", _check_permission_rules(cwd)))
     entries.append(("state_modes", _check_state_modes()))
     entries.append(("permission_mode", _check_permission_mode(cwd, settings_flag)))
+    entries.append(("lineup", _check_lineup()))  # 3.1.9.0 R2: the lineup in use, and how to change it
     entries.append(("providers_enabled", _check_providers_enabled(cwd, settings_flag)))
     entries.append(("install", _check_install()))
     entries.append(("command_on_path", check_command_on_path()))

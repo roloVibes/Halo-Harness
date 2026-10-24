@@ -63,17 +63,19 @@ def turn_ended(session) -> None:
 
 
 def register_child(parent, child, *, agent_id: str, spec, model: Optional[str], role: Optional[str],
-                   background: bool = False, team_control=None) -> None:
+                   background: bool = False, team_control=None, model_reason: Optional[str] = None) -> None:
     try:
         tree = tree_for(parent)
         child._fleet_tree = tree
         tree.controls.clear(agent_id)
         entry = (getattr(team_control, "aliases", None) or {}).get(role) if team_control is not None else None
         bio = (entry.get("agent") if isinstance(entry, dict) else None) or getattr(spec, "name", None)
-        member = team_control is not None
+        # 3.1.9.0 R2: under the default lineup only a child on one of its cards is a member
+        member = team_control is not None and (entry is not None or not getattr(team_control, "default", False))
         tree.add(agent_id, session=child, parent=agent_key(parent), name=spec.name,
                  role=role, bio=bio, lineup=getattr(team_control, "name", None), model=model, state="queued",
-                 kind="background" if background else ("member" if member else "subagent"), transcript=_log_path(child))
+                 kind="background" if background else ("member" if member else "subagent"), transcript=_log_path(child),
+                 model_reason=model_reason)
     except Exception:
         pass
 

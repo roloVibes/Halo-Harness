@@ -51,7 +51,8 @@ SCHEDULE_TRIGGER_KINDS = ("file_change", "event", "message")
 IDENTITY_FIELDS = ("name", "description", "version", "tags", "kind", "extends")
 # 2.0.7 round 0e: "media" joins the list -- the one media agent is a
 # first-class shipped bio (templates/agents/media.yaml), not a `custom`.
-KNOWN_KINDS = ("main", "subagent", "researcher", "judge", "reviewer", "custom", "media")
+KNOWN_KINDS = ("main", "subagent", "researcher", "judge", "reviewer", "custom", "media",
+               "planner", "coder", "writer", "ops")  # 3.1.9.0 R2: the auto lineup's pool kinds
 
 
 def is_valid_agent_name(name: str) -> bool:
@@ -175,6 +176,8 @@ def _normalize_thinking_field(data: dict) -> None:
 #: `default-model` bio (`templates/agents/default-model.yaml`), which the
 #: shipped `standard` lineup (`templates/teams/standard.yaml`) assigns to
 #: every role, is the one case this matters for today; see docs/AGENTS.md.
+#: 3.1.9.0 R2: `auto` is the other literal -- left as typed here and picked
+#: when the agent spawns (models_auto.py, the auto lineup's pool).
 DEFAULT_MODEL_REFERENCE = "default"
 
 
@@ -424,6 +427,12 @@ def validate_agent_bio(data, *, name: "Optional[str]" = None, cwd=None, state_di
         if section in data and data[section] is not None and not isinstance(data[section], dict) \
                 and section != "triggers":  # triggers is a LIST (its own validator below)
             problems.append(f'"{section}" must be a mapping')
+    # 3.1.9.0 R2: `models.needs` -- what an `auto` bio's model must have (models_auto.NEEDS)
+    needs = (data.get("models") or {}).get("needs") if isinstance(data.get("models"), dict) else None
+    if needs is not None:
+        from halo_harness.models_auto import NEEDS
+        if not isinstance(needs, list) or any(n not in NEEDS for n in needs):
+            problems.append(f'"models.needs" must be a list of {", ".join(NEEDS)}')
     problems.extend(validate_hook_section(data.get("hooks")))
     problems.extend(validate_schedule_section(data.get("schedule")))
     problems.extend(validate_trigger_section(data.get("triggers")))

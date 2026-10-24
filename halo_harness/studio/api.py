@@ -49,7 +49,10 @@ def get_state(req: Request):
     from halo_harness import __version__
     from halo_harness.roles import roles_mode_enabled
     from halo_harness.theme import get_config_value
+    from halo_harness.lineup_default import lineup_in_use  # 3.1.9.0 R2: no team: set -> the default auto lineup
+    in_use, source = lineup_in_use()
     return 200, {"version": __version__, "active_team": _active_team(), "roles_enabled": bool(roles_mode_enabled()),
+                 "lineup_in_use": in_use or "", "lineup_default": source == "default",
                  "default_model": str(get_config_value("model", "") or ""), "cwd": str(req.cwd),
                  "state_dir": str(req.state_dir), "shipped_lineups": T.list_bundled_team_templates(),
                  "shipped_bios": A.list_bundled_agent_templates(), "top_sections": list(T.TOP_SECTIONS)}

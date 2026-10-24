@@ -199,9 +199,14 @@ re-validates it; `new <name> --studio` writes the starter lineup, then opens
 it in Studio. Exit codes as for `halo agents edit`.
 
 **Halo 2.1.0**: one obvious path. Bare `halo teams` prints the active
-lineup (or "One model for everything: <model>"), its tree exactly as the
-wizard previews it (`role -> agent -> model`, price, warnings, one cost
-line), then one line per other lineup with its scope and description.
+lineup (or "One model for everything: <model>"; since 3.1.9.0, with no
+`team:` set, "Active lineup: auto (the default; change it with ...)"), its
+tree exactly as the wizard previews it (`role -> agent -> model`, price,
+warnings, one cost line; an `auto` card reads "picked at spawn for each
+task"), then one line per other lineup with its scope and description.
+`show auto` prints each pool card with "model picked at spawn (needs: ...;
+band mid)" and its role-table value as "auto (picked at spawn)"
+([ROLES.md](ROLES.md#the-auto-lineup-halo-3190)).
 `apply <name>` (and `use <name>`, the same thing) writes the lineup's
 `roles.*` and `team:` and turns custom roles on -- the same config the
 wizard's Team step writes -- then prints the roles now in force;

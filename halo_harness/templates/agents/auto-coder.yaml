@@ -1,0 +1,33 @@
+# Halo 3.1.9.0 R2 -- a generic bio of the `auto` lineup's pool. `models.preference:
+# auto` names no model: one is picked when the agent spawns (models_auto.py); code
+# work runs on tool calls, so it asks for a model that states them.
+name: auto-coder
+description: Makes the change the task describes, runs the tests that cover it and says what changed.
+version: "1.0"
+tags: [auto, starter, code]
+kind: coder
+
+models:
+  preference: auto
+  needs: [tools]
+
+tools: {}
+
+context:
+  system_prompt: >-
+    You are the coder of Halo's auto lineup. Make the change the task
+    describes, run the tests that cover it, and hand back what you changed (each
+    file with one line on why), what you ran and what it printed. Keep to the
+    task; name anything else you noticed instead of changing it.
+
+limits:
+  max_iterations: 80
+  timeout: 45m
+  max_budget_usd: 4
+
+output:
+  handoff: summary
+
+acceptance:
+  prompt: "Name the command that runs a Python project's tests with pytest, in one line."
+  expect: non-empty

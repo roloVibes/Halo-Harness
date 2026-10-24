@@ -15,7 +15,7 @@ import type { AgentRef } from "./types";
 
 export type LiveRow = {
   key: string; harness: string; local: boolean; session: string; session_id: string; agent_id: string; parent: string | null;
-  name: string; role: string; bio: string; lineup: string; model: string; state: string; task: string; current: string;
+  name: string; role: string; bio: string; lineup: string; model: string; model_reason: string; state: string; task: string; current: string;
   last_text: string; cost_usd: number; since: number; activity: string; tool: string; calls: number; control: string;
 };
 
@@ -41,7 +41,7 @@ export function liveRows(s: FleetState): LiveRow[] {
     .map((r) => ({
       key: r.key, harness: r.h.name || r.h.id.slice(0, 8), local: !!r.h.local, session: sessionTitle(r.s),
       session_id: r.s.session_id, agent_id: r.a.agent_id, parent: r.a.parent || null, name: r.a.name || r.a.agent_id,
-      role: r.a.role || "", bio: r.a.bio || "", lineup: r.a.lineup || "", model: r.a.model || "", state: String(r.a.state || ""),
+      role: r.a.role || "", bio: r.a.bio || "", lineup: r.a.lineup || "", model: r.a.model || "", model_reason: r.a.model_reason || "", state: String(r.a.state || ""),
       task: r.a.task || "", current: r.a.current || "", last_text: short(r.a.last_text, 160), cost_usd: Number(r.a.cost_usd) || 0,
       since: Number(r.a.since) || 0, activity: activityOf(r, s, now), tool: toolOf(r.a, s.activity[r.key]),
       calls: s.activity[r.key]?.calls || 0, control: r.h.allow_control || "all",

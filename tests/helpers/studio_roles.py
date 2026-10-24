@@ -108,7 +108,10 @@ def roles(c, url: str, state: Path) -> dict:
     ctrl(c, "z")
     out["description_after_undo"] = c.wait(f"{field}.value === {json.dumps(out['description_before'])} && {field}.value", 10)
     # the dead bio's model, tested: the stubbed probe's answer shows inline
-    c.click_on("document.querySelector('[data-testid=\"roles-bio\"][data-name=\"dead-bio\"]')")
+    dead = "document.querySelector('[data-testid=\"roles-bio\"][data-name=\"dead-bio\"]')"
+    c.js(f"{dead}.scrollIntoView({{block: 'center'}}); 1")  # 3.1.9.0 R2: seven auto-* bios list above it
+    time.sleep(0.3)
+    c.click_on(dead)
     c.wait("!!document.querySelector('[data-testid=\"bio-form\"][data-bio=\"dead-bio\"]')", 15)
     more = "document.querySelector('[data-testid=\"bio-form\"] [data-testid=\"model-select-more\"]')"  # 3.1.4.0 R4: the table is folded
     c.js(f"{more}.scrollIntoView({{block: 'center'}}); 1")

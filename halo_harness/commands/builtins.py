@@ -803,6 +803,13 @@ def _cmd_status(args: str, facade: HeadlessFacade) -> str:
     lines = [f"halo {__version__}", f"Model: {model_id}", f"cwd: {facade.cwd}",
              f"Permission mode: {permission_mode}", f"MCP servers: {mcp_n}",
              f"Theme: {facade.theme or '?'}", cost_line]
+    # 3.1.9.0 R2: the lineup this session runs under ("auto (default)" when no team: is set)
+    from halo_harness.lineup_default import lineup_line
+    _team = getattr(session, "team_control", None) if session is not None else None
+    if _team is not None:
+        lines.append(lineup_line(name=_team.name, default=_team.default))
+    else:
+        lines.append(lineup_line(name="") if session is not None else lineup_line())
     # Halo 2.0.1 W2a (HALO-2.0.1-liveness-tips-brief.md Part C): same
     # "requested X, sent Y" comparison `/context` shows, from the same
     # shared helper -- /status is the quick one-shot check with no
@@ -924,6 +931,8 @@ def _cmd_teams(args: str, facade: HeadlessFacade) -> str:
     if not names:
         return "\n".join([*note_lines, "No lineups found."])
     active = get_config_value("team", default=None)
+    from halo_harness.lineup_default import lineup_in_use  # 3.1.9.0 R2: no team: set -> the default auto
+    in_use, in_use_source = lineup_in_use()
     # Halo 2.0.5 round 5: `/teams show <name>` -- the SAME resolved print
     # `halo teams show` gives (assignments, role table, enforcement
     # state per section); bare `/teams` keeps its list.
@@ -936,20 +945,23 @@ def _cmd_teams(args: str, facade: HeadlessFacade) -> str:
         return "\n".join([*note_lines, *overview_lines(cwd=facade.cwd)])
     if parts and parts[0].lower() == "show":
         from halo_harness.teams_yaml import enforcement_lines, resolve_role_table
-        name = parts[1].strip() if len(parts) > 1 else active
+        name = parts[1].strip() if len(parts) > 1 else in_use
         if not name:
             return "Usage: /teams show <name> (no lineup is active yet)"
         template = resolve_team_template(name, cwd=facade.cwd)
         if template is None:
             return f"No lineup named {name!r}, or its file has problems."
         lines = [f"{template['name']} -- {template.get('description') or '(no description)'}"]
+        from halo_harness.models_auto_spawn import pool_words  # 3.1.9.0 R2
         for entry in template.get("agents") or []:
             label = entry.get("as") or entry.get("role")
-            lines.append(f"  {entry.get('role')} ({label}): agent={entry.get('agent')}")
+            lines.append(f"  {entry.get('role')} ({label}): agent={entry.get('agent')}"
+                         f"{pool_words(template, entry, cwd=facade.cwd)}")
         role_table, _notes = resolve_role_table(template)
         lines.append("  resolved role table:")
         for k, v in sorted(role_table.items()):
-            lines.append(f"    {k}: {v if isinstance(v, str) else v.get('model')}")
+            shown = v if isinstance(v, str) else v.get("model")
+            lines.append(f"    {k}: {shown}{' (picked at spawn)' if shown == 'auto' else ''}")
         enforced = enforcement_lines(template)
         if enforced:
             lines.append("  enforcement (Halo 2.0.5: the live loop runs these):")
@@ -958,7 +970,8 @@ def _cmd_teams(args: str, facade: HeadlessFacade) -> str:
     lines = [*note_lines, "Team templates (`halo teams show <name>`/`halo teams use <name>`):"]
     for name in names:
         template = resolve_team_template(name, cwd=facade.cwd)
-        marker = " [active]" if name == active else ""
+        marker = " [active]" if name == active else (
+            " [active: the default]" if in_use_source == "default" and name == in_use else "")
         desc = (template.get("description") if template else None) or "(failed to load)"
         lines.append(f"  {name}{marker} -- {desc}")
     return "\n".join(lines)

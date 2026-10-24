@@ -404,7 +404,7 @@ def resolve_agent_model(*, invocation_model: Optional[str] = None, frontmatter_m
                          cli_role_overrides: Optional[dict] = None,
                          env: Optional[dict] = None, settings=None,
                          parent_ref, parent_profile, parent_small_ref=None, parent_small_profile=None,
-                         state_dir, routes: Optional[dict] = None):
+                         state_dir, routes: Optional[dict] = None, auto_pick=None):
     """`(ModelRef, ModelProfile)` for a sub-agent/`--agent` session. Full
     chain (V2c/H15 roles inserted into the pre-existing D-CFG chain):
     invocation override -> a CLI `--role` override for THIS agent's own
@@ -424,7 +424,13 @@ def resolve_agent_model(*, invocation_model: Optional[str] = None, frontmatter_m
     ref/profile OBJECTS directly (never re-parsed) -- unaffected by any of
     the role plumbing above when no role applies (every new parameter here
     defaults to None/{}, so an old caller that passes none of them behaves
-    byte-for-byte as before)."""
+    byte-for-byte as before).
+
+    3.1.9.0 R2: a chain value of `auto` (an auto bio's preference through the
+    lineup's role table, below a tier's model; or `model: auto` on the call)
+    is replaced by `auto_pick()` -- the model `models_auto.pick` chose for
+    this task (agent/subagent.py builds the callable); no pick, or one that
+    does not resolve, runs on the parent's model."""
     from halo_harness.model import ModelRef, parse_model_ref, resolve_model_profile
     from halo_harness.roles import role_value_parts
 
@@ -481,6 +487,18 @@ def resolve_agent_model(*, invocation_model: Optional[str] = None, frontmatter_m
            or (subagent_default_model if not role_name else None))
     if not raw or raw == "inherit":
         return parent_ref, parent_profile
+    from halo_harness.models_auto import is_auto
+    if is_auto(raw):
+        picked = auto_pick() if callable(auto_pick) else None
+        if not picked:
+            return parent_ref, parent_profile
+        try:
+            return _resolve_agent_model_ref(picked, parent_ref=parent_ref, parent_profile=parent_profile,
+                                            parent_small_ref=parent_small_ref,
+                                            parent_small_profile=parent_small_profile,
+                                            state_dir=state_dir, routes=routes)
+        except Exception:
+            return parent_ref, parent_profile
     # 3.0.1.0 review item 125: a ROLE-TABLE value (never an explicit
     # invocation/CLI/frontmatter one) that does not resolve here -- a
     # removed route, a provider no longer configured --
