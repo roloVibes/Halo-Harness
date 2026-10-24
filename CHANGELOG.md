@@ -63,6 +63,19 @@ Focus: packs, the loose ends -- the sixteen open points the Packs program left, 
 - A part refused for a pack reason failed its mission even when another harness had the capability.
 - A member's pack inspector line said "its Studio reads this file" instead of showing it.
 
+### R4: hooks and the update pause, for everyone
+
+#### Added
+- `halo pack update` asks before the swap in a terminal: it prints the migration notes, the files that change and the settings it renames, then `Apply? [y/N]`. `n` or Enter leave the pack as it is (`<id> <version> stays as it is`, exit 1). `--yes` skips the question; `--json`, `--dry-run` and a run that is not in a terminal never ask, as before. What you are shown is read from the same fetched source the update then uses.
+- The dry run (`halo pack update <id> --dry-run`, and the Pack Manager's Update confirm in Studio) lists the files that change, one line each (`  README.md (changed)`, `(new)`, `(dropped)`).
+
+#### Changed
+- `${CLAUDE_PLUGIN_ROOT}` in a plugin's or a pack's `hooks/hooks.json` is filled per field. A hook's shell `command` gets the path as its shell reads it: forward slashes on Windows, quoted when it holds a space or another character the shell reads, escaped inside the command's own `"..."` or `'...'`. `args` (the exec form), every other field and `shell: "powershell"` get the path as it is. `${halo_python}` written inside quotes is escaped the same way. The docs say both hook forms work and that the exec form stays the recommended one.
+- PACKS.md, COMMANDS-packs.md and EXTENSION_API.md now state the rollback rule: `<id>.previous` is the one version kept, the next update replaces it, and there is no version history on disk.
+
+#### Fixed
+- On Windows, a plugin hook in the shell form that used `${CLAUDE_PLUGIN_ROOT}` (`sh ${CLAUDE_PLUGIN_ROOT}/hooks/run.sh`) failed with "No such file or directory", because Git Bash ate the backslashes of the pasted path. It now runs, from a folder with a space too.
+
 ### Also in 3.2.1.0
 
 #### Fixed
