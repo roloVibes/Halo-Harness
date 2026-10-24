@@ -25,15 +25,19 @@ test, TESTS = new_registry()
 
 @test
 def test_clear_halo_env_vars_removes_only_halo_prefixed_names(ctx: Ctx):
-    saved = {k: os.environ.get(k) for k in ("HALO_MODEL", "HALO_PING_INTERVAL", "BRIDGE_MODEL")}
+    saved = {k: os.environ.get(k) for k in ("HALO_MODEL", "HALO_PING_INTERVAL", "BRIDGE_MODEL", "HALO_CHROME")}
     try:
         os.environ["HALO_MODEL"] = "should-be-cleared"
         os.environ["HALO_PING_INTERVAL"] = "should-also-be-cleared"
         os.environ["BRIDGE_MODEL"] = "left-alone"
+        os.environ["HALO_CHROME"] = "/opt/chromium/chrome"
         run_all_mod._clear_halo_env_vars()
         ctx.check("HALO_MODEL cleared", "HALO_MODEL" not in os.environ)
         ctx.check("HALO_PING_INTERVAL cleared", "HALO_PING_INTERVAL" not in os.environ)
         ctx.check("a non-HALO_ var is left alone", os.environ.get("BRIDGE_MODEL") == "left-alone")
+        # 3.2.1.0 R5: on WSL the whole Chrome tier skipped ("no Chrome found") because this ate HALO_CHROME
+        ctx.check("HALO_CHROME (the browser the Chrome tier drives) is kept",
+                  os.environ.get("HALO_CHROME") == "/opt/chromium/chrome")
     finally:
         for k, v in saved.items():
             if v is None:

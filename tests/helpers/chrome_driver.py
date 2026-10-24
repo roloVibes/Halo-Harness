@@ -8,6 +8,8 @@ tools/capture_*.py renders.
   removed when it ends.
 * `find_chrome()`: `HALO_CHROME` (or an explicit path) first, then the usual
   install paths and names on PATH.
+* `headless_flags()`: the launch flags every Chrome here starts with (cdp.Chrome,
+  `one_shot`, tools/capture_screens.py); `--no-sandbox` only as root (3.2.1.0 R5).
 * exactly one headless Chrome at a time: `cdp.Chrome` and `one_shot` hold
   the file lock of tests/helpers/chrome_lock.py.
 * `emulate_motion(c, value)`: the page's prefers-reduced-motion pinned, so a
@@ -48,6 +50,12 @@ CHROME_CANDIDATES = (
 )
 CHROME_NAMES = ("google-chrome", "google-chrome-stable", "chromium", "chromium-browser", "chrome")
 HEADLESS = ("--headless=new", "--disable-gpu", "--hide-scrollbars")
+
+
+def headless_flags() -> tuple:
+    """HEADLESS, plus `--no-sandbox` when this process runs as root (Chrome will not start as root with its
+    sandbox on: a Kali root shell); never otherwise, and never on Windows (no geteuid). Read at each launch."""
+    return HEADLESS + (("--no-sandbox",) if getattr(os, "geteuid", lambda: -1)() == 0 else ())
 
 
 def find_chrome(explicit: str = "") -> "str | None":
@@ -117,7 +125,7 @@ def one_shot(args: list, timeout: int = 90) -> "subprocess.CompletedProcess | No
         return None
     with chrome_lock():
         profile = tempfile.mkdtemp(prefix="halo-chrome-")
-        cmd = [exe, *HEADLESS, f"--user-data-dir={profile}", "--virtual-time-budget=6000", *args]
+        cmd = [exe, *headless_flags(), f"--user-data-dir={profile}", "--virtual-time-budget=6000", *args]
         try:
             return subprocess.run(cmd, capture_output=True, encoding="utf-8", errors="replace", timeout=timeout)
         finally:

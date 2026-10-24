@@ -84,8 +84,10 @@ def costmap(c, rig) -> dict:
     lv.tool("tester", "Bash", "cm-1", "pytest -q")
     tool = f"{node(lv.key('tester'))}?.querySelector('[data-testid=\"fleet-node-tool\"]')"
     s0 = c.wait(f"{tool}?.dataset.secs", 10)
-    time.sleep(2.2)
-    out["node_secs"] = [s0, c.js(f"{tool}?.dataset.secs"), c.js(f"{tool}?.querySelector('.fm-tool-text')?.textContent")]
+    # 3.2.1.0 R5: wait for two ticks, not a fixed 2.2 s: on WSL the 1 s clock ticked once in 2.2 s (0 -> 1), the
+    # read came early in its second or the wall clock stepped back (WSL2's does, ~1.1 s)
+    s1 = _seen(c, f"+{tool}?.dataset.secs >= {int(s0) + 2 if str(s0).isdigit() else 2} && {tool}.dataset.secs", 6)
+    out["node_secs"] = [s0, s1 or c.js(f"{tool}?.dataset.secs"), c.js(f"{tool}?.querySelector('.fm-tool-text')?.textContent")]
     main, kids = lv.key("main"), [lv.key(n) for n in ("implementer", "researcher", "tester", "docs", "reviewer")]
     out["tree"] = {"main": xy(c, main), "kids": [xy(c, k) for k in kids], "parents": c.js(f"[...{MAP}.querySelectorAll('[data-testid=\"fleet-node\"]')].map((n) => n.dataset.parent || '')")}
     out["overlaps"] = labels_overlap(c)
@@ -115,8 +117,13 @@ def states(c, lv) -> dict:
     out["done"] = [c.wait(f"{node(d)}?.dataset.motion === 'done' && {edge(d)}?.dataset.motion", 10), c.js(f"getComputedStyle({node(d)}.querySelector('.fm-shape')).animationName")]
     out["red"] = [c.wait(f"{node(f)}?.dataset.motion === 'error' && {edge(f)}?.dataset.motion", 10), c.js(f"getComputedStyle({edge(f)}).stroke"),
                      c.js("getComputedStyle(document.documentElement).getPropertyValue('--bad').trim()")]
+    # 3.2.1.0 R5: the page's wall clock steps back 1.5 s inside the fade (WSL2's clock steps back ~1.1 s at times):
+    # the fade's timer then fires while the done time still looks young, and the node kept its glow until the
+    # timer re-armed itself (lib/motion useRecent). `_seen`: a node that stays done is a check, not a dead driver
+    c.js("(() => { const real = Date.now.bind(Date); window.__haloRealNow = real; Date.now = () => real() - 1500; return 1; })()")
     time.sleep(10.4)
-    out["done_later"] = c.wait(f"{node(d)}?.dataset.motion !== 'done' && {node(d)}.dataset.motion", 6) or c.js(f"{node(d)}?.dataset.motion")
+    out["done_later"] = _seen(c, f"{node(d)}?.dataset.motion !== 'done' && {node(d)}.dataset.motion", 6) or c.js(f"{node(d)}?.dataset.motion")
+    c.js("Date.now = window.__haloRealNow; 1")
     out["red_later"] = c.js(f"{node(f)}?.dataset.motion")
     from tests.helpers.chrome_driver import emulate_motion
     emulate_motion(c, "reduce")  # the product rule: under reduce a done node is green with no fade

@@ -45,7 +45,8 @@ class Chrome:
         self.seq = 0
         self.down = False
         try:
-            self.proc = subprocess.Popen([exe, "--headless=new", "--disable-gpu", "--hide-scrollbars", "--no-first-run",
+            from tests.helpers.chrome_driver import headless_flags  # + --no-sandbox only as root (3.2.1.0 R5)
+            self.proc = subprocess.Popen([exe, *headless_flags(), "--no-first-run",
                                           "--no-default-browser-check", f"--user-data-dir={self.profile}", "--remote-debugging-port=0",
                                           f"--window-size={width},{height}", "about:blank"],
                                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

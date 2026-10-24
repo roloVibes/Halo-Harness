@@ -228,7 +228,9 @@ async def scene_picker(out: Path) -> None:
 async def scene_team_step(out: Path) -> None:
     from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState, _resolve_start_index, full_step_keys
     await _seed_bios()
-    keys = full_step_keys()
+    # 3.2.1.0 R5: the same capture on every box -- a Linux box without rg on PATH adds the Linux-fixes step,
+    # which made the step rail read "of 8" and the committed SVG differ (tests/test_screenshots on WSL)
+    keys = tuple(k for k in full_step_keys() if k != "linux_fixes")
     state = WizardState(cwd=os.environ["BRIDGE_TEST_HOME"], step_keys=keys,
                         index=_resolve_start_index("team", keys), no_live=True)
     app = InitWizardApp(state)
