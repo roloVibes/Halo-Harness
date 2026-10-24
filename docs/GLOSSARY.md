@@ -98,3 +98,7 @@ A capability is something a harness can do, as its spec card lists it: its hardw
 ## unit
 
 A unit of work is what a lane, a mission part and a team stage all are underneath (`halo work`, docs/WORK.md): one piece of work with an owner, its claims, its hand-offs, one state machine, a gate, an acceptance and a cost. The three engines keep their own words on top; the shared model gives them one ledger line, one report row and one coach.
+
+## pack
+
+A pack is a folder someone else maintains that adds bios, lineups, workflows, skills, commands, hooks, MCP servers, Studio sections and fleet capabilities to your Halo without changing Halo itself; every name it offers carries its id (`doc-review--reviewer`). It lives in `~/.halo/packs/<id>/` (or a repo's `.halo/packs/`), installs disabled, and runs once you enable it and grant what it asks for. `halo pack` installs, enables, updates and removes one (docs/PACKS.md), and Studio's Pack Manager (the Packs section) does the same with buttons.

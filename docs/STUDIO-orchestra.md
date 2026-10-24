@@ -24,7 +24,11 @@ workspace anyway** does too. **New run** (the rail, or the palette's
 dollar budget: its budget is how many workers and how many times the gate may
 send a part back. **Review the plan before it runs** (beside Run; on the Goal
 panel under the disclosure) sends `review: true`: the run stops after the
-lead's split and the plan canvas below takes the console's place.
+lead's split and the plan canvas below takes the console's place. 3.2.1.0
+R1: a LINEUP whose `acceptance` names a test (and `review: true`) gives the
+run that test when TEST COMMAND is empty, and the plan review, as `halo
+orchestra new --lineup` does; the form then says "test from the lineup:
+<command>" under the test field (a test you type wins).
 
 ![Orchestra before a run: the Start view](media/studio-orchestra-start.png)
 

@@ -201,6 +201,49 @@ def test_post_run_streams_state_frames_and_holds_one_run(ctx: Ctx):
 
 
 
+ACCEPT_LINEUP = """roles:
+  main: default-model
+acceptance: {test: python -m unittest -q test_basket, review: true}
+"""
+
+
+@test
+def test_post_run_takes_the_lineups_acceptance(ctx: Ctx):
+    """3.2.1.0 R1: POST orchestra/run with a lineup whose acceptance names a test and review: goal.json gets both
+    (packs.lineup_run.goal_defaults, as `halo orchestra new`), the 201 carries the lines; a typed test wins."""
+    import json as _json
+    from halo_harness.studio import orchestra_api, orchestra_live
+    from tests.helpers import orchestra_fixtures as F
+    repo = F.make_repo("orch-studio-lineup-")
+    (repo / ".halo" / "teams").mkdir(parents=True, exist_ok=True)
+    (repo / ".halo" / "teams" / "accept.yaml").write_text(ACCEPT_LINEUP, encoding="utf-8")
+    saved = orchestra_api.RUNNER
+    orchestra_api.RUNNER = R.fake_runner()
+    try:
+        with R.Studio(repo) as s:
+            st, ok = s.post("orchestra/run", dict(GOAL, lineup="accept", dry_run=True, force=True))
+            ctx.check(f"201 with the lines it took, got {st} {ok}", st == 201 and len(ok.get("taken") or []) == 2
+                      and ok["taken"][0].startswith("test: python -m unittest -q test_basket (from lineup accept")
+                      and ok.get("test") == "python -m unittest -q test_basket" and ok.get("plan") == "review")
+            orchestra_live.wait(30)
+            goal = _json.loads((repo / ".halo" / "orchestra" / ok["run_id"] / "goal.json").read_text(encoding="utf-8"))
+            ctx.check(f"goal.json has the test and plan: review, got {goal.get('test')!r} {goal.get('plan')!r}",
+                      goal.get("test") == "python -m unittest -q test_basket" and goal.get("plan") == "review")
+            st, typed = s.post("orchestra/run", dict(GOAL, lineup="accept", test="make check", dry_run=True, force=True))
+            orchestra_live.wait(30)
+            goal = _json.loads((repo / ".halo" / "orchestra" / typed["run_id"] / "goal.json").read_text(encoding="utf-8"))
+            ctx.check(f"a typed test wins (review still taken), got {goal.get('test')!r} {typed.get('taken')}",
+                      st == 201 and goal.get("test") == "make check" and goal.get("plan") == "review"
+                      and [ln.split(" ")[0] for ln in typed.get("taken") or []] == ["plan:"])
+            st, plain = s.post("orchestra/run", dict(GOAL, dry_run=True))
+            orchestra_live.wait(30)
+            ctx.check(f"no lineup: nothing taken, no key, got {st} {plain}", st == 201 and "taken" not in plain)
+    finally:
+        orchestra_live.wait(30)
+        orchestra_api.RUNNER = saved
+        R.cleanup(repo)
+
+
 @test
 def test_the_coach_route_reads_the_run_and_keeps_its_card(ctx: Ctx):
     """3.0.9.0 R3: GET orchestra/<run>/coach -> the coach's result (orchestra/coach.py), computed once and kept in

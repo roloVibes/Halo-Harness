@@ -30,7 +30,8 @@ test, TESTS = new_registry()
 
 REPO = Path(__file__).resolve().parent.parent
 BRIEF = ("lineup", "bio", "role", "tier", "team", "member", "block", "stage", "lane", "part", "step", "mission",
-         "gate", "claim", "hand-off", "plan", "coach", "orchestra run", "fleet", "hub", "harness", "capability", "unit")
+         "gate", "claim", "hand-off", "plan", "coach", "orchestra run", "fleet", "hub", "harness", "capability", "unit",
+         "pack")  # 3.2.1.0 R1: "pack"
 
 
 def _explain(*argv):
@@ -80,13 +81,13 @@ def test_every_word_studio_help_names_exists(ctx: Ctx):
 def test_halo_explain_prints_the_paragraph(ctx: Ctx):
     from halo_harness import glossary as G
     words = G.load()
-    for word in ("lineup", "hand-off", "orchestra run"):
+    for word in ("lineup", "hand-off", "orchestra run", "pack"):
         rc, out, _ = _explain(*word.split())
         flat = " ".join(out.split())
         ctx.check(f"`halo explain {word}`: the word, then its paragraph, got {rc} {out[:120]!r}",
                   rc == 0 and out.startswith(word + "\n\n") and flat.endswith(words[word]))
     rc, out, _ = _explain()
-    ctx.check(f"no word lists all 23, got {rc} {out[:80]!r}", rc == 0 and out.startswith("23 words")
+    ctx.check(f"no word lists all {len(BRIEF)}, got {rc} {out[:80]!r}", rc == 0 and out.startswith(f"{len(BRIEF)} words")
               and all(f"  {w} " in out for w in BRIEF))
     rc, _, err = _explain("xyzzy")
     ctx.check(f"an unknown word: exit 1, said so, got {rc} {err!r}", rc == 1 and "no word 'xyzzy'" in err)
@@ -105,7 +106,8 @@ def test_fuzzy_match(ctx: Ctx):
     from halo_harness import glossary as G
     for query, want in (("lineups", "lineup"), ("Lineup", "lineup"), ("handoff", "hand-off"), ("hand-offs", "hand-off"),
                         ("hand off", "hand-off"), ("orchestra_run", "orchestra run"), ("orch", "orchestra run"),
-                        ("capabilities", "capability"), ("teem", "team"), ("missions", "mission"), ("tiers", "tier")):
+                        ("capabilities", "capability"), ("teem", "team"), ("missions", "mission"), ("tiers", "tier"),
+                        ("packs", "pack"), ("Pack", "pack")):
         word, _ = G.find(query)
         ctx.check(f"{query!r} -> {want!r}, got {word!r}", word == want)
     word, close = G.find("st")
@@ -120,7 +122,7 @@ def test_api_route_and_the_tui(ctx: Ctx):
     from halo_harness.config.paths import bridge_home
     req = Request(method="GET", path="glossary", query={}, body={}, cwd=REPO, state_dir=Path(bridge_home()))
     status, body = dispatch(req)
-    ctx.check(f"GET /api/glossary: 200 and 23 words in file order, got {status}", status == 200
+    ctx.check(f"GET /api/glossary: 200 and {len(BRIEF)} words in file order, got {status}", status == 200
               and [w["word"] for w in body["words"]] == list(BRIEF) and body["words"][0]["text"] == G.load()["lineup"])
     status, _ = dispatch(Request(method="POST", path="glossary", query={}, body={}, cwd=REPO, state_dir=Path(bridge_home())))
     ctx.check(f"POST is a 405, got {status}", status == 405)
@@ -131,6 +133,8 @@ def test_api_route_and_the_tui(ctx: Ctx):
     from halo_harness.tui.dialogs.explain_card import card_parts
     title, body_text = card_parts("claims")
     ctx.check(f"the TUI card: claims -> claim, got {title}", title == "claim" and body_text == G.load()["claim"])
+    title, body_text = card_parts("packs")  # 3.2.1.0 R1
+    ctx.check(f"the TUI card: packs -> pack, got {title}", title == "pack" and "Pack Manager" in body_text)
     title, body_text = card_parts("nope-nope")
     ctx.check(f"an unknown word's card lists the words, got {title}", title.startswith("No word") and "lineup" in body_text)
 

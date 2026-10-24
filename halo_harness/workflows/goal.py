@@ -44,7 +44,8 @@ def add(compiled, repo, state_dir=None) -> dict:
     run_dir = new_run(repo, goal)
     row = queue.add(state_dir, goal.what.splitlines()[0], done_when=goal.done_when, stop_when=goal.stop_when, repo=repo,
                     budget_usd=goal.budget_usd, lineup=goal.lineup, kind="orchestra", files=list(goal.files),
-                    test=goal.test, workers=goal.workers, review=goal.plan == "review")
+                    test=goal.test, workers=goal.workers, review=goal.plan == "review",
+                    lineup_acceptance=False)  # 3.2.1.0 R1: its test and plan are its stages', not the lineup's
     queue.update(state_dir, row["id"], lambda g: g.update(run_dir=str(run_dir), workflow=goal.workflow.get("ref")))
     return queue.load(state_dir, row["id"]) or dict(row, run_dir=str(run_dir))
 

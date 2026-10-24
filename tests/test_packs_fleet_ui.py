@@ -9,7 +9,9 @@ with doc-review (bash granted, a model that calls tools) and fleet-needs-gpu:
 2. the Mission panel's plan names the part's pack need with the harness that
    has it, the head shows the mission's metadata (it was started with the
    pack's lineup), and the selected part shows the pack's inspector line,
-   read through the pack's file route.
+   read through the pack's file route;
+3. (3.2.1.0 R1) the Mission form's Lineup select, the active lineup first; the
+   pack's lineup picked there rides in the new mission.
 
 Run: python -m tests.test_packs_fleet_ui
 """
@@ -72,6 +74,20 @@ def test_the_mission_plan_shows_the_pack_need_metadata_and_inspector(ctx: Ctx):
     ctx.check(f"selected: the pack's inspector line, got {got.get('inspector_label')!r}", got.get("inspector_label") == "Review checklist")
     ctx.check(f"its file read through the pack's route, got {str(got.get('inspector_text'))[:80]!r}",
               "Every link in a changed document resolves." in str(got.get("inspector_text")))
+
+
+@test
+def test_the_mission_form_sends_the_lineup(ctx: Ctx):
+    """3.2.1.0 R1: the Lineup select lists the lineups `halo teams` lists, the active one (halo-dev-cycle) first;
+    the pack's lineup picked there reaches the mission: its head says it, with the pack's metadata."""
+    got = _got(ctx)
+    opts = got.get("form_options") or []
+    ctx.check(f"the active lineup first, the pack's among them, got {opts} {got.get('form_first')!r}",
+              opts[:1] == ["halo-dev-cycle"] and "doc-review--review" in opts and got.get("form_first") == "halo-dev-cycle (active)")
+    ctx.check(f"the seeded mission (started with the pack's lineup) says it, got {got.get('mission_lineup')!r}",
+              got.get("mission_lineup") == "doc-review--review")
+    ctx.check(f"planned from the form: the lineup and the pack's metadata, got {got.get('form_lineup')!r} {got.get('form_metadata')!r}",
+              got.get("form_lineup") == "doc-review--review" and got.get("form_metadata") == "pack doc-review · review=docs · style=short")
 
 
 if __name__ == "__main__":

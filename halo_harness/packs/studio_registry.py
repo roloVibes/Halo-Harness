@@ -132,6 +132,14 @@ def registry(*, cwd=None, state_dir=None) -> dict:
     return {"version": 1, "core": list(R.CORE_SECTIONS), "packs": packs}
 
 
+def section_heads(*, cwd=None, state_dir=None) -> list:
+    """3.2.1.0 R1: each running pack's own sections as `{id, pack, title}`, in the registry's order: what the
+    served page names up front (studio/session_open.py boot_html), so a reload paints the saved pack section first."""
+    from halo_harness.packs.contribute import _active
+    return [{"id": N.qualify(p.id, s["id"]), "pack": p.id, "title": str(s.get("title") or s["id"])}
+            for p in _active(cwd, state_dir) if R.studio_of(p.manifest) for s in R.sections_of(p.manifest)]
+
+
 def active_pack(pack_id: str, *, cwd=None, state_dir=None):
     """The running pack `pack_id`, or None (not installed here, disabled, or with a problem)."""
     from halo_harness.packs.contribute import _active

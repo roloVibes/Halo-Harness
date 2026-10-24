@@ -40,6 +40,10 @@ TAGS = {
     "image-out": "makes images",
     "tools": "calls tools",
     "local": "runs on this machine or the LAN (Ollama, a local Hugging Face model)",
+    # 3.2.1.0 R1: three more facts 3.1.9.0 R1's enriched catalog rows state (providers/model_row_facts.py)
+    "reasoning": "thinks before it answers (its row's reasoning kind is native or openai)",
+    "open-weights": "its weights are published (you could run it yourself)",
+    "audio-out": "speaks (audio among what it puts out)",
 }
 LONG_CONTEXT = 200_000
 _PREFIX_RE = re.compile(r"^([A-Za-z][A-Za-z0-9_-]*):")
@@ -57,7 +61,17 @@ def row_tags(row: dict) -> "set[str]":
         tags.add("long-context")
     if row.get("tools") is True:
         tags.add("tools")
-    if row.get("local") or row.get("provider") in ("ollama", "huggingface"):
+    reasoning = row.get("reasoning")
+    if isinstance(reasoning, dict) and str(reasoning.get("kind") or "none") != "none":
+        tags.add("reasoning")
+    if row.get("open_weights") is True:
+        tags.add("open-weights")
+    out = row.get("modalities_out")
+    if isinstance(out, (list, tuple, set)) and "audio" in out:
+        tags.add("audio-out")
+    # the row's own `local` when it states one (Studio's rows always do: a Hugging Face router row is remote);
+    # the provider only for a row without the key
+    if (bool(row["local"]) if "local" in row else row.get("provider") in ("ollama", "huggingface")):
         tags.add("local")
     return tags
 

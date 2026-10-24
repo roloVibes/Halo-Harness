@@ -181,6 +181,46 @@ def test_work_lists_goals_as_a_unit_kind(ctx: Ctx):
         ctx.check("the report rows carry the kind goal", all(r["kind"] == "goal" for r in store.rows()))
 
 
+@test
+def test_a_goal_takes_its_lineups_acceptance(ctx: Ctx):
+    """3.2.1.0 R1: `halo goal add --lineup` reads the lineup's acceptance (test, review) as `halo orchestra new`
+    does; what you give wins; a job, or a compiled workflow, takes nothing; the history line and the CLI say it."""
+    from tests.helpers.packs_home import PacksHome
+    with PacksHome() as h:
+        from halo_harness.supervise import history, queue
+        from halo_harness.supervise.goal_cli import cmd_goal
+        h.install(h.source(), enable=True)
+        g = queue.add(h.state, "review the docs", repo=str(h.repo), lineup="doc-review--review")
+        ctx.check(f"the lineup's test and plan: review, got {g['test']!r} {g['plan']!r}",
+                  g["test"] == "python -m pytest -q" and g["plan"] == "review")
+        ctx.check(f"the lines it took, got {g.get('taken')}", g.get("taken") == [
+            "test from lineup doc-review--review: python -m pytest -q",
+            "plan: review from lineup doc-review--review (the run pauses for the plan's review)"])
+        ctx.check("the Orchestra goal it runs carries them", queue.orchestra_fields(g)["test"] == "python -m pytest -q"
+                  and queue.orchestra_fields(g)["plan"] == "review")
+        first = history.read(h.state, g["id"])[0]
+        ctx.check(f"the history's added line says what it took, got {first.get('why')!r}",
+                  first.get("why", "").startswith("added; test from lineup doc-review--review: python -m pytest -q"))
+        typed = queue.add(h.state, "x", repo=str(h.repo), lineup="doc-review--review", test="make check")
+        ctx.check(f"a test you give wins (the review still comes), got {typed['test']!r} {typed.get('taken')}",
+                  typed["test"] == "make check" and typed["plan"] == "review" and len(typed.get("taken") or []) == 1)
+        job = queue.add(h.state, "x", repo=str(h.repo), lineup="doc-review--review", kind="job")
+        flow = queue.add(h.state, "x", repo=str(h.repo), lineup="doc-review--review", lineup_acceptance=False)
+        plain = queue.add(h.state, "x", repo=str(h.repo))
+        ctx.check("a job, a compiled workflow and a goal with no lineup take nothing",
+                  all(x["test"] == "" and x["plan"] == "auto" and "taken" not in x for x in (job, flow, plain)))
+        out = io.StringIO()
+        with redirect_stdout(out):
+            rc = cmd_goal(["add", "check the links", "--repo", str(h.repo), "--lineup", "doc-review--review"])
+        ctx.check(f"halo goal add prints the lines, got {out.getvalue()!r}", rc == 0
+                  and "  test from lineup doc-review--review: python -m pytest -q" in out.getvalue())
+        gid = out.getvalue().split()[1].rstrip(":")
+        show = io.StringIO()
+        with redirect_stdout(show):
+            cmd_goal(["show", gid])
+        ctx.check(f"halo goal show says it, got {show.getvalue()!r}", "test from lineup doc-review--review" in show.getvalue())
+
+
 def _raises(fn) -> bool:
     try:
         fn()
