@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.2.0.0] - unreleased
+## [3.2.0.0] - 2026-10-24
 
 Focus: packs -- "one harness, one Studio, multiple independently maintained capability packs" (the ten-phase program the owner pasted 2026-10-21). Every round reuses the registries Halo has; the six sections and every CLI are unchanged with no pack installed.
 
