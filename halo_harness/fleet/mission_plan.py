@@ -3,8 +3,9 @@
 model call (`call_model(prompt)` -> str | (str, cost) | {text, cost_usd,
 session_id}), through the same provider path as Orchestra's lead
 (orchestra/adapters.model_call); tests pass a fake. The prompt carries the
-fleet's capability catalog, one compact block per harness, and what only
-one harness has (mission_assign.unique_lines). The answer:
+fleet's capability catalog, one compact block per harness (3.2.0.0 R4: with
+its packs' capabilities, `pack caps:`), and what only one harness has
+(mission_assign.unique_lines, pack capabilities included). The answer:
 
     {"parts": [{"id", "title", "brief", "harness", "reason", "needs": [capability names],
                 "depends_on": [ids], "claims": [repo-relative paths or globs], "outputs": [files],
@@ -72,9 +73,22 @@ def catalog_block(entries: list, load: dict) -> str:
             lines.append("clis: " + ", ".join(clis))
         if (cat.get("media") or {}).get("comfyui"):
             lines.append("media: ComfyUI")
+        if pack_line(cat):
+            lines.append(pack_line(cat))
         lines.append(f"load: {int(load.get(str(e.get('harness')), 0))} live agents")
         out.append("\n".join(lines))
     return "\n\n".join(out)
+
+
+def pack_line(cat: dict) -> str:
+    """3.2.0.0 R4: `pack caps: docs.review (pack doc-review, 2 at once), gpu.render (not here: no GPU here)`."""
+    from halo_harness.fleet.capabilities_view import pack_caps
+    bits = []
+    for pid, c in pack_caps(cat):
+        par = (c.get("capacity") or {}).get("parallel")
+        bits.append(f"{c.get('name')} (pack {pid}" + (f", {par} at once" if par else "") + ")" if c.get("available")
+                    else f"{c.get('name')} (not here: {c.get('why')})")
+    return "pack caps: " + ", ".join(bits) if bits else ""
 
 
 def prompt(doc: dict, entries: list, load: dict, problems: Optional[list] = None) -> str:
@@ -92,7 +106,7 @@ def prompt(doc: dict, entries: list, load: dict, problems: Optional[list] = None
         + ("WHAT ONLY ONE HARNESS HAS (a part that needs it goes there):\n" + "\n".join(unique_lines(entries)) + "\n\n"
            if unique_lines(entries) else "")
         + "Rules: name in `needs` the capabilities a part cannot do without (an MCP server or tool, a craft app, "
-        "a CLI such as nmap, a skill, `gpu`, an OS); two parts never claim the same file (parts that must touch "
+        "a CLI such as nmap, a skill, `gpu`, an OS, a pack capability); two parts never claim the same file (parts that must touch "
         "one file run one after the other through depends_on); keep parts independent so they run at the same "
         "time; a part that uses another's output depends on it, reads that part's outputs (or everything it "
         'left, with "take": "all") and, for a repo part, starts from its finished branch. Answer with JSON only:\n'

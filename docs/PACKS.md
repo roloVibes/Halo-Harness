@@ -192,6 +192,42 @@ This panel is studio-bundle's own script (studio/hello.js). It runs once you gra
 halo pack enable studio-bundle --grant studio-script
 ```
 
+## In the fleet
+
+A pack may bring worker capabilities to your fleet: what its `pack.yaml`
+declares under `contributes.fleet`
+([EXTENSION_API.md](EXTENSION_API.md#fleet-capabilities) has the shape). Each
+capability is a name from the pack's `capabilities:` with what it requires of
+a host (tools, runtimes, the platform, a GPU or RAM, a model by tag, the
+grants it needs, where its data must be). Once the pack runs here:
+
+- **The catalog** lists each one, available here or not and why: `halo fleet
+  capabilities` has a `packs` row, Studio's Capabilities card a "packs" line
+  (`docs.review · pack doc-review · 2 at once · available: tools: <model>;
+  bash granted`), the map's chips count them (`+1 pack cap`).
+- **Who can**: `halo fleet who docs review` (and Studio's Who box) finds the
+  harness whose pack has it; one listed as not available there counts half
+  and says why.
+- **Missions**: the lead sees each harness's pack capabilities and which one
+  only one harness has; a part that names one in `needs` goes only to a
+  harness where it is available (its pack runs with the grants), and the
+  plan says "docs.review · pack doc-review on <harness>". Selected, the part
+  shows the pack's inspector lines (its own markdown or JSON files).
+- **The worker checks again**: before the part runs, the harness that got it
+  reads its own packs; if the pack is disabled there, or a grant is missing,
+  the part is refused with one line, "this harness does not run pack
+  doc-review with bash", and the mission goes on as it does when a harness
+  drops out.
+- **Mission metadata**: a mission started with the pack's lineup (the active
+  one, or `lineup:` in the request) carries the pack's `mission.metadata`.
+
+What a pack advertises never holds a secret, an environment reference or a
+path: the manifest refuses the first two (and a path in a description), and
+the catalog cuts every other path to its last part before anything leaves
+the machine. `halo pack inspect <id>` lists the capabilities with available /
+why in its "contributes:" block (with the Studio contributions), and
+`halo pack doctor` has a row for each one not available here.
+
 ## Where packs live
 
 - `~/.halo/packs/<id>/`: yours, for every repo (`halo pack install <path|git url>`).

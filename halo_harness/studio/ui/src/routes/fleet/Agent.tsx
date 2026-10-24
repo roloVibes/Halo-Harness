@@ -6,6 +6,7 @@
 // (`agent_tail`) and follows it (`agent_follow`), so the rest is pushed.
 // R4: Take over, Hand to..., Record and Replay under the controls; with no
 // agent picked, this harness's last sessions to replay (AgentHistory.tsx).
+// 3.2.0.0 R4: a mission part's agent shows its packs' inspector lines (PackCaps.tsx).
 import { useEffect, useRef, type ReactNode } from "react";
 import { Button, Empty, Icon, Kbd } from "../../lib/ui";
 import type { MotionState } from "../../lib/motion";
@@ -13,6 +14,7 @@ import { cost, elapsed, short } from "../orchestra/format";
 import { askStop, pin, toggleFollow, togglePause } from "./actions";
 import { AgentExtras, RecentSessions } from "./AgentHistory";
 import { nowText } from "./MapNode";
+import { AgentPackInspector } from "./PackCaps";
 import { Steer } from "./Steer";
 import { EMPTY, outputOf, thinkingOf, workingOf } from "./streams";
 import { OutputView, ThinkingView, Typed, WorkingView } from "./StreamViews";
@@ -139,6 +141,7 @@ export function AgentDetail() {
         <span className="fa-keys muted"><Kbd keys="J" /> <Kbd keys="K" /> hop</span>
       </div>
       <AgentExtras r={ref} done={done} noControl={noControl} />
+      <AgentPackInspector mission={ref.s.mission} part={ref.s.part} />
       <Steer key={key} k={key} disabled={done || noControl} why={why} />
     </div>
   );

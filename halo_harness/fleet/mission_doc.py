@@ -37,6 +37,8 @@ def mission_md(doc: dict, plan: dict) -> str:
         head += [f"**Constraints:** {doc['constraints']}", ""]
     head += [f"**State:** {doc.get('state')} | hub {(doc.get('hub') or {}).get('name') or '?'} | "
              f"{len(parts)} part(s) | est. ${est:.2f}" + (f" of a ${float(budget):.2f} budget" if budget else ""), ""]
+    if doc.get("metadata"):  # 3.2.0.0 R4: what the pack whose lineup started it says
+        head += ["**Metadata:** " + ", ".join(f"{k}={v}" for k, v in doc["metadata"].items()), ""]
     if doc.get("repo"):
         head += [f"**Repo:** {doc['repo'].get('name')} from {str(doc['repo'].get('base') or '')[:12]}; merged branch "
                  f"`mission/{doc['id']}/merged`", ""]

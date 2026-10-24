@@ -214,6 +214,8 @@ def validate_manifest(data, *, root=None, folder_is_id: bool = False) -> "list[s
     out += _meaning_lines(data)
     from halo_harness.packs.studio_rules import studio_lines  # 3.2.0.0 R3: contributes.studio's meaning
     out += studio_lines(data, root)
+    from halo_harness.packs.fleet_rules import fleet_lines  # 3.2.0.0 R4: contributes.fleet's meaning
+    out += fleet_lines(data, root)
     if root is not None:
         root = Path(root)
         out += _file_lines(data, root)

@@ -26,6 +26,7 @@ export type PlanPart = {
   unassignable: string | null;
   sequenced?: { after: string; because: string }[];
   take?: "outputs" | "all"; // 3.0.9.0: what it reads of its dependencies (fleet/mission_handoff.py)
+  pack_needs?: { need: string; pack: string }[]; // 3.2.0.0 R4: the needs a pack capability meets (fleet/mission_assign.py)
 };
 
 export type Plan = {
@@ -75,6 +76,7 @@ export type MissionDoc = {
   approved_by: string | null;
   plan_cost_usd: number;
   plan_problems?: string[];
+  metadata?: Record<string, unknown>; // 3.2.0.0 R4: what the pack whose lineup started it says (contributes.fleet.mission)
   stop_reason: string | null;
   parts: Record<string, PartRun>;
   history: { ts: number; state: string; why: string; by: string }[];

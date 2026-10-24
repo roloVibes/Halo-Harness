@@ -1,0 +1,15 @@
+# A fixture (3.2.0.0 R4): a valid pack whose fleet capability needs a GPU, so
+# on a host without one it is listed as not available, why = no GPU here.
+id: fleet-needs-gpu
+name: Needs a GPU
+version: 0.1.0
+halo_api: {min: "1.0"}
+capabilities: [gpu.render]
+contributes:
+  fleet:
+    capabilities:
+      - name: gpu.render
+        description: Renders frames on a local GPU
+        requires:
+          hardware: {gpu: true, ram_gb: 8}
+          platform: [linux, windows]
