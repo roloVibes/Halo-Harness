@@ -90,7 +90,7 @@ this list against the tree.
   `fleet/cli_panels.py` (record, digest), `fleet/cli_caps.py` (capabilities,
   who), `fleet/cli_mission.py` (missions), `fleet/table.py`,
   `fleet/table_live.py`
-- the panels: `fleet/attention.py`, `fleet/team_attention.py`,
+- the panels: `fleet/attention.py`, `fleet/team_attention.py`, `fleet/pack_attention.py` (a pack's own rows, 3.2.0.0 R3),
   `fleet/caps.py`, `fleet/conflicts.py`, `fleet/digest.py`,
   `fleet/journal.py`, `fleet/health.py`, `fleet/push.py`, `fleet/handoff.py`,
   `fleet/history.py`, `fleet/recording.py`, `fleet/recording_page.py`
@@ -208,7 +208,13 @@ recall's filter), `packs/lineup_run.py` (`workflows`, `acceptance.test` /
 `review` as the Orchestra defaults), `packs/roles.py` (the bios and lineups
 `halo pack inspect` / `doctor` and the list groups read), `packs/clone.py`
 (Clone into your folder); `studio/packs_roles_api.py` is Studio's
-`roles/packs` and `roles/clone`.
+`roles/packs` and `roles/clone`. 3.2.0.0 R3, Studio contributions:
+`packs/studio_rules.py` and `packs/studio_keys.py` (what `contributes.studio` may say, with the manifest: the
+panels, then the other keys),
+`packs/studio_registry.py` (the registry the shell reads: ids qualified, routes
+resolved, grant state); `studio/packs_studio_api.py` (`/api/pack/...`: the
+registry, a pack's files and bundle, its settings form) and
+`studio/packs_studio_live.py` (the `pack_changed` frame).
 
 **The extension API** (`halo_harness/ext/`, API 1.0, docs/EXTENSION_API.md):
 `ext/names.py` (the name rules), `ext/yamlio.py` (`read_yaml`, `write_yaml`),

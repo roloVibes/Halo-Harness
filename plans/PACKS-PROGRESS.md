@@ -71,6 +71,37 @@ decisions, the next task.
     pack.yaml: bash, contributes.workflows); provider-pinned, stray-workflow,
     rare-caps, user-files/doc-review--reviewer.yaml.
 
+- R3 (2026-10-21, branch v320/R3-studio from f5dfac1): Studio contributions.
+  - `contributes.studio` is typed (schemas/pack_yaml.py `studio()`, the JSON
+    twin's `$defs.studio` / `$defs.panel`): `sections`, `panels` (with a core
+    `section`), `palette`, `config_form`, `events`, `attention`; a panel is
+    `{id, title, kind, source, w, h, help, columns, links}`, kinds markdown,
+    table, form, links, events, bundle. Meaning in `packs/studio_rules.py`
+    (manifest lines `pack.yaml line N: contributes.studio.<key> ...`).
+  - `studio-script` joins the permissions; a bundle panel needs it
+    (`manifest.needed`, enable's request lines, doctor).
+  - The registry the shell reads: `packs/studio_registry.py` (`GET
+    /api/pack/registry`): only running packs, ids `<id>--<name>`, routes
+    resolved, `config_form` adds a Settings panel (kind form) and a palette
+    line, a bundle's `script: granted | not granted` and grant line.
+  - `studio/packs_studio_api.py` (`pack` in `_PREFIXES`): registry, `file/`
+    (markdown, JSON, a granted bundle; the shell's CSP; `?t=` for an
+    import(), routed from server.py do_GET), `data/`, `config` GET/POST.
+  - `pack_changed` frames: `studio/packs_studio_live.py` (`notify` from
+    `grants.changed` and install; a 2 s watch for another process's change).
+  - Attention: `fleet/pack_attention.py` (rows `pack:<id>:<kind>` from
+    `.data/<id>/attention/<row>.json`; A/R/S write `answers/<row>.json`, O
+    opens the pack's section); `attention.build(packs=)`, `fleet_answer` branch.
+  - The shell: `routes/packs/` (store, registry, panels, kinds, PackForm,
+    PackEvents with PackBundle, events, nav, types); `sections()` /
+    `useSections()` in routes/index.tsx (the six unchanged, packs after
+    Orchestra on Alt+7..9, a "packs" divider in the tab strip, a PACKS group in
+    the rail); the palette's "pack <id>" groups; the Workspace adds a panel
+    that arrives; Live, Activity and Attention render the pack's kinds.
+  - Fixtures: doc-review gains `contributes.studio` (+ studio/notes.md,
+    studio/checks.json); studio-bundle (studio/hello.js); failure fixtures
+    studio-bad-kind, studio-outside, studio-no-script.
+
 ## Open dependencies
 
 - R2 confirmed the `<id>--<name>` names (Decisions); the ROADMAP's R2 line
@@ -87,8 +118,13 @@ decisions, the next task.
 - The registry cache keys on pack.yaml and state.json, not on a pack's bio
   files: an edit inside an installed pack's agents/ shows its manifest lines
   after the next install/update/enable (installs go through the journal).
-- R3 (Studio contributions): `contributes.studio` is accepted and stored,
-  never read. The six sections stay hardcoded until R3.
+- R3 (done): a pack's Studio rows and answers are files in its data folder
+  (no new ext name); a push channel to the pack's code (an answer as a frame)
+  is R5's typed events. The supervisor's `goal_*` rows (3.1.8.0 R1) are not on
+  this branch: after the merge they sit beside `pack:<id>:<kind>` in
+  `fleet_answer.act`, each its own branch.
+- R3: a pack section you were on comes back after a reload only once the
+  registry loads (the first paint is the saved core section or Roles).
 - R4 (Fleet): `contributes.fleet` likewise; `capabilities` in pack.yaml are
   names only.
 - R5: `contributes.artifacts`, typed event schemas; `publish_event` sends
@@ -134,6 +170,26 @@ decisions, the next task.
   (studio.js sha256 1a976e3c...), `tests.test_studio_dist` 6/6 last.
   Not run: test_tui.py, the full tier as a whole, Kali/WSL.
 
+- R3 new modules: test_packs_studio_contract 6, test_packs_studio_api 6,
+  test_packs_studio_ui 8 (Chrome, full tier) -- 20 tests, all green.
+- R3 kept green, module by module: 79 plain modules (R1's and R2's lists,
+  test_fleet_panels_api/_more/_extras, test_fleet_mission_api, test_studio_team)
+  938 tests, 937 passed, 1 skipped, 1 failed under load (test_agents_schedule's
+  1 s schedule; alone twice 7/7); 14 Chrome modules (test_packs_studio_ui,
+  test_packs_roles_studio, test_studio_ui 53, test_studio_start, _roles_model,
+  _roles_glow, _roles_tiers, _modes, _model_select, _session, _session_live,
+  _session_links, _session_cost_map, _session_steer) 87 tests: one source pin
+  failed (test_studio_modes read `Digit[1-6]` in keys.ts; now `Digit[1-9]`),
+  re-run 12/12.
+- R3 full runs (2026-10-21, Windows build host): `tests/run_all.py --fast`
+  4883 tests / 495 modules, 4870 passed, 2 failed, 11 skipped, both real-home
+  guards ok; the two were test_studio_section_order's source pins (keys.ts
+  and Palette.tsx read `SECTIONS`, now `sections()`), updated, the module
+  re-run 6/6. `test_bridge.py` 101/101. Studio UI: `npx tsc --noEmit` clean,
+  two builds identical (studio.js sha256 a8f09cdf..., studio.css a9594654...,
+  index.html unchanged), `tests.test_studio_dist` 6/6 last.
+  Not run: test_tui.py, the full tier as a whole, Kali/WSL.
+
 ## Decisions
 
 - Pack-qualified names are `<id>--<name>` (valid under the name rule); an id
@@ -168,7 +224,21 @@ decisions, the next task.
   folder `~/.halo/packs/.data/<id>/`; `bash` and `network` are recorded for a
   pack's own code (`is_granted`); a url MCP server needs `network` too.
 
+- R3: every Studio contribution is data Studio's components draw; the one
+  script a pack may run in the page is a `bundle` panel, behind the explicit
+  `studio-script` grant (like `bash`); no filter or wording beyond the grant line.
+- R3: the bundle loads through `import()`, which sends no header, so the file
+  route takes the token in `?t=` as `/api/events` does; it serves only a
+  declared bundle source, and only while `studio-script` is granted.
+- R3: a pack's attention row is a JSON file its code writes with
+  `write_private` (`attention/<row>.json`); the answer is a file beside it
+  (`answers/<row>.json`): no new ext API name.
+- R3: `config_form: true` is the Settings panel of the pack's first section,
+  so it needs a section and a `config.schema` (manifest lines otherwise).
+
 ## Next task
 
-- R3: Studio contributions (plans/ROADMAP.md 3.2.0.0 R3): `contributes.studio`
-  read, one controlled bundle mechanism, nothing shown for a disabled pack.
+- R4: Fleet capabilities from packs (plans/ROADMAP.md 3.2.0.0 R4):
+  `contributes.fleet` read into the capabilities catalog (no credential,
+  private path or environment in an advertisement), missions and
+  recommendations use them, pack-specific inspectors and mission metadata.

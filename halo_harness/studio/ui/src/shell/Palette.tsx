@@ -4,10 +4,13 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react"
 import { Kbd, Surface } from "../lib/ui";
 import { studio, useStore } from "../lib/store";
 import { commands, fuzzy, type Command } from "./commands";
-import { SECTIONS } from "../routes";
+import { sections } from "../routes";
+import { packGroups } from "../routes/packs/registry";
+import { packs } from "../routes/packs/store";
 
-// 3.1.6.0 R6: the section groups in the registry's order (before, Roles, Design and Team sorted above Go to)
-const GROUP_ORDER = ["Go to", "Help", ...SECTIONS.map((s) => s.title), "Media", "View", "Layout", "Open"];
+// 3.1.6.0 R6: the section groups in the registry's order (before, Roles, Design and Team sorted above Go to);
+// 3.2.0.0 R3: the packs' groups after the sections'
+const groupOrder = () => ["Go to", "Help", ...sections().map((s) => s.title), ...packGroups(packs.get().reg), "Media", "View", "Layout", "Open"];
 
 export function Palette() {
   const open = useStore(studio, (s) => s.paletteOpen);
@@ -20,11 +23,12 @@ export function Palette() {
 
   const matches = useMemo(() => {
     if (!open) return [] as Command[];
+    const order = groupOrder();
     const scored = commands()
       .map((c) => ({ c, s: Math.max(fuzzy(q, c.label), fuzzy(q, c.group + " " + c.label) - 1) }))
       .filter((x) => x.s >= 0);
     if (q.trim()) scored.sort((a, b) => b.s - a.s);
-    else scored.sort((a, b) => GROUP_ORDER.indexOf(a.c.group) - GROUP_ORDER.indexOf(b.c.group));
+    else scored.sort((a, b) => order.indexOf(a.c.group) - order.indexOf(b.c.group));
     return scored.map((x) => x.c);
   }, [open, q, section]);
 

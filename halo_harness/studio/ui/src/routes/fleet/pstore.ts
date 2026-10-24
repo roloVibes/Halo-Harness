@@ -25,6 +25,8 @@ export type AttnRow = {
   text_for: string | null;
   remote_attached: number;
   target: Record<string, unknown>;
+  /** 3.2.0.0 R3: a pack's row (`pack:<id>:<kind>`) carries the pack's own label. */
+  label?: string;
 };
 
 export type OpenTarget = { section: string; panel?: string; harness?: string; session_id?: string; agent_id?: string; a?: string; b?: string; file?: string; mission?: string; part?: string | null; run?: string; stage?: string };
@@ -89,7 +91,7 @@ export type Digest = {
   totals: { started: number; ended: number; files: number; errors: number; handoffs: number; decisions: number; cost_usd: number };
 };
 
-export type LogKind = "state" | "tool" | "text" | "ask" | "error" | "fleet";
+export type LogKind = "state" | "tool" | "text" | "ask" | "error" | "fleet" | "pack"; // 3.2.0.0 R3: pack
 export type LogLine = { n: number; ts: number; key: AgentKey; harness: string; session_id: string; agent_id: string; kind: LogKind; text: string };
 /** One lane's history: each state from the moment it began (ms). */
 export type Seg = { t: number; state: string };

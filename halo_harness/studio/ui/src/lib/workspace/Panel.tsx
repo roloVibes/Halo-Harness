@@ -19,7 +19,8 @@ const HANDLES: Gesture[] = ["n", "s", "e", "w", "ne", "nw", "se", "sw"];
 const INTERACTIVE = "input, textarea, select, button, a, iframe, [contenteditable], [tabindex]";
 const TYPING = "input, textarea, select, [contenteditable]";
 const noMotion = (): MotionState => "none";
-const titleOf = (section: string) => section.charAt(0).toUpperCase() + section.split("-")[0].slice(1); // orchestra-plan: Orchestra
+const titleOf = (section: string) => // orchestra-plan: Orchestra; 3.2.0.0 R3: a pack's section (<id>--<name>) is "this section"
+  section.includes("--") ? "this section" : section.charAt(0).toUpperCase() + section.split("-")[0].slice(1);
 
 function Handle({ id, g }: { id: string; g: Gesture }) {
   const down = useGesture(id, g);

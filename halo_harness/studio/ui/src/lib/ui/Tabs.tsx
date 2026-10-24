@@ -1,10 +1,10 @@
 // Tabs with a sliding indicator under the active one. Each item may carry a
-// keyboard hint, a state motion and a data-testid.
+// keyboard hint, a state motion and a data-testid; 3.2.0.0 R3: a thin labelled divider before it (`divider`).
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { MotionState } from "../motion";
 import { Kbd } from "./Kbd";
 
-export type TabItem = { id: string; label: ReactNode; kbd?: string; motion?: MotionState; testid?: string; title?: string };
+export type TabItem = { id: string; label: ReactNode; kbd?: string; motion?: MotionState; testid?: string; title?: string; divider?: string };
 
 export function Tabs({ items, value, onChange, label }: { items: TabItem[]; value: string; onChange: (id: string) => void; label: string }) {
   const row = useRef<HTMLDivElement>(null);
@@ -21,7 +21,12 @@ export function Tabs({ items, value, onChange, label }: { items: TabItem[]; valu
   }, [value, items.length]);
   return (
     <div className="tabs" role="tablist" aria-label={label} ref={row}>
-      {items.map((it) => (
+      {items.map((it) => [
+        it.divider && (
+          <span key={"div-" + it.id} className="tab-divider mono" data-testid="tab-divider" aria-hidden="true">
+            {it.divider}
+          </span>
+        ),
         <button
           key={it.id}
           role="tab"
@@ -35,8 +40,8 @@ export function Tabs({ items, value, onChange, label }: { items: TabItem[]; valu
         >
           <span className="tab-label">{it.label}</span>
           {it.kbd && <Kbd keys={it.kbd} className="tab-kbd" />}
-        </button>
-      ))}
+        </button>,
+      ])}
       <span className="tab-indicator" style={{ transform: `translateX(${bar.left}px)`, width: bar.width }} aria-hidden="true" />
     </div>
   );

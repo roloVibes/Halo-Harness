@@ -163,14 +163,14 @@ PACK = {
     "contributes.commands": "its commands folder (commands), each command named <id>:<command>",
     "contributes.hooks": "its hooks file (hooks/hooks.json); loads once you grant hooks",
     "contributes.mcp": "its MCP servers (from .mcp.json); each starts once you grant mcp:<server>",
-    "contributes.studio": "Studio sections and panels (planned)",
+    "contributes.studio": "what it adds to Studio: sections after Orchestra, panels, palette lines, a settings form, its event lines and attention rows",
     "contributes.fleet": "Fleet capabilities (planned)",
     "contributes.artifacts": "typed artifacts and their viewers (planned)",
     "contributes.events": "the event kinds it publishes on Studio's live feed",
     "contributes.workflows": "the workflows its lineups may name (workflows: [review]); R5 runs them",
     "config.schema": "the shape of its settings (packs.settings.<id> in config.json)",
     "config.defaults": "the settings it starts with; yours win",
-    "permissions": "what it asks you to grant: mcp:<server>, hooks, bash, network, home-write",
+    "permissions": "what it asks you to grant: mcp:<server>, hooks, bash, network, home-write, studio-script",
     "migrations": "what changes for you between two versions; halo pack update prints it",
 }
 
