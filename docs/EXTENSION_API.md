@@ -164,7 +164,7 @@ file and line):
 | bio | `models.preference` | a bare family name only (`claude-sonnet`): the family the pick prefers. A route prefix (`or:` ...), a `vendor/model` path, a Databricks name, or `models.provider`, is a manifest problem. |
 | bio | `context.memory.namespace` | default the pack's id; the folder `~/.halo/packs/.data/<id>/memory/<namespace>/`; recall (`recall.search(namespace=...)`) reads it apart from the user's and every other pack's. |
 | bio | `tools.needs: [need, ...]` | `bash`, `network`, `home-write`, `hooks`, `mcp:<server>`, each requested in `permissions`; an ungranted need loads the bio and gets a doctor row naming `halo pack enable <id> --grant <need>`. |
-| lineup | `workflows: [name, ...]` | names from the manifest's `contributes.workflows` (names, or `workflows/<name>.yaml` whose stem is the name; R5 runs them). |
+| lineup | `workflows: [name, ...]` | names from the manifest's `contributes.workflows` (names, or `workflows/<name>.yaml` whose stem is the name; R5 runs them). 3.2.1.0 R2: an item may be `<id>/<name>` (the pack's own; another pack's is a manifest line); the resolved lineup carries `workflow_refs` (`["<id>/<name>", ...]`) beside the names ([PACKS.md](PACKS.md#a-lineups-workflows)). |
 | lineup | `acceptance.test`, `acceptance.review` | the Orchestra goal's `test` and `plan: review` a run with this lineup starts with (`halo orchestra new --lineup`); `prompt` / `expect` stay the doctor's smoke prompt. |
 | both | `from_pack: <id>@<version>` | written by Studio's Clone on the copy in the user's folder; changes nothing at run time. |
 
@@ -468,14 +468,19 @@ A `<stage>`:
 | `retries` | 0 or more | the stage's own return cap at the gate (the goal's `return_cap` is the largest) |
 | `timeout_s` | seconds | the worker's time limit |
 | `budget_usd` | dollars | checked before each pass of the stage's worker: at it the run stops (`budget: stage <id> spent ...`) |
-| `gate` | `human` or `auto` | `human`: the goal is `plan: review`, the run waits for the plan's approval before any stage |
+| `gate` | `human` or `auto` | `human`: the goal is `plan: review`, the run waits for the plan's approval before any stage (the plan review before the run starts; a hold before one stage is not a thing yet) |
 | `verify` | `{test: <command>, evidence: [<output, give or repo path>]}` | the test joins the goal's `test` (and runs alone to find the stage that fails); the evidence joins the gate's record check |
 | `after_event` | `<pack>:<kind>` | the lane waits for that pack event before its worker starts |
 
 What runs each bound, and what is only recorded (`report.json` `workflow.bounds`,
-"not enforced yet" in the CLI report): every stage bound above is held; the
-workflow's `budget_usd` is the goal's (the forecast shows it; a plain
-Orchestra run does not stop at it, the supervisor does under `--as goal`).
+"not enforced yet" in the CLI report): every stage bound above is held, and
+(3.2.1.0 R2) so is the workflow's `budget_usd`, the goal's: before each pass
+of any stage's worker the run's spend is checked against it and at it the run
+stops, in a plain Orchestra run as under `--as goal`. The supervisor's
+replanner never changes a workflow run's stage set (it is not paused for a
+replan), and the gate's verdict carries each `verify.evidence` item as a line
+under its lane (`evidence <item>: <bytes> bytes, sha256 <12>` or `missing`),
+which the conflict judge reads too.
 
 ```
 workflows/flow.yaml line 6: stages.audit.role 'auditor' is not a bio of the pack (by name or kind) nor a bio Halo ships

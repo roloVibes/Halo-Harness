@@ -119,15 +119,30 @@ def _bio_lines(rel: str, raw: dict, text: str, requested: "set[str]") -> "list[s
     return out
 
 
-def _lineup_lines(rel: str, raw: dict, text: str, declared: "list[str]") -> "list[str]":
+def _own_name(item: str) -> "tuple[str, str]":
+    """3.2.1.0 R2: `(pack, name)` of a lineup's workflow item: `<pack>/<name>` or `<pack>--<name>`, else ('', item)."""
+    s = item.strip()
+    other, name = (s.partition("/")[0], s.partition("/")[2]) if "/" in s else N.unqualify(s)
+    return (other, name) if other and N.is_valid_pack_id(other) else ("", s)
+
+
+def _lineup_lines(rel: str, raw: dict, text: str, declared: "list[str]", pack_id: str = "") -> "list[str]":
     flows = raw.get("workflows")
     if flows is None:
         return []
     if not (isinstance(flows, list) and all(isinstance(f, str) for f in flows)):
         return [f"{_where(rel, text, 'workflows')}: workflows is a list of the pack's workflow names"]
     have = ", ".join(declared) or "none declared"
-    return [f"{_where(rel, text, 'workflows')}: workflows {f!r} is not one of the pack's contributes.workflows "
-            f"({have})" for f in flows if f not in declared]
+    out = []
+    for f in flows:
+        other, name = _own_name(f)
+        if other and other != pack_id:
+            out.append(f"{_where(rel, text, 'workflows')}: workflows {f!r} names pack {other}'s workflow: a pack's lineup "
+                       f"runs its own ({pack_id}/<name>, or the bare name)")
+        elif name not in declared:
+            out.append(f"{_where(rel, text, 'workflows')}: workflows {f!r} is not one of the pack's contributes.workflows "
+                       f"({have})")
+    return out
 
 
 def roles_lines(manifest: dict, root) -> "list[str]":
@@ -143,5 +158,5 @@ def roles_lines(manifest: dict, root) -> "list[str]":
         if path.name.endswith(".team.yaml"):
             continue
         raw, text = _read(path)
-        out += _lineup_lines(f"teams/{path.name}", raw, text, declared)
+        out += _lineup_lines(f"teams/{path.name}", raw, text, declared, str(manifest.get("id") or ""))
     return out

@@ -26,6 +26,17 @@ send a part back. **Review the plan before it runs** (beside Run; on the Goal
 panel under the disclosure) sends `review: true`: the run stops after the
 lead's split and the plan canvas below takes the console's place.
 
+**A pack's workflow (3.2.1.0 R2).** Under the goal form, **or run a pack's
+workflow** is a select of the workflows of the packs that run here (`GET
+pack/manager`, read once and again on each `pack_changed`), by their
+`<pack>/<name>` and description. A pick fills in the workflow's form in the
+goal form's place -- the same form the Pack Manager's **Run <workflow>** opens
+([STUDIO-packs.md](STUDIO-packs.md)): its ref, its stages, one field per input
+at its default, the MODEL select, **Run** (`POST orchestra/run {workflow,
+inputs, model}`, compiled as `halo workflow run` does; a compile problem shows
+under the form) and **a blank goal instead**, which brings the goal form and
+the picker back. With no running pack that has a workflow there is no select.
+
 ![Orchestra before a run: the Start view](media/studio-orchestra-start.png)
 
 Its eight panels sit on the same movable workspace as everything else, each

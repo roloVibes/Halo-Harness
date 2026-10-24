@@ -191,6 +191,50 @@ def test_the_cooldown_holds_a_second_pause(ctx: Ctx):
     ctx.check("the goal keeps the new replan as pausing", queue.load(sd, g["id"])["replans"][-1]["state"] == "pausing")
 
 
+@test
+def test_a_workflow_run_that_drifts_keeps_its_stage_set(ctx: Ctx):
+    """3.2.1.0 R2: the drift-run fixture as a workflow run three ways (the goal row's `workflow`, goal.json's block,
+    split.json's pin) is never paused; its row and `halo goal show` say so once; the same run as a plain goal pauses."""
+    import contextlib
+    import io
+    import shutil
+    import time
+    from halo_harness.orchestra import jsonl
+    from halo_harness.supervise import goal_cli, queue, replan
+    from halo_harness.supervise.settings import settings
+    from tests.helpers import replan_rig as R
+    sd, now = R.state_dir({"replan": "auto"}), time.time()
+    cfg, line = settings(sd), "a workflow run keeps its stage set (its plan is pinned by doc-review/review)"
+    rows = {}
+    for way in ("row", "block", "pin", "plain"):
+        rd = sd / way
+        shutil.copytree(REPO / "tests" / "fixtures" / "supervise" / "drift-run", rd)
+        rows[way] = queue.add(sd, way, repo=str(sd), kind="job")
+        queue.update(sd, rows[way]["id"], lambda g, rd=rd: g.update(run_dir=str(rd)))
+    queue.update(sd, rows["row"]["id"], lambda g: g.update(workflow="doc-review/review"))
+    for name, key, value in (("block", "goal.json", {"ref": "doc-review/review"}), ("pin", "split.json", {"pinned": True})):
+        data = jsonl.read_json(sd / name / key, {})
+        jsonl.write_json(sd / name / key, dict(data, workflow=value))
+    for way in ("row", "block", "pin"):
+        rd, gid = sd / way, rows[way]["id"]
+        got = [replan.check_and_pause(sd, gid, rd, cfg, now), replan.spawn_hook(sd, gid, rd, cfg)(None)]
+        ctx.check(f"{way}: never paused, got {got}", got == [[], ""] and not (rd / "replan.json").exists()
+                  and not (rd / "stop.json").exists())
+    goal = queue.load(sd, rows["row"]["id"])
+    ctx.check(f"allowed answers first, got {replan.allowed(goal, cfg, now)!r}", replan.allowed(goal, cfg, now) == line)
+    ctx.check(f"the goal row says it, got {goal.get('replan_off')!r}", goal.get("replan_off") == line)
+    said = [e for e in R.events(sd / "row", "replan_off")]
+    ctx.check(f"one state line in the run, got {[e['text'] for e in said]}", len(said) == 1 and said[0]["text"] == f"replan_off: {line}")
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+        goal_cli._show(sd, rows["row"]["id"], False)
+    ctx.check(f"halo goal show says it once, got {out.getvalue()!r}", out.getvalue().count(f"  replan: off -- {line}\n") == 1)
+    ctx.check("split.json's pin: the line names its workflow",
+              queue.load(sd, rows["pin"]["id"]).get("replan_off") == "a workflow run keeps its stage set (its plan is pinned by its workflow)")
+    plain = replan.check_and_pause(sd, rows["plain"]["id"], sd / "plain", cfg, now)
+    ctx.check(f"the same run as a plain goal pauses, got {[d.kind for d in plain]}", plain and replan.pausing(sd / "plain"))
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

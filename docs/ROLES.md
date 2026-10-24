@@ -464,7 +464,9 @@ names the pack. Any lineup's `acceptance` may also say `test: <command>` and
 `review: true`: an Orchestra run on it (`halo orchestra new --lineup`)
 starts with that test and pauses for the plan's review, unless you give
 `--test`. A pack lineup's `workflows: [...]` names its pack's workflows
-([PACKS.md](PACKS.md) "A pack's lineups").
+([PACKS.md](PACKS.md) "A pack's lineups"); 3.2.1.0 R2: any lineup may name
+one as `<pack>/<name>`, the way `halo workflow run` does, a bare name
+resolving inside its own pack ([PACKS.md](PACKS.md#a-lineups-workflows)).
 
 ## How an agent gets a role
 

@@ -18,6 +18,10 @@ does with it (Halo 3.1.8.0 R3, docs/OUTCOMES.md "The judge reads the evidence").
 * `with_evidence(goal, run_dir, lane_n, file)` -- the goal the conflict judge
   is given, with `evidence`: the lines of the incoming lane and of every other
   lane that wrote the file (tests, sources, reproductions; never a summary).
+  3.2.1.0 R2: in a workflow run the incoming lane's stage evidence too, the
+  gate's own lines (workflows/gate.py `lane_evidence`, read in the lane's
+  worktree): `lane N (stage <id>, incoming): evidence <item>: <bytes> bytes,
+  sha256 <12 chars>` or `...: evidence <item>: missing`.
 """
 
 from __future__ import annotations
@@ -146,7 +150,24 @@ def judge_evidence(run_dir, lane_n: int, file: str) -> list:
             continue
         who = "incoming" if n == int(lane_n) else "merged"
         out += [f"lane {n} ({ev.kind}, {who}): {line}" for line in judge_lines(ev)]
-    return out
+    cut = sum(1 for line in out if line.startswith(f"lane {int(lane_n)} ("))
+    return out[:cut] + stage_lines(run_dir, int(lane_n)) + out[cut:]
+
+
+def stage_lines(run_dir, n: int) -> list:
+    """A workflow lane's `evidence <item>` lines for the judge, as the gate reads them ([] for a run without one)."""
+    try:
+        from halo_harness.orchestra.goal import load_goal
+        from halo_harness.orchestra.lanes import load_lane as orchestra_lane
+        from halo_harness.workflows.gate import evidence_line, lane_evidence, stage_of
+        goal = load_goal(Path(run_dir) / "goal.json")
+        lane = orchestra_lane(run_dir, n) if getattr(goal, "workflow", None) else None
+        if lane is None:
+            return []
+        return [f"lane {n} (stage {stage_of(goal, lane)}, incoming): {evidence_line(e)}"
+                for e in lane_evidence(run_dir, goal, lane, lane.worktree)]
+    except Exception:  # the judge's evidence never takes a merge down
+        return []
 
 
 def with_evidence(goal, run_dir, lane_n: int, file: str):

@@ -224,6 +224,30 @@ report print **"replanned N times (<why>)"**. Past `supervise.replan_max` a
 drift is left to the stops: the budget guard parks `goal budget`, the gate
 parks `goal gate`, as before.
 
+### A workflow run keeps its stage set
+
+Halo 3.2.1.0 R2. A goal compiled from a pack's workflow (`halo workflow run
+... --as goal`, `halo goal add --workflow`; the goal row's `workflow`, its
+goal.json's `workflow` block, or split.json's `workflow.pinned`) is never
+paused for a replan: `replan.allowed` answers first, "a workflow run keeps
+its stage set (its plan is pinned by doc-review/review)", and neither the
+spawn guard nor the tick pauses it. The replan is off for the whole run, not
+only its splits: the lead's answer is checked and applied as one plan, a
+split or a specialist adds a lane to a stage, and a retry would run a lane
+past its stage's own `retries`. With `supervise.replan` (or the goal's
+`--replan`) set, the goal row keeps the line as `replan_off`, the run's
+events.jsonl gets it once (`replan_off: ...`), and `halo goal show` and
+`halo supervise status` print it once:
+
+    g-3f9a1c: running [orchestra]  $0.0400
+      replan: off -- a workflow run keeps its stage set (its plan is pinned by doc-review/review)
+
+What changes a workflow run is its pack's file and its plan review before the
+run (a lane's title, bio, model). Its own stops still hold: a stage's
+`budget_usd` and `retries`, the workflow's `budget_usd` (a stop in the run
+itself, [WORKFLOWS.md](WORKFLOWS.md#bounds)), and the supervisor's budget
+guard. A goal with no workflow replans as above.
+
 ## Isolated workers
 
 Halo 3.1.8.0 R5. A goal's Orchestra run starts its workers through the same

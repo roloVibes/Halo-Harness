@@ -138,7 +138,7 @@ def write_report(run_dir, *, goal, lanes: list, merge: Optional[dict] = None, ga
         "goal_done_when": goal.done_when,
         "lanes": [{"lane": lane.n, "title": lane.job.title, "state": lane.state,
                    "pieces_returned": lane.pieces_returned, "cost_usd": round(lane.cost_usd, 6),
-                   "evidence": _evidence_lines(run_dir, lane.n)} for lane in lanes],  # 3.1.8.0 R3
+                   "evidence": _evidence_lines(run_dir, lane.n, gate)} for lane in lanes],  # 3.1.8.0 R3
         **_workflow_part(run_dir, goal, lanes, gate, status),  # 3.2.0.0 R5: a workflow run's outputs (workflows/outputs.py)
         "checks": build_checks(run_dir, goal, lanes, merge, gate),
         "units": _unit_rows(run_dir),  # 3.1.2.0 R1: one UnitRow per lane (docs/WORK.md), beside `lanes`
@@ -155,9 +155,11 @@ def write_report(run_dir, *, goal, lanes: list, merge: Optional[dict] = None, ga
     return report
 
 
-def _evidence_lines(run_dir, n) -> list:
+def _evidence_lines(run_dir, n, gate=None) -> list:
     from halo_harness.outcomes.lane import report_lines
-    return report_lines(run_dir, n)
+    own = report_lines(run_dir, n)  # 3.2.1.0 R2: then the gate's own lines (a workflow stage's `evidence <item>`)
+    said = (getattr(gate, "evidence", None) or {}).get(n) or []
+    return own + [line for line in said if line.startswith("evidence ") and line not in own]
 
 
 def _record_outcomes(run_dir, report: dict) -> None:

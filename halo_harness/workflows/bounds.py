@@ -11,10 +11,12 @@ says "not enforced yet" in the report:
     retries     enforced: the gate's return cap for that stage's lanes (workflows/gate.py)
     timeout_s   enforced: the worker's time limit (orchestra/adapters.py spawn_worker)
     budget_usd  enforced: before each pass of the stage's worker; at its budget the run stops
-    gate human  enforced: the plan review (plan: review) before any stage starts
+    gate human  enforced: the plan review before the run starts (plan: review); a hold before one stage
+                is not a thing yet
     after_event enforced: the lane waits for the pack event before its worker starts
-    the workflow's budget_usd   the goal's budget_usd: the plan's forecast is shown against it;
-                not enforced as a stop in a plain Orchestra run (the supervisor holds it: --as goal)
+    the workflow's budget_usd   enforced (3.2.1.0 R2): the goal's budget_usd; before each pass of any stage's
+                worker the run's spend is checked against it and at it the run stops (runtime.py), in a plain
+                Orchestra run and under --as goal (where the supervisor's guard holds it too)
     checkpoint  enforced: an Orchestra run resumes at its first unfinished step (halo orchestra run <id>)
 """
 
@@ -25,9 +27,12 @@ HOW = {
     "retries": "the gate's return cap for this stage's lanes",
     "timeout_s": "the worker's time limit (each pass of a real worker)",
     "budget_usd": "checked before each pass of the stage's worker; at its budget the run stops",
-    "gate": "the plan review: the run waits for halo orchestra approve (or Studio's plan) before any stage",
+    "gate": "the plan review before the run starts: the run waits for halo orchestra approve (or Studio's plan) "
+            "before any stage; a hold before one stage is not a thing yet",
     "after_event": "the stage's lane waits for the event before its worker starts",
 }
+RUN_BUDGET = ("a stop: before each pass of a stage's worker the run's spend (the lead's split, every lane, the judge's "
+              "conflicts) is checked against it; at it the run stops (under --as goal the supervisor's guard holds it too)")
 
 
 def _stage_row(s: dict, ids: list, bio_of: dict) -> dict:
@@ -47,9 +52,7 @@ def rows(wf, stages: list) -> "list[dict]":
         if s.get("gate") == "human":
             out.append({"stage": str(s["id"]), "key": "gate", "value": "human", "enforced": True, "how": HOW["gate"]})
     if isinstance(wf.data.get("budget_usd"), (int, float)):
-        out.append({"stage": "", "key": "budget_usd", "value": wf.data["budget_usd"], "enforced": False,
-                    "how": "the goal's budget: the forecast is shown against it; not enforced yet as a stop in a plain "
-                           "Orchestra run (under --as goal the supervisor stops at it)"})
+        out.append({"stage": "", "key": "budget_usd", "value": wf.data["budget_usd"], "enforced": True, "how": RUN_BUDGET})
     if wf.data.get("checkpoint") is not None:
         out.append({"stage": "", "key": "checkpoint", "value": bool(wf.data["checkpoint"]), "enforced": True,
                     "how": "the run resumes at its first unfinished step (halo orchestra run <run>; the supervisor's resume)"})

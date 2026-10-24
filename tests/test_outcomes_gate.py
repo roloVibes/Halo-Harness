@@ -13,7 +13,9 @@ temp repo, real git and tests; the workers are fakes that leave a transcript):
 4. the judge prompt gains an EVIDENCE block -- the lanes' tests, sources and
    reproductions, never their summary -- in a real conflict;
 5. the run report lists each lane's evidence lines, `format_report` prints
-   them, and the supervisor's failure keeps them.
+   them, and the supervisor's failure keeps them;
+6. 3.2.1.0 R2: in a workflow run the judge reads the incoming lane's stage
+   evidence (`evidence <item>: <bytes> bytes, sha256 ...` or `missing`).
 No model call. Run: python -m tests.test_outcomes_gate
 """
 from __future__ import annotations
@@ -145,6 +147,33 @@ def test_the_judge_prompt_gains_an_evidence_block(ctx: Ctx):
     plain = judge_prompt([{"index": 1, "start_line": 1, "end_line": 3, "ours": "a", "base": "", "theirs": "b"}],
                          {"what": "w", "done_when": "d"}, "f.py")
     ctx.check("a goal with no evidence: the prompt as before", "EVIDENCE" not in plain)
+
+
+@test
+def test_the_judge_reads_a_workflow_stages_evidence(ctx: Ctx):
+    """3.2.1.0 R2: in a workflow run the incoming lane's `verify.evidence` items are evidence lines for the judge (size
+    and sha256 of the file the stage saved, or missing), and the prompt's EVIDENCE block shows them."""
+    import hashlib
+    import json
+    from halo_harness.orchestra.goal import load_goal
+    from halo_harness.orchestra.hunks import judge_prompt
+    from halo_harness.outcomes.lane import judge_evidence, with_evidence
+    from tests.helpers.workflow_rig import GOOD_REPORT, StageWorker, WorkflowRig
+    with WorkflowRig() as w:
+        run = w.new_run(w.compile(docs="docs").goal)
+        w.run(run, worker=StageWorker())
+        body = json.dumps(GOOD_REPORT).encode("utf-8")
+        line = f"lane 4 (stage write, incoming): evidence report: {len(body)} bytes, sha256 {hashlib.sha256(body).hexdigest()[:12]}"
+        ctx.check(f"the incoming lane's stage evidence, got {judge_evidence(run, 4, 'README.md')}", judge_evidence(run, 4, "README.md") == [line])
+        ctx.check("a stage without verify.evidence adds none", judge_evidence(run, 3, "README.md") == [])
+        goal = load_goal(run / "goal.json")
+        prompt = judge_prompt([{"index": 1, "start_line": 1, "end_line": 2, "ours": "a", "base": "", "theirs": "b"}],
+                              with_evidence(goal, run, 4, "README.md"), "README.md")
+        ctx.check("the judge's EVIDENCE block has it", "a workflow stage's evidence files, by size and sha256" in prompt
+                  and f"- {line}" in prompt)
+        (run / "lanes" / "4" / "artifacts" / "report.json").unlink()
+        ctx.check(f"a file gone: missing, got {judge_evidence(run, 4, 'README.md')}",
+                  judge_evidence(run, 4, "README.md") == ["lane 4 (stage write, incoming): evidence report: missing"])
 
 
 @test
