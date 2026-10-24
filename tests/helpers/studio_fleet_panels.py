@@ -84,10 +84,13 @@ def timeline(c, rig, out: dict) -> None:
     out["hover_on"] = c.js(f"document.elementFromPoint({x + w / 2}, {y + h / 2})?.getAttribute('class')")
     c.mouse("mouseMoved", x + w / 2, y + h / 2)
     tip = "document.querySelector('[data-testid=\"fleet-timeline-tip\"]')?.textContent"
-    out["tip"] = c.wait(tip, 10)
+    try:
+        out["tip"] = c.wait(tip, 10)
+    except TimeoutError:  # wait raises, so the fallback below never ran before 6652a9b
+        out["tip"] = None
     if not out["tip"]:
-        # the Linux runner's pointer path missed the segment once (e7c30a5): the tip is the segment's own
-        # hover handler, so send it the pointer events by hand and keep what the pointer hit for the message
+        # the Linux runner's pointer path misses the segment at times (e7c30a5, 6652a9b): the tip is the
+        # segment's own hover handler, so send it the pointer events by hand; the message keeps what the pointer hit
         seg = f"{lane}.querySelector('.ftl-seg')"
         out["tip_pointer_hit"] = out.get("hover_on")
         c.js(f"for (const t of ['pointerenter', 'mouseenter', 'pointermove', 'mousemove', 'mouseover']) "

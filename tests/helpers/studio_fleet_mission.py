@@ -134,8 +134,15 @@ def run_and_ask(c, rig, fakes, mid: str, out: dict) -> None:
 def stop_and_report(c, rig, out: dict) -> None:
     from tests.helpers.studio_fleet_panels import seen
     seen(c, "document.querySelector('[data-testid=\"fleet-mission-stop\"]')")
-    c.click_on("document.querySelector('[data-testid=\"fleet-mission-stop\"]')")
-    out["stop_asks"] = c.wait("document.querySelector('[data-testid=\"fleet-mission-stop-ask\"] .dialog-title')?.textContent", 10)
+    stop = "document.querySelector('[data-testid=\"fleet-mission-stop\"]')"
+    ask = "document.querySelector('[data-testid=\"fleet-mission-stop-ask\"] .dialog-title')?.textContent"
+    c.click_on(stop)
+    try:
+        out["stop_asks"] = c.wait(ask, 15)
+    except TimeoutError:  # the Windows runner missed the pointer click once (8856816): click the button itself
+        c.js(f"{stop}.click(); 1")
+        out["stop_asks"] = c.wait(ask, 20)
+        out["stop_asks_by"] = "element"
     c.click_on("document.querySelector('[data-testid=\"fleet-mission-stop-reason\"]')")
     c.type_text("seen enough for today")
     c.click_on("document.querySelector('[data-testid=\"fleet-mission-stop-yes\"]')")

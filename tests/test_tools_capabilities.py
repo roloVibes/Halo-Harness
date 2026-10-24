@@ -43,6 +43,7 @@ def test_the_one_table(ctx: Ctx):
     want = {"Read": "read", "Glob": "read", "Grep": "read", "Edit": "edit", "Write": "edit", "NotebookEdit": "edit",
             "Bash": "bash", "BashOutput": "bash", "WebFetch": "web", "WebSearch": "web", "Agent": "agent",
             "Task": "agent", "Media": "media", "ToolSearch": "mcp", "Skill": "recall", "TodoWrite": "recall",
+            "knowledge_add": "recall", "knowledge_search": "recall",
             "OrchestraClaim": "edit", "OrchestraRelease": "edit"}
     ctx.check("each tool's capability", all(capability_of(n) == c for n, c in want.items()))
     ctx.check("an MCP tool is its server", capability_of("mcp__github__create_issue") == "mcp:github")
