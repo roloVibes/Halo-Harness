@@ -93,7 +93,8 @@ def install(source: str, *, project: bool = False, cwd=None, state_dir=None) -> 
     return True, lines
 
 
-def update(pack_id: str, *, dry_run: bool = False, cwd=None, state_dir=None) -> "tuple[bool, list[str]]":
-    """`halo pack update` (3.2.0.0 R7: staged and swapped, the old version kept as `<id>.previous`; packs/update.py)."""
+def update(pack_id: str, *, dry_run: bool = False, cwd=None, state_dir=None, confirm=None) -> "tuple[bool, list[str]]":
+    """`halo pack update` (3.2.0.0 R7: staged and swapped, the old version kept as `<id>.previous`; packs/update.py;
+    3.2.1.0 R4: `confirm`, the question a terminal run asks before the swap)."""
     from halo_harness.packs.update import update as _update
-    return _update(pack_id, dry_run=dry_run, cwd=cwd, state_dir=state_dir)
+    return _update(pack_id, dry_run=dry_run, cwd=cwd, state_dir=state_dir, confirm=confirm)

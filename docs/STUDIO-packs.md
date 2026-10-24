@@ -32,7 +32,9 @@ Documentation Review reference pack). There is no marketplace.
   to <version>** and **Remove**. Update asks first (3.2.0.0 R7): its confirm
   shows what `halo pack update <id> --dry-run` prints -- the migration notes,
   the files that change, the settings it renames, your files it keeps -- and
-  Update runs it; a refused update shows its lines instead. Roll back (shown
+  Update runs it; a refused update shows its lines instead. It is the same
+  look `halo pack update <id>` prints in a terminal before it asks
+  `Apply? [y/N]` (3.2.1.0 R4). Roll back (shown
   once an update kept the version before) runs `halo pack rollback <id>`.
   Remove asks first: what goes (the pack's own files), what stays
   (yours, each listed after), a "keep its record and grants" box

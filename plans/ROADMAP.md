@@ -1941,8 +1941,8 @@ orchestration engine beside Orchestra.
 - Orchestra's own new-run form has no workflow picker: a pack's workflow starts from the Pack Manager's Run <workflow> or `halo workflow run` (R5/R6). (closed 3.2.1.0 R2)
 - a lineup's `workflows:` stays a list of names; a workflow runs by `<pack>/<name>` (R5). (closed 3.2.1.0 R2)
 - the glossary's closed list has no "pack" yet (R1's note; `halo explain pack`, Studio's Glossary) (R7). (closed 3.2.1.0 R1)
-- a hook's shell `command` gets `${CLAUDE_PLUGIN_ROOT}` substituted as text, so on Windows Git Bash eats the path's backslashes; the exec form (`args`) and `${halo_python}` are safe, the shell form of every plugin is not (R7 found it).
-- rollback keeps one version back (`<id>.previous`); no history beyond it, and the CLI does not pause between the migration notes and the swap (`--dry-run` is the look before) (R7).
+- a hook's shell `command` gets `${CLAUDE_PLUGIN_ROOT}` substituted as text, so on Windows Git Bash eats the path's backslashes; the exec form (`args`) and `${halo_python}` are safe, the shell form of every plugin is not (R7 found it). (closed 3.2.1.0 R4)
+- rollback keeps one version back (`<id>.previous`); no history beyond it, and the CLI does not pause between the migration notes and the swap (`--dry-run` is the look before) (R7). (closed 3.2.1.0 R4)
 - the shipped doc-review pack says `halo: {min: "3.1"}` until the version bump: the bump commit that makes `__version__` 3.2.0.0 sets `{min: "3.2"}` (test_reference_pack fails until it does) (R7). (closed 2026-10-24: scripts/release.py sets it at release)
 - the full Chrome tier as a whole and a Kali/Linux pass of the packs program have not run on a worker (every round).
 

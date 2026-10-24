@@ -10,7 +10,9 @@
     halo pack grant <id> NAME [NAME ...] [--off] [--json]
                                                       give an enabled pack more of what it requests, or take grants back (--off)
     halo pack disable <id> [--json]                   nothing of it runs from now on; its files stay
-    halo pack update <id> [--dry-run] [--json]        from its source: its migration notes first, then the new version
+    halo pack update <id> [--dry-run] [--yes] [--json]
+                                                      from its source: its migration notes and the files that change first,
+                                                      in a terminal "Apply? [y/N]" (--yes: no question), then the new version
                                                       swapped in, the old one kept as <id>.previous (--dry-run: say it, change nothing)
     halo pack rollback <id> [--json]                  back to the version the last update replaced (<id>.previous)
     halo pack remove <id> [--keep-config] [--json]    the pack's own files only; yours stay and are listed
@@ -49,6 +51,8 @@ def _parser(verb: str) -> argparse.ArgumentParser:
     if verb == "update":
         p.add_argument("--dry-run", action="store_true",
                        help="print the migration notes and what would change; change nothing")
+        p.add_argument("--yes", action="store_true",
+                       help="do not ask before the swap (a run in a terminal shows what changes and asks Apply? [y/N])")
     if verb == "enable":
         p.add_argument("--grant", action="append", default=[], metavar="NAME",
                        help="grant one permission the pack requests (repeat for several)")
@@ -82,6 +86,34 @@ def _done(args, ok: bool, lines: "list[str]") -> int:
     for line in lines:
         print(f"halo pack: {line}", file=sys.stderr)
     return 1
+
+
+def _tty() -> bool:
+    """A terminal on both ends: only there does `halo pack update` ask (a pipe, a script, CI: as before)."""
+    try:
+        return bool(sys.stdin and sys.stdin.isatty() and sys.stdout and sys.stdout.isatty())
+    except (AttributeError, ValueError):
+        return False
+
+
+def _update(args, cwd) -> int:
+    """3.2.1.0 R4: in a terminal the dry run's lines first, then "Apply? [y/N]"; "n" or Enter leaves the pack as it
+    is (exit 1). --yes, --json, --dry-run or no terminal: no question. The lines shown are not printed twice."""
+    from halo_harness.packs.install import update
+    shown: list = []
+
+    def ask(look: "list[str]") -> bool:
+        shown.extend(look)
+        print("\n".join(look))
+        try:
+            return input("Apply? [y/N] ").strip().lower() in ("y", "yes")
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return False
+
+    asks = not (args.dry_run or args.json or args.yes) and _tty()
+    ok, lines = update(args.id, dry_run=args.dry_run, cwd=cwd, confirm=ask if asks else None)
+    return _done(args, ok, [ln for ln in lines if ln not in shown])
 
 
 def _list(args, cwd) -> int:
@@ -161,8 +193,7 @@ def cmd_pack(argv: list) -> int:
         from halo_harness.packs.install import install
         return _done(args, *install(args.source, project=args.project, cwd=cwd))
     if verb == "update":
-        from halo_harness.packs.install import update
-        return _done(args, *update(args.id, dry_run=args.dry_run, cwd=cwd))
+        return _update(args, cwd)
     if verb == "rollback":
         from halo_harness.packs.rollback import rollback
         return _done(args, *rollback(args.id, cwd=cwd))
