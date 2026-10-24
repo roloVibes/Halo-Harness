@@ -84,7 +84,14 @@ def text_edit(c, p, out: dict) -> None:
     before = page.read_text(encoding="utf-8")
     out["edit_text"] = open_editor()
     c.key("Escape")
-    out["edit_cancelled"] = c.wait(f"!{tid('design-text-edit')}.length && 'gone'", 15) == "gone" and page.read_text(encoding="utf-8") == before
+    try:
+        gone = c.wait(f"!{tid('design-text-edit')}.length && 'gone'", 6)
+    except TimeoutError:  # the Windows runner's Escape did not reach the editor once (ee033ec): press it on the box
+        c.js("document.querySelector('[data-testid=\"design-text-edit-input\"]')?.dispatchEvent("
+             "new KeyboardEvent('keydown', {key: 'Escape', bubbles: true})); 1")
+        out["cancel_by"] = "element"
+        gone = c.wait(f"!{tid('design-text-edit')}.length && 'gone'", 15)
+    out["edit_cancelled"] = gone == "gone" and page.read_text(encoding="utf-8") == before
     open_editor()
     c.type_text("PULSE AI")  # the editor selected the text
     c.key("Enter")

@@ -126,8 +126,18 @@ def update_rollback(c, url, ctx) -> dict:
     out = {"update_lines": c.js(f"{_text('[data-testid=pm-update-lines]')}.split('\\n')"),
            "update_cmd": c.js(_text("[data-testid=pm-update-cmd]")), "untouched": not (ctx["state"] / "packs" / "doc-review.previous").exists()}
     press(c, q("[data-testid=pm-update-yes]"))
-    out["rollback_label"] = w(c, _text(f"{ROW} [data-testid=pm-rollback]"), 30)
-    out["updated_last"] = w(c, f"{_text('[data-testid=pm-last] .pm-lines')}.split('\\n')", 10)
+    try:
+        w(c, f"!{q('[data-testid=pm-update-dialog]')}", 10)
+    except TimeoutError:  # the Windows runner's click on Apply missed once (ee033ec): click the button itself
+        c.js(f"{q('[data-testid=pm-update-yes]')}?.click(); 1")
+        out["update_yes_by"] = "element"
+        w(c, f"!{q('[data-testid=pm-update-dialog]')}", 15)
+    last = _text('[data-testid=pm-last] .pm-lines')
+    out["updated_last"] = w(c, f"/(1[.]0[.]0 -> 1[.]0[.]1|stays as it is|is up to date)/.test({last}) && {last}.split('\\n')", 30)
+    try:
+        out["rollback_label"] = w(c, _text(f"{ROW} [data-testid=pm-rollback]"), 30)
+    except TimeoutError as e:
+        raise TimeoutError(f"{e}; the update said {out['updated_last']}") from None
     out["version_after"] = c.js(_text(f"{ROW} .pm-row-ver"))
     press(c, q(f"{ROW} .pm-row-main"))
     out["compat_after"] = w(c, f"{qa('[data-testid=pm-compat] li')}.map((l) => l.textContent).filter((t) => t.includes('network'))", 20)
