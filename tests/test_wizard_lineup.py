@@ -440,7 +440,9 @@ def test_team_step_lineup_pane_applies_on_next_and_migrates_a_legacy_table(ctx: 
                 ctx.check(f"the step title says Team, got {state.title()}", "Team" in state.title())
                 lineup_list = app.screen.query_one("#wiz-team-lineups-list", OptionList)
                 ctx.check("the Lineups pane lists the shipped lineups by default", lineup_list.option_count > 0)
-                lineup_list.highlighted = 0
+                # 3.1.9.0 R2: row 0 (One model for everything) applies no lineup any more; a lineup row does
+                names = [str(lineup_list.get_option_at_index(i).id) for i in range(lineup_list.option_count)]
+                lineup_list.highlighted = names.index("balanced")
                 app.screen.action_do_next()  # the footer's plain Next -- no separate "Use" button any more
                 await pilot.pause(0.2)
                 ctx.check(f"a lineup apply note landed in state.written, got {state.written}",

@@ -101,6 +101,20 @@ what a lineup is, the steps, and **Make my first lineup** (a copy of a
 shipped one, opened on the canvas); "open the panels anyway" (or
 `?view=workspace`) goes straight to the panels.
 
+**The default lineup (3.1.9.0).** While no `team:` is set, new sessions run
+the shipped `auto` lineup ([ROLES.md](ROLES.md#the-auto-lineup-halo-3190)):
+the Start view says so ("In use now: auto (the default)") with **Open auto**
+beside Make my first lineup; once the panels show, it opens on the canvas,
+the toolbar's chip reads **active (default)**, the Lineups glance **ACTIVE ·
+auto (default)** and the status bar `active: auto (default)`. Its pool's
+cards read **auto** on their model pill ("picked when it spawns, for its
+task" on hover). While a member runs, its card's pill names the model it was
+picked for, with "auto: <model> -- <reason>" on hover; the Inspector's **Live**
+tab prints the same line under the agent's head (`roles-live-reason`), and
+the Session section's Live column writes the spawn as "main spawned coder on
+<model>: <reason>". A lineup with no `auto` card shows nothing new. Apply
+another lineup to replace it.
+
 | Panel | What it holds |
 |---|---|
 | **Lineups** (`roles-lineups`) | every lineup (shipped, user, project; the active one marked, the open one highlighted); **New** and **Duplicate** ask for a name on a card, **Delete** asks first (a shipped lineup stays), **Apply** asks first, showing the role table it writes; **user / project** says where New, Save and Delete write |

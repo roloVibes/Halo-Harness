@@ -399,7 +399,8 @@ def _child_credential_message(ref) -> str:
 
 def _build_child_session(*, runtime: AgentRuntime, spec: AgentSpec, agent_id: str,
                           model_override: Optional[str], parent_tool_use_id: str, background: bool = False,
-                          role_override: Optional[str] = None, effort_override: Optional[str] = None):
+                          role_override: Optional[str] = None, effort_override: Optional[str] = None,
+                          task_text: str = ""):
     """vibes/review.md finding 64: an `isolation: worktree` agent's tree is
     created first thing in the real builder, BEFORE the model resolves --
     so an unresolvable model (or an unconfigured provider) raised out with
@@ -411,7 +412,7 @@ def _build_child_session(*, runtime: AgentRuntime, spec: AgentSpec, agent_id: st
         return _build_child_session_inner(
             runtime=runtime, spec=spec, agent_id=agent_id, model_override=model_override,
             parent_tool_use_id=parent_tool_use_id, background=background, role_override=role_override,
-            effort_override=effort_override, _created_worktrees=created,
+            effort_override=effort_override, _created_worktrees=created, task_text=task_text,
         )
     except BaseException:
         for wt_path in created:
@@ -426,7 +427,7 @@ def _build_child_session(*, runtime: AgentRuntime, spec: AgentSpec, agent_id: st
 def _build_child_session_inner(*, runtime: AgentRuntime, spec: AgentSpec, agent_id: str,
                                 model_override: Optional[str], parent_tool_use_id: str, background: bool = False,
                                 role_override: Optional[str] = None, effort_override: Optional[str] = None,
-                                _created_worktrees: Optional[list] = None):
+                                _created_worktrees: Optional[list] = None, task_text: str = ""):
     """A real `agent.loop.Session` for `spec`: its OWN fresh (or resumed)
     log, a tool subset frozen from the PARENT's own catalog (never grows
     it -- brief B), its `body` as the full system prompt (CLAUDE.md/memory
@@ -566,6 +567,11 @@ def _build_child_session_inner(*, runtime: AgentRuntime, spec: AgentSpec, agent_
             ctx.system_prompt = (f"{ctx.system_prompt}\n\nTeam memory namespace "
                                  f"({team_control.context.get('memory', {}).get('namespace')}): {memory_dir} "
                                  f"-- you may {role_word} it; use it for notes the whole team shares.")
+    # Halo 3.1.9.0 R2: when the one model order reaches `auto` (an auto bio,
+    # below a tier's model and the call's own `model`), `models_auto.pick`
+    # chooses for this task; the Pick (and its reason) lands in `_auto`.
+    from halo_harness.models_auto_spawn import resolver as _auto_resolver
+    _auto: dict = {}
     model_ref, model_profile = resolve_agent_model(
         invocation_model=model_override, frontmatter_model=spec.model,
         role_name=_effective_role_name, role_table=runtime.role_table,
@@ -573,6 +579,8 @@ def _build_child_session_inner(*, runtime: AgentRuntime, spec: AgentSpec, agent_
         env=parent.tool_env, settings=getattr(parent.session_context, "settings", None),
         parent_ref=parent.model_ref, parent_profile=parent.model_profile,
         parent_small_ref=parent.small_model_ref, state_dir=parent.state_dir, routes=runtime.routes,
+        auto_pick=_auto_resolver(runtime=runtime, role_name=_effective_role_name, task_text=task_text,
+                                 holder=_auto, routes=runtime.routes),
     )
     # 2.0.2 review finding 7 (major): a decision-only/judge endpoint
     # (`Controller.set_model` auto-routes one to `roles.judge` rather than
@@ -637,6 +645,13 @@ def _build_child_session_inner(*, runtime: AgentRuntime, spec: AgentSpec, agent_
         child_creds = _resolve_creds(model_ref, parent.settings)
         child_openrouter_base_url = None
         child_extra_headers = {}
+        _picked = _auto.get("pick")
+        if child_creds is None and _picked is not None and not _picked.fallback:
+            # 3.1.9.0 R2: an auto pick whose provider has no credentials here runs on the parent's model
+            _picked.fall_back(_parent_ref.raw, f"{model_ref.raw} has no credentials here")
+            model_ref, model_profile = _parent_ref, parent.model_profile
+            child_creds, child_openrouter_base_url = parent.creds, parent.openrouter_base_url
+            child_extra_headers = dict(parent.extra_headers)
         if child_creds is None:
             raise ProviderNotConfigured(_child_credential_message(model_ref))
 
@@ -880,15 +895,21 @@ def _build_child_session_inner(*, runtime: AgentRuntime, spec: AgentSpec, agent_
                                         # finding 10: the SAME semaphore object, never a fresh one -- see
                                         # AgentRuntime.concurrency_semaphore's own docstring.
                                         concurrency_semaphore=runtime.concurrency_semaphore)
+    # Halo 3.1.9.0 R2: an auto pick's reason rides on the child (its agent
+    # row's `model_reason`, its meta.json) and opens its transcript.
+    from halo_harness.models_auto_spawn import record as _record_auto_pick
+    _model_reason = _record_auto_pick(child, _auto.get("pick"), ran_on=model_ref.raw)
     # Halo 3.0.5.0 (Fleet): the child joins the session's live agent tree.
     _agent_tree.register_child(parent, child, agent_id=agent_id, spec=spec, model=model_ref.raw,
-                               role=_effective_role_name, background=background, team_control=team_control)
+                               role=_effective_role_name, background=background, team_control=team_control,
+                               model_reason=_model_reason)
     _write_meta(meta_path, {
         "agent_id": agent_id, "type": spec.name, "description": spec.description,
         "model": model_ref.raw, "parent_tool_use_id": parent_tool_use_id,
         "started": time.time(), "status": "running", "session_id": child_log.session_id,
         # 3.0.5.0 R3: Live Roles' history (studio/fleet_api.py) lists past runs by role
         "role": _effective_role_name, "lineup": getattr(team_control, "name", None),
+        **({"model_reason": _model_reason} if _model_reason else {}),
     })
     return child, meta_path
 
@@ -1617,7 +1638,7 @@ def _run_one_fanout_child(*, runtime: AgentRuntime, spec: AgentSpec, agent_id: s
         child, meta_path = _build_child_session(
             runtime=runtime, spec=spec, agent_id=agent_id, model_override=job["model"],
             parent_tool_use_id=tool_id, background=False, role_override=job["role"],
-            effort_override=job["effort"],
+            effort_override=job["effort"], task_text=f"{job.get('description') or ''}\n{job.get('prompt') or ''}",
         )
         if not live_asks_ok:
             child._subagent_live_asks = False
@@ -1834,6 +1855,7 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
         child, meta_path = _build_child_session(
             runtime=runtime, spec=spec, agent_id=agent_id, model_override=model_override, parent_tool_use_id=tool_id,
             background=background, role_override=role_override, effort_override=effort_override,
+            task_text=f"{description}\n{prompt}",
         )
     except Exception as e:
         # 2.0.2 review finding 4 (major): this module's own docstring says
@@ -2060,7 +2082,8 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
                         # waiting on it forever.
                         role_name, f"{spec.name} {'failed' if bg_is_error else 'finished'}"
                                    f" (${child.cost_meter.total_usd:.4f})")
-                    _team_queue_report(parent, report_line)
+                    if team_control.reports_for(role_name):  # 3.1.9.0 R2: the default lineup reports its cards only
+                        _team_queue_report(parent, report_line)
                 # H6/D10 (see the foreground path's own comment): merge even
                 # for a background sub-agent, under the same lock its own
                 # pending-notice append already uses.
@@ -2235,7 +2258,8 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
                                          child_log_path=str(child.log.path))
         report_line = team_control.record_report(
             role_name, f"{spec.name} {'failed' if is_error else 'finished'} (${child.cost_meter.total_usd:.4f})")
-        _team_queue_report(parent, report_line)
+        if team_control.reports_for(role_name):  # 3.1.9.0 R2: the default lineup reports its cards only
+            _team_queue_report(parent, report_line)
     # H6 known v1 gap (D10) / B must-do: a non-interactive child's own
     # "ask" denials (agent/loop.py's `_resolve_tool_call`) land in the
     # CHILD's own `permission_denials` list, which nothing outside this
@@ -2347,6 +2371,7 @@ def _resume_task_claimed(runtime: AgentRuntime, task_id: str, tool_input: dict, 
             runtime=runtime, spec=spec, agent_id=agent_id, model_override=model_override,
             parent_tool_use_id=tool_id, background=False,  # a resume always runs in the foreground
             role_override=role_override, effort_override=effort_override,
+            task_text=f"{tool_input.get('description') or ''}\n{tool_input.get('prompt') or ''}",
         )
     except Exception as e:
         # Finding 4: same "never raises" contract run_agent_call's own

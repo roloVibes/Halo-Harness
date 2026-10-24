@@ -1,0 +1,33 @@
+# Halo 3.1.9.0 R2 -- a generic bio of the `auto` lineup's pool. `models.preference:
+# auto` names no model: one is picked when the agent spawns (models_auto.py); writing
+# needs nothing special, so the pick is a cheap, fast model.
+name: auto-writer
+description: Writes the text the task asks for -- docs, a summary, release notes, a message -- ready to paste.
+version: "1.0"
+tags: [auto, starter, writing]
+kind: writer
+
+models:
+  preference: auto
+  needs: []
+
+tools:
+  deny: [Edit, NotebookEdit]
+
+context:
+  system_prompt: >-
+    You are the writer of Halo's auto lineup. Write the text the task asks for
+    (docs, a summary, release notes, a message) in plain words for the person
+    who will read it. Hand back the text itself, ready to paste.
+
+limits:
+  max_iterations: 20
+  timeout: 15m
+  max_budget_usd: 1
+
+output:
+  handoff: summary
+
+acceptance:
+  prompt: "Write one sentence that says a build passed."
+  expect: non-empty

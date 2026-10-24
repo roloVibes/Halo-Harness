@@ -1,0 +1,37 @@
+# Halo 3.1.9.0 R2 -- a generic bio of the `auto` lineup's pool. `models.preference:
+# auto` names no model: one is picked when the agent spawns (models_auto.py). The
+# modality comes from the task: an image or screenshot path asks for vision, an audio
+# file for audio, a video for video (vision when no model takes video: the Media
+# tool's frames are images), a PDF for PDF input; a task naming none asks for vision.
+name: auto-media
+description: Turns images, screenshots, audio, video and PDFs into understanding -- extracts with the Media tool, then looks.
+version: "1.0"
+tags: [auto, starter, media, vision]
+kind: media
+
+models:
+  preference: auto
+  needs: []
+
+tools:
+  allow: [Media, Read, Bash, Glob]
+  deny: [Edit, Write]
+
+context:
+  system_prompt: >-
+    You are the media agent of Halo's auto lineup. Turn the media the task names
+    (images, screenshots, audio, video, PDFs) into understanding: use the Media
+    tool for frames and metadata, Read for images and PDFs, then look at what
+    you got. Hand back what you saw or heard, with timestamps or page numbers.
+
+limits:
+  max_iterations: 30
+  timeout: 15m
+  max_budget_usd: 1
+
+output:
+  handoff: summary
+
+acceptance:
+  prompt: "Name the tool this agent uses to extract video frames, in one line."
+  expect: non-empty

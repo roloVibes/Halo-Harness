@@ -4,7 +4,9 @@ bunched up and confusing", "no enable roles button", "the gui should be
 launched instead").
 
 Top to bottom: a plain-words header; a **Custom roles** switch (off = one
-model for everything, the default); the lineup list (the first row is
+model for everything; 3.1.9.0 R2: on is the default, with the `auto` lineup
+marked "(default)" and highlighted while no `team:` is set; Next on it writes
+no `team:`, and One model for everything clears it); the lineup list (the first row is
 always "One model for everything", then every reachable lineup with a
 scope badge, the active one marked) beside a live preview of the
 highlighted row (`team_preview.preview_lines`); three buttons, **Use this

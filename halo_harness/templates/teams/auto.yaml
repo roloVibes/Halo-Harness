@@ -1,0 +1,79 @@
+# Halo 3.1.9.0 R2 -- the `auto` lineup: the one a session runs when no `team:`
+# is set (config, or --team for one run). Main runs on the session's own model
+# and delegates to a pool of generic bios whose `models.preference` is `auto`:
+# each member's model is picked when it spawns (halo_harness/models_auto.py),
+# from what its task needs -- an image, audio, video or PDF in the task, a
+# reasoning model for planning and review, tool calls for code, a long context
+# for a long input, and cheap and fast for the rest -- out of this Halo's
+# "best at" index (`halo models analyze`), weighed against `budget.band`.
+# The pick and its one-line reason show in Studio and in the member's first
+# note. Pick another lineup to replace it: `halo config set team <name>`, or
+# Studio Roles -> Apply. See docs/ROLES.md "The Auto lineup".
+name: auto
+description: >-
+  The default: main runs on your model and hands sub-tasks to a pool
+  (planner, researcher, coder, reviewer, media, writer, ops) whose models
+  are picked at spawn for what each task needs.
+version: "1.0"
+tags: [starter, auto]
+about: >-
+  Main runs on the session's model and delegates. Each member's model was
+  picked for its task when it started (its first note says which and why).
+  You are in the pool: do the task yourself and hand back the result;
+  spawn no other lineup member.
+
+agents:
+  - {agent: default-model, role: main}
+  - {agent: auto-planner, role: planner, use_for: [plan, outline]}
+  - {agent: auto-researcher, role: researcher, use_for: [research, investigate]}
+  - {agent: auto-coder, role: coder, use_for: [implement, fix, refactor]}
+  - {agent: auto-reviewer, role: reviewer, use_for: [review, audit, judge]}
+  - {agent: auto-media, role: custom, as: media, use_for: [screenshot, video, audio, transcribe]}
+  - {agent: auto-writer, role: custom, as: writer, use_for: [summarize, draft, docs, changelog]}
+  - {agent: auto-ops, role: custom, as: ops, use_for: [deploy, release, install, ci]}
+
+delegation:
+  mode: by-skill
+  max_parallel: 4
+  max_depth: 2
+  handoff: summary
+  forward_text: false
+
+# The first word of an Agent call's description or prompt that appears here
+# names the member (an explicit `role` on the call always wins). No `default`:
+# a call that matches nothing runs as it always did.
+routing:
+  image: media
+  screenshot: media
+  video: media
+  audio: media
+  pdf: media
+  transcribe: media
+  review: reviewer
+  audit: reviewer
+  judge: reviewer
+  plan: planner
+  outline: planner
+  research: researcher
+  investigate: researcher
+  implement: coder
+  fix: coder
+  refactor: coder
+  summarize: writer
+  draft: writer
+  docs: writer
+  changelog: writer
+  deploy: ops
+  release: ops
+  install: ops
+  ci: ops
+
+# `band` is what the pick weighs cost against: low = the cheapest model that
+# has what the task needs; mid = the best of them within 3x the cheapest paid
+# one (free and local ones count); high = the strongest.
+budget:
+  band: mid
+
+tiers:
+  - {name: main, members: [main]}
+  - {name: pool, members: [planner, researcher, coder, reviewer, media, writer, ops]}

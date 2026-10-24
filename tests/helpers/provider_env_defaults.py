@@ -87,6 +87,12 @@ def ensure_default_provider_credentials() -> None:
     # every session a test builds would build the model catalog (Ollama
     # hosts included) at its first turn and carry one more snapshot.
     os.environ.setdefault("HALO_MODELS_ROSTER", "0")
+    # Halo 3.1.9.0 R2: every session runs the default `auto` lineup, so a
+    # sub-agent spawn picks its model from the best-at index; in the suite
+    # that pick reads an index file a test wrote and never builds the
+    # catalog itself (that build probes the Ollama hosts). The auto tests
+    # seed the index (tests/test_models_auto.py, test_auto_spawn.py).
+    os.environ.setdefault("HALO_AUTO_INDEX_BUILD", "0")
 
 
 # Halo 3.1.0.0 R1: tests/run_all.py gives every module its own home and

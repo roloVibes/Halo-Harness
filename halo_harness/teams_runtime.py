@@ -1,7 +1,8 @@
 """halo_harness.teams_runtime -- Halo 2.0.5 round 5 "team control": the
 lineup sections ENFORCED by the live agent loop. `teams_yaml.py` stays the
 schema/storage layer; this module is the runtime state machine a session
-holds while it runs under a team (`team:` in config.json or `--team`):
+holds while it runs under a team (`team:` in config.json or `--team`; with
+neither and roles on, the default `auto` lineup -- lineup_default.py):
 
 - `routing`: a task kind -> role/alias (with `default`), applied to every
   Agent call at spawn time when the call named no `role` of its own.
@@ -37,15 +38,10 @@ from typing import Optional
 
 
 def active_team_name(cli_flag: Optional[str] = None) -> Optional[str]:
-    """`--team` (this one run) -> config's own `team:` key."""
-    if cli_flag:
-        return cli_flag
-    try:
-        from halo_harness.theme import get_config_value
-        name = get_config_value("team", default=None)
-        return name if isinstance(name, str) and name.strip() else None
-    except Exception:
-        return None
+    """`--team` (this one run) -> config's own `team:` key -> (3.1.9.0 R2,
+    roles on) the default `auto` lineup (lineup_default.py)."""
+    from halo_harness.lineup_default import lineup_in_use
+    return lineup_in_use(cli_flag)[0]
 
 
 def _duration_seconds(raw) -> "Optional[float]":
@@ -74,6 +70,15 @@ class TeamControl:
     budget_stopped: Optional[str] = None
     escalated: bool = False
     tier_live: dict = field(default_factory=dict)      # agent_id -> tier index of a live lineup member
+    default: bool = False  # 3.1.9.0 R2: the default lineup (no `team:` set, no --team): a knob you set wins
+
+    def yields_to(self, config_key: str) -> bool:
+        """True when this is the default lineup and config sets `config_key`
+        itself (`agents.max_depth`, `agents.max_concurrent`): your setting wins."""
+        if not self.default:
+            return False
+        from halo_harness.theme import get_config_value
+        return get_config_value(config_key, default=None) is not None
 
     # ---- sections (read-only views of the resolved template) --------------
     @property
@@ -382,6 +387,13 @@ class TeamControl:
                  "[handoff] result:", text]
         return "\n".join(lines)
 
+    def reports_for(self, target: Optional[str]) -> bool:
+        """3.1.9.0 R2: whether a completion under `target` is reported to main
+        on its next turn -- always under a lineup you chose; under the
+        default lineup only for a child on one of its cards (any other
+        sub-agent reports through its own tool result, as without a lineup)."""
+        return not self.default or (bool(target) and target in self.aliases)
+
     def record_report(self, target: Optional[str], one_line: str) -> str:
         """Every member's completion is a one-line report addressed to main."""
         line = f"[team {self.name}] {target or 'member'} -> main: {one_line}"
@@ -419,8 +431,9 @@ def load_team_control(name: Optional[str] = None, *, cwd=None, state_dir=None,
     None when nothing is active / the template fails to resolve. Never
     raises. `trusted` (computed from the folder when None) decides whether
     a project-sourced template layer may set the mode or allow rules."""
+    from halo_harness.lineup_default import lineup_in_use
     from halo_harness.teams_yaml import resolve_team_template
-    team_name = name or active_team_name()
+    team_name, source = (name, "flag") if name else lineup_in_use()
     if not team_name:
         return None
     try:
@@ -436,4 +449,4 @@ def load_team_control(name: Optional[str] = None, *, cwd=None, state_dir=None,
     for entry in template.get("agents") or []:
         if isinstance(entry, dict) and entry.get("role"):
             aliases[entry.get("as") or entry["role"]] = entry
-    return TeamControl(name=team_name, template=template, aliases=aliases)
+    return TeamControl(name=team_name, template=template, aliases=aliases, default=source == "default")

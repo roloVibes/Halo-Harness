@@ -202,7 +202,7 @@ directly by the features that own them:
 | Key | Default | Set by |
 |---|---|---|
 | `model` | unset (built-in default applies) | `halo init`, `halo config set model ...` |
-| `team` | unset (no active team template) | `halo teams use <name>` -- names the ACTIVE lineup; a session running under it enforces its sections through `teams_runtime.py` (Halo 2.0.5 round 5; `--team <name>` overrides per-run, never persisted); see [AGENTS.md](AGENTS.md) |
+| `team` | unset: the `auto` lineup runs (Halo 3.1.9.0; with `roles.enabled: false`, no lineup) | `halo teams use <name>` / `halo config set team <name>` / Studio Roles -> Apply -- names the ACTIVE lineup; a session running under it enforces its sections through `teams_runtime.py` (Halo 2.0.5 round 5; `--team <name>` overrides per-run, never persisted). Unset, a session runs the shipped `auto` lineup: main on your model, a pool whose models are picked at spawn for each task ([ROLES.md](ROLES.md#the-auto-lineup-halo-3190)); the session's own role table (your `roles.*`, or the Databricks cost-aware defaults) and `agents.max_depth` / `agents.max_concurrent` still win over it. Nothing writes `team: auto` for you, and a `team:` you set is never changed; see [AGENTS.md](AGENTS.md) |
 | `theme` | auto-detected from terminal truecolor support | `/theme`, the wizard's Theme step, `halo config set theme ...` (six names: `claude-dark`, `claude-light`, each with `-daltonized`/`-ansi`). A game theme left here from before 3.1.5.0 (`doom`, `metroid`, `mario`, `beetlejuice`, `alien`) falls back to the default with one line at startup and in `halo doctor --config` |
 | `images` | `"inline"` | `--no-inline-images` overrides per-run |
 | `intro` | `true` | `--no-intro` overrides per-run; set `false` to turn off the launch intro for good |
@@ -311,6 +311,7 @@ good, with no `HALO_` twin, since the test suites depend on the exact name.
 | `HALO_DUMP=1` (legacy `BRIDGE_DUMP=1`) | dump raw request/response JSON for debugging (proxy mode) |
 | `HALO_CA_BUNDLE` (legacy `BRIDGE_CA_BUNDLE`) | a custom CA bundle path, tried after `NODE_EXTRA_CA_CERTS`/`REQUESTS_CA_BUNDLE` |
 | `HALO_MODELS_ROSTER` | `0` keeps the model roster out of this run's context, `1` puts it in, whatever `models.roster` says (the test suite runs with `0`) |
+| `HALO_AUTO_INDEX_BUILD` | `0`: an `auto` member's model pick reads `~/.halo/models/best-at.json` only and never builds the catalog itself (Halo 3.1.9.0; the test suite runs with `0`); unset, a stale index answers at once and is rebuilt in the background, a missing one is waited for at most 4 s |
 | `HALO_INPUT_TRACE` | Windows only: a file to which the TUI appends every raw console input batch and what the parser was given (3.1.3.0), for diagnosing stray mouse-report text in the prompt from the terminal's own records |
 | `CLAUDE_CONFIG_DIR` | relocate `~/.claude` (and `~/.claude.json`, honoring a legacy `<dir>/.config.json`) |
 | `CLAUDE_CODE_SANDBOXED` | any non-empty value counts as "trusted" for the current directory |

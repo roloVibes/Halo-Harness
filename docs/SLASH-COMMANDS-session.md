@@ -227,7 +227,10 @@ notification; wait for it or press Esc, then pick again.
 
 ### `/status`
 A one-screen dashboard: version, current model, cwd, permission mode, MCP
-server count, theme, and cost so far.
+server count, theme, cost so far, and (Halo 3.1.9.0) the lineup this session
+runs under -- "Lineup: auto (default) -- main delegates to a pool whose models
+are picked for each task; change it with `halo config set team <name>` or
+Studio Roles -> Apply" while no `team:` is set.
 
 ### `/config [key=value|where]`
 Read-only in headless mode (shows `model=... permissionMode=... theme=...`

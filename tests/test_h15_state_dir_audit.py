@@ -118,7 +118,8 @@ def test_main_loop_restores_env_after_each_module_even_on_import_error(ctx: Ctx)
     these itself) -- `BRIDGE_TEST_NO_BACKGROUND_NET` and `BRIDGE_TEST_
     CC_AUTH_STATUS` are now ALSO intended whole-run survivors, not a
     leak. 3.1.9.0 R1: so is `HALO_MODELS_ROSTER` (the model roster
-    snapshot stays off in the suite unless a test turns it on)."""
+    snapshot stays off in the suite unless a test turns it on); R2: and
+    `HALO_AUTO_INDEX_BUILD` (an auto pick reads the index file only)."""
     import io
     import sys as sys_mod
     from contextlib import redirect_stdout
@@ -140,7 +141,8 @@ def test_main_loop_restores_env_after_each_module_even_on_import_error(ctx: Ctx)
             leftover = run_all_mod._snapshot_guarded_env()
             ctx.check(f"nothing but main()'s OWN whole-run seam vars survives, got {leftover}",
                       set(leftover) <= {"BRIDGE_TEST_HOME", "BRIDGE_TEST_NO_BACKGROUND_NET",
-                                         "BRIDGE_TEST_CC_AUTH_STATUS", "HALO_MODELS_ROSTER"})
+                                         "BRIDGE_TEST_CC_AUTH_STATUS", "HALO_MODELS_ROSTER",
+                                         "HALO_AUTO_INDEX_BUILD"})
         finally:
             run_all_mod.discover_test_modules = real_discover
             run_all_mod._real_sessions_snapshot = real_snapshot

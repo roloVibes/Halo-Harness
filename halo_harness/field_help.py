@@ -25,6 +25,7 @@ IDENTITY = {
 BIO = {
     "models.preference": "the model this agent runs on, when it runs",
     "models.fallback": "what to switch to when the preferred model keeps failing",
+    "models.needs": "with preference auto: what the picked model must have (vision, audio, video, pdf, reasoning, tools, long-context)",
     "models.effort": "how hard the model thinks (higher = better, slower, pricier)",
     "models.thinking": "let the model's own native thinking blocks through",
     "models.context_budget": "cap this agent's context at a fraction (0-1) of the model's window",
@@ -81,6 +82,7 @@ LINEUP_FIELDS = {
     "budget.max_total_turns": "stop after this many turns across all members",
     "budget.max_wall_time": "stop after this long (3h, 45m, 1d)",
     "budget.agents_may_exceed": "a member may go past its own bio's budget",
+    "budget.band": "an auto member's model pick: low the cheapest that fits, mid the best within 3x, high the strongest",
     "escalation.triggers": "what counts as stuck: tool failures, a context overflow, an exhausted budget",
     "escalation.to": "the model a stuck member switches to",
     "escalation.ask": "ask first (the approval card) before switching",

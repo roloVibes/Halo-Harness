@@ -8,7 +8,7 @@ session's background Bash jobs are leaves under main (`kind: job`, read from
 the job registry whenever the tree is listed). A row:
 
     {agent_id, parent, name, role, bio, lineup, model, kind, task, since,
-     state, turns, cost_usd, current, last_text, transcript}
+     state, turns, cost_usd, current, last_text, transcript, model_reason}
 
 `state` is one of STATES; `kind` main | subagent | member | background |
 job; `task` the first line of what the agent was asked; `turns` its model
@@ -37,7 +37,8 @@ MAIN = "main"
 STATES = ("queued", "running", "waiting", "paused", "done", "failed", "stopped")
 LIVE_STATES = ("queued", "running", "waiting", "paused")
 FIELDS = ("agent_id", "parent", "name", "role", "bio", "lineup", "model", "kind", "task", "since", "state",
-          "turns", "cost_usd", "current", "last_text", "transcript")
+          "turns", "cost_usd", "current", "last_text", "transcript",
+          "model_reason")  # 3.1.9.0 R2: why an `auto` member runs on `model` (models_auto.py)
 QUIET_FIELDS = frozenset({"last_text", "cost_usd"})
 QUIET_S = 1.0
 _make_lock = threading.Lock()

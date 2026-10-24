@@ -60,9 +60,10 @@ export function LineupsGlance() {
   const n = useRoles((s) => s.lineups.length);
   const own = useRoles((s) => s.lineups.filter((l) => !shipped(l.scope)).length);
   const active = useRoles((s) => s.info?.active_team || "");
+  const inUse = useRoles((s) => (s.info?.lineup_default ? s.info?.lineup_in_use || "" : "")); // 3.1.9.0 R2: the default
   return (
     <div className="glance">
-      <div className="glance-kicker mono">{active ? `ACTIVE · ${active}` : "NO ACTIVE LINEUP"}</div>
+      <div className="glance-kicker mono">{active ? `ACTIVE · ${active}` : inUse ? `ACTIVE · ${inUse} (default)` : "NO ACTIVE LINEUP"}</div>
       <div className="glance-numbers">
         <Metric value={n} label="lineups" />
         <Metric value={own} label="yours" />
