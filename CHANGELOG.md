@@ -159,6 +159,21 @@ Focus: Auto -- the main agent knows what each model is good at and builds the or
 - `halo roles` said "roles: on (legacy role table)" when nothing was configured at all; it names the lineup in use.
 - `/teams show` with no name said "no lineup is active yet" on a fresh install; it shows the lineup in use.
 
+### R3: Auto learns
+
+#### Added
+
+- The `auto` pick learns from what happened: for the member's kind of task (code, research, plan, review, writing, media, check), each candidate's checked tasks of the last 30 days weigh its score -- from 3 of them, by 0.5 + 0.5 x its first-time success rate (all passed: 1.0, half: 0.75, none: 0.5) -- so a cheaper model that keeps succeeding beats a stronger one that keeps being sent back, and a model that keeps failing gives way among equals. The pick's reason says when the numbers moved it ("(learned: code 1/4 on or:v/strong, so or:v/cheap instead)") or confirmed it ("(code 5/5 here)"), on the Roles pill, the Live tab, the Session spawn line and the child's first note.
+- The model roster drops a model that keeps failing a kind (under 34% from 3 checked tasks): it leaves that kind's leaders, and one line names it with its numbers ("dropped for code: or:v/ears (1/4 checked tasks)").
+- `halo outcomes learned [--kind] [--model] [--json]`: per model and kind the tasks, the rate, the pick's weight, how many were the model's own picks and whether it is dropped. `halo outcomes forget [--model] [--kind] [--before] [--yes]`: remove rows so a model starts over, the file before kept beside it as `outcomes.jsonl.bak-<time>`.
+- `halo models --measured` and `halo models analyze` mark a dropped model; Studio's model picker shows a learned chip per task kind (the passes and the tasks, the weight on hover) and strikes the models dropped for the kind chosen under "learned for".
+- Each outcome row says whether its model was picked at spawn (`picked: auto | measured | none`) and why (`reason`).
+- Config `models.learn` (`false` turns the learning off), `models.learn.min_tasks`, `models.learn.window_days`, `models.learn.drop_below`.
+
+#### Changed
+
+- The `auto` pick, the roster's per-kind leaders and `halo models --measured` / `analyze` now read what was measured here; with nothing measured (or `models.learn: false`) they are exactly as before.
+
 ## [3.1.8.0] - unreleased
 
 Focus: the supervisor -- Halo runs goals without a terminal, and Studio keeps up with it (the outside review the owner pasted 2026-10-20; "apply all those suggestions").
