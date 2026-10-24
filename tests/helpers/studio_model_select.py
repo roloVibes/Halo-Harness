@@ -60,7 +60,9 @@ def forms(c, url: str, state: Path) -> dict:
     out["orch_summary"] = c.js("document.querySelector('details.og-more summary').textContent")
     c.go(url.replace("mode=roles", "mode=design"))
     out["design_value"] = c.wait(f"{PM} && ({PM}.dataset.value === '' ? 'default' : {PM}.dataset.value)", 25)
-    out["design_first"] = c.js(f"{PM}.querySelector('option').textContent")
+    # the first option names the inherited default once the catalog answer lands: on the Linux runner it still read
+    # "(none resolves)" when read at once (a3a4d2e), so wait for the resolved name like `orch_first` does
+    out["design_first"] = c.wait(f"{PM}.querySelector('option')?.textContent.includes('alpha-1') && {PM}.querySelector('option').textContent", 20)
     c.wait(f"!!{PM}.querySelector('option[value=\"{BETA}\"]')", 15)
     pick(c, f"{PM}.querySelector('select')", BETA)
     out["design_saved"] = c.wait(f"(async () => {{ const p = await {projects(c)}; return p.find((x) => x.slug === 'launch-page')?.model; }})()", 15)
