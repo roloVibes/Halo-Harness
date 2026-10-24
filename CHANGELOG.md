@@ -174,6 +174,12 @@ Focus: Auto -- the main agent knows what each model is good at and builds the or
 
 - The `auto` pick, the roster's per-kind leaders and `halo models --measured` / `analyze` now read what was measured here; with nothing measured (or `models.learn: false`) they are exactly as before.
 
+### Also in 3.1.9.0
+
+#### Fixed
+
+- Studio's server printed a traceback from a handler thread when a browser went away mid-answer (the tab closed, Chrome quit: ConnectionAbortedError or ConnectionResetError on Windows, BrokenPipeError on Linux); written from a daemon thread at interpreter exit, it crashed a Chrome test driver on the Windows runner. A client that went away is quiet; every other error prints as before.
+
 ## [3.1.8.0] - 2026-10-24
 
 Focus: the supervisor -- Halo runs goals without a terminal, and Studio keeps up with it (the outside review the owner pasted 2026-10-20; "apply all those suggestions").

@@ -8,11 +8,14 @@ page and its security headers.
 
 from __future__ import annotations
 
+import io
 import json
 import os
+import socket
 import sys
 import tempfile
 import threading
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -200,6 +203,30 @@ def test_models_status_and_refresh(ctx: Ctx):
         ctx.check("3.0.7.0 R2: GET gym answers the gym's scores (none on a bare home)", status == 200 and gym == {"scores": {}})
         status, best, _ = s.call("GET", "/api/models/best-for")
         ctx.check("3.0.7.0 R2: GET models/best-for answers a ref -> kinds mapping", status == 200 and isinstance(best, dict))
+
+
+@test
+def test_a_browser_that_goes_away_mid_answer_leaves_no_traceback(ctx: Ctx):
+    """bd9b607's tag run (Windows): a handler thread's write to a client that had closed raised
+    ConnectionAbortedError, the server printed the traceback to stderr from that daemon thread while the
+    interpreter was finalizing, and the Chrome driver died with a fatal error. A client that went away is
+    quiet (`_Server.handle_error`); every other error prints as before."""
+    with _Studio() as s:
+        status, body, _h = s.call("GET", "/studio.js", raw=True)
+        ctx.check(f"the shell's script answers in full, got {status} {len(body)} bytes", status == 200 and len(body) > 500_000)
+        port = s.srv.server_address[1]
+        err, saved = io.StringIO(), sys.stderr
+        sys.stderr = err
+        try:
+            for _ in range(3):
+                sock = socket.create_connection(("127.0.0.1", port), timeout=5)
+                sock.sendall(f"GET /studio.js HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\n\r\n".encode())
+                sock.recv(1)  # the answer has started
+                sock.close()  # and the client is gone before the body is through
+            time.sleep(1.0)
+        finally:
+            sys.stderr = saved
+    ctx.check(f"nothing on stderr, got {err.getvalue()[-300:]!r}", "Traceback" not in err.getvalue())
 
 
 if __name__ == "__main__":
