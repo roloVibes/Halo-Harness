@@ -214,6 +214,24 @@ Focus: the supervisor -- Halo runs goals without a terminal, and Studio keeps up
 - A sub-agent's acceptance verdict (met, why, attempts) is recorded in its evidence and its outcome row.
 - The coach's runs.json gains `outcomes: n`; the best-at cache is rebuilt when a measured number it shows moves.
 
+### R4: knowledge that outlives a session
+
+#### Added
+- Findings and decisions, two recall kinds that outlive the session that found them: Markdown files with a small front matter under `~/.halo/knowledge/<kind>/<yyyy-mm>/<id>.md` (+ `_meta.json` provenance), `halo knowledge add|list|show|search|forget|supersede|fetch`, and the agents' `knowledge_add` / `knowledge_search` tools (docs/KNOWLEDGE.md).
+- Written where the knowing happens: the Orchestra judge's resolution with evidence and the gate's verdict (findings), each send-back, the coach's Apply and the supervisor's answered decisions (decisions); `knowledge.write: false` turns those writers off.
+- Recall indexes them (`[finding]`, `[decision]` with id, who and when) and your own notes: `recall.sources`, folders of Markdown such as an Obsidian vault, read in place and never written (`[note]`, `halo recall sources`, docs/RECALL.md).
+- Citing what was reused: an Orchestra worker's brief carries the findings recall ranks for its job (`knowledge.brief`), the agent is told to cite the id, its evidence records `cited`, the outcome row its count, and `halo knowledge show` lists "reused by".
+- Over the fleet: `halo knowledge fetch <harness> <id> | --all KIND` through the hub (the `knowledge` fleet command, scrubbed, `by` naming the harness id), written here read-only; recall hits across the fleet carry the entry's `ref`.
+- Studio: the recall box under "Who can..." on Fleet's Capabilities panel, with its Fleet switch and the kinds' chips.
+
+#### Changed
+- `fleet.recall.hide` also takes `finding`, `decision` and `knowledge`; your own notes never leave the box.
+- evidence.json gains `cited`, the evidence lines a `cited:` line, an outcomes.jsonl row `cited: <n>` (only when the task cited something).
+- `/recall`'s one-line description names findings, decisions and your notes.
+
+#### Fixed
+- The TUI's `/recall` showed every hit that was not a memory topic as `[sess]` (a coach library entry too); it now shares `halo recall`'s chips.
+
 ### R5: opt-in isolation
 
 #### Added
