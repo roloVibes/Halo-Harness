@@ -184,6 +184,22 @@ def set_config_value(key: str, value) -> Path:
 _MISSING = object()
 
 
+def unset_config_value(key: str) -> bool:
+    """Remove a top-level key from `~/.halo/config.json` (3.1.9.0 R2: the
+    wizard's One model for everything clears `team`); False when it was not
+    there. Same write path and corrupt-file refusal as `set_config_value`."""
+    path = _config_path()
+    if not path.exists():
+        return False
+    data = _load_config_for_write(path)
+    if key not in data:
+        return False
+    data.pop(key)
+    from halo_harness.privateio import write_private_atomic
+    write_private_atomic(path, json.dumps(data, indent=2) + "\n")
+    return True
+
+
 def get_config_value(key: str, default=_MISSING):
     """The dotted-path read counterpart to `set_config_value` -- `key` may
     be `"improve.model"`; returns `default` (or raises `KeyError` if

@@ -26,7 +26,7 @@ import { cloneFromPack } from "./packActions";
 import { openDialog, packOf, readOnlySource, roles, scopeLabel, useRoles } from "./store";
 import type { Raw } from "./types";
 
-const KINDS = ["main", "subagent", "researcher", "judge", "reviewer", "custom", "media"];
+const KINDS = ["main", "subagent", "researcher", "judge", "reviewer", "custom", "media", "planner", "coder", "writer", "ops"];
 
 /** "Save to project scope": where Save (bios and lineups) writes, the repo's .halo/ or your ~/.halo. */
 export function ScopeCheck({ what }: { what: string }) {

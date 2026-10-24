@@ -13,6 +13,8 @@ export type AgentRow = {
   bio?: string | null;
   lineup?: string | null;
   model?: string | null;
+  /** 3.1.9.0 R2: why an `auto` member runs on `model` (models_auto.py), when it was picked. */
+  model_reason?: string | null;
   kind?: string | null;
   task?: string | null;
   since?: number | null;

@@ -65,9 +65,23 @@ function LiveBadge({ list, activity, card }: { list: LiveAgent[]; activity: stri
   );
 }
 
+/** 3.1.9.0 R2: the pill of an `auto` card with an agent on it names the picked model; its reason is the title. */
+function pillOf(n: GraphNode, live: LiveAgent[], lead: LiveAgent | undefined): { text: string; title: string; picked?: string } {
+  const auto = n.model === "auto" || n.model_source === "auto";
+  const pick = auto ? (lead?.model_reason ? lead : live.find((a) => a.model_reason)) : undefined;
+  if (pick) {
+    const more = live.length > 1 ? ` (${live.length} agents on this card: the Live tab names each one's)` : "";
+    return { text: pick.model.replace(/^or:[^/]+\//, ""), title: `auto: ${pick.model} -- ${pick.model_reason}${more}`, picked: pick.model };
+  }
+  const from = auto ? ": " + sourceText("auto", n.agent) : n.model_source ? ", from " + sourceText(n.model_source, n.agent) : "";
+  const title = n.model ? `${n.model}${from}${n.fallback ? " · fallback " + n.fallback : ""}` : "no model resolves for this slot";
+  return { text: n.model ? n.model.replace(/^or:[^/]+\//, "") : "no model resolves", title: `${title}: click to change it (the Inspector's MODEL strip)` };
+}
+
 export const Card = memo(function Card({ n, x, y, model, gym, issues, selected, dragging, live, activity, onDown }: CardProps) {
   const stack = Math.min(3, Math.max(1, n.instances || 1));
   const lead = live.find((a) => a.activity === activity);
+  const pill = pillOf(n, live, lead);
   const glow = glowOf(activity);
   const ended = glow === "done" ? Math.max(0, ...live.filter((a) => a.activity === "done").map((a) => a.endedAt || 0)) : 0;
   // the fade resumes where it is when the card first draws done (its delay is fixed then, so a later draw never jumps it)
@@ -110,9 +124,9 @@ export const Card = memo(function Card({ n, x, y, model, gym, issues, selected, 
         {n.alias && n.alias !== n.role ? ` · as ${n.alias}` : ""}
         {n.instances > 1 && <span className="rc-inst mono" title={`${n.instances} instances of this slot`}> ×{n.instances}</span>}
       </div>
-      <button type="button" className="rc-model mono" data-testid="roles-model-pill" data-source={n.model_source || undefined} onClick={() => focusModel(n.id)}
-              title={`${n.model ? `${n.model}${n.model_source ? ", from " + sourceText(n.model_source, n.agent) : ""}${n.fallback ? " · fallback " + n.fallback : ""}` : "no model resolves for this slot"}: click to change it (the Inspector's MODEL strip)`}>
-        {n.model ? n.model.replace(/^or:[^/]+\//, "") : "no model resolves"}
+      <button type="button" className="rc-model mono" data-testid="roles-model-pill" data-source={n.model_source || undefined} data-picked={pill.picked} onClick={() => focusModel(n.id)}
+              title={pill.title}>
+        {pill.text}
       </button>
       <div className="rc-meta mono">
         <span title="price per 1M tokens in / out">{priceText(model)}</span>

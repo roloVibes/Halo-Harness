@@ -9,6 +9,7 @@
 // session back, Replay.tsx). Keys: J / K hop, Space pins, P pauses, F follows.
 // 3.1.4.0 R2: while the agent is live on this harness its header has Watch
 // in Session (the Session dashboard on its session, the agent selected).
+// 3.1.9.0 R2: an `auto` member shows why it runs on its model ("auto: <model> -- <reason>").
 import { useEffect, useRef } from "react";
 import { useLocalAgent, WatchInSession } from "../session/Watch";
 import { api } from "../../lib/api";
@@ -91,6 +92,11 @@ function Watched({ a }: { a: LiveAgent }) {
         {a.since && live ? ` · ${ago(a.since)}` : ""}
         {a.current ? ` · ${a.current}` : ""}
       </div>
+      {a.model_reason && (
+        <div className="mono muted rl-meta rl-reason" data-testid="roles-live-reason" title="Why this model: the auto lineup picked it for this task (docs/ROLES.md, The Auto lineup)">
+          auto: {a.model || "main"} -- {a.model_reason}
+        </div>
+      )}
       {a.task && (
         <details className="fa-task">
           <summary>What it was asked</summary>

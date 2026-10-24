@@ -60,7 +60,8 @@ ASSIGNMENT_OVERRIDE_KEYS = ("models", "tools", "limits", "hooks")
 SECTION_ENFORCEMENT = {
     "delegation": ("enforced", "mode/max_parallel/max_depth/handoff/forward_text govern every Agent call under the team"),
     "routing": ("enforced", "a task kind maps to a role or alias, with a default, at spawn time"),
-    "budget": ("enforced", "max_budget_usd/max_total_turns/max_wall_time stop delegation with the reason when exhausted"),
+    "budget": ("enforced", "max_budget_usd/max_total_turns/max_wall_time stop delegation with the reason when exhausted; "
+                           "band (low/mid/high) is what an `auto` member's model pick weighs cost against"),
     "escalation": ("enforced", "triggers switch to the target model (ask: true shows the approval card first)"),
     "context": ("enforced", "files and skills load for every member; memory.namespace and writers govern the shared memory"),
     "permissions": ("enforced", "mode/rules/offline apply to every member on top of the bio's own"),
@@ -400,6 +401,8 @@ def validate_team_template(data, *, name: "Optional[str]" = None, cwd=None, stat
             problems.append('"budget.max_wall_time" must be a positive number of seconds or a duration like 3h')
         if budget.get("agents_may_exceed") is not None and not isinstance(budget.get("agents_may_exceed"), bool):
             problems.append('"budget.agents_may_exceed" must be true or false')
+        if budget.get("band") is not None and budget.get("band") not in ("low", "mid", "high"):  # 3.1.9.0 R2: the auto pick
+            problems.append(f'"budget.band" {budget.get("band")!r} is not one of low, mid, high')
     escalation = data.get("escalation") if isinstance(data.get("escalation"), dict) else None
     if escalation is not None:
         triggers = escalation.get("triggers")
@@ -553,9 +556,11 @@ def _tier_name_for(template, alias) -> str:
 def bio_pinned_model(agent, *, cwd=None, state_dir=None) -> "Optional[str]":
     """The `models.preference` a bio's own file names -- or, when it names
     none, the nearest `extends` parent's -- read BEFORE `default` becomes the
-    session model (`load_agent_bio_raw`); None when that is `default`, when
-    no file in the chain names one, or for a missing bio."""
+    session model (`load_agent_bio_raw`); None when that is `default` or
+    (3.1.9.0 R2) `auto` (picked at spawn: a tier's model still comes first),
+    when no file in the chain names one, or for a missing bio."""
     from halo_harness.agents_yaml import DEFAULT_MODEL_REFERENCE, load_agent_bio_raw
+    from halo_harness.models_auto import is_auto
     seen: "list[str]" = []
     name = agent.strip() if isinstance(agent, str) else ""
     while name and name not in seen:
@@ -566,7 +571,7 @@ def bio_pinned_model(agent, *, cwd=None, state_dir=None) -> "Optional[str]":
         models = raw.get("models") if isinstance(raw.get("models"), dict) else {}
         pref = models.get("preference")
         if pref:
-            return None if pref == DEFAULT_MODEL_REFERENCE else str(pref)
+            return None if pref == DEFAULT_MODEL_REFERENCE or is_auto(pref) else str(pref)
         parent = raw.get("extends")
         name = parent.strip() if isinstance(parent, str) else ""
     return None
@@ -581,7 +586,9 @@ def member_model(template, entry, *, cwd=None, state_dir=None, bio=_UNSET) -> "t
     2. its bio's preference when the bio pins a real ref (`bio`);
     3. the model of the declared tier that holds it (`tier:<name>`; a tier
        model of `default` is the session's model);
-    4. a bio preference of `default`: the session's model (`session`);
+    4. a bio preference of `default`: the session's model (`session`), or
+       `auto` (3.1.9.0 R2): picked when the member spawns (`auto`,
+       models_auto.py);
     5. the card's fallback, then the bio's (`fallback`).
 
     `("", "", "")` when nothing resolves. `bio` is the resolved bio when the
@@ -608,8 +615,11 @@ def member_model(template, entry, *, cwd=None, state_dir=None, bio=_UNSET) -> "t
             session = get_config_value("model", default=None)
             tier_model = session.strip() if isinstance(session, str) and session.strip() else tier_model
         return tier_model, fallback, f"tier:{_tier_name_for(template, key)}"
-    if bio_models.get("preference"):  # 3.2.0.0 R2: a bio's models.capabilities picked it, else `default`
-        how = ((bio or {}).get("_model") or {}).get("how")
+    if bio_models.get("preference"):
+        from halo_harness.models_auto import AUTO, is_auto  # 3.1.9.0 R2: `auto` is picked at spawn
+        if is_auto(bio_models["preference"]):
+            return AUTO, fallback, "auto"
+        how = ((bio or {}).get("_model") or {}).get("how")  # 3.2.0.0 R2: models.capabilities picked it, else `default`
         return str(bio_models["preference"]), fallback, "capabilities" if how == "capabilities" else "session"
     if fallback:
         return fallback, fallback, "fallback"

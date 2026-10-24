@@ -9,7 +9,8 @@ shipped bio that names a model now says `default`, the one literal
 `agents_yaml.resolve_agent_bio` substitutes with the session's own model
 at resolve time, and carries no provider-pinned fallback. Pinned here:
 
-- every shipped bio's `models.preference` is `default` or absent, and no
+- every shipped bio's `models.preference` is `default`, `auto` (3.1.9.0 R2:
+  picked at spawn from the catalog you have) or absent, and no
   `models.fallback` names a cloud provider;
 - the orchestrator resolves to whatever `model` the config holds.
 
@@ -50,11 +51,11 @@ def test_every_shipped_bio_prefers_the_sessions_default_model(ctx: Ctx):
         raw = load_agent_bio_raw(name) or {}
         models = raw.get("models") or {}
         pref = models.get("preference")
-        if pref is not None and pref != "default":
+        if pref is not None and pref not in ("default", "auto"):
             pinned.append(f"{name}={pref}")
         if _names_a_cloud(models.get("fallback")):
             bad_fallback.append(f"{name}={models.get('fallback')}")
-    ctx.check(f"no shipped bio pins a model (preference is `default` or absent), got {pinned}", not pinned)
+    ctx.check(f"no shipped bio pins a model (preference is `default`, `auto` or absent), got {pinned}", not pinned)
     ctx.check(f"no shipped bio's fallback names a cloud provider, got {bad_fallback}", not bad_fallback)
 
 

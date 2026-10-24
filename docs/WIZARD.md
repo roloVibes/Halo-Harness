@@ -18,15 +18,16 @@ Four words, in this order: **bio -> lineup -> role -> session**.
 - A **bio** says what an agent IS: its name, its model, its tools, its
   limits. `coder` is a bio; so is `local-small`. (`halo agents`.)
 - A **lineup** hands bios to jobs: "planning goes to this bio, coding to that
-  one". Six ship with Halo -- `standard`, `balanced`, `quality`,
-  `local-first`, `code-review`, `halo-dev-cycle` -- and you can write your
-  own. (`halo teams`.)
+  one". Seven ship with Halo -- `auto` (the default), `standard`,
+  `balanced`, `quality`, `local-first`, `code-review`, `halo-dev-cycle` --
+  and you can write your own. (`halo teams`.)
 - A **role** is one job slot the session fills: main, planner, coder,
   reviewer, researcher and so on. A lineup gives every role an agent and a
   model. (`halo roles`.)
 - Your **session** runs each job on the model its role names, and the
-  sub-agents Halo spawns do the same. With roles off, nothing changes:
-  **one model for everything**, the default model you picked.
+  sub-agents Halo spawns do the same. Until you pick a lineup the **auto**
+  lineup runs (3.1.9.0: a pool whose models are picked for each task); with
+  roles off, **one model for everything**, the default model you picked.
 
 ![How bios, lineups and roles fit together](media/diagrams/agents-model.svg)
 
@@ -63,7 +64,7 @@ Everything below is the field-by-field reference; nothing in it changed.
    from anywhere.
 5. **Quick setup by default**: the first screen offers "Quick setup" (a
    provider key, your default model, and which lineup of agents runs your
-   work -- the Team step, with "One model for everything" preselected) and
+   work -- the Team step, with the default `auto` lineup preselected since 3.1.9.0) and
    "Full setup" (every step). Quick is the highlighted default; the Summary
    names the lineup that was applied.
 6. **One sentence at the top of each step**: what it decides and the
@@ -101,7 +102,7 @@ The very first screen of a genuine `halo init` (never a `--step .../
 
 | Choice | What runs | What it leaves |
 |---|---|---|
-| **Quick setup** (default, highlighted) | Providers -> Default model -> Team -> Summary | Whatever the Team step applied: the preselected "One model for everything" row leaves the shipped `standard` lineup with roles off (every role, including a spawned sub-agent, resolves to the default model -- see `docs/AGENTS.md`'s "the `default` model reference and the `standard` lineup"); picking a lineup turns roles on. |
+| **Quick setup** (default, highlighted) | Providers -> Default model -> Team -> Summary | Whatever the Team step applied: since 3.1.9.0 the preselected row is the default `auto` lineup, which writes no `team:` and keeps roles on (main on the default model, a pool whose models are picked for each task -- `docs/ROLES.md`'s "The Auto lineup"); "One model for everything" turns roles off and clears `team:`; picking another lineup applies it and turns roles on. |
 | **Full setup** | Every step: Providers, Local models, Default model, Permissions, Theme, Team, Linux fixes (Linux only, only when needed), Summary | Whatever each step's own section of this doc/`docs/AGENTS.md`/`docs/ROLES.md` says it writes. |
 
 Nothing is ever permanently closed off by picking Quick: `halo init --step
@@ -113,19 +114,23 @@ afterward.
 One screen, titled "Team" (Halo 2.1.0 round B1 rebuilt it; Quick setup now
 includes it). Top to bottom:
 
-- **A plain-words header**: "Halo runs one model for everything unless you
-  pick a lineup. A lineup gives each job (planning, coding, reviewing,
-  research) its own agent and model."
+- **A plain-words header** (3.1.9.0): "Halo runs the auto lineup (the
+  default) unless you pick a lineup of your own: main hands each sub-task to
+  an agent whose model is picked for it. A lineup gives each job (planning,
+  coding, reviewing, research) its own agent and model; One model for
+  everything runs every job on one."
 - **A Custom roles switch** (3.0.2.0): off is one model for everything,
   on is a lineup. The switch and the list below are one choice: switching
   on highlights the first lineup (or the active one), switching off
   highlights the first row, and highlighting a lineup turns the switch on.
 - **The lineup list.** The FIRST row is always **"One model for
-  everything"** -- applying it writes `team: standard` and `roles.enabled:
-  false` (the same state Quick setup used to leave silently). Then every
+  everything"** -- applying it writes `roles.enabled: false` and (3.1.9.0)
+  clears `team:` (it used to write `team: standard`). Then every
   reachable lineup (shipped, user, project) with its role count, its
   one-line description and a scope badge. The active one carries the check
-  mark; a fresh install highlights the first row.
+  mark; while no `team:` is set that is the `auto` row, marked "(default)",
+  and a fresh install highlights it -- Next on it writes no `team:` (a
+  future default follows), Next on another lineup applies it.
 - **A live preview** of the highlighted row (beside the list from 100
   columns up, below it otherwise): a tree `role -> agent -> model` with the
   model's price and context window when the catalog knows them, the
@@ -155,8 +160,9 @@ lineup. With roles off the main agent still spawns sub-agents for big
 jobs and hands surveys and mechanical steps to cheaper models (the system
 prompt and the Agent tool both say so). Keys: Esc back, Ctrl+Left/Ctrl+Right
 step. The body scrolls, so every control is reachable at 80x24. The Summary step then names what was
-applied: the lineup with one line per resolved role, or "One model for
-everything: `<model>`".
+applied: the lineup with one line per resolved role ("Lineup: auto (the
+default; change it with `halo config set team <name>` or Studio Roles ->
+Apply)" while no `team:` is set), or "One model for everything: `<model>`".
 
 `halo init --step team` reaches it directly; `--step agents` and `--step
 roles` are kept as plain aliases (so is the pre-existing `/setup roles`/

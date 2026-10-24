@@ -36,6 +36,7 @@ export const SECTIONS: SectionDef[] = [
     { path: "max_total_turns", label: "Max turns, all members", kind: "number" },
     { path: "max_wall_time", label: "Max wall time", kind: "text", placeholder: "3h, 45m, 1d" },
     { path: "agents_may_exceed", label: "A member may go past its own bio's budget", kind: "bool" },
+    { path: "band", label: "Cost band of an auto member's model pick", kind: "select", options: ["", "low", "mid", "high"] },
   ] },
   { name: "escalation", title: "Escalation", fields: [
     { path: "triggers", label: "Triggers", kind: "checks", options: ["tool_failures", "context_overflow", "budget_exhausted"] },

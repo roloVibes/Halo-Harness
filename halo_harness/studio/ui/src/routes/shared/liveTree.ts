@@ -48,7 +48,10 @@ function onTree(): void {
     if (!primed || was === st) continue;
     if (was === undefined && r.a.parent) {
       const parent = (r.s.agents || []).find((x) => x.agent_id === r.a.parent);
-      addLine({ key: r.key, kind: "spawn", ts: now, text: `${parent ? nameOf(parent) + " spawned it" : "spawned"}${r.a.task ? ": " + r.a.task : ""}` });
+      const who = parent ? nameOf(parent) + " spawned" : "spawned";
+      // 3.1.9.0 R2: an `auto` member's line says what it runs on and why ("main spawned coder on <model>: <reason>")
+      const why = r.a.model_reason ? ` ${r.a.role || nameOf(r.a)} on ${r.a.model || "main's model"}: ${r.a.model_reason}` : parent ? " it" : "";
+      addLine({ key: r.key, kind: "spawn", ts: now, text: `${who}${why}${r.a.task ? (r.a.model_reason ? " · " : ": ") + r.a.task : ""}` });
     } else if (st === "done" && was) {
       const said = live.get().lines.slice(-60).some((l) => l.key === r.key && l.kind === "output");
       if (!said) addLine({ key: r.key, kind: "output", ts: now, text: String(r.a.last_text || "done"), state: "done" });

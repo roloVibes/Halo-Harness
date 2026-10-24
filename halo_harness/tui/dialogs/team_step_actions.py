@@ -20,7 +20,8 @@ def _lineup_row_label(r: dict) -> str:
     desc = f": {r['description']}" if r["description"] else ""
     roles = r.get("roles")
     count = f"  · {roles} role{'s' if roles != 1 else ''}" if isinstance(roles, int) else ""
-    return f"{mark}{r['name']} [{r['scope']}]{count}{desc}"
+    default = " (default)" if r.get("default") else ""
+    return f"{mark}{r['name']}{default} [{r['scope']}]{count}{desc}"
 
 
 
@@ -43,11 +44,17 @@ class TeamActionsMixin:
     def _rows(self) -> "list[dict]":
         from halo_harness.roles import roles_mode_enabled
         from halo_harness.tui.dialogs.teams_list import team_rows
+        from halo_harness.lineup_default import DEFAULT_LINEUP, configured_team
         rows = team_rows(cwd=self.state.cwd)
         off = not roles_mode_enabled()
         if off:
             for r in rows:
                 r["active"] = False
+        # 3.1.9.0 R2: roles on and no `team:` set -- the default auto lineup is the one in use
+        unset = not off and configured_team() is None
+        for r in rows:
+            r["default"] = unset and r["name"] == DEFAULT_LINEUP
+            r["active"] = r["active"] or r["default"]
         one = {"name": tp.ONE_MODEL_ID, "scope": "", "active": off or not any(r["active"] for r in rows),
                "description": "", "roles": None}
         return [one, *rows]
@@ -98,13 +105,22 @@ class TeamActionsMixin:
 
     # -- commit -----------------------------------------------------------------
     def commit(self) -> None:
+        from halo_harness.lineup_default import DEFAULT_LINEUP, configured_team
         from halo_harness.roles import set_roles_enabled
+        from halo_harness.theme import unset_config_value
         name = self._highlighted_lineup_name()
         if name is None:
             return
         if name == tp.ONE_MODEL_ID:
-            self._commit_lineup("standard")
+            # 3.1.9.0 R2: one model = roles off and no lineup (no longer `team: standard`)
+            unset_config_value("team")
             set_roles_enabled(False)
+            self.state.written.append("one model for everything (roles off, no lineup)")
+            return
+        if name == DEFAULT_LINEUP and configured_team() is None:
+            # 3.1.9.0 R2: the default lineup needs nothing written; a future default follows
+            set_roles_enabled(True)
+            self.state.written.append(f"lineup {DEFAULT_LINEUP!r} in use (the default: no team: written)")
             return
         if self._commit_lineup(name):
             set_roles_enabled(True)

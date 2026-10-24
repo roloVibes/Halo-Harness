@@ -74,6 +74,8 @@ class AgentTool(Tool):
     # agent/subagent.py's run_agent_call already spills/caps its own
     # <task_result> text -- a second generic cap here would double-spill.
     result_cap = None
+    # 3.1.9.0 R2: the session's lineup name (agent/loop.py sets it when the session starts)
+    lineup = None
 
     # A property, not a class attribute, so each catalog build re-reads
     # the live role list and config instead of freezing whatever it was
@@ -95,6 +97,11 @@ class AgentTool(Tool):
         if roster_enabled():
             text += (" The roster in your context says what each model is good at; name a model with `model` "
                      "when a sub-task needs one.")
+        # 3.1.9.0 R2: the auto lineup (the default) picks each sub-agent's model
+        from halo_harness.lineup_default import DEFAULT_LINEUP
+        if self.lineup == DEFAULT_LINEUP:
+            text += (" The lineup is auto: a sub-agent's model is picked for its task; say `model:` to choose "
+                     "yourself.")
         return text
 
     @property

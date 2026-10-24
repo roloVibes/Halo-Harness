@@ -161,6 +161,8 @@ def _ensure_whole_run_test_seams() -> None:
     # 3.1.9.0 R1: the model roster snapshot stays off in the suite unless a
     # test turns it on (tests/helpers/provider_env_defaults.py says why).
     os.environ.setdefault("HALO_MODELS_ROSTER", "0")
+    # 3.1.9.0 R2: an `auto` pick reads the best-at index file only (never builds the catalog)
+    os.environ.setdefault("HALO_AUTO_INDEX_BUILD", "0")
 
 
 def _real_state_dir_snapshot() -> dict:

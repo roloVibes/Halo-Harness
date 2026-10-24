@@ -224,8 +224,8 @@ def roles_state_line() -> str:
     the wizard's own off-sentence all quote this verbatim, so the state is
     described identically everywhere it's shown. "on" names the active
     `team:` lineup when one is set (the common case once a lineup has been
-    applied); with roles on but no active lineup (a hand-edited legacy
-    table, or nothing configured yet) it says so instead -- "off" is
+    applied); with roles on but no `team:` (3.1.9.0 R2) it names the default
+    `auto` lineup, and says a hand-set role table wins over it role by role -- "off" is
     always described the same way `standard.yaml` (docs/AGENTS.md) itself
     resolves: every role lands on the session's own default model."""
     if not roles_mode_enabled():
@@ -234,7 +234,9 @@ def roles_state_line() -> str:
     team = get_config_value("team", default=None)
     if isinstance(team, str) and team.strip():
         return f"roles: on (lineup {team.strip()})"
-    return "roles: on (legacy role table)"
+    # 3.1.9.0 R2: no `team:` set -- the default `auto` lineup runs (lineup_default.py)
+    typed = "; your role table wins role by role" if configured_role_table() else ""
+    return f"roles: on (lineup auto, the default{typed})"
 
 
 def resolve_role_table(*, provider: Optional[str] = None, subagent_model: Optional[str] = None) -> dict:

@@ -52,15 +52,17 @@ Four words, in this order: **bio -> lineup -> role -> session**.
 - A **bio** says what an agent IS: its name, its model, its tools, its
   limits. `coder` is a bio; so is `local-small`. (`halo agents`.)
 - A **lineup** hands bios to jobs: "planning goes to this bio, coding to that
-  one". Six ship with Halo -- `standard`, `balanced`, `quality`,
-  `local-first`, `code-review`, `halo-dev-cycle` -- and you can write your
-  own. (`halo teams`.)
+  one". Seven ship with Halo -- `auto` (the default), `standard`,
+  `balanced`, `quality`, `local-first`, `code-review`, `halo-dev-cycle` --
+  and you can write your own. (`halo teams`.)
 - A **role** is one job slot the session fills: main, planner, coder,
   reviewer, researcher and so on. A lineup gives every role an agent and a
   model. (`halo roles`.)
 - Your **session** runs each job on the model its role names, and the
-  sub-agents Halo spawns do the same. With roles off, nothing changes:
-  **one model for everything**, the default model you picked.
+  sub-agents Halo spawns do the same. Until you pick a lineup the **auto**
+  lineup runs (3.1.9.0: a pool whose models are picked for each task,
+  [ROLES.md](ROLES.md#the-auto-lineup-halo-3190)); with roles off, **one
+  model for everything**, the default model you picked.
 
 ![How bios, lineups and roles fit together](media/diagrams/agents-model.svg)
 
@@ -71,7 +73,9 @@ and `roles.enabled`):
    `halo init --step team`. The Custom roles switch (3.0.2.0) and the first
    row, "One model for everything", are the off state; every other row
    previews its `role -> agent -> model` tree with prices before you apply
-   it, and **Open Studio (Roles)** edits in the browser.
+   it, and **Open Studio (Roles)** edits in the browser. With no `team:` set
+   the `auto` row is the checked "(default)" one, and Next on it writes
+   nothing (3.1.9.0).
 2. **The command line** -- `halo teams` shows the active lineup, its tree
    and the others; `halo teams apply <name>` uses one (the same result as
    the wizard); `halo roles on|off` flips the switch.
@@ -106,7 +110,7 @@ bios under "Pack <id> agents:", and `halo agents list` / `halo teams list`
 under `pack <id>:` (3.2.0.0 R2), where a name a file of yours shadows says
 "shadowed by" your file.
 
-The six shipped team templates (`balanced`, `code-review`,
+The seven shipped team templates (`auto`, `balanced`, `code-review`,
 `halo-dev-cycle`, `local-first`, `quality`, `standard`) are copied into `~/.halo/teams/` the first time each is
 missing there (never overwritten after -- the same "copy on first use"
 rule `roles.py`'s own three presets already
@@ -132,11 +136,12 @@ name: coder-local            # identity -- usually matches the filename
 description: Implements a brief using a local model.
 version: "1.0"
 tags: [subagent, local]
-kind: subagent                # main | subagent | researcher | judge | reviewer | custom | media
+kind: subagent                # main | subagent | researcher | judge | reviewer | custom | media | planner | coder | writer | ops
 extends: coder                 # optional -- another bio to inherit from
 
 models:
-  preference: ol:qwen3-coder:30b
+  preference: ol:qwen3-coder:30b  # a model ref, `default` (the session's model) or `auto` (picked at spawn)
+  needs: []                       # with `auto`: what the pick must have -- vision | audio | video | pdf | reasoning | tools | long-context
   fallback: or:deepseek/deepseek-v4.1-flash
   escalation: or:anthropic/claude-opus-5.5   # the roles.py-style escalation target
   effort: medium
@@ -276,9 +281,33 @@ falls through to the session model). A config with no `team:` and
 enabled: true` are therefore equivalent in what a session actually
 does -- `standard` just makes that default EXPLICIT and inspectable
 (`halo teams show standard` prints its own one-sentence description).
-"Roles: off" is what a fresh install runs; it does not write `team:
+Since 3.1.9.0 a fresh install runs the `auto` lineup (no `team:` written;
+below); "Roles: off" still runs no lineup, and nothing writes `team:
 standard` to config.json on its own -- see [ROLES.md](ROLES.md)'s own
 "Roles on/off is one switch" section.
+
+## The `auto` model reference and `models.needs` (Halo 3.1.9.0)
+
+`models.preference: auto` is the other reference literal: unlike `default` it
+is NOT substituted when the bio resolves -- the model is picked when the
+agent spawns (`halo_harness/models_auto.py`), from the catalog's best-at
+index (`halo models analyze`) and what the task needs. `models.needs` lists
+what the picked model must state it has: `vision`, `audio`, `video`, `pdf`
+(the input modalities), `reasoning`, `tools` (stated tool calls) and
+`long-context` (128k tokens or more); the task adds its own (an image, audio,
+video or PDF path in it; "plan", "review" or "judge" in the member's name or
+its bio's kind ask for reasoning; a task over 100,000 characters asks for
+long-context). A lineup card may override `models.needs` like any other
+`models` key, and the lineup's `budget.band` (`low`, `mid` the default,
+`high`) is what the pick weighs cost against. In the one model order the
+pick sits where the role table does: below a call's own `model`, a
+`--role` override, an agent file's `model:` and a tier's model, above the
+env / settings fallbacks; no candidate (or a pick whose provider has no
+credentials here) runs on the spawning session's model, and the one-line
+reason says so. `halo doctor --agents` runs an `auto` bio's acceptance on
+your default model. The shipped `auto-*` bios are the `auto` lineup's pool;
+[ROLES.md](ROLES.md#the-auto-lineup-halo-3190) has the lineup, the band rules
+and two worked picks.
 
 ## Team template ("lineup") fields
 
@@ -629,8 +658,8 @@ Roles-and-lineup step into ONE "Team" step (`tui/dialogs/team_step.py`,
 on" switch and the two panes are gone) and put it back into Quick setup:
 
 - a plain-words header, then the **lineup list** -- the first row is always
-  **"One model for everything"** (applies the shipped `standard` lineup and
-  turns roles off), then every reachable lineup from
+  **"One model for everything"** (turns roles off; since 3.1.9.0 it clears
+  `team:` instead of applying the shipped `standard` lineup), then every reachable lineup from
   `teams_list.team_rows`, the active one marked with a check;
 - a **live preview** of the highlighted row (`tui/dialogs/team_preview.py`:
   the `role -> agent -> model` tree with price and context, the lineup's

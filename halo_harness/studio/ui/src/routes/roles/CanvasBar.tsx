@@ -39,6 +39,7 @@ export function CanvasBar({ zoom, setZoom, fit, layout }: Props) {
   const canRedo = useRoles((s) => s.future.length > 0);
   const busy = useRoles((s) => s.busy);
   const active = useRoles((s) => s.info?.active_team === s.name);
+  const byDefault = useRoles((s) => !s.info?.active_team && !!s.info?.lineup_default && s.info?.lineup_in_use === s.name); // 3.1.9.0 R2
   const cards = useRoles((s) => s.graph?.nodes.length || 0);
   const tiers = useRoles((s) => s.graph?.tiers.length || 0);
   const adding = useRoles((s) => s.tierAdd);
@@ -50,6 +51,11 @@ export function CanvasBar({ zoom, setZoom, fit, layout }: Props) {
         {packOf(scope) ? `from pack ${packOf(scope)}, read-only` : readOnlySource(scope) ? `${scopeLabel(scope)}: saving makes your copy` : scopeLabel(scope)}
       </span>
       {active && <span className="og-chip mono" data-testid="roles-active">active</span>}
+      {byDefault && (
+        <span className="og-chip mono" data-testid="roles-active" data-default="1" title="No team: is set, so new sessions run this lineup. Apply another lineup to replace it.">
+          active (default)
+        </span>
+      )}
       <span className="mono muted rc-bar-count">{cards} cards · {tiers} tier{tiers === 1 ? "" : "s"}</span>
       {dirty && <span className="rc-dirty mono" data-testid="roles-dirty">unsaved</span>}
       {adding ? (

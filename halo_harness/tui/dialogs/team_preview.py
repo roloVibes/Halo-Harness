@@ -17,8 +17,9 @@ from typing import Optional
 
 ONE_MODEL_ID = "@one-model"
 ONE_MODEL_LABEL = "One model for everything"
-HEADER_TEXT = ("Halo runs one model for everything unless you pick a lineup. A lineup gives each job "
-               "(planning, coding, reviewing, research) its own agent and model.")
+HEADER_TEXT = ("Halo runs the auto lineup (the default) unless you pick a lineup of your own: main hands each "
+               "sub-task to an agent whose model is picked for it. A lineup gives each job (planning, coding, "
+               "reviewing, research) its own agent and model; One model for everything runs every job on one.")
 #: A "typical turn" for the cost line: tokens in / tokens out per role call.
 TURN_TOKENS_IN = 20_000
 TURN_TOKENS_OUT = 2_000
@@ -78,7 +79,8 @@ def cost_hint(table: dict, *, models_by_ref: "Optional[dict]" = None) -> str:
         row = rows.get(ref)
         pin, pout = _price(row, "price_in_per_m"), _price(row, "price_out_per_m")
         if pin is None or pout is None:
-            shown = "the session default model" if ref == "default" else ref
+            shown = "the session default model" if ref == "default" else (
+                "the models picked at spawn (auto)" if ref == "auto" else ref)
             if shown not in unknown:
                 unknown.append(shown)
             continue
@@ -117,7 +119,8 @@ def _tree_lines(template: dict, table: dict, rows: dict, cwd, state_dir) -> "lis
             model = "agent not found"
         else:
             model = "the session default model" if ref == "default" else (
-                _model_detail(ref, rows) if ref else "the session model")
+                "picked at spawn for each task (auto)" if ref == "auto" else (
+                    _model_detail(ref, rows) if ref else "the session model"))
         out.append(f"{label} -> {agent} -> {model}")
     return out
 
@@ -165,14 +168,17 @@ def applied_summary_lines(*, cwd=None, state_dir=None, default_model: str = "") 
     team = get_config_value("team", default=None)
     if not roles_mode_enabled():
         return [f"{ONE_MODEL_LABEL}: {default_model_label(default_model)}"]
-    if not (isinstance(team, str) and team):
-        return ["Lineup: none applied yet (roles follow the role table already configured, if any)."]
+    default = not (isinstance(team, str) and team.strip())
+    if default:  # 3.1.9.0 R2: no `team:` -- the default auto lineup runs
+        from halo_harness.lineup_default import DEFAULT_LINEUP, HOW_TO_CHANGE
+        team = DEFAULT_LINEUP
     from halo_harness.teams_yaml import resolve_role_table, resolve_team_template
     template = resolve_team_template(team, cwd=cwd, state_dir=state_dir)
     if template is None:
         return [f"Lineup: {team} (could not be resolved)"]
     table, _notes = resolve_role_table(template, cwd=cwd, state_dir=state_dir)
-    out = [f"Lineup: {team}"]
+    out = [f"Lineup: {team} (the default; change it with {HOW_TO_CHANGE})" if default else f"Lineup: {team}"]
     for role, value in table.items():
-        out.append(f"  {role}: {_ref_of(value) or '?'}")
+        ref = _ref_of(value) or "?"
+        out.append(f"  {role}: {'auto (picked at spawn)' if ref == 'auto' else ref}")
     return out

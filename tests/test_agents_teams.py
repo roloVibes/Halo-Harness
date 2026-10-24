@@ -648,7 +648,8 @@ def test_b2_halo_teams_bare_prints_overview_with_tree_and_other_lineups(ctx: Ctx
     from halo_harness.theme import set_config_value
     with _Env():
         rc, out = _run_cli(cmd_teams, [])
-        ctx.check(f"nothing applied yet says so, got rc={rc}\n{out}", rc == 0 and "No lineup applied yet" in out)
+        ctx.check(f"nothing applied yet names the default auto lineup (3.1.9.0 R2), got rc={rc}\n{out}",
+                  rc == 0 and "Active lineup: auto (the default" in out)
         ctx.check("every reachable lineup gets a line with its scope",
                   "  halo-dev-cycle [" in out and "  balanced [" in out)
         set_config_value("team", "halo-dev-cycle")
@@ -798,7 +799,8 @@ def test_b2_slash_teams_overview_apply_preview(ctx: Ctx):
     with _Env() as e:
         facade = HeadlessFacade(cwd=e.cwd)
         text = _cmd_teams("", facade)
-        ctx.check(f"bare /teams is the overview, got {text!r}", "No lineup applied yet" in text and "balanced [" in text)
+        ctx.check(f"bare /teams is the overview, got {text!r}",
+                  "Active lineup: auto (the default" in text and "balanced [" in text)
         text = _cmd_teams("preview halo-dev-cycle", facade)
         ctx.check(f"/teams preview prints the tree, got {text!r}", "main (boss) -> orchestrator" in text)
         text = _cmd_teams("apply halo-dev-cycle", facade)
