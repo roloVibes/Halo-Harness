@@ -93,6 +93,9 @@ halo_harness = ["tui/*.tcss", "providers/*.json", "providers/catalog/*.json",
                 "templates/agents/*.yaml", "templates/teams/*.yaml", "templates/team/*.yaml", "templates/orchestra/*.json", "templates/orchestra/*.py", "templates/comfy/*.json", "templates/glossary/*.md", "review/prompts/*.md",
                 "packs/schema/*.json",
                 "isolation/Dockerfile",
+                # 3.2.0.0 R6: the shipped reference pack (halo pack install doc-review), its dot files named
+                "templates/packs/*/*", "templates/packs/*/*/*", "templates/packs/*/*/*/*",
+                "templates/packs/*/.mcp.json", "templates/packs/*/.claude-plugin/*.json",
                 "studio/static/dist/*"]
 
 [tool.setuptools.dynamic]

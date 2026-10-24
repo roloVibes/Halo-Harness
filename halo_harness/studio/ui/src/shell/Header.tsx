@@ -14,7 +14,7 @@ function useSectionTabs(current: SectionId): TabItem[] {
   const orchestraBusy = useRecent(activity.orchestra, 3000);
   const fleetBusy = useRecent(activity.fleet, 3000);
   const teamBusy = useRecent(activity.team, 3000);
-  const busy: Record<SectionId, boolean> = { orchestra: orchestraBusy, roles: false, design: false, fleet: fleetBusy, team: teamBusy, session: fleetBusy };
+  const busy: Record<SectionId, boolean> = { orchestra: orchestraBusy, roles: false, design: false, fleet: fleetBusy, team: teamBusy, session: fleetBusy, packs: false };
   const all = useSections();
   return all.map((s, i) => ({
     id: s.id,

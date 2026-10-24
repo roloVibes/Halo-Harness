@@ -5,12 +5,16 @@
 // and the panel workspace, which comes up once a run starts or is opened,
 // or with "open the workspace anyway". 3.0.9.0 R2: while the open run is
 // `planned` the plan panel (plan/PlanPanel.tsx) takes the console's place.
+// 3.2.0.0 R6: while the Pack Manager's Run <workflow> has filled one in, the
+// workflow's form (WorkflowForm.tsx) shows instead of the goal form.
 import { useEffect } from "react";
 import { Surface } from "../../lib/ui";
 import { Workspace } from "../../lib/workspace/Workspace";
 import type { PanelSpec } from "../../lib/workspace/types";
 import { SECTION_HELP } from "../sectionHelp";
 import { GoalForm } from "./GoalForm";
+import { WorkflowForm } from "./WorkflowForm";
+import { useWfRun } from "./workflowRun";
 import { PastRuns } from "./OrchRail";
 import { planPanels } from "./plan/PlanPanel";
 import { usePlan } from "./plan/store";
@@ -21,17 +25,18 @@ import { NextStep } from "../NextStep";
 export function StartView() {
   const copy = SECTION_HELP.orchestra;
   const error = useOrch((s) => s.error);
+  const wf = useWfRun((s) => s.wf); // 3.2.0.0 R6: a pack's workflow from the Pack Manager's Run
   return (
     <div className="fl-start og-start" data-testid="start-view">
       <div className="fl-start-inner">
         <header className="fl-start-head">
           <div className="glance-kicker mono">ORCHESTRA · SEVERAL AGENTS, ONE GOAL</div>
-          <h1 className="fl-start-title">Start a run</h1>
+          <h1 className="fl-start-title">{wf ? `Run the workflow ${wf.name}` : "Start a run"}</h1>
           <p className="muted">{copy.what}</p>
         </header>
         <div className="fl-start-grid">
           <Surface className="fl-start-form" motion="idle">
-            <GoalForm start />
+            {wf ? <WorkflowForm /> : <GoalForm start />}
           </Surface>
           <aside className="fl-start-side">
             <ol className="fl-explain">

@@ -1,14 +1,19 @@
 """halo_harness.packs.cli -- `halo pack ...` (docs/PACKS.md, docs/COMMANDS-packs.md).
 
-    halo pack list [--json]                           every pack here: id, version, state, scope, source, what it offers
+    halo pack list [--available] [--json]             every pack here: id, version, state, scope, source, what it offers;
+                                                      --available: and what the sources hold that is not installed
     halo pack inspect <id|path> [--json]              the manifest, what it offers, its permissions and which are granted, problems
-    halo pack install <path|git url> [--project] [--json]
+    halo pack install <path|git url|id> [--project] [--json]
                                                       copy it into ~/.halo/packs/<id>/ (or .halo/packs/<id>/), disabled
     halo pack enable <id> [--grant NAME ...] [--grant-all] [--json]
                                                       turn it on; grant what it requests (mcp:<server>, hooks, bash, network, home-write)
+    halo pack grant <id> NAME [NAME ...] [--off] [--json]
+                                                      give an enabled pack more of what it requests, or take grants back (--off)
     halo pack disable <id> [--json]                   nothing of it runs from now on; its files stay
     halo pack update <id> [--json]                    from its source, through the journal; migration notes printed
     halo pack remove <id> [--keep-config] [--json]    the pack's own files only; yours stay and are listed
+    halo pack sources [add|remove <folder|git url>] [--json]
+                                                      where a bare id is looked for: config packs.sources, then the packs Halo ships
     halo pack doctor [--json]                         every problem, one line each
 
 Every verb takes `--cwd DIR` (act as if run from DIR: its `.halo/packs/`).
@@ -23,26 +28,35 @@ import json
 import sys
 from pathlib import Path
 
-VERBS = ("list", "inspect", "install", "enable", "disable", "update", "remove", "doctor")
+VERBS = ("list", "inspect", "install", "enable", "grant", "disable", "update", "remove", "sources", "doctor")
 USAGE = __doc__.split("\n\n")[1]
 
 
 def _parser(verb: str) -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog=f"halo pack {verb}")
+    if verb == "list":
+        p.add_argument("--available", action="store_true",
+                       help="also list what packs.sources and the packs Halo ships hold that is not installed")
     if verb == "inspect":
         p.add_argument("target", help="an installed pack's id, or a pack folder")
     if verb == "install":
-        p.add_argument("source", help="a pack folder or a git url")
+        p.add_argument("source", help="a pack folder, a git url, or an id found in packs.sources or the packs Halo ships")
         p.add_argument("--project", action="store_true", help="install into this repo's .halo/packs/ instead of ~/.halo/packs/")
-    if verb in ("enable", "disable", "update", "remove"):
+    if verb in ("enable", "grant", "disable", "update", "remove"):
         p.add_argument("id")
     if verb == "enable":
         p.add_argument("--grant", action="append", default=[], metavar="NAME",
                        help="grant one permission the pack requests (repeat for several)")
         p.add_argument("--grant-all", action="store_true", help="grant every permission the pack requests")
+    if verb == "grant":
+        p.add_argument("names", nargs="+", metavar="NAME", help="a permission the pack requests")
+        p.add_argument("--off", action="store_true", help="take the grants back instead")
     if verb == "remove":
         p.add_argument("--keep-config", action="store_true",
                        help="keep the pack's record and grants for a later install")
+    if verb == "sources":
+        p.add_argument("action", nargs="?", choices=("add", "remove"), help="add or remove one entry of packs.sources")
+        p.add_argument("source", nargs="?", help="a folder of packs, a pack's folder or a git url")
     p.add_argument("--cwd", default=None, metavar="DIR", help="act as if run from DIR")
     p.add_argument("--json", action="store_true", help="print JSON")
     return p
@@ -69,10 +83,14 @@ def _list(args, cwd) -> int:
     from halo_harness.packs import cli_views as CV
     from halo_harness.packs.registry import snapshot
     rows = CV.list_rows(snapshot(cwd=cwd))
+    more = None
+    if args.available:
+        from halo_harness.packs.sources import available
+        more = available(cwd=cwd)
     if args.json:
-        print(json.dumps({"packs": rows}, indent=2, ensure_ascii=False))
+        print(json.dumps({"packs": rows, **({"available": more} if more is not None else {})}, indent=2, ensure_ascii=False))
     else:
-        print("\n".join(CV.list_lines(rows)))
+        print("\n".join(CV.list_lines(rows) + (CV.available_lines(more) if more is not None else [])))
     return 0
 
 
@@ -93,6 +111,18 @@ def _inspect(args, cwd) -> int:
     return 0
 
 
+def _sources(args, cwd) -> int:
+    from halo_harness.packs import cli_views as CV
+    from halo_harness.packs import sources as SRC
+    if args.action:
+        if not args.source:
+            return _err(f"halo pack sources {args.action} needs a folder or a git url", 2)
+        return _done(args, *(SRC.add if args.action == "add" else SRC.remove)(args.source))
+    rows = SRC.listing(cwd=cwd)
+    print(json.dumps({"sources": rows}, indent=2, ensure_ascii=False) if args.json else "\n".join(CV.sources_lines(rows)))
+    return 0
+
+
 def _doctor(args, cwd) -> int:
     from halo_harness.packs.doctor import problems
     found = problems(cwd=cwd)
@@ -108,11 +138,6 @@ def _doctor(args, cwd) -> int:
     return 1 if found else 0
 
 
-def _find(pack_id: str, cwd):
-    from halo_harness.packs.discover import find
-    return find(pack_id, cwd=cwd)
-
-
 def cmd_pack(argv: list) -> int:
     if not argv or argv[0] in ("-h", "--help", "help"):
         print("usage:\n" + USAGE)
@@ -125,12 +150,8 @@ def cmd_pack(argv: list) -> int:
     except SystemExit as e:
         return int(e.code or 0)
     cwd = Path(args.cwd).resolve() if args.cwd else Path.cwd().resolve()
-    if verb == "list":
-        return _list(args, cwd)
-    if verb == "inspect":
-        return _inspect(args, cwd)
-    if verb == "doctor":
-        return _doctor(args, cwd)
+    if verb in ("list", "inspect", "doctor", "sources"):
+        return {"list": _list, "inspect": _inspect, "doctor": _doctor, "sources": _sources}[verb](args, cwd)
     if verb == "install":
         from halo_harness.packs.install import install
         return _done(args, *install(args.source, project=args.project, cwd=cwd))
@@ -140,11 +161,9 @@ def cmd_pack(argv: list) -> int:
     if verb == "remove":
         from halo_harness.packs.remove import remove
         return _done(args, *remove(args.id, keep_config=args.keep_config, cwd=cwd))
+    from halo_harness.packs import grants as G
     if verb == "disable":
-        from halo_harness.packs.grants import disable
-        return _done(args, *disable(args.id))
-    pack = _find(args.id, cwd)
-    if pack is None:
-        return _done(args, False, [f"no pack {args.id!r} here (halo pack list; halo pack install <path|git url>)"])
-    from halo_harness.packs.grants import enable
-    return _done(args, *enable(pack, grant=args.grant, grant_all=args.grant_all))
+        return _done(args, *G.disable(args.id))
+    if verb == "grant":
+        return _done(args, *G.grant(args.id, args.names, on=not args.off, cwd=cwd))
+    return _done(args, *G.enable_id(args.id, grant=args.grant, grant_all=args.grant_all, cwd=cwd))

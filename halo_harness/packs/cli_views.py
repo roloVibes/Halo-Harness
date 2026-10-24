@@ -44,6 +44,30 @@ def list_lines(rows: "list[dict]") -> "list[str]":
     return out
 
 
+def available_lines(rows: "list[dict]") -> "list[str]":
+    """3.2.0.0 R6: `halo pack list --available` -- what the sources hold that is not installed (packs/sources.py)."""
+    if not rows:
+        return ["nothing more to install: packs.sources and the packs Halo ships hold no other pack (halo pack sources)"]
+    width = max(len(r["id"]) for r in rows)
+    return ["available (halo pack install <id>):"] + [
+        f"  {r['id']:<{width}}  {r['version'] or '?':<8}  {r['name']}  from {Path(r['source']).as_posix() if '://' not in r['source'] else r['source']}"
+        for r in rows]
+
+
+def sources_lines(rows: "list[dict]") -> "list[str]":
+    """3.2.0.0 R6: `halo pack sources` -- each place a bare id is looked for, in order, with the packs it holds."""
+    out = ["packs.sources, searched in this order, then the packs Halo ships:" if any(r["configured"] for r in rows)
+           else "packs.sources is empty (halo pack sources add <folder|git url>); a bare id is looked for in the packs Halo ships:"]
+    for r in rows:
+        where = r["source"] if r["kind"] == "url" else Path(r["source"]).as_posix()
+        if r["problem"]:
+            out.append(f"  {where} ({r['kind']}): {r['problem']}")
+            continue
+        packs = ", ".join(f"{p['id']} {p['version']}".rstrip() + (" (installed)" if p["installed"] else "") for p in r["packs"])
+        out.append(f"  {where} ({'git url: Install clones it' if r['kind'] == 'url' else r['kind']}): {packs or 'no pack'}")
+    return out
+
+
 def inspect_payload(pack, snap, *, cwd=None) -> dict:
     from halo_harness.packs import grants as G
     from halo_harness.packs import manifest as MF

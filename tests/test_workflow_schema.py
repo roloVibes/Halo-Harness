@@ -21,7 +21,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from tests.helpers.packs_home import DOC_REVIEW, FIXTURES  # noqa: E402
+from tests.helpers.packs_home import DOC_REVIEW, FIXTURES, fixture  # noqa: E402
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
 
 test, TESTS = new_registry()
@@ -30,7 +30,7 @@ REPO = Path(__file__).resolve().parent.parent
 
 def _problems(name: str) -> list:
     from halo_harness.packs.discover import read_pack
-    return read_pack(FIXTURES / name, "source").problems
+    return read_pack(fixture(name), "source").problems
 
 
 def _variant(edit) -> list:

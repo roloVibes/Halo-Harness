@@ -13,8 +13,12 @@ contributions"). Same loopback / origin / token guard as every Studio route.
     POST pack/<id>/config {values: {key: value}}   checked against config.schema, then packs.settings.<id>.<key>
                                     for each (422 {error, problems}: nothing written)
 
+3.2.0.0 R6: `pack/manager`, `pack/install`, `pack/sources` and `pack/<id>/<verb>`
+(enable, grant, disable, update, remove, settings) are the Pack Manager's,
+answered first by studio/packs_manager_api.py.
+
 A pack that is not running here (not installed, disabled, a problem) answers
-404 on every pack/<id>/ route. The bundle is a module the page imports; an
+404 on every pack/<id>/ route of this module. The bundle is a module the page imports; an
 import() sends no header, so the file route also takes the token in `?t=`
 (served by `serve_module` from studio/server.py, as `/api/events` is).
 """
@@ -134,6 +138,10 @@ def post_config(req, pack):
 def dispatch_pack(req):
     if req.path == "pack/registry" and req.method == "GET":
         return get_registry(req)
+    from halo_harness.studio.packs_manager_api import dispatch as manager  # 3.2.0.0 R6: the Pack Manager's routes
+    managed = manager(req)
+    if managed is not None:
+        return managed
     m = _ROUTE.match(req.path)
     if not m:
         return 404, {"error": f"no route for {req.method} /api/{req.path}"}

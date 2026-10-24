@@ -47,7 +47,9 @@ function Control({ f, id, value, onChange }: { f: FieldDef; id: string; value: u
   );
 }
 
-export function PackForm({ p }: { p: PackPanel }) {
+/** `path`: 3.2.0.0 R6, the Pack Manager's `pack/<id>/settings` (any pack installed here, a disabled one too). */
+export function PackForm({ p, path }: { p: PackPanel; path?: string }) {
+  const route = path || `pack/${p.pack}/config`;
   const reg = usePacks((s) => s.reg);
   const [cfg, setCfg] = useState<Config | null>(null);
   const [draft, setDraft] = useState<Record<string, unknown>>({});
@@ -56,14 +58,14 @@ export function PackForm({ p }: { p: PackPanel }) {
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     let live = true;
-    api.get<Config>(`pack/${p.pack}/config`).then(
+    api.get<Config>(route).then(
       (c) => live && (setCfg(c), setDraft({ ...c.values }), setError("")),
       (e) => live && setError(e instanceof Error ? e.message : String(e)),
     );
     return () => {
       live = false;
     };
-  }, [p.pack, reg]);
+  }, [route, reg]);
   if (error && !cfg) return <Empty title="Studio could not read the settings" body={error} testid="pack-error" />;
   if (!cfg) return <div className="og-wait mono muted">reading the settings...</div>;
   if (!cfg.fields.length) return <Empty title="Nothing to set" body="pack.yaml's config.schema names no keys." />;
@@ -71,7 +73,7 @@ export function PackForm({ p }: { p: PackPanel }) {
   const save = async () => {
     setBusy(true);
     try {
-      const c = await api.post<Config>(`pack/${p.pack}/config`, { values: Object.fromEntries(changed.map((f) => [f.key, draft[f.key]])) });
+      const c = await api.post<Config>(route, { values: Object.fromEntries(changed.map((f) => [f.key, draft[f.key]])) });
       setCfg(c);
       setDraft({ ...c.values });
       setProblems([]);

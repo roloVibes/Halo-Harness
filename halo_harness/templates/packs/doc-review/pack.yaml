@@ -1,22 +1,25 @@
-# A fixture pack (tests/test_packs_*.py, tests/test_ext_api.py): every
-# contribution kind R1 wires, the permissions they need, a setting with a
-# schema and a default, and one migration note. 3.2.0.0 R2: the reviewer bio
-# asks for a model by capability, keeps its own memory namespace and needs
-# bash; the review lineup has two tiers, acceptance.review and one workflow.
-# 3.2.0.0 R3: contributes.studio -- a section of its own (a markdown panel, a
-# table over a JSON file, links), one panel in Session, a palette action, the
-# settings form, a line for review.done and an attention row kind.
-# 3.2.0.0 R4: contributes.fleet -- the docs.review worker capability (it needs
-# the bash grant and a model that calls tools, two parts at once), a mission
-# inspector line (fleet/checklist.md) and the metadata its lineup's missions carry.
-# 3.2.0.0 R5: the review workflow (workflows/review.yaml), its review-report
-# artifact schema (artifacts/review-report.json) and the last report as an artifact
-# panel in the docs section; review.done gains its schema (events/review.done.json).
+# Documentation Review: the reference pack Halo ships (3.2.0.0 R6). Copy this
+# folder to make your own pack; README.md beside this file explains every file.
+# `halo pack install doc-review` installs it (disabled), `halo pack enable
+# doc-review --grant bash` turns it on, `halo pack doctor` checks it.
+#
+# What it shows, one part of the extension API each (docs/EXTENSION_API.md):
+# - a reviewer and a writer bio (agents/) and the review lineup (teams/), read in
+#   place as doc-review--reviewer, doc-review--writer and doc-review--review;
+# - the review workflow (workflows/review.yaml): read every Markdown file, judge
+#   the findings, write one typed review-report (artifacts/review-report.json);
+# - a Studio section (contributes.studio): the notes, the checks, the links, the
+#   last review report, a Reviews panel in Session, a palette action, the
+#   settings form, a line for review.done and an attention row kind;
+# - the docs.review fleet capability (contributes.fleet): a harness offers it with
+#   the bash grant and a model that calls tools;
+# - the Claude-plugin half: a skill, a command, a hook and a lint MCP server, each
+#   running only once you grant what it needs (permissions).
 id: doc-review
-name: Documentation review
+name: Documentation Review
 version: 1.0.0
-description: A reviewer and a writer bio, a review lineup, a link-check skill, a review command, a hook and a lint MCP server.
-author: Halo fixtures
+description: Reviews a repo's Markdown documents with a reviewer and a writer bio, a review workflow and a typed review report.
+author: Halo Harness
 license: MIT
 halo_api: {min: "1.0", max: "1.9"}
 halo: {min: "3.1"}

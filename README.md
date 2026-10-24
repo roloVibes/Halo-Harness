@@ -103,7 +103,7 @@ OpenAI API, Ollama, Hugging Face, or any OpenAI-compatible server you host), and
 
 ## Halo Studio
 
-`halo studio` opens Studio in your browser. It is one window with six sections under one
+`halo studio` opens Studio in your browser. It is one window with seven sections under one
 header, and two of them are where you watch your agents: **Session**, the dashboard of everything working
 right now, and **Roles**, your lineup as cards that light up as their agents work.
 
@@ -187,6 +187,13 @@ it; Save writes the lineup's YAML and Apply makes it the lineup new sessions use
 its panels sit in labelled group boxes you move and resize, `Ctrl`/`Cmd`+`K` opens the
 command palette and `?` opens "How this works". `halo studio` serves it on loopback only,
 with a per-launch token: no account, no CDN, no fonts fetched, no analytics.
+
+The seventh, **Packs** (`Alt+7`), is the Pack Manager: it lists the packs in the places
+you trust (the folders and git urls of `packs.sources`, and the Documentation Review pack
+Halo ships), shows what each brings and asks for, and installs, grants, enables, sets up,
+updates and removes them through the same code as `halo pack`. An enabled pack's own
+section comes after it. See [docs/STUDIO-packs.md](docs/STUDIO-packs.md) and
+[docs/PACKS.md](docs/PACKS.md).
 
 The pictures here are headless-Chrome renders of Studio over fixture data
 (`tools/capture_studio.py`, and `tools/capture_session_anim.py` for the animated ones).
@@ -319,7 +326,7 @@ tool, so check each tool's own docs.
 
 | | |
 |---|---|
-| **Halo Studio** | `halo studio`, or `/studio` in a session: the browser console, six sections under one header. Loopback only, a per-launch token, no CDN. |
+| **Halo Studio** | `halo studio`, or `/studio` in a session: the browser console, seven sections under one header. Loopback only, a per-launch token, no CDN. |
 | **The Session dashboard** | One live column of every agent's thinking, tool calls (what each runs on, its time, its result), hand-backs and asks; the map of who spawned whom with each agent's model, cost and running tool; the context bar, the spend and each agent's share. |
 | **The Roles glow** | Your lineup as cards in tier boxes. While a session runs, a card glows in its agent's state: working cyan, waiting amber, done green that fades over ten seconds, failed red until you click it. Hover the card and it explains its glow. |
 | **Fleet and missions** | Every harness on one map, one attention queue across all of them, and one goal split into parts by what each harness can do. |

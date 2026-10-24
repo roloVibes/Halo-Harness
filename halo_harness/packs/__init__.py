@@ -19,6 +19,8 @@ responsibility:
     contribute.py what an active pack adds (plugin roots, bio/lineup folders)
     journal.py    <state>/packs/journal.jsonl and the journaled file writes
     fetch.py      a pack source: a folder or a git url
+    sources.py    where a bare id is looked for: packs.sources, then the shipped packs (3.2.0.0 R6)
+    manager.py    what Studio's Pack Manager shows (3.2.0.0 R6)
     install.py    install and update
     remove.py     remove (your own work stays)
     doctor.py     every problem, one line each

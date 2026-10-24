@@ -6,7 +6,7 @@ headless Chrome run on the driver base over Studio on a scratch home with NO liv
 
   landing   nothing saved, nothing live: Studio still opens on Roles (its Start view), not on the first tab
   tabs      the tab strip in order: each tab's label and its key chip
-  keys      Alt+1 .. Alt+6 each select the tab the strip shows for that key; Alt+1 (Session, nothing live)
+  keys      Alt+1 .. Alt+7 each select the tab the strip shows for that key; Alt+1 (Session, nothing live)
             shows the Session Start view
   help      `?` on Session: How Session works lists Alt+1 first
   hint      the status bar's key hint runs from the first tab's key to the last one's
@@ -30,7 +30,8 @@ from tests.helpers.runner import Ctx, SkipTest  # noqa: E402
 SEL = "document.querySelector('[data-testid=\"section-tab\"][aria-selected=\"true\"]')?.querySelector('.tab-label')?.textContent || ''"
 TABS = ("[...document.querySelectorAll('[data-testid=\"section-tab\"]')].map((t) => "
         "[t.querySelector('.tab-label')?.textContent || '', t.querySelector('.tab-kbd')?.getAttribute('aria-label') || ''])")
-ORDER = [("Session", "Alt 1"), ("Team", "Alt 2"), ("Roles", "Alt 3"), ("Fleet", "Alt 4"), ("Design", "Alt 5"), ("Orchestra", "Alt 6")]
+ORDER = [("Session", "Alt 1"), ("Team", "Alt 2"), ("Roles", "Alt 3"), ("Fleet", "Alt 4"), ("Design", "Alt 5"), ("Orchestra", "Alt 6"),
+         ("Packs", "Alt 7")]  # Packs: 3.2.0.0 R6
 
 
 def maybe(c, expr: str, timeout: float):
@@ -48,7 +49,7 @@ def alt(c, n: int) -> None:
 
 def landing(c, url: str) -> dict:
     c.go(url)
-    c.wait("document.querySelectorAll('[data-testid=\"section-tab\"]').length === 6", 40)
+    c.wait("document.querySelectorAll('[data-testid=\"section-tab\"]').length === 7", 40)
     if maybe(c, "!!document.querySelector('[data-testid=\"start-here-dismiss\"]')", 8):  # a fresh home's Start here overlay
         c.click_on("document.querySelector('[data-testid=\"start-here-dismiss\"]')")
         c.wait("!document.querySelector('[data-testid=\"start-here\"]')", 10)
@@ -62,7 +63,7 @@ def tabs(c) -> dict:
 
 def keys(c) -> dict:
     out: dict = {"pressed": []}
-    for n in (2, 3, 4, 5, 6, 1):
+    for n in (2, 3, 4, 5, 6, 7, 1):
         want = ORDER[n - 1][0]
         alt(c, n)
         out["pressed"].append([n, maybe(c, f"{SEL} === '{want}' && {SEL}", 15) or c.js(SEL)])
@@ -133,15 +134,15 @@ def register(test, json_of, chrome) -> None:
                   f"{got.get('landing_live')!r} {got.get('landing_roles_start')}",
                   got.get("landing") == "Roles" and got.get("landing_live") == "" and got.get("landing_roles_start") == 1)
         ctx.check(f"the tab strip, in order, with its keys, got {got.get('tabs')}", [tuple(t) for t in got.get("tabs") or []] == ORDER)
-        ctx.check(f"Session / Alt+1 first, Orchestra / Alt+6 last, got {got.get('tabs')}",
-                  (got.get("tabs") or [[]])[0] == ["Session", "Alt 1"] and (got.get("tabs") or [[]])[-1] == ["Orchestra", "Alt 6"])
-        want = [[n, ORDER[n - 1][0]] for n in (2, 3, 4, 5, 6, 1)]
-        ctx.check(f"Alt+2 .. Alt+6 then Alt+1 select their tabs, got {got.get('pressed')}", got.get("pressed") == want)
+        ctx.check(f"Session / Alt+1 first, Orchestra / Alt+6, then Packs / Alt+7 last (3.2.0.0 R6), got {got.get('tabs')}",
+                  (got.get("tabs") or [[]])[0] == ["Session", "Alt 1"] and (got.get("tabs") or [[], []])[-2:] == [["Orchestra", "Alt 6"], ["Packs", "Alt 7"]])
+        want = [[n, ORDER[n - 1][0]] for n in (2, 3, 4, 5, 6, 7, 1)]
+        ctx.check(f"Alt+2 .. Alt+7 then Alt+1 select their tabs, got {got.get('pressed')}", got.get("pressed") == want)
         ctx.check(f"Alt+1 with nothing live: the Session Start view, got {got.get('session_start')}", got.get("session_start") == 1)
         ctx.check(f"How Session works: Alt+1 Session is its first key, got {got.get('help_first_key')} {got.get('help_is_session')}",
                   got.get("help_first_key") == ["Alt 1", "Session"] and got.get("help_is_session") is True)
         hk = got.get("hint_keys") or []
-        ctx.check(f"the status bar's hint: Alt+1 to Alt+6, got {hk}", "Alt 1" in hk and "Alt 6" in hk and hk.index("Alt 1") < hk.index("Alt 6"))
+        ctx.check(f"the status bar's hint: Alt+1 to Alt+7, got {hk}", "Alt 1" in hk and "Alt 7" in hk and hk.index("Alt 1") < hk.index("Alt 7"))
         groups = got.get("palette_groups") or []
         sections = [g for g in groups if g in {t for t, _ in ORDER}]
         ctx.check(f"the palette: Go to, Help, then the section groups in tab order, got {groups}",

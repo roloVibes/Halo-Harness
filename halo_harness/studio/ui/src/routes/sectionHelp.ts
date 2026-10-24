@@ -116,4 +116,18 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
     keys: [...HOP_KEYS, ["P", "pause or resume the agent"], ["K", "in the Agent panel: stop it (asks first)"],
       ["Esc", "in Live: show every agent again after a tag click"], ["A / R / S / O", "in Attention, or on the newest ask card in Live: accept, deny or redo (with a text), stop, open"], ...PANEL_KEYS],
   },
+  packs: {
+    terms: ["lineup", "bio", "capability", "orchestra run"],
+    what: "The Pack Manager: find a pack in the places you trust (the folders and git urls of packs.sources, and the packs Halo ships), read what it brings and what it asks for, then install, grant, enable, set up, update or remove it. Every button runs the same code as halo pack, and every line it answers is the one the terminal prints.",
+    steps: [
+      ["Find a pack", "Sources lists each place a bare id is looked for, in order, with the packs it holds; Add source puts a folder or a git url in packs.sources. Click a name to read the pack before you install it."],
+      ["Install it", "Install copies it into ~/.halo/packs/<id>/ (or this repo's .halo/packs/), disabled: nothing of it runs yet. It shows in Installed."],
+      ["Read what it brings", "Details: its extension API and Halo ranges beside this Halo's, the packs it requires, what keeps it from running here (in the doctor's words), each permission it requests and what needs it, and everything it contributes."],
+      ["Grant and enable", "Pick the permissions to grant with their toggles, then Enable: its bios, lineups, Studio section, fleet capability and workflows run from now on; a contribution whose permission you did not grant stays off."],
+      ["Set it up", "Settings is the pack's own form (its config.schema): Save checks the values, then writes packs.settings.<id>."],
+      ["Use its templates", "Templates: Preview, Clone, Customize or Apply its lineups and bios (in Roles), and Run a workflow: Orchestra's new-run form, filled in."],
+      ["Keep it healthy", "Each row counts the doctor's lines; Update reads the pack's source again (your changed files stay); Remove asks first, then deletes only the pack's own files and lists what of yours stays."],
+    ],
+    keys: PANEL_KEYS,
+  },
 };
