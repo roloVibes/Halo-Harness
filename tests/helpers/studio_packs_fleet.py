@@ -95,7 +95,8 @@ class PacksFleetDriver(Driver):
         state = seeded_home()
         bio_models.ROWS = lambda _s, _c: [dict(TOOLS_ROW)]
         for name, grants in (("doc-review", ["bash"]), ("fleet-needs-gpu", [])):
-            ok, lines = install(str(REPO / "tests" / "fixtures" / "packs" / name))
+            from tests.helpers.packs_home import fixture  # 3.2.0.0 R6: doc-review is the shipped pack
+            ok, lines = install(str(fixture(name)))
             assert ok, lines
             ok, lines = enable(find(name), grant=grants)
             assert ok, lines

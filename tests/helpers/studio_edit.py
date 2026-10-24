@@ -114,7 +114,7 @@ def focus(c, url: str, state: Path, srv) -> dict:
     opened: list = []
     launch._open = lambda u: opened.append(u) or True  # a focused page needs no new tab; record any
     c.go(url)
-    c.wait(f"document.querySelectorAll('[data-testid=\"section-tab\"]').length === 6", 30)
+    c.wait(f"document.querySelectorAll('[data-testid=\"section-tab\"]').length === 7", 30)  # 3.2.0.0 R6: + Packs
     end = time.time() + 15
     while time.time() < end and bridge_for(srv).listeners() < 1:
         time.sleep(0.1)

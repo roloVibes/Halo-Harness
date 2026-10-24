@@ -17,7 +17,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from tests.helpers.packs_home import DOC_REVIEW, FIXTURES, PacksHome  # noqa: E402
+from tests.helpers.packs_home import DOC_REVIEW, FIXTURES, PacksHome, fixture  # noqa: E402
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
 
 test, TESTS = new_registry()
@@ -40,7 +40,7 @@ def test_the_fixtures_validate_and_use_every_kind(ctx: Ctx):
     from halo_harness.packs.studio_rules import KINDS, panels_of
     kinds = set()
     for name in ("doc-review", "studio-bundle"):
-        pack = read_pack(FIXTURES / name, "source")
+        pack = read_pack(fixture(name), "source")
         ctx.check(f"{name} validates clean, got {pack.problems}", pack.problems == [])
         kinds |= {p.get("kind") for _k, _s, p in panels_of(pack.manifest)}
     ctx.check(f"the fixtures declare every kind but form (config_form adds it), got {sorted(kinds)}", kinds | {"form"} == set(KINDS))
@@ -169,7 +169,7 @@ def test_the_registry_qualifies_resolves_and_leaves_disabled_packs_out(ctx: Ctx)
         acts = [(e["label"], e["group"], e["action"]) for e in doc["palette"]]
         ctx.check(f"the palette: the action, then Settings, got {acts}",
                   acts == [("Open the review checks", "pack doc-review", {"kind": "route", "section": "doc-review--docs", "panel": "doc-review--checks"}),
-                           ("Settings: Documentation review", "pack doc-review", {"kind": "route", "section": "doc-review--docs", "panel": "doc-review--settings"})])
+                           ("Settings: Documentation Review", "pack doc-review", {"kind": "route", "section": "doc-review--docs", "panel": "doc-review--settings"})])
         ctx.check("events and attention carried (3.2.0.0 R5: + the kind schema's view)",
                   doc["events"] == {"review.done": {"label": "REVIEW", "line": "{file}: {findings} findings", "view": "keyvalue"}}
                   and doc["attention"]["review.ask"]["keys"] == {"a": "accept", "r": "redo", "s": "skip", "o": "open"})

@@ -15,7 +15,9 @@ holds Studio's folder (`req.cwd`).
     GET|PUT orchestra/<run>/plan, POST orchestra/<run>/approve|reject   the reviewed plan (orchestra_plan_api.py)
 
 3.0.9.0 R2: `POST run` takes `review: true` (the goal's `plan: review`: the
-run pauses after the split until the plan is approved).
+run pauses after the split until the plan is approved). 3.2.0.0 R6: `POST
+run {workflow: <pack>/<name>, inputs: {k: v}, model?}` compiles a pack's
+workflow to its goal first (`halo workflow run`'s compile; its lines on a 422).
 
 `POST run` starts the runner on a daemon thread (orchestra_live.py) and
 answers at once; a second POST while a run is live is a 409 naming it.
@@ -57,7 +59,13 @@ def list_runs(req):
 
 def post_run(req):
     body = req.body
-    data = {k: body[k] for k in RUN_FIELDS if k in body}
+    compiled = None
+    if body.get("workflow"):  # 3.2.0.0 R6: a pack's workflow, compiled first (studio/workflow_api.py compiled_goal)
+        from halo_harness.studio.workflow_api import compiled_goal
+        compiled, err = compiled_goal(body, _repo(req))
+        if err is not None:
+            return err
+    data = compiled.to_dict() if compiled is not None else {k: body[k] for k in RUN_FIELDS if k in body}
     if body.get("review"):
         data["plan"] = "review"
     if isinstance(data.get("files"), str):
@@ -85,7 +93,7 @@ def post_run(req):
     if other is not None:  # 3.1.8.0 R1: the supervisor (or a `halo orchestra run`) already drives a run here
         return 409, {"error": f"run {other['run_id']} is running elsewhere ({other['by'] or 'another process'})",
                      "run_id": other["run_id"]}
-    goal = Goal.from_dict(data)
+    goal = compiled or Goal.from_dict(data)
     run_dir = new_run(repo, goal)
     model = str(body.get("model") or "") or None
     started = live.start(run_dir, goal, model=model, dry_run=bool(body.get("dry_run")), runner=RUNNER,

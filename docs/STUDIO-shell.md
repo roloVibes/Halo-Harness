@@ -6,12 +6,12 @@ Part of [Halo Studio](STUDIO.md), which lists every part.
 
 ## The shell (3.0.3.0)
 
-`halo studio` opens a React shell with six sections in the top bar:
-**Session | Team | Roles | Fleet | Design | Orchestra** (`Alt+1`..`Alt+6`, or `?mode=` in
-the URL; Fleet since 3.0.5.0, Team since 3.0.8.0, Session since 3.1.4.0; Org and Flow are
+`halo studio` opens a React shell with seven sections in the top bar:
+**Session | Team | Roles | Fleet | Design | Orchestra | Packs** (`Alt+1`..`Alt+7`, or `?mode=` in
+the URL for the first six; Fleet since 3.0.5.0, Team since 3.0.8.0, Session since 3.1.4.0, Packs since 3.2.0.0; Org and Flow are
 gone since 3.1.4.0). The order is one list, `SECTIONS` in `ui/src/routes/index.tsx`
 (3.1.6.0: Session `Alt+1`, Team `Alt+2`, Roles `Alt+3`, Fleet `Alt+4`, Design `Alt+5`,
-Orchestra `Alt+6`): the tabs, the `Alt+N` keys, the palette's groups, the first key of each
+Orchestra `Alt+6`; 3.2.0.0 R6: Packs `Alt+7`, [STUDIO-packs.md](STUDIO-packs.md)): the tabs, the `Alt+N` keys, the palette's groups, the first key of each
 section's **How this works** and the status bar's key hint all read it.
 Session is this session, live: the Fleet panels scoped to this harness (see
 [Session](STUDIO-sections.md#session)); with nothing saved for the browser Studio opens on it while a

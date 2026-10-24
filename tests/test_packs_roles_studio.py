@@ -1,7 +1,7 @@
 """tests.test_packs_roles_studio -- Studio's Roles groups by source and works
 a pack's rows (Halo 3.2.0.0 R2). Headless Chrome through the driver base
 (tests/helpers/studio_packs_roles.py; skipped without one), over a fresh
-home with the shipped lineups and the doc-review fixture pack enabled:
+home with the shipped lineups and the doc-review reference pack enabled:
 
 1. Lineups and Bios: group boxes yours, project, pack doc-review, shipped,
    in that order, the empty ones collapsed; a pack lineup row has Preview,

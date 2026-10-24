@@ -18,7 +18,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from tests.helpers.packs_home import FIXTURES, PacksHome  # noqa: E402
+from tests.helpers.packs_home import DOC_REVIEW, FIXTURES, PacksHome  # noqa: E402
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
 
 test, TESTS = new_registry()
@@ -76,7 +76,7 @@ def test_a_pack_bio_naming_one_provider_is_a_manifest_problem_naming_the_line(ct
                                                                 for ln in lines))
         ok, out = install(str(h.source("provider-pinned")), cwd=h.repo)
         ctx.check(f"install checks first and refuses it, got {out}", not ok and not (h.packs / "provider-pinned").exists())
-        ok_fixture = read_pack(FIXTURES / "doc-review", "source").problems
+        ok_fixture = read_pack(DOC_REVIEW, "source").problems
         ctx.check(f"a family name (claude-sonnet) and tags are fine, got {ok_fixture}", ok_fixture == [])
 
 

@@ -1,15 +1,13 @@
 # Studio: how each section works
 
-Read this when you want the one-screen story of a section (Session, Team, Roles, Fleet, Design, Orchestra) and the live feed.
+Read this when you want the one-screen story of a section (Session, Team, Roles, Fleet, Design, Orchestra, Packs) and the live feed.
 
 Part of [Halo Studio](STUDIO.md), which lists every part.
 
 ## How each section works
 
-The same copy as Studio's **How this works** card (`ui/src/routes/sectionHelp.ts`
-for the steps, `routes/help.ts`, `routes/help-orchestra.ts` and
-`routes/help-design.ts`, `routes/help-roles.ts` and `routes/help-session.ts`
-for the panels' about lines and help).
+The same copy as Studio's **How this works** card (`ui/src/routes/sectionHelp.ts` for the steps,
+`routes/help.ts` and `routes/help-<section>.ts` for the panels' about lines and help).
 
 ### Session
 
@@ -350,11 +348,12 @@ merged. Report: the gate's verdict: every check, the finished branch, tests
 and cost. Claims: who holds which part of the files right now, and until
 when. Log: every claim, merge, gate decision and note, with its time.
 
-### Packs' sections and panels
+### Packs
 
-A pack you enable may add sections after Orchestra (Alt+7 to Alt+9, behind a thin "packs" divider),
-panels in the six sections, palette lines, a settings form, feed lines and attention rows -- declared in
-its `pack.yaml`, drawn by Studio's own components, gone when the pack is disabled: [PACKS.md](PACKS.md) "In Studio".
+**What it is** (3.2.0.0 R6). The Pack Manager, `Alt+7`: install, grant, enable, set up, update and remove
+packs from the places you trust (`packs.sources`, then the packs Halo ships); every button runs the code
+`halo pack` runs. Its panels, actions and routes, and the sections a pack you enable adds after it:
+[STUDIO-packs.md](STUDIO-packs.md) (what a pack draws in Studio: [PACKS.md](PACKS.md) "In Studio").
 
 ## The live feed
 

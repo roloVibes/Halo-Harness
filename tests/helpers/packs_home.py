@@ -2,7 +2,7 @@
 (Halo 3.2.0.0 R1).
 
     with PacksHome() as h:                 # tests.helpers.config_seed.ConfigHome + a clean packs cache
-        src = h.source()                   # a fresh copy of tests/fixtures/packs/doc-review to install from
+        src = h.source()                   # a fresh copy of the shipped doc-review pack to install from
         h.install(src, enable=True, grants=["hooks"])
         code, out, err = h.cli("list", "--json")
 
@@ -21,7 +21,14 @@ from pathlib import Path
 from tests.helpers.config_seed import ConfigHome
 
 FIXTURES = Path(__file__).resolve().parent.parent / "fixtures" / "packs"
-DOC_REVIEW = FIXTURES / "doc-review"
+# 3.2.0.0 R6: doc-review is the shipped reference pack; the tests read it there (one copy, no drift)
+SHIPPED = Path(__file__).resolve().parents[2] / "halo_harness" / "templates" / "packs"
+DOC_REVIEW = SHIPPED / "doc-review"
+
+
+def fixture(name: str) -> Path:
+    """A test pack's folder: the shipped reference pack for doc-review, else tests/fixtures/packs/<name>."""
+    return DOC_REVIEW if name == "doc-review" else FIXTURES / name
 
 
 class PacksHome(ConfigHome):
@@ -40,11 +47,11 @@ class PacksHome(ConfigHome):
         return super().__exit__(*exc)
 
     def source(self, name: str = "doc-review", *, folder: str = "") -> Path:
-        """A copy of a fixture pack, as a source folder to install from."""
+        """A copy of a fixture pack (doc-review: the shipped one), as a source folder to install from."""
         dest = self.sources / (folder or name)
         if dest.exists():
             shutil.rmtree(dest)
-        shutil.copytree(FIXTURES / name, dest)
+        shutil.copytree(fixture(name), dest, ignore=shutil.ignore_patterns("__pycache__"))
         return dest
 
     def install(self, src: Path, *, project: bool = False, enable: bool = False, grants=()) -> None:

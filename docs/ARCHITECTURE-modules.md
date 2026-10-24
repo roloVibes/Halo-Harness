@@ -274,7 +274,13 @@ and a pinned plan), `workflows/bounds.py` (the compiled block in goal.json),
 `workflows/gate.py` (the quality gate widened with typed outputs and evidence),
 `workflows/outputs.py` (a run's outputs and its part of the report),
 `workflows/cli.py` (`halo workflow`) and `workflows/goal.py` (a workflow run as a
-goal of the supervisor, `halo goal add --workflow`).
+goal of the supervisor, `halo goal add --workflow`). 3.2.0.0 R6, the Pack Manager
+and the reference pack: `packs/sources.py` (where a bare id is looked for:
+`packs.sources`, then the packs Halo ships under `templates/packs/`; `halo pack
+sources`, `list --available`), `packs/manager.py` (what Studio's Packs section
+shows: each pack's list row, inspect payload, health, compatibility lines and
+workflows, the sources) and `studio/packs_manager_api.py` (its routes, each
+running the function `halo pack` runs).
 
 **The extension API** (`halo_harness/ext/`, API 1.0, docs/EXTENSION_API.md):
 `ext/names.py` (the name rules), `ext/yamlio.py` (`read_yaml`, `write_yaml`),

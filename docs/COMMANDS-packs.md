@@ -1,6 +1,6 @@
 # Commands: packs
 
-Read this when you list, inspect, install, enable, update or remove a pack from the command line (`halo pack`).
+Read this when you list, inspect, install, enable, grant, update or remove a pack, or name where packs come from, on the command line (`halo pack`).
 
 Part of [Commands](COMMANDS.md), which lists every part.
 
@@ -23,6 +23,19 @@ commands, MCP servers, hook events). `--json` prints `{"packs": [...]}`.
 
 ```sh
 halo pack list --json
+```
+
+#### `--available`
+
+3.2.0.0 R6: also what you could install by id: each pack in a `packs.sources`
+folder or url, then in the packs Halo ships, that is not installed here (one
+per id, the first place first). `--json` adds `"available"`.
+
+```sh
+$ halo pack list --available
+No packs here. A pack lives in ~/.halo/packs/<id>/ or .halo/packs/<id>/ (halo pack install <path|git url>).
+available (halo pack install <id>):
+  doc-review  1.0.0     Documentation Review  from .../halo_harness/templates/packs
 ```
 
 ### `halo pack inspect`
@@ -66,8 +79,12 @@ contributes:
 
 ### `halo pack install`
 
-`halo pack install <path|git url>` copies the pack into `~/.halo/packs/<id>/`;
-`--project` copies it into this repo's `.halo/packs/<id>/` instead.
+`halo pack install <path|git url|id>` copies the pack into `~/.halo/packs/<id>/`;
+`--project` copies it into this repo's `.halo/packs/<id>/` instead. A bare id
+is looked for in each `packs.sources` entry in order, then in the packs Halo
+ships (3.2.0.0 R6: the Documentation Review reference pack), so `halo pack
+install doc-review` installs the shipped one unless a source of yours holds a
+pack with that id ([PACKS.md](PACKS.md#the-reference-pack)).
 Everything is checked before a file is written (the manifest, the API and
 Halo versions); a folder already there is left as it is. Files go through
 the journal (`~/.halo/packs/journal.jsonl`); a copy that fails part way is
@@ -100,6 +117,24 @@ Grant every permission the pack requests.
 halo pack enable doc-review --grant mcp:lint --grant hooks
 ```
 
+### `halo pack grant`
+
+3.2.0.0 R6: `halo pack grant <id> NAME [NAME ...]` gives an enabled pack more
+of what it requests (the same as `enable --grant`) and prints what it
+requests, granted or not. A disabled pack's grants are given as you enable
+it: the one line names `halo pack enable <id> --grant NAME`. Studio's Grant
+toggle (the Pack Manager's Details panel) runs this.
+
+#### `--off`
+
+Take the grants back: the contributions that need them stop running, each
+named with the command that grants it again.
+
+```sh
+$ halo pack grant doc-review hooks --off
+took back hooks from doc-review
+```
+
 ### `halo pack disable`
 
 `halo pack disable <id>`: nothing of the pack contributes from then on; its
@@ -124,6 +159,21 @@ and a `team:` naming its lineup stay, each listed.
 
 Keep the pack's record (disabled, with its grants), so installing it again
 starts with the same grants.
+
+### `halo pack sources`
+
+3.2.0.0 R6: where a bare id is looked for, in order, with the packs each
+place holds (`(installed)` beside the ones here): the folders and git urls of
+`packs.sources` in `~/.halo/config.json`, then the packs Halo ships. A git url
+is not fetched to list it. `halo pack sources add <folder|git url>` appends
+one (a folder must be there), `halo pack sources remove <folder|git url>`
+takes one out (the packs installed from it stay). `--json` prints
+`{"sources": [...]}`. Studio's Pack Manager (Sources panel) runs the same.
+
+```sh
+$ halo pack sources add ~/packs
+added ~/packs to packs.sources (it holds my-checks)
+```
 
 ### `halo pack doctor`
 
@@ -157,5 +207,6 @@ Every verb: act as if run from DIR.
 
 #### `--json`
 
-Every verb: print one JSON object (`list`: `{"packs"}`, `inspect`: the
-manifest view, `doctor`: `{"problems"}`, the others `{"ok", "lines"}`).
+Every verb: print one JSON object (`list`: `{"packs"}`, with `--available`
+also `{"available"}`, `inspect`: the manifest view, `doctor`: `{"problems"}`,
+`sources`: `{"sources"}`, the others `{"ok", "lines"}`).

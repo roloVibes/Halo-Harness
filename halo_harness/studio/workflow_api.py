@@ -5,7 +5,9 @@ Studio's viewer (Halo 3.2.0.0 R5; docs/WORKFLOWS.md "Artifacts").
                                            report holds an artifact of that schema (packs_studio_api.py routes it)
     GET orchestra/<run>/artifact/<name>    one artifact of a run, for Orchestra's run view (orchestra_api.py)
 
-Both answer `{name, schema, view, columns, data, run, path, ok, problems}`:
+3.2.0.0 R6: `compiled_goal(body, repo)` is `POST orchestra/run {workflow, inputs}`'s compile.
+
+Both routes answer `{name, schema, view, columns, data, run, path, ok, problems}`:
 `view` is the schema's `x-halo-view` (table | markdown | keyvalue, default
 keyvalue), `columns` a table's (the properties of the rows' schema, in
 order), `data` the document (null with `why` when there is none yet).
@@ -75,3 +77,19 @@ def run_artifact(req):
     if not rows:
         return 404, {"error": f"run {run_dir.name} has no artifact {req.params['name']!r}"}
     return 200, payload(run_dir, next((r for r in rows if r.get("path")), rows[0]), req.cwd)
+
+
+def compiled_goal(body: dict, repo):
+    """3.2.0.0 R6: `POST orchestra/run {workflow: <pack>/<name>, inputs: {k: v}}` (the Pack Manager's Run <workflow>):
+    `(goal, None)` compiled as `halo workflow run` compiles it, or `(None, (status, body))` with its lines."""
+    from halo_harness.workflows import spec
+    from halo_harness.workflows.compile import compile_workflow
+    wf, why = spec.find(str(body.get("workflow") or ""), cwd=repo)
+    if wf is None:
+        return None, (404, {"error": why, "problems": [why]})
+    given = body.get("inputs") if isinstance(body.get("inputs"), dict) else {}
+    compiled = compile_workflow(wf, {str(k): str(v) for k, v in given.items() if v not in (None, "")}, repo=repo, cwd=repo)
+    if compiled.problems:
+        return None, (422, {"error": f"{wf.ref} does not compile with these inputs: {compiled.problems[0]}",
+                            "problems": list(compiled.problems)})
+    return compiled.goal, None

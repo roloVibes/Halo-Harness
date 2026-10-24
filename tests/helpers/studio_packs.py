@@ -1,11 +1,11 @@
 """tests.helpers.studio_packs -- the Studio-contributions checks of
 tests/test_packs_studio_ui.py (Halo 3.2.0.0 R3), real keys and clicks in
 headless Chrome through the driver base, over a scratch home with the
-doc-review fixture pack (enabled) and studio-bundle (enabled, studio-script
+doc-review reference pack (enabled) and studio-bundle (enabled, studio-script
 not granted); this process serves Studio in a thread with the live feed on
 (no provider, no model call):
 
-1. the packs' sections after Orchestra behind a "packs" divider, Alt+7 opens
+1. the packs' sections after Packs behind a "packs" divider, Alt+8 opens
    Docs review: the markdown, the table, the links, the Settings form; the
    panel's source line and its help; the rail's PACKS group;
 2. Session holds the pack's Reviews panel as a strip;
@@ -45,7 +45,7 @@ def sections(c, url, ctx) -> dict:
     out["tabs"] = c.js(f"{TABS}.map((t) => t.querySelector('.tab-label').textContent)")
     out["kbds"] = c.js(f"{TABS}.map((t) => t.querySelector('.tab-kbd')?.textContent || '')")
     out["divider"] = c.js(f"(() => {{ const d = {q('[data-testid=tab-divider]')}; return d ? [d.textContent, d.nextElementSibling?.querySelector('.tab-label')?.textContent] : null; }})()")
-    alt(c, 7)
+    alt(c, 8)  # 3.2.0.0 R6: Alt+7 is Packs, the packs' own sections start at Alt+8
     out["alt7"] = c.wait(f"{CUR}.startsWith('Docs review') && {CUR}", 10)
     out["markdown"] = c.wait(f"{panel('doc-review--notes', '[data-testid=pack-markdown]')}?.textContent", 15)
     out["table_rows"] = c.wait(pa("doc-review--checks", "[data-testid=pack-table-row]") + ".length", 15)
@@ -107,7 +107,7 @@ def form(c, url, ctx) -> dict:
 
 
 def bundle(c, url, ctx) -> dict:
-    alt(c, 8)
+    alt(c, 9)
     c.wait(f"{CUR}.startsWith('Hello')", 10)
     grant = c.wait(f"{panel('studio-bundle--greet', '[data-testid=pack-bundle-grant]')}?.textContent", 15)
     before = c.js(f"!!{q('[data-testid=pack-bundle-hello]')}")
@@ -129,7 +129,8 @@ class PacksStudioDriver(Driver):
         from halo_harness.packs.install import install
         state = seeded_home()
         for name, grants in (("doc-review", ["hooks"]), ("studio-bundle", [])):
-            ok, lines = install(str(REPO / "tests" / "fixtures" / "packs" / name))
+            from tests.helpers.packs_home import fixture  # 3.2.0.0 R6: doc-review is the shipped pack
+            ok, lines = install(str(fixture(name)))
             assert ok, lines
             ok, lines = enable(find(name), grant=grants)
             assert ok, lines
