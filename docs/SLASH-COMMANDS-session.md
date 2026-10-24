@@ -185,6 +185,10 @@ before each search; the CLI twin is `halo recall <query>`
 this machine runs or joined to fan the query out to every online member,
 each answering from its own index; the hits are merged by score and shown
 with their harness ([FLEET.md](FLEET.md) "Recall across the fleet").
+3.1.8.0 R4: every hit carries its kind's chip -- `[memo]`, `[sess]`, `[lib]`,
+`[finding]` and `[decision]` (with the entry's id, who wrote it and the day;
+[KNOWLEDGE.md](KNOWLEDGE.md)) and `[note]` (your own notes,
+`recall.sources`; [RECALL.md](RECALL.md)).
 
 ### `/ask <question>` (2.0.7 round 0e)
 The concierge secretary: `roles.concierge` (e.g.

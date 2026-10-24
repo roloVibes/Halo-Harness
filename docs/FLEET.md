@@ -557,8 +557,11 @@ view) are the routes. Two config keys on a member:
   answers no recall and the merged view shows it as `not_shared`.
 - `fleet.recall.hide` (default `[]`): memory kinds never answered, the same
   shape as `fleet.capabilities.hide` -- `session`, `memory`, `coach_library`
-  (3.1.6.0), or a memory topic's own `type` (`user`, `feedback`, `project`,
-  `reference`).
+  (3.1.6.0), `finding`, `decision` (3.1.8.0 R4; `knowledge` hides both), or a
+  memory topic's own `type` (`user`, `feedback`, `project`, `reference`).
+
+Your own notes (`recall.sources`, kind `note`, [RECALL.md](RECALL.md#your-own-notes))
+never leave the box: a member's answer leaves every `note` hit out.
 
 **The coach's library across the fleet (3.1.6.0).** Every Apply of a coach
 card leaves an entry in the box's improvement library
@@ -578,6 +581,25 @@ its own journal. The entry is written here under the same id with `from:
 <harness>`; a fetch never writes over an entry already here. The coach then
 cites it for runs of the same project (the same remote path) like any entry
 of this box.
+
+**Findings and decisions across the fleet (3.1.8.0 R4).** Recall indexes a
+box's findings and decisions ([KNOWLEDGE.md](KNOWLEDGE.md)) as the kinds
+`finding` and `decision`, and a member answers each such hit with `ref` (the
+entry's id), `by` and `when` beside its excerpt. `halo knowledge fetch
+<harness> <id>` (or `--all finding|decision`) asks the hub this machine runs
+(the admin route `local/knowledge {harness, id | kind, all}`), which sends the
+read-only `knowledge {id}` / `{kind, all: true}` fleet command to one live
+session of that member over the same transport as the coach library. The
+member answers from its own store under the same switch
+(`fleet.recall.share: false` answers none; `fleet.recall.hide: [knowledge]`,
+`[finding]` or `[decision]` keeps them in), scrubbed like the capabilities
+catalog -- every absolute path cut to its last part, the home to `~`, every
+secret-shaped text redacted, `by` naming its harness id (`gate@<id>`), never
+a person -- at most 256 KB per answer, and logs a `knowledge_asked` line
+(`{entry, of, by, hub, entries, bytes}`) in its own journal. Each entry is
+written here under the same id, read-only, its `_meta.json` saying `source:
+fleet`, `from`, `harness_name` and `fetched`; a fetch never writes over an
+entry already here.
 
 ## The two-machine check (3.1.2.0 R3)
 
@@ -637,7 +659,7 @@ digest (both R4, from this harness's own files); `halo fleet capabilities
 | `fleet.tags` | `[]` | 3.0.6.0 R6: your own words for this harness; first on its chips, double weight in `who` |
 | `fleet.capabilities.hide` | `[]` | MCP servers, tools (`tool` or `server/tool`), skills or craft apps its capability catalog never lists |
 | `fleet.recall.share` | `true` | 3.1.2.0 R3: `false` keeps this box out of recall across the fleet (it answers none) |
-| `fleet.recall.hide` | `[]` | 3.1.2.0 R3: memory kinds its recall never answers (`session`, `memory`, `coach_library` since 3.1.6.0, or a topic's `type`) |
+| `fleet.recall.hide` | `[]` | 3.1.2.0 R3: memory kinds its recall never answers (`session`, `memory`, `coach_library` since 3.1.6.0, `finding` / `decision` / `knowledge` since 3.1.8.0 R4, or a topic's `type`) |
 | `fleet.shared_dir` | unset | 3.0.6.0 R7: a folder every machine sees; missions live there and nothing is mirrored ([MISSIONS.md](MISSIONS.md)) |
 | `fleet.mission.prefer` | `[]` | harness names, in order, that break a tie when several can take a part |
 | `fleet.mission.max_parallel` | harnesses | how many mission parts run at once (default: the number of harnesses) |

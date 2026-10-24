@@ -5,7 +5,8 @@ agent task (Halo 3.1.8.0 R3, docs/OUTCOMES.md "outcomes.jsonl"):
      "run_dir": "<run folder>" | "", "bio": "auto-coder", "model": "or:vendor/model", "kind": "code",
      "outcome": "passed | returned | failed | stopped | done", "check": "gate | acceptance | stage | ",
      "returns": 0, "cost_usd": 0.0123, "tests_passed": 12, "tests_failed": 0, "sources": 0,
-     "evidence": "<path of its evidence.json>", "ts": 1760800000.0}
+     "evidence": "<path of its evidence.json>", "ts": 1760800000.0, "cited": 1}   (cited: 3.1.8.0 R4, when it
+                                                                                   named a finding or decision)
 
 An Orchestra lane's outcome is read from the run's report: the run finished
 -> `passed` (no send-back) or `returned` (sent back at least once); the run
@@ -62,6 +63,8 @@ def make_row(*, run: str, task: str, source: str, ev=None, bio: str = "", model:
            "tests_passed": ev.tests_passed if ev else 0, "tests_failed": ev.tests_failed if ev else 0,
            "sources": len(ev.sources) if ev else 0, "evidence": evidence_path, "ts": round(ts or time.time(), 3)}
     row.update({k: v for k, v in extra.items() if v not in (None, "")})
+    if ev is not None and getattr(ev, "cited", None):  # 3.1.8.0 R4: how many knowledge entries it reused
+        row["cited"] = len(ev.cited)
     return row
 
 

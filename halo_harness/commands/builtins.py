@@ -726,12 +726,8 @@ def _cmd_recall(args: str, facade: HeadlessFacade) -> str:
         return f"/recall: {type(e).__name__}: {e}"
     if not hits:
         return "no matches (is the embedding model pulled? index built?)"
-    lines = []
-    for h in hits:
-        from halo_harness.recall_cli import ICONS  # 3.1.6.0 R3: `lib` for a coach library entry
-        icon = ICONS.get(h["kind"], "sess")
-        lines.append(f"  {h['score']:+.3f} [{icon}] {h['title']}  ({h['id']})")
-    return "\n".join(lines)
+    from halo_harness.recall_cli import hit_line  # 3.1.6.0 R3 `lib`; 3.1.8.0 R4 `finding` / `decision` / `note`
+    return "\n".join(hit_line(h) for h in hits)
 
 
 def _cmd_permissions(args: str, facade: HeadlessFacade) -> str:
@@ -1783,7 +1779,8 @@ _BUILTIN_SPECS = {
     # scope): semantic search over memory + sessions.
     "ask": ("core", "Ask the concierge (roles.concierge) a quick question without waking the main model",
             "<question>", _cmd_ask),
-    "recall": ("core", "Semantic search over memory topics and past sessions (local embeddings; --fleet: every harness)",
+    "recall": ("core", "Semantic search over memory, past sessions, findings, decisions and your notes (local "
+                       "embeddings; --fleet: every harness)",
                "[--fleet] <query>", _cmd_recall),
     "tasks": ("core", "List background Bash jobs started this session", None, _cmd_tasks),
     "orchestra": ("core", "Show the latest Orchestra run: its steps, worker lanes and run log", "[run]",

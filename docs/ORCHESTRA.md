@@ -599,6 +599,22 @@ under it; writing the report also writes one row per lane to
 | `tests_pass_finished_branch` | the test command passes on the finished branch |
 | `goal_done_when` | the DONE WHEN text, echoed (`ok` is null) |
 
+**What the run knows afterwards (3.1.8.0 R4).** The run leaves findings and
+decisions behind in `~/.halo/knowledge/` ([KNOWLEDGE.md](KNOWLEDGE.md)): a
+conflict the fresh judge resolved with the lanes' evidence, the tests holding,
+is a finding by `judge` ("basket.py: hunk 1 resolved for lane 2 because tests:
+`python -m pytest -q` exit 0, 5 passed"); a finished run whose test passes on
+the finished branch leaves a finding by `gate` per lane ("basket.py#total
+passes `<test>` at <sha>"); every piece the gate sent back is a decision by
+`gate` with the reason ("lane 1 sent back: no test run in this lane's work:
+run <test>"). `knowledge.write: false` writes none of them. A worker's brief
+carries up to three findings and decisions recall ranks for its job (only
+with embeddings configured), ending with the line that asks it to cite the
+id of any it reuses; the lane's evidence then records `cited`
+([KNOWLEDGE.md](KNOWLEDGE.md#citing-what-was-reused); `knowledge.brief: false`
+leaves the block out). The coach's Apply is a decision by `coach`, with the
+Undo id.
+
 ## Workflows
 
 3.2.0.0 R5 ([WORKFLOWS.md](WORKFLOWS.md)). A pack's workflow file compiles

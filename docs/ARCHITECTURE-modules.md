@@ -219,6 +219,19 @@ at its end), `outcomes/records.py` (outcomes.jsonl), `outcomes/measured.py`
 (success per model and kind), `outcomes/routing.py` (`models.preference:
 measured`) and `outcomes/cli.py` (`halo outcomes`, `halo models --measured`).
 
+**Knowledge** (`halo_harness/knowledge/`, Halo 3.1.8.0 R4, docs/KNOWLEDGE.md
+and docs/RECALL.md): findings and decisions that outlive a session --
+`knowledge/store.py` (the files: write, read, list, supersede, forget, the
+ids, `_meta.json`), `knowledge/frontmatter.py` (an entry's front matter, its
+one-line fields, the confidence rule), `knowledge/search.py` (through recall,
+else a word match), `knowledge/cite.py` (the snapshot and its cite line, the
+worker's brief block, the ids a text names, "reused by"),
+`knowledge/writers.py` (the judge, the gate, the coach's Apply, the
+supervisor's answers), `knowledge/sources.py` (recall's finding / decision /
+note sources: the entries and `recall.sources`), `knowledge/share.py` (the
+`knowledge` fleet command and `halo knowledge fetch`) and `knowledge/cli.py`
+(`halo knowledge`); the agents' tools are `tools/knowledge.py`.
+
 **Packs** (`halo_harness/packs/`, Halo 3.2.0.0 R1, docs/PACKS.md): the
 names (`packs/names.py`: ids, `<id>--<name>`, the `pack:<id>` label and
 `read_only_source`), `packs/semver.py` (versions and ranges),

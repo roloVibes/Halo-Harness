@@ -147,6 +147,8 @@ def write_report(run_dir, *, goal, lanes: list, merge: Optional[dict] = None, ga
         report["replans"] = [{k: r.get(k) for k in ("n", "at", "why", "by", "moves")} for r in revisions if isinstance(r, dict)]
     jsonl.write_json(report_path(run_dir), report)
     _record_outcomes(run_dir, report)  # 3.1.8.0 R3: one outcomes.jsonl row per lane (outcomes/records.py)
+    from halo_harness.knowledge.writers import gate_verdict  # 3.1.8.0 R4: the passing lanes as findings
+    gate_verdict(run_dir, lanes, gate, report)
     return report
 
 

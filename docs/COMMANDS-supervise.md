@@ -1,8 +1,9 @@
-# Commands: the supervisor and its goals
+# Commands: the supervisor, its goals and knowledge
 
-Read this when you give Halo a goal to work on without sitting at a terminal.
+Read this when you give Halo a goal to work on without sitting at a terminal, or keep what it verified and decided.
 
-The supervisor (`halo supervise`), its goal queue (`halo goal`) and every agent task's outcome (`halo outcomes`).
+The supervisor (`halo supervise`), its goal queue (`halo goal`), every agent task's outcome (`halo outcomes`)
+and the findings and decisions that outlive a session (`halo knowledge`).
 Part of [Commands](COMMANDS.md), which lists every part.
 
 The full description -- what the supervisor is, the morning view, the pulse,
@@ -117,3 +118,41 @@ halo outcomes --model or:vendor/model --json
   or an epoch; anything else exits 2 and says how to write it.
 - `--limit N`: the newest N rows (default 50; `0`: all).
 - `--json`: the rows as JSON.
+
+## `halo knowledge`
+
+Halo 3.1.8.0 R4. The findings and decisions under `~/.halo/knowledge/`: what
+the Orchestra judge and gate, the coach's Apply and the supervisor's answered
+decisions wrote, what you add, and what an agent saved with `knowledge_add`.
+See [KNOWLEDGE.md](KNOWLEDGE.md).
+
+```sh
+halo knowledge add finding "basket.py#total rounds half up" --evidence "tests: \`python -m pytest -q\` exit 0, 5 passed"
+halo knowledge add decision "money is Decimal, never float" --alternative "float" --body notes.md
+halo knowledge list                   # the current entries, newest first
+halo knowledge list decision --all    # superseded ones too
+halo knowledge show f-20261024-3c9a1e # the entry, and every agent task that cited it
+halo knowledge search rounding total  # through recall, else a word match
+halo knowledge supersede f-20261024-3c9a1e "basket.py#total rounds half up, checked on 3.1"
+halo knowledge forget d-20261024-8e41f0
+halo knowledge fetch kali@lab f-20261023-0b7d2a   # take a fleet member's entry, read-only
+halo knowledge fetch kali@lab --all decision      # every current decision it has
+```
+
+- `add finding|decision "<title>"`: write one, `by: user`. `--body FILE` (or
+  `-` for stdin) is its what / where / why; `--evidence L`, `--alternative A`
+  and `--tag T` repeat. A finding is `checked` when an evidence line names a
+  test run or a reproduction, else `said`.
+- `list [finding|decision] [--all]`: one line each (id, kind, by, day,
+  confidence, title); `--all` adds the superseded ones, each marked with its
+  successor. Exit 1 when there is none.
+- `show <id>`: the entry -- its front matter, evidence, alternatives, body,
+  where a fetched one came from -- and "reused by", from `outcomes.jsonl`.
+- `search <words> [--k N]`: the entries that rank for the words.
+- `supersede <id> "<title>"`: a new entry of the same kind naming the old one
+  (which stays on disk and leaves recall); the same flags as `add`.
+- `forget <id>`: remove the file and its `_meta.json`.
+- `fetch <harness> <id>` / `fetch <harness> --all KIND`: through the hub this
+  machine runs; written here under the same id, read-only; never over an
+  entry already here. Exit 3 when no hub runs here.
+- `--json` on every verb.

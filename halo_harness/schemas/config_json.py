@@ -52,9 +52,10 @@ _SCALARS = {
 # citations off, orchestra/coach_citations.py); `models`: roster (3.1.9.0 R1: false keeps the model roster out
 # of the main agent's context, providers/roster.py)
 # `supervise` (3.1.8.0, supervise/settings.py): R2 adds replan none|auto|review, replan_forecast, replan_returns, replan_block_s, replan_stall_s, replan_cooldown_s, replan_max
+# `knowledge` (3.1.8.0 R4, knowledge/): write, brief; `recall`: sources (3.1.8.0 R4, knowledge/sources.py)
 _SECTIONS = ("agents", "clipboard", "coach", "comfy", "connectors", "databricks", "embeddings", "experiential", "fleet",
-             "governor", "huggingface", "improve", "local", "models", "network", "ollama", "openai",
-             "packs", "providers", "remote", "roles", "routing", "steer", "supervise", "update",
+             "governor", "huggingface", "improve", "knowledge", "local", "models", "network", "ollama", "openai",
+             "packs", "providers", "recall", "remote", "roles", "routing", "steer", "supervise", "update",
              "worktree")
 REMOVED_SECTIONS = {"orgs": "3.1.4.0", "paperclip": "3.1.4.0",
                     "settings": "3.1.5.0", "subscription_routes": "3.1.5.0"}

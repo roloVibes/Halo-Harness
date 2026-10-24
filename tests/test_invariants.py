@@ -646,8 +646,8 @@ def test_invariant_i_the_round_surface_parity(ctx: Ctx):
     ctx.check("round-surface parity: " + "; ".join(problems), not problems)
 
 
-_MAP_PACKAGES = ("studio", "fleet", "orchestra", "team", "supervise", "packs", "ext", "outcomes", "workflows")  # supervise: 3.1.8.0 R1; packs, ext: 3.2.0.0 R1; outcomes: 3.1.8.0 R3; workflows: 3.2.0.0 R5
-_MAP_NAME = r"`((?:studio|fleet|orchestra|team|supervise|packs|ext|outcomes|workflows)/[a-z0-9_]+\.py|orchestra_cli[a-z_]*\.py|coach_cli\.py)`"
+_MAP_PACKAGES = ("studio", "fleet", "orchestra", "team", "supervise", "packs", "ext", "outcomes", "workflows", "knowledge")  # supervise: 3.1.8.0 R1; packs, ext: 3.2.0.0 R1; outcomes: 3.1.8.0 R3; workflows: 3.2.0.0 R5; knowledge: 3.1.8.0 R4
+_MAP_NAME = r"`((?:studio|fleet|orchestra|team|supervise|packs|ext|outcomes|workflows|knowledge)/[a-z0-9_]+\.py|orchestra_cli[a-z_]*\.py|coach_cli\.py)`"
 
 
 @test
