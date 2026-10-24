@@ -122,6 +122,33 @@ Focus: packs -- "one harness, one Studio, multiple independently maintained capa
 - The doc-review lint "MCP server" printed one line and exited; it is a stdio MCP server now (check_links, check_headings), and the pack's hook and server keep to their defaults under a Python that cannot import Halo.
 - At 1500 px the eighth tab wrapped and pushed the Command button off the top bar.
 
+### R7: compatibility hardening
+
+#### Added
+
+- The extension API's version policy (docs/EXTENSION_API.md "Compatibility and migration", stable): a minor version adds names, a major removes only names announced a minor version before; `halo_harness.ext.api_version()`, `compatible(range)` and `deprecations()`. A `halo_api` range with no `max` runs on its `min`'s major only.
+- `halo pack update <id> --dry-run`: the pack's migration notes, the files that change and the settings it renames, nothing changed. Studio's Update shows the same lines in a confirm first.
+- `halo pack rollback <id>` (Studio: "Roll back to <version>"): an update keeps the version it replaced as `<id>.previous`; rollback swaps it back, moves the renamed settings back and keeps your grants and your files.
+- A migration may rename settings: `migrations: [{from, to, note, settings: {old: new}}]` moves your `packs.settings.<id>` keys as the update runs, journaled.
+- `${halo_python}` in a pack's `.mcp.json` and `hooks/hooks.json`: Halo's own Python; a pack's processes get Halo's package root on PYTHONPATH, so a pack's code imports `halo_harness.ext` under a `uv tool` install.
+- `halo studio --mode packs` (and `?mode=packs`); the README's modes banner has the Packs tile.
+- `halo pack doctor` rows for a permission a new version asks for that you have not granted, and for an extension API name a pack uses that is announced for removal (with the version it goes away in).
+- docs/PACKS.md "Updating and rolling back", "When a pack cannot run" (every line and what to do) and "A pack's own Python"; the reference pack's README "Versioning your pack"; failure fixtures for every lifecycle failure.
+
+#### Changed
+
+- `halo pack update` prints the migration notes first ("doc-review 1.1.0 -> 1.3.0: <note>") and swaps the new version in by renames after staging it beside the pack: a copy error or a file in use leaves the old version exactly as it was. `halo pack remove` deletes `<id>.previous` too (`--keep-config` keeps it).
+- The compatibility lines read "pack doc-review needs extension API 1.2 to 1.9; this Halo has 1.0" and "pack x needs Halo >= 3.3; this is 3.2.0.0", the same in `halo pack`, the doctor and the Pack Manager.
+- `halo pack install <id>` that no source holds names every source it searched (a configured folder that is gone says so).
+- The reference pack starts its hook and lint server with `${halo_python}` (the hook in exec form).
+- docs/EXTENSION_API.md: every part `stable`.
+
+#### Fixed
+
+- A pack's hook and MCP server ran with the `python` on PATH, which under a `uv tool` install cannot import `halo_harness.ext`.
+- An update that failed half-way could leave a pack's folder with some files new and some old.
+- An update from the same source with nothing new said "updated 1.0.0 -> 1.0.0 (0 file(s) changed)"; it says the pack is up to date.
+
 ## [3.1.9.0] - 2026-10-24
 
 Focus: Auto -- the main agent knows what each model is good at and builds the orchestration itself (the owner, 2026-10-21: "an auto role template ... whatever agent is main should know which model is the best from cost, intelligence, what they are best at").
