@@ -1,0 +1,10 @@
+# A fixture pack whose workflow promises an output no stage gives (3.2.0.0 R5,
+# tests/test_workflow_schema.py): one manifest line naming the output and its line.
+id: wf-no-giver
+name: Workflow with an output nobody gives
+version: 0.1.0
+description: An output whose stage hands on only its summary.
+halo_api: {min: "1.0"}
+contributes:
+  workflows: [flow]
+  artifacts: [notes]

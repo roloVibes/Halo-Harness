@@ -47,6 +47,8 @@ def _parser() -> argparse.ArgumentParser:
                    help="a file the workers share, relative to the repo root (repeatable)")
     n.add_argument("--lineup", default=None, help="the lineup (team template) that plays the parts")
     n.add_argument("--goal", default=None, metavar="FILE", help="start from this goal.json")
+    n.add_argument("--workflow", default=None, metavar="PACK/NAME", help="compile a pack's workflow into the run (3.2.0.0 R5)")
+    n.add_argument("--input", dest="inputs", action="append", default=[], metavar="K=V", help="a --workflow input (repeatable)")
     for name, helptext in (("status", "the goal, the steps, live claims, the last events"),
                            ("claims", "every live claim"), ("log", "the timed run log")):
         s = sub.add_parser(name, help=helptext)
@@ -92,6 +94,9 @@ def cmd_orchestra(argv) -> int:
 
 
 def _new(args, repo: Path) -> int:
+    if getattr(args, "workflow", None):  # 3.2.0.0 R5: the goal, hand-offs and pinned plan a workflow compiles to
+        from halo_harness.workflows.cli import orchestra_new
+        return orchestra_new(args, repo)
     base = {}
     if args.goal:
         base = jsonl.read_json(args.goal, None)

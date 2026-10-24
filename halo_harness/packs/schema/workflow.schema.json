@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:halo-harness:schema:workflow:1",
+  "title": "Halo pack workflow (workflows/<name>.yaml), extension API 1.x",
+  "description": "A pack's declarative workflow, compiled to an Orchestra goal, its hand-offs and a pinned plan (3.2.0.0 R5). Read with halo_harness.packs.workflow_rules and halo_harness.workflows.compile; docs/WORKFLOWS.md is the reference.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "stages"],
+  "$defs": {
+    "names": {"type": "array", "items": {"type": "string"}},
+    "input": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "type": {"type": "string", "pattern": "^(text|path|json|artifact:[A-Za-z0-9][A-Za-z0-9_-]*)$"},
+        "required": {"type": "boolean"},
+        "default": {},
+        "description": {"type": "string"}
+      }
+    },
+    "output": {
+      "type": "object", "additionalProperties": false, "required": ["type", "from"],
+      "properties": {
+        "type": {"type": "string", "pattern": "^(files|summary|artifact:[A-Za-z0-9][A-Za-z0-9_-]*)$"},
+        "from": {"type": "string"},
+        "description": {"type": "string"}
+      }
+    },
+    "when": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "input": {"type": "string"}, "output": {"type": "string", "pattern": "^[A-Za-z0-9_-]+\\.[A-Za-z0-9_.-]+$"},
+        "key": {"type": "string"}, "exists": {"type": "boolean"}, "equals": {}, "not-empty": {"type": "boolean"}
+      }
+    },
+    "give": {
+      "type": "object", "additionalProperties": false, "required": ["name", "kind"],
+      "properties": {"name": {"type": "string"}, "kind": {"enum": ["files", "summary", "artifact"]},
+                     "paths": {"$ref": "#/$defs/names"}, "description": {"type": "string"}}
+    },
+    "take": {
+      "type": "object", "additionalProperties": false, "required": ["from", "take"],
+      "properties": {"from": {"type": "string"}, "take": {"type": "string"}}
+    },
+    "stage": {
+      "type": "object", "additionalProperties": false, "required": ["id"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"},
+        "title": {"type": "string"},
+        "brief": {"type": "string"},
+        "role": {"type": "string", "description": "a bio of the pack (by name or kind) or a bio Halo ships"},
+        "needs": {"$ref": "#/$defs/names", "description": "capabilities (the pack's contributes.fleet names)"},
+        "after": {"$ref": "#/$defs/names", "description": "stage ids it runs after; none: it runs at once, in parallel"},
+        "for_each": {"type": ["string", "object"], "additionalProperties": false,
+                     "properties": {"input": {"type": "string"}, "match": {"type": "string"}}},
+        "when": {"$ref": "#/$defs/when"},
+        "gives": {"type": "array", "items": {"$ref": "#/$defs/give"}},
+        "takes": {"type": "array", "items": {"$ref": "#/$defs/take"}},
+        "retries": {"type": "integer", "minimum": 0},
+        "timeout_s": {"type": "integer", "minimum": 1},
+        "budget_usd": {"type": "number", "minimum": 0},
+        "gate": {"enum": ["human", "auto"]},
+        "verify": {"type": "object", "additionalProperties": false,
+                   "properties": {"test": {"type": "string"}, "evidence": {"$ref": "#/$defs/names"}}},
+        "after_event": {"type": "string", "pattern": "^[a-z][a-z0-9-]*:[a-z][a-z0-9_.-]*$"}
+      }
+    }
+  },
+  "properties": {
+    "name": {"type": "string"},
+    "description": {"type": "string"},
+    "prerequisites": {
+      "type": "object", "additionalProperties": false,
+      "properties": {"tools": {"$ref": "#/$defs/names"}, "grants": {"$ref": "#/$defs/names"},
+                     "capabilities": {"$ref": "#/$defs/names"}, "files": {"$ref": "#/$defs/names"}}
+    },
+    "inputs": {"type": "object", "additionalProperties": {"$ref": "#/$defs/input"}},
+    "outputs": {"type": "object", "additionalProperties": {"$ref": "#/$defs/output"}},
+    "stages": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/stage"}},
+    "done_when": {"type": "string"},
+    "stop_when": {"type": "string"},
+    "budget_usd": {"type": "number", "minimum": 0},
+    "checkpoint": {"type": "boolean"}
+  }
+}

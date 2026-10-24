@@ -53,8 +53,9 @@ def _shape(job: dict, jid: str) -> list:
 
 
 def plan_problems(jobs, *, unit_keys: Optional[list] = None, cwd=None, state_dir=None,
-                  preflight: bool = True) -> list:
-    """Every problem with an edited plan; [] means it may run."""
+                  preflight: bool = True, claim_free: tuple = ()) -> list:
+    """Every problem with an edited plan; [] means it may run. 3.2.0.0 R5: a job in `claim_free` (a
+    workflow stage that edits no file of the repo, workflows/compile.py) may claim nothing."""
     if not isinstance(jobs, list) or not jobs:
         return [_row([], "", "the plan has no jobs: give it at least one lane")]
     out = []
@@ -79,7 +80,7 @@ def plan_problems(jobs, *, unit_keys: Optional[list] = None, cwd=None, state_dir
         if not str(job.get("title") or "").strip():
             out.append(_row(jid, "title", f"{jid} has no title: say in one line what its worker does"))
         claims = job.get("claims")
-        if not isinstance(claims, list) or not [c for c in claims if str(c).strip()]:
+        if (not isinstance(claims, list) or not [c for c in claims if str(c).strip()]) and jid not in claim_free:
             out.append(_row(jid, "claims", f"{jid} claims nothing: give it at least one unit of the goal's files"))
         elif known is not None:
             for key in claims:

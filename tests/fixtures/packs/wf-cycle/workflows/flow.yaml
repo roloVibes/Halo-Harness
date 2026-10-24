@@ -1,0 +1,12 @@
+name: flow
+description: Draft and polish, each waiting for the other.
+stages:
+  - id: draft
+    brief: Draft the notes.
+    role: researcher
+    after: [polish]
+  - id: polish
+    brief: Polish the draft.
+    role: reviewer
+    after: [draft]
+done_when: The notes read well.

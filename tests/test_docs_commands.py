@@ -122,6 +122,8 @@ def _gather_real_flags() -> "dict[str, set]":
     out["halo studio"] = _flags_in(_capture(cmd_studio, ["--help"]))
     from halo_harness.packs.cli import VERBS as PACK_VERBS, cmd_pack  # 3.2.0.0 R1: `halo pack`
     out.update({f"halo pack {v}": _flags_in(_capture(cmd_pack, [v, "--help"])) for v in PACK_VERBS})
+    from halo_harness.workflows.cli import cmd_workflow  # 3.2.0.0 R5: `halo workflow`
+    out.update({f"halo workflow {v}": _flags_in(_capture(cmd_workflow, [v, "--help"])) for v in ("list", "show", "check", "run")})
     return out
 
 
@@ -129,7 +131,7 @@ def _gather_real_flags() -> "dict[str, set]":
 def test_every_subcommand_is_documented(ctx: Ctx):
     text = doc_text("COMMANDS.md")
     for name in ("init", "doctor", "update", "models", "mcp", "config", "stats", "export", "improve", "proxy",
-                 "work-matrix", "ollama", "review", "media", "fleet", "team", "start", "explain", "pack"):
+                 "work-matrix", "ollama", "review", "media", "fleet", "team", "start", "explain", "pack", "workflow"):
         label = f"halo {name}"
         ctx.check(f"COMMANDS.md documents {label!r} (as a heading)",
                   re.search(rf"^#{{1,3}}\s+.*`?{re.escape(label)}`?", text, re.MULTILINE) is not None)

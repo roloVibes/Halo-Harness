@@ -9,6 +9,9 @@
 # 3.2.0.0 R4: contributes.fleet -- the docs.review worker capability (it needs
 # the bash grant and a model that calls tools, two parts at once), a mission
 # inspector line (fleet/checklist.md) and the metadata its lineup's missions carry.
+# 3.2.0.0 R5: the review workflow (workflows/review.yaml), its review-report
+# artifact schema (artifacts/review-report.json) and the last report as an artifact
+# panel in the docs section; review.done gains its schema (events/review.done.json).
 id: doc-review
 name: Documentation review
 version: 1.0.0
@@ -28,6 +31,7 @@ contributes:
     - {name: lint, description: checks a document's links and headings}
   events: [review.done]
   workflows: [review]
+  artifacts: [review-report]
   studio:
     sections:
       - id: docs
@@ -62,6 +66,16 @@ contributes:
               - {label: Roles (the review lineup), route: roles}
               - {label: The checks, route: docs/checks}
               - {label: How packs work, url: "https://github.com/roloVibes/Halo-Harness/blob/master/docs/PACKS.md"}
+          - id: report
+            title: Last review report
+            kind: artifact
+            schema: review-report
+            source: latest
+            w: 24
+            h: 24
+            help: |-
+              The newest review report a run of the review workflow wrote in this repo,
+              drawn by its schema (artifacts/review-report.json): one row per finding.
     panels:
       - id: reviews
         section: session

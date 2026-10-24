@@ -1,6 +1,9 @@
 // A pack's `events` panel and its `bundle` panel (3.2.0.0 R3).
 // PackEvents: the pack's own `pack_event` frames as they arrive, newest last,
-// each with the pack's label and its line template (events.ts).
+// each with the pack's label and its line template (events.ts); 3.2.0.0 R5:
+// when the kind's schema has a view hint its data shows under the line
+// (ArtifactView), and a frame whose data did not match the schema carries its
+// problems, shown under it (the event is published all the same).
 // PackBundle: the pack's own ES module, loaded only once you grant
 // studio-script (the registry says `script: granted`); until then the panel
 // is one line naming the command that grants it. The module exports
@@ -11,6 +14,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api, token } from "../../lib/api";
 import { Empty } from "../../lib/ui";
 import { clock } from "../orchestra/format";
+import { ArtifactProblems, ArtifactView } from "./ArtifactView";
 import { lineOf } from "./events";
 import { fetchText } from "./nav";
 import { usePacks } from "./store";
@@ -30,11 +34,16 @@ export function PackEvents({ p }: { p: PackPanel }) {
     <div className="pk-events fac-log" ref={box} data-testid="pack-events" data-reg={reg.packs.length}>
       {mine.map((f) => {
         const l = lineOf(f.pack, f.kind, f.data);
+        const view = reg.packs.find((x) => x.id === f.pack)?.events[f.kind]?.view;
         return (
-          <div key={f.n} className="fac-line" data-kind="pack" data-testid="pack-event-line" data-known={l.known || undefined}>
-            <span className="mono fac-ts">{clock(f.ts)}</span>
-            <span className="mono fac-kind">{l.label}</span>
-            <span className="fac-text">{l.text}</span>
+          <div key={f.n} className="pk-event" data-testid="pack-event" data-problems={f.problems ? f.problems.length : undefined}>
+            <div className="fac-line" data-kind="pack" data-testid="pack-event-line" data-known={l.known || undefined}>
+              <span className="mono fac-ts">{clock(f.ts)}</span>
+              <span className="mono fac-kind">{l.label}</span>
+              <span className="fac-text">{l.text}</span>
+            </div>
+            {view && f.data !== null && <div className="pk-event-data" data-testid="pack-event-data"><ArtifactView doc={f.data} view={view} /></div>}
+            {f.problems && <ArtifactProblems list={f.problems} />}
           </div>
         );
       })}

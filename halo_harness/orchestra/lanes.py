@@ -160,3 +160,9 @@ def unit_text(content: str, rel: str, key: str) -> Optional[str]:
             lines = content.splitlines()
             return "\n".join(line.rstrip() for line in lines[unit.start_line - 1:unit.end_line]).rstrip()
     return None
+
+
+def step_state(lane) -> str:
+    """The workflow step a finished lane leaves: failed, done, or (3.2.0.0 R5) skipped -- a workflow
+    stage whose `when` was false (workflows/runtime.py marks the lane `skipped`)."""
+    return "failed" if lane.state == "failed" else ("skipped" if lane.data().get("skipped") else "done")

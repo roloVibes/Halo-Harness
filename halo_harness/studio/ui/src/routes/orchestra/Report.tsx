@@ -7,6 +7,7 @@ import type { MotionState } from "../../lib/motion";
 import { Button } from "../../lib/ui";
 import { toast } from "../../lib/store";
 import { Metric, NoRun } from "./bits";
+import { ArtifactsTab } from "./Artifacts";
 import { CoachTab, ReportTabs, type ReportTab } from "./Coach";
 import { CHECK_LABEL, cost, elapsed, reportText, sha } from "./format";
 import { runMotion, useOrch } from "./store";
@@ -71,8 +72,8 @@ export function ReportDetail() {
   if (!r) return <Pending />;
   return (
     <div className="og-report-tabs">
-      <ReportTabs value={tab} onChange={setTab} />
-      {tab === "coach" ? <CoachTab /> : <ReportBody r={r} />}
+      <ReportTabs value={tab} onChange={setTab} artifacts={(r.artifacts || []).length} />
+      {tab === "coach" ? <CoachTab /> : tab === "artifacts" ? <ArtifactsTab /> : <ReportBody r={r} />}
     </div>
   );
 }

@@ -1,0 +1,9 @@
+# A fixture pack whose workflow names a role that is no bio (3.2.0.0 R5,
+# tests/test_workflow_schema.py): one manifest line naming the role and its line.
+id: wf-unknown-role
+name: Workflow with an unknown role
+version: 0.1.0
+description: A stage played by a bio nobody has.
+halo_api: {min: "1.0"}
+contributes:
+  workflows: [flow]

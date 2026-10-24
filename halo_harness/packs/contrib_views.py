@@ -1,7 +1,8 @@
 """halo_harness.packs.contrib_views -- the "contributes" block of `halo pack
 inspect` and the fleet rows of `halo pack doctor` (Halo 3.2.0.0 R4).
 
-    contributes(pack, granted, running=, cwd=, state_dir=) -> {"studio": {...} | None, "fleet": {...} | None}
+    contributes(pack, granted, running=, cwd=, state_dir=) -> {"studio": {...} | None, "fleet": {...} | None,
+                                                                "typed": {workflows, artifacts, events} | None (3.2.0.0 R5)}
     contributes_lines(d)       the text block under "contributes:" (Studio's sections, panels, palette lines,
                                the settings form, event lines, attention rows; the fleet capabilities, each
                                available here or not and why, the inspector lines, the mission metadata)
@@ -46,13 +47,32 @@ def _fleet(pack, granted, *, running: bool, cwd=None, state_dir=None) -> "dict |
     return {k: got[k] for k in ("capabilities", "inspector", "metadata")}
 
 
+def _typed(pack) -> "dict | None":
+    """3.2.0.0 R5: the pack's workflows (stages, inputs, outputs), artifact schemas and event schemas."""
+    from halo_harness.packs.typed import artifact_names, artifact_schema, event_entries, event_schema, view_of
+    from halo_harness.packs.workflow_rules import read_workflow, workflow_files
+    flows = []
+    for name, path in workflow_files(pack.manifest, pack.root).items():
+        data, _t = read_workflow(path)
+        data = data if isinstance(data, dict) else {}
+        flows.append({"name": name, "stages": [str(x.get("id")) for x in data.get("stages") or [] if isinstance(x, dict)],
+                      "inputs": list((data.get("inputs") or {}).keys()) if isinstance(data.get("inputs"), dict) else [],
+                      "outputs": {k: str((v or {}).get("type")) for k, v in (data.get("outputs") or {}).items()}
+                      if isinstance(data.get("outputs"), dict) else {}})
+    arts = [{"name": a, "view": view_of(artifact_schema(pack.root, a))} for a in artifact_names(pack.manifest)]
+    evs = [{"kind": e["kind"], "schema": event_schema(pack.root, pack.manifest, e["kind"]) is not None}
+           for e in event_entries(pack.manifest)]
+    return {"workflows": flows, "artifacts": arts, "events": evs} if flows or arts or any(e["schema"] for e in evs) else None
+
+
 def contributes(pack, granted, *, running: bool, cwd=None, state_dir=None) -> dict:
-    return {"studio": _studio(pack), "fleet": _fleet(pack, granted, running=running, cwd=cwd, state_dir=state_dir)}
+    return {"studio": _studio(pack), "fleet": _fleet(pack, granted, running=running, cwd=cwd, state_dir=state_dir),
+            "typed": _typed(pack)}
 
 
 def contributes_lines(d: dict) -> "list[str]":
-    st, fl = (d or {}).get("studio"), (d or {}).get("fleet")
-    if not st and not fl:
+    st, fl, ty = (d or {}).get("studio"), (d or {}).get("fleet"), (d or {}).get("typed")
+    if not st and not fl and not ty:
         return []
     out = ["contributes:"]
     if st:
@@ -77,6 +97,14 @@ def contributes_lines(d: dict) -> "list[str]":
         out += [f"  mission inspector line: {x['label']} ({x['source']})" for x in fl["inspector"]]
         if fl["metadata"]:
             out.append("  mission metadata: " + ", ".join(f"{k}={v}" for k, v in fl["metadata"].items()))
+    for w in (ty or {}).get("workflows") or []:  # 3.2.0.0 R5
+        out.append(f"  workflow {w['name']}: stages {', '.join(w['stages'])}; inputs {', '.join(w['inputs']) or '-'}; outputs "
+                   + (", ".join(f"{k} ({v})" for k, v in w["outputs"].items()) or "-"))
+    if (ty or {}).get("artifacts"):
+        out.append("  artifact schemas: " + ", ".join(f"{a['name']} ({a['view']})" for a in ty["artifacts"]))
+    typed_events = [e["kind"] for e in (ty or {}).get("events") or [] if e["schema"]]
+    if typed_events:
+        out.append("  event schemas: " + ", ".join(typed_events))
     return out
 
 

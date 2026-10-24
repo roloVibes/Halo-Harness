@@ -1,0 +1,9 @@
+# A fixture pack whose workflow input's default is not of its type (3.2.0.0 R5,
+# tests/test_workflow_schema.py): one manifest line naming the input and its line.
+id: wf-input-type
+name: Workflow with an input of the wrong type
+version: 0.1.0
+description: A path input whose default is a number.
+halo_api: {min: "1.0"}
+contributes:
+  workflows: [flow]

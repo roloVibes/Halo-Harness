@@ -15,7 +15,7 @@ def main() -> int:
         return 0
     path = str((event.get("tool_input") or {}).get("file_path") or "")
     write_private("doc-review", "last-write.txt", path + "\n")
-    publish_event("doc-review", "review.done", {"file": path})
+    publish_event("doc-review", "review.done", {"file": path, "findings": 0})
     return 0
 
 

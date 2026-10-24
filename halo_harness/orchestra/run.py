@@ -33,7 +33,7 @@ from halo_harness.orchestra.gate import quality_gate, send_back
 from halo_harness.orchestra.handoff_run import stuck
 from halo_harness.orchestra.goal import load_goal, repo_root_of, run_meta, set_lead_holder
 from halo_harness.orchestra.index import index_file
-from halo_harness.orchestra.lanes import load_lane
+from halo_harness.orchestra.lanes import load_lane, step_state
 from halo_harness.orchestra.merge import merge_lanes
 from halo_harness.orchestra.plan import await_plan
 from halo_harness.orchestra.report import load_report, write_report
@@ -197,13 +197,12 @@ def run(run_dir, *, model_calls: Callable, spawn: Callable, judge: Callable,
             if (lane is None or lane.state not in ("written", "in_review", "merged")) and not job.upstreams:
                 flow.set(wf.worker_id(job.worker), "running")
         lanes = start_workers(run_dir, goal, jobs, spawn=spawn, base=base, clock=clock,
-                              on_lane=lambda lane: flow.set(wf.worker_id(lane.n),
-                                                            "failed" if lane.state == "failed" else "done"),
+                              on_lane=lambda lane: flow.set(wf.worker_id(lane.n), step_state(lane)),
                               on_start=lambda lane: flow.set(wf.worker_id(lane.n), "running"))
         waiting = stuck(lanes)
         for lane in lanes:
             if lane.state != "waiting":
-                flow.set(wf.worker_id(lane.n), "failed" if lane.state == "failed" else "done")
+                flow.set(wf.worker_id(lane.n), step_state(lane))
         failed = [lane for lane in lanes if lane.state == "failed"]
         if failed or waiting:
             raise StopRun("; ".join([f"lane {l.n}: {l.data().get('error') or 'failed'}" for l in failed]
@@ -233,9 +232,9 @@ def run(run_dir, *, model_calls: Callable, spawn: Callable, judge: Callable,
                 send_back(lane, lambda k: f"the gate sent the piece back ({k}/{goal.return_cap})", clock=clock)
                 flow.loop_back(n)
                 stale.sent_back(lane)
-                respawn(lane, f"The tests fail on the finished branch {result.branch}:\n{gate.tests.tail}")
+                respawn(lane, gate.notes.get(n) or f"The tests fail on the finished branch {result.branch}:\n{gate.tests.tail}")
                 if lane.state == "failed":
-                    raise StopRun(f"lane {n}'s worker failed after the gate sent its piece back")
+                    raise StopRun(f"lane {n}'s worker failed after the gate sent its piece back: {lane.data().get('error') or '?'}")
         report = write_report(run_dir, goal=goal, lanes=lanes, gate=gate, status="finished", clock=clock)
         flow.set("done", "done", f"{result.branch} at {str(report.get('finished') or '')[:12]}")
     except (StopRun, gitops.GitError) as e:
