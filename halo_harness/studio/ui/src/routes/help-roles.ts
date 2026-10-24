@@ -49,6 +49,7 @@ export const ROLES_HELP: Record<string, Help> = {
     help: lines(
       "Click a bio to edit it below; drag one onto the canvas to add it to the lineup.",
       "MODELS comes first: the model select; more... unfolds the table (name, price, context, best at: the kinds and one line).",
+      "Learned chips (code 4/5) say how a model did at each task kind here; learned for <kind> strikes the ones dropped for it.",
       "Test this model sends one short request and shows ok and the time, or the error.",
       "Save writes your copy (a shipped bio stays as it is); New, Duplicate, Delete.",
     ),

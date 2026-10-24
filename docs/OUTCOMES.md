@@ -10,7 +10,10 @@ kept apart: a verdict reads the evidence, never the summary. Every outcome
 is one line in `~/.halo/coach/outcomes.jsonl`, per bio and model;
 `halo models --measured` and the Roles pill show measured success per model
 and task kind; and `models.preference: measured` routes a bio to the model
-that has succeeded most at its kind here. You see every verdict with its
+that has succeeded most at its kind here. Halo 3.1.9.0 R3: the `auto` pick
+weighs the same numbers, the roster drops a model that keeps failing a kind,
+and `halo outcomes learned` / `forget` show and reset what was learned
+([What was learned](#what-was-learned)). You see every verdict with its
 evidence; nothing here is a classifier or a refusal.
 
 ## The kinds
@@ -95,8 +98,15 @@ One line per agent task, in `~/.halo/coach/outcomes.jsonl`
 {"run": "20261023-213446-5249", "task": "lane 1", "source": "orchestra", "run_dir": "<run folder>",
  "bio": "", "model": "or:mock/lane-coder", "kind": "code", "outcome": "returned", "check": "gate",
  "returns": 1, "cost_usd": 0.004, "tests_passed": 9, "tests_failed": 1, "sources": 1,
- "evidence": "<run folder>/lanes/1/evidence.json", "ts": 1792809287.962}
+ "evidence": "<run folder>/lanes/1/evidence.json", "ts": 1792809287.962, "picked": "none", "reason": ""}
 ```
+
+Halo 3.1.9.0 R3: `picked` says whether the model was picked when the agent
+spawned -- `auto` (an `auto` bio), `measured` (a `measured` bio), or `none`
+(a pinned model, the call's own `model:`, a tier's model, an Orchestra lane,
+or a pick that fell back to main's model) -- and `reason` is that pick's one
+line ("" without one), the words the Roles pill shows. Nothing else in the
+row changed; an older row without them reads as `none`.
 
 The outcome: an Orchestra lane's comes from the run's report -- the run
 finished: `passed` (never sent back) or `returned` (sent back at least once);
@@ -150,6 +160,52 @@ ranked by their rate; a tie goes by the band's own rule. With nothing
 measured for that kind yet, the pick is the `auto` pick, its reason saying
 so. The Roles canvas shows the source word `measured`. The shipped `auto`
 lineup's bios stay `auto`. See [ROLES.md](ROLES.md#measured-a-bio-that-routes-by-what-succeeded-halo-3180).
+
+## What was learned
+
+Halo 3.1.9.0 R3 (`outcomes/learn.py`): the `auto` pick itself weighs these
+numbers for the member's task kind -- the checked tasks of the last 30 days,
+from 3 of them, a weight of `0.5 + 0.5 x rate` on each candidate's score --
+and the model roster drops a model whose rate for a kind is under 34%, with
+one line naming it and its numbers. The rule, the drop line and the switch
+are in [ROLES.md](ROLES.md#auto-learns-halo-3190); these two commands show
+and reset what it learned:
+
+```
+$ halo outcomes learned
+Learning on; the last 30 days; weighed from 3 checked tasks (weight 0.5 + 0.5 x rate); dropped below 34%.
+model                                        kind        n  passed   rate  weight  picks  dropped
+ant:fable                                    research    3    0/3      0%   0.500   0/3   dropped for research
+dbx:databricks-gemini-9-flash                media       5    0/5      0%   0.500   5/5   dropped for media
+or:v/cheap                                   plan        3    1/3     33%   0.666   3/3   dropped for plan
+or:v/cheap                                   code        2    2/2    100%   1.000   2/2   (fewer than 3: not weighed)
+or:v/ears                                    code        4    1/4     25%   0.625   4/4   dropped for code
+or:v/eyes                                    code        4    4/4    100%   1.000   3/4
+picks = tasks whose model was picked at spawn (auto / measured); `halo outcomes forget --model REF` starts a model over, ...
+```
+
+(`halo models --measured` keeps its all-time numbers -- or:v/eyes reads 4/5
+there with a failure 40 days old -- and marks the dropped rows "dropped for
+code (1/4 in the last 30 days)".)
+
+`--kind K` and `--model REF` narrow it; `--json` prints `{"learn": the
+settings, "since": the window's start, "rows": [{model, kind, n, passed,
+returned, failed, rate, cost_mean, picked, weight, counted, dropped}]}`. With
+`models.learn: false` the first line says the pick and the roster ignore
+the numbers.
+
+```sh
+halo outcomes forget --model or:v/ears --kind code --yes   # that model starts over at code
+halo outcomes forget --before 2026-09-01 --yes             # forget the old rows
+halo outcomes forget --yes                                 # start over entirely
+```
+
+`forget` removes the rows matching every filter it is given (every row with
+none), keeps the other lines exactly as they were, and keeps the file before
+beside it as `outcomes.jsonl.bak-<time>`; one line says how many rows went
+and where the backup is, and the best-at cache rebuilds on its next read.
+Without `--yes` it asks in a terminal, and elsewhere says how many rows match
+and removes nothing.
 
 ## Two examples
 

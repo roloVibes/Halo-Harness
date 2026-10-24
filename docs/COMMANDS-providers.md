@@ -243,7 +243,9 @@ open weights and what this host measured (the gym, the tool-call probe, a
 learned tools rejection, telemetry's speed, the preflight canary census).
 Halo 3.1.8.0: `--measured` prints what this Halo measured about each model's agent tasks: one row
 per model and task kind with the checked tasks, the first-time passes, the rate and the mean cost
-(`--json` for the rows); see [OUTCOMES.md](OUTCOMES.md#measured-success).
+(`--json` for the rows); see [OUTCOMES.md](OUTCOMES.md#measured-success). Halo 3.1.9.0 R3: a row
+whose model is dropped for the kind ends with "dropped for code (1/4 in the last 30 days)" (`--json`:
+`dropped`); `halo outcomes learned` shows the weights ([ROLES.md](ROLES.md#auto-learns-halo-3190)).
 
 | Flag | Reads/writes |
 |---|---|
@@ -291,7 +293,9 @@ file name), `rows` (`{ref: {kinds, line, scores, facts}}`) and `best`
 `halo models --refresh` hint. Studio's Models panel has the same button
 (Analyze, `POST /api/models/analyze`). See [MODELS-references.md](MODELS-references.md#what-each-model-is-good-at-halo-3190).
 Halo 3.1.8.0: the text ends with the `--measured` table when something was
-measured, and `--json` adds `measured` (its rows).
+measured, and `--json` adds `measured` (its rows). Halo 3.1.9.0 R3: a model
+dropped for a task kind ends its line with " -- dropped for <kind> (...)", and
+its table rows (and `--json`'s `measured` rows, `dropped`) carry the mark.
 
 ### `halo models test <ref>` (Halo 3.0.7.0)
 

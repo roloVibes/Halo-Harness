@@ -6,6 +6,8 @@
         kind, outcome (and what checked it), returns, cost, tests passed/failed, sources
     halo models --measured [--json]
         one row per model and kind: checked tasks, first-time passes, the rate, the mean cost
+        (3.1.9.0 R3: and a mark when the model is dropped for the kind, outcomes/learn.py)
+    halo outcomes learned | forget   outcomes/learn_cli.py (3.1.9.0 R3)
 """
 
 from __future__ import annotations
@@ -42,7 +44,12 @@ def table(rows: list) -> list:
 
 
 def cmd_outcomes(argv) -> int:
-    parser = argparse.ArgumentParser(prog="halo outcomes", description="Every agent task's outcome (outcomes.jsonl)")
+    if argv and argv[0] in ("learned", "forget"):  # 3.1.9.0 R3: what Auto learned, and starting it over
+        from halo_harness.outcomes.learn_cli import cmd_forget, cmd_learned
+        return (cmd_learned if argv[0] == "learned" else cmd_forget)(argv[1:])
+    parser = argparse.ArgumentParser(prog="halo outcomes", description="Every agent task's outcome (outcomes.jsonl)",
+                                     epilog="halo outcomes learned: what the auto pick learned per model and kind; "
+                                            "halo outcomes forget: remove rows so it starts over (each has --help)")
     parser.add_argument("--bio", default="", help="Only this bio's tasks")
     parser.add_argument("--model", default="", help="Only this model's tasks")
     parser.add_argument("--kind", default="", help="Only this kind: code, research, check, writing, plan, review, "
@@ -73,10 +80,14 @@ def measured_rows(stats: dict) -> list:
 
 
 def cmd_models_measured(*, as_json: bool = False) -> int:
+    from halo_harness.config.paths import bridge_home
+    from halo_harness.outcomes.learn import marks
     from halo_harness.outcomes.measured import success_by_model_kind, table_lines
     stats = success_by_model_kind(None)
+    dropped = marks(bridge_home())  # 3.1.9.0 R3: "dropped for code (1/4 in the last 30 days)"
     if as_json:
-        print(json.dumps(measured_rows(stats), indent=1, ensure_ascii=False))
+        print(json.dumps([dict(r, dropped=dropped.get((r["model"], r["kind"]), "")) for r in measured_rows(stats)],
+                         indent=1, ensure_ascii=False))
         return 0
-    print("\n".join(table_lines(stats)))
+    print("\n".join(table_lines(stats, dropped)))
     return 0

@@ -2,7 +2,8 @@
 
 Read this when you give Halo a goal to work on without sitting at a terminal, or isolate its workers.
 
-The supervisor (`halo supervise`), its goal queue (`halo goal`), every agent task's outcome (`halo outcomes`)
+The supervisor (`halo supervise`), its goal queue (`halo goal`), every agent task's outcome (`halo outcomes`;
+since 3.1.9.0 R3 also what the auto pick learned from them, `halo outcomes learned` / `forget`)
 and, since 3.1.8.0 R5, `halo isolation` and `halo secrets` for the opt-in isolation of its workers.
 Part of [Commands](COMMANDS.md), which lists every part.
 
@@ -122,6 +123,47 @@ halo outcomes --model or:vendor/model --json
   or an epoch; anything else exits 2 and says how to write it.
 - `--limit N`: the newest N rows (default 50; `0`: all).
 - `--json`: the rows as JSON.
+
+### `halo outcomes learned`
+
+Halo 3.1.9.0 R3. What the `auto` pick learned from those rows
+([ROLES.md](ROLES.md#auto-learns-halo-3190)): per model and task kind, over
+the window (`models.learn.window_days`, 30 days), the checked tasks, the
+first-time passes and the rate, the pick's weight (`0.5 + 0.5 x rate` from
+3 tasks, else 1.0), how many were the model's own pick (`picked: auto` or
+`measured` on the row), and "dropped for <kind>" when the rate is under 34%.
+The first line says the rule's numbers, or that learning is off.
+
+```sh
+halo outcomes learned                      # every model and kind
+halo outcomes learned --kind code          # one kind
+halo outcomes learned --model or:v/ears --json
+```
+
+- `--kind KIND` / `--model REF`: only those rows.
+- `--json`: `{"learn": the settings, "since": the window's start, "rows": [...]}`.
+
+### `halo outcomes forget`
+
+Halo 3.1.9.0 R3. Remove outcome rows so the pick starts over for them: the
+rows matching every filter given (every row with none). The other lines stay
+exactly as they were, the file before is kept beside it as
+`outcomes.jsonl.bak-<time>`, one line says how many went and where the
+backup is, and the best-at cache rebuilds on its next read. Exit codes: 0
+done (or nothing matched), 1 rows match but nothing was removed (no `--yes`
+outside a terminal, or the question answered no), 2 a `--before` that does
+not read.
+
+```sh
+halo outcomes forget --model or:v/ears --kind code --yes   # that model starts over at code
+halo outcomes forget --before 2026-09-01 --yes             # the old rows
+halo outcomes forget --yes                                 # every row
+```
+
+- `--model REF` / `--kind KIND`: only those rows.
+- `--before WHEN`: only rows older than `7d`, `24h`, `30m`, a date or an epoch.
+- `--yes`: remove without asking; without it a terminal asks, anything else
+  says how many rows match and removes nothing.
 
 ## `halo isolation`
 

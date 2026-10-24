@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from halo_harness.models_auto import DEFAULT_BAND, Pick, _candidates, _choose, load_rows, pick, price_words
+from halo_harness.models_auto import DEFAULT_BAND, MEASURED, Pick, _candidates, _choose, load_rows, pick, price_words
 from halo_harness.outcomes.measured import MIN_N, success_by_model_kind, words
 
 
@@ -28,7 +28,8 @@ def pick_measured(state_dir, *, kind: str, needs=(), task_text: str = "", attach
     from `state_dir`); `rows`: the best-at index's rows (default: read from `state_dir`)."""
     entries = load_rows(state_dir) if rows is None else rows
     auto = pick(state_dir, needs=needs, task_text=task_text, attachments=attachments, band=band, main_ref=main_ref,
-                role=role, rows=entries)
+                role=role, rows=entries, kind=kind)
+    auto.how = MEASURED  # 3.1.9.0 R3: the outcome row's `picked`
     try:
         stats = success_by_model_kind(state_dir) if stats is None else stats
     except Exception:
@@ -48,4 +49,4 @@ def pick_measured(state_dir, *, kind: str, needs=(), task_text: str = "", attach
     reason = (f"the best measured {kind} rate here among the {what}models ({price_words(chosen.facts)}){tie} "
               f"(measured {words(kind, s)})")
     rest = sorted((c for c in measured if c.ref != chosen.ref), key=lambda c: (-stats[(c.ref, kind)]["rate"], c.ref))
-    return Pick(chosen.ref, reason, auto.kinds, [c.ref for c in rest[:3]])
+    return Pick(chosen.ref, reason, auto.kinds, [c.ref for c in rest[:3]], how=MEASURED)

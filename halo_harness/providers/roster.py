@@ -9,7 +9,9 @@ line per model -- ref, price in/out per 1M tokens, context, what it takes
 in, tools, reasoning, the kinds it is best at, and what this host measured
 -- the session's own model first, then every model the per-kind lines name,
 then the local ones, then the rest by how many kinds they cover. Names
-only: model refs, never a key, a host URL or a path.
+only: model refs, never a key, a host URL or a path. 3.1.9.0 R3: a model
+that keeps failing a task kind here leaves that kind's leaders, and one
+line after them says so with its numbers (outcomes/learn.py).
 
 The agent loop appends it as a user-role snapshot of kind `roster` through
 `roster_snapshot_text` at the three snapshot sites (a new session, `/clear`,
@@ -28,6 +30,9 @@ MAX_LINES = 40
 HEADING = ("# Model roster (what each model in this Halo's catalog is good at; prices are USD per 1M tokens "
            "in/out; name one with the Agent tool's `model` when a sub-task needs it)")
 _IN = (("text", "text"), ("image", "image"), ("audio", "audio"), ("video", "video"), ("pdf", "pdf"))
+# 3.1.9.0 R3: a task kind (outcomes/kinds.py) -> the roster kinds whose leaders a model dropped for it leaves;
+# the other task kinds (plan, review, writing, check, other) have no per-kind line, only the drop line
+DROP_KINDS = {"code": ("code",), "research": ("research",), "media": ("visual", "audio", "video")}
 
 
 def roster_enabled() -> bool:
@@ -106,10 +111,40 @@ def _order(entries: dict, best: dict, current_ref: str) -> list:
     return named + local + rest
 
 
+def _drops(state_dir, entries: dict) -> list:
+    """3.1.9.0 R3: `[(kind, model, stat)]` of this catalog's models dropped for a task kind (outcomes/learn.py)."""
+    try:
+        from halo_harness.outcomes.learn import dropped, numbers, settings
+        cfg = settings()
+        return dropped(numbers(state_dir, cfg), cfg, refs=set(entries)) if cfg["enabled"] else []
+    except Exception:
+        return []
+
+
+def _without(entries: dict, best: dict, drops: list) -> dict:
+    """The per-kind leaders with each dropped model out of the kinds its task kind maps to (`DROP_KINDS`)."""
+    from halo_harness.models_best_at import best_per_kind
+    gone: dict = {}
+    for task_kind, ref, _s in drops:
+        for kind in DROP_KINDS.get(task_kind, ()):
+            gone.setdefault(kind, set()).add(ref)
+    out = dict(best)
+    for kind, refs in gone.items():
+        if kind in out and {out[kind].get("strongest"), out[kind].get("cheapest")} & refs:
+            again = best_per_kind({ref: e for ref, e in entries.items() if ref not in refs}).get(kind)
+            if again:
+                out[kind] = again
+            else:  # no other model is good at the kind: its line goes, the drop line says why
+                del out[kind]
+    return out
+
+
 def roster_block(state_dir, rows: Optional[list] = None, *, current_ref: str = "", stale_ok: bool = False) -> str:
     """The roster text ("" when the catalog has no model). `rows`: the
     catalog rows to describe (default: the best-at cache's own, the catalog
-    as `halo models` lists it); `stale_ok`: see `models_best_at.index`."""
+    as `halo models` lists it); `stale_ok`: see `models_best_at.index`.
+    3.1.9.0 R3: a model dropped for a task kind (outcomes/learn.py) leaves
+    that kind's leaders, and one line names it with its numbers."""
     from halo_harness.models_best_at import best_per_kind, index
     cache = index(state_dir, rows, stale_ok=stale_ok)
     entries = cache.get("rows") or {}
@@ -118,11 +153,15 @@ def roster_block(state_dir, rows: Optional[list] = None, *, current_ref: str = "
         entries = {ref: e for ref, e in entries.items() if ref in wanted}
     if not entries:
         return ""
-    best = best_per_kind(entries)
+    drops = _drops(state_dir, entries)
+    best = _without(entries, best_per_kind(entries), drops) if drops else best_per_kind(entries)
     lines = [HEADING, "Per kind, the strongest (and the cheapest when it differs):"]
     for kind, pick in best.items():
         cheap = pick.get("cheapest")
         lines.append(f"- {kind}: {pick['strongest']}" + (f"; cheapest {cheap}" if cheap and cheap != pick["strongest"] else ""))
+    if drops:
+        from halo_harness.outcomes.learn import drop_line
+        lines.append(drop_line(drops))
     lines.append("Models:")
     order = _order(entries, best, current_ref)
     room = MAX_LINES - len(lines) - (1 if len(order) > MAX_LINES - len(lines) else 0)
