@@ -18,7 +18,7 @@ import { isScoped, lineIn, useScope, useScopedCounts, useScopedHarnesses } from 
 import { allAgents, fleet, sessionTitle, useFleet } from "./store";
 import { Timeline } from "./Timeline";
 
-const KINDS = ["state", "tool", "text", "ask", "error", "fleet"];
+const KINDS = ["state", "tool", "text", "ask", "error", "fleet", "pack"];
 
 function Pick({ label, field, options }: { label: string; field: keyof Filter; options: [string, string][] }) {
   const value = usePanels((s) => s.filter[field]);

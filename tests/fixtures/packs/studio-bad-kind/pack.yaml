@@ -1,0 +1,12 @@
+# A failure fixture (3.2.0.0 R3): a Studio panel of a kind Studio does not draw.
+id: studio-bad-kind
+name: Bad kind
+version: 0.1.0
+halo_api: {min: "1.0"}
+contributes:
+  studio:
+    sections:
+      - id: charts
+        title: Charts
+        panels:
+          - {id: trend, title: Trend, kind: chart, source: trend.json}

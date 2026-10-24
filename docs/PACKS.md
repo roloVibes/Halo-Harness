@@ -155,6 +155,43 @@ pack's row offers:
 - **Apply** (lineups): the Apply dialog, naming the pack and the lineup it
   replaces as the one new sessions use. It writes `~/.halo/config.json` only.
 
+## In Studio
+
+A pack may add to Studio what its `pack.yaml` declares under
+`contributes.studio` ([EXTENSION_API.md](EXTENSION_API.md#studio-contributions)
+has the shape); Studio draws all of it with its own components, and all of it
+goes the moment you disable the pack (no reload):
+
+- **Its own sections**, after Orchestra: the tab strip and the rail show them
+  after a thin "packs" divider, on Alt+7, Alt+8 and Alt+9 (the six sections
+  keep Alt+1..6). The doc-review fixture's is **Docs review**: its notes (a
+  markdown page of the pack), its checks (a table over a JSON file), links
+  (into Studio, or a page in a new tab) and Settings.
+- **Panels in a core section**, under that section's own, as strips: the
+  fixture's **Reviews** sits in Session. Each pack panel's title bar says
+  "from pack <id>", and `?` (or the ... menu's Help) shows the pack's own help
+  lines.
+- **Palette lines** in their own group, "pack <id>": the fixture's "Open the
+  review checks" opens Docs review on the Checks panel.
+- **Settings**: with `config_form: true`, a form of the pack's
+  `config.schema` (a field per key, its description as the help line). Save
+  checks the values and writes `packs.settings.<id>` in `~/.halo/config.json`,
+  the same key `halo config set packs.settings.<id>.<key>` writes.
+- **Its live lines**: what the pack publishes (`publish_event`) shows in
+  Session's Live column, Fleet's Activity and the pack's events panels with the
+  pack's label and line, `REVIEW  README.md: 3 findings`.
+- **Its attention rows**: a row the pack raises shows in Attention with the
+  pack's label and keys (`review`, A accept, R redo, S skip, O open) and is
+  answered there like any row.
+- **A bundle**: a panel the pack draws with its own script. It runs only once
+  you grant `studio-script`; until then the panel is one line naming the
+  command:
+
+```
+This panel is studio-bundle's own script (studio/hello.js). It runs once you grant it:
+halo pack enable studio-bundle --grant studio-script
+```
+
 ## Where packs live
 
 - `~/.halo/packs/<id>/`: yours, for every repo (`halo pack install <path|git url>`).

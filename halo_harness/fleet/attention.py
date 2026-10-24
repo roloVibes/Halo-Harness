@@ -162,7 +162,7 @@ def conflict_rows(conflicts: list, view: dict, seen: dict, now: float) -> list:
 
 
 def build(view: dict, *, asks: Optional[dict] = None, orchestra=(), commands=(), reached=(), conflicts=(),
-          seen: Optional[dict] = None, acks=(), now: Optional[float] = None, home=None, teams=()) -> list:
+          seen: Optional[dict] = None, acks=(), now: Optional[float] = None, home=None, teams=(), packs=()) -> list:
     """Every row, newest decision last within each harness, set-aside rows left out."""
     now = now or time.time()
     seen = seen if seen is not None else {}
@@ -176,5 +176,8 @@ def build(view: dict, *, asks: Optional[dict] = None, orchestra=(), commands=(),
     if teams:  # 3.0.8.0 R2: the team gates of Studio's repo (fleet/team_attention.py gated)
         from halo_harness.fleet.team_attention import rows as team_rows
         rows += team_rows(list(teams), local, seen, now)
+    if packs:  # 3.2.0.0 R3: a pack's own rows (`pack:<id>:<kind>`, fleet/pack_attention.py)
+        from halo_harness.fleet.pack_attention import rows as pack_rows
+        rows += pack_rows(list(packs), local, seen, now)
     gone = set(acks)
     return sorted([r for r in rows if r["id"] not in gone], key=lambda r: r["since"])

@@ -85,7 +85,7 @@ export function installEdit(): void {
     const mode = String(d.mode || "") as SectionId;
     if (target) void applyEdit(target);
     else if (mode === "session") openSession({ session: String(d.session || "") });
-    else if (SECTION_IDS.includes(mode)) goSection(mode);
+    else if ((SECTION_IDS as string[]).includes(mode)) goSection(mode);
     else return;
     try {
       window.focus();

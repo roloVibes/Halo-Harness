@@ -1,0 +1,32 @@
+/* 3.2.0.0 R3: what packs add to Studio (routes/packs): the thin "packs" divider in the tab strip and the rail,
+   and the panel kinds Studio draws from a pack's data -- markdown, table, links, the settings form, the live
+   lines, a bundle's grant line and host. */
+.tab-divider { align-self: center; padding: 0 6px 0 10px; margin-left: 4px; border-left: 1px solid var(--line-strong);
+  font-size: 9.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+.rail-packs { padding-top: 6px; border-top: 1px solid var(--line); }
+.rail-packs .rail-item.on .rail-item-text { color: var(--accent); }
+
+.pk-md { padding: 4px 2px; }
+.pk-table-wrap { overflow: auto; }
+.pk-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.pk-table th { text-align: left; font: 10px var(--mono); text-transform: uppercase; letter-spacing: .05em; color: var(--muted);
+  padding: 4px 8px; border-bottom: 1px solid var(--line-strong); position: sticky; top: 0; background: var(--bg-2); }
+.pk-table td { padding: 5px 8px; border-bottom: 1px solid var(--line); vertical-align: top; overflow-wrap: anywhere; }
+.pk-table tr:hover td { background: var(--bg-2); }
+
+.pk-links { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.pk-link-row { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; min-width: 0; }
+.pk-link-where { font-size: 11px; overflow-wrap: anywhere; }
+
+.pk-form { display: grid; gap: 10px; max-width: 520px; }
+.pk-form-key { margin: 0; font-size: 11px; }
+.pk-form-foot { display: flex; align-items: center; gap: 8px; }
+
+.pk-events { max-height: 100%; overflow: auto; }
+
+.pk-grant { display: grid; gap: 8px; padding: 6px 2px; }
+.pk-grant p { margin: 0; }
+.pk-grant-cmd { display: block; padding: 6px 8px; border: 1px dashed var(--line-strong); border-radius: var(--radius);
+  font: 12px var(--mono); color: var(--accent); overflow-wrap: anywhere; user-select: all; }
+.pk-bundle { display: grid; gap: 6px; }
+.pk-bundle-host { min-height: 24px; }

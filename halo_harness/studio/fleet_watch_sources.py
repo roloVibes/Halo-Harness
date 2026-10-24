@@ -37,6 +37,15 @@ def by(home=None) -> str:
 
 
 # ---- the sources ------------------------------------------------------------------------
+def packs(server) -> list:
+    """The row files of the running packs' declared attention kinds (3.2.0.0 R3, fleet/pack_attention.py)."""
+    try:
+        from halo_harness.fleet.pack_attention import pending
+        return pending(getattr(server, "cwd", None), getattr(server, "state_dir", None))
+    except Exception:
+        return []
+
+
 def teams(server) -> list:
     """The open gates of the team run of Studio's repo (3.0.8.0 R2, fleet/team_attention.py)."""
     try:

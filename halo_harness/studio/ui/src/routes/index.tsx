@@ -35,6 +35,8 @@ import { sessionPanels } from "./session/Session";
 import { SessionView } from "./session/Start";
 import { enterSession } from "./session/store";
 import { teamPanels } from "./team/Team";
+import { packPanels, packSections } from "./packs/registry";
+import { packs, usePacks } from "./packs/store";
 import { TeamView } from "./team/Start";
 import { setView as enterTeam } from "./team/store";
 
@@ -61,6 +63,29 @@ export const SECTIONS: SectionDef[] = [
   { id: "orchestra", title: "Orchestra", kbd: "Alt+6", blurb: "Runs of your agents, live", panels: orchestraPanels, rail: OrchestraRail, view: OrchestraView, enter: enterOrchestra },
 ];
 
+// 3.2.0.0 R3: the packs' sections come after Orchestra (Alt+7..9) and their panels join the core sections'
+// (routes/packs/registry.ts, from the registry the server builds); SECTIONS stays the six, in their order.
+let merged: { reg: unknown; out: SectionDef[] } = { reg: null, out: SECTIONS };
+
+/** Every section, the six core ones (with the packs' panels added) then the packs' own. */
+export function sections(): SectionDef[] {
+  const reg = packs.get().reg;
+  if (merged.reg !== reg) {
+    const core = SECTIONS.map((s) => {
+      const extra = packPanels(reg, s.id);
+      return extra.length ? { ...s, panels: [...s.panels, ...extra] } : s;
+    });
+    merged = { reg, out: [...core, ...packSections(reg)] };
+  }
+  return merged.out;
+}
+
+/** The same, re-read when the packs registry changes. */
+export function useSections(): SectionDef[] {
+  usePacks((s) => s.reg);
+  return sections();
+}
+
 export function sectionDef(id: SectionId): SectionDef {
-  return SECTIONS.find((s) => s.id === id) ?? SECTIONS[0];
+  return sections().find((s) => s.id === id) ?? SECTIONS[0];
 }

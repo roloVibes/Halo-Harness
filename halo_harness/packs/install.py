@@ -71,6 +71,8 @@ def install(source: str, *, project: bool = False, cwd=None, state_dir=None) -> 
     S.replace(pack.id, {"version": pack.version, "source": str(source), "installed": S.now(), "enabled": False,
                         "granted": kept, "scope": "project" if project else "user", "root": str(dest)}, state_dir)
     installed = read_pack(dest, "project" if project else "user")
+    from halo_harness.packs.grants import notify_studio  # 3.2.0.0 R3: Studio's pack list (it runs disabled)
+    notify_studio("installed")
     lines = [f"installed {pack.id} {pack.version} at {dest} (disabled)",
              f"it offers: {summary(offers(installed))}"]
     asked = installed.manifest.get("permissions") or []

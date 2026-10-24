@@ -20,7 +20,7 @@ machine-readable manifest schema is
 | [Agents and teams](#agents-and-teams) | stable | bios and lineups under `<id>--<name>`; R2: capabilities, needs, namespace, workflows, acceptance |
 | [Skills, commands, hooks and MCP](#skills-commands-hooks-and-mcp) | stable | the Claude-plugin layout, namespaced |
 | [Permissions and grants](#permissions-and-grants) | stable | requested in pack.yaml, granted by you |
-| [Studio contributions](#studio-contributions) | planned | shape proposed; R3 builds it |
+| [Studio contributions](#studio-contributions) | stable | `contributes.studio` (3.2.0.0 R3): sections, panels, palette, the settings form, event lines, attention rows; a bundle only with `studio-script` |
 | [Fleet capabilities](#fleet-capabilities) | planned | shape proposed; R4 builds it |
 | [Workflow contracts](#workflow-contracts) | planned | shape proposed; R5 builds it |
 | [Events and artifacts](#events-and-artifacts) | planned | typed schemas proposed; `publish_event` is stable |
@@ -77,7 +77,7 @@ contributes:
   commands: commands
   hooks: hooks/hooks.json
   mcp: [{name: lint, description: checks links}]   # each a server in .mcp.json
-  studio: {}                    # planned (R3)
+  studio: {sections: [...], panels: [...], palette: [...], config_form: true, events: {...}, attention: {...}}   # 3.2.0.0 R3, below
   fleet: {}                     # planned (R4)
   artifacts: []                 # planned (R5)
   events: [review.done]         # the kinds the pack publishes
@@ -85,7 +85,7 @@ contributes:
 config:
   schema: {properties: {style: {type: string, enum: [short, long]}}, additionalProperties: false}
   defaults: {style: short}
-permissions: ["mcp:lint", hooks]    # mcp:<server>, hooks, bash, network, home-write
+permissions: ["mcp:lint", hooks]    # mcp:<server>, hooks, bash, network, home-write, studio-script
 migrations:
   - {from: 0.9.0, to: 1.0.0, note: the reviewer bio is now doc-review--reviewer}
 ```
@@ -170,7 +170,7 @@ server starts only with its `mcp:<server>` grant (and `network` for a url).
 ## Permissions and grants
 
 Status: **stable**. A pack requests `permissions:` in pack.yaml: `mcp:<server>`,
-`hooks`, `bash`, `network`, `home-write`. You grant them with `halo pack
+`hooks`, `bash`, `network`, `home-write`, `studio-script` (3.2.0.0 R3: a Studio bundle panel). You grant them with `halo pack
 enable <id> --grant NAME` (or `--grant-all`); grants add up and live in
 state.json; `disable` clears them. A contribution whose permission is not
 granted does not run, and `halo pack doctor` says so. `bash` and `network`
@@ -179,11 +179,134 @@ lets `write_private` / `write_yaml` write outside the pack's data folder.
 
 ## Studio contributions
 
-Status: **planned** (R3). Proposed `contributes.studio`: `{sections: [{id,
-title, bundle}], panels: [{section, id, title, bundle}], palette: [{id,
-label, route}]}`; a bundle is a file under the pack loaded by the Studio
-server under `/pack/<id>/` (same origin, Studio's CSP), with a typed data
-contract; nothing shows for a disabled pack.
+Status: **stable** (3.2.0.0 R3). A pack adds to Studio by declaring it under
+`contributes.studio`; Studio's own components draw every part from that data,
+and nothing of the pack runs unless it asks for `studio-script` and you grant
+it. The shell reads one registry the server builds from the packs that run
+here (`GET /api/pack/registry`, `halo_harness/packs/studio_registry.py`) and
+reads it again on every `pack_changed` frame, so nothing shows for a disabled
+pack and a pack you enable shows without a reload. No core file is patched;
+the auth, local-first and privacy model is Studio's own (loopback, the launch
+token, the shell's CSP).
+
+| Key | Shape | What Studio does with it |
+|---|---|---|
+| `sections` | `[{id, title, blurb, help, panels: [<panel>]}]` | a section of its own after Orchestra (Alt+7, Alt+8, Alt+9 in order; the tab strip and the rail show them after a thin "packs" divider); its panels fill the 24 columns left to right |
+| `panels` | `[{section: <core section>, ...<panel>}]` | a panel in Session, Team, Roles, Fleet, Design or Orchestra, under that section's own, as a strip |
+| `palette` | `[{id, label, action}]` | a command palette line in the group "pack <id>"; `action` is `route:<section>[/<panel>]`, `url:<address>` or `config` |
+| `config_form` | `true` or `false` | a Settings panel (kind `form`) at the end of the pack's first section, and a palette line "Settings: <name>" |
+| `events` | `{<kind>: {label, line}}` | a `pack_event` of that kind (one of `contributes.events`) renders as `label` + `line`, `{field}` read from the frame's data, in Session's Live column, Fleet's Activity and the pack's `events` panels; a kind no running pack declares keeps the generic line (the pack, the kind, the data in short) |
+| `attention` | `{<kind>: {label, keys: {a, r, s, o}}}` | a row of the attention queue, kind `pack:<id>:<kind>`, with the pack's label and its answers |
+
+A `<panel>` is `{id, title, kind, source, w, h, help, columns, links}`:
+
+| `kind` | Reads | Draws |
+|---|---|---|
+| `markdown` | `source`: a `.md`, `.markdown` or `.txt` file in the pack's folder | Studio's markdown (never HTML, never a remote image) |
+| `table` | `source`: a `.json` file in the pack's folder, or `data:<path>` in its data folder; a list of rows (or `{rows: [...]}`) | a table; the columns are `columns`, else the first row's keys |
+| `form` | the pack's `config.schema` (`properties`, each with `type`, `enum`, `description`) | one field per key; Save checks the values against the schema and writes `packs.settings.<id>` (`GET/POST /api/pack/<id>/config`) |
+| `links` | `links: [{label, route}]` or `[{label, url}]` | a route into Studio (a core section, or the pack's own section and panel), or an http(s) or mailto address in a new tab |
+| `events` | the pack's own `pack_event` frames | a live list, newest last, each with its `line` |
+| `bundle` | `source`: an ES module (`.js`, `.mjs`) in the pack's folder | `mount(el, api)`, loaded only when `studio-script` is granted; until then one line naming `halo pack enable <id> --grant studio-script` |
+
+Ids (a section, a panel, a palette line) are names without `--` (letters,
+digits, `-` and `_`), unique in the pack; Studio qualifies them
+`<id>--<name>` (a pack's section is `doc-review--docs`) and keeps the titles
+as written. `w` is 4..24 columns (default 12), `h` 8..200 rows of 8 px
+(default 24). `help` is the panel's `?` popover and the Inspector's lines (one
+per line); the title bar's source line says "from pack <id>". A bad
+contribution is a manifest problem naming the key and its line, so the pack
+does not install or run:
+
+```
+pack.yaml line 12: contributes.studio.sections[0].panels[0].kind 'chart' is not one of markdown, table, form, links, events, bundle
+```
+
+The problems checked: an unknown kind, a `source` outside the pack's folder
+(or a file that is not there), a bundle without `studio-script` in
+`permissions`, a route to nothing, an `events` kind not in
+`contributes.events`, `config_form` without a `config.schema` or without a
+section, a panel under `panels:` naming a section that is not a core one, an
+id used twice or holding `--`.
+
+The doc-review fixture's (`tests/fixtures/packs/doc-review/pack.yaml`):
+
+```yaml
+contributes:
+  events: [review.done]
+  studio:
+    sections:
+      - id: docs
+        title: Docs review
+        blurb: The review notes, the checks and the links
+        panels:
+          - {id: notes, title: Review notes, kind: markdown, source: studio/notes.md, w: 12, h: 30}
+          - {id: checks, title: Checks, kind: table, source: studio/checks.json, columns: [check, state, note], w: 12, h: 30}
+          - id: links
+            title: Links
+            kind: links
+            w: 24
+            h: 16
+            links:
+              - {label: Roles (the review lineup), route: roles}
+              - {label: The checks, route: docs/checks}
+              - {label: How packs work, url: "https://github.com/roloVibes/Halo-Harness/blob/master/docs/PACKS.md"}
+    panels:
+      - {id: reviews, section: session, title: Reviews, kind: events, w: 10, h: 24}
+    palette:
+      - {id: open-checks, label: Open the review checks, action: "route:docs/checks"}
+    config_form: true
+    events:
+      review.done: {label: REVIEW, line: "{file}: {findings} findings"}
+    attention:
+      review.ask: {label: review, keys: {a: accept, r: redo, s: skip, o: open}}
+```
+
+`tests/fixtures/packs/studio-bundle/` is the bundle example: one section, one
+`bundle` panel (`studio/hello.js`, twenty lines that write "hello from
+<id>"), `permissions: [studio-script]`.
+
+**The routes** (`halo_harness/studio/packs_studio_api.py`, behind the token
+guard of every Studio route; a pack that does not run here answers 404):
+
+- `GET /api/pack/registry`: `{version: 1, core: [the six], packs: [{id, name,
+  version, scope, script: granted | not granted | none, grant, sections,
+  panels, palette, config_form, events, attention}]}`, ids qualified, routes
+  resolved to `{section, panel?}`, each panel with `about` ("from pack <id>"),
+  `collapsed` (true in a core section) and `file` (the api path of its
+  source; a bundle's only once granted).
+- `GET /api/pack/<id>/file/<path>`: a markdown or JSON file inside the pack's
+  folder, or its bundle module (a bundle panel's `source`, only with
+  `studio-script` granted, else 403 naming the grant), under the shell's CSP.
+  An `import()` sends no header, so this route also takes the token in `?t=`,
+  as `/api/events` does. `..`, an absolute path or another file type is 404.
+- `GET /api/pack/<id>/data/<path>`: a markdown or JSON file in the pack's data
+  folder (`~/.halo/packs/.data/<id>/`, where `write_private` writes).
+- `GET /api/pack/<id>/config` and `POST /api/pack/<id>/config {values: {key:
+  value}}`: the form's fields and values; a value that does not fit the
+  schema answers 422 and nothing is written.
+
+**A bundle** is a module that exports `mount(el, api)`: `el` is the panel's
+body, `api` is `{pack, panel, get(path), config()}` (`get` reads a file of
+the pack as text, `config` its settings); what `mount` returns, when it is a
+function, runs when the panel goes away. It runs in the page like the
+shell's own script, so it is the one Studio contribution that takes your
+explicit grant (`halo pack enable <id> --grant studio-script`), as `bash` and
+`hooks` do.
+
+**Attention rows** come from the pack's code: it writes one JSON file per row
+in its data folder with the stable surface,
+`write_private("<id>", "attention/<row>.json", json.dumps({"kind": "review.ask", "what": "...", "detail": "..."}))`.
+The row shows while the pack runs and its kind is declared; A, R or S answers
+it through the queue's answer route: Studio writes `answers/<row>.json`
+(`{row, kind, key, answer, text, by, ts}`) beside it and removes the row
+file, for the pack's code to read; O opens the pack's first section.
+
+**`pack_changed`** (`{"event": "pack_changed", "data": {"why"}}`) goes out on
+`/api/events` after `halo pack enable`, `disable`, `install`, `update` and
+`remove` in Studio's own process, and within two seconds of the same change
+made from another terminal (Studio watches the packs folders, each pack.yaml
+and state.json).
 
 ## Fleet capabilities
 
@@ -204,7 +327,8 @@ Since R2 `contributes.workflows` is read for its names (a lineup's
 
 Status: **planned**; `publish_event` itself is stable. A frame is `{"session_id":
 "pack:<id>", "event": "pack_event", "pack": "<id>", "data": {"pack", "kind",
-"data"}, "ts"}`; `kind` is one of `contributes.events`. Proposed for R5:
+"data"}, "ts"}`; `kind` is one of `contributes.events`. Since 3.2.0.0 R3 a kind's line in Studio is
+`contributes.studio.events.<kind>` (`{label, line}`, [Studio contributions](#studio-contributions)). Proposed for R5:
 typed event schemas (`contributes.events: [{kind, schema}]`) and artifact
 schemas with viewers (`contributes.artifacts: [{kind, schema, viewer}]`).
 

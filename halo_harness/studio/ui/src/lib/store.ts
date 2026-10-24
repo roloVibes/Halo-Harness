@@ -42,7 +42,10 @@ export function useStore<T extends object, S>(store: Store<T>, select: (s: T) =>
 
 // -- the shell's state -----------------------------------------------------------
 
-export type SectionId = "orchestra" | "roles" | "design" | "fleet" | "team" | "session";
+export type CoreSectionId = "orchestra" | "roles" | "design" | "fleet" | "team" | "session";
+/** 3.2.0.0 R3: a pack's own section, `<pack id>--<section id>` (routes/packs: the registry the server builds). */
+export type PackSectionId = `${string}--${string}`;
+export type SectionId = CoreSectionId | PackSectionId;
 export type ThemeChoice = "auto" | "dark" | "light";
 export type FeedStatus = "off" | "connecting" | "open" | "retrying" | "down";
 
@@ -89,7 +92,7 @@ export type StudioState = {
 };
 
 /** Every section id, in the tab order (routes/index.tsx SECTIONS is the order; store.ts cannot import it). */
-export const SECTION_IDS: SectionId[] = ["session", "team", "roles", "fleet", "design", "orchestra"];
+export const SECTION_IDS: CoreSectionId[] = ["session", "team", "roles", "fleet", "design", "orchestra"];
 
 function readLocal(key: string): string {
   try {

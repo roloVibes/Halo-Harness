@@ -1,0 +1,9 @@
+# A failure fixture (3.2.0.0 R3): a markdown panel whose source climbs out of the pack folder.
+id: studio-outside
+name: Outside
+version: 0.1.0
+halo_api: {min: "1.0"}
+contributes:
+  studio:
+    panels:
+      - {id: peek, section: session, title: Peek, kind: markdown, source: ../doc-review/studio/notes.md}

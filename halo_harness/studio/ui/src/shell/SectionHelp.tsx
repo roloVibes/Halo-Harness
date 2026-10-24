@@ -9,14 +9,15 @@ import { closeHelp, studio, useStore } from "../lib/store";
 import { openGlossary } from "../lib/glossary";
 import { sectionDef } from "../routes";
 import { SECTION_HELP } from "../routes/sectionHelp";
+import { packHelp } from "../routes/packs/registry";
 
 export function SectionHelp() {
   const help = useStore(studio, (s) => s.help);
   if (!help) return null;
   const def = sectionDef(help.section);
-  const copy = SECTION_HELP[def.id];
+  const copy = SECTION_HELP[def.id] ?? packHelp(def); // 3.2.0.0 R3: a pack's section
   const panels = def.panels.filter((p) => p.about);
-  const keys: [string, string][] = [[def.kbd, def.title], ...copy.keys]; // 3.1.6.0 R6: the section's own key from the registry
+  const keys: [string, string][] = def.kbd ? [[def.kbd, def.title], ...copy.keys] : copy.keys; // 3.1.6.0 R6: the section's own key from the registry
   const footer = (
     <>
       <span className="section-help-note muted">

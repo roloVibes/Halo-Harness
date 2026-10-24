@@ -13,7 +13,51 @@
       "additionalProperties": false,
       "properties": {"min": {"$ref": "#/$defs/version"}, "max": {"$ref": "#/$defs/version"}}
     },
-    "names": {"type": "array", "items": {"type": "string"}}
+    "names": {"type": "array", "items": {"type": "string"}},
+    "link": {"type": "object", "additionalProperties": false,
+             "properties": {"label": {"type": "string"}, "route": {"type": "string"}, "url": {"type": "string"}}},
+    "panel": {
+      "type": "object", "additionalProperties": false, "required": ["id", "title", "kind"],
+      "description": "A Studio panel a pack declares (3.2.0.0 R3); Studio's own components render it.",
+      "properties": {
+        "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_]*(-[A-Za-z0-9_]+)*$"},
+        "title": {"type": "string"},
+        "kind": {"enum": ["markdown", "table", "form", "links", "events", "bundle"]},
+        "source": {"type": "string", "description": "a file under the pack (markdown, table, bundle) or data:<path> in its data folder (table)"},
+        "w": {"type": "integer", "minimum": 4, "maximum": 24},
+        "h": {"type": "integer", "minimum": 8, "maximum": 200},
+        "help": {"type": "string"},
+        "columns": {"$ref": "#/$defs/names"},
+        "links": {"type": "array", "items": {"$ref": "#/$defs/link"}}
+      }
+    },
+    "studio": {
+      "type": "object", "additionalProperties": false,
+      "description": "What the pack adds to Studio (3.2.0.0 R3): its own sections after Orchestra, panels in a core section, palette actions, a config form, its event lines and attention rows.",
+      "properties": {
+        "sections": {"type": "array", "items": {
+          "type": "object", "additionalProperties": false, "required": ["id", "title"],
+          "properties": {"id": {"type": "string"}, "title": {"type": "string"}, "blurb": {"type": "string"},
+                         "help": {"type": "string"}, "panels": {"type": "array", "items": {"$ref": "#/$defs/panel"}}}}},
+        "panels": {"type": "array", "items": {"allOf": [
+          {"properties": {"section": {"enum": ["session", "team", "roles", "fleet", "design", "orchestra"]}}, "required": ["section"]},
+          {"$ref": "#/$defs/panel"}]}},
+        "palette": {"type": "array", "items": {
+          "type": "object", "additionalProperties": false, "required": ["id", "label", "action"],
+          "properties": {"id": {"type": "string"}, "label": {"type": "string"},
+                         "action": {"type": "string", "pattern": "^(route:.+|url:.+|config)$"}}}},
+        "config_form": {"type": "boolean"},
+        "events": {"type": "object", "additionalProperties": {
+          "type": "object", "additionalProperties": false,
+          "properties": {"label": {"type": "string"}, "line": {"type": "string"}}}},
+        "attention": {"type": "object", "additionalProperties": {
+          "type": "object", "additionalProperties": false,
+          "properties": {"label": {"type": "string"},
+                         "keys": {"type": "object", "additionalProperties": false,
+                                  "properties": {"a": {"type": "string"}, "r": {"type": "string"},
+                                                 "s": {"type": "string"}, "o": {"type": "string"}}}}}}
+      }
+    }
   },
   "properties": {
     "id": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$", "maxLength": 64,
@@ -45,7 +89,7 @@
         "hooks": {"const": "hooks/hooks.json"},
         "mcp": {"type": "array", "items": {"type": "object", "required": ["name"],
                                            "properties": {"name": {"type": "string"}, "description": {"type": "string"}}}},
-        "studio": {"type": "object", "description": "planned (3.2.0.0 R3)"},
+        "studio": {"$ref": "#/$defs/studio"},
         "fleet": {"type": "object", "description": "planned (3.2.0.0 R4)"},
         "artifacts": {"type": "array", "description": "planned (3.2.0.0 R5)"},
         "events": {"type": "array", "items": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]*$"}},
@@ -57,7 +101,7 @@
       "properties": {"schema": {"type": "object", "description": "A halo_harness.schemas.check schema for packs.settings.<id>."},
                      "defaults": {"type": "object"}}
     },
-    "permissions": {"type": "array", "items": {"type": "string", "pattern": "^(mcp:.+|hooks|bash|network|home-write)$"}},
+    "permissions": {"type": "array", "items": {"type": "string", "pattern": "^(mcp:.+|hooks|bash|network|home-write|studio-script)$"}},
     "migrations": {"type": "array", "items": {
       "type": "object", "additionalProperties": false, "required": ["from", "to", "note"],
       "properties": {"from": {"$ref": "#/$defs/version"}, "to": {"$ref": "#/$defs/version"}, "note": {"type": "string"}}}}
