@@ -1,6 +1,7 @@
 // fleet-capabilities (3.0.6.0 R6): what every harness can do, one spec card
 // each: hardware, models, craft apps, media, MCP servers (each opens to its
-// tools), skills, command-line tools, tags, the catalog's age and Refresh;
+// tools), skills, command-line tools, tags, the packs' fleet capabilities
+// (3.2.0.0 R4, PackCaps.tsx: each available or not and why), the catalog's age and Refresh;
 // the "Who can..." box on top ranks the fleet for what you need (Who.tsx).
 // Catalogs are computed in code on each harness and cached there; a member
 // sends a new one when it changes (the hub asks once per hash), so a card
@@ -13,6 +14,7 @@ import type { MotionState } from "../../lib/motion";
 import { loadCaps, startCaps, useCaps, type Catalog, type CapsRow } from "./caps";
 import { age } from "./pstore";
 import { useNow } from "./store";
+import { PackCapsLine } from "./PackCaps";
 import { WhoBox } from "./Who";
 
 const tools = (c: Catalog | null) => (c?.mcp || []).reduce((n, s) => n + (s.tools?.length || 0), 0);
@@ -76,6 +78,7 @@ function Card({ r, now }: { r: CapsRow; now: number }) {
           <Line k={`mcp (${tools(c)})`}><Servers c={c} /></Line>
           <Line k="skills">{list(c.skills, "none", 10)}</Line>
           <Line k="clis"><span className="mono">{list(Object.entries(c.clis || {}).filter(([, v]) => v).map(([k, v]) => (v === "installed" ? k : `${k} ${v}`)), "none", 14)}</span></Line>
+          {(c.packs || []).some((p) => p.capabilities.length > 0) && <Line k="packs"><PackCapsLine c={c} /></Line>}
           <Line k="tags">{list(c.tags, "none (fleet.tags)")}</Line>
         </dl>
       )}

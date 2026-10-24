@@ -102,6 +102,58 @@ decisions, the next task.
     studio/checks.json); studio-bundle (studio/hello.js); failure fixtures
     studio-bad-kind, studio-outside, studio-no-script.
 
+- R4 (2026-10-23, branch v320/R4-fleet from acd7eb2): Fleet capabilities from packs.
+  - `contributes.fleet` is typed (schemas/pack_yaml.py `fleet()`, FLEET_KEYS /
+    CAPABILITY_KEYS / REQUIRES_KEYS / HARDWARE_KEYS; the JSON twin's
+    `$defs.fleet` / `$defs.capability`): `capabilities: [{name, description,
+    requires: {tools, runtimes, platform, hardware: {gpu, ram_gb}, models,
+    grants, locality}, capacity: {parallel}}]`, `inspector: [{label, source}]`,
+    `mission: {metadata}`. Meaning in `packs/fleet_rules.py` (manifest lines
+    `pack.yaml line N: contributes.fleet.<key> ...`): a name not in the
+    top-level `capabilities:`, an unknown `requires` key (with the closest), a
+    grant not requested, locality (repo, repo:<name>, shared, pack-data),
+    platform/runtime words, capacity 1..64, a path in a description, a
+    token-shaped value or an env reference ($VAR, ${VAR}, %VAR%) anywhere under
+    contributes.fleet, an inspector source outside the pack or not md/txt/json,
+    a metadata value that is a mapping.
+  - `packs/fleet_registry.py`: per running pack, each capability checked on
+    this host (`checks` -> `available`, `why`): tools (`has` or PATH), runtimes,
+    platform, GPU / RAM, models (a bio_models tag, or a ref / family), grants,
+    locality; `section` is the catalog's `packs` section
+    (`capabilities_sources.packs`, one gather line; scrub runs over it);
+    `refusal(needs)` the worker's line; `mission_metadata` / `pack_mission` a
+    pack lineup's metadata; `host_catalog` (the cached catalog or a light view)
+    for inspect and doctor.
+  - Catalog views: `capabilities_view.pack_caps` / `pack_word` (summary and chips
+    "+N pack caps", a spec-sheet `packs` row only when there are some);
+    `capabilities_who` kind `pack` (one not available here at half, with why);
+    `packs_studio_live.publish` marks the catalog stale on every `pack_changed`
+    (grants.changed already did for this process's own changes).
+  - Missions: `mission_assign.has` (kind `pack`, only where available; why
+    "pack <id>: <name>"), `unique_lines`, `assign` -> `pack_needs: [{need,
+    pack}]`; `mission_plan.pack_line` in each harness's block and the prompt's
+    needs rule; `mission_dispatch.fields` sends `needs`; `mission_worker.check`
+    keeps them and `pack_check` refuses in `accept` / `start_local`, and
+    `control.run` checks a `run_task` before the owner is asked ("this harness
+    does not run pack doc-review with bash"); `mission_api.create` carries the
+    pack lineup's `metadata` (body `lineup`, else config `team`); MISSION.md has
+    a Metadata line.
+  - `halo pack inspect`: a "contributes:" block (Studio's sections, panels,
+    palette, settings form, event lines, attention rows; the fleet
+    capabilities with available / why, inspector lines, metadata;
+    `packs/contrib_views.py`), `--json` `contributes: {studio, fleet}`;
+    `halo pack doctor`: a `fleet-capability` row per capability not available
+    here (the grant command when a grant is what is missing).
+  - Studio (`routes/fleet/PackCaps.tsx`): the Capabilities card's "packs" line,
+    the plan's needs cell ("docs.review · pack doc-review on <harness>"), the
+    selected part's pack inspector lines (read through R3's file route; a pack
+    only on another harness shows its labels), the same in the Agent panel for
+    a part's agent of the open mission, the mission's metadata in its head.
+  - Fixtures: doc-review gains `contributes.fleet` (docs.review: models
+    [tools], grants [bash], parallel 2; inspector fleet/checklist.md; metadata
+    review/style); fleet-secret (token + $HOME), fleet-unknown-name,
+    fleet-needs-gpu (valid; not available without a GPU).
+
 ## Open dependencies
 
 - R2 confirmed the `<id>--<name>` names (Decisions); the ROADMAP's R2 line
@@ -125,8 +177,19 @@ decisions, the next task.
   `fleet_answer.act`, each its own branch.
 - R3: a pack section you were on comes back after a reload only once the
   registry loads (the first paint is the saved core section or Roles).
-- R4 (Fleet): `contributes.fleet` likewise; `capabilities` in pack.yaml are
-  names only.
+- R4 (done): `capacity.parallel` is advertised and shown to the planner; the
+  hub does not hold a part back when a harness already runs that many (the
+  worker refuses only for a pack that does not run or a grant that is
+  missing). A refused part fails like an offline harness's: the hub does not
+  re-plan it onto another harness (the supervisor's replanning, 3.1.8.0 R2,
+  may). `fleet.capabilities.hide` does not hide a pack capability.
+- R4: a pack's inspector lines are read through R3's file route, so Studio
+  shows a file only for a pack that runs on its own harness; a part on a
+  member shows the labels and "runs on <member>". The Agent panel shows them
+  for a part's agent when that mission is open in the Mission panel.
+- R4: a mission's metadata comes from the lineup named in the request
+  (`lineup`) or the active one (config `team`); Studio's Mission form and
+  `halo fleet mission new` send no `lineup` yet (one field each).
 - R5: `contributes.artifacts`, typed event schemas; `publish_event` sends
   one `pack_event` frame kind today (not in feed_kinds.DEFAULT_KINDS, which
   lists the kinds asked of sessions).
@@ -190,6 +253,27 @@ decisions, the next task.
   index.html unchanged), `tests.test_studio_dist` 6/6 last.
   Not run: test_tui.py, the full tier as a whole, Kali/WSL.
 
+- R4 new modules: test_packs_fleet_contract 4, test_packs_fleet_catalog 4,
+  test_packs_fleet_missions 5 (one over two homes, the HubRig),
+  test_packs_fleet_ui 2 (Chrome, full tier) -- 15 tests, all green.
+- R4 kept green, module by module: 41 modules (R1-R3's packs modules,
+  test_fleet_capabilities / _hub, test_fleet_mission / _api / _files /
+  _handoffs / _merge / _run, test_fleet_panels_api / _extras / _more,
+  test_fleet_control, test_fleet_hub_control, test_fleet_cli, test_docs_*,
+  test_invariants, test_studio_edit_target, test_studio_team,
+  test_audit_privacy, test_privacy_scan, test_line_endings, test_glossary): one
+  module failed, test_packs_cli (two doctor pins listed the extended fixture's
+  checks exactly: + fleet-capability; the clean-doctor catalog row gains
+  tools), updated, re-run 4/4. Chrome: test_packs_fleet_ui 2,
+  test_packs_studio_ui 8, test_packs_roles_studio 5, test_studio_ui 53,
+  test_studio_start 2, test_studio_modes 12 -- 82/82.
+- R4 full runs (2026-10-23, Windows build host): `tests/run_all.py --fast`
+  4896 tests / 498 modules, 4885 passed, 0 failed, 11 skipped, both real-home
+  guards ok; `test_bridge.py` 101/101. Studio UI: `npm ci`, `npx tsc
+  --noEmit` clean, two builds identical (studio.js sha256 3db6ea04...,
+  studio.css 41b2f982..., index.html unchanged), `tests.test_studio_dist` 6/6
+  last. Not run: test_tui.py, the full tier as a whole, Kali/WSL.
+
 ## Decisions
 
 - Pack-qualified names are `<id>--<name>` (valid under the name rule); an id
@@ -235,10 +319,30 @@ decisions, the next task.
   (`answers/<row>.json`): no new ext API name.
 - R3: `config_form: true` is the Settings panel of the pack's first section,
   so it needs a section and a `config.schema` (manifest lines otherwise).
+- R4: a pack capability is one of the catalog's needs, matched by the same
+  `mission_assign.has` (kind `pack`), and only where it is available: an
+  unavailable one is listed (with why) but never meets a need.
+- R4: the worker's check is the explicit grant rule it already applies (the
+  pack runs here, the capability's grants are granted); a part is refused with
+  one line, which is the part's result. It runs before a member's owner is
+  asked. A need no pack here declares is not this check's (it was the hub's
+  catalog's), except a `pack:` need.
+- R4: the manifest refuses a token-shaped value and an environment reference
+  anywhere under `contributes.fleet`, and a path in a capability's
+  description; any other path is cut by the catalog's scrub (the brief's
+  description path is a manifest line, so the scrub test puts its paths in
+  `requires.tools` and `mission.metadata`).
+- R4: `requires.models` takes a bio_models tag or a model ref / family (the
+  brief's "ref or tag"); unlike a bio's `models.preference`, a provider-pinned
+  ref is allowed here: it names what the host must have, not what to run.
 
 ## Next task
 
-- R4: Fleet capabilities from packs (plans/ROADMAP.md 3.2.0.0 R4):
-  `contributes.fleet` read into the capabilities catalog (no credential,
-  private path or environment in an advertisement), missions and
-  recommendations use them, pack-specific inspectors and mission metadata.
+- R5: Workflows and artifacts (plans/ROADMAP.md 3.2.0.0 R5, Phases 6 and 8):
+  a declarative workflow format on top of the Orchestra (`contributes.workflows`
+  files: prerequisites, typed inputs and outputs, stages, conditions, roles,
+  capability needs -- a stage may name a pack's fleet capability as R4's
+  `needs` do --, gates, retries, timeouts, budgets, verification, checkpoints),
+  typed artifact schemas and viewers (`contributes.artifacts`), events as
+  typed publications (`contributes.events: [{kind, schema}]`), context
+  namespaces per pack.

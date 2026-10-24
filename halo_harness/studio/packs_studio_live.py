@@ -14,6 +14,9 @@ update or remove shows (or goes) without a reload.
 
 The frame is `{"event": "pack_changed", "session_id": null, "data": {"why"}}`
 through `EventBridge.publish_local`; it names no pack (the registry says).
+3.2.0.0 R4: every `pack_changed` also marks this harness's capabilities
+catalog stale (`fleet.capabilities.invalidate`), so the packs' fleet
+capabilities are gathered afresh and the hub hears the new hash.
 """
 
 from __future__ import annotations
@@ -48,6 +51,8 @@ def publish(server, why: str = "changed") -> None:
     from halo_harness.studio.events import bridge_for
     try:
         _last[id(server)] = signature(server.cwd, server.state_dir)
+        from halo_harness.fleet.capabilities import invalidate
+        invalidate(server.state_dir)
         bridge_for(server).publish_local({"event": FRAME_KIND, "data": {"why": why}})
     except Exception:  # a frame that cannot go out never breaks the caller (a halo pack verb)
         pass

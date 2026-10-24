@@ -34,8 +34,13 @@ offers, each bio with the model it resolves to (and why: its
 them), the grants it needs (granted or not) and its memory namespace, each
 lineup with its members, tiers, workflows and acceptance, each permission it
 requests with what needs it and whether it is granted, its settings
-(defaults with yours on top) and its problems. A path inspects a pack folder
-before you install it. `--json` adds `bios` and `lineups`.
+(defaults with yours on top) and its problems. 3.2.0.0 R4: a "contributes:"
+block lists what it adds to Studio (sections and their panels, panels in a
+core section, palette lines, the settings form, event lines, attention rows)
+and to the fleet (each capability, available here or not and why, against
+this harness's cached capabilities catalog; its inspector lines and mission
+metadata). A path inspects a pack folder before you install it. `--json`
+adds `bios`, `lineups` and `contributes: {studio, fleet}`.
 
 ```sh
 $ halo pack inspect doc-review
@@ -46,6 +51,17 @@ bios:
     memory namespace: doc-review/reviews
 lineups:
   doc-review--review: doc-review--writer (main), doc-review--reviewer (reviewer); 2 tiers; workflows review; acceptance.test: python -m pytest -q; acceptance.review: true
+contributes:
+  Studio section docs (Docs review): notes (markdown), checks (table), links (links)
+  Studio panel in session: reviews (events)
+  palette: Open the review checks
+  the settings form (its first section's Settings panel)
+  event lines: review.done
+  attention rows: review.ask
+  fleet capability docs.review: available here (tools: or:anthropic/claude-sonnet-4.6; bash granted); 2 at once
+    Reviews a repo's documents for dead links, heading order and style
+  mission inspector line: Review checklist (fleet/checklist.md)
+  mission metadata: review=docs, style=short
 ```
 
 ### `halo pack install`
@@ -117,8 +133,9 @@ required pack, a requires cycle, a contribution whose permission is not
 granted, settings outside the pack's schema, a capability set no model in
 your catalog has (one row per set, naming the bios that fall back to your
 default model), a bio's need you have not granted (one row per need, with
-`halo pack enable <id> --grant <need>`), a name two packs (or a pack and
-you) offer, a pack shadowed by a same-id repo pack, a state record whose
+`halo pack enable <id> --grant <need>`), a fleet capability not available
+here (one row each, with why, and the grant command when a grant is what is
+missing; 3.2.0.0 R4), a name two packs (or a pack and you) offer, a pack shadowed by a same-id repo pack, a state record whose
 folder is gone, a bio or lineup file pack.yaml does not list, and what the
 privacy scan finds in the pack's files. `halo doctor --config` lists the
 same lines under its packs group. A bio naming one provider, a stray

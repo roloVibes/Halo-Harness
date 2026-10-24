@@ -13,6 +13,9 @@ import { fleet, keyOf } from "./store";
 
 export type Tool = { name: string; desc: string };
 export type McpServer = { name: string; transport: string; tools: Tool[] | null; note?: string };
+/** 3.2.0.0 R4: a pack's fleet capability on this harness (packs/fleet_registry.py), available here or not and why. */
+export type PackCap = { name: string; description: string; available: boolean; why: string; checks: { key: string; ok: boolean; line: string }[]; capacity: { parallel?: number } };
+export type PackCaps = { id: string; name: string; version: string; capabilities: PackCap[]; inspector: { label: string; source: string }[]; metadata: Record<string, unknown> };
 export type Catalog = {
   harness: { id: string; name: string; host?: string; os?: string; version?: string };
   at: number;
@@ -29,6 +32,7 @@ export type Catalog = {
   clis: Record<string, string | null>;
   projects: { name: string; repo: string; branch: string | null }[];
   integrations: Record<string, boolean>;
+  packs?: PackCaps[];
 };
 export type CapsRow = { harness: string; name: string; local: boolean; online: boolean; hash: string | null; summary: string; chips: string[]; at: number | null; received: number | null; catalog: Catalog | null; note?: string };
 export type WhoMatch = { kind: string; name: string; why: string; score: number };

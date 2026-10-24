@@ -10,6 +10,8 @@ read from what this harness already keeps on disk; no network, no model:
     media()          ComfyUI and the media models its last scan found
     projects()       the repos this harness works in (basename, repo, branch; never a full path)
     integrations()   the Signal bridge
+    packs()          3.2.0.0 R4: the running packs' fleet capabilities, each available here or not and why
+                     (packs/fleet_registry.py; read after the other sections, which it checks against)
 
 Every section is wrapped by the caller: one that raises is listed empty.
 """
@@ -165,3 +167,9 @@ def integrations(home: Path) -> dict:
     except Exception:
         pass
     return out
+
+
+def packs(home: Path, cwd: Path, cat: dict) -> list:
+    """3.2.0.0 R4: `[{id, name, version, capabilities: [{name, available, why, ...}], inspector, metadata}]`."""
+    from halo_harness.packs.fleet_registry import section
+    return section(cat, cwd=cwd, state_dir=home)

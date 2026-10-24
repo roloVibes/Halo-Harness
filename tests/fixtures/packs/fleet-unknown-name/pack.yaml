@@ -1,0 +1,12 @@
+# A failure fixture (3.2.0.0 R4): a fleet capability the top-level
+# capabilities: list does not name.
+id: fleet-unknown-name
+name: Unknown capability name
+version: 0.1.0
+halo_api: {min: "1.0"}
+capabilities: [docs.review]
+contributes:
+  fleet:
+    capabilities:
+      - name: docs.lint
+        description: Lints a repo's documents

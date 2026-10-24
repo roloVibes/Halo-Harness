@@ -214,7 +214,14 @@ panels, then the other keys),
 `packs/studio_registry.py` (the registry the shell reads: ids qualified, routes
 resolved, grant state); `studio/packs_studio_api.py` (`/api/pack/...`: the
 registry, a pack's files and bundle, its settings form) and
-`studio/packs_studio_live.py` (the `pack_changed` frame).
+`studio/packs_studio_live.py` (the `pack_changed` frame). 3.2.0.0 R4, Fleet
+capabilities: `packs/fleet_rules.py` (what `contributes.fleet` may say, with
+the manifest: names, requires, no path in a description, no secret or
+environment reference anywhere), `packs/fleet_registry.py` (each running
+pack's capabilities, available here or not and why: the catalog's `packs`
+section; the worker's refusal line; a pack lineup's mission metadata) and
+`packs/contrib_views.py` (`halo pack inspect`'s contributes block, the doctor's
+fleet-capability rows).
 
 **The extension API** (`halo_harness/ext/`, API 1.0, docs/EXTENSION_API.md):
 `ext/names.py` (the name rules), `ext/yamlio.py` (`read_yaml`, `write_yaml`),

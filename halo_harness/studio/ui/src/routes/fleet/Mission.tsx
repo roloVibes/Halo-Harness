@@ -19,6 +19,7 @@ import { MissionPlan } from "./MissionPlan";
 import { MissionReport } from "./MissionReport";
 import { MissionRun } from "./MissionRun";
 import { MissionStart, PartStates } from "./MissionStart";
+import { MissionMeta } from "./PackCaps";
 
 const TABS: { id: "plan" | "run" | "report" | "coach"; label: string }[] = [
   { id: "plan", label: "Plan" },
@@ -56,6 +57,7 @@ function Head() {
         {m.id} · hub {m.hub?.name || "-"}{m.repo ? ` · repo ${m.repo.name}${m.repo.branch ? " · " + m.repo.branch : ""}` : " · no repo"}
         {m.constraints ? ` · ${short(m.constraints, 60)}` : ""}
       </div>
+      <MissionMeta />
     </header>
   );
 }

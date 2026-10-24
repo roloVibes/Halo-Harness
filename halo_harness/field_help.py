@@ -164,7 +164,7 @@ PACK = {
     "contributes.hooks": "its hooks file (hooks/hooks.json); loads once you grant hooks",
     "contributes.mcp": "its MCP servers (from .mcp.json); each starts once you grant mcp:<server>",
     "contributes.studio": "what it adds to Studio: sections after Orchestra, panels, palette lines, a settings form, its event lines and attention rows",
-    "contributes.fleet": "Fleet capabilities (planned)",
+    "contributes.fleet": "what it brings to the fleet: worker capabilities (each with what it requires of a host), mission inspector lines, mission metadata",
     "contributes.artifacts": "typed artifacts and their viewers (planned)",
     "contributes.events": "the event kinds it publishes on Studio's live feed",
     "contributes.workflows": "the workflows its lineups may name (workflows: [review]); R5 runs them",

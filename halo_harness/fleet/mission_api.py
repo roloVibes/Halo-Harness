@@ -20,6 +20,7 @@ from halo_harness.fleet import mission_plan as P
 from halo_harness.fleet import mission_run as R
 from halo_harness.fleet import mission_store as S
 from halo_harness.fleet.mission_dispatch import Dispatch
+from halo_harness.packs.fleet_registry import pack_mission
 
 LEAD: Optional[Callable] = None
 JUDGE: Optional[Callable] = None
@@ -99,6 +100,7 @@ def create(ctx: Ctx, body: dict) -> "tuple[int, dict]":
     doc = M.new_doc(mid=mid, goal=goal, constraints=str(body.get("constraints") or "").strip(), prefer=M.names(body.get("prefer")),
                     budget_usd=budget, test=str(body.get("test") or "").strip(), hub=ctx.hub_info(), repo=repo,
                     shared=M.shared_dir(ctx.home) is not None, by=ctx.by)
+    doc.update(pack_mission(body.get("lineup"), cwd=ctx.cwd, state_dir=ctx.home))  # 3.2.0.0 R4: a pack lineup's metadata
     S.create(ctx.home, doc)
     if root:
         S.set_local(ctx.home, mid, repo_root=str(root))
