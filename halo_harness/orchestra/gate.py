@@ -232,7 +232,6 @@ def _narrow(blamed: list) -> list:
 def quality_gate(run_dir, goal, lanes: list, cwd, *, ref: Optional[str] = None, outputs: bool = True) -> GateResult:
     """Tests on the finished branch, the record check, and the loop decision (3.2.0.0 R5: and a workflow's
     outputs, workflows/gate.py `widen`); 3.1.8.0 R3 (outcomes/lane.py): the verdict carries each lane's evidence."""
-    """Tests on the finished branch, the record check, and the loop decision (3.2.0.0 R5: and a workflow's outputs)."""
     if outputs and getattr(goal, "workflow", None):  # typed artifacts, the evidence, each stage's test (workflows/gate.py)
         from halo_harness.workflows.gate import widen
         return widen(quality_gate(run_dir, goal, lanes, cwd, ref=ref, outputs=False), run_dir, goal, lanes, cwd)

@@ -49,6 +49,7 @@ done, 1 could not (the reason on stderr), 2 usage.
 halo goal add "write the release notes" --repo . --budget 2 --lineup halo-dev-cycle
 halo goal add "summarise the open issues" --as job --budget 0.5
 halo goal add "port the parser" --file parser.py --test "python -m pytest" --replan review
+halo goal add --workflow doc-review/review --input path=docs/ --repo .
 halo goal list
 halo goal show g-ab12
 halo goal hold g-ab12        # keep a queued goal from starting
@@ -78,6 +79,11 @@ halo goal rm g-ab12          # drop a goal (not one that runs)
   drifts (default: `supervise.replan`): `auto` applies the lead's new plan for
   the lanes left, `review` parks it as a `goal plan` row, `none` stops only
   (see [SUPERVISE.md](SUPERVISE.md#replanning)).
+
+- `--workflow PACK/NAME`: a pack's workflow (3.2.0.0 R5, [WORKFLOWS.md](WORKFLOWS.md)): compiled to a
+  run folder first, then queued as an Orchestra goal the supervisor resumes from its checkpoint; `what`
+  is not needed;
+- `--input K=V`: a workflow input (repeatable).
 
 ### `halo goal list` / `show` flags
 
