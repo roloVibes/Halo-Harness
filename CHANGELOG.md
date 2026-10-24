@@ -178,6 +178,20 @@ Focus: the supervisor -- Halo runs goals without a terminal, and Studio keeps up
 - A sub-agent's acceptance verdict (met, why, attempts) is recorded in its evidence and its outcome row.
 - The coach's runs.json gains `outcomes: n`; the best-at cache is rebuilt when a measured number it shows moves.
 
+### R5: opt-in isolation
+
+#### Added
+
+- Opt-in isolation for Orchestra workers: `isolation: container` (a per-run `docker run` / `podman run` of the worker image, the same worktree at /work, a scoped state dir, no host `~/.halo`, the network `host` unless the lineup says `none`) or `isolation: user` (POSIX, `sudo -n -u <name>`) on a lineup or a bio; `halo isolation image | build | check`; the shipped `isolation/Dockerfile`.
+- `secrets: {broker: 1password | env}` with a bio's `environment.secrets` refs: read at spawn into the worker's environment only, never into a file, a transcript or a frame, stripped from its tool children unless `environment.pass_to_tools` names them; `halo secrets check` prints names and ok only.
+- `tools.capabilities` on a lineup (whole, per tier, per card) or a bio: the agent is built with only the tools of those capabilities (one table: read, edit, bash, web, agent, mcp:<server>, media, recall); the Agent tool says what each member may use; `/tools` lists the session's tools by capability.
+- Doctor rows `isolation` and `secrets`; the run report, `halo goal show`, Studio's Orchestra lanes view and Agent panel show a line per opt-in; the Roles Inspector's Lineup tab has Isolation, Secrets broker and Tool capabilities.
+
+#### Changed
+
+- An Orchestra lane that cannot run as declared (no docker or podman, no `op`, a scoped user on Windows, a ref not read) fails with that one line, like a worker whose harness would not start (`failure.kind: worker`). Nothing changes when nothing is declared.
+- `tool_child_env` also strips the broker key names a run hands its worker (`HALO_SECRET_KEYS`); the agent row gains `opt_ins`; lane files and report.json carry the opt-in fields only when a lane declares one.
+
 ### R6: Studio keeps up with the terminal
 
 #### Fixed
