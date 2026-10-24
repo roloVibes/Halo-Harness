@@ -232,7 +232,7 @@ def run(run_dir, *, model_calls: Callable, spawn: Callable, judge: Callable,
                 send_back(lane, lambda k: f"the gate sent the piece back ({k}/{goal.return_cap})", clock=clock)
                 flow.loop_back(n)
                 stale.sent_back(lane)
-                respawn(lane, gate.notes.get(n) or f"The tests fail on the finished branch {result.branch}:\n{gate.tests.tail}")
+                respawn(lane, gate.notes.get(n) or gate.back_text.get(n) or f"The tests fail on the finished branch {result.branch}:\n{gate.tests.tail}")
                 if lane.state == "failed":
                     raise StopRun(f"lane {n}'s worker failed after the gate sent its piece back: {lane.data().get('error') or '?'}")
         report = write_report(run_dir, goal=goal, lanes=lanes, gate=gate, status="finished", clock=clock)

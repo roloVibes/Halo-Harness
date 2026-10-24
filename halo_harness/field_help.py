@@ -25,9 +25,9 @@ IDENTITY = {
 
 #: One line per bio field, `section.key`.
 BIO = {
-    "models.preference": "the model this agent runs on, when it runs",
+    "models.preference": "the model this agent runs on, when it runs (auto: picked for each task; measured: the model that succeeded most here at its kind, else auto)",
     "models.fallback": "what to switch to when the preferred model keeps failing",
-    "models.needs": "with preference auto: what the picked model must have (vision, audio, video, pdf, reasoning, tools, long-context)",
+    "models.needs": "with preference auto or measured: what the picked model must have (vision, audio, video, pdf, reasoning, tools, long-context)",
     "models.effort": "how hard the model thinks (higher = better, slower, pricier)",
     "models.thinking": "let the model's own native thinking blocks through",
     "models.capabilities": "what the model must do (long-context, vision, tools ...): the best catalog model with every one; none: your default model",

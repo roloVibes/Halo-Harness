@@ -262,6 +262,18 @@ spawn, judge, clock)`) walks the graph:
    unit names appear in the output, except a lane whose own code calls
    another named lane's unit (its failure is explained by that one); a lane
    at its cap, or output that names no lane, stops the run.
+   3.1.8.0 R3, the gate reads the evidence ([OUTCOMES.md](OUTCOMES.md#the-judge-reads-the-evidence)):
+   after each worker pass a lane's `lanes/<n>/evidence.json` holds what its
+   workers' transcripts show -- the test runs (command, exit, passed, failing
+   names), the files written with their diff, the sources read -- never the
+   worker's own summary. Before the record check, a `code` lane whose work
+   ran no test (the goal has a `test`) goes back once with "no test run in
+   this lane's work: run <test>", a `research` lane with no source with "no
+   source fetched or read" (one `gate` line each; once per lane, never past
+   the return cap, never for a lane that left no transcript). The gate's
+   verdict and each report lane carry the evidence lines, and the conflict
+   judge's prompt gains an EVIDENCE block with the lanes' tests, sources and
+   reproductions.
 5. **done**: report.json, the finished branch and its sha.
 
 Every transition advances `workflow.json` and writes a `state` line; merges
@@ -289,7 +301,8 @@ Lane states: `joined` (worktree ready) -> `writing` (the worker runs) ->
 `waiting` (a piece sent back, or, 3.0.9.0, a lane waiting for its upstreams),
 `failed` (the worker failed or stopped). The hand-off fields (`handoff`,
 `after`, `base`, `gave`) are under [Hand-offs](#hand-offs). 3.0.9.0 R3 adds `bio`, `model` and `denied`
-(see [The coach](#the-coach)).
+(see [The coach](#the-coach)); 3.1.8.0 R3 adds `evidence_returned` (the line a lane went back with
+for missing evidence, at most once).
 
 ### `merge.json`
 
@@ -569,7 +582,10 @@ after it.
 report.json: `run_id`, `status` (`finished` or `stopped`), `stop_reason`,
 `branch`, `finished` (the sha, null when stopped), `tests_ok`, `tests_tail`,
 `cost_usd` (lead + workers + judges), `ts`, `elapsed_s`, `goal_done_when`,
-`lanes` (`lane`, `title`, `state`, `pieces_returned`, `cost_usd`) and
+`lanes` (`lane`, `title`, `state`, `pieces_returned`, `cost_usd`; 3.1.8.0 R3:
+`evidence`, the lane's evidence lines, which `halo orchestra report` prints
+under it; writing the report also writes one row per lane to
+`~/.halo/coach/outcomes.jsonl`, [OUTCOMES.md](OUTCOMES.md#outcomesjsonl)) and
 `checks` (`id`, `ok`, `detail`):
 
 | Check | True when |
