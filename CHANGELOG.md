@@ -232,6 +232,7 @@ Focus: the supervisor -- Halo runs goals without a terminal, and Studio keeps up
 
 #### Fixed
 - The TUI's `/recall` showed every hit that was not a memory topic as `[sess]` (a coach library entry too); it now shares `halo recall`'s chips.
+- Two recall searches at once (two Orchestra workers' briefs) each refreshed the index and raced on its file; on Windows the loser's replace was denied and its brief lost the knowledge block. The index builds one at a time per process, and the save tries a denied replace again.
 
 ### R5: opt-in isolation
 

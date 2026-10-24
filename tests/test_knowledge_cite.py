@@ -4,7 +4,9 @@ Orchestra worker's brief), in the mock rig on the fake embedder:
 
 1. the snapshot an agent receives lists each entry with its id, kind, who and
    when, and tells the agent to cite the id of any it reuses;
-2. an Orchestra worker's brief carries the entries recall ranks for its job
+2. an Orchestra worker's brief carries the entries recall ranks for its job (two
+   briefs built at once refresh the index together: one build at a time, neither
+   loses its block -- on Windows the loser's replace of the index file was denied)
    (embeddings on, the store holding one), and nothing when embeddings are
    off, when `knowledge.brief: false`, or when the store is empty (no embed call);
 3. the evidence gatherer records `cited: [<ids>]` when the agent's final text
@@ -118,6 +120,34 @@ def test_the_evidence_records_what_was_cited(ctx: Ctx):
             cmd_knowledge(["show", f["id"]])
         ctx.check(f"halo knowledge show lists it, got {out.getvalue()[-200:]!r}",
                   f"reused by: lane 1 of {run_dir.name} (" in out.getvalue())
+
+
+@test
+def test_two_briefs_refresh_the_index_together(ctx: Ctx):
+    """27956e6's Windows run: two workers' briefs refreshed the recall index at once; the loser's `os.replace`
+    onto the file the other still read raised PermissionError, knowledge.search fell back to words and the
+    brief dropped the block. recall.build_index runs one build at a time; the save tries a denied replace again."""
+    import threading
+    from halo_harness.recall import search as recall_search
+    with K.home() as state:
+        _finding(state)
+        got, errors = [], []
+
+        def one_brief():
+            for _ in range(8):
+                try:
+                    got.append(bool(recall_search("basket total", state_dir=state, k=5)))
+                except Exception as e:  # what the brief would have swallowed
+                    errors.append(f"{type(e).__name__}: {e}"[:200])
+
+        with K.embedder():
+            threads = [threading.Thread(target=one_brief, name=f"brief-{i}") for i in range(2)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join(60)
+    ctx.check(f"no search raised, got {errors[:2]}", not errors)
+    ctx.check(f"every search found the finding, got {got.count(False)} empty of {len(got)}", bool(got) and all(got))
 
 
 if __name__ == "__main__":
