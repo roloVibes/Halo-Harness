@@ -68,7 +68,10 @@ live inside `settings.json` at every layer above; hooks live in that same
 file's top-level `hooks` key at every layer (concatenated, never
 overridden -- every matching hook from every layer runs); a plugin's own
 `hooks/hooks.json` is a separate, additional source, with
-`${CLAUDE_PLUGIN_ROOT}` substituted first. There is no separate freestanding
+`${CLAUDE_PLUGIN_ROOT}` substituted first (per field since 3.2.1.0 R4: a
+shell `command` gets the path as its shell reads it, forward slashes on
+Windows; `args` and the rest get it as it is -- docs/ARCHITECTURE-permissions.md
+"Hooks protocol"). There is no separate freestanding
 `hooks.json` for an ordinary user/project outside a plugin.
 
 ### CLAUDE.md / AGENTS.md / rules / memory

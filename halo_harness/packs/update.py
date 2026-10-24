@@ -6,8 +6,9 @@
    API and Halo ranges, the same id. A new version that fails one is refused
    with its lines; nothing is touched.
 2. The plan, said first: the `migrations` notes between the two versions
-   (packs/migrate.py), the files that change, the settings it renames.
-   `--dry-run` stops here.
+   (packs/migrate.py), the files that change (one line each), the settings
+   it renames. `--dry-run` stops here; in a terminal `halo pack update` shows
+   these lines and asks before step 3 (`confirm`, 3.2.1.0 R4; packs/cli.py).
 3. The new folder is staged beside the pack (`<packs>/.staging-<hex>/<id>/`):
    the new version's files, and every file of yours in the pack's folder (one
    you changed or added) carried over. A copy error removes the staging
@@ -80,6 +81,15 @@ def plan(root: Path, src: Path, owned: dict) -> dict:
     return {"stage": stage, "rows": rows, "kept": kept, "changed": len(rows)}
 
 
+def file_lines(root: Path, rows, limit: int = 20) -> "list[str]":
+    """The files an update changes, one line each (3.2.1.0 R4): `  <rel> (changed|new|dropped)`."""
+    out = []
+    for path, before, after in sorted(rows, key=lambda r: Path(r[0]).relative_to(root).as_posix()):
+        what = "new" if before is None else "dropped" if after is None else "changed"
+        out.append(f"  {Path(path).relative_to(root).as_posix()} ({what})")
+    return out[:limit] + ([f"  ... and {len(out) - limit} more file(s)"] if len(out) > limit else [])
+
+
 def _stage(p: dict, staged: Path) -> None:
     for rel, origin in sorted(p["stage"].items()):
         _copy_file(origin, staged / rel)
@@ -123,7 +133,9 @@ def _source_line(pack_id: str, source: str) -> str:
     return ""
 
 
-def update(pack_id: str, *, dry_run: bool = False, cwd=None, state_dir=None) -> "tuple[bool, list[str]]":
+def update(pack_id: str, *, dry_run: bool = False, cwd=None, state_dir=None, confirm=None) -> "tuple[bool, list[str]]":
+    """`confirm(lines) -> bool` (3.2.1.0 R4, the CLI in a terminal): called with the dry run's lines before the
+    swap, from the same fetched source; False leaves the pack as it is (`<id> <version> stays as it is`)."""
     from halo_harness.packs import manifest as MF
     from halo_harness.packs import state as S
     from halo_harness.packs.discover import find
@@ -151,10 +163,13 @@ def update(pack_id: str, *, dry_run: bool = False, cwd=None, state_dir=None) -> 
         p = plan(root, src, J.owned(pack_id, state_dir))
         if p["changed"] == 0 and old_v == new_v:
             return True, [f"{pack_id} {old_v} is up to date: its source holds the same files (0 file(s) changed)"] + said
+        look = (said + [f"would update {pack_id} {old_v} -> {new_v} ({p['changed']} file(s) changed; "
+                        f"{old_v} kept as {pack_id}{PREVIOUS})"] + file_lines(root, p["rows"])
+                + M.plan_lines(pack_id, entries) + p["kept"])
         if dry_run:
-            return True, (said + [f"would update {pack_id} {old_v} -> {new_v} ({p['changed']} file(s) changed; "
-                                  f"{old_v} kept as {pack_id}{PREVIOUS})"] + M.plan_lines(pack_id, entries) + p["kept"]
-                          + ["dry run: nothing is changed (halo pack update " + pack_id + " makes these changes)"])
+            return True, look + ["dry run: nothing is changed (halo pack update " + pack_id + " makes these changes)"]
+        if confirm is not None and not confirm(look):
+            return False, [f"{pack_id} {old_v} stays as it is"]
         op_id = f"update-{uuid.uuid4().hex[:8]}"
         scratch = root.parent / f".staging-{uuid.uuid4().hex[:8]}"
         J._append({"ts": round(time.time(), 3), "op": "update", "op_id": op_id, "pack": pack_id, "mark": "start",

@@ -1,0 +1,12 @@
+# A fixture pack whose hooks are in the shell form (3.2.1.0 R4,
+# tests/test_packs_interpreter.py): `${CLAUDE_PLUGIN_ROOT}` in a hook's shell
+# `command`, bare and inside double quotes, runs on Windows (Git Bash) and on
+# Linux alike. The reference pack's hook is the exec form; this one is not.
+id: shell-hook
+name: Shell-form hook
+version: 0.1.0
+description: Two SessionStart hooks in the shell form that echo the pack's folder.
+halo_api: {min: "1.0"}
+contributes:
+  hooks: hooks/hooks.json
+permissions: [hooks]
