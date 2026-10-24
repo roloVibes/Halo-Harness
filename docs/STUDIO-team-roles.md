@@ -118,7 +118,10 @@ reads **measured** on its pill ("picked when it spawns, by what succeeded
 here at its kind, else as auto" on hover); once its pick used the numbers,
 the reason on hover and in the Live tab ends "(measured 4/5 code)", and the
 model picker's best-at line says "measured: code 4/5"
-([OUTCOMES.md](OUTCOMES.md)).
+([OUTCOMES.md](OUTCOMES.md)). 3.1.9.0 R3 ([Auto learns](ROLES.md#auto-learns-halo-3190)):
+when what was learned moved an `auto` pick, the pill's hover, the Live tab
+line and the spawn line end "(learned: code 1/4 on <model>, so <picked>
+instead)" (and "(code 5/5 here)" when the numbers confirmed it).
 
 | Panel | What it holds |
 |---|---|
@@ -214,7 +217,14 @@ model picker's best-at line says "measured: code 4/5"
   hover; `GET /api/models` rows carry `best_at {line, kinds}`, `GET
   /api/models/best-for` the kinds; see
   [MODELS-references.md](MODELS-references.md#what-each-model-is-good-at-halo-3190))
-  and gym score; sort by name, price, context or best (the most kinds
+  and gym score; 3.1.9.0 R3: under the line, a **learned** chip per task
+  kind this Halo measured the model at (`code 4/5`: first-time passes of
+  the checked tasks in the last 30 days; muted while under 3 tasks, struck
+  through when the model is dropped for that kind, the numbers and the
+  auto pick's weight on hover; `GET /api/models` rows carry `learned`), and
+  a **learned for** select that narrows the chips to one kind and strikes
+  the rows of the models dropped for it
+  ([ROLES.md](ROLES.md#auto-learns-halo-3190)); sort by name, price, context or best (the most kinds
   first), search across all of it, the line's words included; the table
   scrolls sideways in a narrow panel; a click picks the row; a ref the catalog lacks can be typed below. **Test this model**
   (`POST /api/models/test {ref}`) sends one short request and shows `ok in
