@@ -84,6 +84,23 @@ def is_fresh(cache: Optional[dict], state_dir) -> bool:
     return cache.get("sources") == source_mtimes(state_dir)
 
 
+def invalidate(state_dir) -> bool:
+    """Mark the cache stale (its `built` 0) so the next read rebuilds it -- a stale cache still answers a
+    session start at once (3.1.9.0 R3: `halo outcomes forget`). False when there is no cache."""
+    cache = load(state_dir)
+    if cache is None:
+        return False
+    path = cache_path(state_dir)
+    with _WRITE_LOCK:
+        try:
+            tmp = path.with_name(f".{path.name}.{os.getpid()}.{threading.get_ident()}.tmp")
+            tmp.write_text(json.dumps(dict(cache, built=0), ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+            os.replace(tmp, path)
+        except OSError:
+            return False
+    return True
+
+
 def entry_for(row: dict, preflight: Optional[dict] = None) -> dict:
     from halo_harness.capabilities_line import best_at_kinds, best_at_line, kind_scores
     scores = kind_scores(row, preflight)

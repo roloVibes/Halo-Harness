@@ -114,7 +114,12 @@ export type ModelRow = {
   reasoning?: { kind: string; efforts: string[] } | null;
   measured?: Record<string, unknown> | null;
   best_at?: { line: string; kinds: string[] };
+  /** 3.1.9.0 R3: what Auto learned per task kind (outcomes/learn.py), the window's checked tasks. */
+  learned?: Record<string, Learned>;
 };
+
+/** 3.1.9.0 R3: one task kind's learned numbers for a model; `counted` from min_tasks, `days` the window (0: every row). */
+export type Learned = { n: number; passed: number; rate: number; picked: number; weight: number; counted: boolean; dropped: boolean; days: number };
 
 /** 3.1.9.0 R1: POST models/analyze -- the best-at rebuild and how many models are good at each kind. */
 export type Analysis = { rows: number; kinds: Record<string, number>; best: Record<string, { cheapest: string | null; strongest: string }>; built: number };

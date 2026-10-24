@@ -95,6 +95,13 @@
 .rm-kinds { display: flex; gap: 3px; overflow: hidden; }
 .rm-best .og-chip { font-size: 9.5px; padding: 0 5px; }
 .rm-line { font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 3.1.9.0 R3: what Auto learned per task kind; a dropped kind (and, with "learned for", a dropped row) struck through */
+.rm-learned { display: flex; gap: 3px; overflow: hidden; }
+.rm-learned-chip { border-style: dashed; opacity: .7; }
+.rm-learned-chip[data-counted] { border-style: solid; opacity: 1; }
+.rm-learned-chip[data-dropped] { text-decoration: line-through; color: var(--bad); border-color: var(--bad); }
+.rm-dropped .rm-ref { text-decoration: line-through; color: var(--muted); }
+.rm-bar .rm-task { flex: 0 0 auto; width: auto; max-width: 150px; font-size: 11px; }
 .rm-more { margin: 6px 8px; font-size: 11.5px; }
 .rm-typed { display: flex; gap: 6px; }
 .rm-typed .input { flex: 1; min-width: 0; }

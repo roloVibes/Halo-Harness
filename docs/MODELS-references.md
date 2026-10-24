@@ -169,6 +169,21 @@ halo models --measured --json    # the same rows
 `measured`). A bio with `models.preference: measured` routes by these rates
 ([ROLES.md](ROLES.md#measured-a-bio-that-routes-by-what-succeeded-halo-3180)).
 
+Halo 3.1.9.0 R3 ([Auto learns](ROLES.md#auto-learns-halo-3190)): a model
+whose rate for a kind over the last 30 days is under 34% (from 3 checked
+tasks) is **dropped** for that kind. `halo models --measured` ends its row
+with the mark (`--json`: a `dropped` field, "" when not), `halo models
+analyze` ends the model's line with it and marks its table the same way:
+
+```
+or:v/ears                                    code        4    1/4     25%  $  0.0100  dropped for code (1/4 in the last 30 days)
+  ant:fable   pdf,research,visual,design,code   vision+pdf in, ... -- dropped for research (0/3 in the last 30 days)
+```
+
+The table's own numbers stay all-time; the mark counts the window
+(`models.learn.window_days`). `halo outcomes learned` lists every model and
+kind with its weight in the `auto` pick ([OUTCOMES.md](OUTCOMES.md#what-was-learned)).
+
 #### The roster
 
 The main agent gets the roster: at most 40 lines, the strongest (and the
@@ -196,6 +211,22 @@ model with `model` when a sub-task needs one". A session start never waits on
 a catalog: it reads the cache as it is, and a stale one is rebuilt behind it
 for the next session. `models.roster: false` in config.json (or
 `HALO_MODELS_ROSTER=0`) leaves it out ([CONFIG.md](CONFIG.md)).
+
+Halo 3.1.9.0 R3: a model dropped for a task kind (above) leaves the leaders
+of that kind -- code and research by name, media leaves visual, audio and
+video -- and one line after the leaders names it with its numbers, the worst
+first, at most three models (`halo outcomes learned` lists the rest):
+
+```
+- code: ant:fable; cheapest or:v/eyes
+- research: ant:opus; cheapest or:v/ears
+- dropped for media: dbx:databricks-gemini-9-flash (0/5 checked tasks); dropped for research: ant:fable (0/3 checked tasks); dropped for code: or:v/ears (1/4 checked tasks) (+1 more: `halo outcomes learned`)
+Models:
+```
+
+The block stays byte-identical while those numbers do not move (an unrated
+or unchecked row changes nothing); `models.learn: false` leaves R1's leaders
+and no drop line.
 
 ### Media models (Halo 3.0.4.0)
 

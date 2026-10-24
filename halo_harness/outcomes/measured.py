@@ -83,14 +83,16 @@ def row_words(outcomes) -> str:
     return ", ".join(f"{k} {int(s.get('passed') or 0)}/{int(s.get('n') or 0)}" for k, s in shown(outcomes))
 
 
-def table_lines(stats: dict) -> list:
-    """`halo models --measured`: one row per model and kind, the most measured first."""
+def table_lines(stats: dict, marks: Optional[dict] = None) -> list:
+    """`halo models --measured`: one row per model and kind, the most measured first; `marks` (3.1.9.0 R3,
+    outcomes/learn.marks): `{(model, kind): "dropped for code (...)"}` printed at the row's end."""
     if not stats:
         return ["Nothing measured yet: outcomes.jsonl gets a row per checked agent task (an Orchestra lane, "
                 "a sub-agent with an acceptance); `halo outcomes` lists them."]
     lines = [f"{'model':<44} {'kind':<9} {'n':>3}  {'passed':>6}  {'rate':>5}  {'mean cost':>9}"]
     for (model, kind), s in sorted(stats.items(), key=lambda t: (t[0][0], -t[1]["n"], t[0][1])):
         mark = "" if s["n"] >= MIN_N else "  (fewer than 3: not routed on)"
+        mark += f"  {(marks or {})[(model, kind)]}" if (model, kind) in (marks or {}) else ""
         lines.append(f"{model:<44} {kind:<9} {s['n']:>3}  {s['passed']:>3}/{s['n']:<2}  {s['rate'] * 100:>4.0f}%  "
                      f"${s['cost_mean']:>8.4f}{mark}")
     return lines

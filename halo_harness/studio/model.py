@@ -76,6 +76,11 @@ def model_rows(state_dir=None, cwd=None) -> list:
         best = best_at_index(state_dir, raw).get("rows") or {}
     except Exception:
         best = {}
+    try:  # 3.1.9.0 R3: what Auto learned per task kind (outcomes/learn.py): the picker's chips and strikes
+        from halo_harness.outcomes.learn import by_model as learned_by_model
+        learned = learned_by_model(state_dir)
+    except Exception:
+        learned = {}
     rows = []
     for row in raw:
         ref = row["ref"]
@@ -96,6 +101,7 @@ def model_rows(state_dir=None, cwd=None) -> list:
             "modalities_out": row.get("modalities_out"), "reasoning": row.get("reasoning"),
             "open_weights": row.get("open_weights"), "measured": row.get("measured"),
             "best_at": {"line": at.get("line") or "", "kinds": list(at.get("kinds") or [])},
+            "learned": learned.get(ref) or {},  # {kind: {n, passed, rate, picked, weight, counted, dropped, days}}
         })
     return rows
 

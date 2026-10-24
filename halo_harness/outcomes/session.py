@@ -83,7 +83,10 @@ def record_subagent(parent, child, *, spec_name: str, role_name=None, team_contr
         row = make_row(run=str(getattr(getattr(parent, "log", None), "session_id", "") or ""), task=f"agent {agent_id}",
                        source="session", ev=ev, outcome=outcome, check=check,
                        returns=max(0, int((ev.acceptance or {}).get("attempts") or 1) - 1),
-                       evidence_path=str(written or ""), role=str(role_name or ""))
+                       evidence_path=str(written or ""), role=str(role_name or ""),
+                       # 3.1.9.0 R3: whether the spawn picked its model, and why (models_auto_spawn.record)
+                       picked=str(getattr(child, "model_picked", "") or "none"),
+                       reason=str(getattr(child, "model_reason", "") or ""))
         state_dir = getattr(parent, "state_dir", None)
         if state_dir is None:
             from halo_harness.config.paths import bridge_home
