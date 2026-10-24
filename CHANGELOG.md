@@ -76,6 +76,21 @@ Focus: packs, the loose ends -- the sixteen open points the Packs program left, 
 #### Fixed
 - On Windows, a plugin hook in the shell form that used `${CLAUDE_PLUGIN_ROOT}` (`sh ${CLAUDE_PLUGIN_ROOT}/hooks/run.sh`) failed with "No such file or directory", because Git Bash ate the backslashes of the pasted path. It now runs, from a folder with a space too.
 
+### R5: the Linux pass
+
+#### Added
+- docs/DEVELOPMENT.md "The Chrome tier on Linux": how to run the Chrome tests on Kali (the distro's chromium) and on WSL (Playwright's Chromium named by `HALO_CHROME`), what a skip means, Chrome as root, and what WSL is and is not a twin for (its Chromium's 757 px viewport, its clock).
+
+#### Changed
+- In a skill's `` !`cmd` `` span, `${CLAUDE_SKILL_DIR}`, `${CLAUDE_PROJECT_DIR}` and the other `${CLAUDE_...}` values go in as the span's shell reads them, the same way a plugin hook's shell command gets `${CLAUDE_PLUGIN_ROOT}`: forward slashes on Windows, quoted when the value holds a space, escaped inside your own quotes. The rest of the body gets the value as it is.
+- The test suite's headless Chrome adds `--no-sandbox` when it runs as root, and only then, so the Chrome tests start in a Kali root shell or a container.
+- `tests/run_all.py` keeps `HALO_CHROME` (it clears every other `HALO_*`), so a Linux box whose Chromium is not on PATH can name it.
+
+#### Fixed
+- On Windows, a skill whose body runs `` !`sh ${CLAUDE_SKILL_DIR}/scripts/x.sh` `` failed with "No such file or directory", because Git Bash ate the backslashes of the pasted folder. It now runs, from a folder with a space too.
+- Studio: a finished agent's green glow on the Session and Fleet maps could stay on long after its ten seconds when the computer's clock stepped back (WSL2 and VMs do). It now fades on time.
+- Linux: the wizard tests no longer download ripgrep into your real `~/.local/bin` on a box without `rg`. The screenshot check and the version-line checks pass in a full clone and on a box without `rg`. Two Studio browser checks scroll their target into view, so they pass on a short screen.
+
 ### Also in 3.2.1.0
 
 #### Fixed
