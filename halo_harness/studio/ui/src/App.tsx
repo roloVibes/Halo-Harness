@@ -8,11 +8,13 @@
 // message, kick, a recording); 3.0.7.0 R3: the Design dialogs; R2:
 // the Roles dialogs. 3.1.1.0 R1: the Glossary and "Start here" (a fresh home's offer of the ten-minute start).
 // 3.1.1.0 R3: `?edit=` and the `focus` frame open a bio, a lineup or the Team (shell/edit.ts).
+// 3.2.0.0 R3: the packs' sections and panels (routes/packs: the registry, reloaded on `pack_changed`).
 import { useEffect } from "react";
 import { studio, useStore, welcomeIfNew } from "./lib/store";
 import { Workspace } from "./lib/workspace/Workspace";
 import { Toasts } from "./lib/ui";
-import { SECTIONS } from "./routes";
+import { sections, useSections } from "./routes";
+import { startPacks } from "./routes/packs/store";
 import { Header } from "./shell/Header";
 import { Rail } from "./shell/Rail";
 import { Inspector } from "./shell/Inspector";
@@ -39,6 +41,7 @@ export function App() {
   const theme = useStore(studio, (s) => s.theme);
   const railOpen = useStore(studio, (s) => s.railOpen);
   const inspecting = useStore(studio, (s) => s.inspector !== null);
+  const all = useSections();
   useGlobalKeys();
   useHopKeys();
   useRolesLive();
@@ -47,8 +50,9 @@ export function App() {
   }, [theme]);
   useEffect(() => startFeed(), []);
   useEffect(() => installEdit(), []);
+  useEffect(() => startPacks(), []);
   useEffect(() => {
-    const def = SECTIONS.find((s) => s.id === section);
+    const def = sections().find((s) => s.id === section);
     document.title = def ? `${def.title} - Halo Studio` : "Halo Studio";
     welcomeIfNew(section);
   }, [section]);
@@ -58,7 +62,7 @@ export function App() {
       <Header />
       <Rail />
       <main className="stage" aria-label="Workspace">
-        {SECTIONS.filter((s) => visited.includes(s.id)).map((s) => (
+        {all.filter((s) => visited.includes(s.id)).map((s) => (
           <div key={s.id} className="section-view" hidden={s.id !== section} data-section={s.id}>
             {s.view ? <s.view section={s.id} specs={s.panels} /> : <Workspace section={s.id} specs={s.panels} />}
           </div>

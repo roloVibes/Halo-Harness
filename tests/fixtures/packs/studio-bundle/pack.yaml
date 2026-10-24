@@ -1,0 +1,25 @@
+# A fixture pack (3.2.0.0 R3, tests/test_packs_studio_*.py): one Studio
+# section with a bundle panel -- an ES module that exports mount(el, api) --
+# which Studio loads only once you grant studio-script.
+id: studio-bundle
+name: Studio bundle
+version: 0.1.0
+description: One Studio section whose panel is the pack's own script.
+author: Halo fixtures
+license: MIT
+halo_api: {min: "1.0"}
+contributes:
+  studio:
+    sections:
+      - id: hello
+        title: Hello
+        blurb: A panel the pack draws itself
+        panels:
+          - id: greet
+            title: Greeting
+            kind: bundle
+            source: studio/hello.js
+            w: 12
+            h: 16
+            help: The pack's own script draws this panel (it runs once you grant studio-script).
+permissions: [studio-script]

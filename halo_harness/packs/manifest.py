@@ -24,7 +24,7 @@ from halo_harness.packs import semver as V
 
 MANIFEST = "pack.yaml"
 #: The names `permissions:` takes besides `mcp:<server>` (one per MCP server a pack declares).
-PERMISSIONS = ("hooks", "bash", "network", "home-write")
+PERMISSIONS = ("hooks", "bash", "network", "home-write", "studio-script")  # 3.2.0.0 R3: studio-script (a Studio bundle)
 MCP_PREFIX = "mcp:"
 CAPABILITY_RE = re.compile(r"^[a-z][a-z0-9._-]*$")
 EVENT_RE = re.compile(r"^[a-z][a-z0-9_.-]*$")
@@ -73,6 +73,8 @@ def needed(data, root) -> "list[tuple[str, str]]":
         out.append((MCP_PREFIX + server, f"MCP server {server}"))
         if isinstance(raw, dict) and raw.get("url"):
             out.append(("network", f"MCP server {server} (a url)"))
+    from halo_harness.packs.studio_rules import SCRIPT, bundle_ids  # 3.2.0.0 R3: a Studio bundle panel runs a script
+    out += [(SCRIPT, f"Studio panel {pid} (a bundle)") for pid in bundle_ids(data)]
     return out
 
 
@@ -91,7 +93,7 @@ def _permission_lines(data, root) -> "list[str]":
     if root is not None:
         asked = set(requested(data))
         for perm, why in needed(data, root):
-            if perm not in asked:
+            if perm not in asked and perm != "studio-script":  # 3.2.0.0 R3: studio_rules names that one's line
                 out.append(f"permissions: {why} needs {perm!r}, which the pack does not request")
     return out
 
@@ -210,6 +212,8 @@ def validate_manifest(data, *, root=None, folder_is_id: bool = False) -> "list[s
         return [f"{MANIFEST} is a YAML mapping (key: value)"]
     out = [f["text"] for f in check_file_shape("pack", data)]
     out += _meaning_lines(data)
+    from halo_harness.packs.studio_rules import studio_lines  # 3.2.0.0 R3: contributes.studio's meaning
+    out += studio_lines(data, root)
     if root is not None:
         root = Path(root)
         out += _file_lines(data, root)

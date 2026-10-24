@@ -1,5 +1,5 @@
 // The top bar: brand, the six section tabs (a tab "works" while its section
-// has fresh activity), the ? menu ("How this works" for the section and,
+// has fresh activity; 3.2.0.0 R3: then the packs' sections, after a thin "packs" divider), the ? menu ("How this works" for the section and,
 // from 3.1.1.0 R1, the Glossary), the command palette button and the theme
 // menu.
 import { useEffect, useRef, useState } from "react";
@@ -7,7 +7,7 @@ import { Button, Icon, Kbd, Tabs, type TabItem } from "../lib/ui";
 import { goSection, openHelp, setTheme, studio, toggleRail, useStore, type SectionId, type ThemeChoice } from "../lib/store";
 import { openGlossary } from "../lib/glossary";
 import { useRecent } from "../lib/motion";
-import { SECTIONS, sectionDef } from "../routes";
+import { sectionDef, useSections } from "../routes";
 
 function useSectionTabs(current: SectionId): TabItem[] {
   const activity = useStore(studio, (s) => s.activity);
@@ -15,12 +15,14 @@ function useSectionTabs(current: SectionId): TabItem[] {
   const fleetBusy = useRecent(activity.fleet, 3000);
   const teamBusy = useRecent(activity.team, 3000);
   const busy: Record<SectionId, boolean> = { orchestra: orchestraBusy, roles: false, design: false, fleet: fleetBusy, team: teamBusy, session: fleetBusy };
-  return SECTIONS.map((s) => ({
+  const all = useSections();
+  return all.map((s, i) => ({
     id: s.id,
     label: s.title,
-    kbd: s.kbd,
+    kbd: s.kbd || undefined,
     testid: "section-tab",
-    title: `${s.blurb} (${s.kbd})`,
+    title: s.kbd ? `${s.blurb} (${s.kbd})` : s.blurb,
+    divider: s.id.includes("--") && !all[i - 1]?.id.includes("--") ? "packs" : undefined,
     motion: busy[s.id] && s.id !== current ? "working" : "none",
   }));
 }

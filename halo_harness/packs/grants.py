@@ -99,3 +99,12 @@ def changed(state_dir=None) -> None:
         invalidate(state_dir)
     except Exception:
         pass
+    notify_studio()
+
+
+def notify_studio(why: str = "changed") -> None:
+    """3.2.0.0 R3: a Studio this process serves reloads its packs registry now (Studio is never imported here)."""
+    import sys
+    live = sys.modules.get("halo_harness.studio.packs_studio_live")
+    if live is not None:
+        live.notify(why)

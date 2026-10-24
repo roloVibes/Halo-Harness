@@ -1,0 +1,12 @@
+# A failure fixture (3.2.0.0 R3): a bundle panel, but the pack does not request studio-script.
+id: studio-no-script
+name: No script
+version: 0.1.0
+halo_api: {min: "1.0"}
+contributes:
+  studio:
+    sections:
+      - id: hello
+        title: Hello
+        panels:
+          - {id: greet, title: Greeting, kind: bundle, source: studio/hello.js}

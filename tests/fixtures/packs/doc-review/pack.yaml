@@ -3,6 +3,9 @@
 # schema and a default, and one migration note. 3.2.0.0 R2: the reviewer bio
 # asks for a model by capability, keeps its own memory namespace and needs
 # bash; the review lineup has two tiers, acceptance.review and one workflow.
+# 3.2.0.0 R3: contributes.studio -- a section of its own (a markdown panel, a
+# table over a JSON file, links), one panel in Session, a palette action, the
+# settings form, a line for review.done and an attention row kind.
 id: doc-review
 name: Documentation review
 version: 1.0.0
@@ -22,11 +25,60 @@ contributes:
     - {name: lint, description: checks a document's links and headings}
   events: [review.done]
   workflows: [review]
+  studio:
+    sections:
+      - id: docs
+        title: Docs review
+        blurb: The review notes, the checks and the links
+        help: What the reviewer found, the checks it ran and where to read more.
+        panels:
+          - id: notes
+            title: Review notes
+            kind: markdown
+            source: studio/notes.md
+            w: 12
+            h: 30
+            help: |-
+              The reviewer's notes for this repo, as the pack ships them.
+              Edit studio/notes.md in the pack's folder to change them.
+          - id: checks
+            title: Checks
+            kind: table
+            source: studio/checks.json
+            columns: [check, state, note]
+            w: 12
+            h: 30
+            help: One row per check the review runs, with its last state.
+          - id: links
+            title: Links
+            kind: links
+            w: 24
+            h: 16
+            help: Where to read more, and the Studio sections the review uses.
+            links:
+              - {label: Roles (the review lineup), route: roles}
+              - {label: The checks, route: docs/checks}
+              - {label: How packs work, url: "https://github.com/roloVibes/Halo-Harness/blob/master/docs/PACKS.md"}
+    panels:
+      - id: reviews
+        section: session
+        title: Reviews
+        kind: events
+        w: 10
+        h: 24
+        help: Each review.done the pack publishes, newest last.
+    palette:
+      - {id: open-checks, label: Open the review checks, action: "route:docs/checks"}
+    config_form: true
+    events:
+      review.done: {label: REVIEW, line: "{file}: {findings} findings"}
+    attention:
+      review.ask: {label: review, keys: {a: accept, r: redo, s: skip, o: open}}
 config:
   schema:
     properties:
-      style: {type: string, enum: [short, long]}
-      max_findings: {type: integer}
+      style: {type: string, enum: [short, long], description: How long the reviewer's notes are}
+      max_findings: {type: integer, description: The most findings one review lists}
     additionalProperties: false
   defaults: {style: short, max_findings: 20}
 permissions: ["mcp:lint", hooks, bash]

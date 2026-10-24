@@ -41,6 +41,8 @@ export function Workspace({ section, specs }: { section: string; specs: PanelSpe
       usedFill.current = fillRows;
       const merged = merge(specs, custom ? loadSaved(section) : null, fillRows);
       setLayout(section, custom ? merged : openFirst(merged, OPEN), false);
+    } else if (fillRows > 0 && layout && specs.some((s) => !s.optional && !layout[s.id])) {
+      setLayout(section, merge(specs, layout, fillRows), false); // 3.2.0.0 R3: a pack's panel arrived: the rest stay put
     }
   }, [layout, custom, fillRows, section, specs]);
 
