@@ -7,7 +7,9 @@ fleet command through one of its live sessions (a TUI session first: under
 `fleet.allow_control: ask` its owner gets the card there). The answer maps
 to the part's state: 200 running, 202 asked (the owner's card is open; the
 outcome comes on the command's state), 403 refused (failed, with the
-member's reason), anything else failed. A part is over when its
+member's reason; 3.2.1.0 R3: a pack refusal, here or there, carries
+`refused_pack`, and the runner re-plans the part once, mission_hold.py),
+anything else failed. A part is over when its
 `parts/<n>/result.json` is in the mission folder (written here, or pushed by
 the member over mission_files); a member that stays offline past
 OFFLINE_FAIL_S fails its running parts. A part is stopped like any agent:
@@ -28,6 +30,12 @@ from halo_harness.fleet.mission_handoff import dep_paths
 WAIT_S = 4.0
 OFFLINE_FAIL_S = 180.0
 SKIP_KINDS = ("mission-worker", "orchestra-worker")
+
+
+def refused_pack(line) -> dict:
+    """3.2.1.0 R3: `{refused_pack: line}` when a refusal is a pack one (the hub re-plans it once, mission_hold.py)."""
+    from halo_harness.packs.fleet_share import pack_refusal
+    return {"refused_pack": str(line)} if pack_refusal(line) else {}
 
 
 class Dispatch:
@@ -100,7 +108,7 @@ class Dispatch:
             try:
                 mission_worker.start_local(self.home, f, repo_root=root)
             except ValueError as e:
-                return {"state": "failed", "error": str(e), "ended": now}
+                return {"state": "failed", "error": str(e), "ended": now, **refused_pack(str(e))}
             return {"state": "running", "started": now}
         if self.hub is None:
             return {"state": "failed", "error": "no fleet hub runs here to reach that harness", "ended": now}
@@ -114,7 +122,8 @@ class Dispatch:
             return {"state": "running", "started": now, "command_id": cid, "via_session": sid}
         if status in (202, 504):
             return {"state": "asked", "command_id": cid, "via_session": sid}
-        return {"state": "failed", "command_id": cid, "error": str((out or {}).get("error") or status), "ended": now}
+        err = str((out or {}).get("error") or status)
+        return {"state": "failed", "command_id": cid, "error": err, "ended": now, **(refused_pack(err) if status == 403 else {})}
 
     def result(self, mid: str, pid: str) -> Optional[dict]:
         raw = S.read_text(S.folder(self.home, mid), f"parts/{pid}/result.json")
@@ -140,7 +149,8 @@ class Dispatch:
             if c.get("state") == "done":
                 return {"state": "running", "started": now}
             if c.get("state") in ("refused", "error"):
-                return {"state": "failed", "error": c.get("error") or c["state"], "ended": now}
+                return {"state": "failed", "error": c.get("error") or c["state"], "ended": now,
+                        **(refused_pack(c.get("error")) if c["state"] == "refused" else {})}
             return None
         if hid == self.local_id():
             if (doc["id"], pid) not in mission_worker.running(doc["id"]) and ps.get("state") == "running":

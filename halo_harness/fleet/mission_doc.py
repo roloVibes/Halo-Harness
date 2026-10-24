@@ -131,8 +131,10 @@ def status_table(doc: dict) -> str:
     for name, rows in sorted(by.items()):
         out.append(f"  {name}")
         for pid, p in rows:
-            err = f"  {_cell(p.get('error'), 70)}" if p.get("error") else ""
+            note = p.get("waiting") if p.get("state") == "waiting" else p.get("error")  # 3.2.1.0 R3: the waits line
+            err = f"  {_cell(note, 70)}" if note else ""
             out.append(f"    part {pid:>2}  {p.get('state') or 'pending':<8}  ${float(p.get('cost_usd') or 0):.4f}{err}")
+            out += [f"      {_cell(p['replanned'], 110)}"] if p.get("replanned") else []
     if doc.get("stop_reason"):
         out.append(f"  reason: {doc['stop_reason']}")
     return "\n".join(out)

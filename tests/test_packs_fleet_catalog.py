@@ -80,9 +80,11 @@ def test_the_section_lists_running_packs_with_available_and_why(ctx: Ctx):
         ctx.check(f"docs.review: available, why = the model and the grant, got {doc}", doc["available"] is True
                   and doc["why"] == "tools: or:anthropic/claude-sonnet-4.6; bash granted" and doc["capacity"] == {"parallel": 2})
         ctx.check("each check named", [(c["key"], c["ok"]) for c in doc["checks"]] == [("models", True), ("grants", True)])
-        ctx.check("the inspector line and the metadata travel with it", packs["doc-review"]["inspector"]
-                  == [{"label": "Review checklist", "source": "fleet/checklist.md"}]
-                  and packs["doc-review"]["metadata"] == {"review": "docs", "style": "short"})
+        insp = packs["doc-review"]["inspector"]
+        ctx.check(f"the inspector line (3.2.1.0 R3: with its file's text) and the metadata travel with it, got {insp}",
+                  [(x["label"], x["source"]) for x in insp] == [("Review checklist", "fleet/checklist.md")]
+                  and insp[0]["text"].startswith("# Review checklist") and "Every link in a changed document resolves." in insp[0]["text"]
+                  and "cut" not in insp[0] and packs["doc-review"]["metadata"] == {"review": "docs", "style": "short"})
         gpu = packs["fleet-needs-gpu"]["capabilities"][0]
         ctx.check(f"gpu.render: not available, why = no GPU here, got {gpu['why']!r}", gpu["available"] is False and gpu["why"] == "no GPU here")
         from halo_harness.packs.grants import disable

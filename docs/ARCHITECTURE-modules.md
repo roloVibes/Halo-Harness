@@ -111,7 +111,9 @@ this list against the tree.
   `fleet/mission_guard.py`, `fleet/mission_files.py`,
   `fleet/mission_handoff.py`, `fleet/mission_merge.py`,
   `fleet/mission_report.py`, `fleet/mission_attention.py`,
-  `fleet/mission_stage_run.py` (3.1.2.0 R2: a part of kind orchestra, a delegated team stage's run)
+  `fleet/mission_stage_run.py` (3.1.2.0 R2: a part of kind orchestra, a delegated team stage's run),
+  `fleet/mission_hold.py` (3.2.1.0 R3: a pack capability's `capacity.parallel` held, a part refused for a
+  pack reason re-planned once)
 - recall across the fleet (3.1.2.0 R3): `fleet/hub_recall.py` (the hub fans a
   recall query out and merges the hits; 3.1.6.0 its `local/coach-library`
   route forwards a library fetch to one member), and the scripted two-machine check
@@ -273,7 +275,9 @@ environment reference anywhere), `packs/fleet_registry.py` (each running
 pack's capabilities, available here or not and why: the catalog's `packs`
 section; the worker's refusal line; a pack lineup's mission metadata) and
 `packs/contrib_views.py` (`halo pack inspect`'s contributes block, the doctor's
-fleet-capability rows). 3.2.0.0 R5, workflows and artifacts (docs/WORKFLOWS.md):
+fleet-capability rows) and (3.2.1.0 R3) `packs/fleet_share.py` (an inspector
+line's text for the catalog, `fleet.capabilities.hide` for a pack capability,
+the pack refusal lines the hub re-plans on). 3.2.0.0 R5, workflows and artifacts (docs/WORKFLOWS.md):
 `packs/workflow_rules.py` and `packs/workflow_stages.py` (what a workflow file
 may say, with the manifest; its shape is `schemas/workflow_yaml.py`, its JSON
 twin `packs/schema/workflow.schema.json`), `packs/typed.py` (artifact and

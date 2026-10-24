@@ -187,7 +187,7 @@ time is listed without tools and fills in on the next gather), skills,
 models, craft apps, ComfyUI, hardware, command-line tools, projects and the
 tags its owner set (`fleet.tags`). Names only: no full path, server command
 or key ever leaves the machine, and `fleet.capabilities.hide` keeps a
-server, tool or skill off it. A member's announce carries a one-line summary
+server, tool, skill or pack capability off it. A member's announce carries a one-line summary
 and the catalog's hash; the hub asks for the whole catalog once per hash and
 a `fleet` frame with action `capabilities` refreshes the panel
 (`GET /api/fleet/capabilities`). **Who can...** ranks the fleet for what you
@@ -233,7 +233,16 @@ One goal, every harness, nobody stepping on anyone ([MISSIONS.md](MISSIONS.md)):
    Attention (`A` allow, `R` deny, `O` opens the Mission panel on that
    mission). A running part is solid, its row shows the line its agent is
    on, and its `mission-worker` session shows on the map and in the rail
-   with a **mission** chip.
+   with a **mission** chip. (3.2.1.0 R3) A part held for its pack
+   capability's slot is `waiting` and pulses amber with the hub's line
+   ("part 3 waits: bob@member runs 2/2 of pack doc-review: docs.review");
+   a part the hub re-planned after a pack refusal moves to its new
+   harness's box and its row shows the replanned line under its own.
+   Selected, a part that needs a pack capability shows the pack's
+   **inspector** lines: its own harness's are read through the pack's file
+   route, a member's come with the member's catalog (the file's first 8 KB,
+   paths cut, "the first 8 KB of <file>" when it was longer) and the line's
+   head says where it runs.
 5. **Report**: when the last part is over (or you **Stop** it, with a
    reason) the panel turns to the report: who did what on which harness, the
    cost per harness and per part, the decisions, the edits refused outside a

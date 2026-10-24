@@ -9,7 +9,8 @@ fleet (Halo 3.2.0.0 R4; docs/EXTENSION_API.md "Fleet capabilities").
                                      tools present, the runtime found, the platform, the GPU, the models in the
                                      catalog, the grants given), or what is missing when it is not available
     refusal(needs, cwd=, state_dir=) ''; or the one line a worker answers a part with when a need is a pack
-                                     capability whose pack does not run here with its grants
+                                     capability whose pack does not run here with its grants (3.2.1.0 R3: an
+                                     inspector line carries its file's `text`, packs/fleet_share.py)
     mission_metadata(lineup, ...)    what a mission started by a pack's lineup carries: {pack, lineup, ...}
     pack_mission(lineup, ...)        {"metadata": ...} for a new mission (the lineup named, else the active
                                      one, config `team`), {} when no running pack's lineup it is
@@ -26,6 +27,7 @@ import shutil
 from pathlib import Path
 
 from halo_harness.packs.fleet_rules import capabilities_of, fleet_of
+from halo_harness.packs.fleet_share import inspector_text  # 3.2.1.0 R3: a member's inspector lines carry their text
 
 
 def _req(c: dict) -> dict:
@@ -133,7 +135,8 @@ def pack_entry(pack, granted, cat: dict, *, running: bool = True, cwd=None, stat
     return {"id": pack.id, "name": pack.name, "version": pack.version, "scope": pack.scope,
             "capabilities": [entry(c, pack, granted, cat, running=running, cwd=cwd, state_dir=state_dir, rows=rows)
                              for c in capabilities_of(pack.manifest)],
-            "inspector": [{"label": str(x.get("label") or ""), "source": str(x.get("source") or "")}
+            "inspector": [{"label": str(x.get("label") or ""), "source": str(x.get("source") or ""),
+                           **inspector_text(pack.root, x.get("source"))}
                           for x in fleet.get("inspector") or [] if isinstance(x, dict)],
             "metadata": dict(meta) if isinstance(meta, dict) else {}}
 
