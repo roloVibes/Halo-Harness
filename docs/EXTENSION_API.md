@@ -347,8 +347,8 @@ Nothing changes for a fleet with no pack.
 | `capabilities[].requires.models` | `[tag or model]` | a catalog model with the tag (`long-context`, `vision`, `audio`, `video`, `files`, `image-out`, `tools`, `local`, `reasoning`, `open-weights`, `audio-out`), or one by its ref or family |
 | `capabilities[].requires.grants` | `[permission]` | each one of the pack's `permissions`, granted here |
 | `capabilities[].requires.locality` | `[repo \| repo:<name> \| shared \| pack-data]` | the data is on this host: a repo checkout (that repo), the fleet's shared folder, files in the pack's data folder |
-| `capabilities[].capacity` | `{parallel: 1..64}` | how many parts with it this harness takes at once (shown to the planner) |
-| `inspector` | `[{label, source}]` | a mission inspector line: a markdown or JSON file of the pack, shown with a part that needs the pack (Studio's Mission plan, the part's agent) |
+| `capabilities[].capacity` | `{parallel: 1..64}` | how many parts with it this harness takes at once: shown to the planner, and (3.2.1.0 R3) held by the hub, the next part `waiting` until one ends |
+| `inspector` | `[{label, source}]` | a mission inspector line: a markdown or JSON file of the pack, shown with a part that needs the pack (Studio's Mission plan, the part's agent); 3.2.1.0 R3: the catalog carries the file's first 8 KB as `text` (paths cut), so a hub's Studio shows it for a member |
 | `mission.metadata` | `{key: value}` | what a mission started with this pack's lineup carries (`metadata: {pack, lineup, ...}`, in MISSION.md and the Mission panel's head) |
 
 A capability is **available** when every `requires` holds on this host;

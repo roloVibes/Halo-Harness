@@ -51,7 +51,7 @@
 .fmi-pstate { padding: 0 6px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); white-space: nowrap; }
 .fmi-pstates { display: inline-flex; gap: 4px; flex-wrap: wrap; }
 .fmi-state[data-state="running"], .fmi-state[data-state="merging"], .fmi-pstate[data-state="running"] { color: var(--accent); border-color: var(--accent); }
-.fmi-state[data-state="planned"], .fmi-pstate[data-state="asked"], .fmi-state[data-state="approved"] { color: var(--warn); border-color: var(--warn); }
+.fmi-state[data-state="planned"], .fmi-pstate[data-state="asked"], .fmi-pstate[data-state="waiting"], .fmi-state[data-state="approved"] { color: var(--warn); border-color: var(--warn); }
 .fmi-state[data-state="done"], .fmi-pstate[data-state="done"], .fmi-pstate[data-state="merged"] { color: var(--ok); border-color: var(--ok); }
 .fmi-state[data-state="failed"], .fmi-pstate[data-state="failed"] { color: var(--bad); border-color: var(--bad); }
 .fmi-state[data-state="stopped"], .fmi-pstate[data-state="stopped"], .fmi-pstate[data-state="skipped"] { color: var(--faint); }

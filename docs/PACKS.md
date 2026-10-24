@@ -248,12 +248,27 @@ grants it needs, where its data must be). Once the pack runs here:
   only one harness has; a part that names one in `needs` goes only to a
   harness where it is available (its pack runs with the grants), and the
   plan says "docs.review · pack doc-review on <harness>". Selected, the part
-  shows the pack's inspector lines (its own markdown or JSON files).
+  shows the pack's inspector lines (its own markdown or JSON files): read
+  through the pack's file route when the pack runs on Studio's own harness,
+  and (3.2.1.0 R3) from the text the member's catalog carries (the file's
+  first 8 KB, paths cut) when it runs on a member.
+- **Capacity is held** (3.2.1.0 R3): the lead reads `docs.review (pack
+  doc-review, 2 at a time)`, and the hub starts at most `capacity.parallel`
+  parts holding that capability on one harness at once; the next one waits
+  ("part 3 waits: bob@member runs 2/2 of pack doc-review: docs.review") and
+  starts when one ends.
 - **The worker checks again**: before the part runs, the harness that got it
   reads its own packs; if the pack is disabled there, or a grant is missing,
   the part is refused with one line, "this harness does not run pack
-  doc-review with bash", and the mission goes on as it does when a harness
-  drops out.
+  doc-review with bash". (3.2.1.0 R3) The hub re-plans it once onto another
+  harness that has the capability ("part 1 replanned: bob@member refused
+  (...); alice@hub has pack doc-review: docs.review"); with none, the
+  mission goes on as it does when a harness drops out.
+- **Hidden**: `fleet.capabilities.hide` names a pack capability as it names
+  a tool (`docs.review`, or `doc-review/docs.review` for this pack's only):
+  the catalog leaves it out, so no part is planned onto it here; `halo pack
+  doctor` counts the hidden ones and `halo pack inspect` marks them
+  (3.2.1.0 R3).
 - **Mission metadata**: a mission started with the pack's lineup (the active
   one, or `lineup:` in the request: `halo fleet mission new --lineup
   doc-review--review`, the Mission panel's Lineup select, 3.2.1.0 R1)
@@ -264,7 +279,8 @@ path: the manifest refuses the first two (and a path in a description), and
 the catalog cuts every other path to its last part before anything leaves
 the machine. `halo pack inspect <id>` lists the capabilities with available /
 why in its "contributes:" block (with the Studio contributions), and
-`halo pack doctor` has a row for each one not available here.
+`halo pack doctor` has a row for each one not available here (and one row
+per pack saying how many `fleet.capabilities.hide` hides, 3.2.1.0 R3).
 
 ## Workflows
 

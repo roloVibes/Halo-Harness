@@ -7,12 +7,13 @@
 // - the pack's inspector lines (contributes.fleet.inspector) under the
 //   selected part and in the Agent panel of a part's agent: each file is read
 //   through the pack's file route (api/pack/<id>/file/<source>) when the pack
-//   runs on this harness; a pack only on another harness shows its labels and
-//   where it runs (that harness's Studio reads the file).
+//   runs on this harness; a pack only on another harness shows the text its
+//   catalog carries (3.2.1.0 R3: the file's first 8 KB, paths cut, read there
+//   by packs/fleet_share.py), else its labels and where it runs.
 import { useEffect, useState } from "react";
 import { Markdown } from "../../lib/markdown";
 import { fetchText } from "../packs/nav";
-import { startCaps, useCaps, type Catalog } from "./caps";
+import { startCaps, useCaps, type Catalog, type InspectorEntry } from "./caps";
 import { useMissions, type PlanPart } from "./mstore";
 
 export function PackCapsLine({ c }: { c: Catalog }) {
@@ -62,7 +63,12 @@ function jsonLines(text: string): string {
   }
 }
 
-function InspectorLine({ pack, label, source, local, on }: { pack: string; label: string; source: string; local: boolean; on: string }) {
+function Body({ source, text }: { source: string; text: string }) {
+  return source.toLowerCase().endsWith(".json") ? <pre className="fpk-text mono">{jsonLines(text)}</pre> : <div className="fpk-md"><Markdown text={text} /></div>;
+}
+
+function InspectorLine({ pack, x, local, on }: { pack: string; x: InspectorEntry; local: boolean; on: string }) {
+  const { label, source } = x;
   const [st, setSt] = useState({ text: "", error: "", loading: local });
   useEffect(() => {
     if (!local) return;
@@ -77,13 +83,14 @@ function InspectorLine({ pack, label, source, local, on }: { pack: string; label
     };
   }, [pack, source, local]);
   return (
-    <div className="fpk-line" data-testid="fleet-pack-inspector-line" data-pack={pack} data-label={label}>
-      <div className="fpk-line-head"><b>{label}</b> <span className="mono muted">pack {pack} · {source}</span></div>
-      {!local ? <p className="muted">pack {pack} runs on {on || "another harness"}; its Studio reads this file.</p>
+    <div className="fpk-line" data-testid="fleet-pack-inspector-line" data-pack={pack} data-label={label} data-local={local ? "yes" : "no"}>
+      <div className="fpk-line-head"><b>{label}</b> <span className="mono muted">pack {pack} · {source}{local ? "" : ` · on ${on || "another harness"}`}</span></div>
+      {!local ? (typeof x.text === "string"
+          ? <><Body source={source} text={x.text} />{x.cut && <p className="muted mono" data-testid="fleet-pack-inspector-cut">the first 8 KB of {source}</p>}</>
+          : <p className="muted">pack {pack} runs on {on || "another harness"}; its Studio reads this file.</p>)
         : st.loading ? <div className="og-wait mono muted">reading {source}...</div>
         : st.error ? <p className="og-problems">{st.error}</p>
-        : source.toLowerCase().endsWith(".json") ? <pre className="fpk-text mono">{jsonLines(st.text)}</pre>
-        : <div className="fpk-md"><Markdown text={st.text} /></div>}
+        : <Body source={source} text={st.text} />}
     </div>
   );
 }
@@ -104,7 +111,7 @@ export function PackInspector({ ids, harness, on }: { ids: string[]; harness?: s
         const entry = mine || there.find((p) => p.id === id);
         if (!entry) return <p key={id} className="muted">pack {id}: no catalog Studio has lists it yet</p>;
         if (!entry.inspector.length) return <p key={id} className="muted">pack {id} declares no inspector lines</p>;
-        return entry.inspector.map((x) => <InspectorLine key={`${id}/${x.source}`} pack={id} label={x.label} source={x.source} local={!!mine} on={on} />);
+        return entry.inspector.map((x) => <InspectorLine key={`${id}/${x.source}`} pack={id} x={x} local={!!mine} on={on} />);
       })}
     </section>
   );

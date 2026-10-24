@@ -11,7 +11,9 @@ with doc-review (bash granted, a model that calls tools) and fleet-needs-gpu:
    pack's lineup), and the selected part shows the pack's inspector line,
    read through the pack's file route;
 3. (3.2.1.0 R1) the Mission form's Lineup select, the active lineup first; the
-   pack's lineup picked there rides in the new mission.
+   pack's lineup picked there rides in the new mission;
+4. (3.2.1.0 R3) a member's pack inspector line shows the text its catalog
+   carries.
 
 Run: python -m tests.test_packs_fleet_ui
 """
@@ -88,6 +90,18 @@ def test_the_mission_form_sends_the_lineup(ctx: Ctx):
               got.get("mission_lineup") == "doc-review--review")
     ctx.check(f"planned from the form: the lineup and the pack's metadata, got {got.get('form_lineup')!r} {got.get('form_metadata')!r}",
               got.get("form_lineup") == "doc-review--review" and got.get("form_metadata") == "pack doc-review · review=docs · style=short")
+
+
+@test
+def test_a_members_inspector_line_shows_its_text(ctx: Ctx):
+    """3.2.1.0 R3: a part on a member whose pack runs only there: the line renders the text the member's catalog
+    carries (markdown), names where it runs, and no longer says "its Studio reads this file"."""
+    got = _got(ctx)
+    ctx.check(f"not this harness's pack, got {got.get('member_local')!r}", got.get("member_local") == "no")
+    ctx.check(f"the member's text, rendered, got {got.get('member_text')!r}", "Scan rules" in str(got.get("member_text"))
+              and "Only the lab subnet, never the office." in str(got.get("member_text")))
+    ctx.check(f"the head names the pack, the file and where it runs, got {got.get('member_head')!r}",
+              got.get("member_head") == "Scan rules pack net-scan · fleet/rules.md · on kali@lab")
 
 
 if __name__ == "__main__":

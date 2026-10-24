@@ -450,13 +450,18 @@ on `halo fleet capabilities --refresh` (or Studio's Refresh).
 **Packs** (3.2.0.0 R4). A `packs` section lists what the packs that run here
 bring to the fleet (`contributes.fleet`, [PACKS.md](PACKS.md#in-the-fleet)):
 `[{id, name, version, capabilities: [{name, description, available, why,
-checks, requires, capacity}], inspector: [{label, source}], metadata}]`, each
+checks, requires, capacity}], inspector: [{label, source, text, cut?}], metadata}]`, each
 capability checked on this host against the rest of the catalog (tools,
 runtimes, platform, GPU and RAM, models by tag, the pack's grants, where the
 data is). The summary and the chips count the available ones (`+1 pack
 cap`), `who` ranks them (one not available here at half, with why), and the
 catalog is gathered afresh on every pack change. A disabled pack adds
 nothing; with no pack the section is empty and nothing else changes.
+(3.2.1.0 R3) Each inspector line carries its file's `text` (`{label, source,
+text, cut?}`): the file inside the pack, a markdown, text or JSON file, its
+first 8 KB (`cut: true` when it is longer), every path in it cut to its
+last part like the rest of the catalog; the hub keeps at most 8 KB of it, so
+Studio shows a member's inspector lines as it shows its own harness's.
 
 ### What never leaves the machine
 
@@ -468,13 +473,19 @@ No key: a provider is its name and whether it is enabled here.
 
 `fleet.capabilities.hide` (a list of names) keeps things off the catalog:
 an MCP server (and its tools), one tool (`write_range` or
-`gridcraft/write_range`), a skill or a craft app. `fleet.tags` (a list) are
+`gridcraft/write_range`), a skill, a craft app or (3.2.1.0 R3) a pack's
+fleet capability (`docs.review` for every pack's, `doc-review/docs.review`
+for one pack's). A hidden pack capability is not offered to a mission's
+lead, not assigned, not ranked by `who` and not shown in Studio; `halo pack
+doctor` says how many of a pack's are hidden ("doc-review: 1 fleet
+capability is hidden from the fleet by fleet.capabilities.hide:
+docs.review") and `halo pack inspect` marks each one. `fleet.tags` (a list) are
 your own words for this harness (`gpu`, `studio`, `night-shift`); they show
 first on its chips and count double when someone asks who can do something.
 
 ```sh
 halo config set fleet.tags '["gpu", "studio"]'
-halo config set fleet.capabilities.hide '["private-notes", "gridcraft/delete_sheet"]'
+halo config set fleet.capabilities.hide '["private-notes", "gridcraft/delete_sheet", "doc-review/docs.review"]'
 ```
 
 ### How it reaches the hub
@@ -536,6 +547,34 @@ over the signed protocol (`mission_files`) or a real mount
 in Studio, Fleet's Mission panel plans, draws, approves, runs and reports it (3.0.6.0 R8).
 The whole story, the folder, the plan contract and a worked example:
 [MISSIONS.md](MISSIONS.md).
+
+**What the hub holds for a pack** (3.2.1.0 R3, `fleet/mission_hold.py`).
+Two promises a pack's fleet capability makes are kept by the hub, not only
+shown:
+
+- **Capacity.** `capacity.parallel` (the lead reads `docs.review (pack
+  doc-review, 2 at a time)`) is held: before a ready part starts, the hub
+  counts the parts live on its harness (asked or running, in every mission
+  it runs now) that hold the same pack capability; at the cap the part is
+  `waiting`, with one line in the mission log and on the part, `part 3
+  waits: bob@member runs 2/2 of pack doc-review: docs.review`, and it starts
+  when one of them ends. `fleet.mission.max_parallel` still caps the
+  mission as a whole.
+- **A refused part, re-planned once.** A part its harness refuses for a
+  pack reason (the worker's own line, `this harness does not run pack
+  doc-review with bash` or `this harness has no pack with <name>`, here or
+  on a member) is assigned again by the same rules with that harness left
+  out. When another harness has the capability, the part moves there (the
+  plan, MISSION.md and its brief say so), goes back to `pending`, and the
+  log, the part and the decisions say `part 1 replanned: bob@member refused
+  (this harness does not run pack doc-review with bash); alice@hub has pack
+  doc-review: docs.review`. When none has it the part fails with the
+  worker's line as before (the log says `part 1 not replanned: no other
+  harness has docs.review`); a part moves once, and a second refusal fails
+  it. Any other refusal (`fleet.allow_control: none`, an owner's deny)
+  fails the part as before.
+
+A mission that names no pack capability is run exactly as before.
 
 ## Recall across the fleet (3.1.2.0 R3)
 
@@ -657,7 +696,7 @@ digest (both R4, from this harness's own files); `halo fleet capabilities
 | `fleet.caps.fleet_usd_per_day` | unset | the same for every session the hub sees |
 | `fleet.attention.signal` | `true` | new attention rows go to the paired phone when the Signal bridge runs; `false` keeps them in Studio |
 | `fleet.tags` | `[]` | 3.0.6.0 R6: your own words for this harness; first on its chips, double weight in `who` |
-| `fleet.capabilities.hide` | `[]` | MCP servers, tools (`tool` or `server/tool`), skills or craft apps its capability catalog never lists |
+| `fleet.capabilities.hide` | `[]` | MCP servers, tools (`tool` or `server/tool`), skills, craft apps or pack capabilities (`name` or `<pack>/<name>`, 3.2.1.0 R3) its capability catalog never lists |
 | `fleet.recall.share` | `true` | 3.1.2.0 R3: `false` keeps this box out of recall across the fleet (it answers none) |
 | `fleet.recall.hide` | `[]` | 3.1.2.0 R3: memory kinds its recall never answers (`session`, `memory`, `coach_library` since 3.1.6.0, `finding` / `decision` / `knowledge` since 3.1.8.0 R4, or a topic's `type`) |
 | `fleet.shared_dir` | unset | 3.0.6.0 R7: a folder every machine sees; missions live there and nothing is mirrored ([MISSIONS.md](MISSIONS.md)) |

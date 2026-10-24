@@ -11,10 +11,9 @@ mission_worker.pack_check, packs/fleet_registry.refusal):
    missing, no such pack -- one line each, the same in `start_local` and in
    the fleet command (refused before the owner is asked);
 4. over two homes (tests/helpers/fleet_hub_rig.py): the member advertises
-   docs.review, but runs doc-review without bash: its part is refused with
-   the one line, its dependant is skipped, the mission fails with the line,
-   the member's worker never started; a mission started with the pack's
-   lineup carries its metadata.
+   docs.review, runs doc-review without bash, and no other harness has it:
+   refused with the line, not re-planned (3.2.1.0 R3), its dependant skipped,
+   the mission failed; a pack's lineup's mission carries its metadata.
 
 Run: python -m tests.test_packs_fleet_missions
 """
@@ -87,14 +86,14 @@ def test_the_planner_sees_them(ctx: Ctx):
     entries = _entries()
     block = catalog_block(entries, {})
     ctx.check(f"each block lists its packs' capabilities, got {block!r}",
-              "pack caps: docs.review (pack doc-review, 2 at once), gpu.render (not here: no GPU here)" in block
+              "pack caps: docs.review (pack doc-review, 2 at a time), gpu.render (not here: no GPU here)" in block
               and "pack caps: docs.review (not here: bash not granted), gpu.render (not here: no GPU here)" in block)
     only = unique_lines(entries)
     ctx.check(f"only one harness has: includes it, got {only}", any(ln.startswith("only bob@member has:") and "docs.review" in ln for ln in only)
               and not any("gpu.render" in ln for ln in only))
     text = prompt({"goal": "Review the docs", "repo": None}, entries, {})
     ctx.check("the prompt carries both, and names a pack capability as a need", "pack caps: docs.review (pack doc-review" in text
-              and "only bob@member has:" in text and "a pack capability)" in text)
+              and "only bob@member has:" in text and "a pack capability; one marked `N at a time`" in text)
     plain = catalog_block([{**e, "catalog": {k: v for k, v in e["catalog"].items() if k != "packs"}} for e in entries], {})
     ctx.check("a fleet with no pack: no packs line", "pack caps" not in plain)
 
@@ -182,10 +181,11 @@ def test_a_member_refuses_the_part_and_the_mission_moves_on(ctx: Ctx):
         A.run(mctx, mid)
         doc = wait_state(rig.home_a, mid, ("done", "failed", "stopped"), 40)
         p1, p2 = doc["parts"]["1"], doc["parts"]["2"]
-        ctx.check(f"the member refused it with the one line, got {p1['state']} {p1.get('error')!r}", p1["state"] == "failed" and p1["error"] == LINE)
-        ctx.check(f"its dependant is skipped, got {p2['state']}", p2["state"] == "skipped")
-        ctx.check(f"the mission failed with the line, got {doc['state']} {doc.get('stop_reason')!r}", doc["state"] == "failed"
-                  and LINE in str(doc.get("stop_reason")))
+        said = [r.get("text") for r in S.read_log(rig.home_a, mid, ("replan", "replanned"))]
+        ctx.check(f"refused with the line; no other harness has it: not re-planned (3.2.1.0 R3), got {p1} {said}", p1["state"] == "failed"
+                  and p1["error"] == LINE and said == ["part 1 not replanned: no other harness has docs.review"] and not p1.get("replanned"))
+        ctx.check(f"its dependant is skipped, the mission failed with the line, got {p2['state']} {doc['state']} {doc.get('stop_reason')!r}",
+                  p2["state"] == "skipped" and doc["state"] == "failed" and LINE in str(doc.get("stop_reason")))
         time.sleep(0.5)
         ctx.check(f"the member's worker never started, got {started}", started == [])
         ctx.check("the report says why", LINE in (S.folder(rig.home_a, mid) / "report.md").read_text(encoding="utf-8"))
