@@ -22,7 +22,9 @@ task needs:
   better of code and research); with no needs it is cheap and fast (bulk and
   measured speed);
 * a tie goes to the session's own model, then (band low) to a local one,
-  then the cheaper, then the ref's name; no candidate -> main's model.
+  then the cheaper, then the ref's name; no candidate -> main's model;
+* 3.1.9.0 R3 (outcomes/learn.py): what was measured for the task's kind
+  weighs each score (`relearn`), and the reason says when it moved the pick.
 
 The reason is one line naming the deciding need and the price ("an image in
 the task, the cheapest vision model ($0.30/$1.20 per 1M)"); `Pick.line()` is
@@ -65,6 +67,7 @@ class Pick:
     kinds: list = field(default_factory=list)         # the needs the pick was made for
     alternatives: list = field(default_factory=list)  # the next candidates, best first
     fallback: bool = False                            # True: no candidate, main's model runs it
+    how: str = AUTO                                   # 3.1.9.0 R3: `auto` or `measured` (the row's `picked`)
 
     def line(self) -> str:
         return f"auto: {self.ref or 'main'} -- {self.reason}"
@@ -187,16 +190,19 @@ def _candidates(entries: dict, needs: list, main_ref: str) -> list:
     return out
 
 
-def _choose(cands: list, needs: list, band: str, main_ref: str) -> tuple:
-    """`(chosen, ordered, rule, tie)` -- the band's rule over the candidates."""
+def _choose(cands: list, needs: list, band: str, main_ref: str, weights: Optional[dict] = None) -> tuple:
+    """`(chosen, ordered, rule, tie)` -- the band's rule over the candidates. `weights` (3.1.9.0 R3,
+    outcomes/learn.py): `{ref: factor}` on each score; band low weighs it right after the price."""
     inf, label = float("inf"), ("+".join(needs) + " model") if needs else ""
+    w = lambda c: (weights or {}).get(c.ref, 1.0)  # noqa: E731
+    cands = [c._replace(score=round(c.score * w(c), 4)) for c in cands] if weights else cands
     priced = [c for c in cands if c.price is not None]
     by_score = lambda c: (-c.score, c.ref != main_ref, c.price if c.price is not None else inf, c.ref)
     if band == "low":
         pool = priced or cands
-        ordered = sorted(pool, key=lambda c: (c.price if c.price is not None else inf, c.ref != main_ref,
+        ordered = sorted(pool, key=lambda c: (c.price if c.price is not None else inf, -w(c), c.ref != main_ref,
                                               not c.local, -c.score, c.ref))
-        primary = lambda c: c.price
+        primary = lambda c: (c.price, w(c))
         rule = f"the cheapest {label or 'model'}"
     elif band == "mid":
         paid = [c.price for c in priced if c.price > 0]
@@ -235,10 +241,13 @@ def load_rows(state_dir) -> dict:
 
 
 def pick(state_dir, *, needs=(), task_text: str = "", attachments=(), band: str = DEFAULT_BAND,
-         main_ref: str = "", role: str = "", rows: Optional[dict] = None) -> Pick:
+         main_ref: str = "", role: str = "", rows: Optional[dict] = None, kind: str = "",
+         stats: Optional[dict] = None, learn: Optional[dict] = None) -> Pick:
     """The model an `auto` agent runs on, and why (see the module docstring).
     `role`: the words naming the agent (its alias, its bio's kind); `rows`:
-    the index's rows (default: read from `state_dir`)."""
+    the index's rows (default: read from `state_dir`); 3.1.9.0 R3: `kind`
+    the task's kind (default: from `role`), `stats` / `learn` what was
+    learned and the rule's settings (outcomes/learn.py; default: read)."""
     found = derive_needs(needs, task_text, attachments, role)
     wanted, why = [n for n, _w in found], dict(found)
     band = band if band in BANDS else DEFAULT_BAND
@@ -254,7 +263,10 @@ def pick(state_dir, *, needs=(), task_text: str = "", attachments=(), band: str 
             wanted, note = relaxed, "no model takes video, so vision reads the Media tool's frames: "
     if not cands:
         return Pick(main_ref, f"no model in the catalog has {'+'.join(wanted)}; using main's", wanted, [], True)
-    best, ordered, rule, tie = _choose(cands, wanted, band, main_ref)
+    from halo_harness.outcomes.learn import relearn  # 3.1.9.0 R3: what was measured weighs in
+    (best, ordered, rule, tie), learned = relearn(state_dir, cands, wanted, band, main_ref,
+                                                  _choose(cands, wanted, band, main_ref), kind=kind, role=role,
+                                                  stats=stats, cfg=learn)
     deciding = next((why[n] for n in DECIDE_ORDER if n in why), "no special needs")
-    reason = f"{deciding}, {note}{rule} ({price_words(best.facts)}){tie}"
+    reason = f"{deciding}, {note}{rule} ({price_words(best.facts)}){tie}{learned}"
     return Pick(best.ref, reason, wanted, [c.ref for c in ordered[1:4]])

@@ -16,7 +16,9 @@ session's model, with the reason saying so.
 `record(child, pick)` puts the choice where it is seen: `child.model_reason`
 (the agent row's `model_reason`, so Studio's card pill, the Inspector's Live
 tab and the Session Live column's spawn line show it) and the child's first
-transcript note, `auto: <model> -- <reason>`.
+transcript note, `auto: <model> -- <reason>`; 3.1.9.0 R3: `child.model_picked`
+(`auto`, `measured`, or `none` when main's model ran it), which its outcome
+row carries as `picked` beside the reason (outcomes/session.py).
 """
 
 from __future__ import annotations
@@ -44,6 +46,14 @@ def band_of(team_control) -> str:
     return band if band in BANDS else DEFAULT_BAND
 
 
+def member_kind(team_control, role_name: Optional[str]) -> str:
+    """The member's task kind (outcomes/kinds.py: its bio's kind, else the words naming it), the kind its
+    outcome rows are recorded under and (3.1.9.0 R3) what was learned is read for."""
+    bio = (team_control.bio_for(role_name) or {}) if team_control is not None and role_name else {}
+    from halo_harness.outcomes.kinds import kind_of
+    return kind_of(bio.get("kind"), " ".join(str(w) for w in (role_name, bio.get("name")) if w))
+
+
 def member_measured(runtime, role_name: Optional[str], requested: Optional[str] = None) -> Optional[str]:
     """3.1.8.0 R3: the task kind to route a `measured` member by (outcomes/kinds.py), None when the value
     the order reached is `auto`: the call's own `model`, else the member's role-table value."""
@@ -52,10 +62,7 @@ def member_measured(runtime, role_name: Optional[str], requested: Optional[str] 
     value = value.get("model") if isinstance(value, dict) else value
     if not is_measured(value):
         return None
-    team_control = getattr(runtime, "team_control", None)
-    bio = (team_control.bio_for(role_name) or {}) if team_control is not None and role_name else {}
-    from halo_harness.outcomes.kinds import kind_of
-    return kind_of(bio.get("kind"), " ".join(str(w) for w in (role_name, bio.get("name")) if w))
+    return member_kind(getattr(runtime, "team_control", None), role_name)
 
 
 def resolver(*, runtime, role_name: Optional[str], task_text: str, holder: dict, routes=None,
@@ -69,13 +76,14 @@ def resolver(*, runtime, role_name: Optional[str], task_text: str, holder: dict,
         team_control = getattr(runtime, "team_control", None)
         try:
             needs, words = member_needs(team_control, role_name)
-            kind = member_measured(runtime, role_name, requested)
+            measured = member_measured(runtime, role_name, requested)
             how = pick
-            if kind:
-                from halo_harness.outcomes.routing import pick_measured
-                how = lambda *a, **kw: pick_measured(*a, kind=kind, **kw)  # noqa: E731
+            if measured:
+                from halo_harness.outcomes.routing import pick_measured as how
+            # 3.1.9.0 R3: the member's kind -- what was learned for it weighs the auto pick (outcomes/learn.py)
             chosen = how(getattr(parent, "state_dir", None), needs=needs, task_text=task_text or "",
-                         band=band_of(team_control), main_ref=main_ref, role=words)
+                         band=band_of(team_control), main_ref=main_ref, role=words,
+                         kind=measured or member_kind(team_control, role_name))
         except Exception as e:
             chosen = Pick(main_ref, f"the pick failed ({type(e).__name__}); using main's", [], [], True)
         if not chosen.fallback and chosen.ref != main_ref:
@@ -119,6 +127,7 @@ def record(child, chosen: Optional[Pick], ran_on: Optional[str] = None) -> Optio
     if ran_on and not chosen.fallback and chosen.ref != ran_on:
         chosen.fall_back(ran_on, f"{chosen.ref} did not resolve")
     child.model_reason = chosen.reason
+    child.model_picked = "none" if chosen.fallback else chosen.how  # 3.1.9.0 R3: the outcome row's `picked`
     try:
         child.log.append_meta(fleet_note=chosen.line())
     except Exception:

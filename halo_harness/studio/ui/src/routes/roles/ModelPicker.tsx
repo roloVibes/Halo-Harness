@@ -6,10 +6,12 @@
 // kinds first), search by any of it; a click picks the row. A ref the catalog
 // lacks can be typed below. "Test this model" sends the one-token probe
 // (`POST models/test`) and shows ok and the latency, or the error, right
-// under it.
+// under it. 3.1.9.0 R3: the "learned" chips per task kind (LearnedChips.tsx)
+// and a "learned for" select that strikes the models dropped for that kind.
 import { useMemo, useState } from "react";
 import { Button } from "../../lib/ui";
 import { testModel } from "./bioActions";
+import { LearnedChips, droppedFor, learnedKinds } from "./LearnedChips";
 import { useRoles } from "./store";
 import type { ModelRow } from "./types";
 
@@ -34,16 +36,20 @@ export function TestButton({ value }: { value: string }) {
   );
 }
 
-/** The "best at" cell: the kinds as chips, the line under them (the full line on hover). */
-function BestAt({ m, kinds }: { m: ModelRow; kinds: string[] }) {
+/** The "best at" cell: the kinds as chips, the line under them (the full line on hover); 3.1.9.0 R3: what was learned. */
+function BestAt({ m, kinds, task }: { m: ModelRow; kinds: string[]; task: string }) {
   const line = m.best_at?.line || "";
   return (
     <span className="rm-best" data-testid="model-best-at" title={line || undefined}>
       <span className="rm-kinds">{kinds.slice(0, 4).map((k) => <span key={k} className="og-chip mono" data-kind={k}>{k}</span>)}</span>
       {line && <span className="rm-line muted" data-testid="model-best-line">{line}</span>}
+      <LearnedChips m={m} kind={task} />
     </span>
   );
 }
+
+const learnedWords = (m: ModelRow) =>
+  Object.entries(m.learned || {}).map(([k, l]) => `${k} ${l.passed}/${l.n}${l.dropped ? " dropped" : ""}`).join(" ");
 
 export function ModelPicker({ value, onPick }: { value: string; onPick: (ref: string) => void }) {
   const models = useRoles((s) => s.models);
@@ -53,10 +59,12 @@ export function ModelPicker({ value, onPick }: { value: string; onPick: (ref: st
   const [q, setQ] = useState("");
   const [sort, setSort] = useState<Sort>("name");
   const [typed, setTyped] = useState("");
+  const [task, setTask] = useState("");
+  const tasks = useMemo(() => learnedKinds(models), [models]);
   const kindsOf = (m: ModelRow) => m.best_at?.kinds || bestFor[m.ref] || [];
   const rows = useMemo(() => {
     const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
-    const text = (m: ModelRow) => [m.ref, m.group, m.detail, m.price, m.context, m.chips, m.best_at?.line, ...kindsOf(m)].join(" ").toLowerCase();
+    const text = (m: ModelRow) => [m.ref, m.group, m.detail, m.price, m.context, m.chips, m.best_at?.line, ...kindsOf(m), learnedWords(m)].join(" ").toLowerCase();
     const hit = models.filter((m) => words.every((w) => text(m).includes(w)));
     const by: Record<Sort, (a: ModelRow, b: ModelRow) => number> = {
       name: (a, b) => a.ref.localeCompare(b.ref),
@@ -76,6 +84,13 @@ export function ModelPicker({ value, onPick }: { value: string; onPick: (ref: st
             <button key={k} className={sort === k ? "on" : ""} aria-pressed={sort === k} onClick={() => setSort(k)} data-testid={`model-sort-${k}`}>{k}</button>
           ))}
         </span>
+        {tasks.length > 0 && (
+          <select className="input mono rm-task" value={task} onChange={(e) => setTask(e.target.value)} data-testid="model-learned-kind"
+                  aria-label="Learned for a task kind" title="What Auto learned here for one task kind: its chips only, and the models dropped for it struck through">
+            <option value="">learned: any kind</option>
+            {tasks.map((k) => <option key={k} value={k}>learned for {k}</option>)}
+          </select>
+        )}
       </div>
       {!loaded ? (
         <div className="og-wait mono muted">reading the catalog...</div>
@@ -84,15 +99,21 @@ export function ModelPicker({ value, onPick }: { value: string; onPick: (ref: st
       ) : (
         <div className="rm-table" role="listbox" aria-label="Models">
           <div className="rm-row rm-head mono" aria-hidden="true"><span>model</span><span>in / out</span><span>ctx</span><span>best at</span><span>gym</span></div>
-          {rows.slice(0, MAX_ROWS).map((m) => (
-            <button key={m.ref} className="rm-row" role="option" aria-selected={m.ref === value} onClick={() => onPick(m.ref)} data-testid="model-row" data-ref={m.ref} title={m.detail || m.ref}>
-              <span className="mono rm-ref">{m.ref}</span>
-              <span className="mono">{money(m.price_in)} / {money(m.price_out)}</span>
-              <span className="mono">{m.context}</span>
-              <BestAt m={m} kinds={kindsOf(m)} />
-              <span className="mono">{gym[m.ref] ? gym[m.ref].score.toFixed(2) : ""}</span>
-            </button>
-          ))}
+          {rows.slice(0, MAX_ROWS).map((m) => {
+            const dropped = droppedFor(m, task);
+            const l = dropped ? m.learned?.[task] : undefined;
+            return (
+              <button key={m.ref} className={dropped ? "rm-row rm-dropped" : "rm-row"} role="option" aria-selected={m.ref === value} onClick={() => onPick(m.ref)}
+                      data-testid="model-row" data-ref={m.ref} data-dropped={dropped || undefined}
+                      title={l ? `${m.ref}: dropped for ${task} (${l.passed}/${l.n} checked tasks)` : m.detail || m.ref}>
+                <span className="mono rm-ref">{m.ref}</span>
+                <span className="mono">{money(m.price_in)} / {money(m.price_out)}</span>
+                <span className="mono">{m.context}</span>
+                <BestAt m={m} kinds={kindsOf(m)} task={task} />
+                <span className="mono">{gym[m.ref] ? gym[m.ref].score.toFixed(2) : ""}</span>
+              </button>
+            );
+          })}
           {rows.length > MAX_ROWS && <p className="muted rm-more">{rows.length - MAX_ROWS} more: narrow the search.</p>}
           {!rows.length && <p className="muted rm-more">No model matches "{q}".</p>}
         </div>

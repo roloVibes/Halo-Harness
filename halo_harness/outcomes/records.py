@@ -5,7 +5,8 @@ agent task (Halo 3.1.8.0 R3, docs/OUTCOMES.md "outcomes.jsonl"):
      "run_dir": "<run folder>" | "", "bio": "auto-coder", "model": "or:vendor/model", "kind": "code",
      "outcome": "passed | returned | failed | stopped | done", "check": "gate | acceptance | stage | ",
      "returns": 0, "cost_usd": 0.0123, "tests_passed": 12, "tests_failed": 0, "sources": 0,
-     "evidence": "<path of its evidence.json>", "ts": 1760800000.0}
+     "evidence": "<path of its evidence.json>", "ts": 1760800000.0,
+     "picked": "auto | measured | none", "reason": "<the pick's one line> | "}     (3.1.9.0 R3)
 
 An Orchestra lane's outcome is read from the run's report: the run finished
 -> `passed` (no send-back) or `returned` (sent back at least once); the run
@@ -33,6 +34,7 @@ from typing import Optional
 OUTCOMES = "outcomes.jsonl"
 WORDS = ("passed", "returned", "failed", "stopped", "done")
 RATED = ("passed", "returned", "failed")
+PICKS = ("auto", "measured", "none")  # 3.1.9.0 R3: a row's `picked`
 
 
 def path(state_dir=None) -> Path:
@@ -54,13 +56,17 @@ def append(rows: list, state_dir=None) -> int:
 
 def make_row(*, run: str, task: str, source: str, ev=None, bio: str = "", model: str = "", kind: str = "",
              outcome: str, check: str = "", returns: int = 0, cost_usd: float = 0.0, run_dir: str = "",
-             evidence_path: str = "", ts: Optional[float] = None, **extra) -> dict:
+             evidence_path: str = "", ts: Optional[float] = None, picked: str = "none", reason: str = "",
+             **extra) -> dict:
+    """One row. 3.1.9.0 R3: `picked` -- `auto` / `measured` when the model was picked at spawn for the task
+    (models_auto_spawn.record), else `none`; `reason` -- that pick's one line ("" without one)."""
     row = {"run": run, "task": task, "source": source, "run_dir": run_dir,
            "bio": bio or (ev.bio if ev else ""), "model": model or (ev.model if ev else ""),
            "kind": kind or (ev.kind if ev else "other"), "outcome": outcome, "check": check,
            "returns": int(returns or 0), "cost_usd": round(float(cost_usd or (ev.cost_usd if ev else 0.0) or 0.0), 6),
            "tests_passed": ev.tests_passed if ev else 0, "tests_failed": ev.tests_failed if ev else 0,
-           "sources": len(ev.sources) if ev else 0, "evidence": evidence_path, "ts": round(ts or time.time(), 3)}
+           "sources": len(ev.sources) if ev else 0, "evidence": evidence_path, "ts": round(ts or time.time(), 3),
+           "picked": picked if picked in PICKS else "none", "reason": str(reason or "")}
     row.update({k: v for k, v in extra.items() if v not in (None, "")})
     return row
 

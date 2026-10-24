@@ -217,7 +217,11 @@ transcript's tool calls with their results; a session's log file),
 judge's block), `outcomes/session.py` (a sub-agent's evidence and outcome
 at its end), `outcomes/records.py` (outcomes.jsonl), `outcomes/measured.py`
 (success per model and kind), `outcomes/routing.py` (`models.preference:
-measured`) and `outcomes/cli.py` (`halo outcomes`, `halo models --measured`).
+measured`), `outcomes/cli.py` (`halo outcomes`, `halo models --measured`);
+3.1.9.0 R3 (Auto learns): `outcomes/learn.py` (the learned numbers over the
+window, the pick's weight, dropped for a kind, `relearn` for
+`models_auto.pick`) and `outcomes/learn_cli.py` (`halo outcomes learned`,
+`halo outcomes forget`).
 
 **Packs** (`halo_harness/packs/`, Halo 3.2.0.0 R1, docs/PACKS.md): the
 names (`packs/names.py`: ids, `<id>--<name>`, the `pack:<id>` label and

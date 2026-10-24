@@ -37,7 +37,8 @@ Four words, in this order: **bio -> lineup -> role -> session**.
 - Your **session** runs each job on the model its role names, and the
   sub-agents Halo spawns do the same. Until you pick a lineup, the **auto**
   lineup runs (Halo 3.1.9.0): main on your model, a pool of agents whose
-  models are picked for each task ([The Auto lineup](#the-auto-lineup-halo-3190)).
+  models are picked for each task ([The Auto lineup](#the-auto-lineup-halo-3190)),
+  weighing how each model did at that kind of task here ([Auto learns](#auto-learns-halo-3190)).
   With roles off: **one model for everything**, the default model you picked.
 
 ![How bios, lineups and roles fit together](media/diagrams/agents-model.svg)
@@ -172,6 +173,74 @@ order (after a call's own `model`, a `--role` override, an agent file's
 `halo teams show` says "model picked at spawn (by measured success at its
 kind, else as auto; ...)". The shipped `auto` lineup's bios stay `auto`:
 copy one and set `measured` to route by your own results.
+
+### Auto learns (Halo 3.1.9.0)
+
+Every agent task's outcome lands in `~/.halo/coach/outcomes.jsonl` with its
+model and task kind ([OUTCOMES.md](OUTCOMES.md#outcomesjsonl)). The `auto`
+pick reads those rows back (`halo_harness/outcomes/learn.py`), so a model
+that keeps failing a kind of task gives way and one that keeps succeeding
+keeps its place.
+
+**The rule, with its numbers.** For the member's task kind (its bio's kind:
+coder -> code, planner -> plan, researcher -> research, ...), each
+candidate's checked tasks of the last 30 days count. From 3 of them, the
+candidate's score is multiplied by its weight:
+
+| first-time success rate | weight |
+|---|---|
+| fewer than 3 checked tasks | 1.0 (nothing learned yet) |
+| 1.0 (every task passed first time) | 1.0 |
+| 0.75 | 0.875 |
+| 0.5 | 0.75 |
+| 0.25 | 0.625 |
+| 0.0 | 0.5 |
+
+That is `0.5 + 0.5 x rate`. So a cheaper model that keeps succeeding beats
+a stronger one that keeps being sent back (score 0.9 at 1 of 4 is 0.5625,
+under 0.6 at 5 of 5), and among equals the one that keeps failing loses its
+place, even when it is main's own model. Band `low` ranks by price first, so
+there the weight decides among equal prices. The reason says when the
+numbers moved the pick, and when they confirmed it:
+
+```
+auto: or:t/cheap -- the bio asks for tools, the strongest tools model ($0.50/$2.00 per 1M) (learned: code 1/4 on or:t/strong, so or:t/cheap instead)
+auto: or:t/cheap -- the bio asks for tools, the cheapest tools model ($0.50/$2.00 per 1M) (code 5/5 here)
+```
+
+The words ride with the reason everywhere it shows: the Roles card's pill
+on hover, the Inspector's Live tab line, the Session Live column's spawn
+line, the child's first note, and the outcome row the task leaves
+(`picked: auto`, `reason`). A `measured` bio keeps its stricter rank by rate
+(above).
+
+**The drop line.** A model whose rate for a kind is under 34% (from 3
+checked tasks in the window) leaves that kind's leaders in the model roster
+main reads (code and research by name; media leaves the visual, audio and
+video lines), and one line after them says so with the numbers:
+
+```
+- dropped for code: or:v/ears (1/4 checked tasks); dropped for plan: or:v/cheap (1/3 checked tasks)
+```
+
+At most three models, the worst first, then "(+N more: `halo outcomes
+learned`)". `halo models --measured` and `halo models analyze` mark the same
+models ("dropped for code (1/4 in the last 30 days)"), and Studio's model
+picker strikes them for the kind you pick under "learned for". A checked
+pass that lifts the rate back over 34% puts the model back.
+
+**See it and reset it.** `halo outcomes learned` lists, per model and kind,
+the tasks, the rate, the weight, how many were the model's own picks and
+whether it is dropped. `halo outcomes forget --model REF [--kind K]
+[--before DATE] --yes` removes those rows (the file before is kept beside it
+as `outcomes.jsonl.bak-<time>`), so that model starts over
+([OUTCOMES.md](OUTCOMES.md#what-was-learned)).
+
+**The switch and the knobs** ([CONFIG.md](CONFIG.md)): `halo config set
+models.learn false` turns it off -- every weight is 1.0 and nothing is
+dropped, the pick of Halo 3.1.9.0 R2. `models.learn.min_tasks` (default 3),
+`models.learn.window_days` (default 30; 0 counts every row) and
+`models.learn.drop_below` (default 0.34) are the only knobs.
 
 ## Roles on/off is one switch (Halo 2.0.5 round 2b)
 
