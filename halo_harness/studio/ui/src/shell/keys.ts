@@ -1,12 +1,12 @@
 // Global keys: Alt+1..6 switch sections in the registry's order (routes/index.tsx SECTIONS; 3.1.6.0 R6:
-// Session Alt+1 ... Orchestra Alt+6), Ctrl/Cmd+K toggles the palette,
+// Session Alt+1 ... Orchestra Alt+6; 3.2.0.0 R3: Alt+7..9 the packs' sections), Ctrl/Cmd+K toggles the palette,
 // `?` (Shift+/) opens "How this works" for the section (a focused panel
 // takes `?` first for its own help), Esc closes the palette, then the
 // Inspector. A key a panel, a menu or a dialog already handled (its default
 // prevented) stops there.
 import { useEffect } from "react";
 import { closeHelp, goSection, openHelp, studio } from "../lib/store";
-import { SECTIONS } from "../routes";
+import { sections } from "../routes";
 
 const TYPING = "input, textarea, select, [contenteditable]";
 
@@ -20,9 +20,10 @@ export function useGlobalKeys(): void {
         studio.update((s) => ({ paletteOpen: !s.paletteOpen }));
         return;
       }
-      if (e.altKey && !mod && !e.shiftKey && /^Digit[1-6]$/.test(e.code)) {
+      const def = e.altKey && !mod && !e.shiftKey && /^Digit[1-9]$/.test(e.code) ? sections()[Number(e.code.slice(5)) - 1] : undefined;
+      if (def && def.kbd) {
         e.preventDefault();
-        goSection(SECTIONS[Number(e.code.slice(5)) - 1].id);
+        goSection(def.id);
         return;
       }
       const typing = (e.target as HTMLElement | null)?.closest?.(TYPING);

@@ -31,6 +31,7 @@ import "./styles/session.css";
 import "./styles/model-select.css";
 import "./styles/holo.css";
 import "./styles/session-live.css";
+import "./styles/packs.css";
 import { App } from "./App";
 
 document.documentElement.dataset.theme = document.documentElement.dataset.theme || "dark";

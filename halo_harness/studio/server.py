@@ -204,6 +204,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
             serve_sse(self)
         elif self.path.startswith("/design-files/"):
             self._design_file()
+        elif self.path.startswith("/api/pack/") and "t=" in urlsplit(self.path).query and not self.headers.get("Authorization"):
+            # 3.2.0.0 R3: a pack's bundle module -- an import() sends no header, so its token rides in ?t= (as /api/events)
+            from halo_harness.studio.packs_studio_api import serve_module
+            serve_module(self)
         else:
             self._api("GET") if self.path.startswith("/api/") else self._static()
 

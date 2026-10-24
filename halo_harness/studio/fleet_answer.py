@@ -19,6 +19,7 @@ calls `act`; the decision is journaled there with `by`.
     team_budget     a raise: opens the team file | r skip the stage | s stop the run   (team/budget, 3.1.2.0 R2)
     goal_plan | goal_gate | goal_budget | goal_ask | goal_replan   a supervisor decision (3.1.8.0 R1/R2,
                     fleet/supervise_attention.py): the answer is written to its decision file; the supervisor applies it
+    pack:<id>:<kind>  a | r | s the pack's labels: answers/<row>.json in its data folder; o its section (3.2.0.0 R3)
     every kind      o open: answered with where to open it, nothing is sent
 
 Cards go through `fleet/<harness>/<sid>/command {cmd: answer, ...}` (this
@@ -71,6 +72,9 @@ def agent_command(req, hid: str, sid: str, aid: str, body: dict):
 
 def open_target(row: dict) -> dict:
     kind, t = row["kind"], row.get("target") or {}
+    if kind.startswith("pack:"):  # 3.2.0.0 R3: a pack's own row opens its section
+        from halo_harness.fleet.pack_attention import open_target as pack_target
+        return pack_target(row)
     if kind == "orchestra_gate":
         return {"section": "orchestra", "run": t.get("run")}
     if kind in ("team_gate", "team_budget"):  # 3.0.8.0 R2, 3.1.2.0 R2
@@ -111,6 +115,9 @@ def act(req, watcher, row: dict, key: str, text: str):
     label = row["keys"][key]
     if key == "o":
         return 200, {"open": open_target(row)}, label
+    if kind.startswith("pack:"):  # 3.2.0.0 R3: the pack's code reads the answer file
+        from halo_harness.fleet.pack_attention import answer as pack_answer
+        return pack_answer(req, row, key, text)
     if kind == "mission_plan":  # 3.0.6.0 R7
         from halo_harness.fleet.mission_attention import answer
         return answer(req, row, key, text)

@@ -61,7 +61,7 @@ function Row({ row, sel, now }: { row: AttnRow; sel: boolean; now: number }) {
   return (
     <li className="fat-row" data-testid="fleet-attn-row" data-kind={row.kind} data-id={row.id} aria-selected={sel} onClick={() => panels.update(() => ({ attnSel: row.id }))}>
       <div className="fat-top">
-        <span className="og-chip mono fat-kind" data-kind={row.kind}>{KIND[row.kind] || row.kind}</span>
+        <span className="og-chip mono fat-kind" data-kind={row.kind}>{KIND[row.kind] || row.label || row.kind}</span>
         <span className="fat-who mono" title={`${row.harness_name} · ${row.session} · ${row.agent}`}>
           {row.harness_name}{row.session ? ` · ${short(row.session, 26)}` : ""}{row.agent ? ` · ${row.agent}` : ""}
         </span>

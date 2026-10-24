@@ -125,7 +125,7 @@ class Watcher:
             rows = attention.build(view, asks=self.asks, orchestra=sources.orchestra(self.server),
                                    commands=sources.commands(self.server), reached=self.reached, conflicts=self.conflicts,
                                    seen=self.seen, acks=self.acks | set(self.answered), now=now, home=self.home,
-                                   teams=sources.teams(self.server))  # 3.0.8.0 R2: team gates
+                                   teams=sources.teams(self.server), packs=sources.packs(self.server))  # 3.0.8.0 R2: team gates; 3.2.0.0 R3: packs' rows
             rows = [r for r in rows if not (r["kind"] == "paused" and (r["harness"], r["session_id"]) in capped)]
             ids = {r["id"] for r in rows}
             self.seen = {k: v for k, v in self.seen.items() if k in ids}

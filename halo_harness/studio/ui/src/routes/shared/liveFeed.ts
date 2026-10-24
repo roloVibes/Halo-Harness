@@ -9,13 +9,15 @@
 // reads as one paragraph per agent, not a chunk per frame); a tool row takes
 // its result when it lands (3.1.7.0 R1: its first line, and the whole of it
 // for the click that opens the row). At most MAX_LINES are kept. `open` is the tool
-// each agent runs right now and since when: the map's "Bash 12s" reads it.
+// each agent runs right now and since when: the map's "Bash 12s" reads it. 3.2.0.0 R3: a pack's
+// `pack_event` is one line (kind "pack") with the pack's label and its line template (routes/packs/events.ts).
 import { onEvent, type FeedFrame } from "../../lib/events";
 import { createStore, useStore } from "../../lib/store";
 import { fleet, findAgent, keyOf, localId } from "../fleet/store";
 import type { AgentKey, Entry } from "../fleet/types";
+import { lineOf, packOf } from "../packs/events";
 
-export type LiveKind = "text" | "thinking" | "tool" | "output" | "ask" | "spawn" | "state" | "you" | "asked" | "error";
+export type LiveKind = "text" | "thinking" | "tool" | "output" | "ask" | "spawn" | "state" | "you" | "asked" | "error" | "pack";
 export type LiveLine = {
   n: number;
   key: AgentKey;
@@ -36,6 +38,8 @@ export type LiveLine = {
   error?: boolean;
   ask?: string;
   state?: string;
+  /** 3.2.0.0 R3: a pack line's KIND column (the pack's label). */
+  label?: string;
 };
 export type OpenTool = { tool: string; id: string; t0: number };
 export type LiveState = { lines: LiveLine[]; open: Record<AgentKey, OpenTool>; started: boolean };
@@ -185,6 +189,15 @@ export function startLive(): void {
   for (const k of ["text_chunk", "tool_use_start", "tool_result"]) onEvent(k, onRaw);
   onEvent("agent_event", onAgentEvent);
   for (const k of Object.keys(ASK_LABEL)) onEvent(k, onAsk);
+  onEvent("pack_event", onPack);
+}
+
+/** A pack's frame: one line under the pack's name, in this harness's column. */
+function onPack(f: FeedFrame): void {
+  const d = packOf(f.data);
+  if (!d) return;
+  const l = lineOf(d.pack, d.kind, d.data);
+  addLine({ key: keyOf(String(f.harness || localId() || ""), "", "pack:" + d.pack), kind: "pack", ts: Number(f.ts) || Date.now() / 1000, text: l.text, label: l.label });
 }
 
 /** The tool `key` runs now (null when none), from the feed. */

@@ -39,7 +39,8 @@ def test_the_registry_runs_session_first_and_orchestra_last(ctx: Ctx):
     ctx.check("Session is Alt+1, This session, live", rows[0][1:] == ("Session", "Alt+1", "This session, live"))
     ctx.check("Orchestra is Alt+6, Runs of your agents, live", rows[-1][1:] == ("Orchestra", "Alt+6", "Runs of your agents, live"))
     keys = (UI / "shell" / "keys.ts").read_text(encoding="utf-8")
-    ctx.check("Alt+1..6 take the registry's n-th section", "SECTIONS[Number(e.code.slice(5)) - 1]" in keys)
+    ctx.check("Alt+1..6 take the registry's n-th section (3.2.0.0 R3: sections() is the six, then the packs')",
+              "sections()[Number(e.code.slice(5)) - 1]" in keys)
 
 
 @test
@@ -67,7 +68,8 @@ def test_the_ui_copy_and_comments_name_the_registry_key(ctx: Ctx):
     ctx.check("the status bar's key hint reads the registry's first and last key",
               "SECTIONS[0].kbd" in status and "SECTIONS[SECTIONS.length - 1].kbd" in status and 'keys="Alt+1"' not in status)
     palette = (UI / "shell" / "Palette.tsx").read_text(encoding="utf-8")
-    ctx.check("the palette's section groups follow the registry", "...SECTIONS.map((s) => s.title)" in palette)
+    ctx.check("the palette's section groups follow the registry (3.2.0.0 R3: sections(), the packs' after)",
+              "...sections().map((s) => s.title)" in palette)
 
 
 @test

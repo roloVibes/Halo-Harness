@@ -2,11 +2,12 @@
 // it; an optional one is added), the section's own block (Orchestra: the
 // runs), the Fleet tree (every harness, session and agent with its
 // status, and the answer for a session that waits on you), and the layout
-// actions.
+// actions. 3.2.0.0 R3: the packs' sections, under a thin "packs" divider.
 import { Button, Icon, Kbd } from "../lib/ui";
 import { studio, toast, useStore } from "../lib/store";
 import { layoutStore, resetLayout } from "../lib/workspace/persist";
-import { sectionDef } from "../routes";
+import { goSection } from "../lib/store";
+import { sectionDef, useSections } from "../routes";
 import { revealPanel } from "./commands";
 import { FleetRail } from "../routes/fleet/FleetRail";
 
@@ -15,6 +16,7 @@ export function Rail() {
   const open = useStore(studio, (s) => s.railOpen);
   const ls = useStore(layoutStore(section), (s) => s);
   const def = sectionDef(section);
+  const packSections = useSections().filter((s) => s.id.includes("--"));
   if (!open) return null;
   return (
     <aside className="rail" aria-label="Rail">
@@ -45,6 +47,19 @@ export function Rail() {
           );
         })}
       </nav>
+
+      {packSections.length > 0 && (
+        <nav className="rail-group rail-packs" aria-label="Packs" data-testid="rail-packs">
+          <div className="rail-label mono rail-divider">PACKS</div>
+          {packSections.map((s) => (
+            <button key={s.id} className={"rail-item" + (s.id === section ? " on" : "")} onClick={() => goSection(s.id)} title={s.blurb} data-testid="rail-pack-section">
+              <Icon name="diamond" />
+              <span className="rail-item-text">{s.title}</span>
+              {s.kbd && <Kbd keys={s.kbd} />}
+            </button>
+          ))}
+        </nav>
+      )}
 
       <FleetRail />
 

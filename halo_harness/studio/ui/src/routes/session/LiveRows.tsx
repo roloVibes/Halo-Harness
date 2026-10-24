@@ -28,6 +28,7 @@ export type Who = { name: string; hc: number; state: string };
 /** The KIND column, Fleet's log vocabulary. */
 export const KIND: Record<LiveKind, string> = {
   text: "TEXT", thinking: "THINK", tool: "TOOL", output: "OUT", ask: "ASK", spawn: "SPAWN", state: "STATE", you: "YOU", asked: "ASKED", error: "ERR",
+  pack: "PACK", // 3.2.0.0 R3: the pack's own label shows instead when it declares one
 };
 
 const ORDER = ["a", "r", "s", "o"];
@@ -117,6 +118,8 @@ function Body({ l, live }: { l: LiveLine; live: boolean }) {
       );
     case "spawn":
       return <div className="slv-note mono" data-kind="spawn">◉ {short(l.text, 200)}</div>;
+    case "pack":
+      return <div className="slv-note" data-kind="pack" data-testid="session-live-pack">{short(l.text, 260)}</div>;
     case "asked":
       return <div className="slv-note"><span className="mono muted">asked: </span>{short(l.text, 260)}</div>;
     case "you":
@@ -133,7 +136,7 @@ export const LiveRow = memo(function LiveRow({ l, who, last, onPin, onHover }: {
   return (
     <div className="fac-line slv-line" data-testid="session-live-line" data-hc={who.hc} data-kind={l.kind} data-key={l.key} data-n={l.n} onMouseEnter={() => onHover(l.key)}>
       <span className="mono fac-ts" data-testid="session-live-time">{clock(l.ts)}</span>
-      <span className="mono fac-kind" data-testid="session-live-kind">{KIND[l.kind] || l.kind}</span>
+      <span className="mono fac-kind" data-testid="session-live-kind">{l.label || KIND[l.kind] || l.kind}</span>
       <Tag k={l.key} who={who} onPin={onPin} />
       <div className="fac-text slv-body">
         <Body l={l} live={last && who.state === "running" && (l.kind === "text" || l.kind === "thinking")} />

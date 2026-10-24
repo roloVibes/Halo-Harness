@@ -5,11 +5,12 @@
 // the digest on demand. The activity log and the timeline lanes are built
 // here from the feed: every agent's state change (read off the map's store,
 // so a GET and a frame count alike), its tool calls (ticks), its text,
-// the cards it opens, errors and the fleet's own frames. Started once with
+// the cards it opens, errors, the fleet's own frames and (3.2.0.0 R3) a pack's lines. Started once with
 // the map's store (sync.ts startFleet).
 import { api, ApiError } from "../../lib/api";
 import { onEvent, type FeedFrame } from "../../lib/events";
 import { allAgents, fleet, keyOf, localId } from "./store";
+import { lineOf, packOf } from "../packs/events";
 import { panels, type AttnRow, type Conflicts, type Costs, type Digest, type Health, type LogKind, type LogLine, type Seg } from "./pstore";
 
 const POLL_MS = 6000;
@@ -105,6 +106,11 @@ function onFrame(f: FeedFrame): void {
   else if (f.event === "tool_result" && d.is_error && f.session_id) addLine(frameKey(f), "error", `${String(d.name || "a tool")} failed: ${String(d.summary || d.content || "")}`, ts);
   else if (ASKS.includes(f.event) && f.session_id) addLine(frameKey(f), "ask", `${nameOf(frameKey(f))} asks: ${f.event.replace("_", " ")}${d.name ? " " + String(d.name) : ""}`, ts);
   else if (f.event === "error" && f.session_id) addLine(frameKey(f), "error", String(d.message || d.error || "error"), ts);
+  else if (f.event === "pack_event" && packOf(f.data)) {
+    const p = packOf(f.data)!;
+    const l = lineOf(p.pack, p.kind, p.data);
+    addLine(keyOf(String(f.harness || localId() || ""), "", "pack:" + p.pack), "pack", `${l.label} ${l.text}`, ts);
+  }
   else if (f.event === "fleet") {
     const action = String(d.action || "");
     if (action === "attention") return;

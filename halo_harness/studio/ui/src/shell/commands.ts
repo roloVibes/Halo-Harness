@@ -1,13 +1,16 @@
 // The palette's commands and its fuzzy matcher. Groups: Go to, Help, then
 // the sections in the registry's order (3.1.6.0 R6: Team, Roles, Fleet,
 // Design, Orchestra; Session has none of its own), Media, View, Layout. Each
-// command may show a key (the same hint the menus show).
+// command may show a key (the same hint the menus show). 3.2.0.0 R3: the packs' sections join Go to and
+// Help, and each pack's palette actions come last in their own group ("pack <id>").
 import { cycleTheme, goSection, openHelp, setTheme, studio, toast, toggleRail } from "../lib/store";
 import { openGlossary } from "../lib/glossary";
 import { openStart } from "../lib/start";
 import { layoutStore, resetLayout, showPanel } from "../lib/workspace/persist";
 import type { PanelSpec } from "../lib/workspace/types";
-import { SECTIONS, sectionDef, type SectionDef } from "../routes";
+import { sectionDef, sections, type SectionDef } from "../routes";
+import { packCommands } from "../routes/packs/registry";
+import { packs } from "../routes/packs/store";
 import { mediaCommands } from "../routes/media/commands";
 import { orchestraCommands } from "../routes/orchestra/commands";
 import { fleetCommands } from "../routes/fleet/commands";
@@ -27,15 +30,16 @@ export function revealPanel(def: SectionDef, p: PanelSpec): void {
 
 export function commands(): Command[] {
   const cur = sectionDef(studio.get().section);
-  const out: Command[] = SECTIONS.map((s) => ({
+  const all = sections();
+  const out: Command[] = all.map((s) => ({
     id: "go-" + s.id,
     group: "Go to",
     label: s.title,
     hint: s.blurb,
-    kbd: s.kbd,
+    kbd: s.kbd || undefined,
     run: () => goSection(s.id),
   }));
-  for (const s of [cur, ...SECTIONS.filter((x) => x.id !== cur.id)]) {
+  for (const s of [cur, ...all.filter((x) => x.id !== cur.id)]) {
     out.push({
       id: "help-" + s.id,
       group: "Help",
@@ -77,6 +81,7 @@ export function commands(): Command[] {
     });
   }
   out.push(...teamCommands(), ...rolesCommands(), ...fleetCommands(), ...designCommands(), ...orchestraCommands(), ...mediaCommands());
+  out.push(...packCommands(packs.get().reg));
   return out;
 }
 

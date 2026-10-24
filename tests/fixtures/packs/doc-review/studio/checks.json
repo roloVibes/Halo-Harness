@@ -1,0 +1,5 @@
+[
+  {"check": "links", "state": "ok", "note": "every link resolves"},
+  {"check": "headings", "state": "warn", "note": "two pages skip a level"},
+  {"check": "spelling", "state": "ok", "note": "no unknown words"}
+]
