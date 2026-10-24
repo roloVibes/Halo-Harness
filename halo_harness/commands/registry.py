@@ -10,6 +10,7 @@ loop's own prompt assembly), never done here.
 
 from __future__ import annotations
 
+import os
 import re
 import shlex
 import subprocess
@@ -311,6 +312,26 @@ def substitute_claude_vars(text: str, extra_vars: Optional[dict]) -> str:
     return out
 
 
+def fill_claude_vars_in_commands(text: str, extra_vars: Optional[dict]) -> str:
+    """3.2.1.0 R5: inside each `` !`cmd` `` span a `${CLAUDE_...}` value goes
+    in as the span's shell reads it (Git Bash on Windows, bash on POSIX) --
+    the rule a plugin hook's shell `command` has (3.2.1.0 R4,
+    `packs/interpreter.fill_shell`): forward slashes on Windows, `shlex`-
+    quoted where it sits bare (only a path with a space or another character
+    the shell reads gets quotes), escaped inside the command's own "..." or
+    '...'. Pasted as text, `!`sh ${CLAUDE_SKILL_DIR}/x.sh`` lost its
+    backslashes on Windows ("No such file or directory"). The prose around
+    the spans is left for `substitute_claude_vars` (the value as it is)."""
+    if not extra_vars or "${" not in text or "!`" not in text:
+        return text
+    from halo_harness.packs.interpreter import fill_shell, shell_path
+    values = {f"${{{name}}}": (shlex.quote(shell_path(str(value))), shell_path(str(value)))
+              for name, value in extra_vars.items() if value is not None and value != ""}
+    if not values:
+        return text
+    return _BACKTICK_CMD_RE.sub(lambda m: "!`" + fill_shell(m.group(1), values) + "`", text)
+
+
 def _preexec_command_permitted(command: str, allow_rules: list) -> bool:
     """Strict: ONLY an explicit Bash allow rule counts -- unlike the
     permission engine's own `bash_allow_matches` (used for an interactive
@@ -421,8 +442,14 @@ def expand_command_body(body: str, args_text: str, *, allowed_tools: Optional[li
     call. `permission_engine`/`env` (finding 9) are threaded straight
     through to `run_preexec_commands`; `claude_vars` to
     `substitute_claude_vars`. All optional for a caller with no real
-    session (a standalone unit test)."""
+    session (a standalone unit test). 3.2.1.0 R5: a variable inside a
+    `` !`cmd` `` span is filled for the POSIX shell that runs it
+    (`fill_claude_vars_in_commands`) -- with a permission engine (Git Bash
+    on Windows), and always on POSIX; the no-engine fallback on Windows runs
+    the span with `shell=True` (cmd.exe), so it keeps the plain value."""
     substituted = substitute_arguments(body, args_text)
+    if permission_engine is not None or os.name != "nt":
+        substituted = fill_claude_vars_in_commands(substituted, claude_vars)
     substituted = substitute_claude_vars(substituted, claude_vars)
     return run_preexec_commands(substituted, allowed_tools=allowed_tools, cwd=cwd,
                                  permission_engine=permission_engine, env=env)

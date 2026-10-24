@@ -141,7 +141,12 @@ def fleet_map(c, rig) -> dict:
                                     "nodes": c.js("[...document.querySelectorAll('[data-testid=\"fleet-node\"]')].map((n) => n.dataset.key.slice(-8) + ':' + n.dataset.state)"),
                                     "detail": c.js(f"[{DETAIL}?.dataset.key, {DETAIL}?.dataset.state]"),
                                     "feed_open": c.js("typeof window.__haloFeedState === 'string' ? window.__haloFeedState : 'n/a'")}
-    c.click_on(f"[...document.querySelectorAll('[data-testid=\"fleet-rail-node\"]')].find((n) => n.dataset.kind === 'agent' && n.dataset.id === 'main' && n.closest('.fr-harness').querySelector('.fr-h').dataset.id === '{rig.member_id}')")
+    member_main = (f"[...document.querySelectorAll('[data-testid=\"fleet-rail-node\"]')].find((n) => n.dataset.kind === 'agent' && "
+                   f"n.dataset.id === 'main' && n.closest('.fr-harness').querySelector('.fr-h').dataset.id === '{rig.member_id}')")
+    # 3.2.1.0 R5: WSL's Chromium has a 757 px viewport (Windows Chrome 805 at the same window size) and the rail's
+    # member row sat at y=755, below the fold: the click hit nothing. Scroll it into view first, as a person would
+    c.js(f"{member_main}.scrollIntoView({{block: 'center'}}); 1")
+    c.click_on(member_main)
     c.wait(f"{DETAIL}?.dataset.key?.startsWith('{rig.member_id}')", 30)
     c.click_on("document.querySelector('[data-testid=\"fleet-steer\"]')")
     c.type_text("answer the second question first")

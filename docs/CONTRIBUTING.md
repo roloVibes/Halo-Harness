@@ -44,7 +44,9 @@ prints which tier ran. Which to run when:
 On the Windows build host (3.1.0.0 R1) the fast tier took about 40 min
 (472 modules; ten of those minutes are one governor test that waits on a
 socket timeout there), the full tier 5 min (39 modules) and the whole run
-45 min (511 modules).
+45 min (511 modules). On Linux the full tier needs a Chromium on PATH or
+named by `HALO_CHROME`; `docs/DEVELOPMENT.md` ("The Chrome tier on Linux")
+says how, and what WSL is and is not a twin for (3.2.1.0 R5).
 
 Each module runs with its OWN fresh `BRIDGE_TEST_HOME` (a directory named
 after the module under the run's scratch root, removed after the module),

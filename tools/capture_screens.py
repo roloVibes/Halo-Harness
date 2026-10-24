@@ -98,9 +98,10 @@ def assemble_animation(frames: "list[str]", seconds: "list[float]") -> str:
 def render_png(chrome: str, svg_path: Path, png_path: Path, scale: int) -> bool:
     width, height = viewbox(svg_path.read_text(encoding="utf-8"))
     from tests.helpers.chrome_lock import chrome_lock
+    from tests.helpers.chrome_driver import headless_flags  # + --no-sandbox only as root (3.2.1.0 R5)
     with chrome_lock():  # one headless Chrome at a time (3.1.0.0 R1)
         profile = tempfile.mkdtemp(prefix="halo-chrome-")
-        cmd = [chrome, "--headless=new", "--disable-gpu", "--hide-scrollbars", f"--user-data-dir={profile}",
+        cmd = [chrome, *headless_flags(), f"--user-data-dir={profile}",
                f"--screenshot={png_path}", f"--window-size={int(width + 0.999)},{int(height + 0.999)}",
                f"--force-device-scale-factor={scale}", svg_path.resolve().as_uri()]
         try:

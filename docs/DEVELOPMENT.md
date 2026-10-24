@@ -99,6 +99,54 @@ before the first run. `test_tui.py` regenerates
 `docs/harness/tui-snapshots/*.svg` on every run (normalized, not
 byte-diffed -- box-drawing/font metrics legitimately differ by terminal).
 
+### The Chrome tier on Linux
+
+`find_chrome()` (`tests/helpers/chrome_driver.py`) takes `HALO_CHROME`
+first, then `google-chrome`, `google-chrome-stable`, `chromium`,
+`chromium-browser` or `chrome` on PATH. `tests/run_all.py` clears every
+`HALO_*` variable before the run except `HALO_CHROME` (3.2.1.0 R5), so on
+a box whose Chromium is not on PATH you name it there:
+
+```sh
+# Kali / Debian: the distro's Chromium on PATH is enough
+sudo apt install chromium
+python3 tests/run_all.py --tier full < /dev/null
+
+# WSL Ubuntu with no sudo: Playwright's Chromium, and the libraries it lacks
+# from .debs unpacked (dpkg -x) under ~/chromelibs/root
+export HALO_CHROME=$HOME/.cache/ms-playwright/chromium-1248/chrome-linux64/chrome
+export LD_LIBRARY_PATH=$HOME/chromelibs/root/usr/lib/x86_64-linux-gnu:$HOME/chromelibs/root/usr/lib/x86_64-linux-gnu/nss
+python3 tests/run_all.py --tier full < /dev/null
+```
+
+A Chrome module on a box with no Chrome is skipped ("no Chrome found"), so
+read the RESULT line's skipped count, not only the exit code: `0 skipped`
+means every Chrome module ran. As root (a Kali root shell, a container)
+Chrome will not start with its sandbox on ("Running as root without
+--no-sandbox is not supported"), so every Chrome the suite and
+`tools/capture_screens.py` start adds `--no-sandbox` when `os.geteuid() ==
+0`, and only then (`chrome_driver.headless_flags()`). Run the suite as a
+normal user all the same: a run as root leaves root-owned files in the
+checkout and the scratch root.
+
+What WSL is a twin for, and what it is not: WSL Ubuntu runs the Linux code
+paths the way Kali and the CI runner do (bash and `/bin/sh`, POSIX paths,
+`fcntl` locks, AF_UNIX sockets, the wizard's Linux-fixes step when `rg` is
+not on PATH). Its browser and its clock are its own. Chrome for Testing
+there shows a 1500x757 viewport at `--window-size=1500,900` (Windows Chrome:
+1484x805), with wider fonts, so an element near the bottom of a panel or a
+dialog can sit below the fold, and its pointer paths differ from the
+runner's. A driver scrolls its target into view before it clicks, and where
+the pointer path itself is lost it tries the pointer first and then the
+element (`<step>_by: "element"` in its JSON line). WSL2's wall clock steps
+back about a second at times; a timer that compares `Date.now()` with a
+stored time must not assume its deadline has passed when it fires (Studio's
+`useRecent` re-arms). A red on WSL is a red to look at; a green there is not
+a green on the runner, which the release gate reads. On WSL (24 cores) the
+full tier takes about 7 minutes (57 modules) and the fast tier about 31
+(556 modules; ten of those minutes are one governor test that waits on a
+socket timeout, as on Windows).
+
 ## Live and real-binary checks
 
 The three suites above are fully hermetic (mocks only). A few things can
