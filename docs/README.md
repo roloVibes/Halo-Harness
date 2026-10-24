@@ -45,7 +45,7 @@ Work in the TUI and on the command line, and give agents bios, lineups, roles an
   - [COMMANDS-studio.md](COMMANDS-studio.md) (Commands: Studio, design, media, Orchestra and teams): read this when you open Studio or run designs, media, an Orchestra goal or a team from the command line.
   - [COMMANDS-fleet.md](COMMANDS-fleet.md) (Commands: remote control and the fleet): read this when you control sessions remotely or run a fleet and its missions.
   - [COMMANDS-supervise.md](COMMANDS-supervise.md) (Commands: the supervisor and its goals): read this when you give Halo a goal to work on without sitting at a terminal, or isolate its workers.
-  - [COMMANDS-packs.md](COMMANDS-packs.md) (Commands: packs): read this when you list, inspect, install, enable, grant, update or remove a pack, or name where packs come from, on the command line (`halo pack`).
+  - [COMMANDS-packs.md](COMMANDS-packs.md) (Commands: packs): read this when you list, inspect, install, enable, grant, update, roll back or remove a pack, or name where packs come from, on the command line (`halo pack`).
   - [COMMANDS-workflows.md](COMMANDS-workflows.md) (Commands: workflows): read this when you list, show, check or run a pack's workflow from the command line (`halo workflow`).
   - [COMMANDS-proxy.md](COMMANDS-proxy.md) (Commands: the proxy, exit codes and config checks): read this when you run the old proxy, read an exit code, or list and check the config files in effect.
 - [SLASH-COMMANDS.md](SLASH-COMMANDS.md) (Slash commands, keys, and prompt prefixes): read this when you want what a `/command`, a key or a prompt prefix does in the TUI.

@@ -6,6 +6,11 @@ the row shape of orchestra/coach_record.py, with content hashes):
      "pack": "<id>", "path": "<absolute path>", "existed": false, "before": null | "<sha256>",
      "after": null | "<sha256>"}
 
+3.2.0.0 R7 adds rows with no `path` (`owned` skips them): an update's start
+`{op: "update", op_id, pack, mark: "start", from, to}`, a settings rename
+`{op: "migrate" | "unmigrate", op_id, pack, setting, to, value}` (packs/migrate.py),
+and a swap `{op: "update" | "rollback", op_id, pack, swap: "<id>.previous", ...}`.
+
 `owned(pack_id)` reads the journal back: the files the pack's operations
 wrote and the hash each one was left with. A file there that still holds
 that hash is the pack's own; one that differs is yours (you edited it), and
@@ -70,10 +75,13 @@ def norm(path) -> str:
         return os.path.normcase(str(path))
 
 
-def owned(pack_id: str, state_dir=None) -> "dict[str, str]":
-    """`{norm(path): the hash the pack's last operation left it with}` (removed files are not listed)."""
+def owned(pack_id: str, state_dir=None, *, before_op: Optional[str] = None) -> "dict[str, str]":
+    """`{norm(path): the hash the pack's last operation left it with}` (removed files are not listed);
+    `before_op` (3.2.0.0 R7, rollback): as it was before the first row of that operation."""
     out: "dict[str, str]" = {}
     for row in rows(state_dir, pack=pack_id):
+        if before_op is not None and row.get("op_id") == before_op:
+            break
         path = row.get("path")
         if not isinstance(path, str):
             continue

@@ -109,7 +109,8 @@ def test_each_verb_runs_the_clis_function_and_answers_its_lines(ctx: Ctx):
         ctx.check(f"a grant on a disabled pack: the CLI's line, got {body.get('problems')}", status == 422 and body["problems"] == _cli_lines(err)
                   and "halo pack enable doc-review --grant bash" in body["error"])
         status, body, _ = s.call("POST", "pack/doc-review/update", {})
-        ctx.check(f"update's lines, got {body.get('lines')}", status == 200 and body["lines"][0].startswith("updated doc-review 1.0.0 -> 1.0.0"))
+        ctx.check(f"update's lines (3.2.0.0 R7: the same source, nothing new), got {body.get('lines')}", status == 200
+                  and body["lines"][0].startswith("doc-review 1.0.0 is up to date"))
         status, body, _ = s.call("POST", "pack/doc-review/remove", {"keep_config": True})
         ctx.check(f"remove --keep-config's lines, got {body.get('lines')}", status == 200 and body["lines"][0].startswith("removed doc-review: ")
                   and body["lines"][-1].startswith("kept its record"))
@@ -170,7 +171,7 @@ def test_compatibility_lines_in_the_doctors_words(ctx: Ctx):
                   and row["requires"] == [{"pack": "base-docs", "version": ">= 1.2", "met": False, "have": "", "running": False}])
         src = next(p for x in data["sources"] for p in x["packs"] if p["id"] == "future-api")
         ctx.check(f"an API range this Halo is outside, before you install it, got {src['details']['compat']}",
-                  src["details"]["compat"] == ["future-api needs extension API >= 9.0; this Halo has 1.0"])
+                  src["details"]["compat"] == ["pack future-api needs extension API 9.0 or a later 9.x; this Halo has 1.0"])
         status, body, _ = s.call("POST", "pack/install", {"id": "future-api"})
         ctx.check(f"and install refuses it with the same line, got {status} {body.get('problems')}", status == 422
                   and body["problems"] == src["details"]["compat"])

@@ -1,0 +1,9 @@
+# A failure fixture (3.2.0.0 R7, tests/test_packs_failures.py): requires a pack that is not installed (base-docs)
+id: needs-base
+name: needs-base
+version: 1.0.0
+description: requires a pack that is not installed (base-docs)
+author: Halo fixtures
+license: MIT
+halo_api: {min: "1.0"}
+requires: [{pack: base-docs, version: "1.0"}]

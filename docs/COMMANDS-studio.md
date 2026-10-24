@@ -13,7 +13,7 @@ while one runs reuses it (prints the URL, opens the browser) unless
 
 
 ```sh
-halo studio [--mode roles|design|orchestra|fleet|team|session] [--port N] [--no-open] [--cwd DIR] [--fleet]
+halo studio [--mode roles|design|orchestra|fleet|team|session|packs] [--port N] [--no-open] [--cwd DIR] [--fleet]
 halo studio --edit bio:<name> | lineup:<name> | team [--no-open]
 halo studio --session [<id>] [--no-open]
 ```
@@ -59,7 +59,7 @@ lineup views run the same thing (see
 Halo 2.1.0, modes in 3.0.2.0: opens Halo Studio, the browser GUI, straight
 into `--mode roles` (lineups and agent bios as an editable graph) or
 `--mode design` (artboards on your own apps), 3.0.4.0: `--mode orchestra`
-(the run console);
+(the run console), 3.2.0.0 R7: `--mode packs` (the Pack Manager; `?mode=packs` in the URL);
 without `--mode` it opens in the mode you used last. The TUI's `/roles`
 and `/design` are the same doors from a live session. It Starts a loopback-only server on a free port (or
 `--port`), prints its URL (the URL carries a per-launch token: open exactly

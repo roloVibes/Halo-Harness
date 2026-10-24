@@ -12,6 +12,9 @@ serves Studio in a thread with the live feed on (no provider, no model call):
 4. Enable (with the picked grant): the row runs, 1/3 granted, the pack's own
    section tab comes after Packs on Alt+8; a Grant toggle on the enabled pack
    grants at once (2/3);
+4b. 3.2.0.0 R7: Update from a newer source asks first with the dry run's lines
+   (its migration note), then swaps it in: Roll back to 1.0.0 shows, Details
+   names the grant the new version asks for; Roll back brings 1.0.0 back;
 5. Templates: Run review opens Orchestra's Start view with the workflow form
    filled in (the ref, its inputs, style at its default);
 6. Disable: the row reads disabled, 0/3, the section tab is gone, Templates
@@ -107,6 +110,34 @@ def enable(c, url, ctx) -> dict:
     return out
 
 
+def update_rollback(c, url, ctx) -> dict:
+    """3.2.0.0 R7: a newer source (1.0.1 also requests network, one migration note); Update asks with the dry run's
+    lines, then swaps it in; Details names the grant it asks for; Roll back brings 1.0.0 back."""
+    from halo_harness.packs import state as S
+    from tests.helpers.packs_home import DOC_REVIEW
+    newer = ctx["state"].parent / "next" / "doc-review"
+    shutil.copytree(DOC_REVIEW, newer, ignore=shutil.ignore_patterns("__pycache__"))
+    text = (newer / "pack.yaml").read_text(encoding="utf-8").replace("version: 1.0.0", "version: 1.0.1")
+    text = text.replace('permissions: ["mcp:lint", hooks, bash]', 'permissions: ["mcp:lint", hooks, bash, network]')
+    (newer / "pack.yaml").write_text(text + "  - {from: 1.0.0, to: 1.0.1, note: it also asks for network}\n", encoding="utf-8")
+    S.put("doc-review", {"source": str(newer)})
+    press(c, q(f"{ROW} [data-testid=pm-update]"))
+    w(c, f"!!{q('[data-testid=pm-update-dialog]')}", 15)
+    out = {"update_lines": c.js(f"{_text('[data-testid=pm-update-lines]')}.split('\\n')"),
+           "update_cmd": c.js(_text("[data-testid=pm-update-cmd]")), "untouched": not (ctx["state"] / "packs" / "doc-review.previous").exists()}
+    press(c, q("[data-testid=pm-update-yes]"))
+    out["rollback_label"] = w(c, _text(f"{ROW} [data-testid=pm-rollback]"), 30)
+    out["updated_last"] = w(c, f"{_text('[data-testid=pm-last] .pm-lines')}.split('\\n')", 10)
+    out["version_after"] = c.js(_text(f"{ROW} .pm-row-ver"))
+    press(c, q(f"{ROW} .pm-row-main"))
+    out["compat_after"] = w(c, f"{qa('[data-testid=pm-compat] li')}.map((l) => l.textContent).filter((t) => t.includes('network'))", 20)
+    press(c, q(f"{ROW} [data-testid=pm-rollback]"))
+    w(c, f"!{q(ROW + ' [data-testid=pm-rollback]')} && {_text(ROW + ' .pm-row-ver')} === '1.0.0'", 30)
+    out["rolled_last"] = w(c, f"{_text('[data-testid=pm-last] .pm-lines')}.split('\\n')[0]", 10)
+    out["previous_gone"] = not (ctx["state"] / "packs" / "doc-review.previous").exists()
+    return out
+
+
 def templates(c, url, ctx) -> dict:
     run = q("[data-testid=pm-workflow][data-ref='doc-review/review'] [data-testid=pm-run-workflow]")
     w(c, f"!!{run}", 20)
@@ -163,7 +194,7 @@ class PackManagerDriver(Driver):
         url = url.replace("mode=orchestra&feed=off", "mode=roles&tour=off&view=workspace")
         ctx = {"state": state, "srv": srv}
         try:
-            yield tuple((fn, (c, url, ctx)) for fn in (section, install, details, enable, templates, disable, remove))
+            yield tuple((fn, (c, url, ctx)) for fn in (section, install, details, enable, update_rollback, templates, disable, remove))
         finally:
             bio_models.ROWS = None
             srv.shutdown()

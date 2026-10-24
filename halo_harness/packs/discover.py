@@ -4,8 +4,9 @@ Two folders, nearest first: `<repo>/.halo/packs/<id>/` (project: the
 untrusted layer -- its lineups drop `permissions.mode` and allow rules the
 way `teams_yaml._drop_untrusted_raise` does) and `~/.halo/packs/<id>/`
 (user). A folder whose name starts with `.` is Halo's own (`.data`,
-`.backup`, `.staging-*`), never a pack; `state.json` and `journal.jsonl`
-beside the packs are files. A pack id found in both folders: the project
+`.backup`, `.staging-*`), never a pack, and so is `<id>.previous` (3.2.0.0
+R7: the version an update replaced, for `halo pack rollback`); `state.json`
+and `journal.jsonl` beside the packs are files. A pack id found in both folders: the project
 one is used and the user one is listed in its `shadowed`.
 
     discover(cwd=..., state_dir=...)   # [Pack, ...] by id, project first
@@ -71,7 +72,8 @@ def read_pack(root, scope: str, *, folder_is_id: bool = True) -> Pack:
 def _folders(d: Path) -> "list[Path]":
     try:
         with os.scandir(d) as it:
-            return sorted(Path(e.path) for e in it if e.is_dir() and not e.name.startswith("."))
+            return sorted(Path(e.path) for e in it if e.is_dir() and not e.name.startswith(".")
+                          and not e.name.endswith(".previous"))  # 3.2.0.0 R7: an update's kept version
     except OSError:
         return []
 

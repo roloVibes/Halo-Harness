@@ -51,6 +51,25 @@ def source_for(target: str) -> str:
     return target
 
 
+def searched_line(pack_id: str) -> str:
+    """3.2.0.0 R7: a bare id no source holds, naming every place searched in order (a folder that is gone says so):
+    "no folder doc-review here, and no pack doc-review in the sources searched: ~/packs (not a folder), the packs
+    Halo ships (halo pack sources add <folder|git url>)"."""
+    from halo_harness.packs.sources import search, shipped_dir
+    places = []
+    for src in search():
+        if src == str(shipped_dir()):
+            places.append("the packs Halo ships")
+        elif is_url(src):
+            places.append(src)
+        else:
+            places.append(Path(src).as_posix() + ("" if Path(src).expanduser().is_dir() else " (not a folder)"))
+    if len(places) == 1:
+        places.insert(0, "packs.sources (empty)")
+    return (f"no folder {pack_id} here, and no pack {pack_id} in the sources searched: {', '.join(places)} "
+            "(halo pack sources add <folder|git url>)")
+
+
 def host_of(url: str) -> str:
     if "://" in url:
         return urlparse(url).hostname or url
@@ -84,8 +103,7 @@ def fetched(source: str, *, state_dir=None, timeout: float = 120.0):
     if not is_url(source):
         from halo_harness.packs.names import is_valid_pack_id
         folder = Path(source).expanduser()
-        missing = f"{source}: no such folder" + (f", and no pack {source} in config packs.sources or the packs Halo ships"
-                                                  if is_valid_pack_id(source) else "")
+        missing = searched_line(source) if is_valid_pack_id(source) else f"{source}: no such folder"
         yield (folder.resolve(), "") if folder.is_dir() else (None, missing)
         return
     line = offline_line(source)

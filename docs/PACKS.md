@@ -267,8 +267,11 @@ schemas in its "contributes:" block.
 - `~/.halo/packs/state.json`: which packs are installed, from where, enabled
   or not and what you granted (private, 0600). A pack is enabled for the
   folder you enabled it in, so a same-id pack in another repo stays off.
-- `~/.halo/packs/journal.jsonl`: every file an install, update or remove
-  wrote or deleted, with its hash: how Halo knows which files are the pack's.
+- `~/.halo/packs/journal.jsonl`: every file an install, update, rollback or
+  remove wrote or deleted, with its hash: how Halo knows which files are the
+  pack's; and each settings rename an update made (3.2.0.0 R7).
+- `~/.halo/packs/<id>.previous/`: the version the last update replaced, for
+  `halo pack rollback` (3.2.0.0 R7); never discovered as a pack.
 - `~/.halo/packs/.data/<id>/`: the pack's own place to write.
 - Settings: `~/.halo/config.json` under `packs.settings.<id>`, checked
   against the schema in the pack's `pack.yaml` (`halo config set
@@ -285,12 +288,98 @@ schemas in its "contributes:" block.
 4. `halo pack disable doc-review` turns it off: nothing of it runs, its
    files stay, its grants clear.
 5. `halo pack update doc-review` brings in the new version from where it was
-   installed from, prints the pack's migration notes, and keeps any file
-   you changed.
+   installed from: its migration notes first, any file you changed kept, the
+   old version kept for `halo pack rollback doc-review` (below).
 6. `halo pack remove doc-review` removes it (below).
 
 `halo pack doctor` (and the packs group of `halo doctor --config`) lists
 every problem in one line each.
+
+## Updating and rolling back
+
+3.2.0.0 R7. Try an update first; nothing changes until you run it:
+
+```
+$ halo pack update doc-review --dry-run
+doc-review 1.1.0 -> 1.3.0: settings key `lint.level` is now `lint.strictness`
+would update doc-review 1.1.0 -> 1.3.0 (4 file(s) changed; 1.1.0 kept as doc-review.previous)
+would rename packs.settings.doc-review.lint.level to lint.strictness (your value 'high')
+dry run: nothing is changed (halo pack update doc-review makes these changes)
+```
+
+`halo pack update doc-review` prints the same notes first, then puts the new
+version in place in one step: it is staged beside the pack (with every file
+of yours from the pack's folder carried over) and swapped in by two renames,
+so a copy error or a file in use leaves the old version exactly as it was
+(`update of doc-review stopped: <why>; 1.1.0 stays as it was (nothing was
+replaced)`). The old version is kept as `~/.halo/packs/doc-review.previous/`,
+the `settings` renames the pack declares are made in your
+`packs.settings.doc-review` (a key you already set under the new name wins),
+and your grants stay. A permission the new version asks for that the old one
+did not is listed (`halo pack grant doc-review network`) and stays a doctor
+line until you grant it.
+
+Changed your mind? `halo pack rollback doc-review` swaps `doc-review.previous`
+back, moves the renamed settings back, keeps your grants (and a file you
+changed since the update), and deletes the version rolled back from; `halo
+pack update doc-review` brings it back again. Halo keeps one version back:
+the next update replaces it. `halo pack remove doc-review` deletes it too;
+with `--keep-config` it stays beside the record and `halo pack rollback
+doc-review` installs it again. In Studio, Update shows the dry run's lines in
+its confirm first, and "Roll back to <version>" appears once an update kept
+one ([STUDIO-packs.md](STUDIO-packs.md)). The procedure, step by step, is in
+[EXTENSION_API.md](EXTENSION_API.md#updating-a-pack).
+
+## When a pack cannot run
+
+Each problem is one line, the same in `halo pack`, `halo pack doctor` and
+Studio's Pack Manager (Details and the last action's lines). What each says
+and what to do:
+
+| What happened | The line | What to do |
+|---|---|---|
+| pack.yaml is not YAML | `bad-yaml: pack.yaml: it does not read as a YAML mapping (key: value)` | fix the file (`halo pack inspect <folder>` reads it again) |
+| no id, or a bad one | `no-id: pack.yaml: id: required`; `Doc_Review: pack.yaml: id 'Doc_Review' is not a pack id: ...` | give it an id of lower-case letters, digits and single hyphens |
+| any other manifest problem | `<id>: pack.yaml: <the key and what is wrong>` (an unknown key names the closest) | fix pack.yaml; the pack installs and runs once it validates |
+| written for a newer extension API | `pack <id> needs extension API 1.2 to 1.9; this Halo has 1.0` | update Halo, or install an older version of the pack |
+| written for an older extension API | `pack <id> needs extension API 0.5 to 0.9; this Halo has 1.0` | install a newer version of the pack (its author widens `halo_api`) |
+| needs a newer Halo | `pack <id> needs Halo >= 9.0; this is 3.2.0.0` | update Halo |
+| a required pack is missing | `<id> requires base-docs, which is not installed` | `halo pack install base-docs`, then enable it |
+| a required pack is off or too old | `<id> requires base-docs, which is installed but not enabled (halo pack enable base-docs)`; `<id> requires base-docs 2.0 to 2.9; 1.4.0 is installed` | enable it, or update it |
+| a requires cycle | `cycle-a is in a requires cycle: cycle-a -> cycle-b -> cycle-a` | the packs' authors break the cycle; disable one meanwhile |
+| an install stopped half-way | `install of <id> stopped: <why>; every file it wrote is removed again` | fix the cause (the source moved, the disk is full) and install again |
+| an update's new version is bad | `<id>: pack.yaml: ...` then `<id> 1.0.0 stays as it is` | nothing changed; wait for a fixed version, or `--dry-run` it later |
+| an update stopped | `update of <id> stopped: <why>; 1.0.0 stays as it was (nothing was replaced)` | close what holds the pack's folder and update again |
+| a bare id no source holds | `no folder <id> here, and no pack <id> in the sources searched: <each source>, the packs Halo ships (halo pack sources add <folder\|git url>)` | `halo pack sources add` the folder or url that holds it; a source that is gone says `(not a folder)` |
+| the recorded source is gone | `<id>'s source <path> is not there any more; nothing is changed (...)` | install it again from where it is now |
+| a new version needs a grant | `<id> 1.1.0 requests network, which 1.0.0 did not; it is not granted, so what needs it does not run` | `halo pack grant <id> network`, or `halo pack rollback <id>` |
+| a grant not given | `<id>: MCP server lint does not run: mcp:lint is not granted` | `halo pack enable <id> --grant mcp:lint` |
+| an API name going away | `<id>: <file> line N uses ext.<name>, deprecated since API 1.3; it goes away in API 2.0 (use ext.<other>)` | the pack's author moves to the new name before that version |
+| nothing to roll back | `<id> has no earlier version to go back to: an update keeps the version it replaces as <id>.previous until the next update` | nothing kept: install the version you want from its folder |
+
+The failure fixtures under `tests/fixtures/packs/` (`bad-yaml`, `no-id`,
+`bad-id`, `api-too-new`, `api-too-old`, `halo-too-new`, `needs-base`,
+`cycle-a`, `cycle-b`) produce these lines; `tests/test_packs_failures.py`
+pins each one on the CLI and in Studio.
+
+## A pack's own Python
+
+3.2.0.0 R7. A pack's hook and MCP server name Halo's own interpreter as
+`${halo_python}`; Halo expands it to the Python it runs in (`sys.executable`)
+when it starts them, so the pack's code imports `halo_harness.ext` even
+where the `python` on your PATH is another one (a `uv tool` install):
+
+```json
+{"mcpServers": {"lint": {"command": "${halo_python}", "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/lint_server.py"]}}}
+{"hooks": {"PostToolUse": [{"matcher": "Write", "hooks": [{"type": "command", "args": ["${halo_python}", "${CLAUDE_PLUGIN_ROOT}/hooks/note.py"]}]}]}}
+```
+
+In a hook's shell `command` the path is quoted for the shell the hook runs
+in; the exec form (`args`, no shell) is the same on every platform, which is
+why the reference pack uses it. Every process started from a pack's folder
+also gets `PYTHONPATH` with Halo's package root first, so a script run by
+another Python finds `halo_harness.ext` as well. A plain Claude-plugin folder
+(no pack.yaml) gets `${halo_python}` but not the PYTHONPATH.
 
 ## The Pack Manager
 
@@ -305,8 +394,9 @@ runs and shows the lines it prints, and every open Studio redraws on the
   with "into this repo"). No marketplace: only what your config names and what
   Halo ships.
 - **Installed**: every pack here, its state, the grants given of the ones it
-  requests and the doctor's lines for it; Enable, Disable, Update, and Remove
-  (it asks first, naming `halo pack remove <id>` and `--keep-config`).
+  requests and the doctor's lines for it; Enable, Disable, Update (it shows
+  the dry run's lines first, R7), Roll back to <version> (once an update kept
+  one) and Remove (it asks first, naming `halo pack remove <id>` and `--keep-config`).
 - **Details**: the extension API and Halo ranges beside this Halo's, each
   required pack and whether it is met, what keeps it from running here (in
   the doctor's words), each permission with a Grant toggle (an enabled pack:
@@ -358,5 +448,7 @@ wrote and that still hold what was written. It keeps, and lists:
 - your settings under `packs.settings.<id>` and a `team:` naming its lineup.
 
 `--keep-config` also keeps the pack's record and grants, so installing it
-again later starts where you left off. A pack Halo found in place (a folder
+again later starts where you left off. The version the last update kept
+(`<id>.previous/`) is deleted with the pack; with `--keep-config` it stays
+beside the record, and `halo pack rollback <id>` installs it again. A pack Halo found in place (a folder
 you put there yourself) has no files of Halo's to remove: nothing in it is deleted.

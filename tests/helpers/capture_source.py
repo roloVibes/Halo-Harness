@@ -11,7 +11,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 TOOLS = ("capture_studio", "capture_orchestra", "capture_roles", "capture_design", "capture_fleet", "capture_team",
-         "capture_start", "capture_session_anim")
+         "capture_start", "capture_session_anim", "capture_packs")  # capture_packs: 3.2.0.0 R7
 SERVES = {"serve", "start_server", "StudioFleetRig", "PlanRig", "CoachRig", "StudioTeamRig"}
 READS = {"shot", "crop_shot", "write_gif", "film", "counts", "shell_counts"}  # a picture, or the DOM's counts
 GUARDS = {"guard", "guard_page", "checked_dump"}

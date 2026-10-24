@@ -280,14 +280,23 @@ and the reference pack: `packs/sources.py` (where a bare id is looked for:
 sources`, `list --available`), `packs/manager.py` (what Studio's Packs section
 shows: each pack's list row, inspect payload, health, compatibility lines and
 workflows, the sources) and `studio/packs_manager_api.py` (its routes, each
-running the function `halo pack` runs).
+running the function `halo pack` runs). 3.2.0.0 R7, compatibility and the
+lifecycle hardened: `packs/update.py` (`halo pack update [--dry-run]`: the
+migration notes first, the new version staged and swapped in by two renames,
+the old kept as `<id>.previous`), `packs/rollback.py` (`halo pack rollback`),
+`packs/migrate.py` (a pack's `migrations` between two versions, the `settings`
+renames applied and journaled), `packs/deprecations.py` (the doctor's rows for
+an extension API name announced for removal and a grant an update asked for)
+and `packs/interpreter.py` (`${halo_python}` and PYTHONPATH for a pack's hook
+and MCP server).
 
 **The extension API** (`halo_harness/ext/`, API 1.0, docs/EXTENSION_API.md):
 `ext/names.py` (the name rules), `ext/yamlio.py` (`read_yaml`, `write_yaml`),
 `ext/schema.py` (`check_schema`), `ext/config.py` (`get_config`,
 `set_config`), `ext/files.py` (`pack_dir`, `data_dir`, `write_private`),
 `ext/events.py` (`publish_event`), `ext/grants.py` (`is_granted`),
-`ext/memory.py` (`memory.write`, 3.2.0.0 R5); the package's `__init__` is the contract.
+`ext/memory.py` (`memory.write`, 3.2.0.0 R5), `ext/compat.py` (the version policy: `api_version`,
+`compatible`, `deprecations`, 3.2.0.0 R7); the package's `__init__` is the contract.
 
 **Isolation** (`halo_harness/isolation/`, Halo 3.1.8.0 R5, docs/ISOLATION.md):
 `isolation/spec.py` (the `isolation` / `secrets` declarations, their

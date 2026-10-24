@@ -45,7 +45,7 @@ def load_manifest(root) -> "tuple[Optional[dict], list[str]]":
         return None, [f"no {MANIFEST} in {Path(root).name or root}"]
     data = _read_yaml_file(path)
     if data is None:
-        return None, [f"{MANIFEST} does not read as a YAML mapping (key: value)"]
+        return None, ["it does not read as a YAML mapping (key: value)"]  # shown as "<id>: pack.yaml: it does not ..."
     return data, []
 
 
@@ -186,6 +186,8 @@ def _meaning_lines(data) -> "list[str]":
                     out.append(f"migrations[{i}].{key}: {m.get(key)!r} is not a version")
             if not isinstance(m.get("note"), str) or not m["note"].strip():
                 out.append(f"migrations[{i}].note: required (what changes for you)")
+            from halo_harness.packs.migrate import settings_lines  # 3.2.0.0 R7: {old: new} renames of packs.settings.<id>
+            out += settings_lines(m.get("settings"), where=f"migrations[{i}].settings")
     for name in _list(data.get("contributes") if isinstance(data.get("contributes"), dict) else {}, "events"):
         if isinstance(name, str) and not EVENT_RE.match(name):
             out.append(f"contributes.events: {name!r} is not an event name (lower-case, digits, . _ -)")

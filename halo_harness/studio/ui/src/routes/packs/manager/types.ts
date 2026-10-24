@@ -46,6 +46,8 @@ export type PackRow = {
   sections: { id: string; title: string }[];
   settings: Record<string, unknown>;
   has_settings: boolean;
+  /** 3.2.0.0 R7: the version `halo pack rollback` goes back to (kept as <id>.previous), or "". */
+  previous: string;
 };
 
 export type SourcePack = { id: string; name: string; version: string; description: string; path: string; installed: boolean; problems: string[]; details?: PackRow };
@@ -55,3 +57,6 @@ export type Manager = { version: number; halo: string; halo_api: string; packs: 
 
 /** What an action answered: the CLI's own lines. */
 export type Done = { ok: boolean; lines: string[]; what: string };
+
+/** 3.2.0.0 R7: what `halo pack update <id> --dry-run` said, shown before the Update runs. */
+export type UpdatePreview = { id: string; ok: boolean; lines: string[] };

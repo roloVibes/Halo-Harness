@@ -23,7 +23,8 @@ test, TESTS = new_registry()
 REPO = Path(__file__).resolve().parent.parent
 SURFACE = ("API_VERSION", "HALO_API_VERSION", "read_yaml", "write_yaml", "check_schema", "get_config", "set_config",
            "write_private", "pack_dir", "data_dir", "publish_event", "is_granted", "Unit", "is_valid_pack_id",
-           "is_valid_name", "qualified_name", "split_name", "memory")  # memory: 3.2.0.0 R5
+           "is_valid_name", "qualified_name", "split_name", "memory",  # memory: 3.2.0.0 R5
+           "api_version", "compatible", "deprecations")  # 3.2.0.0 R7: the version policy
 
 
 @test
