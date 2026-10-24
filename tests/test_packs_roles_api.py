@@ -41,7 +41,7 @@ def test_state_names_the_packs_that_run(ctx: Ctx):
         h.cli("enable", "doc-review")
         got = _call(h, "GET", "roles/packs")[1]
         ctx.check(f"enabled: its id, name and version, got {got}",
-                  got == [{"id": "doc-review", "name": "Documentation review", "version": "1.0.0", "scope": "user"}])
+                  got == [{"id": "doc-review", "name": "Documentation Review", "version": "1.0.0", "scope": "user"}])
         ctx.check("and in state", _call(h, "GET", "state")[1]["packs"] == got)
 
 

@@ -7,8 +7,8 @@ Halo 3.2.0.0 R1. A pack is a folder Halo installs, enables and removes (see
 written against. The extension API version is `API_VERSION = "1.0"`
 (`halo_harness.ext.API_VERSION`, also exported as `HALO_API_VERSION`). The
 machine-readable manifest schema is
-`halo_harness/packs/schema/pack.schema.json`; the reference fixture is
-`tests/fixtures/packs/doc-review/`.
+`halo_harness/packs/schema/pack.schema.json`; the reference pack is
+`halo_harness/templates/packs/doc-review/` (3.2.0.0 R6, shipped with Halo).
 
 ## Status of each part
 
@@ -25,7 +25,7 @@ machine-readable manifest schema is
 | [Workflow contracts](#workflow-contracts) | stable | `workflows/<name>.yaml` (3.2.0.0 R5): compiled to an Orchestra goal, its hand-offs and a pinned plan; `halo workflow` |
 | [Events and artifacts](#events-and-artifacts) | stable | typed events (3.2.0.0 R5: schemas, the events log, subscriptions), typed artifacts with viewers, memory with provenance |
 | [Compatibility and migration](#compatibility-and-migration) | planned | the policy below is the proposal R7 makes final |
-| [The reference example](#the-reference-example) | planned | the fixture today; the Documentation Review pack in R6 |
+| [The reference example](#the-reference-example) | stable | the Documentation Review pack Halo ships (3.2.0.0 R6): every part of the API in one pack a third party can copy |
 
 `stable`: a 1.x Halo keeps it. `draft`: usable, may change in a minor API
 version with a migration note. `planned`: the shape is proposed here and
@@ -34,7 +34,7 @@ nothing reads it yet (a manifest may carry it; Halo stores it and does not act).
 ## The stable surface (`halo_harness.ext`)
 
 Status: **stable**. A pack's code imports `halo_harness.ext` and nothing
-else of Halo (`tests/test_ext_api.py` walks every fixture pack's Python to
+else of Halo (`tests/test_ext_api.py` walks every fixture and shipped pack's Python to
 check it). The modules under `halo_harness/ext/` are the implementation; the
 names in `__all__` are the contract.
 
@@ -65,10 +65,10 @@ naming the closest known key; every bad value is one line.
 
 ```yaml
 id: doc-review                  # required: ^[a-z][a-z0-9-]*$, no "--", no trailing "-"; the folder's name
-name: Documentation review      # required
+name: Documentation Review      # required
 version: 1.0.0                  # required: semver
-description: A reviewer and a writer bio, a review lineup, ...
-author: Halo fixtures           # a string, or {name, email, url}
+description: Reviews a repo's Markdown documents with ...
+author: Halo Harness            # a string, or {name, email, url}
 license: MIT
 halo_api: {min: "1.0", max: "1.9"}   # required min: the extension API versions it works with
 halo: {min: "3.1"}              # optional: the Halo versions it works with
@@ -195,7 +195,7 @@ token, the shell's CSP).
 
 | Key | Shape | What Studio does with it |
 |---|---|---|
-| `sections` | `[{id, title, blurb, help, panels: [<panel>]}]` | a section of its own after Orchestra (Alt+7, Alt+8, Alt+9 in order; the tab strip and the rail show them after a thin "packs" divider); its panels fill the 24 columns left to right |
+| `sections` | `[{id, title, blurb, help, panels: [<panel>]}]` | a section of its own after the core sections (3.2.0.0 R6: after Packs, on Alt+8 and Alt+9 in order; the tab strip and the rail show them after a thin "packs" divider); its panels fill the 24 columns left to right |
 | `panels` | `[{section: <core section>, ...<panel>}]` | a panel in Session, Team, Roles, Fleet, Design or Orchestra, under that section's own, as a strip |
 | `palette` | `[{id, label, action}]` | a command palette line in the group "pack <id>"; `action` is `route:<section>[/<panel>]`, `url:<address>` or `config` |
 | `config_form` | `true` or `false` | a Settings panel (kind `form`) at the end of the pack's first section, and a palette line "Settings: <name>" |
@@ -234,7 +234,7 @@ The problems checked: an unknown kind, a `source` outside the pack's folder
 section, a panel under `panels:` naming a section that is not a core one, an
 id used twice or holding `--`.
 
-The doc-review fixture's (`tests/fixtures/packs/doc-review/pack.yaml`):
+The doc-review reference pack's (`halo_harness/templates/packs/doc-review/pack.yaml`):
 
 ```yaml
 contributes:
@@ -381,7 +381,7 @@ this harness does not run pack doc-review with bash
 It is the same explicit grant rule the harness applies to its own sessions:
 a part gains nothing because another machine's catalog said it could run.
 
-The doc-review fixture's (`tests/fixtures/packs/doc-review/pack.yaml`):
+The doc-review reference pack's (`halo_harness/templates/packs/doc-review/pack.yaml`):
 
 ```yaml
 capabilities: [docs.review]
@@ -546,11 +546,29 @@ printed by `halo pack update`. A renamed pack is a new pack.
 
 ## The reference example
 
-Status: **planned** (R6: the Documentation Review pack). Today:
-`tests/fixtures/packs/doc-review/`, every contribution kind of this round;
-3.2.0.0 R5 adds its review workflow (`workflows/review.yaml`), the
-review-report artifact schema (`artifacts/review-report.json`, an artifact
-panel in its section) and review.done's schema (`events/review.done.json`);
-`wf-cycle/`, `wf-unknown-role/`, `wf-no-giver/` and `wf-input-type/` are the
-workflow failure fixtures, `tests/fixtures/workflows/report-bad.json` an
+Status: **stable** (3.2.0.0 R6). Halo ships one pack, **Documentation
+Review**, at `halo_harness/templates/packs/doc-review/`: the reference a
+third party copies, and the regression test of this whole page
+(`tests/test_reference_pack.py` installs it in a fresh home, runs its
+workflow, finds it in Studio, Roles and the fleet catalog, removes it and
+finds nothing of it left; every packs test reads it too). What it shows:
+
+| Part of the API | In the pack |
+|---|---|
+| The manifest | `pack.yaml`: `halo_api: {min: "1.0", max: "1.9"}`, `halo: {min: "3.1"}`, settings schema and defaults, permissions, one migration note |
+| Agents and teams | `agents/reviewer.yaml` (by capability, a memory namespace, a need), `agents/writer.yaml` (extends it, a family preference), `teams/review.yaml` (two tiers, acceptance, its workflow) |
+| Skills, commands, hooks and MCP | `skills/check-links/`, `commands/review.md`, `agents/helper.md`, `hooks/` (a PostToolUse hook publishing review.done), `.mcp.json` + `mcp/lint_server.py` (a stdio MCP server: check_links, check_headings) |
+| Studio contributions | a section (markdown, table, links, the artifact panel, Settings), a Session panel, a palette line, event lines, an attention row kind |
+| Fleet capabilities | `docs.review` (a model with tools, the bash grant, two at once), an inspector line, mission metadata |
+| Workflow contracts | `workflows/review.yaml`: read each Markdown file, judge (`gate: human`), write the report |
+| Events and artifacts | `artifacts/review-report.json` (`x-halo-view: table`), `events/review.done.json` |
+
+Its `README.md` is the third-party guide: every file in one line, the API
+version, how to install from a folder or a git url (or by id from a
+`packs.sources` folder: `halo pack sources add`), how to check a pack with
+`halo pack inspect` and `halo pack doctor`. `halo pack install doc-review`
+finds it: the shipped folder is the last entry of the sources search, after
+`packs.sources`. The failure fixtures stay under `tests/fixtures/packs/`
+(`wf-cycle/`, `wf-unknown-role/`, `wf-no-giver/`, `wf-input-type/`, the
+studio and fleet ones) with `tests/fixtures/workflows/report-bad.json`, an
 artifact off its schema.

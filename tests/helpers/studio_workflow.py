@@ -1,11 +1,11 @@
 """tests.helpers.studio_workflow -- the typed-artifact viewer checks of
 tests/test_workflow_ui.py (Halo 3.2.0.0 R5), real keys and clicks in headless
 Chrome through the driver base, over a scratch home with the doc-review
-fixture pack (enabled, bash granted; a catalog model that calls tools) and a
+reference pack (enabled, bash granted; a catalog model that calls tools) and a
 project repo where the review workflow already ran to its report (the fake
 lead and stage workers of tests/helpers/workflow_rig.py; no model call):
 
-1. the pack's Docs review section (Alt+7): its "Last review report" panel
+1. the pack's Docs review section (Alt+8): its "Last review report" panel
    draws the newest run's review-report by its schema's view (table): the
    summary above, one row per finding, the run named in its meta line;
 2. Session's Reviews panel: a review.done shows its data under the line (the
@@ -36,7 +36,7 @@ def pack_section(c, url, ctx) -> dict:
     out: dict = {}
     c.go(url)
     c.wait("[...document.querySelectorAll('[data-testid=section-tab]')].some((t) => t.textContent.startsWith('Docs review'))", 40)
-    alt(c, 7)
+    alt(c, 8)  # 3.2.0.0 R6: Alt+7 is Packs
     out["section"] = c.wait(f"{CUR}.startsWith('Docs review') && {CUR}", 10)
     art = panel("doc-review--report", "[data-testid=pack-artifact]")
     out["view"] = c.wait(f"{art}?.dataset.view", 20)
@@ -137,7 +137,8 @@ class WorkflowUiDriver(Driver):
         from tests.helpers.workflow_rig import TOOLS_ROW
         state = seeded_home()
         bio_models.ROWS = lambda _s, _c: [dict(TOOLS_ROW)]
-        ok, lines = install(str(REPO / "tests" / "fixtures" / "packs" / "doc-review"))
+        from tests.helpers.packs_home import DOC_REVIEW  # 3.2.0.0 R6: the shipped reference pack
+        ok, lines = install(str(DOC_REVIEW))
         assert ok, lines
         ok, lines = enable(find("doc-review"), grant=["bash"])
         assert ok, lines

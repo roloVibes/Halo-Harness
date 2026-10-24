@@ -1,0 +1,175 @@
+"""tests.helpers.studio_pack_manager -- the Pack Manager checks of
+tests/test_packs_manager_ui.py (Halo 3.2.0.0 R6), real keys and clicks in
+headless Chrome through the driver base, over a scratch home with no pack
+installed (the shipped Documentation Review pack is in Sources); this process
+serves Studio in a thread with the live feed on (no provider, no model call):
+
+1. Packs is the seventh tab, Alt+7 opens it: Installed is empty, Sources
+   lists the shipped doc-review with Install;
+2. Install: the row shows, disabled, the last action's lines are install's;
+3. Details: the API range beside this Halo's, no dependency, the contributes
+   block; a Grant toggle on a disabled pack picks it for Enable;
+4. Enable (with the picked grant): the row runs, 1/3 granted, the pack's own
+   section tab comes after Packs on Alt+8; a Grant toggle on the enabled pack
+   grants at once (2/3);
+5. Templates: Run review opens Orchestra's Start view with the workflow form
+   filled in (the ref, its inputs, style at its default);
+6. Disable: the row reads disabled, 0/3, the section tab is gone, Templates
+   says enable it first;
+7. Remove: the confirm names the command (and --keep-config when ticked);
+   Remove deletes the pack: the row goes, Sources offers Install again.
+
+The last stdout line is the JSON of what it saw (exit 2: no Chrome)."""
+from __future__ import annotations
+
+import json
+import shutil
+import sys
+from contextlib import contextmanager
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO))
+sys.path.insert(0, str(REPO / "tools"))
+
+from tests.helpers.chrome_driver import Driver  # noqa: E402
+from tests.helpers.studio_packs_steps import CUR, TABS, alt, press, q, qa  # noqa: E402
+
+ROW = "[data-testid=pm-installed-row][data-id=doc-review]"
+SRC = "[data-testid=pm-source][data-kind=shipped] [data-testid=pm-source-pack][data-id=doc-review]"
+
+
+def _text(sel: str) -> str:
+    return f"({q(sel)}?.textContent || '')"
+
+
+def w(c, expr: str, timeout: float = 20):
+    """`c.wait`; on a timeout a screenshot lands at $PM_SHOT when it is set (debugging a red run)."""
+    try:
+        return c.wait(expr, timeout)
+    except TimeoutError:
+        import os
+        if os.environ.get("PM_SHOT"):
+            c.shot(os.environ["PM_SHOT"])
+        raise
+
+
+def section(c, url, ctx) -> dict:
+    out: dict = {}
+    c.go(url)
+    w(c, f"{TABS}.length >= 7", 40)
+    out["tabs"] = c.js(f"{TABS}.map((t) => t.querySelector('.tab-label').textContent)")
+    out["kbds"] = c.js(f"{TABS}.map((t) => t.querySelector('.tab-kbd')?.textContent || '')")
+    alt(c, 7)
+    out["alt7"] = w(c, f"{CUR}.startsWith('Packs') && {CUR}", 10)
+    out["empty"] = bool(w(c, f"!!{q('[data-testid=pm-installed-empty]')}", 30))
+    out["source_install"] = w(c, _text(f"{SRC} [data-testid=pm-install]"), 20)
+    out["panels"] = c.js(f"{qa('[data-section=packs] .panel-title')}.map((t) => t.textContent)")
+    return out
+
+
+def install(c, url, ctx) -> dict:
+    press(c, q(f"{SRC} [data-testid=pm-install]"))
+    try:
+        w(c, f"!!{q(ROW)}", 30)
+    except TimeoutError:
+        raise TimeoutError(f"no row; the last lines: {c.js(_text('[data-testid=pm-last]'))!r}, toasts: "
+                           f"{c.js(qa('.toast') + '.map((t) => t.textContent)')!r}")
+    return {"installed_state": w(c, _text(f"{ROW} [data-testid=pm-state]"), 10),
+            "installed_last": w(c, f"{_text('[data-testid=pm-last] .pm-lines')}.split('\\n')[0]", 10),
+            "source_after": w(c, _text(f"{SRC} [data-testid=pm-source-installed]"), 15),
+            "on_disk": (ctx["state"] / "packs" / "doc-review" / "pack.yaml").is_file()}
+
+
+def details(c, url, ctx) -> dict:
+    w(c, f"{q('[data-testid=pm-details-body]')}?.dataset.id === 'doc-review'", 20)
+    out = {"api": c.js(_text("[data-testid=pm-api]")), "requires": c.js(_text("[data-testid=pm-requires]")),
+           "contributes": c.js(_text("[data-testid=pm-contributes]")),
+           "perms": c.js(f"{qa('[data-testid=pm-perm]')}.map((p) => p.dataset.name)")}
+    press(c, q("[data-testid=pm-grant][data-name=bash]"))
+    out["picked"] = w(c, f"{q('[data-testid=pm-grant][data-name=bash]')}?.checked === true", 10)
+    out["enable_label"] = w(c, _text(f"{ROW} [data-testid=pm-enable]") + ".includes('1 grant') && " + _text(f"{ROW} [data-testid=pm-enable]"), 10)
+    out["enable_title"] = c.js(f"{q(ROW + ' [data-testid=pm-enable]')}?.title")
+    return out
+
+
+def enable(c, url, ctx) -> dict:
+    press(c, q(f"{ROW} [data-testid=pm-enable]"))
+    w(c, f"{q(ROW)}?.dataset.state === 'running'", 30)
+    out = {"granted": w(c, _text(f"{ROW} [data-testid=pm-grants]") + ".startsWith('1/3') && " + _text(f"{ROW} [data-testid=pm-grants]"), 15)}
+    w(c, f"{TABS}.some((t) => t.textContent.startsWith('Docs review'))", 20)
+    out["tabs_on"] = c.js(f"{TABS}.map((t) => t.querySelector('.tab-label').textContent)")
+    out["pack_kbd"] = c.js(f"{TABS}.find((t) => t.textContent.startsWith('Docs review'))?.querySelector('.tab-kbd')?.textContent")
+    press(c, q("[data-testid=pm-grant][data-name=hooks]"))
+    out["granted_more"] = w(c, _text(f"{ROW} [data-testid=pm-grants]") + ".startsWith('2/3') && " + _text(f"{ROW} [data-testid=pm-grants]"), 20)
+    rec = json.loads((ctx["state"] / "packs" / "state.json").read_text(encoding="utf-8"))["installed"]["doc-review"]
+    out["state_json"] = [rec.get("enabled"), rec.get("granted")]
+    return out
+
+
+def templates(c, url, ctx) -> dict:
+    run = q("[data-testid=pm-workflow][data-ref='doc-review/review'] [data-testid=pm-run-workflow]")
+    w(c, f"!!{run}", 20)
+    out = {"lineups": c.js(f"{qa('[data-testid=pm-template][data-kind=lineup]')}.map((r) => r.dataset.name)")}
+    press(c, run)
+    out["section_after_run"] = w(c, f"{CUR}.startsWith('Orchestra') && {CUR}", 15)
+    w(c, f"!!{q('[data-testid=orchestra-workflow-form]')}", 20)
+    out["wf_ref"] = c.js(_text("[data-testid=orchestra-workflow-ref]"))
+    out["wf_inputs"] = c.js(f"{qa('[data-testid=orchestra-workflow-input]')}.map((i) => [i.dataset.key, i.value])")
+    out["wf_title"] = c.js(_text(".fl-start-title"))
+    alt(c, 7)
+    w(c, f"{CUR}.startsWith('Packs')", 10)
+    return out
+
+
+def disable(c, url, ctx) -> dict:
+    press(c, q(f"{ROW} [data-testid=pm-disable]"))
+    w(c, f"{q(ROW)}?.dataset.state === 'disabled'", 30)
+    w(c, f"!{TABS}.some((t) => t.textContent.startsWith('Docs review'))", 20)
+    return {"disabled_state": c.js(_text(f"{ROW} [data-testid=pm-state]")), "disabled_grants": c.js(_text(f"{ROW} [data-testid=pm-grants]")),
+            "disabled_enable": c.js(f"!!{q(ROW + ' [data-testid=pm-enable]')}"),
+            "tabs_off": c.js(f"{TABS}.map((t) => t.querySelector('.tab-label').textContent)"),
+            "templates_off": bool(w(c, f"!!{q('[data-testid=pm-templates-off]')}", 10))}
+
+
+def remove(c, url, ctx) -> dict:
+    press(c, q(f"{ROW} [data-testid=pm-remove]"))
+    w(c, f"!!{q('[data-testid=pm-remove-dialog]')}", 10)
+    out = {"remove_cmd": c.js(_text("[data-testid=pm-remove-cmd]"))}
+    press(c, q("[data-testid=pm-keep-config]"))
+    out["remove_cmd_keep"] = w(c, _text("[data-testid=pm-remove-cmd]") + ".endsWith('--keep-config') && " + _text("[data-testid=pm-remove-cmd]"), 10)
+    press(c, q("[data-testid=pm-keep-config]"))
+    w(c, f"!{_text('[data-testid=pm-remove-cmd]')}.endsWith('--keep-config')", 10)
+    out["on_disk_before"] = (ctx["state"] / "packs" / "doc-review").is_dir()
+    press(c, q("[data-testid=pm-remove-yes]"))
+    w(c, f"!{q(ROW)} && !!{q('[data-testid=pm-installed-empty]')}", 30)
+    out["removed_last"] = w(c, f"{_text('[data-testid=pm-last] .pm-lines')}.split('\\n')[0]", 10)
+    out["install_again"] = w(c, _text(f"{SRC} [data-testid=pm-install]"), 15)
+    out["on_disk_after"] = (ctx["state"] / "packs" / "doc-review").exists()
+    return out
+
+
+class PackManagerDriver(Driver):
+    no_chrome = {"skip": "no Chrome found"}
+
+    @contextmanager
+    def session(self, c):
+        from capture_studio import seeded_home, serve
+        from halo_harness.packs import bio_models
+        from tests.helpers.workflow_rig import TOOLS_ROW
+        state = seeded_home()
+        bio_models.ROWS = lambda _s, _c: [dict(TOOLS_ROW)]
+        srv, url = serve(state, True)
+        url = url.replace("mode=orchestra&feed=off", "mode=roles&tour=off&view=workspace")
+        ctx = {"state": state, "srv": srv}
+        try:
+            yield tuple((fn, (c, url, ctx)) for fn in (section, install, details, enable, templates, disable, remove))
+        finally:
+            bio_models.ROWS = None
+            srv.shutdown()
+            srv.server_close()
+            shutil.rmtree(state.parent, ignore_errors=True)
+
+
+if __name__ == "__main__":
+    sys.exit(PackManagerDriver(sys.argv[1:]).main())

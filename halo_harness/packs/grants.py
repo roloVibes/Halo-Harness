@@ -53,15 +53,25 @@ def _record(pack, data: dict) -> dict:
     return rec
 
 
+def no_pack_line(pack_id: str) -> str:
+    return f"no pack {pack_id!r} here (halo pack list; halo pack install <path|git url>)"
+
+
+def _not_requested(pack, wanted) -> "list[str]":
+    asked = MF.requested(pack.manifest)
+    bad = [g for g in wanted if g not in asked]
+    return [f"{pack.id} does not request {', '.join(bad)}; it requests: {', '.join(asked) or 'nothing'}"] if bad else []
+
+
 def enable(pack, *, grant=None, grant_all: bool = False, state_dir=None) -> "tuple[bool, list[str]]":
     """Enable `pack` with the grants given; `(False, [line])` for a grant it does not request."""
     from halo_harness.packs import state as S
     data = S.load(state_dir)
     asked = MF.requested(pack.manifest)
     wanted = list(asked) if grant_all else list(grant or [])
-    bad = [g for g in wanted if g not in asked]
+    bad = _not_requested(pack, wanted)
     if bad:
-        return False, [f"{pack.id} does not request {', '.join(bad)}; it requests: {', '.join(asked) or 'nothing'}"]
+        return False, bad
     rec = _record(pack, data)
     rec["granted"] = sorted(set(rec.get("granted") or []) | set(wanted))
     rec["enabled"] = True
@@ -71,6 +81,49 @@ def enable(pack, *, grant=None, grant_all: bool = False, state_dir=None) -> "tup
     lines = [f"enabled {pack.id} {pack.version}".rstrip(), "it requests:"] + request_lines(pack, rec["granted"])
     for perm, why in missing(pack, rec["granted"]):
         lines.append(f"not running until granted: {why} (halo pack enable {pack.id} --grant {perm})")
+    return True, lines
+
+
+def enable_id(pack_id: str, *, grant=None, grant_all: bool = False, cwd=None, state_dir=None) -> "tuple[bool, list[str]]":
+    """`halo pack enable <id>` (and Studio's Enable, 3.2.0.0 R6): the pack found here by id, then enable."""
+    from halo_harness.packs.discover import find
+    pack = find(pack_id, cwd=cwd, state_dir=state_dir)
+    if pack is None:
+        return False, [no_pack_line(pack_id)]
+    return enable(pack, grant=grant, grant_all=grant_all, state_dir=state_dir)
+
+
+def grant(pack_id: str, names, *, on: bool = True, cwd=None, state_dir=None) -> "tuple[bool, list[str]]":
+    """`halo pack grant <id> NAME... [--off]` (3.2.0.0 R6, Studio's Grant toggle): give an enabled pack more of
+    what it requests (the same as enable --grant), or take grants back; a disabled pack gets its grants as it is enabled."""
+    from halo_harness.packs import state as S
+    from halo_harness.packs.discover import find
+    pack = find(pack_id, cwd=cwd, state_dir=state_dir)
+    if pack is None:
+        return False, [no_pack_line(pack_id)]
+    names = [str(n) for n in names or [] if str(n).strip()]
+    if not names:
+        return False, [f"name what to grant: halo pack grant {pack.id} NAME (it requests: "
+                       f"{', '.join(MF.requested(pack.manifest)) or 'nothing'})"]
+    bad = _not_requested(pack, names)
+    if bad:
+        return False, bad
+    data = S.load(state_dir)
+    if not S.enabled_for(pack, data):
+        return False, [f"{pack.id} is disabled; its grants are given as you enable it: halo pack enable {pack.id} "
+                       + " ".join(f"--grant {n}" for n in names)]
+    if on:
+        return enable(pack, grant=names, state_dir=state_dir)
+    have = S.granted(pack.id, data)
+    left = [g for g in have if g not in names]
+    gone = [n for n in names if n in have]
+    S.put(pack.id, {"granted": left}, state_dir)
+    changed(state_dir)
+    lines = [f"took back {', '.join(gone)} from {pack.id}" if gone else f"{pack.id} had no {', '.join(names)} grant; nothing changed",
+             "it requests:"] + request_lines(pack, left)
+    for perm, why in missing(pack, left):
+        if perm in gone:
+            lines.append(f"not running until granted: {why} (halo pack enable {pack.id} --grant {perm})")
     return True, lines
 
 

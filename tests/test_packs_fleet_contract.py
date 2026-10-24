@@ -19,7 +19,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from tests.helpers.packs_home import DOC_REVIEW, FIXTURES, PacksHome  # noqa: E402
+from tests.helpers.packs_home import DOC_REVIEW, FIXTURES, PacksHome, fixture  # noqa: E402
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
 
 test, TESTS = new_registry()
@@ -42,7 +42,7 @@ def test_the_fixtures_validate_and_the_twin_has_the_keys(ctx: Ctx):
     from halo_harness.packs.discover import read_pack
     from halo_harness.schemas.pack_yaml import CAPABILITY_KEYS, FLEET_KEYS, HARDWARE_KEYS, REQUIRES_KEYS
     for name in ("doc-review", "fleet-needs-gpu"):
-        pack = read_pack(FIXTURES / name, "source")
+        pack = read_pack(fixture(name), "source")
         ctx.check(f"{name} validates clean, got {pack.problems}", pack.problems == [])
     fleet = _good()["contributes"]["fleet"]
     ctx.check(f"doc-review declares every fleet key, got {list(fleet)}", tuple(fleet) == FLEET_KEYS)

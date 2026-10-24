@@ -211,6 +211,35 @@ decisions, the next task.
     events/review.done.json, a "Last review report" artifact panel; wf-cycle,
     wf-unknown-role, wf-no-giver, wf-input-type; tests/fixtures/workflows/report-bad.json.
 
+- R6 (2026-10-24, branch v320/R6-manager from 73b89bb): the Pack Manager and the reference pack.
+  - The reference pack: the doc-review fixture moved to `halo_harness/templates/packs/doc-review/`
+    (shipped, package data) as the generic "Documentation Review" pack (author Halo Harness, a
+    header comment for third parties, `README.md` = the guide: every file in one line, the API
+    version, install from a folder / git url / `packs.sources`, `halo pack doctor`); its hook and
+    its lint server import `halo_harness.ext` guarded, and `mcp/lint_server.py` is a real stdio MCP
+    server (check_links, check_headings). The tests read the shipped pack (`tests/helpers/packs_home.py`
+    DOC_REVIEW, SHIPPED, `fixture(name)`); `tests/fixtures/packs/doc-review/` is gone.
+  - `packs/sources.py`: the bare-id search is `packs.sources`, then the shipped folder (last), used by
+    `fetch.source_for`; `listing`, `available`, `add`, `remove`. CLI: `halo pack list --available`,
+    `halo pack sources [add|remove <folder|git url>]`, `halo pack grant <id> NAME.. [--off]`
+    (`grants.grant`, `grants.enable_id`, `grants.no_pack_line`; enable's refusal line shared).
+  - `packs/manager.py` (the payload: list row + inspect payload + health + compat in the doctor's words +
+    requires/met + contributes_lines + workflows + sections) and `studio/packs_manager_api.py` (`GET
+    pack/manager`, `POST pack/install|sources`, `POST pack/<id>/enable|grant|disable|update|remove`,
+    `GET|POST pack/<id>/settings` for any installed pack), routed first by `packs_studio_api.dispatch_pack`;
+    each runs the CLI's function, answers its lines (404 for "no pack ...", else 422) and publishes
+    `pack_changed` (the server is watched first; a source change notifies itself).
+  - `POST orchestra/run {workflow, inputs, model}` compiles a pack's workflow first
+    (`studio/workflow_api.compiled_goal`, the compile's lines on a 422).
+  - Studio: Packs is the seventh core section (Alt+7; SECTIONS, SECTION_IDS, CoreSectionId; the
+    packs' own sections Alt+8, Alt+9: `routes/packs/registry.ts` FIRST_KEY 8): `routes/packs/manager/`
+    (Installed, Sources, Details, Settings, Templates over one store redrawn on `pack_changed`),
+    `help-packs.ts`, the section help copy, `styles/manager.css`; PackForm takes a `path`;
+    Orchestra's Start view shows `WorkflowForm.tsx` while `workflowRun.ts` holds a workflow (Run <workflow>).
+  - Docs: STUDIO-packs.md (new part), STUDIO-sections.md "### Packs", PACKS.md "The Pack Manager" and
+    "The reference pack", EXTENSION_API.md "The reference example" stable, COMMANDS-packs.md, README.md,
+    the module map.
+
 ## Open dependencies
 
 - R2 confirmed the `<id>--<name>` names (Decisions); the ROADMAP's R2 line
@@ -266,6 +295,17 @@ decisions, the next task.
 - R5: a lineup's `workflows:` stays a list of names (R2): a workflow runs by
   its `<pack>/<name>`; the compiled goal's `lineup` is the pack lineup that
   names it.
+- R6 (done): a pack's hook and MCP server run with the `python` on PATH, which under a `uv tool`
+  install cannot import `halo_harness.ext` (the shipped pack's imports are guarded and keep to their
+  defaults); Halo exposing its own interpreter to pack commands (a `${HALO_PYTHON}` expansion) is R7's.
+- R6: the shipped pack says `halo: {min: "3.1"}` (this branch is 3.1.7.0); the release bump sets
+  3.2 once `__version__` is 3.2.0.0.
+- R6: the modes banner (tools/studio_modes_banner.py, README's picture) keeps its six tiles; a
+  Packs tile needs a capture (`docs/media/studio-packs.png`) and the banner rebuilt.
+- R6: `halo studio --mode` / `?mode=` do not take `packs` (the saved section does come back).
+- R6: the CLI asks no confirm for `halo pack remove`; Studio's Remove asks (the brief's "the confirm
+  the CLI asks") and names the command.
+- R6: Templates' "presets" are the pack's bios (no separate presets concept in the manifest).
 - R7: the glossary gains "pack" (closed list in R1); the compatibility and
   migration policy is `planned` with the proposal in EXTENSION_API.md.
 - A project pack's BIO keeps its `tools.permission_mode` and allow rules
@@ -374,6 +414,22 @@ decisions, the next task.
   studio.css bec944aa..., index.html unchanged), `tests.test_studio_dist` 6/6
   last. Not run: test_tui.py, the full tier as a whole, Kali/WSL.
 
+- R6 new modules: test_reference_pack 1 (the end to end), test_packs_manager_api 8,
+  test_packs_manager_ui 7 (Chrome, full tier) -- 16 tests, all green.
+- R6 kept green, module by module: R1-R5's packs and workflow modules, test_ext_api, test_doctor_config,
+  test_config_where, test_completion_cli, test_studio_edit_target, test_audit_privacy,
+  test_studio_orchestra_api / _plan, test_studio_api, test_studio_team, test_studio_section_order,
+  test_glossary, test_invariants, test_docs_* (5), test_quickstart_docs, test_line_endings,
+  test_privacy_scan. Chrome 185/185: the packs and workflow UI modules, test_studio_ui 53, _modes,
+  _start, _edit_route, _design, _model_select, _models_ui, _roles_auto/_glow/_model/_tiers, the five
+  _session modules, test_wizard_studio_doors, test_front_page_media. Pins moved for the seventh section
+  (six tabs -> seven, pack sections Alt+8/9, the section-order reader) and the shipped pack.
+- R6 full runs (2026-10-24, Windows build host): `tests/run_all.py --fast` 5049 tests / 531 modules,
+  5038 passed, 0 failed, 11 skipped, both real-home guards ok; `test_bridge.py` 101/101. Studio UI:
+  `npm ci`, `npx tsc --noEmit` clean, two builds identical (studio.js sha256 2a89c1ce..., studio.css
+  5318b1ad..., index.html unchanged), `tests.test_studio_dist` 6/6 last. Not run: test_tui.py, the
+  full tier as a whole, Kali/WSL.
+
 ## Decisions
 
 - Pack-qualified names are `<id>--<name>` (valid under the name rule); an id
@@ -459,15 +515,23 @@ decisions, the next task.
 - R5: `_meta.json` is a sidecar per entry (`<name>._meta.json`), so parallel
   stages never share a file; a note without one is the user's, kept.
 
+- R6: the tests read the shipped reference pack (one copy, no drift) instead of a fixture copy:
+  every packs test is a regression test of the pack Halo ships; the failure fixtures stay in tests/.
+- R6: the shipped folder is the LAST entry of the bare-id search, so a `packs.sources` pack with the
+  same id wins (pinned in test_packs_cli).
+- R6: `halo pack grant` and `halo pack sources` are new verbs, so Studio's Grant toggle and Add/Remove
+  source run a CLI function and answer its lines; a grant on a disabled pack is refused with the
+  enable command (grants are given as the pack is enabled), so Details' toggles on a disabled pack pick
+  the grants its Enable sends.
+- R6: Packs is appended to SECTIONS (the six keep Alt+1..6); the section-order reader takes Alt+1..7
+  and a run of the six (or the seven) in order; the banner keeps six tiles.
+- R6: `pack/<id>/settings` serves the settings form of any installed pack (R3's `pack/<id>/config`
+  stays for running packs only).
+
 ## Next task
 
-- R6: The Pack Manager in Studio and the reference pack (plans/ROADMAP.md
-  3.2.0.0 R6, Phases 9-10): discover, capabilities, dependencies, requested
-  permissions, enable and disable, model and tool settings, templates,
-  presets, compatibility warnings, health, update, uninstall (trusted local
-  and configured sources only); the "Documentation Review" pack (a reviewer
-  and a writer bio, the review workflow, a Studio review panel, the typed
-  review-report artifact, a Fleet capability requirement) that installs, runs
-  (`halo workflow run`), renders (its artifact panel) and uninstalls without a
-  core change. R5's doc-review fixture is its seed; a workflow picker belongs
-  in the Pack Manager.
+- R7: hardening and the release (plans/ROADMAP.md 3.2.0.0 R7, the program's last phase):
+  "Compatibility and migration" made final in EXTENSION_API.md (`stable`), the glossary's
+  "pack", Halo's interpreter for a pack's hook and MCP commands, the shipped pack's `halo` minimum at
+  the version bump, a Packs tile for the modes banner, the full tier and Kali, the CHANGELOG and
+  the 3.2.0.0 release.

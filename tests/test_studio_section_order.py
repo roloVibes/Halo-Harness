@@ -5,8 +5,10 @@ roles, fleet, design"; Orchestra, not in his list, keeps the last key): Session 
 that README.md, docs/ (every .md under it) and the UI's own copy and comments (ui/src) name belongs to the
 section the registry gives that key, every "`Alt+1`..`Alt+6`" list runs in the registry's order, the modes
 banner (tools/studio_modes_banner.py) draws its six tiles in that order with those keys, and
-docs/STUDIO-sections.md tells the sections in it. The reader is tests/helpers/section_order.py; a reorder of
-SECTIONS fails here on every line it leaves behind. Run: python -m tests.test_studio_section_order
+docs/STUDIO-sections.md tells the sections in it. 3.2.0.0 R6: Packs (the Pack Manager) is appended as the
+seventh section, `Alt+7`; the six keep their keys and the banner keeps its six tiles. The reader is
+tests/helpers/section_order.py; a reorder of SECTIONS fails here on every line it leaves behind.
+Run: python -m tests.test_studio_section_order
 """
 
 from __future__ import annotations
@@ -32,12 +34,13 @@ def _docs() -> "list[Path]":
 @test
 def test_the_registry_runs_session_first_and_orchestra_last(ctx: Ctx):
     rows = so.registry()
-    ctx.check(f"six sections, got {[r[0] for r in rows]}", len(rows) == 6)
-    ctx.check(f"the keys follow the order, Alt+1 to Alt+6, got {[r[2] for r in rows]}", [r[2] for r in rows] == [f"Alt+{n}" for n in range(1, 7)])
-    ctx.check(f"the order is Session, Team, Roles, Fleet, Design, Orchestra, got {[r[1] for r in rows]}",
-              [r[0] for r in rows] == ["session", "team", "roles", "fleet", "design", "orchestra"])
+    ctx.check(f"seven sections (3.2.0.0 R6: Packs appended), got {[r[0] for r in rows]}", len(rows) == 7)
+    ctx.check(f"the keys follow the order, Alt+1 to Alt+7, got {[r[2] for r in rows]}", [r[2] for r in rows] == [f"Alt+{n}" for n in range(1, 8)])
+    ctx.check(f"the order is Session, Team, Roles, Fleet, Design, Orchestra, Packs, got {[r[1] for r in rows]}",
+              [r[0] for r in rows] == ["session", "team", "roles", "fleet", "design", "orchestra", "packs"])
     ctx.check("Session is Alt+1, This session, live", rows[0][1:] == ("Session", "Alt+1", "This session, live"))
-    ctx.check("Orchestra is Alt+6, Runs of your agents, live", rows[-1][1:] == ("Orchestra", "Alt+6", "Runs of your agents, live"))
+    ctx.check("Orchestra is Alt+6, Runs of your agents, live", rows[5][1:] == ("Orchestra", "Alt+6", "Runs of your agents, live"))
+    ctx.check("Packs is Alt+7, the Pack Manager (3.2.0.0 R6)", rows[-1][1:] == ("Packs", "Alt+7", "Install, grant and enable packs"))
     keys = (UI / "shell" / "keys.ts").read_text(encoding="utf-8")
     ctx.check("Alt+1..6 take the registry's n-th section (3.2.0.0 R3: sections() is the six, then the packs')",
               "sections()[Number(e.code.slice(5)) - 1]" in keys)
@@ -61,7 +64,7 @@ def test_the_ui_copy_and_comments_name_the_registry_key(ctx: Ctx):
     ctx.check("every Alt+N in ui/src (help copy, comments) names the registry's section:\n  " + "\n  ".join(bad), not bad)
     help_src = (UI / "routes" / "sectionHelp.ts").read_text(encoding="utf-8")
     ctx.check("the section help keeps no Alt+N line of its own (the overlay puts the registry's first)",
-              re.search(r'\["Alt\+[1-6]"', help_src) is None)
+              re.search(r'\["Alt\+[1-7]"', help_src) is None)
     overlay = (UI / "shell" / "SectionHelp.tsx").read_text(encoding="utf-8")
     ctx.check("the overlay's KEYS list starts with the section's registry key", "[[def.kbd, def.title], ...copy.keys]" in overlay)
     status = (UI / "shell" / "StatusBar.tsx").read_text(encoding="utf-8")
@@ -74,7 +77,7 @@ def test_the_ui_copy_and_comments_name_the_registry_key(ctx: Ctx):
 
 @test
 def test_the_modes_banner_draws_the_registry_order(ctx: Ctx):
-    rows = so.registry()
+    rows = so.registry()[:6]  # 3.2.0.0 R6: the banner shows the six work sections; Packs has no tile (no capture yet)
     frames = so.banner_frames()
     ctx.check(f"six tiles, got {len(frames)}", len(frames) == 6)
     ctx.check(f"the tiles run in the registry's order, got {[f[1] for f in frames]}", [f[1] for f in frames] == [r[1] for r in rows])

@@ -45,7 +45,7 @@ Work in the TUI and on the command line, and give agents bios, lineups, roles an
   - [COMMANDS-studio.md](COMMANDS-studio.md) (Commands: Studio, design, media, Orchestra and teams): read this when you open Studio or run designs, media, an Orchestra goal or a team from the command line.
   - [COMMANDS-fleet.md](COMMANDS-fleet.md) (Commands: remote control and the fleet): read this when you control sessions remotely or run a fleet and its missions.
   - [COMMANDS-supervise.md](COMMANDS-supervise.md) (Commands: the supervisor and its goals): read this when you give Halo a goal to work on without sitting at a terminal.
-  - [COMMANDS-packs.md](COMMANDS-packs.md) (Commands: packs): read this when you list, inspect, install, enable, update or remove a pack from the command line (`halo pack`).
+  - [COMMANDS-packs.md](COMMANDS-packs.md) (Commands: packs): read this when you list, inspect, install, enable, grant, update or remove a pack, or name where packs come from, on the command line (`halo pack`).
   - [COMMANDS-workflows.md](COMMANDS-workflows.md) (Commands: workflows): read this when you list, show, check or run a pack's workflow from the command line (`halo workflow`).
   - [COMMANDS-proxy.md](COMMANDS-proxy.md) (Commands: the proxy, exit codes and config checks): read this when you run the old proxy, read an exit code, or list and check the config files in effect.
 - [SLASH-COMMANDS.md](SLASH-COMMANDS.md) (Slash commands, keys, and prompt prefixes): read this when you want what a `/command`, a key or a prompt prefix does in the TUI.
@@ -75,11 +75,12 @@ The browser console: every agent of your session live, your lineups, runs, fleet
 
 - [STUDIO.md](STUDIO.md) (Halo Studio): read this when you use Halo Studio, the browser console where you watch every agent work: the Session dashboard, your lineups in Roles, runs, designs, fleet and team.
   - [STUDIO-shell.md](STUDIO-shell.md) (Studio: the shell): read this when you find your way around Studio's header, sections, panels and Start views, or open it on a bio, a lineup or the Team.
-  - [STUDIO-sections.md](STUDIO-sections.md) (Studio: how each section works): read this when you want the one-screen story of a section (Session, Team, Roles, Fleet, Design, Orchestra) and the live feed.
+  - [STUDIO-sections.md](STUDIO-sections.md) (Studio: how each section works): read this when you want the one-screen story of a section (Session, Team, Roles, Fleet, Design, Orchestra, Packs) and the live feed.
   - [STUDIO-orchestra.md](STUDIO-orchestra.md) (Studio: the Orchestra console): read this when you run an Orchestra goal from Studio: the run console, the plan canvas and the coach.
   - [STUDIO-fleet.md](STUDIO-fleet.md) (Studio: Fleet): read this when you watch or steer every harness and agent from Studio's Fleet section.
   - [STUDIO-team-roles.md](STUDIO-team-roles.md) (Studio: Team and Roles): read this when you edit a team board or a lineup on the Roles canvas.
   - [STUDIO-design.md](STUDIO-design.md) (Studio: Design mode): read this when you make prototypes, pages or decks with Studio's Design section on your own creative apps.
+  - [STUDIO-packs.md](STUDIO-packs.md) (Studio: the Pack Manager): read this when you install, grant, enable, set up, update or remove packs from Studio's Packs section.
   - [STUDIO-security.md](STUDIO-security.md) (Studio: saving, security, SSH and shortcuts): read this when you save and apply from Studio, run it over SSH, check what it lets a page do, or want every shortcut.
 - [DESIGN.md](DESIGN.md) (Halo Design): read this when you make designs, pages, decks or logos with Halo Design on your own apps.
 

@@ -74,7 +74,7 @@ pack's bio says that yours usually does not:
 - `tools.permission_mode` and allow rules are read as written, as a project
   bio's are: permissions stay the rules you set and the grants you give.
 
-One full example (the fixture `tests/fixtures/packs/doc-review/`):
+One full example (the reference pack Halo ships, `halo_harness/templates/packs/doc-review/`):
 
 ```yaml
 # agents/reviewer.yaml -> the bio doc-review--reviewer
@@ -163,16 +163,16 @@ A pack may add to Studio what its `pack.yaml` declares under
 has the shape); Studio draws all of it with its own components, and all of it
 goes the moment you disable the pack (no reload):
 
-- **Its own sections**, after Orchestra: the tab strip and the rail show them
-  after a thin "packs" divider, on Alt+7, Alt+8 and Alt+9 (the six sections
-  keep Alt+1..6). The doc-review fixture's is **Docs review**: its notes (a
+- **Its own sections**, after the core sections: the tab strip and the rail
+  show them after a thin "packs" divider, on Alt+8 and Alt+9 (3.2.0.0 R6: the
+  seven core sections keep their keys, Packs is the seventh). The doc-review pack's is **Docs review**: its notes (a
   markdown page of the pack), its checks (a table over a JSON file), links
   (into Studio, or a page in a new tab) and Settings.
 - **Panels in a core section**, under that section's own, as strips: the
-  fixture's **Reviews** sits in Session. Each pack panel's title bar says
+  pack's **Reviews** sits in Session. Each pack panel's title bar says
   "from pack <id>", and `?` (or the ... menu's Help) shows the pack's own help
   lines.
-- **Palette lines** in their own group, "pack <id>": the fixture's "Open the
+- **Palette lines** in their own group, "pack <id>": the pack's "Open the
   review checks" opens Docs review on the Checks panel.
 - **Settings**: with `config_form: true`, a form of the pack's
   `config.schema` (a field per key, its description as the help line). Save
@@ -291,6 +291,50 @@ schemas in its "contributes:" block.
 
 `halo pack doctor` (and the packs group of `halo doctor --config`) lists
 every problem in one line each.
+
+## The Pack Manager
+
+Studio's **Packs** section (`Alt+7`, 3.2.0.0 R6) runs the lifecycle above with
+buttons, through the same code: each action runs the function `halo pack`
+runs and shows the lines it prints, and every open Studio redraws on the
+`pack_changed` it publishes ([STUDIO-packs.md](STUDIO-packs.md)).
+
+- **Sources**: where a bare id is looked for, in order: the folders and git
+  urls of `packs.sources` (Add source, Remove: `halo pack sources add|remove`),
+  then the packs Halo ships. A pack not installed has Install (`--project`
+  with "into this repo"). No marketplace: only what your config names and what
+  Halo ships.
+- **Installed**: every pack here, its state, the grants given of the ones it
+  requests and the doctor's lines for it; Enable, Disable, Update, and Remove
+  (it asks first, naming `halo pack remove <id>` and `--keep-config`).
+- **Details**: the extension API and Halo ranges beside this Halo's, each
+  required pack and whether it is met, what keeps it from running here (in
+  the doctor's words), each permission with a Grant toggle (an enabled pack:
+  `halo pack grant <id> <name> [--off]` at once; a disabled one: picked for its
+  Enable), what it contributes (`halo pack inspect`'s block) with links to its
+  section, its lineup in Roles and its workflows, and its health.
+- **Settings**: the pack's settings form, for a disabled pack too.
+- **Templates**: its lineups and bios with Preview, Clone, Customize and Apply
+  (Roles' own actions), and Run <workflow>: Orchestra's new-run form filled
+  in with the workflow and its inputs; Run compiles it as `halo workflow run` does.
+
+## The reference pack
+
+Halo ships one pack, **Documentation Review** (`doc-review`,
+`halo_harness/templates/packs/doc-review/`): a reviewer and a writer bio, the
+review lineup, the review workflow (read each Markdown file, judge the
+findings, write one typed `review-report`), a Studio section with the last
+review report, the `docs.review` fleet capability, and a skill, a command, a
+hook and a lint MCP server. `halo pack list --available` shows it; `halo pack
+install doc-review` installs it (the shipped folder is the last place a bare
+id is looked for, after `packs.sources`, so a pack of yours with that id
+wins); `halo pack enable doc-review --grant bash` turns it on; `halo workflow
+run doc-review/review --input docs=docs` runs its review. Its `README.md` is
+the guide to making your own pack from it: every file in one line, the API
+version, installing from a folder or a git url, checking it with `halo pack
+doctor`. `tests/test_reference_pack.py` installs it in a fresh home, runs its
+workflow, finds it in Studio, Roles and the fleet catalog, removes it and
+finds nothing of it left.
 
 ## Grants
 

@@ -25,7 +25,8 @@ test, TESTS = new_registry()
 @test
 def test_usage_help_and_exit_codes(ctx: Ctx):
     from halo_harness.packs.cli import VERBS, cmd_pack
-    ctx.check("the verbs", VERBS == ("list", "inspect", "install", "enable", "disable", "update", "remove", "doctor"))
+    ctx.check("the verbs (3.2.0.0 R6: + grant, sources)", VERBS == ("list", "inspect", "install", "enable", "grant", "disable",
+                                                                     "update", "remove", "sources", "doctor"))
     for argv, code in (([], 2), (["--help"], 0), (["frobnicate"], 2)):
         out, err = io.StringIO(), io.StringIO()
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
@@ -105,13 +106,15 @@ def test_every_verb_in_text_and_json(ctx: Ctx):
 def test_install_by_id_through_packs_sources(ctx: Ctx):
     with PacksHome() as h:
         src = h.source()
-        code, _out, err = h.cli("install", "doc-review")
-        ctx.check(f"a bare id with no sources: one line, got {err!r}", code == 1 and "no pack doc-review in config packs.sources" in err)
+        code, _out, err = h.cli("install", "studio-bundle")
+        ctx.check(f"a bare id no source holds: one line, got {err!r}", code == 1
+                  and "no pack studio-bundle in config packs.sources or the packs Halo ships" in err)
         h.config({"packs": {"sources": [str(src.parent), str(h.home / "gone")]}})
         code, out, err = h.cli("install", "doc-review")
         ctx.check(f"found in a source folder, got {code} {err}", code == 0 and (h.packs / "doc-review" / "pack.yaml").is_file())
         from halo_harness.packs.state import entry
-        ctx.check("the record names the folder it came from", entry("doc-review")["source"] == str(src))
+        ctx.check("packs.sources comes before the shipped pack (3.2.0.0 R6): the record names the source folder",
+                  entry("doc-review")["source"] == str(src))
         code, out, _err = h.cli("doctor")
         ctx.check(f"doctor names the source folder that is gone, got {out}", "packs.sources:" in out and "gone is not a folder" in out)
 

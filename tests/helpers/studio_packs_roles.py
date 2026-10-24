@@ -182,7 +182,8 @@ class PacksRolesDriver(Driver):
         from halo_harness.packs.grants import enable
         from halo_harness.packs.install import install
         state = seeded_home()
-        ok, lines = install(str(REPO / "tests" / "fixtures" / "packs" / "doc-review"))
+        from tests.helpers.packs_home import DOC_REVIEW  # 3.2.0.0 R6: the shipped reference pack
+        ok, lines = install(str(DOC_REVIEW))
         assert ok, lines
         ok, lines = enable(find("doc-review"), grant=["hooks"])
         assert ok, lines

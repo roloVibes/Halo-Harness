@@ -16,7 +16,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from tests.helpers.packs_home import FIXTURES, PacksHome  # noqa: E402
+from tests.helpers.packs_home import FIXTURES, SHIPPED, PacksHome  # noqa: E402
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
 
 test, TESTS = new_registry()
@@ -107,8 +107,8 @@ def _halo_imports(path: Path) -> "list[tuple[int, str]]":
 
 @test
 def test_fixture_packs_import_only_the_extension_api(ctx: Ctx):
-    files = sorted(FIXTURES.rglob("*.py"))
-    ctx.check(f"the fixture packs hold Python ({len(files)} file(s))", len(files) >= 2)
+    files = sorted(FIXTURES.rglob("*.py")) + sorted(SHIPPED.rglob("*.py"))  # 3.2.0.0 R6: and the shipped packs
+    ctx.check(f"the fixture and shipped packs hold Python ({len(files)} file(s))", len(files) >= 2)
     problems, used = [], 0
     for path in files:
         for line, module in _halo_imports(path):

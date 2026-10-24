@@ -1,0 +1,4 @@
+{
+  "name": "doc-review",
+  "description": "The Claude-plugin half of the Documentation Review pack: a link-check skill, a review command, a helper agent, a hook and a lint MCP server."
+}

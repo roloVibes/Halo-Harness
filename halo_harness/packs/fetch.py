@@ -3,7 +3,7 @@
 
     with fetched(source, state_dir=...) as (folder, problem):
         ...   # folder is a local copy (a folder as given, a fresh shallow clone of a url); problem is ''
-    source_for("doc-review")   # a bare id: the first of config `packs.sources` that holds it
+    source_for("doc-review")   # a bare id: the first of config `packs.sources` that holds it, then the shipped packs
 
 A url is cloned (`git clone --depth 1`) into a fresh folder under
 `<state>/packs/.staging-<8 hex>/`, removed when the block ends. Offline mode
@@ -32,13 +32,15 @@ def configured_sources() -> "list[str]":
 
 def source_for(target: str) -> str:
     """`target` as given when it is a url or a folder; for a bare pack id, the first of `packs.sources`
-    that holds it (a folder `<source>/<id>/`, a folder that is the pack, a url ending in `<id>` or `<id>.git`)."""
+    that holds it (a folder `<source>/<id>/`, a folder that is the pack, a url ending in `<id>` or `<id>.git`),
+    then the packs Halo ships (3.2.0.0 R6, packs/sources.py: the last entry of the search)."""
     from halo_harness.packs.names import is_valid_pack_id
+    from halo_harness.packs.sources import search, url_id
     if is_url(target) or Path(target).expanduser().exists() or not is_valid_pack_id(target):
         return target
-    for src in configured_sources():
+    for src in search():
         if is_url(src):
-            if src.rstrip("/").rsplit("/", 1)[-1].removesuffix(".git") == target:
+            if url_id(src) == target:
                 return src
             continue
         base = Path(src).expanduser()
@@ -82,7 +84,7 @@ def fetched(source: str, *, state_dir=None, timeout: float = 120.0):
     if not is_url(source):
         from halo_harness.packs.names import is_valid_pack_id
         folder = Path(source).expanduser()
-        missing = f"{source}: no such folder" + (f", and no pack {source} in config packs.sources"
+        missing = f"{source}: no such folder" + (f", and no pack {source} in config packs.sources or the packs Halo ships"
                                                   if is_valid_pack_id(source) else "")
         yield (folder.resolve(), "") if folder.is_dir() else (None, missing)
         return

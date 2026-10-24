@@ -86,8 +86,9 @@ def test_the_shell_has_six_sections_and_opens_orchestra_fleet_team_and_session_b
         srv.server_close()
     ui = REPO_DIR / "halo_harness" / "studio" / "ui" / "src"
     routes = (ui / "routes" / "index.tsx").read_text(encoding="utf-8")
-    ctx.check("six sections, Session on Alt+1, Team on Alt+2, Roles on Alt+3, Fleet on Alt+4, Design on Alt+5, Orchestra on Alt+6",
-              routes.count('kbd: "Alt+') == 6
+    ctx.check("seven sections, Session on Alt+1, Team on Alt+2, Roles on Alt+3, Fleet on Alt+4, Design on Alt+5, Orchestra on Alt+6, "
+              "Packs on Alt+7 (3.2.0.0 R6)",
+              routes.count('kbd: "Alt+') == 7 and 'id: "packs", title: "Packs", kbd: "Alt+7"' in routes
               and 'id: "session", title: "Session", kbd: "Alt+1"' in routes and 'id: "team", title: "Team", kbd: "Alt+2"' in routes
               and 'id: "roles", title: "Roles", kbd: "Alt+3"' in routes and 'id: "fleet", title: "Fleet", kbd: "Alt+4"' in routes
               and 'id: "design", title: "Design", kbd: "Alt+5"' in routes and 'id: "orchestra", title: "Orchestra", kbd: "Alt+6"' in routes
@@ -175,8 +176,8 @@ def test_design_opens_as_a_react_section(ctx: Ctx):
     _need_chrome()
     design = _dom("design")
     start, seeded = design.get("start", {}), design.get("design", {})
-    ctx.check(f"Design without a project: six tabs, the Start view, no frame, got {start or design}",
-              start.get("section-tab") == 6 and start.get("design-start") == 1 and start.get("legacy-frame") == 0 and start.get("design-artboard") == 0)
+    ctx.check(f"Design without a project: seven tabs, the Start view, no frame, got {start or design}",
+              start.get("section-tab") == 7 and start.get("design-start") == 1 and start.get("legacy-frame") == 0 and start.get("design-artboard") == 0)
     ctx.check(f"Design over a seeded project: the thread with two turns, two artboards, two pins, got {seeded}",
               seeded.get("design-thread") == 1 and seeded.get("design-turn") == 2 and seeded.get("design-artboard") == 2
               and seeded.get("design-pin") == 2 and seeded.get("design-start") == 0 and seeded.get("legacy-frame") == 0)
@@ -196,7 +197,7 @@ def test_roles_opens_as_a_react_section(ctx: Ctx):
     got = _dom("roles")
     start, roles = got.get("start", {}), got.get("roles", {})
     ctx.check(f"the Start view, no canvas and no frame, got {start or got}",
-              start.get("section-tab") == 6 and start.get("roles-start") == 1 and start.get("roles-canvas") == 0
+              start.get("section-tab") == 7 and start.get("roles-start") == 1 and start.get("roles-canvas") == 0
               and start.get("panel-about") == 0 and start.get("legacy-frame") == 0)
     ctx.check(f"the canvas, eight cards, three tier boxes, the edges, got {roles}",
               roles.get("roles-canvas") == 1 and roles.get("roles-card") == 8 and roles.get("roles-tier") == 3 and (roles.get("roles-edge") or 0) >= 7
@@ -213,7 +214,7 @@ def test_team_opens_as_a_react_section(ctx: Ctx):
     _need_chrome()
     got = _dom("team")
     start, team = got.get("start", {}), got.get("team", {})
-    ctx.check(f"the Start view, no board, got {start or got}", start.get("section-tab") == 6 and start.get("team-start") == 1
+    ctx.check(f"the Start view, no board, got {start or got}", start.get("section-tab") == 7 and start.get("team-start") == 1
               and start.get("team-start-init") == 1 and start.get("team-board") == 0 and start.get("team-stage") == 0)
     ctx.check(f"the board, got {team}", team.get("team-member") == 3 and team.get("team-stage") == 4 and team.get("team-block") == 3
               and team.get("team-edge") == 8 and team.get("panel-about") == 3 and team.get("team-start") == 0 and team.get("legacy-frame") == 0)
@@ -228,7 +229,7 @@ def test_orchestra_opens_a_planned_run_on_the_plan_canvas(ctx: Ctx):
     got = _dom("orchestra")
     plan, start = got.get("plan") or {}, got.get("start") or {}
     ctx.check(f"the plan panel, not the console, got {plan or got}", plan.get("orchestra-plan") == 1 and plan.get("orchestra-root") == 0
-              and plan.get("panel-about") == 1 and plan.get("section-tab") == 6)
+              and plan.get("panel-about") == 1 and plan.get("section-tab") == 7)
     ctx.check(f"five lanes, three boxes, one edge, the inspector and Approve, no problem, got {plan}",
               plan.get("plan-canvas") == 1 and plan.get("plan-lane") == 5 and plan.get("plan-layer") == 3 and plan.get("plan-edge") == 1
               and plan.get("plan-inspector") == 1 and plan.get("plan-approve") == 1 and plan.get("plan-problem") == 0)
@@ -244,12 +245,12 @@ def test_start_here_on_a_fresh_home_and_gone_after_dismiss(ctx: Ctx):
     got = _dom("start")
     first, gone, lineup = got.get("fresh") or {}, got.get("dismissed") or {}, got.get("lineup") or {}
     ctx.check(f"the home reads as fresh, got {got.get('status') or got}", (got.get("status") or {}).get("show") is True)
-    ctx.check(f"fresh: the overlay, Run and Just look around, no welcome card, six tabs, got {first}",
+    ctx.check(f"fresh: the overlay, Run and Just look around, no welcome card, seven tabs, got {first}",
               first.get("start-here") == 1 and first.get("start-here-run") == 1 and first.get("start-here-dismiss") == 1
-              and first.get("section-help") == 0 and first.get("section-tab") == 6 and first.get("start-step") == 0)
+              and first.get("section-help") == 0 and first.get("section-tab") == 7 and first.get("start-step") == 0)
     ctx.check(f"the Roles Start view under it, with its Next footer, got {first}", first.get("roles-start") == 1 and first.get("start-next") == 1)
     ctx.check(f"after dismiss: no overlay, the welcome instead, got {gone}", gone.get("start-here") == 0 and gone.get("section-help") == 1)
-    ctx.check(f"a lineup active: no overlay, got {lineup}", lineup.get("start-here") == 0 and lineup.get("section-tab") == 6)
+    ctx.check(f"a lineup active: no overlay, got {lineup}", lineup.get("start-here") == 0 and lineup.get("section-tab") == 7)
 
 
 if __name__ == "__main__":

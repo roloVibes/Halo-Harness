@@ -39,7 +39,7 @@ def test_the_fixture_pack_is_valid(ctx: Ctx):
     from halo_harness.packs.discover import read_pack
     pack = read_pack(DOC_REVIEW, "source")
     ctx.check(f"doc-review validates clean, got {pack.problems}", pack.problems == [])
-    ctx.check("id, name and version are read", (pack.id, pack.name, pack.version) == ("doc-review", "Documentation review", "1.0.0"))
+    ctx.check("id, name and version are read", (pack.id, pack.name, pack.version) == ("doc-review", "Documentation Review", "1.0.0"))
     from halo_harness.schemas import KINDS
     ctx.check("the schema kind is registered", "pack" in KINDS)
 

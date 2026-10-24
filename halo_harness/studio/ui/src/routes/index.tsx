@@ -11,10 +11,11 @@
 // (drag, resize, collapse, pop out, persistence). Each section's "How this
 // works" copy is routes/sectionHelp.ts.
 // Design also carries the Media panels as optional ones the palette adds.
-// 3.1.6.0 R6: this list IS the order: the tab strip, the Alt+1..6 keys (shell/keys.ts), the palette's
+// 3.1.6.0 R6: this list IS the order: the tab strip, the Alt+1..7 keys (shell/keys.ts), the palette's
 // Go to and section groups, the section help's key line and the status bar's key hint all read it.
 // The owner, 2026-10-20: "The session tab should be the first tab in studio", then "Here's the order of
-// tabs in studio: session, team, roles, fleet, design"; Orchestra, not in his list, takes the last key.
+// tabs in studio: session, team, roles, fleet, design"; Orchestra, not in his list, takes the next key.
+// 3.2.0.0 R6: Packs (the Pack Manager) is appended as the seventh core section, Alt+7; the six keep theirs.
 import type { ComponentType } from "react";
 import type { SectionId } from "../lib/store";
 import type { PanelSpec } from "../lib/workspace/types";
@@ -37,6 +38,7 @@ import { enterSession } from "./session/store";
 import { teamPanels } from "./team/Team";
 import { packPanels, packSections } from "./packs/registry";
 import { packs, usePacks } from "./packs/store";
+import { enterPacks, packsPanels } from "./packs/manager/Manager";
 import { TeamView } from "./team/Start";
 import { setView as enterTeam } from "./team/store";
 
@@ -61,13 +63,14 @@ export const SECTIONS: SectionDef[] = [
   { id: "fleet", title: "Fleet", kbd: "Alt+4", blurb: "Every harness, every agent, live", panels: fleetPanels, view: FleetView, enter: enterFleet },
   { id: "design", title: "Design", kbd: "Alt+5", blurb: "Prototypes, pages and decks", panels: [...designPanels, ...mediaPanels(0)], view: DesignView },
   { id: "orchestra", title: "Orchestra", kbd: "Alt+6", blurb: "Runs of your agents, live", panels: orchestraPanels, rail: OrchestraRail, view: OrchestraView, enter: enterOrchestra },
+  { id: "packs", title: "Packs", kbd: "Alt+7", blurb: "Install, grant and enable packs", panels: packsPanels, enter: enterPacks },
 ];
 
-// 3.2.0.0 R3: the packs' sections come after Orchestra (Alt+7..9) and their panels join the core sections'
-// (routes/packs/registry.ts, from the registry the server builds); SECTIONS stays the six, in their order.
+// 3.2.0.0 R3: the packs' sections come after the core ones (3.2.0.0 R6: after Packs, Alt+8 and Alt+9) and their
+// panels join the core sections' (routes/packs/registry.ts, from the registry the server builds); SECTIONS stays the core seven, in their order.
 let merged: { reg: unknown; out: SectionDef[] } = { reg: null, out: SECTIONS };
 
-/** Every section, the six core ones (with the packs' panels added) then the packs' own. */
+/** Every section, the seven core ones (with the packs' panels added) then the packs' own. */
 export function sections(): SectionDef[] {
   const reg = packs.get().reg;
   if (merged.reg !== reg) {

@@ -55,7 +55,7 @@ def _got(ctx: Ctx) -> dict:
 @test
 def test_the_packs_artifact_panel_draws_the_newest_report_as_a_table(ctx: Ctx):
     got = _got(ctx)
-    ctx.check(f"Alt+7 opens Docs review, got {got.get('section')!r}", str(got.get("section") or "").startswith("Docs review"))
+    ctx.check(f"Alt+8 opens Docs review, got {got.get('section')!r}", str(got.get("section") or "").startswith("Docs review"))
     ctx.check(f"the table view, of the run that wrote it, got {got.get('view')} {got.get('run')}", got.get("view") == "table"
               and got.get("run") == got.get("run_id"))
     ctx.check(f"its meta line names the schema, view and workflow, got {got.get('meta')!r}",
