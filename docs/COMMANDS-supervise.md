@@ -1,9 +1,10 @@
-# Commands: the supervisor and its goals
+# Commands: the supervisor, its goals and knowledge
 
-Read this when you give Halo a goal to work on without sitting at a terminal, or isolate its workers.
+Read this when you give Halo a goal to work on without sitting at a terminal, keep what it verified and decided, or isolate its workers.
 
 The supervisor (`halo supervise`), its goal queue (`halo goal`), every agent task's outcome (`halo outcomes`;
-since 3.1.9.0 R3 also what the auto pick learned from them, `halo outcomes learned` / `forget`)
+since 3.1.9.0 R3 also what the auto pick learned from them, `halo outcomes learned` / `forget`),
+the findings and decisions that outlive a session (`halo knowledge`, 3.1.8.0 R4)
 and, since 3.1.8.0 R5, `halo isolation` and `halo secrets` for the opt-in isolation of its workers.
 Part of [Commands](COMMANDS.md), which lists every part.
 
@@ -164,6 +165,44 @@ halo outcomes forget --yes                                 # every row
 - `--before WHEN`: only rows older than `7d`, `24h`, `30m`, a date or an epoch.
 - `--yes`: remove without asking; without it a terminal asks, anything else
   says how many rows match and removes nothing.
+
+## `halo knowledge`
+
+Halo 3.1.8.0 R4. The findings and decisions under `~/.halo/knowledge/`: what
+the Orchestra judge and gate, the coach's Apply and the supervisor's answered
+decisions wrote, what you add, and what an agent saved with `knowledge_add`.
+See [KNOWLEDGE.md](KNOWLEDGE.md).
+
+```sh
+halo knowledge add finding "basket.py#total rounds half up" --evidence "tests: \`python -m pytest -q\` exit 0, 5 passed"
+halo knowledge add decision "money is Decimal, never float" --alternative "float" --body notes.md
+halo knowledge list                   # the current entries, newest first
+halo knowledge list decision --all    # superseded ones too
+halo knowledge show f-20261024-3c9a1e # the entry, and every agent task that cited it
+halo knowledge search rounding total  # through recall, else a word match
+halo knowledge supersede f-20261024-3c9a1e "basket.py#total rounds half up, checked on 3.1"
+halo knowledge forget d-20261024-8e41f0
+halo knowledge fetch kali@lab f-20261023-0b7d2a   # take a fleet member's entry, read-only
+halo knowledge fetch kali@lab --all decision      # every current decision it has
+```
+
+- `add finding|decision "<title>"`: write one, `by: user`. `--body FILE` (or
+  `-` for stdin) is its what / where / why; `--evidence L`, `--alternative A`
+  and `--tag T` repeat. A finding is `checked` when an evidence line names a
+  test run or a reproduction, else `said`.
+- `list [finding|decision] [--all]`: one line each (id, kind, by, day,
+  confidence, title); `--all` adds the superseded ones, each marked with its
+  successor. Exit 1 when there is none.
+- `show <id>`: the entry -- its front matter, evidence, alternatives, body,
+  where a fetched one came from -- and "reused by", from `outcomes.jsonl`.
+- `search <words> [--k N]`: the entries that rank for the words.
+- `supersede <id> "<title>"`: a new entry of the same kind naming the old one
+  (which stays on disk and leaves recall); the same flags as `add`.
+- `forget <id>`: remove the file and its `_meta.json`.
+- `fetch <harness> <id>` / `fetch <harness> --all KIND`: through the hub this
+  machine runs; written here under the same id, read-only; never over an
+  entry already here. Exit 3 when no hub runs here.
+- `--json` on every verb.
 
 ## `halo isolation`
 

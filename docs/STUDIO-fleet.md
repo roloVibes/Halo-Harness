@@ -330,6 +330,16 @@ canvas reads the live agents from the Fleet store (`routes/fleet/frames.ts`
 writes them into the Roles store) and the Live tab uses the Fleet
 section's own streams, Steer box and commands.
 
+**The recall box (3.1.8.0 R4).** Under "Who can..." on the Capabilities
+panel's full face (Expand), the recall box searches what this harness
+remembers -- memory topics, past sessions, the coach library, findings,
+decisions and your own notes ([RECALL.md](RECALL.md)) -- as you type
+(`GET /api/recall?q=&k=8`). Each hit shows its kind's chip (`memo`, `sess`,
+`lib`, `finding`, `decision`, `note`), its title, score and excerpt, and a
+finding or a decision its id, who wrote it (`by gate`), the day and its
+confidence ([KNOWLEDGE.md](KNOWLEDGE.md)); a harness that did not answer gets
+one line saying why (embeddings not configured, not shared, offline).
+
 **Recall across the fleet (3.1.2.0 R3).** The recall box's **Fleet** switch
 asks `GET /api/recall?q=&fleet=1`: the hub Studio runs (`--fleet`), else a
 `halo fleet serve` on this machine, else the first hub this harness joined,

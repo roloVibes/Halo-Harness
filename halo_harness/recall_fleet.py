@@ -11,11 +11,14 @@ box, only the hits do, each
 
 (3.1.6.0 R3: `coach_library` is an entry of the coach's improvement library,
 its excerpt the entry's Lessons; `halo coach library fetch` takes the entry
-itself, orchestra/coach_library_share.py) and the hub merges them by score
-with its own. On a member:
+itself, orchestra/coach_library_share.py; 3.1.8.0 R4: `finding` / `decision`
+hits add `ref` -- the entry's id, for `halo knowledge fetch` -- `by` and
+`when`, knowledge/share.py; the owner's own notes, kind `note`, never leave
+the box) and the hub merges them by score with its own. On a member:
 
     fleet.recall.share   true | false    false: it answers no recall (the hub shows it as not sharing)
-    fleet.recall.hide    [kinds]         memory kinds never answered: `session`, `memory`, `coach_library`, or a
+    fleet.recall.hide    [kinds]         memory kinds never answered: `session`, `memory`, `coach_library`, `finding`,
+                                         `decision` (`knowledge`: both; 3.1.8.0 R4), or a
                                          memory topic's own `type` (`user`, `feedback`, `project`, `reference`)
 
 Every answer is a `recall_asked` line in the member's own journal (what was
@@ -65,6 +68,11 @@ def _search(query: str, k: int, home) -> list:
         return list(SEARCH(query, k, home) or [])
     from halo_harness.recall import search
     return search(query, state_dir=home, k=k)
+
+
+def _local(raw: list) -> list:
+    """3.1.8.0 R4: the hits that may leave this box -- the owner's own notes (kind `note`) never do."""
+    return [h for h in raw or [] if not (isinstance(h, dict) and h.get("kind") == "note")]
 
 
 def _flat(text: str) -> str:
@@ -128,11 +136,15 @@ def hits_of(raw: list, name: str, hide: set) -> "tuple[list, int]":
             excerpt, mtype = _flat(h.get("excerpt")), (str(h.get("type")).lower() if h.get("type") else None)
         else:
             excerpt, mtype = excerpt_of(str(h.get("id") or ""), kind)
-        if kind in hide or (mtype and mtype in hide):
+        if kind in hide or (mtype and mtype in hide) or (kind in ("finding", "decision") and "knowledge" in hide):
             hidden += 1
             continue
-        out.append({"score": round(float(h.get("score") or 0.0), 4), "title": str(h.get("title") or "")[:200],
-                    "kind": kind, "excerpt": excerpt, "harness": name})
+        row = {"score": round(float(h.get("score") or 0.0), 4), "title": str(h.get("title") or "")[:200],
+               "kind": kind, "excerpt": excerpt, "harness": name}
+        if kind in ("finding", "decision"):  # 3.1.8.0 R4: the entry's id, who and when (knowledge/sources.py)
+            from halo_harness.knowledge.sources import hit_fields
+            row.update(hit_fields(str(h.get("id") or "")))
+        out.append(row)
     return out, hidden
 
 
@@ -145,7 +157,7 @@ def answer(fields: dict, *, by: str = "", hub: str = "", home=None) -> dict:
     cfg = settings(home)
     if not cfg["share"]:
         raise Shut(f"{me['name']} does not share its recall (fleet.recall.share: false)")
-    hits, hidden = hits_of(_search(query, k, home) if query else [], me["name"], cfg["hide"])
+    hits, hidden = hits_of(_local(_search(query, k, home)) if query else [], me["name"], cfg["hide"])
     journal.append(home, "recall_asked", harness=me["id"], harness_name=me["name"], by=by or None, hub=hub or None,
                    query=query[:200], k=k, hits=len(hits), hidden=hidden or None)
     return {"harness": me["name"], "hits": hits, "hidden": hidden}
@@ -159,7 +171,9 @@ def local_hits(query: str, k: int, home=None, *, for_member: bool = False) -> "t
     if for_member and not cfg["share"]:
         return [], "not shared (fleet.recall.share: false)"
     try:
-        hits, _hidden = hits_of(_search(query, k, home), identity.fleet_name(home), cfg["hide"] if for_member else set())
+        raw = _search(query, k, home)
+        hits, _hidden = hits_of(_local(raw) if for_member else raw, identity.fleet_name(home),
+                                cfg["hide"] if for_member else set())
     except Exception as e:  # a broken index never stops the fleet's answer
         return [], f"{type(e).__name__}: {e}"[:200]
     if not hits and SEARCH is None:

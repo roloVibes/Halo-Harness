@@ -5,6 +5,7 @@ and `prune`).
     halo recall <query> [--k N] [--no-refresh] [--build-only] [--fleet] [--json]
     halo recall [<query>] --namespace <pack>/<name> [--provenance] [--json]
     halo recall prune [--json]
+    halo recall sources [--json]
 
 Without `--fleet`: this harness's own index (recall.py), one line per hit
 with its score, kind, title and path. With `--fleet`: the hub this machine
@@ -15,7 +16,10 @@ namespace (packs/memory.py) and what other packs share with it; with
 `--provenance` each entry shows its `_meta.json` (source, run, stage,
 written, retention, shared; packs/memory_meta.py), and without a query it
 lists the entries (no embedding model needed). `prune` removes every
-`retention: days:<n>` entry older than its days. Exit 0 with hits, 1 with
+`retention: days:<n>` entry older than its days. 3.1.8.0 R4: a hit's chip names
+its kind -- [memo] [sess] [lib] [finding] [decision] [note] -- and a finding or
+decision shows its id, who and when (knowledge/); `sources` lists the folders
+`recall.sources` names with their note counts. Exit 0 with hits, 1 with
 none, 2 when unconfigured (local search) or on a usage error, 3 when there
 is no fleet to ask.
 """
@@ -25,18 +29,41 @@ import json
 import sys
 
 USAGE = ("usage: halo recall <query> [--k N] [--no-refresh] [--build-only] [--fleet] [--json] "
-         "[--namespace <pack>/<name>] [--provenance] | halo recall prune")
-ICONS = {"memory": "memo", "session": "sess", "coach_library": "lib"}  # 3.1.6.0 R3: a coach library entry
+         "[--namespace <pack>/<name>] [--provenance] | halo recall prune | halo recall sources")
+ICONS = {"memory": "memo", "session": "sess", "coach_library": "lib",  # 3.1.6.0 R3: a coach library entry
+         "finding": "finding", "decision": "decision", "note": "note"}  # 3.1.8.0 R4: knowledge/, recall.sources
+
+
+def hit_line(h: dict) -> str:
+    """One hit: its score, its kind's chip, its title and where it is (a finding / decision: its id, by, when)."""
+    icon = ICONS.get(h.get("kind"), "sess")
+    if h.get("kind") in ("finding", "decision"):
+        from halo_harness.knowledge.sources import hit_fields
+        f = hit_fields(h["id"])
+        if f:
+            return f"  {h['score']:+.3f} [{icon}] {h['title']}  ({f['ref']}, {f['by']}, {f['when'][:10]})"
+    return f"  {h['score']:+.3f} [{icon}] {h['title']}  ({h['id']})"
 
 
 def _format(hits: list) -> str:
     if not hits:
         return "no matches (is the embedding model pulled? index built?)"
-    lines = []
-    for h in hits:
-        icon = ICONS.get(h["kind"], "sess")
-        lines.append(f"  {h['score']:+.3f} [{icon}] {h['title']}  ({h['id']})")
-    return "\n".join(lines)
+    return "\n".join(hit_line(h) for h in hits)
+
+
+def _sources(a: dict) -> int:
+    """3.1.8.0 R4: the folders of your own notes recall reads (`recall.sources`), with their note counts."""
+    from halo_harness.knowledge.sources import report
+    rows = report()
+    if a["json"]:
+        print(json.dumps({"ok": True, "sources": rows}, indent=2, ensure_ascii=False))
+        return 0
+    if not rows:
+        print("recall sources: none (halo config set recall.sources '[\"~/notes\"]' adds a folder of Markdown)")
+        return 0
+    for r in rows:
+        print(f"  {r['notes']:>6} notes  {r['path']}" + ("" if r["exists"] else "  (not there)"))
+    return 0
 
 
 def _parse(argv: list) -> dict:
@@ -133,6 +160,8 @@ def cmd_recall(argv: list) -> int:
     a = _parse(argv)
     if a["rest"] == ["prune"] and not a["namespace"]:
         return _prune(a)
+    if a["rest"] == ["sources"] and not a["namespace"]:  # 3.1.8.0 R4
+        return _sources(a)
     if a["namespace"]:
         return _namespace(a)
     if a["fleet"]:

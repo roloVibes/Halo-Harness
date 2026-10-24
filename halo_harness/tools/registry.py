@@ -26,6 +26,7 @@ from halo_harness.tools.bash_output import BashOutputTool
 from halo_harness.tools.edit import EditTool
 from halo_harness.tools.glob_tool import GlobTool
 from halo_harness.tools.grep_tool import GrepTool
+from halo_harness.tools.knowledge import KnowledgeAddTool, KnowledgeSearchTool
 from halo_harness.tools.media import MediaTool
 from halo_harness.tools.notebook_edit import NotebookEditTool
 from halo_harness.tools.orchestra_claims import orchestra_tools
@@ -91,6 +92,7 @@ def default_tools() -> list:
         # Halo 2.0.2 round 3 (brief C item 3): the shared task board.
         TaskCreateTool(), TaskListTool(), TaskStopTool(), TaskTool(), TaskUpdateTool(), TodoWriteTool(),
         ToolSearchTool(), WebFetchTool(), WriteTool(),
+        KnowledgeAddTool(), KnowledgeSearchTool(),  # 3.1.8.0 R4: findings and decisions (knowledge/)
     ]
     # Halo 3.0.3.0: the Orchestra's claim tools, only inside a run
     # ($HALO_ORCHESTRA_RUN names the run folder).

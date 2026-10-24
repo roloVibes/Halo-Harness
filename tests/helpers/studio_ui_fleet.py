@@ -237,6 +237,10 @@ def register(test, json_of, chrome) -> None:
                   and str(got.get("selected")).startswith("c0ffee"))
         ctx.check(f"the hub asked once; specs focuses this card, got {got.get('caps_asks')} / {got.get('specs_focus')}",
                   got.get("caps_asks") == 1 and got.get("specs_focus") == "focused")
+        row = next((h for h in got.get("recall_hits") or [] if h[0] == "finding"), [None, "", ""])
+        ctx.check(f"3.1.8.0 R4: the recall box shows the finding with its chip, id, by and day, got {got.get('recall_hits')}",
+                  row[1] == "basket total rounds half up with decimal"
+                  and row[2] == f"{got.get('recall_id')} · by gate · {got.get('recall_when')} · checked")
 
     @test
     def test_readme_capture_exists(ctx: Ctx):

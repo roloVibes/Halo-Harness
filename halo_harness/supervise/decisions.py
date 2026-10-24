@@ -124,6 +124,8 @@ def answer(state_dir, rid: str, key: str, text: str = "", by: str = "") -> "tupl
         _write(state_dir, row)
     from halo_harness.supervise import history
     history.decision(state_dir, row.get("goal"), rid, key, by)
+    from halo_harness.knowledge.writers import answered  # 3.1.8.0 R4: the answer and its why as a decision
+    answered(state_dir, row)
     return row, ""
 
 

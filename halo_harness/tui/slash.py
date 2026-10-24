@@ -1390,10 +1390,8 @@ def _recall_worker(app, query: str, state_dir) -> None:
                              f"/recall {query}\n\nno matches (is the embedding model pulled? index built?)",
                              kind="command")
         return
-    lines = [f"/recall {query}"]
-    for h in hits:
-        icon = "memo" if h["kind"] == "memory" else "sess"
-        lines.append(f"  {h['score']:+.3f} [{icon}] {h['title']}  ({h['id']})")
+    from halo_harness.recall_cli import hit_line  # 3.1.8.0 R4: every kind's chip (finding, decision, note, lib)
+    lines = [f"/recall {query}"] + [hit_line(h) for h in hits]
     app.call_from_thread(app.transcript.add_note, "\n".join(lines), kind="command")
 
 

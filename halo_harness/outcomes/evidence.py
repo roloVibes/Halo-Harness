@@ -12,6 +12,7 @@ agent's own final text is kept apart as `summary` (a verdict never reads it):
     reproduction [{command, exit, tail}]   a check's shell calls that are not test runs
     written      [paths]                   Write / Edit / NotebookEdit targets
     acceptance   {expect, met, why} | None the bio's acceptance on the final text (or the caller's verdict)
+    cited        [knowledge ids]           3.1.8.0 R4: the findings / decisions its final text names (knowledge/cite.py)
 
 A failed call is not evidence (an error result reads no source and writes no
 file); a shell call's exit is its `[exit code N]` note (none: 0; a timeout,
@@ -54,6 +55,7 @@ class Evidence:
     acceptance: Optional[dict] = None
     sessions: list = field(default_factory=list)
     ts: float = 0.0
+    cited: list = field(default_factory=list)       # 3.1.8.0 R4: knowledge ids its final text names
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -214,6 +216,8 @@ def gather(transcript, bio=None, *, cwd=None, words: str = "", default_kind: str
     ev.reproduction = repro[-REPRO_MAX:] if kind == "check" else []
     ev.diff = diff_stat(cwd, ev.written, base)
     ev.acceptance = acceptance if acceptance is not None else _acceptance(bio_data, final, ev.tests)
+    from halo_harness.knowledge.cite import cited_ids  # 3.1.8.0 R4: what it reused, by the id it names
+    ev.cited = cited_ids(final)
     return ev
 
 

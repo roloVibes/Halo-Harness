@@ -97,7 +97,9 @@ server. The index lives at `~/.halo/index/embeddings.jsonl` and refreshes
 incrementally (mtime-keyed: unchanged files are never re-embedded). Each
 hit shows its similarity score, kind (memo/sess; 3.1.6.0 `lib`: an entry of
 the coach's improvement library, its EXPERIENCE.md --
-[ORCHESTRA.md](ORCHESTRA.md#the-library)), title and path.
+[ORCHESTRA.md](ORCHESTRA.md#the-library); 3.1.8.0 R4 `finding` and `decision`,
+shown with the entry's id, who and when -- [KNOWLEDGE.md](KNOWLEDGE.md) -- and
+`note`, your own notes), title and path ([RECALL.md](RECALL.md#kinds)).
 DISABLED until configured: set `embeddings.model` in `~/.halo/
 config.json` (e.g. `"nomic-embed-text"`, `ollama pull nomic-embed-text`
 first; `embeddings.host` names a non-default Ollama host;
@@ -116,7 +118,10 @@ without a query it lists them (no embedding model needed), and
 `--provenance` shows each entry's `_meta.json` (source, run, stage, written,
 retention, shared; [EXTENSION_API.md](EXTENSION_API.md#events-and-artifacts)).
 `halo recall prune` removes every `retention: days:<n>` entry older than its
-days (a `retention: run` entry goes when its run ends). The generic
+days (a `retention: run` entry goes when its run ends). `halo recall sources
+[--json]` (3.1.8.0 R4) lists the folders of your own Markdown notes
+`recall.sources` names, each with its note count; they are read in place,
+never written ([RECALL.md](RECALL.md#your-own-notes)). The generic
 OpenAI-compatible local-server CHAT route -- `local:<model>` or
 `local:<model>@<name>` against a `local.servers` config entry (LM
 Studio, llama.cpp server, vLLM; per-server `context` discovery) -- is

@@ -128,6 +128,16 @@ not what they said.
 Every lane's outcome is one row of `~/.halo/coach/outcomes.jsonl`
 (`halo outcomes`); `halo models --measured` rates them per model and kind.
 
+**Your answers outlive the goal (3.1.8.0 R4).** Each answer you give a parked
+`goal_plan`, `goal_gate`, `goal_budget` or `goal_replan` row (from Studio's
+Attention queue or anywhere else that answers it) is also a decision in
+`~/.halo/knowledge/` by `supervisor` -- "Goal g-7: the gate sent a piece back
+past the return cap -> raise the cap by N", your text as its why, the other
+answers as its alternatives -- which recall finds next time, here or across
+the fleet ([KNOWLEDGE.md](KNOWLEDGE.md)). "Open" and a `goal_ask` card write
+none; the decision never names who answered; `knowledge.write: false` turns
+it off.
+
 ## Replanning
 
 Halo 3.1.8.0 R2. A budget, a gate and a crash only stop a run. With

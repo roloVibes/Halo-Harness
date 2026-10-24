@@ -13,7 +13,10 @@ tests/helpers/studio_fleet.py:
   its session's main agent is selected);
 * Expand shows both spec cards, the member's focused; its gridcraft server
   opens to its two tools;
-* People's "specs" link on this harness focuses its own card.
+* People's "specs" link on this harness focuses its own card;
+* 3.1.8.0 R4: the recall box under Who can... (the full face) finds a finding
+  seeded on this harness (the fake embedder, tests/helpers/knowledge_rig.py),
+  with its chip, its id, who and when.
 """
 from __future__ import annotations
 
@@ -48,6 +51,7 @@ def caps(c, rig) -> dict:
     seen(c, summary)
     c.click_on(summary)
     out["member_tools"] = c.wait(f"[...{member}.querySelectorAll('[data-testid=\"fleet-caps-tool\"] b')].map((b) => b.textContent).join(',')", 10)
+    out.update(recall(c, rig))
     local = rig.hub.state.identity["id"]
     out["local_servers"] = c.js(f"[...{CARD.format(local)}.querySelectorAll('[data-testid=\"fleet-caps-server\"]')].map((s) => s.dataset.name)")
     out["caps_asks"] = len([d for d in rig.member_cmds if d.get("cmd") == "capabilities"])
@@ -58,3 +62,21 @@ def caps(c, rig) -> dict:
     c.click_on(specs)
     out["specs_focus"] = c.wait(f"{CARD.format(local)}?.dataset.focus === 'true' && 'focused'", 10)
     return out
+
+
+def recall(c, rig) -> dict:
+    """3.1.8.0 R4: a finding written here, then "basket total" in the recall box, on the fake embedder."""
+    from halo_harness.knowledge.store import write
+    from tests.helpers.knowledge_rig import embedder
+    from tests.helpers.studio_fleet_panels import seen
+    f = write("finding", "basket total rounds half up with decimal", evidence=["tests: `pytest -q` exit 0, 5 passed"],
+              by="gate", state_dir=rig.state)
+    box = "document.querySelector('[data-testid=\"fleet-recall-input\"]')"
+    with embedder():
+        seen(c, box)
+        c.click_on(box)
+        c.type_text("basket total")
+        hits = c.wait("document.querySelectorAll('[data-testid=\"fleet-recall-hit\"]').length && "
+                      "[...document.querySelectorAll('[data-testid=\"fleet-recall-hit\"]')].map((h) => [h.dataset.kind, "
+                      "h.querySelector('.frec-title').textContent, h.querySelector('[data-testid=\"fleet-recall-meta\"]')?.textContent || ''])", 20)
+    return {"recall_id": f["id"], "recall_when": f["when"][:10], "recall_hits": hits}
