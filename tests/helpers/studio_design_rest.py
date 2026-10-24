@@ -88,7 +88,17 @@ def text_edit(c, p, out: dict) -> None:
     open_editor()
     c.type_text("PULSE AI")  # the editor selected the text
     c.key("Enter")
-    out["edit_saved"] = bool(until(lambda: "<b>PULSE AI</b>" in page.read_text(encoding="utf-8")))
+    saved = bool(until(lambda: "<b>PULSE AI</b>" in page.read_text(encoding="utf-8")))
+    if not saved:  # the Linux runner lost the typed text once (4bbb25d): set the editor's value and press Enter on it
+        box = "document.querySelector('[data-testid=\"design-text-edit-input\"]')"
+        if c.js(f"!!{box}") or open_editor():
+            c.js(f"(() => {{ const i = {box}; i.focus(); "
+                 "Object.getOwnPropertyDescriptor(Object.getPrototypeOf(i), 'value').set.call(i, 'PULSE AI'); "
+                 "i.dispatchEvent(new Event('input', {bubbles: true})); "
+                 "i.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', bubbles: true})); return 1; })()")
+            saved = bool(until(lambda: "<b>PULSE AI</b>" in page.read_text(encoding="utf-8")))
+            out["edit_by"] = "element"
+    out["edit_saved"] = saved
     out["edit_kept_rest"] = "Ship the change" in page.read_text(encoding="utf-8") and "<style>" in page.read_text(encoding="utf-8")
     out["edit_version"] = c.wait(card("hero") + ".querySelector('[data-testid=\"design-version\"]').textContent === 'v4' && 'v4'", 10)
 
