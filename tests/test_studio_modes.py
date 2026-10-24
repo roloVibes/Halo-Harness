@@ -94,7 +94,7 @@ def test_the_shell_has_six_sections_and_opens_orchestra_fleet_team_and_session_b
               and 'id: "design", title: "Design", kbd: "Alt+5"' in routes and 'id: "orchestra", title: "Orchestra", kbd: "Alt+6"' in routes
               and 'id: "org"' not in routes and 'id: "flow"' not in routes)
     store = (ui / "lib" / "store.ts").read_text(encoding="utf-8")
-    ctx.check("the shell reads ?mode= for every section", "mode=(orchestra|roles|design|fleet|team|session)" in store)
+    ctx.check("the shell reads ?mode= for every section", "mode=(orchestra|roles|design|fleet|team|session|packs)" in store)
     ctx.check("Alt+1..6 switch sections (3.2.0.0 R3: Alt+7..9 the packs' own)", "Digit[1-9]" in (ui / "shell" / "keys.ts").read_text(encoding="utf-8"))
     ctx.check("no classic page ships beside the shell (3.0.7.0 R2)", not (REPO_DIR / "halo_harness" / "studio" / "static" / "legacy").exists())
     facade = _facade()

@@ -10,7 +10,9 @@
     halo pack grant <id> NAME [NAME ...] [--off] [--json]
                                                       give an enabled pack more of what it requests, or take grants back (--off)
     halo pack disable <id> [--json]                   nothing of it runs from now on; its files stay
-    halo pack update <id> [--json]                    from its source, through the journal; migration notes printed
+    halo pack update <id> [--dry-run] [--json]        from its source: its migration notes first, then the new version
+                                                      swapped in, the old one kept as <id>.previous (--dry-run: say it, change nothing)
+    halo pack rollback <id> [--json]                  back to the version the last update replaced (<id>.previous)
     halo pack remove <id> [--keep-config] [--json]    the pack's own files only; yours stay and are listed
     halo pack sources [add|remove <folder|git url>] [--json]
                                                       where a bare id is looked for: config packs.sources, then the packs Halo ships
@@ -28,7 +30,7 @@ import json
 import sys
 from pathlib import Path
 
-VERBS = ("list", "inspect", "install", "enable", "grant", "disable", "update", "remove", "sources", "doctor")
+VERBS = ("list", "inspect", "install", "enable", "grant", "disable", "update", "rollback", "remove", "sources", "doctor")
 USAGE = __doc__.split("\n\n")[1]
 
 
@@ -42,8 +44,11 @@ def _parser(verb: str) -> argparse.ArgumentParser:
     if verb == "install":
         p.add_argument("source", help="a pack folder, a git url, or an id found in packs.sources or the packs Halo ships")
         p.add_argument("--project", action="store_true", help="install into this repo's .halo/packs/ instead of ~/.halo/packs/")
-    if verb in ("enable", "grant", "disable", "update", "remove"):
+    if verb in ("enable", "grant", "disable", "update", "rollback", "remove"):
         p.add_argument("id")
+    if verb == "update":
+        p.add_argument("--dry-run", action="store_true",
+                       help="print the migration notes and what would change; change nothing")
     if verb == "enable":
         p.add_argument("--grant", action="append", default=[], metavar="NAME",
                        help="grant one permission the pack requests (repeat for several)")
@@ -157,7 +162,10 @@ def cmd_pack(argv: list) -> int:
         return _done(args, *install(args.source, project=args.project, cwd=cwd))
     if verb == "update":
         from halo_harness.packs.install import update
-        return _done(args, *update(args.id, cwd=cwd))
+        return _done(args, *update(args.id, dry_run=args.dry_run, cwd=cwd))
+    if verb == "rollback":
+        from halo_harness.packs.rollback import rollback
+        return _done(args, *rollback(args.id, cwd=cwd))
     if verb == "remove":
         from halo_harness.packs.remove import remove
         return _done(args, *remove(args.id, keep_config=args.keep_config, cwd=cwd))

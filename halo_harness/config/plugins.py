@@ -299,6 +299,8 @@ def _discover_one_plugin_root_mcp_servers(plugin_name: str, plugin_root: Path, *
         return
     plugin_env = dict(env or {})
     plugin_env["CLAUDE_PLUGIN_ROOT"] = str(plugin_root)
+    from halo_harness.packs.interpreter import NAME as HALO_PYTHON, pack_env, python_path  # 3.2.0.0 R7
+    plugin_env[HALO_PYTHON] = python_path()  # `${halo_python}`: Halo's own interpreter
     for server_name, raw in servers.items():
         if only is not None and server_name not in only:
             continue  # 3.2.0.0 R1: a pack's server whose mcp:<server> is not granted (halo pack doctor says so)
@@ -311,6 +313,8 @@ def _discover_one_plugin_root_mcp_servers(plugin_name: str, plugin_root: Path, *
         expanded, warns = expand_config(cfg, plugin_env)
         for w in warns:
             notices.append(f"plugin {plugin_name!r} server {server_name!r}: {w}")
+        if expanded.type == "stdio" and expanded.command:  # 3.2.0.0 R7: a pack's server imports halo_harness.ext
+            expanded.env = pack_env(plugin_root, dict(expanded.env or {}))
         resolved[wire_server_name] = expanded
 
 

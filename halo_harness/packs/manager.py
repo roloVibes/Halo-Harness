@@ -14,7 +14,8 @@ keep it from running here, in the doctor's words: the extension API or Halo
 range, a dependency, a fleet capability not available here), `requires`
 with `met`, `granted` / `requested`, `contributes_lines` (the block `halo
 pack inspect` prints), `workflows` (each with its inputs, for "Run"),
-`sections` (its Studio sections, qualified) and `has_settings`.
+`sections` (its Studio sections, qualified), `has_settings` and (3.2.0.0 R7)
+`previous`: the version `halo pack rollback` goes back to, or ''.
 """
 
 from __future__ import annotations
@@ -65,6 +66,10 @@ def _compat(pack, snap, granted, *, cwd, state_dir) -> "list[str]":
         lines += [r["text"] for r in CW.doctor_rows(pack, granted, cwd=cwd, state_dir=state_dir)]
     except Exception:  # an unreadable catalog cache: the doctor itself says so
         pass
+    if pack.id in snap.order:  # 3.2.0.0 R7: a grant the last update asked for, in the doctor's words
+        from halo_harness.packs import state as S
+        from halo_harness.packs.deprecations import update_request_rows
+        lines += [r["text"] for r in update_request_rows(pack, S.entry(pack.id, data=snap.state) or {}, granted)]
     return list(dict.fromkeys(lines))
 
 
@@ -111,6 +116,8 @@ def row(pack, snap, *, listed: "dict | None" = None, health=(), cwd=None, state_
                sections=[{"id": qualify(pack.id, str(s.get("id"))), "title": str(s.get("title") or s.get("id"))}
                          for s in R.sections_of(pack.manifest)],
                has_settings=ST.schema_of(pack.manifest) is not None)
+    prev = (S.entry(pack.id, data=snap.state) or {}).get("previous") if pack.scope != "source" else None
+    out["previous"] = str(prev.get("version") or "") if isinstance(prev, dict) else ""  # 3.2.0.0 R7: Rollback
     return out
 
 

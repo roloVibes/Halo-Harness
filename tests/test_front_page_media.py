@@ -91,7 +91,8 @@ def test_every_capture_has_its_files_and_every_png_is_a_capture(ctx: Ctx):
         if png.stem in ("hero", "social-preview", "studio-design", "studio-modes",  # 3.1.6.0 R4: both from tools/hero_png.py
                         "studio-session-live",  # 3.1.5.0 R3: tools/capture_session_anim.py (with the studio-session and studio-roles-live GIFs)
                         "studio-orchestra", "studio-orchestra-start", "studio-orchestra-plan", "studio-orchestra-coach", "studio-roles",
-                        "studio-fleet", "studio-roles-live", "studio-fleet-panels", "studio-fleet-capabilities", "studio-fleet-mission", "studio-team", "studio-session"):  # hero_png.py, tools/capture_studio.py (--mode fleet: tools/capture_fleet.py) and studio_modes_banner.py, not TUI captures
+                        "studio-fleet", "studio-roles-live", "studio-fleet-panels", "studio-fleet-capabilities", "studio-fleet-mission", "studio-team", "studio-session",
+                        "studio-packs"):  # hero_png.py, tools/capture_studio.py (--mode fleet: tools/capture_fleet.py; 3.2.0.0 R7 --mode packs) and studio_modes_banner.py, not TUI captures
             continue
         ctx.check(f"{png.name} is a capture from captures.json", png.stem in names)
     ctx.check("the animated captures are the turn and the steer",

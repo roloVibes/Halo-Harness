@@ -12,8 +12,11 @@ model call:
 3. Studio: its section and the "Last review report" artifact panel are in
    the registry, the panel's route draws that run's report, its lineup is
    under Roles; its fleet capability is in the catalog, available here;
-4. its lint MCP server answers initialize, tools/list and check_links;
-5. `halo pack remove doc-review`: nothing of the pack is left in the home --
+4. its lint MCP server, started from its `.mcp.json` the way a session
+   starts it (`${halo_python}`, R7), answers initialize, tools/list and check_links;
+5. 3.2.0.0 R7: an update from a newer copy keeps 1.0.0 as doc-review.previous;
+   `halo pack remove doc-review`: nothing of the pack is left in the home --
+   not its folder, not the `.previous` copy, no file the journal still owns --
    only what the user made (a bio cloned from it, a setting) and Halo's own
    records (state.json without it, the journal).
 
@@ -23,8 +26,10 @@ Run: python -m tests.test_reference_pack
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -49,11 +54,17 @@ def _files(home: Path) -> "set[str]":
 
 
 def _mcp(pack_root: Path, repo: Path) -> "list[dict]":
+    """3.2.0.0 R7: started the way a session starts it -- its `.mcp.json` through the plugin-root channel,
+    `${halo_python}` expanded to Halo's Python, PYTHONPATH from the pack's env."""
+    import os
+    from halo_harness.config.plugins import discover_plugin_mcp_servers
+    servers, _notices = discover_plugin_mcp_servers(env=dict(os.environ), extra_roots=[str(pack_root)])
+    cfg = servers["plugin_doc-review_lint"]
     msgs = [{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2024-11-05"}},
             {"jsonrpc": "2.0", "method": "notifications/initialized"},
             {"jsonrpc": "2.0", "id": 2, "method": "tools/list"},
             {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "check_links", "arguments": {"path": "docs/guide.md"}}}]
-    r = subprocess.run([sys.executable, str(pack_root / "mcp" / "lint_server.py")], input="\n".join(json.dumps(m) for m in msgs) + "\n",
+    r = subprocess.run([cfg.command] + list(cfg.args), env={**os.environ, **cfg.env}, input="\n".join(json.dumps(m) for m in msgs) + "\n",
                        capture_output=True, text=True, encoding="utf-8", cwd=str(repo), timeout=60)
     return [json.loads(line) for line in r.stdout.splitlines() if line.strip()]
 
@@ -113,9 +124,23 @@ def test_the_reference_pack_end_to_end(ctx: Ctx):
         ctx.check(f"you clone its writer bio, got {status}", status == 201)
         status, _body, _ = h.call("POST", "pack/doc-review/settings", {"values": {"style": "long"}})
         ctx.check("you set a setting", status == 200)
+        newer = Path(tempfile.mkdtemp(prefix="doc-review-next-")) / "doc-review"  # 3.2.0.0 R7: a newer version, outside the home
+        shutil.copytree(DOC_REVIEW, newer, ignore=shutil.ignore_patterns("__pycache__"))
+        (newer / "pack.yaml").write_text((newer / "pack.yaml").read_text(encoding="utf-8").replace("version: 1.0.0", "version: 1.0.1"),
+                                         encoding="utf-8")
+        from halo_harness.packs import state as S
+        S.put("doc-review", {"source": str(newer)})
+        code, out, _err = h.cli("update", "doc-review")
+        ctx.check(f"an update keeps 1.0.0 as doc-review.previous, got {out.splitlines()[1:2]}", code == 0
+                  and (h.packs / "doc-review.previous" / "pack.yaml").is_file())
         code, out, _err = h.cli("remove", "doc-review")
         ctx.check(f"removed, your setting listed as staying, got {out!r}", code == 0 and "its folder is gone" in out
-                  and "your settings packs.settings.doc-review stay" in out)
+                  and "your settings packs.settings.doc-review stay" in out
+                  and "removed doc-review.previous, the version the last update replaced" in out)
+        from halo_harness.packs import journal as J
+        ctx.check("no doc-review.previous is left, and the journal owns no file of it any more",
+                  not (h.packs / "doc-review.previous").exists() and J.owned("doc-review") == {})
+        shutil.rmtree(newer.parent, ignore_errors=True)
         left = _files(h.home) - before
         pack_files = {f for f in left if f.startswith(".halo/packs/") and f not in OWN}
         ctx.check(f"nothing of the pack is left in ~/.halo/packs, got {sorted(pack_files)}", not pack_files and not (h.packs / "doc-review").exists())
@@ -126,6 +151,19 @@ def test_the_reference_pack_end_to_end(ctx: Ctx):
         shipped = {p.name for p in DOC_REVIEW.rglob("*") if p.is_file()} - {"README.md"}
         stray = sorted(f for f in left if Path(f).name in shipped)
         ctx.check(f"no copy of one of its files anywhere in the home, got {stray}", not stray)
+
+
+@test
+def test_the_shipped_pack_needs_the_halo_it_ships_in(ctx: Ctx):
+    """3.2.0.0 R7: the reference pack's `halo` range takes this Halo, and from 3.2.0.0 on it is `{min: "3.2"}`, the release
+    that brought packs -- so the version bump that releases 3.2.0.0 sets it in pack.yaml in the same commit."""
+    from halo_harness import __version__
+    from halo_harness.agents_yaml import _read_yaml_file
+    from halo_harness.packs import semver as V
+    rng = (_read_yaml_file(DOC_REVIEW / "pack.yaml") or {}).get("halo")
+    ctx.check(f"this Halo ({__version__}) is inside {rng}", V.in_range(__version__, rng))
+    if V.compare(__version__, "3.2") >= 0:
+        ctx.check(f'from 3.2.0.0 on pack.yaml says halo: {{min: "3.2"}}, got {rng}', rng == {"min": "3.2"})
 
 
 if __name__ == "__main__":

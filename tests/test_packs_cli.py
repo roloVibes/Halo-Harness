@@ -25,8 +25,8 @@ test, TESTS = new_registry()
 @test
 def test_usage_help_and_exit_codes(ctx: Ctx):
     from halo_harness.packs.cli import VERBS, cmd_pack
-    ctx.check("the verbs (3.2.0.0 R6: + grant, sources)", VERBS == ("list", "inspect", "install", "enable", "grant", "disable",
-                                                                     "update", "remove", "sources", "doctor"))
+    ctx.check("the verbs (3.2.0.0 R6: + grant, sources; R7: + rollback)", VERBS == ("list", "inspect", "install", "enable", "grant",
+                                                                                     "disable", "update", "rollback", "remove", "sources", "doctor"))
     for argv, code in (([], 2), (["--help"], 0), (["frobnicate"], 2)):
         out, err = io.StringIO(), io.StringIO()
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
@@ -93,7 +93,7 @@ def test_every_verb_in_text_and_json(ctx: Ctx):
         code, out, _ = h.cli("update", "doc-review", "--json")
         data = json.loads(out)
         ctx.check(f"update --json from an unchanged source, got {data}", code == 0 and "(0 file(s) changed)" in data["lines"][0]
-                  and "no migration notes" in data["lines"])
+                  and "no migration notes between 1.0.0 and 1.0.0" in data["lines"])
         code, out, _ = h.cli("disable", "doc-review", "--json")
         ctx.check("disable --json", code == 0 and json.loads(out)["ok"])
         code, out, _ = h.cli("remove", "doc-review", "--json")
@@ -108,7 +108,7 @@ def test_install_by_id_through_packs_sources(ctx: Ctx):
         src = h.source()
         code, _out, err = h.cli("install", "studio-bundle")
         ctx.check(f"a bare id no source holds: one line, got {err!r}", code == 1
-                  and "no pack studio-bundle in config packs.sources or the packs Halo ships" in err)
+                  and "no pack studio-bundle in the sources searched: packs.sources (empty), the packs Halo ships" in err)
         h.config({"packs": {"sources": [str(src.parent), str(h.home / "gone")]}})
         code, out, err = h.cli("install", "doc-review")
         ctx.check(f"found in a source folder, got {code} {err}", code == 0 and (h.packs / "doc-review" / "pack.yaml").is_file())

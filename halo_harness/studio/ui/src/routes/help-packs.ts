@@ -7,11 +7,11 @@ const lines = (...l: string[]) => l.join("\n");
 
 export const PACKS_HELP: Record<string, Help> = {
   "pm-installed": {
-    about: "Every pack here: enabled or not, the grants given, its health; Enable, Disable, Update, Remove.",
+    about: "Every pack here: enabled or not, the grants given, its health; Enable, Disable, Update, Roll back, Remove.",
     help: lines(
       "Each row is one pack: its id, name and version, its state, how many of the permissions it requests are granted, and the doctor's lines for it.",
       "Enable turns it on with the grants you picked in Details (halo pack enable <id> --grant ...); Disable turns it off and clears its grants.",
-      "Update reads its source again: files you changed stay, the migration notes are listed. Remove asks first, then deletes only the pack's own files.",
+      "Update shows what halo pack update <id> --dry-run says first (its migration notes, the settings it renames, your files it keeps), then swaps the new version in and keeps the old one for Roll back (halo pack rollback <id>). Remove asks first, then deletes only the pack's own files.",
       "Under the rows: the lines the last action printed, as halo pack prints them.",
     ),
   },

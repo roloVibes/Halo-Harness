@@ -2,7 +2,7 @@
 
 Read this when you write a pack, or change what Halo promises a pack: the manifest, the lifecycle, what a pack may import and what each part's status is.
 
-Halo 3.2.0.0 R1. A pack is a folder Halo installs, enables and removes (see
+Halo 3.2.0.0 (written in R1, final in R7: every part below is `stable`). A pack is a folder Halo installs, enables and removes (see
 [PACKS.md](PACKS.md) for using one); this page is the contract a pack is
 written against. The extension API version is `API_VERSION = "1.0"`
 (`halo_harness.ext.API_VERSION`, also exported as `HALO_API_VERSION`). The
@@ -24,12 +24,14 @@ machine-readable manifest schema is
 | [Fleet capabilities](#fleet-capabilities) | stable | `contributes.fleet` (3.2.0.0 R4): worker capabilities in the catalog, available or not and why; mission needs, the worker's own check, inspector lines, mission metadata |
 | [Workflow contracts](#workflow-contracts) | stable | `workflows/<name>.yaml` (3.2.0.0 R5): compiled to an Orchestra goal, its hand-offs and a pinned plan; `halo workflow` |
 | [Events and artifacts](#events-and-artifacts) | stable | typed events (3.2.0.0 R5: schemas, the events log, subscriptions), typed artifacts with viewers, memory with provenance |
-| [Compatibility and migration](#compatibility-and-migration) | planned | the policy below is the proposal R7 makes final |
+| [Compatibility and migration](#compatibility-and-migration) | stable | the version policy (`ext.compatible`, `ext.deprecations`), `migrations` shown before an update and applied, `halo pack rollback` (3.2.0.0 R7) |
 | [The reference example](#the-reference-example) | stable | the Documentation Review pack Halo ships (3.2.0.0 R6): every part of the API in one pack a third party can copy |
 
-`stable`: a 1.x Halo keeps it. `draft`: usable, may change in a minor API
-version with a migration note. `planned`: the shape is proposed here and
-nothing reads it yet (a manifest may carry it; Halo stores it and does not act).
+`stable`: a 1.x Halo keeps it. `removed <version>`: gone in that version,
+announced a minor version before it ([Changes in 1.x](#changes-in-1x)).
+Since 3.2.0.0 every part is `stable` and none is removed; a later part may
+start as `draft` (usable, may change in a minor API version with a migration
+note) or `planned` (the shape proposed, nothing reads it yet).
 
 ## The stable surface (`halo_harness.ext`)
 
@@ -39,6 +41,9 @@ check it). The modules under `halo_harness/ext/` are the implementation; the
 names in `__all__` are the contract.
 
 - `API_VERSION`, `HALO_API_VERSION`: `"1.0"`.
+- `api_version()`, `compatible(range)`, `deprecations()`: 3.2.0.0 R7, the version policy
+  ([Compatibility and migration](#compatibility-and-migration)): this API's version, whether a `halo_api`
+  range takes it, the names announced for removal (`[{name, since, removed_in, use}]`, none in 1.0).
 - `read_yaml(path)`: a dict, `{}` for an empty file, None when missing or not a mapping.
 - `write_yaml(pack_id, path, data)`: `[]` when written, else one line; lands where `write_private` would.
 - `check_schema(doc, schema)`: one finding per shape problem, `{check, key, text, closest}`.
@@ -92,6 +97,8 @@ config:
 permissions: ["mcp:lint", hooks]    # mcp:<server>, hooks, bash, network, home-write, studio-script
 migrations:
   - {from: 0.9.0, to: 1.0.0, note: the reviewer bio is now doc-review--reviewer}
+  # 3.2.0.0 R7: settings renames packs.settings.<id> keys as the update runs
+  # - {from: 1.1.0, to: 1.3.0, note: settings key `lint.level` is now `lint.strictness`, settings: {lint.level: lint.strictness}}
 ```
 
 Version ranges compare release numbers of any length (missing parts are 0);
@@ -109,7 +116,8 @@ update | remove | doctor` ([COMMANDS-packs.md](COMMANDS-packs.md)).
 
 - **Discovery**: `<repo>/.halo/packs/<id>/` (project, the untrusted layer) then
   `~/.halo/packs/<id>/` (user); a same-id pack in the repo is the one used.
-  A folder whose name starts with `.` is Halo's own (`.data`, `.backup`, `.staging-*`).
+  A folder whose name starts with `.` is Halo's own (`.data`, `.backup`, `.staging-*`), and so is
+  `<id>.previous` (the version the last update replaced, 3.2.0.0 R7).
 - **Install** validates everything before writing anything: the manifest, the
   `halo_api` and `halo` ranges; a folder already at `<packs>/<id>/` is never
   overwritten. Every file is written through the journal
@@ -123,9 +131,12 @@ update | remove | doctor` ([COMMANDS-packs.md](COMMANDS-packs.md)).
   and Halo versions are in range and every `requires` entry is installed,
   enabled, in range and running; a cycle is one line. Dependencies run first.
 - **Disable**: nothing of the pack contributes; its files stay; grants clear.
-- **Update** replaces the pack's own unchanged files from its source, keeps a
-  file you changed and prints the `migrations` notes between the versions.
-- **Remove** deletes only the pack's own files (the journal's, unchanged);
+- **Update** (3.2.0.0 R7) says the `migrations` notes between the versions first, stages the
+  new version beside the pack (your changed and added files carried over), swaps it in by two
+  renames and keeps the old one as `<id>.previous`; `--dry-run` says it all and changes nothing
+  ([Updating a pack](#updating-a-pack)).
+- **Rollback** (3.2.0.0 R7) swaps `<id>.previous` back ([Rolling back](#rolling-back)).
+- **Remove** deletes only the pack's own files (the journal's, unchanged) and `<id>.previous`;
   your bios, lineups, memory folders and settings stay and are listed.
 
 ## Agents and teams
@@ -537,12 +548,102 @@ their run ends, `days:<n>` ones with `halo recall prune`; `halo recall
 
 ## Compatibility and migration
 
-Status: **planned** (R7 makes it final). Proposed policy: the API version is
-`major.minor`; a minor version adds names and keeps every 1.x name's meaning;
-a major version may remove one, announced a minor version ahead. A pack
-states `halo_api: {min, max}`; a Halo outside the range does not run it and
-says so. A pack's own breaking change is listed under `migrations` and
-printed by `halo pack update`. A renamed pack is a new pack.
+Status: **stable** (3.2.0.0 R7). The policy, as `halo_harness/ext/compat.py`
+and `halo_harness/packs/resolve.py` apply it:
+
+- **The API version is `MAJOR.MINOR`** (`API_VERSION`, `ext.api_version()`).
+  A minor version only adds names: every name in `__all__` keeps its meaning
+  for every later minor of its major. A major version may remove a name, and
+  only one `ext.deprecations()` has listed, with the version it goes away in,
+  for at least one minor version before it.
+- **A pack states `halo_api: {min, max}`.** `min` is required (the API it was
+  written for); `max` is inclusive at its own precision (`max: "1.9"` takes
+  1.9.4). Without `max` a pack runs on its `min`'s major only: `{min: "1.0"}`
+  runs on every 1.x and not on 2.0. `ext.compatible(range)` answers it.
+  `halo: {min, max}` is matched against Halo's own version the same way,
+  without the major rule.
+- **A Halo outside a range does not run the pack, and says so in one line**:
+  at install (nothing is written), at load (the pack contributes nothing), in
+  `halo pack doctor` and in the Pack Manager's Details, in these words:
+
+```
+pack doc-review needs extension API 1.2 to 1.9; this Halo has 1.0
+pack x needs Halo >= 3.3; this is 3.2.0.0
+```
+
+  A range with no `max` reads `1.0 or a later 1.x`.
+- **A name announced for removal** that a pack's Python uses is a `halo pack
+  doctor` row (and a health line in the Pack Manager) naming the file, the
+  line and the version it goes away in, for example `doc-review:
+  mcp/lint_server.py line 15 uses ext.get_config, deprecated since API 1.3; it
+  goes away in API 2.0 (use ext.settings)`. Nothing is deprecated in 1.0.
+- **A pack's own breaking change** is a `migrations` entry, `{from, to, note,
+  settings?}`: `halo pack update` prints every entry between the installed
+  version and the new one before it replaces anything, and applies the
+  `settings` renames ([Updating a pack](#updating-a-pack)).
+- **A renamed pack is a new pack.** A new id installs beside the old one and
+  nothing carries over: the record, the grants, `packs.settings.<id>` and the
+  journal are per id. `halo pack remove <old id>` takes the old one away.
+
+### Changes in 1.x
+
+None yet: 1.0 is the first version. Each minor version lists here the names
+it adds (the name, what it does, the version) and the names it deprecates
+(the name, the version it goes away in, what to use instead), one line each.
+
+### Updating a pack
+
+1. `halo pack update <id> --dry-run` prints the migration notes between the
+   installed version and its source's (`<id> <from> -> <to>: <note>`, oldest
+   first), what the update would do (the files that change, the settings it
+   renames, your files it keeps) and changes nothing. The Pack Manager's
+   Update shows the same lines in its confirm before it runs.
+2. `halo pack update <id>` makes the checks install makes on the source (the
+   manifest, both ranges, the same id): a new version that fails one is
+   refused with its lines and `<id> <version> stays as it is`. Then the notes
+   come first, the new version is staged in `<packs>/.staging-<hex>/<id>/`
+   (the new files, and every file of yours in the pack's folder carried over)
+   and swapped in by two renames: `<id>/` becomes `<id>.previous/` (replacing
+   the one kept before) and the staged folder becomes `<id>/`. A copy or
+   rename error leaves the old version where it was, in one line:
+   `update of <id> stopped: <error>; <version> stays as it was (nothing was replaced)`.
+3. The journal records the new version's files as the pack's; the `settings`
+   renames are made in `packs.settings.<id>` and journaled (`op: migrate`);
+   state.json gets the new version and `previous: {version, op_id,
+   requested}`. A permission the new version requests that the old one did
+   not and you have not granted is one line, and a doctor row until you grant
+   it (`halo pack grant <id> <name>`).
+
+The entry shape, with a rename:
+
+```yaml
+migrations:
+  - {from: 1.1.0, to: 1.3.0, note: settings key `lint.level` is now `lint.strictness`, settings: {lint.level: lint.strictness}}
+```
+
+`settings` maps an old key to a new one under `packs.settings.<id>` (a dotted
+key reaches into a mapping); a new key you have set already wins and the old
+one stays, said in one line. It is the only change Halo makes itself; every
+other change is the note's to say.
+
+### Rolling back
+
+1. `halo pack rollback <id>` (the Pack Manager's "Roll back to <version>"):
+   a file of yours changed or added in the pack's folder since the update is
+   copied into `<id>.previous/` first, so it stays; `<id>/` moves aside,
+   `<id>.previous/` becomes `<id>/` (two renames, the first undone when the
+   second fails) and the version rolled back from is deleted (`halo pack
+   update <id>` installs it again).
+2. The journal's ownership goes back to what it was before that update, the
+   settings it renamed move back (from the journal's `migrate` rows), and the
+   record gets the old version and keeps its grants and its enabled state.
+3. One version back only: the next update replaces `<id>.previous`. With
+   none kept the answer is one line: `<id> has no earlier version to go back
+   to: an update keeps the version it replaces as <id>.previous until the next update`.
+4. `halo pack remove <id>` deletes `<id>.previous` too. `--keep-config`
+   keeps it beside the record, and `halo pack rollback <id>` then installs
+   that version again (disabled, with its grants); a fresh `halo pack
+   install` removes a kept one.
 
 ## The reference example
 
@@ -555,9 +656,9 @@ finds nothing of it left; every packs test reads it too). What it shows:
 
 | Part of the API | In the pack |
 |---|---|
-| The manifest | `pack.yaml`: `halo_api: {min: "1.0", max: "1.9"}`, `halo: {min: "3.1"}`, settings schema and defaults, permissions, one migration note |
+| The manifest | `pack.yaml`: `halo_api: {min: "1.0", max: "1.9"}`, `halo` (the Halo it ships in: `{min: "3.2"}` from the 3.2.0.0 release), settings schema and defaults, permissions, one migration note |
 | Agents and teams | `agents/reviewer.yaml` (by capability, a memory namespace, a need), `agents/writer.yaml` (extends it, a family preference), `teams/review.yaml` (two tiers, acceptance, its workflow) |
-| Skills, commands, hooks and MCP | `skills/check-links/`, `commands/review.md`, `agents/helper.md`, `hooks/` (a PostToolUse hook publishing review.done), `.mcp.json` + `mcp/lint_server.py` (a stdio MCP server: check_links, check_headings) |
+| Skills, commands, hooks and MCP | `skills/check-links/`, `commands/review.md`, `agents/helper.md`, `hooks/` (a PostToolUse hook publishing review.done), `.mcp.json` + `mcp/lint_server.py` (a stdio MCP server: check_links, check_headings); both started with `${halo_python}`, Halo's own Python (3.2.0.0 R7) |
 | Studio contributions | a section (markdown, table, links, the artifact panel, Settings), a Session panel, a palette line, event lines, an attention row kind |
 | Fleet capabilities | `docs.review` (a model with tools, the bash grant, two at once), an inspector line, mission metadata |
 | Workflow contracts | `workflows/review.yaml`: read each Markdown file, judge (`gate: human`), write the report |
@@ -571,4 +672,8 @@ finds it: the shipped folder is the last entry of the sources search, after
 `packs.sources`. The failure fixtures stay under `tests/fixtures/packs/`
 (`wf-cycle/`, `wf-unknown-role/`, `wf-no-giver/`, `wf-input-type/`, the
 studio and fleet ones) with `tests/fixtures/workflows/report-bad.json`, an
-artifact off its schema.
+artifact off its schema. 3.2.0.0 R7 adds one per lifecycle failure
+(`tests/test_packs_failures.py`): `bad-yaml/`, `no-id/`, `bad-id/`,
+`api-too-new/`, `api-too-old/`, `halo-too-new/`, `needs-base/` (a missing
+dependency) and `cycle-a/` with `cycle-b/`; docs/PACKS.md "When a pack cannot
+run" lists the line each one gets.

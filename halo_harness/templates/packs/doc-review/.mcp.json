@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "lint": {
-      "command": "python",
+      "command": "${halo_python}",
       "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/lint_server.py"]
     }
   }

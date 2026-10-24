@@ -179,7 +179,7 @@ PACK = {
     "config.schema": "the shape of its settings (packs.settings.<id> in config.json)",
     "config.defaults": "the settings it starts with; yours win",
     "permissions": "what it asks you to grant: mcp:<server>, hooks, bash, network, home-write, studio-script",
-    "migrations": "what changes for you between two versions; halo pack update prints it",
+    "migrations": "what changes for you between two versions ({from, to, note, settings: {old: new}}); halo pack update prints it first and renames those settings",
 }
 
 

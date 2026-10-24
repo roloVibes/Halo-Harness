@@ -1,0 +1,9 @@
+# A failure fixture (3.2.0.0 R7, tests/test_packs_failures.py): needs Halo 9.0 or later
+id: halo-too-new
+name: halo-too-new
+version: 1.0.0
+description: needs Halo 9.0 or later
+author: Halo fixtures
+license: MIT
+halo_api: {min: "1.0"}
+halo: {min: "9.0"}

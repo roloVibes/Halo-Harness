@@ -136,6 +136,8 @@
     "permissions": {"type": "array", "items": {"type": "string", "pattern": "^(mcp:.+|hooks|bash|network|home-write|studio-script)$"}},
     "migrations": {"type": "array", "items": {
       "type": "object", "additionalProperties": false, "required": ["from", "to", "note"],
-      "properties": {"from": {"$ref": "#/$defs/version"}, "to": {"$ref": "#/$defs/version"}, "note": {"type": "string"}}}}
+      "properties": {"from": {"$ref": "#/$defs/version"}, "to": {"$ref": "#/$defs/version"}, "note": {"type": "string"},
+                     "settings": {"type": "object", "additionalProperties": {"type": "string"},
+                                  "description": "3.2.0.0 R7: packs.settings.<id> keys this version renames, {old: new}; halo pack update applies them."}}}}
   }
 }

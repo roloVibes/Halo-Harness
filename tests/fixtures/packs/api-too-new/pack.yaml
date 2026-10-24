@@ -1,0 +1,8 @@
+# A failure fixture (3.2.0.0 R7, tests/test_packs_failures.py): written for extension API 1.2 to 1.9, newer than this Halo's 1.0
+id: api-too-new
+name: api-too-new
+version: 1.0.0
+description: written for extension API 1.2 to 1.9, newer than this Halo's 1.0
+author: Halo fixtures
+license: MIT
+halo_api: {min: "1.2", max: "1.9"}

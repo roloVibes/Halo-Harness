@@ -5,9 +5,12 @@
 // Update and Remove. Remove asks first, naming what goes, what stays and the
 // command it runs. A click on a row selects the pack for Details, Settings
 // and Templates. Under the rows: the last action's lines, as `halo pack` printed them.
+// 3.2.0.0 R7: Update asks first, showing what `halo pack update <id> --dry-run`
+// says (its migration notes, the files and settings that change); Rollback
+// (shown once an update kept the version before) runs `halo pack rollback <id>`.
 import { useState } from "react";
 import { Button, Dialog, Empty } from "../../../lib/ui";
-import { cli, disablePack, enablePack, mgr, removePack, selectPack, updatePack, useMgr } from "./store";
+import { cli, disablePack, enablePack, mgr, previewUpdate, removePack, rollbackPack, selectPack, updatePack, useMgr } from "./store";
 import type { PackRow } from "./types";
 
 const NONE: string[] = [];
@@ -50,9 +53,14 @@ function Row({ p, on }: { p: PackRow; on: boolean }) {
             Disable
           </Button>
         )}
-        <Button size="sm" variant="ghost" disabled={busy || !p.installed} onClick={() => void updatePack(p.id)} title={cli.update(p.id)} data-testid="pm-update">
+        <Button size="sm" variant="ghost" disabled={busy || !p.installed} onClick={() => void previewUpdate(p.id)} title={`${cli.update(p.id)} (shows ${cli.update(p.id, true)} first)`} data-testid="pm-update">
           Update
         </Button>
+        {p.previous && (
+          <Button size="sm" variant="ghost" disabled={busy} onClick={() => void rollbackPack(p.id)} title={`${cli.rollback(p.id)}: back to ${p.previous}`} data-testid="pm-rollback">
+            Roll back to {p.previous}
+          </Button>
+        )}
         <Button size="sm" variant="ghost" disabled={busy} onClick={() => mgr.update(() => ({ removing: p.id }))} title={`${cli.remove(p.id, false)} (asks first)`} data-testid="pm-remove">
           Remove
         </Button>
@@ -79,6 +87,25 @@ function RemoveDialog() {
         Keep its record and grants for a later install
       </label>
       <code className="pk-grant-cmd" data-testid="pm-remove-cmd">{cli.remove(id, keep)}</code>
+    </Dialog>
+  );
+}
+
+function UpdateDialog() {
+  const u = useMgr((s) => s.updating);
+  const close = () => mgr.update(() => ({ updating: null }));
+  if (!u) return null;
+  const nothing = u.ok && u.lines.some((l) => l.includes(" is up to date"));
+  const yes = async () => {
+    close();
+    await updatePack(u.id);
+  };
+  return (
+    <Dialog open onClose={close} title={`Update ${u.id}?`} kicker="PACKS · UPDATE" testid="pm-update-dialog"
+            footer={<><Button onClick={close}>{u.ok && !nothing ? "Cancel" : "Close"}</Button>{u.ok && !nothing && <Button variant="primary" onClick={() => void yes()} data-testid="pm-update-yes">Update</Button>}</>}>
+      <p>{u.ok ? "What the update does, before anything is replaced: the version kept for Roll back, its migration notes, the settings it renames and your files it keeps." : "The update cannot run:"}</p>
+      <pre className="pm-lines mono" data-testid="pm-update-lines">{u.lines.join("\n")}</pre>
+      <code className="pk-grant-cmd" data-testid="pm-update-cmd">{cli.update(u.id, !u.ok || nothing)}</code>
     </Dialog>
   );
 }
@@ -115,6 +142,7 @@ export function InstalledDetail() {
       ))}
       <Last />
       <RemoveDialog />
+      <UpdateDialog />
     </div>
   );
 }
