@@ -60,6 +60,15 @@ class _Server(http.server.ThreadingHTTPServer):
             self.fleet_hub.stop()
         super().server_close()
 
+    def handle_error(self, request, client_address):
+        """A browser that went away mid-answer (the tab closed, Chrome quit) is not an error worth a traceback:
+        the write raised ConnectionAbortedError or ConnectionResetError (Windows), BrokenPipeError (Linux). Printed
+        from a daemon handler thread at interpreter exit, that traceback crashed a Chrome test driver (bd9b607's
+        tag run). Every other error prints as before."""
+        if isinstance(sys.exc_info()[1], (ConnectionAbortedError, ConnectionResetError, BrokenPipeError)):
+            return
+        super().handle_error(request, client_address)
+
     def server_bind(self):
         if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
