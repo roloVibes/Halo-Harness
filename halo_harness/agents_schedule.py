@@ -294,6 +294,8 @@ class TeamScheduler:
                     self.entries.append(entry)
                 notes.append(entry["id"])
         for i, t in enumerate(bio.get("triggers") or []):
+            from halo_harness.packs.event_triggers import normalize  # 3.2.0.0 R5: {event: <pack>:<kind>}
+            t = normalize(t)
             if not isinstance(t, dict) or t.get("on") not in ("file_change", "event", "message"):
                 continue
             entry = {"id": f"{self.team.name}:{alias}:trigger{i}", "name": alias,
@@ -366,8 +368,14 @@ class TeamScheduler:
             try:
                 self._poll_files()
                 self._fire_due()
+                self._poll_pack_events()
             except Exception:
                 continue
+
+    def _poll_pack_events(self) -> None:
+        """3.2.0.0 R5: a trigger on a pack's event, `<pack>:<kind>` (packs/event_triggers.py)."""
+        from halo_harness.packs.event_triggers import poll
+        poll(self)
 
     # ---- trigger observation (called from the session's own threads) -------
     def observe_event(self, kind: str) -> None:

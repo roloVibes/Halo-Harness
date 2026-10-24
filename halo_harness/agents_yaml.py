@@ -342,13 +342,15 @@ def validate_trigger_section(triggers) -> "list[str]":
     """Halo 2.0.5 round 5 (deliverable 3): a bio's `triggers:` -- a list of
     `{on: file_change, paths: [...]}` / `{on: event, name: <halo event>}` /
     `{on: message, from: <role>}` entries that start the agent once per
-    occurrence while a session that loaded the team is alive."""
+    occurrence while a session that loaded the team is alive. 3.2.0.0 R5: an
+    event name may be a pack's, `<pack>:<kind>` (`{event: <pack>:<kind>}` for short)."""
     if triggers is None:
         return []
     if not isinstance(triggers, list):
         return ['"triggers" must be a list of {on: ...} entries']
     problems: "list[str]" = []
-    for i, t in enumerate(triggers):
+    from halo_harness.packs.event_triggers import normalize  # 3.2.0.0 R5: {event: <pack>:<kind>} is {on: event, name}
+    for i, t in enumerate(normalize(t) for t in triggers):
         if not isinstance(t, dict) or t.get("on") not in SCHEDULE_TRIGGER_KINDS:
             problems.append(f'triggers[{i}]: "on" must be one of {", ".join(SCHEDULE_TRIGGER_KINDS)}')
             continue

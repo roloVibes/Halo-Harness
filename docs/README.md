@@ -45,6 +45,7 @@ Work in the TUI and on the command line, and give agents bios, lineups, roles an
   - [COMMANDS-studio.md](COMMANDS-studio.md) (Commands: Studio, design, media, Orchestra and teams): read this when you open Studio or run designs, media, an Orchestra goal or a team from the command line.
   - [COMMANDS-fleet.md](COMMANDS-fleet.md) (Commands: remote control and the fleet): read this when you control sessions remotely or run a fleet and its missions.
   - [COMMANDS-packs.md](COMMANDS-packs.md) (Commands: packs): read this when you list, inspect, install, enable, update or remove a pack from the command line (`halo pack`).
+  - [COMMANDS-workflows.md](COMMANDS-workflows.md) (Commands: workflows): read this when you list, show, check or run a pack's workflow from the command line (`halo workflow`).
   - [COMMANDS-proxy.md](COMMANDS-proxy.md) (Commands: the proxy, exit codes and config checks): read this when you run the old proxy, read an exit code, or list and check the config files in effect.
 - [SLASH-COMMANDS.md](SLASH-COMMANDS.md) (Slash commands, keys, and prompt prefixes): read this when you want what a `/command`, a key or a prompt prefix does in the TUI.
   - [SLASH-COMMANDS-session.md](SLASH-COMMANDS-session.md) (Slash commands: sessions, models and context): read this when you manage the session, its model, memory, permissions or config from the prompt (`/clear`, `/model`, `/recall`, `/config` ...).
@@ -56,6 +57,7 @@ Work in the TUI and on the command line, and give agents bios, lineups, roles an
 - [AGENTS.md](AGENTS.md) (Agent bios and team templates): read this when you write or edit an agent bio or a lineup, field by field.
 - [ROLES.md](ROLES.md) (Roles): read this when you point different kinds of work at different models with roles.
 - [PACKS.md](PACKS.md) (Packs): read this when you add a pack of bios, lineups, skills, commands, hooks and MCP servers to Halo, or take one out again.
+- [WORKFLOWS.md](WORKFLOWS.md) (Workflows): read this when you write or run a pack's workflow: its stages compiled to an Orchestra run, its typed artifacts, events and memory.
 - [ORCHESTRA.md](ORCHESTRA.md) (The Orchestra): read this when several agents should write the same files at once: the Orchestra and its plan, lanes and judge.
 - [TEAM.md](TEAM.md) (Teams: people, blocks and stages (Halo 3.0.8.0)): read this when you set up a team file: who works on a repo, where their work lands and in which order.
 - [WORK.md](WORK.md) (One unit of work): read this when you want the one model under an Orchestra lane, a mission part and a team stage.

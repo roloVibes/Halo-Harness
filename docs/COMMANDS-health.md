@@ -100,7 +100,14 @@ online member, each answering from its own index; the hits are merged by
 score and printed with their harness, and the exit is 3 when there is no
 fleet to ask ([FLEET.md](FLEET.md) "Recall across the fleet"). `--json`
 prints the hits (or the merged `{hits, harnesses}`) as JSON. The TUI twin is
-`/recall [--fleet] <query>` (`docs/SLASH-COMMANDS.md`). The generic
+`/recall [--fleet] <query>` (`docs/SLASH-COMMANDS.md`). 3.2.0.0 R5:
+`halo recall [<query>] --namespace <pack>/<name> [--provenance]` reads one
+pack's memory namespace plus the entries other packs share with that pack;
+without a query it lists them (no embedding model needed), and
+`--provenance` shows each entry's `_meta.json` (source, run, stage, written,
+retention, shared; [EXTENSION_API.md](EXTENSION_API.md#events-and-artifacts)).
+`halo recall prune` removes every `retention: days:<n>` entry older than its
+days (a `retention: run` entry goes when its run ends). The generic
 OpenAI-compatible local-server CHAT route -- `local:<model>` or
 `local:<model>@<name>` against a `local.servers` config entry (LM
 Studio, llama.cpp server, vLLM; per-server `context` discovery) -- is

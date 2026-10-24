@@ -97,12 +97,14 @@ def build_checks(run_dir, goal, lanes: list, merge: dict, gate) -> list:
                          f"{len(lanes)} worker branch(es) merged into {branch}" if not unmerged else
                          f"not merged: lane {unmerged}"))
     if gate is not None:
-        rows = gate.record
-        diff = [r["key"] for r in rows if not r["equal"] and not r["judge"]]
+        typed = [r for r in gate.record if r.get("evidence") or r.get("artifact")]  # 3.2.0.0 R5 (workflows/gate.py)
+        rows = [r for r in gate.record if r not in typed]
+        diff = [r["key"] for r in gate.record if not r["equal"] and not r["judge"]]
         judged = [r["key"] for r in rows if r["judge"]]
         checks.append(_check("record_equals_disk", gate.record_ok,
                              (f"{len(rows)} unit(s) on {branch} equal their written snapshots"
-                              + (f" ({len(judged)} resolved by the judge)" if judged else ""))
+                              + (f" ({len(judged)} resolved by the judge)" if judged else "")
+                              + (f"; {len(typed)} workflow output(s) and evidence read and checked" if typed else ""))
                              if gate.record_ok else "differs from the record: " + ", ".join(diff)))
         checks.append(_check("tests_pass_finished_branch", gate.tests.ok,
                              f"`{gate.tests.command}` exit {gate.tests.returncode}" if gate.tests.command else
@@ -133,6 +135,7 @@ def write_report(run_dir, *, goal, lanes: list, merge: Optional[dict] = None, ga
         "goal_done_when": goal.done_when,
         "lanes": [{"lane": lane.n, "title": lane.job.title, "state": lane.state,
                    "pieces_returned": lane.pieces_returned, "cost_usd": round(lane.cost_usd, 6)} for lane in lanes],
+        **_workflow_part(run_dir, goal, lanes, gate, status),  # 3.2.0.0 R5: a workflow run's outputs (workflows/outputs.py)
         "checks": build_checks(run_dir, goal, lanes, merge, gate),
         "units": _unit_rows(run_dir),  # 3.1.2.0 R1: one UnitRow per lane (docs/WORK.md), beside `lanes`
     }
@@ -144,6 +147,11 @@ def _unit_rows(run_dir) -> list:
     """The run's lanes as the shared report rows (work/report.py); [] if it cannot be read."""
     from halo_harness.work.report import rows
     return rows(run_dir, "lane")
+
+
+def _workflow_part(run_dir, goal, lanes: list, gate, status: str) -> dict:
+    from halo_harness.workflows.outputs import part
+    return part(run_dir, goal, lanes, gate, status) if getattr(goal, "workflow", None) else {}
 
 
 def coach_line(run_dir) -> str:
@@ -167,5 +175,8 @@ def format_report(report: dict, run_dir=None) -> str:
     lines.append("  checks:")
     for c in report.get("checks") or []:
         lines.append(f"    {mark.get(c.get('ok'), '????')}  {c['id']:<36} {c.get('detail') or ''}")
+    if report.get("workflow"):  # 3.2.0.0 R5: the workflow's artifacts and the bounds it does not hold yet
+        from halo_harness.workflows.outputs import lines as workflow_lines
+        lines += [f"  workflow {report['workflow'].get('ref')}"] + workflow_lines(report)
     coach = coach_line(run_dir)
     return "\n".join(lines + [f"  {coach}"] * bool(coach))

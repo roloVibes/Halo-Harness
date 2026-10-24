@@ -1,0 +1,11 @@
+name: flow
+description: One stage that should hand on its notes.
+outputs:
+  notes: {type: "artifact:notes", from: write}
+stages:
+  - id: write
+    brief: Write the notes.
+    role: researcher
+    gives:
+      - {name: summary, kind: summary}
+done_when: The notes are written.

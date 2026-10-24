@@ -17,7 +17,10 @@ packs for exactly that).
     pack_dir(pack_id) / data_dir(pack_id)
                                     the pack's own folder (read-only) and its data folder
     publish_event(pack_id, kind, data=None)
-                                    a frame on Studio's live feed, tagged with the pack's id
+                                    a frame on Studio's live feed, tagged with the pack's id (3.2.0.0 R5: checked
+                                    against the kind's schema, kept in the pack's events log)
+    memory.write(namespace, text, provenance=None)
+                                    a note in the pack's memory namespace with its provenance (3.2.0.0 R5)
     is_granted(pack_id, permission) whether you granted the pack a permission it requests
     Unit                            the unit of work (halo_harness.work.unit.Unit)
     is_valid_pack_id, is_valid_name, qualified_name, split_name
@@ -35,6 +38,7 @@ from halo_harness.ext.config import get_config, set_config  # noqa: E402
 from halo_harness.ext.events import publish_event  # noqa: E402
 from halo_harness.ext.files import data_dir, pack_dir, write_private  # noqa: E402
 from halo_harness.ext.grants import is_granted  # noqa: E402
+from halo_harness.ext import memory  # noqa: E402  (3.2.0.0 R5: memory.write)
 from halo_harness.ext.names import is_valid_name, is_valid_pack_id, qualified_name, split_name  # noqa: E402
 from halo_harness.ext.schema import check_schema  # noqa: E402
 from halo_harness.ext.yamlio import read_yaml, write_yaml  # noqa: E402
@@ -42,4 +46,4 @@ from halo_harness.work.unit import Unit  # noqa: E402
 
 __all__ = ["API_VERSION", "HALO_API_VERSION", "read_yaml", "write_yaml", "check_schema", "get_config",
            "set_config", "write_private", "pack_dir", "data_dir", "publish_event", "is_granted", "Unit",
-           "is_valid_pack_id", "is_valid_name", "qualified_name", "split_name"]
+           "is_valid_pack_id", "is_valid_name", "qualified_name", "split_name", "memory"]

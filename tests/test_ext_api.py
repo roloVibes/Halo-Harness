@@ -23,7 +23,7 @@ test, TESTS = new_registry()
 REPO = Path(__file__).resolve().parent.parent
 SURFACE = ("API_VERSION", "HALO_API_VERSION", "read_yaml", "write_yaml", "check_schema", "get_config", "set_config",
            "write_private", "pack_dir", "data_dir", "publish_event", "is_granted", "Unit", "is_valid_pack_id",
-           "is_valid_name", "qualified_name", "split_name")
+           "is_valid_name", "qualified_name", "split_name", "memory")  # memory: 3.2.0.0 R5
 
 
 @test
@@ -73,10 +73,14 @@ def test_the_contracts_do_what_the_doc_says(ctx: Ctx):
         class Bridge:
             def publish_local(self, frame):
                 frames.append(frame)
-        ctx.check("publish_event: True with a bridge", ext.publish_event("doc-review", "review.done", {"n": 1}, bridge=Bridge()))
+        good = {"file": "README.md", "findings": 1}  # 3.2.0.0 R5: review.done has a schema (events/review.done.json)
+        ctx.check("publish_event: True with a bridge", ext.publish_event("doc-review", "review.done", good, bridge=Bridge()))
         f = frames[0]
         ctx.check(f"the frame is tagged with the pack, got {f}", f["event"] == "pack_event" and f["pack"] == "doc-review"
-                  and f["session_id"] == "pack:doc-review" and f["data"] == {"pack": "doc-review", "kind": "review.done", "data": {"n": 1}})
+                  and f["session_id"] == "pack:doc-review" and f["data"] == {"pack": "doc-review", "kind": "review.done", "data": good})
+        ext.publish_event("doc-review", "review.done", {"n": 1}, bridge=Bridge())
+        ctx.check(f"data off its schema is published with its problems, got {frames[1]['data']}",
+                  frames[1]["data"]["data"] == {"n": 1} and "file is required" in frames[1]["data"]["problems"])
         ctx.check("publish_event: False when this process serves no Studio", ext.publish_event("doc-review", "review.done") is False)
         for bad in (("Doc", "x"), ("doc-review", "Bad Kind")):
             try:

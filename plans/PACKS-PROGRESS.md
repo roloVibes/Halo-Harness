@@ -154,14 +154,67 @@ decisions, the next task.
     review/style); fleet-secret (token + $HOME), fleet-unknown-name,
     fleet-needs-gpu (valid; not available without a GPU).
 
+- R5 (2026-10-23, branch v320/R5-workflows from c6003a0): workflows and artifacts.
+  - The workflow file `<pack>/workflows/<name>.yaml` (its name in
+    `contributes.workflows`): shape `schemas/workflow_yaml.py` (TOP_KEYS,
+    STAGE_KEYS, WHEN/GIVE/TAKE/INPUT/OUTPUT/PREREQ keys) + the JSON twin
+    `packs/schema/workflow.schema.json`; meaning `packs/workflow_rules.py`
+    (inputs, outputs, prerequisites, the file vs contributes.workflows) and
+    `packs/workflow_stages.py` (ids, `role_bio`, needs, after/takes, the cycle,
+    for_each, when, gives, retries/timeout/budget, gate, verify, after_event),
+    one manifest line each `workflows/<name>.yaml line N: <key> ...`.
+  - `packs/typed.py`: artifact schemas (`artifacts/<schema>.json`,
+    `contributes.artifacts` names) and event schemas (`events/<kind>.json`, a
+    `contributes.events` entry is a kind or `{kind, schema, description}`):
+    `check` (shape + `required`), `x-halo-view` table | markdown | keyvalue.
+  - The compile (`halo_harness/workflows/`): spec (find `<pack>/<name>` of a
+    running pack), inputs (typed inputs, prerequisites, capability needs),
+    conditions (`when`), compile (stages -> jobs, Goal fields, handoffs),
+    bounds (goal.workflow, the bound rows), pinned (the lead refines briefs of
+    the pinned jobs; a reviewed plan keeps the stage set), runtime (a lane's
+    stage text, run-time `when` -> skipped, budget stop, after_event,
+    timeout_s), gate (`widen`: artifacts vs schema, evidence in the record,
+    stage tests, per-stage retries), outputs (copy to `<run>/artifacts/`, the
+    report's `workflow` + `artifacts`), cli (`halo workflow list|show|check|run`,
+    `halo orchestra new --workflow`), goal (`--as goal`: the run queued for the
+    supervisor; `cli_add` for `halo goal add --workflow`).
+  - Orchestra hooks, each a no-op without `goal.workflow`: `Goal.workflow`;
+    `split_goal` -> `split_pinned`; `plan.check` -> `plan_rules` +
+    `plan_problems(claim_free=)`; `workers.run_lane` -> `runtime.stage`
+    (prompt + `early`); `adapters.spawn_worker` reads `lane.timeout_s`;
+    `quality_gate` -> `widen`, `GateResult.notes` (run.py's respawn text);
+    `lanes.step_state` (a skipped lane's step); `write_report` -> `outputs.part`,
+    `format_report` the artifact and not-enforced lines; the record check's
+    detail counts the workflow rows.
+  - Events: `ext.publish_event` refuses a pack that does not run here (one
+    line, ValueError), checks a declared kind's data (a mismatch goes out with
+    `problems`), keeps every event (`packs/events_log.py`,
+    `~/.halo/packs/.data/<id>/events.jsonl`); a bio's trigger `{on: event,
+    name: <pack>:<kind>}` / `{event: ...}` fires once (`packs/event_triggers.py`,
+    TeamScheduler polls each tick); a stage's `after_event` waits.
+  - Memory: `ext.memory.write(namespace, text, provenance)` + `<name>._meta.json`
+    (`packs/memory_meta.py`: source, run, stage, written, retention keep |
+    days:<n> | run, shared); recall's filter reads a namespace plus what is
+    shared with its pack; `retention: run` goes when the run ends (from the
+    report), `halo recall prune`; `halo recall --namespace --provenance`.
+  - Studio: a panel kind `artifact` (`{kind: artifact, schema, source: latest |
+    <json> | data:<path>}`, studio_rules + registry `view`/`file`), `GET
+    pack/<id>/artifact/<schema>` and `GET orchestra/<run>/artifact/<name>`
+    (`studio/workflow_api.py`); `routes/packs/ArtifactView.tsx` (table,
+    markdown, keyvalue; PackArtifact), PackEvents shows a kind's data under its
+    line (registry events `view`) and a frame's `problems`; Orchestra's Report
+    panel an "Artifacts (N)" tab (`routes/orchestra/Artifacts.tsx`).
+  - `halo pack inspect`'s contributes block lists the workflows, artifact
+    schemas and event schemas (`contributes.typed` in `--json`).
+  - Fixtures: doc-review gains workflows/review.yaml (read per file, judge with
+    gate human, write with a run-time when and evidence), artifacts/review-report.json,
+    events/review.done.json, a "Last review report" artifact panel; wf-cycle,
+    wf-unknown-role, wf-no-giver, wf-input-type; tests/fixtures/workflows/report-bad.json.
+
 ## Open dependencies
 
 - R2 confirmed the `<id>--<name>` names (Decisions); the ROADMAP's R2 line
   still says `<pack>/<name>` -- the coordinator fixes it.
-- R5 runs `workflows`: R2 reads only the names (`contributes.workflows`:
-  names, or `workflows/<name>.yaml` whose stem is the name). A cloned
-  lineup keeps `workflows:` as plain names; R5 decides how a user lineup
-  names a pack's workflow.
 - The supervisor's goal queue (3.1.8.0 R1, `halo goal add --lineup`) and
   Studio's Orchestra goal form do not read the lineup's acceptance yet:
   after the merge each calls `packs.lineup_run.goal_defaults` (one line).
@@ -190,9 +243,29 @@ decisions, the next task.
 - R4: a mission's metadata comes from the lineup named in the request
   (`lineup`) or the active one (config `team`); Studio's Mission form and
   `halo fleet mission new` send no `lineup` yet (one field each).
-- R5: `contributes.artifacts`, typed event schemas; `publish_event` sends
-  one `pack_event` frame kind today (not in feed_kinds.DEFAULT_KINDS, which
-  lists the kinds asked of sessions).
+- R5 (done): the supervisor (3.1.8.0 R1/R2) is on master, not on this
+  branch. `halo workflow run --as goal` and `workflows/goal.py` are written
+  against master's `supervise.queue` / `runner.ensure_run` (a merge preview,
+  master + this branch file by file, ran the resume test green). After the
+  merge `halo goal add` gains `--workflow` + `--input` (two add_argument lines
+  and `if args.workflow: return workflow_goal.cli_add(state_dir, args)` in
+  supervise/goal_cli.py), and `workflows` can join test_invariants'
+  `_MAP_PACKAGES` (master's line holds `supervise`).
+- R5: the replanner (3.1.8.0 R2) may add or replace lanes in split.json; a
+  workflow run's stage map is keyed by job id, so a replan of a workflow run
+  should keep its stage set (or be off for it): not handled here.
+- R5: `gate: human` is the plan review before any stage starts, not a hold
+  before that one stage; the workflow's own `budget_usd` is the goal's budget
+  (the forecast, and the supervisor's stop under `--as goal`), not enforced as
+  a stop in a plain Orchestra run. A stage's `needs` are checked on this
+  harness at compile time (an Orchestra run is local).
+- R5: the evidence is read into the gate's record check; 3.1.8.0 R3's judge
+  reading the evidence instead of the summary is the next widening.
+- R5: Studio has no workflow picker (Orchestra's new-run form, the Pack
+  Manager): runs start from the CLI. R6's Pack Manager is the place.
+- R5: a lineup's `workflows:` stays a list of names (R2): a workflow runs by
+  its `<pack>/<name>`; the compiled goal's `lineup` is the pack lineup that
+  names it.
 - R7: the glossary gains "pack" (closed list in R1); the compatibility and
   migration policy is `planned` with the proposal in EXTENSION_API.md.
 - A project pack's BIO keeps its `tools.permission_mode` and allow rules
@@ -274,6 +347,33 @@ decisions, the next task.
   studio.css 41b2f982..., index.html unchanged), `tests.test_studio_dist` 6/6
   last. Not run: test_tui.py, the full tier as a whole, Kali/WSL.
 
+- R5 new modules: test_workflow_schema 5, test_workflow_compile 6,
+  test_workflow_run 7 (the `--as goal` supervisor test skips on this branch),
+  test_pack_events 4, test_pack_memory_provenance 4, test_workflow_ui 3
+  (Chrome, full tier) -- 29 tests, 28 passed, 1 skipped.
+- R5 kept green, module by module: R1-R4's packs modules, test_ext_api,
+  test_orchestra_* (18), test_studio_orchestra_api / _plan,
+  test_agents_schedule, test_recall_fleet, test_round_embeddings_local,
+  test_docs_*, test_invariants, test_line_endings, test_privacy_scan,
+  test_audit_privacy, test_glossary, test_studio_edit_target,
+  test_doctor_config, test_config_where, test_completion_cli. Pins updated:
+  test_ext_api (`memory` in SURFACE; review.done data matches its schema),
+  test_packs_studio_contract (the report panel, the event view),
+  test_packs_studio_ui (a disabled pack's event is refused), test_docs_commands
+  (`halo workflow`). Chrome 85/85 (test_workflow_ui, test_packs_studio_ui,
+  test_packs_fleet_ui, test_packs_roles_studio, test_studio_ui 53,
+  test_studio_start, test_studio_modes).
+- R5 merge preview (scratch: master + this branch file by file): master's
+  test_supervise_* (11 modules, 57 tests), the orchestra run / gate / plan
+  modules, test_agents_schedule and the R5 modules (the supervisor test
+  included) green; every file merges cleanly but the built bundles.
+- R5 full runs (2026-10-23, Windows build host): `tests/run_all.py --fast`
+  4922 tests / 503 modules, 4910 passed, 0 failed, 12 skipped, both real-home
+  guards ok; `test_bridge.py` 101/101. Studio UI: `npm ci`, `npx tsc
+  --noEmit` clean, two builds identical (studio.js sha256 2ce5048c...,
+  studio.css bec944aa..., index.html unchanged), `tests.test_studio_dist` 6/6
+  last. Not run: test_tui.py, the full tier as a whole, Kali/WSL.
+
 ## Decisions
 
 - Pack-qualified names are `<id>--<name>` (valid under the name rule); an id
@@ -336,13 +436,38 @@ decisions, the next task.
   brief's "ref or tag"); unlike a bio's `models.preference`, a provider-pinned
   ref is allowed here: it names what the host must have, not what to run.
 
+- R5: a workflow COMPILES to an Orchestra goal (goal.json `workflow` holds the
+  pinned plan); every runtime hook is a no-op for a goal without it, so a
+  repo with no pack and no workflow runs exactly as before.
+- R5: the pinned split still asks the lead once, for briefs only; an answer
+  that changes the stage set is asked again once, then the workflow's own
+  briefs run (the stages are fully specified; the refinement is optional).
+- R5: a stage that edits no file of the repo claims nothing (`claim_free` in
+  the plan check); its lane commits nothing and merges trivially.
+- R5: one job per stage, one per file for `for_each` (`{input, match}`): the
+  brief's "parallel per file".
+- R5: an artifact give is saved as `<name>.json` in `lanes/<n>/artifacts/`;
+  the gate's mismatch is a return with one line per problem, the stage's
+  `retries` its cap; the evidence rows join `record` (`evidence:<item>`,
+  `artifact:<name>`), so `record_equals_disk` fails on a missing one.
+- R5: a run-time `when` false marks the lane `skipped` (no worker runs, its
+  step reads skipped, it merges with nothing) instead of a new lane state.
+- R5: a disabled pack's event is a ValueError naming it (ext's existing
+  refusal form), never a silent drop; a mismatching event goes out with its
+  problems. The events log in the pack's data folder is what subscriptions
+  read, so a trigger fires from any process.
+- R5: `_meta.json` is a sidecar per entry (`<name>._meta.json`), so parallel
+  stages never share a file; a note without one is the user's, kept.
+
 ## Next task
 
-- R5: Workflows and artifacts (plans/ROADMAP.md 3.2.0.0 R5, Phases 6 and 8):
-  a declarative workflow format on top of the Orchestra (`contributes.workflows`
-  files: prerequisites, typed inputs and outputs, stages, conditions, roles,
-  capability needs -- a stage may name a pack's fleet capability as R4's
-  `needs` do --, gates, retries, timeouts, budgets, verification, checkpoints),
-  typed artifact schemas and viewers (`contributes.artifacts`), events as
-  typed publications (`contributes.events: [{kind, schema}]`), context
-  namespaces per pack.
+- R6: The Pack Manager in Studio and the reference pack (plans/ROADMAP.md
+  3.2.0.0 R6, Phases 9-10): discover, capabilities, dependencies, requested
+  permissions, enable and disable, model and tool settings, templates,
+  presets, compatibility warnings, health, update, uninstall (trusted local
+  and configured sources only); the "Documentation Review" pack (a reviewer
+  and a writer bio, the review workflow, a Studio review panel, the typed
+  review-report artifact, a Fleet capability requirement) that installs, runs
+  (`halo workflow run`), renders (its artifact panel) and uninstalls without a
+  core change. R5's doc-review fixture is its seed; a workflow picker belongs
+  in the Pack Manager.

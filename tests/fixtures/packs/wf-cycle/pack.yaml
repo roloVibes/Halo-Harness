@@ -1,0 +1,9 @@
+# A fixture pack whose workflow's two stages wait for each other (3.2.0.0 R5,
+# tests/test_workflow_schema.py): one manifest line per stage in the circle.
+id: wf-cycle
+name: Workflow with a cycle
+version: 0.1.0
+description: Two stages that each run after the other.
+halo_api: {min: "1.0"}
+contributes:
+  workflows: [flow]

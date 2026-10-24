@@ -185,12 +185,18 @@ def post_steal(req):
     return 200, {"ok": True, "key": key, "holder": by, "claims": OM.active_claims(run_dir)}
 
 
+def _run_artifact(req):
+    from halo_harness.studio.workflow_api import run_artifact
+    return run_artifact(req)
+
+
 _RUN = r"(?P<run>[A-Za-z0-9_-]+)"
 ROUTES = [
     ("GET", r"^orchestra/runs$", list_runs), ("POST", r"^orchestra/run$", post_run),
     ("GET", rf"^orchestra/{_RUN}$", get_run), ("GET", rf"^orchestra/{_RUN}/events$", get_events),
     ("GET", rf"^orchestra/{_RUN}/file$", get_file), ("POST", rf"^orchestra/{_RUN}/stop$", post_stop),
     ("POST", rf"^orchestra/{_RUN}/release$", post_release), ("POST", rf"^orchestra/{_RUN}/steal$", post_steal),
+    ("GET", rf"^orchestra/{_RUN}/artifact/(?P<name>[A-Za-z0-9_-]+)$", _run_artifact),  # 3.2.0.0 R5: a workflow's output
 ] + PLAN_ROUTES
 
 

@@ -112,6 +112,7 @@ def spawn_worker(model: Optional[str], role: str = "subagent", *, run_dir, runne
     ref = role_model(role, model)
 
     def spawn(lane) -> dict:
+        limit = int(getattr(lane, "timeout_s", 0) or timeout_s)  # 3.2.0.0 R5: a workflow stage's own timeout_s
         env = child_env(run_dir, lane.n, os.environ)
         env.setdefault("PYTHONIOENCODING", "utf-8")
         env.update(fleet_parent_env())
@@ -120,10 +121,10 @@ def spawn_worker(model: Optional[str], role: str = "subagent", *, run_dir, runne
             argv = worker_argv(lane.prompt, getattr(job, "model", "") or ref, getattr(job, "bio", "") or None)
             argv += (["--team", team] if team else []) + (list(cwd_overlay(lane) or []) if cwd_overlay else [])
             proc = runner(argv, cwd=str(lane.worktree), env=env, capture_output=True,
-                          text=True, encoding="utf-8", errors="replace", timeout=timeout_s,
+                          text=True, encoding="utf-8", errors="replace", timeout=limit,
                           stdin=subprocess.DEVNULL)
         except subprocess.TimeoutExpired:
-            return {"ok": False, "error": f"the worker ran past {timeout_s}s"}
+            return {"ok": False, "error": f"the worker ran past {limit}s"}
         except OSError as e:
             return {"ok": False, "error": f"could not start the worker: {e}"}
         obj = _last_json(proc.stdout)

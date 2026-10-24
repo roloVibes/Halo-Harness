@@ -1,17 +1,15 @@
 """halo_harness.orchestra.gate -- the tests, the record check and the gate.
 
-* `run_tests(run_dir, goal, cwd)` runs the goal's `test` command in `cwd`
-  with the scrubbed tool-child environment (providers/config.py
-  `tool_child_env`), stops it after `goal.test_timeout_s` seconds (default
-  600; the whole process tree), and keeps the last lines of its output.
-* `record_equals_disk(run_dir, lanes, ref)`: every claimed unit's text on
-  the finished branch equals the lane's last `written` snapshot. A unit in
-  a file whose merge conflict the judge resolved may differ; it is listed
-  with `judge: true` and still counts as equal.
-* `quality_gate(run_dir, goal, lanes, cwd)`: the tests on the finished
-  branch decide. Failing tests send back every lane whose unit names
-  appear in the output (at most `return_cap` times each); a lane at its
-  cap, or a failure that names no lane, stops the run with the reason.
+* `run_tests(run_dir, goal, cwd)` runs the goal's `test` command in `cwd` with the scrubbed
+  tool-child environment (providers/config.py `tool_child_env`), stops it after
+  `goal.test_timeout_s` seconds (default 600; the whole process tree), keeps its last lines.
+* `record_equals_disk(run_dir, lanes, ref)`: every claimed unit's text on the finished branch
+  equals the lane's last `written` snapshot. A unit in a file whose merge conflict the judge
+  resolved may differ; it is listed with `judge: true` and still counts as equal.
+* `quality_gate(run_dir, goal, lanes, cwd)`: the tests on the finished branch decide. Failing
+  tests send back every lane whose unit names appear in the output (at most `return_cap` times
+  each); a lane at its cap, or a failure that names no lane, stops the run with the reason.
+  3.2.0.0 R5: a workflow goal's typed outputs and evidence too (workflows/gate.py `widen`).
 * `send_back(lane, text_of)`: the loop, through work/gate.py (3.1.2.0 R1).
 """
 
@@ -71,6 +69,7 @@ class GateResult:
     record: list = field(default_factory=list)
     back: list = field(default_factory=list)      # lane numbers sent back to their workers
     stop_reason: str = ""
+    notes: dict = field(default_factory=dict)     # 3.2.0.0 R5: {lane: what its worker is told} (workflows/gate.py)
 
     def to_dict(self) -> dict:
         return dict(asdict(self), tests=self.tests.to_dict())
@@ -227,8 +226,11 @@ def _narrow(blamed: list) -> list:
     return keep or blamed
 
 
-def quality_gate(run_dir, goal, lanes: list, cwd, *, ref: Optional[str] = None) -> GateResult:
-    """Tests on the finished branch, the record check, and the loop decision."""
+def quality_gate(run_dir, goal, lanes: list, cwd, *, ref: Optional[str] = None, outputs: bool = True) -> GateResult:
+    """Tests on the finished branch, the record check, and the loop decision (3.2.0.0 R5: and a workflow's outputs)."""
+    if outputs and getattr(goal, "workflow", None):  # typed artifacts, the evidence, each stage's test (workflows/gate.py)
+        from halo_harness.workflows.gate import widen
+        return widen(quality_gate(run_dir, goal, lanes, cwd, ref=ref, outputs=False), run_dir, goal, lanes, cwd)
     tests = run_tests(run_dir, goal, cwd)
     record_ok, record = record_equals_disk(run_dir, lanes, ref)
     if tests.ok:

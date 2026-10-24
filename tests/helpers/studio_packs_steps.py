@@ -117,9 +117,14 @@ def disabled(c, url, ctx) -> dict:
     time.sleep(0.4)
     out["palette_after"] = c.js(f"{qa('.palette-label')}.map((l) => l.textContent).filter((t) => t.includes('review checks'))")
     c.key("Escape")
-    publish(ctx, "review.done", {"file": "README.md", "findings": 1})
     live = qa("[data-testid=session-live-line][data-kind=pack]")
-    c.wait(f"{live}.length >= 3", 15)
-    out["live_after"] = c.js(f"(() => {{ const l = {live}.pop(); return [l.querySelector('[data-testid=session-live-kind]').textContent, l.querySelector('[data-testid=session-live-pack]').textContent]; }})()")
+    before = c.js(f"{live}.length")
+    try:  # 3.2.0.0 R5: a disabled pack's event is refused with one line (ext/events.py), so nothing new shows
+        publish(ctx, "review.done", {"file": "README.md", "findings": 1})
+        out["refused"] = ""
+    except ValueError as e:
+        out["refused"] = str(e)
+    time.sleep(1.0)
+    out["live_after"] = [before, c.js(f"{live}.length")]
     out["reloads"] = c.js("performance.getEntriesByType('navigation').length")
     return out

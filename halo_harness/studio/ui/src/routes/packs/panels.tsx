@@ -11,6 +11,7 @@ import { Empty } from "../../lib/ui";
 import type { PanelSpec } from "../../lib/workspace/types";
 import { PackForm } from "./PackForm";
 import { PackBundle, PackEvents } from "./PackEvents";
+import { PackArtifact } from "./ArtifactView";
 import { PackLinks, PackMarkdown, PackTable } from "./kinds";
 import { findPanel, usePacks } from "./store";
 import type { PackPanel } from "./types";
@@ -19,7 +20,7 @@ const COLS = 24;
 const CORE_Y = 400; // under every core panel: the grid packs them up
 const KIND_LINE: Record<string, string> = {
   markdown: "a page of the pack", table: "rows the pack keeps", form: "the pack's settings", links: "where to go next",
-  events: "the pack's live lines", bundle: "the pack's own script",
+  events: "the pack's live lines", bundle: "the pack's own script", artifact: "a document a workflow wrote",
 };
 
 function Body({ id }: { id: string }) {
@@ -38,6 +39,8 @@ function Body({ id }: { id: string }) {
       return <PackEvents p={p} />;
     case "bundle":
       return <PackBundle p={p} />;
+    case "artifact":
+      return <PackArtifact p={p} />;
     default:
       return <Empty title="Studio does not draw this kind" body={String((p as PackPanel).kind)} />;
   }

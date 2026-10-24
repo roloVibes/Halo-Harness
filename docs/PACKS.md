@@ -106,9 +106,10 @@ A pack's `teams/<name>.yaml` is a lineup in the same schema as yours
 pack's bios by their short names (`agent: writer`); Halo qualifies them.
 Two keys more:
 
-- `workflows: [<name>, ...]`: the pack workflows the lineup runs (3.2.0.0 R5
-  runs them). Each name is one pack.yaml declares under
-  `contributes.workflows`; a stray one is a manifest problem naming the line.
+- `workflows: [<name>, ...]`: the pack workflows the lineup runs. Each name
+  is one pack.yaml declares under `contributes.workflows`; a stray one is a
+  manifest problem naming the line. A workflow's compiled run uses the
+  lineup that names it (its goal's `lineup`, [Workflows](#workflows)).
 - `acceptance` holds the smoke prompt `halo doctor --teams` runs (`prompt`,
   `expect`) and the Orchestra defaults a run on this lineup starts with:
   `test` (the command the gate runs) and `review: true` (pause after the split
@@ -227,6 +228,34 @@ the catalog cuts every other path to its last part before anything leaves
 the machine. `halo pack inspect <id>` lists the capabilities with available /
 why in its "contributes:" block (with the Studio contributions), and
 `halo pack doctor` has a row for each one not available here.
+
+## Workflows
+
+A pack may ship workflows, `workflows/<name>.yaml` named in
+`contributes.workflows` ([WORKFLOWS.md](WORKFLOWS.md) is the guide,
+[EXTENSION_API.md](EXTENSION_API.md#workflow-contracts) the contract). A
+workflow names its prerequisites, typed inputs and outputs, and stages
+(sequential with `after`, parallel without, one job per file with
+`for_each`), each with its role (a bio of the pack), its conditions, gate,
+retries, timeout, budget and checks. Halo compiles it to an Orchestra run:
+
+```sh
+halo workflow list                                        # the workflows of the packs that run here
+halo workflow check doc-review/review --input docs=docs   # the jobs it compiles to, or every problem
+halo workflow run doc-review/review --input docs=docs     # run it now (an Orchestra run)
+```
+
+A typed output (`artifact:<schema>`) is checked against the pack's
+`artifacts/<schema>.json` at the gate and drawn by its schema's view in the
+pack's section (a panel of kind `artifact`) and in Orchestra's Report panel.
+A pack's event kinds may carry a schema (`events/<kind>.json`): a
+mismatching event goes out with its problems, a disabled pack's is refused,
+and a bio's trigger or a stage's `after_event` can wait for one. Its memory
+notes carry their provenance (`ext.memory.write`; recall reads a namespace
+and what other packs share with it). A bad workflow file is one manifest
+line naming the key and its line, so the pack does not run until it is
+fixed; `halo pack inspect` lists the workflows, artifact schemas and event
+schemas in its "contributes:" block.
 
 ## Where packs live
 

@@ -10,7 +10,10 @@ and, with a root, `pack.yaml line N`:
 - a panel's `kind` is one of `KINDS`; `markdown`, `table` and `bundle` name a
   `source`: a file inside the pack's folder (never outside it), or for a
   table `data:<path>` in the pack's data folder; a bundle is an ES module
-  (`.js` / `.mjs`) and needs the `studio-script` permission requested;
+  (`.js` / `.mjs`) and needs the `studio-script` permission requested; an
+  `artifact` panel (3.2.0.0 R5) names a `schema` of `contributes.artifacts` and
+  reads `latest` (the newest run's artifact, its default), a JSON file of the
+  pack or `data:<path>`;
 - `w` is 4..24 columns, `h` 8..200 rows; `columns` is a table's, `links` a
   links panel's (each `{label, route}` or `{label, url}`);
 - a panel under `panels:` names the core section it sits in;
@@ -38,9 +41,10 @@ from pathlib import Path
 from halo_harness.packs import names as N
 
 CORE_SECTIONS = ("session", "team", "roles", "fleet", "design", "orchestra")
-KINDS = ("markdown", "table", "form", "links", "events", "bundle")
-NEED_SOURCE = ("markdown", "table", "bundle")
-SUFFIXES = {"markdown": (".md", ".markdown", ".txt"), "table": (".json",), "bundle": (".js", ".mjs")}
+KINDS = ("markdown", "table", "form", "links", "events", "bundle", "artifact")  # artifact: 3.2.0.0 R5
+NEED_SOURCE = ("markdown", "table", "bundle", "artifact")
+SUFFIXES = {"markdown": (".md", ".markdown", ".txt"), "table": (".json",), "bundle": (".js", ".mjs"), "artifact": (".json",)}
+LATEST = "latest"  # an artifact panel's default source: the newest run's artifact of its schema
 SCRIPT = "studio-script"
 SETTINGS = "settings"  # config_form's panel id in the first section
 DATA_PREFIX = "data:"
@@ -101,10 +105,12 @@ def _source(L: _Lines, key: str, p: dict, root) -> None:
         if src is not None:
             L.add(f"{key}.source", f": a {kind} panel takes no source", "source", src)
         return
+    if kind == "artifact" and src in (None, LATEST):
+        return
     if not isinstance(src, str) or not src.strip():
         L.add(f"{key}.source", f": required for a {kind} panel", "kind", kind)
         return
-    data = kind == "table" and src.startswith(DATA_PREFIX)
+    data = kind in ("table", "artifact") and src.startswith(DATA_PREFIX)
     rel = Path(src[len(DATA_PREFIX):] if data else src)
     if rel.is_absolute() or ".." in rel.parts or src.startswith(("/", "\\")) or ":" in rel.as_posix().split("/")[0]:
         L.add(f"{key}.source", f" {src!r} is outside the pack's folder (a path inside it"
@@ -168,6 +174,12 @@ def _panel(L: _Lines, key: str, p: dict, root, manifest, own: dict) -> None:
               "permissions (you grant it with halo pack enable <id> --grant studio-script)", "kind", "bundle")
     if kind == "form" and not isinstance((manifest.get("config") or {}).get("schema"), dict):
         L.add(key, ": a form panel is the pack's settings form; pack.yaml has no config.schema", "kind", "form")
+    from halo_harness.packs.typed import artifact_names  # 3.2.0.0 R5: an artifact panel names one of its schemas
+    if kind == "artifact" and p.get("schema") not in artifact_names(manifest):
+        L.add(f"{key}.schema", f" {p.get('schema')!r} is not one of contributes.artifacts "
+              f"({', '.join(artifact_names(manifest)) or 'none declared'})", "schema", p.get("schema"))
+    elif kind != "artifact" and p.get("schema") is not None:
+        L.add(f"{key}.schema", ": a schema is an artifact panel's", "schema")
     if kind == "events" and not _list(manifest.get("contributes") or {}, "events"):
         L.add(key, ": an events panel lists the pack's own frames; contributes.events declares none", "kind", "events")
 
