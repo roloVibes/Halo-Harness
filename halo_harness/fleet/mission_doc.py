@@ -132,7 +132,9 @@ def status_table(doc: dict) -> str:
         out.append(f"  {name}")
         for pid, p in rows:
             note = p.get("waiting") if p.get("state") == "waiting" else p.get("error")  # 3.2.1.0 R3: the waits line
-            err = f"  {_cell(note, 70)}" if note else ""
+            # 3.2.1.0 R3: a waits line names the harness, the counts and the capability; 70 cut its tail on a long
+            # harness name (the CI runner's), so it gets the replanned line's width
+            err = f"  {_cell(note, 110 if p.get('state') == 'waiting' else 70)}" if note else ""
             out.append(f"    part {pid:>2}  {p.get('state') or 'pending':<8}  ${float(p.get('cost_usd') or 0):.4f}{err}")
             out += [f"      {_cell(p['replanned'], 110)}"] if p.get("replanned") else []
     if doc.get("stop_reason"):
