@@ -19,6 +19,8 @@ Routes on the hub port (fleet/hub_http.py hands them here):
     POST /fleet/v1/local/coach-library  3.1.6.0 R3, loopback + the admin token: `{harness, entry}` from this
                                  machine's `halo coach library fetch`; one live session of that member answers its
                                  `coach_library {entry}` command (orchestra/coach_library_share.py), passed back as is
+    POST /fleet/v1/local/knowledge  3.1.8.0 R4, the same for `{harness, id | kind, all}`: that member's `knowledge`
+                                 command (knowledge/share.py), passed back as is
 """
 
 from __future__ import annotations
@@ -115,8 +117,10 @@ def merged(hub, query: str, k: int = 8, *, by: str = "", exclude=(), for_member:
     return {"query": query, "k": k, "hits": RF.merge([mine, hits], k), "harnesses": [head] + rows, "at": time.time()}
 
 
-def library(hub, harness: str, entry: str, *, by: str, wait_s: Optional[float] = None) -> "tuple[int, dict]":
-    """3.1.6.0 R3: one live session of the member `harness` (its id or name) answers `coach_library {entry}`."""
+def library(hub, harness: str, entry: str, *, by: str, wait_s: Optional[float] = None, cmd: str = "coach_library",
+            fields: Optional[dict] = None) -> "tuple[int, dict]":
+    """3.1.6.0 R3: one live session of the member `harness` (its id or name) answers `coach_library {entry}`
+    (3.1.8.0 R4: or `cmd` with its `fields`, the `knowledge` command)."""
     state = hub.state
     rows = state.view().get("harnesses") or []
     want = str(harness or "").strip()
@@ -125,14 +129,15 @@ def library(hub, harness: str, entry: str, *, by: str, wait_s: Optional[float] =
     if h is None:
         return 404, {"error": f"no harness {want!r} on this hub (halo fleet who lists them)"}
     if h.get("local"):
-        return 422, {"error": f"{h.get('name')} is this harness: its library is here already", "harness": h.get("name")}
+        what = "knowledge" if cmd == "knowledge" else "library"
+        return 422, {"error": f"{h.get('name')} is this harness: its {what} is here already", "harness": h.get("name")}
     if not h.get("online"):
         return 409, {"error": f"{h.get('name')} is offline", "harness": h.get("name")}
     sid = _session(h)
     if sid is None:
         return 409, {"error": f"{h.get('name')} has no live session to answer", "harness": h.get("name")}
-    status, body = state.commands.send(str(h.get("id")), sid, "coach_library", {"entry": str(entry or "")}, by=by,
-                                       wait_s=WAIT_S if wait_s is None else float(wait_s))
+    status, body = state.commands.send(str(h.get("id")), sid, cmd, fields if fields is not None else {"entry": str(entry or "")},
+                                       by=by, wait_s=WAIT_S if wait_s is None else float(wait_s))
     return status, dict(body or {}, harness=h.get("name"))
 
 
@@ -145,7 +150,7 @@ def serve(handler, route: str):
     except ValueError as e:
         return handler._json(413, {"error": str(e)})
     hid = None
-    if route == "local/coach-library":
+    if route in ("local/coach-library", "local/knowledge"):
         if not handler._admin():
             return None
         try:
@@ -153,8 +158,9 @@ def serve(handler, route: str):
         except ValueError as e:
             return handler._json(400, {"error": f"bad request: {e}"})
         from halo_harness.fleet.identity import fleet_name
+        ask = {"cmd": "knowledge", "fields": {k: body.get(k) for k in ("id", "kind", "all")}} if route == "local/knowledge" else {}
         return handler._json(*library(handler.hub, str(body.get("harness") or ""), str(body.get("entry") or ""),
-                                      by=fleet_name(handler.hub.home)))
+                                      by=fleet_name(handler.hub.home), **ask))
     if route == "local/recall":
         if not handler._admin():
             return None

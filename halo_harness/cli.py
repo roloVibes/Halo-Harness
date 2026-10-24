@@ -497,6 +497,9 @@ def _main(argv: Optional[list] = None) -> int:
         # 3.1.8.0 R3: every agent task's outcome, per bio and model (docs/OUTCOMES.md).
         from halo_harness.outcomes.cli import cmd_outcomes
         return cmd_outcomes(argv[1:])
+    if argv and argv[0] == "knowledge":  # 3.1.8.0 R4: findings and decisions (docs/KNOWLEDGE.md)
+        from halo_harness.knowledge.cli import cmd_knowledge
+        return cmd_knowledge(argv[1:])
     if argv and argv[0] == "goal":
         # 3.1.8.0 R1: the supervisor's goal queue (halo goal add|list|show|...).
         from halo_harness.supervise.goal_cli import cmd_goal

@@ -2,7 +2,8 @@
 // each: hardware, models, craft apps, media, MCP servers (each opens to its
 // tools), skills, command-line tools, tags, the packs' fleet capabilities
 // (3.2.0.0 R4, PackCaps.tsx: each available or not and why), the catalog's age and Refresh;
-// the "Who can..." box on top ranks the fleet for what you need (Who.tsx).
+// the "Who can..." box on top ranks the fleet for what you need (Who.tsx);
+// 3.1.8.0 R4: under it in the full face, the recall box (Recall.tsx).
 // Catalogs are computed in code on each harness and cached there; a member
 // sends a new one when it changes (the hub asks once per hash), so a card
 // is only as old as its age says. Compact face (the default, so the Agent
@@ -15,6 +16,7 @@ import { loadCaps, startCaps, useCaps, type Catalog, type CapsRow } from "./caps
 import { age } from "./pstore";
 import { useNow } from "./store";
 import { PackCapsLine } from "./PackCaps";
+import { RecallBox } from "./Recall";
 import { WhoBox } from "./Who";
 
 const tools = (c: Catalog | null) => (c?.mcp || []).reduce((n, s) => n + (s.tools?.length || 0), 0);
@@ -94,6 +96,7 @@ export function CapabilitiesDetail() {
   return (
     <div className="fcap" data-testid="fleet-caps-detail">
       <WhoBox />
+      <RecallBox />
       {!rows ? (error ? <Empty title="Studio could not read the catalogs" body={error} /> : <div className="og-wait mono muted">reading what every harness can do...</div>)
         : !rows.length ? <Empty title="No harness yet" body="This harness shows as soon as its catalog is gathered." />
         : <ul className="fcap-list">{rows.map((r) => <Card key={r.harness} r={r} now={now} />)}</ul>}

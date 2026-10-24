@@ -62,3 +62,18 @@
 .fwho[data-compact] .fwho-list { max-height: none; }
 .fwho[data-compact] .fwho-row { padding: 3px 8px; }
 .fwho-why[data-compact] li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* -- 3.1.8.0 R4: the recall box (Recall.tsx), its kinds' chips, who and when ------------- */
+.frec { display: grid; gap: 6px; }
+.frec-fleet { border: 1px solid var(--line-strong); border-radius: 999px; background: transparent; color: var(--muted); padding: 1px 9px; font-size: 11px; cursor: pointer; }
+.frec-fleet[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+.frec-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 260px; overflow: auto; }
+.frec-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 2px 8px; align-items: baseline; padding: 5px 8px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--bg) 60%, transparent); }
+.frec-row .og-chip { font-size: 9.5px; padding: 0 5px; }
+.frec-row .og-chip[data-kind="finding"] { color: var(--ok); }
+.frec-row .og-chip[data-kind="decision"] { color: var(--warn); }
+.frec-row .og-chip[data-kind="note"] { color: var(--accent-2); }
+.frec-title { font-size: 12.5px; overflow-wrap: anywhere; }
+.frec-score { font-size: 11px; color: var(--muted); }
+.frec-meta, .frec-excerpt { grid-column: 2 / -1; margin: 0; font-size: 11px; overflow-wrap: anywhere; }
+.frec-note { margin: 0; font-size: 11px; }

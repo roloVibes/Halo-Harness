@@ -25,6 +25,7 @@ import time
 from pathlib import Path
 from typing import Callable, Optional
 
+from halo_harness.knowledge.writers import sent_back as knowledge_sent_back  # 3.1.8.0 R4
 from halo_harness.orchestra import events as run_events
 from halo_harness.orchestra import forecast, gitops, jsonl
 from halo_harness.orchestra import workflow as wf
@@ -232,7 +233,9 @@ def run(run_dir, *, model_calls: Callable, spawn: Callable, judge: Callable,
                 send_back(lane, lambda k: f"the gate sent the piece back ({k}/{goal.return_cap})", clock=clock)
                 flow.loop_back(n)
                 stale.sent_back(lane)
-                respawn(lane, gate.notes.get(n) or gate.back_text.get(n) or f"The tests fail on the finished branch {result.branch}:\n{gate.tests.tail}")
+                why = gate.notes.get(n) or gate.back_text.get(n) or f"The tests fail on the finished branch {result.branch}:\n{gate.tests.tail}"
+                knowledge_sent_back(run_dir, lane, why, gate)  # 3.1.8.0 R4: the send-back as a decision (knowledge/writers.py)
+                respawn(lane, why)
                 if lane.state == "failed":
                     raise StopRun(f"lane {n}'s worker failed after the gate sent its piece back: {lane.data().get('error') or '?'}")
         report = write_report(run_dir, goal=goal, lanes=lanes, gate=gate, status="finished", clock=clock)

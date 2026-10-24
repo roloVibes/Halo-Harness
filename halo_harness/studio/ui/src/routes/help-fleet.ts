@@ -84,6 +84,7 @@ export const FLEET_HELP: Record<string, Help> = {
       "Expand for one spec card per harness; open an MCP server to see its tools.",
       "Who can... (on the compact face too) ranks the fleet for what you type: an exact name first, then a word of a name, then a word of a description; a tag counts double.",
       "Click a result to pick that harness: its card opens and its box lights on the map.",
+      "Recall (expanded, under Who can...) searches what this harness remembers: memory, sessions, the coach library, findings, decisions and your notes; a finding or decision shows its id, who wrote it and when; Fleet asks every harness.",
       "Each harness gathers its own catalog in code and sends a new one when it changes; Refresh asks again now.",
       "Your own words go in fleet.tags; fleet.capabilities.hide keeps a server, tool or skill off the list.",
     ),

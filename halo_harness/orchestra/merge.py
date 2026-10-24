@@ -152,6 +152,9 @@ def _resolve(run_dir, goal, lane, cwd: Path, judge: Callable, attempt: int, stat
         ok = after.ok or after.no_worse_than(_baseline(run_dir, goal, cwd))
         for row in rows:
             row["tests_ok"], row["tests_tail"] = ok, after.tail
+        if ok:  # 3.1.8.0 R4: a conflict resolved with evidence is a finding (knowledge/writers.py)
+            from halo_harness.knowledge.writers import judge_resolved
+            judge_resolved(run_dir, lane.n, rows, after)
     for row in rows:
         ts = time.time()
         row.update(ts=round(ts, 3), elapsed_s=jsonl.elapsed(run_dir, ts))

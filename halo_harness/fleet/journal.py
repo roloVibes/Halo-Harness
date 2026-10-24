@@ -23,6 +23,8 @@ with kind one of:
     recall_asked {query, k, by, hub, hits, hidden?}   a hub asked this harness's index (3.1.2.0 R3, recall_fleet.py)
     library_asked {entry, by, hub, bytes}   a hub fetched an entry of this harness's coach library (3.1.6.0 R3,
                                             orchestra/coach_library_share.py)
+    knowledge_asked {entry?, of?, by, hub, entries, bytes}     a hub fetched findings / decisions of this harness
+                                            (3.1.8.0 R4, knowledge/share.py)
 """
 
 from __future__ import annotations
@@ -37,7 +39,8 @@ MAX_BYTES = 4_000_000
 KINDS = ("session_start", "session_end", "cost", "file", "error", "decision", "handoff", "cap_pause", "cap_ack", "ack",
          "mission_planned", "mission_approved", "mission_run", "mission_part", "mission_claim", "mission_end",  # R7
          "recall_asked",  # 3.1.2.0 R3
-         "library_asked")  # 3.1.6.0 R3
+         "library_asked",  # 3.1.6.0 R3
+         "knowledge_asked")  # 3.1.8.0 R4
 _lock = threading.Lock()
 
 

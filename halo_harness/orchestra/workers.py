@@ -55,7 +55,8 @@ def worker_prompt(goal, lane: Lane, retry_text: str = "") -> str:
     if goal.test:
         text += f"The run's test command is `{goal.test}` (other workers' units may still be unwritten).\n"
     text += "If STOP WHEN applies to your job, end your reply with one line: STOP: <the reason>.\n"
-    extra = [t for t in (getattr(lane, "stage_text", ""), getattr(lane, "handoff_text", ""), getattr(lane, "gives_text", "")) if t]
+    extra = [t for t in (getattr(lane, "stage_text", ""), getattr(lane, "handoff_text", ""), getattr(lane, "gives_text", ""),
+                         getattr(lane, "knowledge_text", "")) if t]  # 3.1.8.0 R4: the findings recall ranks for the job
     if extra:  # 3.0.9.0: only a lane that declares hand-offs (orchestra/handoff.py)
         text += "\n" + "\n\n".join(extra) + "\n"
     if retry_text:
@@ -149,6 +150,8 @@ def run_lane(run_dir, goal, lane: Lane, spawn: Callable, *, clock: Callable = ti
     lane.gives_text = handoff.gives_text(run_dir, lane)
     from halo_harness.workflows.runtime import stage  # 3.2.0.0 R5: a workflow stage's brief, `when`, budget, event
     lane.stage_text, early = stage(run_dir, goal, lane, clock=clock)
+    from halo_harness.knowledge.cite import brief_text  # 3.1.8.0 R4: what this harness knows that ranks for the job
+    lane.knowledge_text = brief_text(goal, lane)
     lane.prompt = worker_prompt(goal, lane, retry_text)
     lane.retry_text = retry_text
     lane.set_state("writing", "worker writing" + (" (piece sent back)" if retry_text else ""), clock=clock)
