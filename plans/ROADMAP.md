@@ -1983,3 +1983,60 @@ orchestration engine beside Orchestra.
 Not taken: asking each model to describe itself (unreliable); a second
 catalog (the profile is a view over the one catalog); media generation
 models (diffusion, TTS: `media_models.py`, a different inventory).
+
+## ADDED 2026-10-24 (rolo, after installing 3.2.0.0: "Keep going"): 3.2.1.0 "Packs, the loose ends" -- the "After 3.2.0.0" list becomes five rounds
+
+The sixteen open points the Packs program left (the list above) are the
+next version. Each round is one Opus worker in its own worktree
+(`~/hh-321/<round>`), briefs and hand-backs under `~/hh-321/briefs/`;
+the coordinator merges, gates every push on both runners and releases
+3.2.1.0 when R5 is in. Nothing changes for a repo with no pack. No
+classifier, no refusal wording: every stop is one factual line the docs
+name.
+
+- R1 A pack's lineup reaches the goal, the mission and the glossary:
+  `halo goal add --lineup` and Studio's Orchestra goal form read the pack
+  lineup's acceptance (`packs.lineup_run.goal_defaults`, one call each);
+  Studio's Mission form and `halo fleet mission new` carry the `lineup` in
+  the mission metadata; the packs registry cache keys on a pack's bio and
+  lineup files too (an edit inside an installed pack's agents/ shows at
+  once); after a reload the saved pack section is the first paint, not the
+  core section it falls back to today; `bio_models.TAGS` reads 3.1.9.0
+  R1's enriched rows (modalities in and out, tool calls, reasoning, open
+  weights, local); "pack" joins the glossary's closed list (`halo explain
+  pack`, Studio's Glossary).
+- R2 A workflow run keeps its shape: the replanner leaves a workflow run's
+  stage set alone (it may move work inside a stage, never add or drop one;
+  the run says so in one line); a workflow's own `budget_usd` stops a
+  plain Orchestra run too, not only one under `--as goal`; the verified-
+  outcomes gate reads a stage's evidence rows, not only the summary;
+  Orchestra's own new-run form gets the workflow picker (the same compile
+  the Pack Manager's Run <workflow> uses); a lineup's `workflows:` names
+  `<pack>/<name>` the way `halo workflow run` does (a bare name still
+  resolves inside its own pack).
+- R3 The hub holds what a pack declares: `capacity.parallel` is held by
+  the hub (a part past the capacity waits, the planner is told); a part a
+  worker refuses is re-planned onto another harness that has the
+  capability, once, with the reason in the mission log; `fleet.
+  capabilities.hide` hides a pack capability like a built-in one; a
+  member's pack inspector lines name their file the way Studio's own
+  harness's do.
+- R4 Hooks and the update pause, for everyone: a plugin hook's shell
+  `command` with `${CLAUDE_PLUGIN_ROOT}` runs on Windows (the path is
+  quoted and forward-slashed before the shell sees it; the exec form stays
+  the recommended one, docs say both); `halo pack update` shows the
+  migration notes and the files that change, then asks before the swap in
+  a terminal (`--yes` skips it, `--dry-run` stays the look before), the
+  Pack Manager's confirm already does this. Rollback stays one version
+  back: `<id>.previous` is the rule, written in PACKS.md (not taken: a
+  version history on disk).
+- R5 The Linux pass: the whole Chrome tier and every packs, workflow and
+  Studio-packs module run on Linux (the WSL repro box with its headless
+  Chromium, then the Kali VM when it answers); every red is a fix with a
+  test (a driver that needs an element fallback, a path that is Windows-
+  shaped, a hook that needs the shell); the hand-back lists what ran where;
+  then the release.
+
+Not taken: a version history for rollback (one back is the rule); asking
+the planner to honour capacity by itself (the hub holds it); a second
+glossary.
