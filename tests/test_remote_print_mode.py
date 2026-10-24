@@ -131,8 +131,11 @@ def test_halo_dash_p_serves_its_control_socket(ctx: Ctx):
         st = client.call("status")["result"]
         ctx.check("status says kind=print with this session's id", st["kind"] == "print" and st["session_id"] == entry["session_id"])
         client.call("subscribe")
+        end = time.monotonic() + 20  # the slow Linux runner once took the submit as a steer of the startup turn (ee033ec)
+        while client.call("status")["result"].get("busy") and time.monotonic() < end:
+            time.sleep(0.2)
         r = client.call("submit", text="drive this turn over the socket")
-        ctx.check("submit queued as the next turn", r["ok"] and r["result"]["queued"] is True)
+        ctx.check(f"submit queued as the next turn, got {r!r}", r["ok"] and r["result"]["queued"] is True)
         done = client.wait_event("turn_done", 25)
         ctx.check("the feed delivered the turn's events", done is not None)
         ctx.check("a turn driven by the socket reached the mock upstream", len(mock.requests) >= 1)
