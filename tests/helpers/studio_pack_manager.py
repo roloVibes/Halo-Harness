@@ -17,8 +17,11 @@ serves Studio in a thread with the live feed on (no provider, no model call):
    names the grant the new version asks for; Roll back brings 1.0.0 back;
 5. Templates: Run review opens Orchestra's Start view with the workflow form
    filled in (the ref, its inputs, style at its default);
+5b. 3.2.1.0 R2: "a blank goal instead" leaves the goal form with the picker
+   under it ("or run a pack's workflow": the running pack's workflows); a pick
+   fills in the same form;
 6. Disable: the row reads disabled, 0/3, the section tab is gone, Templates
-   says enable it first;
+   says enable it first; Orchestra's Start view has no picker;
 7. Remove: the confirm names the command (and --keep-config when ticked);
    Remove deletes the pack: the row goes, Sources offers Install again.
 
@@ -153,14 +156,46 @@ def templates(c, url, ctx) -> dict:
     return out
 
 
+PICK = q("[data-testid=orchestra-workflow-pick]")
+
+
+def picker(c, url, ctx) -> dict:
+    """3.2.1.0 R2: Orchestra's Start view with no workflow filled in: the picker under the goal form; a pick fills in
+    the form Run <workflow> fills."""
+    alt(c, 6)
+    w(c, f"{CUR}.startsWith('Orchestra') && !!{q('[data-testid=orchestra-workflow-form]')}", 15)
+    press(c, q("[data-testid=orchestra-workflow-clear]"))
+    w(c, f"!!{PICK}", 20)
+    out = {"pick_options": c.js(f"[...{PICK}.options].map((o) => o.value)"),
+           "pick_label": c.js(_text("[data-testid=orchestra-workflow-picker] label")),
+           "pick_under_goal": c.js(f"!!{q('[data-testid=orchestra-goal-form] ~ [data-testid=orchestra-workflow-picker]')}")}
+    c.js(f"(() => {{ const s = {PICK}; const set = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set; "
+         f"set.call(s, 'doc-review/review'); s.dispatchEvent(new Event('change', {{bubbles: true}})); return 1; }})()")
+    w(c, f"!!{q('[data-testid=orchestra-workflow-form]')}", 15)
+    out["picked_ref"] = c.js(_text("[data-testid=orchestra-workflow-ref]"))
+    out["picked_inputs"] = c.js(f"{qa('[data-testid=orchestra-workflow-input]')}.map((i) => [i.dataset.key, i.value])")
+    out["picked_title"] = c.js(_text(".fl-start-title"))
+    press(c, q("[data-testid=orchestra-workflow-clear]"))
+    w(c, f"!!{PICK}", 10)
+    alt(c, 7)
+    w(c, f"{CUR}.startsWith('Packs')", 10)
+    return out
+
+
 def disable(c, url, ctx) -> dict:
     press(c, q(f"{ROW} [data-testid=pm-disable]"))
     w(c, f"{q(ROW)}?.dataset.state === 'disabled'", 30)
     w(c, f"!{TABS}.some((t) => t.textContent.startsWith('Docs review'))", 20)
-    return {"disabled_state": c.js(_text(f"{ROW} [data-testid=pm-state]")), "disabled_grants": c.js(_text(f"{ROW} [data-testid=pm-grants]")),
-            "disabled_enable": c.js(f"!!{q(ROW + ' [data-testid=pm-enable]')}"),
-            "tabs_off": c.js(f"{TABS}.map((t) => t.querySelector('.tab-label').textContent)"),
-            "templates_off": bool(w(c, f"!!{q('[data-testid=pm-templates-off]')}", 10))}
+    out = {"disabled_state": c.js(_text(f"{ROW} [data-testid=pm-state]")), "disabled_grants": c.js(_text(f"{ROW} [data-testid=pm-grants]")),
+           "disabled_enable": c.js(f"!!{q(ROW + ' [data-testid=pm-enable]')}"),
+           "tabs_off": c.js(f"{TABS}.map((t) => t.querySelector('.tab-label').textContent)"),
+           "templates_off": bool(w(c, f"!!{q('[data-testid=pm-templates-off]')}", 10))}
+    alt(c, 6)  # 3.2.1.0 R2: no running pack with a workflow, no picker
+    w(c, f"{CUR}.startsWith('Orchestra') && !!{q('[data-testid=orchestra-goal-form]')}", 15)
+    out["picker_off"] = bool(w(c, f"!{PICK}", 15))
+    alt(c, 7)
+    w(c, f"{CUR}.startsWith('Packs')", 10)
+    return out
 
 
 def remove(c, url, ctx) -> dict:
@@ -194,7 +229,8 @@ class PackManagerDriver(Driver):
         url = url.replace("mode=orchestra&feed=off", "mode=roles&tour=off&view=workspace")
         ctx = {"state": state, "srv": srv}
         try:
-            yield tuple((fn, (c, url, ctx)) for fn in (section, install, details, enable, update_rollback, templates, disable, remove))
+            yield tuple((fn, (c, url, ctx)) for fn in (section, install, details, enable, update_rollback, templates, picker, disable,
+                                                remove))
         finally:
             bio_models.ROWS = None
             srv.shutdown()

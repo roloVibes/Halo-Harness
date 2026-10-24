@@ -1935,16 +1935,24 @@ orchestration engine beside Orchestra.
 - a pack's own Studio section comes back after a reload only once the registry loads; the first paint is the saved core section (R3).
 - `capacity.parallel` is advertised and shown to the planner, not held back by the hub; a part a worker refuses is not re-planned onto another harness; `fleet.capabilities.hide` does not hide a pack capability (R4).
 - a pack's fleet inspector lines show their file only for a pack that runs on Studio's own harness; Studio's Mission form and `halo fleet mission new` send no `lineup` for the mission metadata (R4).
-- the replanner (3.1.8.0 R2) may change a workflow run's lanes; a workflow run should keep its stage set (or replanning be off for it) (R5).
-- `gate: human` is the plan review before any stage, not a hold before one stage; a workflow's own `budget_usd` is a stop only under `--as goal`, "not enforced yet" in a plain Orchestra run (R5).
-- check that 3.1.8.0 R3's verified-outcomes gate reads a workflow stage's evidence rows, not only the summary (R5).
-- Orchestra's own new-run form has no workflow picker: a pack's workflow starts from the Pack Manager's Run <workflow> or `halo workflow run` (R5/R6).
-- a lineup's `workflows:` stays a list of names; a workflow runs by `<pack>/<name>` (R5).
+- the replanner (3.1.8.0 R2) may change a workflow run's lanes; a workflow run should keep its stage set (or replanning be off for it) (R5). (closed 3.2.1.0 R2)
+- `gate: human` is the plan review before any stage, not a hold before one stage; a workflow's own `budget_usd` is a stop only under `--as goal`, "not enforced yet" in a plain Orchestra run (R5). (closed 3.2.1.0 R2)
+- check that 3.1.8.0 R3's verified-outcomes gate reads a workflow stage's evidence rows, not only the summary (R5). (closed 3.2.1.0 R2)
+- Orchestra's own new-run form has no workflow picker: a pack's workflow starts from the Pack Manager's Run <workflow> or `halo workflow run` (R5/R6). (closed 3.2.1.0 R2)
+- a lineup's `workflows:` stays a list of names; a workflow runs by `<pack>/<name>` (R5). (closed 3.2.1.0 R2)
 - the glossary's closed list has no "pack" yet (R1's note; `halo explain pack`, Studio's Glossary) (R7).
 - a hook's shell `command` gets `${CLAUDE_PLUGIN_ROOT}` substituted as text, so on Windows Git Bash eats the path's backslashes; the exec form (`args`) and `${halo_python}` are safe, the shell form of every plugin is not (R7 found it).
 - rollback keeps one version back (`<id>.previous`); no history beyond it, and the CLI does not pause between the migration notes and the swap (`--dry-run` is the look before) (R7).
 - the shipped doc-review pack says `halo: {min: "3.1"}` until the version bump: the bump commit that makes `__version__` 3.2.0.0 sets `{min: "3.2"}` (test_reference_pack fails until it does) (R7).
 - the full Chrome tier as a whole and a Kali/Linux pass of the packs program have not run on a worker (every round).
+
+### After 3.2.1.0 (R2's open points: a workflow run keeps its shape)
+
+- `gate: human` stays the plan review before the run starts (`workflows/compile.py`: any stage with it makes the whole goal `plan: review`); a hold before one stage, after the run started and before that stage's lanes, is not a thing yet (R2).
+- the replanner is off for the whole of a workflow run: a move inside a stage (a lane's model or bio, a retry within the stage's `retries`) is not separated from the split and specialist moves, which add lanes; a per-stage replan needs `replan_plan.check` to refuse those two for a pinned run and the lead's replan prompt to offer only the rest (R2).
+- the workflow's `budget_usd` stop is checked before each worker pass: passes already running finish and can carry the spend past the cap by their own cost (the supervisor's guard under `--as goal` adds each lane's forecast; a plain run has no forecast check) (R2).
+- Orchestra's workflow picker lists every workflow of a running pack, whether or not its prerequisites hold here (a grant, a capability): the compile says what is missing when Run is pressed (R2).
+- the Pack Manager's Templates and `halo pack inspect` list a pack lineup's `workflows` as written (bare names); only `halo teams show` prints the resolved `workflow_refs` (R2).
 
 ## ADDED 2026-10-21 ~02:20 (rolo: "There should be an auto role template, prob the default one until a user finds a template they like. Auto should give the agent the ability to call other agents and create whatever orchestration the main model thinks should be the role type with sub agents ... whatever agent is main should know which model is the best from cost, intelligence, what they are best at (like media distillation whether that's video or audio or pdfs) so it knows which agents to use for sub tasks. Maybe some kind of analysis of the available models in the halo model list should occur"): 3.1.9.0 "Auto"
 

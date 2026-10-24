@@ -12,6 +12,9 @@ worker is about to run (Halo 3.2.0.0 R5; called from orchestra/workers.py
     `skipped` (`{ok: True, text: ""}`, its `skipped` reason on the lane, a
     `state` line);
   - the stage spent its `budget_usd` already: `STOP: budget: ...` (the run stops);
+  - 3.2.1.0 R2: the run spent the workflow's own `budget_usd` (the goal's, when the file declares one) --
+    the lead's split, every lane and the judge's conflicts, as the report counts them:
+    `STOP: budget: the run spent <spent> of <cap> USD (the workflow's budget_usd)` (the run stops);
   - `after_event` never came within the stage's `timeout_s` (or a stop was asked).
 * `lane.timeout_s` is the stage's `timeout_s` (orchestra/adapters.py spawn_worker reads it).
 Not a workflow goal: `("", None)`.
@@ -40,6 +43,23 @@ def stage_lanes(run_dir, goal, stage_id: str) -> list:
 
 def spent(run_dir, goal, stage_id: str) -> float:
     return sum(lane.cost_usd for lane in stage_lanes(run_dir, goal, stage_id))
+
+
+def run_spent(run_dir) -> float:
+    """What the run spent so far, as its report counts it: the lead's split, every lane, the judge's conflicts."""
+    from halo_harness.orchestra import jsonl
+    from halo_harness.orchestra.lanes import list_lanes
+    split = jsonl.read_json(Path(run_dir) / "split.json", {}) or {}
+    merge = jsonl.read_json(Path(run_dir) / "merge.json", {}) or {}
+    return round(float(split.get("lead_cost_usd") or 0.0) + sum(lane.cost_usd for lane in list_lanes(run_dir))
+                 + sum(float(c.get("cost_usd") or 0.0) for c in merge.get("conflicts") or []), 6)
+
+
+def run_cap(goal):
+    """The workflow's own budget_usd (the goal's), or None when the file declares none (bounds.py's row)."""
+    wf = getattr(goal, "workflow", None) or {}
+    declared = any(b.get("key") == "budget_usd" and not b.get("stage") for b in wf.get("bounds") or [])
+    return float(goal.budget_usd) if declared and isinstance(getattr(goal, "budget_usd", None), (int, float)) else None
 
 
 def _text(run_dir, goal, lane, row: dict, st: dict) -> str:
@@ -97,6 +117,10 @@ def stage(run_dir, goal, lane, *, clock: Callable = time.time) -> "tuple[str, ob
     if isinstance(budget, (int, float)) and spent(run_dir, goal, row["stage"]) >= float(budget):
         return "", {"ok": False, "error": f"STOP: budget: stage {row['stage']} spent "
                                           f"${spent(run_dir, goal, row['stage']):.4f} of its ${float(budget):.4f}"}
+    cap = run_cap(goal)
+    used = run_spent(run_dir) if cap is not None else 0.0
+    if cap is not None and used >= cap:
+        return "", {"ok": False, "error": f"STOP: budget: the run spent {used:.4f} of {cap:.4f} USD (the workflow's budget_usd)"}
     when = st.get("when") if isinstance(st.get("when"), dict) else {}
     if "output" in when and not lane.data().get("skipped"):
         from halo_harness.workflows.conditions import on_output

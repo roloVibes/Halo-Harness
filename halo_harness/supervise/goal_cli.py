@@ -139,7 +139,12 @@ def _show(state_dir, gid: str, as_json: bool) -> int:
     if goal.get("bg_id"):
         print(f"  job: {goal['bg_id']}")
     from halo_harness.supervise.replan_rows import line as replan_line
-    if goal.get("replan") or replan_line(goal):
+    from halo_harness.supervise.replan import off_line  # 3.2.1.0 R2: a workflow run keeps its stage set
+    from halo_harness.supervise.settings import settings as _settings
+    off = off_line(goal, _settings(state_dir))
+    if off:
+        print(f"  replan: off -- {off}")
+    elif goal.get("replan") or replan_line(goal):
         print(f"  replan: {goal.get('replan') or 'supervise.replan'}" + (f"; {replan_line(goal)}" if replan_line(goal) else ""))
     if goal.get("failure"):
         f = goal["failure"]

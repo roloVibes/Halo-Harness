@@ -86,6 +86,17 @@ In an Orchestra run (`orchestra/gate.py`, `outcomes/lane.py`):
 - **The conflict judge.** When two lanes changed the same lines, the fresh
   judge's prompt gains an EVIDENCE block: the incoming lane's and every
   merged lane's (that wrote the file) tests, sources and reproductions.
+- **A workflow stage's evidence** (3.2.1.0 R2). In a run compiled from a
+  pack's workflow, each `verify.evidence` item of a lane's stage is read by
+  the gate (`workflows/gate.py`) and becomes a line of that lane's evidence
+  in the verdict, so the report prints it under the lane and the supervisor's
+  `failure.report.evidence` keeps it: `evidence report: 213 bytes, sha256
+  3f9a1c0b7d2e` (the file's size and the first 12 of its sha256), or
+  `evidence report: missing`. The conflict judge reads the incoming lane's
+  the same way, from the lane's own worktree: `lane 4 (stage write,
+  incoming): evidence report: 213 bytes, sha256 3f9a1c0b7d2e`, and the
+  EVIDENCE block's heading then names "a workflow stage's evidence files, by
+  size and sha256". A file, never a worker's summary of it.
 - **A team member's acceptance.** A sub-agent checked against its bio's
   `acceptance` records the verdict -- met or not, why, and how many attempts
   (the critique's retry is the second) -- in its evidence.

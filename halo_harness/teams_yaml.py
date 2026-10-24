@@ -252,9 +252,15 @@ def resolve_team_template(name: str, *, cwd=None, state_dir=None, _chain: "Optio
     resolved["agents"] = raw.get("agents") if raw.get("agents") is not None else (parent or {}).get("agents")
     # 3.2.0.0 R2: a pack lineup's `workflows` (names; R5 runs them) inherit like `agents`; `from_pack` is the file's own
     flows = raw.get("workflows") if raw.get("workflows") is not None else (parent or {}).get("workflows")
+    refs = (parent or {}).get("workflow_refs")  # 3.2.1.0 R2: `<pack>/<name>` per layer (packs/lineup_run.py)
+    if raw.get("workflows") is not None:
+        from halo_harness.packs.lineup_run import workflow_refs
+        refs = workflow_refs(raw)
     resolved.pop("workflows", None)
+    resolved.pop("workflow_refs", None)
     if flows is not None:
         resolved["workflows"] = flows
+        resolved["workflow_refs"] = list(refs or [])
     resolved.pop("from_pack", None)
     if raw.get("from_pack"):
         resolved["from_pack"] = raw["from_pack"]
@@ -387,7 +393,7 @@ def validate_team_template(data, *, name: "Optional[str]" = None, cwd=None, stat
         if section in data and data[section] is not None and not isinstance(data[section], dict):
             problems.append(f'"{section}" must be a mapping')
     from halo_harness.packs.lineup_run import acceptance_problems  # 3.2.0.0 R2: workflows, acceptance.test/review
-    problems.extend(acceptance_problems(data))
+    problems.extend(acceptance_problems(data, cwd=cwd, state_dir=state_dir))
     from halo_harness.isolation.spec import lineup_problems  # 3.1.8.0 R5: isolation, secrets, tools.capabilities
     problems.extend(lineup_problems(data))
     # Halo 2.0.5 round 5: the enforced sections get VALUE checks, not just

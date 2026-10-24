@@ -99,9 +99,10 @@ def _gives(stage: dict) -> list:
 def _lineup(wf) -> str:
     from halo_harness.agents_yaml import _read_yaml_file
     from halo_harness.packs import names as N
+    from halo_harness.packs.lineup_run import workflow_refs
     for rel in ((wf.pack.manifest.get("contributes") or {}).get("teams") or []):
         raw = _read_yaml_file(Path(wf.pack.root) / str(rel)) or {}
-        if wf.name in (raw.get("workflows") or []):
+        if wf.ref in workflow_refs(dict(raw, _pack=wf.pack.id)):  # 3.2.1.0 R2: a bare name or <pack>/<name>
             return N.qualify(wf.pack.id, Path(str(rel)).stem)
     return ""
 

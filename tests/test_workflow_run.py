@@ -4,7 +4,8 @@ mock lead and stage workers carry the doc-review workflow to its typed
 artifact and the report; an artifact off its schema goes back with the
 problems, and at the stage's retries the run stops; a `when` on an upstream
 output skips its stage at run time; a stage's budget stops the run before
-another pass; a stage waits for its `after_event`; a stage's timeout_s is
+another pass, and the workflow's own budget_usd stops a plain run (3.2.1.0
+R2); a stage waits for its `after_event`; a stage's timeout_s is
 the worker's time limit; `--as goal` queues the compiled run for the
 supervisor, which resumes it from its checkpoint after a crash (skipped where
 the build has no supervisor). No model call.
@@ -57,10 +58,18 @@ def test_a_run_reaches_its_typed_artifact_and_the_report(ctx: Ctx):
         rec = next(c for c in report["checks"] if c["id"] == "record_equals_disk")
         ctx.check(f"the evidence joined the record check, got {rec}", rec["ok"] and "2 workflow output(s) and evidence read" in rec["detail"])
         ctx.check("the plan was reviewed (gate: human)", any("plan approved by test" in t for t in _texts(run)))
+        import hashlib
+        body = json.dumps(GOOD_REPORT).encode("utf-8")
+        line = f"evidence report: {len(body)} bytes, sha256 {hashlib.sha256(body).hexdigest()[:12]}"
+        ctx.check(f"3.2.1.0 R2: the gate's evidence line is under its lane, got {report['lanes'][3].get('evidence')}",
+                  line in (report["lanes"][3].get("evidence") or []) and not any("evidence " in e for r in report["lanes"][:3]
+                                                                                 for e in r.get("evidence") or []))
         from halo_harness.orchestra.report import format_report
         text = format_report(report, run)
-        ctx.check("the CLI report names the artifact and what is not enforced yet", "artifact report       ok" in text
-                  and "not enforced yet: budget_usd 2.0" in text)
+        ctx.check("format_report prints it under lane 4", f"\n      {line}" in text)
+        ctx.check("the CLI report names the artifact, the cap and the spend (3.2.1.0 R2)", "artifact report       ok" in text
+                  and f"budget: the run spent {report['cost_usd']:.4f} of 2.0000 USD (the workflow's budget_usd, a stop)" in text
+                  and "not enforced yet" not in text)
 
 
 @test
@@ -107,6 +116,21 @@ def test_a_stage_budget_stops_before_another_pass(ctx: Ctx):
         report = w.run(run, worker=StageWorker(reports=[BAD_REPORT, GOOD_REPORT], cost=0.06))
         ctx.check(f"stopped on the stage's budget, got {report.get('stop_reason')}", report["status"] == "stopped"
                   and "budget: stage write spent $0.0600 of its $0.0500" in report["stop_reason"])
+
+
+@test
+def test_the_workflows_own_budget_stops_a_plain_run(ctx: Ctx):
+    """3.2.1.0 R2: the lead (0.001) and the two reads (0.01 each) pass the workflow's 0.015: the judge's lane stops."""
+    with WorkflowRig() as w:
+        goal = w.compile(docs="docs").goal
+        goal.budget_usd = 0.015
+        run = w.new_run(goal)
+        worker = StageWorker()
+        report = w.run(run, worker=worker)
+        why = "lane 3: STOP: budget: the run spent 0.0210 of 0.0150 USD (the workflow's budget_usd)"
+        ctx.check(f"stopped at the cap, got {report['status']} {report.get('stop_reason')!r}", report["status"] == "stopped"
+                  and why in str(report.get("stop_reason")))
+        ctx.check(f"no stage ran past it, got {[c[1] for c in worker.calls]}", sorted(c[1] for c in worker.calls) == ["read", "read"])
 
 
 @test

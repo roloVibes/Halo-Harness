@@ -53,6 +53,9 @@ def _cmd_show(rest: list) -> int:
     from halo_harness.teams_tier_fields import tier_lines
     for line in tier_lines(template):
         print(line)
+    from halo_harness.packs.lineup_run import workflow_lines  # 3.2.1.0 R2: the workflows as `halo workflow run` names them
+    for line in workflow_lines(template):
+        print(line)
     role_table, notes = resolve_role_table(template)
     print("  resolved role table:")
     for k, v in sorted(role_table.items()):

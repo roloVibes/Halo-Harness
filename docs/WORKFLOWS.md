@@ -115,24 +115,36 @@ per step, the report). `halo orchestra new --workflow doc-review/review
 --input docs=docs` only makes the run; `halo workflow run ... --as goal`
 queues it for the supervisor (`halo supervise`, 3.1.8.0), which runs it and
 resumes it from its checkpoint (a build without the supervisor says so in
-one line).
+one line). In Studio, the Pack Manager's Run <workflow> and Orchestra's own
+Start view ("or run a pack's workflow" under the goal form, 3.2.1.0 R2) fill
+in the same form, and its Run compiles the workflow the same way.
 
 - **The pinned plan.** The lead is asked once to refine each job's brief for
   this repo; it may not add, drop, merge or reorder a job (asked again once,
   then the workflow's own briefs run). A reviewed plan (`gate: human`) may
-  change titles, bios and models, never the stage set.
+  change titles, bios and models, never the stage set. Nor does the
+  supervisor's replanner (3.2.1.0 R2): a workflow run is never paused for a
+  replan, and with `supervise.replan` set its goal says "a workflow run keeps
+  its stage set (its plan is pinned by doc-review/review)" once.
 - **Each lane** gets its stage in its prompt: the item, the brief, what
   verifies it, the schema its artifact must match. A `when` on an upstream
   output is checked when the lane starts; a false one skips it (`worker-4
   skipped: stage write when output judge.verdict is not empty is false (it
   is nothing)`, the step reads skipped). An `after_event` holds the lane until
-  the event comes. A stage at its `budget_usd` stops the run before another pass.
+  the event comes. A stage at its `budget_usd` stops the run before another pass,
+  and so does the run at the workflow's own `budget_usd` (3.2.1.0 R2: `STOP:
+  budget: the run spent <spent> of <cap> USD (the workflow's budget_usd)`).
 - **The gate** runs the tests and the record check, then reads every typed
   output and checks it against its schema, and reads the evidence: a
   mismatch, a missing artifact or missing evidence sends that lane back with
   one line per problem, up to its stage's `retries`; then the run stops.
+  Each evidence item is also a line under its lane in the gate's verdict
+  (`evidence report: 213 bytes, sha256 3f9a1c0b7d2e`, or `evidence report:
+  missing`), and the conflict judge reads the incoming lane's (3.2.1.0 R2).
 - **The report** lists the artifacts (schema, viewer, state, path), the
-  workflow's stages, and the bounds a plain run does not hold yet.
+  workflow's stages, each lane's evidence lines, the workflow's budget with
+  the run's spend (`budget: the run spent 0.0400 of 2.0000 USD (the
+  workflow's budget_usd, a stop)`), and any bound a run does not hold yet.
 
 ## Artifacts
 
@@ -172,7 +184,7 @@ run ends; `halo recall prune` removes notes past their days; `halo recall
 | a stage's `retries` | the gate: the stage's own return cap |
 | a stage's `timeout_s` | the worker's time limit |
 | a stage's `budget_usd` | checked before each pass of the stage's worker; at it the run stops |
-| `gate: human` | the plan review before any stage starts |
+| `gate: human` | the plan review before the run starts (once, for the whole run); a hold before one stage is not a thing yet |
 | `after_event` | the lane waits for the event |
 | `checkpoint` | the run resumes at its first unfinished step |
-| the workflow's `budget_usd` | the goal's budget: shown against the forecast; not enforced yet as a stop in a plain run (the supervisor stops at it under `--as goal`) |
+| the workflow's `budget_usd` | a stop (3.2.1.0 R2): the goal's budget; before each pass of any stage's worker the run's spend (the lead's split, every lane, the judge's conflicts) is checked against it, and at it the run stops, in a plain run as under `--as goal` |

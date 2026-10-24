@@ -635,6 +635,29 @@ problems up to its stage's `retries` (`workflows/gate.py`); and the report
 lists the artifacts, copied to `<run>/artifacts/<name>/`, and the bounds
 not held yet (`workflows/outputs.py`).
 
+3.2.1.0 R2, a workflow run keeps its shape:
+
+- **The workflow's `budget_usd` stops the run.** Before each pass of any
+  stage's worker (`workflows/runtime.py`), when the file declares a
+  `budget_usd` (the goal's), the run's spend -- the lead's split, every lane,
+  the judge's conflicts, as the report counts it -- is checked against it; at
+  it the lane ends with `STOP: budget: the run spent <spent> of <cap> USD (the
+  workflow's budget_usd)` and the run stops the way a stage's budget stop
+  does. The report's workflow block says `budget: the run spent <spent> of
+  <cap> USD (the workflow's budget_usd, a stop)`.
+- **The gate's verdict carries a stage's evidence.** Each `verify.evidence`
+  item is a line in `GateResult.evidence[<lane>]`, `evidence <item>: <bytes>
+  bytes, sha256 <12 chars>` or `evidence <item>: missing`; `report.json`'s
+  `lanes[].evidence` and `halo orchestra report` print it under the lane,
+  and the conflict judge's EVIDENCE block has the incoming lane's
+  (`outcomes/lane.py`).
+- **`gate: human` is the plan review before the run starts**, once for the
+  whole run; a hold before one stage is not a thing yet.
+- **The stage set stays the file's:** the plan review keeps it, and the
+  supervisor's replanner never pauses a workflow run ([SUPERVISE.md](SUPERVISE.md#replanning)).
+- **Studio's Start view picks a workflow**: "or run a pack's workflow" under
+  the goal form ([STUDIO-orchestra.md](STUDIO-orchestra.md)).
+
 ## The coach
 
 After a run ends, the coach reads the run folder and suggests what to change
