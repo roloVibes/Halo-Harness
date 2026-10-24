@@ -12,6 +12,7 @@ the transcript has one.
     reproduction: `curl -sI localhost:8080` exit 0 -- HTTP/1.1 200 OK
     written: basket.py (+5 -1)
     acceptance: 'non-empty' met
+    cited: f-20261024-a1b2c3, d-20261023-0f9e8d      (3.1.8.0 R4: the knowledge it reused, by id)
     no transcript was found: nothing to read
 """
 
@@ -37,7 +38,7 @@ def test_line(t: dict) -> str:
     return ", ".join(bits)
 
 
-def lines(ev, *, kinds=("tests", "sources", "reproduction", "written", "acceptance")) -> list:
+def lines(ev, *, kinds=("tests", "sources", "reproduction", "written", "acceptance", "cited")) -> list:
     """The evidence lines of `ev` (an Evidence or its dict), in the order of `kinds`."""
     ev = ev if isinstance(ev, Evidence) else Evidence.from_dict(ev)
     if not ev.transcript:
@@ -71,6 +72,8 @@ def lines(ev, *, kinds=("tests", "sources", "reproduction", "written", "acceptan
             a = ev.acceptance
             out.append(f"acceptance: {a.get('expect')!r} {'met' if a.get('met') else 'not met'}"
                        + (f" -- {_cut(a.get('why'), TARGET_CAP)}" if a.get("why") and not a.get("met") else ""))
+        elif what == "cited" and ev.cited:
+            out.append("cited: " + ", ".join(str(c) for c in ev.cited[:6]) + (f" (+{len(ev.cited) - 6})" if len(ev.cited) > 6 else ""))
     return out
 
 

@@ -132,6 +132,8 @@ def _gather_real_flags() -> "dict[str, set]":
     from halo_harness.outcomes.cli import cmd_outcomes  # 3.1.8.0 R3: every agent task's outcome
     out["halo outcomes"] = _flags_in(_capture(cmd_outcomes, ["--help"]))
     out.update({f"halo outcomes {v}": _flags_in(_capture(cmd_outcomes, [v, "--help"])) for v in ("learned", "forget")})  # 3.1.9.0 R3
+    from halo_harness.knowledge.cli import VERBS as KNOWLEDGE_VERBS, cmd_knowledge  # 3.1.8.0 R4: `halo knowledge`
+    out.update({f"halo knowledge {v}": _flags_in(_capture(cmd_knowledge, [v, "--help"])) for v in KNOWLEDGE_VERBS})
     from halo_harness.packs.cli import VERBS as PACK_VERBS, cmd_pack  # 3.2.0.0 R1: `halo pack`
     out.update({f"halo pack {v}": _flags_in(_capture(cmd_pack, [v, "--help"])) for v in PACK_VERBS})
     from halo_harness.workflows.cli import cmd_workflow  # 3.2.0.0 R5: `halo workflow`

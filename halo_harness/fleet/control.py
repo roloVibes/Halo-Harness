@@ -13,6 +13,8 @@ hands it here with the session's handle and that hub's policy:
     coach_library {entry}               answered: one entry of this harness's coach library (entry.json, EXPERIENCE.md,
                                         overlay.json, files/; at most 256 KB), under the same switch as recall
                                         (orchestra/coach_library_share.py, 3.1.6.0 R3)
+    knowledge {id} | {kind, all}        answered: findings / decisions of this harness, scrubbed, under the same
+                                        switch as recall (knowledge/share.py, 3.1.8.0 R4)
     agent_tail, agent_follow, tail      answered when this hub's share is `full`
     agent_steer, agent_stop, pause,     fleet.allow_control `none`: refused, with the reason the hub shows;
     resume, shutdown, steer, interrupt  `ask` (the default): a card in the owner's TUI, "<name> on <hub>
@@ -184,7 +186,8 @@ def run(handle, msg: dict, pol: dict, interim: Optional[Callable] = None) -> dic
             from halo_harness import recall_fleet
             from halo_harness.orchestra import coach_library_share  # 3.1.6.0 R3: one entry of the coach library
             try:
-                answer = recall_fleet.answer if cmd == "recall" else coach_library_share.answer
+                from halo_harness.knowledge import share as knowledge_share  # 3.1.8.0 R4: findings and decisions
+                answer = {"recall": recall_fleet.answer, "knowledge": knowledge_share.answer}.get(cmd, coach_library_share.answer)
                 return {"state": "done", "result": answer(fields, by=by, hub=hub)}
             except recall_fleet.Shut as e:
                 raise Refused(str(e)) from None

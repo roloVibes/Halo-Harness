@@ -190,6 +190,8 @@ def _library(result: dict, s: dict, run_dir, applied: dict, cwd, state_dir) -> d
         applied["entry"] = born(result, s, run_dir, applied, cwd=cwd, state_dir=state_dir)
     except Exception as e:
         applied.update(entry=None, entry_error=f"{type(e).__name__}: {e}"[:300])
+    from halo_harness.knowledge.writers import applied as knowledge_applied  # 3.1.8.0 R4: the Apply as a decision
+    knowledge_applied(result, s, run_dir, applied, state_dir)
     return applied
 
 

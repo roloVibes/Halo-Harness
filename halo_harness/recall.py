@@ -4,7 +4,8 @@ CLI), on the LOCAL embedding model (providers/embeddings.py).
 
 The index lives at `<state_dir>/index/embeddings.jsonl` -- one JSON object
 per line: {"id": <abs path>, "kind": "memory"|"session"|"coach_library" (3.1.6.0 R3:
-a coach library entry's EXPERIENCE.md, orchestra/coach_library.py), "title",
+a coach library entry's EXPERIENCE.md, orchestra/coach_library.py)|"finding"|"decision"|"note" (3.1.8.0 R4:
+knowledge/sources.py), "title",
 "mtime": float, "vec": [...]}. Incremental: an entry whose source file's
 mtime matches is skipped (re-embedding costs a real local call); entries
 whose source vanished are pruned. Sessions are indexed from their log
@@ -29,6 +30,7 @@ from halo_harness.textlines import split_lines
 
 _MAX_SESSION_BYTES = 8 * 1024 * 1024
 _SESSION_SNAPSHOT_CHARS = 1200
+_WHOLE_KINDS = ("coach_library", "finding", "decision", "note")  # sources that cover their whole set: not live is gone
 
 
 def _index_path(state_dir) -> Path:
@@ -174,6 +176,10 @@ def build_index(state_dir=None, *, cwd=None, force: bool = False) -> dict:
     from halo_harness.packs.memory import memory_sources  # 3.2.0.0 R2: each pack bio's namespace folder
     sources += memory_sources(state_dir=state_dir)
     kinds = {sid: "coach_library" for sid, *_ in library}
+    from halo_harness.knowledge.sources import knowledge_sources, note_sources  # 3.1.8.0 R4: findings, decisions, notes
+    extra = knowledge_sources(state_dir) + note_sources(known=None if force else existing)
+    sources += [s[:4] for s in extra]
+    kinds.update({s[0]: s[4] for s in extra})
 
     # review finding 88: an entry is pruned only when its source file is
     # gone. The memory sources above cover just THIS project, so "not in
@@ -181,7 +187,7 @@ def build_index(state_dir=None, *, cwd=None, force: bool = False) -> dict:
     # library's sources cover the whole state dir: not in the live set is gone.
     live_ids = {sid for sid, *_ in sources}
     pruned = [sid for sid, e in existing.items() if sid not in live_ids
-              and (not os.path.exists(sid) or e.get("kind") == "coach_library")]
+              and (not os.path.exists(sid) or e.get("kind") in _WHOLE_KINDS)]
     for sid in pruned:
         existing.pop(sid, None)
 

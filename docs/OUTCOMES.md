@@ -39,6 +39,7 @@ calls and their results:
 | `reproduction` | a check's shell calls that are not test runs (the last ten) | `{command, exit, tail}` |
 | `written` | Write, Edit, NotebookEdit targets | `[paths]` |
 | `acceptance` | the bio's acceptance on the final text, or the spawn path's own verdict | `{expect, met, why}` |
+| `cited` | 3.1.8.0 R4: the knowledge ids (findings, decisions this harness holds) its final text names -- what it reused ([KNOWLEDGE.md](KNOWLEDGE.md#citing-what-was-reused)) | `[ids]` |
 
 Plus `summary` (the final text, kept apart), `cost_usd`, `model`, `bio`,
 `sessions`. A call that failed is not evidence (a fetch that errored read
@@ -116,6 +117,9 @@ else `stopped`. A sub-agent's is its acceptance check's (`passed` first time,
 gets the same check on its final text), else its stage gate's, else
 `stopped`, `failed` (it ended on an error) or `done` (nothing checked it).
 `check` names what gave the verdict (`gate`, `acceptance`, `stage`, or empty).
+3.1.8.0 R4: a task whose final text cited a finding or a decision carries
+`cited: <n>` (the ids are in its evidence; `halo knowledge show <id>` lists
+the tasks that reused it).
 The run's rows are written once per report (the report and the coach both
 record them); `runs.json` gains `outcomes: n`.
 

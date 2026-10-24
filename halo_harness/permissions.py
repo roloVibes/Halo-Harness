@@ -2168,7 +2168,7 @@ class PermissionEngine:
                 return Decision("deny", "AskUserQuestion errors on a tool call in dontAsk mode", source="mode")
             return Decision("allow", "AskUserQuestion is allowed in every mode except dontAsk", source="mode")
         if tool_name in ("TodoWrite", "ToolSearch", "OrchestraClaim", "OrchestraRelease",
-                         "OrchestraClaims", "OrchestraNote"):
+                         "OrchestraClaims", "OrchestraNote", "knowledge_add", "knowledge_search"):  # 3.1.8.0 R4
             # (3.0.3.0: the Orchestra's claim tools write only the run's own
             # claims/events logs -- a worker is never prompted per claim.)
             # finding 12: permission-free tools -- no side effects a mode
