@@ -183,11 +183,27 @@ environment:
   worktree: false
   offline: false
   env: []                        # env-var NAMES by reference, never a literal secret
+  secrets:                       # 3.1.8.0 R5: read at spawn by `secrets.broker` into the worker's env only
+    - {env: OPENROUTER_API_KEY, ref: "op://Engineering/OpenRouter/credential"}
+  pass_to_tools: []              # broker keys its tool children (Bash, MCP) may see too
 
 acceptance:
   prompt: "Reply with exactly one word: ok"
   expect: ok                     # a substring to match, or the sentinel "non-empty"
+
+isolation: container             # 3.1.8.0 R5: container | user, or {mode, image, network, mounts, env | user, group}
+secrets: {broker: 1password}     # 3.1.8.0 R5: 1password | env, account?
 ```
+
+Halo 3.1.8.0 R5 adds three opt-ins to a bio ([ISOLATION.md](ISOLATION.md)):
+`tools.capabilities` (`[read, edit, bash, web, agent, mcp:<server>, media,
+recall]`: the agent is built with only those tools; `tools.allow`/`deny`
+still apply inside the list), `isolation` (its Orchestra workers run in a
+container or as a scoped user; a bio's wins over its lineup's) and
+`secrets` with `environment.secrets` (the refs its workers' environment is
+fed from at spawn; `environment.pass_to_tools` names the keys its tool
+children may see). `isolation` and `secrets` inherit through `extends:`
+like a section.
 
 `halo doctor --agents` validates every bio's shape, then runs each one's
 own `acceptance.prompt` through a real one-shot model call (`halo -p
@@ -420,6 +436,15 @@ What each section DOES at runtime:
   `HALO_TIER_FIRED=<tier>`, and that lead may spawn its own tier's other
   members and the next tier down. The full rule is in
   [ROLES.md](ROLES.md#tiers-halo-3070).
+- **isolation, secrets, tools** (Halo 3.1.8.0 R5, [ISOLATION.md](ISOLATION.md))
+  -- three opt-ins, none set by default: `isolation: container | user` (or
+  its mapping) runs the lineup's Orchestra workers in a per-run container or
+  as a scoped OS user; `secrets: {broker: 1password | env, account?}` is the
+  broker that reads a bio's `environment.secrets` at spawn;
+  `tools: {capabilities: [...]}` (also per tier, `tiers[i].tools`, and per
+  card, `agents[i].tools`) builds every member with only the tools of those
+  capabilities. A bio's own `isolation`/`secrets` win over the lineup's; a
+  card's or a tier's list wins over the bio's, which wins over the lineup's.
 
 `halo teams show <name>` prints the enforcement state per section
 (enforced / not set / checked by doctor), so a reader never has to guess

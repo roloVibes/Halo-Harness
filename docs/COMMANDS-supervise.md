@@ -1,8 +1,9 @@
 # Commands: the supervisor and its goals
 
-Read this when you give Halo a goal to work on without sitting at a terminal.
+Read this when you give Halo a goal to work on without sitting at a terminal, or isolate its workers.
 
-The supervisor (`halo supervise`), its goal queue (`halo goal`) and every agent task's outcome (`halo outcomes`).
+The supervisor (`halo supervise`), its goal queue (`halo goal`), every agent task's outcome (`halo outcomes`)
+and, since 3.1.8.0 R5, `halo isolation` and `halo secrets` for the opt-in isolation of its workers.
 Part of [Commands](COMMANDS.md), which lists every part.
 
 The full description -- what the supervisor is, the morning view, the pulse,
@@ -93,6 +94,10 @@ Halo 3.1.8.0 R3: `halo goal show` prints, under a stopped goal's failure,
 each lane's evidence lines (what its workers' transcripts show: the tests
 run, the sources read, the files written).
 
+`halo goal show` also prints, under the run, each lane's isolation, secrets
+and tool-list line when its lineup or bio declares one (Halo 3.1.8.0 R5,
+[ISOLATION.md](ISOLATION.md#where-it-shows)).
+
 ## `halo outcomes`
 
 Halo 3.1.8.0 R3. Every agent task's outcome, one row each, newest last: an
@@ -117,3 +122,40 @@ halo outcomes --model or:vendor/model --json
   or an epoch; anything else exits 2 and says how to write it.
 - `--limit N`: the newest N rows (default 50; `0`: all).
 - `--json`: the rows as JSON.
+
+## `halo isolation`
+
+Halo 3.1.8.0 R5. Opt-in isolation for Orchestra workers
+([ISOLATION.md](ISOLATION.md)): the image a container worker runs and what
+this host can run. Exit codes: 0 done, 1 could not (the reason on stderr),
+2 usage.
+
+```sh
+halo isolation image             # the default image name and the Dockerfile Halo ships
+halo isolation build             # docker (or podman) build of that image at this harness's version
+halo isolation build --image my-halo-worker:1 --dry-run   # print the build command, run nothing
+halo isolation check             # the doctor's isolation and secrets rows, and what your lineups and bios declare
+```
+
+### `halo isolation build` flags
+
+- `--image NAME`: the tag to build (default `halo-harness-worker:<version>`).
+- `--dry-run`: print the `docker build` command and run nothing.
+
+## `halo secrets`
+
+Halo 3.1.8.0 R5. Checks a secret broker and the refs that read through it
+([ISOLATION.md](ISOLATION.md#secrets-broker)): the broker's CLI on PATH, and
+each ref read once -- printed as names and `ok` only, never a value. Exit
+codes: 0 every ref read, 1 one did not or the broker is missing, 2 usage.
+
+```sh
+halo secrets check               # every lineup and bio of yours that declares secrets
+halo secrets check --lineup ci   # one lineup and the bios it assigns
+halo secrets check --bio coder   # one bio
+```
+
+### `halo secrets check` flags
+
+- `--lineup NAME`: check one lineup (its `secrets`) and every bio it assigns.
+- `--bio NAME`: check one bio.

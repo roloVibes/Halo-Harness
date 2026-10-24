@@ -15,6 +15,8 @@ export type AgentRow = {
   model?: string | null;
   /** 3.1.9.0 R2: why an `auto` member runs on `model` (models_auto.py), when it was picked. */
   model_reason?: string | null;
+  /** 3.1.8.0 R5: its isolation / secrets / tool-list lines (isolation/lines.py), when declared. */
+  opt_ins?: string[] | null;
   kind?: string | null;
   task?: string | null;
   since?: number | null;

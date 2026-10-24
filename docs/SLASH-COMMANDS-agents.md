@@ -75,6 +75,15 @@ the active `team:`. Every other subcommand (`show`/`validate`/`use`/`export`/
 the lineup has one. From the CLI: `halo teams edit <name>` -- see
 [COMMANDS-agents.md](COMMANDS-agents.md#halo-teams).
 
+### `/tools`
+Halo 3.1.8.0 R5: the tools this session's agent sees, one line per
+capability (read, edit, bash, web, agent, `mcp:<server>`, media, recall,
+other) with the tool names in it, then what narrowed the list ("Narrowed to
+tools: read, edit, bash (by lineup ci)", or "(by bio reviewer)") or that
+nothing does, then an Orchestra worker's isolation and secrets lines. A
+lineup or bio narrows it with `tools.capabilities`; see
+[ISOLATION.md](ISOLATION.md#toolscapabilities).
+
 ### `/edit <bio:name|lineup:name|team>`
 Halo 3.1.1.0: opens Studio on the thing to edit -- `bio:<name>` (the bio
 form), `lineup:<name>` (the lineup's inspector), `team` (the Team section),

@@ -102,7 +102,8 @@ class AgentTool(Tool):
         if self.lineup == DEFAULT_LINEUP:
             text += (" The lineup is auto: a sub-agent's model is picked for its task; say `model:` to choose "
                      "yourself.")
-        return text
+        from halo_harness.isolation.capabilities import children_line  # 3.1.8.0 R5: what the members may use
+        return text + children_line(self.lineup, self)
 
     @property
     def input_schema(self) -> dict:

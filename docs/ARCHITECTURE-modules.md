@@ -283,6 +283,20 @@ goal of the supervisor, `halo goal add --workflow`).
 `ext/events.py` (`publish_event`), `ext/grants.py` (`is_granted`),
 `ext/memory.py` (`memory.write`, 3.2.0.0 R5); the package's `__init__` is the contract.
 
+**Isolation** (`halo_harness/isolation/`, Halo 3.1.8.0 R5, docs/ISOLATION.md):
+`isolation/spec.py` (the `isolation` / `secrets` declarations, their
+checks, what a lane runs with), `isolation/lane.py` (`prepare`: the opt-ins
+applied where a worker starts), `isolation/container.py` (the `docker run`
+argv, the image, the build), `isolation/seed.py` (the scoped state dir),
+`isolation/scoped_user.py` (the `sudo -n -u` argv and the share step),
+`isolation/secrets.py` (the broker reads, the strip names, `halo secrets`),
+`isolation/capabilities.py` (the one table, which list wins, the narrowing),
+`isolation/lines.py` (the report lines), `isolation/declared.py` (what your
+lineups and bios declare), `isolation/doctor_rows.py` (the two doctor rows),
+`isolation/cli.py` (`halo isolation`), `isolation/tools_view.py` (`/tools`);
+`isolation/brokers/` holds one file per broker (`onepassword.py`, `env.py`)
+and `isolation/Dockerfile` the worker image.
+
 - The first ten minutes (3.1.1.0): `studio/start_api.py` (Start here: `/api/start`),
   `studio/start_job.py` (the one `halo start` Studio runs, its `start` frames),
   `studio/glossary_api.py` (`GET /api/glossary`, docs/GLOSSARY.md); the guided run

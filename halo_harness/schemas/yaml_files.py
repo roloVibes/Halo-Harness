@@ -16,6 +16,7 @@ from halo_harness.schemas.check import LIST, MAPPING, NUMBER, STRING, obj
 
 _VERSION = {"type": ["string", "number"]}
 _LIST_OF_MAPPINGS = {"type": "array", "items": MAPPING}
+_WORD_OR_MAPPING = {"type": ["string", "object"]}  # 3.1.8.0 R5: `isolation: container` or its mapping
 
 
 def lineup() -> dict:
@@ -25,6 +26,7 @@ def lineup() -> dict:
              "workflows": LIST, "from_pack": STRING}  # 3.2.0.0 R2: a pack lineup's workflows; a clone's origin
     for section in T.TOP_SECTIONS:
         props[section] = LIST if section in T.LIST_SECTIONS else MAPPING
+    props.update(isolation=_WORD_OR_MAPPING, secrets=MAPPING, tools=MAPPING)  # 3.1.8.0 R5 (T.OPT_IN_SECTIONS)
     return obj(props)
 
 
@@ -36,6 +38,7 @@ def bio() -> dict:
     props.update({f: STRING for f in missing})
     for section in A.BIO_SECTIONS:
         props[section] = LIST if section == "triggers" else MAPPING
+    props.update(isolation=_WORD_OR_MAPPING, secrets=MAPPING)  # 3.1.8.0 R5 (A.OPT_IN_SECTIONS)
     return obj(props)
 
 
