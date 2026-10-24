@@ -28,8 +28,13 @@ Documentation Review reference pack). There is no marketplace.
   granted (`1/3 granted`), how many lines `halo pack doctor` has for it, and
   under the row the first thing that keeps it from running here. Its
   actions: **Enable** (with the grants picked in Details: `Enable (1 grant)`,
-  the button's tooltip is the command), **Disable**, **Update** and
-  **Remove**. Remove asks first: what goes (the pack's own files), what stays
+  the button's tooltip is the command), **Disable**, **Update**, **Roll back
+  to <version>** and **Remove**. Update asks first (3.2.0.0 R7): its confirm
+  shows what `halo pack update <id> --dry-run` prints -- the migration notes,
+  the files that change, the settings it renames, your files it keeps -- and
+  Update runs it; a refused update shows its lines instead. Roll back (shown
+  once an update kept the version before) runs `halo pack rollback <id>`.
+  Remove asks first: what goes (the pack's own files), what stays
   (yours, each listed after), a "keep its record and grants" box
   (`--keep-config`) and the command it runs. Under the rows, the lines the
   last action printed.
@@ -95,7 +100,9 @@ The section reads and acts through `/api/pack/...`
 | `POST pack/sources {add \| remove}` | `halo pack sources add\|remove <folder\|git url>` |
 | `POST pack/<id>/enable {grants, grant_all}` | `halo pack enable <id> --grant ... \| --grant-all` |
 | `POST pack/<id>/grant {need, on}` | `halo pack grant <id> <need> [--off]` |
-| `POST pack/<id>/disable`, `update` | `halo pack disable <id>`, `halo pack update <id>` |
+| `POST pack/<id>/disable` | `halo pack disable <id>` |
+| `POST pack/<id>/update {dry_run}` | `halo pack update <id> [--dry-run]` (3.2.0.0 R7: Update's confirm asks with `dry_run` first) |
+| `POST pack/<id>/rollback` | `halo pack rollback <id>` (3.2.0.0 R7) |
 | `POST pack/<id>/remove {keep_config}` | `halo pack remove <id> [--keep-config]` |
 | `GET\|POST pack/<id>/settings` | the settings form of any pack installed here |
 | `POST orchestra/run {workflow, inputs}` | `halo workflow run <pack>/<name> --input k=v ...` (Run <workflow>) |

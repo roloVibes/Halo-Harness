@@ -107,14 +107,16 @@ def test_update_replaces_the_packs_files_keeps_yours_and_prints_the_migration(ct
         (src / "skills" / "check-links" / "SKILL.md").unlink()
         code, out, err = h.cli("update", "doc-review")
         ctx.check(f"update exits 0, got {code} {err}", code == 0)
-        ctx.check(f"the migration note between the versions is printed, got {out}",
-                  "migration 1.0.0 -> 1.1.0: the writer bio no longer extends the reviewer" in out
+        ctx.check(f"the migration note between the versions is printed first, got {out}",
+                  out.splitlines()[0] == "doc-review 1.0.0 -> 1.1.0: the writer bio no longer extends the reviewer"
                   and "0.9.0 -> 1.0.0" not in out)
         ctx.check("an unchanged file of the pack is replaced", "a new writer" in (root / "agents" / "writer.yaml").read_text(encoding="utf-8"))
         ctx.check("a file you changed stays, and is listed", (root / "commands" / "review.md").read_text(encoding="utf-8")
                   == "my own review command\n" and "kept your copy of commands/review.md" in out)
         ctx.check("a file the new version drops is removed", not (root / "skills" / "check-links").exists())
         ctx.check("a file you added stays", (root / "agents" / "mine.yaml").is_file())
+        ctx.check("3.2.0.0 R7: the old version is kept one back as doc-review.previous",
+                  (h.packs / "doc-review.previous" / "agents" / "writer.yaml").is_file() and "halo pack rollback doc-review" in out)
         rec = _state(h)["doc-review"]
         ctx.check("the record has the new version, still enabled with its grants",
                   rec["version"] == "1.1.0" and rec["enabled"] and rec["granted"] == ["hooks"])

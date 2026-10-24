@@ -1,0 +1,9 @@
+# A failure fixture (3.2.0.0 R7, tests/test_packs_failures.py): requires cycle-b, which requires it
+id: cycle-a
+name: cycle-a
+version: 1.0.0
+description: requires cycle-b, which requires it
+author: Halo fixtures
+license: MIT
+halo_api: {min: "1.0"}
+requires: [{pack: cycle-b}]

@@ -7,6 +7,9 @@ packs for exactly that).
     from halo_harness.ext import API_VERSION, read_yaml, get_config, publish_event
 
     API_VERSION / HALO_API_VERSION  "1.0": what pack.yaml's `halo_api` range is matched against
+    api_version() / compatible(range) / deprecations()
+                                    3.2.0.0 R7: this API's version, whether a `halo_api` range takes it under the
+                                    policy below, the names announced for removal (none in 1.0)
     read_yaml(path) / write_yaml(pack_id, path, data)
                                     Halo's YAML reader and writer (the bio and lineup files' own)
     check_schema(doc, schema)       one finding per shape problem (halo_harness.schemas.check)
@@ -27,13 +30,20 @@ packs for exactly that).
                                     the name rules (`<id>--<name>` for a pack's bios and lineups)
 
 The modules under this package are its implementation; the names above are the contract.
+
+The version policy (3.2.0.0 R7, ext/compat.py; docs/EXTENSION_API.md "Compatibility and migration"):
+`API_VERSION` is MAJOR.MINOR. A minor version only adds names, and every name keeps its meaning for
+every later minor of its major. A major version may remove a name, and only one `deprecations()` listed
+for at least one minor version before it. A pack's `halo_api: {min, max}` is matched against it: `max`
+is inclusive at its own precision, and with no `max` the pack runs on its `min`'s major only.
 """
 
 from __future__ import annotations
 
-API_VERSION = "1.0"
+API_VERSION = "1.0"  # MAJOR.MINOR: a minor adds names, a major removes only names deprecations() announced
 HALO_API_VERSION = API_VERSION
 
+from halo_harness.ext.compat import api_version, compatible, deprecations  # noqa: E402  (3.2.0.0 R7)
 from halo_harness.ext.config import get_config, set_config  # noqa: E402
 from halo_harness.ext.events import publish_event  # noqa: E402
 from halo_harness.ext.files import data_dir, pack_dir, write_private  # noqa: E402
@@ -46,4 +56,5 @@ from halo_harness.work.unit import Unit  # noqa: E402
 
 __all__ = ["API_VERSION", "HALO_API_VERSION", "read_yaml", "write_yaml", "check_schema", "get_config",
            "set_config", "write_private", "pack_dir", "data_dir", "publish_event", "is_granted", "Unit",
-           "is_valid_pack_id", "is_valid_name", "qualified_name", "split_name", "memory"]
+           "is_valid_pack_id", "is_valid_name", "qualified_name", "split_name", "memory",
+           "api_version", "compatible", "deprecations"]  # 3.2.0.0 R7: the version policy

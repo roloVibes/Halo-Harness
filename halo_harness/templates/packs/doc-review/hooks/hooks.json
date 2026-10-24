@@ -3,7 +3,7 @@
     "PostToolUse": [
       {
         "matcher": "Write",
-        "hooks": [{"type": "command", "command": "python ${CLAUDE_PLUGIN_ROOT}/hooks/note.py"}]
+        "hooks": [{"type": "command", "args": ["${halo_python}", "${CLAUDE_PLUGIN_ROOT}/hooks/note.py"]}]
       }
     ]
   }

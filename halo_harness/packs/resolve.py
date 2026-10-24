@@ -28,15 +28,18 @@ def _versions(api_version: Optional[str], halo_version: Optional[str]) -> "tuple
 
 
 def compat_lines(pack, *, api_version=None, halo_version=None) -> "list[str]":
-    """The pack's `halo_api` and `halo` ranges against this Halo."""
+    """The pack's `halo_api` and `halo` ranges against this Halo, one line each in the policy's words
+    (3.2.0.0 R7, ext/compat.py: no `max` means the `min`'s major only):
+    "pack doc-review needs extension API 1.2 to 1.9; this Halo has 1.0", "pack x needs Halo >= 3.3; this is 3.2.0.0"."""
+    from halo_harness.ext.compat import compatible, range_words
     api, halo = _versions(api_version, halo_version)
     out = []
     api_range = pack.manifest.get("halo_api")
-    if isinstance(api_range, dict) and not V.range_problem(api_range) and not V.in_range(api, api_range):
-        out.append(f"{pack.id} needs extension API {V.describe(api_range)}; this Halo has {api}")
+    if isinstance(api_range, dict) and not V.range_problem(api_range) and not compatible(api_range, api):
+        out.append(f"pack {pack.id} needs extension API {range_words(api_range)}; this Halo has {api}")
     halo_range = pack.manifest.get("halo")
     if isinstance(halo_range, dict) and not V.range_problem(halo_range) and not V.in_range(halo, halo_range):
-        out.append(f"{pack.id} needs Halo {V.describe(halo_range)}; this is {halo}")
+        out.append(f"pack {pack.id} needs Halo {V.describe(halo_range)}; this is {halo}")
     return out
 
 

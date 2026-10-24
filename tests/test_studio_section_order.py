@@ -4,9 +4,9 @@ Studio's sections and their `Alt+N` keys (then, 12:40: "Here's the order of tabs
 roles, fleet, design"; Orchestra, not in his list, keeps the last key): Session `Alt+1` ... Orchestra `Alt+6`; every `Alt+N`
 that README.md, docs/ (every .md under it) and the UI's own copy and comments (ui/src) name belongs to the
 section the registry gives that key, every "`Alt+1`..`Alt+6`" list runs in the registry's order, the modes
-banner (tools/studio_modes_banner.py) draws its six tiles in that order with those keys, and
+banner (tools/studio_modes_banner.py) draws its tiles in that order with those keys, and
 docs/STUDIO-sections.md tells the sections in it. 3.2.0.0 R6: Packs (the Pack Manager) is appended as the
-seventh section, `Alt+7`; the six keep their keys and the banner keeps its six tiles. The reader is
+seventh section, `Alt+7`; the six keep their keys. 3.2.0.0 R7: the banner gains the Packs tile (seven). The reader is
 tests/helpers/section_order.py; a reorder of SECTIONS fails here on every line it leaves behind.
 Run: python -m tests.test_studio_section_order
 """
@@ -77,15 +77,15 @@ def test_the_ui_copy_and_comments_name_the_registry_key(ctx: Ctx):
 
 @test
 def test_the_modes_banner_draws_the_registry_order(ctx: Ctx):
-    rows = so.registry()[:6]  # 3.2.0.0 R6: the banner shows the six work sections; Packs has no tile (no capture yet)
+    rows = so.registry()  # 3.2.0.0 R7: the Packs tile too (tools/capture_packs.py), seven in all
     frames = so.banner_frames()
-    ctx.check(f"six tiles, got {len(frames)}", len(frames) == 6)
+    ctx.check(f"seven tiles, got {len(frames)}", len(frames) == 7)
     ctx.check(f"the tiles run in the registry's order, got {[f[1] for f in frames]}", [f[1] for f in frames] == [r[1] for r in rows])
     ctx.check(f"each tile's key chip is its registry key, got {[f[2] for f in frames]}",
               [f[2] for f in frames] == [r[2].replace("+", " ") for r in rows])
     ctx.check(f"each tile is its section's capture, got {[f[0] for f in frames]}", [f[0] for f in frames] == [f"studio-{r[0]}.png" for r in rows])
     readme = (REPO / "README.md").read_text(encoding="utf-8")
-    alt = re.search(r'<img alt="(Halo Studio\'s six sections[^"]*)" src="docs/media/studio-modes.png"', readme)
+    alt = re.search(r'<img alt="(Halo Studio\'s seven sections[^"]*)" src="docs/media/studio-modes.png"', readme)
     pairs = re.findall(r"(\w+) \((Alt\+\d)\)", alt.group(1)) if alt else []
     ctx.check(f"the README banner's alt text names each section with its key in that order, got {pairs}",
               pairs == [(r[1], r[2]) for r in rows])

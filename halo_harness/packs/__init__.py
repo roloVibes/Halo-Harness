@@ -21,7 +21,12 @@ responsibility:
     fetch.py      a pack source: a folder or a git url
     sources.py    where a bare id is looked for: packs.sources, then the shipped packs (3.2.0.0 R6)
     manager.py    what Studio's Pack Manager shows (3.2.0.0 R6)
-    install.py    install and update
+    install.py    install (update's door)
+    update.py     update: the migration notes first, staged and swapped, the old kept as <id>.previous (3.2.0.0 R7)
+    rollback.py   `halo pack rollback`: <id>.previous back, settings and ownership restored (3.2.0.0 R7)
+    migrate.py    `migrations` between two versions; the `settings` renames, journaled (3.2.0.0 R7)
+    deprecations.py  doctor rows: an ext name announced for removal, a grant an update asked for (3.2.0.0 R7)
+    interpreter.py   `${halo_python}` and PYTHONPATH for a pack's hook and MCP server (3.2.0.0 R7)
     remove.py     remove (your own work stays)
     doctor.py     every problem, one line each
     cli.py        `halo pack ...`

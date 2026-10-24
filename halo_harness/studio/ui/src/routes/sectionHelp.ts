@@ -126,7 +126,7 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
       ["Grant and enable", "Pick the permissions to grant with their toggles, then Enable: its bios, lineups, Studio section, fleet capability and workflows run from now on; a contribution whose permission you did not grant stays off."],
       ["Set it up", "Settings is the pack's own form (its config.schema): Save checks the values, then writes packs.settings.<id>."],
       ["Use its templates", "Templates: Preview, Clone, Customize or Apply its lineups and bios (in Roles), and Run a workflow: Orchestra's new-run form, filled in."],
-      ["Keep it healthy", "Each row counts the doctor's lines; Update reads the pack's source again (your changed files stay); Remove asks first, then deletes only the pack's own files and lists what of yours stays."],
+      ["Keep it healthy", "Each row counts the doctor's lines; Update shows its migration notes and what changes before anything is replaced (your changed files stay) and keeps the old version: Roll back brings it back; Remove asks first, then deletes only the pack's own files and lists what of yours stays."],
     ],
     keys: PANEL_KEYS,
   },

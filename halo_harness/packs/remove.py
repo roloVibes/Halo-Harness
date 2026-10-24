@@ -10,7 +10,9 @@ your settings under `packs.settings.<id>` and a `team:` that names the
 pack's lineup. A pack found in place (never installed by Halo) has no files
 of its own: nothing in its folder is removed. The state.json record goes;
 `--keep-config` keeps it (disabled, with its grants), so installing the pack
-again later starts with the same grants.
+again later starts with the same grants. 3.2.0.0 R7: the version the last
+update replaced (`<id>.previous/`) goes too; with `--keep-config` it stays
+beside the record, and `halo pack rollback <id>` installs it again.
 """
 
 from __future__ import annotations
@@ -96,6 +98,14 @@ def remove(pack_id: str, *, keep_config: bool = False, cwd=None, state_dir=None)
             if p.is_file() and J.norm(p) not in owned:
                 kept.append(f"kept {p.relative_to(root).as_posix()} in {root}: Halo did not write it")
     J.prune_empty_dirs(root)
+    from halo_harness.packs.update import previous_dir  # 3.2.0.0 R7: the version the last update replaced
+    prev = previous_dir(root)
+    if prev.is_dir() and keep_config and rec is not None:
+        kept.append(f"kept {prev.name} with its record: halo pack rollback {pack_id} installs that version again")
+    elif prev.is_dir():
+        from halo_harness.packs.fetch import rmtree
+        rmtree(prev)
+        kept.append(f"removed {prev.name}, the version the last update replaced")
     if keep_config and rec is not None:
         S.put(pack_id, {"enabled": False, "removed": S.now()}, state_dir)
     elif rec is not None:

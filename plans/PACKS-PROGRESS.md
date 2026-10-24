@@ -2,7 +2,9 @@
 
 The working record of the Packs program (plans/ROADMAP.md "3.2.0.0 'Packs'").
 Kept current by every round: what is done, open dependencies, test results,
-decisions, the next task.
+decisions, the next task. CLOSED in R7 (2026-10-24): every round is done; the
+open points are carried, one line each, to plans/ROADMAP.md "After 3.2.0.0";
+the release is the coordinator's.
 
 ## Done
 
@@ -240,7 +242,39 @@ decisions, the next task.
     "The reference pack", EXTENSION_API.md "The reference example" stable, COMMANDS-packs.md, README.md,
     the module map.
 
-## Open dependencies
+- R7 (2026-10-24, branch v320/R7-hardening from 50d74dc): compatibility hardening and the docs.
+  - The policy, enforced: `halo_harness/ext/compat.py` (`api_version`, `compatible` -- max inclusive at its
+    precision, no max = the min's major only -- `range_words`, `deprecations` over `DEPRECATED`, empty in 1.0),
+    in ext's `__all__` and docstring; `resolve.compat_lines` in the policy's words ("pack doc-review needs
+    extension API 1.2 to 1.9; this Halo has 1.0", "pack x needs Halo >= 3.3; this is 3.2.0.0");
+    `packs/deprecations.py`: the doctor's `deprecated` row (an ext name announced for removal, by file and
+    line) and `update-request` row (a permission the new version asks for, not granted), both in the Pack
+    Manager (health; the second in Details' compat too).
+  - Migrations shown and applied: `packs/migrate.py` (the entries between two versions, "<id> <from> -> <to>:
+    <note>", `settings: {old: new}` renames of `packs.settings.<id>`, dotted keys, journaled `migrate` /
+    `unmigrate`); the manifest, `schemas/pack_yaml.py` and pack.schema.json take `migrations[i].settings`.
+  - Update and rollback: `packs/update.py` (install's checks on the source, the notes first, `--dry-run`, the
+    new version staged in `<packs>/.staging-<hex>/<id>/` with the user's files carried over, two renames, the
+    old kept as `<id>.previous/`, state `previous: {version, op_id, requested}`), `packs/rollback.py`
+    (`halo pack rollback`: the user's newer files kept, the swap back, ownership restored from the journal
+    `owned(before_op=)`, settings moved back, grants kept); discover skips `*.previous`; remove deletes it
+    (kept with `--keep-config`, rollback reinstalls it); a fresh install drops a stale one. CLI: verb
+    `rollback`, `update --dry-run`; Studio: `POST pack/<id>/rollback`, `update {dry_run}`, the row's
+    `previous`; Installed: Update's confirm with the dry run's lines, "Roll back to <version>".
+  - Every failure mode pinned: fixtures `bad-yaml`, `no-id`, `bad-id`, `api-too-new`, `api-too-old`,
+    `halo-too-new`, `needs-base`, `cycle-a`, `cycle-b`; a bare id names every source searched
+    (`fetch.searched_line`); an update whose source is gone is one line.
+  - R6's open points: `packs/interpreter.py` (`${halo_python}` in hooks.json -- shell command quoted, exec
+    `args` plain -- and in .mcp.json; PYTHONPATH with Halo's package root for every process started from a
+    pack's folder), the shipped pack uses it; the modes banner's Packs tile (`tools/capture_packs.py`, `halo
+    studio`'s capture `--mode packs`, docs/media/studio-packs.png, studio-modes.png rebuilt with seven
+    tiles at 600 px each, README's alt); `halo studio --mode packs` and `?mode=packs`.
+  - Docs: EXTENSION_API.md (every row stable, the policy with its two lines, "Changes in 1.x", "Updating a
+    pack", "Rolling back", the R7 fixtures), PACKS.md ("Updating and rolling back", "When a pack cannot run"
+    with every line, "A pack's own Python"), COMMANDS-packs.md, COMMANDS-studio.md, STUDIO-packs.md, MEDIA.md,
+    the module map, the reference pack's README ("Versioning your pack").
+
+## Open dependencies (closed in R7: each one still open is a line of plans/ROADMAP.md "After 3.2.0.0")
 
 - R2 confirmed the `<id>--<name>` names (Decisions); the ROADMAP's R2 line
   still says `<pack>/<name>` -- the coordinator fixes it.
@@ -430,6 +464,12 @@ decisions, the next task.
   5318b1ad..., index.html unchanged), `tests.test_studio_dist` 6/6 last. Not run: test_tui.py, the
   full tier as a whole, Kali/WSL.
 
+- R7 new modules: test_packs_compat 5, test_packs_migrate 4, test_packs_rollback 5, test_packs_failures 7,
+  test_packs_interpreter 4; extended: test_reference_pack 2 (+ the shipped pack's halo range; an update keeps
+  `.previous`, remove takes it and the journal owns nothing; the lint server started from its .mcp.json),
+  test_packs_manager_ui 8 (+ Update's confirm and Roll back, Chrome).
+- R7 full runs: see the hand-back (briefs/v320-R7-handback.md).
+
 ## Decisions
 
 - Pack-qualified names are `<id>--<name>` (valid under the name rule); an id
@@ -528,10 +568,23 @@ decisions, the next task.
 - R6: `pack/<id>/settings` serves the settings form of any installed pack (R3's `pack/<id>/config`
   stays for running packs only).
 
+- R7: the API range without `max` is the `min`'s major only (the policy's "a major may remove a name"):
+  `{min: "1.0"}` does not run on 2.0. The Halo range keeps an open `max`.
+- R7: an update is staged and swapped (two renames) instead of replaced file by file in place, so a failure
+  never leaves a half-replaced folder; the journal rows are written after the swap, with the same ownership
+  rule as before (the user's changed and added files carried over and listed).
+- R7: rollback deletes the version rolled back from (the source still has it: `halo pack update`); one
+  version back only; with `--keep-config` the `.previous` copy stays beside the record and rollback
+  reinstalls it, a fresh install removes it.
+- R7: `settings` renames are the one automatic migration kind; a new key the user set already wins.
+- R7: the shipped pack keeps `halo: {min: "3.1"}` on the worker branch (`__version__` is 3.1.7.0: 3.2 would
+  refuse Halo's own reference pack and turn the packs tests red, which release.py's gate refuses); the bump
+  commit sets 3.2, and test_reference_pack fails from 3.2.0.0 on until it does.
+- R7: `${halo_python}` and PYTHONPATH reach a pack's processes only (a folder with pack.yaml); a plain
+  plugin gets the placeholder expanded and no PYTHONPATH (another Python's site-packages could break it).
+
 ## Next task
 
-- R7: hardening and the release (plans/ROADMAP.md 3.2.0.0 R7, the program's last phase):
-  "Compatibility and migration" made final in EXTENSION_API.md (`stable`), the glossary's
-  "pack", Halo's interpreter for a pack's hook and MCP commands, the shipped pack's `halo` minimum at
-  the version bump, a Packs tile for the modes banner, the full tier and Kali, the CHANGELOG and
-  the 3.2.0.0 release.
+- None in the program: R1-R7 are done. The coordinator merges R7, makes the version bump (with the shipped
+  pack's `halo: {min: "3.2"}`), writes the CHANGELOG's R7 block and releases 3.2.0.0. The open points are
+  plans/ROADMAP.md "After 3.2.0.0".

@@ -248,7 +248,7 @@ def start_server(*, port: int = 0, cwd: Path, state_dir: Path, token: str | None
     return server
 
 
-STUDIO_MODES = ("roles", "design", "orchestra", "fleet", "team", "session")  # 3.0.4.0: the shell's sections too; 3.0.5.0: Fleet; 3.0.8.0: Team; 3.1.4.0: Session
+STUDIO_MODES = ("roles", "design", "orchestra", "fleet", "team", "session", "packs")  # 3.0.4.0: the shell's sections too; 3.0.5.0: Fleet; 3.0.8.0: Team; 3.1.4.0: Session; 3.2.0.0 R7: Packs
 
 
 def url_for(server: _Server, mode: Optional[str] = None, edit: Optional[str] = None) -> str:
@@ -285,7 +285,7 @@ def ensure_background(*, cwd: Path, state_dir: Path, open_browser: bool = True, 
 
 def cmd_studio(argv: list) -> int:
     parser = argparse.ArgumentParser(prog="halo studio", description="Open Halo Studio, the browser GUI: Roles (lineups and agent bios as a graph) and Design (artboards on your own apps).")
-    parser.add_argument("--mode", choices=STUDIO_MODES, default=None, help="open straight into roles, design, orchestra, fleet, team or session (default: the mode you used last)")
+    parser.add_argument("--mode", choices=STUDIO_MODES, default=None, help="open straight into roles, design, orchestra, fleet, team, session or packs (default: the mode you used last)")
     parser.add_argument("--port", type=int, default=0, help="port to listen on (default: a free one)")
     parser.add_argument("--no-open", action="store_true", help="print the URL, do not open a browser")
     parser.add_argument("--cwd", default=None, help="the project directory for project-scope files (default: the current directory)")
