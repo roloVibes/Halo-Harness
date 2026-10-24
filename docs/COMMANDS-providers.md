@@ -199,30 +199,35 @@ halo models --help
 ```
 usage: halo models [-h] [--refresh] [--ant] [--urls] [--json] [--forget-rules]
                    [--capabilities] [--best-for KIND]
-                   [--media [{image,video,audio,all}]]
+                   [--media [{image,video,audio,all}]] [--measured]
 
 options:
-  -h, --help       show this help message and exit
-  --refresh        Re-probe OpenRouter/Databricks instead of using the cache
-  --ant            List the real, reachable Anthropic API models (ant: aliases
-                   plus every other id the key can see) instead of the
-                   OpenRouter/Databricks catalog; with --refresh, re-fetches
-                   GET /v1/models
-  --urls           Databricks endpoints: also print the exact URL and path
-                   type each one resolves to
-  --json           Machine-readable JSON output
-  --forget-rules   Also clear every learned parameter-rejection rule for every
-                   endpoint
-  --capabilities   One line per model: what it accepts (text, image, audio,
-                   video, pdf), what it outputs and what it is best at
-  --best-for KIND  Rank models for one job: visual | audio | video | image |
-                   design | pdf | code | research | bulk | fast | local (with
-                   a reason each); image-gen | video-gen | audio-gen |
-                   upscale rank the ComfyUI media models
+  -h, --help            show this help message and exit
+  --refresh             Re-probe OpenRouter/Databricks instead of using the
+                        cache
+  --ant                 List the real, reachable Anthropic API models (ant:
+                        aliases plus every other id the key can see) instead
+                        of the OpenRouter/Databricks catalog; with --refresh,
+                        re-fetches GET /v1/models
+  --urls                Databricks endpoints: also print the exact URL and
+                        path type each one resolves to
+  --json                Machine-readable JSON output
+  --forget-rules        Also clear every learned parameter-rejection rule for
+                        every endpoint
+  --capabilities        One line per model: what it accepts (text, image,
+                        audio, video, pdf), what it outputs and what it is
+                        best at
+  --best-for KIND       Rank models for one job: visual | audio | video |
+                        image | design | pdf | code | research | bulk | fast |
+                        local (with a reason each); image-gen | video-gen |
+                        audio-gen | upscale rank the ComfyUI media models
   --media [{image,video,audio,all}]
-                   List the ComfyUI media models (diffusion, video, upscale,
-                   TTS and their LoRAs, VAEs, encoders) by what they produce;
-                   with --refresh, rescans the server
+                        List the ComfyUI media models (diffusion, video,
+                        upscale, TTS and their LoRAs, VAEs, encoders) by what
+                        they produce; with --refresh, rescans the server
+  --measured            Measured success per model and task kind here: checked
+                        tasks, first-time passes, the rate and the mean cost
+                        (outcomes.jsonl)
 ```
 
 Halo 3.0.1.0: `--capabilities` adds what each model takes in (text, image,
@@ -236,6 +241,9 @@ tools, reasoning; no audio`), and `--best-for` also takes `pdf`, `code`,
 `research`, `bulk`, `fast` and `local`, scored with tool calls, reasoning,
 open weights and what this host measured (the gym, the tool-call probe, a
 learned tools rejection, telemetry's speed, the preflight canary census).
+Halo 3.1.8.0: `--measured` prints what this Halo measured about each model's agent tasks: one row
+per model and task kind with the checked tasks, the first-time passes, the rate and the mean cost
+(`--json` for the rows); see [OUTCOMES.md](OUTCOMES.md#measured-success).
 
 | Flag | Reads/writes |
 |---|---|
@@ -244,6 +252,7 @@ learned tools rejection, telemetry's speed, the preflight canary census).
 | `--ant` | reads `~/.halo/ant-models.json` (real ids `GET /v1/models` returned for this key); `--ant --refresh` re-fetches it -- the `ant:` aliases show first with their `-> <resolved-id>` detail, then any OTHER id the key can reach, with no alias of its own |
 | `--urls` | Databricks rows only: adds the exact resolved URL + path type (`mlflow`/`cursor`/`anthropic`/`invocations`) per endpoint -- see `docs/DATABRICKS.md` |
 | `--json` | same data as machine-readable JSON |
+| `--measured` | Halo 3.1.8.0: reads `~/.halo/coach/outcomes.jsonl` (the checked agent tasks per model and kind); with `--json` the rows |
 | `--media [image\|video\|audio\|all]` | Halo 3.0.4.0: the ComfyUI media-model inventory (image-gen, video-gen, upscale, tts, then the supporting loras, vaes and encoders) with size, quant and family; reads `~/.halo/media-models.json`, `--media --refresh` rescans the server (`COMFY_URL` / `comfy.url`: `GET /models/<folder>`, `GET /experiment/models/<folder>`, `GET /object_info`) |
 | `--best-for image-gen\|video-gen\|audio-gen\|upscale` | ranks the media inventory by size, quant (bf16 > fp16 > fp8 > int8) and a matching 4-step LoRA, one reason per row; the five LLM kinds above keep their own ranking |
 
@@ -281,6 +290,8 @@ file name), `rows` (`{ref: {kinds, line, scores, facts}}`) and `best`
 (`{kind: {cheapest, strongest}}`). An empty catalog exits 1 with the
 `halo models --refresh` hint. Studio's Models panel has the same button
 (Analyze, `POST /api/models/analyze`). See [MODELS-references.md](MODELS-references.md#what-each-model-is-good-at-halo-3190).
+Halo 3.1.8.0: the text ends with the `--measured` table when something was
+measured, and `--json` adds `measured` (its rows).
 
 ### `halo models test <ref>` (Halo 3.0.7.0)
 

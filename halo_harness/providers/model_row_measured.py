@@ -13,6 +13,8 @@ once per batch (never once per row, never the network):
                   3+ calls), never a router's advertised figure
   canary          the preflight canary census (`canary-census.json`):
                   ok, and the tools / vision checks
+  outcomes        3.1.8.0 R3, only when there are some: `{kind: {n, passed, rate}}`,
+                  the checked agent tasks it ran here (outcomes/measured.py)
 
 A row with nothing measured has `measured: None`; otherwise every one of the
 six keys is present, None where that one source has nothing.
@@ -86,6 +88,11 @@ def measured_index(state_dir, rows: list, *, speeds: Optional[dict] = None) -> d
     except Exception:
         rejected = set()
     speeds = speeds or {}
+    try:  # 3.1.8.0 R3: measured success per task kind (outcomes/measured.py), only when a row has some
+        from halo_harness.outcomes.measured import by_model
+        outcomes = by_model(state_dir)
+    except Exception:
+        outcomes = {}
     out: dict = {}
     for row in rows:
         ref = row.get("ref")
@@ -105,6 +112,8 @@ def measured_index(state_dir, rows: list, *, speeds: Optional[dict] = None) -> d
         entry["ttft_s"] = speed.get("ttft_s")
         entry["tokens_per_second"] = speed.get("tokens_per_second")
         entry["canary"] = _canary_entry(lanes.get(ref))
+        if outcomes.get(ref):
+            entry["outcomes"] = outcomes[ref]
         if any(v is not None for v in entry.values()):
             out[ref] = entry
     return out

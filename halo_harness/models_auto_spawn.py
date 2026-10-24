@@ -44,17 +44,38 @@ def band_of(team_control) -> str:
     return band if band in BANDS else DEFAULT_BAND
 
 
-def resolver(*, runtime, role_name: Optional[str], task_text: str, holder: dict, routes=None):
+def member_measured(runtime, role_name: Optional[str], requested: Optional[str] = None) -> Optional[str]:
+    """3.1.8.0 R3: the task kind to route a `measured` member by (outcomes/kinds.py), None when the value
+    the order reached is `auto`: the call's own `model`, else the member's role-table value."""
+    from halo_harness.models_auto import is_measured
+    value = requested if requested else (getattr(runtime, "role_table", None) or {}).get(role_name) if role_name else None
+    value = value.get("model") if isinstance(value, dict) else value
+    if not is_measured(value):
+        return None
+    team_control = getattr(runtime, "team_control", None)
+    bio = (team_control.bio_for(role_name) or {}) if team_control is not None and role_name else {}
+    from halo_harness.outcomes.kinds import kind_of
+    return kind_of(bio.get("kind"), " ".join(str(w) for w in (role_name, bio.get("name")) if w))
+
+
+def resolver(*, runtime, role_name: Optional[str], task_text: str, holder: dict, routes=None,
+             requested: Optional[str] = None):
     """The `auto_pick` callable for one spawn: returns the picked ref, or
-    None when main's model runs it (the Pick says why either way)."""
+    None when main's model runs it (the Pick says why either way). 3.1.8.0 R3:
+    a `measured` value routes by measured success (outcomes/routing.py)."""
     def _pick() -> Optional[str]:
         parent = getattr(runtime, "parent", None)
         main_ref = str(getattr(getattr(parent, "model_ref", None), "raw", "") or "")
         team_control = getattr(runtime, "team_control", None)
         try:
             needs, words = member_needs(team_control, role_name)
-            chosen = pick(getattr(parent, "state_dir", None), needs=needs, task_text=task_text or "",
-                          band=band_of(team_control), main_ref=main_ref, role=words)
+            kind = member_measured(runtime, role_name, requested)
+            how = pick
+            if kind:
+                from halo_harness.outcomes.routing import pick_measured
+                how = lambda *a, **kw: pick_measured(*a, kind=kind, **kw)  # noqa: E731
+            chosen = how(getattr(parent, "state_dir", None), needs=needs, task_text=task_text or "",
+                         band=band_of(team_control), main_ref=main_ref, role=words)
         except Exception as e:
             chosen = Pick(main_ref, f"the pick failed ({type(e).__name__}); using main's", [], [], True)
         if not chosen.fallback and chosen.ref != main_ref:
@@ -73,8 +94,9 @@ def pool_words(template: dict, entry: dict, *, cwd=None, state_dir=None) -> str:
     mid)" for a card whose model is `auto`, else ""."""
     from halo_harness.agents_yaml import resolve_agent_bio
     from halo_harness.teams_yaml import member_model
-    from halo_harness.models_auto import is_auto
-    if not is_auto(member_model(template, entry, cwd=cwd, state_dir=state_dir)[0]):
+    from halo_harness.models_auto import is_auto, is_measured
+    value = member_model(template, entry, cwd=cwd, state_dir=state_dir)[0]
+    if not is_auto(value):
         return ""
     bio = resolve_agent_bio(str(entry.get("agent") or ""), cwd=cwd, state_dir=state_dir) or {}
     over = entry.get("models") if isinstance(entry.get("models"), dict) else {}
@@ -83,7 +105,8 @@ def pool_words(template: dict, entry: dict, *, cwd=None, state_dir=None) -> str:
     what = ", ".join(str(n) for n in needs) if needs else (
         "the task's modality, vision when it names none" if bio.get("kind") == "media" or entry.get("as") == "media"
         else "none of its own, so cheap and fast")
-    return f" -- model picked at spawn (needs: {what}; band {band if band in BANDS else DEFAULT_BAND})"
+    how = "by measured success at its kind, else as auto; " if is_measured(value) else ""  # 3.1.8.0 R3
+    return f" -- model picked at spawn ({how}needs: {what}; band {band if band in BANDS else DEFAULT_BAND})"
 
 
 def record(child, chosen: Optional[Pick], ran_on: Optional[str] = None) -> Optional[str]:

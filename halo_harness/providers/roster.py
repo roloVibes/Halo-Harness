@@ -74,6 +74,9 @@ def _measured_words(m) -> str:
     canary = m.get("canary") if isinstance(m.get("canary"), dict) else None
     if canary:
         parts.append("canary " + ("ok" if canary.get("ok") else "failed"))
+    from halo_harness.outcomes.measured import row_words  # 3.1.8.0 R3: checked tasks per kind, "code 4/5"
+    if row_words(m.get("outcomes")):
+        parts.append(row_words(m.get("outcomes")))
     return ", ".join(parts)
 
 

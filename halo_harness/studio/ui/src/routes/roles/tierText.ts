@@ -49,5 +49,6 @@ export function sourceText(src: string | undefined, bio: string): string {
   if (src === "session") return `the session's model (bio ${bio || "?"} says default)`;
   if (src === "capabilities") return `the best catalog model with bio ${bio || "?"}'s capabilities`;
   if (src === "auto") return `picked when it spawns, for its task (bio ${bio || "?"} says auto)`; // 3.1.9.0 R2
+  if (src === "measured") return `picked when it spawns, by what succeeded here at its kind, else as auto (bio ${bio || "?"} says measured)`; // 3.1.8.0 R3
   return "a fallback model";
 }

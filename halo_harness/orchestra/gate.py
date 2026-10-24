@@ -10,6 +10,7 @@
   tests send back every lane whose unit names appear in the output (at most `return_cap` times
   each); a lane at its cap, or a failure that names no lane, stops the run with the reason.
   3.2.0.0 R5: a workflow goal's typed outputs and evidence too (workflows/gate.py `widen`).
+  3.1.8.0 R3: first, a lane missing its kind's evidence goes back once (outcomes/lane.py).
 * `send_back(lane, text_of)`: the loop, through work/gate.py (3.1.2.0 R1).
 """
 
@@ -70,6 +71,8 @@ class GateResult:
     back: list = field(default_factory=list)      # lane numbers sent back to their workers
     stop_reason: str = ""
     notes: dict = field(default_factory=dict)     # 3.2.0.0 R5: {lane: what its worker is told} (workflows/gate.py)
+    back_text: dict = field(default_factory=dict)  # 3.1.8.0 R3: {lane: what it goes back with} (missing evidence)
+    evidence: dict = field(default_factory=dict)   # 3.1.8.0 R3: {lane: its evidence lines} (outcomes/lane.py)
 
     def to_dict(self) -> dict:
         return dict(asdict(self), tests=self.tests.to_dict())
@@ -227,12 +230,27 @@ def _narrow(blamed: list) -> list:
 
 
 def quality_gate(run_dir, goal, lanes: list, cwd, *, ref: Optional[str] = None, outputs: bool = True) -> GateResult:
+    """Tests on the finished branch, the record check, and the loop decision (3.2.0.0 R5: and a workflow's
+    outputs, workflows/gate.py `widen`); 3.1.8.0 R3 (outcomes/lane.py): the verdict carries each lane's evidence."""
     """Tests on the finished branch, the record check, and the loop decision (3.2.0.0 R5: and a workflow's outputs)."""
     if outputs and getattr(goal, "workflow", None):  # typed artifacts, the evidence, each stage's test (workflows/gate.py)
         from halo_harness.workflows.gate import widen
         return widen(quality_gate(run_dir, goal, lanes, cwd, ref=ref, outputs=False), run_dir, goal, lanes, cwd)
+    from halo_harness.outcomes.lane import lanes_lines
+    gate = _quality_gate(run_dir, goal, lanes, cwd, ref=ref)
+    gate.evidence = lanes_lines(run_dir, lanes)
+    return gate
+
+
+def _quality_gate(run_dir, goal, lanes: list, cwd, *, ref: Optional[str] = None) -> GateResult:
+    """Tests on the finished branch, the record check, and the loop decision. 3.1.8.0 R3: a lane without its
+    kind's evidence goes back once first, before the record check (outcomes/lane.py `evidence_back`)."""
+    from halo_harness.outcomes.lane import evidence_back
     tests = run_tests(run_dir, goal, cwd)
+    early = evidence_back(run_dir, goal, lanes, tests)
     record_ok, record = record_equals_disk(run_dir, lanes, ref)
+    if early:
+        return GateResult(False, tests, record_ok, record, back=sorted(early), back_text=early)
     if tests.ok:
         return GateResult(True, tests, record_ok, record)
     blamed = _narrow([lane for lane in lanes

@@ -63,6 +63,7 @@ Work in the TUI and on the command line, and give agents bios, lineups, roles an
 - [TEAM.md](TEAM.md) (Teams: people, blocks and stages (Halo 3.0.8.0)): read this when you set up a team file: who works on a repo, where their work lands and in which order.
 - [WORK.md](WORK.md) (One unit of work): read this when you want the one model under an Orchestra lane, a mission part and a team stage.
 - [SUPERVISE.md](SUPERVISE.md) (The supervisor): read this when you want to give Halo a goal at night and open Studio in the morning to see what finished, what waits on you and what it cost.
+- [OUTCOMES.md](OUTCOMES.md) (Verified outcomes and measured routing): read this when you want to know what an agent's work showed (its tests, sources, commands, files), how each outcome is recorded per bio and model, and how a bio can route to the model that succeeded most here.
 - [COMFYUI.md](COMFYUI.md) (ComfyUI in Halo): read this when you want Halo to render images or video with ComfyUI on your own GPU.
 - [SUBAGENTS.md](SUBAGENTS.md) (Sub-agent visibility and scale): read this when you watch or limit sub-agents: the tasks panel, concurrency and depth.
 - [REVIEW.md](REVIEW.md) (Code review: `/review` and `halo review`): read this when you review code with `/review` or `halo review`.

@@ -2,7 +2,7 @@
 
 Read this when you give Halo a goal to work on without sitting at a terminal.
 
-The supervisor (`halo supervise`) and its goal queue (`halo goal`).
+The supervisor (`halo supervise`), its goal queue (`halo goal`) and every agent task's outcome (`halo outcomes`).
 Part of [Commands](COMMANDS.md), which lists every part.
 
 The full description -- what the supervisor is, the morning view, the pulse,
@@ -82,3 +82,32 @@ halo goal rm g-ab12          # drop a goal (not one that runs)
 ### `halo goal list` / `show` flags
 
 - `--json`: the goals (or the one goal and its history lines) as JSON.
+
+Halo 3.1.8.0 R3: `halo goal show` prints, under a stopped goal's failure,
+each lane's evidence lines (what its workers' transcripts show: the tests
+run, the sources read, the files written).
+
+## `halo outcomes`
+
+Halo 3.1.8.0 R3. Every agent task's outcome, one row each, newest last: an
+Orchestra lane (written when its run's report is) and a session's sub-agent
+(written when it ends), read from `~/.halo/coach/outcomes.jsonl`. Each row
+says when, the run (or session), the task, its bio, model and kind, the
+outcome and what checked it (`passed (gate)`, `returned (gate)`, `failed
+(acceptance)`, `done`), the returns, the cost, the tests passed / failed and
+the sources read. See [OUTCOMES.md](OUTCOMES.md); `halo models --measured`
+rates the checked ones per model and kind.
+
+```sh
+halo outcomes                        # the newest 50 tasks
+halo outcomes --kind code --since 7d # code tasks of the last week
+halo outcomes --bio auto-coder       # one bio's tasks
+halo outcomes --model or:vendor/model --json
+```
+
+- `--bio NAME` / `--model REF` / `--kind KIND`: only those tasks (`--kind`:
+  code, research, check, writing, plan, review, media, other).
+- `--since WHEN`: only tasks since `7d`, `24h`, `30m`, a date (`2026-10-20`)
+  or an epoch; anything else exits 2 and says how to write it.
+- `--limit N`: the newest N rows (default 50; `0`: all).
+- `--json`: the rows as JSON.

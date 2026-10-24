@@ -131,6 +131,8 @@ def _show(state_dir, gid: str, as_json: bool) -> int:
     if goal.get("failure"):
         f = goal["failure"]
         print(f"  failure: {f.get('kind')} at {f.get('step') or '?'}: {f.get('last_event') or ''}")
+        for lane, said in sorted(((f.get("report") or {}).get("evidence") or {}).items()):  # 3.1.8.0 R3: what the lanes ran
+            print(f"    lane {lane}: " + "; ".join(str(s) for s in said))
     if lines:
         print("  history:")
         for row in lines:

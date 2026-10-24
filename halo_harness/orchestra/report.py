@@ -4,7 +4,7 @@
      "branch": "orchestra/<run>", "finished": "<sha>" | null, "tests_ok": true,
      "tests_tail": "...", "cost_usd": 0.0123, "elapsed_s": 81.2, "ts": ...,
      "goal_done_when": "...",
-     "lanes": [{"lane", "title", "state", "pieces_returned", "cost_usd"}],
+     "lanes": [{"lane", "title", "state", "pieces_returned", "cost_usd", "evidence": [lines]}],  3.1.8.0 R3: evidence
      "checks": [{"id", "ok", "detail"}],
      "replans": [{"n", "at", "why", "by", "moves"}]}   3.1.8.0 R2, only when the supervisor replanned the run
 
@@ -136,7 +136,8 @@ def write_report(run_dir, *, goal, lanes: list, merge: Optional[dict] = None, ga
         "cost_usd": round(cost, 6), "ts": round(ts, 3), "elapsed_s": jsonl.elapsed(run_dir, ts),
         "goal_done_when": goal.done_when,
         "lanes": [{"lane": lane.n, "title": lane.job.title, "state": lane.state,
-                   "pieces_returned": lane.pieces_returned, "cost_usd": round(lane.cost_usd, 6)} for lane in lanes],
+                   "pieces_returned": lane.pieces_returned, "cost_usd": round(lane.cost_usd, 6),
+                   "evidence": _evidence_lines(run_dir, lane.n)} for lane in lanes],  # 3.1.8.0 R3
         **_workflow_part(run_dir, goal, lanes, gate, status),  # 3.2.0.0 R5: a workflow run's outputs (workflows/outputs.py)
         "checks": build_checks(run_dir, goal, lanes, merge, gate),
         "units": _unit_rows(run_dir),  # 3.1.2.0 R1: one UnitRow per lane (docs/WORK.md), beside `lanes`
@@ -145,7 +146,18 @@ def write_report(run_dir, *, goal, lanes: list, merge: Optional[dict] = None, ga
     if revisions:  # 3.1.8.0 R2: every replan the supervisor applied (supervise/replan_apply.py)
         report["replans"] = [{k: r.get(k) for k in ("n", "at", "why", "by", "moves")} for r in revisions if isinstance(r, dict)]
     jsonl.write_json(report_path(run_dir), report)
+    _record_outcomes(run_dir, report)  # 3.1.8.0 R3: one outcomes.jsonl row per lane (outcomes/records.py)
     return report
+
+
+def _evidence_lines(run_dir, n) -> list:
+    from halo_harness.outcomes.lane import report_lines
+    return report_lines(run_dir, n)
+
+
+def _record_outcomes(run_dir, report: dict) -> None:
+    from halo_harness.outcomes.records import record_orchestra
+    record_orchestra(run_dir, report)
 
 
 def _other_lanes_cost(run_dir, seen: set) -> float:
@@ -195,6 +207,7 @@ def format_report(report: dict, run_dir=None) -> str:
     for lane in report.get("lanes") or []:
         lines.append(f"  lane {lane['lane']:<3} {lane['state']:<9} returned {lane['pieces_returned']}  "
                      f"${float(lane.get('cost_usd') or 0):.4f}  {lane['title']}")
+        lines += [f"      {e}" for e in lane.get("evidence") or []]  # 3.1.8.0 R3: what the lane's work shows
     if replan_line(report):
         lines.append(f"  {replan_line(report)}")
     lines.append("  checks:")

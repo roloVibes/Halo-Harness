@@ -309,6 +309,15 @@ your default model. The shipped `auto-*` bios are the `auto` lineup's pool;
 [ROLES.md](ROLES.md#the-auto-lineup-halo-3190) has the lineup, the band rules
 and two worked picks.
 
+Halo 3.1.8.0 R3: `models.preference: measured` is picked at spawn the same
+way, with one rule first: among the candidates that carry the needs, the
+model with the best measured first-time success here for the bio's kind
+(from 3 checked tasks, `halo models --measured`) wins; with nothing measured
+for that kind it is the `auto` pick, and the reason says which
+([ROLES.md](ROLES.md#measured-a-bio-that-routes-by-what-succeeded-halo-3180),
+[OUTCOMES.md](OUTCOMES.md)). A bio's `kind` is also the task kind its
+outcomes are recorded under (coder -> code, researcher -> research, ...).
+
 ## Team template ("lineup") fields
 
 The short form -- `roles:` is SUGAR, expanding to one `agents:` entry per

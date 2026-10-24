@@ -155,6 +155,24 @@ row, or `halo roles off`) runs no lineup at all. To keep the pool but steer
 it, copy it (`halo teams new mine --from auto`) and edit a card's model, a
 bio's `models.needs` or `budget.band`.
 
+### `measured`: a bio that routes by what succeeded (Halo 3.1.8.0)
+
+`models.preference: measured` is `auto` with one rule first
+(`halo_harness/outcomes/routing.py`, [OUTCOMES.md](OUTCOMES.md#route-by-it)):
+among the candidates that carry the task's needs, the models measured here
+for the bio's kind (code, research, check, writing, plan, review, media) from
+3 checked tasks are ranked by their first-time success rate
+(`halo models --measured`); a tie goes by the lineup's `budget.band` rule.
+With nothing measured for that kind yet the pick is the `auto` pick, and the
+reason says so ("nothing measured for code yet, so the auto pick: ...");
+once it used the numbers, the reason ends with them ("(measured 4/5 code)"),
+on the card's pill and in the Live tab. It sits where `auto` sits in the
+order (after a call's own `model`, a `--role` override, an agent file's
+`model:` and a tier's model); the card's model source reads `measured`, and
+`halo teams show` says "model picked at spawn (by measured success at its
+kind, else as auto; ...)". The shipped `auto` lineup's bios stay `auto`:
+copy one and set `measured` to route by your own results.
+
 ## Roles on/off is one switch (Halo 2.0.5 round 2b)
 
 `roles.enabled` (default **on**) is the ONE switch, everywhere: `halo

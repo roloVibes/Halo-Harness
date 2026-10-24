@@ -57,7 +57,7 @@ def _known(row: dict) -> bool:
 
 def best_at_line(row: dict, preflight: Optional[dict] = None, *, scores: Optional[dict] = None) -> str:
     from halo_harness.capabilities import capability_profile
-    from halo_harness.capabilities_facts import _ctx, _ctx_words, _price, is_local, preflight_for, tools_state
+    from halo_harness.capabilities_facts import _ctx, _ctx_words, _price, is_local, measured, preflight_for, tools_state
     from halo_harness.capabilities_strengths import blended_price, gym_entry
     if not _known(row):
         return "unknown: no catalog data"
@@ -108,6 +108,10 @@ def best_at_line(row: dict, preflight: Optional[dict] = None, *, scores: Optiona
     g = gym_entry(row)
     if g and isinstance(g.get("score"), (int, float)):
         pos.append(f"gym {float(g['score']):.2f}")
+    from halo_harness.outcomes.measured import row_words  # 3.1.8.0 R3: "measured: code 4/5" from 3 checked tasks
+    done = row_words(measured(row).get("outcomes"))
+    if done:
+        pos.append(f"measured: {done}")
     pf = preflight_for(row, preflight)
     if pf.get("vision") is False:
         neg.append("failed the image canary")
