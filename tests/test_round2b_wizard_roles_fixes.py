@@ -78,6 +78,15 @@ def _static_text(widget) -> str:
     return str(widget.renderable) if hasattr(widget, "renderable") else str(widget.render())
 
 
+async def _settled(pilot, ready, timeout: float = 3.0) -> None:
+    """Pause until `ready()` (the preview repainted after a highlight moved) or `timeout`: the Windows runner
+    took longer than a fixed 0.1 s once (the v3.1.9.0 tag run); the check after it still says what was seen."""
+    import time as _t
+    end = _t.monotonic() + timeout
+    while not ready() and _t.monotonic() < end:
+        await pilot.pause(0.1)
+
+
 def run(coro) -> None:
     asyncio.run(coro)
 
@@ -462,15 +471,15 @@ def test_roles_step_one_model_row_shows_one_sentence_and_a_lineup_shows_its_tree
                           " -> " in _static_text(preview) and "picked at spawn" in _static_text(preview))
                 lst = step.query_one("#wiz-team-lineups-list", OptionList)
                 lst.highlighted = 0
-                await pilot.pause(0.1)
+                await _settled(pilot, lambda: "Halo uses" in _static_text(preview))
                 ctx.check(f"the first row previews the one sentence at {w}x{h}, got {_static_text(preview)!r}",
                           "Halo uses" in _static_text(preview) and "sub-agents" in _static_text(preview))
                 lst.highlighted = 1
-                await pilot.pause(0.1)
-                ctx.check(f"another row previews a tree at {w}x{h}", " -> " in _static_text(preview))
+                await _settled(pilot, lambda: " -> " in _static_text(preview))
+                ctx.check(f"another row previews a tree at {w}x{h}, got {_static_text(preview)!r}", " -> " in _static_text(preview))
                 lst.highlighted = 0
-                await pilot.pause(0.1)
-                ctx.check(f"back on the first row, the sentence again at {w}x{h}",
+                await _settled(pilot, lambda: "Halo uses" in _static_text(preview))
+                ctx.check(f"back on the first row, the sentence again at {w}x{h}, got {_static_text(preview)!r}",
                           "Halo uses" in _static_text(preview))
     for size in SIZES:
         run(body(*size))
