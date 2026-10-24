@@ -434,6 +434,17 @@ The catalog is cached at `~/.halo/fleet/capabilities.json` and gathered
 afresh when it is older than an hour, after `halo mcp add` / `remove`, and
 on `halo fleet capabilities --refresh` (or Studio's Refresh).
 
+**Packs** (3.2.0.0 R4). A `packs` section lists what the packs that run here
+bring to the fleet (`contributes.fleet`, [PACKS.md](PACKS.md#in-the-fleet)):
+`[{id, name, version, capabilities: [{name, description, available, why,
+checks, requires, capacity}], inspector: [{label, source}], metadata}]`, each
+capability checked on this host against the rest of the catalog (tools,
+runtimes, platform, GPU and RAM, models by tag, the pack's grants, where the
+data is). The summary and the chips count the available ones (`+1 pack
+cap`), `who` ranks them (one not available here at half, with why), and the
+catalog is gathered afresh on every pack change. A disabled pack adds
+nothing; with no pack the section is empty and nothing else changes.
+
 ### What never leaves the machine
 
 No full local path: projects are folder names and repo names, and every

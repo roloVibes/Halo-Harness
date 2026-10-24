@@ -200,6 +200,12 @@ def run(handle, msg: dict, pol: dict, interim: Optional[Callable] = None) -> dic
         if cmd == "note":  # 3.0.5.0 R4: a message from Fleet's People panel: the owner reads it, nothing runs
             from halo_harness.remote.protocol import _message
             return {"state": "done", "result": _message(handle, {"text": fields.get("text"), "by": by})}
+        if cmd == "run_task":  # 3.2.0.0 R4: a part whose pack does not run here is refused before anyone is asked
+            from halo_harness.fleet.mission_worker import TaskError, pack_check
+            try:
+                pack_check(fields, cwd=getattr(handle, "cwd", None), home=identity.home())
+            except TaskError as e:
+                raise Refused(str(e)) from None
         if level == "ask":
             if getattr(handle, "controller", None) is None:
                 raise Refused(f"{me}'s {getattr(handle, 'kind', 'print')} session has no one to ask, so a hub's "

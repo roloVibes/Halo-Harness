@@ -88,6 +88,7 @@ class Dispatch:
                 "base": base or repo.get("base"),
                 "take": part.get("take") or "outputs", "handoffs": dep_paths(plan or {}, part),
                 "branch": f"mission/{doc['id']}/{part['id']}", "budget_usd": round(budget, 4) if budget else None,
+                "needs": list(part.get("needs") or []),  # 3.2.0.0 R4: the worker checks its pack needs again
                 "mirror": {"mode": "shared" if doc.get("shared") else "hub"}}
 
     def start(self, doc: dict, part: dict, plan: Optional[dict] = None, base: Optional[str] = None) -> dict:

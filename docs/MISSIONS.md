@@ -77,6 +77,19 @@ asks once more with the problems listed) and then applies the rules:
   breaks the tie, then the load, then the name.
 - **Unassignable.** A part that needs something nobody has is flagged with the
   reason; the mission cannot be approved until it is reassigned or dropped.
+- **Pack capabilities** (3.2.0.0 R4). A need may be a pack's fleet capability
+  (`docs.review`, or `pack:docs.review`): each harness's block lists its
+  packs' capabilities (`pack caps: docs.review (pack doc-review, 2 at once)`),
+  "what only one harness has" includes them, and only a harness where the
+  capability is available (its pack runs with the grants) meets the need
+  (`only bob@member has pack doc-review: docs.review`). The plan keeps it in
+  the part's `pack_needs`; Studio shows the pack and the harness in the needs
+  cell, and the selected part's pack inspector lines. The worker checks again
+  before the part runs (and before its owner is asked): a pack disabled
+  there, or a grant missing, refuses the part with one line ("this harness
+  does not run pack doc-review with bash"), which fails it as an offline
+  harness would; the parts that wait for it are skipped. A mission started
+  with a pack's lineup carries the pack's `mission.metadata`.
 - **Kinds.** A `repo` part changes the hub's repo (the folder the mission was
   made in) on its own branch; a `files` part works in `artifacts/<n>/` of the
   mission folder, which is then its claim.

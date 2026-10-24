@@ -3,6 +3,8 @@ forms (Halo 3.0.6.0 "Fleet Missions" round R6):
 
     summary(cat)              the one line a relay's announce carries: counts + tags
     chips(cat, n=3)           the map's chips on a harness box: tags first, then the GPU, the OS, craft apps
+                              (3.2.0.0 R4: "+2 pack caps" after the tags when packs bring capabilities here)
+    pack_caps(cat)            [(pack id, capability entry)] every pack capability, available or not
     spec_lines(cat, tools=)   `halo fleet capabilities`' spec sheet, one harness
     tool_count(cat)           every MCP tool listed
 """
@@ -15,6 +17,16 @@ from typing import Optional
 
 _GPU = re.compile(r"\b([A-Z]{0,2}\d{3,4}(?:\s?Ti)?)\b")
 GENERIC_OS = ("linux", "windows", "darwin", "")
+
+
+def pack_caps(cat: dict) -> list:
+    return [(str(p.get("id")), c) for p in cat.get("packs") or [] if isinstance(p, dict)
+            for c in p.get("capabilities") or [] if isinstance(c, dict)]
+
+
+def pack_word(cat: dict) -> str:
+    n = sum(1 for _p, c in pack_caps(cat) if c.get("available"))
+    return f"+{n} pack cap{'s' if n != 1 else ''}" if n else ""
 
 
 def tool_count(cat: dict) -> int:
@@ -46,6 +58,8 @@ def summary(cat: dict) -> str:
     crafts = cat.get("craft_apps") or []
     if crafts:
         parts.append(f"{len(crafts)} craft app{'s' if len(crafts) != 1 else ''}")
+    if pack_word(cat):
+        parts.append(pack_word(cat))
     hw = cat.get("hardware") or {}
     gpus = _gpu_words(hw)
     if gpus:
@@ -61,7 +75,7 @@ def chips(cat: dict, n: int = 3) -> list:
     if not cat:
         return []
     hw = cat.get("hardware") or {}
-    cand = list(cat.get("tags") or [])
+    cand = list(cat.get("tags") or []) + ([pack_word(cat)] if pack_word(cat) else [])
     cand += [gpu_short(g.get("name")) for g in hw.get("gpu") or []]
     distro = str(hw.get("distro") or "").lower()
     if distro and distro not in GENERIC_OS:
@@ -133,6 +147,9 @@ def spec_lines(cat: dict, *, tools: bool = False, name: Optional[str] = None, no
              ("roles", _join(sorted({f"{r.get('lineup')}: {r.get('role')}={r.get('bio')}" for r in cat.get("roles") or []}), n=10)),
              ("connects", ", ".join(f"{k} {'on' if v else 'off'}" for k, v in (cat.get("integrations") or {}).items()) or "none"),
              ("tags", _join(cat.get("tags") or []))]
+    if pack_caps(cat):  # 3.2.0.0 R4
+        rows.insert(-2, ("packs", _join([f"{pid}: {c.get('name')}" + ("" if c.get("available") else
+                                         f" (not here: {c.get('why')})") for pid, c in pack_caps(cat)], n=12)))
     out += [f"  {k:<10} {v}" for k, v in rows]
     if tools:
         for s in servers:

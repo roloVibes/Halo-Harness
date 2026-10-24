@@ -31,6 +31,37 @@
         "links": {"type": "array", "items": {"$ref": "#/$defs/link"}}
       }
     },
+    "capability": {
+      "type": "object", "additionalProperties": false, "required": ["name"],
+      "description": "A worker capability the pack brings (3.2.0.0 R4): its name is one of the top-level capabilities; requires says what this host needs for it to be available.",
+      "properties": {
+        "name": {"type": "string", "pattern": "^[a-z][a-z0-9._-]*$"},
+        "description": {"type": "string", "description": "a sentence; no path, no secret, no environment reference"},
+        "requires": {"type": "object", "additionalProperties": false, "properties": {
+          "tools": {"$ref": "#/$defs/names", "description": "CLIs on PATH, MCP servers or craft apps"},
+          "runtimes": {"$ref": "#/$defs/names", "description": "python, node, java ..."},
+          "platform": {"$ref": "#/$defs/names", "description": "linux, windows, darwin or a distro"},
+          "hardware": {"type": "object", "additionalProperties": false,
+                       "properties": {"gpu": {"type": ["boolean", "string"]}, "ram_gb": {"type": "number", "minimum": 0}}},
+          "models": {"$ref": "#/$defs/names", "description": "a model ref or a capability tag (long-context, vision, tools ...)"},
+          "grants": {"$ref": "#/$defs/names", "description": "permissions of the pack this capability needs granted"},
+          "locality": {"type": "array", "items": {"type": "string", "pattern": "^(repo|repo:.+|shared|pack-data)$"}}}},
+        "capacity": {"type": "object", "additionalProperties": false,
+                     "properties": {"parallel": {"type": "integer", "minimum": 1}}}
+      }
+    },
+    "fleet": {
+      "type": "object", "additionalProperties": false,
+      "description": "What the pack brings to the fleet (3.2.0.0 R4): worker capabilities in the capabilities catalog, mission inspector lines, mission metadata.",
+      "properties": {
+        "capabilities": {"type": "array", "items": {"$ref": "#/$defs/capability"}},
+        "inspector": {"type": "array", "items": {
+          "type": "object", "additionalProperties": false, "required": ["label", "source"],
+          "properties": {"label": {"type": "string"}, "source": {"type": "string", "description": "a markdown or JSON file under the pack"}}}},
+        "mission": {"type": "object", "additionalProperties": false,
+                    "properties": {"metadata": {"type": "object", "description": "what a mission started by this pack's lineup carries"}}}
+      }
+    },
     "studio": {
       "type": "object", "additionalProperties": false,
       "description": "What the pack adds to Studio (3.2.0.0 R3): its own sections after Orchestra, panels in a core section, palette actions, a config form, its event lines and attention rows.",
@@ -90,7 +121,7 @@
         "mcp": {"type": "array", "items": {"type": "object", "required": ["name"],
                                            "properties": {"name": {"type": "string"}, "description": {"type": "string"}}}},
         "studio": {"$ref": "#/$defs/studio"},
-        "fleet": {"type": "object", "description": "planned (3.2.0.0 R4)"},
+        "fleet": {"$ref": "#/$defs/fleet"},
         "artifacts": {"type": "array", "description": "planned (3.2.0.0 R5)"},
         "events": {"type": "array", "items": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]*$"}},
         "workflows": {"type": "array", "items": {"type": "string"}, "description": "workflow names a lineup's workflows may use (3.2.0.0 R2); R5 runs them"}

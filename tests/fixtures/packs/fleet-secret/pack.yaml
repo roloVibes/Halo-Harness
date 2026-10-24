@@ -1,0 +1,14 @@
+# A failure fixture (3.2.0.0 R4): an advertisement that would carry a token
+# (a fake one, tests/privacy_scan_allowlist.txt) and an environment reference.
+id: fleet-secret
+name: Secret in an advertisement
+version: 0.1.0
+halo_api: {min: "1.0"}
+capabilities: [sync.push]
+contributes:
+  fleet:
+    capabilities:
+      - name: sync.push
+        description: Pushes with ghp_abcdefghijklmnopqrstuvwxyz0123456789
+        requires:
+          tools: [$HOME/bin/sync]
