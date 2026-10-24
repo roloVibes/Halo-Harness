@@ -61,6 +61,25 @@ Focus: packs -- "one harness, one Studio, multiple independently maintained capa
 
 - A pack's `pack_event` frames showed nowhere in Studio; they now render in Session's Live column and Fleet's Activity, with the pack's line or a generic one.
 
+### R4: Fleet capabilities from packs
+
+#### Added
+
+- A pack brings worker capabilities to the fleet: `contributes.fleet.capabilities` (a name from its `capabilities:` list, a description, what it requires of a host: tools, runtimes, platform, a GPU or RAM, a model by tag, the grants it needs, where its data must be, and how many parts it takes at once). Each one shows in the harness's capabilities catalog, available there or not and why (`halo fleet capabilities`, Studio's Capabilities card, `halo fleet who`).
+- A mission part may name a pack capability in its needs: the lead sees each harness's pack capabilities and the ones only one harness has, and the part goes only to a harness where its pack runs with the grants; Studio's plan says "docs.review · pack doc-review on <harness>", and the selected part (and its agent in the Agent panel) shows the pack's own inspector lines.
+- A mission started with a pack's lineup carries the pack's `mission.metadata` (MISSION.md, the Mission panel's head).
+- `halo pack inspect` lists what a pack adds to Studio and to the fleet in one "contributes:" block (each fleet capability available here or not and why); `halo pack doctor` has a row for each capability not available here.
+
+#### Changed
+
+- The harness that gets a mission part checks its own packs again before the part runs, and before its owner is asked: a part whose pack is disabled there, or lacks a grant the capability requires, is refused with one line ("this harness does not run pack doc-review with bash"), and the mission goes on as it does when a harness drops out.
+- A pack's `contributes.fleet` is checked with the manifest: a token, an environment reference (`$VAR`, `%VAR%`) or a path in a description is refused with its pack.yaml line, and every other path in an advertisement is cut to its last part before it leaves the machine; a name not in `capabilities:`, an unknown requires key, a grant the pack does not request and the rest are one line each.
+- The doc-review fixture pack gains a docs.review fleet capability, an inspector line and mission metadata; new fixtures fleet-secret, fleet-unknown-name, fleet-needs-gpu.
+
+#### Fixed
+
+- A pack's `contributes.fleet` was stored and never read; the capabilities catalog is now also gathered afresh when Studio sees a pack change made in another terminal.
+
 ## [3.1.9.0] - unreleased
 
 Focus: Auto -- the main agent knows what each model is good at and builds the orchestration itself (the owner, 2026-10-21: "an auto role template ... whatever agent is main should know which model is the best from cost, intelligence, what they are best at").
