@@ -4,6 +4,66 @@ This folder carries the whole plan so a new session (local or cloud) can
 pick the work up without the conversation that produced it. Read this file
 first, then `WORKER-RULES.md`, then the round you are starting.
 
+## WHERE THINGS STAND -- 2026-10-24 (authoritative, read this first)
+
+**3.1.8.0 "The supervisor" and 3.1.9.0 "Auto" ARE RELEASED** (tags v3.1.8.0 at
+bd9b607 and v3.1.9.0 at bb58828, each cut by `scripts/release.py X
+--skip-windows` on a green Linux push run and a green dispatched Windows run
+for its candidate), and **3.2.0.0 "Packs" is at its release candidate (R1-R7 merged; `scripts/release.py 3.2.0.0 --skip-windows` runs when the candidate's two runs are green)**. Fifteen Opus
+worker rounds across the three versions ran in parallel worktrees
+(`~/hh-318`, `~/hh-319`, `~/hh-320`; briefs, hand-backs and CI logs under each
+`briefs/` folder); the coordinator merged each round onto master with a
+scratch resolver, ran its covering modules, pushed, and gated every push on
+both runners.
+
+- 3.1.8.0 "The supervisor" (from the outside review of 2026-10-20, items
+  1-4): R1 the supervisor (`halo supervise`, the goal queue, schedules kept
+  armed, checkpoint resume, budgets as stops, parked decisions in Attention);
+  R2 replanning while it runs; R3 verified outcomes (`halo outcomes`,
+  evidence per lane, measured routing); R4 knowledge that outlives a session
+  (`halo knowledge`, findings and decisions written where the knowing
+  happens, recall over them and your own notes, citing, over the fleet);
+  R5 opt-in isolation (`halo isolation`, `halo secrets`); R6 Studio keeps up
+  with the terminal.
+- 3.1.9.0 "Auto" (rolo, 2026-10-21 ~02:20): R1 what each model is good at
+  (`halo models analyze`, the roster block); R2 the Auto lineup (the default
+  when no `team:` is set; the model picked at spawn for what the task needs,
+  with the reason shown); R3 Auto learns (the pick weighs measured success,
+  the roster drops a failing model, `halo outcomes learned` / `forget`).
+- 3.2.0.0 "Packs" (the ten-phase program pasted 2026-10-21 ~01:20): R1 the
+  contract, the manifest, the registry, the lifecycle (`halo pack`,
+  docs/EXTENSION_API.md); R2 roles and lineups from packs; R3 Studio
+  contributions; R4 Fleet capabilities from packs; R5 workflows and artifacts
+  (compiled onto Orchestra, never a second engine); R6 the Pack Manager
+  (Studio's seventh section) and the shipped Documentation Review reference
+  pack; R7 compatibility hardening (the version policy enforced, migrations
+  shown and applied, update staged and rolled back, every failure mode
+  pinned, the contract final). plans/PACKS-PROGRESS.md is closed; the open
+  points are the roadmap's "After 3.2.0.0" list.
+
+What CI taught this run (all fixed on master, each with a test): a steer
+during a silent call killed the child on Linux (providers/stream.py); the
+scheduler's stop never joined its tick thread and a fire in flight
+re-persisted entries after disarm (agents_schedule.py); the knowledge round's
+two agent tools were missing from the isolation round's capability table
+(both rounds were built off the same base); two Orchestra workers building
+their briefs at once raced on the recall index file and, on Windows, the
+loser's replace was denied and its brief lost the knowledge block
+(recall.py: one build at a time per process, a retrying replace); every
+`cdp.wait` in a Chrome driver raises on timeout, so a fallback must catch
+TimeoutError; a dispatched suites run must be given the full 40-character
+sha (a short one is fetched as a branch and checkout fails).
+
+The local install: `release.py` skipped the reinstall because the owner's
+halo was running; once it is closed (`/quit`, never kill):
+`uv tool install --reinstall git+https://github.com/roloVibes/Halo-Harness@v3.1.9.0`
+then `uv tool list`. On Kali: `halo update`. Hand step still open: upload
+docs/media/social-preview.png under Settings -> Social preview.
+
+**Next:** nothing is queued on the roadmap after 3.2.0.0 beyond its "After
+3.2.0.0" list (16 open points, one line each) and the owner's live checks of
+the supervisor, Auto and the Pack Manager on Kali.
+
 ## WHERE THINGS STAND -- 2026-10-20 ~2026-10-21 ~10:05 CDT (authoritative, read this first)
 
 **3.1.7.0 "Session: the insight and the steer" IS RELEASED** (tag v3.1.7.0
