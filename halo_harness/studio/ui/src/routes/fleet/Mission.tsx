@@ -56,6 +56,7 @@ function Head() {
       <div className="fmi-head-sub mono muted">
         {m.id} · hub {m.hub?.name || "-"}{m.repo ? ` · repo ${m.repo.name}${m.repo.branch ? " · " + m.repo.branch : ""}` : " · no repo"}
         {m.constraints ? ` · ${short(m.constraints, 60)}` : ""}
+        {m.lineup ? <> · lineup <span data-testid="fleet-mission-lineup">{m.lineup}</span></> : null}
       </div>
       <MissionMeta />
     </header>

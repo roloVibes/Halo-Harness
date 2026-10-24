@@ -195,7 +195,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         body = cand.read_bytes()
         if cand.name == "index.html":  # 3.1.4.0 R2: the page learns this harness's newest live session first
             from halo_harness.studio.session_open import boot_html
-            body = boot_html(body)
+            body = boot_html(body, cwd=self.server.cwd, state_dir=self.server.state_dir)  # 3.2.1.0 R1: + the pack sections
         self._send(200, body, ctype, {"Content-Security-Policy": SHELL_CSP})
 
     def _design_file(self) -> None:

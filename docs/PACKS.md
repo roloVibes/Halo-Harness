@@ -54,7 +54,13 @@ pack's bio says that yours usually does not:
   does, it runs on your `default` model and `halo pack doctor`, `halo pack
   inspect` and the card in Studio say "no model in the catalog has
   <tags>". The tags: `long-context` (200k tokens or more), `vision`,
-  `audio`, `video`, `files`, `image-out`, `tools`, `local`.
+  `audio`, `video`, `files`, `image-out`, `tools`, `local`, and (3.2.1.0
+  R1, from the catalog rows 3.1.9.0 enriched) `reasoning` (the row's
+  reasoning kind is `native` or `openai`, not `none`), `open-weights` (the
+  row says `open_weights: true`) and `audio-out` (`audio` among the row's
+  output modalities). `local` is the row's own `local` when it states one
+  (a Hugging Face router row is remote); only a row without the key is
+  local by its provider (Ollama, Hugging Face).
 - No provider: `models.provider`, or a `models.preference` /
   `models.fallback` with a route prefix (`or:`, `ant:`, `dbx:` ...), a
   `vendor/model` path or a Databricks endpoint name, is a manifest problem
@@ -114,7 +120,9 @@ Two keys more:
   `expect`) and the Orchestra defaults a run on this lineup starts with:
   `test` (the command the gate runs) and `review: true` (pause after the split
   for the plan's review). `halo orchestra new --lineup doc-review--review`
-  takes them when you give no `--test`; what you type wins.
+  takes them when you give no `--test`; what you type wins. 3.2.1.0 R1: so do
+  `halo goal add --lineup` ([SUPERVISE.md](SUPERVISE.md)) and Studio's
+  Orchestra goal form (it says "test from the lineup: <command>").
 
 ```yaml
 # teams/review.yaml -> the lineup doc-review--review
@@ -220,7 +228,9 @@ grants it needs, where its data must be). Once the pack runs here:
   doc-review with bash", and the mission goes on as it does when a harness
   drops out.
 - **Mission metadata**: a mission started with the pack's lineup (the active
-  one, or `lineup:` in the request) carries the pack's `mission.metadata`.
+  one, or `lineup:` in the request: `halo fleet mission new --lineup
+  doc-review--review`, the Mission panel's Lineup select, 3.2.1.0 R1)
+  carries the pack's `mission.metadata`, and the mission says the lineup.
 
 What a pack advertises never holds a secret, an environment reference or a
 path: the manifest refuses the first two (and a path in a description), and
@@ -265,7 +275,12 @@ schemas in its "contributes:" block.
   way a repo's own lineup does in a folder you have not trusted. A repo's
   pack with the same id as one of yours is the one used (doctor says so).
 - `~/.halo/packs/state.json`: which packs are installed, from where, enabled
-  or not and what you granted (private, 0600). A pack is enabled for the
+  or not and what you granted (private, 0600). What Halo reads of the packs
+  is kept until a pack.yaml, a `*.yaml` / `*.md` in a pack's `agents/`,
+  `teams/` or `workflows/`, or state.json changes (3.2.1.0 R1): an edit you
+  make by hand inside an installed pack's bios shows at the next lookup
+  (a bio that now names a provider takes the pack out, and `halo pack
+  doctor` names the line). A pack is enabled for the
   folder you enabled it in, so a same-id pack in another repo stays off.
 - `~/.halo/packs/journal.jsonl`: every file an install, update, rollback or
   remove wrote or deleted, with its hash: how Halo knows which files are the

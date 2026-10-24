@@ -87,6 +87,17 @@ the tab strip and a PACKS group in the rail; and panels in the core
 sections, palette lines and feed lines ([PACKS.md](PACKS.md#in-studio)).
 They go the moment you disable it.
 
+**After a reload (3.2.1.0 R1)** the pack section you were on is the first
+paint, not the core section it used to fall back to while the packs
+registry loaded. The served page names the running packs' own sections up
+front (`<html data-pack-sections="[{id, pack, title}, ...]">`,
+`studio/session_open.py` `boot_html`, only when a pack with sections runs),
+so the section saved for this browser (`halo.studio.section`, an id with
+`--`) opens at once with its tab, its title and one line, "loading the
+pack's section", until `GET pack/registry` brings its panels. A pack that
+is gone by then (disabled, removed) takes you to the first tab, as before;
+`?mode=` still wins.
+
 ### The routes
 
 The section reads and acts through `/api/pack/...`

@@ -70,7 +70,10 @@ halo goal rm g-ab12          # drop a goal (not one that runs)
 - `--budget USD`: the goal's spend cap -- a stop, not a warning (see
   [SUPERVISE.md](SUPERVISE.md#budgets-are-stops) and
   [ORCHESTRA.md](ORCHESTRA.md#budgets-stop)).
-- `--lineup NAME`: the lineup (team template) that plays the parts.
+- `--lineup NAME`: the lineup (team template) that plays the parts. 3.2.1.0
+  R1: an Orchestra goal takes its `acceptance` (an empty `--test` gets the
+  lineup's test, `review: true` the plan review) and `halo goal add` prints
+  the lines saying what it took ([SUPERVISE.md](SUPERVISE.md#the-goal-queue)).
 - `--as orchestra|job`: run it as an Orchestra run (several agents on one set
   of files, the default) or a plain background `halo -p` job.
 - `--file F`: a file the workers share, relative to the repo root (repeatable,

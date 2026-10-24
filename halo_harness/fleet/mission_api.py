@@ -88,6 +88,11 @@ def create(ctx: Ctx, body: dict) -> "tuple[int, dict]":
         budget = float(body["budget_usd"]) if body.get("budget_usd") not in (None, "") else None
     except (TypeError, ValueError):
         return 422, {"error": "budget_usd is a number of dollars", "problems": ["budget_usd"]}
+    lineup = body.get("lineup").strip() if isinstance(body.get("lineup"), str) else ""
+    if lineup:  # 3.2.1.0 R1: a named lineup is one `halo teams list` lists here
+        from halo_harness.teams_yaml import find_team_template_path
+        if find_team_template_path(lineup, cwd=ctx.cwd, state_dir=ctx.home) is None:
+            return 422, {"error": f"no lineup named {lineup!r} here (halo teams list names them)", "problems": ["lineup"]}
     repo, root = None, None
     if body.get("repo", True) is not False and ctx.cwd is not None:
         from halo_harness.remote import fleet_identity as FI
@@ -100,7 +105,9 @@ def create(ctx: Ctx, body: dict) -> "tuple[int, dict]":
     doc = M.new_doc(mid=mid, goal=goal, constraints=str(body.get("constraints") or "").strip(), prefer=M.names(body.get("prefer")),
                     budget_usd=budget, test=str(body.get("test") or "").strip(), hub=ctx.hub_info(), repo=repo,
                     shared=M.shared_dir(ctx.home) is not None, by=ctx.by)
-    doc.update(pack_mission(body.get("lineup"), cwd=ctx.cwd, state_dir=ctx.home))  # 3.2.0.0 R4: a pack lineup's metadata
+    if lineup:  # 3.2.1.0 R1: the lineup the request names (Studio's Mission form, `halo fleet mission new --lineup`)
+        doc["lineup"] = lineup
+    doc.update(pack_mission(lineup or None, cwd=ctx.cwd, state_dir=ctx.home))  # 3.2.0.0 R4: a pack lineup's metadata
     S.create(ctx.home, doc)
     if root:
         S.set_local(ctx.home, mid, repo_root=str(root))

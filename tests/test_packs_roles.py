@@ -64,6 +64,30 @@ def test_a_pack_bio_runs_on_the_best_catalog_model_with_its_tags(ctx: Ctx):
 
 
 @test
+def test_the_enriched_row_tags(ctx: Ctx):
+    """3.2.1.0 R1: reasoning, open-weights and audio-out from 3.1.9.0 R1's row keys; `local` from the row when it says."""
+    from halo_harness.packs import bio_models as BM
+    full = {"ref": "or:vendor/thinker", "provider": "openrouter", "reasoning": {"kind": "native", "efforts": ["low", "high"]},
+            "open_weights": True, "modalities_in": ["text", "audio"], "modalities_out": ["text", "audio"], "tools": True}
+    got = BM.row_tags(full)
+    ctx.check(f"a row stating them all, got {sorted(got)}", {"reasoning", "open-weights", "audio-out", "audio", "tools"} <= got)
+    plain = {"ref": "or:vendor/plain", "provider": "openrouter", "reasoning": {"kind": "none"}, "open_weights": False,
+             "modalities_out": ["text"], "local": False}
+    ctx.check(f"kind none, open_weights false, text out: none of the three, got {BM.row_tags(plain)}",
+              not {"reasoning", "open-weights", "audio-out"} & BM.row_tags(plain))
+    ctx.check("an unknown reasoning (None) or open_weights (None) is not a tag",
+              not {"reasoning", "open-weights"} & BM.row_tags({"ref": "x", "reasoning": None, "open_weights": None}))
+    router = {"ref": "hf:org/model", "provider": "huggingface", "local": False}
+    ctx.check("an HF router row that says local: False is remote", "local" not in BM.row_tags(router))
+    ctx.check("a row with local: True is local", "local" in BM.row_tags({"ref": "x", "provider": "openrouter", "local": True}))
+    ctx.check("a row without the key: the provider decides (ollama)", "local" in BM.row_tags({"ref": "ol:m", "provider": "ollama"}))
+    ctx.check("the three are tags a bio may ask for", {"reasoning", "open-weights", "audio-out"} <= set(BM.TAGS))
+    got = BM.pick({"capabilities": ["reasoning", "open-weights"]}, rows=[plain, full])
+    ctx.check(f"a bio asking for reasoning + open-weights gets the row with both, got {got}",
+              got["ref"] == "or:vendor/thinker" and got["how"] == "capabilities")
+
+
+@test
 def test_a_pack_bio_naming_one_provider_is_a_manifest_problem_naming_the_line(ctx: Ctx):
     from halo_harness.packs.discover import read_pack
     from halo_harness.packs.install import install

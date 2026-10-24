@@ -77,6 +77,7 @@ export type MissionDoc = {
   plan_cost_usd: number;
   plan_problems?: string[];
   metadata?: Record<string, unknown>; // 3.2.0.0 R4: what the pack whose lineup started it says (contributes.fleet.mission)
+  lineup?: string; // 3.2.1.0 R1: the lineup the mission was started with (the Mission form's Lineup, --lineup)
   stop_reason: string | null;
   parts: Record<string, PartRun>;
   history: { ts: number; state: string; why: string; by: string }[];

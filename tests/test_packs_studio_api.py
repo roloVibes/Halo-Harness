@@ -52,6 +52,34 @@ def test_the_registry_route(ctx: Ctx):
 
 
 @test
+def test_the_page_names_the_pack_sections_up_front(ctx: Ctx):
+    """3.2.1.0 R1: the served page carries `data-pack-sections` (the running packs' own sections, JSON), so a
+    reload paints a saved pack section first; with no pack running there is no attribute (the page as before)."""
+    import html as _html
+    import re
+    from halo_harness.studio.session_open import PACK_ATTR, boot_html
+    page = b'<!doctype html><html lang="en"><body><div id="root"></div></body></html>'
+    with PackStudio() as s:
+        bare = boot_html(page, "", cwd=s.repo, state_dir=s.state).decode("utf-8")
+        ctx.check(f"no pack: no attribute, got {bare[:120]!r}", PACK_ATTR not in bare and 'data-live-session=""' in bare)
+        s.install_pack(grants=["hooks"])
+        s.install_pack("studio-bundle")
+        got = boot_html(page, "", cwd=s.repo, state_dir=s.state).decode("utf-8")
+        m = re.search(PACK_ATTR + r'="([^"]*)"', got)
+        heads = json.loads(_html.unescape(m.group(1))) if m else None
+        ctx.check(f"the two packs' sections in the registry's order, got {heads}", heads == [
+            {"id": "doc-review--docs", "pack": "doc-review", "title": "Docs review"},
+            {"id": "studio-bundle--hello", "pack": "studio-bundle", "title": "Hello"}])
+        reg = [x["id"] for p in s.call("GET", "pack/registry")[1]["packs"] for x in p["sections"]]
+        ctx.check(f"the same ids GET pack/registry has, got {reg}", heads is not None and [h["id"] for h in heads] == reg)
+        ctx.check("no state_dir given (an older caller): the attribute is left out", PACK_ATTR not in boot_html(page, "").decode("utf-8"))
+        status, raw, _h = s.raw("/", auth=False)
+        served = raw.decode("utf-8", "replace")
+        ctx.check(f"the served shell (the committed dist) carries it, got {status} {served[:160]!r}",
+                  status == 200 and PACK_ATTR in served and 'id="root"' in served)
+
+
+@test
 def test_files_inside_the_pack_only(ctx: Ctx):
     from halo_harness.studio.server import SHELL_CSP
     with PackStudio() as s:

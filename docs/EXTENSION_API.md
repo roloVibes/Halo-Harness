@@ -160,7 +160,7 @@ file and line):
 
 | Where | Key | Meaning |
 |---|---|---|
-| bio | `models.capabilities: [tag, ...]` | resolved at load to the best catalog model with every tag (`long-context`, `vision`, `audio`, `video`, `files`, `image-out`, `tools`, `local`; `halo_harness/packs/bio_models.py`); none: the user's `default` model and a doctor row. A bio of the user's may say it too. |
+| bio | `models.capabilities: [tag, ...]` | resolved at load to the best catalog model with every tag (`long-context`, `vision`, `audio`, `video`, `files`, `image-out`, `tools`, `local`, and since 3.2.1.0 `reasoning`, `open-weights`, `audio-out`; `halo_harness/packs/bio_models.py`); none: the user's `default` model and a doctor row. A bio of the user's may say it too. |
 | bio | `models.preference` | a bare family name only (`claude-sonnet`): the family the pick prefers. A route prefix (`or:` ...), a `vendor/model` path, a Databricks name, or `models.provider`, is a manifest problem. |
 | bio | `context.memory.namespace` | default the pack's id; the folder `~/.halo/packs/.data/<id>/memory/<namespace>/`; recall (`recall.search(namespace=...)`) reads it apart from the user's and every other pack's. |
 | bio | `tools.needs: [need, ...]` | `bash`, `network`, `home-write`, `hooks`, `mcp:<server>`, each requested in `permissions`; an ungranted need loads the bio and gets a doctor row naming `halo pack enable <id> --grant <need>`. |
@@ -344,7 +344,7 @@ Nothing changes for a fleet with no pack.
 | `capabilities[].requires.runtimes` | `[word]` | `python`, `node`, `java` ... found here (a version when known) |
 | `capabilities[].requires.platform` | `[word]` | this host's OS or distro is one of them (`linux`, `windows`, `darwin`, `kali` ...) |
 | `capabilities[].requires.hardware` | `{gpu: true \| false \| <a word of its name>, ram_gb: n}` | a GPU (or one whose name has the word, `4090`), at least that much RAM |
-| `capabilities[].requires.models` | `[tag or model]` | a catalog model with the tag (`long-context`, `vision`, `audio`, `video`, `files`, `image-out`, `tools`, `local`), or one by its ref or family |
+| `capabilities[].requires.models` | `[tag or model]` | a catalog model with the tag (`long-context`, `vision`, `audio`, `video`, `files`, `image-out`, `tools`, `local`, `reasoning`, `open-weights`, `audio-out`), or one by its ref or family |
 | `capabilities[].requires.grants` | `[permission]` | each one of the pack's `permissions`, granted here |
 | `capabilities[].requires.locality` | `[repo \| repo:<name> \| shared \| pack-data]` | the data is on this host: a repo checkout (that repo), the fleet's shared folder, files in the pack's data folder |
 | `capabilities[].capacity` | `{parallel: 1..64}` | how many parts with it this harness takes at once (shown to the planner) |

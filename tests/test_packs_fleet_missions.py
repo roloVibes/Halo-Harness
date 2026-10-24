@@ -222,9 +222,44 @@ def test_a_mission_started_by_the_packs_lineup_carries_its_metadata(ctx: Ctx):
             set_config_value("team", "halo-dev-cycle")
             identity.forget_cache()
             status, body = A.create(ctx_, {"goal": "No pack", "repo": False})
-            ctx.check("another lineup: no metadata key at all", "metadata" not in body["mission"])
+            ctx.check("another lineup: no metadata key at all", "metadata" not in body["mission"] and "lineup" not in body["mission"])
+            _cli_and_studio_send_the_lineup(ctx, h)
         finally:
             A.LEAD = None
+
+
+def _cli_and_studio_send_the_lineup(ctx: Ctx, h) -> None:
+    """3.2.1.0 R1: `halo fleet mission new --lineup` and Studio's POST fleet/missions carry the pack's lineup to
+    pack_mission: the mission says the lineup and carries the pack's metadata; the tables say it."""
+    import contextlib
+    import io
+    from halo_harness.fleet import identity
+    from halo_harness.fleet.cli_mission import cmd_new
+    from halo_harness.studio import fleet_mission_api as SM
+    identity.forget_cache()
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+        rc = cmd_new(["Review the docs from the CLI", "--no-repo", "--lineup", "doc-review--review", "--json"])
+    got = json.loads(out.getvalue() or "{}")
+    mission = got.get("mission") or {}
+    ctx.check(f"the CLI's --lineup reaches the mission and pack_mission, got {rc} {mission.get('lineup')} {mission.get('metadata')}",
+              rc == 0 and mission.get("lineup") == "doc-review--review" and (mission.get("metadata") or {}).get("pack") == "doc-review")
+    from halo_harness.fleet.mission_doc import plan_table, status_table
+    ctx.check("the plan and status tables say the lineup and the pack's metadata",
+              "  lineup: doc-review--review" in plan_table(mission, got.get("plan") or {}).splitlines()
+              and "  metadata: pack=doc-review, review=docs, style=short" in status_table(mission).splitlines())
+    req = SimpleNamespace(body={"goal": "Review the docs from Studio", "repo": False, "lineup": "doc-review--review"},
+                          state_dir=h.state, cwd=h.repo, server=SimpleNamespace(fleet_hub=None))
+    from halo_harness.fleet.mission_api import Ctx as MissionCtx
+    saved = SM._ctx
+    SM._ctx = lambda r: MissionCtx(r.state_dir, None, by="me", cwd=r.cwd)  # no live feed in this process
+    try:
+        status, body = SM.post_missions(req)
+    finally:
+        SM._ctx = saved
+    meta = (body.get("mission") or {}).get("metadata") or {}
+    ctx.check(f"Studio's route forwards it too, got {status} {(body.get('mission') or {}).get('lineup')} {meta}",
+              status == 200 and body["mission"].get("lineup") == "doc-review--review" and meta.get("lineup") == "doc-review--review")
 
 
 if __name__ == "__main__":

@@ -143,7 +143,7 @@ halo fleet record <sid> [--agent <aid>] [--out PATH] [--json]
 halo fleet digest [--since 2h|45m|1d|<unix seconds>|<ISO time>] [--json]
 halo fleet capabilities [name] [--refresh] [--tools] [--json]
 halo fleet who "<query>" [--json]
-halo fleet mission new "<goal>" [--prefer a,b] [--budget N] [--constraints "..."] [--test CMD] [--no-repo] [--json]
+halo fleet mission new "<goal>" [--prefer a,b] [--budget N] [--constraints "..."] [--test CMD] [--lineup NAME] [--no-repo] [--json]
 halo fleet mission plan|edit|approve|run|status|stop|report|open <id> ... [--json]
 ```
 
@@ -295,7 +295,7 @@ cost. The folder, the plan contract, claims and the shared folder:
 [MISSIONS.md](MISSIONS.md).
 
 ```sh
-halo fleet mission new "<goal>" [--prefer a,b] [--budget N] [--constraints "..."] [--test CMD] [--no-repo] [--json]
+halo fleet mission new "<goal>" [--prefer a,b] [--budget N] [--constraints "..."] [--test CMD] [--lineup NAME] [--no-repo] [--json]
 halo fleet mission plan <id> [--again] [--json]
 halo fleet mission edit <id> <part> (--harness NAME | --drop) [--json]
 halo fleet mission approve <id> [--json]
@@ -312,7 +312,10 @@ part's harness (`(pinned)` when only it has what the part needs), its
 state, why, its claims and what it waits for. `--prefer` names harnesses that
 break a tie (default `fleet.mission.prefer`), `--budget` the mission's dollars,
 `--constraints` what every part must respect, `--test` a command run on a
-judged merge, `--no-repo` no repo parts even inside a git repo (the repo is
+judged merge, `--lineup` the lineup it is started with (one `halo teams list`
+names, else `no lineup named '<name>' here`; 3.2.1.0 R1: the plan and status
+tables say `lineup: <name>`, a pack's lineup adds its mission metadata),
+`--no-repo` no repo parts even inside a git repo (the repo is
 the folder you run it in). `plan` prints the plan (`--again`: the lead plans
 it anew); `edit` gives a part to another harness (`--harness`) or drops it
 (`--drop`), checked again in code; `approve` approves; `run` approves a

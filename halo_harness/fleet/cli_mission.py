@@ -2,7 +2,7 @@
 "Fleet Missions" round R7; the dispatcher is fleet/cli.py) and the TUI's
 `/mission` (commands/builtins.py: the status table).
 
-    halo fleet mission new "<goal>" [--prefer a,b] [--budget N] [--constraints "..."] [--test CMD] [--no-repo] [--json]
+    halo fleet mission new "<goal>" [--prefer a,b] [--budget N] [--constraints "..."] [--test CMD] [--lineup NAME] [--no-repo] [--json]
     halo fleet mission plan <id> [--again] [--json]      the plan table with reasons (--again: the lead plans anew)
     halo fleet mission edit <id> <part> (--harness NAME | --drop) [--json]
     halo fleet mission approve <id> [--json]
@@ -98,12 +98,16 @@ def cmd_new(argv: list) -> int:
     p.add_argument("--budget", type=float, default=None, help="the mission's budget in dollars")
     p.add_argument("--constraints", default="", help="what every part must respect")
     p.add_argument("--test", default="", help="a test command run on the merged branch after a judged conflict")
+    p.add_argument("--lineup", default="", help="the lineup the mission is started with (halo teams list; a pack's "
+                   "lineup adds its mission metadata)")
     p.add_argument("--no-repo", action="store_true", help="no repo parts even inside a git repo")
     a, rc = C.parse(p, argv)
     if a is None:
         return rc
     fields = {"goal": a.goal, "prefer": [x for x in a.prefer.split(",") if x.strip()], "budget_usd": a.budget,
               "constraints": a.constraints, "test": a.test}
+    if a.lineup.strip():  # 3.2.1.0 R1: it rides in the mission's metadata (fleet/mission_api.py create)
+        fields["lineup"] = a.lineup.strip()
     if a.no_repo:
         fields["repo"] = False
     status, body, source = call("new", **fields)
