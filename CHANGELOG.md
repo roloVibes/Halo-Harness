@@ -12,6 +12,21 @@ version.
 
 Focus: packs, the loose ends -- the sixteen open points the Packs program left, as five rounds (the owner, after installing 3.2.0.0: "Keep going").
 
+### R1: a pack's lineup reaches the goal, the mission and the glossary
+
+#### Added
+- `halo fleet mission new --lineup NAME` and a **Lineup** select on Studio's Mission form (the lineups `halo teams` lists, the active one first): the mission records the lineup, its plan and status tables and MISSION.md say `lineup: <name>` (and a pack's metadata), Studio's mission head says it; a name no lineup folder holds is one line.
+- "pack" in the glossary: `halo explain pack`, `/explain`, Studio's Glossary, the Packs section's words.
+- Three model tags a bio (and a fleet capability's `requires.models`) may ask for: `reasoning`, `open-weights`, `audio-out`, read from the enriched catalog rows.
+
+#### Changed
+- `halo goal add --lineup` and Studio's Orchestra goal form take the lineup's acceptance the way `halo orchestra new` does (an empty test gets the lineup's, `review: true` the plan review); the lines say what was taken (`halo goal add`, the goal's history, "test from the lineup: <command>" under the form's test field). A test you give wins; a compiled workflow keeps its stages' test and plan.
+- The `local` tag reads the row's own `local` (a Hugging Face router row is remote).
+
+#### Fixed
+- An edit by hand inside an installed pack's agents/, teams/ or workflows/ shows at the next lookup (it waited for the next install, update or enable).
+- After a reload Studio paints the pack section you were on first, with a "loading the pack's section" line until its panels come, instead of the core section it fell back to.
+
 ### Also in 3.2.1.0
 
 #### Fixed
