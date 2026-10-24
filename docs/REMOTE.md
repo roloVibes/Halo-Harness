@@ -83,7 +83,7 @@ event     {"event": "permission_request", "data": {...}, "turn": 3, "agent_id": 
 | `cmd` | Fields | Result |
 |---|---|---|
 | `ping` | | `{pong, session_id}` |
-| `status` | | the status payload (phase, model, context, cost, `permission_mode`, effort), plus `session_id`, `cwd`, `title`, `busy`, `kind` (`tui` or `print`), `pid`, and `pending` (the ids of unanswered permission / question / plan / approval cards) |
+| `status` | | the status payload (phase, model, context, cost, `permission_mode`, effort), plus `session_id`, `cwd`, `title`, `busy`, `kind` (`tui` or `print`), `pid`, `accepts_turns` (a print-mode run started with `--input-format stream-json`: a `submit` queues a turn; absent on a TUI session), and `pending` (the ids of unanswered permission / question / plan / approval cards) |
 | `submit`, `steer` | `text` | `{steered}`; while a turn runs the text steers it, otherwise it starts the next turn. In `halo -p` the next turn is queued only for `--input-format stream-json` runs |
 | `interrupt` | | `{interrupted}` |
 | `answer` | `kind` = `permission`, `request_id`, `action` (`allow` / `deny`), optional `scope` (`once` / `session` / `always`), `message`, `rule` | `{resolved}`. With `allow`, `session` / `always` learn the card's suggested rule (or `rule`), as the TUI's buttons do; a `deny` learns nothing whatever its `scope` |

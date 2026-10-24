@@ -130,6 +130,8 @@ def test_halo_dash_p_serves_its_control_socket(ctx: Ctx):
         client = rclient.ControlClient(endpoint, rclient.default_token_for(entry))
         st = client.call("status")["result"]
         ctx.check("status says kind=print with this session's id", st["kind"] == "print" and st["session_id"] == entry["session_id"])
+        ctx.check(f"the run accepts turns over the socket from the moment it registers, got {st.get('accepts_turns')!r}",
+                  st.get("accepts_turns") is True)
         client.call("subscribe")
         end = time.monotonic() + 20  # the slow Linux runner once took the submit as a steer of the startup turn (ee033ec)
         while client.call("status")["result"].get("busy") and time.monotonic() < end:
