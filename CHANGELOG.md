@@ -45,6 +45,24 @@ Focus: packs, the loose ends -- the sixteen open points the Packs program left, 
 - The workflow gate's evidence reached only the record check's count. It now also reaches the verdict's evidence, which the report and the judge read.
 - A plain run's report said a workflow's `budget_usd` was "not enforced yet".
 
+### R3: the hub holds what a pack declares
+
+#### Added
+- A pack capability's `capacity.parallel` is held by the hub: a ready part whose capability already runs that many parts on its harness (in every mission the hub runs) is `waiting` ("part 3 waits: bob@member runs 2/2 of pack doc-review: docs.review", in the mission log, on the part, in `halo fleet mission status` and on the Mission panel's Running face) and starts when one ends.
+- A part a worker refuses for a pack reason ("this harness does not run pack doc-review with bash") is re-planned once onto another harness that has the capability: the plan, MISSION.md and the part's brief move it, it goes back to `pending`, and "part 1 replanned: bob@member refused (...); alice@hub has pack doc-review: docs.review" is in the log, on the part and in the report's decisions. With no such harness the log says "part 1 not replanned: no other harness has docs.review" and the part fails with the worker's line as before.
+- A pack's inspector lines carry their file's text in the capabilities catalog (the first 8 KB, paths cut, `cut` when longer), and Studio shows a member's inspector lines as it shows its own harness's.
+- `halo pack doctor` says how many of a pack's fleet capabilities `fleet.capabilities.hide` hides; `halo pack inspect` marks each one.
+
+#### Changed
+- A mission's lead reads a capacity as "docs.review (pack doc-review, 2 at a time)", with the rule that the hub holds the rest.
+- A mission part has a new state, `waiting` (the work state machine's `ready`); `halo fleet mission status` prints its line and a re-planned part's line.
+
+#### Fixed
+- `fleet.capabilities.hide` hides a pack capability (`docs.review`, or `doc-review/docs.review` for one pack's) like a built-in one: the catalog, a mission's lead, `who` and Studio no longer offer it.
+- `capacity.parallel` was shown to the planner and never held.
+- A part refused for a pack reason failed its mission even when another harness had the capability.
+- A member's pack inspector line said "its Studio reads this file" instead of showing it.
+
 ### Also in 3.2.1.0
 
 #### Fixed
