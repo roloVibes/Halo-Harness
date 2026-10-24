@@ -130,7 +130,17 @@ def fleet_map(c, rig) -> dict:
     out["stop_ack"] = c.wait("document.querySelector('.toasts')?.textContent.includes('stopping') && 'stopping'", 15)
     rig.release("a")
     out["stopped"] = wait_for(lambda: rig.agent("Implement").get("state") == "stopped" and "stopped", 30)
-    out["node_stopped"] = wait_node(c, "implementer", "n.dataset.state === 'stopped'", 60)  # a loaded runner took > 20 s
+    try:
+        out["node_stopped"] = wait_node(c, "implementer", "n.dataset.state === 'stopped'", 60)  # a loaded runner took > 20 s
+    except TimeoutError as e:
+        # the Linux runner once kept the node `running` for 60 s after the tree said stopped (5afe0cd): record what
+        # the tree, Studio's event bridge and the page hold at that moment, so the test's own check prints them
+        out["node_stopped"] = False
+        out["node_stopped_diag"] = {"error": str(e)[:200], "tree": {(a.get("task") or "")[:9]: a.get("state") for a in rig.agents()},
+                                    "bridge_listeners": rig.server.events.listeners(),
+                                    "nodes": c.js("[...document.querySelectorAll('[data-testid=\"fleet-node\"]')].map((n) => n.dataset.key.slice(-8) + ':' + n.dataset.state)"),
+                                    "detail": c.js(f"[{DETAIL}?.dataset.key, {DETAIL}?.dataset.state]"),
+                                    "feed_open": c.js("typeof window.__haloFeedState === 'string' ? window.__haloFeedState : 'n/a'")}
     c.click_on(f"[...document.querySelectorAll('[data-testid=\"fleet-rail-node\"]')].find((n) => n.dataset.kind === 'agent' && n.dataset.id === 'main' && n.closest('.fr-harness').querySelector('.fr-h').dataset.id === '{rig.member_id}')")
     c.wait(f"{DETAIL}?.dataset.key?.startsWith('{rig.member_id}')", 30)
     c.click_on("document.querySelector('[data-testid=\"fleet-steer\"]')")
