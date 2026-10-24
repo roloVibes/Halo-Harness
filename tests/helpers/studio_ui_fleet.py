@@ -47,7 +47,7 @@ def register(test, json_of, chrome) -> None:
                   got.get("steer_reached_b") is True and got.get("steer_not_a") is True)
         ctx.check(f"Stop asks first, the agent still running, got {got.get('asked')!r} / {got.get('state_while_asked')}",
                   got.get("asked") == "Stop implementer?" and got.get("state_while_asked") == "running")
-        ctx.check(f"then it stops, in the session and on the map, got {got.get('stopped')} / {got.get('node_stopped')}",
+        ctx.check(f"then it stops, in the session and on the map, got {got.get('stopped')} / {got.get('node_stopped')} diag={got.get('node_stopped_diag')!r}",
                   got.get("stop_ack") == "stopping" and got.get("stopped") == "stopped" and got.get("node_stopped") == "stopped")
         ctx.check(f"a member's agent: its tail and a steer through the hub, got {got.get('member_steer')!r}",
                   got.get("member_steer") == "answer the second question first" and "Two questions" in str(got.get("member_tail")))
