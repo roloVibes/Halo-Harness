@@ -244,14 +244,23 @@ environment reference anywhere), `packs/fleet_registry.py` (each running
 pack's capabilities, available here or not and why: the catalog's `packs`
 section; the worker's refusal line; a pack lineup's mission metadata) and
 `packs/contrib_views.py` (`halo pack inspect`'s contributes block, the doctor's
-fleet-capability rows).
+fleet-capability rows). 3.2.0.0 R5, workflows and artifacts (docs/WORKFLOWS.md):
+`packs/workflow_rules.py` and `packs/workflow_stages.py` (what a workflow file
+may say, with the manifest; its shape is `schemas/workflow_yaml.py`, its JSON
+twin `packs/schema/workflow.schema.json`), `packs/typed.py` (artifact and
+event schemas, their check and view hint), `packs/events_log.py` (each pack's
+kept events, the running check), `packs/event_triggers.py` (a bio's trigger on
+`<pack>:<kind>`), `packs/memory_meta.py` (a memory entry's provenance, sharing
+and retention), `studio/workflow_api.py` (a run's artifact and an artifact
+panel's latest); the compile itself is `halo_harness/workflows/` (spec, inputs,
+conditions, compile, bounds, pinned, runtime, gate, outputs, cli, goal).
 
 **The extension API** (`halo_harness/ext/`, API 1.0, docs/EXTENSION_API.md):
 `ext/names.py` (the name rules), `ext/yamlio.py` (`read_yaml`, `write_yaml`),
 `ext/schema.py` (`check_schema`), `ext/config.py` (`get_config`,
 `set_config`), `ext/files.py` (`pack_dir`, `data_dir`, `write_private`),
-`ext/events.py` (`publish_event`), `ext/grants.py` (`is_granted`); the
-package's `__init__` is the contract.
+`ext/events.py` (`publish_event`), `ext/grants.py` (`is_granted`),
+`ext/memory.py` (`memory.write`, 3.2.0.0 R5); the package's `__init__` is the contract.
 
 - The first ten minutes (3.1.1.0): `studio/start_api.py` (Start here: `/api/start`),
   `studio/start_job.py` (the one `halo start` Studio runs, its `start` frames),

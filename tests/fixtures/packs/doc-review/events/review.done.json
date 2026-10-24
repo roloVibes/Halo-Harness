@@ -1,0 +1,13 @@
+{
+  "title": "review.done",
+  "description": "One review finished: the file and how many findings it has.",
+  "type": "object",
+  "x-halo-view": "keyvalue",
+  "additionalProperties": false,
+  "required": ["file", "findings"],
+  "properties": {
+    "file": {"type": "string"},
+    "findings": {"type": "integer"},
+    "high": {"type": "integer"}
+  }
+}

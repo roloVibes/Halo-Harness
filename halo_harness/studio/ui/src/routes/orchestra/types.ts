@@ -83,6 +83,24 @@ export type Report = {
   goal_done_when: string;
   lanes: { lane: number; title: string; state: string; pieces_returned: number; cost_usd: number }[];
   checks: Check[];
+  /** 3.2.0.0 R5: a workflow run's typed outputs and its block (halo_harness/workflows/outputs.py). */
+  artifacts?: ArtifactRow[];
+  workflow?: { ref: string; version: string; inputs: Record<string, unknown>; bounds: { stage: string; key: string; value: unknown; enforced: boolean; how: string }[] };
+};
+
+export type ArtifactRow = {
+  name: string;
+  type: string;
+  schema: string;
+  view: string;
+  stage: string;
+  lane?: number;
+  state: "saved" | "skipped" | "missing";
+  path?: string;
+  bytes?: number;
+  ok?: boolean;
+  problems?: string[];
+  why?: string;
 };
 
 export type Conflict = { lane: number; file: string; attempt: number; judge_session: string; applied: boolean; tests_ok: boolean };

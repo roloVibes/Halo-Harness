@@ -1,0 +1,25 @@
+{
+  "title": "Review report",
+  "description": "What a review found worth fixing, one row per finding (the doc-review pack's review workflow).",
+  "type": "object",
+  "x-halo-view": "table",
+  "additionalProperties": false,
+  "required": ["summary", "findings"],
+  "properties": {
+    "summary": {"type": "string"},
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["file", "finding"],
+        "properties": {
+          "file": {"type": "string"},
+          "line": {"type": "integer"},
+          "finding": {"type": "string"},
+          "severity": {"enum": ["high", "medium", "low"]}
+        }
+      }
+    }
+  }
+}

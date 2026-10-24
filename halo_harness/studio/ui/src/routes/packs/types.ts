@@ -3,7 +3,7 @@
 // Every id is qualified `<pack id>--<id>`; titles are the pack's own words.
 import type { CoreSectionId, PackSectionId } from "../../lib/store";
 
-export type PanelKind = "markdown" | "table" | "form" | "links" | "events" | "bundle";
+export type PanelKind = "markdown" | "table" | "form" | "links" | "events" | "bundle" | "artifact"; // artifact: 3.2.0.0 R5
 export type Route = { section: string; panel?: string };
 export type PackLink = { label: string; route?: Route; url?: string };
 
@@ -27,6 +27,9 @@ export type PackPanel = {
   file?: string;
   columns?: string[];
   links?: PackLink[];
+  /** An artifact panel (3.2.0.0 R5): its schema and that schema's view hint. */
+  schema?: string;
+  view?: string;
   /** A bundle: whether you granted studio-script, and the command that does. */
   script?: "granted" | "not granted";
   grant?: string;
@@ -34,7 +37,7 @@ export type PackPanel = {
 
 export type PackSection = { id: PackSectionId; name: string; pack: string; title: string; blurb: string; help: string; panels: PackPanel[] };
 export type PaletteEntry = { id: string; label: string; group: string; action: { kind: "route" | "url" | "none"; section?: string; panel?: string; url?: string } };
-export type EventLine = { label: string; line: string };
+export type EventLine = { label: string; line: string; view?: string }; // view: the kind schema's hint (3.2.0.0 R5)
 export type AttnKind = { label: string; keys: Record<string, string> };
 
 export type PackEntry = {
@@ -55,4 +58,5 @@ export type PackEntry = {
 export type Registry = { version: number; core: string[]; packs: PackEntry[] };
 
 /** A `pack_event` frame's data (halo_harness/ext/events.py publish_event). */
-export type PackFrame = { pack: string; kind: string; data: unknown; ts: number; n: number };
+/** 3.2.0.0 R5: `problems` when the data does not match the kind's schema (published all the same). */
+export type PackFrame = { pack: string; kind: string; data: unknown; ts: number; n: number; problems?: string[] };

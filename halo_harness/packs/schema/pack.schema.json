@@ -22,8 +22,9 @@
       "properties": {
         "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_]*(-[A-Za-z0-9_]+)*$"},
         "title": {"type": "string"},
-        "kind": {"enum": ["markdown", "table", "form", "links", "events", "bundle"]},
-        "source": {"type": "string", "description": "a file under the pack (markdown, table, bundle) or data:<path> in its data folder (table)"},
+        "kind": {"enum": ["markdown", "table", "form", "links", "events", "bundle", "artifact"]},
+        "source": {"type": "string", "description": "a file under the pack (markdown, table, bundle, artifact) or data:<path> in its data folder (table, artifact); latest (artifact: the newest run's)"},
+        "schema": {"type": "string", "description": "an artifact panel's schema: one of contributes.artifacts (3.2.0.0 R5)"},
         "w": {"type": "integer", "minimum": 4, "maximum": 24},
         "h": {"type": "integer", "minimum": 8, "maximum": 200},
         "help": {"type": "string"},
@@ -122,9 +123,9 @@
                                            "properties": {"name": {"type": "string"}, "description": {"type": "string"}}}},
         "studio": {"$ref": "#/$defs/studio"},
         "fleet": {"$ref": "#/$defs/fleet"},
-        "artifacts": {"type": "array", "description": "planned (3.2.0.0 R5)"},
-        "events": {"type": "array", "items": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]*$"}},
-        "workflows": {"type": "array", "items": {"type": "string"}, "description": "workflow names a lineup's workflows may use (3.2.0.0 R2); R5 runs them"}
+        "artifacts": {"type": "array", "items": {"type": "string", "pattern": "^([A-Za-z0-9][A-Za-z0-9_-]*|artifacts/[A-Za-z0-9][A-Za-z0-9_-]*\\.json)$"}, "description": "artifact schemas: artifacts/<name>.json (3.2.0.0 R5)"},
+        "events": {"type": "array", "items": {"oneOf": [{"type": "string", "pattern": "^[a-z][a-z0-9_.-]*$"}, {"type": "object", "additionalProperties": false, "required": ["kind"], "properties": {"kind": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]*$"}, "schema": {"type": "string"}, "description": {"type": "string"}}}]}, "description": "a kind (its schema: events/<kind>.json when the pack ships it) or {kind, schema} (3.2.0.0 R5)"},
+        "workflows": {"type": "array", "items": {"type": "string"}, "description": "workflow names (3.2.0.0 R2), each workflows/<name>.yaml when the pack ships it (workflow.schema.json, 3.2.0.0 R5)"}
       }
     },
     "config": {

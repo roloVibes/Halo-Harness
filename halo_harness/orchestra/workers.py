@@ -55,7 +55,7 @@ def worker_prompt(goal, lane: Lane, retry_text: str = "") -> str:
     if goal.test:
         text += f"The run's test command is `{goal.test}` (other workers' units may still be unwritten).\n"
     text += "If STOP WHEN applies to your job, end your reply with one line: STOP: <the reason>.\n"
-    extra = [t for t in (getattr(lane, "handoff_text", ""), getattr(lane, "gives_text", "")) if t]
+    extra = [t for t in (getattr(lane, "stage_text", ""), getattr(lane, "handoff_text", ""), getattr(lane, "gives_text", "")) if t]
     if extra:  # 3.0.9.0: only a lane that declares hand-offs (orchestra/handoff.py)
         text += "\n" + "\n\n".join(extra) + "\n"
     if retry_text:
@@ -147,11 +147,13 @@ def run_lane(run_dir, goal, lane: Lane, spawn: Callable, *, clock: Callable = ti
     from halo_harness.orchestra import handoff  # 3.0.9.0: the lane's hand-offs in, its gives asked for
     lane.handoff_text = handoff.deliver(run_dir, lane)
     lane.gives_text = handoff.gives_text(run_dir, lane)
+    from halo_harness.workflows.runtime import stage  # 3.2.0.0 R5: a workflow stage's brief, `when`, budget, event
+    lane.stage_text, early = stage(run_dir, goal, lane, clock=clock)
     lane.prompt = worker_prompt(goal, lane, retry_text)
     lane.retry_text = retry_text
     lane.set_state("writing", "worker writing" + (" (piece sent back)" if retry_text else ""), clock=clock)
     try:
-        fields = _result_fields(spawn(lane))
+        fields = _result_fields(early if early is not None else spawn(lane))
     except Exception as e:  # a worker's own failure never takes the runner down
         fields = {"text": "", "cost_usd": 0.0, "session_id": None, "ok": False, "error": f"{type(e).__name__}: {e}"}
     data = lane.data()

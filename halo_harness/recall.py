@@ -216,7 +216,8 @@ def search(query: str, *, state_dir=None, k: int = 8, refresh: bool = True, name
     """Ranked `[{id, kind, title, score}]` for `query` (newest-index
     first on ties). Empty list when embeddings are disabled/unavailable.
     3.2.0.0 R2: `namespace` (`<pack>/<name>`, packs/memory.py) reads only that
-    pack bio's notes; None reads yours and leaves every pack's folder out."""
+    pack bio's notes; None reads yours and leaves every pack's folder out. 3.2.0.0 R5: a
+    namespace also reads another pack's entries whose `_meta.json` shares them with its pack."""
     if not query.strip():
         return []
     from halo_harness.providers.embeddings import cosine, embed_texts, embeddings_enabled
@@ -224,8 +225,8 @@ def search(query: str, *, state_dir=None, k: int = 8, refresh: bool = True, name
         return []
     if refresh:
         build_index(state_dir)
-    from halo_harness.packs.memory import in_namespace
-    entries = {i: e for i, e in _load_index(_index_path(state_dir)).items() if in_namespace(i, namespace, state_dir=state_dir)}
+    from halo_harness.packs.memory_meta import visible  # 3.2.0.0 R5: and what another pack shares with it
+    entries = {i: e for i, e in _load_index(_index_path(state_dir)).items() if visible(i, namespace, state_dir=state_dir)}
     if not entries:
         return []
     qvec = embed_texts([query])

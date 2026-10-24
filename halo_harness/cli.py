@@ -546,6 +546,9 @@ def _main(argv: Optional[list] = None) -> int:
     if argv and argv[0] == "pack":  # 3.2.0.0 R1: capability packs (docs/PACKS.md)
         from halo_harness.packs.cli import cmd_pack
         return cmd_pack(argv[1:])
+    if argv and argv[0] == "workflow":  # 3.2.0.0 R5: a pack's workflows, compiled to Orchestra runs (docs/WORKFLOWS.md)
+        from halo_harness.workflows.cli import cmd_workflow
+        return cmd_workflow(argv[1:])
     if argv and argv[0] == "design":
         # 3.0.1.0: Halo Design -- projects, turns, systems, exports, the handoff.
         from halo_harness.design.cli import cmd_design

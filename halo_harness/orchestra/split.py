@@ -1,10 +1,7 @@
 """halo_harness.orchestra.split -- the lead's split: one job per worker.
 
-The lead answers ONE model call (`call_model(prompt) -> str`, or
-`(str, cost_usd)`) with JSON:
-
-    {"jobs": [{"title": "...", "claims": ["basket.py#add_item", ...]}, ...]}
-
+The lead answers ONE model call (`call_model(prompt) -> str`, or `(str, cost_usd)`) with JSON
+`{"jobs": [{"title": "...", "claims": ["basket.py#add_item", ...]}, ...]}`,
 or `{"stop": "<reason>"}` when STOP WHEN already applies. Code checks the
 answer: every claim key exists in the index of the goal's files, no key (or an overlapping key)
 is in two jobs, every job has a title and at least one key, and there are at most
@@ -22,6 +19,7 @@ what it hands on, what it takes, which jobs it starts after; goal.json's
 lead's token estimate the forecast prices). A bare job is written as above,
 and one `claim` per key under the placeholder holder `lane:<n>` (a long TTL), which the lane's
 worker takes over when it joins (`ClaimLog.reassign`, the lead's code in workers.join_lane).
+3.2.0.0 R5: a goal with a `workflow` is split as its pinned plan (workflows/pinned.py).
 """
 
 from __future__ import annotations
@@ -79,7 +77,6 @@ class Job:
                    handoff=dict(data.get("handoff") or {}) if isinstance(data.get("handoff"), dict) else {},
                    after=[str(a) for a in data.get("after") or []] if isinstance(data.get("after"), list) else [],
                    bio=str(data.get("bio") or ""), model=str(data.get("model") or ""), est_tokens=est_dict(data.get("est_tokens")))
-
 
 
 def placeholder(lane: int) -> str:
@@ -198,6 +195,9 @@ def split_goal(run_dir, goal, units: list, *, call_model: Callable, base: str = 
     """Ask the lead once (retry once with the problems), validate, write
     split.json and take the placeholder claims. Returns the Jobs; raises
     StopRun with the reason when the lead stops or both answers fail."""
+    if getattr(goal, "workflow", None):  # 3.2.0.0 R5: a workflow's stages are a pinned plan (workflows/pinned.py)
+        from halo_harness.workflows.pinned import split_pinned
+        return split_pinned(run_dir, goal, units, call_model=call_model, base=base, lead_holder=lead_holder)
     run_dir = Path(run_dir)
     keys = [u.key for u in units]
     cost = 0.0

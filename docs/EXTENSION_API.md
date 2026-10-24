@@ -22,8 +22,8 @@ machine-readable manifest schema is
 | [Permissions and grants](#permissions-and-grants) | stable | requested in pack.yaml, granted by you |
 | [Studio contributions](#studio-contributions) | stable | `contributes.studio` (3.2.0.0 R3): sections, panels, palette, the settings form, event lines, attention rows; a bundle only with `studio-script` |
 | [Fleet capabilities](#fleet-capabilities) | stable | `contributes.fleet` (3.2.0.0 R4): worker capabilities in the catalog, available or not and why; mission needs, the worker's own check, inspector lines, mission metadata |
-| [Workflow contracts](#workflow-contracts) | planned | shape proposed; R5 builds it |
-| [Events and artifacts](#events-and-artifacts) | planned | typed schemas proposed; `publish_event` is stable |
+| [Workflow contracts](#workflow-contracts) | stable | `workflows/<name>.yaml` (3.2.0.0 R5): compiled to an Orchestra goal, its hand-offs and a pinned plan; `halo workflow` |
+| [Events and artifacts](#events-and-artifacts) | stable | typed events (3.2.0.0 R5: schemas, the events log, subscriptions), typed artifacts with viewers, memory with provenance |
 | [Compatibility and migration](#compatibility-and-migration) | planned | the policy below is the proposal R7 makes final |
 | [The reference example](#the-reference-example) | planned | the fixture today; the Documentation Review pack in R6 |
 
@@ -47,7 +47,11 @@ names in `__all__` are the contract.
 - `write_private(pack_id, path, text)`: a 0600 file, written atomically. A relative path lands in the pack's
   data folder `~/.halo/packs/.data/<id>/`; a path outside it needs the `home-write` grant.
 - `pack_dir(pack_id)`: the pack's own folder (Halo never writes there). `data_dir(pack_id)`: its data folder.
-- `publish_event(pack_id, kind, data=None)`: a frame on Studio's live feed (below), True when a Studio took it.
+- `publish_event(pack_id, kind, data=None)`: a frame on Studio's live feed (below), True when a Studio took it;
+  3.2.0.0 R5: a declared kind's data is checked against its schema (a mismatch goes out with `problems`), the
+  event is kept in the pack's events log, and a pack that does not run here is refused with one line (ValueError).
+- `memory.write(namespace, text, provenance=None)`: 3.2.0.0 R5, a note in the pack's memory namespace with its
+  `_meta.json` (source, run, stage, written, retention, shared; [Events and artifacts](#events-and-artifacts)).
 - `is_granted(pack_id, permission)`: whether you granted it (False while the pack is disabled).
 - `Unit`: the unit of work (`halo_harness.work.unit.Unit`, docs/WORK.md).
 - `is_valid_pack_id`, `is_valid_name`, `qualified_name(pack_id, name)`, `split_name(name)`: the name rules.
@@ -79,9 +83,9 @@ contributes:
   mcp: [{name: lint, description: checks links}]   # each a server in .mcp.json
   studio: {sections: [...], panels: [...], palette: [...], config_form: true, events: {...}, attention: {...}}   # 3.2.0.0 R3, below
   fleet: {capabilities: [...], inspector: [...], mission: {metadata: {...}}}   # 3.2.0.0 R4, below
-  artifacts: []                 # planned (R5)
-  events: [review.done]         # the kinds the pack publishes
-  workflows: [review]           # the workflow names its lineups may use (3.2.0.0 R2; R5 runs them)
+  artifacts: [review-report]    # 3.2.0.0 R5: artifact schemas, artifacts/<name>.json
+  events: [review.done]         # the kinds the pack publishes; a kind or {kind, schema} (R5: events/<kind>.json)
+  workflows: [review]           # workflow names (R2), each workflows/<name>.yaml (R5)
 config:
   schema: {properties: {style: {type: string, enum: [short, long]}}, additionalProperties: false}
   defaults: {style: short}
@@ -198,7 +202,7 @@ token, the shell's CSP).
 | `events` | `{<kind>: {label, line}}` | a `pack_event` of that kind (one of `contributes.events`) renders as `label` + `line`, `{field}` read from the frame's data, in Session's Live column, Fleet's Activity and the pack's `events` panels; a kind no running pack declares keeps the generic line (the pack, the kind, the data in short) |
 | `attention` | `{<kind>: {label, keys: {a, r, s, o}}}` | a row of the attention queue, kind `pack:<id>:<kind>`, with the pack's label and its answers |
 
-A `<panel>` is `{id, title, kind, source, w, h, help, columns, links}`:
+A `<panel>` is `{id, title, kind, source, schema, w, h, help, columns, links}`:
 
 | `kind` | Reads | Draws |
 |---|---|---|
@@ -208,6 +212,7 @@ A `<panel>` is `{id, title, kind, source, w, h, help, columns, links}`:
 | `links` | `links: [{label, route}]` or `[{label, url}]` | a route into Studio (a core section, or the pack's own section and panel), or an http(s) or mailto address in a new tab |
 | `events` | the pack's own `pack_event` frames | a live list, newest last, each with its `line` |
 | `bundle` | `source`: an ES module (`.js`, `.mjs`) in the pack's folder | `mount(el, api)`, loaded only when `studio-script` is granted; until then one line naming `halo pack enable <id> --grant studio-script` |
+| `artifact` | `schema`: one of `contributes.artifacts`; `source`: `latest` (the default: the newest finished run of Studio's repo with an artifact of that schema, `GET /api/pack/<id>/artifact/<schema>`), a `.json` file in the pack's folder or `data:<path>` | 3.2.0.0 R5: the document drawn by its schema's `x-halo-view`: `table`, `markdown` or `keyvalue` (the default) |
 
 Ids (a section, a panel, a palette line) are names without `--` (letters,
 digits, `-` and `_`), unique in the pack; Studio qualifies them
@@ -219,7 +224,7 @@ contribution is a manifest problem naming the key and its line, so the pack
 does not install or run:
 
 ```
-pack.yaml line 12: contributes.studio.sections[0].panels[0].kind 'chart' is not one of markdown, table, form, links, events, bundle
+pack.yaml line 12: contributes.studio.sections[0].panels[0].kind 'chart' is not one of markdown, table, form, links, events, bundle, artifact
 ```
 
 The problems checked: an unknown kind, a `source` outside the pack's folder
@@ -416,20 +421,119 @@ are the failure fixtures.
 
 ## Workflow contracts
 
-Status: **planned** (R5). Proposed: a declarative workflow file on top of
-the Orchestra (stages, typed inputs and outputs, gates, budgets, checks),
-listed under `contributes.workflows`, runnable on any compatible model.
-Since R2 `contributes.workflows` is read for its names (a lineup's
-`workflows:` is checked against them); nothing runs a workflow yet.
+Status: **stable** (3.2.0.0 R5; [WORKFLOWS.md](WORKFLOWS.md) is the guide). A
+workflow is `<pack>/workflows/<name>.yaml`, its name in
+`contributes.workflows`. Its shape is `halo_harness/schemas/workflow_yaml.py`
+(the JSON twin `halo_harness/packs/schema/workflow.schema.json`), its meaning
+`halo_harness/packs/workflow_rules.py` and `workflow_stages.py`: a bad file
+is one manifest problem naming the key and its line, so the pack does not
+install or run. The file COMPILES to an Orchestra goal, its hand-offs and a
+pinned plan (`halo_harness/workflows/compile.py`); the Orchestra pipeline
+runs it, there is no second engine.
+
+| Key | Shape | What it becomes |
+|---|---|---|
+| `name`, `description` | the file's stem; a sentence | the goal's WHAT YOU WANT |
+| `prerequisites` | `{tools, grants, capabilities, files}` | checked before the run: a CLI on PATH, a grant you gave the pack, a capability available here (its `contributes.fleet` requires), a file in the repo |
+| `inputs` | `{<name>: {type: text \| path \| json \| artifact:<schema>, required, default, description}}` | `--input k=v`; a path is relative to the repo and there; an artifact input is a JSON file checked against the pack's schema |
+| `outputs` | `{<name>: {type: artifact:<schema> \| files \| summary, from: <stage>, description}}` | the run's typed results, checked at the gate, copied to `<run>/artifacts/<name>/`, in the report |
+| `stages` | `[<stage>]`, in order | one job per stage (one per file for `for_each`), `job-1..N` |
+| `done_when`, `stop_when` | sentences | the goal's DONE WHEN and STOP WHEN |
+| `budget_usd` | dollars | the goal's `budget_usd` (the forecast's; the supervisor's stop under `--as goal`) |
+| `checkpoint` | `true` / `false` | the run resumes at its first unfinished step (`halo orchestra run <run>`, the supervisor's resume) |
+
+A `<stage>`:
+
+| Key | Shape | What it becomes |
+|---|---|---|
+| `id`, `title`, `brief` | a name; a line; what its worker does (`{item}`, `{<input>}` are filled in) | the job's title and the brief in its worker's prompt (the lead may refine the brief, never the stage set) |
+| `role` | a bio of the pack (name, `<id>--<name>` or kind) or a bio Halo ships | the job's `bio` (the worker runs `--agent` it) |
+| `needs` | capabilities the pack declares | checked available here before the run |
+| `after` | stage ids | the job's `after` (sequential); none: it runs at once, in parallel |
+| `for_each` | a path input, or `{input, match}` | one job per file under it (`match` a glob, default `*`) |
+| `when` | `{input: <name>}` or `{output: <stage>.<give>}`, `key`, and one of `exists`, `equals`, `not-empty` | an input's: resolved at compile time; an upstream output's: when the lane starts. False: the stage is skipped with a `state` line |
+| `gives` | `[{name, kind: files \| summary \| artifact, paths}]` | the job's `handoff.gives` (an artifact is saved as `<name>.json`; a `files` give's paths are its claims) |
+| `takes` | `[{from: <stage>, take: all \| summary \| <a give>}]` | the job's `handoff.needs`, one per job of that stage |
+| `retries` | 0 or more | the stage's own return cap at the gate (the goal's `return_cap` is the largest) |
+| `timeout_s` | seconds | the worker's time limit |
+| `budget_usd` | dollars | checked before each pass of the stage's worker: at it the run stops (`budget: stage <id> spent ...`) |
+| `gate` | `human` or `auto` | `human`: the goal is `plan: review`, the run waits for the plan's approval before any stage |
+| `verify` | `{test: <command>, evidence: [<output, give or repo path>]}` | the test joins the goal's `test` (and runs alone to find the stage that fails); the evidence joins the gate's record check |
+| `after_event` | `<pack>:<kind>` | the lane waits for that pack event before its worker starts |
+
+What runs each bound, and what is only recorded (`report.json` `workflow.bounds`,
+"not enforced yet" in the CLI report): every stage bound above is held; the
+workflow's `budget_usd` is the goal's (the forecast shows it; a plain
+Orchestra run does not stop at it, the supervisor does under `--as goal`).
+
+```
+workflows/flow.yaml line 6: stages.audit.role 'auditor' is not a bio of the pack (by name or kind) nor a bio Halo ships
+```
+
+The commands: `halo workflow list | show | check | run` ([COMMANDS-workflows.md](COMMANDS-workflows.md)),
+`halo orchestra new --workflow <pack>/<name> --input k=v`, and (with the supervisor) `halo workflow run ... --as goal`.
 
 ## Events and artifacts
 
-Status: **planned**; `publish_event` itself is stable. A frame is `{"session_id":
-"pack:<id>", "event": "pack_event", "pack": "<id>", "data": {"pack", "kind",
-"data"}, "ts"}`; `kind` is one of `contributes.events`. Since 3.2.0.0 R3 a kind's line in Studio is
-`contributes.studio.events.<kind>` (`{label, line}`, [Studio contributions](#studio-contributions)). Proposed for R5:
-typed event schemas (`contributes.events: [{kind, schema}]`) and artifact
-schemas with viewers (`contributes.artifacts: [{kind, schema, viewer}]`).
+Status: **stable** (3.2.0.0 R5; `publish_event` since R1). Three typed kinds
+of data a pack has: its events, its artifacts and its memory.
+
+**Events.** A frame is `{"session_id": "pack:<id>", "event": "pack_event",
+"pack": "<id>", "data": {"pack", "kind", "data", "problems"?}, "ts"}`; a
+`contributes.events` entry is a kind or `{kind, schema, description}`, and a
+kind's schema is `events/<kind>.json` when the pack ships one.
+`publish_event` checks a declared kind's data against it: a mismatch is
+published all the same with `problems: [...]` (Studio shows them under the
+line), never dropped; an undeclared kind goes out with Studio's generic
+line. A pack that does not run here (disabled, not installed) is refused
+with one line (ValueError) and nothing is kept. Every accepted event is
+appended to `~/.halo/packs/.data/<id>/events.jsonl` (`packs/events_log.py`),
+which the SUBSCRIPTIONS read from any process:
+
+- a bio's trigger `{on: event, name: <pack>:<kind>}` (short: `{event: <pack>:<kind>}`) starts it once when the
+  pack publishes that kind (agents_schedule.py, the bio trigger mechanism; packs/event_triggers.py);
+- a workflow stage's `after_event: <pack>:<kind>` holds its lane until the event comes.
+
+Studio draws a kind's line from `contributes.studio.events` and, when the
+kind's schema has an `x-halo-view`, its data under the line.
+
+**Artifacts.** An artifact schema is `artifacts/<schema>.json`, listed under
+`contributes.artifacts` (by name or path). A schema is JSON schema's
+`type`, `properties`, `additionalProperties`, `items`, `enum` and
+`required`, plus `x-halo-view`:
+
+| `x-halo-view` | Studio draws |
+|---|---|
+| `table` | the document's first list of objects as rows (the columns: its items' properties), its other keys above |
+| `markdown` | the document's `markdown`, `text` or first text value, through Studio's markdown |
+| `keyvalue` | each key and its value (the default) |
+
+A workflow output of type `artifact:<schema>` is saved by its stage as
+`lanes/<n>/artifacts/<name>.json` (files beside it in `lanes/<n>/artifacts/<name>/`),
+checked against the schema at the gate (a mismatch is a return with one line
+per problem: `report: findings[0].line is a whole number, got the string 'four'`),
+copied to `<run>/artifacts/<name>/` when the run finishes, and listed in
+report.json's `artifacts` (`{name, type, schema, view, stage, lane, state, path, ok, problems}`).
+Its viewer is a Studio panel of kind `artifact` (`{kind: artifact, schema,
+source: latest}`, [Studio contributions](#studio-contributions)) and the
+Report panel's Artifacts tab of Orchestra's run view (`GET /api/orchestra/<run>/artifact/<name>`).
+
+**Memory with provenance.** A pack's namespace folder (`context.memory.namespace`,
+`~/.halo/packs/.data/<id>/memory/<ns>/`, since R2) holds each note `<name>.md`
+with `<name>._meta.json`:
+
+```json
+{"source": "workflow run", "run": "20261023-101500-a1b2", "stage": "judge", "written": "2026-10-23T10:16:02Z",
+ "retention": "keep", "shared": ["release-notes"]}
+```
+
+`ext.memory.write(namespace, text, provenance)` writes both (a stage's worker
+gets `source`, `run` and `stage` from the environment); `source` is workflow
+run | bio | user, `retention` keep | `days:<n>` | run, `shared` the packs that
+may read it. Recall honours it: a namespace reads its own entries plus the
+ones another pack shares with its pack; `retention: run` entries go when
+their run ends, `days:<n>` ones with `halo recall prune`; `halo recall
+--namespace <pack>/<ns> --provenance` lists them with their meta.
 
 ## Compatibility and migration
 
@@ -443,4 +547,10 @@ printed by `halo pack update`. A renamed pack is a new pack.
 ## The reference example
 
 Status: **planned** (R6: the Documentation Review pack). Today:
-`tests/fixtures/packs/doc-review/`, every contribution kind of this round.
+`tests/fixtures/packs/doc-review/`, every contribution kind of this round;
+3.2.0.0 R5 adds its review workflow (`workflows/review.yaml`), the
+review-report artifact schema (`artifacts/review-report.json`, an artifact
+panel in its section) and review.done's schema (`events/review.done.json`);
+`wf-cycle/`, `wf-unknown-role/`, `wf-no-giver/` and `wf-input-type/` are the
+workflow failure fixtures, `tests/fixtures/workflows/report-bad.json` an
+artifact off its schema.

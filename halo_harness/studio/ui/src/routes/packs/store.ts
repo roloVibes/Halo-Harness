@@ -81,9 +81,10 @@ export async function loadRegistry(): Promise<void> {
 }
 
 function onPackEvent(f: FeedFrame): void {
-  const d = (f.data || {}) as { pack?: unknown; kind?: unknown; data?: unknown };
+  const d = (f.data || {}) as { pack?: unknown; kind?: unknown; data?: unknown; problems?: unknown };
   if (typeof d.pack !== "string" || typeof d.kind !== "string") return;
   const frame: PackFrame = { pack: d.pack, kind: d.kind, data: d.data ?? null, ts: Number(f.ts) || Date.now() / 1000, n: ++seq };
+  if (Array.isArray(d.problems) && d.problems.length) frame.problems = d.problems.map(String); // 3.2.0.0 R5: shown, never dropped
   packs.update((s) => ({ frames: [...s.frames, frame].slice(-MAX_FRAMES) }));
 }
 

@@ -1,0 +1,55 @@
+# The doc-review pack's review workflow (3.2.0.0 R5, docs/WORKFLOWS.md):
+# every Markdown file under the `docs` input is read by its own reviewer at
+# once (one job per file), a judge keeps the findings that matter after you
+# approve the plan (gate: human), and the writer turns the verdict into one
+# review report (artifact:review-report, checked against
+# artifacts/review-report.json at the gate). It compiles to an Orchestra goal,
+# its hand-offs and a pinned plan: `halo workflow run doc-review/review --input docs=docs`.
+name: review
+description: Review the Markdown files under a folder and write one review report.
+prerequisites:
+  grants: [bash]
+  capabilities: [docs.review]
+inputs:
+  docs: {type: path, required: true, description: The folder (or one file) to review}
+  style: {type: text, default: short, description: How long the report's summary is (short or long)}
+outputs:
+  report: {type: "artifact:review-report", from: write, description: "The findings worth fixing, with their files"}
+stages:
+  - id: read
+    title: Read {item}
+    brief: Read {item} and list what is unclear, wrong or missing, one finding per line with its line number.
+    role: reviewer
+    for_each: {input: docs, match: "*.md"}
+    needs: [docs.review]
+    gives:
+      - {name: notes, kind: summary}
+    retries: 1
+    timeout_s: 900
+  - id: judge
+    title: Judge the findings
+    brief: Keep the findings that matter, drop the rest, and say which to fix first. Reply with nothing when none matters.
+    role: reviewer
+    after: [read]
+    takes:
+      - {from: read, take: notes}
+    gives:
+      - {name: verdict, kind: summary}
+    gate: human
+    budget_usd: 0.5
+  - id: write
+    title: Write the review report
+    brief: "Write the review report as JSON: {summary, findings: [{file, line, finding, severity}]} ({style} summary)."
+    role: writer
+    after: [judge]
+    when: {output: judge.verdict, not-empty: true}
+    takes:
+      - {from: judge, take: verdict}
+    gives:
+      - {name: report, kind: artifact}
+    retries: 2
+    verify:
+      evidence: [report]
+done_when: The report lists every finding the judge kept, each with its file.
+budget_usd: 2.0
+checkpoint: true
