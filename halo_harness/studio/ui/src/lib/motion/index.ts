@@ -28,15 +28,17 @@ export function useStateMotion(state: MotionState, tick?: number): MotionAttrs {
   return tick === undefined ? { "data-motion": state } : { "data-motion": state, "data-tick": parity.current };
 }
 
-/** True while `ts` (ms epoch) is younger than `windowMs`; re-renders when it ages out. */
+/** True while `ts` (ms epoch) is younger than `windowMs`; re-renders when it ages out. The timer runs on the
+ *  monotonic clock and `ts` on the wall clock: when the wall clock steps back (WSL2 and VMs do, ~1 s) the timer
+ *  fires while `ts` is still young, so each firing (`tick`) arms the next until it has aged out (3.2.1.0 R5). */
 export function useRecent(ts: number | undefined, windowMs = 3000): boolean {
-  const [, force] = useState(0);
+  const [tick, force] = useState(0);
   const fresh = !!ts && Date.now() - ts < windowMs;
   useEffect(() => {
     if (!fresh || !ts) return;
     const id = window.setTimeout(() => force((n) => n + 1), windowMs - (Date.now() - ts) + 20);
     return () => window.clearTimeout(id);
-  }, [fresh, ts, windowMs]);
+  }, [fresh, ts, windowMs, tick]);
   return fresh;
 }
 

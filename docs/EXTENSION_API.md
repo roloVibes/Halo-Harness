@@ -193,6 +193,13 @@ Every other field of the entry, and the hook's `CLAUDE_PLUGIN_ROOT`
 environment variable, get the path as it is
 ([PACKS.md](PACKS.md#a-packs-own-python)).
 
+A skill's `SKILL.md` body follows the same rule for its own variables
+(3.2.1.0 R5): in a `` !`sh ${CLAUDE_SKILL_DIR}/scripts/x.sh` `` span the
+skill's folder goes in as the span's shell reads it, and the rest of the
+body gets it as it is. A skill or command body does not get
+`${CLAUDE_PLUGIN_ROOT}`; a skill names its own files by `${CLAUDE_SKILL_DIR}`
+([SLASH-COMMANDS-tui.md](SLASH-COMMANDS-tui.md)).
+
 ## Permissions and grants
 
 Status: **stable**. A pack requests `permissions:` in pack.yaml: `mcp:<server>`,

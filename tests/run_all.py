@@ -97,9 +97,15 @@ def _clear_halo_env_vars() -> None:
     FIRST, per env_compat) would silently out-rank whatever legacy
     `BRIDGE_*` value an individual test deliberately injects to control a
     real Session/Controller it builds -- cleared ONCE, for the whole run,
-    before any test module is even imported."""
-    for key in [k for k in os.environ if k.startswith("HALO_")]:
+    before any test module is even imported. 3.2.1.0 R5: except
+    `HALO_CHROME`, which names the browser the Chrome tier drives (no
+    harness knob reads it; `chrome_driver.driver_env` keeps it too): on a
+    Linux box whose Chromium is not on PATH it is the only way to name it."""
+    for key in [k for k in os.environ if k.startswith("HALO_") and k not in _KEPT_HALO_VARS]:
         os.environ.pop(key, None)
+
+
+_KEPT_HALO_VARS = ("HALO_CHROME",)
 
 
 def _pop_stray_bridge_state_dir() -> None:

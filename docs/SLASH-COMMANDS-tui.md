@@ -252,9 +252,16 @@ Both share one body-expansion pipeline
    the body and arguments were actually given, `ARGUMENTS: <input>` is
    appended to the end automatically.
 2. **`${CLAUDE_SKILL_DIR}`, `${CLAUDE_SESSION_ID}`, `${CLAUDE_PROJECT_DIR}`,
-   `${CLAUDE_EFFORT}`, `${CLAUDE_PLUGIN_ROOT}`** -- substituted from the
-   running session; a variable the caller can't supply (or whose value is
-   empty) is left **unsubstituted** rather than silently becoming blank.
+   `${CLAUDE_EFFORT}`** in a skill's body (the Skill tool and `/name`
+   alike) -- substituted from the running session; a variable the caller
+   can't supply (or whose value is empty) is left **unsubstituted** rather
+   than silently becoming blank. Inside a `` !`cmd` `` span the value goes
+   in as the span's shell reads it (3.2.1.0 R5, the rule a plugin hook's
+   shell `command` has): forward slashes on Windows (Git Bash), quoted when
+   it holds a space or another character the shell reads, escaped inside
+   the command's own `"..."` or `'...'`; the rest of the body gets the
+   value as it is. A custom command's body (`commands/**/*.md`) gets none
+   of these, and no body gets `${CLAUDE_PLUGIN_ROOT}`: both stay as written.
 3. **`` !`cmd` ``** -- runs `cmd` and splices its stdout in place, gated by
    the *current* permission engine/mode exactly like an ordinary `Bash`
    call would be (`auto`/`bypassPermissions` allow it outright; the manual

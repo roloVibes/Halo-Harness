@@ -1944,7 +1944,7 @@ orchestration engine beside Orchestra.
 - a hook's shell `command` gets `${CLAUDE_PLUGIN_ROOT}` substituted as text, so on Windows Git Bash eats the path's backslashes; the exec form (`args`) and `${halo_python}` are safe, the shell form of every plugin is not (R7 found it). (closed 3.2.1.0 R4)
 - rollback keeps one version back (`<id>.previous`); no history beyond it, and the CLI does not pause between the migration notes and the swap (`--dry-run` is the look before) (R7). (closed 3.2.1.0 R4)
 - the shipped doc-review pack says `halo: {min: "3.1"}` until the version bump: the bump commit that makes `__version__` 3.2.0.0 sets `{min: "3.2"}` (test_reference_pack fails until it does) (R7). (closed 2026-10-24: scripts/release.py sets it at release)
-- the full Chrome tier as a whole and a Kali/Linux pass of the packs program have not run on a worker (every round).
+- the full Chrome tier as a whole and a Kali/Linux pass of the packs program have not run on a worker (every round). (closed 3.2.1.0 R5 on WSL Ubuntu: the whole Chrome tier and the whole fast tier green there, the packs commands by hand; the Kali VM did not answer, see below)
 
 ### After 3.2.1.0 (R2's open points: a workflow run keeps its shape)
 
@@ -1961,6 +1961,13 @@ orchestration engine beside Orchestra.
 - a member's inspector `text` is the file as of its last catalog gather (every pack change, `--refresh`, or an hour): an edit of an installed pack's inspector file reaches the hub with the next gather (R3).
 - `halo pack doctor`'s fleet-hidden row is a warning (doctor has no info level), so a pack capability you hide on purpose makes `halo pack doctor` exit 1 (R3).
 - the Mission panel's `waiting` and replanned lines have no Chrome step; the states, the lines and the status table are pinned in tests/test_packs_fleet_hold.py (R3).
+
+### After 3.2.1.0 (R5's open points: the Linux pass)
+
+- the Kali VM did not answer during the round (no route to it): the packs modules, the Chrome packs modules with Kali's own chromium and the packs commands by hand have run on WSL Ubuntu only; the owner's `halo update` there after the release is the first Kali run (R5).
+- a skill's or a command's body gets no `${CLAUDE_PLUGIN_ROOT}`, and a custom command's body (`commands/**/*.md`) none of the `${CLAUDE_...}` variables; a skill's body gets four (R5 corrected SLASH-COMMANDS-tui.md, which listed the plugin root) (R5).
+- the wizard's Linux-fixes step installs ripgrep into the real `~/.local/bin` and edits the real rc file, by design; a test that walks the wizard on a box without `rg` on PATH must pin `init_wizard.linux_fixes_needed` (tests/test_round2c_wizard_ux's `_Env` does now). The suite's real-home guards watch `~/.halo` and `~/.rolo-claude` only, so a test writing elsewhere in the real home is not caught (R5 found one by the file's mtime) (R5).
+- WSL's Chromium is not the runner's (a 1500x757 viewport, wider fonts, other pointer paths) and WSL2's wall clock steps back about a second at times: a red there is a red to look at, a green there is not the release gate (docs/DEVELOPMENT.md "The Chrome tier on Linux") (R5).
 
 ## ADDED 2026-10-21 ~02:20 (rolo: "There should be an auto role template, prob the default one until a user finds a template they like. Auto should give the agent the ability to call other agents and create whatever orchestration the main model thinks should be the role type with sub agents ... whatever agent is main should know which model is the best from cost, intelligence, what they are best at (like media distillation whether that's video or audio or pdfs) so it knows which agents to use for sub tasks. Maybe some kind of analysis of the available models in the halo model list should occur"): 3.1.9.0 "Auto"
 
