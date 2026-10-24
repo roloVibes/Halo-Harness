@@ -330,6 +330,7 @@ good, with no `HALO_` twin, since the test suites depend on the exact name.
 | `HALO_CA_BUNDLE` (legacy `BRIDGE_CA_BUNDLE`) | a custom CA bundle path, tried after `NODE_EXTRA_CA_CERTS`/`REQUESTS_CA_BUNDLE` |
 | `HALO_MODELS_ROSTER` | `0` keeps the model roster out of this run's context, `1` puts it in, whatever `models.roster` says (the test suite runs with `0`) |
 | `HALO_AUTO_INDEX_BUILD` | `0`: an `auto` member's model pick reads `~/.halo/models/best-at.json` only and never builds the catalog itself (Halo 3.1.9.0; the test suite runs with `0`); unset, a stale index answers at once and is rebuilt in the background, a missing one is waited for at most 4 s |
+| `HALO_TOOLS_CAPS`, `HALO_TOOLS_CAPS_BY`, `HALO_OPT_INS`, `HALO_SECRET_KEYS`, `HALO_SECRET_PASS` | set by an Orchestra run for one worker when its lineup or bio declares an opt-in (Halo 3.1.8.0 R5, [ISOLATION.md](ISOLATION.md)): the worker's tool capabilities and who set them, its report lines, and the NAMES of the broker keys its tool children never see (and the ones they may) -- names only, never a value; not for setting by hand |
 | `HALO_INPUT_TRACE` | Windows only: a file to which the TUI appends every raw console input batch and what the parser was given (3.1.3.0), for diagnosing stray mouse-report text in the prompt from the terminal's own records |
 | `CLAUDE_CONFIG_DIR` | relocate `~/.claude` (and `~/.claude.json`, honoring a legacy `<dir>/.config.json`) |
 | `CLAUDE_CODE_SANDBOXED` | any non-empty value counts as "trusted" for the current directory |

@@ -6,7 +6,8 @@
      "goal_done_when": "...",
      "lanes": [{"lane", "title", "state", "pieces_returned", "cost_usd", "evidence": [lines]}],  3.1.8.0 R3: evidence
      "checks": [{"id", "ok", "detail"}],
-     "replans": [{"n", "at", "why", "by", "moves"}]}   3.1.8.0 R2, only when the supervisor replanned the run
+     "replans": [{"n", "at", "why", "by", "moves"}],   3.1.8.0 R2, only when the supervisor replanned the run
+     "opt_ins": [{"lane", "lines"}]}                   3.1.8.0 R5, only when a lane declared isolation/secrets/tools
 
 `cost_usd` counts every lane file, a lane a replan replaced included. Check ids (the reel's list): reviewer_fresh, reviewer_applied_by_code_tests_pass,
 no_piece_over_cap, all_branches_merged, record_equals_disk,
@@ -145,6 +146,8 @@ def write_report(run_dir, *, goal, lanes: list, merge: Optional[dict] = None, ga
     revisions = (jsonl.read_json(run_dir / "plan.json", {}) or {}).get("revisions") if (run_dir / "plan.json").is_file() else None
     if revisions:  # 3.1.8.0 R2: every replan the supervisor applied (supervise/replan_apply.py)
         report["replans"] = [{k: r.get(k) for k in ("n", "at", "why", "by", "moves")} for r in revisions if isinstance(r, dict)]
+    from halo_harness.isolation.lines import report_lanes  # 3.1.8.0 R5: `opt_ins`, only when a lane declared one
+    report.update(report_lanes(lanes))
     jsonl.write_json(report_path(run_dir), report)
     _record_outcomes(run_dir, report)  # 3.1.8.0 R3: one outcomes.jsonl row per lane (outcomes/records.py)
     return report
@@ -210,6 +213,8 @@ def format_report(report: dict, run_dir=None) -> str:
         lines += [f"      {e}" for e in lane.get("evidence") or []]  # 3.1.8.0 R3: what the lane's work shows
     if replan_line(report):
         lines.append(f"  {replan_line(report)}")
+    from halo_harness.isolation.lines import report_text  # 3.1.8.0 R5: a line per lane's isolation/secrets/tools
+    lines += report_text(report)
     lines.append("  checks:")
     for c in report.get("checks") or []:
         lines.append(f"    {mark.get(c.get('ok'), '????')}  {c['id']:<36} {c.get('detail') or ''}")

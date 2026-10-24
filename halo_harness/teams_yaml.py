@@ -43,6 +43,9 @@ REMOVED_SECTIONS = {"org": "3.1.4.0"}
 # Halo 3.0.7.0 R1: the one top section whose body is a YAML LIST, not a
 # mapping (`tiers: [{name, members, max_parallel}]`, teams_tiers.py).
 LIST_SECTIONS = ("tiers",)
+# Halo 3.1.8.0 R5: the opt-ins a lineup may declare (docs/ISOLATION.md): they inherit like a section, and
+# isolation/spec.py checks them (`isolation` may be the one word container or user).
+OPT_IN_SECTIONS = ("isolation", "secrets", "tools")
 DELEGATION_MODES = ("manual", "by-skill", "round-robin")
 HANDOFF_SHAPES = ("summary", "full", "structured")
 GATE_KINDS = ("required", "optional")
@@ -244,7 +247,7 @@ def resolve_team_template(name: str, *, cwd=None, state_dir=None, _chain: "Optio
         parent = resolve_team_template(parent_name.strip(), cwd=cwd, state_dir=state_dir, _chain=chain + [name],
                                        trusted=trusted)
     resolved = dict(parent) if parent else {}
-    for section in TOP_SECTIONS:
+    for section in TOP_SECTIONS + OPT_IN_SECTIONS:
         resolved[section] = _merge_section((parent or {}).get(section), raw.get(section))
     resolved["agents"] = raw.get("agents") if raw.get("agents") is not None else (parent or {}).get("agents")
     # 3.2.0.0 R2: a pack lineup's `workflows` (names; R5 runs them) inherit like `agents`; `from_pack` is the file's own
@@ -385,6 +388,8 @@ def validate_team_template(data, *, name: "Optional[str]" = None, cwd=None, stat
             problems.append(f'"{section}" must be a mapping')
     from halo_harness.packs.lineup_run import acceptance_problems  # 3.2.0.0 R2: workflows, acceptance.test/review
     problems.extend(acceptance_problems(data))
+    from halo_harness.isolation.spec import lineup_problems  # 3.1.8.0 R5: isolation, secrets, tools.capabilities
+    problems.extend(lineup_problems(data))
     # Halo 2.0.5 round 5: the enforced sections get VALUE checks, not just
     # mapping checks -- one plain line per problem, same style as every
     # other check above.

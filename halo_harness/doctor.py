@@ -1759,6 +1759,8 @@ def _check_entries(cwd: Optional[Path] = None, settings_flag: Optional[str] = No
     entries.append(("state_modes", _check_state_modes()))
     entries.append(("permission_mode", _check_permission_mode(cwd, settings_flag)))
     entries.append(("lineup", _check_lineup()))  # 3.1.9.0 R2: the lineup in use, and how to change it
+    from halo_harness.isolation.doctor_rows import entries as _isolation_rows  # 3.1.8.0 R5: isolation, secrets
+    entries.extend(_isolation_rows(cwd))
     entries.append(("providers_enabled", _check_providers_enabled(cwd, settings_flag)))
     entries.append(("install", _check_install()))
     entries.append(("command_on_path", check_command_on_path()))

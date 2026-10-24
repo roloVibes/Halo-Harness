@@ -7,6 +7,7 @@
 // R4: Take over, Hand to..., Record and Replay under the controls; with no
 // agent picked, this harness's last sessions to replay (AgentHistory.tsx).
 // 3.2.0.0 R4: a mission part's agent shows its packs' inspector lines (PackCaps.tsx).
+// 3.1.8.0 R5: an agent whose lineup or bio declared opt-ins shows their lines under the header.
 import { useEffect, useRef, type ReactNode } from "react";
 import { Button, Empty, Icon, Kbd } from "../../lib/ui";
 import type { MotionState } from "../../lib/motion";
@@ -44,6 +45,9 @@ function Head() {
         {since > 0 && isLive(a) && ` · ${elapsed(now / 1000 - since)}`}
         {a.turns ? ` · ${a.turns} call${a.turns === 1 ? "" : "s"}` : ""}
       </div>
+      {!!a.opt_ins?.length && (
+        <div className="fa-meta mono muted" data-testid="fleet-agent-optins" title={a.opt_ins.join("; ")}>{a.opt_ins.join(" · ")}</div>
+      )}
     </header>
   );
 }

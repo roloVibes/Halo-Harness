@@ -7,6 +7,7 @@
 // joined to it by an arc with a chip naming what it takes, and every lane
 // shows its base (LaneEdges.tsx). 3.1.2.0 R2: a lane whose upstream the gate
 // sent back shows STALE until it is re-based, then the re-base line.
+// 3.1.8.0 R5: a lane that declared isolation, secrets or a tool list shows its lines under its title.
 import { useEffect, useRef } from "react";
 import type { MotionState } from "../../lib/motion";
 import { Metric, NoRun } from "./bits";
@@ -86,6 +87,9 @@ export function LanesDetail() {
                 {l.title || l.claims.join(", ")}
               </span>
               <EdgeChips lane={l} edges={edges} />
+              {!!l.opt_ins?.length && (
+                <span className="og-optins mono muted" data-testid="lane-optins" title={l.opt_ins.join("; ")}>{l.opt_ins.join(" · ")}</span>
+              )}
             </span>
           </div>
           <Trace lane={l} t0={t0} t1={t1} live={data.live} />

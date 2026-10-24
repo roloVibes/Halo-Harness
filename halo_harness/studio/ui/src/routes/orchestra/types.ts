@@ -50,6 +50,8 @@ export type Lane = {
   // 3.1.2.0 R2 (orchestra/stale.py): its upstream was sent back; then re-based onto the new head
   stale?: { upstreams: number[]; jobs: string[]; reason: string; ts: number } | null;
   rebased?: { onto: { lane: number; job: string; head: string }[]; head?: string; tests_ok?: boolean; conflict?: string[]; ts: number } | null;
+  // 3.1.8.0 R5 (isolation/lines.py): "isolation: container (<image>)", "secrets: 1password (3 refs)", "tools: ... (by bio X)"
+  opt_ins?: string[];
 };
 
 export type Give = { name: string; kind: "files" | "summary" | "artifact"; paths?: string[] };
