@@ -8,13 +8,16 @@ what only one harness has, so the lead is told) and after it answers
 * `has(catalog, need)`: a capability name is an MCP server (`gridcraft`), one
   of its tools (`gridcraft/write_range` or `write_range`), a skill, a tag, a
   craft app, a CLI that is installed (`nmap`), a model id, `comfyui`, `gpu`,
-  a word of a GPU's name (`4090`), an OS or distro (`kali`), or `repo:<name>`.
-  A `kind:` prefix (`mcp:`, `tool:`, `skill:`, `tag:`, `app:`, `cli:`,
-  `model:`, `os:`) narrows it.
+  a word of a GPU's name (`4090`), an OS or distro (`kali`), `repo:<name>`, or
+  (3.2.0.0 R4) a pack's fleet capability that is available there (`docs.review`;
+  why "pack doc-review: docs.review"). A `kind:` prefix (`mcp:`, `tool:`,
+  `skill:`, `tag:`, `app:`, `cli:`, `model:`, `os:`, `pack:`) narrows it.
 * `assign`: a part whose needs only one harness meets is pinned there; when
   several meet them the lead's pick stands, else `fleet.mission.prefer` (an
   ordered list of names) breaks the tie, then load (live agents), then the
-  name; a need nobody has makes the part `unassignable` with the reason.
+  name; a need nobody has makes the part `unassignable` with the reason. A
+  part's `pack_needs` lists its needs that are pack capabilities ({need, pack}),
+  for Studio and for the worker, which checks them again before it runs.
 """
 
 from __future__ import annotations
@@ -22,7 +25,7 @@ from __future__ import annotations
 import re
 from typing import Optional
 
-KINDS = ("mcp", "tool", "skill", "tag", "app", "craft", "cli", "model", "os", "repo", "gpu")
+KINDS = ("mcp", "tool", "skill", "tag", "app", "craft", "cli", "model", "os", "repo", "gpu", "pack")
 
 
 def norm_need(need) -> str:
@@ -68,6 +71,11 @@ def has(cat: Optional[dict], need) -> Optional[str]:
         return f"{word} (OS)"
     if k == "repo" and word in [str(p.get("repo") or p.get("name") or "").lower() for p in cat.get("projects") or []]:
         return f"the {word} repo"
+    if k in ("any", "pack"):  # 3.2.0.0 R4: a pack's capability, only where it is available
+        for p in cat.get("packs") or [] if isinstance(cat.get("packs"), list) else []:
+            for c in p.get("capabilities") or [] if isinstance(p, dict) else []:
+                if isinstance(c, dict) and c.get("available") and str(c.get("name") or "").lower() == word:
+                    return f"pack {p.get('id')}: {c.get('name')}"
     return None
 
 
@@ -89,6 +97,7 @@ def unique_lines(entries: list, limit: int = 40) -> list:
         names = {str(s.get("name")) for s in cat.get("mcp") or []} | set(map(str, cat.get("craft_apps") or []))
         names |= {f"cli:{k}" for k, v in (cat.get("clis") or {}).items() if v} | set(map(str, cat.get("skills") or []))
         names |= {"gpu"} if (cat.get("hardware") or {}).get("gpu") else set()
+        names |= {str(c.get("name")) for p in cat.get("packs") or [] for c in p.get("capabilities") or [] if c.get("available")}
         for n in names:
             seen.setdefault(n.lower(), set()).add(str(e.get("name")))
     only: dict = {}
@@ -137,5 +146,11 @@ def assign(part: dict, entries: list, prefer: list, load: dict) -> dict:
         rank = _rank(e, prefer, load)
         how = "first in fleet.mission.prefer" if rank[0] < len(prefer) else f"least busy ({rank[1]} live agents)"
         reason = (f"{e.get('name')} has {', '.join(whys)}; " if needs else f"{e.get('name')}: ") + how
-    part.update(harness=str(e.get("harness")), harness_name=e.get("name"), reason=reason[:300])
+    part.update(harness=str(e.get("harness")), harness_name=e.get("name"), reason=reason[:300],
+                pack_needs=pack_needs(needs, whys))
     return part
+
+
+def pack_needs(needs: list, whys: list) -> list:
+    """3.2.0.0 R4: `[{need, pack}]` for the needs a pack capability meets (has()'s "pack <id>: <name>")."""
+    return [{"need": n, "pack": str(w)[5:].split(":", 1)[0]} for n, w in zip(needs, whys) if str(w or "").startswith("pack ")]

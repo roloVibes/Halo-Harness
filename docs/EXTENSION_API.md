@@ -21,7 +21,7 @@ machine-readable manifest schema is
 | [Skills, commands, hooks and MCP](#skills-commands-hooks-and-mcp) | stable | the Claude-plugin layout, namespaced |
 | [Permissions and grants](#permissions-and-grants) | stable | requested in pack.yaml, granted by you |
 | [Studio contributions](#studio-contributions) | stable | `contributes.studio` (3.2.0.0 R3): sections, panels, palette, the settings form, event lines, attention rows; a bundle only with `studio-script` |
-| [Fleet capabilities](#fleet-capabilities) | planned | shape proposed; R4 builds it |
+| [Fleet capabilities](#fleet-capabilities) | stable | `contributes.fleet` (3.2.0.0 R4): worker capabilities in the catalog, available or not and why; mission needs, the worker's own check, inspector lines, mission metadata |
 | [Workflow contracts](#workflow-contracts) | planned | shape proposed; R5 builds it |
 | [Events and artifacts](#events-and-artifacts) | planned | typed schemas proposed; `publish_event` is stable |
 | [Compatibility and migration](#compatibility-and-migration) | planned | the policy below is the proposal R7 makes final |
@@ -78,7 +78,7 @@ contributes:
   hooks: hooks/hooks.json
   mcp: [{name: lint, description: checks links}]   # each a server in .mcp.json
   studio: {sections: [...], panels: [...], palette: [...], config_form: true, events: {...}, attention: {...}}   # 3.2.0.0 R3, below
-  fleet: {}                     # planned (R4)
+  fleet: {capabilities: [...], inspector: [...], mission: {metadata: {...}}}   # 3.2.0.0 R4, below
   artifacts: []                 # planned (R5)
   events: [review.done]         # the kinds the pack publishes
   workflows: [review]           # the workflow names its lineups may use (3.2.0.0 R2; R5 runs them)
@@ -310,10 +310,109 @@ and state.json).
 
 ## Fleet capabilities
 
-Status: **planned** (R4). Proposed `contributes.fleet`: `{capabilities:
-[{name, requires: {tools, runtimes, platform, hardware}}]}` merged into the
-fleet capabilities catalog; a capability never carries a credential, a
-private path or an environment value.
+Status: **stable** (3.2.0.0 R4). A pack declares the worker capabilities it
+brings under `contributes.fleet`; each becomes an entry in this harness's
+capabilities catalog (docs/FLEET.md "Capabilities"), checked on this host:
+available or not, and why. `halo fleet who` finds them, a mission's planner
+sees them in each harness's block, and a part may name one in `needs`; the
+hub sends such a part only to a harness whose pack runs with the grants the
+capability requires, and the worker checks that again before the part runs.
+Nothing changes for a fleet with no pack.
+
+| Key | Shape | What Halo does with it |
+|---|---|---|
+| `capabilities` | `[{name, description, requires, capacity}]` | one catalog entry each (`packs` section): `{name, description, available, why, checks, requires, capacity}` |
+| `capabilities[].name` | one of the top-level `capabilities:` | what a part's `needs` names (`docs.review`, or `pack:docs.review`) |
+| `capabilities[].description` | a sentence | `halo fleet who` ranks by it; no path in it |
+| `capabilities[].requires.tools` | `[name]` | a CLI on PATH, an MCP server or tool, a craft app here |
+| `capabilities[].requires.runtimes` | `[word]` | `python`, `node`, `java` ... found here (a version when known) |
+| `capabilities[].requires.platform` | `[word]` | this host's OS or distro is one of them (`linux`, `windows`, `darwin`, `kali` ...) |
+| `capabilities[].requires.hardware` | `{gpu: true \| false \| <a word of its name>, ram_gb: n}` | a GPU (or one whose name has the word, `4090`), at least that much RAM |
+| `capabilities[].requires.models` | `[tag or model]` | a catalog model with the tag (`long-context`, `vision`, `audio`, `video`, `files`, `image-out`, `tools`, `local`), or one by its ref or family |
+| `capabilities[].requires.grants` | `[permission]` | each one of the pack's `permissions`, granted here |
+| `capabilities[].requires.locality` | `[repo \| repo:<name> \| shared \| pack-data]` | the data is on this host: a repo checkout (that repo), the fleet's shared folder, files in the pack's data folder |
+| `capabilities[].capacity` | `{parallel: 1..64}` | how many parts with it this harness takes at once (shown to the planner) |
+| `inspector` | `[{label, source}]` | a mission inspector line: a markdown or JSON file of the pack, shown with a part that needs the pack (Studio's Mission plan, the part's agent) |
+| `mission.metadata` | `{key: value}` | what a mission started with this pack's lineup carries (`metadata: {pack, lineup, ...}`, in MISSION.md and the Mission panel's head) |
+
+A capability is **available** when every `requires` holds on this host;
+`why` names what holds (`tools: or:anthropic/claude-sonnet-4.6; bash
+granted`) or what is missing (`no GPU here`, `bash not granted (halo pack
+enable doc-review --grant bash)`). Only the packs that run here are listed;
+a disabled pack adds nothing. The catalog is gathered afresh on every pack
+change (`halo pack enable | disable | update | remove`, and Studio's
+`pack_changed` for a change made in another terminal).
+
+**What an advertisement never carries.** The catalog leaves this machine, so
+a value under `contributes.fleet` that looks like a secret (a token shape the
+privacy scan knows, a Bearer value) or an environment reference (`$VAR`,
+`${VAR}`, `%VAR%`) is a manifest problem, and so is a path in a
+`description`: one line each naming the key and its line, and the pack does
+not install or run:
+
+```
+pack.yaml line 12: contributes.fleet.capabilities[0].description: a token-shaped value; an advertisement leaves this machine, so it never holds a secret or an environment value
+pack.yaml line 14: contributes.fleet.capabilities[0].requires.tools[0]: an environment reference ($HOME); an advertisement leaves this machine, so it never holds a secret or an environment value
+```
+
+Any other path (a tool given by its full path, a metadata value) is cut to
+its last component by the catalog's scrub before it is cached or announced,
+like every string in the catalog. A capability name the top-level
+`capabilities:` does not list, a `requires` key outside the table above (with
+the closest one), a grant the pack does not request, an unknown locality, a
+capacity outside 1..64, an inspector source outside the pack or of another
+type, and a metadata value that is a mapping are one line each too.
+
+**The worker's own check.** A part's `needs` travel with it (`run_task`).
+Before it runs (and on a member before its owner is asked), the worker reads
+its own packs again: a need that is a pack capability runs only while that
+pack runs here with the grants the capability requires, else the part is
+refused with one line, which becomes the part's result:
+
+```
+this harness does not run pack doc-review with bash
+```
+
+It is the same explicit grant rule the harness applies to its own sessions:
+a part gains nothing because another machine's catalog said it could run.
+
+The doc-review fixture's (`tests/fixtures/packs/doc-review/pack.yaml`):
+
+```yaml
+capabilities: [docs.review]
+permissions: ["mcp:lint", hooks, bash]
+contributes:
+  fleet:
+    capabilities:
+      - name: docs.review
+        description: Reviews a repo's documents for dead links, heading order and style
+        requires:
+          models: [tools]
+          grants: [bash]
+        capacity: {parallel: 2}
+    inspector:
+      - {label: Review checklist, source: fleet/checklist.md}
+    mission:
+      metadata: {review: docs, style: short}
+```
+
+and its catalog entry on a harness that granted bash and has a model that
+calls tools (`packs` section, as the hub receives it):
+
+```json
+{"id": "doc-review", "name": "Documentation review", "version": "1.0.0", "scope": "user",
+ "capabilities": [{"name": "docs.review", "description": "Reviews a repo's documents for dead links, heading order and style",
+                   "available": true, "why": "tools: or:anthropic/claude-sonnet-4.6; bash granted",
+                   "checks": [{"key": "models", "ok": true, "line": "tools: or:anthropic/claude-sonnet-4.6"},
+                              {"key": "grants", "ok": true, "line": "bash granted"}],
+                   "requires": {"models": ["tools"], "grants": ["bash"]}, "capacity": {"parallel": 2}}],
+ "inspector": [{"label": "Review checklist", "source": "fleet/checklist.md"}],
+ "metadata": {"review": "docs", "style": "short"}}
+```
+
+`tests/fixtures/packs/fleet-needs-gpu/` is one not available on a host
+without a GPU (`why: no GPU here`); `fleet-secret/` and `fleet-unknown-name/`
+are the failure fixtures.
 
 ## Workflow contracts
 

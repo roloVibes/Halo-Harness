@@ -2,21 +2,23 @@
 3.2.0.0 R1, docs/EXTENSION_API.md "The manifest").
 
 Strict at every level the manifest defines (a key nothing reads is
-reported with the closest known key); `contributes.fleet` and
-`config.schema` / `config.defaults` are mappings whose inside belongs to a
-later round or to the pack. 3.2.0.0 R3: `contributes.studio` is typed
-(`studio()`: sections, panels, palette, config_form, events, attention;
-docs/EXTENSION_API.md "Studio contributions"). What a value means (an id, a
+reported with the closest known key); `config.schema` / `config.defaults`
+are mappings whose inside belongs to the pack. 3.2.0.0 R3: `contributes.studio`
+is typed (`studio()`: sections, panels, palette, config_form, events,
+attention; docs/EXTENSION_API.md "Studio contributions"). 3.2.0.0 R4:
+`contributes.fleet` is typed (`fleet()`: capabilities, inspector, mission;
+"Fleet capabilities"); a capability's `requires` takes unknown keys here so
+packs/fleet_rules.py names them with their line. What a value means (an id, a
 semver, a range, a file that exists, a panel kind) is
 `halo_harness.packs.manifest.validate_manifest`'s job (packs/studio_rules.py
-for the Studio part). The machine-readable twin is
+for the Studio part, packs/fleet_rules.py for the fleet part). The machine-readable twin is
 `halo_harness/packs/schema/pack.schema.json`; tests/test_packs_manifest.py and
 tests/test_packs_studio_contract.py keep the two equal.
 """
 
 from __future__ import annotations
 
-from halo_harness.schemas.check import BOOL, INT, LIST, MAPPING, STRING, obj
+from halo_harness.schemas.check import BOOL, INT, LIST, MAPPING, NUMBER, STRING, obj
 
 _VERSION = {"type": ["string", "number"]}
 _RANGE = obj({"min": _VERSION, "max": _VERSION})
@@ -31,6 +33,11 @@ STUDIO_KEYS = ("sections", "panels", "palette", "config_form", "events", "attent
 PANEL_KEYS = ("id", "title", "kind", "source", "w", "h", "help", "columns", "links")
 SECTION_KEYS = ("id", "title", "blurb", "help", "panels")
 ANSWER_KEYS = ("a", "r", "s", "o")
+# 3.2.0.0 R4: contributes.fleet
+FLEET_KEYS = ("capabilities", "inspector", "mission")
+CAPABILITY_KEYS = ("name", "description", "requires", "capacity")
+REQUIRES_KEYS = ("tools", "runtimes", "platform", "hardware", "models", "grants", "locality")
+HARDWARE_KEYS = ("gpu", "ram_gb")
 
 
 def panel(section: bool = False) -> dict:
@@ -56,6 +63,19 @@ def studio() -> dict:
     return obj(props)
 
 
+def fleet() -> dict:
+    hardware = obj({"gpu": {"type": ["boolean", "string"]}, "ram_gb": NUMBER})
+    requires = obj({"tools": _NAMES, "runtimes": _NAMES, "platform": _NAMES, "hardware": hardware, "models": _NAMES,
+                    "grants": _NAMES, "locality": _NAMES}, strict=False)  # an unknown key: fleet_rules' line
+    cap = obj({"name": STRING, "description": STRING, "requires": requires, "capacity": obj({"parallel": INT})})
+    props = {"capabilities": {"type": "array", "items": cap},
+             "inspector": {"type": "array", "items": obj({"label": STRING, "source": STRING})},
+             "mission": obj({"metadata": MAPPING})}
+    assert tuple(props) == FLEET_KEYS and tuple(cap["properties"]) == CAPABILITY_KEYS
+    assert tuple(requires["properties"]) == REQUIRES_KEYS and tuple(hardware["properties"]) == HARDWARE_KEYS
+    return obj(props)
+
+
 def pack() -> dict:
     author = {"type": ["string", "object"], "properties": {"name": STRING, "email": STRING, "url": STRING},
               "additionalProperties": False}
@@ -63,7 +83,7 @@ def pack() -> dict:
     mcp_entry = {"type": "object", "properties": {"name": STRING, "description": STRING},
                  "additionalProperties": True}
     contributes = obj({"agents": _NAMES, "teams": _NAMES, "skills": STRING, "commands": STRING, "hooks": STRING,
-                       "mcp": {"type": "array", "items": mcp_entry}, "studio": studio(), "fleet": MAPPING,
+                       "mcp": {"type": "array", "items": mcp_entry}, "studio": studio(), "fleet": fleet(),
                        "artifacts": LIST, "events": _NAMES, "workflows": _NAMES})
     migration = obj({"from": _VERSION, "to": _VERSION, "note": STRING})
     props = {"id": STRING, "name": STRING, "version": STRING, "description": STRING, "author": author,

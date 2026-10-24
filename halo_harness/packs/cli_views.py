@@ -44,7 +44,7 @@ def list_lines(rows: "list[dict]") -> "list[str]":
     return out
 
 
-def inspect_payload(pack, snap) -> dict:
+def inspect_payload(pack, snap, *, cwd=None) -> dict:
     from halo_harness.packs import grants as G
     from halo_harness.packs import manifest as MF
     from halo_harness.packs import settings as ST
@@ -63,7 +63,9 @@ def inspect_payload(pack, snap) -> dict:
         problems += compat_lines(pack)
     problems += undeclared_lines(pack)
     from halo_harness.packs.roles import pack_bios, pack_lineups  # 3.2.0.0 R2: the model per bio, its needs
-    return {"bios": pack_bios(pack, granted=granted), "lineups": pack_lineups(pack),
+    from halo_harness.packs.contrib_views import contributes  # 3.2.0.0 R4: Studio and fleet contributions
+    return {"contributes": contributes(pack, granted, running=pack.id in snap.order, cwd=cwd),
+            "bios": pack_bios(pack, granted=granted), "lineups": pack_lineups(pack),
             "id": pack.id, "name": pack.name, "version": pack.version, "description": pack.description,
             "author": m.get("author"), "license": m.get("license"), "halo_api": m.get("halo_api"), "halo": m.get("halo"),
             "capabilities": m.get("capabilities") or [], "requires": m.get("requires") or [],
@@ -106,6 +108,8 @@ def inspect_lines(d: dict) -> "list[str]":
         if names:
             out.append(f"  {LABELS[kind][1]}: {', '.join(names)}")
     out += role_lines(d)
+    from halo_harness.packs.contrib_views import contributes_lines
+    out += contributes_lines(d.get("contributes") or {})
     out.append("permissions it requests:")
     for p in d["permissions"]:
         uses = f" ({', '.join(p['needed_by'])})" if p["needed_by"] else ""

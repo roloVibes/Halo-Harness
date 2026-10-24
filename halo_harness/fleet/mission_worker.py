@@ -4,7 +4,7 @@
 A member receives the fleet command
 
     run_task {mission, part, title, brief, kind: repo | files | orchestra, claims: [...], outputs: [...], depends_on: [...],
-              take?, handoffs?: [mission-folder paths it reads from its dependencies],
+              take?, handoffs?: [mission-folder paths it reads from its dependencies], needs?: [capability names],
               repo?, base?, branch, cwd?, budget_usd?, mirror: {mode: hub | shared},
               run?: {goal}}                      (3.1.2.0 R2: a delegated team stage, mission_stage_run.py)
 
@@ -17,6 +17,14 @@ says it started. The hub's own harness runs its parts through `start_local`
 (no command, no mirror: the folder is its own). `stop(mission, part)` ends a
 part running in this process; a part on another machine is stopped like any
 agent (its session's row carries `mission` and `part`).
+
+3.2.0.0 R4: before a part runs (`accept`, `start_local`, and on a member
+before its owner is asked), `pack_check` reads this harness's own packs
+again: a need that is a pack capability runs only while that pack runs here
+with the grants the capability requires, else the part is refused with one
+line ("this harness does not run pack doc-review with bash") -- the same
+explicit grant rule this harness applies to its own sessions; a part gains
+nothing because the hub's catalog said another machine could run it.
 
 `BUILD(cwd, home)` -> `(session, run, close)` builds the session
 (mission_worker_session.build); tests swap it for a fake.
@@ -66,6 +74,7 @@ def check(fields: dict) -> dict:
     out = {"mission": mid, "part": part, "title": " ".join(str(f.get("title") or "").split())[:160],
            "brief": str(f.get("brief") or "")[:20000], "kind": kind, "claims": claims, "outputs": _strs(f.get("outputs")),
            "depends_on": _strs(f.get("depends_on")), "repo": str(f.get("repo") or "")[:120] or None,
+           "needs": _strs(f.get("needs"), 40),
            "take": "all" if str(f.get("take") or "") == "all" else "outputs", "handoffs": _strs(f.get("handoffs")),
            "base": base if _SHA.match(base) else None, "branch": f"mission/{mid}/{part}",
            "cwd": Path(str(f.get("cwd") or "")).name or None, "budget_usd": None,
@@ -82,6 +91,15 @@ def check(fields: dict) -> dict:
     if out["mirror"]["mode"] not in ("hub", "shared", "local"):
         raise TaskError(f"mirror.mode is hub or shared, got {out['mirror']['mode']!r}")
     return out
+
+
+def pack_check(fields: dict, *, cwd=None, home=None) -> None:
+    """3.2.0.0 R4: TaskError with the one line when a pack need is not met here (packs/fleet_registry.refusal)."""
+    from halo_harness.packs.fleet_registry import refusal
+    needs = _strs((fields or {}).get("needs"), 40) if isinstance(fields, dict) else []
+    line = refusal(needs, cwd=cwd, state_dir=home) if needs else ""
+    if line:
+        raise TaskError(line)
 
 
 def describe(fields: dict, hub: str) -> str:
@@ -120,6 +138,7 @@ def accept(handle, fields: dict, *, by: str = "", hub: str = "", entry: Optional
     from halo_harness.fleet.mission_worker_run import WorkerRun
     try:
         f = check(fields)
+        pack_check(f, cwd=getattr(handle, "cwd", None), home=identity.home())
         run = WorkerRun(f, home=identity.home(), hub=hub, by=by, entry=entry, origin=handle)
         run.place()
         return _start(run)
@@ -131,6 +150,7 @@ def start_local(home, fields: dict, repo_root=None, on_done: Optional[Callable] 
     """A part on the hub's own harness: same run, the mission folder is already here."""
     from halo_harness.fleet.mission_worker_run import WorkerRun
     f = check({**fields, "mirror": {"mode": "local"}})
+    pack_check(f, cwd=repo_root, home=home)
     run = WorkerRun(f, home=home, hub="this hub", by="", entry=None, origin=None, repo_root=repo_root, on_done=on_done)
     run.place()
     return _start(run)

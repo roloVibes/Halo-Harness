@@ -1,7 +1,9 @@
 // The Mission panel's Plan face (3.0.6.0 R8): the lead's plan as a table,
 // one row per part (its number, title and kind, the harness with the reason
 // on hover and a lock when it was pinned by capability, what it needs, the
-// files it claims, what it waits for, the estimate) and Drop. The same plan
+// files it claims, what it waits for, the estimate) and Drop; 3.2.0.0 R4: a
+// need a pack capability meets names its pack and harness, and the selected
+// part's pack inspector lines show under the table (PackCaps.tsx). The same plan
 // is drawn over the Fleet map (MapMission.tsx): drag a part's node to
 // another harness box to move it. Plan again asks the lead again; Approve
 // and Run (Run approves first) list what still stops them.
@@ -9,6 +11,7 @@ import { Button, Icon } from "../../lib/ui";
 import { short } from "../orchestra/format";
 import { EDITABLE, missions, partState, useMissions, usd, type PlanPart, type View } from "./mstore";
 import { approve, dropPart, planAgain, runIt } from "./mload";
+import { PackNeeds, PartPackInspector } from "./PackCaps";
 
 /** What stops an approval (fleet/mission_plan_check.ready, in the browser). */
 export function readyProblems(v: View | null): string[] {
@@ -66,7 +69,7 @@ function PartRow({ p, v, sel, editable }: { p: PlanPart; v: View; sel: boolean; 
         {st !== "planned" && <span className="fmi-pstate mono" data-state={st}>{st}</span>}
       </td>
       <td><Harness p={p} /></td>
-      <td className="mono fmi-small">{p.needs.join(", ") || "-"}</td>
+      <td className="mono fmi-small"><PackNeeds p={p} /></td>
       <td className="mono fmi-small" title={p.claims.join("\n")}>{short(p.claims.join(", "), 22) || "-"}</td>
       <td><Waits p={p} /></td>
       <td className="mono">{usd(p.est_cost_usd)}</td>
@@ -107,6 +110,7 @@ export function MissionPlan() {
           <tbody>{v.plan.parts.map((p) => <PartRow key={p.id} p={p} v={v} sel={sel === p.id} editable={editable} />)}</tbody>
         </table>
       </div>
+      <PartPackInspector p={v.plan.parts.find((x) => x.id === sel)} />
       {(seq.length > 0 || v.plan.notes.length > 0) && (
         <ul className="fmi-notes">
           {[...new Set([...seq, ...v.plan.notes])].map((n) => <li key={n} className={seq.includes(n) ? "fmi-seq-note" : "muted"}>{n}</li>)}

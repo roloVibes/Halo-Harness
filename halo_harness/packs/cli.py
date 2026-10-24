@@ -88,7 +88,7 @@ def _inspect(args, cwd) -> int:
         if not folder.is_dir():
             return _err(f"{args.target!r} is neither an installed pack (halo pack list) nor a folder")
         pack = read_pack(folder.resolve(), "source", folder_is_id=False)
-    data = CV.inspect_payload(pack, snap)
+    data = CV.inspect_payload(pack, snap, cwd=cwd)
     print(json.dumps(data, indent=2, ensure_ascii=False, default=str) if args.json else "\n".join(CV.inspect_lines(data)))
     return 0
 

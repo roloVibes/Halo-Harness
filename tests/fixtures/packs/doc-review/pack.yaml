@@ -6,6 +6,9 @@
 # 3.2.0.0 R3: contributes.studio -- a section of its own (a markdown panel, a
 # table over a JSON file, links), one panel in Session, a palette action, the
 # settings form, a line for review.done and an attention row kind.
+# 3.2.0.0 R4: contributes.fleet -- the docs.review worker capability (it needs
+# the bash grant and a model that calls tools, two parts at once), a mission
+# inspector line (fleet/checklist.md) and the metadata its lineup's missions carry.
 id: doc-review
 name: Documentation review
 version: 1.0.0
@@ -74,6 +77,18 @@ contributes:
       review.done: {label: REVIEW, line: "{file}: {findings} findings"}
     attention:
       review.ask: {label: review, keys: {a: accept, r: redo, s: skip, o: open}}
+  fleet:
+    capabilities:
+      - name: docs.review
+        description: Reviews a repo's documents for dead links, heading order and style
+        requires:
+          models: [tools]
+          grants: [bash]
+        capacity: {parallel: 2}
+    inspector:
+      - {label: Review checklist, source: fleet/checklist.md}
+    mission:
+      metadata: {review: docs, style: short}
 config:
   schema:
     properties:

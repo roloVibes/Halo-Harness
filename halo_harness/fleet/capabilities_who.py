@@ -6,7 +6,9 @@ in code, no model:
 
 `entries` are `{harness, name, catalog}`. Every catalog becomes items of a
 kind -- mcp_tool (a server, and each of its tools), skill, tag, model,
-craft_app, cli, hardware -- each with a name and a description. The query
+craft_app, cli, hardware, pack (3.2.0.0 R4: a pack's fleet capability; one
+not available here scores half, with why) -- each with a name and a
+description. The query
 is cut into words (lower case, letters and digits; filler words such as
 "who", "can", "a" dropped). An item scores
 
@@ -25,7 +27,8 @@ from typing import Iterable
 
 EXACT, NAME, DESC = 10.0, 4.0, 1.0
 TOP = 5
-KINDS = ("mcp_tool", "skill", "tag", "model", "craft_app", "cli", "hardware")
+KINDS = ("mcp_tool", "skill", "tag", "model", "craft_app", "cli", "hardware", "pack")
+NOT_HERE = "; not available here: "
 STOP = frozenset("a an and any are be best build can could create do does for from get has have help how i in is it "
                  "make me my need of on one or our please run should some someone something that the this to us use "
                  "we what which who whom will with would you".split())
@@ -74,6 +77,9 @@ def items(cat: dict) -> list:
             out.append(("hardware", str(hw[k]), "operating system"))
     if isinstance(hw.get("ram_gb"), (int, float)):
         out.append(("hardware", f"{hw['ram_gb']:g} GB RAM", "memory ram"))
+    from halo_harness.fleet.capabilities_view import pack_caps
+    out += [("pack", str(c.get("name")), f"pack {pid}: {c.get('description') or 'a fleet capability'}"
+             + ("" if c.get("available") else f"{NOT_HERE}{c.get('why')}")) for pid, c in pack_caps(cat)]
     return out
 
 
@@ -109,6 +115,8 @@ def rank(entries: Iterable[dict], q: str, *, top: int = TOP) -> list:
         scored = []
         for kind, name, desc in items(cat):
             s, why = score_item(kind, name, desc, qwords)
+            if s > 0 and kind == "pack" and NOT_HERE in desc:  # 3.2.0.0 R4: listed, and said why
+                s, why = s / 2, f"{why} (not available here: {desc[desc.index(NOT_HERE) + len(NOT_HERE):]})"
             if s > 0:
                 scored.append((s, kind, name, why))
         if not scored:

@@ -7,7 +7,7 @@
                      media: {comfyui, models: [{name, kind}]},
                      hardware: {os, distro, release, cpu, cores, ram_gb, gpu: [{name, vram_gb}], disk_free_gb},
                      clis: {name: version | "installed" | null}, projects: [{name, repo, branch}],
-                     integrations: {signal}}
+                     integrations: {signal}, packs: [{id, capabilities: [{name, available, why}], ...}]}  (R4)
 
 Full local paths never leave the machine: projects are basenames and repo
 names, and every string in the catalog is scrubbed of absolute paths (a path
@@ -147,6 +147,7 @@ def gather(home=None, *, cwd=None, spawn: Optional[bool] = None, mcp_timeout: Op
            "clis": _section(lambda: host.clis(spawn=spawn), {}),
            "projects": _section(lambda: src.projects(h, cwd), []),
            "integrations": _section(lambda: src.integrations(h), {})}
+    cat["packs"] = _section(lambda: src.packs(h, cwd, cat), [])  # 3.2.0.0 R4: checked against the sections above
     from halo_harness.config.paths import home as user_home
     homes = tuple(sorted({str(user_home()), str(h), str(cwd)}, key=len, reverse=True))
     cat = scrub(apply_hide(cat, cfg["hide"]), homes)

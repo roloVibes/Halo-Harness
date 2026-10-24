@@ -30,3 +30,19 @@
   font: 12px var(--mono); color: var(--accent); overflow-wrap: anywhere; user-select: all; }
 .pk-bundle { display: grid; gap: 6px; }
 .pk-bundle-host { min-height: 24px; }
+
+/* 3.2.0.0 R4: Fleet capabilities from packs (routes/fleet/PackCaps.tsx) -- the Capabilities card's packs line,
+   a part's pack needs in the Mission plan, and the pack inspector lines. Amber marks what is not available. */
+.fcap-packs { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; font-size: 11.5px; }
+.fcap-packs li { overflow-wrap: anywhere; }
+.fcap-packs .og-chip { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+.fcap-packs .og-chip[data-none] { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 40%, transparent); }
+.fcap-packs li[data-available="no"] .fcap-why { color: var(--warn); }
+.fmi-packneed { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); margin: 0 4px 2px 0; white-space: normal; }
+.fpk-inspector { display: grid; gap: 6px; margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--line); }
+.fpk-line { display: grid; gap: 2px; font-size: 12px; min-width: 0; }
+.fpk-line-head { overflow-wrap: anywhere; }
+.fpk-line p { margin: 0; }
+.fpk-text { margin: 0; padding: 4px 6px; white-space: pre-wrap; font-size: 11.5px; background: var(--bg-2); border-radius: var(--radius-sm);
+  max-height: 160px; overflow: auto; }
+.fpk-md { max-height: 200px; overflow: auto; }
