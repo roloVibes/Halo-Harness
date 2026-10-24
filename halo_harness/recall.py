@@ -21,12 +21,15 @@ import json
 import os
 import sys
 import tempfile
+import threading
 import time
 from pathlib import Path
 from typing import Optional
 
 from halo_harness.config.paths import bridge_home
 from halo_harness.textlines import split_lines
+
+_BUILD_LOCK = threading.Lock()  # one index build at a time per process (3.1.8.0 R4: two workers' briefs)
 
 _MAX_SESSION_BYTES = 8 * 1024 * 1024
 _SESSION_SNAPSHOT_CHARS = 1200
@@ -61,13 +64,26 @@ def _save_index(path: Path, entries: dict) -> None:
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
             fh.write("".join(json.dumps(e, ensure_ascii=False) + "\n" for e in entries.values()))
-        os.replace(tmp_name, path)
+        _replace(tmp_name, path)
     except Exception:
         try:
             os.unlink(tmp_name)
         except OSError:
             pass
         raise
+
+
+def _replace(src: str, dst: Path) -> None:
+    """os.replace, tried again for a moment when Windows denies it because another process still reads `dst`
+    (a Studio server's recall beside a CLI build); the in-process case is the lock on build_index."""
+    for attempt in range(8):
+        try:
+            os.replace(src, dst)
+            return
+        except PermissionError:
+            if attempt == 7:
+                raise
+            time.sleep(0.05 * (attempt + 1))
 
 
 def _memory_sources(cwd) -> list:
@@ -162,11 +178,18 @@ def _library_sources(state_dir) -> list:
 
 def build_index(state_dir=None, *, cwd=None, force: bool = False) -> dict:
     """Refresh the index incrementally. Returns a small report
-    {"embedded": n, "total": n, "pruned": n, "enabled": bool}."""
+    {"embedded": n, "total": n, "pruned": n, "enabled": bool}. One build at a
+    time per process (3.1.8.0 R4): two Orchestra workers' briefs refresh the
+    index together, and on Windows the second replace of the index file, onto
+    the one the first still read, was denied -- that brief lost its block."""
     from halo_harness.providers.embeddings import embeddings_enabled
     if not embeddings_enabled():
         return {"enabled": False, "embedded": 0, "total": 0, "pruned": 0}
+    with _BUILD_LOCK:
+        return _build_index(state_dir, cwd=cwd, force=force)
 
+
+def _build_index(state_dir, *, cwd, force: bool) -> dict:
     path = _index_path(state_dir)
     existing = _load_index(path)
     sources = _memory_sources(cwd or Path.cwd())
