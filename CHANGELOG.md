@@ -101,6 +101,27 @@ Focus: packs -- "one harness, one Studio, multiple independently maintained capa
 - A lane whose worker failed after the gate sent its piece back now says why in the run's stop reason.
 - `contributes.workflows`, `contributes.artifacts` and the event names were read for their names only; a workflow file, an artifact schema and an event schema are now checked with the manifest, one line per problem naming the key and its line.
 
+### R6: the Pack Manager and the reference pack
+
+#### Added
+
+- Studio's Packs section (Alt+7), the Pack Manager: Installed (every pack, its grants and health; Enable, Disable, Update, Remove with a confirm), Sources (`packs.sources` and the packs Halo ships; Install, Add / Remove a source), Details (the API and Halo ranges, dependencies, what keeps it from running here in the doctor's words, a Grant toggle per permission, what it contributes with links), Settings (any installed pack, a disabled one too) and Templates (its lineups and bios with Preview, Clone, Customize, Apply; Run <workflow>). Every action runs the code `halo pack` runs and shows its lines; `pack_changed` keeps it live.
+- The Documentation Review reference pack ships with Halo (halo_harness/templates/packs/doc-review/), with its README as the guide to making your own pack; `halo pack install doc-review` finds it.
+- `halo pack list --available`, `halo pack sources [add|remove <folder|git url>]`, `halo pack grant <id> NAME... [--off]`; `halo pack install` takes a bare id from `packs.sources` or the shipped packs.
+- `/api/pack/manager`, `/api/pack/install`, `/api/pack/sources`, `/api/pack/<id>/{enable,grant,disable,update,remove,settings}`; `POST /api/orchestra/run {workflow, inputs}` compiles a pack's workflow.
+- Orchestra's Start view: a pack's workflow form (Run <workflow> from the Pack Manager). docs/STUDIO-packs.md; PACKS.md "The Pack Manager" and "The reference pack".
+
+#### Changed
+
+- The packs' own Studio sections are on Alt+8 and Alt+9 (Packs is Alt+7; the six keep Alt+1..6).
+- EXTENSION_API.md "The reference example" is stable: the shipped pack, what each file demonstrates.
+- The packs tests read the shipped pack; tests/fixtures/packs/doc-review/ is gone.
+
+#### Fixed
+
+- The doc-review lint "MCP server" printed one line and exited; it is a stdio MCP server now (check_links, check_headings), and the pack's hook and server keep to their defaults under a Python that cannot import Halo.
+- At 1500 px the eighth tab wrapped and pushed the Command button off the top bar.
+
 ## [3.1.9.0] - unreleased
 
 Focus: Auto -- the main agent knows what each model is good at and builds the orchestration itself (the owner, 2026-10-21: "an auto role template ... whatever agent is main should know which model is the best from cost, intelligence, what they are best at").
