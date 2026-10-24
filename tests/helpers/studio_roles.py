@@ -44,7 +44,16 @@ def tier(name: str) -> str:
 
 
 def tiers_on_disk(state: Path) -> dict:
-    raw = yaml.safe_load((state / "teams" / "studio-tiers.yaml").read_text(encoding="utf-8")) or {}
+    path = state / "teams" / "studio-tiers.yaml"
+    for attempt in range(20):  # Windows: the canvas's save replaces the file while this reads it (PermissionError)
+        try:
+            text = path.read_text(encoding="utf-8")
+            break
+        except PermissionError:
+            if attempt == 19:
+                raise
+            time.sleep(0.05)
+    raw = yaml.safe_load(text) or {}
     return {t["name"]: list(t.get("members") or []) for t in raw.get("tiers") or []}
 
 
