@@ -7,12 +7,17 @@ from a pack's folder gets Halo's package root first on PYTHONPATH, a plain
 plugin folder neither; the shipped pack uses the placeholder, and its hook,
 started the way a session starts it, imports `halo_harness.ext` and writes
 its note into the pack's data folder (the test home's, never the real one).
+3.2.1.0 R4: `${CLAUDE_PLUGIN_ROOT}` in a hook's shell `command` is filled for
+the quotes it sits in (forward slashes on Windows, quoted bare, escaped inside
+"..." or '...', as it is for `shell: powershell`), and the shell-hook
+fixture's two hooks run from a folder with a space and an apostrophe.
 """
 
 from __future__ import annotations
 
 import json
 import os
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -48,6 +53,58 @@ def test_the_placeholder_and_its_quoting(ctx: Ctx):
 
 
 @test
+def test_the_plugin_root_in_a_shell_command(ctx: Ctx):
+    """3.2.1.0 R4: `${CLAUDE_PLUGIN_ROOT}` in a hook's shell `command` is filled for the quotes it sits in."""
+    from halo_harness.packs import interpreter as I
+    R, p = I.ROOT, "/opt/my packs/o'neil/a$b"
+    cases = [  # (what, the command, what the shell gets)
+        ("bare: quoted for the shell", "sh " + R + "/x.sh", "sh '/opt/my packs/o'\"'\"'neil/a$b'/x.sh"),
+        ('inside "...": escaped for them', 'echo "' + R + '/x"', "echo \"/opt/my packs/o'neil/a\\$b/x\""),
+        ("inside '...': escaped for them", "echo '" + R + "'", "echo '/opt/my packs/o'\\''neil/a$b'"),
+        ('an apostrophe inside "..." is no quote', "echo \"it's " + R + '"', "echo \"it's /opt/my packs/o'neil/a\\$b\""),
+        ("an escaped quote is no quote either", 'echo \\"' + R + '\\"', 'echo \\"' + shlex.quote(p) + '\\"'),
+        ("twice in one command", R + " " + R, shlex.quote(p) + " " + shlex.quote(p)),
+    ]
+    for what, cmd, want in cases:
+        got = I.fill_shell(cmd, {R: (shlex.quote(p), p)})
+        ctx.check(f"{what}: {cmd!r} -> {got!r}, want {want!r}", got == want)
+    root = r"D:\Tools\My Packs\p" if os.name == "nt" else "/opt/my packs/p"
+    fwd = root.replace("\\", "/")
+    entry = I.expand_hook({"type": "command", "command": f'sh {R}/x.sh "{R}"', "args": [f"{R}/y"]}, root)
+    ctx.check(f"expand_hook: forward slashes, quoted bare and plain inside quotes, got {entry['command']!r}",
+              entry["command"] == f"sh '{fwd}'/x.sh \"{fwd}\"")
+    ctx.check("args stay for the plain pass (hooks.py fills them with the path as it is)", entry["args"] == [f"{R}/y"])
+    plain = I.expand_hook({"command": f"sh {R}/x.sh"}, r"C:\packs\p" if os.name == "nt" else "/packs/p")
+    ctx.check(f"a path with nothing to quote stays bare, got {plain['command']!r}",
+              plain["command"] == ("sh C:/packs/p/x.sh" if os.name == "nt" else "sh /packs/p/x.sh"))
+    ps = I.expand_hook({"command": f"& '{R}/x.ps1'", "shell": "powershell"}, root)
+    ctx.check(f"shell: powershell gets the path as it is, got {ps['command']!r}", ps["command"] == f"& '{root}/x.ps1'")
+    py = I.expand_hook({"command": '"${halo_python}" x.py'})
+    ctx.check(f"${{halo_python}} inside \"...\" is one quoted path, got {py['command']!r}",
+              py["command"] == '"' + I.shell_path(sys.executable).replace("$", "\\$") + '" x.py')
+    ctx.check("an entry with neither placeholder is unchanged", I.expand_hook({"command": "echo hi"}, root) == {"command": "echo hi"})
+
+
+@test
+def test_a_shell_form_hook_runs_on_this_platform(ctx: Ctx):
+    """3.2.1.0 R4: the shell-hook fixture's two hooks (bare and inside "...") run from a folder with a space and an
+    apostrophe (Git Bash on Windows, /bin/sh elsewhere) and from the test home once installed."""
+    from halo_harness.hooks import HookRunner, load_plugin_hooks, run_command_hook
+    from halo_harness.packs import interpreter as I
+    with PacksHome() as h:
+        spaced = h.source("shell-hook", folder="it's a folder/shell-hook")
+        h.install(h.source("shell-hook"), enable=True, grants=["hooks"])
+        for root in (spaced, h.packs / "shell-hook"):
+            hooks = load_plugin_hooks(root).get("SessionStart") or []
+            runner = HookRunner({}, cwd=h.repo, session_id="s", transcript_path=None, effective_env=dict(os.environ))
+            got = [run_command_hook(k, {"hook_event_name": "SessionStart"}, cwd=h.repo, env=runner._env_for(k)) for k in hooks]
+            seen = [(r.exit_code, r.stdout.strip(), r.stderr.strip()[-160:]) for r in got]
+            want = I.shell_path(str(root))
+            ctx.check(f"{root.parent.name}: both hooks ran and echoed the pack's folder, got {seen}", len(got) == 2
+                      and [s[:2] for s in seen] == [(0, f"script={want}"), (0, f"root={want}")])
+
+
+@test
 def test_the_shipped_pack_uses_it(ctx: Ctx):
     mcp = json.loads((DOC_REVIEW / ".mcp.json").read_text(encoding="utf-8"))["mcpServers"]["lint"]
     hooks = json.loads((DOC_REVIEW / "hooks" / "hooks.json").read_text(encoding="utf-8"))["hooks"]["PostToolUse"][0]["hooks"][0]
@@ -71,7 +128,9 @@ def test_a_session_starts_them_with_halos_python(ctx: Ctx):
                   cfg is not None and cfg.command == sys.executable and Path(cfg.args[0]) == root / "mcp" / "lint_server.py")
         ctx.check("its env puts Halo's package root first on PYTHONPATH",
                   cfg is not None and cfg.env.get("PYTHONPATH", "").split(os.pathsep)[0] == I.package_root())
-        plain = Path(tempfile.mkdtemp(prefix="plain-plugin-"))
+        # 3.2.1.0 R4: a fixed folder name -- mkdtemp's random part may hold `__`, which no server name may (a flake)
+        plain = Path(tempfile.mkdtemp(prefix="plain-")) / "plain-plugin"
+        plain.mkdir()
         (plain / ".mcp.json").write_text(json.dumps({"mcpServers": {"s": {"command": "${halo_python}", "args": []}}}), encoding="utf-8")
         other, n2 = discover_plugin_mcp_servers(env=dict(os.environ), extra_roots=[str(plain)])
         cfg2 = next((v for k, v in other.items() if k.endswith("_s")), None)  # the plain plugin's own server

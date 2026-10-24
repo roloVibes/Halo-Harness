@@ -10,6 +10,7 @@ as real subprocesses for the `command` handler type.
 import json
 import os
 import re
+import shlex
 import sys
 import tempfile
 import threading
@@ -159,12 +160,19 @@ def test_load_plugin_hooks_substitutes_plugin_root(ctx: Ctx):
     (hooks_dir / "hooks.json").write_text(json.dumps({
         "hooks": {"SessionStart": [{"hooks": [
             {"type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/run.sh", "args": None},
+            {"type": "command", "args": ["${CLAUDE_PLUGIN_ROOT}/run.py"], "statusMessage": "in ${CLAUDE_PLUGIN_ROOT}"},
         ]}]},
     }), encoding="utf-8")
     norm = H.load_plugin_hooks(tmp)
     ctx.check("SessionStart loaded", "SessionStart" in norm)
     got = norm["SessionStart"][0].command
-    ctx.check(f"plugin root substituted, got {got!r}", got == f"{tmp}/run.sh")
+    # 3.2.1.0 R4: a shell `command` gets the path as its shell reads it -- forward slashes on Windows (Git Bash
+    # eats a backslash), quoted when it holds a space or another character the shell reads (a CI runner's `~`)
+    fwd = str(tmp).replace("\\", "/") if os.name == "nt" else str(tmp)
+    ctx.check(f"plugin root substituted for the shell, got {got!r}", got == shlex.quote(fwd) + "/run.sh" and "\\" not in got)
+    other = norm["SessionStart"][1]
+    ctx.check(f"args and every other field keep the path as it is, got {other.args} {other.status_message!r}",
+              other.args == [f"{tmp}/run.py"] and other.status_message == f"in {tmp}")
     ctx.check("source tagged plugin", norm["SessionStart"][0].source == "plugin")
     ctx.check("plugin_root recorded", norm["SessionStart"][0].plugin_root == str(tmp))
 

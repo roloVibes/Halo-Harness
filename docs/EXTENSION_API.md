@@ -182,6 +182,17 @@ Status: **stable**. An enabled pack's root joins the session's plugin roots
 copied into `~/.claude`. Hooks load only with the `hooks` grant; an MCP
 server starts only with its `mcp:<server>` grant (and `network` for a url).
 
+A `command` hook has two forms, and both work on Windows and Linux:
+
+| Form | Entry | `${CLAUDE_PLUGIN_ROOT}` and `${halo_python}` |
+|---|---|---|
+| exec (recommended) | `{"type": "command", "args": ["${halo_python}", "${CLAUDE_PLUGIN_ROOT}/hooks/note.py"]}` | the paths as they are; no shell reads them |
+| shell | `{"type": "command", "command": "sh ${CLAUDE_PLUGIN_ROOT}/hooks/run.sh"}` | as the hook's shell reads them (3.2.1.0 R4): forward slashes on Windows (Git Bash), quoted when a path holds a space or another character the shell reads, escaped inside your own `"..."` or `'...'`; `shell: "powershell"` gets the plugin root as it is |
+
+Every other field of the entry, and the hook's `CLAUDE_PLUGIN_ROOT`
+environment variable, get the path as it is
+([PACKS.md](PACKS.md#a-packs-own-python)).
+
 ## Permissions and grants
 
 Status: **stable**. A pack requests `permissions:` in pack.yaml: `mcp:<server>`,
@@ -600,13 +611,16 @@ it adds (the name, what it does, the version) and the names it deprecates
 
 1. `halo pack update <id> --dry-run` prints the migration notes between the
    installed version and its source's (`<id> <from> -> <to>: <note>`, oldest
-   first), what the update would do (the files that change, the settings it
-   renames, your files it keeps) and changes nothing. The Pack Manager's
-   Update shows the same lines in its confirm before it runs.
+   first), what the update would do (the files that change, one line each,
+   the settings it renames, your files it keeps) and changes nothing. The
+   Pack Manager's Update shows the same lines in its confirm before it runs.
 2. `halo pack update <id>` makes the checks install makes on the source (the
    manifest, both ranges, the same id): a new version that fails one is
-   refused with its lines and `<id> <version> stays as it is`. Then the notes
-   come first, the new version is staged in `<packs>/.staging-<hex>/<id>/`
+   refused with its lines and `<id> <version> stays as it is`. In a terminal
+   (3.2.1.0 R4) it then prints step 1's lines and asks `Apply? [y/N]`; `n`,
+   Enter or the end of input stop here with `<id> <version> stays as it is`
+   (exit 1). `--yes`, `--json` and a run with no terminal do not ask, and
+   print the notes first. Then the new version is staged in `<packs>/.staging-<hex>/<id>/`
    (the new files, and every file of yours in the pack's folder carried over)
    and swapped in by two renames: `<id>/` becomes `<id>.previous/` (replacing
    the one kept before) and the staged folder becomes `<id>/`. A copy or
@@ -642,8 +656,9 @@ other change is the note's to say.
 2. The journal's ownership goes back to what it was before that update, the
    settings it renamed move back (from the journal's `migrate` rows), and the
    record gets the old version and keeps its grants and its enabled state.
-3. One version back only: the next update replaces `<id>.previous`. With
-   none kept the answer is one line: `<id> has no earlier version to go back
+3. One version back only, and that is the rule: `<id>.previous` is the one
+   version kept, the next update replaces it, and there is no version
+   history on disk (3.2.1.0 R4). With none kept the answer is one line: `<id> has no earlier version to go back
    to: an update keeps the version it replaces as <id>.previous until the next update`.
 4. `halo pack remove <id>` deletes `<id>.previous` too. `--keep-config`
    keeps it beside the record, and `halo pack rollback <id>` then installs
