@@ -92,6 +92,7 @@ include = ["halo_harness*"]
 halo_harness = ["tui/*.tcss", "providers/*.json", "providers/catalog/*.json",
                 "templates/agents/*.yaml", "templates/teams/*.yaml", "templates/team/*.yaml", "templates/orchestra/*.json", "templates/orchestra/*.py", "templates/comfy/*.json", "templates/glossary/*.md", "review/prompts/*.md",
                 "packs/schema/*.json",
+                "isolation/Dockerfile",
                 "studio/static/dist/*"]
 
 [tool.setuptools.dynamic]

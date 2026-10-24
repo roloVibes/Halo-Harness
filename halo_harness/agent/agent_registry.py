@@ -8,7 +8,7 @@ session's background Bash jobs are leaves under main (`kind: job`, read from
 the job registry whenever the tree is listed). A row:
 
     {agent_id, parent, name, role, bio, lineup, model, kind, task, since,
-     state, turns, cost_usd, current, last_text, transcript, tokens_in, tokens_out, model_reason}
+     state, turns, cost_usd, current, last_text, transcript, tokens_in, tokens_out, model_reason, opt_ins}
 
 `state` is one of STATES; `kind` main | subagent | member | background |
 job; `task` the first line of what the agent was asked; `turns` its model
@@ -42,7 +42,8 @@ STATES = ("queued", "running", "waiting", "paused", "done", "failed", "stopped")
 LIVE_STATES = ("queued", "running", "waiting", "paused")
 FIELDS = ("agent_id", "parent", "name", "role", "bio", "lineup", "model", "kind", "task", "since", "state",
           "turns", "cost_usd", "current", "last_text", "transcript", "tokens_in", "tokens_out",
-          "model_reason")  # 3.1.9.0 R2: why an `auto` member runs on `model` (models_auto.py)
+          "model_reason",  # 3.1.9.0 R2: why an `auto` member runs on `model` (models_auto.py)
+          "opt_ins")  # 3.1.8.0 R5: its isolation / secrets / tool-list lines (isolation/lines.py)
 QUIET_FIELDS = frozenset({"last_text", "cost_usd"})
 QUIET_S = 1.0
 _make_lock = threading.Lock()
@@ -92,7 +93,7 @@ class AgentTree(ObserveMixin):
         team = getattr(root, "team_control", None) or getattr(getattr(root, "agent_runtime", None), "team_control", None)
         self.add(self.root_id, session=root, parent=None, name="main", role=getattr(root, "role_name", None) or "main",
                  lineup=getattr(team, "name", None), model=_model(root), kind="main", state="done",
-                 transcript=_log_path(root))
+                 transcript=_log_path(root), opt_ins=getattr(root, "opt_ins", None))
 
     @staticmethod
     def _ref(session):

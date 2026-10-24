@@ -194,6 +194,8 @@ def tool_child_env(env: dict, *, env_file_path: Optional[Path] = None) -> dict:
         from halo_harness.config.paths import env_file_has_import_marker
         if legacy is not None and not env_file_has_import_marker(path):
             strip_keys |= set(_parse_env_file(legacy).keys())
+    from halo_harness.isolation.secrets import strip_keys as _broker_keys  # 3.1.8.0 R5: a broker's keys stay with the worker
+    strip_keys |= _broker_keys(env) | _broker_keys(os.environ)
     return {k: v for k, v in env.items() if k not in strip_keys}
 
 

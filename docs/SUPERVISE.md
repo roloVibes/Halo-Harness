@@ -200,6 +200,18 @@ report print **"replanned N times (<why>)"**. Past `supervise.replan_max` a
 drift is left to the stops: the budget guard parks `goal budget`, the gate
 parks `goal gate`, as before.
 
+## Isolated workers
+
+Halo 3.1.8.0 R5. A goal's Orchestra run starts its workers through the same
+`spawn_worker` as `halo orchestra run`, so a lineup or bio that declares
+`isolation: container | user`, `secrets: broker` or `tools.capabilities`
+holds under the supervisor too ([ISOLATION.md](ISOLATION.md)). A lane that
+cannot run as declared (no docker or podman here, no `op`, a scoped user
+on Windows, a ref that cannot be read) stops with its one line; the run
+stops with `lane <n>: <line>` and the goal fails with `failure.kind:
+worker`. `halo goal show` prints each lane's isolation, secrets and tool
+lines under the run.
+
 ## The pulse
 
 `~/.halo/supervise/pulse.json` is `{pid, pstart, started, updated, state,

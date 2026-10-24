@@ -38,6 +38,9 @@ BIO = {
     "tools.permission_mode": "how permission asks are decided for this agent's tool calls",
     "tools.needs": "a pack bio's grants (bash, network, home-write, mcp:<server>): halo pack enable <id> --grant <need>",
     "tools.rules": "extra allow/ask/deny rules, one per line, the settings.json grammar (deny Bash(git push*))",
+    "tools.capabilities": "the only capabilities this agent's tools come from (read, edit, bash, web, agent, mcp:<server>, media, recall)",
+    "environment.secrets": "env names this agent's workers get from the secret broker at spawn ({env, ref}), never from a file",
+    "environment.pass_to_tools": "broker keys this agent's tool children (Bash, MCP) may see too",
     "context.files": "files put in front of this agent's prompt (its reading list)",
     "context.skills": "skills this agent may invoke",
     "context.memory": "a private memory namespace (blank = no auto-memory)",
@@ -130,6 +133,9 @@ ASSIGNMENT = {
     "extends": "another lineup to inherit sections from",
     "workflows": "the pack workflows this lineup runs (a pack's lineup names its pack's own)",
     "from_pack": "the pack and version this lineup was cloned from (pack@1.0.0); it changes nothing at run time",
+    "isolation": "where this lineup's Orchestra workers run: here as you (none), in a per-run container (on the host network unless network: none), or as a scoped OS user",
+    "secrets": "where the workers' secret env values come from at spawn: the host's environment (none), 1password or env",
+    "capabilities": "the only capabilities every member's tools come from; a tier, a card or a bio may name its own",
 }
 
 #: 3.1.4.0 R4: the one model control (Studio's ModelSelect) wherever an agent is configured.

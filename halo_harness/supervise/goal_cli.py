@@ -123,6 +123,9 @@ def _show(state_dir, gid: str, as_json: bool) -> int:
         print(f"  budget: ${float(goal['budget_usd']):.4f}")
     if goal.get("run_dir"):
         print(f"  run: {Path(goal['run_dir']).name}")
+        from halo_harness.isolation.lines import run_lines  # 3.1.8.0 R5: each lane's isolation/secrets/tools line
+        for ln in run_lines(goal["run_dir"]):
+            print(f"  {ln}")
     if goal.get("bg_id"):
         print(f"  job: {goal['bg_id']}")
     from halo_harness.supervise.replan_rows import line as replan_line

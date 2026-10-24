@@ -1406,6 +1406,11 @@ def build_session(
             print(f"halo: unknown --team {_team_name_for_session!r} (halo teams list shows every template) "
                   f"-- running without a team", file=sys.stderr)
             _team_name_for_session = None
+    # 3.1.8.0 R5: `tools.capabilities` of the lineup's main (or the --agent bio, or the run that started this
+    # worker) narrows the registry before the model sees it; nothing declared, nothing changes (docs/ISOLATION.md).
+    from halo_harness.isolation.capabilities import narrow_session
+    _opt_ins = [] if bare else narrow_session(frozen_registry, session_catalog, team=_team_name_for_session,
+                                              agent=agent, cwd=cwd)
 
     ctx = SessionContext(
         cwd=cwd, model_label=model_ref.raw, model_family=family, settings_flag=settings_flag,
@@ -1530,6 +1535,7 @@ def build_session(
         # the unknown `--agent` handling just above), never a hard exit.
         team_name=_team_name_for_session,
     )
+    session.opt_ins = _opt_ins or None  # 3.1.8.0 R5: its agent row's lines (the tool list, a worker's isolation)
     if hook_runner is not None:
         hook_runner.prompt_caller = session._call_model_for_hook
     # H9 whole-tree review finding 3 ("plus an atexit kill_all"): a safety

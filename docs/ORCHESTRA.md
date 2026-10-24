@@ -288,7 +288,8 @@ Lane states: `joined` (worktree ready) -> `writing` (the worker runs) ->
 `waiting` (a piece sent back, or, 3.0.9.0, a lane waiting for its upstreams),
 `failed` (the worker failed or stopped). The hand-off fields (`handoff`,
 `after`, `base`, `gave`) are under [Hand-offs](#hand-offs). 3.0.9.0 R3 adds `bio`, `model` and `denied`
-(see [The coach](#the-coach)).
+(see [The coach](#the-coach)). 3.1.8.0 R5 adds `isolation`, `secrets`, `tools` and `opt_ins` when
+the lane's lineup or bio declares one ([ISOLATION.md](ISOLATION.md#where-it-shows)).
 
 ### `merge.json`
 
@@ -966,6 +967,20 @@ never written over an entry already here
   the worker starts (it writes the overlay into the worktree and answers
   extra worker flags); `model_call` and `fresh_judge` take an `effort` that
   reaches `one_shot` only when set. Without them the argv is as before.
+- 3.1.8.0 R5 ([ISOLATION.md](ISOLATION.md)): right before a worker runs,
+  `isolation/lane.py` `prepare` applies the lane's opt-ins, read from the
+  goal's lineup and the lane's bio (the plan's `bio`, else the lineup's
+  member for the goal's `worker` role): `isolation: container | user` makes
+  the argv a `docker run` (or `podman run`) of the worker image or a `sudo -n
+  -u <user>` run on a scoped state dir `<run>/state-<n>/`, `secrets: broker`
+  reads the bio's `environment.secrets` refs into the worker's environment
+  only, and `tools.capabilities` rides in `HALO_TOOLS_CAPS` so the worker's
+  registry holds only those tools. The lane file gains `isolation`, `secrets`,
+  `tools` and `opt_ins` (the lines) and the report `opt_ins: [{lane,
+  lines}]`. A lane that cannot run as declared (no docker or podman, no
+  `op`, a scoped user on Windows, a ref not read) fails with that one line,
+  like a worker whose harness would not start. Nothing declared: the argv,
+  the environment and the lane file are as before.
 
 ## In Studio
 

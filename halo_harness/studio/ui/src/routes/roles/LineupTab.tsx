@@ -14,6 +14,7 @@ import { Button } from "../../lib/ui";
 import { edit } from "./actions";
 import { TextIn } from "./controls";
 import { ScopeCheck } from "./BioForm";
+import { OptInFields } from "./OptInFields";
 import { SectionForm } from "./SectionForm";
 import { SECTIONS, type SectionDef } from "./sections";
 import { useRoles } from "./store";
@@ -119,6 +120,7 @@ export function LineupTab() {
     <div className="re-lineup" data-testid="roles-lineup-tab" data-lineup={name}>
       <SaveProblems />
       <LineupHeader />
+      <OptInFields />
       {SECTIONS.map((d) => <Block key={d.name} def={d} />)}
     </div>
   );
