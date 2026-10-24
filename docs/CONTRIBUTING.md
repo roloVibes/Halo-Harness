@@ -102,7 +102,8 @@ that should now trigger that manual run, not the other way around.
 ## Releasing
 
 `python scripts/release.py <version>` bumps
-`halo_harness/__init__.py::__version__`, dates the CHANGELOG's own
+`halo_harness/__init__.py::__version__`, sets the shipped reference pack's
+`halo: {min: "<major.minor>"}` to the release it ships in, dates the CHANGELOG's own
 `## [<version>] - unreleased` section, commits, tags, pushes, and
 refreshes the local install (plus any `--remote user@host` given on the
 command line). Run it with `--dry-run` first to see every step printed

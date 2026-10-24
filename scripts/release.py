@@ -128,6 +128,31 @@ def write_install_tag_urls(version: str, repo_dir: Path = REPO_DIR) -> "list[str
     return changed
 
 
+_SHIPPED_PACK = Path("halo_harness") / "templates" / "packs" / "doc-review" / "pack.yaml"
+_PACK_HALO_MIN_RE = re.compile(r'^(halo:\s*\{min:\s*")(\d+\.\d+)(".*\})\s*$', re.MULTILINE)
+
+
+def major_minor(version: str) -> str:
+    return ".".join(version.split(".")[:2])
+
+
+def write_shipped_pack_min(version: str, repo_dir: Path = REPO_DIR) -> bool:
+    """3.2.0.0 R7: the shipped reference pack requires the release it ships in -- its `halo: {min: "X.Y"}` is the
+    version's major.minor, set in the SAME release commit as `__version__` (tests/test_reference_pack.py pins the
+    pair, and tests/test_quickstart_docs.py pins `__version__` to the newest dated CHANGELOG section, so no commit
+    before the release could carry the bump). Returns True iff the file changed; a scratch repo without the pack
+    is skipped by the caller."""
+    path = repo_dir / _SHIPPED_PACK
+    text = path.read_text(encoding="utf-8")
+    new_text, n = _PACK_HALO_MIN_RE.subn(lambda m: m.group(1) + major_minor(version) + m.group(3), text, count=1)
+    if n == 0:
+        raise ReleaseError(f'could not find halo: {{min: "..."}} in {path}')
+    if new_text == text:
+        return False
+    path.write_text(new_text, encoding="utf-8", newline="\n")
+    return True
+
+
 def write_readme_badge_version(version: str, repo_dir: Path = REPO_DIR) -> bool:
     """Deliverable 6 (packaging, the owner's own weak-spot report: "the
     README badge embedded in METADATA still says version 2.0.1"): sets
@@ -389,6 +414,10 @@ def main(argv: "Optional[list]" = None, *, repo_dir: Path = REPO_DIR,
             step(f'set halo_harness/__init__.py::__version__ to "{version}" (was "{current_version}")')
             if not args.dry_run:
                 write_version(version, repo_dir)
+        if (repo_dir / _SHIPPED_PACK).exists():  # 3.2.0.0 R7: the shipped reference pack requires the release it ships in
+            step(f'set the shipped reference pack\'s halo: {{min: "{major_minor(version)}"}} ({_SHIPPED_PACK.as_posix()})')
+            if not args.dry_run:
+                write_shipped_pack_min(version, repo_dir)
 
         section_body = unreleased_section_body(version, repo_dir)  # raises ReleaseError when missing
         step(f'CHANGELOG.md has a "## [{version}] - unreleased" section; set its date to {date_str}')
@@ -427,6 +456,8 @@ def main(argv: "Optional[list]" = None, *, repo_dir: Path = REPO_DIR,
             to_add = ["halo_harness/__init__.py", "CHANGELOG.md", "README.md"]
             if (repo_dir / "docs" / "INSTALL.md").exists():
                 to_add.append("docs/INSTALL.md")
+            if (repo_dir / _SHIPPED_PACK).exists():
+                to_add.append(_SHIPPED_PACK.as_posix())
             if (repo_dir / "docs" / "screenshots").is_dir():
                 to_add.append("docs/screenshots")
             run_fn(["git", "add", *to_add], cwd=str(repo_dir), check=True)
