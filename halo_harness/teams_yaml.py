@@ -588,7 +588,7 @@ def member_model(template, entry, *, cwd=None, state_dir=None, bio=_UNSET) -> "t
        model of `default` is the session's model);
     4. a bio preference of `default`: the session's model (`session`), or
        `auto` (3.1.9.0 R2): picked when the member spawns (`auto`,
-       models_auto.py);
+       models_auto.py), or `measured` (3.1.8.0 R3, outcomes/routing.py);
     5. the card's fallback, then the bio's (`fallback`).
 
     `("", "", "")` when nothing resolves. `bio` is the resolved bio when the
@@ -616,9 +616,9 @@ def member_model(template, entry, *, cwd=None, state_dir=None, bio=_UNSET) -> "t
             tier_model = session.strip() if isinstance(session, str) and session.strip() else tier_model
         return tier_model, fallback, f"tier:{_tier_name_for(template, key)}"
     if bio_models.get("preference"):
-        from halo_harness.models_auto import AUTO, is_auto  # 3.1.9.0 R2: `auto` is picked at spawn
-        if is_auto(bio_models["preference"]):
-            return AUTO, fallback, "auto"
+        from halo_harness.models_auto import is_auto, spawn_word  # 3.1.9.0 R2: `auto` is picked at spawn
+        if is_auto(bio_models["preference"]):  # 3.1.8.0 R3: and `measured`, its own source word
+            return spawn_word(bio_models["preference"]), fallback, spawn_word(bio_models["preference"])
         how = ((bio or {}).get("_model") or {}).get("how")  # 3.2.0.0 R2: models.capabilities picked it, else `default`
         return str(bio_models["preference"]), fallback, "capabilities" if how == "capabilities" else "session"
     if fallback:

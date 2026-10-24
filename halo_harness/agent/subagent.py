@@ -587,7 +587,7 @@ def _build_child_session_inner(*, runtime: AgentRuntime, spec: AgentSpec, agent_
         parent_ref=parent.model_ref, parent_profile=parent.model_profile,
         parent_small_ref=parent.small_model_ref, state_dir=parent.state_dir, routes=runtime.routes,
         auto_pick=_auto_resolver(runtime=runtime, role_name=_effective_role_name, task_text=task_text,
-                                 holder=_auto, routes=runtime.routes),
+                                 holder=_auto, routes=runtime.routes, requested=model_override),
     )
     # 2.0.2 review finding 7 (major): a decision-only/judge endpoint
     # (`Controller.set_model` auto-routes one to `roles.judge` rather than
@@ -1228,6 +1228,14 @@ def _acceptance_critique(spec, role_name: "Optional[str]", team_control, child, 
             f"Failed check: {note}. Re-read the criteria, fix the result, and return it again.")
 
 
+def _record_outcome(parent, child, spec, role_name, team_control, agent_id: str, **verdict) -> None:
+    """3.1.8.0 R3: the child's evidence.json beside its transcript and its outcomes.jsonl row
+    (outcomes/session.py; never raises). `verdict`: is_error, stopped, acceptance, stage."""
+    from halo_harness.outcomes.session import record_subagent
+    record_subagent(parent, child, spec_name=spec.name, role_name=role_name, team_control=team_control,
+                    agent_id=agent_id, **verdict)
+
+
 def _rollup_child_cost_into_parent(parent, child, *, agent_id: str, since_index: int = 0,
                                     role: Optional[str] = None, ok: Optional[bool] = None,
                                     bio: Optional[str] = None) -> None:
@@ -1691,6 +1699,8 @@ def _run_one_fanout_child(*, runtime: AgentRuntime, spec: AgentSpec, agent_id: s
         _forward_child_escalation_decisions(parent, child, spec)
         with parent._agent_notices_lock:
             parent.permission_denials.extend(child.permission_denials)
+        _record_outcome(parent, child, spec, role_name, runtime.team_control, agent_id, is_error=is_error,
+                        stopped=_fleet_stopped(child))  # 3.1.8.0 R3
         end_ev = events.Event("subagent_end", {"agent_id": agent_id, "name": _dock_name,
                                                   "parent_tool_use_id": tool_id, "task_id": new_task_id,
                                                   "is_error": is_error})
@@ -2069,12 +2079,14 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
                 # member's one-line report. `child.cost_meter.total_usd`
                 # is already scoped to exactly this call (a fresh CostMeter
                 # per Session construction).
+                bg_stage = None  # 3.1.8.0 R3: the stage gate's verdict, for the outcome row
                 if team_control is not None:
                     team_control.record_spend(child.cost_meter.total_usd)
                     team_control.record_turn(getattr(child, "turn_count", 0) or 0)
                     if team_stage is not None:
                         ok, gate_line = team_control.evaluate_stage(team_stage, text)
                         team_control.record_stage(team_stage, ok, gate_line)
+                        bg_stage = (ok, gate_line)
                         if not ok:
                             text = (f"{text}\n\nstage {team_stage.get('name')!r} gate did not pass "
                                     f"({gate_line})" + (" -- the next stage stays blocked"
@@ -2124,6 +2136,8 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
                 # reopened later still shows the real outcome, not just
                 # "completed" for both a clean and a failed run alike.
                 _write_meta(meta_path, {"is_error": is_error, "finished": time.time()})
+                _record_outcome(parent, child, spec, role_name, team_control, agent_id, is_error=is_error,
+                                stopped=child.abort.is_set() or _fleet_stopped(child), stage=bg_stage)  # 3.1.8.0 R3
                 # review finding 20: the foreground path always emits
                 # `subagent_end` (see the mirror-image `end_ev` below the
                 # foreground `try/finally`); `_bg_run` never did, so a live
@@ -2226,6 +2240,8 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
                     acceptance_failed = (f"acceptance failed after 2 attempts "
                                          f"({acc_note2}; first attempt: {acc_note})")
     accepted = (not is_error) and acceptance_failed is None
+    acceptance_rec = ({"met": accepted, "why": acceptance_failed or acc_note, "attempts": 1 if acc_ok else 2}
+                      if had_acceptance else None)  # 3.1.8.0 R3: the verdict its evidence records (outcomes/session.py)
     _fire_subagent_hook(child, "SubagentStop")
     _fire_task_hook(parent, "TaskCompleted", task_id=new_task_id, spec_name=spec.name, description=description)
     # Halo 2.0.2 round 3 (brief C): `is_error`/`finished` -- see _bg_run's
@@ -2252,13 +2268,14 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
     # result (a `required` gate that fails blocks the NEXT stage), the
     # `delegation.handoff` shape wraps the hand-back, and the completion
     # becomes the member's one-line report.
-    team_note = None
+    team_note, stage_verdict = None, None
     if team_control is not None:
         team_control.record_spend(child.cost_meter.total_usd)
         team_control.record_turn(getattr(child, "turn_count", 0) or 0)
         if team_stage is not None:
             ok, gate_line = team_control.evaluate_stage(team_stage, text)
             team_control.record_stage(team_stage, ok, gate_line)
+            stage_verdict = (ok, gate_line)
             if not ok and team_stage.get("gate") == "required":
                 team_note = f"stage {team_stage.get('name')!r} gate did not pass ({gate_line}) -- the next stage stays blocked"
             elif not ok:
@@ -2277,6 +2294,8 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
     # permission_denials`, the TOP session only) actually surfaces a
     # sub-agent's denied tool calls instead of silently losing them.
     parent.permission_denials.extend(child.permission_denials)
+    _record_outcome(parent, child, spec, role_name, team_control, agent_id, is_error=is_error,
+                    stopped=_fleet_stopped(child), acceptance=acceptance_rec, stage=stage_verdict)
     end_ev = events.Event("subagent_end", {"agent_id": agent_id, "name": _dock_name, "parent_tool_use_id": tool_id,
                                              "task_id": new_task_id, "is_error": is_error})
     end_ev.agent_id = agent_id
@@ -2448,6 +2467,8 @@ def _resume_task_claimed(runtime: AgentRuntime, task_id: str, tool_input: dict, 
     # fires, in the same order.
     _fire_subagent_hook(child, "SubagentStop")
     _fire_task_hook(parent, "TaskCompleted", task_id=task_id, spec_name=spec.name, description=_desc)
+    _record_outcome(parent, child, spec, role_name, getattr(runtime, "team_control", None), agent_id,
+                    is_error=is_error, stopped=_fleet_stopped(child))  # 3.1.8.0 R3: a resumed task records again
     end_ev = events.Event("subagent_end", {"agent_id": agent_id, "name": _dock_name,
                                            "result_preview": _one_line_preview(text), "task_id": task_id})
     end_ev.agent_id = agent_id

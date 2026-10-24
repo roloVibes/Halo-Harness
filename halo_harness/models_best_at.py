@@ -12,7 +12,8 @@
 `index(state_dir, rows)` answers the cache while it is fresh and rebuilds it
 when any SOURCE cache's mtime moved (`SOURCE_NAMES`: every provider catalog
 cache, models.dev, telemetry's stats cache, the gym results, the Ollama
-probe, the canary census, the learned rules, config.json, routes.json) or
+probe, the canary census, the learned rules, config.json, routes.json; 3.1.8.0
+R3: the measured outcome numbers a line shows, outcomes/measured.signature) or
 once it is older than `MAX_AGE_S` (an Ollama host's catalog and the
 provider env have no file to watch). No refresh path needs wiring: a
 `halo models --refresh`, `/model` refresh or Studio Refresh rewrites a
@@ -52,6 +53,10 @@ def source_mtimes(state_dir) -> dict:
             out[name] = round((base / name).stat().st_mtime, 3)
         except OSError:
             continue
+    from halo_harness.outcomes.measured import signature  # 3.1.8.0 R3: the measured words a line shows
+    sig = signature(base)  # (outcomes.jsonl's rated numbers; a rebuild only when a shown number moves)
+    if sig:
+        out["outcomes.jsonl"] = sig
     gym = base / "gym"
     try:
         files = [p for p in gym.glob("*/*.json") if not p.name.endswith(".tmp")]

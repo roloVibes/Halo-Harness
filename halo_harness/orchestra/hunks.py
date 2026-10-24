@@ -12,7 +12,9 @@ so the common base is there too):
     >>>>>>> orchestra/<run>-worker-2
 
 `extract_hunks(text)` lists them; `judge_prompt(hunks, goal, file)` is the
-whole prompt the fresh judge sees (the goal and the hunks, nothing else);
+whole prompt the fresh judge sees (the goal and the hunks, nothing else;
+3.1.8.0 R3: plus an EVIDENCE block when the goal carries the lanes'
+evidence lines -- their tests, sources and reproductions, never a summary);
 `parse_resolution(answer, n)` reads the judge's answer (the replacement
 text for one hunk, or `=== hunk k ===` blocks for several); and
 `apply_resolution(text, texts)` swaps each marked region for its text. All
@@ -68,6 +70,10 @@ def judge_prompt(hunks: list, goal, file: str) -> str:
         "wherever they can be, and the goal is met.",
         f"GOAL: {what}\nDONE WHEN: {done}\nFILE: {file}",
     ]
+    evidence = goal.get("evidence") if isinstance(goal, dict) else getattr(goal, "evidence", None)
+    if evidence:  # 3.1.8.0 R3 (outcomes/lane.py): what the lanes ran and read, never their own summary
+        parts.append("EVIDENCE (what each lane's worker ran and read, from its transcript):\n"
+                     + "\n".join(f"- {line}" for line in evidence))
     for h in hunks:
         parts.append(f"--- hunk {h['index']} (lines {h['start_line']}-{h['end_line']}) ---\n"
                      f"[already merged]\n{h['ours']}\n[common base]\n{h['base']}\n[incoming]\n{h['theirs']}")

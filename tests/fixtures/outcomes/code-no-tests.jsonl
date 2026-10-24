@@ -1,0 +1,5 @@
+{"type": "meta", "ts": 1760800400.0, "session_id": "fixture-code-no-tests"}
+{"type": "user", "ts": 1760800400.1, "content": [{"type": "text", "text": "You are worker 2 of an Orchestra run. Write remove_item."}]}
+{"type": "assistant", "ts": 1760800401.0, "content": [{"type": "tool_use", "id": "n1", "name": "Edit", "input": {"file_path": "basket.py", "old_string": "    pass", "new_string": "    del basket[name]"}}]}
+{"type": "tool_result", "ts": 1760800401.3, "tool_use_id": "n1", "tool": "Edit", "content": "The file basket.py has been updated.", "is_error": false}
+{"type": "assistant", "ts": 1760800402.0, "content": [{"type": "text", "text": "Wrote remove_item."}]}

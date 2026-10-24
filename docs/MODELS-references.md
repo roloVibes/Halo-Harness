@@ -147,6 +147,28 @@ old (an Ollama host's list and the env have no file to watch). So `halo
 models --refresh`, the `/model` picker's refresh and Studio's Refresh need
 nothing more; `halo models analyze` and Studio's Analyze rebuild at once.
 
+#### Measured success (Halo 3.1.8.0)
+
+What this Halo measured about each model's agent tasks
+([OUTCOMES.md](OUTCOMES.md#measured-success)): every checked task (an
+Orchestra lane through the gate, a sub-agent through its acceptance) is a
+row of `~/.halo/coach/outcomes.jsonl`, and the rate is first-time success
+per model and task kind. From 3 checked tasks of a kind, the best-at line
+appends it (`tools, cheap, fast, measured: code 4/5; text in only`), the
+catalog row's `measured` carries `outcomes: {kind: {n, passed, rate}}`, the
+roster's model line says `code 4/5` among what was measured, and an
+outcome row that moves a shown number makes the best-at cache stale (the
+numbers are one of its watched sources).
+
+```sh
+halo models --measured           # one row per model and kind: tasks, first-time passes, the rate, the mean cost
+halo models --measured --json    # the same rows
+```
+
+`halo models analyze` lists the same table last (its `--json` adds
+`measured`). A bio with `models.preference: measured` routes by these rates
+([ROLES.md](ROLES.md#measured-a-bio-that-routes-by-what-succeeded-halo-3180)).
+
 #### The roster
 
 The main agent gets the roster: at most 40 lines, the strongest (and the

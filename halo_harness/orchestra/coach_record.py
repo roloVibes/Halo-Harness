@@ -7,8 +7,9 @@ it read (Halo 3.1.3.0 R1). Both live in the state dir's `coach/` folder:
          "name", "field", "value", "file": "<path written>", "existed": true, "before": "<text>",
          "after": "<text>", "ts": 1760800000.0}
         {"op": "undo", "apply_id": "a-...", "file": "<path>", "ts": ...}
-    ~/.halo/coach/runs.json       {"<run folder>": {run, kind, n, top, ts, probe}}: the runs the coach read
-                                  (the Fleet digest's coach lines)
+    ~/.halo/coach/runs.json       {"<run folder>": {run, kind, n, top, ts, probe, outcomes}}: the runs the coach
+                                  read (the Fleet digest's coach lines; 3.1.8.0 R3: `outcomes` the run's rows in
+                                  outcomes.jsonl, outcomes/records.py)
 
 The Undo rule: the file must still hold the apply's `after` text exactly;
 then the `before` text is written back (or the file removed when the apply
@@ -170,10 +171,18 @@ def note_run(result: dict, run_dir, state_dir=None) -> None:
         rows = result.get("suggestions") or []
         data[str(Path(run_dir).resolve())] = {"run": result.get("run"), "kind": result.get("kind"), "n": len(rows),
                                               "top": rows[0]["text"] if rows else "", "ts": round(time.time(), 3),
-                                              "probe": probe_of(run_dir)}
+                                              "probe": probe_of(run_dir), "outcomes": outcomes_of(result, run_dir, state_dir)}
         jsonl.write_json(path, data)
     except Exception:
         pass
+
+
+def outcomes_of(result: dict, run_dir, state_dir=None) -> int:
+    """3.1.8.0 R3: an Orchestra run's lane rows in outcomes.jsonl (recorded now when its report is newer)."""
+    if result.get("kind") != "orchestra":
+        return 0
+    from halo_harness.outcomes.records import record_orchestra
+    return record_orchestra(run_dir, state_dir=state_dir)
 
 
 def runs_since(since: float, state_dir=None) -> list:

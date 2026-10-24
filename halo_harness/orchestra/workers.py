@@ -161,6 +161,7 @@ def run_lane(run_dir, goal, lane: Lane, spawn: Callable, *, clock: Callable = ti
     lane.update(cost_usd=round(float(data.get("cost_usd") or 0.0) + fields["cost_usd"], 6),
                 session_ids=sessions, reply=fields["text"][-2000:], error="")
     record_denied(run_dir, lane, data, fields)  # 3.0.9.0 R3: the coach's evidence
+    _write_evidence(run_dir, lane, goal)  # 3.1.8.0 R3: <run>/lanes/<n>/evidence.json (outcomes/lane.py)
     stop = stop_line(fields["text"])
     if not fields["ok"] or stop:
         reason = f"STOP: {stop}" if stop else (fields["error"] or "the worker did not finish")
@@ -177,6 +178,11 @@ def run_lane(run_dir, goal, lane: Lane, spawn: Callable, *, clock: Callable = ti
     lane.update(ended=clock())
     lane.set_state("written", "worker finished; piece committed", clock=clock)
     return lane
+
+
+def _write_evidence(run_dir, lane: Lane, goal) -> None:
+    from halo_harness.outcomes.lane import write_lane
+    write_lane(run_dir, lane, goal)
 
 
 def prepare_lane(run_dir, job, base: str, *, clock: Callable = time.time) -> Lane:

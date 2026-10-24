@@ -113,7 +113,12 @@ picked for, with "auto: <model> -- <reason>" on hover; the Inspector's **Live**
 tab prints the same line under the agent's head (`roles-live-reason`), and
 the Session section's Live column writes the spawn as "main spawned coder on
 <model>: <reason>". A lineup with no `auto` card shows nothing new. Apply
-another lineup to replace it.
+another lineup to replace it. 3.1.8.0 R3: a card whose bio says `measured`
+reads **measured** on its pill ("picked when it spawns, by what succeeded
+here at its kind, else as auto" on hover); once its pick used the numbers,
+the reason on hover and in the Live tab ends "(measured 4/5 code)", and the
+model picker's best-at line says "measured: code 4/5"
+([OUTCOMES.md](OUTCOMES.md)).
 
 | Panel | What it holds |
 |---|---|
