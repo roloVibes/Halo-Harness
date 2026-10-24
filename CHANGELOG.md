@@ -43,6 +43,24 @@ Focus: packs -- "one harness, one Studio, multiple independently maintained capa
 
 - A file of yours named like a pack's bio or lineup is listed as shadowing it everywhere you look (`halo agents list`, `halo teams list`, `halo agents`, Studio's row and the pack's box); before, only `halo pack doctor` said so.
 
+### R3: Studio contributions
+
+#### Added
+
+- A pack adds to Studio what its pack.yaml declares under `contributes.studio`: sections of its own after Orchestra (Alt+7, Alt+8, Alt+9; a thin "packs" divider in the tab strip and the rail), panels in a core section (strips under its own), palette lines in a "pack <id>" group, its settings form (`config_form: true`: a field per `config.schema` key, Save writes `packs.settings.<id>`), its own lines in Session's Live column and Fleet's Activity, and attention rows with its own label and keys. Six panel kinds: markdown, table, form, links, events, bundle.
+- A `bundle` panel is the pack's own script (an ES module exporting `mount(el, api)`); it runs once you grant the new `studio-script` permission (`halo pack enable <id> --grant studio-script`), and until then the panel names that command.
+- `/api/pack/registry`, `/api/pack/<id>/file/<path>`, `/api/pack/<id>/data/<path>` and `/api/pack/<id>/config`; a `pack_changed` frame on the live feed after enable, disable, install, update and remove (from Studio's process at once, from another terminal within two seconds).
+- A pack raises an attention row by writing `attention/<row>.json` in its data folder; the answer lands in `answers/<row>.json` beside it.
+
+#### Changed
+
+- A pack's `contributes.studio` is checked with the manifest: an unknown panel kind, a source outside the pack's folder, a bundle without `studio-script`, a route to nothing and the rest are one line each naming the key and its pack.yaml line, and such a pack does not install or run.
+- The doc-review fixture pack gains a Studio section, a Session panel, a palette line, the settings form, a review.done line and an attention kind; new fixtures studio-bundle, studio-bad-kind, studio-outside, studio-no-script.
+
+#### Fixed
+
+- A pack's `pack_event` frames showed nowhere in Studio; they now render in Session's Live column and Fleet's Activity, with the pack's line or a generic one.
+
 ## [3.1.9.0] - unreleased
 
 Focus: Auto -- the main agent knows what each model is good at and builds the orchestration itself (the owner, 2026-10-21: "an auto role template ... whatever agent is main should know which model is the best from cost, intelligence, what they are best at").
