@@ -39,9 +39,16 @@ def stacked(c, line: str) -> dict:
 
 
 def back_to_bottom(c) -> None:
-    """Follow on again: the scroller at its newest line."""
-    c.js(f"{SCROLL}.scrollTop = {SCROLL}.scrollHeight; 1")
-    c.wait(f"{COL}.dataset.follow === 'true'", 5)
+    """Follow on again: the scroller at its newest line. Setting scrollTop fires no scroll event when the scroller
+    already sits at its (new) bottom -- after the tool row closed, on the Linux runner (884ff0e) -- so the event is
+    sent by hand, and the Follow pill is the fallback."""
+    c.js(f"{SCROLL}.scrollTop = {SCROLL}.scrollHeight; {SCROLL}.dispatchEvent(new Event('scroll')); 1")
+    try:
+        c.wait(f"{COL}.dataset.follow === 'true'", 10)
+    except TimeoutError:
+        pill = f"{COL}.querySelector('[data-testid=\"session-live-follow\"]')"
+        c.click_on(pill)
+        c.wait(f"{COL}.dataset.follow === 'true'", 10)
 
 
 def columns(c, lv, tool: str) -> dict:
