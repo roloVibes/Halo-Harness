@@ -7,7 +7,7 @@
 // status bar's ROLES line follows the store.
 import { api, ApiError } from "../../lib/api";
 import { setSectionStatus } from "../../lib/store";
-import { clone, roles, statusLine } from "./store";
+import { clone, roles, showsStart, statusLine } from "./store";
 import type { BioRow, Finding, Graph, GymScore, LineupPayload, LineupRow, ModelRow, ModelsStatus, Pos, StateInfo } from "./types";
 
 const VALIDATE_MS = 250;
@@ -144,7 +144,9 @@ export function startRoles(): void {
   void (async () => {
     await loadLists();
     const s = roles.get();
-    const first = s.info?.active_team && s.lineups.some((l) => l.name === s.info!.active_team) ? s.info.active_team : "";
+    // 3.1.9.0 R2: else the default auto lineup, unless the Start view shows (its "Open auto" opens it)
+    const want = s.info?.active_team || (showsStart(s) ? "" : s.info?.lineup_in_use || "");
+    const first = want && s.lineups.some((l) => l.name === want) ? want : "";
     if (first && !s.name && !s.editing) await openLineup(first); // 3.1.1.0 R3: an edit target opens instead
   })();
   void loadModels();

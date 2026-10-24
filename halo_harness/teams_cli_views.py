@@ -59,9 +59,13 @@ def overview_lines(*, cwd=None, state_dir=None, default_model: str = "") -> "lis
         out.extend(tp.preview_lines(team, cwd=cwd, state_dir=state_dir, width=_width(),
                                     default_model=default_model))
         active = team
-    else:
-        out.append("No lineup applied yet. Pick one with `halo teams apply <name>`.")
-        active = None
+    else:  # 3.1.9.0 R2: no `team:` -- the default auto lineup runs
+        from halo_harness.lineup_default import DEFAULT_LINEUP, HOW_TO_CHANGE
+        out.append(f"Active lineup: {DEFAULT_LINEUP} (the default; change it with {HOW_TO_CHANGE}, "
+                   f"or `halo teams apply <name>`)")
+        out.extend(tp.preview_lines(DEFAULT_LINEUP, cwd=cwd, state_dir=state_dir, width=_width(),
+                                    default_model=default_model))
+        active = DEFAULT_LINEUP
     others = [r for r in lineup_rows(cwd=cwd, state_dir=state_dir) if r["name"] != active]
     if others:
         out.extend(["", "Other lineups (`halo teams preview <name>` to look, `halo teams apply <name>` to use):"])

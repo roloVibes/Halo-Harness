@@ -10,7 +10,7 @@ import { Workspace } from "../../lib/workspace/Workspace";
 import type { PanelSpec } from "../../lib/workspace/types";
 import { SECTION_HELP } from "../sectionHelp";
 import { openDialog, setView, showsStart, useRoles } from "./store";
-import { startRoles } from "./sync";
+import { openLineup, startRoles } from "./sync";
 import { useRolesKeys } from "./keys";
 import { NextStep } from "../NextStep";
 
@@ -18,6 +18,7 @@ export function StartView() {
   const copy = SECTION_HELP.roles;
   const shippedNames = useRoles((s) => s.lineups.map((l) => l.name).join(",")).split(",").filter(Boolean);
   const from = shippedNames.includes("balanced") ? "balanced" : shippedNames[0] || "";
+  const inUse = useRoles((s) => (s.info?.lineup_default ? s.info?.lineup_in_use || "" : "")); // 3.1.9.0 R2
   return (
     <div className="fl-start rs-start" data-testid="roles-start">
       <div className="fl-start-inner">
@@ -29,11 +30,17 @@ export function StartView() {
         <div className="fl-start-grid">
           <Surface className="fl-start-form" motion="idle">
             <div className="os-where">
+              {inUse && (
+                <p data-testid="roles-start-in-use">
+                  In use now: <b className="mono">{inUse}</b> (the default). Main hands each sub-task to a pool of agents, and each one's model is picked for its task when it starts. Apply a lineup of your own to replace it.
+                </p>
+              )}
               <p>
                 You have only the lineups Halo ships ({shippedNames.length}). Make your own copy of one: you can then edit every card, its model and its tier, and Apply it.
               </p>
               <div className="os-buttons">
                 <Button variant="primary" onClick={() => openDialog({ kind: "new-lineup", from })} data-testid="roles-start-new">Make my first lineup</Button>
+                {inUse && <Button onClick={() => void openLineup(inUse)} data-testid="roles-start-open-default">Open {inUse}</Button>}
               </div>
             </div>
           </Surface>

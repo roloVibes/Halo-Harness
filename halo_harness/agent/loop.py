@@ -1379,12 +1379,20 @@ class Session:
             from halo_harness.teams_runtime import load_team_control
             self.team_control = load_team_control(team_name, cwd=cwd, state_dir=state_dir,
                                                   trusted=getattr(session_context, "trusted", None))
+            # 3.1.9.0 R2: the Agent tool's description says when the lineup is `auto`
+            for _tool_name in ("Agent", "Task"):
+                _tool = self.tool_registry.get(_tool_name) if self.tool_registry is not None else None
+                if _tool is not None:
+                    _tool.lineup = getattr(self.team_control, "name", None)
             if self.team_control is not None:
                 self.agent_runtime.team_control = self.team_control
                 delegation = self.team_control.delegation
-                if delegation.get("max_depth") is not None:
+                # 3.1.9.0 R2: under the DEFAULT lineup a knob you set yourself
+                # (`agents.max_depth`, `agents.max_concurrent`) wins
+                if delegation.get("max_depth") is not None and not self.team_control.yields_to("agents.max_depth"):
                     self.agent_runtime.max_depth = int(delegation["max_depth"])
-                if delegation.get("max_parallel") is not None:
+                if delegation.get("max_parallel") is not None \
+                        and not self.team_control.yields_to("agents.max_concurrent"):
                     # vibes/review.md finding 57: set on the RUNTIME too (the
                     # value `effective_max_concurrent` reads first, and every
                     # child runtime copies) -- the gate alone was reset to
@@ -1408,6 +1416,11 @@ class Session:
                     if _team_roles:
                         merged = dict(self.agent_runtime.role_table or {})
                         merged.update(_team_roles)
+                        # 3.1.9.0 R2: under the DEFAULT lineup the session's own
+                        # role table (your `roles.*`, or the Databricks
+                        # cost-aware defaults) wins role by role
+                        if self.team_control.default:
+                            merged.update(self.agent_runtime.role_table or {})
                         self.agent_runtime.role_table = merged
                         self.roles = merged
                 except Exception:

@@ -211,7 +211,10 @@ def test_rail_shows_current_step_and_ctrl_right_advances(ctx: Ctx):
 # ---------------------------------------------------------------------------
 
 @test
-def test_quick_setup_ends_on_summary_with_standard_active_and_roles_off(ctx: Ctx):
+def test_quick_setup_ends_on_summary_with_the_default_auto_lineup(ctx: Ctx):
+    """3.1.9.0 R2: Quick setup's preselected Team row is the default `auto`
+    lineup (it used to be One model for everything, which wrote `team:
+    standard` and roles off): Next writes no `team:` and keeps roles on."""
     from halo_harness.roles import roles_mode_enabled
     from halo_harness.theme import get_config_value, set_config_value
     from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState, full_step_keys
@@ -233,16 +236,17 @@ def test_quick_setup_ends_on_summary_with_standard_active_and_roles_off(ctx: Ctx
                 await pilot.pause(0.2)
                 app.screen.action_do_next()  # default_model, nothing picked -- keeps the configured default
                 await pilot.pause(0.4)
-                app.screen.action_do_next()  # team: "One model for everything" is preselected
+                app.screen.action_do_next()  # team: the default "auto" lineup is preselected
                 await pilot.pause(0.5)
                 ctx.check(f"lands on Summary, got {type(app.screen).__name__}",
                           type(app.screen).__name__ == "SummaryStep")
-                ctx.check(f"team is 'standard', got {get_config_value('team', default=None)!r}",
-                          get_config_value("team", default=None) == "standard")
-                ctx.check(f"roles are off, got {roles_mode_enabled()!r}", roles_mode_enabled() is False)
+                ctx.check(f"no team: is written, got {get_config_value('team', default=None)!r}",
+                          get_config_value("team", default=None) is None)
+                ctx.check(f"roles stay on, got {roles_mode_enabled()!r}", roles_mode_enabled() is True)
                 note = app.screen.query_one("#wiz-summary-lineup")
-                ctx.check(f"the Summary names the one-model state, got {_static_text(note)!r}",
-                          "One model for everything: or:vendor/strong-model" in _static_text(note))
+                ctx.check(f"the Summary names the default lineup and how to change it, got {_static_text(note)!r}",
+                          "Lineup: auto (the default; change it with `halo config set team <name>`"
+                          in _static_text(note))
     run(body())
 
 
@@ -279,7 +283,10 @@ def test_full_setup_walks_every_step(ctx: Ctx):
 # ---------------------------------------------------------------------------
 
 @test
-def test_team_step_first_row_is_one_model_and_preselected_on_a_fresh_install(ctx: Ctx):
+def test_team_step_first_row_is_one_model_and_auto_is_preselected_on_a_fresh_install(ctx: Ctx):
+    """3.1.9.0 R2: the first row is still One model for everything, but a
+    fresh install runs the default `auto` lineup, so that row is the one
+    checked ("(default)") and highlighted, and the preview is its tree."""
     from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState
     from textual.widgets import OptionList
 
@@ -292,12 +299,16 @@ def test_team_step_first_row_is_one_model_and_preselected_on_a_fresh_install(ctx
                 step = app.screen
                 lst = step.query_one("#wiz-team-lineups-list", OptionList)
                 first = lst.get_option_at_index(0)
-                ctx.check(f"first row is One model for everything at {w}x{h}, got {first.prompt!s}",
-                          "One model for everything" in str(first.prompt) and str(first.prompt).startswith("✓ "))
-                ctx.check(f"it is highlighted at {w}x{h}", lst.highlighted == 0)
+                ctx.check(f"first row is One model for everything, unchecked, at {w}x{h}, got {first.prompt!s}",
+                          "One model for everything" in str(first.prompt) and not str(first.prompt).startswith("✓ "))
+                names = [str(lst.get_option_at_index(i).id) for i in range(lst.option_count)]
+                auto = lst.get_option_at_index(names.index("auto"))
+                ctx.check(f"the auto row is checked and says (default) at {w}x{h}, got {auto.prompt!s}",
+                          str(auto.prompt).startswith("✓ auto (default)"))
+                ctx.check(f"it is highlighted at {w}x{h}", lst.highlighted == names.index("auto"))
                 text = _static_text(step.query_one("#wiz-team-preview"))
-                ctx.check(f"the preview is the one-model sentence at {w}x{h}, got {text!r}",
-                          "for everything" in text and "sub-agents" in text and "questions" in text)
+                ctx.check(f"the preview is the auto lineup's tree at {w}x{h}, got {text!r}",
+                          "picked at spawn" in text and "auto-coder" in text)
                 header = _static_text(step.query_one("#wiz-team-header-sentence"))
                 ctx.check(f"the header explains lineups at {w}x{h}", "A lineup gives each job" in header)
                 for bid in ("wiz-roles-switch", "wiz-team-use", "wiz-team-studio",
@@ -453,8 +464,9 @@ def test_team_step_ctrl_n_and_ctrl_e_open_studio(ctx: Ctx):
 @test
 def test_team_step_plain_next_applies_the_highlighted_row(ctx: Ctx):
     """Quick setup reaches the Team step; `balanced` + Next writes `team:
-    balanced` and `roles.enabled: true`; the first row writes `team:
-    standard` and `roles.enabled: false`."""
+    balanced` and `roles.enabled: true`; the first row (One model for
+    everything) writes `roles.enabled: false` and, 3.1.9.0 R2, no `team:`
+    (it used to write `team: standard`)."""
     from halo_harness.roles import roles_mode_enabled
     from halo_harness.theme import get_config_value, set_config_value
     from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState, full_step_keys
@@ -483,7 +495,7 @@ def test_team_step_plain_next_applies_the_highlighted_row(ctx: Ctx):
                 await pilot.pause(0.5)
                 ctx.check(f"then the Summary, got {type(app.screen).__name__}",
                           type(app.screen).__name__ == "SummaryStep")
-                want = "balanced" if pick_balanced else "standard"
+                want = "balanced" if pick_balanced else None
                 ctx.check(f"team is {want!r}, got {get_config_value('team', default=None)!r}",
                           get_config_value("team", default=None) == want)
                 ctx.check(f"roles.enabled is {pick_balanced}, got {roles_mode_enabled()!r}",

@@ -63,6 +63,12 @@ The role-template editor's own
 quick filter now also autocompletes under the field as you type (Ctrl+P
 still opens the full picker).
 
+**Halo 3.1.9.0**: the Team step preselects the default `auto` lineup (marked
+"(default)" while no `team:` is set; Next on it writes nothing), "One model
+for everything" clears `team:` instead of writing `team: standard`, and the
+Summary (and `halo init`'s printed checks) say the lineup in use and how to
+change it ([ROLES.md](ROLES.md#the-auto-lineup-halo-3190)).
+
 **Halo 3.1.1.0**: bios and lineups are edited in Studio. The Team step
 gains **Edit in Studio** (Ctrl+E: Studio's inspector on the highlighted
 lineup, `halo studio --edit lineup:<name>`); Enter on a lineup shows it

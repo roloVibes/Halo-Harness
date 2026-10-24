@@ -186,10 +186,11 @@ export function priceText(m: ModelRow | undefined): string {
 
 /** One line for the status bar: the lineup, its cards, its problems, saved or not. */
 export function statusLine(s: RolesState): string {
-  if (!s.name || !s.graph) return s.loaded ? (s.info?.active_team ? `active: ${s.info.active_team}` : "no active lineup (one model for everything)") : "";
+  const dflt = s.info?.lineup_default ? s.info?.lineup_in_use || "" : ""; // 3.1.9.0 R2: no team: set -> auto
+  if (!s.name || !s.graph) return s.loaded ? (s.info?.active_team ? `active: ${s.info.active_team}` : dflt ? `active: ${dflt} (default)` : "no active lineup (one model for everything)") : "";
   const blocks = s.findings.filter((f) => f.severity === "blocks").length;
   const warns = s.findings.length - blocks;
   const state = blocks ? `${blocks} problem${blocks === 1 ? "" : "s"}` : warns ? `${warns} warning${warns === 1 ? "" : "s"}` : "valid";
-  const active = s.info?.active_team === s.name ? " · active" : "";
+  const active = s.info?.active_team === s.name ? " · active" : !s.info?.active_team && dflt === s.name ? " · active (default)" : "";
   return `${s.name}${active} · ${s.graph.nodes.length} cards · ${state}${s.dirty ? " · unsaved" : ""}`;
 }

@@ -48,5 +48,6 @@ export function sourceText(src: string | undefined, bio: string): string {
   if (src.startsWith("tier:")) return `tier ${src.slice(5)}'s model`;
   if (src === "session") return `the session's model (bio ${bio || "?"} says default)`;
   if (src === "capabilities") return `the best catalog model with bio ${bio || "?"}'s capabilities`;
+  if (src === "auto") return `picked when it spawns, for its task (bio ${bio || "?"} says auto)`; // 3.1.9.0 R2
   return "a fallback model";
 }

@@ -8,6 +8,9 @@ export type Pos = { x: number; y: number };
 export type StateInfo = {
   version: string;
   active_team: string;
+  /** 3.1.9.0 R2: the lineup new sessions run (`auto` while no team: is set) and whether it is that default. */
+  lineup_in_use?: string;
+  lineup_default?: boolean;
   roles_enabled: boolean;
   default_model: string;
   top_sections: string[];
@@ -157,6 +160,8 @@ export type LiveAgent = {
   bio: string;
   lineup: string;
   model: string;
+  /** 3.1.9.0 R2: why an `auto` member runs on `model` ("" when nothing was picked). */
+  model_reason?: string;
   state: string;
   task: string;
   current: string;

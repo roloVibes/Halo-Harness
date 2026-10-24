@@ -97,8 +97,8 @@ def test_set_roles_enabled_and_state_line_off_on_and_with_a_lineup(ctx: Ctx):
                   roles_state_line() == "roles: off (standard: every role uses the default model)")
         set_roles_enabled(True)
         ctx.check("roles_mode_enabled reflects on", roles_mode_enabled() is True)
-        ctx.check(f'on-with-no-lineup line, got {roles_state_line()!r}',
-                  roles_state_line() == "roles: on (legacy role table)")
+        ctx.check(f'on-with-no-lineup line (3.1.9.0 R2: the default auto lineup), got {roles_state_line()!r}',
+                  roles_state_line() == "roles: on (lineup auto, the default)")
         set_config_value("team", "my-lineup")
         ctx.check(f'on-with-a-lineup names it, got {roles_state_line()!r}',
                   roles_state_line() == "roles: on (lineup my-lineup)")
@@ -457,9 +457,14 @@ def test_roles_step_one_model_row_shows_one_sentence_and_a_lineup_shows_its_tree
                 await pilot.pause(0.15)
                 step = app.screen
                 preview = step.query_one("#wiz-team-preview")
-                ctx.check(f"the one sentence by default at {w}x{h}, got {_static_text(preview)!r}",
-                          "Halo uses" in _static_text(preview) and "sub-agents" in _static_text(preview))
+                # 3.1.9.0 R2: a fresh install runs the default auto lineup, so its row is highlighted
+                ctx.check(f"the default auto lineup's tree by default at {w}x{h}, got {_static_text(preview)!r}",
+                          " -> " in _static_text(preview) and "picked at spawn" in _static_text(preview))
                 lst = step.query_one("#wiz-team-lineups-list", OptionList)
+                lst.highlighted = 0
+                await pilot.pause(0.1)
+                ctx.check(f"the first row previews the one sentence at {w}x{h}, got {_static_text(preview)!r}",
+                          "Halo uses" in _static_text(preview) and "sub-agents" in _static_text(preview))
                 lst.highlighted = 1
                 await pilot.pause(0.1)
                 ctx.check(f"another row previews a tree at {w}x{h}", " -> " in _static_text(preview))
@@ -648,7 +653,7 @@ def test_sweep_team_toggle_summary_handoff(ctx: Ctx):
                 # toggle off then back on, then Next (Skip-equivalent: no
                 # lineup/template highlighted -- "off" must still commit
                 # cleanly and move on, never raise).
-                app.screen.action_do_next()  # Team -> Summary (the first row applies "standard", roles off)
+                app.screen.action_do_next()  # Team -> Summary (3.1.9.0 R2: the default auto row, nothing written)
                 await pilot.pause(0.2)
                 ctx.check(f"lands on Summary with no crash, got {type(app.screen).__name__}",
                           type(app.screen).__name__ == "SummaryStep")

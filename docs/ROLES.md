@@ -28,15 +28,17 @@ Four words, in this order: **bio -> lineup -> role -> session**.
 - A **bio** says what an agent IS: its name, its model, its tools, its
   limits. `coder` is a bio; so is `local-small`. (`halo agents`.)
 - A **lineup** hands bios to jobs: "planning goes to this bio, coding to that
-  one". Six ship with Halo -- `standard`, `balanced`, `quality`,
-  `local-first`, `code-review`, `halo-dev-cycle` -- and you can write your
-  own. (`halo teams`.)
+  one". Seven ship with Halo -- `auto` (the default), `standard`,
+  `balanced`, `quality`, `local-first`, `code-review`, `halo-dev-cycle` --
+  and you can write your own. (`halo teams`.)
 - A **role** is one job slot the session fills: main, planner, coder,
   reviewer, researcher and so on. A lineup gives every role an agent and a
   model. (`halo roles`.)
 - Your **session** runs each job on the model its role names, and the
-  sub-agents Halo spawns do the same. With roles off, nothing changes:
-  **one model for everything**, the default model you picked.
+  sub-agents Halo spawns do the same. Until you pick a lineup, the **auto**
+  lineup runs (Halo 3.1.9.0): main on your model, a pool of agents whose
+  models are picked for each task ([The Auto lineup](#the-auto-lineup-halo-3190)).
+  With roles off: **one model for everything**, the default model you picked.
 
 ![How bios, lineups and roles fit together](media/diagrams/agents-model.svg)
 
@@ -46,7 +48,9 @@ and `roles.enabled`):
 1. **The wizard** -- `halo init` (Quick setup includes the Team step) or
    `halo init --step team`. The first row, "One model for everything", is
    the off state; every other row previews its `role -> agent -> model`
-   tree with prices before you apply it.
+   tree with prices before you apply it. While no `team:` is set the `auto`
+   row is checked, marked "(default)" and highlighted; Next on it writes
+   nothing (3.1.9.0).
 2. **The command line** -- `halo teams use <name>` points the active
    lineup at one; `halo roles on|off` flips the switch.
 3. **Studio** -- `halo studio --mode roles` (or `/roles` in a session):
@@ -76,6 +80,80 @@ mapping (every field the terminal shows and its Studio control) is in
 [AGENTS.md](AGENTS.md#editing-bios-and-lineups-studio-is-the-editor-halo-3110).
 
 Everything below is the field-by-field reference.
+
+## The Auto lineup (Halo 3.1.9.0)
+
+**What it is.** The lineup a session runs when nothing names one: no
+`--team`, no `team:` in `~/.halo/config.json`, roles on. Main runs on the
+session's own model and delegates; every member of the pool names no model
+(`models.preference: auto`), so each one's model is **picked when it
+spawns**, for what its task needs, out of the models this Halo's catalog
+lists (R1's best-at index, `halo models analyze`). Main also reads the model
+roster ([MODELS-references.md](MODELS-references.md#the-roster)), so it can
+still name a model itself: `model:` on an Agent call wins over the pick.
+
+**The pool** (`halo_harness/templates/teams/auto.yaml`, the bios
+`templates/agents/auto-*.yaml`, each a short instruction set):
+
+| Member | Bio | Its needs (`models.needs`) |
+|---|---|---|
+| planner | `auto-planner` | reasoning |
+| researcher | `auto-researcher` | long-context (128k tokens or more) |
+| coder | `auto-coder` | tools (tool calls the catalog states) |
+| reviewer | `auto-reviewer` | reasoning |
+| media | `auto-media` | the task's modality: an image path asks for vision, an audio file for audio, a video for video (vision when no model takes video: the Media tool's frames are images), a PDF for PDF input; vision when the task names none |
+| writer | `auto-writer` | none of its own: cheap and fast |
+| ops | `auto-ops` | none of its own: cheap and fast |
+
+`delegation` is open (`max_parallel: 4`, `max_depth: 2`), `routing` sends a
+call by its words (an image or screenshot to media, review to reviewer,
+plan to planner, implement or fix to coder, summarize or docs to writer,
+deploy or release to ops; no `default`, so a call matching nothing runs as it
+always did), and the `tiers` are main alone, then the pool (a pool member
+does its task itself and spawns no other member). Under the default lineup
+the session's own role table (your `roles.*`, or the
+[cost-aware defaults](#cost-aware-defaults-documented-never-automatic-beyond-this)
+on a Databricks session) wins role by role, `agents.max_depth` and
+`agents.max_concurrent` win when you set them, and only a child on one of its
+cards reports to main on the next turn (a lineup you choose reports every
+member, as before).
+
+**How the pick works** (`halo_harness/models_auto.py`). The needs are the
+bio's `models.needs` plus what the task carries: a file path ending in an
+image, audio, video or PDF extension; "plan", "review" or "judge" in the
+member's name or its bio's kind (reasoning); a task over 100,000 characters
+(long-context). The candidates are the catalog's models that **state** every
+need (an unstated fact is not a yes), answer in text and do not state "no
+tool calls". The lineup's `budget.band` chooses among them: `low` the
+cheapest; `mid` (the default) the best within 3x the cheapest paid one
+(free and local ones always count); `high` the strongest. "Best" is the
+mean of the index's scores for the kinds behind the needs; with no needs it
+is cheap and fast. A tie goes to the session's own model, then (band low) to
+a local one. With no candidate, main's model runs it and the reason says
+so. The pick happens after a call's own `model`, a `--role` override, an
+agent file's `model:` and a tier's model, and before the env / settings
+fallbacks. Two examples on one catalog:
+
+- the media agent spawned for "describe `shot.png`", band low:
+  `auto: dbx:databricks-gemini-9-flash -- an image in the task, the cheapest
+  vision model ($0.10/$0.40 per 1M)`;
+- the planner spawned for "plan the migration", band mid:
+  `auto: dbx:databricks-gemini-x-pro -- planning needs reasoning, the best
+  reasoning model within 3x the cheapest ($1.00/$4.00 per 1M)`.
+
+The line is the child's first transcript note; Studio's Roles card pill
+names the picked model with the reason on hover, the Inspector's Live tab
+prints it, and the Session Live column's spawn line carries it ("main
+spawned coder on <model>: <reason>"). `/status`, `halo doctor` and the
+wizard's Summary say the lineup in use ("auto (default)").
+
+**How to replace it.** Pick any other lineup: `halo config set team <name>`
+(or `halo teams use <name>`), Studio Roles -> Apply, or a lineup row in the
+wizard's Team step. Your `team:` is never changed by Halo; `--team <name>`
+runs another for one session. "One model for everything" (the wizard's first
+row, or `halo roles off`) runs no lineup at all. To keep the pool but steer
+it, copy it (`halo teams new mine --from auto`) and edit a card's model, a
+bio's `models.needs` or `budget.band`.
 
 ## Roles on/off is one switch (Halo 2.0.5 round 2b)
 

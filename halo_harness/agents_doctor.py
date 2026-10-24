@@ -59,6 +59,9 @@ def run_acceptance(bio: dict, *, call_fn: "Optional[Callable[[str, str], str]]" 
         return False, "no acceptance block"
     models = bio.get("models") or {}
     model_ref = models.get("preference") or models.get("fallback") or default_model
+    if model_ref == "auto":  # 3.1.9.0 R2: picked at spawn -- the check runs on the default model
+        from halo_harness.theme import get_config_value
+        model_ref = models.get("fallback") or default_model or get_config_value("model", default=None)
     if not model_ref:
         return False, "no models.preference/fallback and no default model given -- nothing to call"
     caller = call_fn or _default_call

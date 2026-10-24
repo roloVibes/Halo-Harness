@@ -324,7 +324,7 @@ def test_slash_teams_bare_prints_overview_and_apply_preview_work(ctx: Ctx):
                 await handle_slash(app, "teams", "")
                 found = await _poll_until(pilot, lambda: bool(app.transcript.notes))
                 ctx.check(f"bare /teams printed the overview note, got {app.transcript.notes!r}",
-                          found and "No lineup applied yet" in app.transcript.notes[-1][0])
+                          found and "Active lineup: auto (the default" in app.transcript.notes[-1][0])
                 ctx.check("and did not open the list screen", not isinstance(app.screen, TeamsListScreen))
                 await handle_slash(app, "teams", "preview halo-dev-cycle")
                 found = await _poll_until(pilot, lambda: len(app.transcript.notes) >= 2)

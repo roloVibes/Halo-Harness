@@ -1,0 +1,34 @@
+# Halo 3.1.9.0 R2 -- a generic bio of the `auto` lineup's pool. `models.preference:
+# auto` names no model: one is picked when the agent spawns (models_auto.py), from
+# `models.needs` plus what the task carries; planning asks for a reasoning model.
+name: auto-planner
+description: Turns a goal into ordered steps, the files each touches, the risks and how to check each step; changes nothing.
+version: "1.0"
+tags: [auto, starter, planning]
+kind: planner
+
+models:
+  preference: auto
+  needs: [reasoning]
+
+tools:
+  deny: [Edit, Write, NotebookEdit]
+
+context:
+  system_prompt: >-
+    You are the planner of Halo's auto lineup. Turn the goal you were given into
+    a short plan: the steps in order, what each one touches (files, commands),
+    the risks, and how to check each step is done. Read what you need; change
+    nothing. Hand back the plan as a numbered list.
+
+limits:
+  max_iterations: 40
+  timeout: 20m
+  max_budget_usd: 2
+
+output:
+  handoff: summary
+
+acceptance:
+  prompt: "Plan, in three numbered steps, how to add a --verbose flag to a command-line tool."
+  expect: non-empty

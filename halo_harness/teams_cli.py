@@ -43,10 +43,11 @@ def _cmd_show(rest: list) -> int:
         print("  How this team works:")
         for line in str(template["about"]).splitlines():
             print(f"    {line}")
+    from halo_harness.models_auto_spawn import pool_words  # 3.1.9.0 R2: an `auto` card's model is picked at spawn
     for entry in template.get("agents") or []:
         label = entry.get("as") or entry.get("role")
         extra = f" x{entry['instances']}" if entry.get("instances", 1) != 1 else ""
-        print(f"  {entry.get('role')} ({label}){extra}: agent={entry.get('agent')}")
+        print(f"  {entry.get('role')} ({label}){extra}: agent={entry.get('agent')}{pool_words(template, entry)}")
     # 3.1.6.0 R1: one line per tier -- its members, max_parallel, its own
     # model and its trigger (teams_tier_fields.tier_lines).
     from halo_harness.teams_tier_fields import tier_lines
@@ -55,7 +56,8 @@ def _cmd_show(rest: list) -> int:
     role_table, notes = resolve_role_table(template)
     print("  resolved role table:")
     for k, v in sorted(role_table.items()):
-        print(f"    {k}: {v if isinstance(v, str) else v.get('model')}")
+        shown = v if isinstance(v, str) else v.get("model")
+        print(f"    {k}: {shown}{' (picked at spawn)' if shown == 'auto' else ''}")
     for n in notes:
         print(f"    (note) {n}")
     # Halo 2.0.5 round 5: the per-section enforcement state -- every
