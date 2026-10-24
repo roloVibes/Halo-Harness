@@ -137,6 +137,7 @@ Focus: packs -- "one harness, one Studio, multiple independently maintained capa
 
 #### Changed
 
+- `scripts/release.py` sets the shipped reference pack's `halo: {min: "<major.minor>"}` to the release it ships in, in the release commit (`__version__` is pinned to the newest dated CHANGELOG section, so no earlier commit can carry the bump; tests/test_reference_pack.py pins the pair).
 - `halo pack update` prints the migration notes first ("doc-review 1.1.0 -> 1.3.0: <note>") and swaps the new version in by renames after staging it beside the pack: a copy error or a file in use leaves the old version exactly as it was. `halo pack remove` deletes `<id>.previous` too (`--keep-config` keeps it).
 - The compatibility lines read "pack doc-review needs extension API 1.2 to 1.9; this Halo has 1.0" and "pack x needs Halo >= 3.3; this is 3.2.0.0", the same in `halo pack`, the doctor and the Pack Manager.
 - `halo pack install <id>` that no source holds names every source it searched (a configured folder that is gone says so).

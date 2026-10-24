@@ -11,6 +11,8 @@ real one of those must never run from inside this suite. The read-only
 """
 from __future__ import annotations
 
+import contextlib
+import io
 import importlib.util
 import subprocess
 import sys
@@ -525,6 +527,34 @@ def test_step_0_skip_windows_accepts_an_existing_green_run_and_names_it(ctx: Ctx
     gh = FakeGh()  # no Windows run for the sha at all
     rc, out, err, _calls = _main_out(["9.9.9", "--skip-windows", "--no-github-release", "--no-install"], _scratch_repo("9.9.9"), gh)
     ctx.check(f"--skip-windows with nothing to accept refuses, got {rc} {err!r}", rc == 1 and "--skip-windows" in err)
+
+
+@test
+def test_the_shipped_packs_halo_min_follows_the_release(ctx: Ctx):
+    """3.2.0.0 R7: the shipped reference pack requires the release it ships in -- `halo: {min: "X.Y"}` becomes the
+    version's major.minor in the SAME release commit as `__version__` (tests/test_reference_pack.py pins the pair;
+    tests/test_quickstart_docs.py pins `__version__` to the newest dated CHANGELOG section, so no commit before the
+    release could carry the bump). A dry run names the step and leaves the file; the pack is staged."""
+    repo = _scratch_repo("9.9.9")
+    pack = repo / release._SHIPPED_PACK
+    pack.parent.mkdir(parents=True)
+    pack.write_text('id: doc-review\nhalo_api: {min: "1.0", max: "1.9"}\nhalo: {min: "9.8"}\ncapabilities: [docs.review]\n',
+                    encoding="utf-8")
+    subprocess.run(["git", "add", "-A"], cwd=str(repo), check=True)
+    subprocess.run(["git", "commit", "-q", "-m", "the shipped pack"], cwd=str(repo), check=True)
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+        rc = release.main(["9.9.9", "--dry-run"], repo_dir=repo, run_fn=_fake_run([]), pids_fn=lambda: [])
+    ctx.check(f"a dry run exits 0 and names the step, got {rc} {out.getvalue()[-400:]!r}",
+              rc == 0 and 'halo: {min: "9.9"}' in out.getvalue())
+    ctx.check("a dry run leaves pack.yaml as it was", 'halo: {min: "9.8"}' in pack.read_text(encoding="utf-8"))
+    calls: list = []
+    rc = release.main(["9.9.9", "--no-github-release"], repo_dir=repo, run_fn=_fake_run(calls), pids_fn=lambda: [])
+    text = pack.read_text(encoding="utf-8")
+    ctx.check(f"a real run sets the major.minor, got {rc} {text!r}", rc == 0 and 'halo: {min: "9.9"}' in text and "9.8" not in text)
+    ctx.check("the other lines survive", 'halo_api: {min: "1.0", max: "1.9"}' in text and "capabilities: [docs.review]" in text)
+    added = [c for c in calls if c[:2] == ["git", "add"]]
+    ctx.check(f"pack.yaml is staged into the release commit, got {added}", any(release._SHIPPED_PACK.as_posix() in c for c in added))
 
 
 if __name__ == "__main__":

@@ -155,15 +155,17 @@ def test_the_reference_pack_end_to_end(ctx: Ctx):
 
 @test
 def test_the_shipped_pack_needs_the_halo_it_ships_in(ctx: Ctx):
-    """3.2.0.0 R7: the reference pack's `halo` range takes this Halo, and from 3.2.0.0 on it is `{min: "3.2"}`, the release
-    that brought packs -- so the version bump that releases 3.2.0.0 sets it in pack.yaml in the same commit."""
+    """3.2.0.0 R7: the reference pack's `halo` range takes this Halo, and from 3.2.0.0 on it is `{min: "<major.minor>"}` of
+    the release it ships in -- scripts/release.py sets it in pack.yaml in the same commit as `__version__`."""
     from halo_harness import __version__
     from halo_harness.agents_yaml import _read_yaml_file
     from halo_harness.packs import semver as V
     rng = (_read_yaml_file(DOC_REVIEW / "pack.yaml") or {}).get("halo")
     ctx.check(f"this Halo ({__version__}) is inside {rng}", V.in_range(__version__, rng))
     if V.compare(__version__, "3.2") >= 0:
-        ctx.check(f'from 3.2.0.0 on pack.yaml says halo: {{min: "3.2"}}, got {rng}', rng == {"min": "3.2"})
+        want = ".".join(__version__.split(".")[:2])
+        ctx.check(f'from 3.2.0.0 on pack.yaml says halo: {{min: "{want}"}}, the release it ships in, got {rng}',
+                  rng == {"min": want})
 
 
 if __name__ == "__main__":
