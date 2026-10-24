@@ -122,7 +122,7 @@ Focus: packs -- "one harness, one Studio, multiple independently maintained capa
 - The doc-review lint "MCP server" printed one line and exited; it is a stdio MCP server now (check_links, check_headings), and the pack's hook and server keep to their defaults under a Python that cannot import Halo.
 - At 1500 px the eighth tab wrapped and pushed the Command button off the top bar.
 
-## [3.1.9.0] - unreleased
+## [3.1.9.0] - 2026-10-24
 
 Focus: Auto -- the main agent knows what each model is good at and builds the orchestration itself (the owner, 2026-10-21: "an auto role template ... whatever agent is main should know which model is the best from cost, intelligence, what they are best at").
 
