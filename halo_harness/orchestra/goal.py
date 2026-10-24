@@ -9,7 +9,8 @@ the parts (`lineup`, `lead`, `worker`), and optionally the lanes' hand-offs
 (`handoffs`: `{job id: {gives, needs, after}}`, orchestra/handoff_spec.py),
 and whether the run pauses for the plan's review (`plan`: `auto` | `review`,
 3.0.9.0 R2, orchestra/plan.py), and what the run may cost (`budget_usd`,
-3.1.2.0 R2: the plan's forecast is shown against it, orchestra/forecast.py).
+3.1.2.0 R2: the plan's forecast is shown against it, orchestra/forecast.py), and
+the workflow it was compiled from (`workflow`, 3.2.0.0 R5, halo_harness/workflows/).
 
 A run lives in `<repo>/.halo/orchestra/<run-id>/` (`run-id` =
 `YYYYMMDD-HHMMSS-<4 hex>`, so names sort by time):
@@ -53,12 +54,14 @@ class Goal:
     handoffs: dict = field(default_factory=dict)  # 3.0.9.0: {job id: {gives, needs, after}} (handoff_spec.py)
     plan: str = "auto"  # 3.0.9.0 R2: "review" pauses after the split for the edited plan (orchestra/plan.py)
     budget_usd: Optional[float] = None  # 3.1.2.0 R2: the forecast's budget (orchestra/forecast.py)
+    workflow: dict = field(default_factory=dict)  # 3.2.0.0 R5: the pinned plan of a pack workflow (workflows/compile.py)
 
     def to_dict(self) -> dict:
-        """The goal; `budget_usd` only when set (a goal without one is written as before)."""
+        """The goal; `budget_usd` and `workflow` only when set (a goal without them is written as before)."""
         data = asdict(self)
-        if data.get("budget_usd") is None:
-            data.pop("budget_usd", None)
+        for key in ("budget_usd", "workflow"):
+            if data.get(key) in (None, {}):
+                data.pop(key, None)
         return data
 
     @classmethod
@@ -68,6 +71,7 @@ class Goal:
         goal = cls(**known)
         goal.files = list(goal.files) if isinstance(goal.files, (list, tuple)) else goal.files
         goal.handoffs = dict(goal.handoffs) if isinstance(goal.handoffs, dict) else {}
+        goal.workflow = dict(goal.workflow) if isinstance(goal.workflow, dict) else {}
         return goal
 
 
@@ -97,6 +101,8 @@ def validate_goal(data) -> list:
     budget = data.get("budget_usd")
     if budget is not None and (isinstance(budget, bool) or not isinstance(budget, (int, float)) or budget < 0):
         problems.append(f'"budget_usd" is a number of dollars, 0 or more, got {budget!r}')
+    if not isinstance(data.get("workflow", {}), dict):
+        problems.append('"workflow" is the compiled workflow (an object, halo workflow run writes it)')
     for key in ("test", "lineup", "lead", "worker"):
         value = data.get(key, "")
         if value is not None and not isinstance(value, str):

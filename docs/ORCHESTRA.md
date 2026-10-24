@@ -71,6 +71,7 @@ never committed and never merged.
 | `worker` | `subagent` | how a worker runs |
 | `handoffs` | {} | 3.0.9.0: per job id, `{gives, needs, after}`: what a lane hands on, what it takes and which lanes it starts after (see [Hand-offs](#hand-offs)) |
 | `budget_usd` | none | 3.1.2.0: what the run may cost; the plan's [forecast](#the-forecast) is shown against it (Approve warns over it, it does not refuse) |
+| `workflow` | none | 3.2.0.0 R5: the pinned plan of the pack workflow the goal was compiled from (see [Workflows](#workflows)) |
 
 A worked example ships in
 `halo_harness/templates/orchestra/goal.example.json`: the reel's
@@ -581,6 +582,25 @@ report.json: `run_id`, `status` (`finished` or `stopped`), `stop_reason`,
 | `every_edit_streamed` | every claimed unit went claimed -> writing -> written -> released in claims.jsonl |
 | `tests_pass_finished_branch` | the test command passes on the finished branch |
 | `goal_done_when` | the DONE WHEN text, echoed (`ok` is null) |
+
+## Workflows
+
+3.2.0.0 R5 ([WORKFLOWS.md](WORKFLOWS.md)). A pack's workflow file compiles
+to a goal of this pipeline: its stages become the jobs (`after` and `takes`
+the hand-offs, the roles the bios, `gate: human` the plan review, the
+stages' `verify.test` the goal's `test`), and goal.json's `workflow` holds
+the pinned plan. The run is an ordinary run with five hooks, each a no-op
+for a goal without `workflow`: the split asks the lead only to refine the
+briefs of the pinned jobs (`workflows/pinned.py`; a reviewed plan keeps the
+stage set and a stage that edits no file claims nothing); each lane's
+prompt carries its stage, and a lane whose `when` on an upstream output is
+false is skipped (`workflows/runtime.py`; the step reads skipped), waits for
+its `after_event`, stops the run at its stage's `budget_usd`, and takes its
+stage's `timeout_s`; the gate checks every typed output against its schema
+and reads the evidence into the record check, sending a lane back with the
+problems up to its stage's `retries` (`workflows/gate.py`); and the report
+lists the artifacts, copied to `<run>/artifacts/<name>/`, and the bounds
+not held yet (`workflows/outputs.py`).
 
 ## The coach
 

@@ -155,7 +155,8 @@ def test_the_registry_qualifies_resolves_and_leaves_disabled_packs_out(ctx: Ctx)
         sec = doc["sections"][0]
         ctx.check("the section id is qualified, its title as written", sec["id"] == "doc-review--docs" and sec["title"] == "Docs review")
         ids = [p["id"] for p in sec["panels"]]
-        ctx.check(f"its panels, then Settings (config_form), got {ids}", ids == ["doc-review--notes", "doc-review--checks", "doc-review--links", "doc-review--settings"])
+        ctx.check(f"its panels, then Settings (config_form), got {ids}", ids == ["doc-review--notes", "doc-review--checks", "doc-review--links",
+                                                                         "doc-review--report", "doc-review--settings"])  # report: 3.2.0.0 R5
         notes = sec["panels"][0]
         ctx.check(f"a panel's file path, help and source line, got {notes}", notes["file"] == "api/pack/doc-review/file/studio/notes.md"
                   and notes["about"] == "from pack doc-review" and notes["help"].startswith("The reviewer's notes") and notes["collapsed"] is False)
@@ -169,7 +170,8 @@ def test_the_registry_qualifies_resolves_and_leaves_disabled_packs_out(ctx: Ctx)
         ctx.check(f"the palette: the action, then Settings, got {acts}",
                   acts == [("Open the review checks", "pack doc-review", {"kind": "route", "section": "doc-review--docs", "panel": "doc-review--checks"}),
                            ("Settings: Documentation review", "pack doc-review", {"kind": "route", "section": "doc-review--docs", "panel": "doc-review--settings"})])
-        ctx.check("events and attention carried", doc["events"] == {"review.done": {"label": "REVIEW", "line": "{file}: {findings} findings"}}
+        ctx.check("events and attention carried (3.2.0.0 R5: + the kind schema's view)",
+                  doc["events"] == {"review.done": {"label": "REVIEW", "line": "{file}: {findings} findings", "view": "keyvalue"}}
                   and doc["attention"]["review.ask"]["keys"] == {"a": "accept", "r": "redo", "s": "skip", "o": "open"})
         bundle = by["studio-bundle"]["sections"][0]["panels"][0]
         ctx.check(f"a bundle not granted: no file, the grant line, got {bundle}", bundle["script"] == "not granted" and "file" not in bundle

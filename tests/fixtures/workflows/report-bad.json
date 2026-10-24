@@ -1,0 +1,1 @@
+{"summary": "Two findings.", "findings": [{"file": "docs/guide.md", "line": "four", "finding": "a dead link", "severity": "urgent"}, {"line": 9}], "score": 7}

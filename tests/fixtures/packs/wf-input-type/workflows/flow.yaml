@@ -1,0 +1,9 @@
+name: flow
+description: Read one folder.
+inputs:
+  docs: {type: path, default: 3}
+stages:
+  - id: read
+    brief: Read the folder.
+    role: reviewer
+done_when: The folder is read.

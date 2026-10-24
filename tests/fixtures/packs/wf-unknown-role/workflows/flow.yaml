@@ -1,0 +1,7 @@
+name: flow
+description: One audit stage.
+stages:
+  - id: audit
+    brief: Audit the notes.
+    role: auditor
+done_when: The audit is written.

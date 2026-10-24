@@ -49,7 +49,12 @@ def _panel(pack, p: dict, section: str, *, core: bool, granted: bool) -> dict:
     out = {"id": N.qualify(pack.id, p["id"]), "name": p["id"], "pack": pack.id, "section": section,
            "title": p.get("title") or p["id"], "kind": kind, "w": p.get("w") or DEFAULT_W, "h": p.get("h") or DEFAULT_H,
            "help": str(p.get("help") or ""), "about": f"from pack {pack.id}", "collapsed": core}
-    if kind in R.NEED_SOURCE:
+    if kind == "artifact":  # 3.2.0.0 R5: drawn by its schema's x-halo-view (packs/typed.py), latest = the newest run's
+        from halo_harness.packs.typed import artifact_schema, view_of
+        src = p.get("source") or R.LATEST
+        out.update(source=src, schema=str(p.get("schema") or ""), view=view_of(artifact_schema(pack.root, str(p.get("schema")))),
+                   file=API.format(id=pack.id, where="artifact", path=p.get("schema")) if src == R.LATEST else _file(pack.id, src))
+    elif kind in R.NEED_SOURCE:
         out["source"] = p["source"]
         out["file"] = _file(pack.id, p["source"])
     if kind == "table":
@@ -63,6 +68,13 @@ def _panel(pack, p: dict, section: str, *, core: bool, granted: bool) -> dict:
         if not granted:
             out.pop("file")
     return out
+
+
+def _event_view(pack, kind: str) -> dict:
+    """3.2.0.0 R5: `{view}` when the kind's schema (events/<kind>.json) has an x-halo-view: Studio draws the data under the line."""
+    from halo_harness.packs.typed import VIEW_KEY, event_schema
+    schema = event_schema(pack.root, pack.manifest, kind) or {}
+    return {"view": schema[VIEW_KEY]} if schema.get(VIEW_KEY) else {}
 
 
 def _settings(pack) -> dict:
@@ -105,7 +117,7 @@ def entry(pack, granted) -> dict:
     return {"id": pack.id, "name": pack.name, "version": pack.version, "scope": pack.scope,
             "script": ("granted" if script else "not granted") if bundles else "none", "grant": grant_line(pack.id),
             "sections": sections, "panels": panels, "palette": palette, "config_form": studio.get("config_form") is True,
-            "events": {k: {"label": str(v.get("label") or k), "line": str(v.get("line") or "")}
+            "events": {k: {"label": str(v.get("label") or k), "line": str(v.get("line") or ""), **_event_view(pack, k)}
                        for k, v in (studio.get("events") or {}).items() if isinstance(v, dict)},
             "attention": {k: {"label": str(v.get("label") or k),
                               "keys": {a: str(v["keys"][a]) for a in R.ANSWER_KEYS if (v.get("keys") or {}).get(a)}}

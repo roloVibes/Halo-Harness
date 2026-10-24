@@ -15,7 +15,8 @@ the doc-review fixture pack and studio-bundle enabled:
    Session's Live column and the Reviews panel; an undeclared kind keeps the
    generic line;
 7. the attention row shows the pack's label and keys, A answers it;
-8. disabled: everything of the pack is gone without a reload.
+8. disabled: everything of the pack is gone without a reload (3.2.0.0 R5: and
+   its events are refused with one line).
 Run: python -m tests.test_packs_studio_ui
 """
 from __future__ import annotations
@@ -130,8 +131,9 @@ def test_disabled_everything_goes_without_a_reload(ctx: Ctx):
     ctx.check("its Session panel is gone", got.get("session_panel_after") is False)
     ctx.check(f"its palette action is gone, got {got.get('palette_after')}", got.get("palette_after") == [])
     ctx.check("its attention row is gone", got.get("attn_after") is True)
-    ctx.check(f"its lines fall back to the generic one, got {got.get('live_after')}", (got.get("live_after") or [""])[0] == "PACK"
-              and "doc-review review.done" in (got.get("live_after") or ["", ""])[1])
+    ctx.check(f"its event is refused with one line (3.2.0.0 R5), got {got.get('refused')!r}", got.get("refused") ==
+              "pack doc-review is disabled here: its event review.done is not published (halo pack enable doc-review)")
+    ctx.check(f"so no new line shows, got {got.get('live_after')}", (got.get("live_after") or [0, 1])[0] == (got.get("live_after") or [0, 1])[1])
     ctx.check("no reload happened", got.get("reloads") == 1)
 
 

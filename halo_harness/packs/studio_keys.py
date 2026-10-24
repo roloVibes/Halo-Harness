@@ -60,7 +60,8 @@ def _palette(L, manifest, studio: dict, own: dict) -> None:
 
 
 def _events_and_rows(L, manifest, studio: dict) -> None:
-    declared = set(R._list(manifest.get("contributes") or {}, "events"))
+    from halo_harness.packs.typed import event_kinds  # 3.2.0.0 R5: an entry is a kind or {kind, schema}
+    declared = set(event_kinds(manifest))
     for kind, ev in (studio.get("events") or {}).items() if isinstance(studio.get("events"), dict) else ():
         if kind not in declared:
             L.add(f"contributes.studio.events.{kind}", ": not one of contributes.events "

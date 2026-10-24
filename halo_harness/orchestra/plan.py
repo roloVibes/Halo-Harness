@@ -98,7 +98,10 @@ def check(run_dir, jobs, *, state_dir=None) -> list:
     """`plan_check.plan_problems` against this run's files (the bios looked up from its repo)."""
     from halo_harness.orchestra.goal import repo_root_of
     from halo_harness.orchestra.plan_check import plan_problems
-    return plan_problems(jobs, unit_keys=unit_keys(run_dir), cwd=repo_root_of(run_dir), state_dir=state_dir)
+    from halo_harness.workflows.pinned import plan_rules  # 3.2.0.0 R5: a workflow's stages stay pinned
+    pinned, claim_free = plan_rules(run_dir, jobs)
+    return pinned + plan_problems(jobs, unit_keys=unit_keys(run_dir), cwd=repo_root_of(run_dir), state_dir=state_dir,
+                                  claim_free=claim_free)
 
 
 def normalize(jobs: list) -> list:

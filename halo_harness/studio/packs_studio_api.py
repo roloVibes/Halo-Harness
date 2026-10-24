@@ -7,6 +7,8 @@ contributions"). Same loopback / origin / token guard as every Studio route.
     GET  pack/<id>/file/<path>      a file under the pack's folder: markdown or JSON, or its bundle module
                                     (declared, and only with studio-script granted); the shell's CSP
     GET  pack/<id>/data/<path>      a markdown or JSON file in the pack's data folder (~/.halo/packs/.data/<id>/)
+    GET  pack/<id>/artifact/<schema> an artifact panel's latest: the newest run's artifact of that schema (3.2.0.0 R5,
+                                    studio/workflow_api.py): {schema, view, columns, data, run, path}
     GET  pack/<id>/config           {pack, name, fields: [{key, type, enum, help, default, value}], values, problems}
     POST pack/<id>/config {values: {key: value}}   checked against config.schema, then packs.settings.<id>.<key>
                                     for each (422 {error, problems}: nothing written)
@@ -29,7 +31,7 @@ from halo_harness.studio.raw_body import RawBody
 
 TYPES = {".md": "text/markdown", ".markdown": "text/markdown", ".txt": "text/plain", ".json": "application/json"}
 MODULE_TYPES = {".js": "text/javascript", ".mjs": "text/javascript"}
-_ROUTE = re.compile(r"^pack/(?P<id>[a-z][a-z0-9-]*)/(?P<what>file|data|config)(?:/(?P<path>.+))?$")
+_ROUTE = re.compile(r"^pack/(?P<id>[a-z][a-z0-9-]*)/(?P<what>file|data|config|artifact)(?:/(?P<path>.+))?$")
 
 
 def _pack(req, pack_id: str):
@@ -144,6 +146,9 @@ def dispatch_pack(req):
         return post_config(req, pack) if req.method == "POST" else (405, {"error": "method not allowed"})
     if req.method != "GET" or not m["path"]:
         return 405, {"error": "method not allowed"}
+    if m["what"] == "artifact":  # 3.2.0.0 R5: the newest run's artifact of a schema (studio/workflow_api.py)
+        from halo_harness.studio.workflow_api import pack_artifact
+        return pack_artifact(req, pack, m["path"])
     return file_body(pack, m["path"], req.state_dir, data=m["what"] == "data")
 
 
