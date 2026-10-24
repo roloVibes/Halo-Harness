@@ -10,7 +10,10 @@
 
 A part that fails (or is refused, or its harness goes offline) skips every
 part that waits for it, directly or not, and the mission ends `failed` with
-the reasons in the report. `stop` stops every running part. Every change is
+the reasons in the report. 3.2.1.0 R3 (mission_hold.py): a part whose pack
+capability runs `capacity.parallel` parts on its harness already is
+`waiting` until a slot frees; a part refused for a pack reason is re-planned
+once onto another harness that has the capability. `stop` stops every running part. Every change is
 logged (`log.jsonl`), journaled (`mission_*`) and published as a `fleet`
 frame `{action: "mission", id, state, part?, part_state?}`. One Runner
 thread per mission (`ensure`); after the hub restarts, `run` on a mission
@@ -26,10 +29,12 @@ from typing import Callable, Optional
 
 from halo_harness.fleet import journal
 from halo_harness.fleet import mission as M
+from halo_harness.fleet import mission_hold as MH
 from halo_harness.fleet import mission_store as S
 from halo_harness.fleet.mission_dispatch import Dispatch
 
 TICK_S = 0.5
+READY = ("pending", "waiting")  # 3.2.1.0 R3: `waiting` is ready, held for its pack capability's slot
 _runners: dict = {}
 _lock = threading.Lock()
 
@@ -100,7 +105,7 @@ class Runner(threading.Thread):
         for p in plan["parts"]:
             ps = doc["parts"].get(p["id"]) or {}
             hit = next((d for d in p.get("depends_on") or [] if d in bad), None)
-            if ps.get("state") == "pending" and hit:
+            if ps.get("state") in READY and hit:
                 doc = self._part(p["id"], {"state": "skipped", "error": f"part {hit} did not finish", "ended": time.time()})
                 bad.add(p["id"])
         return doc
@@ -119,7 +124,7 @@ class Runner(threading.Thread):
                     if ps.get("state") in M.PART_LIVE:
                         self.dispatch.stop(doc, pid, ps, self.stop_reason)
                         doc = self._part(pid, {"state": "stopped", "error": self.stop_reason, "ended": time.time()})
-                    elif ps.get("state") == "pending":
+                    elif ps.get("state") in READY:
                         doc = self._part(pid, {"state": "skipped", "error": self.stop_reason})
                 return self._end("stopped", self.stop_reason)
             for pid, ps in list(doc["parts"].items()):
@@ -130,19 +135,19 @@ class Runner(threading.Thread):
                         for r in refused:  # what a frame did not carry in time (a member's frames are best effort)
                             note_claim(self.home, {"harness": ps.get("harness"), "data": {"mission": self.mid, "part": pid, **r}},
                                        self.publish)
+                        upd = self._refused(plan, by_id[pid], ps, upd)
                         doc = self._part(pid, {**upd, "refused": len(refused)} if refused else upd)
             doc = self._skip_after_failures(doc, plan)
             live = sum(1 for ps in doc["parts"].values() if ps.get("state") in M.PART_LIVE)
-            ready = [p["id"] for p in plan["parts"] if (doc["parts"].get(p["id"]) or {}).get("state") == "pending"
+            ready = [p["id"] for p in plan["parts"] if (doc["parts"].get(p["id"]) or {}).get("state") in READY
                      and all((doc["parts"].get(d) or {}).get("state") == "done" for d in p.get("depends_on") or [])]
-            for pid in ready[:max(0, maxp - live)]:
-                self.started_order.append(pid)
-                base, why = self._base(doc, plan, by_id[pid])
-                if why:
-                    doc = self._part(pid, {"state": "failed", "error": why, "ended": time.time()})
-                    continue
-                S.log(self.home, self.mid, "dispatch", part=pid, harness=by_id[pid].get("harness"), base=base)
-                doc = self._part(pid, {**self.dispatch.start(doc, by_id[pid], plan, base=base), "base": base})
+            slots = max(0, maxp - live)
+            for pid in ready:
+                if slots <= 0:
+                    break
+                with MH.slot(by_id[pid]):  # 3.2.1.0 R3: a pack capability's count and the start go together
+                    doc, took = self._start(doc, plan, by_id[pid])
+                slots -= took
             states = [ps.get("state") for ps in doc["parts"].values()]
             if not any(s in M.PART_LIVE for s in states) and not ready:
                 break
@@ -153,6 +158,33 @@ class Runner(threading.Thread):
         if failed or any(ps.get("state") != "done" for ps in doc["parts"].values()):
             return self._end("failed", "; ".join(failed) or "not every part finished")
         self._merge(doc, plan)
+
+    def _start(self, doc: dict, plan: dict, part: dict) -> tuple:
+        """`(doc, 1)` once the ready part started (or failed to); `(doc, 0)` while it waits for its pack's slot."""
+        pid, st = part["id"], doc["parts"].get(part["id"]) or {}
+        line, holds = MH.held(self.home, self.mid, doc, part, self.dispatch.entries()) if part.get("pack_needs") else ("", [])
+        if line:
+            if st.get("state") != "waiting":
+                S.log(self.home, self.mid, "waits", part=pid, harness=part.get("harness"), text=line)
+                doc = self._part(pid, {"state": "waiting", "waiting": line})
+            return doc, 0
+        self.started_order.append(pid)
+        base, why = self._base(doc, plan, part)
+        if why:
+            return self._part(pid, {"state": "failed", "error": why, "ended": time.time()}), 1
+        S.log(self.home, self.mid, "dispatch", part=pid, harness=part.get("harness"), base=base)
+        fields = self._refused(plan, part, st, self.dispatch.start(doc, part, plan, base=base))
+        live = holds and fields.get("state") in M.PART_LIVE  # a slot is held while it runs
+        extra = {**({"waiting": None} if st.get("waiting") else {}), **({"holds": holds} if live else {})}
+        return self._part(pid, {**fields, "base": base, **extra}), 1
+
+    def _refused(self, plan: dict, part: dict, ps: dict, fields: dict) -> dict:
+        """3.2.1.0 R3: a part its harness refused for a pack reason goes once to another harness that has it."""
+        line = fields.pop("refused_pack", None)
+        if not line or fields.get("state") != "failed":
+            return fields
+        view = self.dispatch.view()
+        return MH.replan(self.home, self.mid, plan, part, ps, line, self.dispatch.entries(view), Dispatch.load(view)) or fields
 
     def _base(self, doc: dict, plan: dict, part: dict) -> tuple:
         """3.0.9.0: where a repo part starts (mission_handoff.start_base); a member gets it as a bundle."""

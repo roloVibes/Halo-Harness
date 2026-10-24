@@ -29,7 +29,8 @@ MAX_TOOLS = 4000
 
 
 def _trim(cat: dict) -> dict:
-    """A member's catalog as the hub keeps it: scrubbed again (paths), at most MAX_TOOLS tools."""
+    """A member's catalog as the hub keeps it: scrubbed again (paths), at most MAX_TOOLS tools, each pack
+    inspector line's text at most 8 KB."""
     cat = caps.scrub(dict(cat))
     left, mcp = MAX_TOOLS, []
     for s in cat.get("mcp") or []:
@@ -39,6 +40,11 @@ def _trim(cat: dict) -> dict:
                 tools, left = tools[:max(0, left)], left - len(tools)
             mcp.append({**s, "tools": tools})
     cat["mcp"] = mcp
+    from halo_harness.packs.fleet_share import INSPECTOR_BYTES  # 3.2.1.0 R3: an inspector line's text, 8 KB at most
+    for p in cat.get("packs") or [] if isinstance(cat.get("packs"), list) else []:
+        for x in (p.get("inspector") or []) if isinstance(p, dict) and isinstance(p.get("inspector"), list) else []:
+            if isinstance(x, dict) and isinstance(x.get("text"), str) and len(x["text"]) > INSPECTOR_BYTES:
+                x.update(text=x["text"][:INSPECTOR_BYTES], cut=True)
     return cat
 
 

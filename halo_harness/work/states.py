@@ -57,8 +57,9 @@ KINDS = ("lane", "part", "stage", "goal")  # 3.1.8.0 R1: a supervisor goal is a 
 ALIASES = {
     "lane": {"": "pending", "joined": "ready", "writing": "running", "written": "done", "in_review": "gated",
              "waiting": "waiting", "merged": "merged", "failed": "failed"},
-    "part": {"pending": "pending", "asked": "waiting", "running": "running", "done": "done", "failed": "failed",
-             "stopped": "stopped", "skipped": "skipped", "merged": "merged"},
+    # 3.2.1.0 R3: a part `waiting` is ready, held by the hub until its pack capability has a free slot on its harness
+    "part": {"pending": "pending", "waiting": "ready", "asked": "waiting", "running": "running", "done": "done",
+             "failed": "failed", "stopped": "stopped", "skipped": "skipped", "merged": "merged"},
     "stage": {"pending": "pending", "ready": "ready", "running": "running", "gated": "gated", "done": "done",
               "failed": "failed", "skipped": "skipped"},
     # 3.1.8.0 R1: a supervisor goal (supervise/queue.py). queued -> ready, parked -> waiting (it waits on the owner).
@@ -69,7 +70,7 @@ ALIASES = {
 NATIVE = {
     "lane": {"pending": "", "ready": "joined", "running": "writing", "waiting": "waiting", "gated": "in_review",
              "done": "written", "failed": "failed", "skipped": "failed", "stopped": "failed", "merged": "merged"},
-    "part": {"pending": "pending", "ready": "pending", "running": "running", "waiting": "asked", "gated": "running",
+    "part": {"pending": "pending", "ready": "waiting", "running": "running", "waiting": "asked", "gated": "running",
              "done": "done", "failed": "failed", "skipped": "skipped", "stopped": "stopped", "merged": "merged"},
     "stage": {"pending": "pending", "ready": "ready", "running": "running", "waiting": "running", "gated": "gated",
               "done": "done", "failed": "failed", "skipped": "skipped", "stopped": "skipped", "merged": "done"},

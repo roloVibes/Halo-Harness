@@ -54,7 +54,7 @@ the engine's own word). Every engine word round-trips.
 | machine | lane | part | stage |
 |---|---|---|---|
 | pending | (new) | pending | pending |
-| ready | joined | — | ready |
+| ready | joined | waiting (3.2.1.0 R3: held for its pack capability's slot) | ready |
 | running | writing | running | running |
 | waiting | waiting | asked | — |
 | gated | in_review | — | gated |

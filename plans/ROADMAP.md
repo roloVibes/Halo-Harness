@@ -1933,8 +1933,8 @@ orchestration engine beside Orchestra.
 - `bio_models.TAGS` / `row_tags` is the one place to add 3.1.9.0 R1's enriched capability tags (R2). (closed 3.2.1.0 R1)
 - the packs registry cache keys on pack.yaml and state.json, not a pack's bio files: an edit inside an installed pack's agents/ shows after the next install, update or enable (R2). (closed 3.2.1.0 R1)
 - a pack's own Studio section comes back after a reload only once the registry loads; the first paint is the saved core section (R3). (closed 3.2.1.0 R1)
-- `capacity.parallel` is advertised and shown to the planner, not held back by the hub; a part a worker refuses is not re-planned onto another harness; `fleet.capabilities.hide` does not hide a pack capability (R4).
-- a pack's fleet inspector lines show their file only for a pack that runs on Studio's own harness; Studio's Mission form and `halo fleet mission new` send no `lineup` for the mission metadata (R4). (the lineup half closed 3.2.1.0 R1; the inspector lines are 3.2.1.0 R3)
+- `capacity.parallel` is advertised and shown to the planner, not held back by the hub; a part a worker refuses is not re-planned onto another harness; `fleet.capabilities.hide` does not hide a pack capability (R4). (closed 3.2.1.0 R3)
+- a pack's fleet inspector lines show their file only for a pack that runs on Studio's own harness; Studio's Mission form and `halo fleet mission new` send no `lineup` for the mission metadata (R4). (the lineup half closed 3.2.1.0 R1; the inspector lines closed 3.2.1.0 R3)
 - the replanner (3.1.8.0 R2) may change a workflow run's lanes; a workflow run should keep its stage set (or replanning be off for it) (R5). (closed 3.2.1.0 R2)
 - `gate: human` is the plan review before any stage, not a hold before one stage; a workflow's own `budget_usd` is a stop only under `--as goal`, "not enforced yet" in a plain Orchestra run (R5). (closed 3.2.1.0 R2)
 - check that 3.1.8.0 R3's verified-outcomes gate reads a workflow stage's evidence rows, not only the summary (R5). (closed 3.2.1.0 R2)
@@ -1953,6 +1953,14 @@ orchestration engine beside Orchestra.
 - the workflow's `budget_usd` stop is checked before each worker pass: passes already running finish and can carry the spend past the cap by their own cost (the supervisor's guard under `--as goal` adds each lane's forecast; a plain run has no forecast check) (R2).
 - Orchestra's workflow picker lists every workflow of a running pack, whether or not its prerequisites hold here (a grant, a capability): the compile says what is missing when Run is pressed (R2).
 - the Pack Manager's Templates and `halo pack inspect` list a pack lineup's `workflows` as written (bare names); only `halo teams show` prints the resolved `workflow_refs` (R2).
+
+### After 3.2.1.0 (R3's open points: the hub holds what a pack declares)
+
+- `capacity.parallel` is held by the hub that runs the missions: parts another hub sends the same member are not counted, and the member's worker takes any number of parts itself (R3).
+- a refused part is re-planned by the rules (prefer, load, name) with no second lead call, and only for the two `refusal()` lines; its claims and dependencies stay as planned (R3).
+- a member's inspector `text` is the file as of its last catalog gather (every pack change, `--refresh`, or an hour): an edit of an installed pack's inspector file reaches the hub with the next gather (R3).
+- `halo pack doctor`'s fleet-hidden row is a warning (doctor has no info level), so a pack capability you hide on purpose makes `halo pack doctor` exit 1 (R3).
+- the Mission panel's `waiting` and replanned lines have no Chrome step; the states, the lines and the status table are pinned in tests/test_packs_fleet_hold.py (R3).
 
 ## ADDED 2026-10-21 ~02:20 (rolo: "There should be an auto role template, prob the default one until a user finds a template they like. Auto should give the agent the ability to call other agents and create whatever orchestration the main model thinks should be the role type with sub agents ... whatever agent is main should know which model is the best from cost, intelligence, what they are best at (like media distillation whether that's video or audio or pdfs) so it knows which agents to use for sub tasks. Maybe some kind of analysis of the available models in the halo model list should occur"): 3.1.9.0 "Auto"
 

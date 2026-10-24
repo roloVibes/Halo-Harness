@@ -44,7 +44,8 @@ States: `drafted -> planned -> approved -> running -> merging -> done`, or
 `failed` / `stopped`. A planned or approved mission can be edited (it goes
 back to `planned` and needs approving again); a running one can only be
 stopped. Parts go `pending -> asked -> running -> done | failed | stopped |
-skipped`, and a merged repo part ends `merged`.
+skipped`, and a merged repo part ends `merged`; a part the hub holds for its
+pack capability's slot is `waiting` until it starts (3.2.1.0 R3).
 
 ## The plan
 
@@ -79,7 +80,7 @@ asks once more with the problems listed) and then applies the rules:
   reason; the mission cannot be approved until it is reassigned or dropped.
 - **Pack capabilities** (3.2.0.0 R4). A need may be a pack's fleet capability
   (`docs.review`, or `pack:docs.review`): each harness's block lists its
-  packs' capabilities (`pack caps: docs.review (pack doc-review, 2 at once)`),
+  packs' capabilities (`pack caps: docs.review (pack doc-review, 2 at a time)`),
   "what only one harness has" includes them, and only a harness where the
   capability is available (its pack runs with the grants) meets the need
   (`only bob@member has pack doc-review: docs.review`). The plan keeps it in
@@ -87,9 +88,12 @@ asks once more with the problems listed) and then applies the rules:
   cell, and the selected part's pack inspector lines. The worker checks again
   before the part runs (and before its owner is asked): a pack disabled
   there, or a grant missing, refuses the part with one line ("this harness
-  does not run pack doc-review with bash"), which fails it as an offline
-  harness would; the parts that wait for it are skipped. A mission started
-  with a pack's lineup carries the pack's `mission.metadata`.
+  does not run pack doc-review with bash"). (3.2.1.0 R3) The hub then
+  re-plans the part once, by the same rules with that harness left out:
+  another harness with the capability takes it (see the run below); with
+  none, it fails as an offline harness would and the parts that wait for it
+  are skipped. A mission started with a pack's lineup carries the pack's
+  `mission.metadata`.
 - **The lineup.** (3.2.1.0 R1) `halo fleet mission new --lineup NAME` and
   the Mission panel's **Lineup** select (the lineups `halo teams` lists, the
   active one first) name the lineup the mission is started with: the
@@ -208,7 +212,19 @@ version is the one merged.
 Parts start by the dependency graph as their dependencies finish, at most
 `fleet.mission.max_parallel` at once (default: the number of harnesses). A
 part that fails skips every part that waits for it and the mission ends
-`failed` with the reasons. `stop` stops every running part. Then the repo
+`failed` with the reasons. `stop` stops every running part.
+
+Two lines the hub writes in the log (`log.jsonl`, each `{kind, part, text}`)
+for a part that needs a pack capability (3.2.1.0 R3, `fleet/mission_hold.py`):
+
+| Kind | Line | When |
+|---|---|---|
+| `waits` | `part 3 waits: bob@member runs 2/2 of pack doc-review: docs.review` | its harness already runs `capacity.parallel` parts holding that capability (in every mission the hub runs); the part is `waiting` (the line is on it too) and starts when one ends |
+| `replanned` | `part 1 replanned: bob@member refused (this harness does not run pack doc-review with bash); alice@hub has pack doc-review: docs.review` | its harness refused it for a pack reason and another harness has the capability: the part moves there (plan.json, MISSION.md, its brief; the line is a decision in the report), back to `pending`, once |
+| `replan` | `part 1 not replanned: no other harness has docs.review` | no other harness has it: the part fails with the worker's line, as before |
+
+A part that was re-planned and is refused again fails with that line. A
+mission with no pack need writes none of these. Then the repo
 parts merge one at a time in the merge order into `mission/<id>/merged`; a
 conflict goes to a fresh judge as in Orchestra (the goal and the hunks only,
 its answer applied by code) and, when the mission has a `test` command, the
@@ -286,8 +302,10 @@ sequenced, a chip naming what every other edge hands on, each repo part's
 base, a red chip where nobody can run it), and as a table under the map.
 Drag a part to another harness to move it (a harness that lacks what it
 needs refuses with the reason), then **Approve** and **Run**: parts waiting
-on a member's owner pulse amber, running ones show the line their agent is
-on, and **Stop** asks for a reason. The report lists who did what, the cost
+on a member's owner pulse amber, so do parts `waiting` for their pack
+capability's slot (their row shows the waits line), a re-planned part shows
+the replanned line under its own (3.2.1.0 R3), running ones show the line
+their agent is on, and **Stop** asks for a reason. The report lists who did what, the cost
 per harness and per part, and opens the artifacts. The plan, a part refused
 an edit and a hub's run_task card are rows in Attention. See
 [STUDIO-fleet.md](STUDIO-fleet.md#how-this-works-missions).
