@@ -73,10 +73,12 @@ def test_a_session_starts_them_with_halos_python(ctx: Ctx):
                   cfg is not None and cfg.env.get("PYTHONPATH", "").split(os.pathsep)[0] == I.package_root())
         plain = Path(tempfile.mkdtemp(prefix="plain-plugin-"))
         (plain / ".mcp.json").write_text(json.dumps({"mcpServers": {"s": {"command": "${halo_python}", "args": []}}}), encoding="utf-8")
-        other, _n = discover_plugin_mcp_servers(env=dict(os.environ), extra_roots=[str(plain)])
-        cfg2 = next(iter(other.values()), None)
-        ctx.check("a plain plugin: the placeholder expands, no PYTHONPATH added",
-                  cfg2 is not None and cfg2.command == sys.executable and "PYTHONPATH" not in cfg2.env)
+        other, n2 = discover_plugin_mcp_servers(env=dict(os.environ), extra_roots=[str(plain)])
+        cfg2 = next((v for k, v in other.items() if k.endswith("_s")), None)  # the plain plugin's own server
+        seen = (f"servers {sorted(other)} picked {(cfg2.command if cfg2 else None)!r} vs {sys.executable!r} "
+                f"env {sorted((cfg2.env or {}) if cfg2 else [])} notices {n2[:2]}")
+        ctx.check(f"a plain plugin: the placeholder expands, no PYTHONPATH added, got {seen}",
+                  cfg2 is not None and cfg2.command == sys.executable and "PYTHONPATH" not in (cfg2.env or {}))
         hook = load_plugin_hooks(root)["PostToolUse"][0]
         ctx.check(f"the hook: Halo's Python, exec form, got {hook.args}", hook.args == [sys.executable, f"{root}/hooks/note.py"])
         runner = HookRunner({}, cwd=h.repo, session_id="s", transcript_path=None, effective_env=dict(os.environ))
