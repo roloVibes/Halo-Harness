@@ -257,8 +257,9 @@ catalog model carrying every tag (a model of the family a bare
 `default` model when none does (`halo pack doctor`, `halo pack inspect` and
 the card in Studio say so). A full model ref in `models.preference` (`or:`,
 `ant:` ...) pins the bio instead. The tags: `long-context`, `vision`,
-`audio`, `video`, `files`, `image-out`, `tools`, `local`
-(`halo_harness/packs/bio_models.py`). A pack's bios ask this way and never
+`audio`, `video`, `files`, `image-out`, `tools`, `local`, and since 3.2.1.0
+`reasoning`, `open-weights`, `audio-out` (`halo_harness/packs/bio_models.py`;
+[PACKS.md](PACKS.md) "A pack's bios" says what each one reads). A pack's bios ask this way and never
 name a provider ([PACKS.md](PACKS.md) "A pack's bios", where `tools.needs`
 and the pack bio's memory namespace are too). A bio Studio cloned from a
 pack carries `from_pack: <id>@<version>`, which changes nothing at run time.

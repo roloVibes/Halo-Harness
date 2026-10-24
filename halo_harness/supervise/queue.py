@@ -10,7 +10,10 @@ One file per goal, `<state>/supervise/goals/<g-id>.json`:
 `pause` on a queued one). `failure` is set on a goal that ended badly:
 `{kind: crash | worker | gate | budget | time | cancelled | retries, step, last_event, report?}`.
 `files`, `test`, `workers` and `plan` are the Orchestra goal's own fields
-(orchestra/goal.py). R2: `replan` (none | auto | review, '' = supervise.replan)
+(orchestra/goal.py); 3.2.1.0 R1: an orchestra goal with a lineup takes the
+lineup's acceptance (`test`, `review`) the way `halo orchestra new` does,
+and `taken` (only when it took something) lists the lines saying what.
+R2: `replan` (none | auto | review, '' = supervise.replan)
 and `replans` (one row per replan, supervise/replan.py). `<state>/supervise/queue.json` marks the folder for
 `halo work` (work/adapters/goal.py). Every write takes the goal file's lock,
 so `halo goal` and a running supervisor never lose each other's change;
@@ -63,10 +66,29 @@ def _mark(state_dir) -> None:
         write_private_atomic(marker, json.dumps({"version": 1, "created": round(time.time(), 3)}))
 
 
+def lineup_defaults(goal: dict, state_dir=None) -> "list[str]":
+    """3.2.1.0 R1: an orchestra goal's lineup acceptance, as `halo orchestra new --lineup` takes it
+    (packs/lineup_run.py): an empty `test` gets the lineup's, `plan: auto` becomes review when the lineup
+    says review. A test you gave wins. The lines say what was taken."""
+    from halo_harness.packs.lineup_run import run_defaults
+    name = goal.get("lineup") or ""
+    took = run_defaults(name, cwd=goal.get("repo"), state_dir=state_dir) if name else {}
+    lines: "list[str]" = []
+    if took.get("test") and not str(goal.get("test") or "").strip():
+        goal["test"] = took["test"]
+        lines.append(f"test from lineup {name}: {took['test']}")
+    if took.get("review") and goal.get("plan") == "auto":
+        goal["plan"] = "review"
+        lines.append(f"plan: review from lineup {name} (the run pauses for the plan's review)")
+    return lines
+
+
 def add(state_dir, what: str, *, done_when: str = "", stop_when: str = "", repo=None, budget_usd=None,
         lineup: str = "", kind: str = "orchestra", files=None, test: str = "", workers: Optional[int] = None,
-        review: bool = False, replan: str = "") -> dict:
-    """A new queued goal. ValueError for a bad field (the sentence says which)."""
+        review: bool = False, replan: str = "", lineup_acceptance: bool = True) -> dict:
+    """A new queued goal. ValueError for a bad field (the sentence says which). An orchestra goal with a
+    lineup takes its acceptance (`lineup_defaults`) unless `lineup_acceptance` is False (a compiled
+    workflow, whose test and plan come from its stages); the lines are the goal's `taken`."""
     what = str(what or "").strip()
     if not what:
         raise ValueError("say what the goal is: halo goal add \"<what>\"")
@@ -87,6 +109,9 @@ def add(state_dir, what: str, *, done_when: str = "", stop_when: str = "", repo=
             "held": False, "retries": 0, "failure": None, "files": [str(f) for f in files or []],
             "test": str(test or ""), "workers": workers, "plan": "review" if review else "auto",
             "replan": str(replan or ""), "replans": []}
+    taken = lineup_defaults(goal, state_dir) if kind == "orchestra" and goal["lineup"] and lineup_acceptance else []
+    if taken:
+        goal["taken"] = taken
     if kind == "orchestra":
         from halo_harness.orchestra.goal import validate_goal
         problems = validate_goal(orchestra_fields(goal))
@@ -97,7 +122,7 @@ def add(state_dir, what: str, *, done_when: str = "", stop_when: str = "", repo=
         goal["id"] = new_id()
     _write(state_dir, goal)
     from halo_harness.supervise import history
-    history.change(state_dir, goal, "", "queued", "added")
+    history.change(state_dir, goal, "", "queued", "; ".join(["added"] + taken))
     return goal
 
 

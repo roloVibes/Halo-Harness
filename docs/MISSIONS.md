@@ -90,6 +90,15 @@ asks once more with the problems listed) and then applies the rules:
   does not run pack doc-review with bash"), which fails it as an offline
   harness would; the parts that wait for it are skipped. A mission started
   with a pack's lineup carries the pack's `mission.metadata`.
+- **The lineup.** (3.2.1.0 R1) `halo fleet mission new --lineup NAME` and
+  the Mission panel's **Lineup** select (the lineups `halo teams` lists, the
+  active one first) name the lineup the mission is started with: the
+  mission records it (`lineup`), `MISSION.md` and the plan and status tables
+  say `lineup: <name>`, and a pack's lineup adds the pack's metadata
+  (`metadata: pack=doc-review, review=docs, style=short`). A name no lineup
+  folder holds is refused with one line, `no lineup named '<name>' here
+  (halo teams list names them)`. With none named, a pack lineup that is the
+  active `team` still adds its metadata, as before.
 - **Kinds.** A `repo` part changes the hub's repo (the folder the mission was
   made in) on its own branch; a `files` part works in `artifacts/<n>/` of the
   mission folder, which is then its claim.
@@ -250,7 +259,7 @@ parts, their cost per harness and the files.
 | Route | Answer |
 |---|---|
 | `GET /api/fleet/missions` | `{missions: [summary], at, root_shared}` |
-| `POST /api/fleet/missions {goal, constraints?, prefer?, budget_usd?, test?, repo?}` | drafts and plans: `{mission, plan, summary, running}` |
+| `POST /api/fleet/missions {goal, constraints?, prefer?, budget_usd?, test?, repo?, lineup?}` | drafts and plans: `{mission, plan, summary, running}` |
 | `GET /api/fleet/missions/<id>` | the same shape |
 | `POST .../<id>/plan` | the lead plans again |
 | `POST .../<id>/parts/<n> {harness?, drop?}` | reassign or drop one part |
@@ -269,7 +278,8 @@ else this harness alone.
 
 Fleet's **Mission** panel (`M` in Fleet, or the palette's **Fleet: new
 mission**) is the same flow on one screen: type the goal, pick the harnesses
-to prefer and a budget, **Plan it**. The plan is drawn over the Fleet map,
+to prefer, a budget and the lineup (3.2.1.0 R1: the **Lineup** select, the
+active one first; the mission's head then says `lineup <name>`), **Plan it**. The plan is drawn over the Fleet map,
 each part a node in its harness's box (a lock where it was pinned by
 capability, an amber edge and a **claims** chip where two parts were
 sequenced, a chip naming what every other edge hands on, each repo part's

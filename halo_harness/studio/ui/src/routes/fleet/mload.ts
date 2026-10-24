@@ -82,10 +82,12 @@ async function act(label: string, run: () => Promise<View>, done = ""): Promise<
   }
 }
 
-export type NewBody = { goal: string; constraints: string; prefer: string[]; budget_usd: string };
+/** lineup: 3.2.1.0 R1, the Mission form's Lineup select ("" sends none: the active lineup, as before). */
+export type NewBody = { goal: string; constraints: string; prefer: string[]; budget_usd: string; lineup?: string };
 
 export function planIt(b: NewBody): Promise<boolean> {
-  const body = { goal: b.goal.trim(), constraints: b.constraints.trim(), prefer: b.prefer, ...(b.budget_usd.trim() ? { budget_usd: b.budget_usd.trim() } : {}) };
+  const body = { goal: b.goal.trim(), constraints: b.constraints.trim(), prefer: b.prefer, ...(b.budget_usd.trim() ? { budget_usd: b.budget_usd.trim() } : {}),
+                 ...(b.lineup ? { lineup: b.lineup } : {}) };
   return act("plan", () => api.post<View>("fleet/missions", body), "Planned: check the parts on the map, then Approve or Run");
 }
 

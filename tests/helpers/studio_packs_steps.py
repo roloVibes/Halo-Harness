@@ -72,6 +72,42 @@ def events(c, url, ctx) -> dict:
     return out
 
 
+#: 3.2.1.0 R1: on every new document, the visible section ids in the order they show, and whether the
+#: "loading the pack's section" frame showed (installed before the page's own script runs)
+FIRST_PAINT = """(() => { window.__sections = []; window.__sawLoading = false;
+  const look = () => { const v = document.querySelector('.section-view:not([hidden])'); const id = v && v.dataset.section;
+    if (id && window.__sections[window.__sections.length - 1] !== id) window.__sections.push(id);
+    if (document.querySelector('[data-testid=pack-section-loading]')) window.__sawLoading = true; };
+  new MutationObserver(look).observe(document, {subtree: true, childList: true, attributes: true, attributeFilter: ['hidden']}); })();"""
+
+
+def first_paint(c, url, ctx) -> dict:
+    """3.2.1.0 R1: on Docs review (saved for this browser), a reload with no ?mode= paints Docs review first: the
+    first visible section is the pack's (its frame says it is loading), never the core section it fell back to."""
+    out: dict = {}
+    alt(c, 8)
+    c.wait(f"{CUR}.startsWith('Docs review')", 10)
+    out["saved_section"] = c.js("localStorage.getItem('halo.studio.section')")
+    c.call("Page.enable")  # the new-document script runs only with the Page domain on (off again below)
+    script = c.call("Page.addScriptToEvaluateOnNewDocument", source=FIRST_PAINT).get("identifier")
+    try:
+        c.go("about:blank")
+        c.wait("location.href === 'about:blank'", 10)
+        c.go(url.replace("mode=roles&", ""))
+        c.wait(f"{CUR}.startsWith('Docs review') && !!{panel('doc-review--notes', '[data-testid=pack-markdown]')}", 30)
+        out["paint_sections"] = c.js("window.__sections")
+        out["paint_loading_seen"] = c.js("window.__sawLoading")
+        out["paint_boot_attr"] = c.js("JSON.parse(document.documentElement.dataset.packSections || '[]').map((s) => s.id)")
+        out["paint_loading_after"] = c.js(f"!!{q('[data-testid=pack-section-loading]')}")
+    finally:
+        if script:
+            c.call("Page.removeScriptToEvaluateOnNewDocument", identifier=script)
+        c.call("Page.disable")
+    alt(c, 1)  # the new page: Session mounted again (its Live column collects the events step's lines)
+    c.wait(f"{CUR}.startsWith('Session') && !!{panel('doc-review--reviews', '.panel')}", 20)
+    return out
+
+
 def _row(ctx, rid: str) -> Path:
     folder = ctx["state"] / "packs" / ".data" / "doc-review" / "attention"
     folder.mkdir(parents=True, exist_ok=True)

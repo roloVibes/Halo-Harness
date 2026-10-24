@@ -44,7 +44,20 @@ Each goal is a file under `~/.halo/supervise/goals/<g-id>.json`:
     {id, what, done_when, stop_when, repo, budget_usd, lineup, kind: orchestra | job,
      state: queued | running | parked | done | stopped | failed, created, started, ended,
      run_dir | bg_id, cost_usd, why, held, retries, failure, files, test, workers, plan,
-     replan: "" | none | auto | review, replans: [{n, at, why, lines, state, settled, by, note}]}
+     replan: "" | none | auto | review, replans: [{n, at, why, lines, state, settled, by, note}], taken?}
+
+An `orchestra` goal with a lineup (`halo goal add --lineup NAME`) takes that
+lineup's acceptance the way `halo orchestra new --lineup` does (3.2.1.0 R1,
+[PACKS.md](PACKS.md) "A pack's lineups"): an empty `test` gets the lineup's
+`acceptance.test`, and `plan: auto` becomes `review` when it says `review:
+true`. A `--test` you give wins; a job goal and a compiled workflow (`halo
+goal add --workflow`, whose test and plan come from its stages) take
+nothing. `taken` lists what it took, `halo goal add` prints the lines under
+the queued line, and the goal's first history line says them:
+
+    queued g-1a2b3c: review the docs (orchestra, repo my-docs)
+      test from lineup doc-review--review: python -m pytest -q
+      plan: review from lineup doc-review--review (the run pauses for the plan's review)
 
 The supervisor starts the next queued goal that is not `held` when fewer than
 `supervise.max_running` goals run. An `orchestra` goal runs through the real

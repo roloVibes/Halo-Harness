@@ -7,9 +7,13 @@
 // 3.1.4.0 R1: they show in full only while there is no goal text and no
 // mission (no plan, no run), else they fold into one "How this works" line
 // that opens on click.
+// 3.2.1.0 R1: a Lineup select (the lineups `halo teams` lists, the active one first); its name rides in the
+// mission (`lineup`), and a pack's lineup adds the pack's mission metadata.
 import { useEffect, useRef, useState } from "react";
+import { api } from "../../lib/api";
 import { Button, Icon } from "../../lib/ui";
 import { short } from "../orchestra/format";
+import type { LineupRow } from "../roles/types";
 import { useFleet } from "./store";
 import { useMissions, usd, type Summary } from "./mstore";
 import { openMission, planIt } from "./mload";
@@ -40,6 +44,34 @@ function Prefer({ value, onChange }: { value: string[]; onChange: (v: string[]) 
       })}
       {!names.length && <span className="muted">the harnesses show here once the fleet is read</span>}
     </div>
+  );
+}
+
+/** The lineups `GET lineups` lists, the active one first, and the active one's name ('' when none is set). */
+function useLineups(): { names: string[]; active: string } {
+  const [rows, setRows] = useState<LineupRow[]>([]);
+  useEffect(() => {
+    let live = true;
+    api.get<LineupRow[]>("lineups").then((r) => live && setRows(Array.isArray(r) ? r : []), () => live && setRows([]));
+    return () => {
+      live = false;
+    };
+  }, []);
+  const active = rows.find((r) => r.active)?.name || "";
+  return { names: [...(active ? [active] : []), ...rows.map((r) => r.name).filter((n) => n !== active)], active };
+}
+
+function LineupPick({ value, onChange, active, names }: { value: string; onChange: (v: string) => void; active: string; names: string[] }) {
+  if (!names.length) return null;
+  return (
+    <label className="fmi-field fmi-lineup">
+      <span className="rail-label mono">LINEUP</span>
+      <select className="input mono" value={value} onChange={(e) => onChange(e.target.value)} data-testid="fleet-mission-lineup-pick"
+              title="the lineup the mission is started with: its name rides in the mission, and a pack's lineup adds the pack's mission metadata">
+        {!active && <option value="">none named (the default)</option>}
+        {names.map((n) => <option key={n} value={n}>{n === active ? `${n} (active)` : n}</option>)}
+      </select>
+    </label>
   );
 }
 
@@ -98,6 +130,9 @@ export function MissionStart() {
   const [constraints, setConstraints] = useState("");
   const [prefer, setPrefer] = useState<string[]>([]);
   const [budget, setBudget] = useState("");
+  const lineups = useLineups();
+  const [picked, setLineup] = useState<string | null>(null); // null: the active one (or none named)
+  const lineup = picked ?? lineups.active;
   const busy = useMissions((s) => s.busy === "plan");
   const problems = useMissions((s) => (s.open ? [] : s.problems));
   const list = useMissions((s) => s.list);
@@ -109,7 +144,7 @@ export function MissionStart() {
   }, [focus]);
   const go = async () => {
     if (!goal.trim() || busy) return;
-    if (await planIt({ goal, constraints, prefer, budget_usd: budget })) setGoal("");
+    if (await planIt({ goal, constraints, prefer, budget_usd: budget, lineup })) setGoal("");
   };
   return (
     <div className="fmi-start" data-testid="fleet-mission-start">
@@ -129,6 +164,7 @@ export function MissionStart() {
             <span className="rail-label mono">BUDGET $</span>
             <input className="input mono" inputMode="decimal" value={budget} onChange={(e) => setBudget(e.target.value)} placeholder="none" data-testid="fleet-mission-budget" />
           </label>
+          <LineupPick value={lineup} onChange={setLineup} active={lineups.active} names={lineups.names} />
         </div>
         <div className="fmi-actions">
           <span className="rail-label mono" title="the planner breaks ties with this order">PREFER</span>

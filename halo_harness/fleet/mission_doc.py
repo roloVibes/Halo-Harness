@@ -37,6 +37,8 @@ def mission_md(doc: dict, plan: dict) -> str:
         head += [f"**Constraints:** {doc['constraints']}", ""]
     head += [f"**State:** {doc.get('state')} | hub {(doc.get('hub') or {}).get('name') or '?'} | "
              f"{len(parts)} part(s) | est. ${est:.2f}" + (f" of a ${float(budget):.2f} budget" if budget else ""), ""]
+    if doc.get("lineup"):  # 3.2.1.0 R1: the lineup the mission was started with
+        head += [f"**Lineup:** {doc['lineup']}", ""]
     if doc.get("metadata"):  # 3.2.0.0 R4: what the pack whose lineup started it says
         head += ["**Metadata:** " + ", ".join(f"{k}={v}" for k, v in doc["metadata"].items()), ""]
     if doc.get("repo"):
@@ -87,11 +89,21 @@ def brief_md(doc: dict, plan: dict, part: dict) -> str:
     return "\n".join(lines)
 
 
+def _lineup_lines(doc: dict) -> "list[str]":
+    """3.2.1.0 R1: `  lineup: <name>` (and the pack's metadata) for a mission started with a lineup."""
+    name = doc.get("lineup") or (doc.get("metadata") or {}).get("lineup")  # named, or the active pack lineup's
+    out = [f"  lineup: {name}"] if name else []
+    meta = {k: v for k, v in (doc.get("metadata") or {}).items() if k != "lineup"}
+    if meta:
+        out.append("  metadata: " + ", ".join(f"{k}={v}" for k, v in meta.items()))
+    return out
+
+
 def plan_table(doc: dict, plan: dict) -> str:
     """The plan as `halo fleet mission new|plan` prints it."""
     parts = (plan or {}).get("parts") or []
     states = doc.get("parts") or {}
-    out = [f"Mission {doc['id']} ({doc.get('state')}): {doc.get('goal')}"]
+    out = [f"Mission {doc['id']} ({doc.get('state')}): {doc.get('goal')}"] + _lineup_lines(doc)
     if not parts:
         return "\n".join(out + ["  (no plan yet)"])
     width = max(8, *(len(_who(p)) for p in parts))
@@ -112,7 +124,7 @@ def plan_table(doc: dict, plan: dict) -> str:
 def status_table(doc: dict) -> str:
     """Parts by harness with their state and cost (`halo fleet mission status <id>`, the run's live table)."""
     out = [f"Mission {doc['id']} {doc.get('state')}  ${float(doc.get('plan_cost_usd') or 0) + sum(float(p.get('cost_usd') or 0) for p in (doc.get('parts') or {}).values()):.4f}"
-           f"  {time.strftime('%H:%M:%S', time.localtime(doc.get('updated') or time.time()))}"]
+           f"  {time.strftime('%H:%M:%S', time.localtime(doc.get('updated') or time.time()))}"] + _lineup_lines(doc)
     by: dict = {}
     for pid, p in sorted((doc.get("parts") or {}).items(), key=lambda kv: int(kv[0]) if kv[0].isdigit() else 0):
         by.setdefault(str(p.get("harness_name") or p.get("harness") or "?"), []).append((pid, p))

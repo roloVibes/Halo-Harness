@@ -8,6 +8,7 @@ import type { Command } from "../../shell/commands";
 import type { SectionDef } from "../index";
 import type { SectionHelpCopy } from "../sectionHelp";
 import type { PackSectionId } from "../../lib/store";
+import { PackSectionLoading } from "./Loading";
 import { runAction } from "./nav";
 import { coreSpecs, sectionSpecs } from "./panels";
 import type { PanelSpec } from "../../lib/workspace/types";
@@ -27,7 +28,8 @@ function build(reg: Registry): Built {
   for (const p of reg.packs) {
     for (const s of p.sections) {
       const kbd = key <= LAST_KEY ? `Alt+${key++}` : "";
-      sections.push({ id: s.id as PackSectionId, title: s.title, kbd, blurb: s.blurb, panels: sectionSpecs(s.panels), pack: p.id, help: s.help });
+      sections.push({ id: s.id as PackSectionId, title: s.title, kbd, blurb: s.blurb, panels: sectionSpecs(s.panels), pack: p.id, help: s.help,
+                      ...(reg.boot ? { view: PackSectionLoading } : {}) }); // 3.2.1.0 R1: the page's boot sections, before the registry
     }
     for (const x of p.panels) (core[x.section] ||= []).push(...coreSpecs([x]));
   }

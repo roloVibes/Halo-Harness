@@ -50,10 +50,15 @@ def test_the_routes_draft_plan_edit_approve_and_report(ctx: Ctx):
         from tests.helpers.mission_seed import fleet
         fleet(rig)
         fake = lead(lead_answer())
+        status, bad = rig.api("POST", "fleet/missions", {"goal": "Scan the lab", "repo": False, "lineup": "no-such-lineup"}, timeout=60)
+        ctx.check(f"3.2.1.0 R1: a lineup no search dir holds is a 422 with one line, got {status} {bad}", status == 422
+                  and bad.get("error") == "no lineup named 'no-such-lineup' here (halo teams list names them)")
         status, body = rig.api("POST", "fleet/missions", {"goal": "Scan the lab and build the findings workbook",
-                                                          "budget_usd": 2, "repo": False}, timeout=60)
+                                                          "budget_usd": 2, "repo": False, "lineup": "standard"}, timeout=60)
         ctx.check(f"POST fleet/missions drafts and plans, got {status} {body.get('error')}", status == 200 and body["plan"])
         mid = body["mission"]["id"]
+        ctx.check(f"3.2.1.0 R1: the route forwards the lineup into the mission, got {body['mission'].get('lineup')!r}",
+                  body["mission"].get("lineup") == "standard" and "metadata" not in body["mission"])
         parts = {p["id"]: p for p in body["plan"]["parts"]}
         ctx.check(f"nmap -> the Kali box, gridcraft -> the Windows host, got {[(p['harness_name'], p['reason']) for p in parts.values()]}",
                   parts["1"]["harness"] == rig.b_id and parts["2"]["harness"] == rig.a_id
@@ -110,14 +115,18 @@ def test_the_cli_verbs_print_and_json_round_trips(ctx: Ctx):
         write_private_atomic(rig.home_a / "studio.json", json.dumps({"pid": os.getpid(), "port": rig.server.server_address[1],
                                                                     "token": rig.server.token}))
         rc, out, err = cli(rig.root_a, "mission", "new", "Scan the lab and build the findings workbook", "--no-repo",
-                           "--budget", "3", "--json", timeout=120)
+                           "--budget", "3", "--lineup", "standard", "--json", timeout=120)
         got = json.loads(out) if rc == 0 else {}
         ctx.check(f"new --json: drafted and planned through Studio, rc {rc} {err[-300:]}", rc == 0 and got.get("source") == "studio"
-                  and got["mission"]["state"] == "planned" and got["mission"]["budget_usd"] == 3.0)
+                  and got["mission"]["state"] == "planned" and got["mission"]["budget_usd"] == 3.0
+                  and got["mission"].get("lineup") == "standard")
         mid = got.get("mission", {}).get("id", "")
         rc, out, _ = cli(rig.root_a, "mission", "plan", mid)
         ctx.check(f"plan prints the table with reasons, got {out[:500]!r}", rc == 0 and f"Mission {mid} (planned)" in out
                   and "bob@member (pinned)" in out and "why: only alice@hub has gridcraft" in out)
+        ctx.check("3.2.1.0 R1: --lineup: the plan table says the lineup", "  lineup: standard" in out.splitlines())
+        rc, out, _ = cli(rig.root_a, "mission", "status", mid)
+        ctx.check(f"and so does status <id>, got {out[:200]!r}", rc == 0 and "  lineup: standard" in out)
         rc, out, _ = cli(rig.root_a, "mission", "status", "--json")
         ctx.check("status --json lists it", rc == 0 and json.loads(out)["missions"][0]["id"] == mid)
         rc, out, _ = cli(rig.root_a, "mission", "approve", mid)

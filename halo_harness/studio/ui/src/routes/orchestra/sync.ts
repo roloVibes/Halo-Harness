@@ -6,7 +6,7 @@
 // the run is live. The actions post to the routes and refresh.
 import { api, ApiError } from "../../lib/api";
 import { onEvent } from "../../lib/events";
-import { studio, toast } from "../../lib/store";
+import { createStore, studio, toast } from "../../lib/store";
 import { orch } from "./store";
 import type { FileView, RunEvent, RunPayload, RunRow } from "./types";
 
@@ -144,10 +144,15 @@ export type RunForm = {
   review?: boolean;
 };
 
+/** 3.2.1.0 R1: the test a run took from its lineup's acceptance (POST orchestra/run's `taken`), for GoalForm's line. */
+export const lineupTook = createStore<{ run: string; test: string }>({ run: "", test: "" });
+
 export async function startRun(form: RunForm, dryRun: boolean): Promise<string[]> {
   try {
     const { model, review, ...goal } = form;
-    const r = await api.post<{ run_id: string }>("orchestra/run", { ...goal, ...(model ? { model } : {}), ...(review ? { review: true } : {}), dry_run: dryRun });
+    const r = await api.post<{ run_id: string; taken?: string[]; test?: string }>("orchestra/run", { ...goal, ...(model ? { model } : {}), ...(review ? { review: true } : {}), dry_run: dryRun });
+    const tookTest = (r.taken || []).some((l) => l.startsWith("test: "));
+    lineupTook.update(() => (tookTest ? { run: r.run_id, test: r.test || "" } : { run: "", test: "" }));
     toast(`${dryRun ? "Dry run" : "Run"} ${r.run_id} started`, "info");
     await loadRuns();
     await openRun(r.run_id);

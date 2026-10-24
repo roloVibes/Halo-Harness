@@ -78,8 +78,29 @@ def _folders(d: Path) -> "list[Path]":
         return []
 
 
+#: 3.2.1.0 R1: the folders whose files a pack's validation reads (bios, lineups, workflows), stat'ed by `signature`
+WATCHED = ("agents", "teams", "workflows")
+
+
+def _watched(folder: Path) -> list:
+    """(name, mtime, size) of every *.yaml / *.md in a pack's agents/, teams/ and workflows/: one scandir each,
+    a missing folder is nothing."""
+    out = []
+    for sub in WATCHED:
+        try:
+            with os.scandir(folder / sub) as it:
+                for e in it:
+                    if e.name.endswith((".yaml", ".md")) and e.is_file():
+                        st = e.stat()
+                        out.append((f"{sub}/{e.name}", st.st_mtime_ns, st.st_size))
+        except OSError:
+            continue
+    return sorted(out)
+
+
 def signature(*, cwd=None, state_dir=None) -> tuple:
-    """What discovery depends on: each packs folder and each pack.yaml (mtime and size)."""
+    """What discovery depends on: each packs folder, each pack.yaml and (3.2.1.0 R1) each bio, lineup and
+    workflow file of a pack (mtime and size), so an edit inside an installed pack's agents/ shows at once."""
     out = []
     for d, _scope in search_dirs(cwd=cwd, state_dir=state_dir):
         try:
@@ -91,7 +112,7 @@ def signature(*, cwd=None, state_dir=None) -> tuple:
         for folder in _folders(d):
             try:
                 mst = (folder / MF.MANIFEST).stat()
-                out.append((str(folder), mst.st_mtime_ns, mst.st_size))
+                out.append((str(folder), mst.st_mtime_ns, mst.st_size, tuple(_watched(folder))))
             except OSError:
                 out.append((str(folder), None, None))
     return tuple(out)

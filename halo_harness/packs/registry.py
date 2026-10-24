@@ -8,9 +8,11 @@ one with a problem, contributes nothing.
 
 Every bio and lineup lookup reads this (the pack tier of
 `agent_search_dirs` / `team_search_dirs`), so the snapshot is cached by what
-it depends on (each packs folder, each pack.yaml and state.json: mtime and
-size); every write Halo makes calls `invalidate()`. A home with no packs
-folder costs two `stat` calls.
+it depends on (each packs folder, each pack.yaml, each `*.yaml` / `*.md`
+in a pack's agents/, teams/ and workflows/ (3.2.1.0 R1) and state.json:
+mtime and size); every write Halo makes calls `invalidate()`, and an edit
+by hand inside an installed pack shows at the next lookup. A home with no
+packs folder costs two `stat` calls.
 """
 
 from __future__ import annotations

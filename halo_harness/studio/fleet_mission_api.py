@@ -6,7 +6,7 @@ the loopback `local/mission` route of a `halo fleet serve` on this machine,
 else for this harness alone.
 
     GET  fleet/missions                        {missions: [summary], at, root_shared}
-    POST fleet/missions {goal, constraints?, prefer?, budget_usd?, test?, repo?: false}
+    POST fleet/missions {goal, constraints?, prefer?, budget_usd?, test?, repo?: false, lineup?}
                                                drafts and plans: {mission, plan, summary, running}
     GET  fleet/missions/<id>                   {mission, plan, summary, running}
     POST fleet/missions/<id>/plan              plans again (the lead): the same shape
@@ -71,7 +71,8 @@ def get_missions(req):
 
 def post_missions(req):
     b = _body(req)
-    return _do(req, "new", **{k: b[k] for k in ("goal", "constraints", "prefer", "budget_usd", "test", "repo") if k in b})
+    return _do(req, "new", **{k: b[k] for k in ("goal", "constraints", "prefer", "budget_usd", "test", "repo", "lineup")  # lineup: 3.2.1.0 R1
+                              if k in b})
 
 
 def get_mission(req):

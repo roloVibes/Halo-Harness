@@ -93,6 +93,8 @@ def _add(state_dir, args) -> int:
         print(f"halo goal add: {e}", file=sys.stderr)
         return 1
     print(f"queued {goal['id']}: {goal['what']} ({goal['kind']}, repo {Path(goal['repo']).name})")
+    for line in goal.get("taken") or []:  # 3.2.1.0 R1: what the lineup's acceptance gave it
+        print(f"  {line}")
     print("the supervisor runs it (start one with `halo supervise` if none is running).")
     return 0
 
