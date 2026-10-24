@@ -116,6 +116,10 @@ Two keys more:
   is one pack.yaml declares under `contributes.workflows`; a stray one is a
   manifest problem naming the line. A workflow's compiled run uses the
   lineup that names it (its goal's `lineup`, [Workflows](#workflows)).
+  3.2.1.0 R2: an item may also be written `<id>/<name>`, the way `halo
+  workflow run` names it (`doc-review/review`); a bare name resolves inside
+  its own pack, and another pack's `<pack>/<name>` is a manifest line ("a
+  pack's lineup runs its own"). See [A lineup's workflows](#a-lineups-workflows).
 - `acceptance` holds the smoke prompt `halo doctor --teams` runs (`prompt`,
   `expect`) and the Orchestra defaults a run on this lineup starts with:
   `test` (the command the gate runs) and `review: true` (pause after the split
@@ -135,6 +139,29 @@ tiers:
 acceptance: {review: true, test: python -m pytest -q}
 workflows: [review]
 ```
+
+### A lineup's workflows
+
+A lineup's `workflows:` names workflows by `<pack>/<name>`, the ref `halo
+workflow run` takes (`<pack>--<name>` reads the same). The rule (3.2.1.0 R2,
+`packs/lineup_run.py`):
+
+- a bare name resolves inside its own pack: a pack's lineup's own, or the pack
+  a clone of yours came from (`from_pack: doc-review@1.0.0`, which Studio's
+  Clone writes);
+- a lineup of yours may name any pack's workflow as `<pack>/<name>`; a ref no
+  running pack holds is one `halo teams validate` line, in `halo workflow
+  run`'s own words:
+
+```
+"workflows" 'other-pack/flow': pack other-pack is not installed here (halo pack list)
+```
+
+- the resolved lineup keeps `workflows` as written and carries
+  `workflow_refs` beside it (`["doc-review/review"]`); `halo teams show`
+  prints them, `workflows: doc-review/review (halo workflow run
+  doc-review/review)`, and names a bare name of yours with no pack ("names no
+  pack: a lineup of yours names <pack>/<name>").
 
 ## Yours first
 
@@ -254,6 +281,36 @@ halo workflow list                                        # the workflows of the
 halo workflow check doc-review/review --input docs=docs   # the jobs it compiles to, or every problem
 halo workflow run doc-review/review --input docs=docs     # run it now (an Orchestra run)
 ```
+
+Orchestra's own new-run form has a picker too (3.2.1.0 R2): with no workflow
+filled in, "or run a pack's workflow" under the goal form lists the workflows
+of the packs that run here, and a pick fills in the same form the Pack
+Manager's Run <workflow> does ([STUDIO-orchestra.md](STUDIO-orchestra.md)).
+
+What holds a workflow's run to its file (3.2.1.0 R2):
+
+- **`gate: human` is the plan review before the run starts.** Any stage with
+  it makes the whole compiled goal `plan: review` (`workflows/compile.py`):
+  the run waits for `halo orchestra approve` (or Studio's plan) once, before
+  any stage. A hold before one stage, after the run started, is not a thing
+  yet ([plans/ROADMAP.md](../plans/ROADMAP.md) "After 3.2.1.0").
+- **The workflow's own `budget_usd` is a stop**, in a plain Orchestra run as
+  under `--as goal`: before each pass of any stage's worker the run's spend
+  (the lead's split, every lane, the judge's conflicts, as the report counts
+  it) is checked against it, and at it the run stops with `STOP: budget: the
+  run spent <spent> of <cap> USD (the workflow's budget_usd)`. The report says
+  the cap and the spend (`budget: the run spent 0.0400 of 2.0000 USD (the
+  workflow's budget_usd, a stop)`). A workflow with no `budget_usd` of its own
+  has no run-level stop; each stage's own `budget_usd` holds that stage.
+- **The stage set is the file's.** The supervisor's replanner leaves a
+  workflow run alone: it is never paused for a replan, and with
+  `supervise.replan` set the goal says so once, "a workflow run keeps its
+  stage set (its plan is pinned by doc-review/review)"
+  ([SUPERVISE.md](SUPERVISE.md#replanning)).
+- **The gate reads a stage's evidence.** Each `verify.evidence` item is a line
+  under its lane in the gate's verdict and the report (`evidence report: 213
+  bytes, sha256 3f9a1c0b7d2e`, or `evidence report: missing`), and the
+  conflict judge reads the incoming lane's ([OUTCOMES.md](OUTCOMES.md#the-judge-reads-the-evidence)).
 
 A typed output (`artifact:<schema>`) is checked against the pack's
 `artifacts/<schema>.json` at the gate and drawn by its schema's view in the
@@ -422,6 +479,7 @@ runs and shows the lines it prints, and every open Studio redraws on the
 - **Templates**: its lineups and bios with Preview, Clone, Customize and Apply
   (Roles' own actions), and Run <workflow>: Orchestra's new-run form filled
   in with the workflow and its inputs; Run compiles it as `halo workflow run` does.
+  Orchestra's Start view offers the same workflows in its own picker (3.2.1.0 R2).
 
 ## The reference pack
 

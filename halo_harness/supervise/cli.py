@@ -74,6 +74,8 @@ def _status(state_dir, as_json: bool) -> int:
     for goal in queue.all_goals(state_dir):  # R2: what each goal's replans did
         if replan_line(goal):
             print(f"  {goal['id']}: {replan_line(goal)}")
+        elif goal.get("replan_off") and goal.get("state") not in ("done", "stopped"):  # 3.2.1.0 R2: a workflow run
+            print(f"  {goal['id']}: replan off -- {goal['replan_off']}")
     waiting = decisions.open_rows(state_dir)
     if waiting:
         print(f"{len(waiting)} decision(s) wait on you (Studio's Attention):")

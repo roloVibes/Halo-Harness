@@ -57,9 +57,9 @@ def test_the_fixture_compiles_to_a_goal_handoffs_and_a_pinned_plan(ctx: Ctx):
                   and [s["jobs"] for s in wf["stages"]] == [["job-1", "job-2"], ["job-3"], ["job-4"]]
                   and wf["outputs"] == {"report": {"type": "artifact:review-report", "from": "write", "schema": "review-report"}})
         bounds = {(b["stage"], b["key"]): b["enforced"] for b in wf["bounds"]}
-        ctx.check(f"bounds: the stages' held, the workflow's budget recorded, got {bounds}", bounds == {
+        ctx.check(f"bounds: the stages' and the workflow's budget held (3.2.1.0 R2), got {bounds}", bounds == {
             ("read", "retries"): True, ("read", "timeout_s"): True, ("judge", "budget_usd"): True, ("judge", "gate"): True,
-            ("write", "retries"): True, ("", "budget_usd"): False, ("", "checkpoint"): True})
+            ("write", "retries"): True, ("", "budget_usd"): True, ("", "checkpoint"): True})
         from halo_harness.orchestra.goal import Goal, validate_goal
         ctx.check("goal.json round-trips and validates", validate_goal(g.to_dict()) == [] and Goal.from_dict(g.to_dict()).workflow == wf)
         one = w.compile(docs="docs/guide.md", style="long")

@@ -69,7 +69,9 @@ Documentation Review reference pack). There is no marketplace.
   one field per input at its default -- and Run compiles it exactly as
   `halo workflow run` does (a missing input shows the compile's lines under
   the form). A pack's templates are read in place while it runs, so a
-  disabled pack shows "Enable it first".
+  disabled pack shows "Enable it first". Orchestra's own Start view lists the
+  same workflows under its goal form, **or run a pack's workflow** (3.2.1.0 R2,
+  [STUDIO-orchestra.md](STUDIO-orchestra.md)).
 
 ### The Grant toggle
 
