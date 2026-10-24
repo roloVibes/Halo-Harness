@@ -9,7 +9,7 @@ first, then `WORKER-RULES.md`, then the round you are starting.
 **3.1.8.0 "The supervisor" and 3.1.9.0 "Auto" ARE RELEASED** (tags v3.1.8.0 at
 bd9b607 and v3.1.9.0 at bb58828, each cut by `scripts/release.py X
 --skip-windows` on a green Linux push run and a green dispatched Windows run
-for its candidate), and **3.2.0.0 "Packs" is at its release candidate (R1-R7 merged; `scripts/release.py 3.2.0.0 --skip-windows` runs when the candidate's two runs are green)**. Fifteen Opus
+for its candidate), and **3.2.0.0 "Packs" IS RELEASED too (tag v3.2.0.0 at cd611ae, on the green candidate b0eba40; the release commit also set the shipped reference pack's `halo: {min: "3.2"}`, a step the release script now owns)**. Fifteen Opus
 worker rounds across the three versions ran in parallel worktrees
 (`~/hh-318`, `~/hh-319`, `~/hh-320`; briefs, hand-backs and CI logs under each
 `briefs/` folder); the coordinator merged each round onto master with a
@@ -56,7 +56,7 @@ sha (a short one is fetched as a branch and checkout fails).
 
 The local install: `release.py` skipped the reinstall because the owner's
 halo was running; once it is closed (`/quit`, never kill):
-`uv tool install --reinstall git+https://github.com/roloVibes/Halo-Harness@v3.1.9.0`
+`uv tool install --reinstall git+https://github.com/roloVibes/Halo-Harness@v3.2.0.0`
 then `uv tool list`. On Kali: `halo update`. Hand step still open: upload
 docs/media/social-preview.png under Settings -> Social preview.
 
