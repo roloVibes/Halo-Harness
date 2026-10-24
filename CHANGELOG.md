@@ -97,6 +97,26 @@ Focus: Auto -- the main agent knows what each model is good at and builds the or
 
 - Local Ollama vision models read as "unknown" (the capabilities list was never read); Hugging Face router models counted as local (free) in the coach's prices, the capability ranking and Studio; `ModelProfile.audio` was always false (and the chat translator now sends audio blocks as `input_audio`); the picker's speed column ignored the state dir it was given; OpenRouter output modalities were never stored; the preflight canary results never reached the ranking; docs/AGENTS.md lacked the `media` kind.
 
+### R2: the Auto lineup
+
+#### Added
+
+- The `auto` lineup, the one a session runs while no `team:` is set: main on your model delegates to a pool -- planner, researcher, coder, reviewer, media, writer, ops -- whose models are picked when each one starts, for what its task needs (an image, audio, video or PDF in the task, reasoning for planning and review, tool calls for code, a long context for a long input, cheap and fast for the rest), from what this Halo's catalog says each model is good at, within the lineup's cost band; the reason shows on the agent's row, in Studio (the card's pill, the Inspector's Live tab, the Session spawn line "main spawned media on <model>: <reason>") and in the child's first note.
+- `models.preference: auto` and `models.needs` for any bio; bio kinds planner, coder, writer, ops; `budget.band` (low, mid, high) for any lineup.
+- `/status`, `halo doctor` (the `lineup` check), `halo teams` and the wizard's Summary say the lineup in use and how to change it; `halo teams show auto` lists the pool with "model picked at spawn"; Studio marks the default lineup "active (default)" and offers Open auto.
+- The Agent tool's description says when the lineup is auto; `model:` on an Agent call still chooses the model.
+
+#### Changed
+
+- With no `team:` set (roles on), sessions run `auto` instead of no lineup; your role table, `agents.max_depth` and `agents.max_concurrent` still win over it, and a `team:` you set is never changed.
+- The setup wizard's Team step preselects `auto` and writes no `team:` for it; "One model for everything" now turns roles off and clears `team:` instead of writing `team: standard`.
+- Seven shipped lineups (`auto` joins).
+
+#### Fixed
+
+- `halo roles` said "roles: on (legacy role table)" when nothing was configured at all; it names the lineup in use.
+- `/teams show` with no name said "no lineup is active yet" on a fresh install; it shows the lineup in use.
+
 ## [3.1.8.0] - unreleased
 
 Focus: the supervisor -- Halo runs goals without a terminal, and Studio keeps up with it (the outside review the owner pasted 2026-10-20; "apply all those suggestions").
