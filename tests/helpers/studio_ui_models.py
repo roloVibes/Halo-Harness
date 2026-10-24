@@ -47,6 +47,11 @@ def models(c, url: str, state: Path) -> dict:
     out["analysis"] = c.wait("document.querySelector('[data-testid=\"roles-models-analysis\"]')?.textContent", 20)
     out["analysis_kinds"] = c.js("[...document.querySelectorAll('[data-testid=\"roles-models-analysis\"] [data-kind]')]"
                                  ".map((n) => n.dataset.kind)")
+    # the canvas draws its cards after the Models panel has its catalog: on the Linux runner the card was not there
+    # yet when the click came (518f1c7), so wait for it and bring it into view first
+    c.wait(f"!!{card('implementer')}", 30)
+    c.js(f"{card('implementer')}.scrollIntoView({{block: 'center'}}); 1")
+    time.sleep(0.3)
     c.click_on(card("implementer"), 0.5, 0.2)
     c.wait(f"{STRIP}?.dataset.card && !{STRIP}.dataset.main", 15)
     c.click_on(f"{STRIP}.querySelector('[data-testid=\"roles-model-bio-link\"]')")
