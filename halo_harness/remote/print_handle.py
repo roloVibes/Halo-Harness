@@ -62,6 +62,11 @@ class PrintModeHandle(_BaseHandle):
         from halo_harness.permissions import add_allow_rule
         return add_allow_rule(rule, scope, cwd=self.cwd)
 
+    def status(self) -> dict:
+        data = super().status()
+        data["accepts_turns"] = self.input_queue is not None  # 3.2.1.0: a submit queues a turn (stream-json input)
+        return data
+
     def submit(self, text: str, *, images: Optional[list] = None) -> dict:
         text = (text or "").strip()
         if not text:

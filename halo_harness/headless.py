@@ -1869,9 +1869,13 @@ def run_print_mode(
         # control socket too (`halo remote sessions` lists it); the turn
         # stream is teed into the socket's event feed. None when off.
         from halo_harness.remote import runtime as _remote_rt
+        # 3.2.1.0: with stream-json input the turn queue exists BEFORE the control socket is registered, so a
+        # `submit` over the socket right after registration queues a turn (the Linux runner twice hit the window in
+        # which the socket answered and the queue was not attached yet: the one-prompt error, or a steer).
+        line_queue = _TurnLineQueue() if input_format == "stream-json" else None
         _remote = _remote_rt.start_for_print(
             session, cwd, registry=registry, facade=facade, state_dir=build.state_dir, routes=build.routes,
-            settings=build.settings, disable_slash_commands=disable_slash_commands)
+            settings=build.settings, disable_slash_commands=disable_slash_commands, input_queue=line_queue)
         _remote_handle = _remote[0] if _remote else None
         from os import environ as _environ
         if _remote and _environ.get("HALO_SUPERVISE_GOAL"):
@@ -1939,7 +1943,6 @@ def run_print_mode(
                     print("halo: --input-format stream-json requires at least one user message on stdin",
                           file=sys.stderr)
                     return 2
-                line_queue = _TurnLineQueue()
                 _remaining_known_turns = list(turns)
                 line_queue.put(_remaining_known_turns.pop(0))
 
@@ -1956,15 +1959,12 @@ def run_print_mode(
                 # steer; otherwise it's queued as the next turn. The
                 # reader thread is a daemon: an unread EOF never blocks
                 # process exit.
-                line_queue = _TurnLineQueue()
                 reader = threading.Thread(
                     target=_stream_json_stdin_reader, args=(session, line_queue), daemon=True,
                     name="halo-stdin-reader",
                 )
                 reader.start()
 
-            if _remote_handle is not None:
-                _remote_handle.input_queue = line_queue
             exit_code = 0
             sink = _make_sink()  # ONE sink for the whole run: `init` (stream-json) is per-SESSION, not per-turn
             turn_no = 0
