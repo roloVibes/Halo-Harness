@@ -27,6 +27,24 @@ Focus: packs, the loose ends -- the sixteen open points the Packs program left, 
 - An edit by hand inside an installed pack's agents/, teams/ or workflows/ shows at the next lookup (it waited for the next install, update or enable).
 - After a reload Studio paints the pack section you were on first, with a "loading the pack's section" line until its panels come, instead of the core section it fell back to.
 
+### R2: a workflow run keeps its shape
+
+#### Added
+- `halo teams show` prints a lineup's workflows as `<pack>/<name>` refs (`workflows: doc-review/review (halo workflow run doc-review/review)`). The resolved lineup carries `workflow_refs` beside `workflows`.
+- A lineup of yours may name any pack's workflow as `<pack>/<name>`. `halo teams validate` gives one line for a ref no running pack holds. A clone's bare name resolves inside the pack it came from (`from_pack`).
+- Orchestra's Start view has a select, "or run a pack's workflow", under the goal form. It lists the workflows of the packs that run here, and a pick fills in the same form the Pack Manager's Run <workflow> does.
+- The gate's verdict carries each `verify.evidence` item of a workflow stage as a line under its lane (`evidence report: 213 bytes, sha256 3f9a1c0b7d2e`, or `missing`). The run report prints it, and the conflict judge reads the incoming lane's.
+
+#### Changed
+- The supervisor's replanner never pauses a workflow run. When a replan mode is set, "a workflow run keeps its stage set (its plan is pinned by <pack>/<name>)" is said once each on the goal row, in the run's events, in `halo goal show` and in `halo supervise status`.
+- A workflow's own `budget_usd` now stops a plain Orchestra run too, not only one under `--as goal`. Before each stage pass, the run's spend is checked against it (`STOP: budget: the run spent <spent> of <cap> USD (the workflow's budget_usd)`), and the report says the cap and the spend.
+- A pack's lineup may name its own workflow as `<id>/<name>`; naming another pack's is a manifest line.
+- The docs now say what `gate: human` is: the plan review before the run starts. A hold before one stage is not a thing yet.
+
+#### Fixed
+- The workflow gate's evidence reached only the record check's count. It now also reaches the verdict's evidence, which the report and the judge read.
+- A plain run's report said a workflow's `budget_usd` was "not enforced yet".
+
 ### Also in 3.2.1.0
 
 #### Fixed
