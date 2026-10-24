@@ -81,12 +81,13 @@ def catalog_block(entries: list, load: dict) -> str:
 
 
 def pack_line(cat: dict) -> str:
-    """3.2.0.0 R4: `pack caps: docs.review (pack doc-review, 2 at once), gpu.render (not here: no GPU here)`."""
+    """3.2.0.0 R4: `pack caps: docs.review (pack doc-review, 2 at a time), gpu.render (not here: no GPU here)`
+    (3.2.1.0 R3: the hub holds a part past the capacity, fleet/mission_hold.py)."""
     from halo_harness.fleet.capabilities_view import pack_caps
     bits = []
     for pid, c in pack_caps(cat):
         par = (c.get("capacity") or {}).get("parallel")
-        bits.append(f"{c.get('name')} (pack {pid}" + (f", {par} at once" if par else "") + ")" if c.get("available")
+        bits.append(f"{c.get('name')} (pack {pid}" + (f", {par} at a time" if par else "") + ")" if c.get("available")
                     else f"{c.get('name')} (not here: {c.get('why')})")
     return "pack caps: " + ", ".join(bits) if bits else ""
 
@@ -106,7 +107,8 @@ def prompt(doc: dict, entries: list, load: dict, problems: Optional[list] = None
         + ("WHAT ONLY ONE HARNESS HAS (a part that needs it goes there):\n" + "\n".join(unique_lines(entries)) + "\n\n"
            if unique_lines(entries) else "")
         + "Rules: name in `needs` the capabilities a part cannot do without (an MCP server or tool, a craft app, "
-        "a CLI such as nmap, a skill, `gpu`, an OS, a pack capability); two parts never claim the same file (parts that must touch "
+        "a CLI such as nmap, a skill, `gpu`, an OS, a pack capability; one marked `N at a time` runs N parts at once on a "
+        "harness and the hub holds the rest until one ends); two parts never claim the same file (parts that must touch "
         "one file run one after the other through depends_on); keep parts independent so they run at the same "
         "time; a part that uses another's output depends on it, reads that part's outputs (or everything it "
         'left, with "take": "all") and, for a repo part, starts from its finished branch. Answer with JSON only:\n'

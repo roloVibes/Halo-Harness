@@ -15,7 +15,9 @@ export type Tool = { name: string; desc: string };
 export type McpServer = { name: string; transport: string; tools: Tool[] | null; note?: string };
 /** 3.2.0.0 R4: a pack's fleet capability on this harness (packs/fleet_registry.py), available here or not and why. */
 export type PackCap = { name: string; description: string; available: boolean; why: string; checks: { key: string; ok: boolean; line: string }[]; capacity: { parallel?: number } };
-export type PackCaps = { id: string; name: string; version: string; capabilities: PackCap[]; inspector: { label: string; source: string }[]; metadata: Record<string, unknown> };
+/** 3.2.1.0 R3: an inspector line carries its file's text (the first 8 KB, `cut` when longer), so a member's shows here. */
+export type InspectorEntry = { label: string; source: string; text?: string; cut?: boolean };
+export type PackCaps = { id: string; name: string; version: string; capabilities: PackCap[]; inspector: InspectorEntry[]; metadata: Record<string, unknown> };
 export type Catalog = {
   harness: { id: string; name: string; host?: string; os?: string; version?: string };
   at: number;

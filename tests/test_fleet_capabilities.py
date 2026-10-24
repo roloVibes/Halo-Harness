@@ -103,6 +103,26 @@ def test_gather_is_pure_and_hides_paths_and_hidden_names(ctx: Ctx):
 
 
 @test
+def test_hide_reaches_a_pack_capability(ctx: Ctx):
+    """3.2.1.0 R3: `fleet.capabilities.hide` drops a pack capability by `name` or `<pack>/<name>` (any case), like a
+    built-in one; the pack's other capabilities, its inspector lines and a catalog with no packs are unchanged."""
+    from halo_harness.fleet import capabilities as caps
+    cap = lambda n: {"name": n, "available": True, "why": "", "capacity": {}}  # noqa: E731
+    cat = {"mcp": [], "skills": ["xlsx"], "craft_apps": [], "packs": [
+        {"id": "doc-review", "capabilities": [cap("docs.review"), cap("docs.lint")], "inspector": [{"label": "x", "source": "a.md"}]},
+        {"id": "other", "capabilities": [cap("docs.review")], "inspector": []}]}
+    names = lambda c: [(p["id"], [x["name"] for x in p["capabilities"]]) for p in c["packs"]]  # noqa: E731
+    got = caps.apply_hide(cat, {"doc-review/docs.review"})
+    ctx.check(f"<pack>/<name>: that pack's only, got {names(got)}", names(got) == [("doc-review", ["docs.lint"]), ("other", ["docs.review"])]
+              and got["packs"][0]["inspector"] == [{"label": "x", "source": "a.md"}] and got["skills"] == ["xlsx"])
+    got = caps.apply_hide(cat, {"docs.review"})
+    ctx.check(f"a bare name: every pack's, got {names(got)}", names(got) == [("doc-review", ["docs.lint"]), ("other", [])])
+    ctx.check("nothing hidden: the catalog as it was", caps.apply_hide(cat, set()) is cat)
+    plain = {"mcp": [], "skills": [], "craft_apps": []}
+    ctx.check("a catalog with no packs section gets none", "packs" not in caps.apply_hide(plain, {"docs.review"}))
+
+
+@test
 def test_a_slow_mcp_server_does_not_block_gather(ctx: Ctx):
     from halo_harness.fleet import capabilities as caps
     from tests.helpers.fleet_caps_seed import mcp_setup

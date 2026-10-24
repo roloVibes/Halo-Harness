@@ -13,6 +13,7 @@ States (a mission only moves forward along these edges):
 an edit after approval (it needs approving again). Part states:
 
     pending -> asked -> running -> done | failed | stopped | skipped;  done -> merged
+    pending -> waiting -> running   (3.2.1.0 R3: held until its pack capability has a free slot, mission_hold.py)
 
 Ids are short and readable: `m-<yyyymmdd>-<4 hex>`.
 
@@ -41,7 +42,7 @@ EDGES = {"drafted": ("planned", "failed", "stopped"),
          "running": ("merging", "failed", "stopped"),
          "merging": ("done", "failed", "stopped"),
          "done": (), "failed": (), "stopped": ()}
-PART_STATES = words("part")  # pending asked running done failed stopped skipped merged (work/states.py, 3.1.2.0 R1)
+PART_STATES = words("part")  # pending waiting asked running done failed stopped skipped merged (work/states.py)
 PART_LIVE = ("asked", "running")
 PART_OVER = ("done", "failed", "stopped", "skipped", "merged")
 ID_RE = re.compile(r"^m-\d{8}-[0-9a-f]{4}$")

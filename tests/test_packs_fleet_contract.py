@@ -6,7 +6,8 @@ an advertisement, a capability the top-level list does not name) is one line
 per problem naming the key and its pack.yaml line; the other meanings are one
 line each; a typo names the closest key; `halo pack inspect` lists Studio and
 fleet contributions in one "contributes:" block with available / why, and
-`halo pack doctor` has a row per capability not available here.
+`halo pack doctor` has a row per capability not available here; (3.2.1.0
+R3) one fleet.capabilities.hide names is marked, counted and not offered.
 
 Run: python -m tests.test_packs_fleet_contract
 """
@@ -153,6 +154,37 @@ def test_inspect_lists_studio_and_fleet_contributions_with_available_and_why(ctx
                   "bash not granted (halo pack enable doc-review --grant bash) -> halo pack enable doc-review --grant bash" in out)
         code, out, _err = h.cli("inspect", str(FIXTURES / "rare-caps"))
         ctx.check("a pack with no Studio or fleet part has no contributes block", code == 0 and "contributes:" not in out)
+
+
+@test
+def test_a_hidden_capability_is_marked_counted_and_not_offered(ctx: Ctx):
+    """3.2.1.0 R3: fleet.capabilities.hide (`<pack>/<name>` or a bare name, any case) keeps a pack capability off
+    the catalog: inspect marks it, doctor counts it (a fleet-hidden row, no not-available row), the planner and
+    the gathered catalog do not offer it."""
+    from halo_harness.fleet import capabilities as caps
+    from halo_harness.fleet import identity
+    from halo_harness.fleet.mission_assign import has
+    from halo_harness.fleet.mission_plan import pack_line
+    from halo_harness.theme import set_config_value
+    with PacksHome() as h:
+        h.catalog([TOOLS_ROW])
+        h.install(h.source(), enable=True, grants=["bash"])
+        h.install(h.source("fleet-needs-gpu"), enable=True)
+        ctx.check("before: offered", has(caps.gather(h.state, cwd=h.repo), "docs.review") == "pack doc-review: docs.review")
+        set_config_value("fleet.capabilities.hide", ["doc-review/docs.review", "GPU.Render"])
+        identity.forget_cache()
+        code, out, _err = h.cli("inspect", "doc-review")
+        ctx.check(f"inspect marks it, got {out!r}", "fleet capability docs.review: available here (tools: or:anthropic/claude-sonnet-4.6; "
+                  "bash granted); 2 at once; hidden from the fleet (fleet.capabilities.hide)" in out)
+        code, out, _err = h.cli("doctor")
+        ctx.check(f"doctor counts it, got {out!r}", "[WARN] doc-review: 1 fleet capability is hidden from the fleet by "
+                  "fleet.capabilities.hide: docs.review -> take it out of fleet.capabilities.hide to offer it to the fleet" in out)
+        ctx.check("one not available here and hidden: the hidden row only", "fleet-needs-gpu: 1 fleet capability is hidden from the "
+                  "fleet by fleet.capabilities.hide: gpu.render" in out and "gpu.render is not available here" not in out)
+        cat = caps.gather(h.state, cwd=h.repo)
+        ctx.check(f"the catalog lists neither, got {cat['packs']}", [(p["id"], p["capabilities"]) for p in cat["packs"]]
+                  == [("doc-review", []), ("fleet-needs-gpu", [])] and cat["packs"][0]["inspector"][0]["label"] == "Review checklist")
+        ctx.check("the planner is not offered it", has(cat, "docs.review") is None and pack_line(cat) == "")
 
 
 if __name__ == "__main__":

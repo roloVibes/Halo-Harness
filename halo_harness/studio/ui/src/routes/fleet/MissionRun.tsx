@@ -3,7 +3,9 @@
 // (an amber pulse: that member said ask, its owner has the card), running =
 // the line its agent is on right now, read off the agent tree (the part runs
 // as a `mission-worker` session whose row names the mission and the part),
-// then done / failed / stopped / skipped. The cost per harness ticks up; the
+// then done / failed / stopped / skipped. 3.2.1.0 R3: waiting = the hub holds
+// it until its pack capability has a free slot (the waits line); a part the
+// hub re-planned after a pack refusal shows the replanned line under it. The cost per harness ticks up; the
 // merge queue shows the order, what merged and the conflicts the judge
 // settled. Stop asks for a reason; "Open the part's agent" selects it on the
 // map and in the Agent panel.
@@ -42,6 +44,7 @@ function PartLine({ p, v }: { p: PlanPart; v: View }) {
   const live = partAgent(harnesses, v.mission.id, p.id, run?.harness || p.harness);
   const now = st === "asked" ? `waiting on ${who}'s owner to allow it`
     : st === "running" ? (live ? lineOf(live.agent) : "starting its session...")
+    : st === "waiting" ? run?.waiting || "waits for a free slot of its pack capability"
     : st === "pending" ? `waits for ${p.depends_on.length ? "part " + p.depends_on.join(", ") : "a free slot"}`
     : run?.error ? `${st}: ${run.error}` : st;
   return (
@@ -51,6 +54,7 @@ function PartLine({ p, v }: { p: PlanPart; v: View }) {
       <div className="fmi-live-main">
         <div><b>{short(p.title, 56)}</b> <span className="muted mono">on {who}</span></div>
         <div className="fmi-live-now mono" data-testid="fleet-mission-now" title={now}>{short(now, 110)}</div>
+        {run?.replanned && <div className="fmi-live-now mono muted" data-testid="fleet-mission-replanned" title={run.replanned}>{short(run.replanned, 140)}</div>}
       </div>
       <span className="fmi-pstate mono" data-state={st}>{st}</span>
       <span className="mono fmi-small">{cost(run?.cost_usd || 0)}</span>

@@ -13,7 +13,7 @@ Full local paths never leave the machine: projects are basenames and repo
 names, and every string in the catalog is scrubbed of absolute paths (a path
 becomes its last component, the home directory `~`). `fleet.tags` (a list)
 are the owner's own words for this harness; `fleet.capabilities.hide` names
-MCP servers, tools (`tool` or `server/tool`) or skills that are never listed.
+MCP servers, tools (`tool` or `server/tool`), skills, craft apps or pack capabilities never listed.
 
 The catalog is cached at `<home>/fleet/capabilities.json` with its `hash`
 (sha256 over everything but `at`, `hash` and the free disk, so it changes
@@ -99,8 +99,9 @@ def apply_hide(cat: dict, hide: set) -> dict:
                      and f"{low}/{str(t.get('name')).lower()}" not in hide
                      and f"mcp__{low}__{str(t.get('name')).lower()}" not in hide]
         mcp.append({**s, "tools": tools})
+    from halo_harness.packs.fleet_share import hide_packs  # 3.2.1.0 R3: a pack capability, `name` or `<pack>/<name>`
     return {**cat, "mcp": mcp, "craft_apps": [a for a in cat.get("craft_apps") or [] if a.lower() not in hide],
-            "skills": [n for n in cat.get("skills") or [] if str(n).lower() not in hide]}
+            "skills": [n for n in cat.get("skills") or [] if str(n).lower() not in hide], **hide_packs(cat, hide)}
 
 
 def digest(cat: dict) -> str:

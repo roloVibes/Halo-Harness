@@ -7,7 +7,8 @@
 import { createStore, useStore } from "../../lib/store";
 
 export type MissionState = "drafted" | "planned" | "approved" | "running" | "merging" | "done" | "failed" | "stopped";
-export type PartStateName = "planned" | "pending" | "asked" | "running" | "done" | "failed" | "stopped" | "skipped" | "merged";
+// 3.2.1.0 R3: `waiting` is a ready part the hub holds until its pack capability has a free slot (fleet/mission_hold.py)
+export type PartStateName = "planned" | "pending" | "waiting" | "asked" | "running" | "done" | "failed" | "stopped" | "skipped" | "merged";
 
 export type PlanPart = {
   id: string;
@@ -56,6 +57,9 @@ export type PartRun = {
   files?: string[];
   refused?: number;
   base?: string | null; // 3.0.9.0: the commit a repo part started from
+  waiting?: string | null; // 3.2.1.0 R3: "part 3 waits: <harness> runs 2/2 of pack <id>: <name>"
+  replanned?: string | null; // 3.2.1.0 R3: "part 1 replanned: <old> refused (<line>); <new> has pack <id>: <name>"
+  holds?: string[]; // 3.2.1.0 R3: the pack capabilities (<pack>/<name>) it holds a slot of while it runs
 };
 
 export type Conflict = { part: string; file: string; hunks: number; applied: boolean; tests_ok: boolean | null; cost_usd: number };
@@ -193,10 +197,10 @@ export function partState(v: View | null, pid: string): PartStateName {
   return st;
 }
 
-/** The lib/motion vocabulary for a part: asked waits (amber), running works, failed errs. */
+/** The lib/motion vocabulary for a part: asked and waiting (a pack's slot) wait (amber), running works, failed errs. */
 export function partMotion(state: PartStateName): "working" | "waiting" | "error" | "done" | "idle" | "none" {
   if (state === "running") return "working";
-  if (state === "asked") return "waiting";
+  if (state === "asked" || state === "waiting") return "waiting";
   if (state === "failed") return "error";
   if (state === "done" || state === "merged") return "done";
   if (state === "stopped" || state === "skipped") return "idle";
