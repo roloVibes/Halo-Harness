@@ -277,6 +277,7 @@ class TeamScheduler:
         self._stop = threading.Event()
         self._lock = threading.Lock()
         self._thread: "Optional[threading.Thread]" = None
+        self._disarmed = False  # set by disarm(): a late _persist from a fire in flight writes nothing
 
     # ---- arming -----------------------------------------------------------
     def arm_bio(self, bio: dict, alias: str) -> "list[str]":
@@ -367,6 +368,11 @@ class TeamScheduler:
 
     def stop(self) -> None:
         self._stop.set()
+        # 3.1.8.0: a fire in flight persists the store when it ends; `stop` waits for the tick thread so a
+        # `disarm()` right after it is the last word (the Linux runner showed a disarmed team re-armed)
+        th = self._thread
+        if th is not None and th is not threading.current_thread():
+            th.join(timeout=5.0)
 
     def _run(self) -> None:
         while not self._stop.wait(self.tick_s):
@@ -449,7 +455,7 @@ class TeamScheduler:
 
     def _persist(self) -> None:
         state_dir = getattr(self.session, "state_dir", None)
-        if state_dir is None:
+        if state_dir is None or self._disarmed:  # a disarmed team never writes its entries back
             return
         mark = {"pid": os.getpid(), **({"owner": self.owner} if self.owner else {})}
         with self._lock:
@@ -464,6 +470,7 @@ class TeamScheduler:
 
     def disarm(self) -> None:
         """Session close: drop THIS team's entries (of this owner) from the shared store."""
+        self._disarmed = True
         state_dir = getattr(self.session, "state_dir", None)
         if state_dir is None:
             return

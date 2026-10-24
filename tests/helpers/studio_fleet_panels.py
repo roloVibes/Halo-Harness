@@ -83,7 +83,17 @@ def timeline(c, rig, out: dict) -> None:
     x, y, w, h = c.rect(f"{lane}.querySelector('.ftl-seg')")
     out["hover_on"] = c.js(f"document.elementFromPoint({x + w / 2}, {y + h / 2})?.getAttribute('class')")
     c.mouse("mouseMoved", x + w / 2, y + h / 2)
-    out["tip"] = c.wait("document.querySelector('[data-testid=\"fleet-timeline-tip\"]')?.textContent", 10)
+    tip = "document.querySelector('[data-testid=\"fleet-timeline-tip\"]')?.textContent"
+    out["tip"] = c.wait(tip, 10)
+    if not out["tip"]:
+        # the Linux runner's pointer path missed the segment once (e7c30a5): the tip is the segment's own
+        # hover handler, so send it the pointer events by hand and keep what the pointer hit for the message
+        seg = f"{lane}.querySelector('.ftl-seg')"
+        out["tip_pointer_hit"] = out.get("hover_on")
+        c.js(f"for (const t of ['pointerenter', 'mouseenter', 'pointermove', 'mousemove', 'mouseover']) "
+             f"{seg}.dispatchEvent(new MouseEvent(t, {{bubbles: true, clientX: {x + w / 2}, clientY: {y + h / 2}}})); 1")
+        out["tip"] = c.wait(tip, 10)
+        out["tip_by"] = "element"
     c.click(x + w / 2, y + h / 2)
     out["lane_selects"] = c.wait(f"{DETAIL}?.dataset.key === '{key_b}' && 'researcher'", 10)
 
