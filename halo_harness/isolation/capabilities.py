@@ -30,7 +30,7 @@ TABLE = {
     "agent": ("Agent", "Task", "TaskCreate", "TaskList", "TaskUpdate"),
     "mcp": ("ToolSearch", "ListMcpResourcesTool", "ReadMcpResourceTool"),
     "media": ("Media",),
-    "recall": ("Skill", "TodoWrite"),
+    "recall": ("Skill", "TodoWrite", "knowledge_add", "knowledge_search"),  # knowledge_*: 3.1.8.0 R4
 }
 _BY_TOOL = {tool: cap for cap, tools in TABLE.items() for tool in tools}
 CAPS_ENV, CAPS_BY_ENV = "HALO_TOOLS_CAPS", "HALO_TOOLS_CAPS_BY"  # a worker's list, set by its run (isolation/lane.py)

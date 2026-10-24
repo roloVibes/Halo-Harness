@@ -164,7 +164,7 @@ name in the registry to one (`TABLE`):
 | `agent` | Agent, Task, TaskCreate, TaskList, TaskUpdate |
 | `mcp:<server>` | every `mcp__<server>__*` tool and the claude.ai connector `connector__<server>`; `mcp` alone is every server; any `mcp` entry keeps ToolSearch, ListMcpResourcesTool and ReadMcpResourceTool |
 | `media` | Media |
-| `recall` | Skill, TodoWrite |
+| `recall` | Skill, TodoWrite, knowledge_add, knowledge_search |
 | `other` | any name outside the table (AskUserQuestion, EnterPlanMode, ExitPlanMode, SendUserMessage) |
 
 An agent whose lineup or bio declares the list is built with only those

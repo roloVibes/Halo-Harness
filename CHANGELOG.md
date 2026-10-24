@@ -225,6 +225,7 @@ Focus: the supervisor -- Halo runs goals without a terminal, and Studio keeps up
 - Studio: the recall box under "Who can..." on Fleet's Capabilities panel, with its Fleet switch and the kinds' chips.
 
 #### Changed
+- The isolation capability table counts `knowledge_add` and `knowledge_search` as `recall` (with Skill and TodoWrite), so a lineup that gives its isolated workers `recall` gives them the knowledge tools too (docs/ISOLATION.md).
 - `fleet.recall.hide` also takes `finding`, `decision` and `knowledge`; your own notes never leave the box.
 - evidence.json gains `cited`, the evidence lines a `cited:` line, an outcomes.jsonl row `cited: <n>` (only when the task cited something).
 - `/recall`'s one-line description names findings, decisions and your notes.
