@@ -120,12 +120,31 @@ export function bootLiveSession(): string {
   }
 }
 
-/** `?mode=` wins, then the section saved for this browser; nothing saved: Session while a session is live here, else Roles. */
+/** A running pack's own section as the served page names it (`data-pack-sections`, 3.2.1.0 R1). */
+export type BootPackSection = { id: PackSectionId; pack: string; title: string };
+
+/** 3.2.1.0 R1: the running packs' sections the served page names (studio/session_open.py boot_html), so a saved
+ *  pack section is the first paint; [] when the page names none (no pack runs, or an older server). */
+export function bootPackSections(): BootPackSection[] {
+  try {
+    const raw = document.documentElement.dataset.packSections;
+    const got: unknown = raw ? JSON.parse(raw) : [];
+    return Array.isArray(got)
+      ? got.filter((s): s is BootPackSection => !!s && typeof s.id === "string" && s.id.includes("--") && typeof s.title === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+/** `?mode=` wins, then the section saved for this browser (a pack's own when the page names it, 3.2.1.0 R1);
+ *  nothing saved: Session while a session is live here, else Roles. */
 function initialSection(): SectionId {
   const asked = /[?&]mode=(orchestra|roles|design|fleet|team|session|packs)\b/.exec(location.search); // packs: 3.2.0.0 R7
   if (asked) return asked[1] as SectionId;
   const saved = readLocal("halo.studio.section") || readLocal("halo-studio-mode");
   if ((SECTION_IDS as string[]).includes(saved)) return saved as SectionId;
+  if (saved.includes("--") && bootPackSections().some((s) => s.id === saved)) return saved as SectionId;
   return bootLiveSession() ? "session" : "roles";
 }
 

@@ -12,7 +12,10 @@ the mission's lead is a fake):
 2. a mission planned with the pack's lineup: the Mission panel's plan shows
    the part's need as "docs.review · pack doc-review on <this harness>", the
    head the mission's metadata, and with the part selected the pack
-   inspector line (fleet/checklist.md, read through the pack's file route).
+   inspector line (fleet/checklist.md, read through the pack's file route);
+3. (3.2.1.0 R1) the Mission form's Lineup select: the active lineup first, the
+   pack's lineup picked and planned: the new mission's head says the lineup
+   and carries the pack's metadata.
 
 The last stdout line is the JSON of what it saw (exit 2: no Chrome)."""
 from __future__ import annotations
@@ -76,6 +79,42 @@ def mission(c, url, ctx) -> dict:
     line = _q('[data-testid="fleet-pack-inspector-line"][data-pack="doc-review"]')
     out["inspector_label"] = c.wait(f"{line}?.dataset.label", 20)
     out["inspector_text"] = c.wait(f"{line}?.querySelector('.fpk-md')?.textContent", 20)
+    out["mission_lineup"] = c.js(f"{_q('[data-testid=fleet-mission-lineup]')}?.textContent")
+    return out
+
+
+FORM_GOAL = "Review the docs from the form"
+
+
+def _set(c, expr: str, proto: str, value: str) -> None:
+    c.js(f"(() => {{ const el = {expr}; const set = Object.getOwnPropertyDescriptor({proto}.prototype, 'value').set; "
+         f"set.call(el, {json.dumps(value)}); el.dispatchEvent(new Event({json.dumps('change' if proto == 'HTMLSelectElement' else 'input')}, "
+         f"{{bubbles: true}})); return 1; }})()")
+
+
+def mission_form(c, url, ctx) -> dict:
+    """3.2.1.0 R1: the Mission form's Lineup select lists the lineups, the active one first; the pack's lineup
+    picked there rides in the mission (its head says it, with the pack's metadata)."""
+    from tests.helpers.studio_fleet_panels import seen
+    out: dict = {}
+    back = _q("[data-testid=fleet-mission-back]")
+    if c.js(f"!!{back}"):
+        seen(c, back)
+        c.click_on(back)
+    pick = _q("[data-testid=fleet-mission-lineup-pick]")
+    c.wait(f"!!{pick} && {pick}.options.length > 1", 30)
+    out["form_options"] = c.js(f"[...{pick}.options].map((o) => o.value)")
+    out["form_first"] = c.js(f"{pick}.options[0].textContent")
+    _set(c, pick, "HTMLSelectElement", "doc-review--review")
+    _set(c, _q("[data-testid=fleet-mission-goal]"), "HTMLTextAreaElement", FORM_GOAL)
+    btn = _q("[data-testid=fleet-mission-plan-it]")
+    c.wait(f"!!{btn} && !{btn}.disabled", 10)
+    seen(c, btn)
+    c.click_on(btn)
+    head = _q("[data-testid=fleet-mission] .fmi-head-main .fmi-goal")
+    c.wait(f"{head}?.title === {json.dumps(FORM_GOAL)}", 40)
+    out["form_lineup"] = c.wait(f"{_q('[data-testid=fleet-mission-lineup]')}?.textContent", 15)
+    out["form_metadata"] = c.js(f"{_q('[data-testid=fleet-mission-metadata]')}?.textContent")
     return out
 
 
@@ -111,7 +150,7 @@ class PacksFleetDriver(Driver):
                "harness": (body["plan"]["parts"][0] or {}).get("harness_name")}
         self.out["planned_on"] = ctx["harness"]
         try:
-            yield tuple((fn, (c, url, ctx)) for fn in (capabilities, mission))
+            yield tuple((fn, (c, url, ctx)) for fn in (capabilities, mission, mission_form))
         finally:
             A.LEAD = None
             bio_models.ROWS = None

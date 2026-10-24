@@ -19,6 +19,7 @@
 .fmi-form-row { display: flex; gap: 8px; flex-wrap: wrap; }
 .fmi-grow { flex: 1 1 220px; }
 .fmi-budget { flex: 0 0 96px; }
+.fmi-lineup { flex: 0 1 200px; } /* 3.2.1.0 R1: the Lineup select */
 .fmi-goal-box { resize: vertical; min-height: 44px; font: 13px var(--sans); }
 .fmi-goal-box:focus { border-color: var(--accent); box-shadow: var(--glow-strong); }
 .fmi-prefer { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }

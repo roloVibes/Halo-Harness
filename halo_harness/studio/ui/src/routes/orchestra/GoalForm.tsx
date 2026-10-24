@@ -8,6 +8,7 @@
 // post it (POST orchestra/run).
 import { useEffect, useState } from "react";
 import { useHelpGroup } from "../../lib/fieldHelp";
+import { useStore } from "../../lib/store";
 import { Button, Field, Icon } from "../../lib/ui";
 import { useFleet } from "../fleet/store";
 import { runSession, WatchInSession } from "../session/Watch";
@@ -16,7 +17,7 @@ import { useResolved } from "../shared/resolve";
 import { StateBadge } from "./bits";
 import { cost } from "./format";
 import { orch, setView, useOrch } from "./store";
-import { startRun, stopRun, type RunForm } from "./sync";
+import { lineupTook, startRun, stopRun, type RunForm } from "./sync";
 
 const EMPTY: RunForm = { what: "", done_when: "", stop_when: "", workers: 5, return_cap: 2, test: "", files: [], lineup: "", lead: "main", worker: "subagent", model: "", review: false };
 
@@ -96,6 +97,7 @@ export function GoalForm({ start }: { start?: boolean }) {
   const [problems, setProblems] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const lead = useResolved(form.lead || "main"); // what the run's lead resolves to without a MODEL: the role table, else the default
+  const took = useStore(lineupTook, (s) => (s.run && s.run === runId ? s.test : "")); // 3.2.1.0 R1: the lineup's acceptance.test
   const help = useHelpGroup("model_select");
   useEffect(() => {
     if (!start) setForm(fromGoal());
@@ -129,6 +131,7 @@ export function GoalForm({ start }: { start?: boolean }) {
         <Line label="FILES (comma separated)" value={form.files.join(", ")} set={(v) => set("files")(v.split(",").map((f) => f.trim()).filter(Boolean))} mono example={EXAMPLE.files} />
         <Line label="TEST COMMAND" value={form.test} set={set("test")} mono example={EXAMPLE.test} />
       </div>
+      {took && <p className="og-took mono muted" data-testid="orchestra-test-from-lineup">test from the lineup: {took}</p>}
       <div className="og-form-row og-form-row3" role="group" aria-label="Budget and lineup">
         <Num label="WORKERS" value={form.workers} set={set("workers")} min={1} max={50} title="How many lanes, one worker each (1 to 50)" />
         <Num label="RETURN CAP" value={form.return_cap} set={set("return_cap")} min={0} max={20} title="How many times the gate may send one part back" />

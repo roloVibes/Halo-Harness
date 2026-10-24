@@ -463,8 +463,12 @@ shipped); a pack's lineup opens read-only (Preview), Clone copies it to
 names the pack. Any lineup's `acceptance` may also say `test: <command>` and
 `review: true`: an Orchestra run on it (`halo orchestra new --lineup`)
 starts with that test and pauses for the plan's review, unless you give
-`--test`. A pack lineup's `workflows: [...]` names its pack's workflows
-([PACKS.md](PACKS.md) "A pack's lineups").
+`--test`; 3.2.1.0 R1: so do `halo goal add --lineup` and Studio's Orchestra
+goal form. A pack lineup's `workflows: [...]` names its pack's workflows
+([PACKS.md](PACKS.md) "A pack's lineups"). A pack's bios ask for their model
+by tag (`models.capabilities`): `long-context`, `vision`, `audio`, `video`,
+`files`, `image-out`, `tools`, `local`, and (3.2.1.0 R1, from the enriched
+catalog rows) `reasoning`, `open-weights`, `audio-out`.
 
 ## How an agent gets a role
 

@@ -55,7 +55,8 @@ export type PackEntry = {
   attention: Record<string, AttnKind>;
 };
 
-export type Registry = { version: number; core: string[]; packs: PackEntry[] };
+/** boot (3.2.1.0 R1): the served page's sections only (`data-pack-sections`), before `GET pack/registry` answers. */
+export type Registry = { version: number; core: string[]; packs: PackEntry[]; boot?: boolean };
 
 /** A `pack_event` frame's data (halo_harness/ext/events.py publish_event). */
 /** 3.2.0.0 R5: `problems` when the data does not match the kind's schema (published all the same). */

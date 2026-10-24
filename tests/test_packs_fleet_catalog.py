@@ -94,6 +94,40 @@ def test_the_section_lists_running_packs_with_available_and_why(ctx: Ctx):
                   and doc["why"] == "no model in the catalog has tools")
 
 
+THINK_PACK = """id: think-pack
+name: Needs a reasoning model
+version: 0.1.0
+halo_api: {min: "1.0"}
+capabilities: [plan.deep]
+contributes:
+  fleet:
+    capabilities:
+      - name: plan.deep
+        description: Plans a long change with a model that reasons
+        requires:
+          models: [reasoning, open-weights]
+"""
+
+
+@test
+def test_requires_models_takes_the_enriched_tags(ctx: Ctx):
+    """3.2.1.0 R1: `requires.models` may name reasoning / open-weights / audio-out (bio_models.TAGS)."""
+    with PacksHome() as h:
+        src = h.sources / "think-pack"
+        src.mkdir(parents=True)
+        (src / "pack.yaml").write_text(THINK_PACK, encoding="utf-8")
+        h.install(src, enable=True)
+        h.catalog([dict(TOOLS_ROW, reasoning={"kind": "none"})])
+        cap = next(p for p in _gather(h)["packs"] if p["id"] == "think-pack")["capabilities"][0]
+        ctx.check(f"no row reasons: not available, one line per tag, got {cap['why']!r}", cap["available"] is False
+                  and cap["why"] == "no model in the catalog has reasoning; no model in the catalog has open-weights")
+        h.catalog([{"ref": "or:vendor/open-thinker", "provider": "openrouter", "reasoning": {"kind": "openai", "efforts": ["high"]},
+                    "open_weights": True}])
+        cap = next(p for p in _gather(h)["packs"] if p["id"] == "think-pack")["capabilities"][0]
+        ctx.check(f"a row that reasons with open weights: available, got {cap['why']!r}", cap["available"] is True
+                  and cap["why"] == "reasoning: or:vendor/open-thinker; open-weights: or:vendor/open-thinker")
+
+
 @test
 def test_summary_chips_spec_and_who_count_them(ctx: Ctx):
     from halo_harness.fleet import capabilities as caps

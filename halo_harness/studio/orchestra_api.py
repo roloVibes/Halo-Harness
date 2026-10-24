@@ -18,6 +18,10 @@ holds Studio's folder (`req.cwd`).
 run pauses after the split until the plan is approved). 3.2.0.0 R6: `POST
 run {workflow: <pack>/<name>, inputs: {k: v}, model?}` compiles a pack's
 workflow to its goal first (`halo workflow run`'s compile; its lines on a 422).
+3.2.1.0 R1: a goal (not a workflow) takes its lineup's acceptance first
+(`packs.lineup_run.goal_defaults`: an empty test, `plan: review`); the 201
+then carries `taken` (the lines saying what it took), `test` and `plan` (a
+test you typed wins).
 
 `POST run` starts the runner on a daemon thread (orchestra_live.py) and
 answers at once; a second POST while a run is live is a 409 naming it.
@@ -80,6 +84,12 @@ def post_run(req):
     missing = [f for f in data.get("files") or [] if not (repo / norm_file(f)).is_file()]
     if missing:
         return _bad([f"{f} is not a file in {repo}" for f in missing])
+    taken: list = []
+    if compiled is None:  # 3.2.1.0 R1: the lineup's acceptance (test, review), as `halo orchestra new` takes it
+        from halo_harness.packs.lineup_run import goal_defaults
+        g = Goal.from_dict(data)
+        taken = goal_defaults(g, cwd=repo, state_dir=req.state_dir, explicit_test=bool(str(data.get("test") or "").strip()))
+        data = g.to_dict()
     if not body.get("force"):  # 3.0.7.0 R1: the run-start preflight (lineup_preflight.py)
         from halo_harness.lineup_preflight import blocking, lineup_problems, refusal_body
         problems = lineup_problems(str(data.get("lineup") or "") or None, cwd=repo, state_dir=req.state_dir)
@@ -100,7 +110,8 @@ def post_run(req):
                          publish=_publisher(req))
     if not started:
         return 409, {"error": f"run {live.live_id()} is still running", "run_id": live.live_id()}
-    return 201, {"run_id": run_dir.name, "dry_run": bool(body.get("dry_run"))}
+    took = {"taken": taken, "test": goal.test, "plan": goal.plan} if taken else {}
+    return 201, {"run_id": run_dir.name, "dry_run": bool(body.get("dry_run")), **took}
 
 
 def _publisher(req):

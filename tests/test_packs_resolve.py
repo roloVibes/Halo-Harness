@@ -103,6 +103,34 @@ def test_on_disk_only_packs_enabled_for_their_own_folder_run(ctx: Ctx):
         ctx.check("a record naming another folder: it does not run", registry.active(cwd=h.repo) == [])
 
 
+@test
+def test_a_bio_edit_inside_an_installed_pack_shows_at_once(ctx: Ctx):
+    """3.2.1.0 R1: the registry's key stats the pack's agents/, teams/ and workflows/ files, so a hand edit
+    there drops (or restores) the pack at the next lookup, with no invalidate() call."""
+    from halo_harness.packs import discover as D
+    from halo_harness.packs import registry
+    from halo_harness.packs.doctor import problems
+    with PacksHome() as h:
+        h.install(h.source(), enable=True)
+        ctx.check("enabled: it runs", [p.id for p in registry.active(cwd=h.repo)] == ["doc-review"])
+        bio = h.packs / "doc-review" / "agents" / "reviewer.yaml"
+        good = bio.read_text(encoding="utf-8")
+        before = D.signature(cwd=h.repo)
+        bio.write_text(good.replace("  capabilities: [long-context]\n", "  provider: openrouter\n  capabilities: [long-context]\n"),
+                       encoding="utf-8")
+        ctx.check("the signature names the bio file and moved with the edit", before != D.signature(cwd=h.repo)
+                  and any("agents/reviewer.yaml" in str(part) for part in D.signature(cwd=h.repo)))
+        ctx.check("a provider in its bio: the pack is dropped, no invalidate() needed", registry.active(cwd=h.repo) == [])
+        rows = [r for r in problems(cwd=h.repo) if r["pack"] == "doc-review" and r["check"] == "resolve"]
+        ctx.check(f"the doctor row names the file and the key, got {[r['text'] for r in rows]}",
+                  any("agents/reviewer.yaml" in r["text"] and "models.provider" in r["text"] for r in rows))
+        bio.write_text(good, encoding="utf-8")
+        ctx.check("the edit undone: it runs again", [p.id for p in registry.active(cwd=h.repo)] == ["doc-review"])
+        (h.packs / "doc-review" / "teams" / "extra.yaml").write_text("agents:\n  - {agent: writer, role: main}\n", encoding="utf-8")
+        ctx.check("a new lineup file is seen too (the doctor's undeclared row)",
+                  any(r["check"] == "undeclared" and "teams/extra.yaml" in r["text"] for r in problems(cwd=h.repo)))
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

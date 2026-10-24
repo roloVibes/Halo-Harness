@@ -1929,21 +1929,21 @@ orchestration engine beside Orchestra.
 
 ### After 3.2.0.0 (the Packs program's open points, carried by R7 from plans/PACKS-PROGRESS.md)
 
-- the supervisor's goal queue (`halo goal add --lineup`) and Studio's Orchestra goal form read no pack lineup's acceptance yet: one `packs.lineup_run.goal_defaults` call each (R2).
-- `bio_models.TAGS` / `row_tags` is the one place to add 3.1.9.0 R1's enriched capability tags (R2).
-- the packs registry cache keys on pack.yaml and state.json, not a pack's bio files: an edit inside an installed pack's agents/ shows after the next install, update or enable (R2).
-- a pack's own Studio section comes back after a reload only once the registry loads; the first paint is the saved core section (R3).
+- the supervisor's goal queue (`halo goal add --lineup`) and Studio's Orchestra goal form read no pack lineup's acceptance yet: one `packs.lineup_run.goal_defaults` call each (R2). (closed 3.2.1.0 R1)
+- `bio_models.TAGS` / `row_tags` is the one place to add 3.1.9.0 R1's enriched capability tags (R2). (closed 3.2.1.0 R1)
+- the packs registry cache keys on pack.yaml and state.json, not a pack's bio files: an edit inside an installed pack's agents/ shows after the next install, update or enable (R2). (closed 3.2.1.0 R1)
+- a pack's own Studio section comes back after a reload only once the registry loads; the first paint is the saved core section (R3). (closed 3.2.1.0 R1)
 - `capacity.parallel` is advertised and shown to the planner, not held back by the hub; a part a worker refuses is not re-planned onto another harness; `fleet.capabilities.hide` does not hide a pack capability (R4).
-- a pack's fleet inspector lines show their file only for a pack that runs on Studio's own harness; Studio's Mission form and `halo fleet mission new` send no `lineup` for the mission metadata (R4).
+- a pack's fleet inspector lines show their file only for a pack that runs on Studio's own harness; Studio's Mission form and `halo fleet mission new` send no `lineup` for the mission metadata (R4). (the lineup half closed 3.2.1.0 R1; the inspector lines are 3.2.1.0 R3)
 - the replanner (3.1.8.0 R2) may change a workflow run's lanes; a workflow run should keep its stage set (or replanning be off for it) (R5).
 - `gate: human` is the plan review before any stage, not a hold before one stage; a workflow's own `budget_usd` is a stop only under `--as goal`, "not enforced yet" in a plain Orchestra run (R5).
 - check that 3.1.8.0 R3's verified-outcomes gate reads a workflow stage's evidence rows, not only the summary (R5).
 - Orchestra's own new-run form has no workflow picker: a pack's workflow starts from the Pack Manager's Run <workflow> or `halo workflow run` (R5/R6).
 - a lineup's `workflows:` stays a list of names; a workflow runs by `<pack>/<name>` (R5).
-- the glossary's closed list has no "pack" yet (R1's note; `halo explain pack`, Studio's Glossary) (R7).
+- the glossary's closed list has no "pack" yet (R1's note; `halo explain pack`, Studio's Glossary) (R7). (closed 3.2.1.0 R1)
 - a hook's shell `command` gets `${CLAUDE_PLUGIN_ROOT}` substituted as text, so on Windows Git Bash eats the path's backslashes; the exec form (`args`) and `${halo_python}` are safe, the shell form of every plugin is not (R7 found it).
 - rollback keeps one version back (`<id>.previous`); no history beyond it, and the CLI does not pause between the migration notes and the swap (`--dry-run` is the look before) (R7).
-- the shipped doc-review pack says `halo: {min: "3.1"}` until the version bump: the bump commit that makes `__version__` 3.2.0.0 sets `{min: "3.2"}` (test_reference_pack fails until it does) (R7).
+- the shipped doc-review pack says `halo: {min: "3.1"}` until the version bump: the bump commit that makes `__version__` 3.2.0.0 sets `{min: "3.2"}` (test_reference_pack fails until it does) (R7). (closed 2026-10-24: scripts/release.py sets it at release)
 - the full Chrome tier as a whole and a Kali/Linux pass of the packs program have not run on a worker (every round).
 
 ## ADDED 2026-10-21 ~02:20 (rolo: "There should be an auto role template, prob the default one until a user finds a template they like. Auto should give the agent the ability to call other agents and create whatever orchestration the main model thinks should be the role type with sub agents ... whatever agent is main should know which model is the best from cost, intelligence, what they are best at (like media distillation whether that's video or audio or pdfs) so it knows which agents to use for sub tasks. Maybe some kind of analysis of the available models in the halo model list should occur"): 3.1.9.0 "Auto"

@@ -5,17 +5,39 @@
 // `pack_event` frames (the events panels, Session's Live column and Fleet's
 // Activity read them). A section of a pack that is gone takes you back to
 // the first tab; a pack section you were on comes back on a reload.
+// 3.2.1.0 R1: until the first read answers, the registry is the served page's
+// boot one (`data-pack-sections`): each running pack's sections by id and
+// title, no panels (`boot: true`), so a saved pack section is the first paint,
+// its frame saying "loading the pack's section".
 import { useEffect } from "react";
 import { api } from "../../lib/api";
 import { onEvent, type FeedFrame } from "../../lib/events";
-import { createStore, goSection, SECTION_IDS, studio, useStore, type SectionId } from "../../lib/store";
-import type { PackFrame, PackPanel, Registry } from "./types";
+import { bootPackSections, createStore, goSection, SECTION_IDS, studio, useStore, type SectionId } from "../../lib/store";
+import type { PackEntry, PackFrame, PackPanel, Registry } from "./types";
 
 export type PacksState = { reg: Registry; loaded: boolean; error: string; frames: PackFrame[] };
 
 const EMPTY: Registry = { version: 1, core: [], packs: [] };
 const MAX_FRAMES = 300;
-export const packs = createStore<PacksState>({ reg: EMPTY, loaded: false, error: "", frames: [] });
+
+/** The boot registry: the sections the served page names, in its order, with no panels; EMPTY when it names none. */
+function bootRegistry(): Registry {
+  const heads = bootPackSections();
+  if (!heads.length) return EMPTY;
+  const byPack: PackEntry[] = [];
+  for (const h of heads) {
+    let p = byPack.find((x) => x.id === h.pack);
+    if (!p) {
+      p = { id: h.pack, name: h.pack, version: "", scope: "", script: "none", grant: "", sections: [], panels: [], palette: [],
+            config_form: false, events: {}, attention: {} };
+      byPack.push(p);
+    }
+    p.sections.push({ id: h.id, name: h.id.slice(h.pack.length + 2), pack: h.pack, title: h.title, blurb: "", help: "", panels: [] });
+  }
+  return { version: 1, core: [], packs: byPack, boot: true };
+}
+
+export const packs = createStore<PacksState>({ reg: bootRegistry(), loaded: false, error: "", frames: [] });
 
 export function usePacks<S>(select: (s: PacksState) => S): S {
   return useStore(packs, select);
@@ -68,7 +90,10 @@ export async function loadRegistry(): Promise<void> {
       packs.update(() => ({ reg, loaded: true, error: "" }));
       afterLoad(reg);
     } catch (e) {
-      packs.update(() => ({ loaded: true, error: e instanceof Error ? e.message : String(e) })); // an older Studio: no packs
+      // an older Studio: no packs (3.2.1.0 R1: a boot registry goes too, and a pack section shown falls back)
+      const boot = !!packs.get().reg.boot;
+      packs.update(() => ({ ...(boot ? { reg: EMPTY } : {}), loaded: true, error: e instanceof Error ? e.message : String(e) }));
+      if (boot) afterLoad(EMPTY);
     } finally {
       loading = null;
     }

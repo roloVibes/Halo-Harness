@@ -9,6 +9,7 @@ the doc-review reference pack and studio-bundle enabled:
 2. Session holds the pack's Reviews panel, collapsed;
 3. the palette's pack action runs (the checks panel, focused);
 4. the form writes packs.settings.doc-review;
+4b. (3.2.1.0 R1) after a reload the saved pack section is the first paint;
 5. the bundle panel shows the grant line until studio-script is granted,
    then "hello from studio-bundle";
 6. a review.done frame renders with the pack's line in Fleet's Activity,
@@ -95,6 +96,18 @@ def test_the_palette_action_runs(ctx: Ctx):
 def test_the_form_writes_the_packs_settings(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"packs.settings.doc-review.style = long, got {got.get('form_saved')}", (got.get("form_saved") or {}).get("style") == "long")
+
+
+@test
+def test_a_reload_paints_the_saved_pack_section_first(ctx: Ctx):
+    got = _got(ctx)
+    ctx.check(f"Docs review was the saved section, got {got.get('saved_section')!r}", got.get("saved_section") == "doc-review--docs")
+    ctx.check(f"the page names the pack sections, got {got.get('paint_boot_attr')}",
+              got.get("paint_boot_attr") == ["doc-review--docs", "studio-bundle--hello"])
+    ctx.check(f"the first visible section is the pack's, and no other came before, got {got.get('paint_sections')}",
+              (got.get("paint_sections") or [None])[0] == "doc-review--docs" and set(got.get("paint_sections") or []) == {"doc-review--docs"})
+    ctx.check("its frame said it was loading, then the panels came", got.get("paint_loading_seen") is True
+              and got.get("paint_loading_after") is False)
 
 
 @test
