@@ -38,7 +38,7 @@ ensure_default_provider_credentials()
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
 
 test, TESTS = new_registry()
-FIXTURES = Path(__file__).resolve().parent / "fixtures" / "packs"
+from tests.helpers.packs_home import DOC_REVIEW  # noqa: E402  (3.2.0.0 R6: the shipped reference pack)
 LINE = "this harness does not run pack doc-review with bash"
 
 
@@ -46,7 +46,7 @@ def _packs(available: bool = True, gpu: bool = False) -> list:
     caps = [{"name": "docs.review", "description": "Reviews docs", "available": available, "capacity": {"parallel": 2},
              "why": "tools: or:x; bash granted" if available else "bash not granted"}]
     caps += [{"name": "gpu.render", "description": "Renders", "available": gpu, "why": "no GPU here", "capacity": {}}]
-    return [{"id": "doc-review", "name": "Documentation review", "version": "1.0.0", "capabilities": caps,
+    return [{"id": "doc-review", "name": "Documentation Review", "version": "1.0.0", "capabilities": caps,
              "inspector": [{"label": "Review checklist", "source": "fleet/checklist.md"}], "metadata": {}}]
 
 
@@ -144,7 +144,7 @@ def _install_on_b(root_b: str, grants=()) -> None:
     from halo_harness.packs.grants import enable
     from halo_harness.packs.install import install
     src = Path(tempfile.mkdtemp(prefix="r4-src-")) / "doc-review"
-    shutil.copytree(FIXTURES / "doc-review", src)
+    shutil.copytree(DOC_REVIEW, src, ignore=shutil.ignore_patterns("__pycache__"))  # 3.2.0.0 R6: the shipped pack
     ok, lines = install(str(src), cwd=root_b)
     assert ok, lines
     ok, lines = enable(find("doc-review", cwd=root_b), grant=list(grants))

@@ -17,8 +17,8 @@ the commands are [COMMANDS-workflows.md](COMMANDS-workflows.md).
 ## The file
 
 `<pack>/workflows/<name>.yaml`, its name in pack.yaml's
-`contributes.workflows`. The doc-review fixture's
-(`tests/fixtures/packs/doc-review/workflows/review.yaml`), abridged:
+`contributes.workflows`. The doc-review reference pack's
+(`halo_harness/templates/packs/doc-review/workflows/review.yaml`), abridged:
 
 ```yaml
 name: review

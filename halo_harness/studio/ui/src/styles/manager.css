@@ -1,0 +1,61 @@
+/* 3.2.0.0 R6: the Pack Manager (routes/packs/manager) -- Installed's rows and the last action's lines,
+   Sources' boxes, Details' blocks and Grant toggles, Templates' rows; amber marks what keeps a pack from running. */
+.pm-installed, .pm-sources, .pm-details, .pm-templates { display: grid; gap: 10px; align-content: start; min-width: 0; }
+.pm-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.pm-row { display: grid; gap: 6px; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); min-width: 0; }
+.pm-row[data-on] { border-color: var(--accent); background: var(--accent-soft); }
+.pm-row[data-state="disabled"] .pm-state { color: var(--muted); }
+.pm-row[data-state="running"] .pm-state { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, transparent); }
+.pm-row-main { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; border: 0; background: none; padding: 0; color: inherit;
+  font: inherit; text-align: left; cursor: pointer; min-width: 0; }
+.pm-row-id { color: var(--accent); }
+.pm-row-name { font-weight: 600; }
+.pm-row-warn { flex-basis: 100%; margin: 0; font-size: 12px; color: var(--warn); overflow-wrap: anywhere; }
+.pm-warn { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, transparent); }
+.pm-row-acts { display: flex; flex-wrap: wrap; gap: 6px; }
+.pm-last { display: grid; gap: 4px; padding-top: 6px; border-top: 1px solid var(--line); }
+.pm-last:not([data-ok]) .pm-lines { color: var(--bad); }
+.pm-lines { margin: 0; padding: 6px 8px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11.5px; background: var(--bg-2);
+  border-radius: var(--radius-sm); max-height: 220px; overflow: auto; }
+
+.pm-src-add { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.pm-src-add .input { flex: 1 1 220px; min-width: 0; }
+.pm-src { display: grid; gap: 6px; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius); min-width: 0; }
+.pm-src[data-kind="shipped"] { border-style: dashed; }
+.pm-src-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.pm-src-where { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11.5px; }
+.pm-src-packs { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.pm-src-pack { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; min-width: 0; }
+.pm-src-desc { flex-basis: 100%; font-size: 12px; overflow-wrap: anywhere; }
+.pm-src-name[aria-pressed="true"] { font-weight: 600; }
+
+.pm-det-head { display: grid; gap: 4px; }
+.pm-det-head p { margin: 0; overflow-wrap: anywhere; }
+.pm-det-title { margin: 0; font-size: 16px; }
+.pm-kv dd[data-state="warn"] { color: var(--warn); }
+.pm-compat { margin: 0; padding-left: 18px; color: var(--warn); font-size: 12px; display: grid; gap: 2px; }
+.pm-compat li { overflow-wrap: anywhere; }
+.pm-perms, .pm-health { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 12px; }
+.pm-perm { display: grid; grid-template-columns: minmax(110px, max-content) minmax(0, 1fr) auto; gap: 0 10px; align-items: center; }
+.pm-perm .muted { overflow-wrap: anywhere; }
+.pm-perm[data-granted] .pm-perm-state { color: var(--ok); }
+.pm-health li { overflow-wrap: anywhere; }
+.pm-health li[data-severity="blocks"] .mono { color: var(--bad); }
+.pm-health li[data-severity="warns"] .mono { color: var(--warn); }
+.pm-links { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; }
+
+.pm-tpl { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.pm-tpl-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 6px 8px; border: 1px solid var(--line);
+  border-radius: var(--radius); min-width: 0; }
+.pm-tpl-row .muted { flex: 1 1 160px; min-width: 0; font-size: 12px; overflow-wrap: anywhere; }
+
+/* seven core tabs plus a pack's own: a tab's label stays on one line, and below 1600 px the tabs pack
+   tighter and the palette button keeps its key only, so the strip fits a 1440-1500 px window */
+.topbar .tab { white-space: nowrap; }
+@media (max-width: 1600px) {
+  .topbar .tab { padding: 0 10px; gap: 6px; }
+  .topbar .palette-btn-text { display: none; }
+}
+
+/* the Orchestra Start view's workflow form (routes/orchestra/WorkflowForm.tsx) */
+.og-wf-ref { margin: 0; font-size: 15px; color: var(--accent); }

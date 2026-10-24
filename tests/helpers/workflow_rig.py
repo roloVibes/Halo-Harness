@@ -77,6 +77,8 @@ def fake_judge(hunks, goal, file):
 
 
 class WorkflowRig(PacksHome):
+    INSTALL = True  # 3.2.0.0 R6: tests/test_reference_pack.py installs it itself (halo pack install doc-review)
+
     def __enter__(self):
         super().__enter__()
         for rel, text in (("docs/guide.md", "# Guide\n\nRead [this](missing.md).\n"),
@@ -90,7 +92,8 @@ class WorkflowRig(PacksHome):
         git(self.repo, "add", "-A")
         git(self.repo, "commit", "-q", "-m", "docs to review")
         self.catalog([TOOLS_ROW])
-        self.install(self.source(), enable=True, grants=["bash"])
+        if self.INSTALL:
+            self.install(self.source(), enable=True, grants=["bash"])
         return self
 
     def workflow(self, ref: str = "doc-review/review"):
