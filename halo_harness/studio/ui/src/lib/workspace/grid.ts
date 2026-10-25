@@ -1,6 +1,9 @@
 // Grid math for the workspace: clamp and snap rects, apply a move/resize
-// delta, push overlapped panels down and compact everything upward (the
-// panel being dragged stays where the pointer put it). Pure functions.
+// delta, make room for a moved panel (room.ts, 3.2.2.0 R5: its neighbours
+// give up columns, trade places, or go down inside the visible rows) and
+// compact everything upward (the panel being dragged stays where the pointer
+// put it, or as near as the room it found allows). Pure functions.
+import { makeRoom, type RoomOpts } from "./room";
 import { COLS, MIN_H, MIN_W, ROW, STRIP_ROWS, type Gesture, type Layout, type PanelLayout, type PanelSpec, type Rect } from "./types";
 
 export function minW(spec?: PanelSpec): number {
@@ -120,10 +123,23 @@ export function compact(layout: Layout, pinnedId?: string): Layout {
   return out;
 }
 
-/** Push then compact: the arrangement after `movedId` changed. */
-export function arrange(layout: Layout, movedId?: string, pinned = false): Layout {
-  const pushed = movedId ? pushDown(layout, movedId) : layout;
-  return compact(pushed, pinned ? movedId : undefined);
+/** Make room, then compact: the arrangement after `movedId` changed (`opts`: the visible rows, its old rect, the specs). */
+export function arrange(layout: Layout, movedId?: string, pinned = false, opts?: RoomOpts): Layout {
+  const roomy = movedId ? (opts ? makeRoom(layout, movedId, opts) : pushDown(layout, movedId)) : layout;
+  return compact(roomy, pinned ? movedId : undefined);
+}
+
+/** Arrange (the rail, the palette): the section's default rectangles for the panels open now; strips stay strips, floats float. */
+export function defaultRects(specs: PanelSpec[], layout: Layout, fillRows: number): Layout {
+  const out: Layout = {};
+  for (const s of specs) {
+    const p = layout[s.id];
+    if (!p) continue;
+    const d = defaultPanel(s, fillRows);
+    out[s.id] = p.floating ? p : { ...p, x: d.x, y: d.y, w: d.w, h: d.h };
+  }
+  for (const id of Object.keys(layout)) if (!out[id]) out[id] = layout[id];
+  return compact(out);
 }
 
 export function defaultPanel(spec: PanelSpec, fillRows: number): PanelLayout {

@@ -39,7 +39,9 @@ parsed as HTML and no image is fetched: an image shows as its alt text.
 
 **Artboards.** Drag a card by its title; the places are saved on the server
 (`PUT /api/layout/design:<slug>`, stored as `_design-<slug>.json`, 500 ms after
-the last move). **Rename** is `POST design/<slug>/artboard/<id>/rename
+the last move). A card dropped on another makes room (3.2.2.0): the cards it
+lands on step aside (sideways, else into its old spot, else down), live while
+you drag. **Rename** is `POST design/<slug>/artboard/<id>/rename
 {name}` (the title changes; the id, files and versions stay); **Delete** is
 `DELETE design/<slug>/artboard/<id>` (its folder and versions go, its open
 pins are resolved; refused while a turn runs). **Critique** starts a
