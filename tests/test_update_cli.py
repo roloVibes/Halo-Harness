@@ -22,6 +22,7 @@ ensure_scoped_state_dir_once()
 
 from halo_harness import update as upd
 from halo_harness import update_cli
+from halo_harness import update_stop
 
 test, TESTS = new_registry()
 
@@ -43,7 +44,8 @@ def _patch_all(*, installed_commit="aaaaaaa", available_commit="bbbbbbb", other_
     wants the new "differs from" wording passes `ordering=False`."""
     orig = {name: getattr(upd, name) for name in
             ("installed_build", "latest_available", "install_kind", "commits_between",
-             "commit_is_ancestor", "other_halo_pids", "run")}
+             "commit_is_ancestor", "other_halo_pids", "other_halo_processes", "run")}
+    orig["update_stop._stop"] = update_stop._stop
     upd.installed_build = lambda **kw: {"version": "2.0.2", "commit": installed_commit,
                                          "requested_revision": None, "checkout": None,
                                          "branch": "master", "editable": False}
@@ -55,6 +57,13 @@ def _patch_all(*, installed_commit="aaaaaaa", available_commit="bbbbbbb", other_
     upd.commits_between = lambda *a, **kw: (["bbbbbbb fix: a thing"], 1)
     upd.commit_is_ancestor = lambda *a, **kw: ordering
     upd.other_halo_pids = lambda **kw: list(other_pids or [])
+    # 3.2.2.0 R3: the scan's details and the stop itself are fakes too -- a
+    # test never lists or ends a real process.
+    upd.other_halo_processes = lambda **kw: [{"pid": p, "ppid": 1, "what": "halo", "cmd": "halo --continue"}
+                                             for p in (other_pids or [])]
+    stopped = orig.setdefault("stopped", [])
+    update_stop._stop = lambda entry, **kw: stopped.append(entry) or {"what": entry["what"], "pid": entry["pid"],
+                                                                      "ok": True, "cmd": []}
 
     def _fake_run(cmd, **kwargs):
         if isinstance(cmd, list) and cmd[:1] == ["halo"]:
@@ -65,6 +74,8 @@ def _patch_all(*, installed_commit="aaaaaaa", available_commit="bbbbbbb", other_
 
 
 def _restore_all(orig: dict) -> None:
+    update_stop._stop = orig.pop("update_stop._stop")
+    orig.pop("stopped", None)
     for name, value in orig.items():
         setattr(upd, name, value)
 
@@ -195,25 +206,100 @@ def test_apply_update_source_dir_names_the_real_fix_instead_of_could_not_determi
 
 
 @test
-def test_apply_update_refuses_while_another_halo_process_is_running(ctx: Ctx):
+def test_apply_update_stops_another_halo_process_and_says_so(ctx: Ctx):
+    """3.2.2.0 R3: the default stops what still runs (the scan's halo here,
+    a fake stop) before the install, one line each."""
     orig = _patch_all(installed_commit="aaaaaaa", available_commit="bbbbbbb", other_pids=[4242])
+    stopped = orig["stopped"]
     try:
-        code, _out, err = _capture(update_cli.apply_update)
-        ctx.check(f"refuses, exit 1, got {code}", code == 1)
-        ctx.check(f"names the pid, got {err!r}", "4242" in err)
+        code, out, _err = _capture(update_cli.apply_update)
+        ctx.check(f"installs, exit 0, got {code}", code == 0 and "uv tool install --reinstall" in out)
+        ctx.check(f"pid 4242 went to the stop, got {stopped}", [e["pid"] for e in stopped] == [4242])
+        ctx.check(f"and a line says so, got {out!r}", "halo update: stopped: halo (pid 4242)" in out)
     finally:
         _restore_all(orig)
 
 
 @test
-def test_apply_update_force_overrides_the_refusal(ctx: Ctx):
+def test_apply_update_keep_running_refuses_and_names_each_process(ctx: Ctx):
     orig = _patch_all(installed_commit="aaaaaaa", available_commit="bbbbbbb", other_pids=[4242])
+    stopped = orig["stopped"]
+    try:
+        code, out, err = _capture(lambda: update_cli.apply_update(keep_running=True))
+        ctx.check(f"refuses, exit 1, got {code}", code == 1)
+        ctx.check(f"names the pid, what it is and how to stop it, got {err!r}",
+                  "halo (pid 4242): halo --continue" in err and "stop it with: /quit in that session" in err)
+        ctx.check(f"stops nothing and installs nothing, got {stopped} {out!r}",
+                  not stopped and "uv tool install" not in out)
+    finally:
+        _restore_all(orig)
+
+
+@test
+def test_apply_update_force_stops_nothing_and_installs(ctx: Ctx):
+    orig = _patch_all(installed_commit="aaaaaaa", available_commit="bbbbbbb", other_pids=[4242])
+    stopped = orig["stopped"]
     try:
         code, out, _err = _capture(lambda: update_cli.apply_update(force=True))
         ctx.check(f"--force proceeds anyway, got {code}", code == 0)
         ctx.check(f"runs the reinstall command live, got {out!r}",
                   "uv tool install --reinstall" in out)
+        ctx.check(f"and stops nothing, got {stopped}", stopped == [] and "stopped:" not in out)
     finally:
+        _restore_all(orig)
+
+
+def _sleeping_child():
+    import subprocess
+    return subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"],
+                            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+@test
+def test_halo_update_stops_a_lingering_registered_process_for_real(ctx: Ctx):
+    """A children.json entry (scoped home) pointing at a sleeping child of
+    this test: the default `halo update` really ends it and says so; the
+    scan stays a fake (it never lists this host's processes)."""
+    from halo_harness import children
+    from halo_harness import children_stop
+    child = _sleeping_child()
+    orig = _patch_all(installed_commit="aaaaaaa", available_commit="bbbbbbb", other_pids=[])
+    update_stop._stop = children_stop.stop_entry  # the real stop, for this child only
+    try:
+        children.register(child.pid, "bg", [sys.executable, "-m", "halo_harness", "-p", "x"], bg_id="ab12cd34")
+        code, out, _err = _capture(update_cli.apply_update)
+        ctx.check(f"installs, exit 0, got {code}", code == 0)
+        ctx.check(f"says what it stopped, got {out!r}", f"halo update: stopped: background run (pid {child.pid})" in out)
+        try:
+            child.wait(timeout=10)
+        except Exception:
+            pass
+        ctx.check("the lingering process ended", child.poll() is not None)
+        ctx.check("and left children.json", all(e["pid"] != child.pid for e in children.load()))
+    finally:
+        children.unregister(child.pid)
+        if child.poll() is None:
+            child.kill()
+        child.wait(timeout=10)
+        _restore_all(orig)
+
+
+@test
+def test_keep_running_names_the_registered_process_and_its_stop_command(ctx: Ctx):
+    from halo_harness import children
+    child = _sleeping_child()
+    orig = _patch_all(installed_commit="aaaaaaa", available_commit="bbbbbbb", other_pids=[])
+    try:
+        children.register(child.pid, "bg", [sys.executable, "-m", "halo_harness", "-p", "x"], bg_id="ab12cd34")
+        code, out, err = _capture(update_cli.cmd_update, ["--keep-running"])
+        ctx.check(f"refuses, exit 1, got {code}", code == 1)
+        ctx.check(f"names it and the command that stops it, got {err!r}",
+                  f"background run (pid {child.pid})" in err and "stop it with: halo bg stop ab12cd34" in err)
+        ctx.check("the process keeps running and nothing installs", child.poll() is None and "uv tool install" not in out)
+    finally:
+        children.unregister(child.pid)
+        child.kill()
+        child.wait(timeout=10)
         _restore_all(orig)
 
 
@@ -274,25 +360,26 @@ def test_apply_update_nonzero_reinstall_returncode_is_a_failure(ctx: Ctx):
 
 
 @test
-def test_apply_update_and_relaunch_passes_force_true(ctx: Ctx):
-    """Finding 2: `cli._apply_update_and_relaunch`'s own docstring says
-    the TUI's Textual app has ALREADY exited by the time this runs -- the
-    review found it still called `apply_update()` with no `force`, so it
-    silently refused (on account of its own now-irrelevant uv/pipx
-    console-script launcher parent -- see the `other_halo_pids` fix) and
-    relaunched the OLD build instead of the one it just "applied"."""
+def test_slash_update_hands_off_to_the_detached_updater(ctx: Ctx):
+    """3.2.2.0 R3: `/update` never installs inside the halo process (its
+    `halo.exe` parent holds the venv on Windows) and never relaunches it:
+    `cli._apply_update_and_relaunch` hands over to update_detached with the
+    `halo --continue` hint. The hand-off itself is a fake here."""
     from halo_harness import cli as cli_mod
-    calls = []
-    orig_apply, orig_relaunch = update_cli.apply_update, upd.relaunch_halo
-    update_cli.apply_update = lambda **kw: calls.append(kw) or 0
-    upd.relaunch_halo = lambda args, **kw: 0
+    from halo_harness import update_detached
+    calls, applied, relaunched = [], [], []
+    saved = (update_detached.run_after_exit, update_cli.apply_update, upd.relaunch_halo)
+    update_detached.run_after_exit = lambda **kw: calls.append(kw) or 0
+    update_cli.apply_update = lambda **kw: applied.append(kw) or 0
+    upd.relaunch_halo = lambda args, **kw: relaunched.append(args) or 0
     try:
-        cli_mod._apply_update_and_relaunch(["--continue"])
-        ctx.check(f"apply_update called exactly once, got {calls}", len(calls) == 1)
-        ctx.check(f"force=True was passed, got {calls}", calls[0].get("force") is True)
+        code = cli_mod._apply_update_and_relaunch(["--continue", "--model", "or:a/b"])
+        ctx.check(f"exit 0, the updater was handed the work once, got {code} {calls}", code == 0 and len(calls) == 1)
+        ctx.check(f"the hint resumes the session with the same flags, got {calls}",
+                  calls[0].get("resume_hint") == "halo --continue --model or:a/b")
+        ctx.check(f"no in-process install and no relaunch, got {applied} {relaunched}", not applied and not relaunched)
     finally:
-        update_cli.apply_update = orig_apply
-        upd.relaunch_halo = orig_relaunch
+        update_detached.run_after_exit, update_cli.apply_update, upd.relaunch_halo = saved
 
 
 @test

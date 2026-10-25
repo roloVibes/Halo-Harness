@@ -351,33 +351,24 @@ def _read_stdin_bytes() -> "tuple[Optional[bytes], Optional[str]]":
 
 
 def _apply_update_and_relaunch(argv: list) -> int:
-    """Halo 2.0.2 round 6 `/update`: `run_tui(args)` just returned
-    `update.RESTART_EXIT_CODE` -- the TUI's own Textual app has already
-    exited (screen torn down, terminal restored) by the time `run_tui`
-    returns at all, so only NOW is it safe to run the reinstall: the
-    Windows order is always quit, then update, then relaunch, never
-    update while any halo process (this one included) still has the
-    install open. A failed update still relaunches the OLD halo with
-    `--continue`, same as a successful one -- the session must resume
-    either way, never strand the user at a dead prompt."""
-    from halo_harness.update import relaunch_halo
-    from halo_harness.update_cli import apply_update
+    """`/update`: `run_tui(args)` returned `update.RESTART_EXIT_CODE`
+    (Textual torn down, `Controller.quit` done). 3.2.2.0 R3: the install
+    no longer runs inside this halo process -- on Windows its `halo.exe`
+    parent holds the tool venv ("Scripts: Access is denied"). A detached
+    updater (update_detached.py) waits for this process to end, stops what
+    still runs, reinstalls and logs to `~/.halo/update.log`; this prints
+    where that log is and how to pick the session up again, and exits."""
+    from halo_harness.update_detached import run_after_exit
+    hint = " ".join(["halo", "--continue", *_relaunch_flags(argv)])
     try:
-        # Finding 2: this process's own Textual app has ALREADY exited
-        # (see this function's own docstring above) -- the ONLY thing
-        # `other_halo_pids`'s refusal could still be catching at this
-        # exact point is this same invocation's own uv/pipx console-
-        # script launcher parent (now excluded by `_ancestor_pids`, but
-        # `force=True` here too so this specific, already-past-the-TUI
-        # handoff never refuses on account of itself either way).
-        apply_update(force=True)
+        return run_after_exit(resume_hint=hint)
     except Exception as e:
-        print(f"halo: update failed: {e}", file=sys.stderr)
-    return relaunch_halo(["--continue", *_relaunch_flags(argv)])
+        print(f"halo: the update did not start: {e}; run `halo update` from a shell", file=sys.stderr)
+        return 1
 
 
 def _relaunch_flags(argv: list) -> list:
-    """`argv` for the post-update `halo --continue`: the original flags
+    """`argv` for the post-update `halo --continue` (the hint `/update` prints): the original flags
     without `--continue`/`-c`, without `--fork-session` (the continued
     session would fork a second time) and without the positional PROMPT
     (the continued session would send it as a brand new turn). The prompt
@@ -708,7 +699,7 @@ def _main(argv: Optional[list] = None) -> int:
             if stdin_err is not None:
                 print(f"halo: {stdin_err}", file=sys.stderr)
                 return 2
-        info = start_background_run(filtered, stdin_data=stdin_data)
+        info = start_background_run(filtered, stdin_data=stdin_data, launched=True)
         print(f"halo: started in the background, id={info['id']}", file=sys.stderr)
         print(f"halo: log -> {info['log_path']}", file=sys.stderr)
         return 0

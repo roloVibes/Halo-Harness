@@ -345,8 +345,11 @@ def cmd_studio(argv: list) -> int:
     try:
         state_dir.mkdir(parents=True, exist_ok=True)
         from halo_harness.privateio import write_private_atomic
+        from halo_harness.children import start_time
+        # 3.2.2.0 R3: `pstart` lets a stop (a quit, `halo update`, `--stop`) prove this pid is still this Studio.
         write_private_atomic(studio_info_path(state_dir),
-                             json.dumps({"pid": os.getpid(), "port": server.server_address[1], "token": server.token}))
+                             json.dumps({"pid": os.getpid(), "port": server.server_address[1], "token": server.token,
+                                         "pstart": start_time(os.getpid())}))
     except OSError:
         pass
     print(f"Halo Studio is at {url}")

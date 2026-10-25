@@ -33,11 +33,22 @@ and [ARCHITECTURE.md](ARCHITECTURE.md) for how compaction/retries work.
   '...\uv\tools\halo-harness\Scripts': Access is denied. (os error 5)`
   and `halo` then prints `ModuleNotFoundError: No module named
   'halo_harness'`** (Windows) -- another `halo` was running (a session, a
-  `halo studio` server, a `halo proxy`) and held `halo.exe` open, so uv
-  emptied the old environment but could not finish. Close every halo
-  (`tasklist | findstr halo`), run the same reinstall again, and it
-  rebuilds cleanly. `halo update` refuses to start while another halo is
-  running, for exactly this reason.
+  `halo studio` server, a `--bg` run, the supervisor, a `halo proxy`) and
+  held `halo.exe` open, so uv emptied the old environment but could not
+  finish. Run the same reinstall again once nothing holds it, and it
+  rebuilds cleanly. Since 3.2.2.0 `halo update` stops what lingers and
+  installs after halo exits: it ends every other process of this install
+  first (one line each, `stopped: Studio (pid 4242)`; the supervisor is
+  started again on the new version), and `/update` in the TUI installs from
+  a detached updater once halo has exited (its log: `~/.halo/update.log`).
+  `halo update --keep-running` if you want to look first: it names each
+  process and the command that stops it, and installs nothing. A quit
+  (`/quit`, Ctrl+C twice, Ctrl+D, Ctrl+Q, the end of `-p`) also stops the
+  Studio and the background runs and schedule fires the session started;
+  only the supervisor stays (`halo supervise stop`). The quit's last line
+  names what it stopped and what it left running (a `--bg` run started from
+  a shell, the Studio while another session is open, the supervisor), each
+  with the command that ends it.
 - **A different `python3`/version than expected gets picked up** -- both
   `uv tool install` and `pip install --user -e .` bind to whichever
   interpreter ran the install command; pin one explicitly with

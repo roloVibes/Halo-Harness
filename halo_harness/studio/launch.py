@@ -7,14 +7,14 @@ still answers, so a second `halo studio`, the wizard's "Open Studio"
 buttons and `/roles` from a plain shell all land on the same instance
 instead of starting another. `launch_detached` spawns `halo studio` with
 no console of its own, waits for the URL it prints, and returns it; the
-process outlives whoever launched it until `halo studio --stop`.
+spawned Studio joins `~/.halo/run/children.json` (children.py), so the last
+halo session that quits ends it (3.2.2.0 R3), as `halo studio --stop` does.
 """
 
 from __future__ import annotations
 
 import json
 import os
-import signal
 import socket
 import subprocess
 import sys
@@ -107,6 +107,9 @@ def launch_detached(mode: Optional[str], *, cwd: Path, state_dir: Path, open_bro
         proc = subprocess.Popen(argv, **kwargs)
     except OSError:
         return ""
+    from halo_harness import children
+    if children.spawned(proc):  # 3.2.2.0 R3: the last halo session that quits ends it
+        children.register(proc.pid, "studio", argv, state_dir=state_dir)
     found: dict = {}
 
     def _read() -> None:
@@ -180,14 +183,36 @@ def _ask_shutdown(info: dict) -> bool:
     return not port_answers(info["port"])
 
 
-def _pid_is_studio(pid: int) -> bool:
-    """True only when /proc shows this pid is `halo studio` (no /proc, no proof, no kill)."""
+def _windows_cmdline(pid: int) -> str:
+    try:
+        r = subprocess.run(["powershell", "-NoProfile", "-Command",
+                            f"(Get-CimInstance Win32_Process -Filter 'ProcessId={int(pid)}').CommandLine"],
+                           capture_output=True, text=True, timeout=15)
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return ""
+    return (r.stdout or "").strip()
+
+
+def pid_is_studio(pid: int, info: Optional[dict] = None) -> bool:
+    """True only with proof this pid is the Studio: the start time studio.json
+    recorded (`pstart`, 3.2.2.0) still matches, else /proc (Linux) or the
+    process's command line (Windows) shows `halo studio`. No proof, no kill."""
+    recorded = (info or {}).get("pstart")
+    if recorded:
+        from halo_harness.children import same_process
+        return same_process(int(pid), str(recorded))
     try:
         argv = Path(f"/proc/{int(pid)}/cmdline").read_bytes().split(b"\0")
     except (OSError, ValueError):
-        return False
+        if sys.platform != "win32":
+            return False
+        from halo_harness.update import halo_what
+        return halo_what(_windows_cmdline(pid)) == "studio"
     names = [os.path.basename(x) for x in argv[:3]]  # the interpreter, then `-m halo_harness` or the halo launcher
     return b"studio" in argv[1:] and (b"halo_harness" in b" ".join(argv[:4]) or any(n.startswith((b"halo", b"halo.")) for n in names))
+
+
+_pid_is_studio = pid_is_studio
 
 
 def stop(state_dir: Path) -> "tuple[bool, str]":
@@ -197,16 +222,24 @@ def stop(state_dir: Path) -> "tuple[bool, str]":
     pid = int(info["pid"])
     if port_answers(info["port"]) and _ask_shutdown(info):
         _clear_info(state_dir)
+        from halo_harness.children import unregister
+        unregister(pid, state_dir=state_dir)
         return True, f"stopped Studio (pid {pid}, port {info.get('port')})"
-    if not _pid_is_studio(pid):
+    from halo_harness.children import pid_running, unregister
+    if not pid_running(pid):
+        _clear_info(state_dir)
+        unregister(pid, state_dir=state_dir)
+        return False, f"pid {pid} is not running; cleared studio.json"
+    if not pid_is_studio(pid, info):
         _clear_info(state_dir)
         return False, f"studio.json was stale (pid {pid} is not a Studio); cleared it"
-    try:
-        os.kill(pid, signal.SIGTERM)
-    except (OSError, ValueError) as e:
-        _clear_info(state_dir)
-        return False, f"pid {pid} is not running ({e}); cleared studio.json"
+    # The signal second (SIGTERM, then SIGKILL after 5 s; Windows: taskkill /PID, then /F), by pid only.
+    from halo_harness.children_stop import terminate
+    gone = terminate(pid, timeout=5.0, recorded=info.get("pstart"))
     _clear_info(state_dir)
+    unregister(pid, state_dir=state_dir)
+    if not gone:
+        return False, f"Studio (pid {pid}) is still running after the stop"
     return True, f"stopped Studio (pid {pid}, port {info.get('port')})"
 
 

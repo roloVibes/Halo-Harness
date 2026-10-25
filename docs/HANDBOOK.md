@@ -186,21 +186,21 @@ command for however this install was made (uv tool, pipx, pip, an
 editable checkout, or a bare checkout on PYTHONPATH). Exit 0 up to date,
 10 an update is available, 1 unknown (offline, no git, rate-limited).
 
-`halo update` (no `--check`) runs that command live and reports the
-before/after commit from a fresh `halo --version`. It refuses (exit 1) if
-another `halo` process looks like it's running on this machine, excluding
-itself -- a reinstall under a running TUI has broken the install on
-Windows before, since the venv can't be replaced while a process still
-has it open; `--force` overrides once you're sure nothing else is
-actually using it. `--to <tag|branch|commit>` picks an exact revision
-instead of the channel's latest.
+`halo update` (no `--check`) first stops every other process of this
+install (a Studio, background runs, schedule fires, other sessions, the
+supervisor -- started again afterwards), one line each, since the venv
+can't be replaced while a process still has it open; then it runs that
+command live and reports the before/after commit from a fresh `halo
+--version`. `--keep-running` names what runs and installs nothing;
+`--force` installs without stopping anything. `--to <tag|branch|commit>`
+picks an exact revision instead of the channel's latest.
 
 `/update` in the TUI runs the same check off the UI thread and opens a
-dialog with the report plus `Enter: update and restart halo` / `Esc: not
-now`. Enter quits the TUI, runs the update with its output visible, and
-relaunches with `--continue` so the session resumes on the new code --
-the only safe order on Windows (quit, then update, then relaunch; never
-while the TUI itself is still holding the install open). A background
+dialog with the report plus `Enter: quit, then update` / `Esc: not now`.
+Enter quits the TUI and a detached updater runs the update once halo has
+exited -- the only safe order on Windows (never while a halo process still
+holds the install open); its log is `~/.halo/update.log`, and `halo
+--continue` resumes the session on the new code. A background
 check also adds a one-line "update available" note at startup, at most
 once a day, when one is already known to be available -- off with
 `update.check: false` or `update.notify: false` in `~/.halo/config.json`.

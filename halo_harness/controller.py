@@ -42,6 +42,16 @@ from halo_harness.permissions import Decision, add_allow_rule
 QUIT_DEADLINE_S = 5.0
 
 
+def _stop_children_for_quit(state_dir) -> str:
+    """children_stop.stop_for_quit's one line ("stopped: Studio (pid 4242),
+    2 background runs") or ''; never raises."""
+    try:
+        from halo_harness.children_stop import stop_for_quit
+        return stop_for_quit(state_dir)
+    except Exception:
+        return ""
+
+
 class _TeeQueue(queue.Queue):
     """`Controller.events`: a plain `queue.Queue` (the TUI's drain loop stays
     its ONE reader) that also hands every put item to registered taps --
@@ -143,6 +153,10 @@ class Controller:
         self._stopped = threading.Event()
         self.quit_called = False
         self.exit_code = 0
+        # 3.2.2.0 R3: what quit() stopped, in one line ('' for nothing); the
+        # TUI prints it as the last line (`stopped_line_shown` once it did).
+        self.stopped_line = ""
+        self.stopped_line_shown = False
         # set by the TUI right before quitting when `tui != "fullscreen"`:
         # the transcript is then printed to normal scrollback on exit.
         self.replay_messages: list = []
@@ -247,6 +261,10 @@ class Controller:
                 self.session.job_registry.kill_all()
             except Exception:
                 pass
+            # 3.2.2.0 R3: a quit leaves no halo behind -- the Studio, this
+            # session's background runs and schedule fires, and orphans
+            # (children.json; the supervisor stays: `halo supervise stop`).
+            self.stopped_line = _stop_children_for_quit(self.state_dir)
             # The session's own team schedulers must never outlive halo
             # either -- a safe no-op when none were armed.
             try:

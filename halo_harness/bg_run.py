@@ -32,7 +32,7 @@ def _bg_root() -> Path:
 
 
 def start_background_run(argv: list, *, popen=subprocess.Popen, stdin_data: Optional[bytes] = None,
-                         env: Optional[dict] = None, cwd: Optional[str] = None) -> dict:
+                         env: Optional[dict] = None, cwd: Optional[str] = None, launched: bool = False) -> dict:
     """Spawns `[sys.executable, -m halo_harness] + argv` (forcing `-p` when
     neither `-p` nor `--print` is already present -- a detached child has no
     terminal a TUI could ever render into), stdout+stderr merged into
@@ -49,7 +49,10 @@ def start_background_run(argv: list, *, popen=subprocess.Popen, stdin_data: Opti
     so a PID the OS later reuses for something unrelated is never
     mistaken for this run still being alive. 3.1.8.0 R1: `cwd` (default
     this process's folder) is the folder the run starts in (a supervised
-    job goal's repo)."""
+    job goal's repo). 3.2.2.0 R3: the run joins children.json; `launched`
+    (the `halo --bg` / `halo agents schedule run` launchers, which exit at
+    once) records the halo session whose tool ran them as its owner, or
+    none for a plain shell (children.launcher_owner)."""
     run_id = uuid.uuid4().hex[:8]
     run_dir = _bg_root() / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -101,6 +104,9 @@ def start_background_run(argv: list, *, popen=subprocess.Popen, stdin_data: Opti
         meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
     except OSError:
         pass
+    from halo_harness import children
+    if children.spawned(proc):  # 3.2.2.0 R3: a quit / `halo update` finds it (children.py)
+        children.register(proc.pid, "bg", real_command, launched=launched, bg_id=run_id)
     return {"id": run_id, "log_path": str(log_path), "pid": proc.pid, "meta_path": str(meta_path)}
 
 

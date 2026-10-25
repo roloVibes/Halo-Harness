@@ -238,9 +238,13 @@ def _default_fire(session, entry: dict) -> str:
         # argv LIST straight to Popen (no shell=True) -- shlex.join's
         # POSIX quoting through cmd.exe mangles on Windows.
         import subprocess
-        subprocess.Popen(build_fire_argv(entry), cwd=str(getattr(session, "cwd", ".")),
-                         env=_fire_env(session, entry),
-                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
+        argv = build_fire_argv(entry)
+        proc = subprocess.Popen(argv, cwd=str(getattr(session, "cwd", ".")),
+                                env=_fire_env(session, entry),
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
+        from halo_harness import children
+        if children.spawned(proc):  # 3.2.2.0 R3: it joins children.json, so a quit ends it
+            children.register(proc.pid, "schedule", argv, schedule=entry.get("name"))
         return f"fired {entry.get('name')} (detached; no live job registry)"
     try:
         from halo_harness.tools.bash import git_bash
@@ -507,7 +511,7 @@ def run_once(name: str, *, state_dir=None, popen=None) -> str:
         argv += ["--team", str(entry["team"])]
     if entry.get("model"):
         argv += ["--model", str(entry["model"])]
-    run = start_background_run(argv, popen=popen or subprocess.Popen, env=_fire_env(None, entry))
+    run = start_background_run(argv, popen=popen or subprocess.Popen, env=_fire_env(None, entry), launched=True)
     return f"fired {name!r} as background run {run['id']} (log: {run['log_path']})"
 
 

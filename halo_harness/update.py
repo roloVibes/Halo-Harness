@@ -27,11 +27,10 @@ DIST_NAME = "halo-harness"
 DEFAULT_BRANCH = "master"
 CACHE_TTL_S = 24 * 3600
 # TUI -> cli.main: run_tui() returning this exact int means "the user chose
-# Enter: update and restart halo" -- cli.main runs the update (now past the
-# TUI, output visible in the plain terminal) and relaunches with --continue.
-# The Windows order is always quit (this), then update, then relaunch --
-# never update while any halo process (this one included) still has the
-# install open; see update_cli.apply_update/other_halo_pids.
+# Enter on /update's dialog" -- 3.2.2.0 R3: cli.main starts the detached
+# updater (update_detached.py: it waits for this process to end, stops what
+# lingers, reinstalls, logs to ~/.halo/update.log) and exits; the install
+# never runs while any halo process (this one included) holds the venv.
 RESTART_EXIT_CODE = 91
 
 # Halo 2.0.2 round C: "update.cache_ttl_s default 3600 for the startup
@@ -668,28 +667,63 @@ def _base(tok: str) -> str:
     return tok.strip('"').replace("\\", "/").rsplit("/", 1)[-1].lower()
 
 
-def _is_halo_cmdline(cmdline: str) -> bool:
-    """True only for a process that IS halo, judged by position: argv[0] is
-    the `halo`/`halo.exe` entry point, or argv[0] is a Python interpreter
-    whose script is `halo`/`halo.exe` (what ps shows for a uv/pipx console
-    script) or which runs `-m halo_harness`. A later token never counts, so
-    `grep halo notes.txt`, `vim halo` and `man halo` are not halo, nor is
-    an editor window titled after this repo (finding 2) or `tail -f
-    ~/.halo/bridge.log`."""
+def _under_prefix(path: str, prefix: Optional[str]) -> bool:
+    root = (prefix if prefix is not None else sys.prefix) or ""
+    if not root:
+        return False
+    norm = lambda x: x.strip('"').replace("\\", "/").rstrip("/").lower()
+    return norm(path).startswith(norm(root) + "/")
+
+
+def _halo_sub(args: "list[str]") -> str:
+    """What a halo invocation is, by its first word after the entry point."""
+    first = args[0] if args else ""
+    if first == "studio":
+        return "studio"
+    if first == "supervise":
+        return "supervisor"
+    return "halo"
+
+
+def halo_what(cmdline: str, *, prefix: Optional[str] = None) -> Optional[str]:
+    """What a process IS when it is a process of this halo install, by
+    position, else None: "studio" (`halo studio`, `python -u -m halo_harness
+    studio`), "supervisor" (`... supervise`), "bg" (`python -m
+    halo_harness._bg_wrapper`), "mlx"/"llama" (this install's own
+    interpreter, under `prefix` = sys.prefix, running `mlx_lm.server`, or a
+    `llama-server` under it), else "halo". A later token never counts, so
+    `grep halo notes.txt`, `vim halo` and `man halo` are not halo, nor is an
+    editor window titled after this repo or `tail -f ~/.halo/bridge.log`."""
     toks = [q or p for q, p in re.findall(r'"([^"]*)"|(\S+)', cmdline or "")]
     if not toks:
-        return False
+        return None
     first = _base(toks[0])
     if first in ("halo", "halo.exe"):
-        return True
+        return _halo_sub(toks[1:])
+    if first in ("llama-server", "llama-server.exe"):
+        return "llama" if _under_prefix(toks[0], prefix) else None
     if not first.startswith(("python", "pythonw")):
-        return False
+        return None
     rest = toks[1:]
     while rest and rest[0].startswith("-") and rest[0] != "-m":
         rest = rest[1:]
     if rest and rest[0] == "-m":
-        return len(rest) > 1 and rest[1] == "halo_harness"
-    return bool(rest) and _base(rest[0]) in ("halo", "halo.exe")
+        module = rest[1] if len(rest) > 1 else ""
+        if module == "halo_harness":
+            return _halo_sub(rest[2:])
+        if module == "halo_harness._bg_wrapper":
+            return "bg"
+        if module in ("mlx_lm.server", "mlx_lm") and _under_prefix(toks[0], prefix):
+            return "mlx" if module == "mlx_lm.server" or rest[2:3] == ["server"] else None
+        return None
+    if rest and _base(rest[0]) in ("halo", "halo.exe"):
+        return _halo_sub(rest[1:])
+    return None
+
+
+def _is_halo_cmdline(cmdline: str) -> bool:
+    """True for a process of this halo install (see `halo_what`)."""
+    return halo_what(cmdline) is not None
 
 
 def _ancestor_pids(this_pid: int, pid_to_ppid: "dict[int, int]") -> "set[int]":
@@ -711,16 +745,12 @@ def _ancestor_pids(this_pid: int, pid_to_ppid: "dict[int, int]") -> "set[int]":
     return seen
 
 
-def other_halo_pids(*, run_fn=None) -> "list[int]":
-    """Every OTHER process on this machine that looks like a `halo`
-    invocation (by command line) -- this process AND its whole ancestor
-    chain (see `_ancestor_pids`) always excluded, never just `os.getpid()`
-    -- `update_cli.apply_update`'s own refusal check. Best-effort: any
-    failure to even list processes returns `[]` (the brief's refusal is a
-    courtesy, never a hard guarantee this can't still race)."""
+def list_processes(*, run_fn=None) -> "list[tuple[int, int, str]]":
+    """`(pid, ppid, command line)` for every process (`Get-CimInstance
+    Win32_Process` on Windows, `ps -eo pid,ppid,args` elsewhere); `[]` when
+    the list cannot be read."""
     run_fn = run_fn or run
-    this_pid = os.getpid()
-    pids: "list[int]" = []
+    out: "list[tuple[int, int, str]]" = []
     try:
         if os.name == "nt":
             r = run_fn(["powershell", "-NoProfile", "-Command",
@@ -728,36 +758,55 @@ def other_halo_pids(*, run_fn=None) -> "list[int]":
                         "ConvertTo-Json -Compress"], capture_output=True, text=True, timeout=10)
             rows = json.loads(r.stdout) if (r.stdout or "").strip() else []
             rows = [rows] if isinstance(rows, dict) else (rows if isinstance(rows, list) else [])
-            pid_to_ppid = {}
             for row in rows:
                 if not isinstance(row, dict):
                     continue
                 pid, ppid = row.get("ProcessId"), row.get("ParentProcessId")
                 if pid is not None and ppid is not None:
-                    pid_to_ppid[int(pid)] = int(ppid)
-            excluded = _ancestor_pids(this_pid, pid_to_ppid)
-            for row in rows:
-                pid = row.get("ProcessId") if isinstance(row, dict) else None
-                if pid and int(pid) not in excluded and _is_halo_cmdline(row.get("CommandLine")):
-                    pids.append(int(pid))
+                    out.append((int(pid), int(ppid), str(row.get("CommandLine") or "")))
         else:
             r = run_fn(["ps", "-eo", "pid,ppid,args"], capture_output=True, text=True, timeout=10)
-            rows = []  # (pid, args)
-            pid_to_ppid = {}
             for line in (r.stdout or "").splitlines()[1:]:
                 parts = line.strip().split(None, 2)
                 if len(parts) < 3 or not parts[0].isdigit() or not parts[1].isdigit():
                     continue
-                pid, ppid, args = int(parts[0]), int(parts[1]), parts[2]
-                rows.append((pid, args))
-                pid_to_ppid[pid] = ppid
-            excluded = _ancestor_pids(this_pid, pid_to_ppid)
-            for pid, args in rows:
-                if pid not in excluded and _is_halo_cmdline(args):
-                    pids.append(pid)
+                out.append((int(parts[0]), int(parts[1]), parts[2]))
     except Exception:
         return []
-    return pids
+    return out
+
+
+def other_halo_processes(*, run_fn=None, prefix: Optional[str] = None) -> "list[dict]":
+    """Every OTHER process of this halo install on this machine:
+    `{pid, ppid, what, cmd}` (`what` from `halo_what`) -- this process AND
+    its whole ancestor chain (see `_ancestor_pids`) always excluded.
+    Best-effort: a process list that cannot be read gives `[]`."""
+    rows = list_processes(run_fn=run_fn)
+    excluded = _ancestor_pids(os.getpid(), {pid: ppid for pid, ppid, _ in rows})
+    found = []
+    for pid, ppid, cmd in rows:
+        if pid in excluded:
+            continue
+        what = halo_what(cmd, prefix=prefix)
+        if what:
+            found.append({"pid": pid, "ppid": ppid, "what": what, "cmd": cmd})
+    return found
+
+
+def halo_ancestors(*, run_fn=None) -> "list[int]":
+    """This process's ancestors that are halo themselves (the Windows uv/pipx
+    `halo.exe` launcher that waits on this python): a detached updater waits
+    for them to end too."""
+    rows = list_processes(run_fn=run_fn)
+    by_pid = {pid: (ppid, cmd) for pid, ppid, cmd in rows}
+    chain = _ancestor_pids(os.getpid(), {pid: ppid for pid, ppid, _ in rows}) - {os.getpid()}
+    return sorted(p for p in chain if p in by_pid and halo_what(by_pid[p][1]))
+
+
+def other_halo_pids(*, run_fn=None) -> "list[int]":
+    """The pids of `other_halo_processes` -- `scripts/release.py`'s check and
+    the older callers."""
+    return [row["pid"] for row in other_halo_processes(run_fn=run_fn)]
 
 
 def relaunch_halo(extra_args: "list[str]", *, exec_fn: Optional[Callable] = None,

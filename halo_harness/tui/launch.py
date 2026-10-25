@@ -101,6 +101,11 @@ def run_tui(args) -> int:
                 quit_fn()
             except Exception:
                 pass
+        # 3.2.2.0 R3: an exit that did not pass the app's own quit card
+        # (`/update`, an error) still names what the quit stopped.
+        line = getattr(controller, "stopped_line", "") or ""
+        if line and not getattr(controller, "stopped_line_shown", False):
+            print(line)
     return app.return_code if app.return_code is not None else 0
 
 

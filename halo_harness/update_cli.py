@@ -4,7 +4,8 @@ is the argv-parsing entry point `cli.py` dispatches `argv[0] == "update"` to;
 restart handoff calls directly once the TUI has already quit. Every real
 action goes through `update.run`/`update.other_halo_pids`/`update.
 latest_available`, all three seams a test fakes -- this module never shells
-out or opens a socket on its own.
+out or opens a socket on its own. What it stops before an install is
+update_stop.py's (3.2.2.0 R3).
 """
 
 from __future__ import annotations
@@ -74,16 +75,37 @@ def _exit_code(build: dict, avail: dict) -> int:
     return 0 if build["commit"] == avail["commit"] else 10
 
 
-def apply_update(*, cmd: Optional[str] = None, force: bool = False) -> int:
+def _stop_or_refuse(keep_running: bool) -> "Optional[bool]":
+    """3.2.2.0 R3: before the install, every process of this install that
+    still runs (update_stop.lingering: the registry, then the scan) is
+    stopped, one line each -- or, with `keep_running`, named with the
+    command that stops it and the update refused (None). Returns whether
+    the supervisor was running (it is started again after the install)."""
+    from halo_harness import update_stop
+    if keep_running:
+        named = update_stop.refusal_lines()
+        if named:
+            print("halo update: not installing -- these halo processes still run (--keep-running):", file=sys.stderr)
+            for row in named:
+                print(row, file=sys.stderr)
+            return None
+        return False
+    lines, supervisor = update_stop.stop_lingering()
+    for row in lines:
+        print(f"halo update: {row}")
+    return supervisor
+
+
+def apply_update(*, cmd: Optional[str] = None, force: bool = False, keep_running: bool = False) -> int:
     """Runs the reinstall command LIVE (inherited stdio -- "output
     visible"), then re-queries `halo --version` as a FRESH subprocess --
     this process's own already-imported `halo_harness` module would
     otherwise just keep reporting the OLD version forever, update or not.
-    Refuses (returns 1, no reinstall attempted) while another halo
-    process is on this machine unless `force=True`; `cli.py`'s own
-    `/update` restart handoff always calls this AFTER the TUI's process
-    has already quit (Textual torn down), so that check still correctly
-    counts only genuinely OTHER processes, never a stale earlier one."""
+    3.2.2.0 R3: first stops every other process of this install (Studio,
+    background runs, schedule fires, the supervisor -- started again after
+    the install -- and other halo sessions) and says what it stopped;
+    `keep_running=True` refuses instead, naming each one; `force=True`
+    stops nothing and installs anyway (scripts)."""
     # Halo 2.0.3 fix pass C-1 (review finding 3): checked before anything
     # else -- an explicit `halo update`/`/update` apply is a real
     # reinstall (`git pull`/`uv tool install`/`pip install --upgrade`,
@@ -93,12 +115,11 @@ def apply_update(*, cmd: Optional[str] = None, force: bool = False) -> int:
     if offline_mode_enabled():
         print(f"halo update: {format_offline_refusal('the update server')}", file=sys.stderr)
         return 1
-    others = upd.other_halo_pids()
-    if others and not force:
-        pids = ", ".join(str(p) for p in others)
-        print(f"halo update: refusing -- another halo process looks like it's running "
-              f"(pid {pids}); close it first, or pass --force", file=sys.stderr)
-        return 1
+    supervisor = False
+    if not force:
+        supervisor = _stop_or_refuse(keep_running)
+        if supervisor is None:
+            return 1
     before = upd.installed_build()
     kind = upd.install_kind()
     if cmd is None:
@@ -135,6 +156,9 @@ def apply_update(*, cmd: Optional[str] = None, force: bool = False) -> int:
     after_line = (after.stdout or "").strip() or "(unknown -- could not run `halo --version` after the update)"
     print(f"halo update: before {upd.format_version_line(before)}")
     print(f"halo update: after  {after_line}")
+    if supervisor:
+        from halo_harness.update_stop import restart_supervisor
+        print(restart_supervisor())
     return 0 if returncode == 0 else 1
 
 
@@ -147,7 +171,10 @@ def cmd_update(argv: "list[str]") -> int:
     parser.add_argument("--channel", choices=["stable", "main"], default=None,
                          help="stable tracks the newest v* tag, main tracks the branch halo came from")
     parser.add_argument("--force", action="store_true",
-                         help="Reinstall even if another halo process looks like it's running")
+                         help="Install without stopping anything, even while other halo processes run (scripts)")
+    parser.add_argument("--keep-running", action="store_true",
+                        help="Stop nothing: name each halo process still running and the command that stops it, "
+                             "and do not install")
     parser.add_argument("--refresh", action="store_true",
                         help="(always on now -- kept for compatibility) ignore the cache, always check live")
     # 2.0.6 round 8 (the v2.0.4 review's item 7, the verification half):
@@ -222,4 +249,4 @@ def cmd_update(argv: "list[str]") -> int:
                 print(f"halo update: could not read release {target}'s assets "
                       f"(offline or rate-limited) -- installing without the checksums check",
                       file=sys.stderr)
-    return apply_update(cmd=cmd, force=args.force)
+    return apply_update(cmd=cmd, force=args.force, keep_running=args.keep_running)
