@@ -1,8 +1,8 @@
 """tests.test_studio_start -- Halo 3.1.1.0 R1 in a real browser (headless Chrome
 through the driver base, tests/helpers/studio_start.py; skipped without one).
 
-1. a fresh home opens on Start here (no welcome card over it); Run the
-   ten-minute start runs it on the fake model calls (HALO_START_FAKE=1 in
+1. a fresh home opens on Start here (no welcome card over it) with the guided
+   first run's card above its button (3.2.2.0 R2); Run the guided first run runs it on the fake model calls (HALO_START_FAKE=1 in
    Studio's process): the seven steps done in the panel, the `start` frames
    on the live feed, the outcome; a reload shows no overlay (the home has a
    lineup of its own and a start now)
@@ -44,10 +44,13 @@ def _driver(*argv: str) -> "tuple[subprocess.CompletedProcess, dict]":
 
 
 @test
-def test_the_ten_minute_start_runs_from_start_here(ctx: Ctx):
+def test_the_guided_first_run_runs_from_start_here(ctx: Ctx):
     r, got = _driver("run")
     ctx.check(f"the driver ran, got {r.returncode} {r.stdout[-300:]!r} {r.stderr[-400:]!r}", r.returncode == 0 and "failed" not in got)
     ctx.check(f"the overlay offers the start, no welcome card over it, got {got}", got.get("offer") == 1 and got.get("welcome_with_offer") == 0)
+    card = str(got.get("card") or "")
+    ctx.check(f"the button and the card above it, got {got.get('button')!r} {card[:120]!r}", got.get("button") == "Run the guided first run"
+              and card.startswith("The guided first run") and "Estimated cost: free" in card and "Writes:" in card)
     keys = ["lineup", "repo", "goal", "plan", "run", "report", "next"]
     ctx.check(f"the seven steps done, in order, got {got.get('steps')}", got.get("steps") == [f"{k}:done" for k in keys])
     ctx.check(f"the outcome names the lineup, got {got.get('done_text')!r}", got.get("done_ok") == "true"

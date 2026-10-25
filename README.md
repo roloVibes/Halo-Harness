@@ -58,7 +58,7 @@ Install, then `halo start`:
 ```sh
 curl -fsSL https://raw.githubusercontent.com/roloVibes/Halo-Harness/v3.2.1.0/scripts/install-halo.sh | bash
 halo init        # the wizard: provider, model, permission mode, theme, lineup
-halo start       # the ten-minute start: a lineup, a sample repo, one Orchestra run, its report and coach
+halo start       # the guided first run: its card (models, cost, time, what it writes), then one real Orchestra run
 ```
 
 Windows:
@@ -78,9 +78,13 @@ Windows): it asks first, shows what uv changed, and `--no-modify-path` (`-NoModi
 or `/update` inside the TUI. Offline work boxes, PEP 668 and reproducible installs are
 covered in [docs/INSTALL.md](docs/INSTALL.md).
 
-**Your first ten minutes.** `halo init` asks for a provider key, a default model and a
-permission mode (its last step offers the ten-minute start). `halo start` then walks one
-real piece of work, one screen per step: it copies a shipped lineup into one of yours,
+**Your first run.** `halo init` asks for a provider key, a default model and a
+permission mode; its Summary lists the checks it can run (doctor, the model catalog and one
+hello call on by default; the quick gym and the guided first run off), each with what it does,
+costs and takes, and you tick the ones to run (`halo check` runs the same list later).
+`halo start`, the guided first run, opens on a card: the models it will call, an estimated
+cost, the time and what it writes (`halo start --explain` prints only the card). Then it walks
+one real piece of work on your models, one screen per step: it copies a shipped lineup into one of yours,
 writes a small sample repo, gives your agents one Orchestra goal, shows the lead's plan
 for you to approve (or change on Studio's plan canvas), runs the lanes, and ends on the
 report, the coach and where to go next. `halo explain <word>` says what any word means

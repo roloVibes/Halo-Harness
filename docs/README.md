@@ -35,7 +35,7 @@ Work in the TUI and on the command line, and give agents bios, lineups, roles an
   - [COMMANDS-main.md](COMMANDS-main.md) (Commands: `halo` and its model and session flags): read this when you start `halo` with flags: the main command, its model and session flags.
   - [COMMANDS-main-io.md](COMMANDS-main-io.md) (Commands: `halo` output, prompt, settings, budget, browser, MCP and image flags): read this when you change what `halo` prints or reads, its system prompt, settings, budget, browser, MCP or images.
   - [COMMANDS-main-misc.md](COMMANDS-main-misc.md) (Commands: the other `halo` flags): read this when a `halo` flag is not in the other parts: misc flags, the ones not built yet or not applicable.
-  - [COMMANDS-init.md](COMMANDS-init.md) (Commands: `halo init`, `halo start`, `halo explain` and `halo setup`): read this when you set Halo up (`halo init`, `halo setup`), run the ten-minute start (`halo start`) or look up a word (`halo explain`).
+  - [COMMANDS-init.md](COMMANDS-init.md) (Commands: `halo init`, `halo start`, `halo check`, `halo explain` and `halo setup`): read this when you set Halo up (`halo init`, `halo setup`), run the guided first run (`halo start`) or the checks (`halo check`), or look up a word (`halo explain`).
   - [COMMANDS-health.md](COMMANDS-health.md) (Commands: doctor, audit, update and the installers): read this when you check, audit, update or reinstall Halo.
   - [COMMANDS-providers.md](COMMANDS-providers.md) (Commands: providers, rate limits and models): read this when you set up providers, read balances and rules, or refresh the model list.
   - [COMMANDS-mcp.md](COMMANDS-mcp.md) (Commands: MCP servers and connectors): read this when you add, list, repair or log in to MCP servers and claude.ai connectors.
@@ -52,7 +52,7 @@ Work in the TUI and on the command line, and give agents bios, lineups, roles an
   - [SLASH-COMMANDS-session.md](SLASH-COMMANDS-session.md) (Slash commands: sessions, models and context): read this when you manage the session, its model, memory, permissions or config from the prompt (`/clear`, `/model`, `/recall`, `/config` ...).
   - [SLASH-COMMANDS-agents.md](SLASH-COMMANDS-agents.md) (Slash commands: agents, lineups, roles and review): read this when you work with bios, lineups, roles or `/review` from the prompt.
   - [SLASH-COMMANDS-providers.md](SLASH-COMMANDS-providers.md) (Slash commands: providers, fleet and upkeep): read this when you set up providers, rate limits, remote control or the fleet, or run `/doctor`, `/update` and `/bugreport`.
-  - [SLASH-COMMANDS-tui.md](SLASH-COMMANDS-tui.md) (Slash commands: themes, Studio and the TUI): read this when you change themes, open Studio, copy, rewind or tune the TUI, run the ten-minute start, look up a word, or add your own commands, skills and images.
+  - [SLASH-COMMANDS-tui.md](SLASH-COMMANDS-tui.md) (Slash commands: themes, Studio and the TUI): read this when you change themes, open Studio, copy, rewind or tune the TUI, run the guided first run or the checks, look up a word, or add your own commands, skills and images.
   - [SLASH-COMMANDS-keys.md](SLASH-COMMANDS-keys.md) (Slash commands: prefixes, keys and cards): read this when you want the `@path` and `!cmd` prefixes, a key binding, or the keys a card answers to.
 - [GLOSSARY.md](GLOSSARY.md) (Glossary): read this when a word in Halo is new to you.
 - [AGENTS.md](AGENTS.md) (Agent bios and team templates): read this when you write or edit an agent bio or a lineup, field by field.

@@ -1,7 +1,11 @@
-"""halo_harness.start_cli -- `halo start`, the ten-minute guided first run
-(Halo 3.1.1.0 R1; the steps live in halo_harness/start/).
+"""halo_harness.start_cli -- `halo start`, the guided first run (Halo
+3.1.1.0 R1; the steps live in halo_harness/start/).
 
     halo start [--lineup NAME] [--repo DIR] [--file F ...] [--model REF] [--yes] [--json] [--no-studio]
+    halo start --explain     only the card: what it does, the models, the cost, the time, what it writes
+
+3.2.2.0 R2: the first screen is the card (start/card.py), before step 1's
+Enter; `--yes` prints it and goes on, `--json` leaves it out.
 
 One screen per step, each with one sentence of why and the command it
 runs: Enter runs the step, q stops the start. At the plan, Enter approves,
@@ -29,8 +33,9 @@ from halo_harness.start import steps as S
 
 
 def _parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="halo start", description="The ten-minute guided first run: a lineup, a sample "
-                                "repo, one Orchestra goal with a reviewed plan, the run, the report and the coach.")
+    p = argparse.ArgumentParser(prog="halo start", description="The guided first run: a lineup, a sample repo, one "
+                                "real Orchestra goal on your models with a reviewed plan, the run, the report and the "
+                                "coach. It opens on a card saying what it does, costs and writes.")
     p.add_argument("--lineup", default=S.DEFAULT_LINEUP, help=f"the shipped lineup to copy (default {S.DEFAULT_LINEUP})")
     p.add_argument("--repo", default=None, metavar="DIR", help="run in this git repo instead of the sample")
     p.add_argument("--file", dest="files", action="append", default=None, metavar="F",
@@ -39,7 +44,16 @@ def _parser() -> argparse.ArgumentParser:
     p.add_argument("--yes", action="store_true", help="run straight through: no Enter between steps, the plan approved")
     p.add_argument("--json", action="store_true", help="print only the summary as JSON at the end (asks nothing)")
     p.add_argument("--no-studio", dest="studio", action="store_false", help="do not offer Studio's plan canvas")
+    p.add_argument("--explain", action="store_true", help="print only the card (what it does, the models it will "
+                   "call, the estimated cost, the time, what it writes) and exit")
     return p
+
+
+def _card(args, run=None) -> "list[str]":
+    from halo_harness.start.card import card_lines
+    from halo_harness.start import fake
+    return card_lines(lineup=args.lineup, state_dir=run.state_dir if run is not None else None, model=args.model,
+                      fake=run.fake if run is not None else fake.enabled(), repo=args.repo)
 
 
 def _open_studio(run) -> str:
@@ -88,6 +102,10 @@ def _crashed(exc: Exception, run, as_json: bool) -> int:
 
 def cmd_start(argv) -> int:
     args = _parser().parse_args(list(argv))
+    if args.explain:
+        for line in _card(args):
+            print(line)
+        return 0
     built: list = []  # the StartRun, once there is one (its state dir and run folder name the log)
     try:
         return _start(args, built)
@@ -105,8 +123,10 @@ def _start(args, built: list) -> int:
     run = StartRun(opts, emit=screen, ask=None if yes else ask, open_studio=_open_studio)
     built.append(run)
     if not args.json:
-        print("halo start: the ten-minute start" + (" (fake model calls: HALO_START_FAKE=1)" if run.fake else ""))
-        print("Seven steps: " + ", ".join(t for _k, t, _w in S.STEPS) + ".")
+        print("halo start: the guided first run" + (" (fake model calls: HALO_START_FAKE=1)" if run.fake else ""))
+        print()
+        for line in _card(args, run):
+            print(f"  {line}" if line else "")
     try:
         summary = run.run()
     except KeyboardInterrupt:

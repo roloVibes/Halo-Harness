@@ -1,4 +1,4 @@
-"""halo_harness.tui.dialogs.start_panel -- `/start`, the ten-minute start in a
+"""halo_harness.tui.dialogs.start_panel -- `/start`, the guided first run in a
 panel over the session (Halo 3.1.1.0 R1).
 
 The panel runs the same guided start as `halo start --yes` (halo_harness/
@@ -77,7 +77,7 @@ class StartPanel(ModalScreen):
 
     def compose(self):
         with Vertical():
-            yield Static("The ten-minute start (Esc: stop, then close)", classes="dialog-title")
+            yield Static("The guided first run (Esc: stop, then close)", classes="dialog-title")
             yield Static("Starting...", id="start-body")
 
     def on_mount(self) -> None:

@@ -1,9 +1,11 @@
 // "Start here" (3.1.1.0 R1): the overlay a fresh home opens on (no lineup of
-// your own, no run). It offers the ten-minute start or "Just look around"
+// your own, no run). It offers the guided first run or "Just look around"
 // (remembered for the home); once the start runs, the same dialog is its
 // panel: the seven steps with their state, the running step's command and
 // its last lines, then the outcome and where to go next. lib/start.ts holds
-// the state and talks to /api/start.
+// the state and talks to /api/start. 3.2.2.0 R2: the offer shows the card
+// `halo start` opens on (what it does, the models, the cost, the time, what
+// it writes) above its Run button.
 import { useEffect } from "react";
 import { Button, Dialog } from "../lib/ui";
 import { goSection, useStore } from "../lib/store";
@@ -30,16 +32,22 @@ function Step({ frame, current }: { frame: StartFrame; current: boolean }) {
 function Offer() {
   const busy = useStore(start, (s) => s.busy);
   const error = useStore(start, (s) => s.error);
+  const card = useStore(start, (s) => s.card);
   return (
     <div className="sh-offer">
       <p>
-        This home has no lineup of its own and no run yet. The ten-minute start makes both: it copies a shipped lineup into one of yours, writes a small sample repo, gives one Orchestra goal to your agents, approves the lead's plan, runs the lanes, and ends on the report and the coach.
+        This home has no lineup of its own and no run yet. The guided first run makes both: it copies a shipped lineup into one of yours, writes a small sample repo, gives one real Orchestra goal to your agents, approves the lead's plan, runs the lanes, and ends on the report and the coach.
       </p>
-      <p className="muted">It uses the model you configured. The same start in a terminal, one screen per step: <code>halo start</code>.</p>
+      {card.length > 0 && (
+        <pre className="sh-card mono" data-testid="start-here-card">
+          {card.join("\n")}
+        </pre>
+      )}
+      <p className="muted">It runs on your models. The same run in a terminal, one screen per step: <code>halo start</code> (<code>halo start --explain</code> prints this card).</p>
       {error && <p className="og-problems" data-testid="start-here-error">{error}</p>}
       <div className="os-buttons">
         <Button variant="primary" onClick={() => void runStart()} disabled={busy} data-testid="start-here-run">
-          Run the ten-minute start
+          Run the guided first run
         </Button>
         <Button variant="ghost" onClick={() => void dismissStart()} data-testid="start-here-dismiss">
           Just look around
@@ -116,8 +124,8 @@ export function StartHere() {
     <Dialog
       open
       onClose={view === "offer" ? () => void dismissStart() : closeStart}
-      title={view === "offer" ? "Start here" : "The ten-minute start"}
-      kicker="HALO · THE FIRST TEN MINUTES"
+      title={view === "offer" ? "Start here" : "The guided first run"}
+      kicker="HALO · THE GUIDED FIRST RUN"
       className="start-here"
       testid="start-here"
       footer={footer}

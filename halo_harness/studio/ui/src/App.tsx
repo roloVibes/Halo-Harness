@@ -6,7 +6,7 @@
 // Roles (3.0.7.0 R2: the live agents into the Roles store for its React
 // canvas), the mini stream and the Fleet dialogs (R4: take over, hand to,
 // message, kick, a recording); 3.0.7.0 R3: the Design dialogs; R2:
-// the Roles dialogs. 3.1.1.0 R1: the Glossary and "Start here" (a fresh home's offer of the ten-minute start).
+// the Roles dialogs. 3.1.1.0 R1: the Glossary and "Start here" (a fresh home's offer of the guided first run).
 // 3.1.1.0 R3: `?edit=` and the `focus` frame open a bio, a lineup or the Team (shell/edit.ts).
 // 3.2.0.0 R3: the packs' sections and panels (routes/packs: the registry, reloaded on `pack_changed`).
 import { useEffect } from "react";

@@ -138,13 +138,17 @@ the URL is printed. With no Studio running, one starts in the background
 with `--edit` and opens the browser on the target. `--no-open` only prints
 the URL (over SSH: forward the port and open it on your machine).
 
-## The first ten minutes (3.1.1.0)
+## The guided first run (3.1.1.0)
 
 **Start here.** On a fresh home -- no lineup of your own (only the shipped
 lineups or their untouched copies, none active) and no run (no Orchestra run
 in Studio's repo, no `halo start` sample under `~/.halo/start/`) -- Studio
-opens on a **Start here** card instead of the section's welcome. **Run the
-ten-minute start** runs `halo start --yes` as a background job in Studio's
+opens on a **Start here** card instead of the section's welcome. Above its
+button the card shows the same lines `halo start` opens on (3.2.2.0;
+`GET /api/start` carries them as `card`): what it does in seven steps, the
+models it will call, the estimated cost, the time, what it writes, and that
+your active lineup is not touched. **Run the guided first run** runs
+`halo start --yes` as a background job in Studio's
 process (`POST /api/start`): the same seven steps as in a terminal (a lineup
 copied into your scope as `my-halo-dev-cycle`, the sample repo, one
 Orchestra goal with `plan: review`, the plan approved, the lanes, the report
@@ -152,7 +156,7 @@ and the coach, where to go next), each listed with its state while the
 running one shows its command and its last lines; the outcome names the
 lineup, the run and its repo, with buttons into Roles, Team and Fleet.
 Closing the card keeps the start running (the palette's **Start: the
-ten-minute start** brings it back; **Stop the start** ends it). **Just look
+guided first run** brings it back; **Stop the start** ends it). **Just look
 around** dismisses the card for this home (`~/.halo/start/dismissed.json`,
 every browser) and the section's welcome comes up instead. It runs on the
 model you configured; with none, the card says so and points at `halo init`.

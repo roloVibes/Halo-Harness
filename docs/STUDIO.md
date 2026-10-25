@@ -60,7 +60,7 @@ This page is the entry point; the content lives in the parts below, one per task
 
 | Part | Read it when | What is in it |
 |---|---|---|
-| [Studio: the shell](STUDIO-shell.md) | you find your way around Studio's header, sections, panels and Start views, or open it on a bio, a lineup or the Team | The shell (3.0.3.0) · Opening Studio on a bio, a lineup or the Team (`halo studio --edit`) · The first ten minutes (3.1.1.0) |
+| [Studio: the shell](STUDIO-shell.md) | you find your way around Studio's header, sections, panels and Start views, or open it on a bio, a lineup or the Team | The shell (3.0.3.0) · Opening Studio on a bio, a lineup or the Team (`halo studio --edit`) · The guided first run (3.1.1.0) |
 | [Studio: how each section works](STUDIO-sections.md) | you want the one-screen story of a section (Session, Team, Roles, Fleet, Design, Orchestra, Packs) and the live feed | How each section works · The live feed |
 | [Studio: the Orchestra console](STUDIO-orchestra.md) | you run an Orchestra goal from Studio: the run console, the plan canvas and the coach | Orchestra: the run console |
 | [Studio: Fleet](STUDIO-fleet.md) | you watch or steer every harness and agent from Studio's Fleet section | Fleet: every harness, every agent · How this works: Attention · How this works: Costs and caps · How this works: Conflicts and project rooms · How this works: Hand-offs · How this works: Recordings · How this works: Replay · How this works: Who can do what · How this works: Missions · How this works: While you were away · Keys: hop around · Live Roles: the lineup lights up |

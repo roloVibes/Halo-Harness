@@ -171,6 +171,24 @@ roles` are kept as plain aliases (so is the pre-existing `/setup roles`/
 `halo setup roles`, and the new, equally-spelled `/setup team`/`halo setup
 team`) -- all four land on the exact same screen.
 
+## The Summary's checks (3.2.2.0)
+
+Under the lineup lines, the Summary lists the checks Halo offers after
+setup, one row each: its title, then in muted text what it does, what it
+costs, how long it takes and what it writes. The rows and their defaults:
+**Doctor** (on), **Model catalog** (on), **Hello**, one one-turn call to
+your default model (on), **Model gym, quick** (off; the models it would
+run on are listed under the rows, local ones ticked: the gym does not run
+cloud models) and **The guided first run** (off; `halo start`, one real
+Orchestra run on your models). Focus lands on the rows; Space or Enter
+ticks one (rule 2). Finish runs the ticked ones in order, printing each
+one's title, `[OK]` or `[!!]` and its result lines on the Summary, then the
+written-files lines; Finish again closes setup. With nothing ticked, or only
+the guided first run, Finish closes at once; the guided first run starts
+after the wizard closes, and Esc while the checks run closes setup without
+it. A `/setup` Summary has the first four rows. `halo check` runs the same
+list from a shell (`docs/COMMANDS-init.md`).
+
 ## Autocomplete field sites (rule 3)
 
 | Site | Field | Suggests |
