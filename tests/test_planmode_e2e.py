@@ -330,6 +330,114 @@ def test_enter_plan_mode_interactive_succeeds_with_a_notification(ctx: Ctx):
         mock.stop()
 
 
+# ---- Halo 3.2.2.0 R4: plan mode tells the model -------------------------------
+
+def _req_text(req) -> str:
+    import json
+    return json.dumps((req.get("body") or {}).get("messages") or [], ensure_ascii=False)
+
+
+@test
+def test_shift_tab_into_and_out_of_plan_mode_is_told_to_the_model(ctx: Ctx):
+    from halo_harness.agent.mode_notice import PLAN_OFF_NOTE
+    from halo_harness.agent.planmode import PLAN_MODE_NOTE
+    mock = MockUpstream().start()
+    try:
+        SCENARIOS["r4-plan-told"] = ScriptedTurns([_text_step("Read the request. Nothing is pending.")])
+        session = _new_session(mock=mock, model="or:mock/r4-plan-told", permission_mode="default")
+        list(session.turn("first"))
+        ctx.check("turn 1 states the mode", "permission mode: default" in _req_text(mock.requests[-1]))
+        ctx.check("and says nothing of plan mode", "Plan mode is active" not in _req_text(mock.requests[-1]))
+        session.permission_engine.mode = "plan"  # what Shift+Tab / `/plan on` write (Controller.set_permission_mode)
+        list(session.turn("second"))
+        sent = _req_text(mock.requests[-1])
+        plan_file = session.permission_engine.plan_file
+        ctx.check("turn 2 carries the plan-mode note", PLAN_MODE_NOTE in sent)
+        ctx.check(f"with the plan file's path ({plan_file})", plan_file is not None and str(plan_file) in sent.replace("\\\\", "\\"))
+        ctx.check("and the mode line", "permission mode: plan (read-only; call ExitPlanMode with the plan)" in sent)
+        session.permission_engine.mode = "acceptEdits"  # Shift+Tab out (or the card's approve)
+        list(session.turn("third"))
+        sent = _req_text(mock.requests[-1])
+        ctx.check("turn 3 says plan mode is off", PLAN_OFF_NOTE in sent and "permission mode: acceptEdits" in sent)
+        ctx.check("the plan note is not repeated", sent.count("Plan mode is active") == 1)
+    finally:
+        mock.stop()
+
+
+@test
+def test_plan_mode_at_startup_tells_the_first_request(ctx: Ctx):
+    from halo_harness.agent.planmode import PLAN_MODE_NOTE
+    mock = MockUpstream().start()
+    try:
+        SCENARIOS["r4-plan-startup"] = ScriptedTurns([_text_step("Here is what I found. Waiting on you for the plan review.")])
+        session = _new_session(mock=mock, model="or:mock/r4-plan-startup", permission_mode="plan")
+        list(session.turn("plan the refactor"))
+        sent = _req_text(mock.requests[0])
+        ctx.check("--permission-mode plan: the first request has the note", PLAN_MODE_NOTE in sent and "Plan file: " in sent)
+    finally:
+        mock.stop()
+
+
+@test
+def test_a_write_in_plan_mode_is_refused_with_the_way_out(ctx: Ctx):
+    mock = MockUpstream().start()
+    try:
+        SCENARIOS["r4-plan-write"] = ScriptedTurns([
+            _tool_call_step("Write", {"file_path": "notes.txt", "content": "x"}),
+            _text_step("The write waits for the plan. Calling ExitPlanMode is next."),
+        ])
+        session = _new_session(mock=mock, model="or:mock/r4-plan-write", permission_mode="plan")
+        evs = list(session.turn("write notes"))
+        results = [str(e.data.get("content") or e.data.get("summary") or "") for e in evs if e.kind == "tool_result"]
+        logged = [str(n.get("content")) for n in session.log.nodes() if n.get("type") == "tool_result"]
+        results += logged  # what the model reads back
+        ctx.check(f"the refusal names the tool and the way out, got {results}",
+                  any("plan mode: Write writes; research with the read tools and the web, then call ExitPlanMode "
+                      "with the plan (Shift+Tab or /plan off leaves plan mode)" in r for r in results))
+        ctx.check("no jargon", not any("banned" in r or "cannot lift" in r for r in results))
+        ctx.check("nothing was written", not (session.cwd / "notes.txt").exists())
+    finally:
+        mock.stop()
+
+
+@test
+def test_plan_slash_command_on_off_status(ctx: Ctx):
+    import asyncio
+    from types import SimpleNamespace
+    from halo_harness.permissions import PermissionEngine
+    from halo_harness.tui.slash_plan import handle_plan
+    engine = PermissionEngine(mode="acceptEdits", cwd=Path(tempfile.mkdtemp(prefix="r4-slash-plan-")))
+    session = SimpleNamespace(permission_engine=engine, _mode_before_plan=None)
+    notes, modes = [], []
+
+    class _Controller:
+        def __init__(self):
+            self.session = session
+
+        def set_permission_mode(self, mode):
+            modes.append(mode)
+            engine.mode = mode
+
+    async def _add_note(text, *, kind="note"):
+        notes.append(text)
+
+    app = SimpleNamespace(controller=_Controller(), status_bar=SimpleNamespace(mode="acceptEdits", set_mode=lambda m: None),
+                          transcript=SimpleNamespace(add_note=_add_note))
+    asyncio.run(handle_plan(app, "status"))
+    ctx.check(f"status off, got {notes[-1]!r}", notes[-1].startswith("Plan mode is off (permission mode: acceptEdits)"))
+    asyncio.run(handle_plan(app, "on"))
+    ctx.check(f"/plan on switches like Shift+Tab, got {modes}", modes == ["plan"] and engine.mode == "plan")
+    asyncio.run(handle_plan(app, ""))
+    ctx.check(f"bare /plan is the status, got {notes[-1]!r}", notes[-1].startswith("Plan mode is on"))
+    asyncio.run(handle_plan(app, "off"))
+    ctx.check(f"/plan off goes back to the mode before, got {modes}", modes == ["plan", "acceptEdits"])
+    asyncio.run(handle_plan(app, "sideways"))
+    ctx.check("anything else prints the usage", notes[-1] == "Usage: /plan [on|off|status]")
+    from halo_harness.commands.builtins import _BUILTIN_SPECS
+    ctx.check("/plan is in the builtins' help list with its arguments",
+              "plan" in _BUILTIN_SPECS and "on|off|status" in str(_BUILTIN_SPECS["plan"]))
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

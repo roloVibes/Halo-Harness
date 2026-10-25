@@ -98,6 +98,24 @@ def test_append_system_prompt_appended_last(ctx: Ctx):
     ctx.check("appended text comes after the cwd line", prompt.rindex("MARKER-XYZ-123") > prompt.index("Your working directory"))
 
 
+@test
+def test_narration_rule_in_every_family_and_the_kimi_line_gone(ctx: Ctx):
+    """Halo 3.2.2.0 R4: every family is asked for a one-line "what I am
+    doing" before a group of tool calls and "what I found / what is next"
+    (or "waiting on you") at a turn's end; Kimi's "do not add explanations"
+    is gone."""
+    from halo_harness.agent.prompt import NARRATION_RULE
+    ctx.check("the rule asks for one short line before a group of tool calls",
+              "Before a group of tool calls say in one short line what you are doing." in NARRATION_RULE)
+    ctx.check("and never a promise of undone work", "Never end a turn with a promise of work you have not done." in NARRATION_RULE)
+    ctx.check("and the waiting line", "waiting on the user (a question, an approval, the plan)" in NARRATION_RULE)
+    for family in ("deepseek", "kimi", "glm", "qwen", "gemini", "grok", "claude", "gpt", "generic"):
+        prompt = _sample_prompt(family=family)
+        ctx.check(f"{family}: the rule is in the prompt", NARRATION_RULE in prompt)
+        ctx.check(f"{family}: no 'do not add explanations'", "do not add explanations" not in prompt.lower())
+    ctx.check("kimi keeps its tool-call notes", "Tool-call ids" in family_notation("kimi"))
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

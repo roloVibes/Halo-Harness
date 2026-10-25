@@ -42,6 +42,25 @@ version.
 - `/update` on Windows no longer fails with "Scripts: Access is denied" by reinstalling while its own `halo.exe` holds the venv.
 - `halo studio --stop` on Windows ends a Studio whose shutdown route does not answer (it cleared studio.json and left the process running).
 
+### R4: the session says what it is doing, and plan mode never leaves you guessing
+
+#### Added
+- Every turn ends with one muted line: `◼ done · 42 s · 3 tools · $0.012`, `◼ waiting on you: <the question | the plan>`, or `◼ stopped: <max_tokens | max turns | the provider's error | a hook | the loop breaker | Esc>`. Studio's Session feed shows the same line, and a `waiting` line when a card asks you something.
+- A reply that ends promising work ("Now I'll ...", "Let me ...") and calls no tool is nudged once (`↳ nudged: the reply promised work and stopped`); `turn.nudge_promises: false` turns it off.
+- A model call that sends nothing for `steer.silent_restart_s` seconds (default 60, 0 off) is resent once with the same messages (`↳ no data for 60 s, resending the call`).
+- `/plan [on|off|status]`: plan mode from the prompt, or which mode is on and where the plan file is.
+- Each turn tells the model its permission mode in one line.
+
+#### Changed
+- The system prompt asks every model for one short line before a group of tool calls and, at a turn's end, what it found and what is next (or that it waits on you). Kimi's "do not add explanations" is gone.
+- Plan mode runs every read: WebFetch, WebSearch, BashOutput, Skill, ToolSearch, knowledge_search, recall and any MCP tool its server marks `readOnlyHint`, besides Read/Glob/Grep and read-only Bash. In default and acceptEdits, the non-web read tools run without asking.
+- A write in plan mode says what it does and the way out: `plan mode: Write writes; research with the read tools and the web, then call ExitPlanMode with the plan (Shift+Tab or /plan off leaves plan mode)`.
+- The plan card shows its keys first (`[1] Approve, auto-accept edits · [2] Approve, manual · [3]/Esc Keep planning`), then the plan, capped with "... (N more lines; the plan file: <path>)".
+
+#### Fixed
+- Entering plan mode by Shift+Tab, `/plan on`, config or `--permission-mode plan` now tells the model (the plan-mode note with the plan file's path); leaving it says "Plan mode is off: implement the plan."
+- A lazily started MCP server's read-only tools keep their `readOnlyHint` from the tools cache.
+
 ### Also in 3.2.2.0
 
 #### Changed

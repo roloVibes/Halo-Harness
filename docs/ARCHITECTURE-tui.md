@@ -38,6 +38,24 @@ growing a text widget of its own. Every event carries an `agent_id`
 the main status bar or the auto-title/idle bookkeeping those same event
 kinds drive for the top-level session.
 
+**The turn marker** (3.2.2.0 R4). Every finished turn yields one
+`turn_marker` event right before its `turn_done` (`agent/turn_marker.py`'s
+`with_markers`, wrapped around `Session._turn_inner`); dispatch shows its
+`text` as one muted transcript line (`.system-note-marker`, no box):
+`◼ done · 42 s · 3 tools · $0.012`, `◼ waiting on you: <what>` (the reply
+ends on a question, or print mode's plan), `◼ stopped: <why>` (max_tokens,
+max turns, the provider's error in one line, a UserPromptSubmit hook, the
+loop breaker, Esc). A card the turn waits on gets a `waiting` marker with
+`mid_turn: true` as it is shown; the TUI skips that one (the card's own
+`⏸ ..., see below` line is already there) and Studio's Session feed shows
+it. The same event kind carries the loop's `↳` notes: `↳ nudged: the reply
+promised work and stopped` (state `nudged`) and `↳ no data for 60 s,
+resending the call` (state `resend`). A sub-agent's markers never reach the
+main transcript (its card says how it ended); the status bar's `go_idle`
+on `turn_done` is unchanged. The plan card puts its keys line first, above
+the plan, and caps the plan to the dock's room with a `... (N more lines;
+the plan file: <path>)` line (`o` still opens the whole plan).
+
 **The status bar** (`tui/widgets/statusbar.py`) reads `context_tokens`/
 `context_limit`/`cost_usd`/`total_input_tokens`/`total_output_tokens` off
 every `status` and `message_end` event (1.0.1 hotfix 14) -- the same raw

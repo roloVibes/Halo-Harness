@@ -43,9 +43,10 @@ _WORDS = [
 ]
 
 PLAN_MODE_NOTE = (
-    "Plan mode is active. Research the codebase (read-only tools only -- no edits, no writes except "
-    "to the plan file itself) and, when you have a concrete plan, call ExitPlanMode with the full "
-    "plan text. Do not implement anything until the plan is approved."
+    "Plan mode is active. Research with the read tools and the web (Read, Glob, Grep, read-only Bash, "
+    "WebFetch, WebSearch, read-only MCP tools) -- no edits and no writes except to the plan file "
+    "itself -- and, when you have a concrete plan, call ExitPlanMode with the full plan text. Do not "
+    "implement anything until the plan is approved."
 )
 
 

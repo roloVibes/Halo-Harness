@@ -428,6 +428,53 @@ Glob. An allow rule matches exactly as before and auto mode with no rules
 still allows. A rule that does not parse is reported (a line at startup,
 `/permissions`, `halo doctor`) instead of silently doing nothing.
 
+**Plan mode** (Shift+Tab to it, `/plan on`, or `--permission-mode plan`)
+runs every read -- Read, Glob, Grep, read-only Bash, WebFetch, WebSearch,
+BashOutput, Skill, ToolSearch, knowledge_search, recall, and an MCP tool
+its server marks read-only -- and refuses writes with the way out named:
+`plan mode: Write writes; research with the read tools and the web, then
+call ExitPlanMode with the plan (Shift+Tab or /plan off leaves plan mode)`.
+The model is told the moment plan mode starts (the plan file's path and
+"call ExitPlanMode with the plan") and when it ends ("Plan mode is off:
+implement the plan."), whichever way you switched. `/plan` alone says
+which mode is on and where the plan file is. The plan card shows its keys
+first: `[1] Approve, auto-accept edits · [2] Approve, manual · [3]/Esc
+Keep planning`.
+
+## How a turn ends
+
+Every turn ends with one muted line under the reply:
+
+- `◼ done · 42 s · 3 tools · $0.012` -- the model finished; the time, the
+  tool calls this turn made and what it cost (no cost on a model without a
+  price).
+- `◼ waiting on you: <what>` -- the reply ends on a question to you (the
+  question is quoted), or the plan waits for your review. A card mid-turn
+  (a permission ask, a question, the plan) keeps its own `⏸ ..., see
+  below` line.
+- `◼ stopped: <why>` -- the reply hit its output limit (max_tokens), the
+  turn used its `--max-turns` calls, the provider failed (its error in one
+  line), a UserPromptSubmit hook blocked the prompt, the loop breaker ended
+  a repeated call, or you pressed Esc.
+
+Two more lines can appear inside a turn:
+
+- `↳ nudged: the reply promised work and stopped` -- the reply ended with
+  "Now I'll ...", "Let me ...", "I will ...", "Next, I ...", "Going to ..."
+  and called no tool. Halo sends the model one notice ("You ended your turn
+  while saying you would do more. Continue.") and lets it go on; once per
+  turn, never when the reply asks you something. `turn.nudge_promises:
+  false` in `~/.halo/config.json` turns it off.
+- `↳ no data for 60 s, resending the call` -- the model call had sent
+  nothing for `steer.silent_restart_s` seconds (default 60, 0 turns it
+  off), so the same request went out once more; the second try waits as
+  long as the provider allows. A stream that has started is never cut (its
+  phase line says `quiet N s`).
+
+The system prompt asks every model for one short line before a group of
+tool calls and, at a turn's end, what it found and what is next, or one
+line saying it is waiting on you.
+
 ## Steering
 
 

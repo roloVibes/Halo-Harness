@@ -30,7 +30,7 @@ export const KNOWN_KINDS = [
   "error", "turn_done", "subagent_start", "subagent_end", "subagent_queued", "subagent_progress",
   "notification", "phase", "compaction", "governor", "remote_attached",
   "orchestra_state", "orchestra_claim", "orchestra_merge", "orchestra_gate", "orchestra_report",
-  "media_render",
+  "media_render", "turn_marker",
   "agent_state", "agent_event", "fleet", "design_turn", "team", "start", "focus",
   "dropped", // 3.2.1.0: frames fell off this browser's bounded queue; the fleet page re-reads its view
 ];
