@@ -2161,3 +2161,58 @@ over loopback with Studio's token and are never read back (the state says
   STUDIO, STUDIO-sections, README (the first screenshot after install is
   Setup), a screenshots.py capture; "After 3.3.0.0" for what stays open (a
   keyring instead of the env file; pack-declared setup blocks).
+
+## ADDED 2026-10-25 (rolo, two more for 3.2.2.0: "halo pids keep running after I exit halo. I try to do an update then get errors that it's unable to update bc an instance of halo is running even tho I closed it! Kill all halo pids when a user exits halo" and "Drop the one-liners at the beginning when you launch halo, and just pop up the halo ascii art we use each time halo launches")
+
+- R0 The launch shows the art (done by the coordinator, one commit): the
+  intro pool in `tui/intro_lines.py` is the HALO block-art wordmark alone;
+  the copy-of-a-copy line and the Red Dragon line are gone; `/intro` and
+  `/intro <n>` show the art.
+- R3 Halo exits clean, and `halo update` clears what lingers. What outlives
+  a session today (surveyed 2026-10-25): the detached Studio server
+  (`python -u -m halo_harness studio`, started by a bare `/studio`, `/edit`,
+  every "Edit in Studio" button, the wizard's Team step and `halo start`;
+  `~/.halo/studio.json` holds its pid; only `halo studio --stop` ends it),
+  the supervisor daemon (`halo supervise --daemon`, `supervise/pulse.json`),
+  `--bg` runs and schedule fires (`~/.halo/bg/<id>/meta.json`), a schedule
+  fire with no registry (a plain Popen nobody tracks). `Controller.quit`
+  stops none of them; `halo update` refuses with "another halo process looks
+  like it's running (pid N)" and `/update` passes `force=True` and skips the
+  check, then runs `uv tool install --reinstall` from inside the halo
+  process whose `halo.exe` parent is alive (the Windows "Scripts: Access is
+  denied" the docs describe).
+  - On exit (`/quit`, Ctrl+C twice, Ctrl+D, Ctrl+Q, the end of `-p`): halo
+    stops every halo process this session started or found registered to
+    this home: the Studio in `studio.json` (`launch.stop`: the shutdown
+    route, then the signal), its own `--bg` runs and schedule fires (a
+    session-owned list in `~/.halo/run/children.json`: pid, start time,
+    what, written at spawn, pruned at exit), untracked schedule fires (they
+    join the registry). The supervisor is the one process that stays: it
+    was started on purpose by `halo supervise --daemon` and the docs say
+    so; `halo supervise stop` ends it. The quit card says what it stopped
+    in one line ("stopped: Studio (pid 4242), 2 background runs").
+  - `halo update` stops before it installs: every halo process of this
+    install (`other_halo_pids`, extended to `-u -m halo_harness studio`,
+    `_bg_wrapper`, `supervise`, and the tool venv's own `python` running
+    `mlx_lm.server`), each named with its pid and what it is, is stopped in
+    order (the shutdown route or stop file first, then the signal, then the
+    hard kill after 5 s); the supervisor is restarted on the new version
+    when it was running; `--keep-running` refuses as today (the old default)
+    and names each process and the command that stops it. The TUI's
+    `/update` no longer installs from inside the halo process: it writes a
+    detached updater (`cmd.exe /c` on Windows, `sh -c` on POSIX; never the
+    tool venv's python) that waits for this pid to end, stops the lingering
+    processes the same way, runs the reinstall, and logs to
+    `~/.halo/update.log`; the TUI prints that path and "halo --version
+    after it ends" before it exits.
+  - Tests: a quit leaves no registered child alive (a fake Studio and a fake
+    bg run in a scoped home: both pid files gone, both processes ended);
+    `other_halo_pids` matches the four command-line shapes; `halo update`
+    stops a fake lingering process and says so; `--keep-running` refuses
+    with the names; the detached updater script waits for the pid and
+    writes the log (a short-lived parent in the test). Docs: TROUBLESHOOTING
+    (the Access-is-denied entry becomes "halo update does this for you"),
+    INSTALL, COMMANDS (`halo update --keep-running`), STUDIO (Studio ends
+    with the session that started it; `halo studio` starts the new one),
+    COMMANDS-supervise (the supervisor survives a quit, comes back after an
+    update).

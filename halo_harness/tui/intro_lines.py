@@ -9,7 +9,9 @@ fresh pick (or a specific one by number: `/intro 2`). 2.0.11 round A2
 (rolo, 2026-10-11): the pool is the block-art wordmark plus the two
 original lines -- the NIN line and the Red Dragon line -- and nothing
 else; the art reveals row by row with the ring in gold and the letters in
-a gradient (`banner_row_styles`).
+a gradient (`banner_row_styles`). 3.2.2.0 (rolo, 2026-10-25: "drop the
+one-liners ... just pop up the halo ascii art each time halo launches"):
+the pool is the art alone; `/intro` and `/intro <n>` show it.
 
 Every entry carries the `{version}` placeholder; `intro_text()` fills it
 with the installed version. Lines are plain text, no markup.
@@ -26,16 +28,14 @@ INTRO_LINES: tuple[str, ...] = (
     # UTF-8 console and the hero image draws) -- the art reveals row by
     # row, then the version lands on its own line under it.
     BANNER_ART + "\nhalo {version}",
-    "I am just a copy, of a copy, of a copy... halo {version}",
-    "Yeah, thanks. Took the restrictor plate off to give the Red Dragon a little more juice. "
-    "But it's not exactly street legal, so keep it on the down low.. halo {version}",
 )
 
 
 def intro_text(version: str, index: int | None = None, rng: random.Random | None = None) -> str:
     """Return one filled-in intro line. `index` (any int; wraps) picks a
     specific line for `/intro <n>` and tests; otherwise a random one from
-    `INTRO_LINES` (`rng` lets a test seed the pick)."""
+    `INTRO_LINES` (`rng` lets a test seed the pick). Since 3.2.2.0 the pool
+    holds the art alone, so every pick is the art."""
     lines = INTRO_LINES
     if index is not None:
         line = lines[index % len(lines)]
