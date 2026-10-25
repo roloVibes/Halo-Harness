@@ -422,6 +422,9 @@ class McpTool(Tool):
         self.input_schema = sanitize_tool_schema(raw_schema, family=family)
         annotations = getattr(sdk_tool, "annotations", None)
         self.is_read_only = bool(getattr(annotations, "read_only_hint", False))
+        # Halo 3.2.2.0 R4: the server's `readOnlyHint` -- permissions.py's
+        # `read_tool` class (allowed in plan mode). No annotations: False.
+        self.read_only = self.is_read_only
         self.is_destructive = bool(getattr(annotations, "destructive_hint", False))
         self.meta = getattr(sdk_tool, "meta", None) or {}
         self.vision = vision

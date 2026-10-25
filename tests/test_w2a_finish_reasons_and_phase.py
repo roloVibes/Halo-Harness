@@ -279,6 +279,55 @@ def test_telemetry_fields_in_session_log_and_stats_models(ctx: Ctx):
         mock.stop()
 
 
+@_scoped
+def test_silent_call_is_resent_once_after_silent_restart_s(ctx: Ctx):
+    """Halo 3.2.2.0 R4: `steer.silent_restart_s` -- a call with no first
+    token after that many seconds is aborted and resent ONCE with the same
+    messages (no steer involved); the resent call waits as long as it
+    takes. The mock's `delay-then-ok` holds its first chunk for 1.0 s on
+    every request, so the limit (0.4 s) fires on the first attempt only."""
+    from halo_harness import theme as theme_mod
+    fh = build_fake_home()
+    theme_mod.set_config_value("steer.silent_restart_s", 0.4)
+    mock = MockDatabricks().start()
+    try:
+        session = _session(fh, mock, model="dbx:databricks-glm-5-3-delay-then-ok")
+        events_seen = list(session.turn("howdy"))
+        ctx.check(f"exactly 2 upstream requests (the silent one, then the resend), got {len(mock.requests)}",
+                  len(mock.requests) == 2)
+        ctx.check("the resend carries the same messages",
+                  json.dumps(mock.requests[0]["body"].get("messages")) == json.dumps(mock.requests[1]["body"].get("messages")))
+        resends = [e for e in events_seen if e.kind == "turn_marker" and e.data.get("state") == "resend"]
+        ctx.check(f"one resend line, got {[e.data for e in resends]}",
+                  len(resends) == 1 and resends[0].data["text"] == "↳ no data for 0.4 s, resending the call")
+        ctx.check("no steer_restart (nothing was steered)", not [e for e in events_seen if e.kind == "steer_restart"])
+        ctx.check("no error surfaced", not [e for e in events_seen if e.kind == "error"])
+        ctx.check("the answer after the delay arrived", any(e.kind == "text_delta" and "after the delay" in e.data.get("text", "")
+                                                           for e in events_seen))
+        usage = [n for n in session.log.nodes() if n.get("type") == "usage"]
+        ctx.check(f"the resend is free against the retry ladder, got {usage[-1].get('retries') if usage else None}",
+                  usage and usage[-1].get("retries") == 0)
+    finally:
+        mock.stop()
+        theme_mod.set_config_value("steer.silent_restart_s", 60)
+
+
+@_scoped
+def test_silent_restart_zero_turns_the_resend_off(ctx: Ctx):
+    from halo_harness import theme as theme_mod
+    fh = build_fake_home()
+    theme_mod.set_config_value("steer.silent_restart_s", 0)
+    mock = MockDatabricks().start()
+    try:
+        session = _session(fh, mock, model="dbx:databricks-glm-5-3-delay-then-ok")
+        events_seen = list(session.turn("howdy"))
+        ctx.check(f"0 = off: one request, got {len(mock.requests)}", len(mock.requests) == 1)
+        ctx.check("no resend line", not [e for e in events_seen if e.kind == "turn_marker" and e.data.get("state") == "resend"])
+    finally:
+        mock.stop()
+        theme_mod.set_config_value("steer.silent_restart_s", 60)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

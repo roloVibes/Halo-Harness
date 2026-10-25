@@ -48,6 +48,8 @@ async def handle_slash(app, name: str, args: str) -> None:
         # providers/doctor just above.
         "xp": _handle_xp,
         "resume": _handle_resume, "permissions": _handle_permissions,
+        # Halo 3.2.2.0 R4: /plan [on|off|status] (tui/slash_plan.py).
+        "plan": _handle_plan,
         "exit": _handle_exit, "quit": _handle_exit, "theme": _handle_theme,
         # U5 scope C: sessions UX.
         "rename": _handle_rename, "fork": _handle_fork, "export": _handle_export,
@@ -1052,6 +1054,11 @@ async def _handle_review(app, args: str) -> None:
 async def _handle_remote(app, args: str) -> None:
     from halo_harness.tui.slash_remote import handle_remote
     await handle_remote(app, args)
+
+
+async def _handle_plan(app, args: str) -> None:
+    from halo_harness.tui.slash_plan import handle_plan
+    await handle_plan(app, args)
 
 
 async def _handle_fleet(app, args: str) -> None:

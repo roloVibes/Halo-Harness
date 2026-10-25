@@ -211,12 +211,19 @@ every other surface degrades silently to the pre-0e behavior. Set it with
 Shows the active permission mode and the allow/ask/deny rule counts.
 `[TUI-only]`: opens an interactive rules dialog instead of a text summary.
 
-### `/plan` `[TUI-only]`
-In `-p`, prints the current permission mode and a note that plan review
-needs the TUI. In the TUI, a plan review is actually driven by the
-`plan_review` event/`PlanCard` (see [Cards](SLASH-COMMANDS-keys.md#cards-and-their-keys) below),
-not by typing `/plan` -- this command is a status check, not how you
-respond to one.
+### `/plan [on|off|status]` `[TUI-only switch]`
+Halo 3.2.2.0 R4. `/plan on` switches to plan mode (the same as Shift+Tab
+to it), `/plan off` leaves it for the mode it came from (`default` when
+there is none), and `/plan` or `/plan status` says which mode is on and
+where the plan file is. Either switch is told to the model before its next
+call (the plan-mode note with the plan file's path, or "Plan mode is off:
+implement the plan."). In plan mode every read runs (the web included) and
+a write is refused with the way out named -- see
+[Permissions](ARCHITECTURE-permissions.md). The plan itself is answered on
+its card (keys first: `[1] Approve, auto-accept edits · [2] Approve, manual
+· [3]/Esc Keep planning`, see [Cards](SLASH-COMMANDS-keys.md#cards-and-their-keys)),
+not by typing `/plan`. In `-p`, prints whether plan mode is on; start a run
+with `--permission-mode plan` there.
 
 ### `/resume [id-or-text]` `[TUI-only picker]`
 In `-p`: with text, reports the matching session id (you still pass it via

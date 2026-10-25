@@ -45,6 +45,12 @@ Screen {
     color: $bridge-muted;
 }
 
+/* 3.2.2.0 R4: the line a turn ends with (done / waiting on you / stopped)
+   and the loop's own nudge / resend notes -- one muted line, no box. */
+.system-note-marker {
+    color: $bridge-muted;
+}
+
 .system-note-subagent {
     color: $bridge-accent;
 }

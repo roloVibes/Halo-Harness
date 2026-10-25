@@ -1245,8 +1245,29 @@ def _bash_command_all_segments_readonly(command: str) -> bool:
     return bool(segments) and all(is_read_only_bash_segment(s) for s in segments)
 
 
+# Halo 3.2.2.0 R4: tools that only read -- allowed in every mode's row, plan
+# mode included. Read/Glob/Grep keep their own path-aware categories above
+# (read_in_workdir / read_outside); an MCP tool joins when its server marks
+# it `readOnlyHint` (tools/mcp_tool.py's `is_read_only`).
+READ_TOOL_NAMES = frozenset({
+    "LS", "BashOutput", "ToolSearch", "Skill", "knowledge_search", "recall",
+    "ListMcpResourcesTool", "ReadMcpResourceTool", "TaskList",
+})
+# The web reads: allowed in plan mode (research needs the web); every other
+# mode keeps what it decided before (default/acceptEdits ask, dontAsk refuses).
+WEB_READ_TOOL_NAMES = frozenset({"WebFetch", "WebSearch"})
+
+
+def plan_mode_refusal(what: str) -> str:
+    """The text a write gets in plan mode: what the call does and the way out."""
+    return (f"plan mode: {what} writes; research with the read tools and the web, then call "
+            f"ExitPlanMode with the plan (Shift+Tab or /plan off leaves plan mode)")
+
+
 _MODE_TABLE = {
     "read_in_workdir":       {"default": "allow", "acceptEdits": "allow", "plan": "allow", "dontAsk": "allow"},
+    "read_tool":             {"default": "allow", "acceptEdits": "allow", "plan": "allow", "dontAsk": "allow"},
+    "web_read":              {"default": "ask", "acceptEdits": "ask", "plan": "allow", "dontAsk": "deny"},
     "read_outside":          {"default": "ask", "acceptEdits": "ask", "plan": "ask", "dontAsk": "deny"},
     "readonly_bash":         {"default": "allow", "acceptEdits": "allow", "plan": "allow", "dontAsk": "allow"},
     "edit_write_in_workdir": {"default": "ask", "acceptEdits": "allow", "plan": "deny", "dontAsk": "deny"},
@@ -1925,8 +1946,7 @@ class PermissionEngine:
             # `npm install` write in plan mode (the mode table alone was
             # consulted too late, after the allow hit).
             if self.mode == "plan" and not _bash_command_all_segments_readonly(command):
-                return Decision("deny", "plan mode: this Bash command is not read-only "
-                                "(an allow rule cannot lift the plan-mode write ban)", source="mode")
+                return Decision("deny", plan_mode_refusal("this Bash command"), source="mode")
             return Decision("allow", "allowed by an explicit Bash rule", source="rules")
 
         return self._mode_table_decision("Bash", tool_input, None)
@@ -1969,8 +1989,7 @@ class PermissionEngine:
         # (there is no PowerShell read-only list, so it covers every call --
         # the mode table already denies PowerShell in plan mode without rules).
         if self.mode == "plan":
-            return Decision("deny", "plan mode: PowerShell commands are not run in plan mode "
-                            "(an allow rule cannot lift the plan-mode write ban)", source="mode")
+            return Decision("deny", plan_mode_refusal("PowerShell"), source="mode")
         allow_bare = [r for r in ps_rules(self.allow_rules) if r.kind == "bare"]
         allow_patterned = [r for r in ps_rules(self.allow_rules) if r.kind in ("exact", "prefix", "glob")]
         if allow_bare or any(powershell_rule_matches(r.kind, r.value, command) for r in allow_patterned):
@@ -2032,6 +2051,12 @@ class PermissionEngine:
                 except OSError:
                     pass
             return "edit_write_in_workdir" if (target is not None and self._in_working_dirs(target)) else "other"
+        if tool_name in READ_TOOL_NAMES:
+            return "read_tool"
+        if tool_name in WEB_READ_TOOL_NAMES:
+            return "web_read"
+        if tool_name.startswith("mcp__") and bool(getattr(tool, "is_read_only", False)):
+            return "read_tool"
         return "other"
 
     _CD_OPT_RE = re.compile(r"-[LPe@]+")
@@ -2198,6 +2223,9 @@ class PermissionEngine:
                              source="mode")
         category = self._categorize(tool_name, tool_input, tool)
         action = _MODE_TABLE.get(category, _MODE_TABLE["other"]).get(self.mode, "ask")
+        if action == "deny" and self.mode == "plan":
+            return Decision("deny", plan_mode_refusal("this Bash command" if tool_name == "Bash" else tool_name),
+                            source="mode")
         if action == "ask":
             # review finding 3: computed for every interactive ask too,
             # same reasoning as `_resolve_ask` above.
@@ -2318,13 +2346,13 @@ class PermissionEngine:
 
         # finding 9: the plan-mode write ban, BEFORE allow rules -- an
         # allow rule must never lift what plan mode exists to enforce.
-        # (MCP tools are included: their mode-table row is "other" ->
-        # plan: deny, and an allow rule must not pre-empt that either.)
+        # (MCP tools are included unless their server marks them
+        # readOnlyHint -- 3.2.2.0 R4's `read_tool`; the web reads and the
+        # other read tools categorize as reads and pass straight through.)
         if self.mode == "plan" and tool_name not in self._PLAN_BAN_EXEMPT:
             category = self._categorize(tool_name, tool_input, tool)
             if category in ("edit_write_in_workdir", "other"):
-                return Decision("deny", f"plan mode: {category} is banned (an allow rule "
-                                "cannot lift the plan-mode write ban)", source="mode")
+                return Decision("deny", plan_mode_refusal(tool_name), source="mode")
 
         if self.mode in ("auto", "bypassPermissions"):
             return Decision("allow", "mode allows (no deny/ask rule matched)", source="mode")
