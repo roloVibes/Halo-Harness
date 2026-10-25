@@ -4,7 +4,70 @@ This folder carries the whole plan so a new session (local or cloud) can
 pick the work up without the conversation that produced it. Read this file
 first, then `WORKER-RULES.md`, then the round you are starting.
 
-## WHERE THINGS STAND -- 2026-10-24 evening (authoritative, read this first)
+## WHERE THINGS STAND -- 2026-10-25 night (authoritative, read this first)
+
+**3.2.2.0 "The first run says what it does" is the release candidate** (every
+round merged on master; `scripts/release.py 3.2.2.0 --skip-windows` runs once the
+Linux push run and the dispatched Windows run for the exact head are both
+green). The owner, live on Kali and in Studio on 2026-10-25, sent six notes;
+each became one round, one Opus worker each in `~/hh-322/<round>` (briefs,
+hand-backs, progress files and CI logs under `~/hh-322/briefs/`); the
+coordinator merged each with its CHANGELOG block (`changelog_322.py` in the
+session scratchpad) and rebuilt the Studio dist from the merged sources at
+every merge:
+
+- R0 the launch shows the HALO block-art wordmark every time; the two
+  one-liners are gone (`tui/intro_lines.py`).
+- R1 the start never crashes: any error a step did not expect is one line
+  and a log file (`<state>/start/<date>/*-error.log`, `start/errors.py`);
+  FOUND the owner's Kali traceback -- the wizard Summary's checks worker
+  outliving Finish (NoActiveAppError printed where `halo start` began).
+- R2 the first-run checks: "the ten-minute start" is "the guided first run",
+  it opens on a card (the steps, the models it will call, an estimate, what
+  it writes; `halo start --explain`); `start/checks.py` holds five checks
+  (doctor, catalog, hello, the gym, the guided first run; the first three on
+  by default) shown as rows in the wizard's Summary and run by `halo check`.
+- R3 halo exits clean, and `halo update` clears what lingers: a children
+  registry (`~/.halo/run/children.json`, `children.py`, `children_stop.py`,
+  `children_left.py`); a quit stops the Studio and the session's runs and
+  prints "stopped: ...; left running: ..."; `halo update` stops and names
+  every lingering halo process (`--keep-running` refuses as before, `--force`
+  stops nothing), restarts the supervisor after the install; `/update`
+  installs from a detached cmd.exe/sh updater after halo exits
+  (`update_detached.py`, log `~/.halo/update.log`).
+- R4 the session says what it is doing: a turn-end marker line (done /
+  waiting on you / stopped), a one-line narration rule in the prompt, a
+  nudge when a reply promises work and stops, a silent call resent after
+  60 s; plan mode tells the model (Shift+Tab, `/plan`, startup), lets every
+  read through (WebFetch, WebSearch, MCP readOnlyHint, ...), refuses a write
+  in plain words naming the way out; the plan card's keys come first.
+- R5 the canvas makes room: workspace panels give up columns, trade places,
+  drop down last and never below the viewport (`lib/geometry.ts`,
+  `lib/workspace/room.ts`, Arrange); a card drop nudges what it hits,
+  collapsed tiers are not drop targets, stable card ids, the scope chip off
+  the cards.
+- R6 Studio sees what the session changes: `studio/files_live.py` watches
+  the teams/agents folders, config.json and the layouts and publishes
+  `files_changed`; every page that shows them re-reads, a draft is kept with
+  "changed on disk" + Reload / Keep mine.
+
+Also: the TUI suite (`python test_tui.py`) is CI's third suite; R3's quit
+path broke one of its stub tests on the Windows run of 14e23af -- fixed on
+master (b644734). Workers that touch `tui/app.py` run it.
+
+Open after 3.2.2.0: the owner's live checks on Kali (`halo update` there
+installs it; the first Kali run of `halo start`, a quit with a Studio open,
+`/update`); the gym runs local models only; the start's real calls come from
+the active role table, not the copied lineup; a `--bg` run started from a
+plain shell survives a quit (the line says so); dontAsk still refuses the
+web tools; the Kali VM did not answer ssh all day.
+
+**Next:** 3.3.0.0 "Setup is Studio" (plans/ROADMAP.md "ADDED 2026-10-25 ...
+3.3.0.0", four rounds; the design in the owner's plan file
+`~/.claude/plans/mutable-twirling-puzzle.md`): a Setup section (Alt+8), `halo
+init` opens Studio on it, the terminal wizard stays as the fallback.
+
+## WHERE THINGS STAND -- 2026-10-24 evening (superseded 2026-10-25)
 
 **3.2.1.0 "Packs, the loose ends" IS RELEASED** (tag v3.2.1.0 at 8c3332c, cut
 by `scripts/release.py 3.2.1.0 --skip-windows` on a green Linux push run and a
