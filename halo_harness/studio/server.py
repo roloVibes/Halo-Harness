@@ -49,11 +49,14 @@ class _Server(http.server.ThreadingHTTPServer):
         self.events = None  # studio.events.EventBridge, made by the first /api/events
         self.fleet_hub = None  # 3.0.5.0 R2: fleet.hub.HubServer (`halo studio --fleet`, studio/fleet_hub_api.py)
         self.events_lock = threading.Lock()
+        self.files_watch = None  # 3.2.2.0 R6: studio/files_live.py Watcher, started by start_server
         super().__init__(addr, handler)
 
     def server_close(self):
         if getattr(self, "fleet_watch", None) is not None:  # 3.0.5.0 R4: studio/fleet_watch.py
             self.fleet_watch.stop()
+        if getattr(self, "files_watch", None) is not None:  # 3.2.2.0 R6: studio/files_live.py
+            self.files_watch.stop()
         if self.events is not None:
             self.events.close()
         if self.fleet_hub is not None:  # the fleet hub ends with Studio
@@ -245,6 +248,8 @@ def studio_info_path(state_dir: Path) -> Path:
 def start_server(*, port: int = 0, cwd: Path, state_dir: Path, token: str | None = None) -> _Server:
     token = token or secrets.token_urlsafe(24)
     server = _Server(("127.0.0.1", port), Handler, token=token, cwd=cwd, state_dir=state_dir)
+    from halo_harness.studio.files_live import watch  # 3.2.2.0 R6: `files_changed` when a lineup, bio, config or layout moves
+    watch(server)
     return server
 
 

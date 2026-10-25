@@ -5,9 +5,11 @@
 // with a live agent is clicked). 3.1.4.0 R4: above the tabs, the MODEL strip
 // (ModelStrip.tsx): what the selected card runs on and the select to change it.
 // 3.2.0.0 R2: a pack's lineup says "from pack <id>, read-only" on top, with Customize.
+// 3.2.2.0 R6: over it all, "<name> changed on disk" with Reload / Keep mine when a draft is unsaved (DiskNote.tsx).
 import { Button, Tabs } from "../../lib/ui";
 import { Metric } from "../orchestra/bits";
 import { Assignment } from "./Assignment";
+import { LineupDiskNote } from "./DiskNote";
 import { LineupTab } from "./LineupTab";
 import { useByNode } from "./live";
 import { LiveTab } from "./LiveTab";
@@ -37,6 +39,7 @@ export function InspectorDetail() {
   const anyLive = Object.keys(byNode).length;
   return (
     <div className="ri" data-testid="roles-inspector-body">
+      <LineupDiskNote />
       <ReadOnly />
       <ModelStrip />
       <Tabs

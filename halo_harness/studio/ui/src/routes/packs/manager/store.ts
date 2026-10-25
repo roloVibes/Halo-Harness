@@ -5,8 +5,10 @@
 // grants picked for a disabled pack's Enable, and the last action's lines
 // (the CLI's own words). Every action posts to the route `halo pack` mirrors
 // (studio/packs_manager_api.py) and the page redraws from the frame.
+// 3.2.2.0 R6: a lineup moving on disk (`files_changed`) reads Templates again.
 import { api, ApiError } from "../../../lib/api";
 import { onEvent } from "../../../lib/events";
+import { onFilesChanged } from "../../../lib/filesLive";
 import { createStore, setSectionStatus, toast, useStore } from "../../../lib/store";
 import type { Done, Manager, PackRow, UpdatePreview } from "./types";
 
@@ -72,6 +74,7 @@ export function startManager(): void {
   if (started) return;
   started = true;
   onEvent("pack_changed", () => void loadManager());
+  onFilesChanged("lineups", () => void loadManager());
   void loadManager();
 }
 

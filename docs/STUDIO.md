@@ -9,6 +9,13 @@ project), a bio is `~/.halo/agents/<name>.yaml`, and Studio reads and writes
 them through the exact functions `halo teams` and `halo agents` use. Nothing
 is a second source of truth.
 
+**What Studio shows is what is on disk, as it changes (3.2.2.0):** a lineup
+your session edits, `halo teams apply`, a bio saved from the terminal appear
+within two seconds, no refresh (the server watches the lineup, bio, config
+and layout files and sends `files_changed`). A form you are editing keeps
+your draft and offers **Reload** or **Keep mine**; a file deleted on disk
+leaves the list. How: [The live feed](STUDIO-sections.md#the-live-feed).
+
 ```sh
 halo studio                 # starts a local server, opens the browser in the mode you used last
 halo studio --mode roles    # straight into Roles (lineups and bios), --mode design
