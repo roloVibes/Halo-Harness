@@ -32,6 +32,7 @@ export const KNOWN_KINDS = [
   "orchestra_state", "orchestra_claim", "orchestra_merge", "orchestra_gate", "orchestra_report",
   "media_render",
   "agent_state", "agent_event", "fleet", "design_turn", "team", "start", "focus",
+  "dropped", // 3.2.1.0: frames fell off this browser's bounded queue; the fleet page re-reads its view
 ];
 
 const handlers = new Map<string, Set<Handler>>();

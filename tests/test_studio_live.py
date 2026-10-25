@@ -179,6 +179,27 @@ def test_server_close_ends_open_streams(ctx: Ctx):
     rd.close()
 
 
+@test
+def test_the_browser_hears_when_frames_fell_off_its_queue(ctx: Ctx):
+    """3.2.1.0: the bounded queue drops the oldest frame under a flood and the page never knew, so a stopped agent
+    could stay `running` on the Fleet map (the Linux runner, twice); the stream says `dropped` (once per rise) and the
+    page re-reads the fleet view (fleet/sync.ts, also on every stream open)."""
+    from halo_harness.studio.events import BrowserQueue
+    from halo_harness.studio.events_sse import dropped_notice
+    q = BrowserQueue("all", maxlen=3)
+    for i in range(5):
+        q.put({"event": "agent_state", "i": i})
+    ctx.check(f"two frames fell off, got {q.dropped}", q.dropped == 2)
+    data, told = dropped_notice(q, 0)
+    ctx.check(f"a dropped frame names the count, got {data!r}", data is not None and b"event: dropped" in data
+              and b'"n": 2' in data and told == 2)
+    ctx.check("nothing more to tell", dropped_notice(q, told) == (None, told))
+    for _ in range(2):
+        q.put({"event": "agent_state", "i": 9})
+    data2, told2 = dropped_notice(q, told)
+    ctx.check(f"later drops are told once each, got {data2!r} {told2}", data2 is not None and b'"n": 2' in data2 and told2 == 4)
+
+
 if __name__ == "__main__":
     os.environ.setdefault("BRIDGE_TEST_NO_BACKGROUND_NET", "1")
     ctx = Ctx()

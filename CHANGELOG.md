@@ -95,6 +95,7 @@ Focus: packs, the loose ends -- the sixteen open points the Packs program left, 
 
 #### Fixed
 
+- Studio's Fleet map could keep a stopped agent `running`: a frame that fell off the browser's bounded event queue under a flood, or one lost while the stream reconnected, was never corrected because the page re-read the fleet view only while the stream was closed. The stream now says `dropped` when frames fell off, and the page re-reads the fleet view then and on every stream open.
 - A hand-written plan.json that fails the check becomes plan.bad.json in one write with its `problems`, then plan.json goes; before, the move came first and a reader in between (Studio's poll, a test on a fast runner) saw the bad plan without its problems.
 - A print-mode run started with `--input-format stream-json` registered its control socket before its turn queue existed, so a `submit` over the socket in that moment was answered with the one-prompt error (or taken as a steer); the queue exists before the socket is registered, and `status` says `accepts_turns`.
 
