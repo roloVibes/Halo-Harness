@@ -4,7 +4,9 @@
 // riding along), a `POST validate` 250 ms after every edit (the graph and the
 // Problems panel follow the unsaved mapping), and the card positions and tier
 // boxes saved with `PUT layout/<name>` 500 ms after the last move. The
-// status bar's ROLES line follows the store.
+// status bar's ROLES line follows the store. 3.2.2.0 R5: when an edit
+// changes the graph (a card removed, duplicated, its role changed), every
+// position follows its card (`rekeyPositions`), so no card takes another's spot.
 import { api, ApiError } from "../../lib/api";
 import { setSectionStatus } from "../../lib/store";
 import { clone, roles, showsStart, statusLine } from "./store";
@@ -31,6 +33,28 @@ export function readLayout(raw: unknown): { positions: Record<string, Pos>; coll
   const collapsed: Record<string, boolean> = {};
   for (const [name, v] of Object.entries((r.tiers && typeof r.tiers === "object" ? r.tiers : {}) as Record<string, { collapsed?: boolean }>)) if (v?.collapsed) collapsed[name] = true;
   return { positions, collapsed };
+}
+
+/** The positions keyed by `next`'s ids: each card of `prev` found again in `next` (the same alias, role and agent, in
+ *  order; else, when the card count is the same, the card at the same index) keeps its spot under its new id. */
+export function rekeyPositions(prev: Graph | null, next: Graph, positions: Record<string, Pos>): Record<string, Pos> {
+  if (!prev || prev === next) return positions;
+  const sig = (n: Graph["nodes"][number]) => `${n.alias}|${n.role}|${n.agent}`;
+  const free = new Map<string, string[]>();
+  for (const n of next.nodes) free.set(sig(n), [...(free.get(sig(n)) || []), n.id]);
+  const map: Record<string, string> = {};
+  for (const n of prev.nodes) {
+    const id = free.get(sig(n))?.shift();
+    if (id) map[n.id] = id;
+  }
+  const taken = new Set(Object.values(map));
+  if (prev.nodes.length === next.nodes.length)
+    for (const n of prev.nodes) if (!map[n.id] && next.nodes[n.index] && !taken.has(next.nodes[n.index].id)) map[n.id] = next.nodes[n.index].id;
+  if (Object.entries(map).every(([a, b]) => a === b)) return positions;
+  const out: Record<string, Pos> = {};
+  for (const [id, p] of Object.entries(positions)) if (!map[id]) out[id] = p;
+  for (const [from, to] of Object.entries(map)) if (positions[from]) out[to] = positions[from];
+  return out;
 }
 
 export async function loadLists(): Promise<void> {
@@ -98,7 +122,7 @@ export function validateSoon(now = false): void {
     const seq = ++validateSeq;
     try {
       const r = await api.post<{ problems: string[]; graph: Graph; findings: Finding[] }>("validate", { kind: "lineup", raw: s.raw, name: s.name });
-      if (seq === validateSeq) roles.update(() => ({ graph: r.graph, findings: r.findings || [] }));
+      if (seq === validateSeq) roles.update((st) => ({ graph: r.graph, findings: r.findings || [], positions: rekeyPositions(st.graph, r.graph, st.positions) }));
     } catch (e) {
       if (seq === validateSeq) roles.update(() => ({ findings: [{ id: "validate-error", severity: "blocks", text: msg(e), fix: "", node: "" }] }));
     }

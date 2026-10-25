@@ -49,6 +49,7 @@
 .rail .empty-title { font-size: 13px; }
 .rail .empty-body { font-size: 12px; }
 .rail-foot { margin-top: auto; }
+.rail-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 6px; }
 .rail-note { margin: 0 6px 8px; font-size: 12px; color: var(--muted); }
 
 /* -- stage ------------------------------------------------------------------- */

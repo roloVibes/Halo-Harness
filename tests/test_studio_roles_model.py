@@ -94,7 +94,7 @@ def test_the_pill_and_enter_focus_the_strips_select(ctx: Ctx):
     ctx.check(f"the pill's title says it, got {got.get('pill_title')!r}", "click to change it" in str(got.get("pill_title")))
     ctx.check(f"a pill click selects its card and focuses the select, got {got.get('pill_focus')!r}",
               got.get("pill_focus") and got.get("pill_focus") == got.get("pill_card"))
-    ctx.check(f"Enter on the selected card does the same, got {got.get('enter_focus')!r}", got.get("enter_focus") == "worker#1")
+    ctx.check(f"Enter on the selected card does the same, got {got.get('enter_focus')!r}", got.get("enter_focus") == "worker#0")
 
 
 @test

@@ -2,10 +2,11 @@
 // it; an optional one is added), the section's own block (Orchestra: the
 // runs), the Fleet tree (every harness, session and agent with its
 // status, and the answer for a session that waits on you), and the layout
-// actions. 3.2.0.0 R3: the packs' sections, under a thin "packs" divider.
+// actions (3.2.2.0 R5: Arrange beside Reset layout). 3.2.0.0 R3: the packs'
+// sections, under a thin "packs" divider.
 import { Button, Icon, Kbd } from "../lib/ui";
 import { studio, toast, useStore } from "../lib/store";
-import { layoutStore, resetLayout } from "../lib/workspace/persist";
+import { arrangeLayout, layoutStore, resetLayout } from "../lib/workspace/persist";
 import { goSection } from "../lib/store";
 import { sectionDef, useSections } from "../routes";
 import { revealPanel } from "./commands";
@@ -66,19 +67,35 @@ export function Rail() {
       <section className="rail-group rail-foot" aria-label="Layout">
         <div className="rail-label mono">LAYOUT · {ls.custom ? "YOURS" : "DEFAULT"}</div>
         <p className="rail-note">
-          Drag a title bar to move a panel, its edges to resize. <Kbd keys="Alt+Shift+Down" /> grows the focused one.
+          Drag a title bar to move a panel (the others make room), an edge to resize it against its neighbour. <Kbd keys="Alt+Shift+Down" /> grows the focused one.
         </p>
-        <Button
-          size="sm"
-          icon={<Icon name="reset" />}
-          disabled={!ls.custom}
-          onClick={() => {
-            resetLayout(section);
-            toast(`${def.title} layout reset`, "done");
-          }}
-        >
-          Reset layout
-        </Button>
+        <div className="rail-actions">
+          <Button
+            size="sm"
+            icon={<Icon name="grid" />}
+            disabled={!ls.layout}
+            title="Every open panel back in its default place and size (strips stay strips)"
+            data-testid="layout-arrange"
+            onClick={() => {
+              arrangeLayout(section, def.panels);
+              toast(`${def.title} panels arranged`, "done");
+            }}
+          >
+            Arrange
+          </Button>
+          <Button
+            size="sm"
+            icon={<Icon name="reset" />}
+            disabled={!ls.custom}
+            data-testid="layout-reset"
+            onClick={() => {
+              resetLayout(section);
+              toast(`${def.title} layout reset`, "done");
+            }}
+          >
+            Reset layout
+          </Button>
+        </div>
       </section>
     </aside>
   );

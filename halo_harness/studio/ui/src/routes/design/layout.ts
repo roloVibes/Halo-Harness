@@ -2,6 +2,10 @@
 // prototype is previewed at (the classic page's phone / tablet / desktop
 // sizes), the frame a device draws at on a card, the height a card takes in
 // the flow, and the flow itself (a card with no saved place goes into rows).
+// 3.2.2.0 R5: `dropRoom` -- a card dropped on another never covers it: the
+// cards it lands on step aside (lib/geometry.ts `nudgeApart`, the canvas as
+// the bounds).
+import { nudgeApart, type Box } from "../../lib/geometry";
 import type { Artboard, Pos } from "./types";
 
 export const CARD_W = 380;
@@ -50,4 +54,17 @@ export function rowUnder(boards: Artboard[], saved: Record<string, Pos>, dev: De
   const out: Record<string, Pos> = {};
   fresh.forEach((id, i) => (out[id] = { x: 24 + i * (CARD_W + GAP), y }));
   return out;
+}
+
+/** The places that change when artboard `id` lands at `at` (it was at `from`): its own, and every card it overlaps, moved aside. */
+export function dropRoom(boards: Artboard[], saved: Record<string, Pos>, dev: Device, id: string, at: Pos, from?: Pos): Record<string, Pos> {
+  const h = slotH(dev) - GAP;
+  const box = (p: Pos): Box => ({ x: p.x, y: p.y, w: CARD_W, h });
+  const placed = flow(boards, saved, dev);
+  const others: Record<string, Box> = {};
+  for (const a of boards) if (a.id !== id && placed[a.id]) others[a.id] = box(placed[a.id]);
+  const after = nudgeApart(box(at), others, { x: 0, y: 0, w: 1e6, h: 1e6 }, { minW: CARD_W, minH: h, gap: GAP / 2, from: from ? box(from) : undefined });
+  const patch: Record<string, Pos> = { [id]: at };
+  for (const k of Object.keys(others)) if (after[k].x !== others[k].x || after[k].y !== others[k].y) patch[k] = { x: Math.round(after[k].x), y: Math.round(after[k].y) };
+  return patch;
 }

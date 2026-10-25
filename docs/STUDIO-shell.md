@@ -31,8 +31,17 @@ The classic plain-JS page (`/legacy/`, `halo studio --legacy`) is gone since
 - **A movable workspace.** Every section is a set of panels on a 24-column
   grid (8 px rows). **Click anywhere on a panel to work in it**: a ring
   marks the panel you are on, and an open Inspector follows it. Drag a
-  panel's title bar to move it, an edge or corner to resize it; the others
-  make room and everything snaps to the grid. The title bar is the title,
+  panel's title bar to move it, an edge or corner to resize it; everything
+  snaps to the grid and the others make room (3.2.2.0), live while you drag:
+  a panel you drop on another takes columns from it first (the neighbour
+  gives up columns on the side facing it, down to its smallest width, and
+  the moved panel takes what is left); two panels in the same columns (both
+  full width among them) trade places, the neighbour taking the moved
+  panel's old rectangle; only when neither fits does the neighbour go down,
+  and never below the visible rows, so no panel leaves the window on a move.
+  An edge or corner you drag is a splitter: the panel on the other side of
+  that edge shrinks or grows by the same columns or rows (down to its
+  smallest size). The title bar is the title,
   the panel's one-line **about** (what it is), ONE **Compact / Expand**
   toggle (on a collapsed strip: the chevron that opens it) and ONE **...**
   menu: **Float** over the grid (or dock it back),
@@ -43,8 +52,12 @@ The classic plain-JS page (`/legacy/`, `halo studio --legacy`) is gone since
   `Alt+Shift`+arrows resize it. The arrangement is remembered per section in
   your browser (`localStorage` key `halo.studio.layout.<section>`, version 2:
   an arrangement saved by 3.0.3.0 keeps its places, not its faces);
-  **Reset layout** (the rail, or the palette) returns to the defaults, which
-  follow the window size until you rearrange something.
+  **Arrange** (the rail, beside Reset layout, or the palette's "Arrange")
+  puts every panel you have open back in the section's default place and
+  size in one press, and keeps what you chose (a strip stays a strip, a face
+  stays, a floating panel floats); **Reset layout** (the rail, or the
+  palette) returns to the defaults, which follow the window size until you
+  rearrange something.
 - **Two faces and the settings.** Every panel opens on its **full face**,
   ready to use with no button to press first; **Compact** is its summary (what
   it is, one live indicator, one or two big numbers, readable from across the

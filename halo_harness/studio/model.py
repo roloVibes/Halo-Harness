@@ -138,14 +138,53 @@ def _bio_warnings(bio, source: str, state_dir) -> list:
     return card_warnings(bio, source, state_dir=state_dir) if bio else []
 
 
-def _node_id(entry: dict, i: int) -> str:
-    return str(entry.get("as") or entry.get("role") or entry.get("agent") or f"n{i}") + f"#{i}"
+def _node_base(entry: dict, i: int) -> str:
+    return str(entry.get("as") or entry.get("role") or entry.get("agent") or f"n{i}")
+
+
+def node_ids(entries: list) -> list:
+    """3.2.2.0 R5: a card's id is its alias (else its role, else its agent)
+    plus an ordinal only among the cards with that same name (two `reviewer`
+    cards are `reviewer#0` and `reviewer#1`), so removing a card keeps every
+    other card's id and its saved spot on the canvas."""
+    seen: dict = {}
+    out = []
+    for i, e in enumerate(entries):
+        base = _node_base(e, i)
+        out.append(f"{base}#{seen.get(base, 0)}")
+        seen[base] = seen.get(base, 0) + 1
+    return out
+
+
+def legacy_node_ids(entries: list) -> list:
+    """The ids before 3.2.2.0: the name plus the card's index in the lineup."""
+    return [f"{_node_base(e, i)}#{i}" for i, e in enumerate(entries)]
+
+
+def migrate_layout_ids(layout: dict, raw: dict) -> dict:
+    """A layout saved with the index ids (before 3.2.2.0) reads with today's
+    ids when its cards are this lineup's cards under the old ids: all of
+    them, or some of them when one of those ids can only be an old one (a
+    layout keeps only the cards that were moved). Anything else -- a layout
+    already in today's ids, cards that are not this lineup's -- is left as
+    it is."""
+    layout = normalize_layout(layout)
+    entries = [e for e in (raw.get("agents") or []) if isinstance(e, dict)]
+    old, new = legacy_node_ids(entries), node_ids(entries)
+    saved = set(layout["nodes"])
+    if old == new or not saved or not saved <= set(old) or saved == set(new):
+        return layout
+    if saved <= set(new) and saved != set(old):
+        return layout  # every id reads either way: today's
+    to_new = dict(zip(old, new))
+    return {**layout, "nodes": {to_new[k]: v for k, v in layout["nodes"].items()}}
 
 
 def graph_for(raw: dict, *, cwd=None, state_dir=None, catalog: Optional[dict] = None) -> dict:
     catalog = _catalog_index(state_dir) if catalog is None else catalog
     entries = [e for e in (raw.get("agents") or []) if isinstance(e, dict)]
     nodes, by_alias, by_role = [], {}, {}
+    ids = node_ids(entries)
     for i, e in enumerate(entries):
         bio = A.resolve_agent_bio(str(e.get("agent") or ""), cwd=cwd, state_dir=state_dir) if e.get("agent") else None
         model, fallback, source = _effective_model(raw, e, bio, cwd=cwd, state_dir=state_dir)
@@ -165,7 +204,7 @@ def graph_for(raw: dict, *, cwd=None, state_dir=None, catalog: Optional[dict] = 
             problems.append('"instances" must be a positive integer')
         allow = ((bio or {}).get("tools") or {}).get("allow") if isinstance((bio or {}).get("tools"), dict) else None
         node = {
-            "id": _node_id(e, i), "index": i, "agent": str(e.get("agent") or ""), "role": str(e.get("role") or "subagent"),
+            "id": ids[i], "index": i, "agent": str(e.get("agent") or ""), "role": str(e.get("role") or "subagent"),
             "alias": str(e.get("as") or ""), "instances": inst if good else 1,
             "use_for": list(e["use_for"]) if isinstance(e.get("use_for"), list) else [],
             "model": model, "fallback": fallback, "price": cat.get("price", ""), "context": cat.get("context", ""),
@@ -255,14 +294,14 @@ def _is_shipped_copy(name: str, raw: dict) -> bool:
         return False
 
 
-def lineup_payload(name: str, *, cwd=None, state_dir=None, active: str = "") -> Optional[dict]:
+def lineup_payload(name: str, *, cwd=None, state_dir=None, active: str = "", layout: Optional[dict] = None) -> Optional[dict]:
     raw = T.load_team_template_raw(name, cwd=cwd, state_dir=state_dir)
     if raw is None:
         return None
     resolved = T.resolve_team_template(name, cwd=cwd, state_dir=state_dir) or raw
     problems = T.validate_team_template(clean(raw), name=name, cwd=cwd, state_dir=state_dir)
     table, notes = T.resolve_role_table(resolved, cwd=cwd, state_dir=state_dir)
-    return {
+    out = {
         "name": name, "scope": raw.get("_source", ""), "path": raw.get("_path", ""), "active": name == active,
         "pack": str(raw.get("_pack") or ""),  # 3.2.0.0 R2: a pack's lineup opens read-only
         "raw": clean(raw), "yaml": to_yaml(raw), "graph": graph_for(resolved, cwd=cwd, state_dir=state_dir),
@@ -270,6 +309,9 @@ def lineup_payload(name: str, *, cwd=None, state_dir=None, active: str = "") -> 
         "sections": {s: resolved.get(s) for s in T.TOP_SECTIONS if resolved.get(s) is not None},
         "enforcement": {s: list(T.SECTION_ENFORCEMENT.get(s, ("", ""))) for s in T.TOP_SECTIONS},
     }
+    if layout is not None:  # 3.2.2.0 R5: the canvas layout, old card ids read as today's
+        out["layout"] = legacy_layout_view(migrate_layout_ids(layout, resolved))
+    return out
 
 
 def bio_summary(name: str, *, cwd=None, state_dir=None) -> Optional[dict]:

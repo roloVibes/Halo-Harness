@@ -7,7 +7,8 @@
 // next session), each with its result dialog. 3.0.7.0 R3b: the device a
 // prototype previews at (Knobs.tsx's select, the panel's own setting), and
 // the Select / Comment tool: with Comment on, a click on a frame pins a
-// comment there (CardLayers.tsx). The flow is layout.ts.
+// comment there (CardLayers.tsx). The flow is layout.ts. 3.2.2.0 R5: a card
+// dropped on another makes room (layout.ts `dropRoom`, live while it moves).
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import type { MotionState } from "../../lib/motion";
 import { Button, Empty } from "../../lib/ui";
@@ -15,7 +16,7 @@ import { Metric } from "../orchestra/bits";
 import { handoff } from "./actions";
 import { ArtboardCard } from "./ArtboardCard";
 import { DeviceSelect } from "./Knobs";
-import { CARD_W, flow, slotH } from "./layout";
+import { CARD_W, dropRoom, flow, slotH } from "./layout";
 import { design, live, openDialog, setTool, useDesign } from "./store";
 import { movePositions } from "./sync";
 import type { Comment } from "./types";
@@ -37,7 +38,12 @@ export function ArtboardsDetail() {
   const zoomRef = useRef(zoom);
   zoomRef.current = zoom;
   const boards = useMemo(() => data?.artboards || [], [data]);
-  const placed = useMemo(() => flow(boards, saved, dev), [boards, saved, dev]);
+  const placed = useMemo(() => {
+    const at = flow(boards, saved, dev);
+    if (!drag || !at[drag.id]) return at;
+    const to = { x: Math.max(0, at[drag.id].x + drag.dx), y: Math.max(0, at[drag.id].y + drag.dy) };
+    return { ...at, ...dropRoom(boards, saved, dev, drag.id, to, at[drag.id]) }; // the room being made, live
+  }, [boards, saved, dev, drag]);
   const pins = useMemo(() => {
     const by = new Map<string, Comment[]>();
     for (const c of data?.comments || []) if (!c.resolved) by.set(c.artboard, [...(by.get(c.artboard) || []), c]);
@@ -66,7 +72,7 @@ export function ArtboardsDetail() {
       if (Math.hypot(last.dx, last.dy) < 3) return;
       const s = design.get();
       const at = flow(s.data?.artboards || [], s.positions, s.device)[id];
-      if (at) movePositions({ [id]: { x: Math.max(0, at.x + last.dx), y: Math.max(0, at.y + last.dy) } });
+      if (at) movePositions(dropRoom(s.data?.artboards || [], s.positions, s.device, id, { x: Math.max(0, at.x + last.dx), y: Math.max(0, at.y + last.dy) }, at));
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
@@ -120,7 +126,7 @@ export function ArtboardsDetail() {
                 const p = placed[a.id];
                 const d = drag?.id === a.id ? drag : null;
                 return (
-                  <ArtboardCard key={a.id} a={a} slug={slug} x={p.x + (d?.dx || 0)} y={p.y + (d?.dy || 0)} shown={view[a.id] || 0} bust={bust[a.id] || 0}
+                  <ArtboardCard key={a.id} a={a} slug={slug} x={p.x} y={p.y} shown={view[a.id] || 0} bust={bust[a.id] || 0}
                                 pins={pins.get(a.id) || NO_PINS} selected={sel === a.id} dragging={!!d} running={running} dev={dev} onDown={onDown} />
                 );
               })}
