@@ -2328,3 +2328,35 @@ problem. No shared drag helper exists; all layout code is hand-written.
   removing a card keeps the others' positions; `tsc`, the dist rebuilt
   twice identical. Docs: STUDIO-shell.md (what a move does now, Arrange),
   STUDIO-roles (the canvas rules).
+
+## ADDED 2026-10-25 (rolo, live: "I have to refresh the page for updates that occur. When working with halo and prompting I asked to update the roles but I had to refresh halo studio to see the changes made"): 3.2.2.0 R6 Studio sees what the session changes
+
+Today Studio's live feed carries what Studio itself does and what a session
+streams (`focus`, `fleet`, `team`, `start`, `orchestra_state`, `design_turn`,
+`pack_changed`, `dropped`, ...), and `studio/packs_studio_live.py` polls the
+packs registry and publishes `pack_changed` when a pack file moves. Nothing
+watches the files a session or the CLI write: a lineup edited by the model
+(`~/.halo/teams/<name>.yaml`, `.halo/teams/`), a bio (`agents/`), `halo
+teams apply` / `halo roles` / `halo config set` (config.json's `team`,
+`roles.*`, `model`), a layout file. The Roles page shows what it loaded.
+
+- R6 Studio sees what the session changes: `studio/files_live.py` (the
+  packs watcher's shape) polls, every 1.5 s, the mtimes and names under
+  the user and project `teams/` and `agents/` folders, `config.json`, the
+  `studio/layouts/` folder and the packs' bio/lineup folders already
+  covered, and publishes `{"event": "files_changed", "data": {"kind":
+  "lineups" | "bios" | "config" | "layouts", "names": [...]}}` once per
+  change set (debounced 300 ms); the pages re-read on it the way Fleet does
+  on `dropped`: Roles (the lineup list, the open lineup and its canvas, the
+  Bios panel, the Inspector; an unsaved draft in a form is kept and the
+  page says "<name> changed on disk" with Reload / Keep mine), Team, the
+  Session section's lineup pill and model, Orchestra's goal form lineup
+  list, Models' default, the Pack Manager's Templates; a lineup or bio
+  deleted on disk leaves the list and the open one shows "deleted on disk".
+  The CLI writers publish nothing themselves (the watcher sees every
+  writer, the model's Edit tool included). `lib/events.ts KNOWN_KINDS +=
+  "files_changed"`. Tests: the watcher (a temp home: touch a lineup, the
+  frame names it; a burst is one frame), a Chrome driver that writes a
+  lineup file while Roles is open and sees the canvas change without a
+  reload, the draft-kept path; docs STUDIO.md ("what Studio shows is what
+  is on disk, as it changes") and STUDIO-roles.
