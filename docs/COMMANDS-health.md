@@ -301,14 +301,17 @@ made FROM the release archive (`halo-harness-<version>.tar.gz`, recorded as
 installer builds a wheel from a clone), so for them there is nothing to
 hash and the report prints no such line. See
 "Update" in `docs/INSTALL.md` for the full walkthrough; `/update` inside
-the TUI is the same check with an update-and-restart dialog.
+the TUI is the same check with a dialog whose Enter quits halo and runs the
+update after it exits (a detached updater, its log in
+`~/.halo/update.log`; `halo --version` then).
 
 ```sh
 halo update --help
 ```
 ```
 usage: halo update [-h] [--check] [--to TAG_OR_BRANCH_OR_COMMIT]
-                   [--channel {stable,main}] [--force] [--refresh]
+                   [--channel {stable,main}] [--force] [--keep-running]
+                   [--refresh] [--no-verify]
 
 Check for, or apply, a halo update.
 
@@ -320,21 +323,45 @@ options:
   --channel {stable,main}
                         stable tracks the newest v* tag, main tracks the
                         branch halo came from
-  --force               Reinstall even if another halo process looks like it's
-                        running
-  --refresh             Ignore the 24h cache, always check live
+  --force               Install without stopping anything, even while other
+                        halo processes run (scripts)
+  --keep-running        Stop nothing: name each halo process still running and
+                        the command that stops it, and do not install
+  --refresh             (always on now -- kept for compatibility) ignore the
+                        cache, always check live
+  --no-verify           Skip the target tag's release-checksums check before
+                        installing
 ```
 
 `halo update --check` prints installed vs. available, up to 15 commits
 between them, and the exact reinstall command this box would run, then
 exits 0 (up to date), 10 (an update is available), or 1 (couldn't tell --
-offline, no git, rate-limited). Without `--check`, it refuses (exit 1) if
-another `halo` process looks like it's running on this machine (excluding
-itself) unless `--force` is also given -- a reinstall under a running TUI
-has broken the install on Windows before; close other sessions first, or
-pass `--force` once you're sure none is actually using the install. On
-success it runs the reinstall command live (output visible) and reports
-the before/after commit by re-running `halo --version` as a fresh process.
+offline, no git, rate-limited). Without `--check` (3.2.2.0), it first stops
+every other process of this install still running, in order: the ones
+halo registered (`~/.halo/run/children.json`: a detached Studio, `--bg`
+runs, schedule fires; the Studio in `~/.halo/studio.json`; the supervisor;
+a local model server on this install's own python), then what a process
+scan still finds (`halo`, `python -m halo_harness ...`, `-m
+halo_harness._bg_wrapper`, `-m halo_harness supervise`, this venv's
+`mlx_lm.server`). Each stops the gentle way first (Studio's shutdown route,
+the supervisor's stop file, `halo bg stop`'s tree kill), then the signal,
+then a hard kill after 5 s, by pid only, and gets one line: `halo update:
+stopped: Studio (pid 4242) -- python -u -m halo_harness`. A supervisor that
+was running is started again on the new version after the install (`halo
+supervise --daemon`). `--keep-running` stops nothing: it names each process
+(what, pid, its first command words) with the command that stops it
+(`halo studio --stop`, `halo bg stop <id>`, `halo supervise stop`) and
+exits 1 without installing. `--force` installs without stopping anything
+(scripts that manage halo processes themselves). Then it runs the
+reinstall command live (output visible) and reports the before/after
+commit by re-running `halo --version` as a fresh process.
+
+`/update` in the TUI never installs inside the halo process (the running
+`halo.exe` holds the venv on Windows): Enter quits halo and a detached
+updater (`~/.halo/run/update.cmd` via `cmd.exe /c`, `update.sh` via `sh`)
+waits for it to exit, stops what still runs (`taskkill /PID`, `kill`),
+reinstalls, restarts the supervisor and runs `halo --version`, all into
+`~/.halo/update.log` ([`/update`](SLASH-COMMANDS-providers.md#update)).
 
 ```sh
 halo update --check

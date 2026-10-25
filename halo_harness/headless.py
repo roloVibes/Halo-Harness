@@ -1634,6 +1634,28 @@ def _stop_managed_local_servers_quietly() -> None:
         stop_all_managed_servers_except_kept()
     except Exception:
         pass
+    _stop_own_children_quietly()
+
+
+def _stop_own_children_quietly() -> None:
+    """3.2.2.0 R3: what THIS `-p` process registered in children.json (a
+    Studio a tool opened, a schedule fire, a `--bg` run) ends with it; one
+    stderr line names it. Only its own: a `-p` run is often a child of
+    another halo (a background run, a schedule fire, a Studio job), so the
+    Studio and other sessions' children are the TUI quit's and `halo
+    update`'s to stop. Idempotent (the finally and the atexit both call)."""
+    import os
+    try:
+        from halo_harness.children import prune
+        mine = [e for e in prune() if e.get("owner_pid") == os.getpid() and e.get("what") != "supervisor"]
+        if not mine:
+            return
+        from halo_harness.children_stop import stop_entry, summary
+        line = summary([stop_entry(e) for e in mine])
+        if line:
+            print(f"halo: {line}", file=sys.stderr)
+    except Exception:
+        pass
 
 
 def maybe_remove_worktree_on_exit(cli_flags: dict, session) -> bool:

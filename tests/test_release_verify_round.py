@@ -89,7 +89,7 @@ def _fake_update_world(assets):
         update_cli.upd.commit_is_ancestor = lambda *a, **kw: None
         update_cli.upd.tag_checksums = lambda tag, **kw: assets
 
-        def _apply(*, cmd=None, force=False):
+        def _apply(*, cmd=None, force=False, keep_running=False):  # keep_running: 3.2.2.0 R3
             applied.append(cmd)
             return 0
         update_cli.apply_update = _apply

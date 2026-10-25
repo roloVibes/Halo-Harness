@@ -71,20 +71,22 @@ def test_item150_relaunch_drops_the_prompt_and_fork_session(ctx: Ctx):
 
 @test
 def test_item150_apply_update_and_relaunch_sends_no_prompt(ctx: Ctx):
+    """3.2.2.0 R3: `/update` hands off to a detached updater (a fake here)
+    and prints a `halo --continue ...` hint instead of relaunching; the hint
+    still carries no prompt."""
     from halo_harness import cli
-    from halo_harness import update as upd
-    from halo_harness import update_cli
+    from halo_harness import update_detached
     sent = []
-    orig_apply, orig_relaunch = update_cli.apply_update, upd.relaunch_halo
-    update_cli.apply_update = lambda **kw: 0
-    upd.relaunch_halo = lambda args, **kw: sent.append(list(args)) or 0
+    orig = update_detached.run_after_exit
+    update_detached.run_after_exit = lambda **kw: sent.append(kw.get("resume_hint")) or 0
     try:
         cli._apply_update_and_relaunch(["do X", "--model", "or:a/b"])
     finally:
-        update_cli.apply_update, upd.relaunch_halo = orig_apply, orig_relaunch
-    ns = _parse(sent[0])
-    ctx.check(f"relaunch argv parses with prompt None and continue_ True, got {sent}",
-              ns.prompt is None and ns.continue_ is True and ns.model == "or:a/b")
+        update_detached.run_after_exit = orig
+    hint = (sent[0] or "").split()
+    ns = _parse(hint[1:])
+    ctx.check(f"the resume hint parses with prompt None and continue_ True, got {sent}",
+              hint[:1] == ["halo"] and ns.prompt is None and ns.continue_ is True and ns.model == "or:a/b")
 
 
 # ---- item 151 -----------------------------------------------------------------

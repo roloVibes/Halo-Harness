@@ -9,7 +9,8 @@ Part of [Commands](COMMANDS.md), which lists every part.
 3.0.2.0: `halo studio --stop` ends a Studio running in the background (the
 wizard's Open Studio buttons start one, detached); a second `halo studio`
 while one runs reuses it (prints the URL, opens the browser) unless
-`--port` asks for another.
+`--port` asks for another. 3.2.2.0: the last halo session to quit ends the
+Studio as well, and `halo update` stops it before installing.
 
 
 ```sh

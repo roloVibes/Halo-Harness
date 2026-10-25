@@ -182,9 +182,11 @@ Checks the installed build against what's available (cached up to 24h) and
 prints installed vs. available, the commits between them, and the exact
 reinstall command. In `-p`/a plain fallback this is report-only, same as
 `halo update --check`. In the TUI it opens a dialog with that same report
-plus two keys: `Enter` updates and restarts halo in place (quits, runs the
-reinstall with its output visible, then relaunches with `--continue` so the
-session resumes); `Esc` leaves everything untouched. A background check
+plus two keys: `Enter` quits halo and the update runs after it exits
+(3.2.2.0: a detached updater waits for halo to end, stops what lingers,
+runs the reinstall and `halo --version`, all into `~/.halo/update.log`;
+the last lines halo prints give that path and `halo --continue` to resume
+the session); `Esc` leaves everything untouched. A background check
 (off with `update.check: false`/`update.notify: false` in config.json) adds
 a one-line transcript note, at most once a day, when one is already known
 to be available -- see `docs/INSTALL.md`'s "Update" section.

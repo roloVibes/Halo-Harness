@@ -38,6 +38,12 @@ that instance (prints its URL, opens the browser) instead of starting
 another. The wizard's **Open Studio (Roles)** button starts it detached, so
 it outlives `halo init`; `halo studio --stop`
 ends it. `halo_harness/studio/launch.py` is the small module behind both.
+Since 3.2.2.0 Studio ends with the halo session that quits: a quit
+(`/quit`, Ctrl+C twice, Ctrl+D, Ctrl+Q) stops the Studio in `studio.json`
+too (its shutdown route, then the signal) and says so in its last line
+(`stopped: Studio (pid 4242)`), unless another halo session of this home is
+still open (the last one to quit ends it). `halo update` stops it before
+installing; `halo studio` afterwards starts the new version.
 
 Inside the TUI, `/roles` and `/design` open Studio straight into that
 mode from the live session; bare `/studio` (3.1.4.0) opens the **Session**

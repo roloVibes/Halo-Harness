@@ -629,6 +629,55 @@ def test_is_halo_cmdline_rejects_substring_false_positives(ctx: Ctx):
 
 
 @test
+def test_the_four_lingering_command_line_shapes_are_halo_and_named(ctx: Ctx):
+    """3.2.2.0 R3: what outlives a session -- the detached Studio, a `--bg`
+    run's wrapper, the supervisor and this install's own interpreter
+    serving a model -- each matched and named; the same interpreter word
+    outside the install's prefix is not."""
+    w = upd.halo_what
+    prefix = "/home/u/.local/share/uv/tools/halo-harness"
+    ctx.check("the detached Studio", w("/usr/bin/python3 -u -m halo_harness studio --cwd /w --mode roles") == "studio")
+    ctx.check("a --bg run's wrapper", w("/usr/bin/python3 -m halo_harness._bg_wrapper /h/bg/1/status.json "
+                                       "/usr/bin/python3 -m halo_harness -p task") == "bg")
+    ctx.check("the supervisor", w("/usr/bin/python3 -u -m halo_harness supervise") == "supervisor")
+    ctx.check("the tool venv's python running mlx_lm.server",
+              w(f"{prefix}/bin/python -m mlx_lm.server --model /m --port 9", prefix=prefix) == "mlx")
+    ctx.check("on Windows too (quoted, backslashes, any case)",
+              w('"C:\\Users\\u\\AppData\\Roaming\\uv\\tools\\halo-harness\\Scripts\\python.exe" -m mlx_lm.server',
+                prefix="C:\\Users\\U\\AppData\\Roaming\\uv\\tools\\halo-harness") == "mlx")
+    ctx.check("another python's mlx_lm.server is not this install's",
+              w("/opt/conda/bin/python -m mlx_lm.server --model /m", prefix=prefix) is None)
+    ctx.check("the console script names its subcommand", w("C:\\x\\halo.exe studio --no-open") == "studio"
+              and w("/usr/bin/python3 /usr/local/bin/halo supervise --daemon") == "supervisor")
+    ctx.check("a plain session is halo", w("/usr/bin/halo --continue") == "halo")
+    ctx.check("and every shape counts for other_halo_pids",
+              all(upd._is_halo_cmdline(c) for c in ("python -u -m halo_harness studio",
+                                                    "python -m halo_harness._bg_wrapper s p -m halo_harness -p x",
+                                                    "python -m halo_harness supervise")))
+
+
+@test
+def test_other_halo_processes_names_what_each_one_is(ctx: Ctx):
+    this_pid = os.getpid()
+    rows = [(this_pid + 1, "/usr/bin/python3 -u -m halo_harness studio --cwd /w"),
+            (this_pid + 2, "/usr/bin/python3 -m halo_harness._bg_wrapper /s /usr/bin/python3 -m halo_harness -p x"),
+            (this_pid + 3, "/usr/bin/python3 -m halo_harness supervise"), (this_pid + 4, "/usr/bin/vim notes")]
+    if os.name == "nt":
+        import json as _json
+        run_fn = _fake_run({"Win32_Process": _Proc(_json.dumps(
+            [{"ProcessId": this_pid, "ParentProcessId": 1, "CommandLine": "halo.exe"}]
+            + [{"ProcessId": p, "ParentProcessId": 1, "CommandLine": c} for p, c in rows]))})
+    else:
+        table = "  PID  PPID ARGS\n" + f"{this_pid} 1 halo\n" + "".join(f"{p} 1 {c}\n" for p, c in rows)
+        run_fn = _fake_run({"ps -eo": _Proc(table)})
+    found = upd.other_halo_processes(run_fn=run_fn)
+    ctx.check(f"studio, bg, supervisor named; vim and this process left out, got {found}",
+              [(r["pid"], r["what"]) for r in found] == [(this_pid + 1, "studio"), (this_pid + 2, "bg"),
+                                                         (this_pid + 3, "supervisor")])
+    ctx.check("each carries its command line", found[0]["cmd"].endswith("halo_harness studio --cwd /w"))
+
+
+@test
 def test_relaunch_halo_calls_exec_fn_with_continue_and_never_really_execs(ctx: Ctx):
     calls = []
     code = upd.relaunch_halo(["--continue", "extra"], exec_fn=lambda path, argv: calls.append((path, argv)))

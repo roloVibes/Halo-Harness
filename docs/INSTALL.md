@@ -60,14 +60,17 @@ uv tool install --reinstall .
 the ONE command you run both the first time and every later time -- see
 "After every `git pull`" below.
 
-> **Windows: close every running `halo` first.** A `halo` session, a `halo
-> studio` server or a `halo proxy` keeps `halo.exe` open, and `uv tool
-> install --reinstall` then fails with `failed to remove directory
+> **Windows: nothing of halo may be running for a hand-run reinstall.** A
+> `halo` session, a `halo studio` server, a `--bg` run, the supervisor or a
+> `halo proxy` keeps `halo.exe` open, and `uv tool install --reinstall`
+> then fails with `failed to remove directory
 > '...\uv\tools\halo-harness\Scripts': Access is denied` AFTER it has
 > already emptied the old environment, which leaves `halo` printing
-> `ModuleNotFoundError: No module named 'halo_harness'`. Close them and run
-> the same command again; it rebuilds cleanly. `halo update` checks for
-> other halo processes before it starts and refuses instead.
+> `ModuleNotFoundError: No module named 'halo_harness'`. Run the same
+> command again once they are gone; it rebuilds cleanly. `halo update`
+> does this for you (3.2.2.0): it stops every other process of this
+> install first and says what it stopped (`--keep-running` names them and
+> installs nothing instead).
 
 No `uv`? `pipx install --force -e .` is the alternative (`pip install
 --user -e .` works too) -- `halo`'s own distribution installs exactly one
@@ -185,13 +188,17 @@ keeps the dependency versions pinned to `requirements.lock` (`--constraints`).
 On the stable channel a plain `halo update` moves a `git+https` install pinned
 at a tag to the newest tag.
 
-**Windows note:** close other `halo` sessions first -- the install can't
-be replaced while any of them still has it open. `/update` inside the
-TUI does this for you: `Enter` quits, updates (output visible in the
-terminal), and relaunches with `--continue` so the session resumes;
-`halo update` run on its own refuses with the same reason when another
-session is running (`--force` overrides once you're sure none is
-actually using the install).
+**Windows note:** the install can't be replaced while any halo process
+still has it open. `halo update` stops them before it installs (3.2.2.0):
+the Studio, background runs, schedule fires, other halo sessions and the
+supervisor (started again on the new version afterwards), one line each;
+`--keep-running` names each one and the command that stops it and installs
+nothing; `--force` installs without stopping anything (scripts). `/update`
+inside the TUI quits halo and the update runs after it exits: a detached
+updater (`cmd.exe /c` on Windows, `sh` elsewhere) waits for halo to end,
+stops what lingers, runs the reinstall and `halo --version`, all appended
+to `~/.halo/update.log`; `halo --continue` then picks the session up
+again.
 
 ## Uninstall
 

@@ -1408,7 +1408,7 @@ def _cmd_update(args: str, facade: HeadlessFacade) -> str:
         lines.append("Already up to date.")
     else:
         lines.append("Run `halo update` from a shell, or open the full-screen TUI and use /update there "
-                      "to update and restart in place.")
+                      "(it quits halo and updates after it exits).")
         lines.append(f"(halo update runs: {kind.get('reinstall_cmd') or 'unknown'})")
     return "\n".join(lines)
 
@@ -1809,7 +1809,7 @@ _BUILTIN_SPECS = {
     "keybindings": ("core", "Show the active keybindings", None, _cmd_keybindings),
     "tips": ("core", "List tips for using halo's features", None, _cmd_tips),
     "improve": ("ui", "Review self-improvement candidates from recent sessions", None, _cmd_improve),
-    "update": ("ui", "Check for a halo update (the TUI can also update and restart in place)",
+    "update": ("ui", "Check for a halo update (the TUI can also quit and update after it exits)",
                None, _cmd_update),
     "editor": ("ui", "Edit the current prompt draft in $VISUAL/$EDITOR (same as Ctrl+E)", None, _cmd_editor),
     "keys": ("ui", "Open the key tester dialog (shows the key name halo receives per press)", None, _cmd_keys),
