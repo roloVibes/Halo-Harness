@@ -2274,3 +2274,57 @@ text in a dock capped at 12 lines, so a long plan hides the keys.
   new text, the card's first line. Docs: PERMISSIONS (plan mode's list and
   text), TUI/HANDBOOK (the markers, the nudge, the resend), SLASH-COMMANDS
   (`/plan`), CONFIG (`turn.nudge_promises`, `steer.silent_restart_s`).
+
+## ADDED 2026-10-25 (rolo, live in Studio: "When I move the parts in halo studio over another block like in roles, they disappear. Moving one block should shrink the ones next to them without things disappearing. It should be intuitive to be flexible and move adjustable without the user having to move one box then each other one individually"): 3.2.2.0 R5 the canvas makes room
+
+What the code does today (surveyed 2026-10-25). Two layers can "disappear":
+(1) the **workspace panels** (`ui/src/lib/workspace/`: every section is
+panels on a 24-column grid, saved per section in localStorage
+`halo.studio.layout.<section>`): a moved panel's `arrange` -> `pushDown`
+moves every panel it overlaps straight DOWN (`grid.ts:89-107`), never
+sideways, never narrower or shorter, and `compact` lifts them back only as
+far as their columns allow; Roles' Canvas, Bios and Models panels are
+full-height (`h: 0` = fill), so a pushed panel lands at or below the
+bottom of the viewport inside `.workspace { overflow: auto }` -- still
+there, scrolled out of sight; STUDIO-shell.md promises "the others make
+room"; (2) the **Roles canvas cards** (`routes/roles/Canvas.tsx`,
+`layout.ts`, positions in `<state>/studio/layouts/<lineup>.json` via `PUT
+layout/<name>`): fixed 224x112 opaque cards with no z-index after a drop
+(DOM order wins, one card covers another), a drop inside another tier's
+box is a tier move even when it lands on a card, a drop on a collapsed
+tier's strip joins that tier and the card is then hidden with it (a true
+disappearance), no collision pass on drop, and node ids carry an index
+(`alias|role|agent#i`) so removing a card re-keys the later ones and their
+saved positions stack. Design's Artboards share the free-x/y pattern; the
+Orchestra plan and the Fleet map compute their layouts and have no overlap
+problem. No shared drag helper exists; all layout code is hand-written.
+
+- R5 The canvas makes room. Panels: `arrange` resolves an overlap by
+  making room sideways first -- the overlapped neighbour gives up columns
+  down to its `minW` (and the moved panel takes what is left), then trades
+  places when both are full width, and pushes down only as the last resort
+  and never below the visible rows (`fillRows` reaches the controller
+  through `WorkspaceApi.metrics`); an edge resize acts as a splitter (the
+  adjacent panel shrinks or grows by the same columns or rows); nothing
+  leaves the viewport on a move; "Reset layout" (exists) and a new
+  "Arrange" (one press: the section's default grid for the panels you have
+  open) sit in the workspace menu. Canvas cards: a drop runs a no-overlap
+  pass (the dropped card keeps its spot, the cards and boxes it collides
+  with nudge aside within their tier, the tier box regrows), collapsed
+  tiers are not drop targets (the box expands when a card is held over it
+  for a moment, or the drop is refused with the toast "tier <name> is
+  collapsed"), a drop onto a card in another tier asks nothing and lands
+  beside it, the selected or last-dropped card is on top (z-index), live
+  drag pushes neighbours too (through the `pos` memo) so the user sees the
+  room being made; node ids become stable per card (`alias|role|agent` plus
+  an ordinal among identical cards) so removing one card keeps every other
+  card's saved spot; Design's Artboards reuse the same no-overlap helper
+  (`ui/src/lib/geometry.ts`: rectangle hit tests, nudge-apart, splitter
+  math, under 250 lines). Tests: a CDP title-bar drag of Roles' Inspector
+  over the Canvas -> every panel's rectangle inside the viewport and
+  `overlaps == []`; an edge resize moves the neighbour; the canvas drivers
+  (`studio_roles*.py`): a drop onto another card leaves both visible and
+  not overlapping, a drop over a collapsed tier does not hide the card,
+  removing a card keeps the others' positions; `tsc`, the dist rebuilt
+  twice identical. Docs: STUDIO-shell.md (what a move does now, Arrange),
+  STUDIO-roles (the canvas rules).
