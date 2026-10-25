@@ -1521,7 +1521,7 @@ def sanitize_transcript(text: str) -> str:
 # append) counts as a real turn -- old session logs keep reporting exactly
 # what they always did; only NEW logs get the more accurate count.
 _NON_PROMPT_USER_KINDS = frozenset({
-    "compaction_summary", "compaction_tail", "continuation", "agent_notice", "job_notice", "steer",
+    "compaction_summary", "compaction_tail", "continuation", "agent_notice", "job_notice", "steer", "nudge",
 })
 
 
