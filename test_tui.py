@@ -2306,6 +2306,9 @@ def test_force_quit_worker_arms_an_os_exit_timer_after_calling_self_exit(ctx: Ct
         def _build_scrollback_message(self):
             return None
 
+        def _exit_message(self):  # 3.2.2.0 R3: the real one adds the "stopped: ..." line; not this test's subject
+            return None
+
         def call_from_thread(self, fn, **kw):
             fn(**kw)
 
