@@ -66,6 +66,7 @@ class PowerShellTool(Tool):
 
         env = dict(ctx.env) if isinstance(ctx.env, dict) else dict(os.environ)
         env["CLAUDECODE"] = "1"
+        env["HALO_OWNER_PID"] = str(os.getpid())  # 3.2.2.0 R3: a `halo --bg` run from here belongs to this session
 
         argv = ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", command]
         raw_output, exit_code, timed_out, aborted = run_streamed(

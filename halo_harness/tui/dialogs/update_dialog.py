@@ -1,7 +1,8 @@
 """halo_harness.tui.dialogs.update_dialog -- `/update`'s confirm dialog
 (Halo 2.0.2 round 6): installed vs. available build, up to 15 commits
 between them, the exact reinstall command, and the one real choice --
-Enter applies it and restarts halo, Esc leaves everything exactly as it
+Enter quits halo and the update runs after it exits (3.2.2.0 R3, a
+detached updater; its log in ~/.halo/update.log), Esc leaves everything exactly as it
 was. Static display only; `tui/slash.py::_handle_update` builds every
 string this receives off the UI thread first (a live git/network check).
 """
@@ -18,7 +19,7 @@ from textual.widgets import Static
 
 class UpdateDialog(ModalScreen):
     BINDINGS = [
-        Binding("enter", "confirm", "Update and restart", show=False),
+        Binding("enter", "confirm", "Quit and update", show=False),
         Binding("escape", "cancel", "Not now", show=False),
     ]
     DEFAULT_CSS = """
@@ -60,7 +61,7 @@ class UpdateDialog(ModalScreen):
             if self.up_to_date:
                 yield Static("  Already up to date.  Esc: close")
             else:
-                yield Static("  Enter: update and restart halo    Esc: not now")
+                yield Static("  Enter: quit, then update (after halo exits)    Esc: not now")
 
     def action_confirm(self) -> None:
         self.dismiss(None if self.up_to_date else "update")

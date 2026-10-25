@@ -937,8 +937,8 @@ def _update_worker(app) -> None:
 def _on_update_dialog_result(app, result) -> None:
     """Enter ("update"): the ONLY thing this does is exit the TUI itself
     with `update.RESTART_EXIT_CODE` -- `cli.main` (past `run_tui()`,
-    Textual already torn down) is what actually runs the reinstall and
-    relaunches with `--continue`; see `cli._apply_update_and_relaunch`.
+    Textual already torn down) starts the detached updater that installs
+    after halo exits (3.2.2.0 R3); see `cli._apply_update_and_relaunch`.
     Esc (`None`): nothing happens at all."""
     if result == "update":
         from halo_harness.update import RESTART_EXIT_CODE

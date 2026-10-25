@@ -264,6 +264,7 @@ class BashTool(Tool):
             source_prefix = f'[ -f "{to_posix(str(env_file))}" ] && . "{to_posix(str(env_file))}"\n'
         env = dict(ctx.env) if isinstance(ctx.env, dict) else dict(os.environ)
         env["CLAUDECODE"] = "1"
+        env["HALO_OWNER_PID"] = str(os.getpid())  # 3.2.2.0 R3: a `halo --bg` run from here belongs to this session
         if env_file is not None:
             env["CLAUDE_ENV_FILE"] = str(env_file)
         # H9 whole-tree review finding 12: `bash -lc` is a LOGIN shell -- it

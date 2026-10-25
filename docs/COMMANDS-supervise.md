@@ -31,6 +31,14 @@ halo supervise status --json   # the same, machine-readable
 halo supervise stop            # ask a running supervisor to end (a stop file it polls)
 ```
 
+The supervisor is the one halo process a quit leaves running (3.2.2.0):
+it was started on purpose with `halo supervise --daemon`, so `/quit`,
+Ctrl+C twice, Ctrl+D, Ctrl+Q and the end of `-p` leave it (and the runs it
+started) alone; `halo supervise stop` ends it. `halo update` stops it
+before installing (its stop file, then the signal) and starts it again on
+the new version afterwards (`halo supervise --daemon`); `/update`'s
+detached updater does the same.
+
 ### `halo supervise` flags
 
 - `--daemon`: detach the supervisor (Windows `DETACHED_PROCESS`, POSIX a new
