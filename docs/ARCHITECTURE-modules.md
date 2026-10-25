@@ -268,7 +268,8 @@ panels, then the other keys),
 `packs/studio_registry.py` (the registry the shell reads: ids qualified, routes
 resolved, grant state); `studio/packs_studio_api.py` (`/api/pack/...`: the
 registry, a pack's files and bundle, its settings form) and
-`studio/packs_studio_live.py` (the `pack_changed` frame). 3.2.0.0 R4, Fleet
+`studio/packs_studio_live.py` (the `pack_changed` frame; 3.2.2.0 R6: `studio/files_live.py`, the
+`files_changed` frame for the lineup, bio, config and layout files). 3.2.0.0 R4, Fleet
 capabilities: `packs/fleet_rules.py` (what `contributes.fleet` may say, with
 the manifest: names, requires, no path in a description, no secret or
 environment reference anywhere), `packs/fleet_registry.py` (each running

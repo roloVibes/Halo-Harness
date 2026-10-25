@@ -1,0 +1,6 @@
+/* 3.2.2.0 R6: the "<name> changed on disk" line over a form (routes/roles/DiskNote.tsx). Tokens only. */
+.rdn { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 12px; padding: 6px 8px; margin: 0 0 8px;
+  color: var(--text); background: var(--warn-soft); border: 1px solid color-mix(in srgb, var(--warn) 55%, transparent); border-radius: var(--radius-sm); }
+.rdn[data-gone] { background: var(--bad-soft); border-color: color-mix(in srgb, var(--bad) 55%, transparent); }
+.rdn-text { flex: 1 1 200px; min-width: 0; overflow-wrap: anywhere; }
+.rdn-acts { display: flex; gap: 6px; }

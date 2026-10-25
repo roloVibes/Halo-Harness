@@ -23,6 +23,7 @@ import "./styles/design.css";
 import "./styles/design-thread.css";
 import "./styles/roles.css";
 import "./styles/roles-panels.css";
+import "./styles/disk-note.css";
 import "./styles/team.css";
 import "./styles/team-panels.css";
 import "./styles/coach.css";

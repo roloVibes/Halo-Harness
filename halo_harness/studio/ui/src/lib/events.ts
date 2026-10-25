@@ -33,6 +33,7 @@ export const KNOWN_KINDS = [
   "media_render", "turn_marker",
   "agent_state", "agent_event", "fleet", "design_turn", "team", "start", "focus",
   "dropped", // 3.2.1.0: frames fell off this browser's bounded queue; the fleet page re-reads its view
+  "files_changed", // 3.2.2.0 R6: a lineup, bio, config or layout file moved on disk (lib/filesLive.ts onFilesChanged)
 ];
 
 const handlers = new Map<string, Set<Handler>>();

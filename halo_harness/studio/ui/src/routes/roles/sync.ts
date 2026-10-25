@@ -7,8 +7,11 @@
 // status bar's ROLES line follows the store. 3.2.2.0 R5: when an edit
 // changes the graph (a card removed, duplicated, its role changed), every
 // position follows its card (`rekeyPositions`), so no card takes another's spot.
+// 3.2.2.0 R6: startRoles starts disk.ts (the files changed on disk);
+// `layoutPending` tells it a move is not on disk yet.
 import { api, ApiError } from "../../lib/api";
 import { setSectionStatus } from "../../lib/store";
+import { startDisk } from "./disk";
 import { clone, roles, showsStart, statusLine } from "./store";
 import type { BioRow, Finding, Graph, GymScore, LineupPayload, LineupRow, ModelRow, ModelsStatus, Pos, StateInfo } from "./types";
 
@@ -17,6 +20,7 @@ const SAVE_MS = 500;
 let validateTimer = 0;
 let saveTimer = 0;
 let validateSeq = 0;
+let layoutSaving = false;
 
 export const msg = (e: unknown) => (e instanceof ApiError ? e.problems[0] || e.message : String(e));
 const list = <T>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
@@ -144,8 +148,11 @@ export function setCollapsed(tier: string, on: boolean): void {
 
 function saveLayoutSoon(): void {
   window.clearTimeout(saveTimer);
-  saveTimer = window.setTimeout(() => void saveLayout(), SAVE_MS);
+  saveTimer = window.setTimeout(() => ((saveTimer = 0), void saveLayout()), SAVE_MS);
 }
+
+/** 3.2.2.0 R6 (disk.ts): a move not yet on disk (the save timer runs, or the PUT is out): the store is newer than the file. */
+export const layoutPending = () => saveTimer !== 0 || layoutSaving;
 
 export async function saveLayout(): Promise<void> {
   const s = roles.get();
@@ -154,10 +161,13 @@ export async function saveLayout(): Promise<void> {
   for (const n of s.graph.nodes) if (s.positions[n.id]) nodes[n.id] = { x: Math.round(s.positions[n.id].x), y: Math.round(s.positions[n.id].y) };
   const tiers: Record<string, { collapsed: boolean }> = {};
   for (const t of s.graph.tiers) tiers[t.name] = { collapsed: !!s.collapsed[t.name] };
+  layoutSaving = true;
   try {
     await api.put("layout/" + encodeURIComponent(s.name), { positions: nodes, nodes, tiers });
   } catch {
     /* kept in the store; the next move saves again */
+  } finally {
+    layoutSaving = false;
   }
 }
 
@@ -165,6 +175,7 @@ export async function saveLayout(): Promise<void> {
 export function startRoles(): void {
   if (roles.get().started) return;
   roles.update(() => ({ started: true }));
+  startDisk(); // 3.2.2.0 R6: what changes on disk (a session's edit, the CLI) shows here (disk.ts)
   void (async () => {
     await loadLists();
     const s = roles.get();

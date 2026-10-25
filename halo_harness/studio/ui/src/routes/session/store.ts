@@ -8,10 +8,13 @@
 // `?mode=session&session=<id>`, a `focus` frame) opens Session on a session
 // or an agent with `openSession`. Entering with nothing of this harness
 // selected selects the newest working agent of the chosen (else any) session.
+// 3.2.2.0 R6: config.json moving on disk (`halo teams apply`, `halo config set
+// model`: `files_changed`) reads GET fleet again: the sessions' lineup and model.
 import { createStore, goSection, studio, useStore } from "../../lib/store";
 import { select } from "../fleet/actions";
 import { findAgent, fleet, isLive, keyOf, localId, parseKey, useFleet, type FleetState, type Scope } from "../fleet/store";
-import { startFleet } from "../fleet/sync";
+import { load as loadFleet, startFleet } from "../fleet/sync";
+import { onFilesChanged } from "../../lib/filesLive";
 import type { AgentKey, AgentRow, SessionRow } from "../fleet/types";
 
 export type SessionUiView = "auto" | "start" | "workspace";
@@ -148,6 +151,7 @@ export function startSession(): void {
   if (started) return;
   started = true;
   startFleet();
+  onFilesChanged("config", () => void loadFleet());
   studio.subscribe(onChange);
   fleet.subscribe(onChange);
   onChange();
