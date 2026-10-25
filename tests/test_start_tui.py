@@ -6,7 +6,7 @@
    done and the outcome; Esc closes it once it has ended
 2. Esc on a running start stops it at its next check; Esc again closes
 3. `/explain tiers` pushes a card with the tier paragraph; Esc closes it
-4. the wizard's Summary offers "Run the ten-minute start now" (off by default)
+4. (3.2.2.0 R2: the wizard Summary's five check rows are in tests/test_round2c_wizard_ux.py)
 5. (3.2.2.0 R1) a raising step is `!!` in the panel; the Summary's checks ending after Finish print nothing
 Run: python -m tests.test_start_tui
 """
@@ -172,39 +172,17 @@ def test_explain_card_shows_the_paragraph(ctx: Ctx):
 
 
 @test
-def test_wizard_summary_offers_the_start_default_off(ctx: Ctx):
-    """The standalone `halo init` Summary (the wizard's last step) has "Run the ten-minute start now", off by
-    default; Finish with it on sets `run_start` (init_cli then runs `halo start`); a /setup Summary has no box."""
-    from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState
-
-    async def drive(offer: bool, tick: bool):
-        state = WizardState(cwd=Path.cwd(), step_keys=("summary",), no_live=True, offer_start=offer)
-        app = InitWizardApp(state)
-        async with app.run_test(size=(120, 44)) as pilot:
-            await pilot.pause(0.3)
-            boxes = list(app.screen.query("#wiz-summary-start"))
-            value = boxes[0].value if boxes else None
-            if tick and boxes:
-                boxes[0].value = True
-            await pilot.pause(0.1)
-            app.screen.action_do_next()
-            await pilot.pause(0.2)
-        return len(boxes), value, state.run_start
-    ctx.check("halo init's Summary: one box, off", asyncio.run(drive(True, False)) == (1, False, False))
-    ctx.check("ticked and Finish: run_start", asyncio.run(drive(True, True)) == (1, False, True))
-    ctx.check("a /setup Summary: no box", asyncio.run(drive(False, False)) == (0, None, False))
-
-
-@test
 def test_summary_checks_ending_after_finish_print_no_traceback(ctx: Ctx):
-    """Finish while the Summary's checks run: they end with the app gone (was a NoActiveAppError traceback)."""
+    """Setup closes while the Summary's checks run: they end with the app gone (was a NoActiveAppError traceback),
+    and the ticked checks still to come do not start (3.2.2.0 R2)."""
     import io
     import logging
     import threading
     from contextlib import redirect_stderr
-    from halo_harness import init_cli
+    from halo_harness import doctor, init_cli
+    from halo_harness.studio import models_refresh
     from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState
-    gate, seen = threading.Event(), {}
+    gate, seen, later = threading.Event(), {}, []
 
     def slow_checks(*_a, **_k):
         seen["thread"] = threading.current_thread()
@@ -214,19 +192,21 @@ def test_summary_checks_ending_after_finish_print_no_traceback(ctx: Ctx):
     tap = logging.Handler()
     tap.emit = records.append
     bridge = logging.getLogger("bridge")
-    state = WizardState(cwd=Path.cwd(), step_keys=("summary",), no_live=True, offer_start=True)
+    state = WizardState(cwd=Path.cwd(), step_keys=("summary",), no_live=False, offer_start=True, final_model="or:v/m")
 
     async def drive():
         app = InitWizardApp(state)
         async with app.run_test(size=(120, 44)) as pilot:
+            await pilot.pause(0.3)
+            app.screen.query_one("#wiz-summary-checks").select("start")  # tui/dialogs/check_rows.py
+            app.screen.action_do_next()  # Finish: doctor, catalog and hello start; doctor waits on the gate
             await _until(pilot, lambda: "thread" in seen, 20)
-            app.screen.query_one("#wiz-summary-start").value = True
-            await pilot.pause(0.1)
-            app.screen.action_do_next()
-            await pilot.pause(0.2)
-        gate.set()  # the app has stopped; the checks end now (asyncio.run waits for the thread before it returns)
-    saved, err = init_cli._step_checks, io.StringIO()
-    init_cli._step_checks = slow_checks
+        gate.set()  # the app has stopped; the doctor ends now (asyncio.run waits for the thread before it returns)
+    saved = (doctor.run_checks, models_refresh.refresh, init_cli._run_live_pong)
+    doctor.run_checks = slow_checks
+    models_refresh.refresh = lambda *a, **k: later.append("catalog") or {"outcomes": []}
+    init_cli._run_live_pong = lambda *a, **k: later.append("hello") or (True, "pong")
+    err = io.StringIO()
     bridge.addHandler(tap)
     try:
         with redirect_stderr(err):
@@ -235,10 +215,12 @@ def test_summary_checks_ending_after_finish_print_no_traceback(ctx: Ctx):
                 seen["thread"].join(20)
     finally:
         gate.set()
-        init_cli._step_checks = saved
+        doctor.run_checks, models_refresh.refresh, init_cli._run_live_pong = saved
         bridge.removeHandler(tap)
-    ctx.check(f"Finish with the box ticked: run_start, got {state.run_start}", state.run_start is True)
+    ctx.check(f"setup closed while they ran: no hand-off to the start, got {state.run_start} {state.checks_cancel}",
+              state.run_start is True and state.checks_cancel is True)
     ctx.check(f"the checks ended, got {seen}", seen.get("thread") is not None and not seen["thread"].is_alive())
+    ctx.check(f"the ones after the doctor did not start, got {later}", later == [])
     raised = [r.getMessage() for r in records if "raised" in r.getMessage()]
     ctx.check(f"no worker error logged, got {raised}", raised == [])
     ctx.check(f"nothing on stderr, got {err.getvalue()[-400:]!r}", "Traceback" not in err.getvalue())

@@ -1589,8 +1589,16 @@ def _cmd_coach(args: str, facade: HeadlessFacade) -> str:
 
 def _cmd_start(args: str, facade: HeadlessFacade) -> str:
     """Halo 3.1.1.0 R1: the TUI runs the start in a panel (tui/slash.py); here it says how to run it."""
-    return ("The ten-minute start runs in a terminal: halo start (one screen per step; --yes runs straight "
-            "through, --json prints a summary). In the TUI, /start runs it in a panel.")
+    return ("The guided first run runs in a terminal: halo start (it opens on a card saying what it does, costs "
+            "and writes; one screen per step; --yes runs straight through, --json prints a summary, --explain "
+            "prints only the card). In the TUI, /start runs it in a panel.")
+
+
+def _cmd_check(args: str, facade: HeadlessFacade) -> str:
+    """Halo 3.2.2.0 R2: `/check [--all | --doctor --catalog --hello --gym] [--models REF,REF] [--explain]`, the
+    same checks as `halo check`, their lines in the transcript."""
+    from halo_harness.check_cli import cmd_check_text
+    return cmd_check_text(args, cwd=getattr(facade, "cwd", None))
 
 
 def _cmd_edit(args: str, facade: HeadlessFacade) -> str:
@@ -1796,8 +1804,11 @@ _BUILTIN_SPECS = {
     "coach": ("core", "The post-run coach's card for a run: --model asks the lead, --apply ID writes, --undo puts back, "
               "--probe tries two candidate overlays first", "[run] [--model] [--apply ID] [--probe [--k N]] [--undo [ID]]",
               _cmd_coach),
-    "start": ("core", "The ten-minute start: a lineup, a sample repo, one Orchestra goal, its plan, the run and the coach",
-              None, _cmd_start),
+    "start": ("core", "The guided first run: a lineup, a sample repo, one real Orchestra goal on your models, its plan, "
+              "the run and the coach", None, _cmd_start),
+    "check": ("core", "Run the checks Halo offers after setup (doctor, catalog, hello by default; --all, --gym, "
+              "--explain), each with what it does, costs and takes", "[--all|--doctor|--catalog|--hello|--gym] "
+              "[--models REF,REF] [--explain]", _cmd_check),
     "explain": ("core", "What a Halo word means: one paragraph from the glossary (no word: list them)", "[thing]",
                 _cmd_explain),
     "edit": ("core", "Edit a bio, a lineup or the Team in Studio (the TUI opens it in your browser)",
