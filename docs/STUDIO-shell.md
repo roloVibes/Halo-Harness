@@ -123,6 +123,27 @@ cue. A section tab "works" while that section has fresh activity, toasts
 sweep green or flash red once, and nothing loops except `idle`, `working`
 and `waiting`, which describe an ongoing state.
 
+## What is on disk, as it changes (3.2.2.0)
+
+`studio/files_live.py` is one daemon
+thread per Studio server (started and stopped with it) that lists, every
+1.5 s, the user `teams/` and `agents/` folders, the project's `.halo/teams/`
+and `.halo/agents/`, `config.json` and `studio/layouts/` (names, mtimes,
+sizes). A change is gathered for 300 ms (longer while files keep moving) and
+sent once per kind as `{"session_id": "studio", "event": "files_changed",
+"data": {"kind": "lineups" | "bios" | "config" | "layouts", "names": [...],
+"removed": [...]}}`, to every browser (a one-session feed too). Nothing that
+writes the files publishes anything: the watcher sees every writer, a
+session's Edit tool, `halo teams apply`, `halo agents`, `halo config set`,
+another Studio. The pages subscribe through `lib/filesLive.ts`
+(`onFilesChanged`, 300 ms merge) and re-read: Roles (the lineup list, the
+open lineup, the Bios panel, the bio form, the card positions, the active
+mark and the default model), Team (`GET team` and the board), Session (`GET
+fleet`, on config), Orchestra's LINEUP list, the model selects' "the
+lineup's" / "the default" answers, the Pack Manager's Templates. Studio's own
+saves come back as a frame too and change nothing: the page compares the
+file with what it holds. A pack's files are the `pack_changed` frame's.
+
 ## Opening Studio on a bio, a lineup or the Team (`halo studio --edit`)
 
 3.1.1.0: Studio is the one editor of bios and lineups; the terminal shows

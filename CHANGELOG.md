@@ -111,6 +111,20 @@ version.
 - Roles canvas: a card dropped on a collapsed tier no longer joins it and vanishes. The tier opens when the card is held over its strip; dropped there, the card stays where it was and a toast says so.
 - Roles canvas: removing a card no longer moves the other cards' saved spots.
 
+### R6: Studio sees what the session changes
+
+#### Added
+- Studio watches the lineup and bio folders (yours and the project's `.halo/`), `config.json` and `studio/layouts/` every 1.5 s (`studio/files_live.py`). It sends one `files_changed` frame per change set and kind (`lineups`, `bios`, `config`, `layouts`) on the live feed. A lineup your session edits, `halo teams apply`, or a bio saved from the terminal shows in the open page within two seconds, with no refresh.
+- Roles: "<name> changed on disk" with **Reload** and **Keep mine** over the Inspector or the bio form when the file moves while you have unsaved edits. "<name> was deleted on disk" when the open lineup or bio is removed.
+- Orchestra's LINEUP field offers every lineup by name, a list kept current from disk.
+
+#### Changed
+- Roles re-reads the lineup list, the open lineup (canvas, Inspector), the Bios panel and form, the card positions, the active mark and the default model when their files change. Team, Session (GET fleet on config), the model selects' "the lineup's" / "the default" answers and the Pack Manager's Templates re-read too.
+- A browser feed scoped to one session receives `files_changed` frames as well (like `sessions`).
+
+#### Fixed
+- Studio no longer needs a page refresh to show a lineup, bio, config or layout change that a session, the CLI or another Studio wrote.
+
 ### Also in 3.2.2.0
 
 #### Changed

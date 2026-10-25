@@ -5,9 +5,11 @@
 // the role table an Orchestra run uses (plus the active lineup's card for the
 // role, for a link); with neither: the default model. One answer per
 // (lineup, role) for the page's life; `forgetResolved()` drops them all
-// (a lineup saved, a bio's model changed).
+// (a lineup saved, a bio's model changed; 3.2.2.0 R6: and a lineup, bio or
+// config.json moving on disk, the `files_changed` frames).
 import { useEffect } from "react";
 import { api } from "../../lib/api";
+import { onFilesChanged } from "../../lib/filesLive";
 import { createStore, useStore } from "../../lib/store";
 
 export type Resolved = { ref: string; source: "lineup" | "roles" | "default" | "none"; role: string; lineup: string; card: string };
@@ -15,7 +17,13 @@ export type Resolved = { ref: string; source: "lineup" | "roles" | "default" | "
 const cache = createStore<{ by: Record<string, Resolved | "loading"> }>({ by: {} });
 const keyOf = (role: string, lineup: string) => `${lineup}|${role}`;
 
+let watching = false;
+
 async function load(role: string, lineup: string): Promise<void> {
+  if (!watching) {
+    watching = true;
+    onFilesChanged(["lineups", "bios", "config"], () => forgetResolved());
+  }
   const k = keyOf(role, lineup);
   if (cache.get().by[k]) return;
   cache.update((s) => ({ by: { ...s.by, [k]: "loading" } }));

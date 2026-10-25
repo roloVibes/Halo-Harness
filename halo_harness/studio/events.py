@@ -30,6 +30,7 @@ QUEUE_MAX = 512
 RETRY_S = 10.0
 CALL_TIMEOUT_S = 1.0
 FRESH_KINDS = frozenset({"turn_done", "message_end", "status"})
+EVERY_BROWSER = frozenset({"sessions", "files_changed"})  # 3.2.2.0 R6: a one-session feed hears the disk too (files_live.py)
 
 
 def _forget_snapshot() -> None:
@@ -52,7 +53,7 @@ class BrowserQueue:
         self.dropped = 0
 
     def wants(self, frame: dict) -> bool:
-        return self.sessions == "all" or frame.get("event") == "sessions" or frame.get("session_id") == self.sessions
+        return self.sessions == "all" or frame.get("event") in EVERY_BROWSER or frame.get("session_id") == self.sessions
 
     def put(self, frame: dict) -> None:
         with self._cv:

@@ -13,6 +13,7 @@ import { groupBySource, SourceBox } from "./SourceGroups";
 import { openDialog, packOf, readOnlySource, roles, scopeLabel, useRoles } from "./store";
 import { openLineup } from "./sync";
 import type { LineupRow } from "./types";
+import { LineupDiskNote } from "./DiskNote";
 
 function Row({ l, open }: { l: LineupRow; open: boolean }) {
   const pack = packOf(l.scope);
@@ -66,6 +67,7 @@ export function LineupsDetail() {
           ))}
         </span>
       </div>
+      <LineupDiskNote list />
       {error && <p className="og-problems">{error}</p>}
       {!lineups.length ? (
         <Empty title="No lineup yet" body="New makes one from a shipped lineup." />
