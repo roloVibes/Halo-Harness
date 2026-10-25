@@ -209,8 +209,10 @@ def _wait(run_dir: Path, flow, jobs: list, check_stop: Callable, poll_s: float, 
                 approved = apply(run_dir, normalize(decision["jobs"]), flow)
                 run_events.log(run_dir, "state", f"the run takes the reviewed plan: {len(approved)} job(s)", step="split")
                 return approved
-            (run_dir / PLAN).replace(run_dir / BAD)
+            # one atomic write of the bad plan WITH its problems, then plan.json goes: a reader between the old
+            # move-then-rewrite saw plan.bad.json without `problems` (a Windows runner did, 3.2.1.0)
             jsonl.write_json(run_dir / BAD, dict(decision, problems=[p["text"] for p in problems]))
+            (run_dir / PLAN).unlink(missing_ok=True)
             run_events.log(run_dir, "state", "plan.json fails the check, so the plan still waits: "
                            + "; ".join(p["text"] for p in problems), step="split", problems=[p["text"] for p in problems])
         if not announced:
