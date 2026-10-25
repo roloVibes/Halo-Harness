@@ -10,6 +10,7 @@ from __future__ import annotations
 import hmac
 import json
 import time
+from typing import Optional
 from urllib.parse import parse_qs, urlsplit
 
 PING_S = 15.0
@@ -19,6 +20,16 @@ def _frame_bytes(frame: dict) -> bytes:
     kind = str(frame.get("event") or "message").replace("\n", " ").replace("\r", " ")
     data = json.dumps(frame, ensure_ascii=False, default=str)
     return f"event: {kind}\ndata: {data}\n\n".encode("utf-8", "replace")
+
+
+def dropped_notice(q, told: int) -> "tuple[Optional[bytes], int]":
+    """A `dropped` frame when `q` lost frames since `told` (3.2.1.0: the browser re-reads the fleet view then), else
+    None; returns the count told so far."""
+    if q.dropped <= told:
+        return None, told
+    frame = {"session_id": None, "event": "dropped", "data": {"n": q.dropped - told}, "turn": None, "agent_id": None,
+             "ts": time.time()}
+    return _frame_bytes(frame), q.dropped
 
 
 def serve_sse(handler) -> None:
@@ -47,6 +58,7 @@ def serve_sse(handler) -> None:
         handler.wfile.write(b"retry: 3000\n\n")
         handler.wfile.flush()
         next_ping = time.monotonic() + PING_S
+        told = 0  # drops told to this browser so far
         while not q.closed and not bridge.closed:
             frame = q.get(max(0.05, min(1.0, next_ping - time.monotonic())))
             if frame is not None:
@@ -55,6 +67,9 @@ def serve_sse(handler) -> None:
                 handler.wfile.write(b": ping\n\n")
             else:
                 continue
+            notice, told = dropped_notice(q, told)  # 3.2.1.0: frames fell off the bounded queue under a flood
+            if notice:
+                handler.wfile.write(notice)
             handler.wfile.flush()
             next_ping = time.monotonic() + PING_S
     except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, OSError):

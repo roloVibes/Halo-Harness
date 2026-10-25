@@ -15,7 +15,7 @@
 // answer never lands after a newer one, and an agent leaving `waiting` reads
 // GET fleet again at once so the session's waiting state clears.
 import { api, ApiError } from "../../lib/api";
-import { onEvent, type FeedFrame } from "../../lib/events";
+import { onEvent, onFeedState, type FeedFrame } from "../../lib/events";
 import { studio, toast } from "../../lib/store";
 import { startCaps } from "./caps";
 import { startMissions } from "./mload";
@@ -201,6 +201,8 @@ export function startFleet(): void {
   for (const k of RAW) onEvent(k, onRaw);
   for (const k of FIGURE_KINDS) onEvent(k, onFigures);
   for (const k of RELOAD) onEvent(k, () => later("load", 600, () => void load()));
+  onEvent("dropped", () => later("load", 200, () => void load())); // 3.2.1.0: frames fell off the queue: re-read
+  onFeedState((s) => { if (s === "open") later("load", 300, () => void load()); }); // a (re)opened stream missed its gap
   window.setInterval(() => {
     if (studio.get().feed.status !== "open" && !document.hidden) void load();
   }, POLL_MS);
