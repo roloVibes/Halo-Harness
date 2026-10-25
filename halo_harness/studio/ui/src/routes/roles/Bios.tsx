@@ -4,9 +4,11 @@
 // first (shipped bios stay). 3.2.0.0 R2: grouped by source (SourceGroups.tsx:
 // yours, project, one box per pack, shipped); a pack's bio has Preview (the
 // form, read-only), Clone and Customize, and shows the tags it asks for.
+// 3.2.2.0 R6: over the form, "<name> changed on disk" (Reload / Keep mine) or "deleted on disk" (DiskNote.tsx).
 import { Button } from "../../lib/ui";
 import { Metric } from "../orchestra/bits";
 import { BioForm } from "./BioForm";
+import { BioDiskNote } from "./DiskNote";
 import { openBio } from "./bioActions";
 import { cloneFromPack } from "./packActions";
 import { groupBySource, SourceBox } from "./SourceGroups";
@@ -59,6 +61,7 @@ export function BiosDetail() {
           </SourceBox>
         ))}
       </div>
+      <BioDiskNote />
       <BioForm />
     </div>
   );

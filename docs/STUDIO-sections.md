@@ -367,7 +367,8 @@ mode, kind, cwd, started, pid; never an endpoint or token) whenever one
 attaches or detaches, and `: ping` keeps the stream open every 15 s. Each
 browser gets its own queue of 512 frames (the oldest dropped first). The
 shell's status bar, the Orchestra panels and the rail read it. Studio's own
-Orchestra runner publishes its run log here too (`orchestra_*` frames).
+Orchestra runner publishes its run log here too (`orchestra_*` frames), and
+its files watcher `files_changed` (3.2.2.0: [what is on disk](STUDIO-shell.md#what-is-on-disk-as-it-changes-3220)).
 
 **What Session reads, and the delays that remain (3.1.8.0).** The Session
 tab (and Fleet) reads the feed, not a poll: a session's own `message_end`

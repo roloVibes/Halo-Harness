@@ -76,7 +76,13 @@ export type RolesState = {
   tierAdd: boolean;
   tierRename: string;
   tierMenu: TierMenuAt | null;
+  /** 3.2.2.0 R6 (disk.ts): the open lineup / bio changed or went on disk while it had an unsaved draft (or went). */
+  diskLineup: DiskNote | null;
+  diskBio: DiskNote | null;
 };
+
+/** 3.2.2.0 R6: "<name> changed on disk" (Reload / Keep mine) or "<name> was deleted on disk" over the form. */
+export type DiskNote = { name: string; gone: boolean };
 
 export type TierMenuAt = { tier: string; x: number; y: number; face: "menu" | "model" | "trigger" | "max" };
 
@@ -135,6 +141,8 @@ export const roles = createStore<RolesState>({
   tierAdd: false,
   tierRename: "",
   tierMenu: null,
+  diskLineup: null,
+  diskBio: null,
 });
 
 export function useRoles<S>(pick: (s: RolesState) => S): S {

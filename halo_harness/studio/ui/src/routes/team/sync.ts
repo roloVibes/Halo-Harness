@@ -7,9 +7,11 @@
 // (the feed's lines, the holders, a new run) -- so nothing is counted twice.
 // While the live feed is not connected and a run is open it polls instead;
 // while it is, the blocks are read again every 5 s (a claim that runs out
-// sends no frame).
+// sends no frame). 3.2.2.0 R6: a lineup, bio or config.json moving on disk
+// (a session's edit, `halo teams apply`: `files_changed`) reads it all again.
 import { api, ApiError } from "../../lib/api";
 import { feedState, onEvent, type FeedFrame } from "../../lib/events";
+import { onFilesChanged } from "../../lib/filesLive";
 import { markActivity, setSectionStatus } from "../../lib/store";
 import { runOpen, statusLine, team } from "./store";
 import type { BlockStatus, BoardReply, ChangeLine, EventLine, Gate, TeamFrame, TeamInfo } from "./types";
@@ -140,6 +142,7 @@ export function startTeam(): void {
   team.update(() => ({ started: true }));
   void refreshAll();
   onEvent("team", onFrame);
+  onFilesChanged(["lineups", "bios", "config"], () => void refreshAll());
   let ticks = 0;
   window.setInterval(() => {
     if (!runOpen(team.get())) return;

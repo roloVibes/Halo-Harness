@@ -5,13 +5,15 @@
 // budget (workers, return cap) and the lineup, the MODEL (3.1.4.0 R4: the
 // model select in plain sight, its first option "the lineup's (<the lead's
 // model>)"), then who plays the parts under a disclosure. Run and Dry run
-// post it (POST orchestra/run).
+// post it (POST orchestra/run). 3.2.2.0 R6: LINEUP offers every lineup by
+// name, the list kept current from disk (shared/LineupField.tsx).
 import { useEffect, useState } from "react";
 import { useHelpGroup } from "../../lib/fieldHelp";
 import { useStore } from "../../lib/store";
 import { Button, Field, Icon } from "../../lib/ui";
 import { useFleet } from "../fleet/store";
 import { runSession, WatchInSession } from "../session/Watch";
+import { LineupField } from "../shared/LineupField";
 import { ModelSelect } from "../shared/ModelSelect";
 import { useResolved } from "../shared/resolve";
 import { StateBadge } from "./bits";
@@ -135,7 +137,7 @@ export function GoalForm({ start }: { start?: boolean }) {
       <div className="og-form-row og-form-row3" role="group" aria-label="Budget and lineup">
         <Num label="WORKERS" value={form.workers} set={set("workers")} min={1} max={50} title="How many lanes, one worker each (1 to 50)" />
         <Num label="RETURN CAP" value={form.return_cap} set={set("return_cap")} min={0} max={20} title="How many times the gate may send one part back" />
-        <Line label="LINEUP" value={form.lineup} set={set("lineup")} example="optional" />
+        <LineupField label="LINEUP" value={form.lineup} set={set("lineup")} example="optional" testid="orchestra-lineup" />
       </div>
       <ModelSelect label="MODEL" hint={help.orchestra} value={form.model} onPick={set("model")} testid="orchestra-model" compact={!start}
                    inherit={{ label: "the lineup's", model: lead?.ref || "" }} />

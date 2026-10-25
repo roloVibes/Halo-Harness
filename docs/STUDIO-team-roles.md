@@ -95,6 +95,21 @@ Start view, `store.ts` + `sync.ts` the store and its feed, `actions.ts`,
 
 ## What you see (Roles)
 
+**Roles follows the disk (3.2.2.0).** When a lineup's file changes (your
+session's model edited it, `halo teams apply`, another Studio saved it) the
+canvas and the Inspector show the new version within two seconds; a bio
+saved from the terminal updates the Bios panel, the bio form and the cards'
+model pills; a moved layout file moves the cards (unless a move of yours is
+still being saved); `config.json` moves the **active** mark and the default
+model. An unsaved draft is never overwritten: the lineup's edits (the
+Inspector's fields, its YAML, a card moved between tiers) or the bio form's
+keep what you typed, and a line over the Inspector or the bio form says
+"<name> changed on disk" with **Reload** (the file's version, your edits
+dropped) and **Keep mine** (Save writes yours over the file). A lineup or bio
+deleted on disk leaves the list; the open one closes with "<name> was
+deleted on disk. Pick another ... from the list", or, with unsaved edits,
+stays open with **Keep mine** (Save puts it back) and **Close it**.
+
 Roles (`Alt+3`, 3.0.7.0 R2) is six panels; until you have a lineup of your
 own (only the shipped ones, none active) it is one **Start view** instead:
 what a lineup is, the steps, and **Make my first lineup** (a copy of a
