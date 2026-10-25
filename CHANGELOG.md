@@ -10,6 +10,8 @@ version.
 
 ## [3.2.2.0] - unreleased
 
+Focus: what the owner hit live on 2026-10-25, as six rounds -- the guided first run says what it does and never crashes, a quit leaves nothing behind and `halo update` clears what lingers, the session says what it is doing and plan mode never leaves you guessing, the canvas makes room, Studio sees what the session changes; and the launch shows the art.
+
 ### R1: the start never crashes
 
 #### Fixed
@@ -22,6 +24,37 @@ version.
 - `halo start --json` and Studio's `start` summary frame carry `error_log` (the log path) when the start failed on an unexpected error; `reason` is the one line.
 - New module `halo_harness/start/errors.py` (`error_line`, `write_error_log`, `failed_summary`), shared by the engine, `halo start`, Studio's start job and the TUI panel.
 - Docs: COMMANDS-init.md (`halo start`'s failed screen and the log), TROUBLESHOOTING.md ("`halo start` failed: read the log").
+
+### R2: the first-run checks say what each does, and the user picks
+
+#### Added
+- `halo check`: the checks Halo offers after setup.
+- The defaults are doctor, the model catalog and one hello call. The others are the quick gym and the guided first run.
+- Flags: `--all`, `--doctor --catalog --hello --gym --start`, `--models REF,REF` for the gym, and `--explain` (the five rows: what each does, costs, takes and writes).
+- Each check prints its title, that line and its results. Exit 1 when one failed.
+- `/check` in the TUI: the same checks, with their lines in the transcript.
+- `halo start --explain`: only the guided first run's card. The card shows:
+- the seven steps, one sentence each;
+- the models it will call;
+- an estimated cost by a stated rule (one lead plan, five worker lanes, one judge pass, each with a token budget, at the catalog's prices): "free" when every model is local, "unknown for <model>" when the catalog has no price;
+- the time and what it writes;
+- that your active lineup is not touched.
+- The glossary word "guided first run" (`halo explain guided first run`).
+
+#### Changed
+- "The ten-minute start" is now "the guided first run" everywhere: `halo start`, `/start`, Studio's Start here and the palette, and the docs.
+- `halo start` opens on its card. `--yes` prints it and goes on; `--json` leaves it out.
+- Studio's Start here shows the same card above its button, which reads "Run the guided first run". `GET /api/start` carries it as `card`.
+- `halo init`'s Summary: the one "Run the ten-minute start now" checkbox is now five check rows.
+- Each row is a title and a muted line saying what it does, costs, takes and writes.
+- Space toggles a row. Doctor, catalog and hello are on; the gym (with its models listed, local ones ticked) and the guided first run are off.
+- Finish runs the ticked ones in order and prints each result. Finish again closes setup, then starts the guided first run when it was ticked.
+- Before this, the doctor, catalog refresh and live pong ran unasked.
+- The console path (`--yes`, no terminal) runs the same three as before.
+
+#### Fixed
+- The wizard Summary's result lines lost their `[OK]`/`[WARN]` marks (they were read as markup).
+- Esc while the Summary's checks run stops the ones still to come and hands nothing to `halo start`.
 
 ### R3: halo exits clean, and halo update clears what lingers
 
@@ -60,37 +93,6 @@ version.
 #### Fixed
 - Entering plan mode by Shift+Tab, `/plan on`, config or `--permission-mode plan` now tells the model (the plan-mode note with the plan file's path); leaving it says "Plan mode is off: implement the plan."
 - A lazily started MCP server's read-only tools keep their `readOnlyHint` from the tools cache.
-
-### R2: the first-run checks say what each does, and the user picks
-
-#### Added
-- `halo check`: the checks Halo offers after setup.
-- The defaults are doctor, the model catalog and one hello call. The others are the quick gym and the guided first run.
-- Flags: `--all`, `--doctor --catalog --hello --gym --start`, `--models REF,REF` for the gym, and `--explain` (the five rows: what each does, costs, takes and writes).
-- Each check prints its title, that line and its results. Exit 1 when one failed.
-- `/check` in the TUI: the same checks, with their lines in the transcript.
-- `halo start --explain`: only the guided first run's card. The card shows:
-- the seven steps, one sentence each;
-- the models it will call;
-- an estimated cost by a stated rule (one lead plan, five worker lanes, one judge pass, each with a token budget, at the catalog's prices): "free" when every model is local, "unknown for <model>" when the catalog has no price;
-- the time and what it writes;
-- that your active lineup is not touched.
-- The glossary word "guided first run" (`halo explain guided first run`).
-
-#### Changed
-- "The ten-minute start" is now "the guided first run" everywhere: `halo start`, `/start`, Studio's Start here and the palette, and the docs.
-- `halo start` opens on its card. `--yes` prints it and goes on; `--json` leaves it out.
-- Studio's Start here shows the same card above its button, which reads "Run the guided first run". `GET /api/start` carries it as `card`.
-- `halo init`'s Summary: the one "Run the ten-minute start now" checkbox is now five check rows.
-- Each row is a title and a muted line saying what it does, costs, takes and writes.
-- Space toggles a row. Doctor, catalog and hello are on; the gym (with its models listed, local ones ticked) and the guided first run are off.
-- Finish runs the ticked ones in order and prints each result. Finish again closes setup, then starts the guided first run when it was ticked.
-- Before this, the doctor, catalog refresh and live pong ran unasked.
-- The console path (`--yes`, no terminal) runs the same three as before.
-
-#### Fixed
-- The wizard Summary's result lines lost their `[OK]`/`[WARN]` marks (they were read as markup).
-- Esc while the Summary's checks run stops the ones still to come and hands nothing to `halo start`.
 
 ### R5: the canvas makes room
 
