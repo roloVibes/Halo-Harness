@@ -255,6 +255,26 @@ and No in a non-interactive run); `/start` in the TUI and Studio's Start
 here overlay run the same start. Exit codes: 0 every step done, 1 a step
 failed or the start was stopped, 2 usage or no provider.
 
+When a step fails on an error it did not expect (Halo 3.2.2.0), the step
+is `[failed]` with one line and the file that holds the full traceback,
+and the start ends with exit 1; no traceback is printed:
+
+```text
+  TypeError: boom
+  the full error is in ~/.halo/start/2026-10-25/start-error.log
+[failed]
+
+halo start stopped at repo: TypeError: boom
+the full error is in ~/.halo/start/2026-10-25/start-error.log
+```
+
+The log is `~/.halo/start/<yyyy-mm-dd>/<run>-error.log` once the step 3
+run exists (`start-error.log` before it); each failure is appended under a
+timestamp line. A failure before the first step is one stderr line,
+`halo start: <Type>: <message> -- the full error is in <path>`. `--json`
+carries the line as `reason` and the path as `error_log`; the TUI panel and
+Studio's Start here show both lines.
+
 ## `halo explain`
 
 ```sh
