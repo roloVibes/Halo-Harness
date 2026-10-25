@@ -7,6 +7,7 @@
 2. Esc on a running start stops it at its next check; Esc again closes
 3. `/explain tiers` pushes a card with the tier paragraph; Esc closes it
 4. the wizard's Summary offers "Run the ten-minute start now" (off by default)
+5. (3.2.2.0 R1) a raising step is `!!` in the panel; the Summary's checks ending after Finish print nothing
 Run: python -m tests.test_start_tui
 """
 from __future__ import annotations
@@ -125,6 +126,33 @@ def test_esc_stops_a_running_start(ctx: Ctx):
 
 
 @test
+def test_a_raising_step_shows_failed_in_the_panel(ctx: Ctx):
+    from halo_harness.start import steps_setup
+    from halo_harness.tui.dialogs.start_panel import StartPanel
+
+    def boom(_run):
+        raise TypeError("boom")
+
+    async def drive():
+        app = _host(lambda: StartPanel(_factory()))
+        async with app.run_test(size=(150, 46)) as pilot:
+            panel = app.screen
+            done = await _until(pilot, lambda: panel.summary is not None, 60)
+            return done, str(panel.query_one("#start-body").render()), type(app.screen).__name__, panel.summary
+    saved = steps_setup.repo
+    steps_setup.repo = boom
+    try:
+        done, body, screen, summary = asyncio.run(drive())
+    finally:
+        steps_setup.repo = saved
+    ctx.check(f"the start ended on the step, got {summary}", done and summary.get("ok") is False
+              and summary.get("stopped_at") == "repo" and summary.get("reason") == "TypeError: boom")
+    ctx.check(f"the panel: !! on step 2, the line and the log, got {body[-500:]!r}", "[!!] 2. The sample repo" in body
+              and "TypeError: boom" in body and "the full error is in " in body and "Stopped at repo: TypeError: boom" in body)
+    ctx.check(f"still the panel, no crash screen, got {screen}", screen == "StartPanel")
+
+
+@test
 def test_explain_card_shows_the_paragraph(ctx: Ctx):
     from halo_harness import glossary as G
     from halo_harness.tui.dialogs.explain_card import ExplainCard
@@ -165,6 +193,55 @@ def test_wizard_summary_offers_the_start_default_off(ctx: Ctx):
     ctx.check("halo init's Summary: one box, off", asyncio.run(drive(True, False)) == (1, False, False))
     ctx.check("ticked and Finish: run_start", asyncio.run(drive(True, True)) == (1, False, True))
     ctx.check("a /setup Summary: no box", asyncio.run(drive(False, False)) == (0, None, False))
+
+
+@test
+def test_summary_checks_ending_after_finish_print_no_traceback(ctx: Ctx):
+    """Finish while the Summary's checks run: they end with the app gone (was a NoActiveAppError traceback)."""
+    import io
+    import logging
+    import threading
+    from contextlib import redirect_stderr
+    from halo_harness import init_cli
+    from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState
+    gate, seen = threading.Event(), {}
+
+    def slow_checks(*_a, **_k):
+        seen["thread"] = threading.current_thread()
+        gate.wait(20)
+        return ["doctor: ok"], True
+    records: list = []
+    tap = logging.Handler()
+    tap.emit = records.append
+    bridge = logging.getLogger("bridge")
+    state = WizardState(cwd=Path.cwd(), step_keys=("summary",), no_live=True, offer_start=True)
+
+    async def drive():
+        app = InitWizardApp(state)
+        async with app.run_test(size=(120, 44)) as pilot:
+            await _until(pilot, lambda: "thread" in seen, 20)
+            app.screen.query_one("#wiz-summary-start").value = True
+            await pilot.pause(0.1)
+            app.screen.action_do_next()
+            await pilot.pause(0.2)
+        gate.set()  # the app has stopped; the checks end now (asyncio.run waits for the thread before it returns)
+    saved, err = init_cli._step_checks, io.StringIO()
+    init_cli._step_checks = slow_checks
+    bridge.addHandler(tap)
+    try:
+        with redirect_stderr(err):
+            asyncio.run(drive())
+            if seen.get("thread") is not None:
+                seen["thread"].join(20)
+    finally:
+        gate.set()
+        init_cli._step_checks = saved
+        bridge.removeHandler(tap)
+    ctx.check(f"Finish with the box ticked: run_start, got {state.run_start}", state.run_start is True)
+    ctx.check(f"the checks ended, got {seen}", seen.get("thread") is not None and not seen["thread"].is_alive())
+    raised = [r.getMessage() for r in records if "raised" in r.getMessage()]
+    ctx.check(f"no worker error logged, got {raised}", raised == [])
+    ctx.check(f"nothing on stderr, got {err.getvalue()[-400:]!r}", "Traceback" not in err.getvalue())
 
 
 if __name__ == "__main__":

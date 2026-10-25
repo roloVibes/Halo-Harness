@@ -20,7 +20,7 @@ export type StartFrame = {
   state: string;
   lines?: string[];
 };
-export type StartSummary = { ok?: boolean; stopped_at?: string | null; reason?: string; lineup?: string; repo?: string; run?: string; coach?: number; message?: string };
+export type StartSummary = { ok?: boolean; stopped_at?: string | null; reason?: string; error_log?: string; lineup?: string; repo?: string; run?: string; coach?: number; message?: string };
 type Job = { job: string; running: boolean; fake?: boolean; steps: StartFrame[]; summary: StartSummary | null };
 type Status = { show: boolean; fresh: boolean; plan: StartFrame[]; job: Job | null };
 

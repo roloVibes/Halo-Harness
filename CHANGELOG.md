@@ -10,6 +10,19 @@ version.
 
 ## [3.2.2.0] - unreleased
 
+### R1: the start never crashes
+
+#### Fixed
+- `halo start`: any error a step did not expect (or one from the command its screen shows) now fails that step with one line, `<Type>: <message>`, and `the full error is in <path>`. The start exits 1 with no traceback on the terminal. The traceback is appended to `~/.halo/start/<date>/<run or start>-error.log`.
+- `halo start`: a failure before the first step (building the run) is one stderr line naming the log, exit 1.
+- `halo init`: pressing Finish while the Summary's checks (doctor, live pong) were still running no longer prints a "worker wiz-summary-checks raised" traceback when the checks end after the wizard has closed. This is the traceback that appeared as "Run the ten-minute start now" began on Kali.
+- Studio's Start here and the TUI `/start` panel: a start that fails, or cannot be built, ends with that one line and the log path, never a crash screen.
+
+#### Changed
+- `halo start --json` and Studio's `start` summary frame carry `error_log` (the log path) when the start failed on an unexpected error; `reason` is the one line.
+- New module `halo_harness/start/errors.py` (`error_line`, `write_error_log`, `failed_summary`), shared by the engine, `halo start`, Studio's start job and the TUI panel.
+- Docs: COMMANDS-init.md (`halo start`'s failed screen and the log), TROUBLESHOOTING.md ("`halo start` failed: read the log").
+
 ### Also in 3.2.2.0
 
 #### Changed
