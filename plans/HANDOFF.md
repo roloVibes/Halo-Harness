@@ -4,6 +4,81 @@ This folder carries the whole plan so a new session (local or cloud) can
 pick the work up without the conversation that produced it. Read this file
 first, then `WORKER-RULES.md`, then the round you are starting.
 
+## WHERE THINGS STAND -- 2026-10-24 evening (authoritative, read this first)
+
+**3.2.1.0 "Packs, the loose ends" IS RELEASED** (tag v3.2.1.0 at 8c3332c, cut
+by `scripts/release.py 3.2.1.0 --skip-windows` on a green Linux push run and a
+green dispatched Windows run for its candidate 947edd7). The owner installed
+3.2.0.0 on the Windows host in the afternoon and said "Keep going"; the
+roadmap's "After 3.2.0.0" list of sixteen open points became five rounds, one
+Opus worker each in `~/hh-321/<round>` (briefs, hand-backs, progress files and
+CI logs under `~/hh-321/briefs/`):
+
+- R1 a pack's lineup reaches the goal, the mission and the glossary: `halo
+  goal add --lineup` and Studio's goal form take the lineup's acceptance;
+  `halo fleet mission new --lineup` and a Lineup select on the Mission form;
+  the packs registry sees a bio edit (its signature stats agents/, teams/,
+  workflows/); the saved pack section paints first after a reload; three
+  model tags (`reasoning`, `open-weights`, `audio-out`); "pack" in the
+  glossary.
+- R2 a workflow run keeps its shape: the replanner never pauses a workflow
+  run; a workflow's own `budget_usd` stops a plain Orchestra run; the gate
+  carries a stage's evidence rows; the workflow picker on Orchestra's Start
+  view; `<pack>/<name>` refs (`workflow_refs`); `gate: human` written as the
+  plan review.
+- R3 the hub holds what a pack declares: `capacity.parallel` held (a new
+  part state `waiting`); a part refused for a pack reason re-planned once
+  onto another harness; `fleet.capabilities.hide` reaches pack capabilities;
+  a member's inspector lines carry their text.
+- R4 hooks and the update pause, for everyone: a shell-form hook's
+  `${CLAUDE_PLUGIN_ROOT}` runs on Windows (per-field fill, forward slashes,
+  quoted on a space); `halo pack update` asks before the swap in a terminal
+  (`--yes` skips); rollback's one-back rule written.
+- R5 the Linux pass: the Chrome tier (423) and the fast tier green on WSL
+  Ubuntu with Playwright's Chromium; eight reds fixed, among them a real
+  Studio bug (a finished node's glow outliving a clock step: `useRecent`
+  re-arms), run_all clearing `HALO_CHROME`, a skill body's `${CLAUDE_SKILL_
+  DIR}` on Windows (the hooks' rule, `fill_claude_vars_in_commands`),
+  `--no-sandbox` only as root, a wizard test that downloaded ripgrep into the
+  real `~/.local/bin`. The Kali VM did not answer; nothing ran there.
+
+Also in this version, from CI: a print-mode run registered its control
+socket before its stream-json turn queue existed (`status.accepts_turns`);
+a hand-written bad plan.json became plan.bad.json in two steps and a reader
+in between saw it without its problems (one atomic write now); Studio's live
+feed could lose a frame (the browser's bounded queue dropping the oldest
+under a flood, a reconnect's gap) and the Fleet map then kept a stopped
+agent `running` (the stream says `dropped`, the page re-reads its view then
+and on every stream open); the mission status table gives a waits line the
+replanned line's width; the
+test drivers gained element fallbacks (the Pack Manager's Apply, the Design
+editor's typing and Escape, the Roles lineup read), and the interpreter
+test's flake was a temp folder name with `__` that the server-name parser
+refuses.
+
+Open after 3.2.1.0 (plans/ROADMAP.md "After 3.2.1.0", three lists): a hold
+before one workflow stage; no per-stage replan; a pass already running can
+carry the spend past the cap; the picker lists workflows whose prerequisites
+are not met here; the Pack Manager and `halo pack inspect` show bare
+workflow names; parts another hub sends to the same member are not counted
+against capacity; the re-plan uses the assignment rules with no second lead
+call; a member's inspector text is as fresh as its last catalog gather; a
+hidden capability makes `halo pack doctor` exit 1 (its row is a warning);
+the Kali pass itself; a custom command's body gets no `${CLAUDE_...}`
+variables; the real-home guards watch only `~/.halo` and `~/.rolo-claude`;
+WSL is not the CI runner.
+
+The local install: the release script skips the reinstall while a halo
+session runs; once the owner's is closed (`/quit`, never kill):
+`uv tool install --reinstall git+https://github.com/roloVibes/Halo-Harness@v3.2.1.0`
+then `uv tool list`. On Kali: `halo update`, then check that the distro's
+`chromium` is on PATH and that Chrome starts from a root shell (R5 could not).
+Hand step still open: upload docs/media/social-preview.png under Settings ->
+Social preview.
+
+**Next:** nothing is queued on the roadmap beyond the three "After 3.2.1.0"
+lists and the owner's live checks on Kali.
+
 ## WHERE THINGS STAND -- 2026-10-24 (authoritative, read this first)
 
 **3.1.8.0 "The supervisor" and 3.1.9.0 "Auto" ARE RELEASED** (tags v3.1.8.0 at
