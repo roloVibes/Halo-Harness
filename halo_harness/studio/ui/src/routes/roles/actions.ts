@@ -9,7 +9,7 @@
 import { api, ApiError } from "../../lib/api";
 import { toast } from "../../lib/store";
 import { agentsOf, clone, closeDialog, HISTORY_MAX, keyOf, nodeById, packOf, readOnlySource, roles } from "./store";
-import { loadLists, msg, openLineup, saveLayout, validateSoon } from "./sync";
+import { loadLists, msg, openLineup, rekeyPositions, saveLayout, validateSoon } from "./sync";
 import type { LineupPayload, Raw } from "./types";
 
 export async function run<T>(busy: string, fn: () => Promise<T>, done?: (r: T) => string): Promise<T | null> {
@@ -76,7 +76,7 @@ export async function save(): Promise<boolean> {
     const p = await api.put<LineupPayload>("lineup/" + encodeURIComponent(s.name), { raw: s.raw }, query);
     // an edit or an undo that landed while the save was in flight stays: only an unchanged mapping takes the saved copy
     const untouched = roles.get().raw === sent;
-    roles.update(() => ({ current: p, graph: p.graph, findings: p.findings || [], saveProblems: [],
+    roles.update((st) => ({ current: p, graph: p.graph, positions: rekeyPositions(st.graph, p.graph, st.positions), findings: p.findings || [], saveProblems: [],
                           ...(untouched ? { raw: clone(p.raw), dirty: false } : { dirty: true }) }));
     toast(`${p.name} saved to ${p.scope} scope`, "done");
     await saveLayout();

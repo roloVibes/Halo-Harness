@@ -92,6 +92,25 @@ version.
 - The wizard Summary's result lines lost their `[OK]`/`[WARN]` marks (they were read as markup).
 - Esc while the Summary's checks run stops the ones still to come and hands nothing to `halo start`.
 
+### R5: the canvas makes room
+
+#### Added
+- Studio: **Arrange** (the rail's LAYOUT foot beside Reset layout, and the palette) puts every open panel back in the section's default place and size in one press; strips stay strips and floating panels float.
+- Studio: lib/geometry.ts, the shared rectangle math (`hits`, `nudgeApart`, `placeBeside`, `splitResize`) behind the workspace grid, the Roles canvas and Design's Artboards.
+
+#### Changed
+- Studio workspace: a panel dropped on another makes room. The neighbour gives up columns first, panels in the same columns trade places, and only then does the neighbour go down, never below the visible rows, live while you drag.
+- Studio workspace: an edge or corner resize is a splitter; the panel on that edge shrinks or grows by the same columns or rows.
+- Roles canvas: a card dropped on another nudges it aside in its tier, live while dragging. A drop into another tier lands beside the card it hits. The selected and the last-dropped card are drawn on top. The canvas grows with a drag.
+- Roles canvas: cards no longer carry the shipped / user / project chip; the scope is in the Lineups and Bios lists and the Inspector's Assignment header.
+- Roles: a card's id is its name plus an ordinal among the cards with the same name (`reviewer#0`, `reviewer#1`); layouts saved with the older index ids read with today's ids.
+- Design: an artboard dropped on another makes room the same way.
+
+#### Fixed
+- Studio: a panel moved over another in Roles no longer pushes it below the window, where it seemed to disappear.
+- Roles canvas: a card dropped on a collapsed tier no longer joins it and vanishes. The tier opens when the card is held over its strip; dropped there, the card stays where it was and a toast says so.
+- Roles canvas: removing a card no longer moves the other cards' saved spots.
+
 ### Also in 3.2.2.0
 
 #### Changed

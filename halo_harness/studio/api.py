@@ -71,12 +71,12 @@ def get_lineups(req: Request):
 
 
 def get_lineup(req: Request):
-    data = M.lineup_payload(req.params["name"], cwd=req.cwd, state_dir=req.state_dir, active=_active_team())
+    data = M.lineup_payload(req.params["name"], cwd=req.cwd, state_dir=req.state_dir, active=_active_team(),
+                            layout=M.read_layout(req.state_dir, req.params["name"]))
     if data is None:
         return 404, {"error": f"no lineup named {req.params['name']!r}"}
     from .roles_findings import findings_for  # 3.0.7.0 R2: the Problems panel's list on open
     data["findings"] = findings_for(data["raw"], problems=data["problems"], graph=data["graph"], cwd=req.cwd, state_dir=req.state_dir)
-    data["layout"] = M.legacy_layout_view(M.read_layout(req.state_dir, req.params["name"]))
     return 200, data
 
 

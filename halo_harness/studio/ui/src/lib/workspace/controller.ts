@@ -1,16 +1,20 @@
 // Drag / resize / keyboard controller for workspace panels: pointer events
 // with pointer capture (no library). A grid panel snaps to cells as it moves
-// and the others make room live; a floating panel moves in 8 px steps.
+// and the others make room live (room.ts: sideways first, then they trade
+// places, then down, never below the visible rows); an edge or corner drag is
+// a splitter (the panel on that edge follows it); a floating panel moves in
+// 8 px steps.
 import { createContext, useContext, type KeyboardEvent, type PointerEvent } from "react";
 import { applyDelta, applyDeltaPx, arrange, clampRect, effH } from "./grid";
 import { layoutStore, setLayout } from "./persist";
+import { splitEdges } from "./room";
 import { COLS, MOVE_ROWS, ROW, type Gesture, type Layout, type PanelSpec } from "./types";
 
 export type WorkspaceApi = {
   section: string;
   specs: PanelSpec[];
-  /** Workspace content box in px. */
-  metrics: () => { width: number; height: number; colW: number };
+  /** Workspace content box in px; `rows`: the grid rows that fit in view (a move never puts a panel below them). */
+  metrics: () => { width: number; height: number; colW: number; rows: number };
   setDragging: (on: boolean) => void;
 };
 
@@ -44,7 +48,8 @@ export function useGesture(id: string, g: Gesture) {
     el.setPointerCapture(ev.pointerId);
     const p0 = start[id];
     const spec = ws.specs.find((s) => s.id === id);
-    const { colW, width, height } = ws.metrics();
+    const { colW, width, height, rows } = ws.metrics();
+    const room = { rows, from: g === "move" ? p0 : undefined, specs: ws.specs }; // a resize trades places with nothing
     const sx = ev.clientX;
     const sy = ev.clientY;
     let lastKey = "";
@@ -65,7 +70,8 @@ export function useGesture(id: string, g: Gesture) {
         const key = `${r.x},${r.y},${r.w},${r.h}`;
         if (key === lastKey) return;
         lastKey = key;
-        next = arrange({ ...base, [id]: { ...base[id], ...r } }, id, true);
+        const placed = g === "move" ? { ...base, [id]: { ...base[id], ...r } } : splitEdges(base, id, g, base[id], r, room);
+        next = arrange(placed, id, true, room);
       }
       setLayout(ws.section, next, false);
     };
@@ -110,11 +116,13 @@ export function usePanelKeys(id: string) {
       setLayout(ws.section, arrange(swapVertical(layout, id, dy)));
       return;
     }
+    const room = { rows: ws.metrics().rows, from: ev.shiftKey ? undefined : p, specs: ws.specs };
     const r = ev.shiftKey
       ? clampRect({ ...p, w: p.w + dx, h: p.h + dy * MOVE_ROWS }, spec)
       : clampRect({ ...p, x: p.x + dx }, spec);
     if (r.x + r.w > COLS) return;
-    setLayout(ws.section, arrange({ ...layout, [id]: { ...p, ...r } }, id));
+    const placed = ev.shiftKey ? splitEdges(layout, id, "se", p, r, room) : { ...layout, [id]: { ...p, ...r } };
+    setLayout(ws.section, arrange(placed, id, false, room));
   };
 }
 

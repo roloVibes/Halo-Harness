@@ -18,6 +18,14 @@ over a one-tier lineup (halo-dev-cycle, no tiers declared):
 5. a second tier with a card in it: the labels on the three-tier lineup never
    overlap; Delete (tier 0's is off) puts its card back in the last tier;
    Ctrl+Z brings it back.
+
+3.2.2.0 R5, the canvas makes room (tests/helpers/studio_roles_room.py, over
+studio-tiers): a card dropped onto another in its tier leaves both visible
+and not overlapping, the dropped one on top; dropped onto a card in another
+tier it moves there and lands beside it; dropped on a collapsed tier's strip
+it is not hidden and stays where it was (the toast says so), held there the
+tier opens and the drop joins it; a card removed and saved keeps every other
+card's id and its spot in the layout file.
 Run: python -m tests.test_studio_roles_tiers
 """
 from __future__ import annotations
@@ -38,19 +46,19 @@ REPO = Path(__file__).resolve().parent.parent
 _RUN: dict = {}
 
 
-def _got(ctx: Ctx) -> dict:
+def _got(ctx: Ctx, helper: str = "tests.helpers.studio_roles_tiers", mode: str = "tiers") -> dict:
     from tests.helpers.chrome_driver import driver_env, find_chrome
     if not find_chrome():
         raise SkipTest("no Chrome found (the Roles tier checks need headless Chrome)")
-    if "r" not in _RUN:
-        r = subprocess.run([sys.executable, "-m", "tests.helpers.studio_roles_tiers", "tiers"], capture_output=True, encoding="utf-8",
+    if helper not in _RUN:
+        r = subprocess.run([sys.executable, "-m", helper, mode], capture_output=True, encoding="utf-8",
                            errors="replace", timeout=500, env=driver_env(REPO), cwd=str(REPO))
         try:
             info = json.loads(r.stdout.strip().splitlines()[-1])
         except (ValueError, IndexError):
             info = {}
-        _RUN["r"] = (r, info)
-    r, info = _RUN["r"]
+        _RUN[helper] = (r, info)
+    r, info = _RUN[helper]
     if info.get("skip"):
         raise SkipTest(info["skip"])
     ctx.check(f"the driver ran, got {r.returncode} {info.get('failed')!r} {r.stderr[-600:]!r}", r.returncode == 0 and "failed" not in info)
@@ -132,6 +140,50 @@ def test_three_tiers_labels_delete_and_undo(ctx: Ctx):
     ctx.check(f"Delete drops the tier, its card back in the last tier, got {got.get('deleted')} {got.get('review_in_rest')!r}",
               got.get("deleted") == {"top": ["boss"], "studio-media": ["worker"]} and got.get("review_in_rest") == "rest")
     ctx.check(f"Ctrl+Z brings it back (unsaved), got {got.get('undo_back')!r}", got.get("undo_back") == "back")
+
+
+def _room(ctx: Ctx) -> dict:
+    return _got(ctx, "tests.helpers.studio_roles_room", "room")
+
+
+@test
+def test_a_drop_onto_a_card_in_its_tier_makes_room(ctx: Ctx):
+    got = _room(ctx)
+    ctx.check(f"no two cards overlap before, got {got.get('start_overlaps')}", got.get("start_overlaps") == [])
+    ctx.check("both cards stay drawn", got.get("same_both_shown") is True)
+    ctx.check(f"and no two overlap, got {got.get('same_overlaps')}", got.get("same_overlaps") == [])
+    ctx.check(f"the dropped card is on top (z-index 2), got {got.get('same_top')!r}", str(got.get("same_top")) == "2")
+
+
+@test
+def test_a_drop_onto_a_card_in_another_tier_lands_beside_it(ctx: Ctx):
+    got = _room(ctx)
+    ctx.check(f"the tier move is saved, got {got.get('moved_tiers')}", (got.get("moved_tiers") or {}).get("leads") == ["worker", "research", "release"])
+    ctx.check("both cards stay drawn, the moved one inside its new box", got.get("other_both_shown") is True and got.get("other_in_leads") == "in")
+    ctx.check(f"beside it, not on it: no two cards overlap, got {got.get('other_overlaps')}", got.get("other_overlaps") == [])
+
+
+@test
+def test_a_collapsed_tier_is_no_drop_target(ctx: Ctx):
+    got = _room(ctx)
+    ctx.check("the strip collapsed", got.get("leads_collapsed") == "collapsed")
+    ctx.check(f"a quick drop on it: the toast, got {got.get('shut_toast')!r}", got.get("shut_toast") == "tier leads is collapsed; it stays where it was")
+    ctx.check("the card is still drawn, the tiers on disk unchanged, the tier still collapsed",
+              got.get("shut_shown") is True and got.get("shut_unchanged") is True and got.get("shut_still_collapsed") is True)
+    ctx.check("held over the strip, the tier opens", got.get("held_opened") is True)
+    ctx.check(f"and the drop joins it, drawn, nothing overlapping, got {got.get('held_joined')} {got.get('held_overlaps')}",
+              "watchdog" in (got.get("held_joined") or {}).get("leads", []) and got.get("held_shown") is True and got.get("held_overlaps") == [])
+
+
+@test
+def test_removing_a_card_keeps_the_others_spots(ctx: Ctx):
+    got = _room(ctx)
+    ctx.check(f"the removed card is scout#0, the lineup saved without it, got {got.get('removed_id')!r} {got.get('saved_agents')}",
+              got.get("removed_id") == "scout#0" and "tester" not in (got.get("saved_agents") or ["tester"]))
+    ctx.check(f"seven other cards in the layout before, got {got.get('others')}", len(got.get("others") or []) == 7)
+    ctx.check(f"every one keeps its id and its spot in the layout file, got {got.get('kept')} of {got.get('others')}",
+              got.get("kept") == got.get("others") and got.get("removed_id") not in (got.get("layout_after") or {"scout#0": 1}))
+    ctx.check(f"and nothing overlaps, got {got.get('after_overlaps')}", got.get("after_overlaps") == [])
 
 
 if __name__ == "__main__":

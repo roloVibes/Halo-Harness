@@ -68,9 +68,9 @@ def test_graph_edges_and_diagnostics(ctx: Ctx):
     nodes = {n["alias"]: n for n in g["nodes"]}
     ctx.check("one node per assignment with stable ids", len(g["nodes"]) == 4 and g["nodes"][0]["id"] == "boss#0")
     ctx.check("delegation edges from main carry the routing keys that reach each member",
-              any(e["kind"] == "delegation" and e["to"] == "worker#1" and e["label"] == "implement, fix" for e in g["edges"]))
+              any(e["kind"] == "delegation" and e["to"] == "worker#0" and e["label"] == "implement, fix" for e in g["edges"]))
     ctx.check("a leftover org reports_to draws nothing (3.1.4.0)", not any(e["kind"] == "reports" for e in g["edges"]))
-    ctx.check("pipeline stages become ordered pipeline edges", any(e["kind"] == "pipeline" and e["from"] == "worker#1" and e["to"] == "review#2" for e in g["edges"]))
+    ctx.check("pipeline stages become ordered pipeline edges", any(e["kind"] == "pipeline" and e["from"] == "worker#0" and e["to"] == "review#0" for e in g["edges"]))
     ctx.check("a missing bio is a node problem", any("not found" in p for p in g["nodes"][3]["problems"]))
     ctx.check("a duplicate alias is a warning on the second node", any("twice" in w for w in g["nodes"][3]["warnings"]))
     ctx.check("the main node resolves the bio's own model", nodes["boss"]["model"] and nodes["boss"]["kind"] == "main")
@@ -149,7 +149,8 @@ def test_every_card_hangs_off_main(ctx: Ctx):
     canvas, assign, parts = ((roles / f).read_text(encoding="utf-8") for f in ("Canvas.tsx", "Assignment.tsx", "CanvasParts.tsx"))
     ctx.check("the React canvas has no drop-to-report and no Reports-to field",
               "setReportsTo" not in canvas and 'label="Reports to"' not in assign and '"reports"' not in parts)
-    ctx.check("a shipped bio's badge says what it is and what to do", "Duplicate it in the Bios panel" in parts)
+    ctx.check("a shipped bio's badge (3.2.2.0 R5: in the Inspector's Assignment header, not on the card) says what it is and what to do",
+              "Duplicate it in the Bios panel" in assign and "rc-scope" in assign and "rc-scope" not in parts)
 
 
 @test
@@ -162,14 +163,38 @@ def test_graph_emits_tiers(ctx: Ctx):
     g = graph_for({"agents": agents}, catalog={})
     ctx.check(f"no tiers: one implicit tier 'all' holding every card, got {g['tiers']}", g["tiers"] == [
         {"name": "all", "members": ["main", "worker", "reviewer"], "max_parallel": None, "model": None, "trigger": None,
-         "index": 0, "implicit": True, "node_ids": ["main#0", "worker#1", "reviewer#2"]}])
+         "index": 0, "implicit": True, "node_ids": ["main#0", "worker#0", "reviewer#0"]}])
     g = graph_for({"agents": agents, "tiers": [{"name": "top", "members": ["main"]},
                                                {"name": "workers", "members": ["worker"], "max_parallel": 3}]},
                   catalog={})
     ctx.check(f"declared tiers then the implicit 'rest', got {g['tiers']}",
               [(t["name"], t["members"], t["max_parallel"], t["index"], t["implicit"], t["node_ids"]) for t in g["tiers"]]
-              == [("top", ["main"], None, 0, False, ["main#0"]), ("workers", ["worker"], 3, 1, False, ["worker#1"]),
-                  ("rest", ["reviewer"], None, 2, True, ["reviewer#2"])])
+              == [("top", ["main"], None, 0, False, ["main#0"]), ("workers", ["worker"], 3, 1, False, ["worker#0"]),
+                  ("rest", ["reviewer"], None, 2, True, ["reviewer#0"])])
+
+
+@test
+def test_card_ids_stay_put_when_a_card_goes(ctx: Ctx):
+    """3.2.2.0 R5: a card's id is its name plus an ordinal only among the cards with that name, so
+    removing one keeps every other card's id; a layout saved with the old index ids reads with
+    today's when its cards are this lineup's (all of them, or some when an id can only be an old one)."""
+    from halo_harness.studio import model as M
+    agents = [{"agent": "orchestrator", "role": "main", "as": "boss"}, {"agent": "reviewer", "role": "reviewer"},
+              {"agent": "implementer", "role": "subagent", "as": "worker"}, {"agent": "verifier", "role": "reviewer"}]
+    ids = [n["id"] for n in M.graph_for({"agents": agents}, catalog={})["nodes"]]
+    ctx.check(f"two reviewer cards are #0 and #1, the others #0, got {ids}", ids == ["boss#0", "reviewer#0", "worker#0", "reviewer#1"])
+    after = [n["id"] for n in M.graph_for({"agents": [a for a in agents if a.get("as") != "worker"]}, catalog={})["nodes"]]
+    ctx.check(f"removing the worker keeps every other id, got {after}", after == ["boss#0", "reviewer#0", "reviewer#1"])
+    old = {"nodes": {"boss#0": {"x": 1, "y": 1}, "reviewer#1": {"x": 2, "y": 2}, "worker#2": {"x": 3, "y": 3}, "reviewer#3": {"x": 4, "y": 4}}, "tiers": {}}
+    got = M.migrate_layout_ids(old, {"agents": agents})["nodes"]
+    ctx.check(f"the old index ids read as today's, each spot on its card, got {got}",
+              got == {"boss#0": {"x": 1, "y": 1}, "reviewer#0": {"x": 2, "y": 2}, "worker#0": {"x": 3, "y": 3}, "reviewer#1": {"x": 4, "y": 4}})
+    ctx.check("a layout of the moved cards only, with an id only the old scheme has, too",
+              M.migrate_layout_ids({"nodes": {"worker#2": {"x": 3, "y": 3}}}, {"agents": agents})["nodes"] == {"worker#0": {"x": 3, "y": 3}})
+    today = {"nodes": {k: v for k, v in got.items()}, "tiers": {}}
+    ctx.check("a layout in today's ids is left as it is", M.migrate_layout_ids(today, {"agents": agents}) == today)
+    other = {"nodes": {"ghost#5": {"x": 1, "y": 1}}, "tiers": {}}
+    ctx.check("cards that are not this lineup's are left as they are", M.migrate_layout_ids(other, {"agents": agents}) == other)
 
 
 @test

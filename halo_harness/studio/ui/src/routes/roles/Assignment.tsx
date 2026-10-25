@@ -5,6 +5,7 @@
 // and Edit bio (the Bios panel opens on it), Duplicate and Remove (asks
 // first). With no card selected: the lineup's description and about.
 // 3.1.1.0 R3: each field's help line is field_help.py's (lib/fieldHelp.ts).
+// 3.2.2.0 R5: the header carries the bio's scope chip (the card no longer does).
 import { focusPanel, patchPanel } from "../../lib/workspace/persist";
 import { useHelpGroup } from "../../lib/fieldHelp";
 import { Button } from "../../lib/ui";
@@ -14,7 +15,7 @@ import { ListIn, NumberIn, Pick, TextIn } from "./controls";
 import { ModelSelect } from "../shared/ModelSelect";
 import { setSlotModel } from "./modelActions";
 import { LineupHeader, SaveProblems } from "./LineupTab";
-import { agentsOf, keyOf, modelRow, nodeById, openDialog, priceText, useRoles } from "./store";
+import { agentsOf, keyOf, modelRow, nodeById, openDialog, priceText, readOnlySource, scopeLabel, useRoles } from "./store";
 import type { Entry, Raw } from "./types";
 
 const ROLE_NAMES = ["main", "subagent", "reviewer", "researcher", "judge", "custom"];
@@ -60,6 +61,13 @@ export function Assignment() {
       <header className="re-assign-head">
         <b>{n.agent}</b>
         <span className="mono muted">{title}{tier ? ` · tier ${tier.index} (${tier.name})` : ""}</span>
+        {n.scope && (
+          <span className="rc-scope mono" data-scope={n.scope} data-testid="roles-assign-scope"
+                title={n.scope === "template" ? "This bio ships with Halo: Duplicate it in the Bios panel for an editable copy"
+                  : readOnlySource(n.scope) ? `This bio comes from ${scopeLabel(n.scope)}: Duplicate it in the Bios panel for an editable copy` : `This bio lives in your ${n.scope} scope`}>
+            {scopeLabel(n.scope)}
+          </span>
+        )}
       </header>
       <Pick label="Agent bio" value={String(entry.agent || "")} options={bios.map((b) => b.name)} onChange={(v) => set("agent", v)} hint={h.agent} testid="roles-assign-agent" />
       <Pick label="Role" value={String(entry.role || "subagent")} options={ROLE_NAMES} onChange={(v) => set("role", v)} hint={h.role} testid="roles-assign-role" />

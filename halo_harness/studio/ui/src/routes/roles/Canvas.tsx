@@ -11,7 +11,13 @@
 // ("Drag a bio here, or New lineup", CanvasEmpty.tsx). 3.1.6.0 R1: Add tier
 // on the bar, a tier box's own head and menu (TierBox.tsx, TierMenu.tsx);
 // when the tiers change (one added or deleted) and the boxes then overlap,
-// the canvas lays itself out again in tier columns.
+// the canvas lays itself out again in tier columns. 3.2.2.0 R5 (drop.ts): a
+// drop makes room -- the dropped card keeps its spot, the cards it lands on
+// step aside in their tier (live while it moves), a drop into another tier
+// lands beside the card it hits; a collapsed tier is no drop target (held
+// over its strip for 600 ms it opens; dropped there, the card stays where it
+// was); the selected or last-dropped card is drawn on top; the world grows
+// with the drag.
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type KeyboardEvent, type PointerEvent } from "react";
 import { addCard, moveToTier } from "./actions";
 import { Card, Edges } from "./CanvasParts";
@@ -20,6 +26,8 @@ import { TierMenu } from "./TierMenu";
 import { focusModel } from "./modelActions";
 import { CanvasBar } from "./CanvasBar";
 import { CanvasInvite, NoLineup } from "./CanvasEmpty";
+import { dropPatch } from "./drop";
+import { toast } from "../../lib/store";
 import { GlowLegend } from "./GlowLegend";
 import { glowOf, hideLegend, startGlow, type GlowState } from "./glow";
 import { autoLayout, columns, extent, hiddenCards, placeAll, tierAt, tierBox } from "./layout";
@@ -30,6 +38,7 @@ import { movePositions, setCollapsed } from "./sync";
 import type { Pos } from "./types";
 
 type Drag = { id: string; dx: number; dy: number; hot: string };
+const OPEN_MS = 600; // a card held this long over a collapsed tier's strip opens it
 
 export function CanvasDetail() {
   const graph = useRoles((s) => s.graph);
@@ -46,11 +55,17 @@ export function CanvasDetail() {
   useEffect(() => startGlow(), []);
   const [drag, setDrag] = useState<Drag | null>(null);
   const [zoom, setZoom] = useState(1);
+  const [top, setTop] = useState(""); // the last-dropped card, drawn over the others
   const scroll = useRef<HTMLDivElement>(null);
   const zoomRef = useRef(zoom);
   zoomRef.current = zoom;
   const placed = useMemo(() => (graph ? placeAll(graph, saved) : {}), [graph, saved]);
-  const pos = useMemo(() => (drag && placed[drag.id] ? { ...placed, [drag.id]: { x: placed[drag.id].x + drag.dx, y: placed[drag.id].y + drag.dy } } : placed), [placed, drag]);
+  const pos = useMemo(() => {
+    if (!graph || !drag || !placed[drag.id]) return placed;
+    const at = { x: Math.max(0, placed[drag.id].x + drag.dx), y: Math.max(0, placed[drag.id].y + drag.dy) };
+    const into = graph.tiers.find((t) => t.name === drag.hot);
+    return { ...placed, ...dropPatch(graph, placed, collapsed, drag.id, at, into), [drag.id]: at }; // the room being made, live
+  }, [graph, placed, collapsed, drag]);
   const xs = useMemo(() => (graph ? columns(graph) : []), [graph]);
   const hidden = useMemo(() => (graph ? hiddenCards(graph, collapsed) : new Set<string>()), [graph, collapsed]);
   const issues = useMemo(() => {
@@ -75,38 +90,51 @@ export function CanvasDetail() {
     const x0 = ev.clientX, y0 = ev.clientY;
     let moved = false;
     let last: Drag = { id, dx: 0, dy: 0, hot: "" };
+    let held = "", timer = 0; // the collapsed strip under the pointer, and its open timer
+    const hold = (name: string) => {
+      if (name === held) return;
+      window.clearTimeout(timer);
+      held = name;
+      if (name) timer = window.setTimeout(() => setCollapsed(name, false), OPEN_MS);
+    };
     const move = (m: globalThis.PointerEvent) => {
       const dx = (m.clientX - x0) / zoomRef.current, dy = (m.clientY - y0) / zoomRef.current;
       if (!moved && Math.hypot(dx, dy) < 4) return;
       moved = true;
       const s = roles.get();
       const all = placeAll(s.graph!, s.positions);
+      hold(tierAt(s.graph!, all, s.collapsed, world(m), id, true)?.name || "");
       last = { id, dx, dy, hot: tierAt(s.graph!, all, s.collapsed, world(m), id)?.name || "" };
       setDrag(last);
     };
     const up = (u: globalThis.PointerEvent) => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
+      window.clearTimeout(timer);
       setDrag(null);
       if (!moved) return selectCard(id);
       const s = roles.get();
       if (!s.graph) return;
       const all = placeAll(s.graph, s.positions);
       const p = world(u);
+      setTop(id);
+      const shut = tierAt(s.graph, all, s.collapsed, p, id, true);
+      if (shut) return toast(`tier ${shut.name} is collapsed; it stays where it was`, "info", 3500);
       const from = s.graph.tiers.find((t) => t.node_ids.includes(id));
       const to = tierAt(s.graph, all, s.collapsed, p, id);
       const next = { x: Math.max(0, all[id].x + last.dx), y: Math.max(0, all[id].y + last.dy) };
       if (to && from && to.name !== from.name) {
-        void moveToTier(id, to.name).then((ok) => ok && movePositions({ [id]: next }));
+        const patch = dropPatch(s.graph, all, s.collapsed, id, next, to);
+        void moveToTier(id, to.name).then((ok) => ok && movePositions(patch));
         return;
       }
-      movePositions({ [id]: next });
+      movePositions(dropPatch(s.graph, all, s.collapsed, id, next));
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
   }, []);
 
-  const ext = graph ? extent(graph, placed) : { w: 600, h: 320 };
+  const ext = graph ? extent(graph, pos) : { w: 600, h: 320 }; // grows with a live drag
   const fit = () => {
     const el = scroll.current;
     if (el) setZoom(Math.max(0.3, Math.min(1.25, (el.clientWidth - 24) / ext.w, (el.clientHeight - 24) / ext.h)));
@@ -176,7 +204,7 @@ export function CanvasDetail() {
               const list = byNode[n.id] || [];
               return (
                 <Card key={n.id} n={n} x={pos[n.id]?.x ?? 0} y={pos[n.id]?.y ?? 0} model={models.find((m) => m.ref === n.model)} gym={gym[n.model]}
-                      issues={issues[n.id] || 0} selected={n.id === sel} dragging={drag?.id === n.id} live={list} activity={cardActivity(list)} onDown={onCard} />
+                      issues={issues[n.id] || 0} selected={n.id === sel} top={n.id === top} dragging={drag?.id === n.id} live={list} activity={cardActivity(list)} onDown={onCard} />
               );
             })}
           </div>
