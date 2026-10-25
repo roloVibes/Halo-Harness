@@ -18,9 +18,9 @@ export const ROLES_HELP: Record<string, Help> = {
   "roles-graph": {
     about: "The open lineup as cards, one box per tier: who plays each part, on which model.",
     help: lines(
-      "Drag a card into another tier box to move it there (the lineup saves); main stays in tier 0.",
+      "Drag a card into another tier box to move it there (the lineup saves); main stays in tier 0. A card dropped on another nudges it aside, never covers it.",
       "Drag a bio from Bios onto the canvas to add it.",
-      "A tier's label strip collapses or expands it. While a session runs, the cards whose agents work glow: hover a card's glyph or badge for what its glow means and when it goes.",
+      "A tier's label strip collapses or expands it (a collapsed tier opens when you hold a card over it). While a session runs, the cards whose agents work glow: hover a card's glyph or badge for what its glow means and when it goes.",
       "Click the canvas, then A lays out, F fits, + / - zoom, the arrows nudge the selected card, Delete removes it.",
       "Ctrl+Z undoes an edit, Ctrl+Shift+Z redoes it, Mod+S saves.",
     ),

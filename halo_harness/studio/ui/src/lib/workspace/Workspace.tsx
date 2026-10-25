@@ -10,7 +10,7 @@ import { Panel } from "./Panel";
 import { layoutStore, loadSaved, setLayout } from "./persist";
 import { COLS, ROW, type PanelSpec } from "./types";
 
-export { resetLayout, layoutStore, patchPanel, focusPanel, showPanel, hidePanel, LAYOUT_PREFIX } from "./persist";
+export { resetLayout, arrangeLayout, layoutStore, patchPanel, focusPanel, showPanel, hidePanel, LAYOUT_PREFIX } from "./persist";
 export type { PanelSpec, Layout, PanelLayout, Face } from "./types";
 
 /** `?open=media-status,media-render`: panels a link (or a capture) opens first, in a default arrangement only. */
@@ -52,7 +52,8 @@ export function Workspace({ section, specs }: { section: string; specs: PanelSpe
       specs,
       metrics: () => {
         const w = grid.current?.clientWidth || 1;
-        return { width: w, height: outer.current?.clientHeight || 1, colW: w / COLS };
+        const h = outer.current?.clientHeight || 1;
+        return { width: w, height: h, colW: w / COLS, rows: Math.max(0, Math.floor((h - 24) / ROW)) }; // = fillRows below
       },
       setDragging,
     }),

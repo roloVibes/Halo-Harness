@@ -5,9 +5,11 @@
 // arrangement (3.0.3.0, when panels opened on their Glance face) keeps its
 // places and sizes but not its faces, so every panel opens on its full face.
 // A strip that opens (3.1.4.0 R1: a section may start panels as strips)
-// pushes the grid panels it now covers down; nothing else moves.
+// pushes the grid panels it now covers down; nothing else moves. 3.2.2.0 R5:
+// `arrangeLayout` (Arrange in the rail and the palette) puts the open panels
+// back in the section's default rectangles and keeps them open as they are.
 import { createStore, writeLocal, type Store } from "../store";
-import { arrange, defaultPanel, pushDown } from "./grid";
+import { arrange, defaultPanel, defaultRects, pushDown } from "./grid";
 import { ROW, type Layout, type PanelLayout, type PanelSpec } from "./types";
 
 export const LAYOUT_PREFIX = "halo.studio.layout.";
@@ -69,6 +71,19 @@ export function patchPanel(section: string, id: string, patch: Partial<PanelLayo
 export function resetLayout(section: string): void {
   writeLocal(layoutKey(section), null);
   layoutStore(section).update(() => ({ layout: null, custom: false }));
+}
+
+/** The rows a section's workspace shows (Workspace.tsx's fillRows). */
+function fillOf(section: string): number {
+  const ws = document.querySelector<HTMLElement>(`.workspace[data-section="${section}"]`);
+  return Math.max(0, Math.floor(((ws?.clientHeight || 624) - 24) / ROW));
+}
+
+/** Arrange: every panel open now in its default place and size; strips stay strips, faces stay, a floating one floats. */
+export function arrangeLayout(section: string, specs: PanelSpec[]): void {
+  const cur = layoutStore(section).get().layout;
+  if (!cur) return;
+  setLayout(section, defaultRects(specs, cur, fillOf(section)), true);
 }
 
 /** One panel back to its default place, size and face (the others make room). */

@@ -112,12 +112,14 @@ export function tierBox(t: Tier, x0: number, pos: Record<string, Pos>, collapsed
 
 const inside = (b: Box, p: Pos) => p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h;
 
-/** The tier a card dropped at world point `p` lands in (the smallest box under it), leaving the dragged card out of its own box. */
-export function tierAt(graph: Graph, pos: Record<string, Pos>, collapsed: Record<string, boolean>, p: Pos, dragged: string): Tier | undefined {
+/** The tier a card dropped at world point `p` lands in (the smallest box under it), leaving the dragged card out of its own box.
+ *  3.2.2.0 R5: a collapsed tier is not a drop target (its cards are hidden); `shut` asks for the collapsed strip under `p` instead. */
+export function tierAt(graph: Graph, pos: Record<string, Pos>, collapsed: Record<string, boolean>, p: Pos, dragged: string, shut = false): Tier | undefined {
   let best: Tier | undefined;
   let area = Infinity;
   const xs = columns(graph);
   graph.tiers.forEach((t, col) => {
+    if (!!collapsed[t.name] !== shut) return;
     const b = tierBox(t, xs[col], pos, !!collapsed[t.name], dragged);
     if (inside(b, p) && b.w * b.h < area) {
       best = t;

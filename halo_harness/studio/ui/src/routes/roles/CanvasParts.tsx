@@ -1,5 +1,5 @@
 // The pieces of the Roles canvas (3.0.7.0 R2): an agent card (name, role,
-// scope badge, the instances stack, the model pill with its price in / out
+// the instances stack, the model pill with its price in / out
 // and context, a gym score when the gym measured it, a warnings badge, and
 // the live badge while an agent works under it) and the delegation /
 // pipeline edges the classic canvas drew, each with its routing words or its
@@ -12,14 +12,17 @@
 // failed red). 3.1.6.0 R1: the tier box is TierBox.tsx; the model pill's
 // title says where the model comes from (its own, its bio's, its tier's,
 // the session's); the edge labels never overlap (labels.ts: offset along
-// their edges, the selected card's dimmed others dropped first).
+// their edges, the selected card's dimmed others dropped first). 3.2.2.0 R5:
+// no scope chip on a card (the owner: "unnecessary and busy"; the scope is in
+// the Lineups and Bios lists and the Inspector's Assignment header), and the
+// selected or last-dropped card (`top`) is drawn over the others.
 import { memo, useMemo, useRef, type CSSProperties, type PointerEvent } from "react";
 import { cost } from "../orchestra/format";
 import { CARD_H, CARD_W, edgePath } from "./layout";
 import { glowOf, hideLegend, showLegend, type GlowState } from "./glow";
 import { placeLabels, type LabelIn } from "./labels";
 import { focusModel } from "./modelActions";
-import { priceText, readOnlySource, scopeLabel } from "./store";
+import { priceText } from "./store";
 import { sourceText } from "./tierText";
 import type { GraphEdge, GraphNode, GymScore, LiveAgent, ModelRow, Pos } from "./types";
 
@@ -35,6 +38,8 @@ type CardProps = {
   gym: GymScore | undefined;
   issues: number;
   selected: boolean;
+  /** The last-dropped card: drawn over the others (z-index 2, as the selected one). */
+  top: boolean;
   dragging: boolean;
   live: LiveAgent[];
   activity: string;
@@ -80,7 +85,7 @@ function pillOf(n: GraphNode, live: LiveAgent[], lead: LiveAgent | undefined): {
   return { text: n.model ? n.model.replace(/^or:[^/]+\//, "") : "no model resolves", title: `${title}: click to change it (the Inspector's MODEL strip)` };
 }
 
-export const Card = memo(function Card({ n, x, y, model, gym, issues, selected, dragging, live, activity, onDown }: CardProps) {
+export const Card = memo(function Card({ n, x, y, model, gym, issues, selected, top, dragging, live, activity, onDown }: CardProps) {
   const stack = Math.min(3, Math.max(1, n.instances || 1));
   const lead = live.find((a) => a.activity === activity);
   const pill = pillOf(n, live, lead);
@@ -99,6 +104,7 @@ export const Card = memo(function Card({ n, x, y, model, gym, issues, selected, 
       data-role={n.role}
       data-agent={n.agent}
       data-selected={selected || undefined}
+      data-top={top || undefined}
       data-dragging={dragging || undefined}
       data-live={activity || undefined}
       data-glow={glow || undefined}
@@ -117,9 +123,6 @@ export const Card = memo(function Card({ n, x, y, model, gym, issues, selected, 
           <span className="rc-glyph" data-testid="roles-card-glyph" data-state={glow} aria-label={`glow: ${glow}`} {...legendOn(glow, n.id)}>{STATE_GLYPH[glow]}</span>
         )}
         <b className="rc-agent">{n.agent || "(no agent)"}</b>
-        <span className="rc-scope mono" data-scope={n.scope || "none"} title={n.scope === "template" ? "This bio ships with Halo: Duplicate it in the Bios panel for an editable copy" : readOnlySource(n.scope) ? `This bio comes from ${scopeLabel(n.scope)}: Duplicate it in the Bios panel for an editable copy` : `This bio lives in your ${n.scope} scope`}>
-          {scopeLabel(n.scope)}
-        </span>
       </header>
       <div className="rc-role">
         {n.role}

@@ -6,7 +6,7 @@
 import { cycleTheme, goSection, openHelp, setTheme, studio, toast, toggleRail } from "../lib/store";
 import { openGlossary } from "../lib/glossary";
 import { openStart } from "../lib/start";
-import { layoutStore, resetLayout, showPanel } from "../lib/workspace/persist";
+import { arrangeLayout, layoutStore, resetLayout, showPanel } from "../lib/workspace/persist";
 import type { PanelSpec } from "../lib/workspace/types";
 import { sectionDef, sections, type SectionDef } from "../routes";
 import { packCommands } from "../routes/packs/registry";
@@ -68,6 +68,16 @@ export function commands(): Command[] {
       run: () => {
         resetLayout(cur.id);
         toast(`${cur.title} layout reset`, "done");
+      },
+    },
+    {
+      id: "arrange-layout",
+      group: "Layout",
+      label: `Arrange (${cur.title})`,
+      hint: "the open panels back in their default places and sizes",
+      run: () => {
+        arrangeLayout(cur.id, cur.panels);
+        toast(`${cur.title} panels arranged`, "done");
       },
     },
   );

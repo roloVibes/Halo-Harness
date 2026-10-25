@@ -132,15 +132,16 @@ instead)" (and "(code 5/5 here)" when the numbers confirmed it).
 | **Bios** (`roles-bios`) | every bio (drag one onto the canvas to add a card); a click opens the **bio form** (`bio-form`): models first (3.1.4.0: the preferred model in the **model select**, the **model picker table** folded under **more...**, fallback, effort up to xhigh and max, thinking, the context budget); description, kind, tags, extends; tools (allow and deny from the real registry, `GET /api/tools`, MCP servers, permission mode, the rules); context (files, skills, the memory namespace, prompt notes); limits; output; environment (own worktree, offline); acceptance; the schedule (cron or every, its prompt and model) and the triggers (file change, event, message); a **YAML** toggle for the whole bio (hooks and any key without a field); **Save bio** (with **Save to project scope**), New, Duplicate, Delete |
 | **Models** (`roles-models`) | the catalog: its row count, each provider (enabled, key, models cached), why it is empty when it is (every provider looked at and why it lists nothing), **Refresh** (`POST /api/models/refresh`: every provider at once, each time-boxed, one line each: `ok, N models` or the reason, and "refreshed <when>"), **Analyze** (3.1.9.0, `POST /api/models/analyze`, what `halo models analyze` does: rebuilds what each model is good at and shows how many models per kind and each kind's strongest, the cheapest beside it when it differs), and **Test a model** by any ref |
 
-- **A card** shows the agent, its role and alias, a **scope badge**
-  (shipped, user, project: a shipped bio is read-only, Duplicate it in Bios
-  for your copy), the **instances stack** (a slot with `instances: 3` is
+- **A card** shows the agent, its role and alias, the **instances stack** (a slot with `instances: 3` is
   three stacked cards and `×3`), the **model pill** with the price in / out
   per 1M tokens and the context from the catalog, the **gym score** when
   `halo gym` measured that model on this machine (`GET /api/gym`), and a
   **warnings badge** with the count of its problems (hover reads them). Its
   band is its role's colour, kept clear of the state colours amber, green and red
-  so the glow reads (tier 0 is cyan).
+  so the glow reads (tier 0 is cyan). Since 3.2.2.0 the card carries no
+  scope badge: the bio's scope (shipped, user, project, a pack) is in the
+  Lineups and Bios lists and in the Inspector's Assignment header (a
+  shipped bio is read-only, Duplicate it in Bios for your copy).
 - **The tier boxes.** One labelled column box per tier from the lineup's
   `tiers:` (tier 0 on the left, holding the main agent alone; the implicit
   last tier dashed; a lineup without tiers is one box, `all`). The strip
@@ -153,6 +154,22 @@ instead)" (and "(code 5/5 here)" when the numbers confirmed it).
   the rule. Positions and each box's collapsed state go to `PUT
   /api/layout/<name>` (`{nodes, tiers}`) 500 ms after the last move; a
   layout saved before the boxes existed is laid out once.
+- **A drop makes room (3.2.2.0).** The card you drop keeps its spot; every
+  card it lands on steps aside inside its own tier box (sideways first,
+  then it takes the dropped card's old spot, then down; the box grows
+  around it), live while you drag, so no card ever covers another. A drop
+  into another tier's box is the tier move above and lands beside the card
+  it hits, never on it. A collapsed tier is not a drop target: hold a card
+  over its strip for a moment (600 ms) and the tier opens; drop it there
+  while it is still collapsed and the card stays where it was ("tier
+  <name> is collapsed; it stays where it was"). The selected card and the
+  one you dropped last are drawn on top of the others, and the canvas
+  grows with a drag so the card never scrolls out of view. A card's id is
+  its alias (else its role, else its agent) plus an ordinal only among the
+  cards with that same name (`reviewer#0`, `reviewer#1`), so removing a
+  card keeps every other card's id and its saved spot; a layout saved with
+  the older index ids (`worker#2`) reads with today's ids when its cards
+  are the lineup's.
 - **Tiers on the canvas (3.1.6.0).** **Add tier** on the toolbar opens a
   name field; Enter adds the tier as a new, empty box after the last one
   ("Drag cards here" in its brackets; with no tiers declared yet it first
