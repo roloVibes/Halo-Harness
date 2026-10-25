@@ -2063,3 +2063,101 @@ name.
 Not taken: a version history for rollback (one back is the rule); asking
 the planner to honour capacity by itself (the hub holds it); a second
 glossary.
+
+## ADDED 2026-10-25 (rolo, /plan: "the wizard set up should be done thru halo studio, especially during halo init ... there needs to be a settings tab or set up tab in halo studio and it should launch when started"; and, after the wizard's last checkbox crashed on Kali: "we have to be much clearer about what tests will be done, even have options to select which kinds of tests"): 3.2.2.0 "The first run says what it does", then 3.3.0.0 "Setup is Studio"
+
+Two versions, in this order. Each round is one Opus worker in its own
+worktree (`~/hh-322/<round>`, then `~/hh-330/<round>`), briefs and
+hand-backs under `<dir>/briefs/`; the coordinator merges, gates every push
+on both runners and releases each version when its last round is in. No
+classifier, no refusal wording: a cost line is information, every stop is
+one factual line the docs name.
+
+### 3.2.2.0 "The first run says what it does"
+
+What the wizard's Summary offered as "Run the ten-minute start now (halo
+start: a lineup, a sample repo, one Orchestra run)" is `halo start`: a copy
+of the shipped `halo-dev-cycle` lineup, a sample git repo under
+`~/.halo/start/<date>/`, then one REAL Orchestra run (five workers on the
+user's configured models, the lead's plan, the lanes, the report and the
+coach), with a two-hour cap. Nothing before it names the cost, the models,
+the time or what it writes; it is not a model-strength test (that is `halo
+gym`); and `start/engine.py` catches only its own `Stopped`/`StepFailed`, so
+any other exception from a step reaches the terminal as a traceback (the
+owner's Kali run, 2026-10-25; the VM did not answer ssh, so the exact
+traceback is unread).
+
+- R1 The start never crashes: `StartRun.run()` turns any exception from a
+  step into that step's `failed` frame with one line (`<Type>: <message>`),
+  writes the full traceback to `<state>/start/<date>/<run or start>-error.log`
+  and says "the full error is in <path>"; the summary's `reason` is that
+  line, the exit code 1, no traceback on the terminal; `start_cli.cmd_start`
+  and `studio/start_job.py` do the same for a failure before the walk; the
+  wizard's hand-off names the log when the start fails. Tests through
+  `HALO_START_FAKE=1`: a step made to raise `TypeError` gives the failed
+  frame, the log file, exit 1 and no "Traceback" in stderr (the CLI and
+  `POST start`).
+- R2 The first-run checks say what each does and the user picks: "the
+  ten-minute start" is "the guided first run" everywhere; `halo start`
+  opens on a card (what it does in seven sentences, the models it will
+  call from the lineup's resolved cards, an estimated cost from the Team
+  step's price rows, "free" when every model is local, the time, what it
+  writes, that the active lineup is untouched; `halo start --explain` prints
+  only the card). `halo_harness/start/checks.py` holds five checks, each
+  with its what / cost / time line and a `run`: doctor (free, seconds),
+  the model catalog refresh (free, network), hello (one one-turn call to
+  the default model, the pong), the gym (`halo gym --quick` on the models
+  you tick, cost and time per model) and the guided first run (the card's
+  cost); the first three are on by default, the gym and the first run off.
+  The wizard's Summary shows the five rows (Space toggles, Finish runs the
+  ticked ones in order and prints each result, Esc skips all), the console
+  fallback runs the first three, `halo check [--all | --doctor --catalog
+  --hello --gym --start]` runs the same list; Studio's Start here shows the
+  card before Run. Docs: COMMANDS-init (the Summary's checks), COMMANDS
+  (`halo check`, `halo start --explain`), HANDBOOK and README (the guided
+  first run), STUDIO-shell; the glossary gains "guided first run".
+
+### 3.3.0.0 "Setup is Studio"
+
+The terminal wizard's eight steps (Providers with its eight tabs, Local
+models, Default model, Permissions, Theme, Team, Linux fixes, Summary)
+become a **Setup** section in Studio, Alt+8, the last core section (packs'
+own sections start at Alt+9); one page, a rail of blocks, each block its
+own form with its own Save and its own saved / changed / problem line; a
+status strip on top (provider, default model, lineup, last check) and the
+Check block from 3.2.2.0's list. `halo init` starts or reuses Studio and
+opens it on Setup; `halo init --terminal` runs the terminal wizard, and so
+does `halo init` when no browser can open (SSH, no DISPLAY): the URL is
+printed with the port-forward hint. `halo setup`, `/setup` and `halo start`
+with no provider open Setup too; a fresh home lands on Setup whatever
+section was saved; the CLI (`halo config set`, `halo teams apply`, `halo
+models`) keeps working for changes. Keys travel browser to server once
+over loopback with Studio's token and are never read back (the state says
+"set, from the env file, ****1234"); the block for the TUI `theme` key is
+"Terminal theme" (Studio's own dark/light switch is a browser setting).
+
+- R1 The Setup section: the registry (Alt+8; `packs/registry.ts` FIRST_KEY
+  9; `STUDIO_MODES`, the banner, STUDIO-sections.md, every Alt+N pin),
+  `studio/setup_api.py` (`GET setup/state` masked, `POST setup/config` for
+  the whitelisted keys `model`/`permission_mode`/`theme`, `POST setup/team`
+  = the Team step's three writes as one function both call), the blocks
+  Default model, Permissions, Terminal theme, Team and the status strip; a
+  Chrome driver that saves each and reads config.json back.
+- R2 Providers and local models: one card per provider (state line, a
+  key field never prefilled, Save & test = the wizard's own writers and
+  probes: `_write_env_var`, `enable_if_was_explicitly_disabled`,
+  `reachability_tag`, `refresh_tab_catalog`), Ollama hosts (the merge rule
+  that never repoints a host), Hugging Face token/endpoints/local servers,
+  model folders and the runtime; unit tests on a fake env file
+  (`HALO_ENV_FILE`): the GET never carries a key.
+- R3 The check and the fixes: the Check block as a background job with a
+  live log (`setup` frames) running 3.2.2.0's checks, the cost card before
+  the guided first run can be ticked, the Linux fixes block (shown only
+  when needed), the fresh-home landing and the Start here button "Set up
+  this box", Studio's `no_provider` answer jumping to Setup.
+- R4 The doors and the docs: `halo init` / `halo setup` / `/setup` / `halo
+  start` open Setup, `--terminal`, the no-browser fallback; WIZARD.md leads
+  with Studio and keeps the terminal wizard as the fallback; COMMANDS,
+  STUDIO, STUDIO-sections, README (the first screenshot after install is
+  Setup), a screenshots.py capture; "After 3.3.0.0" for what stays open (a
+  keyring instead of the env file; pack-declared setup blocks).
