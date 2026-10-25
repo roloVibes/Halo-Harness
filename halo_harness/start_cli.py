@@ -13,7 +13,10 @@ and offers `halo init`. `HALO_START_FAKE=1` runs the whole path on fake
 model calls (tests, a dry look).
 
 Exit codes: 0 every step done, 1 a step failed or the start was stopped,
-2 usage or no provider.
+2 usage or no provider. 3.2.2.0 R1: any other error is one line
+(`<Type>: <message>`) and the log holding its traceback
+(`<state>/start/<date>/<run or start>-error.log`), exit 1; no traceback
+reaches the terminal.
 """
 
 from __future__ import annotations
@@ -64,8 +67,35 @@ def _offer_init(as_json: bool) -> int:
     return 2
 
 
+def _crashed(exc: Exception, run, as_json: bool) -> int:
+    """A failure outside the walk: one line on stderr naming the log with the traceback, exit 1."""
+    from halo_harness.start.errors import failed_summary
+    try:
+        state_dir, run_dir = (run.state_dir, run.run_dir) if run is not None else (None, None)
+    except Exception:
+        state_dir, run_dir = None, None
+    summary = failed_summary(state_dir, run_dir, exc)
+    line, path = summary["reason"], summary["error_log"]
+    if as_json:
+        print(json.dumps(summary))
+    text = f"halo start: {line}" + (f" -- the full error is in {path}" if path else "")
+    try:
+        print(text, file=sys.stderr)
+    except UnicodeEncodeError:  # a console that cannot show the message's characters
+        print(text.encode("ascii", "replace").decode("ascii"), file=sys.stderr)
+    return 1
+
+
 def cmd_start(argv) -> int:
     args = _parser().parse_args(list(argv))
+    built: list = []  # the StartRun, once there is one (its state dir and run folder name the log)
+    try:
+        return _start(args, built)
+    except Exception as e:
+        return _crashed(e, built[0] if built else None, args.json)
+
+
+def _start(args, built: list) -> int:
     from halo_harness.start.engine import Options, StartRun
     from halo_harness.start.screen import Screen, ask
     yes = bool(args.yes or args.json)
@@ -73,6 +103,7 @@ def cmd_start(argv) -> int:
                    model=args.model, studio=args.studio)
     screen = None if args.json else Screen()
     run = StartRun(opts, emit=screen, ask=None if yes else ask, open_studio=_open_studio)
+    built.append(run)
     if not args.json:
         print("halo start: the ten-minute start" + (" (fake model calls: HALO_START_FAKE=1)" if run.fake else ""))
         print("Seven steps: " + ", ".join(t for _k, t, _w in S.STEPS) + ".")
@@ -92,4 +123,6 @@ def cmd_start(argv) -> int:
     else:
         print()
         print(f"halo start stopped at {summary.get('stopped_at') or 'the start'}: {summary.get('reason')}")
+        if summary.get("error_log"):
+            print(f"the full error is in {summary['error_log']}")
     return 0 if summary["ok"] else 1

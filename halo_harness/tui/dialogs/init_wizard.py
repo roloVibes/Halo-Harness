@@ -1238,7 +1238,10 @@ class SummaryStep(StepScreen):
             not_reachable = [ln for ln in self.state.enumeration_lines if "not reachable" in ln]
             if not_reachable:
                 text += "\n  not reachable: " + "; ".join(not_reachable)
-        self.app.call_from_thread(self._show_text, text)
+        try:
+            self.app.call_from_thread(self._show_text, text)
+        except Exception:  # 3.2.2.0 R1: Finish came first and the app has ended; the state above holds the results
+            pass
 
     def _show_text(self, text: str) -> None:
         try:

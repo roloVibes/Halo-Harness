@@ -20,6 +20,14 @@ A frame is one dict, the same everywhere (terminal, the TUI panel, Studio's
 `cancel()` (Esc in the TUI panel, Studio's stop) ends the start at the next
 check: between steps, while the plan waits, and during the run (it asks the
 Orchestra run to stop).
+
+3.2.2.0 R1: any other exception a step (or the command its screen shows)
+raises fails that step the same way: its frame is `failed` with
+`<Type>: <message>` and `the full error is in <path>`, the summary's
+`reason` is that one line and `error_log` the path. `write_error_log`
+(start/errors.py, re-exported here) appends the traceback to
+`<state>/start/<yyyy-mm-dd>/<run or start>-error.log`; `halo start`, Studio's
+start job and the TUI panel call it for a failure outside the walk.
 """
 
 from __future__ import annotations
@@ -30,6 +38,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from halo_harness.start import steps as S
+from halo_harness.start.errors import error_line, log_path_or_empty, write_error_log  # noqa: F401 (write_error_log: the one every surface calls)
 
 
 class Stopped(Exception):
@@ -152,6 +161,8 @@ class StartRun:
             self._stop_current("stopped", str(e), summary)
         except StepFailed as e:
             self._stop_current("failed", str(e), summary)
+        except Exception as e:  # anything else a step raised: the step fails with one line, the traceback in a file
+            self._crashed(e, summary)
         finally:
             self._finish()
         summary.update(lineup=self.lineup, repo=str(self.repo or ""), run=self.run_dir.name if self.run_dir else "",
@@ -162,12 +173,26 @@ class StartRun:
                               for f in sorted(self.frames.values(), key=lambda f: f["step"])])
         return summary
 
+    def _current(self) -> Optional[dict]:
+        """The newest frame still ready or running (None between two steps)."""
+        return next((f for f in sorted(self.frames.values(), key=lambda f: -f["step"])
+                     if f["state"] in ("ready", "running")), None)
+
     def _stop_current(self, state: str, reason: str, summary: dict) -> None:
-        current = next((f for f in sorted(self.frames.values(), key=lambda f: -f["step"])
-                        if f["state"] in ("ready", "running")), None)
+        current = self._current()
         if current:
             self.emit(current["key"], state, list(current.get("lines") or []) + [reason])
         summary.update(stopped_at=current["key"] if current else self._pending, reason=reason)
+
+    def _crashed(self, exc: Exception, summary: dict) -> None:
+        line = error_line(exc)
+        path = log_path_or_empty(self.state_dir, self.run_dir, exc, today=self.opts.today)
+        extra = [f"the full error is in {path}"] if path else []
+        current = self._current()
+        key = current["key"] if current else self._pending
+        if key is not None and (self.frames.get(key) or {}).get("state") != "done":
+            self.emit(key, "failed", list((self.frames.get(key) or {}).get("lines") or []) + [line] + extra)
+        summary.update(stopped_at=key, reason=line, error_log=path)
 
     def _finish(self) -> None:
         """A run still going when the start ends is asked to stop; the plan, if it waits, is rejected."""

@@ -69,8 +69,14 @@ function Run() {
               Done: lineup <b>{summary.lineup}</b>, run <code>{summary.run}</code> in <code>{summary.repo}</code>.
             </p>
           ) : (
-            <p className="og-problems">
+            <p className="og-problems" data-testid="start-here-reason">
               Stopped at {summary.stopped_at || "the start"}: {summary.reason}
+              {summary.error_log && (
+                <>
+                  <br />
+                  the full error is in <code>{summary.error_log}</code>
+                </>
+              )}
             </p>
           )}
           <div className="os-buttons">
