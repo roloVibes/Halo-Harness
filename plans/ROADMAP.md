@@ -2216,3 +2216,61 @@ over loopback with Studio's token and are never read back (the state says
     with the session that started it; `halo studio` starts the new one),
     COMMANDS-supervise (the supervisor survives a quit, comes back after an
     update).
+
+## ADDED 2026-10-25 (rolo, live on Kali: "models stopping or not verbosely saying they are still working on a task or done with something. I am having to ask while in plan mode. sometimes things are getting blocked while in plan mode and I have to like send questions to get it working again"; "plan mode blocks network fetches too, that hinders planning"): 3.2.2.0 R4 the session says what it is doing, and plan mode never leaves you guessing
+
+What the code does today (surveyed 2026-10-25): the status bar spins
+(`thinking 18 s`, `tool Bash 4 s`, `waiting 3 s`) and the transcript's
+phase line says `no data for 30 s, Esc interrupts, typing steers`, but a
+silent model call is only ever restarted by the user typing a steer
+(`steer.restart_when_silent`) or by the 300 s read timeout; a finished
+turn just loses its spinner (no marker for `end_turn`, `max_tokens`,
+`error`, `blocked`), so a model that ends its turn with "Now I'll edit X"
+and no tool call looks stopped; the system prompt never asks the model to
+say what it is doing, when it is done or when it waits on the user, and
+the Kimi family note tells it to add no explanations to tool calls.
+Plan mode: Shift+Tab or `--permission-mode plan` writes
+`permission_engine.mode` and tells the model NOTHING (no PLAN_MODE_NOTE, no
+plan-file path, no ExitPlanMode instruction; leaving plan mode is not told
+either); the refusal reads `plan mode: other is banned (an allow rule
+cannot lift the plan-mode write ban)` with no way out named; only Read,
+Glob, Grep, Agent, TodoWrite, ToolSearch, AskUserQuestion and the two plan
+tools are exempt, so WebFetch, WebSearch, BashOutput, Skill and every MCP
+tool, read-only or not, are refused as `other`; the plan card's `[1]
+Approve [2] Approve, manual [3] Keep planning` line comes AFTER the plan
+text in a dock capped at 12 lines, so a long plan hides the keys.
+
+- R4 The session says what it is doing, and plan mode never leaves you
+  guessing. (a) A turn ends with a marker line in the transcript and in
+  Studio's Session feed: `◼ done · 42 s · 3 tools · $0.012`, `◼ waiting
+  on you: <the question | the plan | permission for Bash>`, `◼ stopped:
+  <max_tokens | the provider error | blocked by a rule>`; (b) the system
+  prompt asks for a one-line "what I am doing" before a group of tool
+  calls and "what I found / what is next" when a turn ends, and to say in
+  one line when it waits on the user; the Kimi note loses "do not add
+  explanations" (one short line per group is the rule for every family);
+  (c) a turn that ends with a promise and no tool call ("Now I'll...",
+  "Let me...", "Next I will...") is nudged once by the harness ("You ended
+  your turn while saying you would do more. Continue.") -- a user-role
+  notice, shown in the transcript as `↳ nudged: the reply promised work
+  and stopped`; `turn.nudge_promises: false` turns it off; (d) a silent
+  call with no first byte for `steer.silent_restart_s` (default 60 s) is
+  aborted and resent once, `↳ no data for 60 s, resending the call`, the
+  second time waits the read timeout; (e) plan mode: entering by Shift+Tab
+  or at startup injects the same PLAN_MODE_NOTE the EnterPlanMode tool
+  gives (the plan file path, "call ExitPlanMode with the plan"), leaving
+  plan mode injects "Plan mode is off: implement"; the dynamic context
+  states the current permission mode each turn; a `/plan [on|off|status]`
+  slash command; (f) plan mode allows every read: WebFetch, WebSearch,
+  BashOutput, Skill, ToolSearch, knowledge_search, recall, an MCP tool
+  whose annotations say `readOnlyHint`, read-only Bash as today; the
+  refusal for a write reads `plan mode: <Tool> writes; research with the
+  read tools and the web, then call ExitPlanMode with the plan (Shift+Tab
+  or /plan off leaves plan mode)`; (g) the plan card puts its keys line
+  FIRST, above the plan text, and the status bar keeps `needs you` until
+  it is answered. Tests pin each: the marker per reason, the nudge once
+  and off by config, the 60 s resend, the note on Shift+Tab in and out,
+  WebFetch/an MCP read allowed in plan mode and a write refused with the
+  new text, the card's first line. Docs: PERMISSIONS (plan mode's list and
+  text), TUI/HANDBOOK (the markers, the nudge, the resend), SLASH-COMMANDS
+  (`/plan`), CONFIG (`turn.nudge_promises`, `steer.silent_restart_s`).
