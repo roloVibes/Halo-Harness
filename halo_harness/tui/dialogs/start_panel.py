@@ -50,6 +50,8 @@ def panel_text(frames: "dict[str, dict]", summary: Optional[dict] = None, tail: 
                       "Esc closes; halo explain <thing> says what any word means."]
         else:
             lines += ["", f"Stopped at {summary.get('stopped_at') or 'the start'}: {summary.get('reason')}"]
+            if summary.get("error_log"):
+                lines.append(f"the full error is in {summary['error_log']}")
     return "\n".join(lines)
 
 
@@ -80,11 +82,20 @@ class StartPanel(ModalScreen):
 
     def on_mount(self) -> None:
         from halo_harness.tui.worker_guard import guarded_worker
-        self.start_run = self._factory(self._from_thread)
+        try:
+            self.start_run = self._factory(self._from_thread)
+        except Exception as e:  # 3.2.2.0 R1: the start could not be built: its one line, never a crash screen
+            from halo_harness.start.errors import failed_summary
+            self._finished(failed_summary(None, None, e))
+            return
         guarded_worker(self, self._work, thread=True, name="start-panel")
 
     def _work(self) -> None:
-        summary = self.start_run.run()
+        try:
+            summary = self.start_run.run()
+        except Exception as e:  # 3.2.2.0 R1: the engine fails a raising step itself; this is anything left
+            from halo_harness.start.errors import failed_summary
+            summary = failed_summary(self.start_run.state_dir, self.start_run.run_dir, e)
         try:
             self.app.call_from_thread(self._finished, summary)
         except Exception:

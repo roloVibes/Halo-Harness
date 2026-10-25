@@ -651,6 +651,18 @@ a guess when there is truly no existing value yet.
   same session in Windows Terminal if you specifically want the OSC 52
   path (works over SSH/tmux too).
 
+## `halo start` failed: read the log
+
+`halo start` (and `halo init`'s "Run the ten-minute start now", `/start`,
+Studio's Start here) ends a step that hit an unexpected error with one
+line, `<Type>: <message>`, and `the full error is in <path>`. The path is
+`~/.halo/start/<yyyy-mm-dd>/<run>-error.log` (`start-error.log` when the
+failure came before the Orchestra run existed; the temp folder's
+`halo-start-error.log` when `~/.halo/start` cannot be written). It holds
+the full traceback under a timestamp line, one entry per failure. Attach
+it to a bug report, or read its last frame: it names the file and line.
+`halo start --json` puts the same two values in `reason` and `error_log`.
+
 ## Resetting caches
 
 Every cache under `~/.halo/` is safe to delete and will be rebuilt
@@ -678,3 +690,5 @@ on next use instead of using a cached tool list).
   (`Ctrl+O`), not a logging level.
 - **A stuck/hung TUI**: `~/.halo/hang-<UTC-timestamp>.log` -- see
   "The TUI seems hung" above.
+- **A failed `halo start`**: `~/.halo/start/<yyyy-mm-dd>/<run or start>-error.log`
+  -- see "`halo start` failed: read the log" above.

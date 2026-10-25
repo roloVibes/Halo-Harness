@@ -14,6 +14,10 @@ and when the start ends one more:
 
     data: {job, key: "summary", state: "finished", summary: {ok, stopped_at, reason, lineup, repo, run, report, coach}}
 
+(3.2.2.0 R1: a start that failed on an error its steps did not expect also
+carries `error_log`, the file holding the traceback; the reason is the one
+`<Type>: <message>` line.)
+
 `current()` is the job as `GET /api/start` shows it (the latest frame per
 step, the summary once there); `stop()` asks the running start to end.
 """
@@ -62,6 +66,7 @@ def stop() -> bool:
 def start(state_dir, publish: Optional[Callable[[dict], None]] = None) -> dict:
     """Start the job; its public view. The caller checked that none runs."""
     from halo_harness.start.engine import Options, StartRun
+    from halo_harness.start.errors import failed_summary
     job_id = time.strftime("%Y%m%d-%H%M%S")
     job: dict = {"id": job_id, "frames": {}, "summary": None, "started": round(time.time(), 3)}
 
@@ -79,18 +84,28 @@ def start(state_dir, publish: Optional[Callable[[dict], None]] = None) -> dict:
             job["frames"][frame["key"]] = frame
         send(frame)
 
-    run = StartRun(Options(yes=True, state_dir=state_dir, studio=False), emit=on_frame)
+    def finish(summary: dict) -> None:
+        short = {k: v for k, v in summary.items() if k != "steps"}
+        with _lock:
+            job["summary"] = short
+        send({"key": "summary", "state": "finished", "summary": short})
+
+    try:
+        run = StartRun(Options(yes=True, state_dir=state_dir, studio=False), emit=on_frame)
+    except Exception as e:  # 3.2.2.0 R1: the start could not be built: the job ends at once with the one line
+        job.update(run=None, fake=False, thread=None)
+        with _lock:
+            _state["job"] = job
+        finish(failed_summary(state_dir, None, e))
+        return current() or {}
     job.update(run=run, fake=run.fake)
 
     def body() -> None:
         try:
             summary = run.run()
-        except Exception as e:  # anything the engine did not turn into a stopped step
-            summary = {"ok": False, "stopped_at": None, "reason": f"{type(e).__name__}: {e}"}
-        short = {k: v for k, v in summary.items() if k != "steps"}
-        with _lock:
-            job["summary"] = short
-        send({"key": "summary", "state": "finished", "summary": short})
+        except Exception as e:  # anything the engine did not turn into a failed step
+            summary = failed_summary(state_dir, run.run_dir, e)
+        finish(summary)
 
     job["thread"] = threading.Thread(target=body, name=f"halo-studio-start-{job_id}", daemon=True)
     with _lock:
