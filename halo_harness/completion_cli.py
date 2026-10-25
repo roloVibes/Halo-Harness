@@ -45,6 +45,7 @@ SUBCOMMANDS = (
     "team",
     # Halo 3.1.1.0 round R1: `halo start` (the guided first run) and `halo explain` (the glossary).
     "start", "explain",
+    "check",  # Halo 3.2.2.0 round R2: the checks Halo offers after setup
     "pack",  # Halo 3.2.0.0 round R1: capability packs
 )
 

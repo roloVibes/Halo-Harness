@@ -21,7 +21,7 @@ type Handler = (frame: FeedFrame) => void;
 // Every kind the server forwards (studio/feed_kinds.py DEFAULT_KINDS) plus the synthesized `sessions`.
 // 3.0.5.0 Fleet: agent_state (an agent-tree row changed), agent_event (a followed agent's entry), fleet.
 // 3.0.7.0 R3: design_turn (a Design turn's steps). 3.0.8.0 R2: team (a team run's stage, gate, claim and change
-// lines, published by Studio itself: studio/team_live.py). 3.1.1.0 R1: start (the ten-minute start's steps,
+// lines, published by Studio itself: studio/team_live.py). 3.1.1.0 R1: start (the guided first run's steps,
 // studio/start_job.py). 3.1.1.0 R3: focus (`halo studio --edit` on a running Studio: open that bio, lineup or
 // the Team here, studio/focus_api.py and lib/edit.ts).
 export const KNOWN_KINDS = [

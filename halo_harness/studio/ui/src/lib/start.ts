@@ -1,6 +1,8 @@
 // "Start here" (3.1.1.0 R1): on a fresh home (no lineup of your own, no run)
-// Studio offers the ten-minute start. GET /api/start says whether to show
-// the overlay and carries the seven steps' titles and the running job;
+// Studio offers the guided first run. GET /api/start says whether to show
+// the overlay and carries the seven steps' titles, the running job and
+// (3.2.2.0 R2) `card`, the lines `halo start` opens on: what it does, the
+// models it will call, the estimated cost, the time and what it writes;
 // POST /api/start runs `halo start --yes` as a background job whose steps
 // arrive as `start` frames on the live feed (polled from GET /api/start too,
 // so a closed feed still shows them); POST /api/start/dismiss is "Just look
@@ -22,12 +24,13 @@ export type StartFrame = {
 };
 export type StartSummary = { ok?: boolean; stopped_at?: string | null; reason?: string; error_log?: string; lineup?: string; repo?: string; run?: string; coach?: number; message?: string };
 type Job = { job: string; running: boolean; fake?: boolean; steps: StartFrame[]; summary: StartSummary | null };
-type Status = { show: boolean; fresh: boolean; plan: StartFrame[]; job: Job | null };
+type Status = { show: boolean; fresh: boolean; plan: StartFrame[]; job: Job | null; card?: string[] };
 
 type StartState = {
   open: boolean;
   view: "offer" | "run";
   plan: StartFrame[];
+  card: string[];
   steps: Record<string, StartFrame>;
   summary: StartSummary | null;
   running: boolean;
@@ -35,7 +38,7 @@ type StartState = {
   busy: boolean;
 };
 
-export const start = createStore<StartState>({ open: false, view: "offer", plan: [], steps: {}, summary: null, running: false, error: "", busy: false });
+export const start = createStore<StartState>({ open: false, view: "offer", plan: [], card: [], steps: {}, summary: null, running: false, error: "", busy: false });
 
 // 3.1.1.0 R3: a page opened on an edit (`?edit=`, `halo studio --edit`) goes straight to it, no overlay.
 const QUIET = typeof location !== "undefined" && /[?&]((tour|start)=off\b|edit=)/.test(location.search);
@@ -84,7 +87,7 @@ export async function loadStart(): Promise<void> {
   if (QUIET) return;
   try {
     const st = await api.get<Status>("start");
-    start.update(() => ({ plan: st.plan || [] }));
+    start.update(() => ({ plan: st.plan || [], card: st.card || [] }));
     if (st.job && st.job.running) {
       adoptJob(st.job);
       start.update(() => ({ open: true, view: "run" }));
@@ -137,14 +140,14 @@ export function closeStart(): void {
   welcomeIfNew(studio.get().section);
 }
 
-/** The palette's "Start: the ten-minute start": the overlay whatever the home (a run in progress shows its steps). */
+/** The palette's "Start: the guided first run": the overlay whatever the home (a run in progress shows its steps). */
 export function openStart(): void {
   feed();
   start.update((s) => ({ open: true, view: s.running || s.summary ? "run" : "offer" }));
   if (start.get().view === "run" && !start.get().summary) poll();
-  if (!start.get().plan.length)
+  if (!start.get().plan.length || !start.get().card.length)
     api
       .get<Status>("start")
-      .then((st) => start.update(() => ({ plan: st.plan || [] })))
+      .then((st) => start.update(() => ({ plan: st.plan || [], card: st.card || [] })))
       .catch(() => undefined);
 }

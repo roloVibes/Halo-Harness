@@ -1,8 +1,9 @@
 """tests.test_start_studio_api -- Halo 3.1.1.0 R1: Studio's `/api/start`
 (studio/start_api.py, start_job.py, start/fresh.py), no browser.
 
-1. a fresh home: `show`; the seven steps' plan; dismiss is remembered; a
-   lineup of your own, an active lineup or a start each end "fresh"
+1. a fresh home: `show`; the seven steps' plan; the guided first run's card
+   (3.2.2.0 R2); dismiss is remembered; a lineup of your own, an active
+   lineup or a start each end "fresh"
 2. POST start runs `halo start --yes` on the fake (HALO_START_FAKE=1) as a
    background job: 202, a second POST while it runs is a 409, every step
    published as a `start` frame (session `start:<job>`), then the summary
@@ -57,6 +58,9 @@ def test_fresh_home_and_dismiss(ctx: Ctx):
     ctx.check(f"a fresh home shows the overlay, got {status} {body}", status == 200 and body["fresh"] is True and body["show"] is True
               and body["job"] is None)
     ctx.check("the seven steps' plan", [p["key"] for p in body["plan"]] == ["lineup", "repo", "goal", "plan", "run", "report", "next"])
+    card = "\n".join(body.get("card") or [])
+    ctx.check(f"the card: what, models, cost, time, writes (3.2.2.0 R2), got {card[:120]!r}", card.startswith("The guided first run")
+              and all(w in card for w in ("Models it will call:", "Estimated cost:", "Time: ", "Writes:", str(state / "teams"))))
     status, body = dispatch(_req("POST", "start/dismiss", state, cwd))
     ctx.check("dismiss answers", status == 200 and body == {"dismissed": True})
     _, body = dispatch(_req("GET", "start", state, cwd))
@@ -97,7 +101,8 @@ def test_post_start_runs_the_fake_and_streams_frames(ctx: Ctx):
         else:
             os.environ["HALO_START_FAKE"] = saved_fake
     ctx.check(f"202 with the job, got {status} {body}", status == 202 and body["job"]["job"] and body["job"]["fake"] is True)
-    ctx.check(f"a second start while it runs is a 409, got {again[0]}", again[0] == 409)
+    ctx.check(f"a second start while it runs is a 409, got {again[0]}", again[0] == 409
+              and again[1]["error"] == "the guided first run is already running")
     ctx.check("it ended", not start_job.running())
     data = [f["data"] for f in frames]
     keys = [d["key"] for d in data if d["state"] == "done"]

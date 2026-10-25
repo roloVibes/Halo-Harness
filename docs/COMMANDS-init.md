@@ -1,6 +1,6 @@
-# Commands: `halo init`, `halo start`, `halo explain` and `halo setup`
+# Commands: `halo init`, `halo start`, `halo check`, `halo explain` and `halo setup`
 
-Read this when you set Halo up (`halo init`, `halo setup`), run the ten-minute start (`halo start`) or look up a word (`halo explain`).
+Read this when you set Halo up (`halo init`, `halo setup`), run the guided first run (`halo start`) or the checks (`halo check`), or look up a word (`halo explain`).
 
 Part of [Commands](COMMANDS.md), which lists every part.
 
@@ -168,6 +168,30 @@ to filter, same `ctx`/`out`/price columns documented under
 the interactive picker itself falls back to a numbered list with no real
 terminal to draw into.
 
+**The Summary's checks (Halo 3.2.2.0).** The wizard's last screen lists the
+checks Halo offers after setup, one row each: its title, then what it does,
+what it costs, how long it takes and what it writes, in muted text. Space
+(or Enter) ticks a row; Finish runs the ticked ones in order and prints
+each one's result lines on the Summary, then Finish again closes setup.
+Nothing ticked (or Esc) runs none.
+
+| Row | What it does | Cost | Time | Writes | Default |
+|---|---|---|---|---|---|
+| Doctor | your config, your files, `halo` on PATH (`halo doctor`) | free | seconds | nothing | on |
+| Model catalog | every provider's model list (`halo models --refresh`) | free (network) | seconds, 6 s per provider at most | the catalog caches under `~/.halo` | on |
+| Hello | one one-turn call to your default model, which answers pong | one tiny call: the catalog price of about 2k tokens in, a few out (free on a local model) | seconds | one session log | on |
+| Model gym, quick | `halo gym --quick` on the models ticked under the rows (your default model and the start lineup's models; local ones ticked) | free for a local model; the gym does not run cloud models and says so | a few minutes per model | one card per model under `~/.halo/gym/<host>/` | off |
+| The guided first run | `halo start`: one real Orchestra run on your models (its card, `halo start --explain`) | the card's estimate | 5-20 minutes on cloud models; longer on local ones | a lineup copy and a sample repo under `~/.halo/start/<date>/` | off |
+
+The first three are the checks the Summary always ran before 3.2.2.0, so a
+plain Finish runs the same ones. The guided first run is not run on the
+Summary: ticking it starts `halo start` after setup closes (Esc while the
+checks run closes setup without it). `--no-live` makes the catalog and
+hello rows say "skipped". A `/setup` Summary has the first four rows. The
+console path (`--yes`, no terminal) runs doctor, the catalog refresh and
+the pong as before, then offers the guided first run (No without a
+terminal). The same list runs any time: [`halo check`](#halo-check-halo-3220).
+
 **Install once, run anywhere.** `init`'s own Summary step ends with the SAME
 "command on PATH" line `doctor` prints (see above) -- when `halo`
 doesn't resolve to a real installed console script, it names the exact fix
@@ -207,15 +231,38 @@ Summary:
 ## `halo start` (Halo 3.1.1.0)
 
 ```sh
-halo start                          # the ten-minute start, one screen per step
+halo start                          # the guided first run: its card, then one screen per step
+halo start --explain                # only the card: what it does, the models, the cost, the time, what it writes
 halo start --yes                    # straight through: no Enter between steps, the plan approved
 halo start --json                   # only the summary as JSON at the end (asks nothing)
 halo start --lineup balanced        # copy another shipped lineup (default halo-dev-cycle)
 halo start --repo ~/src/mine --file basket.py   # run in a git repo of your own
 ```
 
-The guided first run: seven screens, each with one sentence of why and the
-command it runs. Enter runs the step, `q` stops the start there.
+The guided first run: one real Orchestra run on your models (it is not a
+test of them: `halo gym` measures models). It opens on a card (Halo
+3.2.2.0, `halo_harness/start/card.py`), before step 1:
+
+- what it does: the seven steps, one sentence each;
+- the models it will call: the lead (its plan, and the judge when two
+  workers' edits conflict) is your role table's `main`, each of the five
+  workers its `subagent`, `--model REF` both, your default model when the
+  role table names none; then the copied lineup's cards (alias -> bio ->
+  model);
+- the estimated cost, by a stated rule: one lead plan (15k tokens in, 3k
+  out), five worker lanes (120k in, 6k out each: a `halo -p` session of
+  about eight turns), one judge pass (8k in, 1k out), at the catalog's
+  prices; "free" when every model is local, "unknown for <model>" when the
+  catalog has no price for one;
+- the time: 5-20 minutes on cloud models, longer on local ones (the run
+  stops itself after 2 hours);
+- what it writes: the `my-<lineup>` copy's path and the sample repo's path;
+- your active lineup is not touched.
+
+`--yes` prints the card and goes on; `--json` leaves it out; `--explain`
+prints only the card and exits 0. Then seven screens, each with one
+sentence of why and the command it runs. Enter runs the step, `q` stops
+the start there.
 
 1. **The lineup**: copies the shipped lineup (`--lineup`, default
    `halo-dev-cycle`) into your scope as `my-<name>` and shows its cards as a
@@ -243,16 +290,18 @@ command it runs. Enter runs the step, `q` stops the start there.
 
 Options: `--lineup NAME`, `--repo DIR`, `--file F` (repeatable, with
 `--repo`), `--model REF` (the model every part uses; default your roles),
-`--yes`, `--json`, `--no-studio` (step 4 does not offer the plan canvas).
+`--yes`, `--json`, `--no-studio` (step 4 does not offer the plan canvas),
+`--explain` (only the card, exit 0).
 
 It runs on the model you configured. With no provider configured it says
 so and offers `halo init` (which sets one up; `halo setup` is the team
 screen for later), exit 2. `HALO_START_FAKE=1` swaps every model call
 for a fake lead, fake workers and a fake judge (`halo_harness/start/fake.py`),
 so the whole path runs in a few seconds with no model: the tests use it.
-`halo init`'s last step asks "Run the ten-minute start now?" (default No,
-and No in a non-interactive run); `/start` in the TUI and Studio's Start
-here overlay run the same start. Exit codes: 0 every step done, 1 a step
+`halo init`'s Summary offers it as its last check row, off by default
+(the console path shows the card and asks "Run the guided first run now?",
+No in a non-interactive run); `/start` in the TUI and Studio's Start here
+overlay (the card above its Run button) run the same start. Exit codes: 0 every step done, 1 a step
 failed or the start was stopped, 2 usage or no provider.
 
 When a step fails on an error it did not expect (Halo 3.2.2.0), the step
@@ -275,6 +324,27 @@ timestamp line. A failure before the first step is one stderr line,
 carries the line as `reason` and the path as `error_log`; the TUI panel and
 Studio's Start here show both lines.
 
+## `halo check` (Halo 3.2.2.0)
+
+```sh
+halo check                          # the default-on checks: doctor, catalog, hello
+halo check --all                    # all five, in order
+halo check --doctor --gym           # the ones named (any of --doctor --catalog --hello --gym --start)
+halo check --gym --models ol:qwen3:8b,ol:llama3.2   # the gym on these models
+halo check --explain                # the five rows (what, cost, time, writes) and exit
+```
+
+The checks the wizard's Summary offers (`halo_harness/start/checks.py`,
+the table under [`halo init`](#halo-init)). Each prints its title, its
+what / cost / time line, then its result lines and `[ok]` or `[failed]`;
+the last line counts them (`halo check: 2 of 3 passed; failed: catalog`).
+`--start` runs `halo start` last. `--models REF,REF` picks the gym's models
+(default: your default model and the start lineup's models; the gym runs
+local models and names a cloud one as not run). Exit 0 when every check
+that ran passed, 1 when one failed, 2 on a usage error. `/check` in the TUI
+takes the same flags and prints into the transcript (`--start` there
+points at `/start`, which runs the guided first run in a panel).
+
 ## `halo explain`
 
 ```sh
@@ -286,7 +356,8 @@ halo explain --json tier     # {query, word, text, closest}
 
 One paragraph per word Halo uses (lineup, bio, role, tier, team, member,
 block, stage, lane, part, step, mission, gate, claim, hand-off, plan,
-coach, orchestra run, fleet, hub, harness, capability), from
+coach, orchestra run, fleet, hub, harness, capability, unit, pack, guided
+first run), from
 [GLOSSARY.md](GLOSSARY.md): the same text `/explain` shows in the TUI and
 Studio's Glossary lists. An unknown word names the closest ones, exit 1.
 

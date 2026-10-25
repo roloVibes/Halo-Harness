@@ -81,7 +81,7 @@ async def handle_slash(app, name: str, args: str) -> None:
         "tasks": _handle_tasks,
         # Halo 3.0.3.0: the latest Orchestra run's lanes, refreshed from its run log.
         "orchestra": _handle_orchestra,
-        # Halo 3.1.1.0 R1: /start runs the ten-minute start in a panel; /explain shows a glossary card.
+        # Halo 3.1.1.0 R1: /start runs the guided first run in a panel; /explain shows a glossary card.
         "start": _handle_start, "explain": _handle_explain,
         # Halo 2.0.2 round 6: /update -- the check (git/network) runs on a
         # worker, never the UI thread; the dialog's own Enter is what
@@ -1012,7 +1012,7 @@ async def _handle_orchestra(app, args: str) -> None:
 
 
 async def _handle_start(app, _args: str) -> None:
-    """`/start`: the ten-minute start in a panel (tui/dialogs/start_panel.py)."""
+    """`/start`: the guided first run in a panel (tui/dialogs/start_panel.py)."""
     from halo_harness.tui.dialogs.start_panel import StartPanel
     app.push_screen(StartPanel())
 

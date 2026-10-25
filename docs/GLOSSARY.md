@@ -102,3 +102,7 @@ A unit of work is what a lane, a mission part and a team stage all are underneat
 ## pack
 
 A pack is a folder someone else maintains that adds bios, lineups, workflows, skills, commands, hooks, MCP servers, Studio sections and fleet capabilities to your Halo without changing Halo itself; every name it offers carries its id (`doc-review--reviewer`). It lives in `~/.halo/packs/<id>/` (or a repo's `.halo/packs/`), installs disabled, and runs once you enable it and grant what it asks for. `halo pack` installs, enables, updates and removes one (docs/PACKS.md), and Studio's Pack Manager (the Packs section) does the same with buttons.
+
+## guided first run
+
+The guided first run is `halo start`: one real Orchestra run on your own models that walks the pieces Halo is made of (a copy of a shipped lineup, a sample git repo, one goal, the lead's plan for you to approve, the lanes, the report and the coach) in seven screens. It is not a test of your models (`halo gym` measures them). It opens on a card that says the models it will call, an estimated cost, the time and what it writes; `halo start --explain` prints only the card, and Studio's Start here shows it above its Run button.

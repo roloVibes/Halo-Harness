@@ -336,7 +336,9 @@ lineups and bios declare), `isolation/doctor_rows.py` (the two doctor rows),
 `isolation/brokers/` holds one file per broker (`onepassword.py`, `env.py`)
 and `isolation/Dockerfile` the worker image.
 
-- The first ten minutes (3.1.1.0): `studio/start_api.py` (Start here: `/api/start`),
+- The guided first run (3.1.1.0; 3.2.2.0 R2: `start/card.py` the card it opens on, `start/checks.py` +
+  `start/checks_run.py` the five checks behind the wizard's Summary, `check_cli.py` (`halo check`),
+  `tui/dialogs/summary_checks.py` + `check_rows.py` the Summary's rows): `studio/start_api.py` (Start here: `/api/start`),
   `studio/start_job.py` (the one `halo start` Studio runs, its `start` frames),
   `studio/glossary_api.py` (`GET /api/glossary`, docs/GLOSSARY.md); the guided run
   itself is `halo_harness/start/` (engine, steps, the sample repo, the fake model calls)

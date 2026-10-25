@@ -594,9 +594,13 @@ def _main(argv: Optional[list] = None) -> int:
         from halo_harness.setup_cli import cmd_setup
         return cmd_setup(argv[1:])
     if argv and argv[0] == "start":
-        # 3.1.1.0 R1: the ten-minute guided first run (halo_harness/start/).
+        # 3.1.1.0 R1: the guided first run (halo_harness/start/).
         from halo_harness.start_cli import cmd_start
         return cmd_start(argv[1:])
+    if argv and argv[0] == "check":
+        # 3.2.2.0 R2: the checks Halo offers after setup (halo_harness/start/checks.py).
+        from halo_harness.check_cli import cmd_check
+        return cmd_check(argv[1:])
     if argv and argv[0] == "explain":
         # 3.1.1.0 R1: one paragraph per word Halo uses (docs/GLOSSARY.md).
         from halo_harness.explain_cli import cmd_explain

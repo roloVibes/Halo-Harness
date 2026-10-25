@@ -1,9 +1,9 @@
-"""tests.helpers.studio_start -- the first ten minutes in Studio (Halo 3.1.1.0
+"""tests.helpers.studio_start -- the guided first run in Studio (Halo 3.1.1.0
 R1), driven through real clicks in headless Chrome on the driver base
 (tests/helpers/chrome_driver.Driver). tests/test_studio_start.py runs it as
 a subprocess with a scrubbed environment:
 
-    python -m tests.helpers.studio_start run [PNG]  a fresh home: Start here, Run the ten-minute start (HALO_START_FAKE=1),
+    python -m tests.helpers.studio_start run [PNG]  a fresh home: Start here, its card, Run the guided first run (HALO_START_FAKE=1),
                                                     the seven steps done, `start` frames on the feed, no overlay on reload
     python -m tests.helpers.studio_start glossary   the ? menu's Glossary, a section help's word link, the Next footer
 
@@ -30,6 +30,8 @@ def run_start(c, url: str, frames: list, shot: str = "") -> dict:
     c.go(url)
     out["offer"] = c.wait(f"{Q}('[data-testid=\"start-here-run\"]').length", 30)
     out["welcome_with_offer"] = c.js(f"{Q}('[data-testid=\"section-help\"]').length")
+    out["button"] = c.js("document.querySelector('[data-testid=\"start-here-run\"]').textContent.trim()")  # 3.2.2.0 R2
+    out["card"] = c.wait("document.querySelector('[data-testid=\"start-here-card\"]')?.textContent || ''", 10)
     c.click_on("document.querySelector('[data-testid=\"start-here-run\"]')")
     c.wait(f"{Q}('{STEP}').length === 7", 20)
     c.wait("!!document.querySelector('[data-testid=\"start-here-done\"]')", 120)
