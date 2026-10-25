@@ -23,6 +23,25 @@ version.
 - New module `halo_harness/start/errors.py` (`error_line`, `write_error_log`, `failed_summary`), shared by the engine, `halo start`, Studio's start job and the TUI panel.
 - Docs: COMMANDS-init.md (`halo start`'s failed screen and the log), TROUBLESHOOTING.md ("`halo start` failed: read the log").
 
+### R3: halo exits clean, and halo update clears what lingers
+
+#### Added
+- `~/.halo/run/children.json` (halo_harness/children.py, children_stop.py): the Studio a session starts detached, `--bg` runs and schedule fires join it with their pid, start time and owner, so a quit and `halo update` can find and stop them.
+- `halo update --keep-running`: stops nothing, names each halo process still running (what, pid, its first command words) with the command that stops it (`halo studio --stop`, `halo bg stop <id>`, `halo supervise stop`), and does not install.
+- `/update` installs from a detached updater after halo has exited (`update.cmd` through `cmd.exe /c`, `update.sh` through `sh`), logging to `~/.halo/update.log`; halo prints the log path and the `halo --continue` line.
+
+#### Changed
+- A quit (`/quit`, Ctrl+C twice, Ctrl+D, Ctrl+Q) stops the Studio, the session's background runs and schedule fires and leftovers of a session that crashed, and says so in its last line ("stopped: Studio (pid 4242), 2 background runs"); the supervisor and runs started from a plain shell stay; while another halo session of the same home is open, the Studio stays for it. The end of `-p` stops what that run started.
+- The quit's line also names what it left running of this home, each with the command that ends it ("left running: 1 background run from a shell (halo bg stop <id>), Studio (another session is open; halo studio --stop), supervisor (halo supervise stop)"), so `halo update` never surprises anyone.
+- `halo update` stops other open halo sessions of this install too, and says so one line each; `--keep-running` looks first.
+- `halo update` stops every other process of this install before it installs (the registry first, then a process scan that now also knows the Studio, a `--bg` run's wrapper, the supervisor and this venv's model server), one line each, and starts the supervisor again on the new version; `--force` installs without stopping anything.
+- `/update`'s dialog: Enter quits halo and the update runs after it exits (no in-process install, no relaunch).
+
+#### Fixed
+- `halo update` after quitting halo no longer refuses with "another halo process looks like it's running": the detached Studio, background runs and schedule fires that outlived the session are stopped.
+- `/update` on Windows no longer fails with "Scripts: Access is denied" by reinstalling while its own `halo.exe` holds the venv.
+- `halo studio --stop` on Windows ends a Studio whose shutdown route does not answer (it cleared studio.json and left the process running).
+
 ### Also in 3.2.2.0
 
 #### Changed

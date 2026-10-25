@@ -342,3 +342,10 @@ command; `logs` prints the captured stdout+stderr (`-n` for just the tail);
 `stop` kills the process tree by pid (same Windows orphan-grandchild-aware
 kill background Bash jobs already use); `rm` deletes the run's directory,
 refusing a still-running one unless `--force` (which stops it first).
+
+Each run also joins `~/.halo/run/children.json` (3.2.2.0) with its owner: a
+`halo --bg` run from a halo session's own Bash or PowerShell tool belongs to
+that session and ends when it quits; one started from a plain shell belongs
+to no session, so a quit leaves it (like the supervisor's runs). `halo
+update` stops every run before it installs; `halo bg stop <id>` ends one at
+any time.

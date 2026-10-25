@@ -2585,8 +2585,22 @@ class BridgeApp(App):
     def _quit_worker(self) -> None:
         quit_fn = getattr(self.controller, "quit", None)
         code = quit_fn() if callable(quit_fn) else 0
-        message = self._build_scrollback_message()
+        message = self._exit_message()
         self.call_from_thread(self.exit, return_code=code, message=message)
+
+    def _exit_message(self) -> Optional[str]:
+        """The scrollback replay (when not fullscreen) and, last, the one
+        line naming what the quit stopped (3.2.2.0 R3: "stopped: Studio
+        (pid 4242), 2 background runs"), or nothing when nothing ran."""
+        message = self._build_scrollback_message()
+        line = getattr(self.controller, "stopped_line", "") or ""
+        if line:
+            try:
+                self.controller.stopped_line_shown = True
+            except Exception:
+                pass
+            message = f"{message}\n\n{line}" if message else line
+        return message
 
     def action_force_quit(self) -> None:
         """1.0.1 hotfix 15.6: Ctrl+Q exits even when the session/transcript
@@ -2622,6 +2636,15 @@ class BridgeApp(App):
             self.controller.session.job_registry.kill_all()
         except Exception:
             pass
+        # 3.2.2.0 R3: the registered children too (Studio, background runs,
+        # schedule fires), with a short wait -- the ordinary quit may be wedged.
+        try:
+            from halo_harness.children_stop import stop_for_quit
+            line = stop_for_quit(getattr(self.controller, "state_dir", None), timeout=1.0)
+            if line:
+                self.controller.stopped_line = line
+        except Exception:
+            pass
         result = {"code": 0}
 
         def _run_quit() -> None:
@@ -2635,7 +2658,7 @@ class BridgeApp(App):
         t = threading.Thread(target=_run_quit, daemon=True)
         t.start()
         t.join(timeout=2.0)  # deliberately never longer -- see action_force_quit's docstring
-        message = self._build_scrollback_message()
+        message = self._exit_message()
         self.call_from_thread(self.exit, return_code=result["code"], message=message)
         # 1.0.1 fixpass finding 5: self.exit() alone is not a guarantee --
         # it goes through Textual's own asyncio.run(...), whose
