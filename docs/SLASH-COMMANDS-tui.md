@@ -118,6 +118,11 @@ transcript viewer of the highlighted agent; Ctrl+T again, or Esc,
 closes it. Print mode has no panel, so it keeps the original plain-text
 background-jobs listing. See `docs/SUBAGENTS.md`.
 
+### `/plan [on|off|status]` `[TUI-only switch]`
+Plan mode on or off from the prompt, or its status and plan file -- the
+same switch as Shift+Tab, told to the model at its next call. The full
+entry is in [Slash commands: sessions](SLASH-COMMANDS-session.md#plan-onoffstatus-tui-only-switch).
+
 ### `/orchestra [run]`
 Halo 3.0.3.0: the latest Orchestra run of this folder's repo (or the run
 named): its workflow steps, one row per worker lane (state, pieces sent

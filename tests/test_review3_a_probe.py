@@ -89,7 +89,8 @@ PROBE = [
     ("Read", {"file_path": 123}, ENV, (), (), ALL_ALLOW),
     ("Edit", {"file_path": 5}, (), (), (), OTHER),
     ("Glob", {"path": 5}, ENV, (), (), ALL_ALLOW),
-    ("WebFetch", {"url": 5}, ("WebFetch(domain:x.com)",), (), (), OTHER),
+    # (3.2.2.0 R4: WebFetch is a web read -- plan mode runs it; the other modes keep their decision)
+    ("WebFetch", {"url": 5}, ("WebFetch(domain:x.com)",), (), (), {**OTHER, "plan": "allow"}),
     # item 91: PowerShell plan-mode ban before allow rules
     _ps("Remove-Item x", ALLOW_EXCEPT_PLAN, allow=PS_RM), _ps("rm x", ALLOW_EXCEPT_PLAN, allow=PS_RM),
     _ps("Remove-Item x", OTHER),

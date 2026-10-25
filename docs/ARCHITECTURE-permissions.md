@@ -33,11 +33,19 @@ reads either one to gate or auto-deny anything.
 | Read inside a working dir | allow | allow | allow | allow |
 | Read outside a working dir | ask | ask | ask | deny |
 | Read-only Bash/PowerShell | allow | allow | allow | allow |
+| A read tool (`read_tool`, below) | allow | allow | allow | allow |
+| The web reads: WebFetch, WebSearch (`web_read`) | ask | ask | allow | deny |
 | Edit/Write inside a working dir | ask | allow | deny | deny |
 | Everything else | ask | ask | deny | deny |
 
 (`auto` and `bypassPermissions` never consult this table at all -- step 3
-above already resolved them.) A handful of tools are categorized outside
+above already resolved them.) The **read tools** (3.2.2.0 R4,
+`READ_TOOL_NAMES` in permissions.py) are LS, BashOutput, ToolSearch, Skill,
+knowledge_search, recall, ListMcpResourcesTool, ReadMcpResourceTool,
+TaskList, and every MCP tool whose server marks it `readOnlyHint` in its
+`tools/list` annotations (`McpTool.read_only`, kept in the per-server tools
+cache too; a server that sends no annotations leaves its tools in
+"Everything else"). Read, Glob and Grep keep their own path-aware rows. A handful of tools are categorized outside
 this table entirely, in every mode: `TodoWrite`/`ToolSearch` (no side
 effects requiring permission), `AskUserQuestion` (allowed everywhere except
 `dontAsk`, where it errors instead of hanging), `Agent`/`Task` (spawning is
@@ -46,6 +54,28 @@ guardrail), and `EnterPlanMode` in print mode (always allowed -- it only
 ever *narrows* what happens next). Plan mode additionally always allows
 Write/Edit on exactly the one active plan file, regardless of the table
 above.
+
+**Plan mode lets every read through and refuses writes in plain words**
+(3.2.2.0 R4). Its write check runs before `allow` rules (an allow rule for
+`Bash(npm:*)` does not let `npm install` run in plan mode): Edit/Write
+outside the plan file, a Bash or PowerShell command that is not read-only,
+and any tool in "Everything else" (an MCP tool without `readOnlyHint`
+included) are refused with one text that says what the call does and the
+way out:
+
+    plan mode: Write writes; research with the read tools and the web, then call
+    ExitPlanMode with the plan (Shift+Tab or /plan off leaves plan mode)
+
+(`plan mode: this Bash command writes; ...` for Bash, the tool's own name
+for the rest -- `plan_mode_refusal` in permissions.py). Every read runs:
+Read/Glob/Grep, read-only Bash, the read tools above, WebFetch and
+WebSearch. The model is told when plan mode starts and ends, however it
+was switched (agent/mode_notice.py): the same note EnterPlanMode gives,
+with the plan file's path, before the next model call after Shift+Tab,
+`/plan on`, config or `--permission-mode plan`; "Plan mode is off:
+implement the plan." after Shift+Tab, `/plan off` or the plan card's
+approve; and each turn carries one line naming the current mode
+(`permission mode: plan (read-only; call ExitPlanMode with the plan)`).
 
 Rule grammar (`parse_rule`) matches Claude Code's own exactly: `Tool` (bare,
 the whole tool), `Tool(content)` (exact/prefix/glob string, or a `path`

@@ -125,7 +125,10 @@ confirmation, still does).
   an answer directly) borrows the prompt input for a free-text answer.
 - **PlanCard**: `1`/`a` approve with auto-accept-edits mode after, `2`/`m`
   approve with manual mode after, `3`/`k`/`Esc` keep planning (borrows the
-  prompt input for optional feedback, or just type it directly).
+  prompt input for optional feedback, or just type it directly). The keys
+  line is the card's first line (3.2.2.0 R4); a long plan shows its first
+  lines and `... (N more lines; the plan file: <path>)`, and `o` opens it
+  whole.
 - **EffortCard** (`/effort` with no argument, 1.0.1): `Left`/`Right` or
   `h`/`l` move between this route's own accepted effort levels, `Enter`
   applies, `Esc` cancels and keeps the old value. A model with no

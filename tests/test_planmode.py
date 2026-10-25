@@ -226,6 +226,133 @@ def test_plan_mode_bash_still_gated_normally(ctx: Ctx):
     ctx.check("mutating bash denied in plan mode", other.action == "deny")
 
 
+# ---- Halo 3.2.2.0 R4: plan mode lets every read through ------------------------
+
+def _mcp(read_only: bool):
+    from types import SimpleNamespace
+    return SimpleNamespace(is_read_only=read_only, read_only=read_only)
+
+
+_REFUSAL_TAIL = ("writes; research with the read tools and the web, then call ExitPlanMode with the plan "
+                 "(Shift+Tab or /plan off leaves plan mode)")
+
+
+@test
+def test_plan_mode_lets_every_read_through(ctx: Ctx):
+    cwd = Path(tempfile.mkdtemp(prefix="rc-r4-reads-"))
+    engine = PermissionEngine(mode="plan", cwd=cwd)
+    calls = [("WebFetch", {"url": "https://docs.example.com/x", "prompt": "summarize"}, None),
+             ("WebSearch", {"query": "textual pager"}, None), ("BashOutput", {"bash_id": "1"}, None),
+             ("Skill", {"skill": "review"}, None), ("knowledge_search", {"query": "x"}, None),
+             ("ToolSearch", {"query": "select:a"}, None), ("recall", {"query": "x"}, None),
+             ("mcp__docs__search", {"q": "x"}, _mcp(True)), ("Bash", {"command": "git log --oneline -3"}, None)]
+    for name, inp, tool in calls:
+        d = engine.decide(name, inp, tool=tool)
+        ctx.check(f"{name} runs in plan mode, got {d.action}: {d.reason}", d.action == "allow")
+
+
+@test
+def test_plan_mode_refuses_a_write_in_plain_words(ctx: Ctx):
+    from halo_harness.permissions import parse_rule
+    cwd = Path(tempfile.mkdtemp(prefix="rc-r4-writes-"))
+    engine = PermissionEngine(mode="plan", cwd=cwd)
+    write = engine.decide("Write", {"file_path": str(cwd / "a.py"), "content": "x"})
+    ctx.check(f"Write refused with the tool named and the way out, got {write.reason!r}",
+              write.action == "deny" and write.reason == f"plan mode: Write {_REFUSAL_TAIL}")
+    mcp = engine.decide("mcp__docs__write", {"q": "x"}, tool=_mcp(False))
+    ctx.check(f"an MCP tool with no readOnlyHint stays a write, got {mcp.reason!r}",
+              mcp.action == "deny" and mcp.reason == f"plan mode: mcp__docs__write {_REFUSAL_TAIL}")
+    bash = engine.decide("Bash", {"command": "rm file.txt"})
+    ctx.check(f"the Bash line has the same shape, got {bash.reason!r}",
+              bash.reason == f"plan mode: this Bash command {_REFUSAL_TAIL}")
+    ruled = PermissionEngine(mode="plan", cwd=cwd, allow_rules=[parse_rule("Bash(rm:*)", action="allow")])
+    d = ruled.decide("Bash", {"command": "rm file.txt"})
+    ctx.check(f"an allow rule gets the same text, got {d.reason!r}", d.reason == f"plan mode: this Bash command {_REFUSAL_TAIL}")
+    for reason in (write.reason, mcp.reason, bash.reason, d.reason):
+        ctx.check(f"no jargon in {reason!r}", "banned" not in reason and "cannot lift" not in reason)
+
+
+@test
+def test_other_modes_keep_their_web_decision_and_reads_run(ctx: Ctx):
+    cwd = Path(tempfile.mkdtemp(prefix="rc-r4-modes-"))
+    fetch = {"url": "https://docs.example.com/x", "prompt": "p"}
+    for mode, want in (("default", "ask"), ("acceptEdits", "ask"), ("dontAsk", "deny"), ("auto", "allow")):
+        d = PermissionEngine(mode=mode, cwd=cwd).decide("WebFetch", fetch)
+        ctx.check(f"{mode}: WebFetch {want} as before, got {d.action}", d.action == want)
+    default = PermissionEngine(mode="default", cwd=cwd)
+    ctx.check("default: BashOutput runs", default.decide("BashOutput", {"bash_id": "1"}).action == "allow")
+    ctx.check("default: a readOnlyHint MCP tool runs", default.decide("mcp__d__s", {}, tool=_mcp(True)).action == "allow")
+    ctx.check("default: any other MCP tool asks", default.decide("mcp__d__w", {}, tool=_mcp(False)).action == "ask")
+
+
+@test
+def test_mcp_tool_record_and_cache_keep_read_only(ctx: Ctx):
+    from types import SimpleNamespace
+    from halo_harness.mcp.tools_cache import tool_from_dict, tool_to_dict
+    from halo_harness.tools.mcp_tool import McpTool
+    sdk = SimpleNamespace(name="search", description="d", input_schema={"type": "object", "properties": {}},
+                          annotations=SimpleNamespace(read_only_hint=True, destructive_hint=False), meta=None)
+    ctx.check("the live record keeps read_only", McpTool("docs", sdk, manager=None).read_only is True)
+    cached = tool_from_dict(tool_to_dict(sdk))
+    ctx.check("the tools cache keeps it", McpTool("docs", cached, manager=None).read_only is True)
+    bare = SimpleNamespace(name="w", description="d", input_schema={}, annotations=None, meta=None)
+    ctx.check("no annotations: not a read", McpTool("docs", tool_from_dict(tool_to_dict(bare)), manager=None).read_only is False)
+
+
+# ---- Halo 3.2.2.0 R4: the model is told the mode (agent/mode_notice.py) ---------
+
+class _Log:
+    def __init__(self):
+        self.snapshots = []
+
+    def append_snapshot(self, content, *, kind):
+        self.snapshots.append((kind, content[0]["text"]))
+
+
+def _notice_session(mode):
+    import os
+    from types import SimpleNamespace
+    os.environ["BRIDGE_TEST_HOME"] = str(Path(tempfile.mkdtemp(prefix="rc-r4-notice-home-")))
+    cwd = Path(tempfile.mkdtemp(prefix="rc-r4-notice-"))
+    return SimpleNamespace(cwd=cwd, session_context=None, log=_Log(),
+                           permission_engine=PermissionEngine(mode=mode, cwd=cwd))
+
+
+@test
+def test_mode_notice_in_and_out_of_plan_mode(ctx: Ctx):
+    from halo_harness.agent import mode_notice
+    s = _notice_session("default")
+    text = mode_notice.sync(s, turn_start=True)
+    ctx.check(f"a turn states the mode in one line, got {text!r}",
+              text == "permission mode: default (edits and commands ask first)")
+    ctx.check("nothing more before the next call", mode_notice.sync(s) is None)
+    s.permission_engine.mode = "plan"  # Shift+Tab / `/plan on`
+    text = mode_notice.sync(s)
+    path = s.permission_engine.plan_file
+    ctx.check(f"the plan-mode note with the plan file's path, got {text!r}",
+              PLAN_MODE_NOTE in text and f"Plan file: {path}" in text and path is not None and Path(path).exists())
+    ctx.check("and the mode line", "permission mode: plan (read-only; call ExitPlanMode with the plan)" in text)
+    ctx.check("the mode before plan is kept for /plan off", s._mode_before_plan == "default")
+    ctx.check("told once", mode_notice.sync(s) is None)
+    s.permission_engine.mode = "acceptEdits"  # Shift+Tab out, or the card's approve
+    text = mode_notice.sync(s)
+    ctx.check(f"leaving says implement the plan, got {text!r}", text.startswith(mode_notice.PLAN_OFF_NOTE))
+    ctx.check("all of them are user-role snapshots", [k for k, _ in s.log.snapshots] == ["permission_mode"] * 3)
+
+
+@test
+def test_plan_at_startup_and_enter_plan_mode_are_told_once(ctx: Ctx):
+    from halo_harness.agent import mode_notice
+    s = _notice_session("plan")  # --permission-mode plan / config
+    text = mode_notice.sync(s, turn_start=True)
+    ctx.check(f"the first turn carries the note, got {text!r}", text and PLAN_MODE_NOTE in text)
+    s2 = _notice_session("default")
+    mode_notice.sync(s2, turn_start=True)
+    s2.permission_engine.mode = "plan"
+    mode_notice.told_plan(s2)  # EnterPlanMode logged it itself
+    ctx.check("no second copy after EnterPlanMode", mode_notice.sync(s2) is None)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

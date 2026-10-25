@@ -100,6 +100,13 @@ EVENT_KINDS = frozenset({
     # /api/media/render`): {prompt_id, state: queued|progress|done|error,
     # text, project, artboard, workflow, artboards?, error?}.
     "media_render",
+    # Halo 3.2.2.0 R4: the line a finished turn ends with (`◼ done · 42 s ·
+    # 3 tools · $0.012`, `◼ waiting on you: <what>`, `◼ stopped: <why>`)
+    # and the loop's own `↳` notes (a nudge, a silent call resent). data:
+    # {state: done|waiting|stopped|nudged|resend, text, reason, ...}
+    # (agent/turn_marker.py builds them; the TUI and Studio's Session feed
+    # show `text`).
+    "turn_marker",
 })
 
 COMMAND_KINDS = frozenset({
@@ -293,6 +300,14 @@ def error(message: str, *, turn: int = 0, err_type: str = "error", retryable: bo
 def turn_done(*, turn: int = 0, reason: str = "end_turn") -> Event:
     """data: {reason} -- reason is one of "end_turn"|"max_turns"|"interrupted"|"error"."""
     return Event("turn_done", {"reason": reason}, turn=turn)
+
+
+def turn_marker(state: str, text: str, *, turn: int = 0, **extra) -> Event:
+    """data: {state, text, **extra}. Halo 3.2.2.0 R4: `state` is "done",
+    "waiting" or "stopped" for the line a turn ends with (or, "waiting", a
+    card the turn now waits on), "nudged"/"resend" for the loop's `↳`
+    notes. `text` is the whole line as shown."""
+    return Event("turn_marker", {"state": state, "text": text, **extra}, turn=turn)
 
 
 def governor_state_unpersisted(reason: str) -> Event:

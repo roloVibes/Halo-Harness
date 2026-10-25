@@ -42,7 +42,7 @@ MODE_DESCRIPTIONS = {
     "auto": "no prompts",
     "default": "asks before edits and commands",
     "acceptEdits": "edits allowed, commands ask",
-    "plan": "read-only until you approve",
+    "plan": "reads and the web run; writes wait for the plan you approve",
     "dontAsk": "prompts become denials",
     "bypassPermissions": "everything allowed",
 }

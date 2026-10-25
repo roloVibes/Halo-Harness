@@ -325,6 +325,12 @@ class PrintModeSink:
             elif self.verbose and self.output_format == "text":
                 ok = "ok" if event.data.get("ok") else "error"
                 self.stream.write(f"\x1b[2m[tool result: {ok}]\x1b[0m\n")
+        elif event.kind == "turn_marker":
+            # Halo 3.2.2.0 R4: the turn's end line / a nudge / a resend --
+            # print mode stays quiet unless --verbose, like steer_restart.
+            if self.verbose and self.output_format == "text" and not event.data.get("mid_turn") \
+                    and event.agent_id is None:
+                self.stream.write(f"\x1b[2m{event.data.get('text', '')}\x1b[0m\n")
         elif event.kind == "steer_restart":
             # GLM-brief.md item 3: "headless --verbose prints one line" --
             # the call was silently aborted and is being resent with the

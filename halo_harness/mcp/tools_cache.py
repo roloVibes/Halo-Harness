@@ -20,6 +20,7 @@ import json
 import os
 import time
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Optional
 
 from halo_harness.config.paths import bridge_home
@@ -55,11 +56,15 @@ class CachedTool:
     `.meta` off a real SDK Tool (agent/catalog.py, tools/mcp_tool.py) works
     identically whether a tool came from a live connection or the cache."""
 
-    def __init__(self, name: str, description: str, input_schema: dict, meta: Optional[dict]) -> None:
+    def __init__(self, name: str, description: str, input_schema: dict, meta: Optional[dict],
+                 read_only: bool = False, destructive: bool = False) -> None:
         self.name = name
         self.description = description
         self.input_schema = input_schema
         self.meta = meta
+        # Halo 3.2.2.0 R4: the server's own `readOnlyHint` survives the cache,
+        # so a lazy server's read tools are reads in plan mode too.
+        self.annotations = SimpleNamespace(read_only_hint=read_only, destructive_hint=destructive)
 
 
 def tool_to_dict(tool) -> dict:
@@ -68,6 +73,8 @@ def tool_to_dict(tool) -> dict:
         "description": getattr(tool, "description", None) or "",
         "input_schema": getattr(tool, "input_schema", None) or {"type": "object", "properties": {}},
         "meta": getattr(tool, "meta", None) or {},
+        "read_only": bool(getattr(getattr(tool, "annotations", None), "read_only_hint", False)),
+        "destructive": bool(getattr(getattr(tool, "annotations", None), "destructive_hint", False)),
     }
 
 
@@ -76,6 +83,7 @@ def tool_from_dict(d: dict) -> CachedTool:
         name=d.get("name", ""), description=d.get("description", "") or "",
         input_schema=d.get("input_schema") or {"type": "object", "properties": {}},
         meta=d.get("meta") or {},
+        read_only=bool(d.get("read_only")), destructive=bool(d.get("destructive")),
     )
 
 

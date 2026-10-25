@@ -45,6 +45,8 @@ from halo_harness.agent.planmode import PLAN_MODE_NOTE, ensure_plan_file, write_
 from halo_harness.agent.jobs import JobRegistry
 from halo_harness.agent import agent_inbox as _fleet_gate
 from halo_harness.agent import agent_hooks as _agent_tree
+from halo_harness.agent import mode_notice as _mode_notice
+from halo_harness.agent import turn_marker as _turn_marker
 from halo_harness.agent.subagent import AgentRuntime
 from halo_harness.agent.compact import (
     CHARS_PER_TOKEN, build_files_read_snapshot, build_summary_instruction, resolve_knobs, select_verbatim_tail,
@@ -637,6 +639,20 @@ def _steer_restart_when_silent_enabled() -> bool:
     effect on the very next model call."""
     from halo_harness.theme import get_config_value
     return bool(get_config_value("steer.restart_when_silent", default=True))
+
+
+def _silent_restart_s() -> float:
+    """Halo 3.2.2.0 R4: `steer.silent_restart_s` (default 60, 0 = off) -- a
+    model call with no first token after that many seconds is aborted and
+    resent once with the same messages; the resent call waits the
+    provider's read timeout as before. Read fresh per `_step`, like
+    `steer.restart_when_silent` above."""
+    from halo_harness.theme import get_config_value
+    try:
+        value = float(get_config_value("steer.silent_restart_s", default=60) or 0)
+    except (TypeError, ValueError):
+        value = 60.0
+    return max(0.0, value)
 
 
 class _StepResult:
@@ -3419,6 +3435,10 @@ class Session:
         first_reasoning_ms: Optional[float] = None
         native_thinking_delta_count = 0
         restart_when_silent = _steer_restart_when_silent_enabled()
+        # Halo 3.2.2.0 R4: a call silent past `steer.silent_restart_s` is
+        # resent once (`silent_resent` keeps it to once per model call).
+        silent_restart_s = _silent_restart_s()
+        silent_resent = False
         while True:
             attempts += 1
             # HALO-2.0.1-liveness-tips-brief.md Part A1 / W2-plan item 6:
@@ -3442,18 +3462,26 @@ class Session:
             # poll tick, exactly like a real interrupt would.
             chunk_started = [False]
             steer_restart_event = threading.Event()
+            silent_fired = threading.Event()
             watcher_stop = threading.Event()
             watcher = None
-            if restart_when_silent:
-                def _watch_for_silent_steer(_stop=watcher_stop, _started=chunk_started, _fire=steer_restart_event):
+            silent_limit = silent_restart_s if (silent_restart_s > 0 and not silent_resent) else 0.0
+            if restart_when_silent or silent_limit:
+                def _watch_for_silent_steer(_stop=watcher_stop, _started=chunk_started, _fire=steer_restart_event,
+                                            _silent=silent_fired, _limit=silent_limit, _t0=time.monotonic(),
+                                            _steer=restart_when_silent):
                     while not _stop.is_set():
-                        if not _started[0] and self._pending_steer():
+                        if not _started[0] and _steer and self._pending_steer():
+                            _fire.set()
+                            return
+                        if not _started[0] and _limit and time.monotonic() - _t0 >= _limit:
+                            _silent.set()
                             _fire.set()
                             return
                         _stop.wait(0.2)
                 watcher = threading.Thread(target=_watch_for_silent_steer, daemon=True)
                 watcher.start()
-            call_abort = _EitherAbort(self.abort, steer_restart_event) if restart_when_silent else self.abort
+            call_abort = _EitherAbort(self.abort, steer_restart_event) if watcher is not None else self.abort
             gen = self._stream(req, abort=call_abort)
             assistant_blocks: list = []
             partial_json: dict = {}
@@ -3636,6 +3664,17 @@ class Session:
                 if watcher is not None:
                     watcher.join(timeout=0.5)
 
+            if silent_fired.is_set() and not self.abort.is_set() and not self._pending_steer():
+                # Halo 3.2.2.0 R4: nothing arrived for `silent_restart_s` --
+                # the same request goes out once more; that attempt has no
+                # silent limit (it waits the provider's read timeout). Free
+                # against the retry ladder, like a steer-restart below.
+                silent_resent = True
+                yield events.turn_marker("resend", f"↳ no data for {silent_limit:g} s, resending the call",
+                                         turn=turn_no, after_s=silent_limit)
+                ttfb_ms = None
+                attempts -= 1
+                continue
             if steer_restart_event.is_set() and not self.abort.is_set():
                 # GLM-brief.md item 3: the watcher above force-closed this
                 # silently-blocked call -- `gen` is therefore already fully
@@ -5234,8 +5273,11 @@ class Session:
         # Halo 3.0.5.0 (Fleet): the session's live agent tree sees every
         # event THIS session produced (a child's own are tagged later).
         _agent_tree.turn_started(self, text)
+        # Halo 3.2.2.0 R4: the turn ends with a `turn_marker` line (done /
+        # waiting on you / stopped) -- agent/turn_marker.py.
+        _turn_marker.reset_turn_state(self)
         try:
-            for ev in self._turn_inner(text, images=images):
+            for ev in _turn_marker.with_markers(self, self._turn_inner(text, images=images), self.turn_count + 1):
                 self._timeline.record_turn_event(ev)
                 self._observe_team_triggers(ev)
                 if not ev.agent_id:
@@ -5364,6 +5406,7 @@ class Session:
                     # D-CFG/B: "blocked -> prompt dropped + reason shown" --
                     # the prompt is NEVER appended to the log at all.
                     reason = outcome.block_reason or "blocked by a UserPromptSubmit hook"
+                    self._turn_stop_why = f"a UserPromptSubmit hook ({reason})"
                     yield events.notification(f"Prompt dropped: {reason}", level="error")
                     yield events.status(phase="idle", model=self.model_ref.raw, turn=turn_no,
                                          cost_usd=self.cost_meter.total_usd if self.cost_meter.has_cost_data else None)
@@ -5415,6 +5458,9 @@ class Session:
                 else:
                     blocks.append(img)
             self.log.append_user(blocks)
+            # Halo 3.2.2.0 R4: the mode in one line (and the plan-mode note
+            # on a way in made outside the EnterPlanMode tool).
+            _mode_notice.sync(self, turn_start=True)
             turn_images = images if vision_ok else None
             yield events.user_message(text, turn=turn_no, images=turn_images)
             yield events.status(
@@ -5528,6 +5574,9 @@ class Session:
                                      cost_usd=self.cost_meter.total_usd if self.cost_meter.has_cost_data else None)
                 yield events.turn_done(turn=turn_no, reason="interrupted")
                 return
+            # Halo 3.2.2.0 R4: a Shift+Tab / `/plan` made since the last call
+            # is told to the model before this one.
+            _mode_notice.sync(self)
             if self.max_turns is not None and model_calls >= self.max_turns:
                 # H5 scope F item 9 (OpenCode Appendix H): inject
                 # MAX_STEPS_PROMPT as a snapshot and give the model ONE more
@@ -5799,6 +5848,19 @@ class Session:
                         continuation = stop_outcome.block_reason or "Please continue."
                         self.log.append_user([{"type": "text", "text": continuation}], kind="continuation")
                         yield events.user_message(continuation, turn=turn_no)
+                        continue
+                # Halo 3.2.2.0 R4: a reply that ends promising work ("Now
+                # I'll edit X.") and calls nothing gets one notice and one
+                # more call (agent/turn_marker.py; `turn.nudge_promises`).
+                # (Never past --max-turns: the nudge is one more call, not a
+                # wrap-up the cap would then force.)
+                if (not self.abort.is_set() and result.stop_reason != "max_tokens"
+                        and (self.max_turns is None or model_calls < self.max_turns)):
+                    promised = "".join(b.get("text", "") for b in result.assistant_blocks if b.get("type") == "text")
+                    if _turn_marker.should_nudge(self, promised):
+                        self._turn_nudged = True
+                        self.log.append_user([{"type": "text", "text": _turn_marker.NUDGE_TEXT}], kind="nudge")
+                        yield events.turn_marker("nudged", _turn_marker.NUDGED_LINE, turn=turn_no)
                         continue
                 yield events.status(phase="idle", model=self.model_ref.raw, turn=turn_no, context_tokens=prompt_tokens,
                                      context_limit=self.model_profile.context_tokens,
@@ -6082,6 +6144,7 @@ class Session:
             if self._identical_call_guard_count >= 3:
                 item["text"] = (f"{name}: the model repeated the same tool call three times in a row -- "
                                  f"stopping this turn so you can steer it.")
+                self._turn_stop_why = f"{name} was called with the same arguments three times in a row"
                 item["end_turn"] = True
                 item["error_class"] = "loop_breaker"
                 return item
@@ -6141,6 +6204,7 @@ class Session:
                                  f"times this turn (A, B, A, B, ...) -- ending the turn.")
             else:
                 item["text"] = f"Loop breaker: {name} called with the same arguments {count} times this turn -- ending the turn."
+            self._turn_stop_why = f"the loop breaker ended the turn ({name} repeated)"
             item["end_turn"] = True
             item["error_class"] = "loop_breaker"
             return item
@@ -7024,6 +7088,7 @@ class Session:
         self.permission_engine.mode = "plan"
         self.permission_engine.set_plan_file(plan_path)
         self.log.append_snapshot([{"type": "text", "text": PLAN_MODE_NOTE}], kind="plan_mode")
+        _mode_notice.told_plan(self)
         item["result"] = ToolResult(f"Entered plan mode. Plan file: {plan_path}\n\n{PLAN_MODE_NOTE}")
         yield events.notification(f"Plan mode entered (plan file: {plan_path})")
         yield events.status(phase="thinking", model=self.model_ref.raw, turn=turn_no, permission_mode="plan")
@@ -7084,6 +7149,7 @@ class Session:
         item["result"] = ToolResult(plan_text)
         item["end_turn"] = True
         item["_plan_as_final_text"] = plan_text
+        self._turn_waiting_on = f"the plan (written to {plan_path})"
 
     def _emit_plan_as_final_text(self, turn_no: int, plan_text: str) -> Iterator[events.Event]:
         """A synthetic assistant message carrying `plan_text` verbatim, so
