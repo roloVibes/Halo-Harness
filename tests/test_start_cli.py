@@ -1,5 +1,5 @@
-"""tests.test_start_cli -- Halo 3.1.1.0 R1: `halo start`, the ten-minute guided
-first run (halo_harness/start/, start_cli.py).
+"""tests.test_start_cli -- Halo 3.1.1.0 R1: `halo start`, the guided first run
+(halo_harness/start/, start_cli.py).
 
 Every run here uses HALO_START_FAKE=1 (the fake lead, workers and judge in
 start/fake.py: real git, no model) in this module's own home:
@@ -11,7 +11,9 @@ start/fake.py: real git, no model) in this module's own home:
 3. step by step: Enter, Enter, then q at step 3 stops before the run starts.
 4. step by step to the end: Enter everywhere approves the plan.
 5. no provider configured (the fake off): says so, offers halo init, exit 2.
-6. the wizard's last step: "Run the ten-minute start now?" defaults to No.
+6. the Summary's start row defaults to off (and the console question to No).
+7. 3.2.2.0 R2, the card: the models it will call, the estimate's rule, what it
+   writes; `--explain` prints only the card, exit 0; `--yes` prints it first.
 Run: python -m tests.test_start_cli
 """
 from __future__ import annotations
@@ -76,6 +78,7 @@ def test_yes_runs_every_step_through_the_fake(ctx: Ctx):
     team_before = get_config_value("team", "")
     rc, text, err = _start(["--yes"])
     ctx.check(f"exit 0, got {rc} {err[-400:]!r} {text[-600:]!r}", rc == 0)
+    ctx.check("the card comes first (3.2.2.0 R2)", 0 <= text.find("Estimated cost: free") < text.find("Step 1 of 7"))
     titles = ["The lineup", "The sample repo", "The goal", "The plan", "The run", "The report and the coach", "Where to go next"]
     pos = [text.find(f"Step {i} of 7: {t}") for i, t in enumerate(titles, 1)]
     ctx.check(f"seven screens in order, got {pos}", -1 not in pos and pos == sorted(pos))
@@ -169,17 +172,56 @@ def test_no_provider_says_so_and_offers_init(ctx: Ctx):
 
 
 @test
-def test_the_wizard_offers_the_start_default_no(ctx: Ctx):
+def test_the_summarys_start_row_defaults_to_off(ctx: Ctx):
     from types import SimpleNamespace
     from rich.console import Console
     from halo_harness import init_cli
+    from halo_harness.start import checks as C
     out = io.StringIO()
     rc = init_cli._step_offer_start(SimpleNamespace(yes=True), Console(file=out, width=120))
-    ctx.check(f"non-interactive: No, init's exit 0, got {rc} {out.getvalue()!r}", rc == 0 and "halo start" in out.getvalue())
-    ctx.check("the question is the brief's", init_cli.START_QUESTION.startswith("Run the ten-minute start now?"))
+    ctx.check(f"non-interactive: No, init's exit 0, got {rc} {out.getvalue()!r}", rc == 0 and "halo start" in out.getvalue()
+              and "--explain" in out.getvalue() and "Estimated cost" not in out.getvalue())
+    ctx.check("the question names the guided first run", init_cli.START_QUESTION.startswith("Run the guided first run now?"))
+    ctx.check("the start row is the last check and off", C.KEYS[-1] == "start" and C.check("start")["default_on"] is False)
     from halo_harness.tui.dialogs.init_wizard import WizardState
     state = WizardState(cwd=Path.cwd())
     ctx.check("the wizard state does not run it unless asked", state.offer_start is False and state.run_start is False)
+
+
+@test
+def test_the_card_says_models_cost_and_writes(ctx: Ctx):
+    from halo_harness.start import card as K
+    rows = {"or:v/lead": {"price_in_per_m": 1.0, "price_out_per_m": 2.0}, "or:v/work": {"price_in_per_m": 0.5,
+            "price_out_per_m": 1.0}}
+    got = K.estimate(parts={"main": "or:v/lead", "subagent": "or:v/work"}, models_by_ref=rows)
+    want = (15_000 + 6_000 + 8_000 + 2_000) / 1e6 + 5 * (120_000 * 0.5 + 6_000 * 1.0) / 1e6  # lead plan + judge, five lanes
+    ctx.check(f"priced: the sum by the stated rule, got {got!r}", got.startswith(f"about ${want:.2f}")
+              and "five worker lanes 120k in / 6k out each" in got)
+    got = K.estimate(parts={"main": "ol:qwen3", "subagent": "or:v/work"}, models_by_ref=rows)
+    ctx.check(f"a local lead costs nothing, got {got!r}", got.startswith(f"about ${5 * 0.066:.2f}"))
+    ctx.check("every model local: free", K.estimate(parts={"main": "ol:a", "subagent": "hf:local/b"}, models_by_ref={})
+              .startswith("free: every model it calls is local"))
+    got = K.estimate(parts={"main": "or:v/lead", "subagent": "or:v/none"}, models_by_ref=rows)
+    ctx.check(f"no price: named, never free, got {got!r}", got.startswith("unknown for or:v/none"))
+    lines = K.card_lines(model="or:v/lead", models_by_ref=rows, today="2026-10-25")
+    text = "\n".join(lines)
+    ctx.check("the models it will call (--model plays every part)", "the lead (the plan, and the judge of a conflict): or:v/lead"
+              in text and "five workers (one lane each, a halo -p session): or:v/lead" in text)
+    ctx.check("the copied lineup's cards, alias -> bio -> model", "main (boss) -> orchestrator ->" in text)
+    ctx.check("seven steps, one sentence each", all(f"  {n}. " in text for n in range(1, 8)))
+    ctx.check("the time and what it writes", "Time: 5-20 minutes on cloud models" in text
+              and str(_home() / "teams" / "my-halo-dev-cycle.yaml") in text and str(_home() / "start" / "2026-10-25") in text)
+    ctx.check("the active lineup untouched", lines[-1].startswith("Your active lineup is not touched"))
+
+
+@test
+def test_explain_prints_only_the_card(ctx: Ctx):
+    before = sorted((_home() / "start").glob("*/basket*"))
+    rc, text, err = _start(["--explain"])
+    ctx.check(f"exit 0, got {rc} {err!r}", rc == 0)
+    ctx.check("the card and nothing else", text.startswith("The guided first run (halo start)") and "Step 1 of 7" not in text
+              and "Estimated cost: free" in text)
+    ctx.check("nothing was written", sorted((_home() / "start").glob("*/basket*")) == before)
 
 
 if __name__ == "__main__":

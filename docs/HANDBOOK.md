@@ -2,22 +2,34 @@
 
 Read this when you want the long-form guide: configuration, providers, permissions, steering, hooks, skills, MCP, sessions and themes.
 
-The long-form guide. It opens with the ten-minute start; the front-page
+The long-form guide. It opens with the guided first run; the front-page
 [README](../README.md) covers install, quick start and what makes Halo
 intuitive; this document keeps the full
 detail for configuration, config reuse, providers, permissions, steering,
 hooks, skills, commands, MCP, browser, sessions, print mode, telemetry,
 troubleshooting, security posture, tests and proxy mode.
 
-## The ten-minute start: `halo start`
+## The guided first run: `halo start`
 
 ```sh
-halo init       # a provider, a default model; its last step offers the ten-minute start
-halo start      # seven screens, Enter to go on, q to stop (--yes runs straight through)
+halo init           # a provider, a default model; its Summary offers the checks and the guided first run
+halo start --explain    # the card: what it does, the models it will call, the cost, the time, what it writes
+halo start          # the card, then seven screens, Enter to go on, q to stop (--yes runs straight through)
+halo check          # the checks after setup: doctor, the model catalog, one hello call (--all, --gym, --explain)
 ```
 
-`halo start` walks one real piece of work through the pieces Halo is made of,
-one screen per step, each with one sentence of why and the command it runs:
+`halo start` is one real Orchestra run on your models, not a test of them
+(`halo gym` measures models). It opens on a card: the seven steps in one
+sentence each, the models it will call (the lead and the five workers, from
+your role table or your default model, and the copied lineup's cards), an
+estimated cost (one lead plan, five worker lanes, one judge pass, each with
+a stated token budget, at the catalog's prices; "free" when every model is
+local, "unknown for <model>" when the catalog has no price), the time (5-20
+minutes on cloud models, longer on local ones), what it writes (the lineup
+copy and the sample repo, by path) and that your active lineup is not
+touched. Then it walks one real piece of work through the pieces Halo is
+made of, one screen per step, each with one sentence of why and the command
+it runs:
 
 1. **The lineup** -- the shipped `halo-dev-cycle` copied into your scope as
    `my-halo-dev-cycle`, its cards shown as a table with their tiers (your

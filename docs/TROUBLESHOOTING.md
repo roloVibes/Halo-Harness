@@ -664,7 +664,7 @@ a guess when there is truly no existing value yet.
 
 ## `halo start` failed: read the log
 
-`halo start` (and `halo init`'s "Run the ten-minute start now", `/start`,
+`halo start` (and `halo init`'s "The guided first run" row, `/start`,
 Studio's Start here) ends a step that hit an unexpected error with one
 line, `<Type>: <message>`, and `the full error is in <path>`. The path is
 `~/.halo/start/<yyyy-mm-dd>/<run>-error.log` (`start-error.log` when the

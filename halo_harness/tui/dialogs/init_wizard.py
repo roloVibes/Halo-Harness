@@ -140,11 +140,19 @@ class WizardState:
     # "the Summary says what it chose").
     offer_quick_full: bool = False
     quick_setup: bool = False
-    # Halo 3.1.1.0 R1: the standalone `halo init` Summary offers "Run the
-    # ten-minute start now" (default off); Finish with it on sets
-    # `run_start`, and init_cli runs `halo start` once the app has exited.
+    # Halo 3.1.1.0 R1: the standalone `halo init` Summary offers the guided
+    # first run (default off); Finish with it ticked sets `run_start`, and
+    # init_cli runs `halo start` once the app has exited. 3.2.2.0 R2: it is
+    # one of the Summary's five check rows (tui/dialogs/summary_checks.py):
+    # `check_keys` the ticked ones, `check_results` [(key, ok, lines)],
+    # `gym_models` the models ticked for the gym, `checks_cancel` set when
+    # setup closes while they run.
     offer_start: bool = False
     run_start: bool = False
+    check_keys: tuple = ()
+    check_results: list = field(default_factory=list)
+    gym_models: Optional[list] = None
+    checks_cancel: bool = False
 
     # Halo 2.0.4 round 4 (deliverable 1): the merged model list from ONE
     # live, off-thread enumeration run right after the Providers step's
@@ -1145,19 +1153,28 @@ STEP_FACTORIES["linux_fixes"] = LinuxFixesStep
 
 
 # ---------------------------------------------------------------------------
-# Step: Summary -- reuses `init_cli.py`'s own `_step_checks`/`_step_live_
-# pong`/`_step_summary` verbatim (captured into a StringIO-backed Console,
-# the same trick `init_cli._run_live_pong` already uses) so this step's
-# text can never drift from what the plain console path prints.
+# Step: Summary -- 3.2.2.0 R2: the five check rows of start/checks.py
+# (tui/dialogs/summary_checks.py): Finish runs the ticked ones and prints
+# each result here, then Finish closes setup. `init_cli._step_summary`'s
+# lines (captured into a StringIO-backed Console) follow them, so this
+# step's text can never drift from what the plain console path prints.
 # ---------------------------------------------------------------------------
 
-class SummaryStep(StepScreen):
+from halo_harness.tui.dialogs.summary_checks import SummaryChecks  # noqa: E402
+
+
+class SummaryStep(SummaryChecks, StepScreen):
     DEFAULT_CSS = """
+    SummaryStep #wiz-summary-body { height: 1fr; }
     SummaryStep #wiz-summary-text { margin-top: 1; }
+    SummaryStep #wiz-summary-checks { height: auto; }
+    SummaryStep #wiz-summary-gym-models { height: auto; max-height: 5; }
+    SummaryStep .wiz-summary-muted { color: $text-muted; margin-top: 1; }
     SummaryStep #wiz-summary-change-list { height: 6; margin-top: 1; }
     """
 
     def body(self) -> list:
+        from textual.containers import VerticalScroll
         from textual.widgets import OptionList
         from textual.widgets.option_list import Option
         widgets = [Static("Summary:", classes="dialog-title")]
@@ -1166,30 +1183,33 @@ class SummaryStep(StepScreen):
         from halo_harness.tui.dialogs.team_preview import applied_summary_lines
         lineup_text = "\n".join(applied_summary_lines(cwd=self.state.cwd, default_model=self.state.final_model))
         widgets.append(Static(lineup_text, id="wiz-summary-lineup"))
-        widgets.append(Static("Running checks…", id="wiz-summary-text"))
+        widgets.extend(self.check_widgets())
+        widgets.append(Static("Tick the checks to run, then Finish.", id="wiz-summary-text"))
         # Rule 10: "Change" jumps back into each step -- every key this
         # run actually used (never "summary" itself, nothing to jump to).
-        if self.state.offer_start:  # 3.1.1.0 R1: the last step offers the ten-minute start (default No)
-            from textual.widgets import Checkbox
-            widgets.append(Checkbox("Run the ten-minute start now (halo start: a lineup, a sample repo, one "
-                                    "Orchestra run)", value=False, id="wiz-summary-start"))
         change_rows = [(k, STEP_TITLES.get(k, k)) for k in self.state.step_keys if k != "summary"]
         if change_rows:
             widgets.append(Static("Change:", classes="dialog-subtitle"))
             widgets.append(OptionList(*[Option(f"Change: {title}", id=key) for key, title in change_rows],
                                        id="wiz-summary-change-list"))
-        return widgets
+        return [VerticalScroll(*widgets, id="wiz-summary-body")]
 
     def on_mount(self) -> None:
-        guarded_worker(self, self._run_checks_worker, thread=True, name="wiz-summary-checks")
+        try:
+            self.query_one("#wiz-summary-checks").focus()
+        except Exception:
+            pass
 
-    def commit(self) -> None:
-        if self.state.offer_start:
-            from textual.widgets import Checkbox
-            try:
-                self.state.run_start = bool(self.query_one("#wiz-summary-start", Checkbox).value)
-            except Exception:
-                self.state.run_start = False
+    def action_do_next(self) -> None:
+        """Finish: while picking, run the ticked checks here (Finish then waits for them); once they are done,
+        or with none to run here, close setup (the guided first run, when ticked, starts after)."""
+        if self._phase == "running":
+            return
+        if self._phase == "pick" and self.begin():
+            return
+        if self._phase == "done":  # a row ticked after the checks ran: the guided first run still hands off
+            self.state.run_start = bool(self.state.offer_start and "start" in self.ticked())
+        super().action_do_next()
 
     def on_option_list_option_selected(self, event) -> None:
         if event.option_list.id == "wiz-summary-change-list" and event.option_id:
@@ -1208,46 +1228,6 @@ class SummaryStep(StepScreen):
         screen = _build_step(self.state, key)
         self.state.pushed += 1
         self.app.push_screen(screen)
-
-    def _run_checks_worker(self) -> None:
-        import io
-        from types import SimpleNamespace
-        from rich.console import Console
-        from halo_harness.init_cli import _step_checks, _step_live_pong, _step_summary
-        stream = io.StringIO()
-        console = Console(file=stream, width=100)
-        args = SimpleNamespace(no_live=self.state.no_live)
-        doctor_lines, _ok = _step_checks(args, console, self.state.cwd)
-        self.state.doctor_lines = doctor_lines
-        pong_ok = True
-        if not self.state.no_live and self.state.final_model:
-            pong_ok = _step_live_pong(self.state.final_model, self.state.cwd, console)
-        self.state.pong_ok = pong_ok
-        _step_summary(console, self.state.written, pong_ok, doctor_lines, no_live=self.state.no_live,
-                      configured_this_run=self.state.configured_this_run, final_model=self.state.final_model)
-        text = stream.getvalue()
-        # Halo 2.0.4 round 4 (deliverable 1): "the merged list is ... reused
-        # by ... the summary" -- the Providers step's own post-keys
-        # enumeration (`WizardState.enumerated_models`'s own docstring),
-        # never recomputed here (a pure read of what already ran).
-        if self.state.enumeration_done:
-            selectable = [m for m in self.state.enumerated_models if isinstance(m, dict) and m.get("ref")]
-            groups = {m.get("group") or m.get("provider") for m in selectable}
-            text += (f"\n\nModel enumeration: {len(selectable)} model(s) across {len(groups)} "
-                     f"provider group(s).")
-            not_reachable = [ln for ln in self.state.enumeration_lines if "not reachable" in ln]
-            if not_reachable:
-                text += "\n  not reachable: " + "; ".join(not_reachable)
-        try:
-            self.app.call_from_thread(self._show_text, text)
-        except Exception:  # 3.2.2.0 R1: Finish came first and the app has ended; the state above holds the results
-            pass
-
-    def _show_text(self, text: str) -> None:
-        try:
-            self.query_one("#wiz-summary-text", Static).update(text)
-        except Exception:
-            pass
 
 
 STEP_FACTORIES["summary"] = SummaryStep

@@ -54,7 +54,7 @@ export function commands(): Command[] {
   }
   out.push(
     { id: "help-glossary", group: "Help", label: "Help: glossary", hint: "every word Halo uses, one paragraph each", run: () => openGlossary() },
-    { id: "help-start", group: "Help", label: "Start: the ten-minute start", hint: "a lineup, a sample repo, one Orchestra run", run: openStart },
+    { id: "help-start", group: "Help", label: "Start: the guided first run", hint: "a lineup, a sample repo, one real Orchestra run on your models", run: openStart },
     { id: "theme-toggle", group: "View", label: "Toggle theme", hint: "dark, light, auto", run: cycleTheme },
     { id: "theme-dark", group: "View", label: "Theme: dark (holo)", run: () => setTheme("dark") },
     { id: "theme-light", group: "View", label: "Theme: light", run: () => setTheme("light") },

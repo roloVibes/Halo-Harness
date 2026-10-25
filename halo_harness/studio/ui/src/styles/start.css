@@ -1,5 +1,5 @@
-/* The first ten minutes (3.1.1.0 R1): the "Start here" overlay and the
-   ten-minute start's steps, the Glossary dialog, the WORDS row of each
+/* The first run (3.1.1.0 R1): the "Start here" overlay and the
+   guided first run's card (3.2.2.0 R2) and steps, the Glossary dialog, the WORDS row of each
    section's help, the ? menu, and the "Next" footer of every Start view.
    Tokens only. */
 
@@ -9,6 +9,10 @@
 .start-here .dialog-foot { justify-content: space-between; align-items: center; gap: 12px; font-size: 12px; }
 .sh-offer { display: grid; gap: 10px; font-size: 14px; max-width: 64ch; }
 .sh-offer p { margin: 0; }
+.sh-card {
+  margin: 0; padding: 8px 10px; font-size: 11.5px; line-height: 1.45; max-height: 300px; overflow: auto;
+  white-space: pre-wrap; overflow-wrap: anywhere; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg-2);
+}
 .sh-run { display: grid; gap: 14px; }
 .sh-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .sh-step { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px; align-items: start; font-size: 13px; }

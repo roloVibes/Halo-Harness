@@ -31,7 +31,7 @@ test, TESTS = new_registry()
 REPO = Path(__file__).resolve().parent.parent
 BRIEF = ("lineup", "bio", "role", "tier", "team", "member", "block", "stage", "lane", "part", "step", "mission",
          "gate", "claim", "hand-off", "plan", "coach", "orchestra run", "fleet", "hub", "harness", "capability", "unit",
-         "pack")  # 3.2.1.0 R1: "pack"
+         "pack", "guided first run")  # 3.2.1.0 R1: "pack"; 3.2.2.0 R2: "guided first run"
 
 
 def _explain(*argv):

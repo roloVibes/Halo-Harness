@@ -1,8 +1,9 @@
 """halo_harness.studio.start_api -- `/api/start`, Studio's "Start here" (Halo
 3.1.1.0 R1). Same loopback / origin / token guard as every Studio route.
 
-    GET  start           {fresh, dismissed, show, own_lineups, active_team, runs, starts, job, plan}
-                         (start/fresh.py; `show`: the overlay comes up; `job`: start_job.current(); `plan`: the seven steps)
+    GET  start           {fresh, dismissed, show, own_lineups, active_team, runs, starts, job, plan, card}
+                         (start/fresh.py; `show`: the overlay comes up; `job`: start_job.current(); `plan`: the seven steps;
+                         `card`: the guided first run's card lines, start/card.py, shown above Run -- 3.2.2.0 R2)
     POST start           202 {job}: `halo start --yes` as a background job, its steps streamed as `start` frames
                          on /api/events; 409 while one runs; 422 {error, reason: "no_provider"} with no model
     POST start/dismiss   {dismissed: true} -- "Just look around", remembered for this home
@@ -23,6 +24,12 @@ def get_start(req):
     data["job"] = start_job.current()
     data["plan"] = [{"step": n, "key": k, "title": title, "why": why, "state": "pending"}
                     for n, (k, title, why) in enumerate(STEPS, 1)]
+    from halo_harness.start import fake
+    from halo_harness.start.card import card_lines
+    try:
+        data["card"] = card_lines(state_dir=req.state_dir, cwd=req.cwd, fake=fake.enabled())
+    except Exception as e:  # the overlay still opens; the card says why it is short
+        data["card"] = [f"the card could not be read: {type(e).__name__}: {e}"]
     return 200, data
 
 
@@ -35,7 +42,7 @@ def _publisher(req):
 
 def post_start(req):
     if start_job.running():
-        return 409, {"error": "the ten-minute start is already running", "job": start_job.current()}
+        return 409, {"error": "the guided first run is already running", "job": start_job.current()}
     from halo_harness.start import fake
     if not fake.enabled():
         from halo_harness.start.provider import ready

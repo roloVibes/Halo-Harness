@@ -1056,7 +1056,8 @@ def _run_init_wizard_flow(args, console: Console, cwd: Path) -> "Optional[int]":
     for w in app.state.team_warnings:
         console.print(f"   [WARN] {w}")
     rc = 0 if (args.no_live or app.state.pong_ok) else 1
-    if rc == 0 and getattr(app.state, "run_start", False):  # 3.1.1.0 R1: the Summary's "Run the ten-minute start now"
+    # 3.2.2.0 R2: the Summary's "The guided first run" row; setup closed while its checks ran hands nothing off
+    if rc == 0 and getattr(app.state, "run_start", False) and not getattr(app.state, "checks_cancel", False):
         from halo_harness.start_cli import cmd_start
         return cmd_start([])
     return rc
@@ -1223,18 +1224,27 @@ def cmd_init(argv: list) -> int:
 
 
 # ---------------------------------------------------------------------------
-# Last step (Halo 3.1.1.0 R1): offer the ten-minute start
+# Last step (Halo 3.1.1.0 R1): offer the guided first run (3.2.2.0 R2: its
+# card first, on a terminal: what it does, the models, the cost, the time,
+# what it writes)
 # ---------------------------------------------------------------------------
 
-START_QUESTION = "Run the ten-minute start now? (halo start: a lineup, a sample repo, one Orchestra run)"
+START_QUESTION = ("Run the guided first run now? (halo start: one real Orchestra run on your models; "
+                  "the card above says what it does, costs and writes)")
 
 
 def _step_offer_start(args, console: Console) -> int:
     """The wizard's last step: `halo start` right away, default No (and No
     in a non-interactive run). Returns init's exit code (0; the start's own
     code when it ran)."""
+    if not _non_interactive(args):
+        from rich.markup import escape
+        from halo_harness.start.card import card_lines
+        for line in card_lines():
+            console.print(f"   {escape(line)}" if line else "")
     if not _confirm(args, console, START_QUESTION, default=False):
-        console.print("   The ten-minute start is there any time: halo start (or /start in the TUI).")
+        console.print("   The guided first run is there any time: halo start (halo start --explain says what it "
+                      "does, costs and writes; /start in the TUI).")
         return 0
     from halo_harness.start_cli import cmd_start
     return cmd_start([])

@@ -712,6 +712,78 @@ def test_summary_change_jumps_back_into_a_step(ctx: Ctx):
     run(body())
 
 
+# ---------------------------------------------------------------------------
+# 3.2.2.0 R2: the Summary's five check rows (tui/dialogs/summary_checks.py).
+# ---------------------------------------------------------------------------
+
+@test
+def test_summary_check_rows_space_toggles_finish_runs_the_ticked(ctx: Ctx):
+    """The standalone `halo init` Summary has the five check rows (doctor, catalog, hello on; the gym and the
+    guided first run off), each its title and a muted what / cost / time line; Space toggles the highlighted row;
+    Finish runs the ticked ones in order (stubbed) and prints each one's lines, then Finish closes setup; only the
+    start ticked: Finish closes at once with `run_start`; a /setup Summary has four rows."""
+    from halo_harness.start import checks as C
+    from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState
+
+    async def drive(offer: bool, keys_to_tick):
+        with _Env():
+            state = WizardState(cwd=REPO_DIR, step_keys=("theme", "summary"), index=1, no_live=True, offer_start=offer)
+            app = InitWizardApp(state)
+            out = {}
+            async with app.run_test(size=(120, 40)) as pilot:
+                await pilot.pause(0.3)
+                rows = app.screen.query_one("#wiz-summary-checks")
+                out["keys"] = [rows.get_option_at_index(i).id for i in range(rows.option_count)]
+                out["ticked"] = list(rows.selected)
+                out["prompt"] = str(getattr(rows.get_option_at_index(0).prompt, "plain", rows.get_option_at_index(0).prompt))
+                out["focus"] = getattr(app.focused, "id", None)
+                if keys_to_tick is None:  # Space on the highlighted rows: catalog off, the gym on
+                    await pilot.press("down", "space", "down", "down", "space")
+                else:
+                    rows.deselect_all()
+                    for k in keys_to_tick:
+                        rows.select(k)
+                await pilot.pause(0.1)
+                out["after_space"] = list(rows.selected)
+                app.screen.action_do_next()
+                await pilot.pause(0.5)
+                out["screen"] = type(app.screen).__name__ if app.is_running else "closed"
+                out["text"] = str(app.screen.query_one("#wiz-summary-text").render()) if out["screen"] == "SummaryStep" else ""
+                if out["screen"] == "SummaryStep":
+                    app.screen.action_do_next()
+                    await pilot.pause(0.3)
+                    out["after_second"] = type(app.screen).__name__ if app.is_running else "closed"
+            out["results"], out["run_start"] = [(k, ok) for k, ok, _l in state.check_results], state.run_start
+            return out
+    ran: list = []
+    saved = {c["key"]: c["run"] for c in C.CHECKS}
+    try:
+        for c in C.CHECKS:
+            c["run"] = (lambda k: (lambda _ctx: ran.append(k) or [f"{k}: stub line"]))(c["key"])
+        got = asyncio.run(drive(True, None))
+        ctx.check(f"five rows in order, got {got['keys']}", got["keys"] == list(C.KEYS))
+        ctx.check(f"the defaults: doctor, catalog, hello, got {got['ticked']}", got["ticked"] == ["doctor", "catalog", "hello"])
+        ctx.check(f"a row: its title then its what / cost / time line, got {got['prompt'][:90]!r}",
+                  got["prompt"].startswith("[x] Doctor\n") and "Cost: free. Time: seconds." in got["prompt"])
+        ctx.check(f"focus lands on the rows (rule 7), got {got['focus']}", got["focus"] == "wiz-summary-checks")
+        ctx.check(f"Space toggles the highlighted row, got {got['after_space']}", got["after_space"] == ["doctor", "hello", "gym"])
+        ctx.check(f"Finish runs the ticked ones in order, got {ran}", ran == ["doctor", "hello", "gym"])
+        ctx.check(f"each one's lines in the Summary, then it waits, got {got['screen']} {got['text'][:200]!r}",
+                  got["screen"] == "SummaryStep" and "Doctor: [OK]" in got["text"] and "gym: stub line" in got["text"]
+                  and "Done. Finish closes setup." in got["text"])
+        ctx.check(f"Finish again closes setup, got {got.get('after_second')}", got.get("after_second") != "SummaryStep")
+        ran.clear()
+        got = asyncio.run(drive(True, ["start"]))
+        ctx.check(f"only the start: Finish closes at once, run_start, nothing ran, got {got['screen']} {ran} {got['run_start']}",
+                  got["screen"] != "SummaryStep" and ran == [] and got["run_start"] is True)
+        got = asyncio.run(drive(False, []))
+        ctx.check(f"a /setup Summary: four rows, nothing ticked runs none, got {got['keys']} {ran}",
+                  got["keys"] == ["doctor", "catalog", "hello", "gym"] and ran == [] and got["run_start"] is False)
+    finally:
+        for c in C.CHECKS:
+            c["run"] = saved[c["key"]]
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)
