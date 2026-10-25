@@ -44,9 +44,10 @@ SLOW_TTFT_THRESHOLD_MS = 20_000
 
 # Mirrors controller.py's own `_NON_PROMPT_USER_KINDS` (agent/log.py's
 # `append_user(kind=...)` tags) -- a "user" node with one of these `kind`
-# values is not a genuine new turn.
+# values is not a genuine new turn. "nudge" (3.2.2.0 R4): the loop's own
+# "You ended your turn while saying you would do more. Continue." notice.
 _NON_PROMPT_USER_KINDS = frozenset({
-    "compaction_summary", "compaction_tail", "continuation", "agent_notice", "job_notice", "steer",
+    "compaction_summary", "compaction_tail", "continuation", "agent_notice", "job_notice", "steer", "nudge",
 })
 
 _SINCE_DAYS = {"7d": 7, "30d": 30, "all": None}

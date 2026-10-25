@@ -748,7 +748,13 @@ def _cmd_permissions(args: str, facade: HeadlessFacade) -> str:
 
 
 def _cmd_plan(args: str, facade: HeadlessFacade) -> str:
-    return f"Plan review needs the interactive TUI. Current permission mode: {facade.permission_mode}."
+    """Halo 3.2.2.0 R4: the TUI's `/plan on|off` switches the mode
+    (tui/slash_plan.py); here it reports it -- `--permission-mode plan`
+    starts a print-mode run in plan mode."""
+    mode = facade.permission_mode
+    state = "on" if mode == "plan" else "off"
+    return (f"Plan mode is {state} (permission mode: {mode}). /plan on|off switches it in the TUI; "
+            f"start with --permission-mode plan here.")
 
 
 def _cmd_improve(args: str, facade: HeadlessFacade) -> str:
@@ -1731,7 +1737,7 @@ _BUILTIN_SPECS = {
               "[refresh] | add <path> | forget <path> | <question>", _cmd_local),
     "memory": ("core", "Show the auto-memory directory and index", None, _cmd_memory),
     "permissions": ("core", "Show the active permission mode and rule counts", None, _cmd_permissions),
-    "plan": ("ui", "Review the current plan", None, _cmd_plan),
+    "plan": ("ui", "Plan mode on, off, or its status and plan file", "[on|off|status]", _cmd_plan),
     "resume": ("ui", "Resume a previous session", "[session-id]", _cmd_resume),
     "status": ("core", "Show session status", None, _cmd_status),
     "config": ("core", "Show or set a config value; /config where lists every file in effect", "[key=value|where]", _cmd_config),

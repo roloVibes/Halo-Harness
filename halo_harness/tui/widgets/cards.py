@@ -593,9 +593,18 @@ class PlanCard(_AnswerCard, can_focus=True):
         Binding("3,k,escape", "keep_planning", "Keep planning", show=False),
     ]
 
+    # Halo 3.2.2.0 R4: the keys come FIRST (a long plan used to push them
+    # below the 12-line PendingDock), and the plan text is capped to the
+    # dock's room: 12 lines less its border, the keys line, the title and
+    # the "... more lines" line.
+    KEYS_LINE = "[1] Approve, auto-accept edits · [2] Approve, manual · [3]/Esc Keep planning"
+    PLAN_MAX_LINES = 8
+
     def __init__(self, *, request_id: str, input_data: dict, on_reply: Callable) -> None:
         plan_text = input_data.get("plan") if isinstance(input_data, dict) else None
         self.plan_text = plan_text if isinstance(plan_text, str) else str(input_data)
+        path = input_data.get("path") if isinstance(input_data, dict) else None
+        self.plan_path = path if isinstance(path, str) and path else None
         super().__init__("", markup=False, classes="plan-card")
         self.request_id = request_id
         self._on_reply = on_reply
@@ -604,10 +613,18 @@ class PlanCard(_AnswerCard, can_focus=True):
         self.decision_line: "Optional[str]" = None
         self._refresh()
 
+    def _plan_lines(self) -> list:
+        body = self.plan_text.strip().splitlines()
+        if len(body) <= self.PLAN_MAX_LINES:
+            return body
+        more = len(body) - self.PLAN_MAX_LINES
+        where = f"; the plan file: {self.plan_path}" if self.plan_path else "; o opens the whole plan"
+        return body[: self.PLAN_MAX_LINES] + [f"... ({more} more lines{where})"]
+
     def _refresh(self) -> None:
-        lines = ["\U0001f4cb Plan ready for review:", "", self.plan_text.strip(), ""]
-        if not self.done:
-            lines.append("  [1] Approve, auto-accept edits   [2] Approve, manual   [3] Keep planning")
+        lines = [] if self.done else [self.KEYS_LINE]
+        lines.append("\U0001f4cb Plan ready for review:")
+        lines.extend(self._plan_lines())
         self.update("\n".join(lines))
 
     def _finish(self, decision: dict) -> None:

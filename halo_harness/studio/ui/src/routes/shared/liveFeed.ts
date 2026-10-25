@@ -11,6 +11,7 @@
 // for the click that opens the row). At most MAX_LINES are kept. `open` is the tool
 // each agent runs right now and since when: the map's "Bash 12s" reads it. 3.2.0.0 R3: a pack's
 // `pack_event` is one line (kind "pack") with the pack's label and its line template (routes/packs/events.ts).
+// 3.2.2.0 R4: a session's `turn_marker` (`◼ done · 42 s · 3 tools`, `◼ waiting on you: ...`, `◼ stopped: ...`) is a state line.
 import { onEvent, type FeedFrame } from "../../lib/events";
 import { createStore, useStore } from "../../lib/store";
 import { fleet, findAgent, keyOf, localId } from "../fleet/store";
@@ -190,6 +191,16 @@ export function startLive(): void {
   onEvent("agent_event", onAgentEvent);
   for (const k of Object.keys(ASK_LABEL)) onEvent(k, onAsk);
   onEvent("pack_event", onPack);
+  onEvent("turn_marker", onMarker);
+}
+
+/** 3.2.2.0 R4: the line a turn ends with (done / waiting on you / stopped) and the loop's nudge and resend notes, as a state line. */
+function onMarker(f: FeedFrame): void {
+  if (!f.session_id) return;
+  const d = (f.data || {}) as Record<string, unknown>;
+  const text = String(d.text || "").trim();
+  if (!text) return;
+  addLine({ key: frameKey(f), kind: "state", ts: Number(f.ts) || Date.now() / 1000, text, state: "marker-" + String(d.state || "done") });
 }
 
 /** A pack's frame: one line under the pack's name, in this harness's column. */

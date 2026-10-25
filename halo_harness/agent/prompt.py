@@ -8,7 +8,9 @@ directly into the system prompt (research revision 3; also H0 finding 1,
 which lived in the section this module deleted -- see IDENTITY_TEXT).
 
 Section order (dsh's own numeric ordering, adapted): identity -> persona
-("coding agent powered by {model}") -> plan-mode policy -> a harness
+("coding agent powered by {model}") -> plan-mode policy -> the narration
+rule (3.2.2.0 R4: one line before a group of tool calls, what was found /
+what is next at a turn's end, never a promise of undone work) -> a harness
 self-description (what Halo Harness is and how Claude Code's file-based
 structure works, for non-Claude models that have never seen either) -> one
 guidance line per tool (name-sorted, from the live registry) -> a short
@@ -43,6 +45,14 @@ without making any changes, then present it for approval before acting. The tool
 the same across every permission mode, for request-cache stability -- a tool being LISTED here \
 does not mean it is currently allowed to run; the permission layer (not this prompt) decides \
 that at dispatch time."""
+
+# Halo 3.2.2.0 R4: the user sees each turn end with a `done` / `waiting on
+# you` / `stopped` line; this rule (every model family) is what makes the
+# words above that line say what happened.
+NARRATION_RULE = """Before a group of tool calls say in one short line what you are doing. When you \
+end a turn, say what you found and what is next, or say in one line that you are waiting on the \
+user (a question, an approval, the plan) and stop. Never end a turn with a promise of work you \
+have not done."""
 
 _HARNESS_SELF_DESCRIPTION_HEAD = """## How this harness works
 halo is not Claude Code itself -- it is a separate program that reads Claude Code's own \
@@ -198,8 +208,7 @@ _FAMILY_NOTATION = {
     # family block here (never per-model, never dynamic).
     "kimi": "Model notes: use native tool/function calling only. Tool-call ids in this "
             "conversation are preserved exactly as issued; never expect them to be renumbered. "
-            "When calling tools, do not add explanations -- the tool calls themselves are "
-            "self-explanatory; follow each tool's own description and parameters exactly. When "
+            "Follow each tool's own description and parameters exactly. When "
             "you anticipate making multiple non-interfering tool calls, making them in parallel "
             "is highly recommended. Always use a tool to make a change rather than describing it. "
             "Make minimal changes to achieve the goal -- this matters. When a request could be read "
@@ -253,6 +262,7 @@ def build_system_prompt(
         IDENTITY_TEXT,
         persona_line(model_label),
         PLAN_MODE_POLICY,
+        NARRATION_RULE,
         build_harness_self_description(tool_definitions, mcp_servers),  # finding 14: registry-driven, no false promises
         "## Tools available in this session\n" + tool_guidance_lines(tool_definitions),
         family_notation(family),
