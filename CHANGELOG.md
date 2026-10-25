@@ -8,6 +8,14 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.2.2.0] - unreleased
+
+### Also in 3.2.2.0
+
+#### Changed
+
+- The launch intro is the HALO block-art wordmark every time (the owner, 2026-10-25: "drop the one-liners ... just pop up the halo ascii art each time halo launches"): the copy-of-a-copy line and the Red Dragon line are gone from the pool; `/intro` and `/intro <n>` show the art.
+
 ## [3.2.1.0] - 2026-10-24
 
 Focus: packs, the loose ends -- the sixteen open points the Packs program left, as five rounds (the owner, after installing 3.2.0.0: "Keep going").

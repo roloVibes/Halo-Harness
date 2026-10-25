@@ -179,9 +179,10 @@ Replays the 2.0.0 launch intro (the typewriter line a fresh interactive
 session shows above its first turn) -- a fresh `IntroLine` mounted at the
 current transcript position and typed out again from scratch; any
 keypress or a submitted prompt finishes it instantly, same as the
-launch-time one. `/intro <n>` replays line n of the pool (1 the block-art
-wordmark, revealed row by row with the ring in gold and the letters in a
-gradient; 2 the copy-of-a-copy line; 3 the Red Dragon line). In `-p`,
+launch-time one. Since 3.2.2.0 the intro is the block-art wordmark alone,
+revealed row by row with the ring in gold and the letters in a gradient,
+then `halo <version>` under it; `/intro <n>` is still accepted and shows
+the same art (the two one-liners of 2.0.3 are gone). In `-p`,
 prints a note pointing at the interactive TUI (there is no transcript to
 replay it into).
 

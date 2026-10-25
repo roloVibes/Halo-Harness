@@ -1,7 +1,8 @@
-"""2.0.3 launch intro pool (rolo, 2026-10-05): the intro rotates through a
-range of lines instead of always the same one. Pins the pool's shape, the
-Red Dragon line's presence, the version substitution, the numbered pick
-for `/intro <n>`, and the argument parser.
+"""The launch intro pool. 2.0.3 (rolo, 2026-10-05) rotated through a range
+of lines; 3.2.2.0 (rolo, 2026-10-25: "drop the one-liners ... just pop up
+the halo ascii art each time halo launches") makes the pool the block-art
+wordmark alone. Pins the pool's shape, the version substitution, the
+numbered pick for `/intro <n>` (any n is the art), and the argument parser.
 """
 
 from __future__ import annotations
@@ -20,14 +21,12 @@ test, TESTS = new_registry()
 @test
 def test_pool_shape(ctx: Ctx):
     from halo_harness.tui.intro_lines import INTRO_LINES
-    ctx.check("the pool has more than one line (a range, not a single copy)", len(INTRO_LINES) > 1)
+    ctx.check("the pool is the art alone (3.2.2.0)", len(INTRO_LINES) == 1)
     ctx.check("every line carries the {version} placeholder exactly once",
               all(line.count("{version}") == 1 for line in INTRO_LINES))
     ctx.check("every line ends with 'halo {version}'", all(line.endswith("halo {version}") for line in INTRO_LINES))
-    ctx.check("the original copy-of-a-copy line is still in the pool",
-              any(line.startswith("I am just a copy, of a copy, of a copy...") for line in INTRO_LINES))
-    ctx.check("the Red Dragon line is in the pool",
-              any("Red Dragon" in line and "keep it on the down low.. halo {version}" in line for line in INTRO_LINES))
+    ctx.check("no one-liner is left in the pool (3.2.2.0)",
+              not any("copy, of a copy" in line or "Red Dragon" in line for line in INTRO_LINES))
     ctx.check("no duplicates", len(set(INTRO_LINES)) == len(INTRO_LINES))
 
 
@@ -43,8 +42,8 @@ def test_banner_is_the_first_pool_entry_and_matches_readme(ctx: Ctx):
     first = INTRO_LINES[0]
     ctx.check("pool entry 0 is the block art followed by the version line",
               first == BANNER_ART + "\nhalo {version}")
-    ctx.check("the pool is exactly the art, the NIN line and the Red Dragon line (2.0.11 round A2)",
-              len(INTRO_LINES) == 3)
+    ctx.check("the pool is exactly the art (3.2.2.0; 2.0.11 round A2 had two one-liners beside it)",
+              len(INTRO_LINES) == 1)
     ctx.check("every art row stays under 48 columns and every ASCII row under 80",
               all(len(row) < 48 for row in BANNER_ART.split("\n")) and all(len(row) < 80 for row in BANNER.split("\n")))
     ctx.check("the art is block elements and box-drawing shadows, no plain letters",
@@ -77,11 +76,11 @@ def test_intro_text_fills_the_version_and_picks_from_the_pool(ctx: Ctx):
     rng = random.Random(1234)
     picks = {intro_text("9.9.9", rng=rng) for _ in range(60)}
     ctx.check("every random pick is a pool line with the version filled in", picks <= pool)
-    ctx.check(f"60 seeded picks reach more than one line, got {len(picks)}", len(picks) > 1)
+    ctx.check(f"60 seeded picks are all the art, got {len(picks)}", len(picks) == 1)
     ctx.check("the version lands at the end of the line", all(p.endswith("halo 9.9.9") for p in picks))
     ctx.check("index 0 is the first line", intro_text("1.2.3", index=0) == INTRO_LINES[0].format(version="1.2.3"))
-    ctx.check("an out-of-range index wraps instead of raising",
-              intro_text("1.2.3", index=len(INTRO_LINES) + 1) == INTRO_LINES[1].format(version="1.2.3"))
+    ctx.check("an out-of-range index wraps instead of raising (any /intro <n> is the art)",
+              intro_text("1.2.3", index=len(INTRO_LINES) + 1) == INTRO_LINES[0].format(version="1.2.3"))
 
 
 @test
