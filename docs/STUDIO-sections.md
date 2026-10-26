@@ -52,17 +52,17 @@ waiting on you, $X" -- and the decisions that wait are the Attention queue's
    timeline strip for this session, one lane per live agent over 5, 15 or
    60 minutes (a lane click shows only that agent); the header has an
    agent pick and a kind pick (tools, text, states, asks; your own steers
-   always show) beside Follow. Follow is on: scroll up and it pauses,
-   **↓ N new** brings you back. Click a tag (or pick the agent) and the
+   always show) beside Follow, and **Export** (the session as one Markdown trace). Follow is on: scroll up (or type a steer) and the view
+   holds, **N new rows · follow** brings you back. Click a tag (or pick the agent) and the
    column shows only that agent; the tag again (or `Esc`) shows everyone.
    Hover a line and that agent's node lights on the map. The newest 500
    lines stay in the column; the full log is in Activity.
 3. **Steer from the column**: the Steer box is always at its foot. It talks
    to the agent you pinned, or, with none pinned, to the chosen session's
-   main agent; its header says who (**STEER main**), and Pause and Stop
-   (which asks first) sit beside it for that agent. A steer you send there
-   lands in the column at once as a `YOU` line and reaches the agent's next
-   step. Hover any tag in the column, or any node on the map, and click
+   main agent; its header says who (**STEER main**) and its target line what that agent runs now (`Steering: coder · Bash (pytest -q), 12 s`), and Pause and Stop
+   (which asks first) sit beside it for that agent. Click a row or a node, `s` on a row or `Tab` in the field to change the target (outlined);
+   a steer you send there lands at once right under its target row (`↳ steer to coder: ...`) and reaches the agent's next
+   step ([Studio: steering and exporting a session](STUDIO-session.md)). Hover any tag in the column, or any node on the map, and click
    **steer**: that agent is pinned and the box has the keyboard. When the
    agent has finished, the box says so in one line and takes no text.
 4. **Read the map as one picture**: one card per session on this machine,

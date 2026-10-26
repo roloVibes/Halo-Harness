@@ -140,7 +140,7 @@ def test_follow_pauses_on_scroll_up_and_the_pill_resumes(ctx: Ctx):
     ctx.check("with Follow on, the newest line is in view", got.get("at_bottom") is True)
     ctx.check(f"a scroll up pauses it, got {got.get('paused')!r}", got.get("paused") == "paused")
     ctx.check(f"new lines count on the pill while it stays put, got {got.get('pill')!r} {got.get('stayed_up')}",
-              re.match(r"↓ \d+ new", str(got.get("pill") or "")) is not None and got.get("stayed_up") is True)
+              re.match(r"\d+ new rows? · follow$", str(got.get("pill") or "").strip()) is not None and got.get("stayed_up") is True)
     ctx.check(f"the pill resumes it at the bottom, got {got.get('resumed')!r} {got.get('back_bottom')}",
               got.get("resumed") == "resumed" and got.get("back_bottom") is True)
 

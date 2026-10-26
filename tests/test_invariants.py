@@ -428,6 +428,10 @@ _PATH_HOME_ALLOWED_CALLERS = {
     "halo_harness/providers/lmstudio_cache.py":
         "LM Studio's OWN models directory (an external tool's data, read-only discovery) -- checks the "
         "huggingface.lmstudio_models_dir config override first",
+    "halo_harness/session_trace.py":
+        "3.3.0.0 R6: the trace MASKS the real machine home in the text it returns (a tool result names "
+        "the real ~ whatever BRIDGE_TEST_HOME says, since that only relocates halo's own state); a string "
+        "replace, never a read or a write of anything under it",
     "halo_harness/tui/dialogs/init_wizard.py":
         "the init wizard's Linux-fixes commit step -- same deliberate real ~/.local/bin target as "
         "init_cli.py's own ripgrep-install step above",

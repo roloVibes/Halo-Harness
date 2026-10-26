@@ -231,6 +231,39 @@ GitHub/AWS-shaped tokens, quoted or JSON-encoded `export KEY="value"`/
 by round-tripping each log node through JSON text -- the same sanitizer the
 TUI's own `/export --sanitize` calls, so the two can never disagree.
 
+## `halo session export`
+
+Halo 3.3.0.0: a session as one Markdown **trace** file, the same bytes
+Studio's **Export** button downloads and the TUI's `/export` writes: a
+header (the session id, the model and the lineup, when it started and
+ended, the totals: turns, tool calls, tokens in and out, cost), then one
+`###` entry per row in time order (the clock, the agent with its tier and
+model, then a user prompt, the assistant's text, a tool call and a one-line
+summary of its arguments, the tool's result fenced and trimmed to 40 lines,
+a steer and its target, a nudge, a permission answer, the turn-end marker,
+a compaction, an error). Keys are masked and home paths read `~`.
+
+```sh
+halo session export --help
+```
+```
+usage: halo session export [-h] [--md FILE] ID
+
+options:
+  -h, --help  show this help message and exit
+  --md FILE   Write to FILE (- prints it; default: halo-trace-<id>-<yyyy-mm-
+              dd-hhmm>.md here)
+```
+
+```sh
+halo session export 3f2a9c         # a unique prefix is enough
+wrote ./halo-trace-3f2a9c41d0e8-2026-10-26-1412.md
+halo session export 3f2a9c --md -  # print it
+```
+
+The id is looked up across every project's sessions in the state dir. How
+the trace reads in Studio: [Export](STUDIO-session.md#export-the-session-as-a-trace-file).
+
 ## `halo bugreport`
 
 "One paste instead of screenshots" -- writes a redacted diagnostic report

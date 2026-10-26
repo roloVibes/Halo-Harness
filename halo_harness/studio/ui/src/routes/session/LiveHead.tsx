@@ -4,13 +4,16 @@
 // and each agent of the session, in tree order; it is the pin, so a tag, a
 // lane or the map's steer chip moves it too), the kind pick ("every kind",
 // tools, text, states, asks; a steer you send always shows) and Follow. The
-// picks are the Activity log's `.fac-pick` selects.
+// picks are the Activity log's `.fac-pick` selects. 3.3.0.0 R6: Follow shows
+// whether the column follows now (off while you compose in the Steer field),
+// and Export downloads the session's trace (TraceExport.tsx).
 import { Button, Icon } from "../../lib/ui";
 import { short } from "../orchestra/format";
 import { fleet, findAgent } from "../fleet/store";
 import type { LiveKind, LiveLine } from "../shared/liveFeed";
 import { pinTo, useStripAgents } from "./steer";
 import { sess, useSession } from "./store";
+import { TraceExport } from "./TraceExport";
 
 /** The kind pick's choices: value, label, the line kinds it keeps. */
 export const KIND_PICKS: [string, string, LiveKind[]][] = [
@@ -56,9 +59,9 @@ function KindPick() {
   );
 }
 
-export function LiveHead({ working, count, onFollow }: { working: number; count: number; onFollow: () => void }) {
+export function LiveHead({ working, count, onFollow, following }: { working: number; count: number; onFollow: () => void; following: boolean }) {
   const pin = useSession((s) => s.pin);
-  const follow = useSession((s) => s.follow);
+  const follow = following;
   const pinned = pin ? findAgent(fleet.get(), pin) : null;
   return (
     <header className="slv-head">
@@ -79,6 +82,7 @@ export function LiveHead({ working, count, onFollow }: { working: number; count:
                 onClick={onFollow} title="Keep the newest line in view; scrolling up pauses it">
           Follow
         </Button>
+        <TraceExport where="head" />
       </div>
     </header>
   );
