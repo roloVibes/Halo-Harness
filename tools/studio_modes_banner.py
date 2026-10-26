@@ -35,7 +35,7 @@ FRAMES = (  # 3.1.6.0 R6: the registry's order (routes/index.tsx SECTIONS), test
     ("studio-packs.png", "Packs", "Alt 7", "install, grant and enable packs"),  # 3.2.0.0 R7
     ("studio-setup.png", "Setup", "Alt 8", "this box's setup, block by block"),  # 3.3.0.0 R1 (R4: its capture)
 )
-FRAME_W = 600           # each capture is scaled to this width (3.2.0.0 R7: 640 -> 600, seven tiles under 1 MB)
+FRAME_W = 560           # each capture is scaled to this width (3.2.0.0 R7: 640 -> 600, seven tiles under 1 MB; 3.3.0.0 R4: 560, eight)
 GAP = 28
 PAD = 36
 LABEL_H = 92

@@ -65,7 +65,8 @@ def test_every_readme_png_comes_from_captures_json(ctx: Ctx):
         if path.stem in ("studio-orchestra", "studio-orchestra-start", "studio-orchestra-plan", "studio-orchestra-coach", "studio-roles", "studio-design", "studio-modes",
                          "hero",  # 3.1.6.0 R4: tools/hero_png.py, the wordmark over the Session dashboard
                          "studio-session-live",  # 3.1.5.0 R3: tools/capture_session_anim.py (with the studio-session and studio-roles-live GIFs)
-                         "studio-fleet", "studio-roles-live", "studio-fleet-panels", "studio-fleet-capabilities", "studio-fleet-mission", "studio-team", "studio-session"):  # tools/capture_studio.py (and studio_modes_banner.py) render these, not the TUI pilots
+                         "studio-fleet", "studio-roles-live", "studio-fleet-panels", "studio-fleet-capabilities", "studio-fleet-mission", "studio-team", "studio-session",
+                         "studio-setup"):  # tools/capture_studio.py (and studio_modes_banner.py) render these, not the TUI pilots; 3.3.0.0 R4: --mode setup
             continue
         ctx.check(f"{ref} matches a capture name in tools/captures.json", path.stem in names)
     for ref in sorted({i for i in _readme_images() if i.endswith(".anim.svg")}):
@@ -92,7 +93,7 @@ def test_every_capture_has_its_files_and_every_png_is_a_capture(ctx: Ctx):
                         "studio-session-live",  # 3.1.5.0 R3: tools/capture_session_anim.py (with the studio-session and studio-roles-live GIFs)
                         "studio-orchestra", "studio-orchestra-start", "studio-orchestra-plan", "studio-orchestra-coach", "studio-roles",
                         "studio-fleet", "studio-roles-live", "studio-fleet-panels", "studio-fleet-capabilities", "studio-fleet-mission", "studio-team", "studio-session",
-                        "studio-packs"):  # hero_png.py, tools/capture_studio.py (--mode fleet: tools/capture_fleet.py; 3.2.0.0 R7 --mode packs) and studio_modes_banner.py, not TUI captures
+                        "studio-packs", "studio-setup"):  # 3.3.0.0 R4: --mode setup (tools/capture_setup.py); hero_png.py, tools/capture_studio.py (--mode fleet: tools/capture_fleet.py; 3.2.0.0 R7 --mode packs) and studio_modes_banner.py, not TUI captures
             continue
         ctx.check(f"{png.name} is a capture from captures.json", png.stem in names)
     ctx.check("the animated captures are the turn and the steer",

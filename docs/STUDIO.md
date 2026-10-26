@@ -22,7 +22,7 @@ halo studio --mode roles    # straight into Roles (lineups and bios), --mode des
 halo studio --mode fleet    # 3.0.5.0: every harness and agent, live (also orchestra)
 halo studio --mode team     # 3.0.8.0: the project's team on one board
 halo studio --session       # 3.1.4.0: the Session dashboard on this harness's newest live session (or --session <id>)
-halo studio --mode setup    # 3.3.0.0: Setup, the wizard's blocks as forms, each with its own Save (STUDIO-setup.md)
+halo studio --mode setup    # 3.3.0.0: Setup, the wizard's blocks as forms; the door: `halo init` opens it (STUDIO-setup.md)
 halo studio --no-open       # prints the URL only (SSH, a headless box)
 halo studio --port 8765     # a fixed port instead of a free one
 halo studio --stop          # stop the Studio running in the background
@@ -43,8 +43,8 @@ delays that remain, each with its number, are in
 One Studio per machine (3.0.2.0): while it serves, `~/.halo/studio.json`
 holds its pid, port and token (private), and a second `halo studio` reuses
 that instance (prints its URL, opens the browser) instead of starting
-another. The wizard's **Open Studio (Roles)** button starts it detached, so
-it outlives `halo init`; `halo studio --stop`
+another. `halo init` (3.3.0.0: Setup is the door) and the wizard's **Open
+Studio (Roles)** button start it detached, so it outlives them; `halo studio --stop`
 ends it. `halo_harness/studio/launch.py` is the small module behind both.
 Since 3.2.2.0 Studio ends with the halo session that quits: a quit
 (`/quit`, Ctrl+C twice, Ctrl+D, Ctrl+Q) stops the Studio in `studio.json`
@@ -76,5 +76,5 @@ This page is the entry point; the content lives in the parts below, one per task
 | [Studio: Team and Roles](STUDIO-team-roles.md) | you edit a team board or a lineup on the Roles canvas | Team: people, blocks and stages on one board · What you see (Roles) |
 | [Studio: Design mode](STUDIO-design.md) | you make prototypes, pages or decks with Studio's Design section on your own creative apps, or render pictures with the Media panels | Design mode: prototypes, pages and decks on your own apps · Media: the ComfyUI panels · Media routes (3.0.4.0) |
 | [Studio: the Pack Manager](STUDIO-packs.md) | you install, grant, enable, set up, update or remove packs from Studio's Packs section | Packs: the Pack Manager (3.2.0.0 R6) |
-| [Studio: the Setup section](STUDIO-setup.md) | you set this box up from Studio's Setup section: what each block writes and the routes behind it | Setup: the wizard's blocks as forms (3.3.0.0) · What each block writes · The routes |
+| [Studio: the Setup section](STUDIO-setup.md) | you set this box up from Studio's Setup section: what each block writes and the routes behind it | Setup: the wizard's blocks as forms (3.3.0.0) · The doors: `halo init` opens Setup (3.3.0.0 R4) · What each block writes · The routes |
 | [Studio: saving, security, SSH and shortcuts](STUDIO-security.md) | you save and apply from Studio, run it over SSH, check what it lets a page do, or want every shortcut | Validate, save, apply · Security model · Over SSH · Shortcuts · Files |

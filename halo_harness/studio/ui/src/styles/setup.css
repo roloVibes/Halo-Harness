@@ -11,6 +11,9 @@
 .su-cell-label { color: var(--muted); }
 .su-cell-value { color: var(--accent); }
 .su-cell[data-unset] .su-cell-value { color: var(--warn); }
+/* 3.3.0.0 R4: the page `halo init` opened (`?first=1`): its first cell says what the page is for */
+.su-cell.su-first { background: var(--accent-soft); border-radius: 4px; padding: 2px 10px; margin-right: 8px; border-right: 0; }
+.su-first .su-cell-value { font-weight: 600; }
 
 .su-block { display: grid; gap: 10px; align-content: start; min-width: 0; }
 .su-lead { margin: 0; font-size: 12.5px; overflow-wrap: anywhere; }

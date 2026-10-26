@@ -6,11 +6,12 @@
 // filled in any order; the rail lists the blocks with that line. R1 drew
 // Default model, Permissions, Terminal theme and Team; R2 Providers (one card
 // per provider) and Local models; R3 Linux fixes (only when this box needs
-// them) and Check (the five checks as one job), and the strip's Last check.
+// them) and Check (the five checks as one job), and the strip's Last check;
+// R4 the doors (door.ts): `?first=1` leads the strip with "set up this box",
+// `?block=` brings one block into view.
 import { useEffect } from "react";
 import type { MotionState } from "../../lib/motion";
 import { Workspace } from "../../lib/workspace/Workspace";
-import { focusPanel, layoutStore, patchPanel } from "../../lib/workspace/persist";
 import type { PanelSpec } from "../../lib/workspace/types";
 import { HELP } from "../help";
 import { CheckDetail, CheckGlance } from "./Check";
@@ -18,6 +19,7 @@ import { lastCheckWord } from "./checkStore";
 import { LinuxFixesDetail, LinuxFixesGlance } from "./LinuxFixes";
 import { LocalModelsDetail, LocalModelsGlance } from "./LocalModels";
 import { DefaultModelDetail, DefaultModelGlance } from "./DefaultModel";
+import { openBlock, useFirstRun } from "./door";
 import { PermissionsDetail, PermissionsGlance } from "./Permissions";
 import { ProvidersDetail, ProvidersGlance } from "./Providers";
 import { blockWord, providersSet, startSetup, useSetup, type BlockId, type SetupState } from "./store";
@@ -62,11 +64,6 @@ function railWord(s: SetupState, b: string): string {
   return blockWord(s, b as BlockId);
 }
 
-function openBlock(id: string): void {
-  if (layoutStore("setup").get().layout?.[id]) patchPanel("setup", id, { collapsed: false }, false);
-  focusPanel("setup", id);
-}
-
 export function SetupRail() {
   // one string per read (a new object each read would redraw forever), split back into the blocks' words
   const joined = useSetup((s) => BLOCKS.map(([, , b]) => railWord(s, b)).join("|"));
@@ -86,9 +83,19 @@ export function SetupRail() {
   );
 }
 
+/** 3.3.0.0 R4: the page `halo init` opened (`?first=1`) leads the strip with what it is for. */
+function FirstCell() {
+  if (!useFirstRun()) return null;
+  return (
+    <span className="su-cell su-first" data-testid="setup-strip-first">
+      <span className="su-cell-value mono">set up this box:</span> <span className="su-cell-label mono">each block saves alone, in any order; Check runs the first checks</span>
+    </span>
+  );
+}
+
 function Strip() {
   const d = useSetup((s) => s.data);
-  if (!d) return <div className="su-strip mono muted" data-testid="setup-strip">reading the setup...</div>;
+  if (!d) return <div className="su-strip mono muted" data-testid="setup-strip"><FirstCell />reading the setup...</div>;
   const set = providersSet(d);
   const lineup = d.team.active === "one-model" ? "one model for everything" : d.team.active + (d.team.source === "default" ? " (default)" : "");
   const cells: [string, string, string][] = [
@@ -101,6 +108,7 @@ function Strip() {
   ];
   return (
     <div className="su-strip" role="status" aria-label="This setup" data-testid="setup-strip">
+      <FirstCell />
       {cells.map(([k, label, value]) => (
         <span key={k} className="su-cell" data-testid="setup-strip-cell" data-key={k} data-unset={value === "no provider set" || value === "not set" || value === "not run" || / failed /.test(value) || undefined}>
           <span className="su-cell-label mono">{label}:</span> <span className="su-cell-value mono">{value}</span>

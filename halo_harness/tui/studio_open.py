@@ -14,6 +14,10 @@ Session dashboard on this session (`?mode=session&session=<id>`, the id from
 `this_session_id`); `/studio <section>` opens that section. Same opener, one
 line: focused (a Studio page already open took it), opened, started, or the URL.
 
+`open_setup(host, "team")` is the TUI's `/setup` (3.3.0.0 R4): Studio's Setup
+section, that block in view (studio/setup_door.py); `/setup --terminal` keeps
+the terminal screen.
+
 `new_bio` / `new_lineup` write a starter file (what "New" in a terminal list
 does now) so that Studio has something to open.
 
@@ -102,6 +106,23 @@ def open_section(host, word: str = "", *, cwd=None, state_dir=None, on_line: Opt
         say(why)
         return False
     _open_on_worker(host, target, cwd=cwd, state_dir=state_dir, say=say, cli=target.cli)
+    return True
+
+
+def open_setup(host, word: str = "", *, cwd=None, state_dir=None, on_line: Optional[Callable[[str], None]] = None) -> bool:
+    """`/setup [team|roles]` (3.3.0.0 R4): Studio's Setup, that block in view (`?mode=setup&block=team`); one
+    line says what happened, and when only the URL could be given, that `/setup --terminal` is the terminal screen."""
+    from halo_harness.studio.setup_door import SetupTarget, block_word
+    say = on_line or (lambda line: _default_line(host, line))
+    block, why = block_word(word)
+    if block is None:
+        say(why)
+        return False
+
+    def _said(line: str) -> None:
+        say(line + ("  /setup --terminal opens the terminal screen here." if line.startswith(("Studio is at", "Studio did not")) else ""))
+    cli = "halo setup" + (f" {word.strip().lower()}" if word.strip() else "")
+    _open_on_worker(host, SetupTarget(block=block), cwd=cwd, state_dir=state_dir, say=_said, cli=cli)
     return True
 
 
