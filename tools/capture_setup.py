@@ -4,11 +4,12 @@ README's first screenshot after install), through headless Chrome over the
 DevTools protocol (tests/helpers/cdp.py), over the scratch home capture_studio
 seeds (no model call, no network, no probe: BRIDGE_TEST_NO_BACKGROUND_NET):
 
-    docs/media/studio-setup.png   Setup as `halo init` opens it (`?mode=setup&first=1`, the help kept shut with
-                                  `tour=off`): the strip leading with "set up this box", OpenRouter set from the
+    docs/media/studio-setup.png   Setup as `halo init` opens it (`?mode=setup&first=1`; 3.3.1.0 R1: nothing opens
+                                  on its own): the step rail across the top (Providers current, the steps already
+                                  set ticked), its line leading with "set up this box", OpenRouter set from the
                                   env file (a placeholder key), a default model of a two-row fixture catalog, the
-                                  halo-dev-cycle lineup, acceptEdits, a last check that passed; the Providers and
-                                  Local models blocks on top
+                                  halo-dev-cycle lineup, acceptEdits, a last check that passed; the first page,
+                                  Providers, under it with Back / Next at its foot
 
 With --dom the page is counted by data-testid (the last stdout line is the
 JSON). Never two Chromes at once; every page is guarded before it is counted
@@ -23,8 +24,8 @@ from pathlib import Path
 
 from capture_identity import guard_page, placeholder
 
-IDS = ("section-tab", "setup-strip-first", "setup-strip-cell", "setup-rail-block", "setup-provider", "panel-about",
-       "section-help", "start-here-setup")
+IDS = ("section-tab", "setup-strip-first", "setup-strip-cell", "setup-rail", "setup-rail-step", "setup-step-page", "setup-provider",
+       "setup-next", "section-help", "start-here")
 ROWS = [{"ref": "or:demo/atlas-pro", "provider": "openrouter", "detail": "Atlas Pro (fixture)", "price": "$3.00", "context": "200k",
          "best_at": {"line": "code, review, plans", "kinds": ["code"]}},
         {"ref": "or:demo/atlas-mini", "provider": "openrouter", "detail": "Atlas Mini (fixture)", "price": "$0.30", "context": "128k",
@@ -57,6 +58,8 @@ def ready(c, url: str) -> None:
     c.go(url)
     c.wait("(document.querySelector('[data-testid=section-tab][aria-selected=true]')?.textContent || '').startsWith('Setup')", 40)
     c.wait("!!document.querySelector('[data-testid=setup-strip-first]') && !!document.querySelector('[data-testid=setup-strip-cell]')", 30)
+    c.wait("document.querySelectorAll('[data-testid=setup-rail-step]').length >= 8", 20)
+    c.wait("document.querySelector('[data-testid=setup-step-page]')?.dataset.step === 'providers'", 20)
     c.wait("document.querySelectorAll('[data-testid=setup-provider]').length > 0", 20)
     c.wait("!document.querySelector('.toast')", 10)
     time.sleep(1.0)

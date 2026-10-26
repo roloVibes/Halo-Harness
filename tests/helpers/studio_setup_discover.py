@@ -83,6 +83,9 @@ def discover(c, url, ctx) -> dict:
 
 def _steps(c, ctx, rig) -> dict:
     a, b = rig.a.base_url, rig.b.base_url
+    more = q("[data-testid=setup-ollama-more]")  # 3.3.1.0 R1: the finders are a disclosure under the hosts, closed at first
+    if not c.js(f"{more}.open"):
+        click(c, f"{more}.querySelector('summary')", f"{more}.open")
     out = {"finders_off": c.js(f"[{q('[data-testid=setup-ollama-find]')}.disabled, {q('[data-testid=setup-ollama-scan]')}.disabled]"),
            "ports_line": c.js(f"{q('[data-testid=setup-ollama-ports]')}?.textContent || ''")}
     out["find_by"] = click(c, q("[data-testid=setup-ollama-find]"), f"{ROWS}.length === 2", 15)

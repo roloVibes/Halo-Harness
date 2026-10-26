@@ -51,6 +51,8 @@ export type SetupData = {
   linux_fixes: { needed: boolean; items: { id: string; line: string }[]; platform: string };
   no_provider: boolean;
   model_notes: string[];
+  /** 3.3.1.0 R1: a short hash of this home's state dir (the key Setup's open page is remembered under). */
+  home?: string;
 };
 export type CheckRow = { key: string; title: string; what: string; cost: string; time: string; writes: string; default_on: boolean };
 export type CheckResult = { key: string; title: string; ok: boolean; lines: string[] };

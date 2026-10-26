@@ -1,14 +1,14 @@
 """halo_harness.studio.setup_door -- the doors into Studio's Setup section
 (Halo 3.3.0.0 R4, "Setup is Studio": `halo init` opens Studio on Setup).
 
-A setup target names the page and, optionally, the block to bring into view:
+A setup target names the page and, optionally, the block whose page opens:
 
     SetupTarget()                 Setup                     ?mode=setup
     SetupTarget(first=True)       Setup, the first run      ?mode=setup&first=1   (`halo init`, `halo start`
-                                                                                  with no provider: the page opens
-                                                                                  its help once, the strip says
-                                                                                  "set up this box")
-    SetupTarget(block="team")     Setup, the Team block     ?mode=setup&block=team (`halo setup team`, `/setup`)
+                                                                                  with no provider: 3.3.1.0 R1 opens
+                                                                                  nothing on its own, the rail's
+                                                                                  line says "set up this box")
+    SetupTarget(block="team")     Setup, the Team page      ?mode=setup&block=team (`halo setup team`, `/setup`)
 
 It travels as an edit-target text (`setup`, `setup:first`, `setup:team`), so
 `halo studio --edit setup:team`, the detached Studio's argv and
@@ -33,7 +33,7 @@ from pathlib import Path
 from typing import Callable, Optional
 from urllib.parse import urlsplit
 
-# The page's blocks by the word a door uses (routes/setup/Setup.tsx BLOCKS); `roles` is the Team block's old name.
+# The page's blocks by the word a door uses (each is a step's page, routes/setup/pages.ts stepOf); `roles` is the Team block's old name.
 BLOCKS = ("providers", "local", "model", "permissions", "theme", "team", "linux", "check")
 ALIASES = {"roles": "team"}
 BLOCK_TITLES = {"providers": "Providers", "local": "Local models", "model": "Default model", "permissions": "Permissions",

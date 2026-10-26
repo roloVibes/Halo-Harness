@@ -4,18 +4,41 @@ Read this when you set this box up from Studio's Setup section: what each block 
 
 Part of [Halo Studio](STUDIO.md), which lists every part.
 
-## Setup: the wizard's blocks as forms (3.3.0.0)
+## Setup: the wizard's steps, one page at a time (3.3.0.0; pages since 3.3.1.0)
 
-**What it is** (3.3.0.0 R1). This box's setup on one page, `Alt+8` (`halo studio --mode setup`,
-`?mode=setup`, `/studio setup`): the terminal wizard's blocks (`halo init`) as forms you fill in any order,
-each with its own **Save** and its own line (`saved`, `1 changed` or `problem`, with the lines the server
-answered under it). The status strip on top says what is set now: the providers set up here ("no provider
-set" until one is), the default model, the lineup, the permission mode, the terminal theme and the last
-check ("ok 12:04", "2 failed 12:04", "not run"). The rail lists the blocks with their line;
-a click brings the block's panel back and focuses it. Every block writes what the wizard writes, through
-the wizard's own writers: settings in `~/.halo/config.json` (the same as `halo config set`), keys in the
-env file. The page reads the state again whenever config.json or a lineup moves on disk (a `halo config
-set` in a terminal shows at once).
+**What it is.** This box's setup, `Alt+8` (`halo studio --mode setup`, `?mode=setup`, `/studio setup`): the
+terminal wizard's blocks (`halo init`) as pages, in the wizard's order. Every block writes what the wizard
+writes, through the wizard's own writers: settings in `~/.halo/config.json` (the same as `halo config set`),
+keys in the env file. The page reads the state again whenever config.json or a lineup moves on disk (a `halo
+config set` in a terminal shows at once).
+
+**The rail.** Across the top, the steps as the terminal wizard's step rail names them ([WIZARD.md](WIZARD.md)
+rule 4): Providers, Local models, Default model, Permissions, Theme, Team, Linux fixes (a step only while
+this box needs them), Check, Summary. The current step is lit, a done step is ticked, a step still to do is
+plain; a click opens any step's page. A step is done when its block has what it needs: a provider set;
+nothing for Local models; a model picked; a permission mode; a theme; a lineup or `auto`; the fixes
+applied; a check run at least once. Under the steps, the rail's one line says what is set now: the
+providers set up here ("no provider set" until one is), the default model, the lineup, the permission mode,
+the terminal theme and the last check ("ok 12:04", "2 failed 12:04", "not run").
+
+**The pages.** One block per page under a head that says which step it is ("STEP 3 OF 8"), what the block
+decides, and, behind "How this page works", how to use it. Each block keeps its own **Save** and its own
+line (`saved`, `1 changed` or `problem`, with the lines the server answered under it). **Back** and
+**Next** sit at the foot (Next on the page before the Summary says **Summary**); `Ctrl+Left` /
+`Ctrl+Right` are Back / Next outside a text field; Enter in a block's field is that block's Save (a card's
+form submits itself). Focus lands on the content when a page opens (rule 7). The page open is remembered
+for this home (this browser's storage, under a hash of the state dir), so a reload opens it again; a
+door's `?block=` wins. There are no panels here: nothing to move, resize or Arrange, the room is the page.
+
+**The Summary**, the last page (rule 10): one row per step with what it holds and a **Change** jump to its
+page; then the last check's result with **Run the ticked checks** (the checks ticked on the Check page:
+doctor, catalog and hello until changed there) and **The Check page**; then the guided first run's card
+(what `halo start` does, the models it calls, the estimate, the time, what it writes) and its Run button.
+
+**Nothing opens on its own.** Loading Setup opens no help, no welcome and no Start here overlay, whether
+`halo init` opened it or not; the help stays one click away (the `?` in the header, or `?`). A page that
+opens on Setup shows no section's first-visit welcome; Start here's offer keeps showing on the other
+sections of a fresh home.
 
 ## Providers and Local models (3.3.0.0 R2)
 
@@ -36,7 +59,8 @@ written); a token-only save keeps the host already set.
   rule holds: a save with a name already there updates its URL and keeps its tuning (`max_ctx`,
   `keep_alive`, ...), a blank save never repoints a host (with no host it registers the local daemon), the
   first host is the default, and removing the default makes the first one left the default. Under the
-  form the card finds servers instead of typing them (3.3.0.0 R5; `halo ollama discover` from a terminal,
+  form, behind **Find, scan, add and measure Ollama servers** (a disclosure, closed until opened, 3.3.1.0),
+  the card finds servers instead of typing them (3.3.0.0 R5; `halo ollama discover` from a terminal,
   [LOCAL-MODELS.md](LOCAL-MODELS.md) "Found on this machine"):
   - **Find Ollama servers** asks this machine's doors at once, about 4 s: `OLLAMA_HOST`, 127.0.0.1 and
     [::1] on the ports in `ollama.discover.ports` (default `[11434]`; the card names them), this machine's
@@ -103,20 +127,20 @@ model and the start lineup's models; untick any). The guided first run's row sho
 (the card `halo start` opens on: the models, the estimate, what it writes); its box can be ticked only
 then, and **Run the guided first run** under the card starts it at once. **Run the ticked checks** runs the
 ticked rows in that order as one background job; each row shows its state (`>>` running, `ok`, `!!`) and
-its lines as they arrive, the foot says how many failed, and the result is kept as the strip's Last check
+its lines as they arrive, the foot says how many failed, and the result is kept as the rail's Last check
 (`~/.halo/studio/last-check.json`). The guided first run runs last, through the same job as Start here, and
 its seven steps show under its row. **Stop after this check** ends the list before the next one. A ticked
 guided first run with no provider set up is refused with the start's own line, and Setup says so.
 
-**Linux fixes** shows only when this box lacks one of the two fixes the terminal wizard's Linux step
+**Linux fixes** is a step only when this box lacks one of the two fixes the terminal wizard's Linux step
 applies: a static `rg` (ripgrep's own release) in `~/.local/bin`, and `~/.local/bin` on PATH for a
 non-interactive shell (one line in `~/.zshenv` or `~/.profile`, added once). **Apply** runs them and the
 lines say what was written. Otherwise (always on Windows) the block is one line: nothing to fix on this box.
 
 **A fresh home lands here.** While no provider is set up (no key, login or default model: what `halo start`
-checks), Studio opens on Setup whatever section was saved (`?mode=` still wins), the Start here overlay's
-first button is **Set up this box**, and a guided first run started with no provider opens Setup with a
-toast instead of an error.
+checks), Studio opens on Setup whatever section was saved (`?mode=` still wins), with no overlay over it;
+on another section the Start here overlay's first button is **Set up this box** (Setup opens), and a guided
+first run started with no provider opens Setup with a toast instead of an error.
 
 **Reading this page opens no connection.** The Default model rows, the check costs and the card come from
 the cached catalog: an Ollama host is listed with the models its last read found (Refresh, `halo models
@@ -132,15 +156,14 @@ home) and opens this page; the terminal wizard is the fallback (`halo init --ter
 `ui/src/routes/setup/door.ts`):
 
 - `?mode=setup&first=1` (`halo init`, and Enter on `halo start`'s "Open Setup in Studio? [Y/n]"): the
-  section's help opens once, titled **What this page does**, the status strip leads with **set up this
-  box**, and Start here's offer waits (a guided first run already running still shows). `tour=off` keeps the
-  help shut (captures, tests).
+  rail's line leads with **set up this box**; nothing else opens (3.3.1.0: no help, no welcome, no Start
+  here; 3.3.0.0 opened the help once).
 - `?mode=setup&block=<block>` (`halo setup team`, `/setup team`; `roles` is the same block): that block's
-  panel is brought back if it was collapsed, scrolled into view and focused. The blocks: `providers`,
-  `local`, `model`, `permissions`, `theme`, `team`, `linux`, `check`.
+  page opens, focused. The blocks: `providers`, `local`, `model`, `permissions`, `theme`, `team`, `linux`,
+  `check` (and, in the address, `summary`).
 
-Both words leave the address bar once read, so a reload opens the page plainly (the token in the fragment
-stays). A Studio page already open takes the same as a `focus` frame, `{mode: "setup", block, first}`
+Both words leave the address bar once read, so a reload opens the page plainly, on the page last open (the
+token in the fragment stays). A Studio page already open takes the same as a `focus` frame, `{mode: "setup", block, first}`
 (`POST /api/focus {mode: "setup", block?, first?}`); `halo studio --edit setup`, `setup:first` and
 `setup:<block>` open them from a shell. A door that finds no browser here (`HALO_NO_BROWSER`,
 `SSH_CONNECTION`, Linux with no `DISPLAY` / `WAYLAND_DISPLAY`, or a browser that does not take the URL)
@@ -178,4 +201,4 @@ setup/check/stop` and `POST setup/linux-fixes` (`studio/setup_check_api.py`, `se
 `setup_check_state.py`). Each check's frames are `setup` frames on `/api/events` (`session_id`
 `setup:<job>`, `data: {job, key, title, state: running | done | failed, lines}`, then `{key: "summary",
 state: "finished", ok, results}`). `GET setup/state` gains `checks`, `gym_models`, `card`, `last_check`,
-`linux_fixes {needed, items}`, `no_provider` and `model_notes`.
+`linux_fixes {needed, items}`, `no_provider` and `model_notes`; 3.3.1.0 adds `home`, a 12-hex hash of the state dir (the key the open page is remembered under).

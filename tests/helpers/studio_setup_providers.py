@@ -18,6 +18,7 @@ import json
 import time
 
 from tests.helpers.studio_packs_steps import q, qa
+from tests.helpers.studio_setup_pages import goto
 
 KEY = "sk-or-v1-s2chrome-test-0011223344"
 
@@ -65,6 +66,7 @@ def _lines(card: str) -> str:
 
 
 def providers(c, url, ctx) -> dict:
+    goto(c, "providers")  # 3.3.1.0 R1: one block a page
     c.wait(f"{qa('[data-testid=setup-provider]')}.length === 8", 30)
     out = {"cards": c.js(qa("[data-testid=setup-provider]") + ".map((p) => p.dataset.name)"),
            "or_before": c.js(_text("[data-testid=setup-provider-state][data-name=openrouter]")),
@@ -99,13 +101,15 @@ def ollama(c, url, ctx) -> dict:
 
 
 def local(c, url, ctx) -> dict:
+    goto(c, "local")
     folder = ctx["models"]
     out = {"dir_fill_by": fill(c, "local-dir", "path", str(folder))}
     rows = qa("[data-testid=setup-row][data-card=local-dir]")
     out["dir_save_by"] = press(c, "local-dir", f"{rows}.length === 1")
     out["dirs"] = c.js(f"{rows}.map((r) => r.dataset.key)")
     out["detection"] = c.wait(f"{_text('[data-testid=setup-detection]')}.includes('holds 1 model') && {_text('[data-testid=setup-detection]')}", 15)
-    out["rail_local"] = c.js(_text("[data-testid=setup-rail-block][data-block=setup-local] .su-word"))
+    out["rail_local"] = c.wait(f"{q('[data-testid=setup-rail-step][data-step=local]')}.dataset.word.startsWith('1 folder') && "
+                               f"{q('[data-testid=setup-rail-step][data-step=local]')}.dataset.word", 10)
     row = "[data-testid=setup-runtime][data-id=mlx_lm]"
     c.js(f"{q(row)}.scrollIntoView({{block: 'center'}}); 1")
     time.sleep(0.2)
