@@ -9,7 +9,8 @@ FIRST (no provider set up yet, the home fresh for the moment):
    "Set up this box"; its Run answers 422 `no_provider`: Setup opens, the
    overlay closes, a toast says so, the strip says "no provider set";
 2. no `?mode=`, Roles saved for this browser: the page opens on Setup (the
-   served page says `data-no-provider`); "Set up this box" closes the overlay.
+   served page says `data-no-provider`) with no overlay over it (3.3.1.0 R1);
+   on Roles (Alt+3) the overlay shows, and "Set up this box" closes it on Setup.
 LAST (after the other blocks):
 3. the Check block: five rows, doctor / catalog / hello ticked; ticking the
    gym lists its models; the guided first run's box is off until its card
@@ -23,7 +24,8 @@ from __future__ import annotations
 import time
 from contextlib import contextmanager
 
-from tests.helpers.studio_packs_steps import CUR, q, qa
+from tests.helpers.studio_packs_steps import CUR, alt, q, qa
+from tests.helpers.studio_setup_pages import goto
 
 ROW = "[data-testid=setup-check-row]"
 RESULTS = {"doctor": (True, ["doctor stub: config ok"]), "catalog": (True, ["[ok] openrouter: 2 models (stub)"]),
@@ -105,8 +107,12 @@ def landing(c, url, ctx) -> dict:
         c.js("localStorage.setItem('halo.studio.section', 'roles'); 1")
         c.go(url.replace("mode=roles&tour=off&", ""))
         out = {"land_section": c.wait(f"{CUR}.startsWith('Setup') && {CUR}", 40),
-               "land_boot": c.js("document.documentElement.dataset.noProvider || ''"),
-               "land_first_button": c.wait(f"{q('[data-testid=start-here] .os-buttons .btn')}?.textContent.trim()", 30)}
+               "land_boot": c.js("document.documentElement.dataset.noProvider || ''")}
+        c.wait(f"!!{q('[data-testid=setup-rail-step]')}", 30)
+        time.sleep(2.0)
+        out["land_overlay_on_setup"] = c.js(f"!!{q('[data-testid=start-here]')}")
+        alt(c, 3)  # the overlay is for the other sections of a fresh home
+        out["land_first_button"] = c.wait(f"{CUR}.startsWith('Roles') && {q('[data-testid=start-here] .os-buttons .btn')}?.textContent.trim()", 30)
         out["land_by"] = click(c, "[data-testid=start-here-setup]", f"!{q('[data-testid=start-here]')}")
         out["land_after"] = c.js(CUR)
         return out
@@ -120,6 +126,7 @@ def _row(key: str, inner: str = "") -> str:
 
 def check_block(c, url, ctx) -> dict:
     c.go(url.replace("mode=roles", "mode=setup"))
+    goto(c, "check")
     c.wait(f"{qa(ROW)}.length === 5", 40)
     ticks = f"{qa('[data-testid=setup-check-tick]')}.map((t) => t.checked)"
     out = {"check_rows": c.js(f"{qa(ROW)}.map((r) => r.dataset.key)"), "check_ticks": c.js(ticks),
@@ -138,7 +145,7 @@ def check_block(c, url, ctx) -> dict:
     out["logs"] = c.js(f"{qa('[data-testid=setup-check-log]')}.map((l) => [l.dataset.key, l.textContent])")
     cell = _text("[data-testid=setup-strip-cell][data-key=check] .su-cell-value")
     out["strip_check"] = c.wait(f"{cell}.includes('failed') && {cell}", 20)
-    out["rail_check"] = c.js(_text("[data-testid=setup-rail-block][data-block=setup-check] .su-word"))
+    out["rail_check"] = c.js(f"{q('[data-testid=setup-rail-step][data-step=check]')}?.dataset.word || ''")
     p = ctx["state"] / "studio" / "last-check.json"
     out["last_check_file"] = p.is_file()
     return out
@@ -160,6 +167,7 @@ def linux_block(c, url, ctx) -> dict:
         S.forget_linux()
         c.go(url.replace("mode=roles", "mode=setup"))
         try:
+            goto(c, "linux")  # 3.3.1.0 R1: a step only while this box needs the fixes
             c.wait(f"{qa('[data-testid=setup-linux-item]')}.length === 2", 40)
         except TimeoutError as e:
             # GitHub's Windows runner timed out here (f408d5c): record what the server and the page say, and let the
@@ -171,7 +179,7 @@ def linux_block(c, url, ctx) -> dict:
                                     "body": c.js("document.body.innerText.slice(0, 300)")}
             return out
         out["linux_items"] = c.js(f"{qa('[data-testid=setup-linux-item]')}.map((i) => i.dataset.id)")
-        out["linux_rail"] = c.js(_text("[data-testid=setup-rail-block][data-block=setup-linux] .su-word"))
+        out["linux_rail"] = c.js(f"{q('[data-testid=setup-rail-step][data-step=linux]')}?.dataset.word || ''")
         lines = "[data-testid=setup-card-lines][data-card=linux]"
         out["linux_by"] = click(c, "[data-testid=setup-linux-apply]", f"!!{q(lines)}")
         out["linux_lines"] = c.js(_text(lines))

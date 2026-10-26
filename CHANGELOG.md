@@ -8,6 +8,28 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.3.1.0] - unreleased
+
+### R1: Setup, one page at a time
+
+#### Added
+- Setup is a paged flow: a step rail across the top in the terminal wizard's order (Providers, Local models, Default model, Permissions, Theme, Team, Linux fixes only when this box needs them, Check, Summary), the current step lit and the done ones ticked, a click opens any step; one block per page with Back / Next at its foot (Next before the Summary says Summary), Ctrl+Left / Ctrl+Right as Back / Next, Enter in a block's field as its Save.
+- A Summary page: one row per step with its value and a Change jump, the last check with Run the ticked checks and a button to the Check page, and the guided first run's card.
+- The open page is remembered per home (`GET setup/state` carries `home`, a hash of the state dir); `?block=` wins (and `?block=summary` opens the Summary).
+- tests/test_studio_setup_pages.py (headless Chrome): nothing open on load, the rail and its states, Next / Back, a rail jump, `?block=team`, the Summary and Change, the remembered page, the Ollama disclosure.
+
+#### Changed
+- Nothing opens on its own on Setup: `?first=1` only leads the rail's line with "set up this box" (no help), no first-visit welcome on Setup (or on a page that opens on Setup), and the Start here offer is not drawn over Setup (it still shows on the other sections of a fresh home). The help stays the ? in the header.
+- The status strip is the rail's own one-line summary; the Ollama card's Find / Scan / Add / Measure sit in a disclosure under its hosts, closed until opened.
+- `halo setup team` / `?block=team` / a focus frame open that block's page; the Setup capture, the modes banner tile, STUDIO-setup, STUDIO-sections, WIZARD, COMMANDS-init and the README caption follow the first page.
+
+#### Removed
+- Setup's panel workspace: no panels to move, resize or Arrange, no panel list or layout actions in the rail and palette for Setup; the section help's "What this page does" variant.
+
+### Also in 3.3.1.0
+
+#### Changed
+
 ## [3.3.0.0] - 2026-10-26
 
 Focus: Setup is Studio -- the terminal wizard's eight steps become a Setup section in Halo Studio (Alt+8) and `halo init` opens it, with the terminal wizard kept as the fallback (`--terminal`, SSH, no browser); every provider, host, folder, model, permission mode, theme, lineup and check is a block you fill in any order; the Ollama card finds the servers on this machine and on the network and measures their models; the Session tab's steer names its target and the timeline exports a Markdown trace; and the two behaviours that differed on GitHub's runners (the held drop, the Fleet map's stale node) are reproduced with a latency flag and fixed.

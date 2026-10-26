@@ -5,7 +5,8 @@
 // default; a key goes to the env file, config.json keeps its variable name),
 // remove one. 3.3.0.0 R5: under it the finders (OllamaFound.tsx): Find Ollama
 // servers on this machine, Scan this network, a tick per server found, Add the
-// ticked, then Measure the found models (OllamaMeasure.tsx).
+// ticked, then Measure the found models (OllamaMeasure.tsx). 3.3.1.0 R1: the
+// finders sit in a disclosure under the hosts, closed until opened.
 import { CardHead } from "./ProviderCard";
 import { CardLines, MiniForm, send, Table } from "./cards";
 import { useDiscover } from "./discover";
@@ -32,7 +33,10 @@ export function OllamaCard({ p }: { p: ProviderInfo }) {
                 title="every field blank registers the local daemon (127.0.0.1:11434) when no host is set"
                 onSave={(v) => send("ollama", "setup/ollama-host", { name: v.name || "", url: v.url || "", api_key: v.api_key || "" })} />
       <CardLines card="ollama" />
-      <OllamaFound />
+      <details className="su-more-box" data-testid="setup-ollama-more">
+        <summary className="mono">Find, scan, add and measure Ollama servers</summary>
+        <OllamaFound />
+      </details>
     </section>
   );
 }

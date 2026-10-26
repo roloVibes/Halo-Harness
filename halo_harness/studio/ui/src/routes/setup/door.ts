@@ -1,60 +1,35 @@
 // The doors into Setup (3.3.0.0 R4, studio/setup_door.py): `halo init` opens
 // `?mode=setup&first=1`, `halo setup team` and `/setup team` open
-// `?mode=setup&block=team`. The first run opens the section's help once, titled
-// "What this page does", and the status strip says "set up this box" for this
-// page; a block is brought back if it was collapsed, scrolled into view and
-// focused. Both words leave the address bar once read (a reload does not open
-// the help again; the token in the fragment stays). A Studio page already open
-// gets the same as a `focus` frame {mode: "setup", block, first} (shell/edit.ts).
-import { createStore, goSection, openHelp, useStore } from "../../lib/store";
-import { focusPanel, layoutStore, patchPanel } from "../../lib/workspace/persist";
-
-/** The door's block words (setup_door.py BLOCKS) and the panel each one is. */
-export const BLOCK_PANEL: Record<string, string> = {
-  providers: "setup-providers",
-  local: "setup-local",
-  model: "setup-model",
-  permissions: "setup-permissions",
-  theme: "setup-theme",
-  team: "setup-team",
-  roles: "setup-team",
-  linux: "setup-linux",
-  check: "setup-check",
-};
+// `?mode=setup&block=team`. 3.3.1.0 R1: nothing opens on its own -- the first
+// run only leads the rail's summary line with "set up this box" (the help
+// stays the ? in the header), and a block word opens that step's page
+// (pages.ts; `summary` too). Both words leave the address bar once read (a
+// reload opens the page plainly; the token in the fragment stays). A Studio
+// page already open gets the same as a `focus` frame {mode: "setup", block,
+// first} (shell/edit.ts).
+import { createStore, goSection, useStore } from "../../lib/store";
+import { goto, stepOf } from "./pages";
 
 export type Door = { block?: string; first?: boolean };
 
-/** `first`: this page was opened by `halo init` (the strip says "set up this box"). */
+/** `first`: this page was opened by `halo init` (the rail's summary says "set up this box"). */
 export const setupDoor = createStore<{ first: boolean }>({ first: false });
 
 export function useFirstRun(): boolean {
   return useStore(setupDoor, (s) => s.first);
 }
 
-/** `?tour=off` (captures, tests) keeps the help shut, as it keeps every first-visit welcome. */
-const NO_TOUR = typeof location !== "undefined" && /[?&]tour=off\b/.test(location.search);
-
-/** Bring a block's panel back (when it was collapsed) and focus it: the panel scrolls itself into view. */
-export function openBlock(id: string): void {
-  if (layoutStore("setup").get().layout?.[id]) patchPanel("setup", id, { collapsed: false }, false);
-  focusPanel("setup", id);
+/** Open the page of a door's block word (`roles` is Team); a word that is no step changes nothing. */
+export function openBlock(word: string): void {
+  const s = stepOf(word);
+  if (s) goto(s);
 }
 
-/** Run `fn` once Setup's panels are laid out (a page that just loaded mounts them a moment later). */
-function whenLaidOut(fn: () => void, tries = 80): void {
-  if (layoutStore("setup").get().layout || tries <= 0) fn();
-  else window.setTimeout(() => whenLaidOut(fn, tries - 1), 50);
-}
-
-/** Open Setup the way the door asked: the section, the first run's help, the block in view. */
+/** Open Setup the way the door asked: the section, the first run's line, the block's page. */
 export function applyDoor(d: Door): void {
   goSection("setup");
-  if (d.first) {
-    setupDoor.update(() => ({ first: true }));
-    if (!NO_TOUR) openHelp("setup", true, true);
-  }
-  const id = BLOCK_PANEL[String(d.block || "").toLowerCase()];
-  if (id) whenLaidOut(() => openBlock(id));
+  if (d.first) setupDoor.update(() => ({ first: true }));
+  if (d.block) openBlock(d.block);
 }
 
 /** The page's own address: `?mode=setup` with `first=1` or `block=`; both words are read once, then dropped. */
@@ -69,7 +44,7 @@ export function doorFromUrl(): Door | null {
     const rest = q.toString();
     history.replaceState(history.state, "", location.pathname + (rest ? `?${rest}` : "") + location.hash);
   } catch {
-    /* a browser that keeps the address as it is: the help opens again on a reload */
+    /* a browser that keeps the address as it is: the words are read again on a reload */
   }
   return d;
 }
