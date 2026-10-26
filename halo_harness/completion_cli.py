@@ -47,7 +47,11 @@ SUBCOMMANDS = (
     "start", "explain",
     "check",  # Halo 3.2.2.0 round R2: the checks Halo offers after setup
     "pack",  # Halo 3.2.0.0 round R1: capability packs
+    "ollama", "local",  # Halo 3.2.3.0 round R2: the gap the round 5d note named, closed with `halo ollama discover`
 )
+
+# Halo 3.2.3.0 round R2: the words that follow `halo ollama` (and the discover flags).
+OLLAMA_WORDS = ("discover", "calibrate", "doctor", "--lan", "--add", "--calibrate", "--json", "--timeout")
 
 # Halo 2.0.9 round 4: the words that follow `halo remote` / `halo remote
 # signal` (completion offers one flat word list after the first argument, so
@@ -80,7 +84,8 @@ def cached_model_refs(state_dir=None) -> "list[str]":
 
 def _completion_data(state_dir=None) -> "tuple[list[str], list[str], list[str]]":
     from halo_harness.roles import known_role_names
-    return list(SUBCOMMANDS), list(known_role_names()) + list(REMOTE_WORDS), cached_model_refs(state_dir)
+    return (list(SUBCOMMANDS), list(known_role_names()) + list(REMOTE_WORDS) + list(OLLAMA_WORDS),
+            cached_model_refs(state_dir))
 
 
 _SAFE_COMPLETION_WORD_RE = None  # compiled lazily below (module import order)
