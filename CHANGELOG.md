@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.2.2.0] - unreleased
+## [3.2.2.0] - 2026-10-25
 
 Focus: what the owner hit live on 2026-10-25, as six rounds -- the guided first run says what it does and never crashes, a quit leaves nothing behind and `halo update` clears what lingers, the session says what it is doing and plan mode never leaves you guessing, the canvas makes room, Studio sees what the session changes; and the launch shows the art.
 
