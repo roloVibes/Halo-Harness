@@ -53,6 +53,18 @@ version.
 #### Fixed
 - A Setup block's answer could be overwritten by an older read of the page that finished after it (a card showed "not set" next to the host it had just added); the newer answer wins and the page reads again.
 
+### R5: Ollama everywhere -- Find and Scan in Setup
+
+#### Added
+- Setup's Ollama card finds servers instead of typing them. **Find Ollama servers** asks this machine's doors at once (`OLLAMA_HOST`, loopback on `ollama.discover.ports`, this machine's LAN address, Docker, WSL; about 4 s). **Scan this network** sweeps this machine's /24 plus `ollama.discover.subnets` as a background job (10 s cap) with a live line "scanning <subnet> · N s" and a Stop. Each server found is a row with its name, address, version and the models it serves, marked "configured" or with a tick.
+- **Add the ticked** writes the ticked servers as `ollama.hosts` entries (an existing host is never repointed, the first host stays the default, no key written). The hosts table redraws and the Models refresh runs, so the Models panel lists each new host as `Ollama (<name>)` and its models are `ol:<model>@<name>` at once.
+- **Measure the found models**: the models of the hosts just added, each with a tick, measured one at a time with the calibration `halo ollama calibrate` runs. A live log shows one line per model ("qwen3:30b on gpubox: 32k fits, 65k does not (2 min 10 s)") and a summary; what settles is recorded in `~/.halo/ollama-fit.json`.
+- Routes `POST setup/ollama/find`, `POST|GET setup/ollama/scan`, `POST setup/ollama/scan/stop`, `POST setup/ollama/add {names | urls}`, `POST|GET setup/ollama/measure {hosts, models?, timeout?}` and `POST setup/ollama/measure/stop` (studio/setup_discover_api.py, studio/setup_discover_jobs.py). Both jobs stream `setup` frames on the live feed (`setup:scan:<job>`, `setup:measure:<job>`); `GET setup/state` carries `ollama_discover` (the ports, the subnets, the latest scan and measure).
+
+#### Changed
+- The Ollama card's two placeholder buttons ("comes with 3.3.0.0 R5") now do what they say. The card takes the whole row once servers are found.
+- docs/LOCAL-MODELS.md "Found on this machine" / "Found on the network" / "Measured after finding" and docs/MODELS-ollama.md name the Studio way.
+
 ### Also in 3.3.0.0
 
 #### Changed
