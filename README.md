@@ -184,7 +184,7 @@ it; Save writes the lineup's YAML and Apply makes it the lineup new sessions use
 
 ### Six sections, one window
 
-<a href="docs/media/studio-modes.png"><img alt="Halo Studio's seven sections side by side, each under its key: Session (Alt+1), Team (Alt+2), Roles (Alt+3), Fleet (Alt+4), Design (Alt+5), Orchestra (Alt+6) and Packs (Alt+7)" src="docs/media/studio-modes.png" width="100%"></a>
+<a href="docs/media/studio-modes.png"><img alt="Halo Studio's eight sections side by side, each under its key: Session (Alt+1), Team (Alt+2), Roles (Alt+3), Fleet (Alt+4), Design (Alt+5), Orchestra (Alt+6), Packs (Alt+7) and Setup (Alt+8)" src="docs/media/studio-modes.png" width="100%"></a>
 
 `Alt+1` to `Alt+6` switch between **Session**, **Team**, **Roles**, **Fleet**,
 **Design** and **Orchestra**. Each section opens on a Start view that says what it is for,
@@ -196,8 +196,13 @@ The seventh, **Packs** (`Alt+7`), is the Pack Manager: it lists the packs in the
 you trust (the folders and git urls of `packs.sources`, and the Documentation Review pack
 Halo ships), shows what each brings and asks for, and installs, grants, enables, sets up,
 updates and removes them through the same code as `halo pack`. An enabled pack's own
-section comes after it. See [docs/STUDIO-packs.md](docs/STUDIO-packs.md) and
+section comes after the core sections. See [docs/STUDIO-packs.md](docs/STUDIO-packs.md) and
 [docs/PACKS.md](docs/PACKS.md).
+
+The eighth, **Setup** (`Alt+8`, 3.3.0.0), is this box's setup on one page: the terminal wizard's blocks
+(the default model, the permission mode, the terminal theme, the lineup; the providers, local models,
+Linux fixes and the check follow) as forms you fill in any order, each saving the key `halo init` and
+`halo config set` write. See [docs/STUDIO-setup.md](docs/STUDIO-setup.md).
 
 The pictures here are headless-Chrome renders of Studio over fixture data
 (`tools/capture_studio.py`, and `tools/capture_session_anim.py` for the animated ones).

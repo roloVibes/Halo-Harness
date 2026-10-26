@@ -224,7 +224,7 @@ token, the shell's CSP).
 
 | Key | Shape | What Studio does with it |
 |---|---|---|
-| `sections` | `[{id, title, blurb, help, panels: [<panel>]}]` | a section of its own after the core sections (3.2.0.0 R6: after Packs, on Alt+8 and Alt+9 in order; the tab strip and the rail show them after a thin "packs" divider); its panels fill the 24 columns left to right |
+| `sections` | `[{id, title, blurb, help, panels: [<panel>]}]` | a section of its own after the core sections (3.2.0.0 R6: after the core sections; 3.3.0.0 R1: after Setup, the first on Alt+9; the tab strip and the rail show them after a thin "packs" divider); its panels fill the 24 columns left to right |
 | `panels` | `[{section: <core section>, ...<panel>}]` | a panel in Session, Team, Roles, Fleet, Design or Orchestra, under that section's own, as a strip |
 | `palette` | `[{id, label, action}]` | a command palette line in the group "pack <id>"; `action` is `route:<section>[/<panel>]`, `url:<address>` or `config` |
 | `config_form` | `true` or `false` | a Settings panel (kind `form`) at the end of the pack's first section, and a palette line "Settings: <name>" |

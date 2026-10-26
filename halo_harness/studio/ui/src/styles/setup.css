@@ -1,0 +1,84 @@
+/* 3.3.0.0 R1: the Setup section (routes/setup) -- the status strip over the workspace, each block's radio rows,
+   the model list grouped by provider, the terminal-theme swatches (their colours are the --sw-* variables the page
+   sets from the server's palettes, never a colour of this sheet), the lineup list beside its preview, the blocks' foot. */
+.su-page { position: absolute; inset: 0; display: flex; flex-direction: column; min-height: 0; }
+.su-work { position: relative; flex: 1 1 auto; min-height: 0; }
+.su-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 0; padding: 8px 14px; border-bottom: 1px solid var(--line);
+  background: var(--surface-glass); font-size: 12px; min-width: 0; }
+.su-cell { padding: 0 12px; border-right: 1px solid var(--line); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.su-cell:first-child { padding-left: 0; }
+.su-cell:last-child { border-right: 0; }
+.su-cell-label { color: var(--muted); }
+.su-cell-value { color: var(--accent); }
+.su-cell[data-unset] .su-cell-value { color: var(--warn); }
+
+.su-block { display: grid; gap: 10px; align-content: start; min-width: 0; }
+.su-lead { margin: 0; font-size: 12.5px; overflow-wrap: anywhere; }
+.su-later { margin: 0; font-size: 12.5px; overflow-wrap: anywhere; }
+.su-error { margin: 0; color: var(--bad); font-size: 12.5px; overflow-wrap: anywhere; }
+
+.su-radios { display: grid; gap: 6px; }
+.su-radio { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; align-items: start; padding: 8px; border: 1px solid var(--line);
+  border-radius: var(--radius); cursor: pointer; min-width: 0; }
+.su-radio[data-on] { border-color: var(--accent); background: var(--accent-soft); }
+.su-radio-text { display: grid; gap: 2px; min-width: 0; }
+.su-radio-label { font-weight: 600; }
+.su-radio-note { font-size: 12px; overflow-wrap: anywhere; }
+
+.su-search { width: 100%; }
+.su-models { display: grid; gap: 10px; min-width: 0; }
+.su-model-group { display: grid; gap: 2px; min-width: 0; }
+.su-group-head { display: flex; align-items: center; gap: 8px; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted);
+  padding: 2px 0; }
+.su-group-head .btn { margin-left: auto; text-transform: none; letter-spacing: 0; }
+.su-model { display: grid; grid-template-columns: auto minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1.2fr) auto auto; gap: 8px; align-items: center;
+  padding: 4px 6px; border-radius: var(--radius-sm); cursor: pointer; font-size: 12px; min-width: 0; }
+.su-model:hover { background: var(--surface-2); }
+.su-model[data-on] { background: var(--accent-soft); }
+.su-model > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.su-model-ref { color: var(--accent); }
+.su-model-num { font-size: 11px; }
+.su-more { font-size: 12px; padding: 2px 6px; }
+
+.su-swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.su-swatch { position: relative; display: grid; gap: 4px; padding: 6px; border: 1px solid var(--line); border-radius: var(--radius); cursor: pointer; min-width: 0; }
+.su-swatch[data-on] { border-color: var(--accent); box-shadow: var(--glow); }
+.su-swatch input { position: absolute; top: 8px; right: 8px; }
+.su-sw-screen { display: grid; gap: 3px; padding: 8px; border-radius: var(--radius-sm); background: var(--sw-bg); color: var(--sw-text);
+  border: 1px solid var(--sw-panel); font-size: 11px; min-height: 64px; }
+.su-sw-line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.su-sw-user { color: var(--sw-accent); }
+.su-sw-tool { color: var(--sw-tool); }
+.su-sw-dots { display: flex; gap: 5px; margin-top: 2px; }
+.su-sw-dots i { width: 9px; height: 9px; border-radius: 50%; }
+.su-sw-ok { background: var(--sw-ok); }
+.su-sw-warn { background: var(--sw-warn); }
+.su-sw-bad { background: var(--sw-bad); }
+.su-sw-accent { background: var(--sw-accent); }
+.su-sw-name { font-size: 11.5px; overflow-wrap: anywhere; }
+
+.su-team-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; min-width: 0; }
+.su-lineups { display: grid; gap: 4px; align-content: start; min-width: 0; }
+.su-lineup { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; padding: 5px 8px; border: 1px solid var(--line); border-radius: var(--radius);
+  cursor: pointer; min-width: 0; font-size: 12.5px; }
+.su-lineup[data-on] { border-color: var(--accent); background: var(--accent-soft); }
+.su-lineup-name { font-weight: 600; }
+.su-lineup-desc { flex-basis: 100%; font-size: 11.5px; overflow-wrap: anywhere; padding-left: 22px; }
+.su-in-use { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, transparent); }
+.su-preview { display: grid; gap: 4px; align-content: start; min-width: 0; }
+.su-preview-lines { margin: 0; padding: 8px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11.5px; background: var(--bg-2);
+  border-radius: var(--radius-sm); min-height: 60px; }
+
+.su-foot { display: grid; gap: 6px; padding-top: 8px; border-top: 1px solid var(--line); }
+.su-foot-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.su-word { font-size: 11px; color: var(--muted); }
+.su-word[data-word="1 changed"] { color: var(--warn); }
+.su-word[data-word="problem"] { color: var(--bad); }
+.su-word[data-word="saved"] { color: var(--ok); }
+.su-foot-row .su-word { margin-left: auto; }
+.su-lines { margin: 0; padding: 6px 8px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11.5px; background: var(--bg-2);
+  border-radius: var(--radius-sm); color: var(--bad); }
+.su-lines[data-ok] { color: var(--muted); }
+
+.su-rail .rail-item { display: flex; align-items: center; gap: 8px; }
+.su-rail .su-word { margin-left: auto; }

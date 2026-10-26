@@ -13,7 +13,7 @@ No argument: shows the current theme. With a name (`claude-dark`,
 completes theme names. The game themes and their toggles were removed in
 3.1.5.0. See the Themes section of the [handbook](HANDBOOK.md).
 
-### `/studio` `[session|roles|design|orchestra|fleet|team] [url]`
+### `/studio` `[session|roles|design|orchestra|fleet|team|packs|setup] [url]`
 Halo 3.1.4.0: bare `/studio` (or `/studio session`) opens Studio on the
 session you are in: the **Session** dashboard (`Alt+1`; `?mode=session&session=<this
 session's id>`), its map, activity, attention, agent and cost. `/studio
