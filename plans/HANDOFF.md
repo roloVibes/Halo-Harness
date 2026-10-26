@@ -8,10 +8,15 @@ first, then `WORKER-RULES.md`, then the round you are starting.
 
 **3.2.2.0 "The first run says what it does" IS RELEASED** (tag v3.2.2.0, cut from
 0bd5ffc on 2026-10-25 night after both runners went green; installed on the PC).
-**Next: 3.2.3.0 "Ollama on the network"** (plans/ROADMAP.md "ADDED 2026-10-26 ...
-3.2.3.0": R1 the window tells the truth, R2 the servers are found, then measured;
-workers running in `~/hh-323/<round>`, briefs under `~/hh-323/briefs/`), then
-3.3.0.0 "Setup is Studio" with R5 Ollama everywhere (the Setup card's Find/Scan). The owner, live on Kali and in Studio on 2026-10-25, sent six notes;
+**3.2.3.0 "Ollama on the network" is the release candidate** (R1 the window tells the
+truth, R2 the servers are found, then measured, R3 a tuned twin, plus the Roles held-drop
+fix; worktrees `~/hh-323/<round>`, briefs under `~/hh-323/briefs/`; `scripts/release.py
+3.2.3.0 --skip-windows` once both runners are green for the head). **3.3.0.0 "Setup is
+Studio"** is under way in parallel: R1 the Setup section is done and parked on
+`v330/R1-setup-section` (merged after 3.2.3.0 ships), R2 providers and local models is
+running on top of it (`~/hh-330/<round>`); R3 the check + the fresh-home landing, R4 the
+doors, R5 Ollama everywhere (the Setup card's Find/Scan), R6 the steer knows its target +
+the trace export follow (plans/ROADMAP.md, the 2026-10-25/26 entries). The owner, live on Kali and in Studio on 2026-10-25, sent six notes;
 each became one round, one Opus worker each in `~/hh-322/<round>` (briefs,
 hand-backs, progress files and CI logs under `~/hh-322/briefs/`); the
 coordinator merged each with its CHANGELOG block (`changelog_322.py` in the
