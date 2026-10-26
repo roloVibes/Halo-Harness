@@ -79,6 +79,50 @@ the LAN. `halo doctor`'s own Ollama section prints the identical checklist
 text, one line per host. See [MODELS.md](MODELS.md)'s "Host setup
 checklist" section.
 
+## `halo ollama discover`
+
+```sh
+halo ollama discover
+halo ollama discover --lan
+halo ollama discover --add
+halo ollama discover --add pc,gpubox --calibrate
+halo ollama discover --lan --json
+```
+
+Halo 3.2.3.0: the Ollama servers on this machine -- `OLLAMA_HOST`,
+127.0.0.1 and [::1] on `ollama.discover.ports` (default `[11434]`), this
+machine's LAN address, `host.docker.internal`, the WSL door -- each
+confirmed with `/api/version` and `/api/tags`, about 4 s. One line per
+server: its name, address, version, the models it serves, and
+`configured` (an `ollama.hosts` entry already) or `new`:
+
+```
+pc        http://127.0.0.1:11434       0.12.6    3 models: qwen3:30b, gpt-oss:20b, llama3.2:3b  configured
+gpubox    http://192.0.2.20:11434      0.12.6    2 models: qwen3:32b, gemma3:27b  new
+```
+
+- `--lan` also sweeps the network: the /24 of this machine's LAN address
+  plus `ollama.discover.subnets`, a 10 s cap; it runs only when asked.
+- `--add` writes every `new` row as an `ollama.hosts` entry; `--add
+  NAME,NAME` writes the named ones. An existing host is never repointed,
+  the first entry stays the default, no key is written; the models are
+  `ol:<model>@<name>` at once.
+- `--calibrate` then measures every model of the hosts just added (and of
+  a configured host named in `--add`), one progress line per model --
+  `qwen3:32b on gpubox: 32k fits, 65k does not (2 min 10 s)` -- recorded
+  in `~/.halo/ollama-fit.json` like `halo ollama calibrate`.
+- `--timeout S` is the calibration's per-step budget (its own default
+  otherwise).
+- `--json` prints `{servers, notes, added, measurements}`; the progress
+  lines go to stderr then.
+
+Exit 0 when a server was found, 1 when none was, 2 on a usage error.
+`halo ollama` and `halo local` list a local server that is found but not
+an `ollama.hosts` entry as "found, not added (halo ollama discover
+--add)". See [LOCAL-MODELS.md](LOCAL-MODELS.md)'s "Found on this
+machine", "Found on the network" and "Measured after finding", and
+[MODELS-ollama.md](MODELS-ollama.md)'s "Discovery".
+
 ## `halo gym`
 
 ```sh
@@ -169,7 +213,9 @@ carrying its format, size, and -- read from the file itself -- trained
 context and quantization where the file says so. See
 [MODELS.md](MODELS.md)'s Hugging Face section; the TUI's own `/local` (no
 arguments) opens the same view as an interactive dialog instead
-(`docs/SLASH-COMMANDS.md`).
+(`docs/SLASH-COMMANDS.md`). Halo 3.2.3.0: below the list, an Ollama found
+on this machine that is not an `ollama.hosts` entry yet shows under
+"Ollama (found, not added):" (`halo ollama discover --add` adds it).
 
 ### `halo local add <path>` / `halo local forget <path>`
 

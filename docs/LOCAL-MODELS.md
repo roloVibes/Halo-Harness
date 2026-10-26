@@ -19,7 +19,7 @@ Ollama runs models on hardware you control, local or not. Halo always
 talks to its native API, never the OpenAI-compatible shim -- only the
 native API lets Halo set the context window on every request.
 
-### On this machine
+### Found on this machine
 
 Install Ollama and pull a model, then just use it -- no Halo
 configuration needed:
@@ -32,9 +32,52 @@ halo -p "reply with the single word pong" --model ol:qwen3:30b
 With no `ollama.hosts` entries configured, Halo talks to
 `127.0.0.1:11434` (or whatever `OLLAMA_HOST` says) automatically.
 
-### A LAN host
+A second daemon (another port, Docker, the other side of WSL) is found
+rather than typed (Halo 3.2.3.0):
 
-Add an entry to `ollama.hosts` and reference it with `@<name>`:
+```sh
+halo ollama discover            # this machine's doors, about 4 s
+halo ollama discover --add      # write the new ones as ollama.hosts entries
+```
+
+`discover` asks `OLLAMA_HOST`, 127.0.0.1 and [::1] on the ports in
+`ollama.discover.ports` (default `[11434]`; add `11435` and so on for a
+second daemon), this machine's own LAN address, `host.docker.internal`,
+and on Windows a running WSL distro (inside WSL, the Windows host). Each
+one is confirmed with `/api/version` and `/api/tags`; a server that
+answers on two of those addresses is one row, the loopback address kept.
+One line per server, with the models it serves:
+
+```
+pc        http://127.0.0.1:11434       0.12.6    3 models: qwen3:30b, gpt-oss:20b, llama3.2:3b  configured
+local-11435 http://127.0.0.1:11435     0.12.6    1 model: qwen3-coder:30b  new
+```
+
+`--add` writes the `new` rows (or `--add NAME,NAME` the named ones): an
+existing host is never repointed, the first entry stays the default, no
+key is written, and the models are `ol:<model>@<name>` at once. `halo
+ollama` and `halo local` list a local server that is found but not added
+as "found, not added (halo ollama discover --add)".
+
+### Found on the network
+
+`halo ollama discover --lan` also sweeps the network: the /24 of this
+machine's LAN address plus every CIDR in `ollama.discover.subnets` (a
+network wider than a /24 is skipped with one line), a 0.3 s TCP connect
+on each address and port, 64 at a time, about 10 s in all. Responders are
+confirmed the same way and named from reverse DNS, else
+`ollama-<last octet>`. The scan runs only when you ask (this command,
+or **Scan this network** in the wizard's Ollama tab), never on its own,
+and not in offline mode.
+
+```sh
+halo ollama discover --lan
+halo ollama discover --lan --add gpubox
+halo -p "reply with the single word pong" --model ol:qwen3:30b@gpubox
+```
+
+A host the scan cannot reach (another network, a cloud host) still goes
+in by hand, as an `ollama.hosts` entry referenced with `@<name>`:
 
 ```sh
 halo config set ollama.hosts '[{"name": "lan", "url": "http://<lan-host>:11434"}]'
@@ -44,7 +87,24 @@ halo -p "reply with the single word pong" --model ol:qwen3:30b@lan
 Ollama itself has no authentication; a reverse proxy in front of a LAN
 host needs its own `api_key` on that host entry, same as a cloud host
 (below). A daemon bound to loopback only reports as "not reachable from
-here" rather than an error -- see "Where settings live" for the switch.
+here" rather than an error -- see "Where settings live" for the switch
+(`OLLAMA_HOST=0.0.0.0` on the server is what makes the scan find it).
+
+### Measured after finding
+
+`halo ollama discover --add --calibrate` then measures every model of the
+hosts it just added (and of a configured host you name in `--add`) with
+the same calibration `halo ollama calibrate` runs: each model is loaded at
+a few windows and the largest one that sits fully in GPU memory is
+recorded in `~/.halo/ollama-fit.json`, one progress line per model:
+
+```
+qwen3:30b on gpubox: 32k fits, 65k does not (2 min 10 s)
+```
+
+So the first real turn on a found model already knows its window instead
+of finding out mid-prompt. `--timeout S` sets the per-step budget; the
+wizard offers the same measurement after its Save adds hosts.
 
 ### Ollama Cloud
 

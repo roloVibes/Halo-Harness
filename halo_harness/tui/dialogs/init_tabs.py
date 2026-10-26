@@ -34,6 +34,11 @@ from textual.widgets import Button, Input, Static, TabbedContent, TabPane
 from halo_harness.init_providers import TAB_LABEL, TAB_PROVIDERS, tab_credential_state
 
 
+OLLAMA_TAB_HELP = ("Find lists the Ollama servers on this machine and Scan the ones on the network: tick the "
+                   "ones to add, then Save. The fields add a host the scan cannot reach (a cloud host, another "
+                   "network); every field blank and Save registers the local daemon at its default address.")
+
+
 def _pane_id(provider: str) -> str:
     return f"pane-{provider}"
 
@@ -132,14 +137,15 @@ class InitTabsApp(App):
                         classes="tab-help")
         status_text = _status_text(provider, state=state)
         yield Static(status_text, id=f"{provider}-status", classes="tab-status")
+        if provider == "ollama":
+            from halo_harness.tui.dialogs.ollama_found import FoundPanel
+            yield FoundPanel("ollama")  # Halo 3.2.3.0 R2: Find / Scan, a tick per server, Save adds them
         for f in state["fields"]:
             prefill = state.get("known_host") or "" if f["name"] == "host" else ""
             yield Input(value=prefill, placeholder=f["label"], password=f["secret"],
                         id=f"{provider}-field-{f['name']}")
         if provider == "ollama":
-            yield Static("Leave every field blank and Save to register the local daemon at its default "
-                         "address; fill in a URL to add a LAN or cloud host instead. Running local servers "
-                         "are found automatically by /local, not here.", classes="tab-help")
+            yield Static(OLLAMA_TAB_HELP, classes="tab-help")
         if provider == "huggingface":
             yield Static("Each of these is independent and optional: paste HF_TOKEN for the router, add one "
                          "dedicated endpoint (name + URL [+ token]), or add one local server (URL [+ key]). "
@@ -236,6 +242,10 @@ class InitTabsApp(App):
         self.screen.focus_next()
 
     def action_finish(self) -> None:
+        from halo_harness.tui.dialogs.ollama_calibrate_offer import CalibrateOffer
+        if isinstance(self.screen, CalibrateOffer):  # Esc skips the offer, never the whole dialog
+            self.screen.action_skip()
+            return
         self.exit()
 
     # ---- live status as a value is entered (A.2) ----------------------
@@ -282,9 +292,10 @@ class InitTabsApp(App):
         return {f["name"]: self._field_value(provider, f["name"]) for f in state["fields"]}
 
     def _save(self, provider: str) -> None:
-        from halo_harness.init_providers import save_tab_credentials
+        from halo_harness.tui.dialogs.ollama_calibrate_offer import save_found_rows
         values = self._collect_values(provider)
-        ok, message = save_tab_credentials(provider, values, team_cfg=self._team_cfg)
+        ok, message = save_found_rows(self, provider, values, prefix="ollama", team_cfg=self._team_cfg,
+                                      no_live=self._no_live)
         try:
             status = self.query_one(f"#{provider}-status", Static)
         except Exception:
