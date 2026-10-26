@@ -2597,3 +2597,7 @@ view, and a new row can move the list while the user is typing.
   and `/export` write the same bytes; `tests.test_privacy_scan` runs over a
   trace. Docs: STUDIO-session (Export), COMMANDS-sessions (`halo session
   export`), SLASH-COMMANDS-session (`/export`).
+
+### After 3.2.3.0 (the held drop on a slow box)
+
+- On GitHub's Windows runner a card held over a collapsed tier's strip joins the tier (the tier opens, the lineup says so) but its position lands outside the tier's box: run 40285708108 recorded card [870, 419, 109, 54] against the leads box [701, 204, 126, 207]; the box there is one card shorter than on this project's boxes at the same moment (269 tall), so an earlier cross-tier drop's position was not in the box yet when the hold began. On this project's Windows box and WSL the same steps land inside the box at every window size tried (1500x900, 900x600). The drop fix of 3.3.0.0 R1 (`dropPatch` clamps into the box) is in; the two checks that depend on it (`held_in_box`, the spots after a removal) are recorded, not judged, on that runner. 3.3.0.0 R7 reproduces it with latency (a slowed layout save, a slowed lineup save) and makes the cross-tier drop one ordered write: the tier change and the clamped position saved together, the hold never opening on a stale box.
