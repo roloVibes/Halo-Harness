@@ -2364,3 +2364,167 @@ teams apply` / `halo roles` / `halo config set` (config.json's `team`,
 ### After 3.2.2.0 (R5's open point: the Windows runner)
 
 - `test_removing_a_card_keeps_the_others_spots` (tests/test_studio_roles_tiers.py, the room driver): on GitHub's Windows runner the three leads-tier cards (release, research, watchdog -- the ones moved in the earlier steps) end on other spots after the removal of `scout`, every time; the same steps keep every spot on the project's Windows box, on WSL and on the Linux runner. The check is recorded, not judged, on that runner (the `[note] windows runner:` line in the suite log carries before/after); the first round of 3.3.0.0 reads it and fixes the cause (candidates: a stale layout save landing late, R6's layout re-read on `files_changed`, the implicit tier's shape after a removal).
+
+## ADDED 2026-10-26 (rolo, from the MacBook using this PC's Ollama as the main model: "encountered errors. Fault was in Halo Harness. Is there a way to have halo harness communicate with ollama servers on the network so that this does not happen?"; and: "add calibration for connecting to ollama models on the network after discover and enum of the models"): 3.2.3.0 "Ollama on the network" -- before 3.3.0.0
+
+The incident (another session read this PC's Ollama log): Halo's prompt is
+about 11,000 tokens; the Mac's Halo asked the LAN host for an 8,192 window,
+Ollama trimmed the prompt to about 4,100 tokens (the first answer without
+Halo's instructions), the automatic tool follow-up lost the user's question
+in the trim and Ollama answered 500 "no user query found in messages"; Halo
+retried six times, then showed "Ollama had an internal error". What the code
+does today (surveyed 2026-10-26, `providers/ollama_calibrate.py`,
+`ollama.py`, `ollama_hw.py`, `ollama_request.py`, `ollama_stream.py`,
+`agent/loop.py`, `providers/stream.py`, `errors.py`):
+
+- First-use calibration (`run_auto_calibration`, 20 s per step, once per
+  host+model per digest and server version) loads the model at a candidate
+  `num_ctx` and reads `/api/ps`; a load that times out is never seen -- a
+  `/api/ps` without the model counts as "not resident" and the loop halves
+  (or, stepping up, stops and records the last size), so a slow host (this
+  PC needs 20-55 s for a 17 GB model) yields a SMALL `fits`, never
+  "unknown"; the `/api/ps` entry's own `context_length` is never compared to
+  the candidate (a late, larger load is credited to a smaller candidate).
+- `num_ctx` is a plain `min()` over the hard cap, the trained context,
+  `host.max_ctx`, the fit estimate, the learned cap and the defaults
+  (`resolve_num_ctx_and_source`): a saved 8192 wins everything and `max_ctx`
+  cannot raise it; for a remote host whose model is loaded, the fit estimate
+  IS the loaded context -- a model loaded at 8192 keeps reporting 8192.
+- No prompt-size estimate precedes an Ollama call; `prompt_eval_count` is
+  read (it feeds compaction) but never compared to the prompt or the window;
+  the docs say the prompt is "NOT silently truncated" (Ollama returns 400
+  only when the request's own `num_ctx` is exceeded, and trims otherwise).
+- A 500 is retryable (`MAX_RETRIES = 5`, six sends, backoff to 30 s); the
+  raw message is dropped for the generic sentence; "no user query found in
+  messages" is matched nowhere.
+
+- R1 The window tells the truth. (a) Calibration: a load is a measurement
+  only when `/api/ps` lists the model with a `context_length` equal to the
+  candidate; a timeout or a missing entry is `unknown` (the step is retried
+  once with the budget doubled, then the run ends `inconclusive` and records
+  NOTHING -- never a small `fits`); the per-step budget scales with the
+  model's size and the host (local: 20 s + 4 s per GB; remote: 40 s + 6 s
+  per GB; the CLI's `--timeout` overrides); the first-use run keeps its 20 s
+  wait for the turn but the measurement continues in the background and is
+  recorded when it ends; a recorded cap below the prompt floor (below) is
+  discarded and re-measured. (b) The window follows the prompt:
+  `providers/ollama_prompt.py` estimates the request's tokens (chars / 3.5
+  for the serialized messages and tools, plus a 1,024 reserve for the reply)
+  before every Ollama call; `num_ctx` is at least that floor, raised above
+  the saved cap up to the trained context and the host's memory (the fit
+  estimate from memory, not from the loaded context: a remote model loaded
+  at N no longer reports N as its fit); when even that cannot hold the
+  prompt, the turn compacts first and says so in one line ("the prompt
+  (11k tokens) is larger than <model>'s window on <host> (8k): compacted").
+  The estimate carries the NEW tool results, so it drives compaction before
+  the send (today the gate reads the previous turn's count and one large
+  tool result walks past the window): a request that does not fit the window
+  Halo can get compacts first, said in one line ("the request (14k tokens, 9k
+  of it tool output) is larger than <model>'s window on <host> (8k):
+  compacted"). After the call `prompt_eval_count` is compared to the
+  estimate: a count far under it is a trimmed request, and so is Ollama's
+  500 "no user query found in messages"; both mean "the context is full",
+  recovered once per turn in this order: raise the window when there is room
+  under the trained context and the memory estimate and re-send, else
+  compact and re-send; never the same request unchanged, never six times
+  ("<host> trimmed the request (4.1k of 11k tokens): compacted and
+  re-sent"). (c) Errors: that 500 is a `prompt_trimmed` error with its raw
+  text kept and no retry beyond the recovery above; any other Ollama 500
+  keeps three sends (not six) and its raw text. (d) Docs: LOCAL-MODELS
+  "calibration and learned caps", MODELS-ollama ("not silently truncated"
+  corrected; the 16384 fallback), MODELS-ollama-tuning (the cap is one
+  `min()` candidate and the prompt floor sits under it), COMMANDS-local
+  (`halo ollama calibrate --timeout`); `halo ollama` shows per model: the
+  window in use, its source, the prompt floor, "calibrated / estimated /
+  inconclusive". Tests: mock_ollama gains a per-model load delay; slow-load
+  cases (a 25 s load with a 20 s budget ends inconclusive, records nothing,
+  the window stays the trained context capped by memory); the prompt floor
+  wins over a saved cap (test_ollama_precedence_5b); a trimmed
+  `prompt_eval_count` re-sends once with the line; the 500 text is a
+  `prompt_trimmed` error with no retry.
+- R2 The servers are found, then measured. `providers/ollama_discover.py`
+  (the design in the 3.3.0.0 R5 entry below: this machine's doors --
+  `OLLAMA_HOST`, loopback on `ollama.discover.ports`, this machine's LAN
+  address, Docker, WSL -- and the network sweep of the /24 plus
+  `ollama.discover.subnets`, a 10 s cap, confirmed by `/api/version` and
+  `/api/tags`, never on its own); `halo ollama discover [--lan] [--add
+  [NAMES]] [--calibrate] [--json]`: one line per server with its models,
+  `--add` writes `ollama.hosts` entries (never repointing an existing host,
+  the first stays default), `--calibrate` then measures every model of the
+  added hosts with R1's budgets, one progress line per model ("qwen3.8:27b
+  on pc: 32k fits, 65k does not (2 min 10 s)"), and `--json` gives it all;
+  the wizard's Ollama tab and Local models step: **Find Ollama servers**
+  (local), **Scan this network**, a tick per found server, Save adds them
+  and offers "Calibrate the found models now (loads each once; about N
+  minutes)"; `detection_summary_lines` reports every local Ollama found;
+  `halo local` lists a found-but-not-added server. The Studio Setup card
+  comes with 3.3.0.0 R5. Tests: two mock servers on loopback ports with
+  different models -> both found, the configured one marked; a loopback
+  CIDR exercises the sweep; `--add` never repoints; `--calibrate` runs R1's
+  calibration per found model through the mock (delays included);
+  `BRIDGE_TEST_NO_BACKGROUND_NET=1` -> the LAN scope returns one line and
+  nothing else. Docs: LOCAL-MODELS ("Found on this machine", "Found on the
+  network", "Measured after finding"), MODELS-ollama, COMMANDS-local,
+  WIZARD (the Ollama tab), README.
+
+## ADDED 2026-10-26 (rolo: "For ollama, I need the ability to discover and use local ollama models on the current halo computer's internal hosting envs, plus the ability to find multiple ollama servers serving models on the same network. There could be 1 ollama locally and multiple ollama servers on the network hosting different models"): 3.3.0.0 R5 Ollama everywhere -- the servers on this machine and on the network are found, not typed
+
+Today (surveyed 2026-10-26): every Ollama host is an `ollama.hosts[]` entry
+typed by hand (the wizard's Ollama tab: name, url, key), and with none Halo
+makes one default host from `OLLAMA_HOST` or 127.0.0.1:11434; the ref grammar
+is `ol:<model>` for the default host and `ol:<model>@<host>` for a named one
+(`model.py:316-330`); the catalog asks each host `/api/tags` + `/api/show`
+(`providers/ollama.py`, 30 s cache) and `halo local`, `/model`, `halo models`
+and Studio's Models panel group rows as `Ollama (<name>)`;
+`detection_summary_lines` probes the DEFAULT host only; nothing probes another
+port, WSL, Docker or the LAN; the repo has no subnet sweep, mDNS or zeroconf
+(`providers/huggingface_local_probe.py` is the one port-list prober, loopback
+only, serial; `fleet/hub.lan_address()` finds this machine's LAN address with
+a UDP connect that sends nothing). Offline mode lets through only private,
+single-label or `.local` `ollama.hosts` entries (`providers/http.py`).
+
+- R5 Ollama everywhere. `providers/ollama_discover.py` (new, under 250
+  lines): `discover(scope, budget_s)` -> rows `{url, name, version, models,
+  configured, where}`. **Local** (`scope="local"`, about 3 s): `OLLAMA_HOST`,
+  127.0.0.1 and ::1 on the ports in `ollama.discover.ports` (default
+  `[11434]`; a second local daemon on another port is the common case), this
+  machine's own LAN address on those ports, the Docker and WSL doors
+  (`host.docker.internal`, on Windows the WSL distro's address from `wsl
+  hostname -I` when `wsl.exe` exists, on WSL the Windows host from
+  `/etc/resolv.conf`'s nameserver), each confirmed by `/api/version` (1.5 s)
+  then `/api/tags`. **The network** (`scope="lan"`, a 10 s cap, 64 threads):
+  the /24 of `lan_address()` plus `ollama.discover.subnets` (CIDRs) swept
+  with a 0.3 s TCP connect on the ports, responders confirmed the same way;
+  a name from reverse DNS, else `ollama-<last octet>`; the sweep never runs
+  in `BRIDGE_TEST_NO_BACKGROUND_NET=1` and never on its own (a button, a
+  command, a wizard step -- the user asks). A found server that matches an
+  `ollama.hosts` url is `configured: true`; adding one writes an
+  `ollama.hosts` entry (never repoints an existing host, the first stays
+  default), so its models are `ol:<model>@<name>` at once and offline mode
+  lets it through (private address).
+  - `halo ollama discover [--lan] [--add] [--add NAME,NAME] [--json]`: one
+    line per server (name, url, version, the models it serves, "configured" /
+    "new"), `--add` writes the new ones (all, or the named); `halo ollama`
+    and `halo local` list a found-but-not-added server as "found, not added
+    (halo ollama discover --add)"; `detection_summary_lines` reports every
+    local Ollama it finds, not the default alone.
+  - The wizard's Ollama tab and Local models step: **Find Ollama servers**
+    (local, at once) and **Scan this network** (the 10 s cap, a progress
+    line) list what they find with the models each serves; a tick per row,
+    Save adds them; the typed fields stay for a host the scan cannot reach.
+  - Studio Setup's Providers block (R2 of this version built it): the Ollama
+    card gets the same two buttons; the scan runs as a background job with
+    live rows (`setup` frames); a tick adds the host; the Models panel then
+    lists its models under `Ollama (<name>)`, each host a group, the default
+    host first.
+  - Tests: two `MockUpstream`s on loopback ports with different model lists
+    and `ollama.discover.ports` set -> `discover("local")` finds both with
+    their models and marks the configured one; a loopback "subnet" (a CIDR
+    of 127.0.0.0/30 and the mock ports) exercises the sweep without touching
+    the LAN; `--add` writes the hosts, never repoints, the first stays
+    default; the wizard tab (pilot) and the Setup card (Chrome) drivers tick
+    and save; `BRIDGE_TEST_NO_BACKGROUND_NET=1` makes the LAN scope return
+    nothing with one line. Docs: LOCAL-MODELS ("On this machine", "A LAN
+    host" become "Found on this machine", "Found on the network"),
+    MODELS-ollama, COMMANDS-local (`halo ollama discover`), the README's
+    local-models line, SETUP (the two buttons).
