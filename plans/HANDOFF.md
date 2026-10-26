@@ -11,16 +11,15 @@ first, then `WORKER-RULES.md`, then the round you are starting.
 **3.2.3.0 "Ollama on the network" IS RELEASED** (tag v3.2.3.0, cut from 07bb8b9 on
 2026-10-26 after both runners went green; the PC's reinstall was skipped because a halo
 session was open -- `uv tool install --reinstall git+https://github.com/roloVibes/Halo-Harness@v3.2.3.0`
-once it is closed). Worktrees `~/hh-323/<round>`, briefs under `~/hh-323/briefs/`. **3.3.0.0 "Setup is Studio" is the release candidate**: all seven rounds are merged on
-master (R1 the Setup section, R2 providers and local models, R3 the Check block + the
-Linux fixes + the fresh-home landing + no probe on a state read, R4 the doors, R5 Ollama
-Find/Scan in Setup, R6 the steer knows its target + the trace export, R7 the Studio on a
-slow box); worktrees `~/hh-330/<round>`, briefs under `~/hh-330/briefs/`;
-`scripts/release.py 3.3.0.0 --skip-windows` once both runners are green for the head.
-The PC's reinstall of 3.2.3.0 and 3.3.0.0 waits for the owner's `/quit` (a halo session
-was open at both releases). Open after 3.3.0.0: plans/ROADMAP.md "After 3.3.0.0" (R4's
-list: the TUI `/setup` fallback checks, the Setup capture with R5's card, the 400-line
-docs) and the live checks on the PC, Kali (desktop and over SSH) and the Mac.
+once it is closed). Worktrees `~/hh-323/<round>`, briefs under `~/hh-323/briefs/`. **3.3.0.0 "Setup is Studio" IS RELEASED** (tag v3.3.0.0, cut from fac512c on 2026-10-26 after
+both runners went green; the PC's install is v3.3.0.0). All seven rounds: R1 the Setup section,
+R2 providers and local models, R3 the Check block + the Linux fixes + the fresh-home landing +
+no probe on a state read, R4 the doors, R5 Ollama Find/Scan in Setup, R6 the steer knows its
+target + the trace export, R7 the Studio on a slow box (`HALO_STUDIO_SLOW_MS`); worktrees
+`~/hh-330/<round>`, briefs under `~/hh-330/briefs/`. Open: plans/ROADMAP.md "After 3.3.0.0"
+(the TUI `/setup` fallback checks, the Setup capture with R5's card, the 400-line docs, the
+map driver's spawn-edge step under latency) and the owner's live checks on the PC, Kali
+(desktop and over SSH) and the Mac. **Next:** nothing is queued beyond "After 3.3.0.0".
 
 - R0 the launch shows the HALO block-art wordmark every time; the two
   one-liners are gone (`tui/intro_lines.py`).
