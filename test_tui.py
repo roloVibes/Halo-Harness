@@ -9436,7 +9436,7 @@ def test_slash_setup_roles_opens_the_screen_and_updates_the_live_session(ctx: Ct
             from halo_harness.theme import set_config_value
             set_config_value("model", "or:vendor/strong-for-setup")
             async with app.run_test(size=(100, 40)) as pilot:
-                await handle_slash(app, "setup", "roles")
+                await handle_slash(app, "setup", "--terminal roles")  # 3.3.0.0 R4: bare /setup roles opens Studio's Setup
                 await pilot.pause(0.2)
                 ctx.check(f"the roles setup screen opened, got {type(app.screen).__name__}",
                           isinstance(app.screen, TeamStep))

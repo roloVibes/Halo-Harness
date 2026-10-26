@@ -24,6 +24,9 @@ the live feed on. No provider request, no model call:
    strip's lineup follows; One model for everything: team removed, roles off;
 6. a `halo config set` from outside (config.json written here): the strip
    follows on the `files_changed` frame;
+6b. (R4: tests/helpers/studio_setup_door.py) the doors: `?first=1` opens the
+   help once and the strip says "set up this box"; `?block=team` and a
+   `focus` frame bring a block into view;
 7. (R3: studio_setup_check.py LAST) the Check block run with stub checks,
    the Linux fixes block applied with stub fixes.
 
@@ -46,6 +49,7 @@ from tests.helpers.chrome_driver import Driver  # noqa: E402
 from tests.helpers.studio_packs_steps import CUR, TABS, alt, q, qa  # noqa: E402
 from tests.helpers.studio_setup_check import FIRST as CHECK_FIRST, LAST as CHECK_LAST, stubs as check_stubs  # noqa: E402
 from tests.helpers.studio_setup_providers import STEPS as PROVIDER_STEPS  # noqa: E402
+from tests.helpers.studio_setup_door import STEPS as DOOR_STEPS  # noqa: E402
 
 ROWS = [{"ref": "or:mock/alpha", "provider": "openrouter", "detail": "Mock Alpha", "price": "$1.00", "context": "128k",
          "best_at": {"line": "code, review", "kinds": ["code"]}},
@@ -206,7 +210,7 @@ class SetupDriver(Driver):
         try:
             with check_stubs():
                 yield tuple((fn, (c, url, ctx)) for fn in (*CHECK_FIRST, by_mode, section, *PROVIDER_STEPS, permissions, theme, model, team,
-                                                           outside, *CHECK_LAST))
+                                                           outside, *DOOR_STEPS, *CHECK_LAST))
         finally:
             M.model_rows = real
             for k, v in saved_env.items():

@@ -2,7 +2,7 @@
 scratch home seeded with the shipped lineups, the halo-dev-cycle lineup
 open, through headless Chrome (Halo 2.1.0 round B3). Also the smoke
 `tests/test_studio_ui.py` runs: the page boots, draws nodes, no console
-errors. Usage: python tools/capture_studio.py [--out PATH] [--dom] [--mode roles|design|shell|orchestra|fleet|team|start|packs]
+errors. Usage: python tools/capture_studio.py [--out PATH] [--dom] [--mode roles|design|shell|orchestra|fleet|team|start|packs|setup]
 
 3.0.7.0 R2: `--mode roles` (the default; tools/capture_roles.py) renders the
 React Roles section: a seeded lineup with two tiers and a live card
@@ -28,7 +28,9 @@ with Who can... gridcraft (studio-fleet-capabilities.png), 3.0.6.0 R8 a planned 
 (tools/capture_team.py) seeds team_rig's team mid-run and renders the Team section
 (studio-team.png); --dom counts its Start view and the seeded board. 3.2.0.0 R7: `--mode packs`
 (tools/capture_packs.py) installs and enables the shipped doc-review pack and renders the Pack Manager
-(studio-packs.png, the modes banner's seventh tile); --dom counts it.
+(studio-packs.png, the modes banner's seventh tile); --dom counts it. 3.3.0.0 R4: `--mode setup`
+(tools/capture_setup.py) renders Setup as `halo init` opens it, a provider set from a placeholder env file
+(studio-setup.png, the banner's eighth tile and the README's first screenshot after install); --dom counts it.
 """
 
 from __future__ import annotations
@@ -95,7 +97,7 @@ def main(argv: list) -> int:
     parser = argparse.ArgumentParser(description="Render docs/media/studio.png through headless Chrome")
     parser.add_argument("--out", default=str(REPO / "docs" / "media" / "studio.png"))
     parser.add_argument("--dom", action="store_true", help="print the rendered DOM's node count instead of a PNG")
-    parser.add_argument("--mode", choices=["roles", "design", "shell", "orchestra", "fleet", "team", "start", "packs"], default="roles", help="design: a seeded Launch page project (tools/design_demo.py), the React section (tools/capture_design.py)")
+    parser.add_argument("--mode", choices=["roles", "design", "shell", "orchestra", "fleet", "team", "start", "packs", "setup"], default="roles", help="design: a seeded Launch page project (tools/design_demo.py), the React section (tools/capture_design.py)")
     args = parser.parse_args(argv)
     from capture_identity import begin
     from tests.helpers.chrome_driver import scope_home
@@ -139,6 +141,14 @@ def _render(args) -> int:
             args.out = args.out[:-4] + "-packs.png"
         try:
             return capture_packs(args.out, args.dom, serve, state)
+        finally:
+            shutil.rmtree(state.parent, ignore_errors=True)
+    if args.mode == "setup":  # 3.3.0.0 R4: Setup as halo init opens it (tools/capture_setup.py)
+        from capture_setup import capture as capture_setup
+        if args.out.endswith("studio.png"):
+            args.out = args.out[:-4] + "-setup.png"
+        try:
+            return capture_setup(args.out, args.dom, serve, state)
         finally:
             shutil.rmtree(state.parent, ignore_errors=True)
     if args.mode == "design":  # 3.0.7.0 R3: the React section over a seeded project (tools/capture_design.py)

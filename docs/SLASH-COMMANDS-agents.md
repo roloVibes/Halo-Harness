@@ -158,11 +158,15 @@ thread. In print mode (`-p "/review ..."`) it prints the text form; `halo
 review` is the CLI form, with `--json`. See `docs/REVIEW.md`.
 
 ### `/setup [roles]`
-Halo 2.0.2 round 7: opens the init wizard's own Roles setup
-screen over the live session (a modal screen stack, not a separate
-program) -- bare `/setup` chains Roles -> a short
-summary; `/setup roles` opens just the one. Saving a role
-template here updates the LIVE session's own role table immediately, no
-restart needed. `halo setup [roles]` is the CLI equivalent (prints
-the current roles table with no TTY instead of blocking). See
+Halo 3.3.0.0 R4: `/setup` opens Studio's **Setup** section, and `/setup team`
+(`/setup roles` is the same) opens it on its Team block
+(`?mode=setup&block=team`); one line in the transcript says it opened (or,
+when no browser took it, gives the URL and says `/setup --terminal` is the
+terminal screen). `/setup --terminal [team|roles]` is Halo 2.0.2 round 7's
+screen: the init wizard's own Team setup screen over the live session (a modal
+screen stack, not a separate program) -- bare `/setup --terminal` chains it ->
+a short summary. Saving a role template there updates the LIVE session's own
+role table immediately, no restart needed. `halo setup [team|roles]
+[--terminal]` is the CLI equivalent (prints the current roles table with no
+TTY instead of blocking). See [STUDIO-setup.md](STUDIO-setup.md) and
 `docs/ROLES.md`.

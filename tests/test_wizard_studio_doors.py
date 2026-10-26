@@ -102,6 +102,51 @@ def test_launch_finds_a_running_studio_and_stop_reports_none(ctx: Ctx):
     info.unlink()
 
 
+def _setup_cli(argv, **stubs):
+    """3.3.0.0 R4: `cmd_setup(argv)` on a fake terminal, Studio and the browser stubbed
+    (tests/helpers/setup_door_stubs.py), the terminal screen stubbed: `(rc, stdout, record, screens run)`."""
+    from halo_harness.setup_cli import cmd_setup
+    from halo_harness.tui.dialogs import init_wizard
+    from tests.helpers.setup_door_stubs import door_stubs, fake_tty
+    screens: list = []
+
+    class _Wizard:
+        def __init__(self, state):
+            self.state = state
+
+        def run(self):
+            screens.append(tuple(self.state.step_keys))
+    saved = init_wizard.InitWizardApp
+    init_wizard.InitWizardApp = _Wizard
+    try:
+        with door_stubs(**stubs) as rec, fake_tty() as out:
+            rc = cmd_setup(list(argv))
+    finally:
+        init_wizard.InitWizardApp = saved
+    return rc, out.getvalue(), rec, screens
+
+
+@test
+def test_halo_setup_team_opens_setup_on_the_team_block(ctx: Ctx):
+    rc, text, rec, screens = _setup_cli(["team"])
+    url = rec["opened"][0] if rec["opened"] else ""
+    ctx.check(f"halo setup team: Studio on ?mode=setup&block=team, no screen, got {rc} {rec['launched']} {screens}", rc == 0
+              and rec["launched"] and rec["launched"][0]["edit"] == "setup:team" and "?mode=setup&block=team#t=" in url and not screens)
+    ctx.check(f"its line, got {text!r}", f"Setup (Team) is open in your browser: {url}. `halo setup team --terminal` runs the "
+              "terminal screen instead." in text)
+    rc, text, rec, screens = _setup_cli(["roles"])
+    ctx.check(f"halo setup roles: the same block, got {rec['launched']}", rc == 0 and rec["launched"][0]["edit"] == "setup:team")
+    rc, text, rec, screens = _setup_cli([])
+    ctx.check(f"bare halo setup: the page, got {rec['launched']}", rc == 0 and rec["launched"][0]["edit"] == "setup" and not screens)
+    rc, text, rec, screens = _setup_cli(["team", "--terminal"])
+    ctx.check(f"--terminal: the terminal screen, no Studio, got {screens} {rec}", rc == 0 and screens == [("team",)] and not rec["launched"])
+    rc, text, rec, screens = _setup_cli(["team"], env={"HALO_NO_BROWSER": "1"})
+    ctx.check(f"no browser: the URL, then the screen, got {text!r} {screens}", rc == 0 and screens == [("team",)] and not rec["opened"]
+              and "Setup (Team) is at http://127.0.0.1:" in text and "The terminal screen runs here instead." in text)
+    rc, text, rec, screens = _setup_cli(["kitchen"])
+    ctx.check(f"an unknown word: a usage error, nothing opened, got {rc}", rc == 2 and not rec["launched"] and not screens)
+
+
 @test
 def test_prompt_and_agent_tool_explain_delegation_with_roles_off(ctx: Ctx):
     from halo_harness.agent.prompt import build_system_prompt

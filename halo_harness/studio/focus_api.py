@@ -9,6 +9,8 @@
          200 {edit: "", mode, session, pages}   the pages switch to that section; Session
                                    chooses that session (`/studio`, `halo studio --session`)
          422 {error, problems}     not a section, or not a session id
+    POST focus {mode: "setup", block?: <block>, first?: bool}    (3.3.0.0 R4, studio/setup_door.py)
+         200 {edit: "", mode, session, block, first, pages}   the pages open Setup on that block
 
 Every open page (ui/src/shell/edit.ts) answers the frame the way it answers
 `?edit=` (or `?mode=session&session=`) in its URL: it switches to the section
@@ -43,6 +45,12 @@ def _post_section(req, body: dict):
         why = f"{sid!r} is not a session id for Session"
         return 422, {"error": why, "problems": [why]}
     data = {"edit": "", "mode": mode, "session": sid}
+    if mode == "setup":  # 3.3.0.0 R4 (studio/setup_door.py): the block to bring into view, the first run's help
+        from halo_harness.studio.setup_door import block_word
+        block, why = block_word(str(body.get("block") or ""))
+        if block is None:
+            return 422, {"error": why, "problems": [why]}
+        data.update(block=block, first=bool(body.get("first")))
     return 200, {**data, "pages": _publish(req, data)}
 
 
@@ -54,7 +62,8 @@ def post_focus(req):
     target, why = parse(str(body.get("edit") or ""))
     if target is None:
         return 422, {"error": why, "problems": [why]}
-    pages = _publish(req, {"edit": target.text, "mode": target.mode})
+    data = target.focus() if hasattr(target, "focus") else {"edit": target.text, "mode": target.mode}  # a Setup target
+    pages = _publish(req, data)
     return 200, {"edit": target.text, "mode": target.mode, "pages": pages}
 
 

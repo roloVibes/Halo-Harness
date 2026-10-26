@@ -46,6 +46,8 @@ export const start = createStore<StartState>({ open: false, view: "offer", plan:
 
 // 3.1.1.0 R3: a page opened on an edit (`?edit=`, `halo studio --edit`) goes straight to it, no overlay.
 const QUIET = typeof location !== "undefined" && /[?&]((tour|start)=off\b|edit=)/.test(location.search);
+/** 3.3.0.0 R4: `halo init` opened this page on Setup (`?first=1`): the offer waits; a running start still shows. */
+const DOOR = typeof location !== "undefined" && /[?&]first=1\b/.test(location.search);
 let fed = false;
 let timer = 0;
 
@@ -108,7 +110,7 @@ export async function loadStart(): Promise<void> {
       adoptJob(st.job);
       start.update(() => ({ open: true, view: "run" }));
       poll();
-    } else if (st.show) {
+    } else if (st.show && !DOOR) {
       const help = studio.get().help;
       if (help?.welcome) studio.update(() => ({ help: null })); // the welcome waits until Start here is answered
       start.update(() => ({ open: true, view: "offer" }));

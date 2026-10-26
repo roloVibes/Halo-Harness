@@ -352,8 +352,9 @@ packs from the places you trust (`packs.sources`, then the packs Halo ships); ev
 
 ### Setup
 
-**What it is** (3.3.0.0 R1). This box's setup on one page, `Alt+8`: the terminal wizard's blocks (`halo init`) as forms,
-each with its own Save, writing the keys the wizard writes. What each block writes: [STUDIO-setup.md](STUDIO-setup.md).
+**What it is** (3.3.0.0 R1). This box's setup on one page, `Alt+8`: the terminal wizard's blocks as forms, each with its
+own Save, writing the keys the wizard writes. It is the door (R4): `halo init` opens it (`?first=1`), `halo setup team` on
+its Team block (`?block=team`), and `halo init --terminal` is the terminal wizard. What each block writes: [STUDIO-setup.md](STUDIO-setup.md).
 
 ## The live feed
 

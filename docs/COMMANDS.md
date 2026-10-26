@@ -22,7 +22,7 @@ built; see [Flags parsed but not implemented yet](COMMANDS-main-misc.md#flags-pa
 Every worked example below uses `--demo` (a scripted turn needing no
 network, API key, or model) or a scratch `BRIDGE_TEST_HOME` so it is safe to
 paste into a shell verbatim; swap in your own model/prompt once you have a
-provider configured (`halo init`).
+provider configured (`halo init`, which opens Setup in Studio).
 
 ```sh
 export PYTHONPATH=/path/to/halo-harness   # a dev checkout; skip if installed
@@ -51,7 +51,7 @@ This page is the entry point; the content lives in the parts below, one per task
 | [Commands: `halo` and its model and session flags](COMMANDS-main.md) | you start `halo` with flags: the main command, its model and session flags | `halo` (the main command) · Model & session flags |
 | [Commands: `halo` output, prompt, settings, budget, browser, MCP and image flags](COMMANDS-main-io.md) | you change what `halo` prints or reads, its system prompt, settings, budget, browser, MCP or images | `halo` flags: output, prompt, settings, budget, browser, MCP and images · Output & input format flags · System prompt flags · Settings & permissions flags · Budget flags · Browser flags · MCP flags · Image flags |
 | [Commands: the other `halo` flags](COMMANDS-main-misc.md) | a `halo` flag is not in the other parts: misc flags, the ones not built yet or not applicable | `halo` flags: the rest · Misc flags · Flags parsed but not implemented yet · Flags not applicable to a standalone harness · New in 2.0.1 (W4a) |
-| [Commands: `halo init`, `halo start`, `halo check`, `halo explain` and `halo setup`](COMMANDS-init.md) | you set Halo up (`halo init`, `halo setup`), run the guided first run (`halo start`) or the checks (`halo check`), or look up a word (`halo explain`) | `halo init` · `halo start` (Halo 3.1.1.0) · `halo check` (Halo 3.2.2.0) · `halo explain` · `halo setup` / `/setup` (Halo 2.0.2 round 7) |
+| [Commands: `halo init`, `halo start`, `halo check`, `halo explain` and `halo setup`](COMMANDS-init.md) | you set Halo up (`halo init` opens Setup in Studio, `halo init --terminal` is the terminal wizard; `halo setup`), run the guided first run (`halo start`) or the checks (`halo check`), or look up a word (`halo explain`) | `halo init` · `halo start` (Halo 3.1.1.0) · `halo check` (Halo 3.2.2.0) · `halo explain` · `halo setup` / `/setup` (Halo 2.0.2 round 7) |
 | [Commands: doctor, audit, update and the installers](COMMANDS-health.md) | you check, audit, update or reinstall Halo | `halo doctor` · `halo audit` · `halo update` · The installer scripts (`install-halo.sh`, `install-halo.ps1`) |
 | [Commands: providers, rate limits and models](COMMANDS-providers.md) | you set up providers, read balances and rules, or refresh the model list | `halo providers` · `halo gov` · `halo balances` · `halo rules` · `halo work-matrix` · `halo models` |
 | [Commands: MCP servers and connectors](COMMANDS-mcp.md) | you add, list, repair or log in to MCP servers and claude.ai connectors | `halo mcp` · `/mcp` (the repair dialog) · claude.ai connectors bridge · Unsupported MCP transports · MCP audio content |

@@ -2162,6 +2162,23 @@ over loopback with Studio's token and are never read back (the state says
   Setup), a screenshots.py capture; "After 3.3.0.0" for what stays open (a
   keyring instead of the env file; pack-declared setup blocks).
 
+### After 3.3.0.0 (what the Setup rounds left open)
+
+- A keyring instead of the env file for Setup's keys (and a remover: a
+  removed Ollama host, endpoint or local server keeps its `HALO_SECRET_*`
+  line today).
+- Pack-declared setup blocks: a pack's own block on the Setup page (its
+  settings form there, beside the Pack Manager's).
+- The TUI's `/setup` decides by the browser's answer only (studio/edit_open.py
+  `open_edit`); the CLI doors also read `HALO_NO_BROWSER`, `SSH_CONNECTION`
+  and `DISPLAY` first. One rule for both if a live session over SSH shows a
+  need.
+- The Models panel (Roles) still reads `model_rows()` uncached (it probes
+  Ollama hosts on open); Setup and the cost readers read the cache.
+- The live checks on real hardware: `halo init` on the PC (Setup opens in
+  the browser), on Kali's desktop, and over SSH into Kali (the URL with the
+  port-forward line, then the terminal wizard).
+
 ## ADDED 2026-10-25 (rolo, two more for 3.2.2.0: "halo pids keep running after I exit halo. I try to do an update then get errors that it's unable to update bc an instance of halo is running even tho I closed it! Kill all halo pids when a user exits halo" and "Drop the one-liners at the beginning when you launch halo, and just pop up the halo ascii art we use each time halo launches")
 
 - R0 The launch shows the art (done by the coordinator, one commit): the

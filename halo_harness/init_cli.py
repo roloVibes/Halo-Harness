@@ -952,9 +952,11 @@ def _step_summary(console: Console, written: list, pong_ok: bool, doctor_lines: 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="halo init", add_help=True,
-        description="Set up halo in one command: pick a provider to set up, configure its "
-                     "credentials, set a default model, run doctor, send a live pong, and offer the "
-                     "Linux setup fixes. Repeat for another provider, then pick the overall default.",
+        description="Set up halo. On a terminal it opens Halo Studio on its Setup section (providers, the "
+                     "default model, permissions, the terminal theme, the lineup, the checks); --terminal runs "
+                     "the terminal wizard instead, and so does a box where no browser can open (SSH, no DISPLAY, "
+                     "HALO_NO_BROWSER). --provider/--yes set a provider up without asking: its credentials, a "
+                     "default model, doctor, a live pong and the Linux setup fixes.",
     )
     parser.add_argument("--provider", action="append", choices=list(PROVIDERS), default=None,
                          metavar="{databricks,openrouter,anthropic}",
@@ -975,7 +977,11 @@ def _build_parser() -> argparse.ArgumentParser:
     # meaningful on a real terminal (the interactive wizard flow below).
     parser.add_argument("--step", default=None, metavar="STEP",
                          help="jump directly to one wizard step by key or 1-based number (e.g. --step agents), "
-                              "interactive only")
+                              "interactive only (the terminal wizard)")
+    # 3.3.0.0 R4: `halo init` opens Studio's Setup; this keeps the terminal wizard.
+    parser.add_argument("--terminal", action="store_true",
+                         help="run the terminal wizard instead of opening Setup in Studio "
+                              "(also what runs when no browser can open: SSH, no DISPLAY, HALO_NO_BROWSER)")
     return parser
 
 
@@ -1124,6 +1130,18 @@ def _run_init_tabs(args, console: Console, cwd: Path) -> "Optional[tuple]":
     return configured_this_run, written, doctor_lines, picked_per_provider
 
 
+def _open_setup_in_studio(args, console: Console, cwd: Path) -> bool:
+    """3.3.0.0 R4: bare `halo init` on a terminal starts or reuses Studio and opens it on Setup
+    (`?mode=setup&first=1`), prints one line and is done: True. False runs the terminal wizard: `--terminal`,
+    or a flag only the wizard honours (`--step`, `--team`, `--no-live`), or no browser could open here (the URL
+    and the port-forward hint are printed first: studio/setup_door.py)."""
+    if args.terminal or args.step or args.team or args.no_live:
+        return False
+    from halo_harness.studio.setup_door import SetupTarget, cli_door
+    return cli_door(SetupTarget(first=True), terminal_cli="halo init --terminal", fallback="wizard", cwd=cwd,
+                    say=lambda line: console.print(line, markup=False, highlight=False, soft_wrap=True))
+
+
 def cmd_init(argv: list) -> int:
     args = _build_parser().parse_args(argv)
     console = Console()
@@ -1165,6 +1183,8 @@ def cmd_init(argv: list) -> int:
     # unaffected and keeps using the sequential loop + numbered fallback
     # exactly as before this round.
     if interactive_loop and sys.stdin.isatty() and sys.stdout.isatty() and not args.yes:
+        if _open_setup_in_studio(args, console, cwd):  # 3.3.0.0 R4: Setup in Studio is the door
+            return 0
         wizard_rc = _run_init_wizard_flow(args, console, cwd)
         if wizard_rc is not None:
             return wizard_rc

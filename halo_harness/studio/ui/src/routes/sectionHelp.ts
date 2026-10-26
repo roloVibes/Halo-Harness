@@ -132,13 +132,16 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
   },
   setup: {
     terms: ["setup", "provider", "env file", "lineup"], // 3.3.0.0 R1: "setup", "provider" and "env file" are in the glossary
-    what: "This box's setup on one page: the terminal wizard's blocks (halo init) as forms you fill in any order, each with its own Save. Every block writes the key the wizard writes in ~/.halo/config.json, the same as halo config set; keys go to the env file and are never shown back.",
+    what: "This box's setup on one page, the page halo init opens: the terminal wizard's blocks as forms you fill in any order, each with its own Save. Every block writes the key the wizard writes in ~/.halo/config.json, the same as halo config set; keys go to the env file and are never shown back. halo init --terminal is the terminal wizard.",
     steps: [
-      ["Read the strip", "The top line says what is set now: the providers set up here, the default model, the lineup, the permission mode and the terminal theme."],
+      ["Read the strip", "The top line says what is set now: the providers set up here, the default model, the lineup, the permission mode, the terminal theme and the last check."],
+      ["Set a provider up", "Providers: one card per provider. Paste a key (or a host), Save & test writes it to the env file, turns the provider on and reads its model list. Ollama and Hugging Face take hosts and servers."],
+      ["Point at your local models", "Local models: the folders your model files are in and the runtime that serves them (llama-server or mlx_lm)."],
       ["Pick the default model", "Default model lists the catalog of the providers set up here, grouped by provider, with what each model is best at; search, pick one, Save."],
       ["Pick the permission mode", "Permissions: auto, acceptEdits, default or plan, each with what it allows; Save writes the mode every new session starts in."],
       ["Pick the terminal theme", "Terminal theme: the colours of halo in your terminal, each swatch drawn in its own colours. Studio's dark / light switch in the header is this browser's own."],
       ["Pick the lineup", "Team: One model for everything, auto (the default) or a lineup, with its preview; Apply writes what the wizard's Team step writes. Edit in Roles opens it in Roles."],
+      ["Run the check", "Check: doctor, the model catalog and one hello call are ticked; the quick gym and the guided first run say what they cost first. Linux fixes shows only when this box needs them."],
       ["Each block saves alone", "A block's line says saved, 1 changed or problem; Revert drops your pick. A change made in a terminal (halo config set) shows here at once."],
       ["Next", "Session: start a session on the model you picked (halo in a terminal)."],
     ],

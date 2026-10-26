@@ -355,3 +355,7 @@ and `isolation/Dockerfile` the worker image.
   through `start_job`), `studio/setup_check_state.py` (the checks, the card, the last check, the
   Linux fixes, the fresh-home flag) and `providers/local_models_cached.py` (the local model rows
   from what is cached, never a probe: `build_local_view(cached=True)` for a page read).
+  R4: `studio/setup_door.py` (the doors: `SetupTarget` = `setup`, `setup:first`, `setup:<block>` as an
+  edit target, `?mode=setup&first=1` / `&block=team`; the no-browser rule; `open_setup` starting or
+  reusing Studio; `cli_door`, the one line `halo init`, `halo setup` and `halo start` print before the
+  terminal wizard runs as the fallback) and `ui/src/routes/setup/door.ts` (the page's side).

@@ -21,6 +21,9 @@ env file in that home (`HALO_ENV_FILE`); no provider request, no model call:
 5. Team: balanced with its preview, Apply writes team and roles on; One
    model for everything removes team and turns roles off;
 6. a config.json write from outside: the strip follows the frame;
+6b. (R4) the doors: ?first=1 opens the help once ("What this page does") and
+   the strip says "set up this box"; ?block=team and a focus frame bring a
+   block into view and focus it;
 7. (R3) Check: the five rows and their defaults, the gym's models, the card
    before the guided first run's box, a run of stub checks fills the logs,
    the summary and the strip; Linux fixes: two stubbed fixes applied.
@@ -219,6 +222,23 @@ def test_team_apply(ctx: Ctx):
 def test_a_write_from_outside_shows(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"config.json written outside the page: the strip follows, got {got.get('outside_strip')!r}", got.get("outside_strip") == "acceptEdits")
+
+
+@test
+def test_the_doors_first_run_and_a_block(ctx: Ctx):
+    """3.3.0.0 R4 (tests/helpers/studio_setup_door.py): what `halo init` and `halo setup team` open."""
+    got = _got(ctx)
+    ctx.check(f"?first=1: Setup with its help titled 'What this page does', got {got.get('first_section')!r} {got.get('first_help')!r}",
+              str(got.get("first_section")).startswith("Setup") and got.get("first_help") == "What this page does")
+    ctx.check(f"the strip says set up this box, got {got.get('first_strip')!r}", str(got.get("first_strip")).startswith("set up this box"))
+    ctx.check(f"first=1 left the address bar, the token kept, got {got.get('first_search')!r}",
+              "mode=setup" in str(got.get("first_search")) and "first=" not in str(got.get("first_search")) and got.get("first_hash") is True)
+    ctx.check("Start here's offer waits on the first run", got.get("first_start_open") is False)
+    ctx.check(f"once: a reload opens no help and no first-run cell, got {got.get('reload_help')} {got.get('reload_strip_first')}",
+              got.get("reload_help") is False and got.get("reload_strip_first") is False)
+    ctx.check(f"?block=team: the Team block focused and in view, got {got.get('block_focus')!r} {got.get('block_visible')}",
+              got.get("block_focus") == "setup-team" and got.get("block_visible") is True and "block=" not in str(got.get("block_search")))
+    ctx.check(f"a focus frame for the Check block focuses it, got {got.get('frame_focus')!r}", got.get("frame_focus") == "setup-check")
 
 
 if __name__ == "__main__":

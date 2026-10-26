@@ -4,15 +4,15 @@
 `ready()` is `(True, "<what>")` when a provider's credentials or login
 resolve and it is enabled (`init_providers.configured_providers`), or when
 config.json names a default model (a local or LAN model counts); else
-`(False, the line that says so)`. `halo init` is what sets a provider up;
-`halo setup` is its team screen, for later.
+`(False, the line that says so)`. `halo init` is what sets a provider up
+(3.3.0.0 R4: it opens Setup in Studio; `--terminal` is the terminal wizard).
 """
 
 from __future__ import annotations
 
 NO_PROVIDER = ("No model provider is set up yet, so there is nothing for the agents to run on. "
-               "halo init sets one up (a key, a login or a local model), then run halo start again; "
-               "halo setup is the team screen for later.")
+               "halo init opens Setup in Studio to set one up (a key, a login or a local model; "
+               "halo init --terminal is the terminal wizard), then run halo start again.")
 
 
 def configured() -> "list[str]":
