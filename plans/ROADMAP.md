@@ -2528,3 +2528,23 @@ single-label or `.local` `ollama.hosts` entries (`providers/http.py`).
     host" become "Found on this machine", "Found on the network"),
     MODELS-ollama, COMMANDS-local (`halo ollama discover`), the README's
     local-models line, SETUP (the two buttons).
+
+## ADDED 2026-10-26 (rolo, his measurements on this PC's GPU: Ollama offloads part of a model to the CPU past a 49,152 window even with room on the card; every layer forced onto the GPU made a 65,536 window safe and 98,304 tight; derived "-gpu" model variants carry that default with no extra disk): 3.2.3.0 R1 gains residency and headroom; R3 a tuned twin
+
+- R1 (added): the request asks for `num_gpu` = every layer when Halo's own
+  memory estimate says the model and the window fit the host's GPU memory
+  (Ollama's own rule offloads earlier); calibration counts a partly offloaded
+  load (`size_vram < size`) as "offloaded", not "fits"; a window is "safe"
+  when the measured residency leaves 8 % of the card (or 1.5 GB) free, else
+  "tight"; the largest safe window is recorded and the tight one named in the
+  line; prompt reading speed (tokens/s from Ollama's eval fields) is recorded
+  per host and model and shown in the panel and the pickers' speed column.
+- R3 A tuned twin: `halo ollama tune MODEL --host H [--window N]` creates, on
+  that host through `/api/create`, a derived model `<model>-halo` whose
+  Modelfile keeps every layer on the GPU and sets the measured safe window as
+  its default (`num_ctx`, `num_gpu`), sharing the original's blobs; `halo
+  ollama` lists it beside the original with "tuned twin of <model>"; the
+  pickers show the twin first for that host; the wizard's calibrate offer and
+  `halo ollama discover --calibrate` end with "make tuned twins? (Enter / n)";
+  `--remove` deletes a twin. Tests through the mock's `/api/create`; docs:
+  MODELS-ollama-tuning "A tuned twin", COMMANDS-local.
