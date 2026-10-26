@@ -131,6 +131,7 @@ Focus: what the owner hit live on 2026-10-25, as six rounds -- the guided first 
 
 #### Fixed
 
+- Roles: two layout saves could be in flight at once (a drag's debounced save still out when the next began) and land out of order, so older card positions won on disk; saves now go one at a time and the newest state goes out last (the Windows runner caught it three times).
 - Studio's Start here could show a step as `running` after the guided first run had finished: the run step floods the live feed and its last frame could fall off the browser's queue. The page now re-reads the job after the summary frame and whenever the feed says `dropped` (the Windows runner caught it).
 
 #### Changed
