@@ -167,7 +167,8 @@ def test_write_routes(ctx: Ctx):
         ctx.check("a bad layout is a 422 and the lineup is not written", s.call("PUT", "/api/lineup/studio-t", {"raw": raw, "layout": {"tiers": [1]}})[0] == 422
                   and s.call("GET", "/api/lineup/studio-t")[1]["raw"]["description"] == "studio edit")
         s.srv.slow_ms, t0 = 300, time.monotonic()  # the latency flag (HALO_STUDIO_SLOW_MS): every answer that late
-        ctx.check("with the latency flag an answer comes 300 ms late", s.call("GET", "/api/state")[0] == 200 and time.monotonic() - t0 >= 0.3)
+        # 0.25, not 0.3: Windows' sleep can wake a few ms early against time.monotonic (0.297 s seen on this box)
+        ctx.check("with the latency flag an answer comes 300 ms late", s.call("GET", "/api/state")[0] == 200 and time.monotonic() - t0 >= 0.25)
         s.srv.slow_ms = 0
         status, ap, _ = s.call("POST", "/api/lineup/studio-t/apply")
         ctx.check("apply writes team and roles like halo teams use",
