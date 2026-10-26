@@ -14,7 +14,11 @@
 // this session (a lane click pins its agent), the lines with Fleet's time and
 // KIND columns, and the Steer box at the foot at all times (LiveSteer.tsx:
 // the pinned agent, else the session's main agent, with Pause and Stop).
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+// 3.3.0.0 R6: the steer's target row is outlined (a click on a row, or `s` on
+// a focused row, chooses it); the column stops following while you compose
+// or have scrolled up (follow.ts: the "N new rows · follow" pill); Export
+// downloads the session's trace (TraceExport.tsx).
+import { useCallback, useEffect, useMemo, useRef, type KeyboardEvent } from "react";
 import type { MotionState } from "../../lib/motion";
 import { Empty } from "../../lib/ui";
 import { patchPanel } from "../../lib/workspace/persist";
@@ -22,14 +26,17 @@ import { Metric } from "../orchestra/bits";
 import { short } from "../orchestra/format";
 import { Timeline } from "../fleet/Timeline";
 import { allAgents, fleet, isLive, localId, useFleet } from "../fleet/store";
+import { focusSteer } from "../fleet/Steer";
 import { useLive, type LiveLine } from "../shared/liveFeed";
 import { hueOf } from "../shared/hues";
 import { startLiveTree } from "../shared/liveTree";
 import { kindIn, LiveHead } from "./LiveHead";
 import { answerAsk, LiveRow, type Who } from "./LiveRows";
 import { LiveSteer } from "./LiveSteer";
-import { setPin, useStripScope } from "./steer";
+import { useFollow } from "./follow";
+import { chooseTarget, followAgain, pauseFollow, setPin, targetRow, useStripScope, useSteerTarget } from "./steer";
 import { sess, useSession } from "./store";
+import { TraceExport } from "./TraceExport";
 
 export const VIEW = 500;
 const whoCache = new Map<string, Who>();
@@ -59,45 +66,38 @@ export function LiveDetail() {
   const all = useLive((s) => s.lines);
   const pin = useSession((s) => s.pin);
   const kind = useSession((s) => s.kind);
-  const follow = useSession((s) => s.follow);
+  const held = useSession((s) => s.held);
   const who = useWho();
   const strip = useStripScope();
+  const target = useSteerTarget().key;
   const scroller = useRef<HTMLDivElement>(null);
-  const [pausedAt, setPausedAt] = useState(0);
   const lines = useMemo(() => all.filter(pin ? (l) => l.key === pin : mine(here)).filter(kindIn(kind)), [all, pin, here, kind]);
-  const shown = lines.length > VIEW ? lines.slice(-VIEW) : lines;
-  const fresh = follow ? 0 : shown.filter((l) => l.n > pausedAt).length;
-  useLayoutEffect(() => {
-    const el = scroller.current;
-    if (el && follow) el.scrollTop = el.scrollHeight;
-  }, [shown, follow]);
-  const onScroll = () => {
-    const el = scroller.current;
-    if (!el) return;
-    const bottom = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
-    if (!bottom && follow) {
-      setPausedAt(shown[shown.length - 1]?.n || 0);
-      sess.update(() => ({ follow: false }));
-    } else if (bottom && !follow) sess.update(() => ({ follow: true }));
-  };
+  const shown = useMemo(() => (lines.length > VIEW ? lines.slice(-VIEW) : lines), [lines]);
+  const targetN = useMemo(() => targetRow(shown, target, held), [shown, target, held]);
+  const { following, fresh, onScroll } = useFollow(scroller, shown);
   const onPin = useCallback((k: string) => setPin(k), []);
+  const onTarget = useCallback((l: LiveLine) => chooseTarget(l.key, l.n), []);
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
     if ((e.target as HTMLElement).closest("textarea, input, select") || e.ctrlKey || e.metaKey || e.altKey) return;
     const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    const row = (e.target as HTMLElement).closest<HTMLElement>(".slv-line");
     const ask = ["a", "r", "s", "o"].includes(k) ? [...shown].reverse().find((l) => l.kind === "ask") : undefined;
-    if (k === "Escape" && sess.get().pin) setPin(sess.get().pin);
+    if (k === "s" && row?.dataset.key) {
+      chooseTarget(row.dataset.key, Number(row.dataset.n) || 0); // `s` on a focused row: steer it
+      focusSteer("live");
+    } else if (k === "Escape" && sess.get().pin) setPin(sess.get().pin);
     else if (!(ask && answerAsk(ask.key, k, true))) return; // A / R / S / O: the newest ask card in the column
     e.preventDefault();
     e.stopPropagation();
   };
   const working = [...who.entries()].filter(([k, w]) => k.startsWith(here + "|") && w.state === "running").length;
   const lastN = shown[shown.length - 1]?.n;
-  const onFollow = () => (follow && setPausedAt(lastN || 0), sess.update((s) => ({ follow: !s.follow })));
+  const onFollow = () => (sess.get().follow ? pauseFollow() : followAgain());
   return (
-    <div className="slv" data-testid="session-live-detail" data-follow={follow || undefined} data-pinned={pin || undefined} data-kind={kind || undefined} onKeyDown={onKey}>
-      <LiveHead working={working} count={lines.length} onFollow={onFollow} />
+    <div className="slv" data-testid="session-live-detail" data-follow={following || undefined} data-pinned={pin || undefined} data-kind={kind || undefined} data-target={target || undefined} onKeyDown={onKey}>
+      <LiveHead working={working} count={lines.length} onFollow={onFollow} following={following} />
       <div className="slv-strip">
-        <Timeline scope={strip} onPick={onPin} marked={pin} verb="show only it in Live (again: everyone)" testid="session-live-timeline" />
+        <Timeline scope={strip} onPick={onPin} marked={target} verb="show only it in Live (again: everyone)" testid="session-live-timeline" extra={<TraceExport where="timeline" />} />
       </div>
       <div className="slv-rows">
         <div className="slv-scroll" ref={scroller} onScroll={onScroll} onMouseLeave={() => setHover("")} data-testid="session-live-scroll" tabIndex={-1}>
@@ -111,12 +111,13 @@ export function LiveDetail() {
                    body={kind ? "No line of that kind yet: every kind shows them all." : "Every agent's text, tool calls and output land here the moment they happen: start or steer a session in a terminal (halo)."} />
           )}
           {shown.map((l) => (
-            <LiveRow key={l.n} l={l} who={who.get(l.key) || { name: l.key.split("|")[2] || "?", hc: hueOf(l.key), state: "" }} last={l.n === lastN} onPin={onPin} onHover={setHover} />
+            <LiveRow key={l.n} l={l} who={who.get(l.key) || { name: l.key.split("|")[2] || "?", hc: hueOf(l.key), state: "" }} last={l.n === lastN} target={l.n === targetN}
+                     onPin={onPin} onHover={setHover} onTarget={onTarget} />
           ))}
         </div>
         {fresh > 0 && (
-          <button type="button" className="slv-new mono" data-testid="session-live-new" onClick={() => sess.update(() => ({ follow: true }))}>
-            ↓ {fresh} new
+          <button type="button" className="slv-new mono" data-testid="live-follow" onClick={followAgain} title="Follow the newest row again">
+            {fresh} new row{fresh === 1 ? "" : "s"} · follow
           </button>
         )}
       </div>

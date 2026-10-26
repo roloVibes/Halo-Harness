@@ -85,6 +85,8 @@ def _gather_real_flags() -> "dict[str, set]":
     out["halo update"] = _flags_in(_capture(update_cli.cmd_update, ["--help"]))
     out["halo stats"] = _flags_in(_capture(stats_cli.cmd_stats, ["--help"]))
     out["halo export"] = _flags_in(_capture(export_cli.cmd_export, ["--help"]))
+    from halo_harness.session_trace_cli import cmd_session  # 3.3.0.0 R6: the Markdown trace
+    out["halo session export"] = _flags_in(_capture(cmd_session, ["export", "--help"]))
     out["halo improve"] = _flags_in(_capture(improve_cli.cmd_improve, ["--help"]))
     out["halo init"] = _flags_in(_capture(init_cli.cmd_init, ["--help"]))
     out["halo proxy"] = _flags_in(_capture(bridge.main, ["--help"]))
@@ -154,7 +156,7 @@ def test_every_subcommand_is_documented(ctx: Ctx):
     text = doc_text("COMMANDS.md")
     for name in ("init", "doctor", "update", "models", "mcp", "config", "stats", "export", "improve", "proxy",
                  "work-matrix", "ollama", "review", "media", "fleet", "team", "start", "explain", "pack", "workflow",
-                 "isolation", "secrets"):
+                 "isolation", "secrets", "session"):
         label = f"halo {name}"
         ctx.check(f"COMMANDS.md documents {label!r} (as a heading)",
                   re.search(rf"^#{{1,3}}\s+.*`?{re.escape(label)}`?", text, re.MULTILINE) is not None)

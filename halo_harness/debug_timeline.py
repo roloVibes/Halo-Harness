@@ -214,6 +214,9 @@ class TurnTimeline:
                     entry["reason"] = data.get("reason")
                 self._current["compactions"].append(entry)
                 self._debug_print(f"turn {self._current['turn']} compaction {phase_name} +{entry['ms']}ms")
+            elif kind == "turn_marker" and data.get("state") in ("done", "waiting", "stopped") and not data.get("mid_turn"):
+                # Halo 3.3.0.0 R6: the line the turn ended with, for the session trace (session_trace.py)
+                self._current["marker"] = {"state": data.get("state"), "text": data.get("text")}
             elif kind == "turn_done":
                 self._current["message_end_ms"] = self.elapsed_ms()
                 self._debug_print(f"turn {self._current['turn']} message_end +{self._current['message_end_ms']}ms "

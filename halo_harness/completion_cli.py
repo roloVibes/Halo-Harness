@@ -48,6 +48,7 @@ SUBCOMMANDS = (
     "check",  # Halo 3.2.2.0 round R2: the checks Halo offers after setup
     "pack",  # Halo 3.2.0.0 round R1: capability packs
     "ollama", "local",  # Halo 3.2.3.0 round R2: the gap the round 5d note named, closed with `halo ollama discover`
+    "session",  # Halo 3.3.0.0 round R6: `halo session export <id>` (the Markdown trace)
 )
 
 # Halo 3.2.3.0 round R2: the words that follow `halo ollama` (and the discover flags);

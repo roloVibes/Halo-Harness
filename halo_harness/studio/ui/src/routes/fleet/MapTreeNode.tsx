@@ -7,15 +7,18 @@
 // the state (fleet.css, holo.css): working a cyan pulse, waiting amber, done
 // a green that fades, failed a red that stays. 3.1.7.0 R1: the "steer" chip
 // shows on hover (MapSteer.tsx): pin it in Live and steer it there.
+// 3.3.0.0 R6: the Steer box's target carries `data-target` (a steady outline,
+// its steer chip lit) while Session shows.
 import { useEffect, type MouseEvent } from "react";
 import { useRecent } from "../../lib/motion";
 import { Icon, toolIcon } from "../../lib/ui";
 import { cost, short } from "../orchestra/format";
 import { startLive, useOpenTool } from "../shared/liveFeed";
-import { openAgentPanel, select } from "./actions";
+import { openAgentPanel } from "./actions";
 import type { NodeBox } from "./layout";
 import { nowText, useTicker, type MenuAt } from "./MapNode";
 import { SteerChip } from "./MapSteer";
+import { pickNode, useTargetKey } from "../session/steer";
 import { agentMotion, DONE_MS, toolOf, useFleet, useNow } from "./store";
 import type { AgentRow, Activity } from "./types";
 
@@ -50,6 +53,7 @@ export function TreeNode({ n, onMenu, menuOf }: { n: NodeBox; onMenu: (m: MenuAt
   const selected = useFleet((s) => s.selected === key);
   const hovered = useFleet((s) => s.hover === key);
   const pinned = useFleet((s) => s.pinned === key);
+  const target = useTargetKey() === key;
   const doneAt = useFleet((s) => s.doneAt[key] || 0);
   useRecent(doneAt, DONE_MS); // re-draws when the done glow has faded
   const act = useFleet((s) => s.activity[key]);
@@ -61,11 +65,12 @@ export function TreeNode({ n, onMenu, menuOf }: { n: NodeBox; onMenu: (m: MenuAt
   const model = modelOf(a.model);
   const pillW = Math.min(n.w - 74, Math.max(40, model.length * 5.9 + 14));
   return (
-    <g className="fm-node" data-testid="fleet-node" data-tree="" data-key={key} data-state={a.state || "none"} data-motion={agentMotion(a, doneAt)} data-selected={selected || undefined}
+    <g className="fm-node" data-testid="fleet-node" data-tree="" data-key={key} data-state={a.state || "none"} data-motion={agentMotion(a, doneAt)} data-selected={selected || undefined} data-target={target || undefined}
        data-hover={hovered || undefined} data-parent={a.parent || undefined} data-hc={n.hc} transform={`translate(${n.x} ${n.y})`} role="button" tabIndex={0}
-       aria-label={`${name}: ${a.state}`} onClick={() => select(key)} onDoubleClick={() => openAgentPanel(key)} onKeyDown={(e) => e.key === "Enter" && openAgentPanel(key)}>
+       aria-label={`${name}: ${a.state}`} onClick={() => pickNode(key)} onDoubleClick={() => openAgentPanel(key)} onKeyDown={(e) => e.key === "Enter" && openAgentPanel(key)}>
       <title>{`${name}${role ? " (" + role + ")" : ""}: ${a.state}${parent ? "\nspawned by " + (parent.name || parent.role || parent.agent_id) : ""}${a.model ? "\non " + a.model : ""}${a.task ? "\n" + a.task : ""}`}</title>
       {selected && <NodeBrackets w={n.w} h={n.h} />}
+      {target && <rect className="fm-target" data-testid="fleet-node-target" x={-3} y={-3} width={n.w + 6} height={n.h + 6} rx={10} />}
       <rect className="fm-shape" width={n.w} height={n.h} rx={8} />
       <circle className="fm-dot" cx={12} cy={13} r={4} />
       <text className="fm-name" x={22} y={17}>

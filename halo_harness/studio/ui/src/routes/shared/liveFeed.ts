@@ -12,6 +12,8 @@
 // each agent runs right now and since when: the map's "Bash 12s" reads it. 3.2.0.0 R3: a pack's
 // `pack_event` is one line (kind "pack") with the pack's label and its line template (routes/packs/events.ts).
 // 3.2.2.0 R4: a session's `turn_marker` (`◼ done · 42 s · 3 tools`, `◼ waiting on you: ...`, `◼ stopped: ...`) is a state line.
+// 3.3.0.0 R6: a steer you send (`addSteer`) lands right under its target row (the anchor session/steer.ts names), and
+// the agent's next row of its own (text, a tool call, an output) is marked `after` ("after your steer").
 import { onEvent, type FeedFrame } from "../../lib/events";
 import { createStore, useStore } from "../../lib/store";
 import { fleet, findAgent, keyOf, localId } from "../fleet/store";
@@ -41,6 +43,9 @@ export type LiveLine = {
   state?: string;
   /** 3.2.0.0 R3: a pack line's KIND column (the pack's label). */
   label?: string;
+  /** 3.3.0.0 R6: a steer's target name ("↳ steer to coder: ..."), and the agent's first row after it. */
+  to?: string;
+  after?: boolean;
 };
 export type OpenTool = { tool: string; id: string; t0: number };
 export type LiveState = { lines: LiveLine[]; open: Record<AgentKey, OpenTool>; started: boolean };
@@ -51,6 +56,14 @@ const FULL_MAX = 4000;
 const JOIN_LINES = 8;
 const JOIN_MS = 6000;
 let seq = 0;
+const ANSWERS: LiveKind[] = ["text", "thinking", "tool", "output", "error"];
+const steered = new Set<AgentKey>();
+let anchorOf: (key: AgentKey) => number = () => 0;
+
+/** session/steer.ts: the row a steer to `key` lands under (0: at the end). */
+export function setSteerAnchor(fn: (key: AgentKey) => number): void {
+  anchorOf = fn;
+}
 
 export const live = createStore<LiveState>({ lines: [], open: {}, started: false });
 
@@ -66,8 +79,9 @@ type NewLine = Omit<LiveLine, "n" | "t0"> & { t0?: number };
 
 /** Add one line; `at` keeps the list in time order (a backlog entry), else it goes last. */
 export function addLine(l: NewLine, at = false): void {
+  const after = !at && ANSWERS.includes(l.kind) && steered.delete(l.key);
   live.update((s) => {
-    const line: LiveLine = { t0: at ? l.ts * 1000 : Date.now(), ...l, n: ++seq };
+    const line: LiveLine = { t0: at ? l.ts * 1000 : Date.now(), ...l, n: ++seq, ...(after ? { after } : {}) };
     const open = l.kind === "tool" && !l.ended && !at ? { ...s.open, [l.key]: { tool: l.tool || "?", id: l.id || "", t0: line.t0 } } : s.open;
     if (!at) return { lines: [...s.lines, line].slice(-MAX_LINES), open };
     let i = s.lines.length;
@@ -85,7 +99,7 @@ export function addText(key: AgentKey, kind: "text" | "thinking", text: string, 
   for (let j = s.lines.length - 1; j >= Math.max(0, s.lines.length - JOIN_LINES); j--) {
     const x = s.lines[j];
     if (x.key !== key) continue;
-    if (x.kind === kind && now - (x.ended || x.t0) < JOIN_MS) {
+    if (x.kind === kind && now - (x.ended || x.t0) < JOIN_MS && !steered.has(key)) {
       const lines = s.lines.slice();
       lines[j] = { ...x, text: clip(x.text + text), ended: now };
       live.update(() => ({ lines }));
@@ -94,6 +108,19 @@ export function addText(key: AgentKey, kind: "text" | "thinking", text: string, 
     break;
   }
   addLine({ key, kind, ts, text: clip(text), ended: now });
+}
+
+/** A steer you sent to `key` (`to`: its name): one row under the target row, after any steer already there. */
+export function addSteer(key: AgentKey, text: string, ts: number, to: string): void {
+  const anchor = anchorOf(key);
+  live.update((s) => {
+    const line: LiveLine = { key, kind: "you", ts, t0: Date.now(), text: clip(text), to, n: ++seq };
+    let i = anchor ? s.lines.findIndex((x) => x.n === anchor) : -1;
+    if (i < 0) return { lines: [...s.lines, line].slice(-MAX_LINES) };
+    for (i++; i < s.lines.length && s.lines[i].kind === "you" && s.lines[i].key === key; i++);
+    return { lines: [...s.lines.slice(0, i), line, ...s.lines.slice(i)].slice(-MAX_LINES) };
+  });
+  steered.add(key);
 }
 
 export function toolStart(key: AgentKey, id: string, tool: string, ts: number, target = ""): void {

@@ -1322,19 +1322,21 @@ class Controller:
         return new_id
 
     def export_session(self, *, sanitize: bool = False, path: Optional[str] = None) -> str:
-        """Render the current session as Markdown (`/export [--sanitize]
-        [file]`). Writes to `path` when given, else
-        `<state_dir>/exports/<session_id>.md`. Returns the path written.
-        `sanitize=True` redacts text shaped like a bearer token/API key/
-        password assignment -- best-effort pattern matching, not a
-        substitute for care about what gets exported."""
+        """`/export [--sanitize] [file]`: the session as one Markdown trace
+        (Halo 3.3.0.0 R6, session_trace.py: the header with the totals, one
+        entry per row, keys masked, home paths as ~), the same bytes as
+        `halo session export <id>` and Studio's Export button. Writes to
+        `path` when given, else beside the session log
+        (`halo-trace-<session id>-<yyyy-mm-dd-hhmm>.md`). Returns the path
+        written. `sanitize=True` runs the redactor over it once more."""
+        from halo_harness.session_trace_cli import trace_for_path, trace_name
         log = self.session.log
-        text = render_transcript_markdown(log.nodes(), session_id=log.session_id)
+        text = trace_for_path(log.path)
         if sanitize:
             text = sanitize_transcript(text)
-        out_path = Path(path) if path else (self.state_dir / "exports" / f"{log.session_id}.md")
+        out_path = Path(path) if path else (log.path.parent / trace_name(log.session_id))
         out_path.parent.mkdir(parents=True, exist_ok=True)
-        out_path.write_text(text, encoding="utf-8")
+        out_path.write_bytes(text.encode("utf-8"))
         return str(out_path)
 
     def session_stats(self) -> dict:
@@ -1458,37 +1460,6 @@ def _generate_title(session, first_user_text: str) -> str:
         return heuristic
     cleaned = _clean_title(raw)
     return cleaned or heuristic
-
-
-def render_transcript_markdown(nodes: list, *, session_id: str) -> str:
-    """`/export`'s own Markdown rendering of a session log's node list --
-    user/assistant text, tool calls (as a fenced JSON block of their
-    input), tool results, and rewind markers, in log order."""
-    lines = [f"# halo session {session_id}", ""]
-    for node in nodes:
-        ntype = node.get("type")
-        if ntype == "user":
-            text = "".join(b.get("text", "") for b in node.get("content") or []
-                           if isinstance(b, dict) and b.get("type") == "text")
-            if text:
-                lines.append(f"## User\n\n{text}\n")
-        elif ntype == "assistant":
-            blocks = node.get("content") or []
-            text = "".join(b.get("text", "") for b in blocks if isinstance(b, dict) and b.get("type") == "text")
-            if text.strip():
-                lines.append(f"## Assistant\n\n{text}\n")
-            for call in blocks:
-                if isinstance(call, dict) and call.get("type") == "tool_use":
-                    body = json.dumps(call.get("input", {}), indent=2, default=str, ensure_ascii=False)
-                    lines.append(f"### Tool call: {call.get('name', '?')}\n\n```json\n{body}\n```\n")
-        elif ntype == "tool_result":
-            content = node.get("content")
-            text = content if isinstance(content, str) else json.dumps(content, default=str, ensure_ascii=False)
-            label = " (error)" if node.get("is_error") else ""
-            lines.append(f"### Tool result{label}\n\n```\n{text[:4000]}\n```\n")
-        elif ntype == "rewind":
-            lines.append(f"### Rewind ({node.get('verb')}) to step {node.get('step_id')}\n")
-    return "\n".join(lines)
 
 
 def sanitize_transcript(text: str) -> str:

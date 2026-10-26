@@ -107,10 +107,10 @@ def follow(c, lv) -> dict:
     for i in range(3):
         lv.say("docs" if i % 2 else "tester", f"while you read {i}")
         lv.tool("tester", "Grep", f"new-{i}")
-    out["pill"] = c.wait("document.querySelector('[data-testid=\"session-live-new\"]')?.textContent", 10)
+    out["pill"] = c.wait("document.querySelector('[data-testid=\"live-follow\"]')?.textContent", 10)
     out["stayed_up"] = c.js(f"{SCROLL}.scrollTop < 40")
-    c.click_on("document.querySelector('[data-testid=\"session-live-new\"]')")
-    resumed = f"{COL}.dataset.follow === 'true' && !document.querySelector('[data-testid=\"session-live-new\"]') && 'resumed'"
+    c.click_on("document.querySelector('[data-testid=\"live-follow\"]')")
+    resumed = f"{COL}.dataset.follow === 'true' && !document.querySelector('[data-testid=\"live-follow\"]') && 'resumed'"
     try:
         out["resumed"] = c.wait(resumed, 5) or False
     except TimeoutError:

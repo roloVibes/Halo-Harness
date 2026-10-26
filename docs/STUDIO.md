@@ -33,7 +33,7 @@ column, every agent's line in the Fleet log's columns (the time, the kind,
 who) under a timeline lane per live agent, with an agent and a kind pick, and
 the Steer box always at its foot, addressed to the agent you pinned or else
 the session's main agent, Pause and Stop beside it (3.1.7.0). How it works:
-[Session](STUDIO-sections.md#session). Its spend, tokens, turns and context
+[Session](STUDIO-sections.md#session). Since 3.3.0.0 the box names its target and the call it reaches, and **Export** saves the session as one Markdown trace: [Studio: steering and exporting a session](STUDIO-session.md). Its spend, tokens, turns and context
 move on the session's own `message_end` and `status` frames, the moment the
 terminal's status bar moves (3.1.8.0); the frames the tab reads and the
 delays that remain, each with its number, are in
@@ -68,6 +68,7 @@ This page is the entry point; the content lives in the parts below, one per task
 | Part | Read it when | What is in it |
 |---|---|---|
 | [Studio: the shell](STUDIO-shell.md) | you find your way around Studio's header, sections, panels and Start views, or open it on a bio, a lineup or the Team | The shell (3.0.3.0) · Opening Studio on a bio, a lineup or the Team (`halo studio --edit`) · The guided first run (3.1.1.0) |
+| [Studio: steering and exporting a session](STUDIO-session.md) | you steer an agent from Session's Live column and want to know which agent and which call it reaches, or save a session as one Markdown trace file | The steer's target · Follow, and the view holding still · Keys · Export: the session as a trace file · Files |
 | [Studio: how each section works](STUDIO-sections.md) | you want the one-screen story of a section (Session, Team, Roles, Fleet, Design, Orchestra, Packs) and the live feed | How each section works · The live feed |
 | [Studio: the Orchestra console](STUDIO-orchestra.md) | you run an Orchestra goal from Studio: the run console, the plan canvas and the coach | Orchestra: the run console |
 | [Studio: Fleet](STUDIO-fleet.md) | you watch or steer every harness and agent from Studio's Fleet section | Fleet: every harness, every agent · How this works: Attention · How this works: Costs and caps · How this works: Conflicts and project rooms · How this works: Hand-offs · How this works: Recordings · How this works: Replay · How this works: Who can do what · How this works: Missions · How this works: While you were away · Keys: hop around · Live Roles: the lineup lights up |
