@@ -85,7 +85,7 @@ def first_paint(c, url, ctx) -> dict:
     """3.2.1.0 R1: on Docs review (saved for this browser), a reload with no ?mode= paints Docs review first: the
     first visible section is the pack's (its frame says it is loading), never the core section it fell back to."""
     out: dict = {}
-    alt(c, 8)
+    alt(c, 9)  # 3.3.0.0 R1: the first pack section
     c.wait(f"{CUR}.startsWith('Docs review')", 10)
     out["saved_section"] = c.js("localStorage.getItem('halo.studio.section')")
     c.call("Page.enable")  # the new-document script runs only with the Page domain on (off again below)

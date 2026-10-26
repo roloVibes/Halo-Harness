@@ -105,45 +105,29 @@ class TeamActionsMixin:
 
     # -- commit -----------------------------------------------------------------
     def commit(self) -> None:
-        from halo_harness.lineup_default import DEFAULT_LINEUP, configured_team
-        from halo_harness.roles import set_roles_enabled
-        from halo_harness.theme import unset_config_value
+        """3.3.0.0 R1: the three writes are `lineup_choice.apply_lineup_choice`, the one function Studio's
+        Setup section (`POST setup/team`) calls too; a lineup applied here also reaches the live session."""
+        from halo_harness import lineup_choice
         name = self._highlighted_lineup_name()
         if name is None:
             return
-        if name == tp.ONE_MODEL_ID:
-            # 3.1.9.0 R2: one model = roles off and no lineup (no longer `team: standard`)
-            unset_config_value("team")
-            set_roles_enabled(False)
-            self.state.written.append("one model for everything (roles off, no lineup)")
-            return
-        if name == DEFAULT_LINEUP and configured_team() is None:
-            # 3.1.9.0 R2: the default lineup needs nothing written; a future default follows
-            set_roles_enabled(True)
-            self.state.written.append(f"lineup {DEFAULT_LINEUP!r} in use (the default: no team: written)")
-            return
-        if self._commit_lineup(name):
-            set_roles_enabled(True)
+        ok, line, kind = lineup_choice.apply_lineup_choice(name, cwd=self.state.cwd)
+        self.state.written.append(line)
+        if ok and kind == "lineup":
+            _update_live_roles(getattr(self, "app", None), name, self.state.cwd)
 
-    def _commit_lineup(self, name: str) -> bool:
-        from halo_harness.teams_yaml import apply_team_template, ensure_builtin_team_templates, \
-            resolve_role_table, resolve_team_template
-        ensure_builtin_team_templates()
-        ok, problems, notes = apply_team_template(name, cwd=self.state.cwd)
-        if not ok:
-            self.state.written.append(f"could not apply lineup {name!r}: {'; '.join(problems)}")
-            return False
-        self.state.written.append(f"lineup {name!r} applied (roles.*, team: {name!r})"
-                                   + (f" -- {'; '.join(notes)}" if notes else ""))
-        session = getattr(getattr(self.app, "controller", None), "session", None)
-        template = resolve_team_template(name, cwd=self.state.cwd) if session is not None else None
-        if template:
-            role_table, _notes = resolve_role_table(template, cwd=self.state.cwd)
-            live = getattr(getattr(session, "agent_runtime", None), "role_table", None)
-            if isinstance(live, dict):
-                live.update(role_table)
-            elif isinstance(getattr(session, "roles", None), dict):
-                session.roles.update(role_table)
-        return True
+
+def _update_live_roles(app, name: str, cwd) -> None:
+    """The running session (when the wizard runs inside one) takes the applied lineup's role table at once."""
+    from halo_harness.teams_yaml import resolve_role_table, resolve_team_template
+    session = getattr(getattr(app, "controller", None), "session", None)
+    template = resolve_team_template(name, cwd=cwd) if session is not None else None
+    if template:
+        role_table, _notes = resolve_role_table(template, cwd=cwd)
+        live = getattr(getattr(session, "agent_runtime", None), "role_table", None)
+        if isinstance(live, dict):
+            live.update(role_table)
+        elif isinstance(getattr(session, "roles", None), dict):
+            session.roles.update(role_table)
 
 

@@ -22,6 +22,7 @@ halo studio --mode roles    # straight into Roles (lineups and bios), --mode des
 halo studio --mode fleet    # 3.0.5.0: every harness and agent, live (also orchestra)
 halo studio --mode team     # 3.0.8.0: the project's team on one board
 halo studio --session       # 3.1.4.0: the Session dashboard on this harness's newest live session (or --session <id>)
+halo studio --mode setup    # 3.3.0.0: Setup, the wizard's blocks as forms, each with its own Save (STUDIO-setup.md)
 halo studio --no-open       # prints the URL only (SSH, a headless box)
 halo studio --port 8765     # a fixed port instead of a free one
 halo studio --stop          # stop the Studio running in the background
@@ -54,10 +55,10 @@ installing; `halo studio` afterwards starts the new version.
 
 Inside the TUI, `/roles` and `/design` open Studio straight into that
 mode from the live session; bare `/studio` (3.1.4.0) opens the **Session**
-section (`Alt+1`) on the session you are in, `/studio [session|roles|design|orchestra|fleet|team]`
+section (`Alt+1`) on the session you are in, `/studio [session|roles|design|orchestra|fleet|team|packs|setup]`
 opens that section, and `/studio url` prints the URL without opening a browser.
-The sections' keys are `Alt+1`..`Alt+7`: Session, Team, Roles, Fleet,
-Design, Orchestra, Packs. A model running in a
+The sections' keys are `Alt+1`..`Alt+8`: Session, Team, Roles, Fleet,
+Design, Orchestra, Packs, Setup. A model running in a
 Halo session knows this too: the system prompt names Studio, its modes
 and the command, so "open the GUI for roles" runs `halo studio --mode roles`.
 
@@ -68,10 +69,11 @@ This page is the entry point; the content lives in the parts below, one per task
 | Part | Read it when | What is in it |
 |---|---|---|
 | [Studio: the shell](STUDIO-shell.md) | you find your way around Studio's header, sections, panels and Start views, or open it on a bio, a lineup or the Team | The shell (3.0.3.0) · Opening Studio on a bio, a lineup or the Team (`halo studio --edit`) · The guided first run (3.1.1.0) |
-| [Studio: how each section works](STUDIO-sections.md) | you want the one-screen story of a section (Session, Team, Roles, Fleet, Design, Orchestra, Packs) and the live feed | How each section works · The live feed |
+| [Studio: how each section works](STUDIO-sections.md) | you want the one-screen story of a section (Session, Team, Roles, Fleet, Design, Orchestra, Packs, Setup) and the live feed | How each section works · The live feed |
 | [Studio: the Orchestra console](STUDIO-orchestra.md) | you run an Orchestra goal from Studio: the run console, the plan canvas and the coach | Orchestra: the run console |
 | [Studio: Fleet](STUDIO-fleet.md) | you watch or steer every harness and agent from Studio's Fleet section | Fleet: every harness, every agent · How this works: Attention · How this works: Costs and caps · How this works: Conflicts and project rooms · How this works: Hand-offs · How this works: Recordings · How this works: Replay · How this works: Who can do what · How this works: Missions · How this works: While you were away · Keys: hop around · Live Roles: the lineup lights up |
 | [Studio: Team and Roles](STUDIO-team-roles.md) | you edit a team board or a lineup on the Roles canvas | Team: people, blocks and stages on one board · What you see (Roles) |
 | [Studio: Design mode](STUDIO-design.md) | you make prototypes, pages or decks with Studio's Design section on your own creative apps, or render pictures with the Media panels | Design mode: prototypes, pages and decks on your own apps · Media: the ComfyUI panels · Media routes (3.0.4.0) |
 | [Studio: the Pack Manager](STUDIO-packs.md) | you install, grant, enable, set up, update or remove packs from Studio's Packs section | Packs: the Pack Manager (3.2.0.0 R6) |
+| [Studio: the Setup section](STUDIO-setup.md) | you set this box up from Studio's Setup section: what each block writes and the routes behind it | Setup: the wizard's blocks as forms (3.3.0.0) · What each block writes · The routes |
 | [Studio: saving, security, SSH and shortcuts](STUDIO-security.md) | you save and apply from Studio, run it over SSH, check what it lets a page do, or want every shortcut | Validate, save, apply · Security model · Over SSH · Shortcuts · Files |

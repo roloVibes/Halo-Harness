@@ -1,6 +1,6 @@
 # Studio: how each section works
 
-Read this when you want the one-screen story of a section (Session, Team, Roles, Fleet, Design, Orchestra, Packs) and the live feed.
+Read this when you want the one-screen story of a section (Session, Team, Roles, Fleet, Design, Orchestra, Packs, Setup) and the live feed.
 
 Part of [Halo Studio](STUDIO.md), which lists every part.
 
@@ -138,8 +138,7 @@ boxes you can arrange and edit; the files are `~/.halo/teams/<name>.yaml` and
    price and its context.
 2. **Give each card its bio**: Bios, click one to edit it -- its model from
    the table (sort by price or context, search, best for), **Test this
-   model**, its tools, limits and output. Drag a bio onto the canvas to add
-   a card.
+   model**, its tools, limits and output. Drag a bio onto the canvas to add a card.
 3. **Stack the tiers**: each box is a tier; a member spawns only into the
    next tier down, and main sits alone in tier 0. Drag a card into another
    box to move it (the lineup saves); a box's label strip collapses it.
@@ -171,8 +170,7 @@ boxes you can arrange and edit; the files are `~/.halo/teams/<name>.yaml` and
 | failed | red | the card turns red, the badge says failed | stays until you click the card |
 
 A lineup with one tier lays its members out as a fan under main; a lineup
-with no cards (or none open) shows "Drag a bio here, or New lineup" on the
-canvas.
+with no cards (or none open) shows "Drag a bio here, or New lineup" on the canvas.
 
 ![Roles: the cards light up as their agents work, one waits, one finishes and fades, one fails](media/studio-roles-live.gif)
 
@@ -205,8 +203,7 @@ stop, take over or hand off any one agent.
 
 1. **See every harness**: this harness is the first box. Another machine
    joins with a pair code: Make a pair code on the Start view (or the
-   palette), then `halo fleet join` on the other machine. People lists them
-   all.
+   palette), then `halo fleet join` on the other machine. People lists them all.
 2. **Answer what waits on you**: Attention is one queue of every card,
    gate, paused agent, spend cap and file conflict on every harness. `A`
    accepts, `R` denies or redoes with your text, `S` stops, `O` opens where
@@ -237,8 +234,7 @@ stop, take over or hand off any one agent.
    ([MISSIONS.md](MISSIONS.md#hand-offs)).
 9. **Watch the whole fleet**: Activity draws a lane per live agent (5, 15
    or 60 minutes, tool calls as ticks) over the merged live log. Costs
-   ticks today's spend and holds the caps; Health is a doctor summary per
-   harness.
+   ticks today's spend and holds the caps; Health is a doctor summary per harness.
 10. **Record and replay**: Record saves a session or one agent as a single
    HTML file that plays anywhere. Replay plays a finished session on the
    Roles canvas: the cards light up in the order they worked.
@@ -254,8 +250,7 @@ session's agents as a tree. Activity: a timeline lane per live agent and
 the merged live log. Agent: the selected agent: what it thinks, what it
 runs, what it hands back; steer it, take it over, hand it on, record it.
 Capabilities (3.0.6.0): what every harness can do, and who can do what.
-Mission (3.0.6.0): one goal for the whole fleet, planned, approved, run and
-reported.
+Mission (3.0.6.0): one goal for the whole fleet, planned, approved, run and reported.
 
 ### Design
 
@@ -354,6 +349,11 @@ when. Log: every claim, merge, gate decision and note, with its time.
 packs from the places you trust (`packs.sources`, then the packs Halo ships); every button runs the code
 `halo pack` runs. Its panels, actions and routes, and the sections a pack you enable adds after it:
 [STUDIO-packs.md](STUDIO-packs.md) (what a pack draws in Studio: [PACKS.md](PACKS.md) "In Studio").
+
+### Setup
+
+**What it is** (3.3.0.0 R1). This box's setup on one page, `Alt+8`: the terminal wizard's blocks (`halo init`) as forms,
+each with its own Save, writing the keys the wizard writes. What each block writes: [STUDIO-setup.md](STUDIO-setup.md).
 
 ## The live feed
 

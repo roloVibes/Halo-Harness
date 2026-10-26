@@ -157,7 +157,6 @@ class _Step:
         from halo_harness.tui.dialogs.team_step_actions import TeamActionsMixin
         self.state, self.app, self._name = SimpleNamespace(cwd=cwd, written=[]), SimpleNamespace(controller=None), name
         self.commit = lambda: TeamActionsMixin.commit(self)
-        self._commit_lineup = lambda n: TeamActionsMixin._commit_lineup(self, n)
         self._rows = lambda: TeamActionsMixin._rows(self)
 
     def _highlighted_lineup_name(self):

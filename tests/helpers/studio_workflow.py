@@ -5,7 +5,7 @@ reference pack (enabled, bash granted; a catalog model that calls tools) and a
 project repo where the review workflow already ran to its report (the fake
 lead and stage workers of tests/helpers/workflow_rig.py; no model call):
 
-1. the pack's Docs review section (Alt+8): its "Last review report" panel
+1. the pack's Docs review section (Alt+9): its "Last review report" panel
    draws the newest run's review-report by its schema's view (table): the
    summary above, one row per finding, the run named in its meta line;
 2. Session's Reviews panel: a review.done shows its data under the line (the
@@ -36,7 +36,7 @@ def pack_section(c, url, ctx) -> dict:
     out: dict = {}
     c.go(url)
     c.wait("[...document.querySelectorAll('[data-testid=section-tab]')].some((t) => t.textContent.startsWith('Docs review'))", 40)
-    alt(c, 8)  # 3.2.0.0 R6: Alt+7 is Packs
+    alt(c, 9)  # 3.2.0.0 R6: Alt+7 is Packs; 3.3.0.0 R1: Alt+8 is Setup
     out["section"] = c.wait(f"{CUR}.startsWith('Docs review') && {CUR}", 10)
     art = panel("doc-review--report", "[data-testid=pack-artifact]")
     out["view"] = c.wait(f"{art}?.dataset.view", 20)
