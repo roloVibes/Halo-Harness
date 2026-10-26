@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.2.3.0] - unreleased
+## [3.2.3.0] - 2026-10-26
 
 Focus: Ollama on the network -- what broke when the owner ran Halo on a Mac against this PC's Ollama, as three rounds: the window tells the truth (calibration measures or says unknown, the window follows the prompt and the reply's room, a trimmed request is context full, every layer on the GPU when it fits), the servers on this machine and on the network are found and then measured, and a tuned twin keeps a model's safe window as its default.
 
