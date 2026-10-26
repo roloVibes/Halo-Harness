@@ -1,5 +1,5 @@
 // What each Setup panel is (`about`, one line) and how to use it (`help`, a
-// few short lines), 3.3.0.0 R1 + R2 (the Setup section, docs/STUDIO-sections.md
+// few short lines), 3.3.0.0 R1 + R2 + R3 (the Setup section, docs/STUDIO-sections.md
 // "Setup"); routes/help.ts merges them into HELP and the section help lists the `about` lines.
 import type { Help } from "./help-orchestra";
 
@@ -56,11 +56,20 @@ export const SETUP_HELP: Record<string, Help> = {
     ),
   },
   "setup-linux": {
-    about: "The fixes a Linux box may be missing (comes with R3).",
-    help: lines("Until it comes, halo doctor lists them."),
+    about: "The fixes a Linux box may be missing: a static rg in ~/.local/bin, ~/.local/bin on PATH for any shell.",
+    help: lines(
+      "Listed only when this box lacks one (never on Windows); Apply does what the terminal wizard's Linux step does.",
+      "rg comes from ripgrep's own release page into ~/.local/bin; the PATH line goes into ~/.zshenv or ~/.profile, once.",
+      "halo doctor lists the same two.",
+    ),
   },
   "setup-check": {
-    about: "Check this setup: the doctor, the catalog and a hello on the default model (comes with R3).",
-    help: lines("Until it comes, halo doctor and halo models --refresh check it from a terminal."),
+    about: "Check this setup: the doctor, the model catalog, a hello on the default model, the gym, the guided first run.",
+    help: lines(
+      "Each row says what the check does, what it costs, how long it takes and what it writes; doctor, catalog and hello are ticked.",
+      "Run the ticked checks runs them in order as one job; each row shows its state and its lines as they come.",
+      "The gym runs local models only (it lists the models it would run on); the guided first run shows its card first, then its box can be ticked.",
+      "The same five as halo check in a terminal; the strip's Last check is the last run here.",
+    ),
   },
 };

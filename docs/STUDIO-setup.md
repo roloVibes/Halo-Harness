@@ -9,8 +9,9 @@ Part of [Halo Studio](STUDIO.md), which lists every part.
 **What it is** (3.3.0.0 R1). This box's setup on one page, `Alt+8` (`halo studio --mode setup`,
 `?mode=setup`, `/studio setup`): the terminal wizard's blocks (`halo init`) as forms you fill in any order,
 each with its own **Save** and its own line (`saved`, `1 changed` or `problem`, with the lines the server
-answered under it). The status strip on top says what is set now: the providers set up here, the default
-model, the lineup, the permission mode and the terminal theme. The rail lists the blocks with their line;
+answered under it). The status strip on top says what is set now: the providers set up here ("no provider
+set" until one is), the default model, the lineup, the permission mode, the terminal theme and the last
+check ("ok 12:04", "2 failed 12:04", "not run"). The rail lists the blocks with their line;
 a click brings the block's panel back and focuses it. Every block writes what the wizard writes, through
 the wizard's own writers: settings in `~/.halo/config.json` (the same as `halo config set`), keys in the
 env file. The page reads the state again whenever config.json or a lineup moves on disk (a `halo config
@@ -54,6 +55,45 @@ and config.json keeps that name. Removing a host, an endpoint or a server leaves
 file (the answer names it). The env file is `HALO_ENV_FILE`, else `~/.config/halo/env`; the Providers
 block names its path.
 
+## Check and Linux fixes (3.3.0.0 R3)
+
+**Check** is the five checks Halo offers after setup (the same list as [`halo check`](COMMANDS-init.md#halo-check-halo-3220)),
+one row each with what it does, what it costs, how long it takes and what it writes:
+
+| Row | What it does | Cost | Time | Writes |
+|---|---|---|---|---|
+| Doctor | your config, your files and that halo is on PATH (`halo doctor`) | free | seconds | nothing |
+| Model catalog | every set-up provider's model list (`halo models --refresh`) | free (network) | seconds | the catalog caches |
+| Hello | one one-turn call to the default model, which answers pong | one tiny call, priced from the catalog | seconds | one session log |
+| Model gym, quick | `halo gym --quick` on the models listed under the row (local models only) | free for local models | minutes per model | a card per model under `~/.halo/gym/` |
+| The guided first run | `halo start`: one real Orchestra run on your models | the card's estimate | 5-20 minutes | a lineup copy and a sample repo |
+
+Doctor, Model catalog and Hello are ticked; ticking the gym lists the models it would run on (the default
+model and the start lineup's models; untick any). The guided first run's row shows **Show the card** first
+(the card `halo start` opens on: the models, the estimate, what it writes); its box can be ticked only
+then, and **Run the guided first run** under the card starts it at once. **Run the ticked checks** runs the
+ticked rows in that order as one background job; each row shows its state (`>>` running, `ok`, `!!`) and
+its lines as they arrive, the foot says how many failed, and the result is kept as the strip's Last check
+(`~/.halo/studio/last-check.json`). The guided first run runs last, through the same job as Start here, and
+its seven steps show under its row. **Stop after this check** ends the list before the next one. A ticked
+guided first run with no provider set up is refused with the start's own line, and Setup says so.
+
+**Linux fixes** shows only when this box lacks one of the two fixes the terminal wizard's Linux step
+applies: a static `rg` (ripgrep's own release) in `~/.local/bin`, and `~/.local/bin` on PATH for a
+non-interactive shell (one line in `~/.zshenv` or `~/.profile`, added once). **Apply** runs them and the
+lines say what was written. Otherwise (always on Windows) the block is one line: nothing to fix on this box.
+
+**A fresh home lands here.** While no provider is set up (no key, login or default model: what `halo start`
+checks), Studio opens on Setup whatever section was saved (`?mode=` still wins), the Start here overlay's
+first button is **Set up this box**, and a guided first run started with no provider opens Setup with a
+toast instead of an error.
+
+**Reading this page opens no connection.** The Default model rows, the check costs and the card come from
+the cached catalog: an Ollama host is listed with the models its last read found (Refresh, `halo models
+--refresh`, `/local refresh`), and a host nothing has read yet says "not read yet: Refresh". The block's
+**Refresh** reads every provider's list again (`POST models/refresh`). The Local models block's detection
+lines are the one live read (kept a minute).
+
 ## What each block writes
 
 | Block | Writes | The same as |
@@ -64,7 +104,8 @@ block names its path.
 | Team | One model for everything: `team` removed, `roles.enabled` false; `auto` with no `team` set: `roles.enabled` true only; a lineup: its `roles.*`, `team: <name>`, `roles.enabled` true | the wizard's Team step (`lineup_choice.py`, which both call) |
 | Providers | the env file: `DATABRICKS_HOST`/`DATABRICKS_TOKEN`, `OPENROUTER_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `TYPESAFE_API_KEY`, `EXPLABS_API_KEY`, `HF_TOKEN`, `HALO_SECRET_*`; config.json: `ollama.hosts`, `huggingface.endpoints`, `huggingface.local_servers`, `providers.<name>.enabled` | `halo init`'s Providers tabs |
 | Local models | `huggingface.model_dirs`, `huggingface.preferred_runtime` | `halo init`'s Local models step, `/local add` |
-| Linux fixes, Check | (3.3.0.0 R3) | `halo doctor` |
+| Linux fixes | `~/.local/bin/rg`; the PATH line in `~/.zshenv` or `~/.profile` (only the fixes listed) | the wizard's Linux step |
+| Check | `~/.halo/studio/last-check.json`; each check writes what its row says | `halo check` |
 
 ## The routes
 
@@ -78,3 +119,11 @@ setup/ollama-host/remove {name}`, `POST setup/hf` (`{token}`, `{endpoint: {name,
 `{local_server: {name, url, api_key}}`, `{remove_endpoint}`, `{remove_local_server}`), `POST
 setup/model-dir {path, remove}` and `POST setup/runtime {runtime}` (`studio/setup_providers_api.py`,
 `studio/setup_providers_state.py`); a bad URL or host is a 422 with `problems` and nothing written.
+R3 adds `POST setup/check {checks: [keys], models?: [refs]}` (202 with the job; 409 while one runs; 422 for an
+unknown key, or `reason: "no_provider"` when the guided first run is ticked with no provider set up), `GET
+setup/check` (the job: the last frame per check and the summary, so a reloaded page catches up), `POST
+setup/check/stop` and `POST setup/linux-fixes` (`studio/setup_check_api.py`, `setup_check_job.py`,
+`setup_check_state.py`). Each check's frames are `setup` frames on `/api/events` (`session_id`
+`setup:<job>`, `data: {job, key, title, state: running | done | failed, lines}`, then `{key: "summary",
+state: "finished", ok, results}`). `GET setup/state` gains `checks`, `gym_models`, `card`, `last_check`,
+`linux_fixes {needed, items}`, `no_provider` and `model_notes`.

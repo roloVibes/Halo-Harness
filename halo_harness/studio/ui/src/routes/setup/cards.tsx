@@ -9,7 +9,7 @@ import { useState } from "react";
 import { api, ApiError } from "../../lib/api";
 import { createStore, toast, useStore } from "../../lib/store";
 import { Button } from "../../lib/ui";
-import { setup, showStatus, type Answer, type SetupData } from "./store";
+import { adoptAnswer, type Answer, type SetupData } from "./store";
 
 type Cards = { busy: string; last: Record<string, Answer> };
 export const cards = createStore<Cards>({ busy: "", last: {} });
@@ -24,8 +24,7 @@ export async function send(card: string, path: string, body: Record<string, unkn
   try {
     const r = await api.post<SetupData & { lines?: string[] }>(path, body);
     const { lines, ...data } = r;
-    setup.update(() => ({ data: data as SetupData }));
-    showStatus(data as SetupData);
+    adoptAnswer(data as SetupData); // 3.3.0.0 R3: a read that started before this answer is not shown over it
     cards.update((s) => ({ last: { ...s.last, [card]: { ok: true, lines: lines || [] } } }));
     toast(lines?.[0] || "Saved", "done", 4000);
     return true;

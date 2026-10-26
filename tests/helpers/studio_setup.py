@@ -6,9 +6,13 @@ of two models (studio/model.py model_rows) and its own env file
 (`HALO_ENV_FILE` in that home); this process serves Studio in a thread with
 the live feed on. No provider request, no model call:
 
+0. (R3: tests/helpers/studio_setup_check.py FIRST) with no provider set up:
+   the Start here overlay leads with "Set up this box", its Run's 422 opens
+   Setup, and a page with no `?mode=` opens on Setup whatever was saved;
+
 1. `?mode=setup` opens Setup; Alt+8 (from Roles) opens it too: Setup is the
    eighth tab, its strip names the provider, model, lineup, mode and theme,
-   the two later blocks say "comes with R3", the rail lists the blocks;
+   the rail lists the blocks;
    (R2: tests/helpers/studio_setup_providers.py) a provider key saved, an
    Ollama host and a model folder added, the runtime saved;
 2. Permissions: pick plan, the block says "1 changed", Save: config.json has
@@ -19,7 +23,9 @@ the live feed on. No provider request, no model call:
 5. Team: pick balanced, its preview, Apply: `team` in config.json, the
    strip's lineup follows; One model for everything: team removed, roles off;
 6. a `halo config set` from outside (config.json written here): the strip
-   follows on the `files_changed` frame.
+   follows on the `files_changed` frame;
+7. (R3: studio_setup_check.py LAST) the Check block run with stub checks,
+   the Linux fixes block applied with stub fixes.
 
 The last stdout line is the JSON of what it saw (exit 2: no Chrome)."""
 from __future__ import annotations
@@ -38,6 +44,7 @@ sys.path.insert(0, str(REPO / "tools"))
 
 from tests.helpers.chrome_driver import Driver  # noqa: E402
 from tests.helpers.studio_packs_steps import CUR, TABS, alt, q, qa  # noqa: E402
+from tests.helpers.studio_setup_check import FIRST as CHECK_FIRST, LAST as CHECK_LAST, stubs as check_stubs  # noqa: E402
 from tests.helpers.studio_setup_providers import STEPS as PROVIDER_STEPS  # noqa: E402
 
 ROWS = [{"ref": "or:mock/alpha", "provider": "openrouter", "detail": "Mock Alpha", "price": "$1.00", "context": "128k",
@@ -105,7 +112,7 @@ def section(c, url, ctx) -> dict:
            "kbds": c.js(f"{TABS}.map((t) => t.querySelector('.tab-kbd')?.textContent || '')")}
     alt(c, 8)
     out["alt8"] = c.wait(f"{CUR}.startsWith('Setup') && {CUR}", 15)
-    c.wait(f"!!{q('[data-testid=setup-strip-cell]')} && {qa('[data-testid=setup-later]')}.length === 2", 30)
+    c.wait(f"!!{q('[data-testid=setup-strip-cell]')} && !!{q('[data-testid=setup-check]')}", 30)
     out["strip"] = c.js(STRIP)
     out["later"] = c.js(qa("[data-testid=setup-later]") + ".map((p) => [p.dataset.block, p.textContent])")
     out["panels"] = c.js(f"{qa('[data-section=setup] .panel-title')}.map((t) => t.textContent)")
@@ -197,7 +204,9 @@ class SetupDriver(Driver):
         url = url.replace("mode=orchestra&feed=off", "mode=roles&tour=off&view=workspace")
         ctx = {"state": state, "srv": srv, "env_file": state.parent / "halo-env", "models": models}
         try:
-            yield tuple((fn, (c, url, ctx)) for fn in (by_mode, section, *PROVIDER_STEPS, permissions, theme, model, team, outside))
+            with check_stubs():
+                yield tuple((fn, (c, url, ctx)) for fn in (*CHECK_FIRST, by_mode, section, *PROVIDER_STEPS, permissions, theme, model, team,
+                                                           outside, *CHECK_LAST))
         finally:
             M.model_rows = real
             for k, v in saved_env.items():

@@ -4,7 +4,8 @@ headless Chrome run on the driver base over Studio on a scratch home with NO liv
 
     python -m tests.helpers.studio_ui_order
 
-  landing   nothing saved, nothing live: Studio still opens on Roles (its Start view), not on the first tab
+  landing   nothing saved, nothing live, a default model set: Studio still opens on Roles (its Start view), not on
+            the first tab (3.3.0.0 R3: with no provider at all it opens on Setup, tests/test_studio_setup.py)
   tabs      the tab strip in order: each tab's label and its key chip
   keys      Alt+1 .. Alt+8 each select the tab the strip shows for that key; Alt+1 (Session, nothing live)
             shows the Session Start view
@@ -48,6 +49,8 @@ def alt(c, n: int) -> None:
 
 
 def landing(c, url: str) -> dict:
+    from halo_harness.theme import set_config_value
+    set_config_value("model", "ol:ui-order:1b")  # 3.3.0.0 R3: a provider-less home opens on Setup instead
     c.go(url)
     c.wait("document.querySelectorAll('[data-testid=\"section-tab\"]').length === 8", 40)
     if maybe(c, "!!document.querySelector('[data-testid=\"start-here-dismiss\"]')", 8):  # a fresh home's Start here overlay

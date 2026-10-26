@@ -350,3 +350,8 @@ and `isolation/Dockerfile` the worker image.
   R2: `studio/setup_providers_api.py` (the Providers and Local models routes, each calling the
   wizard's writer) and `studio/setup_providers_state.py` (the provider cards' masked state, the
   Ollama hosts, the Hugging Face entries, the model folders, the runtime, the detection lines).
+  R3: `studio/setup_check_api.py` (the Check and Linux fixes routes), `studio/setup_check_job.py`
+  (the Check job: `start/checks.py` run in order on a thread, `setup` frames, the guided first run
+  through `start_job`), `studio/setup_check_state.py` (the checks, the card, the last check, the
+  Linux fixes, the fresh-home flag) and `providers/local_models_cached.py` (the local model rows
+  from what is cached, never a probe: `build_local_view(cached=True)` for a page read).

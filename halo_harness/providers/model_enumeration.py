@@ -30,7 +30,7 @@ from typing import Callable, Optional
 
 def build_model_rows(state_dir, *, env: "Optional[dict]" = None, routes: "Optional[dict]" = None,
                       current_ref: str = "", current_context_tokens=None, current_max_output_tokens=None,
-                      current_provider: "Optional[str]" = None) -> list:
+                      current_provider: "Optional[str]" = None, cached: bool = False) -> list:
     """`[{ref, context_tokens, max_output_tokens, price_in_per_m,
     price_out_per_m, provider, group, detail, dbu}, ...]` for the
     ModelPicker/init picker -- from the same models.json/dbx-endpoints.
@@ -51,7 +51,9 @@ def build_model_rows(state_dir, *, env: "Optional[dict]" = None, routes: "Option
     `current_max_output_tokens`/`current_provider`: the session's own
     already-resolved model, inserted as row 0 when it isn't already in
     the catalog -- all default to "nothing to insert" (the wizard has no
-    session yet, so it never passes these)."""
+    session yet, so it never passes these). 3.3.0.0 R3 `cached`: the local
+    rows from what is already known, no host probed (build_local_view's
+    `cached`): what a page read (Studio's Setup state, a cost line) uses."""
     from halo_harness.providers.databricks import load_models_json
     from halo_harness.providers.enablement import credentials_present, is_enabled, label_for, label_with_prefix
     from halo_harness.providers import model_row_facts as F  # 3.1.9.0 R1: what each row states beyond price
@@ -414,7 +416,7 @@ def build_model_rows(state_dir, *, env: "Optional[dict]" = None, routes: "Option
     try:
         from halo_harness.providers.local_models import build_local_view
         from halo_harness.providers.ollama_tune_names import twin_note
-        local_rows = build_local_view(env=env, state_dir=state_dir)
+        local_rows = build_local_view(env=env, state_dir=state_dir, cached=cached)
     except Exception:
         local_rows = []
     for row in local_rows:
