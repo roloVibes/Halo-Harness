@@ -364,7 +364,14 @@ fleet").
 keyed by harness, session and agent (`agent_state` rows in place,
 `agent_event` entries of a followed agent, the raw `text_chunk` /
 `tool_use_start` / `tool_result` frames, a member's `fleet` frames with
-action `sessions`); polling every 4 s only while the feed is down. Commands:
+action `sessions`); polling every 4 s only while the feed is down. The map
+re-reads `GET /api/fleet` when an agent ends (an `agent_state` frame saying
+`stopped`, `done` or `failed`, or one that moves an ended agent again), on
+the turn-end marker, when the tab is shown again, and while any agent runs
+at least every 5 s whatever frames come (3.3.0.0: a lost end frame, or a
+late `running` frame after it, never leaves a stopped agent `running` on the
+map; an answer never undoes a newer frame, unless it says the agent got
+further along its life). Commands:
 `POST /api/fleet/<harness>/<sid>/agents/<aid>/command` (`local` for this
 harness) and `.../<sid>/command` for a session; a backlog is `GET
 /api/sessions/<sid>/agents/<aid>/tail` here, the `tail` command through the

@@ -13,7 +13,11 @@
 // tokens, turns, context, model, busy: figures.ts) on the event the terminal's
 // status bar moves on, a GET never pulls them back (fresh.ts), an older GET
 // answer never lands after a newer one, and an agent leaving `waiting` reads
-// GET fleet again at once so the session's waiting state clears.
+// GET fleet again at once so the session's waiting state clears. 3.3.0.0 R7
+// (a slow box): a frame that ends an agent (stopped / done / failed), or one
+// that moves an ended agent again, re-reads the view at once; while anything
+// runs the view is re-read every FLOOR_MS whatever frames come; a tab shown
+// again re-reads it.
 import { api, ApiError } from "../../lib/api";
 import { onEvent, onFeedState, type FeedFrame } from "../../lib/events";
 import { studio, toast } from "../../lib/store";
@@ -26,7 +30,10 @@ import { append, rawEntry } from "./streams";
 import { fleet, keyOf, localId, type FleetState } from "./store";
 import type { AgentRow, FleetView, Harness, SessionRow } from "./types";
 
-const POLL_MS = 4000;
+const POLL_MS = 4000; // the feed is not open: the view every 4 s
+export const FLOOR_MS = 5000; // 3.3.0.0 R7: the feed open and anything running: the view at least every 5 s
+const TICK_MS = 500;
+const ENDS = new Set(["done", "failed", "stopped"]);
 const RELOAD = ["permission_request", "question", "plan_review", "approval_request", "turn_done", "subagent_start", "subagent_end"];
 const RAW = ["text_chunk", "tool_use_start", "tool_result"];
 const timers: Record<string, number> = {};
@@ -54,9 +61,11 @@ function finished(prev: Harness[], next: Harness[]): Record<string, number> {
 
 let asks = 0;
 let landed = 0;
+let lastAsk = 0;
 
 export async function load(): Promise<void> {
   const asked = Date.now();
+  lastAsk = asked;
   const mine = ++asks;
   try {
     const v = await api.get<FleetView>("fleet");
@@ -108,11 +117,11 @@ function onAgentState(f: FeedFrame): void {
     later("load", 300, () => void load());
     return;
   }
-  if (before === "waiting" && row.state !== "waiting") later("load", 300, () => void load()); // answered: the session's waiting clears
   const now = Date.now();
   const ended = before && before !== row.state && (row.state === "done" || row.state === "failed");
-  if (before === "running" && (row.state === "done" || row.state === "failed" || row.state === "stopped"))
-    later("load", 300, () => void load()); // 3.2.3.0: an agent's end re-reads the view (its parent's and the hub's rows move too)
+  // answered (the session's waiting clears), or an agent's end (3.2.3.0: its parent's and the hub's rows move too; 3.3.0.0
+  // R7: from any state), or a frame that moves an ended agent again (a late frame: the view says which is true)
+  if (before && before !== row.state && (before === "waiting" || ENDS.has(String(row.state)) || ENDS.has(before))) later("load", 300, () => void load());
   fleet.update((st) => ({
     harnesses,
     lastFrame: now,
@@ -210,10 +219,13 @@ export function startFleet(): void {
     const st = fleet.get();
     const open = studio.get().feed.status === "open";
     const running = st.harnesses.some((h) => h.sessions.some((ss) => (ss.agents || []).some((a) => a.state === "running")));
-    // 3.2.3.0: a frame-based `running` the feed never corrects (an end frame lost, or a late frame that beat the view's
-    // answer) is re-read while anything runs and no frame has come for 5 s: the view's later ask wins (the Linux runner).
-    if (!open || (running && Date.now() - st.lastFrame > 5000)) void load();
-  }, POLL_MS);
+    // 3.2.3.0 / 3.3.0.0 R7: a frame-based `running` the feed never corrects (an end frame lost, or a late frame after
+    // it) is re-read while anything runs, every FLOOR_MS even while other frames keep coming: the view's later ask
+    // wins (fresh.ts; the Linux runner kept a stopped agent `running` for 60 s)
+    const since = Date.now() - lastAsk;
+    if (open ? running && since >= FLOOR_MS : since >= POLL_MS) void load();
+  }, TICK_MS);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) later("load", 100, () => void load()); });
   void load();
   startPanels();
   startCaps();

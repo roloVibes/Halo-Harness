@@ -24,6 +24,7 @@ import signal
 import socket
 import sys
 import threading
+import time
 import webbrowser
 from typing import Optional
 from pathlib import Path
@@ -38,14 +39,25 @@ NO_BUILD = (b"<!doctype html><meta charset=\"utf-8\"><title>Halo Studio</title>"
             b"<p>Build the Studio UI first: <code>cd halo_harness/studio/ui &amp;&amp; npm ci &amp;&amp; npm run build</code> "
             b"(docs/DEVELOPMENT.md).</p>")
 LOOPBACK = ("127.0.0.1", "::1", "::ffff:127.0.0.1")
+SLOW_ENV = "HALO_STUDIO_SLOW_MS"  # 3.3.0.0 R7: a test's slow box (docs/DEVELOPMENT.md "A slow box"); never set outside tests
+
+
+def slow_ms_from_env() -> int:
+    """`HALO_STUDIO_SLOW_MS` as whole ms (0 when unset or not a number): every API answer and every live-feed frame
+    waits that long before it is written, so a test sees the order of events a loaded CI runner shows."""
+    try:
+        return max(0, min(10_000, int(os.environ.get(SLOW_ENV) or 0)))
+    except ValueError:
+        return 0
 
 
 class _Server(http.server.ThreadingHTTPServer):
     daemon_threads = True
     allow_reuse_address = False
 
-    def __init__(self, addr, handler, *, token: str, cwd: Path, state_dir: Path):
+    def __init__(self, addr, handler, *, token: str, cwd: Path, state_dir: Path, slow_ms: int = 0):
         self.token, self.cwd, self.state_dir = token, cwd, state_dir
+        self.slow_ms = max(0, int(slow_ms or 0))  # 3.3.0.0 R7: the latency flag (slow_ms_from_env)
         self.events = None  # studio.events.EventBridge, made by the first /api/events
         self.fleet_hub = None  # 3.0.5.0 R2: fleet.hub.HubServer (`halo studio --fleet`, studio/fleet_hub_api.py)
         self.events_lock = threading.Lock()
@@ -170,6 +182,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             status, obj = dispatch(req)
         except Exception as e:  # a handler bug must never take the server down
             status, obj = 500, {"error": f"{type(e).__name__}: {e}"}
+        if getattr(self.server, "slow_ms", 0):  # 3.3.0.0 R7: the answer is ready (any write done), the page sees it late
+            time.sleep(self.server.slow_ms / 1000)
         from halo_harness.studio.raw_body import RawBody  # 3.0.5.0 R4: a recording's HTML, not JSON
         if isinstance(obj, RawBody):
             return self._send(status, obj.body, obj.ctype, obj.headers)
@@ -247,9 +261,11 @@ def studio_info_path(state_dir: Path) -> Path:
     return Path(state_dir) / "studio.json"
 
 
-def start_server(*, port: int = 0, cwd: Path, state_dir: Path, token: str | None = None) -> _Server:
+def start_server(*, port: int = 0, cwd: Path, state_dir: Path, token: str | None = None, slow_ms: Optional[int] = None) -> _Server:
+    """`slow_ms` (3.3.0.0 R7): the latency flag; None reads `HALO_STUDIO_SLOW_MS`."""
     token = token or secrets.token_urlsafe(24)
-    server = _Server(("127.0.0.1", port), Handler, token=token, cwd=cwd, state_dir=state_dir)
+    server = _Server(("127.0.0.1", port), Handler, token=token, cwd=cwd, state_dir=state_dir,
+                     slow_ms=slow_ms_from_env() if slow_ms is None else slow_ms)
     from halo_harness.studio.files_live import watch  # 3.2.2.0 R6: `files_changed` when a lineup, bio, config or layout moves
     watch(server)
     return server

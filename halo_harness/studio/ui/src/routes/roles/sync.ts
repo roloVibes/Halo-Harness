@@ -155,29 +155,63 @@ function saveLayoutSoon(): void {
 /** 3.2.2.0 R6 (disk.ts): a move not yet on disk (the save timer runs, or the PUT is out): the store is newer than the file. */
 export const layoutPending = () => saveTimer !== 0 || layoutSaving || layoutDirty;
 
+export type LayoutBody = { nodes: Record<string, Pos>; tiers: Record<string, { collapsed: boolean }> };
+
+/** The open lineup's card positions and tier boxes as `PUT layout` (and a lineup save carrying it) sends them. */
+export function layoutBody(s = roles.get()): LayoutBody | null {
+  if (!s.name || !s.graph) return null;
+  const nodes: Record<string, Pos> = {};
+  for (const n of s.graph.nodes) if (s.positions[n.id]) nodes[n.id] = { x: Math.round(s.positions[n.id].x), y: Math.round(s.positions[n.id].y) };
+  const tiers: Record<string, { collapsed: boolean }> = {};
+  for (const t of s.graph.tiers) tiers[t.name] = { collapsed: !!s.collapsed[t.name] };
+  return { nodes, tiers };
+}
+
+let inflight: Promise<void> | null = null;
+
 export async function saveLayout(): Promise<void> {
   if (layoutSaving) {
     layoutDirty = true; // one PUT at a time (two in flight can land out of order on a slow server: the older positions won)
     return;
   }
   const s = roles.get();
-  if (!s.name || !s.graph) return;
-  const nodes: Record<string, Pos> = {};
-  for (const n of s.graph.nodes) if (s.positions[n.id]) nodes[n.id] = { x: Math.round(s.positions[n.id].x), y: Math.round(s.positions[n.id].y) };
-  const tiers: Record<string, { collapsed: boolean }> = {};
-  for (const t of s.graph.tiers) tiers[t.name] = { collapsed: !!s.collapsed[t.name] };
+  const body = layoutBody(s);
+  if (!body) return;
   layoutSaving = true;
   try {
-    await api.put("layout/" + encodeURIComponent(s.name), { positions: nodes, nodes, tiers });
+    await (inflight = api.put("layout/" + encodeURIComponent(s.name), { positions: body.nodes, ...body }).then(() => undefined));
   } catch {
     /* kept in the store; the next move saves again */
   } finally {
     layoutSaving = false;
+    inflight = null;
   }
   if (layoutDirty) {
     layoutDirty = false;
     await saveLayout(); // what changed while the PUT was out
   }
+}
+
+/** 3.3.0.0 R7 (a slow box): a lineup save that carries the layout. A move waiting on its 500 ms timer goes into it, a
+ *  layout PUT already out lands first, and none starts while the save is out (a move meanwhile goes right after it);
+ *  after the save, what the store holds then is saved again unless the save wrote exactly that. */
+export async function carryLayout(save: (layout: LayoutBody | null) => Promise<boolean>): Promise<boolean> {
+  window.clearTimeout(saveTimer);
+  saveTimer = 0;
+  while (inflight) await inflight.catch(() => undefined);
+  layoutDirty = false;
+  layoutSaving = true;
+  const sent = layoutBody();
+  let ok = false;
+  try {
+    ok = await save(sent);
+  } finally {
+    layoutSaving = false;
+    const dirty = layoutDirty;
+    layoutDirty = false;
+    if (!ok || dirty || JSON.stringify(layoutBody()) !== JSON.stringify(sent)) await saveLayout();
+  }
+  return ok;
 }
 
 /** Start once: the lists, the catalog, the active lineup; the status bar follows the store from now on. */

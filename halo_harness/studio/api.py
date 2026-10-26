@@ -100,6 +100,13 @@ def put_lineup(req: Request):
     found = T.find_team_template_path(name, cwd=req.cwd, state_dir=req.state_dir)
     if found and read_only_source(found[1]) and not req.query.get("duplicate"):
         return 409, {"error": f"{name} is a {scope_label(found[1])} lineup: duplicate to edit", "problems": []}
+    layout = req.body.get("layout")  # 3.3.0.0 R7: the canvas's layout rides along (a cross-tier drop is one write)
+    parts = None
+    if layout is not None:
+        bad = _layout_name_problem(name) or (None if isinstance(layout, dict) else _problems(["layout must be a mapping {nodes, tiers}"]))
+        parts = bad or _layout_parts(layout)
+        if isinstance(parts[0], int):
+            return parts
     raw = M.clean(raw)
     raw["name"] = name
     problems = T.validate_team_template(raw, name=name, cwd=req.cwd, state_dir=req.state_dir)
@@ -108,6 +115,8 @@ def put_lineup(req: Request):
     ok, saved = T.save_team_template(name, raw, cwd=req.cwd, state_dir=req.state_dir, project=req.project)
     if not ok:
         return _problems(saved or ["save failed"], 500)
+    if parts is not None:  # the tier change and the positions saved together, before the answer re-reads the lineup
+        M.write_layout(req.state_dir, name, parts[0], tiers=parts[1])
     return get_lineup(req)
 
 
@@ -158,19 +167,27 @@ def get_layout(req: Request):
     return _layout_name_problem(req.params["name"]) or (200, M.legacy_layout_view(M.read_layout(req.state_dir, req.params["name"])))
 
 
+def _layout_parts(body: dict):
+    """`(positions, tiers)` from a layout body (`{positions}` or the {nodes, tiers} shape), or the 422 answer."""
+    positions = body.get("positions")
+    if positions is None and isinstance(body.get("nodes"), dict):  # 3.0.7.0 R1: the new {nodes, tiers} shape
+        positions = body.get("nodes")
+    if not isinstance(positions, dict):
+        return _problems(["positions must be a mapping of node id -> {x, y}"])
+    tiers = body.get("tiers")
+    if tiers is not None and not isinstance(tiers, dict):
+        return _problems(["tiers must be a mapping of tier name -> {collapsed: true|false}"])
+    return positions, tiers
+
+
 def put_layout(req: Request):
     bad = _layout_name_problem(req.params["name"])
     if bad:
         return bad
-    positions = req.body.get("positions")
-    if positions is None and isinstance(req.body.get("nodes"), dict):  # 3.0.7.0 R1: the new {nodes, tiers} shape
-        positions = req.body.get("nodes")
-    if not isinstance(positions, dict):
-        return _problems(["positions must be a mapping of node id -> {x, y}"])
-    tiers = req.body.get("tiers")
-    if tiers is not None and not isinstance(tiers, dict):
-        return _problems(["tiers must be a mapping of tier name -> {collapsed: true|false}"])
-    M.write_layout(req.state_dir, req.params["name"], positions, tiers=tiers)
+    parts = _layout_parts(req.body)
+    if isinstance(parts[0], int):
+        return parts
+    M.write_layout(req.state_dir, req.params["name"], parts[0], tiers=parts[1])
     return 200, {"ok": True}
 
 
