@@ -58,7 +58,7 @@ class _Rig:
 
         def calibrate(host, model, **kw):
             self.calls.append((host.name, model))
-            return SimpleNamespace(outcome="fits", max_full_gpu_ctx=32768, steps=1)
+            return SimpleNamespace(outcome="fits", max_full_gpu_ctx=32768, steps=1, tight_ctx=None, tight_vram=None, gpu_total=None)
 
         def loopback_jobs(state_dir, env, local=True):  # the Models refresh: only the mocks, never a provider or R2's host
             return [(f"Ollama ({h.name})", "ollama", MR._ollama(h)) for h in resolve_ollama_hosts(env)

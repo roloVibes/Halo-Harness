@@ -95,8 +95,8 @@ def measure_models(host, models: "list[str]", *, timeout: Optional[float] = None
             if result.outcome in _RECORDED:
                 record_calibration(state_dir, host_url=host.url, model=model, digest=row.get("digest"),
                                    max_full_gpu_ctx=result.max_full_gpu_ctx, ollama_version=version,
-                                   tight_ctx=result.tight_ctx, tight_vram=result.tight_vram,
-                                   gpu_total=result.gpu_total)
+                                   tight_ctx=getattr(result, "tight_ctx", None), tight_vram=getattr(result, "tight_vram", None),
+                                   gpu_total=getattr(result, "gpu_total", None))
             up_bound = min(trained, HARD_CONTEXT_CAP) if isinstance(trained, int) and trained > 0 \
                 else HARD_CONTEXT_CAP
             text = _outcome_text(result, up_bound)
