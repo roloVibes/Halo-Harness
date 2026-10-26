@@ -59,13 +59,25 @@ function feed(): void {
     const d = (f.data || {}) as Record<string, unknown>;
     if (d.key === "summary") {
       start.update(() => ({ summary: (d.summary as StartSummary) || {}, running: false }));
+      void refresh(); // 3.2.2.0: a step's last frame can fall off the feed (the run step floods it); the server's view is final
       return;
     }
     if (typeof d.key === "string") {
       const frame = d as unknown as StartFrame;
-      start.update((s) => ({ steps: { ...s.steps, [frame.key]: frame }, running: true }));
+      start.update((s) => ({ steps: { ...s.steps, [frame.key]: frame }, running: s.summary ? false : true }));
     }
   });
+  onEvent("dropped", () => void refresh()); // frames fell off this browser's queue: re-read the job
+}
+
+/** One GET start, the job's latest frame per step adopted (after the summary, after a drop). */
+async function refresh(): Promise<void> {
+  try {
+    const st = await api.get<Status>("start");
+    adoptJob(st.job);
+  } catch {
+    /* the next frame or poll tries again */
+  }
 }
 
 function poll(): void {

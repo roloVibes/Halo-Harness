@@ -129,6 +129,10 @@ Focus: what the owner hit live on 2026-10-25, as six rounds -- the guided first 
 
 ### Also in 3.2.2.0
 
+#### Fixed
+
+- Studio's Start here could show a step as `running` after the guided first run had finished: the run step floods the live feed and its last frame could fall off the browser's queue. The page now re-reads the job after the summary frame and whenever the feed says `dropped` (the Windows runner caught it).
+
 #### Changed
 
 - The launch intro is the HALO block-art wordmark every time (the owner, 2026-10-25: "drop the one-liners ... just pop up the halo ascii art each time halo launches"): the copy-of-a-copy line and the Red Dragon line are gone from the pool; `/intro` and `/intro <n>` show the art.
