@@ -165,6 +165,10 @@ def linux_block(c, url, ctx) -> dict:
         LF.install_static_ripgrep = lambda dest, **_k: calls.append(("rg", "")) or (True, str(dest / "rg"))
         LF.ensure_local_bin_on_rc = lambda **_k: calls.append(("rc", "")) or (True, Path("~/.profile"))
         S.forget_linux()
+        # 3.3.1.0 R1: the page is already at this address (check_block), and Chrome treats the same address with a
+        # `#t=` fragment as a fragment hop, not a load -- the state read before the stubs would stay (a box that
+        # needs no fixes for real, like the Linux runner, never showed the step); a blank hop first makes it a load
+        c.go("about:blank")
         c.go(url.replace("mode=roles", "mode=setup"))
         try:
             goto(c, "linux")  # 3.3.1.0 R1: a step only while this box needs the fixes
