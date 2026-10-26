@@ -52,6 +52,20 @@ def layout_file(state: Path) -> dict:
     return {}
 
 
+def settled_layout(state: Path, ok, timeout: float = 12.0) -> dict:
+    """The layout file once `ok(nodes)` holds AND two reads 0.7 s apart agree: the page saves 500 ms after a move,
+    and a clamp or a nudge after a re-render can save once more (the Windows runner caught a snapshot in between)."""
+    end = time.monotonic() + timeout
+    last = None
+    while time.monotonic() < end:
+        now = layout_file(state)
+        if ok(now) and now and now == last:
+            return now
+        last = now
+        time.sleep(0.7)
+    return last or {}
+
+
 def agents_on_disk(state: Path) -> list:
     import yaml
     try:
@@ -140,7 +154,7 @@ def remove_keeps(c, url: str, state: Path) -> dict:
     c.call("Input.dispatchKeyEvent", type="keyDown", key="a", code="KeyA", text="a", windowsVirtualKeyCode=65)
     c.call("Input.dispatchKeyEvent", type="keyUp", key="a", code="KeyA", windowsVirtualKeyCode=65)  # A: every card laid out and saved
     ids = c.js(f"[...{tid('roles-card')}].map((e) => e.dataset.id)")
-    before = until(lambda: (lambda f: f if set(ids) <= set(f) else None)(layout_file(state)), 10) or {}
+    before = settled_layout(state, lambda f: set(ids) <= set(f))
     out["layout_before"] = before
     gone = c.js(f"{card('tester')}.dataset.id")  # scout: the second card of eight, nothing routes to it
     out["removed_id"] = gone
@@ -155,7 +169,7 @@ def remove_keeps(c, url: str, state: Path) -> dict:
     c.wait(f"!{card('tester')}", 10)
     c.click_on(f"{tid('roles-save')}[0]")
     out["saved_agents"] = until(lambda: (lambda a: a if a and "tester" not in a else None)(agents_on_disk(state)), 10)
-    after = until(lambda: (lambda f: f if gone not in f and f else None)(layout_file(state)), 10) or {}
+    after = settled_layout(state, lambda f: bool(f) and gone not in f)
     out["layout_after"] = after
     out["kept"] = sorted(k for k in before if k != gone and after.get(k) == before[k])
     out["others"] = sorted(k for k in before if k != gone)
