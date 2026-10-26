@@ -66,7 +66,13 @@ def slow_stop(c, rig) -> dict:
     aid = key.rsplit("|", 1)[1]
     wait_node(c, "implementer")
     c.click_on(node("implementer"))
-    c.wait(f"{DETAIL}?.dataset.key === '{key}'", 30)
+    try:
+        c.wait(f"{DETAIL}?.dataset.key === '{key}'", 15)
+        out["detail_by"] = "pointer"
+    except TimeoutError:  # the runner's pointer path can be lost under latency: the element's own click event
+        c.js(f"{node('implementer')}.dispatchEvent(new MouseEvent('click', {{bubbles: true, cancelable: true}})); 1")
+        c.wait(f"{DETAIL}?.dataset.key === '{key}'", 30)
+        out["detail_by"] = "element"
     bridge, gate = rig.server.events, {"on": True}
     publish = bridge.publish
 
