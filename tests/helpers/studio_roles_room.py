@@ -145,6 +145,11 @@ def collapsed_tier(c, url: str, state: Path) -> dict:
     time.sleep(0.8)
     out["held_shown"] = shown(c, "watchdog")
     out["held_overlaps"] = c.js(CARD_OVERLAPS)
+    # 3.3.0.0 R1: the joined card lands inside the leads tier box (its column), never at the raw drop point beside it
+    out["held_in_box"] = c.js(f"(() => {{ const a = {card('watchdog')}.getBoundingClientRect(), b = {tier('leads')}.getBoundingClientRect(); "
+                              "return a.left >= b.left - 1 && a.right <= b.right + 1 && a.top >= b.top - 1 && a.bottom <= b.bottom + 1; })()")
+    out["held_rects"] = c.js(f"[{card('watchdog')}, {tier('leads')}].map((e) => {{ const r = e.getBoundingClientRect(); "
+                             "return [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)]; })")
     return out
 
 

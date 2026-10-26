@@ -49,7 +49,7 @@ def run_start(c, url: str, frames: list, shot: str = "") -> dict:
     out["frame_session"] = sorted({str(f.get("session_id"))[:6] for f in frames})
     c.go("about:blank")
     c.go(url)
-    c.wait(f"{Q}('[data-testid=\"section-tab\"]').length === 7", 30)  # 3.2.0.0 R6: + Packs
+    c.wait(f"{Q}('[data-testid=\"section-tab\"]').length === 8", 30)  # 3.2.0.0 R6: + Packs; 3.3.0.0 R1: + Setup
     import time
     time.sleep(2.5)  # GET /api/start has answered by now: a home with a lineup of its own and a start is not fresh
     out["roles_start_after"] = c.js(f"{Q}('[data-testid=\"roles-start\"]').length")

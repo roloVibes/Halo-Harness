@@ -302,7 +302,8 @@ _PREFIXES = (("media", "halo_harness.studio.media_api", "dispatch_media"),
              ("focus", "halo_harness.studio.focus_api", "dispatch_focus"),  # 3.1.1.0 R3: `halo studio --edit` on a running one
              ("recall", "halo_harness.studio.recall_api", "dispatch_recall"),  # 3.1.2.0 R3: the recall box
              ("supervise", "halo_harness.studio.supervise_api", "dispatch_supervise"),  # 3.1.8.0 R1: the morning line
-             ("pack", "halo_harness.studio.packs_studio_api", "dispatch_pack"))  # 3.2.0.0 R3: Studio contributions
+             ("pack", "halo_harness.studio.packs_studio_api", "dispatch_pack"),  # 3.2.0.0 R3: Studio contributions
+             ("setup", "halo_harness.studio.setup_api", "dispatch_setup"))  # 3.3.0.0 R1: the Setup section
 
 
 def dispatch(req: Request):

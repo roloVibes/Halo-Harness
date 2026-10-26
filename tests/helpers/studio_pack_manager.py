@@ -4,13 +4,13 @@ headless Chrome through the driver base, over a scratch home with no pack
 installed (the shipped Documentation Review pack is in Sources); this process
 serves Studio in a thread with the live feed on (no provider, no model call):
 
-1. Packs is the seventh tab, Alt+7 opens it: Installed is empty, Sources
+1. Packs is the seventh tab, Alt+7 opens it (Setup the eighth, 3.3.0.0 R1): Installed is empty, Sources
    lists the shipped doc-review with Install;
 2. Install: the row shows, disabled, the last action's lines are install's;
 3. Details: the API range beside this Halo's, no dependency, the contributes
    block; a Grant toggle on a disabled pack picks it for Enable;
 4. Enable (with the picked grant): the row runs, 1/3 granted, the pack's own
-   section tab comes after Packs on Alt+8; a Grant toggle on the enabled pack
+   section tab comes after Setup on Alt+9; a Grant toggle on the enabled pack
    grants at once (2/3);
 4b. 3.2.0.0 R7: Update from a newer source asks first with the dry run's lines
    (its migration note), then swaps it in: Roll back to 1.0.0 shows, Details
@@ -63,7 +63,7 @@ def w(c, expr: str, timeout: float = 20):
 def section(c, url, ctx) -> dict:
     out: dict = {}
     c.go(url)
-    w(c, f"{TABS}.length >= 7", 40)
+    w(c, f"{TABS}.length >= 8", 40)
     out["tabs"] = c.js(f"{TABS}.map((t) => t.querySelector('.tab-label').textContent)")
     out["kbds"] = c.js(f"{TABS}.map((t) => t.querySelector('.tab-kbd')?.textContent || '')")
     alt(c, 7)
