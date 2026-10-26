@@ -48,6 +48,18 @@ version.
 - Ollama's 500 "no user query found in messages" is no longer retried six times as an internal error.
 - A saved calibration below the request's size no longer holds the window under the prompt (discarded and measured again, once).
 
+### R3: a tuned twin
+
+#### Added
+- `halo ollama tune MODEL [--host NAME] [--window N] [--remove] [--json]`: makes a tuned twin of MODEL on that host through `/api/create` -- `<name>-halo:<tag>` (`qwen3.8:27b` -> `qwen3.8-halo:27b`), `FROM MODEL`, `num_ctx` = the safe window calibration recorded (or N, held at the trained context), `num_gpu` = every layer -- sharing MODEL's weights; prints the plan line, Ollama's progress lines, the `/api/show` confirmation and the ref (`ol:<twin>@<host>`); `--remove` deletes a twin, never an original. Exit 0 / 1 / 2.
+- `halo ollama` and `halo local` list a twin under its original: "tuned twin of qwen3.8:27b (65k window, all layers on the GPU)"; the `/model` picker and Studio's Models rows show the twin first for that host; Ollama catalog rows carry `twin_of`.
+- `halo ollama discover --calibrate` and the wizard's calibrate offer end with "make tuned twins of the models that fit? (Enter / n)", one line per twin made; `--twins` makes them without asking, `--no-twins` skips the question.
+- docs: MODELS-ollama-tuning "A tuned twin", COMMANDS-local `halo ollama tune`.
+
+#### Changed
+- `halo ollama discover --calibrate` and the wizard's calibration load every layer on the GPU and apply the headroom rule, like `halo ollama calibrate`: the window they record is the safe one.
+- A twin starts calibrated (it carries its original's measured window).
+
 ### Also in 3.2.3.0
 
 #### Fixed

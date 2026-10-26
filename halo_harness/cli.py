@@ -570,6 +570,7 @@ def _main(argv: Optional[list] = None) -> int:
         from halo_harness.studio import cmd_studio
         return cmd_studio(argv[1:])
     if argv and argv[0] == "ollama":
+        # the panel, discover, calibrate, tune (3.2.3.0 R3: a tuned twin), doctor
         from halo_harness.ollama_cli import cmd_ollama
         return cmd_ollama(argv[1:])
     if argv and argv[0] == "gym":
