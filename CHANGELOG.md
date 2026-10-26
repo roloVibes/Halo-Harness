@@ -10,6 +10,8 @@ version.
 
 ## [3.3.0.0] - unreleased
 
+Focus: Setup is Studio -- the terminal wizard's eight steps become a Setup section in Halo Studio (Alt+8) and `halo init` opens it, with the terminal wizard kept as the fallback (`--terminal`, SSH, no browser); every provider, host, folder, model, permission mode, theme, lineup and check is a block you fill in any order; the Ollama card finds the servers on this machine and on the network and measures their models; the Session tab's steer names its target and the timeline exports a Markdown trace; and the two behaviours that differed on GitHub's runners (the held drop, the Fleet map's stale node) are reproduced with a latency flag and fixed.
+
 ### R1: the Setup section
 
 #### Added
@@ -53,6 +55,20 @@ version.
 #### Fixed
 - A Setup block's answer could be overwritten by an older read of the page that finished after it (a card showed "not set" next to the host it had just added); the newer answer wins and the page reads again.
 
+### R4: the doors -- halo init opens Studio on Setup
+
+#### Added
+- `halo init --terminal`: the terminal wizard. It also runs when no browser can open here (`HALO_NO_BROWSER`, an SSH session, Linux with no `DISPLAY` / `WAYLAND_DISPLAY`, or a browser that does not take the URL). Setup's URL is printed first with the port-forward line `halo studio` prints.
+- `halo setup [team|roles] --terminal` and `/setup [team|roles] --terminal`: the terminal Team screen.
+- Setup's doors in the page address: `?mode=setup&first=1` opens the section's help once ("What this page does") and leads the status strip with "set up this box"; `?mode=setup&block=team` brings that block into view and focuses it. A Studio page already open takes the same through a `focus` frame. `halo studio --edit setup`, `setup:first` and `setup:<block>` open them from a shell.
+- `tools/capture_studio.py --mode setup` (docs/media/studio-setup.png): the README's first screenshot after install and the modes banner's eighth tile.
+
+#### Changed
+- `halo init` on a terminal opens Halo Studio on its Setup section (it starts Studio, or reuses the one running) and prints one line with the URL. `--step`, `--team` and `--no-live` still run the terminal wizard; `--provider` / `--yes` and a run with no terminal keep the console flow.
+- `halo setup [team|roles]` and `/setup [team|roles]` open Setup on its Team block (`roles` is the same block).
+- `halo start` with no provider asks "Open Setup in Studio? [Y/n]": Enter opens Setup, `n` runs the terminal wizard.
+- Setup's help describes every block, the README leads the install with Setup, and the modes banner shows eight sections.
+
 ### R5: Ollama everywhere -- Find and Scan in Setup
 
 #### Added
@@ -92,20 +108,6 @@ version.
 - A held drop into a collapsed tier left the card outside the tier's box on a slow box (GitHub's Windows runner), and a later move could be overwritten by the drop's late position (the spots after a removal).
 - A stopped agent stayed `running` on the Fleet map while other frames kept coming (GitHub's Linux runner, 60 s).
 - Dropping a card into another tier of a pack's read-only lineup undid your previous edit.
-
-### R4: the doors -- halo init opens Studio on Setup
-
-#### Added
-- `halo init --terminal`: the terminal wizard. It also runs when no browser can open here (`HALO_NO_BROWSER`, an SSH session, Linux with no `DISPLAY` / `WAYLAND_DISPLAY`, or a browser that does not take the URL). Setup's URL is printed first with the port-forward line `halo studio` prints.
-- `halo setup [team|roles] --terminal` and `/setup [team|roles] --terminal`: the terminal Team screen.
-- Setup's doors in the page address: `?mode=setup&first=1` opens the section's help once ("What this page does") and leads the status strip with "set up this box"; `?mode=setup&block=team` brings that block into view and focuses it. A Studio page already open takes the same through a `focus` frame. `halo studio --edit setup`, `setup:first` and `setup:<block>` open them from a shell.
-- `tools/capture_studio.py --mode setup` (docs/media/studio-setup.png): the README's first screenshot after install and the modes banner's eighth tile.
-
-#### Changed
-- `halo init` on a terminal opens Halo Studio on its Setup section (it starts Studio, or reuses the one running) and prints one line with the URL. `--step`, `--team` and `--no-live` still run the terminal wizard; `--provider` / `--yes` and a run with no terminal keep the console flow.
-- `halo setup [team|roles]` and `/setup [team|roles]` open Setup on its Team block (`roles` is the same block).
-- `halo start` with no provider asks "Open Setup in Studio? [Y/n]": Enter opens Setup, `n` runs the terminal wizard.
-- Setup's help describes every block, the README leads the install with Setup, and the modes banner shows eight sections.
 
 ### Also in 3.3.0.0
 

@@ -11,19 +11,16 @@ first, then `WORKER-RULES.md`, then the round you are starting.
 **3.2.3.0 "Ollama on the network" IS RELEASED** (tag v3.2.3.0, cut from 07bb8b9 on
 2026-10-26 after both runners went green; the PC's reinstall was skipped because a halo
 session was open -- `uv tool install --reinstall git+https://github.com/roloVibes/Halo-Harness@v3.2.3.0`
-once it is closed). Worktrees `~/hh-323/<round>`, briefs under `~/hh-323/briefs/`. **3.3.0.0 "Setup is
-Studio"** is under way in parallel: R1 the Setup section is done and parked on
-`v330/R1-setup-section` (merged after 3.2.3.0 ships), R2 providers and local models is
-running on top of it (`~/hh-330/<round>`); R3 the check + the fresh-home landing, R5 Ollama everywhere (the
-Setup card's Find/Scan) and R6 the steer knows its target + the trace export are done and
-parked on their branches too; R4 the doors and R7 the Studio on a slow box are running;
-the merge chain onto master (R1 -> R2 -> R3 -> R5 -> R4 -> R6 -> R7, the dist rebuilt at
-each) and the release follow (plans/ROADMAP.md, the 2026-10-25/26 entries). The owner, live on Kali and in Studio on 2026-10-25, sent six notes;
-each became one round, one Opus worker each in `~/hh-322/<round>` (briefs,
-hand-backs, progress files and CI logs under `~/hh-322/briefs/`); the
-coordinator merged each with its CHANGELOG block (`changelog_322.py` in the
-session scratchpad) and rebuilt the Studio dist from the merged sources at
-every merge:
+once it is closed). Worktrees `~/hh-323/<round>`, briefs under `~/hh-323/briefs/`. **3.3.0.0 "Setup is Studio" is the release candidate**: all seven rounds are merged on
+master (R1 the Setup section, R2 providers and local models, R3 the Check block + the
+Linux fixes + the fresh-home landing + no probe on a state read, R4 the doors, R5 Ollama
+Find/Scan in Setup, R6 the steer knows its target + the trace export, R7 the Studio on a
+slow box); worktrees `~/hh-330/<round>`, briefs under `~/hh-330/briefs/`;
+`scripts/release.py 3.3.0.0 --skip-windows` once both runners are green for the head.
+The PC's reinstall of 3.2.3.0 and 3.3.0.0 waits for the owner's `/quit` (a halo session
+was open at both releases). Open after 3.3.0.0: plans/ROADMAP.md "After 3.3.0.0" (R4's
+list: the TUI `/setup` fallback checks, the Setup capture with R5's card, the 400-line
+docs) and the live checks on the PC, Kali (desktop and over SSH) and the Mac.
 
 - R0 the launch shows the HALO block-art wordmark every time; the two
   one-liners are gone (`tui/intro_lines.py`).
