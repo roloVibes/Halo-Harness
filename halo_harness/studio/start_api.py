@@ -3,7 +3,8 @@
 
     GET  start           {fresh, dismissed, show, own_lineups, active_team, runs, starts, job, plan, card}
                          (start/fresh.py; `show`: the overlay comes up; `job`: start_job.current(); `plan`: the seven steps;
-                         `card`: the guided first run's card lines, start/card.py, shown above Run -- 3.2.2.0 R2)
+                         `card`: the guided first run's card lines, start/card.py, shown above Run -- 3.2.2.0 R2;
+                         3.3.0.0 R3 `no_provider`: nothing for a run to run on yet, the overlay leads with Set up this box)
     POST start           202 {job}: `halo start --yes` as a background job, its steps streamed as `start` frames
                          on /api/events; 409 while one runs; 422 {error, reason: "no_provider"} with no model
     POST start/dismiss   {dismissed: true} -- "Just look around", remembered for this home
@@ -22,6 +23,8 @@ def get_start(req):
     from halo_harness.start.steps import STEPS
     data = fresh.status(req.cwd, req.state_dir)
     data["job"] = start_job.current()
+    from halo_harness.studio.setup_check_state import no_provider
+    data["no_provider"] = no_provider()
     data["plan"] = [{"step": n, "key": k, "title": title, "why": why, "state": "pending"}
                     for n, (k, title, why) in enumerate(STEPS, 1)]
     from halo_harness.start import fake

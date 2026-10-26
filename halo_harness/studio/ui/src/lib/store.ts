@@ -137,11 +137,22 @@ export function bootPackSections(): BootPackSection[] {
   }
 }
 
-/** `?mode=` wins, then the section saved for this browser (a pack's own when the page names it, 3.2.1.0 R1);
- *  nothing saved: Session while a session is live here, else Roles. */
+/** 3.3.0.0 R3: the served page says no provider is set up yet (studio/setup_check_state.py boot_attrs). */
+export function bootNoProvider(): boolean {
+  try {
+    return document.documentElement.dataset.noProvider === "1";
+  } catch {
+    return false;
+  }
+}
+
+/** `?mode=` wins; then (3.3.0.0 R3) Setup while no provider is set up, whatever was saved; then the section saved
+ *  for this browser (a pack's own when the page names it, 3.2.1.0 R1); nothing saved: Session while a session is
+ *  live here, else Roles. */
 function initialSection(): SectionId {
   const asked = /[?&]mode=(orchestra|roles|design|fleet|team|session|packs|setup)\b/.exec(location.search); // packs: 3.2.0.0 R7; setup: 3.3.0.0 R1
   if (asked) return asked[1] as SectionId;
+  if (bootNoProvider()) return "setup";
   const saved = readLocal("halo.studio.section") || readLocal("halo-studio-mode");
   if ((SECTION_IDS as string[]).includes(saved)) return saved as SectionId;
   if (saved.includes("--") && bootPackSections().some((s) => s.id === saved)) return saved as SectionId;

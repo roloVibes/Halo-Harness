@@ -196,6 +196,15 @@ every browser) and the section's welcome comes up instead. It runs on the
 model you configured; with none, the card says so and points at `halo init`.
 `?tour=off` keeps it shut, like the welcome.
 
+**Set up this box** (3.3.0.0 R3) is the card's first button: it opens the
+Setup section and closes the card (it asks again on the next load until a
+run or **Just look around**). While no provider is set up (no key, login or
+default model: what `halo start` checks), it is the primary button, and a
+fresh home opens on Setup whatever section this browser saved (`?mode=`
+still wins; the served page says `data-no-provider`). **Run the guided first
+run** with no provider set up is answered `422 no_provider`: the card closes,
+Setup opens and a toast says "no provider is set up yet: Setup".
+
 The steps arrive as `start` frames on the live feed (`/api/events`; Studio
 also polls `GET /api/start` while the card is open):
 

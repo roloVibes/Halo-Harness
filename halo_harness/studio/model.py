@@ -45,33 +45,35 @@ def from_yaml(text: str) -> dict:
 
 # -- the model catalog --------------------------------------------------------
 
-def catalog_rows(state_dir=None, cwd=None) -> list:
+def catalog_rows(state_dir=None, cwd=None, *, cached: bool = False) -> list:
     """The catalog rows (`build_model_rows`, aliases and hints left out) the
     way a session in `cwd` resolves its providers -- `model_rows` and the
-    best-at rebuild (`POST models/analyze`) both read these."""
+    best-at rebuild (`POST models/analyze`) both read these. 3.3.0.0 R3
+    `cached`: no Ollama host or local port probed (Setup's state read)."""
     from halo_harness.providers.config import default_state_dir, load_routes
     from halo_harness.providers.model_enumeration import build_model_rows
     from halo_harness.studio.catalog_env import catalog_env
     state_dir = Path(state_dir or default_state_dir())
     routes_path = state_dir / "routes.json" if state_dir.exists() else None
-    return [row for row in build_model_rows(state_dir, env=catalog_env(cwd), routes=load_routes(routes_path))
+    return [row for row in build_model_rows(state_dir, env=catalog_env(cwd), routes=load_routes(routes_path), cached=cached)
             if row.get("ref") and row.get("provider") != "alias"]
 
 
-def model_rows(state_dir=None, cwd=None) -> list:
+def model_rows(state_dir=None, cwd=None, *, cached: bool = False) -> list:
     """3.1.4.0 R4: the providers resolve through `catalog_env(cwd)`, the env a
     session resolves with (the env file, the shell, the settings.json `env`
     chain), not a bare copy of os.environ (which skipped the settings chain).
     3.1.9.0 R1: each row also carries the catalog's own keys (modalities,
     tools, reasoning, open weights, local, measured) and `best_at` -- `{line,
     kinds}` from the best-at cache (models_best_at), the same answer `halo
-    models analyze` prints."""
+    models analyze` prints. 3.3.0.0 R3 `cached`: the local rows from what is
+    already known (catalog_rows), so a read opens no connection."""
     from halo_harness.capabilities import capability_profile
     from halo_harness.model_display import format_price_per_m, format_speed, format_token_count
     from halo_harness.models_best_at import index as best_at_index
     from halo_harness.providers.config import default_state_dir
     state_dir = Path(state_dir or default_state_dir())
-    raw = catalog_rows(state_dir, cwd)
+    raw = catalog_rows(state_dir, cwd, cached=cached)
     try:
         best = best_at_index(state_dir, raw).get("rows") or {}
     except Exception:
