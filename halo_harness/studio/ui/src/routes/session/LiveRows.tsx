@@ -12,7 +12,13 @@
 // `.fac-line`, its container query: under 440 px the time, the kind and the
 // tag share a row and the line's body runs full width under them), and the
 // tag carries a "steer" button on hover (steer.ts: pin it, the box focused).
-import { memo, useRef } from "react";
+// 3.3.0.0 R6: the steer's target row carries `data-target` (a steady outline);
+// a click on a row (or `s` with the focus on it) makes it the target (a click
+// on its own controls -- the tag, an ask's keys, a tool row that opens -- does
+// what that control does); a steer
+// reads "↳ steer to <agent>: ..." under it and the agent's next row is marked
+// "after your steer".
+import { memo, useRef, type MouseEvent } from "react";
 import { Kbd } from "../../lib/ui";
 import { clock, short } from "../orchestra/format";
 import { answerRow } from "../fleet/extras";
@@ -38,7 +44,7 @@ const DEFAULT_KEYS: Record<string, Record<string, string>> = {
   plan: { a: "accept", r: "redo", s: "stop", o: "open" },
   approval: { a: "approve", r: "reject", s: "stop", o: "open" },
 };
-const GLYPH: Record<string, string> = { running: "●", queued: "○", waiting: "◆", paused: "❚❚", done: "✓", failed: "✕", stopped: "■" };
+export const GLYPH: Record<string, string> = { running: "●", queued: "○", waiting: "◆", paused: "❚❚", done: "✓", failed: "✕", stopped: "■" };
 
 function Tag({ k, who, onPin }: { k: string; who: Who; onPin: (k: string) => void }) {
   return (
@@ -103,7 +109,7 @@ function AskCard({ l }: { l: LiveLine }) {
   );
 }
 
-function Body({ l, live }: { l: LiveLine; live: boolean }) {
+function Body({ l, live, name }: { l: LiveLine; live: boolean; name: string }) {
   switch (l.kind) {
     case "tool":
       return <ToolRow l={l} />;
@@ -123,7 +129,7 @@ function Body({ l, live }: { l: LiveLine; live: boolean }) {
     case "asked":
       return <div className="slv-note"><span className="mono muted">asked: </span>{short(l.text, 260)}</div>;
     case "you":
-      return <div className="slv-you"><span className="mono">you: </span>{short(l.text, 260)}</div>;
+      return <div className="slv-you" data-testid="live-steer-row"><span className="mono">↳ steer to {l.to || name}: </span>{short(l.text, 260)}</div>;
     case "state":
     case "error":
       return <div className="slv-state mono" data-state={l.state || (l.kind === "error" ? "failed" : "")}>{short(l.text, 260)}</div>;
@@ -132,14 +138,20 @@ function Body({ l, live }: { l: LiveLine; live: boolean }) {
   }
 }
 
-export const LiveRow = memo(function LiveRow({ l, who, last, onPin, onHover }: { l: LiveLine; who: Who; last: boolean; onPin: (k: string) => void; onHover: (k: string) => void }) {
+type RowProps = { l: LiveLine; who: Who; last: boolean; target: boolean; onPin: (k: string) => void; onHover: (k: string) => void; onTarget: (l: LiveLine) => void };
+
+export const LiveRow = memo(function LiveRow({ l, who, last, target, onPin, onHover, onTarget }: RowProps) {
+  const pick = (e: MouseEvent) => !(e.target as HTMLElement).closest(".slv-who, .slv-ask-keys, button, a, [role=button]") && onTarget(l);
   return (
-    <div className="fac-line slv-line" data-testid="session-live-line" data-hc={who.hc} data-kind={l.kind} data-key={l.key} data-n={l.n} onMouseEnter={() => onHover(l.key)}>
+    <div className="fac-line slv-line" data-testid="session-live-line" data-hc={who.hc} data-kind={l.kind} data-key={l.key} data-n={l.n} data-target={target || undefined}
+         data-after={l.after || undefined} tabIndex={target ? 0 : -1} onMouseEnter={() => onHover(l.key)} onClick={pick}
+         title={target ? `Your steer goes to ${who.name}, under this row` : undefined}>
       <span className="mono fac-ts" data-testid="session-live-time">{clock(l.ts)}</span>
       <span className="mono fac-kind" data-testid="session-live-kind">{l.label || KIND[l.kind] || l.kind}</span>
       <Tag k={l.key} who={who} onPin={onPin} />
       <div className="fac-text slv-body">
-        <Body l={l} live={last && who.state === "running" && (l.kind === "text" || l.kind === "thinking")} />
+        {l.after && <span className="slv-after mono" data-testid="live-after-steer">after your steer</span>}
+        <Body l={l} name={who.name} live={last && who.state === "running" && (l.kind === "text" || l.kind === "thinking")} />
       </div>
     </div>
   );

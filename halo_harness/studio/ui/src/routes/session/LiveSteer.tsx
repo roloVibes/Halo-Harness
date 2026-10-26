@@ -6,16 +6,36 @@
 // When that agent has finished the box is disabled and says so in one line.
 // A steer sent here echoes in the column as a YOU line at once
 // (shared/liveTree.ts) and lands in the agent's next step.
+// 3.3.0.0 R6: above the field the target line names the agent and what it
+// does now (LiveTarget.tsx); while the field has the keyboard the column does
+// not move (steer.ts setComposing); Tab / Shift+Tab in the field cycle the
+// target among the session's live agents; Escape leaves the field and follows
+// again. The field keeps its text when the target changes.
+import { useEffect, type FocusEvent, type KeyboardEvent } from "react";
 import { Button, Icon } from "../../lib/ui";
 import { askStop, togglePause } from "../fleet/actions";
 import { Steer } from "../fleet/Steer";
 import { hueOf } from "../shared/hues";
-import { useSteerTarget } from "./steer";
+import { TargetLine } from "./LiveTarget";
+import { cycleTarget, followAgain, setComposing, useSteerTarget } from "./steer";
+
+const inField = (e: { target: EventTarget }) => (e.target as HTMLElement).dataset?.testid === "fleet-steer";
+
+function onKeys(e: KeyboardEvent<HTMLDivElement>): void {
+  if (!inField(e) || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.key === "Tab") {
+    if (cycleTarget(e.shiftKey ? -1 : 1)) e.preventDefault(); // with no other live agent Tab moves the focus on, as usual
+  } else if (e.key === "Escape") followAgain();
+}
+const onFocus = (e: FocusEvent<HTMLDivElement>) => inField(e) && setComposing(true);
+const onBlur = (e: FocusEvent<HTMLDivElement>) => inField(e) && setComposing(false);
 
 const FINISHED = ["done", "failed", "stopped"];
 
 export function LiveSteer() {
   const t = useSteerTarget();
+  const off = !t.key || !t.ref || FINISHED.includes(String(t.ref.a.state)) || t.ref.h.allow_control === "none";
+  useEffect(() => void (off && setComposing(false)), [off]); // a field that goes away (or is disabled) holds no keyboard
   if (!t.key)
     return <div className="slv-hint mono muted" data-testid="session-live-hint">No session here yet: start one in a terminal (halo) and steer it from here.</div>;
   const a = t.ref?.a;
@@ -49,8 +69,10 @@ export function LiveSteer() {
     </>
   );
   return (
-    <div className="slv-steer holo-frame" data-testid="session-live-steer" data-key={t.key} data-hc={hueOf(t.key)} data-main={t.main || undefined} data-disabled={!!why || undefined}>
-      <Steer key={t.key} k={t.key} where="live" disabled={!!why} why={why} head={head} extra={extra} />
+    <div className="slv-steer holo-frame" data-testid="session-live-steer" data-key={t.key} data-hc={hueOf(t.key)} data-main={t.main || undefined} data-disabled={!!why || undefined}
+         onKeyDown={onKeys} onFocus={onFocus} onBlur={onBlur}>
+      <TargetLine t={t} name={name} />
+      <Steer k={t.key} where="live" disabled={!!why} why={why} head={head} extra={extra} />
     </div>
   );
 }

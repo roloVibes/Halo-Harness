@@ -7,6 +7,7 @@
                                  action?, instruction?, text?, reason?, agent_id?, ...}
                                   -> {ok, result}; 404 for a session not in the registry, 502 with the socket's error
     sessions/<sid>/agents...      the agent tree, one agent's tail and its commands (studio/fleet_api.py, 3.0.5.0)
+    GET  sessions/<sid>/trace.md  the session as one Markdown trace (3.3.0.0 R6: session_trace.py), text/markdown
 
 The rows come from `remote/registry.list_live()` (never an endpoint or a
 token) plus each session's `status` over its control socket: every call
@@ -154,8 +155,19 @@ def post_command(req):
     return 200, {"ok": True, "result": resp.get("result")}
 
 
+def get_trace(req):
+    """3.3.0.0 R6: the session as one Markdown trace (session_trace.py), the bytes `halo session export` writes."""
+    from halo_harness.session_trace_cli import find_session_log, trace_for_path
+    from halo_harness.studio.raw_body import RawBody
+    path, why = find_session_log(req.params["sid"])
+    if path is None:
+        return 404, {"error": why}
+    return 200, RawBody(trace_for_path(path).encode("utf-8"), "text/markdown; charset=utf-8")
+
+
 ROUTES = [("GET", r"^sessions$", list_sessions),
-          ("POST", r"^sessions/(?P<sid>[A-Za-z0-9_.:-]+)/command$", post_command)]
+          ("POST", r"^sessions/(?P<sid>[A-Za-z0-9_.:-]+)/command$", post_command),
+          ("GET", r"^sessions/(?P<sid>[A-Za-z0-9_.-]+)/trace\.md$", get_trace)]
 from halo_harness.studio.fleet_api import ROUTES as _FLEET_ROUTES  # noqa: E402  (3.0.5.0: the agent routes)
 ROUTES[len(ROUTES):] = _FLEET_ROUTES
 

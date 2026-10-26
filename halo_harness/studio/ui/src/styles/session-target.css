@@ -1,0 +1,42 @@
+/* The steer knows its target (3.3.0.0 R6): the target row in the Live column
+   and its agent's node on the map carry a steady outline in the agent's own
+   colour (--hc, fleet.css); the target line above the Steer field names the
+   agent and its call; a steer reads "↳ steer to <agent>: ..." indented under
+   its target, and the agent's next row carries "after your steer". The
+   "N new rows · follow" pill is the .slv-new pill (session-live.css). */
+
+/* -- the target row: a steady outline while it is the target -------------------------------- */
+.slv-line[data-target] {
+  outline: 1px solid var(--hc, var(--accent)); outline-offset: -1px;
+  background: color-mix(in srgb, var(--hc, var(--accent)) 12%, var(--surface));
+  box-shadow: 0 0 12px color-mix(in srgb, var(--hc, var(--accent)) 22%, transparent);
+}
+.slv-line { cursor: pointer; }
+.slv-line:focus { outline: 1px dashed var(--accent); outline-offset: -1px; }
+.slv-line[data-target]:focus { outline: 2px solid var(--hc, var(--accent)); }
+
+/* -- a steer under its target, and the row the model answers with ---------------------------- */
+.slv-line[data-kind="you"] { margin-left: 18px; border-left-style: dashed; }
+.slv-you > .mono { color: var(--accent); font-weight: 700; }
+.slv-after {
+  display: inline-block; margin: 0 6px 2px 0; padding: 0 7px; border-radius: 99px; vertical-align: 1px;
+  font-size: 10px; font-weight: 700; color: var(--accent-ink); background: var(--hc, var(--accent));
+}
+
+/* -- the target line above the Steer field -------------------------------------------------- */
+.slv-target-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; min-width: 0; padding: 0 2px 6px;
+  font-size: 11.5px; color: var(--muted); }
+.slv-target-line .rail-label { color: var(--accent); }
+.slv-target-name { font-weight: 700; color: var(--hc, var(--accent));
+  text-shadow: 0 0 8px color-mix(in srgb, var(--hc, var(--accent)) 45%, transparent); }
+.slv-target-call { color: var(--text); overflow-wrap: anywhere; }
+.slv-target-was { font-size: 11px; }
+.slv-target-line[data-state="running"] .slv-glyph { color: var(--accent); text-shadow: 0 0 6px var(--accent); }
+.slv-target-line[data-state="waiting"] .slv-glyph, .slv-target-line[data-state="paused"] .slv-glyph { color: var(--warn); }
+.slv-target-line[data-state="done"] .slv-glyph { color: var(--ok); }
+.slv-target-line[data-state="failed"] .slv-glyph { color: var(--bad); }
+
+/* -- the target's node on the map: the outline, its steer chip lit --------------------------- */
+.fm-target { fill: none; stroke: var(--hc, var(--accent)); stroke-width: 1.5;
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--hc, var(--accent)) 60%, transparent)); pointer-events: none; }
+.fm-node[data-target] .fm-steer { opacity: 1; pointer-events: auto; }

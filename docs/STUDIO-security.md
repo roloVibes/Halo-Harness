@@ -106,7 +106,10 @@ zoom, the arrows nudge the selected card, `Del` removes it (asks first);
 saves. The hop keys (3.0.5.0, [Fleet](STUDIO-fleet.md#keys-hop-around)): `J` / `K` the
 next / previous live agent (Fleet map, Roles cards, Orchestra lanes), `F`
 follow, `Space` pin the mini stream, `Esc` unpin, `P` pause or resume, `K`
-in the Agent panel stop (asks first).
+in the Agent panel stop (asks first). Session's Live column (3.3.0.0 R6,
+[steering and exporting](STUDIO-session.md#keys)): `Tab` / `Shift+Tab` in the
+Steer field cycle its target among the live agents, `Escape` leaves the field
+and follows again, `s` on a focused row makes it the target.
 
 ## Files
 
