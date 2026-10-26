@@ -21,6 +21,7 @@ let validateTimer = 0;
 let saveTimer = 0;
 let validateSeq = 0;
 let layoutSaving = false;
+let layoutDirty = false; // a save asked for while one is in flight: the newest state goes out next, never two PUTs racing
 
 export const msg = (e: unknown) => (e instanceof ApiError ? e.problems[0] || e.message : String(e));
 const list = <T>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
@@ -152,9 +153,13 @@ function saveLayoutSoon(): void {
 }
 
 /** 3.2.2.0 R6 (disk.ts): a move not yet on disk (the save timer runs, or the PUT is out): the store is newer than the file. */
-export const layoutPending = () => saveTimer !== 0 || layoutSaving;
+export const layoutPending = () => saveTimer !== 0 || layoutSaving || layoutDirty;
 
 export async function saveLayout(): Promise<void> {
+  if (layoutSaving) {
+    layoutDirty = true; // one PUT at a time (two in flight can land out of order on a slow server: the older positions won)
+    return;
+  }
   const s = roles.get();
   if (!s.name || !s.graph) return;
   const nodes: Record<string, Pos> = {};
@@ -168,6 +173,10 @@ export async function saveLayout(): Promise<void> {
     /* kept in the store; the next move saves again */
   } finally {
     layoutSaving = false;
+  }
+  if (layoutDirty) {
+    layoutDirty = false;
+    await saveLayout(); // what changed while the PUT was out
   }
 }
 
