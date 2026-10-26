@@ -2646,3 +2646,38 @@ the 3.2.1.0 re-read on `dropped` and on feed open did not cover it).
   5 s as a floor (a `fleet` poll the page already has for its header);
   reproduced with the same latency flag; the stop test's 60 s wait is judged
   everywhere. Docs: DEVELOPMENT.md "A slow box" (the flag, what it is for).
+
+## ADDED 2026-10-26 (rolo, after installing 3.3.0.0: "I hate the pop up when the settings studio is launched. Don't do that. It's so busy in the studio version of the set up. Have it go thru pages not like a huge confusing blob on one page"): 3.3.1.0 "Setup, one page at a time"
+
+Today Setup (3.3.0.0) is one workspace page with eight panels (Providers,
+Local models, Default model, Permissions, Terminal theme, Team, Linux fixes,
+Check) over a status strip, and `halo init` opens it with `?first=1`, which
+auto-opens the section help ("What this page does") once; a fresh home can
+also show the Start here overlay. The owner reads that as a pop-up and a blob.
+
+- R1 Setup, one page at a time. (a) Nothing opens on its own when Setup (or
+  any section) loads: `?first=1` no longer opens the help (it only leads the
+  strip), the first-visit welcome (`welcomeIfNew`) never fires for Setup, the
+  Start here overlay never shows while Setup is the section (its "Set up
+  this box" button is Setup's own first page); the help stays one click away
+  (the ? in the header). (b) Setup is a paged flow: a step rail across the
+  top in the wizard's order -- Providers, Local models, Default model,
+  Permissions, Theme, Team, Check -- current step highlighted, done steps
+  ticked (a step is "done" when its block has what it needs: a provider
+  set, a model picked, ...), the Linux fixes as a step only when needed
+  (before Check); one block per page, its own Save stays, **Back** / **Next**
+  at the foot, the rail jumps anywhere, Enter in a field is that block's
+  Save; a **Summary** page last: one line per step with its value and a
+  "Change" jump, the Check block's "Run the ticked checks" and the guided
+  first run's card; `?block=<id>` (R4's door) opens that page; the status
+  strip becomes the rail's own one-line summary (no second strip). (c) The
+  pages keep the workspace's rules out: no panels to move on Setup (one page,
+  one block, the room is the page); the Ollama card's Find / Scan / Add /
+  Measure live on the Providers page under the Ollama provider as a
+  disclosure, closed by default. (d) The capture, the banner tile and the
+  docs (STUDIO-setup, STUDIO-sections, WIZARD, README's Setup screenshot)
+  follow the first page. Tests: the Chrome driver walks Next from Providers
+  to Summary and back, the rail jumps, `?block=team` lands on Team, nothing
+  is open on load (no help, no overlay) with and without `?first=1`, the
+  Summary's lines and Change jumps; every existing Setup test keeps its
+  checks (they address blocks by testid, now one page at a time).
