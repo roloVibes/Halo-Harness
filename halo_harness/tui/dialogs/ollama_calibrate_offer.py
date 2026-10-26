@@ -6,7 +6,10 @@ offer that follows when it added hosts: "Calibrate the found models now
 runs `providers.ollama_discover_measure.measure_hosts` in a worker with one
 progress line per model; Esc skips it, or once it runs closes the view
 (the measuring carries on in the background while setup stays open and
-records each model as it ends) -- Esc never undoes anything.
+records each model as it ends) -- Esc never undoes anything. Halo 3.2.3.0
+R3: when the measuring ends with models that fit, the view asks "make
+tuned twins of the models that fit? (Enter / n)"; Enter makes them
+(`providers.ollama_tune_offer.make_twins`, one line each), n or Esc skips.
 """
 
 from __future__ import annotations
@@ -48,7 +51,8 @@ def save_found_rows(node, provider: str, values: dict, *, prefix: str, team_cfg=
 class CalibrateOffer(ModalScreen):
     """"Calibrate the found models now (loads each model once; about N
     minutes: Enter runs it, Esc skips)" -- then one line per model."""
-    BINDINGS = [Binding("escape", "skip", "Skip", priority=True, show=False)]
+    BINDINGS = [Binding("escape", "skip", "Skip", priority=True, show=False),
+                Binding("n", "no_twins", "No twins", show=False)]
     DEFAULT_CSS = """
     CalibrateOffer { align: center middle; }
     CalibrateOffer > Vertical { width: 80%; height: auto; max-height: 80%; border: round $primary;
@@ -69,6 +73,9 @@ class CalibrateOffer(ModalScreen):
         self.lines: "list[str]" = []
         self.running = False
         self.finished = False
+        self.results: "list[dict]" = []
+        self.twin_offer = False   # R3: the tuned-twins question is open
+        self.twins_done = False
 
     def compose(self) -> ComposeResult:
         with Vertical():
@@ -86,8 +93,12 @@ class CalibrateOffer(ModalScreen):
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         event.stop()
-        if event.button.id == "calibrate-run" and not self.running:
+        if event.button.id == "calibrate-run" and self.twin_offer:
+            self.action_make_twins()
+        elif event.button.id == "calibrate-run" and not self.running:
             self.action_run()
+        elif event.button.id == "calibrate-skip" and self.twin_offer:
+            self.action_no_twins()
         elif event.button.id == "calibrate-skip":
             self.action_skip()
 
@@ -103,8 +114,8 @@ class CalibrateOffer(ModalScreen):
 
     def _run_worker(self) -> None:
         from halo_harness.providers.ollama_discover_measure import measure_hosts
-        measure_hosts(list(self.models_by_host), models_by_host=self.models_by_host,
-                      on_line=lambda line: self._from_thread(self.append_line, line))
+        self.results = measure_hosts(list(self.models_by_host), models_by_host=self.models_by_host,
+                                     on_line=lambda line: self._from_thread(self.append_line, line))
         self._from_thread(self._done)
 
     def _from_thread(self, fn, *args) -> None:
@@ -114,8 +125,50 @@ class CalibrateOffer(ModalScreen):
             pass
 
     def _done(self) -> None:
+        from halo_harness.providers.ollama_tune_offer import TWIN_QUESTION, twin_candidates
         self.finished = True
         self.append_line("done: every measurement is recorded in ~/.halo/ollama-fit.json")
+        if twin_candidates(self.results):
+            self.twin_offer = True
+            self.append_line(TWIN_QUESTION)
+            try:
+                run = self.query_one("#calibrate-run", Button)
+                run.label, run.disabled = "Make tuned twins", False
+                self.query_one("#calibrate-skip", Button).label = "No"
+                run.focus()
+            except Exception:
+                pass
+
+    def action_make_twins(self) -> None:
+        if not self.twin_offer:
+            return
+        self.twin_offer = False
+        try:
+            self.query_one("#calibrate-run", Button).disabled = True
+            self.query_one("#calibrate-skip", Button).label = "Close"
+        except Exception:
+            pass
+        guarded_worker(self.app, self._twins_worker, thread=True, name="ollama-tuned-twins")
+
+    def _twins_worker(self) -> None:
+        from halo_harness.providers.ollama_tune_offer import make_twins
+        make_twins(self.results, on_line=lambda line: self._from_thread(self.append_line, line))
+        self._from_thread(self._twins_finished)
+
+    def _twins_finished(self) -> None:
+        self.twins_done = True
+        self.append_line("done: the twins are listed under their originals in `halo ollama`")
+
+    def action_no_twins(self) -> None:
+        if not self.twin_offer:
+            return
+        self.twin_offer = False
+        self.append_line("no twins made (`halo ollama tune MODEL` makes one later)")
+        try:
+            self.query_one("#calibrate-run", Button).disabled = True
+            self.query_one("#calibrate-skip", Button).label = "Close"
+        except Exception:
+            pass
 
     def append_line(self, text: str) -> None:
         self.lines.append(text)

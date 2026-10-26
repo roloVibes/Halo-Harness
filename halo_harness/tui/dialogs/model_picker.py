@@ -428,6 +428,9 @@ class ModelPicker(ModalScreen):
                 # under price/context/speed) -- a no-op shuffle under "name"
                 # order, where they're already adjacent in the normal case.
                 members = _place_free_variants_beside_base(members)
+                # Halo 3.2.3.0 R3: a tuned twin right before its original, whatever the sort
+                from halo_harness.providers.ollama_tune_rows import picker_twins_first
+                members = picker_twins_first(members)
                 batch.extend(Option(self._row_text(m), id=m["ref"]) for m in members)
             option_list.add_options(batch)
             # 1.0.1 hotfix addendum 7: highlights the first SELECTABLE row

@@ -413,6 +413,7 @@ def build_model_rows(state_dir, *, env: "Optional[dict]" = None, routes: "Option
     # `halo doctor --local` read, unchanged by this round.
     try:
         from halo_harness.providers.local_models import build_local_view
+        from halo_harness.providers.ollama_tune_names import twin_note
         local_rows = build_local_view(env=env, state_dir=state_dir)
     except Exception:
         local_rows = []
@@ -424,7 +425,11 @@ def build_model_rows(state_dir, *, env: "Optional[dict]" = None, routes: "Option
             "ref": row.ref, "context_tokens": row.context, "max_output_tokens": None,
             "price_in_per_m": 0, "price_out_per_m": 0,
             "provider": "ollama" if row.ref.startswith("ol:") else "huggingface",
-            "group": row.group, "detail": row.capability,
+            "group": row.group,
+            # Halo 3.2.3.0 R3: a tuned twin says so and names its original
+            "detail": (f"{twin_note(row.twin_of, row.twin_window)} · {row.capability}" if row.twin_of
+                       else row.capability),
+            "twin_of": row.twin_of,
             # 3.1.9.0 R1: Ollama's `/api/show` capabilities LIST (vision was
             # never in `row.capability`'s text, so local vision read unknown)
             # and the measured tool-call probe (carried into `measured`);

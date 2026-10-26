@@ -888,8 +888,9 @@ def upload_blob(host: OllamaHost, digest_hex: str, file_path, *, on_progress=Non
                 pass
 
 
-def create_model(host: OllamaHost, name: str, *, files: dict, on_status=None,
-                  timeout: float = 300.0) -> "tuple[bool, str]":
+def create_model(host: OllamaHost, name: str, *, files: Optional[dict] = None, on_status=None,
+                  timeout: float = 300.0, from_model: Optional[str] = None,
+                  parameters: Optional[dict] = None) -> "tuple[bool, str]":
     """Halo 2.0.3 round 5c (brief item 4, "option B"), FIX PASS: `POST
     /api/create {"model": name, "files": {"<basename>": "sha256:<hex>"},
     "stream": true}` -- the live run found the OLDER `modelfile` form
@@ -900,7 +901,9 @@ def create_model(host: OllamaHost, name: str, *, files: dict, on_status=None,
     shape `/api/chat`'s own stream uses) to `on_status`. Returns `(True,
     "success")` on the final `{"status": "success"}` line, `(False,
     message)` on an `{"error": ...}` line, a non-200 response, or any
-    transport failure."""
+    transport failure. Halo 3.2.3.0 R3: `from_model` + `parameters` is the
+    derived-model form (`{"from": <model>, "parameters": {...}}`: the new
+    model shares `from_model`'s blobs; `providers.ollama_tune`'s twins)."""
     import http.client
     from halo_harness.providers.http import UpstreamConnectError
     conn = None
@@ -908,7 +911,14 @@ def create_model(host: OllamaHost, name: str, *, files: dict, on_status=None,
         conn, root = _open_conn(host, timeout=timeout)
         headers = {"Accept-Encoding": "identity", "Content-Type": "application/json"}
         headers.update(_auth_headers(host))
-        body = json.dumps({"model": name, "files": files, "stream": True}).encode("utf-8")
+        payload: dict = {"model": name, "stream": True}
+        if files is not None:
+            payload["files"] = files
+        if from_model:
+            payload["from"] = from_model
+        if parameters:
+            payload["parameters"] = parameters
+        body = json.dumps(payload).encode("utf-8")
         conn.request("POST", f"{root}/api/create", body=body, headers=headers)
         resp = conn.getresponse()
         if resp.status != 200:
@@ -974,6 +984,9 @@ def _build_catalog(host: OllamaHost) -> dict:
             row["capabilities"] = show.get("capabilities") if isinstance(show.get("capabilities"), list) else []
             if isinstance(show.get("details"), dict):
                 row["details"] = {**(row.get("details") or {}), **show["details"]}
+            # Halo 3.2.3.0 R3: a tuned twin's row names its original
+            from halo_harness.providers.ollama_tune_rows import catalog_twin_fields
+            row.update(catalog_twin_fields(host, name, show))
         models.append(row)
     return {"models": models, "fetched_at": time.time()}
 

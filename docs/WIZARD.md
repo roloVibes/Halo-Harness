@@ -190,7 +190,10 @@ Enter runs the calibration in a worker, one progress line per model
 ("qwen3:30b on gpubox: 32k fits, 65k does not (2 min 10 s)"); Esc skips
 it, or once it runs closes the view while the measuring carries on in the
 background as long as setup stays open, recording each model as it ends
-(rule 8: Esc never undoes anything). The
+(rule 8: Esc never undoes anything). When the measuring ends with models
+that fit, the view asks "make tuned twins of the models that fit? (Enter
+/ n)": Enter makes a tuned twin of each (`halo ollama tune`, one line
+each), n or Esc skips. The
 Local models step shows the same rows read-only above its detection
 lines, which now list every local Ollama found ("Ollama at
 127.0.0.1:11434: 3 models", "Ollama at 127.0.0.1:11435: 1 model, not

@@ -50,8 +50,10 @@ SUBCOMMANDS = (
     "ollama", "local",  # Halo 3.2.3.0 round R2: the gap the round 5d note named, closed with `halo ollama discover`
 )
 
-# Halo 3.2.3.0 round R2: the words that follow `halo ollama` (and the discover flags).
-OLLAMA_WORDS = ("discover", "calibrate", "doctor", "--lan", "--add", "--calibrate", "--json", "--timeout")
+# Halo 3.2.3.0 round R2: the words that follow `halo ollama` (and the discover flags);
+# R3: `tune` and its flags, discover's `--twins` / `--no-twins`.
+OLLAMA_WORDS = ("discover", "calibrate", "tune", "doctor", "--lan", "--add", "--calibrate", "--json", "--timeout",
+                "--twins", "--no-twins", "--window", "--remove")
 
 # Halo 2.0.9 round 4: the words that follow `halo remote` / `halo remote
 # signal` (completion offers one flat word list after the first argument, so

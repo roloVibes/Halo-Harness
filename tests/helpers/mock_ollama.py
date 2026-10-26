@@ -6,7 +6,9 @@ there rather than duplicated) -- serves `GET /api/version`, `GET
 /api/chat` (plain text, tool_calls single/parallel, thinking, every
 `done_reason` value, timing fields, and a "what did you actually send"
 echo scenario for pinning `options.num_ctx`/`keep_alive`/`think` on the
-wire). Never a literal LAN address anywhere in this file
+wire); Halo 3.2.3.0 R3: a derived-model `/api/create` (`from` +
+`parameters`) and `DELETE /api/delete` (tests/helpers/mock_ollama_create.py).
+Never a literal LAN address anywhere in this file
 (`tests/test_privacy_scan.py`).
 """
 
@@ -383,7 +385,12 @@ class _Handler(BaseHTTPRequestHandler):
             # "model" field, i.e. the NEW name being created, never the
             # source model); unscripted names get `DEFAULT_CREATE_LINES`.
             name = (body or {}).get("model") or ""
-            lines = mock.create_responses.get(name, list(DEFAULT_CREATE_LINES))
+            if name not in mock.create_responses and (body or {}).get("from"):
+                # Halo 3.2.3.0 R3: a derived model (a tuned twin) joins /api/tags + /api/show
+                from tests.helpers.mock_ollama_create import apply_create
+                lines = apply_create(mock, body)
+            else:
+                lines = mock.create_responses.get(name, list(DEFAULT_CREATE_LINES))
             try:
                 _finish_chat(self, lines)
             except ClientDisconnected:
@@ -419,6 +426,18 @@ class _Handler(BaseHTTPRequestHandler):
                 traceback.print_exc()
             return
         send_json(self, 404, {"error": f"mock ollama: unknown POST path {path!r}"})
+
+    def do_DELETE(self):
+        # Halo 3.2.3.0 R3: `DELETE /api/delete {"model": name}` (a twin's --remove)
+        mock: MockUpstream = self.server.mock  # type: ignore[attr-defined]
+        body = self._read_json_body()
+        self._record("DELETE", body)
+        if self.path.rstrip("/") == "/api/delete":
+            from tests.helpers.mock_ollama_create import apply_delete
+            status, obj = apply_delete(mock, body)
+            send_json(self, status, obj)
+            return
+        send_json(self, 404, {"error": f"mock ollama: unknown DELETE path {self.path!r}"})
 
 
 class MockUpstream:
@@ -462,6 +481,11 @@ class MockUpstream:
         self.real_prompt_counts = True
         self.load_vram: dict = {}
         self._loads: dict = {}
+        # Halo 3.2.3.0 R3: the `from` creates and deletes seen; False = a
+        # server that leaves `details.parent_model` empty on a derived model
+        self.created: list = []
+        self.deleted: list = []
+        self.create_records_parent = True
 
     def _begin_load(self, model: str, body) -> None:
         num_ctx = ((body or {}).get("options") or {}).get("num_ctx")
