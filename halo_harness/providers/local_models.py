@@ -451,6 +451,12 @@ def detection_summary_lines(*, env: Optional[dict] = None, state_dir=None, hw_ru
     except Exception:
         log.debug("local_models: Ollama detection for the wizard summary failed", exc_info=True)
     try:
+        # Halo 3.2.3.0 R2: every Ollama on this machine's doors, one line each, added or not
+        from halo_harness.providers.ollama_discover_hosts import local_summary_lines
+        lines.extend(local_summary_lines(env))
+    except Exception:
+        log.debug("local_models: Ollama discovery for the wizard summary failed", exc_info=True)
+    try:
         rows = build_local_view(env=env, state_dir=state_dir, hw_runner=hw_runner)
         server_groups = sorted({r.group for r in rows if r.group.startswith("Hugging Face (local:")})
         if server_groups:

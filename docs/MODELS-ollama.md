@@ -37,6 +37,44 @@ unauthenticated by definition unless its own `api_key` is set -- Ollama
 itself has no auth mechanism at all; a reverse-proxy/bearer setup on a LAN
 host is the user's own responsibility, never assumed.
 
+**Discovery** (Halo 3.2.3.0, `providers/ollama_discover.py`; `halo ollama
+discover`, the wizard's Ollama tab): the hosts are found as well as typed.
+`discover(scope)` returns one row per server, `{url, name, version, models,
+configured, where}`, `where` saying which door answered:
+
+| `where` | The candidate |
+|---|---|
+| `env` | `OLLAMA_HOST` (a bare `0.0.0.0` means this machine) |
+| `loopback` | 127.0.0.1 and [::1] on every port in `ollama.discover.ports` |
+| `self` | this machine's own LAN address on those ports |
+| `docker` | `host.docker.internal` on those ports |
+| `wsl` | on Windows a running WSL distro's address (`wsl.exe -l --running`, then `hostname -I`, 3 s cap; a stopped distro is never started); inside WSL the Windows host (`/etc/resolv.conf`'s nameserver) |
+| `lan` | a responder of the network sweep (`--lan`, **Scan this network**) |
+
+The local scope (`env` to `wsl`) is asked sixteen at a time, about 4 s in
+all; each candidate is confirmed by `/api/version` (1.5 s) then
+`/api/tags` (3 s). The network scope sweeps the /24 of this machine's LAN
+address plus `ollama.discover.subnets` (CIDRs; one wider than a /24 is
+skipped with one line) with a 0.3 s TCP connect per address and port, 64
+threads, a 10 s cap, then confirms the responders the same way; its rows
+are named from reverse DNS (1 s) else `ollama-<last octet>`, with `-<port>`
+added off the default port. A server reached through two of this machine's
+doors (the same port, version and model list with the same digests) is one
+row, the loopback one kept; network rows are merged only by address, since
+two machines may serve the same models. A row whose url matches an
+`ollama.hosts` entry (or the host synthesized from `OLLAMA_HOST`) is
+`configured` under that entry's name. Adding a row writes `{name, url}`
+(the first entry ever gets `default: true`; with `ollama.hosts` still
+empty and the synthesized default found, that one is written first as
+`default`, so a bare `ol:<model>` keeps its daemon) and never repoints an
+existing entry; offline mode lets the added host through like any private
+address. Nothing runs the network scan on its own, offline mode turns it
+off, and under `BRIDGE_TEST_NO_BACKGROUND_NET=1` it returns no rows and one
+note while the local scope asks only loopback on the ports
+`ollama.discover.ports` names. `halo ollama`, `halo local` and the
+wizard's detection summary read the local scope through a 60 s in-process
+cache.
+
 **Request shape**: `options.num_ctx` on every request (never a Modelfile
 default -- see above), `keep_alive` only when the host entry configures
 one (a request-level `keep_alive` overrides the server's own

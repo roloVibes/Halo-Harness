@@ -8,6 +8,27 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.2.3.0] - unreleased
+
+### R2: the servers are found, then measured
+
+#### Added
+- `halo ollama discover [--lan] [--add [NAME,NAME]] [--calibrate] [--json] [--timeout S]`: the Ollama servers on this machine (OLLAMA_HOST, 127.0.0.1 and [::1] on `ollama.discover.ports`, this machine's LAN address, `host.docker.internal`, a running WSL distro or, inside WSL, the Windows host), each confirmed by `/api/version` and `/api/tags`, one line per server with its models, `configured` or `new`; `--lan` also sweeps the /24 of this machine's LAN address plus `ollama.discover.subnets` (10 s cap, only when asked); `--add` writes the new ones as `ollama.hosts` entries (never repointing a host, the first stays the default); `--calibrate` measures every model of the added hosts, one progress line per model ("qwen3:30b on gpubox: 32k fits, 65k does not (2 min 10 s)").
+- The wizard's Ollama tab: **Find Ollama servers** and **Scan this network** (a progress line), a tick per found server, Save adds the ticked ones, then "Calibrate the found models now (loads each model once; about N minutes: Enter runs it, Esc skips)". The Local models step lists the found servers read-only.
+- Config keys `ollama.discover.ports` (default `[11434]`) and `ollama.discover.subnets`.
+
+#### Changed
+- `halo ollama` and `halo local` list an Ollama found on this machine but not in `ollama.hosts` as "found, not added (halo ollama discover --add)".
+- The wizard's detection summary reports every local Ollama found ("Ollama at 127.0.0.1:11435: 1 model, not added"), not only the default host.
+- `halo completion` offers `ollama`, `local` and the `halo ollama` words.
+
+#### Fixed
+- A second Ollama daemon, one in Docker or WSL, or one on another machine no longer has to be typed by hand before Halo can use it.
+
+### Also in 3.2.3.0
+
+#### Changed
+
 ## [3.2.2.0] - 2026-10-25
 
 Focus: what the owner hit live on 2026-10-25, as six rounds -- the guided first run says what it does and never crashes, a quit leaves nothing behind and `halo update` clears what lingers, the session says what it is doing and plan mode never leaves you guessing, the canvas makes room, Studio sees what the session changes; and the launch shows the art.

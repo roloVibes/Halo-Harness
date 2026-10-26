@@ -171,6 +171,31 @@ roles` are kept as plain aliases (so is the pre-existing `/setup roles`/
 `halo setup roles`, and the new, equally-spelled `/setup team`/`halo setup
 team`) -- all four land on the exact same screen.
 
+## The Ollama tab: found servers (3.2.3.0)
+
+The Providers step's Ollama tab (and `halo init`'s tabbed view) opens with
+two buttons above the typed fields: **Find Ollama servers** asks this
+machine's doors at once (`OLLAMA_HOST`, loopback on
+`ollama.discover.ports`, this machine's LAN address, Docker, WSL; a few
+seconds) and **Scan this network** also sweeps the network, with a
+progress line ("scanning <subnet> ... N s", about 10 s). Each server found
+is one row with a tick: its name, address, version and the models it
+serves. A configured one is ticked and dimmed; a new one starts unticked.
+Save adds the ticked new rows as `ollama.hosts` entries (never
+repointing an existing host; the first entry stays the default), and the
+typed fields still work for a host the scan cannot reach. When the Save
+added hosts, a one-line offer follows: "Calibrate the found models now
+(loads each model once; about N minutes: Enter runs it, Esc skips)".
+Enter runs the calibration in a worker, one progress line per model
+("qwen3:30b on gpubox: 32k fits, 65k does not (2 min 10 s)"); Esc skips
+it, or once it runs closes the view while the measuring carries on in the
+background as long as setup stays open, recording each model as it ends
+(rule 8: Esc never undoes anything). The
+Local models step shows the same rows read-only above its detection
+lines, which now list every local Ollama found ("Ollama at
+127.0.0.1:11434: 3 models", "Ollama at 127.0.0.1:11435: 1 model, not
+added"). With `--no-live` the offer is not made.
+
 ## The Summary's checks (3.2.2.0)
 
 Under the lineup lines, the Summary lists the checks Halo offers after
