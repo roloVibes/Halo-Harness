@@ -66,6 +66,7 @@ Focus: Ollama on the network -- what broke when the owner ran Halo on a Mac agai
 
 #### Fixed
 
+- Studio's Fleet map could keep a stopped agent `running` for good when the end frame never corrected a frame-based state and the feed was open (so the page did not poll): while anything runs and no frame has come for 5 s the view is re-read on the poll tick, and an agent's end re-reads it at once (the Linux runner caught it twice).
 - Roles: a card dropped into another tier (the held-over-a-collapsed-strip path included) lands inside that tier's box; before, the raw drop point could leave it in the other column, the tier box then spanned both columns and the next re-render re-packed the tier (GitHub's Windows runner saw it as three cards moving after a removal). The Windows special case of that test is gone.
 
 #### Changed

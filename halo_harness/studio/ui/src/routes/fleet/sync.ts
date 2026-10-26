@@ -111,6 +111,8 @@ function onAgentState(f: FeedFrame): void {
   if (before === "waiting" && row.state !== "waiting") later("load", 300, () => void load()); // answered: the session's waiting clears
   const now = Date.now();
   const ended = before && before !== row.state && (row.state === "done" || row.state === "failed");
+  if (before === "running" && (row.state === "done" || row.state === "failed" || row.state === "stopped"))
+    later("load", 300, () => void load()); // 3.2.3.0: an agent's end re-reads the view (its parent's and the hub's rows move too)
   fleet.update((st) => ({
     harnesses,
     lastFrame: now,
@@ -204,7 +206,13 @@ export function startFleet(): void {
   onEvent("dropped", () => later("load", 200, () => void load())); // 3.2.1.0: frames fell off the queue: re-read
   onFeedState((s) => { if (s === "open") later("load", 300, () => void load()); }); // a (re)opened stream missed its gap
   window.setInterval(() => {
-    if (studio.get().feed.status !== "open" && !document.hidden) void load();
+    if (document.hidden) return;
+    const st = fleet.get();
+    const open = studio.get().feed.status === "open";
+    const running = st.harnesses.some((h) => h.sessions.some((ss) => (ss.agents || []).some((a) => a.state === "running")));
+    // 3.2.3.0: a frame-based `running` the feed never corrects (an end frame lost, or a late frame that beat the view's
+    // answer) is re-read while anything runs and no frame has come for 5 s: the view's later ask wins (the Linux runner).
+    if (!open || (running && Date.now() - st.lastFrame > 5000)) void load();
   }, POLL_MS);
   void load();
   startPanels();
