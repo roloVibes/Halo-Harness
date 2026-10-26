@@ -11,7 +11,8 @@ them read-only and `e` opens Studio on them (see "The Team step" below).
 Verified against `halo_harness/tui/dialogs/init_wizard.py`, `wizard_ux.py`,
 `step_rail.py`, `autocomplete.py`, `setup_mode.py`, and `team_step.py`.
 
-3.3.0.0: Setup in Studio holds the same blocks (R4 makes it the door).
+3.3.0.0: Setup in Studio holds the same blocks and writes the same files through the same writers
+(Providers and Local models since R2; [STUDIO-setup.md](STUDIO-setup.md)); R4 makes it the door.
 
 ## The 90-second version
 

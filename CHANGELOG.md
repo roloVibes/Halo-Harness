@@ -26,6 +26,19 @@ version.
 #### Fixed
 - Roles: a card dropped into another tier, also after holding it over a collapsed tier's strip until it opens, lands inside that tier's box (its column), never at the raw drop point beside it; the tier boxes no longer overlap, so the next redraw keeps every other card's spot (the Windows runner's "three cards moved" after a removal). The removal check is judged on every runner again.
 
+### R2: providers and local models in Setup
+
+#### Added
+- Setup's **Providers** block: one card per provider in the wizard's order (Databricks, OpenRouter, Anthropic, Ollama, Hugging Face, OpenAI, TypeSafe, Experiential Labs). Each card shows its state ("set, from the env file, ****1234" / "not set"), the enabled mark and what the last test found ("reachable: ok · 312 models listed"). A key goes into a password field, never prefilled. **Save & test** does what the wizard's Save does: it writes the env file (`HALO_ENV_FILE`, else `~/.config/halo/env`), turns the provider on, probes its host and reads its model list, and the lines under the card say what was written and found. A key is posted once and never sent back.
+- The Ollama card: the hosts table (name, url, default, key env) with add and remove. The merge rule holds: a same-name save keeps the host's tuning, a blank save never repoints a host, and the first host is the default. A key is kept in the env file as `HALO_SECRET_OLLAMA_<NAME>`. Find Ollama servers and Scan this network come with 3.3.0.0 R5.
+- The Hugging Face card: the router token, dedicated endpoints and named local servers, each added or removed on its own.
+- Setup's **Local models** block: model folders (`huggingface.model_dirs`, add by path, remove), the preferred runtime (`llama-server` | `mlx_lm`) and what is on this machine now, read again after each save.
+- Routes `POST setup/provider/<name>`, `setup/ollama-host`, `setup/ollama-host/remove`, `setup/hf`, `setup/model-dir`, `setup/runtime`. A bad URL or an `http://` Databricks host is a 422 with `problems`, and nothing is written. `GET setup/state` carries each provider's masked state and never a key.
+
+#### Changed
+- The wizard's Hugging Face local-server writer takes an optional name (Setup names its servers; the wizard's one entry stays `default`).
+- The Setup page opens with Providers and Local models on top; the rail says how many providers are set and how many model folders are added.
+
 ### Also in 3.3.0.0
 
 #### Changed

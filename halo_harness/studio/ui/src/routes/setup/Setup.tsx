@@ -3,18 +3,20 @@
 // default model, the lineup, the permission mode, the terminal theme), under
 // it the panel workspace: one panel per block, each its own form with its own
 // Save and its own saved / changed / problem line (BlockFoot), so they are
-// filled in any order; the rail lists the blocks with that line. This round
-// draws Default model, Permissions, Terminal theme and Team; Providers and
-// Local models come with R2, Linux fixes and Check with R3 (one line each).
+// filled in any order; the rail lists the blocks with that line. R1 drew
+// Default model, Permissions, Terminal theme and Team; R2 Providers (one card
+// per provider) and Local models; Linux fixes and Check come with R3 (one line each).
 import { useEffect } from "react";
 import type { MotionState } from "../../lib/motion";
 import { Workspace } from "../../lib/workspace/Workspace";
 import { focusPanel, layoutStore, patchPanel } from "../../lib/workspace/persist";
 import type { PanelSpec } from "../../lib/workspace/types";
 import { HELP } from "../help";
+import { LocalModelsDetail, LocalModelsGlance } from "./LocalModels";
 import { DefaultModelDetail, DefaultModelGlance } from "./DefaultModel";
 import { PermissionsDetail, PermissionsGlance } from "./Permissions";
-import { blockWord, providersSet, startSetup, useSetup, type BlockId } from "./store";
+import { ProvidersDetail, ProvidersGlance } from "./Providers";
+import { blockWord, providersSet, startSetup, useSetup, type BlockId, type SetupState } from "./store";
 import { TeamDetail, TeamGlance } from "./Team";
 import { ThemeDetail, ThemeGlance } from "./Theme";
 
@@ -33,30 +35,38 @@ function later(id: string, round: string, line: string) {
   return Body;
 }
 
-const ProvidersLater = later("providers", "R2", "Until then halo init sets a provider up in the terminal (its Providers tabs).");
-const LocalLater = later("local", "R2", "Until then halo init's Local models step adds model folders and picks the runtime.");
 const LinuxLater = later("linux", "R3", "Until then halo doctor lists the Linux fixes this box is missing.");
 const CheckLater = later("check", "R3", "Until then halo doctor and halo models --refresh check this setup.");
 
 const panel = (id: string, rest: Omit<PanelSpec, "id" | "testid">): PanelSpec => ({ id, testid: id, ...HELP[id], ...rest, useMotion: useSetupMotion });
 
 export const setupPanels: PanelSpec[] = [
-  panel("setup-providers", { title: "Providers", x: 0, y: 0, w: 6, h: 12, minW: 4, minH: 8, face: "detail", glance: ProvidersLater, detail: ProvidersLater }),
-  panel("setup-local", { title: "Local models", x: 6, y: 0, w: 6, h: 12, minW: 4, minH: 8, face: "detail", glance: LocalLater, detail: LocalLater }),
-  panel("setup-linux", { title: "Linux fixes", x: 12, y: 0, w: 6, h: 12, minW: 4, minH: 8, face: "detail", glance: LinuxLater, detail: LinuxLater }),
-  panel("setup-check", { title: "Check", x: 18, y: 0, w: 6, h: 12, minW: 4, minH: 8, face: "detail", glance: CheckLater, detail: CheckLater }),
-  panel("setup-model", { title: "Default model", x: 0, y: 12, w: 8, h: 0, minW: 6, minH: 12, face: "detail", glance: DefaultModelGlance, detail: DefaultModelDetail }),
-  panel("setup-permissions", { title: "Permissions", x: 8, y: 12, w: 6, h: 42, minW: 5, minH: 12, face: "detail", glance: PermissionsGlance, detail: PermissionsDetail }),
-  panel("setup-theme", { title: "Terminal theme", x: 8, y: 54, w: 6, h: 0, minW: 5, minH: 12, face: "detail", glance: ThemeGlance, detail: ThemeDetail }),
-  panel("setup-team", { title: "Team", x: 14, y: 12, w: 10, h: 0, minW: 6, minH: 12, face: "detail", glance: TeamGlance, detail: TeamDetail }),
+  panel("setup-providers", { title: "Providers", x: 0, y: 0, w: 14, h: 76, minW: 6, minH: 16, face: "detail", glance: ProvidersGlance, detail: ProvidersDetail }),
+  panel("setup-local", { title: "Local models", x: 14, y: 0, w: 10, h: 76, minW: 5, minH: 16, face: "detail", glance: LocalModelsGlance, detail: LocalModelsDetail }),
+  panel("setup-linux", { title: "Linux fixes", x: 0, y: 76, w: 12, h: 12, minW: 4, minH: 8, face: "detail", glance: LinuxLater, detail: LinuxLater }),
+  panel("setup-check", { title: "Check", x: 12, y: 76, w: 12, h: 12, minW: 4, minH: 8, face: "detail", glance: CheckLater, detail: CheckLater }),
+  panel("setup-model", { title: "Default model", x: 0, y: 88, w: 8, h: 72, minW: 6, minH: 12, face: "detail", glance: DefaultModelGlance, detail: DefaultModelDetail }),
+  panel("setup-permissions", { title: "Permissions", x: 8, y: 88, w: 6, h: 42, minW: 5, minH: 12, face: "detail", glance: PermissionsGlance, detail: PermissionsDetail }),
+  panel("setup-theme", { title: "Terminal theme", x: 8, y: 130, w: 6, h: 40, minW: 5, minH: 12, face: "detail", glance: ThemeGlance, detail: ThemeDetail }),
+  panel("setup-team", { title: "Team", x: 14, y: 88, w: 10, h: 72, minW: 6, minH: 12, face: "detail", glance: TeamGlance, detail: TeamDetail }),
 ];
 
 /** The rail's block list: each block with its line; a click brings its panel back and focuses it. */
 const BLOCKS: [string, string, BlockId | string][] = [
-  ["setup-providers", "Providers", "R2"], ["setup-local", "Local models", "R2"], ["setup-model", "Default model", "model"],
+  ["setup-providers", "Providers", "providers"], ["setup-local", "Local models", "local"], ["setup-model", "Default model", "model"],
   ["setup-permissions", "Permissions", "permission_mode"], ["setup-theme", "Terminal theme", "theme"], ["setup-team", "Team", "team"],
   ["setup-linux", "Linux fixes", "R3"], ["setup-check", "Check", "R3"],
 ];
+
+/** The rail's word for a block: how many providers are set, how many model folders, a later round, or the block's line. */
+function railWord(s: SetupState, b: string): string {
+  if (b === "providers") return `${providersSet(s.data).length} set`;
+  if (b === "local") {
+    const n = s.data?.local_models.model_dirs.length || 0;
+    return `${n} folder${n === 1 ? "" : "s"}`;
+  }
+  return b.startsWith("R") ? `with ${b}` : blockWord(s, b as BlockId);
+}
 
 function openBlock(id: string): void {
   if (layoutStore("setup").get().layout?.[id]) patchPanel("setup", id, { collapsed: false }, false);
@@ -65,7 +75,7 @@ function openBlock(id: string): void {
 
 export function SetupRail() {
   // one string per read (a new object each read would redraw forever), split back into the blocks' words
-  const joined = useSetup((s) => BLOCKS.map(([, , b]) => (b.startsWith("R") ? `with ${b}` : blockWord(s, b as BlockId))).join("|"));
+  const joined = useSetup((s) => BLOCKS.map(([, , b]) => railWord(s, b)).join("|"));
   const words = Object.fromEntries(joined.split("|").map((w, i) => [BLOCKS[i][0], w]));
   return (
     <nav className="rail-group su-rail" aria-label="Setup blocks" data-testid="setup-rail">

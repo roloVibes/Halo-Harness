@@ -2,12 +2,15 @@
 tests/test_studio_setup.py (Halo 3.3.0.0 R1), real keys and clicks in headless
 Chrome through the driver base, over a scratch home (capture_studio's
 seeded_home: the shipped lineups, halo-dev-cycle active) with a stub catalog
-of two models (studio/model.py model_rows); this process serves Studio in a
-thread with the live feed on. No provider, no model call:
+of two models (studio/model.py model_rows) and its own env file
+(`HALO_ENV_FILE` in that home); this process serves Studio in a thread with
+the live feed on. No provider request, no model call:
 
 1. `?mode=setup` opens Setup; Alt+8 (from Roles) opens it too: Setup is the
    eighth tab, its strip names the provider, model, lineup, mode and theme,
-   the four later blocks say "comes with R2 / R3", the rail lists the blocks;
+   the two later blocks say "comes with R3", the rail lists the blocks;
+   (R2: tests/helpers/studio_setup_providers.py) a provider key saved, an
+   Ollama host and a model folder added, the runtime saved;
 2. Permissions: pick plan, the block says "1 changed", Save: config.json has
    it, the strip and the block say so;
 3. Terminal theme: the six swatches, pick claude-light, Save: config.json;
@@ -22,6 +25,7 @@ The last stdout line is the JSON of what it saw (exit 2: no Chrome)."""
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import sys
 import time
@@ -34,6 +38,7 @@ sys.path.insert(0, str(REPO / "tools"))
 
 from tests.helpers.chrome_driver import Driver  # noqa: E402
 from tests.helpers.studio_packs_steps import CUR, TABS, alt, q, qa  # noqa: E402
+from tests.helpers.studio_setup_providers import STEPS as PROVIDER_STEPS  # noqa: E402
 
 ROWS = [{"ref": "or:mock/alpha", "provider": "openrouter", "detail": "Mock Alpha", "price": "$1.00", "context": "128k",
          "best_at": {"line": "code, review", "kinds": ["code"]}},
@@ -100,7 +105,7 @@ def section(c, url, ctx) -> dict:
            "kbds": c.js(f"{TABS}.map((t) => t.querySelector('.tab-kbd')?.textContent || '')")}
     alt(c, 8)
     out["alt8"] = c.wait(f"{CUR}.startsWith('Setup') && {CUR}", 15)
-    c.wait(f"!!{q('[data-testid=setup-strip-cell]')} && {qa('[data-testid=setup-later]')}.length === 4", 30)
+    c.wait(f"!!{q('[data-testid=setup-strip-cell]')} && {qa('[data-testid=setup-later]')}.length === 2", 30)
     out["strip"] = c.js(STRIP)
     out["later"] = c.js(qa("[data-testid=setup-later]") + ".map((p) => [p.dataset.block, p.textContent])")
     out["panels"] = c.js(f"{qa('[data-section=setup] .panel-title')}.map((t) => t.textContent)")
@@ -181,15 +186,22 @@ class SetupDriver(Driver):
         from capture_studio import seeded_home, serve
         from halo_harness.studio import model as M
         state = seeded_home()
+        saved_env = {k: os.environ.get(k) for k in ("HALO_ENV_FILE", "OPENROUTER_API_KEY")}
+        os.environ["HALO_ENV_FILE"] = str(state.parent / "halo-env")  # the keys land here, never in ~/.config/halo/env
+        models = state.parent / "models"
+        (models / "one").mkdir(parents=True)
+        (models / "one" / "tiny.gguf").write_bytes(b"GGUF" + b"\0" * 64)
         real = M.model_rows
         M.model_rows = lambda *_a, **_k: [dict(r) for r in ROWS]
         srv, url = serve(state, True)
         url = url.replace("mode=orchestra&feed=off", "mode=roles&tour=off&view=workspace")
-        ctx = {"state": state, "srv": srv}
+        ctx = {"state": state, "srv": srv, "env_file": state.parent / "halo-env", "models": models}
         try:
-            yield tuple((fn, (c, url, ctx)) for fn in (by_mode, section, permissions, theme, model, team, outside))
+            yield tuple((fn, (c, url, ctx)) for fn in (by_mode, section, *PROVIDER_STEPS, permissions, theme, model, team, outside))
         finally:
             M.model_rows = real
+            for k, v in saved_env.items():
+                os.environ.pop(k, None) if v is None else os.environ.__setitem__(k, v)
             srv.shutdown()
             srv.server_close()
             shutil.rmtree(state.parent, ignore_errors=True)

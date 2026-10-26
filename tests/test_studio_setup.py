@@ -1,12 +1,16 @@
 """tests.test_studio_setup -- the Setup section in the page (Halo 3.3.0.0 R1).
-Headless Chrome through the driver base (tests/helpers/studio_setup.py;
-skipped without one), over a seeded home (the shipped lineups,
-halo-dev-cycle active) and a stub catalog of two models; no provider, no
-model call:
+Headless Chrome through the driver base (tests/helpers/studio_setup.py and
+studio_setup_providers.py; skipped without one), over a seeded home (the
+shipped lineups, halo-dev-cycle active), a stub catalog of two models and an
+env file in that home (`HALO_ENV_FILE`); no provider request, no model call:
 
 1. `?mode=setup` opens it, and Alt+8 from Roles: the eighth and last tab;
-   the strip names the provider, model, lineup, mode and theme; the four
-   later blocks say they come with R2 / R3; the rail lists eight blocks;
+   the strip names the provider, model, lineup, mode and theme; Linux fixes
+   and Check say they come with R3; the rail lists eight blocks;
+   (R2) Providers: OpenRouter's Save & test with a test key writes the env
+   file, the card shows the masked tail, the strip names it; an Ollama host
+   added is in the hosts table; Local models: a folder added is listed and
+   counted, the runtime saved;
 2. Permissions: plan picked says "1 changed", Save writes it to
    config.json and the strip follows;
 3. Terminal theme: six swatches drawn in their own colours, claude-light saved;
@@ -78,9 +82,46 @@ def test_the_strip_says_what_is_set(ctx: Ctx):
 def test_the_later_blocks_say_when_they_come(ctx: Ctx):
     got = _got(ctx)
     later = dict(got.get("later") or [])
-    ctx.check(f"Providers and Local models come with R2, got {later}",
-              "comes with R2" in later.get("providers", "") and "comes with R2" in later.get("local", ""))
-    ctx.check("Linux fixes and Check come with R3", "comes with R3" in later.get("linux", "") and "comes with R3" in later.get("check", ""))
+    ctx.check(f"only Linux fixes and Check are later (R3), got {later}", sorted(later) == ["check", "linux"]
+              and "comes with R3" in later.get("linux", "") and "comes with R3" in later.get("check", ""))
+
+
+@test
+def test_a_provider_key_saved_and_masked(ctx: Ctx):
+    got = _got(ctx)
+    ctx.check(f"the eight cards in the wizard's order, got {got.get('cards')}", got.get("cards") == [
+        "databricks", "openrouter", "anthropic", "ollama", "huggingface", "openai", "typesafe", "experiential"])
+    ctx.check(f"not set before; a password field that says paste a key, got {got.get('or_before')!r} {got.get('or_field_type')!r}",
+              got.get("or_before") == "not set" and got.get("or_field_type") == "password" and got.get("or_placeholder") == "paste a key")
+    ctx.check(f"Save & test wrote the env file in the test home, got {got.get('env_has_key')}", got.get("env_has_key") is True)
+    ctx.check(f"the card: set, from the env file, the tail, got {got.get('or_state')!r}", got.get("or_state") == "set, from the env file, ****3344")
+    ctx.check(f"the lines: written, then the offline test, got {got.get('or_lines')!r}",
+              str(got.get("or_lines")).startswith("wrote OPENROUTER_API_KEY to ") and "reachable: not checked" in str(got.get("or_lines")))
+    ctx.check(f"enabled, the field empty again, got {got.get('or_enabled')!r} {got.get('or_field_after')!r}",
+              got.get("or_enabled") == "enabled" and got.get("or_field_after") == "")
+    ctx.check("the key is nowhere in the page", got.get("key_in_page") is False)
+    ctx.check(f"the strip names the provider, got {got.get('or_strip')!r}", got.get("or_strip") == "openrouter")
+
+
+@test
+def test_an_ollama_host_added(ctx: Ctx):
+    got = _got(ctx)
+    ctx.check(f"the host is in the table as the default, got {got.get('ollama_rows')}",
+              got.get("ollama_rows") == [["lan", "http://192.0.2.20:11434", "default", "-"]])
+    ctx.check(f"and in config.json, got {got.get('ollama_config')}", got.get("ollama_config") == ["http://192.0.2.20:11434"])
+    ctx.check(f"the card says set, got {got.get('ollama_state')!r}", str(got.get("ollama_state")).startswith("set, from config.json"))
+    ctx.check(f"Find and Scan are off and say R5, got {got.get('ollama_finders')} {got.get('ollama_later')!r}",
+              got.get("ollama_finders") == [True, True] and "3.3.0.0 R5" in str(got.get("ollama_later")))
+
+
+@test
+def test_a_model_folder_and_the_runtime(ctx: Ctx):
+    got = _got(ctx)
+    ctx.check(f"the folder is listed and in config.json, got {got.get('dirs')} {got.get('dirs_config')}",
+              len(got.get("dirs") or []) == 1 and got.get("dirs") == got.get("dirs_config"))
+    ctx.check(f"the detection lines count its model, got {got.get('detection')!r}", "holds 1 model (gguf)" in str(got.get("detection")))
+    ctx.check(f"the rail says 1 folder, got {got.get('rail_local')!r}", got.get("rail_local") == "1 folder")
+    ctx.check(f"the runtime saved, got {got.get('runtime_config')!r}", got.get("runtime_config") == "mlx_lm")
 
 
 @test

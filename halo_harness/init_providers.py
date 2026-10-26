@@ -579,23 +579,26 @@ def save_tab_credentials(provider: str, values: dict, *, team_cfg: Optional[dict
             # finding-15 fix the Ollama branch got -- instead of replacing
             # it outright, so a re-save can never drop the entry's own
             # `default` flag or anything else a previous save carried.
-            existing = next((s for s in servers if s.get("name") == "default"), None)
+            # 3.3.0.0 R2: Studio's Setup names its local servers (`local_name`);
+            # the wizard sends none, so its one entry stays "default".
+            local_name = (values.get("local_name") or "").strip() or "default"
+            existing = next((s for s in servers if s.get("name") == local_name), None)
             entry = dict(existing) if existing else {}
-            entry["name"] = "default"
+            entry["name"] = local_name
             entry["url"] = local_url
             if local_key:
                 # finding 16: see the ollama branch above -- a reference,
                 # never the plaintext key, goes into config.json.
-                key_env = _secret_env_var_name("HF_LOCAL", "default")
+                key_env = _secret_env_var_name("HF_LOCAL", local_name)
                 path = _env_file_path()
                 _write_env_var(path, key_env, local_key)
                 os.environ[key_env] = local_key
                 entry["api_key_env"] = key_env
             if not servers:
                 entry["default"] = True
-            servers = [s for s in servers if s.get("name") != "default"] + [entry]
+            servers = [s for s in servers if s.get("name") != local_name] + [entry]
             set_config_value("huggingface.local_servers", servers)
-            wrote.append("huggingface.local_servers[default]")
+            wrote.append(f"huggingface.local_servers[{local_name}]")
         if not wrote:
             return False, ("nothing entered -- paste HF_TOKEN, add a dedicated endpoint (name + URL), add a "
                            "local server (URL), or Skip to rely on auto-detection")
