@@ -99,7 +99,9 @@ def test_the_state_has_every_block_and_no_key(ctx: Ctx):
         ctx.check(f"the eight provider tabs by name, got {list(s['providers'])}",
                   sorted(s["providers"]) == sorted(["databricks", "openrouter", "anthropic", "openai", "typesafe", "experiential",
                                                      "ollama", "huggingface"]))
-        ctx.check("the key in the environment shows as set", s["providers"]["openrouter"] == {"set": True})
+        orp = s["providers"]["openrouter"]
+        ctx.check(f"the key in the environment shows as set, from the environment, its tail, got {orp}",
+                  orp["set"] is True and orp["source"] == "environment" and orp["tail"] == "****cdef")
         ctx.check("and the key is nowhere in the answer", "sk-or-v1" not in json.dumps(s) and "0123456789abcdef" not in json.dumps(s))
         team = s["team"]
         rows = {r["name"]: r for r in team["lineups"]}

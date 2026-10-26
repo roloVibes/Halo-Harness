@@ -346,4 +346,7 @@ and `isolation/Dockerfile` the worker image.
 - Studio's Setup section (3.3.0.0 R1): `studio/setup_api.py` (its routes: `GET setup/state`,
   `POST setup/config` for model / permission_mode / theme, `POST setup/team`, the Team preview),
   `studio/setup_state.py` (what the state holds, read from the places the wizard reads) and
-  `lineup_choice.py` (the Team step's three writes, called by the wizard and by Setup alike).
+  `lineup_choice.py` (the Team step's three writes, called by the wizard and by Setup alike);
+  R2: `studio/setup_providers_api.py` (the Providers and Local models routes, each calling the
+  wizard's writer) and `studio/setup_providers_state.py` (the provider cards' masked state, the
+  Ollama hosts, the Hugging Face entries, the model folders, the runtime, the detection lines).

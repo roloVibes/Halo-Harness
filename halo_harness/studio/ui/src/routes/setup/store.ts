@@ -13,6 +13,22 @@ export type ThemeRow = { name: string; palette: Record<string, string> };
 export type ModeRow = { id: string; label: string; note: string };
 export type LineupRow = { name: string; label: string; scope: string; description: string; active: boolean; default: boolean };
 export type ModelRow = { ref: string; provider: string; label: string; best_at: string; price: string; context: string };
+export type FieldRow = { id: string; label: string; secret: boolean; present: boolean; placeholder?: string };
+export type ProviderInfo = {
+  label: string;
+  set: boolean;
+  source: string;
+  tail: string;
+  enabled: boolean;
+  reachable: string;
+  catalog_count: number;
+  detail: string;
+  host_hint: string;
+  fields: FieldRow[];
+};
+export type OllamaHost = { name: string; url: string; default: boolean; key_env: string };
+export type HfEntry = { name: string; url: string; token_env?: string; key_env?: string };
+export type LocalModels = { model_dirs: string[]; runtime: string; runtimes: ModeRow[]; detection: string[] };
 export type SetupData = {
   model: string;
   permission_mode: string;
@@ -22,7 +38,11 @@ export type SetupData = {
   permission_modes: ModeRow[];
   team: { active: string; source: string; roles_enabled: boolean; lineups: LineupRow[] };
   models: ModelRow[];
-  providers: Record<string, { set: boolean }>;
+  providers: Record<string, ProviderInfo>;
+  env_file: string;
+  ollama: { hosts: OllamaHost[] };
+  huggingface: { token_set: boolean; endpoints: HfEntry[]; local_servers: HfEntry[] };
+  local_models: LocalModels;
   linux_fixes: { needed: boolean; items: unknown[] };
   last_check: unknown;
 };
@@ -76,7 +96,8 @@ export function blockWord(s: SetupState, b: BlockId): "saved" | "1 changed" | "p
 
 export const providersSet = (d: SetupData | null) => Object.entries(d?.providers || {}).filter(([, v]) => v.set).map(([k]) => k);
 
-function status(d: SetupData): void {
+/** The section's status line (the header): the providers set up, the default model, the lineup. */
+export function showStatus(d: SetupData): void {
   const set = providersSet(d);
   setSectionStatus("setup", `${set.length ? set.join(", ") : "no provider"} · ${d.model || "no default model"} · lineup ${d.team.active}`);
 }
@@ -90,7 +111,7 @@ export async function loadSetup(): Promise<void> {
     try {
       const data = await api.get<SetupData>("setup/state");
       setup.update(() => ({ data, loaded: true, error: "" }));
-      status(data);
+      showStatus(data);
     } catch (e) {
       setup.update(() => ({ loaded: true, error: e instanceof Error ? e.message : String(e) }));
     } finally {
@@ -131,7 +152,7 @@ export async function act(path: string, body: Record<string, unknown>, block: Bl
       delete picks[block];
       return { data: data as SetupData, picks, last: { ...s.last, [block]: { ok: true, lines: lines || [] } } };
     });
-    status(data as SetupData);
+    showStatus(data as SetupData);
     toast(lines?.[0] || "Saved", "done", 4000);
     return true;
   } catch (e) {
