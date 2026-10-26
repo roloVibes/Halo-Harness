@@ -2601,3 +2601,31 @@ view, and a new row can move the list while the user is typing.
 ### After 3.2.3.0 (the held drop on a slow box)
 
 - On GitHub's Windows runner a card held over a collapsed tier's strip joins the tier (the tier opens, the lineup says so) but its position lands outside the tier's box: run 40285708108 recorded card [870, 419, 109, 54] against the leads box [701, 204, 126, 207]; the box there is one card shorter than on this project's boxes at the same moment (269 tall), so an earlier cross-tier drop's position was not in the box yet when the hold began. On this project's Windows box and WSL the same steps land inside the box at every window size tried (1500x900, 900x600). The drop fix of 3.3.0.0 R1 (`dropPatch` clamps into the box) is in; the two checks that depend on it (`held_in_box`, the spots after a removal) are recorded, not judged, on that runner. 3.3.0.0 R7 reproduces it with latency (a slowed layout save, a slowed lineup save) and makes the cross-tier drop one ordered write: the tier change and the clamped position saved together, the hold never opening on a stale box.
+
+## ADDED 2026-10-26 (the coordinator, from GitHub's runners during the 3.2.3.0 gate): 3.3.0.0 R7 the Studio on a slow box
+
+Two Studio behaviours differ on GitHub's runners from every box here, and both
+are timing: (1) the held drop (plans/ROADMAP.md "After 3.2.3.0 (the held drop
+on a slow box)": a card held over a collapsed tier's strip joins the tier but
+its position lands outside the box; the box was one card shorter at that
+moment, so an earlier cross-tier drop's position was not in the box yet when
+the hold began); (2) the Fleet map's stale node (the Linux runner, run
+40294720639: the session tree said the implementer was `stopped`, the map
+node still said `running` after 60 s, one feed listener, nothing dropped --
+the 3.2.1.0 re-read on `dropped` and on feed open did not cover it).
+
+- R7 The Studio on a slow box. (a) A cross-tier drop is one ordered write:
+  the tier change and the clamped position are saved together (the lineup
+  save carries the layout patch, or the layout save waits for the lineup
+  save and reads the fresh tier boxes), the hold opens a tier from the
+  CURRENT boxes (the tier box recomputed after any pending save), and the
+  live drag's `pos` is the only source for the box while a drag is on;
+  reproduced first with latency (a slowed `PUT layout`, a slowed lineup save:
+  a test flag `HALO_STUDIO_SLOW_MS` the server honours) so the runner's
+  failure shows locally, then fixed; the two recorded-only checks are judged
+  everywhere again. (b) The Fleet map re-reads its view on every
+  `agent_state` frame that ends an agent (`stopped`, `done`, `failed`) and
+  on the turn-end marker, and while any node is `running` it re-reads every
+  5 s as a floor (a `fleet` poll the page already has for its header);
+  reproduced with the same latency flag; the stop test's 60 s wait is judged
+  everywhere. Docs: DEVELOPMENT.md "A slow box" (the flag, what it is for).
