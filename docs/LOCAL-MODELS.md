@@ -59,6 +59,13 @@ key is written, and the models are `ol:<model>@<name>` at once. `halo
 ollama` and `halo local` list a local server that is found but not added
 as "found, not added (halo ollama discover --add)".
 
+In Studio (3.3.0.0): Setup's Ollama card (`halo studio --mode setup`,
+`Alt+8`) has **Find Ollama servers**, the same local pass at once. Each
+server found is a row with its name, address, version and models, marked
+"configured" or with a tick; **Add the ticked** writes the ticked ones the
+same way `--add` does, and the Models panel then lists each new host as
+`Ollama (<name>)` ([STUDIO-setup.md](STUDIO-setup.md)).
+
 ### Found on the network
 
 `halo ollama discover --lan` also sweeps the network: the /24 of this
@@ -67,8 +74,11 @@ network wider than a /24 is skipped with one line), a 0.3 s TCP connect
 on each address and port, 64 at a time, about 10 s in all. Responders are
 confirmed the same way and named from reverse DNS, else
 `ollama-<last octet>`. The scan runs only when you ask (this command,
-or **Scan this network** in the wizard's Ollama tab), never on its own,
-and not in offline mode.
+**Scan this network** in the wizard's Ollama tab, or the same button in
+Studio Setup's Ollama card), never on its own, and not in offline mode.
+In Studio the scan is a background job with a live line ("scanning
+192.0.2.0/24 · 3 s") and a Stop; its rows join the found table, ticked and
+added like the local ones.
 
 ```sh
 halo ollama discover --lan
@@ -104,7 +114,10 @@ qwen3:30b on gpubox: 32k fits, 65k does not (2 min 10 s)
 
 So the first real turn on a found model already knows its window instead
 of finding out mid-prompt. `--timeout S` sets the per-step budget; the
-wizard offers the same measurement after its Save adds hosts.
+wizard offers the same measurement after its Save adds hosts, and Studio
+Setup's Ollama card has **Measure the found models** after Add the ticked
+(the models of the hosts just added, each with a tick, one log line per
+model and a summary).
 
 ### Ollama Cloud
 

@@ -11,6 +11,9 @@ env file in that home (`HALO_ENV_FILE`); no provider request, no model call:
    file, the card shows the masked tail, the strip names it; an Ollama host
    added is in the hosts table; Local models: a folder added is listed and
    counted, the runtime saved;
+   (R5) Find lists two mock Ollama servers, a tick on each + Add the ticked
+   puts them in the hosts table, the Models panel lists `Ollama (<name>)`
+   for each, Measure (the calibration stubbed) fills the log;
 2. Permissions: plan picked says "1 changed", Save writes it to
    config.json and the strip follows;
 3. Terminal theme: six swatches drawn in their own colours, claude-light saved;
@@ -110,8 +113,39 @@ def test_an_ollama_host_added(ctx: Ctx):
               got.get("ollama_rows") == [["lan", "http://192.0.2.20:11434", "default", "-"]])
     ctx.check(f"and in config.json, got {got.get('ollama_config')}", got.get("ollama_config") == ["http://192.0.2.20:11434"])
     ctx.check(f"the card says set, got {got.get('ollama_state')!r}", str(got.get("ollama_state")).startswith("set, from config.json"))
-    ctx.check(f"Find and Scan are off and say R5, got {got.get('ollama_finders')} {got.get('ollama_later')!r}",
-              got.get("ollama_finders") == [True, True] and "3.3.0.0 R5" in str(got.get("ollama_later")))
+    ctx.check(f"Find and Scan are on (3.3.0.0 R5), no placeholder line, got {got.get('ollama_finders')} {got.get('ollama_later')!r}",
+              got.get("ollama_finders") == [False, False] and got.get("ollama_later") == "")
+
+
+@test
+def test_find_add_and_measure_ollama_servers(ctx: Ctx):
+    got = _got(ctx)
+    found = {r[0]: r for r in got.get("found") or []}
+    ctx.check(f"Find lists both mocks, each new with a tick and its models, got {got.get('found')} ({got.get('find_by')})",
+              len(found) == 2 and all(r[3] for r in found.values())
+              and sorted(r[2] for r in found.values()) == ["1 model: llama3.2:3b", "2 models: qwen3:30b, gpt-oss:20b"])
+    ctx.check(f"the ports line names the mock ports, got {got.get('ports_line')!r}", "ollama.discover.ports" in str(got.get("ports_line")))
+    ctx.check(f"Scan in tests: the note, no new row, got {got.get('scan_line')!r} {got.get('rows_after_scan')}",
+              got.get("scan_line") == "the network scan is off in tests" and got.get("rows_after_scan") == 2)
+    ctx.check(f"Add the ticked (2), got {got.get('add_label')!r}", got.get("add_label") == "Add the ticked (2)")
+    hosts = got.get("hosts_config") or []
+    ctx.check(f"R2's host stays first and the default, the two added after, got {hosts}",
+              len(hosts) == 3 and hosts[0] == ["lan", "http://192.0.2.20:11434", True] and all(h[2] is None for h in hosts[1:]))
+    ctx.check(f"the hosts table shows all three, the rows say configured, got {got.get('hosts_rows')} {got.get('configured_after')}",
+              [r[0] for r in got.get("hosts_rows") or []] == [h[0] for h in hosts] and got.get("configured_after") == 2)
+    ctx.check(f"the add lines, got {got.get('add_lines')!r}", str(got.get("add_lines")).count("added Ollama host") == 2)
+    panel = got.get("models_panel") or []
+    ctx.check(f"the Models panel lists Ollama (<name>) for each new host, got {panel}",
+              all(any(line.startswith(f"Ollama ({n}): ok, ") for line in panel) for n in got.get("added_names") or ["?"]))
+    ctx.check(f"Measure offers every model of the added hosts, ticked, got {got.get('measure_models')}",
+              len(got.get("measure_models") or []) == 3 and all(m[1] for m in got["measure_models"]))
+    lines = got.get("measure_lines") or []
+    ctx.check(f"one log line per model, got {lines} ({got.get('measure_by')})",
+              len(lines) == 3 and all(" on " in ln and "32k fits" in ln for ln in lines))
+    ctx.check(f"the summary, got {got.get('measure_summary')!r}", str(got.get("measure_summary")).startswith("3 models measured on 2 hosts in ")
+              and "3 fit, 0 do not fit" in str(got.get("measure_summary")))
+    ctx.check(f"the calibration ran per model (stubbed), recorded, got {got.get('measure_calls')} {got.get('fit_recorded')}",
+              len(got.get("measure_calls") or []) == 3 and got.get("fit_recorded") is True)
 
 
 @test

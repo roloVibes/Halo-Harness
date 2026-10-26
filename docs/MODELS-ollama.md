@@ -38,7 +38,9 @@ itself has no auth mechanism at all; a reverse-proxy/bearer setup on a LAN
 host is the user's own responsibility, never assumed.
 
 **Discovery** (Halo 3.2.3.0, `providers/ollama_discover.py`; `halo ollama
-discover`, the wizard's Ollama tab): the hosts are found as well as typed.
+discover`, the wizard's Ollama tab, and since 3.3.0.0 Studio Setup's Ollama
+card: Find, Scan, Add the ticked, Measure, [STUDIO-setup.md](STUDIO-setup.md)):
+the hosts are found as well as typed.
 `discover(scope)` returns one row per server, `{url, name, version, models,
 configured, where}`, `where` saying which door answered:
 

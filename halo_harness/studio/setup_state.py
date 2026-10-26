@@ -109,3 +109,13 @@ def setup_state(cwd=None, state_dir=None) -> dict:
             "theme_default": DEFAULT_THEME, "themes": theme_rows(), "permission_modes": permission_rows(),
             "team": team_block(cwd, state_dir), "models": model_list(state_dir, cwd), **provider_blocks(cwd, state_dir),
             "linux_fixes": {"needed": False, "items": []}, "last_check": None}
+
+
+# 3.3.0.0 R5 (Ollama everywhere): `ollama_discover` {ports, subnets, scan, measure} rides in the state -- the ports Find
+# asks, the subnets Scan adds and the latest scan / measure frames (studio/setup_discover_api.py discover_block).
+_setup_state_before_r5 = setup_state
+
+
+def setup_state(cwd=None, state_dir=None) -> dict:  # noqa: F811  (the state above plus the R5 block)
+    from halo_harness.studio.setup_discover_api import discover_block
+    return {**_setup_state_before_r5(cwd, state_dir), "ollama_discover": discover_block()}

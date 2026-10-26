@@ -11,7 +11,7 @@ export const SETUP_HELP: Record<string, Help> = {
     help: lines(
       "Paste a key and press Save & test: the key goes to the env file, the provider is turned on, its host probed and its model list read.",
       "A key is never shown again: the card says set, where it comes from and ****1234. Paste a new one to replace it.",
-      "Ollama: add hosts by name and URL (a key for Ollama Cloud goes to the env file); the first host is the default.",
+      "Ollama: add hosts by name and URL (a key for Ollama Cloud goes to the env file); the first host is the default. Find Ollama servers asks this machine at once, Scan this network sweeps the network (10 s); tick what they list and Add the ticked, then Measure the found models.",
       "Hugging Face: the router token, dedicated endpoints and local servers, each added or removed on its own.",
       "The same as halo init's Providers tabs; halo providers lists them in a terminal.",
     ),
