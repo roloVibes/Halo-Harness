@@ -281,7 +281,7 @@ def _build_parser() -> argparse.ArgumentParser:
         description="halo - starts an interactive session by default, use -p/--print for non-interactive output",
         epilog="Commands: init, start, explain, studio, design, media, orchestra, work, team, teams, agents, roles, models, mcp, proxy, "
                "config, doctor, update, stats, review, preflight, audit, improve, export, session, "
-               "completion (run `halo <command> --help`; `halo init` sets up a fresh box in one go). "
+               "completion (run `halo <command> --help`; `halo init` opens Studio's Setup to set up a fresh box; `halo init --terminal` is the terminal wizard). "
                "The GUI: `halo studio --mode roles|design` -- lineups and agent bios as a graph, "
                "designs on artboards; in the TUI, /roles and /design.",
     )

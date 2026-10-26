@@ -108,6 +108,35 @@ def test_the_shell_has_six_sections_and_opens_orchestra_fleet_team_and_session_b
 
 
 @test
+def test_setup_is_the_banners_eighth_frame_and_has_its_doors(ctx: Ctx):
+    """3.3.0.0 R4: studio-setup.png (tools/capture_studio.py --mode setup) is the banner's eighth tile, the banner
+    is up to date with it, and `halo init` / `halo setup team` URLs carry Setup's door words."""
+    import subprocess
+    sys.path.insert(0, str(REPO_DIR / "tools"))
+    import studio_modes_banner as B
+    ctx.check(f"eight frames, Setup last on Alt 8, got {[f[1] for f in B.FRAMES]}", len(B.FRAMES) == 8
+              and B.FRAMES[-1][:3] == ("studio-setup.png", "Setup", "Alt 8"))
+    shot = REPO_DIR / "docs" / "media" / "studio-setup.png"
+    ctx.check("the Setup capture exists and is under 1 MB", shot.is_file() and 10_000 < shot.stat().st_size < 1024 * 1024)
+    banner = REPO_DIR / "docs" / "media" / "studio-modes.png"
+    ctx.check("the banner is under 1 MB", banner.is_file() and banner.stat().st_size < 1024 * 1024)
+    r = subprocess.run([sys.executable, str(REPO_DIR / "tools" / "studio_modes_banner.py"), "--check"], capture_output=True,
+                       text=True, encoding="utf-8", errors="replace", timeout=120, cwd=str(REPO_DIR))
+    ctx.check(f"the banner is rendered from the eight captures, got {r.returncode} {r.stdout.strip()!r}", r.returncode == 0)
+    from halo_harness.providers.config import default_state_dir
+    state = Path(default_state_dir())
+    srv = studio_server.start_server(port=0, cwd=state.parent / "proj", state_dir=state)
+    try:
+        first, team = studio_server.url_for(srv, "setup", "setup:first"), studio_server.url_for(srv, "setup", "setup:team")
+    finally:
+        srv.server_close()
+    ctx.check(f"halo init's door, got {first!r}", "/?mode=setup&first=1#t=" in first)
+    ctx.check(f"halo setup team's door, got {team!r}", "/?mode=setup&block=team#t=" in team)
+    capture = (REPO_DIR / "tools" / "capture_studio.py").read_text(encoding="utf-8")
+    ctx.check("capture_studio renders it (--mode setup)", '"setup"' in capture and "capture_setup" in capture)
+
+
+@test
 def test_slash_studio_roles_design_open_that_mode(ctx: Ctx):
     facade = _facade()
     with _NoBrowser() as nb:

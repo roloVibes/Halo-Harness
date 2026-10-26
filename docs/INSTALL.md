@@ -121,14 +121,17 @@ halo init
 
 ```sh
 cd ~                 # or /tmp, or any other project directory at all
-halo init            # one time: a wizard -- provider, local models, model, permission mode, theme, roles, doctor, pong
+halo init            # one time: opens Studio on Setup -- providers, local models, model, permission mode, theme, lineup, checks
 halo                 # full-screen TUI -- reads THIS directory's CLAUDE.md, rules, settings, .mcp.json
 ```
 
-`halo init`'s wizard has Back/Skip/Next buttons and never exits to the
-console between steps; `halo setup roles` reopens its
-Roles screen later without repeating the provider steps.
-Setup in Studio (`halo studio --mode setup`, `Alt+8`) writes the same files: keys to the env file, the rest to `~/.halo/config.json`.
+The first thing after install: `halo init` opens Halo Studio on its **Setup** section (3.3.0.0), one page of
+forms you fill in any order, each with its own Save; it writes keys to the env file and the rest to
+`~/.halo/config.json`, the files the terminal wizard writes. Over SSH, on a box with no `DISPLAY`, or with
+`HALO_NO_BROWSER=1`, it prints Setup's URL with the port-forward line and runs the terminal wizard instead;
+`halo init --terminal` asks for the terminal wizard anywhere. That wizard has Back/Skip/Next buttons and never
+exits to the console between steps. `halo setup team` reopens Setup on its Team block later (`--terminal`: the
+terminal screen).
 
 That's the whole point of installing it: `halo`, once on PATH, is a real
 console script, not a script that only works from inside this checkout --

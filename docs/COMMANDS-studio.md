@@ -40,7 +40,9 @@ same thing on the session you are in.
 3.1.1.0: Studio is the one editor of bios and lineups, and `--edit TARGET`
 opens it on one: `bio:<name>` (Roles, the Bios panel on that bio's form),
 `lineup:<name>` (Roles, that lineup open, the Inspector on its Lineup tab)
-or `team` (the Team section). The target rides in the URL as
+or `team` (the Team section); 3.3.0.0 R4: `setup`, `setup:first` (what
+`halo init` opens: `?mode=setup&first=1`) and `setup:<block>` (`halo setup
+team`: `?mode=setup&block=team`), [STUDIO-setup.md](STUDIO-setup.md). The target rides in the URL as
 `?mode=roles&edit=bio:<name>` (the token stays in the `#t=` fragment). When
 a Studio already runs for this home, it is reused: every open Studio page
 switches to the target and no tab opens (`POST /api/focus`, a `focus` frame

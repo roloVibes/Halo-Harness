@@ -12,7 +12,7 @@ troubleshooting, security posture, tests and proxy mode.
 ## The guided first run: `halo start`
 
 ```sh
-halo init           # a provider, a default model; its Summary offers the checks and the guided first run
+halo init           # opens Studio on Setup: a provider, a default model, the checks (--terminal: the terminal wizard)
 halo start --explain    # the card: what it does, the models it will call, the cost, the time, what it writes
 halo start          # the card, then seven screens, Enter to go on, q to stop (--yes runs straight through)
 halo check          # the checks after setup: doctor, the model catalog, one hello call (--all, --gym, --explain)
@@ -46,8 +46,8 @@ it runs:
    the coach's cards (Apply opens the bio in Studio).
 7. **Where to go next** -- Roles, Team and Fleet, each with its command.
 
-It runs on the model you configured (with none, it says so and points at
-`halo init`). The same start runs in the TUI (`/start`, a panel) and in
+It runs on the model you configured (with none, it says so and asks "Open Setup in Studio? [Y/n]":
+Enter opens Setup, `n` runs the terminal wizard). The same start runs in the TUI (`/start`, a panel) and in
 Studio (the **Start here** card a fresh home opens on). Any word on the way
 -- lineup, lane, claim, gate, hand-off -- is one `halo explain <word>` away
 ([GLOSSARY.md](GLOSSARY.md)); the full reference is
@@ -59,11 +59,16 @@ Studio (the **Start here** card a fresh home opens on). Any word on the way
 How a session fits together, in one picture: [the session flow](media/diagrams/session-flow.svg). The pictures themselves are made by `tools/capture_screens.py` ([MEDIA.md](MEDIA.md)).
 
 ```sh
-halo init                    # pick a provider, set credentials, doctor, live pong
+halo init                    # Studio's Setup: a provider, its key, the default model, the checks
 halo                         # full-screen TUI
 ```
 
-1. **`halo init`** opens on **Quick setup vs. Full setup** (Halo 2.0.5
+1. **`halo init`** (Halo 3.3.0.0) opens Halo Studio on its **Setup** section: one page, a block per
+   step below (Providers, Local models, Default model, Permissions, Terminal theme, Team, Linux fixes,
+   Check), each with its own Save, filled in any order; the strip on top says what is set
+   ([STUDIO-setup.md](STUDIO-setup.md)). Over SSH or with no browser it prints the URL with the
+   port-forward line and runs the terminal wizard; `halo init --terminal` asks for that wizard anywhere.
+   The terminal wizard opens on **Quick setup vs. Full setup** (Halo 2.0.5
    round 2c, `docs/WIZARD.md`'s own interaction model -- a step rail
    across the top of everything below, Ctrl+Left/Ctrl+Right walking it
    from anywhere): Quick (the highlighted default) is just **Providers**
@@ -88,7 +93,8 @@ halo                         # full-screen TUI
    jumps back into any step this run used). `--step <key-or-number>`
    (e.g. `--step team`, `--step agents`/`--step roles` kept as aliases)
    jumps straight to any one step, skipping the Quick/Full choice.
-   Reach Team again later with `/setup team` or `halo setup team`, or the
+   Reach Team again later with `/setup team` or `halo setup team` (Setup in Studio on its Team block;
+   `--terminal` for this screen), or the
    bios and lineups any
    time with `/agents`/`/teams` (they show bios and lineups; Studio edits them:
    `halo agents|teams edit <name>`, `/edit <thing>`, `e` in a view) --

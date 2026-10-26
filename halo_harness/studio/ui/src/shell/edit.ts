@@ -9,9 +9,12 @@
 // 3.1.4.0 R2: a frame with no edit target but a `mode` opens that section --
 // Session on its `session` (`/studio`, `halo studio --session`); the URL's
 // `?mode=session&session=` is read by routes/session/store.ts itself.
+// 3.3.0.0 R4: Setup's doors (`?mode=setup&first=1`, `&block=team`, and a frame
+// `{mode: "setup", block, first}`) go to routes/setup/door.ts.
 import { onEvent } from "../lib/events";
 import { goSection, SECTION_IDS, studio, type SectionId } from "../lib/store";
 import { openSession } from "../routes/session/store";
+import { applyDoor, doorFromUrl } from "../routes/setup/door";
 import { start } from "../lib/start";
 import { focusPanel, layoutStore, patchPanel } from "../lib/workspace/persist";
 import { openBio } from "../routes/roles/bioActions";
@@ -79,11 +82,14 @@ export function installEdit(): void {
   installed = true;
   const asked = parseEdit(new URLSearchParams(location.search).get("edit"));
   if (asked) void applyEdit(asked);
+  const door = doorFromUrl(); // 3.3.0.0 R4: `?mode=setup&first=1` (halo init) or `&block=team` (halo setup team)
+  if (door) applyDoor(door);
   onEvent("focus", (f) => {
-    const d = (f.data || {}) as { edit?: string; mode?: string; session?: string };
+    const d = (f.data || {}) as { edit?: string; mode?: string; session?: string; block?: string; first?: boolean };
     const target = parseEdit(String(d.edit || ""));
     const mode = String(d.mode || "") as SectionId;
     if (target) void applyEdit(target);
+    else if (mode === "setup") applyDoor({ block: String(d.block || ""), first: !!d.first });
     else if (mode === "session") openSession({ session: String(d.session || "") });
     else if ((SECTION_IDS as string[]).includes(mode)) goSection(mode);
     else return;

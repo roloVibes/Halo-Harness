@@ -84,8 +84,9 @@ def test_rest_of_readme_unchanged_below_quick_start(ctx: Ctx):
                   "### Auto mode that never interrupts", "### One session across providers",
                   "### Steering a running turn", "### Watching a model think", "### Roles and lineups",
                   "### Connectors: Claude Docs from a non-Claude model"))
-    ctx.check("Session's GIF is the first image after the hero",
-              re.findall(r'src="(docs/media/[^"]+)"', text)[1] == "docs/media/studio-session.gif")
+    images = re.findall(r'src="(docs/media/[^"]+)"', text)
+    ctx.check(f"3.3.0.0 R4: the first screenshot after install is Setup, then Session's GIF, got {images[1:3]}",
+              images[1:3] == ["docs/media/studio-setup.png", "docs/media/studio-session.gif"])
     # the sections the owner took off the page (the features stay in the product)
     for gone in ("The dock that cannot hide", "Code review with a judge", "Remote control from Signal",
                  "One paste instead of screenshots", "Your subscription, your call", "The levels"):

@@ -2222,7 +2222,15 @@ def _open_teams_list(app, models: list) -> None:
 
 async def _handle_setup(app, args: str) -> None:
     from halo_harness.tui.dialogs.init_wizard import build_truncated_state, first_step_screen
-    sub = (args or "").strip().lower()
+    words = (args or "").strip().lower().split()
+    terminal = "--terminal" in words
+    words = [w for w in words if w != "--terminal"]
+    sub = words[0] if len(words) == 1 else " ".join(words)
+    # 3.3.0.0 R4: /setup opens Studio's Setup (the Team block for team or roles); --terminal keeps the screens below.
+    if not terminal and sub in ("", "roles", "team"):
+        from halo_harness.tui import studio_open
+        studio_open.open_setup(app, sub, cwd=app.cwd, on_line=_studio_line(app))
+        return
     # Halo 2.0.5 round 2c (rule 11): "team" reaches the same merged step
     # "roles" already aliases to (`init_wizard.STEP_FACTORIES`) -- both
     # spellings work, so a `/setup team` habit and a `/setup roles` habit
@@ -2230,7 +2238,7 @@ async def _handle_setup(app, args: str) -> None:
     if sub in ("roles", "team"):
         step_keys = ("roles",)
     elif sub:
-        await app.transcript.add_note(f"Usage: /setup, /setup team, or /setup roles (got {sub!r})", kind="command")
+        await app.transcript.add_note(f"Usage: /setup [team|roles] [--terminal] (got {sub!r})", kind="command")
         return
     else:
         step_keys = ("roles", "summary")
