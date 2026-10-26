@@ -36,6 +36,7 @@ halo ollama calibrate <model>
 halo ollama calibrate <model> --host <name>
 halo ollama calibrate <model> --start <num_ctx>
 halo ollama calibrate <model> --no-up
+halo ollama calibrate <model> --timeout <seconds>
 ```
 
 Halo 2.0.3 round 5b: loads `<model>` on the chosen host (the default host
@@ -59,6 +60,21 @@ a host with no learned cap at all -- `ollama.auto_calibrate: false`
 (`docs/CONFIG.md`) opts out of that; this command is always available
 regardless, for an explicit re-measurement after a GPU/driver/other-
 process change. See [MODELS.md](MODELS.md)'s "Fit calibration" section.
+
+Halo 3.2.3.0: a load counts only when it finished within its budget and
+`/api/ps` lists the model at that window; otherwise the step is retried
+once with twice the budget, then the run is inconclusive and records
+nothing (exit 1). The budget per load is printed first (20 s + 4 s per GB
+of the model locally, 40 s + 6 s per GB over the network, 60 s for an
+unknown size); `--timeout <seconds>` sets it. Each load prints one line
+(safe / tight / offloaded / unknown) and the run ends with one line:
+"qwen3-coder:30b on pc: 65k safe, 98k tight (22.1 of 23 GB), 131k does
+not fit (6 min 10 s)", or "...: inconclusive (...), the window stays at
+32k (trained)". `halo ollama` shows per model the window in use, its
+source word (`trained` / `memory` / `calibrated` / `max_ctx` / `prompt
+floor`), the last session's prompt floor, `calibrated` / `estimated` /
+`inconclusive`, the tight window when one was measured, and the prompt
+reading speed.
 
 ## `halo ollama doctor`
 

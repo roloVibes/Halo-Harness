@@ -347,6 +347,13 @@ def map_upstream_error(status: int, body: dict | bytes | str, provider: str,
     # Databricks has no nested "error" object at all, and a bare
     # {"error": "boom"} used to crash this with AttributeError).
     msg = upstream_error_text(body)
+    # Halo 3.2.3.0 R1: Ollama's 500 "no user query found in messages" is a
+    # trimmed request (the window cut the user's turn off) -- its own kind,
+    # never retried as-is (the loop raises the window or compacts and
+    # re-sends once), the raw text kept after the plain line.
+    if provider == "ollama" and is_prompt_trimmed_message(msg):
+        trimmed = {"error": {"type": PROMPT_TRIMMED, "message": f"{PROMPT_TRIMMED_LINE} (Ollama: {msg})"}}
+        return status, trimmed, {"x-should-retry": "false"}
     # Halo 2.0.4 round 2 (Experiential Labs `xp:`): the gateway's own
     # `error.code` (docs/harness/EXPERIENTIAL-RESEARCH.md section 7) names
     # a MUCH more specific failure than the bare HTTP status alone can --
@@ -426,7 +433,11 @@ def map_upstream_error(status: int, body: dict | bytes | str, provider: str,
             sentence = translate_upstream_sentence(status, body, provider)
             retry_override = is_translated_sentence_retryable(status, body, provider)
     if sentence is not None:
-        msg = sentence
+        # Halo 3.2.3.0 R1: an Ollama 5xx keeps its raw text in the line --
+        # the generic sentence alone said nothing about what went wrong.
+        raw = (msg or "").strip()
+        keep_raw = provider == "ollama" and status >= 500 and raw and raw != sentence
+        msg = f"{sentence} (Ollama: {raw})" if keep_raw else sentence
     err_type = "api_error"
     client_status = status
     should_retry = True
@@ -733,6 +744,26 @@ def parse_databricks_rate_limit(body) -> dict:
 
 _BACKOFF_LADDER = (1.0, 2.0, 4.0, 8.0, 16.0)
 MAX_RETRIES = 5
+# Halo 3.2.3.0 R1: per-provider retry ceilings -- an Ollama 500 is sent
+# three times at most (one host, no gateway behind it to fail over to).
+PROVIDER_MAX_RETRIES = {"ollama": 2}
+
+PROMPT_TRIMMED = "prompt_trimmed"
+PROMPT_TRIMMED_LINE = "the prompt was trimmed and lost your message; the window is raised for the next send"
+_PROMPT_TRIMMED_RE = re.compile(r"no user query found in messages", re.IGNORECASE)
+
+
+def is_prompt_trimmed_message(message) -> bool:
+    """Ollama's 500 when the window trimmed the user's own turn away."""
+    return bool(_PROMPT_TRIMMED_RE.search(message or ""))
+
+
+def max_retries_for(provider: Optional[str], err_type: Optional[str] = None) -> int:
+    """The retry ladder's ceiling for `provider` (`MAX_RETRIES` unless
+    `PROVIDER_MAX_RETRIES` names it); 0 for a `prompt_trimmed` error."""
+    if err_type == PROMPT_TRIMMED:
+        return 0
+    return PROVIDER_MAX_RETRIES.get(provider or "", MAX_RETRIES)
 
 
 def backoff_delay(attempt: int, retry_after=None) -> float:
@@ -837,8 +868,10 @@ def is_retryable_message(status: Optional[int], message: str, *, body_text: str 
     ("header_timeout", "sse_read_timeout") (the watchdog below) are always
     retryable; 408 is retryable; any other 4xx is not, whatever the message
     says; otherwise (no status -- a transport or mid-stream failure -- or a
-    non-error status) falls through to the message-pattern list."""
-    if is_context_overflow_message(status or 0, message):
+    non-error status) falls through to the message-pattern list.
+    A trimmed Ollama request ("no user query found in messages") is never
+    retryable as-is (Halo 3.2.3.0 R1)."""
+    if is_context_overflow_message(status or 0, message) or is_prompt_trimmed_message(message):
         return False
     if isinstance(status, int) and (status >= 500 or status == 429):
         return True

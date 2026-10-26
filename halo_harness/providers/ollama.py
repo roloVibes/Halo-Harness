@@ -26,6 +26,7 @@ from __future__ import annotations
 import http.client
 import json
 import logging
+import socket
 import threading
 import time
 import urllib.parse
@@ -549,14 +550,23 @@ def ollama_overflow_retry_ceiling(*, trained_context: Optional[int] = None, host
     size -- see that function's own docstring for why a retry can still
     fire even when the ceiling equals the number already sent (a model
     resident at a SMALLER context than this decision now allows, e.g.
-    loaded earlier under a more conservative read)."""
+    loaded earlier under a more conservative read).
+
+    Halo 3.2.3.0 R1: the prompt floor (`providers.ollama_prompt`) raises
+    `num_ctx` above the smaller `min()` candidates (a saved cap, the
+    remote default, a fallback) up to the trained context / the memory
+    estimate / `host_max_ctx` / the hard cap; the retry ceiling is that
+    same `window_ceiling`, never below the `min()` itself."""
+    from halo_harness.providers.ollama_prompt import window_ceiling
     value, _source = resolve_num_ctx_and_source(
         trained_context, host_max_ctx, fit_estimate, hard_cap=hard_cap,
         fallback_when_unknown=fallback_when_unknown, learned_cap=learned_cap, remote=remote,
         remote_unknown_ceiling=remote_unknown_ceiling, recorded_does_not_fit=recorded_does_not_fit,
         cpu_only=cpu_only,
     )
-    return value
+    fit_int = fit_estimate if isinstance(fit_estimate, int) and not isinstance(fit_estimate, bool) else None
+    return max(value, window_ceiling(trained_context=trained_context, fit_estimate=fit_int,
+                                     host_max_ctx=host_max_ctx, hard_cap=hard_cap))
 
 
 # Review fix pass (finding 4), "remember a successful retry for the rest
@@ -619,7 +629,27 @@ def _get_json(host: OllamaHost, path: str, *, timeout: float = _READ_TIMEOUT_S,
     bad JSON) -- every caller here is a best-effort probe/catalog read,
     never a turn-blocking call, so "couldn't reach it" and "reached it but
     said something odd" both just mean "nothing to report" rather than an
-    exception a background thread would have to catch anyway."""
+    exception a background thread would have to catch anyway.
+    `request_json` below is the same call with the failure kind kept."""
+    return request_json(host, path, timeout=timeout, method=method, body=body).body
+
+
+@dataclass(frozen=True)
+class JsonReply:
+    """One `request_json` answer: `body` on a 200, else `None` with
+    `failure` = "timeout" (the socket read ran past `timeout`),
+    "unreachable" (the connect phase failed), "http" (a non-200, `status`
+    set) or "error" (bad JSON, a malformed response)."""
+    body: object = None
+    failure: Optional[str] = None
+    status: Optional[int] = None
+
+
+def request_json(host: OllamaHost, path: str, *, timeout: float = _READ_TIMEOUT_S,
+                 method: str = "GET", body: Optional[dict] = None) -> JsonReply:
+    """`_get_json` with the failure kind visible (Halo 3.2.3.0 R1: a
+    calibration load that ran out of its budget is "unknown", never "the
+    model is not resident"). Never raises."""
     from halo_harness.providers.http import UpstreamConnectError, open_upstream
     full_path = path
     conn = None
@@ -642,11 +672,14 @@ def _get_json(host: OllamaHost, path: str, *, timeout: float = _READ_TIMEOUT_S,
         raw = resp.read()
         if resp.status != 200:
             log.debug("ollama: %s %s -> HTTP %s", method, full_path, resp.status)
-            return None
-        return json.loads(raw.decode("utf-8", "replace")) if raw else {}
+            return JsonReply(failure="http", status=resp.status)
+        return JsonReply(body=json.loads(raw.decode("utf-8", "replace")) if raw else {}, status=200)
     except UpstreamConnectError as e:
         log.debug("ollama: %s %s unreachable: %s", method, full_path, e)
-        return None
+        return JsonReply(failure="unreachable")
+    except (TimeoutError, socket.timeout) as e:
+        log.debug("ollama: %s %s timed out after %ss: %s", method, full_path, timeout, e)
+        return JsonReply(failure="timeout")
     except (OSError, ValueError, http.client.HTTPException) as e:
         # P2 tail: `http.client.HTTPException` (BadStatusLine,
         # IncompleteRead, ...) isn't an OSError subclass -- a malformed or
@@ -655,7 +688,7 @@ def _get_json(host: OllamaHost, path: str, *, timeout: float = _READ_TIMEOUT_S,
         # instead of degrading to "nothing to report" like every other
         # failure shape here already does.
         log.debug("ollama: %s %s failed: %s", method, full_path, e)
-        return None
+        return JsonReply(failure="error")
     finally:
         if conn is not None:
             try:

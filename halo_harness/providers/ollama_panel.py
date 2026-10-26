@@ -85,6 +85,14 @@ class ModelFitInfo:
     what_fits: int
     source: str
     throughput: Optional[dict] = None
+    # Halo 3.2.3.0 R1: "calibrated" / "estimated" / "inconclusive"
+    # (`ollama_calibrate.calibration_state`), and the last session's prompt
+    # floor for this model (`agent/ollama_window`'s estimate, persisted
+    # with the last turn's throughput) when one is known.
+    state: str = "estimated"
+    prompt_floor: Optional[int] = None
+    prompt_tok_s: Optional[float] = None   # rolling prompt reading speed
+    tight: Optional[dict] = None           # {tight_ctx, tight_vram, gpu_total} from the last calibration
 
 
 @dataclass(frozen=True)
@@ -178,7 +186,10 @@ def _model_fit_info(host, catalog: dict, row: dict, *, state_dir, remote: bool, 
     `resolve_num_ctx_and_source` precedence `agent/loop.py`'s real
     request path runs -- this panel can never quietly disagree with what
     a real turn would actually send."""
-    from halo_harness.providers.ollama_calibrate import get_last_turn_throughput, lookup_learned_cap
+    from halo_harness.providers.ollama_calibrate import (
+        calibration_state, get_last_turn_throughput, get_prompt_speed, lookup_learned_cap, lookup_tight,
+    )
+    from halo_harness.providers.ollama_prompt import window_for
     name = row.get("model") or row.get("name") or "?"
     trained = trained_context_for(catalog, name)
     learned_cap = lookup_learned_cap(state_dir, host_url=host.url, model=name, digest=row.get("digest"))
@@ -186,13 +197,25 @@ def _model_fit_info(host, catalog: dict, row: dict, *, state_dir, remote: bool, 
     what_fits, source = resolve_num_ctx_and_source(trained, host.max_ctx, fit, learned_cap=learned_cap,
                                                     remote=remote)
     throughput = get_last_turn_throughput(state_dir, host_url=host.url, model=name)
+    floor = (throughput or {}).get("prompt_floor")
+    floor = floor if isinstance(floor, int) and not isinstance(floor, bool) and floor > 0 else None
+    if floor is not None:
+        choice = window_for(floor, base=what_fits, base_source=source, trained_context=trained,
+                            fit_estimate=fit, host_max_ctx=host.max_ctx)
+        what_fits, source = choice.num_ctx, choice.source
+    state = calibration_state(state_dir, host_url=host.url, model=name)
+    if learned_cap is None and state == "calibrated":
+        state = "estimated"  # a cap whose digest no longer matches is not a measurement
     return ModelFitInfo(name=name, learned_cap=learned_cap, what_fits=what_fits, source=source,
-                         throughput=throughput)
+                         throughput=throughput, state=state, prompt_floor=floor,
+                         prompt_tok_s=get_prompt_speed(state_dir, host_url=host.url, model=name),
+                         tight=lookup_tight(state_dir, host_url=host.url, model=name) if learned_cap else None)
 
 
 def format_host_analysis(a: HostAnalysis) -> str:
     """The shared plain-text rendering `halo ollama`, `/ollama`'s print-
     mode fallback, and the TUI dialog's body all use verbatim."""
+    from halo_harness.providers.ollama_prompt import fmt_tokens, source_word
     lines = [f"Ollama host '{a.host_name}' ({a.host_url})"]
     if not a.reachable:
         lines.append("  unreachable")
@@ -229,8 +252,17 @@ def format_host_analysis(a: HostAnalysis) -> str:
         lines.append(f"  what fits ({len(a.catalog_fits)} model(s) in the catalog):")
         for fit_info in a.catalog_fits:
             cap_str = f"{fit_info.learned_cap} (learned)" if fit_info.learned_cap else "not calibrated"
-            lines.append(f"    {fit_info.name}: num_ctx {fit_info.what_fits} [{fit_info.source}], "
-                         f"learned cap: {cap_str}")
+            floor_str = (f"prompt floor {fmt_tokens(fit_info.prompt_floor)} (last session)"
+                         if fit_info.prompt_floor else "prompt floor unknown")
+            speed = f", reads ~{fit_info.prompt_tok_s:,.0f} tok/s" if fit_info.prompt_tok_s else ""
+            lines.append(f"    {fit_info.name}: window {fit_info.what_fits} [{source_word(fit_info.source)}], "
+                         f"{fit_info.state}, {floor_str}, learned cap: {cap_str}{speed}")
+            tight = fit_info.tight or {}
+            if tight.get("tight_ctx"):
+                of = (f" ({tight['tight_vram'] / 1024 ** 3:.1f} of {tight['gpu_total'] / 1024 ** 3:.0f} GB)"
+                      if tight.get("tight_vram") and tight.get("gpu_total") else "")
+                lines.append(f"      {tight['tight_ctx']} tight{of}: on the GPU, under the headroom rule "
+                             f"(8 % of the card or 1.5 GB free); {fit_info.learned_cap} is the safe window")
             if fit_info.learned_cap:
                 # Review fix pass (finding 14): "no surface names max_ctx
                 # at all" -- a learned cap is only useful once an
