@@ -6,10 +6,12 @@ first, then `WORKER-RULES.md`, then the round you are starting.
 
 ## WHERE THINGS STAND -- 2026-10-25 night (authoritative, read this first)
 
-**3.2.2.0 "The first run says what it does" is the release candidate** (every
-round merged on master; `scripts/release.py 3.2.2.0 --skip-windows` runs once the
-Linux push run and the dispatched Windows run for the exact head are both
-green). The owner, live on Kali and in Studio on 2026-10-25, sent six notes;
+**3.2.2.0 "The first run says what it does" IS RELEASED** (tag v3.2.2.0, cut from
+0bd5ffc on 2026-10-25 night after both runners went green; installed on the PC).
+**Next: 3.2.3.0 "Ollama on the network"** (plans/ROADMAP.md "ADDED 2026-10-26 ...
+3.2.3.0": R1 the window tells the truth, R2 the servers are found, then measured;
+workers running in `~/hh-323/<round>`, briefs under `~/hh-323/briefs/`), then
+3.3.0.0 "Setup is Studio" with R5 Ollama everywhere (the Setup card's Find/Scan). The owner, live on Kali and in Studio on 2026-10-25, sent six notes;
 each became one round, one Opus worker each in `~/hh-322/<round>` (briefs,
 hand-backs, progress files and CI logs under `~/hh-322/briefs/`); the
 coordinator merged each with its CHANGELOG block (`changelog_322.py` in the
