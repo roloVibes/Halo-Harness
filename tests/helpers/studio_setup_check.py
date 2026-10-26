@@ -159,7 +159,17 @@ def linux_block(c, url, ctx) -> dict:
         LF.ensure_local_bin_on_rc = lambda **_k: calls.append(("rc", "")) or (True, Path("~/.profile"))
         S.forget_linux()
         c.go(url.replace("mode=roles", "mode=setup"))
-        c.wait(f"{qa('[data-testid=setup-linux-item]')}.length === 2", 40)
+        try:
+            c.wait(f"{qa('[data-testid=setup-linux-item]')}.length === 2", 40)
+        except TimeoutError as e:
+            # GitHub's Windows runner timed out here (f408d5c): record what the server and the page say, and let the
+            # other steps run -- the test that reads linux_items fails alone, with these numbers in its line
+            out["linux_timeout"] = {"error": str(e)[:160], "server_block": S.linux_block(),
+                                    "none_text": c.js(_text("[data-testid=setup-linux-none]")),
+                                    "items_now": c.js(f"{qa('[data-testid=setup-linux-item]')}.length"),
+                                    "strip": c.js(_text("[data-testid=setup-strip]")),
+                                    "body": c.js("document.body.innerText.slice(0, 300)")}
+            return out
         out["linux_items"] = c.js(f"{qa('[data-testid=setup-linux-item]')}.map((i) => i.dataset.id)")
         out["linux_rail"] = c.js(_text("[data-testid=setup-rail-block][data-block=setup-linux] .su-word"))
         lines = "[data-testid=setup-card-lines][data-card=linux]"
