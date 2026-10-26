@@ -21,12 +21,16 @@ def cmd_ollama(argv: list) -> int:
         return cmd_ollama_calibrate(argv[1:])
     if argv and argv[0] == "doctor":
         return cmd_ollama_doctor(argv[1:])
+    if argv and argv[0] == "discover":  # Halo 3.2.3.0 R2: the servers are found, then measured
+        from halo_harness.ollama_discover_cli import cmd_ollama_discover
+        return cmd_ollama_discover(argv[1:])
     from halo_harness.providers.ollama import resolve_ollama_hosts
     from halo_harness.providers.ollama_panel import analyze_host, format_host_analysis
 
     parser = argparse.ArgumentParser(prog="halo ollama", add_help=True,
                                       description="Per-host Ollama analysis: reachability, version, loaded "
-                                                   "models (offload, context, KV cost), and tool-catalog sizing.")
+                                                   "models (offload, context, KV cost), and tool-catalog sizing. "
+                                                   "Subcommands: discover, calibrate, doctor.")
     parser.add_argument("--host", default=None, help="only this configured host (by name), not every one")
     parser.add_argument("--refresh", action="store_true",
                          help="bypass the short-TTL catalog cache and re-read /api/tags+/api/show now")
@@ -46,6 +50,13 @@ def cmd_ollama(argv: list) -> int:
         if i:
             print()
         print(format_host_analysis(analyze_host(host, force=args.refresh)))
+    if not args.host:
+        from halo_harness.providers.ollama_discover_hosts import found_not_added_lines
+        lines = found_not_added_lines()
+        if lines:
+            print()
+            for line in lines:
+                print(line)
     return 0
 
 

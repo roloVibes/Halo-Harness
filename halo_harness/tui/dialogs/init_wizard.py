@@ -478,14 +478,16 @@ class ProvidersStep(StepScreen):
                         classes="tab-help")
         status_text = _pv_status_text(provider, state=state)
         yield Static(status_text, id=f"wiz-{provider}-status", classes="tab-status")
+        if provider == "ollama":
+            from halo_harness.tui.dialogs.ollama_found import FoundPanel
+            yield FoundPanel("wiz-ollama")  # Halo 3.2.3.0 R2: Find / Scan, a tick per server, Save adds them
         for f in state["fields"]:
             prefill = state.get("known_host") or "" if f["name"] == "host" else ""
             yield Input(value=prefill, placeholder=f["label"], password=f["secret"],
                         id=f"wiz-{provider}-field-{f['name']}")
         if provider == "ollama":
-            yield Static("Leave every field blank and Save to register the local daemon at its default "
-                         "address; fill in a URL to add a LAN or cloud host instead. Running local servers "
-                         "are found automatically by /local, not here.", classes="tab-help")
+            from halo_harness.tui.dialogs.init_tabs import OLLAMA_TAB_HELP
+            yield Static(OLLAMA_TAB_HELP, classes="tab-help")
         if provider == "huggingface":
             yield Static("Each of these is independent and optional: paste HF_TOKEN for the router, add one "
                          "dedicated endpoint (name + URL [+ token]), or add one local server (URL [+ key]). "
@@ -616,9 +618,10 @@ class ProvidersStep(StepScreen):
         return {f["name"]: self._field_value(provider, f["name"]) for f in state["fields"]}
 
     def _save(self, provider: str) -> None:
-        from halo_harness.init_providers import save_tab_credentials
+        from halo_harness.tui.dialogs.ollama_calibrate_offer import save_found_rows
         values = self._collect_values(provider)
-        ok, message = save_tab_credentials(provider, values, team_cfg=self._team_cfg)
+        ok, message = save_found_rows(self, provider, values, prefix="wiz-ollama", team_cfg=self._team_cfg,
+                                      no_live=self.state.no_live)
         try:
             status = self.query_one(f"#wiz-{provider}-status", Static)
         except Exception:
@@ -790,10 +793,13 @@ class LocalModelsStep(StepScreen):
             "llama-server for GGUF, mlx_lm for safetensors on Apple Silicon, either way)."
 
     def body(self) -> list:
+        from halo_harness.tui.dialogs.ollama_found import FoundPanel
         return [
             Static("Folders Halo scans for .gguf files and safetensors/MLX model folders, on top of the "
                    "Hugging Face Hub cache, LM Studio's own folder, and Ollama's own store.",
                    classes="dialog-title"),
+            # Halo 3.2.3.0 R2: the Ollama servers on this machine, read-only (the Ollama tab adds them)
+            FoundPanel("wiz-local", read_only=True, auto_find=True),
             Static("detecting what's already on this machine…", id="wiz-local-detect", classes="tab-help"),
             Static(self._dirs_text(), id="wiz-local-dirs"),
             Input(placeholder="/path/to/a/models/folder", id="wiz-local-folder-input"),

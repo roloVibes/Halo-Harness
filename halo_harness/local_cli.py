@@ -38,6 +38,14 @@ def _cmd_default(argv: list) -> int:
                               "huggingface.local_servers entry (skipped otherwise -- see docs/MODELS.md)")
     args = parser.parse_args(argv)
     print(format_local_view(build_local_view(refresh=args.refresh)))
+    # Halo 3.2.3.0 R2: an Ollama on this machine that is not an ollama.hosts entry yet
+    from halo_harness.providers.ollama_discover_hosts import found_not_added_lines
+    found = found_not_added_lines(force=args.refresh)
+    if found:
+        print()
+        print("Ollama (found, not added):")
+        for line in found:
+            print(f"  {line}")
     return 0
 
 
