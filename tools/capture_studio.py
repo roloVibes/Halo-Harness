@@ -71,12 +71,13 @@ def seeded_home() -> Path:
     return state
 
 
-def serve(state: Path, shell: bool = True, proj: "Path | None" = None):
-    """Studio over `state`; the URL opens the shell on Orchestra with the feed off (`shell` is kept for the callers)."""
+def serve(state: Path, shell: bool = True, proj: "Path | None" = None, slow_ms: "int | None" = None):
+    """Studio over `state`; the URL opens the shell on Orchestra with the feed off (`shell` is kept for the callers).
+    `slow_ms` (3.3.0.0 R7): every API answer that many ms late; None passes `HALO_STUDIO_SLOW_MS` through."""
     from halo_harness.studio.server import start_server, url_for
     proj = proj or state.parent / "project"  # an empty project dir: nothing resolves to project scope
     proj.mkdir(exist_ok=True)
-    srv = start_server(port=0, cwd=proj, state_dir=state)
+    srv = start_server(port=0, cwd=proj, state_dir=state, slow_ms=slow_ms)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     return srv, url_for(srv).replace("/#t=", "/?mode=orchestra&feed=off#t=")  # an open EventSource stalls --virtual-time-budget
 

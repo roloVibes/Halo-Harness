@@ -177,7 +177,14 @@ instead)" (and "(code 5/5 here)" when the numbers confirmed it).
   it hits, never on it. A collapsed tier is not a drop target: hold a card
   over its strip for a moment (600 ms) and the tier opens; drop it there
   while it is still collapsed and the card stays where it was ("tier
-  <name> is collapsed; it stays where it was"). The selected card and the
+  <name> is collapsed; it stays where it was"). A drop into another tier
+  is one write (3.3.0.0): the card shows in its new tier at once, its spot
+  clamped into that tier's box as the canvas has it when you let go (a
+  tier the hold opened is the target while the pointer stays over it), and
+  the lineup save carries the positions (`PUT /api/lineup/<name>` with a
+  `layout` body, written in the same request; a move waiting on its 500 ms
+  save goes with it, and no layout save races it); a refused move puts the
+  card and its tier back. The selected card and the
   one you dropped last are drawn on top of the others, and the canvas
   grows with a drag so the card never scrolls out of view. A card's id is
   its alias (else its role, else its agent) plus an ordinal only among the

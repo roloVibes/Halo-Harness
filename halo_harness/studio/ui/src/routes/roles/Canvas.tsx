@@ -17,7 +17,9 @@
 // lands beside the card it hits; a collapsed tier is no drop target (held
 // over its strip for 600 ms it opens; dropped there, the card stays where it
 // was); the selected or last-dropped card is drawn on top; the world grows
-// with the drag.
+// with the drag. 3.3.0.0 R7 (a slow box): a drop into another tier is one
+// ordered write (actions.ts `moveToTier`), and a tier a hold opened is the
+// drop's target, its box as the store has it at the release.
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type KeyboardEvent, type PointerEvent } from "react";
 import { addCard, moveToTier } from "./actions";
 import { Card, Edges } from "./CanvasParts";
@@ -91,20 +93,25 @@ export function CanvasDetail() {
     let moved = false;
     let last: Drag = { id, dx: 0, dy: 0, hot: "" };
     let held = "", timer = 0; // the collapsed strip under the pointer, and its open timer
+    let opened = ""; // 3.3.0.0 R7: the tier this hold opened (the drop's target while the pointer stays over it)
     const hold = (name: string) => {
       if (name === held) return;
       window.clearTimeout(timer);
       held = name;
-      if (name) timer = window.setTimeout(() => setCollapsed(name, false), OPEN_MS);
+      if (name) timer = window.setTimeout(() => ((opened = name), setCollapsed(name, false)), OPEN_MS);
     };
     const move = (m: globalThis.PointerEvent) => {
       const dx = (m.clientX - x0) / zoomRef.current, dy = (m.clientY - y0) / zoomRef.current;
       if (!moved && Math.hypot(dx, dy) < 4) return;
       moved = true;
       const s = roles.get();
+      // the boxes from the store as it is at this move (never the drawn ones: the room a drag makes moves the
+      // target tier's cards away from the pointer)
       const all = placeAll(s.graph!, s.positions);
       hold(tierAt(s.graph!, all, s.collapsed, world(m), id, true)?.name || "");
-      last = { id, dx, dy, hot: tierAt(s.graph!, all, s.collapsed, world(m), id)?.name || "" };
+      const hot = tierAt(s.graph!, all, s.collapsed, world(m), id)?.name || "";
+      if (opened && hot !== opened) opened = ""; // left the tier it opened
+      last = { id, dx, dy, hot };
       setDrag(last);
     };
     const up = (u: globalThis.PointerEvent) => {
@@ -121,11 +128,12 @@ export function CanvasDetail() {
       const shut = tierAt(s.graph, all, s.collapsed, p, id, true);
       if (shut) return toast(`tier ${shut.name} is collapsed; it stays where it was`, "info", 3500);
       const from = s.graph.tiers.find((t) => t.node_ids.includes(id));
-      const to = tierAt(s.graph, all, s.collapsed, p, id);
+      // 3.3.0.0 R7: a tier the hold opened is the target while the pointer stays over it; the drop point is clamped
+      // into its box as the store has it NOW (dropPatch over `all`, read at release), never a box from before the hold
+      const to = (opened && !s.collapsed[opened] && s.graph.tiers.find((t) => t.name === opened)) || tierAt(s.graph, all, s.collapsed, p, id);
       const next = { x: Math.max(0, all[id].x + last.dx), y: Math.max(0, all[id].y + last.dy) };
       if (to && from && to.name !== from.name) {
-        const patch = dropPatch(s.graph, all, s.collapsed, id, next, to);
-        void moveToTier(id, to.name).then((ok) => ok && movePositions(patch));
+        void moveToTier(id, to.name, dropPatch(s.graph, all, s.collapsed, id, next, to)); // one ordered write (actions.ts)
         return;
       }
       movePositions(dropPatch(s.graph, all, s.collapsed, id, next));

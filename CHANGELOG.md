@@ -80,6 +80,19 @@ version.
 - A turn's timeline record keeps the line the turn ended with (`marker`), so the trace shows it.
 - The Live column's pill reads "N new rows · follow" (was "↓ N new").
 
+### R7: the Studio on a slow box
+#### Added
+- `HALO_STUDIO_SLOW_MS`, a test flag: Studio's server holds every API answer and every live-feed frame that many ms, so a test sees a loaded CI runner's order of events on any box (docs/DEVELOPMENT.md "A slow box"); tests/test_studio_slow_box.py runs the Roles room steps at 800 ms and the Fleet stop at 400 ms.
+- `PUT /api/lineup/<name>` takes an optional `layout` ({nodes, tiers}) and writes it in the same request, after the lineup.
+#### Changed
+- A card dropped into another tier is one ordered write: it shows in its new tier at its clamped spot at once, and the lineup save carries the positions (a move waiting to save goes with it; no layout save races it); a refused move puts the card and its tier back. A tier a held card opened is the drop's target while the pointer stays over it.
+- The Fleet map re-reads its view when an agent ends (from any state) or a late frame moves an ended agent, when the tab is shown again, and every 5 s while anything runs, whatever frames come.
+- The two Roles checks that were recorded, not judged, on GitHub's Windows runner are judged everywhere again.
+#### Fixed
+- A held drop into a collapsed tier left the card outside the tier's box on a slow box (GitHub's Windows runner), and a later move could be overwritten by the drop's late position (the spots after a removal).
+- A stopped agent stayed `running` on the Fleet map while other frames kept coming (GitHub's Linux runner, 60 s).
+- Dropping a card into another tier of a pack's read-only lineup undid your previous edit.
+
 ### Also in 3.3.0.0
 
 #### Changed
