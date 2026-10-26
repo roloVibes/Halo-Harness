@@ -35,6 +35,10 @@ def run_start(c, url: str, frames: list, shot: str = "") -> dict:
     c.click_on("document.querySelector('[data-testid=\"start-here-run\"]')")
     c.wait(f"{Q}('{STEP}').length === 7", 20)
     c.wait("!!document.querySelector('[data-testid=\"start-here-done\"]')", 120)
+    try:  # the page re-reads the job after the summary frame (a step's last frame can fall off the feed): let it land
+        c.wait(f"[...{Q}('{STEP}')].every((li) => li.dataset.state === 'done')", 10)
+    except TimeoutError:
+        pass  # the step list below says what it saw
     out["steps"] = c.js(f"[...{Q}('{STEP}')].map((li) => li.dataset.key + ':' + li.dataset.state)")
     out["done_ok"] = c.js("document.querySelector('[data-testid=\"start-here-done\"]').dataset.ok")
     out["done_text"] = c.js("document.querySelector('[data-testid=\"start-here-done\"]').textContent")

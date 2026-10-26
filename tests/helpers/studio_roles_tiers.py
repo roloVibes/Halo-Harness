@@ -49,7 +49,15 @@ def card(agent: str) -> str:
 
 
 def on_disk(state: Path) -> list:
-    raw = yaml.safe_load((state / "teams" / f"{LINEUP}.yaml").read_text(encoding="utf-8")) or {}
+    path = state / "teams" / f"{LINEUP}.yaml"
+    for _ in range(40):  # Windows: a read during the save's os.replace raises PermissionError for a few ms
+        try:
+            raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+            break
+        except (PermissionError, OSError, ValueError):
+            time.sleep(0.05)
+    else:
+        raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     return list(raw.get("tiers") or [])
 
 
