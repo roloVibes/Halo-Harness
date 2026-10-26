@@ -325,10 +325,11 @@ def test_run_calibration_never_fits_stops_at_floor(ctx: Ctx):
 
 
 @test
-def test_run_calibration_load_failure_counts_as_not_resident(ctx: Ctx):
-    """A step whose /api/ps entry disappears entirely (model not found --
-    `None` in `ps_steps`) steps down exactly like a partial-offload
-    reading, never raises."""
+def test_run_calibration_missing_entry_is_unknown_and_retried_at_the_same_size(ctx: Ctx):
+    """Halo 3.2.3.0 R1: a step whose /api/ps entry is missing (`None` in
+    `ps_steps`) is `unknown`, never "not resident": the SAME candidate is
+    loaded once more with the budget doubled, and the model showing up
+    there is the measurement (8192, not a halved 4096)."""
     from halo_harness.providers.ollama import OllamaHost
     from halo_harness.providers.ollama_calibrate import run_calibration
     mock = MockUpstream().start()
@@ -339,7 +340,8 @@ def test_run_calibration_load_failure_counts_as_not_resident(ctx: Ctx):
         result = run_calibration(host, model, start_ctx=8192)
         ctx.check(f"fits on the second step once the model actually shows up, got {result.outcome!r}",
                   result.outcome == "fits")
-        ctx.check(f"max_full_gpu_ctx halved once, got {result.max_full_gpu_ctx}", result.max_full_gpu_ctx == 4096)
+        ctx.check(f"measured at the same candidate, got {result.max_full_gpu_ctx}", result.max_full_gpu_ctx == 8192)
+        ctx.check(f"two loads (the retry), got {result.steps}", result.steps == 2)
     finally:
         mock.stop()
 
@@ -616,6 +618,283 @@ def test_maybe_auto_calibrate_rerun_when_the_recorded_digest_is_stale(ctx: Ctx):
         finally:
             if old_flag is not None:
                 os.environ["BRIDGE_TEST_NO_BACKGROUND_NET"] = old_flag
+    finally:
+        mock.stop()
+        _clear_state_dir_env()
+
+
+# ---- Halo 3.2.3.0 R1: a measurement or unknown (mock load delays) --------
+
+@test
+def test_load_budget_s_scales_with_size_and_host(ctx: Ctx):
+    from halo_harness.providers.ollama_calibrate import load_budget_s
+    ctx.check(f"local 17 GB -> 20 + 68 = 88 s, got {load_budget_s(17, False)}", load_budget_s(17, False) == 88.0)
+    ctx.check(f"remote 17 GB -> 40 + 102 = 142 s, got {load_budget_s(17, True)}", load_budget_s(17, True) == 142.0)
+    ctx.check("unknown size -> 60 s", load_budget_s(None, True) == 60.0 and load_budget_s(None, False) == 60.0)
+    ctx.check("a zero or bogus size -> 60 s", load_budget_s(0, False) == 60.0 and load_budget_s("x", True) == 60.0)
+
+
+@test
+def test_run_calibration_slow_load_is_unknown_then_inconclusive(ctx: Ctx):
+    """A 2.5 s load against a 1 s budget: unknown, one retry with 2 s
+    (still unknown), then `inconclusive` -- never a small `fits`."""
+    from halo_harness.providers.ollama import OllamaHost
+    from halo_harness.providers.ollama_calibrate import outcome_line, run_calibration
+    mock = MockUpstream().start()
+    model = "slow-model:17b"
+    try:
+        mock.load_delay_s[model] = 2.5
+        host = OllamaHost(name="pc", url=mock.base_url)
+        result = run_calibration(host, model, start_ctx=8192, budget_s=1.0, step_up=True)
+        ctx.check(f"inconclusive, got {result.outcome!r}", result.outcome == "inconclusive")
+        ctx.check("no cap", result.max_full_gpu_ctx is None)
+        ctx.check(f"two loads: the step and its retry, got {result.steps}", result.steps == 2)
+        ctx.check(f"the unknown candidate is named, got {result.unknown_ctx}", result.unknown_ctx == 8192)
+        ctx.check(f"the budget is kept, got {result.budget_s}", result.budget_s == 1.0)
+        chats = [r for r in mock.requests if r["path"].rstrip("/") == "/api/chat"]
+        ctx.check(f"both loads at the same num_ctx, got {[c['body']['options']['num_ctx'] for c in chats]}",
+                  [c["body"]["options"]["num_ctx"] for c in chats] == [8192, 8192])
+        line = outcome_line(model, host.name, result, window=40960, source="trained")
+        ctx.check(f"the line says inconclusive and the window, got {line!r}",
+                  line.startswith(f"{model} on pc: inconclusive") and "the window stays at 40k (trained)" in line)
+    finally:
+        mock.stop()
+
+
+@test
+def test_run_auto_calibration_slow_load_records_nothing(ctx: Ctx):
+    from halo_harness.providers import ollama_hw
+    from halo_harness.providers.ollama import OllamaHost
+    from halo_harness.providers.ollama_calibrate import (
+        calibration_state, has_calibration_entry, lookup_learned_cap, run_auto_calibration,
+    )
+    d = _fresh_state_dir("ol-autocal-slow-")
+    mock = MockUpstream().start()
+    model = "qwen3:30b"
+    try:
+        ollama_hw.reset_local_gpu_cache()
+        mock.load_delay_s[model] = 2.5
+        host = OllamaHost(name="pc", url=mock.base_url)
+        notice = run_auto_calibration(host, model, state_dir=d, timeout=1.0)
+        ctx.check(f"one inconclusive line, got {notice!r}", isinstance(notice, str) and "inconclusive" in notice)
+        ctx.check("no calibration entry", has_calibration_entry(d, host_url=host.url, model=model) is False)
+        ctx.check("no learned cap", lookup_learned_cap(d, host_url=host.url, model=model) is None)
+        ctx.check("halo ollama will say inconclusive",
+                  calibration_state(d, host_url=host.url, model=model) == "inconclusive")
+    finally:
+        mock.stop()
+        _clear_state_dir_env()
+
+
+@test
+def test_run_calibration_completed_load_lists_its_context_and_fits(ctx: Ctx):
+    """A load that completes within the budget lists the candidate's own
+    context_length: `fits`; stepping up stops at the first partial load
+    and the midpoint is tried once; the line names both sizes."""
+    from halo_harness.providers.ollama import OllamaHost
+    from halo_harness.providers.ollama_calibrate import outcome_line, run_calibration
+    mock = MockUpstream().start()
+    model = "qwen3:30b"
+    try:
+        mock.load_delay_s[model] = 0.2
+        mock.load_vram[model] = lambda n: (4 * _GB, 4 * _GB) if n <= 8192 else (5 * _GB, 4 * _GB)
+        host = OllamaHost(name="pc", url=mock.base_url)
+        result = run_calibration(host, model, start_ctx=8192, budget_s=5.0, step_up=True, trained_context=40960)
+        ctx.check(f"fits at 8192, got {result.outcome} {result.max_full_gpu_ctx}",
+                  result.outcome == "fits" and result.max_full_gpu_ctx == 8192)
+        ctx.check(f"16384 then the midpoint 12288 measured offloaded, got {result.failed_ctx}",
+                  result.failed_ctx == 12288)
+        nums = [r["body"]["options"]["num_ctx"] for r in mock.requests if r["path"].rstrip("/") == "/api/chat"]
+        ctx.check(f"loads 8192, 16384, 12288, got {nums}", nums == [8192, 16384, 12288])
+        line = outcome_line(model, host.name, result)
+        ctx.check(f"the one-line outcome, got {line!r}", line.startswith(f"{model} on pc: 8k fits, 12k does not ("))
+    finally:
+        mock.stop()
+
+
+@test
+def test_run_calibration_never_credits_a_late_larger_load(ctx: Ctx):
+    """/api/ps lists the model at 65536 while the candidate was 32768 (a
+    larger load landing late): unknown at 32768, retried, inconclusive."""
+    from halo_harness.providers.ollama import OllamaHost
+    from halo_harness.providers.ollama_calibrate import run_calibration
+    mock = MockUpstream().start()
+    model = "qwen3-coder:30b"
+    try:
+        mock.scenarios[model] = _StepScenario(mock, [{"model": model, "size": 20 * _GB, "size_vram": 20 * _GB,
+                                                      "context_length": 65536}])
+        host = OllamaHost(name="pc", url=mock.base_url)
+        result = run_calibration(host, model, start_ctx=32768, budget_s=5.0)
+        ctx.check(f"inconclusive, never fits at 32768, got {result.outcome} {result.max_full_gpu_ctx}",
+                  result.outcome == "inconclusive" and result.max_full_gpu_ctx is None)
+        ctx.check(f"two loads, got {result.steps}", result.steps == 2)
+    finally:
+        mock.stop()
+
+
+def _no_gpu(ollama_hw):
+    real = ollama_hw.get_local_gpu_memories
+    ollama_hw.get_local_gpu_memories = lambda **kw: []
+    return real
+
+
+@test
+def test_auto_calibration_records_after_the_turns_wait(ctx: Ctx):
+    """The turn waits `budget_s` (here 0.3 s); the measurement (a 1 s load)
+    keeps going, records when it finishes, and its line is drained on a
+    later turn."""
+    import time as _time
+    from halo_harness.providers import ollama_hw
+    from halo_harness.providers.ollama import OllamaHost, reset_catalog_cache
+    from halo_harness.providers.ollama_calibrate import lookup_learned_cap
+    d = _fresh_state_dir("ol-autocal-late-")
+    mock = MockUpstream().start()
+    model = "qwen3:30b"
+    real = _no_gpu(ollama_hw)
+    old_flag = os.environ.pop("BRIDGE_TEST_NO_BACKGROUND_NET", None)
+    try:
+        reset_catalog_cache()
+        mock.load_delay_s[model] = 1.0
+        session = _minimal_session(d, mock)
+        host = OllamaHost(name="pc", url=mock.base_url)
+        t0 = _time.monotonic()
+        session._maybe_auto_calibrate_ollama(host, model, budget_s=0.3)
+        ctx.check(f"the turn waited about its budget, not the whole load, got {_time.monotonic() - t0:.2f} s",
+                  _time.monotonic() - t0 < 0.95)
+        ctx.check("nothing shown yet", session._drain_pending_ollama_notices() == [])
+        deadline = _time.monotonic() + 10
+        while _time.monotonic() < deadline and lookup_learned_cap(d, host_url=host.url, model=model) is None:
+            _time.sleep(0.1)
+        got = lookup_learned_cap(d, host_url=host.url, model=model)
+        ctx.check(f"recorded once the load finished, got {got}", got == 32768)
+        _time.sleep(0.2)
+        lines = session._drain_pending_ollama_notices()
+        ctx.check(f"the outcome line arrives on the next drain, got {lines!r}",
+                  len(lines) == 1 and lines[0].startswith(f"{model} on pc: 32k fits"))
+    finally:
+        if old_flag is not None:
+            os.environ["BRIDGE_TEST_NO_BACKGROUND_NET"] = old_flag
+        ollama_hw.get_local_gpu_memories = real
+        mock.stop()
+        _clear_state_dir_env()
+
+
+@test
+def test_a_recorded_cap_under_the_prompt_floor_is_discarded_once(ctx: Ctx):
+    from types import SimpleNamespace
+    from halo_harness.agent.ollama_window import prepare_window
+    from halo_harness.providers.ollama import OllamaHost
+    from halo_harness.providers.ollama_calibrate import lookup_learned_cap, record_calibration
+    d = _fresh_state_dir("ol-floor-discard-")
+    mock = MockUpstream().start()
+    try:
+        session = _minimal_session(d, mock)
+        host = OllamaHost(name="pc", url=mock.base_url)
+        record_calibration(d, host_url=host.url, model="qwen3:30b", digest=None, max_full_gpu_ctx=4096,
+                            ollama_version=None)
+        session._ollama_calibrate_attempted.add((host.url, "qwen3:30b"))
+        decision = SimpleNamespace(learned_cap=4096, num_ctx=4096, source="learned cap", trained_context=40960,
+                                   fit_estimate=None, host_max_ctx=None)
+        ref = SimpleNamespace(model="qwen3:30b")
+        kwargs = dict(host=host, ref=ref, decision=decision, base_num_ctx=4096, base_source="learned cap",
+                      system_text="x" * 35000, messages=[], tools=[], auto_calibrate=True)
+        estimate, _factor = prepare_window(session, **kwargs)
+        ctx.check(f"the request is above the cap, got {estimate}", estimate > 4096)
+        ctx.check("the cap is discarded", lookup_learned_cap(d, host_url=host.url, model="qwen3:30b") is None)
+        ctx.check("the model is measured again on the next turn",
+                  (host.url, "qwen3:30b") not in session._ollama_calibrate_attempted)
+        record_calibration(d, host_url=host.url, model="qwen3:30b", digest=None, max_full_gpu_ctx=4096,
+                            ollama_version=None)
+        prepare_window(session, **kwargs)
+        ctx.check("a second small measurement stays (discarded once per process; the floor raises over it)",
+                  lookup_learned_cap(d, host_url=host.url, model="qwen3:30b") == 4096)
+        fresh = _minimal_session(d, mock)  # a new process: the re-measured cap is not discarded again
+        prepare_window(fresh, **kwargs)
+        ctx.check("a cap measured after a floor discard is kept by the next process too",
+                  lookup_learned_cap(d, host_url=host.url, model="qwen3:30b") == 4096)
+    finally:
+        mock.stop()
+        _clear_state_dir_env()
+
+
+# ---- Halo 3.2.3.0 R1: all layers on the GPU + the headroom rule -----------
+
+def _measured_23gb_card(n: int):
+    """The owner's measurement, as placeholders: a 17 GB model on a 23 GB
+    card -- 65,536 used 20.7 GB (safe), 98,304 used 22.1 GB (tight),
+    131,072 spilled to the CPU."""
+    gb = 1024 ** 3
+    if n <= 65536:
+        return int(20.7 * gb), int(20.7 * gb)
+    if n <= 98304:
+        return int(22.1 * gb), int(22.1 * gb)
+    return int(26 * gb), int(22.5 * gb)
+
+
+@test
+def test_headroom_rule_records_the_safe_window_and_names_the_tight_one(ctx: Ctx):
+    from halo_harness.providers.ollama import OllamaHost
+    from halo_harness.providers.ollama_calibrate import outcome_line, run_calibration
+    mock = MockUpstream().start()
+    model = "qwen3:30b"
+    try:
+        mock.load_delay_s[model] = 0.05
+        mock.load_vram[model] = _measured_23gb_card
+        host = OllamaHost(name="pc", url=mock.base_url)
+        result = run_calibration(host, model, start_ctx=65536, step_up=True, trained_context=131072, budget_s=5.0,
+                                 gpu_total=23 * _GB, num_gpu=65)
+        ctx.check(f"65536 recorded (the largest SAFE window), got {result.outcome} {result.max_full_gpu_ctx}",
+                  result.outcome == "fits" and result.max_full_gpu_ctx == 65536)
+        ctx.check(f"98304 tight, got {result.tight_ctx}", result.tight_ctx == 98304)
+        ctx.check(f"131072 does not fit, got {result.failed_ctx}", result.failed_ctx == 131072)
+        line = outcome_line(model, host.name, result)
+        ctx.check(f"the line names both, got {line!r}",
+                  line.startswith(f"{model} on pc: 65k safe, 98k tight (22.1 of 23 GB), 131k does not fit ("))
+        chats = [r for r in mock.requests if r["path"].rstrip("/") == "/api/chat"]
+        ctx.check(f"every load asks for all layers on the GPU, got {[c['body']['options'] for c in chats]}",
+                  chats and all(c["body"]["options"].get("num_gpu") == 65 for c in chats))
+        ctx.check(f"loads 65536, 131072, 98304, got {[c['body']['options']['num_ctx'] for c in chats]}",
+                  [c["body"]["options"]["num_ctx"] for c in chats] == [65536, 131072, 98304])
+    finally:
+        mock.stop()
+
+
+@test
+def test_headroom_kind(ctx: Ctx):
+    from halo_harness.providers.ollama_calibrate import headroom_kind
+    gb = 1024 ** 3
+    ctx.check("20.7 of 23 GB is safe (2.3 GB >= 8 %)", headroom_kind(int(20.7 * gb), 23 * gb) == "safe")
+    ctx.check("22.1 of 23 GB is tight", headroom_kind(int(22.1 * gb), 23 * gb) == "tight")
+    ctx.check("1.5 GB floor on a small card: 6.7 of 8 GB is tight", headroom_kind(int(6.7 * gb), 8 * gb) == "tight")
+    ctx.check("unknown total -> safe", headroom_kind(int(22.1 * gb), None) == "safe")
+
+
+@test
+def test_halo_ollama_panel_shows_window_source_state_floor_speed_and_tight(ctx: Ctx):
+    from halo_harness.providers.ollama import OllamaHost
+    from halo_harness.providers.ollama_calibrate import (
+        record_calibration, record_last_turn_throughput, record_prompt_speed,
+    )
+    from halo_harness.providers.ollama_panel import analyze_host, format_host_analysis
+    d = _fresh_state_dir("ol-panel-r1-")
+    mock = MockUpstream().start()
+    try:
+        host = OllamaHost(name="pc", url=mock.base_url)
+        record_calibration(d, host_url=host.url, model="qwen3:30b", digest="sha256:deadbeef1",
+                           max_full_gpu_ctx=8192, ollama_version="0.1.0-mock", tight_ctx=16384,
+                           tight_vram=int(22.1 * _GB), gpu_total=23 * _GB)
+        record_prompt_speed(d, host_url=host.url, model="qwen3:30b", tok_s=2500.0)
+        record_last_turn_throughput(d, host_url=host.url, model="qwen3:30b", tokens_per_second=40.0,
+                                    prefill_seconds=4.4, offloaded=False, prompt_floor=11000)
+        text = format_host_analysis(analyze_host(host, hw_runner=lambda argv, timeout: None, state_dir=d))
+        row = next(line for line in text.splitlines() if line.strip().startswith("qwen3:30b:"))
+        ctx.check(f"window raised by the floor, source word, calibrated, the floor, the speed; got {row!r}",
+                  "window 16384 [prompt floor]" in row and "calibrated" in row
+                  and "prompt floor 11k (last session)" in row and "reads ~2,500 tok/s" in row)
+        ctx.check(f"the tight window is shown, got {text!r}", "16384 tight (22.1 of 23 GB)" in text)
+        other = next(line for line in text.splitlines() if line.strip().startswith("gpt-oss:20b:"))
+        ctx.check(f"an unmeasured model reads estimated, got {other!r}",
+                  "estimated" in other and "prompt floor unknown" in other)
     finally:
         mock.stop()
         _clear_state_dir_env()

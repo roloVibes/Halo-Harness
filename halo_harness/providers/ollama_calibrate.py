@@ -18,6 +18,12 @@ than trusting a stale measurement. The SAME file also keeps the last real
 turn's throughput numbers per (host, model) -- brief item 7, `halo ollama`
 prints them -- since both are small, rarely-written, host+model-keyed
 facts about one Ollama installation; no reason for a second file.
+
+Halo 3.2.3.0 R1: a step is a measurement only when the load answered
+within its budget (`load_budget_s`: the model's size and the host) and
+`/api/ps` lists the model at the candidate's own `context_length`; a
+timeout or a missing entry is `unknown`, retried once with the budget
+doubled, then the run ends `inconclusive` and records no cap.
 """
 
 from __future__ import annotations
@@ -166,7 +172,9 @@ def has_recorded_does_not_fit(state_dir, *, host_url: str, model: str, digest: O
 
 
 def record_calibration(state_dir, *, host_url: str, model: str, digest: Optional[str],
-                        max_full_gpu_ctx: Optional[int], ollama_version: Optional[str]) -> dict:
+                        max_full_gpu_ctx: Optional[int], ollama_version: Optional[str],
+                        tight_ctx: Optional[int] = None, tight_vram: Optional[int] = None,
+                        gpu_total: Optional[int] = None) -> dict:
     """Upserts the (host_url, model) entry -- `{host_url, model, digest,
     max_full_gpu_ctx, measured_at, ollama_version}` (brief item 2's exact
     schema). `max_full_gpu_ctx=None` is a VALID, meaningful recording
@@ -177,6 +185,9 @@ def record_calibration(state_dir, *, host_url: str, model: str, digest: Optional
     record = {"host_url": host_url, "model": model, "digest": digest,
               "max_full_gpu_ctx": max_full_gpu_ctx, "measured_at": time.time(),
               "ollama_version": ollama_version}
+    if tight_ctx:
+        # Halo 3.2.3.0 R1: the window on the GPU but under the headroom rule.
+        record.update({"tight_ctx": tight_ctx, "tight_vram": tight_vram, "gpu_total": gpu_total})
     with file_lock(_fit_store_path(state_dir)):
         store = load_fit_store(state_dir)
         entries = store["entries"]
@@ -186,6 +197,14 @@ def record_calibration(state_dir, *, host_url: str, model: str, digest: Optional
             entry.update(record)
         else:
             entries.append(record)
+        marks = store.get("inconclusive")
+        if isinstance(marks, dict):
+            marks.pop(_model_key(host_url, model), None)
+        discards = store.get("floor_discards")
+        if isinstance(discards, dict) and discards.pop(_model_key(host_url, model), None) is not None:
+            # measured again after a discard under the prompt floor: kept
+            # from now on (the floor raises the window over it anyway)
+            record["after_floor_discard"] = True
         save_fit_store(state_dir, store)
     return record
 
@@ -201,188 +220,95 @@ def auto_calibrate_enabled(env=None) -> bool:
     return value is not False
 
 
-MIN_CALIBRATE_CTX = 4096
+# The run itself (steps, headroom rule, the outcome line) lives in
+# `ollama_calibrate_steps`; every name is re-exported here.
+from halo_harness.providers.ollama_calibrate_steps import (  # noqa: E402,F401
+    _GB,
+    HEADROOM_FRACTION, HEADROOM_MIN_BYTES, MIN_CALIBRATE_CTX, UNKNOWN_LAYERS, UNKNOWN_SIZE_BUDGET_S,
+    CalibrationResult, StepReading, _floor_pow2, _load_model_at_num_ctx, _ps_entry_for_model, gpu_layers_for,
+    headroom_kind, measure_step, run_calibration,
+)
+
+# Halo 3.2.3.0 R1: the per-step load budget scales with the model's size
+# and the host -- a 17 GB model over the LAN needs 20-55 s just to load.
+LOCAL_BUDGET_BASE_S, LOCAL_BUDGET_PER_GB_S = 20.0, 4.0
+REMOTE_BUDGET_BASE_S, REMOTE_BUDGET_PER_GB_S = 40.0, 6.0
 
 
-def _floor_pow2(n: int) -> int:
-    power = 1
-    while power * 2 <= n:
-        power *= 2
-    return power
+def load_budget_s(model_size_gb: "Optional[float]", remote: bool) -> float:
+    """Seconds one calibration step waits for a load: local 20 s + 4 s per
+    GB, remote 40 s + 6 s per GB; 60 s when the size is unknown."""
+    if not isinstance(model_size_gb, (int, float)) or isinstance(model_size_gb, bool) or model_size_gb <= 0:
+        return UNKNOWN_SIZE_BUDGET_S
+    if remote:
+        return REMOTE_BUDGET_BASE_S + REMOTE_BUDGET_PER_GB_S * float(model_size_gb)
+    return LOCAL_BUDGET_BASE_S + LOCAL_BUDGET_PER_GB_S * float(model_size_gb)
 
 
-@dataclass(frozen=True)
-class CalibrationResult:
-    outcome: str  # "fits" | "does_not_fit" | "unreachable" (review fix pass finding 8)
-    max_full_gpu_ctx: Optional[int]
-    steps: int
-    last_size: Optional[int] = None
-    last_size_vram: Optional[int] = None
-
-
-def _load_model_at_num_ctx(host, model: str, *, num_ctx: int, keep_alive: Optional[str], timeout: float) -> None:
-    """One non-streaming `/api/chat` call that forces Ollama to (re)load
-    `model` at `num_ctx` (`ollama_capability.py`'s own `_run_capability_
-    probe` uses the identical `stream: False` shape against a real
-    server). `num_predict: 1` keeps the generated-token cost to a single
-    token -- the `/api/ps` read right after this call is what calibration
-    actually acts on, not this response's own text, so the reply is
-    discarded; any transport failure here is swallowed by `_get_json`
-    itself (returns `None`) and simply means the FOLLOWING `/api/ps` read
-    probably won't find this model loaded either -- `run_calibration`
-    treats that exactly like a partial-offload reading, see its own
-    docstring."""
-    from halo_harness.providers.ollama import _get_json
-    body = {"model": model, "stream": False, "messages": [{"role": "user", "content": "hi"}],
-            "options": {"num_ctx": num_ctx, "num_predict": 1}}
-    if keep_alive is not None:
-        body["keep_alive"] = keep_alive
-    _get_json(host, "/api/chat", method="POST", body=body, timeout=timeout)
-
-
-def _ps_entry_for_model(ps: Optional[dict], model: str) -> Optional[dict]:
-    """FIX PASS: matched via `ollama_names_match` (an untagged `model`
-    must still find its own `:latest`-qualified `/api/ps` entry)."""
-    from halo_harness.providers.ollama import ollama_names_match
-    for entry in (ps or {}).get("models") or []:
-        if isinstance(entry, dict) and (ollama_names_match(entry.get("model"), model)
-                                         or ollama_names_match(entry.get("name"), model)):
-            return entry
+def model_size_gb(catalog: Optional[dict], model: str) -> Optional[float]:
+    """The model's on-disk size in GB from its catalog row (`/api/tags`'s
+    `size`), or None."""
+    from halo_harness.providers.ollama_hw import catalog_row
+    size = (catalog_row(catalog, model) or {}).get("size")
+    if isinstance(size, int) and not isinstance(size, bool) and size > 0:
+        return size / (1024 ** 3)
     return None
 
 
-def run_calibration(host, model: str, *, start_ctx: int, min_ctx: int = MIN_CALIBRATE_CTX,
-                     keep_alive: Optional[str] = None, timeout: float = 60.0,
-                     step_up: bool = False, trained_context: Optional[int] = None,
-                     hard_cap: Optional[int] = None) -> CalibrationResult:
-    """The brief's own stepping loop (item 2): load at a candidate
-    `num_ctx` (floored to a power of two, never below `min_ctx`), read
-    `/api/ps` back, and step DOWN by powers of two until `size_vram >=
-    size` (fully resident) or `candidate` drops below `min_ctx` (4096 by
-    default, "stops at 4096 and reports 'does not fit'"). Never a real
-    streamed generation and never more than one `/api/chat` call per
-    step. A step whose `/api/ps` entry disappears entirely (the load
-    itself failed, or something evicted it before this read) counts as
-    "not fully resident" and also steps down -- this function never
-    raises on a reachability failure, it just reports `does_not_fit` once
-    the floor is reached with nothing better measured. Hermetic tests
-    point `host.url` at a `tests/helpers/mock_ollama.MockUpstream`
-    scripted with a `ps_response` sequence (see that helper's own
-    `ScriptedByCallCount`-style patterns) -- never a real model.
-
-    Round 5b part 2 (brief item 7, "part 1 follow-up"): `step_up` defaults
-    False here (this bare function's own pre-existing contract, round 5b
-    part 1 -- unchanged for any caller that doesn't ask for the new
-    behavior explicitly) -- `halo ollama calibrate` (`ollama_cli.py`) and
-    the automatic first-use trigger (`run_auto_calibration` below) are the
-    two callers that explicitly pass `step_up=True` (the former unless
-    `--no-up`), per the brief's own "also steps up" ask. When True, once
-    the DOWN loop above finds a fitting candidate, `step_up` keeps
-    doubling from there -- a FIRST guess that already fits fully resident
-    (the common case on a roomy card) used to be recorded as-is even when
-    the model would ALSO fit at a much larger context; stepping up finds
-    the true ceiling
-    instead of settling for the first lucky guess. Bounded by `min(
-    trained_context, hard_cap)` when `trained_context` is given (never
-    worth probing past the model's own trained window) and always by
-    `hard_cap` (`providers.ollama.HARD_CONTEXT_CAP`, 131072, when
-    `hard_cap` is omitted) -- stops at the FIRST non-resident load up
-    here (never steps down again to search for a smaller gap), recording
-    the LAST value that was still fully resident.
-
-    Review fix pass (finding 8): a step whose `/api/chat` load call and
-    `/api/ps` read BOTH fail to get any response at all (an asleep host,
-    one that is unreachable, or one that simply never answers within
-    `timeout`) used to be indistinguishable from a step that reached the
-    host and genuinely found the model not (fully) resident -- both
-    stepped down the same way, and reaching the floor with nothing ever
-    measured reported `does_not_fit`, a verdict `run_auto_calibration`
-    then recorded PERMANENTLY. If `/api/ps` NEVER answers successfully
-    across every single step tried, the outcome is `"unreachable"`
-    instead -- `run_auto_calibration` never records that one. A host
-    that answers at least once (even if the model is never found
-    resident at any size down to the floor) still reports the genuine
-    `does_not_fit` it always did."""
-    from halo_harness.providers.ollama import HARD_CONTEXT_CAP, fetch_ps
-    hard_cap = hard_cap if isinstance(hard_cap, int) and hard_cap > 0 else HARD_CONTEXT_CAP
-    up_bound = min(trained_context, hard_cap) if isinstance(trained_context, int) and trained_context > 0 \
-        else hard_cap
-    candidate = max(_floor_pow2(max(1, start_ctx)), min_ctx)
-    steps = 0
-    last_size: Optional[int] = None
-    last_size_vram: Optional[int] = None
-    ever_reached_host = False
-
-    def _load_and_check(ctx: int) -> "Optional[tuple[int, int]]":
-        nonlocal steps, ever_reached_host
-        steps += 1
-        _load_model_at_num_ctx(host, model, num_ctx=ctx, keep_alive=keep_alive, timeout=timeout)
-        ps = fetch_ps(host, timeout=timeout)
-        if ps is not None:
-            ever_reached_host = True
-        entry = _ps_entry_for_model(ps, model)
-        if entry is None:
-            return None
-        size, size_vram = entry.get("size"), entry.get("size_vram")
-        if not (isinstance(size, int) and isinstance(size_vram, int) and size > 0):
-            return None
-        return size, size_vram
-
-    while candidate >= min_ctx:
-        result = _load_and_check(candidate)
-        if result is not None:
-            size, size_vram = result
-            last_size, last_size_vram = size, size_vram
-            if size_vram >= size:
-                fitting = candidate
-                if step_up:
-                    up_candidate = fitting * 2
-                    while up_candidate <= up_bound:
-                        up_result = _load_and_check(up_candidate)
-                        if up_result is None or up_result[1] < up_result[0]:
-                            break
-                        fitting = up_candidate
-                        last_size, last_size_vram = up_result
-                        up_candidate *= 2
-                return CalibrationResult(outcome="fits", max_full_gpu_ctx=fitting, steps=steps,
-                                          last_size=last_size, last_size_vram=last_size_vram)
-        candidate //= 2
-    if not ever_reached_host:
-        return CalibrationResult(outcome="unreachable", max_full_gpu_ctx=None, steps=steps,
-                                  last_size=last_size, last_size_vram=last_size_vram)
-    return CalibrationResult(outcome="does_not_fit", max_full_gpu_ctx=None, steps=steps,
-                              last_size=last_size, last_size_vram=last_size_vram)
+def outcome_line(model: str, host_name: str, result: CalibrationResult, *, window: Optional[int] = None,
+                 source: Optional[str] = None) -> str:
+    """The one line a calibration ends with: "<model> on <host>: 32k fits,
+    65k does not (1 min 50 s)"; with a tight size "65k safe, 98k tight
+    (22.1 of 23 GB), 131k does not fit (...)"; "...: inconclusive, the
+    window stays at 32k (trained)" when nothing was measured."""
+    from halo_harness.providers.ollama_prompt import fmt_duration, fmt_window
+    took = fmt_duration(result.elapsed_s)
+    tight = ""
+    if result.tight_ctx:
+        of = (f" ({result.tight_vram / _GB:.1f} of {result.gpu_total / _GB:.0f} GB)"
+              if result.tight_vram and result.gpu_total else "")
+        tight = f", {fmt_window(result.tight_ctx)} tight{of}"
+    if result.outcome == "fits":
+        if tight:
+            failed = f", {fmt_window(result.failed_ctx)} does not fit" if result.failed_ctx else ""
+            return f"{model} on {host_name}: {fmt_window(result.max_full_gpu_ctx)} safe{tight}{failed} ({took})"
+        not_fit = f", {fmt_window(result.failed_ctx)} does not" if result.failed_ctx else ""
+        return f"{model} on {host_name}: {fmt_window(result.max_full_gpu_ctx)} fits{not_fit} ({took})"
+    if result.outcome == "does_not_fit":
+        return (f"{model} on {host_name}: no safe window down to {fmt_window(MIN_CALIBRATE_CTX)}{tight} "
+                f"({took})")
+    stays = f", the window stays at {fmt_window(window)} ({source or '?'})" if window else ""
+    if result.outcome == "unreachable":
+        return f"{model} on {host_name}: no answer from the host ({took}), nothing recorded{stays}"
+    budget = f"{result.budget_s:.0f} s" if result.budget_s else "the budget"
+    what = (f" ({fmt_window(result.unknown_ctx)} did not load within {budget}, then {budget} x 2; nothing recorded)"
+            if result.unknown_ctx else " (nothing recorded)")
+    return f"{model} on {host_name}: inconclusive{what}{stays}"
 
 
-def run_auto_calibration(host, model: str, *, state_dir, timeout: float = 20.0) -> Optional[str]:
-    """Brief item 2: "run it automatically the first time a model is used
-    on a host with no learned cap" -- called by `agent/loop.py` before
-    the first request to a new (host, model) pair this PROCESS has seen
-    (the caller's own `has_calibration_entry` gate keeps this from
-    re-running across different processes once an entry exists at all).
-    Resolves its own starting candidate (a local/ssh GPU-based fit
-    estimate when one exists, else 32768 -- the SAME "nothing known"
-    default `resolve_num_ctx_and_source` substitutes for a remote host),
-    runs `run_calibration`, and returns ONE plain notice line for the
-    caller to surface -- or `None` on any failure (never raises; a
-    failed attempt degrades to "use the live fit estimate/remote
-    default, same as before this existed").
+def current_window(host, model: str) -> "tuple[Optional[int], Optional[str]]":
+    """(num_ctx, source word) a request for `model` on `host` resolves to
+    right now -- for the inconclusive line; (None, None) on any failure."""
+    try:
+        from types import SimpleNamespace
+        from halo_harness.providers.ollama_hw import resolve_context_decision
+        from halo_harness.providers.ollama_prompt import source_word
+        decision = resolve_context_decision(SimpleNamespace(host=host.name, model=model, raw=f"ol:{model}"))
+        return decision.num_ctx, source_word(decision.source)
+    except Exception:
+        log.debug("ollama: window lookup for the calibration line failed", exc_info=True)
+        return None, None
 
-    Review fix pass (finding 8): `timeout` (per `/api/chat`+`/api/ps`
-    step, not the whole run) tightens from `run_calibration`'s own 60s
-    default to 20s for this AUTOMATIC trigger specifically -- it runs in
-    a background thread `agent/loop.py`'s own caller only waits on for a
-    bounded total budget, so a tighter per-step timeout gets a real
-    result recorded sooner for a LATER turn to benefit from, without
-    changing the EXPLICIT `halo ollama calibrate` CLI command's own
-    default (a user who typed that command is already watching it and
-    free to wait). The result is recorded EITHER WAY it was before --
-    `fits` or a GENUINE `does_not_fit` -- except `"unreachable"` (no
-    `/api/ps` response across every single step tried -- an asleep or
-    unreachable host, never evidence the model doesn't fit), which is
-    NEVER recorded: `record_calibration` would otherwise turn a transient
-    "couldn't reach it this time" into a permanent "does not fit"
-    `has_calibration_entry` then never lets a later attempt correct."""
+
+def run_auto_calibration(host, model: str, *, state_dir, timeout: Optional[float] = None) -> Optional[str]:
+    """The first-use calibration `agent/loop.py` runs in a background
+    thread before the first request to a (host, model) pair with no
+    entry. The per-step budget is `load_budget_s` for this model's size
+    and host (`timeout` overrides it). `fits`/`does_not_fit` are recorded;
+    `inconclusive`/`unreachable` record nothing but an inconclusive marker
+    for `halo ollama` (`record_inconclusive`), so a fresh process measures
+    again. Returns the one outcome line, or None on any failure (never
+    raises)."""
     from halo_harness.providers.ollama import get_catalog, probe_version, trained_context_for
     from halo_harness.providers.ollama_hw import catalog_row, estimate_fit_for_host, is_local_host
     try:
@@ -396,36 +322,153 @@ def run_auto_calibration(host, model: str, *, state_dir, timeout: float = 20.0) 
         start = estimate_fit_for_host(host, model, catalog)
         if not isinstance(start, int) or isinstance(start, bool) or start <= 0:
             start = 32768
-        # Round 5b part 2: auto-calibrate also steps UP (brief item 7) --
-        # bounded by this model's own trained context, so a first guess
-        # that fits is still checked for a LARGER fitting value instead of
-        # settling for it, same as the explicit `halo ollama calibrate`.
-        trained = trained_context_for(catalog, model)
-        result = run_calibration(host, model, start_ctx=start, keep_alive=host.keep_alive, trained_context=trained,
-                                  step_up=True, timeout=timeout)
-        if result.outcome == "unreachable":
-            where = "locally" if is_local_host(host) else "over the network"
-            return (f"Halo tried to calibrate {model} on '{host.name}' {where} but got no response "
-                    f"({result.steps} attempt(s)) -- using the live fit estimate/remote default this session; "
-                    f"nothing was recorded, so this will be tried again on a fresh `halo` run.")
+        budget = timeout if isinstance(timeout, (int, float)) and timeout > 0 else \
+            load_budget_s(model_size_gb(catalog, model), not is_local_host(host))
+        result = run_calibration(host, model, start_ctx=start, keep_alive=host.keep_alive,
+                                  trained_context=trained_context_for(catalog, model), step_up=True,
+                                  budget_s=budget, num_gpu=gpu_layers_for(row.get("model_info")),
+                                  gpu_total=host_gpu_total_bytes(host))
+        if result.prompt_tok_s:
+            record_prompt_speed(state_dir, host_url=host.url, model=model, tok_s=result.prompt_tok_s)
+        if result.outcome in ("inconclusive", "unreachable"):
+            if result.outcome == "inconclusive":
+                record_inconclusive(state_dir, host_url=host.url, model=model, budget_s=budget,
+                                    candidate=result.unknown_ctx)
+            window, source = current_window(host, model)
+            return outcome_line(model, host.name, result, window=window, source=source)
         record_calibration(state_dir, host_url=host.url, model=model, digest=digest,
-                            max_full_gpu_ctx=result.max_full_gpu_ctx, ollama_version=ollama_version)
-        where = "locally" if is_local_host(host) else "over the network"
-        if result.outcome == "fits":
-            return (f"Halo calibrated {model} on '{host.name}' {where}: fully resident at "
-                    f"num_ctx={result.max_full_gpu_ctx} ({result.steps} step(s)). Recorded for next time "
-                    f"(`halo ollama calibrate {model} --host {host.name}` to redo).")
-        return (f"Halo tried to calibrate {model} on '{host.name}' {where}: it does not fit fully in GPU "
-                f"memory even at num_ctx={MIN_CALIBRATE_CTX} ({result.steps} step(s)) -- using the live fit "
-                f"estimate/remote default instead.")
+                            max_full_gpu_ctx=result.max_full_gpu_ctx, ollama_version=ollama_version,
+                            tight_ctx=result.tight_ctx, tight_vram=result.tight_vram, gpu_total=result.gpu_total)
+        return outcome_line(model, host.name, result)
     except Exception:
         log.debug("ollama: auto-calibration failed for %s@%s", model, host.name, exc_info=True)
         return None
 
 
+def host_gpu_total_bytes(host, *, runner=None) -> Optional[int]:
+    """The host's usable GPU memory (`gpu_budget_bytes`, summed over
+    cards): the OS probe locally, the ssh probe for a remote host with
+    `ssh:`, else None (the headroom rule then calls every resident load
+    safe)."""
+    try:
+        from halo_harness.providers.ollama_hw import (
+            get_local_gpu_memories, get_ssh_gpu_memory, gpu_budget_bytes, is_local_host,
+        )
+        if is_local_host(host):
+            cards = get_local_gpu_memories(runner=runner)
+        elif getattr(host, "ssh", None):
+            cards = [get_ssh_gpu_memory(host.ssh, runner=runner)]
+        else:
+            return None
+        budgets = [gpu_budget_bytes(c) for c in cards if c is not None]
+        total = sum(b for b in budgets if b)
+        return total or None
+    except Exception:
+        log.debug("ollama: GPU total read failed", exc_info=True)
+        return None
+
+
+_SPEED_WINDOW = 10
+
+
+def record_prompt_speed(state_dir, *, host_url: str, model: str, tok_s: Optional[float]) -> None:
+    """Folds one prompt reading speed (tokens/s) into the rolling average
+    for (host, model): `prompt_speed[<host>|<model>] = {prompt_tok_s, n}`,
+    a running mean over the last 10 readings. Kept beside the calibration
+    entries, not in them, so an uncalibrated model never gains an entry."""
+    if not isinstance(tok_s, (int, float)) or isinstance(tok_s, bool) or tok_s <= 0:
+        return
+    from halo_harness.filelock import file_lock
+    with file_lock(_fit_store_path(state_dir)):
+        store = load_fit_store(state_dir)
+        speeds = store.get("prompt_speed") if isinstance(store.get("prompt_speed"), dict) else {}
+        key = _model_key(host_url, model)
+        old = speeds.get(key) if isinstance(speeds.get(key), dict) else {}
+        n = min(int(old.get("n") or 0) + 1, _SPEED_WINDOW)
+        avg = float(old.get("prompt_tok_s") or tok_s)
+        avg = avg + (float(tok_s) - avg) / n
+        speeds[key] = {"prompt_tok_s": round(avg, 1), "n": n, "at": time.time()}
+        store["prompt_speed"] = speeds
+        save_fit_store(state_dir, store)
+
+
+def get_prompt_speed(state_dir, *, host_url: str, model: str) -> Optional[float]:
+    """The rolling prompt reading speed (tokens/s) for (host, model), or None."""
+    speeds = load_fit_store(state_dir).get("prompt_speed")
+    row = speeds.get(_model_key(host_url, model)) if isinstance(speeds, dict) else None
+    value = row.get("prompt_tok_s") if isinstance(row, dict) else None
+    return value if isinstance(value, (int, float)) and value > 0 else None
+
+
+def lookup_tight(state_dir, *, host_url: str, model: str) -> Optional[dict]:
+    """`{tight_ctx, tight_vram, gpu_total}` recorded by the last
+    calibration of (host, model), or None."""
+    entry = _find_entry(load_fit_store(state_dir)["entries"], host_url=host_url, model=model)
+    if not entry or not entry.get("tight_ctx"):
+        return None
+    return {k: entry.get(k) for k in ("tight_ctx", "tight_vram", "gpu_total")}
+
+
+def _model_key(host_url: str, model: str) -> str:
+    from halo_harness.providers.ollama import normalize_ollama_model_name
+    return f"{host_url}|{normalize_ollama_model_name(model)}"
+
+
+def record_inconclusive(state_dir, *, host_url: str, model: str, budget_s: Optional[float],
+                         candidate: Optional[int]) -> None:
+    """Notes that the last calibration of (host, model) measured nothing
+    (`halo ollama` says `inconclusive`). Not a calibration entry:
+    `has_calibration_entry`/`lookup_learned_cap` never read it."""
+    from halo_harness.filelock import file_lock
+    with file_lock(_fit_store_path(state_dir)):
+        store = load_fit_store(state_dir)
+        marks = store.get("inconclusive") if isinstance(store.get("inconclusive"), dict) else {}
+        marks[_model_key(host_url, model)] = {"at": time.time(), "budget_s": budget_s, "num_ctx": candidate}
+        store["inconclusive"] = marks
+        save_fit_store(state_dir, store)
+
+
+def calibration_state(state_dir, *, host_url: str, model: str) -> str:
+    """`calibrated` (an entry with a cap), `inconclusive` (the last run
+    measured nothing) or `estimated` (no measurement: the window comes
+    from the trained context, memory or a default)."""
+    if lookup_learned_cap(state_dir, host_url=host_url, model=model) is not None:
+        return "calibrated"
+    marks = load_fit_store(state_dir).get("inconclusive")
+    if isinstance(marks, dict) and _model_key(host_url, model) in marks:
+        return "inconclusive"
+    return "estimated"
+
+
+def discard_calibration(state_dir, *, host_url: str, model: str) -> bool:
+    """Removes the (host, model) entry (a cap below the prompt floor is
+    discarded so the model is measured again); True when one was removed."""
+    from halo_harness.filelock import file_lock
+    with file_lock(_fit_store_path(state_dir)):
+        store = load_fit_store(state_dir)
+        entry = _find_entry(store["entries"], host_url=host_url, model=model)
+        if entry is None:
+            return False
+        store["entries"] = [e for e in store["entries"] if e is not entry]
+        discards = store.get("floor_discards") if isinstance(store.get("floor_discards"), dict) else {}
+        discards[_model_key(host_url, model)] = time.time()
+        store["floor_discards"] = discards
+        save_fit_store(state_dir, store)
+    return True
+
+
+def remeasured_after_floor(state_dir, *, host_url: str, model: str) -> bool:
+    """True when the (host, model) entry was measured after an earlier
+    discard under the prompt floor -- it is not discarded a second time
+    (one re-measurement, not one per launch)."""
+    entry = _find_entry(load_fit_store(state_dir)["entries"], host_url=host_url, model=model)
+    return bool(entry and entry.get("after_floor_discard"))
+
+
 def record_last_turn_throughput(state_dir, *, host_url: str, model: str, tokens_per_second: "Optional[float]",
                                  prefill_seconds: "Optional[float]", offloaded: "Optional[bool]",
-                                 output_tokens: "Optional[int]" = None) -> None:
+                                 output_tokens: "Optional[int]" = None,
+                                 prompt_floor: "Optional[int]" = None) -> None:
     """Brief item 7: "`halo ollama` prints the last turn's numbers per
     host" -- persisted (not just kept in the live process's own memory) so
     a SEPARATE `halo ollama` CLI invocation, always a fresh process, can
@@ -442,7 +485,8 @@ def record_last_turn_throughput(state_dir, *, host_url: str, model: str, tokens_
         store = load_fit_store(state_dir)
         store["last_turns"][f"{host_url}|{normalize_ollama_model_name(model)}"] = {
             "tokens_per_second": tokens_per_second, "prefill_seconds": prefill_seconds,
-            "offloaded": offloaded, "output_tokens": output_tokens, "at": time.time(),
+            "offloaded": offloaded, "output_tokens": output_tokens, "prompt_floor": prompt_floor,
+            "at": time.time(),
         }
         save_fit_store(state_dir, store)
 

@@ -6,21 +6,30 @@ Part of [Models](MODELS.md), which lists every part.
 
 ## Ollama: fit, calibration and the gym
 
-**Fit calibration (round 5b)**: `halo ollama calibrate <model> [--host
-NAME] [--start N]` loads `model` at a candidate `num_ctx` (the GPU-based
+**Fit calibration (round 5b; Halo 3.2.3.0 R1)**: `halo ollama calibrate <model> [--host
+NAME] [--start N] [--timeout S]` loads `model` at a candidate `num_ctx` (the GPU-based
 estimate when a local or `ssh:`-configured read exists, else 32768),
 reads `/api/ps` back (`size` vs `size_vram`), and steps DOWN by powers of
 two until it is fully resident in GPU memory -- or stops at 4096 and
-reports "does not fit." The result -- `{host url, model, digest,
-max_full_gpu_ctx, measured_at, ollama_version}` -- is recorded in
-`~/.halo/ollama-fit.json` and takes precedence over everything else once
-known: a MEASURED fact outranks a computed guess. It never expires on its
+reports "does not fit." A step is a measurement only when the load
+finished within its budget (local 20 s + 4 s per GB, remote 40 s + 6 s
+per GB, 60 s for an unknown size, or `--timeout`) and `/api/ps` lists the
+model at that very `context_length`; otherwise it is unknown, tried once
+more with twice the budget, then the run ends inconclusive and records
+no cap. The result -- `{host url, model, digest, max_full_gpu_ctx,
+measured_at, ollama_version}` plus, when one was seen, `tight_ctx`/
+`tight_vram`/`gpu_total` -- is recorded in `~/.halo/ollama-fit.json` and
+is ONE candidate of the `min()` below, not a winner over everything: the
+prompt floor (the request's own estimate, LOCAL-MODELS.md) sits under
+the whole `min()` and raises the window over a smaller saved cap. It never expires on its
 own; it is re-measured only by an explicit re-run of the command, or
 automatically the moment the model's own `digest` (re-pulled weights) or
 the host's `ollama_version` (a server upgrade) changes. The FIRST time a
 model is used on a host with no learned cap at all, Halo runs the same
 procedure automatically before the first request, with one plain notice
-line ("Halo calibrated ... fully resident at num_ctx=...") -- opt out
+line ("qwen3-coder:30b on pc: 32k fits, 65k does not (1 min 50 s)"; the
+turn waits up to 20 s, the measurement finishes in the background and its
+line appears on a later turn) -- opt out
 with `ollama.auto_calibrate: false` (docs/CONFIG.md). `/ollama`/`halo
 ollama` show every catalog model's learned cap (or "not calibrated") next
 to a "what fits" column and the one-phrase source of that decision
@@ -39,6 +48,30 @@ resident. `halo ollama calibrate --no-up` skips this phase and keeps the
 first fitting guess, for a faster (but possibly smaller) measurement. The
 automatic first-use trigger steps up too, bounded by that model's own
 catalog-reported trained context.
+
+**All layers on the GPU (Halo 3.2.3.0)**: by default Ollama moves part
+of a model to the CPU once the window passes a size it judges risky, even
+when the GPU has room left. Measured on one host (placeholders: a 23 GB
+card, a 17 GB model): offloading started past a 49,152 window by default;
+with every layer forced onto the GPU the same model at 65,536 used 20.7
+of 23 GB and read prompts at about 2,500 tokens/s (safe), at 98,304 it
+used 22.1 GB (works, too tight for daily use); a smaller coder model at
+65,536 used 21.6 GB at about 4,800 tokens/s. So when Halo's memory
+estimate (weights + KV bytes per token x the window) or a calibration
+says the model fits the GPU at the window sent, the request carries
+`options.num_gpu` = the model's layer count (`<family>.block_count` + 1
+from `/api/show`, 999 when unknown -- Ollama caps it); otherwise
+`num_gpu` is left to Ollama. Calibration loads with the same option and
+reads a load with `size_vram < size` as offloaded (it steps down), a
+fully resident one as safe or tight by the headroom rule (at least 8 % of
+the card or 1.5 GB free); the saved window is the largest safe one, with
+the midpoint between a safe size and the next (x 1.5) tried once. A
+derived model whose Modelfile keeps every layer on the GPU with its own
+default window (it shares the blobs) works the same way. Prompt reading
+speed (`prompt_eval_count` / `prompt_eval_duration` of each real turn) is
+kept per host and model as a rolling average (`prompt_speed` in
+`~/.halo/ollama-fit.json`, beside the calibration entries) and `halo
+ollama` shows it ("reads ~2,500 tok/s").
 
 **Context-ownership precedence (round 5b, corrected)**: `num_ctx` is the
 SMALLEST of every candidate that is actually known -- the hard cap

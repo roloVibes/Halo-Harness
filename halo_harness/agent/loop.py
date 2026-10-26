@@ -64,7 +64,8 @@ from halo_harness.model import (
 )
 from halo_harness.permissions import Decision, PermissionEngine
 from halo_harness.providers.errors import (
-    CONTEXT_WINDOW_EXCEEDED, MAX_RETRIES, is_effort_rejected_message, is_effort_with_tools_rejected_message,
+    CONTEXT_WINDOW_EXCEEDED, MAX_RETRIES, PROMPT_TRIMMED, is_effort_rejected_message, max_retries_for,
+    is_effort_with_tools_rejected_message,
     is_reasoning_replay_bug, is_retryable_message, is_tools_rejected_message, retry_delay_ms,
 )
 from halo_harness.providers.http import is_connect_failure_message, is_offline_refusal_message
@@ -3018,8 +3019,37 @@ class Session:
                     break
             if done.is_set() and notice_box[0]:
                 self._pending_ollama_notices.append(notice_box[0])
+            elif not done.is_set():
+                # Halo 3.2.3.0 R1: the measurement keeps its own budget past
+                # this turn's wait; its line is shown once it finishes.
+                from halo_harness.agent.ollama_window import track_late_calibration
+                track_late_calibration(self, done, notice_box)
         except Exception:
             log.debug("ollama: auto-calibration for %s@%s failed", model, host.name, exc_info=True)
+
+    def _ollama_trimmed(self, turn_no: int, seen, body: dict, overflow_handled: bool, *,
+                        raw_message: Optional[str] = None, cut_at: Optional[int] = None):
+        """Halo 3.2.3.0 R1: one trimmed Ollama request (a `prompt_eval_
+        count` far under the estimate, or the 500 "no user query found in
+        messages"). Yields the one line; returns `(body, req)` to re-send
+        with a raised window, `_OVERFLOW_NEEDS_COMPACTION` to compact and
+        re-send, or None after an error line (a second trim this turn)."""
+        from halo_harness.agent.ollama_window import body_with_num_ctx, gpu_fits_up_to, trim_recovery
+        current = (body.get("options") or {}).get("num_ctx")
+        kind, num_ctx, line = trim_recovery(self, turn_no, seen, overflow_handled=overflow_handled,
+                                            current_num_ctx=current, cut_at=cut_at)
+        if kind == "resend":
+            yield events.turn_marker("resend", f"↳ {line}", turn=turn_no)
+            new_body = body_with_num_ctx(body, num_ctx, gpu_fits_up_to(self))
+            if num_ctx != self.model_profile.context_tokens:
+                self.model_profile = dataclasses.replace(self.model_profile, context_tokens=num_ctx)
+            return new_body, self._build_request(new_body)
+        if kind == "compact":
+            yield events.turn_marker("resend", f"↳ {line}", turn=turn_no)
+            return _OVERFLOW_NEEDS_COMPACTION
+        yield events.error(f"{line} ({raw_message})" if raw_message else line, turn=turn_no,
+                           err_type=PROMPT_TRIMMED, retryable=False)
+        return None
 
     def _drain_pending_ollama_notices(self) -> list:
         """Round 5b part 2 (brief item 7, "the auto-calibrate notice
@@ -3034,6 +3064,8 @@ class Session:
         docstring on why its return value must stay clean) logs the
         drained text instead of yielding it; `_run_compaction` (a real
         event-yielding generator) yields it exactly like `_step` does."""
+        from halo_harness.agent.ollama_window import drain_late_calibrations
+        self._pending_ollama_notices.extend(drain_late_calibrations(self))
         if not self._pending_ollama_notices:
             return []
         notices = list(self._pending_ollama_notices)
@@ -3126,9 +3158,29 @@ class Session:
         if isinstance(remembered_retry, int) and (effective_learned_cap is None
                                                     or remembered_retry > effective_learned_cap):
             effective_learned_cap = remembered_retry
+        # Halo 3.2.3.0 R1: the request's own size, estimated before every
+        # call -- `num_ctx` never sits below it (`agent/ollama_window.py`).
+        from halo_harness.agent.ollama_window import prepare_window
+        from halo_harness.providers.ollama import resolve_num_ctx_and_source
+        base_num_ctx, base_source = resolve_num_ctx_and_source(
+            decision.trained_context, host.max_ctx, decision.fit_estimate, learned_cap=effective_learned_cap,
+            remote=decision.remote, recorded_does_not_fit=decision.recorded_does_not_fit, cpu_only=decision.cpu_only)
+        prompt_tokens, window_factor = prepare_window(
+            self, host=host, ref=ref, decision=decision, base_num_ctx=base_num_ctx, base_source=base_source,
+            system_text=system_text, messages=messages, tools=tools, auto_calibrate=auto_calibrate,
+            reply_tokens=requested_max_tokens)
+        if getattr(self, "_ollama_overflow_handled", False) and ref is self.model_ref:
+            # Compaction already ran this step and the turn in progress (its
+            # own tool output) still does not fit: cut that output on the wire.
+            from halo_harness.agent.ollama_window import fit_after_compaction
+            messages, prompt_tokens, window_factor = fit_after_compaction(
+                self, host=host, ref=ref, decision=decision, base_num_ctx=base_num_ctx, base_source=base_source,
+                system_text=system_text, messages=messages, tools=tools, reply_tokens=requested_max_tokens)
         body = build_ollama_request_body(
             system_text=system_text, messages=messages, tools=tools, tool_choice=tool_choice,
             route=route, profile=profile, effort=effort, host=host,
+            prompt_tokens=prompt_tokens, window_factor=window_factor,
+            gpu_layers=decision.gpu_layers, gpu_fits_up_to=decision.gpu_fits_up_to,
             trained_context=decision.trained_context, fit_estimate=decision.fit_estimate,
             requested_max_tokens=requested_max_tokens,
             learned_cap=effective_learned_cap, remote=decision.remote,
@@ -3339,6 +3391,7 @@ class Session:
         GLM/Qwen -- `_turn_body` also checks this UP FRONT so it never even
         calls `_step` with "required" for those rows, but the downgrade
         stays as a second, cheap line of defense)."""
+        self._ollama_overflow_handled = overflow_handled  # Halo 3.2.3.0 R1 (agent/ollama_window.py)
         try:
             _, _, _, body = self._derive_and_build(tool_choice=tool_choice, no_tools=no_tools)
         except ToolCatalogTooLarge as e:
@@ -3368,6 +3421,19 @@ class Session:
         # can queue one -- same list, same "never shown twice" contract.
         for _notice in self._drain_pending_ollama_notices():
             yield events.notification(_notice, level="info")
+        if self.route.dialect == "ollama":
+            from halo_harness.agent.ollama_window import drain_markers
+            for _marker in drain_markers(self):
+                yield events.turn_marker("resend", f"↳ {_marker}", turn=turn_no)
+        if self.route.dialect == "ollama" and not overflow_handled:
+            # Halo 3.2.3.0 R1: the request (this turn's tool results
+            # included) does not fit even the largest window this call can
+            # get -- compact BEFORE sending, never let Ollama trim it.
+            from halo_harness.agent.ollama_window import pre_send_line
+            _too_large = pre_send_line(self)
+            if _too_large:
+                yield events.turn_marker("resend", f"↳ {_too_large}", turn=turn_no)
+                return _OVERFLOW_NEEDS_COMPACTION
         if self.state_dir is not None:
             # Halo 2.0.5 round 3 (G1): apply every FRESH learned param fix
             # for a field THIS request actually carries, before ever
@@ -3785,6 +3851,19 @@ class Session:
                     yield events.error(str(phase1_failure), turn=turn_no, err_type="not_configured")
                     return None
                 e = phase1_failure  # UpstreamError
+                if e.err_type == PROMPT_TRIMMED and self.route.dialect == "ollama":
+                    # Halo 3.2.3.0 R1: Ollama's 500 "no user query found in
+                    # messages" -- the window trimmed the user's turn away.
+                    # The recovery is the retry: raise the window or compact,
+                    # once per turn; never the same request again.
+                    self._log_call_failure(self._status_label(e.status), retries=attempts - 1)
+                    _recovery = yield from self._ollama_trimmed(turn_no, None, body, overflow_handled,
+                                                                raw_message=e.message)
+                    if _recovery is None or _recovery is _OVERFLOW_NEEDS_COMPACTION:
+                        return _recovery
+                    body, req = _recovery
+                    attempts -= 1
+                    continue
                 if is_reasoning_replay_bug(e.message):
                     # finding 7: a direct phase-1 400 (Databricks/DeepSeek)
                     # is checked too, not just a phase-2 wire error -- this
@@ -3908,8 +3987,8 @@ class Session:
                 # line below. Non-overload retryables (a spurious 404, an
                 # empty completion retry, anything not in the Governor's
                 # overload set) keep this ladder exactly as before.
-                if merged_retryable and attempts <= MAX_RETRIES and not _overload_owned_by_governor(
-                        e.status, e.message):
+                if merged_retryable and attempts <= max_retries_for(self.model_ref.provider, e.err_type) \
+                        and not _overload_owned_by_governor(e.status, e.message):
                     hdrs = {"retry-after": e.retry_after} if e.retry_after else {}
                     delay = _capped_retry_delay(attempts, hdrs)
                     if self._abort_sleep(delay):
@@ -4034,7 +4113,8 @@ class Session:
                 # wire error's `status` is the code an error chunk carried
                 # INSIDE a 200 stream, which the Governor (it paces HTTP
                 # response statuses) never saw, so this ladder owns it.
-                if merged_retryable and attempts <= MAX_RETRIES and not _overload_owned_by_governor(
+                wire_max_retries = max_retries_for(self.model_ref.provider, wire_error.get("type"))
+                if merged_retryable and attempts <= wire_max_retries and not _overload_owned_by_governor(
                         None, message):
                     hdrs = {"retry-after": wire_error.get("retry_after")} if wire_error.get("retry_after") else {}
                     delay = _capped_retry_delay(attempts, hdrs)
@@ -4218,6 +4298,26 @@ class Session:
                     f"{provider_display_name(self.route.provider)} rejected {param_fix_pending.field} on this "
                     f"endpoint; {describe_fix(param_fix_pending)} and retried; remembered for this endpoint",
                     level="info")
+            if self.route.dialect == "ollama":
+                # Halo 3.2.3.0 R1: Ollama read far fewer tokens than were
+                # sent -- the window trimmed the request.
+                # A reply cut at the window's end is the same "context full".
+                from halo_harness.agent.ollama_window import last_estimate, last_reserve
+                from halo_harness.providers.ollama_prompt import is_trimmed, is_window_cut
+                _timing = harness_meta.get("timing_ns") or {}
+                _seen, _eval = _timing.get("prompt_eval_count"), _timing.get("eval_count")
+                _opts = body.get("options") or {}
+                _cut = is_window_cut(harness_meta.get("done_reason"), _seen, _eval, _opts.get("num_ctx"),
+                                     _opts.get("num_predict"))
+                if _cut or is_trimmed(_seen, last_estimate(self), last_reserve(self)):
+                    _recovery = yield from self._ollama_trimmed(
+                        turn_no, (_seen + _eval) if _cut else _seen, body, overflow_handled,
+                        cut_at=_opts.get("num_ctx") if _cut else None)
+                    if _recovery is None or _recovery is _OVERFLOW_NEEDS_COMPACTION:
+                        return _recovery
+                    body, req = _recovery
+                    attempts -= 1
+                    continue
             break  # a clean, non-empty stream -- proceed to build the result
 
         reasoning = None
@@ -4497,13 +4597,21 @@ class Session:
                 "offloaded": self._last_ollama_offloaded,
             }
             if self._last_ollama_host_url:
+                from halo_harness.agent.ollama_window import last_estimate
                 from halo_harness.providers.ollama_calibrate import record_last_turn_throughput
                 record_last_turn_throughput(
                     self.state_dir, host_url=self._last_ollama_host_url, model=self.model_ref.model,
                     tokens_per_second=tokens_per_second, prefill_seconds=prefill_seconds,
                     offloaded=self._last_ollama_offloaded,
                     output_tokens=eval_count if isinstance(eval_count, int) else None,
+                    prompt_floor=last_estimate(self),
                 )
+                # Halo 3.2.3.0 R1: the prompt reading speed, a rolling
+                # average per host+model (`halo ollama` shows it).
+                from halo_harness.providers.ollama_calibrate import record_prompt_speed
+                from halo_harness.providers.ollama_prompt import prompt_speed
+                record_prompt_speed(self.state_dir, host_url=self._last_ollama_host_url, model=self.model_ref.model,
+                                    tok_s=prompt_speed(timing_ns.get("prompt_eval_count"), prompt_eval_duration))
                 # Review fix pass (finding 14): the OTHER half of the LAN-
                 # host MUST-FIX -- a REAL turn (never a calibration run)
                 # that just loaded partially offloaded must still leave a
@@ -4556,6 +4664,17 @@ class Session:
                                           resident_weight_bytes=row.get("size"))
             if not isinstance(estimated_cap, int) or isinstance(estimated_cap, bool) or estimated_cap <= 0:
                 return  # unknown or WEIGHTS_DO_NOT_FIT -- no sane N to suggest or record
+            from halo_harness.agent.ollama_window import floor_above
+            from halo_harness.providers.ollama_prompt import fmt_tokens, fmt_window
+            floor = floor_above(self, estimated_cap)
+            if floor is not None:
+                # Halo 3.2.3.0 R1: a cap under the prompt floor would only be
+                # raised over (or discarded) on the next send -- not recorded.
+                self._pending_ollama_notices.append(
+                    f"{model} on '{host.name}' loaded partially offloaded this turn: {fmt_window(estimated_cap)} "
+                    f"fits in GPU memory, the request needs {fmt_tokens(floor)} tokens, so the window stays "
+                    f"at {fmt_window(self.model_profile.context_tokens)}.")
+                return
             record_calibration(self.state_dir, host_url=host_url, model=model, digest=row.get("digest"),
                                 max_full_gpu_ctx=estimated_cap, ollama_version=cached_ollama_version(host))
             self._pending_ollama_notices.append(
@@ -5000,7 +5119,7 @@ class Session:
                 merged_retryable = e.retryable or is_retryable_message(
                     e.status, e.message, host=self.model_ref.provider,
                 )
-                if merged_retryable and attempts <= MAX_RETRIES:
+                if merged_retryable and attempts <= max_retries_for(self.model_ref.provider, e.err_type):
                     hdrs = {"retry-after": e.retry_after} if e.retry_after else {}
                     delay = _capped_retry_delay(attempts, hdrs)
                     if self._abort_sleep(delay):
@@ -5014,7 +5133,7 @@ class Session:
                 merged_retryable = retryable or is_retryable_message(
                     wire_error.get("status"), message, host=self.model_ref.provider,
                 )
-                if merged_retryable and attempts <= MAX_RETRIES:
+                if merged_retryable and attempts <= max_retries_for(self.model_ref.provider, wire_error.get("type")):
                     hdrs = {"retry-after": wire_error.get("retry_after")} if wire_error.get("retry_after") else {}
                     delay = _capped_retry_delay(attempts, hdrs)
                     if self._abort_sleep(delay):

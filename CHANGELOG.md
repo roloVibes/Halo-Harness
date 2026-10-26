@@ -25,6 +25,29 @@ version.
 #### Fixed
 - A second Ollama daemon, one in Docker or WSL, or one on another machine no longer has to be typed by hand before Halo can use it.
 
+### R1: the window tells the truth
+
+#### Added
+- `providers/ollama_prompt.py`: every Ollama request is estimated before the call (characters / 3.5 + the reply's `num_predict`, 1,024 at least) and `num_ctx` is never below it, raised over a saved cap, the remote default or a fallback up to the trained context, the memory estimate, `max_ctx` and 131072.
+- A request larger than the largest window the call can get compacts before it is sent, in one line ("the request (14k tokens, 9k of it tool output) is larger than <model>'s window on <host> (8k): compacted").
+- A trimmed request (`prompt_eval_count` far under the estimate, the 500 "no user query found in messages", or a reply cut at the window's end) raises the window and re-sends, or compacts and re-sends, once per turn, in one line.
+- `halo ollama calibrate --timeout S`; the budget line, one line per load, the one-line outcome ("65k safe, 98k tight (22.1 of 23 GB), 131k does not fit (6 min 10 s)").
+- `options.num_gpu` (every layer on the GPU) when Halo's estimate or a calibration says the model fits there at the window sent.
+- The headroom rule: a window is safe with 8 % of the card (or 1.5 GB) free, tight above that; calibration records the largest safe window.
+- Prompt reading speed per host and model (`halo ollama`: "reads ~2,500 tok/s").
+- `halo ollama` per model: the window in use, its source word, the prompt floor, calibrated / estimated / inconclusive, the tight window.
+
+#### Changed
+- Calibration: a load is a measurement only when `/api/ps` lists the model at the candidate's own `context_length` within the load's budget (local 20 s + 4 s/GB, remote 40 s + 6 s/GB); otherwise it is retried once with twice the budget and the run ends inconclusive, recording nothing.
+- The first-use calibration keeps the turn's 20 s wait but finishes in the background and records then; its line appears on a later turn.
+- The fit estimate of a loaded model comes from memory, not its loaded `context_length`; a remote host without `ssh:` has none.
+- An Ollama 500 keeps its raw text and is sent three times at most.
+
+#### Fixed
+- A slow LAN host no longer saves a small window as "fits" (the 8,192 that cut Halo's 11k-token prompt).
+- Ollama's 500 "no user query found in messages" is no longer retried six times as an internal error.
+- A saved calibration below the request's size no longer holds the window under the prompt (discarded and measured again, once).
+
 ### Also in 3.2.3.0
 
 #### Fixed

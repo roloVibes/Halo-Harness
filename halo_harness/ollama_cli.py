@@ -61,32 +61,41 @@ def cmd_ollama(argv: list) -> int:
 
 
 def cmd_ollama_calibrate(argv: list) -> int:
-    """`halo ollama calibrate <model> [--host NAME] [--start N]` (brief
-    item 2): the explicit, user-invoked twin of the auto-calibrate trigger
-    `agent/loop.py` runs on first use -- same `providers.ollama_calibrate.
-    run_calibration` stepping loop, same `~/.halo/ollama-fit.json` record,
-    just with its own plain multi-line printout instead of one notice."""
+    """`halo ollama calibrate <model> [--host NAME] [--start N] [--no-up]
+    [--timeout S]`: the explicit twin of the first-use calibration
+    `agent/loop.py` runs -- same `providers.ollama_calibrate.run_calibration`
+    loop, same `~/.halo/ollama-fit.json` record. Halo 3.2.3.0 R1: prints
+    the per-step budget it uses (`load_budget_s`, or `--timeout`), one
+    line per load, and the one-line outcome; an inconclusive run records
+    no cap."""
     from halo_harness.config.paths import bridge_home
     from halo_harness.providers.ollama import get_catalog, probe_version, resolve_ollama_host, trained_context_for
-    from halo_harness.providers.ollama_calibrate import MIN_CALIBRATE_CTX, record_calibration, run_calibration
+    from halo_harness.providers.ollama_calibrate import (
+        current_window, gpu_layers_for, host_gpu_total_bytes, load_budget_s, model_size_gb, outcome_line,
+        record_calibration, record_inconclusive, record_prompt_speed, run_calibration,
+    )
     from halo_harness.providers.ollama_hw import catalog_row, estimate_fit_for_host, is_local_host
+    from halo_harness.providers.ollama_prompt import fmt_window
 
     parser = argparse.ArgumentParser(
         prog="halo ollama calibrate", add_help=True,
         description="Load <model> at decreasing candidate num_ctx values until it is fully resident in GPU "
                     "memory (or does not fit at all), then step UP from there to find the true ceiling, and "
-                    "remember the result in ~/.halo/ollama-fit.json.",
+                    "remember the result in ~/.halo/ollama-fit.json. A load that does not finish within its "
+                    "budget is tried once more with twice the budget; still unfinished, the run is "
+                    "inconclusive and records nothing.",
     )
     parser.add_argument("model", help="the Ollama model tag to calibrate, e.g. qwen3-coder:30b")
     parser.add_argument("--host", default=None, help="a configured ollama.hosts[] name (default host otherwise)")
     parser.add_argument("--start", type=int, default=None,
                          help="the first num_ctx to try (default: the GPU-based estimate when a local or ssh "
                              "read exists, else 32768)")
-    # Round 5b part 2 (brief item 7): "halo ollama calibrate also steps UP
-    # from a fitting first guess by powers of two ... --no-up skips it".
     parser.add_argument("--no-up", action="store_true",
                          help="stop at the first fitting candidate found while stepping DOWN -- never probe "
                              "larger contexts afterward")
+    parser.add_argument("--timeout", type=float, default=None, metavar="S",
+                         help="seconds each load may take (default: 20 s + 4 s per GB of the model locally, "
+                             "40 s + 6 s per GB over the network, 60 s when the size is unknown)")
     args = parser.parse_args(argv)
 
     host = resolve_ollama_host(args.host)
@@ -94,8 +103,8 @@ def cmd_ollama_calibrate(argv: list) -> int:
         print(f"halo ollama calibrate: no configured host named {args.host!r} (see `ollama.hosts` in "
               f"~/.halo/config.json)", file=sys.stderr)
         return 1
-    print(f"Calibrating {args.model} on '{host.name}' ({host.url}) "
-          f"{'locally' if is_local_host(host) else 'over the network'}...")
+    remote = not is_local_host(host)
+    print(f"Calibrating {args.model} on '{host.name}' ({host.url}) {'over the network' if remote else 'locally'}...")
     catalog = get_catalog(host, force=True)
     row = catalog_row(catalog, args.model)
     if row is None:
@@ -109,26 +118,40 @@ def cmd_ollama_calibrate(argv: list) -> int:
     if start is None:
         estimate = estimate_fit_for_host(host, args.model, catalog)
         start = estimate if isinstance(estimate, int) and not isinstance(estimate, bool) and estimate > 0 else 32768
+    size_gb = model_size_gb(catalog, args.model)
+    if args.timeout is not None and args.timeout > 0:
+        budget, why = float(args.timeout), "--timeout"
+    else:
+        budget = load_budget_s(size_gb, remote)
+        why = (f"{size_gb:.1f} GB, {'network' if remote else 'local'}" if size_gb else "size unknown")
     print(f"  starting candidate: num_ctx={start}" + ("" if not args.no_up else " (--no-up: stepping up skipped)"))
+    print(f"  budget per load: {budget:.0f} s ({why}); a load past it is tried once more with {budget * 2:.0f} s")
+
+    def _on_step(ctx, reading):
+        what = {"safe": "on the GPU, safe headroom", "tight": "on the GPU, tight (under the headroom rule)",
+                "offloaded": "offloaded (part on the CPU)"}.get(
+            reading.kind, "unknown (did not load within the budget, or /api/ps did not list it at that size)")
+        vram = f" ({reading.size_vram / 1024 ** 3:.1f} GB on the GPU)" if reading.size_vram else ""
+        print(f"    {fmt_window(ctx)}: {what}{vram}")
+
     result = run_calibration(host, args.model, start_ctx=start, keep_alive=host.keep_alive,
-                              step_up=not args.no_up, trained_context=trained_context_for(catalog, args.model))
-    # Review fix pass (finding 8): "unreachable" (no `/api/ps` response at
-    # all, across every step) is never recorded here either -- the same
-    # reason `run_auto_calibration` skips it: a transient "couldn't reach
-    # the host this time" must never become a PERMANENT does_not_fit
-    # `has_calibration_entry` then treats as already-settled, even for
-    # this explicit, user-invoked command.
-    if result.outcome == "unreachable":
-        print(f"  got no response from '{host.name}' ({result.steps} attempt(s)) -- nothing recorded; "
-              f"try again once the host is reachable")
+                              step_up=not args.no_up, trained_context=trained_context_for(catalog, args.model),
+                              budget_s=budget, on_step=_on_step, num_gpu=gpu_layers_for(row.get("model_info")),
+                              gpu_total=host_gpu_total_bytes(host))
+    if result.prompt_tok_s:
+        record_prompt_speed(bridge_home(), host_url=host.url, model=args.model, tok_s=result.prompt_tok_s)
+    if result.outcome in ("inconclusive", "unreachable"):
+        if result.outcome == "inconclusive":
+            record_inconclusive(bridge_home(), host_url=host.url, model=args.model, budget_s=budget,
+                                candidate=result.unknown_ctx)
+        window, source = current_window(host, args.model)
+        print(f"  {outcome_line(args.model, host.name, result, window=window, source=source)}")
         return 1
     record = record_calibration(bridge_home(), host_url=host.url, model=args.model, digest=digest,
-                                 max_full_gpu_ctx=result.max_full_gpu_ctx, ollama_version=ollama_version)
-    if result.outcome == "fits":
-        print(f"  fits fully in GPU memory at num_ctx={result.max_full_gpu_ctx} ({result.steps} step(s))")
-    else:
-        print(f"  does not fit fully in GPU memory even at num_ctx={MIN_CALIBRATE_CTX} ({result.steps} step(s))")
-        print("  the live fit estimate/remote default will be used instead")
+                                 max_full_gpu_ctx=result.max_full_gpu_ctx, ollama_version=ollama_version,
+                                 tight_ctx=result.tight_ctx, tight_vram=result.tight_vram,
+                                 gpu_total=result.gpu_total)
+    print(f"  {outcome_line(args.model, host.name, result)}")
     print(f"  recorded in ~/.halo/ollama-fit.json (digest {record['digest']!r}, ollama {ollama_version or '?'})")
     return 0
 
