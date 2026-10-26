@@ -131,6 +131,10 @@ def dash(c, rig) -> dict:
     out["lane_keys_here"] = c.js(f"[...{inside('session-activity', 'fleet-lane')}].every((l) => l.dataset.key.startsWith('{hid}|{sid}|'))")
     c.wait(f"{inside('session-activity', 'fleet-log-line')}.length > 0", 20)
     out["log_who"] = c.js(f"[...new Set([...{inside('session-activity', 'fleet-log-line')}].map((l) => l.querySelector('.fac-who').textContent.split(' · ')[0]))]")
+    try:  # the strip's body paints a moment after it opens; GitHub's Windows runner read it before either marker was there
+        c.wait(f"{inside('session-attention', 'fleet-attn-row')}.length + {inside('session-attention', 'fleet-attn-empty')}.length > 0", 15)
+    except TimeoutError:
+        pass  # the counts below say what was there
     out["attn_here"] = c.js(f"{inside('session-attention', 'fleet-attn-row')}.length")
     out["attn_empty"] = c.js(f"{inside('session-attention', 'fleet-attn-empty')}.length")
     x, y, w, h = c.rect("document.querySelector('[data-testid=\"session-map\"] .fm-scroll')")
