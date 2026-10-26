@@ -309,6 +309,28 @@ run is open); a PanelSpec may carry `about` (one line) and `help` (a few
 lines) and is `collapsed` (a strip) or `optional` (added by the palette)
 in the default arrangement.
 
+### A slow box
+
+GitHub's runners are slower than any box here, and a Studio check can pass
+on every box and fail there because the page sees its answers in another
+order. `HALO_STUDIO_SLOW_MS=<ms>` makes Studio's server hold every API
+answer that many ms after the handler ran (a write is on disk, the page
+hears of it late) and write every live-feed frame that many ms after it
+came (`studio/server.py` `slow_ms_from_env`, `studio/events_sse.py`), so a
+test reproduces the runner's order of events here first, then pins the fix.
+It is a test flag: never set it outside tests. `tools/capture_studio.py`
+`serve(slow_ms=...)` takes it (None passes the variable through), the
+Fleet rig's server reads it, and `chrome_driver.driver_env` scrubs `HALO_*`,
+so a test puts it back in the driver's environment itself.
+`tests/test_studio_slow_box.py` runs the Roles room steps at 800 ms (where
+the held drop of 3.2.3.0's Windows runner showed to the pixel) and the Fleet
+stop at 400 ms.
+
+```sh
+HALO_STUDIO_SLOW_MS=800 BRIDGE_TEST_NO_BACKGROUND_NET=1 python -m tests.helpers.studio_roles_room room
+python -m tests.test_studio_slow_box
+```
+
 ## Docs: the map and the split docs
 
 [docs/README.md](README.md) is the map: every doc, under the task it serves,

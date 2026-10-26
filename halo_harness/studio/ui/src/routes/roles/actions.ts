@@ -9,8 +9,8 @@
 import { api, ApiError } from "../../lib/api";
 import { toast } from "../../lib/store";
 import { agentsOf, clone, closeDialog, HISTORY_MAX, keyOf, nodeById, packOf, readOnlySource, roles } from "./store";
-import { loadLists, msg, openLineup, rekeyPositions, saveLayout, validateSoon } from "./sync";
-import type { LineupPayload, Raw } from "./types";
+import { carryLayout, loadLists, movePositions, msg, openLineup, rekeyPositions, validateSoon, type LayoutBody } from "./sync";
+import type { Graph, LineupPayload, Pos, Raw } from "./types";
 
 export async function run<T>(busy: string, fn: () => Promise<T>, done?: (r: T) => string): Promise<T | null> {
   roles.update(() => ({ busy }));
@@ -65,21 +65,27 @@ export function redo(): boolean {
   return true;
 }
 
-/** Save the open lineup to your scope (a shipped or a pack's one becomes your copy under the same name). */
+/** Save the open lineup to your scope (a shipped or a pack's one becomes your copy under the same name). 3.3.0.0 R7:
+ *  the card positions ride in the same `PUT lineup` (carryLayout: a pending move goes with it, never a PUT racing it). */
 export async function save(): Promise<boolean> {
   const s = roles.get();
   if (!s.raw || !s.name || !s.current || packLocked()) return false;
+  return carryLayout((layout) => saveWith(layout));
+}
+
+async function saveWith(layout: LayoutBody | null): Promise<boolean> {
+  const s = roles.get();
+  if (!s.raw || !s.name || !s.current) return false;
   const query = { scope: s.scope, duplicate: readOnlySource(s.current.scope) ? "1" : "" };
   roles.update(() => ({ busy: "save" }));
   try {
     const sent = s.raw;
-    const p = await api.put<LineupPayload>("lineup/" + encodeURIComponent(s.name), { raw: s.raw }, query);
+    const p = await api.put<LineupPayload>("lineup/" + encodeURIComponent(s.name), layout ? { raw: s.raw, layout } : { raw: s.raw }, query);
     // an edit or an undo that landed while the save was in flight stays: only an unchanged mapping takes the saved copy
     const untouched = roles.get().raw === sent;
     roles.update((st) => ({ current: p, graph: p.graph, positions: rekeyPositions(st.graph, p.graph, st.positions), findings: p.findings || [], saveProblems: [],
                           ...(untouched ? { raw: clone(p.raw), dirty: false } : { dirty: true }) }));
     toast(`${p.name} saved to ${p.scope} scope`, "done");
-    await saveLayout();
     await loadLists();
     return true;
   } catch (e) {
@@ -124,8 +130,17 @@ export async function deleteLineup(name: string): Promise<void> {
 // -- the canvas's edits -------------------------------------------------------------
 const MAIN_RULE = "the main agent sits alone in the first tier, and only it";
 
-/** A card dropped into another tier box: its alias moves to that tier's members, and the lineup saves. */
-export async function moveToTier(nodeId: string, tier: string): Promise<boolean> {
+/** The graph with card `id` in tier `name` (drawn so until the save's answer brings the server's graph). */
+const withTier = (g: Graph, id: string, name: string): Graph => ({
+  ...g,
+  tiers: g.tiers.map((t) => ({ ...t, node_ids: t.name === name ? [...t.node_ids.filter((k) => k !== id), id] : t.node_ids.filter((k) => k !== id) })),
+});
+
+/** A card dropped into another tier box: its alias moves to that tier's members, and the lineup saves. 3.3.0.0 R7:
+ *  one ordered write -- `patch` (the drop's positions, clamped into the target box from the boxes as they are at
+ *  the drop) is in the store at once with the card in its new tier, and the lineup save carries it (the server
+ *  writes the lineup and the layout in one request); a refused move puts both back. */
+export async function moveToTier(nodeId: string, tier: string, patch: Record<string, Pos> = {}): Promise<boolean> {
   const s = roles.get();
   const n = nodeById(s, nodeId);
   const tiers = s.graph?.tiers || [];
@@ -136,6 +151,7 @@ export async function moveToTier(nodeId: string, tier: string): Promise<boolean>
   if (to.index === 0 && tiers.some((t) => t.index === 0 && !t.implicit)) return toast(`Tier 0 (${to.name}) holds the main agent alone: ${keyOf(n)} goes in a tier below it`, "error", 5000), false;
   if (from.implicit && to.implicit) return false;
   const key = keyOf(n);
+  const before = roles.get().raw;
   edit((raw) => {
     const list = (Array.isArray(raw.tiers) ? raw.tiers : []) as { name: string; members: string[] }[];
     for (const t of list) t.members = (Array.isArray(t.members) ? t.members : []).filter((m) => m !== key);
@@ -143,9 +159,20 @@ export async function moveToTier(nodeId: string, tier: string): Promise<boolean>
     if (target) target.members.push(key);
     raw.tiers = list;
   });
+  if (roles.get().raw === before) return false; // nothing changed (a pack's lineup: read-only)
+  const was = Object.fromEntries(Object.keys(patch).map((k) => [k, s.positions[k]]));
+  roles.update((st) => ({ positions: { ...st.positions, ...patch }, graph: st.graph && withTier(st.graph, nodeId, to.name) }));
   const ok = await save();
   if (ok) toast(`${key} is in tier ${to.index} (${to.name}) now`, "done");
-  else undo();
+  else {
+    undo();
+    roles.update((st) => {
+      const back = { ...st.positions };
+      for (const [k, p] of Object.entries(patch)) if (st.positions[k] === p) (was[k] ? (back[k] = was[k]) : delete back[k]);
+      return { positions: back, graph: st.graph && withTier(st.graph, nodeId, from.name) };
+    });
+    movePositions({}); // the spots put back go to the file too (the save's own layout write did not happen)
+  }
   return ok;
 }
 
