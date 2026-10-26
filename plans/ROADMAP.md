@@ -2580,3 +2580,25 @@ view, and a new row can move the list while the user is typing.
   counts them; a steer lands under its target; Tab cycles. Docs:
   STUDIO-session (the target, follow), SLASH-COMMANDS-session if the TUI's
   steer gains the same target line (optional: say so).
+  (e) ADDED 2026-10-26 (rolo: "also in the timeline, have an export button
+  that saves it as an .md file, like a tracer file so we can save detailed
+  logs of sessions"): an **Export** button on the timeline (and on the live
+  list's header) writes the session as one Markdown trace file the browser
+  downloads, `halo-trace-<session id>-<yyyy-mm-dd-hhmm>.md`: a header (the
+  session id, the model and lineup, when it started and ended, the totals:
+  turns, tool calls, tokens in and out, cost), then one entry per row in
+  time order -- the clock, the agent (with its tier and model), the kind
+  (user prompt, assistant text, a tool call with its name and a one-line
+  argument summary, the tool's result trimmed to 40 lines with "... (N more
+  lines)", a steer with its target, a nudge, a permission answer, a turn-end
+  marker, a compaction, an error), each under a `###` heading, tool results
+  in fenced blocks; the file carries no provider key and no path under the
+  user's home other than the session's own (the privacy scan's rules).
+  The same trace from the terminal: `halo session export <id> [--md FILE]`
+  (`-` prints it), and `/export` in the TUI writes it beside the session
+  log and says the path. Tests: the trace of a seeded session has every
+  kind once, in order, with the totals; the browser download carries the
+  name (the Chrome driver reads the blob's text through the page); the CLI
+  and `/export` write the same bytes; `tests.test_privacy_scan` runs over a
+  trace. Docs: STUDIO-session (Export), COMMANDS-sessions (`halo session
+  export`), SLASH-COMMANDS-session (`/export`).
