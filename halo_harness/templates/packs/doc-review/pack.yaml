@@ -22,7 +22,7 @@ description: Reviews a repo's Markdown documents with a reviewer and a writer bi
 author: Halo Harness
 license: MIT
 halo_api: {min: "1.0", max: "1.9"}
-halo: {min: "3.2"}
+halo: {min: "3.3"}
 capabilities: [docs.review]
 contributes:
   agents: [agents/reviewer.yaml, agents/writer.yaml, agents/helper.md]

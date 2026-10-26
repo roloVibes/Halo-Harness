@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.3.0.0] - unreleased
+## [3.3.0.0] - 2026-10-26
 
 Focus: Setup is Studio -- the terminal wizard's eight steps become a Setup section in Halo Studio (Alt+8) and `halo init` opens it, with the terminal wizard kept as the fallback (`--terminal`, SSH, no browser); every provider, host, folder, model, permission mode, theme, lineup and check is a block you fill in any order; the Ollama card finds the servers on this machine and on the network and measures their models; the Session tab's steer names its target and the timeline exports a Markdown trace; and the two behaviours that differed on GitHub's runners (the held drop, the Fleet map's stale node) are reproduced with a latency flag and fixed.
 
