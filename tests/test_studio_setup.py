@@ -134,7 +134,8 @@ def test_the_check_block(ctx: Ctx):
 @test
 def test_the_linux_fixes_block(ctx: Ctx):
     got = _got(ctx)
-    ctx.check(f"a box missing both: the two fixes, got {got.get('linux_items')} {got.get('linux_rail')!r}",
+    ctx.check(f"a box missing both: the two fixes, got {got.get('linux_items')} {got.get('linux_rail')!r}"
+              + (f" timeout={got.get('linux_timeout')}" if got.get("linux_timeout") else ""),
               got.get("linux_items") == ["ripgrep", "path"] and got.get("linux_rail") == "2 to apply")
     ctx.check(f"Apply ran both stubs, the lines say so, got {got.get('linux_calls')} {got.get('linux_lines')!r}",
               got.get("linux_calls") == ["rg", "rc"] and "installed rg: " in str(got.get("linux_lines")))
