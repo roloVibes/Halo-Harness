@@ -639,31 +639,38 @@ def test_context_overflow_400_with_no_ceiling_known_raises_immediately(ctx: Ctx)
 # ---- review fix pass finding 4: the retry ceiling's missing bounds --------
 
 @test
-def test_overflow_retry_ceiling_never_exceeds_remote_unknown_default(ctx: Ctx):
-    """A remote host with NOTHING else known must cap the retry ceiling
-    at the conservative remote default (32768), never the bare hard cap
-    (131072) -- the exact partial-offload regression the LAN-host MUST-
-    FIX removed from the INITIAL num_ctx decision, now also closed on the
-    retry path. `trained_context` is given (131072, the review's own
-    worked example) and deliberately NOT None -- an unknown trained
-    context triggers the SEPARATE "fallback" rule regardless of remote,
-    which would otherwise confound what this test means to isolate."""
-    from halo_harness.providers.ollama import REMOTE_UNKNOWN_DEFAULT_NUM_CTX, ollama_overflow_retry_ceiling
+def test_overflow_retry_ceiling_is_the_prompt_floor_ceiling_on_a_remote_unknown_host(ctx: Ctx):
+    """Halo 3.2.3.0 R1 (replaces finding 4's remote-default cap): the
+    prompt floor raises `num_ctx` above the remote default up to the
+    trained context / memory / max_ctx / hard cap, so the overflow retry
+    may go that far too -- a window under the prompt is trimmed silently,
+    which is worse than a slower load. The remote default still decides
+    the INITIAL min() when the prompt is small."""
+    from halo_harness.providers.ollama import (
+        REMOTE_UNKNOWN_DEFAULT_NUM_CTX, compute_num_ctx, ollama_overflow_retry_ceiling,
+    )
     ceiling = ollama_overflow_retry_ceiling(trained_context=131072, host_max_ctx=None, fit_estimate=None,
                                              learned_cap=None, remote=True)
-    ctx.check(f"capped at the remote default, got {ceiling}", ceiling == REMOTE_UNKNOWN_DEFAULT_NUM_CTX)
+    ctx.check(f"the ceiling is min(trained, hard cap), got {ceiling}", ceiling == 131072)
+    ctx.check("the initial min() is still the remote default",
+              compute_num_ctx(131072, None, None, remote=True) == REMOTE_UNKNOWN_DEFAULT_NUM_CTX)
+    capped = ollama_overflow_retry_ceiling(trained_context=131072, host_max_ctx=24576, fit_estimate=None,
+                                            learned_cap=None, remote=True)
+    ctx.check(f"host max_ctx still caps it, got {capped}", capped == 24576)
 
 
 @test
-def test_overflow_retry_ceiling_never_exceeds_weights_do_not_fit_fallback(ctx: Ctx):
-    """A model whose own WEIGHTS don't fit must cap the retry ceiling at
-    the conservative fallback, never a bare fit_estimate/hard cap that
-    would hand it a multi-GB KV allocation it has no VRAM headroom for."""
+def test_overflow_retry_ceiling_with_weights_do_not_fit_reaches_the_trained_context(ctx: Ctx):
+    """3.2.3.0 R1: weights that do not fit leave the fallback as the
+    initial window; the ceiling (no memory number) is the trained context
+    capped by the hard cap."""
     from halo_harness.providers.ollama_fit import WEIGHTS_DO_NOT_FIT
-    from halo_harness.providers.ollama import FALLBACK_NUM_CTX, ollama_overflow_retry_ceiling
-    ceiling = ollama_overflow_retry_ceiling(trained_context=131072, host_max_ctx=None,
+    from halo_harness.providers.ollama import FALLBACK_NUM_CTX, compute_num_ctx, ollama_overflow_retry_ceiling
+    ceiling = ollama_overflow_retry_ceiling(trained_context=65536, host_max_ctx=None,
                                              fit_estimate=WEIGHTS_DO_NOT_FIT, learned_cap=None, remote=False)
-    ctx.check(f"capped at the fallback, got {ceiling}", ceiling == FALLBACK_NUM_CTX)
+    ctx.check(f"the ceiling is the trained context, got {ceiling}", ceiling == 65536)
+    ctx.check("the initial window is still the fallback",
+              compute_num_ctx(65536, None, WEIGHTS_DO_NOT_FIT) == FALLBACK_NUM_CTX)
 
 
 @test

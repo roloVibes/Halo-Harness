@@ -52,19 +52,25 @@ conversion needed. No `tool_choice` field exists on this dialect.
 
 **Context ownership**: `num_ctx = min(trained context from
 model_info["<family>.context_length"], host.max_ctx override, a fit
-estimate, 131072)`, falling back to a conservative 8192 when the trained
-context isn't known yet (before the catalog has loaded for that model
-once). Compaction triggers at 75% of whatever `num_ctx` that request
-actually sent. The fit estimate (Halo 2.0.3 round 3) is the largest
+estimate, a saved calibration, 131072)`, falling back to 16384 when the
+trained context isn't known yet (before the catalog has loaded for that
+model once) -- and never below the request's own size (the prompt floor,
+Halo 3.2.3.0: serialized characters / 3.5 + 1,024 for the reply, raised
+over the smaller candidates up to the trained context / memory estimate
+/ `max_ctx` / 131072; see LOCAL-MODELS.md "ollama.hosts, calibration, and
+learned caps"). Compaction triggers at 75% of whatever `num_ctx` that
+request actually sent, and before the send when the request does not fit
+the largest window the call can get. The fit estimate (Halo 2.0.3 round 3) is the largest
 power-of-two context whose KV cache fits in free memory after the
 model's own weights: on the LOCAL host, free/total VRAM comes from the OS
 GPU tool for the detected vendor (`nvidia-smi` on Windows/Linux, verified
 live; `rocm-smi`/sysfs on AMD and `system_profiler` on Apple stay
 UNCONFIRMED -- no such hardware available this round), cached for about a
 minute so a turn never shells out more than once in that window; on a
-REMOTE host, there is no OS-level read at all, so the fit estimate is
-just that model's OWN already-loaded `context_length` from `/api/ps`
-when it happens to be loaded there already, else unknown. Either way
+REMOTE host without `ssh:` there is no memory reading at all, so the fit
+estimate is unknown (Halo 3.2.3.0: a model's own loaded `context_length`
+is no longer used as its fit -- a model loaded at 8192 used to report
+8192 for good). Either way
 `None` (unknown) simply drops out of the `min(...)` -- never a crash,
 never a guessed number.
 
@@ -82,11 +88,33 @@ context` silently came back `None`, and `num_ctx` fell all the way to
 the conservative 8192 fallback -- discovered live when a model imported
 without `--name`'s tag then overflowed on an ordinary prompt.
 
-**Ollama DOES answer a 400 on overflow** (the SAME live run corrected a
-second wrong assumption): a prompt longer than `num_ctx` is NOT silently
-truncated server-side -- build 0.34.2 answers `HTTP 400 {"error":
-{"code":400,"message":"...","type":"exceed_context_size_error",
-"n_prompt_tokens":N,"n_ctx":M}}`. Halo now handles it in two tiers: if a
+**Ollama trims a prompt longer than `num_ctx`, and answers a 400 only in
+one case**: for a chat request it drops the oldest messages until the
+prompt fits the request's `num_ctx` and answers anyway (the first answer
+then lacks the instructions it lost; a tool follow-up that lost the
+user's own message answers 500 "no user query found in messages"). The
+400 `{"error": {"code":400,"message":"...","type":
+"exceed_context_size_error","n_prompt_tokens":N,"n_ctx":M}}` arrives only
+when the prompt it builds still exceeds `num_ctx` itself (build 0.34.2,
+live). The reply has to fit too: prompt tokens + the request's
+`num_predict` must fit `num_ctx`, or the reply is cut at the window's end
+(`done_reason: "length"`, still a 200). What Halo does now (3.2.3.0): the
+window is sized from the request's own estimate -- prompt plus the
+reply's room (`num_predict`, 1,024 at least) -- before every call (never
+below it; when only the prompt fits the largest window, the reply's
+`num_predict` is lowered to the room left); a request
+larger than the largest window the call can get compacts before it is
+sent (and, when compaction keeps a turn whose own tool output is still
+too large, that output is cut on the wire to the window); after the call
+`prompt_eval_count` under 70 % of the estimate, the 500 "no user query
+found in messages" (kind `prompt_trimmed`, its raw text kept), or a reply
+cut at the window's end (`done_reason: "length"` with prompt + reply at
+97 % of `num_ctx` or more: "pc cut the reply at the window (65k of 65k
+tokens): compacted and re-sent") means the request did not fit: once per turn Halo raises the window and re-sends
+when there is room under the trained context / memory estimate, else
+compacts and re-sends -- never the same request unchanged; a second trim
+in the turn is one error line. Any other Ollama 500 keeps its raw text
+and is sent three times at most. For the 400, Halo handles it in two tiers: if a
 BIGGER `num_ctx` is actually allowed (the smallest of whichever of the
 learned cap, `host.max_ctx`, and the live fit estimate are known, never
 exceeding the usual 131072 hard cap) covers `n_prompt_tokens` plus the
@@ -99,18 +127,16 @@ path exactly like every other dialect.
 
 **Three outcomes, not two** (fix pass after a live run surfaced the gap):
 `/api/ps` is checked FIRST, local hosts included. (1) **Already loaded**
--- that model's own loaded `context_length` IS the fit estimate, full
-stop; the GPU-memory arithmetic is never repeated for it, because two
-slightly different free-VRAM readings (e.g. two concurrent `halo -p`
-processes) used to compute two different `num_ctx` values for the SAME
-loaded model and force Ollama to reload it, with partial offload, just
-to change its context size. (2) **Not loaded, fits** -- the usual
+-- Halo 3.2.3.0: estimated from memory like any other model, its own
+`size_vram` counted as reclaimable (a reload replaces it); the estimate
+is a power of two, so two slightly different free-VRAM readings rarely
+move it (the round 3 reload churn). (2) **Not loaded, fits** -- the usual
 headroom math, except free memory is first topped up with every OTHER
 currently-loaded model's own `size_vram` (Ollama can evict any of them
 to make room), since that VRAM is reclaimable, not actually unavailable.
-(3) **Not loaded, does not fit** even after reclaiming -- a distinct,
+(3) **Does not fit** even after reclaiming -- a distinct,
 POSITIVELY-known outcome from plain "unknown": `num_ctx` falls back to
-the conservative 8192 (never the 131072 hard cap, which is only correct
+16384 (never the 131072 hard cap, which is only correct
 when nothing at all is known) -- a model already spilling to system RAM
 must not also be handed the largest possible KV-cache budget.
 

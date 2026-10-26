@@ -298,6 +298,66 @@ def test_prefix_stable_even_when_learned_cap_and_remote_are_set(ctx: Ctx):
               body1["options"].get("num_ctx") == 32768)
 
 
+# ---- Halo 3.2.3.0 R1: the prompt floor sits under every min() candidate --
+
+@test
+def test_the_prompt_floor_wins_over_a_saved_cap_capped_by_the_trained_context(ctx: Ctx):
+    """A saved 8192 cap and an 11k-token request: `num_ctx` rises over the
+    cap (to the next power of two, 16384), never past the trained context
+    -- and a request larger than the trained context gets the trained
+    context, not more."""
+    from halo_harness.providers.ollama import OllamaHost
+    from halo_harness.providers.ollama_request import build_ollama_request_body
+    route, profile = _route_profile()
+    host = OllamaHost(name="pc", url="http://gpu-box.example:11434")
+    kwargs = dict(system_text="s", messages=[{"role": "user", "content": "hi"}], tools=None, tool_choice=None,
+                  route=route, profile=profile, effort=None, host=host, fit_estimate=None,
+                  learned_cap=8192, remote=True)
+    plain = build_ollama_request_body(trained_context=40960, **kwargs)
+    ctx.check(f"no estimate -> the saved cap, got {plain['options']['num_ctx']}", plain["options"]["num_ctx"] == 8192)
+    raised = build_ollama_request_body(trained_context=40960, prompt_tokens=11000, **kwargs)
+    ctx.check(f"the floor raises it to 16384, got {raised['options']['num_ctx']}",
+              raised["options"]["num_ctx"] == 16384)
+    capped = build_ollama_request_body(trained_context=12288, prompt_tokens=11000, **kwargs)
+    ctx.check(f"never past the trained context, got {capped['options']['num_ctx']}",
+              capped["options"]["num_ctx"] == 12288)
+    over = build_ollama_request_body(trained_context=40960, prompt_tokens=50000, **kwargs)
+    ctx.check(f"a request above the trained context gets the trained context, got {over['options']['num_ctx']}",
+              over["options"]["num_ctx"] == 40960)
+
+
+@test
+def test_the_prompt_floor_respects_host_max_ctx_and_the_hard_cap(ctx: Ctx):
+    from halo_harness.providers.ollama import HARD_CONTEXT_CAP, OllamaHost
+    from halo_harness.providers.ollama_request import build_ollama_request_body
+    route, profile = _route_profile()
+    kwargs = dict(system_text="s", messages=[{"role": "user", "content": "hi"}], tools=None, tool_choice=None,
+                  route=route, profile=profile, effort=None, fit_estimate=None, learned_cap=8192, remote=True)
+    with_max = build_ollama_request_body(host=OllamaHost(name="pc", url="http://gpu-box.example:11434", max_ctx=65536),
+                                         trained_context=262144, prompt_tokens=90000, **kwargs)
+    ctx.check(f"max_ctx stays the user's ceiling, got {with_max['options']['num_ctx']}",
+              with_max["options"]["num_ctx"] == 65536)
+    no_max = build_ollama_request_body(host=OllamaHost(name="pc", url="http://gpu-box.example:11434"),
+                                       trained_context=262144, prompt_tokens=200000, **kwargs)
+    ctx.check(f"never above the hard cap, got {no_max['options']['num_ctx']}",
+              no_max["options"]["num_ctx"] == HARD_CONTEXT_CAP)
+
+
+@test
+def test_a_remote_model_loaded_at_8192_no_longer_holds_the_window_at_8192(ctx: Ctx):
+    """The incident: a remote host without ssh, the model loaded at 8192.
+    The fit estimate is None now (no memory reading), so the remote
+    default stands and the floor raises over it for a bigger request."""
+    from halo_harness.providers.ollama import REMOTE_UNKNOWN_DEFAULT_NUM_CTX, compute_num_ctx
+    ctx.check("no estimate, nothing else known -> the remote default",
+              compute_num_ctx(262144, None, None, remote=True) == REMOTE_UNKNOWN_DEFAULT_NUM_CTX)
+    from halo_harness.providers.ollama_prompt import window_for
+    choice = window_for(40000, base=REMOTE_UNKNOWN_DEFAULT_NUM_CTX, base_source="remote default",
+                        trained_context=262144, fit_estimate=None)
+    ctx.check(f"a 40k request -> 65536 [prompt floor], got {choice}",
+              choice.num_ctx == 65536 and choice.source == "prompt floor" and choice.fits)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)
