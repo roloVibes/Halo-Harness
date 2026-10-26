@@ -9,7 +9,8 @@ env file in that home (`HALO_ENV_FILE`); no provider request, no model call:
    Setup whatever was saved;
 1. `?mode=setup` opens it, and Alt+8 from Roles: the eighth and last tab;
    the strip names the provider, model, lineup, mode, theme and last check;
-   no block says it comes later; the rail lists eight blocks;
+   no block says it comes later; (3.3.1.0 R1) no panels: the rail lists the
+   steps, one page each (every step opens its block's page first);
    (R2) Providers: OpenRouter's Save & test with a test key writes the env
    file, the card shows the masked tail, the strip names it; an Ollama host
    added is in the hosts table; Local models: a folder added is listed and
@@ -24,9 +25,9 @@ env file in that home (`HALO_ENV_FILE`); no provider request, no model call:
 5. Team: balanced with its preview, Apply writes team and roles on; One
    model for everything removes team and turns roles off;
 6. a config.json write from outside: the strip follows the frame;
-6b. (R4) the doors: ?first=1 opens the help once ("What this page does") and
-   the strip says "set up this box"; ?block=team and a focus frame bring a
-   block into view and focus it;
+6b. (R4) the doors: ?first=1 opens nothing (3.3.1.0 R1) and the strip says
+   "set up this box"; ?block=team and a focus frame open that block's page
+   and focus it;
 7. (R3) Check: the five rows and their defaults, the gym's models, the card
    before the guided first run's box, a run of stub checks fills the logs,
    the summary and the strip; Linux fixes: two stubbed fixes applied.
@@ -78,9 +79,11 @@ def test_setup_opens_by_mode_and_by_alt_8(ctx: Ctx):
     ctx.check(f"the eight tabs, Setup last, got {got.get('tabs')}", got.get("tabs") == CORE)
     ctx.check(f"Alt+1..8, got {got.get('kbds')}", got.get("kbds") == [f"Alt{n}" for n in range(1, 9)])
     ctx.check(f"Alt+8 from Roles opens it, got {got.get('alt8')!r}", str(got.get("alt8")).startswith("Setup"))
-    ctx.check(f"its eight blocks, got {got.get('panels')}", got.get("panels") == [
-        "Providers", "Local models", "Linux fixes", "Check", "Default model", "Permissions", "Terminal theme", "Team"])
-    ctx.check(f"the rail lists the blocks, got {got.get('rail')}", len(got.get("rail") or []) == 8 and str(got["rail"][2]).startswith("Default model"))
+    ctx.check(f"3.3.1.0 R1: no panels on Setup, got {got.get('panels')}", got.get("panels") == [])
+    steps = [s for s in got.get("steps") or [] if s != "linux"]  # Linux fixes: a step only on a box that needs them
+    ctx.check(f"the rail lists the steps in the wizard's order, got {got.get('steps')}",
+              steps == ["providers", "local", "model", "permissions", "theme", "team", "check", "summary"])
+    ctx.check(f"each with its title, got {got.get('rail')}", (got.get("rail") or [""] * 3)[2] == "Default model")
 
 
 @test
@@ -108,6 +111,7 @@ def test_no_provider_lands_on_setup(ctx: Ctx):
     ctx.check(f"the strip says no provider set, got {got.get('jump_strip')!r}", got.get("jump_strip") == "no provider set")
     ctx.check(f"no ?mode=, Roles saved: the page opens on Setup, got {got.get('land_section')!r} {got.get('land_boot')!r}",
               str(got.get("land_section")).startswith("Setup") and got.get("land_boot") == "1")
+    ctx.check("3.3.1.0 R1: no Start here over Setup (it shows on Roles)", got.get("land_overlay_on_setup") is False)
     ctx.check(f"Set up this box closes the overlay on Setup, got {got.get('land_after')!r}", str(got.get("land_after")).startswith("Setup"))
 
 
@@ -207,7 +211,7 @@ def test_a_model_folder_and_the_runtime(ctx: Ctx):
     ctx.check(f"the folder is listed and in config.json, got {got.get('dirs')} {got.get('dirs_config')}",
               len(got.get("dirs") or []) == 1 and got.get("dirs") == got.get("dirs_config"))
     ctx.check(f"the detection lines count its model, got {got.get('detection')!r}", "holds 1 model (gguf)" in str(got.get("detection")))
-    ctx.check(f"the rail says 1 folder, got {got.get('rail_local')!r}", got.get("rail_local") == "1 folder")
+    ctx.check(f"the rail says 1 folder, got {got.get('rail_local')!r}", str(got.get("rail_local")).startswith("1 folder"))
     ctx.check(f"the runtime saved, got {got.get('runtime_config')!r}", got.get("runtime_config") == "mlx_lm")
 
 
@@ -263,17 +267,17 @@ def test_a_write_from_outside_shows(ctx: Ctx):
 def test_the_doors_first_run_and_a_block(ctx: Ctx):
     """3.3.0.0 R4 (tests/helpers/studio_setup_door.py): what `halo init` and `halo setup team` open."""
     got = _got(ctx)
-    ctx.check(f"?first=1: Setup with its help titled 'What this page does', got {got.get('first_section')!r} {got.get('first_help')!r}",
-              str(got.get("first_section")).startswith("Setup") and got.get("first_help") == "What this page does")
+    ctx.check(f"?first=1: Setup and (3.3.1.0 R1) no help, no dialog, got {got.get('first_section')!r} {got.get('first_help')!r}",
+              str(got.get("first_section")).startswith("Setup") and got.get("first_help") is False)
     ctx.check(f"the strip says set up this box, got {got.get('first_strip')!r}", str(got.get("first_strip")).startswith("set up this box"))
     ctx.check(f"first=1 left the address bar, the token kept, got {got.get('first_search')!r}",
               "mode=setup" in str(got.get("first_search")) and "first=" not in str(got.get("first_search")) and got.get("first_hash") is True)
     ctx.check("Start here's offer waits on the first run", got.get("first_start_open") is False)
     ctx.check(f"once: a reload opens no help and no first-run cell, got {got.get('reload_help')} {got.get('reload_strip_first')}",
               got.get("reload_help") is False and got.get("reload_strip_first") is False)
-    ctx.check(f"?block=team: the Team block focused and in view, got {got.get('block_focus')!r} {got.get('block_visible')}",
-              got.get("block_focus") == "setup-team" and got.get("block_visible") is True and "block=" not in str(got.get("block_search")))
-    ctx.check(f"a focus frame for the Check block focuses it, got {got.get('frame_focus')!r}", got.get("frame_focus") == "setup-check")
+    ctx.check(f"?block=team: the Team page open, focused and in view, got {got.get('block_focus')!r} {got.get('block_visible')}",
+              got.get("block_focus") == "team" and got.get("block_visible") is True and "block=" not in str(got.get("block_search")))
+    ctx.check(f"a focus frame for the Check block opens its page, got {got.get('frame_focus')!r}", got.get("frame_focus") == "check")
 
 
 if __name__ == "__main__":

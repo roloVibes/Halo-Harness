@@ -60,6 +60,8 @@ export function commands(): Command[] {
     { id: "theme-light", group: "View", label: "Theme: light", run: () => setTheme("light") },
     { id: "theme-auto", group: "View", label: "Theme: follow the system", run: () => setTheme("auto") },
     { id: "rail", group: "View", label: "Show or hide the rail", run: toggleRail },
+  );
+  if (!cur.paged) out.push( // 3.3.1.0 R1: a paged section (Setup) has no layout to reset or arrange
     {
       id: "reset-layout",
       group: "Layout",

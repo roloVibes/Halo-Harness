@@ -12,7 +12,8 @@ the live feed on. No provider request, no model call:
 
 1. `?mode=setup` opens Setup; Alt+8 (from Roles) opens it too: Setup is the
    eighth tab, its strip names the provider, model, lineup, mode and theme,
-   the rail lists the blocks;
+   the rail lists the steps (3.3.1.0 R1: one page each; every step below opens
+   its block's page first with `goto`, tests/helpers/studio_setup_pages.py);
    (R2: tests/helpers/studio_setup_providers.py) a provider key saved, an
    Ollama host and a model folder added, the runtime saved;
 2. Permissions: pick plan, the block says "1 changed", Save: config.json has
@@ -24,9 +25,9 @@ the live feed on. No provider request, no model call:
    strip's lineup follows; One model for everything: team removed, roles off;
 6. a `halo config set` from outside (config.json written here): the strip
    follows on the `files_changed` frame;
-6b. (R4: tests/helpers/studio_setup_door.py) the doors: `?first=1` opens the
-   help once and the strip says "set up this box"; `?block=team` and a
-   `focus` frame bring a block into view;
+6b. (R4: tests/helpers/studio_setup_door.py) the doors: `?first=1` opens
+   nothing (3.3.1.0 R1) and the strip says "set up this box"; `?block=team`
+   and a `focus` frame open a block's page;
 7. (R3: studio_setup_check.py LAST) the Check block run with stub checks,
    the Linux fixes block applied with stub fixes.
 
@@ -50,6 +51,7 @@ from tests.helpers.studio_packs_steps import CUR, TABS, alt, q, qa  # noqa: E402
 from tests.helpers.studio_setup_check import FIRST as CHECK_FIRST, LAST as CHECK_LAST, stubs as check_stubs  # noqa: E402
 from tests.helpers.studio_setup_providers import STEPS as PROVIDER_STEPS  # noqa: E402
 from tests.helpers.studio_setup_door import STEPS as DOOR_STEPS  # noqa: E402
+from tests.helpers.studio_setup_pages import goto  # noqa: E402
 
 ROWS = [{"ref": "or:mock/alpha", "provider": "openrouter", "detail": "Mock Alpha", "price": "$1.00", "context": "128k",
          "best_at": {"line": "code, review", "kinds": ["code"]}},
@@ -116,17 +118,21 @@ def section(c, url, ctx) -> dict:
            "kbds": c.js(f"{TABS}.map((t) => t.querySelector('.tab-kbd')?.textContent || '')")}
     alt(c, 8)
     out["alt8"] = c.wait(f"{CUR}.startsWith('Setup') && {CUR}", 15)
-    c.wait(f"!!{q('[data-testid=setup-strip-cell]')} && !!{q('[data-testid=setup-check]')}", 30)
+    c.wait(f"!!{q('[data-testid=setup-strip-cell]')} && !!{q('[data-testid=setup-rail-step]')}", 30)
     out["strip"] = c.js(STRIP)
     out["later"] = c.js(qa("[data-testid=setup-later]") + ".map((p) => [p.dataset.block, p.textContent])")
     out["panels"] = c.js(f"{qa('[data-section=setup] .panel-title')}.map((t) => t.textContent)")
-    out["rail"] = c.js(qa("[data-testid=setup-rail-block]") + ".map((b) => b.textContent)")
+    out["steps"] = c.js(qa("[data-testid=setup-rail-step]") + ".map((b) => b.dataset.step)")
+    out["rail"] = c.js(qa("[data-testid=setup-rail-step] .su-step-title") + ".map((b) => b.textContent)")
+    goto(c, "permissions")
     out["modes"] = c.js(qa("[data-testid=setup-mode]") + ".map((m) => m.dataset.id)")
+    goto(c, "theme")
     out["theme_note"] = c.js(_text("[data-testid=setup-theme-note]"))
     return out
 
 
 def permissions(c, url, ctx) -> dict:
+    goto(c, "permissions")
     row = "[data-testid=setup-mode][data-id=plan]"
     out = {"mode_by": choose(c, row, f"{q(row + ' input')}.checked")}
     out["mode_word"] = c.wait(f"{_text('[data-testid=setup-word][data-block=permission_mode]')} === '1 changed' && 'changed'", 10)
@@ -138,6 +144,7 @@ def permissions(c, url, ctx) -> dict:
 
 
 def theme(c, url, ctx) -> dict:
+    goto(c, "theme")
     row = "[data-testid=setup-theme-swatch][data-name=claude-light]"
     out = {"swatches": c.js(qa("[data-testid=setup-theme-swatch]") + ".map((s) => s.dataset.name)"),
            "swatch_bg": c.js(f"getComputedStyle({q(row + ' .su-sw-screen')}).backgroundColor"),
@@ -149,6 +156,7 @@ def theme(c, url, ctx) -> dict:
 
 
 def model(c, url, ctx) -> dict:
+    goto(c, "model")
     out = {"groups": c.js(qa("[data-testid=setup-model-group]") + ".map((g) => g.dataset.provider)"),
            "models": c.js(qa("[data-testid=setup-model-row]") + ".map((r) => r.dataset.ref)")}
     search = q("[data-testid=setup-model-search]")
@@ -164,6 +172,7 @@ def model(c, url, ctx) -> dict:
 
 
 def team(c, url, ctx) -> dict:
+    goto(c, "team")
     row = "[data-testid=setup-lineup][data-name=balanced]"
     out = {"lineups": c.js(qa("[data-testid=setup-lineup]") + ".map((r) => r.dataset.name)"),
            "in_use": c.js(qa("[data-testid=setup-lineup][data-active]") + ".map((r) => r.dataset.name)"),

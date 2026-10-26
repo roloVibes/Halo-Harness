@@ -17,6 +17,7 @@
 // tabs in studio: session, team, roles, fleet, design"; Orchestra, not in his list, takes the next key.
 // 3.2.0.0 R6: Packs (the Pack Manager) is appended as the seventh core section, Alt+7; the six keep theirs.
 // 3.3.0.0 R1: Setup (the terminal wizard's blocks as forms) is appended as the eighth and last, Alt+8; the seven keep theirs.
+// 3.3.1.0 R1: Setup is `paged`: its view is a step rail over one page at a time, no panels.
 import type { ComponentType } from "react";
 import type { SectionId } from "../lib/store";
 import type { PanelSpec } from "../lib/workspace/types";
@@ -41,7 +42,7 @@ import { packPanels, packSections } from "./packs/registry";
 import { packs, usePacks } from "./packs/store";
 import { enterPacks, packsPanels } from "./packs/manager/Manager";
 import { TeamView } from "./team/Start";
-import { enterSetup, SetupRail, SetupView, setupPanels } from "./setup/Setup";
+import { enterSetup, SetupView } from "./setup/Setup";
 import { setView as enterTeam } from "./team/store";
 
 export type SectionDef = {
@@ -56,6 +57,8 @@ export type SectionDef = {
   view?: ComponentType<{ section: string; specs: PanelSpec[] }>;
   /** Brings the panel workspace up (before the rail or the palette opens a panel). */
   enter?: () => void;
+  /** 3.3.1.0 R1: pages, not panels (Setup): no panel list in the rail, no layout actions, the view is the room. */
+  paged?: boolean;
 };
 
 export const SECTIONS: SectionDef[] = [
@@ -66,7 +69,7 @@ export const SECTIONS: SectionDef[] = [
   { id: "design", title: "Design", kbd: "Alt+5", blurb: "Prototypes, pages and decks", panels: [...designPanels, ...mediaPanels(0)], view: DesignView },
   { id: "orchestra", title: "Orchestra", kbd: "Alt+6", blurb: "Runs of your agents, live", panels: orchestraPanels, rail: OrchestraRail, view: OrchestraView, enter: enterOrchestra },
   { id: "packs", title: "Packs", kbd: "Alt+7", blurb: "Install, grant and enable packs", panels: packsPanels, enter: enterPacks },
-  { id: "setup", title: "Setup", kbd: "Alt+8", blurb: "Providers, models, permissions, theme and lineup", panels: setupPanels, rail: SetupRail, view: SetupView, enter: enterSetup },
+  { id: "setup", title: "Setup", kbd: "Alt+8", blurb: "Providers, models, permissions, theme and lineup", panels: [], paged: true, view: SetupView, enter: enterSetup },
 ];
 
 // 3.2.0.0 R3: the packs' sections come after the core ones (3.3.0.0 R1: after Setup, the first of them on Alt+9) and their
@@ -78,7 +81,7 @@ export function sections(): SectionDef[] {
   const reg = packs.get().reg;
   if (merged.reg !== reg) {
     const core = SECTIONS.map((s) => {
-      const extra = packPanels(reg, s.id);
+      const extra = s.paged ? [] : packPanels(reg, s.id); // a paged section draws no workspace for a pack's panel
       return extra.length ? { ...s, panels: [...s.panels, ...extra] } : s;
     });
     merged = { reg, out: [...core, ...packSections(reg)] };

@@ -4,8 +4,9 @@
 // `?`; the first time a section shows in this browser the same card comes up
 // as its welcome, with Got it (halo.studio.seen.<section>). 3.1.1.0 R1: the
 // WORDS row links each glossary word the section uses into the Glossary.
-// 3.3.0.0 R4: Setup opened by `halo init` (`?first=1`) shows it once as "What
-// this page does" (routes/setup/door.ts).
+// 3.3.0.0 R4 showed it once as "What this page does" on `halo init`'s page;
+// 3.3.1.0 R1: nothing opens it on its own there. A section with no panels
+// (Setup's pages) lists its steps and keys only.
 import { Button, Dialog, Kbd } from "../lib/ui";
 import { closeHelp, studio, useStore } from "../lib/store";
 import { openGlossary } from "../lib/glossary";
@@ -34,7 +35,7 @@ export function SectionHelp() {
     <Dialog
       open
       onClose={closeHelp}
-      title={help.first ? "What this page does" : help.welcome ? `Welcome to ${def.title}` : `How ${def.title} works`}
+      title={help.welcome ? `Welcome to ${def.title}` : `How ${def.title} works`}
       kicker={`${def.title.toUpperCase()} · ${def.blurb.toUpperCase()}`}
       className="section-help"
       testid="section-help"
@@ -71,6 +72,7 @@ export function SectionHelp() {
           ))}
         </div>
         <div className="section-help-cols">
+          {panels.length > 0 && (
           <section aria-label="Panels">
             <div className="rail-label mono">PANELS</div>
             <ul className="section-help-list">
@@ -86,6 +88,7 @@ export function SectionHelp() {
               Click a panel to work in it. Its title bar has one Compact / Expand toggle and a ... menu: Float, Collapse, Reset, Settings, Help.
             </p>
           </section>
+          )}
           <section aria-label="Keys">
             <div className="rail-label mono">KEYS</div>
             <ul className="section-help-list section-help-keys">

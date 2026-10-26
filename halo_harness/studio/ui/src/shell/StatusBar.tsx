@@ -29,6 +29,7 @@ export function StatusBar() {
   const custom = useStore(layoutStore(section), (s) => s.custom);
   const line = useStore(studio, (s) => s.status[s.section]);
   const title = sectionDef(section).title;
+  const paged = !!sectionDef(section).paged; // 3.3.1.0 R1: Setup has pages, not a layout
   useEffect(() => startFleet(), []); // the fleet counts in every section, rail open or not
   useEffect(() => startTeam(), []); // the team's running stages, in every section
   const fleet = useCounts();
@@ -78,7 +79,7 @@ export function StatusBar() {
       )}
       <HudCell label="VIEW" grow={!line}>
         <span className="mono">
-          {title.toLowerCase()} · layout {custom ? "yours" : "default"}
+          {title.toLowerCase()} · {paged ? "one page at a time" : `layout ${custom ? "yours" : "default"}`}
         </span>
       </HudCell>
       <HudCell>

@@ -7,8 +7,8 @@ Part of [Commands](COMMANDS.md), which lists every part.
 ## `halo init`
 
 **Halo 3.3.0.0: `halo init` opens Studio.** On a real terminal (no `--provider`, no `--yes`) it starts Studio, or
-reuses the one running for this home, on its **Setup** section (`?mode=setup&first=1`: the help opens once, "What this
-page does", and the strip says "set up this box"), prints one line and exits 0:
+reuses the one running for this home, on its **Setup** section (`?mode=setup&first=1`: 3.3.1.0 opens nothing over it,
+the wizard's steps one page at a time, the rail's line says "set up this box"), prints one line and exits 0:
 
 ```text
 Setup is open in your browser: http://127.0.0.1:<port>/?mode=setup&first=1#t=<token>. `halo init --terminal` runs the terminal wizard instead.
@@ -380,12 +380,12 @@ Studio's Glossary lists. An unknown word names the closest ones, exit 1.
 
 ```sh
 halo setup              # Studio's Setup (3.3.0.0 R4)
-halo setup team         # Setup on its Team block: ?mode=setup&block=team (`halo setup roles` is the same)
+halo setup team         # Setup on its Team page: ?mode=setup&block=team (`halo setup roles` is the same)
 halo setup --terminal   # the init wizard's Team step, then a short summary
 halo setup team --terminal   # just the Team setup screen (Halo 2.0.5 round 2c)
 ```
 
-On a real terminal `halo setup` opens Studio on Setup, the Team block scrolled into view and focused for
+On a real terminal `halo setup` opens Studio on Setup, on the Team page (focused) for
 `team` / `roles` (one line says it opened, as `halo init` does). `--terminal` keeps the SAME Team setup
 screen `halo init`'s own wizard shows (see [WIZARD.md](WIZARD.md)), reachable again later without
 re-running the whole provider flow; so does a box where no browser can open (the URL and the
