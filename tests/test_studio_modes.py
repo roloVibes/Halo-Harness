@@ -23,6 +23,7 @@ from tests.helpers.provider_env_defaults import ensure_default_provider_credenti
 ensure_default_provider_credentials()
 ensure_scoped_state_dir_once()
 
+from unittest import SkipTest
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
 from tests.helpers.fake_home import build_fake_home  # noqa: E402
 from halo_harness.commands.registry import Registry  # noqa: E402
@@ -113,7 +114,10 @@ def test_setup_is_the_banners_eighth_frame_and_has_its_doors(ctx: Ctx):
     is up to date with it, and `halo init` / `halo setup team` URLs carry Setup's door words."""
     import subprocess
     sys.path.insert(0, str(REPO_DIR / "tools"))
-    import studio_modes_banner as B
+    try:
+        import studio_modes_banner as B
+    except ModuleNotFoundError as e:  # the banner tool draws with Pillow, an optional extra CI does not install
+        raise SkipTest(f"the banner tool needs {e.name} (pip install Pillow)")
     ctx.check(f"eight frames, Setup last on Alt 8, got {[f[1] for f in B.FRAMES]}", len(B.FRAMES) == 8
               and B.FRAMES[-1][:3] == ("studio-setup.png", "Setup", "Alt 8"))
     shot = REPO_DIR / "docs" / "media" / "studio-setup.png"
