@@ -785,6 +785,87 @@ def test_chat_capable_dbx_entries_excludes_decision_only_endpoints(ctx: Ctx):
     ctx.check(f"the decision-only endpoint is excluded, got {refs}", "dbx:databricks-openjev-qwen35-4b" not in refs)
 
 
+# ---------------------------------------------------------------------------
+# 3.3.0.0 R4: `halo init` opens Studio on Setup (studio/setup_door.py); the
+# terminal wizard is `--terminal`, and runs when no browser can open. In
+# process, on a fake terminal, every Studio and browser seam stubbed
+# (tests/helpers/setup_door_stubs.py); the wizard itself is stubbed too.
+# ---------------------------------------------------------------------------
+
+def _door_init(argv, **stubs):
+    """`cmd_init(argv)` on a fake terminal in a fresh home: `(rc, stdout, the door record, the wizard's args)`."""
+    from halo_harness import init_cli
+    from tests.helpers.setup_door_stubs import door_stubs, fake_tty
+    home = _fresh_home()
+    keys = ("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR", "HALO_ENV_FILE")
+    before = {k: os.environ.get(k) for k in keys}
+    os.environ.pop("BRIDGE_STATE_DIR", None)
+    os.environ.update({"BRIDGE_TEST_HOME": str(home), "HALO_ENV_FILE": str(home / "env")})
+    ran: list = []
+    saved = init_cli._run_init_wizard_flow
+    init_cli._run_init_wizard_flow = lambda args, console, cwd: ran.append(args) or 0
+    try:
+        with door_stubs(**stubs) as rec, fake_tty() as out:
+            rc = init_cli.cmd_init(list(argv))
+    finally:
+        init_cli._run_init_wizard_flow = saved
+        for k, v in before.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+    return rc, out.getvalue(), rec, ran
+
+
+@test
+def test_init_opens_setup_in_studio(ctx: Ctx):
+    rc, text, rec, ran = _door_init([])
+    url = rec["opened"][0] if rec["opened"] else ""
+    ctx.check(f"exit 0, the wizard not run, got {rc} {ran}", rc == 0 and not ran)
+    ctx.check(f"Studio started on ?mode=setup&first=1 with no browser of its own, got {rec['launched']}",
+              len(rec["launched"]) == 1 and rec["launched"][0]["edit"] == "setup:first" and rec["launched"][0]["open_browser"] is False
+              and "?mode=setup&first=1#t=" in url)
+    ctx.check(f"the line with the URL, got {text!r}", f"Setup is open in your browser: {url}. `halo init --terminal` runs "
+              "the terminal wizard instead." in text)
+    rc, text, rec, ran = _door_init([], running=True, pages=0)
+    ctx.check(f"a running Studio is reused, got {rec}", rc == 0 and not rec["launched"] and len(rec["opened"]) == 1 and not ran)
+
+
+@test
+def test_init_terminal_and_the_wizard_flags_run_the_wizard(ctx: Ctx):
+    rc, text, rec, ran = _door_init(["--terminal"])
+    ctx.check(f"--terminal: the wizard, no Studio, got {rc} {rec}", rc == 0 and len(ran) == 1 and not rec["launched"] and not rec["opened"])
+    rc, text, rec, ran = _door_init(["--step", "agents"])
+    ctx.check(f"--step still jumps: the wizard gets the step, got {[a.step for a in ran]}", rc == 0 and len(ran) == 1
+              and ran[0].step == "agents" and not rec["launched"])
+    for flags in (["--no-live"], ["--team", str(REPO_DIR / "missing-team.json")]):
+        rc, text, rec, ran = _door_init(flags)
+        ctx.check(f"{flags[0]}: a flag of the terminal wizard runs it, got {ran}", len(ran) == 1 and not rec["launched"])
+
+
+@test
+def test_init_with_no_browser_prints_the_url_and_runs_the_wizard(ctx: Ctx):
+    from tests.helpers.setup_door_stubs import PORT
+    rc, text, rec, ran = _door_init([], env={"HALO_NO_BROWSER": "1"})
+    ctx.check(f"HALO_NO_BROWSER: Studio started, no browser asked, the wizard ran, got {rc} {rec} {ran}", rc == 0
+              and rec["launched"] and not rec["opened"] and len(ran) == 1)
+    ctx.check(f"the URL with the port-forward hint, got {text!r}", f"Setup is at http://127.0.0.1:{PORT}/?mode=setup&first=1#t=" in text
+              and f"ssh -L {PORT}:127.0.0.1:{PORT} <host>" in text and "The terminal wizard runs here instead." in text)
+    rc, text, rec, ran = _door_init([], env={"SSH_CONNECTION": "192.0.2.10 50000 192.0.2.20 22"})
+    ctx.check(f"SSH_CONNECTION: the same, got {ran}", len(ran) == 1 and not rec["opened"] and "this is an SSH session" in text)
+    rc, text, rec, ran = _door_init([], browser=False)
+    ctx.check(f"webbrowser.open False: the URL and the wizard, got {text!r}", len(ran) == 1 and "no browser took the URL" in text)
+
+
+@test
+def test_init_without_a_terminal_never_opens_studio(ctx: Ctx):
+    home = _fresh_home()
+    result = _run(["init", "--provider", "openrouter", "--yes", "--no-live", "--no-fixes"], home, stdin="sk-or-fake\n",
+                  extra_env={"HALO_NO_BROWSER": "1"})
+    ctx.check(f"--provider/--yes: the console flow as before, got {result.returncode} {result.stdout[-300:]!r}",
+              result.returncode == 0 and "Setup is open" not in result.stdout and "Setup is at" not in result.stdout)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

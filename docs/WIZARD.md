@@ -11,8 +11,26 @@ them read-only and `e` opens Studio on them (see "The Team step" below).
 Verified against `halo_harness/tui/dialogs/init_wizard.py`, `wizard_ux.py`,
 `step_rail.py`, `autocomplete.py`, `setup_mode.py`, and `team_step.py`.
 
-3.3.0.0: Setup in Studio holds the same blocks and writes the same files through the same writers
-(Providers and Local models since R2; [STUDIO-setup.md](STUDIO-setup.md)); R4 makes it the door.
+## Setup in Studio comes first (Halo 3.3.0.0)
+
+`halo init` opens Halo Studio on its **Setup** section; the terminal wizard is
+the fallback: `--terminal`, SSH, no browser. Setup holds the wizard's blocks
+(Providers, Local models, Default model, Permissions, Terminal theme, Team,
+Linux fixes, Check) as forms you fill in any order, and writes the same files
+through the same writers ([STUDIO-setup.md](STUDIO-setup.md)).
+
+| You run | What opens |
+|---|---|
+| `halo init` (a terminal, no `--provider` / `--yes`) | Studio on Setup (`?mode=setup&first=1`: its help once, the strip says "set up this box"); a running Studio is reused |
+| `halo init --terminal` | the terminal wizard, as below |
+| `halo init --step <key>`, `--team`, `--no-live` | the terminal wizard (they are its flags) |
+| `halo init` with no browser (`HALO_NO_BROWSER`, `SSH_CONNECTION`, Linux with no `DISPLAY` / `WAYLAND_DISPLAY`, or a browser that does not take the URL) | the URL and the port-forward line `halo studio` prints, then the terminal wizard |
+| `halo setup [team\|roles]`, `/setup [team\|roles]` | Setup on the Team block (`?mode=setup&block=team`); `--terminal` keeps the terminal screen |
+| `halo start` with no provider | "Open Setup in Studio? [Y/n]": Enter opens Setup, `n` runs the terminal wizard |
+| `halo init --provider ... --yes`, or no terminal | the console flow, unchanged |
+
+The rules below are the terminal screens' rules; they hold for every screen
+`halo init --terminal` shows.
 
 ## The 90-second version
 

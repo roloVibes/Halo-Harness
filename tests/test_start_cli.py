@@ -10,7 +10,9 @@ start/fake.py: real git, no model) in this module's own home:
 2. `--json`: only the summary, ok, every step done, the report's checks.
 3. step by step: Enter, Enter, then q at step 3 stops before the run starts.
 4. step by step to the end: Enter everywhere approves the plan.
-5. no provider configured (the fake off): says so, offers halo init, exit 2.
+5. no provider configured (the fake off): says so, offers halo init, exit 2;
+   on a terminal (3.3.0.0 R4) "Open Setup in Studio? [Y/n]": Enter opens Setup
+   through halo init's door, `n` runs the terminal wizard (both stubbed).
 6. the Summary's start row defaults to off (and the console question to No).
 7. 3.2.2.0 R2, the card: the models it will call, the estimate's rule, what it
    writes; `--explain` prints only the card, exit 0; `--yes` prints it first.
@@ -169,6 +171,40 @@ def test_no_provider_says_so_and_offers_init(ctx: Ctx):
     ctx.check(f"--json says no_provider, got {data}", rc_json == 2 and data.get("reason") == "no_provider" and data.get("ok") is False)
     ok, line = provider.ready()
     ctx.check("ready() is a (bool, text) pair", isinstance(ok, bool) and isinstance(line, str) and line)
+
+
+@test
+def test_no_provider_on_a_terminal_offers_setup_in_studio(ctx: Ctx):
+    """3.3.0.0 R4: "Open Setup in Studio? [Y/n]": Enter opens Setup through halo init's door (stubbed) and exits 2;
+    `n` runs the terminal wizard (stubbed); a door that cannot open a browser runs the wizard too."""
+    from halo_harness import init_cli
+    from halo_harness.start import provider
+    from halo_harness.start_cli import _offer_init
+    from halo_harness.studio import setup_door
+    from tests.helpers.setup_door_stubs import fake_tty
+    doors, inits = [], []
+    saved = (setup_door.cli_door, init_cli.cmd_init)
+    opens = {"ok": True}
+    setup_door.cli_door = lambda target, **kw: doors.append((target, kw)) or opens["ok"]
+    init_cli.cmd_init = lambda argv: inits.append(list(argv)) or 0
+    try:
+        with fake_tty("\n") as out:
+            rc_enter = _offer_init(False)
+        enter_text = out.getvalue()
+        with fake_tty("n\n"):
+            rc_no = _offer_init(False)
+        opens["ok"] = False
+        with fake_tty("y\n"):
+            rc_none = _offer_init(False)
+    finally:
+        setup_door.cli_door, init_cli.cmd_init = saved
+    ctx.check(f"the question and the line, got {enter_text!r}", "Open Setup in Studio? [Y/n]" in enter_text
+              and provider.NO_PROVIDER in enter_text and "halo init opens Setup in Studio" in provider.NO_PROVIDER)
+    ctx.check(f"Enter: Setup through the door (first run), exit 2, no wizard, got {rc_enter} {doors[:1]}", rc_enter == 2
+              and doors and doors[0][0] == setup_door.SetupTarget(first=True) and doors[0][1].get("terminal_cli") == "halo init --terminal")
+    ctx.check(f"n: the terminal wizard, got {rc_no} {inits}", rc_no == 0 and inits[:1] == [["--terminal"]])
+    ctx.check(f"no browser could open: the wizard runs, got {rc_none} {inits}", rc_none == 0 and inits == [["--terminal"], ["--terminal"]]
+              and len(doors) == 2)
 
 
 @test

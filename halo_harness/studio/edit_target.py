@@ -14,6 +14,10 @@ stays in the fragment):
 
 `resolve` also takes a bare name (the TUI's `/edit coder`): a bio of that
 name, else a lineup of that name.
+
+3.3.0.0 R4: `setup`, `setup:first` and `setup:<block>` are Setup targets
+(studio/setup_door.py `SetupTarget`: `?mode=setup&first=1`, `&block=team`),
+the doors `halo init`, `halo setup` and `/setup` open.
 """
 
 from __future__ import annotations
@@ -58,6 +62,9 @@ def parse(text: str) -> "tuple[Optional[EditTarget], str]":
     text = (text or "").strip()
     if text == "team":
         return EditTarget("team"), ""
+    if text.partition(":")[0].strip().lower() == "setup":  # 3.3.0.0 R4: Setup, its first run or one block (setup_door.py)
+        from halo_harness.studio.setup_door import parse as parse_setup
+        return parse_setup(text)
     kind, sep, name = text.partition(":")
     kind, name = kind.strip().lower(), name.strip()
     if not sep or kind not in ("bio", "lineup"):
@@ -72,7 +79,7 @@ def resolve(text: str, *, cwd=None, state_dir=None) -> "tuple[Optional[EditTarge
     text = (text or "").strip()
     if not text:
         return None, f"name what to edit: {USAGE}"
-    if ":" in text or text == "team":
+    if ":" in text or text in ("team", "setup"):
         return parse(text)
     from halo_harness.agents_yaml import find_agent_bio_path
     from halo_harness.teams_yaml import find_team_template_path

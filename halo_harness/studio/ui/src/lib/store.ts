@@ -73,8 +73,9 @@ export type ToastItem = { id: number; text: string; tone: "done" | "error" | "in
 
 export type PanelRef = { section: SectionId; panel: string };
 
-/** The "How this works" overlay: which section, and whether it is the first-visit welcome. */
-export type HelpRef = { section: SectionId; welcome: boolean };
+/** The "How this works" overlay: which section, and whether it is the first-visit welcome; `first` (3.3.0.0 R4):
+ *  Setup opened by `halo init` (`?first=1`), titled "What this page does". */
+export type HelpRef = { section: SectionId; welcome: boolean; first?: boolean };
 
 export type StudioState = {
   section: SectionId;
@@ -185,8 +186,8 @@ export const SEEN_PREFIX = "halo.studio.seen.";
 /** `?tour=off` (captures, tests) keeps the first-visit welcome shut, as on the classic page; so does `?edit=` (3.1.1.0 R3). */
 const NO_WELCOME = typeof location !== "undefined" && /[?&](tour=off\b|edit=)/.test(location.search);
 
-export function openHelp(section: SectionId, welcome = false): void {
-  studio.update(() => ({ help: { section, welcome }, paletteOpen: false }));
+export function openHelp(section: SectionId, welcome = false, first = false): void {
+  studio.update(() => ({ help: { section, welcome, ...(first ? { first } : {}) }, paletteOpen: false }));
 }
 
 /** Close the overlay; the section counts as seen, so its welcome does not come back. */

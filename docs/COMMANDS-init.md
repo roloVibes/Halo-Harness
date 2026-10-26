@@ -6,6 +6,20 @@ Part of [Commands](COMMANDS.md), which lists every part.
 
 ## `halo init`
 
+**Halo 3.3.0.0: `halo init` opens Studio.** On a real terminal (no `--provider`, no `--yes`) it starts Studio, or
+reuses the one running for this home, on its **Setup** section (`?mode=setup&first=1`: the help opens once, "What this
+page does", and the strip says "set up this box"), prints one line and exits 0:
+
+```text
+Setup is open in your browser: http://127.0.0.1:<port>/?mode=setup&first=1#t=<token>. `halo init --terminal` runs the terminal wizard instead.
+```
+
+Setup is the wizard's steps as one page of forms ([STUDIO-setup.md](STUDIO-setup.md)). Everything below is the
+terminal wizard: `halo init --terminal`, or one of its own flags (`--step`, `--team`, `--no-live`), or no browser
+here (`HALO_NO_BROWSER`, `SSH_CONNECTION` / `SSH_TTY`, Linux with no `DISPLAY` / `WAYLAND_DISPLAY`, or a browser
+that does not take the URL: Studio starts anyway, its URL is printed with `halo studio`'s port-forward line, then
+the wizard runs). `--provider`/`--yes` and a run with no terminal keep the console flow, unchanged.
+
 One command that sets up a fresh box: **select a provider to set up**
 (Databricks, OpenRouter or the Anthropic API -- 1.0.1 hotfix 13 replaced the old home/work/claude "preset" naming a bundle
 of choices with a direct provider picker, since "work" was really just
@@ -37,17 +51,9 @@ script, `--yes`, `--provider`) is unaffected -- it keeps the exact
 sequential-picker/numbered-fallback behaviour the worked example below
 shows.
 
-**Halo 2.0.5 round 2**: an **Agents** step joins right before Roles (after
-the keys step's own model enumeration) -- list every agent bio (project/
-user/shipped), create/edit/duplicate/delete, and import a `.claude/
-agents/*.md` file as a bio; the Roles step is retitled **"Roles and
-lineup"** and gains a Lineup pane (pick, edit, or build a new lineup --
-assignments by model or by agent bio, the `about:` "how the pieces work
-together" text) shown first, with the pre-existing role-template editing
-moved to its own "Legacy roles" pane rather than removed. `--step STEP`
-jumps straight to any one step (see the flag table below); see
-[AGENTS.md](AGENTS.md) for the bio and lineup fields (edited in Studio
-since 3.1.1.0).
+**Halo 2.0.5 round 2**: an **Agents** step (the bios) and a Lineup pane joined the wizard (merged into the
+Team step in round 2c, below). `--step STEP` jumps straight to any one step (the flag table below); see
+[AGENTS.md](AGENTS.md) for the bio and lineup fields (edited in Studio since 3.1.1.0).
 
 **Halo 2.0.5 round 2c** (the wizard interaction model -- the full ten-rule
 page is [WIZARD.md](WIZARD.md)): the wizard's first screen now offers
@@ -110,23 +116,25 @@ above; see [MODELS.md](MODELS.md)'s "OpenAI API" section.
 halo init --help
 ```
 ```
-usage: halo init [-h] [--provider {databricks,openrouter,anthropic,claude}]
-                 [--preset {home,work,claude}] [--model REF] [--yes]
-                 [--no-live] [--no-fixes] [--team PATH|URL] [--step STEP]
+usage: halo init [-h] [--provider {databricks,openrouter,anthropic}]
+                 [--preset {home,work}] [--model REF] [--yes] [--no-live]
+                 [--no-fixes] [--team PATH|URL] [--step STEP] [--terminal]
 
-Set up halo in one command: pick a provider to set up, configure its
-credentials, set a default model, run doctor, send a live pong, and offer the
-Linux setup fixes. Repeat for another provider, then pick the overall default.
+Set up halo. On a terminal it opens Halo Studio on its Setup section
+(providers, the default model, permissions, the terminal theme, the lineup,
+the checks); --terminal runs the terminal wizard instead, and so does a box
+where no browser can open (SSH, no DISPLAY, HALO_NO_BROWSER). --provider/--yes
+set a provider up without asking: its credentials, a default model, doctor, a
+live pong and the Linux setup fixes.
 
 options:
   -h, --help            show this help message and exit
-  --provider {databricks,openrouter,anthropic,claude}
+  --provider {databricks,openrouter,anthropic}
                         set up this provider non-interactively (repeatable,
                         first-listed first); omit for the interactive provider
                         picker
-  --preset {home,work,claude}
-                        deprecated alias for --provider: home=openrouter,
-                        work=databricks, claude=claude
+  --preset {home,work}  deprecated alias for --provider: home=openrouter,
+                        work=databricks
   --model REF           override the provider's own default model
   --yes                 accept every default without prompting
   --no-live             skip the catalog refresh and the live pong
@@ -135,7 +143,11 @@ options:
                         preference/DBU price -- never a token); overrides
                         .halo/team.json / ~/.halo/team.json
   --step STEP           jump directly to one wizard step by key or 1-based
-                        number (e.g. --step agents), interactive only
+                        number (e.g. --step agents), interactive only (the
+                        terminal wizard)
+  --terminal            run the terminal wizard instead of opening Setup in
+                        Studio (also what runs when no browser can open: SSH,
+                        no DISPLAY, HALO_NO_BROWSER)
 ```
 
 | Flag | Reads/writes | Default |
@@ -148,6 +160,7 @@ options:
 | `--no-fixes` | skips the `rg`/PATH steps (Linux) | off |
 | `--team PATH\|URL` | reads a `team.json`-shaped file/URL (see `docs/DATABRICKS.md`); Databricks only | `.halo/team.json`, then `~/.halo/team.json` |
 | `--step STEP` | jumps the interactive wizard straight to one step, by its key (`team` -- `agents`/`roles` kept as aliases -- or any other step's own key) or 1-based number, skipping the Quick/Full setup choice -- interactive only (needs a real tty, `--yes` skips the wizard entirely); see [WIZARD.md](WIZARD.md) | omitted -> offers Quick/Full setup, then starts at step 1 |
+| `--terminal` | runs the terminal wizard (the Textual app this page describes) instead of opening Setup in Studio (3.3.0.0 R4) | off: a bare `halo init` on a terminal opens Studio on Setup |
 
 `--provider ... --yes` (or the deprecated `--preset ... --yes`) is fully
 non-interactive whenever the needed value is already discoverable; when it
@@ -366,19 +379,19 @@ Studio's Glossary lists. An unknown word names the closest ones, exit 1.
 ## `halo setup` / `/setup` (Halo 2.0.2 round 7)
 
 ```sh
-halo setup            # the init wizard's Team step, then a short summary
-halo setup team        # just the Team setup screen (Halo 2.0.5 round 2c; `halo setup roles` stays as an alias)
+halo setup              # Studio's Setup (3.3.0.0 R4)
+halo setup team         # Setup on its Team block: ?mode=setup&block=team (`halo setup roles` is the same)
+halo setup --terminal   # the init wizard's Team step, then a short summary
+halo setup team --terminal   # just the Team setup screen (Halo 2.0.5 round 2c)
 ```
 
-The SAME Team setup screen `halo init`'s own wizard shows (see
-[WIZARD.md](WIZARD.md)), reachable
-again later without re-running the whole provider flow -- "a setup
-screen should pop up to set those features up in addition to doing it
-within halo." On a real terminal this opens the wizard screen(s); with no
-TTY it prints the current roles table instead of blocking,
-and exits 0. `/setup` and `/setup team` (`/setup roles` stays as an alias)
-do the same thing inside a running session (`tui/slash.py`'s
-own handler pushes the screen onto the live app -- a modal stack over the
-session, not a separate program): saving a lineup or a role template
-there updates the LIVE session's own role table immediately, no restart
+On a real terminal `halo setup` opens Studio on Setup, the Team block scrolled into view and focused for
+`team` / `roles` (one line says it opened, as `halo init` does). `--terminal` keeps the SAME Team setup
+screen `halo init`'s own wizard shows (see [WIZARD.md](WIZARD.md)), reachable again later without
+re-running the whole provider flow; so does a box where no browser can open (the URL and the
+port-forward line first). With no TTY it prints the current roles table instead of blocking, and exits 0.
+`/setup` and `/setup team` (`/setup roles` stays as an alias) open Setup the same way from a running
+session (the line in the transcript says it opened, or gives the URL); `/setup --terminal [team]` pushes
+the terminal screen onto the live app (a modal stack over the session, not a separate program): saving a
+lineup or a role template there updates the LIVE session's own role table immediately, no restart
 needed.

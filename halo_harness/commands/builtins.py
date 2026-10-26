@@ -1171,10 +1171,11 @@ def _cmd_setup(args: str, facade: HeadlessFacade) -> str:
     that happens to invoke it) just names the real surfaces instead of
     half-implementing a form with no screen to draw it on."""
     sub = (args or "").strip().lower()
-    if sub == "roles":
-        return "/setup roles opens the roles setup screen in the TUI only -- use `halo setup roles` from the CLI."
-    return ("/setup opens the roles setup screen in the TUI only -- "
-            "use `halo setup` from the CLI, or `/roles` here.")
+    if sub in ("roles", "team"):
+        return (f"/setup {sub} opens Studio's Setup on its Team block from the TUI -- use `halo setup {sub}` from the CLI "
+                f"(`halo setup {sub} --terminal` for the terminal screen).")
+    return ("/setup opens Studio's Setup from the TUI -- use `halo setup` from the CLI "
+            "(`halo setup --terminal` for the terminal screen), or `/roles` here.")
 
 
 def _cmd_providers(args: str, facade: HeadlessFacade) -> str:
@@ -1760,7 +1761,7 @@ _BUILTIN_SPECS = {
     "role": ("core", "Set one role's model/effort for this session", "<name> <model> [effort]", _cmd_role),
     "review": ("core", "Review a diff, branch, PR or files: parallel dimension reviewers, a judge, ranked findings",
                "[target] [--level low|medium|high] [--dimensions a,b] [--fix] [--no-verify]", _cmd_review),
-    "setup": ("core", "Open the roles guided setup screen", "[roles]", _cmd_setup),
+    "setup": ("core", "Open Setup in Studio (the Team block for team or roles); --terminal: the terminal screen", "[team|roles] [--terminal]", _cmd_setup),
     "providers": ("core", "Show/enable/disable providers (dbx:/or:/ant:/...)", "[list|enable|disable <name>]",
                   _cmd_providers),
     "balances": ("core", "Show the cached balance/credit figure for every provider that offers one",

@@ -94,6 +94,28 @@ the cached catalog: an Ollama host is listed with the models its last read found
 **Refresh** reads every provider's list again (`POST models/refresh`). The Local models block's detection
 lines are the one live read (kept a minute).
 
+## The doors: `halo init` opens Setup (3.3.0.0 R4)
+
+Setup is where a box gets set up: `halo init` on a terminal starts Studio (or reuses the one running for this
+home) and opens this page; the terminal wizard is the fallback (`halo init --terminal`, SSH, no browser:
+[WIZARD.md](WIZARD.md)). Two words in the page's address say how it was opened (`studio/setup_door.py`, read by
+`ui/src/routes/setup/door.ts`):
+
+- `?mode=setup&first=1` (`halo init`, and Enter on `halo start`'s "Open Setup in Studio? [Y/n]"): the
+  section's help opens once, titled **What this page does**, the status strip leads with **set up this
+  box**, and Start here's offer waits (a guided first run already running still shows). `tour=off` keeps the
+  help shut (captures, tests).
+- `?mode=setup&block=<block>` (`halo setup team`, `/setup team`; `roles` is the same block): that block's
+  panel is brought back if it was collapsed, scrolled into view and focused. The blocks: `providers`,
+  `local`, `model`, `permissions`, `theme`, `team`, `linux`, `check`.
+
+Both words leave the address bar once read, so a reload opens the page plainly (the token in the fragment
+stays). A Studio page already open takes the same as a `focus` frame, `{mode: "setup", block, first}`
+(`POST /api/focus {mode: "setup", block?, first?}`); `halo studio --edit setup`, `setup:first` and
+`setup:<block>` open them from a shell. A door that finds no browser here (`HALO_NO_BROWSER`,
+`SSH_CONNECTION`, Linux with no `DISPLAY` / `WAYLAND_DISPLAY`, or a browser that does not take the URL)
+prints the URL with `halo studio`'s port-forward line and runs the terminal screen instead.
+
 ## What each block writes
 
 | Block | Writes | The same as |
