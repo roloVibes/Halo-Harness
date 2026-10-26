@@ -23,8 +23,7 @@ from tests.helpers.provider_env_defaults import ensure_default_provider_credenti
 ensure_default_provider_credentials()
 ensure_scoped_state_dir_once()
 
-from unittest import SkipTest
-from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
+from tests.helpers.runner import SkipTest, Ctx, new_registry, print_results, run_all  # noqa: E402
 from tests.helpers.fake_home import build_fake_home  # noqa: E402
 from halo_harness.commands.registry import Registry  # noqa: E402
 from halo_harness.commands.builtins import HeadlessFacade, _cmd_design, _cmd_roles, _cmd_studio  # noqa: E402
