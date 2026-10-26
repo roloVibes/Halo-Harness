@@ -106,6 +106,17 @@ So the first real turn on a found model already knows its window instead
 of finding out mid-prompt. `--timeout S` sets the per-step budget; the
 wizard offers the same measurement after its Save adds hosts.
 
+Both then ask "make tuned twins of the models that fit? (Enter / n)"
+(`--twins` answers yes without asking, `--no-twins` skips it). A tuned
+twin is a derived model on the same server, `<name>-halo:<tag>` (for
+`qwen3:30b`, `qwen3-halo:30b`), that shares the original's weights and
+sets the window just measured as safe plus every layer on the GPU as its
+defaults, so Ollama stops moving part of the model to the CPU past its
+own cautious window; `halo ollama tune MODEL --host NAME` makes one at
+any time and `--remove` deletes it. The twin is listed under its original
+and offered first where models are picked. See
+[MODELS-ollama-tuning.md](MODELS-ollama-tuning.md)'s "A tuned twin".
+
 ### Ollama Cloud
 
 Get a key from `ollama.com/settings/keys`, then either set

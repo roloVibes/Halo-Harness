@@ -58,6 +58,8 @@ class _Env:
         for k in ("OLLAMA_HOST", "OLLAMA_API_KEY", "HALO_OFFLINE"):
             os.environ.pop(k, None)
         reset_discover_cache()
+        from halo_harness.providers import ollama_hw  # R3: calibration reads the card's size; no GPU tool here
+        self._gpu, ollama_hw.get_local_gpu_memories = ollama_hw.get_local_gpu_memories, lambda **kw: []
         self.state_dir = d / ".halo"
         self.a = MockUpstream().start()
         self.b = MockUpstream(tags_response=OTHER_TAGS).start()
@@ -67,6 +69,8 @@ class _Env:
         return self
 
     def __exit__(self, *exc):
+        from halo_harness.providers import ollama_hw
+        ollama_hw.get_local_gpu_memories = self._gpu
         self.a.stop()
         self.b.stop()
         for k, v in self._saved.items():
@@ -144,7 +148,7 @@ def test_calibrate_measures_every_model_of_the_added_host(ctx: Ctx):
     with _Env() as env:
         scenario = _FitScenario(env.b, "gpt-oss:20b", fit=32768)
         env.b.scenarios["gpt-oss:20b"] = scenario
-        rc, out, err = _run(["--add", "--calibrate", "--timeout", "5"])
+        rc, out, err = _run(["--add", "--calibrate", "--timeout", "5", "--no-twins"])  # R3: no twins question
         name = f"local-{env.b.port}"
         ctx.check(f"exit 0, got {rc} {err}", rc == 0)
         ctx.check(f"the mock was loaded at each window asked, got {scenario.asked}", 32768 in scenario.asked)

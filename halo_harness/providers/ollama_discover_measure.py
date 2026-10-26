@@ -60,7 +60,8 @@ def measure_models(host, models: "list[str]", *, timeout: Optional[float] = None
     model. Never raises: a model that errors gets a line saying so."""
     from halo_harness.providers.ollama import (HARD_CONTEXT_CAP, get_catalog, probe_version,
                                                trained_context_for)
-    from halo_harness.providers.ollama_calibrate import record_calibration, run_calibration
+    from halo_harness.providers.ollama_calibrate import (gpu_layers_for, host_gpu_total_bytes, record_calibration,
+                                                         run_calibration)
     from halo_harness.providers.ollama_hw import catalog_row, estimate_fit_for_host
     if state_dir is None:
         from halo_harness.config.paths import bridge_home
@@ -69,6 +70,10 @@ def measure_models(host, models: "list[str]", *, timeout: Optional[float] = None
     catalog = get_catalog(host, force=True)
     info = probe_version(host)
     version = info.get("version") if isinstance(info, dict) else None
+    # Halo 3.2.3.0 R3: the same loads as `halo ollama calibrate` -- every
+    # layer on the GPU and the card's size for the headroom rule, so the
+    # window recorded here is the SAFE one a tuned twin is made from.
+    gpu_total = host_gpu_total_bytes(host)
     for model in models:
         started = time.monotonic()
         record = {"host": host.name, "url": host.url, "model": model, "outcome": None,
@@ -78,17 +83,20 @@ def measure_models(host, models: "list[str]", *, timeout: Optional[float] = None
             estimate = estimate_fit_for_host(host, model, catalog)
             start = estimate if isinstance(estimate, int) and not isinstance(estimate, bool) and estimate > 0 \
                 else 32768
+            row = catalog_row(catalog, model) or {}
             kwargs = {"start_ctx": start, "keep_alive": host.keep_alive, "step_up": True,
-                      "trained_context": trained}
+                      "trained_context": trained, "num_gpu": gpu_layers_for(row.get("model_info")),
+                      "gpu_total": gpu_total}
             if timeout:
                 kwargs["timeout"] = float(timeout)
             result = run_calibration(host, model, **kwargs)
             record["outcome"] = result.outcome
             record["max_full_gpu_ctx"] = result.max_full_gpu_ctx
             if result.outcome in _RECORDED:
-                row = catalog_row(catalog, model) or {}
                 record_calibration(state_dir, host_url=host.url, model=model, digest=row.get("digest"),
-                                   max_full_gpu_ctx=result.max_full_gpu_ctx, ollama_version=version)
+                                   max_full_gpu_ctx=result.max_full_gpu_ctx, ollama_version=version,
+                                   tight_ctx=result.tight_ctx, tight_vram=result.tight_vram,
+                                   gpu_total=result.gpu_total)
             up_bound = min(trained, HARD_CONTEXT_CAP) if isinstance(trained, int) and trained > 0 \
                 else HARD_CONTEXT_CAP
             text = _outcome_text(result, up_bound)

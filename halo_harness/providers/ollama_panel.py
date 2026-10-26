@@ -93,6 +93,10 @@ class ModelFitInfo:
     prompt_floor: Optional[int] = None
     prompt_tok_s: Optional[float] = None   # rolling prompt reading speed
     tight: Optional[dict] = None           # {tight_ctx, tight_vram, gpu_total} from the last calibration
+    # Halo 3.2.3.0 R3: the original this row is a tuned twin of, and the
+    # window the twin carries (`providers.ollama_tune`)
+    twin_of: Optional[str] = None
+    twin_window: Optional[int] = None
 
 
 @dataclass(frozen=True)
@@ -172,9 +176,11 @@ def analyze_host(host, *, hw_runner=None, force: bool = False, state_dir=None) -
     if state_dir is None:
         from halo_harness.config.paths import bridge_home
         state_dir = bridge_home()
-    catalog_fits = tuple(_model_fit_info(host, catalog, row, state_dir=state_dir, remote=not local,
-                                          hw_runner=hw_runner)
-                         for row in (catalog.get("models") or []) if isinstance(row, dict))
+    from halo_harness.providers.ollama_tune_rows import twin_order
+    catalog_fits = tuple(twin_order(
+        [_model_fit_info(host, catalog, row, state_dir=state_dir, remote=not local, hw_runner=hw_runner)
+         for row in (catalog.get("models") or []) if isinstance(row, dict)],
+        key=lambda f: f.name, twin_of=lambda f: f.twin_of, twin_first=False))  # R3: a twin under its original
     return HostAnalysis(host_name=host.name, host_url=host.url, is_local=local, reachable=reachable,
                          version=version, loaded=tuple(loaded), gpu=gpu, gpu_cards=gpu_cards,
                          catalog_fits=catalog_fits)
@@ -209,7 +215,8 @@ def _model_fit_info(host, catalog: dict, row: dict, *, state_dir, remote: bool, 
     return ModelFitInfo(name=name, learned_cap=learned_cap, what_fits=what_fits, source=source,
                          throughput=throughput, state=state, prompt_floor=floor,
                          prompt_tok_s=get_prompt_speed(state_dir, host_url=host.url, model=name),
-                         tight=lookup_tight(state_dir, host_url=host.url, model=name) if learned_cap else None)
+                         tight=lookup_tight(state_dir, host_url=host.url, model=name) if learned_cap else None,
+                         twin_of=row.get("twin_of"), twin_window=row.get("twin_window"))
 
 
 def format_host_analysis(a: HostAnalysis) -> str:
@@ -257,6 +264,9 @@ def format_host_analysis(a: HostAnalysis) -> str:
             speed = f", reads ~{fit_info.prompt_tok_s:,.0f} tok/s" if fit_info.prompt_tok_s else ""
             lines.append(f"    {fit_info.name}: window {fit_info.what_fits} [{source_word(fit_info.source)}], "
                          f"{fit_info.state}, {floor_str}, learned cap: {cap_str}{speed}")
+            if fit_info.twin_of:
+                from halo_harness.providers.ollama_tune_names import twin_note
+                lines.append(f"      {twin_note(fit_info.twin_of, fit_info.twin_window)}")
             tight = fit_info.tight or {}
             if tight.get("tight_ctx"):
                 of = (f" ({tight['tight_vram'] / 1024 ** 3:.1f} of {tight['gpu_total'] / 1024 ** 3:.0f} GB)"

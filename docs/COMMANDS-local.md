@@ -27,7 +27,9 @@ learned calibration cap or "not calibrated," and the one-phrase source
 of the num_ctx decision -- plus the last turn's own tokens/second and
 prefill seconds when one has happened on that host/model since. See
 [MODELS.md](MODELS.md)'s Ollama section; the TUI's own `/ollama` opens an
-interactive dialog instead (`docs/SLASH-COMMANDS.md`).
+interactive dialog instead (`docs/SLASH-COMMANDS.md`). Halo 3.2.3.0: a
+tuned twin (`halo ollama tune`) is listed right under its original with
+"tuned twin of <model> (65k window, all layers on the GPU)".
 
 ## `halo ollama calibrate`
 
@@ -95,6 +97,62 @@ the LAN. `halo doctor`'s own Ollama section prints the identical checklist
 text, one line per host. See [MODELS.md](MODELS.md)'s "Host setup
 checklist" section.
 
+## `halo ollama tune`
+
+```sh
+halo ollama tune <model>
+halo ollama tune <model> --host <name>
+halo ollama tune <model> --window <num_ctx>
+halo ollama tune <twin> --remove
+halo ollama tune <model> --json
+```
+
+Halo 3.2.3.0: makes a tuned twin of `<model>` on the host (the default
+host when `--host` is omitted) -- a derived model through Ollama's
+`/api/create` whose defaults keep every layer on the GPU at the window
+calibration measured as safe. The twin's name is the model's name with
+`-halo` added, the tag kept: `qwen3.8:27b` becomes `qwen3.8-halo:27b`
+(an untagged `qwen3` becomes `qwen3-halo:latest`). Its Modelfile is
+three lines, and it shares the original's weights (no extra disk):
+
+```
+FROM qwen3.8:27b
+PARAMETER num_ctx 65536
+PARAMETER num_gpu 65
+```
+
+`num_ctx` is the safe window `halo ollama calibrate` (or the first-use
+calibration, or `halo ollama discover --calibrate`) recorded for that
+model on that host, or `--window N`; it is held at the model's trained
+context. `num_gpu` is the layer count from `/api/show`
+(`<family>.block_count` + 1; 999 when unknown, which Ollama caps at the
+real count). The command prints the plan line, one line per status
+Ollama streams back, the confirmation (`/api/show` on the twin reads both
+parameters back), and last the twin's ref:
+
+```
+plan: qwen3.8-halo:27b on 'pc': FROM qwen3.8:27b, num_ctx 65,536 (the safe window calibrated on 'pc'), num_gpu 65 (every layer on the GPU); it shares qwen3.8:27b's weights, no extra disk
+  using existing layer sha256:...
+  writing manifest
+  success
+made qwen3.8-halo:27b: /api/show reads num_ctx 65536, num_gpu 65
+ol:qwen3.8-halo:27b@pc
+```
+
+The twin starts calibrated (it carries the window its original measured),
+`halo ollama` and `halo local` list it under its original, and the
+`/model` picker and Studio's Models rows show it first for that host. Run
+the command again after a new calibration to remake the twin at the new
+window. `--remove` deletes a twin from the host; a name that is not a
+twin is left alone, in one line: "not a twin: qwen3.8:27b is an
+original; halo ollama tune makes twins and removes only them". `--json`
+prints `{ok, plan, progress, message, ref}` (`{removed, twin, message}`
+with `--remove`). Exit 0 done, 1 when the host or the model is missing,
+no safe window is recorded (`halo ollama calibrate` first, or
+`--window`), Ollama answered with an error, or the name is not a twin; 2 on a usage
+error. See [MODELS-ollama-tuning.md](MODELS-ollama-tuning.md)'s "A tuned
+twin".
+
 ## `halo ollama discover`
 
 ```sh
@@ -102,6 +160,7 @@ halo ollama discover
 halo ollama discover --lan
 halo ollama discover --add
 halo ollama discover --add pc,gpubox --calibrate
+halo ollama discover --add --calibrate --twins
 halo ollama discover --lan --json
 ```
 
@@ -129,8 +188,15 @@ gpubox    http://192.0.2.20:11434      0.12.6    2 models: qwen3:32b, gemma3:27b
   in `~/.halo/ollama-fit.json` like `halo ollama calibrate`.
 - `--timeout S` is the calibration's per-step budget (its own default
   otherwise).
-- `--json` prints `{servers, notes, added, measurements}`; the progress
-  lines go to stderr then.
+- After `--calibrate`, the question "make tuned twins of the models that
+  fit? (Enter / n)": Enter makes a tuned twin (`halo ollama tune`) of every
+  model that measured a safe window, one line each -- `qwen3:32b on
+  gpubox: tuned twin qwen3-halo:32b made (65k window, all layers on the
+  GPU) [ol:qwen3-halo:32b@gpubox]`. `--twins` makes them without asking;
+  `--no-twins` skips the question (so do `--json` and a stdin that is not
+  a terminal, unless `--twins` is given).
+- `--json` prints `{servers, notes, added, measurements, twins}`; the
+  progress lines go to stderr then.
 
 Exit 0 when a server was found, 1 when none was, 2 on a usage error.
 `halo ollama` and `halo local` list a local server that is found but not

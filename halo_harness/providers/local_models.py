@@ -53,6 +53,10 @@ class LocalModelRow:
     # catalog row reads both (model_row_facts.local_facts).
     capabilities: Optional[tuple] = None
     tools_probe: Optional[bool] = None
+    # Halo 3.2.3.0 R3: the original an Ollama row is a tuned twin of
+    # (`providers.ollama_tune`) and the window the twin carries.
+    twin_of: Optional[str] = None
+    twin_window: Optional[int] = None
 
 
 def _grouped(rows: "list[LocalModelRow]") -> "list[tuple[str, list[LocalModelRow]]]":
@@ -114,8 +118,11 @@ def _ollama_rows(host, *, refresh: bool, hw_runner, state_dir) -> "list[LocalMod
                                   quant=details.get("quantization_level"), context=context, capability=cap_text,
                                   loaded=loaded_entry is not None, reachable=True,
                                   capabilities=tuple(str(c) for c in declared) or None,
-                                  tools_probe=probed if isinstance(probed, bool) else None))
-    return out
+                                  tools_probe=probed if isinstance(probed, bool) else None,
+                                  twin_of=row.get("twin_of"), twin_window=row.get("twin_window")))
+    # R3: a tuned twin first for this host, its original right after it (the pickers' order)
+    from halo_harness.providers.ollama_tune_rows import twin_order
+    return twin_order(out, key=lambda r: r.name, twin_of=lambda r: r.twin_of, twin_first=True)
 
 
 def _hf_server_rows(info, *, reachable: bool, addressable: bool) -> "list[LocalModelRow]":
@@ -320,6 +327,9 @@ def _format_row(r: LocalModelRow) -> str:
         parts.append("not probed")
     if r.ref:
         parts.append(f"[{r.ref}]")
+    if r.twin_of:
+        from halo_harness.providers.ollama_tune_names import twin_note
+        parts.append(twin_note(r.twin_of, r.twin_window))
     return "  ".join(parts)
 
 
@@ -334,8 +344,11 @@ def format_local_view(rows: "list[LocalModelRow]") -> str:
         if i:
             lines.append("")
         lines.append(f"{group}:")
+        # R3: a tuned twin listed under its original, indented one step
+        from halo_harness.providers.ollama_tune_rows import twin_order
+        members = twin_order(members, key=lambda r: r.name, twin_of=lambda r: r.twin_of, twin_first=False)
         for r in members:
-            lines.append("  " + _format_row(r))
+            lines.append(("    " if r.twin_of else "  ") + _format_row(r))
     return "\n".join(lines)
 
 
