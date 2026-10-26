@@ -3,7 +3,7 @@
 // runs), the Fleet tree (every harness, session and agent with its
 // status, and the answer for a session that waits on you), and the layout
 // actions (3.2.2.0 R5: Arrange beside Reset layout). 3.2.0.0 R3: the packs'
-// sections, under a thin "packs" divider.
+// sections, under a thin "packs" divider. 3.3.1.0 R1: a paged section (Setup) has no panel list and no layout actions.
 import { Button, Icon, Kbd } from "../lib/ui";
 import { studio, toast, useStore } from "../lib/store";
 import { arrangeLayout, layoutStore, resetLayout } from "../lib/workspace/persist";
@@ -28,6 +28,7 @@ export function Rail() {
 
       {def.rail && <def.rail />}
 
+      {!def.paged && (
       <nav className="rail-group" aria-label="Panels">
         <div className="rail-label mono">PANELS</div>
         {def.panels.map((p) => {
@@ -48,6 +49,7 @@ export function Rail() {
           );
         })}
       </nav>
+      )}
 
       {packSections.length > 0 && (
         <nav className="rail-group rail-packs" aria-label="Packs" data-testid="rail-packs">
@@ -64,6 +66,7 @@ export function Rail() {
 
       <FleetRail />
 
+      {!def.paged && (
       <section className="rail-group rail-foot" aria-label="Layout">
         <div className="rail-label mono">LAYOUT · {ls.custom ? "YOURS" : "DEFAULT"}</div>
         <p className="rail-note">
@@ -97,6 +100,7 @@ export function Rail() {
           </Button>
         </div>
       </section>
+      )}
     </aside>
   );
 }

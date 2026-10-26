@@ -14,18 +14,22 @@ Verified against `halo_harness/tui/dialogs/init_wizard.py`, `wizard_ux.py`,
 ## Setup in Studio comes first (Halo 3.3.0.0)
 
 `halo init` opens Halo Studio on its **Setup** section; the terminal wizard is
-the fallback: `--terminal`, SSH, no browser. Setup holds the wizard's blocks
-(Providers, Local models, Default model, Permissions, Terminal theme, Team,
-Linux fixes, Check) as forms you fill in any order, and writes the same files
+the fallback: `--terminal`, SSH, no browser. Since 3.3.1.0 Setup is the wizard
+as pages: the same step rail in the same order (Providers, Local models,
+Default model, Permissions, Theme, Team, Linux fixes only when the box needs
+them, Check, Summary), one block per page with Back / Next, and the Summary
+last with a Change jump per row. Rules 4 (the rail, Ctrl+Left / Ctrl+Right
+outside a text field), 7 (focus on the content when a page opens) and 10
+(Change jumps) hold there; nothing opens on its own. It writes the same files
 through the same writers ([STUDIO-setup.md](STUDIO-setup.md)).
 
 | You run | What opens |
 |---|---|
-| `halo init` (a terminal, no `--provider` / `--yes`) | Studio on Setup (`?mode=setup&first=1`: its help once, the strip says "set up this box"); a running Studio is reused |
+| `halo init` (a terminal, no `--provider` / `--yes`) | Studio on Setup (`?mode=setup&first=1`: nothing pops up, the rail's line says "set up this box"); a running Studio is reused |
 | `halo init --terminal` | the terminal wizard, as below |
 | `halo init --step <key>`, `--team`, `--no-live` | the terminal wizard (they are its flags) |
 | `halo init` with no browser (`HALO_NO_BROWSER`, `SSH_CONNECTION`, Linux with no `DISPLAY` / `WAYLAND_DISPLAY`, or a browser that does not take the URL) | the URL and the port-forward line `halo studio` prints, then the terminal wizard |
-| `halo setup [team\|roles]`, `/setup [team\|roles]` | Setup on the Team block (`?mode=setup&block=team`); `--terminal` keeps the terminal screen |
+| `halo setup [team\|roles]`, `/setup [team\|roles]` | Setup on the Team page (`?mode=setup&block=team`); `--terminal` keeps the terminal screen |
 | `halo start` with no provider | "Open Setup in Studio? [Y/n]": Enter opens Setup, `n` runs the terminal wizard |
 | `halo init --provider ... --yes`, or no terminal | the console flow, unchanged |
 

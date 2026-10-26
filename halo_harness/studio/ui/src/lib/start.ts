@@ -9,7 +9,8 @@
 // around", remembered for the home. `?tour=off` (captures, tests) keeps the
 // overlay shut, like the first-visit welcome. 3.3.0.0 R3: the overlay's first
 // button is "Set up this box" (Setup opens), and a 422 `no_provider` answer
-// to POST start opens Setup with a toast instead of an error line.
+// to POST start opens Setup with a toast instead of an error line. 3.3.1.0 R1:
+// the offer is never drawn while the section is Setup (shell/StartHere.tsx).
 import { ApiError, api } from "./api";
 import { onEvent } from "./events";
 import { createStore, goSection, studio, toast, welcomeIfNew } from "./store";

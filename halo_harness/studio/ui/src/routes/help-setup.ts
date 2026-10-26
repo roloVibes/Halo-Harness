@@ -1,6 +1,7 @@
-// What each Setup panel is (`about`, one line) and how to use it (`help`, a
+// What each Setup page's block is (`about`, one line) and how to use it (`help`, a
 // few short lines), 3.3.0.0 R1 + R2 + R3 (the Setup section, docs/STUDIO-sections.md
-// "Setup"); routes/help.ts merges them into HELP and the section help lists the `about` lines.
+// "Setup"); routes/help.ts merges them into HELP. 3.3.1.0 R1: each page's head shows its `about` and, behind
+// "How this page works", its `help` (routes/setup/SetupPage.tsx); `setup-summary` is the Summary page.
 import type { Help } from "./help-orchestra";
 
 const lines = (...l: string[]) => l.join("\n");
@@ -11,7 +12,7 @@ export const SETUP_HELP: Record<string, Help> = {
     help: lines(
       "Paste a key and press Save & test: the key goes to the env file, the provider is turned on, its host probed and its model list read.",
       "A key is never shown again: the card says set, where it comes from and ****1234. Paste a new one to replace it.",
-      "Ollama: add hosts by name and URL (a key for Ollama Cloud goes to the env file); the first host is the default. Find Ollama servers asks this machine at once, Scan this network sweeps the network (10 s); tick what they list and Add the ticked, then Measure the found models.",
+      "Ollama: add hosts by name and URL (a key for Ollama Cloud goes to the env file); the first host is the default. Under the card, Find, scan, add and measure opens the finders: Find Ollama servers asks this machine at once, Scan this network sweeps the network (10 s); tick what they list and Add the ticked, then Measure the found models.",
       "Hugging Face: the router token, dedicated endpoints and local servers, each added or removed on its own.",
       "The same as halo init's Providers tabs; halo providers lists them in a terminal.",
     ),
@@ -69,7 +70,15 @@ export const SETUP_HELP: Record<string, Help> = {
       "Each row says what the check does, what it costs, how long it takes and what it writes; doctor, catalog and hello are ticked.",
       "Run the ticked checks runs them in order as one job; each row shows its state and its lines as they come.",
       "The gym runs local models only (it lists the models it would run on); the guided first run shows its card first, then its box can be ticked.",
-      "The same five as halo check in a terminal; the strip's Last check is the last run here.",
+      "The same five as halo check in a terminal; the rail's Last check is the last run here.",
+    ),
+  },
+  "setup-summary": {
+    about: "What this setup holds now, one row per step, each with a Change jump to its page.",
+    help: lines(
+      "A ticked row has what it needs; a row still to do says what is missing.",
+      "Run the ticked checks runs the checks ticked on the Check page; The Check page opens it to change the ticks or read each log.",
+      "The guided first run's card says what halo start does, the models it calls, the estimate, the time and what it writes.",
     ),
   },
 };

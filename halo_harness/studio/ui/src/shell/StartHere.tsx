@@ -7,10 +7,12 @@
 // `halo start` opens on (what it does, the models, the cost, the time, what
 // it writes) above its Run button. 3.3.0.0 R3: the first button is "Set up
 // this box" (Setup opens, the overlay closes; the primary one while no
-// provider is set up); "Just look around" stays.
+// provider is set up); "Just look around" stays. 3.3.1.0 R1: the offer never
+// shows while the section is Setup (Setup's first page is what "Set up this
+// box" opens); it shows on the other sections of a fresh home as before.
 import { useEffect } from "react";
 import { Button, Dialog } from "../lib/ui";
-import { goSection, useStore } from "../lib/store";
+import { goSection, studio, useStore } from "../lib/store";
 import { closeStart, dismissStart, loadStart, runStart, setUpThisBox, start, stopStart, type StartFrame } from "../lib/start";
 import { loadLists } from "../routes/roles/sync";
 
@@ -111,13 +113,14 @@ export function StartHere() {
   const view = useStore(start, (s) => s.view);
   const running = useStore(start, (s) => s.running && !s.summary);
   const finished = useStore(start, (s) => !!s.summary);
+  const onSetup = useStore(studio, (s) => s.section === "setup");
   useEffect(() => {
     void loadStart();
   }, []);
   useEffect(() => {
     if (finished) void loadLists().catch(() => undefined); // the start made a lineup of your own: Roles shows it
   }, [finished]);
-  if (!open) return null;
+  if (!open || (onSetup && view === "offer")) return null;
   const footer = view === "run" && running ? (
     <>
       <span className="muted">Closing this keeps the start running; the palette brings it back.</span>

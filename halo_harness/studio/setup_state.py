@@ -11,7 +11,8 @@ them, and the rows each block offers (the wizard's own lists).
      model_notes: [lines],                            a configured Ollama host nothing read yet ("not read yet: Refresh")
      providers: {<name>: {label, set, source, tail, enabled, reachable, catalog_count, detail, host_hint, fields}},
      ollama, huggingface, local_models,               R2: studio/setup_providers_state.py
-     checks, gym_models, card, last_check, linux_fixes, no_provider}   R3: studio/setup_check_state.py
+     checks, gym_models, card, last_check, linux_fixes, no_provider,   R3: studio/setup_check_state.py
+     ollama_discover, home}                           R5; 3.3.1.0 R1 `home`: a 12-hex hash of the state dir
 
 No key is ever in it: a provider is `set` or not, with its source and last four characters. `permission_mode`, `theme`
 and `model` are "" when config.json has none (the strip then says "not set"). 3.3.0.0 R3: a read opens no
@@ -123,4 +124,15 @@ _setup_state_before_r5 = setup_state
 
 def setup_state(cwd=None, state_dir=None) -> dict:  # noqa: F811  (the state above plus the R5 block)
     from halo_harness.studio.setup_discover_api import discover_block
-    return {**_setup_state_before_r5(cwd, state_dir), "ollama_discover": discover_block()}
+    return {**_setup_state_before_r5(cwd, state_dir), "ollama_discover": discover_block(), "home": home_id(state_dir)}
+
+
+def home_id(state_dir=None) -> str:
+    """3.3.1.0 R1: a short hash of this home's state dir, the key Setup's page remembers its current step under
+    (one browser can open Studios of several homes); never the path itself."""
+    import hashlib
+    from pathlib import Path
+
+    from halo_harness.providers.config import default_state_dir
+    where = Path(state_dir) if state_dir else Path(default_state_dir())
+    return hashlib.sha256(str(where.resolve()).encode("utf-8", "replace")).hexdigest()[:12]

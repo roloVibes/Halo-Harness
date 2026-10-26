@@ -67,10 +67,10 @@ Windows:
 powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/roloVibes/Halo-Harness/v3.3.0.0/scripts/install-halo.ps1 | iex"
 ```
 
-<a href="docs/media/studio-setup.png"><img alt="Studio's Setup section as halo init opens it: the strip says set up this box, OpenRouter set from the env file with its last four characters, the default model, the lineup, the permission mode and the last check; the Providers cards and the Local models block, the rail of blocks on the left" src="docs/media/studio-setup.png" width="100%"></a>
+<a href="docs/media/studio-setup.png"><img alt="Studio's Setup section as halo init opens it: the step rail across the top (Providers current, the steps already set ticked), its line saying set up this box, OpenRouter set from the env file with its last four characters, the default model, the lineup, the permission mode and the last check; the first page, Providers, one card per provider" src="docs/media/studio-setup.png" width="100%"></a>
 
-The first thing after install: `halo init` opens Studio on **Setup**, the page above. Each block is a form
-with its own Save, filled in any order; the strip on top says what is set. Over SSH or on a box with no
+The first thing after install: `halo init` opens Studio on **Setup**, the page above. It goes one page at a
+time in the wizard's order (Back / Next, a Summary last), each block with its own Save; the rail on top says what is set. Over SSH or on a box with no
 browser it prints the URL (with the port-forward line) and runs the terminal wizard; `halo init --terminal`
 asks for that wizard anywhere.
 

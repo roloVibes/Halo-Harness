@@ -45,7 +45,7 @@ def _post_section(req, body: dict):
         why = f"{sid!r} is not a session id for Session"
         return 422, {"error": why, "problems": [why]}
     data = {"edit": "", "mode": mode, "session": sid}
-    if mode == "setup":  # 3.3.0.0 R4 (studio/setup_door.py): the block to bring into view, the first run's help
+    if mode == "setup":  # 3.3.0.0 R4 (studio/setup_door.py): the block whose page opens, the first run's line (3.3.1.0 R1: no help opens)
         from halo_harness.studio.setup_door import block_word
         block, why = block_word(str(body.get("block") or ""))
         if block is None:
