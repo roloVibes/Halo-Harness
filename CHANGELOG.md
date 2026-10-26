@@ -27,6 +27,10 @@ version.
 
 ### Also in 3.2.3.0
 
+#### Fixed
+
+- Roles: a card dropped into another tier (the held-over-a-collapsed-strip path included) lands inside that tier's box; before, the raw drop point could leave it in the other column, the tier box then spanned both columns and the next re-render re-packed the tier (GitHub's Windows runner saw it as three cards moving after a removal). The Windows special case of that test is gone.
+
 #### Changed
 
 ## [3.2.2.0] - 2026-10-25

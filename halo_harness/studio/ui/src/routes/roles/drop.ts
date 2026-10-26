@@ -4,7 +4,7 @@
 // own tier (lib/geometry.ts `nudgeApart`, the tier box as the bounds, which
 // regrow downward through `tierBox`): sideways first, then it takes the
 // dropped card's old spot (in the dropped card's own tier), then down. A drop
-// into another tier lands beside the card it was dropped on, never on it
+// into another tier lands inside that tier's box (3.3.0.0 R1), beside the card it was dropped on, never on it
 // (`placeBeside`). The live drag shows the same room being made (Canvas.tsx's
 // `pos` memo calls `dropPatch` on every move). Pure functions.
 import { hits, nudgeApart, placeBeside, union, type Box } from "../../lib/geometry";
@@ -41,11 +41,16 @@ export function dropPatch(graph: Graph, pos: Record<string, Pos>, collapsed: Rec
   const boxOf = (t: Tier) => tierBox(t, xs[graph.tiers.indexOf(t)], pos, !!collapsed[t.name], id);
   let land = { x: at.x, y: at.y };
   if (into && into !== home) {
+    // 3.3.0.0 R1: a card that joins another tier lands INSIDE that tier's box (its column), whatever point it
+    // was let go at -- a held drop that opened a collapsed tier let go beside it left the card in the next
+    // column, the tier box spanned both, and the next draw re-packed the column (the Windows runner's case)
+    const area = inner(into, boxOf(into));
+    land = { x: Math.round(Math.min(Math.max(land.x, area.x), area.x + area.w - CARD_W)), y: Math.round(Math.max(land.y, area.y)) };
     const mates = into.node_ids.filter((k) => k !== id && pos[k]);
     const onto = hitList(cardBox(land), mates, pos)[0];
     if (onto) {
       const rest = mates.filter((k) => k !== onto).map((k) => cardBox(pos[k]));
-      const b = placeBeside(cardBox(pos[onto]), cardBox(land), rest, union(inner(into, boxOf(into)), cardBox(land)), GAP);
+      const b = placeBeside(cardBox(pos[onto]), cardBox(land), rest, area, GAP);
       land = { x: b.x, y: b.y };
     }
   }

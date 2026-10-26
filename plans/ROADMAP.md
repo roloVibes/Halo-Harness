@@ -2360,11 +2360,6 @@ teams apply` / `halo roles` / `halo config set` (config.json's `team`,
   lineup file while Roles is open and sees the canvas change without a
   reload, the draft-kept path; docs STUDIO.md ("what Studio shows is what
   is on disk, as it changes") and STUDIO-roles.
-
-### After 3.2.2.0 (R5's open point: the Windows runner)
-
-- `test_removing_a_card_keeps_the_others_spots` (tests/test_studio_roles_tiers.py, the room driver): on GitHub's Windows runner the three leads-tier cards (release, research, watchdog -- the ones moved in the earlier steps) end on other spots after the removal of `scout`, every time; the same steps keep every spot on the project's Windows box, on WSL and on the Linux runner. The check is recorded, not judged, on that runner (the `[note] windows runner:` line in the suite log carries before/after); the first round of 3.3.0.0 reads it and fixes the cause (candidates: a stale layout save landing late, R6's layout re-read on `files_changed`, the implicit tier's shape after a removal).
-
 ## ADDED 2026-10-26 (rolo, from the MacBook using this PC's Ollama as the main model: "encountered errors. Fault was in Halo Harness. Is there a way to have halo harness communicate with ollama servers on the network so that this does not happen?"; and: "add calibration for connecting to ollama models on the network after discover and enum of the models"): 3.2.3.0 "Ollama on the network" -- before 3.3.0.0
 
 The incident (another session read this PC's Ollama log): Halo's prompt is
