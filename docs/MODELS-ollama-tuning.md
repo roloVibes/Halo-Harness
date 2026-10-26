@@ -67,11 +67,40 @@ fully resident one as safe or tight by the headroom rule (at least 8 % of
 the card or 1.5 GB free); the saved window is the largest safe one, with
 the midpoint between a safe size and the next (x 1.5) tried once. A
 derived model whose Modelfile keeps every layer on the GPU with its own
-default window (it shares the blobs) works the same way. Prompt reading
+default window (it shares the blobs) works the same way (a tuned twin,
+below). Prompt reading
 speed (`prompt_eval_count` / `prompt_eval_duration` of each real turn) is
 kept per host and model as a rolling average (`prompt_speed` in
 `~/.halo/ollama-fit.json`, beside the calibration entries) and `halo
 ollama` shows it ("reads ~2,500 tok/s").
+
+**A tuned twin (Halo 3.2.3.0)**: Ollama's own rule offloads part of a
+model to the CPU past a 49,152 window on the host measured above, even
+with room left on the card, for any client that does not ask otherwise.
+A tuned twin carries the fix as the model's own defaults: `halo ollama
+tune <model> --host <name>` creates, through `/api/create` on that host,
+a derived model `FROM <model>` with `PARAMETER num_ctx <the safe window
+calibration recorded>` (or `--window N`, held at the trained context)
+and `PARAMETER num_gpu <every layer>` (`<family>.block_count` + 1, 999
+when unknown). It shares the original's blobs, so it costs no extra disk,
+and every client of that server (Halo, `ollama run`, another tool) gets
+the whole model on the GPU at that window. The name rule: `-halo` is
+added to the model's name and the tag is kept (`qwen3.8:27b` ->
+`qwen3.8-halo:27b`; `qwen3` -> `qwen3-halo:latest`). With the facts
+above as placeholders (a 23 GB card, a 17 GB model: 65,536 safe, 98,304
+tight) the twin's default window is 65,536 -- the tight 98,304 is never
+a twin's default. Ollama keeps no comment of a Modelfile, so Halo knows a
+twin by what `/api/show` keeps: `details.parent_model` (the `from`
+model), both parameters, and the name rule; it also records each twin it
+made (`twins` in `~/.halo/ollama-fit.json`) for a server that leaves
+`parent_model` empty. The twin starts calibrated (it carries its
+original's measured window), `halo ollama` and `halo local` list it under
+its original ("tuned twin of qwen3.8:27b (65k window, all layers on the
+GPU)"), the `/model` picker and Studio's Models rows show it first for
+that host, and `--remove` deletes it (never an original). `halo ollama
+discover --calibrate` and the wizard's calibrate offer end with "make
+tuned twins of the models that fit? (Enter / n)". See
+[COMMANDS-local.md](COMMANDS-local.md)'s `halo ollama tune`.
 
 **Context-ownership precedence (round 5b, corrected)**: `num_ctx` is the
 SMALLEST of every candidate that is actually known -- the hard cap
