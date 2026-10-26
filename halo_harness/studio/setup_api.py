@@ -12,6 +12,8 @@ state (studio/setup_state.py) plus the lines saying what was written.
     POST setup/team {lineup}            a lineup name, "one-model" or "auto": the Team step's three
                                         writes (lineup_choice.apply_lineup_choice) -> 200 {...state, lines}
     GET  setup/team/<name>/preview      {name, lines}: the Team step's preview (team_preview.preview_lines)
+    POST setup/provider/<name>, setup/ollama-host[/remove], setup/hf, setup/model-dir, setup/runtime
+                                        the Providers and Local models blocks (studio/setup_providers_api.py, R2)
 
 The page reads the state again on `files_changed` (config.json moved: a
 `halo config set` in a terminal, another Studio), so every open Setup page
@@ -114,6 +116,10 @@ def get_preview(req, name: str):
 
 
 def dispatch_setup(req):
+    from halo_harness.studio.setup_providers_api import dispatch_setup_providers  # 3.3.0.0 R2: Providers, Local models
+    answered = dispatch_setup_providers(req)
+    if answered is not None:
+        return answered
     routes = {"setup/state": ("GET", get_state), "setup/config": ("POST", post_config), "setup/team": ("POST", post_team)}
     if req.path in routes:
         method, fn = routes[req.path]

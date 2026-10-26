@@ -128,6 +128,7 @@ halo                 # full-screen TUI -- reads THIS directory's CLAUDE.md, rule
 `halo init`'s wizard has Back/Skip/Next buttons and never exits to the
 console between steps; `halo setup roles` reopens its
 Roles screen later without repeating the provider steps.
+Setup in Studio (`halo studio --mode setup`, `Alt+8`) writes the same files: keys to the env file, the rest to `~/.halo/config.json`.
 
 That's the whole point of installing it: `halo`, once on PATH, is a real
 console script, not a script that only works from inside this checkout --
