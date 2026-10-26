@@ -128,3 +128,14 @@ def dispatch_setup(req):
     if m:
         return get_preview(req, m["name"]) if req.method == "GET" else (405, {"error": "method not allowed"})
     return 404, {"error": f"no route for {req.method} /api/{req.path}"}
+
+
+# 3.3.0.0 R5 (Ollama everywhere): `setup/ollama/find|scan|add|measure` (studio/setup_discover_api.py) answer first;
+# every other path goes on to the routes above.
+_dispatch_setup_before_r5 = dispatch_setup
+
+
+def dispatch_setup(req):  # noqa: F811  (the R5 routes, then the routes above)
+    from halo_harness.studio.setup_discover_api import dispatch_setup_discover
+    answered = dispatch_setup_discover(req)
+    return answered if answered is not None else _dispatch_setup_before_r5(req)

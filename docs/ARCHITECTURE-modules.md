@@ -343,6 +343,9 @@ and `isolation/Dockerfile` the worker image.
   `studio/start_job.py` (the one `halo start` Studio runs, its `start` frames),
   `studio/glossary_api.py` (`GET /api/glossary`, docs/GLOSSARY.md); the guided run
   itself is `halo_harness/start/` (engine, steps, the sample repo, the fake model calls)
+- Setup's Ollama finders (3.3.0.0 R5): `studio/setup_discover_api.py` (`setup/ollama/find`, `scan`, `add`,
+  `measure`: `providers/ollama_discover.py` and the calibration from the page) and
+  `studio/setup_discover_jobs.py` (the scan and measure background jobs, their `setup` frames, the rows found)
 - Studio's Setup section (3.3.0.0 R1): `studio/setup_api.py` (its routes: `GET setup/state`,
   `POST setup/config` for model / permission_mode / theme, `POST setup/team`, the Team preview),
   `studio/setup_state.py` (what the state holds, read from the places the wizard reads) and

@@ -8,7 +8,7 @@ file is `HALO_ENV_FILE` in that home (never ~/.config/halo/env); no network
    file has it, the card says "set, from the env file, ****<tail>", the field
    is empty again, the key is nowhere in the page, the strip names openrouter;
 2. Ollama: a host added by name and URL appears in the hosts table (the
-   first is the default); the two finder buttons are off and say R5;
+   first is the default); (R5, studio_setup_discover.py) Find, Add, Measure;
 3. Local models: a folder added appears in the list and the detection lines
    count its model; the runtime saved.
 """
@@ -129,4 +129,7 @@ def local(c, url, ctx) -> dict:
     return out
 
 
-STEPS = (providers, ollama, local)
+# 3.3.0.0 R5: Find, Add, the Models panel and Measure run right after the Ollama host step
+from tests.helpers.studio_setup_discover import STEPS as DISCOVER_STEPS  # noqa: E402
+
+STEPS = (providers, ollama, *DISCOVER_STEPS, local)

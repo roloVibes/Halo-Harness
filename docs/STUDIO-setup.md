@@ -34,9 +34,39 @@ written); a token-only save keeps the host already set.
   under), add a host by name and URL (a bare `host:port` reads as `http://`), remove one. The wizard's merge
   rule holds: a save with a name already there updates its URL and keeps its tuning (`max_ctx`,
   `keep_alive`, ...), a blank save never repoints a host (with no host it registers the local daemon), the
-  first host is the default, and removing the default makes the first one left the default. Finding Ollama
-  servers on this machine and scanning the network come with 3.3.0.0 R5 (two buttons say so; `halo ollama
-  discover` does it from a terminal).
+  first host is the default, and removing the default makes the first one left the default. Under the
+  form the card finds servers instead of typing them (3.3.0.0 R5; `halo ollama discover` from a terminal,
+  [LOCAL-MODELS.md](LOCAL-MODELS.md) "Found on this machine"):
+  - **Find Ollama servers** asks this machine's doors at once, about 4 s: `OLLAMA_HOST`, 127.0.0.1 and
+    [::1] on the ports in `ollama.discover.ports` (default `[11434]`; the card names them), this machine's
+    LAN address, `host.docker.internal` and the WSL door. Writes nothing.
+  - **Scan this network** sweeps the /24 of this machine's LAN address plus `ollama.discover.subnets` as a
+    background job (a 10 s cap) with a live line "scanning 192.0.2.0/24 · 3 s" and a **Stop**; it runs
+    only when you press it and not in offline mode. Writes nothing.
+  - Every server found is a row: its name (reverse DNS, else `ollama-<last octet>`; `-<port>` off the
+    default port), its address, its version and the models it serves, then **configured** (already an
+    `ollama.hosts` entry, shown under that entry's name) or a tick. **Add the ticked** writes the ticked
+    servers as `ollama.hosts` entries `{name, url}`: an existing host is never repointed, the first host
+    stays the default, no key is written. The hosts table redraws from the answer, and the Models
+    refresh runs, so the Models panel (Roles) lists each new host as `Ollama (<name>)` and its models are
+    `ol:<model>@<name>` at once.
+  - **Measure the found models** then lists the models of the hosts just added, each ticked: the
+    calibration `halo ollama calibrate` runs, one model at a time as a background job (each model is
+    loaded at a few windows; about a minute per model), with one log line per model ("qwen3:30b on
+    gpubox: 32k fits, 65k does not (2 min 10 s)") and a summary; what settles is recorded in
+    `~/.halo/ollama-fit.json`, so the first real turn already knows the window. **Stop** ends it after
+    the model in hand. The same as `halo ollama discover --add --calibrate`.
+  - The routes (`studio/setup_discover_api.py`, the jobs in `setup_discover_jobs.py`): `POST
+    setup/ollama/find` -> `{rows, notes, ports}`; `POST setup/ollama/scan` -> 202 `{job}` (409 while one
+    runs), `GET setup/ollama/scan` the latest frame, `POST setup/ollama/scan/stop`; `POST
+    setup/ollama/add {names | urls}` -> the fresh state, the lines, `added` and the rows; `POST
+    setup/ollama/measure {hosts, models?, timeout?}` -> 202 `{job}` (`models` as `<model>@<host>`;
+    `timeout` overrides the calibration's per-step budget), `GET setup/ollama/measure`, `POST
+    setup/ollama/measure/stop`. A row is `{url, name, version, models, configured, where}`. Both jobs
+    stream `setup` frames on the live feed (`session_id` `setup:scan:<job>` / `setup:measure:<job>`,
+    `data.kind` `scan` or `measure`); `GET setup/state` carries `ollama_discover` (the ports, the
+    subnets, the latest scan and measure frames). Under `BRIDGE_TEST_NO_BACKGROUND_NET=1` the scan
+    answers one note and no rows and Find asks only loopback on `ollama.discover.ports`.
 - **Hugging Face**: the router token (`HF_TOKEN`), dedicated endpoints (`huggingface.endpoints`) and local
   servers (`huggingface.local_servers`, each with a name; no name is the wizard's `default` entry), each
   added or removed on its own.
