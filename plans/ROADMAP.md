@@ -2548,3 +2548,35 @@ single-label or `.local` `ollama.hosts` entries (`providers/http.py`).
   `halo ollama discover --calibrate` end with "make tuned twins? (Enter / n)";
   `--remove` deletes a twin. Tests through the mock's `/api/create`; docs:
   MODELS-ollama-tuning "A tuned twin", COMMANDS-local.
+
+## ADDED 2026-10-26 (rolo, live in Studio: "if you choose to steer via studio, you can't really tell which call you are steering. Highlight what you are interacting with because that scroller in the session tab can lose where you were steering in real time"): 3.3.0.0 R6 the steer knows its target
+
+Today the Session section's Steer box sits at the foot (3.1.7.0), the live
+rows stream above it (`routes/session/LiveRows.tsx`, `Live.tsx`,
+`routes/shared/liveFeed.ts`, `liveTree.ts`) and the list follows the newest
+row; a steer goes to the selected agent, but nothing on screen says which
+agent or which call the words will reach, the selected row is not held in
+view, and a new row can move the list while the user is typing.
+
+- R6 The steer knows its target. (a) The Steer box carries a target line
+  above its field: "Steering: <agent name> · <its current call, e.g. Bash
+  (pytest -q), 12 s>" (or "main · thinking"), updated live, with the same
+  glyph and colour as the row; the target row (and its agent's node on the
+  tree) is highlighted with a steady outline for as long as it is the
+  target; clicking another row or node changes the target and says so.
+  (b) The list stops following on its own: while the Steer field has focus,
+  or the user has scrolled up, the feed appends below without moving the
+  view and a "N new rows · follow" pill appears at the foot; a click (or
+  Escape out of the field) follows again; the target row is scrolled into
+  view once when chosen and never pushed out while held. (c) The steer's
+  own line lands as a row under the target with the target's name
+  ("↳ steer to coder: ..."), and the row the model answers with is marked
+  "after your steer" so the effect is visible; the turn-end marker (3.2.2.0
+  R4) shows in the same list. (d) Keys: Tab from the field cycles the target
+  among the live agents, Shift+Tab back; `s` on a focused row makes it the
+  target and focuses the field. Tests (Chrome): a target line names the
+  agent and its call; a highlighted row stays highlighted while rows arrive;
+  with the field focused twenty new rows do not move the view and the pill
+  counts them; a steer lands under its target; Tab cycles. Docs:
+  STUDIO-session (the target, follow), SLASH-COMMANDS-session if the TUI's
+  steer gains the same target line (optional: say so).
