@@ -35,6 +35,7 @@ import "./styles/session-live.css";
 import "./styles/packs.css";
 import "./styles/manager.css";
 import "./styles/setup.css";
+import "./styles/setup-providers.css";
 import { App } from "./App";
 
 document.documentElement.dataset.theme = document.documentElement.dataset.theme || "dark";

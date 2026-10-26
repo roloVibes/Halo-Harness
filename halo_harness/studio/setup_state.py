@@ -8,10 +8,11 @@ them, and the rows each block offers (the wizard's own lists).
      permission_modes: [{id, label, note}],            init_cli._PERMISSION_MODE_ROWS
      team: {active, source, roles_enabled, lineups: [{name, label, scope, description, active, default}]},
      models: [{ref, provider, label, best_at, price, context}],   the Models panel's rows (studio/model.py)
-     providers: {<name>: {set}},                       names only in R1 (R2: the masked state lines)
+     providers: {<name>: {label, set, source, tail, enabled, reachable, catalog_count, detail, host_hint, fields}},
+     ollama, huggingface, local_models,               R2: studio/setup_providers_state.py
      linux_fixes: {needed, items: []}, last_check: null}   (R3 fills both)
 
-No key is ever in it: a provider is `set` or not. `permission_mode`, `theme`
+No key is ever in it: a provider is `set` or not, with its source and last four characters. `permission_mode`, `theme`
 and `model` are "" when config.json has none (the strip then says "not set").
 """
 
@@ -50,19 +51,6 @@ def theme_rows() -> list:
             colours = variables_for(name)
             rows.append({"name": name, "palette": {short: colours.get(long, "") for short, long in PALETTE_KEYS}})
     return rows
-
-
-def provider_flags(cwd=None) -> dict:
-    """`{name: {set}}` for each of the wizard's provider tabs, in its order (init_providers.tab_credential_state)."""
-    from halo_harness.init_providers import TAB_PROVIDERS, tab_credential_state
-    out = {}
-    for name in TAB_PROVIDERS:
-        try:
-            configured = bool(tab_credential_state(name, cwd=cwd).get("configured"))
-        except Exception:
-            configured = False
-        out[name] = {"set": configured}
-    return out
 
 
 def model_list(state_dir=None, cwd=None) -> list:
@@ -115,8 +103,9 @@ def team_block(cwd=None, state_dir=None) -> dict:
 
 
 def setup_state(cwd=None, state_dir=None) -> dict:
+    from halo_harness.studio.setup_providers_state import provider_blocks
     from halo_harness.theme import DEFAULT_THEME
     return {"model": _config("model"), "permission_mode": _config("permission_mode"), "theme": _config("theme"),
             "theme_default": DEFAULT_THEME, "themes": theme_rows(), "permission_modes": permission_rows(),
-            "team": team_block(cwd, state_dir), "models": model_list(state_dir, cwd), "providers": provider_flags(cwd),
+            "team": team_block(cwd, state_dir), "models": model_list(state_dir, cwd), **provider_blocks(cwd, state_dir),
             "linux_fixes": {"needed": False, "items": []}, "last_check": None}

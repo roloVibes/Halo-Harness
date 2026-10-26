@@ -1,5 +1,5 @@
 // What each Setup panel is (`about`, one line) and how to use it (`help`, a
-// few short lines), 3.3.0.0 R1 (the Setup section, docs/STUDIO-sections.md
+// few short lines), 3.3.0.0 R1 + R2 (the Setup section, docs/STUDIO-sections.md
 // "Setup"); routes/help.ts merges them into HELP and the section help lists the `about` lines.
 import type { Help } from "./help-orchestra";
 
@@ -7,12 +7,22 @@ const lines = (...l: string[]) => l.join("\n");
 
 export const SETUP_HELP: Record<string, Help> = {
   "setup-providers": {
-    about: "The providers this box calls: one card each, its key saved to the env file (comes with R2).",
-    help: lines("Until it comes, halo init sets a provider up in the terminal.", "The strip on top names the providers already set up here."),
+    about: "The providers this box calls: one card each, its key saved to the env file (~/.config/halo/env).",
+    help: lines(
+      "Paste a key and press Save & test: the key goes to the env file, the provider is turned on, its host probed and its model list read.",
+      "A key is never shown again: the card says set, where it comes from and ****1234. Paste a new one to replace it.",
+      "Ollama: add hosts by name and URL (a key for Ollama Cloud goes to the env file); the first host is the default.",
+      "Hugging Face: the router token, dedicated endpoints and local servers, each added or removed on its own.",
+      "The same as halo init's Providers tabs; halo providers lists them in a terminal.",
+    ),
   },
   "setup-local": {
-    about: "Model folders and the local runtime (comes with R2).",
-    help: lines("Until it comes, halo init's Local models step adds folders and picks llama-server or mlx_lm."),
+    about: "Model folders and the local runtime: huggingface.model_dirs and huggingface.preferred_runtime.",
+    help: lines(
+      "Add a folder by typing its path: Halo scans it for .gguf files and safetensors / MLX model folders (the same as /local add).",
+      "The runtime is what halo local serve uses for a file it is not told one for: llama-server or mlx_lm.",
+      "The lines at the foot say what is on this machine now, read again after each save.",
+    ),
   },
   "setup-model": {
     about: "The model a new session starts on: model in ~/.halo/config.json.",
