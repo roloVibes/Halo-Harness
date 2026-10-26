@@ -343,3 +343,7 @@ and `isolation/Dockerfile` the worker image.
   `studio/start_job.py` (the one `halo start` Studio runs, its `start` frames),
   `studio/glossary_api.py` (`GET /api/glossary`, docs/GLOSSARY.md); the guided run
   itself is `halo_harness/start/` (engine, steps, the sample repo, the fake model calls)
+- Studio's Setup section (3.3.0.0 R1): `studio/setup_api.py` (its routes: `GET setup/state`,
+  `POST setup/config` for model / permission_mode / theme, `POST setup/team`, the Team preview),
+  `studio/setup_state.py` (what the state holds, read from the places the wizard reads) and
+  `lineup_choice.py` (the Team step's three writes, called by the wizard and by Setup alike).

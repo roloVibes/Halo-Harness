@@ -7,7 +7,7 @@ import { goSection, type SectionId } from "../lib/store";
 export const STORY: SectionId[] = ["roles", "orchestra", "team", "design", "fleet"];
 
 // the section titles (routes/index.tsx SECTIONS has the same; kept here so the Start views need not import the registry)
-const TITLE: Record<SectionId, string> = { roles: "Roles", orchestra: "Orchestra", team: "Team", design: "Design", fleet: "Fleet", session: "Session", packs: "Packs" };
+const TITLE: Record<SectionId, string> = { roles: "Roles", orchestra: "Orchestra", team: "Team", design: "Design", fleet: "Fleet", session: "Session", packs: "Packs", setup: "Setup" };
 
 /** Why the next section comes next, one line each (keyed by the NEXT section). */
 export const NEXT_LINE: Record<SectionId, string> = {
@@ -18,6 +18,7 @@ export const NEXT_LINE: Record<SectionId, string> = {
   roles: "back to the start: tune the lineup every section runs",
   session: "watch the session you are in, live: its map, log, attention and cost", // 3.1.4.0: not in STORY; its Start view has no footer
   packs: "install, grant and enable the packs you trust", // 3.2.0.0 R6: not in STORY; the Packs section has no Start view
+  setup: "Setup -> Session: start a session on the model you picked", // 3.3.0.0 R1: not in STORY; Setup has no Start view
 };
 
 export function nextOf(section: SectionId): SectionId {

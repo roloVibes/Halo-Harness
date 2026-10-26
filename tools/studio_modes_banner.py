@@ -1,12 +1,12 @@
-"""tools/studio_modes_banner.py -- the Studio seven-tile banner for the README.
+"""tools/studio_modes_banner.py -- the Studio eight-tile banner for the README.
 
 Composes studio-session.png, studio-team.png, studio-roles.png,
-studio-fleet.png, studio-design.png, studio-orchestra.png and studio-packs.png (the headless-Chrome
+studio-fleet.png, studio-design.png, studio-orchestra.png, studio-packs.png and studio-setup.png (the headless-Chrome
 captures from tools/capture_studio.py; studio-session.png from tools/capture_session_anim.py;
-studio-packs.png from `--mode packs`, 3.2.0.0 R7) into one wide banner, docs/media/studio-modes.png:
-seven frames in a row on the Studio background, in the tab order (3.1.6.0 R6: Session first;
-3.2.0.0 R7: Packs after Orchestra), with a section label over each and the key that switches to it
-(Alt+1 .. Alt+7). Pure Pillow, no fonts fetched: the label uses the default
+studio-packs.png from `--mode packs`, 3.2.0.0 R7; studio-setup.png, 3.3.0.0: R4 adds its capture) into one wide banner,
+docs/media/studio-modes.png: eight frames in a row on the Studio background, in the tab order (3.1.6.0 R6: Session first;
+3.2.0.0 R7: Packs after Orchestra; 3.3.0.0 R1: Setup last), with a section label over each and the key that switches to it
+(Alt+1 .. Alt+8). Pure Pillow, no fonts fetched: the label uses the default
 bitmap font scaled up, so the file is identical on every machine with the
 same inputs.
 
@@ -33,6 +33,7 @@ FRAMES = (  # 3.1.6.0 R6: the registry's order (routes/index.tsx SECTIONS), test
     ("studio-design.png", "Design", "Alt 5", "artboards on your own apps"),
     ("studio-orchestra.png", "Orchestra", "Alt 6", "agents writing the same files"),
     ("studio-packs.png", "Packs", "Alt 7", "install, grant and enable packs"),  # 3.2.0.0 R7
+    ("studio-setup.png", "Setup", "Alt 8", "this box's setup, block by block"),  # 3.3.0.0 R1 (R4: its capture)
 )
 FRAME_W = 600           # each capture is scaled to this width (3.2.0.0 R7: 640 -> 600, seven tiles under 1 MB)
 GAP = 28

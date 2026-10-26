@@ -2,7 +2,7 @@
 // short lines), spread into the PanelSpecs: Media here, Orchestra
 // in help-orchestra.ts, Fleet in help-fleet.ts, Design in
 // help-design.ts (3.0.7.0 R3), Roles in help-roles.ts (3.0.7.0 R2), Team in help-team.ts (3.0.8.0 R2),
-// Session in help-session.ts (3.1.4.0 R2), Packs in help-packs.ts (3.2.0.0 R6). The title bar shows
+// Session in help-session.ts (3.1.4.0 R2), Packs in help-packs.ts (3.2.0.0 R6), Setup in help-setup.ts (3.3.0.0 R1). The title bar shows
 // `about`; the ? popover, the Inspector and the section help show both.
 import { FLEET_HELP } from "./help-fleet";
 import { ORCHESTRA_HELP, type Help } from "./help-orchestra";
@@ -11,6 +11,7 @@ import { ROLES_HELP } from "./help-roles";
 import { SESSION_HELP } from "./help-session";
 import { TEAM_HELP } from "./help-team";
 import { PACKS_HELP } from "./help-packs";
+import { SETUP_HELP } from "./help-setup";
 
 const lines = (...l: string[]) => l.join("\n");
 
@@ -22,6 +23,7 @@ export const HELP: Record<string, Help> = {
   ...TEAM_HELP,
   ...SESSION_HELP,
   ...PACKS_HELP, // 3.2.0.0 R6: the Pack Manager
+  ...SETUP_HELP, // 3.3.0.0 R1: the Setup section
   "media-status": {
     about: "Whether ComfyUI answers, its version and the GPU's free memory.",
     help: lines(

@@ -14,7 +14,7 @@ Studio as well, and `halo update` stops it before installing.
 
 
 ```sh
-halo studio [--mode roles|design|orchestra|fleet|team|session|packs] [--port N] [--no-open] [--cwd DIR] [--fleet]
+halo studio [--mode roles|design|orchestra|fleet|team|session|packs|setup] [--port N] [--no-open] [--cwd DIR] [--fleet]
 halo studio --edit bio:<name> | lineup:<name> | team [--no-open]
 halo studio --session [<id>] [--no-open]
 ```

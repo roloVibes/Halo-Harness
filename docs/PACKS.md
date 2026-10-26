@@ -199,8 +199,8 @@ has the shape); Studio draws all of it with its own components, and all of it
 goes the moment you disable the pack (no reload):
 
 - **Its own sections**, after the core sections: the tab strip and the rail
-  show them after a thin "packs" divider, on Alt+8 and Alt+9 (3.2.0.0 R6: the
-  seven core sections keep their keys, Packs is the seventh). The doc-review pack's is **Docs review**: its notes (a
+  show them after a thin "packs" divider, the first on Alt+9 (3.3.0.0 R1: the
+  eight core sections keep their keys, Packs is the seventh, Setup the eighth). The doc-review pack's is **Docs review**: its notes (a
   markdown page of the pack), its checks (a table over a JSON file), links
   (into Studio, or a page in a new tab) and Settings.
 - **Panels in a core section**, under that section's own, as strips: the

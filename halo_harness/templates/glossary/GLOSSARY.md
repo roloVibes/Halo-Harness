@@ -106,3 +106,15 @@ A pack is a folder someone else maintains that adds bios, lineups, workflows, sk
 ## guided first run
 
 The guided first run is `halo start`: one real Orchestra run on your own models that walks the pieces Halo is made of (a copy of a shipped lineup, a sample git repo, one goal, the lead's plan for you to approve, the lanes, the report and the coach) in seven screens. It is not a test of your models (`halo gym` measures them). It opens on a card that says the models it will call, an estimated cost, the time and what it writes; `halo start --explain` prints only the card, and Studio's Start here shows it above its Run button.
+
+## setup
+
+Setup is what a box needs before Halo can work on it: the providers it calls, the default model, the permission mode, the terminal theme and the lineup. `halo init` walks it as the terminal wizard, and Studio's Setup section (3.3.0.0) holds the same blocks as forms you fill in any order, each with its own Save; both write `~/.halo/config.json` (and the keys to the env file), the same keys `halo config set` writes.
+
+## provider
+
+A provider is a service Halo calls a model on: OpenRouter, Databricks, the Anthropic API, OpenAI, TypeSafe, Experiential Labs, an Ollama server or Hugging Face. A provider is set up when its key (or its host) resolves; its models then fill the catalog (`halo models`), and a model ref names its provider by its prefix (`or:` OpenRouter, `dbx:` Databricks, `ol:` an Ollama host). `halo init` and Studio's Setup section set one up.
+
+## env file
+
+The env file (`~/.config/halo/env`, or the file `HALO_ENV_FILE` names) holds the provider keys Halo reads, one `NAME=value` line each, written with owner-only permissions; `~/.halo/config.json` keeps only the names of those variables, never a key. `halo init` writes it, every Halo process reads it at start, and a tool's child process never sees its keys.

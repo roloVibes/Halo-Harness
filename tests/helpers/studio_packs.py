@@ -5,7 +5,7 @@ doc-review reference pack (enabled) and studio-bundle (enabled, studio-script
 not granted); this process serves Studio in a thread with the live feed on
 (no provider, no model call):
 
-1. the packs' sections after Packs behind a "packs" divider, Alt+8 opens
+1. the packs' sections after Setup behind a "packs" divider, Alt+9 opens
    Docs review: the markdown, the table, the links, the Settings form; the
    panel's source line and its help; the rail's PACKS group;
 2. Session holds the pack's Reviews panel as a strip;
@@ -47,7 +47,7 @@ def sections(c, url, ctx) -> dict:
     out["tabs"] = c.js(f"{TABS}.map((t) => t.querySelector('.tab-label').textContent)")
     out["kbds"] = c.js(f"{TABS}.map((t) => t.querySelector('.tab-kbd')?.textContent || '')")
     out["divider"] = c.js(f"(() => {{ const d = {q('[data-testid=tab-divider]')}; return d ? [d.textContent, d.nextElementSibling?.querySelector('.tab-label')?.textContent] : null; }})()")
-    alt(c, 8)  # 3.2.0.0 R6: Alt+7 is Packs, the packs' own sections start at Alt+8
+    alt(c, 9)  # 3.2.0.0 R6: Alt+7 is Packs; 3.3.0.0 R1: Alt+8 is Setup, the packs' own sections start at Alt+9
     out["alt7"] = c.wait(f"{CUR}.startsWith('Docs review') && {CUR}", 10)
     out["markdown"] = c.wait(f"{panel('doc-review--notes', '[data-testid=pack-markdown]')}?.textContent", 15)
     out["table_rows"] = c.wait(pa("doc-review--checks", "[data-testid=pack-table-row]") + ".length", 15)
@@ -109,8 +109,15 @@ def form(c, url, ctx) -> dict:
 
 
 def bundle(c, url, ctx) -> dict:
-    alt(c, 9)
-    c.wait(f"{CUR}.startsWith('Hello')", 10)
+    # 3.3.0.0 R1: only the first pack section has a key (Alt+9); the second is opened by its tab
+    tab = f"{TABS}.find((t) => t.textContent.startsWith('Hello'))"
+    c.wait(f"!!{tab}", 10)
+    c.click_on(tab)
+    try:
+        c.wait(f"{CUR}.startsWith('Hello')", 5)
+    except TimeoutError:  # the pointer missed (a Linux runner): click the tab itself
+        c.js(f"{tab}.click(); 1")
+        c.wait(f"{CUR}.startsWith('Hello')", 10)
     grant = c.wait(f"{panel('studio-bundle--greet', '[data-testid=pack-bundle-grant]')}?.textContent", 15)
     before = c.js(f"!!{q('[data-testid=pack-bundle-hello]')}")
     from halo_harness.packs.discover import find

@@ -10,10 +10,10 @@ How a key is matched to its section, nearest first:
      `/design`, `halo design`) on the same line, the closest one;
   2. else one on the line just above or below, in the same paragraph;
   3. else the nearest Markdown heading above that names exactly one section.
-A range (`Alt+1`..`Alt+6`, `Alt+1` to `Alt+7`, `Alt+1..6`) names no single
+A range (`Alt+1`..`Alt+8`, `Alt+1` to `Alt+7`, `Alt+1..8`) names no single
 section: its paragraph's run of six titles or more (`Orchestra, Roles, ...`,
 `**A** | **B**`, `A, B and C`) must be the registry's order from its start
-(3.2.0.0 R6: the six work sections, then Packs).
+(3.2.0.0 R6: the six work sections, then Packs; 3.3.0.0 R1: then Setup).
 """
 from __future__ import annotations
 
@@ -26,8 +26,8 @@ INDEX = REPO / "halo_harness" / "studio" / "ui" / "src" / "routes" / "index.tsx"
 BANNER = REPO / "tools" / "studio_modes_banner.py"
 
 _ENTRY = re.compile(r'\{ id: "(\w+)", title: "(\w+)", kbd: "(Alt\+\d)", blurb: "([^"]*)"')
-KEY = re.compile(r"Alt\+([1-7])(?!\d)")  # 3.2.0.0 R6: Packs is Alt+7
-RANGE = re.compile(r"`?Alt\+1`?\s*(?:\.\.\.?|to|-)\s*`?(?:Alt\+)?[67](?!\d)`?")
+KEY = re.compile(r"Alt\+([1-8])(?!\d)")  # 3.2.0.0 R6: Packs is Alt+7; 3.3.0.0 R1: Setup is Alt+8
+RANGE = re.compile(r"`?Alt\+1`?\s*(?:\.\.\.?|to|-)\s*`?(?:Alt\+)?[678](?!\d)`?")  # 3.3.0.0 R1: ..8
 _SEP = re.compile(r"[\s*`,|/]*(?:and\s+)?[\s*`,|/]*")
 HEADING = re.compile(r"^#{1,6} ")
 
@@ -148,6 +148,6 @@ def problems(path: Path, rows) -> "list[str]":
             out.append(f"{rel}:{no}: Alt+{n} is {want[n]}, the line names {sid}: {line[:120]}")
     for no, runs, line in ranges:
         for run in runs:
-            if len(set(run)) >= 6 and run != order[:len(run)]:  # 3.2.0.0 R6: the six, or the six then Packs
+            if len(set(run)) >= 6 and run != order[:len(run)]:  # 3.2.0.0 R6: the six, or the six then Packs (3.3.0.0 R1: then Setup)
                 out.append(f"{rel}:{no}: the sections run {', '.join(run)}, the registry {', '.join(order)}: {line[:120]}")
     return out

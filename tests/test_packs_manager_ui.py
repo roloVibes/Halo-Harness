@@ -2,14 +2,14 @@
 R6). Headless Chrome through the driver base (tests/helpers/studio_pack_manager.py;
 skipped without one), over a fresh home with no pack installed:
 
-1. Packs is the seventh core tab on Alt+7 (the six keep their keys), with its
+1. Packs is the seventh core tab on Alt+7 (the six keep their keys; Setup is the eighth), with its
    five panels; Installed is empty and Sources offers the shipped doc-review;
 2. Install from a source: the row shows, disabled, with install's lines;
 3. Details: the API range beside this Halo's, no dependency, the contributes
    block `halo pack inspect` prints; a Grant toggle on a disabled pack picks
    the grant for Enable (its button names the command);
 4. Enable: the row runs with 1/3 granted, the pack's section tab follows Packs
-   on Alt+8; a Grant toggle on the enabled pack grants at once (state.json);
+   on Alt+9; a Grant toggle on the enabled pack grants at once (state.json);
 4b. 3.2.0.0 R7: Update asks first with the dry run's lines, swaps the new
    version in (Details names the grant it asks for), Roll back brings 1.0.0 back;
 5. Templates: Run review opens Orchestra's form, filled in with the workflow;
@@ -36,7 +36,7 @@ from tests.helpers.runner import Ctx, SkipTest, new_registry, print_results, run
 test, TESTS = new_registry()
 REPO = Path(__file__).resolve().parent.parent
 _RUN: dict = {}
-CORE = ["Session", "Team", "Roles", "Fleet", "Design", "Orchestra", "Packs"]
+CORE = ["Session", "Team", "Roles", "Fleet", "Design", "Orchestra", "Packs", "Setup"]
 
 
 def _got(ctx: Ctx) -> dict:
@@ -62,7 +62,7 @@ def _got(ctx: Ctx) -> dict:
 def test_packs_is_the_seventh_section_on_alt_7(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"the six, then Packs, got {got.get('tabs')}", got.get("tabs") == CORE)
-    ctx.check(f"Alt+1..7, got {got.get('kbds')}", got.get("kbds") == [f"Alt{n}" for n in range(1, 8)])
+    ctx.check(f"Alt+1..8, got {got.get('kbds')}", got.get("kbds") == [f"Alt{n}" for n in range(1, 9)])
     ctx.check(f"Alt+7 opens it, got {got.get('alt7')!r}", str(got.get("alt7")).startswith("Packs"))
     ctx.check(f"its five panels, got {got.get('panels')}", got.get("panels") == ["Installed", "Details", "Sources", "Settings", "Templates"])
     ctx.check("nothing installed yet; Sources offers the shipped pack", got.get("empty") is True and got.get("source_install") == "Install")
@@ -94,8 +94,8 @@ def test_the_details_block_and_a_grant_picked_for_enable(ctx: Ctx):
 def test_enable_and_grant(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"enabled with the picked grant, got {got.get('granted')!r}", got.get("granted") == "1/3 granted")
-    ctx.check(f"its section after Packs on Alt+8, got {got.get('tabs_on')} {got.get('pack_kbd')}",
-              got.get("tabs_on") == CORE + ["Docs review"] and got.get("pack_kbd") == "Alt8")
+    ctx.check(f"its section after Setup on Alt+9, got {got.get('tabs_on')} {got.get('pack_kbd')}",
+              got.get("tabs_on") == CORE + ["Docs review"] and got.get("pack_kbd") == "Alt9")
     ctx.check(f"a toggle on the enabled pack grants at once, got {got.get('granted_more')!r} {got.get('state_json')}",
               got.get("granted_more") == "2/3 granted" and got.get("state_json") == [True, ["bash", "hooks"]])
 

@@ -8,6 +8,28 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.3.0.0] - unreleased
+
+### R1: the Setup section
+
+#### Added
+- Studio's **Setup** section (`Alt+8`, the last core section; `halo studio --mode setup`, `?mode=setup`, `/studio setup`): the terminal wizard's blocks as one page of forms, each with its own Save and its own saved / 1 changed / problem line, under a strip that says the providers set up, the default model, the lineup, the permission mode and the terminal theme. This round: Default model (the catalog of the providers set up here, grouped by provider, with what each is best at, and a search), Permissions (the four modes with their notes), Terminal theme (the six TUI themes as swatches in their own colours; Studio's dark / light switch stays a browser setting), Team (One model for everything, auto, every lineup, the preview, Apply, Edit in Roles); Providers, Local models, Linux fixes and Check show where they come next.
+- `GET setup/state`, `POST setup/config` (model, permission_mode, theme only; a value the block does not list is a 422 with `problems`), `POST setup/team`, `GET setup/team/<name>/preview` (studio/setup_api.py, studio/setup_state.py); the state never carries a key.
+- Glossary words `setup`, `provider` and `env file` (`halo explain`, Studio's Glossary).
+- docs/STUDIO-setup.md: what each Setup block writes and the routes.
+
+#### Changed
+- A pack's own sections start at `Alt+9` (one keyed pack section; the rest by their tab or the palette).
+- The wizard's Team step and Studio's Setup write the lineup choice through one function (`lineup_choice.apply_lineup_choice`); the wizard behaves as before.
+- `/studio` takes `packs` and `setup`; the modes banner lists eight tiles (its Setup capture comes with R4).
+
+#### Fixed
+- Roles: a card dropped into another tier, also after holding it over a collapsed tier's strip until it opens, lands inside that tier's box (its column), never at the raw drop point beside it; the tier boxes no longer overlap, so the next redraw keeps every other card's spot (the Windows runner's "three cards moved" after a removal). The removal check is judged on every runner again.
+
+### Also in 3.3.0.0
+
+#### Changed
+
 ## [3.2.3.0] - 2026-10-26
 
 Focus: Ollama on the network -- what broke when the owner ran Halo on a Mac against this PC's Ollama, as three rounds: the window tells the truth (calibration measures or says unknown, the window follows the prompt and the reply's room, a trimmed request is context full, every layer on the GPU when it fits), the servers on this machine and on the network are found and then measured, and a tuned twin keeps a model's safe window as its default.
