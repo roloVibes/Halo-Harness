@@ -98,6 +98,28 @@ def _make_fits_scenario(mock: MockUpstream, model: str):
 
 
 @test
+def test_halo_ollama_calibrate_timeout_slow_load_is_inconclusive_and_records_nothing(ctx: Ctx):
+    """Halo 3.2.3.0 R1: `--timeout 1` against a 2.5 s load -- the budget
+    line names 1 s and 2 s, the outcome line says inconclusive, exit 1,
+    no cap recorded."""
+    from halo_harness.providers.ollama_calibrate import lookup_learned_cap
+    fh = build_fake_home()
+    mock = MockUpstream().start()
+    try:
+        mock.load_delay_s["qwen3:30b"] = 2.5
+        result = _run_ollama_cli(fh, mock.base_url, extra_args=["calibrate", "qwen3:30b", "--start", "8192",
+                                                                 "--no-up", "--timeout", "1"])
+        ctx.check(f"exit 1, got {result.returncode} stderr={result.stderr!r}", result.returncode == 1)
+        ctx.check(f"budget line, got {result.stdout!r}",
+                  "budget per load: 1 s (--timeout); a load past it is tried once more with 2 s" in result.stdout)
+        ctx.check(f"inconclusive line, got {result.stdout!r}", "qwen3:30b on default: inconclusive" in result.stdout)
+        got = lookup_learned_cap(fh["home"] / ".halo", host_url=mock.base_url, model="qwen3:30b")
+        ctx.check(f"nothing recorded, got {got}", got is None)
+    finally:
+        mock.stop()
+
+
+@test
 def test_halo_ollama_calibrate_fits_prints_the_cap_and_records_it(ctx: Ctx):
     from halo_harness.providers.ollama_calibrate import lookup_learned_cap
     fh = build_fake_home()
@@ -112,8 +134,10 @@ def test_halo_ollama_calibrate_fits_prints_the_cap_and_records_it(ctx: Ctx):
         result = _run_ollama_cli(fh, mock.base_url,
                                   extra_args=["calibrate", "qwen3:30b", "--start", "8192", "--no-up"])
         ctx.check(f"exit 0, got {result.returncode} stderr={result.stderr!r}", result.returncode == 0)
-        ctx.check(f"reports fits + the num_ctx, got {result.stdout!r}",
-                  "fits fully in GPU memory at num_ctx=8192" in result.stdout)
+        ctx.check(f"reports fits in one line (3.2.3.0 R1), got {result.stdout!r}",
+                  "qwen3:30b on default: 8k fits (" in result.stdout)
+        ctx.check(f"prints the budget it uses, got {result.stdout!r}",
+                  "budget per load: 20 s" in result.stdout and "tried once more with 40 s" in result.stdout)
         state_dir = fh["home"] / ".halo"
         got = lookup_learned_cap(state_dir, host_url=mock.base_url, model="qwen3:30b")
         ctx.check(f"recorded to the store, got {got}", got == 8192)

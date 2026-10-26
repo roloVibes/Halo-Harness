@@ -1077,6 +1077,9 @@ def _body_with_num_ctx(body: dict, num_ctx: int) -> dict:
     new_body = dict(body)
     new_body["options"] = dict(body.get("options") or {})
     new_body["options"]["num_ctx"] = num_ctx
+    # Halo 3.2.3.0 R1: a larger window than the one Halo's memory estimate
+    # cleared for "every layer on the GPU" -- Ollama places the layers.
+    new_body["options"].pop("num_gpu", None)
     return new_body
 
 

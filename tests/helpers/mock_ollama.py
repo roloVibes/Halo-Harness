@@ -95,10 +95,34 @@ def start_ndjson(handler: "_Handler", status: int = 200) -> None:
     handler.end_headers()
 
 
+def _real_prompt_count(body) -> int:
+    """Roughly what a real Ollama reads for `body` (chars / 3.6 of its
+    messages and tools) -- a little under Halo's own chars / 3.5 estimate."""
+    try:
+        chars = len(json.dumps({"messages": (body or {}).get("messages") or [],
+                                "tools": (body or {}).get("tools") or []}, ensure_ascii=False))
+    except (TypeError, ValueError):
+        return 0
+    return int(chars / 3.6)
+
+
 def write_ndjson_line(handler: "_Handler", obj: dict) -> None:
     """One NDJSON line, HTTP-chunk-framed (research doc Q1: Ollama's
     stream is one complete JSON object per line, never SSE "data:"
-    framing)."""
+    framing). Halo 3.2.3.0 R1: a scripted `prompt_eval_count` on the
+    final line of a LARGE request (over 2,048 tokens -- Halo's own prompt)
+    is replaced by what a real server would read (`_real_prompt_count`),
+    unless the mock's `real_prompt_counts` is False (a trim test scripts
+    its own low count)."""
+    mock = getattr(getattr(handler, "server", None), "mock", None)
+    body = getattr(handler, "_chat_body", None)
+    if obj.get("done") and obj.get("prompt_eval_count") == "real":
+        obj = {**obj, "prompt_eval_count": _real_prompt_count(body)}  # always the real count
+    elif (obj.get("done") and isinstance(obj.get("prompt_eval_count"), int) and body is not None
+            and mock is not None and getattr(mock, "real_prompt_counts", True)):
+        real = _real_prompt_count(body)
+        if real > 2048:
+            obj = {**obj, "prompt_eval_count": real}
     line = (json.dumps(obj, ensure_ascii=False) + "\n").encode("utf-8")
     frame = b"%x\r\n" % len(line) + line + b"\r\n"
     try:
@@ -292,7 +316,7 @@ class _Handler(BaseHTTPRequestHandler):
         elif self.path.rstrip("/") == "/api/tags":
             send_json(self, 200, mock.tags_response)
         elif self.path.rstrip("/") == "/api/ps":
-            send_json(self, 200, mock.ps_response)
+            send_json(self, 200, mock.ps_snapshot())
         else:
             send_json(self, 404, {"error": f"mock ollama: unknown GET path {self.path!r}"})
 
@@ -369,12 +393,26 @@ class _Handler(BaseHTTPRequestHandler):
         if path == "/api/chat":
             scenario = (body or {}).get("model") or ""
             fn = mock.scenarios.get(scenario)
+            self._chat_body = body
             try:
+                delay = mock.load_delay_s.get(scenario)
+                if delay is not None:
+                    # Halo 3.2.3.0 R1: a slow load -- /api/ps lists the model
+                    # (at this request's num_ctx) only once `delay` passed.
+                    mock._begin_load(scenario, body)
+                    time.sleep(delay)
+                    mock._finish_load(scenario)
+                    if fn is None:
+                        send_json(self, 200, {"model": scenario, "done": True, "done_reason": "stop",
+                                               "message": {"role": "assistant", "content": "ok"},
+                                               "prompt_eval_count": 1, "eval_count": 1})
+                        return
                 if fn is not None:
                     fn(self, body)
                 else:
                     send_json(self, 404, {"error": f"unknown mock ollama scenario '{scenario}'"})
-            except ClientDisconnected:
+            except (ClientDisconnected, ConnectionAbortedError, ConnectionResetError, BrokenPipeError):
+                # (the client may have given up on a delayed load already)
                 with mock._lock:
                     mock.disconnect_events.append({"scenario": scenario, "ts": time.monotonic()})
             except Exception:
@@ -415,6 +453,43 @@ class MockUpstream:
         self.tags_response = tags_response if tags_response is not None else json.loads(json.dumps(DEFAULT_TAGS))
         self.show_responses = show_responses if show_responses is not None else json.loads(json.dumps(DEFAULT_SHOW))
         self.ps_response = ps_response if ps_response is not None else json.loads(json.dumps(DEFAULT_PS))
+        # Halo 3.2.3.0 R1: model -> seconds a load takes (`/api/chat` sleeps
+        # that long; `/api/ps` lists the model, with the request's own
+        # `num_ctx` as `context_length`, only once it passed), and model ->
+        # `(size, size_vram)` or a callable `num_ctx -> (size, size_vram)`
+        # for the listed entry (default fully resident, 1 GiB).
+        self.load_delay_s: dict = {}
+        self.real_prompt_counts = True
+        self.load_vram: dict = {}
+        self._loads: dict = {}
+
+    def _begin_load(self, model: str, body) -> None:
+        num_ctx = ((body or {}).get("options") or {}).get("num_ctx")
+        with self._lock:
+            self._loads[model] = (time.monotonic() + float(self.load_delay_s.get(model) or 0), num_ctx)
+
+    def _finish_load(self, model: str) -> None:
+        # the load is done once the delay passed, whatever the clock's grain
+        with self._lock:
+            if model in self._loads:
+                self._loads[model] = (min(self._loads[model][0], time.monotonic()), self._loads[model][1])
+
+    def ps_snapshot(self) -> dict:
+        """`ps_response` plus every delayed load that has finished."""
+        snap = json.loads(json.dumps(self.ps_response))
+        now = time.monotonic()
+        with self._lock:
+            loads = dict(self._loads)
+        for model, (ready_at, num_ctx) in loads.items():
+            if ready_at > now:
+                snap["models"] = [e for e in snap.get("models") or [] if e.get("model") != model]
+                continue
+            vram = self.load_vram.get(model, (1024 ** 3, 1024 ** 3))
+            size, size_vram = vram(num_ctx) if callable(vram) else vram
+            snap["models"] = [e for e in snap.get("models") or [] if e.get("model") != model]
+            snap["models"].append(partial_offload_ps_entry(model, size=size, size_vram=size_vram,
+                                                            context_length=num_ctx))
+        return snap
 
     @property
     def port(self) -> int:

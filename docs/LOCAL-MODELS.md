@@ -95,24 +95,66 @@ a specific window.
 A host entry is `{name, url, default, keep_alive, max_ctx,
 num_parallel_hint, api_key, kv_cache_type, ssh}`. Halo computes and sends
 `options.num_ctx` -- the context size for that one request -- from the
-model's own trained context, the host's `max_ctx` if set, and a fit
-estimate, never above 131072.
+model's own trained context, the host's `max_ctx` if set, a memory
+estimate and a saved calibration, never above 131072.
 
-The fit estimate starts as a guess (free GPU memory here; nothing at all
-for a never-used remote host, so Halo defaults to a conservative 32768
-instead of guessing high). `halo ollama calibrate` replaces the guess
-with a real measurement -- it loads the model and steps the context up
-or down until Ollama reports it fully resident in GPU memory:
+**The prompt floor.** Ollama does not refuse a prompt longer than the
+request's `num_ctx`: it trims it (the oldest messages go first) and
+answers anyway. So before every Ollama call Halo estimates the request
+-- its serialized characters (system text, messages, tool definitions)
+divided by 3.5, plus the reply's room (the request's `num_predict`, 1,024
+at least: prompt and reply both have to fit the window, a reply that
+reaches its end is cut there) -- and `num_ctx` is never below that. When
+only the prompt (and 1,024 for the reply) fits the largest window, the
+window is that largest one and the reply's `num_predict` is lowered to
+the room left. The floor raises the window above a saved calibration, the
+remote default or a fallback, up to the trained context, the memory
+estimate, `max_ctx` and 131072. When even that cannot hold the request
+(one large tool result can do it), the turn compacts first and says so
+in one line: "the request (14k tokens, 9k of it tool output) is larger
+than qwen3.8:27b's window on pc (8k): compacted". When Ollama still reads
+far fewer tokens than were sent (`prompt_eval_count` under 70 % of the
+estimate), answers 500 "no user query found in messages", or stops the
+reply at the window's end (`done_reason: "length"` with prompt + reply
+filling `num_ctx`; Ollama still answers 200), the request did not fit: Halo raises the window and sends it again when there is room
+("pc trimmed the request (4.1k of 11k tokens): re-sent with a 16k
+window"), else compacts and sends it again -- once per turn; a second trim
+in the same turn is an error line.
+
+**Calibration measures or says unknown.** `halo ollama calibrate` loads
+the model at candidate windows (every layer asked onto the GPU) and reads
+`/api/ps` back:
 
 ```sh
 halo ollama calibrate qwen3-coder:30b
+halo ollama calibrate qwen3-coder:30b --timeout 180
 ```
 
+A load counts only when it finished within its budget and `/api/ps` lists
+the model at that very window; a load that ran out of time, or an
+`/api/ps` without the model (or with it at another size), is unknown. An
+unknown step is tried once more with twice the budget, then the run ends
+**inconclusive** and nothing is saved -- a slow host is never recorded as
+a small window. The budget per load: 20 s + 4 s per GB of the model on
+this machine, 40 s + 6 s per GB over the network, 60 s when the size is
+unknown; `--timeout S` sets it.
+
+**The headroom rule.** A window fully on the GPU is **safe** when the
+card keeps at least 8 % of its memory (or 1.5 GB, the larger) free, and
+**tight** above that; the saved window is the largest safe one and the
+line names the tight one too ("65k safe, 98k tight (22.1 of 23 GB), 131k
+does not fit (6 min 10 s)"). With the headroom rule a `max_ctx` on the
+host is normally unnecessary; it stays the hard ceiling when you set one.
+
 The result is saved (`~/.halo/ollama-fit.json`) and used from then on --
-it only changes when you re-pull the model or upgrade Ollama. The first
-time you use a model on a host with no saved measurement, Halo runs this
-automatically (one notice line); turn that off with `halo config set
-ollama.auto_calibrate false` if you'd rather calibrate by hand only.
+it changes when you re-pull the model or upgrade Ollama, and a saved
+window below the current request's floor is discarded and measured
+again. The first time you use a model on a host with no saved
+measurement, Halo runs this automatically: the turn waits up to 20 s, the
+measurement keeps its own budget in the background and its one line
+appears when it finishes (the next turn uses it). Turn that off with
+`halo config set ollama.auto_calibrate false` if you'd rather calibrate
+by hand only.
 
 ### The host panel and `halo ollama doctor`
 

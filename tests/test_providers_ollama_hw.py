@@ -167,49 +167,65 @@ def test_compute_num_ctx_weights_do_not_fit_uses_conservative_fallback_not_hard_
               got_unknown == REMOTE_UNKNOWN_DEFAULT_NUM_CTX)
 
 
-# ---- estimate_fit_for_host: /api/ps consulted first (round 3 fix pass) --
+# ---- estimate_fit_for_host: always from memory (Halo 3.2.3.0 R1) --------
+
+def _nvidia_runner(total_mib: int, free_mib: int, calls: "dict | None" = None):
+    def runner(argv, timeout):
+        if calls is not None:
+            calls["n"] += 1
+        drift = calls["n"] if calls is not None else 0
+        return f"{total_mib}, {total_mib - free_mib}, {free_mib - drift}, Mock GPU\n"
+    return runner
+
 
 @test
-def test_estimate_fit_for_host_loaded_model_returns_loaded_context(ctx: Ctx):
+def test_estimate_fit_for_host_loaded_model_is_estimated_from_memory(ctx: Ctx):
+    """3.2.3.0 R1: a loaded model's estimate comes from memory (its own
+    size_vram reclaimable), never its loaded context_length -- a model
+    loaded at 8192 used to report 8192 for good."""
+    from halo_harness.providers import ollama_hw
     from halo_harness.providers.ollama import OllamaHost
     from halo_harness.providers.ollama_hw import estimate_fit_for_host
+    ollama_hw.reset_local_gpu_cache()
     mock = MockUpstream(ps_response={"models": [
-        partial_offload_ps_entry("qwen3:30b", size=20 * 1024**3, size_vram=12 * 1024**3, context_length=40960),
+        partial_offload_ps_entry("qwen3:30b", size=12 * 1024**3, size_vram=12 * 1024**3, context_length=8192),
     ]}).start()
     try:
         host = OllamaHost(name="mock", url=mock.base_url)
-        catalog = _catalog_for("qwen3:30b", size=19 * 1024**3, model_info=_QWEN_MODEL_INFO)
-        got = estimate_fit_for_host(host, "qwen3:30b", catalog, runner=_NO_GPU_RUNNER)
-        ctx.check(f"the loaded context_length (40960), floored to 32768, got {got}", got == 32768)
+        catalog = _catalog_for("qwen3:30b", size=10 * 1024**3, model_info=_QWEN_MODEL_INFO)
+        got = estimate_fit_for_host(host, "qwen3:30b", catalog, runner=_nvidia_runner(24576, 4096))
+        # 4 GiB free + 12 GiB reclaimable - 10 GiB weights = 6 GiB / 131072 B per token -> 49152 -> 32768
+        ctx.check(f"from memory: 32768, not the loaded 8192, got {got}", got == 32768)
+        ollama_hw.reset_local_gpu_cache()
+        unknown = estimate_fit_for_host(host, "qwen3:30b", catalog, runner=_NO_GPU_RUNNER)
+        ctx.check(f"no memory reading -> None (the trained context stands), got {unknown!r}", unknown is None)
     finally:
+        ollama_hw.reset_local_gpu_cache()
         mock.stop()
 
 
 @test
 def test_estimate_fit_for_host_second_call_matches_first_even_if_gpu_reading_moved(ctx: Ctx):
-    """The exact live-run bug: two readings of free VRAM a bit apart used
-    to compute two DIFFERENT num_ctx values for the SAME loaded model.
-    The GPU runner here deliberately returns a different free-memory
-    reading on each call -- the result must stay identical regardless,
-    because a loaded model never even reaches the GPU arithmetic."""
+    """The round 3 live-run bug (two readings a few MB apart, two different
+    num_ctx values, a reload): the memory estimate is a power of two, so a
+    small drift between readings leaves it where it was."""
+    from halo_harness.providers import ollama_hw
     from halo_harness.providers.ollama import OllamaHost
     from halo_harness.providers.ollama_hw import estimate_fit_for_host
     mock = MockUpstream(ps_response={"models": [
-        partial_offload_ps_entry("qwen3:30b", size=20 * 1024**3, size_vram=12 * 1024**3, context_length=40960),
+        partial_offload_ps_entry("qwen3:30b", size=12 * 1024**3, size_vram=12 * 1024**3, context_length=40960),
     ]}).start()
     calls = {"n": 0}
-
-    def moving_runner(argv, timeout):
-        calls["n"] += 1
-        return f"{100 + calls['n']}, 10, {90 - calls['n']}, X\n"
     try:
         host = OllamaHost(name="mock", url=mock.base_url)
-        catalog = _catalog_for("qwen3:30b", size=19 * 1024**3, model_info=_QWEN_MODEL_INFO)
-        first = estimate_fit_for_host(host, "qwen3:30b", catalog, runner=moving_runner)
-        second = estimate_fit_for_host(host, "qwen3:30b", catalog, runner=moving_runner)
+        catalog = _catalog_for("qwen3:30b", size=10 * 1024**3, model_info=_QWEN_MODEL_INFO)
+        ollama_hw.reset_local_gpu_cache()
+        first = estimate_fit_for_host(host, "qwen3:30b", catalog, runner=_nvidia_runner(24576, 4096, calls))
+        ollama_hw.reset_local_gpu_cache()
+        second = estimate_fit_for_host(host, "qwen3:30b", catalog, runner=_nvidia_runner(24576, 4096, calls))
         ctx.check(f"no thrash: both calls equal, got {first} then {second}", first == second == 32768)
-        ctx.check("the GPU runner was never even invoked for a loaded model", calls["n"] == 0)
     finally:
+        ollama_hw.reset_local_gpu_cache()
         mock.stop()
 
 
@@ -218,8 +234,10 @@ def test_estimate_fit_for_host_other_loaded_models_count_as_reclaimable_headroom
     """Not loaded itself, but ANOTHER model occupies VRAM Ollama could
     evict to make room -- that size_vram must count toward THIS model's
     own headroom, not just the GPU's own already-free bytes."""
+    from halo_harness.providers import ollama_hw
     from halo_harness.providers.ollama import OllamaHost
     from halo_harness.providers.ollama_hw import estimate_fit_for_host
+    ollama_hw.reset_local_gpu_cache()
     weight_bytes = 18 * 1024**3
     other_size_vram = 20 * 1024**3
     free_bytes = 1 * 1024**3  # alone, far too little for an 18 GB model
@@ -241,14 +259,17 @@ def test_estimate_fit_for_host_other_loaded_models_count_as_reclaimable_headroom
         ctx.check(f"reclaimable headroom from the other loaded model produces a real fit estimate, "
                   f"got {got} expected {expected}", got == expected)
     finally:
+        ollama_hw.reset_local_gpu_cache()
         mock.stop()
 
 
 @test
 def test_estimate_fit_for_host_weights_still_do_not_fit_after_reclaiming(ctx: Ctx):
+    from halo_harness.providers import ollama_hw
     from halo_harness.providers.ollama import OllamaHost
     from halo_harness.providers.ollama_fit import WEIGHTS_DO_NOT_FIT
     from halo_harness.providers.ollama_hw import estimate_fit_for_host
+    ollama_hw.reset_local_gpu_cache()
     mock = MockUpstream(ps_response={"models": [
         partial_offload_ps_entry("other-model", size=2 * 1024**3, size_vram=2 * 1024**3, context_length=8192),
     ]}).start()
@@ -261,15 +282,16 @@ def test_estimate_fit_for_host_weights_still_do_not_fit_after_reclaiming(ctx: Ct
         got = estimate_fit_for_host(host, "huge-model", catalog, runner=runner)
         ctx.check(f"still does not fit even after reclaiming, got {got!r}", got is WEIGHTS_DO_NOT_FIT)
     finally:
+        ollama_hw.reset_local_gpu_cache()
         mock.stop()
 
 
 @test
-def test_estimate_fit_for_host_remote_path_unchanged(ctx: Ctx):
-    """A non-local host still never gets an OS-level read -- only
-    `/api/ps` -- exactly as before this fix pass; patches `providers.
-    ollama.fetch_ps` directly (hermetic: `.example` never resolves, so a
-    real request would just time out instead of proving anything)."""
+def test_estimate_fit_for_host_remote_without_ssh_is_unknown_loaded_or_not(ctx: Ctx):
+    """3.2.3.0 R1: a remote host without `ssh:` has no memory reading --
+    None whether the model is loaded or not (the loaded context_length is
+    no longer echoed back as the fit); patches `providers.ollama.fetch_ps`
+    directly (`.example` never resolves)."""
     import halo_harness.providers.ollama as ollama_mod
     from halo_harness.providers.ollama import OllamaHost
     from halo_harness.providers.ollama_hw import estimate_fit_for_host
@@ -277,10 +299,10 @@ def test_estimate_fit_for_host_remote_path_unchanged(ctx: Ctx):
     catalog = _catalog_for("qwen3:30b", size=19 * 1024**3, model_info=_QWEN_MODEL_INFO)
     old_fetch_ps = ollama_mod.fetch_ps
     ollama_mod.fetch_ps = lambda h: {"models": [
-        {"model": "qwen3:30b", "size": 20 * 1024**3, "size_vram": 12 * 1024**3, "context_length": 40960}]}
+        {"model": "qwen3:30b", "size": 20 * 1024**3, "size_vram": 12 * 1024**3, "context_length": 8192}]}
     try:
         got = estimate_fit_for_host(host, "qwen3:30b", catalog, runner=_NO_GPU_RUNNER)
-        ctx.check(f"remote loaded model -> its own context_length floored, got {got}", got == 32768)
+        ctx.check(f"remote loaded model at 8192 -> None, not 8192, got {got!r}", got is None)
         ollama_mod.fetch_ps = lambda h: {"models": []}
         got_absent = estimate_fit_for_host(host, "qwen3:30b", catalog, runner=_NO_GPU_RUNNER)
         ctx.check(f"remote, not loaded -> None (no GPU read ever attempted), got {got_absent!r}",

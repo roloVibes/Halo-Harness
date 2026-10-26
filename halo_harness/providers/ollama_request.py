@@ -129,6 +129,11 @@ def build_ollama_request_body(
     # carried in from an earlier session's persisted `last_effort` (see
     # that method's own docstring for the three call sites).
     supports_thinking: bool = True, effort_explicit: bool = True,
+    # Halo 3.2.3.0 R1: `num_ctx` never below the request's own estimate
+    # (`providers.ollama_prompt`); `num_gpu` = every layer on the GPU when
+    # Halo knows the model fits there at the window sent (`gpu_fits_up_to`).
+    prompt_tokens: Optional[int] = None, window_factor: float = 1.0,
+    gpu_layers: Optional[int] = None, gpu_fits_up_to: Optional[int] = None,
 ) -> dict:
     """Build the native `/api/chat` body. `messages`/`system_text` are the
     SAME Anthropic-shaped derived-transcript inputs `providers.request.
@@ -200,6 +205,13 @@ def build_ollama_request_body(
     ollama_messages = _ollama_messages_from_oai(oai_messages)
     num_ctx = compute_num_ctx(trained_context, host.max_ctx, fit_estimate, learned_cap=learned_cap, remote=remote,
                                recorded_does_not_fit=recorded_does_not_fit, cpu_only=cpu_only)
+    reply_room = None
+    if prompt_tokens:
+        from halo_harness.providers.ollama_prompt import reply_reserve, window_for
+        choice = window_for(prompt_tokens, base=num_ctx, base_source="min", factor=window_factor,
+                            trained_context=trained_context, fit_estimate=fit_estimate, host_max_ctx=host.max_ctx,
+                            reserve=reply_reserve(requested_max_tokens))
+        num_ctx, reply_room = choice.num_ctx, choice.num_predict
     tools_max = max(resolve_ollama_tools_max(num_ctx), len(tools or []))
     tools_profile = profile if tools_max == profile.tools_max else dataclasses.replace(profile, tools_max=tools_max)
     oai_tools = convert_tools(tools, tools_profile)
@@ -209,6 +221,8 @@ def build_ollama_request_body(
         "stream": True,
         "options": {"num_ctx": num_ctx},
     }
+    if gpu_layers and isinstance(gpu_fits_up_to, int) and gpu_fits_up_to >= num_ctx:
+        body["options"]["num_gpu"] = gpu_layers
     if host.keep_alive is not None:
         body["keep_alive"] = host.keep_alive
     if oai_tools:
@@ -227,4 +241,8 @@ def build_ollama_request_body(
         body["think"] = think
     if isinstance(requested_max_tokens, int) and requested_max_tokens > 0:
         body["options"]["num_predict"] = requested_max_tokens
+    if reply_room:
+        # Halo 3.2.3.0 R1: prompt + reply must fit the window; the reply
+        # gets the room the ceiling leaves.
+        body["options"]["num_predict"] = min(reply_room, body["options"].get("num_predict") or reply_room)
     return body

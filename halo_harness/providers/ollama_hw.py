@@ -35,7 +35,7 @@ from typing import Optional
 
 from halo_harness.providers.ollama_fit import (
     estimate_catalog_prompt_tokens, fit_estimate, kv_bytes_per_elem_for, kv_bytes_per_token,
-    multi_gpu_fit_estimate, remote_loaded_context_as_fit_estimate, resolve_ollama_tools_max,
+    multi_gpu_fit_estimate, resolve_ollama_tools_max,
 )
 
 log = logging.getLogger("bridge")
@@ -518,28 +518,17 @@ def estimate_fit_for_host(host, model: str, catalog: Optional[dict], *, runner=N
     `None` (unknown), or `providers.ollama_fit.WEIGHTS_DO_NOT_FIT` (known
     not to fit; see that sentinel's own docstring).
 
-    Round 3 fix pass (live-run finding): `/api/ps` is read FIRST now, on
-    BOTH local and remote hosts -- a local host whose model is ALREADY
-    LOADED trusts that loaded `context_length` exactly like the remote
-    path always has, and never re-runs the GPU-memory arithmetic for it.
-    Before this fix, a loaded model's `num_ctx` was recomputed from
-    scratch every turn; two concurrent print-mode processes measuring
-    free VRAM a few hundred MB apart was enough to compute two DIFFERENT
-    `num_ctx` values for the same already-loaded model, and Ollama
-    reloaded it (with partial CPU offload) just to change its context
-    size. A LOCAL host whose model is NOT loaded uses the OS GPU-memory
-    probe (cached, see `get_local_gpu_memory`) against this model's KV
-    formula and its `/api/tags` `size` (the on-disk quantized weight
-    size, the same bytes Ollama loads into VRAM) -- `free_memory_bytes`
-    is augmented with every OTHER currently-loaded model's own
-    `size_vram` first, since Ollama can evict any of them to make room
-    for this one (so that VRAM is reclaimable headroom, not actually
-    unavailable). A REMOTE host never gets an OS-level read UNLESS its
-    config sets `ssh:` (round 5b, optional) -- then the exact same
-    `_fit_from_gpu_cards` arithmetic runs against an ssh-probed card list
-    instead of a local one; with no `ssh` configured, its own `/api/ps`
-    entry (loaded or not) is the only signal available, unchanged from
-    round 3's own original design."""
+    `/api/ps` is read first on every host (it also feeds the offload
+    marker). Halo 3.2.3.0 R1: the estimate is ALWAYS from memory -- KV
+    bytes per token x context plus the weights (`/api/tags` `size`)
+    against the host's GPU memory: the OS probe on a local host, the ssh
+    probe on a remote host with `ssh:` set. Every loaded model's
+    `size_vram`, this one's included, is reclaimable headroom (a reload
+    replaces it). A loaded model's own `context_length` is never the
+    estimate any more (a model loaded at 8192 reported 8192 for good). A
+    remote host without `ssh:` has no memory reading: None. The estimate
+    is a power of two, so a few hundred MB of drift between two
+    processes rarely moves it."""
     row = catalog_row(catalog, model)
     if row is None:
         return None
@@ -552,8 +541,12 @@ def estimate_fit_for_host(host, model: str, catalog: Optional[dict], *, runner=N
             loaded_entry = entry
             break
     _record_last_known_offload(host.url, model, loaded_entry)
-    if loaded_entry is not None:
-        return remote_loaded_context_as_fit_estimate(loaded_entry)
+    # Halo 3.2.3.0 R1: a LOADED model is estimated from memory too, never
+    # from its own loaded `context_length` -- a model loaded at 8192 used
+    # to report 8192 as its fit forever. Its own `size_vram` counts as
+    # reclaimable (a reload at another size replaces it). A remote host
+    # without `ssh:` has no memory reading: None, the trained context
+    # (capped by the hard cap) stands.
     if not is_local_host(host):
         ssh_target = getattr(host, "ssh", None)
         if not ssh_target:
@@ -661,6 +654,14 @@ class OllamaContextDecision:
     # `providers.ollama_request.build_ollama_request_body`, which never
     # sends `think` at all when it's `False`.
     supports_thinking: bool = True
+    # Halo 3.2.3.0 R1: `host.max_ctx` (None when unset) -- one of the
+    # ceiling inputs `providers.ollama_prompt.window_for` raises up to.
+    host_max_ctx: Optional[int] = None
+    # Halo 3.2.3.0 R1: `num_gpu` for "every layer on the GPU" (the row's
+    # `<family>.block_count` + 1, 999 when unknown) and the largest window
+    # Halo knows fits there (the memory estimate or the calibrated cap).
+    gpu_layers: Optional[int] = None
+    gpu_fits_up_to: Optional[int] = None
 
 
 _FITS_TTL_S = 60.0
@@ -765,6 +766,11 @@ def gpu_budget_bytes(card: GpuMemory) -> Optional[int]:
     return _int(card.total_bytes)
 
 
+def _gpu_fits_up_to(fit, learned_cap) -> Optional[int]:
+    values = [v for v in (fit, learned_cap) if isinstance(v, int) and not isinstance(v, bool) and v > 0]
+    return max(values) if values else None
+
+
 def resolve_context_decision(model_ref, env=None, *, hw_runner=None) -> OllamaContextDecision:
     """ONE per-ref entry point for everything round 3 (and, as of round
     5b, the learned-cap/remote-default precedence) needs to know about an
@@ -786,6 +792,7 @@ def resolve_context_decision(model_ref, env=None, *, hw_runner=None) -> OllamaCo
     recorded_does_not_fit = False
     cpu_only = False
     supports_thinking = True
+    gpu_layers = None
     if host is not None:
         host_max_ctx = host.max_ctx
         remote = not is_local_host(host)
@@ -800,6 +807,9 @@ def resolve_context_decision(model_ref, env=None, *, hw_runner=None) -> OllamaCo
             # see `OllamaContextDecision.supports_thinking`'s own
             # docstring for the "benefit of the doubt" default.
             row = catalog_row(catalog, model_ref.model)
+            if row is not None:
+                from halo_harness.providers.ollama_calibrate_steps import gpu_layers_for
+                gpu_layers = gpu_layers_for(row.get("model_info"))
             if row is not None and isinstance(row.get("capabilities"), list):
                 supports_thinking = "thinking" in row["capabilities"]
         except Exception:
@@ -856,4 +866,5 @@ def resolve_context_decision(model_ref, env=None, *, hw_runner=None) -> OllamaCo
                                   tools_max=tools_max, catalog_prompt_tokens=estimate_catalog_prompt_tokens(tools_max),
                                   learned_cap=learned_cap, remote=remote, source=source, offloaded=offloaded,
                                   recorded_does_not_fit=recorded_does_not_fit, cpu_only=cpu_only,
-                                  supports_thinking=supports_thinking)
+                                  supports_thinking=supports_thinking, host_max_ctx=host_max_ctx,
+                                  gpu_layers=gpu_layers, gpu_fits_up_to=_gpu_fits_up_to(fit, learned_cap))

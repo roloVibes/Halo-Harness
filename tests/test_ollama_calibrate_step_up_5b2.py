@@ -63,7 +63,9 @@ def test_steps_up_from_a_fitting_first_guess(ctx: Ctx):
         ctx.check(f"fits, got {result.outcome!r}", result.outcome == "fits")
         ctx.check(f"stepped UP to the true ceiling 32768, got {result.max_full_gpu_ctx}",
                   result.max_full_gpu_ctx == 32768)
-        ctx.check(f"4 steps (8192, 16384, 32768, 65536-fails), got {result.steps}", result.steps == 4)
+        # Halo 3.2.3.0 R1: then the midpoint 49152 once (the scripted last
+        # entry repeats: offloaded too).
+        ctx.check(f"5 steps (8192, 16384, 32768, 65536-fails, 49152-fails), got {result.steps}", result.steps == 5)
     finally:
         mock.stop()
 
