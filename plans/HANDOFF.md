@@ -4,7 +4,30 @@ This folder carries the whole plan so a new session (local or cloud) can
 pick the work up without the conversation that produced it. Read this file
 first, then `WORKER-RULES.md`, then the round you are starting.
 
-## WHERE THINGS STAND -- 2026-10-25 night (authoritative, read this first)
+## WHERE THINGS STAND -- 2026-10-26 evening (authoritative, read this first)
+
+**3.3.1.0 "Setup, one page at a time" IS RELEASED** (tag v3.3.1.0, release commit 6ce42f9 cut
+from 28be0eb on 2026-10-26 after both runners went green; installed on the PC: `halo 3.3.1.0`).
+One round, R1, from the owner's note on 3.3.0.0 ("I hate the pop up when the settings studio is
+launched ... Have it go thru pages not like a huge confusing blob on one page"): nothing opens on
+its own when Setup loads (`?first=1` only leads the rail's line, no first-visit welcome on Setup,
+no Start here overlay over Setup; the help is the ? in the header); Setup is a paged flow -- a
+step rail in the terminal wizard's order (Providers, Local models, Default model, Permissions,
+Theme, Team, Linux fixes only when needed, Check, Summary), one block per page with Back / Next
+(Ctrl+Left / Ctrl+Right, Enter saves), the page remembered per home (`GET setup/state` carries
+`home`), `?block=` wins, a Summary page with Change jumps; the section registry's `paged` flag
+keeps the panel machinery (move / resize / Arrange) off Setup; the Ollama finders sit in a closed
+disclosure on the Providers page. Files: `routes/setup/{Setup,SetupRail,SetupPage,Summary}.tsx`,
+`routes/setup/pages.ts`, `styles/setup-pages.css`; tests `tests/test_studio_setup_pages.py` (+
+helpers/studio_setup_pages.py, `goto(c, step)` shared by every Setup driver). Worktree
+`~/hh-331/R1-setup-pages`, briefs under `~/hh-331/briefs/`. One CI lesson (28be0eb): headless
+Chrome treats `Page.navigate` to the SAME address with its `#t=` fragment as a fragment hop, not a
+load -- a driver that re-opens the page it is already on must hop through `about:blank` first
+(tests/helpers/studio_setup_check.py `linux_block`, studio_setup_pages.py `_load`). Open:
+ROADMAP "After 3.3.0.0" (unchanged) and the owner's live checks (the PC's `halo init` into the
+paged Setup, Kali `halo update` + `halo init`, the Mac). **Next:** nothing is queued.
+
+### Before it: 2026-10-25 night
 
 **3.2.2.0 "The first run says what it does" IS RELEASED** (tag v3.2.2.0, cut from
 0bd5ffc on 2026-10-25 night after both runners went green; installed on the PC).
