@@ -3,11 +3,16 @@
 // best-at line), grouped by provider, a search box over ref, name and best
 // at, the saved one checked; Save writes `model` in ~/.halo/config.json, the
 // model a new session starts on (`halo --model` and /model still pick
-// another for one run).
+// another for one run). 3.3.0.0 R3: the rows are the cached catalog (reading
+// this page probes no host); a configured Ollama host nothing has read yet
+// says "not read yet: Refresh", and Refresh reads every provider's list
+// (POST models/refresh, the Models panel's Refresh), then the page again.
 import { useMemo, useState } from "react";
-import { Empty } from "../../lib/ui";
+import { api } from "../../lib/api";
+import { toast } from "../../lib/store";
+import { Button, Empty } from "../../lib/ui";
 import { BlockFoot, useLoadState, Waiting } from "./BlockFoot";
-import { NONE, pick, shownOf, useSetup, type ModelRow } from "./store";
+import { loadSetup, NONE, pick, shownOf, useSetup, type ModelRow } from "./store";
 
 const LIMIT = 60; // rows drawn per provider until the search narrows them
 
@@ -32,6 +37,33 @@ function Row({ r, on }: { r: ModelRow; on: boolean }) {
   );
 }
 
+function Refresh() {
+  const notes = useSetup((s) => s.data?.model_notes || NONE);
+  const [busy, setBusy] = useState(false);
+  const go = async () => {
+    setBusy(true);
+    try {
+      const r = await api.post<{ rows?: number }>("models/refresh", {});
+      toast(`the catalog read again: ${r.rows ?? 0} models`, "done", 4000);
+    } catch (e) {
+      toast(e instanceof Error ? e.message : String(e), "error", 6000);
+    } finally {
+      setBusy(false);
+      void loadSetup();
+    }
+  };
+  return (
+    <div className="su-card-row">
+      {notes.map((n) => (
+        <span key={n} className="su-note muted" data-testid="setup-model-note">{n}</span>
+      ))}
+      <Button size="sm" variant="ghost" disabled={busy} onClick={() => void go()} title="halo models --refresh" data-testid="setup-model-refresh">
+        {busy ? "Reading..." : "Refresh"}
+      </Button>
+    </div>
+  );
+}
+
 export function DefaultModelDetail() {
   const { ready, error } = useLoadState();
   const rows = useSetup((s) => s.data?.models || NONE);
@@ -46,9 +78,10 @@ export function DefaultModelDetail() {
       <p className="su-lead muted">
         The model a new session starts on. {saved ? <>Saved: <b className="mono" data-testid="setup-model-saved">{saved}</b>{known ? "" : " (not in the catalog of the providers set up here)"}.</> : "Nothing saved yet."}
       </p>
+      <Refresh />
       {rows.length === 0 ? (
         <Empty title="No model to pick yet" testid="setup-models-empty"
-               body="The list is the catalog of the providers set up here. Set a provider up first (halo init in a terminal), then halo models --refresh." />
+               body="The list is the catalog of the providers set up here. Set a provider up first (the Providers block), then Refresh." />
       ) : (
         <>
           <input className="input su-search" type="search" placeholder={`search ${rows.length} models: ref, name, best at`} value={q}

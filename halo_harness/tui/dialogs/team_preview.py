@@ -45,7 +45,8 @@ def catalog_by_ref() -> dict:
     try:
         from halo_harness.config.paths import bridge_home
         from halo_harness.providers.model_enumeration import build_model_rows
-        return {r.get("ref"): r for r in build_model_rows(bridge_home()) if isinstance(r, dict) and r.get("ref")}
+        rows = build_model_rows(bridge_home(), cached=True)  # 3.3.0.0 R3: no Ollama host or local port probed
+        return {r.get("ref"): r for r in rows if isinstance(r, dict) and r.get("ref")}
     except Exception:
         return {}
 

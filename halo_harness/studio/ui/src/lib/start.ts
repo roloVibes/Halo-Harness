@@ -7,10 +7,12 @@
 // arrive as `start` frames on the live feed (polled from GET /api/start too,
 // so a closed feed still shows them); POST /api/start/dismiss is "Just look
 // around", remembered for the home. `?tour=off` (captures, tests) keeps the
-// overlay shut, like the first-visit welcome.
+// overlay shut, like the first-visit welcome. 3.3.0.0 R3: the overlay's first
+// button is "Set up this box" (Setup opens), and a 422 `no_provider` answer
+// to POST start opens Setup with a toast instead of an error line.
 import { ApiError, api } from "./api";
 import { onEvent } from "./events";
-import { createStore, studio, welcomeIfNew } from "./store";
+import { createStore, goSection, studio, toast, welcomeIfNew } from "./store";
 
 export type StartFrame = {
   step: number;
@@ -24,7 +26,7 @@ export type StartFrame = {
 };
 export type StartSummary = { ok?: boolean; stopped_at?: string | null; reason?: string; error_log?: string; lineup?: string; repo?: string; run?: string; coach?: number; message?: string };
 type Job = { job: string; running: boolean; fake?: boolean; steps: StartFrame[]; summary: StartSummary | null };
-type Status = { show: boolean; fresh: boolean; plan: StartFrame[]; job: Job | null; card?: string[] };
+type Status = { show: boolean; fresh: boolean; plan: StartFrame[]; job: Job | null; card?: string[]; no_provider?: boolean };
 
 type StartState = {
   open: boolean;
@@ -36,9 +38,11 @@ type StartState = {
   running: boolean;
   error: string;
   busy: boolean;
+  /** 3.3.0.0 R3: no provider is set up yet (GET start `no_provider`): "Set up this box" is the primary button. */
+  noProvider: boolean;
 };
 
-export const start = createStore<StartState>({ open: false, view: "offer", plan: [], card: [], steps: {}, summary: null, running: false, error: "", busy: false });
+export const start = createStore<StartState>({ open: false, view: "offer", plan: [], card: [], steps: {}, summary: null, running: false, error: "", busy: false, noProvider: false });
 
 // 3.1.1.0 R3: a page opened on an edit (`?edit=`, `halo studio --edit`) goes straight to it, no overlay.
 const QUIET = typeof location !== "undefined" && /[?&]((tour|start)=off\b|edit=)/.test(location.search);
@@ -99,7 +103,7 @@ export async function loadStart(): Promise<void> {
   if (QUIET) return;
   try {
     const st = await api.get<Status>("start");
-    start.update(() => ({ plan: st.plan || [], card: st.card || [] }));
+    start.update(() => ({ plan: st.plan || [], card: st.card || [], noProvider: !!st.no_provider }));
     if (st.job && st.job.running) {
       adoptJob(st.job);
       start.update(() => ({ open: true, view: "run" }));
@@ -122,10 +126,27 @@ export async function runStart(): Promise<void> {
     start.update(() => ({ view: "run", running: true }));
     poll();
   } catch (e) {
+    if (e instanceof ApiError && e.status === 422 && e.data.reason === "no_provider") {
+      noProviderJump(); // 3.3.0.0 R3: Studio's "no provider" answer opens Setup
+      return;
+    }
     start.update(() => ({ error: e instanceof ApiError ? e.message : String(e) }));
   } finally {
     start.update(() => ({ busy: false }));
   }
+}
+
+/** 3.3.0.0 R3: a start (or a Check) Studio answered "no provider" to: the overlay closes and Setup opens. */
+export function noProviderJump(): void {
+  start.update(() => ({ noProvider: true }));
+  setUpThisBox();
+  toast("no provider is set up yet: Setup", "info", 6000);
+}
+
+/** "Set up this box", the overlay's first button: Setup opens and the overlay closes (it asks again on the next load). */
+export function setUpThisBox(): void {
+  goSection("setup");
+  closeStart();
 }
 
 export async function dismissStart(): Promise<void> {
@@ -160,6 +181,6 @@ export function openStart(): void {
   if (!start.get().plan.length || !start.get().card.length)
     api
       .get<Status>("start")
-      .then((st) => start.update(() => ({ plan: st.plan || [], card: st.card || [] })))
+      .then((st) => start.update(() => ({ plan: st.plan || [], card: st.card || [], noProvider: !!st.no_provider })))
       .catch(() => undefined);
 }

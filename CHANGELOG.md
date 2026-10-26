@@ -39,6 +39,20 @@ version.
 - The wizard's Hugging Face local-server writer takes an optional name (Setup names its servers; the wizard's one entry stays `default`).
 - The Setup page opens with Providers and Local models on top; the rail says how many providers are set and how many model folders are added.
 
+### R3: the Check block, the Linux fixes, the fresh-home landing
+
+#### Added
+- Setup's **Check** block: the five checks Halo offers after setup (doctor, the model catalog, a hello on the default model, the quick gym, the guided first run), each row saying what it does, what it costs, how long it takes and what it writes; doctor, catalog and hello are ticked. **Run the ticked checks** runs them in order as one background job; each row shows its state and its lines as they arrive, the foot how many failed, and the status strip's **Last check** ("ok 12:04", "2 failed 12:04") keeps the result. Ticking the gym lists the models it would run on; the guided first run shows its card before its box can be ticked and runs through the Start here job, its steps under the row. Routes `POST setup/check`, `GET setup/check`, `POST setup/check/stop`; `setup` frames on the live feed.
+- Setup's **Linux fixes** block: shown only when this box lacks a static `rg` in `~/.local/bin` or `~/.local/bin` on PATH for a non-interactive shell; **Apply** does what the terminal wizard's Linux step does (`POST setup/linux-fixes`). Otherwise one line: nothing to fix on this box.
+- The Default model block's **Refresh** (reads every provider's list again) and a line for an Ollama host nothing has read yet ("not read yet: Refresh").
+
+#### Changed
+- A home with no provider set up opens Studio on Setup whatever section was saved (`?mode=` still wins); Start here's first button is **Set up this box**; a guided first run started with no provider opens Setup with a toast instead of an error line. The strip says "no provider set".
+- Reading Setup's state, the guided first run's card and any cost line opens no connection: Ollama hosts and local servers are listed from what their last read cached (Studio's Refresh, `halo models --refresh`, `/local refresh`), never probed by a page read.
+
+#### Fixed
+- A Setup block's answer could be overwritten by an older read of the page that finished after it (a card showed "not set" next to the host it had just added); the newer answer wins and the page reads again.
+
 ### Also in 3.3.0.0
 
 #### Changed
