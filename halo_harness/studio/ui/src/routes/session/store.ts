@@ -20,8 +20,15 @@ import type { AgentKey, AgentRow, SessionRow } from "../fleet/types";
 export type SessionUiView = "auto" | "start" | "workspace";
 type Want = { session: string; key: AgentKey };
 /** 3.1.5.0 R3: `pin` is the one agent the Live column shows (its tag clicked; "" = every agent), `follow` keeps its newest line in view.
- *  3.1.7.0 R1: `kind` the kinds it shows ("" = every kind, else tool | text | state | ask: LiveHead.tsx). */
-type SessionState = { view: SessionUiView; chosen: string; want: Want | null; pin: AgentKey; follow: boolean; kind: string };
+ *  3.1.7.0 R1: `kind` the kinds it shows ("" = every kind, else tool | text | state | ask: LiveHead.tsx).
+ *  3.3.0.0 R6 (steer.ts): `target` the agent the Steer box talks to when you chose one ("" = the pin, else main),
+ *  `held` the row you chose it on (0 = its newest row), `chosenAt` counts the choices (the row scrolls into view once),
+ *  `hold` following never pushes that row out of view (until you follow again: the pill, Escape, Follow),
+ *  `composing` the Steer field has the keyboard, `pausedAt` the newest line when the column stopped following. */
+type SessionState = {
+  view: SessionUiView; chosen: string; want: Want | null; pin: AgentKey; follow: boolean; kind: string;
+  target: AgentKey; held: number; chosenAt: number; hold: boolean; composing: boolean; pausedAt: number;
+};
 
 function urlWant(): Want | null {
   if (!/[?&]mode=session(&|$)/.test(location.search)) return null;
@@ -36,6 +43,12 @@ export const sess = createStore<SessionState>({
   pin: "",
   follow: true,
   kind: "",
+  target: "",
+  held: 0,
+  chosenAt: 0,
+  hold: false,
+  composing: false,
+  pausedAt: 0,
 });
 
 export function useSession<S>(select: (s: SessionState) => S): S {

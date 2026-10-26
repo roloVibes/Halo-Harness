@@ -10,8 +10,9 @@
 // harness, or its chosen session). 3.1.7.0 R1: the same strip heads
 // Session's Live column with its own props: `scope` (that session's lanes),
 // `onPick` (a lane click pins the agent there), `marked` (the lane lit: the
-// pinned agent, else the selected one) and `testid`.
-import { useEffect, useMemo, useRef, useState, type MouseEvent, type RefObject } from "react";
+// pinned agent, else the selected one) and `testid`. 3.3.0.0 R6: `extra` sits in
+// its bar (Session's Export button); `marked` is the steer's target there.
+import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode, type RefObject } from "react";
 import { select } from "./actions";
 import { panels, usePanels, type Seg } from "./pstore";
 import { sessionsIn, useScope } from "./scope";
@@ -57,9 +58,9 @@ function bars(segs: Seg[], from: number, to: number): { x0: number; x1: number; 
   return out;
 }
 
-type Props = { scope?: Scope; onPick?: (key: AgentKey) => void; marked?: AgentKey; verb?: string; testid?: string };
+type Props = { scope?: Scope; onPick?: (key: AgentKey) => void; marked?: AgentKey; verb?: string; testid?: string; extra?: ReactNode };
 
-export function Timeline({ scope: only, onPick = select, marked, verb = "select it on the map", testid = "fleet-timeline" }: Props = {}) {
+export function Timeline({ scope: only, onPick = select, marked, verb = "select it on the map", testid = "fleet-timeline", extra }: Props = {}) {
   const harnesses = useFleet((s) => s.harnesses);
   const selected = useFleet((s) => s.selected);
   const lanes = usePanels((s) => s.lanes);
@@ -84,6 +85,7 @@ export function Timeline({ scope: only, onPick = select, marked, verb = "select 
       <div className="ftl-bar">
         <span className="rail-label mono">TIMELINE · ONE LANE PER LIVE AGENT</span>
         <span className="spacer" />
+        {extra}
         <div className="segmented" role="group" aria-label="How far back">
           {SPANS.map((m) => (
             <button key={m} className={span === m ? "on" : ""} aria-pressed={span === m} onClick={() => panels.update(() => ({ span: m }))} data-testid={`fleet-span-${m}`}>

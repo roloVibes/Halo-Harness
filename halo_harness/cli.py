@@ -280,7 +280,7 @@ def _build_parser() -> argparse.ArgumentParser:
         prog="halo", add_help=True,
         description="halo - starts an interactive session by default, use -p/--print for non-interactive output",
         epilog="Commands: init, start, explain, studio, design, media, orchestra, work, team, teams, agents, roles, models, mcp, proxy, "
-               "config, doctor, update, stats, review, preflight, audit, improve, export, "
+               "config, doctor, update, stats, review, preflight, audit, improve, export, session, "
                "completion (run `halo <command> --help`; `halo init` sets up a fresh box in one go). "
                "The GUI: `halo studio --mode roles|design` -- lineups and agent bios as a graph, "
                "designs on artboards; in the TUI, /roles and /design.",
@@ -522,6 +522,9 @@ def _main(argv: Optional[list] = None) -> int:
     if argv and argv[0] == "export":
         from halo_harness.export_cli import cmd_export
         return cmd_export(argv[1:])
+    if argv and argv[0] == "session":  # 3.3.0.0 R6: `halo session export <id>`, the Markdown trace
+        from halo_harness.session_trace_cli import cmd_session
+        return cmd_session(argv[1:])
     if argv and argv[0] == "bugreport":
         from halo_harness.bugreport import cmd_bugreport
         return cmd_bugreport(argv[1:])

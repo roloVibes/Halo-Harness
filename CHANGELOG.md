@@ -65,6 +65,21 @@ version.
 - The Ollama card's two placeholder buttons ("comes with 3.3.0.0 R5") now do what they say. The card takes the whole row once servers are found.
 - docs/LOCAL-MODELS.md "Found on this machine" / "Found on the network" / "Measured after finding" and docs/MODELS-ollama.md name the Studio way.
 
+### R6: the steer knows its target, and the timeline exports a trace
+
+#### Added
+- Studio Session: the Steer box names its target above the field, "Steering: coder · Bash (pytest -q), 12 s" (or thinking, waiting on you, paused, idle), live from the feed; the target row and its map node carry a steady outline in the agent's colour (the node's steer chip and its timeline lane lit); a click on a row or a node, `s` on a focused row, or Tab / Shift+Tab in the field changes it, and the line says what it was.
+- The Live column holds still while you type a steer or have scrolled up: new rows append below and the pill "N new rows · follow" counts them; the pill, Escape out of the field, Follow or a scroll to the bottom follows again. A target row you chose is scrolled into view once and never pushed out while held.
+- A steer lands as a row right under its target ("↳ steer to coder: ..."), and the agent's next row is marked "after your steer".
+- Export on the Live column's header and its timeline strip: the session as one Markdown trace, `halo-trace-<session id>-<yyyy-mm-dd-hhmm>.md` (`GET /api/sessions/<sid>/trace.md`).
+- `halo session export <id> [--md FILE]` (`--md -` prints): the header (id, model and lineup, start and end, turns, tool calls, tokens in and out, cost), then one entry per row (prompts, text, tool calls with a one-line argument summary, results trimmed to 40 lines, steers, nudges, permission answers, turn ends, compactions, errors), keys masked, home paths as `~` (halo_harness/session_trace.py).
+- docs/STUDIO-session.md: steering and exporting a session.
+
+#### Changed
+- `/export` (and `Ctrl+X Ctrl+S`) writes that trace beside the session log and says the path (was a Markdown transcript under `~/.halo/exports/`).
+- A turn's timeline record keeps the line the turn ended with (`marker`), so the trace shows it.
+- The Live column's pill reads "N new rows · follow" (was "↓ N new").
+
 ### Also in 3.3.0.0
 
 #### Changed

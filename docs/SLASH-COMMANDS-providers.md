@@ -193,9 +193,15 @@ to be available -- see `docs/INSTALL.md`'s "Update" section.
 
 ### `/export` `[TUI-only]`
 In `-p`, prints a note that export needs the TUI's file picker (use
-`halo export` instead -- see `docs/COMMANDS.md`). In the TUI,
-`/export [--sanitize] [path]` writes the session's JSONL transcript to disk
-immediately.
+`halo export` or `halo session export <id>` instead -- see `docs/COMMANDS.md`).
+In the TUI, `/export [--sanitize] [path]` writes the session as one Markdown
+trace (3.3.0.0: the header with the totals, then one entry per row -- prompts,
+text, tool calls and their results trimmed to 40 lines, steers, nudges,
+permission answers, turn ends, compactions, errors -- keys masked, home paths
+as `~`), beside the session log as `halo-trace-<session id>-<yyyy-mm-dd-hhmm>.md`
+unless you name a path, and says the path. It is the same file
+`halo session export <id>` and Studio's **Export** write
+([Studio: steering and exporting a session](STUDIO-session.md)); `Ctrl+X Ctrl+S` runs it too.
 
 ### `/bugreport [--copy] [--include-content]`
 2.0.1: writes a redacted diagnostic report to `~/.halo/bugreports/<timestamp>.md`

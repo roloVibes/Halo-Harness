@@ -13,12 +13,13 @@
 // come back), so nothing of it runs for the Fleet page. 3.1.7.0 R1: a steer
 // is echoed by its own entry (each `you` entry once), so the first steer to an
 // agent nobody had opened (its stream starts with it: the session's main agent
-// from the Live column's Steer box) lands as a YOU line at once too.
+// from the Live column's Steer box) lands as a YOU line at once too. 3.3.0.0 R6: it lands under its target row,
+// named for its target ("↳ steer to coder: ...", liveFeed.ts addSteer).
 import { studio } from "../../lib/store";
-import { allAgents, fleet, isLive, localId } from "../fleet/store";
+import { allAgents, findAgent, fleet, isLive, localId } from "../fleet/store";
 import { loadTail } from "../fleet/streams";
 import type { AgentKey, Entry } from "../fleet/types";
-import { addLine, fromEntry, live, startLive } from "./liveFeed";
+import { addLine, addSteer, fromEntry, live, startLive } from "./liveFeed";
 
 const BACKLOG = 40;
 const states = new Map<AgentKey, string>();
@@ -96,7 +97,8 @@ function echoes(s: ReturnType<typeof fleet.get>): void {
       if (!e.you || echoed.has(e)) continue;
       echoed.add(e);
       const ts = Number(e.ts) || Date.now() / 1000;
-      if (ts >= since) addLine({ key, kind: "you", ts, text: String(e.text || "") });
+      const ref = findAgent(s, key);
+      if (ts >= since) addSteer(key, String(e.text || ""), ts, ref && ref.a.parent ? nameOf(ref.a) : "main");
     }
   }
 }
