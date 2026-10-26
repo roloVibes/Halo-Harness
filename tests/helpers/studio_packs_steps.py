@@ -90,6 +90,8 @@ def first_paint(c, url, ctx) -> dict:
     out["saved_section"] = c.js("localStorage.getItem('halo.studio.section')")
     c.call("Page.enable")  # the new-document script runs only with the Page domain on (off again below)
     script = c.call("Page.addScriptToEvaluateOnNewDocument", source=FIRST_PAINT).get("identifier")
+    from halo_harness.theme import set_config_value, unset_config_value
+    set_config_value("model", "ol:first-paint:1b")  # 3.3.0.0 R3: a home with no provider opens on Setup, whatever was saved
     try:
         c.go("about:blank")
         c.wait("location.href === 'about:blank'", 10)
@@ -100,6 +102,7 @@ def first_paint(c, url, ctx) -> dict:
         out["paint_boot_attr"] = c.js("JSON.parse(document.documentElement.dataset.packSections || '[]').map((s) => s.id)")
         out["paint_loading_after"] = c.js(f"!!{q('[data-testid=pack-section-loading]')}")
     finally:
+        unset_config_value("model")
         if script:
             c.call("Page.removeScriptToEvaluateOnNewDocument", identifier=script)
         c.call("Page.disable")

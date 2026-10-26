@@ -343,7 +343,9 @@ the last line counts them (`halo check: 2 of 3 passed; failed: catalog`).
 local models and names a cloud one as not run). Exit 0 when every check
 that ran passed, 1 when one failed, 2 on a usage error. `/check` in the TUI
 takes the same flags and prints into the transcript (`--start` there
-points at `/start`, which runs the guided first run in a panel).
+points at `/start`, which runs the guided first run in a panel). Studio's
+Setup section has the same five checks as its Check block, ticked rows run
+as one job with a live log ([STUDIO-setup.md](STUDIO-setup.md#check-and-linux-fixes-3300-r3)).
 
 ## `halo explain`
 

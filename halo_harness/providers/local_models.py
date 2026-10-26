@@ -230,24 +230,31 @@ def _file_backed_row(group: str, name: str, path, fmt: str, size_bytes, *, state
 
 
 def build_local_view(*, refresh: bool = False, env: Optional[dict] = None, state_dir=None,
-                      hw_runner=None) -> "list[LocalModelRow]":
+                      hw_runner=None, cached: bool = False) -> "list[LocalModelRow]":
     """The merged list -- see this module's own docstring for the fixed
     three-source order. `refresh`: force Ollama's own catalog re-read AND
     probe every configured manual `huggingface.local_servers` entry (bare
     `/local` skips both -- the Ollama catalog's own short TTL cache
     answers instantly, and a manual entry shows "configured, not probed"
     instead of a live reachable/model list). Auto-detection always runs
-    (gated only by `BRIDGE_TEST_NO_BACKGROUND_NET`, never by `refresh`)."""
+    (gated only by `BRIDGE_TEST_NO_BACKGROUND_NET`, never by `refresh`).
+    3.3.0.0 R3 `cached`: no probe at all -- each Ollama host's rows come from
+    the catalog its last read cached, the auto-detected servers from the last
+    detection (providers/local_models_cached.py); a page read opens no
+    connection."""
     if state_dir is None:
         from halo_harness.config.paths import bridge_home
         state_dir = bridge_home()
     rows: "list[LocalModelRow]" = []
     from halo_harness.providers.ollama import resolve_ollama_hosts
+    from halo_harness.providers import local_models_cached as cache
     for host in resolve_ollama_hosts(env):
-        rows.extend(_ollama_rows(host, refresh=refresh, hw_runner=hw_runner, state_dir=state_dir))
+        rows.extend(cache.ollama_cached_rows(host, state_dir) if cached
+                    else _ollama_rows(host, refresh=refresh, hw_runner=hw_runner, state_dir=state_dir))
     from halo_harness.providers.huggingface import resolve_huggingface_local_servers
     from halo_harness.providers.huggingface_local_probe import auto_detect_local_servers, probe_manual_server
-    detected = auto_detect_local_servers(env=env, force=refresh)
+    refresh = refresh and not cached
+    detected = cache.cached_detected_servers() if cached else auto_detect_local_servers(env=env, force=refresh)
     for i, info in enumerate(detected):
         rows.extend(_hf_server_rows(info, reachable=True, addressable=(i == 0)))
     for server in resolve_huggingface_local_servers():

@@ -83,7 +83,7 @@ def test_the_state_has_every_block_and_no_key(ctx: Ctx):
         status, s = e.call("GET", "setup/state")
         ctx.check(f"200, got {status}", status == 200)
         want = {"model", "permission_mode", "theme", "theme_default", "themes", "permission_modes", "team", "models", "providers",
-                "linux_fixes", "last_check"}
+                "linux_fixes", "last_check", "checks", "gym_models", "card", "no_provider", "model_notes"}  # R3: the last five
         ctx.check(f"the blocks' keys, got {sorted(s)}", want <= set(s))
         ctx.check("nothing saved yet: model, mode and theme are blank, the default theme named",
                   s["model"] == "" and s["permission_mode"] == "" and s["theme"] == "" and s["theme_default"] == "claude-dark")
@@ -110,7 +110,9 @@ def test_the_state_has_every_block_and_no_key(ctx: Ctx):
         ctx.check("One model for everything first, then the lineups; auto checked as the default",
                   team["lineups"][0]["name"] == "one-model" and team["lineups"][0]["label"] == "One model for everything"
                   and rows["auto"]["default"] and rows["auto"]["active"] and not rows["one-model"]["active"] and "balanced" in rows)
-        ctx.check("R3's blocks are empty this round", s["linux_fixes"] == {"needed": False, "items": []} and s["last_check"] is None)
+        ctx.check("R3: no check ran yet; the Linux fixes block's shape (its items depend on the box)",
+                  s["last_check"] is None and set(s["linux_fixes"]) == {"needed", "items", "platform"}
+                  and s["linux_fixes"]["needed"] == bool(s["linux_fixes"]["items"]))
 
 
 @test

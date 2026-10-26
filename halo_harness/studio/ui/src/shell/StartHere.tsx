@@ -5,11 +5,13 @@
 // its last lines, then the outcome and where to go next. lib/start.ts holds
 // the state and talks to /api/start. 3.2.2.0 R2: the offer shows the card
 // `halo start` opens on (what it does, the models, the cost, the time, what
-// it writes) above its Run button.
+// it writes) above its Run button. 3.3.0.0 R3: the first button is "Set up
+// this box" (Setup opens, the overlay closes; the primary one while no
+// provider is set up); "Just look around" stays.
 import { useEffect } from "react";
 import { Button, Dialog } from "../lib/ui";
 import { goSection, useStore } from "../lib/store";
-import { closeStart, dismissStart, loadStart, runStart, start, stopStart, type StartFrame } from "../lib/start";
+import { closeStart, dismissStart, loadStart, runStart, setUpThisBox, start, stopStart, type StartFrame } from "../lib/start";
 import { loadLists } from "../routes/roles/sync";
 
 const MARK: Record<string, string> = { pending: "", ready: "..", running: ">>", done: "ok", failed: "!!", stopped: "--" };
@@ -33,6 +35,7 @@ function Offer() {
   const busy = useStore(start, (s) => s.busy);
   const error = useStore(start, (s) => s.error);
   const card = useStore(start, (s) => s.card);
+  const noProvider = useStore(start, (s) => s.noProvider);
   return (
     <div className="sh-offer">
       <p>
@@ -46,7 +49,10 @@ function Offer() {
       <p className="muted">It runs on your models. The same run in a terminal, one screen per step: <code>halo start</code> (<code>halo start --explain</code> prints this card).</p>
       {error && <p className="og-problems" data-testid="start-here-error">{error}</p>}
       <div className="os-buttons">
-        <Button variant="primary" onClick={() => void runStart()} disabled={busy} data-testid="start-here-run">
+        <Button variant={noProvider ? "primary" : "default"} onClick={setUpThisBox} data-testid="start-here-setup">
+          Set up this box
+        </Button>
+        <Button variant={noProvider ? "default" : "primary"} onClick={() => void runStart()} disabled={busy} data-testid="start-here-run">
           Run the guided first run
         </Button>
         <Button variant="ghost" onClick={() => void dismissStart()} data-testid="start-here-dismiss">

@@ -200,9 +200,9 @@ section comes after the core sections. See [docs/STUDIO-packs.md](docs/STUDIO-pa
 [docs/PACKS.md](docs/PACKS.md).
 
 The eighth, **Setup** (`Alt+8`, 3.3.0.0), is this box's setup on one page: the terminal wizard's blocks
-(the default model, the permission mode, the terminal theme, the lineup; the providers, local models,
-Linux fixes and the check follow) as forms you fill in any order, each saving the key `halo init` and
-`halo config set` write. See [docs/STUDIO-setup.md](docs/STUDIO-setup.md).
+(the providers, local models, the default model, the permission mode, the terminal theme, the lineup,
+the Linux fixes when a box needs them, and the five checks) as forms you fill in any order, each saving the
+key `halo init` and `halo config set` write; a home with no provider set up opens on it. See [docs/STUDIO-setup.md](docs/STUDIO-setup.md).
 
 The pictures here are headless-Chrome renders of Studio over fixture data
 (`tools/capture_studio.py`, and `tools/capture_session_anim.py` for the animated ones).

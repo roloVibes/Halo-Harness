@@ -1,12 +1,15 @@
-"""tests.test_studio_setup -- the Setup section in the page (Halo 3.3.0.0 R1).
+"""tests.test_studio_setup -- the Setup section in the page (Halo 3.3.0.0 R1-R3).
 Headless Chrome through the driver base (tests/helpers/studio_setup.py and
 studio_setup_providers.py; skipped without one), over a seeded home (the
 shipped lineups, halo-dev-cycle active), a stub catalog of two models and an
 env file in that home (`HALO_ENV_FILE`); no provider request, no model call:
 
+0. (R3) with no provider set up: Start here's first button is "Set up this
+   box", its Run's 422 lands on Setup with a toast; no `?mode=` opens on
+   Setup whatever was saved;
 1. `?mode=setup` opens it, and Alt+8 from Roles: the eighth and last tab;
-   the strip names the provider, model, lineup, mode and theme; Linux fixes
-   and Check say they come with R3; the rail lists eight blocks;
+   the strip names the provider, model, lineup, mode, theme and last check;
+   no block says it comes later; the rail lists eight blocks;
    (R2) Providers: OpenRouter's Save & test with a test key writes the env
    file, the card shows the masked tail, the strip names it; an Ollama host
    added is in the hosts table; Local models: a folder added is listed and
@@ -17,7 +20,10 @@ env file in that home (`HALO_ENV_FILE`); no provider request, no model call:
 4. Default model: grouped by provider, the search narrows it, saved;
 5. Team: balanced with its preview, Apply writes team and roles on; One
    model for everything removes team and turns roles off;
-6. a config.json write from outside: the strip follows the frame.
+6. a config.json write from outside: the strip follows the frame;
+7. (R3) Check: the five rows and their defaults, the gym's models, the card
+   before the guided first run's box, a run of stub checks fills the logs,
+   the summary and the strip; Linux fixes: two stubbed fixes applied.
 Run: python -m tests.test_studio_setup
 """
 from __future__ import annotations
@@ -25,6 +31,7 @@ from __future__ import annotations
 TIER = "full"  # headless Chrome: the full tier
 
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -73,17 +80,59 @@ def test_setup_opens_by_mode_and_by_alt_8(ctx: Ctx):
 @test
 def test_the_strip_says_what_is_set(ctx: Ctx):
     got = _got(ctx)
-    want = [["provider", "none"], ["model", "not set"], ["lineup", "halo-dev-cycle"], ["permissions", "not set"], ["theme", "claude-dark (default)"]]
+    want = [["provider", "no provider set"], ["model", "not set"], ["lineup", "halo-dev-cycle"], ["permissions", "not set"],
+            ["theme", "claude-dark (default)"], ["check", "not run"]]
     ctx.check(f"provider, model, lineup, permissions, theme, got {got.get('strip')}", got.get("strip") == want)
     ctx.check("the strip is there on ?mode=setup too", got.get("mode_first_strip") == want)
 
 
 @test
-def test_the_later_blocks_say_when_they_come(ctx: Ctx):
+def test_no_block_says_it_comes_later(ctx: Ctx):
     got = _got(ctx)
-    later = dict(got.get("later") or [])
-    ctx.check(f"only Linux fixes and Check are later (R3), got {later}", sorted(later) == ["check", "linux"]
-              and "comes with R3" in later.get("linux", "") and "comes with R3" in later.get("check", ""))
+    ctx.check(f"R3: Linux fixes and Check are real blocks, got {got.get('later')}", got.get("later") == [])
+
+
+@test
+def test_no_provider_lands_on_setup(ctx: Ctx):
+    got = _got(ctx)
+    ctx.check(f"Start here's first button, got {got.get('jump_first_button')!r} {got.get('land_first_button')!r}",
+              got.get("jump_first_button") == "Set up this box" and got.get("land_first_button") == "Set up this box")
+    ctx.check(f"its Run's 422 no_provider opens Setup with a toast, got {got.get('jump_section')!r} {got.get('jump_toast')!r}",
+              str(got.get("jump_section")).startswith("Setup") and got.get("jump_toast") == "no provider is set up yet: Setup")
+    ctx.check(f"the strip says no provider set, got {got.get('jump_strip')!r}", got.get("jump_strip") == "no provider set")
+    ctx.check(f"no ?mode=, Roles saved: the page opens on Setup, got {got.get('land_section')!r} {got.get('land_boot')!r}",
+              str(got.get("land_section")).startswith("Setup") and got.get("land_boot") == "1")
+    ctx.check(f"Set up this box closes the overlay on Setup, got {got.get('land_after')!r}", str(got.get("land_after")).startswith("Setup"))
+
+
+@test
+def test_the_check_block(ctx: Ctx):
+    got = _got(ctx)
+    ctx.check(f"five rows, doctor / catalog / hello ticked, got {got.get('check_rows')} {got.get('check_ticks')}",
+              got.get("check_rows") == ["doctor", "catalog", "hello", "gym", "start"] and got.get("check_ticks") == [True, True, True, False, False])
+    ctx.check(f"each row says what / cost / time / writes, got {got.get('check_detail')!r}",
+              all(w in str(got.get("check_detail")) for w in ("Cost: ", "Time: ", "Writes: ")))
+    ctx.check(f"ticking the gym lists its models, got {got.get('gym_models')}", "or:mock/beta" in (got.get("gym_models") or []))
+    ctx.check(f"the guided first run's box is off until the card shows, got {got.get('check_start_locked')} {got.get('start_unlocked')}",
+              got.get("check_start_locked") is True and got.get("start_unlocked") is True)
+    ctx.check(f"the card under its row, got {got.get('card_first')!r}", got.get("card_first") == "The guided first run (halo start)")
+    ctx.check(f"Run: the summary, got {got.get('summary')!r}", got.get("summary") == "1 failed: hello")
+    ctx.check(f"each row's glyph, got {got.get('glyphs')}", got.get("glyphs") == ["ok", "ok", "!!", "ok", ""])
+    logs = dict(got.get("logs") or [])
+    ctx.check(f"each row's log, got {logs}", logs.get("doctor") == "doctor stub: config ok" and logs.get("hello") == "no pong (stub)")
+    ctx.check(f"the strip and the rail say the last check, got {got.get('strip_check')!r} {got.get('rail_check')!r}",
+              re.fullmatch(r"1 failed \d\d:\d\d", str(got.get("strip_check"))) is not None and got.get("rail_check") == got.get("strip_check"))
+    ctx.check("last-check.json written", got.get("last_check_file") is True)
+
+
+@test
+def test_the_linux_fixes_block(ctx: Ctx):
+    got = _got(ctx)
+    ctx.check(f"a box missing both: the two fixes, got {got.get('linux_items')} {got.get('linux_rail')!r}",
+              got.get("linux_items") == ["ripgrep", "path"] and got.get("linux_rail") == "2 to apply")
+    ctx.check(f"Apply ran both stubs, the lines say so, got {got.get('linux_calls')} {got.get('linux_lines')!r}",
+              got.get("linux_calls") == ["rg", "rc"] and "installed rg: " in str(got.get("linux_lines")))
+    ctx.check(f"then nothing to fix, got {got.get('linux_after')!r}", got.get("linux_after") == "nothing to fix on this box")
 
 
 @test

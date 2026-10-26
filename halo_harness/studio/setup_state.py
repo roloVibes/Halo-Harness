@@ -7,13 +7,16 @@ them, and the rows each block offers (the wizard's own lists).
      themes: [{name, palette: {bg, surface, panel, text, muted, accent, ok, warn, bad, tool}}],
      permission_modes: [{id, label, note}],            init_cli._PERMISSION_MODE_ROWS
      team: {active, source, roles_enabled, lineups: [{name, label, scope, description, active, default}]},
-     models: [{ref, provider, label, best_at, price, context}],   the Models panel's rows (studio/model.py)
+     models: [{ref, provider, label, best_at, price, context}],   the Models panel's rows (studio/model.py), cached only
+     model_notes: [lines],                            a configured Ollama host nothing read yet ("not read yet: Refresh")
      providers: {<name>: {label, set, source, tail, enabled, reachable, catalog_count, detail, host_hint, fields}},
      ollama, huggingface, local_models,               R2: studio/setup_providers_state.py
-     linux_fixes: {needed, items: []}, last_check: null}   (R3 fills both)
+     checks, gym_models, card, last_check, linux_fixes, no_provider}   R3: studio/setup_check_state.py
 
 No key is ever in it: a provider is `set` or not, with its source and last four characters. `permission_mode`, `theme`
-and `model` are "" when config.json has none (the strip then says "not set").
+and `model` are "" when config.json has none (the strip then says "not set"). 3.3.0.0 R3: a read opens no
+connection -- the model rows are the cached catalog (no Ollama host or local port probed: a host never read in this
+process is a `model_notes` line instead), the costs and the card the same.
 """
 
 from __future__ import annotations
@@ -54,10 +57,11 @@ def theme_rows() -> list:
 
 
 def model_list(state_dir=None, cwd=None) -> list:
-    """The Models panel's rows (the configured providers' catalog, the best-at line), the fields the block shows."""
+    """The Models panel's rows (the configured providers' catalog, the best-at line), the fields the block shows;
+    3.3.0.0 R3: from what is cached, no host probed (`model_rows(cached=True)`)."""
     from halo_harness.studio import model as M
     try:
-        rows = M.model_rows(state_dir, cwd)
+        rows = M.model_rows(state_dir, cwd, cached=True)
     except Exception:
         rows = []
     out = []
@@ -103,9 +107,10 @@ def team_block(cwd=None, state_dir=None) -> dict:
 
 
 def setup_state(cwd=None, state_dir=None) -> dict:
+    from halo_harness.studio.setup_check_state import check_blocks
     from halo_harness.studio.setup_providers_state import provider_blocks
     from halo_harness.theme import DEFAULT_THEME
     return {"model": _config("model"), "permission_mode": _config("permission_mode"), "theme": _config("theme"),
             "theme_default": DEFAULT_THEME, "themes": theme_rows(), "permission_modes": permission_rows(),
             "team": team_block(cwd, state_dir), "models": model_list(state_dir, cwd), **provider_blocks(cwd, state_dir),
-            "linux_fixes": {"needed": False, "items": []}, "last_check": None}
+            **check_blocks(cwd, state_dir)}

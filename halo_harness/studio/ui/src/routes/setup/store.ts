@@ -43,9 +43,18 @@ export type SetupData = {
   ollama: { hosts: OllamaHost[] };
   huggingface: { token_set: boolean; endpoints: HfEntry[]; local_servers: HfEntry[] };
   local_models: LocalModels;
-  linux_fixes: { needed: boolean; items: unknown[] };
-  last_check: unknown;
+  // 3.3.0.0 R3 (studio/setup_check_state.py): the Check and Linux fixes blocks, the fresh-home flag, the cached rows' notes
+  checks: CheckRow[];
+  gym_models: { ref: string; cost: string }[];
+  card: string[];
+  last_check: LastCheck | null;
+  linux_fixes: { needed: boolean; items: { id: string; line: string }[]; platform: string };
+  no_provider: boolean;
+  model_notes: string[];
 };
+export type CheckRow = { key: string; title: string; what: string; cost: string; time: string; writes: string; default_on: boolean };
+export type CheckResult = { key: string; title: string; ok: boolean; lines: string[] };
+export type LastCheck = { when: number; ok: boolean; stopped?: boolean; results: CheckResult[] };
 
 /** The blocks that save something this round, by the key their Save writes. */
 export type BlockId = "model" | "permission_mode" | "theme" | "team";
@@ -104,18 +113,40 @@ export function showStatus(d: SetupData): void {
 
 let started = false;
 let loading: Promise<void> | null = null;
+let again = false;
+let answers = 0;
 
+/** A Save's answer is the fresh state: it is shown, and a read that started before it is dropped (3.3.0.0 R3). */
+export function adoptAnswer(data: SetupData): void {
+  answers += 1;
+  setup.update(() => ({ data }));
+  showStatus(data);
+}
+
+/** Read the state. A read asked for while one is under way runs once more after it (a change on disk it may have
+ *  missed half-way); a read that a Save's answer overtook is read again rather than shown (3.3.0.0 R3). */
 export async function loadSetup(): Promise<void> {
-  if (loading) return loading;
+  if (loading) {
+    again = true;
+    return loading;
+  }
   loading = (async () => {
+    const seen = answers;
     try {
       const data = await api.get<SetupData>("setup/state");
-      setup.update(() => ({ data, loaded: true, error: "" }));
-      showStatus(data);
+      if (answers !== seen) again = true;
+      else {
+        setup.update(() => ({ data, loaded: true, error: "" }));
+        showStatus(data);
+      }
     } catch (e) {
       setup.update(() => ({ loaded: true, error: e instanceof Error ? e.message : String(e) }));
     } finally {
       loading = null;
+      if (again) {
+        again = false;
+        void loadSetup();
+      }
     }
   })();
   return loading;
@@ -147,12 +178,12 @@ export async function act(path: string, body: Record<string, unknown>, block: Bl
   try {
     const r = await api.post<SetupData & { lines?: string[] }>(path, body);
     const { lines, ...data } = r;
+    adoptAnswer(data as SetupData);
     setup.update((s) => {
       const picks = { ...s.picks };
       delete picks[block];
-      return { data: data as SetupData, picks, last: { ...s.last, [block]: { ok: true, lines: lines || [] } } };
+      return { picks, last: { ...s.last, [block]: { ok: true, lines: lines || [] } } };
     });
-    showStatus(data as SetupData);
     toast(lines?.[0] || "Saved", "done", 4000);
     return true;
   } catch (e) {
