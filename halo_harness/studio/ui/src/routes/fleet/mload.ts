@@ -43,7 +43,7 @@ export async function refresh(): Promise<void> {
   }
 }
 
-/** Open a mission in the panel (the list's Open, an attention row's O, the rail). */
+/** Open a mission in the panel (the list's Open, an attention row's O, the Tree panel). */
 export function openMission(id: string, part = "", show = true): void {
   missions.update((s) => ({ open: id, view: s.view?.mission.id === id ? s.view : null, face: "auto", selPart: part, report: null, files: null, problems: [], drag: null }));
   if (show) showFleetPanel("fleet-mission");

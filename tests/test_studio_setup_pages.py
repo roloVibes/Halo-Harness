@@ -78,7 +78,7 @@ def test_nothing_opens_on_its_own(ctx: Ctx):
 def test_no_panel_machinery_on_setup(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"no panel in Setup, got {got.get('setup_panels')}", got.get("setup_panels") == 0)
-    ctx.check(f"no panel list and no Arrange in the rail, got {got.get('rail_lists')}", got.get("rail_lists") == [False, False])
+    ctx.check(f"no panel list in the rail, no +, no ... and no layout badge (3.3.2.0 R2), got {got.get('rail_lists')}", got.get("rail_lists") == [False] * 5)
 
 
 @test

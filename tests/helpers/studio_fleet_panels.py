@@ -7,12 +7,13 @@ past session PAST_SID). Run through tests/helpers/studio_fleet.py:
     python -m tests.helpers.studio_fleet panels
 
 * the nine panels (R6: Capabilities, R8: Mission), each with its about line; the attention queue and its
-  count in the status bar and the rail; A on the approval row answers it on
+  count in the status bar and the Tree panel (3.3.2.0 R2: the expanded rail's tree before); A on the approval row answers it on
   the member (and the row leaves the queue);
 * the timeline draws one lane per live agent, hover says who, a click on a
   lane selects that agent;
 * the digest card after a simulated absence (halo.fleet.lastSeen two hours
-  back, then the tab regains focus), and Dismiss;
+  back, then the tab regains focus): the Fleet icon's dot, a click on it opens
+  the Tree panel with the card at its top (3.3.2.0 R2), and Dismiss;
 * the replay: the reviewer card's history row "replay" opens the scrub bar on
   the Roles canvas, the scrub lights the reviewer only while it worked, x
   goes back to what runs now;
@@ -26,6 +27,7 @@ from __future__ import annotations
 import time
 
 from tests.helpers.studio_fleet import CANVAS, DETAIL, LIVE_CARDS, card, card_click
+from tests.helpers.studio_tree import open_tree
 
 PANELS = ("fleet-people", "fleet-costs", "fleet-health", "fleet-attention", "fleet-map", "fleet-activity", "fleet-agent",
           "fleet-capabilities", "fleet-mission")  # 3.0.6.0 R6, R8
@@ -57,7 +59,8 @@ def attention(c, rig, out: dict) -> None:
     out["attn_kinds"] = c.wait("document.querySelectorAll('[data-testid=\"fleet-attn-row\"][data-kind=\"approval\"]').length && [...document.querySelectorAll('[data-testid=\"fleet-attn-row\"]')].map((r) => r.dataset.kind)", 30)
     out["attn_rows"] = len(out["attn_kinds"] or [])
     out["status_attn"] = c.wait("document.querySelector('[data-testid=\"status-attention\"]')?.textContent", 15)
-    out["rail_attn"] = c.js("document.querySelector('[data-testid=\"fleet-rail-attention\"]')?.textContent")
+    open_tree(c)  # 3.3.2.0 R2: the count's other home is the Tree panel, through the header's "+" menu
+    out["rail_attn"] = c.wait("document.querySelector('[data-testid=\"fleet-tree-attention\"]')?.textContent", 15)
     row = ROW.format("approval")
     seen(c, row)
     c.click_on(f"{row}.querySelector('.fat-what')")
@@ -103,11 +106,14 @@ def timeline(c, rig, out: dict) -> None:
 
 def digest(c, out: dict) -> None:
     c.js("localStorage.setItem('halo.fleet.lastSeen', String(Date.now() - 2 * 3600 * 1000)); window.dispatchEvent(new Event('focus')); 1")
-    out["digest"] = c.wait("document.querySelector('[data-testid=\"fleet-digest\"]')?.textContent", 15)
+    out["digest_dot"] = c.wait("!!document.querySelector('.rail [data-tab-id=fleet] [data-testid=\"rail-away\"]')", 15)  # 3.3.2.0 R2: the Fleet icon's dot
+    c.click_on("document.querySelector('.rail [data-testid=section-tab][data-tab-id=fleet]')")  # opens Fleet on its Tree panel
+    out["digest"] = c.wait("document.querySelector('[data-testid=\"fleet-tree\"] [data-testid=\"fleet-digest\"]')?.textContent", 15)
     out["digest_where"] = c.js("document.querySelector('[data-testid=\"fleet-digest\"]')?.dataset.where")
-    c.js("document.querySelector('[data-testid=\"fleet-digest-dismiss\"]').scrollIntoView({block: 'center'}); 1")  # 3.3.2.0 R1: below the rail's section rows
+    c.js("document.querySelector('[data-testid=\"fleet-digest-dismiss\"]').scrollIntoView({block: 'center'}); 1")
     c.click_on("document.querySelector('[data-testid=\"fleet-digest-dismiss\"]')")
     out["digest_dismissed"] = c.wait("!document.querySelector('[data-testid=\"fleet-digest\"]') && Date.now() - Number(localStorage.getItem('halo.fleet.lastSeen')) < 60000 && 'dismissed'", 10)
+    out["digest_dot_gone"] = c.js("!document.querySelector('[data-testid=\"rail-away\"]')")
 
 
 def replay(c, rig, out: dict) -> None:

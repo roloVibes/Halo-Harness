@@ -52,12 +52,29 @@ The classic plain-JS page (`/legacy/`, `halo studio --legacy`) is gone since
   `Alt+Shift`+arrows resize it. The arrangement is remembered per section in
   your browser (`localStorage` key `halo.studio.layout.<section>`, version 2:
   an arrangement saved by 3.0.3.0 keeps its places, not its faces);
-  **Arrange** (the rail, beside Reset layout, or the palette's "Arrange")
+  **Arrange panels** (the header's **...** menu, or the palette)
   puts every panel you have open back in the section's default place and
   size in one press, and keeps what you chose (a strip stays a strip, a face
-  stays, a floating panel floats); **Reset layout** (the rail, or the
-  palette) returns to the defaults, which follow the window size until you
+  stays, a floating panel floats); **Reset layout** (the same two places)
+  returns to the defaults, which follow the window size until you
   rearrange something.
+- **The section header's menus** (3.3.2.0 R2; the expanded rail's PANELS
+  list and LAYOUT block before). Beside the section's title and its **?**:
+  the **+** lists the section's panels, each row saying what a press does:
+  **add** an optional panel that is not on the page, **bring back** a strip
+  or a panel that is not up (with the **strip** badge), **focus** an open one
+  (with **float** when it floats); a section may add its own group under the
+  panels (Orchestra: **New run** and its runs, newest first). The **...** holds
+  **Arrange panels**, **Reset layout** and **How panels move** (the section
+  help, opened on its **Moving panels** part: drag a title bar to move a
+  panel, an edge to resize it, `Alt+Shift+Down` grows the focused one); a row
+  with nothing to do stays in the list, disabled, its word saying why
+  ("already default"). Both open from the keyboard (`Enter`, or `ArrowDown`
+  on the button), the arrows, `Home` and `End` move, `Esc` closes. A small
+  **custom layout** badge shows beside them only while the section's layout is
+  your own. Setup (pages, not panels) draws none of the three. In the palette,
+  **Arrange panels** and **Reset layout** name the section in their hint and
+  say so when there is nothing to do.
 - **Two faces and the settings.** Every panel opens on its **full face**,
   ready to use with no button to press first; **Compact** is its summary (what
   it is, one live indicator, one or two big numbers, readable from across the
@@ -84,15 +101,16 @@ The classic plain-JS page (`/legacy/`, `halo studio --legacy`) is gone since
   while a session is live, the number of agents at work on Fleet, the packs'
   own sections under a thin divider with the diamond. The rows print no key:
   `Alt+N` is in the palette's **Go to** and in **How this works**. The
-  chevron at its foot expands it to 248 px (remembered per browser,
+  chevron at its foot expands it to 200 px (remembered per browser,
   `halo.studio.rail`; `?rail=open` expands it for one page): each section's
-  title, then the section's own block (Orchestra: **New run** and the runs),
-  its panels (click one to bring it back and focus it), the **Fleet tree**
-  (every harness, its sessions and their agents with a status dot each, the
-  live and need-you counts on top, a click opens Fleet on that node, and a
-  session that waits on you keeps its inline answer) and the layout actions.
-  The panel list and the layout actions move to the header and the palette in
-  3.3.2.0 R2.
+  title beside its icon, and nothing else (3.3.2.0 R2: the rail holds the
+  sections only, collapsed or expanded). The panels are the header's **+**,
+  Arrange and Reset its **...**, Orchestra's runs a group in its **+**, and the
+  **Fleet tree** (every harness, its sessions and their agents with a status
+  dot each, the live and need-you counts on top, a session that waits on you
+  with its inline answer, the "While you were away" card) is Fleet's
+  optional **Tree** panel, added with the **+**. While that card waits, the
+  Fleet icon carries an amber dot; a click on it opens Fleet on its Tree.
 - **The inspector asks first** (3.3.2.0). The 340 px column on the right is
   closed until something opens it: a panel's **Settings**, a Design
   artboard's knobs. Its close button (or `Esc`) gives the width back to the

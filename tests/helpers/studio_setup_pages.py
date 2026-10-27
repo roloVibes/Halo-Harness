@@ -87,9 +87,9 @@ def nothing_opens(c, url, ctx) -> dict:
         if name == "first":
             out["first_line"] = c.js(f"{q('[data-testid=setup-strip-first]')}?.textContent || ''")
     out["setup_panels"] = c.js(f"{qa('[data-section=setup] [data-panel]')}.length")
-    c.js(f"{q('[data-testid=rail-toggle]')}.click(); 1")  # 3.3.2.0 R1: the panel list and Arrange live in the expanded rail
+    c.js(f"{q('[data-testid=rail-toggle]')}.click(); 1")  # 3.3.2.0 R2: no panel list in the rail, no "+" and no "..." in the header
     c.wait(f"{q('.app')}.dataset.rail === 'open'", 5)
-    out["rail_lists"] = c.js("[!!document.querySelector('.rail nav[aria-label=Panels]'), !!document.querySelector('[data-testid=layout-arrange]')]")
+    out["rail_lists"] = c.js("['.rail nav[aria-label=Panels]', '[data-testid=layout-arrange]', '[data-testid=panels-add]', '[data-testid=section-more]', '[data-testid=layout-badge]'].map((s) => !!document.querySelector(s))")
     c.js(f"{q('[data-testid=rail-toggle]')}.click(); 1")
     click(c, q("[data-testid=section-help-btn]"), f"!!{q('[data-testid=section-help-item]')}")
     click(c, q("[data-testid=section-help-item]"), f"!!{q('[data-testid=section-help]')}")

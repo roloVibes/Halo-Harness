@@ -1,6 +1,7 @@
 // The section registry. A section is an id, a title, its Alt+N key, a one-
 // line blurb, the PanelSpecs of its default arrangement and, optionally, a
-// block the rail shows above its panels (Orchestra: the runs) and a view
+// group of its own rows in the header's "+" menu (3.3.2.0 R2, Orchestra: New
+// run and the runs; the rail's block before) and a view
 // drawn instead of the bare Workspace (Orchestra: the Start view until a run
 // is open; Fleet: until something runs;
 // 3.0.7.0 R3 Design: until a project exists;
@@ -21,6 +22,7 @@
 import type { ComponentType } from "react";
 import type { SectionId } from "../lib/store";
 import type { PanelSpec } from "../lib/workspace/types";
+import type { MenuGroup } from "../lib/ui/Menu";
 import { fleetPanels } from "./fleet/Fleet";
 import { FleetView } from "./fleet/Start";
 import { enterWorkspace as enterFleet } from "./fleet/store";
@@ -28,7 +30,7 @@ import { designPanels } from "./design/Design";
 import { DesignView } from "./design/Start";
 import { mediaPanels } from "./media/MediaPanels";
 import { orchestraPanels } from "./orchestra/Orchestra";
-import { OrchestraRail } from "./orchestra/OrchRail";
+import { useOrchestraMenu } from "./orchestra/OrchRail";
 import { OrchestraView } from "./orchestra/Start";
 import { enterWorkspace as enterOrchestra } from "./orchestra/store";
 import { rolesPanels } from "./roles/Roles";
@@ -51,13 +53,13 @@ export type SectionDef = {
   kbd: string;
   blurb: string;
   panels: PanelSpec[];
-  /** A block the rail shows above the panel list. */
-  rail?: ComponentType;
+  /** 3.3.2.0 R2: a hook giving the section's own rows in the header's "+" menu, under its panels (Orchestra: the runs). */
+  menu?: () => MenuGroup;
   /** Draws the section instead of the bare Workspace (Orchestra: its Start view first). */
   view?: ComponentType<{ section: string; specs: PanelSpec[] }>;
-  /** Brings the panel workspace up (before the rail or the palette opens a panel). */
+  /** Brings the panel workspace up (before the "+" menu or the palette opens a panel). */
   enter?: () => void;
-  /** 3.3.1.0 R1: pages, not panels (Setup): no panel list in the rail, no layout actions, the view is the room. */
+  /** 3.3.1.0 R1: pages, not panels (Setup): no "+" menu, no layout actions, the view is the room. */
   paged?: boolean;
 };
 
@@ -67,7 +69,7 @@ export const SECTIONS: SectionDef[] = [
   { id: "roles", title: "Roles", kbd: "Alt+3", blurb: "Lineups and agent bios", panels: rolesPanels, view: RolesView, enter: () => enterRoles("workspace") },
   { id: "fleet", title: "Fleet", kbd: "Alt+4", blurb: "Every harness, every agent, live", panels: fleetPanels, view: FleetView, enter: enterFleet },
   { id: "design", title: "Design", kbd: "Alt+5", blurb: "Prototypes, pages and decks", panels: [...designPanels, ...mediaPanels(0)], view: DesignView },
-  { id: "orchestra", title: "Orchestra", kbd: "Alt+6", blurb: "Runs of your agents, live", panels: orchestraPanels, rail: OrchestraRail, view: OrchestraView, enter: enterOrchestra },
+  { id: "orchestra", title: "Orchestra", kbd: "Alt+6", blurb: "Runs of your agents, live", panels: orchestraPanels, menu: useOrchestraMenu, view: OrchestraView, enter: enterOrchestra },
   { id: "packs", title: "Packs", kbd: "Alt+7", blurb: "Install, grant and enable packs", panels: packsPanels, enter: enterPacks },
   { id: "setup", title: "Setup", kbd: "Alt+8", blurb: "Providers, models, permissions, theme and lineup", panels: [], paged: true, view: SetupView, enter: enterSetup },
 ];

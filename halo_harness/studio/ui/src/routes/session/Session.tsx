@@ -49,7 +49,7 @@ const panel = (id: string, rest: Omit<PanelSpec, "id" | "testid">): PanelSpec =>
 // Left (10 columns, about 40 %): Map (46 rows, the tree fitted to it) over Cost (to the bottom, less the 15
 // rows of the three strips under it: Agent, Activity, Attention; a y past the others only orders them, the
 // grid packs them up).
-// Right (14 columns, about 60 %, the full height): Live. The list order is the rail's and the palette's.
+// Right (14 columns, about 60 %, the full height): Live. The list order is the "+" menu's and the palette's.
 export const sessionPanels: PanelSpec[] = [
   panel("session-map", { title: "Map", x: 0, y: 0, w: 10, h: 46, minW: 7, minH: 20, face: "detail", glance: MapGlance, detail: MapDetail, useMotion: started(useMapMotion) }),
   panel("session-live", { title: "Live", x: 10, y: 0, w: 14, h: 0, minW: 6, minH: 30, face: "detail", glance: LiveGlance, detail: LiveDetail, useMotion: started(useLiveMotion) }),

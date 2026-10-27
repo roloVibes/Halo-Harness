@@ -35,7 +35,7 @@ waiting on you, $X" -- and the decisions that wait are the Attention queue's
    session (`halo studio --session` from a shell); `Alt+1`, the palette,
    **Watch in Session** on the Roles Live tab or on a live Orchestra run's
    line, **Open in Session** in a map node's `...` menu and this harness's
-   nodes in the expanded rail's Fleet tree land here too. With nothing saved for the browser,
+   nodes in Fleet's Tree panel land here too. With nothing saved for the browser,
    Studio opens here while a session of this harness is live.
 2. **Watch everything at once (Live)**: every agent's text, each tool call
    and its result, what it hands back and what it asks you land in one
@@ -96,7 +96,7 @@ waiting on you, $X" -- and the decisions that wait are the Attention queue's
 6. **Open what you need**: Agent (the inspector: its three streams, Steer,
    Pause, Stop, Follow, Pin), Activity (a lane per live agent over the full
    log) and Attention (what waits on you, one key each) wait as strips under
-   Cost; one click opens each, Reset layout puts the arrangement back, a
+   Cost; one click opens each (or the header's **+**), Reset layout (its **...**) puts the arrangement back, a
    layout you made is kept. `J` / `K` hop between this harness's live agents.
 
 **Panels.** Live (`session-live`): every agent here at once, what it types,
@@ -367,7 +367,7 @@ under `event: <kind>`, a `sessions` frame lists the attached sessions (title,
 mode, kind, cwd, started, pid; never an endpoint or token) whenever one
 attaches or detaches, and `: ping` keeps the stream open every 15 s. Each
 browser gets its own queue of 512 frames (the oldest dropped first). The
-shell's status bar, the Orchestra panels and the rail read it. Studio's own
+shell's status bar, the Orchestra panels and the rail's Session dot read it. Studio's own
 Orchestra runner publishes its run log here too (`orchestra_*` frames), and
 its files watcher `files_changed` (3.2.2.0: [what is on disk](STUDIO-shell.md#what-is-on-disk-as-it-changes-3220)).
 

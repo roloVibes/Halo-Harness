@@ -62,9 +62,9 @@ def register(test, json_of, chrome) -> None:
     @test
     def test_fleet_default_layout_opens_five_panels_in_headless_chrome(ctx: Ctx):
         """3.1.4.0 R1: a fresh Fleet workspace opens People, Costs, Attention, Map and Activity; Health,
-        Capabilities, Agent and Mission are title strips down the right edge (the rail marks them "strip"),
+        Capabilities, Agent and Mission are title strips down the right edge (the header's "+" marks them "strip"),
         each opened by ONE click on the chevron of its title bar ("Open the panel"), in that column, with no
-        panel over another; Reset layout (the rail) brings the default back and forgets the saved key; picking
+        panel over another; Reset layout (the header's ... menu) brings the default back and forgets the saved key; picking
         an agent on the map opens Agent and moves neither the map nor Activity; an arrangement saved before
         (the 3.1.3.0 default, all nine open) is kept as it was and not rewritten."""
         got = run(ctx, "layout")
@@ -75,7 +75,7 @@ def register(test, json_of, chrome) -> None:
         ctx.check(f"the strips share the right-hand column, right of every open panel, got {right}",
                   len(right) == 1 and all(fresh[k]["x"] + fresh[k]["w"] <= min(right) for k in OPEN))
         ctx.check(f"nothing saved for a fresh workspace, got {got.get('saved_fresh')!r}", got.get("saved_fresh") is None)
-        ctx.check(f"the rail lists the four as strips, got {got.get('rail_strips')}", sorted(got.get("rail_strips") or []) == ["Agent", "Capabilities", "Health", "Mission"])
+        ctx.check(f"the header's + menu lists the four as strips, got {got.get('rail_strips')}", sorted(got.get("rail_strips") or []) == ["Agent", "Capabilities", "Health", "Mission"])
         opened = got.get("opened") or {}
         for pid in STRIPS:
             o = opened.get(pid) or {}

@@ -10,7 +10,7 @@ tests/test_studio_panels_room.py runs it:
 
 Steps: the default rectangles; the Canvas's east edge dragged left (a
 splitter: the right-hand column moves and widens by the same columns);
-Arrange (the rail) puts the defaults back; the Inspector's title bar dragged
+Arrange (3.3.2.0 R2: the header's ... menu) puts the defaults back; the Inspector's title bar dragged
 over the Canvas (every panel stays inside the viewport, nothing overlaps, the
 Canvas is narrower); Arrange again. A drag the runner's pointer path loses is
 done again with Alt+Left on the focused panel (`<step>_by: keys`). The last
@@ -31,6 +31,7 @@ sys.path.insert(0, str(REPO / "tools"))
 
 from tests.helpers.chrome_driver import Driver  # noqa: E402
 from tests.helpers.studio_fleet_probe import OVERLAPS as FLEET_OVERLAPS  # noqa: E402  the Fleet layout's overlap check
+from tests.helpers.studio_header_menus import more  # noqa: E402
 
 WS = "document.querySelector('.workspace[data-section=\"roles\"]')"
 OVERLAPS = FLEET_OVERLAPS.replace('data-section="fleet"', 'data-section="roles"')
@@ -44,7 +45,6 @@ OUTSIDE = f"""(() => {{ const w = {WS}, b = w.getBoundingClientRect(), out = [];
   if (w.scrollHeight > w.clientHeight + 2 || w.scrollTop > 0) out.push('scrolls:' + w.scrollHeight + '>' + w.clientHeight);
   return out; }})()"""
 SAVED = "localStorage.getItem('halo.studio.layout.roles')"
-ARRANGE = "document.querySelector('[data-testid=\"layout-arrange\"]')"
 
 
 def cell(pid: str) -> str:
@@ -80,8 +80,7 @@ def alt_left(c, pid: str, times: int) -> None:
 
 
 def arrange(c) -> dict:
-    c.js(f"{ARRANGE}.scrollIntoView({{block: 'center'}}); 1")
-    c.click_on(ARRANGE)
+    more(c, "layout-arrange")
     time.sleep(0.4)
     return settle(c)
 
@@ -147,7 +146,7 @@ class PanelsRoomDriver(Driver):
         seed_catalog(state)
         seed_tiers(state)
         srv, url = serve(state, True)
-        url = url.replace("mode=orchestra", "mode=roles").replace("feed=off", "feed=off&tour=off&view=workspace&rail=open")  # 3.3.2.0 R1: Arrange lives in the expanded rail
+        url = url.replace("mode=orchestra", "mode=roles").replace("feed=off", "feed=off&tour=off&view=workspace")
         try:
             yield ((room, (c, url, state)),)
         finally:

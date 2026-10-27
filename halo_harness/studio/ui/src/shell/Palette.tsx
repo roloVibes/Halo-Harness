@@ -46,7 +46,7 @@ export function Palette() {
 
   if (!open) return null;
   const run = (c?: Command) => {
-    if (!c) return;
+    if (!c || c.disabled) return; // 3.3.2.0 R2: a disabled entry's hint says why; Enter leaves the palette open
     close();
     c.run();
   };
@@ -98,6 +98,7 @@ export function Palette() {
                     id={"cmd-" + c.id}
                     role="option"
                     aria-selected={i === sel}
+                    aria-disabled={c.disabled || undefined}
                     data-index={i}
                     className={"palette-item" + (i === sel ? " on" : "")}
                     onPointerMove={() => setSel(i)}

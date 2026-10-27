@@ -13,6 +13,7 @@ const PATHS: Record<string, string> = {
   moon: "M12.5 9.5A5 5 0 0 1 6.5 3.5a5 5 0 1 0 6 6Z",
   auto: "M8 2a6 6 0 1 1 0 12A6 6 0 0 1 8 2Zm0 0v12",
   rail: "M3 3h10v10H3zM6.5 3v10",
+  plus: "M8 3v10M3 8h10",
   reset: "M3 8a5 5 0 1 0 1.5-3.5M3 3v2.5h2.5",
   pulse: "M1 8h3l2-4 3 8 2-4h4",
   grid: "M3 3h4v4H3zM9 3h4v4H9zM3 9h4v4H3zM9 9h4v4H9z",

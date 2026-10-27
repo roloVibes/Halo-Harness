@@ -11,4 +11,5 @@ export { ErrorState } from "./ErrorState";
 export { Surface } from "./Surface";
 export { HudStrip, HudCell } from "./HudStrip";
 export { Icon, toolIcon } from "./Icon";
+export { Menu, type MenuGroup, type MenuRow } from "./Menu";
 export { Panel } from "../workspace/Panel";

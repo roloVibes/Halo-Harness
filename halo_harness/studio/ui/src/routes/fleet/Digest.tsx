@@ -2,7 +2,9 @@
 // (or Studio opens after that long), the digest since you last looked
 // (`GET fleet/digest?since=`, computed in code: sessions started and ended,
 // cost, decisions and who made them, files touched, errors, hand-offs, per
-// harness) shows as a card on the Fleet Start view and in the rail. When you
+// harness) shows as a card on the Fleet Start view and at the top of the Fleet
+// Tree panel (3.3.2.0 R2: the expanded rail before; the Fleet icon in the rail
+// carries a dot while it waits, and a click on it opens the Tree). When you
 // last looked is localStorage `halo.fleet.lastSeen` (ms): refreshed every
 // minute while the tab shows and when it hides; Dismiss sets it to now.
 import { useEffect } from "react";
@@ -45,7 +47,7 @@ export function dismissDigest(): void {
   panels.update(() => ({ digestOpen: false }));
 }
 
-/** Start once (the rail does, in every section). */
+/** Start once (the rail's section icons do, in every section). */
 export function startDigest(): void {
   if (started) return;
   started = true;
@@ -65,7 +67,10 @@ function span(d: Digest): string {
   return m < 120 ? `${m} min` : m < 2880 ? `${Math.round(m / 60)} h` : `${Math.round(m / 1440)} days`;
 }
 
-export function DigestCard({ where }: { where: "rail" | "start" }) {
+/** True while a digest waits to be read (the Fleet icon's dot). */
+export const useAway = (): boolean => usePanels((s) => s.digestOpen && !!s.digest);
+
+export function DigestCard({ where }: { where: "tree" | "start" }) {
   useEffect(() => startDigest(), []);
   const open = usePanels((s) => s.digestOpen);
   const d = usePanels((s) => s.digest);
