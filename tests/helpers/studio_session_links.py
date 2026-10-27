@@ -1,7 +1,8 @@
 """tests.helpers.studio_session_links -- the links into the Session dashboard
 (Halo 3.1.4.0 R2), the `links` step of tests/helpers/studio_session.py: a
-click on this harness's agent in the Fleet rail opens Session on it while a
-member's opens Fleet; a map node's `...` menu has Open in Session on this
+click on this harness's agent in the Fleet tree (3.3.2.0 R2: Fleet's Tree
+panel, the "+" menu adds it) opens Session on it while a member's selects it
+in Fleet; a map node's `...` menu has Open in Session on this
 harness's nodes only; the Roles Live tab's header has Watch in Session for a
 working card's agent; a live Orchestra run's line has it for the run's
 session (a run folder whose lead is this harness's session, marked live the
@@ -11,12 +12,13 @@ from __future__ import annotations
 import threading
 
 from tests.helpers.studio_session import AGENT, COST, TAB, inside, url
+from tests.helpers.studio_tree import click_node, open_tree
 
 FLEET_AGENT = "document.querySelector('[data-section=\"fleet\"] [data-testid=\"fleet-agent-detail\"]')"
 
 
 def rail_node(harness: str, aid: str) -> str:
-    return (f"[...document.querySelectorAll('[data-testid=\"fleet-rail-node\"]')].find((n) => n.dataset.kind === 'agent' && n.dataset.id === '{aid}'"
+    return (f"[...document.querySelectorAll('[data-testid=\"fleet-tree-node\"]')].find((n) => n.dataset.kind === 'agent' && n.dataset.id === '{aid}'"
             f" && n.closest('.fr-harness').querySelector('.fr-h').dataset.id === '{harness}')")
 
 
@@ -51,15 +53,16 @@ def links(c, rig) -> dict:
     hid, sid = harness()["id"], rig.act.session_id
     impl, res = rig.agent("Implement").get("agent_id"), rig.agent("Research").get("agent_id")
     c.go(url(rig, "mode=fleet"))
-    c.wait(f"{inside('fleet', 'fleet-box')}.length === 2 && !!({rail_node(hid, impl)})", 30)
-    c.js(f"({rail_node(hid, impl)}).scrollIntoView({{block: 'center'}}); 1")  # 3.3.2.0 R1: the Fleet tree sits below the section rows
-    c.click_on(rail_node(hid, impl))
+    c.wait(f"{inside('fleet', 'fleet-box')}.length === 2", 30)
+    open_tree(c)
+    click_node(c, rail_node(hid, impl))
     out["rail_local_tab"] = c.wait(f"{TAB}.startsWith('Session') && {TAB}", 10)
     out["rail_local_agent"] = c.wait(f"{AGENT}?.dataset.key === '{hid}|{sid}|{impl}' && 'implementer'", 15)
-    c.js(f"({rail_node(rig.member_id, 'main')}).scrollIntoView({{block: 'center'}}); 1")
-    c.click_on(rail_node(rig.member_id, "main"))
+    c.click_on("document.querySelector('.rail [data-testid=section-tab][data-tab-id=fleet]')")  # back to Fleet: the tree is its panel
+    click_node(c, rail_node(rig.member_id, "main"))
     out["rail_member_tab"] = c.wait(f"{TAB}.startsWith('Fleet') && {TAB}", 10)
     out["rail_member_agent"] = c.wait(f"{FLEET_AGENT}?.dataset.key?.startsWith('{rig.member_id}|') && 'member'", 15)
+    c.js(f"({fleet_node('researcher')}).scrollIntoView({{block: 'center'}}); 1")  # 3.3.2.0 R2: the Tree click scrolled the workspace
     c.click_on(f"{fleet_node('researcher')}.querySelector('.fm-more')")
     out["menu_local"] = menu_items(c)
     c.click_on("document.querySelector('[data-testid=\"fleet-node-menu\"] [data-item=\"session\"]')")

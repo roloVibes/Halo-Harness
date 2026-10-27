@@ -9,7 +9,7 @@ over Roles at its default layout:
 2. the Canvas's east edge dragged three columns left is a splitter: the
    Inspector, Problems and Models column moves left and widens by the same
    three columns, nothing overlaps, nothing leaves the viewport;
-3. Arrange (the rail) puts every panel back in its default rectangle;
+3. Arrange (the header's ... menu) puts every panel back in its default rectangle;
 4. the Inspector's title bar dragged over the Canvas: the Canvas gives up
    columns (it is narrower than before), every panel stays inside the
    viewport, no two overlap, the canvas still draws its cards;

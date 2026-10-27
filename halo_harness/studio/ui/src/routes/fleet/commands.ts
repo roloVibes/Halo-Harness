@@ -9,6 +9,7 @@ import { goSection } from "../../lib/store";
 import { askStop, everySession, kick, openAgentPanel, select, toggleByProject, toggleFollow, togglePause } from "./actions";
 import { allAgents, enterWorkspace, fleet, findAgent, isLive, sessionTitle } from "./store";
 import { checkAway } from "./Digest";
+import { openTree } from "./FleetTree";
 import { askHandoff, record, showFleetPanel } from "./extras";
 import { panels } from "./pstore";
 import { openReplay } from "./replay";
@@ -39,7 +40,7 @@ export function fleetCommands(): FleetCommand[] {
     { id: "fleet-pause-all", group: g, label: "Fleet: pause all", hint: "every session holds at its next tool or model call", run: () => void everySession("pause") },
     { id: "fleet-resume-all", group: g, label: "Fleet: resume all", hint: "every paused session carries on", run: () => void everySession("resume") },
     { id: "fleet-answer-next", group: g, label: "Fleet: answer next", hint: `${panels.get().attention.length} waiting · Attention, the oldest row`, run: inFleet(() => (panels.update((p) => ({ attnSel: p.attention[0]?.id || "" })), showFleetPanel("fleet-attention"))) },
-    { id: "fleet-digest", group: g, label: "Fleet: while you were away", hint: "what happened since you last looked", run: () => void checkAway(true) },
+    { id: "fleet-digest", group: g, label: "Fleet: while you were away", hint: "what happened since you last looked", run: () => (void checkAway(true), openTree()) }, // 3.3.2.0 R2: the card is the Tree panel's
     { id: "fleet-who", group: g, label: "Fleet: who can...", hint: "rank the fleet for a tool, an app, a skill, a model or a GPU", run: inFleet(() => (showFleetPanel("fleet-capabilities"), askWho())) },
   ];
   out.push(...missionCommands(g, inFleet));

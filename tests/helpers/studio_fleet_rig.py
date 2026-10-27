@@ -51,7 +51,7 @@ def _git(cwd: Path, *args: str) -> None:
 
 class StudioFleetRig:
     member_id = MEMBER
-    rail = "&rail=open"  # 3.3.2.0 R1: the drivers read the Fleet tree, which lives in the expanded rail; captures set ""
+    rail = ""  # 3.3.2.0 R2: the Fleet tree is Fleet's Tree panel now (tests/helpers/studio_tree.py), not the expanded rail's
     def __init__(self) -> None:
         self._saved = {k: os.environ.get(k) for k in _VARS}
         for k in ("BRIDGE_STATE_DIR", "HALO_FLEET_PRIVATE", "HALO_FLEET_PARENT"):

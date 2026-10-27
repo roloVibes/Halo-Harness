@@ -6,7 +6,7 @@
 // places and sizes but not its faces, so every panel opens on its full face.
 // A strip that opens (3.1.4.0 R1: a section may start panels as strips)
 // pushes the grid panels it now covers down; nothing else moves. 3.2.2.0 R5:
-// `arrangeLayout` (Arrange in the rail and the palette) puts the open panels
+// `arrangeLayout` (Arrange in the header's ... menu and the palette) puts the open panels
 // back in the section's default rectangles and keeps them open as they are.
 import { createStore, writeLocal, type Store } from "../store";
 import { arrange, defaultPanel, defaultRects, pushDown } from "./grid";

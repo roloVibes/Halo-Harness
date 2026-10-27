@@ -51,7 +51,7 @@ Problems; a save that fails leaves the file untouched.
   page `halo studio` opened can use it.
 - **The agent routes (3.0.5.0 Fleet, `studio/fleet_api.py`).** The session
   rows also carry `harness`, `project`, `parent` and `agents` (how many
-  sub-agents are working right now; the rail shows it), and a private
+  sub-agents are working right now; the Fleet tree shows it), and a private
   session is never listed. `GET /api/sessions/<sid>/agents` is the
   session's agent tree, `GET /api/sessions/<sid>/agents/<aid>/tail?n=&kinds=`
   one agent's last entries, `POST /api/sessions/<sid>/agents/<aid>/command

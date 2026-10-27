@@ -7,7 +7,7 @@ clicks in headless Chrome on the driver base; no provider request, no model call
 
 seeded: each of the eight core sections loaded on its own (`?mode=<id>`, no
 `tour=off`) and reached by Alt+1..8, with no section help, no dialog and no
-Start here after 2 s; the rail's widths (icons <= 64 px, expanded <= 248 px)
+Start here after 2 s; the rail's widths (icons <= 64 px, expanded <= 200 px since 3.3.2.0 R2)
 through its chevron, remembered across a reload; rows without a printed key and
 no tab strip in the header; the inspector closed on load, opened by a panel's
 Settings, given back to the stage by its close button, remembered; Focus by F,
@@ -41,6 +41,9 @@ APP = q(".app")
 RAIL_W = f"Math.round({q('.rail')}.getBoundingClientRect().width)"
 STAGE_W = f"Math.round({q('.stage')}.getBoundingClientRect().width)"
 ATTRS = f"[{APP}.dataset.rail, {APP}.dataset.inspector, {APP}.dataset.focus]"
+# 3.3.2.0 R2: the rail holds the section rows and its chevron, nothing else: no panel row, no layout block, no tree
+RAIL_EXTRA = (f"[{qa('.rail > *')}.map((e) => e.dataset.testid).join(','), {qa('.rail .rail-item:not(.rail-section)')}.length, "
+              f"{qa('.rail nav, .rail [data-testid^=layout-], .rail [data-testid^=fleet-], .rail [data-testid^=orchestra-]')}.length]")
 
 
 def _url(ctx, query: str) -> str:
@@ -88,14 +91,14 @@ def rail(c, url, ctx) -> dict:
     out["rail_kbd"] = c.js(f"[{qa('.rail .kbd')}.length, /Alt\\+?\\d/.test({q('.rail')}.textContent)]")
     out["header_tabs"] = c.js(f"{qa('.topbar [role=tab]')}.length")
     out["header_title"] = c.js(f"{q('[data-testid=section-title]')}?.textContent || ''")
-    out["panels_icons"] = c.js(f"!!{q('.rail nav[aria-label=Panels]')}")
+    out["panels_icons"] = c.js(RAIL_EXTRA)
     c.click_on(q("[data-testid=rail-toggle]"))
     out["rail_open"] = c.wait(f"{APP}.dataset.rail === 'open' && {APP}.dataset.rail", 5)
     time.sleep(0.4)
     out["rail_open_w"] = c.js(RAIL_W)
     out["rail_labels_shown_open"] = c.js(f"{qa('.rail .tab-label')}.filter((l) => l.checkVisibility()).length")
     out["rail_kbd_open"] = c.js(f"[{qa('.rail [data-testid=section-tab] .kbd')}.length, /Alt\\+?\\d/.test({qa('.rail [data-testid=section-tab]')}.map((b) => b.textContent).join(' '))]")
-    out["panels_open"] = c.js(f"[!!{q('.rail nav[aria-label=Panels]')}, !!{q('[data-testid=layout-arrange]')}]")
+    out["panels_open"] = c.js(RAIL_EXTRA)
     load(c, ctx, "roles", "Roles", "&tour=off")
     out["rail_after_reload"] = [c.js(f"{APP}.dataset.rail"), c.js(RAIL_W)]
     c.click_on(q("[data-testid=rail-toggle]"))

@@ -17,7 +17,7 @@ tests/helpers/studio_fleet.py:
 * Approve, then Run: part 1 waits on the member's owner (asked), part 2 runs
   here; another hub's run_task on this harness opens a mission_ask row whose
   O opens the Mission panel on that mission; R denies it; the member's owner
-  allows: part 1 runs, its agent's line shows, the rail has the mission chip,
+  allows: part 1 runs, its agent's line shows, the Tree panel has the mission chip,
   the status bar counts one mission; "Open the part's agent" selects it;
 * Stop asks for a reason, the mission ends stopped and the report face lists
   the cost per harness.
@@ -26,7 +26,9 @@ from __future__ import annotations
 
 import time
 
-MID = "document.querySelector('[data-testid=\"fleet-mission-layer\"]')?.dataset.mission"
+from tests.helpers.studio_tree import open_tree
+
+MID ="document.querySelector('[data-testid=\"fleet-mission-layer\"]')?.dataset.mission"
 PANEL = "document.querySelector('[data-testid=\"fleet-mission\"]')"
 NODE = "document.querySelector('[data-testid=\"fleet-part\"][data-part=\"{}\"]')"
 BOX = "document.querySelector('[data-testid=\"fleet-box\"][data-key=\"h:{}\"] .fm-box-shape')"
@@ -120,7 +122,8 @@ def run_and_ask(c, rig, fakes, mid: str, out: dict) -> None:
     out["reopened"] = c.wait("document.querySelector('[data-testid=\"fleet-mission-detail\"]')?.dataset.face === 'run' && 'run'", 15)
     out["allowed"] = fakes.allow_member(mid)
     out["member_line"] = c.wait(f"{LIVE.format('1')}?.dataset.state === 'running' && {LIVE.format('1')}.querySelector('[data-testid=\"fleet-mission-now\"]').textContent", 30)
-    out["rail_chips"] = c.wait("document.querySelectorAll('[data-testid=\"fleet-rail-mission\"]').length >= 2 && document.querySelectorAll('[data-testid=\"fleet-rail-mission\"]').length", 20)
+    open_tree(c)  # 3.3.2.0 R2: the chips are in Fleet's Tree panel (the "+" menu adds it), the expanded rail's before
+    out["rail_chips"] = c.wait("document.querySelectorAll('[data-testid=\"fleet-tree-mission\"]').length >= 2 && document.querySelectorAll('[data-testid=\"fleet-tree-mission\"]').length", 20)
     out["status_missions"] = c.wait("document.querySelector('[data-testid=\"status-missions\"]')?.textContent", 20)
     out["hcosts"] = c.js("[...document.querySelectorAll('[data-testid=\"fleet-mission-hcost\"]')].map((e) => e.dataset.name)")
     btn = f"{LIVE.format('1')}.querySelector('[data-testid=\"fleet-mission-open-agent\"]')"

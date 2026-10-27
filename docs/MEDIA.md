@@ -74,7 +74,7 @@ goes through `tools/capture_identity.py` and keeps two rules:
 1. **One placeholder identity.** Before a tool serves Studio, or enters a
    rig, it writes `fleet.name: you@studio` into the scratch home's config
    (and the rig's), and the harness's user and host read `you` and
-   `studio`. The rail's Fleet tree, the status bar, the Fleet and Session
+   `studio`. Fleet's Tree panel, the status bar, the Fleet and Session
    maps, People and Health all draw `you@studio`; the fleet scene's member
    keeps its own made-up name, `kali@lab`. When a name Studio would draw is
    still this machine's `user@host`, or carries its user or host name, the
