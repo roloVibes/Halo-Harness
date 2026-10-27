@@ -286,3 +286,44 @@ discovery view described under "Hugging Face" below.
 **Not yet in this round**: images (`images`, a user message's base64
 array), `format` (structured output) -- see `plans/2.0.3-ollama-round2-
 brief.md` and the rounds after it.
+
+## The steward (3.3.4.0)
+
+The Ollama steward watches the traffic of every halo to an Ollama server,
+knows the card it runs on, and adjusts Halo's side of the calls; it never
+writes to a server or changes a model there, and it recommends a server
+change with the exact line to set and what it costs. Round R1 ships the
+two things the later rounds read:
+
+- **The knowledge**: `halo_harness/ollama_steward/knowledge/*.md`, shipped
+  with the package. `scheduler.md` (the server settings and their
+  defaults, how a load places layers, eviction, a request during a load,
+  the server's own prompt truncation), `log-vocabulary.md` (every
+  server.log line Halo acts on, with a real example, and where the log is
+  per OS), `memory.md` (weights by quantization, the KV cache by type and
+  model shape, the compute buffer, the margins, Windows WDDM and Apple's
+  unified memory, worked examples for qwen3-coder:30b, qwen3.8:27b and
+  qwen3.5:9b checked against Halo's own fit arithmetic), `local-servers.md`
+  (llama-server, mlx_lm.server, LM Studio, vLLM) and `symptoms.md` (each
+  alert kind: symptom, cause, the Halo-side change, the server-side line).
+  Every claim ends in a `[S<n>]` tag naming a row of `SOURCES.md` (title,
+  URL, version or commit, date read); `tests/test_steward_knowledge.py`
+  keeps the tags, the rows and the worked examples in step.
+- **The hardware card**: `halo ollama hardware [--host NAME] [--json]`
+  ([COMMANDS-local.md](COMMANDS-local.md)) reads each host's GPUs and
+  their memory, the server's own settings (its log's startup env dump:
+  models kept loaded, parallel slots, keep-alive, KV cache type, flash
+  attention, GPU overhead), what is loaded (`/api/ps`) and what else holds
+  the card (`nvidia-smi`'s compute processes), every field empty when
+  unknown, each reader that found nothing named on a "not read" line.
+
+What the research found that Halo's own fit gets wrong (input for R3):
+the Qwen 3.5 / 3.8 models keep a KV cache in one layer of four, so the
+estimate is 4 times too large for them; the server's KV cache type is in
+its startup log, not only in the host entry's `kv_cache_type` hint; the
+compute buffer, the hybrid models' fixed state, the per-device minimum
+and llama.cpp's fit margin are not in the estimate; and a 24 GB card on
+Windows reports 22.5 GiB, under the server's 23 GiB line for its 32,768
+default window. Next: R2 the traffic ledger and the server-log tail, R3
+the rules and the fit planner, R4 the steward's agent, R5 the Studio
+panel and the TUI.

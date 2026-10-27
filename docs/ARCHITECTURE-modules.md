@@ -238,6 +238,16 @@ note sources: the entries and `recall.sources`), `knowledge/share.py` (the
 `knowledge` fleet command and `halo knowledge fetch`) and `knowledge/cli.py`
 (`halo knowledge`); the agents' tools are `tools/knowledge.py`.
 
+**The Ollama steward** (`halo_harness/ollama_steward/`, Halo 3.3.4.0 R1,
+docs/MODELS-ollama.md "The steward"): the knowledge (`ollama_steward/
+knowledge/*.md`, every claim tagged to `SOURCES.md`) and the hardware card
+-- `ollama_steward/hardware_sources.py` (the parsers: the log's startup
+block, `nvidia-smi` CSV, `system_profiler`, `/api/ps`),
+`ollama_steward/hardware_readers.py` (the read-only readers: the log or
+journald, the API, the GPU tools, over ssh for a remote host),
+`ollama_steward/hardware.py` (the card and its lines) and
+`ollama_steward/cli.py` (`halo ollama hardware`).
+
 **Packs** (`halo_harness/packs/`, Halo 3.2.0.0 R1, docs/PACKS.md): the
 names (`packs/names.py`: ids, `<id>--<name>`, the `pack:<id>` label and
 `read_only_source`), `packs/semver.py` (versions and ranges),

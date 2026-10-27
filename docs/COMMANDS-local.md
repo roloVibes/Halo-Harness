@@ -205,6 +205,39 @@ an `ollama.hosts` entry as "found, not added (halo ollama discover
 machine", "Found on the network" and "Measured after finding", and
 [MODELS-ollama.md](MODELS-ollama.md)'s "Discovery".
 
+## `halo ollama hardware`
+
+```sh
+halo ollama hardware
+halo ollama hardware --host <name>
+halo ollama hardware --json
+```
+
+Halo 3.3.4.0 R1: each configured host's hardware card, read without
+touching the server's settings or its models. In this order, each one
+optional: the newest startup block of the local server log
+(`%LOCALAPPDATA%\Ollama\server.log`, `~/.ollama/logs/server.log`, else
+`journalctl -u ollama` on Linux: the env dump and the "inference compute"
+lines), `/api/version` and `/api/ps`, the ssh GPU read of a remote host
+with `ssh:`, and `nvidia-smi` (cards and compute processes) or
+`system_profiler` + `sysctl` on a Mac where local. A sample:
+
+```text
+GPU 0: NVIDIA GeForce RTX 4090 [CUDA] 22.5 GiB, 21.0 GiB free
+system RAM: 63.2 GiB
+server 0.40.6: keeps 3 models (automatic), parallel 1, keep-alive 30m, KV cache q8_0, flash attention on
+loaded: qwen3-coder:30b 18.2 GiB all on the GPU
+other: python; not Ollama (in use minus Ollama's models) 5.9 GiB
+not read: ssh GPU read (no ssh entry for this host)
+```
+
+`--host <name>` reads one configured host; `--json` prints `{host: card}`,
+a card `{gpus, unified, ram_bytes, server, loaded, other_users, read_at,
+sources}` with `null` for anything unknown. A remote host's log is never
+read; under Windows WDDM `nvidia-smi` has no per-process memory, so the
+card names the other processes and adds what the card holds beyond
+Ollama's models. Exit 0, or 1 for an unknown `--host`.
+
 ## `halo gym`
 
 ```sh
