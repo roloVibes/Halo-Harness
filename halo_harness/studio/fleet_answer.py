@@ -11,6 +11,7 @@ calls `act`; the decision is journaled there with `by`.
     waiting         s stop the agent
     paused          a resume the agent (or the session) | s stop it
     orchestra_gate, control_ask, conflict   a set aside (journal kind `ack`, hidden from then on)
+    ollama_steward  a set aside | o open the Ollama panel (3.3.4.0 R4, fleet/steward_attention.py)
     cap             a lift for today: resume what the cap paused
     mission_plan    a approve and run | r edit (text: "part 2 to kali" / "drop 3") | s drop the mission  (R7)
     mission_ask     a allow | r deny                   the `fleet-ask:mission-` card of a hub's run_task here
@@ -49,7 +50,7 @@ ANSWER = {
 }
 NEEDS_TEXT = {("question", "r"), ("plan", "r"), ("approval", "r"), ("mission_plan", "r"), ("team_gate", "r"),
               ("goal_gate", "r"), ("goal_budget", "r")}
-SET_ASIDE = ("orchestra_gate", "control_ask", "conflict", "mission_claim")
+SET_ASIDE = ("orchestra_gate", "control_ask", "conflict", "mission_claim", "ollama_steward")  # 3.3.4.0 R4: the steward's note
 SUPERVISE = ("goal_plan", "goal_gate", "goal_budget", "goal_ask", "goal_replan")  # R2: goal_replan
 
 
@@ -83,6 +84,9 @@ def open_target(row: dict) -> dict:
     if kind in SUPERVISE:  # 3.1.8.0 R1
         from halo_harness.fleet.supervise_attention import open_target as supervise_target
         return supervise_target(row)
+    if kind == "ollama_steward":  # 3.3.4.0 R4
+        from halo_harness.fleet.steward_attention import open_target as steward_target
+        return steward_target(row)
     if kind == "cap":
         return {"section": "fleet", "panel": "fleet-costs", "scope": t.get("scope"), "key": t.get("key")}
     if kind.startswith("mission_") and (kind != "mission_ask" or t.get("mission")):  # R8: a run_task card names its mission

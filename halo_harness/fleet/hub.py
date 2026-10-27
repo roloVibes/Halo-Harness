@@ -86,6 +86,7 @@ class HubServer:
                               local_view=local_view, pairing=self.pairing)
         self.server: Optional[_Server] = None
         self.fingerprint: Optional[str] = None
+        self.steward_job = None  # 3.3.4.0 R4: the Ollama steward's job (ollama_steward/job.py) on the serving machine
 
     def start(self) -> "HubServer":
         if identity.offline():
@@ -106,6 +107,11 @@ class HubServer:
         threading.Thread(target=self._tick, name="halo-fleet-hub-tick", daemon=True).start()
         if self.record:
             self._write_info()
+            try:  # 3.3.4.0 R4: one steward job per state dir; none when Studio or `--watch` already runs it
+                from halo_harness.ollama_steward.job import start_for
+                self.steward_job = start_for(self.home, where="hub")
+            except Exception:
+                self.steward_job = None
         return self
 
     def _tick(self) -> None:
@@ -129,6 +135,9 @@ class HubServer:
 
     def stop(self) -> None:
         self.stopping.set()
+        if self.steward_job is not None:
+            self.steward_job.stop()
+            self.steward_job = None
         if self.server is not None:
             try:
                 self.server.shutdown()

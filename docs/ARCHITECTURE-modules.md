@@ -261,6 +261,7 @@ member's ledger lines to its hub and appends them there. R3: `ollama_steward/rul
 `ollama_steward/rules_window.py`, `ollama_steward/rules_reply.py`, `ollama_steward/rules_host.py`, `ollama_steward/fit.py` (the planner),
 `ollama_steward/profiles.py` (`ollama.profiles`), `ollama_steward/steward.py` (modes, journal, undo), `ollama_steward/cli_steward.py`;
 `providers/ollama_fit_parts.py` (the corrected memory arithmetic), `agent/ollama_window_steward.py` (compaction before the call).
+R4: `ollama_steward/job.py` (the one job per state dir: the tail, the timer, the frames), `ollama_steward/job_state.py` (its lock and status), `ollama_steward/notes.py` (the note lines, the hub's note on a member), `ollama_steward/agent.py` + `ollama_steward/agent_prompt.py` + `ollama_steward/agent_proposals.py` (the model, what it reads, its checked proposals), `ollama_steward/explain.py` (`halo ollama explain`); `tui/steward_notice.py` (the status bar and transcript line), `fleet/steward_attention.py` (the attention row).
 
 **Packs** (`halo_harness/packs/`, Halo 3.2.0.0 R1, docs/PACKS.md): the
 names (`packs/names.py`: ids, `<id>--<name>`, the `pack:<id>` label and

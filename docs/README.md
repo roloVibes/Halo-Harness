@@ -40,7 +40,7 @@ Work in the TUI and on the command line, and give agents bios, lineups, roles an
   - [COMMANDS-health.md](COMMANDS-health.md) (Commands: doctor, audit, update and the installers): read this when you check, audit, update or reinstall Halo.
   - [COMMANDS-providers.md](COMMANDS-providers.md) (Commands: providers, rate limits and models): read this when you set up providers, read balances and rules, or refresh the model list.
   - [COMMANDS-mcp.md](COMMANDS-mcp.md) (Commands: MCP servers and connectors): read this when you add, list, repair or log in to MCP servers and claude.ai connectors.
-  - [COMMANDS-ollama.md](COMMANDS-ollama.md) (Commands: Ollama): read this when you run or watch an Ollama server: `halo ollama` and its subcommands (calibrate, doctor, tune, discover, hardware, traffic, events, steward).
+  - [COMMANDS-ollama.md](COMMANDS-ollama.md) (Commands: Ollama): read this when you run or watch an Ollama server: `halo ollama` and its subcommands (calibrate, doctor, tune, discover, hardware, traffic, events, steward, explain).
   - [COMMANDS-local.md](COMMANDS-local.md) (Commands: the gym and local models): read this when you run local models: `halo gym`, `halo local`.
   - [COMMANDS-sessions.md](COMMANDS-sessions.md) (Commands: config, sessions, stats and reports): read this when you read or set config (`halo settings` opens Studio's Settings), replay or export a session, read stats, or file a bug report.
   - [COMMANDS-agents.md](COMMANDS-agents.md) (Commands: roles, review, bios and lineups): read this when you manage roles, reviews, bios and lineups from the command line.
