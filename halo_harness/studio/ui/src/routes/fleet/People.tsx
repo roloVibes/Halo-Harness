@@ -89,7 +89,7 @@ export function PeopleDetail() {
   const hubHere = useFleet((s) => !!s.hub?.serving);
   const loaded = useFleet((s) => s.loaded);
   const now = useNow(true, 5000);
-  if (!loaded) return <div className="og-wait mono muted">reading the fleet...</div>;
+  if (!loaded) return null; // 3.3.2.0 R3: the section's own wait says it while it reads (FleetView)
   if (!harnesses.length) return <Empty title="Nobody here yet" body="This harness shows as soon as Studio reads it; another one joins with a pair code." />;
   return (
     <ul className="fpe" data-testid="fleet-people-list">

@@ -231,11 +231,11 @@ def test_roles_opens_as_a_react_section(ctx: Ctx):
     start, roles = got.get("start", {}), got.get("roles", {})
     ctx.check(f"the Start view, no canvas and no frame, got {start or got}",
               start.get("section-tab") == 8 and start.get("roles-start") == 1 and start.get("roles-canvas") == 0
-              and start.get("panel-about") == 0 and start.get("legacy-frame") == 0)
+              and start.get("panel-title") == 0 and start.get("legacy-frame") == 0)
     ctx.check(f"the canvas, eight cards, three tier boxes, the edges, got {roles}",
               roles.get("roles-canvas") == 1 and roles.get("roles-card") == 8 and roles.get("roles-tier") == 3 and (roles.get("roles-edge") or 0) >= 7
               and roles.get("roles-start") == 0 and roles.get("legacy-frame") == 0)
-    ctx.check(f"six panels with their about lines, the problem row, got {roles}", roles.get("panel-about") == 6 and (roles.get("roles-problem") or 0) >= 1)
+    ctx.check(f"six panels (their titles; 3.3.2.0 R3: no about line), the problem row, got {roles}", roles.get("panel-title") == 6 and (roles.get("roles-problem") or 0) >= 1)
     ctx.check(f"the bio form, the model table (one row per catalog model) and its Test button, got {roles}",
               roles.get("bio-form") == 1 and roles.get("model-row") == 7 and (roles.get("model-test") or 0) >= 1)
 
@@ -243,14 +243,14 @@ def test_roles_opens_as_a_react_section(ctx: Ctx):
 @test
 def test_team_opens_as_a_react_section(ctx: Ctx):
     """3.0.8.0 R2: `--mode team`: no team file, the Start view with Make my first team, no board; over team_rig's
-    team three member columns, four stage boxes, three block nodes, eight edges, three panels with their about lines."""
+    team three member columns, four stage boxes, three block nodes, eight edges, three panels (their titles)."""
     _need_chrome()
     got = _dom("team")
     start, team = got.get("start", {}), got.get("team", {})
     ctx.check(f"the Start view, no board, got {start or got}", start.get("section-tab") == 8 and start.get("team-start") == 1
               and start.get("team-start-init") == 1 and start.get("team-board") == 0 and start.get("team-stage") == 0)
     ctx.check(f"the board, got {team}", team.get("team-member") == 3 and team.get("team-stage") == 4 and team.get("team-block") == 3
-              and team.get("team-edge") == 8 and team.get("panel-about") == 3 and team.get("team-start") == 0 and team.get("legacy-frame") == 0)
+              and team.get("team-edge") == 8 and team.get("panel-title") == 3 and team.get("team-start") == 0 and team.get("legacy-frame") == 0)
 
 
 @test
@@ -262,7 +262,7 @@ def test_orchestra_opens_a_planned_run_on_the_plan_canvas(ctx: Ctx):
     got = _dom("orchestra")
     plan, start = got.get("plan") or {}, got.get("start") or {}
     ctx.check(f"the plan panel, not the console, got {plan or got}", plan.get("orchestra-plan") == 1 and plan.get("orchestra-root") == 0
-              and plan.get("panel-about") == 1 and plan.get("section-tab") == 8)
+              and plan.get("panel-title") == 1 and plan.get("section-tab") == 8)
     ctx.check(f"five lanes, three boxes, one edge, the inspector and Approve, no problem, got {plan}",
               plan.get("plan-canvas") == 1 and plan.get("plan-lane") == 5 and plan.get("plan-layer") == 3 and plan.get("plan-edge") == 1
               and plan.get("plan-inspector") == 1 and plan.get("plan-approve") == 1 and plan.get("plan-problem") == 0)

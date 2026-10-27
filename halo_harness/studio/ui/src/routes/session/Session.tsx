@@ -52,7 +52,7 @@ const panel = (id: string, rest: Omit<PanelSpec, "id" | "testid">): PanelSpec =>
 // Right (14 columns, about 60 %, the full height): Live. The list order is the "+" menu's and the palette's.
 export const sessionPanels: PanelSpec[] = [
   panel("session-map", { title: "Map", x: 0, y: 0, w: 10, h: 46, minW: 7, minH: 20, face: "detail", glance: MapGlance, detail: MapDetail, useMotion: started(useMapMotion) }),
-  panel("session-live", { title: "Live", x: 10, y: 0, w: 14, h: 0, minW: 6, minH: 30, face: "detail", glance: LiveGlance, detail: LiveDetail, useMotion: started(useLiveMotion) }),
+  panel("session-live", { title: "Live", primary: true, x: 10, y: 0, w: 14, h: 0, minW: 6, minH: 30, face: "detail", glance: LiveGlance, detail: LiveDetail, useMotion: started(useLiveMotion) }),
   panel("session-cost", { title: "Cost", x: 0, y: 46, w: 10, h: -15, minW: 4, minH: 14, face: "detail", glance: CostGlance, detail: CostDetail, useMotion: started(useCostMotion) }),
   panel("session-agent", { title: "Agent", x: 0, y: 200, w: 10, h: 0, minW: 5, minH: 32, face: "detail", collapsed: true, glance: AgentGlance, detail: AgentDetail, settings: AgentSettings, useMotion: started(useAgentMotion) }),
   panel("session-activity", { title: "Activity", x: 0, y: 205, w: 10, h: 0, minW: 5, minH: 24, face: "detail", collapsed: true, glance: ActivityGlance, detail: ActivityDetail, useMotion: started(useActivityMotion) }),

@@ -148,6 +148,8 @@ class RolesDriver(Driver):
         probe.probe_model = lambda ref, **_kw: {**PROBE, "ref": ref}
         state = seeded_home()
         srv, url = serve(state, True)
+        from tests.helpers.studio_full import full
+        url = full(url)  # 3.3.2.0 R3: every panel open, the arrangement this driver works in
         try:
             yield ((roles, (c, url.replace("mode=orchestra", "mode=roles").replace("feed=off", "feed=off&tour=off"), state)),)
         finally:

@@ -22,7 +22,7 @@ from pathlib import Path
 from capture_identity import guard_page, placeholder
 
 IDS = ("section-tab", "pm-installed-row", "pm-details-body", "pm-perm", "pm-source-pack", "pm-workflow", "pm-template",
-       "panel-about", "legacy-frame")
+       "panel-title", "legacy-frame")
 ROW = "document.querySelector('[data-testid=\"pm-installed-row\"][data-id=\"doc-review\"]')"
 
 
@@ -72,8 +72,9 @@ def capture(out: str, as_dom: bool, serve, state: Path) -> int:
         srv.shutdown()
         print("no Chrome found")
         return 2
+    from tests.helpers.studio_full import full  # 3.3.2.0 R3: the counts read every panel; the picture is Installed and the Details a pick opens
     try:
-        ready(c, url)
+        ready(c, full(url) if as_dom else url.replace("#t=", "&open=pm-templates#t="))  # the pick opens Details beside it
         guard_page(c, "packs")
         if as_dom:
             print(json.dumps({"packs": counts(c)}))

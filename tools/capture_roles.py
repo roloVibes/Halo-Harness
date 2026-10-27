@@ -25,7 +25,7 @@ from pathlib import Path
 from capture_identity import guard_page, placeholder
 
 IDS = ("section-tab", "roles-start", "roles-canvas", "roles-card", "roles-tier", "roles-edge", "roles-problem", "bio-form", "model-row",
-       "roles-lineup", "roles-bio", "panel-about", "roles-live-badge", "model-test", "legacy-frame")
+       "roles-lineup", "roles-bio", "panel-title", "roles-live-badge", "model-test", "legacy-frame")
 
 # the catalog the pills, the picker table and the dead-id check read (OpenRouter's cache shape; per-token prices as strings)
 CATALOG = {"anthropic/claude-fable-5.1": (15, 75, 400000), "anthropic/claude-opus-5.5": (12, 60, 400000), "anthropic/claude-sonnet-5": (3, 15, 400000),
@@ -98,10 +98,11 @@ def shoot(c, png: Path) -> int:
     from tests.helpers.studio_fleet_rig import StudioFleetRig
     placeholder()
     with StudioFleetRig() as rig:
+        rig.full = False  # 3.3.2.0 R3: the pictures show the quiet arrangement (each names the panels it opens)
         placeholder(rig.state)  # the rig's own home: you@studio
         seed_catalog(rig.state)
         seed_tiers(rig.state, name="halo-dev-cycle")  # your copy of the active lineup, stacked: the live agents still match it
-        c.go(rig.url("roles"))
+        c.go(rig.url("roles", "&open=roles-inspector,roles-problems"))  # 3.3.2.0 R3: the canvas, the Inspector and Problems beside it
         c.wait("document.querySelectorAll('[data-testid=\"roles-card\"][data-live]').length >= 2", 30)
         c.click_on("[...document.querySelectorAll('[data-testid=\"roles-card\"]')].find((n) => n.dataset.agent === 'implementer')", 0.5, 0.3)
         c.wait("[...document.querySelectorAll('[data-testid=\"roles-live\"] [data-testid=\"fleet-text\"]')].some((e) => e.textContent.length > 10)", 15)
@@ -122,7 +123,8 @@ def capture(out: str, as_dom: bool, serve, state: Path) -> int:
     try:
         if as_dom:
             srv, url = serve(state, True)
-            print(json.dumps(dom(c, url.replace("mode=orchestra", "mode=roles").replace("feed=off", "feed=off&tour=off"), state)))
+            from tests.helpers.studio_full import full  # 3.3.2.0 R3: the counts read every panel, so every panel is open
+            print(json.dumps(dom(c, full(url.replace("mode=orchestra", "mode=roles").replace("feed=off", "feed=off&tour=off")), state)))
             return 0
         png = Path(out).resolve()
         size = shoot(c, png)

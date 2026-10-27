@@ -1,19 +1,22 @@
-// One workspace panel: glass surface, HUD corner brackets, a title bar that
-// drags it (the title, the panel's one-line `about`, ONE Compact / Expand
-// toggle and ONE ... menu), eight resize handles, and its two faces: the full
-// one (detail, the default) and the compact one (glance). Clicking anywhere
-// on a panel focuses it (the ring; an open Inspector follows), and `?` on a
-// focused panel opens its help (`?` again: how the whole section works).
+// One workspace panel: a title line that drags it (3.3.2.0 R3: the title, the
+// ? help, the strip button -- Collapse to a strip, or Open on a strip -- a
+// close on an optional panel, and ONE ... menu: Float, Compact / Expand,
+// Collapse, Reset, Settings, Help), a 1 px border, eight resize handles, and
+// its two faces: the full one (detail, the default) and the compact one
+// (glance). The focused panel alone (`.focused`, `data-focused`: the one you
+// clicked or tabbed into, else the section's primary) carries the ornament:
+// the HUD brackets, the glow and the mono data line. `?` on a focused panel
+// opens its help (its about line first; `?` again: how the whole section works).
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from "react";
 import { Icon } from "../ui/Icon";
 import { openHelp, studio, useStore, type SectionId } from "../store";
 import type { MotionState } from "../motion";
 import { useGesture, usePanelKeys, useWorkspace } from "./controller";
 import { effH } from "./grid";
-import { activatePanel, layoutStore, patchPanel, resetPanel } from "./persist";
+import { activatePanel, hidePanel, layoutStore, patchPanel, resetPanel } from "./persist";
 import { PanelHelp } from "./PanelHelp";
 import { PanelMenu, type MenuItem } from "./PanelMenu";
-import type { Gesture, PanelLayout, PanelSpec } from "./types";
+import type { Gesture, Layout, PanelLayout, PanelSpec } from "./types";
 
 const HANDLES: Gesture[] = ["n", "s", "e", "w", "ne", "nw", "se", "sw"];
 const INTERACTIVE = "input, textarea, select, button, a, iframe, [contenteditable], [tabindex]";
@@ -51,6 +54,12 @@ function useOverflow(el: HTMLElement | null): boolean {
   return over;
 }
 
+/** The panel that carries the ornament while nobody clicked one: the primary when it is open, else the first open one. */
+function leadOf(specs: PanelSpec[], layout: Layout | null): string {
+  const open = (s: PanelSpec) => !!layout?.[s.id] && !layout[s.id].collapsed;
+  return (specs.find((s) => s.primary && open(s)) ?? specs.find(open))?.id ?? "";
+}
+
 export function Panel({ spec, p }: { spec: PanelSpec; p: PanelLayout }) {
   const ws = useWorkspace();
   const useMotion = spec.useMotion ?? noMotion;
@@ -62,6 +71,7 @@ export function Panel({ spec, p }: { spec: PanelSpec; p: PanelLayout }) {
   const [help, setHelp] = useState(false);
   const focus = useStore(layoutStore(ws.section), (s) => s.focus);
   const active = useStore(layoutStore(ws.section), (s) => s.active === spec.id);
+  const focused = useStore(layoutStore(ws.section), (s) => (s.active && s.layout?.[s.active] ? s.active : leadOf(ws.specs, s.layout)) === spec.id);
   const inspecting = useStore(studio, (s) => s.inspector?.section === ws.section && s.inspector?.panel === spec.id);
   const over = useOverflow(body);
   const closeHelp = useCallback(() => setHelp(false), []);
@@ -116,6 +126,7 @@ export function Panel({ spec, p }: { spec: PanelSpec; p: PanelLayout }) {
 
   const items: MenuItem[] = [
     { id: "float", label: p.floating ? "Dock into the grid" : "Float over the grid", icon: p.floating ? "dock" : "popout", run: () => set({ floating: !p.floating, z: (p.z || 0) + 1 }) },
+    ...(hasDetail ? [{ id: "face", label: face === "glance" ? "Expand: the full face" : "Compact: the summary face", icon: face === "glance" ? "expand" : "shrink", run: toggleFace }] : []),
     { id: "collapse", label: p.collapsed ? "Open the panel" : "Collapse to a strip", icon: p.collapsed ? "chevron-right" : "chevron-down", run: () => set({ collapsed: !p.collapsed }) },
     { id: "reset", label: "Reset this panel", icon: "reset", run: () => resetPanel(ws.section, spec) },
     { id: "settings", label: inspecting ? "Close the settings" : "Settings", icon: "gear", run: settings },
@@ -127,11 +138,12 @@ export function Panel({ spec, p }: { spec: PanelSpec; p: PanelLayout }) {
     <section className="ws-cell" style={style} data-panel={spec.id} data-floating={p.floating || undefined}>
       <div
         ref={ref}
-        className="panel glass"
+        className={"panel glass" + (focused ? " focused" : "")}
         data-motion={motion}
         data-collapsed={p.collapsed || undefined}
         data-face={face}
         data-active={active || undefined}
+        data-focused={focused || undefined}
         data-inspecting={inspecting || undefined}
         tabIndex={0}
         onKeyDown={onKey}
@@ -140,24 +152,32 @@ export function Panel({ spec, p }: { spec: PanelSpec; p: PanelLayout }) {
         aria-label={`${spec.title} panel`}
         data-testid={spec.testid}
       >
-        <span className="hud-brackets" aria-hidden="true" />
+        {focused && <span className="hud-brackets" aria-hidden="true" />}
         <header className="panel-bar" onPointerDown={move} onDoubleClick={toggleFace} title="Drag to move. Alt+arrows move, Alt+Shift+arrows resize.">
           <span className="panel-dot" data-motion={motion} aria-hidden="true" />
-          <h3 className="panel-title">{spec.title}</h3>
-          <span className="panel-about" data-testid={spec.about ? "panel-about" : undefined} title={spec.about}>
-            {spec.about}
-          </span>
+          <h3 className="panel-title" data-testid="panel-title" title={spec.about}>{spec.title}</h3>
+          {focused && (
+            <span className="panel-data mono" data-testid="panel-data" aria-hidden="true">
+              {p.w}x{p.collapsed ? "strip" : effH(p)}{hasDetail ? (face === "glance" ? " · compact" : " · full") : ""}
+            </span>
+          )}
           <span className="panel-tools">
+            <button className="icon-btn" onClick={() => setHelp(!help)} title={`How to use ${spec.title} (?)`} aria-label="Help" aria-expanded={help} data-testid="panel-help-btn">
+              <Icon name="help" />
+            </button>
             {p.collapsed ? (
-              <button className="icon-btn" onClick={() => set({ collapsed: false })} title="Open the panel" aria-label="Open" aria-expanded={false}>
+              <button className="icon-btn" onClick={() => set({ collapsed: false })} title="Open the panel" aria-label="Open" aria-expanded={false} data-testid="panel-strip">
                 <Icon name="chevron-right" />
               </button>
             ) : (
-              hasDetail && (
-                <button className="icon-btn" onClick={toggleFace} title="Compact / Expand" aria-label={face === "glance" ? "Expand" : "Compact"} data-testid="panel-compact">
-                  <Icon name={face === "glance" ? "expand" : "shrink"} />
-                </button>
-              )
+              <button className="icon-btn" onClick={() => set({ collapsed: true })} title="Collapse to a strip" aria-label="Collapse to a strip" aria-expanded={true} data-testid="panel-strip">
+                <Icon name="chevron-down" />
+              </button>
+            )}
+            {spec.optional && (
+              <button className="icon-btn" onClick={() => hidePanel(ws.section, spec.id)} title={`Close ${spec.title} (the + adds it again)`} aria-label="Close" data-testid="panel-close">
+                <Icon name="close" />
+              </button>
             )}
             <PanelMenu title={spec.title} items={items} />
           </span>

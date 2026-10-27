@@ -1,4 +1,4 @@
-// The Inspector: a panel's settings, opened from its title bar's ... menu
+// The Inspector: a panel's settings, opened from its title line's ... menu
 // (Settings); while it is open it follows the panel you click. What the
 // panel is and how to use it (its `about` and `help`), then the face
 // (Expanded / Compact), strip, float, the exact grid position, a per-panel

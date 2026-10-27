@@ -19,7 +19,7 @@ from pathlib import Path
 
 from capture_identity import checked_dump, guard_page, placeholder
 
-IDS = ("section-tab", "legacy-frame", "panel-about", "design-start", "design-thread", "design-turn", "design-artboard", "design-pin",
+IDS = ("section-tab", "legacy-frame", "panel-title", "design-start", "design-thread", "design-turn", "design-artboard", "design-pin",
        "design-project", "design-assets", "design-asset", "design-send-box")
 
 
@@ -34,6 +34,7 @@ def capture(out: str, dom: bool, chrome, serve, state: Path) -> int:
     placeholder(state)
     srv, url = serve(state, True)
     url = url.replace("mode=orchestra", "mode=design").replace("feed=off", "feed=off&tour=off")
+    from tests.helpers.studio_full import full  # 3.3.2.0 R3: the counts read every panel; the picture is the board and its Thread
     try:
         result: dict = {}
         if dom:  # the Start view first: no project yet
@@ -45,11 +46,11 @@ def capture(out: str, dom: bool, chrome, serve, state: Path) -> int:
         from design_demo import seed
         seed(state)
         if dom:
-            r = checked_dump(chrome, url, "design", "--window-size=1500,900")
+            r = checked_dump(chrome, full(url), "design", "--window-size=1500,900")
             result["design"] = counts(r.stdout) if r else {}
             print(json.dumps(result))
             return 0
-        return shoot(out, url)
+        return shoot(out, url.replace("#", "&open=design-thread#", 1))
     finally:
         srv.shutdown()
         srv.server_close()

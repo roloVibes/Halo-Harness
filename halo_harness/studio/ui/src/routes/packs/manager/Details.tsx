@@ -58,7 +58,7 @@ function Links({ p }: { p: PackRow }) {
 export function DetailsDetail() {
   const p = useMgr((s) => selected(s));
   const loaded = useMgr((s) => s.loaded);
-  if (!loaded) return <div className="og-wait mono muted">reading the packs...</div>;
+  if (!loaded) return null; // 3.3.2.0 R3: Installed says "reading the packs..." once
   if (!p) return <Empty title="Pick a pack" body="Click a pack in Installed or a name in Sources: its details show here." testid="pm-details-empty" />;
   const api = p.compat.some((c) => c.includes("extension API")) ? "warn" : "ok";
   return (

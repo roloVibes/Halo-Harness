@@ -8,8 +8,13 @@
 // pushes the grid panels it now covers down; nothing else moves. 3.2.2.0 R5:
 // `arrangeLayout` (Arrange in the header's ... menu and the palette) puts the open panels
 // back in the section's default rectangles and keeps them open as they are.
+// 3.3.2.0 R3: while a section's arrangement is its quiet one (quiet.ts: the
+// primary filling the stage, strips at the foot; nobody moved anything by
+// hand), a strip that opens joins the column on the primary's right and a
+// panel collapsed again gives its columns back to the primary.
 import { createStore, writeLocal, type Store } from "../store";
 import { arrange, defaultPanel, defaultRects, pushDown } from "./grid";
+import { FULL_PAGE, isQuiet, quietReflow } from "./quiet";
 import { ROW, type Layout, type PanelLayout, type PanelSpec } from "./types";
 
 export const LAYOUT_PREFIX = "halo.studio.layout.";
@@ -19,6 +24,19 @@ const VERSION = 2;
 export type LayoutState = { layout: Layout | null; custom: boolean; focus: string; active: string };
 
 const stores = new Map<string, Store<LayoutState>>();
+const specsOf = new Map<string, PanelSpec[]>();
+
+/** The Workspace says which specs a section draws (so a patch can lay the quiet arrangement out again). */
+export function registerSpecs(section: string, specs: PanelSpec[]): void {
+  specsOf.set(section, specs);
+}
+
+/** `next` laid out quietly again when `cur` was the quiet arrangement; null when the user's own arrangement rules. */
+function requiet(section: string, cur: Layout, next: Layout): Layout | null {
+  const specs = specsOf.get(section);
+  const fill = fillOf(section);
+  return specs && !FULL_PAGE && isQuiet(specs, fill, cur) ? quietReflow(specs, fill, next) : null;
+}
 
 export function layoutKey(section: string): string {
   return LAYOUT_PREFIX + section;
@@ -64,7 +82,8 @@ export function patchPanel(section: string, id: string, patch: Partial<PanelLayo
   if (!cur || !cur[id]) return;
   const next = { ...cur, [id]: { ...cur[id], ...patch } };
   const opened = cur[id].collapsed && !next[id].collapsed && !next[id].floating;
-  setLayout(section, opened ? pushDown(next, id) : next, save);
+  const quiet = cur[id].collapsed !== next[id].collapsed || cur[id].floating !== next[id].floating ? requiet(section, cur, next) : null;
+  setLayout(section, quiet || (opened ? pushDown(next, id) : next), save);
 }
 
 /** Forget the user's arrangement: the Workspace redraws the defaults. */
@@ -83,7 +102,7 @@ function fillOf(section: string): number {
 export function arrangeLayout(section: string, specs: PanelSpec[]): void {
   const cur = layoutStore(section).get().layout;
   if (!cur) return;
-  setLayout(section, defaultRects(specs, cur, fillOf(section)), true);
+  setLayout(section, defaultRects(specs, cur, fillOf(section), FULL_PAGE), true);
 }
 
 /** One panel back to its default place, size and face (the others make room). */
@@ -117,7 +136,8 @@ export function showPanel(section: string, spec: PanelSpec, float = false): void
     const n = all.filter((p) => p.floating).length;
     const p = { ...defaultPanel({ ...spec, collapsed: false }, 60), y: bottom, face: "detail" as const };
     const placed = float ? { ...p, floating: true, fx: 64 + n * 32, fy: 48 + n * 32, fw: 520, fh: 440, z: top + 1 } : p;
-    setLayout(section, arrange({ ...cur, [spec.id]: placed }, float ? undefined : spec.id), true);
+    const next = { ...cur, [spec.id]: placed };
+    setLayout(section, requiet(section, cur, next) || arrange(next, float ? undefined : spec.id), true);
   }
   focusPanel(section, spec.id);
 }
@@ -128,5 +148,5 @@ export function hidePanel(section: string, id: string): void {
   if (!cur || !cur[id]) return;
   const next = { ...cur };
   delete next[id];
-  setLayout(section, arrange(next), true);
+  setLayout(section, requiet(section, cur, next) || arrange(next), true);
 }

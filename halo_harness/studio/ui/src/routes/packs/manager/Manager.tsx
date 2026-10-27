@@ -26,7 +26,7 @@ function useManagerMotion(): MotionState {
 const panel = (id: string, rest: Omit<PanelSpec, "id" | "testid">): PanelSpec => ({ id, testid: id, ...HELP[id], ...rest, useMotion: useManagerMotion });
 
 export const packsPanels: PanelSpec[] = [
-  panel("pm-installed", { title: "Installed", x: 0, y: 0, w: 13, h: 46, minW: 6, minH: 12, face: "detail", glance: InstalledGlance, detail: InstalledDetail }),
+  panel("pm-installed", { title: "Installed", primary: true, x: 0, y: 0, w: 13, h: 46, minW: 6, minH: 12, face: "detail", glance: InstalledGlance, detail: InstalledDetail }),
   panel("pm-details", { title: "Details", x: 13, y: 0, w: 11, h: 46, minW: 6, minH: 12, face: "detail", glance: DetailsGlance, detail: DetailsDetail }),
   panel("pm-sources", { title: "Sources", x: 0, y: 46, w: 9, h: 0, minW: 6, minH: 10, face: "detail", glance: SourcesGlance, detail: SourcesDetail }),
   panel("pm-settings", { title: "Settings", x: 9, y: 46, w: 6, h: 0, minW: 4, minH: 10, face: "detail", glance: SettingsGlance, detail: SettingsDetail }),

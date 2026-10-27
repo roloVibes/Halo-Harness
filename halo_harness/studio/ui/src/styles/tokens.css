@@ -2,7 +2,10 @@
    glass panels with a 1px luminous edge, cyan for "this is live / do this",
    amber for "needs you", magenta-red for errors, mono for data. Light is the
    Catppuccin Latte palette, the readable fallback. Everything in the shell
-   (and R4's Orchestra views) builds on these names; add no raw colours. */
+   (and R4's Orchestra views) builds on these names; add no raw colours.
+   3.3.2.0 R3: the density tokens (spacing and the type scale) come in two
+   sets, comfortable (the default) and compact (`data-density="compact"` on
+   <html>, the header's density toggle); the colours are the same in both. */
 
 :root {
   color-scheme: dark;
@@ -39,6 +42,29 @@
   --t: 180ms;
   --t-slow: 240ms;
   --blur: 14px;
+  /* density: comfortable */
+  --fs: 14px;          /* body text */
+  --fs-sm: 12.5px;     /* blurbs, hints */
+  --fs-title: 13px;    /* a panel's title */
+  --topbar-h: 56px;
+  --status-h: 30px;
+  --bar-h: 36px;       /* a panel's title line */
+  --pad: 14px;         /* inside a panel */
+  --cell-gap: 4px;     /* half the gutter between two panels */
+  --gap: 14px;         /* between the header's groups */
+}
+
+/* density: compact -- tighter spacing, a smaller type scale; nothing else changes */
+:root[data-density="compact"] {
+  --fs: 13px;
+  --fs-sm: 11.5px;
+  --fs-title: 12px;
+  --topbar-h: 46px;
+  --status-h: 26px;
+  --bar-h: 30px;
+  --pad: 9px;
+  --cell-gap: 2px;
+  --gap: 10px;
 }
 
 :root[data-theme="light"] {

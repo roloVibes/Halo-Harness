@@ -52,6 +52,7 @@ def _git(cwd: Path, *args: str) -> None:
 class StudioFleetRig:
     member_id = MEMBER
     rail = ""  # 3.3.2.0 R2: the Fleet tree is Fleet's Tree panel now (tests/helpers/studio_tree.py), not the expanded rail's
+    full = True  # 3.3.2.0 R3: the drivers work in every panel (open=all, tests/helpers/studio_full.py); a capture sets False
     def __init__(self) -> None:
         self._saved = {k: os.environ.get(k) for k in _VARS}
         for k in ("BRIDGE_STATE_DIR", "HALO_FLEET_PRIVATE", "HALO_FLEET_PARENT"):
@@ -104,7 +105,9 @@ class StudioFleetRig:
 
     def url(self, mode: str = "fleet", extra: str = "") -> str:
         from halo_harness.studio.server import url_for
-        return url_for(self.server, mode).replace("#t=", f"&tour=off{self.rail}{extra}#t=")
+        from tests.helpers.studio_full import full
+        url = url_for(self.server, mode).replace("#t=", f"&tour=off{self.rail}{extra}#t=")
+        return full(url) if self.full else url
 
     def api(self, method: str, path: str, body=None):
         import http.client

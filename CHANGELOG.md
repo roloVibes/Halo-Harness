@@ -46,6 +46,25 @@ version.
 #### Removed
 - The expanded rail's PANELS list, LAYOUT block (YOURS / DEFAULT, the drag paragraph, Arrange, Reset layout), Orchestra runs block and Fleet tree.
 
+### R3: quieter panels, one thing per section, a density setting
+
+#### Added
+- One thing per section: Session opens on Live, Team on the Board, Roles on the Canvas, Fleet on the Map, Design on the Artboards, Orchestra on the Workflow and Packs on Installed, filling the stage; the other panels wait as strips at the foot. A strip you open (a click on it, its chevron, its row in the **+**, the palette) joins a column on the main panel's right, and collapsing it gives the columns back; your saved layout wins, Reset layout returns to this default.
+- A density setting: comfortable or compact, the header's rows button beside the theme or the palette's "Density: compact / comfortable"; compact has tighter spacing and a smaller type scale, the same colours; remembered per browser (`halo.studio.density`).
+- Each panel's title line has its **?** (what it is, then how to use it; **?** again closes it), the strip button, and a close on an optional panel.
+- Picking a Roles card opens the Inspector strip; picking a pack opens Details.
+- `?open=all` draws every panel in its own place (the arrangement before 3.3.2.0), for a link or a capture.
+
+#### Changed
+- A panel is one title line and a plain 1 px border; the HUD brackets, the glow and a small mono data line (its size and face) show only on the focused panel (the one you clicked, else the section's main panel).
+- Compact / Expand moved into the panel's **...** menu (a double-click on the title still toggles it); the panel's **...** is the same menu as the header's.
+- Arrange panels lays out the open panels by the one-thing rule.
+- The Studio captures, the banner, the hero and the social preview show the quiet shell.
+
+#### Removed
+- The about line under every panel's title (it is the first line of the panel's **?**, its title's tooltip, the Inspector and the section help).
+- Placeholder lines an empty area already says: the panels' own "reading the fleet / team / lineups / projects / packs..." (the section says it once), Setup's strip "reading the setup...", the Log's "No lines yet."
+
 ### Also in 3.3.2.0
 
 #### Changed

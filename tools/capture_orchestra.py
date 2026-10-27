@@ -25,7 +25,7 @@ from pathlib import Path
 from capture_identity import checked_dump, guard_page, placeholder
 
 ORCH_IDS = ("orchestra-root", "orchestra-graph", "gate", "lane", "claim-region", "report-check", "grid-tile", "section-tab",
-            "start-view", "panel-about", "panel-help", "section-help", "orchestra-goal-form", "orchestra-menu-run",
+            "start-view", "panel-title", "panel-help", "section-help", "orchestra-goal-form", "orchestra-menu-run",
             "orchestra-open-workspace", "roles-canvas", "roles-card", "roles-tier", "legacy-frame", "lane-edge", "lane-base",
             "orchestra-plan", "plan-canvas", "plan-lane", "plan-layer", "plan-edge", "plan-problem", "plan-approve",
             "plan-inspector", "orchestra-review")
@@ -86,10 +86,11 @@ def coach_capture(out: Path) -> int:
         placeholder()
         with CoachRig(test=rel_test()) as rig:
             placeholder(rig.studio.state)
-            c.go(rig.url())
+            page = rig.url().replace("&open=all", "")  # 3.3.2.0 R3: the quiet console under the floated Report
+            c.go(page)
             c.js(f"localStorage.setItem('halo.studio.layout.orchestra', {json.dumps(json.dumps(COACH_LAYOUT))}); 1")
             c.go("about:blank")
-            c.go(rig.url())
+            c.go(page)
             c.wait("!!document.querySelector('[data-testid=\"report-tab-coach\"]')", 30)
             c.click_on("document.querySelector('[data-testid=\"report-tab-coach\"]')")
             c.wait("document.querySelectorAll('[data-testid=\"coach-card\"]').length === 3", 20)
@@ -116,8 +117,9 @@ def capture(out: str, dom: bool, chrome, serve, state: Path) -> int:
         grid = url.replace("feed=off", "feed=off&tour=off")
         start = url2.replace("feed=off", "feed=off&tour=off")
         roles = grid.replace("mode=orchestra", "mode=roles")
+        from tests.helpers.studio_full import full  # 3.3.2.0 R3: the counts read every panel; the picture is the plan, its lanes and report
         if dom:
-            got = [checked_dump(chrome, u, f"orchestra {k}", WINDOW) for k, u in (("grid", grid), ("start", start), ("roles", roles), ("welcome", url))]
+            got = [checked_dump(chrome, u, f"orchestra {k}", WINDOW) for k, u in (("grid", full(grid)), ("start", start), ("roles", roles), ("welcome", url))]
             if any(r is None for r in got):
                 print("no Chrome found")
                 return 2
@@ -129,7 +131,7 @@ def capture(out: str, dom: bool, chrome, serve, state: Path) -> int:
         grid_png = Path(out).resolve()
         start_png = grid_png.with_name(grid_png.stem + "-start.png")
         ok = True
-        for target, page in ((grid_png, grid), (start_png, start)):
+        for target, page in ((grid_png, grid.replace("#", "&open=lanes,report#", 1)), (start_png, start)):
             checked_dump(chrome, page, target.stem, WINDOW)  # the DOM first: no real path or name in the picture
             r = chrome([f"--screenshot={target}", WINDOW, "--force-device-scale-factor=2", page])
             if r is None:
