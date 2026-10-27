@@ -2681,3 +2681,65 @@ also show the Start here overlay. The owner reads that as a pop-up and a blob.
   is open on load (no help, no overlay) with and without `?first=1`, the
   Summary's lines and Change jumps; every existing Setup test keeps its
   checks (they address blocks by testid, now one page at a time).
+
+## ADDED 2026-10-27 (rolo, after 3.3.1.0: "the visuals in studio are too cluttered and the pop up is annoying when you open a tab and the left column takes up too much space" -- "Let's do all that!"): 3.3.2.0 "Quiet Studio"
+
+Today the shell is a 248 px left rail (the section list with every Alt+N
+printed, a PANELS list with strip/float/add badges, a PACKS list, the Fleet
+strip, a LAYOUT block with a paragraph of drag instructions plus Arrange and
+Reset), a 340 px inspector always open, a first-visit welcome card that opens
+the section help the first time each section shows in a browser (Setup
+excepted since 3.3.1.0), and panels that each carry a title bar, HUD
+brackets, a glass border and an about line. Three rounds make it quiet; the
+holo palette stays, the ornament goes to the thing you are looking at.
+
+- R1 nothing opens on any tab, the icon rail, the inspector asks first.
+  (a) No section opens anything on load: the first-visit welcome
+  (`lib/store.ts welcomeIfNew`, `SEEN_PREFIX`) is gone for every section,
+  the Start here overlay shows only on a fresh home's first section and
+  never again once dismissed; the ? in the header and each panel's help
+  stay one click away. (b) The left column is an icon rail of about 56 px:
+  one icon per core section (and per pack section, with the diamond), its
+  title as a tooltip and as a label only while the rail is expanded (a
+  chevron at its foot toggles expanded/icons, remembered per browser), the
+  current one lit, a session dot when something is live, the Fleet strip
+  reduced to its live count on the Fleet icon; Alt+N keeps working but the
+  printed shortcuts leave the rows (they live in the Ctrl+K palette and the
+  ? help). (c) The inspector (340 px) is closed by default and opens when
+  something is selected (a card, a session, a run); closing it returns the
+  width to the stage; the choice is remembered per browser. (d) A Focus
+  toggle (F outside a text field, and a header button) hides the rail, the
+  inspector and the status bar in one keystroke; F again brings them back.
+  Tests: a Chrome driver that loads every section of a seeded home and a
+  fresh home and finds no dialog, no help panel and no overlay after 2 s
+  (except Start here on the fresh home's first section, once); the rail's
+  width budget (<= 64 px collapsed, <= 248 px expanded) and its rows
+  without printed shortcuts; Alt+1..8 still switch; the inspector closed on
+  load and open after a selection; F toggles. Every existing pin on the
+  rail (section order, Alt+9 for packs, the banner) follows.
+- R2 panels and layout leave the rail. The PANELS list becomes a small "+"
+  menu in the section header (add a panel, bring one back, with the same
+  strip/float words); Arrange and Reset become palette entries and two rows
+  in the header's overflow menu; the drag instructions move into the
+  section help ("Moving panels"); the LAYOUT · YOURS/DEFAULT word becomes a
+  small badge in the header shown only when the layout is custom. The rail
+  holds sections only. Tests: the "+" menu adds and brings back a panel; the
+  palette's Arrange works; the rail has no panel rows.
+- R3 quieter panels, one thing per section, a density setting. (a) A panel
+  is one title line and a plain border; brackets, glow and the mono data
+  strip appear only on the focused panel; the per-panel about line goes
+  (the panel's help holds it; the ? on the title opens it). (b) Every
+  section opens on one thing: Session on the live session, Team on the
+  lineup, Roles on the canvas, Fleet on the map, Design on the board,
+  Orchestra on the plan, Packs on the manager; the secondary panels start as
+  strips at the foot (the saved layout, when the user made one, wins).
+  (c) A density setting in the header (comfortable / compact) sets the
+  spacing and type scale through two token sets in `styles/tokens.css`,
+  remembered per browser. (d) Placeholder lines that say what an empty area
+  already says ("reading the setup...", "no sessions yet" over an empty
+  list) go. Tests: a capture per section at 1280 px with the rail budget
+  and the "one thing" default pinned (the first panel's box covers most of
+  the stage), the focused-panel-only ornament (a class on one panel at a
+  time), the density tokens switching. Docs: STUDIO.md, STUDIO-shell.md,
+  STUDIO-sections.md (rail, inspector, Focus, density, "nothing opens on
+  its own"), the README's Studio screenshots re-rendered.
