@@ -10,6 +10,13 @@ version.
 
 ## [3.3.2.0] - unreleased
 
+**Quiet Studio.** The owner's note on 3.3.1.0: "the visuals in studio are too cluttered and the pop up is
+annoying when you open a tab and the left column takes up too much space". Three rounds: nothing opens on
+its own on any section and the left column is an icon rail with the inspector closed until something opens
+it and a Focus key (R1); the panel list and the layout actions leave the rail for the section header's "+"
+and "..." menus, so the rail holds sections only (R2); a panel is one title line with the ornament on the
+focused one alone, every section opens on one thing with the rest as strips, and a density setting (R3).
+
 ### R1: nothing opens on any tab, the icon rail, the inspector asks first, Focus
 
 #### Added

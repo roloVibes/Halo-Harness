@@ -4,7 +4,36 @@ This folder carries the whole plan so a new session (local or cloud) can
 pick the work up without the conversation that produced it. Read this file
 first, then `WORKER-RULES.md`, then the round you are starting.
 
-## WHERE THINGS STAND -- 2026-10-26 evening (authoritative, read this first)
+## WHERE THINGS STAND -- 2026-10-27 morning (authoritative, read this first)
+
+**3.3.2.0 "Quiet Studio" IS THE RELEASE CANDIDATE** (three rounds merged on master; the release
+follows once both runners are green on the candidate head -- if you read this after the release, the
+tag v3.3.2.0 exists and the PC runs it). From the owner's note on 3.3.1.0 ("the visuals in studio are
+too cluttered and the pop up is annoying when you open a tab and the left column takes up too much
+space" -- "Let's do all that!"). R1: nothing opens on its own on any section (the first-visit welcome
+is gone; Start here once, on the section the page opened on), the icon rail (`shell/RailSections.tsx`,
+56 px icons / 200 px expanded by its chevron, `?rail=open` for one page; the header's tab strip is
+gone, the header shows the section's title and blurb), the inspector closed until a panel's Settings
+or a Design artboard opens it, Focus = `Shift+F` (plain F was follow/fit) + the header button + a
+palette entry. R2: the section header's "+" menu (add / bring back / focus a panel) and "..." menu
+(Arrange, Reset, How panels move), a "custom layout" badge, the drag paragraph in the section help,
+the rail holds sections only; Orchestra's runs in its "+" menu; Fleet's tree is an optional Tree panel
+(`fleet-tree-*`, the "While you were away" card lives there, the Fleet icon shows an amber dot while it
+waits); `lib/ui/Menu.tsx` is the shared menu. R3: a panel is one title line + plain border, brackets /
+glow / a small mono data line on the focused panel only, no about line (the ? holds it), Compact /
+Expand in the panel's "..." menu; `lib/workspace/quiet.ts` opens each section on its main panel (Live,
+Board, Canvas, Map, Artboards, Workflow, Installed) with the rest as strips at the foot, an opened
+strip sits in a column right of the main panel, a saved layout wins, `?open=all` is the old full layout
+(the ~30 existing drivers load with it through `tests/helpers/studio_full.py`), `?open=a,b` opens those
+strips; density comfortable / compact (`lib/density.ts`, `halo.studio.density`, two token sets); the
+placeholder lines are gone; every Studio capture, the banner, hero.png and social-preview.png are
+re-rendered. Worktrees `~/hh-332/R1-quiet-rail`, `R2-panels-out`, `R3-quiet-panels`; briefs and
+hand-backs under `~/hh-332/briefs/`. Open for the owner's live check: the strip rows and the right-hand
+column at 1280 px; whether Orchestra should open on the Workflow or the Lanes. Open (small): move the
+~30 drivers off `?open=all` onto the new default, per driver; a window resize or a density toggle puts an
+unsaved layout back to the default (existing behaviour). **Next:** nothing is queued.
+
+### Before it: 2026-10-26 evening
 
 **3.3.1.0 "Setup, one page at a time" IS RELEASED** (tag v3.3.1.0, release commit 6ce42f9 cut
 from 28be0eb on 2026-10-26 after both runners went green; installed on the PC: `halo 3.3.1.0`).
