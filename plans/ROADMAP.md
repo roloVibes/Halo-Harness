@@ -2880,8 +2880,9 @@ CLI adjusts has a Studio row or a named link.
 
 Order change: 3.3.3.0 ships its R1 (Setup hands off to halo) and R2 (the
 Settings section) and is released; its R3 (themes) and R4 (parity) move to
-3.3.7.0 "Themes and parity" (order on 2026-10-27 evening: 3.3.5.0 "Type into
-Studio", 3.3.6.0 "Models"), after this version. The steward's own knobs
+3.3.7.0 "Themes and parity" (order on 2026-10-27 night, rolo: "all the ollama and
+local model updates ... should be next after the hot fixes": 3.3.5.0 "Models",
+3.3.6.0 "Type into Studio"), after this version. The steward's own knobs
 live in Settings, which is why Settings goes first.
 
 Today the window rule runs inside each session (agent/ollama_window.py:
@@ -3022,12 +3023,13 @@ of a server so non-halo clients' traffic is seen too; Hugging Face endpoints
 beyond the local servers; a `halo ollama steward` that may, when told to,
 restart a local server with the recommended env.
 
-## ADDED 2026-10-27 (rolo: "add how to browse ollama and hugging face models as a new section in halo harness and can filter what models you can run on the local machine hosting local llms. A user can add models, delete models, all of that thru the gui and completely control ollama and hugging face local models thru the GUI of studio"): 3.3.6.0 "Models: browse, fit, pull, run"
+## ADDED 2026-10-27 (rolo: "add how to browse ollama and hugging face models as a new section in halo harness and can filter what models you can run on the local machine hosting local llms. A user can add models, delete models, all of that thru the gui and completely control ollama and hugging face local models thru the GUI of studio"): 3.3.5.0 "Models: browse, fit, pull, run"
 
 Order: after 3.3.4.0 (the steward's hardware card and memory arithmetic are
 what the "fits this machine" filter is made of); 3.3.3.0's themes and parity
-rounds move once more, to 3.3.7.0 "Themes and parity"; rolo moved "Type
-into Studio" ahead of this version (2026-10-27 evening), so it is 3.3.6.0.
+rounds move once more, to 3.3.7.0 "Themes and parity". rolo (2026-10-27
+night): the Ollama and local-model work comes right after the hotfixes, so
+this version follows 3.3.4.0 and "Type into Studio" is 3.3.6.0.
 
 Today a model reaches Halo by `ollama pull` on the server's own terminal, or
 `halo local import <file.gguf>`, or a Hugging Face repo id typed into the
@@ -3144,10 +3146,11 @@ for each action shown beside it.
   models can see"), STUDIO-sections.md (Session: paste and Screenshot;
   Models: the eye).
 
-## ADDED 2026-10-27 (rolo: "in studio session. there should be a box to just type into like it is the tui but it's in session view, and you can open it if you want like how the cost and map modules work. I love looking at live, but thats more for steering. I think adding a box that has the same functionality as the tui in session view would be really really cool"): 3.3.5.0 "Type into Studio"
+## ADDED 2026-10-27 (rolo: "in studio session. there should be a box to just type into like it is the tui but it's in session view, and you can open it if you want like how the cost and map modules work. I love looking at live, but thats more for steering. I think adding a box that has the same functionality as the tui in session view would be really really cool"): 3.3.6.0 "Type into Studio"
 
-Order: rolo (2026-10-27 evening): "type into studio moved up" -- it comes
-right after 3.3.4.0 the steward, before 3.3.6.0 "Models"; themes and parity
+Order: after 3.3.5.0 "Models" (rolo, 2026-10-27 night: "the next thing, more
+important than the text box in studio session, is all the ollama and local
+model updates, that should be next after the hot fixes"); themes and parity
 stay last as 3.3.7.0.
 
 Today Studio's Session section watches a terminal's session: Live streams
@@ -3165,7 +3168,7 @@ prompt entry point is `tui/app.py _submit_prompt(text, pasted, images)`.
   like the terminal's prompt -- multi-line, Enter sends, Shift+Enter a
   newline, Up / Down the history, `/` opens the slash-command list from the
   same registry the TUI uses (`commands/builtins.py` + the slash catalog:
-  name, one-line help, arguments), a pasted image (3.3.6.0 R5's paste, or this round's own if it lands first) and a
+  name, one-line help, arguments), a pasted image (3.3.5.0 R5's paste) and a
   dropped file path attach like the TUI's Ctrl+V and `/paste`. Sending = a
   user turn into the chosen session: a new control-socket command `prompt
   {text, images?, slash?}` that the TUI serves by calling `_submit_prompt`

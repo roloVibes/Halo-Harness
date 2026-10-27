@@ -39,10 +39,10 @@ and hand-backs under `~/hh-333/briefs/`. Open for the owner's live check (nothin
 PC `halo init` -> Done in the browser -> the four lines and the TUI in that terminal; the Settings pages
 at his window width; a toggle and a Reset landing in `~/.halo/config.json`; `halo settings fleet` over
 SSH (URL + `--terminal` listing). **Next:** 3.3.3.1 (the cost hotfix), 3.3.4.0 "The Ollama steward" (ROADMAP "ADDED 2026-10-27 ...
-3.3.4.0", five rounds, research first), then 3.3.5.0 "Type into Studio" (the Prompt panel, a session
-without a terminal; rolo moved it up on 2026-10-27 evening), 3.3.6.0 "Models: browse, fit, pull, run" (+ R5
-eyes: the screenshot tool and which models can see), then 3.3.7.0 "Themes and parity" (the old R3/R4 of this
-version).
+3.3.4.0", five rounds, research first), then 3.3.5.0 "Models: browse, fit, pull, run" (+ R5 eyes: the
+screenshot tool and which models can see) -- rolo, 2026-10-27 night: the Ollama and local-model work is
+"next after the hot fixes" --, then 3.3.6.0 "Type into Studio" (the Prompt panel, a session without a
+terminal), then 3.3.7.0 "Themes and parity" (the old R3/R4 of this version).
 
 ### Before it: 2026-10-27 morning
 
