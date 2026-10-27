@@ -62,7 +62,10 @@ def panel(c, url: str) -> dict:
     out["section_panels"] = c.js("document.querySelectorAll('[data-testid=\"section-help\"] section[aria-label=Panels] li').length")
     c.click_on("document.querySelector('[data-testid=\"section-help-ok\"]')")
     out["section_closed"] = c.wait("!document.querySelector('[data-testid=\"section-help\"]')", 5)
-    out["seen"] = c.js("localStorage.getItem('halo.studio.seen.orchestra')")
+    out["seen"] = c.js("Object.keys(localStorage).filter((k) => k.startsWith('halo.studio.seen.')).length")  # 3.3.2.0 R1: no welcome, nothing to remember
+    c.click_on("document.querySelector('[data-testid=rail-toggle]')")  # 3.3.2.0 R1: the runs list lives in the expanded rail
+    out["rail_run"] = c.wait("document.querySelectorAll('[data-testid=orchestra-rail-run]').length", 5)
+    c.click_on("document.querySelector('[data-testid=rail-toggle]')")
     return out
 
 

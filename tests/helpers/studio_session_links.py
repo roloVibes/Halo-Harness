@@ -52,9 +52,11 @@ def links(c, rig) -> dict:
     impl, res = rig.agent("Implement").get("agent_id"), rig.agent("Research").get("agent_id")
     c.go(url(rig, "mode=fleet"))
     c.wait(f"{inside('fleet', 'fleet-box')}.length === 2 && !!({rail_node(hid, impl)})", 30)
+    c.js(f"({rail_node(hid, impl)}).scrollIntoView({{block: 'center'}}); 1")  # 3.3.2.0 R1: the Fleet tree sits below the section rows
     c.click_on(rail_node(hid, impl))
     out["rail_local_tab"] = c.wait(f"{TAB}.startsWith('Session') && {TAB}", 10)
     out["rail_local_agent"] = c.wait(f"{AGENT}?.dataset.key === '{hid}|{sid}|{impl}' && 'implementer'", 15)
+    c.js(f"({rail_node(rig.member_id, 'main')}).scrollIntoView({{block: 'center'}}); 1")
     c.click_on(rail_node(rig.member_id, "main"))
     out["rail_member_tab"] = c.wait(f"{TAB}.startsWith('Fleet') && {TAB}", 10)
     out["rail_member_agent"] = c.wait(f"{FLEET_AGENT}?.dataset.key?.startsWith('{rig.member_id}|') && 'member'", 15)

@@ -8,6 +8,31 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.3.2.0] - unreleased
+
+### R1: nothing opens on any tab, the icon rail, the inspector asks first, Focus
+
+#### Added
+- The icon rail: the sections as icons in a 56 px left rail (title on hover, the current one lit, a dot on Session while a session is live, the Fleet live count on the Fleet icon, the packs' sections under a divider with the diamond); the chevron at its foot expands it to 248 px with the titles, remembered per browser (`halo.studio.rail`); `?rail=open` expands it for one page.
+- Focus: `F` (or `Shift+F` where a section's own F follows or fits), the header's corners button or the palette's "Focus" hide the rail, the inspector and the status bar; again brings them back as they were; remembered per browser (`halo.studio.focus`).
+- The header shows the current section's title and blurb.
+
+#### Changed
+- Nothing opens on its own when a section shows: no welcome card on any section, the first time or any time.
+- Start here shows only over the section the page opened on, and once answered never again in that browser (`halo.studio.start`); the palette still opens it anywhere.
+- The inspector stays closed until something opens it (a panel's Settings, a Design artboard's knobs); its close button or Esc gives the width back to the stage; open or closed is remembered per browser (`halo.studio.inspector`).
+- The section rows print no shortcut: `Alt+N` is in the palette's Go to and in each section's How this works, which also lists the Focus key.
+- The panel list, the Fleet tree, the Orchestra runs and the layout actions show while the rail is expanded.
+
+#### Removed
+- The header's section tab strip (the sections are the rail's rows).
+- The first-visit welcome card and its `halo.studio.seen.<section>` keys.
+- The header's "Toggle rail" button (the rail's chevron replaces it; the palette entry is "Expand or collapse the rail").
+
+### Also in 3.3.2.0
+
+#### Changed
+
 ## [3.3.1.0] - 2026-10-26
 
 ### R1: Setup, one page at a time

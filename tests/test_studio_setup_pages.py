@@ -5,7 +5,8 @@ fresh scratch home with no provider; no provider request, no model call:
 
 1. nothing opens on its own: `?mode=setup` and `?mode=setup&first=1` show no
    help, no Start here, no dialog after 2 s; `first=1` only leads the rail's
-   line with "set up this box"; Roles still gets the offer; the help is one
+   line with "set up this box"; 3.3.2.0 R1: Roles after Setup gets no offer
+   either (Start here shows over the first section only); the help is one
    click away;
 2. no panels, no panel list, no Arrange on Setup;
 3. the rail: the wizard's order, each step current / done / todo;
@@ -69,7 +70,8 @@ def test_nothing_opens_on_its_own(ctx: Ctx):
         ctx.check(f"?{name}: the first page is Providers, got {got.get('page_' + name)!r}", got.get(f"page_{name}") == "providers")
     ctx.check(f"first=1 leads the rail's line with set up this box, got {got.get('first_line')!r}", str(got.get("first_line")).startswith("set up this box"))
     ctx.check(f"the help is one click away in the header, got {got.get('help_title')!r}", got.get("help_title") == "How Setup works")
-    ctx.check("the other sections of a fresh home still get Start here", got.get("roles_overlay") is True)
+    ctx.check(f"3.3.2.0 R1: the next section gets no Start here (the first section only), got {got.get('roles_overlay')}",
+              got.get("roles_overlay") == [False, False, 0])
 
 
 @test
@@ -159,7 +161,7 @@ def test_the_source_keeps_the_shape(ctx: Ctx):
     door = (ui / "routes" / "setup" / "door.ts").read_text(encoding="utf-8")
     ctx.check("the door opens no help", "openHelp" not in door)
     store = (ui / "lib" / "store.ts").read_text(encoding="utf-8")
-    ctx.check("no welcome for Setup", 'section === "setup"' in store and 'first === "setup"' in store)
+    ctx.check("3.3.2.0 R1: no welcome for any section (Setup's included)", "welcomeIfNew" not in store and "SEEN_PREFIX" not in store)
 
 
 if __name__ == "__main__":

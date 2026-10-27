@@ -163,8 +163,9 @@
 .dialog.fs-pair-dialog { width: min(640px, calc(100vw - 32px)); }
 
 /* -- the mini stream (picture in picture) ------------------------------------------- */
-.fleet-pip { position: fixed; left: 268px; bottom: 44px; width: 380px; max-height: 260px; z-index: 55; display: grid; grid-template-rows: auto auto minmax(0, 1fr); box-shadow: var(--glow), 0 24px 60px rgba(0, 0, 0, .5); animation: rise var(--t-slow) var(--ease); }
-.app[data-rail="closed"] .fleet-pip { left: 20px; }
+.fleet-pip { position: fixed; left: 76px; bottom: 44px; width: 380px; max-height: 260px; z-index: 55; display: grid; grid-template-rows: auto auto minmax(0, 1fr); box-shadow: var(--glow), 0 24px 60px rgba(0, 0, 0, .5); animation: rise var(--t-slow) var(--ease); }
+.app[data-rail="open"] .fleet-pip { left: 268px; } /* 3.3.2.0 R1: beside the rail, icons (56 px) or expanded */
+.app[data-focus="on"] .fleet-pip { left: 20px; }
 .pip-bar { display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 6px 0 12px; border-bottom: 1px solid var(--line); cursor: grab; user-select: none; }
 .pip-name { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pip-meta { flex: 1; min-width: 0; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

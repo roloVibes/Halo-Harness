@@ -3,6 +3,10 @@
 // panel is and how to use it (its `about` and `help`), then the face
 // (Expanded / Compact), strip, float, the exact grid position, a per-panel
 // reset, and whatever settings the panel itself declares. Esc closes it.
+// 3.3.2.0 R1 "the inspector asks first": closed until something opens it (a
+// panel's Settings, a Design artboard's knobs); its close button or Esc gives
+// the width back to the stage; open or closed is remembered per browser
+// (`halo.studio.inspector`, lib/store.ts) and the next selection opens it again.
 import { Button, Field, Icon, Surface } from "../lib/ui";
 import { studio, useStore } from "../lib/store";
 import { arrange } from "../lib/workspace/grid";
@@ -31,6 +35,13 @@ function NumberField({ label, value, onChange, min, max }: { label: string; valu
   );
 }
 
+/** The column is open only while there is a panel to show (a remembered one waits for its section's layout). */
+export function useInspecting(): boolean {
+  const ref = useStore(studio, (s) => s.inspector);
+  const has = useStore(layoutStore(ref?.section ?? "orchestra"), (s) => !!ref && !!s.layout?.[ref.panel]);
+  return has && !!sectionDef(ref?.section ?? "orchestra").panels.some((p) => p.id === ref?.panel);
+}
+
 export function Inspector() {
   const ref = useStore(studio, (s) => s.inspector);
   const section = ref?.section ?? "orchestra";
@@ -48,14 +59,14 @@ export function Inspector() {
   };
   const Settings = spec.settings;
   return (
-    <aside className="inspector" aria-label="Inspector">
+    <aside className="inspector" aria-label="Inspector" data-testid="inspector">
       <Surface className="inspector-surface" motion="none">
         <header className="inspector-head">
           <div>
             <div className="rail-label mono">SETTINGS · {def.title.toUpperCase()}</div>
             <h2 className="inspector-title">{spec.title}</h2>
           </div>
-          <button className="icon-btn" onClick={close} aria-label="Close" title="Close (Esc)">
+          <button className="icon-btn" onClick={close} aria-label="Close" title="Close: the stage takes the width back (Esc)" data-testid="inspector-close">
             <Icon name="close" />
           </button>
         </header>

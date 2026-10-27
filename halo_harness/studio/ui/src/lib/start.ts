@@ -7,13 +7,31 @@
 // arrive as `start` frames on the live feed (polled from GET /api/start too,
 // so a closed feed still shows them); POST /api/start/dismiss is "Just look
 // around", remembered for the home. `?tour=off` (captures, tests) keeps the
-// overlay shut, like the first-visit welcome. 3.3.0.0 R3: the overlay's first
+// overlay shut. 3.3.0.0 R3: the overlay's first
 // button is "Set up this box" (Setup opens), and a 422 `no_provider` answer
 // to POST start opens Setup with a toast instead of an error line. 3.3.1.0 R1:
-// the offer is never drawn while the section is Setup (shell/StartHere.tsx).
+// the offer is never drawn while the section is Setup (shell/StartHere.tsx). 3.3.2.0 R1: the offer shows over the
+// section the page opened on only, and once answered (Set up this box, Just look around, a run, a close) never
+// again in this browser (`halo.studio.start`); the palette's "Start: the guided first run" still opens it.
 import { ApiError, api } from "./api";
 import { onEvent } from "./events";
-import { createStore, goSection, studio, toast, welcomeIfNew } from "./store";
+import { createStore, goSection, toast, writeLocal } from "./store";
+
+/** 3.3.2.0 R1: this browser answered the offer once; it is not drawn again on its own. */
+export const ANSWERED_KEY = "halo.studio.start";
+
+function answered(): boolean {
+  try {
+    return localStorage.getItem(ANSWERED_KEY) === "answered";
+  } catch {
+    return false;
+  }
+}
+
+/** The offer was answered (or closed): it stays shut on the next section and the next load. */
+export function markAnswered(): void {
+  writeLocal(ANSWERED_KEY, "answered");
+}
 
 export type StartFrame = {
   step: number;
@@ -41,9 +59,11 @@ type StartState = {
   busy: boolean;
   /** 3.3.0.0 R3: no provider is set up yet (GET start `no_provider`): "Set up this box" is the primary button. */
   noProvider: boolean;
+  /** 3.3.2.0 R1: the palette asked for the overlay: it shows on any section (not only the first). */
+  asked: boolean;
 };
 
-export const start = createStore<StartState>({ open: false, view: "offer", plan: [], card: [], steps: {}, summary: null, running: false, error: "", busy: false, noProvider: false });
+export const start = createStore<StartState>({ open: false, view: "offer", plan: [], card: [], steps: {}, summary: null, running: false, error: "", busy: false, noProvider: false, asked: false });
 
 // 3.1.1.0 R3: a page opened on an edit (`?edit=`, `halo studio --edit`) goes straight to it, no overlay.
 const QUIET = typeof location !== "undefined" && /[?&]((tour|start)=off\b|edit=)/.test(location.search);
@@ -111,9 +131,7 @@ export async function loadStart(): Promise<void> {
       adoptJob(st.job);
       start.update(() => ({ open: true, view: "run" }));
       poll();
-    } else if (st.show && !DOOR) {
-      const help = studio.get().help;
-      if (help?.welcome) studio.update(() => ({ help: null })); // the welcome waits until Start here is answered
+    } else if (st.show && !DOOR && !answered()) {
       start.update(() => ({ open: true, view: "offer" }));
     }
   } catch {
@@ -122,6 +140,7 @@ export async function loadStart(): Promise<void> {
 }
 
 export async function runStart(): Promise<void> {
+  markAnswered();
   start.update(() => ({ busy: true, error: "", steps: {}, summary: null }));
   try {
     const r = await api.post<{ job: Job }>("start");
@@ -148,18 +167,19 @@ export function noProviderJump(): void {
 
 /** "Set up this box", the overlay's first button: Setup opens and the overlay closes (it asks again on the next load). */
 export function setUpThisBox(): void {
+  markAnswered();
   goSection("setup");
   closeStart();
 }
 
 export async function dismissStart(): Promise<void> {
+  markAnswered();
   start.update(() => ({ open: false }));
   try {
     await api.post("start/dismiss");
   } catch {
-    /* not remembered this time: it asks again on the next load */
+    /* not remembered for the home this time; this browser still remembers it */
   }
-  welcomeIfNew(studio.get().section);
 }
 
 export async function stopStart(): Promise<void> {
@@ -172,14 +192,14 @@ export async function stopStart(): Promise<void> {
 
 export function closeStart(): void {
   window.clearTimeout(timer);
+  if (start.get().view === "offer") markAnswered();
   start.update(() => ({ open: false }));
-  welcomeIfNew(studio.get().section);
 }
 
 /** The palette's "Start: the guided first run": the overlay whatever the home (a run in progress shows its steps). */
 export function openStart(): void {
   feed();
-  start.update((s) => ({ open: true, view: s.running || s.summary ? "run" : "offer" }));
+  start.update((s) => ({ open: true, asked: true, view: s.running || s.summary ? "run" : "offer" }));
   if (start.get().view === "run" && !start.get().summary) poll();
   if (!start.get().plan.length || !start.get().card.length)
     api

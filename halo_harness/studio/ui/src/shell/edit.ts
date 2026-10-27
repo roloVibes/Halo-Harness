@@ -12,7 +12,7 @@
 // 3.3.0.0 R4: Setup's doors (`?mode=setup&first=1`, `&block=team`, and a frame
 // `{mode: "setup", block, first}`) go to routes/setup/door.ts.
 import { onEvent } from "../lib/events";
-import { goSection, SECTION_IDS, studio, type SectionId } from "../lib/store";
+import { goSection, SECTION_IDS, type SectionId } from "../lib/store";
 import { openSession } from "../routes/session/store";
 import { applyDoor, doorFromUrl } from "../routes/setup/door";
 import { start } from "../lib/start";
@@ -50,8 +50,6 @@ function showPanel(id: string): void {
 /** Open the target: switch to its section and open the bio form, the lineup's inspector or the Team. */
 export async function applyEdit(target: EditTarget): Promise<void> {
   if (start.get().open && !start.get().running) start.update(() => ({ open: false })); // the overlay waits; nothing is dismissed
-  const help = studio.get().help;
-  if (help?.welcome) studio.update(() => ({ help: null }));
   if (target.kind === "team") {
     goSection("team");
     return;

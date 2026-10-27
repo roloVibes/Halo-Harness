@@ -6,12 +6,12 @@ Part of [Halo Studio](STUDIO.md), which lists every part.
 
 ## The shell (3.0.3.0)
 
-`halo studio` opens a React shell with eight sections in the top bar:
+`halo studio` opens a React shell with eight sections in the icon rail on the left (3.3.2.0; the top bar's tab strip before):
 **Session | Team | Roles | Fleet | Design | Orchestra | Packs | Setup** (`Alt+1`..`Alt+8`, or `?mode=` in
 the URL for the first six; Fleet since 3.0.5.0, Team since 3.0.8.0, Session since 3.1.4.0, Packs since 3.2.0.0, Setup since 3.3.0.0; Org and Flow are
 gone since 3.1.4.0). The order is one list, `SECTIONS` in `ui/src/routes/index.tsx`
 (3.1.6.0: Session `Alt+1`, Team `Alt+2`, Roles `Alt+3`, Fleet `Alt+4`, Design `Alt+5`,
-Orchestra `Alt+6`; 3.2.0.0 R6: Packs `Alt+7`, [STUDIO-packs.md](STUDIO-packs.md); 3.3.0.0 R1: Setup `Alt+8`): the tabs, the `Alt+N` keys, the palette's groups, the first key of each
+Orchestra `Alt+6`; 3.2.0.0 R6: Packs `Alt+7`, [STUDIO-packs.md](STUDIO-packs.md); 3.3.0.0 R1: Setup `Alt+8`): the rail's rows, the `Alt+N` keys, the palette's groups, the first key of each
 section's **How this works** and the status bar's key hint all read it.
 Session is this session, live: the Fleet panels scoped to this harness (see
 [Session](STUDIO-sections.md#session)); with nothing saved for the browser Studio opens on it while a
@@ -68,21 +68,42 @@ The classic plain-JS page (`/legacy/`, `halo studio --legacy`) is gone since
   position, reset, and the panel's own options.
 - **Help where you are.** `?` on a focused panel (or Help in its ... menu)
   opens a small popover with its `about` line and a few lines on how to use
-  it; `?` again, `?` away from a panel, the **?** beside the section tabs and
+  it; `?` again, `?` away from a panel, the **?** in the header beside the
+  section's title and
   the palette's **Help: how <section> works** open **How this works** for the
   section: what it is, five to eight numbered steps, every panel with its
-  about line, and the keys (the copy is below, in
-  [How each section works](STUDIO-sections.md#how-each-section-works)). The first time a
-  section shows in a browser the same card comes up as its welcome, with
-  **Got it** (`halo.studio.seen.<section>`; `?tour=off` in the URL keeps it
-  shut).
-- **The rail** (left) has the section's own block (Orchestra: **New
-  run** and the runs), lists the section's panels (click one to bring it back
-  and focus it), the **Fleet tree** (3.0.5.0; it replaced the plain list of
-  live sessions): every harness, its sessions and their agents with a status
-  dot each, the live and need-you counts on top, a click opens Fleet on that
-  node, and a session that waits on you keeps its inline answer; then the
-  layout actions.
+  about line, and the keys, `Focus` last (the copy is below, in
+  [How each section works](STUDIO-sections.md#how-each-section-works)).
+- **Nothing opens on its own** (3.3.2.0). A section shows its own content
+  when you open it, the first time or any time: no welcome card, no help, no
+  dialog (the first-visit welcome and its `halo.studio.seen.<section>` keys
+  are gone). The one exception is **Start here** on a fresh home, over the
+  section the page opened on, once per browser (below).
+- **The rail** (left, 3.3.2.0) is an icon rail, 56 px: one icon per
+  section, its title as the tooltip, the current one lit, a dot on Session
+  while a session is live, the number of agents at work on Fleet, the packs'
+  own sections under a thin divider with the diamond. The rows print no key:
+  `Alt+N` is in the palette's **Go to** and in **How this works**. The
+  chevron at its foot expands it to 248 px (remembered per browser,
+  `halo.studio.rail`; `?rail=open` expands it for one page): each section's
+  title, then the section's own block (Orchestra: **New run** and the runs),
+  its panels (click one to bring it back and focus it), the **Fleet tree**
+  (every harness, its sessions and their agents with a status dot each, the
+  live and need-you counts on top, a click opens Fleet on that node, and a
+  session that waits on you keeps its inline answer) and the layout actions.
+  The panel list and the layout actions move to the header and the palette in
+  3.3.2.0 R2.
+- **The inspector asks first** (3.3.2.0). The 340 px column on the right is
+  closed until something opens it: a panel's **Settings**, a Design
+  artboard's knobs. Its close button (or `Esc`) gives the width back to the
+  stage; open or closed is remembered per browser (`halo.studio.inspector`),
+  and the next selection opens it again.
+- **Focus** (3.3.2.0): `F` (outside a text field), the corners button in the
+  header or the palette's **Focus** hide the rail, the inspector and the
+  status bar; the stage takes the whole window. `F` again brings them back as
+  they were. Where a section's own `F` follows an agent or the Log (Session,
+  Fleet, Orchestra, the Roles Live tab) or fits the Roles canvas,
+  `Shift+F` is Focus. Remembered per browser (`halo.studio.focus`).
 - **The palette** (`Ctrl`/`Cmd`+`K`): a mono prompt with fuzzy matching and
   grouped results (Go to, Help, then the sections in the tab order: Team, Roles,
   Fleet, Design, Orchestra; then Media, View, Layout), keyboard first: arrows,
@@ -158,8 +179,8 @@ http://127.0.0.1:<port>/?mode=team&edit=team#t=<token>
 
 A page opened on `?edit=` goes straight to it (`shell/edit.ts`): `bio:` opens
 Roles with the Bios panel on that bio's form, `lineup:` opens that lineup
-with the Inspector on its Lineup tab, `team` the Team section. Start here and
-the first-visit welcome stay shut on such a page.
+with the Inspector on its Lineup tab, `team` the Team section. Start here
+stays shut on such a page.
 
 `halo studio --edit <target>` (and `halo agents edit`, `halo teams edit`,
 the TUI's `/edit`, `e` in the terminal's bio and lineup views, the wizard's
@@ -177,7 +198,8 @@ the URL (over SSH: forward the port and open it on your machine).
 **Start here.** On a fresh home -- no lineup of your own (only the shipped
 lineups or their untouched copies, none active) and no run (no Orchestra run
 in Studio's repo, no `halo start` sample under `~/.halo/start/`) -- Studio
-opens on a **Start here** card instead of the section's welcome. Above its
+opens on a **Start here** card over the section the page opened on (3.3.2.0:
+only there, and once per browser). Above its
 button the card shows the same lines `halo start` opens on (3.2.2.0;
 `GET /api/start` carries them as `card`): what it does in seven steps, the
 models it will call, the estimated cost, the time, what it writes, and that
@@ -192,16 +214,20 @@ lineup, the run and its repo, with buttons into Roles, Team and Fleet.
 Closing the card keeps the start running (the palette's **Start: the
 guided first run** brings it back; **Stop the start** ends it). **Just look
 around** dismisses the card for this home (`~/.halo/start/dismissed.json`,
-every browser) and the section's welcome comes up instead. It runs on the
+every browser). Any answer (**Set up this box**, a run, **Just look around**,
+closing it, leaving for another section) is remembered in this browser
+(`halo.studio.start`) and the card does not come back on its own; the
+palette's **Start: the guided first run** opens it on any section. It runs on the
 model you configured; with none, the card says so and points at `halo init`.
-`?tour=off` keeps it shut, like the welcome.
+`?tour=off` keeps it shut.
 
 **Set up this box** (3.3.0.0 R3) is the card's first button: it opens the
-Setup section and closes the card (it asks again on the next load until a
-run or **Just look around**). While no provider is set up (no key, login or
+Setup section and closes the card (3.3.2.0: for this browser; the home
+still counts as fresh). While no provider is set up (no key, login or
 default model: what `halo start` checks), it is the primary button, and a
 fresh home opens on Setup whatever section this browser saved (`?mode=`
-still wins; the served page says `data-no-provider`). **Run the guided first
+still wins; the served page says `data-no-provider`), where the card is not
+drawn (3.3.2.0: Setup's Summary offers the guided first run instead). **Run the guided first
 run** with no provider set up is answered `422 no_provider`: the card closes,
 Setup opens and a toast says "no provider is set up yet: Setup".
 
@@ -226,7 +252,7 @@ names the next section and why, in this order: Roles -> Orchestra ->
 Team -> Design -> Fleet (Fleet's points back to Roles); the button
 opens it.
 
-**The Glossary.** The **?** beside the section tabs is a menu: **How
+**The Glossary.** The **?** in the header is a menu: **How
 <section> works** (also `?`) and **Glossary**, a dialog listing every word
 Halo uses (lineup, bio, role, tier, team, member, block, stage, lane, part,
 step, mission, gate, claim, hand-off, plan, coach, orchestra run,

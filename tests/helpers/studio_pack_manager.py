@@ -65,7 +65,7 @@ def section(c, url, ctx) -> dict:
     c.go(url)
     w(c, f"{TABS}.length >= 8", 40)
     out["tabs"] = c.js(f"{TABS}.map((t) => t.querySelector('.tab-label').textContent)")
-    out["kbds"] = c.js(f"{TABS}.map((t) => t.querySelector('.tab-kbd')?.textContent || '')")
+    out["kbds"] = c.js(f"{TABS}.map((t) => t.dataset.kbd || '')")  # 3.3.2.0 R1: the icon rail keeps the key as data-kbd, never printed
     alt(c, 7)
     out["alt7"] = w(c, f"{CUR}.startsWith('Packs') && {CUR}", 10)
     out["empty"] = bool(w(c, f"!!{q('[data-testid=pm-installed-empty]')}", 30))
@@ -105,7 +105,7 @@ def enable(c, url, ctx) -> dict:
     out = {"granted": w(c, _text(f"{ROW} [data-testid=pm-grants]") + ".startsWith('1/3') && " + _text(f"{ROW} [data-testid=pm-grants]"), 15)}
     w(c, f"{TABS}.some((t) => t.textContent.startsWith('Docs review'))", 20)
     out["tabs_on"] = c.js(f"{TABS}.map((t) => t.querySelector('.tab-label').textContent)")
-    out["pack_kbd"] = c.js(f"{TABS}.find((t) => t.textContent.startsWith('Docs review'))?.querySelector('.tab-kbd')?.textContent")
+    out["pack_kbd"] = c.js(f"{TABS}.find((t) => t.textContent.startsWith('Docs review'))?.dataset.kbd")
     press(c, q("[data-testid=pm-grant][data-name=hooks]"))
     out["granted_more"] = w(c, _text(f"{ROW} [data-testid=pm-grants]") + ".startsWith('2/3') && " + _text(f"{ROW} [data-testid=pm-grants]"), 20)
     rec = json.loads((ctx["state"] / "packs" / "state.json").read_text(encoding="utf-8"))["installed"]["doc-review"]

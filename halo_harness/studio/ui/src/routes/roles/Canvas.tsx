@@ -177,7 +177,7 @@ export function CanvasDetail() {
     } else if ((k === "Delete" || k === "Backspace") && sel) openDialog({ kind: "delete-card", node: sel });
     else if (k === "Enter" && sel) focusModel(sel); // 3.1.4.0 R4: the Inspector's MODEL strip
     else if (k === "a") layout();
-    else if (k === "f") fit();
+    else if (k === "f" && !e.shiftKey) fit(); // 3.3.2.0 R1: Shift+F is Focus
     else if (k === "+" || k === "=") setZoom((z) => Math.min(2, z * 1.2));
     else if (k === "-") setZoom((z) => Math.max(0.3, z / 1.2));
     else return;

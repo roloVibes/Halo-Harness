@@ -63,7 +63,8 @@ def test_the_packs_section_after_orchestra_with_its_panels(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"the six, then the packs' sections, got {got.get('tabs')}", got.get("tabs") == CORE + ["Docs review", "Hello"])
     ctx.check(f"Alt+1..6 kept, Alt+7 Packs, Alt+8 Setup, Alt+9 the first pack's, the next none (3.3.0.0 R1), got {got.get('kbds')}",
-              got.get("kbds") == [f"Alt{n}" for n in range(1, 10)] + [""])
+              got.get("kbds") == [f"Alt+{n}" for n in range(1, 10)] + [""])
+    ctx.check(f"3.3.2.0 R1: no row prints its key, got {got.get('printed')}", got.get("printed") == 0)
     ctx.check(f"a thin packs divider before the first, got {got.get('divider')}", got.get("divider") == ["packs", "Docs review"])
     ctx.check("Alt+9 opens it", str(got.get("alt7")).startswith("Docs review"))
     ctx.check(f"the markdown panel, got {got.get('markdown')!r}", str(got.get("markdown")).startswith("Review notes"))
@@ -73,7 +74,8 @@ def test_the_packs_section_after_orchestra_with_its_panels(ctx: Ctx):
     ctx.check(f"the Settings form's fields, got {got.get('form_fields')}", got.get("form_fields") == ["style", "max_findings"])
     ctx.check(f"each panel names its pack, got {got.get('about')!r}", got.get("about") == "from pack doc-review")
     ctx.check(f"its help is the pack's, got {got.get('help')!r}", "The reviewer's notes for this repo" in str(got.get("help")))
-    ctx.check(f"the rail's PACKS group, with their keys, got {got.get('rail')}", got.get("rail") == ["Docs reviewAlt9", "Hello"])  # 3.3.0.0 R1: one keyed pack section
+    ctx.check(f"the rail's pack rows, the diamond each, the first on Alt+9 (not printed), got {got.get('rail')}",
+              got.get("rail") == ["Docs review|Alt+9|true", "Hello||true"])  # 3.3.0.0 R1: one keyed pack section; 3.3.2.0 R1: the icon rail
 
 
 @test
