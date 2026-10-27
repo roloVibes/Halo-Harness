@@ -38,8 +38,8 @@ def build(cwd, home=None):
         except ValueError:
             obj = {}
         cost = float(obj.get("total_cost_usd") or 0.0)
-        if not cost and getattr(session, "cost_meter", None) is not None and session.cost_meter.has_cost_data:
-            cost = float(session.cost_meter.total_usd)
+        if not cost and getattr(session, "cost_meter", None) is not None:
+            cost = float(session.cost_meter.total_usd or 0.0)  # 3.3.3.1: the priced part counts
         return {"text": str(obj.get("result") or ""), "cost_usd": cost, "ok": bool(obj) and not obj.get("is_error"),
                 "error": "" if obj and not obj.get("is_error") else str(obj.get("result") or "no result from the model")[:500],
                 "session_id": b.session_log.session_id}

@@ -248,14 +248,14 @@ def test_round5_databricks_family_fallback_marks_vendor_list_price_and_not_ready
         os.environ["DATABRICKS_TOKEN"] = "fake-test-token"
         enable("databricks")
         write_dbx_endpoints_json(env.state_dir, [
-            {"name": "databricks-claude-opus-5", "task": "llm/v1/chat", "ready": True,
+            {"name": "databricks-claude-opus-9", "task": "llm/v1/chat", "ready": True,
              "api_types": ["llm/v1/chat"]},
             {"name": "databricks-claude-opus-5-5", "task": "llm/v1/chat", "ready": False,
              "api_types": ["llm/v1/chat"]},
         ])
         write_models_dev_json(env.state_dir, {
             "anthropic": {"id": "anthropic", "models": {
-                "claude-opus-5": {"limit": {"context": 200000, "output": 32000},
+                "claude-opus-9": {"limit": {"context": 200000, "output": 32000},
                                    "cost": {"input": 15, "output": 75}},
                 "claude-opus-5.5": {"limit": {"context": 200000, "output": 32000},
                                       "cost": {"input": 16, "output": 80}},
@@ -265,7 +265,9 @@ def test_round5_databricks_family_fallback_marks_vendor_list_price_and_not_ready
         rows = build_model_rows(env.state_dir, env=None, routes={})
         by_ref = {r.get("ref"): r for r in rows if isinstance(r, dict)}
 
-        ready_row = by_ref.get("dbx:databricks-claude-opus-5")
+        # 3.3.3.1: an endpoint in Databricks' own price table (opus-5, opus-5.5) takes that rate instead, so the
+        # family-fallback marker is proven on one the table does not carry
+        ready_row = by_ref.get("dbx:databricks-claude-opus-9")
         ctx.check("the ready endpoint's row exists", ready_row is not None)
         ctx.check(f"context_tokens via the family fallback, got {ready_row.get('context_tokens')!r}",
                   ready_row.get("context_tokens") == 200000)
@@ -280,6 +282,10 @@ def test_round5_databricks_family_fallback_marks_vendor_list_price_and_not_ready
         ctx.check("the not-ready endpoint's row exists", not_ready_row is not None)
         ctx.check(f"detail names 'not ready', got {not_ready_row.get('detail')!r}",
                   "not ready" in (not_ready_row.get("detail") or ""))
+        ctx.check(f"a table endpoint shows Databricks' own dollar rate (57.143 DBU/M at $0.07), no vendor marker, got "
+                  f"{not_ready_row.get('price_in_per_m')!r} {not_ready_row.get('detail')!r}",
+                  abs((not_ready_row.get("price_in_per_m") or 0) - 4.00001) < 1e-4
+                  and "vendor list price" not in (not_ready_row.get("detail") or ""))
 
 
 if __name__ == "__main__":

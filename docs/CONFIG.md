@@ -230,7 +230,8 @@ this table to the same keys, so a new key lands in all three:
 | `mcpPreload` | unset | hand-edited: a list of wire tool names to preload regardless of the catalog's own `alwaysLoad` rule | Settings -> General |
 | `compactionModel` | unset (uses the session model) | hand-edited; its summary calls are billed at its own rates | Settings -> General |
 | `databricks.gateway.<endpoint>` | unset | `halo init --provider databricks` (from a team.json `gateway_preference`), or hand-edited | Settings -> Providers |
-| `databricks.dbu_price_usd` | unset (costs show as raw DBUs) | team.json, or hand-edited | Settings -> Providers |
+| `databricks.dbu_price_usd` | `0.07` (USD per DBU: Databricks' AWS US East example price, read 2026-10-27; every cost Halo shows is in dollars) | team.json, `halo config set databricks.dbu_price_usd 0.0x`, or hand-edited | Settings -> Providers |
+| `databricks.prices.<endpoint>` | unset (Databricks' published pay-per-token rate times `databricks.dbu_price_usd`, else unpriced and the total carries a `+`) | hand-edited: `{"in": 3.0, "out": 15.0}` USD per 1M tokens (`cache_read` / `cache_write` optional) | Settings -> Providers |
 | `databricks.catalog_max_age_hours` | `24` | hand-edited | Settings -> Providers |
 | `improve.enabled` | `true` | hand-edited | Settings -> Coach and improve |
 | `improve.hint` | `true` | hand-edited | Settings -> Coach and improve |

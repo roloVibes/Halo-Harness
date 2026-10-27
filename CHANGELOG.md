@@ -8,6 +8,22 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.3.3.1] - unreleased
+
+### Cost counts what it knows
+#### Fixed
+- The session's cost is the sum of every priced call, the main model's and every sub-agent's. A model with no price no longer turns the whole total into "unknown", which Studio drew as $0.0000 while the sub-agents showed real dollars.
+- `--max-budget-usd` trips on the known part, so a session whose main model has no price still stops on its priced sub-agents' spend.
+- A partly priced sub-agent, a partial turn, the sessions registry and a mission worker keep the known figure instead of dropping it.
+#### Changed
+- `/cost`, `/status` and the status bar show `$3.6348+` when a part has no price, plus one detail line naming the model ("+ main's model databricks-glm-5-3 reports no price; this is what the priced agents spent"). "n/a (no priced call yet)" only when nothing is priced and nothing was spent.
+- Studio's Cost panel puts a `+` on the spend and on PER TURN, with a title naming the model. Main's line says "no price" instead of $0.0000 when its own model is the unpriced one.
+- `status` / `message_end` frames, the fleet session row and the `-p --output-format json` result carry `cost_complete` (and the frames and row `cost_unknown`).
+### Costs are always dollars
+#### Changed
+- `databricks.dbu_price_usd` defaults to $0.07 per DBU (the AWS US East example price on Databricks' Foundation Model Serving pricing page, read 2026-10-27). A DBU figure is never the main figure: dollars first, the DBU count only as a detail.
+- Databricks pay-per-token endpoints (Claude, GPT, Gemini, Grok, GLM, Kimi, DeepSeek, Llama, Qwen, GPT-OSS, Gemma) are priced from Databricks' published rates, matched by endpoint name. `databricks.prices.<endpoint> = {"in", "out"}` (USD per 1M tokens) overrides one. An endpoint in neither stays unpriced and the total's `+` says so. There is no currency option.
+
 ## [3.3.3.0] - 2026-10-27
 
 **Settings.** The owner's note on 3.3.2.0: "I feel like halo should launch after init. Then full studio

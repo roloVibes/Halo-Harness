@@ -87,7 +87,7 @@ waiting on you, $X" -- and the decisions that wait are the Attention queue's
    never move the session's figures, and a GET fleet answer read before the
    frame never pulls a figure back. **Turns** are your turns in the session,
    the terminal's count (the turn a frame belongs to); per turn is the spend
-   over them. An agent's own count on its line is its model **calls**. A
+   over them. An agent's own count on its line is its model **calls**. The spend is what the priced calls cost (3.3.3.1): when a model reports no price the figure and per turn carry a `+` whose title names the model ("main's model databricks-glm-5-3 reports no price: this is what the priced agents spent"), and main's line says "no price", never $0.0000, when main's own model is the unpriced one. A
    sub-agent's spend joins its parent's total when it finishes (the
    terminal's figure works the same way), so the bar counts each agent's own
    share: main's is the session total less its finished sub-agents', a

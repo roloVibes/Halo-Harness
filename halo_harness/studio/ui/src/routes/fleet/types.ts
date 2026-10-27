@@ -50,6 +50,9 @@ export type SessionRow = {
   pending?: Pending;
   model?: string | null;
   cost_usd?: number | null;
+  /** 3.3.3.1: false when some model answered with no price (`cost_usd` is then the priced part); `cost_unknown` names those models. */
+  cost_complete?: boolean | null;
+  cost_unknown?: string[];
   agents_live?: number | null;
   agents?: AgentRow[];
   /** 3.1.4.0 R2 (fleet/local_view.py): the status's own figures, for Session's Cost panel; 3.1.8.0 R6 the

@@ -9,7 +9,8 @@ from halo_harness.settings_catalog import Row
 ROWS = [
     Row("providers.<name>.enabled", "providers", "Provider on", "keyed", True, (), "Turn one provider on or off; unset, a provider whose credentials are found is on.", "now"),
     Row("databricks.gateway.<endpoint>", "providers", "Databricks gateway dialect", "keyed", None, ("anthropic", "openai"), "How one Databricks endpoint is called; unset, Claude foundation models go anthropic and every other one openai.", "now"),
-    Row("databricks.dbu_price_usd", "providers", "DBU price (USD)", "float", None, (), "The dollar price of one DBU; unset, Databricks costs show as raw DBUs.", "now"),
+    Row("databricks.dbu_price_usd", "providers", "DBU price (USD)", "float", 0.07, (), "The dollar price of one DBU; unset, $0.07 (AWS list price). Every cost Halo shows is in dollars.", "now"),
+    Row("databricks.prices.<endpoint>", "providers", "Databricks endpoint price", "keyed", {}, (), "One endpoint's USD per 1M tokens as in and out (cache_read, cache_write optional); unset, Databricks' published rate, else unpriced.", "next session"),
     Row("databricks.catalog_max_age_hours", "providers", "Databricks catalog age (hours)", "int", 24, (), "How old the Databricks endpoint catalog may be before it is read again.", "now"),
     Row("openai.dialect_overrides", "providers", "OpenAI dialect overrides", "mapping", None, (), "A map of bare oai: model id to chat or responses; it always wins over the built-in table.", "now"),
     Row("experiential.dialect_overrides", "providers", "Experiential dialect overrides", "mapping", None, (), "A map of xp: slug to chat or responses; it always wins over the default.", "now"),

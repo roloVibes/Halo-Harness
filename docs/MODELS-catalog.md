@@ -76,9 +76,21 @@ feeds the SAME per-endpoint price used for the listed columns below (source
 (a), the models.dev `databricks` entry) into this session's `CostMeter` at
 start-of-session, so a Databricks turn on an endpoint models.dev prices
 gets a real computed running cost through the identical fallback formula
-above -- and still shows `n/a` (falls back to token totals in the status
-bar) whenever no models.dev price exists for that endpoint, which remains
-the common case.
+above.
+
+**Costs are always dollars (3.3.3.1).** A Databricks endpoint is priced, in
+order, by `databricks.prices.<endpoint>` (`{"in": 3.0, "out": 15.0}`, USD
+per 1M tokens, the owner's own figure), else Databricks' own published
+pay-per-token rate (`providers/databricks_price_table.py`: the DBU per 1M
+token rates of the Foundation Model Serving and Proprietary Foundation Model
+Serving pricing pages, read 2026-10-27, matched by endpoint name with or
+without the `databricks-` prefix and a dated or `-code` suffix) times
+`databricks.dbu_price_usd`, which defaults to **$0.07 per DBU** (the AWS US
+East (N. Virginia) example price on the Foundation Model Serving page; other
+clouds, regions and contracts differ, so set your own). An endpoint in
+neither stays unpriced: its calls add nothing to the total and the total
+carries a `+` (`/cost`, the status bar, Studio's Cost panel) naming the
+model. There is no currency option: every figure is USD.
 
 **Listed (not live) context/output/price columns** -- what `/model`,
 `/models`, `halo models`, and `init`'s own picker show per row
@@ -106,12 +118,12 @@ provider:
     never shown as `?`** -- it just keeps its column's width.
 
 `databricks.dbu_price_usd` (`~/.halo/config.json`, or a team.json's
-`dbu_price_usd`) is a THIRD, separate figure, in a different unit again: it
-converts an endpoint's own **catalog-advertised** DBU rate
-(`usage_policy.output_dbu_per_1k_tokens`, when the workspace publishes one)
-into a dollar figure, appended after the ctx/output/price columns as
-`dbu=<rate>` only when actually known -- a reference price, never a real
-per-turn spend, and never conflated with the USD/1M-token prices above.
+`dbu_price_usd`; default $0.07) also converts an endpoint's own
+**catalog-advertised** DBU rate (`usage_policy.output_dbu_per_1k_tokens`,
+when the workspace publishes one) into a dollar figure, appended after the
+ctx/output/price columns as `dbu=$<rate>` only when actually known -- a
+reference price, never a real per-turn spend. Dollars are the figure; the
+DBU count is only ever the detail (`dbx_routing.format_dbu_detail`).
 
 ## The `/model` picker
 

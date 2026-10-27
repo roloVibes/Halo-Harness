@@ -615,6 +615,20 @@ def _profile_from_vendored_databricks_entry(entry: dict) -> ModelProfile:
 
 
 def resolve_model_profile(ref: ModelRef, state_dir: Path, routes: Optional[dict] = None) -> ModelProfile:
+    """`_resolve_model_profile` below; 3.3.3.1 ("costs are always dollars"):
+    a Databricks ref then takes its dollar price from the owner's
+    `databricks.prices.<endpoint>`, else Databricks' own published rate
+    (providers/databricks_prices.py) -- a routes.json profile that names its
+    own `price_in` keeps it unless the owner's override says otherwise."""
+    profile = _resolve_model_profile(ref, state_dir, routes)
+    if ref.provider == "databricks":
+        from halo_harness.providers.databricks_prices import apply_to_profile
+        explicit = ((routes or {}).get("profiles") or {}).get(ref.model) or {}
+        profile = apply_to_profile(profile, ref.model, keep_explicit=explicit.get("price_in") is not None)
+    return profile
+
+
+def _resolve_model_profile(ref: ModelRef, state_dir: Path, routes: Optional[dict] = None) -> ModelProfile:
     """models.json (extended probe_openrouter_models data) < routes.json
     ["profiles"][ref.model or "default"] < H8 scope C: a vendored fallback
     catalog (providers/catalog/*.json -- OpenRouter's own model list for an
@@ -954,7 +968,16 @@ class CostMeter:
                  price_cache_read: Optional[float] = None, price_cache_write: Optional[float] = None) -> None:
         self.total_usd: float = 0.0
         self.turns: int = 0
+        # Halo 3.3.3.1 "cost counts what it knows": `total_usd` is the sum
+        # of every PRICED call (this meter's and every finished child's);
+        # `has_cost_data` means "complete" -- every part priced. A call
+        # with no price leaves the total alone, flips `has_cost_data`
+        # False and is counted in `unknown_calls`, its model ref named
+        # once in `unknown_models`. `cost_fields()` is the one shape every
+        # publisher sends.
         self.has_cost_data: bool = True
+        self.unknown_calls: int = 0
+        self.unknown_models: list = []
         self.price_in = price_in
         self.price_out = price_out
         self.price_cache_read = price_cache_read
@@ -1018,7 +1041,21 @@ class CostMeter:
         return (input_tokens * self.price_in + (output_tokens + reasoning) * self.price_out
                 + cache_read * cache_read_rate + cache_write * cache_write_rate)
 
-    def add_usage(self, provider: str, usage: Optional[dict]) -> Optional[float]:
+    def _note_unknown(self, models, calls: int = 1) -> None:
+        self.has_cost_data = False
+        self.unknown_calls += max(0, int(calls or 0))
+        for m in models or ():
+            if isinstance(m, str) and m and m not in self.unknown_models:
+                self.unknown_models.append(m)
+
+    def cost_fields(self) -> dict:
+        """The ONE cost shape every publisher sends (3.3.3.1): `cost_usd`
+        the priced sum, `cost_complete` whether every part was priced,
+        `cost_unknown` the model refs that answered with no price."""
+        return {"cost_usd": self.total_usd, "cost_complete": bool(self.has_cost_data),
+                "cost_unknown": list(self.unknown_models)}
+
+    def add_usage(self, provider: str, usage: Optional[dict], *, model: Optional[str] = None) -> Optional[float]:
         """Record one turn's usage; returns this turn's cost in USD, or None
         if unknown/unavailable for this provider or response.
 
@@ -1046,10 +1083,12 @@ class CostMeter:
         if fallback is not None:
             self.total_usd += fallback
             return fallback
-        self.has_cost_data = False
+        self._note_unknown([model] if model else [])
         return None
 
-    def add_child_total(self, *, cost_usd: Optional[float], has_cost_data: bool, turns: int = 0) -> None:
+    def add_child_total(self, *, cost_usd: Optional[float], has_cost_data: bool = True, turns: int = 0,
+                        cost_complete: Optional[bool] = None, cost_unknown: Optional[list] = None,
+                        unknown_calls: int = 0) -> None:
         """H9 whole-tree review finding 13: rolls a sub-agent's ALREADY-
         COMPUTED cost total into this (the PARENT's) meter -- adds the
         child's own dollar figure directly rather than re-deriving it via
@@ -1062,12 +1101,19 @@ class CostMeter:
         part of the session's total spend -- parent or any child -- is
         unknown (e.g. a Databricks child, which never reports cost),
         the COMBINED total is honestly unknown too, not a silent
-        under-count presented as a complete figure."""
+        under-count presented as a complete figure.
+
+        3.3.3.1: the child's priced part still joins `total_usd` (an
+        unknown part no longer throws the known part away); `cost_complete`
+        / `cost_unknown` are the child's own `cost_fields()` (they win over
+        the older `has_cost_data` keyword), so the parent's `cost_unknown`
+        names every model, at any depth, that answered with no price."""
         self.turns += turns
         if cost_usd is not None:
             self.total_usd += cost_usd
-        if not has_cost_data:
-            self.has_cost_data = False
+        complete = has_cost_data if cost_complete is None else cost_complete
+        if not complete:
+            self._note_unknown(cost_unknown or [], unknown_calls)
 
     def set_savings_reference(self, *, price_in: Optional[float], price_out: Optional[float],
                                source: str) -> None:
@@ -1122,3 +1168,27 @@ class CostMeter:
         cache_write = cache_write if isinstance(cache_write, int) else 0
         return (input_tokens * price_in + (output_tokens + reasoning) * price_out
                 + cache_read * price_in + cache_write * price_in)
+
+
+def cost_fields_of(meter) -> dict:
+    """`meter.cost_fields()` for a real `CostMeter`, the same shape read off
+    any stand-in (a test's SimpleNamespace) that only has `total_usd` /
+    `has_cost_data` -- 3.3.3.1's one publisher shape."""
+    fn = getattr(meter, "cost_fields", None)
+    if callable(fn):
+        return fn()
+    total = getattr(meter, "total_usd", None)
+    return {"cost_usd": float(total) if isinstance(total, (int, float)) else 0.0,
+            "cost_complete": bool(getattr(meter, "has_cost_data", True)),
+            "cost_unknown": list(getattr(meter, "unknown_models", None) or [])}
+
+
+def known_cost(meter) -> Optional[float]:
+    """The priced part of `meter`'s spend for a stored figure (a log node, the
+    sessions registry): the total whenever anything is priced or the session
+    is complete, None only when nothing at all had a price (never a 0.0 that
+    a sum would read as "free")."""
+    if meter is None:
+        return None
+    f = cost_fields_of(meter)
+    return f["cost_usd"] if (f["cost_complete"] or f["cost_usd"] > 0) else None

@@ -108,7 +108,7 @@ def format_status_context(tokens, limit) -> str:
     return f"ctx {used_str}"
 
 
-def format_status_cost(cost_usd, total_input_tokens=0, total_output_tokens=0) -> str:
+def format_status_cost(cost_usd, total_input_tokens=0, total_output_tokens=0, complete=None) -> str:
     """1.0.1 hotfix 14: the status bar's own cost field. A real dollar
     figure (`"$0.0123"`) -- whether it's the provider's own reported cost
     (OpenRouter `usage.cost`) or `CostMeter`'s fallback formula computed
@@ -116,10 +116,45 @@ def format_status_cost(cost_usd, total_input_tokens=0, total_output_tokens=0) ->
     need to -- when one is known. Otherwise the running raw token totals,
     `"in 12k out 3k"`, since the harness always knows how many tokens
     moved even with no idea what they cost. The literal string `"$?"`
-    (the pre-1.0.1 permanent state for Databricks) never appears."""
+    (the pre-1.0.1 permanent state for Databricks) never appears.
+
+    3.3.3.1: `complete` False (some model answered with no price) adds a
+    trailing `+` to a real figure ("$3.6348+": at least this much); with
+    nothing priced yet (0.0 and incomplete) the token totals show instead."""
     if isinstance(cost_usd, (int, float)) and not isinstance(cost_usd, bool):
-        return f"${cost_usd:.4f}"
+        if complete is not False:
+            return f"${cost_usd:.4f}"
+        if cost_usd > 0:
+            return f"${cost_usd:.4f}+"
     return f"in {_fmt_status_tokens(total_input_tokens)} out {_fmt_status_tokens(total_output_tokens)}"
+
+
+def _bare_model(ref) -> str:
+    return str(ref or "").split(":", 1)[-1]
+
+
+def describe_cost(fields: dict, main_model=None) -> "tuple[str, str | None]":
+    """3.3.3.1: `/cost` and `/status`'s figure plus its one detail line, from
+    `CostMeter.cost_fields()`: "$3.6348" when every part is priced;
+    "$3.6348+" and "+ main's model databricks-glm-5-3 reports no price; this
+    is what the priced agents spent" when some part is not; "n/a (no priced
+    call yet)" only when nothing is priced and nothing was spent."""
+    total = float(fields.get("cost_usd") or 0.0)
+    if fields.get("cost_complete", True):
+        return f"${total:.4f}", None
+    unknown = [str(m) for m in fields.get("cost_unknown") or [] if m]
+    main = str(main_model or "")
+    others = [_bare_model(m) for m in unknown if m != main and _bare_model(m) != _bare_model(main)]
+    bits = []
+    if main and (main in unknown or _bare_model(main) in {_bare_model(m) for m in unknown}):
+        bits.append(f"main's model {_bare_model(main)}")
+    if others:
+        bits.append(", ".join(others))
+    who = " and ".join(bits) or "a model"
+    verb = "report" if len(bits) > 1 or len(others) > 1 else "reports"
+    if total <= 0:
+        return "n/a (no priced call yet)", f"+ {who} {verb} no price"
+    return f"${total:.4f}+", f"+ {who} {verb} no price; this is what the priced agents spent"
 
 
 def truncate_label_left(label: str, max_width: int) -> str:
@@ -315,7 +350,21 @@ def format_model_row(entry: dict) -> str:
     return row
 
 
-def databricks_row_fields(name: str, *, state_dir=None, model_table: Optional[dict] = None,
+def databricks_row_fields(name: str, **kwargs) -> dict:
+    """`_databricks_row_fields` below, with 3.3.3.1's dollar price on top:
+    the owner's `databricks.prices.<endpoint>`, else Databricks' own
+    published rate (providers/databricks_prices.py), replaces a models.dev
+    or vendor list price (and its "vendor list price" marker)."""
+    out = _databricks_row_fields(name, **kwargs)
+    from halo_harness.providers.databricks_prices import usd_per_m
+    got = usd_per_m(name)
+    if got is not None:
+        out = {k: v for k, v in out.items() if k != "price_source"}
+        out.update(price_in_per_m=got["in"], price_out_per_m=got["out"])
+    return out
+
+
+def _databricks_row_fields(name: str, *, state_dir=None, model_table: Optional[dict] = None,
                            live_models_dev: Optional[dict] = None,
                            vendored_fallback: Optional[dict] = None,
                            full_models_dev: Optional[dict] = None,

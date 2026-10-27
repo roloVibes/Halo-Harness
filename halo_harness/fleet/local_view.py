@@ -10,7 +10,12 @@ waits at most WAIT_S, a slow session keeping its row without the extras).
 `session_row` is the row shape both this and the relay's announce use:
 
     {...registry public fields, status: waiting|busy|idle|unknown, busy, pending, model, cost_usd,
+     cost_complete, cost_unknown,
      agents_live, agents: [agent row, ...], turns, tokens_in, tokens_out, context_tokens, context_limit}
+
+(3.3.3.1: `cost_usd` is the priced part of the spend, `cost_complete` False
+when some model answered with no price, `cost_unknown` those models' refs;
+None / [] when the session has not said.)
 
 (3.1.4.0 R2: turns, the tokens and the context are the status's own, for
 Studio's Session Cost panel; None when the session has not said. 3.1.5.0
@@ -55,6 +60,9 @@ def session_row(entry: dict, status: Optional[dict], agents: Optional[list]) -> 
     live = data.get("agents")
     row.update(status=_state(status), busy=bool(data.get("busy")), pending=data.get("pending"),
                model=data.get("model"), cost_usd=data.get("cost_usd"),
+               cost_complete=data.get("cost_complete") if isinstance(data.get("cost_complete"), bool) else None,
+               cost_unknown=[str(m) for m in data.get("cost_unknown") or [] if m] if isinstance(
+                   data.get("cost_unknown"), list) else [],
                remote_attached=data.get("remote_attached") if isinstance(data.get("remote_attached"), int) else 0,
                agents_live=live if isinstance(live, int) and not isinstance(live, bool) else 0,
                agents=with_tokens([a for a in (agents or []) if isinstance(a, dict)]),
