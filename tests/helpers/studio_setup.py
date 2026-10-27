@@ -214,6 +214,8 @@ class SetupDriver(Driver):
         real = M.model_rows
         M.model_rows = lambda *_a, **_k: [dict(r) for r in ROWS]
         srv, url = serve(state, True)
+        from tests.helpers.studio_full import full
+        url = full(url)  # 3.3.2.0 R3: every panel open (its Roles steps read the Models panel)
         url = url.replace("mode=orchestra&feed=off", "mode=roles&tour=off&view=workspace")
         ctx = {"state": state, "srv": srv, "env_file": state.parent / "halo-env", "models": models}
         try:

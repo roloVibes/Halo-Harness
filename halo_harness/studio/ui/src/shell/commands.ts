@@ -7,6 +7,7 @@
 // Help, and each pack's palette actions come last in their own group ("pack <id>").
 import { cycleTheme, goSection, openHelp, setTheme, studio, toast, toggleFocus, toggleRail } from "../lib/store";
 import { openGlossary } from "../lib/glossary";
+import { setDensity } from "../lib/density";
 import { openStart } from "../lib/start";
 import { arrangeLayout, layoutStore, resetLayout, showPanel } from "../lib/workspace/persist";
 import type { PanelSpec } from "../lib/workspace/types";
@@ -83,6 +84,8 @@ export function commands(): Command[] {
     { id: "theme-dark", group: "View", label: "Theme: dark (holo)", run: () => setTheme("dark") },
     { id: "theme-light", group: "View", label: "Theme: light", run: () => setTheme("light") },
     { id: "theme-auto", group: "View", label: "Theme: follow the system", run: () => setTheme("auto") },
+    { id: "density-compact", group: "View", label: "Density: compact", hint: "tighter spacing, a smaller type scale; the header's rows button", run: () => setDensity("compact") },
+    { id: "density-comfortable", group: "View", label: "Density: comfortable", hint: "the default spacing and type scale", run: () => setDensity("comfortable") },
     { id: "rail", group: "View", label: "Expand or collapse the rail", hint: "the section icons, or the icons with their titles", run: toggleRail },
     { id: "focus", group: "View", label: "Focus", hint: "hide the rail, the inspector and the status bar; again brings them back", kbd: "F", run: toggleFocus },
   );

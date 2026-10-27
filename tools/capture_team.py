@@ -24,7 +24,7 @@ from pathlib import Path
 from capture_identity import guard_page, placeholder
 
 IDS = ("section-tab", "team-start", "team-start-init", "team-board", "team-inspector", "team-feed", "team-member", "team-stage",
-       "team-block", "team-edge", "team-runbar", "panel-about", "team-gate-card", "team-event", "status-team", "legacy-frame")
+       "team-block", "team-edge", "team-runbar", "panel-title", "team-gate-card", "team-event", "status-team", "legacy-frame")
 STAGES = "document.querySelectorAll('[data-testid=\"team-stage\"]').length"
 
 
@@ -82,7 +82,7 @@ def shoot(c, png: Path) -> int:
     with StudioTeamRig(text, live=False) as rig:
         placeholder(rig.state)
         mid_run(rig)
-        c.go(rig.url("team"))
+        c.go(rig.url("team", "&open=team-feed"))  # 3.3.2.0 R3: the board, the change feed beside it (the stage click opens the Inspector)
         c.wait(f"{STAGES} === 4 && document.querySelector('[data-testid=\"team-stage\"][data-stage=\"review\"]')?.dataset.state === 'gated'", 30)
         c.wait("document.querySelector('[data-testid=\"team-block\"][data-block=\"notes\"]')?.dataset.claim === 'writing'", 15)
         c.click_on("document.querySelector('[data-testid=\"team-stage\"][data-stage=\"review\"] .tm-stage-shape')")

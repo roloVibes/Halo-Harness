@@ -61,7 +61,7 @@ const idle = () => "idle" as MotionState;
 export const rolesPanels: PanelSpec[] = [
   panel("roles-lineups", { title: "Lineups", x: 0, y: 0, w: 5, h: 32, minW: 4, minH: 12, face: "detail", glance: LineupsGlance, detail: LineupsDetail, useMotion: started(idle) }),
   panel("roles-bios", { title: "Bios", x: 0, y: 32, w: 5, h: 0, minW: 4, minH: 16, face: "detail", glance: BiosGlance, detail: BiosDetail, useMotion: started(idle) }),
-  panel("roles-graph", { title: "Canvas", x: 5, y: 0, w: 13, h: 0, minW: 8, minH: 24, face: "detail", glance: CanvasGlance, detail: CanvasDetail, useMotion: started(useCanvasMotion) }),
+  panel("roles-graph", { title: "Canvas", primary: true, x: 5, y: 0, w: 13, h: 0, minW: 8, minH: 24, face: "detail", glance: CanvasGlance, detail: CanvasDetail, useMotion: started(useCanvasMotion) }),
   panel("roles-inspector", { title: "Inspector", x: 18, y: 0, w: 6, h: 46, minW: 4, minH: 16, face: "detail", glance: InspectorGlance, detail: InspectorDetail }),
   panel("roles-problems", { title: "Problems", x: 18, y: 46, w: 6, h: 20, minW: 4, minH: 10, face: "detail", glance: ProblemsGlance, detail: ProblemsDetail, useMotion: started(useProblemsMotion) }),
   panel("roles-models", { title: "Models", x: 18, y: 66, w: 6, h: 0, minW: 4, minH: 10, face: "detail", glance: ModelsGlance, detail: ModelsDetail }),

@@ -49,8 +49,9 @@ COST = "document.querySelector('[data-testid=\"session-cost-detail\"]')"
 def url(rig, query: str = "") -> str:
     """The rig's Studio at `/?<query>&tour=off`, with its token (3.3.2.0 R2: the Fleet tree is Fleet's Tree panel,
     tests/helpers/studio_tree.py, so no expanded rail is needed)."""
+    from tests.helpers.studio_full import full  # 3.3.2.0 R3: every panel open, the arrangement these checks read
     q = f"?{query}&tour=off" if query else "?tour=off"
-    return f"http://127.0.0.1:{rig.server.server_address[1]}/{q}#t={rig.server.token}"
+    return full(f"http://127.0.0.1:{rig.server.server_address[1]}/{q}#t={rig.server.token}")
 
 
 def alt(c, n: int) -> None:
@@ -105,7 +106,7 @@ def dash(c, rig) -> dict:
     panels = ["session-map", "session-activity", "session-attention", "session-agent", "session-cost", "session-live"]
     c.wait(" && ".join(f"document.querySelectorAll('[data-testid=\"{p}\"]').length === 1" for p in panels), 30)
     out["panels"] = c.js("[" + ", ".join(f"document.querySelectorAll('[data-testid=\"{p}\"]').length" for p in panels) + "]")
-    out["abouts"] = c.js("document.querySelectorAll('[data-section=\"session\"] [data-testid=\"panel-about\"]').length")
+    out["abouts"] = c.js("document.querySelectorAll('[data-section=\"session\"] [data-testid=\"panel-title\"][title]:not([title=\"\"])').length")  # 3.3.2.0 R3: the title's tooltip
     view = local_view(rig)
     want_nodes = sum(len(s.get("agents") or []) for s in view.get("sessions") or [])
     c.wait(f"{inside('session-map', 'fleet-node')}.length === {want_nodes} && {inside('session-map', 'fleet-session')}.length === 2", 30)

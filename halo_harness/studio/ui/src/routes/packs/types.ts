@@ -18,7 +18,7 @@ export type PackPanel = {
   w: number;
   h: number;
   help: string;
-  /** The source line in the title bar: "from pack <id>". */
+  /** The source line, "from pack <id>": the first line of the panel's ? help (3.3.2.0 R3). */
   about: string;
   /** In a core section it starts as a strip. */
   collapsed: boolean;

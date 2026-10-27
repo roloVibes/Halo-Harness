@@ -42,7 +42,7 @@ SAVED = "localStorage.getItem('halo.studio.layout.roles')"
 
 
 def _url(ctx, query: str) -> str:
-    return f"{ctx['base']}?{query}&feed=off#{ctx['frag']}"
+    return f"{ctx['base']}?{query}&feed=off&open=all#{ctx['frag']}"  # 3.3.2.0 R3: every panel open (tests/helpers/studio_full.py)
 
 
 def load(c, ctx, query: str, title: str) -> None:

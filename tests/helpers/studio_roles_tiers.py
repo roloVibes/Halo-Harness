@@ -171,6 +171,8 @@ class TiersDriver(Driver):
         (state / "teams" / f"{LINEUP}.yaml").write_text(yaml.safe_dump(raw, sort_keys=False), encoding="utf-8")
         set_config_value("team", LINEUP)
         srv, url = serve(state, True)
+        from tests.helpers.studio_full import full
+        url = full(url)  # 3.3.2.0 R3: every panel open, the arrangement this driver works in
         url = url.replace("mode=orchestra", "mode=roles").replace("feed=off", "feed=off&tour=off&view=workspace")
         try:
             yield ((fan_labels, (c, url, state)), (add_drag_rename, (c, url, state))) + tuple((fn, (c, url, state)) for fn in STEPS)

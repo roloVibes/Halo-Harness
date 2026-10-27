@@ -150,13 +150,12 @@ def _faces_to(c, face: str) -> None:
         if c.js(f"!!{OPEN_BTN.format(pid)}"):
             _click(c, OPEN_BTN.format(pid))
             time.sleep(0.3)
-    label = "Compact" if face == "glance" else "Expand"
+    from tests.helpers.studio_full import toggle_face
     for pid in c.js(f"[...{WS}.querySelectorAll('.ws-cell')].map((c) => c.dataset.panel)"):
-        btn = f"document.querySelector('.ws-cell[data-panel=\"{pid}\"] [data-testid=\"panel-compact\"][aria-label=\"{label}\"]')"
-        if c.js(f"!!{btn}"):
-            c.js(f"{btn}.scrollIntoView({{block: 'center'}}); 1")
-            c.click_on(btn)
-            time.sleep(0.3)
+        cell = f'.ws-cell[data-panel="{pid}"]'  # 3.3.2.0 R3: Compact / Expand is the ... menu's face row
+        if c.js(f"document.querySelector({cell!r} + ' .panel').dataset.face !== {face!r}"):
+            if toggle_face(c, cell, must=False):
+                time.sleep(0.3)
 
 
 def widths(c, rig) -> dict:

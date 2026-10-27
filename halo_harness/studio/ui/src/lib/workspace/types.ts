@@ -33,11 +33,13 @@ export type PanelSpec = {
   settings?: ComponentType;
   /** A hook returning the panel's state motion (called inside the panel). */
   useMotion?: () => MotionState;
-  /** Opens as a one-line strip in the default arrangement. */
+  /** Opens as a one-line strip in the full arrangement (`?open=all`; 3.3.2.0 R3: the section's default is quiet.ts's). */
   collapsed?: boolean;
+  /** 3.3.2.0 R3: the section's one thing: it fills the stage by default, the other panels start as strips at the foot. */
+  primary?: boolean;
   /** Not in the default arrangement: the palette or the header's "+" menu adds it (showPanel). */
   optional?: boolean;
-  /** One line: what this panel is (shown in the title bar, the Inspector and the section help). */
+  /** One line: what this panel is (3.3.2.0 R3: the first line of its ? help, the Inspector and the section help; not in the title bar). */
   about?: string;
   /** Three to five short lines, one per line: how to use it (the ? popover, the Inspector). */
   help?: string;

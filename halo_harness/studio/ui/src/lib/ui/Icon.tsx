@@ -17,6 +17,8 @@ const PATHS: Record<string, string> = {
   reset: "M3 8a5 5 0 1 0 1.5-3.5M3 3v2.5h2.5",
   pulse: "M1 8h3l2-4 3 8 2-4h4",
   grid: "M3 3h4v4H3zM9 3h4v4H9zM3 9h4v4H3zM9 9h4v4H9z",
+  density: "M2 4h12M2 8h12M2 12h12", // 3.3.2.0 R3: the density toggle (three rows)
+  "density-compact": "M2 3.5h12M2 6.5h12M2 9.5h12M2 12.5h12",
   more: "M3 7.2a.8.8 0 1 0 0 1.6.8.8 0 1 0 0-1.6ZM8 7.2a.8.8 0 1 0 0 1.6.8.8 0 1 0 0-1.6ZM13 7.2a.8.8 0 1 0 0 1.6.8.8 0 1 0 0-1.6Z",
   help: "M8 2a6 6 0 1 1 0 12A6 6 0 0 1 8 2ZM6.2 6.3a1.9 1.9 0 1 1 2.6 1.8c-.5.2-.8.6-.8 1.1v.5M8 11.3v.3",
   // 3.0.5.0 Fleet: the tool an agent runs, and the agent controls

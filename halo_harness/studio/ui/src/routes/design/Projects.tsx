@@ -20,7 +20,7 @@ export function ProjectsDetail() {
   const busy = useDesign((s) => s.busy === "model");
   const def = useResolved("");
   const help = useHelpGroup("model_select");
-  if (rows === null) return <div className="og-wait mono muted">reading the projects...</div>;
+  if (rows === null) return null; // 3.3.2.0 R3: the section's own wait says it while it reads (DesignView)
   return (
     <div className="dp">
       <div className="dp-bar">

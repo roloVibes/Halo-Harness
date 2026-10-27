@@ -29,7 +29,7 @@ function started(hook: () => MotionState): () => MotionState {
 const panel = (id: string, rest: Omit<PanelSpec, "id" | "testid">): PanelSpec => ({ id, testid: id, ...HELP[id], ...rest });
 
 export const teamPanels: PanelSpec[] = [
-  panel("team-board", { title: "Board", x: 0, y: 0, w: 18, h: 78, minW: 8, minH: 24, face: "detail", glance: BoardGlance, detail: BoardDetail, useMotion: started(useBoardMotion) }),
+  panel("team-board", { title: "Board", primary: true, x: 0, y: 0, w: 18, h: 78, minW: 8, minH: 24, face: "detail", glance: BoardGlance, detail: BoardDetail, useMotion: started(useBoardMotion) }),
   panel("team-inspector", { title: "Inspector", x: 18, y: 0, w: 6, h: 0, minW: 4, minH: 16, face: "detail", glance: InspectorGlance, detail: InspectorDetail, useMotion: started(useInspectorMotion) }),
   panel("team-feed", { title: "Change feed", x: 0, y: 78, w: 18, h: 0, minW: 6, minH: 10, face: "detail", glance: FeedGlance, detail: FeedDetail, useMotion: started(useFeedMotion) }),
 ];

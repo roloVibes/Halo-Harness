@@ -113,7 +113,7 @@ def approve_runs(c, rig, out: dict) -> None:
     finally:
         out["first_report"] = {k: rig.last_report().get(k) for k in ("status", "stop_reason")}
         out["first_state_text"] = c.js(f"{TID.format('run-state')}?.textContent")
-        out["first_dom"] = {k: c.js(N.format(k)) for k in ("orchestra-plan", "orchestra-root", "start-view", "plan-lane", "panel-about")}
+        out["first_dom"] = {k: c.js(N.format(k)) for k in ("orchestra-plan", "orchestra-root", "start-view", "plan-lane", "panel-title")}
         out["first_text"] = c.js("document.querySelector('.stage')?.innerText.slice(0, 300)")
 
 

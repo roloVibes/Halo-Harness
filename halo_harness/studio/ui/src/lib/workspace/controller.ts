@@ -6,7 +6,7 @@
 // 8 px steps.
 import { createContext, useContext, type KeyboardEvent, type PointerEvent } from "react";
 import { applyDelta, applyDeltaPx, arrange, clampRect, effH } from "./grid";
-import { layoutStore, setLayout } from "./persist";
+import { layoutStore, patchPanel, setLayout } from "./persist";
 import { splitEdges } from "./room";
 import { COLS, MOVE_ROWS, ROW, type Gesture, type Layout, type PanelSpec } from "./types";
 
@@ -83,6 +83,7 @@ export function useGesture(id: string, g: Gesture) {
       const end = current(ws.section);
       if (end && moved) setLayout(ws.section, p0.floating ? end : arrange(end), true);
       else if (end && p0.floating) setLayout(ws.section, raise(end, id), false); // a click brings a floating panel to the front
+      else if (end && g === "move" && end[id]?.collapsed) patchPanel(ws.section, id, { collapsed: false }); // 3.3.2.0 R3: a click on a strip opens it
     };
     el.addEventListener("pointermove", onMove);
     el.addEventListener("pointerup", onUp);

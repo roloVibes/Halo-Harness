@@ -5,9 +5,12 @@
 // Tab, or a press outside) closes it and gives the focus back to the button.
 // A row may carry a word (what pressing it does), badges and a title; a
 // disabled row stays in the list with its words, so the reader sees why.
+// 3.3.2.0 R3: a panel's own "..." menu is this one too (lib/workspace/PanelMenu.tsx: a smaller button,
+// the list right-aligned under it, a key hint per row).
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "./Icon";
+import { Kbd } from "./Kbd";
 
 export type MenuRow = {
   id: string;
@@ -22,15 +25,21 @@ export type MenuRow = {
   /** Extra data-* attributes for the row (`{ panel: "fleet-map" }` is `data-panel`). */
   data?: Record<string, string>;
   current?: boolean;
+  /** A key hint drawn at the row's end ("?"). */
+  kbd?: string;
   run: () => void;
 };
 export type MenuGroup = { name?: string; rows: MenuRow[] };
 
-type Props = { icon: string; label: string; title: string; testid: string; menuTestid: string; groups: MenuGroup[]; width?: number };
+type Props = {
+  icon: string; label: string; title: string; testid: string; menuTestid: string; groups: MenuGroup[]; width?: number;
+  /** 3.3.2.0 R3: the button's class (a panel's is the small icon button), the list's, and its edge under the button. */
+  btnClass?: string; menuClass?: string; align?: "left" | "right";
+};
 
 const ROWS = "[role=menuitem]:not(:disabled)";
 
-export function Menu({ icon, label, title, testid, menuTestid, groups, width = 280 }: Props) {
+export function Menu({ icon, label, title, testid, menuTestid, groups, width = 280, btnClass = "icon-btn icon-btn-lg", menuClass = "hdr-menu", align = "left" }: Props) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState({ left: 0, top: 0 });
   const btn = useRef<HTMLButtonElement>(null);
@@ -44,7 +53,8 @@ export function Menu({ icon, label, title, testid, menuTestid, groups, width = 2
   useLayoutEffect(() => {
     if (!open || !btn.current) return;
     const r = btn.current.getBoundingClientRect();
-    setPos({ left: Math.max(8, Math.min(r.left, window.innerWidth - width - 8)), top: r.bottom + 6 });
+    const edge = align === "right" ? r.right - width : r.left;
+    setPos({ left: Math.max(8, Math.min(edge, window.innerWidth - width - 8)), top: Math.min(r.bottom + 6, Math.max(8, window.innerHeight - 260)) });
     rows()[0]?.focus({ preventScroll: true });
   }, [open, width]);
 
@@ -77,13 +87,13 @@ export function Menu({ icon, label, title, testid, menuTestid, groups, width = 2
 
   return (
     <>
-      <button ref={btn} className="icon-btn icon-btn-lg" aria-haspopup="menu" aria-expanded={open} aria-label={label} title={title} data-testid={testid}
+      <button ref={btn} className={btnClass} aria-haspopup="menu" aria-expanded={open} aria-label={label} title={title} data-testid={testid}
               onClick={() => setOpen(!open)} onKeyDown={onBtnKey}>
         <Icon name={icon} />
       </button>
       {open &&
         createPortal(
-          <div ref={box} className="menu glass hdr-menu" role="menu" aria-label={label} data-testid={menuTestid} style={{ left: pos.left, top: pos.top, right: "auto", width }} onKeyDown={onKey}>
+          <div ref={box} className={`menu glass ${menuClass}`} role="menu" aria-label={label} data-testid={menuTestid} style={{ left: pos.left, top: pos.top, right: "auto", width }} onKeyDown={onKey}>
             {groups.filter((g) => g.rows.length).map((g, gi) => (
               <div key={g.name || gi} className="hdr-menu-group" role="group" aria-label={g.name}>
                 {g.name && <div className="hdr-menu-name mono">{g.name}</div>}
@@ -107,6 +117,7 @@ export function Menu({ icon, label, title, testid, menuTestid, groups, width = 2
                     <span className="menu-label">{r.label}</span>
                     {(r.badges || []).map((b) => <span key={b} className="badge">{b}</span>)}
                     {r.word && <span className="menu-word mono">{r.word}</span>}
+                    {r.kbd && <Kbd keys={r.kbd} />}
                   </button>
                 ))}
               </div>

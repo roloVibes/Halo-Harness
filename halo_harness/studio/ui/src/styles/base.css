@@ -5,7 +5,7 @@
 [hidden] { display: none !important; }
 html, body, #root { height: 100%; margin: 0; }
 body {
-  font: 14px/1.45 var(--sans);
+  font: var(--fs)/1.45 var(--sans);
   color: var(--text);
   background: radial-gradient(1200px 600px at 70% -10%, var(--accent-soft), transparent 60%), var(--bg);
   -webkit-font-smoothing: antialiased;

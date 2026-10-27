@@ -27,9 +27,9 @@
 .holo-corners::after { left: -1px; bottom: -1px; border-right: 0; border-top: 0; }
 
 /* the panels of Session and Roles: the HUD brackets on all four corners (the panel's .hud-brackets draws
-   top-left and bottom-right; its free ::before draws the other two), and motion kept to what works:
-   no idle breathing, a waiting pulse three times and then a steady amber */
-:is(.workspace[data-section="session"], .workspace[data-section="roles"]) .panel::before {
+   top-left and bottom-right; its free ::before draws the other two; 3.3.2.0 R3: on the focused panel only),
+   and motion kept to what works: no idle breathing, a waiting pulse three times and then a steady amber */
+:is(.workspace[data-section="session"], .workspace[data-section="roles"]) .panel.focused::before {
   content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 1; opacity: var(--bracket-alpha); border-radius: inherit;
   background: linear-gradient(var(--accent), var(--accent)) right top / 12px 1.5px no-repeat, linear-gradient(var(--accent), var(--accent)) right top / 1.5px 12px no-repeat,
     linear-gradient(var(--accent), var(--accent)) left bottom / 12px 1.5px no-repeat, linear-gradient(var(--accent), var(--accent)) left bottom / 1.5px 12px no-repeat; }

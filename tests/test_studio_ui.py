@@ -132,9 +132,9 @@ def test_orchestra_start_view_then_grid(ctx: Ctx):
     ctx.check(f"no run: the Start view with the goal form and the way to the panels, got {start}",
               start.get("start-view") == 1 and start.get("orchestra-goal-form") == 1 and start.get("orchestra-open-workspace") == 1)
     ctx.check(f"no run: none of the run panels, got {start}",
-              not any(start.get(k) for k in ("orchestra-root", "orchestra-graph", "lane", "grid-tile", "report-check", "panel-about")))
+              not any(start.get(k) for k in ("orchestra-root", "orchestra-graph", "lane", "grid-tile", "report-check", "panel-title")))
     ctx.check(f"a run open: the grid, not the Start view, got {grid}", grid.get("start-view") == 0 and grid.get("orchestra-root") == 1)
-    ctx.check(f"a run open: eight about lines, no run list drawn (it is in the closed + menu), got {grid}", grid.get("panel-about") == 8 and grid.get("orchestra-menu-run") == 0)
+    ctx.check(f"a run open: eight panels (their titles; 3.3.2.0 R3: no about line), no run list drawn (it is in the closed + menu), got {grid}", grid.get("panel-title") == 8 and grid.get("orchestra-menu-run") == 0)
     ctx.check("the Goal panel fits every field and Run at its default size", grid.get("goal-overflow") is False)
     ctx.check(f"3.3.2.0 R1: no help card with or without tour=off, got {grid.get('section-help')} / {grid.get('welcome')}",
               grid.get("section-help") == 0 and grid.get("welcome", {}).get("section-help") == 0)
@@ -152,13 +152,14 @@ def test_panel_focus_on_click_and_help(ctx: Ctx):
         raise SkipTest("no Chrome found (the click test needs headless Chrome)")
     r, got = _json_of("-m", "tests.helpers.studio_clarity", "panel")
     ctx.check(f"the click run finished, got {r.stdout[-300:]!r} {r.stderr[-400:]!r}", r.returncode == 0)
-    ctx.check(f"eight about lines, got {got.get('about')}", got.get("about") == 8)
+    ctx.check(f"eight about lines, each its title's tooltip (3.3.2.0 R3), got {got.get('about')}", got.get("about") == 8)
     ctx.check(f"the clicked panel is the one active and focused, got {got}", got.get("active") is True and got.get("focused") is True and got.get("others_active") == 1)
     ctx.check(f"a click on a title bar focuses that panel and leaves the layout default, got {got.get('title_click')} / {got.get('layout_after_click')}",
               got.get("title_click") == "graph" and got.get("layout_after_click") == "default")
     ctx.check(f"? opens the Report's help, got {got.get('help_title')} / {got.get('help_lines')}", got.get("help_title") == "Report" and got.get("help_lines", 0) >= 3)
     ctx.check("Esc closes it", got.get("help_closed") is True)
-    ctx.check(f"the ... menu, got {got.get('menu')}", got.get("menu") == ["float", "collapse", "reset", "settings", "help"])
+    ctx.check(f"the ... menu (3.3.2.0 R3: Compact / Expand is its face row), got {got.get('menu')}",
+              got.get("menu") == ["float", "face", "collapse", "reset", "settings", "help"])
     ctx.check(f"Settings opens the Inspector on Lanes, then it follows the click to Report, got {got.get('inspector')} / {got.get('inspector_follows')}",
               got.get("inspector") == "Lanes" and got.get("inspector_follows") == "Report")
     ctx.check("the Compact toggle", got.get("compact") == "glance")

@@ -1,7 +1,7 @@
 // A pack's panels as workspace PanelSpecs (3.2.0.0 R3). Each spec's faces
 // read their panel from the registry by id, so a reload (a grant, an update)
 // redraws them in place; the components are made once per panel id. The
-// title bar's source line is "from pack <id>"; `?` and the ... menu's Help
+// source line "from pack <id>" (its about) opens its ? help (3.3.2.0 R3: not in the title line); `?` and the ... menu's Help
 // show the pack's own `help` lines (every panel has them: the owner's clarity
 // rule). In a pack's section the panels fill the 24 columns left to right,
 // a row at a time; in a core section they go under the section's own panels,

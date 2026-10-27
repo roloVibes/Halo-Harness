@@ -114,7 +114,7 @@ export function SectionHelp() {
               ))}
             </ul>
             <p className="section-help-tip muted">
-              Click a panel to work in it. Its title bar has one Compact / Expand toggle and a ... menu: Float, Collapse, Reset, Settings, Help.
+              The section opens on its first panel; the others are strips at the foot, a click opens one. Click a panel to work in it. Its title line has its ? (what it is, how to use it), the strip button and a ... menu: Float, Compact / Expand, Collapse, Reset, Settings, Help.
             </p>
           </section>
           )}
