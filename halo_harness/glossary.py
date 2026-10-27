@@ -23,7 +23,8 @@ from typing import Optional
 
 TERMS = ("lineup", "bio", "role", "tier", "team", "member", "block", "stage", "lane", "part", "step",
          "mission", "gate", "claim", "hand-off", "plan", "coach", "orchestra run", "fleet", "hub", "harness",
-         "capability", "unit", "pack", "guided first run", "setup", "provider", "env file")  # 3.2.1.0 R1: "pack"; 3.2.2.0 R2: "guided first run"; 3.3.0.0 R1: the Setup section's three
+         "capability", "unit", "pack", "guided first run", "setup", "provider", "env file",
+         "config key")  # 3.2.1.0 R1: "pack"; 3.2.2.0 R2: "guided first run"; 3.3.0.0 R1: the Setup section's three; 3.3.3.0 R2: Settings' one
 
 PACKAGE_DIR = Path(__file__).resolve().parent
 DOCS_FILE = PACKAGE_DIR.parent / "docs" / "GLOSSARY.md"

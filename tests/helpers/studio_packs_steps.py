@@ -39,6 +39,19 @@ def alt(c, n: int) -> None:
     mod_key(c, f"Digit{n}", 48 + n, 1, str(n))
 
 
+def open_tab(c, title: str) -> str:
+    """3.3.3.0 R2: open a section by its rail row (a pack's own section has no Alt key: Alt+9 is Settings); the row's
+    own click when the pointer missed. Returns the section now current."""
+    tab = f"{TABS}.find((t) => t.textContent.startsWith({json.dumps(title)}))"
+    c.wait(f"!!{tab}", 15)
+    c.click_on(tab)
+    try:
+        return c.wait(f"{CUR}.startsWith({json.dumps(title)}) && {CUR}", 5)
+    except TimeoutError:  # the pointer missed (a Linux runner): click the row itself
+        c.js(f"{tab}.click(); 1")
+        return c.wait(f"{CUR}.startsWith({json.dumps(title)}) && {CUR}", 10)
+
+
 def press(c, expr: str) -> None:
     c.wait(f"!!({expr})", 15)
     c.js(f"({expr}).scrollIntoView({{block: 'center'}}); 1")
@@ -85,8 +98,7 @@ def first_paint(c, url, ctx) -> dict:
     """3.2.1.0 R1: on Docs review (saved for this browser), a reload with no ?mode= paints Docs review first: the
     first visible section is the pack's (its frame says it is loading), never the core section it fell back to."""
     out: dict = {}
-    alt(c, 9)  # 3.3.0.0 R1: the first pack section
-    c.wait(f"{CUR}.startsWith('Docs review')", 10)
+    open_tab(c, "Docs review")  # 3.3.3.0 R2: by its rail row (Alt+9 is Settings)
     out["saved_section"] = c.js("localStorage.getItem('halo.studio.section')")
     c.call("Page.enable")  # the new-document script runs only with the Page domain on (off again below)
     script = c.call("Page.addScriptToEvaluateOnNewDocument", source=FIRST_PAINT).get("identifier")

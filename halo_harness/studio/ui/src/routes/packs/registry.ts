@@ -1,9 +1,9 @@
 // What the shell takes from the packs registry (3.2.0.0 R3), built once per
-// registry read: the packs' own sections (after the eight core sections, the
-// first on Alt+9 (3.3.0.0 R1: Setup is Alt+8); later ones have no key), the panels they
+// registry read: the packs' own sections (after the nine core sections; 3.3.3.0 R2: Settings
+// takes the last key, so a pack's section has none and is reached by its rail row or the palette), the panels they
 // add to each core section, the palette's actions (group "pack <id>") and a
 // pack section's "How this works" copy. routes/index.tsx sections() merges
-// them with the eight core sections, whose order and keys never change.
+// them with the nine core sections, whose order and keys never change.
 import type { Command } from "../../shell/commands";
 import type { SectionDef } from "../index";
 import type { SectionHelpCopy } from "../sectionHelp";
@@ -14,7 +14,7 @@ import { coreSpecs, sectionSpecs } from "./panels";
 import type { PanelSpec } from "../../lib/workspace/types";
 import type { Registry } from "./types";
 
-const FIRST_KEY = 9; // 3.2.0.0 R6: Alt+7 is the Packs section (the Pack Manager); 3.3.0.0 R1: Alt+8 is Setup
+const FIRST_KEY = 10; // 3.2.0.0 R6: Alt+7 is the Packs section (the Pack Manager); 3.3.0.0 R1: Alt+8 is Setup; 3.3.3.0 R2: Alt+9 is Settings
 const LAST_KEY = 9;
 
 export type PackSectionDef = SectionDef & { pack: string; help: string };

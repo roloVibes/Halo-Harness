@@ -1,15 +1,13 @@
 # Commands: config, sessions, stats and reports
 
-Read this when you read or set config, replay or export a session, read stats, or file a bug report.
+Read this when you read or set config (`halo settings` opens Studio's Settings), replay or export a session, read stats, or file a bug report.
 
 Part of [Commands](COMMANDS.md), which lists every part.
 
 ## `halo config`
 
-Reads and writes **this harness's own** small store,
-`~/.halo/config.json` -- never Claude Code's `settings.json`, which
-this project only ever reads. See `docs/CONFIG.md` for every key this file
-can hold.
+Reads and writes **this harness's own** small store, `~/.halo/config.json` -- never Claude Code's `settings.json`, which
+this project only ever reads. See `docs/CONFIG.md` for every key this file can hold.
 
 ```sh
 halo config --help
@@ -37,11 +35,29 @@ BRIDGE_TEST_HOME=/tmp/demo-home halo config get model
 "or:deepseek/deepseek-v4.1-flash"
 ```
 
-A key may be dotted (`improve.model`) to read/write a nested value without
-disturbing its siblings; `halo config key=value` (one argv token) is
-accepted as shorthand for `config set key value`. The value is parsed as
-JSON when possible (`true`, `123`, a quoted string), so non-string values
-round-trip too.
+A key may be dotted (`improve.model`) to read/write a nested value without disturbing its siblings; `halo config key=value`
+(one argv token) is accepted as shorthand for `config set key value`. The value is parsed as JSON when possible (`true`,
+`123`, a quoted string), so non-string values round-trip too.
+
+Every key also has a row in Studio's **Settings** section (3.3.3.0, `Alt+9`; `halo settings` below): its help line, its
+value against its default, Reset to default and this same `halo config set` line.
+
+## `halo settings`
+
+3.3.3.0: the door into Studio's Settings section, every key of `~/.halo/config.json` from one catalog
+(`halo_harness/settings_catalog.py`; [CONFIG.md](CONFIG.md) has the same keys in words, with the page each one is on).
+
+```sh
+halo settings                  # Studio on Settings (General, or the group last open)
+halo settings fleet            # the Fleet page (?mode=settings&group=fleet); a group's id or title
+halo settings fleet --terminal # the Fleet keys here: key = value (default ...), one line each
+halo settings --list           # the groups and how many keys each holds
+```
+
+A Studio already running for this home is reused (its open pages switch to the page); with none, one starts in the
+background and the browser opens it. Where no browser can open (SSH, no `DISPLAY`, `HALO_NO_BROWSER`), or with no TTY, the
+URL is printed and the `--terminal` listing follows. Nothing here writes: a row in Studio or `halo config set` changes a
+key. `halo studio --edit settings:fleet` opens the same page.
 
 ## `halo replay`
 

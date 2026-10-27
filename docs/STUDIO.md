@@ -44,12 +44,19 @@ installing; `halo studio` afterwards starts the new version.
 
 Inside the TUI, `/roles` and `/design` open Studio straight into that
 mode from the live session; bare `/studio` (3.1.4.0) opens the **Session**
-section (`Alt+1`) on the session you are in, `/studio [session|roles|design|orchestra|fleet|team|packs|setup]`
+section (`Alt+1`) on the session you are in, `/studio [session|roles|design|orchestra|fleet|team|packs|setup|settings]`
 opens that section, and `/studio url` prints the URL without opening a browser.
-The sections' keys are `Alt+1`..`Alt+8`: Session, Team, Roles, Fleet,
-Design, Orchestra, Packs, Setup. **Quiet by default (3.3.2.0):** nothing opens on its own when you open a section (the **?** in the header and each panel's help are one click away), the sections are a 56 px icon rail (its chevron expands it; it holds the sections only), a section's panels are the header's **+** and its layout the header's **...**, the inspector stays closed until something opens it, `F` is **Focus**, each section opens on one thing (its main panel filling the stage, the others strips at the foot) and the header's rows button sets the **density** ([the shell](STUDIO-shell.md#the-shell-3030)). A model running in a
+The sections' keys are `Alt+1`..`Alt+9`: Session, Team, Roles, Fleet,
+Design, Orchestra, Packs, Setup, Settings. **Quiet by default (3.3.2.0):** nothing opens on its own when you open a section (the **?** in the header and each panel's help are one click away), the sections are a 56 px icon rail (its chevron expands it; it holds the sections only), a section's panels are the header's **+** and its layout the header's **...**, the inspector stays closed until something opens it, `F` is **Focus**, each section opens on one thing (its main panel filling the stage, the others strips at the foot) and the header's rows button sets the **density** ([the shell](STUDIO-shell.md#the-shell-3030)). A model running in a
 Halo session knows this too: the system prompt names Studio, its modes
 and the command, so "open the GUI for roles" runs `halo studio --mode roles`.
+
+**Settings (3.3.3.0, `Alt+9`)** is every key of `~/.halo/config.json` in one place: a page per group
+(General ... Local), each key a row with its help line, its value against its default, Reset to default
+and the exact `halo config set` line, a change saved at once with when it takes effect, a search across
+every group and a palette entry per row. The rows come from one catalog (`halo_harness/settings_catalog.py`)
+that a test holds to the config schema and to [CONFIG.md](CONFIG.md)'s key table; `halo settings [group]`
+opens it ([the section](STUDIO-sections.md#settings)).
 
 ## Look
 
@@ -63,7 +70,7 @@ This page is the entry point; the content lives in the parts below, one per task
 |---|---|---|
 | [Studio: the shell](STUDIO-shell.md) | you find your way around Studio's header, sections, panels and Start views, or open it on a bio, a lineup or the Team | The shell (3.0.3.0) · Opening Studio on a bio, a lineup or the Team (`halo studio --edit`) · The guided first run (3.1.1.0) |
 | [Studio: steering and exporting a session](STUDIO-session.md) | you steer an agent from Session's Live column and want to know which agent and which call it reaches, or save a session as one Markdown trace file | The steer's target · Follow, and the view holding still · Keys · Export: the session as a trace file · Files |
-| [Studio: how each section works](STUDIO-sections.md) | you want the one-screen story of a section (Session, Team, Roles, Fleet, Design, Orchestra, Packs, Setup) and the live feed | How each section works · The live feed |
+| [Studio: how each section works](STUDIO-sections.md) | you want the one-screen story of a section (Session, Team, Roles, Fleet, Design, Orchestra, Packs, Setup, Settings) and the live feed | How each section works · The live feed |
 | [Studio: the Orchestra console](STUDIO-orchestra.md) | you run an Orchestra goal from Studio: the run console, the plan canvas and the coach | Orchestra: the run console |
 | [Studio: Fleet](STUDIO-fleet.md) | you watch or steer every harness and agent from Studio's Fleet section | Fleet: every harness, every agent · How this works: Attention · How this works: Costs and caps · How this works: Conflicts and project rooms · How this works: Hand-offs · How this works: Recordings · How this works: Replay · How this works: Who can do what · How this works: Missions · How this works: While you were away · Keys: hop around · Live Roles: the lineup lights up |
 | [Studio: Team and Roles](STUDIO-team-roles.md) | you edit a team board or a lineup on the Roles canvas | Team: people, blocks and stages on one board · What you see (Roles) |

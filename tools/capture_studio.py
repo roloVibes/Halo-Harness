@@ -31,6 +31,8 @@ with Who can... gridcraft (studio-fleet-capabilities.png), 3.0.6.0 R8 a planned 
 (studio-packs.png, the modes banner's seventh tile); --dom counts it. 3.3.0.0 R4: `--mode setup`
 (tools/capture_setup.py) renders Setup as `halo init` opens it, a provider set from a placeholder env file
 (studio-setup.png, the banner's eighth tile and the README's first screenshot after install); --dom counts it.
+3.3.3.0 R2: `--mode settings` (tools/capture_settings.py) renders Settings on its Fleet page (studio-settings.png, the
+banner's ninth tile); --dom counts it.
 """
 
 from __future__ import annotations
@@ -98,7 +100,7 @@ def main(argv: list) -> int:
     parser = argparse.ArgumentParser(description="Render docs/media/studio.png through headless Chrome")
     parser.add_argument("--out", default=str(REPO / "docs" / "media" / "studio.png"))
     parser.add_argument("--dom", action="store_true", help="print the rendered DOM's node count instead of a PNG")
-    parser.add_argument("--mode", choices=["roles", "design", "shell", "orchestra", "fleet", "team", "start", "packs", "setup"], default="roles", help="design: a seeded Launch page project (tools/design_demo.py), the React section (tools/capture_design.py)")
+    parser.add_argument("--mode", choices=["roles", "design", "shell", "orchestra", "fleet", "team", "start", "packs", "setup", "settings"], default="roles", help="design: a seeded Launch page project (tools/design_demo.py), the React section (tools/capture_design.py)")
     args = parser.parse_args(argv)
     from capture_identity import begin
     from tests.helpers.chrome_driver import scope_home
@@ -150,6 +152,14 @@ def _render(args) -> int:
             args.out = args.out[:-4] + "-setup.png"
         try:
             return capture_setup(args.out, args.dom, serve, state)
+        finally:
+            shutil.rmtree(state.parent, ignore_errors=True)
+    if args.mode == "settings":  # 3.3.3.0 R2: Settings on its Fleet page (tools/capture_settings.py)
+        from capture_settings import capture as capture_settings
+        if args.out.endswith("studio.png"):
+            args.out = args.out[:-4] + "-settings.png"
+        try:
+            return capture_settings(args.out, args.dom, serve, state)
         finally:
             shutil.rmtree(state.parent, ignore_errors=True)
     if args.mode == "design":  # 3.0.7.0 R3: the React section over a seeded project (tools/capture_design.py)

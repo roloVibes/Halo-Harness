@@ -1,6 +1,6 @@
 # Studio: how each section works
 
-Read this when you want the one-screen story of a section (Session, Team, Roles, Fleet, Design, Orchestra, Packs, Setup) and the live feed.
+Read this when you want the one-screen story of a section (Session, Team, Roles, Fleet, Design, Orchestra, Packs, Setup, Settings) and the live feed.
 
 Part of [Halo Studio](STUDIO.md), which lists every part.
 
@@ -111,12 +111,10 @@ the chosen session's timeline lanes and full live log. Attention
 
 ### Team
 
-**What it is.** Your project's team file as one board: who works on it
-(members, each a part of a lineup, here or on a fleet harness), where their
-work lands (blocks: a file, a folder or a git tree, each with its claim
-ledger) and in which order (stages: an agent turn or an Orchestra run).
-The steps are those of
-[How this works: Team](STUDIO-team-roles.md#how-this-works-team).
+**What it is.** Your project's team file as one board: who works on it (members, each a part of a lineup, here or on a fleet
+harness), where their work lands (blocks: a file, a folder or a git tree, each with its claim ledger) and in which order
+(stages: an agent turn or an Orchestra run). The steps are those of [How this works:
+Team](STUDIO-team-roles.md#how-this-works-team).
 
 **Panels.** Board: the team as one board, members as columns, stages as
 boxes, blocks underneath. Inspector: the selected stage (its row, Run, the
@@ -357,34 +355,36 @@ packs from the places you trust (`packs.sources`, then the packs Halo ships); ev
 on the Team page (`?block=team`); `halo init --terminal` is the terminal wizard. **Done starts halo** (3.3.3.0): the Summary's
 "Done: start halo" goes to Session and the terminal that ran `halo init` starts halo. The pages: [STUDIO-setup.md](STUDIO-setup.md).
 
+### Settings
+
+**What it is** (3.3.3.0). Every key of `~/.halo/config.json`, `Alt+9`: a group rail on the left (General, Agents and roles ...
+Local), one group's page on the right, one row per key with its help line, its control, a **default** marker while it is unset,
+Reset to default and the exact `halo config set` line as its footer. A change saves at once and says when it takes effect (now,
+the next session, the next launch); the search box finds a row across every group, and the palette lists every row as `Settings:
+<title>`. All of it comes from one catalog, `halo_harness/settings_catalog.py` (docs/CONFIG.md's key table names each row's
+page); nothing opens on its own. `halo settings fleet` opens the Fleet page (`?mode=settings&group=fleet`), `halo settings
+--terminal` lists a group's keys in the terminal.
+
 ## The live feed
 
 `GET /api/events?t=<token>&sessions=all|<session id>` is a Server-Sent Events stream. Studio watches the live-session registry
-(`~/.halo/run/sessions.json`) every 2 s and attaches to each running
-session's control socket (`subscribe`, 1 s timeouts, off the request
-threads); every frame is `{session_id, event, data, turn, agent_id, ts}`
-under `event: <kind>`, a `sessions` frame lists the attached sessions (title,
-mode, kind, cwd, started, pid; never an endpoint or token) whenever one
-attaches or detaches, and `: ping` keeps the stream open every 15 s. Each
-browser gets its own queue of 512 frames (the oldest dropped first). The
-shell's status bar, the Orchestra panels and the rail's Session dot read it. Studio's own
-Orchestra runner publishes its run log here too (`orchestra_*` frames), and
-its files watcher `files_changed` (3.2.2.0: [what is on disk](STUDIO-shell.md#what-is-on-disk-as-it-changes-3220)).
+(`~/.halo/run/sessions.json`) every 2 s and attaches to each running session's control socket (`subscribe`, 1 s timeouts, off
+the request threads); every frame is `{session_id, event, data, turn, agent_id, ts}` under `event: <kind>`, a `sessions` frame
+lists the attached sessions (title, mode, kind, cwd, started, pid; never an endpoint or token) whenever one attaches or
+detaches, and `: ping` keeps the stream open every 15 s. Each browser gets its own queue of 512 frames (the oldest dropped
+first). The shell's status bar, the Orchestra panels and the rail's Session dot read it. Studio's own Orchestra runner publishes
+its run log here too (`orchestra_*` frames), and its files watcher `files_changed` (3.2.2.0: [what is on
+disk](STUDIO-shell.md#what-is-on-disk-as-it-changes-3220)).
 
-**What Session reads, and the delays that remain (3.1.8.0).** The Session
-tab (and Fleet) reads the feed, not a poll: a session's own `message_end`
-(the end of each model call) and `status` (a turn's start and end) frames
-move its spend, tokens, turns, context, model and busy dot on the frame the
-terminal's status bar moves on (a frame with an `agent_id`, or whose
-`data.session_id` starts with `agent-`, is a sub-agent's and moves nothing
-of the session's); `agent_state` moves an agent's row (its state, tool,
-model calls, cost and, since 3.1.8.0, its tokens); `agent_event` and the
-raw `text_chunk` / `tool_use_start` / `tool_result` frames fill the
-streams and Live; `fleet` and `sessions` frames and the asks, `turn_done`
-and `subagent_start` / `subagent_end` re-read `GET /api/fleet` for the
-tree. A local session's `turn_done`, `message_end` or `status` drops GET
-fleet's cached snapshot, so a re-read never answers from before it. What
-still stands between the terminal and the tab, each with its number:
+**What Session reads, and the delays that remain (3.1.8.0).** The Session tab (and Fleet) reads the feed, not a poll: a
+session's own `message_end` (the end of each model call) and `status` (a turn's start and end) frames move its spend, tokens,
+turns, context, model and busy dot on the frame the terminal's status bar moves on (a frame with an `agent_id`, or whose
+`data.session_id` starts with `agent-`, is a sub-agent's and moves nothing of the session's); `agent_state` moves an agent's row
+(its state, tool, model calls, cost and, since 3.1.8.0, its tokens); `agent_event` and the raw `text_chunk` / `tool_use_start` /
+`tool_result` frames fill the streams and Live; `fleet` and `sessions` frames and the asks, `turn_done` and `subagent_start` /
+`subagent_end` re-read `GET /api/fleet` for the tree. A local session's `turn_done`, `message_end` or `status` drops GET fleet's
+cached snapshot, so a re-read never answers from before it. What still stands between the terminal and the tab, each with its
+number:
 
 | Stage | Delay |
 |---|---|

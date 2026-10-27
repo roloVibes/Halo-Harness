@@ -320,7 +320,8 @@ _PREFIXES = (("media", "halo_harness.studio.media_api", "dispatch_media"),
              ("recall", "halo_harness.studio.recall_api", "dispatch_recall"),  # 3.1.2.0 R3: the recall box
              ("supervise", "halo_harness.studio.supervise_api", "dispatch_supervise"),  # 3.1.8.0 R1: the morning line
              ("pack", "halo_harness.studio.packs_studio_api", "dispatch_pack"),  # 3.2.0.0 R3: Studio contributions
-             ("setup", "halo_harness.studio.setup_api", "dispatch_setup"))  # 3.3.0.0 R1: the Setup section
+             ("setup", "halo_harness.studio.setup_api", "dispatch_setup"),  # 3.3.0.0 R1: the Setup section
+             ("settings", "halo_harness.studio.settings_api", "dispatch_settings"))  # 3.3.3.0 R2: the Settings section
 
 
 def dispatch(req: Request):

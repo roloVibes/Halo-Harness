@@ -608,6 +608,10 @@ def _main(argv: Optional[list] = None) -> int:
     if argv and argv[0] == "setup":
         from halo_harness.setup_cli import cmd_setup
         return cmd_setup(argv[1:])
+    if argv and argv[0] == "settings":
+        # 3.3.3.0 R2: Studio's Settings section, every config.json key (halo_harness/settings_catalog.py).
+        from halo_harness.settings_cli import cmd_settings
+        return cmd_settings(argv[1:])
     if argv and argv[0] == "start":
         # 3.1.1.0 R1: the guided first run (halo_harness/start/).
         from halo_harness.start_cli import cmd_start
