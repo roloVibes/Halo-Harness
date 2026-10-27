@@ -354,12 +354,12 @@ packs from the places you trust (`packs.sources`, then the packs Halo ships); ev
 
 **What it is** (3.3.0.0; pages since 3.3.1.0). This box's setup, `Alt+8`: the wizard's step rail over one block per page
 (its own Save, Back / Next, a Summary last), nothing opening on its own. `halo init` opens it (`?first=1`), `halo setup team`
-on the Team page (`?block=team`); `halo init --terminal` is the terminal wizard. The pages: [STUDIO-setup.md](STUDIO-setup.md).
+on the Team page (`?block=team`); `halo init --terminal` is the terminal wizard. **Done starts halo** (3.3.3.0): the Summary's
+"Done: start halo" goes to Session and the terminal that ran `halo init` starts halo. The pages: [STUDIO-setup.md](STUDIO-setup.md).
 
 ## The live feed
 
-`GET /api/events?t=<token>&sessions=all|<session id>` is a Server-Sent
-Events stream. Studio watches the live-session registry
+`GET /api/events?t=<token>&sessions=all|<session id>` is a Server-Sent Events stream. Studio watches the live-session registry
 (`~/.halo/run/sessions.json`) every 2 s and attaches to each running
 session's control socket (`subscribe`, 1 s timeouts, off the request
 threads); every frame is `{session_id, event, data, turn, agent_id, ts}`

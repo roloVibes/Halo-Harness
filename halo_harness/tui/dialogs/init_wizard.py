@@ -153,6 +153,8 @@ class WizardState:
     check_results: list = field(default_factory=list)
     gym_models: Optional[list] = None
     checks_cancel: bool = False
+    # 3.3.3.0 R1: setup ended on the last step's Finish (not a quit): init_cli then starts halo.
+    finished: bool = False
 
     # Halo 2.0.4 round 4 (deliverable 1): the merged model list from ONE
     # live, off-thread enumeration run right after the Providers step's
@@ -215,6 +217,7 @@ def advance(app, state: WizardState, *, skip: bool = False) -> None:
     actually applies a choice, so `skip=True` reaching here with nothing
     committed is exactly "leave config untouched"."""
     if state.index + 1 >= len(state.step_keys):
+        state.finished = True  # 3.3.3.0 R1: the Finish `halo init` starts halo after
         finish(app, state)
         return
     state.index += 1

@@ -154,10 +154,11 @@ def forward_hint(url: str) -> str:
 
 
 def cli_door(target: SetupTarget, *, terminal_cli: str, fallback: str, say: Callable[[str], None] = print,
-             cwd=None, state_dir=None) -> bool:
+             cwd=None, state_dir=None, wait: bool = False) -> bool:
     """A command's door: open Setup and print one line; True when the browser has it. False: the URL (with the
     port-forward hint) or why Studio did not start is printed, then `fallback` ("the terminal wizard runs here
-    instead.") and the caller runs it."""
+    instead.") and the caller runs it. `wait` (3.3.3.0 R1, `halo init`): the one line also says the terminal
+    waits for Setup's Done (halo_harness/init_wait.py)."""
     try:
         out = open_setup(target, cwd=cwd, state_dir=state_dir)
     except Exception as e:  # Studio could not be reached or started: the terminal path runs
@@ -165,7 +166,11 @@ def cli_door(target: SetupTarget, *, terminal_cli: str, fallback: str, say: Call
     url, how = out.get("url") or "", out.get("how")
     if how in ("focused", "opened", "started") and url:
         where = "in the Studio page already open" if how == "focused" else "in your browser"
-        say(f"{target.display} is open {where}: {url}. `{terminal_cli}` runs the terminal {fallback} instead.")
+        if wait:
+            say(f"{target.display} is open {where}: {url}. Press Done there and halo starts here (Ctrl+C stops "
+                f"waiting; `{terminal_cli}` runs the terminal {fallback}).")
+        else:
+            say(f"{target.display} is open {where}: {url}. `{terminal_cli}` runs the terminal {fallback} instead.")
         if how == "started":
             say("Studio keeps running in the background; halo studio --stop ends it.")
         return True

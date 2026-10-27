@@ -16,6 +16,8 @@ state (studio/setup_state.py) plus the lines saying what was written.
                                         the Providers and Local models blocks (studio/setup_providers_api.py, R2)
     POST setup/check, GET setup/check, POST setup/check/stop, POST setup/linux-fixes
                                         the Check and Linux fixes blocks (studio/setup_check_api.py, R3)
+    POST setup/done                     3.3.3.0 R1: the Summary's Done: <state>/setup-done.json and a `setup` frame
+                                        {stage: "done", at} -> {ok, done_at}; the state's `done_at` (studio/setup_done.py)
 
 The page reads the state again on `files_changed` (config.json moved: a
 `halo config set` in a terminal, another Studio), so every open Setup page
@@ -126,7 +128,9 @@ def dispatch_setup(req):
     answered = dispatch_setup_check(req)
     if answered is not None:
         return answered
-    routes = {"setup/state": ("GET", get_state), "setup/config": ("POST", post_config), "setup/team": ("POST", post_team)}
+    from halo_harness.studio.setup_done import post_done  # 3.3.3.0 R1: the Summary's Done
+    routes = {"setup/state": ("GET", get_state), "setup/config": ("POST", post_config), "setup/team": ("POST", post_team),
+              "setup/done": ("POST", post_done)}
     if req.path in routes:
         method, fn = routes[req.path]
         return fn(req) if req.method == method else (405, {"error": "method not allowed"})
