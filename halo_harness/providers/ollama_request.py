@@ -134,6 +134,10 @@ def build_ollama_request_body(
     # Halo knows the model fits there at the window sent (`gpu_fits_up_to`).
     prompt_tokens: Optional[int] = None, window_factor: float = 1.0,
     gpu_layers: Optional[int] = None, gpu_fits_up_to: Optional[int] = None,
+    # Halo 3.3.4.0 R3: the steward's profile for this host and model
+    # (`ollama_steward/profiles.py`): the reply's room never under its
+    # `num_predict`, its `keep_alive` and `tools_max` over the host's.
+    steward_profile: Optional[dict] = None,
 ) -> dict:
     """Build the native `/api/chat` body. `messages`/`system_text` are the
     SAME Anthropic-shaped derived-transcript inputs `providers.request.
@@ -210,9 +214,9 @@ def build_ollama_request_body(
         from halo_harness.providers.ollama_prompt import reply_reserve, window_for
         choice = window_for(prompt_tokens, base=num_ctx, base_source="min", factor=window_factor,
                             trained_context=trained_context, fit_estimate=fit_estimate, host_max_ctx=host.max_ctx,
-                            reserve=reply_reserve(requested_max_tokens))
+                            reserve=reply_reserve(requested_max_tokens), min_reply=(steward_profile or {}).get("num_predict"))
         num_ctx, reply_room = choice.num_ctx, choice.num_predict
-    tools_max = max(resolve_ollama_tools_max(num_ctx), len(tools or []))
+    tools_max = max((steward_profile or {}).get("tools_max") or resolve_ollama_tools_max(num_ctx), len(tools or []))
     tools_profile = profile if tools_max == profile.tools_max else dataclasses.replace(profile, tools_max=tools_max)
     oai_tools = convert_tools(tools, tools_profile)
     body: dict = {
@@ -223,7 +227,9 @@ def build_ollama_request_body(
     }
     if gpu_layers and isinstance(gpu_fits_up_to, int) and gpu_fits_up_to >= num_ctx:
         body["options"]["num_gpu"] = gpu_layers
-    if host.keep_alive is not None:
+    if (steward_profile or {}).get("keep_alive") is not None:
+        body["keep_alive"] = steward_profile["keep_alive"]
+    elif host.keep_alive is not None:
         body["keep_alive"] = host.keep_alive
     if oai_tools:
         body["tools"] = oai_tools

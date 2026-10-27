@@ -30,6 +30,45 @@ version.
 #### Changed
 - docs: `halo ollama ...` moved into its own part, COMMANDS-ollama.md (COMMANDS-local.md keeps `halo gym` and `halo local`). MODELS-ollama.md describes the ledger and the events. CONFIG.md and FLEET.md describe `ollama.ledger` and `fleet.ollama.share`, and ARCHITECTURE-modules.md lists the new modules.
 
+### R3: the steward judges, plans the fit, adjusts
+
+#### Added
+- `halo ollama steward findings [--host] [--since 24h] [--json]`: reads the ledger (every member's lines on a hub), the server's events, the hardware card and the learned caps per host and model. It finds:
+- a window too small (with "a small window was asked for" as its own finding) or too large
+- two windows for one model
+- cut replies
+- a session past 80 % of its window that never compacted, or whose compaction failed
+- a cut reply resent
+- CPU spills
+- a slow box
+- models thrashing one card
+
+Each finding comes with its evidence, at most one profile change, and server lines only to show.
+- `halo ollama steward plan`: fits the models the halos ask for to the card. The options are a window per model, one model at a time, another host, the model alone at a smaller window, a tuned twin, a smaller quantization, and the server's KV cache at q8_0. Each says what you lose.
+- `ollama.profiles["<host>|<model>"]` (`num_ctx`, `num_predict`, `keep_alive`, `tools_max`, `host_for`, `compact_at`, `note`, `by`, `at`), read before every call to that model on every halo. The hub hands its profiles to its members.
+- `ollama.steward.apply` (`auto` | `review` | `off`) and `halo ollama steward run [--once] | apply <id> | undo`.
+- Every change is one line in `~/.halo/ollama/steward.jsonl`.
+- At most one change per host and model in ten minutes, never above a measured cap.
+- A change followed by worse calls is rolled back on its own.
+- A session's next call shows a fresh change's note.
+- `ollama.steward.slow_tok_s`.
+
+#### Changed
+- The fit estimate counts what a load really takes:
+- the KV cache of only the layers that hold one (Qwen 3.5 / 3.8: one in four), times the parallel slots
+- the recurrent state, the draft layer, the compute buffer and the vision projector
+- Ollama's per-card minimum
+- the server's own KV cache type and slots from its log when the host entry has no hint
+
+qwen3.8:27b on a 24 GB card is now estimated at 65,536 (it was 32,768).
+- `halo ollama hardware` reads the server log of a host this machine serves under any name (0.0.0.0, the host name, the LAN address), not only loopback.
+- docs: MODELS-ollama-steward.md (a new part, the steward), COMMANDS-ollama.md `halo ollama steward`, CONFIG.md, the MODELS-ollama-tuning.md arithmetic, ARCHITECTURE-modules.md.
+
+#### Fixed
+- An Ollama request past 80 % of its window (or a profile's `compact_at`) is compacted before it is sent. Before, it went out with the reply's room squeezed, and only the reply after it triggered compaction.
+- A reply that used up the room the window left it counts as cut: it is compacted and re-sent, never kept as the answer or sent again.
+- A profile's reply reserve is kept: the prompt compacts before the reply's room drops under it.
+
 ### Also in 3.3.4.0
 
 #### Changed

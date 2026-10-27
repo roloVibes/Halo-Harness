@@ -1,6 +1,6 @@
 # Commands: Ollama
 
-Read this when you run or watch an Ollama server: `halo ollama` and its subcommands (calibrate, doctor, tune, discover, hardware, traffic, events).
+Read this when you run or watch an Ollama server: `halo ollama` and its subcommands (calibrate, doctor, tune, discover, hardware, traffic, events, steward).
 
 Part of [Commands](COMMANDS.md), which lists every part. `halo gym` and `halo local` are in [Commands: the gym and local models](COMMANDS-local.md).
 
@@ -248,7 +248,7 @@ halo ollama traffic --json
 
 Halo 3.3.4.0 R2: per host and model, the calls this machine's ledger holds
 (`~/.halo/ollama/traffic.jsonl`: one line per call to a local model server,
-see [MODELS-ollama.md](MODELS-ollama.md)'s "The ledger"); on a fleet hub
+see [MODELS-ollama-steward.md](MODELS-ollama-steward.md)'s "The ledger"); on a fleet hub
 that includes every member's calls to it (`fleet.ollama.share`). Above each
 host its hardware card in one line, then one line per model: calls (and
 how many were compaction), p50 / p95 prompt tokens against the window sent
@@ -281,7 +281,7 @@ Halo 3.3.4.0 R2: the local Ollama server's own words as events, newest
 last: each run reads the server log's new lines read-only
 (`%LOCALAPPDATA%\Ollama\server.log`, `~/.ollama/logs/server.log`, else
 `journalctl -u ollama` on Linux), turns them into events with the rules in
-[MODELS-ollama.md](MODELS-ollama.md)'s "The events" and adds them to
+[MODELS-ollama-steward.md](MODELS-ollama-steward.md)'s "The events" and adds them to
 `~/.halo/ollama/events.jsonl`. The first run starts at the log's end;
 `--from-start` reads it from its top (again: its events are added again).
 `--watch` keeps reading (every 2 s) and polls `/api/version` and `/api/ps`
@@ -298,3 +298,51 @@ default), `--json` prints JSON lines. Nothing is sent to the server but
 `/api/version` and `/api/ps`. With nothing found it says `no events yet:
 <host>'s server log is read from 3.3.4.0 on`, and why when the log is not on
 this machine. Exit 0, 1 for an unknown `--host`, 2 for a bad `--since`.
+
+## `halo ollama steward`
+
+```sh
+halo ollama steward findings
+halo ollama steward findings --host <name> --since 7d --json
+halo ollama steward plan --host <name>
+halo ollama steward apply <id>
+halo ollama steward undo
+halo ollama steward run --once
+halo ollama steward run --once --mode review --json
+```
+
+Halo 3.3.4.0 R3 (see [MODELS-ollama-steward.md](MODELS-ollama-steward.md)):
+
+- `findings` judges the ledger's last `--since` (`24h` the default; every
+  member's lines on a hub), the server's events, the hardware card and the
+  learned caps per host and model: a window too small or too large, a
+  small window asked for, two windows for one model, replies cut, a
+  session that never compacted, a cut reply resent, a slow box, models
+  thrashing a card. One finding per line, its id first, then the profile
+  change it proposes, the server line it only shows, and the evidence:
+
+```text
+[window-small-3f2a9c] warn pc qwen3.8:27b: the window 32768 is too small for the prompts: 2 trims, 1 cut replies, p95 prompt 31000 of 32768
+    change: num_ctx None -> 65536 (2 trims, 1 cut replies, p95 prompt 31000 of 32768; raised toward the learned cap (65536))
+    evidence: window 32768, p95_prompt 31000, trims 2, cuts 1, cap 65536
+```
+
+- `plan` prints each host's fit plan: what the models with calls need at
+  their windows against the card, then the options (a window per model,
+  one at a time, another host, a tuned twin, a smaller quantization, the
+  server's KV cache at q8_0), each with what you lose; `*` marks the
+  Halo-side option the steward would take.
+- `apply <id>` applies one finding's (or a review proposal's) change to
+  `ollama.profiles`; `undo` reverts the newest change still in place.
+- `run` is findings, the plan and the changes per `ollama.steward.apply`
+  (`--mode` for this run only): `auto` applies and prints one line per
+  change, `review` writes proposals, `off` only finds. Changes are one line
+  each in `~/.halo/ollama/steward.jsonl`; a change whose next 10 calls went
+  worse is rolled back first. `--once` runs one pass; without it the pass
+  repeats every ten minutes until Ctrl+C.
+
+Nothing is sent to a model and no server setting changes: the card and the
+catalog are read, `ollama.profiles` and the journal are written. Exit 0; 1
+for an `apply` id that is not found or not allowed now (the reason is
+printed), 2 for a bad `--since`.
+

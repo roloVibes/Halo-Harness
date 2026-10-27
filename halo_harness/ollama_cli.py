@@ -30,6 +30,9 @@ def cmd_ollama(argv: list) -> int:
     if argv and argv[0] == "hardware":  # Halo 3.3.4.0 R1: the hardware card, read-only
         from halo_harness.ollama_steward.cli import cmd_ollama_hardware
         return cmd_ollama_hardware(argv[1:])
+    if argv and argv[0] == "steward":  # Halo 3.3.4.0 R3: findings, the fit plan, the profiles
+        from halo_harness.ollama_steward.cli_steward import cmd_ollama_steward
+        return cmd_ollama_steward(argv[1:])
     if argv and argv[0] in ("traffic", "events"):  # Halo 3.3.4.0 R2: the ledger's rollups, the server's events
         from halo_harness.ollama_steward import cli as steward_cli
         return getattr(steward_cli, f"cmd_ollama_{argv[0]}")(argv[1:])
@@ -39,7 +42,7 @@ def cmd_ollama(argv: list) -> int:
     parser = argparse.ArgumentParser(prog="halo ollama", add_help=True,
                                       description="Per-host Ollama analysis: reachability, version, loaded "
                                                    "models (offload, context, KV cost), and tool-catalog sizing. "
-                                                   "Subcommands: discover, calibrate, tune, doctor, hardware, traffic, events.")
+                                                   "Subcommands: discover, calibrate, tune, doctor, hardware, traffic, events, steward.")
     parser.add_argument("--host", default=None, help="only this configured host (by name), not every one")
     parser.add_argument("--refresh", action="store_true",
                          help="bypass the short-TTL catalog cache and re-read /api/tags+/api/show now")

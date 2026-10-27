@@ -229,21 +229,12 @@ def kv_bytes_per_token(model_info: dict, *, bytes_per_elem: float = KV_BYTES_PER
     `key_length`/`value_length` path above is preferred precisely because
     this fallback is not always conservative enough, see the module
     docstring)."""
-    block_count = _model_info_value(model_info, ".block_count")
-    head_count_kv = _model_info_value(model_info, ".attention.head_count_kv")
-    if not block_count or not head_count_kv:
-        return None
-    key_length = _model_info_value(model_info, ".attention.key_length")
-    value_length = _model_info_value(model_info, ".attention.value_length")
-    if key_length and value_length:
-        per_head_elems = key_length + value_length
-    else:
-        embedding_length = _model_info_value(model_info, ".embedding_length")
-        head_count = _model_info_value(model_info, ".attention.head_count") or head_count_kv
-        if not embedding_length or not head_count:
-            return None
-        per_head_elems = 2.0 * (embedding_length / head_count)
-    return block_count * head_count_kv * per_head_elems * bytes_per_elem
+    # Halo 3.3.4.0 R3 (knowledge/memory.md): only the layers that hold a
+    # cache count -- one in `full_attention_interval` for a hybrid model,
+    # never the draft layer, a per-layer `head_count_kv` list's non-zero
+    # entries -- `providers.ollama_fit_parts` does the counting.
+    from halo_harness.providers.ollama_fit_parts import kv_bytes
+    return kv_bytes(model_info or {}, bytes_per_elem)
 
 
 def _power_of_two_floor(n: int) -> int:

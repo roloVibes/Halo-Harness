@@ -100,7 +100,7 @@ travels as its last component only.
 The Ollama ledger (3.3.4.0 R2) has its own switch, `fleet.ollama.share`
 (default `auto`): a member sends the hub its ledger lines
 (`~/.halo/ollama/traffic.jsonl`, one per call to a model server, see
-[MODELS-ollama.md](MODELS-ollama.md)) for every host it does not serve
+[MODELS-ollama-steward.md](MODELS-ollama-steward.md)) for every host it does not serve
 itself -- a host url that is not a loopback name or one of the member's own
 addresses -- in one signed `POST /fleet/v1/ollama` every 30 s or 50 lines.
 The hub appends them to its own ledger with `from` set to the member's

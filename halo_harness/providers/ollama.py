@@ -614,7 +614,9 @@ def compaction_trigger_tokens(num_ctx: int) -> int:
     """75% of `num_ctx` (research doc section 6) -- the same local-route
     compaction trigger the 2.0.5 brief's Phase 1 specifies, computed from
     whatever `num_ctx` THIS request actually sent rather than a second,
-    possibly-stale copy of the context math."""
+    possibly-stale copy of the context math. 3.3.4.0 R3: the session loop
+    never called this one; its per-model trigger before the call is
+    `agent/ollama_window_steward.compact_due` (a profile's `compact_at`)."""
     return max(1, int(num_ctx * COMPACTION_TRIGGER_FRACTION))
 
 
@@ -984,6 +986,8 @@ def _build_catalog(host: OllamaHost) -> dict:
             row["capabilities"] = show.get("capabilities") if isinstance(show.get("capabilities"), list) else []
             if isinstance(show.get("details"), dict):
                 row["details"] = {**(row.get("details") or {}), **show["details"]}
+            if isinstance(show.get("projector_info"), dict):  # 3.3.4.0 R3: the fit counts the projector
+                row["projector_info"] = show["projector_info"]
             # Halo 3.2.3.0 R3: a tuned twin's row names its original
             from halo_harness.providers.ollama_tune_rows import catalog_twin_fields
             row.update(catalog_twin_fields(host, name, show))
