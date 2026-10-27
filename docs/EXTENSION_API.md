@@ -248,7 +248,7 @@ digits, `-` and `_`), unique in the pack; Studio qualifies them
 `<id>--<name>` (a pack's section is `doc-review--docs`) and keeps the titles
 as written. `w` is 4..24 columns (default 12), `h` 8..200 rows of 8 px
 (default 24). `help` is the panel's `?` popover and the Inspector's lines (one
-per line); the title bar's source line says "from pack <id>". A bad
+per line); its source line, "from pack <id>", is the first line of that `?` (3.3.2.0: the title line carries no about line). A bad
 contribution is a manifest problem naming the key and its line, so the pack
 does not install or run:
 

@@ -173,7 +173,7 @@ export function MapDetail() {
   const loaded = useFleet((s) => s.loaded);
   const error = useFleet((s) => s.error);
   const any = useFleet((s) => s.harnesses.length);
-  if (!loaded) return <div className="og-wait mono muted">reading the fleet...</div>;
+  if (!loaded) return null; // 3.3.2.0 R3: the section's own wait says it while it reads (FleetView)
   if (error && !any) return <Empty title="Studio could not read the fleet" body={error} />;
   return (
     <div className="fm">

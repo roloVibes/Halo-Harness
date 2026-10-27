@@ -41,14 +41,17 @@ The classic plain-JS page (`/legacy/`, `halo studio --legacy`) is gone since
   and never below the visible rows, so no panel leaves the window on a move.
   An edge or corner you drag is a splitter: the panel on the other side of
   that edge shrinks or grows by the same columns or rows (down to its
-  smallest size). The title bar is the title,
-  the panel's one-line **about** (what it is), ONE **Compact / Expand**
-  toggle (on a collapsed strip: the chevron that opens it) and ONE **...**
-  menu: **Float** over the grid (or dock it back),
-  **Collapse** to a one-line strip (or open it: a strip that opens pushes
-  the panels it now covers down; a section may start some panels as
-  strips, as Fleet does since 3.1.4.0), **Reset this panel**,
-  **Settings** and **Help**. With a panel focused, `Alt`+arrows move it and
+  smallest size). A panel is one title line (3.3.2.0): its title, its
+  **?** (its help, the one-line "what it is" first), the strip button
+  (**Collapse to a strip**; on a strip the chevron that opens it), a close
+  on an optional panel (the **+** adds it again) and ONE **...** menu:
+  **Float** over the grid (or dock it back), **Compact / Expand** (also a
+  double-click on the title), **Collapse** to a one-line strip (or open
+  it), **Reset this panel**, **Settings** and **Help**. A strip that opens
+  in an arrangement you did not move by hand joins the column on the main
+  panel's right (the main panel gives up those columns, collapsing it
+  again gives them back); in your own arrangement it pushes the panels it now covers
+  down. With a panel focused, `Alt`+arrows move it and
   `Alt+Shift`+arrows resize it. The arrangement is remembered per section in
   your browser (`localStorage` key `halo.studio.layout.<section>`, version 2:
   an arrangement saved by 3.0.3.0 keeps its places, not its faces);
@@ -58,6 +61,20 @@ The classic plain-JS page (`/legacy/`, `halo studio --legacy`) is gone since
   stays, a floating panel floats); **Reset layout** (the same two places)
   returns to the defaults, which follow the window size until you
   rearrange something.
+- **One thing per section** (3.3.2.0). Each section opens on its main
+  panel filling the stage, every other panel a strip at the foot (one or
+  two rows of them, side by side): Session on **Live**, Team on the
+  **Board**, Roles on the **Canvas**, Fleet on the **Map**, Design on the
+  **Artboards**, Orchestra on the **Workflow** (the run's plan; a planned
+  run is the plan canvas), Packs on **Installed**; Setup is pages and keeps
+  them. A click on a strip (or its row in the **+**) opens it in the column on
+  the main panel's right (as wide as the widest panel there, at most half
+  the stage; the panels in it share its height); a Roles card or a Team stage
+  you select opens its Inspector strip. Your saved layout wins over the
+  default; **Reset layout** returns to it, and **Arrange panels** lays out
+  the panels open now by the same rule. `?open=all` in the URL draws every
+  panel in its own place instead (the arrangement before 3.3.2.0, for a
+  link or a capture); `?open=a,b` opens those strips.
 - **The section header's menus** (3.3.2.0 R2; the expanded rail's PANELS
   list and LAYOUT block before). Beside the section's title and its **?**:
   the **+** lists the section's panels, each row saying what a press does:
@@ -76,16 +93,18 @@ The classic plain-JS page (`/legacy/`, `halo studio --legacy`) is gone since
   **Arrange panels** and **Reset layout** name the section in their hint and
   say so when there is nothing to do.
 - **Two faces and the settings.** Every panel opens on its **full face**,
-  ready to use with no button to press first; **Compact** is its summary (what
+  ready to use with no button to press first; **Compact** (its **...**
+  menu, or a double-click on the title) is its summary (what
   it is, one live indicator, one or two big numbers, readable from across the
   room) and is the default only where a section says so (Orchestra's
   Workflow, Run grid and Log, where it is the whole graph, every tile and the
   newest lines). **Settings** opens the Inspector on the right: what the
   panel is and how to use it, the face, strip, float, the exact grid
   position, reset, and the panel's own options.
-- **Help where you are.** `?` on a focused panel (or Help in its ... menu)
-  opens a small popover with its `about` line and a few lines on how to use
-  it; `?` again, `?` away from a panel, the **?** in the header beside the
+- **Help where you are.** `?` on a focused panel (or the **?** on its
+  title line, or Help in its ... menu) opens a small popover with its
+  `about` line first and a few lines on how to use it (the **?** again
+  closes it); `?` again, `?` away from a panel, the **?** in the header beside the
   section's title and
   the palette's **Help: how <section> works** open **How this works** for the
   section: what it is, five to eight numbered steps, every panel with its
@@ -122,6 +141,12 @@ The classic plain-JS page (`/legacy/`, `halo studio --legacy`) is gone since
   they were. Where a section's own `F` follows an agent or the Log (Session,
   Fleet, Orchestra, the Roles Live tab) or fits the Roles canvas,
   `Shift+F` is Focus. Remembered per browser (`halo.studio.focus`).
+- **Density** (3.3.2.0): the header's rows button beside the theme (or
+  the palette's **Density: compact** / **Density: comfortable**) switches
+  two token sets in `ui/src/styles/tokens.css`: compact has tighter spacing
+  (a 30 px title line, 9 px inside a panel, 2 px between panels, a 46 px
+  header) and a type scale one step smaller; the colours stay. Remembered
+  per browser (`halo.studio.density`), `data-density` on `<html>`.
 - **The palette** (`Ctrl`/`Cmd`+`K`): a mono prompt with fuzzy matching and
   grouped results (Go to, Help, then the sections in the tab order: Team, Roles,
   Fleet, Design, Orchestra; then Media, View, Layout), keyboard first: arrows,
@@ -136,8 +161,10 @@ The classic plain-JS page (`/legacy/`, `halo studio --legacy`) is gone since
   state. `Esc` closes the palette, a menu or a help card, then the Inspector.
 
 **Visual language.** The dark theme ("holo", the default) is a near-black
-navy with glass panels: a translucent surface, a 1 px luminous edge, a soft
-glow and small corner brackets (`--bracket-alpha`, 0 turns them off). Cyan is
+navy with glass panels: a translucent surface and a 1 px edge; the focused
+panel alone (3.3.2.0) adds a soft glow, small corner brackets
+(`--bracket-alpha`, 0 turns them off) and a mono data line (its size and
+face), and an idle panel breathes only while focused. Cyan is
 the one accent for "live" and "do this", amber means "needs you", magenta-red
 an error, green done. Data labels and numbers are monospaced next to a clean
 sans for prose. The light theme is Catppuccin Latte; the theme menu offers

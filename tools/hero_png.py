@@ -1,8 +1,8 @@
 """tools/hero_png.py -- the README's first image and the GitHub social preview
 (3.1.6.0 R4): the HALO wordmark over Studio's Session dashboard.
 
-The background is a crop of docs/media/studio-session.png (the Map on the
-left, the Live column on the right, the whole width scaled to fit), darkened
+The background is a crop of docs/media/studio-session.png (3.3.2.0: the Live
+column on the left, the Map on the right, the whole width scaled to fit), darkened
 at the top edge and behind the wordmark; the wordmark is halo_harness/banner.py's block
 art drawn as cells with tools/hero_svg.py's `cell_rects` (never as text);
 one line, hero_svg.TAGLINE, sits under it. Pillow only, the holo palette

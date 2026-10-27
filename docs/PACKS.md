@@ -204,8 +204,8 @@ goes the moment you disable the pack (no reload):
   markdown page of the pack), its checks (a table over a JSON file), links
   (into Studio, or a page in a new tab) and Settings.
 - **Panels in a core section**, under that section's own, as strips: the
-  pack's **Reviews** sits in Session. Each pack panel's title bar says
-  "from pack <id>", and `?` (or the ... menu's Help) shows the pack's own help
+  pack's **Reviews** sits in Session. Each pack panel's **?** (or `?`, or the
+  ... menu's Help) says "from pack <id>" first, then the pack's own help
   lines.
 - **Palette lines** in their own group, "pack <id>": the pack's "Open the
   review checks" opens Docs review on the Checks panel.

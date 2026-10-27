@@ -194,7 +194,7 @@ export function CanvasDetail() {
     addCard(bio, ["main", "subagent", "reviewer", "researcher", "judge"].includes(kind) ? kind : "subagent");
   };
 
-  if (!loaded) return <div className="og-wait mono muted">reading the lineups...</div>;
+  if (!loaded) return null; // 3.3.2.0 R3: the section's own wait says it while it reads (RolesView)
   if (!graph || !name) return <NoLineup />;
   return (
     <div className="rc" data-testid="roles-canvas" data-lineup={name} data-replaying={replaying || undefined}>

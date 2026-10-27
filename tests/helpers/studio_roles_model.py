@@ -140,6 +140,8 @@ class RolesModelDriver(Driver):
         MR.BOX_S = 1.5  # this process serves Studio: Refresh boxes each provider at 1.5 s
         MR.jobs_for = stand_ins(state)
         srv, url = serve(state, True)
+        from tests.helpers.studio_full import full
+        url = full(url)  # 3.3.2.0 R3: every panel open, the arrangement this driver works in
         try:
             yield ((roles, (c, url.replace("mode=orchestra", "mode=roles").replace("feed=off", "feed=off&tour=off&view=workspace"), state)),)
         finally:

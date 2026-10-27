@@ -236,7 +236,7 @@ class PackManagerDriver(Driver):
         state = seeded_home()
         bio_models.ROWS = lambda _s, _c: [dict(TOOLS_ROW)]
         srv, url = serve(state, True)
-        url = url.replace("mode=orchestra&feed=off", "mode=roles&tour=off&view=workspace")
+        url = __import__("tests.helpers.studio_full", fromlist=["full"]).full(url).replace("mode=orchestra&feed=off", "mode=roles&tour=off&view=workspace")
         ctx = {"state": state, "srv": srv}
         try:
             yield tuple((fn, (c, url, ctx)) for fn in (section, install, details, enable, update_rollback, templates, picker, disable,

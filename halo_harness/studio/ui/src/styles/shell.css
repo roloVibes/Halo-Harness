@@ -4,7 +4,7 @@
 .app {
   height: 100%;
   display: grid;
-  grid-template-rows: 56px minmax(0, 1fr) 30px;
+  grid-template-rows: var(--topbar-h) minmax(0, 1fr) var(--status-h);
   grid-template-columns: 56px minmax(0, 1fr) 0;
   grid-template-areas: "top top top" "rail stage inspector" "status status status";
 }
@@ -13,12 +13,12 @@
 .app[data-inspector="open"] { grid-template-columns: 56px minmax(0, 1fr) 340px; }
 .app[data-rail="open"][data-inspector="open"] { grid-template-columns: 200px minmax(0, 1fr) 340px; }
 /* Focus outranks every rail/inspector pair (three attributes), so it wins whatever the two say */
-.app[data-focus="on"][data-rail][data-inspector] { grid-template-columns: 0 minmax(0, 1fr) 0; grid-template-rows: 56px minmax(0, 1fr) 0; }
+.app[data-focus="on"][data-rail][data-inspector] { grid-template-columns: 0 minmax(0, 1fr) 0; grid-template-rows: var(--topbar-h) minmax(0, 1fr) 0; }
 .app[data-focus="on"] > .rail, .app[data-focus="on"] > .inspector, .app[data-focus="on"] > .hud-strip { display: none; }
 
 /* -- top bar ----------------------------------------------------------------- */
 .topbar {
-  grid-area: top; display: flex; align-items: center; gap: 14px; padding: 0 14px; z-index: 30;
+  grid-area: top; display: flex; align-items: center; gap: var(--gap); padding: 0 var(--gap); z-index: 30;
   background: var(--surface-glass); border-bottom: 1px solid var(--line); backdrop-filter: blur(var(--blur));
 }
 .brand { display: flex; align-items: center; gap: 10px; user-select: none; }
@@ -27,7 +27,7 @@
 .brand-sub { font-size: 10.5px; letter-spacing: .22em; color: var(--muted); }
 .topbar-section { display: flex; align-items: baseline; gap: 10px; min-width: 0; padding-left: 14px; border-left: 1px solid var(--line); }
 .topbar-title { font-size: 16px; font-weight: 700; letter-spacing: .01em; white-space: nowrap; }
-.topbar-blurb { color: var(--muted); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.topbar-blurb { color: var(--muted); font-size: var(--fs-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .spacer { flex: 1; }
 /* 3.3.2.0 R2: the section's "+" and "..." menus and the "custom layout" badge, beside the ? */
 .topbar-tools { display: flex; align-items: center; gap: 4px; flex: none; }
@@ -159,6 +159,6 @@
   .app, .app[data-rail="open"], .app[data-inspector="open"], .app[data-rail="open"][data-inspector="open"] { grid-template-columns: 56px minmax(0, 1fr) 0; }
   .rail-toggle, .app .rail-item-text { display: none; }
   .app .rail-section { justify-content: center; padding: 0; }
-  .inspector { position: fixed; right: 0; top: 56px; bottom: 30px; width: min(340px, 100vw); z-index: 40; }
+  .inspector { position: fixed; right: 0; top: var(--topbar-h); bottom: var(--status-h); width: min(340px, 100vw); z-index: 40; }
   .palette-btn-text, .hud-keys, .topbar-blurb { display: none; }
 }

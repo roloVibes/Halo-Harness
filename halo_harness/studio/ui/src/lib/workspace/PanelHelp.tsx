@@ -1,6 +1,7 @@
 // A panel's help: a small popover under its title bar with the `about`
-// line and the `help` lines of its PanelSpec, opened from the ... menu or
-// with `?` while the panel is focused. Esc or a click outside closes it;
+// line and the `help` lines of its PanelSpec, opened by the ? on its title
+// line (3.3.2.0 R3: the about line's only place on the panel), from the ...
+// menu or with `?` while the panel is focused. Esc or a click outside closes it;
 // `?` again opens the section's "How this works" (the Panel handles keys).
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
@@ -29,7 +30,9 @@ export function PanelHelp({ spec, anchor, sectionTitle, onClose }: Props) {
 
   useEffect(() => {
     const off = (e: PointerEvent) => {
-      if (!box.current?.contains(e.target as Node)) onClose();
+      const t = e.target as Node;
+      const toggle = anchor.current?.querySelector("[data-testid=panel-help-btn]"); // its own ? toggles it
+      if (!box.current?.contains(t) && !toggle?.contains(t)) onClose();
     };
     const esc = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -43,7 +46,7 @@ export function PanelHelp({ spec, anchor, sectionTitle, onClose }: Props) {
       window.removeEventListener("pointerdown", off, true);
       window.removeEventListener("keydown", esc, true);
     };
-  }, [onClose]);
+  }, [onClose, anchor]);
 
   const lines = (spec.help || "").split("\n").filter(Boolean);
   return createPortal(

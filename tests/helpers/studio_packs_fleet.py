@@ -34,6 +34,7 @@ sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "tools"))
 
 from tests.helpers.chrome_driver import Driver  # noqa: E402
+from tests.helpers.studio_full import toggle_face  # noqa: E402
 
 TOOLS_ROW = {"ref": "or:anthropic/claude-sonnet-4.6", "provider": "openrouter", "tools": True}
 CAPS = "document.querySelector('[data-testid=\"fleet-capabilities\"]')"
@@ -48,11 +49,9 @@ def capabilities(c, url, ctx) -> dict:
     from tests.helpers.studio_fleet_panels import open_strip, seen
     out: dict = {}
     c.go(url)
-    c.wait(f"{CAPS}?.querySelector('.panel-about')?.textContent", 40)
+    c.wait(f"{CAPS}?.querySelector('.panel-title')?.title", 40)
     open_strip(c, "fleet-capabilities")
-    expand = f"{CAPS}.querySelector('[data-testid=\"panel-compact\"]')"
-    seen(c, expand)
-    c.click_on(expand)
+    toggle_face(c, '[data-testid="fleet-capabilities"]')  # 3.3.2.0 R3: Expand is a row of the ... menu
     c.wait("document.querySelectorAll('[data-testid=\"fleet-caps-card\"]').length >= 1", 40)
     out["caps_packs"] = c.wait("document.querySelectorAll('[data-testid=\"fleet-caps-pack\"]').length === 2 && "
                                "[...document.querySelectorAll('[data-testid=\"fleet-caps-pack\"]')].map((li) => "
@@ -208,7 +207,7 @@ class PacksFleetDriver(Driver):
         FC._entries = lambda req, refresh_member="": (lambda got: (got[0], got[1] + [member]) if got[0] == 200 and on["on"] else got)(
             routes(req, refresh_member))
         srv, _url = serve(state, True)
-        url = url_for(srv, "fleet").replace("#t=", "&tour=off&view=workspace#t=")
+        url = url_for(srv, "fleet").replace("#t=", "&tour=off&view=workspace&open=all#t=")  # 3.3.2.0 R3: every panel open
         ctx = {"state": state, "srv": srv, "mission": body["mission"]["id"], "member_mission": scan["mission"]["id"], "member_on": on,
                "harness": (body["plan"]["parts"][0] or {}).get("harness_name")}
         self.out["planned_on"] = ctx["harness"]

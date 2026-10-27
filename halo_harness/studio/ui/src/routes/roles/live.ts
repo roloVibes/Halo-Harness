@@ -11,7 +11,7 @@
 // ended keeps its card glowing (glow.ts): done for ten seconds, failed until
 // the card is clicked.
 import { useMemo } from "react";
-import { patchPanel, focusPanel } from "../../lib/workspace/persist";
+import { layoutStore, patchPanel, focusPanel } from "../../lib/workspace/persist";
 import { watch } from "../fleet/streams";
 import { ackFailed, isAcked } from "./glow";
 import { roles, useRoles, type RolesState } from "./store";
@@ -83,6 +83,7 @@ export function selectCard(id: string): void {
   const s = roles.get();
   const list = id ? byNodeOf(s)[id] || [] : [];
   roles.update(() => ({ sel: id }));
+  if (id && layoutStore("roles").get().layout?.["roles-inspector"]?.collapsed) patchPanel("roles", "roles-inspector", { collapsed: false }, false); // 3.3.2.0 R3: a strip by default
   ackFailed(list); // 3.1.5.0 R3: a failed glow stays until its card is clicked
   if (list.length && !s.replay) {
     const pick = list.find((a) => a.key === s.watched) || list.find(isLiveAgent) || list[0];

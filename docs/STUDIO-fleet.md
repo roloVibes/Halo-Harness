@@ -45,20 +45,19 @@ workspace anyway". The panels come up by themselves the moment a session
 registers or a member joins (`?view=start` / `?view=workspace` force one).
 
 Nine panels on a 24-column grid (seven from 3.0.5.0 R4, Capabilities from
-3.0.6.0 R6, Mission from 3.0.6.0 R8). **The default layout** (3.1.4.0) opens
-five of them, in three columns: on the left People and Costs on their
-compact faces with Attention under them; in the middle the Map with Activity
-under it, as wide as the map. The other four wait down the right edge as
-title strips, one click away: **Health**, **Capabilities**, **Agent** and
-**Mission**. The chevron on a strip's title bar opens it in that column (the
-strips under it move down; nothing else moves); so do its row in the
-header's **+** (marked "strip", 3.3.2.0 R2) and the palette. Picking an agent (a click on the map, a
-lane, a log line or the Tree) opens Agent by itself, and `M` opens Mission.
-**Reset layout** (the header's **...** or the palette) brings this default back. An
-arrangement you saved before 3.1.4.0 (`halo.studio.layout.fleet` in your
-browser) opens as you left it; Reset layout moves it to the new default.
-Every panel has its one-line about in its title bar and `?` for how to use
-it.
+3.0.6.0 R6, Mission from 3.0.6.0 R8). **The default layout** (3.3.2.0: one
+thing per section) opens on the **Map**, filling the stage; the other eight
+wait at the foot as title strips in two rows, one click away: People,
+Costs, Health, Attention, Activity, Mission, Capabilities and Agent. A click
+on a strip (or its chevron, its row in the header's **+**, marked "strip",
+or the palette) opens it in a column on the map's right, the map giving up
+those columns; collapsing it gives them back. Picking an agent (a click on
+the map, a lane, a log line or the Tree) opens Agent by itself, and `M`
+opens Mission. **Reset layout** (the header's **...** or the palette) brings
+this default back; an arrangement you saved opens as you left it.
+`?open=all` draws the nine as before 3.3.2.0: People, Costs and Attention
+on the left, the Map over Activity in the middle, the other four as strips
+down the right edge. Every panel's **?** says what it is and how to use it.
 
 ![Fleet's eight panels: People, Costs and Health on top, Attention with the member's two cards, a conflict edge on the map, the timeline and the live log, Capabilities over the researcher in Agent, While you were away in the rail](media/studio-fleet-panels.png)
 

@@ -3,6 +3,7 @@
 // give up columns, trade places, or go down inside the visible rows) and
 // compact everything upward (the panel being dragged stays where the pointer
 // put it, or as near as the room it found allows). Pure functions.
+import { quietDefault, quietReflow, primaryOf } from "./quiet";
 import { makeRoom, type RoomOpts } from "./room";
 import { COLS, MIN_H, MIN_W, ROW, STRIP_ROWS, type Gesture, type Layout, type PanelLayout, type PanelSpec, type Rect } from "./types";
 
@@ -129,8 +130,10 @@ export function arrange(layout: Layout, movedId?: string, pinned = false, opts?:
   return compact(roomy, pinned ? movedId : undefined);
 }
 
-/** Arrange (the header's ... menu, the palette): the section's default rectangles for the panels open now; strips stay strips, floats float. */
-export function defaultRects(specs: PanelSpec[], layout: Layout, fillRows: number): Layout {
+/** Arrange (the header's ... menu, the palette): the section's default rectangles for the panels open now; strips stay strips, floats float.
+ *  3.3.2.0 R3: a section with a primary panel gets its quiet arrangement of them (quiet.ts). */
+export function defaultRects(specs: PanelSpec[], layout: Layout, fillRows: number, full = false): Layout {
+  if (!full && primaryOf(specs)) return quietReflow(specs, fillRows, layout);
   const out: Layout = {};
   for (const s of specs) {
     const p = layout[s.id];
@@ -148,15 +151,18 @@ export function defaultPanel(spec: PanelSpec, fillRows: number): PanelLayout {
   return { ...r, collapsed: !!spec.collapsed, floating: false, fx: 48, fy: 48, fw: 480, fh: 320, face: spec.face ?? "detail", z: 0 };
 }
 
-export function defaultLayout(specs: PanelSpec[], fillRows: number): Layout {
+/** 3.3.2.0 R3: one thing per section (quiet.ts) unless `full`: every panel in its spec's rectangle (`?open=all`, the arrangement before R3). */
+export function defaultLayout(specs: PanelSpec[], fillRows: number, full = false): Layout {
+  const quiet = full ? null : quietDefault(specs, fillRows);
+  if (quiet) return quiet;
   const out: Layout = {};
   for (const s of specs) if (!s.optional) out[s.id] = defaultPanel(s, fillRows);
   return arrange(out);
 }
 
 /** A saved layout over today's specs: unknown ids dropped, new panels added at their defaults. */
-export function merge(specs: PanelSpec[], saved: Layout | null, fillRows: number): Layout {
-  const base = defaultLayout(specs, fillRows);
+export function merge(specs: PanelSpec[], saved: Layout | null, fillRows: number, full = false): Layout {
+  const base = defaultLayout(specs, fillRows, full);
   if (!saved) return base;
   const out: Layout = {};
   for (const s of specs) {
@@ -168,13 +174,15 @@ export function merge(specs: PanelSpec[], saved: Layout | null, fillRows: number
   return arrange(out);
 }
 
-/** `?open=a,b`: those panels open and go to the top rows, in their columns, ahead of the rest. */
-export function openFirst(layout: Layout, ids: string[]): Layout {
+/** `?open=a,b`: those panels open and go to the top rows, in their columns, ahead of the rest (3.3.2.0 R3: in a
+ *  quiet arrangement they open into the column beside the primary). */
+export function openFirst(layout: Layout, ids: string[], specs: PanelSpec[] = [], fillRows = 0): Layout {
   const hit = ids.filter((id) => layout[id]);
   if (!hit.length) return layout;
   const out: Layout = { ...layout };
-  for (const id of hit) out[id] = { ...out[id], collapsed: false, face: "detail", y: -1 };
-  return compact(out);
+  const quiet = !!primaryOf(specs) && fillRows > 0;
+  for (const id of hit) out[id] = { ...out[id], collapsed: false, face: "detail", ...(quiet ? {} : { y: -1 }) };
+  return quiet ? quietReflow(specs, fillRows, out) : compact(out);
 }
 
 /** Rows the grid needs (the lowest panel's bottom). */

@@ -37,6 +37,6 @@ export const designPanels: PanelSpec[] = [
   panel("design-projects", { title: "Projects", x: 0, y: 0, w: 5, h: 22, minW: 4, minH: 12, face: "detail", glance: ProjectsGlance, detail: ProjectsDetail, useMotion: started(useProjectsMotion) }),
   panel("design-system", { title: "Design system", x: 0, y: 22, w: 5, h: 34, minW: 4, minH: 12, face: "detail", glance: SystemGlance, detail: SystemDetail, useMotion: started(useSystemMotion) }),
   panel("design-assets", { title: "Assets", x: 0, y: 56, w: 5, h: 0, minW: 4, minH: 12, face: "detail", glance: AssetsGlance, detail: AssetsDetail, useMotion: started(() => "none") }),
-  panel("design-artboards", { title: "Artboards", x: 5, y: 0, w: 12, h: 0, minW: 8, minH: 24, face: "detail", glance: ArtboardsGlance, detail: ArtboardsDetail, settings: ArtboardsSettings, useMotion: started(useArtboardsMotion) }),
+  panel("design-artboards", { title: "Artboards", primary: true, x: 5, y: 0, w: 12, h: 0, minW: 8, minH: 24, face: "detail", glance: ArtboardsGlance, detail: ArtboardsDetail, settings: ArtboardsSettings, useMotion: started(useArtboardsMotion) }),
   panel("design-thread", { title: "Thread", x: 17, y: 0, w: 7, h: 0, minW: 5, minH: 24, face: "detail", glance: ThreadGlance, detail: ThreadDetail, useMotion: started(useThreadMotion) }),
 ];

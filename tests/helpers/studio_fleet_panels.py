@@ -28,6 +28,7 @@ import time
 
 from tests.helpers.studio_fleet import CANVAS, DETAIL, LIVE_CARDS, card, card_click
 from tests.helpers.studio_tree import open_tree
+from tests.helpers.studio_full import toggle_face  # noqa: E402
 
 PANELS = ("fleet-people", "fleet-costs", "fleet-health", "fleet-attention", "fleet-map", "fleet-activity", "fleet-agent",
           "fleet-capabilities", "fleet-mission")  # 3.0.6.0 R6, R8
@@ -55,7 +56,7 @@ def attention(c, rig, out: dict) -> None:
     from tests.helpers.studio_fleet_member import APPROVAL_ID
     from tests.helpers.studio_fleet_rig import wait_for
     out["panels"] = c.js("[" + ",".join(f"document.querySelectorAll('[data-testid=\"{p}\"]').length" for p in PANELS) + "]")
-    out["abouts"] = c.js("[...document.querySelectorAll('.section-view[data-section=\"fleet\"] .panel-about')].filter((e) => e.textContent.trim()).length")
+    out["abouts"] = c.js("[...document.querySelectorAll('.section-view[data-section=\"fleet\"] .panel-title')].filter((e) => e.title.trim()).length")  # 3.3.2.0 R3: the about line is the title's tooltip
     out["attn_kinds"] = c.wait("document.querySelectorAll('[data-testid=\"fleet-attn-row\"][data-kind=\"approval\"]').length && [...document.querySelectorAll('[data-testid=\"fleet-attn-row\"]')].map((r) => r.dataset.kind)", 30)
     out["attn_rows"] = len(out["attn_kinds"] or [])
     out["status_attn"] = c.wait("document.querySelector('[data-testid=\"status-attention\"]')?.textContent", 15)
@@ -182,7 +183,7 @@ def extras(c, rig, out: dict) -> None:
     out["takeover"] = c.wait("document.querySelector('[data-testid=\"fleet-takeover\"] .dialog-title')?.textContent", 10)
     c.key("Escape")
     c.wait("!document.querySelector('[data-testid=\"fleet-takeover\"]')", 10)
-    c.click_on("document.querySelector('[data-testid=\"fleet-people\"] [data-testid=\"panel-compact\"]')")
+    toggle_face(c, '[data-testid="fleet-people"]')  # 3.3.2.0 R3: Expand is a row of the ... menu
     c.wait("!!document.querySelector('[data-testid=\"fleet-person-message\"]')", 10)
     seen(c, "document.querySelector('[data-testid=\"fleet-person-message\"]')")
     c.click_on("document.querySelector('[data-testid=\"fleet-person-message\"]')")

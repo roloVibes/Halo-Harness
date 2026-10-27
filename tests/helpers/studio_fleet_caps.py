@@ -19,6 +19,7 @@ tests/helpers/studio_fleet.py:
   with its chip, its id, who and when.
 """
 from __future__ import annotations
+from tests.helpers.studio_full import toggle_face  # noqa: E402
 
 CARD = "document.querySelector('[data-testid=\"fleet-caps-card\"][data-id=\"{}\"]')"
 
@@ -28,7 +29,7 @@ def caps(c, rig) -> dict:
     from tests.helpers.studio_fleet_panels import open_strip, seen
     out: dict = {}
     c.go(rig.url("fleet"))
-    out["about"] = c.wait("document.querySelector('[data-testid=\"fleet-capabilities\"] .panel-about')?.textContent", 30)
+    out["about"] = c.wait("document.querySelector('[data-testid=\"fleet-capabilities\"] .panel-title')?.title", 30)  # 3.3.2.0 R3: the about line is the title's tooltip
     open_strip(c, "fleet-capabilities")  # 3.1.4.0 R1: a strip on the right edge by default
     out["box_chips"] = c.wait("document.querySelectorAll('[data-testid=\"fleet-box-chip\"]').length >= 6 && Object.fromEntries([...document.querySelectorAll('[data-testid=\"fleet-box\"]')]"
                               ".map((b) => [b.querySelector('.fm-box-label').textContent, [...b.querySelectorAll('[data-testid=\"fleet-box-chip\"] text')].map((t) => t.textContent)]))", 30)
@@ -41,7 +42,7 @@ def caps(c, rig) -> dict:
     c.click_on("document.querySelector('[data-testid=\"fleet-who-result\"]')")
     out["picked_box"] = c.wait("document.querySelector('[data-testid=\"fleet-box\"][data-who]')?.querySelector('.fm-box-label')?.textContent", 10)
     out["selected"] = c.wait("document.querySelector('[data-testid=\"fleet-node\"][data-selected]')?.dataset.key", 10)
-    c.click_on("document.querySelector('[data-testid=\"fleet-capabilities\"] [data-testid=\"panel-compact\"]')")  # Expand: the spec cards
+    toggle_face(c, '[data-testid="fleet-capabilities"]')  # Expand: the spec cards (3.3.2.0 R3: the ... menu's row)
     out["cards"] = c.wait("document.querySelectorAll('[data-testid=\"fleet-caps-card\"]').length === 2 && "
                           "[...document.querySelectorAll('[data-testid=\"fleet-caps-card\"] .fcap-head b')].map((b) => b.textContent)", 20)
     member = CARD.format(MEMBER)
@@ -55,7 +56,7 @@ def caps(c, rig) -> dict:
     local = rig.hub.state.identity["id"]
     out["local_servers"] = c.js(f"[...{CARD.format(local)}.querySelectorAll('[data-testid=\"fleet-caps-server\"]')].map((s) => s.dataset.name)")
     out["caps_asks"] = len([d for d in rig.member_cmds if d.get("cmd") == "capabilities"])
-    c.click_on("document.querySelector('[data-testid=\"fleet-people\"] [data-testid=\"panel-compact\"]')")
+    toggle_face(c, '[data-testid="fleet-people"]')
     specs = f"document.querySelector('[data-testid=\"fleet-person\"][data-id=\"{local}\"] [data-testid=\"fleet-person-specs\"]')"
     c.wait(f"!!{specs}", 10)
     seen(c, specs)

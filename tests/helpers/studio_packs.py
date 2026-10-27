@@ -54,7 +54,7 @@ def sections(c, url, ctx) -> dict:
     out["table_rows"] = c.wait(pa("doc-review--checks", "[data-testid=pack-table-row]") + ".length", 15)
     out["table_head"] = c.js(pa("doc-review--checks", "th") + ".map((t) => t.textContent)")
     out["links"] = c.js(pa("doc-review--links", "[data-testid=pack-link]") + ".map((a) => a.textContent)")
-    out["about"] = c.js(f"{panel('doc-review--notes', '[data-testid=panel-about]')}?.textContent")
+    out["about"] = c.js(f"{panel('doc-review--notes', '.panel-title')}?.title")  # 3.3.2.0 R3: the about line is the title's tooltip
     out["form_fields"] = c.wait(pa("doc-review--settings", "[data-testid=pack-form-input]") + ".map((i) => i.dataset.key)", 15)
     press(c, panel("doc-review--notes", ".panel-title"))
     c.key("?")
@@ -70,7 +70,7 @@ def session_panel(c, url, ctx) -> dict:
     p = panel("doc-review--reviews", ".panel")
     c.wait(f"!!{p}", 20)
     return {"session_panel": [c.js(f"{p}.dataset.collapsed === 'true'"), c.js(f"{p}.querySelector('.panel-title').textContent"),
-                              c.js(f"{p}.querySelector('[data-testid=panel-about]').textContent")]}
+                              c.js(f"{p}.querySelector('.panel-title').title")]}
 
 
 def palette(c, url, ctx) -> dict:
@@ -145,6 +145,8 @@ class PacksStudioDriver(Driver):
             ok, lines = enable(find(name), grant=grants)
             assert ok, lines
         srv, url = serve(state, True)
+        from tests.helpers.studio_full import full
+        url = full(url)  # 3.3.2.0 R3: every panel open, the arrangement this driver works in
         url = url.replace("mode=orchestra&feed=off", "mode=roles&tour=off&view=workspace")
         ctx = {"state": state, "srv": srv}
         try:

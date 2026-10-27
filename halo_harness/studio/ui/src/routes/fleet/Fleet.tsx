@@ -54,7 +54,7 @@ export const fleetPanels: PanelSpec[] = [
   panel("fleet-costs", { title: "Costs", x: 0, y: 22, w: 6, h: 22, minW: 5, minH: 10, face: "glance", glance: CostsGlance, detail: CostsDetail, useMotion: started(useCostsMotion) }),
   panel("fleet-health", { title: "Health", x: 18, y: 0, w: 6, h: 20, minW: 5, minH: 10, face: "glance", collapsed: true, glance: HealthGlance, detail: HealthDetail, useMotion: started(useHealthMotion) }),
   panel("fleet-attention", { title: "Attention", x: 0, y: 44, w: 6, h: 0, minW: 4, minH: 16, face: "detail", glance: AttentionGlance, detail: AttentionDetail, useMotion: started(useAttentionMotion) }),
-  panel("fleet-map", { title: "Map", x: 6, y: 0, w: 12, h: 44, minW: 8, minH: 24, face: "detail", glance: MapGlance, detail: MapDetail, useMotion: started(useMapMotion) }),
+  panel("fleet-map", { title: "Map", primary: true, x: 6, y: 0, w: 12, h: 44, minW: 8, minH: 24, face: "detail", glance: MapGlance, detail: MapDetail, useMotion: started(useMapMotion) }),
   panel("fleet-activity", { title: "Activity", x: 6, y: 44, w: 12, h: 0, minW: 4, minH: 16, face: "detail", glance: ActivityGlance, detail: ActivityDetail, useMotion: started(useActivityMotion) }),
   panel("fleet-mission", { title: "Mission", x: 18, y: 15, w: 6, h: 0, minW: 6, minH: 18, face: "detail", collapsed: true, glance: MissionGlance, detail: MissionDetail, useMotion: started(useMissionMotion) }),
   panel("fleet-capabilities", { title: "Capabilities", x: 18, y: 5, w: 6, h: 22, minW: 5, minH: 12, face: "glance", collapsed: true, glance: CapabilitiesGlance, detail: CapabilitiesDetail, useMotion: started(useCapabilitiesMotion) }),

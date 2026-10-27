@@ -91,6 +91,8 @@ class ModelsUiDriver(Driver):
         state = seeded_home()
         seed(state)  # every provider's cache, the fixture keys in this (the server's) process env
         srv, url = serve(state, True)
+        from tests.helpers.studio_full import full
+        url = full(url)  # 3.3.2.0 R3: every panel open, the arrangement this driver works in
         try:
             yield ((models, (c, url.replace("mode=orchestra", "mode=roles").replace("feed=off", "feed=off&tour=off&view=workspace"),
                              state)),)
