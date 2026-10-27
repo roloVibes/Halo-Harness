@@ -3133,10 +3133,12 @@ class Session:
         # freshly-written entry. Review fix pass (finding 8): skipped
         # entirely when `auto_calibrate` is False (`call_small_model`'s
         # own call site) -- see this method's own docstring for why.
+        from halo_harness.agent.ollama_window_steward import host_for
+        host, decision_ref = host_for(self, host, ref, env)  # 3.3.4.0 R3: a profile's host_for
         if auto_calibrate:
             self._maybe_auto_calibrate_ollama(host, ref.model)
         from halo_harness.providers.ollama_hw import resolve_context_decision
-        decision = resolve_context_decision(ref, env)
+        decision = resolve_context_decision(decision_ref, env)
         # Review fix pass (finding 4), "remember a successful retry for
         # the rest of the session": a bigger num_ctx a PRIOR overflow
         # retry already proved works for this exact host+model folds in
@@ -3157,6 +3159,8 @@ class Session:
         base_num_ctx, base_source = resolve_num_ctx_and_source(
             decision.trained_context, host.max_ctx, decision.fit_estimate, learned_cap=effective_learned_cap,
             remote=decision.remote, recorded_does_not_fit=decision.recorded_does_not_fit, cpu_only=decision.cpu_only)
+        if decision.profile and base_num_ctx == decision.profile.get("num_ctx"):
+            base_source = "steward profile"  # 3.3.4.0 R3 (ollama_steward/profiles.py)
         prompt_tokens, window_factor = prepare_window(
             self, host=host, ref=ref, decision=decision, base_num_ctx=base_num_ctx, base_source=base_source,
             system_text=system_text, messages=messages, tools=tools, auto_calibrate=auto_calibrate,
@@ -3186,6 +3190,7 @@ class Session:
             # Review fix pass (finding 16): see this method's own
             # docstring for what each one gates.
             supports_thinking=decision.supports_thinking, effort_explicit=effort_explicit,
+            steward_profile=decision.profile,
         )
         # Halo 2.0.3 round 5c FIX PASS: `_build_request`'s own side-channel
         # read, same lazy-attribute pattern as `_last_ollama_host_url`/
@@ -3283,6 +3288,8 @@ class Session:
             kwargs["prebuilt_anthropic_body"] = body
         elif route.dialect == "ollama":
             kwargs["prebuilt_ollama_body"] = body
+            if getattr(self, "_ollama_creds_override", None) is not None:
+                kwargs["creds"] = self._ollama_creds_override  # 3.3.4.0 R3: a profile's host_for
             # FIX PASS: set unconditionally by `_build_ollama_body_for_ref`
             # just above for THIS exact ref -- `getattr` only guards a
             # hypothetical ollama request built some other way.
@@ -3429,6 +3436,10 @@ class Session:
             # get -- compact BEFORE sending, never let Ollama trim it.
             from halo_harness.agent.ollama_window import pre_send_line
             _too_large = pre_send_line(self)
+            if not _too_large and not self._just_compacted:
+                # Halo 3.3.4.0 R3: the compaction trigger per model, before the call
+                from halo_harness.agent.ollama_window_steward import compact_due
+                _too_large = compact_due(self)
             if _too_large:
                 yield events.turn_marker("resend", f"↳ {_too_large}", turn=turn_no)
                 return _OVERFLOW_NEEDS_COMPACTION
@@ -4307,6 +4318,10 @@ class Session:
                 _opts = body.get("options") or {}
                 _cut = is_window_cut(harness_meta.get("done_reason"), _seen, _eval, _opts.get("num_ctx"),
                                      _opts.get("num_predict"))
+                if not _cut:
+                    # Halo 3.3.4.0 R3: a reply that used up the room the window left it is a cut too
+                    from halo_harness.agent.ollama_window_steward import squeezed_cut
+                    _cut = squeezed_cut(self, harness_meta.get("done_reason"), _eval, _opts.get("num_predict"))
                 if _cut or is_trimmed(_seen, last_estimate(self), last_reserve(self)):
                     _recovery = yield from self._ollama_trimmed(
                         turn_no, (_seen + _eval) if _cut else _seen, body, overflow_handled,

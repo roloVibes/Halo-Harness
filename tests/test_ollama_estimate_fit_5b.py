@@ -77,7 +77,9 @@ def test_estimate_fit_for_host_multi_gpu_sums_not_minimum(ctx: Ctx):
     mock = MockUpstream(ps_response={"models": []}).start()
     _reset()
     try:
-        weight_bytes = 15 * 1024**3
+        # 3.3.4.0 R3: 14 GiB, not 15 -- the fit now also keeps Ollama's
+        # 457 MiB minimum free per card and counts the compute buffer.
+        weight_bytes = 14 * 1024**3
         catalog = _catalog_for("qwen3:30b", size=weight_bytes)
 
         def runner(argv, timeout):
@@ -104,14 +106,16 @@ def test_estimate_fit_for_host_multi_gpu_reclaimable_counts_once(ctx: Ctx):
     ]}).start()
     _reset()
     try:
-        weight_bytes = 15 * 1024**3
+        # 3.3.4.0 R3: 14 GiB, not 15 -- the fit now also keeps Ollama's
+        # 457 MiB minimum free per card and counts the compute buffer.
+        weight_bytes = 14 * 1024**3
         catalog = _catalog_for("qwen3:30b", size=weight_bytes)
 
         def runner(argv, timeout):
             return "6144, 0, 6144, Card A\n1, 0, 1, Card B\n"  # only ~6 GiB free alone
         host = OllamaHost(name="mock", url=mock.base_url)
         got = estimate_fit_for_host(host, "qwen3:30b", catalog, runner=runner)
-        ctx.check(f"6 GiB + 10 GiB reclaimable >= 15 GiB weight -- fits, got {got!r}",
+        ctx.check(f"6 GiB + 10 GiB reclaimable >= 14 GiB weight -- fits, got {got!r}",
                   isinstance(got, int) and got > 0)
     finally:
         mock.stop()

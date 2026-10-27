@@ -102,12 +102,13 @@ def hardware_card(host=None, *, log_path=None, api: Optional[Callable] = None, r
                   ssh_runner: Optional[Callable] = None, platform: Optional[str] = None) -> dict:
     """The card for `host` (an `OllamaHost`; None = the default host).
     `log_path`, `api`, `runner` and `ssh_runner` are the seams tests use."""
-    from halo_harness.providers.ollama_hw import is_local_host
+    from halo_harness.fleet.ollama_share import served_here
     if host is None:
         from halo_harness.providers.ollama import resolve_ollama_host
         host = resolve_ollama_host(None)
     card = _empty_card()
-    local = host is not None and is_local_host(host)
+    # 3.3.4.0 R3: served here, not loopback only (OLLAMA_HOST=0.0.0.0:11434, the host name, the LAN address)
+    local = host is not None and served_here(getattr(host, "url", ""))
     if local or log_path is not None:
         startup, why = hr.read_server_log(path=log_path, platform=platform, runner=runner)
         if startup is not None:
@@ -140,6 +141,34 @@ def hardware_card(host=None, *, log_path=None, api: Optional[Callable] = None, r
         _note(card, reader, False, why)
     _unattributed(card)
     return card
+
+
+_SETTINGS_TTL_S = 300.0
+_SETTINGS_CACHE: dict = {}
+
+
+def server_settings_for(host, *, log_path=None) -> dict:
+    """The server's own settings (`kv_cache_type`, `parallel`, ...) from the
+    newest startup block of this machine's server log, for a host served
+    here; {} for any other host or when nothing was read. Cached five
+    minutes per url (the fit estimate reads it before every call)."""
+    import time
+    from halo_harness.fleet.ollama_share import served_here
+    url = str(getattr(host, "url", "") or "")
+    if not url or (log_path is None and not served_here(url)):
+        return {}
+    hit = _SETTINGS_CACHE.get((url, str(log_path)))
+    if hit is not None and time.monotonic() - hit[0] < _SETTINGS_TTL_S:
+        return hit[1]
+    settings: dict = {}
+    try:
+        startup, _why = hr.read_server_log(path=log_path)
+        if startup is not None:
+            settings = hs.server_settings(startup["env"], startup.get("launch"), 1)
+    except Exception:
+        settings = {}
+    _SETTINGS_CACHE[(url, str(log_path))] = (time.monotonic(), settings)
+    return settings
 
 
 def _gib(n) -> str:
