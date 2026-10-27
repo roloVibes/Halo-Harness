@@ -3098,3 +3098,105 @@ for each action shown beside it.
   STUDIO-sections.md, COMMANDS-local.md (the new subcommands), CONFIG.md
   (the cache path). A parity test: every Models action has a CLI line and
   every `halo models` / `halo local` subcommand has a row.
+- R5 eyes: a screenshot tool, and knowing which models can see (ADDED
+  2026-10-27, rolo: "Does halo have the ability to take screenshots and have
+  models visually see them? like from a copy paste into the session" -- "Yes
+  add it, but we need to also identify if models have the ability to see
+  images so we know which ones to load before sharing a screenshot with it").
+  Today an image reaches a model through the clipboard paste (Ctrl+V /
+  Shift+Insert), `/paste <path>`, `--image`, a dropped path or the Read
+  tool, and the Ollama / OpenAI-dialect / Anthropic routes all carry it;
+  vision is known where the catalog says so (`capabilities.py` from the
+  model's modalities; Ollama's `/api/show` `capabilities` list is stored but
+  not read as vision); there is no screenshot tool and Studio has no paste.
+  (a) A built-in `Screenshot` tool (`tools/screenshot.py`: the whole screen,
+  a window by title, or a region; Windows through PowerShell's
+  `System.Drawing` copy, the Mac through `screencapture -x`, Linux through
+  whichever of `grim`, `spectacle`, `gnome-screenshot`, `scrot`, `import` is
+  present, Wayland or X11), saved under the session's images folder and
+  returned as an image block when the model can see, else the path and a
+  one-line note; `/screenshot [window|region]` in the TUI; Studio's Session
+  composer takes a pasted image (Ctrl+V -> base64 over the bridge, the same
+  log shape as the TUI's paste) and has a Screenshot button. (b) Every model
+  row knows whether it can see: `vision: true | false | unknown` from the
+  provider's own data (Ollama `/api/show` `capabilities` -> vision;
+  Hugging Face config `architectures` / an image processor -> vision; the
+  cloud catalogs' modalities as today); `unknown` is settled by an opt-in
+  one-image probe (a 1 px PNG, one tiny call, cached in the catalog like
+  `ollama_capability`'s tool probe); an eye chip on every row in the Models
+  section (Library, Installed, Loaded now), in the model picker, in Setup's
+  Default model and Settings' `model` row; `halo models --vision` and a
+  "can see images" filter. (c) Before a screenshot is shared: when a turn
+  carries an image and the current model cannot see, the turn does not
+  silently drop it -- one line names the fact and offers the eyes: switch
+  this turn to the lineup's `visual` lane model (3.1.9.0 strengths), or
+  spawn a look-at-it sub-agent on a vision model that describes the image
+  into the turn (the media tool's "eyes" pattern); the Models section's
+  Loaded now page shows which loaded Ollama models can see, so the right one
+  is loaded before the screenshot. Tests: the tool on each OS with the
+  capture command stubbed (a fixture PNG), the image block vs the note by
+  model, the vision flag from fixture `/api/show` and HF configs, the probe
+  with a fake server, the offer line, Studio's paste through a Chrome
+  driver (a base64 PNG into the composer -> the session log's image block).
+  Docs: COMMANDS-main-io.md (`/screenshot`, the paste), MODELS.md ("which
+  models can see"), STUDIO-sections.md (Session: paste and Screenshot;
+  Models: the eye).
+
+## ADDED 2026-10-27 (rolo: "in studio session. there should be a box to just type into like it is the tui but it's in session view, and you can open it if you want like how the cost and map modules work. I love looking at live, but thats more for steering. I think adding a box that has the same functionality as the tui in session view would be really really cool"): 3.3.6.0 "Type into Studio"
+
+Order: after 3.3.5.0 "Models"; the themes and parity rounds move once more,
+to 3.3.7.0 "Themes and parity".
+
+Today Studio's Session section watches a terminal's session: Live streams
+it, the composer under Live steers (nudge / redirect / pause / stop / an
+answer), Cost and Map are optional panels. Nothing in Studio can send a
+user turn or a slash command; the terminal owns the prompt. The per-session
+control socket (`remote/agent_control.py`: agents, agent_tail, agent_steer,
+agent_stop, pause, resume; the Signal remote attaches to a live session
+through it, `remote/bridge_session.py`) is the door, and the TUI's one
+prompt entry point is `tui/app.py _submit_prompt(text, pasted, images)`.
+
+- R1 the Prompt panel: type into the session. An optional Session panel,
+  **Prompt** (in the "+" menu like Cost and Map; a strip at the foot by
+  default, Alt+Enter or the palette focuses it): a text box that behaves
+  like the terminal's prompt -- multi-line, Enter sends, Shift+Enter a
+  newline, Up / Down the history, `/` opens the slash-command list from the
+  same registry the TUI uses (`commands/builtins.py` + the slash catalog:
+  name, one-line help, arguments), a pasted image (3.3.5.0 R5's paste) and a
+  dropped file path attach like the TUI's Ctrl+V and `/paste`. Sending = a
+  user turn into the chosen session: a new control-socket command `prompt
+  {text, images?, slash?}` that the TUI serves by calling `_submit_prompt`
+  on its own loop (the transcript shows the turn with a "from Studio" mark,
+  as a remote turn shows "from phone"), refused with one line while a turn
+  is running (the composer then offers "queue it" -- the TUI's own queued
+  prompt -- or steer); a slash command runs exactly as typed in the TUI and
+  its output comes back as the command's lines in the panel. The panel
+  shows the conversation compactly as the terminal does (your turns, the
+  assistant's text, tool calls folded to one line each, the asks), so
+  reading it is like reading the TUI, while Live stays the stream for
+  steering. An ask (a permission card, an AskUserQuestion, a plan) that
+  the TUI would show as a card shows in the panel with the same buttons
+  (the fleet's `allow_answers` path already relays asks; the answer goes
+  back through the socket). `halo studio --session <id>` opens Session on
+  that session with the Prompt open. Tests: a fake session on the control
+  socket (the rig the remote tests use) receiving `prompt` and `slash`;
+  the TUI serving `prompt` through `_submit_prompt` (the pilot rig); a
+  Chrome driver typing a turn, a slash command, an answer to an ask; the
+  "turn running" refusal and the queue. Docs: STUDIO-sections.md (Session:
+  the Prompt panel), COMMANDS-main-io.md (`--session`), REMOTE.md (the
+  socket's new command).
+- R2 a session without a terminal. When no session is live (or from the
+  Prompt panel's "New session"), Studio's server starts one itself: the
+  agent loop as a child process of the Studio server (`halo --headless
+  --session-for studio`, the same loop, the same session log, the control
+  socket as its only door), with a model picker and a working-directory
+  picker on the first screen (defaults: the default model, the Studio's
+  cwd); it appears in Fleet and on the Map as a session of this harness,
+  the TUI can `halo --resume <id>` it later ("Open in terminal" copies that
+  line), closing the browser tab does not end it, "End session" does.
+  Asks reach the Prompt panel as in R1 (nothing else can answer them, so a
+  headless session with no Studio page open parks the ask and the Fleet
+  attention signal says so). Tests: the headless child through the Studio
+  API with a fake provider; the Fleet row; resume from the TUI rig; the
+  parked ask. Docs: STUDIO.md ("Studio without a terminal"),
+  STUDIO-sections.md, COMMANDS-main.md (`--headless`).

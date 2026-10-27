@@ -6,9 +6,11 @@ first, then `WORKER-RULES.md`, then the round you are starting.
 
 ## WHERE THINGS STAND -- 2026-10-27 midday (authoritative, read this first)
 
-**3.3.3.0 "Settings" IS THE RELEASE CANDIDATE** (two rounds merged on master; the release follows once
-both runners are green on the candidate head -- if you read this after the release, the tag v3.3.3.0
-exists and the PC runs it). From the owner's note on 3.3.2.0 ("init setting is MUCH better. However I
+**3.3.3.0 "Settings" IS RELEASED** (tag v3.3.3.0, release commit 3a61491 cut from 92ae0e2 on 2026-10-27
+afternoon after both runners went green; installed on the PC: `halo 3.3.3.0`). Next in line: the 3.3.3.1
+hotfix "cost counts what it knows" (worktree `~/hh-3331/cost-counts`: the session total was drawn as $0
+when any part had no price; costs always in USD, Databricks priced by default) and the 3.3.4.0 steward
+rounds (R1 committed on `v334/R1-knowledge-hardware`, R2 in flight on `v334/R2-ledger`). From the owner's note on 3.3.2.0 ("init setting is MUCH better. However I
 feel like halo should launch after init. Then full studio should be available ... there should be
 another tab for settings ... more color themes ... a gui tab section for every thing we can adjust via
 the cli"). R1 "Setup hands off to halo" (merged c4f479b, green on both runners): `POST setup/done`
@@ -36,9 +38,10 @@ blanks the app -- brace every effect body; `tools/capture_*.py` must be listed i
 and hand-backs under `~/hh-333/briefs/`. Open for the owner's live check (nothing run on hardware yet):
 PC `halo init` -> Done in the browser -> the four lines and the TUI in that terminal; the Settings pages
 at his window width; a toggle and a Reset landing in `~/.halo/config.json`; `halo settings fleet` over
-SSH (URL + `--terminal` listing). **Next:** 3.3.4.0 "The Ollama steward" (ROADMAP "ADDED 2026-10-27 ...
-3.3.4.0", five rounds, research first), then 3.3.5.0 "Models: browse, fit, pull, run", then 3.3.6.0
-"Themes and parity" (the old R3/R4 of this version).
+SSH (URL + `--terminal` listing). **Next:** 3.3.3.1 (the cost hotfix), 3.3.4.0 "The Ollama steward" (ROADMAP "ADDED 2026-10-27 ...
+3.3.4.0", five rounds, research first), then 3.3.5.0 "Models: browse, fit, pull, run" (+ R5 eyes: the
+screenshot tool and which models can see), 3.3.6.0 "Type into Studio" (the Prompt panel, a session
+without a terminal), then 3.3.7.0 "Themes and parity" (the old R3/R4 of this version).
 
 ### Before it: 2026-10-27 morning
 
