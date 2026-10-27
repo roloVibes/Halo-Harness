@@ -59,6 +59,8 @@ _SCALARS = {
 # `ollama`: ledger (3.3.4.0 R2, ollama_steward/ledger.py); `fleet`: ollama.share auto|all|off (3.3.4.0 R2, fleet/ollama_share.py)
 # `ollama`: profiles (a map "<host>|<model>" -> {num_ctx, num_predict, keep_alive, tools_max, host_for, compact_at, note, by, at}),
 # steward.apply auto|review|off, steward.slow_tok_s (3.3.4.0 R3, ollama_steward/profiles.py, steward.py)
+# steward.model (a model ref), steward.job (bool), steward.every_s, steward.note_every_s (seconds) (3.3.4.0 R4,
+# ollama_steward/job.py, agent.py)
 _SECTIONS = ("agents", "clipboard", "coach", "comfy", "connectors", "databricks", "embeddings", "experiential", "fleet",
              "governor", "huggingface", "improve", "knowledge", "local", "models", "network", "ollama", "openai",
              "packs", "providers", "recall", "remote", "roles", "routing", "steer", "supervise", "turn", "update",

@@ -588,6 +588,9 @@ class BridgeApp(App):
         # (the Signal bridge's switch).
         from halo_harness.tui.slash_remote import start_notice_poll
         start_notice_poll(self)
+        # 3.3.4.0 R4: the Ollama steward's notes (this state dir's job, or the hub's on a member)
+        from halo_harness.tui.steward_notice import start_steward_poll
+        start_steward_poll(self)
         if self.console_guard is not None and getattr(self.console_guard, "active", False):
             # Something sharing the console may switch ENABLE_PROCESSED_INPUT
             # back on mid-session; two cheap kernel32 calls put it right.

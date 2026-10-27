@@ -69,6 +69,25 @@ qwen3.8:27b on a 24 GB card is now estimated at 65,536 (it was 32,768).
 - A reply that used up the room the window left it counts as cut: it is compacted and re-sent, never kept as the answer or sent again.
 - A profile's reply reserve is kept: the prompt compacts before the reply's room drops under it.
 
+### R4: the steward's agent, selectable and cheap
+
+#### Added
+- The steward's job, one per state dir. It starts with Studio and with the fleet hub, or runs in the foreground as `halo ollama steward --watch`. It owns the server-log tail and the `/api/ps` poll. It runs every `ollama.steward.every_s` (300 s) while calls flow, and at once on a server alert. `halo ollama steward status` says where it runs, since when, the last run's counts, the model and the last note.
+- The steward's model, `ollama.steward.model`. The default is a local `compactionModel`, else the smallest local model, else none (the rules run alone). It writes a plain-language note of at most 6 lines: what went wrong on which machine, the chain that led to it, and what changed or what to run. Each note carries its cost ("local, free", or the tokens and the dollars). It is called only when something is new, and at most once per `ollama.steward.note_every_s` (600 s).
+- The model may propose a profile change in a fenced `proposals` block. Each proposal is checked: a known host and model, a profile field, never above the measured cap or the card's fit, and never a smaller window for an outgrown conversation. Then it lands per `ollama.steward.apply`, or is dropped with the reason said.
+- Notes reach every surface:
+- the TUI's status bar (30 s) and one transcript line
+- the Fleet attention queue (`ollama_steward`: an error finding or a change)
+- Studio's live feed (`steward` frames)
+- fleet members ("steward on <hub>: ..." from the hub's answer)
+- `halo ollama explain [<kind> | <topic>] [--sources]` answers from the knowledge files with no model.
+- New settings: `ollama.steward.model`, `ollama.steward.job`, `ollama.steward.every_s`, `ollama.steward.note_every_s`.
+
+#### Changed
+- knowledge/symptoms.md has a `thrash` row.
+- `halo ollama steward` takes `--watch` and `status`.
+- The hub's answer to a member's ledger push carries its newest steward note beside its profiles.
+
 ### Also in 3.3.4.0
 
 #### Changed
