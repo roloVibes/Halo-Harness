@@ -63,6 +63,9 @@ def prepare_window(session, *, host, ref, decision, base_num_ctx: int, base_sour
                          cap, ref.model, host.name, estimate)
         except Exception:
             log.debug("ollama: discarding a cap under the floor failed", exc_info=True)
+    # 3.3.4.0 R2: the ledger line of this call reads the window's source and the estimate back
+    st.setdefault("sent", {})[(str(host.url).rstrip("/"), ref.model)] = {
+        "estimate": estimate, "source": choice.source, "num_ctx": choice.num_ctx, "reserve": reserve}
     if ref is session.model_ref:
         st["last"] = {"estimate": estimate, "choice": choice, "host_name": host.name, "host_url": host.url,
                       "model": ref.model, "tool_tokens": tool_output_tokens(messages),

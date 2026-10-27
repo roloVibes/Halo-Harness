@@ -310,7 +310,7 @@ two things the later rounds read:
   URL, version or commit, date read); `tests/test_steward_knowledge.py`
   keeps the tags, the rows and the worked examples in step.
 - **The hardware card**: `halo ollama hardware [--host NAME] [--json]`
-  ([COMMANDS-local.md](COMMANDS-local.md)) reads each host's GPUs and
+  ([COMMANDS-ollama.md](COMMANDS-ollama.md)) reads each host's GPUs and
   their memory, the server's own settings (its log's startup env dump:
   models kept loaded, parallel slots, keep-alive, KV cache type, flash
   attention, GPU overhead), what is loaded (`/api/ps`) and what else holds
@@ -324,6 +324,64 @@ its startup log, not only in the host entry's `kv_cache_type` hint; the
 compute buffer, the hybrid models' fixed state, the per-device minimum
 and llama.cpp's fit margin are not in the estimate; and a 24 GB card on
 Windows reports 22.5 GiB, under the server's 23 GiB line for its 32,768
-default window. Next: R2 the traffic ledger and the server-log tail, R3
-the rules and the fit planner, R4 the steward's agent, R5 the Studio
-panel and the TUI.
+default window.
+
+R2, every call leaves a record:
+
+- **The ledger**: every call to a local model server -- an `ol:` host
+  that is not Ollama's own cloud (native, or an entry with `dialect:
+  openai`), an `hf:local/*` / `hf:mlx/*` server -- appends one JSON line
+  to `~/.halo/ollama/traffic.jsonl`, written where the loop dispatches
+  every call (turns, compaction, small-model calls, tool repairs) and by
+  each calibration load: `at`, `host` (the entry's name and url),
+  `model`, `ref`, `dialect`, `kind` (`turn`, `compaction`, `small`,
+  `repair`, `calibrate`), `num_ctx_sent` and `window_source` (the window
+  rule's own source, `trim resend` for a re-send at a raised window),
+  `estimate_tokens`, `prompt_eval_count`, `eval_count`, `done_reason`,
+  `total_ms`, `load_ms`, `prompt_eval_ms`, `eval_ms`, `eval_tok_s`,
+  `trimmed` (Ollama read under 70 % of the prompt, or answered "no user
+  query"), `status` (200, 400, 499, 500, 503, `timeout`, `connection`),
+  `error` (the server's one line), `retry` (0 for a first send, then 1, 2
+  for the re-sends that follow a failed or trimmed call in the same
+  turn), `session`, `turn`, `tools_count`, `images` and `from` (this
+  machine's fleet name while it has joined a hub). The OpenAI dialect
+  fills the counts from `usage` and `done_reason` from `finish_reason`.
+  The file rotates to `traffic.1.jsonl` at 20 MB; `ollama.ledger: false`
+  turns it off. A fleet member sends its lines to the hub
+  (`fleet.ollama.share`, [CONFIG.md](CONFIG.md)): by default the calls
+  to a host it does not serve itself, so the machine that serves the
+  models holds every halo's calls to it. `halo ollama traffic`
+  ([COMMANDS-ollama.md](COMMANDS-ollama.md)) prints the rollups.
+- **The events**: `halo ollama events` reads the local server's log
+  read-only (a rotation followed, journald on Linux) and, with `--watch`,
+  polls `/api/version` and `/api/ps` every 20 s; each rule below becomes
+  an event `{kind, severity, say, evidence, at, model, data}` in
+  `~/.halo/ollama/events.jsonl`. Every event is written; `notify` marks
+  the first of a kind in 10 minutes, the only ones a notice shows. What
+  each kind means and what to change is in
+  `ollama_steward/knowledge/symptoms.md`; the lines themselves in
+  `log-vocabulary.md`.
+
+| Kind | Read from |
+|------|-----------|
+| `prompt-trimmed` | "truncating input prompt limit=L ... keep=K": the window sent is 2L - K (2,050 is 4,096): a bigger window, not only compaction |
+| `reply-cut` | "stop processing: ... truncated = 1" |
+| `window-full` | "failed to find a memory slot" |
+| `no-user-query` | "chat prompt error ... no user query found" (its own 500 is part of it) |
+| `cancel-task` | a 500 within 25 lines of "srv stop: cancel task": the client went away while the prompt was read |
+| `http-500` | any other `\| 500 \|` request line |
+| `retry-loop` | three or more 500s in 3 minutes for one model |
+| `client-gave-up` | `\| 499 \|`, with "aborting load" when it ended a load (and the "Load failed ... context canceled" beside it) |
+| `load-failed` | "Load failed" for any other reason |
+| `cpu-spill` | "offloaded a/b layers" with a under b, "N overflowing", `/api/ps` `size_vram` under `size` |
+| `gpu-memory` | "out of memory", "cudaMalloc failed", "CUDA error", "runtime OOM detected" |
+| `queue-full` | `\| 503 \|` |
+| `slow-load` | "llama-server started in" over 180 s, or a load still running after 3 minutes |
+| `stall` | a request with no progress line for 5 minutes (while watching) |
+| `server-down` | `/api/version` unanswered three times in a row |
+| `other-error` | any other `level=ERROR` line |
+| `loaded`, `unloaded`, `reloaded` | `/api/ps` from one poll to the next; `reloaded` is one model at another window |
+| `startup` | a new "server config" block: the hardware card is read again |
+
+Next: R3 the rules and the fit planner (over the ledger and the events),
+R4 the steward's agent, R5 the Studio panel and the TUI.

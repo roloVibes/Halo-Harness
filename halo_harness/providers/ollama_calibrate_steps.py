@@ -121,8 +121,11 @@ def measure_step(host, model: str, num_ctx: int, *, keep_alive: Optional[str], b
     is taken at its word. `speed_box` collects the load reply's
     `(prompt_eval_count, prompt_eval_duration)`."""
     from halo_harness.providers.ollama import fetch_ps
+    t0 = time.monotonic()
     reply = _load_model_at_num_ctx(host, model, num_ctx=num_ctx, keep_alive=keep_alive, timeout=budget_s,
                                    num_gpu=num_gpu)
+    from halo_harness.ollama_steward.ledger import record_probe  # 3.3.4.0 R2: the load's ledger line
+    record_probe(host, model, num_ctx=num_ctx, reply=reply, elapsed_s=time.monotonic() - t0)
     if reply.failure is not None:
         return StepReading("unknown", reached_host=reply.failure != "unreachable")
     if speed_box is not None and isinstance(reply.body, dict):
