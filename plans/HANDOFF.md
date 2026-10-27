@@ -6,9 +6,8 @@ first, then `WORKER-RULES.md`, then the round you are starting.
 
 ## WHERE THINGS STAND -- 2026-10-27 morning (authoritative, read this first)
 
-**3.3.2.0 "Quiet Studio" IS THE RELEASE CANDIDATE** (three rounds merged on master; the release
-follows once both runners are green on the candidate head -- if you read this after the release, the
-tag v3.3.2.0 exists and the PC runs it). From the owner's note on 3.3.1.0 ("the visuals in studio are
+**3.3.2.0 "Quiet Studio" IS RELEASED** (tag v3.3.2.0, release commit 0219e69 cut from f8fc8b4 on
+2026-10-27 morning after both runners went green; installed on the PC: `halo 3.3.2.0`). From the owner's note on 3.3.1.0 ("the visuals in studio are
 too cluttered and the pop up is annoying when you open a tab and the left column takes up too much
 space" -- "Let's do all that!"). R1: nothing opens on its own on any section (the first-visit welcome
 is gone; Start here once, on the section the page opened on), the icon rail (`shell/RailSections.tsx`,
