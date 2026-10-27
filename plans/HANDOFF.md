@@ -7,10 +7,12 @@ first, then `WORKER-RULES.md`, then the round you are starting.
 ## WHERE THINGS STAND -- 2026-10-27 midday (authoritative, read this first)
 
 **3.3.3.0 "Settings" IS RELEASED** (tag v3.3.3.0, release commit 3a61491 cut from 92ae0e2 on 2026-10-27
-afternoon after both runners went green; installed on the PC: `halo 3.3.3.0`). Next in line: the 3.3.3.1
-hotfix "cost counts what it knows" (worktree `~/hh-3331/cost-counts`: the session total was drawn as $0
-when any part had no price; costs always in USD, Databricks priced by default) and the 3.3.4.0 steward
-rounds (R1 committed on `v334/R1-knowledge-hardware`, R2 in flight on `v334/R2-ledger`). From the owner's note on 3.3.2.0 ("init setting is MUCH better. However I
+afternoon after both runners went green; installed on the PC: `halo 3.3.3.0`). **3.3.3.1 "cost counts what it knows" IS RELEASED too** (tag v3.3.3.1, release commit 2e52f68 cut from
+4942f7c on 2026-10-27 night, both runners green; installed on the PC: `halo 3.3.3.1`): the session total is
+the priced sum with `cost_complete` / `cost_unknown` ("$3.63+" and the unpriced model named, in the TUI and
+Studio), `--max-budget-usd` trips on the known part, Databricks priced by default (`dbu_price_usd` 0.07, a
+shipped DBU-per-1M-token table, `databricks.prices.<endpoint>` overrides), dollars only. The 3.3.4.0 steward
+rounds follow on master: R1 (745b4dc) and R2 (2ebc20e) merged, R3 in flight on `v334/R3-rules-fit`. From the owner's note on 3.3.2.0 ("init setting is MUCH better. However I
 feel like halo should launch after init. Then full studio should be available ... there should be
 another tab for settings ... more color themes ... a gui tab section for every thing we can adjust via
 the cli"). R1 "Setup hands off to halo" (merged c4f479b, green on both runners): `POST setup/done`
