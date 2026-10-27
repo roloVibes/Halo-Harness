@@ -2743,3 +2743,135 @@ holo palette stays, the ornament goes to the thing you are looking at.
   time), the density tokens switching. Docs: STUDIO.md, STUDIO-shell.md,
   STUDIO-sections.md (rail, inspector, Focus, density, "nothing opens on
   its own"), the README's Studio screenshots re-rendered.
+
+## ADDED 2026-10-27 (rolo, after 3.3.2.0: "init setting is MUCH better. However I feel like halo should launch after init. Then full studio should be available. Set up rocks. I think there should be another tab for settings. I think we need more color themes, which should be able to change in the new settings tab. I love how the left side is now used ... getting a gui tab section for every thing we can adjust via the cli in halo would be huge"): 3.3.3.0 "Settings"
+
+Today `halo init` opens Studio on Setup and returns to the prompt at once; the
+Summary ends with the checks and the guided first run, and nothing follows.
+Studio has no place for the ~110 `~/.halo/config.json` keys that `halo config
+set` (and a dozen features) write; docs/CONFIG.md's key table is the only list
+of them. The terminal has two palettes (`claude-dark`, `claude-light`) with
+`-daltonized`/`-ansi` suffixes; Studio has a dark/light switch per browser; the
+two know nothing of each other. Four rounds: Setup ends in a running halo, a
+Settings section built from one catalog of every key, one palette set for the
+terminal and Studio with ten palettes, and a parity rule so everything the
+CLI adjusts has a Studio row or a named link.
+
+- R1 Setup hands off to halo. The Summary's primary button is "Done: start
+  halo" (`setup-done`): it posts `setup/done`; the server writes
+  `<state>/setup-done.json` (`at`, `home`; the `.setup_done` hook marker of
+  agent/loop.py is a different thing and stays) and publishes a `setup`
+  frame `{stage: "done"}`; Studio leaves Setup for Session (the one-thing
+  layout; the rail's "set up this box" line gone; `first` cleared; a reload
+  stays on Session). The terminal that ran `halo init` waits instead of
+  returning: it prints "Setup is open in your browser: <url>. Press Done
+  there and halo starts here (Ctrl+C stops waiting; `halo init --terminal`
+  runs the terminal wizard)." and polls `GET setup/state` (new field
+  `done_at`) once a second through the running Studio's token
+  (`~/.halo/studio.json`); on done it prints the Summary's four lines
+  (provider, default model, lineup, last check) and launches the TUI exactly
+  as bare `halo` does (`tui.launch.run_tui` with the default args, the intro
+  included) in the directory `halo init` ran from. Ctrl+C: "Setup stays open
+  in the browser; run `halo` when you are done there." and exit 0; Studio
+  gone mid-wait: the same line. `--no-launch` (and `HALO_INIT_NO_LAUNCH=1`)
+  keep the return-at-once for scripts. `halo start`'s no-provider door and
+  `halo setup <block>` never wait. The terminal wizard's Finish (the
+  fallback) launches the TUI the same way, after the ticked checks. The poll
+  interval and the launcher are injectable so no test waits or opens a TUI.
+  Tests: test_init_cli (done -> one launch with the cwd; Ctrl+C -> the line,
+  no launch; `--no-launch` -> the old line), test_setup_api (POST done writes
+  the marker, GET carries `done_at`, never a key), the Setup Chrome driver
+  (Done -> the section is Session, the rail line gone, a reload stays).
+  Docs: WIZARD.md, COMMANDS-init.md, STUDIO-sections.md (Setup ends in a
+  session).
+- R2 the Settings section (Alt+9): every config.json key, from one catalog.
+  `halo_harness/settings_catalog.py`: every key of `~/.halo/config.json` as a
+  row {key, group, title, kind (bool | enum | int | float | string | list |
+  mapping | model | path), default, choices, help (one line), cli (`halo
+  config set <key> <value>`), effect ("now" | "next session" | "next
+  launch"), secret}; the groups: General (model, team, theme,
+  permission_mode, effort, intro, tips, images, quit_on_double_ctrl_c,
+  clipboard, mcpPreload, compactionModel, model_memory), Agents and roles,
+  Coach and improve, Knowledge and recall, Supervise, Steer and turn,
+  Models, Providers (providers.*.enabled, databricks, openai, experiential,
+  huggingface), Ollama, Network and routing, Fleet, Remote, Packs,
+  Connectors, Worktree, Update, Local (local, embeddings, comfy, governor).
+  A test pins the catalog against `schemas/config_json.py` (every scalar and
+  every section's keys appear) and against docs/CONFIG.md's key table
+  (every documented key is in the catalog and the other way round; the
+  table gains a Studio column naming the page). Server
+  `studio/settings_api.py`: `GET settings/catalog`, `GET settings/values`
+  (the saved values, secret-shaped ones masked, the effective default
+  beside each), `POST settings/set {key, value}` (kind and choices checked
+  -> 422 `problems`; `theme.set_config_value`, the path `halo config set`
+  takes), `POST settings/unset {key}`. UI `routes/settings/*`, paged like
+  Setup (a group rail, one page per group, `SectionDef.paged`), one
+  generic field per kind (toggle, select, number, text, list editor, a JSON
+  editor for a mapping with the problems under it); a row = title, help
+  line, the value, a "default" marker, Reset to default, and the `halo
+  config set ...` line in mono as its footer; a change saves at once with a
+  "saved" flash and the effect word; a search box filters rows across
+  groups; the palette gets "Settings: <title>" entries. Registry: Settings
+  after Setup as Alt+9, `packs/registry.ts FIRST_KEY = 10` (a pack's own
+  section is reached by click or palette), every pin that counts sections
+  (section order 9 rows, `section_order.py`, `test_glossary`, the banner,
+  `studio_pack_manager.py`), `server.py STUDIO_MODES`, `?mode=settings&group=fleet`
+  as the door (`halo settings [group]` opens it; `--terminal` prints `halo
+  config get` for the group). Tests: test_settings_catalog (parity),
+  test_settings_api (set / unset / 422 / masked), tests/test_studio_settings.py
+  (Chrome: every group page renders every row of the catalog; toggle a
+  bool, pick an enum, set a number, reset; config.json read back in the
+  seeded home; the search). Docs: STUDIO-sections.md (Settings), CONFIG.md
+  (the Studio column), COMMANDS.md (`halo settings`).
+- R3 themes: one palette set for the terminal and Studio.
+  `halo_harness/palettes.py`: named palettes of twelve colours (bg, bg2,
+  surface, text, muted, border, accent, accent2, ok, warn, bad, mark);
+  `halo` (today's claude-dark terminal palette and today's Studio dark
+  tokens: no pixel changes to any capture), `halo-light` (today's light
+  pair), and eight new: `amber` (HUD amber on near-black), `ember`
+  (red-orange), `forest` (greens), `ocean` (blue-teal), `violet`, `nord`
+  (the Nord blues and greys), `solar-dark`, `solar-light` (Solarized), and
+  `mono` (greyscale, high contrast, one accent) -- ten; each with
+  `-daltonized` and `-ansi` variants rendered from the palette by rule.
+  `theme.py VALID_THEMES` = the names x suffixes; `claude-dark` /
+  `claude-light` stay as aliases of `halo` / `halo-light` (a saved one keeps
+  working; `halo config set theme claude-dark` says the new name once);
+  `tui/theme.py variables_for` renders from the palette. Studio:
+  `tools/palettes_css.py` writes `styles/palettes.css` (one
+  `:root[data-palette="<name>"]` block per palette; a test pins the file
+  against the catalog like the dist drift gate); `lib/store.ts`'s theme
+  becomes the palette name: Studio follows the terminal `theme` by default
+  (read from `GET settings/values`), the header button becomes a palette
+  picker (swatches, the current one lit), a per-browser override
+  (`halo.studio.theme` = "follow" | a name). Settings -> Appearance: swatches
+  (bg / accent / text chips and the name) for the terminal theme (config
+  `theme`) and for the Studio theme (follow, or a name), the daltonized and
+  ansi variants as two checkboxes under the terminal swatches, density here
+  too (and still in the header). Setup's Terminal theme page shows the same
+  swatches. `/theme` lists the names; `halo doctor --config` knows them.
+  Tests: test_theme (names, aliases, `variables_for` complete for every
+  name), test_palettes_css (drift), Chrome: pick a palette in Settings ->
+  `data-palette` on `<html>` and config.json's `theme` read back; follow and
+  override; the default's captures unchanged (the media pins hold without a
+  re-render; a component that hard-codes a colour moves it to a token).
+  Docs: CONFIG.md's theme row (ten names), STUDIO-shell.md (the palette
+  picker), README (one line).
+- R4 everything the CLI adjusts, in Studio. What config.json does not hold
+  gets a page or a named link in Settings: Agents (the active lineup named,
+  "Edit in Roles"; `agents.*`, `roles.enabled`), Connectors (per connector
+  `enabled` / `alwaysLoad` / `max_turns` from the catalog, the server line
+  read-only, a copy line `halo mcp add ...` -- Studio never writes
+  `~/.claude.json`), Models (Refresh catalogs through the existing refresh
+  job, `models.roster`, `models.learn.*`, a link to the model table in
+  Roles), Packs (per installed pack its `packs.settings.<id>` form from the
+  pack's declared settings, the form the Pack Manager already has, embedded
+  or linked), Providers (the enabled toggles; "Keys: Setup -> Providers"),
+  Update (the keys, the installed version, Check now through the existing
+  check), Fleet / Remote / Ollama (the keys; links to Fleet and to Setup's
+  Providers for the hosts). `tests/test_settings_parity.py`: every
+  `set_config_value` key in the code and every writer of `~/.halo/*` named
+  in docs/CONFIG.md "halo's own files" has a Settings row or a named link,
+  so a future key must land in the catalog. Captures: `settings.png` in
+  docs/screenshots through scripts/screenshots.py, the README's section
+  list, the banner. Docs: STUDIO-sections.md, CONFIG.md (the Studio column
+  complete), COMMANDS.md (`halo config` points at Settings).
