@@ -34,8 +34,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from halo_harness.providers.ollama_fit import (
-    estimate_catalog_prompt_tokens, fit_estimate, kv_bytes_per_elem_for, kv_bytes_per_token,
-    multi_gpu_fit_estimate, resolve_ollama_tools_max,
+    estimate_catalog_prompt_tokens, kv_bytes_per_elem_for, resolve_ollama_tools_max,
 )
 
 log = logging.getLogger("bridge")
@@ -580,37 +579,51 @@ def _ollama_gpu_overhead_bytes(env=None) -> int:
     return value if value > 0 else 0
 
 
-def _fit_from_gpu_cards(host, row: dict, ps_models: list, cards: list):
-    """Shared by `estimate_fit_for_host`'s local and ssh-remote branches
-    (round 5b): `host.kv_cache_type` (default f16) picks the KV bytes/
-    element constant, `row`'s own `size`/`model_info` give the weight
-    size and the per-token formula, and every OTHER loaded model's
-    `size_vram` is reclaimable headroom exactly as before round 5b.
-    `len(cards) > 1` uses `multi_gpu_fit_estimate` (SUM, not min); `len ==
-    1` calls `fit_estimate` directly, the identical formula for one card.
-    Reclaimable VRAM is added to the total once (which card it's nominally
-    credited to doesn't matter -- the multi-card formula only ever sums
-    the list)."""
+def host_fit_settings(host) -> dict:
+    """Halo 3.3.4.0 R3: the inputs the fit takes from the host: the KV cache
+    type and the parallel slots from the host entry's hints, else (a host
+    served by this machine) from the server log's startup block
+    (`ollama_steward.hardware.server_settings_for`), else f16 and one slot."""
+    kv = getattr(host, "kv_cache_type", None)
+    parallel = getattr(host, "num_parallel_hint", None)
+    if not kv or not parallel:
+        try:
+            from halo_harness.ollama_steward.hardware import server_settings_for
+            found = server_settings_for(host)
+        except Exception:
+            found = {}
+        kv = kv or found.get("kv_cache_type")
+        parallel = parallel or found.get("parallel")
+    return {"kv_cache_type": kv or "f16", "parallel": parallel if isinstance(parallel, int) and parallel > 0 else 1}
+
+
+def _fit_from_gpu_cards(host, row: dict, ps_models: list, cards: list, *, forced: bool = True):
+    """Shared by `estimate_fit_for_host`'s local and ssh-remote branches.
+    Halo 3.3.4.0 R3 (knowledge/memory.md): the corrected arithmetic of
+    `providers.ollama_fit_parts.fit_window` -- the KV cache of the layers
+    that hold one (a hybrid model's one in four), times the parallel slots,
+    the recurrent state, the compute buffer, the vision projector, Ollama's
+    per-card minimum, and (`forced` False: num_gpu unset) llama.cpp's fit
+    margin. Halo sends `num_gpu` (every layer) at a window it knows fits, so
+    its own estimate is the forced one. Every loaded model's `size_vram`
+    (this one's too) is reclaimable headroom; several cards are summed."""
     free_cards = [c.free_bytes for c in (cards or []) if c is not None and isinstance(c.free_bytes, int)]
     if not free_cards:
         return None
-    bytes_per_elem = kv_bytes_per_elem_for(getattr(host, "kv_cache_type", None))
-    kv = kv_bytes_per_token(row.get("model_info") or {}, bytes_per_elem=bytes_per_elem)
     weight_bytes = row.get("size")
-    if kv is None or not isinstance(weight_bytes, int):
+    if not isinstance(weight_bytes, int):
         return None
+    from halo_harness.providers.ollama_fit_parts import fit_window, projector_for
+    settings = host_fit_settings(host)
     reclaimable = sum(e.get("size_vram") for e in ps_models if isinstance(e.get("size_vram"), int))
-    free_cards = list(free_cards)
-    free_cards[0] = free_cards[0] + reclaimable
-    if len(free_cards) > 1:
-        # Only ever meaningful on a LOCAL host -- see _ollama_gpu_overhead_
-        # bytes' own docstring for why a remote (even ssh-probed) host's
-        # own OLLAMA_GPU_OVERHEAD is invisible to this process.
-        overhead = _ollama_gpu_overhead_bytes() if is_local_host(host) else 0
-        return multi_gpu_fit_estimate(kv_bytes_per_token=kv, free_bytes_per_card=free_cards,
-                                       resident_weight_bytes=weight_bytes, overhead_per_card_bytes=overhead)
-    return fit_estimate(kv_bytes_per_token=kv, free_memory_bytes=free_cards[0],
-                         resident_weight_bytes=weight_bytes)
+    # Only ever meaningful on a LOCAL host -- see _ollama_gpu_overhead_bytes' own docstring.
+    overhead = _ollama_gpu_overhead_bytes() if is_local_host(host) else 0
+    metal = any(getattr(c, "vendor", None) == "apple" for c in cards if c is not None)
+    return fit_window(row.get("model_info") or {}, weight_bytes=weight_bytes,
+                      free_bytes=sum(free_cards) + reclaimable,
+                      bytes_per_elem=kv_bytes_per_elem_for(settings["kv_cache_type"]), parallel=settings["parallel"],
+                      projector_bytes=projector_for(row), forced=forced, metal=metal, gpu_overhead=overhead,
+                      cards=len(free_cards))
 
 
 @dataclass(frozen=True)
@@ -662,6 +675,10 @@ class OllamaContextDecision:
     # Halo knows fits there (the memory estimate or the calibrated cap).
     gpu_layers: Optional[int] = None
     gpu_fits_up_to: Optional[int] = None
+    # Halo 3.3.4.0 R3: the steward's profile for this host and model
+    # (`ollama_steward/profiles.py`), when there is one: its window is the
+    # `fit_estimate` above (held under the learned cap and max_ctx).
+    profile: Optional[dict] = None
 
 
 _FITS_TTL_S = 60.0
@@ -857,14 +874,42 @@ def resolve_context_decision(model_ref, env=None, *, hw_runner=None) -> OllamaCo
                                                                 digest=digest, ollama_version=ollama_version)
         except Exception:
             log.debug("ollama_hw: learned-cap lookup failed for %s", model_ref.model, exc_info=True)
+    gpu_fits = _gpu_fits_up_to(fit, learned_cap)
+    profile, fit = _apply_profile(host, model_ref.model, fit, learned_cap=learned_cap, host_max_ctx=host_max_ctx,
+                                  trained=trained_context)
     num_ctx, source = resolve_num_ctx_and_source(trained_context, host_max_ctx, fit, learned_cap=learned_cap,
                                                   remote=remote, recorded_does_not_fit=recorded_does_not_fit,
                                                   cpu_only=cpu_only)
+    if profile and profile.get("num_ctx") == num_ctx:
+        source = "steward profile"
     tools_max = resolve_ollama_tools_max(num_ctx)
+    if profile and isinstance(profile.get("tools_max"), int):
+        from halo_harness.providers.ollama_fit import core_tools_floor
+        tools_max = max(profile["tools_max"], core_tools_floor())
     offloaded = last_known_offload(host.url, model_ref.model) if host is not None else None
     return OllamaContextDecision(trained_context=trained_context, fit_estimate=fit, num_ctx=num_ctx,
                                   tools_max=tools_max, catalog_prompt_tokens=estimate_catalog_prompt_tokens(tools_max),
                                   learned_cap=learned_cap, remote=remote, source=source, offloaded=offloaded,
                                   recorded_does_not_fit=recorded_does_not_fit, cpu_only=cpu_only,
                                   supports_thinking=supports_thinking, host_max_ctx=host_max_ctx,
-                                  gpu_layers=gpu_layers, gpu_fits_up_to=_gpu_fits_up_to(fit, learned_cap))
+                                  gpu_layers=gpu_layers, gpu_fits_up_to=gpu_fits, profile=profile)
+
+
+def _apply_profile(host, model: str, fit, *, learned_cap, host_max_ctx, trained):
+    """(the profile or None, the fit estimate the call uses): a profile
+    window replaces the memory estimate, held under the learned cap, the
+    host's max_ctx and the trained context."""
+    if host is None:
+        return None, fit
+    try:
+        from halo_harness.ollama_steward.profiles import clamp_window, lookup
+        profile = lookup(host, model)
+    except Exception:
+        log.debug("ollama_hw: profile read failed for %s", model, exc_info=True)
+        return None, fit
+    if not profile:
+        return None, fit
+    window = clamp_window(profile.get("num_ctx"), learned_cap=learned_cap, host_max_ctx=host_max_ctx,
+                          trained=trained)
+    profile = {**profile, "num_ctx": window} if window else {k: v for k, v in profile.items() if k != "num_ctx"}
+    return profile, (window if window else fit)

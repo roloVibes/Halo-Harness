@@ -43,6 +43,7 @@ _SOURCE_WORDS = {
     "learned cap": "calibrated", "fit estimate": "memory", "host max_ctx": "max_ctx",
     "trained context": "trained", "prompt floor": "prompt floor", "hard cap": "hard cap",
     "fallback": "fallback", "remote default": "remote default", "conservative default": "default",
+    "steward profile": "profile",  # 3.3.4.0 R3 (ollama_steward/profiles.py)
 }
 
 
@@ -123,13 +124,16 @@ class WindowChoice:
 def window_for(prompt_tokens: Optional[int], decision=None, *, base: Optional[int] = None,
                base_source: Optional[str] = None, factor: float = 1.0, trained_context=None,
                fit_estimate=None, host_max_ctx=None, hard_cap: Optional[int] = None,
-               reserve: int = REPLY_RESERVE_TOKENS) -> WindowChoice:
+               reserve: int = REPLY_RESERVE_TOKENS, min_reply: Optional[int] = None) -> WindowChoice:
     """`num_ctx` = max(the decision's `min()`, the floor), the raise
     rounded up to a power of two (a window that changes every turn
     reloads the model every turn) and capped at `window_ceiling`; never
     below `base`. `decision` (an `OllamaContextDecision`) supplies `base`
     (its `num_ctx`), the source label and the ceiling inputs unless they
-    are passed explicitly."""
+    are passed explicitly. `min_reply` (3.3.4.0 R3: a profile's
+    `num_predict`) is the least the reply's room may shrink to so the prompt
+    fits the ceiling (1,024 when unset); below it the request does not fit
+    and the turn compacts first."""
     if decision is not None:
         base = base if base is not None else decision.num_ctx
         base_source = base_source or decision.source
@@ -148,7 +152,8 @@ def window_for(prompt_tokens: Optional[int], decision=None, *, base: Optional[in
     from halo_harness.providers.ollama_fit import power_of_two_ceil
     num_ctx = max(base, min(power_of_two_ceil(floor), ceiling))
     prompt_only = floor - reserve
-    if num_ctx < floor and reserve > REPLY_RESERVE_TOKENS and prompt_only + REPLY_RESERVE_TOKENS <= ceiling:
+    keep = min(reserve, max(REPLY_RESERVE_TOKENS, _pos_int(min_reply) or 0))
+    if num_ctx < floor and reserve > keep and prompt_only + keep <= ceiling:
         # the prompt fits with a smaller reply: the whole ceiling, the reply gets what is left
         return WindowChoice(ceiling, "prompt floor", floor, ceiling, True, num_predict=ceiling - prompt_only)
     return WindowChoice(num_ctx, "prompt floor", floor, ceiling, num_ctx >= floor)

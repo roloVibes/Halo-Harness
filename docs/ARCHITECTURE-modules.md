@@ -239,7 +239,7 @@ note sources: the entries and `recall.sources`), `knowledge/share.py` (the
 (`halo knowledge`); the agents' tools are `tools/knowledge.py`.
 
 **The Ollama steward** (`halo_harness/ollama_steward/`, Halo 3.3.4.0 R1,
-docs/MODELS-ollama.md "The steward"): the knowledge (`ollama_steward/
+docs/MODELS-ollama-steward.md): the knowledge (`ollama_steward/
 knowledge/*.md`, every claim tagged to `SOURCES.md`) and the hardware card
 -- `ollama_steward/hardware_sources.py` (the parsers: the log's startup
 block, `nvidia-smi` CSV, `system_profiler`, `/api/ps`),
@@ -257,7 +257,10 @@ load's line), `ollama_steward/ledger_call.py` (the observer
 line and a clock), `ollama_steward/server_events.py` (`events.jsonl`, the
 quiet period, the `/api/ps` deltas) and `ollama_steward/server_log.py` (the
 read-only tail, journald, the watch loop); `fleet/ollama_share.py` sends a
-member's ledger lines to its hub and appends them there.
+member's ledger lines to its hub and appends them there. R3: `ollama_steward/rules.py` (gather, the finding), the rules in
+`ollama_steward/rules_window.py`, `ollama_steward/rules_reply.py`, `ollama_steward/rules_host.py`, `ollama_steward/fit.py` (the planner),
+`ollama_steward/profiles.py` (`ollama.profiles`), `ollama_steward/steward.py` (modes, journal, undo), `ollama_steward/cli_steward.py`;
+`providers/ollama_fit_parts.py` (the corrected memory arithmetic), `agent/ollama_window_steward.py` (compaction before the call).
 
 **Packs** (`halo_harness/packs/`, Halo 3.2.0.0 R1, docs/PACKS.md): the
 names (`packs/names.py`: ids, `<id>--<name>`, the `pack:<id>` label and

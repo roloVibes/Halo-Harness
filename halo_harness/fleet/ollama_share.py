@@ -22,8 +22,12 @@ machine take turns through its lock, so a line is sent once.
 
 The hub (`serve`, from fleet/hub_http.py) appends what a member sends to ITS
 ledger with `from` set to the member's name, so `read_calls` on the serving
-machine returns the Mac's lines beside its own. Nothing else of the fleet
-changes.
+machine returns the Mac's lines beside its own. 3.3.4.0 R3: the hub's
+answer carries its steward profiles (`ollama.profiles`) keyed by the
+member's own host names, and the member keeps them (`take_profiles`, never
+over its own `by: "user"` entry); while sharing is not `off` the member asks
+every FLUSH_S even with no line to send, so a profile reaches it within half
+a minute. Nothing else of the fleet changes.
 """
 
 from __future__ import annotations
@@ -171,9 +175,10 @@ class Forwarder:
                     return 0
                 if len(send) > MAX_LINES:
                     send, cursor = send[:MAX_LINES], send[MAX_LINES - 1][1]
-                if send:
-                    link.request("POST", protocol.PREFIX + "/ollama",
-                                 protocol.doc(link=link_id, lines=[x for x, _c in send]))
+                if send or how != "off":  # 3.3.4.0 R3: the answer carries the hub's profiles
+                    reply = link.request("POST", protocol.PREFIX + "/ollama",
+                                         protocol.doc(link=link_id, lines=[x for x, _c in send]))
+                    take_profiles(reply)
                 cpath.parent.mkdir(parents=True, exist_ok=True)
                 cpath.write_text(json.dumps(cursor), encoding="utf-8")
                 self.last_flush = now
@@ -181,6 +186,15 @@ class Forwarder:
         except Exception:
             self.last_flush = time.monotonic()  # a hub that cannot take them now is tried again next period
             return 0
+
+
+def take_profiles(reply) -> int:
+    """A member keeps the profiles the hub's answer carries (ollama_steward/profiles.py)."""
+    try:
+        from halo_harness.ollama_steward.profiles import merge_from_hub
+        return merge_from_hub((reply or {}).get("profiles") if isinstance(reply, dict) else None)
+    except Exception:
+        return 0
 
 
 def accept(home, member_name: str, lines: list) -> int:
@@ -213,4 +227,9 @@ def serve(handler):
         return handler._json(403, {"error": "not a member of this hub"})
     lines = body.get("lines") if isinstance(body.get("lines"), list) else []
     n = accept(handler.hub.home, member.name, lines)
-    return handler._json(200, protocol.doc(ok=True, accepted=n))
+    try:  # 3.3.4.0 R3: the hub's profiles, keyed by the member's own host names
+        from halo_harness.ollama_steward.profiles import payload_for_member
+        profiles = payload_for_member(handler.hub.home, member.name)
+    except Exception:
+        profiles = {}
+    return handler._json(200, protocol.doc(ok=True, accepted=n, profiles=profiles))

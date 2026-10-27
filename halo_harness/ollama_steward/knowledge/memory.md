@@ -46,13 +46,13 @@ A loaded model takes, per device: its weights, the window's caches (the KV cache
 
 ## Worked examples on the measured host (24 GB card, server KV cache q8_0)
 
-The blocks are checked by `tests/test_steward_knowledge.py`: it computes `halo_kv_bytes_per_token` and `halo_fit` with `providers/ollama_fit.py` itself and the arithmetic from `kv_layers`, and fails when a figure is off by more than the block's `tolerance` (a fraction; the fit is compared exactly). `free_bytes` is the 21,506 MiB llama.cpp found free at load. [S30][S33]
+The blocks are checked by `tests/test_steward_knowledge.py`: it computes `halo_kv_bytes_per_token`, `halo_total_mib` and the two fits with Halo's own arithmetic (`providers/ollama_fit.py` and `providers/ollama_fit_parts.py`), the arithmetic from `kv_layers`, and fails when a figure is off by more than the block's `tolerance`: 0.05 since 3.3.4.0 R3 (it was 0.01 while the blocks recorded Halo's old, uncorrected figures), the fits compared exactly. `free_bytes` is the 21,506 MiB llama.cpp found free at load; `measured_total_mib` is the sum of the parts the log printed at that window; `halo_fit` is the window Halo's estimate allows with every layer on the GPU (Halo sends `num_gpu` then), `halo_fit_default` the one with the layers left to llama.cpp's `--fit`. [S30][S33][S39]
 
-qwen3-coder:30b (mixture of experts, 48 layers, every one with a KV cache): Halo's per-token figure is right when the host entry says q8_0, and twice the real one when it is left at the f16 default. [S26][S30][S33]
+qwen3-coder:30b (mixture of experts, 48 layers, every one with a KV cache): the per-token figure is the real one at q8_0 and twice it when the host's cache type is left at f16; since 3.3.4.0 R3 the fit reads the server's own cache type from its log when the host entry has no hint. [S26][S30][S33][S39]
 
 ```example
 model: qwen3-coder:30b
-model_info: block_count=48 head_count_kv=4 key_length=128 value_length=128
+model_info: block_count=48 head_count_kv=4 key_length=128 value_length=128 embedding_length=2048 vocab_size=151936
 kv_cache_type: q8_0
 halo_kv_bytes_per_token: 52224
 kv_layers: 48
@@ -61,62 +61,67 @@ window: 65536
 real_kv_mib: 3264
 free_bytes: 22550675456
 weight_bytes: 18554258719
+projector_mib: 0
+measured_total_mib: 21040
 halo_fit: 65536
-tolerance: 0.01
+halo_fit_default: 32768
+tolerance: 0.05
 ```
 
-- At 65,536 with every layer on the GPU the log's budget is 17,524 MiB weights + 3,264 KV + 252 compute = 21,040 of 21,506 MiB free: it fits with 466 MiB left, under `--fit`'s 1,024 MiB margin, so by default llama.cpp overflowed 3 layers' experts to RAM. [S12][S30]
-- Halo's estimate says 65,536 fits because it counts only weights and KV; the compute buffer and the minimum are the 0.7 GiB it leaves out. [S30][S33]
+- At 65,536 with every layer on the GPU the log's budget is 17,524 MiB weights + 3,264 KV + 252 compute = 21,040 of 21,506 MiB free: it fits with 466 MiB left, just above Ollama's 457 MiB minimum and under `--fit`'s 1,024 MiB margin, so by default llama.cpp overflowed 3 layers' experts to RAM. [S12][S30]
+- Halo's corrected sum is within a few MiB of that (the token embedding, 167 MiB at the 4.5 bits it is stored at, stays in RAM; the compute buffer grows by the attention mask and one layer's f16 K and V per token), so its forced fit is 65,536 and its default fit one power of two lower. [S30][S39]
 
-qwen3.8:27b (the qwen35 architecture; Qwen3.5-27B has the same shape): `/api/show` reports 65 blocks (64 layers and the draft layer), but only 16 layers hold a KV cache. [S27][S29][S30]
+qwen3.8:27b (the qwen35 architecture; Qwen3.5-27B has the same shape): `/api/show` reports 65 blocks (64 layers and the draft layer), only 16 layers hold a KV cache, and the other 48 carry a fixed recurrent state. [S27][S29][S30]
 
 ```example
 model: qwen3.8:27b
-model_info: block_count=65 head_count_kv=4 key_length=256 value_length=256
+model_info: block_count=65 head_count_kv=4 key_length=256 value_length=256 full_attention_interval=4 nextn_predict_layers=1 embedding_length=5120 vocab_size=248320 ssm.conv_kernel=4 ssm.state_size=128 ssm.group_count=16 ssm.inner_size=6144
 kv_cache_type: q8_0
-halo_kv_bytes_per_token: 141440
+halo_kv_bytes_per_token: 34816
 kv_layers: 16
 real_kv_bytes_per_token: 34816
 window: 65536
 real_kv_mib: 2176
 free_bytes: 22550675456
 weight_bytes: 16804059546
-halo_fit: 32768
-tolerance: 0.01
+projector_mib: 1161
+measured_total_mib: 20230
+halo_fit: 65536
+halo_fit_default: 32768
+tolerance: 0.05
 ```
 
 | Part at 65,536 (q8_0, every layer on the GPU) | MiB |
 |-----------------------------------------------|-----|
 | weights on the GPU | 15,339 [S30] |
 | KV cache, 16 layers | 2,176 [S30] |
-| recurrent state (fixed) | 748 [S30] |
-| draft layer's f16 cache | 256 [S30] |
-| compute buffer, estimated from 180 at 16,384 and 260 at 32,768 | about 420 [S30] |
+| recurrent state (fixed; one sequence and the draft's four) | 748 [S30] |
+| draft layer's f16 cache and its compute buffer | 256 + 130 [S30] |
+| compute buffer (180 at 16,384, 260 at 32,768, 420 at 65,536) | 420 [S30] |
 | vision projector, worst case | 1,161 [S30] |
-| total | about 20,100 of 21,506 free [S30] |
+| total | 20,230 of 21,506 free [S30] |
 
-- So 65,536 fits with every layer forced on (the measured host used 20.7 GB there and called it safe), while `--fit`'s 1,936 MiB margin leaves only 19,570 MiB, so the default spills; at 49,152 the same sum is about 19,400 MiB and loads whole, which is the measured "offloads past 49,152". [S30][S32]
-- At 98,304 the sum is about 21,480 MiB of 21,506: it loads, with almost nothing left (the measured "works, too tight for daily use"). [S30][S32]
-- Halo's estimate is 4 times too big per token (65 blocks counted instead of 16) and, with the host entry at f16, 7.6 times; it says 32,768 (or 16,384) where 65,536 fits. [S30][S33]
+- So 65,536 fits with every layer forced on (the measured host used 20.7 GB there and called it safe), while `--fit`'s 1,936 MiB margin (1,024 and the 912 MiB projector file) leaves only 19,570 MiB, so the default spills; at 49,152 the same sum is about 19,550 MiB and loads whole, which is the measured "offloads past 49,152". [S30][S32]
+- At 98,304 the sum with the projector's worst case is about 21,640 MiB (the draft's compute grew to 164), over the 21,506 free; the measured load still came up with every layer on, the projector's worst case not yet in use (the measured "works, too tight for daily use"), so Halo's estimate stops one step below it. [S30][S32]
+- Before 3.3.4.0 R3 Halo counted all 65 blocks, 4 times too many per token (7.6 times with the host entry at f16), and said 32,768 (or 16,384) where 65,536 fits. [S30][S33]
 
-qwen3.5:9b (32 layers, a KV cache in 8): the same factor of 4 when its GGUF reports 32 blocks; one more block for a draft layer raises Halo's figure by 1/32. [S28][S33]
+qwen3.5:9b (32 layers, a KV cache in 8): the same one-in-four rule. [S28][S39]
 
 ```example
 model: qwen3.5:9b
-model_info: block_count=32 head_count_kv=4 key_length=256 value_length=256
+model_info: block_count=32 head_count_kv=4 key_length=256 value_length=256 full_attention_interval=4
 kv_cache_type: f16
-halo_kv_bytes_per_token: 131072
+halo_kv_bytes_per_token: 32768
 kv_layers: 8
 real_kv_bytes_per_token: 32768
 window: 65536
 real_kv_mib: 2048
-tolerance: 0.01
+tolerance: 0.05
 ```
 
-## Where Halo's arithmetic and the server differ
+## What Halo's arithmetic counts (3.3.4.0 R3)
 
-- Halo multiplies by every block; a hybrid model's KV cache is in one layer of four, so Halo over-counts Qwen 3.5 and 3.8 by 4 times. [S30][S33]
-- Halo assumes f16 unless the host entry's `kv_cache_type` says otherwise; the server's own type is in its startup env dump (`OLLAMA_KV_CACHE_TYPE:q8_0` on the measured host). [S30][S33]
-- Halo leaves out the compute buffer, the recurrent state, the draft layer's cache, the projector, Ollama's per-device minimum and llama.cpp's fit margin, and counts the whole file as GPU weights. [S3][S12][S30][S33]
-- Halo does not multiply by the server's parallel slots (`num_parallel_hint` is read from config and never used in the fit). [S1][S4][S36]
-- A model whose `head_count_kv` is a per-layer list (lfm2moe) gets no estimate at all, because Halo reads only a single number. [S30][S33]
+- The layers that hold a cache: one in `full_attention_interval` for a hybrid model, never the draft layer (`nextn_predict_layers`), the non-zero entries of a per-layer `head_count_kv` list (lfm2moe). [S30][S39]
+- The cache type: the host entry's `kv_cache_type` hint, else the server's own from its startup env dump (`OLLAMA_KV_CACHE_TYPE:q8_0` on the measured host), else f16; the parallel slots the same way (`num_parallel_hint`, else `OLLAMA_NUM_PARALLEL`). [S1][S4][S30][S39]
+- Beside the weights and the KV cache: the recurrent state, the draft layer's cache and compute, the compute buffer, the vision projector, Ollama's per-device minimum and, when the layers are left to `--fit`, its margin; the token embedding comes off the weights when `/api/show` gives the vocabulary size. [S3][S12][S30][S39]
+- Still estimated, not read: the compute buffer is fitted to the two measured models, the projector's size is the measured 1,161 MiB worst case when `/api/show` gives only the vision capability, and the draft is counted whenever the model has a draft layer (a server that ignores it needs less). [S30][S39]

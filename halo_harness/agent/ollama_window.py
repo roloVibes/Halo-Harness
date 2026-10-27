@@ -48,8 +48,9 @@ def prepare_window(session, *, host, ref, decision, base_num_ctx: int, base_sour
     reserve = reply_reserve(reply_tokens)
     estimate = estimate_request_tokens(messages, tools, system_text, reply_tokens=reply_tokens)
     factor = st["factor"].get(key, 1.0)
+    profile = getattr(decision, "profile", None) or {}  # 3.3.4.0 R3: the reply's room never under its num_predict
     choice = window_for(estimate, decision, base=base_num_ctx, base_source=base_source, factor=factor,
-                        host_max_ctx=host.max_ctx, reserve=reserve)
+                        host_max_ctx=host.max_ctx, reserve=reserve, min_reply=profile.get("num_predict"))
     cap = getattr(decision, "learned_cap", None)
     if auto_calibrate and isinstance(cap, int) and cap < estimate and key not in st["discarded"]:
         st["discarded"].add(key)
@@ -69,7 +70,10 @@ def prepare_window(session, *, host, ref, decision, base_num_ctx: int, base_sour
     if ref is session.model_ref:
         st["last"] = {"estimate": estimate, "choice": choice, "host_name": host.name, "host_url": host.url,
                       "model": ref.model, "tool_tokens": tool_output_tokens(messages),
-                      "gpu_fits_up_to": getattr(decision, "gpu_fits_up_to", None), "reserve": reserve}
+                      "gpu_fits_up_to": getattr(decision, "gpu_fits_up_to", None), "reserve": reserve,
+                      "profile": profile}
+        from halo_harness.agent.ollama_window_steward import note_prepared
+        note_prepared(st, estimate, reserve, session)
     return estimate, factor
 
 

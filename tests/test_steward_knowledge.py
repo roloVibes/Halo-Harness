@@ -188,29 +188,53 @@ def _near(a: float, b: float, tol: float) -> bool:
     return abs(a - b) <= tol * max(abs(b), 1.0)
 
 
+_ATTENTION_KEYS = ("head_count_kv", "key_length", "value_length")
+
+
+def _model_info(text: str) -> dict:
+    """An example's `model_info` line -> `/api/show`-shaped keys (`arch.<key>`;
+    the three attention keys under `arch.attention.`)."""
+    shape = dict(kv.split("=") for kv in text.split())
+    return {(f"arch.attention.{k}" if k in _ATTENTION_KEYS else f"arch.{k}"): int(v) for k, v in shape.items()}
+
+
 @test
 def test_the_worked_examples_match_halos_fit_arithmetic(ctx: Ctx):
-    from halo_harness.providers.ollama_fit import fit_estimate, kv_bytes_per_elem_for, kv_bytes_per_token
+    """3.3.4.0 R3: the blocks hold Halo's CORRECTED figures, within 5 % of
+    the measured ones (the tolerance line of each block, 0.05; it was 0.01
+    while the blocks recorded the old, uncorrected figures)."""
+    from halo_harness.providers.ollama_fit import kv_bytes_per_elem_for, kv_bytes_per_token
+    from halo_harness.providers.ollama_fit_parts import fit_window, load_parts
     examples = _examples()
     ctx.check(f"the three models rolo runs have a worked example ({len(examples)})",
               {e.get("model") for e in examples} >= {"qwen3-coder:30b", "qwen3.8:27b", "qwen3.5:9b"})
     for e in examples:
-        shape = dict(kv.split("=") for kv in e["model_info"].split())
-        info = {f"arch.{k}" if k == "block_count" else f"arch.attention.{k}": int(v) for k, v in shape.items()}
+        info = _model_info(e["model_info"])
+        shape = {k.split(".")[-1]: v for k, v in info.items()}
         bpe = kv_bytes_per_elem_for(e["kv_cache_type"])
         tol = float(e["tolerance"])
+        ctx.check(f"{e['model']}: the tolerance is 5 % ({tol})", tol == 0.05)
         halo = kv_bytes_per_token(info, bytes_per_elem=bpe)
         ctx.check(f"{e['model']}: Halo's bytes per token {halo} = the file's {e['halo_kv_bytes_per_token']}",
                   halo is not None and _near(halo, float(e["halo_kv_bytes_per_token"]), tol))
         real = int(e["kv_layers"]) * int(shape["head_count_kv"]) * (int(shape["key_length"]) + int(shape["value_length"])) * bpe
         ctx.check(f"{e['model']}: the arithmetic {real} = the file's {e['real_kv_bytes_per_token']}",
                   _near(real, float(e["real_kv_bytes_per_token"]), tol))
+        ctx.check(f"{e['model']}: Halo's figure is the real one now ({halo} vs {real})", _near(halo or 0, real, tol))
         mib = real * int(e["window"]) / 2 ** 20
         ctx.check(f"{e['model']}: {mib} MiB at the window = the file's {e['real_kv_mib']}", _near(mib, float(e["real_kv_mib"]), tol))
-        if "halo_fit" in e:
-            fit = fit_estimate(kv_bytes_per_token=halo, free_memory_bytes=int(e["free_bytes"]),
-                               resident_weight_bytes=int(e["weight_bytes"]))
-            ctx.check(f"{e['model']}: Halo's fit {fit} = the file's {e['halo_fit']}", fit == int(e["halo_fit"]))
+        if "measured_total_mib" not in e:
+            continue
+        proj = int(e["projector_mib"]) * 2 ** 20
+        parts = load_parts(info, weight_bytes=int(e["weight_bytes"]), window=int(e["window"]), bytes_per_elem=bpe,
+                           projector_bytes=proj)
+        total = parts["total"] / 2 ** 20
+        ctx.check(f"{e['model']}: Halo's sum {total:.0f} MiB = the measured {e['measured_total_mib']} within 5 %",
+                  _near(total, float(e["measured_total_mib"]), tol))
+        for key, forced in (("halo_fit", True), ("halo_fit_default", False)):
+            fit = fit_window(info, weight_bytes=int(e["weight_bytes"]), free_bytes=int(e["free_bytes"]),
+                             bytes_per_elem=bpe, projector_bytes=proj, forced=forced)
+            ctx.check(f"{e['model']}: Halo's {key} {fit} = the file's {e[key]}", fit == int(e[key]))
 
 
 @test

@@ -18,6 +18,7 @@ Install Halo, connect your models and providers, and fix what goes wrong.
   - [MODELS-references.md](MODELS-references.md) (Models: references, picks and provider enablement): read this when you type a model name or prefix (`or:`, `dbx:`, `ant:`, `oai:`, `ol:`, `hf:` ...), choose a model for a job, or turn a provider on or off.
   - [MODELS-ollama.md](MODELS-ollama.md) (Models: Ollama hosts, requests and the catalog): read this when you point Halo at an Ollama host and want to know what it sends, how context is sized and how the host is checked.
   - [MODELS-ollama-tuning.md](MODELS-ollama-tuning.md) (Models: Ollama fit, calibration and the gym): read this when a local model does not fit, calls tools badly, or you want `halo gym` scores and role defaults for your GPU.
+  - [MODELS-ollama-steward.md](MODELS-ollama-steward.md) (Models: the Ollama steward): read this when you want to know what the Ollama steward knows, records, finds and changes across your halos and model servers.
   - [MODELS-huggingface.md](MODELS-huggingface.md) (Models: Hugging Face): read this when you use the Hugging Face router, a dedicated endpoint, or a local llama-server, LM Studio or MLX server (`hf:`).
   - [MODELS-openai-codex.md](MODELS-openai-codex.md) (Models: the OpenAI API): read this when you use `oai:` with an OpenAI key.
   - [MODELS-experiential.md](MODELS-experiential.md) (Models: Experiential Labs): read this when you route models through the Experiential Labs gateway (`xp:`).
@@ -39,7 +40,7 @@ Work in the TUI and on the command line, and give agents bios, lineups, roles an
   - [COMMANDS-health.md](COMMANDS-health.md) (Commands: doctor, audit, update and the installers): read this when you check, audit, update or reinstall Halo.
   - [COMMANDS-providers.md](COMMANDS-providers.md) (Commands: providers, rate limits and models): read this when you set up providers, read balances and rules, or refresh the model list.
   - [COMMANDS-mcp.md](COMMANDS-mcp.md) (Commands: MCP servers and connectors): read this when you add, list, repair or log in to MCP servers and claude.ai connectors.
-  - [COMMANDS-ollama.md](COMMANDS-ollama.md) (Commands: Ollama): read this when you run or watch an Ollama server: `halo ollama` and its subcommands (calibrate, doctor, tune, discover, hardware, traffic, events).
+  - [COMMANDS-ollama.md](COMMANDS-ollama.md) (Commands: Ollama): read this when you run or watch an Ollama server: `halo ollama` and its subcommands (calibrate, doctor, tune, discover, hardware, traffic, events, steward).
   - [COMMANDS-local.md](COMMANDS-local.md) (Commands: the gym and local models): read this when you run local models: `halo gym`, `halo local`.
   - [COMMANDS-sessions.md](COMMANDS-sessions.md) (Commands: config, sessions, stats and reports): read this when you read or set config (`halo settings` opens Studio's Settings), replay or export a session, read stats, or file a bug report.
   - [COMMANDS-agents.md](COMMANDS-agents.md) (Commands: roles, review, bios and lineups): read this when you manage roles, reviews, bios and lineups from the command line.

@@ -263,7 +263,7 @@ source at v0.40.6, llama.cpp's server at a pinned commit, mlx-lm, LM
 Studio, vLLM, NVIDIA's and Apple's memory pages, the Hugging Face configs
 of the Qwen models in the worked examples, and read-only reads of one
 measured host, each with its URL, version or commit and the date read.
-See [MODELS-ollama.md](MODELS-ollama.md)'s "The steward (3.3.4.0)".
+See [MODELS-ollama-steward.md](MODELS-ollama-steward.md).
 
 ## Provider enablement
 
