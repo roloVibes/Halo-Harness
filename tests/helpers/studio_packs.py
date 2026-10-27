@@ -5,8 +5,8 @@ doc-review reference pack (enabled) and studio-bundle (enabled, studio-script
 not granted); this process serves Studio in a thread with the live feed on
 (no provider, no model call):
 
-1. the packs' sections after Setup behind a "packs" divider, Alt+9 opens
-   Docs review: the markdown, the table, the links, the Settings form; the
+1. the packs' sections after Settings behind a "packs" divider (3.3.3.0 R2: Alt+9 is
+   Settings, a pack's section is opened by its rail row), Docs review: the markdown, the table, the links, the Settings form; the
    panel's source line and its help; the rail's PACKS group;
 2. Session holds the pack's Reviews panel as a strip;
 3. the palette's pack action opens the checks panel;
@@ -36,7 +36,7 @@ sys.path.insert(0, str(REPO / "tools"))
 
 from tests.helpers.chrome_driver import Driver  # noqa: E402
 from tests.helpers.studio_packs_steps import (CUR, TABS, alt, attention, disabled, events, first_paint, mod_key, pa,  # noqa: E402
-                                              panel, press, q, qa)
+                                              open_tab, panel, press, q, qa)
 
 
 
@@ -48,8 +48,9 @@ def sections(c, url, ctx) -> dict:
     out["kbds"] = c.js(f"{TABS}.map((t) => t.dataset.kbd || '')")  # 3.3.2.0 R1: the icon rail prints no key; the row keeps it as data-kbd
     out["printed"] = c.js(f"{TABS}.filter((t) => t.querySelector('.kbd')).length")
     out["divider"] = c.js(f"(() => {{ const d = {q('[data-testid=rail-packs]')}; return d ? [d.getAttribute('aria-label').toLowerCase(), d.nextElementSibling?.querySelector('.tab-label')?.textContent] : null; }})()")
-    alt(c, 9)  # 3.2.0.0 R6: Alt+7 is Packs; 3.3.0.0 R1: Alt+8 is Setup, the packs' own sections start at Alt+9
-    out["alt7"] = c.wait(f"{CUR}.startsWith('Docs review') && {CUR}", 10)
+    alt(c, 9)  # 3.3.3.0 R2: Alt+9 is Settings; the packs' own sections have no key
+    out["alt9"] = c.wait(f"{CUR}.startsWith('Settings') && {CUR}", 10)
+    out["alt7"] = open_tab(c, "Docs review")
     out["markdown"] = c.wait(f"{panel('doc-review--notes', '[data-testid=pack-markdown]')}?.textContent", 15)
     out["table_rows"] = c.wait(pa("doc-review--checks", "[data-testid=pack-table-row]") + ".length", 15)
     out["table_head"] = c.js(pa("doc-review--checks", "th") + ".map((t) => t.textContent)")
@@ -110,7 +111,7 @@ def form(c, url, ctx) -> dict:
 
 
 def bundle(c, url, ctx) -> dict:
-    # 3.3.0.0 R1: only the first pack section has a key (Alt+9); the second is opened by its tab
+    # 3.3.3.0 R2: no pack section has a key (Alt+9 is Settings); each is opened by its tab
     tab = f"{TABS}.find((t) => t.textContent.startsWith('Hello'))"
     c.wait(f"!!{tab}", 10)
     c.click_on(tab)

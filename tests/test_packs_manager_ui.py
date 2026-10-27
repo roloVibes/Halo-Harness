@@ -9,7 +9,7 @@ skipped without one), over a fresh home with no pack installed:
    block `halo pack inspect` prints; a Grant toggle on a disabled pack picks
    the grant for Enable (its button names the command);
 4. Enable: the row runs with 1/3 granted, the pack's section tab follows Packs
-   on Alt+9; a Grant toggle on the enabled pack grants at once (state.json);
+   with no key (3.3.3.0 R2: Alt+9 is Settings); a Grant toggle on the enabled pack grants at once (state.json);
 4b. 3.2.0.0 R7: Update asks first with the dry run's lines, swaps the new
    version in (Details names the grant it asks for), Roll back brings 1.0.0 back;
 5. Templates: Run review opens Orchestra's form, filled in with the workflow;
@@ -36,7 +36,7 @@ from tests.helpers.runner import Ctx, SkipTest, new_registry, print_results, run
 test, TESTS = new_registry()
 REPO = Path(__file__).resolve().parent.parent
 _RUN: dict = {}
-CORE = ["Session", "Team", "Roles", "Fleet", "Design", "Orchestra", "Packs", "Setup"]
+CORE = ["Session", "Team", "Roles", "Fleet", "Design", "Orchestra", "Packs", "Setup", "Settings"]  # 3.3.3.0 R2: + Settings
 
 
 def _got(ctx: Ctx) -> dict:
@@ -62,7 +62,7 @@ def _got(ctx: Ctx) -> dict:
 def test_packs_is_the_seventh_section_on_alt_7(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"the six, then Packs, got {got.get('tabs')}", got.get("tabs") == CORE)
-    ctx.check(f"Alt+1..8, got {got.get('kbds')}", got.get("kbds") == [f"Alt+{n}" for n in range(1, 9)])
+    ctx.check(f"Alt+1..9, got {got.get('kbds')}", got.get("kbds") == [f"Alt+{n}" for n in range(1, 10)])
     ctx.check(f"Alt+7 opens it, got {got.get('alt7')!r}", str(got.get("alt7")).startswith("Packs"))
     ctx.check(f"its five panels, got {got.get('panels')}", got.get("panels") == ["Installed", "Details", "Sources", "Settings", "Templates"])
     ctx.check("nothing installed yet; Sources offers the shipped pack", got.get("empty") is True and got.get("source_install") == "Install")
@@ -94,8 +94,8 @@ def test_the_details_block_and_a_grant_picked_for_enable(ctx: Ctx):
 def test_enable_and_grant(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"enabled with the picked grant, got {got.get('granted')!r}", got.get("granted") == "1/3 granted")
-    ctx.check(f"its section after Setup on Alt+9, got {got.get('tabs_on')} {got.get('pack_kbd')}",
-              got.get("tabs_on") == CORE + ["Docs review"] and got.get("pack_kbd") == "Alt+9")
+    ctx.check(f"its section after Settings, no key of its own (3.3.3.0 R2), got {got.get('tabs_on')} {got.get('pack_kbd')!r}",
+              got.get("tabs_on") == CORE + ["Docs review"] and not got.get("pack_kbd"))
     ctx.check(f"a toggle on the enabled pack grants at once, got {got.get('granted_more')!r} {got.get('state_json')}",
               got.get("granted_more") == "2/3 granted" and got.get("state_json") == [True, ["bash", "hooks"]])
 

@@ -10,7 +10,7 @@ serves Studio in a thread with the live feed on (no provider, no model call):
 3. Details: the API range beside this Halo's, no dependency, the contributes
    block; a Grant toggle on a disabled pack picks it for Enable;
 4. Enable (with the picked grant): the row runs, 1/3 granted, the pack's own
-   section tab comes after Setup on Alt+9; a Grant toggle on the enabled pack
+   section tab comes after Settings, with no key (3.3.3.0 R2); a Grant toggle on the enabled pack
    grants at once (2/3);
 4b. 3.2.0.0 R7: Update from a newer source asks first with the dry run's lines
    (its migration note), then swaps it in: Roll back to 1.0.0 shows, Details

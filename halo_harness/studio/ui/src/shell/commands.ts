@@ -20,6 +20,7 @@ import { fleetCommands } from "../routes/fleet/commands";
 import { designCommands } from "../routes/design/commands";
 import { rolesCommands } from "../routes/roles/commands";
 import { teamCommands } from "../routes/team/commands";
+import { settingsCommands } from "../routes/settings/commands";
 
 /** `disabled`: drawn with its hint saying why (3.3.2.0 R2: nothing to arrange, nothing to reset); Enter does nothing. */
 export type Command = { id: string; group: string; label: string; kbd?: string; hint?: string; disabled?: boolean; run: () => void };
@@ -106,6 +107,7 @@ export function commands(): Command[] {
     });
   }
   out.push(...teamCommands(), ...rolesCommands(), ...fleetCommands(), ...designCommands(), ...orchestraCommands(), ...mediaCommands());
+  out.push(...settingsCommands()); // 3.3.3.0 R2: "Settings: <title>", one per config key
   out.push(...packCommands(packs.get().reg));
   return out;
 }
