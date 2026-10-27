@@ -11,6 +11,8 @@
          422 {error, problems}     not a section, or not a session id
     POST focus {mode: "setup", block?: <block>, first?: bool}    (3.3.0.0 R4, studio/setup_door.py)
          200 {edit: "", mode, session, block, first, pages}   the pages open Setup on that block
+    POST focus {mode: "settings", group?: <group>}              (3.3.3.0 R2, studio/settings_door.py)
+         200 {edit: "", mode, session, group, pages}   the pages open Settings on that group's page
 
 Every open page (ui/src/shell/edit.ts) answers the frame the way it answers
 `?edit=` (or `?mode=session&session=`) in its URL: it switches to the section
@@ -51,6 +53,12 @@ def _post_section(req, body: dict):
         if block is None:
             return 422, {"error": why, "problems": [why]}
         data.update(block=block, first=bool(body.get("first")))
+    if mode == "settings":  # 3.3.3.0 R2 (studio/settings_door.py): the group whose page opens
+        from halo_harness.studio.settings_door import group_word
+        group, why = group_word(str(body.get("group") or ""))
+        if group is None:
+            return 422, {"error": why, "problems": [why]}
+        data.update(group=group)
     return 200, {**data, "pages": _publish(req, data)}
 
 

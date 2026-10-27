@@ -1,0 +1,83 @@
+/* 3.3.3.0 R2: the Settings section (routes/settings/) -- the group rail on the left (the open group lit, its keys set
+   out of how many), one group's page on the right (its head with the search box, one row per config key: title, key,
+   help line, control, the default marker, Reset, the halo config set line as its footer), a keyed row's table of
+   entries, the generic fields. Colours are tokens only. */
+.st-room { position: absolute; inset: 0; display: flex; min-height: 0; min-width: 0; }
+.st-rail { flex: 0 0 220px; min-height: 0; overflow: auto; border-right: 1px solid var(--line); background: var(--surface-glass); padding: 10px 8px; }
+.st-rail-list { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.st-rail-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 6px 10px;
+  border: 1px solid transparent; border-radius: var(--radius-sm); background: transparent; color: var(--muted); font: inherit;
+  font-size: 12.5px; text-align: left; cursor: pointer; }
+.st-rail-item:hover { color: var(--text); border-color: var(--line); }
+.st-rail-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.st-rail-item.on { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); font-weight: 600; }
+.st-rail-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st-rail-count { flex: 0 0 auto; font-size: 10.5px; color: var(--faint); }
+.st-rail-count[data-set] { color: var(--accent); }
+.st-rail-item.on .st-rail-count { color: var(--accent-ink); }
+
+.st-scroll { position: relative; flex: 1 1 auto; min-width: 0; min-height: 0; overflow: auto; padding: 16px; }
+.st-page-card { display: grid; gap: 12px; align-content: start; max-width: 1080px; margin: 0 auto; padding: 18px 20px; min-width: 0;
+  border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: var(--glow); }
+.st-page-head { display: grid; gap: 6px; min-width: 0; }
+.st-page-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.st-page-kicker { font-size: 10.5px; letter-spacing: 0.08em; color: var(--muted); }
+.st-search { flex: 0 1 340px; min-width: 0; padding: 5px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg-2);
+  color: var(--text); font-size: 12px; }
+.st-search:focus { outline: 2px solid var(--accent); outline-offset: 0; }
+.st-page-title { margin: 0; font-size: 19px; font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
+.st-lead { margin: 0; font-size: 12.5px; }
+.st-page-help summary, .st-section summary { cursor: pointer; font-size: 11.5px; color: var(--accent); width: max-content; max-width: 100%; }
+.st-page-help ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 3px; font-size: 12px; color: var(--muted); }
+.st-error { color: var(--bad); }
+
+.st-rows, .st-hits { display: grid; gap: 8px; min-width: 0; }
+.st-hits-group { display: grid; gap: 8px; min-width: 0; }
+.st-hits-caption { margin: 6px 0 0; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.st-row { display: grid; gap: 6px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); min-width: 0;
+  background: var(--bg-2); transition: border-color var(--t) var(--ease), box-shadow var(--t) var(--ease); }
+.st-row[data-set=true] { border-color: var(--line-strong); }
+.st-row[data-lit] { border-color: var(--accent); box-shadow: var(--glow-strong); }
+.st-row-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; min-width: 0; }
+.st-row-title { font-weight: 600; font-size: 13px; color: var(--text); }
+.st-row-key { font-size: 11px; color: var(--muted); overflow-wrap: anywhere; }
+.st-default, .st-masked { font-size: 10.5px; padding: 0 6px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+.st-masked { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, transparent); background: var(--warn-soft); }
+.st-row-help { margin: 0; font-size: 12px; color: var(--muted); }
+.st-row-control { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px; min-width: 0; }
+.st-row-meta { display: flex; flex-wrap: wrap; gap: 4px 8px; font-size: 11px; min-width: 0; overflow-wrap: anywhere; }
+.st-saved { color: var(--ok); }
+.st-problems { margin: 0; padding-left: 16px; display: grid; gap: 2px; font-size: 12px; color: var(--bad); }
+.st-row-cli { font-size: 11px; color: var(--accent); padding-top: 6px; border-top: 1px dashed var(--line); overflow-wrap: anywhere; user-select: all; }
+
+.st-input, .st-select { min-width: 0; padding: 5px 8px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface);
+  color: var(--text); font-size: 12.5px; }
+.st-input:focus, .st-select:focus { outline: 2px solid var(--accent); outline-offset: 0; }
+.st-input { flex: 1 1 260px; max-width: 520px; }
+.st-number { flex: 0 1 160px; }
+.st-area { width: 100%; max-width: none; resize: vertical; line-height: 1.45; }
+.st-list, .st-json { display: grid; gap: 6px; flex: 1 1 100%; min-width: 0; }
+.st-json-foot { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px; }
+.st-toggle { display: inline-flex; align-items: center; gap: 8px; padding: 3px 10px 3px 3px; border: 1px solid var(--line); border-radius: 999px;
+  background: var(--surface); color: var(--muted); font: inherit; cursor: pointer; }
+.st-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.st-toggle-knob { width: 18px; height: 18px; border-radius: 999px; background: var(--line-strong); transition: background var(--t) var(--ease); }
+.st-toggle.on { color: var(--text); border-color: var(--accent); }
+.st-toggle.on .st-toggle-knob { background: var(--accent); }
+.st-toggle-word { font-size: 11px; }
+
+.st-keyed-box { display: grid; gap: 6px; flex: 1 1 100%; min-width: 0; }
+.st-keyed { width: 100%; border-collapse: collapse; font-size: 12px; }
+.st-keyed th { text-align: left; font-weight: 500; font-size: 10.5px; color: var(--muted); padding: 2px 6px; border-bottom: 1px solid var(--line); }
+.st-keyed td { padding: 4px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.st-entry-name { color: var(--text); overflow-wrap: anywhere; }
+.st-none { margin: 0; font-size: 12px; }
+.st-section { display: grid; gap: 6px; }
+
+@media (max-width: 760px) {
+  .st-room { flex-direction: column; }
+  .st-rail { flex: 0 0 auto; max-height: 30%; border-right: 0; border-bottom: 1px solid var(--line); }
+  .st-rail-list { grid-auto-flow: column; grid-auto-columns: max-content; overflow-x: auto; }
+  .st-scroll { padding: 8px; }
+  .st-page-card { padding: 12px; }
+}

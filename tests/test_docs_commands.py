@@ -126,6 +126,8 @@ def _gather_real_flags() -> "dict[str, set]":
     out["halo check"] = _flags_in(_capture(cmd_check, ["--help"]))
     from halo_harness.studio.server import cmd_studio  # 3.1.1.0 R3: --edit (Studio is the editor)
     out["halo studio"] = _flags_in(_capture(cmd_studio, ["--help"]))
+    from halo_harness.settings_cli import cmd_settings  # 3.3.3.0 R2: the door into Studio's Settings
+    out["halo settings"] = _flags_in(_capture(cmd_settings, ["--help"]))
     # 3.1.8.0 R1: the supervisor and its goal queue
     from halo_harness.supervise.cli import cmd_supervise
     from halo_harness.supervise.goal_cli import cmd_goal
@@ -156,7 +158,7 @@ def test_every_subcommand_is_documented(ctx: Ctx):
     text = doc_text("COMMANDS.md")
     for name in ("init", "doctor", "update", "models", "mcp", "config", "stats", "export", "improve", "proxy",
                  "work-matrix", "ollama", "review", "media", "fleet", "team", "start", "explain", "pack", "workflow",
-                 "isolation", "secrets", "session"):
+                 "isolation", "secrets", "session", "settings"):
         label = f"halo {name}"
         ctx.check(f"COMMANDS.md documents {label!r} (as a heading)",
                   re.search(rf"^#{{1,3}}\s+.*`?{re.escape(label)}`?", text, re.MULTILINE) is not None)

@@ -7,7 +7,7 @@ section the registry gives that key, every "`Alt+1`..`Alt+6`" list runs in the r
 banner (tools/studio_modes_banner.py) draws its tiles in that order with those keys, and
 docs/STUDIO-sections.md tells the sections in it. 3.2.0.0 R6: Packs (the Pack Manager) is appended as the
 seventh section, `Alt+7`; the six keep their keys. 3.2.0.0 R7: the banner gains the Packs tile (seven). 3.3.0.0 R1:
-Setup is appended as the eighth and last, `Alt+8` (the packs' own sections start at `Alt+9`). The reader is
+Setup is appended as the eighth, `Alt+8`; 3.3.3.0 R2: Settings as the ninth and last, `Alt+9` (a pack's own section has no key). The reader is
 tests/helpers/section_order.py; a reorder of SECTIONS fails here on every line it leaves behind.
 Run: python -m tests.test_studio_section_order
 """
@@ -35,16 +35,17 @@ def _docs() -> "list[Path]":
 @test
 def test_the_registry_runs_session_first_and_orchestra_last(ctx: Ctx):
     rows = so.registry()
-    ctx.check(f"eight sections (3.2.0.0 R6: Packs appended; 3.3.0.0 R1: Setup), got {[r[0] for r in rows]}", len(rows) == 8)
-    ctx.check(f"the keys follow the order, Alt+1 to Alt+8, got {[r[2] for r in rows]}", [r[2] for r in rows] == [f"Alt+{n}" for n in range(1, 9)])
-    ctx.check(f"the order is Session, Team, Roles, Fleet, Design, Orchestra, Packs, Setup, got {[r[1] for r in rows]}",
-              [r[0] for r in rows] == ["session", "team", "roles", "fleet", "design", "orchestra", "packs", "setup"])
+    ctx.check(f"nine sections (3.2.0.0 R6: Packs appended; 3.3.0.0 R1: Setup; 3.3.3.0 R2: Settings), got {[r[0] for r in rows]}", len(rows) == 9)
+    ctx.check(f"the keys follow the order, Alt+1 to Alt+9, got {[r[2] for r in rows]}", [r[2] for r in rows] == [f"Alt+{n}" for n in range(1, 10)])
+    ctx.check(f"the order is Session, Team, Roles, Fleet, Design, Orchestra, Packs, Setup, Settings, got {[r[1] for r in rows]}",
+              [r[0] for r in rows] == ["session", "team", "roles", "fleet", "design", "orchestra", "packs", "setup", "settings"])
     ctx.check("Session is Alt+1, This session, live", rows[0][1:] == ("Session", "Alt+1", "This session, live"))
     ctx.check("Orchestra is Alt+6, Runs of your agents, live", rows[5][1:] == ("Orchestra", "Alt+6", "Runs of your agents, live"))
     ctx.check("Packs is Alt+7, the Pack Manager (3.2.0.0 R6)", rows[6][1:] == ("Packs", "Alt+7", "Install, grant and enable packs"))
-    ctx.check("Setup is the last, Alt+8 (3.3.0.0 R1)", rows[-1][1:] == ("Setup", "Alt+8", "Providers, models, permissions, theme and lineup"))
+    ctx.check("Setup is Alt+8 (3.3.0.0 R1)", rows[7][1:] == ("Setup", "Alt+8", "Providers, models, permissions, theme and lineup"))
+    ctx.check("Settings is the last, Alt+9 (3.3.3.0 R2)", rows[-1][1:] == ("Settings", "Alt+9", "Every config key, one page per group"))
     reg = (UI / "routes" / "packs" / "registry.ts").read_text(encoding="utf-8")
-    ctx.check("the packs' own sections start at Alt+9", "const FIRST_KEY = 9;" in reg)
+    ctx.check("3.3.3.0 R2: no key is left for a pack's own section (FIRST_KEY 10, past Alt+9)", "const FIRST_KEY = 10;" in reg and "const LAST_KEY = 9;" in reg)
     keys = (UI / "shell" / "keys.ts").read_text(encoding="utf-8")
     ctx.check("Alt+1..6 take the registry's n-th section (3.2.0.0 R3: sections() is the six, then the packs')",
               "sections()[Number(e.code.slice(5)) - 1]" in keys)
@@ -68,7 +69,7 @@ def test_the_ui_copy_and_comments_name_the_registry_key(ctx: Ctx):
     ctx.check("every Alt+N in ui/src (help copy, comments) names the registry's section:\n  " + "\n  ".join(bad), not bad)
     help_src = (UI / "routes" / "sectionHelp.ts").read_text(encoding="utf-8")
     ctx.check("the section help keeps no Alt+N line of its own (the overlay puts the registry's first)",
-              re.search(r'\["Alt\+[1-8]"', help_src) is None)
+              re.search(r'\["Alt\+[1-9]"', help_src) is None)
     overlay = (UI / "shell" / "SectionHelp.tsx").read_text(encoding="utf-8")
     ctx.check("the overlay's KEYS list starts with the section's registry key", "[[def.kbd, def.title], ...copy.keys]" in overlay)
     status = (UI / "shell" / "StatusBar.tsx").read_text(encoding="utf-8")
@@ -81,15 +82,15 @@ def test_the_ui_copy_and_comments_name_the_registry_key(ctx: Ctx):
 
 @test
 def test_the_modes_banner_draws_the_registry_order(ctx: Ctx):
-    rows = so.registry()  # 3.2.0.0 R7: the Packs tile too (tools/capture_packs.py); 3.3.0.0 R1: Setup, eight in all
+    rows = so.registry()  # 3.2.0.0 R7: the Packs tile too (tools/capture_packs.py); 3.3.0.0 R1: Setup; 3.3.3.0 R2: Settings, nine in all
     frames = so.banner_frames()
-    ctx.check(f"eight tiles, got {len(frames)}", len(frames) == 8)
+    ctx.check(f"nine tiles, got {len(frames)}", len(frames) == 9)
     ctx.check(f"the tiles run in the registry's order, got {[f[1] for f in frames]}", [f[1] for f in frames] == [r[1] for r in rows])
     ctx.check(f"each tile's key chip is its registry key, got {[f[2] for f in frames]}",
               [f[2] for f in frames] == [r[2].replace("+", " ") for r in rows])
     ctx.check(f"each tile is its section's capture, got {[f[0] for f in frames]}", [f[0] for f in frames] == [f"studio-{r[0]}.png" for r in rows])
     readme = (REPO / "README.md").read_text(encoding="utf-8")
-    alt = re.search(r'<img alt="(Halo Studio\'s eight sections[^"]*)" src="docs/media/studio-modes.png"', readme)
+    alt = re.search(r'<img alt="(Halo Studio\'s nine sections[^"]*)" src="docs/media/studio-modes.png"', readme)
     pairs = re.findall(r"(\w+) \((Alt\+\d)\)", alt.group(1)) if alt else []
     ctx.check(f"the README banner's alt text names each section with its key in that order, got {pairs}",
               pairs == [(r[1], r[2]) for r in rows])
