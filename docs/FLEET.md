@@ -97,6 +97,17 @@ The level is applied on the member before anything is sent, and again on
 the hub. Full local paths never leave: a working directory or repo root
 travels as its last component only.
 
+The Ollama ledger (3.3.4.0 R2) has its own switch, `fleet.ollama.share`
+(default `auto`): a member sends the hub its ledger lines
+(`~/.halo/ollama/traffic.jsonl`, one per call to a model server, see
+[MODELS-ollama.md](MODELS-ollama.md)) for every host it does not serve
+itself -- a host url that is not a loopback name or one of the member's own
+addresses -- in one signed `POST /fleet/v1/ollama` every 30 s or 50 lines.
+The hub appends them to its own ledger with `from` set to the member's
+name, so `halo ollama traffic` on the machine that serves the models shows
+every halo's calls to it. `all` sends the member's own server's calls too,
+`off` none.
+
 ### What control levels mean, and the card the owner sees
 
 `fleet.allow_control` (default `ask`; a hub entry's own wins) gates
@@ -697,6 +708,7 @@ digest (both R4, from this harness's own files); `halo fleet capabilities
 | `fleet.attention.signal` | `true` | new attention rows go to the paired phone when the Signal bridge runs; `false` keeps them in Studio |
 | `fleet.tags` | `[]` | 3.0.6.0 R6: your own words for this harness; first on its chips, double weight in `who` |
 | `fleet.capabilities.hide` | `[]` | MCP servers, tools (`tool` or `server/tool`), skills, craft apps or pack capabilities (`name` or `<pack>/<name>`, 3.2.1.0 R3) its capability catalog never lists |
+| `fleet.ollama.share` | `auto` | 3.3.4.0 R2: the Ollama ledger's lines a joined harness sends: `auto` (the calls to a host it does not serve itself), `all`, `off` |
 | `fleet.recall.share` | `true` | 3.1.2.0 R3: `false` keeps this box out of recall across the fleet (it answers none) |
 | `fleet.recall.hide` | `[]` | 3.1.2.0 R3: memory kinds its recall never answers (`session`, `memory`, `coach_library` since 3.1.6.0, `finding` / `decision` / `knowledge` since 3.1.8.0 R4, or a topic's `type`) |
 | `fleet.shared_dir` | unset | 3.0.6.0 R7: a folder every machine sees; missions live there and nothing is mirrored ([MISSIONS.md](MISSIONS.md)) |

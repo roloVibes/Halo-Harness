@@ -20,6 +20,7 @@ ROWS = [
     Row("fleet.attention.signal", "fleet", "Attention to Signal", "bool", True, (), "Each new Fleet attention row goes to the phone when the Signal bridge is on and paired.", "now"),
     Row("fleet.tags", "fleet", "Tags", "list", [], (), "Your own words for this harness: they show first on its chips and count double in who-can searches.", "now"),
     Row("fleet.capabilities.hide", "fleet", "Hidden capabilities", "list", [], (), "Capabilities the catalog never lists, so no hub sees them (an MCP server, a tool, a skill, a craft app).", "now"),
+    Row("fleet.ollama.share", "fleet", "Share Ollama calls", "enum", "auto", ("auto", "all", "off"), "Send this box's ledger lines to the hub: auto, the calls to a host it does not serve itself; all; or off.", "now"),
     Row("fleet.recall.share", "fleet", "Share recall", "bool", True, (), "This box answers recall queries from the fleet.", "now"),
     Row("fleet.recall.hide", "fleet", "Hidden recall kinds", "list", [], (), "Memory kinds this box's recall never answers for the fleet.", "now"),
     Row("fleet.shared_dir", "fleet", "Shared folder", "path", None, (), "A folder every machine of the fleet sees; fleet missions live there instead of being mirrored.", "now"),

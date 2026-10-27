@@ -2701,20 +2701,12 @@ class Session:
         timer.daemon = True
         timer.start()
         text_parts: list = []
-        # Halo 2.0.3 round 5i part 1: `self._stream` is the dialect
-        # dispatcher (falls through to the bare `stream_completion` for
-        # every dialect it doesn't special-case) -- routed through it for
-        # "ollama"/"openai-responses" only, same as before this round,
-        # rather than widening this one-line ternary into a three-way
-        # branch that would just re-derive `_stream`'s own fallback.
-        # vibes/review.md finding 32: "anthropic-passthrough" now also goes
-        # through `_stream` (whose own dispatch sends it to
-        # stream_anthropic_completion) -- it carries a body built by
-        # build_anthropic_request_body above, not the openai-chat shape the
-        # bare `stream_completion` fallback expects.
-        gen = (self._stream(req, abort=abort)
-               if route.dialect in ("ollama", "openai-responses", "anthropic-passthrough")
-               else stream_completion(req, abort=abort))
+        # `self._stream` is the dialect dispatcher for every dialect (an
+        # anthropic-passthrough body goes to stream_anthropic_completion,
+        # vibes/review.md finding 32); since 3.3.4.0 R2 the openai-chat
+        # fallback goes through it too, so a local server's small call
+        # (a title, a hook verdict) leaves its ledger line like a turn.
+        gen = self._stream(req, abort=abort, kind="small")
         try:
             for ev in gen:
                 kind = ev.get("type")
@@ -3328,7 +3320,8 @@ class Session:
         }
         return CompletionRequest(**kwargs)
 
-    def _stream(self, req: CompletionRequest, abort: "threading.Event | None" = None) -> Iterator[dict]:
+    def _stream(self, req: CompletionRequest, abort: "threading.Event | None" = None,
+                kind: str = "turn") -> Iterator[dict]:
         """Dispatch to the right dialect's orchestration -- the ONE place
         that decides `stream_completion` vs `stream_anthropic_completion`
         vs `stream_ollama_completion`, so every `_step`/`_run_compaction`
@@ -3347,11 +3340,16 @@ class Session:
         eff_abort = abort if abort is not None else self.abort
         if req.route.dialect == "anthropic-passthrough":
             return stream_anthropic_completion(req, abort=eff_abort)
-        if req.route.dialect == "ollama":
-            return stream_ollama_completion(req, abort=eff_abort)
         if req.route.dialect == "openai-responses":
             return stream_openai_responses_completion(req, abort=eff_abort)
-        return stream_completion(req, abort=eff_abort)
+        # Halo 3.3.4.0 R2: a call to a local server (an `ol:` host, an
+        # `hf:local` server) leaves one line in `<state>/ollama/traffic.jsonl`
+        # once its facts are in hand; `kind` names the caller (turn,
+        # compaction, small, repair). Every other call's stream is untouched.
+        from halo_harness.ollama_steward.ledger_call import observe_call
+        gen = (stream_ollama_completion(req, abort=eff_abort) if req.route.dialect == "ollama"
+               else stream_completion(req, abort=eff_abort))
+        return observe_call(self, req, gen, kind=kind, abort=eff_abort)
 
     def _abort_sleep(self, delay: float) -> bool:
         """Sleep up to `delay` seconds in short increments, checking
@@ -5051,7 +5049,7 @@ class Session:
             body = self._build_body_for_messages(system_text, call_messages, tools,
                                                   requested_max_tokens=requested_max_tokens, no_thinking=True)
             req = self._build_request(body)
-            gen = self._stream(req)
+            gen = self._stream(req, kind="compaction")
             text_parts: list = []
             stop_reason = None
             wire_error: Optional[dict] = None
@@ -6126,7 +6124,7 @@ class Session:
             timer.daemon = True
             timer.start()
             text_parts: list = []
-            gen = self._stream(req, abort=abort)
+            gen = self._stream(req, abort=abort, kind="repair")
             try:
                 for ev in gen:
                     kind = ev.get("type")

@@ -100,7 +100,7 @@ GPU)"), the `/model` picker and Studio's Models rows show it first for
 that host, and `--remove` deletes it (never an original). `halo ollama
 discover --calibrate` and the wizard's calibrate offer end with "make
 tuned twins of the models that fit? (Enter / n)". See
-[COMMANDS-local.md](COMMANDS-local.md)'s `halo ollama tune`.
+[COMMANDS-ollama.md](COMMANDS-ollama.md)'s `halo ollama tune`.
 
 **Context-ownership precedence (round 5b, corrected)**: `num_ctx` is the
 SMALLEST of every candidate that is actually known -- the hard cap
