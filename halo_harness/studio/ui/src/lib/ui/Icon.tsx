@@ -44,6 +44,7 @@ const PATHS: Record<string, string> = {
   orchestra: "M2 4h12M2 8h12M2 12h12M5 2.5v3M10.5 6.5v3M7 10.5v3",
   packs: "M2.5 5 8 2l5.5 3v6L8 14l-5.5-3ZM2.5 5 8 8l5.5-3M8 8v6",
   setup: "M4 2v12M8 2v12M12 2v12M2.5 5h3M6.5 10h3M10.5 6.5h3",
+  settings: "M2.5 4h6M11.5 4h2M2.5 8h2M7.5 8h6M2.5 12h7M12.5 12h1M10 2.5v3M6 6.5v3M11 10.5v3", // 3.3.3.0 R2: rows with their knobs
   "chevron-left": "M10 4 6 8l4 4",
   focus: "M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4",
 };

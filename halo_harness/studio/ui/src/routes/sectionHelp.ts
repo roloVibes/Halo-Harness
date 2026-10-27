@@ -151,4 +151,23 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
       ["Mod+K", "every command, with its key"],
     ],
   },
+  settings: {
+    terms: ["config key", "setup", "provider"], // 3.3.3.0 R2: "config key" joins the glossary
+    what: "Every config key of ~/.halo/config.json, the ones halo config set and a dozen features write, one page per group: each row is one key with its help line, its value against its default, Reset to default and the exact halo config set line. A change saves at once and says when it takes effect. Nothing opens on its own here; halo settings [group] opens a group's page from a terminal.",
+    steps: [
+      ["Pick a group", "The rail on the left lists the groups (General, Agents and roles ... Local) with how many of their keys are set; a click opens its page."],
+      ["Read a row", "Title, one help line, the control, and under it the default it falls back to and when a change takes effect: now, in the next session, or on the next launch."],
+      ["Change a key", "A switch or a choice saves on the click; a number or a text saves on Enter or when you leave the field; a list or JSON saves with its Save. The row says saved and when it takes effect."],
+      ["Go back to the default", "A row marked default is not in config.json. Reset to default takes a key you set back out, and the marker returns."],
+      ["Keys with entries", "A key with a placeholder (a connector, a provider, an Ollama host's field) is a table of the entries saved, each with its own control and Reset; Edit as JSON writes the whole section."],
+      ["Search", "The box in the page head finds a row across every group by its title, key or help line; Mod+K lists every row as Settings: <title>."],
+      ["The same from a terminal", "Each row's footer is the halo config set line that does the same; halo settings --terminal lists a group's keys with their values."],
+    ],
+    keys: [
+      ["Enter", "in a number or text field: save it"],
+      ["Ctrl+Enter", "in a list or JSON box: save it"],
+      ["?", "this help"],
+      ["Mod+K", "every command and every Settings row"],
+    ],
+  },
 };

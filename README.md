@@ -114,7 +114,7 @@ OpenAI API, Ollama, Hugging Face, or any OpenAI-compatible server you host), and
 
 ## Halo Studio
 
-`halo studio` opens Studio in your browser. It is one window with eight sections under one
+`halo studio` opens Studio in your browser. It is one window with nine sections under one
 header, and two of them are where you watch your agents: **Session**, the dashboard of everything working
 right now, and **Roles**, your lineup as cards that light up as their agents work.
 
@@ -191,7 +191,7 @@ it; Save writes the lineup's YAML and Apply makes it the lineup new sessions use
 
 ### Six sections, one window
 
-<a href="docs/media/studio-modes.png"><img alt="Halo Studio's eight sections side by side, each under its key: Session (Alt+1), Team (Alt+2), Roles (Alt+3), Fleet (Alt+4), Design (Alt+5), Orchestra (Alt+6), Packs (Alt+7) and Setup (Alt+8)" src="docs/media/studio-modes.png" width="100%"></a>
+<a href="docs/media/studio-modes.png"><img alt="Halo Studio's nine sections side by side, each under its key: Session (Alt+1), Team (Alt+2), Roles (Alt+3), Fleet (Alt+4), Design (Alt+5), Orchestra (Alt+6), Packs (Alt+7), Setup (Alt+8) and Settings (Alt+9)" src="docs/media/studio-modes.png" width="100%"></a>
 
 `Alt+1` to `Alt+6` switch between **Session**, **Team**, **Roles**, **Fleet**,
 **Design** and **Orchestra**. Each section opens on a Start view that says what it is for,
@@ -210,6 +210,11 @@ The eighth, **Setup** (`Alt+8`, 3.3.0.0), is this box's setup on one page: the t
 (the providers, local models, the default model, the permission mode, the terminal theme, the lineup,
 the Linux fixes when a box needs them, and the five checks) as forms you fill in any order, each saving the
 key `halo init --terminal` and `halo config set` write; `halo init` opens it, and so does a home with no provider set up. See [docs/STUDIO-setup.md](docs/STUDIO-setup.md).
+
+The ninth, **Settings** (`Alt+9`, 3.3.3.0), is every key of `~/.halo/config.json` on one page per group:
+each key a row with its help line, its value against its default, Reset to default and the exact
+`halo config set` line; a change saves at once and says when it takes effect, and a search finds a key
+across every group. `halo settings fleet` opens its Fleet page. See [docs/CONFIG.md](docs/CONFIG.md).
 
 The pictures here are headless-Chrome renders of Studio over fixture data
 (`tools/capture_studio.py`, and `tools/capture_session_anim.py` for the animated ones).
@@ -342,7 +347,7 @@ tool, so check each tool's own docs.
 
 | | |
 |---|---|
-| **Halo Studio** | `halo studio`, or `/studio` in a session: the browser console, eight sections under one header. Loopback only, a per-launch token, no CDN. |
+| **Halo Studio** | `halo studio`, or `/studio` in a session: the browser console, nine sections under one header. Loopback only, a per-launch token, no CDN. |
 | **The Session dashboard** | One live column of every agent's thinking, tool calls (what each runs on, its time, its result), hand-backs and asks; the map of who spawned whom with each agent's model, cost and running tool; the context bar, the spend and each agent's share. |
 | **The Roles glow** | Your lineup as cards in tier boxes. While a session runs, a card glows in its agent's state: working cyan, waiting amber, done green that fades over ten seconds, failed red until you click it. Hover the card and it explains its glow. |
 | **Fleet and missions** | Every harness on one map, one attention queue across all of them, and one goal split into parts by what each harness can do. |

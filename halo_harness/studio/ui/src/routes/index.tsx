@@ -12,13 +12,14 @@
 // (drag, resize, collapse, pop out, persistence). Each section's "How this
 // works" copy is routes/sectionHelp.ts.
 // Design also carries the Media panels as optional ones the palette adds.
-// 3.1.6.0 R6: this list IS the order: the rail's section rows (3.3.2.0 R1; the tab strip before), the Alt+1..8 keys (shell/keys.ts), the palette's
+// 3.1.6.0 R6: this list IS the order: the rail's section rows (3.3.2.0 R1; the tab strip before), the Alt+1..9 keys (shell/keys.ts), the palette's
 // Go to and section groups, the section help's key line and the status bar's key hint all read it.
 // The owner, 2026-10-20: "The session tab should be the first tab in studio", then "Here's the order of
 // tabs in studio: session, team, roles, fleet, design"; Orchestra, not in his list, takes the next key.
 // 3.2.0.0 R6: Packs (the Pack Manager) is appended as the seventh core section, Alt+7; the six keep theirs.
 // 3.3.0.0 R1: Setup (the terminal wizard's blocks as forms) is appended as the eighth and last, Alt+8; the seven keep theirs.
 // 3.3.1.0 R1: Setup is `paged`: its view is a step rail over one page at a time, no panels.
+// 3.3.3.0 R2: appended as the ninth, Alt+9 Settings (every config.json key, one page per group), paged too.
 import type { ComponentType } from "react";
 import type { SectionId } from "../lib/store";
 import type { PanelSpec } from "../lib/workspace/types";
@@ -45,6 +46,7 @@ import { packs, usePacks } from "./packs/store";
 import { enterPacks, packsPanels } from "./packs/manager/Manager";
 import { TeamView } from "./team/Start";
 import { enterSetup, SetupView } from "./setup/Setup";
+import { enterSettings, SettingsView } from "./settings/Settings";
 import { setView as enterTeam } from "./team/store";
 
 export type SectionDef = {
@@ -72,13 +74,14 @@ export const SECTIONS: SectionDef[] = [
   { id: "orchestra", title: "Orchestra", kbd: "Alt+6", blurb: "Runs of your agents, live", panels: orchestraPanels, menu: useOrchestraMenu, view: OrchestraView, enter: enterOrchestra },
   { id: "packs", title: "Packs", kbd: "Alt+7", blurb: "Install, grant and enable packs", panels: packsPanels, enter: enterPacks },
   { id: "setup", title: "Setup", kbd: "Alt+8", blurb: "Providers, models, permissions, theme and lineup", panels: [], paged: true, view: SetupView, enter: enterSetup },
+  { id: "settings", title: "Settings", kbd: "Alt+9", blurb: "Every config key, one page per group", panels: [], paged: true, view: SettingsView, enter: enterSettings },
 ];
 
-// 3.2.0.0 R3: the packs' sections come after the core ones (3.3.0.0 R1: after Setup, the first of them on Alt+9) and their
-// panels join the core sections' (routes/packs/registry.ts, from the registry the server builds); SECTIONS stays the core eight, in their order.
+// 3.2.0.0 R3: the packs' sections come after the core ones (3.3.3.0 R2: after Settings, reached by a click or the palette) and their
+// panels join the core sections' (routes/packs/registry.ts, from the registry the server builds); SECTIONS stays the core nine, in their order.
 let merged: { reg: unknown; out: SectionDef[] } = { reg: null, out: SECTIONS };
 
-/** Every section, the eight core ones (with the packs' panels added) then the packs' own. */
+/** Every section, the nine core ones (with the packs' panels added) then the packs' own. */
 export function sections(): SectionDef[] {
   const reg = packs.get().reg;
   if (merged.reg !== reg) {

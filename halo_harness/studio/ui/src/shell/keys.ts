@@ -1,5 +1,5 @@
 // Global keys: Alt+1..8 switch sections in the registry's order (routes/index.tsx SECTIONS; 3.1.6.0 R6:
-// Session Alt+1 ... Orchestra Alt+6; 3.2.0.0 R6: Packs Alt+7; 3.3.0.0 R1: Setup Alt+8, then Alt+9 a pack's own section), Ctrl/Cmd+K toggles the palette,
+// Session Alt+1 ... Orchestra Alt+6; 3.2.0.0 R6: Packs Alt+7; 3.3.0.0 R1: Setup Alt+8; 3.3.3.0 R2: Settings Alt+9, a pack's own section by its rail row), Ctrl/Cmd+K toggles the palette,
 // `?` (Shift+/) opens "How this works" for the section (a focused panel
 // takes `?` first for its own help), Esc closes the palette, then the
 // Inspector. A key a panel, a menu or a dialog already handled (its default

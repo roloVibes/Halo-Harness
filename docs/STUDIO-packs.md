@@ -86,7 +86,7 @@ shown as the pack requested them.
 ### A pack's own sections
 
 A pack you enable may add its own sections after the core sections (after
-Setup, 3.3.0.0), the first on `Alt+9` (later ones have no key), behind a thin divider in
+Settings, 3.3.3.0; no key of their own: a click or the palette opens one), behind a thin divider in
 the icon rail, each with the diamond (3.3.2.0); and panels in the core
 sections, palette lines and feed lines ([PACKS.md](PACKS.md#in-studio)).
 They go the moment you disable it.

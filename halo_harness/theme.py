@@ -187,14 +187,28 @@ _MISSING = object()
 def unset_config_value(key: str) -> bool:
     """Remove a top-level key from `~/.halo/config.json` (3.1.9.0 R2: the
     wizard's One model for everything clears `team`); False when it was not
-    there. Same write path and corrupt-file refusal as `set_config_value`."""
+    there. Same write path and corrupt-file refusal as `set_config_value`.
+
+    3.3.3.0 R2 (Studio's Settings, Reset to default): `key` may be dotted (`"fleet.enabled"`): the leaf goes,
+    and a section it leaves empty goes with it; a plain key is unchanged from before."""
     path = _config_path()
     if not path.exists():
         return False
     data = _load_config_for_write(path)
-    if key not in data:
+    parts = key.split(".") if "." in key else [key]
+    trail, cursor = [], data
+    for part in parts[:-1]:
+        nxt = cursor.get(part) if isinstance(cursor, dict) else None
+        if not isinstance(nxt, dict):
+            return False
+        trail.append((cursor, part))
+        cursor = nxt
+    if not isinstance(cursor, dict) or parts[-1] not in cursor:
         return False
-    data.pop(key)
+    cursor.pop(parts[-1])
+    for parent, part in reversed(trail):
+        if parent[part] == {}:
+            parent.pop(part)
     from halo_harness.privateio import write_private_atomic
     write_private_atomic(path, json.dumps(data, indent=2) + "\n")
     return True

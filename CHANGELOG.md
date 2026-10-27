@@ -22,6 +22,20 @@ version.
 - A Studio page is no longer sent to Setup by "no provider set up yet" once Setup's Done was pressed for that home.
 - `cli.launch_bare` (bare halo's full-screen path, `/update`'s restart included) is shared by `halo` and `halo init`.
 
+### R2: the Settings section
+
+#### Added
+- Studio's **Settings** section (`Alt+9`, after Setup): every key of `~/.halo/config.json`, one page per group (General, Agents and roles, Coach and improve, Knowledge and recall, Supervise, Steer and turn, Models, Providers, Ollama, Network and routing, Fleet, Remote, Packs, Connectors, Worktree, Update, Local). Each key is a row with its help line, its value against its default, a "default" marker, Reset to default and the exact `halo config set` line. A change saves at once and says when it takes effect: now, in the next session, or on the next launch. A search box finds a row across every group; a key with entries (a connector, a provider, an Ollama host's field) is a table plus its section as JSON; a secret is never shown.
+- One catalog of every key (`halo_harness/settings_catalog.py`, 131 rows) behind the section, the palette's "Settings: <title>" entries and `halo settings --terminal`. `tests/test_settings_catalog.py` holds it, the config schema and docs/CONFIG.md's key table to the same keys.
+- `GET settings/catalog`, `GET settings/values`, `POST settings/set` and `POST settings/unset`. A value is checked by its kind and choices (422 with one problem line each); `halo config set`'s theme and removed-key answers apply too.
+- `halo settings [group] [--terminal] [--list]`: Studio on Settings (`?mode=settings&group=fleet`, or `halo studio --edit settings:fleet`). `--terminal` prints a group's keys as `key = value (default ...)` lines.
+- The glossary word "config key"; `docs/media/studio-settings.png`; the modes banner's ninth tile.
+
+#### Changed
+- A pack's own Studio section has no `Alt` key now (`Alt+9` is Settings); its rail row or the palette opens it.
+- docs/CONFIG.md's key table gains a Studio column naming each key's Settings page, and 26 keys it lacked (`tips`, `permission_mode`, `effort`, `model_memory`, `agents.*`, `roles.*`, `providers.<name>.enabled`, `network.offline`, `routing.escalation`, `local.servers`, `embeddings.*`, `comfy.url`, `governor.*`).
+- `theme.unset_config_value` takes a dotted key (Reset to default), and drops a section the key leaves empty.
+
 ## [3.3.2.0] - 2026-10-27
 
 **Quiet Studio.** The owner's note on 3.3.1.0: "the visuals in studio are too cluttered and the pop up is

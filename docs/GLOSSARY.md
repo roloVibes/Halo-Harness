@@ -118,3 +118,7 @@ A provider is a service Halo calls a model on: OpenRouter, Databricks, the Anthr
 ## env file
 
 The env file (`~/.config/halo/env`, or the file `HALO_ENV_FILE` names) holds the provider keys Halo reads, one `NAME=value` line each, written with owner-only permissions; `~/.halo/config.json` keeps only the names of those variables, never a key. `halo init` writes it, every Halo process reads it at start, and a tool's child process never sees its keys.
+
+## config key
+
+A config key is one setting in `~/.halo/config.json`, named by its dotted path (`fleet.enabled`, `ollama.discover.ports`); `halo config get` reads it, `halo config set <key> <value>` writes it, and a key you never set falls back to its default. Studio's Settings section (3.3.3.0) lists every key, one page per group, each row with its help line, its value against its default, Reset to default and the exact `halo config set` line; docs/CONFIG.md's key table is the same list in words.

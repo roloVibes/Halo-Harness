@@ -3,8 +3,8 @@ are too cluttered and the pop up is annoying when you open a tab and the left co
 Headless Chrome through tests/helpers/studio_quiet.py (skipped without one), over a seeded scratch home and a
 fresh one; no provider request, no model call:
 
-1. nothing opens on any tab: each of the eight core sections, loaded on its own (no `tour=off`) and reached
-   by Alt+1..8, shows no section help, no dialog, no Start here after 2 s, on the seeded home and the fresh one;
+1. nothing opens on any tab: each of the nine core sections, loaded on its own (no `tour=off`) and reached
+   by Alt+1..9, shows no section help, no dialog, no Start here after 2 s, on the seeded home and the fresh one;
 2. Start here only on the fresh home's first section; "Set up this box" closes it for this browser (not on the
    next section, not on a reload); a browser without the key gets it once more, "Just look around" closes it;
 3. the icon rail: 56 px of section icons by default (<= 64), 200 px expanded by its chevron (R2: <= 200), the
@@ -36,7 +36,7 @@ test, TESTS = new_registry()
 REPO = Path(__file__).resolve().parent.parent
 UI = REPO / "halo_harness" / "studio" / "ui" / "src"
 _RUN: dict = {}
-SECTIONS = ["session", "team", "roles", "fleet", "design", "orchestra", "packs", "setup"]
+SECTIONS = ["session", "team", "roles", "fleet", "design", "orchestra", "packs", "setup", "settings"]  # 3.3.3.0 R2: + Settings
 NOTHING = [0, 0, 0]  # section help, dialogs, Start here
 
 
@@ -99,12 +99,12 @@ def test_the_icon_rail(ctx: Ctx):
     got = _got(ctx, "seeded")
     ctx.check(f"icons by default, <= 64 px, got {got.get('rail_default')} {got.get('rail_icons_w')}",
               got.get("rail_default") == "icons" and 0 < (got.get("rail_icons_w") or 0) <= 64)
-    titles = ["Session", "Team", "Roles", "Fleet", "Design", "Orchestra", "Packs", "Setup"]
+    titles = ["Session", "Team", "Roles", "Fleet", "Design", "Orchestra", "Packs", "Setup", "Settings"]
     ctx.check(f"one rail-item per core section, title and name the section's, got {got.get('rail_items')}",
               got.get("rail_items") == [[s, t, t, True] for s, t in zip(SECTIONS, titles)])
     ctx.check(f"the current one lit, got {got.get('rail_on')}", got.get("rail_on") == ["roles"])
-    ctx.check(f"no label while icons, all eight expanded, got {got.get('rail_labels_shown_icons')} / {got.get('rail_labels_shown_open')}",
-              got.get("rail_labels_shown_icons") == 0 and got.get("rail_labels_shown_open") == 8)
+    ctx.check(f"no label while icons, all nine expanded, got {got.get('rail_labels_shown_icons')} / {got.get('rail_labels_shown_open')}",
+              got.get("rail_labels_shown_icons") == 0 and got.get("rail_labels_shown_open") == 9)
     ctx.check(f"no printed shortcut in the rail, got {got.get('rail_kbd')} / {got.get('rail_kbd_open')}",
               got.get("rail_kbd") == [0, False] and got.get("rail_kbd_open") == [0, False])
     ctx.check(f"no tab strip in the header, the section's title there, got {got.get('header_tabs')} {got.get('header_title')!r}",

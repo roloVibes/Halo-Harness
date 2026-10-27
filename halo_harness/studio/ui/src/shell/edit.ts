@@ -10,11 +10,13 @@
 // Session on its `session` (`/studio`, `halo studio --session`); the URL's
 // `?mode=session&session=` is read by routes/session/store.ts itself.
 // 3.3.0.0 R4: Setup's doors (`?mode=setup&first=1`, `&block=team`, and a frame
-// `{mode: "setup", block, first}`) go to routes/setup/door.ts.
+// `{mode: "setup", block, first}`) go to routes/setup/door.ts; 3.3.3.0 R2: Settings' (`?mode=settings&group=`, a
+// frame `{mode: "settings", group}`) to routes/settings/door.ts.
 import { onEvent } from "../lib/events";
 import { goSection, SECTION_IDS, type SectionId } from "../lib/store";
 import { openSession } from "../routes/session/store";
 import { applyDoor, doorFromUrl } from "../routes/setup/door";
+import { applyDoor as applySettingsDoor, doorFromUrl as settingsDoorFromUrl } from "../routes/settings/door";
 import { start } from "../lib/start";
 import { focusPanel, layoutStore, patchPanel } from "../lib/workspace/persist";
 import { openBio } from "../routes/roles/bioActions";
@@ -82,12 +84,15 @@ export function installEdit(): void {
   if (asked) void applyEdit(asked);
   const door = doorFromUrl(); // 3.3.0.0 R4: `?mode=setup&first=1` (halo init) or `&block=team` (halo setup team)
   if (door) applyDoor(door);
+  const settingsDoor = settingsDoorFromUrl(); // 3.3.3.0 R2: `?mode=settings&group=fleet` (halo settings fleet)
+  if (settingsDoor) applySettingsDoor(settingsDoor);
   onEvent("focus", (f) => {
-    const d = (f.data || {}) as { edit?: string; mode?: string; session?: string; block?: string; first?: boolean };
+    const d = (f.data || {}) as { edit?: string; mode?: string; session?: string; block?: string; first?: boolean; group?: string };
     const target = parseEdit(String(d.edit || ""));
     const mode = String(d.mode || "") as SectionId;
     if (target) void applyEdit(target);
     else if (mode === "setup") applyDoor({ block: String(d.block || ""), first: !!d.first });
+    else if (mode === "settings") applySettingsDoor({ group: String(d.group || "") });
     else if (mode === "session") openSession({ session: String(d.session || "") });
     else if ((SECTION_IDS as string[]).includes(mode)) goSection(mode);
     else return;

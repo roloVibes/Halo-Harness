@@ -5,8 +5,8 @@ clicks in headless Chrome on the driver base; no provider request, no model call
     python -m tests.helpers.studio_quiet seeded   capture_studio's seeded home (a lineup active)
     python -m tests.helpers.studio_quiet fresh    capture_start's fresh home (Start here is due)
 
-seeded: each of the eight core sections loaded on its own (`?mode=<id>`, no
-`tour=off`) and reached by Alt+1..8, with no section help, no dialog and no
+seeded: each of the nine core sections loaded on its own (`?mode=<id>`, no
+`tour=off`) and reached by Alt+1..9, with no section help, no dialog and no
 Start here after 2 s; the rail's widths (icons <= 64 px, expanded <= 200 px since 3.3.2.0 R2)
 through its chevron, remembered across a reload; rows without a printed key and
 no tab strip in the header; the inspector closed on load, opened by a panel's
@@ -15,8 +15,8 @@ Shift+F (where F follows) and the header button, restoring the rail and the
 inspector, remembered across a reload.
 fresh: Start here on the first section only; "Set up this box" closes it for
 this browser (not back on the next section or a reload); with the browser's key
-cleared it is back once, "Just look around" closes it, then the eight sections
-by Alt+1..8 and by load show nothing.
+cleared it is back once, "Just look around" closes it, then the nine sections
+by Alt+1..9 and by load show nothing.
 The last stdout line is the JSON of what it saw (exit 2: no Chrome)."""
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ from tests.helpers.chrome_driver import Driver  # noqa: E402
 from tests.helpers.studio_packs_steps import CUR, alt, mod_key, q, qa  # noqa: E402
 
 CORE = [("session", "Session"), ("team", "Team"), ("roles", "Roles"), ("fleet", "Fleet"), ("design", "Design"),
-        ("orchestra", "Orchestra"), ("packs", "Packs"), ("setup", "Setup")]
+        ("orchestra", "Orchestra"), ("packs", "Packs"), ("setup", "Setup"), ("settings", "Settings")]  # 3.3.3.0 R2: + Settings
 OPEN = ("[document.querySelectorAll('[data-testid=section-help]').length, document.querySelectorAll('[role=dialog]').length, "
         "document.querySelectorAll('[data-testid=start-here]').length]")
 APP = q(".app")
@@ -61,7 +61,7 @@ def blur(c) -> None:
 
 
 def each_section(c, ctx, tag: str, out: dict) -> None:
-    """Every core section by a load of its own, then by Alt+1..8 from the last: nothing open after 2 s."""
+    """Every core section by a load of its own, then by Alt+1..9 from the last: nothing open after 2 s."""
     out[f"{tag}_loads"] = {}
     for sid, title in CORE:
         load(c, ctx, sid, title)
