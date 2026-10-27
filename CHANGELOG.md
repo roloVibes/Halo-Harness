@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.3.3.0] - unreleased
+## [3.3.3.0] - 2026-10-27
 
 **Settings.** The owner's note on 3.3.2.0: "I feel like halo should launch after init. Then full studio
 should be available ... there should be another tab for settings ... getting a gui tab section for every
