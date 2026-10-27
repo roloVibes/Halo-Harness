@@ -1,6 +1,6 @@
 # Commands: Ollama
 
-Read this when you run or watch an Ollama server: `halo ollama` and its subcommands (calibrate, doctor, tune, discover, hardware, traffic, events, steward).
+Read this when you run or watch an Ollama server: `halo ollama` and its subcommands (calibrate, doctor, tune, discover, hardware, traffic, events, steward, explain).
 
 Part of [Commands](COMMANDS.md), which lists every part. `halo gym` and `halo local` are in [Commands: the gym and local models](COMMANDS-local.md).
 
@@ -345,4 +345,47 @@ Nothing is sent to a model and no server setting changes: the card and the
 catalog are read, `ollama.profiles` and the journal are written. Exit 0; 1
 for an `apply` id that is not found or not allowed now (the reason is
 printed), 2 for a bad `--since`.
+
+```sh
+halo ollama steward --watch
+halo ollama steward status
+halo ollama steward status --json
+```
+
+Halo 3.3.4.0 R4: `--watch` runs the steward's job here in the foreground
+(on the machine that serves the models; Studio and the fleet hub run the
+same job on their own): the server-log tail and the `/api/ps` poll, a run
+every `ollama.steward.every_s` while calls flow and at once on a server
+alert, the changes per `ollama.steward.apply`, and the model's note when
+something is new. Each line is printed; Ctrl+C stops it. Exit 1 when a job
+already runs for this state dir (the line names where, the pid and since
+when). `status` prints whether one runs, where, since when, the last run's
+counts, the model it uses (or "no steward model: set ollama.steward.model")
+and the last note:
+
+```text
+steward job: running in hub (pid 4120 on pc) since 2026-10-27 18:02:11
+  last run 2026-10-27 18:07:11 (auto): 2 findings, 1 applied, 0 proposed, 0 rolled back
+  model: ol:qwen3.5:9b (the smallest local model (6.1 GiB))
+  last note 2026-10-27T18:07:12Z: the 27B on pc spilled 3 GiB to the CPU while ComfyUI held the card (local, free)
+```
+
+## `halo ollama explain`
+
+```sh
+halo ollama explain
+halo ollama explain cpu-spill
+halo ollama explain kv-cache --sources
+```
+
+Halo 3.3.4.0 R4 (see [MODELS-ollama-steward.md](MODELS-ollama-steward.md)):
+answered from the steward's knowledge files, no model. An alert kind
+(`prompt-trimmed`, `cpu-spill`, ... `thrash`; an event kind or a rule name
+answers with the row it belongs to) prints its symptom, cause, Halo-side
+change and server-side recommendation; a topic prints the matching file
+(`scheduler`, `memory`, `log`, `local-servers`, `symptoms`, `sources`),
+section (`kv-cache`, `margin`, `eviction`, ...) or every line that
+mentions it (`parallel`, `keep-alive`); no argument lists the kinds and the
+topics. `--sources` adds the `SOURCES.md` rows the answer cites. Exit 0; 1
+when nothing names the word (the list follows).
 
