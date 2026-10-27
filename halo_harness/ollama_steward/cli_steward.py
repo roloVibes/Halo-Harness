@@ -9,10 +9,16 @@
                                                   findings -> plan -> apply per mode
                                                   (steward.py); without --once it
                                                   runs every ten minutes until Ctrl+C
+    --watch                                       the steward's job in the foreground (R4,
+                                                  job.py): the server-log tail, the timer,
+                                                  the agent's notes; prints each line
+    status [--json]                               whether a job runs, where, since when, the
+                                                  last run's counts and the last note
 
 Reads the ledger, the events, the hardware card and the catalog; writes
 only `ollama.profiles` in config.json and `<state>/ollama/steward.jsonl`.
-Nothing is sent to a model and no server setting changes.
+No server setting changes; only `--watch` sends a model request (the job's
+note, one call to `ollama.steward.model` when something is new).
 """
 
 from __future__ import annotations
@@ -77,9 +83,18 @@ def cmd_ollama_steward(argv: list) -> int:
     _common(rp)
     rp.add_argument("--once", action="store_true", help="one pass (R4's job calls this on a timer)")
     rp.add_argument("--mode", choices=steward.MODES, default=None, help="this run only: auto, review or off")
+    sp = sub.add_parser("status", help="whether the steward's job runs, where, since when, its last run and note")
+    sp.add_argument("--json", action="store_true", help="print JSON instead of lines")
+    parser.add_argument("--watch", action="store_true",
+                        help="run the steward's job here in the foreground (Ctrl+C stops it): the server log, the "
+                             "timer and the notes, each line printed")
     args = parser.parse_args(argv)
     state = _state_dir()
+    if args.watch and not args.what:
+        return _watch(state)
     try:
+        if args.what == "status":
+            return _status(args, state)
         if args.what == "findings":
             found = _findings(args)
             if args.json:
@@ -133,3 +148,36 @@ def _run(args, state) -> int:
             time.sleep(RUN_EVERY_S)
         except KeyboardInterrupt:
             return 0
+
+
+def _status(args, state) -> int:
+    from halo_harness.ollama_steward import job_state, notes
+    from halo_harness.ollama_steward.agent import choose_model
+    st = job_state.status(state)
+    if not st.get("running"):  # the model a job started now would use
+        st["model"], st["model_why"] = choose_model(state_dir=state)
+    last = notes.latest(state, stages=("note",)) or notes.latest(state, stages=("change", "finding"))
+    if args.json:
+        print(json.dumps({**st, "last_note": last}, indent=2, default=str))
+        return 0
+    for line in job_state.format_status(st, last_note=last):
+        print(line)
+    return 0
+
+
+def _watch(state) -> int:
+    from halo_harness.ollama_steward.job import StewardJob
+    job = StewardJob(state, where="watch", say=print)
+    ok, why = job.start()
+    print(why, file=sys.stdout if ok else sys.stderr)
+    if not ok:
+        return 1
+    try:
+        while not job.stop_event.wait(1.0):
+            pass
+    except KeyboardInterrupt:
+        pass
+    finally:
+        job.stop()
+    print("steward job stopped")
+    return 0

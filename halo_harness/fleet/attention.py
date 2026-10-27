@@ -18,6 +18,8 @@ serves them (`GET /api/fleet/attention`) and routes the answers.
     goal_plan | goal_gate | goal_budget | goal_ask   a supervisor decision (3.1.8.0 R1,
                    fleet/supervise_attention.py): a goal's plan review, a gate past the cap, a budget cap, a job's ask
     goal_replan    a replan's new plan failed its check twice (3.1.8.0 R2): apply / keep the old plan / stop
+    ollama_steward the Ollama steward's newest note with an `error` finding or a change (3.3.4.0 R4,
+                   fleet/steward_attention.py): set aside / open Ollama
 
 Each row: {id, kind, harness, harness_name, local, session_id, session, agent_id, agent, what, detail,
 since, keys: {a|r|s|o: label}, text_for: "r" | None, target: {...}}. `keys` holds only the answers
@@ -56,6 +58,7 @@ KEYS = {
     "goal_budget": {"a": "raise by its cap and resume", "r": "raise by $N", "s": "stop", "o": "open the goal"},
     "goal_ask": {"a": "allow once", "r": "deny", "s": "stop the goal", "o": "open the session"},
     "goal_replan": {"a": "apply the new plan", "r": "keep the old plan", "s": "stop the goal", "o": "open the plan"},  # R2
+    "ollama_steward": {"a": "set aside", "o": "open Ollama"},  # 3.3.4.0 R4: the steward's note
 }
 TEXT_FOR = {"permission": "r", "question": "r", "plan": "r", "approval": "r", "mission_plan": "r",
             "team_gate": "r", "goal_plan": "r", "goal_gate": "r", "goal_budget": "r", "goal_ask": "r",
@@ -189,6 +192,9 @@ def build(view: dict, *, asks: Optional[dict] = None, orchestra=(), commands=(),
     if home is not None:  # 3.1.8.0 R1: the supervisor's parked decisions (fleet/supervise_attention.py)
         from halo_harness.fleet.supervise_attention import rows as supervise_rows
         rows += supervise_rows(home, local, seen, now)
+    if home is not None:  # 3.3.4.0 R4: the Ollama steward's newest note that raises the signal
+        from halo_harness.fleet.steward_attention import rows as steward_rows
+        rows += steward_rows(home, local, seen, now)
     if packs:  # 3.2.0.0 R3: a pack's own rows (`pack:<id>:<kind>`, fleet/pack_attention.py)
         from halo_harness.fleet.pack_attention import rows as pack_rows
         rows += pack_rows(list(packs), local, seen, now)

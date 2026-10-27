@@ -148,4 +148,74 @@ R3, the steward judges, plans the fit, adjusts:
   up the room the window left it counts as cut (compacted and re-sent,
   never kept or sent again).
 
-Next: R4 the steward's agent, R5 the Studio panel and the TUI.
+R4, the steward's agent, selectable and cheap, and the job that runs it:
+
+- **The job**: one per state dir. It starts with Studio (`halo studio`)
+  and with the fleet hub, whichever is first, and `halo ollama steward
+  --watch` runs it in the foreground on the machine that serves the models
+  (each line printed; Ctrl+C stops it). It owns the server-log tail and the
+  `/api/ps` poll for the host this machine serves (`halo ollama events
+  --watch` reads the same), and a timer: every `ollama.steward.every_s`
+  (300 s) while calls flow (a ledger line in the last 15 minutes), and at
+  once when a warning or error event passes its quiet period, it runs the
+  rules, applies the changes per `ollama.steward.apply` and asks the model
+  for a note. A second job on the same state dir (another Studio, a hub
+  in another process, a second `--watch`) does not start and names the holder
+  (a lock file, `~/.halo/ollama/steward-job.lock`). `halo ollama steward
+  status` says whether one runs, where (studio, hub, watch), since when,
+  the last run's counts, the model and the last note. `ollama.steward.job:
+  false` starts none with Studio or the hub; `ollama.steward.apply: off`
+  keeps the findings and the notes and applies nothing.
+- **The model**: `ollama.steward.model` (any model ref), else the
+  configured `compactionModel` when it is a local model, else the smallest
+  local model this machine lists (by its size on disk), else none: then the
+  job runs the rules alone and `status` says "no steward model: set
+  ollama.steward.model". A cloud model is used only when
+  `ollama.steward.model` names one. It is called once per note, only when a
+  run found something the last note did not name, made a change, or saw a
+  server alert, and at most once per `ollama.steward.note_every_s` (600 s).
+- **What it reads**: a guide built once from the knowledge files (each
+  alert kind's meaning, cause, Halo-side change and server-side line from
+  `symptoms.md`, and its rule that a smaller window answers a spill, never
+  an outgrown conversation; under 2,000 tokens), then the hardware card of
+  each host involved, the ledger's rollups per model, the last 20 events,
+  the findings, the fit plans, the changes this run made and the machines
+  that called.
+- **The note**: at most 6 lines in plain words. The first line stands
+  alone (the TUI status line, the attention row): what went wrong on which
+  machine, or what changed. The rest explains the chain (what holds the
+  card, what spilled, which call then was cut or timed out, on which
+  machine) and what changed or what to run, a server line copied as the
+  finding gives it. The last line names the model and the cost: "local,
+  free", or the tokens and the dollars when the model is priced.
+- **Its proposals**: the model may add a fenced `proposals` block,
+  `[{key, field, to, why}]`, for a change the rules did not make. Each is
+  checked before it lands: a host and model the steward read, a profile
+  field and a value of its type, a window never above the measured cap or
+  the card's fit and never smaller than the window sent for a model whose
+  prompts were trimmed or cut, a reply room at most half the window, and
+  the ten-minute rule. Then the mode: `auto` applies it (one line in
+  `steward.jsonl`, `undo` reverts it), `review` writes a proposal for
+  `halo ollama steward apply <id>`, `off` only reports it. One that fails
+  a check is dropped and says why.
+- **Where notes go**: every line the job says is a `note` line in
+  `~/.halo/ollama/steward.jsonl` (`{id, at, kind: "note", stage: finding |
+  change | note | idle, say, lines, cost, attention, model, data, where}`).
+  A TUI on that state dir shows each new note or change in its status bar
+  for 30 s and as one line in the transcript. A note whose findings carry
+  an `error`, or any change, raises the Fleet attention row
+  `ollama_steward` (set aside, or open Ollama). Studio's live feed gets a
+  `steward` frame `{stage, say, data}` for every line. A fleet member gets
+  the hub's newest note with the hub's profiles (the answer to its ledger
+  push) and its TUI shows "steward on <hub>: <first line>".
+- **`halo ollama explain [<kind> | <topic>] [--sources]`** answers from
+  the knowledge files with no model: an alert kind prints its
+  `symptoms.md` row (an event kind or a rule name without a row of its own
+  answers with the row it belongs to: `reloaded` and `two-windows` with
+  `thrash`, `window-small` with `prompt-trimmed`, ...), a topic the
+  matching file (`scheduler`, `memory`, `log`, `local-servers`), section
+  (`kv-cache`, `margin`, `eviction`) or the lines that mention it
+  (`parallel`, `keep-alive`); no argument lists both; `--sources` adds the
+  `SOURCES.md` rows the answer cites.
+
+Next: R5 the Studio panel, the Settings page and `/ollama`.

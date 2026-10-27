@@ -108,6 +108,18 @@ name, so `halo ollama traffic` on the machine that serves the models shows
 every halo's calls to it. `all` sends the member's own server's calls too,
 `off` none.
 
+The hub's answer to that push carries back what the hub's Ollama steward
+learned: its profiles (3.3.4.0 R3, keyed by the member's own name for the
+host) and its newest steward note (3.3.4.0 R4: the note or change of the
+last day, `{hub, id, at, line, attention}`). The member keeps the note in
+`~/.halo/ollama/hub-note.json`; its TUI shows "steward on <hub>: <first
+line>" in the status bar for 30 s and as one transcript line, and a note
+that carries `attention` (an `error` finding or a change) is a row of the
+member's own Fleet attention queue. The steward's job runs once per state
+dir, inside the hub or Studio, or as `halo ollama steward --watch`; the
+hub's job is the one that reads every halo's calls and the server's own
+log, a member's own Studio runs one over the member's own ledger.
+
 ### What control levels mean, and the card the owner sees
 
 `fleet.allow_control` (default `ask`; a hub entry's own wins) gates

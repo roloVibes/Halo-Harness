@@ -188,6 +188,10 @@ class StatusBar(Static):
         # U5 scope D: the `statusLine` command's own last output (None
         # until the first successful run, or if none is configured).
         self.statusline_text: "str | None" = None
+        # 3.3.4.0 R4: a one-line notice shown for a while (`set_notice`: the
+        # Ollama steward's note), then gone; None when there is none.
+        self.notice_text: "str | None" = None
+        self.notice_until: float = 0.0
         # Halo 2.0.3 round 5b (brief item 7): `ol:`-only throughput, right
         # next to the model chip -- None/None/None (segment omitted
         # entirely) until the first `ol:` reply of the session, or after a
@@ -205,6 +209,25 @@ class StatusBar(Static):
     def set_statusline_text(self, text: "str | None") -> None:
         self.statusline_text = text
         self._refresh_display()
+
+    def set_notice(self, text: "str | None", seconds: float = 30.0) -> None:
+        """3.3.4.0 R4: show `text` (one line) in the bar for `seconds`, then drop it."""
+        self.notice_text = (str(text).splitlines() or [""])[0][:160] if text else None
+        self.notice_until = time.monotonic() + max(0.0, float(seconds))
+        self._refresh_display()
+        if self.notice_text:
+            try:
+                self.set_timer(max(0.1, float(seconds)), self._expire_notice)
+            except Exception:  # not mounted: the next refresh past `notice_until` drops it
+                pass
+
+    def _expire_notice(self) -> None:
+        if self.notice_text and time.monotonic() >= self.notice_until - 0.05:
+            self.notice_text = None
+            self._refresh_display()
+
+    def notice_shown(self) -> "str | None":
+        return self.notice_text if self.notice_text and time.monotonic() < self.notice_until else None
 
     def on_click(self, event) -> None:
         # 1.0.1 hotfix 16: "a click on the 'N new' indicator" re-anchors
@@ -757,6 +780,10 @@ class StatusBar(Static):
         if new_str:
             text.append("│ ", style="dim")
             text.append(f"{new_str} ", style="bold magenta")
+        _notice = self.notice_shown()
+        if _notice:
+            text.append("│ ", style="dim")
+            text.append(f"{_notice} ", style="bold cyan")
         if self.statusline_text:
             text.append("│ ", style="dim")
             # U5 scope D: a `statusLine` script's own ANSI colour codes

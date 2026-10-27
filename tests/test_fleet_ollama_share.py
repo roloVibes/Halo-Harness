@@ -8,7 +8,8 @@ process is member B):
 2. `fleet.ollama.share: false` sends none; `true` sends B's own server's too;
 3. the hub's append for two members: `read_calls` on the hub returns both
    members' lines beside its own, each with its `from`; the forwarder's
-   cursor survives a rotation and never sends a line twice.
+   cursor survives a rotation and never sends a line twice;
+4. 3.3.4.0 R4: the hub's newest steward note reaches the member (hub-note.json).
 Never a real server or a real model call.
 Run: python -m tests.test_fleet_ollama_share
 """
@@ -75,6 +76,26 @@ def test_a_members_lines_reach_the_hubs_ledger_with_from_and_its_own_server_stay
         ctx.check("a later line follows on the next flush", bool(again))
         ctx.check("and the first one was sent once only",
                   len([x for x in _hub_lines(rig) if x.get("model") == "qwen3.8:27b"]) == 1)
+
+
+@test
+def test_the_hubs_steward_note_reaches_the_member(ctx: Ctx):
+    """3.3.4.0 R4: the hub's newest steward note travels in the answer to the member's POST; the member keeps it
+    (hub-note.json) and its TUI line reads "steward on <hub>: <first line>"."""
+    from halo_harness.config.paths import bridge_home
+    from halo_harness.ollama_steward import notes
+    with _Fast(), HubRig() as rig:
+        notes.append(rig.home_a, "note", "the 27B on pc spilled to the CPU while an image job held the card",
+                     lines=["the 27B on pc spilled to the CPU while an image job held the card"], attention=True)
+        rig.join()
+        _record(REMOTE, "qwen3.8:27b")
+        _controller, act = rig.session()
+        wait_for(lambda: rig.member_session(act.session_id))
+        got = wait_for(lambda: notes.hub_note(bridge_home()), 10)
+        ctx.check(f"the member keeps the hub's note, got {got}", bool(got) and got["line"].startswith("the 27B on pc")
+                  and got["attention"] is True)
+        line = notes.member_line(got)
+        ctx.check(f"the member's line names the hub, got {line!r}", line.startswith("steward on ") and "the 27B on pc" in line)
 
 
 @test

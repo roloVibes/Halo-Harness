@@ -2557,8 +2557,11 @@ class Session:
 
     def call_small_model(self, *, system_text: str, user_text: str, max_tokens: int = 4096,
                           timeout_s: float = 60.0, model_ref: Optional[ModelRef] = None,
-                          images: Optional[list] = None) -> str:
-        """A ONE-SHOT request built directly via `build_request_body`
+                          images: Optional[list] = None, usage_out: Optional[dict] = None) -> str:
+        """`usage_out` (3.3.4.0 R4, the steward's note): a dict that takes the
+        reply's `usage` (input_tokens, output_tokens) as the stream reports it.
+
+        A ONE-SHOT request built directly via `build_request_body`
         (never through `derive_request`/the session log, so this call is
         NEVER part of the logged conversation) -- shared by
         `_call_model_for_hook` (title generation, prompt-hook verdicts) and
@@ -2716,6 +2719,10 @@ class Session:
                         text_parts.append(str(delta.get("text", "")))
                 elif kind == "error":
                     raise RuntimeError((ev.get("error") or {}).get("message", "model call failed"))
+                if usage_out is not None:
+                    got = ev.get("usage") or ((ev.get("message") or {}).get("usage") if kind == "message_start" else None)
+                    if isinstance(got, dict):
+                        usage_out.update({k: v for k, v in got.items() if v is not None})
         finally:
             timer.cancel()
             gen.close()

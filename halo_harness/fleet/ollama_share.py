@@ -27,7 +27,8 @@ answer carries its steward profiles (`ollama.profiles`) keyed by the
 member's own host names, and the member keeps them (`take_profiles`, never
 over its own `by: "user"` entry); while sharing is not `off` the member asks
 every FLUSH_S even with no line to send, so a profile reaches it within half
-a minute. Nothing else of the fleet changes.
+a minute. 3.3.4.0 R4: and the hub's newest steward note (`steward_note`,
+notes.py), kept in `<state>/ollama/hub-note.json` for the member's TUI.
 """
 
 from __future__ import annotations
@@ -179,6 +180,7 @@ class Forwarder:
                     reply = link.request("POST", protocol.PREFIX + "/ollama",
                                          protocol.doc(link=link_id, lines=[x for x, _c in send]))
                     take_profiles(reply)
+                    take_note(reply, self.home)
                 cpath.parent.mkdir(parents=True, exist_ok=True)
                 cpath.write_text(json.dumps(cursor), encoding="utf-8")
                 self.last_flush = now
@@ -195,6 +197,16 @@ def take_profiles(reply) -> int:
         return merge_from_hub((reply or {}).get("profiles") if isinstance(reply, dict) else None)
     except Exception:
         return 0
+
+
+def take_note(reply, home=None) -> bool:
+    """A member keeps the hub's newest steward note (3.3.4.0 R4); True when it is a new one."""
+    try:
+        from halo_harness.ollama_steward.notes import take_hub_note
+        payload = (reply or {}).get("steward_note") if isinstance(reply, dict) else None
+        return take_hub_note(home if home is not None else identity.home(), payload)
+    except Exception:
+        return False
 
 
 def accept(home, member_name: str, lines: list) -> int:
@@ -232,4 +244,6 @@ def serve(handler):
         profiles = payload_for_member(handler.hub.home, member.name)
     except Exception:
         profiles = {}
-    return handler._json(200, protocol.doc(ok=True, accepted=n, profiles=profiles))
+    from halo_harness.ollama_steward.notes import share_payload  # 3.3.4.0 R4: the hub's newest steward note
+    note = share_payload(handler.hub.home, handler.hub.name)
+    return handler._json(200, protocol.doc(ok=True, accepted=n, profiles=profiles, steward_note=note))

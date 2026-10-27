@@ -62,6 +62,7 @@ class _Server(http.server.ThreadingHTTPServer):
         self.fleet_hub = None  # 3.0.5.0 R2: fleet.hub.HubServer (`halo studio --fleet`, studio/fleet_hub_api.py)
         self.events_lock = threading.Lock()
         self.files_watch = None  # 3.2.2.0 R6: studio/files_live.py Watcher, started by start_server
+        self.steward_job = None  # 3.3.4.0 R4: ollama_steward/job.py StewardJob, started by start_server
         super().__init__(addr, handler)
 
     def server_close(self):
@@ -69,6 +70,8 @@ class _Server(http.server.ThreadingHTTPServer):
             self.fleet_watch.stop()
         if getattr(self, "files_watch", None) is not None:  # 3.2.2.0 R6: studio/files_live.py
             self.files_watch.stop()
+        if getattr(self, "steward_job", None) is not None:  # 3.3.4.0 R4: the Ollama steward's job
+            self.steward_job.stop()
         if self.events is not None:
             self.events.close()
         if self.fleet_hub is not None:  # the fleet hub ends with Studio
@@ -269,7 +272,20 @@ def start_server(*, port: int = 0, cwd: Path, state_dir: Path, token: str | None
                      slow_ms=slow_ms_from_env() if slow_ms is None else slow_ms)
     from halo_harness.studio.files_live import watch  # 3.2.2.0 R6: `files_changed` when a lineup, bio, config or layout moves
     watch(server)
+    start_steward(server)
     return server
+
+
+def start_steward(server: _Server) -> None:
+    """3.3.4.0 R4: the Ollama steward's job for this state dir (none when `ollama.steward.job` is false, background
+    reads are off, or another process runs it); its `steward` frames reach the live feed."""
+    try:
+        from halo_harness.ollama_steward.job import start_for
+        from halo_harness.studio.events import bridge_for
+        server.steward_job = start_for(server.state_dir, where="studio",
+                                       publish=lambda frame: bridge_for(server).publish_local(frame))
+    except Exception:
+        server.steward_job = None
 
 
 STUDIO_MODES = ("roles", "design", "orchestra", "fleet", "team", "session", "packs", "setup", "settings")  # 3.0.4.0: the shell's sections too; 3.0.5.0: Fleet; 3.0.8.0: Team; 3.1.4.0: Session; 3.2.0.0 R7: Packs; 3.3.0.0 R1: Setup; 3.3.3.0 R2: Settings

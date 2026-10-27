@@ -199,12 +199,16 @@ def run(state_dir, *, mode_name: Optional[str] = None, found: Optional[list] = N
             done["applied"].append(row)
             say(row["say"])
         elif f["id"] not in proposed:
-            done["proposed"].append(_append(state_dir, {"_now": now, "id": f["id"], "kind": "proposal",
-                                                        "key": f["key"], "field": change["field"],
-                                                        "from": change.get("from"), "to": change["to"],
-                                                        "why": change["why"], "finding": f["id"], "rule": f["rule"],
-                                                        "evidence": f.get("evidence"), "plan": f.get("plan")}))
+            done["proposed"].append(propose(state_dir, f, change, now=now))
     return done
+
+
+def propose(state_dir, f: dict, change: dict, *, now: Optional[float] = None) -> dict:
+    """A review-mode proposal line (its id is the finding's: `halo ollama steward apply <id>`)."""
+    return _append(state_dir, {"_now": now, "id": f["id"], "kind": "proposal", "key": f["key"], "field": change["field"],
+                               "from": change.get("from"), "to": change["to"], "why": change["why"],
+                               "finding": f["id"], "rule": f["rule"], "evidence": f.get("evidence"),
+                               "plan": f.get("plan")})
 
 
 def apply_by_id(state_dir, fid: str, *, now: Optional[float] = None, **gather_kw) -> "tuple[Optional[dict], str]":

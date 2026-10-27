@@ -71,6 +71,30 @@ def test_attention_builds_one_queue_from_every_source(ctx: Ctx):
               perm["id"] not in {r["id"] for r in again} and all(r["since"] == NOW for r in again))
 
 
+@test
+def test_the_stewards_note_is_a_row_that_sets_aside_and_opens_ollama(ctx: Ctx):
+    """3.3.4.0 R4: a steward note with an error finding or a change raises an `ollama_steward` row (its first line);
+    `a` sets it aside (journal kind ack, as orchestra_gate), `o` opens the Ollama panel."""
+    import tempfile
+    from types import SimpleNamespace
+    from halo_harness.fleet import attention
+    from halo_harness.ollama_steward import notes
+    from halo_harness.studio.fleet_answer import act
+    home = Path(tempfile.mkdtemp(prefix="r4_attention-"))
+    notes.append(home, "note", "qwen3-coder:30b on pc reloaded 9 times: two halos sent it two windows",
+                 lines=["qwen3-coder:30b on pc reloaded 9 times: two halos sent it two windows", "one window now"],
+                 attention=True)
+    rows = [r for r in attention.build({"harnesses": []}, home=home, now=NOW) if r["kind"] == "ollama_steward"]
+    ctx.check(f"one row with the note's first line, got {[r['what'] for r in rows]}",
+              len(rows) == 1 and rows[0]["what"].startswith("qwen3-coder:30b on pc reloaded") and rows[0]["detail"] == "one window now")
+    watcher = SimpleNamespace(acks=set(), home=home)
+    status, body, label = act(SimpleNamespace(state_dir=home), watcher, rows[0], "o", "")
+    ctx.check(f"o opens the Ollama panel, got {body}", status == 200 and body["open"]["panel"] == "ollama")
+    status, body, label = act(SimpleNamespace(state_dir=home), watcher, rows[0], "a", "")
+    ctx.check(f"a sets it aside, got {status} {body} {label!r}", status == 200 and body == {"set_aside": True}
+              and rows[0]["id"] in watcher.acks and label == "set aside")
+
+
 def _wait(fn, timeout: float = 15.0):
     end = time.monotonic() + timeout
     while time.monotonic() < end:
