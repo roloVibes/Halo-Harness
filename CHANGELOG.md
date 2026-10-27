@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.3.2.0] - unreleased
+## [3.3.2.0] - 2026-10-27
 
 **Quiet Studio.** The owner's note on 3.3.1.0: "the visuals in studio are too cluttered and the pop up is
 annoying when you open a tab and the left column takes up too much space". Three rounds: nothing opens on
