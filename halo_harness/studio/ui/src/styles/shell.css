@@ -5,12 +5,16 @@
   height: 100%;
   display: grid;
   grid-template-rows: 56px minmax(0, 1fr) 30px;
-  grid-template-columns: 248px minmax(0, 1fr) 340px;
+  grid-template-columns: 56px minmax(0, 1fr) 0;
   grid-template-areas: "top top top" "rail stage inspector" "status status status";
 }
-.app[data-rail="closed"] { grid-template-columns: 0 minmax(0, 1fr) 340px; }
-.app[data-inspector="closed"] { grid-template-columns: 248px minmax(0, 1fr) 0; }
-.app[data-rail="closed"][data-inspector="closed"] { grid-template-columns: 0 minmax(0, 1fr) 0; }
+/* 3.3.2.0 R1: the icon rail (56 px) or expanded (248 px); the inspector 340 px only while open; Focus hides all three */
+.app[data-rail="open"] { grid-template-columns: 248px minmax(0, 1fr) 0; }
+.app[data-inspector="open"] { grid-template-columns: 56px minmax(0, 1fr) 340px; }
+.app[data-rail="open"][data-inspector="open"] { grid-template-columns: 248px minmax(0, 1fr) 340px; }
+/* Focus outranks every rail/inspector pair (three attributes), so it wins whatever the two say */
+.app[data-focus="on"][data-rail][data-inspector] { grid-template-columns: 0 minmax(0, 1fr) 0; grid-template-rows: 56px minmax(0, 1fr) 0; }
+.app[data-focus="on"] > .rail, .app[data-focus="on"] > .inspector, .app[data-focus="on"] > .hud-strip { display: none; }
 
 /* -- top bar ----------------------------------------------------------------- */
 .topbar {
@@ -21,19 +25,34 @@
 .brand-ring { width: 26px; height: 12px; border-radius: 50%; border: 2.5px solid var(--accent); box-shadow: 0 0 12px var(--accent-soft), inset 0 0 6px var(--accent-soft); }
 .brand-name { font-weight: 800; letter-spacing: .14em; }
 .brand-sub { font-size: 10.5px; letter-spacing: .22em; color: var(--muted); }
+.topbar-section { display: flex; align-items: baseline; gap: 10px; min-width: 0; padding-left: 14px; border-left: 1px solid var(--line); }
+.topbar-title { font-size: 16px; font-weight: 700; letter-spacing: .01em; white-space: nowrap; }
+.topbar-blurb { color: var(--muted); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .spacer { flex: 1; }
 .palette-btn { color: var(--muted); }
 .palette-btn:hover { color: var(--text); }
 
 /* -- rail ---------------------------------------------------------------------- */
 .rail {
-  grid-area: rail; min-width: 0; overflow: auto; padding: 16px 12px; display: flex; flex-direction: column; gap: 18px;
+  grid-area: rail; min-width: 0; min-height: 0; overflow: hidden; padding: 10px 8px; display: flex; flex-direction: column; gap: 14px;
   border-right: 1px solid var(--line); background: linear-gradient(180deg, var(--bg-2), transparent 70%);
-  animation: slide-in-left var(--t-slow) var(--ease);
 }
-.rail-head { padding: 0 6px; }
-.rail-title { font-size: 20px; font-weight: 700; letter-spacing: .01em; }
-.rail-sub { color: var(--muted); font-size: 12.5px; }
+.rail-sections { display: grid; gap: 4px; flex: 0 1 auto; min-height: 0; overflow: hidden auto; }
+.app[data-rail="open"] .rail-sections { flex: none; }
+.rail-section { position: relative; height: 38px; padding: 0 10px; }
+.rail-section.on { background: var(--accent-soft); border-color: var(--line-strong); box-shadow: inset 2px 0 0 var(--accent); }
+.rail-section .icon { color: var(--muted); }
+.rail-section.on .icon, .rail-section:hover .icon { color: var(--accent); }
+.rail-icon { position: relative; display: inline-grid; place-items: center; flex: none; width: 18px; height: 18px; }
+.rail-live-dot { position: absolute; top: -3px; right: -4px; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+.rail-count { position: absolute; top: -7px; right: -11px; min-width: 14px; padding: 0 3px; border-radius: 7px; font-size: 9.5px; line-height: 14px; text-align: center; color: var(--accent-ink); background: var(--accent); }
+.rail-count::after { content: attr(data-count); }
+.rail-divider { height: 1px; margin: 6px 4px; background: var(--line-strong); }
+.app[data-rail="icons"] .rail-item-text { display: none; }
+.app[data-rail="icons"] .rail-section { justify-content: center; padding: 0; }
+.rail-more { display: flex; flex-direction: column; gap: 18px; flex: 1; min-height: 0; overflow: auto; padding-top: 12px; border-top: 1px solid var(--line); animation: fade var(--t-slow) var(--ease); }
+.rail-toggle { margin-top: auto; align-self: center; flex: none; }
+.app[data-rail="open"] .rail-toggle { align-self: flex-end; margin-top: 0; }
 .rail-group { display: grid; gap: 4px; }
 .rail-label { font-size: 10.5px; letter-spacing: .12em; color: var(--muted); padding: 0 6px 4px; }
 .rail-item, .rail-session {
@@ -121,12 +140,13 @@
 .session-meta, .session-cwd { font-size: 11.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .orbit { display: block; width: 64px; height: 28px; border-radius: 50%; border: 2px solid var(--accent); box-shadow: 0 0 24px var(--accent-soft); opacity: .8; }
 
-@keyframes slide-in-left { from { opacity: 0; transform: translateX(-12px); } to { opacity: 1; transform: none; } }
 @keyframes slide-in-right { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: none; } }
 
 @media (max-width: 900px) {
-  .app, .app[data-inspector="closed"] { grid-template-columns: 0 minmax(0, 1fr) 0; }
-  .rail { display: none; }
+  /* a narrow window keeps the icon rail (the only section switch besides the keys) and floats the inspector */
+  .app, .app[data-rail="open"], .app[data-inspector="open"], .app[data-rail="open"][data-inspector="open"] { grid-template-columns: 56px minmax(0, 1fr) 0; }
+  .rail-more, .rail-toggle, .app .rail-item-text { display: none; }
+  .app .rail-section { justify-content: center; padding: 0; }
   .inspector { position: fixed; right: 0; top: 56px; bottom: 30px; width: min(340px, 100vw); z-index: 40; }
-  .tab-kbd, .palette-btn-text, .hud-keys { display: none; }
+  .palette-btn-text, .hud-keys, .topbar-blurb { display: none; }
 }

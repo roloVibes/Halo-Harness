@@ -147,7 +147,7 @@ class PanelsRoomDriver(Driver):
         seed_catalog(state)
         seed_tiers(state)
         srv, url = serve(state, True)
-        url = url.replace("mode=orchestra", "mode=roles").replace("feed=off", "feed=off&tour=off&view=workspace")
+        url = url.replace("mode=orchestra", "mode=roles").replace("feed=off", "feed=off&tour=off&view=workspace&rail=open")  # 3.3.2.0 R1: Arrange lives in the expanded rail
         try:
             yield ((room, (c, url, state)),)
         finally:

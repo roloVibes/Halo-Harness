@@ -272,17 +272,17 @@ def test_orchestra_opens_a_planned_run_on_the_plan_canvas(ctx: Ctx):
 @test
 def test_start_here_on_a_fresh_home_and_gone_after_dismiss(ctx: Ctx):
     """3.1.1.0 R1: `--mode start` (tools/capture_start.py): a fresh home (only the shipped lineups, none active, no run)
-    opens on the Start here overlay with its two buttons and no welcome card; after "Just look around" no overlay and the
-    section's welcome instead; with a lineup active no overlay. The Roles Start view ends on its Next footer."""
+    opens on the Start here overlay with its two buttons and no welcome card; after "Just look around" no overlay and
+    (3.3.2.0 R1) nothing in its place; with a lineup active no overlay. The Roles Start view ends on its Next footer."""
     _need_chrome()
     got = _dom("start")
     first, gone, lineup = got.get("fresh") or {}, got.get("dismissed") or {}, got.get("lineup") or {}
     ctx.check(f"the home reads as fresh, got {got.get('status') or got}", (got.get("status") or {}).get("show") is True)
-    ctx.check(f"fresh: the overlay, Run and Just look around, no welcome card, eight tabs, got {first}",
+    ctx.check(f"fresh: the overlay, Run and Just look around, no welcome card, eight section rows, got {first}",
               first.get("start-here") == 1 and first.get("start-here-run") == 1 and first.get("start-here-dismiss") == 1
               and first.get("section-help") == 0 and first.get("section-tab") == 8 and first.get("start-step") == 0)
     ctx.check(f"the Roles Start view under it, with its Next footer, got {first}", first.get("roles-start") == 1 and first.get("start-next") == 1)
-    ctx.check(f"after dismiss: no overlay, the welcome instead, got {gone}", gone.get("start-here") == 0 and gone.get("section-help") == 1)
+    ctx.check(f"after dismiss: no overlay and no welcome (3.3.2.0 R1), got {gone}", gone.get("start-here") == 0 and gone.get("section-help") == 0)
     ctx.check(f"a lineup active: no overlay, got {lineup}", lineup.get("start-here") == 0 and lineup.get("section-tab") == 8)
 
 

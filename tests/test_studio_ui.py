@@ -122,7 +122,8 @@ def test_orchestra_start_view_then_grid(ctx: Ctx):
     the explainer, open the workspace anyway), no empty panels; once a run is
     open the grid shows, every panel with its about line, the Goal panel with
     every field and Run at its default size (no inner scroll), the run in the
-    rail. The first visit (no tour=off) shows the section's welcome card."""
+    expanded rail (3.3.2.0 R1: the icon rail draws no run list; tests/helpers/studio_clarity.py expands it).
+    3.3.2.0 R1: the first visit (no tour=off) opens no welcome card either."""
     if not _chrome():
         raise SkipTest("no Chrome found (the Orchestra smoke needs headless Chrome)")
     r, grid = _json_of(str(REPO / "tools" / "capture_studio.py"), "--mode", "orchestra", "--dom")
@@ -133,10 +134,10 @@ def test_orchestra_start_view_then_grid(ctx: Ctx):
     ctx.check(f"no run: none of the run panels, got {start}",
               not any(start.get(k) for k in ("orchestra-root", "orchestra-graph", "lane", "grid-tile", "report-check", "panel-about")))
     ctx.check(f"a run open: the grid, not the Start view, got {grid}", grid.get("start-view") == 0 and grid.get("orchestra-root") == 1)
-    ctx.check(f"a run open: eight about lines, the run in the rail, got {grid}", grid.get("panel-about") == 8 and grid.get("orchestra-rail-run") == 1)
+    ctx.check(f"a run open: eight about lines, no run list in the icon rail, got {grid}", grid.get("panel-about") == 8 and grid.get("orchestra-rail-run") == 0)
     ctx.check("the Goal panel fits every field and Run at its default size", grid.get("goal-overflow") is False)
-    ctx.check(f"tour=off keeps the welcome shut; a first visit shows it, got {grid.get('section-help')} / {grid.get('welcome')}",
-              grid.get("section-help") == 0 and grid.get("welcome", {}).get("section-help") == 1)
+    ctx.check(f"3.3.2.0 R1: no help card with or without tour=off, got {grid.get('section-help')} / {grid.get('welcome')}",
+              grid.get("section-help") == 0 and grid.get("welcome", {}).get("section-help") == 0)
 
 
 @test
@@ -145,7 +146,8 @@ def test_panel_focus_on_click_and_help(ctx: Ctx):
     focus); `?` opens its help from the PanelSpec and Esc closes it; the ...
     menu has Float, Collapse, Reset, Settings and Help; Settings opens the
     Inspector, which follows the next panel clicked; the Compact toggle; the
-    section's "How this works" from the ? beside the tabs, remembered as seen."""
+    section's "How this works" from the ? in the header (3.3.2.0 R1: nothing to remember as seen); the
+    Orchestra run in the expanded rail."""
     if not _chrome():
         raise SkipTest("no Chrome found (the click test needs headless Chrome)")
     r, got = _json_of("-m", "tests.helpers.studio_clarity", "panel")
@@ -164,7 +166,8 @@ def test_panel_focus_on_click_and_help(ctx: Ctx):
               got.get("help_menu") == ["section-help-item", "glossary-item"])
     ctx.check(f"How Orchestra works: steps and every panel, got {got}",
               got.get("section_title") == "How Orchestra works" and got.get("section_steps") == 8 and got.get("section_panels") == 8)  # 3.0.9.0 R3: + Coach
-    ctx.check("closed and remembered as seen", got.get("section_closed") is True and got.get("seen") == "1")
+    ctx.check("closed; nothing remembered as seen (3.3.2.0 R1: no welcome to hold back)", got.get("section_closed") is True and got.get("seen") == 0)
+    ctx.check(f"the run in the expanded rail (3.3.2.0 R1), got {got.get('rail_run')}", got.get("rail_run") == 1)
 
 
 @test

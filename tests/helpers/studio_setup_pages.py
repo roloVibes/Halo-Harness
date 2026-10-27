@@ -6,8 +6,9 @@ provider request, no model call. `goto(c, step)` is the shared step the Setup
 drivers (tests/helpers/studio_setup*.py) use to open a block's page first:
 
 1. nothing opens on its own: `?mode=setup` and `?mode=setup&first=1` (no
-   `tour=off`) have no help, no Start here, no dialog after 2 s; the overlay
-   still shows on Roles (Alt+3); the help is one click away in the header;
+   `tour=off`) have no help, no Start here, no dialog after 2 s; 3.3.2.0 R1:
+   nor on Roles after it (Alt+3: the overlay shows over the first section
+   only); the help is one click away in the header;
 2. no panel machinery on Setup: no panel, no panel list, no Arrange;
 3. the rail: the steps in the wizard's order with their states;
 4. Next from Providers to the Summary (Next before it says Summary), then
@@ -86,14 +87,19 @@ def nothing_opens(c, url, ctx) -> dict:
         if name == "first":
             out["first_line"] = c.js(f"{q('[data-testid=setup-strip-first]')}?.textContent || ''")
     out["setup_panels"] = c.js(f"{qa('[data-section=setup] [data-panel]')}.length")
+    c.js(f"{q('[data-testid=rail-toggle]')}.click(); 1")  # 3.3.2.0 R1: the panel list and Arrange live in the expanded rail
+    c.wait(f"{q('.app')}.dataset.rail === 'open'", 5)
     out["rail_lists"] = c.js("[!!document.querySelector('.rail nav[aria-label=Panels]'), !!document.querySelector('[data-testid=layout-arrange]')]")
+    c.js(f"{q('[data-testid=rail-toggle]')}.click(); 1")
     click(c, q("[data-testid=section-help-btn]"), f"!!{q('[data-testid=section-help-item]')}")
     click(c, q("[data-testid=section-help-item]"), f"!!{q('[data-testid=section-help]')}")
     out["help_title"] = c.js(f"{q('[data-testid=section-help] .dialog-title')}?.textContent || ''")
     c.js(f"{q('[data-testid=section-help-ok]')}.click(); 1")
     c.wait(f"!{q('[data-testid=section-help]')}", 10)
-    alt(c, 3)  # the other sections of this fresh home still get the offer
-    out["roles_overlay"] = c.wait(f"{CUR}.startsWith('Roles') && !!{q('[data-testid=start-here]')}", 20)
+    alt(c, 3)  # 3.3.2.0 R1: the next section gets no offer (Start here shows over the first section only)
+    c.wait(f"{CUR}.startsWith('Roles')", 20)
+    time.sleep(2.0)
+    out["roles_overlay"] = c.js(OPEN)
     return out
 
 

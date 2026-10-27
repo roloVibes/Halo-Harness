@@ -77,7 +77,7 @@ def test_setup_opens_by_mode_and_by_alt_8(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"?mode=setup opens it, got {got.get('mode_section')!r}", str(got.get("mode_section")).startswith("Setup"))
     ctx.check(f"the eight tabs, Setup last, got {got.get('tabs')}", got.get("tabs") == CORE)
-    ctx.check(f"Alt+1..8, got {got.get('kbds')}", got.get("kbds") == [f"Alt{n}" for n in range(1, 9)])
+    ctx.check(f"Alt+1..8, got {got.get('kbds')}", got.get("kbds") == [f"Alt+{n}" for n in range(1, 9)])
     ctx.check(f"Alt+8 from Roles opens it, got {got.get('alt8')!r}", str(got.get("alt8")).startswith("Setup"))
     ctx.check(f"3.3.1.0 R1: no panels on Setup, got {got.get('panels')}", got.get("panels") == [])
     steps = [s for s in got.get("steps") or [] if s != "linux"]  # Linux fixes: a step only on a box that needs them
@@ -111,7 +111,8 @@ def test_no_provider_lands_on_setup(ctx: Ctx):
     ctx.check(f"the strip says no provider set, got {got.get('jump_strip')!r}", got.get("jump_strip") == "no provider set")
     ctx.check(f"no ?mode=, Roles saved: the page opens on Setup, got {got.get('land_section')!r} {got.get('land_boot')!r}",
               str(got.get("land_section")).startswith("Setup") and got.get("land_boot") == "1")
-    ctx.check("3.3.1.0 R1: no Start here over Setup (it shows on Roles)", got.get("land_overlay_on_setup") is False)
+    ctx.check("3.3.1.0 R1: no Start here over Setup", got.get("land_overlay_on_setup") is False)
+    ctx.check("3.3.2.0 R1: nor on the next section (the first section only)", got.get("land_overlay_next") is False)
     ctx.check(f"Set up this box closes the overlay on Setup, got {got.get('land_after')!r}", str(got.get("land_after")).startswith("Setup"))
 
 

@@ -97,10 +97,12 @@ in your own browser.
 
 ## Shortcuts
 
-The shell's keys: `Alt+1`..`Alt+8` sections (`Alt+1`: Session, the first tab since 3.1.6.0; `Alt+7`: Packs; and Setup `Alt+8`), `Ctrl`/`Cmd`+`K` the palette,
+The shell's keys: `Alt+1`..`Alt+8` sections (`Alt+1`: Session, the first row since 3.1.6.0; `Alt+7`: Packs; and Setup `Alt+8`; 3.3.2.0: the rail prints no key, the palette's Go to shows them), `Ctrl`/`Cmd`+`K` the palette,
 `?` the focused panel's help (again, or away from a panel: How this works),
 `Alt`+arrows / `Alt+Shift`+arrows move / resize the focused panel, `Esc`
-closes. Roles (3.0.7.0 R2): on the canvas `A` lays out, `F` fits, `+` / `-`
+closes. `F` (3.3.2.0) is Focus: the rail, the inspector and the status bar
+hide, `F` again brings them back; where a section's own `F` follows or fits
+(below), `Shift+F`. The rail's chevron (its foot) expands or collapses it. Roles (3.0.7.0 R2): on the canvas `A` lays out, `F` fits, `+` / `-`
 zoom, the arrows nudge the selected card, `Del` removes it (asks first);
 `Ctrl+Z` / `Ctrl+Shift+Z` undo / redo a lineup edit, `Ctrl`/`Cmd`+`S`
 saves. The hop keys (3.0.5.0, [Fleet](STUDIO-fleet.md#keys-hop-around)): `J` / `K` the

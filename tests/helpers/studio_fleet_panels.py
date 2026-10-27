@@ -105,6 +105,7 @@ def digest(c, out: dict) -> None:
     c.js("localStorage.setItem('halo.fleet.lastSeen', String(Date.now() - 2 * 3600 * 1000)); window.dispatchEvent(new Event('focus')); 1")
     out["digest"] = c.wait("document.querySelector('[data-testid=\"fleet-digest\"]')?.textContent", 15)
     out["digest_where"] = c.js("document.querySelector('[data-testid=\"fleet-digest\"]')?.dataset.where")
+    c.js("document.querySelector('[data-testid=\"fleet-digest-dismiss\"]').scrollIntoView({block: 'center'}); 1")  # 3.3.2.0 R1: below the rail's section rows
     c.click_on("document.querySelector('[data-testid=\"fleet-digest-dismiss\"]')")
     out["digest_dismissed"] = c.wait("!document.querySelector('[data-testid=\"fleet-digest\"]') && Date.now() - Number(localStorage.getItem('halo.fleet.lastSeen')) < 60000 && 'dismissed'", 10)
 

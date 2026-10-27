@@ -5,7 +5,8 @@ through the driver base, tests/helpers/studio_start.py; skipped without one).
    first run's card above its button (3.2.2.0 R2); Run the guided first run runs it on the fake model calls (HALO_START_FAKE=1 in
    Studio's process): the seven steps done in the panel, the `start` frames
    on the live feed, the outcome; a reload shows no overlay (the home has a
-   lineup of its own and a start now)
+   lineup of its own and a start now; 3.3.2.0 R1: and this browser answered
+   the offer, `halo.studio.start`, so it never comes back on its own)
 2. the ? menu's Glossary lists every glossary word; a section help's word link
    opens the Glossary on that word; the Start view's Next footer goes to
    the next section of the story (Roles -> Orchestra)
@@ -57,6 +58,7 @@ def test_the_guided_first_run_runs_from_start_here(ctx: Ctx):
               and "my-halo-dev-cycle" in (got.get("done_text") or ""))
     ctx.check(f"`start` frames for every step and the summary, one session, got {got.get('frame_keys')} {got.get('frame_session')}",
               got.get("frame_keys") == sorted(keys + ["summary"]) and got.get("frame_session") == ["start:"] and got.get("frames", 0) >= 15)
+    ctx.check(f"3.3.2.0 R1: the run answers the offer for this browser, got {got.get('start_key')!r}", got.get("start_key") == "answered")
     ctx.check(f"a reload: no overlay, the Roles Start view gone (a lineup of your own), got {got}",
               got.get("overlay_after_reload") == 0 and got.get("roles_start_after") == 0)
 

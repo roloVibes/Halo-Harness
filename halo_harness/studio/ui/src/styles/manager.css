@@ -49,13 +49,6 @@
   border-radius: var(--radius); min-width: 0; }
 .pm-tpl-row .muted { flex: 1 1 160px; min-width: 0; font-size: 12px; overflow-wrap: anywhere; }
 
-/* seven core tabs plus a pack's own: a tab's label stays on one line, and below 1600 px the tabs pack
-   tighter and the palette button keeps its key only, so the strip fits a 1440-1500 px window */
-.topbar .tab { white-space: nowrap; }
-@media (max-width: 1600px) {
-  .topbar .tab { padding: 0 10px; gap: 6px; }
-  .topbar .palette-btn-text { display: none; }
-}
 
 /* the Orchestra Start view's workflow form (routes/orchestra/WorkflowForm.tsx) */
 .og-wf-ref { margin: 0; font-size: 15px; color: var(--accent); }
