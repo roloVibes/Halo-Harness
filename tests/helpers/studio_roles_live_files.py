@@ -128,6 +128,8 @@ class LiveFilesDriver(Driver):
         raw = seed_tiers(state, LINEUP)
         write_yaml(state / "agents" / f"{BIO}.yaml", {"description": "first words", "kind": "subagent"})
         srv, url = serve(state, True)
+        from tests.helpers.studio_full import full
+        url = full(url)  # 3.3.2.0 R3: every panel open, the arrangement this driver works in
         url = url.replace("mode=orchestra&feed=off", "mode=roles&tour=off")  # the live feed on: it carries the frames
         try:
             yield ((live, (c, url, state, raw)),)

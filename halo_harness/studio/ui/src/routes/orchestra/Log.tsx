@@ -65,7 +65,7 @@ export function LogDetail() {
             <span className="og-log-text">{e.text}</span>
           </li>
         ))}
-        {!rows.length && <li className="muted">{events.length ? "No line matches the filters." : "No lines yet."}</li>}
+        {!rows.length && events.length > 0 && <li className="muted">No line matches the filters.</li>}{/* 3.3.2.0 R3: an empty Log says "no lines yet" itself */}
       </ol>
     </div>
   );

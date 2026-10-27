@@ -10,6 +10,7 @@ import { api, ApiError } from "../../../lib/api";
 import { onEvent } from "../../../lib/events";
 import { onFilesChanged } from "../../../lib/filesLive";
 import { createStore, setSectionStatus, toast, useStore } from "../../../lib/store";
+import { layoutStore, patchPanel } from "../../../lib/workspace/persist";
 import type { Done, Manager, PackRow, UpdatePreview } from "./types";
 
 export type MgrState = {
@@ -80,6 +81,8 @@ export function startManager(): void {
 
 export function selectPack(id: string): void {
   mgr.update(() => ({ sel: id }));
+  // 3.3.2.0 R3: Details starts as a strip; a pick opens it beside Installed
+  if (id && layoutStore("packs").get().layout?.["pm-details"]?.collapsed) patchPanel("packs", "pm-details", { collapsed: false }, false);
 }
 
 export function togglePick(id: string, need: string, on: boolean): void {

@@ -196,6 +196,8 @@ class RoomDriver(Driver):
         import yaml
         (state / "teams" / f"{LINEUP}.yaml").write_text(yaml.safe_dump(raw, sort_keys=False), encoding="utf-8")
         srv, url = serve(state, True)
+        from tests.helpers.studio_full import full
+        url = full(url)  # 3.3.2.0 R3: every panel open, the arrangement this driver works in
         url = url.replace("mode=orchestra", "mode=roles").replace("feed=off", "feed=off&tour=off&view=workspace")
         try:
             yield tuple((fn, (c, url, state)) for fn in (same_tier, other_tier, collapsed_tier, remove_keeps))

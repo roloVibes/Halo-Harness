@@ -83,6 +83,8 @@ class DesignDriver(Driver):
         state = seeded_home()
         mode = self.argv[0] if self.argv else "design"
         srv, url = serve(state, True)
+        from tests.helpers.studio_full import full
+        url = full(url)  # 3.3.2.0 R3: every panel open, the arrangement this driver works in
         url = url.replace("mode=orchestra", "mode=design").replace("feed=off", "tour=off")
         try:
             if mode == "design-rest":

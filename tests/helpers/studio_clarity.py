@@ -18,13 +18,14 @@ sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "tools"))
 
 from tests.helpers.chrome_driver import Driver  # noqa: E402
+from tests.helpers.studio_full import toggle_face  # noqa: E402
 
 
 def panel(c, url: str) -> dict:
     out = {}
     c.go(url.replace("feed=off", "feed=off&tour=off"))
     c.wait("document.querySelectorAll('[data-testid=\"report-check\"]').length === 8")
-    out["about"] = c.js("document.querySelectorAll('[data-testid=\"panel-about\"]').length")
+    out["about"] = c.js("document.querySelectorAll('[data-testid=\"panel-title\"][title]:not([title=\"\"])').length")  # 3.3.2.0 R3: the about line is the title's tooltip and the ?'s first line
     body = "document.querySelector('[data-panel=\"report\"] .panel-body')"
     x, y, w, h = c.rect(body)
     c.click(x + 20, y + h - 8)  # the body's padding: nothing to press there, the panel itself takes it
@@ -50,7 +51,7 @@ def panel(c, url: str) -> dict:
     x, y, w, h = c.rect(body)
     c.click(x + 20, y + h - 8)
     out["inspector_follows"] = c.wait("document.querySelector('.inspector-title')?.textContent === 'Report' && 'Report'", 5)
-    c.click_on("document.querySelector('[data-panel=\"report\"] [data-testid=\"panel-compact\"]')")
+    toggle_face(c, '[data-panel="report"]')  # 3.3.2.0 R3: Compact is a row of the ... menu
     out["compact"] = c.wait("document.querySelector('[data-panel=\"report\"] .panel').dataset.face === 'glance' && 'glance'", 5)
     c.click_on("document.querySelector('[data-testid=\"section-help-btn\"]')")
     c.wait("!!document.querySelector('[data-testid=\"help-menu\"]')", 5)  # 3.1.1.0 R1: the ? menu
@@ -84,6 +85,8 @@ class ClarityDriver(Driver):
             from tests.helpers.orchestra_studio_rig import finished_run
             repo, _run = finished_run()
         srv, url = serve(state, True, repo)
+        from tests.helpers.studio_full import full
+        url = full(url)  # 3.3.2.0 R3: every panel open, the arrangement this driver works in
         try:
             yield ((panel, (c, url)),)  # 3.0.7.0 R2: the Roles checks are tests/helpers/studio_roles.py
         finally:

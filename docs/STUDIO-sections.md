@@ -12,9 +12,9 @@ The same copy as Studio's **How this works** card (`ui/src/routes/sectionHelp.ts
 ### Session
 
 **What it is.** Your own session, live (3.1.4.0, `Alt+1`, "This session,
-live"; 3.1.5.0 made it the dashboard): on the left the map of this
-harness's agents over what the chosen session costs, and the whole right
-side one live column of everything every agent here does, as it happens.
+live"; 3.1.5.0 made it the dashboard; 3.3.2.0 opens it on Live): one live
+column of everything every agent here does, as it happens, fills the stage;
+the map of this harness's agents and what the chosen session costs wait as strips.
 Fleet's map, timeline, log, attention queue and agent inspector, narrowed
 to this harness and the session you chose, plus two panels of its own,
 Live and Cost; Fleet keeps everything. The Fleet panels are the same
@@ -27,7 +27,7 @@ supervisor's pulse is live (Halo 3.1.8.0 R1, `halo supervise`,
 waiting on you, $X" -- and the decisions that wait are the Attention queue's
 `goal_*` rows.
 
-![Session: the map and the cost on the left, every agent's work scrolling on the right](media/studio-session.gif)
+![Session: every agent's work scrolling in Live, the map and the cost beside it](media/studio-session.gif)
 
 **How to use it.**
 
@@ -93,10 +93,10 @@ waiting on you, $X" -- and the decisions that wait are the Attention queue's
    share: main's is the session total less its finished sub-agents', a
    finished sub-agent's sits on its own line once, and a running sub-agent's
    own spend shows on its line until it finishes and joins the total.
-6. **Open what you need**: Agent (the inspector: its three streams, Steer,
+6. **Open what you need**: Map, Cost, Agent (the inspector: its three streams, Steer,
    Pause, Stop, Follow, Pin), Activity (a lane per live agent over the full
-   log) and Attention (what waits on you, one key each) wait as strips under
-   Cost; one click opens each (or the header's **+**), Reset layout (its **...**) puts the arrangement back, a
+   log) and Attention (what waits on you, one key each) wait as strips at
+   the foot; one click opens each beside Live (or the header's **+**), Reset layout (its **...**) puts the arrangement back, a
    layout you made is kept. `J` / `K` hop between this harness's live agents.
 
 **Panels.** Live (`session-live`): every agent here at once, what it types,

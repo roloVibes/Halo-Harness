@@ -58,22 +58,26 @@ def card(name: str) -> str:
     return f"[...document.querySelectorAll('[data-testid=\"roles-card\"]')].find((n) => n.dataset.agent === '{name}')"
 
 
-def open_fleet(c, rig) -> None:
-    c.go(rig.url("fleet"))
+def open_fleet(c, rig, extra: str = "") -> None:
+    """3.3.2.0 R3: `extra` names the panels a picture is about (`&open=...`, beside the map); the counts open them all.
+    A layout the last picture saved (the Tree added) is forgotten first, so `open=` applies."""
+    c.js("try { localStorage.removeItem('halo.studio.layout.fleet'); } catch (e) {} 1")
+    c.go("about:blank")
+    c.go(rig.url("fleet", extra))
     # 3.1.5.0 R3 follow-up: the map's own mark first (it says how many nodes it drew), then the DOM agrees
     c.wait("document.querySelector('[data-testid=\"fleet-map-svg\"]')?.dataset.nodes === '5' && document.querySelectorAll('[data-testid=\"fleet-node\"]').length === 5"
            " && document.querySelectorAll('[data-testid=\"fleet-box\"]').length === 2", 60)
 
 
 def open_roles(c, rig) -> None:
-    c.go(rig.url("roles"))
+    c.go(rig.url("roles", "&open=all"))  # 3.3.2.0 R3: the counts read the Inspector's Live tab too
     c.wait(f"{LIVE_CARDS}.length >= 3", 30)
     time.sleep(1.0)  # the canvas fits itself after its first draw
 
 
 def dom(c, rig) -> dict:
     from tests.helpers.studio_tree import open_tree
-    open_fleet(c, rig)
+    open_fleet(c, rig, "&open=all")  # 3.3.2.0 R3: the counts read every panel
     open_tree(c)  # 3.3.2.0 R2: the tree is Fleet's Tree panel, added through the header's "+" menu
     guard_page(c, "fleet")
     fleet = counts(c)
@@ -103,7 +107,7 @@ def conflict(rig) -> None:
 
 def shoot_panels(c, rig, png: Path) -> int:
     from tests.helpers.studio_tree import open_tree
-    open_fleet(c, rig)
+    open_fleet(c, rig, "&open=fleet-attention")  # 3.3.2.0 R3: the map, Attention and the Tree beside it
     open_tree(c)  # 3.3.2.0 R2: the away card is the Tree panel's
     c.js("localStorage.setItem('halo.fleet.lastSeen', String(Date.now() - 3 * 3600 * 1000)); window.dispatchEvent(new Event('focus')); 1")
     c.wait("!!document.querySelector('[data-testid=\"fleet-digest\"]')", 15)
@@ -122,12 +126,8 @@ def shoot_caps(c, rig, png: Path) -> int:
     """R6: Capabilities expanded (a layout saved for the picture, removed after), Who can... gridcraft,
     the member picked (its card focused, its map box lit), its gridcraft server open."""
     from tests.helpers.studio_fleet_member import MEMBER
-    open_fleet(c, rig)
-    c.js("localStorage.setItem('halo.studio.layout.fleet', JSON.stringify({v: 2, panels: {"
-         "'fleet-capabilities': {x: 18, y: 0, w: 6, h: 70, face: 'detail', collapsed: false}}})); 1")  # 3.1.4.0 R1: its strip's column, open
-    c.js("location.reload(); 1")  # the same URL: navigating would keep the page
+    open_fleet(c, rig, "&open=fleet-capabilities")  # 3.3.2.0 R3: a link opens it beside the map, on its full face
     time.sleep(1.0)
-    c.wait("document.querySelectorAll('[data-testid=\"fleet-node\"]').length === 5", 30)
     c.wait("document.querySelectorAll('[data-testid=\"fleet-caps-card\"] .fcap-facts').length === 2", 30)
     c.click_on("document.querySelector('[data-testid=\"fleet-who-input\"]')")
     c.type_text("gridcraft")
@@ -138,9 +138,7 @@ def shoot_caps(c, rig, png: Path) -> int:
     c.wait("!document.querySelector('.toast')", 10)
     time.sleep(1.5)
     guard_page(c, png.stem)
-    size = c.shot(png)
-    c.js("localStorage.removeItem('halo.studio.layout.fleet'); 1")
-    return size
+    return c.shot(png)
 
 
 def shoot_mission(c, rig, png: Path) -> int:
@@ -149,7 +147,7 @@ def shoot_mission(c, rig, png: Path) -> int:
     from tests.helpers.studio_fleet_panels import open_strip, seen
     MissionFakes(rig)
     mid = plan_by_api(rig)["mission"]["id"]
-    open_fleet(c, rig)
+    open_fleet(c, rig, "&open=fleet-attention")  # 3.3.2.0 R3: the plan's attention row beside the map
     open_strip(c, "fleet-mission")  # 3.1.4.0 R1: Mission starts as a strip on the right edge
     row = f"document.querySelector('[data-testid=\"fleet-mission-row\"][data-id=\"{mid}\"] [data-testid=\"fleet-mission-open\"]')"
     c.wait(f"!!{row}", 20)
@@ -170,7 +168,7 @@ def shoot_mission(c, rig, png: Path) -> int:
 
 def shoot(c, rig, fleet_png: Path, roles_png: "Path | None" = None) -> bool:
     """The Fleet captures. `roles_png` is kept for the callers; Roles live and Session are tools/capture_session_anim.py's."""
-    open_fleet(c, rig)
+    open_fleet(c, rig, "&open=fleet-attention,fleet-activity")  # 3.3.2.0 R3: the map, the queue and the timeline beside it
     c.click_on(node("implementer"))
     x, y, w, h = c.rect("document.querySelector('.fm-scroll')")
     c.click(x + w - 30, y + h - 30)
@@ -204,6 +202,7 @@ def capture(out: str, as_dom: bool, find_chrome) -> int:
         return 2
     placeholder()
     with StudioFleetRig() as rig:
+        rig.full = False  # 3.3.2.0 R3: the pictures show the quiet arrangement (each names the panels it opens)
         placeholder(rig.state)  # the rig's own home: you@studio
         c = open_chrome(exe=exe)  # the driver base: one headless Chrome at a time
         try:

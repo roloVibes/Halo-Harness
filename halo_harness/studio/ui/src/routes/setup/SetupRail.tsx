@@ -28,7 +28,7 @@ function Strip() {
     return (
       <div className="su-strip mono muted" data-testid="setup-strip">
         <FirstCell />
-        reading the setup...
+        {/* 3.3.2.0 R3: no "reading the setup..." here, the page under it says it once */}
       </div>
     );
   const set = providersSet(d);

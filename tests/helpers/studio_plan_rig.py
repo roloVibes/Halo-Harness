@@ -61,7 +61,7 @@ class PlanRig:
 
     def url(self, mode: str = "orchestra") -> str:
         from halo_harness.studio.server import url_for
-        return url_for(self.studio.srv, mode).replace("#t=", "&tour=off#t=")
+        return url_for(self.studio.srv, mode).replace("#t=", "&tour=off&open=all#t=")  # 3.3.2.0 R3: every panel open (tests/helpers/studio_full.py)
 
     def plan_jobs(self, run_id: str = "") -> list:
         return self.studio.get(f"orchestra/{run_id or self.run_id}/plan")[1].get("jobs") or []

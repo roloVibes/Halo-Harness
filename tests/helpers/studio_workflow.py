@@ -145,8 +145,8 @@ class WorkflowUiDriver(Driver):
         proj, run_id = _ran(state)
         self.out["run_id"] = run_id
         srv, _url = serve(state, True, proj=proj)
-        roles = url_for(srv, "roles").replace("#t=", "&tour=off&view=workspace#t=")
-        orch = url_for(srv, "orchestra").replace("#t=", "&tour=off&view=workspace#t=")
+        roles = url_for(srv, "roles").replace("#t=", "&tour=off&view=workspace&open=all#t=")  # 3.3.2.0 R3: every panel open
+        orch = url_for(srv, "orchestra").replace("#t=", "&tour=off&view=workspace&open=all#t=")
         try:
             yield ((pack_section, (c, roles, {})), (event_data, (c, roles, {"srv": srv})), (run_view, (c, orch, {})))
         finally:

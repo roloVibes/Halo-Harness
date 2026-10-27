@@ -26,10 +26,11 @@ load, or has problems, shows the **Problems** list there instead, with
 **Validate**. "open the board anyway" (or `?view=workspace`) goes straight to
 the panels.
 
-Three panels: the Board at 0,0 (18 columns, 78 rows: a small team's whole
-board without scrolling; it scales down to 75% before it scrolls), the
-Inspector the whole right-hand column (its gate card and change list are
-long), the Change feed under the board. Each has its about line and `?`.
+Three panels: the Board fills the stage (3.3.2.0; it scales down to 75%
+before it scrolls), the Inspector and the Change feed wait as strips at the
+foot; picking a stage or a block opens the Inspector in a column on the
+board's right (its gate card and change list are long), a click opens the
+feed beside it. Each has its `?`.
 
 | Panel | What it shows |
 |---|---|

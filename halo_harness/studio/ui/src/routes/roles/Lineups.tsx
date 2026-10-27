@@ -51,7 +51,7 @@ export function LineupsDetail() {
   const error = useRoles((s) => s.error);
   const loaded = useRoles((s) => s.loaded);
   const cur = lineups.find((l) => l.name === name);
-  if (!loaded) return <div className="og-wait mono muted">reading the lineups...</div>;
+  if (!loaded) return null; // 3.3.2.0 R3: the section's own wait says it while it reads (RolesView)
   return (
     <div className="rlu" data-testid="roles-lineups-list">
       <div className="rlu-bar">

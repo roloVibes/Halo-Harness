@@ -28,24 +28,13 @@ halo studio --port 8765     # a fixed port instead of a free one
 halo studio --stop          # stop the Studio running in the background
 ```
 
-**Session** (`halo studio --session`) is where you watch and steer your own
-session: its agent tree and its cost on the left, and on the right the Live
-column, every agent's line in the Fleet log's columns (the time, the kind,
-who) under a timeline lane per live agent, with an agent and a kind pick, and
-the Steer box always at its foot, addressed to the agent you pinned or else
-the session's main agent, Pause and Stop beside it (3.1.7.0). How it works:
-[Session](STUDIO-sections.md#session). Since 3.3.0.0 the box names its target and the call it reaches, and **Export** saves the session as one Markdown trace: [Studio: steering and exporting a session](STUDIO-session.md). Its spend, tokens, turns and context
+**Session** (`halo studio --session`) is where you watch and steer your own session: the Live column fills the stage (3.3.2.0), every agent's line in the Fleet log's columns (the time, the kind, who) under a timeline lane per live agent, with an agent and a kind pick, and the Steer box always at its foot, addressed to the agent you pinned or else the session's main agent, Pause and Stop beside it (3.1.7.0); its agent tree, its cost and the rest wait as strips at the foot. How it works: [Session](STUDIO-sections.md#session). Since 3.3.0.0 the box names its target and the call it reaches, and **Export** saves the session as one Markdown trace: [Studio: steering and exporting a session](STUDIO-session.md). Its spend, tokens, turns and context
 move on the session's own `message_end` and `status` frames, the moment the
 terminal's status bar moves (3.1.8.0); the frames the tab reads and the
 delays that remain, each with its number, are in
 [The live feed](STUDIO-sections.md#the-live-feed).
 
-One Studio per machine (3.0.2.0): while it serves, `~/.halo/studio.json`
-holds its pid, port and token (private), and a second `halo studio` reuses
-that instance (prints its URL, opens the browser) instead of starting
-another. `halo init` (3.3.0.0: Setup is the door) and the wizard's **Open
-Studio (Roles)** button start it detached, so it outlives them; `halo studio --stop`
-ends it. `halo_harness/studio/launch.py` is the small module behind both.
+One Studio per machine (3.0.2.0): while it serves, `~/.halo/studio.json` holds its pid, port and token (private), and a second `halo studio` reuses that instance (prints its URL, opens the browser) instead of starting another. `halo init` (3.3.0.0: Setup is the door) and the wizard's **Open Studio (Roles)** button start it detached, so it outlives them; `halo studio --stop` ends it. `halo_harness/studio/launch.py` is the small module behind both.
 Since 3.2.2.0 Studio ends with the halo session that quits: a quit
 (`/quit`, Ctrl+C twice, Ctrl+D, Ctrl+Q) stops the Studio in `studio.json`
 too (its shutdown route, then the signal) and says so in its last line
@@ -58,9 +47,13 @@ mode from the live session; bare `/studio` (3.1.4.0) opens the **Session**
 section (`Alt+1`) on the session you are in, `/studio [session|roles|design|orchestra|fleet|team|packs|setup]`
 opens that section, and `/studio url` prints the URL without opening a browser.
 The sections' keys are `Alt+1`..`Alt+8`: Session, Team, Roles, Fleet,
-Design, Orchestra, Packs, Setup. **Quiet by default (3.3.2.0):** nothing opens on its own when you open a section (the **?** in the header and each panel's help are one click away), the sections are a 56 px icon rail (its chevron expands it; it holds the sections only), a section's panels are the header's **+** and its layout the header's **...**, the inspector stays closed until something opens it, and `F` is **Focus** ([the shell](STUDIO-shell.md#the-shell-3030)). A model running in a
+Design, Orchestra, Packs, Setup. **Quiet by default (3.3.2.0):** nothing opens on its own when you open a section (the **?** in the header and each panel's help are one click away), the sections are a 56 px icon rail (its chevron expands it; it holds the sections only), a section's panels are the header's **+** and its layout the header's **...**, the inspector stays closed until something opens it, `F` is **Focus**, each section opens on one thing (its main panel filling the stage, the others strips at the foot) and the header's rows button sets the **density** ([the shell](STUDIO-shell.md#the-shell-3030)). A model running in a
 Halo session knows this too: the system prompt names Studio, its modes
 and the command, so "open the GUI for roles" runs `halo studio --mode roles`.
+
+## Look
+
+Studio is a holo ops console (a near-black navy, glass panels, cyan for what is live, amber for what needs you, mono for data), and **the ornament goes on the thing you look at (3.3.2.0)**: every panel is one title line (its title, its **?**, the strip button, a **...** menu) and a plain 1 px border; only the focused panel (the one you clicked, else the section's main panel) carries the HUD corner brackets, the glow and the mono data line. A panel's one-line "what it is" is the first line of its **?**, and an empty area does not say it is empty twice. **Density** (comfortable or compact: the header's rows button or the palette) tightens the spacing and the type scale and keeps the colours.
 
 This page is the entry point; the content lives in the parts below, one per task.
 

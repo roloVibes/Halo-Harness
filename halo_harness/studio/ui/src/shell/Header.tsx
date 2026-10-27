@@ -4,12 +4,14 @@
 // 3.3.2.0 R2's "+" menu (the section's panels, shell/PanelsMenu.tsx), its
 // "..." menu (Arrange panels, Reset layout, How panels move) and the "custom
 // layout" badge (shell/SectionMore.tsx), the Focus button (3.3.2.0 R1: hides
-// the rail, the inspector and the status bar; F), the command palette button
-// and the theme menu.
+// the rail, the inspector and the status bar; F), the command palette button,
+// 3.3.2.0 R3's density toggle (comfortable / compact, lib/density.ts) and the
+// theme menu.
 import { useEffect, useRef, useState } from "react";
 import { Button, Icon, Kbd } from "../lib/ui";
 import { openHelp, setTheme, studio, toggleFocus, useStore, type SectionId, type ThemeChoice } from "../lib/store";
 import { openGlossary } from "../lib/glossary";
+import { toggleDensity, useDensity } from "../lib/density";
 import { sectionDef } from "../routes";
 import { PanelsMenu } from "./PanelsMenu";
 import { SectionMore } from "./SectionMore";
@@ -69,6 +71,18 @@ function HelpMenu({ section }: { section: SectionId }) {
         </div>
       )}
     </div>
+  );
+}
+
+/** 3.3.2.0 R3: comfortable / compact, beside the theme choice; remembered per browser (halo.studio.density). */
+function DensityToggle() {
+  const d = useDensity();
+  const next = d === "compact" ? "comfortable" : "compact";
+  return (
+    <button className="icon-btn icon-btn-lg" onClick={toggleDensity} aria-pressed={d === "compact"} aria-label={`Density: ${d}`}
+            title={`Density: ${d} (press for ${next})`} data-testid="density-toggle" data-density={d}>
+      <Icon name={d === "compact" ? "density-compact" : "density"} />
+    </button>
   );
 }
 
@@ -139,6 +153,7 @@ export function Header() {
         <span className="palette-btn-text">Command</span>
         <Kbd keys="Mod+K" />
       </Button>
+      <DensityToggle />
       <ThemeMenu />
     </header>
   );

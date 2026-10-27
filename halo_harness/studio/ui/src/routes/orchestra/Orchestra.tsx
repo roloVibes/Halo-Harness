@@ -35,7 +35,7 @@ const panel = (id: string, rest: Omit<PanelSpec, "id">): PanelSpec => ({ id, ...
 // the Goal panel is 12 rows taller for its MODEL select, so every field and Run still fit.
 export const orchestraPanels: PanelSpec[] = [
   panel("goal", { title: "Goal", x: 0, y: 0, w: 6, h: 78, minW: 5, minH: 40, glance: GoalGlance, detail: GoalDetail, settings: GoalSettings, useMotion: started(useGoalMotion), testid: "orchestra-root" }),
-  panel("graph", { title: "Workflow", x: 6, y: 0, w: 12, h: 30, minW: 8, minH: 16, face: "glance", glance: GraphGlance, detail: GraphDetail, settings: GraphSettings, useMotion: started(useGraphMotion) }),
+  panel("graph", { title: "Workflow", primary: true, x: 6, y: 0, w: 12, h: 30, minW: 8, minH: 16, face: "glance", glance: GraphGlance, detail: GraphDetail, settings: GraphSettings, useMotion: started(useGraphMotion) }),
   panel("grid", { title: "Run grid", x: 18, y: 0, w: 6, h: 30, minW: 4, minH: 14, face: "glance", glance: RunGridGlance, detail: RunGridDetail, useMotion: started(useGridMotion) }),
   panel("file", { title: "Live file", x: 6, y: 30, w: 8, h: 0, minW: 6, minH: 20, glance: LiveFileGlance, detail: LiveFileDetail, settings: LiveFileSettings, useMotion: started(useLiveFileMotion) }),
   panel("lanes", { title: "Lanes", x: 14, y: 30, w: 10, h: 34, minW: 6, minH: 14, glance: LanesGlance, detail: LanesDetail, settings: LanesSettings, useMotion: started(useLanesMotion) }),

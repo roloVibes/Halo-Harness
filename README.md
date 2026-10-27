@@ -120,7 +120,7 @@ right now, and **Roles**, your lineup as cards that light up as their agents wor
 
 ### Session: the dashboard
 
-<a href="docs/media/studio-session.gif"><img alt="Studio's Session dashboard: the agent tree and the cost on the left, every agent's thinking, tool calls, hand-backs and an ask card scrolling in the Live column on the right" src="docs/media/studio-session.gif" width="100%"></a>
+<a href="docs/media/studio-session.gif"><img alt="Studio's Session dashboard: every agent's thinking, tool calls, hand-backs and an ask card scrolling in the Live column, the agent tree and the cost beside it on the right" src="docs/media/studio-session.gif" width="100%"></a>
 
 Press `Alt+1`, or type `/studio` in a terminal session (`halo studio --session` from a
 shell). The whole right side is **Live**: one column of everything every agent of this
@@ -250,7 +250,7 @@ Press `Alt+2` and the project's team file is one board: members as columns, stag
 that pulse while they run and turn amber at a gate you accept, redo or stop, and the blocks
 underneath with who holds which part and what changed. See [docs/TEAM.md](docs/TEAM.md).
 
-<a href="docs/media/studio-team.png"><img alt="Studio's Team section: draft done, review waiting at its gate with the gate card open, the notes block held by a hand edit, the change feed under the board" src="docs/media/studio-team.png" width="100%"></a>
+<a href="docs/media/studio-team.png"><img alt="Studio's Team section: draft done, review waiting at its gate with the gate card open, the notes block held by a hand edit, the gate card and the change feed beside the board" src="docs/media/studio-team.png" width="100%"></a>
 
 ### Design: on your own apps
 

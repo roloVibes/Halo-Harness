@@ -42,7 +42,7 @@ def counts(c) -> dict:
 
 
 def open_session(c, rig) -> None:
-    c.go(rig.url("session"))
+    c.go(rig.url("session", "&open=session-map,session-cost"))  # 3.3.2.0 R3: Live fills the stage, the map and the cost beside it
     c.wait("!!document.querySelector('[data-testid=\"session-live-detail\"]') && document.querySelectorAll('[data-testid=\"fleet-node\"]').length >= 6", 40)
     time.sleep(1.0)
 
@@ -202,6 +202,7 @@ def main(argv=None) -> int:
     from tests.helpers.studio_live_rig import Live
     placeholder()
     with StudioFleetRig() as rig:
+        rig.full = False  # 3.3.2.0 R3: the pictures show the quiet arrangement (each names the panels it opens)
         placeholder(rig.state)  # the rig's own home: you@studio
         rig.rail = ""  # 3.3.2.0 R1: the pictures show Studio as it opens, the icon rail
         lv = Live(rig)

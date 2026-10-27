@@ -70,8 +70,10 @@ class StudioTeamRig:
         threading.Thread(target=self.server.serve_forever, daemon=True, name="rig-team-studio").start()
 
     def url(self, mode: str = "team", extra: str = "") -> str:
+        """3.3.2.0 R3: every panel open (open=all, tests/helpers/studio_full.py) unless `extra` names its own."""
         from halo_harness.studio.server import url_for
-        return url_for(self.server, mode).replace("#t=", f"&tour=off{extra}#t=")
+        from tests.helpers.studio_full import full
+        return full(url_for(self.server, mode).replace("#t=", f"&tour=off{extra}#t="))
 
     def api(self, method: str, path: str, body=None):
         import http.client

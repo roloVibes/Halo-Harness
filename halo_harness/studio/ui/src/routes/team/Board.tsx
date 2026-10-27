@@ -113,7 +113,7 @@ export function BoardDetail() {
   const has = useTeam((s) => !!s.info?.team);
   const box = useRef<HTMLDivElement>(null);
   const room = useRoom(box);
-  if (!loaded) return <div className="og-wait mono muted">reading the team...</div>;
+  if (!loaded) return null; // 3.3.2.0 R3: the section's own wait says it while it reads (TeamView)
   if (!has) return <Empty title="No team to draw" body={error || "The Start view makes the team file; Validate lists what is wrong with one."} />;
   return (
     <div className="tm" data-testid="team-board-body">
