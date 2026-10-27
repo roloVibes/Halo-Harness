@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.3.3.1] - unreleased
+## [3.3.3.1] - 2026-10-27
 
 ### Cost counts what it knows
 #### Fixed
