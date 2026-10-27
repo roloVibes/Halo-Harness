@@ -1294,7 +1294,12 @@ def _rollup_child_cost_into_parent(parent, child, *, agent_id: str, since_index:
             spent_by[ident] = spent_by.get(ident, 0) + weight + 1
     child_model = max(spent_by, key=spent_by.get) if spent_by else (
         getattr(getattr(child, "model_ref", None), "raw", None), None, None)
-    child_cost = child.cost_meter.total_usd if child.cost_meter.has_cost_data else None
+    # 3.3.3.1: the child's priced part always rolls up (an unpriced call no
+    # longer throws the known part away); the log node keeps None only when
+    # nothing of the child's spend had a price.
+    from halo_harness.model import cost_fields_of, known_cost
+    child_fields = cost_fields_of(child.cost_meter)
+    child_cost = known_cost(child.cost_meter)
     # `SessionLog.append_usage` locks internally (safe from any thread on
     # its own); `CostMeter.add_child_total` does not -- both a background
     # child's OWN thread (`_bg_run`) and several FOREGROUND children
@@ -1306,8 +1311,9 @@ def _rollup_child_cost_into_parent(parent, child, *, agent_id: str, since_index:
                             model=child_model[0] if isinstance(child_model[0], str) else None,
                             provider=child_model[1], route=child_model[2])
     with parent._agent_notices_lock:
-        parent.cost_meter.add_child_total(cost_usd=child_cost, has_cost_data=child.cost_meter.has_cost_data,
-                                           turns=child.cost_meter.turns)
+        parent.cost_meter.add_child_total(turns=child.cost_meter.turns,
+                                           unknown_calls=int(getattr(child.cost_meter, "unknown_calls", 0) or 0),
+                                           **child_fields)
 
 
 def _wrap_task_result(text: str, task_id: str) -> str:
@@ -2660,7 +2666,7 @@ def list_agent_task_rows(session) -> list:
         live_child = live_by_id.get(agent_id)
         if live_child is not None:
             cm = getattr(live_child, "cost_meter", None)
-            if cm is not None and getattr(cm, "has_cost_data", False):
+            if cm is not None and (getattr(cm, "has_cost_data", False) or (getattr(cm, "total_usd", 0) or 0) > 0):
                 cost = cm.total_usd
         if cost is None:
             source_nodes = session.log.nodes() if parent_log_path is None else _agent_log_nodes(parent_log_path)

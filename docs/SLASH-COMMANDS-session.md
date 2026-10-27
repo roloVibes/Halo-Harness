@@ -25,8 +25,13 @@ no-op note. A failed attempt leaves the conversation byte-for-byte
 unchanged and says so.
 
 ### `/cost`
-Total cost and turn count for the session so far (`"n/a"` when the route
-doesn't report cost, e.g. Databricks). A second line (H15 part 2 addendum
+Total cost and turn count for the session so far, in dollars: the sum of
+every priced call, the main model's and every sub-agent's (3.3.3.1). A
+trailing `+` ("$3.6348+") means a part has no price, and one detail line
+names it ("+ main's model databricks-glm-5-3 reports no price; this is what
+the priced agents spent"); "n/a (no priced call yet)" only when nothing is
+priced and nothing was spent. `/status` and the status bar show the same
+figure with the same `+`. A second line (H15 part 2 addendum
 4) appears once a background fetch has ever succeeded -- the same cached
 figure the status bar's own "OR $12.40 left"/"OR $3.21 used" segment and
 `/providers` show, naming which of three kinds it is: "OpenRouter: $12.40

@@ -39,6 +39,7 @@ from halo_harness.config.claude_json import is_trusted, load_claude_json
 from halo_harness.config.paths import bridge_home, env_compat, home, lookup_project
 from halo_harness.config.settings import resolve_settings
 from halo_harness.model import DEFAULT_MODEL_REF, parse_model_ref, resolve_default_model_raw, resolve_model_profile
+from halo_harness.model import known_cost as _known_cost
 from halo_harness.output import PrintModeSink, StreamJsonSink
 from halo_harness.providers.routing import InvalidModelError
 from halo_harness.permissions import (
@@ -2006,7 +2007,8 @@ def run_print_mode(
                 turn_no += 1
                 if replay_user_messages:
                     print(json.dumps({"type": "user", "message": {"role": "user", "content": turn_text}}))
-                facade.cost_usd = session.cost_meter.total_usd if session.cost_meter.has_cost_data else facade.cost_usd
+                known = _known_cost(session.cost_meter)
+                facade.cost_usd = known if known is not None else facade.cost_usd
                 final_prompt, direct_output = _maybe_run_slash_command(
                     turn_text, registry=registry, facade=facade, disable_slash_commands=disable_slash_commands)
                 if direct_output is not None:
@@ -2058,7 +2060,7 @@ def run_print_mode(
                 facade.num_turns += 1
                 agent_sessions.record_session_turn(
                     cwd, session_log.session_id,
-                    cost_usd=(session.cost_meter.total_usd if session.cost_meter.has_cost_data else None))
+                    cost_usd=_known_cost(session.cost_meter))
             if not saw_any_turn:
                 print("halo: --input-format stream-json requires at least one user message on stdin",
                       file=sys.stderr)
@@ -2104,7 +2106,7 @@ def run_print_mode(
         finally:
             agent_sessions.record_session_turn(
                 cwd, session_log.session_id,
-                cost_usd=(session.cost_meter.total_usd if session.cost_meter.has_cost_data else None))
+                cost_usd=_known_cost(session.cost_meter))
     finally:
         # Halo 2.0.9 round 2: the control socket + registry entry go first.
         try:

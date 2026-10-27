@@ -136,12 +136,14 @@ def test_format_model_row_dbu_appended_only_when_known(ctx: Ctx):
 
 # ---------------------------------------------------------------------------
 # databricks_row_fields: (a) models.dev live cache, (b) model_table.json
-# fallback (ctx only), (c) neither -> {}.
+# fallback (ctx only), (c) neither -> {}. 3.3.3.1: the tiers are
+# `_databricks_row_fields`; the public one then puts Databricks' own dollar
+# rate on top (providers/databricks_prices.py, tests.test_model).
 # ---------------------------------------------------------------------------
 
 @test
 def test_databricks_row_fields_prefers_live_models_dev_cache(ctx: Ctx):
-    from halo_harness.model_display import databricks_row_fields
+    from halo_harness.model_display import _databricks_row_fields as databricks_row_fields
     from halo_harness.providers.models_dev import write_models_dev_json
     with tempfile.TemporaryDirectory() as tmp:
         state_dir = Path(tmp)
@@ -158,7 +160,7 @@ def test_databricks_row_fields_prefers_live_models_dev_cache(ctx: Ctx):
 
 @test
 def test_databricks_row_fields_falls_back_to_model_table_ctx_only(ctx: Ctx):
-    from halo_harness.model_display import databricks_row_fields
+    from halo_harness.model_display import _databricks_row_fields as databricks_row_fields
     with tempfile.TemporaryDirectory() as tmp:
         state_dir = Path(tmp)  # no models-dev.json cache at all here
         fake_table = {"databricks": {"databricks-deepseek-v4-1-flash": {"context_tokens": 1048576}}}

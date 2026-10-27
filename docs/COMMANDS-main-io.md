@@ -142,8 +142,12 @@ on regardless.
 
 #### `--max-budget-usd MAX_BUDGET_USD`
 What: stops the session (mid-turn, at the next safe point) once cumulative
-cost meets or exceeds this many US dollars -- a route with no real per-token
-pricing (Databricks) never counts toward it.
+cost meets or exceeds this many US dollars. It counts the known part (3.3.3.1):
+every priced call, the main model's and every sub-agent's; a model with no
+per-token price adds nothing, so a session whose main model is unpriced still
+stops on its priced sub-agents' spend. The `-p --output-format json` result
+carries `total_cost_usd` (that known part) and `cost_complete` (false when
+some model answered with no price).
 
 ### Browser flags
 

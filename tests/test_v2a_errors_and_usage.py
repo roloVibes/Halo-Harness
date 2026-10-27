@@ -226,6 +226,8 @@ def test_v2a_databricks_cost_na_when_price_unknown(ctx: Ctx):
     cost = meter.add_usage("databricks", {"input_tokens": 100, "output_tokens": 50})
     ctx.check(f"cost is None with no price configured, got {cost!r}", cost is None)
     ctx.check("has_cost_data flips False (the real \"n/a\" signal /cost reads)", meter.has_cost_data is False)
+    f = meter.cost_fields()  # 3.3.3.1: the figure is the priced part (none here), marked incomplete
+    ctx.check(f"cost_fields: 0.0, incomplete, got {f}", f["cost_usd"] == 0.0 and f["cost_complete"] is False)
 
 
 @test
@@ -274,12 +276,18 @@ def test_v2a_dbu_catalog_rate_converts_to_dollars_when_configured(ctx: Ctx):
     os.environ["BRIDGE_TEST_HOME"] = str(home)
     os.environ["BRIDGE_STATE_DIR"] = str(home / ".halo")
     try:
-        ctx.check("unset -> raw DBU count", format_dbu_cost(1.5) == "1.500 DBU")
+        # 3.3.3.1 "costs are always dollars": unset is the shipped $0.07/DBU, never a raw DBU figure
+        ctx.check(f"unset -> dollars at the default $0.07/DBU, got {format_dbu_cost(1.5)!r}", format_dbu_cost(1.5) == "$0.1050")
         ctx.check("unset -> unknown stays '?'", format_dbu_cost(None) == "?")
-        set_config_value("databricks.dbu_price_usd", 0.07)
-        ctx.check(f"price now configured, got {dbu_price_usd()}", dbu_price_usd() == 0.07)
+        from halo_harness.providers.dbx_routing import format_dbu_detail
+        ctx.check(f"the DBU count is only the detail, got {format_dbu_detail(1.5)!r}",
+                  format_dbu_detail(1.5) == "1.500 DBU at $0.07/DBU")
+        set_config_value("databricks.dbu_price_usd", 0.1)
+        ctx.check(f"the owner's own rate wins, got {dbu_price_usd()}", dbu_price_usd() == 0.1)
         ctx.check(f"catalog DBU rate converts to dollars, got {format_dbu_cost(2.0)!r}",
-                  format_dbu_cost(2.0) == "$0.1400")
+                  format_dbu_cost(2.0) == "$0.2000")
+        set_config_value("databricks.dbu_price_usd", "nonsense")
+        ctx.check("a value that is not a number falls back to the default", dbu_price_usd() == 0.07)
     finally:
         for k, v in saved.items():
             if v is None:

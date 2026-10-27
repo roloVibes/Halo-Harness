@@ -64,6 +64,8 @@ class StatusBar(Static):
         self.context_limit: "int | float | None" = None
         self.context_pct: "float | None" = None
         self.cost_usd: "float | None" = None
+        # 3.3.3.1: False when some model answered with no price ("$x+").
+        self.cost_complete: "bool | None" = None
         self.total_input_tokens: "int | float" = 0
         self.total_output_tokens: "int | float" = 0
         # H15 part 2 addendum 4: the OpenRouter account-balance segment,
@@ -222,6 +224,8 @@ class StatusBar(Static):
             self.effort = data["effort"]
         if data.get("cost_usd") is not None:
             self.cost_usd = data["cost_usd"]
+        if isinstance(data.get("cost_complete"), bool):
+            self.cost_complete = data["cost_complete"]
         # Round 5e: "saved $x" -- only ever carried by a message_end whose
         # turn actually was ol:/hf:local/hf:mlx; absent (not merely falsy)
         # on every other turn, so a later cloud-model turn in the SAME
@@ -501,7 +505,8 @@ class StatusBar(Static):
         # to used-tokens-alone or raw token totals when a limit/price
         # genuinely isn't known.
         ctx_str = format_status_context(self.context_tokens, self.context_limit)
-        cost_str = format_status_cost(self.cost_usd, self.total_input_tokens, self.total_output_tokens)
+        cost_str = format_status_cost(self.cost_usd, self.total_input_tokens, self.total_output_tokens,
+                                      complete=self.cost_complete)
         # Round 5e: " · saved $x" appended to the SAME chip, never a
         # separate segment -- `format_status_cost` itself stays untouched
         # (shared with the model-listing row format, per its own docstring;
