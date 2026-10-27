@@ -90,7 +90,10 @@ def test_h9_wheel_ships_the_required_runtime_data_files(ctx: Ctx):
                              "halo_harness/providers/catalog/openrouter_fallback.json",
                              # 3.0.4.0 round R1: the ComfyUI starter workflows `halo media` and comfy_run load.
                              "halo_harness/templates/comfy/text-to-image-qwen.json",
-                             "halo_harness/templates/comfy/image-to-video-wan22.json"):
+                             "halo_harness/templates/comfy/image-to-video-wan22.json",
+                             # 3.3.4.0 R1: the steward's knowledge, read at runtime.
+                             "halo_harness/ollama_steward/knowledge/SOURCES.md",
+                             "halo_harness/ollama_steward/knowledge/symptoms.md"):
         ctx.check(f"{required_suffix} is in the wheel", any(n.endswith(required_suffix) for n in names))
 
 
