@@ -2875,3 +2875,148 @@ CLI adjusts has a Studio row or a named link.
   docs/screenshots through scripts/screenshots.py, the README's section
   list, the banner. Docs: STUDIO-sections.md, CONFIG.md (the Studio column
   complete), COMMANDS.md (`halo config` points at Settings).
+
+## ADDED 2026-10-27 (rolo: "there's so much configuration going on with ollama that I almost think you need a dedicated agent to monitor the ollama traffic to constantly make adjustments to ensure that things work, things aren't getting dropped, analyze all the traffic to be proactive about fixing context windows, each ollama model is different. I'm sure it's the same for hugging face. We need some auto config plus constant monitoring via an agent that we can select, hopefully like something cheap and simple ... between any halo sessions, for example I use my MacBook ... to call this ollama server"; "an agent that also understands your local infrastructure too like GPU and memory limits and can explain why things aren't working or how to creatively make adjustments to ensure stability with models that might take over as much GPU as possible"; "this also requires deep research into the ollama server and how running local hugging face models work too ... needs to have a breadth of knowledge to work as well as intended"): 3.3.4.0 "The Ollama steward"
+
+Order change: 3.3.3.0 ships its R1 (Setup hands off to halo) and R2 (the
+Settings section) and is released; its R3 (themes) and R4 (parity) move to
+3.3.5.0 "Themes and parity", after this version. The steward's own knobs
+live in Settings, which is why Settings goes first.
+
+Today the window rule runs inside each session (agent/ollama_window.py:
+the estimate, the window, one trim recovery per turn), calibration lives in
+`~/.halo/ollama-fit.json`, the tuned twins, the ssh GPU read and discovery
+are 3.2.3.0's, and nothing looks across sessions or across machines: the
+Mac's sessions, the Kali VM's and this PC's each learn the same server
+alone, and a trim or a cut reply on one is news to none of the others.
+Nothing knows the server's own settings (how many models it keeps loaded,
+its parallelism, its KV cache type), what else holds the card (ComfyUI), or
+why a model that fit yesterday spills to the CPU today. Outside Halo,
+rolo's read-only watcher (`ollama-watch/watch.ps1`: a tail of Ollama's
+server.log, `/api/ps`, twelve alert rules, a small model explaining each
+batch) proved the shape; this version brings it inside, across the fleet,
+gives it the knowledge and the hardware facts, and lets it adjust. Three
+parked bugs from 3.2.3.0 (the compaction trigger not firing, no reply
+reserve, a truncated reply resent) become steward rules. Nothing here
+writes to an Ollama server or changes a model on it; the steward adjusts
+Halo's side (the window, the reserve, keep-alive, the tool cap, which host
+a model is asked on) and RECOMMENDS server-side changes with the exact
+line to set and what it costs; every change is one reversible line.
+
+- R1 the knowledge and the hardware card (research first). A research
+  round, sources read and cited with versions and dates (Ollama's source
+  and docs, llama.cpp's server, mlx-lm, LM Studio, vLLM's basics, NVIDIA's
+  and Apple's memory rules), written as the steward's own guide,
+  `halo_harness/ollama_steward/knowledge/*.md` (served to the agent in R4
+  and to the user through `halo ollama explain <topic>` and the panel's ?):
+  (a) Ollama's scheduler: `OLLAMA_MAX_LOADED_MODELS`, `OLLAMA_NUM_PARALLEL`
+  (the KV cache multiplies by it), `OLLAMA_KEEP_ALIVE`, `OLLAMA_KV_CACHE_TYPE`,
+  `OLLAMA_FLASH_ATTENTION`, `OLLAMA_GPU_OVERHEAD`, `OLLAMA_SCHED_SPREAD`,
+  `OLLAMA_MAX_QUEUE`, how a load decides layers on the GPU against the
+  estimate, eviction, the 499 / 500 / "truncating input prompt" /
+  "truncated = 1" / "failed to find a memory slot" / "offloaded a/b layers"
+  lines and what each means, `/api/ps`, `/api/show`, the startup lines
+  that dump the server's env and its "inference compute" (GPU id, library,
+  total and available memory) -- the read-only way to learn a local
+  server's settings and card; (b) memory arithmetic: weights by quant
+  (Q4_K_M ... F16), KV cache bytes per token per layer by `kv_cache_type`,
+  the window x parallel product, the graph overhead, Windows WDDM
+  reservation, Apple unified memory and its wired limit, why a 27B at
+  65,536 fits on a 24 GB card only with every layer forced on (rolo's own
+  measurement: the default spills past 49,152); (c) llama.cpp's
+  `llama-server` (`-c`, `-ngl`, `-np`, `--cache-type-k/v`, `--flash-attn`,
+  slots, `/health`, `/slots`, `/metrics`, its truncation and
+  context-shift behaviour), `mlx_lm.server` on a Mac, LM Studio's server,
+  what Hugging Face "local servers" in Halo already speak (the
+  OpenAI-dialect path, `usage`, `finish_reason`); (d) a symptom -> cause
+  -> what to change table for every alert kind, with the Halo-side change
+  and the server-side recommendation side by side. Code: `hardware.py`,
+  the hardware card per host {gpus: [{name, total, available}], unified,
+  ram, server: {version, max_loaded, parallel, keep_alive, kv_cache_type,
+  flash_attention}, other_users: [ComfyUI ... when readable]} from the
+  local server.log's startup lines, `/api/version`, `/api/ps`, the
+  existing ssh read for a remote host, `nvidia-smi` / `system_profiler`
+  where local and present; `halo ollama hardware [--host H]` prints it;
+  a doc test pins every knowledge file's claims to a source line.
+- R2 every call leaves a record: the traffic ledger. Each session appends
+  one line per Ollama call to `<state>/ollama/traffic.jsonl` (host, model,
+  the window sent and its source, the estimate, `prompt_eval_count`,
+  `eval_count`, `done_reason`, the durations and the eval rate, trimmed,
+  status or error, retry, session and turn) -- the fields the response
+  already carries; the OpenAI-dialect path (HF local servers, LM Studio,
+  llama-server) writes the same line from `usage` and `finish_reason`. A
+  fleet member sends the lines to the hub (a new `fleet.share` scope
+  `ollama`, on by default for a host entry the member does not run
+  itself), so the hub on the machine that serves the models sees every
+  halo's calls to it. Server-side truth where the server is local:
+  `server_log.py` tails Ollama's server.log read-only
+  (`%LOCALAPPDATA%\Ollama\server.log`, `~/.ollama/logs/server.log`,
+  journald) with the watcher's rules ported (prompt-trimmed, reply-cut,
+  window-full, load-failed, http-500, 499, cpu-spill, gpu-memory, stall,
+  slow-load, server-down, other-error) and polls `/api/ps` every 20 s into
+  `<state>/ollama/events.jsonl`; a quiet period per alert kind. `halo
+  ollama traffic [--host H] [--model M] [--since 1h]` prints per-model
+  rollups (calls, p50 / p95 prompt tokens against the window, trims, cuts,
+  reloads, errors, eval rate) and `halo ollama events` the server lines.
+  Tests on fixture logs and fake responses; never a real server.
+- R3 the steward judges, plans the fit, adjusts. `rules.py`, one rule per
+  finding from the ledger, the events and the hardware card, per host and
+  model: (a) the window is too small (trims, cuts, p95 prompt within 10 % of
+  the window) -> raise `num_ctx` toward the measured cap, or a tuned twin
+  when the cap is the card; too large (p95 far under, reloads, cpu-spill)
+  -> lower it; (b) replies cut with `done_reason: length` -> a `num_predict`
+  reserve (the parked reply-reserve bug); (c) a session past 80 % of the
+  window without compacting -> the compaction trigger per model (the parked
+  trigger bug); (d) a truncated reply resent -> flagged and stopped (the
+  parked third bug); (e) a low eval rate -> the slow-box flag. `fit.py`,
+  the planner for the card: given the hardware card, what is loaded, what
+  else holds memory and what the halos are asking for (the models each
+  live session wants, from the ledger), it finds a set that fits: windows
+  per model so both fit, or one model at a time (`keep_alive 0` on the
+  second and an order), or the second model asked on another host the
+  fleet knows (SAMUS), or a tuned twin, a smaller quant, `kv_cache_type
+  q8_0` on the server (a recommendation with the exact env line and what it
+  costs in quality); every plan says what you lose. An adjustment lands in
+  a profile, `ollama.profiles["<host>|<model>"] = {num_ctx, num_predict,
+  keep_alive, tools_max, host_for, note, by, at}`, read by `prepare_window`
+  before every call on every halo; the hub pushes profiles to members so
+  the Mac's next call uses what the PC learned. Mode `ollama.steward.apply`:
+  `auto` (apply and say one line), `review` (propose; approve in Studio or
+  `halo ollama steward apply <id>`), `off`. Server-side recommendations are
+  never applied, only shown with the line to run. Every change is one line
+  in `<state>/ollama/steward.jsonl` (what, why, the evidence, the plan) and
+  `halo ollama steward undo` reverts the last; never above a measured cap,
+  at most one change per model per ten minutes, a change followed by worse
+  calls rolls back on its own.
+- R4 the steward's agent, selectable and cheap. `ollama.steward.model`
+  (default: the compaction model, else the smallest local model on the
+  roster, else off): on each alert batch, or every N minutes while calls
+  flow, it reads the hardware card, the rollups, the recent events, the
+  rules' findings and the fit plan, with the R1 knowledge as its guide, and
+  writes a plain-language note that EXPLAINS the chain (what holds the
+  card, what spilled, which call then timed out and on which machine) and
+  what changed or should change; it may propose an adjustment the rules did
+  not, bounded to the profile fields and checked by the rules and the fit
+  planner before it lands. It runs as one job per state dir: inside Studio
+  or the fleet hub when either is up, else `halo ollama steward --watch` as
+  a daemon on the machine that serves the models; the cost is shown (local
+  by default; a cloud model only when chosen); `halo ollama explain [<alert>
+  | <topic>]` answers from the knowledge without a model. Notes reach the
+  TUI status line, the fleet attention signal and Studio.
+- R5 Studio and the TUI. An Ollama panel (Fleet and Setup -> Providers):
+  per host the hardware card, the models, what is loaded now and its VRAM
+  fit, calls, trims, cuts, reloads and errors for the last hour, the
+  profile and the steward's last note, the proposals and the fit plan with
+  Apply / Dismiss in review mode, the server-side recommendations with a
+  copy line, a traffic timeline; Settings -> Ollama: the steward's model,
+  mode, thresholds, the quiet period; `/ollama` in the TUI prints the
+  rollups and the last note; `halo ollama steward status | notes | undo |
+  apply`; `halo ollama hardware`, `halo ollama explain`. Docs:
+  MODELS-ollama.md "The steward", LOCAL-MODELS.md (the local servers' part),
+  CONFIG.md (`ollama.profiles`, `ollama.steward.*`, the share scope),
+  STUDIO-sections.md, COMMANDS-local.md.
+
+After 3.3.4.0: an opt-in proxy mode (`halo ollama proxy`) that sits in front
+of a server so non-halo clients' traffic is seen too; Hugging Face endpoints
+beyond the local servers; a `halo ollama steward` that may, when told to,
+restart a local server with the recommended env.
