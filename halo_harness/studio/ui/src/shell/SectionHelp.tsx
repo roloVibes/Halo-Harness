@@ -4,9 +4,12 @@
 // `?`. 3.3.2.0 R1: nothing opens it on its own (the first-visit welcome is gone
 // for every section); its KEYS list the section's Alt+N first and the shell's
 // own keys last (F Focus, the rail's chevron), since the rail rows print no
-// shortcut. 3.1.1.0 R1: the WORDS row links each glossary word the section
+// shortcut. 3.3.2.0 R2: "Moving panels" (the drag paragraph the expanded rail
+// carried) is a part of its own, the one the header's ... menu "How panels
+// move" opens on (`help.part === "moving"`). 3.1.1.0 R1: the WORDS row links each glossary word the section
 // uses into the Glossary. A section with no panels (Setup's pages) lists its
 // steps and keys only.
+import { useEffect, useRef } from "react";
 import { Button, Dialog, Kbd } from "../lib/ui";
 import { closeHelp, studio, useStore } from "../lib/store";
 import { openGlossary } from "../lib/glossary";
@@ -18,6 +21,25 @@ import { packHelp } from "../routes/packs/registry";
 function focusKey(keys: [string, string][]): [string, string] {
   const taken = keys.some(([k]) => k === "F" || k.startsWith("F "));
   return taken ? ["Shift+F", "Focus: hide the rail, the inspector and the status bar"] : ["F", "Focus: hide the rail, the inspector and the status bar (Shift+F too)"];
+}
+
+/** 3.3.2.0 R2: how panels move, for a section with panels; scrolled into view when the help opens on it. */
+function MovingPanels({ on }: { on: boolean }) {
+  const ref = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (on) ref.current?.scrollIntoView({ block: "nearest" });
+  }, [on]);
+  return (
+    <section ref={ref} className="section-help-moving" aria-label="Moving panels" data-testid="help-moving" data-on={on || undefined}>
+      <div className="rail-label mono">MOVING PANELS</div>
+      <p className="muted">
+        Drag a title bar to move a panel (the others make room), an edge to resize it against its neighbour. <Kbd keys="Alt+Shift+Down" /> grows the focused one.
+      </p>
+      <p className="muted">
+        The <b>+</b> in the header adds a panel or brings one back; its <b>...</b> menu arranges the open panels or resets the layout.
+      </p>
+    </section>
+  );
 }
 
 export function SectionHelp() {
@@ -108,6 +130,7 @@ export function SectionHelp() {
             </ul>
           </section>
         </div>
+        {!def.paged && def.panels.length > 0 && <MovingPanels on={help.part === "moving"} />}
       </div>
     </Dialog>
   );

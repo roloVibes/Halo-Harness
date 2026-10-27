@@ -134,7 +134,7 @@ def test_orchestra_start_view_then_grid(ctx: Ctx):
     ctx.check(f"no run: none of the run panels, got {start}",
               not any(start.get(k) for k in ("orchestra-root", "orchestra-graph", "lane", "grid-tile", "report-check", "panel-about")))
     ctx.check(f"a run open: the grid, not the Start view, got {grid}", grid.get("start-view") == 0 and grid.get("orchestra-root") == 1)
-    ctx.check(f"a run open: eight about lines, no run list in the icon rail, got {grid}", grid.get("panel-about") == 8 and grid.get("orchestra-rail-run") == 0)
+    ctx.check(f"a run open: eight about lines, no run list drawn (it is in the closed + menu), got {grid}", grid.get("panel-about") == 8 and grid.get("orchestra-menu-run") == 0)
     ctx.check("the Goal panel fits every field and Run at its default size", grid.get("goal-overflow") is False)
     ctx.check(f"3.3.2.0 R1: no help card with or without tour=off, got {grid.get('section-help')} / {grid.get('welcome')}",
               grid.get("section-help") == 0 and grid.get("welcome", {}).get("section-help") == 0)
@@ -167,7 +167,7 @@ def test_panel_focus_on_click_and_help(ctx: Ctx):
     ctx.check(f"How Orchestra works: steps and every panel, got {got}",
               got.get("section_title") == "How Orchestra works" and got.get("section_steps") == 8 and got.get("section_panels") == 8)  # 3.0.9.0 R3: + Coach
     ctx.check("closed; nothing remembered as seen (3.3.2.0 R1: no welcome to hold back)", got.get("section_closed") is True and got.get("seen") == 0)
-    ctx.check(f"the run in the expanded rail (3.3.2.0 R1), got {got.get('rail_run')}", got.get("rail_run") == 1)
+    ctx.check(f"the run and New run in Orchestra's + menu (3.3.2.0 R2), got {got.get('rail_run')} {got.get('menu_new_run')}", got.get("rail_run") == 1 and got.get("menu_new_run") is True)
 
 
 @test

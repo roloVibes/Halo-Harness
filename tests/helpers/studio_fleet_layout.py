@@ -84,7 +84,7 @@ class OneAgentRig:
 
     def url(self, extra: str = "") -> str:
         from halo_harness.studio.server import url_for
-        return url_for(self.server, "fleet").replace("#t=", f"&tour=off&rail=open{extra}#t=")  # 3.3.2.0 R1: Reset layout lives in the expanded rail
+        return url_for(self.server, "fleet").replace("#t=", f"&tour=off{extra}#t=")  # 3.3.2.0 R2: Reset layout is the header's ... menu
 
     def close(self) -> None:
         from halo_harness.fleet import identity

@@ -36,7 +36,7 @@ def register(test, json_of, chrome) -> None:
         ctx.check(f"two harness boxes, five agents, got {got.get('boxes')} / {got.get('nodes')} {got.get('labels')}",
                   got.get("boxes") == 2 and got.get("nodes") == 5 and got.get("labels") == ["you@studio", "kali@lab"])
         ctx.check(f"three states (running, waiting, done), got {got.get('states')}", set(got.get("states") or []) == {"running", "waiting", "done"})
-        ctx.check(f"the map, the agent panel and the rail, got {got.get('panels')}", got.get("panels") == [1, 1, 1])
+        ctx.check(f"the map, the agent panel and the Tree panel's tree, got {got.get('panels')}", got.get("panels") == [1, 1, 1])
         ctx.check(f"click selects; the inspector shows the tail and the tool row, got {got.get('tail_text')!r} / {got.get('tool_label')!r}",
                   got.get("selected") == "researcher" and "pricing notes" in str(got.get("tail_text")) and got.get("tool_rows") == 1
                   and str(got.get("tool_label")).startswith("Bash: git grep"))
@@ -58,15 +58,15 @@ def register(test, json_of, chrome) -> None:
     @test
     def test_fleet_hop_keys_and_the_rail(ctx: Ctx):
         """3.0.5.0 R3: J hops from the selected live agent to the next live one
-        (across harnesses), K back; the rail's tree (harness > session > agent)
-        is GET /api/fleet's, in its order."""
+        (across harnesses), K back; the tree (harness > session > agent; 3.3.2.0 R2: Fleet's
+        Tree panel, added through the header's "+" menu) is GET /api/fleet's, in its order."""
         if not chrome():
             raise SkipTest("no Chrome found (the Fleet test needs headless Chrome)")
         r, got = json_of("-m", "tests.helpers.studio_fleet", "map")
         ctx.check(f"the run finished, got {r.stderr[-300:]!r}", r.returncode == 0)
         ctx.check(f"J moves to another agent, K comes back, got {got.get('after_j')} / {got.get('after_k')}",
                   bool(got.get("after_j")) and got.get("after_k") == "researcher")
-        ctx.check(f"the rail tree is GET /api/fleet's, got {got.get('rail')} vs {got.get('api_tree')}",
+        ctx.check(f"the Tree panel's tree is GET /api/fleet's, got {got.get('rail')} vs {got.get('api_tree')}",
                   got.get("rail") and got.get("rail") == got.get("api_tree") and len(got.get("rail")) == 9)
 
 
@@ -97,7 +97,7 @@ def register(test, json_of, chrome) -> None:
     @test
     def test_fleet_capture_dom_counts(ctx: Ctx):
         """3.0.5.0 R3: tools/capture_studio.py --mode fleet --dom: the section
-        (six tabs, the map, the agent panel, the rail, five nodes, two boxes;
+        (eight section icons, the map, the agent panel, the Tree panel (3.3.2.0 R2: added through the "+"), five nodes, two boxes;
         R4: People, Costs, Health, Attention and Activity too), its
         Start view (?view=start: the pair card and the settings, no map) and Live
         Roles (three glowing cards, the Live tab)."""
@@ -107,11 +107,11 @@ def register(test, json_of, chrome) -> None:
         ctx.check(f"the capture tool ran, got {r.stdout[-300:]!r} {r.stderr[-300:]!r}", r.returncode == 0)
         f, s, ro = got.get("fleet", {}), got.get("start", {}), got.get("roles", {})
         ctx.check(f"the section, got {f}", f.get("section-tab") == 8 and f.get("fleet-map") == 1 and f.get("fleet-agent") == 1
-                  and f.get("fleet-rail") == 1 and f.get("fleet-node") == 5 and f.get("fleet-box") == 2 and f.get("fleet-start") == 0
+                  and f.get("fleet-tree-list") == 1 and f.get("fleet-node") == 5 and f.get("fleet-box") == 2 and f.get("fleet-start") == 0
                   and all(f.get(k) == 1 for k in ("fleet-people", "fleet-costs", "fleet-health", "fleet-attention", "fleet-activity",
                                                    "fleet-capabilities", "fleet-mission")))
         ctx.check(f"the Start view, got {s}", s.get("fleet-start") == 1 and s.get("fleet-pair") == 1 and s.get("fleet-settings") == 1
-                  and s.get("fleet-map") == 0 and s.get("fleet-rail") == 1)
+                  and s.get("fleet-map") == 0 and s.get("fleet-tree-list") == 0)  # 3.3.2.0 R2: the tree is a workspace panel, not the rail's
         ctx.check(f"Live Roles, got {ro}", ro.get("live-card") == 3 and ro.get("live-tab") == 1 and ro.get("section-tab") == 8)
 
 
@@ -119,7 +119,7 @@ def register(test, json_of, chrome) -> None:
     def test_fleet_attention_answers_an_approval_in_headless_chrome(ctx: Ctx):
         """3.0.5.0 R4: the seven Fleet panels show, each with its about line; the
         attention queue lists the member's question and approval cards and its
-        count shows in the status bar and the rail; a click on the approval row
+        count shows in the status bar and the Tree panel; a click on the approval row
         and A answers it on the member through the hub, and the row leaves."""
         if not chrome():
             raise SkipTest("no Chrome found (the Fleet test needs headless Chrome)")
@@ -128,7 +128,7 @@ def register(test, json_of, chrome) -> None:
         ctx.check(f"nine panels (R6: Capabilities, R8: Mission), each with its about line, got {got.get('panels')} / {got.get('abouts')}",
                   got.get("panels") == [1] * 9 and got.get("abouts") == 9)
         ctx.check(f"the queue holds the member's two cards, got {got.get('attn_kinds')}", sorted(got.get("attn_kinds") or []) == ["approval", "question"])
-        ctx.check(f"the count in the status bar and the rail, got {got.get('status_attn')!r} / {got.get('rail_attn')!r}",
+        ctx.check(f"the count in the status bar and the Tree panel, got {got.get('status_attn')!r} / {got.get('rail_attn')!r}",
                   "2 need you" in str(got.get("status_attn")) and "2 NEED YOU" in str(got.get("rail_attn")))
         ctx.check(f"A on the approval row answers it on the member, got {got.get('approval_sent')}",
                   got.get("approval_selected") == "selected" and got.get("approval_sent") == {"kind": "approval", "request_id": got.get("approval_id"), "action": "accept"}
@@ -170,15 +170,15 @@ def register(test, json_of, chrome) -> None:
     @test
     def test_fleet_digest_after_an_absence(ctx: Ctx):
         """3.0.5.0 R4: with halo.fleet.lastSeen two hours back, the tab regaining
-        the focus shows "While you were away" in the rail with the totals per
-        harness; Dismiss closes it and sets lastSeen to now."""
+        the focus puts a dot on the rail's Fleet icon (3.3.2.0 R2); a click on it opens Fleet's Tree panel
+        with "While you were away" at its top; Dismiss closes it, sets lastSeen to now and the dot goes."""
         if not chrome():
             raise SkipTest("no Chrome found (the Fleet test needs headless Chrome)")
         r, got = json_of("-m", "tests.helpers.studio_fleet", "panels")
         text = str(got.get("digest"))
         ctx.check(f"the card, its totals and both harnesses, got {text!r}",
-                  text.startswith("WHILE YOU WERE AWAY") and "started" in text and "you@studio" in text and "kali@lab" in text and got.get("digest_where") == "rail")
-        ctx.check(f"Dismiss closes it and updates lastSeen, got {got.get('digest_dismissed')}", got.get("digest_dismissed") == "dismissed")
+                  text.startswith("WHILE YOU WERE AWAY") and "started" in text and "you@studio" in text and "kali@lab" in text and got.get("digest_where") == "tree")
+        ctx.check(f"the Fleet icon's dot; Dismiss closes it, updates lastSeen, the dot goes, got {got.get('digest_dot')} {got.get('digest_dismissed')} {got.get('digest_dot_gone')}", got.get("digest_dot") is True and got.get("digest_dismissed") == "dismissed" and got.get("digest_dot_gone") is True)
 
 
     @test

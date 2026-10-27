@@ -7,10 +7,10 @@ fresh one; no provider request, no model call:
    by Alt+1..8, shows no section help, no dialog, no Start here after 2 s, on the seeded home and the fresh one;
 2. Start here only on the fresh home's first section; "Set up this box" closes it for this browser (not on the
    next section, not on a reload); a browser without the key gets it once more, "Just look around" closes it;
-3. the icon rail: 56 px of section icons by default (<= 64), 248 px expanded by its chevron (<= 248), the
+3. the icon rail: 56 px of section icons by default (<= 64), 200 px expanded by its chevron (R2: <= 200), the
    choice remembered across a reload; a row per section with its title as tooltip and name, the current one
-   lit, no printed shortcut; no tab strip in the header; the panel list and Arrange only while expanded;
-   Alt+4 and a click still switch;
+   lit, no printed shortcut; no tab strip in the header; R2: the section rows and the chevron only, in both
+   widths (no panel row, no layout block, no Fleet tree, no runs); Alt+4 and a click still switch;
 4. the inspector closed on load; a Roles card click selects in Roles' own Inspector panel and leaves the column
    closed; a panel's Settings opens it (340 px, the stage gives the width), it is remembered across a reload,
    its close button gives the width back and a reload keeps it closed;
@@ -66,7 +66,7 @@ def test_the_source_has_no_welcome_left(ctx: Ctx):
     src = "\n".join(p.read_text(encoding="utf-8") for p in UI.rglob("*.ts*"))
     ctx.check("nothing in ui/src calls it or reads halo.studio.seen", "welcomeIfNew" not in src and "halo.studio.seen" not in src)
     css = (UI / "styles" / "shell.css").read_text(encoding="utf-8")
-    for rule in ("grid-template-columns: 56px minmax(0, 1fr) 0;", '.app[data-rail="open"] { grid-template-columns: 248px minmax(0, 1fr) 0; }',
+    for rule in ("grid-template-columns: 56px minmax(0, 1fr) 0;", '.app[data-rail="open"] { grid-template-columns: 200px minmax(0, 1fr) 0; }',
                  '.app[data-focus="on"][data-rail][data-inspector] { grid-template-columns: 0 minmax(0, 1fr) 0;'):
         ctx.check(f"shell.css has {rule}", rule in css)
 
@@ -109,12 +109,13 @@ def test_the_icon_rail(ctx: Ctx):
               got.get("rail_kbd") == [0, False] and got.get("rail_kbd_open") == [0, False])
     ctx.check(f"no tab strip in the header, the section's title there, got {got.get('header_tabs')} {got.get('header_title')!r}",
               got.get("header_tabs") == 0 and str(got.get("header_title")).startswith("Roles"))
-    ctx.check(f"the chevron expands to <= 248 px, got {got.get('rail_open')} {got.get('rail_open_w')}",
-              got.get("rail_open") == "open" and 64 < (got.get("rail_open_w") or 0) <= 248)
-    ctx.check(f"panels and Arrange only while expanded, got {got.get('panels_icons')} / {got.get('panels_open')}",
-              got.get("panels_icons") is False and got.get("panels_open") == [True, True])
+    ctx.check(f"the chevron expands to <= 200 px, got {got.get('rail_open')} {got.get('rail_open_w')}",
+              got.get("rail_open") == "open" and 64 < (got.get("rail_open_w") or 0) <= 200)
+    sections_only = ["rail-sections,rail-toggle", 0, 0]
+    ctx.check(f"R2: the section rows and the chevron only, in both widths, got {got.get('panels_icons')} / {got.get('panels_open')}",
+              got.get("panels_icons") == sections_only and got.get("panels_open") == sections_only)
     ctx.check(f"remembered across a reload both ways, got {got.get('rail_after_reload')} / {got.get('rail_back')}",
-              got.get("rail_after_reload") == ["open", 248] and got.get("rail_back") == ["icons", 56, "icons"])
+              got.get("rail_after_reload") == ["open", 200] and got.get("rail_back") == ["icons", 56, "icons"])
     ctx.check(f"Alt+4 and a click still switch, got {got.get('alt4')} {got.get('click_team')}", got.get("alt4") == "fleet" and got.get("click_team") == "team")
 
 

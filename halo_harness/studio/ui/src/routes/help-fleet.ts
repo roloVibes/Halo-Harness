@@ -37,7 +37,16 @@ export const FLEET_HELP: Record<string, Help> = {
       "Cards (permission, question, plan, approval), gates, paused agents, spend caps, file conflicts and missions (a plan to approve, a refused edit, a hub asking to run a part here) all land here.",
       "A accepts or allows, R denies or redoes with your text, S stops, O opens the panel it belongs to.",
       "J / K (or the arrows) move between rows while this panel has the focus.",
-      "The count shows in the status bar in every section, and in the Fleet tree of the expanded rail.",
+      "The count shows in the status bar in every section, and at the top of the Tree panel.",
+    ),
+  },
+  "fleet-tree": {
+    about: "The fleet as a tree: harness, session, agent, each with its status; answer a waiting session here.",
+    help: lines(
+      "Add it with the + in the header. Click a node: one of this harness opens in Session, a member's is selected on the map.",
+      "A session that waits on you has an answer link: type the answer or pick an option without leaving Fleet.",
+      "A mission part carries a mission chip; its part link opens the Mission panel on that part.",
+      "After ten minutes away the While you were away card shows at the top (the Fleet icon carries a dot meanwhile).",
     ),
   },
   "fleet-map": {

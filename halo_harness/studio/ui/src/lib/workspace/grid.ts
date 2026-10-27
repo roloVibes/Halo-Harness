@@ -129,7 +129,7 @@ export function arrange(layout: Layout, movedId?: string, pinned = false, opts?:
   return compact(roomy, pinned ? movedId : undefined);
 }
 
-/** Arrange (the rail, the palette): the section's default rectangles for the panels open now; strips stay strips, floats float. */
+/** Arrange (the header's ... menu, the palette): the section's default rectangles for the panels open now; strips stay strips, floats float. */
 export function defaultRects(specs: PanelSpec[], layout: Layout, fillRows: number): Layout {
   const out: Layout = {};
   for (const s of specs) {

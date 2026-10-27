@@ -1,13 +1,18 @@
 // The top bar: brand, the current section's title and blurb (3.3.2.0 R1: the
 // section tabs became the icon rail, shell/RailSections.tsx), the ? menu
-// ("How this works" for the section and, from 3.1.1.0 R1, the Glossary), the
-// Focus button (3.3.2.0 R1: hides the rail, the inspector and the status bar;
-// F), the command palette button and the theme menu.
+// ("How this works" for the section and, from 3.1.1.0 R1, the Glossary),
+// 3.3.2.0 R2's "+" menu (the section's panels, shell/PanelsMenu.tsx), its
+// "..." menu (Arrange panels, Reset layout, How panels move) and the "custom
+// layout" badge (shell/SectionMore.tsx), the Focus button (3.3.2.0 R1: hides
+// the rail, the inspector and the status bar; F), the command palette button
+// and the theme menu.
 import { useEffect, useRef, useState } from "react";
 import { Button, Icon, Kbd } from "../lib/ui";
 import { openHelp, setTheme, studio, toggleFocus, useStore, type SectionId, type ThemeChoice } from "../lib/store";
 import { openGlossary } from "../lib/glossary";
 import { sectionDef } from "../routes";
+import { PanelsMenu } from "./PanelsMenu";
+import { SectionMore } from "./SectionMore";
 
 const THEMES: { id: ThemeChoice; label: string; icon: string }[] = [
   { id: "dark", label: "Dark (holo)", icon: "moon" },
@@ -115,6 +120,10 @@ export function Header() {
         <span className="topbar-blurb">{def.blurb}</span>
       </div>
       <HelpMenu section={section} />
+      <div className="topbar-tools" data-testid="section-tools">
+        <PanelsMenu />
+        <SectionMore />
+      </div>
       <div className="spacer" />
       <button
         className="icon-btn icon-btn-lg"

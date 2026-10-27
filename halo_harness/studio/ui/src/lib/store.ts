@@ -76,7 +76,7 @@ export type ToastItem = { id: number; text: string; tone: "done" | "error" | "in
 export type PanelRef = { section: SectionId; panel: string };
 
 /** The "How this works" overlay: which section (3.3.2.0 R1: only ever opened by a click or a key). */
-export type HelpRef = { section: SectionId };
+export type HelpRef = { section: SectionId; part?: string }; // 3.3.2.0 R2: `part` scrolls to one part ("moving": Moving panels)
 
 /** 3.3.2.0 R1: the left rail, icons only (56 px) or expanded with titles (248 px); Focus hides it whatever this says. */
 export type RailMode = "icons" | "open";
@@ -191,8 +191,8 @@ studio.subscribe(() => {
 // 3.3.2.0 R1: the first-visit welcome card is gone for every section (rolo, 2026-10-27: "the pop up is annoying
 // when you open a tab"); a section opens on its own content and its help stays one click away.
 
-export function openHelp(section: SectionId): void {
-  studio.update(() => ({ help: { section }, paletteOpen: false }));
+export function openHelp(section: SectionId, part?: string): void {
+  studio.update(() => ({ help: { section, part }, paletteOpen: false }));
 }
 
 export function closeHelp(): void {
@@ -215,7 +215,7 @@ export function cycleTheme(): void {
   setTheme(order[(order.indexOf(studio.get().theme) + 1) % order.length]);
 }
 
-/** 3.3.2.0 R1: the rail's chevron: icons <-> expanded (titles, and until R2 the panels and the layout block). */
+/** 3.3.2.0 R1: the rail's chevron: icons <-> expanded (the titles; R2: nothing else). */
 export function toggleRail(): void {
   const rail: RailMode = studio.get().rail === "open" ? "icons" : "open";
   writeLocal("halo.studio.rail", rail);

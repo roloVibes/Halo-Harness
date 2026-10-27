@@ -2,7 +2,8 @@
 // the sections in the registry's order (3.1.6.0 R6: Team, Roles, Fleet,
 // Design, Orchestra; Session has none of its own), Media, View, Layout. Each
 // command may show a key (the same hint the menus show; 3.3.2.0 R1: the Go to
-// entries carry each section's Alt+N, which the icon rail no longer prints). 3.2.0.0 R3: the packs' sections join Go to and
+// entries carry each section's Alt+N, which the icon rail no longer prints; 3.3.2.0 R2: Layout's
+// "Arrange panels" and "Reset layout" name the section in the hint). 3.2.0.0 R3: the packs' sections join Go to and
 // Help, and each pack's palette actions come last in their own group ("pack <id>").
 import { cycleTheme, goSection, openHelp, setTheme, studio, toast, toggleFocus, toggleRail } from "../lib/store";
 import { openGlossary } from "../lib/glossary";
@@ -19,7 +20,8 @@ import { designCommands } from "../routes/design/commands";
 import { rolesCommands } from "../routes/roles/commands";
 import { teamCommands } from "../routes/team/commands";
 
-export type Command = { id: string; group: string; label: string; kbd?: string; hint?: string; run: () => void };
+/** `disabled`: drawn with its hint saying why (3.3.2.0 R2: nothing to arrange, nothing to reset); Enter does nothing. */
+export type Command = { id: string; group: string; label: string; kbd?: string; hint?: string; disabled?: boolean; run: () => void };
 
 /** Bring a panel back (or add an optional one) and focus it, bringing the section's workspace up first. */
 export function revealPanel(def: SectionDef, p: PanelSpec): void {
@@ -27,6 +29,27 @@ export function revealPanel(def: SectionDef, p: PanelSpec): void {
   def.enter?.();
   if (layoutStore(def.id).get().layout) go();
   else window.setTimeout(go, 120);
+}
+
+/** 3.3.2.0 R2: what Arrange and Reset layout would say when there is nothing to do ("" when there is). */
+export function layoutWords(def: SectionDef): { arrange: string; reset: string } {
+  const ls = layoutStore(def.id).get();
+  return {
+    arrange: ls.layout ? "" : `${def.title}: nothing to arrange, its panels are not up`,
+    reset: ls.custom ? "" : `${def.title}: nothing to reset, the layout is the default`,
+  };
+}
+
+/** Arrange (the palette and the header's ... menu): the open panels back in their default places. */
+export function arrangeSection(def: SectionDef): void {
+  arrangeLayout(def.id, def.panels);
+  toast(`${def.title} panels arranged`, "done");
+}
+
+/** Reset layout (the palette and the header's ... menu): forget the user's arrangement. */
+export function resetSection(def: SectionDef): void {
+  resetLayout(def.id);
+  toast(`${def.title} layout reset`, "done");
 }
 
 export function commands(): Command[] {
@@ -60,31 +83,16 @@ export function commands(): Command[] {
     { id: "theme-dark", group: "View", label: "Theme: dark (holo)", run: () => setTheme("dark") },
     { id: "theme-light", group: "View", label: "Theme: light", run: () => setTheme("light") },
     { id: "theme-auto", group: "View", label: "Theme: follow the system", run: () => setTheme("auto") },
-    { id: "rail", group: "View", label: "Expand or collapse the rail", hint: "icons only, or the section titles, panels, Fleet tree and layout", run: toggleRail },
+    { id: "rail", group: "View", label: "Expand or collapse the rail", hint: "the section icons, or the icons with their titles", run: toggleRail },
     { id: "focus", group: "View", label: "Focus", hint: "hide the rail, the inspector and the status bar; again brings them back", kbd: "F", run: toggleFocus },
   );
-  if (!cur.paged) out.push( // 3.3.1.0 R1: a paged section (Setup) has no layout to reset or arrange
-    {
-      id: "reset-layout",
-      group: "Layout",
-      label: `Reset layout (${cur.title})`,
-      hint: "back to the default panels",
-      run: () => {
-        resetLayout(cur.id);
-        toast(`${cur.title} layout reset`, "done");
-      },
-    },
-    {
-      id: "arrange-layout",
-      group: "Layout",
-      label: `Arrange (${cur.title})`,
-      hint: "the open panels back in their default places and sizes",
-      run: () => {
-        arrangeLayout(cur.id, cur.panels);
-        toast(`${cur.title} panels arranged`, "done");
-      },
-    },
-  );
+  if (!cur.paged) { // 3.3.1.0 R1: a paged section (Setup) has no layout to reset or arrange
+    const w = layoutWords(cur); // 3.3.2.0 R2: the section's title in the hint; the words say when there is nothing to do
+    out.push(
+      { id: "arrange-layout", group: "Layout", label: "Arrange panels", hint: w.arrange || `${cur.title}: the open panels back in their default places and sizes`, disabled: !!w.arrange, run: () => arrangeSection(cur) },
+      { id: "reset-layout", group: "Layout", label: "Reset layout", hint: w.reset || `${cur.title}: back to the default panels`, disabled: !!w.reset, run: () => resetSection(cur) },
+    );
+  }
   for (const p of cur.panels) {
     out.push({
       id: "panel-" + p.id,

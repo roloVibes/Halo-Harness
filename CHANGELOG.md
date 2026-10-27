@@ -29,6 +29,23 @@ version.
 - The first-visit welcome card and its `halo.studio.seen.<section>` keys.
 - The header's "Toggle rail" button (the rail's chevron replaces it; the palette entry is "Expand or collapse the rail").
 
+### R2: panels and layout leave the rail
+
+#### Added
+- The section header's **+** menu: the section's panels, each row saying what a press does (add, bring back, focus) with the strip / float badges; Orchestra's runs and New run as a group under them; keyboard first (ArrowDown opens it, the arrows, Home, End, Enter, Esc).
+- The header's **...** menu: Arrange panels, Reset layout and How panels move; a row with nothing to do stays disabled and says why.
+- A small "custom layout" badge in the header while the section's layout is your own.
+- "Moving panels" in each section's help (the drag and resize lines), opened by How panels move.
+- Fleet's **Tree** panel (optional, the + adds it): the Fleet tree with its inline answers and the "While you were away" card; while that card waits, the Fleet icon carries a dot and opens Fleet on the Tree.
+
+#### Changed
+- The rail holds the sections only, collapsed or expanded; expanded it is 200 px (was 248).
+- The palette's Layout entries are "Arrange panels" and "Reset layout", with the section in the hint and drawn disabled, with words, when there is nothing to do.
+- The palette's "Fleet: while you were away" opens Fleet on the Tree panel.
+
+#### Removed
+- The expanded rail's PANELS list, LAYOUT block (YOURS / DEFAULT, the drag paragraph, Arrange, Reset layout), Orchestra runs block and Fleet tree.
+
 ### Also in 3.3.2.0
 
 #### Changed

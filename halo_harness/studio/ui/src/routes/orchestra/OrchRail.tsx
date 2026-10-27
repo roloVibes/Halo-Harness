@@ -1,40 +1,34 @@
-// The Orchestra section's runs: in the rail (New run, which opens the Start
-// view, then the runs of this repo, newest first; click one to open it) and
-// on the Start view (the past runs as cards).
+// The Orchestra section's runs: in the header's "+" menu (3.3.2.0 R2; the
+// expanded rail before): New run, which opens the Start view, then the runs of
+// this repo, newest first (click one to open it); and on the Start view (the
+// past runs as cards).
 import { useEffect } from "react";
-import { Button } from "../../lib/ui";
+import type { MenuGroup } from "../../lib/ui/Menu";
 import { clock, cost, short } from "./format";
 import { runMotion, setView, useOrch } from "./store";
 import { openRun, startOrchestra } from "./sync";
 
-export function OrchestraRail() {
+/** Orchestra's own group in the "+" menu (routes/index.tsx `menu`): New run, then up to 12 runs. */
+export function useOrchestraMenu(): MenuGroup {
   useEffect(() => startOrchestra(), []);
   const runs = useOrch((s) => s.runs);
   const current = useOrch((s) => s.runId);
-  const doneAt = useOrch((s) => s.doneAt);
-  return (
-    <section className="rail-group" aria-label="Orchestra runs">
-      <Button size="sm" variant="primary" onClick={() => setView("start")} title="The Start view: write a goal, then Run">
-        New run
-      </Button>
-      <div className="rail-label mono">RUNS · {runs.length}</div>
-      {runs.slice(0, 12).map((r) => (
-        <button
-          key={r.run_id}
-          className="rail-item og-rail-run"
-          aria-current={r.run_id === current}
-          onClick={() => void openRun(r.run_id)}
-          title={`${r.run_id} · ${r.goal_what} · ${r.workers} workers · ${cost(r.cost_usd)} · ${clock(r.created)}`}
-          data-testid="orchestra-rail-run"
-        >
-          <span className="og-run-dot" data-state={r.state} data-motion={runMotion(r.state, r.run_id === current ? doneAt : 0)} />
-          <span className="rail-item-text">{short(r.goal_what, 34) || r.run_id}</span>
-          <span className="badge" data-state={r.state}>{r.state}</span>
-        </button>
-      ))}
-      {!runs.length && <p className="rail-note">No run in this repo yet: write a goal on the Start view and press Run.</p>}
-    </section>
-  );
+  const head = { id: "new-run", label: "New run", icon: "plus", word: "start", title: "The Start view: write a goal, then Run", testid: "orchestra-new-run", run: () => setView("start") };
+  return {
+    name: `RUNS · ${runs.length}`,
+    rows: [head, ...runs.slice(0, 12).map((r) => ({
+      id: "run-" + r.run_id,
+      label: short(r.goal_what, 34) || r.run_id,
+      icon: "orchestra",
+      badges: [r.state],
+      word: r.run_id === current ? "open now" : "open",
+      current: r.run_id === current,
+      title: `${r.run_id} · ${r.goal_what} · ${r.workers} workers · ${cost(r.cost_usd)} · ${clock(r.created)}`,
+      testid: "orchestra-menu-run",
+      data: { run: r.run_id },
+      run: () => void openRun(r.run_id),
+    }))],
+  };
 }
 
 export function PastRuns() {

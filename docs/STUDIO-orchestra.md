@@ -19,7 +19,7 @@ past runs to open. 3.1.4.0: the MODEL select shows without opening the
 disclosure; its first option, "the lineup's (<model>)", is what the lead
 resolves to without one (the role table, else the default model, `GET
 models/resolve`). Starting or opening a run brings up the panels; **open the
-workspace anyway** does too. **New run** (the rail, or the palette's
+workspace anyway** does too. **New run** (the header's **+**, or the palette's
 **Orchestra: new run**) returns to the Start view. An Orchestra goal has no
 dollar budget: its budget is how many workers and how many times the gate may
 send a part back. **Review the plan before it runs** (beside Run; on the Goal
@@ -47,8 +47,8 @@ Its eight panels sit on the same movable workspace as everything else, each
 on its full face with its one-line about and its `?` help (Workflow, Run grid
 and Log open on their compact face, which shows the whole graph, every tile
 and the newest lines at the default size). The Goal panel's default height
-shows every field and **Run** without scrolling. The rail lists the runs of
-the repo (click one to open it).
+shows every field and **Run** without scrolling. The header's **+** lists the runs of
+the repo under the panels, newest first (click one to open it; 3.3.2.0 R2, the expanded rail before).
 
 ![Orchestra: a finished five-lane run over basket.py](media/studio-orchestra.png)
 

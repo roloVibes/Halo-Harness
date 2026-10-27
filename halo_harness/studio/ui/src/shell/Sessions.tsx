@@ -1,6 +1,6 @@
-// The inline answer for a session that waits on you, shown in the rail's
-// Fleet tree (routes/fleet/FleetRail.tsx; 3.0.5.0 replaced the plain list of
-// live sessions with that tree). It posts `answer` to the session's command
+// The inline answer for a session that waits on you, shown in the Fleet
+// tree (routes/fleet/FleetTree.tsx, Fleet's Tree panel since 3.3.2.0 R2;
+// 3.0.5.0 replaced the rail's plain list of live sessions with that tree). It posts `answer` to the session's command
 // route (`sessions/<sid>/command` here, `fleet/<harness>/<sid>/command` for a
 // member): an approval card takes accept / an instruction / stop, a
 // permission card allow / deny, a plan approve / send back. A question stays
