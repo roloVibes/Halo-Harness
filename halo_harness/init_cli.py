@@ -953,10 +953,12 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="halo init", add_help=True,
         description="Set up halo. On a terminal it opens Halo Studio on its Setup section (providers, the "
-                     "default model, permissions, the terminal theme, the lineup, the checks); --terminal runs "
-                     "the terminal wizard instead, and so does a box where no browser can open (SSH, no DISPLAY, "
-                     "HALO_NO_BROWSER). --provider/--yes set a provider up without asking: its credentials, a "
-                     "default model, doctor, a live pong and the Linux setup fixes.",
+                     "default model, permissions, the terminal theme, the lineup, the checks) and waits: press Done on "
+                     "Setup's Summary and halo starts in this terminal (Ctrl+C stops waiting; --no-launch returns at "
+                     "once). --terminal runs the terminal wizard instead, and so does a box where no browser can open "
+                     "(SSH, no DISPLAY, HALO_NO_BROWSER); its Finish starts halo the same way. --provider/--yes "
+                     "set a provider up without asking: its credentials, a default model, doctor, a live pong and "
+                     "the Linux setup fixes.",
     )
     parser.add_argument("--provider", action="append", choices=list(PROVIDERS), default=None,
                          metavar="{databricks,openrouter,anthropic}",
@@ -982,6 +984,10 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--terminal", action="store_true",
                          help="run the terminal wizard instead of opening Setup in Studio "
                               "(also what runs when no browser can open: SSH, no DISPLAY, HALO_NO_BROWSER)")
+    # 3.3.3.0 R1: `halo init` waits for Setup's Done (or the terminal wizard's Finish) and starts halo; this returns.
+    parser.add_argument("--no-launch", action="store_true",
+                         help="open Setup and return at once (no wait for its Done, no halo started after the "
+                              "terminal wizard either; HALO_INIT_NO_LAUNCH=1 does the same)")
     return parser
 
 
@@ -1062,11 +1068,27 @@ def _run_init_wizard_flow(args, console: Console, cwd: Path) -> "Optional[int]":
     for w in app.state.team_warnings:
         console.print(f"   [WARN] {w}")
     rc = 0 if (args.no_live or app.state.pong_ok) else 1
+    finished = bool(getattr(app.state, "finished", False)) and not getattr(app.state, "checks_cancel", False)
     # 3.2.2.0 R2: the Summary's "The guided first run" row; setup closed while its checks ran hands nothing off
     if rc == 0 and getattr(app.state, "run_start", False) and not getattr(app.state, "checks_cancel", False):
         from halo_harness.start_cli import cmd_start
-        return cmd_start([])
+        rc = cmd_start([])
+    # 3.3.3.0 R1: the wizard's Finish starts halo here, as Setup's Done does (not after a quit, a cancel, a failed
+    # pong or a failed start; not with --no-launch / HALO_INIT_NO_LAUNCH=1; only on a terminal)
+    if rc == 0 and finished and _launch_after_wizard(args):
+        from halo_harness import init_wait
+        return init_wait.launch_halo(cwd)
     return rc
+
+
+def _launch_after_wizard(args) -> bool:
+    from halo_harness import init_wait
+    if not init_wait.wanted(args) or getattr(args, "yes", False):
+        return False
+    try:
+        return bool(sys.stdin.isatty() and sys.stdout.isatty())
+    except (AttributeError, OSError, ValueError):
+        return False
 
 
 def _run_init_tabs(args, console: Console, cwd: Path) -> "Optional[tuple]":
@@ -1137,9 +1159,24 @@ def _open_setup_in_studio(args, console: Console, cwd: Path) -> bool:
     and the port-forward hint are printed first: studio/setup_door.py)."""
     if args.terminal or args.step or args.team or args.no_live:
         return False
+    from halo_harness import init_wait
     from halo_harness.studio.setup_door import SetupTarget, cli_door
     return cli_door(SetupTarget(first=True), terminal_cli="halo init --terminal", fallback="wizard", cwd=cwd,
-                    say=lambda line: console.print(line, markup=False, highlight=False, soft_wrap=True))
+                    say=lambda line: _say(console, line), wait=init_wait.wanted(args))
+
+
+def _say(console: Console, line: str) -> None:
+    console.print(line, markup=False, highlight=False, soft_wrap=True)
+
+
+def _wait_for_setup_done(args, console: Console, cwd: Path) -> int:
+    """3.3.3.0 R1: after the door, unless `--no-launch` / HALO_INIT_NO_LAUNCH=1: wait for Setup's Done, then
+    the Summary's four lines and bare halo here (halo_harness/init_wait.py); Ctrl+C or Studio gone: one line, 0."""
+    from halo_harness import init_wait
+    if not init_wait.wanted(args):
+        return 0
+    from halo_harness.studio.setup_door import _state_dir
+    return init_wait.run(lambda line: _say(console, line), cwd=cwd, state_dir=_state_dir())
 
 
 def cmd_init(argv: list) -> int:
@@ -1184,7 +1221,7 @@ def cmd_init(argv: list) -> int:
     # exactly as before this round.
     if interactive_loop and sys.stdin.isatty() and sys.stdout.isatty() and not args.yes:
         if _open_setup_in_studio(args, console, cwd):  # 3.3.0.0 R4: Setup in Studio is the door
-            return 0
+            return _wait_for_setup_done(args, console, cwd)  # 3.3.3.0 R1: its Done starts halo here
         wizard_rc = _run_init_wizard_flow(args, console, cwd)
         if wizard_rc is not None:
             return wizard_rc

@@ -16,7 +16,8 @@ fresh scratch home with no provider; no provider request, no model call:
 6. `?block=team` opens Team; the Summary's rows, a Change jump and its button
    to the Check page;
 7. the page is remembered for the home, and `?block=` wins;
-8. the Ollama finders are a disclosure, closed until opened.
+8. the Ollama finders are a disclosure, closed until opened;
+9. (3.3.3.0 R1) the Summary's Done: Session, the marker on disk, a reload stays on Session.
 Run: python -m tests.test_studio_setup_pages
 """
 from __future__ import annotations
@@ -147,6 +148,30 @@ def test_the_ollama_finders_are_a_closed_disclosure(ctx: Ctx):
     ctx.check(f"closed by default, Find not drawn, got {got.get('more_closed')} {got.get('find_hidden')}",
               got.get("more_closed") is True and got.get("find_hidden") is True)
     ctx.check(f"a click opens it, got {got.get('more_open')} {got.get('find_shown')}", got.get("more_open") is True and got.get("find_shown") is True)
+
+
+@test
+def test_done_starts_halo_and_leaves_for_session(ctx: Ctx):
+    """3.3.3.0 R1: the Summary's Done -> Session, nothing over it, the button and the rail's line gone, the marker
+    in the seeded home, a reload (and a later ?first=1) stays put."""
+    got = _got(ctx)
+    ctx.check(f"?first=1: the rail's line before Done, got {got.get('done_first_before')!r}", got.get("done_first_before") is True)
+    ctx.check(f"the primary Done: start halo with its title, got {got.get('done_label')!r} {got.get('done_title')!r} {got.get('done_primary')!r}",
+              got.get("done_label") == "Done: start halo" and "primary" in str(got.get("done_primary"))
+              and got.get("done_title") == "Marks this box set up; the terminal that ran `halo init` starts halo; Studio opens Session")
+    ctx.check(f"at the foot of the Summary, after the check and the guided first run, got {got.get('done_last')}",
+              got.get("done_last") == ["setup-summary-check", "setup-summary-start", "setup-summary-done"])
+    ctx.check(f"a click: Session, nothing opened over it, got {got.get('done_section')!r} {got.get('done_open')}",
+              str(got.get("done_section")).startswith("Session") and got.get("done_open") == [False, False, 0])
+    ctx.check(f"Done and the rail's line gone, mode=setup left the address, got {got.get('done_gone')} {got.get('done_first_after')} "
+              f"{got.get('done_search')!r}", got.get("done_gone") is True and got.get("done_first_after") is False
+              and "mode=setup" not in str(got.get("done_search")))
+    marker = got.get("done_marker") or {}
+    ctx.check(f"setup-done.json in the seeded home with at and home, got {marker}", sorted(marker) == ["at", "home"]
+              and len(str(marker.get("home"))) == 12 and str(marker.get("at")).startswith("20"))
+    ctx.check(f"loaded again: Session (no provider set, still not Setup), got {got.get('done_reload_section')!r}",
+              str(got.get("done_reload_section")).startswith("Session"))
+    ctx.check(f"a later ?first=1 draws no set up this box (done_at), got {got.get('done_first_again')}", got.get("done_first_again") is False)
 
 
 @test

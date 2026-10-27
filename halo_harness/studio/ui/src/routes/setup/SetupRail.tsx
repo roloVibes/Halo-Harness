@@ -11,9 +11,12 @@ import { goto, lineupWord, stateOf, stepsOf, TITLES, usePage, valueOf, type Step
 import { providersSet, useSetup } from "./store";
 import { lastCheckWord } from "./checkStore";
 
-/** 3.3.0.0 R4: the page `halo init` opened (`?first=1`) leads the summary with what it is for. */
+/** 3.3.0.0 R4: the page `halo init` opened (`?first=1`) leads the summary with what it is for; 3.3.3.0 R1: not once
+ *  Setup's Done was pressed for this home (the state's `done_at`). */
 function FirstCell() {
-  if (!useFirstRun()) return null;
+  const first = useFirstRun();
+  const doneAt = useSetup((s) => s.data?.done_at || "");
+  if (!first || doneAt) return null;
   return (
     <span className="su-cell su-first" data-testid="setup-strip-first">
       <span className="su-cell-value mono">set up this box:</span>{" "}

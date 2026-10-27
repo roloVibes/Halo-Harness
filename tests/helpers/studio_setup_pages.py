@@ -17,6 +17,7 @@ drivers (tests/helpers/studio_setup*.py) use to open a block's page first:
 6. `?block=team` lands on Team; the Summary's rows and a Change jump;
 7. the page remembered for this home; `?block=` wins over it;
 8. the Ollama finders' disclosure is closed by default and opens.
+9. (3.3.3.0 R1) the Summary's Done: Session, the marker, a reload stays (tests/helpers/studio_setup_done.py).
 The last stdout line is the JSON of what it saw (exit 2: no Chrome)."""
 from __future__ import annotations
 
@@ -209,7 +210,9 @@ class PagesDriver(Driver):
         base, frag = url.split("?", 1)[0], url.split("#", 1)[1]
         ctx = {"state": state, "srv": srv, "base": base, "frag": frag}
         try:
-            yield tuple((fn, (c, url, ctx)) for fn in (nothing_opens, rail, walk, enter_saves, block_and_summary, remembered, disclosure))
+            from tests.helpers.studio_setup_done import done  # 3.3.3.0 R1: last, it leaves Setup and writes the marker
+            yield tuple((fn, (c, url, ctx)) for fn in (nothing_opens, rail, walk, enter_saves, block_and_summary, remembered, disclosure,
+                                                       done))
         finally:
             M.model_rows = real
             srv.shutdown()

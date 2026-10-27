@@ -8,11 +8,22 @@ Part of [Commands](COMMANDS.md), which lists every part.
 
 **Halo 3.3.0.0: `halo init` opens Studio.** On a real terminal (no `--provider`, no `--yes`) it starts Studio, or
 reuses the one running for this home, on its **Setup** section (`?mode=setup&first=1`: 3.3.1.0 opens nothing over it,
-the wizard's steps one page at a time, the rail's line says "set up this box"), prints one line and exits 0:
+the wizard's steps one page at a time, the rail's line says "set up this box") and prints one line. **3.3.3.0: it
+then waits for Setup's Done** and starts halo in this terminal:
 
 ```text
-Setup is open in your browser: http://127.0.0.1:<port>/?mode=setup&first=1#t=<token>. `halo init --terminal` runs the terminal wizard instead.
+Setup is open in your browser: http://127.0.0.1:<port>/?mode=setup&first=1#t=<token>. Press Done there and halo starts here (Ctrl+C stops waiting; `halo init --terminal` runs the terminal wizard).
 ```
+
+The Summary's last button, **Done: start halo**, writes `~/.halo/setup-done.json` (`at`, `home`) and Studio goes to
+Session. The waiting terminal sees it (that file, or `GET setup/state`'s `done_at` polled once a second with the
+token in `~/.halo/studio.json`; a marker from an earlier init does not count), prints the Summary's four lines
+(`Provider:`, `Default model:`, `Lineup:`, `Last check:`) and starts halo exactly as bare `halo` does, in the
+directory `halo init` ran from. Ctrl+C: "Setup stays open in the browser; run `halo` when you are done there.",
+exit 0; Studio gone mid-wait (no answer for 10 s, no marker): "Studio closed; run `halo` when you are ready.", exit
+0. `--no-launch` (or `HALO_INIT_NO_LAUNCH=1`) keeps 3.3.0.0's return-at-once for scripts: the one line ending
+"`halo init --terminal` runs the terminal wizard instead.", exit 0. `halo start`'s no-provider door and `halo setup
+<block>` open Setup the same way and never wait.
 
 Setup is the wizard's steps as one page of forms ([STUDIO-setup.md](STUDIO-setup.md)). Everything below is the
 terminal wizard: `halo init --terminal`, or one of its own flags (`--step`, `--team`, `--no-live`), or no browser
@@ -82,31 +93,16 @@ read-only in the terminal (`e` there opens Studio too); Ctrl+N writes a new
 lineup and opens it in Studio; Ctrl+A lists the bios (Enter shows one, `e`
 opens Studio's bio form on it). See [WIZARD.md](WIZARD.md).
 
-**Halo 2.0.3 round 5**: the INTERACTIVE Providers step's tab bar gains two
-more tabs beyond the four above -- `Ollama (local or LAN)` (detects/
-registers the local daemon, or add a LAN/cloud host with an optional key)
-and `Hugging Face` (paste `HF_TOKEN`, add a dedicated endpoint, add a
-local server by URL with an optional key, or rely on auto-detection --
-any subset, all optional) -- both Skippable, same Back/Skip/Next footer.
-Deliberately NOT `--provider`/`--preset` CLI-flag choices (the piped/
-non-tty fallback above still only ever offers the original four): neither
-has one sensible hardcoded default model the way the table below's four
-providers each do, so there is nothing non-interactive `--provider
-ollama`/`--provider huggingface` could safely default to without a real
-catalog already cached. See [MODELS.md](MODELS.md)'s Ollama/Hugging Face
-sections and [CONFIG.md](CONFIG.md)'s "Providers" section.
+**Halo 2.0.3 round 5**: the interactive Providers step gains `Ollama (local or LAN)` (the local daemon, or a LAN /
+cloud host with an optional key) and `Hugging Face` (`HF_TOKEN`, a dedicated endpoint, a local server by URL, or
+auto-detection), both Skippable. Not `--provider` choices: neither has one sensible default model to set without a
+cached catalog. See [MODELS.md](MODELS.md)'s Ollama / Hugging Face sections and [CONFIG.md](CONFIG.md)'s "Providers".
 
-**Halo 2.0.3 round 5b part 2**: both of those two tabs now open with a
-short detection summary -- GPU/unified memory, whether Ollama is already
-reachable and what it has, any running local server, and model folders
-already known -- filled in by a background probe (never the UI thread; a
-slow probe just leaves the "detecting..." placeholder a little longer,
-the rest of the tab is usable immediately either way). For each already-
-installed Ollama model it names the largest fully-resident context
-(learned cap or fit estimate, labelled); for free room, one or two
-illustrative model classes/quantizations that would fit with a 32k
-context -- an estimate, never a download from here. See
-[MODELS.md](MODELS.md)'s "The wizard detects before it asks" section.
+**Halo 2.0.3 round 5b part 2**: both tabs open with a detection summary from a background probe (GPU / unified
+memory, whether Ollama answers and what it has, a running local server, known model folders); per installed Ollama
+model the largest fully-resident context (learned cap or fit estimate, labelled), and for free room one or two model
+classes that would fit at 32k context -- an estimate, never a download. See [MODELS.md](MODELS.md)'s "The wizard
+detects before it asks".
 
 **Halo 2.0.3 round 5i**: the Providers step gains an "OpenAI API (key)"
 tab (paste `OPENAI_API_KEY`, Save) -- Skippable, same pattern as every tab
@@ -119,13 +115,16 @@ halo init --help
 usage: halo init [-h] [--provider {databricks,openrouter,anthropic}]
                  [--preset {home,work}] [--model REF] [--yes] [--no-live]
                  [--no-fixes] [--team PATH|URL] [--step STEP] [--terminal]
+                 [--no-launch]
 
 Set up halo. On a terminal it opens Halo Studio on its Setup section
 (providers, the default model, permissions, the terminal theme, the lineup,
-the checks); --terminal runs the terminal wizard instead, and so does a box
-where no browser can open (SSH, no DISPLAY, HALO_NO_BROWSER). --provider/--yes
-set a provider up without asking: its credentials, a default model, doctor, a
-live pong and the Linux setup fixes.
+the checks) and waits: press Done on Setup's Summary and halo starts in this
+terminal (Ctrl+C stops waiting; --no-launch returns at once). --terminal runs
+the terminal wizard instead, and so does a box where no browser can open (SSH,
+no DISPLAY, HALO_NO_BROWSER); its Finish starts halo the same way.
+--provider/--yes set a provider up without asking: its credentials, a default
+model, doctor, a live pong and the Linux setup fixes.
 
 options:
   -h, --help            show this help message and exit
@@ -148,6 +147,9 @@ options:
   --terminal            run the terminal wizard instead of opening Setup in
                         Studio (also what runs when no browser can open: SSH,
                         no DISPLAY, HALO_NO_BROWSER)
+  --no-launch           open Setup and return at once (no wait for its Done,
+                        no halo started after the terminal wizard either;
+                        HALO_INIT_NO_LAUNCH=1 does the same)
 ```
 
 | Flag | Reads/writes | Default |
@@ -161,6 +163,7 @@ options:
 | `--team PATH\|URL` | reads a `team.json`-shaped file/URL (see `docs/DATABRICKS.md`); Databricks only | `.halo/team.json`, then `~/.halo/team.json` |
 | `--step STEP` | jumps the interactive wizard straight to one step, by its key (`team` -- `agents`/`roles` kept as aliases -- or any other step's own key) or 1-based number, skipping the Quick/Full setup choice -- interactive only (needs a real tty, `--yes` skips the wizard entirely); see [WIZARD.md](WIZARD.md) | omitted -> offers Quick/Full setup, then starts at step 1 |
 | `--terminal` | runs the terminal wizard (the Textual app this page describes) instead of opening Setup in Studio (3.3.0.0 R4) | off: a bare `halo init` on a terminal opens Studio on Setup |
+| `--no-launch` | opens Setup and returns at once: no wait for its Done, and no halo started after the terminal wizard's Finish either (3.3.3.0 R1); `HALO_INIT_NO_LAUNCH=1` does the same | off: `halo init` waits for Done (or the wizard's Finish) and starts halo |
 
 `--provider ... --yes` (or the deprecated `--preset ... --yes`) is fully
 non-interactive whenever the needed value is already discoverable; when it

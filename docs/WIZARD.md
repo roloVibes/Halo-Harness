@@ -23,9 +23,24 @@ outside a text field), 7 (focus on the content when a page opens) and 10
 (Change jumps) hold there; nothing opens on its own. It writes the same files
 through the same writers ([STUDIO-setup.md](STUDIO-setup.md)).
 
+Since 3.3.3.0 Setup ends in a running halo. The Summary's last button is
+**Done: start halo**: it writes `~/.halo/setup-done.json`, Studio goes to
+Session, and the terminal that ran `halo init` -- which has waited with one
+line on screen, "Setup is open in your browser: <url>. Press Done there and
+halo starts here (Ctrl+C stops waiting; `halo init --terminal` runs the
+terminal wizard)." -- prints the Summary's four lines (provider, default
+model, lineup, last check) and starts halo as bare `halo` does, in the
+directory `halo init` ran from. Ctrl+C stops the wait and starts nothing;
+`halo init --no-launch` (or `HALO_INIT_NO_LAUNCH=1`) opens Setup and returns
+at once, for scripts. The terminal wizard's Finish starts halo the same way
+(after the ticked checks, and after `halo start` when that row was ticked
+and it succeeded); a quit, a failed live pong or `--no-launch` starts
+nothing.
+
 | You run | What opens |
 |---|---|
-| `halo init` (a terminal, no `--provider` / `--yes`) | Studio on Setup (`?mode=setup&first=1`: nothing pops up, the rail's line says "set up this box"); a running Studio is reused |
+| `halo init` (a terminal, no `--provider` / `--yes`) | Studio on Setup (`?mode=setup&first=1`: nothing pops up, the rail's line says "set up this box"); a running Studio is reused; the terminal waits for the Summary's Done, then starts halo (3.3.3.0) |
+| `halo init --no-launch` | Studio on Setup, and the command returns at once (no wait, no halo after the terminal wizard either) |
 | `halo init --terminal` | the terminal wizard, as below |
 | `halo init --step <key>`, `--team`, `--no-live` | the terminal wizard (they are its flags) |
 | `halo init` with no browser (`HALO_NO_BROWSER`, `SSH_CONNECTION`, Linux with no `DISPLAY` / `WAYLAND_DISPLAY`, or a browser that does not take the URL) | the URL and the port-forward line `halo studio` prints, then the terminal wizard |
@@ -239,7 +254,8 @@ one's title, `[OK]` or `[!!]` and its result lines on the Summary, then the
 written-files lines; Finish again closes setup. With nothing ticked, or only
 the guided first run, Finish closes at once; the guided first run starts
 after the wizard closes, and Esc while the checks run closes setup without
-it. A `/setup` Summary has the first four rows. `halo check` runs the same
+it. Then, from `halo init` (3.3.3.0), halo itself starts in the same
+terminal unless `--no-launch` was given. A `/setup` Summary has the first four rows. `halo check` runs the same
 list from a shell (`docs/COMMANDS-init.md`).
 
 ## Autocomplete field sites (rule 3)

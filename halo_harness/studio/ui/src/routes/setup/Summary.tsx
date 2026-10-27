@@ -5,11 +5,14 @@
 // doctor, catalog and hello until changed there) and a button to the Check
 // page; then the guided first run's card (what `halo start` does, the models
 // it calls, the estimate, the time, what it writes) and its Run button.
+// 3.3.3.0 R1: at the foot, the primary "Done: start halo" (done.ts): the
+// terminal that ran `halo init` starts halo, Studio opens Session.
 import { useEffect } from "react";
 import { runStart, start } from "../../lib/start";
 import { useStore } from "../../lib/store";
 import { Button } from "../../lib/ui";
 import { useLoadState, Waiting } from "./BlockFoot";
+import { pressDone, useDoneBusy } from "./done";
 import { lastCheckWord, runChecks, startCheck, ticked, useCheck } from "./checkStore";
 import { goto, isDone, stepsOf, TITLES, usePage, valueOf, type StepId } from "./pages";
 import { NONE, setup, useSetup } from "./store";
@@ -83,6 +86,21 @@ function StartPart() {
   );
 }
 
+function DonePart() {
+  const busy = useDoneBusy();
+  return (
+    <section className="su-sum-part su-sum-done" data-testid="setup-summary-done" aria-label="Done">
+      <div className="su-foot-row">
+        <Button variant="primary" onClick={() => void pressDone()} disabled={busy} data-testid="setup-done"
+                title="Marks this box set up; the terminal that ran `halo init` starts halo; Studio opens Session">
+          {busy ? "Marking..." : "Done: start halo"}
+        </Button>
+        <span className="su-note muted">the terminal that ran halo init starts halo; Studio opens Session</span>
+      </div>
+    </section>
+  );
+}
+
 export function SummaryDetail() {
   const { ready, error } = useLoadState();
   useEffect(() => void startCheck(), []);
@@ -92,6 +110,7 @@ export function SummaryDetail() {
       <Rows />
       <CheckPart />
       <StartPart />
+      <DonePart />
     </div>
   );
 }
