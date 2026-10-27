@@ -14,7 +14,7 @@ question, its reviewer done): two harnesses, five agents in three states.
                                       top, Attention with the member's two cards, the map with a
                                       conflict edge (both harnesses editing shop/basket.py), Activity's
                                       timeline and log, the researcher in Agent, and "While you were
-                                      away" in the rail
+                                      away" at the top of the Tree panel (3.3.2.0 R2; the rail before)
     docs/media/studio-fleet-capabilities.png  (3.0.6.0 R6) Capabilities: "gridcraft" in Who can... ranks
                                       the member first and picks it (its card open, its map box lit), both
                                       spec cards (the rig seeds both catalogs: studio_fleet_member.seed_caps)
@@ -39,8 +39,8 @@ from pathlib import Path
 
 from capture_identity import guard_page, placeholder
 
-FLEET_IDS = ("section-tab", "fleet-map", "fleet-agent", "fleet-rail", "fleet-node", "fleet-start", "fleet-box", "fleet-session",
-             "fleet-rail-node", "fleet-pip", "fleet-pair", "fleet-settings", "status-fleet",
+FLEET_IDS = ("section-tab", "fleet-map", "fleet-agent", "fleet-tree-list", "fleet-node", "fleet-start", "fleet-box", "fleet-session",
+             "fleet-tree-node", "fleet-pip", "fleet-pair", "fleet-settings", "status-fleet",
              "fleet-people", "fleet-costs", "fleet-health", "fleet-attention", "fleet-activity",
              "fleet-capabilities", "fleet-mission")
 LIVE_CARDS = "document.querySelectorAll('[data-testid=\"roles-card\"][data-live]')"  # 3.0.7.0 R2: the React Roles canvas
@@ -72,7 +72,9 @@ def open_roles(c, rig) -> None:
 
 
 def dom(c, rig) -> dict:
+    from tests.helpers.studio_tree import open_tree
     open_fleet(c, rig)
+    open_tree(c)  # 3.3.2.0 R2: the tree is Fleet's Tree panel, added through the header's "+" menu
     guard_page(c, "fleet")
     fleet = counts(c)
     c.go(rig.url("fleet", "&view=start"))
@@ -100,7 +102,9 @@ def conflict(rig) -> None:
 
 
 def shoot_panels(c, rig, png: Path) -> int:
+    from tests.helpers.studio_tree import open_tree
     open_fleet(c, rig)
+    open_tree(c)  # 3.3.2.0 R2: the away card is the Tree panel's
     c.js("localStorage.setItem('halo.fleet.lastSeen', String(Date.now() - 3 * 3600 * 1000)); window.dispatchEvent(new Event('focus')); 1")
     c.wait("!!document.querySelector('[data-testid=\"fleet-digest\"]')", 15)
     c.wait("document.querySelectorAll('[data-testid=\"fleet-attn-row\"]').length >= 2", 20)
@@ -180,9 +184,7 @@ def shoot(c, rig, fleet_png: Path, roles_png: "Path | None" = None) -> bool:
     guard_page(c, fleet_png.stem)
     a = c.shot(fleet_png)
     panels_png = fleet_png.with_name("studio-fleet-panels.png")
-    rig.rail = "&rail=open"  # 3.3.2.0 R1: the away digest is the expanded rail's card; the other pictures show the icon rail
     d = shoot_panels(c, rig, panels_png)
-    rig.rail = ""
     caps_png = fleet_png.with_name("studio-fleet-capabilities.png")
     e = shoot_caps(c, rig, caps_png)
     mission_png = fleet_png.with_name("studio-fleet-mission.png")
@@ -203,7 +205,6 @@ def capture(out: str, as_dom: bool, find_chrome) -> int:
     placeholder()
     with StudioFleetRig() as rig:
         placeholder(rig.state)  # the rig's own home: you@studio
-        rig.rail = "&rail=open" if as_dom else ""  # 3.3.2.0 R1: the counts read the Fleet tree; the pictures show the icon rail
         c = open_chrome(exe=exe)  # the driver base: one headless Chrome at a time
         try:
             if as_dom:

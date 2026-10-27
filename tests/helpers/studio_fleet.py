@@ -5,7 +5,7 @@ harness's real session with three agents mid-work, a member harness with
 two). tests/test_studio_ui.py runs it as a subprocess with a scrubbed
 environment:
 
-    python -m tests.helpers.studio_fleet map     # boxes, nodes, the rail, select + tail, J/K, steer, stop
+    python -m tests.helpers.studio_fleet map     # boxes, nodes, the Tree panel, select + tail, J/K, steer, stop
     python -m tests.helpers.studio_fleet roles   # Live Roles on the React canvas: the glow, the Live tab's text and tool rows, J, the pin
     python -m tests.helpers.studio_fleet panels  # R4: attention, timeline, digest, replay, conflict (studio_fleet_panels.py)
     python -m tests.helpers.studio_fleet caps    # 3.0.6.0 R6: the Capabilities panel and Who can... (studio_fleet_caps.py)
@@ -24,6 +24,7 @@ sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "tools"))
 
 from tests.helpers.chrome_driver import Driver  # noqa: E402
+from tests.helpers.studio_tree import open_tree  # noqa: E402
 
 DETAIL = "document.querySelector('[data-testid=\"fleet-agent-detail\"]')"
 
@@ -50,7 +51,7 @@ def wait_node(c, name: str, cond: str = "true", timeout: float = 60):
 
 
 def expected_tree(view: dict) -> list:
-    """The rail's order: harness, then each session and its agents depth first (as GET fleet has them)."""
+    """The tree's order (the Tree panel, 3.3.2.0 R2): harness, then each session and its agents depth first (as GET fleet has them)."""
     out = []
     for h in view.get("harnesses", []):
         out.append(f"harness:{h['id']}")
@@ -91,9 +92,6 @@ def fleet_map(c, rig) -> dict:
     out["nodes"] = c.js("document.querySelectorAll('[data-testid=\"fleet-node\"]').length")
     out["labels"] = c.js("[...document.querySelectorAll('.fm-box-label')].map((t) => t.textContent)")
     out["states"] = c.js("[...document.querySelectorAll('[data-testid=\"fleet-node\"]')].map((n) => n.dataset.state)")
-    out["panels"] = c.js("['fleet-map', 'fleet-agent', 'fleet-rail'].map((k) => document.querySelectorAll(`[data-testid=\"${k}\"]`).length)")
-    out["rail"] = c.js("[...document.querySelectorAll('[data-testid=\"fleet-rail-node\"]')].map((n) => n.dataset.kind + ':' + n.dataset.id)")
-    out["api_tree"] = expected_tree(rig.api("GET", "fleet")[1])
     key_a, key_b = rig.key("Implement"), rig.key("Research")
     wait_node(c, "researcher")
     out["selected"] = select_node(c, "researcher", key_b)
@@ -141,13 +139,18 @@ def fleet_map(c, rig) -> dict:
                                     "nodes": c.js("[...document.querySelectorAll('[data-testid=\"fleet-node\"]')].map((n) => n.dataset.key.slice(-8) + ':' + n.dataset.state)"),
                                     "detail": c.js(f"[{DETAIL}?.dataset.key, {DETAIL}?.dataset.state]"),
                                     "feed_open": c.js("typeof window.__haloFeedState === 'string' ? window.__haloFeedState : 'n/a'")}
-    member_main = (f"[...document.querySelectorAll('[data-testid=\"fleet-rail-node\"]')].find((n) => n.dataset.kind === 'agent' && "
+    open_tree(c)  # 3.3.2.0 R2: Fleet's Tree panel, through the header's "+" (after the map's clicks: it moves nothing they aim at)
+    out["panels"] = c.js("['fleet-map', 'fleet-agent', 'fleet-tree-list'].map((k) => document.querySelectorAll(`[data-testid=\"${k}\"]`).length)")
+    out["rail"] = c.js("[...document.querySelectorAll('[data-testid=\"fleet-tree-node\"]')].map((n) => n.dataset.kind + ':' + n.dataset.id)")
+    out["api_tree"] = expected_tree(rig.api("GET", "fleet")[1])
+    member_main = (f"[...document.querySelectorAll('[data-testid=\"fleet-tree-node\"]')].find((n) => n.dataset.kind === 'agent' && "
                    f"n.dataset.id === 'main' && n.closest('.fr-harness').querySelector('.fr-h').dataset.id === '{rig.member_id}')")
-    # 3.2.1.0 R5: WSL's Chromium has a 757 px viewport (Windows Chrome 805 at the same window size) and the rail's
+    # 3.2.1.0 R5: WSL's Chromium has a 757 px viewport (Windows Chrome 805 at the same window size) and the tree's
     # member row sat at y=755, below the fold: the click hit nothing. Scroll it into view first, as a person would
     c.js(f"{member_main}.scrollIntoView({{block: 'center'}}); 1")
     c.click_on(member_main)
     c.wait(f"{DETAIL}?.dataset.key?.startsWith('{rig.member_id}')", 30)
+    c.js("document.querySelector('[data-testid=\"fleet-steer-send\"]').scrollIntoView({block: 'center'}); 1")  # 3.3.2.0 R2: the Tree panel is beside it
     c.click_on("document.querySelector('[data-testid=\"fleet-steer\"]')")
     c.type_text("answer the second question first")
     c.click_on("document.querySelector('[data-testid=\"fleet-steer-send\"]')")

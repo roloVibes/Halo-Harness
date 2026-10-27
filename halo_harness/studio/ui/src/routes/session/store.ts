@@ -170,7 +170,7 @@ export function startSession(): void {
   onChange();
 }
 
-/** The section's `enter` (the rail and the palette bring a panel up): the workspace, not the Start view. */
+/** The section's `enter` (the "+" menu and the palette bring a panel up): the workspace, not the Start view. */
 export function enterSession(): void {
   startSession();
   if (showsSessionStart(fleet.get(), sess.get().view)) setSessionView("workspace");

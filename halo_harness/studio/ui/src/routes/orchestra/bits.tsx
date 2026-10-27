@@ -39,7 +39,7 @@ export function NoRun({ what }: { what: string }) {
   return (
     <Empty
       title={error ? "Studio could not read the runs" : "No run yet"}
-      body={error || `${what} appears once a run starts. Press New run in the expanded rail, write the goal and press Run (or halo orchestra run in a terminal).`}
+      body={error || `${what} appears once a run starts. Press + in the header, then New run, write the goal and press Run (or halo orchestra run in a terminal).`}
     />
   );
 }

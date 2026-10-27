@@ -81,7 +81,7 @@ export function setView(view: OrchView): void {
   orch.update(() => ({ view }));
 }
 
-/** Leave the Start view for the panels (the rail or the palette is opening one). */
+/** Leave the Start view for the panels (the "+" menu or the palette is opening one). */
 export function enterWorkspace(): void {
   orch.update((s) => (showsStart(s) ? { view: "workspace" } : {}));
 }

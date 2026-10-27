@@ -25,7 +25,7 @@ from pathlib import Path
 from capture_identity import checked_dump, guard_page, placeholder
 
 ORCH_IDS = ("orchestra-root", "orchestra-graph", "gate", "lane", "claim-region", "report-check", "grid-tile", "section-tab",
-            "start-view", "panel-about", "panel-help", "section-help", "orchestra-goal-form", "orchestra-rail-run",
+            "start-view", "panel-about", "panel-help", "section-help", "orchestra-goal-form", "orchestra-menu-run",
             "orchestra-open-workspace", "roles-canvas", "roles-card", "roles-tier", "legacy-frame", "lane-edge", "lane-base",
             "orchestra-plan", "plan-canvas", "plan-lane", "plan-layer", "plan-edge", "plan-problem", "plan-approve",
             "plan-inspector", "orchestra-review")

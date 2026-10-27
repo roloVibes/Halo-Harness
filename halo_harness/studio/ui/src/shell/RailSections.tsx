@@ -9,7 +9,10 @@
 // `data-kbd` for the drivers, never drawn). The buttons are a
 // vertical tablist and keep `data-testid="section-tab"` (they replaced the
 // header's tab strip), so `[data-testid=section-tab][aria-selected=true]`
-// is still the current section.
+// is still the current section. 3.3.2.0 R2: the rail holds these rows and
+// nothing else; while a "While you were away" digest waits, the Fleet icon
+// carries an amber dot and a click on it opens Fleet on its Tree panel, where
+// the card is.
 import { useEffect } from "react";
 import { Icon } from "../lib/ui";
 import { goSection, studio, useStore, type SectionId } from "../lib/store";
@@ -17,6 +20,8 @@ import { useRecent } from "../lib/motion";
 import { useSections, type SectionDef } from "../routes";
 import { useCounts } from "../routes/fleet/store";
 import { startFleet } from "../routes/fleet/sync";
+import { startDigest, useAway } from "../routes/fleet/Digest";
+import { openTree } from "../routes/fleet/FleetTree";
 
 const ICONS: Record<string, string> = {
   session: "session", team: "team", roles: "roles", fleet: "fleet", design: "design", orchestra: "orchestra", packs: "packs", setup: "setup",
@@ -33,7 +38,8 @@ function useBusy(): Partial<Record<SectionId, boolean>> {
 
 function Item({ s, on, busy, pack }: { s: SectionDef; on: boolean; busy: boolean; pack: boolean }) {
   const live = useStore(studio, (st) => st.feed.sessions.length);
-  const fleet = useCounts().live;
+  const count = useCounts().live;
+  const away = useAway() && s.id === "fleet";
   return (
     <button
       role="tab"
@@ -44,14 +50,15 @@ function Item({ s, on, busy, pack }: { s: SectionDef; on: boolean; busy: boolean
       data-pack={pack || undefined}
       data-kbd={s.kbd || undefined}
       data-motion={busy && !on ? "working" : "none"}
-      title={s.title}
+      title={away ? `${s.title} · while you were away: the digest waits on its Tree panel` : s.title}
       aria-label={s.title}
-      onClick={() => goSection(s.id)}
+      onClick={() => (away ? openTree() : goSection(s.id))}
     >
       <span className="rail-icon">
         <Icon name={ICONS[s.id] ?? "diamond"} />
         {s.id === "session" && live > 0 && <span className="rail-live-dot" data-testid="rail-live" aria-hidden="true" />}
-        {s.id === "fleet" && fleet > 0 && <span className="rail-count mono" data-testid="rail-fleet-count" data-count={fleet} aria-hidden="true" />}
+        {s.id === "fleet" && count > 0 && <span className="rail-count mono" data-testid="rail-fleet-count" data-count={count} aria-hidden="true" />}
+        {away && <span className="rail-away-dot" data-testid="rail-away" aria-hidden="true" />}
       </span>
       <span className="tab-label rail-item-text">{s.title}</span>
     </button>
@@ -60,6 +67,7 @@ function Item({ s, on, busy, pack }: { s: SectionDef; on: boolean; busy: boolean
 
 export function RailSections() {
   useEffect(() => startFleet(), []); // the live count on the Fleet icon, in every section
+  useEffect(() => startDigest(), []); // and its away dot
   const section = useStore(studio, (s) => s.section);
   const all = useSections();
   const busy = useBusy();

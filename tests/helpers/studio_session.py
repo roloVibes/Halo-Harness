@@ -47,9 +47,9 @@ COST = "document.querySelector('[data-testid=\"session-cost-detail\"]')"
 
 
 def url(rig, query: str = "") -> str:
-    """The rig's Studio at `/?<query>&tour=off&rail=open`, with its token (3.3.2.0 R1: the Fleet tree lives in the
-    expanded rail)."""
-    q = f"?{query}&tour=off&rail=open" if query else "?tour=off&rail=open"
+    """The rig's Studio at `/?<query>&tour=off`, with its token (3.3.2.0 R2: the Fleet tree is Fleet's Tree panel,
+    tests/helpers/studio_tree.py, so no expanded rail is needed)."""
+    q = f"?{query}&tour=off" if query else "?tour=off"
     return f"http://127.0.0.1:{rig.server.server_address[1]}/{q}#t={rig.server.token}"
 
 

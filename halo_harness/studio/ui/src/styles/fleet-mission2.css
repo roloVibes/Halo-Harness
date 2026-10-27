@@ -3,7 +3,7 @@
    the compact face, the plan drawn over the map (a lane per harness box,
    part nodes dashed while planned and solid once they run, depends_on
    edges, amber where claims overlap, red where nobody can run a part), the
-   map toolbar's chip and the rail's mission chip. Tokens only. */
+   map toolbar's chip and the Tree panel's mission chip. Tokens only. */
 
 /* -- the Running face ----------------------------------------------------------------- */
 .fmi-run { display: grid; grid-template-columns: minmax(0, 1fr) 210px; gap: 10px; align-content: start; }
@@ -84,7 +84,7 @@
 .fmi-seq-chip text { font: 9.5px var(--mono); fill: var(--warn); }
 .fmi-mapchip { font-size: 10.5px; color: var(--accent-2); border: 1px solid color-mix(in srgb, var(--accent-2) 45%, transparent); border-radius: 999px; padding: 1px 8px; white-space: nowrap; }
 
-/* -- the rail: a mission part's session ------------------------------------------------- */
+/* -- the Tree panel: a mission part's session ------------------------------------------------- */
 .fr .fr-mission { color: var(--accent-2); border-color: var(--accent-2); }
 
 /* -- hand-offs (3.0.9.0): what a depends_on edge carries, where a repo part starts -- */

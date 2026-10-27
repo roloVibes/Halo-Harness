@@ -10,6 +10,8 @@ from __future__ import annotations
 import json
 import time
 
+from tests.helpers.studio_header_menus import close_menus, more, plus_rows
+
 WS = "document.querySelector('.workspace[data-section=\"fleet\"]')"
 PANELS = f"""Object.fromEntries([...{WS}.querySelectorAll('.ws-cell')].map((c) => {{
   const p = c.querySelector('.panel'); const r = c.getBoundingClientRect();
@@ -72,7 +74,6 @@ OVERFLOW = f"""[...{WS}.querySelectorAll('.panel-body.face-glance')].filter((b) 
 STRIPS = ("fleet-health", "fleet-capabilities", "fleet-agent", "fleet-mission")
 OPEN_BTN = "document.querySelector('.ws-cell[data-panel=\"{0}\"] .panel-bar button[aria-label=\"Open\"]')"  # the strip's chevron
 NODE = "document.querySelector('[data-testid=\"fleet-node\"]')"
-RESET = "[...document.querySelectorAll('.rail-foot button')].find((b) => b.textContent.includes('Reset layout'))"
 SAVED = "localStorage.getItem('halo.studio.layout.fleet')"
 
 # The 3.1.3.0 default as a saved arrangement (v2): nine panels open where they were.
@@ -120,14 +121,15 @@ def layout(c, rig) -> dict:
     _open(c, rig)
     out["fresh"] = _settle(c, PANELS)
     out["saved_fresh"] = c.js(SAVED)
-    out["rail_strips"] = c.js("[...document.querySelectorAll('.rail-item')].filter((b) => b.querySelector('.badge')?.textContent === 'strip').map((b) => b.querySelector('.rail-item-text').textContent)")
+    out["rail_strips"] = [r[3] for r in plus_rows(c) if "strip" in r[2]]  # 3.3.2.0 R2: the header's "+" menu marks them
+    close_menus(c)
     out["opened"] = {}
     for pid in STRIPS:  # the one click: the chevron on the strip's title bar ("Open the panel")
         _click(c, OPEN_BTN.format(pid))
         c.wait(f"{WS}.querySelector('.ws-cell[data-panel=\"{pid}\"] .panel-body:not([hidden])') && 1", 10)
         out["opened"][pid] = {"panels": _settle(c, PANELS), "overlaps": c.js(OVERLAPS)}
     out["saved_after_open"] = bool(c.js(SAVED))
-    _click(c, RESET)  # Reset layout (the rail): the new default again
+    more(c, "layout-reset")  # Reset layout (3.3.2.0 R2: the header's ... menu): the new default again
     c.wait(f"!{SAVED} && 1", 10)
     out["after_reset"] = _settle(c, PANELS)
     _click(c, NODE)  # picking an agent opens Agent's strip; the map and Activity stay where they are

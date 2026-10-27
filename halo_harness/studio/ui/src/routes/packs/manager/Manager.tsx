@@ -33,7 +33,7 @@ export const packsPanels: PanelSpec[] = [
   panel("pm-templates", { title: "Templates", x: 15, y: 46, w: 9, h: 0, minW: 6, minH: 10, face: "detail", glance: TemplatesGlance, detail: TemplatesDetail }),
 ];
 
-/** The section's entry: the manager's first read (the palette or the rail may open a panel before one draws). */
+/** The section's entry: the manager's first read (the palette or the "+" menu may open a panel before one draws). */
 export function enterPacks(): void {
   startManager();
 }

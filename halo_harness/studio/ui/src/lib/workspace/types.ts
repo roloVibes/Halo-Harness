@@ -35,7 +35,7 @@ export type PanelSpec = {
   useMotion?: () => MotionState;
   /** Opens as a one-line strip in the default arrangement. */
   collapsed?: boolean;
-  /** Not in the default arrangement: the palette or the rail adds it (showPanel). */
+  /** Not in the default arrangement: the palette or the header's "+" menu adds it (showPanel). */
   optional?: boolean;
   /** One line: what this panel is (shown in the title bar, the Inspector and the section help). */
   about?: string;

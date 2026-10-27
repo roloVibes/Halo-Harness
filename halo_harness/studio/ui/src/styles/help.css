@@ -19,6 +19,9 @@
 .section-help-keys li { flex-wrap: nowrap; }
 .section-help-keys .kbd-group { flex: none; }
 .section-help-tip { margin: 10px 0 0; font-size: 12px; }
+.section-help-moving { display: grid; gap: 4px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
+.section-help-moving p { margin: 0; font-size: 12.5px; }
+.section-help-moving[data-on] .rail-label { color: var(--accent); }
 .section-help .dialog-foot { justify-content: space-between; align-items: center; }
 .section-help-note { font-size: 12px; }
 .section-help-btn { margin-left: -6px; }

@@ -24,7 +24,7 @@ what it hands back, what it asks you), each line tagged with its agent and
 lit with its state. Under the scope the map is drawn as a tree (each agent
 under the one that spawned it, its children fanned out, the tool running
 and its time on the node); Agent, Activity and Attention start as strips. A
-click on one of this harness's nodes in the rail, or **Open in Session** in
+click on one of this harness's nodes in the Tree panel, or **Open in Session** in
 a node's `...` menu, goes there. Fleet keeps everything: every harness, its
 own panels, the whole queue and the whole log
 ([Session](STUDIO-sections.md#session)).
@@ -51,10 +51,10 @@ compact faces with Attention under them; in the middle the Map with Activity
 under it, as wide as the map. The other four wait down the right edge as
 title strips, one click away: **Health**, **Capabilities**, **Agent** and
 **Mission**. The chevron on a strip's title bar opens it in that column (the
-strips under it move down; nothing else moves); so do its row in the rail
-(marked "strip") and the palette. Picking an agent (a click on the map, a
-lane, a log line or the rail) opens Agent by itself, and `M` opens Mission.
-**Reset layout** (the rail or the palette) brings this default back. An
+strips under it move down; nothing else moves); so do its row in the
+header's **+** (marked "strip", 3.3.2.0 R2) and the palette. Picking an agent (a click on the map, a
+lane, a log line or the Tree) opens Agent by itself, and `M` opens Mission.
+**Reset layout** (the header's **...** or the palette) brings this default back. An
 arrangement you saved before 3.1.4.0 (`halo.studio.layout.fleet` in your
 browser) opens as you left it; Reset layout moves it to the new default.
 Every panel has its one-line about in its title bar and `?` for how to use
@@ -119,9 +119,9 @@ you type (a deny reason is optional), **S** stops the agent, **O** opens the
 panel the row belongs to (the agent in Agent, Costs, the map,
 Orchestra) and sends nothing. Click a row (or move with `J` / `K` or the
 arrows while the panel has the focus), then press the key; every decision
-is journaled with who made it. The count is live in the status bar and the
-rail in every section (a `fleet` frame with action `attention` each time it
-changes); a click on the rail's count opens Attention. With the phone
+is journaled with who made it. The count is live in the status bar in every
+section and at the top of the Tree panel (a `fleet` frame with action `attention` each time it
+changes); a click on the Tree's count opens Attention. With the phone
 bridge enabled and paired, new rows go to the phone too ([FLEET.md](FLEET.md)).
 
 ### How this works: Costs and caps
@@ -232,7 +232,7 @@ One goal, every harness, nobody stepping on anyone ([MISSIONS.md](MISSIONS.md)):
    owner"; on the member's own Studio the card is a **mission part** row in
    Attention (`A` allow, `R` deny, `O` opens the Mission panel on that
    mission). A running part is solid, its row shows the line its agent is
-   on, and its `mission-worker` session shows on the map and in the rail
+   on, and its `mission-worker` session shows on the map and in the Tree panel
    with a **mission** chip. (3.2.1.0 R3) A part held for its pack
    capability's slot is `waiting` and pulses amber with the hub's line
    ("part 3 waits: bob@member runs 2/2 of pack doc-review: docs.review");
@@ -261,7 +261,8 @@ that long), a card sums up what happened since you last looked, computed
 in code per harness: sessions started and ended, cost, decisions made and
 by whom, files touched, errors, hand-offs (`GET /api/fleet/digest?since=`;
 `halo fleet digest` in a terminal). It shows on the Fleet Start view, else
-in the rail. When you last looked is the browser's
+at the top of the Tree panel (3.3.2.0 R2); meanwhile the Fleet icon in the
+rail carries an amber dot, and a click on it opens Fleet on the Tree. When you last looked is the browser's
 `halo.fleet.lastSeen`, refreshed every minute while the tab shows;
 **Dismiss** sets it to now. The palette's **Fleet: while you were away**
 shows it on demand.
@@ -291,9 +292,11 @@ what it does now and the newest lines of its stream, typing as they arrive;
 drag it by its bar, its arrow opens the agent in Fleet, `x` or `Esc` unpins.
 It hides while the Agent panel already shows that agent.
 
-**The rail and the palette.** The Fleet tree in every section's rail
-(harness > session > agent, a status dot each, the live and need-you counts)
-opens Fleet on the node you click, and a session that waits on you keeps its
+**The Tree panel and the palette.** The Fleet tree (3.3.2.0 R2: Fleet's
+optional **Tree** panel, the header's **+** adds it; every section's
+expanded rail before) (harness > session > agent, a status dot each, the
+live and need-you counts) selects the node you click (one of this harness
+opens in Session), and a session that waits on you keeps its
 inline answer there (for a member too); its need-you count opens Attention,
 and "While you were away" shows above it; a mission part's session carries a
 **mission** chip and its **part** link opens the Mission panel on it. The palette's **Fleet** group: pair a
