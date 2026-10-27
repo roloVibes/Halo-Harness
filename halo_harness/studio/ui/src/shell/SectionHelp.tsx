@@ -1,12 +1,12 @@
 // "How this works" for the current section: what it is, the numbered steps,
 // the section's panels with their one-line `about`, and the keys. Opened from
 // the ? beside the section tabs, the palette (Help: how <section> works) and
-// `?`; the first time a section shows in this browser the same card comes up
-// as its welcome, with Got it (halo.studio.seen.<section>). 3.1.1.0 R1: the
-// WORDS row links each glossary word the section uses into the Glossary.
-// 3.3.0.0 R4 showed it once as "What this page does" on `halo init`'s page;
-// 3.3.1.0 R1: nothing opens it on its own there. A section with no panels
-// (Setup's pages) lists its steps and keys only.
+// `?`. 3.3.2.0 R1: nothing opens it on its own (the first-visit welcome is gone
+// for every section); its KEYS list the section's Alt+N first and the shell's
+// own keys last (F Focus, the rail's chevron), since the rail rows print no
+// shortcut. 3.1.1.0 R1: the WORDS row links each glossary word the section
+// uses into the Glossary. A section with no panels (Setup's pages) lists its
+// steps and keys only.
 import { Button, Dialog, Kbd } from "../lib/ui";
 import { closeHelp, studio, useStore } from "../lib/store";
 import { openGlossary } from "../lib/glossary";
@@ -14,20 +14,27 @@ import { sectionDef } from "../routes";
 import { SECTION_HELP } from "../routes/sectionHelp";
 import { packHelp } from "../routes/packs/registry";
 
+/** 3.3.2.0 R1: Focus, in every section's list: F, or Shift+F where the section's own F follows or fits. */
+function focusKey(keys: [string, string][]): [string, string] {
+  const taken = keys.some(([k]) => k === "F" || k.startsWith("F "));
+  return taken ? ["Shift+F", "Focus: hide the rail, the inspector and the status bar"] : ["F", "Focus: hide the rail, the inspector and the status bar (Shift+F too)"];
+}
+
 export function SectionHelp() {
   const help = useStore(studio, (s) => s.help);
   if (!help) return null;
   const def = sectionDef(help.section);
   const copy = SECTION_HELP[def.id] ?? packHelp(def); // 3.2.0.0 R3: a pack's section
   const panels = def.panels.filter((p) => p.about);
-  const keys: [string, string][] = def.kbd ? [[def.kbd, def.title], ...copy.keys] : copy.keys; // 3.1.6.0 R6: the section's own key from the registry
+  const own: [string, string][] = def.kbd ? [[def.kbd, def.title], ...copy.keys] : copy.keys; // 3.1.6.0 R6: the section's own key from the registry
+  const keys: [string, string][] = [...own, focusKey(copy.keys)];
   const footer = (
     <>
       <span className="section-help-note muted">
         Press <Kbd keys="?" /> any time for this page. The full guide: docs/STUDIO.md.
       </span>
       <Button variant="primary" onClick={closeHelp} data-testid="section-help-ok">
-        {help.welcome ? "Got it" : "Close"}
+        Close
       </Button>
     </>
   );
@@ -35,13 +42,13 @@ export function SectionHelp() {
     <Dialog
       open
       onClose={closeHelp}
-      title={help.welcome ? `Welcome to ${def.title}` : `How ${def.title} works`}
+      title={`How ${def.title} works`}
       kicker={`${def.title.toUpperCase()} · ${def.blurb.toUpperCase()}`}
       className="section-help"
       testid="section-help"
       footer={footer}
     >
-      <div className="section-help-body" data-welcome={help.welcome || undefined}>
+      <div className="section-help-body">
         <p className="section-help-what">{copy.what}</p>
         <ol className="fl-explain section-help-steps">
           {copy.steps.map(([title, text], i) => (

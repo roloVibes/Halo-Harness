@@ -13,7 +13,7 @@ templates, update, remove -- without a terminal. Every button runs the same
 function `halo pack` runs ([COMMANDS-packs.md](COMMANDS-packs.md)) and the
 lines it answers are the ones the terminal prints; an error is the
 command's own line. Each change publishes `pack_changed` on the live feed, so
-this page, every other open Studio and the section tabs redraw at once, and a
+this page, every other open Studio and the rail's section rows redraw at once, and a
 `halo pack` run in a terminal shows here within two seconds.
 
 Packs come only from places you trust: the folders and git urls of
@@ -86,8 +86,8 @@ shown as the pack requested them.
 ### A pack's own sections
 
 A pack you enable may add its own sections after the core sections (after
-Setup, 3.3.0.0), the first on `Alt+9` (later ones have no key), behind a thin "packs" divider in
-the tab strip and a PACKS group in the rail; and panels in the core
+Setup, 3.3.0.0), the first on `Alt+9` (later ones have no key), behind a thin divider in
+the icon rail, each with the diamond (3.3.2.0); and panels in the core
 sections, palette lines and feed lines ([PACKS.md](PACKS.md#in-studio)).
 They go the moment you disable it.
 

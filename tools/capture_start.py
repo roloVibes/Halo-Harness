@@ -7,7 +7,7 @@ With --dom the page is read three times over one Studio and the data-testid
 values are counted (the last stdout line is the JSON):
 
     fresh      a fresh home (only the shipped lineups, none active, no run): the overlay, no welcome card
-    dismissed  after "Just look around" (start/fresh.dismiss): no overlay, the section's welcome instead
+    dismissed  after "Just look around" (start/fresh.dismiss): no overlay and (3.3.2.0 R1) no welcome card either
     lineup     not dismissed, but a lineup active: no overlay
 
 3.1.7.0 R2: the fresh home draws you@studio (tools/capture_identity.py) and every

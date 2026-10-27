@@ -1,9 +1,10 @@
 // The palette's commands and its fuzzy matcher. Groups: Go to, Help, then
 // the sections in the registry's order (3.1.6.0 R6: Team, Roles, Fleet,
 // Design, Orchestra; Session has none of its own), Media, View, Layout. Each
-// command may show a key (the same hint the menus show). 3.2.0.0 R3: the packs' sections join Go to and
+// command may show a key (the same hint the menus show; 3.3.2.0 R1: the Go to
+// entries carry each section's Alt+N, which the icon rail no longer prints). 3.2.0.0 R3: the packs' sections join Go to and
 // Help, and each pack's palette actions come last in their own group ("pack <id>").
-import { cycleTheme, goSection, openHelp, setTheme, studio, toast, toggleRail } from "../lib/store";
+import { cycleTheme, goSection, openHelp, setTheme, studio, toast, toggleFocus, toggleRail } from "../lib/store";
 import { openGlossary } from "../lib/glossary";
 import { openStart } from "../lib/start";
 import { arrangeLayout, layoutStore, resetLayout, showPanel } from "../lib/workspace/persist";
@@ -59,7 +60,8 @@ export function commands(): Command[] {
     { id: "theme-dark", group: "View", label: "Theme: dark (holo)", run: () => setTheme("dark") },
     { id: "theme-light", group: "View", label: "Theme: light", run: () => setTheme("light") },
     { id: "theme-auto", group: "View", label: "Theme: follow the system", run: () => setTheme("auto") },
-    { id: "rail", group: "View", label: "Show or hide the rail", run: toggleRail },
+    { id: "rail", group: "View", label: "Expand or collapse the rail", hint: "icons only, or the section titles, panels, Fleet tree and layout", run: toggleRail },
+    { id: "focus", group: "View", label: "Focus", hint: "hide the rail, the inspector and the status bar; again brings them back", kbd: "F", run: toggleFocus },
   );
   if (!cur.paged) out.push( // 3.3.1.0 R1: a paged section (Setup) has no layout to reset or arrange
     {

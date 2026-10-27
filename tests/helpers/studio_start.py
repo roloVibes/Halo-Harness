@@ -40,6 +40,7 @@ def run_start(c, url: str, frames: list, shot: str = "") -> dict:
     except TimeoutError:
         pass  # the step list below says what it saw
     out["steps"] = c.js(f"[...{Q}('{STEP}')].map((li) => li.dataset.key + ':' + li.dataset.state)")
+    out["start_key"] = c.js("localStorage.getItem('halo.studio.start')")  # 3.3.2.0 R1: answered once, never offered again here
     out["done_ok"] = c.js("document.querySelector('[data-testid=\"start-here-done\"]').dataset.ok")
     out["done_text"] = c.js("document.querySelector('[data-testid=\"start-here-done\"]').textContent")
     if shot:

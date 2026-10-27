@@ -58,7 +58,7 @@ mode from the live session; bare `/studio` (3.1.4.0) opens the **Session**
 section (`Alt+1`) on the session you are in, `/studio [session|roles|design|orchestra|fleet|team|packs|setup]`
 opens that section, and `/studio url` prints the URL without opening a browser.
 The sections' keys are `Alt+1`..`Alt+8`: Session, Team, Roles, Fleet,
-Design, Orchestra, Packs, Setup. A model running in a
+Design, Orchestra, Packs, Setup. **Quiet by default (3.3.2.0):** nothing opens on its own when you open a section (the **?** in the header and each panel's help are one click away), the sections are a 56 px icon rail (its chevron expands it), the inspector stays closed until something opens it, and `F` is **Focus** ([the shell](STUDIO-shell.md#the-shell-3030)). A model running in a
 Halo session knows this too: the system prompt names Studio, its modes
 and the command, so "open the GUI for roles" runs `halo studio --mode roles`.
 

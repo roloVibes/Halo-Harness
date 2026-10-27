@@ -45,8 +45,9 @@ def sections(c, url, ctx) -> dict:
     c.go(url)
     c.wait(f"{TABS}.some((t) => t.textContent.startsWith('Docs review'))", 40)
     out["tabs"] = c.js(f"{TABS}.map((t) => t.querySelector('.tab-label').textContent)")
-    out["kbds"] = c.js(f"{TABS}.map((t) => t.querySelector('.tab-kbd')?.textContent || '')")
-    out["divider"] = c.js(f"(() => {{ const d = {q('[data-testid=tab-divider]')}; return d ? [d.textContent, d.nextElementSibling?.querySelector('.tab-label')?.textContent] : null; }})()")
+    out["kbds"] = c.js(f"{TABS}.map((t) => t.dataset.kbd || '')")  # 3.3.2.0 R1: the icon rail prints no key; the row keeps it as data-kbd
+    out["printed"] = c.js(f"{TABS}.filter((t) => t.querySelector('.kbd')).length")
+    out["divider"] = c.js(f"(() => {{ const d = {q('[data-testid=rail-packs]')}; return d ? [d.getAttribute('aria-label').toLowerCase(), d.nextElementSibling?.querySelector('.tab-label')?.textContent] : null; }})()")
     alt(c, 9)  # 3.2.0.0 R6: Alt+7 is Packs; 3.3.0.0 R1: Alt+8 is Setup, the packs' own sections start at Alt+9
     out["alt7"] = c.wait(f"{CUR}.startsWith('Docs review') && {CUR}", 10)
     out["markdown"] = c.wait(f"{panel('doc-review--notes', '[data-testid=pack-markdown]')}?.textContent", 15)
@@ -59,7 +60,7 @@ def sections(c, url, ctx) -> dict:
     c.key("?")
     out["help"] = c.wait(f"{q('[data-testid=panel-help]')}?.textContent", 10)
     c.key("Escape")
-    out["rail"] = c.js(f"{qa('[data-testid=rail-pack-section]')}.map((b) => b.textContent)")
+    out["rail"] = c.js(f"{qa('.rail [data-testid=section-tab][data-pack]')}.map((b) => b.textContent + '|' + (b.dataset.kbd || '') + '|' + b.querySelector('.icon') .outerHTML.includes('M8 2l6 6-6 6-6-6Z'))")
     return out
 
 

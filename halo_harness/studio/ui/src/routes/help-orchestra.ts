@@ -15,7 +15,7 @@ export const ORCHESTRA_HELP: Record<string, Help> = {
       "FILES are the files the workers share; TEST is the command the gate runs.",
       "WORKERS is how many lanes (1 to 50); RETURN CAP how often a piece may go back.",
       "Run starts it; Dry run only asks the lead for the split.",
-      "The top line is the open run; New run in the rail starts from a blank goal.",
+      "The top line is the open run; New run in the expanded rail (its chevron) starts from a blank goal.",
     ),
   },
   graph: {

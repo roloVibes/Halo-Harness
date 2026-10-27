@@ -115,7 +115,7 @@ def section(c, url, ctx) -> dict:
     c.go(url)
     c.wait(f"{TABS}.length >= 8 && {CUR}.startsWith('Roles')", 40)
     out = {"tabs": c.js(f"{TABS}.map((t) => t.querySelector('.tab-label').textContent)"),
-           "kbds": c.js(f"{TABS}.map((t) => t.querySelector('.tab-kbd')?.textContent || '')")}
+           "kbds": c.js(f"{TABS}.map((t) => t.dataset.kbd || '')")}  # 3.3.2.0 R1: the icon rail keeps the key as data-kbd
     alt(c, 8)
     out["alt8"] = c.wait(f"{CUR}.startsWith('Setup') && {CUR}", 15)
     c.wait(f"!!{q('[data-testid=setup-strip-cell]')} && !!{q('[data-testid=setup-rail-step]')}", 30)

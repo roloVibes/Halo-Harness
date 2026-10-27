@@ -104,14 +104,19 @@ def landing(c, url, ctx) -> dict:
     try:
         c.go(url)
         c.wait(f"{CUR}.startsWith('Roles')", 40)
-        c.js("localStorage.setItem('halo.studio.section', 'roles'); 1")
+        c.js("localStorage.setItem('halo.studio.section', 'roles'); localStorage.removeItem('halo.studio.start'); 1")  # 3.3.2.0 R1: unanswered here
         c.go(url.replace("mode=roles&tour=off&", ""))
         out = {"land_section": c.wait(f"{CUR}.startsWith('Setup') && {CUR}", 40),
                "land_boot": c.js("document.documentElement.dataset.noProvider || ''")}
         c.wait(f"!!{q('[data-testid=setup-rail-step]')}", 30)
         time.sleep(2.0)
         out["land_overlay_on_setup"] = c.js(f"!!{q('[data-testid=start-here]')}")
-        alt(c, 3)  # the overlay is for the other sections of a fresh home
+        alt(c, 3)  # 3.3.2.0 R1: nor on the next section (Start here shows over the section the page opened on, only)
+        c.wait(f"{CUR}.startsWith('Roles')", 20)
+        time.sleep(2.0)
+        out["land_overlay_next"] = c.js(f"!!{q('[data-testid=start-here]')}")
+        c.go("about:blank")
+        c.go(url.replace("tour=off&", ""))  # ?mode=roles: Roles is the first section, the offer shows over it
         out["land_first_button"] = c.wait(f"{CUR}.startsWith('Roles') && {q('[data-testid=start-here] .os-buttons .btn')}?.textContent.trim()", 30)
         out["land_by"] = click(c, "[data-testid=start-here-setup]", f"!{q('[data-testid=start-here]')}")
         out["land_after"] = c.js(CUR)

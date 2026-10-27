@@ -6,7 +6,8 @@
 // panel K is Stop, with a confirm, so a stray K on the map never stops
 // anything. 3.0.6.0 R8: M (in Fleet) brings the Mission panel up and focuses
 // it. Keys typed in a box, with a modifier, or that a panel, a menu
-// or a dialog already took, stay where they are.
+// or a dialog already took, stay where they are. An F nothing here takes
+// (and every Shift+F) goes on to Focus (3.3.2.0 R1, shell/keys.ts).
 import { useEffect } from "react";
 import { studio } from "../../lib/store";
 import { focusLane, orch, setOpt } from "../orchestra/store";
@@ -40,6 +41,7 @@ export function useHopKeys(): void {
       if (s.paletteOpen || s.help) return;
       const f = fleet.get();
       const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+      if (key === "f" && e.shiftKey) return; // 3.3.2.0 R1: Shift+F is Focus everywhere (shell/keys.ts useFocusKey)
       if (key === "Escape") {
         if (f.pinned && !f.confirm && !f.pairOpen) {
           e.preventDefault();

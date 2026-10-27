@@ -203,6 +203,7 @@ def main(argv=None) -> int:
     placeholder()
     with StudioFleetRig() as rig:
         placeholder(rig.state)  # the rig's own home: you@studio
+        rig.rail = ""  # 3.3.2.0 R1: the pictures show Studio as it opens, the icon rail
         lv = Live(rig)
         c = open_chrome(W, H)
         try:

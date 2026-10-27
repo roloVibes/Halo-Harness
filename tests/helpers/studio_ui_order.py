@@ -29,8 +29,10 @@ from tests.helpers.chrome_driver import Driver  # noqa: E402
 from tests.helpers.runner import Ctx, SkipTest  # noqa: E402
 
 SEL = "document.querySelector('[data-testid=\"section-tab\"][aria-selected=\"true\"]')?.querySelector('.tab-label')?.textContent || ''"
+# 3.3.2.0 R1: the sections are the icon rail's rows (no printed key: the title is the tooltip and the name);
+# the keys are the palette's Go to hints
 TABS = ("[...document.querySelectorAll('[data-testid=\"section-tab\"]')].map((t) => "
-        "[t.querySelector('.tab-label')?.textContent || '', t.querySelector('.tab-kbd')?.getAttribute('aria-label') || ''])")
+        "[t.querySelector('.tab-label')?.textContent || '', t.title, t.querySelectorAll('.kbd').length])")
 ORDER = [("Session", "Alt 1"), ("Team", "Alt 2"), ("Roles", "Alt 3"), ("Fleet", "Alt 4"), ("Design", "Alt 5"), ("Orchestra", "Alt 6"),
          ("Packs", "Alt 7"), ("Setup", "Alt 8")]  # Packs: 3.2.0.0 R6; Setup: 3.3.0.0 R1
 
@@ -94,7 +96,9 @@ def palette(c) -> dict:
     c.click_on("document.querySelector('.palette-btn')")
     c.wait("document.querySelectorAll('.palette-group-name').length > 3", 15)
     out = {"palette_groups": c.js("[...document.querySelectorAll('.palette-group')].map((g) => g.getAttribute('aria-label'))"),
-           "palette_goto": c.js("[...document.querySelectorAll('.palette-group[aria-label=\"Go to\"] .palette-label')].map((l) => l.textContent)")}
+           "palette_goto": c.js("[...document.querySelectorAll('.palette-group[aria-label=\"Go to\"] .palette-label')].map((l) => l.textContent)"),
+           "palette_goto_keys": c.js("[...document.querySelectorAll('.palette-group[aria-label=\"Go to\"] .palette-item')]"
+                                     ".map((i) => [i.querySelector('.palette-label')?.textContent || '', i.querySelector('.kbd-group')?.getAttribute('aria-label') || ''])")}
     c.key("Escape")
     return out
 
@@ -125,8 +129,8 @@ ARGS = ("-m", "tests.helpers.studio_ui_order")
 def register(test, json_of, chrome) -> None:
     @test
     def test_the_tabs_run_session_first_and_orchestra_last_with_their_keys(ctx: Ctx):
-        """3.1.6.0 R6: the owner's order (Session, Team, Roles, Fleet, Design, then Orchestra) on the tab strip
-        with Alt+1 .. Alt+6 on the chips; each key selects its tab; with nothing live Studio still opens on Roles
+        """3.1.6.0 R6: the owner's order (Session, Team, Roles, Fleet, Design, then Orchestra) on the section rows
+        (3.3.2.0 R1: the icon rail, no printed key; Alt+1 .. Alt+8 are the palette's Go to hints); each key selects its row; with nothing live Studio still opens on Roles
         and Alt+1 shows Session's Start view; How Session works lists Alt+1 first; the status bar's hint and the
         palette's groups follow the same order."""
         if not chrome():
@@ -136,10 +140,10 @@ def register(test, json_of, chrome) -> None:
         ctx.check(f"nothing live, nothing saved: Studio opens on Roles' Start view, got {got.get('landing')!r} "
                   f"{got.get('landing_live')!r} {got.get('landing_roles_start')}",
                   got.get("landing") == "Roles" and got.get("landing_live") == "" and got.get("landing_roles_start") == 1)
-        ctx.check(f"the tab strip, in order, with its keys, got {got.get('tabs')}", [tuple(t) for t in got.get("tabs") or []] == ORDER)
-        ctx.check(f"Session / Alt+1 first, Orchestra / Alt+6, Packs / Alt+7, then Setup / Alt+8 last (3.3.0.0 R1), got {got.get('tabs')}",
-                  (got.get("tabs") or [[]])[0] == ["Session", "Alt 1"]
-                  and (got.get("tabs") or [[], [], []])[-3:] == [["Orchestra", "Alt 6"], ["Packs", "Alt 7"], ["Setup", "Alt 8"]])
+        ctx.check(f"3.3.2.0 R1: the rail's rows, in order, titled, no printed key, got {got.get('tabs')}",
+                  [tuple(t) for t in got.get("tabs") or []] == [(t, t, 0) for t, _ in ORDER])
+        ctx.check(f"the keys in the palette's Go to: Session / Alt+1 first ... Setup / Alt+8 last, got {got.get('palette_goto_keys')}",
+                  [tuple(t) for t in got.get("palette_goto_keys") or []][:8] == ORDER)
         want = [[n, ORDER[n - 1][0]] for n in (2, 3, 4, 5, 6, 7, 8, 1)]
         ctx.check(f"Alt+2 .. Alt+8 then Alt+1 select their tabs, got {got.get('pressed')}", got.get("pressed") == want)
         ctx.check(f"Alt+1 with nothing live: the Session Start view, got {got.get('session_start')}", got.get("session_start") == 1)

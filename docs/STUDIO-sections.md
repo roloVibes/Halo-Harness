@@ -35,7 +35,7 @@ waiting on you, $X" -- and the decisions that wait are the Attention queue's
    session (`halo studio --session` from a shell); `Alt+1`, the palette,
    **Watch in Session** on the Roles Live tab or on a live Orchestra run's
    line, **Open in Session** in a map node's `...` menu and this harness's
-   nodes in the rail land here too. With nothing saved for the browser,
+   nodes in the expanded rail's Fleet tree land here too. With nothing saved for the browser,
    Studio opens here while a session of this harness is live.
 2. **Watch everything at once (Live)**: every agent's text, each tool call
    and its result, what it hands back and what it asks you land in one

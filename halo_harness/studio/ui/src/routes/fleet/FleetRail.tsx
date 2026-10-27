@@ -1,4 +1,5 @@
-// The Fleet rail, in the rail of EVERY section (3.0.5.0: it replaced the
+// The Fleet rail, in the rail of EVERY section (3.3.2.0 R1: while the rail is expanded; the icon rail
+// carries the live count on the Fleet icon instead) (3.0.5.0: it replaced the
 // plain list of live sessions): the fleet as a tree, harness > session >
 // agent, each with its status dot; the live and the need-you counts at the
 // top. Click a node: the Fleet section opens on it (the map selects it, the

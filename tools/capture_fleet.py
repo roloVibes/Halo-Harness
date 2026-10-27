@@ -180,7 +180,9 @@ def shoot(c, rig, fleet_png: Path, roles_png: "Path | None" = None) -> bool:
     guard_page(c, fleet_png.stem)
     a = c.shot(fleet_png)
     panels_png = fleet_png.with_name("studio-fleet-panels.png")
+    rig.rail = "&rail=open"  # 3.3.2.0 R1: the away digest is the expanded rail's card; the other pictures show the icon rail
     d = shoot_panels(c, rig, panels_png)
+    rig.rail = ""
     caps_png = fleet_png.with_name("studio-fleet-capabilities.png")
     e = shoot_caps(c, rig, caps_png)
     mission_png = fleet_png.with_name("studio-fleet-mission.png")
@@ -201,6 +203,7 @@ def capture(out: str, as_dom: bool, find_chrome) -> int:
     placeholder()
     with StudioFleetRig() as rig:
         placeholder(rig.state)  # the rig's own home: you@studio
+        rig.rail = "&rail=open" if as_dom else ""  # 3.3.2.0 R1: the counts read the Fleet tree; the pictures show the icon rail
         c = open_chrome(exe=exe)  # the driver base: one headless Chrome at a time
         try:
             if as_dom:
