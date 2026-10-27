@@ -96,6 +96,18 @@ def test_session_row_puts_them_on_the_agent_rows(ctx: Ctx):
                   got == {"early": (1000, 50), "live": (0, 0)})
 
 
+@test
+def test_v3331_session_row_carries_the_cost_parts(ctx: Ctx):
+    from halo_harness.fleet.local_view import session_row
+    status = {"turn": 2, "cost_usd": 3.6348, "cost_complete": False, "cost_unknown": ["dbx:databricks-glm-x"]}
+    row = session_row({"session_id": "s3"}, status, [])
+    ctx.check(f"the priced part, incomplete, the unpriced model named, got {row}",
+              row["cost_usd"] == 3.6348 and row["cost_complete"] is False
+              and row["cost_unknown"] == ["dbx:databricks-glm-x"])
+    old = session_row({"session_id": "s4"}, {"turn": 1, "cost_usd": 0.5}, [])
+    ctx.check("an older status that never said: None and []", old["cost_complete"] is None and old["cost_unknown"] == [])
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

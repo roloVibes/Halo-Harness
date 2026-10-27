@@ -287,25 +287,34 @@ def default_path_type(name: str, state_dir=None) -> str:
     return cands[0].key
 
 
-def dbu_price_usd() -> Optional[float]:
-    """`databricks.dbu_price_usd` (`~/.halo/config.json`) -- a
-    workspace's own $/DBU conversion rate; unset -> cost is shown in raw
-    DBUs instead of dollars (scope D/H)."""
+def dbu_price_usd() -> float:
+    """`databricks.dbu_price_usd` (`~/.halo/config.json`) -- a workspace's
+    own $/DBU rate. 3.3.3.1: every cost is in dollars; unset (or not a
+    positive number) is the shipped default, $0.07 per DBU (AWS, US East N.
+    Virginia, Databricks' Foundation Model Serving pricing page, read
+    2026-10-27; providers/databricks_prices.DEFAULT_DBU_PRICE_USD)."""
+    from halo_harness.providers.databricks_prices import DEFAULT_DBU_PRICE_USD
     from halo_harness.theme import get_config_value
     value = get_config_value("databricks.dbu_price_usd", default=None)
     try:
-        return float(value) if value is not None else None
+        price = float(value) if value is not None and not isinstance(value, bool) else None
     except (TypeError, ValueError):
-        return None
+        price = None
+    return price if price is not None and price > 0 else DEFAULT_DBU_PRICE_USD
 
 
 def format_dbu_cost(dbus: Optional[float]) -> str:
-    """`dbus` (a raw DBU count, or None when unknown) -> a display string:
-    a dollar figure when `databricks.dbu_price_usd` is configured, else the
-    raw DBU count, else "?"."""
+    """`dbus` (a raw DBU count, or None when unknown) -> its dollar figure
+    at `dbu_price_usd()` ("$0.1400"), else "?". 3.3.3.1: dollars are the
+    figure; the DBU count is only ever the detail (`format_dbu_detail`)."""
     if dbus is None:
         return "?"
-    price = dbu_price_usd()
-    if price is not None:
-        return f"${dbus * price:.4f}"
-    return f"{dbus:.3f} DBU"
+    return f"${dbus * dbu_price_usd():.4f}"
+
+
+def format_dbu_detail(dbus: Optional[float]) -> str:
+    """The DBU count behind a dollar figure, for a detail line or a tooltip:
+    "2.000 DBU at $0.07/DBU"; "" when unknown."""
+    if dbus is None:
+        return ""
+    return f"{dbus:.3f} DBU at ${dbu_price_usd():g}/DBU"

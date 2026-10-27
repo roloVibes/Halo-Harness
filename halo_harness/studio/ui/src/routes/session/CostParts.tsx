@@ -60,7 +60,8 @@ export function Spark({ list, w = 132, h = 30 }: { list: Sample[]; w?: number; h
   );
 }
 
-export type Share = { a: AgentRow; key: string; hc: number; usd: number; pct: number };
+/** `noPrice` (3.3.3.1): this agent's own model reports no price, so its line says so instead of $0.0000. */
+export type Share = { a: AgentRow; key: string; hc: number; usd: number; pct: number; noPrice?: boolean };
 
 export function ShareBar({ rows }: { rows: Share[] }) {
   const total = rows.reduce((s, r) => s + r.usd, 0);
@@ -91,8 +92,13 @@ export function AgentLine({ r }: { r: Share }) {
       <span className="mono muted sco-row-calls" title="its model calls" data-testid="session-cost-agent-calls">
         {typeof a.turns === "number" ? `${a.turns} call${a.turns === 1 ? "" : "s"}` : "-"}
       </span>
-      <b className="mono sco-row-usd" title={a.parent ? "what it spent itself (its finished sub-agents are on their own lines)" : "what it spent itself: the session's total less its finished sub-agents' (on their own lines)"}
-         data-testid="session-cost-agent-usd">{cost(r.usd)}</b>
+      {r.noPrice ? (
+        <b className="mono sco-row-usd sco-noprice" data-testid="session-cost-noprice"
+           title={`its model${a.model ? ` ${a.model}` : ""} reports no price: what it spent is not in the total`}>no price</b>
+      ) : (
+        <b className="mono sco-row-usd" title={a.parent ? "what it spent itself (its finished sub-agents are on their own lines)" : "what it spent itself: the session's total less its finished sub-agents' (on their own lines)"}
+           data-testid="session-cost-agent-usd">{cost(r.usd)}</b>
+      )}
       <span className="mono muted sco-row-pct">{r.pct > 0 ? `${Math.round(r.pct)} %` : ""}</span>
     </div>
   );

@@ -200,6 +200,19 @@ def test_a_finished_child_is_counted_once_and_turns_are_one_unit(ctx: Ctx):
               got.get("fig_main_line") == ["$0.2348", "1 call"])
 
 
+@test
+def test_v3331_an_unpriced_main_shows_a_plus_and_no_price(ctx: Ctx):
+    r, got = _driver("costmap")
+    _ran(ctx, r, got)
+    model = got.get("partial_model") or ""
+    ctx.check(f"the spend is the priced part with a +, got {got.get('partial')!r}", got.get("partial") == "$3.63+")
+    ctx.check(f"its title names main's model, got {got.get('partial_title')!r}",
+              got.get("partial_title") == f"main's model {model} reports no price: this is what the priced agents spent")
+    ctx.check(f"PER TURN carries the + too, got {got.get('partial_per_turn')!r}", str(got.get("partial_per_turn") or "").endswith("+"))
+    ctx.check(f"main's line says no price, never $0.0000, got {got.get('noprice')!r}", got.get("noprice") == "no price")
+    ctx.check(f"a complete total drops both, got {got.get('complete_again')!r}", got.get("complete_again") == "gone")
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

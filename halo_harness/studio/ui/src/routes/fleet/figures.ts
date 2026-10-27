@@ -21,7 +21,7 @@ export function ownFrame(f: FeedFrame): boolean {
   return !f.agent_id && !String(d.session_id || "").startsWith("agent-");
 }
 
-export type Figures = Partial<Pick<SessionRow, "cost_usd" | "tokens_in" | "tokens_out" | "context_tokens" | "context_limit" | "turns" | "model" | "busy">>;
+export type Figures = Partial<Pick<SessionRow, "cost_usd" | "cost_complete" | "cost_unknown" | "tokens_in" | "tokens_out" | "context_tokens" | "context_limit" | "turns" | "model" | "busy">>;
 
 /** What the frame says about the session: only the numbers it carries; `status` adds the model and the phase as busy. */
 export function figuresOf(f: FeedFrame): Figures {
@@ -32,6 +32,8 @@ export function figuresOf(f: FeedFrame): Figures {
     if (n != null) out[k] = n;
   };
   put("cost_usd", d.cost_usd);
+  if (typeof d.cost_complete === "boolean") out.cost_complete = d.cost_complete;
+  if (Array.isArray(d.cost_unknown)) out.cost_unknown = d.cost_unknown.map(String);
   put("tokens_in", d.total_input_tokens);
   put("tokens_out", d.total_output_tokens);
   put("context_tokens", d.context_tokens);
@@ -67,6 +69,11 @@ export function agentWith(old: AgentRow, row: AgentRow): AgentRow {
 export function keepFigures(got: SessionRow, had: SessionRow, phase: boolean | null): SessionRow {
   const out: SessionRow = { ...got };
   for (const k of ["cost_usd", "tokens_in", "tokens_out", "turns"] as const) out[k] = higher(had[k], got[k]);
+  // 3.3.3.1: the cost parts go with whichever figure won (a frame's, when it is the newer and higher one).
+  if ((num(had.cost_usd) ?? -1) > (num(got.cost_usd) ?? -1) && typeof had.cost_complete === "boolean") {
+    out.cost_complete = had.cost_complete;
+    out.cost_unknown = had.cost_unknown;
+  }
   for (const k of ["context_tokens", "context_limit"] as const) if (num(had[k]) != null) out[k] = had[k];
   if (phase != null && got.status !== "waiting") {
     out.busy = phase;

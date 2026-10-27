@@ -76,6 +76,7 @@ def build_result_object(
     uuid: Optional[str] = None,
     prompt_suggestion: Optional[str] = None,
     escalations: Optional[list] = None,
+    cost_complete: Optional[bool] = None,
 ) -> dict:
     """The `-p --output-format json` result object -- a subset of plan
     D-TUI's full shape. H2 scope D: `permission_denials` is a list of
@@ -101,7 +102,12 @@ def build_result_object(
     used to leave print mode with no lasting trace at all (the TUI's own
     5-second toast has no print-mode equivalent in the first place); empty
     when hybrid escalation was never configured or never triggered this
-    run."""
+    run.
+
+    3.3.3.1: `total_cost_usd` is the priced part of the spend (what every
+    priced call cost); `cost_complete` is False when some model answered
+    with no price (the figure is then "at least"), True when every part was
+    priced, None before any message ended."""
     return {
         "type": "result",
         "subtype": subtype,
@@ -112,6 +118,7 @@ def build_result_object(
         "stop_reason": stop_reason,
         "usage": usage or {},
         "total_cost_usd": total_cost_usd,
+        "cost_complete": cost_complete,
         "structured_output": structured_output,
         "model": model,
         "permission_denials": permission_denials or [],
@@ -189,6 +196,7 @@ class PrintModeSink:
         self._stop_reason: Optional[str] = None
         self._usage: dict = {}
         self._total_cost_usd: Optional[float] = None
+        self._cost_complete: Optional[bool] = None
         self._num_turns = 0
         self._saw_any_message = False
         # W4a: `duration_ms`/`uuid` on the eventual result object -- see
@@ -343,6 +351,8 @@ class PrintModeSink:
             self._stop_reason = event.data.get("stop_reason")
             _merge_usage(self._usage, event.data.get("usage") or {})
             cost = event.data.get("cost_usd")
+            if isinstance(event.data.get("cost_complete"), bool):
+                self._cost_complete = event.data["cost_complete"]
             if cost is not None:
                 self._total_cost_usd = cost  # already the SESSION's cumulative total (agent/loop.py)
                 if self.max_budget_usd is not None and cost >= self.max_budget_usd:
@@ -429,6 +439,7 @@ class PrintModeSink:
                 stop_reason=self._stop_reason,
                 usage=self._usage,
                 total_cost_usd=self._total_cost_usd,
+                cost_complete=self._cost_complete,
                 result_text=result_text,
                 is_error=is_error,
                 subtype=subtype,
@@ -517,6 +528,7 @@ class StreamJsonSink:
         self._final_text = ""
         self._usage: dict = {}
         self._total_cost_usd: Optional[float] = None
+        self._cost_complete: Optional[bool] = None
         self._num_turns = 0
         self._stop_reason: Optional[str] = None
         self._had_error = False
@@ -653,6 +665,8 @@ class StreamJsonSink:
                 _merge_usage(self._usage, buf["usage"])
                 self._stop_reason = buf["stop_reason"]
                 cost = event.data.get("cost_usd")
+                if isinstance(event.data.get("cost_complete"), bool):
+                    self._cost_complete = event.data["cost_complete"]
                 if cost is not None:
                     self._total_cost_usd = cost
                     if self.max_budget_usd is not None and cost >= self.max_budget_usd:
@@ -723,6 +737,7 @@ class StreamJsonSink:
         result = build_result_object(
             session_id=self.session_id, model=self.model, num_turns=self._num_turns,
             stop_reason=self._stop_reason, usage=self._usage, total_cost_usd=self._total_cost_usd,
+            cost_complete=self._cost_complete,
             result_text=self._error_message if self._had_error else self._final_text,
             is_error=is_error, subtype=subtype, permission_denials=self._permission_denials,
             structured_output=_try_structured_output(self._final_text, self.json_schema),

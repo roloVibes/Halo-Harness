@@ -147,7 +147,7 @@ def status_text(st: dict) -> str:
     if ctx and lim:
         lines.append(f"Context: {ctx * 100 // lim}%")
     if st.get("cost_usd") is not None:
-        lines.append(f"Cost: ${st['cost_usd']:.4f}")
+        lines.append(f"Cost: ${st['cost_usd']:.4f}{'+' if st.get('cost_complete') is False else ''}")
     waiting = sum(len(v) for v in (st.get("pending") or {}).values())
     if waiting:
         lines.append(f"Waiting on you: {waiting} card(s)")
@@ -157,7 +157,7 @@ def status_text(st: dict) -> str:
 def cost_line(st: dict) -> str:
     bits = ["Done."]
     if st.get("cost_usd") is not None:
-        bits.append(f"cost ${st['cost_usd']:.4f}")
+        bits.append(f"cost ${st['cost_usd']:.4f}{'+' if st.get('cost_complete') is False else ''}")
     elif st.get("total_input_tokens") is not None:
         bits.append(f"in {st['total_input_tokens']} out {st.get('total_output_tokens') or 0} tokens")
     ctx, lim = st.get("context_tokens"), st.get("context_limit")

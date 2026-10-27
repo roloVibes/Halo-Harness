@@ -595,7 +595,7 @@ async def _apply_event_inner(app, event) -> None:
             # "waiting" word instead; `turn_done`'s own `go_idle()` is the
             # ONLY place idle is ever set from here on.
             app.status_bar.apply_status({
-                "cost_usd": data.get("cost_usd"),
+                "cost_usd": data.get("cost_usd"), "cost_complete": data.get("cost_complete"),
                 "context_tokens": data.get("context_tokens"), "context_limit": data.get("context_limit"),
                 "total_input_tokens": data.get("total_input_tokens"),
                 "total_output_tokens": data.get("total_output_tokens"),

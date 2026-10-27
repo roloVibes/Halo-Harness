@@ -126,7 +126,7 @@ class TurnTracker:
         self.session = session
         self.t0 = time.monotonic()
         meter = getattr(session, "cost_meter", None)
-        self.cost0 = meter.total_usd if meter is not None and meter.has_cost_data else 0.0
+        self.cost0 = (meter.total_usd or 0.0) if meter is not None else 0.0
         self.tools = 0
         self.last_error: Optional[str] = None
         self.last_text = ""
@@ -149,9 +149,12 @@ class TurnTracker:
 
     def _cost(self) -> Optional[float]:
         meter = getattr(self.session, "cost_meter", None)
-        if meter is None or not meter.has_cost_data:
+        if meter is None:
             return None
-        return max(0.0, (meter.total_usd or 0.0) - (self.cost0 or 0.0))
+        # 3.3.3.1: the priced part of the turn counts even when some call had
+        # no price; None only when nothing this turn was priced.
+        spent = max(0.0, (meter.total_usd or 0.0) - (self.cost0 or 0.0))
+        return spent if (meter.has_cost_data or spent > 0) else None
 
     def end_marker(self, reason: str, *, turn: int) -> events.Event:
         s = self.session
