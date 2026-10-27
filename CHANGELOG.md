@@ -19,6 +19,17 @@ version.
 #### Changed
 - docs: MODELS-ollama.md "The steward (3.3.4.0)", COMMANDS-local.md `halo ollama hardware`, MODELS-references.md points to the steward's sources, ARCHITECTURE-modules.md lists the package.
 
+### R2: every call leaves a record
+
+#### Added
+- The traffic ledger: every call to a local model server (an `ol:` host that is not Ollama's own cloud, native or `dialect: openai`; an `hf:local` / `hf:mlx` server) appends one JSON line to `~/.halo/ollama/traffic.jsonl`. It holds the host, the model, the window sent and its source, the estimate, `prompt_eval_count` / `eval_count`, `done_reason`, the durations and eval rate, trimmed, the status or error, the retry, the session and turn, and the tool and image counts. The file rotates at 20 MB. Turns, compaction, small calls, tool repairs and calibration loads are all recorded. `ollama.ledger: false` turns it off.
+- `fleet.ollama.share` (`auto` | `all` | `off`): a member sends its ledger lines to the hub every 30 s or 50 lines (`POST /fleet/v1/ollama`). The hub keeps them in its own ledger with `from` set to the member's name, so the machine that serves the models sees every halo's calls to it.
+- The server's events: a read-only tail of the local Ollama server log (rotation followed, journald on Linux) and an `/api/ps` poll, turned into events in `~/.halo/ollama/events.jsonl`. The kinds are prompt-trimmed (with the window that was sent), reply-cut, window-full, no-user-query, http-500, cancel-task (a 500 from a client that went away mid-prompt), retry-loop, client-gave-up, load-failed, cpu-spill, gpu-memory, queue-full, slow-load, stall, server-down, other-error, loaded, unloaded, reloaded and startup. A 10-minute quiet period per kind applies to notifications only.
+- `halo ollama traffic [--host] [--model] [--since] [--json]` and `halo ollama events [--host] [--since] [--kind] [--watch] [--from-start] [--json]`.
+
+#### Changed
+- docs: `halo ollama ...` moved into its own part, COMMANDS-ollama.md (COMMANDS-local.md keeps `halo gym` and `halo local`). MODELS-ollama.md describes the ledger and the events. CONFIG.md and FLEET.md describe `ollama.ledger` and `fleet.ollama.share`, and ARCHITECTURE-modules.md lists the new modules.
+
 ### Also in 3.3.4.0
 
 #### Changed

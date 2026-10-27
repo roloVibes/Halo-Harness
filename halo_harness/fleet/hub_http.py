@@ -193,6 +193,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if route in ("mission_files", "local/mission"):  # 3.0.6.0 R7: fleet/hub_mission.py
             from halo_harness.fleet.hub_mission import serve
             return serve(self, route)
+        if route == "ollama":  # 3.3.4.0 R2: a member's ledger lines (fleet/ollama_share.py)
+            from halo_harness.fleet.ollama_share import serve as ollama
+            return ollama(self)
         if route in ("recall", "local/recall", "local/coach-library", "local/knowledge"):  # 3.1.2.0 R3; 3.1.6.0 R3; 3.1.8.0 R4
             from halo_harness.fleet.hub_recall import serve as recall
             return recall(self, route)
