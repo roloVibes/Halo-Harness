@@ -32,6 +32,17 @@ const PATHS: Record<string, string> = {
   send: "M2 8l12-5-5 12-2-5-5-2Z",
   diamond: "M8 2l6 6-6 6-6-6Z",
   link: "M6.5 9.5l3-3M5 8 3.5 9.5a2.1 2.1 0 0 0 3 3L8 11M11 8l1.5-1.5a2.1 2.1 0 0 0-3-3L8 5",
+  // 3.3.2.0 R1: one per core section for the icon rail (shell/RailSections.tsx), the chevron and Focus
+  session: "M2.5 3h11v7.5h-6L4.5 13v-2.5h-2Z",
+  team: "M5.5 3a1.8 1.8 0 1 1 0 3.6 1.8 1.8 0 0 1 0-3.6ZM1.8 12.5a3.7 3.7 0 0 1 7.4 0M11 4a1.6 1.6 0 1 1 0 3.2A1.6 1.6 0 0 1 11 4ZM10.2 8.7a3.2 3.2 0 0 1 4 3.3",
+  roles: "M6 2h4v3H6zM2 11h4v3H2zM10 11h4v3h-4zM8 5v3M4 11V8h8v3",
+  fleet: "M8 2a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3ZM3 10.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3ZM13 10.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3ZM7.2 4.8 3.8 10.7M8.8 4.8l3.4 5.9M4.5 12h7",
+  design: "M2 14l1.2-3.8L10.6 2.8l2.6 2.6-7.4 7.4L2 14ZM9.2 4.2l2.6 2.6",
+  orchestra: "M2 4h12M2 8h12M2 12h12M5 2.5v3M10.5 6.5v3M7 10.5v3",
+  packs: "M2.5 5 8 2l5.5 3v6L8 14l-5.5-3ZM2.5 5 8 8l5.5-3M8 8v6",
+  setup: "M4 2v12M8 2v12M12 2v12M2.5 5h3M6.5 10h3M10.5 6.5h3",
+  "chevron-left": "M10 4 6 8l4 4",
+  focus: "M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4",
 };
 
 /** The icon for a tool an agent runs (Edit, Bash, Read, Agent, WebFetch ...). */

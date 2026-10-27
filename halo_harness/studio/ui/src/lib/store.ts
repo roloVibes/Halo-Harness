@@ -2,6 +2,8 @@
 // update / subscribe, and `useStore(store, selector)` reads a slice through
 // React's useSyncExternalStore. `studio` is the shell's one app store.
 import { useSyncExternalStore } from "react";
+import { bootLiveSession, bootNoProvider, bootPackSections } from "./boot";
+export { bootLiveSession, bootNoProvider, bootPackSections, type BootPackSection } from "./boot";
 
 export type Store<T> = {
   get: () => T;
@@ -73,15 +75,20 @@ export type ToastItem = { id: number; text: string; tone: "done" | "error" | "in
 
 export type PanelRef = { section: SectionId; panel: string };
 
-/** The "How this works" overlay: which section, and whether it is the first-visit welcome. */
-export type HelpRef = { section: SectionId; welcome: boolean };
+/** The "How this works" overlay: which section (3.3.2.0 R1: only ever opened by a click or a key). */
+export type HelpRef = { section: SectionId };
+
+/** 3.3.2.0 R1: the left rail, icons only (56 px) or expanded with titles (248 px); Focus hides it whatever this says. */
+export type RailMode = "icons" | "open";
 
 export type StudioState = {
   section: SectionId;
   visited: SectionId[];
   theme: ThemeChoice;
   paletteOpen: boolean;
-  railOpen: boolean;
+  rail: RailMode;
+  /** 3.3.2.0 R1: Focus hides the rail, the inspector and the status bar (F, the header button, the palette). */
+  focus: boolean;
   inspector: PanelRef | null;
   help: HelpRef | null;
   /** A section's own status line (3.0.7.0 R2: Roles and Design each set theirs from their store). */
@@ -111,41 +118,6 @@ export function writeLocal(key: string, value: string | null): void {
   }
 }
 
-/** 3.1.4.0 R2: the served page names this harness's newest live session (studio/session_open.py boot_html). */
-export function bootLiveSession(): string {
-  try {
-    return document.documentElement.dataset.liveSession || "";
-  } catch {
-    return "";
-  }
-}
-
-/** A running pack's own section as the served page names it (`data-pack-sections`, 3.2.1.0 R1). */
-export type BootPackSection = { id: PackSectionId; pack: string; title: string };
-
-/** 3.2.1.0 R1: the running packs' sections the served page names (studio/session_open.py boot_html), so a saved
- *  pack section is the first paint; [] when the page names none (no pack runs, or an older server). */
-export function bootPackSections(): BootPackSection[] {
-  try {
-    const raw = document.documentElement.dataset.packSections;
-    const got: unknown = raw ? JSON.parse(raw) : [];
-    return Array.isArray(got)
-      ? got.filter((s): s is BootPackSection => !!s && typeof s.id === "string" && s.id.includes("--") && typeof s.title === "string")
-      : [];
-  } catch {
-    return [];
-  }
-}
-
-/** 3.3.0.0 R3: the served page says no provider is set up yet (studio/setup_check_state.py boot_attrs). */
-export function bootNoProvider(): boolean {
-  try {
-    return document.documentElement.dataset.noProvider === "1";
-  } catch {
-    return false;
-  }
-}
-
 /** `?mode=` wins; then (3.3.0.0 R3) Setup while no provider is set up, whatever was saved; then the section saved
  *  for this browser (a pack's own when the page names it, 3.2.1.0 R1); nothing saved: Session while a session is
  *  live here, else Roles. */
@@ -166,13 +138,38 @@ function initialTheme(): ThemeChoice {
 
 const first = initialSection();
 
+/** The section this page opened on (3.3.2.0 R1: the one section Start here may show over). */
+export function firstSection(): SectionId {
+  return first;
+}
+
+/** 3.3.2.0 R1: icons by default ("closed" from before reads as icons); `?rail=open` (drivers, captures) expands it
+ *  for this page without remembering it. */
+function initialRail(): RailMode {
+  if (typeof location !== "undefined" && /[?&]rail=open\b/.test(location.search)) return "open";
+  return readLocal("halo.studio.rail") === "open" ? "open" : "icons";
+}
+
+const INSPECTOR_KEY = "halo.studio.inspector";
+
+/** 3.3.2.0 R1: the inspector this browser left open (a panel of the section the page opens on), else closed. */
+function initialInspector(): PanelRef | null {
+  try {
+    const got = JSON.parse(readLocal(INSPECTOR_KEY) || "null") as PanelRef | null;
+    return got && got.section === first && typeof got.panel === "string" ? got : null;
+  } catch {
+    return null;
+  }
+}
+
 export const studio = createStore<StudioState>({
   section: first,
   visited: [first],
   theme: initialTheme(),
   paletteOpen: false,
-  railOpen: readLocal("halo.studio.rail") !== "closed",
-  inspector: null,
+  rail: initialRail(),
+  focus: readLocal("halo.studio.focus") === "on",
+  inspector: initialInspector(),
   help: null,
   status: {},
   feed: { status: "off", events: 0, lastKind: "", lastTs: 0, sessions: [] },
@@ -180,27 +177,26 @@ export const studio = createStore<StudioState>({
   toasts: [],
 });
 
-// -- "How this works": the overlay and the first-visit welcome ------------------
-export const SEEN_PREFIX = "halo.studio.seen.";
-/** `?tour=off` (captures, tests) keeps the first-visit welcome shut, as on the classic page; so does `?edit=` (3.1.1.0 R3);
- *  3.3.1.0 R1: so does a page that opens on Setup (`halo init`'s page, a fresh home): nothing pops up over the setup. */
-const NO_WELCOME = first === "setup" || (typeof location !== "undefined" && /[?&](tour=off\b|edit=)/.test(location.search));
+// 3.3.2.0 R1: the inspector's open/closed choice, remembered per browser whatever opened or closed it
+// (a panel's Settings, a Design artboard's knobs, its close button, Esc, a section switch).
+let savedInspector = studio.get().inspector;
+studio.subscribe(() => {
+  const ref = studio.get().inspector;
+  if (ref === savedInspector) return;
+  savedInspector = ref;
+  writeLocal(INSPECTOR_KEY, ref ? JSON.stringify(ref) : null);
+});
 
-export function openHelp(section: SectionId, welcome = false): void {
-  studio.update(() => ({ help: { section, welcome }, paletteOpen: false }));
+// -- "How this works": opened by the ? button, the palette or `?`, never on its own --------------
+// 3.3.2.0 R1: the first-visit welcome card is gone for every section (rolo, 2026-10-27: "the pop up is annoying
+// when you open a tab"); a section opens on its own content and its help stays one click away.
+
+export function openHelp(section: SectionId): void {
+  studio.update(() => ({ help: { section }, paletteOpen: false }));
 }
 
-/** Close the overlay; the section counts as seen, so its welcome does not come back. */
 export function closeHelp(): void {
-  const help = studio.get().help;
-  if (help) writeLocal(SEEN_PREFIX + help.section, "1");
   studio.update(() => ({ help: null }));
-}
-
-/** The first time a section shows in this browser: its welcome card (never Setup's: its pages say it, 3.3.1.0 R1). */
-export function welcomeIfNew(section: SectionId): void {
-  if (NO_WELCOME || section === "setup" || studio.get().help || readLocal(SEEN_PREFIX + section)) return;
-  openHelp(section, true);
 }
 
 export function goSection(section: SectionId): void {
@@ -219,10 +215,19 @@ export function cycleTheme(): void {
   setTheme(order[(order.indexOf(studio.get().theme) + 1) % order.length]);
 }
 
+/** 3.3.2.0 R1: the rail's chevron: icons <-> expanded (titles, and until R2 the panels and the layout block). */
 export function toggleRail(): void {
-  const railOpen = !studio.get().railOpen;
-  writeLocal("halo.studio.rail", railOpen ? "open" : "closed");
-  studio.update(() => ({ railOpen }));
+  const rail: RailMode = studio.get().rail === "open" ? "icons" : "open";
+  writeLocal("halo.studio.rail", rail);
+  studio.update(() => ({ rail, focus: false }));
+  writeLocal("halo.studio.focus", null);
+}
+
+/** 3.3.2.0 R1: Focus on or off; off brings the rail and the inspector back as they were. */
+export function toggleFocus(): void {
+  const focus = !studio.get().focus;
+  writeLocal("halo.studio.focus", focus ? "on" : null);
+  studio.update(() => ({ focus }));
 }
 
 let toastSeq = 0;

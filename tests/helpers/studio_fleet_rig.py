@@ -51,6 +51,7 @@ def _git(cwd: Path, *args: str) -> None:
 
 class StudioFleetRig:
     member_id = MEMBER
+    rail = "&rail=open"  # 3.3.2.0 R1: the drivers read the Fleet tree, which lives in the expanded rail; captures set ""
     def __init__(self) -> None:
         self._saved = {k: os.environ.get(k) for k in _VARS}
         for k in ("BRIDGE_STATE_DIR", "HALO_FLEET_PRIVATE", "HALO_FLEET_PARENT"):
@@ -103,7 +104,7 @@ class StudioFleetRig:
 
     def url(self, mode: str = "fleet", extra: str = "") -> str:
         from halo_harness.studio.server import url_for
-        return url_for(self.server, mode).replace("#t=", f"&tour=off{extra}#t=")
+        return url_for(self.server, mode).replace("#t=", f"&tour=off{self.rail}{extra}#t=")
 
     def api(self, method: str, path: str, body=None):
         import http.client

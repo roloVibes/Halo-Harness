@@ -37,7 +37,7 @@ export const FLEET_HELP: Record<string, Help> = {
       "Cards (permission, question, plan, approval), gates, paused agents, spend caps, file conflicts and missions (a plan to approve, a refused edit, a hub asking to run a part here) all land here.",
       "A accepts or allows, R denies or redoes with your text, S stops, O opens the panel it belongs to.",
       "J / K (or the arrows) move between rows while this panel has the focus.",
-      "The count shows in the status bar and the rail in every section.",
+      "The count shows in the status bar in every section, and in the Fleet tree of the expanded rail.",
     ),
   },
   "fleet-map": {

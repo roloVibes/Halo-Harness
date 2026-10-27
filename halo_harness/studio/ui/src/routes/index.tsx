@@ -11,7 +11,7 @@
 // (drag, resize, collapse, pop out, persistence). Each section's "How this
 // works" copy is routes/sectionHelp.ts.
 // Design also carries the Media panels as optional ones the palette adds.
-// 3.1.6.0 R6: this list IS the order: the tab strip, the Alt+1..8 keys (shell/keys.ts), the palette's
+// 3.1.6.0 R6: this list IS the order: the rail's section rows (3.3.2.0 R1; the tab strip before), the Alt+1..8 keys (shell/keys.ts), the palette's
 // Go to and section groups, the section help's key line and the status bar's key hint all read it.
 // The owner, 2026-10-20: "The session tab should be the first tab in studio", then "Here's the order of
 // tabs in studio: session, team, roles, fleet, design"; Orchestra, not in his list, takes the next key.

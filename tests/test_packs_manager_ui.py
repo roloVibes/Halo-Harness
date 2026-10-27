@@ -62,7 +62,7 @@ def _got(ctx: Ctx) -> dict:
 def test_packs_is_the_seventh_section_on_alt_7(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"the six, then Packs, got {got.get('tabs')}", got.get("tabs") == CORE)
-    ctx.check(f"Alt+1..8, got {got.get('kbds')}", got.get("kbds") == [f"Alt{n}" for n in range(1, 9)])
+    ctx.check(f"Alt+1..8, got {got.get('kbds')}", got.get("kbds") == [f"Alt+{n}" for n in range(1, 9)])
     ctx.check(f"Alt+7 opens it, got {got.get('alt7')!r}", str(got.get("alt7")).startswith("Packs"))
     ctx.check(f"its five panels, got {got.get('panels')}", got.get("panels") == ["Installed", "Details", "Sources", "Settings", "Templates"])
     ctx.check("nothing installed yet; Sources offers the shipped pack", got.get("empty") is True and got.get("source_install") == "Install")
@@ -95,7 +95,7 @@ def test_enable_and_grant(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"enabled with the picked grant, got {got.get('granted')!r}", got.get("granted") == "1/3 granted")
     ctx.check(f"its section after Setup on Alt+9, got {got.get('tabs_on')} {got.get('pack_kbd')}",
-              got.get("tabs_on") == CORE + ["Docs review"] and got.get("pack_kbd") == "Alt9")
+              got.get("tabs_on") == CORE + ["Docs review"] and got.get("pack_kbd") == "Alt+9")
     ctx.check(f"a toggle on the enabled pack grants at once, got {got.get('granted_more')!r} {got.get('state_json')}",
               got.get("granted_more") == "2/3 granted" and got.get("state_json") == [True, ["bash", "hooks"]])
 

@@ -36,9 +36,9 @@ doctor, catalog and hello until changed there) and **The Check page**; then the 
 (what `halo start` does, the models it calls, the estimate, the time, what it writes) and its Run button.
 
 **Nothing opens on its own.** Loading Setup opens no help, no welcome and no Start here overlay, whether
-`halo init` opened it or not; the help stays one click away (the `?` in the header, or `?`). A page that
-opens on Setup shows no section's first-visit welcome; Start here's offer keeps showing on the other
-sections of a fresh home.
+`halo init` opened it or not; the help stays one click away (the `?` in the header, or `?`). 3.3.2.0: no
+section opens a welcome any more, and Start here shows only over the section a page opened on, so a page
+that opens on Setup gets no offer on the next section either (Setup's Summary offers the guided first run).
 
 ## Providers and Local models (3.3.0.0 R2)
 

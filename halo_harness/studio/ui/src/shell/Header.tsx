@@ -1,31 +1,13 @@
-// The top bar: brand, the six section tabs (a tab "works" while its section
-// has fresh activity; 3.2.0.0 R3: then the packs' sections, after a thin "packs" divider), the ? menu ("How this works" for the section and,
-// from 3.1.1.0 R1, the Glossary), the command palette button and the theme
-// menu.
+// The top bar: brand, the current section's title and blurb (3.3.2.0 R1: the
+// section tabs became the icon rail, shell/RailSections.tsx), the ? menu
+// ("How this works" for the section and, from 3.1.1.0 R1, the Glossary), the
+// Focus button (3.3.2.0 R1: hides the rail, the inspector and the status bar;
+// F), the command palette button and the theme menu.
 import { useEffect, useRef, useState } from "react";
-import { Button, Icon, Kbd, Tabs, type TabItem } from "../lib/ui";
-import { goSection, openHelp, setTheme, studio, toggleRail, useStore, type SectionId, type ThemeChoice } from "../lib/store";
+import { Button, Icon, Kbd } from "../lib/ui";
+import { openHelp, setTheme, studio, toggleFocus, useStore, type SectionId, type ThemeChoice } from "../lib/store";
 import { openGlossary } from "../lib/glossary";
-import { useRecent } from "../lib/motion";
-import { sectionDef, useSections } from "../routes";
-
-function useSectionTabs(current: SectionId): TabItem[] {
-  const activity = useStore(studio, (s) => s.activity);
-  const orchestraBusy = useRecent(activity.orchestra, 3000);
-  const fleetBusy = useRecent(activity.fleet, 3000);
-  const teamBusy = useRecent(activity.team, 3000);
-  const busy: Record<SectionId, boolean> = { orchestra: orchestraBusy, roles: false, design: false, fleet: fleetBusy, team: teamBusy, session: fleetBusy, packs: false, setup: false };
-  const all = useSections();
-  return all.map((s, i) => ({
-    id: s.id,
-    label: s.title,
-    kbd: s.kbd || undefined,
-    testid: "section-tab",
-    title: s.kbd ? `${s.blurb} (${s.kbd})` : s.blurb,
-    divider: s.id.includes("--") && !all[i - 1]?.id.includes("--") ? "packs" : undefined,
-    motion: busy[s.id] && s.id !== current ? "working" : "none",
-  }));
-}
+import { sectionDef } from "../routes";
 
 const THEMES: { id: ThemeChoice; label: string; icon: string }[] = [
   { id: "dark", label: "Dark (holo)", icon: "moon" },
@@ -119,20 +101,31 @@ function ThemeMenu() {
 
 export function Header() {
   const section = useStore(studio, (s) => s.section);
-  const tabs = useSectionTabs(section);
+  const focus = useStore(studio, (s) => s.focus);
+  const def = sectionDef(section);
   return (
     <header className="topbar">
-      <button className="icon-btn icon-btn-lg" onClick={toggleRail} title="Show or hide the rail" aria-label="Toggle rail">
-        <Icon name="rail" />
-      </button>
       <div className="brand" title="Halo Studio">
         <span className="brand-ring" aria-hidden="true" />
         <span className="brand-name">HALO</span>
         <span className="brand-sub mono">STUDIO</span>
       </div>
-      <Tabs label="Sections" items={tabs} value={section} onChange={(id) => goSection(id as SectionId)} />
+      <div className="topbar-section" data-testid="section-title">
+        <span className="topbar-title">{def.title}</span>
+        <span className="topbar-blurb">{def.blurb}</span>
+      </div>
       <HelpMenu section={section} />
       <div className="spacer" />
+      <button
+        className="icon-btn icon-btn-lg"
+        onClick={toggleFocus}
+        aria-pressed={focus}
+        aria-label="Focus"
+        title="Focus: hide the rail, the inspector and the status bar (F)"
+        data-testid="focus-toggle"
+      >
+        <Icon name="focus" />
+      </button>
       <Button variant="ghost" className="palette-btn" onClick={() => studio.update(() => ({ paletteOpen: true }))} icon={<Icon name="search" />}>
         <span className="palette-btn-text">Command</span>
         <Kbd keys="Mod+K" />

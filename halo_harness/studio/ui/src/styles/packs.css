@@ -1,12 +1,9 @@
-/* 3.2.0.0 R3: what packs add to Studio (routes/packs): the thin "packs" divider in the tab strip and the rail,
-   and the panel kinds Studio draws from a pack's data -- markdown, table, links, the settings form, the live
-   lines, a bundle's grant line and host. */
-.tab-divider { align-self: center; padding: 0 6px 0 10px; margin-left: 4px; border-left: 1px solid var(--line-strong);
-  font-size: 9.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
-.rail-packs { padding-top: 6px; border-top: 1px solid var(--line); }
+/* 3.2.0.0 R3: what packs add to Studio (routes/packs): the panel kinds Studio draws from a pack's data --
+   markdown, table, links, the settings form, the live lines, a bundle's grant line and host. (3.3.2.0 R1: the
+   "packs" divider is the icon rail's, styles/shell.css .rail-divider.) */
 /* 3.2.1.0 R1: a pack section painted from the page's boot names, before the registry answers */
 .pack-loading { padding: 18px 20px; font-size: 12px; letter-spacing: .02em; }
-.rail-packs .rail-item.on .rail-item-text { color: var(--accent); }
+.rail-pack.on .rail-item-text { color: var(--accent); }
 
 .pk-md { padding: 4px 2px; }
 .pk-table-wrap { overflow: auto; }
