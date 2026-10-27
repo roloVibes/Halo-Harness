@@ -115,6 +115,27 @@ cap -- `ollama.hosts[].max_ctx` is the documented explicit override for
 this exact case. A LOCAL host never hits this path (it always has an OS
 GPU probe to fall back on).
 
+**The memory arithmetic (3.3.4.0 R3, corrected)**: the fit estimate is the
+largest window whose parts fit the card's free memory (every loaded
+model's share counted back in) after Ollama's per-card minimum (457 MiB on
+CUDA, 512 on Metal, plus `OLLAMA_GPU_OVERHEAD`): the weights (less the
+token embedding llama.cpp keeps in RAM, when `/api/show` gives the
+vocabulary), the KV cache of only the layers that hold one (one in
+`full_attention_interval` for a hybrid model such as Qwen 3.5 / 3.8, never
+the draft layer, the non-zero entries of a per-layer `head_count_kv` list)
+times the window times the server's parallel slots, a hybrid model's
+recurrent state, the draft layer's f16 cache and compute, the compute
+buffer (the attention mask and one layer's f16 K and V per token), and a
+vision model's projector. The cache type and the slots come from the host
+entry's `kv_cache_type` / `num_parallel_hint`, else from the server's own
+startup log on this machine, else f16 and one. Halo sends `num_gpu` (every
+layer) at a window it knows fits, so its estimate is the one with every
+layer forced; the steward's planner also works out the default, where
+llama.cpp's `--fit` keeps 1,024 MiB plus the projector free. On the
+measured 24 GB card this says 65,536 for qwen3.8:27b (it said 32,768 before)
+and qwen3-coder:30b forced, 49,152 and 53,248 by default, within 5 % of the
+log's own sums (`ollama_steward/knowledge/memory.md`).
+
 **Multi-GPU**: when the local probe (or an `ssh:` read) sees more than
 one card, the fit estimate SUMS every card's free memory -- never the
 minimum, which would waste every card past the smallest -- minus a

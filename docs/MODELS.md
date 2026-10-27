@@ -22,6 +22,7 @@ This page is the entry point; the content lives in the parts below, one per task
 | [Models: references, picks and provider enablement](MODELS-references.md) | you type a model name or prefix (`or:`, `dbx:`, `ant:`, `oai:`, `ol:`, `hf:` ...), choose a model for a job, or turn a provider on or off | Model reference forms · Which model for what (Halo 3.0.1.0) · Provider enablement |
 | [Models: Ollama hosts, requests and the catalog](MODELS-ollama.md) | you point Halo at an Ollama host and want to know what it sends, how context is sized and how the host is checked | Ollama |
 | [Models: Ollama fit, calibration and the gym](MODELS-ollama-tuning.md) | a local model does not fit, calls tools badly, or you want `halo gym` scores and role defaults for your GPU | Ollama: fit, calibration and the gym |
+| [Models: the Ollama steward](MODELS-ollama-steward.md) | you want to know what the Ollama steward knows, records, finds and changes across your halos and model servers | The steward (3.3.4.0) |
 | [Models: Hugging Face](MODELS-huggingface.md) | you use the Hugging Face router, a dedicated endpoint, or a local llama-server, LM Studio or MLX server (`hf:`) | Hugging Face |
 | [Models: the OpenAI API](MODELS-openai-codex.md) | you use `oai:` with an OpenAI key | OpenAI API |
 | [Models: Experiential Labs](MODELS-experiential.md) | you route models through the Experiential Labs gateway (`xp:`) | Experiential Labs · How to run the 2.0.4 "new labs" models |
