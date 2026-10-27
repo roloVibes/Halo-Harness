@@ -1,0 +1,3 @@
+[GIN] 2026/10/27 - 11:28:41 | 499 |    4.4021052s |      192.0.2.20 | POST     "/api/chat"
+time=2026-10-27T11:28:40.839-05:00 level=WARN source=llama_server.go:1342 msg="client connection closed before llama-server finished loading, aborting load"
+time=2026-10-27T11:28:40.839-05:00 level=INFO source=sched.go:692 msg="Load failed" model=C:\Users\example\.ollama\models\blobs\sha256-0000 error="timed out waiting for llama-server to start: context canceled"

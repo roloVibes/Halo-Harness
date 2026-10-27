@@ -255,6 +255,16 @@ never a choice of their own. Studio's Design chooser shows the generators as a
 second group, "Media models (ComfyUI)"; picking one adds a
 `(comfy_model: <file>)` hint to that turn's prompt and leaves the LLM as is.
 
+### Sources of the Ollama steward's knowledge (Halo 3.3.4.0)
+
+The steward's knowledge files cite their sources in one place,
+`halo_harness/ollama_steward/knowledge/SOURCES.md`: Ollama's docs and
+source at v0.40.6, llama.cpp's server at a pinned commit, mlx-lm, LM
+Studio, vLLM, NVIDIA's and Apple's memory pages, the Hugging Face configs
+of the Qwen models in the worked examples, and read-only reads of one
+measured host, each with its URL, version or commit and the date read.
+See [MODELS-ollama.md](MODELS-ollama.md)'s "The steward (3.3.4.0)".
+
 ## Provider enablement
 
 A provider's models reach `/model`/`halo models`/the `init` default

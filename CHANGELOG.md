@@ -8,6 +8,21 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.3.4.0] - unreleased
+
+### R1: the knowledge and the hardware card
+
+#### Added
+- The Ollama steward's knowledge, `halo_harness/ollama_steward/knowledge/` (shipped with the package): the scheduler and loader, the server log line by line, memory arithmetic with worked examples, the other local servers (llama-server, mlx_lm.server, LM Studio, vLLM) and a symptom -> cause -> change table for every alert kind; every claim tagged to a row of SOURCES.md (URL, version or commit, date).
+- `halo ollama hardware [--host NAME] [--json]`: each host's hardware card -- GPUs and their memory, the server's own settings from its log's startup lines (models kept, parallel, keep-alive, KV cache type, flash attention, GPU overhead), what is loaded, what else holds the card -- read-only, with a "not read" line for each reader that found nothing.
+
+#### Changed
+- docs: MODELS-ollama.md "The steward (3.3.4.0)", COMMANDS-local.md `halo ollama hardware`, MODELS-references.md points to the steward's sources, ARCHITECTURE-modules.md lists the package.
+
+### Also in 3.3.4.0
+
+#### Changed
+
 ## [3.3.3.1] - 2026-10-27
 
 ### Cost counts what it knows
