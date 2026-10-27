@@ -3020,3 +3020,81 @@ After 3.3.4.0: an opt-in proxy mode (`halo ollama proxy`) that sits in front
 of a server so non-halo clients' traffic is seen too; Hugging Face endpoints
 beyond the local servers; a `halo ollama steward` that may, when told to,
 restart a local server with the recommended env.
+
+## ADDED 2026-10-27 (rolo: "add how to browse ollama and hugging face models as a new section in halo harness and can filter what models you can run on the local machine hosting local llms. A user can add models, delete models, all of that thru the gui and completely control ollama and hugging face local models thru the GUI of studio"): 3.3.5.0 "Models: browse, fit, pull, run"
+
+Order: after 3.3.4.0 (the steward's hardware card and memory arithmetic are
+what the "fits this machine" filter is made of); 3.3.3.0's themes and parity
+rounds move once more, to 3.3.6.0 "Themes and parity".
+
+Today a model reaches Halo by `ollama pull` on the server's own terminal, or
+`halo local import <file.gguf>`, or a Hugging Face repo id typed into the
+wizard; the catalog (`/api/tags`, the HF hub cache, the local servers) lists
+what is already there. Nothing in Halo browses what could be installed,
+says whether it would fit the card, pulls or deletes a model, or starts a
+local server for a Hugging Face model. A new core section, **Models**
+(Alt+0), does all of it, on every host the fleet knows, with the CLI line
+for each action shown beside it.
+
+- R1 the library browser and the fit badge. `halo_harness/models_library/`:
+  (a) Ollama: the catalog page and each model's tags read from ollama.com
+  (HTML, parsed against fixtures; the shape pinned so a site change fails
+  one test, not the page) with the registry's own OCI API
+  (`registry.ollama.ai/v2/library/<model>/tags/list`, the manifest's layer
+  sizes) for tags and sizes; a shipped snapshot of the catalog as the
+  offline fallback; cached in `<state>/cache/models-library.json` for a
+  day. (b) Hugging Face: the hub's documented API (`/api/models?filter=gguf
+  | mlx&search=&sort=downloads`, `/api/models/<repo>?blobs=true` for the
+  files and their sizes, gated and licence fields), the user's token from
+  Setup when a repo is gated. (c) Every row: name, family, parameters,
+  quant, size on disk, capabilities (tools, vision, embedding, thinking),
+  downloads and updated, licence; and the **fit badge** per host from the
+  steward's hardware card and memory arithmetic: fits on the card at the
+  window you pick (a window control on the page, default the host's
+  `max_ctx`), fits with N layers on the CPU, does not fit; the badge says
+  the numbers (weights + KV cache against available memory). Filters:
+  fits this host, size, family, capability, quant, source. Server
+  `studio/models_library_api.py` (`GET models/library?source=&q=&fits=`,
+  cached; `BRIDGE_TEST_NO_BACKGROUND_NET=1` serves fixtures only). CLI:
+  `halo models browse [--source ollama|hf] [--fits] <query>`.
+- R2 Ollama, controlled: pull, delete, show, twin, load. Server
+  `studio/models_ollama_api.py` + a job per action publishing `models`
+  frames: pull (`/api/pull` streamed: per-layer progress, speed, ETA,
+  cancel; a pull survives the page closing and is listed under Jobs), pull
+  a Hugging Face GGUF through Ollama (`hf.co/<repo>:<quant>` -- one click
+  on an HF row, "Run with Ollama"), delete (`/api/delete`, after a card
+  that names what uses the model: lineups, roles, `ollama.profiles`,
+  `compactionModel`, the model key, live sessions -- and blocks while a
+  session is on it), show (`/api/show`: template, parameters, licence,
+  capabilities, the quant and the parent), copy and rename, a tuned twin
+  (the existing `ollama_tune` offer, from the row), load now / unload now
+  (a warm call, `keep_alive` 0), what is loaded (`/api/ps`, live). Every
+  action picks the host (this machine, `lan`, `samus`, any entry) and shows
+  its CLI line (`halo models pull <ref> --host H`, `halo models rm`, `halo
+  models show`, `halo models load | unload`; the new subcommands share the
+  job code). Never a write to a blob store; never a delete without the uses
+  card; never a model call.
+- R3 Hugging Face local models, controlled. Download a GGUF or MLX repo (a
+  file or the whole repo) into a `huggingface.model_dirs` folder through the
+  hub cache (`huggingface_hub_cache.py`; progress, resume, the token for a
+  gated repo, the licence shown first when the hub flags one), list what is
+  on disk per folder with sizes and the fit badge, delete a download (the
+  uses card again: local servers, lineups), start a local server for a
+  model (`llama-server` with `-c` / `-ngl` / `-np` from the fit planner,
+  `mlx_lm.server` on a Mac; the existing `huggingface.preferred_runtime` and
+  `local_servers` entries are what it writes), stop it, its health and a
+  tail of its log; a running one appears in the catalog as it does today.
+  CLI: `halo local download | ls | rm | serve | stop`. Tests with a fake
+  hub and a fake server binary; never a real download.
+- R4 the Models section and the docs. `routes/models/*`, paged like Setup
+  (Library, Installed, Hugging Face, Loaded now, Jobs); Alt+0 (`shell/
+  keys.ts` gains Digit0 as the tenth slot), `?mode=models&page=library`,
+  `halo models` with no args opens it (`--terminal` prints the catalog);
+  the steward's profile and last note on each installed row (a link to its
+  panel); Setup -> Local models and Setup -> Providers' Ollama card link
+  here; every pin that counts sections (ten rows, the banner, the glossary,
+  the pack sections' key gone -- click or palette); captures (`models.png`),
+  docs: MODELS-ollama.md ("Models in Studio"), LOCAL-MODELS.md, HF docs,
+  STUDIO-sections.md, COMMANDS-local.md (the new subcommands), CONFIG.md
+  (the cache path). A parity test: every Models action has a CLI line and
+  every `halo models` / `halo local` subcommand has a row.
