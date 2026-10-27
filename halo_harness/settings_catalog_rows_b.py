@@ -31,6 +31,7 @@ ROWS = [
     Row("ollama.hosts[].kv_cache_type", "ollama", "KV cache type", "keyed", "f16", ("f16", "q8_0", "q4_0"), "Set it to match that host's own OLLAMA_KV_CACHE_TYPE so the fit estimate counts its memory right.", "now"),
     Row("ollama.hosts[].ssh", "ollama", "SSH GPU read", "keyed", None, (), "An optional user@host for a read-only GPU probe of a remote host over ssh.", "now"),
     Row("ollama.tools_max", "ollama", "Tools at most", "int", None, (), "The ol: route's tool-catalog cap; unset, derived from the context size.", "now"),
+    Row("ollama.ledger", "ollama", "Traffic ledger", "bool", True, (), "Every call to a local model server leaves one line in ~/.halo/ollama/traffic.jsonl (halo ollama traffic reads it).", "now"),
     Row("ollama.auto_calibrate", "ollama", "Auto calibrate", "bool", True, (), "Run the fit calibration the first time a model is used on a host with no learned cap.", "now"),
     Row("ollama.discover.ports", "ollama", "Discovery ports", "list", [11434], (), "The ports Find Ollama servers and Scan this network ask on every address.", "now"),
     Row("ollama.discover.subnets", "ollama", "Discovery subnets", "list", [], (), "Extra IPv4 CIDRs the network scan sweeps besides this machine's own /24.", "now"),

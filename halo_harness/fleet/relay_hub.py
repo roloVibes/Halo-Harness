@@ -21,7 +21,7 @@ import threading
 import time
 from typing import Callable, Optional
 
-from halo_harness.fleet import capabilities, control, identity, protocol, store
+from halo_harness.fleet import capabilities, control, identity, ollama_share, protocol, store
 from halo_harness.fleet.relay import HubError, HubLink
 
 ANNOUNCE_S = 10.0
@@ -50,6 +50,7 @@ class HubRelay(threading.Thread):
         self._done: dict = {}
         self._policy: dict = {}
         self._mtime = store.mtime()
+        self._ollama = ollama_share.Forwarder(self.entry)  # 3.3.4.0 R2: the ledger's lines
 
     def poke(self) -> None:
         self.poke_ev.set()
@@ -134,6 +135,7 @@ class HubRelay(threading.Thread):
                 batch = self._drain()
                 if batch:
                     link.request("POST", protocol.PREFIX + "/frames", protocol.doc(link=self.link_id, frames=batch))
+                self._ollama.tick(link, self.link_id, force=not self.actives())
                 if control.policy(self.entry) != self._policy:  # `halo config set fleet.share ...` while running
                     self.poke()
                 if self.poke_ev.is_set() or time.monotonic() >= next_announce:

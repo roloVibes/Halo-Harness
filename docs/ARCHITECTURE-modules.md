@@ -246,7 +246,18 @@ block, `nvidia-smi` CSV, `system_profiler`, `/api/ps`),
 `ollama_steward/hardware_readers.py` (the read-only readers: the log or
 journald, the API, the GPU tools, over ssh for a remote host),
 `ollama_steward/hardware.py` (the card and its lines) and
-`ollama_steward/cli.py` (`halo ollama hardware`).
+`ollama_steward/cli.py` (`halo ollama hardware`, `traffic`, `events`). R2,
+every call leaves a record: `ollama_steward/ledger.py` (the ledger line,
+`traffic.jsonl` written under a lock and rotated, read back, a calibration
+load's line), `ollama_steward/ledger_call.py` (the observer
+`agent/loop.py`'s `_stream` wraps every local-server call in),
+`ollama_steward/traffic.py` (the rollups per host and model),
+`ollama_steward/server_rules.py` (one server-log line to an event),
+`ollama_steward/server_context.py` (the rules that need the lines around a
+line and a clock), `ollama_steward/server_events.py` (`events.jsonl`, the
+quiet period, the `/api/ps` deltas) and `ollama_steward/server_log.py` (the
+read-only tail, journald, the watch loop); `fleet/ollama_share.py` sends a
+member's ledger lines to its hub and appends them there.
 
 **Packs** (`halo_harness/packs/`, Halo 3.2.0.0 R1, docs/PACKS.md): the
 names (`packs/names.py`: ids, `<id>--<name>`, the `pack:<id>` label and
