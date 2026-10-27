@@ -92,6 +92,7 @@ include = ["halo_harness*"]
 halo_harness = ["tui/*.tcss", "providers/*.json", "providers/catalog/*.json",
                 "templates/agents/*.yaml", "templates/teams/*.yaml", "templates/team/*.yaml", "templates/orchestra/*.json", "templates/orchestra/*.py", "templates/comfy/*.json", "templates/glossary/*.md", "review/prompts/*.md",
                 "packs/schema/*.json",
+                "ollama_steward/knowledge/*.md",  # 3.3.4.0 R1: the steward's knowledge
                 "isolation/Dockerfile",
                 # 3.2.0.0 R6: the shipped reference pack (halo pack install doc-review), its dot files named
                 "templates/packs/*/*", "templates/packs/*/*/*", "templates/packs/*/*/*/*",

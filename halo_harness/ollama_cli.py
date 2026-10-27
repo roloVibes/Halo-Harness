@@ -27,13 +27,16 @@ def cmd_ollama(argv: list) -> int:
     if argv and argv[0] == "tune":  # Halo 3.2.3.0 R3: a tuned twin
         from halo_harness.ollama_tune_cli import cmd_ollama_tune
         return cmd_ollama_tune(argv[1:])
+    if argv and argv[0] == "hardware":  # Halo 3.3.4.0 R1: the hardware card, read-only
+        from halo_harness.ollama_steward.cli import cmd_ollama_hardware
+        return cmd_ollama_hardware(argv[1:])
     from halo_harness.providers.ollama import resolve_ollama_hosts
     from halo_harness.providers.ollama_panel import analyze_host, format_host_analysis
 
     parser = argparse.ArgumentParser(prog="halo ollama", add_help=True,
                                       description="Per-host Ollama analysis: reachability, version, loaded "
                                                    "models (offload, context, KV cost), and tool-catalog sizing. "
-                                                   "Subcommands: discover, calibrate, tune, doctor.")
+                                                   "Subcommands: discover, calibrate, tune, doctor, hardware.")
     parser.add_argument("--host", default=None, help="only this configured host (by name), not every one")
     parser.add_argument("--refresh", action="store_true",
                          help="bypass the short-TTL catalog cache and re-read /api/tags+/api/show now")
