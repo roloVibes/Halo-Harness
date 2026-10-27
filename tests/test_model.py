@@ -393,7 +393,10 @@ def test_h5c_extra_vendored_databricks_fallback_parses_cache_pricing(ctx: Ctx):
 
     state_dir = Path(tempfile.mkdtemp(prefix="model-vendored-dbx-cache-"))
     ref = parse_model_ref("dbx:databricks-claude-sonnet-4-5")
-    profile = resolve_model_profile(ref, state_dir, routes={})
+    # 3.3.3.1: the tier chain itself (resolve_model_profile then puts Databricks' own published rate on top,
+    # test_v3331_a_databricks_endpoint_from_the_table_is_priced_in_dollars)
+    from halo_harness.model import _resolve_model_profile
+    profile = _resolve_model_profile(ref, state_dir, routes={})
     ctx.check(f"price_in from cost.input/1e6, got {profile.price_in!r}",
               profile.price_in is not None and abs(profile.price_in - cost["input"] / 1_000_000) < 1e-15)
     ctx.check(f"price_cache_read from cost.cache_read/1e6, got {profile.price_cache_read!r}",
@@ -610,7 +613,8 @@ def test_round5_databricks_family_fallback_pinned_ids(ctx: Ctx):
         state_dir = Path(tempfile.mkdtemp(prefix="model-round5-dbx-family-"))
         write_models_dev_json(state_dir, _ROUND5_FAMILY_FIXTURE)
         ref = parse_model_ref(f"dbx:{raw_id}")
-        profile = resolve_model_profile(ref, state_dir, routes={})
+        from halo_harness.model import _resolve_model_profile  # the tier chain (3.3.3.1's dollar overlay aside)
+        profile = _resolve_model_profile(ref, state_dir, routes={})
         ctx.check(f"{raw_id}: context_tokens {profile.context_tokens} == {expected_ctx}",
                   profile.context_tokens == expected_ctx)
         ctx.check(f"{raw_id}: max_output_tokens {profile.max_output_tokens} == {expected_out}",
@@ -688,6 +692,127 @@ def test_round5_experiential_family_fallback_when_catalog_cache_empty(ctx: Ctx):
               profile.context_tokens == 200000)
     ctx.check(f"price_in via the family fallback, got {profile.price_in!r}",
               profile.price_in is not None and abs(profile.price_in - 0.1 / 1_000_000) < 1e-15)
+
+
+# ---- 3.3.3.1 "cost counts what it knows" ---------------------------------------
+
+def _child_meter(cost=None, model="or:vendor/child"):
+    m = CostMeter()
+    m.add_usage("openrouter", {"cost": cost} if cost is not None else {"input_tokens": 5, "output_tokens": 1},
+                model=model)
+    return m
+
+
+@test
+def test_v3331_priced_parent_unpriced_child(ctx: Ctx):
+    parent = CostMeter()
+    parent.add_usage("openrouter", {"cost": 0.5}, model="or:vendor/parent")
+    child = _child_meter(None, model="dbx:databricks-mystery-1")
+    parent.add_child_total(turns=child.turns, **child.cost_fields())
+    f = parent.cost_fields()
+    ctx.check(f"cost_usd is the parent's figure, got {f}", abs(f["cost_usd"] - 0.5) < 1e-9)
+    ctx.check("cost_complete False", f["cost_complete"] is False)
+    ctx.check("cost_unknown names the child's model", f["cost_unknown"] == ["dbx:databricks-mystery-1"])
+    ctx.check("the child's call is counted unknown", child.unknown_calls == 1)
+
+
+@test
+def test_v3331_unpriced_parent_two_priced_children(ctx: Ctx):
+    parent = CostMeter()
+    parent.add_usage("databricks", {"input_tokens": 100, "output_tokens": 50}, model="dbx:databricks-glm-x")
+    parent.add_usage("databricks", {"input_tokens": 100, "output_tokens": 50}, model="dbx:databricks-glm-x")
+    for c in (1.25, 1.10):
+        child = _child_meter(c)
+        parent.add_child_total(turns=child.turns, **child.cost_fields())
+    f = parent.cost_fields()
+    ctx.check(f"cost_usd is the children's sum, got {f}", abs(f["cost_usd"] - 2.35) < 1e-9)
+    ctx.check("incomplete, main's model named once",
+              f["cost_complete"] is False and f["cost_unknown"] == ["dbx:databricks-glm-x"])
+    ctx.check(f"two unknown calls, got {parent.unknown_calls}", parent.unknown_calls == 2)
+
+
+@test
+def test_v3331_all_priced_is_complete(ctx: Ctx):
+    parent = CostMeter()
+    parent.add_usage("openrouter", {"cost": 0.1}, model="or:a/b")
+    child = _child_meter(0.2)
+    parent.add_child_total(turns=1, **child.cost_fields())
+    f = parent.cost_fields()
+    ctx.check(f"complete, got {f}", f["cost_complete"] is True and f["cost_unknown"] == []
+              and abs(f["cost_usd"] - 0.3) < 1e-9)
+
+
+@test
+def test_v3331_unknown_passes_up_through_a_grandchild(ctx: Ctx):
+    from halo_harness.model import cost_fields_of, known_cost
+    from types import SimpleNamespace
+    grand = _child_meter(None, model="dbx:databricks-deep")
+    child = _child_meter(0.4)
+    child.add_child_total(turns=1, **grand.cost_fields())
+    parent = CostMeter()
+    parent.add_child_total(turns=2, **child.cost_fields())
+    ctx.check("the grandchild's model reaches the parent", parent.cost_fields()["cost_unknown"] == ["dbx:databricks-deep"])
+    ctx.check("the old has_cost_data keyword still works",
+              (lambda m: (m.add_child_total(cost_usd=0.1, has_cost_data=False), m.has_cost_data)[1])(CostMeter()) is False)
+    stand_in = SimpleNamespace(total_usd=0.3, has_cost_data=True)
+    ctx.check("cost_fields_of reads a stand-in", cost_fields_of(stand_in) == {"cost_usd": 0.3, "cost_complete": True,
+                                                                              "cost_unknown": []})
+    ctx.check("known_cost: nothing priced -> None", known_cost(_child_meter(None)) is None)
+    ctx.check("known_cost: a partial figure is kept", abs(known_cost(parent) - 0.4) < 1e-9)
+
+
+class _ScopedHome:
+    """A fresh BRIDGE_TEST_HOME / BRIDGE_STATE_DIR for a config write (never the real ~/.halo)."""
+
+    def __enter__(self):
+        import os
+        self.saved = {k: os.environ.get(k) for k in ("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR")}
+        home = Path(tempfile.mkdtemp(prefix="model-v3331-"))
+        os.environ["BRIDGE_TEST_HOME"], os.environ["BRIDGE_STATE_DIR"] = str(home), str(home / ".halo")
+        return home
+
+    def __exit__(self, *exc):
+        import os
+        for k, v in self.saved.items():
+            os.environ.pop(k, None) if v is None else os.environ.__setitem__(k, v)
+
+
+@test
+def test_v3331_a_databricks_endpoint_from_the_table_is_priced_in_dollars(ctx: Ctx):
+    from halo_harness.providers.databricks_prices import table_row, usd_per_m
+    with _ScopedHome() as home:
+        state_dir = home / "state"
+        state_dir.mkdir()
+        p = resolve_model_profile(parse_model_ref("dbx:databricks-glm-5-3"), state_dir, routes={})
+        ctx.check(f"glm-5-3: 20 DBU/M in at $0.07 = $1.40/M, got {p.price_in!r}",
+                  p.price_in is not None and abs(p.price_in - 1.40 / 1_000_000) < 1e-12
+                  and abs(p.price_out - 62.857 * 0.07 / 1_000_000) < 1e-12)
+        ctx.check("a dated / -code suffix form matches its row",
+                  table_row("databricks-deepseek-v4-pro-0813") == table_row("deepseek-v4-pro")
+                  and table_row("databricks-kimi-k2-7-code") is not None)
+        ctx.check("an endpoint in no table stays unpriced", usd_per_m("databricks-mystery-endpoint") is None
+                  and resolve_model_profile(parse_model_ref("dbx:databricks-mystery-endpoint"), state_dir,
+                                            routes={}).price_in is None)
+        from halo_harness.theme import set_config_value
+        set_config_value("databricks.prices", {"databricks-glm-5-3": {"in": 1.0, "out": 2.0}})
+        p2 = resolve_model_profile(parse_model_ref("dbx:databricks-glm-5-3"), state_dir, routes={})
+        ctx.check(f"the owner's databricks.prices override wins, got {p2.price_in!r}",
+                  abs(p2.price_in - 1e-6) < 1e-15 and abs(p2.price_out - 2e-6) < 1e-15)
+        set_config_value("databricks.prices", {})
+        set_config_value("databricks.dbu_price_usd", 0.1)
+        p3 = resolve_model_profile(parse_model_ref("dbx:databricks-glm-5-3"), state_dir, routes={})
+        ctx.check(f"the DBU price re-prices the table, got {p3.price_in!r}", abs(p3.price_in - 2e-6) < 1e-12)
+        explicit = {"profiles": {"databricks-glm-5-3": {"price_in": 9e-6, "price_out": 9e-6}}}
+        p4 = resolve_model_profile(parse_model_ref("dbx:databricks-glm-5-3"), state_dir, routes=explicit)
+        ctx.check("a routes.json profile's own price is kept", p4.price_in == 9e-6)
+        # part 2's case, the parent on a Databricks endpoint from the table: priced, so the total is complete
+        parent = CostMeter(price_in=p3.price_in, price_out=p3.price_out)
+        parent.add_usage("databricks", {"input_tokens": 1000, "output_tokens": 100}, model="dbx:databricks-glm-5-3")
+        child = _child_meter(1.25)
+        parent.add_child_total(turns=1, **child.cost_fields())
+        f = parent.cost_fields()
+        ctx.check(f"a priced Databricks parent + a priced child is complete, got {f}",
+                  f["cost_complete"] is True and f["cost_unknown"] == [] and f["cost_usd"] > 1.25)
 
 
 if __name__ == "__main__":

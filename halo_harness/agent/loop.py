@@ -4468,14 +4468,14 @@ class Session:
         if due:
             self._canary_last_note_call = self._canary_calls
             self._canary_last_note_ts = now
-            spend = self.cost_meter.total_usd if self.cost_meter.has_cost_data else None
+            spend = (self.cost_meter.total_usd if self.cost_meter.has_cost_data or self.cost_meter.total_usd > 0 else None)
             fill = (seen / self.model_profile.context_tokens * 100
                     if seen and getattr(self.model_profile, "context_tokens", None) else None)
             parts = [f"{self._canary_calls} calls",
                      f"{self._canary_filtered} filtered",
                      f"{self._canary_failures} failed"]
             if spend is not None:
-                parts.append(f"${spend:.4f} spent")
+                parts.append(f"${spend:.4f}{'' if self.cost_meter.has_cost_data else '+'} spent")
             if fill is not None:
                 parts.append(f"context ~{min(fill, 999):.0f}%")
             yield events.notification(
@@ -4513,7 +4513,7 @@ class Session:
         B's tool_choice=required retry: a discarded attempt still spent
         real tokens against the account, so it must still count here even
         though it never becomes a logged assistant message)."""
-        cost = self.cost_meter.add_usage(self.model_ref.provider, result.usage)
+        cost = self.cost_meter.add_usage(self.model_ref.provider, result.usage, model=self.model_ref.raw)
         # C-2 finding 8: gated on the CURRENT model (resolved right now,
         # this call), never merely on whether a reference price was ever
         # pinned at session start -- a session that escalated, `/model`-
@@ -5070,7 +5070,7 @@ class Session:
                         if delta.get("stop_reason") is not None:
                             stop_reason = delta.get("stop_reason")
                         if isinstance(ev.get("usage"), dict):
-                            cost = self.cost_meter.add_usage(self.model_ref.provider, ev["usage"])
+                            cost = self.cost_meter.add_usage(self.model_ref.provider, ev["usage"], model=self.model_ref.raw)
                             # C-2 finding 8: same current-model gate as
                             # `_account_usage` -- `self.model_ref` here is
                             # whatever `_compaction_model_override` installed
@@ -5528,7 +5528,7 @@ class Session:
                     self._turn_stop_why = f"a UserPromptSubmit hook ({reason})"
                     yield events.notification(f"Prompt dropped: {reason}", level="error")
                     yield events.status(phase="idle", model=self.model_ref.raw, turn=turn_no,
-                                         cost_usd=self.cost_meter.total_usd if self.cost_meter.has_cost_data else None)
+                                         **self.cost_meter.cost_fields())
                     yield events.turn_done(turn=turn_no, reason="blocked")
                     return
                 if outcome.additional_context:
@@ -5585,7 +5585,7 @@ class Session:
             yield events.status(
                 phase="thinking", model=self.model_ref.raw, turn=turn_no,
                 context_limit=self.model_profile.context_tokens,
-                cost_usd=self.cost_meter.total_usd if self.cost_meter.has_cost_data else None,
+                **self.cost_meter.cost_fields(),
             )
 
             try:
@@ -5690,7 +5690,7 @@ class Session:
             # agent's steer inbox (agent/agent_inbox.py).
             if (yield from _fleet_gate.before_model(self, turn_no)):
                 yield events.status(phase="idle", model=self.model_ref.raw, turn=turn_no,
-                                     cost_usd=self.cost_meter.total_usd if self.cost_meter.has_cost_data else None)
+                                     **self.cost_meter.cost_fields())
                 yield events.turn_done(turn=turn_no, reason="interrupted")
                 return
             # Halo 3.2.2.0 R4: a Shift+Tab / `/plan` made since the last call
@@ -5760,7 +5760,7 @@ class Session:
                                    if prompt_tokens is not None and self.model_profile.context_tokens else None)
                     yield events.message_end(
                         turn=turn_no, stop_reason=final_result.stop_reason, usage=final_result.usage,
-                        cost_usd=(self.cost_meter.total_usd if self.cost_meter.has_cost_data else None),
+                        **self.cost_meter.cost_fields(),
                         context_pct=context_pct, context_tokens=prompt_tokens,
                         context_limit=self.model_profile.context_tokens,
                         total_input_tokens=self.cost_meter.total_input_tokens,
@@ -5768,7 +5768,7 @@ class Session:
                         saved_usd=(self.cost_meter.saved_usd if self.cost_meter.saved_turns else None),
                     )
                 yield events.status(phase="idle", model=self.model_ref.raw, turn=turn_no,
-                                     cost_usd=self.cost_meter.total_usd if self.cost_meter.has_cost_data else None)
+                                     **self.cost_meter.cost_fields())
                 yield events.turn_done(turn=turn_no, reason=wrap_up_reason)
                 return
 
@@ -5798,7 +5798,7 @@ class Session:
                     # U2: an interrupt ended this turn -- a clean stop, not
                     # an error (the UI shows it as "interrupted by user").
                     yield events.status(phase="idle", model=self.model_ref.raw, turn=turn_no,
-                                         cost_usd=self.cost_meter.total_usd if self.cost_meter.has_cost_data else None)
+                                         **self.cost_meter.cost_fields())
                     yield events.turn_done(turn=turn_no, reason="interrupted")
                     return
                 self._fire_stop_failure(turn_no, "the model call failed")
@@ -5923,7 +5923,7 @@ class Session:
             # reports its whole cost, not a third of it.
             yield events.message_end(
                 turn=turn_no, stop_reason=result.stop_reason, usage=result.usage,
-                cost_usd=(self.cost_meter.total_usd if self.cost_meter.has_cost_data else None),
+                **self.cost_meter.cost_fields(),
                 context_pct=context_pct, context_tokens=prompt_tokens,
                 context_limit=self.model_profile.context_tokens,
                 total_input_tokens=self.cost_meter.total_input_tokens,
@@ -5983,7 +5983,7 @@ class Session:
                         continue
                 yield events.status(phase="idle", model=self.model_ref.raw, turn=turn_no, context_tokens=prompt_tokens,
                                      context_limit=self.model_profile.context_tokens,
-                                     cost_usd=self.cost_meter.total_usd if self.cost_meter.has_cost_data else None)
+                                     **self.cost_meter.cost_fields())
                 # finding 3: a message's OWN max_tokens cutoff is not the
                 # SESSION hitting --max-turns -- report it as what it is.
                 # H5c finding 12: an Esc that cut a slow Stop hook short
@@ -6018,7 +6018,7 @@ class Session:
                 continue
             if ended:
                 yield events.status(phase="idle", model=self.model_ref.raw, turn=turn_no,
-                                     cost_usd=self.cost_meter.total_usd if self.cost_meter.has_cost_data else None)
+                                     **self.cost_meter.cost_fields())
                 # H5c finding 9: `_dispatch_tools` also returns True when it
                 # ended because `self.abort` fired mid-dispatch (an Esc, or
                 # now a PermissionRequest hook's own `interrupt: true`) --
@@ -8090,7 +8090,7 @@ class Session:
             phase=phase, model=self.model_ref.raw, turn=self.turn_count if turn is None else turn,
             context_tokens=context_tokens if context_tokens is not None else (self._last_prompt_tokens or 0),
             context_limit=self.model_profile.context_tokens,
-            cost_usd=self.cost_meter.total_usd if self.cost_meter.has_cost_data else None,
+            **self.cost_meter.cost_fields(),
             permission_mode=self.permission_engine.mode, session_id=self.log.session_id, mcp=mcp,
             total_input_tokens=self.cost_meter.total_input_tokens,
             total_output_tokens=self.cost_meter.total_output_tokens,

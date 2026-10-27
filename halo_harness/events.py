@@ -195,7 +195,8 @@ def message_end(*, turn: int = 0, stop_reason: Optional[str] = None, usage: Opti
                  cost_usd: Optional[float] = None, context_pct: Optional[float] = None,
                  context_tokens: Optional[int] = None, context_limit: Optional[int] = None,
                  total_input_tokens: Optional[int] = None, total_output_tokens: Optional[int] = None,
-                 saved_usd: Optional[float] = None) -> Event:
+                 saved_usd: Optional[float] = None, cost_complete: Optional[bool] = None,
+                 cost_unknown: Optional[list] = None) -> Event:
     """data: {stop_reason, usage, cost_usd, context_pct, context_tokens,
     context_limit, total_input_tokens, total_output_tokens, saved_usd}. The
     four token/context fields (1.0.1 hotfix 14) are the RAW numbers
@@ -207,13 +208,26 @@ def message_end(*, turn: int = 0, stop_reason: Optional[str] = None, usage: Opti
     saved_usd`'s running total -- None on every turn that isn't ol:/
     hf:local/hf:mlx (the status bar's own `apply_status` only overwrites
     its reading when this is NOT None, so a later cloud-model turn in the
-    same session never blanks out an earlier real saved-$ figure)."""
-    return Event("message_end", {
+    same session never blanks out an earlier real saved-$ figure).
+    `cost_complete` / `cost_unknown` (3.3.3.1, `CostMeter.cost_fields()`):
+    whether every part of `cost_usd` was priced, and the model refs that
+    answered with no price; the keys ride along only when the producer
+    passes them."""
+    payload = {
         "stop_reason": stop_reason, "usage": usage or {}, "cost_usd": cost_usd, "context_pct": context_pct,
         "context_tokens": context_tokens, "context_limit": context_limit,
         "total_input_tokens": total_input_tokens, "total_output_tokens": total_output_tokens,
         "saved_usd": saved_usd,
-    }, turn=turn)
+    }
+    _put_cost_parts(payload, cost_complete, cost_unknown)
+    return Event("message_end", payload, turn=turn)
+
+
+def _put_cost_parts(payload: dict, cost_complete, cost_unknown) -> None:
+    if cost_complete is not None:
+        payload["cost_complete"] = bool(cost_complete)
+    if cost_unknown is not None:
+        payload["cost_unknown"] = [str(m) for m in cost_unknown]
 
 
 # C-2 finding 10: a private sentinel (never `None`) so `status()` below can
@@ -234,7 +248,8 @@ def status(*, phase: str, model: Optional[str] = None, context_tokens: Optional[
             total_output_tokens: Optional[int] = None, effort: Optional[str] = None,
             ollama_tokens_per_second: object = _OLLAMA_THROUGHPUT_UNSET,
             ollama_prefill_seconds: Optional[float] = None,
-            ollama_offloaded: Optional[bool] = None, saved_usd: Optional[float] = None) -> Event:
+            ollama_offloaded: Optional[bool] = None, saved_usd: Optional[float] = None,
+            cost_complete: Optional[bool] = None, cost_unknown: Optional[list] = None) -> Event:
     """data: {phase, model, context_tokens, context_limit, cost_usd, turn,
     permission_mode, mcp: {connected, total}, session_id, total_input_tokens,
     total_output_tokens, effort, saved_usd[, ollama_tokens_per_second,
@@ -281,6 +296,7 @@ def status(*, phase: str, model: Optional[str] = None, context_tokens: Optional[
         payload["ollama_tokens_per_second"] = ollama_tokens_per_second
         payload["ollama_prefill_seconds"] = ollama_prefill_seconds
         payload["ollama_offloaded"] = ollama_offloaded
+    _put_cost_parts(payload, cost_complete, cost_unknown)
     return Event("status", payload, turn=turn)
 
 

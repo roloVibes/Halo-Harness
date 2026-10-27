@@ -100,12 +100,24 @@ def _cmd_compact(args: str, facade: HeadlessFacade) -> str:
     return f"Compacted the conversation (~{before} -> ~{after} tokens{saved})."
 
 
+def _cost_figure(session) -> "tuple[str, Optional[str]]":
+    """3.3.3.1: the session's spend as `/cost` and `/status` show it -- the
+    priced sum, a trailing `+` and one detail line naming the models with no
+    price when some part is unpriced (model_display.describe_cost)."""
+    from halo_harness.model import cost_fields_of
+    from halo_harness.model_display import describe_cost
+    main = getattr(getattr(session, "model_ref", None), "raw", None)
+    return describe_cost(cost_fields_of(session.cost_meter), main)
+
+
 def _cmd_cost(args: str, facade: HeadlessFacade) -> str:
     session = getattr(facade, "session", None)
     if session is not None:
         cm = session.cost_meter
-        cost_str = f"${cm.total_usd:.4f}" if cm.has_cost_data else "n/a (provider does not report cost)"
+        cost_str, cost_detail = _cost_figure(session)
         line = f"Total cost: {cost_str} across {cm.turns} turn(s) (model: {facade.model_ref or '?'})"
+        if cost_detail:
+            line += "\n" + cost_detail
     else:
         cm = None
         line = (f"Total cost: ${facade.cost_usd:.4f} across {facade.num_turns} turn(s) "
@@ -799,7 +811,8 @@ def _cmd_status(args: str, facade: HeadlessFacade) -> str:
     permission_mode = facade.permission_mode
     if session is not None:
         cm = session.cost_meter
-        cost_line = f"Cost so far: ${cm.total_usd:.4f} ({cm.turns} turn(s))" if cm.has_cost_data else "Cost so far: n/a"
+        cost_str, cost_detail = _cost_figure(session)
+        cost_line = f"Cost so far: {cost_str} ({cm.turns} turn(s))" + (f"\n{cost_detail}" if cost_detail else "")
         model_id = getattr(getattr(session, "model_ref", None), "raw", None) or model_id
         engine = getattr(session, "permission_engine", None)
         permission_mode = getattr(engine, "mode", None) or permission_mode
@@ -1208,8 +1221,8 @@ def _cmd_providers(args: str, facade: HeadlessFacade) -> str:
         session = getattr(facade, "session", None)
         if session is not None and getattr(session.route, "provider", None) == "openai":
             cm = session.cost_meter
-            if cm.has_cost_data:
-                openai_spend_line = f"this session: ${cm.total_usd:.4f} across {cm.turns} turn(s)"
+            if cm.has_cost_data or cm.total_usd > 0:
+                openai_spend_line = f"this session: {_cost_figure(session)[0]} across {cm.turns} turn(s)"
         return format_providers_table(provider_rows(cwd=facade.cwd, env=live_env), openai_spend_line=openai_spend_line)
     action = tokens[0]
     if action in ("enable", "disable"):

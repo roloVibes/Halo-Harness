@@ -14,7 +14,9 @@ tests/test_studio_session_cost_map.py runs it as a subprocess:
                                                               R6) the figures moving on the session's own message_end /
                                                               status frames, a GET from before them never pulling them
                                                               back, a sub-agent's frames ignored, a finished child
-                                                              counted once and TURNS one unit (`figures`)
+                                                              counted once and TURNS one unit (`figures`); then (3.3.3.1)
+                                                              a "+" on the spend when main's model reports no price
+                                                              and main's line saying "no price" (`partial`)
 
 The last stdout line is a JSON object of what it saw (exit 2: no Chrome).
 No model is called."""
@@ -60,7 +62,9 @@ def costmap(c, rig) -> dict:
     from tests.helpers.studio_live_rig import Live
     lv = rig.cost_live = Live(rig)
     out: dict = {}
-    lv.refresh(context_tokens=50_000, context_limit=100_000, cost_usd=0.010, turns=2)
+    # 3.3.3.1: the rig's real session runs an unpriced mock model (its status says cost_complete false); these
+    # steps read whole figures, so the seeded row says every part is priced (`partial` below reads the "+")
+    lv.refresh(context_tokens=50_000, context_limit=100_000, cost_usd=0.010, turns=2, cost_complete=True, cost_unknown=[])
     from tests.helpers.chrome_driver import emulate_motion
     emulate_motion(c, "no-preference")  # the done fade is an animation: the same media on every runner
     c.go(rig.url("session"))
@@ -184,6 +188,30 @@ def figures(c, rig) -> dict:
     return out
 
 
+def partial(c, rig) -> dict:
+    """3.3.3.1: the session's spend is the priced part; main's own model reports no price (`cost_complete` false,
+    `cost_unknown` its ref) -> the ticker carries a "+" titled with the model, PER TURN too, and main's line says
+    "no price" (the finished tester holds the whole priced spend, so main's own is nothing priced)."""
+    lv, out = rig.cost_live, {}
+    rows = [s for h in rig.api("GET", "fleet")[1].get("harnesses", []) for s in h.get("sessions") or [] if s.get("session_id") == lv.sid]
+    main_row = next((a for a in (rows[0].get("agents") or []) if a.get("agent_id") == "main"), {}) if rows else {}
+    model = main_row.get("model") or c.js("document.querySelector('[data-testid=\"session-cost-model\"]')?.title") or ""
+    lv.state("tester", cost_usd=3.63)
+    lv.state("main", cost_usd=3.63)
+    lv.refresh(cost_usd=3.63, cost_complete=False, cost_unknown=[model], title="3.3.3.1 cost counts what it knows")
+    plus = "document.querySelector('[data-testid=\"session-cost-partial\"]')"
+    usd = "document.querySelector('[data-testid=\"session-cost-usd\"]')?.textContent"
+    out["partial"] = _seen(c, f"!!{plus} && {usd} === '$3.63+' && {usd}", 10) or c.js(usd)  # the ticker counts up to it
+    out["partial_title"] = c.js(f"{plus}?.title")
+    out["partial_per_turn"] = c.js(FIG.format("per-turn"))
+    main = f"document.querySelector('[data-testid=\"session-cost-agent\"][data-key=\"{lv.key('main')}\"]')"
+    out["noprice"] = _seen(c, f"{main}?.querySelector('[data-testid=\"session-cost-noprice\"]')?.textContent", 10)
+    out["partial_model"] = model.split(":", 1)[-1]
+    lv.refresh(cost_complete=True, cost_unknown=[])
+    out["complete_again"] = _seen(c, f"!{plus} && !{main}?.querySelector('[data-testid=\"session-cost-noprice\"]') && 'gone'", 10)
+    return out
+
+
 class CostMapDriver(Driver):
     no_chrome = {"skip": "no Chrome found"}
 
@@ -191,7 +219,7 @@ class CostMapDriver(Driver):
     def session(self, c):
         from tests.helpers.studio_fleet_rig import StudioFleetRig
         with StudioFleetRig() as rig:
-            yield ((costmap, (c, rig)), (figures, (c, rig)))
+            yield ((costmap, (c, rig)), (figures, (c, rig)), (partial, (c, rig)))
 
 
 if __name__ == "__main__":

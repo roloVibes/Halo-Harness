@@ -22,6 +22,8 @@
 .sco-ticker { font-size: 26px; font-weight: 700; color: var(--accent); letter-spacing: .02em; font-variant-numeric: tabular-nums;
   text-shadow: 0 0 14px color-mix(in srgb, var(--accent) 45%, transparent); }
 .glance .sco-ticker { font-size: inherit; text-shadow: none; }
+.sco-partial { margin-left: 2px; color: var(--warn); text-shadow: none; }
+.sco-noprice { color: var(--muted); font-style: italic; }
 .sco-spark { flex: none; overflow: visible; }
 .sco-spark-base { stroke: var(--line); stroke-width: 1; }
 .sco-spark-line { fill: none; stroke: var(--accent); stroke-width: 1.6; stroke-linejoin: round; filter: drop-shadow(0 0 3px var(--accent)); }

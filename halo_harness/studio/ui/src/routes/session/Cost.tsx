@@ -12,6 +12,9 @@
 // TURNS is one unit, the session's user turns (an agent row's own count is its
 // model calls, shown as "calls" on its line); each agent's share is its own
 // spend, a finished sub-agent counted once (shares.ts).
+// 3.3.3.1: the spend is the priced part; when some model reports no price
+// (`cost_complete === false`) the ticker and PER TURN carry a "+" whose title
+// names the model, and main's line says "no price" when its own model is one.
 import { useEffect } from "react";
 import type { MotionState } from "../../lib/motion";
 import { Empty } from "../../lib/ui";
@@ -23,7 +26,7 @@ import type { SessionRow } from "../fleet/types";
 import { hueOf } from "../shared/hues";
 import { AgentLine, ContextBar, ShareBar, Spark, tok, type Share } from "./CostParts";
 import { lastTurnCost, startSpend, useSpend } from "./spend";
-import { ownCosts } from "./shares";
+import { ownCosts, partialTitle, unpricedMain } from "./shares";
 import { chosenSession } from "./store";
 
 /** 45s, 12m 03s, 2h 05m since a unix time in seconds. */
@@ -42,9 +45,15 @@ function turnsOf(ss: SessionRow): number | null {
   return typeof ss.turns === "number" && ss.turns > 0 ? ss.turns : null;
 }
 
-function Ticker({ usd }: { usd: number }) {
+/** The spend; `partial` (3.3.3.1: some model reports no price) adds a "+" and says so in the title. */
+function Ticker({ usd, partial = "" }: { usd: number; partial?: string }) {
   const shown = useTicker(usd);
-  return <span className="sco-ticker mono" data-testid="session-cost-usd">{cost(shown)}</span>;
+  return (
+    <span className="sco-ticker mono" data-testid="session-cost-usd" title={partial || undefined}>
+      {cost(shown)}
+      {partial && <span className="sco-partial" data-testid="session-cost-partial" title={partial}>+</span>}
+    </span>
+  );
 }
 
 function Figure({ label, value, testid, title }: { label: string; value: string; testid: string; title?: string }) {
@@ -65,12 +74,14 @@ export function CostDetail() {
   if (!ss) return <Empty title="No session here yet" body="Start one in a terminal (halo): what it spends, its tokens and its turns show here as it works." testid="session-cost-empty" />;
   const usd = Number(ss.cost_usd) || 0;
   const own = ownCosts(ss);
+  const partial = partialTitle(ss);
+  const noPrice = unpricedMain(ss, own);
   const agents = [...(ss.agents || [])].sort((a, b) => (own.get(b.agent_id) || 0) - (own.get(a.agent_id) || 0));
   const spent = agents.reduce((s, a) => s + (own.get(a.agent_id) || 0), 0);
   const shares: Share[] = agents.map((a) => {
     const key = keyOf(hid, ss.session_id, a.agent_id);
     const v = own.get(a.agent_id) || 0;
-    return { a, key, hc: hueOf(key), usd: v, pct: spent > 0 ? (v / spent) * 100 : 0 };
+    return { a, key, hc: hueOf(key), usd: v, pct: spent > 0 ? (v / spent) * 100 : 0, noPrice: a.agent_id === noPrice };
   });
   const live = agents.filter(isLive).length;
   const turns = turnsOf(ss);
@@ -85,7 +96,7 @@ export function CostDetail() {
         <span> · <span data-testid="session-cost-agents">{`${live} live of ${agents.length}`}</span></span>
       </div>
       <div className="sco-top">
-        <Ticker usd={usd} />
+        <Ticker usd={usd} partial={partial} />
         <Spark list={series} />
       </div>
       <ContextBar used={ss.context_tokens} limit={ss.context_limit} />
@@ -93,8 +104,8 @@ export function CostDetail() {
         <Figure label="TOKENS IN" value={tok(ss.tokens_in)} testid="session-cost-in" title="input tokens the session has sent its model so far" />
         <Figure label="TOKENS OUT" value={tok(ss.tokens_out)} testid="session-cost-out" title="output tokens its model has written so far" />
         <Figure label="TURNS" value={turns == null ? "-" : String(turns)} testid="session-cost-turns" title="your turns in this session, as the terminal counts them" />
-        <Figure label="PER TURN" value={perTurn == null ? "-" : cost(perTurn)} testid="session-cost-per-turn"
-                title={`the spend over your turns${last != null ? `; the last turn cost ${cost(last)}` : ""}`} />
+        <Figure label="PER TURN" value={perTurn == null ? "-" : `${cost(perTurn)}${partial ? "+" : ""}`} testid="session-cost-per-turn"
+                title={`the spend over your turns${last != null ? `; the last turn cost ${cost(last)}` : ""}${partial ? `; ${partial}` : ""}`} />
       </div>
       {agents.length > 0 && (
         <section className="sco-agents">
@@ -116,7 +127,7 @@ export function CostGlance() {
   return (
     <div className="glance" data-testid="session-cost-glance">
       <div className="glance-numbers">
-        <Metric value={<Ticker usd={Number(ss.cost_usd) || 0} />} label="this session" tone="accent" />
+        <Metric value={<Ticker usd={Number(ss.cost_usd) || 0} partial={partialTitle(ss)} />} label="this session" tone="accent" />
         <Metric value={tok((Number(ss.tokens_in) || 0) + (Number(ss.tokens_out) || 0))} label="tokens" />
       </div>
       <div className="glance-hint mono">{modelName(ss.model)}</div>
