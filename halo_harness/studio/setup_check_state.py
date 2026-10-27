@@ -177,8 +177,13 @@ def check_blocks(cwd=None, state_dir=None) -> dict:
             "model_notes": model_notes()}
 
 
-def boot_attrs(page: bytes) -> bytes:
-    """index.html with `data-no-provider="1"` on its <html> tag when no provider is set up (else unchanged)."""
+def boot_attrs(page: bytes, state_dir=None) -> bytes:
+    """index.html with `data-no-provider="1"` on its <html> tag when no provider is set up (else unchanged).
+    3.3.3.0 R1: not once Setup's Done was pressed for this home (`state_dir`): a reload stays where Done went."""
     if b"<html" not in page or not no_provider():
         return page
+    if state_dir is not None:
+        from halo_harness.studio.setup_done import setup_done_at
+        if setup_done_at(state_dir):
+            return page
     return page.replace(b"<html", b'<html data-no-provider="1"', 1)

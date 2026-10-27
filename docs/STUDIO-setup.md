@@ -34,6 +34,9 @@ door's `?block=` wins. There are no panels here: nothing to move, resize or Arra
 page; then the last check's result with **Run the ticked checks** (the checks ticked on the Check page:
 doctor, catalog and hello until changed there) and **The Check page**; then the guided first run's card
 (what `halo start` does, the models it calls, the estimate, the time, what it writes) and its Run button.
+At its foot (3.3.3.0) the primary **Done: start halo**: it marks this box set up (`POST setup/done`), the
+terminal that ran `halo init` starts halo ([WIZARD.md](WIZARD.md)), and the page goes to Session with nothing
+opened over it; the rail's "set up this box" line is gone, and stays gone on a reload, which opens Session.
 
 **Nothing opens on its own.** Loading Setup opens no help, no welcome and no Start here overlay, whether
 `halo init` opened it or not; the help stays one click away (the `?` in the header, or `?`). 3.3.2.0: no
@@ -202,3 +205,7 @@ setup/check/stop` and `POST setup/linux-fixes` (`studio/setup_check_api.py`, `se
 `setup:<job>`, `data: {job, key, title, state: running | done | failed, lines}`, then `{key: "summary",
 state: "finished", ok, results}`). `GET setup/state` gains `checks`, `gym_models`, `card`, `last_check`,
 `linux_fixes {needed, items}`, `no_provider` and `model_notes`; 3.3.1.0 adds `home`, a 12-hex hash of the state dir (the key the open page is remembered under).
+3.3.3.0 adds `POST setup/done` (`studio/setup_done.py`): `<state>/setup-done.json` `{at, home}` over any earlier
+one, a `setup` frame `{stage: "done", at}` (another open tab on Setup with `first` leaves it too), `{ok, done_at}`;
+`GET setup/state` gains `done_at` (the marker's time, or null), and a served page is not sent to Setup by "no
+provider yet" once it is set. Not agent/loop.py's `.setup_done` (the Setup hook's marker).

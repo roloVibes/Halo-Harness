@@ -404,6 +404,26 @@ def _relaunch_flags(argv: list) -> list:
     return argv
 
 
+def _run_full_screen(args, argv: list) -> int:
+    """The full-screen session: `run_tui(args)`, then `/update`'s restart exit code handed to the detached updater."""
+    from halo_harness.tui.launch import run_tui
+    code = run_tui(args)
+    from halo_harness.update import RESTART_EXIT_CODE
+    if code == RESTART_EXIT_CODE:
+        return _apply_update_and_relaunch(argv)
+    return code
+
+
+def launch_bare(cwd=None) -> int:
+    """3.3.3.0 R1: what bare `halo` does, from another command (`halo init` once Setup's Done is pressed): the
+    default args of `main([])` and the full-screen session, the intro included. `cwd` other than this process's
+    own is passed as `--cwd`."""
+    args = _build_parser().parse_intermixed_args([])
+    if cwd is not None and Path(cwd).resolve() != Path.cwd().resolve():
+        args.cwd = str(cwd)
+    return _run_full_screen(args, [])
+
+
 def main(argv: Optional[list] = None) -> int:
     """Entry point. A config.json that does not parse (`CorruptConfigError`
     from a config writer anywhere below) is reported as one `halo: ...`
@@ -745,12 +765,7 @@ def _main(argv: Optional[list] = None) -> int:
         if _flag_was_set(getattr(args, "ax_screen_reader", False)):
             from halo_harness.ax_mode import run_ax_screen_reader_mode
             return run_ax_screen_reader_mode(args)
-        from halo_harness.tui.launch import run_tui
-        code = run_tui(args)
-        from halo_harness.update import RESTART_EXIT_CODE
-        if code == RESTART_EXIT_CODE:
-            return _apply_update_and_relaunch(argv)
-        return code
+        return _run_full_screen(args, argv)
 
     system_prompt_text = args.system_prompt
     if args.system_prompt_file and system_prompt_text is None:

@@ -12,7 +12,8 @@ them, and the rows each block offers (the wizard's own lists).
      providers: {<name>: {label, set, source, tail, enabled, reachable, catalog_count, detail, host_hint, fields}},
      ollama, huggingface, local_models,               R2: studio/setup_providers_state.py
      checks, gym_models, card, last_check, linux_fixes, no_provider,   R3: studio/setup_check_state.py
-     ollama_discover, home}                           R5; 3.3.1.0 R1 `home`: a 12-hex hash of the state dir
+     ollama_discover, home, done_at}                  R5; 3.3.1.0 R1 `home`: a 12-hex hash of the state dir;
+                                                      3.3.3.0 R1 `done_at`: Setup's Done (studio/setup_done.py) or null
 
 No key is ever in it: a provider is `set` or not, with its source and last four characters. `permission_mode`, `theme`
 and `model` are "" when config.json has none (the strip then says "not set"). 3.3.0.0 R3: a read opens no
@@ -124,7 +125,9 @@ _setup_state_before_r5 = setup_state
 
 def setup_state(cwd=None, state_dir=None) -> dict:  # noqa: F811  (the state above plus the R5 block)
     from halo_harness.studio.setup_discover_api import discover_block
-    return {**_setup_state_before_r5(cwd, state_dir), "ollama_discover": discover_block(), "home": home_id(state_dir)}
+    from halo_harness.studio.setup_done import setup_done_at  # 3.3.3.0 R1: when the Summary's Done was last pressed
+    return {**_setup_state_before_r5(cwd, state_dir), "ollama_discover": discover_block(), "home": home_id(state_dir),
+            "done_at": setup_done_at(state_dir)}
 
 
 def home_id(state_dir=None) -> str:

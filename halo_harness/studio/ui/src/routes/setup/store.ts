@@ -53,6 +53,8 @@ export type SetupData = {
   model_notes: string[];
   /** 3.3.1.0 R1: a short hash of this home's state dir (the key Setup's open page is remembered under). */
   home?: string;
+  /** 3.3.3.0 R1: when the Summary's Done was last pressed for this home (studio/setup_done.py), or null. */
+  done_at?: string | null;
 };
 export type CheckRow = { key: string; title: string; what: string; cost: string; time: string; writes: string; default_on: boolean };
 export type CheckResult = { key: string; title: string; ok: boolean; lines: string[] };
