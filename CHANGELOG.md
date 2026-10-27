@@ -10,6 +10,16 @@ version.
 
 ## [3.3.3.0] - unreleased
 
+**Settings.** The owner's note on 3.3.2.0: "I feel like halo should launch after init. Then full studio
+should be available ... there should be another tab for settings ... getting a gui tab section for every
+thing we can adjust via the cli in halo would be huge". Two rounds: Setup's Summary ends in "Done: start
+halo", and the terminal that ran `halo init` waits for it, prints the summary and starts halo there while
+Studio goes to Session (R1); a Settings section (Alt+9) shows every key of `~/.halo/config.json`, one page
+per group, each row with its help, its value against its default, Reset and the `halo config set` line, all
+generated from one catalog that a test holds equal to the config schema and docs/CONFIG.md (R2). The themes
+and the "everything the CLI adjusts" parity rounds planned with this version moved to 3.3.6.0, behind the
+Ollama steward (3.3.4.0) and the Models section (3.3.5.0).
+
 ### R1: Setup hands off to halo
 
 #### Added

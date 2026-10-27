@@ -4,7 +4,43 @@ This folder carries the whole plan so a new session (local or cloud) can
 pick the work up without the conversation that produced it. Read this file
 first, then `WORKER-RULES.md`, then the round you are starting.
 
-## WHERE THINGS STAND -- 2026-10-27 morning (authoritative, read this first)
+## WHERE THINGS STAND -- 2026-10-27 midday (authoritative, read this first)
+
+**3.3.3.0 "Settings" IS THE RELEASE CANDIDATE** (two rounds merged on master; the release follows once
+both runners are green on the candidate head -- if you read this after the release, the tag v3.3.3.0
+exists and the PC runs it). From the owner's note on 3.3.2.0 ("init setting is MUCH better. However I
+feel like halo should launch after init. Then full studio should be available ... there should be
+another tab for settings ... more color themes ... a gui tab section for every thing we can adjust via
+the cli"). R1 "Setup hands off to halo" (merged c4f479b, green on both runners): `POST setup/done`
+writes `<state>/setup-done.json` and publishes a `setup` frame `{stage: "done"}`, `GET setup/state`
+carries `done_at`; the Summary's primary "Done: start halo" (`setup-done`) sends Studio to Session and
+drops `mode=setup` from the address; `halo init` waits after opening Setup (`halo_harness/init_wait.py`:
+polls `GET setup/state` through `launch.api_call`, `HALO_INIT_POLL_S`; Ctrl+C or Studio gone = one line,
+exit 0) and on Done prints four summary lines and runs bare halo through `cli.launch_bare` in init's
+cwd; `--no-launch` / `HALO_INIT_NO_LAUNCH=1` keep the return-at-once; the terminal wizard's Finish
+launches the same way (`WizardState.finished`). R2 "the Settings section" (merged d29f4ea): Settings is
+Alt+9 after Setup (packs `FIRST_KEY = 10`, a pack's section opens from its rail row or the palette);
+`halo_harness/settings_catalog.py` + `settings_catalog_rows_{a,b,c}.py` = 131 rows in 17 groups (key,
+group, title, kind, default, choices, help, effect now / next session / next launch, secret;
+`cli_line`); `studio/settings_api.py` + `settings_values.py` (`settings/catalog|values|set|unset`, 422
+problems per line, secrets masked, `[]` keyed rows through `write_list_entry`); `routes/settings/*`
+paged like Setup (group rail, search across groups, a palette entry per row, keyed rows as a table +
+JSON editor, door `?mode=settings&group=`); `halo settings [group] [--terminal] [--list]`;
+`tests/test_settings_catalog.py` holds the catalog, `schemas/config_json.py` and docs/CONFIG.md's key
+table (now with a Studio column and 26 keys documented for the first time) to the same set -- a new
+config key must land in all three; `theme.unset_config_value` takes a dotted key. Worker lessons: a raw
+`http.client` call outside the choke point fails test_invariants (use `launch.api_call`); Chrome's
+`scrollTo` returns a promise, so a one-line arrow `useEffect` hands it to React 19 as a cleanup and
+blanks the app -- brace every effect body; `tools/capture_*.py` must be listed in
+`tests/helpers/capture_source.py TOOLS`. Worktrees `~/hh-333/R1-setup-handoff`, `R2-settings`; briefs
+and hand-backs under `~/hh-333/briefs/`. Open for the owner's live check (nothing run on hardware yet):
+PC `halo init` -> Done in the browser -> the four lines and the TUI in that terminal; the Settings pages
+at his window width; a toggle and a Reset landing in `~/.halo/config.json`; `halo settings fleet` over
+SSH (URL + `--terminal` listing). **Next:** 3.3.4.0 "The Ollama steward" (ROADMAP "ADDED 2026-10-27 ...
+3.3.4.0", five rounds, research first), then 3.3.5.0 "Models: browse, fit, pull, run", then 3.3.6.0
+"Themes and parity" (the old R3/R4 of this version).
+
+### Before it: 2026-10-27 morning
 
 **3.3.2.0 "Quiet Studio" IS RELEASED** (tag v3.3.2.0, release commit 0219e69 cut from f8fc8b4 on
 2026-10-27 morning after both runners went green; installed on the PC: `halo 3.3.2.0`). From the owner's note on 3.3.1.0 ("the visuals in studio are
