@@ -11,6 +11,7 @@
 // Check; R4 the doors (door.ts: `?first=1` leads the summary line with "set
 // up this box" and opens nothing, `?block=` opens that page).
 import { useEffect } from "react";
+import { startDoneFeed } from "./done";
 import { adoptRemembered } from "./pages";
 import { SetupPage } from "./SetupPage";
 import { SetupRail } from "./SetupRail";
@@ -19,7 +20,10 @@ import { startSetup, useSetup } from "./store";
 /** The section's view: the rail over the open page. */
 export function SetupView() {
   const home = useSetup((s) => s.data?.home || "");
-  useEffect(() => startSetup(), []);
+  useEffect(() => {
+    startSetup();
+    startDoneFeed();
+  }, []);
   useEffect(() => adoptRemembered(home), [home]);
   return (
     <div className="su-page" data-testid="setup-page">
@@ -34,4 +38,5 @@ export function SetupView() {
 /** The section's entry (the palette or a door may open a page before the view draws). */
 export function enterSetup(): void {
   startSetup();
+  startDoneFeed(); // 3.3.3.0 R1: a Done pressed in another tab moves this one too
 }

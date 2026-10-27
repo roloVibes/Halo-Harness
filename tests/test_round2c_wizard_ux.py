@@ -784,6 +784,79 @@ def test_summary_check_rows_space_toggles_finish_runs_the_ticked(ctx: Ctx):
             c["run"] = saved[c["key"]]
 
 
+# ---------------------------------------------------------------------------
+# 3.3.3.0 R1: the terminal wizard's Finish starts halo here (init_wait.launch_halo, stubbed: no TUI opens).
+# ---------------------------------------------------------------------------
+
+def _finish_flow(argv=(), *, tty=True, cmd_start_rc=None, **state):
+    """`init_cli._run_init_wizard_flow` with the wizard, `cmd_start` and the launcher stubbed: `(rc, calls)`."""
+    import io
+    from types import SimpleNamespace
+    from rich.console import Console
+    from halo_harness import init_cli, init_wait, start_cli
+    from halo_harness.tui.dialogs import init_wizard
+    from tests.helpers.setup_door_stubs import _Tty
+    calls: list = []
+    fields = dict(team_warnings=[], pong_ok=True, run_start=False, checks_cancel=False, finished=True)
+    fields.update(state)
+    app = SimpleNamespace(state=SimpleNamespace(**fields))
+    saved = (init_wizard.run_init_wizard, init_wait.launch_halo, start_cli.cmd_start, sys.stdin, sys.stdout)
+    before = os.environ.pop("HALO_INIT_NO_LAUNCH", None)
+    init_wizard.run_init_wizard = lambda **_k: app
+    init_wait.launch_halo = lambda cwd: calls.append(("launch", Path(cwd))) or 5
+    start_cli.cmd_start = lambda argv: calls.append(("start", list(argv))) or cmd_start_rc
+    if tty:
+        sys.stdin, sys.stdout = _Tty(io.StringIO("")), _Tty(io.StringIO())
+    try:
+        args = init_cli._build_parser().parse_args(list(argv))
+        rc = init_cli._run_init_wizard_flow(args, Console(file=io.StringIO()), REPO_DIR)
+    finally:
+        init_wizard.run_init_wizard, init_wait.launch_halo, start_cli.cmd_start, sys.stdin, sys.stdout = saved
+        if before is not None:
+            os.environ["HALO_INIT_NO_LAUNCH"] = before
+    return rc, calls
+
+
+@test
+def test_the_wizard_finish_starts_halo_here(ctx: Ctx):
+    rc, calls = _finish_flow()
+    ctx.check(f"Finish: halo launched once in the wizard's directory, its exit code returned, got {rc} {calls}",
+              rc == 5 and calls == [("launch", REPO_DIR)])
+    rc, calls = _finish_flow(run_start=True, cmd_start_rc=0)
+    ctx.check(f"the guided first run ticked: halo start, then halo, got {rc} {calls}", rc == 5 and calls == [("start", []), ("launch", REPO_DIR)])
+    rc, calls = _finish_flow(run_start=True, cmd_start_rc=1)
+    ctx.check(f"a failed start: its 1, no launch, got {rc} {calls}", rc == 1 and calls == [("start", [])])
+    for name, kw in (("--no-launch", {"argv": ["--no-launch"]}), ("a failed pong", {"pong_ok": False}),
+                     ("a quit (no Finish)", {"finished": False}), ("checks cancelled", {"checks_cancel": True, "run_start": True}),
+                     ("no terminal", {"tty": False})):
+        rc, calls = _finish_flow(**kw)
+        ctx.check(f"{name}: no launch, got {rc} {calls}", not any(c[0] == "launch" for c in calls) and rc == (1 if name == "a failed pong" else 0))
+
+
+@test
+def test_finish_marks_the_wizard_finished_and_a_quit_does_not(ctx: Ctx):
+    """The pilot: Finish on the Summary (nothing ticked) sets `finished`; Esc then Yes on a step leaves it False."""
+    from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState
+
+    async def drive(quit_: bool) -> bool:
+        with _Env():
+            state = WizardState(cwd=REPO_DIR, step_keys=("theme", "summary"), index=1, no_live=True, offer_start=True)
+            app = InitWizardApp(state)
+            async with app.run_test(size=(120, 40)) as pilot:
+                await pilot.pause(0.3)
+                if quit_:
+                    await pilot.press("escape")
+                    await pilot.pause(0.2)
+                    await pilot.press("y")
+                else:
+                    app.screen.query_one("#wiz-summary-checks").deselect_all()
+                    app.screen.action_do_next()
+                await _until(pilot, lambda: not app.is_running, 5)
+            return state.finished
+    ctx.check("Finish: finished", asyncio.run(drive(False)) is True)
+    ctx.check("Esc, Yes: not finished", asyncio.run(drive(True)) is False)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

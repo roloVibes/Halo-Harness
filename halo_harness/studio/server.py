@@ -214,7 +214,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             from halo_harness.studio.session_open import boot_html
             body = boot_html(body, cwd=self.server.cwd, state_dir=self.server.state_dir)  # 3.2.1.0 R1: + the pack sections
             from halo_harness.studio.setup_check_state import boot_attrs
-            body = boot_attrs(body)  # 3.3.0.0 R3: no provider set up yet: the page opens on Setup
+            body = boot_attrs(body, self.server.state_dir)  # 3.3.0.0 R3: no provider set up yet: the page opens on Setup
+            # (3.3.3.0 R1: until Setup's Done was pressed)
         self._send(200, body, ctype, {"Content-Security-Policy": SHELL_CSP})
 
     def _design_file(self) -> None:

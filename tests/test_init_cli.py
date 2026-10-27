@@ -792,15 +792,16 @@ def test_chat_capable_dbx_entries_excludes_decision_only_endpoints(ctx: Ctx):
 # (tests/helpers/setup_door_stubs.py); the wizard itself is stubbed too.
 # ---------------------------------------------------------------------------
 
-def _door_init(argv, **stubs):
+def _door_init(argv, extra_env=None, **stubs):
     """`cmd_init(argv)` on a fake terminal in a fresh home: `(rc, stdout, the door record, the wizard's args)`."""
     from halo_harness import init_cli
     from tests.helpers.setup_door_stubs import door_stubs, fake_tty
     home = _fresh_home()
-    keys = ("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR", "HALO_ENV_FILE")
+    keys = ("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR", "HALO_ENV_FILE", "HALO_INIT_NO_LAUNCH", "HALO_INIT_POLL_S")
     before = {k: os.environ.get(k) for k in keys}
-    os.environ.pop("BRIDGE_STATE_DIR", None)
-    os.environ.update({"BRIDGE_TEST_HOME": str(home), "HALO_ENV_FILE": str(home / "env")})
+    for k in ("BRIDGE_STATE_DIR", "HALO_INIT_NO_LAUNCH", "HALO_INIT_POLL_S"):
+        os.environ.pop(k, None)
+    os.environ.update({"BRIDGE_TEST_HOME": str(home), "HALO_ENV_FILE": str(home / "env"), **(extra_env or {})})
     ran: list = []
     saved = init_cli._run_init_wizard_flow
     init_cli._run_init_wizard_flow = lambda args, console, cwd: ran.append(args) or 0
@@ -819,7 +820,7 @@ def _door_init(argv, **stubs):
 
 @test
 def test_init_opens_setup_in_studio(ctx: Ctx):
-    rc, text, rec, ran = _door_init([])
+    rc, text, rec, ran = _door_init(["--no-launch"])  # 3.3.3.0 R1: --no-launch is the old return-at-once, byte for byte
     url = rec["opened"][0] if rec["opened"] else ""
     ctx.check(f"exit 0, the wizard not run, got {rc} {ran}", rc == 0 and not ran)
     ctx.check(f"Studio started on ?mode=setup&first=1 with no browser of its own, got {rec['launched']}",
@@ -827,7 +828,7 @@ def test_init_opens_setup_in_studio(ctx: Ctx):
               and "?mode=setup&first=1#t=" in url)
     ctx.check(f"the line with the URL, got {text!r}", f"Setup is open in your browser: {url}. `halo init --terminal` runs "
               "the terminal wizard instead." in text)
-    rc, text, rec, ran = _door_init([], running=True, pages=0)
+    rc, text, rec, ran = _door_init(["--no-launch"], running=True, pages=0)
     ctx.check(f"a running Studio is reused, got {rec}", rc == 0 and not rec["launched"] and len(rec["opened"]) == 1 and not ran)
 
 
@@ -864,6 +865,137 @@ def test_init_without_a_terminal_never_opens_studio(ctx: Ctx):
                   extra_env={"HALO_NO_BROWSER": "1"})
     ctx.check(f"--provider/--yes: the console flow as before, got {result.returncode} {result.stdout[-300:]!r}",
               result.returncode == 0 and "Setup is open" not in result.stdout and "Setup is at" not in result.stdout)
+
+
+# ---------------------------------------------------------------------------
+# 3.3.3.0 R1: `halo init` waits for Setup's Done, then starts halo here
+# (halo_harness/init_wait.py). The getter, the sleeper and the launcher are
+# swapped: no test waits a real second, opens a TUI or reaches a Studio.
+# ---------------------------------------------------------------------------
+
+_DONE_STATE = {"providers": {"openrouter": {"set": True}, "ollama": {"set": False}}, "model": "or:mock/alpha",
+               "team": {"active": "auto", "source": "default"}, "last_check": None}
+
+
+def _wait_init(argv, getter, *, env=None, stale=False, **stubs):
+    """`_door_init` with init_wait's getter, sleeper and launcher swapped:
+    `(rc, text, rec, launched cwds, GET paths, sleeps)`. `stale`: the door first writes an earlier init's marker."""
+    from halo_harness import init_wait
+    from halo_harness.studio import setup_door, setup_done
+    launched, gets, slept = [], [], []
+    saved = (init_wait.http_get, init_wait.sleep, init_wait.launch_halo, setup_door.open_setup)
+    real_open = setup_door.open_setup
+
+    def get(state_dir, path, timeout=5.0):
+        gets.append(path)
+        return getter(len(gets))
+
+    def open_then_mark(target, **kw):
+        real_now = setup_done.now_iso
+        setup_done.now_iso = lambda: "2026-01-01T00:00:00.000000+00:00"
+        try:
+            setup_done.write_done()
+        finally:
+            setup_done.now_iso = real_now
+        return real_open(target, **kw)
+
+    init_wait.http_get, init_wait.sleep = get, slept.append
+    init_wait.launch_halo = lambda cwd: launched.append(Path(cwd)) or 7
+    if stale:
+        setup_door.open_setup = open_then_mark
+    try:
+        rc, text, rec, _ran = _door_init(argv, extra_env=env, **stubs)
+    finally:
+        init_wait.http_get, init_wait.sleep, init_wait.launch_halo, setup_door.open_setup = saved
+    return rc, text, rec, launched, gets, slept
+
+
+def _done_after(n: int):
+    """A getter: Studio answers, and its state says Done from the n-th GET on."""
+    from halo_harness.studio.setup_done import now_iso
+    return lambda i: dict(_DONE_STATE, done_at=now_iso() if i >= n else None)
+
+
+@test
+def test_init_waits_for_done_then_starts_halo_here(ctx: Ctx):
+    rc, text, rec, launched, gets, slept = _wait_init([], _done_after(3))
+    url = rec["opened"][0] if rec["opened"] else ""
+    ctx.check(f"ONE door line saying Press Done, got {text!r}", text.count(url) == 1 and f"Setup is open in your browser: {url}. Press "
+              "Done there and halo starts here (Ctrl+C stops waiting; `halo init --terminal` runs the terminal wizard)." in text
+              and "runs the terminal wizard instead" not in text)
+    ctx.check(f"polled GET setup/state until Done, a poll_s apart, got {gets} {slept}", gets[:3] == ["setup/state"] * 3 and slept == [1.0, 1.0])
+    ctx.check(f"the Summary's four lines, got {text!r}", "Provider: openrouter\n" in text and "Default model: or:mock/alpha\n" in text
+              and "Lineup: auto (default)\n" in text and "Last check: not run\n" in text)
+    ctx.check(f"halo launched once, in the directory init ran from, its exit code returned, got {launched} {rc}",
+              launched == [Path.cwd()] and rc == 7)
+
+
+@test
+def test_init_wait_ctrl_c_and_studio_gone_launch_nothing(ctx: Ctx):
+    def interrupted(_i):
+        raise KeyboardInterrupt
+    rc, text, rec, launched, gets, slept = _wait_init([], interrupted)
+    ctx.check(f"Ctrl+C: the line and 0, no launch, got {rc} {launched} {text!r}", rc == 0 and not launched
+              and "Setup stays open in the browser; run `halo` when you are done there." in text)
+    rc, text, rec, launched, gets, slept = _wait_init([], lambda _i: None)
+    ctx.check(f"Studio gone for 10 s: the line and 0, no launch, got {rc} {launched} {len(gets)} {text!r}", rc == 0 and not launched
+              and len(gets) == 10 and "Studio closed; run `halo` when you are ready." in text)
+    rc, text, rec, launched, gets, slept = _wait_init([], lambda _i: None, env={"HALO_INIT_POLL_S": "0.5"})
+    ctx.check(f"HALO_INIT_POLL_S: 0.5 s polls, gone after 20, got {len(gets)} {slept[:2]}", len(gets) == 20 and slept[:2] == [0.5, 0.5])
+
+
+@test
+def test_init_no_launch_returns_at_once(ctx: Ctx):
+    for argv, env in ((["--no-launch"], None), ([], {"HALO_INIT_NO_LAUNCH": "1"})):
+        rc, text, rec, launched, gets, slept = _wait_init(argv, _done_after(1), env=env)
+        ctx.check(f"{argv or env}: the old one line, no wait, no launch, got {rc} {gets} {launched} {text!r}", rc == 0 and not gets
+                  and not launched and "`halo init --terminal` runs the terminal wizard instead." in text and "Press Done" not in text)
+    from halo_harness.init_cli import _build_parser
+    help_text = " ".join(_build_parser().format_help().split())
+    ctx.check(f"--no-launch is in halo init --help, got {help_text[-400:]!r}", "--no-launch open Setup and return at once" in help_text)
+
+
+@test
+def test_init_wait_ignores_a_stale_marker_and_reads_a_fresh_one(ctx: Ctx):
+    from halo_harness.studio import setup_done
+    states = []
+
+    def stale_then_gone(i):
+        states.append(i)
+        return dict(_DONE_STATE, done_at="2026-01-01T00:00:00.000000+00:00") if i < 3 else None
+    rc, text, rec, launched, gets, slept = _wait_init([], stale_then_gone, stale=True)
+    ctx.check(f"an earlier init's marker and done_at do not count: gone, no launch, got {rc} {launched} {text!r}",
+              rc == 0 and not launched and "Studio closed" in text)
+
+    def marker_on_third(i):
+        if i == 3:
+            setup_done.write_done()
+        return None  # the GET fails: the marker file is the fallback
+    rc, text, rec, launched, gets, slept = _wait_init([], marker_on_third)
+    ctx.check(f"the GET failing, a fresh marker still counts: launched, got {rc} {launched} {len(gets)}", launched == [Path.cwd()]
+              and rc == 7 and "Lineup:" in text)
+
+
+@test
+def test_launch_bare_is_what_bare_halo_runs(ctx: Ctx):
+    from halo_harness import cli
+    from halo_harness.tui import launch as tui_launch
+    from halo_harness.update import RESTART_EXIT_CODE
+    got, saved = [], (tui_launch.run_tui, cli._apply_update_and_relaunch)
+    try:
+        tui_launch.run_tui = lambda args: got.append(args) or 0
+        cli._apply_update_and_relaunch = lambda argv: 99
+        rc = cli.launch_bare(Path.cwd())
+        default = cli._build_parser().parse_intermixed_args([])
+        ctx.check(f"main([])'s default args, no --cwd for this directory, got {rc} {got}", rc == 0 and len(got) == 1
+                  and vars(got[0]) == vars(default) and got[0].cwd is None)
+        other = _fresh_home()
+        cli.launch_bare(other)
+        ctx.check(f"another directory rides in --cwd, got {got[-1].cwd!r}", Path(got[-1].cwd).resolve() == other.resolve())
+        tui_launch.run_tui = lambda args: RESTART_EXIT_CODE
+        ctx.check("/update's restart code goes to the detached updater, as bare halo's does", cli.launch_bare(None) == 99)
+    finally:
+        tui_launch.run_tui, cli._apply_update_and_relaunch = saved
 
 
 if __name__ == "__main__":

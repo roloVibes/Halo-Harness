@@ -213,6 +213,45 @@ def test_methods_and_unknown_paths(ctx: Ctx):
         ctx.check("POST a preview is a 405", e.call("POST", "setup/team/auto/preview")[0] == 405)
         ctx.check("an unknown setup/ path is a 404", e.call("GET", "setup/nothing")[0] == 404)
         ctx.check("the prefix is registered", any(p[0] == "setup" for p in __import__("halo_harness.studio.api", fromlist=["_PREFIXES"])._PREFIXES))
+        ctx.check("3.3.3.0 R1: GET setup/done is a 405", e.call("GET", "setup/done")[0] == 405)
+
+
+@test
+def test_done_writes_the_marker_publishes_the_frame_and_the_state_carries_it(ctx: Ctx):
+    """3.3.3.0 R1: POST setup/done -> setup-done.json {at, home} (over an earlier one), a `setup` frame {stage: done},
+    {ok, done_at}; GET setup/state's done_at; no key in either."""
+    from halo_harness.studio import events
+    from halo_harness.studio.api import Request, dispatch
+    from halo_harness.studio.setup_done import parse_at, setup_done_at
+    from halo_harness.studio.setup_state import home_id
+    frames: list = []
+    real = events.bridge_for
+    events.bridge_for = lambda _server: SimpleNamespace(publish_local=frames.append)
+    try:
+        with _Env() as e:
+            os.environ["OPENROUTER_API_KEY"] = "sk-or-v1-setup-done-key-0123456789abcdef"
+            status, s = e.call("GET", "setup/state")
+            ctx.check(f"no Done yet: done_at null, got {status} {s.get('done_at')!r}", status == 200 and "done_at" in s and s["done_at"] is None)
+            post = lambda: dispatch(Request(method="POST", path="setup/done", query={}, body={}, cwd=e.cwd, state_dir=e.state_dir, server=object()))
+            status, got = post()
+            marker = e.state_dir / "setup-done.json"
+            data = json.loads(marker.read_text(encoding="utf-8")) if marker.is_file() else {}
+            ctx.check(f"200 {{ok, done_at}}, got {status} {got}", status == 200 and got.get("ok") is True and parse_at(got.get("done_at")) is not None)
+            ctx.check(f"the marker: at and this home, got {data}", data == {"at": got.get("done_at"), "home": home_id(e.state_dir)})
+            ctx.check(f"one setup frame {{stage: done, at}}, got {frames}", len(frames) == 1 and frames[0]["event"] == "setup"
+                      and frames[0]["data"] == {"stage": "done", "at": got.get("done_at")})
+            status, s = e.call("GET", "setup/state")
+            ctx.check(f"the state carries done_at, got {s.get('done_at')!r}", s.get("done_at") == got.get("done_at") == setup_done_at(e.state_dir))
+            again = post()[1]
+            ctx.check("a second Done writes over the first, not earlier", parse_at(again["done_at"]) >= parse_at(got["done_at"])
+                      and json.loads(marker.read_text(encoding="utf-8"))["at"] == again["done_at"])
+            text = json.dumps([got, again, s, frames, data])
+            ctx.check("no key in the answers, the frame or the marker", "sk-or-v1" not in text and "0123456789abcdef" not in text)
+            ctx.check("not the Setup hook's .setup_done marker", not (e.state_dir / ".setup_done").exists())
+            marker.write_text("{not json", encoding="utf-8")
+            ctx.check("a marker that does not parse reads as none", setup_done_at(e.state_dir) is None)
+    finally:
+        events.bridge_for = real
 
 
 if __name__ == "__main__":

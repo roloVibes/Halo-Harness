@@ -362,3 +362,6 @@ and `isolation/Dockerfile` the worker image.
   edit target, `?mode=setup&first=1` / `&block=team`; the no-browser rule; `open_setup` starting or
   reusing Studio; `cli_door`, the one line `halo init`, `halo setup` and `halo start` print before the
   terminal wizard runs as the fallback) and `ui/src/routes/setup/door.ts` (the page's side).
+  3.3.3.0 R1: `studio/setup_done.py` (the Summary's Done: `POST setup/done`, `setup-done.json`,
+  `setup_done_at` the one reader), `init_wait.py` (`halo init` waiting for it, then bare halo through
+  `cli.launch_bare`) and `ui/src/routes/setup/done.ts` (the page leaving Setup for Session).

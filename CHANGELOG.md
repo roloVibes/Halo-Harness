@@ -8,6 +8,20 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.3.3.0] - unreleased
+
+### R1: Setup hands off to halo
+
+#### Added
+- Setup's Summary ends with the primary **Done: start halo**: `POST setup/done` writes `~/.halo/setup-done.json` (`at`, `home`) and publishes a `setup` frame `{stage: "done"}`; Studio goes to Session (nothing opens over it), the rail's "set up this box" line goes, and a reload stays on Session. `GET setup/state` carries `done_at`.
+- `halo init` waits after opening Setup: "Setup is open in your browser: <url>. Press Done there and halo starts here (Ctrl+C stops waiting; `halo init --terminal` runs the terminal wizard)." On Done it prints the Summary's four lines (provider, default model, lineup, last check) and starts halo exactly as bare `halo` does, in the directory it ran from. Ctrl+C or Studio closing ends the wait with one line and exit 0.
+- `halo init --no-launch` (and `HALO_INIT_NO_LAUNCH=1`): open Setup and return at once, as before.
+
+#### Changed
+- The terminal wizard's Finish (`halo init --terminal`, and the no-browser fallback) starts halo the same way, after the ticked checks and after a successful `halo start`; a quit, a failed live pong or `--no-launch` starts nothing.
+- A Studio page is no longer sent to Setup by "no provider set up yet" once Setup's Done was pressed for that home.
+- `cli.launch_bare` (bare halo's full-screen path, `/update`'s restart included) is shared by `halo` and `halo init`.
+
 ## [3.3.2.0] - 2026-10-27
 
 **Quiet Studio.** The owner's note on 3.3.1.0: "the visuals in studio are too cluttered and the pop up is
