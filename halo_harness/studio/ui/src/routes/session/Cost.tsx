@@ -28,6 +28,7 @@ import { AgentLine, ContextBar, ShareBar, Spark, tok, type Share } from "./CostP
 import { lastTurnCost, startSpend, useSpend } from "./spend";
 import { ownCosts, partialTitle, unpricedMain } from "./shares";
 import { chosenSession } from "./store";
+import { EffortMenu } from "./EffortMenu"; // 3.3.5.0 R0b (c): the effort control
 
 /** 45s, 12m 03s, 2h 05m since a unix time in seconds. */
 function since(ts: number | null | undefined, now: number): string {
@@ -92,8 +93,7 @@ export function CostDetail() {
       <div className="rail-label mono sco-head" title={ss.cwd || ""}>THIS SESSION · {short(sessionTitle(ss), 48)}</div>
       <div className="sco-sub mono muted">
         <span data-testid="session-cost-model" title={ss.model || ""}>{short(modelName(ss.model), 22)}</span>
-        {ss.effort ? <span data-testid="session-cost-effort" data-na={ss.effort === "effort n/a" || undefined}
-                           title="what the effort level does on this model"> · {ss.effort}</span> : null}
+        {ss.effort ? <> · <EffortMenu model={ss.model || ""} word={ss.effort} /></> : null}
         <span title="since the session started"> · <span data-testid="session-cost-elapsed">{since(ss.started, now)}</span></span>
         <span> · <span data-testid="session-cost-agents">{`${live} live of ${agents.length}`}</span></span>
       </div>

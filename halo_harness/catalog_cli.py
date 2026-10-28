@@ -234,6 +234,9 @@ def cmd_models(argv) -> int:
     if argv and argv[0] == "analyze":  # 3.1.9.0 R1: rebuild what each model is good at
         from halo_harness.models_analyze_cli import cmd_models_analyze
         return cmd_models_analyze(list(argv[1:]))
+    if argv and argv[0] == "show":  # 3.3.5.0 R0b: the model card
+        from halo_harness.model_card_cli import cmd_models_show
+        return cmd_models_show(list(argv[1:]))
     parser = argparse.ArgumentParser(prog="halo models", add_help=True)
     parser.add_argument("--refresh", action="store_true", help="Re-probe OpenRouter/Databricks instead of using the cache")
     parser.add_argument("--ant", action="store_true",
@@ -265,7 +268,14 @@ def cmd_models(argv) -> int:
     parser.add_argument("--measured", action="store_true",  # 3.1.8.0 R3 (outcomes/measured.py)
                          help="Measured success per model and task kind here: checked tasks, first-time passes, "
                               "the rate and the mean cost (outcomes.jsonl)")
+    parser.add_argument("--cards", action="store_true",  # 3.3.5.0 R0b (model_card_cli.py)
+                         help="One line per model from its card: think, tools, vision, purpose, window, the roles it "
+                              "can hold and its fit here (`halo models show <ref>` prints one card in full)")
     args = parser.parse_args(argv)
+    if args.cards:
+        load_provider_env_files()
+        from halo_harness.model_card_cli import cmd_models_cards
+        return cmd_models_cards(as_json=args.json)
     if args.measured:
         from halo_harness.outcomes.cli import cmd_models_measured
         return cmd_models_measured(as_json=args.json)

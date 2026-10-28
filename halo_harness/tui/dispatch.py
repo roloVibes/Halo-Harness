@@ -678,7 +678,10 @@ async def _apply_event_inner(app, event) -> None:
         # main session only (a sub-agent's card says how it ended); a card's
         # own mid-turn "waiting" marker is skipped here -- its `⏸ ..., see
         # below` line already sits at that point in the transcript.
-        if agent_id is None and not data.get("mid_turn"):
+        if agent_id is None and data.get("state") == "model-check":  # 3.3.5.0 R0b (d): the line and the offer
+            from halo_harness.tui.lane_offer_flow import show as show_lane_offer
+            await show_lane_offer(app, data)
+        elif agent_id is None and not data.get("mid_turn"):
             await app.transcript.add_note(data.get("text", ""), kind="marker")
     elif kind == "steer_restart":
         # GLM-brief.md item 3 / W2-plan item 2: the in-flight call was

@@ -297,6 +297,25 @@ measured, and `--json` adds `measured` (its rows). Halo 3.1.9.0 R3: a model
 dropped for a task kind ends its line with " -- dropped for <kind> (...)", and
 its table rows (and `--json`'s `measured` rows, `dropped`) carry the mark.
 
+### `halo models show <ref>` and `halo models --cards` (Halo 3.3.5.0)
+
+```sh
+halo models show <ref> [--json]   the model card: what the model is, its fit here, how Halo calls it, its roles
+halo models --cards [--json]      one line per model from its card, the local models first
+```
+
+`show` prints the model card ([MODELS.md](MODELS.md), "What a local model can
+do"): its kind and host, family, size and quantization, whether it thinks,
+calls tools and sees images (each with its source: `/api/show`, the tool-call
+probe, the family rule, the name), its purpose (coder, instruct, reasoning,
+vision, embedding), the fit meter on the host's hardware card (fits / tight /
+spill / no), the `how` lines -- the exact way Halo will call it -- and the
+roles it can hold with the reason for each it cannot. An `ol:` ref reads its
+host's catalog (`/api/tags` + `/api/show`) the way `halo local` does; nothing
+loads a model. `--cards` reads the configured local servers once, then prints
+`<ref>: think · tools · coder · 32k · roles: coder lane, reviewer · fit: fits`
+per model and a count line. `--json` prints the card(s) with the `fit` meter.
+
 ### `halo models test <ref>` (Halo 3.0.7.0)
 
 ```sh

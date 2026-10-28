@@ -8578,9 +8578,18 @@ class Session:
             elif kind == "set_model":
                 # Halo 3.3.5.0 R0: the switch step -- the line first, the fit, then the move
                 from halo_harness.agent.model_switch import run_switch
+                # 3.3.5.0 R0b: the card's `how` lines before the switch line, the main-model check after it
+                from halo_harness.agent.model_card_switch import card_marker, check_marker
+                _card, _card_ev = card_marker(self, data["model_ref"], data.get("model_profile"))
+                _prev_raw = getattr(self.model_ref, "raw", None)
+                if _card_ev is not None:
+                    out(_card_ev)
                 try:
                     for _ev in run_switch(self, data["model_ref"], data["model_profile"], data.get("creds"), why="/model"):
                         out(_ev)
+                    _check_ev = check_marker(self, _card, _prev_raw)
+                    if _check_ev is not None:
+                        out(_check_ev)
                 except Exception:
                     log.warning("the switch step failed; switching without it", exc_info=True)
                     if getattr(self.model_ref, "raw", None) != getattr(data["model_ref"], "raw", None):

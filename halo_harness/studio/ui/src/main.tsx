@@ -40,6 +40,7 @@ import "./styles/setup.css";
 import "./styles/setup-providers.css";
 import "./styles/setup-pages.css"; // 3.3.1.0 R1
 import "./styles/settings.css"; // 3.3.3.0 R2
+import "./styles/model-card.css"; // 3.3.5.0 R0b: the model card and the fit meter
 import { App } from "./App";
 
 document.documentElement.dataset.theme = document.documentElement.dataset.theme || "dark";

@@ -64,7 +64,9 @@ R2, every call leaves a record:
   machine's fleet name while it has joined a hub) and, from 3.3.5.0,
   `switched_from` (the previous turn or compaction call's model in the
   session, when it differs) and `fitted` (a switch step ran before the
-  call: [MODELS-switching.md](MODELS-switching.md)). The OpenAI dialect
+  call: [MODELS-switching.md](MODELS-switching.md)) and `body_flags`
+  (`{think, tools, images}`: the think value the body sent, None when none,
+  and whether it carried a tool catalog and images). The OpenAI dialect
   fills the counts from `usage` and `done_reason` from `finish_reason`.
   The file rotates to `traffic.1.jsonl` at 20 MB; `ollama.ledger: false`
   turns it off. A fleet member sends its lines to the hub
@@ -238,6 +240,19 @@ model's". A halo before 3.3.5.0, or a path that moved the model another way,
 leaves these; the switch step ([MODELS-switching.md](MODELS-switching.md))
 is the fix. `halo ollama explain switch-without-fit` prints its row of the
 symptoms table.
+
+### called-wrong
+
+`called-wrong` (3.3.5.0 R0b, a warning, no profile change; `rules_card.py`):
+"2 calls to qwen3-coder:30b sent a think value and a tool catalog, which its
+card says it cannot take (it does not think; it has no tool calling here):
+call it the card's way -- no think field (the model does not think); no
+tools: answers only (tool turns in the history go as text)". Each ledger
+line's `body_flags` is held against the model's card
+([MODELS-cards.md](MODELS-cards.md)), built from the host's catalog row and the
+tool-call probe; the fix is the card's own `how` lines, so the steward's note
+says how the model should be called. A model with no catalog row is not
+judged.
 
 ## In Studio
 

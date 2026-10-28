@@ -19,7 +19,9 @@ A line (`blank_line` has every field, `None` when unknown):
     trimmed, status (200 | 400 | 499 | 500 | 503 | ... | "timeout" |
     "connection"), error, retry, session, turn, tools_count, images, from,
     switched_from (3.3.5.0 R0: the previous call's model in this session when
-    it differs), fitted (a switch step ran before this call)
+    it differs), fitted (a switch step ran before this call), body_flags
+    (3.3.5.0 R0b: {think, tools, images} -- the think value the body sent,
+    None when it sent none; whether it carried a tool catalog and images)
 
 `from` is this machine's fleet name while it has joined a hub (None
 otherwise); the hub sets it to the member's name on the lines a member
@@ -46,7 +48,7 @@ KINDS = ("turn", "compaction", "calibrate", "small", "repair")
 FIELDS = ("at", "host", "model", "ref", "dialect", "kind", "num_ctx_sent", "window_source", "estimate_tokens",
           "prompt_eval_count", "eval_count", "done_reason", "total_ms", "load_ms", "prompt_eval_ms", "eval_ms",
           "eval_tok_s", "trimmed", "status", "error", "retry", "session", "turn", "tools_count", "images", "from",
-          "switched_from", "fitted")
+          "switched_from", "fitted", "body_flags")
 _SINCE_RE = re.compile(r"^\s*(\d+(?:\.\d+)?)\s*([smhdw]?)\s*$", re.IGNORECASE)
 _UNIT_S = {"": 3600, "s": 1, "m": 60, "h": 3600, "d": 86400, "w": 7 * 86400}
 

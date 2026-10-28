@@ -358,6 +358,9 @@ class ModelPicker(ModalScreen):
         kinds = (self._best_at_rows().get(m["ref"]) or {}).get("kinds") or []
         if kinds:
             row_text.append("  best at " + ",".join(kinds[:4]), style="dim")
+        card_words = _card_suffix(m["ref"], self.state_dir)  # 3.3.5.0 R0b: the card's chips and the fit word
+        if card_words:
+            row_text.append(card_words, style="dim")
         if self.last_used and m["ref"] == self.last_used:
             row_text.append("  (last used)", style="dim italic")
         self._row_cache[id(m)] = (m, row_text)
@@ -685,6 +688,23 @@ class ModelPicker(ModalScreen):
                        for m in fresh if not (isinstance(m, dict) and "hint" in m)]
         self._refresh_list(self.query_one("#model-filter", Input).value)
         hint.update(message)
+
+
+def _card_suffix(ref: str, state_dir=None) -> str:
+    """3.3.5.0 R0b: "  think · tools · coder · 32k · fits" for a local row (the card from the cached catalog, the
+    fit meter from the cached hardware card: no request); "" for a cloud row or on any failure."""
+    if not str(ref or "").startswith(("ol:", "hf:local/", "hf:mlx/", "local:")):
+        return ""
+    try:
+        from halo_harness.config.paths import bridge_home
+        from halo_harness.studio.model_card_api import row_view
+        got = row_view(ref, None, state_dir or bridge_home())
+        chips = " · ".join(v for v in (got.get("card") or {}).get("chips", {}).values() if v)
+        level = (got.get("fit") or {}).get("level")
+        words = " · ".join(w for w in (chips, level if level and level != "unknown" else "") if w)
+        return f"  {words}" if words else ""
+    except Exception:
+        return ""
 
 
 def _catalog_capabilities_for(model_ref: str):
