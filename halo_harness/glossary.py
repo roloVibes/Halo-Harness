@@ -25,7 +25,7 @@ TERMS = ("lineup", "bio", "role", "tier", "team", "member", "block", "stage", "l
          "mission", "gate", "claim", "hand-off", "plan", "coach", "orchestra run", "fleet", "hub", "harness",
          "capability", "unit", "pack", "guided first run", "setup", "provider", "env file",
          "config key", "steward", "profile", "fit plan",
-         "host", "speed card")  # 3.2.1.0 R1: "pack"; 3.2.2.0 R2: "guided first run"; 3.3.0.0 R1: the Setup section's three; 3.3.3.0 R2: Settings' one; 3.3.4.0 R5: the Ollama steward's three; 3.3.5.0 R1: Local's two
+         "host", "speed card", "library", "quant")  # 3.3.5.0 R2: the Library's two; 3.2.1.0 R1: "pack"; 3.2.2.0 R2: "guided first run"; 3.3.0.0 R1: the Setup section's three; 3.3.3.0 R2: Settings' one; 3.3.4.0 R5: the Ollama steward's three; 3.3.5.0 R1: Local's two
 
 PACKAGE_DIR = Path(__file__).resolve().parent
 DOCS_FILE = PACKAGE_DIR.parent / "docs" / "GLOSSARY.md"

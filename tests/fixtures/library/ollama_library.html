@@ -1,0 +1,1267 @@
+
+<!doctype html>
+<html class="h-full overflow-y-scroll">
+  <head><title>fixture</title></head>
+  <body
+    class="
+      antialiased
+      bg-white
+      min-h-screen
+      w-full
+      m-0
+      flex
+      flex-col
+    "
+    hx-on:keydown="
+      if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
+        // Ignore key events in input fields.
+        return;
+      }
+      if ((event.metaKey && event.key === 'k') || event.key === '/') {
+        const sp = htmx.find('#search') || htmx.find('#form-input') || htmx.find('#filter');
+        if (sp) {
+          event.preventDefault();
+          sp.focus();
+        }
+      }
+    "
+  >
+<header class="sticky top-0 z-40 flex h-20 shrink-0 items-center border-b border-transparent bg-white px-5 sm:px-6 lg:px-8 text-black data-[scrolled]:border-black/[0.12] lg:static lg:border-b-0">
+  <nav aria-label="Main navigation" class="flex w-full items-center justify-between gap-6 text-lg leading-6 tracking-tight font-normal">
+    <div class="flex min-w-0 flex-1 items-center gap-6">
+      <a href="/" aria-label="Ollama home" class="-ml-0.5 flex-none"><img src="/public/ollama-nav.png" alt="Ollama logo" width="37" height="43" class="h-auto w-[37px]" /></a>
+    </div>
+    <div class="hidden items-center gap-7 md:flex">
+      <a href="https://github.com/ollama/ollama" class="flex items-center gap-1.5 text-[17px]">
+        <svg class="h-[18px] w-[18px] flex-none" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z" /></svg>
+        <span class="sr-only">GitHub</span>
+        <span class="tabular-nums">185.1K</span>
+      </a>
+      <a href="/download" class="underline-offset-4 hover:underline">Download</a>
+      <a href="/search" class="underline-offset-4 hover:underline">Models</a>
+      <a href="https://docs.ollama.com" class="underline-offset-4 hover:underline">Docs</a>
+      <a href="/pricing" class="underline-offset-4 hover:underline">Pricing</a>
+        <a href="/signin" class="underline-offset-4 hover:underline">Sign in</a>
+    </div>
+    <div class="flex items-center md:hidden">
+      <input type="checkbox" id="menu" class="peer hidden" />
+      <label for="menu" aria-label="Open menu" class="z-50 block cursor-pointer peer-checked:hidden">
+        <svg class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" /></svg>
+      </label>
+      <label for="menu" aria-label="Close menu" class="fixed right-5 sm:right-6 lg:right-8 top-[26px] z-50 hidden cursor-pointer peer-checked:block">
+        <svg class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+      </label>
+      <div class="fixed inset-0 z-40 hidden overflow-y-auto bg-white peer-checked:block">
+        <div class="flex flex-col space-y-5 px-5 sm:px-6 lg:px-8 pb-8 pt-[5.5rem] text-3xl">
+          <a href="/download">Download</a>
+          <a href="/search">Models</a>
+          <a href="https://docs.ollama.com">Docs</a>
+          <a href="/pricing">Pricing</a>
+            <a href="/signin">Sign in</a>
+        </div>
+      </div>
+    </div>
+  </nav>
+</header>
+<div class="flex flex-1 justify-center">
+  <main class="mx-auto flex w-full max-w-2xl flex-col px-6 py-5 md:py-12 lg:px-8">
+    <div class="grid grid-cols-4 gap-4 md:gap-0">
+      <div class="col-span-1">
+        <div class="flex w-20 flex-col items-center md:w-28">
+          <div class="group relative h-20 w-20 overflow-hidden rounded-full md:h-28 md:w-28">
+            <img
+              id="profileImg"
+              src="/public/assets/c889cc0d-cb83-4c46-a98e-0d0e273151b9/42f6b28d-9117-48cd-ac0d-44baaf5c178e.png"
+              alt="Profile picture for library"
+              class="absolute inset-0 h-full w-full border border-neutral-300 object-cover indent-[-9999px] rounded-full"
+            />
+          </div>
+        </div>      
+      </div>
+      <div class="col-span-3">
+        <div class="flex flex-grow flex-col">
+          <div class="flex flex-row items-center justify-between">
+            <span  class="text-[28px] font-medium tracking-tight capitalize">library</span>
+          </div>
+          <div class="space-y-1">
+            <div class="my-2">
+              <h2 class="break-words sm:max-w-lg">
+              </h2>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="pt-6 pb-4">
+      <div class="flex space-x-1">
+        <form
+          hx-get="/library"
+          hx-target="#repo"
+          hx-trigger="submit, keyup changed delay:100ms from:[name=q], change from:select"
+          hx-on::after-request="
+            const url = new URL(window.location);
+            const filterEl = document.getElementById('filter');
+            const sortEl = document.getElementById('sort');
+            if (filterEl.value !== '') {
+              url.searchParams.set('q', filterEl.value);
+            } else {
+              url.searchParams.delete('q');
+            }
+            if (sortEl.value !== '') {
+              url.searchParams.set('sort', sortEl.value);
+            } else {
+              url.searchParams.delete('sort');
+            }
+            history.pushState({}, '', url.toString());"
+          class="flex w-full justify-end"
+        >
+          <div class="flex items-center space-x-2 w-full">
+            <div class="relative flex h-[34px] w-full appearance-none bg-black/5 border border-neutral-100 items-center rounded-full">
+              <span class="pl-4 text-neutral-400">
+                <svg class="w-[22px] h-[22px] fill-current" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                  <path d="m8.5 3c3.0375661 0 5.5 2.46243388 5.5 5.5 0 1.24832096-.4158777 2.3995085-1.1166416 3.3225711l4.1469717 4.1470988c.2928932.2928932.2928932.767767 0 1.0606602-.2662666.2662665-.6829303.2904726-.9765418.0726181l-.0841184-.0726181-4.1470988-4.1469717c-.9230626.7007639-2.07425014 1.1166416-3.3225711 1.1166416-3.03756612 0-5.5-2.4624339-5.5-5.5 0-3.03756612 2.46243388-5.5 5.5-5.5zm0 1.5c-2.209139 0-4 1.790861-4 4s1.790861 4 4 4 4-1.790861 4-4-1.790861-4-4-4z"/>
+                </svg>
+              </span>
+              <input
+                id="filter"
+                name="q"
+                type="text"
+                value=""
+                class="h-full resize-none rounded-full border-0 py-0 bg-transparent text-base sm:text-sm w-full placeholder:text-neutral-400 focus:outline-hidden focus:ring-0"
+                placeholder="Filter models"
+                autocomplete="off"
+              />
+            </div>
+            <select
+              name="sort"
+              id="sort"
+              class="inset-0 w-6 h-[34px] px-3.5 py-1.5
+                appearance-none cursor-pointer rounded-lg
+                border border-neutral-200 bg-white text-neutral-900
+                hover:bg-neutral-50 focus:outline-hidden focus:border-blue-600
+                static min-w-[120px] text-sm"
+              hx-on:change="htmx.trigger(this.form, 'submit')"
+            >
+              <option disabled value="">Sort By</option>
+                <option value="popular" >Popular</option>
+                <option value="newest" >Newest</option>
+            </select>
+          </div>
+        </form>
+      </div>
+    </div>
+<div  id="repo">
+  <ul role="list" class="grid grid-cols-1 gap-y-3">
+    <li  class="flex items-baseline border-b border-neutral-200 py-6">
+      <a href="/library/llama3.1" class="group w-full space-y-5">
+        <div  title="llama3.1" class="flex flex-col">
+          <h2 class="truncate text-xl font-medium underline-offset-2 md:text-2xl">
+            <div class="flex space-x-2 items-center">
+              <span class="group-hover:underline truncate">llama3.1</span>
+            </div>
+          </h2>
+          <p class="max-w-lg break-words text-neutral-800 text-md">Llama 3.1 is a new state-of-the-art model from Meta available in 8B, 70B and 405B parameter sizes.</p>
+        </div>
+        <div class="flex flex-col space-y-2">
+          <div class="flex flex-wrap space-x-2">
+              <span  class="inline-flex items-center rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-600 sm:text-[13px]">tools</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">8b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">70b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">405b</span>
+          </div>
+          <p class="flex space-x-5 text-[13px] font-medium text-neutral-500">
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"></path>
+                </svg>
+                <span >120.7M</span>
+                <span class="hidden sm:flex">&nbsp;Pulls</span>
+              </span>
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z" />
+                </svg>
+                <span >93</span>
+                <span class="hidden sm:flex">&nbsp;Tags</span>
+              </span>
+              <span class="flex items-center" title="Nov 30, 2024 10:34 PM UTC">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"></path>
+                </svg>
+                <span class="hidden sm:flex">Updated&nbsp;</span>
+                <span >1 year ago</span>
+              </span>
+          </p>
+        </div>
+      </a>
+    </li>
+    <li  class="flex items-baseline border-b border-neutral-200 py-6">
+      <a href="/library/deepseek-r1" class="group w-full space-y-5">
+        <div  title="deepseek-r1" class="flex flex-col">
+          <h2 class="truncate text-xl font-medium underline-offset-2 md:text-2xl">
+            <div class="flex space-x-2 items-center">
+              <span class="group-hover:underline truncate">deepseek-r1</span>
+            </div>
+          </h2>
+          <p class="max-w-lg break-words text-neutral-800 text-md">DeepSeek-R1 is a family of open reasoning models with performance approaching that of leading models, such as O3 and Gemini 2.5 Pro.</p>
+        </div>
+        <div class="flex flex-col space-y-2">
+          <div class="flex flex-wrap space-x-2">
+              <span  class="inline-flex items-center rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-600 sm:text-[13px]">tools</span>
+              <span  class="inline-flex items-center rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-600 sm:text-[13px]">thinking</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">1.5b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">7b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">8b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">14b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">32b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">70b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">671b</span>
+          </div>
+          <p class="flex space-x-5 text-[13px] font-medium text-neutral-500">
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"></path>
+                </svg>
+                <span >94.4M</span>
+                <span class="hidden sm:flex">&nbsp;Pulls</span>
+              </span>
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z" />
+                </svg>
+                <span >35</span>
+                <span class="hidden sm:flex">&nbsp;Tags</span>
+              </span>
+              <span class="flex items-center" title="Jul 2, 2025 6:09 AM UTC">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"></path>
+                </svg>
+                <span class="hidden sm:flex">Updated&nbsp;</span>
+                <span >1 year ago</span>
+              </span>
+          </p>
+        </div>
+      </a>
+    </li>
+    <li  class="flex items-baseline border-b border-neutral-200 py-6">
+      <a href="/library/nomic-embed-text" class="group w-full space-y-5">
+        <div  title="nomic-embed-text" class="flex flex-col">
+          <h2 class="truncate text-xl font-medium underline-offset-2 md:text-2xl">
+            <div class="flex space-x-2 items-center">
+              <span class="group-hover:underline truncate">nomic-embed-text</span>
+            </div>
+          </h2>
+          <p class="max-w-lg break-words text-neutral-800 text-md">A high-performing open embedding model with a large token context window.</p>
+        </div>
+        <div class="flex flex-col space-y-2">
+          <div class="flex flex-wrap space-x-2">
+              <span  class="inline-flex items-center rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-600 sm:text-[13px]">embedding</span>
+          </div>
+          <p class="flex space-x-5 text-[13px] font-medium text-neutral-500">
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"></path>
+                </svg>
+                <span >93.9M</span>
+                <span class="hidden sm:flex">&nbsp;Pulls</span>
+              </span>
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z" />
+                </svg>
+                <span >3</span>
+                <span class="hidden sm:flex">&nbsp;Tags</span>
+              </span>
+              <span class="flex items-center" title="Feb 21, 2024 5:26 PM UTC">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"></path>
+                </svg>
+                <span class="hidden sm:flex">Updated&nbsp;</span>
+                <span >2 years ago</span>
+              </span>
+          </p>
+        </div>
+      </a>
+    </li>
+    <li  class="flex items-baseline border-b border-neutral-200 py-6">
+      <a href="/library/llama3.2" class="group w-full space-y-5">
+        <div  title="llama3.2" class="flex flex-col">
+          <h2 class="truncate text-xl font-medium underline-offset-2 md:text-2xl">
+            <div class="flex space-x-2 items-center">
+              <span class="group-hover:underline truncate">llama3.2</span>
+            </div>
+          </h2>
+          <p class="max-w-lg break-words text-neutral-800 text-md">Meta&#39;s Llama 3.2 goes small with 1B and 3B models. </p>
+        </div>
+        <div class="flex flex-col space-y-2">
+          <div class="flex flex-wrap space-x-2">
+              <span  class="inline-flex items-center rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-600 sm:text-[13px]">tools</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">1b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">3b</span>
+          </div>
+          <p class="flex space-x-5 text-[13px] font-medium text-neutral-500">
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"></path>
+                </svg>
+                <span >86.4M</span>
+                <span class="hidden sm:flex">&nbsp;Pulls</span>
+              </span>
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z" />
+                </svg>
+                <span >63</span>
+                <span class="hidden sm:flex">&nbsp;Tags</span>
+              </span>
+              <span class="flex items-center" title="Sep 25, 2024 9:09 PM UTC">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"></path>
+                </svg>
+                <span class="hidden sm:flex">Updated&nbsp;</span>
+                <span >2 years ago</span>
+              </span>
+          </p>
+        </div>
+      </a>
+    </li>
+    <li  class="flex items-baseline border-b border-neutral-200 py-6">
+      <a href="/library/qwen2.5" class="group w-full space-y-5">
+        <div  title="qwen2.5" class="flex flex-col">
+          <h2 class="truncate text-xl font-medium underline-offset-2 md:text-2xl">
+            <div class="flex space-x-2 items-center">
+              <span class="group-hover:underline truncate">qwen2.5</span>
+            </div>
+          </h2>
+          <p class="max-w-lg break-words text-neutral-800 text-md">Qwen2.5 models are pretrained on Alibaba&#39;s latest large-scale dataset, encompassing up to 18 trillion tokens. The model supports up to 128K tokens and has multilingual support. </p>
+        </div>
+        <div class="flex flex-col space-y-2">
+          <div class="flex flex-wrap space-x-2">
+              <span  class="inline-flex items-center rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-600 sm:text-[13px]">tools</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">0.5b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">1.5b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">3b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">7b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">14b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">32b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">72b</span>
+          </div>
+          <p class="flex space-x-5 text-[13px] font-medium text-neutral-500">
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"></path>
+                </svg>
+                <span >43.9M</span>
+                <span class="hidden sm:flex">&nbsp;Pulls</span>
+              </span>
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z" />
+                </svg>
+                <span >133</span>
+                <span class="hidden sm:flex">&nbsp;Tags</span>
+              </span>
+              <span class="flex items-center" title="Sep 19, 2024 4:42 PM UTC">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"></path>
+                </svg>
+                <span class="hidden sm:flex">Updated&nbsp;</span>
+                <span >2 years ago</span>
+              </span>
+          </p>
+        </div>
+      </a>
+    </li>
+    <li  class="flex items-baseline border-b border-neutral-200 py-6">
+      <a href="/library/qwen3" class="group w-full space-y-5">
+        <div  title="qwen3" class="flex flex-col">
+          <h2 class="truncate text-xl font-medium underline-offset-2 md:text-2xl">
+            <div class="flex space-x-2 items-center">
+              <span class="group-hover:underline truncate">qwen3</span>
+            </div>
+          </h2>
+          <p class="max-w-lg break-words text-neutral-800 text-md">Qwen3 is the latest generation of large language models in Qwen series, offering a comprehensive suite of dense and mixture-of-experts (MoE) models.</p>
+        </div>
+        <div class="flex flex-col space-y-2">
+          <div class="flex flex-wrap space-x-2">
+              <span  class="inline-flex items-center rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-600 sm:text-[13px]">tools</span>
+              <span  class="inline-flex items-center rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-600 sm:text-[13px]">thinking</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">0.6b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">1.7b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">4b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">8b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">14b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">30b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">32b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">235b</span>
+          </div>
+          <p class="flex space-x-5 text-[13px] font-medium text-neutral-500">
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"></path>
+                </svg>
+                <span >41.7M</span>
+                <span class="hidden sm:flex">&nbsp;Pulls</span>
+              </span>
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z" />
+                </svg>
+                <span >58</span>
+                <span class="hidden sm:flex">&nbsp;Tags</span>
+              </span>
+              <span class="flex items-center" title="Oct 10, 2025 8:18 PM UTC">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"></path>
+                </svg>
+                <span class="hidden sm:flex">Updated&nbsp;</span>
+                <span >1 year ago</span>
+              </span>
+          </p>
+        </div>
+      </a>
+    </li>
+    <li  class="flex items-baseline border-b border-neutral-200 py-6">
+      <a href="/library/gemma3" class="group w-full space-y-5">
+        <div  title="gemma3" class="flex flex-col">
+          <h2 class="truncate text-xl font-medium underline-offset-2 md:text-2xl">
+            <div class="flex space-x-2 items-center">
+              <span class="group-hover:underline truncate">gemma3</span>
+            </div>
+          </h2>
+          <p class="max-w-lg break-words text-neutral-800 text-md">The current, most capable model that runs on a single GPU.</p>
+        </div>
+        <div class="flex flex-col space-y-2">
+          <div class="flex flex-wrap space-x-2">
+            <span  class="inline-flex items-center rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-600 sm:text-[13px]">vision</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">270m</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">1b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">4b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">12b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">27b</span>
+          </div>
+          <p class="flex space-x-5 text-[13px] font-medium text-neutral-500">
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"></path>
+                </svg>
+                <span >41.4M</span>
+                <span class="hidden sm:flex">&nbsp;Pulls</span>
+              </span>
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z" />
+                </svg>
+                <span >29</span>
+                <span class="hidden sm:flex">&nbsp;Tags</span>
+              </span>
+              <span class="flex items-center" title="Oct 9, 2026 3:09 PM UTC">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"></path>
+                </svg>
+                <span class="hidden sm:flex">Updated&nbsp;</span>
+                <span >2 weeks ago</span>
+              </span>
+          </p>
+        </div>
+      </a>
+    </li>
+    <li  class="flex items-baseline border-b border-neutral-200 py-6">
+      <a href="/library/gemma2" class="group w-full space-y-5">
+        <div  title="gemma2" class="flex flex-col">
+          <h2 class="truncate text-xl font-medium underline-offset-2 md:text-2xl">
+            <div class="flex space-x-2 items-center">
+              <span class="group-hover:underline truncate">gemma2</span>
+            </div>
+          </h2>
+          <p class="max-w-lg break-words text-neutral-800 text-md">Google Gemma 2 is a high-performing and efficient model available in three sizes: 2B, 9B, and 27B.</p>
+        </div>
+        <div class="flex flex-col space-y-2">
+          <div class="flex flex-wrap space-x-2">
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">2b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">9b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">27b</span>
+          </div>
+          <p class="flex space-x-5 text-[13px] font-medium text-neutral-500">
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"></path>
+                </svg>
+                <span >35.8M</span>
+                <span class="hidden sm:flex">&nbsp;Pulls</span>
+              </span>
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z" />
+                </svg>
+                <span >94</span>
+                <span class="hidden sm:flex">&nbsp;Tags</span>
+              </span>
+              <span class="flex items-center" title="Aug 1, 2024 6:51 PM UTC">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"></path>
+                </svg>
+                <span class="hidden sm:flex">Updated&nbsp;</span>
+                <span >2 years ago</span>
+              </span>
+          </p>
+        </div>
+      </a>
+    </li>
+    <li  class="flex items-baseline border-b border-neutral-200 py-6">
+      <a href="/library/mistral" class="group w-full space-y-5">
+        <div  title="mistral" class="flex flex-col">
+          <h2 class="truncate text-xl font-medium underline-offset-2 md:text-2xl">
+            <div class="flex space-x-2 items-center">
+              <span class="group-hover:underline truncate">mistral</span>
+            </div>
+          </h2>
+          <p class="max-w-lg break-words text-neutral-800 text-md">The 7B model released by Mistral AI, updated to version 0.3.</p>
+        </div>
+        <div class="flex flex-col space-y-2">
+          <div class="flex flex-wrap space-x-2">
+              <span  class="inline-flex items-center rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-600 sm:text-[13px]">tools</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">7b</span>
+          </div>
+          <p class="flex space-x-5 text-[13px] font-medium text-neutral-500">
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"></path>
+                </svg>
+                <span >34M</span>
+                <span class="hidden sm:flex">&nbsp;Pulls</span>
+              </span>
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z" />
+                </svg>
+                <span >84</span>
+                <span class="hidden sm:flex">&nbsp;Tags</span>
+              </span>
+              <span class="flex items-center" title="Jul 13, 2025 12:56 AM UTC">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"></path>
+                </svg>
+                <span class="hidden sm:flex">Updated&nbsp;</span>
+                <span >1 year ago</span>
+              </span>
+          </p>
+        </div>
+      </a>
+    </li>
+    <li  class="flex items-baseline border-b border-neutral-200 py-6">
+      <a href="/library/gemma4" class="group w-full space-y-5">
+        <div  title="gemma4" class="flex flex-col">
+          <h2 class="truncate text-xl font-medium underline-offset-2 md:text-2xl">
+            <div class="flex space-x-2 items-center">
+              <span class="group-hover:underline truncate">gemma4</span>
+            </div>
+          </h2>
+          <p class="max-w-lg break-words text-neutral-800 text-md">Gemma 4 models are designed to deliver frontier-level performance at each size. They are well-suited for reasoning, agentic workflows, coding, and multimodal understanding.</p>
+        </div>
+        <div class="flex flex-col space-y-2">
+          <div class="flex flex-wrap space-x-2">
+            <span  class="inline-flex items-center rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-600 sm:text-[13px]">vision</span>
+              <span  class="inline-flex items-center rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-600 sm:text-[13px]">tools</span>
+              <span  class="inline-flex items-center rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-600 sm:text-[13px]">thinking</span>
+              <span  class="inline-flex items-center rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-600 sm:text-[13px]">audio</span>
+              <span class="inline-flex items-center rounded-md bg-cyan-50 px-2 py-0.5 text-xs font-medium text-cyan-500 sm:text-[13px]">cloud</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">e2b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">e4b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">12b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">26b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">31b</span>
+          </div>
+          <p class="flex space-x-5 text-[13px] font-medium text-neutral-500">
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"></path>
+                </svg>
+                <span >28M</span>
+                <span class="hidden sm:flex">&nbsp;Pulls</span>
+              </span>
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z" />
+                </svg>
+                <span >51</span>
+                <span class="hidden sm:flex">&nbsp;Tags</span>
+              </span>
+              <span class="flex items-center" title="Oct 12, 2026 10:18 PM UTC">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"></path>
+                </svg>
+                <span class="hidden sm:flex">Updated&nbsp;</span>
+                <span >2 weeks ago</span>
+              </span>
+          </p>
+        </div>
+      </a>
+    </li>
+    <li  class="flex items-baseline border-b border-neutral-200 py-6">
+      <a href="/library/llama3" class="group w-full space-y-5">
+        <div  title="llama3" class="flex flex-col">
+          <h2 class="truncate text-xl font-medium underline-offset-2 md:text-2xl">
+            <div class="flex space-x-2 items-center">
+              <span class="group-hover:underline truncate">llama3</span>
+            </div>
+          </h2>
+          <p class="max-w-lg break-words text-neutral-800 text-md">Meta Llama 3: The most capable openly available LLM to date</p>
+        </div>
+        <div class="flex flex-col space-y-2">
+          <div class="flex flex-wrap space-x-2">
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">8b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">70b</span>
+          </div>
+          <p class="flex space-x-5 text-[13px] font-medium text-neutral-500">
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"></path>
+                </svg>
+                <span >25.8M</span>
+                <span class="hidden sm:flex">&nbsp;Pulls</span>
+              </span>
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z" />
+                </svg>
+                <span >68</span>
+                <span class="hidden sm:flex">&nbsp;Tags</span>
+              </span>
+              <span class="flex items-center" title="May 21, 2024 4:54 AM UTC">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"></path>
+                </svg>
+                <span class="hidden sm:flex">Updated&nbsp;</span>
+                <span >2 years ago</span>
+              </span>
+          </p>
+        </div>
+      </a>
+    </li>
+    <li  class="flex items-baseline border-b border-neutral-200 py-6">
+      <a href="/library/qwen3.5" class="group w-full space-y-5">
+        <div  title="qwen3.5" class="flex flex-col">
+          <h2 class="truncate text-xl font-medium underline-offset-2 md:text-2xl">
+            <div class="flex space-x-2 items-center">
+              <span class="group-hover:underline truncate">qwen3.5</span>
+            </div>
+          </h2>
+          <p class="max-w-lg break-words text-neutral-800 text-md">Qwen 3.5 is a family of open-source multimodal models that delivers exceptional utility and performance.</p>
+        </div>
+        <div class="flex flex-col space-y-2">
+          <div class="flex flex-wrap space-x-2">
+            <span  class="inline-flex items-center rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-600 sm:text-[13px]">vision</span>
+              <span  class="inline-flex items-center rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-600 sm:text-[13px]">tools</span>
+              <span  class="inline-flex items-center rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-600 sm:text-[13px]">thinking</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">0.8b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">2b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">4b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">9b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">27b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">35b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">122b</span>
+          </div>
+          <p class="flex space-x-5 text-[13px] font-medium text-neutral-500">
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"></path>
+                </svg>
+                <span >23.6M</span>
+                <span class="hidden sm:flex">&nbsp;Pulls</span>
+              </span>
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z" />
+                </svg>
+                <span >72</span>
+                <span class="hidden sm:flex">&nbsp;Tags</span>
+              </span>
+              <span class="flex items-center" title="Oct 13, 2026 5:35 PM UTC">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"></path>
+                </svg>
+                <span class="hidden sm:flex">Updated&nbsp;</span>
+                <span >2 weeks ago</span>
+              </span>
+          </p>
+        </div>
+      </a>
+    </li>
+    <li  class="flex items-baseline border-b border-neutral-200 py-6">
+      <a href="/library/qwen2.5-coder" class="group w-full space-y-5">
+        <div  title="qwen2.5-coder" class="flex flex-col">
+          <h2 class="truncate text-xl font-medium underline-offset-2 md:text-2xl">
+            <div class="flex space-x-2 items-center">
+              <span class="group-hover:underline truncate">qwen2.5-coder</span>
+            </div>
+          </h2>
+          <p class="max-w-lg break-words text-neutral-800 text-md">The latest series of Code-Specific Qwen models, with significant improvements in code generation, code reasoning, and code fixing.</p>
+        </div>
+        <div class="flex flex-col space-y-2">
+          <div class="flex flex-wrap space-x-2">
+              <span  class="inline-flex items-center rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-600 sm:text-[13px]">tools</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">0.5b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">1.5b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">3b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">7b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">14b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">32b</span>
+          </div>
+          <p class="flex space-x-5 text-[13px] font-medium text-neutral-500">
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"></path>
+                </svg>
+                <span >23M</span>
+                <span class="hidden sm:flex">&nbsp;Pulls</span>
+              </span>
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z" />
+                </svg>
+                <span >199</span>
+                <span class="hidden sm:flex">&nbsp;Tags</span>
+              </span>
+              <span class="flex items-center" title="May 28, 2025 1:19 AM UTC">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"></path>
+                </svg>
+                <span class="hidden sm:flex">Updated&nbsp;</span>
+                <span >1 year ago</span>
+              </span>
+          </p>
+        </div>
+      </a>
+    </li>
+    <li  class="flex items-baseline border-b border-neutral-200 py-6">
+      <a href="/library/phi3" class="group w-full space-y-5">
+        <div  title="phi3" class="flex flex-col">
+          <h2 class="truncate text-xl font-medium underline-offset-2 md:text-2xl">
+            <div class="flex space-x-2 items-center">
+              <span class="group-hover:underline truncate">phi3</span>
+            </div>
+          </h2>
+          <p class="max-w-lg break-words text-neutral-800 text-md">Phi-3 is a family of lightweight 3B (Mini) and 14B (Medium) state-of-the-art open models by Microsoft.</p>
+        </div>
+        <div class="flex flex-col space-y-2">
+          <div class="flex flex-wrap space-x-2">
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">3.8b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">14b</span>
+          </div>
+          <p class="flex space-x-5 text-[13px] font-medium text-neutral-500">
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"></path>
+                </svg>
+                <span >18.3M</span>
+                <span class="hidden sm:flex">&nbsp;Pulls</span>
+              </span>
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z" />
+                </svg>
+                <span >72</span>
+                <span class="hidden sm:flex">&nbsp;Tags</span>
+              </span>
+              <span class="flex items-center" title="Jul 30, 2024 6:53 PM UTC">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"></path>
+                </svg>
+                <span class="hidden sm:flex">Updated&nbsp;</span>
+                <span >2 years ago</span>
+              </span>
+          </p>
+        </div>
+      </a>
+    </li>
+    <li  class="flex items-baseline border-b border-neutral-200 py-6">
+      <a href="/library/mxbai-embed-large" class="group w-full space-y-5">
+        <div  title="mxbai-embed-large" class="flex flex-col">
+          <h2 class="truncate text-xl font-medium underline-offset-2 md:text-2xl">
+            <div class="flex space-x-2 items-center">
+              <span class="group-hover:underline truncate">mxbai-embed-large</span>
+            </div>
+          </h2>
+          <p class="max-w-lg break-words text-neutral-800 text-md">State-of-the-art large embedding model from mixedbread.ai</p>
+        </div>
+        <div class="flex flex-col space-y-2">
+          <div class="flex flex-wrap space-x-2">
+              <span  class="inline-flex items-center rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-600 sm:text-[13px]">embedding</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">335m</span>
+          </div>
+          <p class="flex space-x-5 text-[13px] font-medium text-neutral-500">
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"></path>
+                </svg>
+                <span >16.3M</span>
+                <span class="hidden sm:flex">&nbsp;Pulls</span>
+              </span>
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z" />
+                </svg>
+                <span >4</span>
+                <span class="hidden sm:flex">&nbsp;Tags</span>
+              </span>
+              <span class="flex items-center" title="May 6, 2024 11:36 PM UTC">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"></path>
+                </svg>
+                <span class="hidden sm:flex">Updated&nbsp;</span>
+                <span >2 years ago</span>
+              </span>
+          </p>
+        </div>
+      </a>
+    </li>
+    <li  class="flex items-baseline border-b border-neutral-200 py-6">
+      <a href="/library/llava" class="group w-full space-y-5">
+        <div  title="llava" class="flex flex-col">
+          <h2 class="truncate text-xl font-medium underline-offset-2 md:text-2xl">
+            <div class="flex space-x-2 items-center">
+              <span class="group-hover:underline truncate">llava</span>
+            </div>
+          </h2>
+          <p class="max-w-lg break-words text-neutral-800 text-md">🌋 LLaVA is a novel end-to-end trained large multimodal model that combines a vision encoder and Vicuna for general-purpose visual and language understanding. Updated to version 1.6.</p>
+        </div>
+        <div class="flex flex-col space-y-2">
+          <div class="flex flex-wrap space-x-2">
+            <span  class="inline-flex items-center rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-600 sm:text-[13px]">vision</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">7b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">13b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">34b</span>
+          </div>
+          <p class="flex space-x-5 text-[13px] font-medium text-neutral-500">
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"></path>
+                </svg>
+                <span >15.2M</span>
+                <span class="hidden sm:flex">&nbsp;Pulls</span>
+              </span>
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z" />
+                </svg>
+                <span >98</span>
+                <span class="hidden sm:flex">&nbsp;Tags</span>
+              </span>
+              <span class="flex items-center" title="Feb 1, 2024 8:41 AM UTC">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"></path>
+                </svg>
+                <span class="hidden sm:flex">Updated&nbsp;</span>
+                <span >2 years ago</span>
+              </span>
+          </p>
+        </div>
+      </a>
+    </li>
+    <li  class="flex items-baseline border-b border-neutral-200 py-6">
+      <a href="/library/gpt-oss" class="group w-full space-y-5">
+        <div  title="gpt-oss" class="flex flex-col">
+          <h2 class="truncate text-xl font-medium underline-offset-2 md:text-2xl">
+            <div class="flex space-x-2 items-center">
+              <span class="group-hover:underline truncate">gpt-oss</span>
+            </div>
+          </h2>
+          <p class="max-w-lg break-words text-neutral-800 text-md">OpenAI’s open-weight models designed for powerful reasoning, agentic tasks, and versatile developer use cases.</p>
+        </div>
+        <div class="flex flex-col space-y-2">
+          <div class="flex flex-wrap space-x-2">
+              <span  class="inline-flex items-center rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-600 sm:text-[13px]">tools</span>
+              <span  class="inline-flex items-center rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-600 sm:text-[13px]">thinking</span>
+              <span class="inline-flex items-center rounded-md bg-cyan-50 px-2 py-0.5 text-xs font-medium text-cyan-500 sm:text-[13px]">cloud</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">20b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">120b</span>
+          </div>
+          <p class="flex space-x-5 text-[13px] font-medium text-neutral-500">
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"></path>
+                </svg>
+                <span >14.3M</span>
+                <span class="hidden sm:flex">&nbsp;Pulls</span>
+              </span>
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z" />
+                </svg>
+                <span >5</span>
+                <span class="hidden sm:flex">&nbsp;Tags</span>
+              </span>
+              <span class="flex items-center" title="Oct 9, 2026 3:23 PM UTC">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"></path>
+                </svg>
+                <span class="hidden sm:flex">Updated&nbsp;</span>
+                <span >2 weeks ago</span>
+              </span>
+          </p>
+        </div>
+      </a>
+    </li>
+    <li  class="flex items-baseline border-b border-neutral-200 py-6">
+      <a href="/library/qwen3-coder" class="group w-full space-y-5">
+        <div  title="qwen3-coder" class="flex flex-col">
+          <h2 class="truncate text-xl font-medium underline-offset-2 md:text-2xl">
+            <div class="flex space-x-2 items-center">
+              <span class="group-hover:underline truncate">qwen3-coder</span>
+            </div>
+          </h2>
+          <p class="max-w-lg break-words text-neutral-800 text-md">Alibaba&#39;s performant long context models for agentic and coding tasks.</p>
+        </div>
+        <div class="flex flex-col space-y-2">
+          <div class="flex flex-wrap space-x-2">
+              <span  class="inline-flex items-center rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-600 sm:text-[13px]">tools</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">30b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">480b</span>
+          </div>
+          <p class="flex space-x-5 text-[13px] font-medium text-neutral-500">
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"></path>
+                </svg>
+                <span >10.4M</span>
+                <span class="hidden sm:flex">&nbsp;Pulls</span>
+              </span>
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z" />
+                </svg>
+                <span >9</span>
+                <span class="hidden sm:flex">&nbsp;Tags</span>
+              </span>
+              <span class="flex items-center" title="Sep 23, 2025 7:14 PM UTC">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"></path>
+                </svg>
+                <span class="hidden sm:flex">Updated&nbsp;</span>
+                <span >1 year ago</span>
+              </span>
+          </p>
+        </div>
+      </a>
+    </li>
+    <li  class="flex items-baseline border-b border-neutral-200 py-6">
+      <a href="/library/glm-ocr" class="group w-full space-y-5">
+        <div  title="glm-ocr" class="flex flex-col">
+          <h2 class="truncate text-xl font-medium underline-offset-2 md:text-2xl">
+            <div class="flex space-x-2 items-center">
+              <span class="group-hover:underline truncate">glm-ocr</span>
+            </div>
+          </h2>
+          <p class="max-w-lg break-words text-neutral-800 text-md">GLM-OCR is a multimodal OCR model for complex document understanding, built on the GLM-V encoder–decoder architecture.</p>
+        </div>
+        <div class="flex flex-col space-y-2">
+          <div class="flex flex-wrap space-x-2">
+            <span  class="inline-flex items-center rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-600 sm:text-[13px]">vision</span>
+              <span  class="inline-flex items-center rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-600 sm:text-[13px]">tools</span>
+          </div>
+          <p class="flex space-x-5 text-[13px] font-medium text-neutral-500">
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"></path>
+                </svg>
+                <span >8.7M</span>
+                <span class="hidden sm:flex">&nbsp;Pulls</span>
+              </span>
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z" />
+                </svg>
+                <span >3</span>
+                <span class="hidden sm:flex">&nbsp;Tags</span>
+              </span>
+              <span class="flex items-center" title="Oct 14, 2026 3:27 PM UTC">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"></path>
+                </svg>
+                <span class="hidden sm:flex">Updated&nbsp;</span>
+                <span >1 week ago</span>
+              </span>
+          </p>
+        </div>
+      </a>
+    </li>
+    <li  class="flex items-baseline border-b border-neutral-200 py-6">
+      <a href="/library/gemma" class="group w-full space-y-5">
+        <div  title="gemma" class="flex flex-col">
+          <h2 class="truncate text-xl font-medium underline-offset-2 md:text-2xl">
+            <div class="flex space-x-2 items-center">
+              <span class="group-hover:underline truncate">gemma</span>
+            </div>
+          </h2>
+          <p class="max-w-lg break-words text-neutral-800 text-md">Gemma is a family of lightweight, state-of-the-art open models built by Google DeepMind. Updated to version 1.1</p>
+        </div>
+        <div class="flex flex-col space-y-2">
+          <div class="flex flex-wrap space-x-2">
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">2b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">7b</span>
+          </div>
+          <p class="flex space-x-5 text-[13px] font-medium text-neutral-500">
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"></path>
+                </svg>
+                <span >8.4M</span>
+                <span class="hidden sm:flex">&nbsp;Pulls</span>
+              </span>
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z" />
+                </svg>
+                <span >102</span>
+                <span class="hidden sm:flex">&nbsp;Tags</span>
+              </span>
+              <span class="flex items-center" title="Apr 9, 2024 1:37 PM UTC">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"></path>
+                </svg>
+                <span class="hidden sm:flex">Updated&nbsp;</span>
+                <span >2 years ago</span>
+              </span>
+          </p>
+        </div>
+      </a>
+    </li>
+    <li  class="flex items-baseline border-b border-neutral-200 py-6">
+      <a href="/library/qwen" class="group w-full space-y-5">
+        <div  title="qwen" class="flex flex-col">
+          <h2 class="truncate text-xl font-medium underline-offset-2 md:text-2xl">
+            <div class="flex space-x-2 items-center">
+              <span class="group-hover:underline truncate">qwen</span>
+            </div>
+          </h2>
+          <p class="max-w-lg break-words text-neutral-800 text-md">Qwen 1.5 is a series of large language models by Alibaba Cloud spanning from 0.5B to 110B parameters</p>
+        </div>
+        <div class="flex flex-col space-y-2">
+          <div class="flex flex-wrap space-x-2">
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">0.5b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">1.8b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">4b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">7b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">14b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">32b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">72b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">110b</span>
+          </div>
+          <p class="flex space-x-5 text-[13px] font-medium text-neutral-500">
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"></path>
+                </svg>
+                <span >8.2M</span>
+                <span class="hidden sm:flex">&nbsp;Pulls</span>
+              </span>
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z" />
+                </svg>
+                <span >379</span>
+                <span class="hidden sm:flex">&nbsp;Tags</span>
+              </span>
+              <span class="flex items-center" title="Apr 26, 2024 8:31 PM UTC">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"></path>
+                </svg>
+                <span class="hidden sm:flex">Updated&nbsp;</span>
+                <span >2 years ago</span>
+              </span>
+          </p>
+        </div>
+      </a>
+    </li>
+    <li  class="flex items-baseline border-b border-neutral-200 py-6">
+      <a href="/library/bge-m3" class="group w-full space-y-5">
+        <div  title="bge-m3" class="flex flex-col">
+          <h2 class="truncate text-xl font-medium underline-offset-2 md:text-2xl">
+            <div class="flex space-x-2 items-center">
+              <span class="group-hover:underline truncate">bge-m3</span>
+            </div>
+          </h2>
+          <p class="max-w-lg break-words text-neutral-800 text-md">BGE-M3 is a new model from BAAI distinguished for its versatility in Multi-Functionality, Multi-Linguality, and Multi-Granularity.</p>
+        </div>
+        <div class="flex flex-col space-y-2">
+          <div class="flex flex-wrap space-x-2">
+              <span  class="inline-flex items-center rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-600 sm:text-[13px]">embedding</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">567m</span>
+          </div>
+          <p class="flex space-x-5 text-[13px] font-medium text-neutral-500">
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"></path>
+                </svg>
+                <span >8M</span>
+                <span class="hidden sm:flex">&nbsp;Pulls</span>
+              </span>
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z" />
+                </svg>
+                <span >3</span>
+                <span class="hidden sm:flex">&nbsp;Tags</span>
+              </span>
+              <span class="flex items-center" title="Aug 7, 2024 12:07 AM UTC">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"></path>
+                </svg>
+                <span class="hidden sm:flex">Updated&nbsp;</span>
+                <span >2 years ago</span>
+              </span>
+          </p>
+        </div>
+      </a>
+    </li>
+    <li  class="flex items-baseline border-b border-neutral-200 py-6">
+      <a href="/library/phi4" class="group w-full space-y-5">
+        <div  title="phi4" class="flex flex-col">
+          <h2 class="truncate text-xl font-medium underline-offset-2 md:text-2xl">
+            <div class="flex space-x-2 items-center">
+              <span class="group-hover:underline truncate">phi4</span>
+            </div>
+          </h2>
+          <p class="max-w-lg break-words text-neutral-800 text-md">Phi-4 is a 14B parameter, state-of-the-art open model from Microsoft.</p>
+        </div>
+        <div class="flex flex-col space-y-2">
+          <div class="flex flex-wrap space-x-2">
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">14b</span>
+          </div>
+          <p class="flex space-x-5 text-[13px] font-medium text-neutral-500">
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"></path>
+                </svg>
+                <span >7.8M</span>
+                <span class="hidden sm:flex">&nbsp;Pulls</span>
+              </span>
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z" />
+                </svg>
+                <span >5</span>
+                <span class="hidden sm:flex">&nbsp;Tags</span>
+              </span>
+              <span class="flex items-center" title="Jan 8, 2025 6:08 PM UTC">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"></path>
+                </svg>
+                <span class="hidden sm:flex">Updated&nbsp;</span>
+                <span >1 year ago</span>
+              </span>
+          </p>
+        </div>
+      </a>
+    </li>
+    <li  class="flex items-baseline border-b border-neutral-200 py-6">
+      <a href="/library/llama2" class="group w-full space-y-5">
+        <div  title="llama2" class="flex flex-col">
+          <h2 class="truncate text-xl font-medium underline-offset-2 md:text-2xl">
+            <div class="flex space-x-2 items-center">
+              <span class="group-hover:underline truncate">llama2</span>
+            </div>
+          </h2>
+          <p class="max-w-lg break-words text-neutral-800 text-md">Llama 2 is a collection of foundation language models ranging from 7B to 70B parameters.</p>
+        </div>
+        <div class="flex flex-col space-y-2">
+          <div class="flex flex-wrap space-x-2">
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">7b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">13b</span>
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">70b</span>
+          </div>
+          <p class="flex space-x-5 text-[13px] font-medium text-neutral-500">
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"></path>
+                </svg>
+                <span >7.6M</span>
+                <span class="hidden sm:flex">&nbsp;Pulls</span>
+              </span>
+              <span class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z" />
+                </svg>
+                <span >102</span>
+                <span class="hidden sm:flex">&nbsp;Tags</span>
+              </span>
+              <span class="flex items-center" title="Dec 27, 2023 9:21 PM UTC">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"></path>
+                </svg>
+                <span class="hidden sm:flex">Updated&nbsp;</span>
+                <span >2 years ago</span>
+              </span>
+          </p>
+        </div>
+      </a>
+    </li>
+   </ul>
+</div>
+  </main>
+</div>
+<footer class="mt-auto underline-offset-4">
+  <div class="flex flex-col items-center justify-center px-4 py-4 md:flex-row md:justify-between md:px-6 md:py-3.5 lg:px-gutter">
+    <div class="order-2 mt-2 text-sm text-neutral-500 md:order-1 md:mt-0 md:text-xs">&copy; 2026 Ollama</div>
+    <ul data-footer-links class="order-1 flex flex-wrap items-center justify-center text-sm text-neutral-500 md:order-2 md:gap-x-6 md:text-xs">
+      <li class="mx-2 my-1 md:mx-0 md:my-0">
+        <a href="/blog" class="hover:underline">Blog</a>
+      </li>
+      <li class="mx-2 my-1 md:mx-0 md:my-0">
+        <a href="https://docs.ollama.com" class="hover:underline">Docs</a>
+      </li>
+      <li class="mx-2 my-1 md:mx-0 md:my-0">
+        <a href="https://github.com/ollama/ollama" class="hover:underline">GitHub</a>
+      </li>
+      <li class="mx-2 my-1 md:mx-0 md:my-0">
+        <a href="https://discord.com/invite/ollama" class="hover:underline">Discord</a>
+      </li>
+      <li class="mx-2 my-1 md:mx-0 md:my-0">
+        <a href="https://twitter.com/ollama" class="hover:underline">X (Twitter)</a>
+      </li>
+      <li class="mx-2 my-1 md:mx-0 md:my-0">
+        <a href="mailto:support@ollama.com" class="hover:underline">Support</a>
+      </li>
+      <li class="mx-2 my-1 md:hidden">
+        <a href="https://lu.ma/ollama" class="hover:underline">Meetups</a>
+      </li>
+      <li class="mx-2 my-1 md:mx-0 md:my-0">
+        <a href="https://jobs.ashbyhq.com/ollama" class="hover:underline">Careers</a>
+      </li>
+      <li class="mx-2 my-1 md:mx-0 md:my-0">
+        <a href="/privacy" class="hover:underline">Privacy</a>
+      </li>
+      <li class="mx-2 my-1 md:mx-0 md:my-0">
+        <a href="/terms" class="hover:underline">Terms</a>
+      </li>
+    </ul>
+  </div>
+</footer>
+    <span class="hidden" id="end_of_template"></span>
+  </body>
+</html>

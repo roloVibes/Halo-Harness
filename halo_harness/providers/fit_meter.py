@@ -51,8 +51,9 @@ def _row_of(card: dict) -> Optional[dict]:
         return None
 
 
-def fit_meter(card: dict, host_card: Optional[dict], *, row: Optional[dict] = None) -> dict:
-    """See the module docstring."""
+def fit_meter(card: dict, host_card: Optional[dict], *, row: Optional[dict] = None, top: Optional[int] = None) -> dict:
+    """See the module docstring. `top` caps the windows tried (3.3.5.0 R2: the Library rates hundreds of rows at the
+    window picked; `gpu_window` then says "up to `top`" at most)."""
     kind = (card or {}).get("kind")
     w = (card or {}).get("window") or {}
     at = w.get("tokens") if isinstance(w.get("tokens"), int) else None
@@ -75,6 +76,8 @@ def fit_meter(card: dict, host_card: Optional[dict], *, row: Optional[dict] = No
         return _out("unknown", "the catalog row has no size or shape to work the fit out from", at)
     at = at or 4096
     kw = {**_kw(b, row), "metal": b["metal"], "cards": b["cards"]}
+    if isinstance(top, int) and top > 0:
+        kw["top"] = max(-(-top // 4096) * 4096, -(-at // 4096) * 4096)
     forced = fit_window(info, weight_bytes=size, free_bytes=b["budget"], forced=True, step=4096, **kw)
     loose = fit_window(info, weight_bytes=size, free_bytes=b["budget"], forced=False, step=4096, **kw)
     if forced is None:
@@ -87,7 +90,7 @@ def fit_meter(card: dict, host_card: Optional[dict], *, row: Optional[dict] = No
         return _out("tight", f"{at:,} stays on the GPU only with every layer forced on (up to {gpu:,}); Ollama's own "
                     f"fit moves layers to the CPU past {loose if isinstance(loose, int) else 0:,}{others}", at, gpu)
     need = need_bytes(info, weight_bytes=size, window=at, metal=b["metal"],
-                      **{k: v for k, v in kw.items() if k not in ("metal", "cards")}) or 0
+                      **{k: v for k, v in kw.items() if k not in ("metal", "cards", "top")}) or 0
     ram = (host_card or {}).get("ram_bytes")
     if isinstance(ram, int) and ram > 0 and need > b["budget"] + ram * RAM_SHARE:
         return _out("no", f"needs {_gib(need)} at {at:,}; the card has {_gib(b['budget'])} and the RAM "

@@ -142,3 +142,11 @@ A host is one server Halo sends local-model calls to: an `ollama.hosts` entry (`
 ## speed card
 
 A model's speed card is what a short benchmark of it on one host measures: its load time, its prompt and reply tokens per second at a few windows, the largest window that stays on the GPU and the reply reserve that avoids cuts. The benchmark comes in 3.3.5.0 R5 (Local -> Benchmarks, `halo local bench`); until then the model card's `speed` is empty and `halo ollama calibrate` measures the largest window alone. Once measured it sits beside the learned window in the fit store, shows on the model card and the fit meter, and reaches every machine through the fleet hub.
+
+## library
+
+The library is what could be installed on a host, as opposed to what is: Ollama's library at ollama.com (each model at its sizes and tags, the bytes from the registry's manifests) and the Hugging Face Hub's GGUF and MLX repos (each file with its size, gated and licence flags). Studio's Local -> Library (3.3.5.0 R2) lists both with each row's model card and a fit badge for the host and window you pick, and `halo models browse` prints the same rows; a shipped snapshot stands in for ollama.com offline. Nothing is pulled from there yet: each row's pull line copies (Pull lands in 3.3.5.0 R3).
+
+## quant
+
+A quant (quantization) is how many bits each weight of a model is stored in: Q4_K_M keeps about 4.8 bits a weight, Q8_0 8.5, F16 and BF16 16, an MLX repo says 4bit or 8bit. A smaller quant is a smaller file and less memory for the weights, at some cost in quality; the KV cache's own type (f16, q8_0) is a separate server setting. The library's rows say each tag's or file's quant, the filter keeps one, and the fit badge counts its bytes.

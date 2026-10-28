@@ -1,0 +1,123 @@
+{
+ "_id": "67dc9a4ba721706928dae6fe",
+ "id": "google/gemma-3-27b-it-qat-q4_0-gguf",
+ "private": false,
+ "pipeline_tag": "image-text-to-text",
+ "tags": [
+  "gguf",
+  "gemma",
+  "gemma3",
+  "image-text-to-text",
+  "arxiv:1905.07830",
+  "arxiv:1905.10044",
+  "arxiv:1911.11641",
+  "arxiv:1904.09728",
+  "arxiv:1705.03551",
+  "arxiv:1911.01547",
+  "arxiv:1907.10641",
+  "arxiv:1903.00161",
+  "arxiv:2009.03300",
+  "arxiv:2304.06364",
+  "arxiv:2103.03874",
+  "arxiv:2110.14168",
+  "arxiv:2311.12022",
+  "arxiv:2108.07732",
+  "arxiv:2107.03374",
+  "arxiv:2210.03057",
+  "arxiv:2106.03193",
+  "arxiv:1910.11856",
+  "arxiv:2502.12404",
+  "arxiv:2502.21228",
+  "arxiv:2404.16816",
+  "arxiv:2104.12756",
+  "arxiv:2311.16502",
+  "arxiv:2203.10244",
+  "arxiv:2404.12390",
+  "arxiv:1810.12440",
+  "arxiv:1908.02660",
+  "arxiv:2312.11805",
+  "base_model:google/gemma-3-27b-it",
+  "base_model:quantized:google/gemma-3-27b-it",
+  "license:gemma",
+  "endpoints_compatible",
+  "region:us",
+  "conversational"
+ ],
+ "downloads": 446,
+ "likes": 407,
+ "modelId": "google/gemma-3-27b-it-qat-q4_0-gguf",
+ "author": "google",
+ "sha": "17cf0f6ad611f1a57a1640daa57eb427d6e67ed6",
+ "lastModified": "2025-04-11T01:07:09.000Z",
+ "gated": "manual",
+ "disabled": false,
+ "widgetData": [
+  {
+   "text": "Hi, what can you help me with?"
+  },
+  {
+   "text": "What is 84 * 3 / 2?"
+  },
+  {
+   "text": "Tell me an interesting fact about the universe!"
+  },
+  {
+   "text": "Explain quantum computing in simple terms."
+  }
+ ],
+ "config": {},
+ "cardData": {
+  "license": "gemma",
+  "pipeline_tag": "image-text-to-text",
+  "extra_gated_heading": "Access Gemma on Hugging Face",
+  "extra_gated_prompt": "To access Gemma on Hugging Face, you’re required to review and agree to Google’s usage license. To do this, please ensure you’re logged in to Hugging Face and click below. Requests are processed immediately.",
+  "extra_gated_button_content": "Acknowledge license",
+  "base_model": "google/gemma-3-27b-it",
+  "tags": [
+   "gemma",
+   "gemma3"
+  ]
+ },
+ "gguf": {
+  "total": 27009002240,
+  "architecture": "gemma3",
+  "context_length": 131072,
+  "bos_token": "<bos>",
+  "eos_token": "<eos>",
+  "totalFileSize": 17229630496
+ },
+ "siblings": [
+  {
+   "rfilename": ".gitattributes",
+   "blobId": "c7d37a7f2b042cb8051ae2356e00b7ece65b0e7c",
+   "size": 5331
+  },
+  {
+   "rfilename": "README.md",
+   "blobId": "dc49c5412f72e89d4e5f6a36d64dd65ac209196f",
+   "size": 23478
+  },
+  {
+   "rfilename": "gemma-3-27b-it-q4_0.gguf",
+   "blobId": "9c9b272eeab55c65a3c62a97f0c41cb650468364",
+   "size": 17229630496,
+   "lfs": {
+    "sha256": "7b131f721b95bd06ef4066e18ed2febed15ad6620f61c6eaf37832837ca109fe",
+    "size": 17229630496,
+    "pointerSize": 136
+   }
+  },
+  {
+   "rfilename": "mmproj-model-f16-27B.gguf",
+   "blobId": "fe41d53d46e4f71320db3a2509323d2f86d796c9",
+   "size": 857739168,
+   "lfs": {
+    "sha256": "54cb61c842fe49ac3c89bc1a614a2778163eb49f3dec2b90ff688b4c0392cb48",
+    "size": 857739168,
+    "pointerSize": 134
+   }
+  }
+ ],
+ "createdAt": "2025-03-20T22:44:27.000Z",
+ "usedStorage": 52546630656
+}

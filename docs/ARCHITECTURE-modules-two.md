@@ -194,3 +194,12 @@ and `isolation/Dockerfile` the worker image.
   (`LocalTarget` = `local`, `local:<page>`, `?mode=local&page=hosts`), `local_tab_cli.py` (`halo local` opens it,
   `halo local hosts | models | resources` print) and `ui/src/routes/local/` (the page rail, the seven pages, the
   strips, the traffic view, the host cards, the model rows).
+- Local -> Library (3.3.5.0 R2, docs/STUDIO-local.md "Library"): `models_library/` -- `ollama_library.py`
+  (ollama.com/library and a model's tags page, parsed from HTML; `ShapeChanged` when the markup moves),
+  `ollama_registry.py` (the registry's manifest and config blob), `hf_hub.py` (the hub's search, a repo's files, its
+  config.json as a shape; the token for a gated repo), `snapshot.py` (`snapshot_ollama.json`, the shipped catalog),
+  `cache.py` (`<state>/cache/models-library.json` and the one fetch through `providers/http.urlopen_tls`), `shapes.py`
+  (a family's shape before it is installed), `row_builders.py` (LibraryRow from each listing), `rows.py`
+  (`card_for_row`, `fit_for_row`), `browse.py` (the query) -- with `studio/models_library_api.py` (the `local/library`
+  routes), `models_browse_cli.py` (`halo models browse`), `tools/library_snapshot.py` (takes the snapshot) and
+  `ui/src/routes/local/Library*.tsx` + `libstore.ts`.
