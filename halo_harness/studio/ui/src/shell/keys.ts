@@ -1,5 +1,6 @@
-// Global keys: Alt+1..8 switch sections in the registry's order (routes/index.tsx SECTIONS; 3.1.6.0 R6:
-// Session Alt+1 ... Orchestra Alt+6; 3.2.0.0 R6: Packs Alt+7; 3.3.0.0 R1: Setup Alt+8; 3.3.3.0 R2: Settings Alt+9, a pack's own section by its rail row), Ctrl/Cmd+K toggles the palette,
+// Global keys: Alt+1..9 (and the tenth, Local Alt+0) switch sections in the registry's order (routes/index.tsx SECTIONS; 3.1.6.0 R6:
+// Session Alt+1 ... Orchestra Alt+6; 3.2.0.0 R6: Packs Alt+7; 3.3.0.0 R1: Setup Alt+8; 3.3.3.0 R2: Settings Alt+9; 3.3.5.0 R1:
+// Local Alt+0, the tenth slot; a pack's own section by its rail row), Ctrl/Cmd+K toggles the palette,
 // `?` (Shift+/) opens "How this works" for the section (a focused panel
 // takes `?` first for its own help), Esc closes the palette, then the
 // Inspector. A key a panel, a menu or a dialog already handled (its default
@@ -22,7 +23,9 @@ export function useGlobalKeys(): void {
         studio.update((s) => ({ paletteOpen: !s.paletteOpen }));
         return;
       }
-      const def = e.altKey && !mod && !e.shiftKey && /^Digit[1-9]$/.test(e.code) ? sections()[Number(e.code.slice(5)) - 1] : undefined;
+      // 3.3.5.0 R1: Digit0 is the tenth slot (Local); Digit1..9 the first nine
+      const slot = /^Digit[0-9]$/.test(e.code) ? (Number(e.code.slice(5)) || 10) : 0;
+      const def = e.altKey && !mod && !e.shiftKey && slot ? sections()[slot - 1] : undefined;
       if (def && def.kbd) {
         e.preventDefault();
         goSection(def.id);

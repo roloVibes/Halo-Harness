@@ -1,6 +1,6 @@
 # Studio: how each section works
 
-Read this when you want the one-screen story of a section (Session, Team, Roles, Fleet, Design, Orchestra, Packs, Setup, Settings).
+Read this when you want the one-screen story of a section (Session, Team, Roles, Fleet, Design, Orchestra, Packs, Setup, Settings, Local).
 
 Part of [Halo Studio](STUDIO.md), which lists every part.
 
@@ -365,8 +365,8 @@ on the Team page (`?block=team`); `halo init --terminal` is the terminal wizard.
 
 ### Settings
 
-**What it is** (3.3.3.0). Every key of `~/.halo/config.json`, `Alt+9`: a group rail on the left (General, Agents and roles ...
-Local), one group's page on the right, one row per key with its help line, its control, a **default** marker while it is unset,
+**What it is** (3.3.3.0). Settings (`Alt+9`) is every key of `~/.halo/config.json`: a group rail on the left (General, Agents
+and roles ... the Local group), one group's page on the right, one row per key with its help line, its control, a **default** marker while it is unset,
 Reset to default and the exact `halo config set` line as its footer. A change saves at once and says when it takes effect (now,
 the next session, the next launch); the search box finds a row across every group, and the palette lists every row as `Settings:
 <title>`. All of it comes from one catalog, `halo_harness/settings_catalog.py` (docs/CONFIG.md's key table names each row's
@@ -376,3 +376,16 @@ page); nothing opens on its own. `halo settings fleet` opens the Fleet page (`?m
 **The Ollama page** (3.3.4.0) carries the steward's block above its rows: the job's status line, the model that writes
 its notes (automatic, none, or one of this machine's local models: `ollama.steward.model`), the mode (auto, review, off:
 `ollama.steward.apply`), the job switch and **Open the Ollama panel**; the thresholds stay ordinary rows below it.
+
+### Local
+
+**What it is** (3.3.5.0). Local (`Alt+0`, the tenth slot) holds everything about the machines that serve your local models
+and the models they serve, paged like Settings: a page rail on the left (Resources, Hosts, Models, then Library, Hugging Face,
+Benchmarks and Steward), one page on the right. **Resources** is the live view: a strip per host sampled once a second while
+the page is open (GPU use, VRAM and what holds it, RAM, CPU, the temperature, each number titled with its source) and the
+traffic view under it, every call to a local server as it happens with the steward's events inline. **Hosts** is every
+server Halo knows as a card with Load, Unload, keep-alive and Make it fit; **Models** is every installed model with its card,
+its fit meter and an intent filter. The four pages after them say what the next rounds put there and the commands that do it
+today. Nothing opens on its own; `halo local` opens it, `halo local hosts` on the Hosts page. The pages:
+[STUDIO-local.md](STUDIO-local.md).
+

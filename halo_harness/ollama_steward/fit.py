@@ -33,19 +33,24 @@ REPLY = 4096
 GIB = 2 ** 30
 
 
-def card_budget(card: dict) -> dict:
+def card_budget(card: dict, host_name: str = "") -> dict:
     """What models may hold on the card: the cards' total (on unified memory
-    the GPU's share, `available_bytes`), minus what other programs hold."""
+    the GPU's share, `available_bytes`), minus what other programs hold --
+    3.3.5.0 R1: the Local tab's newest sample of the host when it is newer
+    than the card (resources_share.others_for: a ComfyUI that just started)."""
     gpus = [g for g in (card or {}).get("gpus") or [] if isinstance(g, dict)]
     unified = bool((card or {}).get("unified"))
     key = "available_bytes" if unified else "total_bytes"
     total = sum(int(g.get(key) or g.get("total_bytes") or 0) for g in gpus)
     others = sum(int(u.get("bytes") or 0) for u in (card or {}).get("other_users") or [] if isinstance(u, dict))
+    from halo_harness.ollama_steward.resources_share import others_for
+    live = others_for(host_name, card) if host_name else None
+    others, others_from = (live, "sample") if live is not None else (others, "card")
     server = (card or {}).get("server") or {}
     return {"total": total, "others": others, "budget": max(0, total - others), "unified": unified,
             "metal": unified or any((g.get("library") or "") == "Metal" for g in gpus), "cards": max(1, len(gpus)),
             "bpe": kv_bytes_per_elem_for(server.get("kv_cache_type")), "kv": server.get("kv_cache_type") or "f16",
-            "parallel": server.get("parallel") or 1}
+            "parallel": server.get("parallel") or 1, "others_from": others_from}
 
 
 def _kw(b: dict, row: dict) -> dict:
@@ -83,7 +88,7 @@ def _gib(n) -> str:
 
 def plan(card: dict, asked: list, catalog: dict, *, host_name: str, other_hosts: Optional[Callable] = None) -> dict:
     """`asked`: [{model, window, max_prompt, calls, load_ms}] for one host."""
-    b = card_budget(card)
+    b = card_budget(card, host_name)
     items, missing = [], []
     for a in sorted(asked, key=lambda a: -(a.get("calls") or 0)):
         row = (catalog or {}).get(a["model"])

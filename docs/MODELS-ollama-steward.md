@@ -66,7 +66,10 @@ R2, every call leaves a record:
   session, when it differs) and `fitted` (a switch step ran before the
   call: [MODELS-switching.md](MODELS-switching.md)) and `body_flags`
   (`{think, tools, images}`: the think value the body sent, None when none,
-  and whether it carried a tool catalog and images). The OpenAI dialect
+  and whether it carried a tool catalog and images), and from 3.3.5.0 R1
+  `bytes_in` / `bytes_out` (the request body as sent, the reply as it
+  streamed). Every line written is published at once
+  (`ollama_steward/ledger_tap.py`) for Studio's Local tab. The OpenAI dialect
   fills the counts from `usage` and `done_reason` from `finish_reason`.
   The file rotates to `traffic.1.jsonl` at 20 MB; `ollama.ledger: false`
   turns it off. A fleet member sends its lines to the hub
@@ -299,7 +302,16 @@ Hugging Face local server is a host here too. Each host shows:
 
 A Hugging Face local server shows its rows from the ledger's OpenAI-dialect
 lines. The window and reply-reserve rules apply to it. The rest of Hugging
-Face moves to the Models section (3.3.5.0).
+Face moves to Local -> Hugging Face (3.3.5.0).
+
+**The panel is the short form of Local (3.3.5.0 R1).** Studio's Local
+section (`Alt+0`, [STUDIO-local.md](STUDIO-local.md)) holds the same hosts at
+full size: a live strip per host, every call as it happens, every host
+with Load / Unload / Make it fit, every model with its card. Each model row
+here has **open in Local**, which opens Local -> Models on that host. The
+panel and Local read each host's catalog through one cache keyed by its
+`/api/tags` (the per-model `/api/show` calls run again only when a model
+changed); before, the panel read every host's whole catalog each minute.
 
 How the panel stays live:
 

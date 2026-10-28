@@ -36,7 +36,7 @@ from tests.helpers.runner import Ctx, SkipTest, new_registry, print_results, run
 test, TESTS = new_registry()
 REPO = Path(__file__).resolve().parent.parent
 _RUN: dict = {}
-CORE = ["Session", "Team", "Roles", "Fleet", "Design", "Orchestra", "Packs", "Setup", "Settings"]  # 3.3.3.0 R2: + Settings
+CORE = ["Session", "Team", "Roles", "Fleet", "Design", "Orchestra", "Packs", "Setup", "Settings", "Local"]  # 3.3.3.0 R2: + Settings; 3.3.5.0 R1: + Local
 
 
 def _got(ctx: Ctx) -> dict:
@@ -62,7 +62,7 @@ def _got(ctx: Ctx) -> dict:
 def test_packs_is_the_seventh_section_on_alt_7(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"the six, then Packs, got {got.get('tabs')}", got.get("tabs") == CORE)
-    ctx.check(f"Alt+1..9, got {got.get('kbds')}", got.get("kbds") == [f"Alt+{n}" for n in range(1, 10)])
+    ctx.check(f"Alt+1..9 and Alt+0 (3.3.5.0 R1: Local), got {got.get('kbds')}", got.get("kbds") == [f"Alt+{n % 10}" for n in range(1, 11)])
     ctx.check(f"Alt+7 opens it, got {got.get('alt7')!r}", str(got.get("alt7")).startswith("Packs"))
     ctx.check(f"its five panels, got {got.get('panels')}", got.get("panels") == ["Installed", "Details", "Sources", "Settings", "Templates"])
     ctx.check("nothing installed yet; Sources offers the shipped pack", got.get("empty") is True and got.get("source_install") == "Install")

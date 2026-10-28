@@ -21,12 +21,14 @@ A line (`blank_line` has every field, `None` when unknown):
     switched_from (3.3.5.0 R0: the previous call's model in this session when
     it differs), fitted (a switch step ran before this call), body_flags
     (3.3.5.0 R0b: {think, tools, images} -- the think value the body sent,
-    None when it sent none; whether it carried a tool catalog and images)
+    None when it sent none; whether it carried a tool catalog and images),
+    bytes_in / bytes_out (3.3.5.0 R1: the request body's size, the reply's)
 
 `from` is this machine's fleet name while it has joined a hub (None
 otherwise); the hub sets it to the member's name on the lines a member
 forwards (fleet/ollama_share.py). `ollama.ledger: false` turns recording
-off. A write that fails is logged at DEBUG and never fails the call.
+off. A write that fails is logged at DEBUG and never fails the call. 3.3.5.0
+R1: every line written is published (ledger_tap.py: the Local tab's traffic).
 """
 
 from __future__ import annotations
@@ -48,7 +50,7 @@ KINDS = ("turn", "compaction", "calibrate", "small", "repair")
 FIELDS = ("at", "host", "model", "ref", "dialect", "kind", "num_ctx_sent", "window_source", "estimate_tokens",
           "prompt_eval_count", "eval_count", "done_reason", "total_ms", "load_ms", "prompt_eval_ms", "eval_ms",
           "eval_tok_s", "trimmed", "status", "error", "retry", "session", "turn", "tools_count", "images", "from",
-          "switched_from", "fitted", "body_flags")
+          "switched_from", "fitted", "body_flags", "bytes_in", "bytes_out")
 _SINCE_RE = re.compile(r"^\s*(\d+(?:\.\d+)?)\s*([smhdw]?)\s*$", re.IGNORECASE)
 _UNIT_S = {"": 3600, "s": 1, "m": 60, "h": 3600, "d": 86400, "w": 7 * 86400}
 
@@ -57,7 +59,7 @@ def ledger_dir(state_dir) -> Path:
     return Path(state_dir) / "ollama"
 
 
-def traffic_path(state_dir) -> Path:
+def traffic_path(state_dir) -> Path:  # noqa: E302
     return ledger_dir(state_dir) / TRAFFIC_FILE
 
 
@@ -125,30 +127,27 @@ def timing_fields(t: dict) -> dict:
     """Ollama's nanosecond fields -> the line's milliseconds and the eval rate."""
     t = t or {}
     ev, ev_ns = t.get("eval_count"), t.get("eval_duration")
-    rate = round(ev / (ev_ns / 1e9), 2) if isinstance(ev, int) and isinstance(ev_ns, (int, float)) and ev_ns > 0 \
-        else None
+    ok = isinstance(ev, int) and isinstance(ev_ns, (int, float)) and ev_ns > 0
+    rate = round(ev / (ev_ns / 1e9), 2) if ok else None
     return {"prompt_eval_count": t.get("prompt_eval_count"), "eval_count": ev, "total_ms": _ms(t.get("total_duration")),
             "load_ms": _ms(t.get("load_duration")), "prompt_eval_ms": _ms(t.get("prompt_eval_duration")),
             "eval_ms": _ms(ev_ns), "eval_tok_s": rate}
 
 
 def same_file(saved_head: str, head: str) -> bool:
-    """Is a file whose first bytes are `head` the one whose first bytes were
-    `saved_head`? (A short file grows, so one may be a prefix of the other.)"""
+    """Is a file whose first bytes are `head` the one whose first bytes were `saved_head`? (one may prefix the other)"""
     return head.startswith(saved_head) or saved_head.startswith(head)
 
 
 def _rotate(path: Path) -> None:
     try:
-        if path.stat().st_size >= ROTATE_BYTES:
-            os.replace(path, path.with_name(ROTATED_FILE))
+        path.stat().st_size >= ROTATE_BYTES and os.replace(path, path.with_name(ROTATED_FILE))
     except OSError:
         pass
 
 
 def append_lines(state_dir, lines: "list[dict]") -> int:
-    """Append whole lines (the hub's side, and `record_call`'s); returns how
-    many were written."""
+    """Append whole lines (the hub's side, and `record_call`'s); returns how many were written."""
     if not lines:
         return 0
     from halo_harness.filelock import file_lock
@@ -160,6 +159,8 @@ def append_lines(state_dir, lines: "list[dict]") -> int:
             _rotate(path)
             with open(path, "a", encoding="utf-8", newline="\n") as f:
                 f.write(data)
+        from halo_harness.ollama_steward import ledger_tap
+        ledger_tap.lines(state_dir, lines)
         return len(lines)
     except OSError:
         log.debug("ollama ledger: could not write %s", path, exc_info=True)

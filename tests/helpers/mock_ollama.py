@@ -7,7 +7,9 @@ there rather than duplicated) -- serves `GET /api/version`, `GET
 `done_reason` value, timing fields, and a "what did you actually send"
 echo scenario for pinning `options.num_ctx`/`keep_alive`/`think` on the
 wire); Halo 3.2.3.0 R3: a derived-model `/api/create` (`from` +
-`parameters`) and `DELETE /api/delete` (tests/helpers/mock_ollama_create.py).
+`parameters`) and `DELETE /api/delete` (tests/helpers/mock_ollama_create.py);
+Halo 3.3.5.0 R1: `POST /api/generate` with no prompt, the load / unload
+(tests/helpers/mock_ollama_generate.py).
 Never a literal LAN address anywhere in this file
 (`tests/test_privacy_scan.py`).
 """
@@ -397,6 +399,11 @@ class _Handler(BaseHTTPRequestHandler):
                 with mock._lock:
                     mock.disconnect_events.append({"scenario": f"create:{name}", "ts": time.monotonic()})
             return
+        if path == "/api/generate":  # Halo 3.3.5.0 R1: the load / unload (tests/helpers/mock_ollama_generate.py)
+            from tests.helpers.mock_ollama_generate import apply_generate
+            status, obj = apply_generate(self.server.mock, body)  # type: ignore[attr-defined]
+            send_json(self, status, obj)
+            return
         if path == "/api/chat":
             scenario = (body or {}).get("model") or ""
             fn = mock.scenarios.get(scenario)
@@ -485,6 +492,7 @@ class MockUpstream:
         # server that leaves `details.parent_model` empty on a derived model
         self.created: list = []
         self.deleted: list = []
+        self.generated: list = []  # Halo 3.3.5.0 R1: the /api/generate loads and unloads seen
         self.create_records_parent = True
 
     def _begin_load(self, model: str, body) -> None:

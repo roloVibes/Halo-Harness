@@ -191,7 +191,7 @@ it; Save writes the lineup's YAML and Apply makes it the lineup new sessions use
 
 ### Six sections, one window
 
-<a href="docs/media/studio-modes.png"><img alt="Halo Studio's nine sections side by side, each under its key: Session (Alt+1), Team (Alt+2), Roles (Alt+3), Fleet (Alt+4), Design (Alt+5), Orchestra (Alt+6), Packs (Alt+7), Setup (Alt+8) and Settings (Alt+9)" src="docs/media/studio-modes.png" width="100%"></a>
+<a href="docs/media/studio-modes.png"><img alt="Halo Studio's ten sections side by side, each under its key: Session (Alt+1), Team (Alt+2), Roles (Alt+3), Fleet (Alt+4), Design (Alt+5), Orchestra (Alt+6), Packs (Alt+7), Setup (Alt+8), Settings (Alt+9) and Local (Alt+0)" src="docs/media/studio-modes.png" width="100%"></a>
 
 `Alt+1` to `Alt+6` switch between **Session**, **Team**, **Roles**, **Fleet**,
 **Design** and **Orchestra**. Each section opens on a Start view that says what it is for,
@@ -215,6 +215,11 @@ The ninth, **Settings** (`Alt+9`, 3.3.3.0), is every key of `~/.halo/config.json
 each key a row with its help line, its value against its default, Reset to default and the exact
 `halo config set` line; a change saves at once and says when it takes effect, and a search finds a key
 across every group. `halo settings fleet` opens its Fleet page. See [docs/CONFIG.md](docs/CONFIG.md).
+
+The tenth, **Local** (`Alt+0`, 3.3.5.0), is the machines that serve your local models and the models they serve:
+this machine's GPU, VRAM, RAM and CPU live, every call to a local server as it happens, every host Halo knows with
+Load, Unload and Make it fit, and every installed model with its card, its fit meter and an intent filter (code,
+chat, long documents, images, embed). `halo local` opens it. See [docs/STUDIO-local.md](docs/STUDIO-local.md).
 
 The pictures here are headless-Chrome renders of Studio over fixture data
 (`tools/capture_studio.py`, and `tools/capture_session_anim.py` for the animated ones).

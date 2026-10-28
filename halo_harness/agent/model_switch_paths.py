@@ -5,6 +5,11 @@ step's other callers (`agent/model_switch.py` holds the step):
   window below the live prompt: the step, before the next call (`_step`);
 - `resumed_on_another_model` -- a resumed log whose last model is not the
   session's (`halo -p --model X --resume`): the step at session start;
+- `start_check` -- 3.3.5.0 R1: a session that STARTS on a local model whose card
+  says no tools (or no vision with images in the history, or a window the
+  history does not fit): the step at its first call (`why: "start"`), so the
+  tool catalog is dropped, the reserve set and the line said before anything
+  is sent (the steward's `called-wrong` has nothing to flag);
 - `drain_lines` -- the switch lines the step queued, said by the next step;
 - `summary_window` -- the summariser's own window, checked before the
   summary call (`_run_compaction`).
@@ -54,6 +59,37 @@ def resumed_on_another_model(session, nodes) -> Optional[dict]:
         return report
     except Exception:
         log.debug("model_switch: the resume check failed", exc_info=True)
+        return None
+
+
+def start_check(session) -> Optional[dict]:
+    """Once per session, before its first call: the step for a local model the session started on that cannot
+    take what it would be sent (no tools, images without vision, a history over its window)."""
+    if getattr(session, "_switch_start_seen", False):
+        return None
+    session._switch_start_seen = True
+    if getattr(session, "_switch_caps", None):  # a resume or a /model already fitted it
+        return None
+    try:
+        from halo_harness.agent.model_switch import after_line, history, plan
+        from halo_harness.agent.model_window import kind_of
+        ref = getattr(session, "model_ref", None)
+        if ref is None or kind_of(ref) == "cloud":
+            return None
+        report = plan(session, ref, model_profile=getattr(session, "model_profile", None), why="start")
+        conv = report.get("converted") or {}
+        # the window counts only for a history the session brings with it (a fresh first prompt is the per-call fit's:
+        # it raises the window first) and only against a window that is known, not the server's default
+        _sys, messages, _tools = history(session)
+        brought = any(isinstance(m, dict) and m.get("role") == "assistant" for m in messages or [])
+        window_short = report["needs_compaction"] and brought and report.get("source") not in ("server default", "unknown")
+        if (report.get("caps") or {}).get("tools") is not False and not conv.get("images") and not window_short:
+            return None
+        report = fit_session_to(session, why="start", prev_ref=ref)
+        session._switch_lines.append(after_line(report))
+        return report
+    except Exception:
+        log.debug("model_switch: the start check failed", exc_info=True)
         return None
 
 

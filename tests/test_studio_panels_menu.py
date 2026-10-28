@@ -13,7 +13,7 @@ no provider request, no model call:
    ? reaches too;
 4. Fleet's "+" adds the optional Tree panel (the tree the expanded rail used to carry), the strips read "bring
    back"; Orchestra's "+" carries its RUNS group with New run; the rail holds the section rows and the chevron
-   only, in both widths (<= 200 px expanded); Setup (paged) has no "+", no "..." and no badge.
+   only, in both widths (<= 200 px expanded); Setup and Local (paged) have no "+", no "..." and no badge.
 Run: python -m tests.test_studio_panels_menu
 """
 from __future__ import annotations
@@ -127,6 +127,7 @@ def test_fleet_tree_orchestra_runs_setup_and_the_rail(ctx: Ctx):
     ctx.check(f"the rail: sections only, in both widths, <= 200 px expanded, got {got.get('rail_icons')} {got.get('rail_open')} {got.get('rail_open_w')}",
               got.get("rail_icons") == only and got.get("rail_open") == only and 64 < (got.get("rail_open_w") or 0) <= 200)
     ctx.check(f"Setup: no +, no ..., no badge, got {got.get('setup')}", got.get("setup") == [False, False, False])
+    ctx.check(f"3.3.5.0 R1: Local (paged) the same, got {got.get('local')}", got.get("local") == [False, False, False])
 
 
 if __name__ == "__main__":

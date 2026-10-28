@@ -11,12 +11,14 @@
 // `?mode=session&session=` is read by routes/session/store.ts itself.
 // 3.3.0.0 R4: Setup's doors (`?mode=setup&first=1`, `&block=team`, and a frame
 // `{mode: "setup", block, first}`) go to routes/setup/door.ts; 3.3.3.0 R2: Settings' (`?mode=settings&group=`, a
-// frame `{mode: "settings", group}`) to routes/settings/door.ts.
+// frame `{mode: "settings", group}`) to routes/settings/door.ts; 3.3.5.0 R1: Local's (`?mode=local&page=`, a frame
+// `{mode: "local", page}`) to routes/local/door.ts.
 import { onEvent } from "../lib/events";
 import { goSection, SECTION_IDS, type SectionId } from "../lib/store";
 import { openSession } from "../routes/session/store";
 import { applyDoor, doorFromUrl } from "../routes/setup/door";
 import { applyDoor as applySettingsDoor, doorFromUrl as settingsDoorFromUrl } from "../routes/settings/door";
+import { applyDoor as applyLocalDoor, doorFromUrl as localDoorFromUrl } from "../routes/local/door";
 import { start } from "../lib/start";
 import { focusPanel, layoutStore, patchPanel } from "../lib/workspace/persist";
 import { openBio } from "../routes/roles/bioActions";
@@ -86,13 +88,16 @@ export function installEdit(): void {
   if (door) applyDoor(door);
   const settingsDoor = settingsDoorFromUrl(); // 3.3.3.0 R2: `?mode=settings&group=fleet` (halo settings fleet)
   if (settingsDoor) applySettingsDoor(settingsDoor);
+  const localDoor = localDoorFromUrl(); // 3.3.5.0 R1: `?mode=local&page=hosts` (halo local hosts)
+  if (localDoor) applyLocalDoor(localDoor);
   onEvent("focus", (f) => {
-    const d = (f.data || {}) as { edit?: string; mode?: string; session?: string; block?: string; first?: boolean; group?: string };
+    const d = (f.data || {}) as { edit?: string; mode?: string; session?: string; block?: string; first?: boolean; group?: string; page?: string };
     const target = parseEdit(String(d.edit || ""));
     const mode = String(d.mode || "") as SectionId;
     if (target) void applyEdit(target);
     else if (mode === "setup") applyDoor({ block: String(d.block || ""), first: !!d.first });
     else if (mode === "settings") applySettingsDoor({ group: String(d.group || "") });
+    else if (mode === "local") applyLocalDoor({ page: String(d.page || "") });
     else if (mode === "session") openSession({ session: String(d.session || "") });
     else if ((SECTION_IDS as string[]).includes(mode)) goSection(mode);
     else return;

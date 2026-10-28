@@ -32,7 +32,8 @@ REPO = Path(__file__).resolve().parent.parent
 BRIEF = ("lineup", "bio", "role", "tier", "team", "member", "block", "stage", "lane", "part", "step", "mission",
          "gate", "claim", "hand-off", "plan", "coach", "orchestra run", "fleet", "hub", "harness", "capability", "unit",
          "pack", "guided first run", "setup", "provider", "env file",
-         "config key", "steward", "profile", "fit plan")  # 3.2.1.0 R1: "pack"; 3.2.2.0 R2: "guided first run"; 3.3.0.0 R1: Setup's three; 3.3.3.0 R2: Settings' one; 3.3.4.0 R5: the steward's three
+         "config key", "steward", "profile", "fit plan",
+         "host", "speed card")  # 3.2.1.0 R1: "pack"; 3.2.2.0 R2: "guided first run"; 3.3.0.0 R1: Setup's three; 3.3.3.0 R2: Settings' one; 3.3.4.0 R5: the steward's three; 3.3.5.0 R1: Local's two
 
 
 def _explain(*argv):
@@ -70,7 +71,7 @@ def test_every_word_studio_help_names_exists(ctx: Ctx):
     words = set(G.load())
     src = (REPO / "halo_harness" / "studio" / "ui" / "src" / "routes" / "sectionHelp.ts").read_text(encoding="utf-8")
     blocks = re.findall(r"terms: \[([^\]]*)\]", src)
-    ctx.check(f"nine sections name their words (3.2.0.0 R6: and Packs; 3.3.0.0 R1: and Setup; 3.3.3.0 R2: and Settings), got {len(blocks)}", len(blocks) == 9)
+    ctx.check(f"ten sections name their words (3.2.0.0 R6: and Packs; 3.3.0.0 R1: and Setup; 3.3.3.0 R2: and Settings; 3.3.5.0 R1: and Local), got {len(blocks)}", len(blocks) == 10)
     named = [w for b in blocks for w in re.findall(r'"([^"]+)"', b)]
     missing = sorted({w for w in named if w not in words})
     ctx.check(f"every named word has a paragraph, missing: {missing}", named and not missing)

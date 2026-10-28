@@ -65,6 +65,8 @@ def record_events(state_dir, events: list, *, host: Optional[str] = None, quiet:
                     f.write(json.dumps(row, ensure_ascii=False, default=str) + "\n")
     except OSError:
         return []
+    from halo_harness.ollama_steward import ledger_tap  # 3.3.5.0 R1: the Local tab's traffic shows them inline
+    ledger_tap.events(state_dir, rows)
     return rows
 
 

@@ -138,7 +138,7 @@ def plan(session, ref, *, model_profile=None, why: str = "/model", readers=None,
 
 
 LEADS = {"profile": "the steward profile lowered {to}'s window", "resume": "resumed on {to}",
-         "auto": "the task runs on {to}"}
+         "auto": "the task runs on {to}", "start": "this session runs on {to}"}  # start: 3.3.5.0 R1
 
 
 def line_for(r: dict) -> str:
