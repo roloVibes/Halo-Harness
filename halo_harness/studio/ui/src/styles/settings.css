@@ -81,3 +81,11 @@
   .st-scroll { padding: 8px; }
   .st-page-card { padding: 12px; }
 }
+
+/* 3.3.5.0 R0 (f): a model row -- the text field and the catalog's every model (fields/ModelField.tsx) */
+.st-model { display: grid; gap: 6px; flex: 1 1 260px; max-width: 520px; min-width: 0; }
+.st-model-open { justify-self: start; background: none; border: 0; padding: 0; cursor: pointer; font-size: 12px; text-decoration: underline; }
+.st-model-list { display: grid; gap: 6px; }
+.st-model-rows { display: grid; max-height: 260px; overflow: auto; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg-2); }
+.st-model-row { display: flex; justify-content: space-between; gap: 8px; padding: 4px 8px; border: 0; background: none; color: inherit; text-align: left; cursor: pointer; font-size: 12px; }
+.st-model-row:hover, .st-model-row[aria-pressed="true"] { background: var(--accent-soft); }

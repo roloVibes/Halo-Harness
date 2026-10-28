@@ -455,6 +455,11 @@ class ModelPicker(ModalScreen):
         row because..." note) leads, when there is one."""
         lines = [self.initial_hint] if self.initial_hint else []
         lines += [f"  {h}" for h in self.hints]
+        # Halo 3.3.5.0 R0 (f): every row is listed, and the count says how many (never a silent cut)
+        pool = self._effective_models() if getattr(self, "_source", "models") == "models" else []
+        shown = len(getattr(self, "_filtered", None) or [])
+        if pool:
+            lines.append(f"{shown} of {len(pool)} models" if shown != len(pool) else f"{len(pool)} models")
         return "\n".join(lines)
 
     # -- Halo 2.0.5 round 2 (deliverable 2): the Agents source -------------

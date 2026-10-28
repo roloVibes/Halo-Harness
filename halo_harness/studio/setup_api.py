@@ -103,10 +103,11 @@ def post_team(req):
         return _refused(["the body needs lineup: a lineup name, one-model or auto"])
     if not _known(name, req):
         return _refused([f"no lineup named {name!r} here (halo teams list names them)"])
-    ok, line, _kind = apply_lineup_choice(name, cwd=req.cwd, state_dir=req.state_dir)
+    details: list = []
+    ok, line, _kind = apply_lineup_choice(name, cwd=req.cwd, state_dir=req.state_dir, details=details)
     if not ok:
         return _refused([line])
-    return 200, {**_state(req), "lines": [line]}
+    return 200, {**_state(req), "lines": [line], "details": details}  # 3.3.5.0 R0 (h): the per-role notes
 
 
 def get_preview(req, name: str):

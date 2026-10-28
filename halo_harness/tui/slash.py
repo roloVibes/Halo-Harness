@@ -542,6 +542,11 @@ def _effort_status_text(session) -> "str | None":
     same wording the bare `/effort` card/text use -- never just the sent
     value alone with no explanation of why it isn't what was asked for."""
     from halo_harness.providers.profiles import effort_display_override
+    if session is not None:  # Halo 3.3.5.0 R0 (e): a local model shows what the level does there
+        from halo_harness.providers.effort_on import local_word
+        word = local_word(session)
+        if word:
+            return word
     profile = getattr(session, "provider_profile", None) if session is not None else None
     override = effort_display_override(profile)
     if override:

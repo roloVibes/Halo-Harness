@@ -51,3 +51,4 @@ check keeps the tags and the rows in step.
 | S37 | Halo's roadmap, 3.3.4.0 "The Ollama steward" (the three parked bugs) | repo:plans/ROADMAP.md | Halo 3.3.3.0 candidate (e3a98d2) | 2026-10-27 |
 | S38 | llama.cpp server request queue (`tools/server/server-queue.cpp`) | https://github.com/ggml-org/llama.cpp/blob/19ff817fb25e/tools/server/server-queue.cpp | 19ff817fb25e | 2026-10-27 |
 | S39 | Halo's corrected fit arithmetic | repo:halo_harness/providers/ollama_fit_parts.py | Halo 3.3.4.0 R3 | 2026-10-27 |
+| S40 | Halo's roadmap, 3.3.5.0 R0 "the switch: a session fits the model it moves to" | repo:plans/ROADMAP.md | Halo 3.3.4.0 (8a14695) | 2026-10-27 |

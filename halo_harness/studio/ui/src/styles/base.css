@@ -123,7 +123,8 @@ a { color: var(--accent); }
 .dialog-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--line); }
 
 /* -- toasts ---------------------------------------------------------------- */
-.toasts { position: fixed; right: 16px; bottom: 44px; z-index: 90; display: grid; gap: 8px; justify-items: end; pointer-events: none; }
+/* 3.3.5.0 R0 (h): top right under the header on every section, never over a page's foot (Setup's Back / Next) */
+.toasts { position: fixed; right: 16px; top: calc(var(--topbar-h) + 8px); z-index: 90; display: grid; gap: 8px; justify-items: end; pointer-events: none; }
 .toast {
   position: relative; overflow: hidden; display: flex; align-items: center; gap: 10px; padding: 10px 14px; max-width: 420px;
   background: var(--surface-glass); border: 1px solid var(--line-strong); border-radius: var(--radius); box-shadow: var(--glow);
@@ -132,6 +133,9 @@ a { color: var(--accent); }
 .toast-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex: none; }
 .toast-done .toast-dot { background: var(--ok); }
 .toast-error .toast-dot { background: var(--bad); }
+
+/* -- a long list, a window at a time (lib/ui/WindowedRows, 3.3.5.0 R0) -- */
+.wrows-chunk { display: grid; gap: inherit; content-visibility: auto; contain-intrinsic-size: auto 2400px; }
 
 /* -- empty / skeleton / error ------------------------------------------ */
 .empty { display: grid; justify-items: center; align-content: center; gap: 10px; text-align: center; padding: 24px; height: 100%; }

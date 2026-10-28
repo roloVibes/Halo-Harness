@@ -46,7 +46,10 @@ def prepare_window(session, *, host, ref, decision, base_num_ctx: int, base_sour
     st = _state(session)
     key = (host.url, ref.model)
     reserve = reply_reserve(reply_tokens)
-    estimate = estimate_request_tokens(messages, tools, system_text, reply_tokens=reply_tokens)
+    if ref is session.model_ref and getattr(session, "_switch_reserve", None):  # 3.3.5.0 R0: the switch's reserve
+        reserve = max(reserve, int(session._switch_reserve))
+    estimate = estimate_request_tokens(messages, tools, system_text, reply_tokens=reply_tokens) \
+        + max(0, reserve - reply_reserve(reply_tokens))
     factor = st["factor"].get(key, 1.0)
     profile = getattr(decision, "profile", None) or {}  # 3.3.4.0 R3: the reply's room never under its num_predict
     choice = window_for(estimate, decision, base=base_num_ctx, base_source=base_source, factor=factor,

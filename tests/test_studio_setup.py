@@ -155,7 +155,8 @@ def test_a_provider_key_saved_and_masked(ctx: Ctx):
     ctx.check(f"not set before; a password field that says paste a key, got {got.get('or_before')!r} {got.get('or_field_type')!r}",
               got.get("or_before") == "not set" and got.get("or_field_type") == "password" and got.get("or_placeholder") == "paste a key")
     ctx.check(f"Save & test wrote the env file in the test home, got {got.get('env_has_key')}", got.get("env_has_key") is True)
-    ctx.check(f"the card: set, from the env file, the tail, got {got.get('or_state')!r}", got.get("or_state") == "set, from the env file, ****3344")
+    ctx.check(f"the card: the key set, its tail, typed here (3.3.5.0 R0 (g)), got {got.get('or_state')!r}",
+              got.get("or_state") == "key set (****3344), typed here")
     ctx.check(f"the lines: written, then the offline test, got {got.get('or_lines')!r}",
               str(got.get("or_lines")).startswith("wrote OPENROUTER_API_KEY to ") and "reachable: not checked" in str(got.get("or_lines")))
     ctx.check(f"enabled, the field empty again, got {got.get('or_enabled')!r} {got.get('or_field_after')!r}",

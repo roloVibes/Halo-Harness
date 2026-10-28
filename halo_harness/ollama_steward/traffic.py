@@ -84,8 +84,17 @@ def rollup(lines: list, hosts: list) -> list:
                      "reloads": sum(1 for x in ls if isinstance(x.get("load_ms"), (int, float))
                                     and x["load_ms"] > RELOAD_MS),
                      "eval_tok_s": percentile([x.get("eval_tok_s") for x in ls], 50),
-                     "machines": dict(machines)})
+                     "machines": dict(machines), "model_window": _model_window(g)})
     return rows
+
+
+def _model_window(g: dict) -> Optional[dict]:
+    """3.3.5.0 R0: the model's window on this host and its source (`agent/model_window.window_of`)."""
+    if g.get("host_obj") is None:
+        return None
+    from halo_harness.agent.model_window import window_on_host
+    w = window_on_host(g["model"], g["host_obj"])
+    return {"tokens": w.get("tokens"), "source": w.get("source")}
 
 
 def _k(n) -> str:
@@ -105,7 +114,12 @@ def format_row(r: dict) -> str:
     failed = f", other failures {r['failed']}" if r["failed"] else ""
     return (f"  {r['model']}: {r['calls']} calls{comp}; prompt p50 {_k(r['p50_prompt'])} / p95 {_k(r['p95_prompt'])}"
             f"{window}; trims {r['trims']}, cuts {r['cuts']}; 499 {r['s499']}, 500 {r['s500']}, timeouts "
-            f"{r['timeouts']}{failed}; reloads {r['reloads']}; eval {rate}; from {who}")
+            f"{r['timeouts']}{failed}; reloads {r['reloads']}; eval {rate}; from {who}{_window_part(r)}")
+
+
+def _window_part(r: dict) -> str:
+    w = r.get("model_window") or {}
+    return f"; window {w['tokens']:,} ({w.get('source')})" if w.get("tokens") else ""
 
 
 def card_summary(host) -> str:

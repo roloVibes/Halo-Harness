@@ -8,15 +8,16 @@
 // (`POST models/test`) and shows ok and the latency, or the error, right
 // under it. 3.1.9.0 R3: the "learned" chips per task kind (LearnedChips.tsx)
 // and a "learned for" select that strikes the models dropped for that kind.
+// 3.3.5.0 R0 (f): every row is drawn (lib/ui/WindowedRows past 200), with a
+// count line; (e) a local row carries its effort word (think on/off, effort n/a).
 import { useMemo, useState } from "react";
-import { Button } from "../../lib/ui";
+import { Button, WindowedRows } from "../../lib/ui";
 import { testModel } from "./bioActions";
 import { LearnedChips, droppedFor, learnedKinds } from "./LearnedChips";
 import { useRoles } from "./store";
 import type { ModelRow } from "./types";
 
 type Sort = "name" | "price" | "context" | "best";
-const MAX_ROWS = 150;
 const money = (v: number | null) => (typeof v === "number" ? "$" + (v < 1 ? v.toFixed(2) : v.toFixed(v < 10 ? 2 : 0)) : "?");
 
 export function TestButton({ value }: { value: string }) {
@@ -41,7 +42,10 @@ function BestAt({ m, kinds, task }: { m: ModelRow; kinds: string[]; task: string
   const line = m.best_at?.line || "";
   return (
     <span className="rm-best" data-testid="model-best-at" title={line || undefined}>
-      <span className="rm-kinds">{kinds.slice(0, 4).map((k) => <span key={k} className="og-chip mono" data-kind={k}>{k}</span>)}</span>
+      <span className="rm-kinds">
+        {kinds.slice(0, 4).map((k) => <span key={k} className="og-chip mono" data-kind={k}>{k}</span>)}
+        {m.effort_word ? <span className="og-chip mono" data-testid="model-effort" title="what the effort level does on this model">{m.effort_word}</span> : null}
+      </span>
       {line && <span className="rm-line muted" data-testid="model-best-line">{line}</span>}
       <LearnedChips m={m} kind={task} />
     </span>
@@ -97,9 +101,11 @@ export function ModelPicker({ value, onPick }: { value: string; onPick: (ref: st
       ) : !models.length ? (
         <p className="muted" data-testid="models-empty">No models in the catalog yet: the Models panel says why and has Refresh.</p>
       ) : (
+        <>
+        <div className="muted mono rm-count" data-testid="model-count">{q.trim() ? `${rows.length} of ${models.length} models` : `${models.length} models`}</div>
         <div className="rm-table" role="listbox" aria-label="Models">
           <div className="rm-row rm-head mono" aria-hidden="true"><span>model</span><span>in / out</span><span>ctx</span><span>best at</span><span>gym</span></div>
-          {rows.slice(0, MAX_ROWS).map((m) => {
+          <WindowedRows items={rows} render={(m) => {
             const dropped = droppedFor(m, task);
             const l = dropped ? m.learned?.[task] : undefined;
             return (
@@ -113,10 +119,10 @@ export function ModelPicker({ value, onPick }: { value: string; onPick: (ref: st
                 <span className="mono">{gym[m.ref] ? gym[m.ref].score.toFixed(2) : ""}</span>
               </button>
             );
-          })}
-          {rows.length > MAX_ROWS && <p className="muted rm-more">{rows.length - MAX_ROWS} more: narrow the search.</p>}
+          }} />
           {!rows.length && <p className="muted rm-more">No model matches "{q}".</p>}
         </div>
+        </>
       )}
       <div className="rm-typed">
         <input className="input mono" placeholder="or type a ref the catalog lacks (or:vendor/model)" value={typed} onChange={(e) => setTyped(e.target.value)}

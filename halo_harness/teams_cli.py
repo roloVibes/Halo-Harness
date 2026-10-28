@@ -215,8 +215,11 @@ def _cmd_use(rest: list, *, verb: str = "use") -> int:
             _warn_single_gpu_swaps(template)
     except Exception:
         pass
-    for note in notes:
-        print(f"note: {note}")
+    from halo_harness.teams_apply_answer import apply_answer  # 3.3.5.0 R0 (h): one line, the notes indented
+    head, details = apply_answer(name, notes)
+    print(head)
+    for note in details:
+        print(f"    {note}")
     for line in lines:
         print(line)
     return 0

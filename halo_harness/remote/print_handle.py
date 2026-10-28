@@ -98,7 +98,14 @@ class PrintModeHandle(_BaseHandle):
             raise HandleError(f"{e}")
         if creds is None:
             raise HandleError(_not_configured_message(mref))
-        self.session.set_model(mref, profile, creds)
+        # Halo 3.3.5.0 R0: the switch step (the line, the fit, the move), its lines to the attached clients
+        from halo_harness.agent.model_switch import run_switch
+        try:
+            for ev in run_switch(self.session, mref, profile, creds, why="/model"):
+                self.hub.publish(ev)
+        except Exception:
+            if getattr(self.session.model_ref, "raw", None) != mref.raw:
+                self.session.set_model(mref, profile, creds)
         self.hub.publish(self.session.status_event())
         return {"model": ref, "queued": False}
 

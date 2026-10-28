@@ -49,6 +49,8 @@ export type SessionRow = {
   busy?: boolean;
   pending?: Pending;
   model?: string | null;
+  /** 3.3.5.0 R0 (e): what the effort level does on its model (`think on`, `effort n/a`, or the level). */
+  effort?: string | null;
   cost_usd?: number | null;
   /** 3.3.3.1: false when some model answered with no price (`cost_usd` is then the priced part); `cost_unknown` names those models. */
   cost_complete?: boolean | null;

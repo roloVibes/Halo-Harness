@@ -39,6 +39,7 @@ RUNTIMES = (("llama-server", "llama-server (GGUF)", "runs .gguf files; the usual
 
 # The last Save & test per provider in this process: "ok" | "no" | "not checked".
 LAST_REACH: dict = {}
+TYPED: dict = {}  # 3.3.5.0 R0 (g): {provider: {field id}} saved through a card in this Studio process
 _DETECT: dict = {"lines": None, "at": 0.0, "thread": None}
 _DETECT_TTL = 60.0
 _LOCK = threading.Lock()
@@ -118,13 +119,38 @@ def provider_row(name: str, env: dict, file_vars: dict, state_dir=None, cwd=None
     detail = ""
     if name == "databricks":
         detail = str(env.get("DATABRICKS_HOST") or st.get("known_host") or "")
+    sources = field_sources(name, env, file_vars, st, fields)
     try:
         enabled = bool(is_enabled(name, state_dir=state_dir, detected=configured))
     except Exception:
         enabled = configured
     return {"label": TAB_LABEL.get(name, name), "set": configured, "source": source, "tail": tail(value) if configured else "",
             "enabled": enabled, "reachable": LAST_REACH.get(name, "not checked"), "catalog_count": _count(name, state_dir) if configured else 0,
-            "detail": detail, "host_hint": str(st.get("host_hint") or ""), "fields": fields}
+            "detail": detail, "host_hint": str(st.get("host_hint") or ""), "fields": fields, "field_sources": sources}
+
+
+def field_sources(name: str, env: dict, file_vars: dict, st: dict, fields: list) -> dict:
+    """3.3.5.0 R0 (g): where each field's value came from -- "typed here" (saved through the card in this
+    Studio), "env file", "environment", "Claude Code's settings.json" (a host discovered there), "the team
+    config", or "" when it has none."""
+    if name not in KEY_FIELDS:
+        return {}  # Ollama and Hugging Face cards keep their own line (hosts, entries)
+    typed = TYPED.get(name) or set()
+    out = {}
+    for f in fields:
+        fid, label = f["id"], f["label"]
+        value = env.get(label)
+        if fid in typed and (value or not f.get("secret")):
+            out[fid] = "typed here"
+        elif value:
+            import os
+            out[fid] = "env file" if file_vars.get(label) == value else (
+                "environment" if os.environ.get(label) == value else "Claude Code's settings.json")
+        elif name == "databricks" and fid == "host" and st.get("known_host"):
+            out[fid] = str(st.get("host_from") or st.get("source") or "")
+        else:
+            out[fid] = ""
+    return out
 
 
 def ollama_block() -> dict:

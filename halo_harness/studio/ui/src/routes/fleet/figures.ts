@@ -21,7 +21,7 @@ export function ownFrame(f: FeedFrame): boolean {
   return !f.agent_id && !String(d.session_id || "").startsWith("agent-");
 }
 
-export type Figures = Partial<Pick<SessionRow, "cost_usd" | "cost_complete" | "cost_unknown" | "tokens_in" | "tokens_out" | "context_tokens" | "context_limit" | "turns" | "model" | "busy">>;
+export type Figures = Partial<Pick<SessionRow, "cost_usd" | "cost_complete" | "cost_unknown" | "tokens_in" | "tokens_out" | "context_tokens" | "context_limit" | "turns" | "model" | "busy" | "effort">>;
 
 /** What the frame says about the session: only the numbers it carries; `status` adds the model and the phase as busy. */
 export function figuresOf(f: FeedFrame): Figures {
@@ -42,6 +42,7 @@ export function figuresOf(f: FeedFrame): Figures {
   if (turn != null && turn > 0) out.turns = turn;
   if (f.event === "status") {
     if (typeof d.model === "string" && d.model) out.model = d.model;
+    if (typeof d.effort === "string" && d.effort) out.effort = d.effort; // 3.3.5.0 R0 (e)
     if (d.phase === "thinking") out.busy = true;
     else if (d.phase === "idle") out.busy = false;
   }

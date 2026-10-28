@@ -65,4 +65,5 @@ ROWS = [
     Row("models.learn.min_tasks", "models", "Learn after tasks", "int", 3, (), "Checked tasks of a kind a model needs before its rate counts.", "now"),
     Row("models.learn.window_days", "models", "Learn window (days)", "int", 30, (), "Only outcome rows of the last N days count; 0 counts every row.", "now"),
     Row("models.learn.drop_below", "models", "Drop below", "float", 0.34, (), "A model whose rate for a kind is below this is dropped for the kind; 0 drops nothing.", "now"),
+    Row("models.think.<ref>", "models", "Think on a local model", "keyed", None, ("on", "off", "default"), "Per local model ref: on or off sends Ollama's think field whatever the effort level, default sends none (the model's own); gpt-oss also takes low, medium and high; unset, the effort level decides.", "now"),
 ]

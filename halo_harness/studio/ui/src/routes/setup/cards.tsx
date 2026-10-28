@@ -7,7 +7,7 @@
 // it; the state that comes back carries only "set", where from and ****1234.
 import { useState } from "react";
 import { api, ApiError } from "../../lib/api";
-import { createStore, toast, useStore } from "../../lib/store";
+import { createStore, useStore } from "../../lib/store";
 import { Button } from "../../lib/ui";
 import { adoptAnswer, type Answer, type SetupData } from "./store";
 
@@ -26,12 +26,10 @@ export async function send(card: string, path: string, body: Record<string, unkn
     const { lines, ...data } = r;
     adoptAnswer(data as SetupData); // 3.3.0.0 R3: a read that started before this answer is not shown over it
     cards.update((s) => ({ last: { ...s.last, [card]: { ok: true, lines: lines || [] } } }));
-    toast(lines?.[0] || "Saved", "done", 4000);
-    return true;
+    return true; // 3.3.5.0 R0 (h): the card's own lines say it, no toast
   } catch (e) {
     const lines = e instanceof ApiError && e.problems.length ? e.problems : [e instanceof Error ? e.message : String(e)];
     cards.update((s) => ({ last: { ...s.last, [card]: { ok: false, lines } } }));
-    toast(lines[0], "error", 6000);
     return false;
   } finally {
     cards.update(() => ({ busy: "" }));

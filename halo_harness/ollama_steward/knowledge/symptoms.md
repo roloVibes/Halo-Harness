@@ -27,6 +27,7 @@ Server lines are written as `NAME=value`. On Windows Ollama reads the user's env
 | `compaction-not-firing` | a session passes the window without compacting, then `prompt-trimmed` or `no-user-query` follows | parked bug 1: the compaction trigger does not fire for the window actually sent [S37] | compact per model at 80 % of the window sent, before the call [S37] | none [S37] |
 | `no-reply-reserve` | `reply-cut` or `window-full` on a long session | parked bug 2: the prompt is allowed to fill the window, so the reply has no room [S13][S37] | a `num_predict` reserve and a prompt at most the window minus that reserve [S13][S37] | none [S37] |
 | `truncated-reply-resent` | a reply cut by the window comes back in the next call's history | parked bug 3: a cut reply is treated as complete and resent, so the next prompt is fuller still [S15][S37] | flag a reply with `done_reason` "length" and stop it from being resent as a finished answer; compact [S15][S37] | none [S37] |
+| `switch-without-fit` | a call to another model right after one to the previous, `fitted` false | the model changed without the switch step: the old window, tools and history were kept [S6][S40] | the switch step: compact to the new window first, re-cap the tools, convert the history [S40] | none [S40] |
 
 ## Where the watcher's guide and the sources part ways
 

@@ -8,6 +8,33 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.3.5.0] - unreleased
+
+### R0: the switch -- a session fits the model it moves to
+
+#### Added
+- The switch step (`agent/model_switch.py`): a model change says in one line what will happen ("switching to ol:qwen3.5:9b@lan: window 32,768 (learned cap); this conversation is 48,210 tokens -> compacting to fit · effort: think off") in the transcript, the session log (`model_switch`) and Studio's Live, compacts to `compact_at` of the target's window before the first call (`trigger: "switch"`), re-caps the tools, converts what the target cannot take, sets the reply reserve, then prints the report. Run by `/model`, the remote `set_model`, a resume on another model, a child on another model (its first request), the compaction model and a steward profile that lowers the window.
+- `window_of` (`agent/model_window.py`): a model's window and its named source; the window column in `halo ollama traffic` and the Ollama panel.
+- The ledger's `switched_from` and `fitted`; the steward's `switch-without-fit` finding.
+- The effort tag follows the model (`providers/effort_on.py`): `think on` / `think off` / `think high` on a thinking Ollama model, a muted `effort n/a` where it does nothing; `models.think.<ref>`.
+- `lib/ui/WindowedRows`; count lines in Setup, Roles, Settings' model row, the TUI picker and `halo models`.
+- A provider card's per-field source line ("host from Claude Code's settings.json · token not set").
+
+#### Changed
+- Every model list shows every model (Setup's 60-row and Roles' 150-row caps removed; a provider group folds).
+- Toasts sit top right under the header; Setup and Settings answer on their blocks' own lines.
+- The lineup-apply answer is one line, the per-role notes in its details.
+- `/effort` on a local model lists what it can do there; `/model` names the effort word and the window.
+
+#### Fixed
+- A smaller model's first call no longer trims a conversation compacted after the fact by the new model: the summary is written by the model being left (or a compaction model whose window is checked first).
+- Images, unsigned thinking blocks and tool turns from the old model no longer reach a model that cannot take them (Qwen's "no user query found" from a converted history).
+- A Databricks host discovered in Claude Code's settings.json no longer reads like a shipped default on the card ("not set · https://..."); the wizard's tab says the same words.
+
+### Also in 3.3.5.0
+
+#### Changed
+
 ## [3.3.4.0] - 2026-10-28
 
 **The Ollama steward.** The owner's note: "there's so much configuration going on with ollama that I almost
