@@ -349,3 +349,20 @@ context-length-at-launch flag) were not confirmed from its README this
 round (`docs/harness/GPU-RESEARCH.md` section 7) -- see
 [MAC.md](MAC.md), the live Mac quick-start that resolves this and the
 Apple memory-share fraction in practice.
+
+## Browsing the hub (3.3.5.0)
+
+Studio's **Local -> Library** (its Hugging Face or Both source) and `halo models browse --source hf` search the hub's
+documented API for GGUF and MLX repos (`GET https://huggingface.co/api/models?filter=gguf|mlx&search=<q>&sort=downloads&limit=50`,
+with `expand[]` asking for the gated flag, the last change, the downloads, the tags and the pipeline tag), one row per
+repo with its downloads, licence (`cardData.license` or the `license:` tag) and a **gated** mark; its size is an
+estimate (the parameters in its name at a typical quantization) until it is opened. Opening a repo
+(`GET /api/models/<repo>?blobs=true`) lists its files with their sizes -- a GGUF repo one row per quant (a split file's
+shards summed; the vision projector `mmproj-*`, the importance matrix and a separate draft model left out, the
+projector's bytes added to each row), an MLX repo its safetensors as one -- with `gguf.context_length` as the window,
+and its `config.json` (layers, KV heads, head size, vocabulary, a hybrid model's `full_attention_interval`) as the
+exact shape for the fit badge. A gated repo's files and config are read with `HF_TOKEN` from the env file; the token
+goes with no other request. Each row's pull line is `ollama pull hf.co/<repo>:<quant>` for a GGUF file (Ollama pulls
+from the hub itself) and `halo local download <repo>` for an MLX repo (3.3.5.0 R4 builds the download). A search is
+cached an hour and a repo's files a day in `<state>/cache/models-library.json`. See [STUDIO-local.md](STUDIO-local.md).
+

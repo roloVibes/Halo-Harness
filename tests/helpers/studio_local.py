@@ -5,7 +5,7 @@ the fixture's nvidia-smi and /proc answers (resources.SAMPLER_SEAMS); the live f
 model call:
 
 1. `alt0`: from Roles, Alt+0 opens Local with nothing over it (no help, no dialog), on Resources;
-2. `pages`: the rail's seven pages, each with its title; the four framed ones say what they will hold and the CLI;
+2. `pages`: the rail's seven pages, each with its title; the three framed ones say what they will hold and the CLI;
    Steward shows the job's status line and the last note;
 3. `resources`: a strip per sampled host; it moves on `resources` frames; every number carries its source;
 4. `traffic`: the rows match the fixture ledger; a line written now arrives as a `traffic` frame at the foot;
