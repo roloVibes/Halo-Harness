@@ -6,9 +6,12 @@ first, then `WORKER-RULES.md`, then the round you are starting.
 
 ## WHERE THINGS STAND -- 2026-10-28 morning (authoritative, read this first)
 
-**3.3.4.0 "The Ollama steward" IS THE RELEASE CANDIDATE** (five rounds merged on master; the release follows
-once both runners are green on the candidate head -- if you read this after the release, the tag v3.3.4.0
-exists and the PC runs it). From the owner's three notes on 2026-10-27 (a dedicated agent that watches the
+**3.3.4.0 "The Ollama steward" IS RELEASED** (tag v3.3.4.0, release commit 76535d5 cut from c26b43e on
+2026-10-28 morning after both runners went green; installed on the PC: `halo 3.3.4.0`). On the way: the Pack
+Manager driver's rollback step red three times on the Windows runner (now re-opens the page and reports the
+backup on disk, e253d30) and the parallel-children TUI test's two settle waits widened to 90 s (8a14695,
+c26b43e). Next on master: 3.3.5.0 "Local" -- R0 the switch merged (9c4e4f9), R0b the model card in flight
+on `v335/R0b-card`. From the owner's three notes on 2026-10-27 (a dedicated agent that watches the
 Ollama traffic across every halo and machine, knows the GPU and memory limits and the server internals,
 explains failures and adjusts; research first). R1 (745b4dc): `halo_harness/ollama_steward/knowledge/*.md`
 (SOURCES.md with 38 rows; scheduler, log vocabulary, memory arithmetic, local servers, symptoms -> cause ->
