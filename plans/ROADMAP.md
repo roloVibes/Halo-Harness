@@ -3459,3 +3459,19 @@ the old R1-R3 and R5 are renumbered R2-R4 and R7 and otherwise unchanged.
   bounds, the scheduler with two lanes on one fake card (one at a time,
   the pivot, two together when they fit), the busy-host queue through the
   fleet rig, the candidate pick from a seeded catalog.
+- Across every round of "Local" (rolo 2026-10-28: "love it and your ideas.
+  let's prioritize this and group it with the local model work"): (1) a
+  **fit meter** wherever a model is named -- one small green-to-red bar for
+  "will this run here at this window" (the picker rows, the model card, the
+  Library and HF rows, the Hosts page, the switch line), fed by the planner
+  and, once measured, the speed card; (2) **"why" on every number** -- each
+  figure carries its source and a one-line cause (a tooltip and the ? help);
+  (3) **intents, not model names** -- "code / chat / read long documents /
+  look at images / embed" ranks installed and downloadable models by fit for
+  this card and that intent, on the Models and Library pages and in Setup's
+  Default model; (4) **one-click "make it fit"** -- the planner's chosen
+  option applied with Undo beside it, on the model card and the Hosts page;
+  (5) **the hub as the one picture of the network** -- every machine sees the
+  same hosts, profiles, traffic and speed cards through the fleet hub, so a
+  session on the Mac benefits from what the PC measured. Each lands in the
+  round that owns the surface; the Local tab's help names all five.
