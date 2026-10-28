@@ -3129,6 +3129,19 @@ for each action shown beside it.
   has `DATABRICKS_HOST`), scanned by `halo audit privacy` on every push.
   Pinned: the card's line for each source in test_setup_api / the Setup
   Chrome driver with a fake settings.json env.
+  (h) **a toast never covers Setup's Next** (rolo 2026-10-28, a screenshot of
+  the lineup-applied toast sitting over the Back / Next foot: "the update
+  box blocks the next button. Only for a short time, but still not the
+  best place"): toasts (`lib/ui/Toast.tsx`, `.toasts` fixed bottom-right in
+  `styles/base.css`) move to the top right under the header on every
+  section, and on a paged section (Setup, Settings) a block's own result
+  goes to the block's result line, not a toast; the lineup-apply answer
+  (`teams_yaml.py` ~527, one sentence per role that "has no
+  models.preference/fallback of its own") collapses to one line -- "lineup
+  'local-first' applied; main, small, researcher and judge run on the
+  session model (their agents name none)" -- with the per-role lines in
+  the block's details. Pinned: the Setup driver asserts no `.toasts` child
+  overlaps the foot's Next button; the collapsed line in the teams test.
 - R0b the model card: what each local model is, and how Halo talks to it
   (ADDED 2026-10-28, rolo: "there are like thinking models or not, can we
   add that to the effort options on local models? ... some calls were
