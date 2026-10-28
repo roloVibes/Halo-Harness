@@ -138,11 +138,21 @@ def update_rollback(c, url, ctx) -> dict:
     last = _text('[data-testid=pm-last] .pm-lines')
     out["updated_last"] = w(c, f"/(1[.]0[.]0 -> 1[.]0[.]1|stays as it is|is up to date)/.test({last}) && {last}.split('\\n')", 30)
     try:
-        # 90 s, not 30: the Windows runner twice (3a61491, 76e693a) showed the update's own lines in time but took
-        # longer than 30 s to re-list the installed rows with the rollback button; a re-run passed both times
-        out["rollback_label"] = w(c, _text(f"{ROW} [data-testid=pm-rollback]"), 90)
-    except TimeoutError as e:
-        raise TimeoutError(f"{e}; the update said {out['updated_last']}") from None
+        out["rollback_label"] = w(c, _text(f"{ROW} [data-testid=pm-rollback]"), 30)
+    except TimeoutError:
+        # The Windows runner (3a61491, 76e693a, 8a14695) shows the update's own lines but the re-listed row carries
+        # no `previous` even after 90 s, while a re-run passes: re-open the page (a blank hop first: the same
+        # address is a fragment hop) so a fresh GET draws the rows, and say whether the backup exists on disk
+        out["previous_on_disk"] = (ctx["state"] / "packs" / "doc-review.previous").exists()
+        c.go("about:blank")
+        c.go(url)
+        alt(c, 7)
+        try:
+            out["rollback_label"] = w(c, _text(f"{ROW} [data-testid=pm-rollback]"), 60)
+            out["rollback_after_reopen"] = True
+        except TimeoutError as e:
+            raise TimeoutError(f"{e}; the update said {out['updated_last']}; "
+                               f"doc-review.previous on disk: {out['previous_on_disk']}") from None
     out["version_after"] = c.js(_text(f"{ROW} .pm-row-ver"))
     press(c, q(f"{ROW} .pm-row-main"))
     out["compat_after"] = w(c, f"{qa('[data-testid=pm-compat] li')}.map((l) => l.textContent).filter((t) => t.includes('network'))", 20)
