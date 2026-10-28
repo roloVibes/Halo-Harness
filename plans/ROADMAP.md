@@ -3372,3 +3372,90 @@ prompt entry point is `tui/app.py _submit_prompt(text, pasted, images)`.
   API with a fake provider; the Fleet row; resume from the TUI rig; the
   parked ask. Docs: STUDIO.md ("Studio without a terminal"),
   STUDIO-sections.md, COMMANDS-main.md (`--headless`).
+
+## ADDED 2026-10-28 (rolo: "I want halo to be the best software or harness to intuitively work with local models ... a new tab in halo studio just for local models ... monitor and see details of local resources ... GPU, memory ... real-time visual monitoring, plus insights to what data is being transmitted in and out ... other ollama or hugging face servers on the local network ... tuning scans and options ... a benchmark to understand limits ... suggest ways to make the resources work better ... revert back to previous settings when halo session ends ... browse all the available models ... deep details about all the local models ... search those platforms for new models ... tell the user which ones can work for the resources available ... download and add models ... info on all urls of all hosts ... an agent there ensuring all the local models work ... handles those changes from model to model ... in a workflow or orchestration, users should be able to use multiple local models and the agent should control when to stop one and pivot to the other ... a chat box in the local model tab to speak directly to the agent ... during init, or whenever, halo should find good model candidates to control the local models"): 3.3.5.0 becomes "Local" -- the local-models tab
+
+3.3.5.0 keeps its name on the tag but its section is **Local** (Alt+0), not
+"Models": one tab that holds everything about the machines that serve
+models and the models they serve. The rounds already planned stay and
+gain a home; four rounds are added. Order (the owner's rule: all of this
+before any other feature): R0 the switch, R0b the model card, R1 the tab
+and live resources, R2 the library browser and the fit badge, R3 Ollama
+controlled, R4 Hugging Face local, R5 benchmarks and tuning with revert,
+R6 the steward's chat and multi-model scheduling, R7 eyes (screenshots and
+which models can see). R1 below replaces the old "R4 the Models section";
+the old R1-R3 and R5 are renumbered R2-R4 and R7 and otherwise unchanged.
+
+- R1 the Local tab and live resources. `routes/local/*`, Alt+0 (`shell/
+  keys.ts` Digit0), `?mode=local&page=`, paged like Setup: **Resources**,
+  Hosts, Models, Library, Hugging Face, Benchmarks, Steward (the pages the
+  later rounds fill; a page that is not built yet says what it will hold).
+  Resources: per host a live strip -- GPU use, VRAM used / free, which
+  model holds it, RAM, CPU (small), temperature when the tool reports it --
+  sampled every second from `nvidia-smi --query-gpu` / `rocm-smi` on
+  Linux and Windows, `ioreg` + `memory_pressure` on a Mac (no sudo), the
+  3.3.4.0 hardware card for the server's own settings; and the **traffic**
+  view, the Live display's cousin: every call to every local server as it
+  happens (the 3.3.4.0 ledger as a stream: model, who called from which
+  machine, prompt tokens in, reply tokens out, the window, trims / cuts,
+  tok/s) with a sparkline per host, the bytes in and out per minute, and
+  the steward's events inline (loaded, spilled, trimmed). The sampler is
+  a job beside the steward's (`ollama_steward/resources.py`, frames
+  `resources`), on only while the tab is open or the steward runs; its
+  samples feed the fit planner (the "others" share of the card) so a
+  ComfyUI holding memory is seen the moment it starts. Hosts: every host
+  Halo knows (configured entries, discovered servers, fleet members'
+  hosts) as cards with its URL, kind (Ollama / llama-server / LM Studio /
+  mlx / OpenAI-dialect gateway), version, what is loaded, its card, its
+  profiles, who uses it (the ledger's `from`), and the controls the kind
+  allows (load / unload, keep-alive; a remote host through the fleet
+  member that runs it, with the member's `allow_control`). Nothing here
+  writes to a server's settings. Tests: the sampler on fake tool output
+  per OS, the traffic stream from a fixture ledger, the Hosts page from
+  a seeded fleet; Chrome: the tab, Alt+0, the strip moving on frames.
+- R5 benchmarks, tuning scans, revert. `halo local bench [--host H]
+  [--model M] [--quick]` (and the Benchmarks page): a short measured
+  battery per model on this card -- load time, prompt tok/s and reply
+  tok/s at three windows (8k / 32k / the ceiling), the largest window
+  that stays on the GPU, the reply reserve that avoids cuts, the
+  tool-call probe, the vision probe -- written to the fit store as the
+  model's **speed card** and shown on its model card and in the fit
+  badge ("fits, ~41 tok/s at 32k"); never run on its own, cost shown
+  first (local, time only). Tuning scans: the planner's options for the
+  whole host as one report ("to run the 27B at 64k beside the 9B:
+  kv_cache q8_0 on the server, or one at a time") with Apply for the
+  Halo-side ones and the exact line for the server-side ones. **Revert**:
+  every Halo-side change the steward or the user makes from this tab is
+  tagged with a scope -- `session` (reverted when the session that made it
+  ends: `ollama.profiles[...].until: session`), `until-restart`, `keep` --
+  chosen per change with `keep` the default for a user's own and
+  `session` the default for a benchmark's trial settings; server-side
+  recommendations print their revert line beside the apply line. Tests:
+  the battery on a fake server with scripted timings, the speed card in
+  the store and the badge, the scopes and the revert on session end.
+- R6 the steward's chat and multi-model scheduling. The Steward page:
+  the job's status, the last notes, and a **chat box** to the steward's
+  model: a small tool-using agent (the 3.3.4.0 agent with tools: read the
+  card, the ledger, the events, the profiles, the speed cards, the
+  knowledge; propose and apply Halo-side changes through the same guarded
+  path; run a benchmark; explain a kind) that answers in plain words and
+  acts within the same bounds as the job; the conversation is the
+  steward's own session log (`ollama/steward-chat.jsonl`), the cost shown
+  per answer; "ask a bigger model" sends the same context to the session's
+  main model once, for a hard case. **Scheduling**: one local model active
+  per card by default; a lineup or an Orchestra workflow whose lanes name
+  different local models runs them one at a time per card, the steward
+  pivoting (unload A, load B, the switch step fitting the lane's history)
+  when the stage changes, and running two together only when the planner
+  says both fit; a host busy for another halo's session (the hub's ledger
+  says who) queues or pivots to another host the fleet knows; the Map and
+  the Local tab show the pivot as it happens. **Candidates at init** (and
+  from the Steward page's "Pick a steward"): Setup's Check scans the
+  installed local models for a steward candidate (tools, small, fast,
+  fits beside the main model) and names the best, offers to pull a
+  known-good small one when none is installed and the card has room, and
+  sets `ollama.steward.model`; a cloud model is offered only as "ask a
+  bigger model". Tests: the chat over a fake model with tool calls, the
+  bounds, the scheduler with two lanes on one fake card (one at a time,
+  the pivot, two together when they fit), the busy-host queue through the
+  fleet rig, the candidate pick from a seeded catalog.
