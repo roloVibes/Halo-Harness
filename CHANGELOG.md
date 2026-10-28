@@ -88,6 +88,30 @@ qwen3.8:27b on a 24 GB card is now estimated at 65,536 (it was 32,768).
 - `halo ollama steward` takes `--watch` and `status`.
 - The hub's answer to a member's ledger push carries its newest steward note beside its profiles.
 
+### R5: the steward in Studio and the TUI
+
+#### Added
+- Fleet's **Ollama** panel. It is optional: the header's "+" adds it, as do the steward's attention row (O) and the palette's "Fleet: Ollama". Per host (a Hugging Face local server is a host too) it shows:
+- the card line;
+- the models: loaded now with the VRAM share and when they unload, the last hour's calls, trims, cuts, reloads and errors, the p95 prompt against the window, the profile and who set it, and an eye for a vision model;
+- a traffic sparkline with each trim, cut and error marked;
+- the steward's status, last note and findings (Apply and Dismiss in review mode, Undo in auto);
+- the fit plan, with Apply for a profile change and Copy for a server line.
+- `GET /api/ollama/steward`, `GET /api/ollama/hosts`, `GET /api/ollama/timeline`, and `POST /api/ollama/steward/apply | dismiss | undo | run`. None of them calls a model or writes to a server.
+- Dismiss: a `dismissed` line in `steward.jsonl` keeps a finding quiet for 24 hours. The rules read it, so the CLI, the job and `/ollama` drop the finding too.
+- Settings -> Ollama has a steward block above its rows: the status, the model (automatic, none, or a local model), the mode, the job, and "Open the Ollama panel".
+- Setup -> Providers' Ollama card has a "steward: <last note>" line and a link to the panel.
+- `/ollama findings | plan | explain <kind>` print what the CLI prints.
+- The glossary gains "steward", "profile" and "fit plan".
+- New capture: `studio-fleet-ollama.png`, made by `tools/capture_studio.py --mode fleet --panel ollama`.
+
+#### Changed
+- `/ollama` now prints the steward's view: the job, the last note, per host the card, the last hour and the profiles, the local servers, and the review proposals. The old per-host analysis is `/ollama hosts`.
+- A steward pass, an apply and an undo take one profile lock, so two passes at once can no longer land the same change twice.
+- `ollama.steward.model: none` turns the steward's notes off; the rules still run.
+- The live feed has its own page, docs/STUDIO-feed.md.
+- The module map is split in two (docs/ARCHITECTURE-modules-two.md).
+
 ### Also in 3.3.4.0
 
 #### Changed

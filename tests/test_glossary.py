@@ -32,7 +32,7 @@ REPO = Path(__file__).resolve().parent.parent
 BRIEF = ("lineup", "bio", "role", "tier", "team", "member", "block", "stage", "lane", "part", "step", "mission",
          "gate", "claim", "hand-off", "plan", "coach", "orchestra run", "fleet", "hub", "harness", "capability", "unit",
          "pack", "guided first run", "setup", "provider", "env file",
-         "config key")  # 3.2.1.0 R1: "pack"; 3.2.2.0 R2: "guided first run"; 3.3.0.0 R1: Setup's three; 3.3.3.0 R2: Settings' one
+         "config key", "steward", "profile", "fit plan")  # 3.2.1.0 R1: "pack"; 3.2.2.0 R2: "guided first run"; 3.3.0.0 R1: Setup's three; 3.3.3.0 R2: Settings' one; 3.3.4.0 R5: the steward's three
 
 
 def _explain(*argv):

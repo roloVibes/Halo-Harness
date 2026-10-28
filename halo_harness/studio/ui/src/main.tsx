@@ -15,6 +15,7 @@ import "./styles/fleet.css";
 import "./styles/fleet-agent.css";
 import "./styles/fleet-panels.css";
 import "./styles/fleet-panels2.css";
+import "./styles/fleet-ollama.css"; // 3.3.4.0 R5: the Ollama steward panel
 import "./styles/fleet-caps.css";
 import "./styles/fleet-mission.css";
 import "./styles/fleet-mission2.css";

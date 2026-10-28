@@ -14,7 +14,7 @@ your session edits, `halo teams apply`, a bio saved from the terminal appear
 within two seconds, no refresh (the server watches the lineup, bio, config
 and layout files and sends `files_changed`). A form you are editing keeps
 your draft and offers **Reload** or **Keep mine**; a file deleted on disk
-leaves the list. How: [The live feed](STUDIO-sections.md#the-live-feed).
+leaves the list. How: [The live feed](STUDIO-feed.md#the-live-feed).
 
 ```sh
 halo studio                 # starts a local server, opens the browser in the mode you used last
@@ -32,7 +32,7 @@ halo studio --stop          # stop the Studio running in the background
 move on the session's own `message_end` and `status` frames, the moment the
 terminal's status bar moves (3.1.8.0); the frames the tab reads and the
 delays that remain, each with its number, are in
-[The live feed](STUDIO-sections.md#the-live-feed).
+[The live feed](STUDIO-feed.md#the-live-feed).
 
 One Studio per machine (3.0.2.0): while it serves, `~/.halo/studio.json` holds its pid, port and token (private), and a second `halo studio` reuses that instance (prints its URL, opens the browser) instead of starting another. `halo init` (3.3.0.0: Setup is the door) and the wizard's **Open Studio (Roles)** button start it detached, so it outlives them; `halo studio --stop` ends it. `halo_harness/studio/launch.py` is the small module behind both.
 Since 3.2.2.0 Studio ends with the halo session that quits: a quit
@@ -70,7 +70,7 @@ This page is the entry point; the content lives in the parts below, one per task
 |---|---|---|
 | [Studio: the shell](STUDIO-shell.md) | you find your way around Studio's header, sections, panels and Start views, or open it on a bio, a lineup or the Team | The shell (3.0.3.0) · Opening Studio on a bio, a lineup or the Team (`halo studio --edit`) · The guided first run (3.1.1.0) |
 | [Studio: steering and exporting a session](STUDIO-session.md) | you steer an agent from Session's Live column and want to know which agent and which call it reaches, or save a session as one Markdown trace file | The steer's target · Follow, and the view holding still · Keys · Export: the session as a trace file · Files |
-| [Studio: how each section works](STUDIO-sections.md) | you want the one-screen story of a section (Session, Team, Roles, Fleet, Design, Orchestra, Packs, Setup, Settings) and the live feed | How each section works · The live feed |
+| [Studio: how each section works](STUDIO-sections.md), and [the live feed](STUDIO-feed.md) | you want the one-screen story of a section (Session, Team, Roles, Fleet, Design, Orchestra, Packs, Setup, Settings), or how its pages get their live frames | How each section works · The live feed |
 | [Studio: the Orchestra console](STUDIO-orchestra.md) | you run an Orchestra goal from Studio: the run console, the plan canvas and the coach | Orchestra: the run console |
 | [Studio: Fleet](STUDIO-fleet.md) | you watch or steer every harness and agent from Studio's Fleet section | Fleet: every harness, every agent · How this works: Attention · How this works: Costs and caps · How this works: Conflicts and project rooms · How this works: Hand-offs · How this works: Recordings · How this works: Replay · How this works: Who can do what · How this works: Missions · How this works: While you were away · Keys: hop around · Live Roles: the lineup lights up |
 | [Studio: Team and Roles](STUDIO-team-roles.md) | you edit a team board or a lineup on the Roles canvas | Team: people, blocks and stages on one board · What you see (Roles) |

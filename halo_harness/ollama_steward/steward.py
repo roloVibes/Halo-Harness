@@ -9,13 +9,15 @@ finding) -> each proposal applied per `ollama.steward.apply`:
     off     findings only
 
 Every change is one line in `<state>/ollama/steward.jsonl`: {id, at, kind
-("apply" | "proposal" | "undo" | "rollback"), key, field, from, to, why,
-finding, rule, evidence, plan, mode}. The guards: never above a measured cap
-(the learned cap, the host's max_ctx), at most one change per host and model
-per ten minutes, and a change followed by worse calls (more trims, cut
-replies and errors in the next 10 calls of that model than in the 10
-before) is rolled back on its own and says so. Server-side hints are never
-applied. `undo_last()` reverts the newest change still in place.
+("apply" | "proposal" | "undo" | "rollback" | "dismissed"), key, field, from,
+to, why, finding, rule, evidence, plan, mode}. The guards: never above a
+measured cap (the learned cap, the host's max_ctx), at most one change per
+host and model per ten minutes (read and written under `profile_lock`, R5),
+and a change followed by worse calls (more trims, cut replies and errors in
+the next 10 calls than in the 10 before) is rolled back on its own. Server-
+side hints are never applied. `undo_last()` reverts the newest change in
+place; `dismiss(id)` (R5) keeps a finding quiet for DISMISS_S (the rules
+drop it, rules.run_rules).
 """
 
 from __future__ import annotations
@@ -29,6 +31,7 @@ STEWARD_FILE = "steward.jsonl"
 MODES = ("auto", "review", "off")
 QUIET_S = 600.0
 JUDGE_CALLS = 10
+DISMISS_S = 86400.0
 
 
 def mode() -> str:
@@ -71,6 +74,27 @@ def _append(state_dir, row: dict) -> dict:
         with open(path, "a", encoding="utf-8", newline="\n") as f:
             f.write(json.dumps(row, ensure_ascii=False, default=str) + "\n")
     return row
+
+
+def profile_lock(state_dir):
+    """3.3.4.0 R5: one pass at a time between reading the ten-minute mark and writing the change."""
+    from halo_harness.filelock import file_lock
+    return file_lock(journal_path(state_dir).with_name("steward-profile"), timeout=5.0)
+
+
+def dismissed(state_dir, *, now: Optional[float] = None, journal: Optional[list] = None) -> set:
+    """The finding ids dismissed within DISMISS_S."""
+    from halo_harness.ollama_steward.ledger import parse_at
+    now = time.time() if now is None else now
+    rows = read_journal(state_dir) if journal is None else journal
+    return {r.get("finding") for r in rows if r.get("kind") == "dismissed"
+            and now - (parse_at(r.get("at")) or 0) < DISMISS_S} - {None}
+
+
+def dismiss(state_dir, fid: str, *, now: Optional[float] = None) -> dict:
+    """Studio's Dismiss: the finding stays out of the rules' answer for DISMISS_S."""
+    return _append(state_dir, {"_now": now, "id": f"d-{fid}-{int(now or time.time())}", "kind": "dismissed",
+                               "finding": fid, "say": f"steward: {fid} dismissed for 24 hours"})
 
 
 def _in_place(journal: list) -> list:
@@ -136,36 +160,15 @@ def _revert(state_dir, row: dict, kind: str, why: str, now: Optional[float] = No
 
 
 def undo_last(state_dir) -> Optional[dict]:
-    live = _in_place(read_journal(state_dir))
-    return _revert(state_dir, live[-1], "undo", "undone by hand") if live else None
-
-
-def _bad(line: dict) -> int:
-    return int(bool(line.get("trimmed")) or line.get("done_reason") == "length" or line.get("status") != 200)
+    with profile_lock(state_dir):
+        live = _in_place(read_journal(state_dir))
+        return _revert(state_dir, live[-1], "undo", "undone by hand") if live else None
 
 
 def rollbacks(state_dir, *, lines: Optional[list] = None, now: Optional[float] = None) -> list:
-    """Each change in place whose next 10 calls went worse than the 10 before it, reverted."""
-    from halo_harness.ollama_steward.ledger import parse_at, read_calls
-    from halo_harness.ollama_steward.profiles import key_for
-    from halo_harness.ollama_steward.traffic import canonical_host
-    from halo_harness.providers.ollama import resolve_ollama_hosts
-    lines = read_calls(state_dir) if lines is None else lines
-    hosts = resolve_ollama_hosts()
-    out = []
-    for row in _in_place(read_journal(state_dir)):
-        t = parse_at(row.get("at")) or 0
-        mine = [x for x in lines if x.get("kind") != "calibrate"
-                and key_for(canonical_host(x.get("host") or {}, hosts)[0], x.get("model")) == row["key"]]
-        before = [x for x in mine if (parse_at(x.get("at")) or 0) < t][-JUDGE_CALLS:]
-        after = [x for x in mine if (parse_at(x.get("at")) or 0) >= t][:JUDGE_CALLS]
-        if len(after) < JUDGE_CALLS:
-            continue
-        b, a = sum(map(_bad, before)), sum(map(_bad, after))
-        if a > b:
-            out.append(_revert(state_dir, row, "rollback", f"{a} bad calls of the next {len(after)} against {b} of "
-                               f"the {len(before)} before", now=now))
-    return out
+    """Each change in place whose next 10 calls went worse than the 10 before it, reverted (steward_rollback.py)."""
+    from halo_harness.ollama_steward.steward_rollback import rollbacks as judge
+    return judge(state_dir, lines=lines, now=now)
 
 
 def run(state_dir, *, mode_name: Optional[str] = None, found: Optional[list] = None, say: Callable = print,
@@ -185,6 +188,12 @@ def run(state_dir, *, mode_name: Optional[str] = None, found: Optional[list] = N
     if mode_name == "off":
         return done
     hosts = resolve_ollama_hosts()
+    with profile_lock(state_dir):  # R5: the journal read below and the writes after it, one pass at a time
+        _act(state_dir, found, done, hosts, mode_name, now, say)
+    return done
+
+
+def _act(state_dir, found: list, done: dict, hosts: list, mode_name: str, now: float, say: Callable) -> None:
     journal = read_journal(state_dir)
     proposed = {r.get("finding") for r in journal if r.get("kind") == "proposal"}
     for f in found:
@@ -200,7 +209,6 @@ def run(state_dir, *, mode_name: Optional[str] = None, found: Optional[list] = N
             say(row["say"])
         elif f["id"] not in proposed:
             done["proposed"].append(propose(state_dir, f, change, now=now))
-    return done
 
 
 def propose(state_dir, f: dict, change: dict, *, now: Optional[float] = None) -> dict:
@@ -229,7 +237,6 @@ def apply_by_id(state_dir, fid: str, *, now: Optional[float] = None, **gather_kw
         f = {"id": fid, "rule": row.get("rule"), "key": row["key"], "host": host, "model": model,
              "evidence": row.get("evidence"), "plan": row.get("plan"),
              "proposal": {k: row.get(k) for k in ("field", "from", "to", "why")}}
-    change, why = check(state_dir, f, hosts=resolve_ollama_hosts(), now=now)
-    if change is None:
-        return None, why
-    return apply_change(state_dir, f, change, mode_name="review", now=now), ""
+    with profile_lock(state_dir):
+        change, why = check(state_dir, f, hosts=resolve_ollama_hosts(), now=now)
+        return (None, why) if change is None else (apply_change(state_dir, f, change, mode_name="review", now=now), "")

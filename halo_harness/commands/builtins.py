@@ -602,14 +602,20 @@ def _cmd_mcp(args: str, facade: HeadlessFacade) -> str:
 
 
 def _cmd_ollama(args: str, facade: HeadlessFacade) -> str:
-    """Halo 2.0.3 round 3 (brief item 4): the plain-text fallback (`-p`,
-    or the TUI falling through to `Controller.run_slash`) -- reports
-    exactly like `halo ollama [--host NAME] [--refresh]`; the TUI's own
-    `/ollama` (`tui/slash.py::_handle_ollama`) opens the interactive
-    dialog instead, off the UI thread (a real network read)."""
+    """Halo 3.3.4.0 R5: `/ollama [--host NAME]` is the Ollama steward's view
+    (commands/ollama_slash.py: the card, the last hour, the profiles, the
+    job, the last note, the proposals); `/ollama findings | plan | explain`
+    pass through to the CLI's formatters. `/ollama hosts [--host NAME]
+    [--refresh]` is Halo 2.0.3 round 3's per-host analysis, exactly like
+    `halo ollama [--host NAME] [--refresh]`; in the TUI it opens the
+    interactive dialog instead (`tui/slash.py::_handle_ollama`)."""
+    tokens = (args or "").split()
+    if not tokens or tokens[0].lower() != "hosts":
+        from halo_harness.commands.ollama_slash import ollama_text
+        return ollama_text(args)
+    tokens = [t for t in tokens[1:] if t != "--host"]
     from halo_harness.providers.ollama import resolve_ollama_hosts
     from halo_harness.providers.ollama_panel import analyze_host, format_host_analysis
-    tokens = (args or "").split()
     force = "--refresh" in tokens
     names = [t for t in tokens if t != "--refresh"]
     hosts = resolve_ollama_hosts()
@@ -1755,8 +1761,9 @@ _BUILTIN_SPECS = {
     "dbx": ("core", "Alias for /models refresh", None, _cmd_dbx),
     "xp": ("core", "List the waterfall rungs for an Experiential Labs model slug", "routes <slug>", _cmd_xp),
     "mcp": ("core", "List configured MCP servers", None, _cmd_mcp),
-    "ollama": ("core", "Per-host Ollama analysis: reachability, loaded models, context, tool-catalog sizing",
-               "[--host NAME] [--refresh]", _cmd_ollama),
+    "ollama": ("core", "The Ollama steward: each host's card, the last hour's calls, profiles, the last note and the "
+                        "proposals; hosts: the per-host analysis",
+               "[--host NAME] | findings | plan | explain <kind> | hosts [--host NAME] [--refresh]", _cmd_ollama),
     "local": ("core", "Local models: merged Ollama/Hugging Face/cache view, manage model_dirs, or ask "
                        "roles.small a question",
               "[refresh] | add <path> | forget <path> | <question>", _cmd_local),

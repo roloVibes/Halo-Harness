@@ -119,6 +119,11 @@ member's own Fleet attention queue. The steward's job runs once per state
 dir, inside the hub or Studio, or as `halo ollama steward --watch`; the
 hub's job is the one that reads every halo's calls and the server's own
 log, a member's own Studio runs one over the member's own ledger.
+3.3.4.0 R5: the row's `O` opens Fleet's **Ollama** panel (optional, also the
+header's **+** and the palette's "Fleet: Ollama"): per host the card, the
+models this hour, the traffic, the steward's note and findings (Apply and
+Dismiss in review mode, Undo in auto) and the fit plan with a Copy line for
+each server-side change ([MODELS-ollama-steward.md](MODELS-ollama-steward.md#in-studio)).
 
 ### What control levels mean, and the card the owner sees
 
