@@ -3100,6 +3100,70 @@ for each action shown beside it.
   the level for the next model that can use it; Studio's session header
   and the model picker row carry the same word. Pinned in the status-bar
   pilot and the `/effort` test.
+- R0b the model card: what each local model is, and how Halo talks to it
+  (ADDED 2026-10-28, rolo: "there are like thinking models or not, can we
+  add that to the effort options on local models? ... some calls were
+  specific thinking models some not, there needs to be an agent to handle
+  that and or options in effort to make those adjustments, and halo needs
+  to know the different ways to interact with each local model listed, if
+  it's thinking capable, or only for coding, or what. like if it's only
+  coding, somehow suggest or tell the user this is only a coding model, add
+  an orchestrator to communicate with it or something"). Runs with R0. Today
+  Halo reads Ollama's `/api/show` `capabilities` (completion, tools,
+  vision, thinking, embedding, insert), probes tool calling once per model
+  (`ollama_capability.py`), knows families' rules (docs/MODELS-families.md)
+  and the Auto lineup's strengths (3.1.9.0), but nothing puts it in front
+  of the user when a model is picked, and the effort menu on a local model
+  lists cloud levels that do nothing there. (a) **The card**: one record per
+  local model (Ollama, Hugging Face local servers, mlx; `providers/
+  model_card.py`, cached in the catalog row): `thinks` (yes / no / default
+  on; from capabilities, the family rule, the probe), `tools` (declared /
+  probed / none), `vision`, `embedding_only`, `purpose` (coder /
+  instruct / reasoning / vision / embedding / unknown, from the name and
+  family rules: `-coder`, `-instruct`, `-r1` / `-think`, `-vl`, `-embed`),
+  `window` (the source named, R0), `dialect` (native / OpenAI), `how` =
+  the exact way Halo will call it (think on / off, the tool format or
+  "no tools: answers only", images or captions, the window and the
+  reserve), and `fit_for` = the roles it can hold: **orchestrator** needs
+  tools + a window of 32k or more + an instruct or reasoning purpose;
+  **coder lane** needs tools (or the flattened text protocol) + a coder or
+  instruct purpose; **reviewer** any instruct; **small** any; **eyes**
+  needs vision; a coder-only model is never the orchestrator. (b) **Where
+  it shows**: the model picker's rows (chips: think, tools, vision, the
+  purpose word, the window), `/model <ref>`'s answer (the card's `how`
+  lines before the switch), Setup -> Default model, Settings' `model` row,
+  the Models section's rows (3.3.5.0 R1-R4) and the Ollama panel (3.3.4.0
+  R5), `halo models show <ref>`. (c) **The effort menu on a local model**
+  (`/effort`, the Ctrl+E dialog, Studio's header): the real options for
+  THIS model -- `think on` / `think off` on a thinking model (the graded
+  three on gpt-oss), "no adjustable effort" on the rest -- with the cloud
+  levels kept for when the session returns to a cloud model (R0's rule);
+  the choice is per model (`models.think.<ref>`: on / off / default) so a
+  reasoning model you want quiet stays quiet. (d) **The warning and the
+  offer**: when the main model picked (by `/model`, Setup, Settings or
+  `--model`) is not fit for the orchestrator role -- a coder-only model, a
+  model with no tool support, a window under 32k -- one plain line says
+  what it is and what it cannot do here ("qwen3-coder:30b is a coding model
+  with no tool calling on this server: it can write and answer but cannot
+  act; as the main agent it would not run tools"), and offers the fix:
+  keep it as the **coder lane** under an orchestrator that can act (the
+  Auto lineup with this model pinned to the coder role and the orchestrator
+  on the best fit among the other configured models, local first), or go
+  ahead anyway; the offer is one keystroke in the TUI and one button in
+  Studio and writes the lineup through the existing `team` path (Roles
+  shows it). Sub-agents the lineup spawns on such a model get the flattened
+  text protocol automatically. (e) **The steward knows the card**: a call
+  whose body contradicts the card (a `think` flag to a model that does not
+  think, a tool catalog to a model with none, an image to a model without
+  vision) is a finding ("called wrong for this model") with the fix, so the
+  agent explains it in its note. Tests: the card from fixture `/api/show`
+  answers and probe results for a coder, a reasoning, a vision and an
+  embedding model and an HF local server; `fit_for` per card; the picker
+  chips (Chrome); `/effort` on a thinking vs a non-thinking model; the
+  warning and the offer through the loop rig (the lineup written); the
+  steward rule. Docs: MODELS.md ("What a local model can do"),
+  MODELS-families.md (the purpose words), LOCAL-MODELS.md, ROLES.md (the
+  coder lane under an orchestrator), SLASH-COMMANDS (`/effort`, `/model`).
 - R1 the library browser and the fit badge. `halo_harness/models_library/`:
   (a) Ollama: the catalog page and each model's tags read from ollama.com
   (HTML, parsed against fixtures; the shape pinned so a site change fails
