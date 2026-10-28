@@ -3768,13 +3768,14 @@ def test_h9b_f11_two_parallel_children_get_separate_streams_and_never_touch_main
                 # "parent-final-answer" visible -- keep draining until the
                 # status bar has settled idle and the parent's turn_done has
                 # fired, then assert.
-                # 90 s, not the 30 s default: the Windows runner (4ad8314) took over 60 s to settle after the
-                # second child ended and the gate read phase='writing' at the deadline
-                await _poll(lambda: app.status_bar.phase == "idle" and app._turn_done_count >= 1, seconds=90.0)
+                # 3.3.5.0: back to the 30 s default. The Windows runner's 'writing' (4ad8314) and 'waiting'
+                # (e253d30, 5b86041 at 90 s) were never a slow settle: two drain passes overlapped (this
+                # poll's own `app._drain()` next to the interval timer) and applied the parent's held
+                # text_delta / waiting_for_model after its turn_done -- drain passes no longer overlap
+                # (test_sl_two_drain_passes_never_apply_events_out_of_order pins it).
+                await _poll(lambda: app.status_bar.phase == "idle" and app._turn_done_count >= 1)
                 await _drain_a_few(app, pilot, n=3, pause=0.05)
-                # 90 s here too (e253d30: idle was seen, then the bar read 'waiting' for the whole 30 s default
-                # while the children's last events drained on the Windows runner)
-                settled_idle = await _poll(lambda: app.status_bar.phase == "idle", seconds=90.0)
+                settled_idle = await _poll(lambda: app.status_bar.phase == "idle")
 
                 texts = [w.raw_text for w in app.transcript.children if isinstance(w, AssistantText)]
                 child_a_widgets = [t for t in texts if "childA-answer" in t]
@@ -3803,6 +3804,111 @@ def test_h9b_f11_two_parallel_children_get_separate_streams_and_never_touch_main
                     os.environ.pop(k, None)
                 else:
                     os.environ[k] = v
+    asyncio.run(body())
+
+
+_SL_PARENT_MODEL = "or:mock/sl-parent"
+
+
+def _sl_kid(event, agent_id: str):
+    """A child's event exactly as `agent/subagent.py`'s `_tag` hands it on: the child's own agent_id."""
+    event.agent_id = agent_id
+    return event
+
+
+def _sl_child_run(agent_id: str, text: str) -> list:
+    return [_sl_kid(e, agent_id) for e in (
+        ev.message_start(turn=1), ev.text_delta(text, turn=1), ev.message_end(turn=1), ev.turn_done(turn=1))]
+
+
+def _sl_parent_tool_round() -> list:
+    """The parent's first call, two children's runs, both hand-backs, and the parent's own
+    `waiting_for_model` -- everything up to the parent's final call."""
+    starts = [_sl_kid(ev.Event("subagent_start", {"agent_id": aid, "name": "general-purpose"}), aid)
+              for aid in ("sla00001", "slb00001")]
+    ends = [_sl_kid(ev.Event("subagent_end", {"agent_id": aid, "name": "general-purpose"}), aid)
+            for aid in ("sla00001", "slb00001")]
+    return [ev.status(phase="thinking", model=_SL_PARENT_MODEL, turn=1),
+            ev.phase(state="request_sent", turn=1, model=_SL_PARENT_MODEL),
+            ev.message_start(turn=1), ev.message_end(turn=1), *starts,
+            *_sl_child_run("sla00001", "childA-answer"), *_sl_child_run("slb00001", "childB-answer"),
+            *ends, ev.phase(state="waiting_for_model", turn=1, model=_SL_PARENT_MODEL)]
+
+
+def _sl_parent_final_call() -> list:
+    return [ev.phase(state="request_sent", turn=1, model=_SL_PARENT_MODEL), ev.message_start(turn=1),
+            ev.phase(state="first_token", turn=1, kind="text"), ev.text_delta("parent-final-answer", turn=1),
+            ev.message_end(turn=1), ev.status(phase="idle", model=_SL_PARENT_MODEL, turn=1), ev.turn_done(turn=1)]
+
+
+@test
+def test_sl_a_child_event_landing_after_the_parents_turn_done_never_moves_the_main_bar(ctx: Ctx):
+    """3.3.5.0 status-leak fix: the reordered case -- a child's last events (its model's status, a
+    request, a wait, a compaction, an applied steer) arrive AFTER the parent's own turn_done. Each
+    updates the child's lane only; the main bar stays idle on the parent's model. Before the fix a
+    child's `compaction` and `steer_applied` were the two kinds that still set the main bar."""
+    async def body():
+        app = await _mounted(FakeController(turns=[]))
+        async with app.run_test(size=(100, 40)) as pilot:
+            late = [_sl_kid(e, "sla00001") for e in (
+                ev.status(phase="thinking", model="or:mock/sl-child", turn=2),
+                ev.message_start(turn=2), ev.phase(state="request_sent", turn=2, model="or:mock/sl-child"),
+                ev.phase(state="waiting_for_model", turn=2), ev.compaction(phase="start", turn=2),
+                ev.steer_applied("late steer", turn=2), ev.text_delta("late child text", turn=2),
+                ev.message_end(turn=2), ev.turn_done(turn=2))]
+            for e in _sl_parent_tool_round() + _sl_parent_final_call() + late:
+                app._local_events.put(e)
+            await _drain_a_few(app, pilot, n=6, pause=0.05)
+            ctx.check(f"the main bar stayed idle after the parent's turn_done, got {app.status_bar.phase!r}",
+                      app.status_bar.phase == "idle")
+            ctx.check(f"the main bar shows the parent's model, got {app.status_bar.model!r}",
+                      app.status_bar.model == _SL_PARENT_MODEL)
+            ctx.check(f"on_turn_done fired once (the parent's), got {app._turn_done_count}",
+                      app._turn_done_count == 1)
+            texts = [w.raw_text for w in app.transcript.children if isinstance(w, AssistantText)]
+            ctx.check(f"the late child text still reached a child widget, got {texts}",
+                      any("late child text" in t and "parent-final-answer" not in t for t in texts))
+    asyncio.run(body())
+
+
+@test
+def test_sl_two_drain_passes_never_apply_events_out_of_order(ctx: Ctx):
+    """3.3.5.0 status-leak fix, the root cause of the Windows-runner failure of
+    test_h9b_f11_two_parallel_children_...: one drain pass sits in a child's `subagent_end` note
+    mount (slow on a slow box) holding the parent's `waiting_for_model` behind it; a second drain
+    pass (the interval timer, or a test's own `app._drain()`) took the parent's final call and its
+    turn_done meanwhile, so the held `waiting_for_model` landed after turn_done and the bar stayed on
+    "waiting". Drain passes now run one at a time: the events apply in arrival order."""
+    async def body():
+        app = await _mounted(FakeController(turns=[]))
+        async with app.run_test(size=(100, 40)) as pilot:
+            gate, hit = asyncio.Event(), asyncio.Event()
+            real_add_note = app.transcript.add_note
+
+            async def slow_note(text, *args, **kwargs):
+                if str(text).startswith("← sub-agent finished") and not gate.is_set():
+                    hit.set()
+                    await gate.wait()
+                return await real_add_note(text, *args, **kwargs)
+
+            app.transcript.add_note = slow_note
+            for e in _sl_parent_tool_round():
+                app._local_events.put(e)
+            first = asyncio.ensure_future(app._drain())
+            deadline = time.monotonic() + 10.0
+            while not hit.is_set() and time.monotonic() < deadline:
+                await pilot.pause(0.02)
+            ctx.check("a drain pass reached the child's subagent_end note", hit.is_set())
+            for e in _sl_parent_final_call():
+                app._local_events.put(e)
+            second = asyncio.ensure_future(app._drain())
+            await pilot.pause(0.3)  # the interval timer drains meanwhile too
+            gate.set()
+            await asyncio.wait_for(asyncio.gather(first, second), timeout=10.0)
+            await _drain_a_few(app, pilot, n=4, pause=0.05)
+            ctx.check(f"the main bar is idle once the parent's turn_done applied, got {app.status_bar.phase!r}",
+                      app.status_bar.phase == "idle")
+            ctx.check(f"on_turn_done fired once, got {app._turn_done_count}", app._turn_done_count == 1)
     asyncio.run(body())
 
 

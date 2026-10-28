@@ -300,6 +300,8 @@ class BridgeApp(App):
         self._turn_running = False
 
         self._local_events: "queue.Queue" = queue.Queue()
+        # 3.3.5.0 status-leak fix: one drain pass at a time (see `_drain`).
+        self._drain_lock = asyncio.Lock()
         self.verbose = False
         self.pending_card = None
         # Halo 2.0.1 W3a (finding 16 / PendingDock): a FIFO of cards
@@ -1060,7 +1062,22 @@ class BridgeApp(App):
         `_git_branch`/`_notify_send_worker`, both pass `timeout=` and both
         run on their OWN `thread=True` worker, never here). The watchdog
         above (`_start_watchdog`) is the backstop for whatever this audit
-        missed."""
+        missed.
+
+        3.3.5.0 status-leak fix: drain passes never overlap. A pass awaits
+        inside `apply_event` (a note or card mount); a second caller that
+        started meanwhile (the interval timer next to a test's own
+        `app._drain()`, or any future caller) used to pull and apply the
+        LATER events first -- on GitHub's slow Windows runner the parent's
+        final call and its turn_done applied while an older pass sat in a
+        child's `subagent_end` note, and that pass then applied the
+        parent's `waiting_for_model` after turn_done: the bar stayed on
+        "waiting". The lock keeps arrival order across passes."""
+        async with self._drain_lock:
+            await self._drain_pass()
+
+    async def _drain_pass(self) -> None:
+        """One pass of `_drain` (always called under `_drain_lock`)."""
         start = time.monotonic()
         collected: list = []
         for source in (getattr(self.controller, "events", None), self._local_events):

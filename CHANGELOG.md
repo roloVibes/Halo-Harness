@@ -69,6 +69,11 @@ version.
 - Fleet's Ollama panel is the short form: each model row opens Local -> Models. The panel and Local read a host's catalog again only when its `/api/tags` changed (it used to re-read every host each minute).
 - The banner, the section help, the palette and every section-count pin cover ten sections.
 
+### Fixed: the status bar after a turn
+
+- The status bar no longer stays on "waiting" (or "writing") after a turn ended. Two event-drain passes could overlap and apply the parent's own late `waiting_for_model` after its `turn_done`. Drain passes now run one at a time, in arrival order.
+- A sub-agent's own compaction or applied steer no longer moves the main status bar; it updates that sub-agent's lane only.
+
 ### Also in 3.3.5.0
 
 #### Changed
