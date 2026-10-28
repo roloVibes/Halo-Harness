@@ -178,7 +178,7 @@ def test_methods_and_paths(ctx: Ctx):
         ctx.check("POST settings/catalog is a 405", e.call("POST", "settings/catalog")[0] == 405)
         ctx.check("an unknown settings path is a 404", e.call("GET", "settings/nope")[0] == 404)
         from halo_harness.studio.api import _PREFIXES
-        ctx.check("settings is its own prefix after setup", [p[0] for p in _PREFIXES][-2:] == ["setup", "settings"])
+        ctx.check("settings is its own prefix after setup (3.3.4.0 R5: ollama after it)", [p[0] for p in _PREFIXES][-3:] == ["setup", "settings", "ollama"])
 
 
 if __name__ == "__main__":

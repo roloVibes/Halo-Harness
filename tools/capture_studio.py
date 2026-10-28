@@ -2,7 +2,7 @@
 scratch home seeded with the shipped lineups, the halo-dev-cycle lineup
 open, through headless Chrome (Halo 2.1.0 round B3). Also the smoke
 `tests/test_studio_ui.py` runs: the page boots, draws nodes, no console
-errors. Usage: python tools/capture_studio.py [--out PATH] [--dom] [--mode roles|design|shell|orchestra|fleet|team|start|packs|setup]
+errors. Usage: python tools/capture_studio.py [--out PATH] [--dom] [--mode roles|design|shell|orchestra|fleet|team|start|packs|setup|settings] [--panel ollama]
 
 3.0.7.0 R2: `--mode roles` (the default; tools/capture_roles.py) renders the
 React Roles section: a seeded lineup with two tiers and a live card
@@ -32,7 +32,8 @@ with Who can... gridcraft (studio-fleet-capabilities.png), 3.0.6.0 R8 a planned 
 (tools/capture_setup.py) renders Setup as `halo init` opens it, a provider set from a placeholder env file
 (studio-setup.png, the banner's eighth tile and the README's first screenshot after install); --dom counts it.
 3.3.3.0 R2: `--mode settings` (tools/capture_settings.py) renders Settings on its Fleet page (studio-settings.png, the
-banner's ninth tile); --dom counts it.
+banner's ninth tile); --dom counts it. 3.3.4.0 R5: `--mode fleet --panel ollama` (tools/capture_ollama.py) renders
+Fleet with its Ollama panel over the steward fixture (studio-fleet-ollama.png); --dom counts it.
 """
 
 from __future__ import annotations
@@ -101,6 +102,8 @@ def main(argv: list) -> int:
     parser.add_argument("--out", default=str(REPO / "docs" / "media" / "studio.png"))
     parser.add_argument("--dom", action="store_true", help="print the rendered DOM's node count instead of a PNG")
     parser.add_argument("--mode", choices=["roles", "design", "shell", "orchestra", "fleet", "team", "start", "packs", "setup", "settings"], default="roles", help="design: a seeded Launch page project (tools/design_demo.py), the React section (tools/capture_design.py)")
+    parser.add_argument("--panel", choices=["ollama"], default=None, help="with --mode fleet: one panel's capture (3.3.4.0 R5: "
+                        "the Ollama steward's, tools/capture_ollama.py)")
     args = parser.parse_args(argv)
     from capture_identity import begin
     from tests.helpers.chrome_driver import scope_home
@@ -122,6 +125,14 @@ def _render(args) -> int:
     from capture_identity import placeholder
     state = seeded_home()
     placeholder(state)  # 3.1.7.0 R2: every capture draws you@studio (exit 2 when the name would be this machine's)
+    if args.mode == "fleet" and args.panel == "ollama":  # 3.3.4.0 R5: the Ollama panel (tools/capture_ollama.py)
+        from capture_ollama import capture as capture_ollama
+        if args.out.endswith("studio.png"):
+            args.out = args.out[:-4] + "-fleet-ollama.png"
+        try:
+            return capture_ollama(args.out, args.dom, serve, state)
+        finally:
+            shutil.rmtree(state.parent, ignore_errors=True)
     if args.mode == "fleet":  # two harnesses, five agents: the map, the agent panel, Live Roles (tools/capture_fleet.py)
         from capture_fleet import capture as capture_fleet
         if args.out.endswith("studio.png"):

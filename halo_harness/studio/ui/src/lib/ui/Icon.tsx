@@ -47,6 +47,8 @@ const PATHS: Record<string, string> = {
   settings: "M2.5 4h6M11.5 4h2M2.5 8h2M7.5 8h6M2.5 12h7M12.5 12h1M10 2.5v3M6 6.5v3M11 10.5v3", // 3.3.3.0 R2: rows with their knobs
   "chevron-left": "M10 4 6 8l4 4",
   focus: "M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4",
+  eye: "M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8ZM8 6.2a1.8 1.8 0 1 1 0 3.6 1.8 1.8 0 0 1 0-3.6Z", // 3.3.4.0 R5: a vision model
+  copy: "M5.5 5.5h7v7h-7zM3.5 10.5v-7h7", // 3.3.4.0 R5: the Ollama panel's Copy line
 };
 
 /** The icon for a tool an agent runs (Edit, Bash, Read, Agent, WebFetch ...). */

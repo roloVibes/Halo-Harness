@@ -82,7 +82,14 @@ def check(state_dir, p: dict, ctx: dict) -> "tuple[Optional[dict], str]":
 
 def land(state_dir, props: list, ctx: dict, *, mode_name: str, say: Callable = lambda _s: None,
          now: Optional[float] = None) -> list:
-    """Each proposal checked and landed under the mode; the outcomes, in order."""
+    """Each proposal checked and landed under the mode; the outcomes, in order (3.3.4.0 R5: under the
+    steward's profile lock, so a pass running beside this one cannot land the same change twice)."""
+    from halo_harness.ollama_steward import steward
+    with steward.profile_lock(state_dir):
+        return _land(state_dir, props, ctx, mode_name=mode_name, say=say, now=now)
+
+
+def _land(state_dir, props: list, ctx: dict, *, mode_name: str, say: Callable, now: Optional[float]) -> list:
     from halo_harness.ollama_steward import steward
     now = time.time() if now is None else now
     out = []

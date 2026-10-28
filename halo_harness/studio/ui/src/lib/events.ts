@@ -35,6 +35,7 @@ export const KNOWN_KINDS = [
   "dropped", // 3.2.1.0: frames fell off this browser's bounded queue; the fleet page re-reads its view
   "files_changed", // 3.2.2.0 R6: a lineup, bio, config or layout file moved on disk (lib/filesLive.ts onFilesChanged)
   "setup", // 3.3.0.0 R3: a Setup Check job's checks (studio/setup_check_job.py; routes/setup/checkStore.ts)
+  "steward", // 3.3.4.0 R5: the Ollama steward's job (ollama_steward/job.py; routes/fleet/ostore.ts)
 ];
 
 const handlers = new Map<string, Set<Handler>>();

@@ -7,7 +7,8 @@ The model (`choose_model`): `ollama.steward.model` (any model ref; a cloud
 model only when it names one), else the configured `compactionModel` when it
 is a local model, else the smallest local model this machine lists (by its
 size on disk), else none: the job runs the rules only and `status` says "no
-steward model: set ollama.steward.model".
+steward model: set ollama.steward.model". "none" (R5: Settings' picker) is none
+on purpose: the rules run, no note is written.
 
 When (`due`): a run that found something the last note did not name, or made
 a change, or saw a server event that passed its quiet period -- and at most
@@ -36,6 +37,7 @@ NOTE_LINES = 6
 NOTE_EVERY_S = 600.0
 MAX_TOKENS = 700
 NO_MODEL = "no steward model: set ollama.steward.model"
+NONE_SET = "no steward model: ollama.steward.model is none (the rules still run)"
 _BLOCK = re.compile(r"```\s*proposals\s*\n(.*?)```", re.S | re.I)
 _THINK = re.compile(r"<think>.*?</think>", re.S | re.I)
 
@@ -75,6 +77,8 @@ def local_models(state_dir=None) -> "list[tuple[str, int]]":
 def choose_model(*, configured=None, compaction=None, local=None, state_dir=None) -> "tuple[Optional[str], str]":
     """(the model ref or None, where it came from)."""
     configured = _cfg("ollama.steward.model") if configured is None else configured
+    if isinstance(configured, str) and configured.strip().lower() in ("none", "off"):  # 3.3.4.0 R5: Settings' "none"
+        return None, NONE_SET
     if isinstance(configured, str) and configured.strip():
         return configured.strip(), "ollama.steward.model"
     compaction = _cfg("compactionModel") if compaction is None else compaction
