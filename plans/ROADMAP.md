@@ -3114,6 +3114,21 @@ for each action shown beside it.
   picker and `halo models` (no silent truncation: a count line "312 models"
   instead). Pinned: a seeded catalog of 300 OpenRouter rows all present in
   the DOM of Setup's page and the Roles picker.
+  (g) **a provider card says where a value came from** (rolo 2026-10-28,
+  a screenshot of Setup -> Providers -> Databricks reading "not set ·
+  https://<his workspace>": the host was discovered from Claude Code's own
+  settings.json on that machine (`init_providers.py known_host`,
+  `setup_providers_state.py` line ~120) and the token was not set, but the
+  line reads like a shipped default): the card's state line names the
+  source of every prefilled field -- "host from Claude Code's settings.json
+  · token not set", "host from the env file", "typed here" -- and never
+  prints a host beside "not set"; the same wording in the terminal wizard's
+  provider tab and `halo doctor --config`. The workspace host stays private
+  as it is today: never in a capture (seeded homes only), never in the fleet
+  share or the hub, redacted in `halo bugreport` (`redact._SECRET_ENV_NAMES`
+  has `DATABRICKS_HOST`), scanned by `halo audit privacy` on every push.
+  Pinned: the card's line for each source in test_setup_api / the Setup
+  Chrome driver with a fake settings.json env.
 - R0b the model card: what each local model is, and how Halo talks to it
   (ADDED 2026-10-28, rolo: "there are like thinking models or not, can we
   add that to the effort options on local models? ... some calls were
