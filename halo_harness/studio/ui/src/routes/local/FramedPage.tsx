@@ -1,5 +1,5 @@
-// Local's framed pages (3.3.5.0 R1): Library, Hugging Face, Benchmarks and
-// Steward, the rounds after R1 fill them (plans/ROADMAP.md, the 3.3.5.0 entry).
+// Local's framed pages (3.3.5.0 R1): Hugging Face, Benchmarks and Steward,
+// the rounds after R2 fill them (Library is built: LibraryPage.tsx) (plans/ROADMAP.md, the 3.3.5.0 entry).
 // Each says in one paragraph what it will hold and lists the commands that do
 // that work today, each one copyable; Steward also shows the steward job's
 // status line and its last note (the Ollama panel's steward block, read the
@@ -12,16 +12,6 @@ import type { PageId } from "./pages";
 type Frame = { round: string; holds: string; cli: [string, string][] };
 
 export const FRAMES: Partial<Record<PageId, Frame>> = {
-  library: {
-    round: "R2",
-    holds: "Browse what could be installed: Ollama's library (its models and tags, with sizes from the registry) and the " +
-      "Hugging Face Hub (GGUF and MLX repos, their files and sizes, gated and licence flags), every row with its family, " +
-      "parameters, quantization, size on disk, capabilities, downloads and licence, and a fit badge per host at the window " +
-      "you pick: fits on the card, fits with N layers on the CPU, or does not fit, with the numbers. Filters: fits this " +
-      "host, size, family, capability, quantization, source; ranked by the intent you choose.",
-    cli: [["halo models", "every model the providers here list"], ["halo models --cards", "each model's card in one line"],
-          ["halo models show <ref>", "one model's card: what it is and how Halo calls it"]],
-  },
   huggingface: {
     round: "R4",
     holds: "Hugging Face local models, controlled: download a GGUF or MLX repo into a huggingface.model_dirs folder through " +
