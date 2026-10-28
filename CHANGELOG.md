@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.3.4.0] - unreleased
+## [3.3.4.0] - 2026-10-28
 
 **The Ollama steward.** The owner's note: "there's so much configuration going on with ollama that I almost
 think you need a dedicated agent to monitor the ollama traffic to constantly make adjustments ... analyze all
