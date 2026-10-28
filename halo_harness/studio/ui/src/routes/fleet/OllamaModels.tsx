@@ -3,8 +3,10 @@
 // the last hour's calls / trims / cuts / reloads / errors, the p95 prompt against the window sent, the
 // profile's window and reply reserve and who set them, and the eye for a vision model. A Hugging Face local
 // server's rows come from its OpenAI-dialect ledger lines, labelled "local server". 3.3.5.0 R0: each row's
-// window and its source (agent/model_window.py).
-import { Icon } from "../../lib/ui";
+// window and its source (agent/model_window.py). 3.3.5.0 R0b: each row's card chips (think, tools, vision,
+// the purpose, the window), the fit meter on this host's card, and the card's how lines (shared/ModelCard.tsx).
+import { FitMeter, Icon } from "../../lib/ui";
+import { CardChips, CardDetail } from "../shared/ModelCard";
 import { byWho, gib, k, type HostView, type ModelRow } from "./ostore";
 
 function until(iso: string | null): string {
@@ -81,6 +83,8 @@ function Row({ m, local }: { m: ModelRow; local: boolean }) {
         <b className="mono">{m.model}</b>
         {m.vision && <span className="oll-eye" title="this model reads images" data-testid="ollama-vision"><Icon name="eye" size={12} label="vision" /></span>}
         {local && <span className="og-chip mono">local server</span>}
+        <CardChips card={m.card} />
+        <FitMeter fit={m.fit} />
         <span className="spacer" />
         {!local && <Loaded m={m} />}
       </div>
@@ -98,6 +102,7 @@ function Row({ m, local }: { m: ModelRow; local: boolean }) {
         <span className="spacer" />
         <Profile m={m} />
       </div>
+      <CardDetail card={m.card} refName={m.model} />
     </li>
   );
 }

@@ -72,6 +72,31 @@ matches" far more often than Claude/GPT do. A specific `(provider,
 model_id)` row's own `edit_hint` key (including an explicit empty string)
 overrides the family default for just that one model.
 
+## Purpose words (the model card)
+
+Halo 3.3.5.0 R0b: the model card ([MODELS-cards.md](MODELS-cards.md)) says
+what a local model is FOR. `providers/model_card_purpose.py` holds the rules,
+tried on the model's name (the namespace and host stripped) in this order:
+
+| Purpose | The name has | Example |
+|---|---|---|
+| embedding | `embed`, `bge`, `nomic-embed`, `e5`, `gte`, `mxbai` | `nomic-embed-text` |
+| coder | `coder`, `codestral`, `devstral`, `codellama`, `starcoder`, `codegemma` | `qwen3-coder:30b` |
+| reasoning | `r1`, `-think`, `thinking`, `qwq`, `gpt-oss`, `magistral` | `deepseek-r1:14b`, `gpt-oss:20b` |
+| vision | `-vl` (or a digit then `vl`), `llava`, `vision`, `moondream`, `minicpm-v` | `qwen2.5vl:7b` |
+| instruct | `-instruct`, `-it`, `-chat` | `gemma3:27b-it-qat` |
+
+With no purpose word, Ollama's `/api/show` capabilities decide: embedding
+alone is an embedding model, vision without completion a vision model, and
+any other chat model is `instruct` -- a hybrid that can think (Qwen3's
+`thinking` capability) stays `instruct`, its thinking shown as the card's
+`thinks: default-on` (the Qwen3, DeepSeek, gpt-oss, QwQ and Magistral
+families think unless a call sends `think: false`). `unknown` is left for a
+model nothing describes (no capabilities, no family). The size comes from
+`details.parameter_size`, then `model_info` `general.parameter_count`, then
+the name (`30b`); the quantization from `details.quantization_level`, then
+the tag (`q4_K_M`, `Q6_K`, `4bit`).
+
 ## Qwen at work
 
 Halo 2.0.2 round 5: a Databricks work box exposes Qwen two different ways,

@@ -593,7 +593,13 @@ async def _handle_effort(app, args: str) -> None:
     from halo_harness.tui.widgets.cards import EffortCard
 
     profile = getattr(session, "provider_profile", None) if session is not None else None
-    if session is None or profile is None or not profile.reasoning_effort_supported:
+    descriptions = None
+    from halo_harness.providers.effort_on import local_menu  # 3.3.5.0 R0b (c): what works on THIS model
+    menu = local_menu(session) if session is not None else None
+    if menu is not None:
+        levels, current, requested, descriptions = menu["levels"], menu["current"], None, menu["descriptions"]
+        model_id, override_note = session.model_ref.raw, menu["note"]
+    elif session is None or profile is None or not profile.reasoning_effort_supported:
         levels, current, requested = [], None, None
         model_id = app.status_bar.model
         override_note = None
@@ -622,7 +628,7 @@ async def _handle_effort(app, args: str) -> None:
             launch_state.record_last_effort(getattr(session, "effort", None), cwd=app.cwd)
 
     card = EffortCard(levels=levels, current=current, model_id=model_id, on_select=on_select,
-                       override_note=override_note, requested=requested)
+                       override_note=override_note, requested=requested, descriptions=descriptions)
     await app.transcript.mount_widget(card)
     app.set_pending_card(card)
 

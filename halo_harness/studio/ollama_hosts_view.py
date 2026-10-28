@@ -117,10 +117,13 @@ def _loaded(x: Optional[dict]) -> Optional[dict]:
             "context_length": x.get("context_length")}
 
 
-def model_rows(host_name: str, hour: list, day: list, loaded: list, profiles: dict, catalog: dict, host=None) -> list:
+def model_rows(host_name: str, hour: list, day: list, loaded: list, profiles: dict, catalog: dict, host=None,
+               host_card=None) -> list:
     """One row per model with calls in the last 24 h, loaded now, or holding a profile here;
-    3.3.5.0 R0: each with its window and the window's source (`agent/model_window`)."""
+    3.3.5.0 R0: each with its window and the window's source (`agent/model_window`); R0b: its card's chips
+    and how lines, and the fit meter (`card`, `fit`: studio/model_card_api.view)."""
     from halo_harness.ollama_steward.profiles import key_for, split_key
+    from halo_harness.studio.model_card_api import panel_view
     names: list = []
     for m in [r["model"] for r in hour + day] + [x.get("model") for x in loaded or []] + \
             [split_key(k)[1] for k in profiles]:
@@ -137,7 +140,8 @@ def model_rows(host_name: str, hour: list, day: list, loaded: list, profiles: di
         caps = row.get("capabilities") if isinstance(row.get("capabilities"), list) else []
         out.append({"model": m, "loaded": _loaded(ld), "hour": _hour(h), "day_calls": d["calls"] if d else 0,
                     "profile": {k: prof.get(k) for k in ("num_ctx", "num_predict", "keep_alive", "by", "note", "at")}
-                    if prof else None, "vision": "vision" in caps, "window": _window(m, host, row, ld)})
+                    if prof else None, "vision": "vision" in caps, "window": _window(m, host, row, ld),
+                    **panel_view(m, host, row, host_card)})
     return out
 
 
@@ -215,7 +219,8 @@ def hosts_view(state_dir, *, now: Optional[float] = None) -> dict:
         loaded = (card or {}).get("loaded") or []
         out.append({"name": h.name, "url": h.url, "served_here": served_here(h.url), "card": card,
                     "card_lines": format_card(card) if card else [], "loaded": loaded,
-                    "rollups": {"1h": h1, "24h": h24}, "models": model_rows(h.name, h1, h24, loaded, mine, catalog, host=h),
+                    "rollups": {"1h": h1, "24h": h24},
+                    "models": model_rows(h.name, h1, h24, loaded, mine, catalog, host=h, host_card=card),
                     "profiles": mine, "findings": [f for f in found if f["host"] == h.name], "plan": plans.get(h.name)})
     return {"hosts": out, "local_servers": _servers_view(servers, hour, day, found, profiles), "mode": steward.mode(),
             "at": now}

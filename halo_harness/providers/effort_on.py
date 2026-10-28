@@ -224,3 +224,23 @@ def row_word(ref_raw: str, row: Optional[dict]) -> str:
     if got["kind"] == "think":
         return "think low/medium/high" if is_graded(model) else "think on/off"
     return got["word"]
+
+
+MENU_WORDS = {"on": "think before answering", "off": "answer at once, no thinking",
+              "default": "send no think field: the model's own default", "low": "think briefly",
+              "medium": "think as usual", "high": "think the longest"}
+
+
+def local_menu(session) -> Optional[dict]:
+    """3.3.5.0 R0b (c): the `/effort` card on a local model -- {levels, current, descriptions, note}; the levels
+    are this model's own (`effort_on(...).options`), none on a model whose effort does nothing (None: a cloud route)."""
+    ref = getattr(session, "model_ref", None)
+    if _local_kind(ref) == "cloud":
+        return None
+    here = for_session(session)
+    stored = getattr(session, "effort", None)
+    kept = f"the level '{stored}' is kept for when the session returns to a cloud model" if stored else None
+    if here["kind"] != "think":
+        return {"levels": [], "current": None, "descriptions": MENU_WORDS, "note": kept}
+    choice = think_choice_for(getattr(ref, "raw", "") or "")
+    return {"levels": list(here["options"]), "current": choice or "default", "descriptions": MENU_WORDS, "note": kept}

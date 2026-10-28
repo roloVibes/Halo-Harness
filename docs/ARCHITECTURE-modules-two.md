@@ -33,6 +33,14 @@ member's ledger lines to its hub and appends them there. R3: `ollama_steward/rul
 `providers/ollama_fit_parts.py` (the corrected memory arithmetic), `agent/ollama_window_steward.py` (compaction before the call).
 R4: `ollama_steward/job.py` (the one job per state dir: the tail, the timer, the frames), `ollama_steward/job_state.py` (its lock and status), `ollama_steward/notes.py` (the note lines, the hub's note on a member), `ollama_steward/agent.py` + `ollama_steward/agent_prompt.py` + `ollama_steward/agent_proposals.py` (the model, what it reads, its checked proposals), `ollama_steward/explain.py` (`halo ollama explain`); `tui/steward_notice.py` (the status bar and transcript line), `fleet/steward_attention.py` (the attention row).
 R5: `studio/ollama_steward_api.py` (the `ollama/` routes: the steward, the hosts, the timeline, apply / dismiss / undo / run), `studio/ollama_hosts_view.py` (per host the card through a 60 s cache, the rollups, the models, the findings and the fit plan; the Hugging Face local servers' rows), `ollama_steward/steward_rollback.py` (the rollback judge, out of `steward.py`, which gained the profile lock and Dismiss), `commands/ollama_slash.py` (`/ollama`) and `ui/src/routes/fleet/Ollama*.tsx` + `ostore.ts` (the Ollama panel), `ui/src/routes/settings/OllamaBlock.tsx`, `ui/src/routes/setup/StewardLine.tsx`.
+3.3.5.0 R0b (the model card): `providers/model_card.py` (`card_of`: what a model is and its sources),
+`providers/model_card_purpose.py` (the family rules as code), `providers/model_card_words.py` (the `how` lines, the
+chips), `providers/fit_meter.py` (fits / tight / spill / no), `agent/main_model_check.py` (the main-model line and the
+coder-lane lineup), `agent/model_card_switch.py` (the card and the check in a `/model` switch), `model_card_cli.py`
+(`halo models show`, `--cards`), `studio/model_card_api.py` (`models/card`, `models/lane`, `models/effort`,
+`models/think`), `ollama_steward/rules_card.py` (`called-wrong`), `tui/widgets/lane_offer.py` +
+`tui/lane_offer_flow.py` (the one-key offer), `ui/src/lib/ui/FitMeter.tsx`, `ui/src/routes/shared/ModelCard.tsx`,
+`ui/src/routes/session/EffortMenu.tsx`.
 
 **Packs** (`halo_harness/packs/`, Halo 3.2.0.0 R1, docs/PACKS.md): the
 names (`packs/names.py`: ids, `<id>--<name>`, the `pack:<id>` label and

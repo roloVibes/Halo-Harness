@@ -10,10 +10,14 @@
 // 3.3.5.0 R0 (f): every model is drawn (lib/ui/WindowedRows past 200 rows), a
 // count line says how many, a provider group folds with its chevron (kept per
 // browser), and Refresh answers on its own line, never in a toast; (e) a
-// local row carries its effort word (think on/off, effort n/a).
+// local row carries its effort word (think on/off, effort n/a). 3.3.5.0 R0b:
+// each row carries its card's chips and the fit meter; the model picked shows
+// its card under the list, and when it cannot orchestrate here the one line
+// with the coder-lane offer (shared/ModelCard.tsx).
 import { useMemo, useState } from "react";
 import { api } from "../../lib/api";
-import { Button, Empty, Icon, WindowedRows } from "../../lib/ui";
+import { Button, Empty, FitMeter, Icon, WindowedRows } from "../../lib/ui";
+import { CardChips, ModelCardPanel } from "../shared/ModelCard";
 import { BlockFoot, useLoadState, Waiting } from "./BlockFoot";
 import { loadSetup, NONE, pick, shownOf, useSetup, type ModelRow } from "./store";
 
@@ -21,7 +25,8 @@ const FOLD_KEY = "halo.setup.model.folded";
 
 function groups(rows: ModelRow[], q: string): [string, ModelRow[]][] {
   const words = q.toLowerCase().split(/\s+/).filter(Boolean);
-  const hit = (r: ModelRow) => words.every((w) => `${r.ref} ${r.label} ${r.best_at} ${r.effort || ""}`.toLowerCase().includes(w));
+  const hit = (r: ModelRow) => words.every((w) => `${r.ref} ${r.label} ${r.best_at} ${r.effort || ""} ${Object.values(r.card?.chips || {}).join(" ")}`
+    .toLowerCase().includes(w));
   const out = new Map<string, ModelRow[]>();
   for (const r of rows) if (hit(r)) out.set(r.provider || "other", [...(out.get(r.provider || "other") || []), r]);
   return [...out.entries()];
@@ -53,9 +58,10 @@ function Row({ r, on }: { r: ModelRow; on: boolean }) {
       <span className="su-model-best muted" title="what the best-at cache says it is good at (halo models analyze)">
         {r.best_at}
         {r.effort ? <span className="og-chip mono" data-testid="setup-model-effort" title="what the effort level does on this model">{r.effort}</span> : null}
+        <CardChips card={r.card} />
       </span>
       <span className="su-model-num mono muted">{r.price && r.price !== "?" ? r.price : ""}</span>
-      <span className="su-model-num mono muted">{r.context && r.context !== "?" ? r.context : ""}</span>
+      <span className="su-model-num mono muted">{r.context && r.context !== "?" ? r.context : ""} <FitMeter fit={r.fit} label={false} /></span>
     </label>
   );
 }
@@ -141,6 +147,7 @@ export function DefaultModelDetail() {
           </div>
         </>
       )}
+      {shown ? <ModelCardPanel refName={shown} onLane={() => void loadSetup()} /> : null}
       <BlockFoot block="model" what="halo config set model <ref>" />
     </div>
   );

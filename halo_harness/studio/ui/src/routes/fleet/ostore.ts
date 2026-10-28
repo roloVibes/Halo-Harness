@@ -7,6 +7,7 @@
 import { api, ApiError } from "../../lib/api";
 import { onEvent } from "../../lib/events";
 import { createStore, toast, useStore } from "../../lib/store";
+import type { CardFields } from "../shared/ModelCard";
 
 export const REFRESH_MS = 30_000;
 
@@ -27,7 +28,7 @@ export type ModelRow = {
   window?: { tokens: number | null; source: string; ceiling: number | null } | null; // 3.3.5.0 R0: model_window.window_of
   loaded: { size: number | null; size_vram: number | null; vram_pct: number | null; expires: string | null; context_length: number | null } | null;
   profile: { num_ctx?: number; num_predict?: number; keep_alive?: string | number; by?: string; note?: string; at?: string } | null;
-};
+} & CardFields; // 3.3.5.0 R0b: the card's chips and how lines, the fit meter
 export type HostView = { name: string; url: string; served_here: boolean; card_lines: string[]; models: ModelRow[]; findings: Finding[]; plan: Plan | null; kind?: string };
 export type Hosts = { hosts: HostView[]; local_servers: HostView[]; mode: string; at: number };
 export type Status = { running?: boolean; where?: string; since?: number; machine?: string; model?: string | null; model_why?: string; last_run?: { at: number; mode: string; findings: number; applied: number; proposed: number } };
