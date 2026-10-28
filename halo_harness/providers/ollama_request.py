@@ -138,6 +138,8 @@ def build_ollama_request_body(
     # (`ollama_steward/profiles.py`): the reply's room never under its
     # `num_predict`, its `keep_alive` and `tools_max` over the host's.
     steward_profile: Optional[dict] = None,
+    # Halo 3.3.5.0 R0: `models.think.<ref>` (on / off / default; low / medium / high on gpt-oss)
+    think_choice: Optional[str] = None,
 ) -> dict:
     """Build the native `/api/chat` body. `messages`/`system_text` are the
     SAME Anthropic-shaped derived-transcript inputs `providers.request.
@@ -243,6 +245,9 @@ def build_ollama_request_body(
         body["format"] = force_format
     think = think_value_for_effort(effort, route.upstream_model,
                                     supports_thinking=supports_thinking and effort_explicit)
+    if think_choice is not None and supports_thinking:  # 3.3.5.0 R0: models.think.<ref> wins
+        from halo_harness.providers.effort_on import think_value
+        think = think_value(effort, route.upstream_model, explicit=effort_explicit, think_choice=think_choice)
     if think is not None:
         body["think"] = think
     if isinstance(requested_max_tokens, int) and requested_max_tokens > 0:

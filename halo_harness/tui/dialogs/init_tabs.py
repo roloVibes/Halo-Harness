@@ -51,7 +51,8 @@ def _status_text(provider: str, *, state: Optional[dict] = None) -> str:
     if state["configured"]:
         return f"picked up from {state['source']}: {state['masked']}"
     if state.get("known_host"):
-        return f"host picked up from {state['source']}: {state['known_host']} -- token still needed"
+        from halo_harness.init_providers import prefilled_line  # 3.3.5.0 R0 (g): never the host beside "not set"
+        return prefilled_line(state) or "not set up"
     return "not set up"
 
 

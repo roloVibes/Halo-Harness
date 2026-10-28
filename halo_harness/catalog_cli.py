@@ -428,6 +428,8 @@ def cmd_models(argv) -> int:
               f"{format_token_count(entry.get('max_output_tokens')):>8} "
               f"{format_price_per_m(_price_per_m(pricing.get('prompt'))):>10} "
               f"{format_price_per_m(_price_per_m(pricing.get('completion'))):>10}")
+    if models:
+        print(f"{len(models)} models")  # 3.3.5.0 R0 (f): every row printed, the count said
 
     if dbx is not None and endpoints and not dbx_enabled:
         print(f"\nDatabricks: {len(endpoints)} endpoint(s) cached, but Databricks is not enabled -- "
@@ -438,6 +440,7 @@ def cmd_models(argv) -> int:
         print("\nDatabricks endpoints (dbx-endpoints.json):")
         for line in format_dbx_table_lines(rows, urls=args.urls):
             print(line)
+        print(f"{len(endpoints)} endpoints")  # 3.3.5.0 R0 (f): the count line
         if dbx_diff is not None:
             from halo_harness.providers.databricks import format_dbx_diff
             print(f"\nDatabricks catalog diff (this refresh): {format_dbx_diff(dbx_diff)}")

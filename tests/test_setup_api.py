@@ -159,7 +159,8 @@ def test_team_writes_the_wizards_three_choices(ctx: Ctx):
         table, _notes = resolve_role_table(resolve_team_template("balanced", cwd=e.cwd, state_dir=e.state_dir), cwd=e.cwd, state_dir=e.state_dir)
         ctx.check(f"a lineup: team, the roles.* its table resolves and roles on, got {cfg.get('team')} {sorted(roles)}",
                   status == 200 and cfg.get("team") == "balanced" and cfg["roles"]["enabled"] is True and roles == set(table)
-                  and s["team"]["active"] == "balanced" and s["lines"][0].startswith("lineup 'balanced' applied (roles.*, team: 'balanced')"))
+                  and s["team"]["active"] == "balanced" and s["lines"][0].startswith("lineup 'balanced' applied")
+                  and isinstance(s.get("details"), list))
         rows = {r["name"]: r for r in s["team"]["lineups"]}
         ctx.check("the rows follow: balanced checked, auto no longer the default", rows["balanced"]["active"] and not rows["auto"]["default"])
         status, s = e.call("POST", "setup/team", {"lineup": "auto"})
@@ -252,6 +253,41 @@ def test_done_writes_the_marker_publishes_the_frame_and_the_state_carries_it(ctx
             ctx.check("a marker that does not parse reads as none", setup_done_at(e.state_dir) is None)
     finally:
         events.bridge_for = real
+
+
+@test
+def test_a_card_says_where_each_value_came_from(ctx: Ctx):
+    """3.3.5.0 R0 (g): `field_sources` -- a host discovered in Claude Code's settings.json (a fake one, the
+    placeholder host), a key in the env file, a key typed into the card; the words the terminal wizard and
+    `halo doctor --config` print come from the same function."""
+    from halo_harness.init_providers import prefilled_line
+    from halo_harness.studio.setup_providers_state import TYPED
+    TYPED.clear()
+    with _Env() as e:
+        claude = Path(os.environ["BRIDGE_TEST_HOME"]) / ".claude"
+        claude.mkdir(parents=True, exist_ok=True)
+        (claude / "settings.json").write_text(json.dumps({"env": {
+            "ANTHROPIC_MODEL": "databricks-claude-sonnet-4", "DATABRICKS_HOST": "https://your-workspace.cloud.databricks.com"}}),
+            encoding="utf-8")
+        status, s = e.call("GET", "setup/state")
+        dbx = s["providers"]["databricks"]
+        ctx.check(f"a host from Claude Code's settings.json, no token, got {dbx.get('field_sources')}",
+                  status == 200 and dbx["set"] is False and dbx.get("field_sources") == {"host": "Claude Code's settings.json", "token": ""})
+        from halo_harness.init_providers import tab_credential_state
+        line = prefilled_line(tab_credential_state("databricks", cwd=e.cwd))
+        ctx.check(f"the wizard's and doctor's words, never the host, got {line!r}",
+                  line == "host from Claude Code's settings.json · token not set" and "your-workspace" not in line)
+        env_file = e.state_dir.parent / "halo-env"
+        env_file.write_text("OPENROUTER_API_KEY=sk-or-v1-fieldsource-0123456789abcdef\n", encoding="utf-8")
+        os.environ["HALO_ENV_FILE"] = str(env_file)
+        status, s = e.call("GET", "setup/state")
+        ctx.check(f"a key in the env file, got {s['providers']['openrouter'].get('field_sources')}",
+                  s["providers"]["openrouter"].get("field_sources") == {"key": "env file"})
+        status, s = e.call("POST", "setup/provider/anthropic", {"fields": {"key": "sk-ant-testtesttesttest"}})
+        ctx.check(f"a key typed into the card, got {status} {s.get('providers', {}).get('anthropic', {}).get('field_sources')}",
+                  status == 200 and s["providers"]["anthropic"].get("field_sources") == {"key": "typed here"})
+        ctx.check("no key in the answer", "testtesttesttest" not in json.dumps(s) and "fieldsource-0123456789abcdef" not in json.dumps(s))
+    TYPED.clear()
 
 
 if __name__ == "__main__":

@@ -32,6 +32,8 @@
 .su-group-head { display: flex; align-items: center; gap: 8px; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted);
   padding: 2px 0; }
 .su-group-head .btn { margin-left: auto; text-transform: none; letter-spacing: 0; }
+.su-fold { background: none; border: 0; padding: 2px 0; cursor: pointer; width: 100%; text-align: left; font-family: inherit; }
+.su-fold:hover { color: var(--text); }
 .su-model { display: grid; grid-template-columns: auto minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1.2fr) auto auto; gap: 8px; align-items: center;
   padding: 4px 6px; border-radius: var(--radius-sm); cursor: pointer; font-size: 12px; min-width: 0; }
 .su-model:hover { background: var(--surface-2); }
@@ -80,6 +82,7 @@
 .su-lines { margin: 0; padding: 6px 8px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11.5px; background: var(--bg-2);
   border-radius: var(--radius-sm); color: var(--bad); }
 .su-lines[data-ok] { color: var(--muted); }
+.su-details summary { cursor: pointer; font-size: 11.5px; margin: 4px 0; } /* 3.3.5.0 R0 (h): a lineup answer's per-role notes */
 
 
 /* 3.3.0.0 R3: the Check block (one row per check: its tick, its state glyph, the what / cost / time / writes line, its

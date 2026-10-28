@@ -177,7 +177,9 @@ def _observed(session, req, gen, kind, abort, target):
             "images": _images(body), "session": getattr(log_, "session_id", None),
             "turn": getattr(session, "turn_count", None)}
     base.update(_window(session, target["host"]["url"], body))
-    wall = lambda: round((time.monotonic() - t0) * 1000, 1)  # noqa: E731
+    from halo_harness.ollama_steward.ledger_switch import switch_fields  # 3.3.5.0 R0
+    base.update(switch_fields(session, model, kind))
+    wall =lambda: round((time.monotonic() - t0) * 1000, 1)  # noqa: E731
     done = False
     answer: dict = {}  # the final message_delta's facts, written when the stream ends (usage may follow it)
 

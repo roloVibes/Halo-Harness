@@ -60,15 +60,21 @@ R2, every call leaves a record:
   query"), `status` (200, 400, 499, 500, 503, `timeout`, `connection`),
   `error` (the server's one line), `retry` (0 for a first send, then 1, 2
   for the re-sends that follow a failed or trimmed call in the same
-  turn), `session`, `turn`, `tools_count`, `images` and `from` (this
-  machine's fleet name while it has joined a hub). The OpenAI dialect
+  turn), `session`, `turn`, `tools_count`, `images`, `from` (this
+  machine's fleet name while it has joined a hub) and, from 3.3.5.0,
+  `switched_from` (the previous turn or compaction call's model in the
+  session, when it differs) and `fitted` (a switch step ran before the
+  call: [MODELS-switching.md](MODELS-switching.md)). The OpenAI dialect
   fills the counts from `usage` and `done_reason` from `finish_reason`.
   The file rotates to `traffic.1.jsonl` at 20 MB; `ollama.ledger: false`
   turns it off. A fleet member sends its lines to the hub
   (`fleet.ollama.share`, [CONFIG.md](CONFIG.md)): by default the calls
   to a host it does not serve itself, so the machine that serves the
   models holds every halo's calls to it. `halo ollama traffic`
-  ([COMMANDS-ollama.md](COMMANDS-ollama.md)) prints the rollups.
+  ([COMMANDS-ollama.md](COMMANDS-ollama.md)) prints the rollups; each
+  model's row ends with its window and the window's source ("window
+  32,768 (learned cap)", `agent/model_window.window_of`), the same column
+  the Ollama panel's model rows show.
 - **The events**: `halo ollama events` reads the local server's log
   read-only (a rotation followed, journald on Linux) and, with `--watch`,
   polls `/api/version` and `/api/ps` every 20 s; each rule below becomes
@@ -121,6 +127,10 @@ R3, the steward judges, plans the fit, adjusts:
   thrashing one card. Each finding says what it saw (the ledger lines'
   `at`, the events, the numbers) and proposes at most one profile change,
   or a server line only to show.
+- **A switch without a fit** (3.3.5.0): a call whose model differs from
+  the previous call's in the same session, with `fitted` false on its
+  ledger line, is the finding below.
+
 - **The plan**: `halo ollama steward plan` fits what the halos ask for to
   the card: a window per model, one model at a time (`keep_alive` 0 on the
   second), the second model on another configured host, a tuned twin, a
@@ -219,6 +229,16 @@ R4, the steward's agent, selectable and cheap, and the job that runs it:
   (`parallel`, `keep-alive`); no argument lists both; `--sources` adds the
   `SOURCES.md` rows the answer cites.
 
+### switch-without-fit
+
+`switch-without-fit` (a warning, no profile change): "N calls to
+qwen3.5:9b followed a call to qwen3.8:27b in the same session with no switch
+step before them: the window, the tools and the history were the old
+model's". A halo before 3.3.5.0, or a path that moved the model another way,
+leaves these; the switch step ([MODELS-switching.md](MODELS-switching.md))
+is the fix. `halo ollama explain switch-without-fit` prints its row of the
+symptoms table.
+
 ## In Studio
 
 Round R5 shows the steward in Studio, the TUI and Setup.
@@ -237,6 +257,8 @@ Hugging Face local server is a host here too. Each host shows:
     CPU), the window it loaded at and when it unloads;
   - the last hour: calls, trims, cuts, reloads and errors;
   - the p95 prompt against the window sent (amber from 90 %);
+  - (3.3.5.0) the model's window here and where the number came from
+    ("window 32,768 (learned cap)"), the window a switch to it fits to;
   - the profile's window, reply reserve and keep-alive, with who set them
     (by steward, by the hub, by you);
   - an eye for a model that reads images.

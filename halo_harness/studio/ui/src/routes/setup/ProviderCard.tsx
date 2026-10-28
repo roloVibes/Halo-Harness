@@ -1,5 +1,6 @@
 // One provider's card in Setup's Providers block (3.3.0.0 R2): the state line
-// ("set, from the env file, ****1234" or "not set"), the enabled mark, what
+// ("set, from the env file, ****1234" or "not set"; 3.3.5.0 R0 (g): per field,
+// "host from Claude Code's settings.json · token not set"), the enabled mark, what
 // the last test found, one field per variable the wizard's tab asks for (a
 // key is a password field, never prefilled) and Save & test, which writes
 // the variables to the env file through the wizard's own writer, enables the
@@ -7,8 +8,28 @@
 import type { ProviderInfo } from "./store";
 import { CardLines, MiniForm, send, type Input } from "./cards";
 
-/** "set, from the env file, ****1234" / "set, from config.json" / "not set". */
+const FROM: Record<string, string> = { "env file": "from the env file", environment: "from the environment", "typed here": "typed here" };
+const fromWords = (src: string) => FROM[src] || `from ${src}`;
+
+/** 3.3.5.0 R0 (g): one phrase per field, naming where its value came from -- "host from Claude Code's
+ * settings.json · token not set", "host from the env file · token set (****1234)", "key set (****3344), typed
+ * here" -- and never a host value beside "not set". */
+function fieldLine(p: ProviderInfo): string {
+  const src = p.field_sources || {};
+  const others = p.fields.filter((f) => !f.secret).map((f) => src[f.id] || "");
+  const parts = p.fields.map((f) => {
+    const from = src[f.id] || "";
+    const said = from && !others.includes(from) ? `, ${fromWords(from)}` : "";
+    if (f.secret) return from || f.present ? `${f.id} set${p.tail ? ` (${p.tail})` : ""}${said}` : `${f.id} not set`;
+    return from ? `${f.id} ${fromWords(from)}` : `${f.id} not set`;
+  });
+  return parts.join(" · ");
+}
+
+/** The card's state line: per field where a provider has typed fields with a known source; else "set, from the env file, ****1234" / "not set". */
 export function stateLine(p: ProviderInfo): string {
+  const src = p.field_sources || {};
+  if (p.fields.length && Object.values(src).some(Boolean)) return fieldLine(p);
   if (!p.set) return "not set";
   const from = p.source === "env file" ? "from the env file" : `from ${p.source === "environment" ? "the environment" : p.source}`;
   return ["set", from, p.tail].filter(Boolean).join(", ");
@@ -53,7 +74,7 @@ function inputs(name: string, p: ProviderInfo): Input[] {
 export function ProviderCard({ name, p }: { name: string; p: ProviderInfo }) {
   return (
     <section className="su-card" data-testid="setup-provider" data-name={name} data-set={p.set || undefined}>
-      <CardHead name={name} p={p} extra={name === "databricks" && p.detail ? p.detail : ""} />
+      <CardHead name={name} p={p} />
       <MiniForm card={name} inputs={inputs(name, p)} button="Save & test" title={`writes ${p.fields.map((f) => f.label).join(", ")} to the env file`}
                 onSave={(values) => send(name, `setup/provider/${name}`, { fields: values })} />
       <CardLines card={name} />

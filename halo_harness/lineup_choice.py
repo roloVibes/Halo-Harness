@@ -28,7 +28,7 @@ def is_one_model(name: str) -> bool:
     return name in (ONE_MODEL_ID, ONE_MODEL_WORD)
 
 
-def apply_lineup_choice(name: str, *, cwd=None, state_dir=None) -> "tuple[bool, str, str]":
+def apply_lineup_choice(name: str, *, cwd=None, state_dir=None, details: "list | None" = None) -> "tuple[bool, str, str]":
     """Write the Team step's choice `name` (see the module docstring)."""
     from halo_harness.lineup_default import DEFAULT_LINEUP, configured_team
     from halo_harness.roles import set_roles_enabled
@@ -48,4 +48,9 @@ def apply_lineup_choice(name: str, *, cwd=None, state_dir=None) -> "tuple[bool, 
     if not ok:
         return False, f"could not apply lineup {name!r}: {'; '.join(problems)}", "lineup"
     set_roles_enabled(True)
-    return True, (f"lineup {name!r} applied (roles.*, team: {name!r})" + (f" -- {'; '.join(notes)}" if notes else "")), "lineup"
+    # 3.3.5.0 R0 (h): one line; the per-role notes go to `details` (Setup's <details>)
+    from halo_harness.teams_apply_answer import apply_answer
+    line, notes_out = apply_answer(name, notes)
+    if details is not None:
+        details.extend(notes_out)
+    return True, line, "lineup"

@@ -47,7 +47,12 @@ that opens on Setup gets no offer on the next section either (Setup's Summary of
 
 **Providers** is one card per provider, in the wizard's order (Databricks, OpenRouter, Anthropic,
 Ollama, Hugging Face, OpenAI, TypeSafe, Experiential Labs). Each card says whether it is set and where the
-key comes from ("set, from the env file, ****1234", "set, from the environment", "not set"), whether the
+key comes from ("set, from the env file, ****1234", "set, from the environment", "not set"); 3.3.5.0 R0
+names the source of every prefilled field, one phrase per field: "host from Claude Code's settings.json ·
+token not set" (a host discovered in Claude Code's own `settings.json` env, with no token yet), "host from
+the env file · token set (****1234)", "key set (****1234), typed here" after a Save in this Studio; a host
+value is never printed beside "not set" (the terminal wizard's tab and `halo doctor --config` say the same
+words, `init_providers.prefilled_line`). Whether the
 provider is enabled, and what the last test found ("reachable: ok · 312 models listed"; "not checked"
 until a Save & test ran in this Studio). A key field is a password field, never prefilled ("paste a
 key"). **Save & test** does what the wizard's Save does: it writes the variables to the env file
@@ -111,6 +116,24 @@ key for an Ollama host, an endpoint or a local server goes to the env file as `H
 and config.json keeps that name. Removing a host, an endpoint or a server leaves its variable in the env
 file (the answer names it). The env file is `HALO_ENV_FILE`, else `~/.config/halo/env`; the Providers
 block names its path.
+
+## Every model shown, results on the page (3.3.5.0 R0)
+
+**Default model** draws every model of the providers set up here: no "N more: search to narrow" cut. A
+count line says how many ("312 models", "12 of 312 models" while the search narrows); a provider past 200
+rows is drawn a window at a time (`lib/ui/WindowedRows.tsx`: the first 200 at once, the rest a hundred per
+frame, each chunk skipping its paint while it is off screen), so every row is in the page and the page
+stays quick; a provider group folds with its chevron and the fold is kept in this browser. A local row
+carries its effort word (`think on/off`, `effort n/a`; [MODELS-switching.md](MODELS-switching.md)). The
+same rule holds in Roles' model picker, Settings' `model` row ("pick from the list") and the TUI's `/model`
+picker and `halo models` (a count line, never a silent cut).
+
+**No toast on a paged page.** A block's Save, a card's Save & test, the Ollama block's Find / Add / Measure
+and Refresh answer on their own lines under the block or the card, never in a toast (toasts sit top right
+under the header on every section, clear of the Back / Next foot). Applying a lineup answers in one line --
+"lineup 'local-first' applied; main, small, researcher and judge run on the session model (their agents
+name none)" -- with the per-role sentences folded under "the details" (`teams_apply_answer.py`; `/teams
+apply` and `halo teams apply` print the same line and the sentences indented under it).
 
 ## Check and Linux fixes (3.3.0.0 R3)
 

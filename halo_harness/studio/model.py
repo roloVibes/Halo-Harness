@@ -71,6 +71,7 @@ def model_rows(state_dir=None, cwd=None, *, cached: bool = False) -> list:
     from halo_harness.capabilities import capability_profile
     from halo_harness.model_display import format_price_per_m, format_speed, format_token_count
     from halo_harness.models_best_at import index as best_at_index
+    from halo_harness.providers.effort_on import row_word as effort_row_word
     from halo_harness.providers.config import default_state_dir
     state_dir = Path(state_dir or default_state_dir())
     raw = catalog_rows(state_dir, cwd, cached=cached)
@@ -104,6 +105,7 @@ def model_rows(state_dir=None, cwd=None, *, cached: bool = False) -> list:
             "open_weights": row.get("open_weights"), "measured": row.get("measured"),
             "best_at": {"line": at.get("line") or "", "kinds": list(at.get("kinds") or [])},
             "learned": learned.get(ref) or {},  # {kind: {n, passed, rate, picked, weight, counted, dropped, days}}
+            "effort_word": effort_row_word(ref, row),  # 3.3.5.0 R0 (e): think on/off, effort n/a, or "" (cloud)
         })
     return rows
 

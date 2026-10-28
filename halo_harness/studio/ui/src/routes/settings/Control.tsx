@@ -1,11 +1,13 @@
 // One generic field per kind (3.3.3.0 R2): bool a switch, enum a select, int
-// and float a number field, string / model / path a text field, list one item
+// and float a number field, string / path a text field, model the text field
+// and the catalog's every model (3.3.5.0 R0), list one item
 // per line, mapping the JSON editor. A list of entries that are mappings
 // (ollama.hosts, the Hugging Face endpoints and servers, or any list that
 // holds a mapping now) is edited as JSON too. Every control saves `key`
 // through the store and shows under row `row`.
 import { JsonEditor } from "./fields/JsonEditor";
 import { ListEditor } from "./fields/ListEditor";
+import { ModelField } from "./fields/ModelField";
 import { NumberField } from "./fields/Number";
 import { Select } from "./fields/Select";
 import { TextField } from "./fields/Text";
@@ -53,6 +55,8 @@ export function Control({ id, kind, rowKey, keyName, label, value, fallback, cho
       return <ListEditor id={id} value={shown} fallback={fallback} label={label} disabled={busy} onSave={save} />;
     case "mapping":
       return <JsonEditor id={id} value={shown} label={label} problems={problems} disabled={busy} onSave={save} />;
+    case "model": // 3.3.5.0 R0 (f): the text field and every model of the catalog
+      return <ModelField id={id} value={shown} fallback={fallback} label={label} disabled={busy} onSave={save} />;
     default:
       return <TextField id={id} value={shown} fallback={fallback} secret={secret} isSet={isSet} label={label} disabled={busy} onSave={save} />;
   }

@@ -7,21 +7,41 @@
 // this page probes no host); a configured Ollama host nothing has read yet
 // says "not read yet: Refresh", and Refresh reads every provider's list
 // (POST models/refresh, the Models panel's Refresh), then the page again.
+// 3.3.5.0 R0 (f): every model is drawn (lib/ui/WindowedRows past 200 rows), a
+// count line says how many, a provider group folds with its chevron (kept per
+// browser), and Refresh answers on its own line, never in a toast; (e) a
+// local row carries its effort word (think on/off, effort n/a).
 import { useMemo, useState } from "react";
 import { api } from "../../lib/api";
-import { toast } from "../../lib/store";
-import { Button, Empty } from "../../lib/ui";
+import { Button, Empty, Icon, WindowedRows } from "../../lib/ui";
 import { BlockFoot, useLoadState, Waiting } from "./BlockFoot";
 import { loadSetup, NONE, pick, shownOf, useSetup, type ModelRow } from "./store";
 
-const LIMIT = 60; // rows drawn per provider until the search narrows them
+const FOLD_KEY = "halo.setup.model.folded";
 
 function groups(rows: ModelRow[], q: string): [string, ModelRow[]][] {
   const words = q.toLowerCase().split(/\s+/).filter(Boolean);
-  const hit = (r: ModelRow) => words.every((w) => `${r.ref} ${r.label} ${r.best_at}`.toLowerCase().includes(w));
+  const hit = (r: ModelRow) => words.every((w) => `${r.ref} ${r.label} ${r.best_at} ${r.effort || ""}`.toLowerCase().includes(w));
   const out = new Map<string, ModelRow[]>();
   for (const r of rows) if (hit(r)) out.set(r.provider || "other", [...(out.get(r.provider || "other") || []), r]);
   return [...out.entries()];
+}
+
+function readFolded(): Record<string, boolean> {
+  try {
+    const v = JSON.parse(window.localStorage.getItem(FOLD_KEY) || "{}");
+    return v && typeof v === "object" ? (v as Record<string, boolean>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveFolded(v: Record<string, boolean>): void {
+  try {
+    window.localStorage.setItem(FOLD_KEY, JSON.stringify(v));
+  } catch {
+    /* a private window keeps it for this visit only */
+  }
 }
 
 function Row({ r, on }: { r: ModelRow; on: boolean }) {
@@ -30,7 +50,10 @@ function Row({ r, on }: { r: ModelRow; on: boolean }) {
       <input type="radio" name="setup-model" checked={on} onChange={() => pick("model", r.ref)} data-testid="setup-model-input" data-ref={r.ref} />
       <span className="su-model-ref mono">{r.ref}</span>
       <span className="su-model-label">{r.label !== r.ref ? r.label : ""}</span>
-      <span className="su-model-best muted" title="what the best-at cache says it is good at (halo models analyze)">{r.best_at}</span>
+      <span className="su-model-best muted" title="what the best-at cache says it is good at (halo models analyze)">
+        {r.best_at}
+        {r.effort ? <span className="og-chip mono" data-testid="setup-model-effort" title="what the effort level does on this model">{r.effort}</span> : null}
+      </span>
       <span className="su-model-num mono muted">{r.price && r.price !== "?" ? r.price : ""}</span>
       <span className="su-model-num mono muted">{r.context && r.context !== "?" ? r.context : ""}</span>
     </label>
@@ -40,13 +63,14 @@ function Row({ r, on }: { r: ModelRow; on: boolean }) {
 function Refresh() {
   const notes = useSetup((s) => s.data?.model_notes || NONE);
   const [busy, setBusy] = useState(false);
+  const [said, setSaid] = useState<{ ok: boolean; text: string } | null>(null);
   const go = async () => {
     setBusy(true);
     try {
       const r = await api.post<{ rows?: number }>("models/refresh", {});
-      toast(`the catalog read again: ${r.rows ?? 0} models`, "done", 4000);
+      setSaid({ ok: true, text: `the catalog read again: ${r.rows ?? 0} models` });
     } catch (e) {
-      toast(e instanceof Error ? e.message : String(e), "error", 6000);
+      setSaid({ ok: false, text: e instanceof Error ? e.message : String(e) });
     } finally {
       setBusy(false);
       void loadSetup();
@@ -60,7 +84,20 @@ function Refresh() {
       <Button size="sm" variant="ghost" disabled={busy} onClick={() => void go()} title="halo models --refresh" data-testid="setup-model-refresh">
         {busy ? "Reading..." : "Refresh"}
       </Button>
+      {said && <span className="su-note mono" data-ok={said.ok || undefined} data-testid="setup-model-refreshed">{said.text}</span>}
     </div>
+  );
+}
+
+function Group({ provider, list, shown, folded, onFold }: { provider: string; list: ModelRow[]; shown: string; folded: boolean; onFold: () => void }) {
+  return (
+    <section className="su-model-group" data-testid="setup-model-group" data-provider={provider} data-folded={folded || undefined}>
+      <button type="button" className="su-group-head mono su-fold" onClick={onFold} aria-expanded={!folded} data-testid="setup-model-fold" data-provider={provider}>
+        <Icon name={folded ? "chevron-right" : "chevron-down"} size={12} />
+        {provider} <span className="muted">· {list.length}</span>
+      </button>
+      {!folded && <WindowedRows items={list} render={(r) => <Row key={r.ref} r={r} on={shown === r.ref} />} />}
+    </section>
   );
 }
 
@@ -70,9 +107,16 @@ export function DefaultModelDetail() {
   const shown = useSetup((s) => shownOf(s, "model"));
   const saved = useSetup((s) => s.data?.model || "");
   const [q, setQ] = useState("");
+  const [folded, setFolded] = useState<Record<string, boolean>>(readFolded);
   const grouped = useMemo(() => groups(rows, q), [rows, q]);
   if (!ready) return <Waiting error={error} />;
   const known = rows.some((r) => r.ref === saved);
+  const matched = grouped.reduce((n, [, l]) => n + l.length, 0);
+  const fold = (p: string) => {
+    const next = { ...folded, [p]: !folded[p] };
+    setFolded(next);
+    saveFolded(next);
+  };
   return (
     <div className="su-block" data-testid="setup-default-model">
       <p className="su-lead muted">
@@ -86,17 +130,12 @@ export function DefaultModelDetail() {
         <>
           <input className="input su-search" type="search" placeholder={`search ${rows.length} models: ref, name, best at`} value={q}
                  onChange={(e) => setQ(e.target.value)} aria-label="Search the models" data-testid="setup-model-search" />
+          <div className="su-more muted mono" data-testid="setup-model-count">
+            {q ? `${matched} of ${rows.length} models` : `${rows.length} models`}
+          </div>
           <div className="su-models" role="radiogroup" aria-label="Default model">
             {grouped.map(([provider, list]) => (
-              <section key={provider} className="su-model-group" data-testid="setup-model-group" data-provider={provider}>
-                <div className="su-group-head mono">
-                  {provider} <span className="muted">· {list.length}</span>
-                </div>
-                {list.slice(0, q ? list.length : LIMIT).map((r) => (
-                  <Row key={r.ref} r={r} on={shown === r.ref} />
-                ))}
-                {!q && list.length > LIMIT && <div className="su-more muted">{list.length - LIMIT} more: search to narrow the list</div>}
-              </section>
+              <Group key={provider} provider={provider} list={list} shown={shown} folded={!q && !!folded[provider]} onFold={() => fold(provider)} />
             ))}
             {grouped.length === 0 && <div className="su-more muted">No model matches {JSON.stringify(q)}.</div>}
           </div>

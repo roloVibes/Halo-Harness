@@ -189,6 +189,12 @@ cue. A section tab "works" while that section has fresh activity, toasts
 sweep green or flash red once, and nothing loops except `idle`, `working`
 and `waiting`, which describe an ongoing state.
 
+**Toasts sit top right, under the header** (3.3.5.0 R0), on every section
+(`.toasts` in `styles/base.css`: `top: calc(var(--topbar-h) + 8px); right:
+16px`), so one never covers a page's foot (Setup's Back / Next). A paged
+section (Setup, Settings) raises none for its own blocks: a block's result
+is its own line.
+
 ## What is on disk, as it changes (3.2.2.0)
 
 `studio/files_live.py` is one daemon
