@@ -10,6 +10,19 @@ version.
 
 ## [3.3.4.0] - unreleased
 
+**The Ollama steward.** The owner's note: "there's so much configuration going on with ollama that I almost
+think you need a dedicated agent to monitor the ollama traffic to constantly make adjustments ... analyze all
+the traffic to be proactive about fixing context windows, each ollama model is different ... an agent that we
+can select, hopefully something cheap and simple ... that also understands your local infrastructure too like
+GPU and memory limits". Five rounds: the knowledge (38 cited sources on Ollama's scheduler, the log, the memory
+arithmetic and the local servers) and a hardware card per host (R1); one ledger line per call from every halo,
+forwarded to the fleet hub, and a read-only tail of the server's log with the alert rules (R2); the fit
+arithmetic corrected to measured numbers, the rules, the fit planner and one profile per host and model that
+every halo reads, with auto / review / off and every change reversible -- and the three Ollama bugs parked
+after 3.2.3.0 fixed (R3); a selectable cheap model that explains the chain and the job that runs the steward on
+its own (R4); the Ollama panel in Fleet, Settings -> Ollama and `/ollama` (R5). Nothing here writes to an
+Ollama server: server-side changes are recommended with the exact line to set.
+
 ### R1: the knowledge and the hardware card
 
 #### Added
@@ -111,10 +124,6 @@ qwen3.8:27b on a 24 GB card is now estimated at 65,536 (it was 32,768).
 - `ollama.steward.model: none` turns the steward's notes off; the rules still run.
 - The live feed has its own page, docs/STUDIO-feed.md.
 - The module map is split in two (docs/ARCHITECTURE-modules-two.md).
-
-### Also in 3.3.4.0
-
-#### Changed
 
 ## [3.3.3.1] - 2026-10-27
 

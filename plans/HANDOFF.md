@@ -4,7 +4,51 @@ This folder carries the whole plan so a new session (local or cloud) can
 pick the work up without the conversation that produced it. Read this file
 first, then `WORKER-RULES.md`, then the round you are starting.
 
-## WHERE THINGS STAND -- 2026-10-27 midday (authoritative, read this first)
+## WHERE THINGS STAND -- 2026-10-28 morning (authoritative, read this first)
+
+**3.3.4.0 "The Ollama steward" IS THE RELEASE CANDIDATE** (five rounds merged on master; the release follows
+once both runners are green on the candidate head -- if you read this after the release, the tag v3.3.4.0
+exists and the PC runs it). From the owner's three notes on 2026-10-27 (a dedicated agent that watches the
+Ollama traffic across every halo and machine, knows the GPU and memory limits and the server internals,
+explains failures and adjusts; research first). R1 (745b4dc): `halo_harness/ollama_steward/knowledge/*.md`
+(SOURCES.md with 38 rows; scheduler, log vocabulary, memory arithmetic, local servers, symptoms -> cause ->
+change) and the hardware card (`hardware*.py`, `halo ollama hardware`: the local server.log's startup block,
+`/api/version` + `/api/ps`, the ssh read, nvidia-smi / system_profiler). R2 (2ebc20e): the ledger
+(`<state>/ollama/traffic.jsonl`, one line per local-model call from every dialect, `ollama.ledger`), the hub
+share (`fleet.ollama.share auto|all|off`, `POST /fleet/v1/ollama`), the server-log tail -> `events.jsonl` with
+the twelve rules corrected by R1 (+ cancel-task, queue-full, loaded / unloaded / reloaded, startup), `halo
+ollama traffic | events`, docs/COMMANDS-ollama.md. R3 (97b5c2d): `providers/ollama_fit_parts.py` (KV layers
+of hybrid models, the recurrent state, the compute buffer, Ollama's minimum, llama.cpp's margin -- the 27B at
+65,536 = 20,235 MiB vs 20,230 measured), the rules (`rules*.py`: window-asked-small, window-small / large,
+two-windows, cpu-spill, reply-cut, no-compaction, compaction-failed, cut-resent, slow-box, thrash), the fit
+planner (`fit.py`), the profiles `ollama.profiles["<host>|<model>"]` (+ `compact_at`) read in
+`prepare_window` and pushed to members in the hub's share answer, modes `ollama.steward.apply` auto (default)
+| review | off, `steward.jsonl`, `halo ollama steward findings | plan | run | apply | undo`, the ten-minute
+rule, the cap guard, auto rollback; **the three parked bugs fixed**: compaction before sending past
+`compact_at` (0.8) of the ceiling (`compact_due`), a squeezed cut reply never kept or resent
+(`squeezed_cut`), `num_predict` as the reply's least room. R4 (76e693a): the job (`job.py`, an OS lock file,
+one per state dir, starts with Studio and the hub, `halo ollama steward --watch | status`,
+`ollama.steward.job / every_s / note_every_s`), the agent (`agent*.py`: `ollama.steward.model`, default a
+LOCAL compactionModel else the smallest local model else none; a 1,898-token guide built from the knowledge;
+a note of at most six lines ending in its cost; proposals checked against the cap, the fit and the
+outgrown-conversation rule), notes to the TUI status bar + transcript, a Fleet attention row
+`ollama_steward`, Studio's `steward` frames and fleet members; `halo ollama explain [<kind>|<topic>]
+[--sources]`. R5 (3a425f1): `studio/ollama_steward_api.py` + `ollama_hosts_view.py` (`ollama/steward | hosts
+| timeline`, `steward/apply | dismiss | undo | run`; dismiss built; R4's double-apply race closed under
+`profile_lock`), the Ollama panel in Fleet (`routes/fleet/Ollama*.tsx`, id `fleet-ollama`: host picker, card
+line, models table, sparkline, steward block, fit plan with Apply / Copy; from the "+" menu, the attention
+row and the palette), Settings -> Ollama's steward block, Setup's Ollama card line, `/ollama` (`/ollama
+hosts` = the old per-host analysis), HF local servers as "local server" rows, `studio-fleet-ollama.png`,
+docs/MODELS-ollama-steward.md, STUDIO-feed.md and ARCHITECTURE-modules split under their caps. Worktrees
+`~/hh-334/R1..R5-*`, briefs and hand-backs under `~/hh-334/briefs/`. Also on master: 3.3.3.1 (2e52f68,
+released) and the Pack Manager driver's 90 s rollback wait (f05c791: the Windows runner's slow re-list, red
+twice). Open for the owner's live check (nothing run on Kali or the Mac): the Ollama panel on the PC with a
+Mac session calling its server, `halo ollama steward status`, a finding's Apply in review mode, `/ollama`;
+`halo update` on Kali and the Mac. **Next:** 3.3.5.0 "Models" -- R0 the switch (+ the effort tag), R0b the
+model card (+ per-model think, the coder-lane offer), R1-R4 browse / fit / pull / run / HF local, R5 eyes;
+then 3.3.6.0 "Type into Studio", 3.3.7.0 "Themes and parity". The owner's rule: all local-model work first.
+
+### Before it: 2026-10-27 midday
 
 **3.3.3.0 "Settings" IS RELEASED** (tag v3.3.3.0, release commit 3a61491 cut from 92ae0e2 on 2026-10-27
 afternoon after both runners went green; installed on the PC: `halo 3.3.3.0`). **3.3.3.1 "cost counts what it knows" IS RELEASED too** (tag v3.3.3.1, release commit 2e52f68 cut from
