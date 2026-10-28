@@ -170,7 +170,8 @@ R4, the steward's agent, selectable and cheap, and the job that runs it:
   configured `compactionModel` when it is a local model, else the smallest
   local model this machine lists (by its size on disk), else none: then the
   job runs the rules alone and `status` says "no steward model: set
-  ollama.steward.model". A cloud model is used only when
+  ollama.steward.model". `none` (3.3.4.0 R5) turns the notes off on
+  purpose; the rules still run. A cloud model is used only when
   `ollama.steward.model` names one. It is called once per note, only when a
   run found something the last note did not name, made a change, or saw a
   server alert, and at most once per `ollama.steward.note_every_s` (600 s).
@@ -218,4 +219,104 @@ R4, the steward's agent, selectable and cheap, and the job that runs it:
   (`parallel`, `keep-alive`); no argument lists both; `--sources` adds the
   `SOURCES.md` rows the answer cites.
 
-Next: R5 the Studio panel, the Settings page and `/ollama`.
+## In Studio
+
+Round R5 shows the steward in Studio, the TUI and Setup.
+
+**Fleet's Ollama panel.** An optional panel: the header's **+** adds it,
+the steward's attention row opens it with **O**, and so does the
+palette's "Fleet: Ollama". Pick a host when there is more than one; a
+Hugging Face local server is a host here too. Each host shows:
+
+- **The card line**: the GPUs and their free memory, the server's own
+  settings (how many models it keeps, parallel, keep-alive, the KV cache
+  type, flash attention) and what else holds the card.
+- **The models**: one row per model with calls in the last 24 h, loaded
+  now, or holding a profile. Each row shows:
+  - loaded now: its VRAM share as a bar (amber when part of it runs on the
+    CPU), the window it loaded at and when it unloads;
+  - the last hour: calls, trims, cuts, reloads and errors;
+  - the p95 prompt against the window sent (amber from 90 %);
+  - the profile's window, reply reserve and keep-alive, with who set them
+    (by steward, by the hub, by you);
+  - an eye for a model that reads images.
+- **Traffic**: the last hour's calls per minute as a sparkline, with each
+  trim, cut and error marked on its minute.
+- **The steward block**:
+  - the job's status lines: where it runs, since when, its model, the last
+    run;
+  - the last note, its cost line muted, and on a member the hub's note;
+  - the findings: severity, the line, the change, the evidence numbers.
+    In `review` mode a finding has **Apply** (the profile change, through
+    the same guards as `halo ollama steward apply`); in `auto` mode the
+    changes in place are listed with **Undo** on the newest;
+  - **Dismiss** keeps a finding quiet for 24 hours. It writes a `dismissed`
+    line in `steward.jsonl`, which the rules read, so the CLI, the job and
+    `/ollama` stop showing it too.
+  - **Run now** runs the rules once. It never calls a model.
+- **The fit plan**: whether the models the halos ask for fit the card
+  together, and each option with what you lose. An option with profile
+  changes has **Apply**. A server-side change (`OLLAMA_KV_CACHE_TYPE=q8_0`,
+  a smaller quant's pull line, a tuned twin) has **Copy**, which copies the
+  exact line. Halo never sets it on the server.
+
+A Hugging Face local server shows its rows from the ledger's OpenAI-dialect
+lines. The window and reply-reserve rules apply to it. The rest of Hugging
+Face moves to the Models section (3.3.5.0).
+
+How the panel stays live:
+
+- The panel refetches every 30 s while it is open.
+- A `steward` frame from a job running in this Studio also refreshes it.
+- A job in another process (the hub, or `--watch`) sends no frames, so the
+  30 s refetch covers it.
+
+The routes behind the panel (`studio/ollama_steward_api.py`, under
+`/api/ollama/`) never call a model and never write to a server:
+
+| Route | What it does |
+|---|---|
+| `GET steward` | the job's status, the notes, the mode and the pending proposals |
+| `GET hosts` | per host the card (read at most once a minute), the rollups, the models, the findings and the plan |
+| `GET timeline?host=&since=1h` | the ledger bucketed per minute |
+| `POST steward/apply {id}` or `{key, field, to}` | applies a finding's or a plan option's change |
+| `POST steward/dismiss {id}` | keeps the finding quiet for 24 hours |
+| `POST steward/undo` | reverts the newest change in place |
+| `POST steward/run` | runs the rules once |
+
+A pass, an apply and an undo take the steward's profile lock between
+reading the ten-minute mark and writing. Two passes at once (the job's
+timer and a hand `run`) can no longer land the same change twice.
+
+**Settings -> Ollama.** Above the group's rows sits the steward's block:
+
+- its status lines;
+- the model that writes the notes: automatic (the key unset), none (no
+  notes; the rules still run), or one of this machine's local models
+  (`ollama.steward.model`);
+- the mode, auto, review or off (`ollama.steward.apply`);
+- the job switch (`ollama.steward.job`, takes effect on the next launch);
+- **Open the Ollama panel**.
+
+`every_s`, `note_every_s`, `slow_tok_s`, `ledger` and `fleet.ollama.share`
+stay ordinary rows.
+
+**Setup -> Providers.** The Ollama card has one muted line, "steward: <the
+first line of its last note>" (or "no note yet"), and a link to the panel.
+
+**`/ollama` in the TUI and `-p`** prints the steward's view in the
+transcript:
+
+- the mode and the job's status lines;
+- the last note, and on a member the hub's note;
+- per host its card line, the last hour's rollups (`halo ollama traffic
+  --since 1h`) and its profiles;
+- the local servers' lines;
+- the review-mode proposals, each with `halo ollama steward apply <id>`.
+
+`--host NAME` narrows it to one host. `/ollama findings`, `/ollama plan`
+and `/ollama explain <kind>` print what the CLI prints. `/ollama hosts
+[--host NAME] [--refresh]` is the per-host analysis it used to be, and in
+the TUI it opens that dialog.
+
+![Fleet with its Ollama panel](media/studio-fleet-ollama.png)

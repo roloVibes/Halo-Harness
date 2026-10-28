@@ -81,7 +81,8 @@ The browser console: every agent of your session live, your lineups, runs, fleet
 - [STUDIO.md](STUDIO.md) (Halo Studio): read this when you use Halo Studio, the browser console where you watch every agent work: the Session dashboard, your lineups in Roles, runs, designs, fleet and team.
   - [STUDIO-shell.md](STUDIO-shell.md) (Studio: the shell): read this when you find your way around Studio's header, sections, panels and Start views, or open it on a bio, a lineup or the Team.
   - [STUDIO-session.md](STUDIO-session.md) (Studio: steering and exporting a session): read this when you steer an agent from Session's Live column and want to know which agent and which call it reaches, or save a session as one Markdown trace file.
-  - [STUDIO-sections.md](STUDIO-sections.md) (Studio: how each section works): read this when you want the one-screen story of a section (Session, Team, Roles, Fleet, Design, Orchestra, Packs, Setup, Settings) and the live feed.
+  - [STUDIO-sections.md](STUDIO-sections.md) (Studio: how each section works): read this when you want the one-screen story of a section (Session, Team, Roles, Fleet, Design, Orchestra, Packs, Setup, Settings).
+  - [STUDIO-feed.md](STUDIO-feed.md) (Studio: the live feed): read this when you want how Studio's pages get their live frames: the Server-Sent Events stream, its kinds and its catch-up.
   - [STUDIO-orchestra.md](STUDIO-orchestra.md) (Studio: the Orchestra console): read this when you run an Orchestra goal from Studio: the run console, the plan canvas and the coach.
   - [STUDIO-fleet.md](STUDIO-fleet.md) (Studio: Fleet): read this when you watch or steer every harness and agent from Studio's Fleet section.
   - [STUDIO-team-roles.md](STUDIO-team-roles.md) (Studio: Team and Roles): read this when you edit a team board or a lineup on the Roles canvas.
@@ -111,6 +112,7 @@ How Halo is built, tested and released, and the record of how it got here.
   - [ARCHITECTURE-runtime.md](ARCHITECTURE-runtime.md) (Architecture: steering, compaction, sub-agents and telemetry): read this when you change steering and interrupts, compaction, sub-agents and plan mode, or telemetry.
   - [ARCHITECTURE-tui.md](ARCHITECTURE-tui.md) (Architecture: the TUI event model): read this when you change how the TUI turns session events into widgets.
   - [ARCHITECTURE-modules.md](ARCHITECTURE-modules.md) (Architecture: the module map): read this when you look for the module behind a Studio, fleet, Orchestra or team feature.
+  - [ARCHITECTURE-modules-two.md](ARCHITECTURE-modules-two.md) (Architecture: the module map, part two): read this when you look for the module behind the Ollama steward, packs, the extension API, isolation, Setup or Settings.
 - [EXTENSION_API.md](EXTENSION_API.md) (The extension API): read this when you write a pack, or change what Halo promises a pack: the manifest, the lifecycle, what a pack may import and what each part's status is.
 - [PACKS-inventory.md](PACKS-inventory.md) (Packs: the inventory of extension points): read this when you change how a pack plugs into Halo: the extension points a pack reuses and the places that assumed nothing outside Halo adds files.
 - [WIZARD.md](WIZARD.md) (The wizard interaction model): read this when you change or add a wizard screen: the ten rules every screen follows.

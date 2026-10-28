@@ -1,0 +1,68 @@
+/* fleet-ollama (3.3.4.0 R5): the Ollama steward's panel (routes/fleet/Ollama*.tsx). Colours from tokens.css only. */
+.oll { display: grid; gap: 10px; align-content: start; overflow: auto; height: 100%; padding-right: 2px; }
+.oll-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: var(--fs-sm); }
+.oll-picker { display: inline-flex; align-items: center; gap: 6px; }
+.oll-picker select { min-width: 140px; }
+.oll-card { display: grid; gap: 2px; font-size: 11px; padding: 6px 8px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); }
+.oll-block { display: grid; gap: 6px; }
+.oll-head { display: flex; align-items: center; gap: 8px; }
+.oll-empty, .oll-next { font-size: var(--fs-sm); margin: 0; }
+
+.oll-models, .oll-findings, .oll-changes, .oll-options { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.oll-model { display: grid; gap: 4px; padding: 7px 9px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); }
+.oll-model-top, .oll-model-fit, .oll-finding-top, .oll-option-top, .oll-actions, .oll-hint, .oll-change-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.oll-model-nums { display: flex; gap: 10px; flex-wrap: wrap; font-size: 11px; }
+.oll-model-fit { font-size: 11px; }
+.oll-n[data-hot] { color: var(--warn); }
+.oll-n[data-n="errors"][data-hot] { color: var(--bad); }
+[data-tight] { color: var(--warn); }
+.oll-eye { display: inline-flex; color: var(--accent); }
+.oll-loaded { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; }
+.oll-loaded .oll-vram { display: inline-block; width: 56px; height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
+.oll-loaded .oll-vram > span { display: block; height: 100%; background: var(--ok); }
+.oll-loaded[data-spill] .oll-vram > span { background: var(--warn); }
+.oll-model .og-chip[data-by="steward"] { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+
+.oll-status { font-size: 11px; display: grid; gap: 1px; }
+.oll-note { display: grid; gap: 2px; padding: 6px 8px; border-left: 2px solid var(--accent); background: var(--accent-soft); border-radius: var(--radius-sm); margin: 0; }
+.oll-note p { margin: 0; font-size: var(--fs-sm); }
+.oll-note .oll-note-first { color: var(--text); }
+.oll-cost { font-size: 11px; }
+.oll-hub { font-size: var(--fs-sm); margin: 0; }
+
+.oll-finding { display: grid; gap: 4px; padding: 7px 9px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); }
+.oll-finding[data-severity="error"] { border-color: var(--bad); }
+.oll-finding[data-severity="warn"] { border-color: color-mix(in srgb, var(--warn) 60%, var(--line)); }
+.oll-finding[data-applied] { border-color: color-mix(in srgb, var(--ok) 60%, var(--line)); }
+.oll-finding .og-chip[data-severity="error"] { color: var(--bad); border-color: var(--bad); }
+.oll-finding .og-chip[data-severity="warn"] { color: var(--warn); border-color: var(--warn); }
+.oll-finding .og-chip[data-tone="ok"] { color: var(--ok); border-color: var(--ok); }
+.oll-finding-line { font-size: var(--fs-sm); }
+.oll-change, .oll-evidence { font-size: 11px; }
+.oll-change-row { font-size: 11px; padding: 4px 6px; border: 1px solid var(--line); border-radius: var(--radius-sm); }
+
+.oll-says { margin: 0; font-size: var(--fs-sm); }
+.oll-says[data-fits="no"] { color: var(--warn); }
+.oll-needs, .oll-lose { font-size: 11px; }
+.oll-option { display: grid; gap: 4px; padding: 6px 8px; border: 1px solid var(--line); border-radius: var(--radius-sm); }
+.oll-option[data-chosen] { border-color: var(--accent); }
+.oll-option[data-fits="no"] { opacity: 0.8; }
+.oll-hint code { padding: 2px 6px; border-radius: var(--radius-sm); background: var(--surface-2); font-size: 11px; }
+
+.oll-timeline { width: 100%; height: 48px; display: block; }
+.oll-timeline .oll-axis { stroke: var(--line); stroke-width: 1; }
+.oll-timeline .oll-line { stroke: var(--accent); stroke-width: 1.4; vector-effect: non-scaling-stroke; }
+.oll-mark[data-kind="trim"], .oll-key[data-kind="trim"] { fill: var(--warn); color: var(--warn); }
+.oll-mark[data-kind="cut"], .oll-key[data-kind="cut"] { fill: var(--bad); color: var(--bad); }
+.oll-mark[data-kind="error"], .oll-key[data-kind="error"] { fill: var(--accent-2); color: var(--accent-2); }
+.oll-legend { font-size: 11px; }
+
+/* Setup -> Providers' Ollama card: the steward's line (routes/setup/StewardLine.tsx) */
+.su-steward { margin: 4px 0; font-size: 11px; }
+.link-btn { background: none; border: 0; padding: 0; font: inherit; color: var(--accent); cursor: pointer; text-decoration: underline; }
+.link-btn:hover { color: var(--text); }
+/* Settings -> Ollama, the steward's block (routes/settings/OllamaBlock.tsx) */
+.st-ollama { display: grid; gap: 8px; padding: 10px 12px; margin-bottom: 10px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); }
+.st-ollama-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: var(--fs-sm); }
+.st-ollama-row > span:first-child { min-width: 110px; }
+.st-ollama-status { font-size: 11px; display: grid; gap: 1px; }

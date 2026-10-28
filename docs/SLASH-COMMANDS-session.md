@@ -131,15 +131,21 @@ the verdict, the fix proposed or applied) once one has run. See
 `docs/TROUBLESHOOTING.md`'s "The deep dive" section, and `halo doctor
 --mcp deep` (`docs/COMMANDS.md`) for the same thing from the CLI.
 
-### `/ollama [--host NAME] [--refresh]`
-Halo 2.0.3 round 3: per-configured-host Ollama analysis -- reachable,
-version, loaded models (`size` vs `size_vram` as one plain offload
-sentence, trained vs. effective context, the KV-bytes/token figure), and
--- local hosts only -- OS-level GPU memory. `--host` narrows to one
-configured entry; `--refresh` bypasses the short-TTL catalog cache. In
-`-p`, prints the same text `halo ollama` does; in the TUI, opens an
-interactive dialog (`r` re-reads live). See `docs/MODELS.md`'s Ollama
-section.
+### `/ollama [--host NAME]` / `/ollama findings | plan | explain <kind>` / `/ollama hosts [--host NAME] [--refresh]`
+Halo 3.3.4.0 R5: the Ollama steward's view, printed in the transcript (and
+in `-p`): the mode and the steward job's status lines, the last note (and
+the hub's note on a member), per host its card line, the last hour's
+rollups (`halo ollama traffic --since 1h`) and its profiles, the Hugging
+Face local servers' lines, and the review-mode proposals with `halo ollama
+steward apply <id>`. `--host` narrows to one configured host. `/ollama
+findings`, `/ollama plan` and `/ollama explain <kind>` print what `halo
+ollama steward findings | plan` and `halo ollama explain` print. Nothing
+calls a model or writes to a server. `/ollama hosts` is the per-host
+analysis bare `/ollama` printed before 3.3.4.0 (Halo 2.0.3 round 3:
+reachable, version, loaded models with `size` vs `size_vram`, trained vs.
+effective context, the KV bytes per token, local GPU memory; `--refresh`
+bypasses the catalog cache); in the TUI it opens the interactive dialog
+(`r` re-reads live). See [MODELS-ollama-steward.md](MODELS-ollama-steward.md#in-studio).
 
 ### `/local [refresh]` / `/local add <path>` / `/local forget <path>` / `/local <question>`
 Halo 2.0.3 round 5 widens this from Ollama-only (round 3); round 5c adds

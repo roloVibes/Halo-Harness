@@ -122,3 +122,15 @@ The env file (`~/.config/halo/env`, or the file `HALO_ENV_FILE` names) holds the
 ## config key
 
 A config key is one setting in `~/.halo/config.json`, named by its dotted path (`fleet.enabled`, `ollama.discover.ports`); `halo config get` reads it, `halo config set <key> <value>` writes it, and a key you never set falls back to its default. Studio's Settings section (3.3.3.0) lists every key, one page per group, each row with its help line, its value against its default, Reset to default and the exact `halo config set` line; docs/CONFIG.md's key table is the same list in words.
+
+## steward
+
+The Ollama steward (3.3.4.0) watches every halo's calls to a local model server: one ledger line per call, the server's own log lines and the card it runs on. Its rules find what is wrong per host and model (a window too small, a reply cut, two windows reloading one model), it plans what fits the card, and it changes Halo's side of the calls (a profile) per `ollama.steward.apply`: `auto` applies, `review` proposes, `off` reports. It never writes to a server; a server-side change is a line for you to copy. Fleet's Ollama panel, Settings -> Ollama, `/ollama` and `halo ollama steward` show it.
+
+## profile
+
+A profile (Ollama) is what every halo reads before a call to one model on one host: `ollama.profiles["<host>|<model>"]` in `~/.halo/config.json`, with the window (`num_ctx`), the reply reserve (`num_predict`), keep-alive, the tool cap, another host to ask instead, and when to compact. The steward writes one and says why (`by: steward`), a hub hands its own to its members (`by: hub`), and yours (`by: user`) always wins; `halo ollama steward undo` reverts the steward's newest change.
+
+## fit plan
+
+The fit plan is the steward's answer to "do the models the halos ask for fit this card together?": from the hardware card, what else holds memory and the windows asked, it lists options, each with what you lose: a window per model, one model at a time, a model asked on another host, a tuned twin, a smaller quantization, or a smaller KV cache on the server. A profile change can be applied; a server-side one is only shown with the exact line. `halo ollama steward plan` prints it, and Fleet's Ollama panel shows it with Apply and Copy.

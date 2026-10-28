@@ -14,6 +14,7 @@ import { loadAttention, loadConflicts, loadCosts } from "./pload";
 import { loadMissions, openMission, refresh as refreshMission } from "./mload";
 import { closeDialog, openDialog, panels, type AttnRow, type CapKey, type HandoffOut, type OpenTarget } from "./pstore";
 import { openTeamStage } from "../team/actions";
+import { openOllama } from "./Ollama";
 
 const msg = (e: unknown) => (e instanceof ApiError ? e.message : String(e));
 const hidPath = (hid: string) => (fleet.get().harnesses.find((h) => h.id === hid)?.local ? "local" : encodeURIComponent(hid));
@@ -39,6 +40,7 @@ export function openTarget(t: OpenTarget): void {
     return;
   }
   if (t.panel === "fleet-mission" && t.mission) return openMission(t.mission, String(t.part || "")); // 3.0.6.0 R8
+  if (t.panel === "ollama" || t.panel === "fleet-ollama") return openOllama(); // 3.3.4.0 R5: the steward's attention row
   const aid = t.a ? t.a.split("|")[2] : t.agent_id || "main";
   if (t.a) select(t.a);
   else if (t.harness && t.session_id) select(`${t.harness}|${t.session_id}|${aid}`);

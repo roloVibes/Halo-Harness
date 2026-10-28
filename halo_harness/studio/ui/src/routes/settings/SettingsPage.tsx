@@ -3,13 +3,17 @@
 // its help lines one click away (closed by default), and the search box. With
 // words in the search the page lists the hits across every group instead, a
 // caption per group. A palette entry lands here with its row lit for a moment
-// and scrolled into view.
-import { useEffect, useMemo, useRef } from "react";
+// and scrolled into view. 3.3.4.0 R5: a group may carry its own block above its rows (GROUP_BLOCKS: Ollama's
+// steward, OllamaBlock.tsx); the rows stay generic.
+import { useEffect, useMemo, useRef, type ComponentType } from "react";
 import { Empty } from "../../lib/ui";
 import { HELP } from "../help";
 import { hits, setQuery, usePages } from "./pages";
+import { OllamaBlock } from "./OllamaBlock";
 import { SettingRow } from "./Row";
 import { useSettings, type Row } from "./store";
+
+const GROUP_BLOCKS: Record<string, ComponentType> = { ollama: OllamaBlock };
 
 function Head({ title, about, help, count }: { title: string; about: string; help: string; count: string }) {
   const query = usePages((s) => s.query);
@@ -91,6 +95,7 @@ export function SettingsPage() {
       </section>
     );
   const h = HELP[`settings-${group.id}`] || { about: "", help: "" };
+  const Block = GROUP_BLOCKS[group.id];
   const count = query ? "SEARCH" : `${own.length} KEY${own.length === 1 ? "" : "S"}`;
   return (
     <section className="st-page-card" ref={ref} data-testid="settings-group-page" data-group={query ? "" : group.id} aria-label={`Settings: ${group.title}`}>
@@ -99,6 +104,7 @@ export function SettingsPage() {
         <Hits query={query} />
       ) : (
         <div className="st-rows">
+          {Block && <Block />}
           {own.map((r) => (
             <SettingRow key={r.key} row={r} />
           ))}

@@ -49,6 +49,16 @@ export const FLEET_HELP: Record<string, Help> = {
       "After ten minutes away the While you were away card shows at the top (the Fleet icon carries a dot meanwhile).",
     ),
   },
+  "fleet-ollama": {
+    about: "The Ollama steward: each host's card, its models now and this hour, the steward's findings and note, the fit plan.",
+    help: lines(
+      "Add it with the + in the header; the steward's attention row (O) and the palette's Fleet: Ollama open it too.",
+      "Pick a host: the card line is its GPUs and free memory, the server's own settings and what else holds the card.",
+      "Each model row: loaded now with its VRAM share, the last hour's calls, trims, cuts, reloads and errors, the p95 prompt against the window, its profile and who set it.",
+      "In review mode Apply lands a finding's profile change and Dismiss keeps it quiet for 24 hours; in auto mode Undo reverts the newest change.",
+      "The fit plan says what you lose with each option; a server-side line is only ever copied (Copy), never set by Halo.",
+    ),
+  },
   "fleet-map": {
     about: "Every harness as a box, its sessions as cards, each session's agents as a tree.",
     help: lines(

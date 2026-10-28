@@ -6,11 +6,13 @@
 // remove one. 3.3.0.0 R5: under it the finders (OllamaFound.tsx): Find Ollama
 // servers on this machine, Scan this network, a tick per server found, Add the
 // ticked, then Measure the found models (OllamaMeasure.tsx). 3.3.1.0 R1: the
-// finders sit in a disclosure under the hosts, closed until opened.
+// finders sit in a disclosure under the hosts, closed until opened. 3.3.4.0 R5: the steward's line
+// (StewardLine.tsx): its last note's first line and a link to Fleet's Ollama panel.
 import { CardHead } from "./ProviderCard";
 import { CardLines, MiniForm, send, Table } from "./cards";
 import { useDiscover } from "./discover";
 import { OllamaFound } from "./OllamaFound";
+import { StewardLine } from "./StewardLine";
 import { NONE, useSetup, type ProviderInfo } from "./store";
 
 const INPUTS = [
@@ -33,6 +35,7 @@ export function OllamaCard({ p }: { p: ProviderInfo }) {
                 title="every field blank registers the local daemon (127.0.0.1:11434) when no host is set"
                 onSave={(v) => send("ollama", "setup/ollama-host", { name: v.name || "", url: v.url || "", api_key: v.api_key || "" })} />
       <CardLines card="ollama" />
+      <StewardLine />
       <details className="su-more-box" data-testid="setup-ollama-more">
         <summary className="mono">Find, scan, add and measure Ollama servers</summary>
         <OllamaFound />

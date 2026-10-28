@@ -27,6 +27,7 @@ const KIND: Record<string, string> = {
   team_budget: "team budget", // 3.1.2.0 R2: a stage held at its budget line
   goal_plan: "goal plan", goal_gate: "goal gate", goal_budget: "goal budget", goal_ask: "goal ask", // 3.1.8.0 R1
   goal_replan: "goal replan", // 3.1.8.0 R2: a replan's new plan failed its check twice
+  ollama_steward: "ollama steward", // 3.3.4.0 R4: the steward's note; O opens the Ollama panel (R5)
 };
 
 /** A key on a row: R with a text first opens the reply box. */
