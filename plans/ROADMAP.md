@@ -3100,6 +3100,20 @@ for each action shown beside it.
   the level for the next model that can use it; Studio's session header
   and the model picker row carry the same word. Pinned in the status-bar
   pilot and the `/effort` test.
+  (f) **every model list shows every model** (rolo 2026-10-28: "in the
+  init in the gui, when picking a default model, only so many models are
+  shown per hosting provider. Choosing which default model should show you
+  all available models, this should be for all available model listings
+  wherever that may be. Show all models"): Setup -> Default model draws 60
+  rows per provider and says "N more: search to narrow"
+  (`routes/setup/DefaultModel.tsx LIMIT`), Roles' model picker caps at
+  `MAX_ROWS` (`routes/roles/ModelPicker.tsx`); both caps go, the lists draw
+  every model (a windowed list when a provider has more than ~200, so the
+  page stays quick), the search still narrows, a provider group can be
+  collapsed; the same rule for Settings' `model` row, the TUI's `/model`
+  picker and `halo models` (no silent truncation: a count line "312 models"
+  instead). Pinned: a seeded catalog of 300 OpenRouter rows all present in
+  the DOM of Setup's page and the Roles picker.
 - R0b the model card: what each local model is, and how Halo talks to it
   (ADDED 2026-10-28, rolo: "there are like thinking models or not, can we
   add that to the effort options on local models? ... some calls were
