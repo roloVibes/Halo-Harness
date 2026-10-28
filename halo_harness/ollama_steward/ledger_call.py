@@ -95,6 +95,15 @@ def _images(body: dict) -> int:
     return n
 
 
+def body_flags(body: dict) -> dict:
+    """3.3.5.0 R0b: what the body asked of the model -- the think value sent (None: no field), a tool catalog,
+    images -- so the steward can hold a call against the model's card (rule `called-wrong`)."""
+    think = body.get("think")
+    if think is None:
+        think = body.get("reasoning_effort")
+    return {"think": think, "tools": bool(body.get("tools")), "images": _images(body) > 0}
+
+
 def _window(session, url: str, body: dict) -> dict:
     """The window sent, its source and the estimate `prepare_window` made."""
     opts = body.get("options") if isinstance(body.get("options"), dict) else {}
@@ -174,7 +183,7 @@ def _observed(session, req, gen, kind, abort, target):
     base = {"host": target["host"], "model": model,
             "ref": getattr(own, "raw", None) if getattr(own, "model", None) == model else None,
             "dialect": target["dialect"], "kind": kind, "tools_count": len(body.get("tools") or []),
-            "images": _images(body), "session": getattr(log_, "session_id", None),
+            "images": _images(body), "body_flags": body_flags(body), "session": getattr(log_, "session_id", None),
             "turn": getattr(session, "turn_count", None)}
     base.update(_window(session, target["host"]["url"], body))
     from halo_harness.ollama_steward.ledger_switch import switch_fields  # 3.3.5.0 R0

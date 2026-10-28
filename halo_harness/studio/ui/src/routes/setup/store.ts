@@ -8,11 +8,12 @@
 import { api, ApiError } from "../../lib/api";
 import { onFilesChanged } from "../../lib/filesLive";
 import { createStore, setSectionStatus, useStore } from "../../lib/store";
+import type { CardFields } from "../shared/ModelCard";
 
 export type ThemeRow = { name: string; palette: Record<string, string> };
 export type ModeRow = { id: string; label: string; note: string };
 export type LineupRow = { name: string; label: string; scope: string; description: string; active: boolean; default: boolean };
-export type ModelRow = { ref: string; provider: string; label: string; best_at: string; price: string; context: string; effort?: string };
+export type ModelRow = { ref: string; provider: string; label: string; best_at: string; price: string; context: string; effort?: string } & CardFields;
 export type FieldRow = { id: string; label: string; secret: boolean; present: boolean; placeholder?: string };
 export type ProviderInfo = {
   label: string;

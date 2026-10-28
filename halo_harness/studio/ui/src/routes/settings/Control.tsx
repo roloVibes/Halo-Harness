@@ -56,7 +56,7 @@ export function Control({ id, kind, rowKey, keyName, label, value, fallback, cho
     case "mapping":
       return <JsonEditor id={id} value={shown} label={label} problems={problems} disabled={busy} onSave={save} />;
     case "model": // 3.3.5.0 R0 (f): the text field and every model of the catalog
-      return <ModelField id={id} value={shown} fallback={fallback} label={label} disabled={busy} onSave={save} />;
+      return <ModelField id={id} value={shown} fallback={fallback} label={label} disabled={busy} onSave={save} main={keyName === "model"} />;
     default:
       return <TextField id={id} value={shown} fallback={fallback} secret={secret} isSet={isSet} label={label} disabled={busy} onSave={save} />;
   }

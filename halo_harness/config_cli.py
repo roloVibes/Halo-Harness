@@ -99,7 +99,20 @@ def _cmd_set(rest: list) -> int:
     # readers -- a value that IS secret-shaped prints back redacted, so a
     # recorded/shared terminal never sees it twice.
     print(f"{args.key}={_mask_value(args.key, value)}")
+    if args.key == "model" and isinstance(value, str) and value.strip():
+        _main_model_lines(value.strip())  # 3.3.5.0 R0b (d)
     return 0
+
+
+def _main_model_lines(ref: str) -> None:
+    """The main-model line when `ref` cannot orchestrate here, with the lineup command (nothing is asked)."""
+    try:
+        from halo_harness.agent.main_model_check import config_lines
+        from halo_harness.config.paths import bridge_home
+        for line in config_lines(ref, bridge_home()):
+            print(line)
+    except Exception:
+        pass
 
 
 def cmd_config(argv: list) -> int:

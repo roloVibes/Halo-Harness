@@ -56,7 +56,7 @@ export function ModelStrip() {
       </div>
       <ModelSelect label={n ? `${card.alias || card.role}'s own model` : "the main card's own model"} hint={n ? h.card : h.main} value={own}
                    inherit={{ label: inheritLabel, model: bioModel }} onPick={(ref) => void setSlotModel(card.index, ref)}
-                   testid="roles-model-select" focus={focus} onFocused={focusDone} busy={busy} compact bare />
+                   testid="roles-model-select" focus={focus} onFocused={focusDone} busy={busy} compact bare forMain={!n} />
     </section>
   );
 }

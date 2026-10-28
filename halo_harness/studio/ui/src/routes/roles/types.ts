@@ -1,5 +1,7 @@
 // The shapes the Roles section reads (3.0.7.0 R2), as studio/api.py,
 // studio/model.py and studio/models_api.py answer them.
+import type { Fit } from "../../lib/ui/FitMeter";
+import type { CardView } from "../shared/ModelCard";
 
 export type Raw = Record<string, unknown>;
 export type Entry = { agent?: string; role?: string; as?: string; instances?: number; use_for?: string[]; models?: Raw; [k: string]: unknown };
@@ -94,6 +96,9 @@ export type BioPayload = { name: string; scope: string; path: string; raw: Raw; 
 
 export type ModelRow = {
   ref: string;
+  /** 3.3.5.0 R0b: the model card's chips, how lines and roles, and the fit meter (studio/model_card_api.py). */
+  card?: CardView;
+  fit?: Fit;
   /** 3.3.5.0 R0 (e): think on/off, think low/medium/high, effort n/a, or "" on a cloud row. */
   effort_word?: string;
   provider: string;
