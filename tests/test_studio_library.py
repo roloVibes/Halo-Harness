@@ -8,7 +8,7 @@ the hub's fixtures); no provider request, no model call, nothing pulled:
 3. the host picker and the window control move gemma3:27b's fit badge: fits at 8,192, tight at 16,384, no at
    131,072, the numbers as its title; "fits this host" keeps fits and tight;
 4. the unfold: the card's how lines ("once pulled") and the other tags, each with its fit meter;
-5. Pull is disabled until R3; Copy takes the pull line; the embed intent leaves embedding models only.
+5. Pull is enabled with its CLI line (R3 pulls: tests/test_studio_local_control.py); Copy takes the pull line; the embed intent leaves embedding models only.
 Run: python -m tests.test_studio_library
 """
 from __future__ import annotations
@@ -90,7 +90,8 @@ def test_the_unfold_pull_copy_and_the_intent(ctx: Ctx):
     others = got.get("others") or []
     ctx.check(f"the other tags, each with its fit meter, got {others[:4]}",
               len(others) >= 3 and all(meter for _n, _f, meter in others) and any(n == "gemma3:27b" for n, _f, _m in others))
-    ctx.check(f"Pull is disabled until R3, got {got.get('pull')}", got.get("pull") == [True, "pulling lands in R3"])
+    ctx.check(f"Pull (3.3.5.0 R3) onto the host picked, its CLI line as its title, got {got.get('pull')}",
+              got.get("pull") == [False, "halo models pull gemma3:27b --host box"])
     said, line = (got.get("copied") or ["", ""])[:2]
     ctx.check(f"Copy takes the pull line (or says to copy it by hand), got {got.get('copied')} {got.get('clipboard')!r}",
               line == "ollama pull gemma3:27b" and said in ("copied", "by-hand") and (said != "copied" or got.get("clipboard") in (line, "unreadable")))

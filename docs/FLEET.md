@@ -140,6 +140,20 @@ each server-side change ([MODELS-ollama-steward.md](MODELS-ollama-steward.md#in-
   no one to ask, so under `ask` it denies.
 - `all`: applied at once.
 
+The same level gates a hub's control of the models on a host the member
+serves (Studio's Local tab, 3.3.5.0 R1 and R3; `fleet/control_models.py`):
+`ollama_load` / `ollama_unload` (R1), `ollama_pull` (the member starts its
+own pull job and answers at once; the job's progress rides the member's
+ledger push back to the hub every 30 s, where the hub's Jobs list and the
+row's bar follow it; a Cancel is one more `ollama_pull {cancel}`),
+`ollama_delete` (the member checks its own uses card first: one of its
+sessions on the model keeps it; something else using it needs `force`),
+`ollama_copy` (`rename: true` for a rename) and `ollama_twin` (the tuned
+twin, recorded in the member's tune store). The owner's card names the
+action ("alice@hub on hub-a wants to pull gemma3:4b on local"). Under
+`none` the hub's route answers 403 with the reason and the button is
+disabled with it; only a host the member itself serves is touched.
+
 Applied or refused, the session's transcript records the command with `by`
 (the person at the hub) and `via` ("hub <name>"). Permission, question, plan
 and approval cards are never answerable from a hub unless `allow_control:

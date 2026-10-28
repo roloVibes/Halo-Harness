@@ -44,6 +44,9 @@ def _cached(kind: str, host):
         hit = _CACHE.get(key)
     if hit is not None and time.monotonic() - hit[0] < CARD_TTL_S:
         return hit[1]
+    from halo_harness.providers.ollama_guard import skip_default
+    if kind not in READERS and skip_default(host):  # 3.3.5.0 R3: the test flag never reads the made-up default host
+        return None if kind == "card" else {"models": []}
     try:
         value = (READERS.get(kind) or _default(kind))(host)
     except Exception:  # a host that does not answer still gets its row

@@ -48,6 +48,9 @@ def _build(host) -> dict:
 
 
 def catalog_for(host, *, tags: Optional[Callable] = None, build: Optional[Callable] = None) -> dict:
+    from halo_harness.providers.ollama_guard import skip_default
+    if tags is None and build is None and skip_default(host):  # 3.3.5.0 R3: never the made-up default host under the test flag
+        return {"models": [], "fetched_at": None, "signature": None}
     url = str(getattr(host, "url", "") or "")
     now = time.monotonic()
     with _LOCK:

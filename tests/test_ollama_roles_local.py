@@ -129,6 +129,9 @@ def test_local_cmd_blank_prints_merged_view(ctx: Ctx):
     os.environ.pop("HF_HOME", None)
     os.environ["BRIDGE_TEST_NO_BACKGROUND_NET"] = "1"
     try:
+        # 3.3.5.0 R3: the made-up default host is never read under the test flag; the unreachable one is configured
+        from halo_harness.theme import set_config_value
+        set_config_value("ollama.hosts", [{"name": "default", "url": "http://127.0.0.1:1", "default": True}])
         out = _cmd_local("   ", HeadlessFacade(cwd=Path(".")))
         ctx.check(f"no longer the round-3 usage line, got {out!r}", not out.startswith("Usage: /local"))
         ctx.check(f"reports the (unreachable, fake) Ollama default host, got {out!r}",

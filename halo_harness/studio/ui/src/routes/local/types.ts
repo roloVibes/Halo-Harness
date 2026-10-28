@@ -43,6 +43,7 @@ export type LibRow = {
   context: number | null; downloads: number | null; updated: string; license: string; gated: boolean | string; description: string;
   pull_line: string; alt_line?: string; kind: string; key: string; sources: Record<string, string>; estimate?: boolean;
   card: CardView; fit: LibFit; intent: Record<string, number | null>;
+  installed?: string[]; pull_target?: string; // 3.3.5.0 R3: the hosts that have it; what Pull asks for
 };
 export type LibHost = { name: string; max_ctx: number | null; url: string };
 export type LibraryAnswer = {
@@ -52,3 +53,20 @@ export type LibraryAnswer = {
   snapshot: { taken: string };
 };
 export type LibDetail = { source: string; id: string; rows: LibRow[]; note: string; about: Record<string, unknown>; window: number; host: string | null };
+// 3.3.5.0 R3: Ollama, controlled (studio/local_control_api.py, studio/local_pull_job.py, studio/local_uses.py).
+export type PullJob = {
+  job: string; host: string; name: string; status: string; digest: string | null; total: number | null; completed: number | null;
+  percent: number | null; speed: number | null; eta: number | null; done: boolean; error: string | null; ok: boolean;
+  cancelled: boolean; say: string; via: string; started: number; remote: boolean;
+};
+export type Uses = {
+  ref: string; model: string; host: string; lineups: { name: string; role: string }[]; roles: string[]; compaction: boolean;
+  default_model: boolean; profiles: string[]; sessions: { id: string; title: string; live: boolean }[]; any: boolean; live: number; line: string;
+};
+export type ShowAnswer = {
+  ok: boolean; say: string; cli: string;
+  facts: { family: string | null; params: string | null; quant: string | null; format: string | null; parent: string | null; context: number | null } | null;
+  show: { template?: string; parameters?: string; params?: Record<string, string>; license?: string; capabilities?: string[];
+          details?: Record<string, unknown>; model_info?: Record<string, unknown>; modified_at?: string; system?: string } | null;
+};
+export type TwinPlan = { ok: boolean; dry?: boolean; twin: string; ref: string; window: number; layers: number; line: string; cost: string; cli: string; say?: string };

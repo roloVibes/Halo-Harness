@@ -68,6 +68,7 @@ export function HostCard({ h, fits }: { h: Host; fits: Record<string, Fit> }) {
       </header>
       <div className="mono lc-host-url" data-testid="local-host-url">{h.url}</div>
       {card.length > 0 && <div className="mono muted lc-host-card" title={h.card_lines.join("\n")}>{card.map((l) => <div key={l}>{l}</div>)}</div>}
+      {h.loaded.length > 0 && <div className="rail-label mono" data-testid="local-host-loaded-label">LOADED NOW</div>}
       {h.loaded.length > 0 && (
         <ul className="lc-loaded">
           {h.loaded.map((m) => (
@@ -79,7 +80,7 @@ export function HostCard({ h, fits }: { h: Host; fits: Record<string, Fit> }) {
               </span>
               <span className="muted">{until(m.expires)}</span>
               <span className="spacer" />
-              <Button size="sm" variant="ghost" disabled={!!busy || !ctl.ok} title={ctl.ok ? `keep_alive 0 via ${ctl.via}` : ctl.why}
+              <Button size="sm" variant="ghost" disabled={!!busy || !ctl.ok} title={ctl.ok ? `halo models unload ${m.model} --host ${h.name} (keep_alive 0, via ${ctl.via})` : ctl.why}
                       onClick={() => void unloadModel(h.name, m.model || "")} data-testid="local-unload">Unload</Button>
             </li>
           ))}
@@ -92,7 +93,7 @@ export function HostCard({ h, fits }: { h: Host; fits: Record<string, Fit> }) {
               <span className="mono">{m}</span>
               <FitMeter fit={fits[m]} />
               <span className="spacer" />
-              <Button size="sm" disabled={!!busy || !ctl.ok} title={ctl.ok ? `a warm generate at the profile's window, via ${ctl.via}` : ctl.why}
+              <Button size="sm" disabled={!!busy || !ctl.ok} title={ctl.ok ? `halo models load ${m} --host ${h.name} (a warm generate at the profile's window, via ${ctl.via})` : ctl.why}
                       onClick={() => void loadModel(h.name, m, keep)} data-testid="local-load">Load</Button>
               <Said k={`${h.name}|${m}`} />
             </li>

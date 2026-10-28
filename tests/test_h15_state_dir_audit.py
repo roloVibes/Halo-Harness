@@ -119,7 +119,9 @@ def test_main_loop_restores_env_after_each_module_even_on_import_error(ctx: Ctx)
     CC_AUTH_STATUS` are now ALSO intended whole-run survivors, not a
     leak. 3.1.9.0 R1: so is `HALO_MODELS_ROSTER` (the model roster
     snapshot stays off in the suite unless a test turns it on); R2: and
-    `HALO_AUTO_INDEX_BUILD` (an auto pick reads the index file only)."""
+    `HALO_AUTO_INDEX_BUILD` (an auto pick reads the index file only). 3.3.5.0 R3: and `OLLAMA_HOST`, pinned to a
+    refused port unless it names a loopback fake (tests/helpers/ollama_pin.py), so no module reads this machine's
+    own Ollama."""
     import io
     import sys as sys_mod
     from contextlib import redirect_stdout
@@ -142,7 +144,7 @@ def test_main_loop_restores_env_after_each_module_even_on_import_error(ctx: Ctx)
             ctx.check(f"nothing but main()'s OWN whole-run seam vars survives, got {leftover}",
                       set(leftover) <= {"BRIDGE_TEST_HOME", "BRIDGE_TEST_NO_BACKGROUND_NET",
                                          "BRIDGE_TEST_CC_AUTH_STATUS", "HALO_MODELS_ROSTER",
-                                         "HALO_AUTO_INDEX_BUILD"})
+                                         "HALO_AUTO_INDEX_BUILD", "OLLAMA_HOST"})
         finally:
             run_all_mod.discover_test_modules = real_discover
             run_all_mod._real_sessions_snapshot = real_snapshot

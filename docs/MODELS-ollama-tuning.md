@@ -100,7 +100,11 @@ GPU)"), the `/model` picker and Studio's Models rows show it first for
 that host, and `--remove` deletes it (never an original). `halo ollama
 discover --calibrate` and the wizard's calibrate offer end with "make
 tuned twins of the models that fit? (Enter / n)". See
-[COMMANDS-ollama.md](COMMANDS-ollama.md)'s `halo ollama tune`.
+[COMMANDS-ollama.md](COMMANDS-ollama.md)'s `halo ollama tune`. From a
+row (3.3.5.0 R3): Studio's Local -> Models, a model's `...` menu, **Make a
+tuned twin** -- pick the window, read the twin's name and what it costs (a
+manifest, no new blobs), then Make it -- or `halo models twin <name>
+--window N [--host H]` ([STUDIO-local.md](STUDIO-local.md)).
 
 **Context-ownership precedence (round 5b, corrected)**: `num_ctx` is the
 SMALLEST of every candidate that is actually known -- the hard cap

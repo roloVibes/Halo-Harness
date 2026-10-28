@@ -299,7 +299,7 @@ tools and vision from the chips, the window = the listed context, every `how` li
 on the host you pick at the window you pick: the weights plus the KV cache at that window against the card's free
 memory, the steward's arithmetic, with the family's published shape (or a typical one for the size) standing in for
 `/api/show` until the model is pulled, so the badge says it is an estimate. The pull line is the row's action: `ollama
-pull <model>:<tag>` (3.3.5.0 R3 adds Pull itself).
+pull <model>:<tag>`, and 3.3.5.0 R3's Pull runs it (below).
 
 Halo ships a snapshot of the catalog (`halo_harness/models_library/snapshot_ollama.json`: the 150 most pulled models,
 their tags and the size chips' manifests, dated), so the list paints at once and works offline; the source line says
@@ -307,6 +307,29 @@ which one you see, and Refresh reads ollama.com (cached a day in `<state>/cache/
 `/v2/library/<model>/tags/list` answers 404, so tag names come from the tags page; when that page's markup changes, the
 parser fails one test and the list falls back to the snapshot, saying why. See [STUDIO-local.md](STUDIO-local.md) and
 [COMMANDS-local.md](COMMANDS-local.md).
+
+## Pulling, deleting, twins from Studio and the CLI (3.3.5.0)
+
+Every Ollama host Halo knows is controlled from Studio's **Local** tab and from `halo models` (3.3.5.0 R3;
+`providers/ollama_control.py`, every call through the one client in `providers/ollama.py`):
+
+- **Pull** (`POST /api/pull {"model", "stream": true}`): the stream is one JSON object per line -- `{"status": "pulling
+  manifest"}`, then for each layer `{"status": "pulling <digest>", "digest", "total", "completed"}` while it downloads,
+  `{"status": "verifying sha256 digest"}`, `{"status": "writing manifest"}`, `{"status": "success"}`; a failure is an
+  `{"error": ...}` line. Halo sums the layers into one percent, a speed and a time left. A cancel closes the connection;
+  Ollama keeps the layers it has, and the next pull of that name starts from them. A Hugging Face GGUF pulls the same
+  way as `hf.co/<repo>:<quant>`. In Studio a pull is a job that outlives the page (Local -> Library, the Jobs list).
+- **Delete** (`DELETE /api/delete`): after the uses card -- lineups, `roles`, `model`, `compactionModel`,
+  `ollama.profiles`, live sessions. Delete anyway works whenever no session is on the model.
+- **Show** (`POST /api/show`): the template, parameters, licence, capabilities, details and `model_info`, beside the
+  model card.
+- **Copy** and **Rename** (`POST /api/copy`; a rename is a copy, then the delete).
+- **A tuned twin** from a row: [MODELS-ollama-tuning.md](MODELS-ollama-tuning.md).
+- **Load now** / **Unload** (a warm `/api/generate`, `keep_alive: 0`) and **what is loaded** (`GET /api/ps`).
+
+A host another machine serves is controlled through its fleet member, as its owner allows ([FLEET.md](FLEET.md)).
+Halo never writes a blob store itself. The commands: [COMMANDS-local.md](COMMANDS-local.md); the page:
+[STUDIO-local.md](STUDIO-local.md).
 
 ## The steward (3.3.4.0)
 

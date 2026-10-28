@@ -74,6 +74,9 @@ class TwinPlan:
 
 def _show_or_raise(host, model: str) -> dict:
     from halo_harness.providers.ollama import request_json
+    from halo_harness.providers.ollama_guard import control_blocked  # 3.3.5.0 R3: a test never reaches a real host
+    if control_blocked(host):
+        raise TuneError(control_blocked(host), "unreachable")
     reply = request_json(host, "/api/show", method="POST", body={"model": model})
     if reply.failure in ("unreachable", "timeout"):
         raise TuneError(f"no answer from '{host.name}' ({host.url})", "unreachable")
