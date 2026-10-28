@@ -2,12 +2,14 @@
 // tags, sizes from the registry) and the Hugging Face Hub (GGUF and MLX repos, their files) -- every row with
 // its card and a fit badge on the host picked at the window picked (LibraryRow.tsx), the controls on top
 // (LibraryFilters.tsx), and one line naming where the list came from: live, or the shipped snapshot with its
-// date and a Refresh. Every row is drawn (R0's WindowedRows keeps a long list quick). Nothing is pulled here:
-// Pull lands in 3.3.5.0 R3; each row's pull line copies.
+// date and a Refresh. Every row is drawn (R0's WindowedRows keeps a long list quick). 3.3.5.0 R3: each row's Pull
+// (LibraryPull.tsx), the box to pull a name typed by hand, and the Jobs list (Pulls.tsx) above the rows.
 import { useEffect } from "react";
 import { Button, Empty, WindowedRows } from "../../lib/ui";
 import { LibraryFilters } from "./LibraryFilters";
 import { LibraryRow } from "./LibraryRow";
+import { PullByName } from "./LibraryPull";
+import { JobsList } from "./Pulls";
 import { loadLibrary, refreshLibrary, useLib } from "./libstore";
 
 function when(at: number | null): string {
@@ -52,6 +54,8 @@ export function LibraryPage() {
     <div className="lc-models lc-library" data-testid="local-library">
       <LibraryFilters />
       <SourceLine />
+      <PullByName />
+      <JobsList />
       {why && <p className="muted lc-why" data-testid="local-library-intent-why">why this order: {why}</p>}
       {!data ? (
         error ? <Empty title="Studio could not read the library" body={error} /> : <div className="mono muted">reading the library...</div>

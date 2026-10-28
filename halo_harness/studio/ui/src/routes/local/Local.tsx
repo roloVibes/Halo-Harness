@@ -11,6 +11,7 @@
 import { useEffect } from "react";
 import { LocalPage } from "./LocalPage";
 import { LocalRail } from "./LocalRail";
+import { startJobs } from "./jobs";
 import { adoptRemembered } from "./pages";
 import { loadHosts, startLocal } from "./store";
 
@@ -18,6 +19,7 @@ import { loadHosts, startLocal } from "./store";
 export function LocalView() {
   useEffect(() => {
     startLocal();
+    startJobs(); // 3.3.5.0 R3: the pull jobs (running ones too) and their frames
     adoptRemembered();
     void loadHosts();
   }, []);
@@ -34,4 +36,5 @@ export function LocalView() {
 /** The section's entry (the palette or a door may open a page before the view draws). */
 export function enterLocal(): void {
   startLocal();
+  startJobs();
 }

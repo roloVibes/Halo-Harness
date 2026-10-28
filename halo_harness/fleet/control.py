@@ -27,8 +27,8 @@ hands it here with the session's handle and that hub's policy:
     run_task                            3.0.6.0 R7: run one part of a mission here (fleet/mission_worker.py), under
                                         allow_control like steer: `ask` cards "<hub> asks to run mission <m> part
                                         <n> here: <title> (claims: ...)", `none` refuses, `all` starts it
-    ollama_load, ollama_unload          3.3.5.0 R1: a model on a host this machine serves (fleet/control_models.py),
-                                        under allow_control like steer
+    ollama_load, ollama_unload, ...     3.3.5.0 R1 / R3: load, unload, pull, delete, copy, twin a model on a host
+                                        this machine serves (fleet/control_models.py), under allow_control like steer
 
 Applied commands run through remote/agent_control.py with `by` = the person
 at the hub and `via` = "hub <name>", so the session's transcript records

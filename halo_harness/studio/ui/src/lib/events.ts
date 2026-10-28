@@ -38,6 +38,7 @@ export const KNOWN_KINDS = [
   "steward", // 3.3.4.0 R5: the Ollama steward's job (ollama_steward/job.py; routes/fleet/ostore.ts)
   "resources", // 3.3.5.0 R1: the Local tab's live samples (ollama_steward/resources.py; routes/local/store.ts)
   "traffic", // 3.3.5.0 R1: a ledger line or a server event as it lands (ollama_steward/ledger_tap.py)
+  "pull", // 3.3.5.0 R3: a pull job's progress (studio/local_pull_job.py; routes/local/jobs.ts)
 ];
 
 const handlers = new Map<string, Set<Handler>>();

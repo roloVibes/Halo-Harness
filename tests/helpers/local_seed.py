@@ -53,11 +53,28 @@ def box_card(mock) -> dict:
             "loaded": parse_ps(mock.ps_snapshot()), "sources": [], "read_at": "fixture"}
 
 
+def box_catalog(mock) -> dict:
+    """box's catalog as the fake has it now: the three seeded rows, and any model a pull or a copy added
+    (3.3.5.0 R3), each from the fake's /api/tags and /api/show; a deleted one is gone."""
+    seeded = {r["model"]: r for r in box_rows()}
+    out = []
+    for t in list(mock.tags_response.get("models") or []):
+        name = t.get("model") or t.get("name")
+        short = name[:-len(":latest")] if name.endswith(":latest") else name
+        if short in seeded:
+            out.append(dict(seeded[short]))
+            continue
+        show = mock.show_responses.get(name) or mock.show_responses.get(short) or {}
+        out.append({"model": short, "name": short, "size": t.get("size"), "details": show.get("details") or t.get("details") or {},
+                    "capabilities": show.get("capabilities") or [], "model_info": show.get("model_info") or {}})
+    return {"models": out}
+
+
 def readers(mock) -> dict:
     """studio/ollama_hosts_view.READERS: the panel seed's cards and catalogs, and box's from the fake."""
     c, k = P.cards(), P.catalogs()
     return {"card": lambda host: box_card(mock) if host.name == "box" else c.get(host.name),
-            "catalog": lambda host: {"models": box_rows()} if host.name == "box" else k.get(host.name, {"models": []})}
+            "catalog": lambda host: box_catalog(mock) if host.name == "box" else k.get(host.name, {"models": []})}
 
 
 def seed(state: Path, mock) -> Path:
@@ -122,4 +139,4 @@ def member_samples(now: float = None) -> list:
              "sources": {"gpu": "ioreg IOAccelerator over sysctl hw.memsize (unified memory)"}} for i in range(20)]
 
 
-__all__ = ["BOX_MODELS", "MEMBER", "box_rows", "start_box", "readers", "seed", "Seams", "sampler_seams", "member_samples"]
+__all__ = ["BOX_MODELS", "MEMBER", "box_catalog", "box_rows", "start_box", "readers", "seed", "Seams", "sampler_seams", "member_samples"]

@@ -4,11 +4,37 @@
 // the roles it can hold (a role it cannot hold says why as its title), the card's
 // `how` lines unfolded on click, "Use as default" (Setup's own save: setup/config
 // model) and, when it cannot orchestrate here but can be a coder, "Make it the coder lane" (R0b's
-// offer: POST models/lane writes the local-coder lineup and makes it active).
-import { Button, FitMeter } from "../../lib/ui";
+// offer: POST models/lane writes the local-coder lineup and makes it active). 3.3.5.0 R3: the actions menu
+// (`local-model-acts`): Show, Load now / Unload, Make a tuned twin, Copy, Rename, Delete -- each row's title is
+// the `halo models` line that does the same; a host this Studio cannot control has them disabled with the reason.
+import { Button, FitMeter, Menu } from "../../lib/ui";
 import { CardChips, CardDetail } from "../shared/ModelCard";
-import { coderLane, gib, useAsDefault, useLocal } from "./store";
+import { line, openAct } from "./ctl";
+import { coderLane, gib, loadModel, loadModels, unloadModel, useAsDefault, useLocal } from "./store";
 import type { ModelEntry } from "./types";
+
+function Acts({ m, host }: { m: ModelEntry; host: string }) {
+  const ctl = useLocal((s) => s.hosts?.find((h) => h.name === host)?.controls);
+  const off = ctl && !ctl.ok ? ctl.why : "";
+  const row = (id: string, label: string, title: string, run: () => void, needs = true) => ({
+    id, label, title: needs && off ? off : title, disabled: needs && !!off, testid: "local-act", data: { act: id }, run });
+  const load = async () => {
+    await (m.loaded ? unloadModel(host, m.model) : loadModel(host, m.model));
+    void loadModels();
+  };
+  return (
+    <Menu icon="more" label={`actions on ${m.model}`} title="Show, load, twin, copy, rename, delete" testid="local-model-acts" menuTestid="local-model-menu"
+          btnClass="icon-btn" align="right" width={260} groups={[{ rows: [
+            row("show", "Show", line("show", host, m.model), () => openAct("show", host, m)),
+            m.loaded ? row("unload", "Unload", line("unload", host, m.model), () => void load())
+                     : row("load", "Load now", line("load", host, m.model), () => void load()),
+            row("twin", "Make a tuned twin", line("twin", host, m.model, "--window", "N"), () => openAct("twin", host, m)),
+            row("copy", "Copy", line("copy", host, m.model, "<new name>"), () => openAct("copy", host, m)),
+            row("rename", "Rename", line("rename", host, m.model, "<new name>"), () => openAct("rename", host, m)),
+            row("delete", "Delete", line("rm", host, m.model), () => openAct("delete", host, m)),
+          ] }]} />
+  );
+}
 
 const ROLES: Record<string, string> = { orchestrator: "orchestrator", coder: "coder lane", reviewer: "reviewer", small: "small", eyes: "eyes" };
 
@@ -61,8 +87,11 @@ export function ModelRow({ m, host, score }: { m: ModelEntry; host: string; scor
             Make it the coder lane
           </Button>
         )}
+        <span className="spacer" />
+        {m.ref.startsWith("ol:") && <Acts m={m} host={host} />}
         <Said k={`default|${m.ref}`} />
         <Said k={`lane|${m.ref}`} />
+        <Said k={`${host}|${m.model}`} />
       </div>
     </li>
   );

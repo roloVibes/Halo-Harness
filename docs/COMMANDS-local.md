@@ -207,3 +207,39 @@ fit is worked out at; the foot counts the rows.
 - `--limit N` (default 40; `0` prints every row), `--why` (each row's fit reason with its numbers: weights + KV cache at
   the window against the card's free memory), `--json` (the route's answer), `--refresh` (read ollama.com and the hub
   again; the cache, `<state>/cache/models-library.json`, keeps the catalog a day and a search an hour).
+
+## `halo models pull | rm | load | unload | copy | rename | twin | loaded`
+
+```sh
+halo models pull <name> [--host H]                        # 3.3.5.0 R3: a library tag or hf.co/<repo>:<quant>
+halo models rm <name> [--host H] [--force]                # the uses card first
+halo models show <name> --host H [--json]                 # the model card + /api/show's facts
+halo models load <name> [--host H] [--num-ctx N] [--keep-alive K]
+halo models unload <name> [--host H]
+halo models copy <src> <dst> [--host H]
+halo models rename <src> <dst> [--host H]
+halo models twin <name> --window N [--host H]
+halo models loaded [--host H]
+```
+
+An Ollama host's models from a terminal: the same calls as Studio's Local tab, whose buttons carry these lines as their
+titles ([STUDIO-local.md](STUDIO-local.md)). `--host H` names an `ollama.hosts` entry (the default host without it) and
+the call goes to that host's address; `--json` prints the answer as JSON on every one. Never a model call.
+
+- `pull`: one progress line (the status, the percent of the layers' bytes, done of total, the speed, the time left);
+  **Ctrl+C** stops it, and Ollama keeps the layers it already has (pulling the same name again starts from them; exit
+  130). A name Ollama cannot pull prints its error (exit 1).
+- `rm`: prints what uses the model (lineups, `roles`, `model`, `compactionModel`, `ollama.profiles`, live sessions); when
+  something does, it asks "delete it anyway?" (without a terminal it prints the `--force` line); `--force` deletes it
+  anyway. A live session on the model keeps it (exit 1) until the session ends or moves to another model. A tuned twin's
+  record in the tune store goes with it.
+- `show <name> --host H`: R0b's card, then `/api/show`'s facts (family, parameters, quantization, format, parent,
+  trained context), the capabilities, the `PARAMETER` lines, the licence's first line and the template's length;
+  `--json` adds `api_show`. `halo models show <ref>` without `--host` is the card alone, as before.
+- `load` / `unload`: the warm generate at the profile's window (`--num-ctx N` for another, `--keep-alive 5m | 1h | -1`)
+  and `keep_alive: 0`.
+- `copy` / `rename`: a new name for the same layers (`/api/copy`); a rename is the copy, then the old name deleted.
+- `twin <name> --window N`: the tuned twin (`FROM <name>`, `num_ctx` N, every layer on the GPU), its plan line, then
+  each `/api/create` status and the ref ([MODELS-ollama-tuning.md](MODELS-ollama-tuning.md)).
+- `loaded`: what `/api/ps` holds: the model, its share on the GPU, its window, until when.
+

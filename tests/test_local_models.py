@@ -81,8 +81,12 @@ def _set_hf_local_server(name: str, url: str, *, api_key=None, default: bool = T
 def test_everything_empty_reports_nothing_found(ctx: Ctx):
     from halo_harness.providers.local_models import build_local_view, format_local_view
     with _Env() as e:
+        # 3.3.5.0 R3: under the test flag the host Halo makes up from OLLAMA_HOST is never read
+        # (providers/ollama_guard.skip_default; tests/test_no_local_reads.py), so the one unreachable host is configured
+        ctx.check("the made-up default host is left out under the flag", build_local_view(env=dict(os.environ), state_dir=e.state_dir) == [])
+        _set_ollama_host("default", "http://127.0.0.1:1")
         rows = build_local_view(env=dict(os.environ), state_dir=e.state_dir)
-        ctx.check(f"only the unreachable synthesized Ollama default host, got {rows}", len(rows) == 1)
+        ctx.check(f"only the unreachable Ollama default host, got {rows}", len(rows) == 1)
         ctx.check("it's reported unreachable", rows[0].reachable is False)
         text = format_local_view(rows)
         ctx.check(f"mentions Ollama, got {text!r}", "Ollama" in text and "unreachable" in text)

@@ -77,14 +77,18 @@ def find_chrome(explicit: str = "") -> "str | None":
 SCRUBBED_PREFIXES = ("HALO_", "OPENROUTER_", "DATABRICKS_", "ANTHROPIC_", "BRIDGE_")
 
 
+from tests.helpers.ollama_pin import REFUSED_OLLAMA, pinned_ollama_host  # noqa: E402,F401  (3.3.5.0 R3)
+
+
 def driver_env(repo: "Path | None" = None) -> dict:
     """The environment a driver subprocess runs in: every provider and harness
     variable scrubbed (the driver scopes its own scratch home) except
     `HALO_CHROME`, which names the browser; PYTHONPATH = the repo, no
-    background network."""
+    background network; `OLLAMA_HOST` pinned (pinned_ollama_host)."""
     env = {k: v for k, v in os.environ.items() if not k.startswith(SCRUBBED_PREFIXES) or k == "HALO_CHROME"}
     env["PYTHONPATH"] = str(repo or REPO)
     env["BRIDGE_TEST_NO_BACKGROUND_NET"] = "1"
+    env["OLLAMA_HOST"] = pinned_ollama_host(env.get("OLLAMA_HOST"))
     return env
 
 

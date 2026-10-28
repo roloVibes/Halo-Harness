@@ -203,3 +203,12 @@ and `isolation/Dockerfile` the worker image.
   (`card_for_row`, `fit_for_row`), `browse.py` (the query) -- with `studio/models_library_api.py` (the `local/library`
   routes), `models_browse_cli.py` (`halo models browse`), `tools/library_snapshot.py` (takes the snapshot) and
   `ui/src/routes/local/Library*.tsx` + `libstore.ts`.
+- Ollama, controlled (3.3.5.0 R3, docs/STUDIO-local.md "Jobs"): `providers/ollama_control.py` (pull streamed with a
+  cancel, delete, show and its facts, copy, rename, `/api/ps`), `providers/ollama_guard.py` (under the test flag no
+  catalog reader reads the made-up default host, and no control call leaves for anything but a loopback fake),
+  `studio/local_pull_job.py` (one pull job per host and name, its `pull` frames, `current()`, the caches dropped after
+  a success), `studio/local_control_api.py` (the `local/` pull / delete / show / copy / rename / twin / loaded / uses
+  routes), `studio/local_uses.py` (`uses_of`: what names a model), `fleet/control_models.py` (`ollama_pull`,
+  `ollama_delete`, `ollama_copy`, `ollama_twin` from a hub) with `fleet/control_pulls.py` (a member's jobs on its
+  ledger push), `models_control_cli.py` (`halo models pull | rm | load | unload | copy | rename | twin | loaded`) and
+  `ui/src/routes/local/` `jobs.ts`, `Pulls.tsx`, `LibraryPull.tsx`, `ctl.ts`, `ModelCards.tsx`, `LoadedNow.tsx`.
