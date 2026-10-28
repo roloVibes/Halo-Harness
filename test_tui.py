@@ -3768,7 +3768,9 @@ def test_h9b_f11_two_parallel_children_get_separate_streams_and_never_touch_main
                 # "parent-final-answer" visible -- keep draining until the
                 # status bar has settled idle and the parent's turn_done has
                 # fired, then assert.
-                await _poll(lambda: app.status_bar.phase == "idle" and app._turn_done_count >= 1)
+                # 90 s, not the 30 s default: the Windows runner (4ad8314) took over 60 s to settle after the
+                # second child ended and the gate read phase='writing' at the deadline
+                await _poll(lambda: app.status_bar.phase == "idle" and app._turn_done_count >= 1, seconds=90.0)
                 await _drain_a_few(app, pilot, n=3, pause=0.05)
                 settled_idle = await _poll(lambda: app.status_bar.phase == "idle")
 
