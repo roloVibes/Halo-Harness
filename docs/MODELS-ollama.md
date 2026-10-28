@@ -287,6 +287,27 @@ discovery view described under "Hugging Face" below.
 array), `format` (structured output) -- see `plans/2.0.3-ollama-round2-
 brief.md` and the rounds after it.
 
+## Browsing the library (3.3.5.0)
+
+What could be installed on a host, before it is: Studio's **Local -> Library** and `halo models browse` read
+ollama.com/library (each model's line, capability chips, pulls and updated) and each model's tags page (the size, the
+context, the input of every tag), and for the tags a size chip names the registry's own manifest
+(`registry.ollama.ai/v2/library/<model>/manifests/<tag>`: the model layer's bytes and a vision projector's apart) with
+its small config blob (`model_family`, `model_type` "9.0B", `file_type` "Q4_K_M"); no layer is fetched. The page and
+the command list one row per model and size chip, each with its model card (purpose and thinking from the family rules,
+tools and vision from the chips, the window = the listed context, every `how` line "once pulled") and a **fit badge**
+on the host you pick at the window you pick: the weights plus the KV cache at that window against the card's free
+memory, the steward's arithmetic, with the family's published shape (or a typical one for the size) standing in for
+`/api/show` until the model is pulled, so the badge says it is an estimate. The pull line is the row's action: `ollama
+pull <model>:<tag>` (3.3.5.0 R3 adds Pull itself).
+
+Halo ships a snapshot of the catalog (`halo_harness/models_library/snapshot_ollama.json`: the 150 most pulled models,
+their tags and the size chips' manifests, dated), so the list paints at once and works offline; the source line says
+which one you see, and Refresh reads ollama.com (cached a day in `<state>/cache/models-library.json`). The registry's
+`/v2/library/<model>/tags/list` answers 404, so tag names come from the tags page; when that page's markup changes, the
+parser fails one test and the list falls back to the snapshot, saying why. See [STUDIO-local.md](STUDIO-local.md) and
+[COMMANDS-local.md](COMMANDS-local.md).
+
 ## The steward (3.3.4.0)
 
 The Ollama steward's knowledge, hardware card, traffic ledger, server

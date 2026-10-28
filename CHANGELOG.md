@@ -74,6 +74,18 @@ version.
 - The status bar no longer stays on "waiting" (or "writing") after a turn ended. Two event-drain passes could overlap and apply the parent's own late `waiting_for_model` after its `turn_done`. Drain passes now run one at a time, in arrival order.
 - A sub-agent's own compaction or applied steer no longer moves the main status bar; it updates that sub-agent's lane only.
 
+### R2: the library browser and the fit badge
+
+#### Added
+- Studio's Local -> **Library**: what could be installed, from Ollama's library (each model at each size, its tags, the registry's bytes) and the Hugging Face Hub (GGUF and MLX repos, their files, licence and gated mark). Every row carries its model card and a **fit badge** for the host and window you pick -- fits, tight, spill or no -- whose title is the numbers: the weights plus the KV cache at that window against the card's free memory, other programs taken off. Search, the source switch, the host picker and window control, the intent filter, and filters for fits this host, size, family, capability, quantization and licence; a click unfolds the card's how lines and the other tags or files, each with its own badge. Pull comes in R3; each row's pull line copies.
+- `halo models browse [query]` prints the same rows (fit word, size, chips, pull line); `halo models browse ollama/<model>` or `hf/<repo>` lists its tags or files; `--fits --host --window --intent --family --quant --cap --max-gb --license --why --json --refresh`.
+- A shipped snapshot of Ollama's catalog (the 150 most pulled models, dated) paints the list at once and works offline; Refresh reads ollama.com and the hub (cached a day, a search an hour, `<state>/cache/models-library.json`).
+- Glossary words "library" and "quant".
+
+#### Changed
+- Local's Library page is built (Hugging Face, Benchmarks and Steward stay framed).
+- The fit meter can cap the windows it tries, so a list of hundreds of models rates quickly.
+
 ### Also in 3.3.5.0
 
 #### Changed

@@ -316,6 +316,9 @@ loads a model. `--cards` reads the configured local servers once, then prints
 `<ref>: think · tools · coder · 32k · roles: coder lane, reviewer · fit: fits`
 per model and a count line. `--json` prints the card(s) with the `fit` meter.
 
+`halo models browse [query]` (3.3.5.0 R2) lists what could be installed -- Ollama's library and the Hugging Face Hub --
+each row with its fit on a host at a window and its pull line; see [COMMANDS-local.md](COMMANDS-local.md).
+
 ### `halo models test <ref>` (Halo 3.0.7.0)
 
 ```sh

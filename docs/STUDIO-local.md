@@ -1,6 +1,6 @@
 # Studio: the Local section
 
-Read this when you watch the machines that serve your local models and what they serve: the live resources and traffic, every host with its controls, every model with its fit.
+Read this when you watch the machines that serve your local models and what they serve: the live resources and traffic, every host with its controls, every model with its fit, and the library of models you could install.
 
 Part of [Halo Studio](STUDIO.md), which lists every part.
 
@@ -127,10 +127,48 @@ The page reads each host's catalog through one cache keyed by the catalog's mtim
 every 15 seconds), and the per-model `/api/show` calls run again only when a model was pulled, deleted or changed. Fleet's
 Ollama panel reads its catalogs the same way since this round (it used to read every host's whole catalog each minute).
 
+## Library
+
+**What could be installed** (3.3.5.0 R2), from the two sites that list it, every row with its model card and a **fit
+badge** for the host and the window you pick. Nothing is pulled from here yet: each row's **Pull** is disabled ("pulling
+lands in R3") and **Copy** puts its pull line on the clipboard.
+
+- **Ollama's library**: one row per model and size chip (`qwen3.5:9b`, `qwen3.5:27b`), from ollama.com/library (the
+  name, its one-line description, the capability chips, the pulls, when it was updated) and each model's tags page
+  (the size, the context, the input). A size chip's bytes come from the registry's own manifest (the model layer and a
+  vision projector apart) and its config blob (family, parameters, quantization). Until ollama.com is read the list is
+  the **snapshot** Halo ships (`models_library/snapshot_ollama.json`: the 150 most pulled models, dated): the source line
+  says "Ollama: snapshot from <date>" with **Refresh** beside it.
+- **The Hugging Face Hub**: one row per GGUF or MLX repo from the hub's search (most downloaded first; its size an
+  estimate until it is opened, marked `≈`), with its downloads, licence and a **gated** mark. Opening a repo lists its
+  files with their sizes (a GGUF repo one row per quant, shards summed; an MLX repo its weights as one), and its
+  `config.json` gives the exact shape. A gated repo's files are read with your `HF_TOKEN`.
+
+**The fit badge** (ideas 1 and 2): fits (every layer on the GPU with room), tight (only with every layer forced on),
+spill (part on the CPU), no (not on this machine), or `?` (no hardware card read for the host yet). Its title is the
+numbers: the weights plus the KV cache at the window picked (and a projector) against the card's free memory, other
+programs taken off (the newest Resources sample when it is newer than the card). For a model that is not installed
+the shape is the family's published one or a typical one for its size, so the badge says "an estimate until pulled";
+a hub repo's `config.json` makes it exact. The arithmetic is the steward's ([LOCAL-MODELS.md](LOCAL-MODELS.md)).
+
+**The controls**: a search box; the source switch (Both, Ollama, Hugging Face); **fit on** (the host) and **at window**
+(4,096 to 262,144, default the host's `max_ctx`, else 32,768): every badge follows both; the intent filter (R1's code,
+chat, long documents, images, embed; long documents ranks by the window that runs here, not the longest trained one);
+and the filters: fits this host (fits or tight), size at most N GB, family, capability, quantization, licence.
+
+**A row**: the name and tag (or repo and file), its source, the card's chips, the badge, the size on disk, then the
+parameters, quantization, context, downloads, updated, licence and gated mark; every number's title says where it came
+from. A click on the name unfolds the card's `how` lines (each "once pulled") and the model's other tags or files, each
+with its own badge and pull line. The list draws every row (a long one a window at a time, R0's `WindowedRows`).
+
+The cache is `<state>/cache/models-library.json`: the catalog, a model's tags and a manifest a day, a hub search an
+hour, a repo's files a day; Refresh (`POST local/library/refresh`, `halo models browse --refresh`) reads them again.
+`halo models browse` prints the same rows from a terminal ([COMMANDS-local.md](COMMANDS-local.md)).
+
 ## The pages still to come
 
-Library, Hugging Face, Benchmarks and Steward are framed: each says in one paragraph what it will hold and lists the
-commands that do that work today, each copyable (`halo models`, `halo models show <ref>`, `halo local --terminal`,
+Hugging Face, Benchmarks and Steward are framed: each says in one paragraph what it will hold and lists the
+commands that do that work today, each copyable (`halo local --terminal`,
 `halo local import`, `halo ollama calibrate`, `halo ollama steward status`, ...). Steward also shows the steward job's
 status line and its last note, read the way Fleet's Ollama panel reads them.
 
@@ -139,11 +177,11 @@ status line and its last note, read the way Fleet's Ollama panel reads them.
 Every page names which of them it carries (its head's "ideas here" line), and the section's help lists all five:
 
 1. **The fit meter**: a small green-to-red bar wherever a model is named -- will this run here at this window
-   (Hosts, Models; the Library and Hugging Face rows next).
+   (Hosts, Models, the Library's badge; the Hugging Face rows next).
 2. **Why on every number**: each figure carries its source and a one-line cause as its title (every strip number, every
-   traffic figure, the profiles).
-3. **Intents, not model names**: code, chat, long documents, images, embed rank the models by fit for this card (Models;
-   the Library next).
+   traffic figure, the profiles, the Library's sizes and badges).
+3. **Intents, not model names**: code, chat, long documents, images, embed rank the models by fit for this card (Models
+   and the Library).
 4. **Make it fit**: the fit planner's chosen option in one click, Undo beside it (Hosts).
 5. **The hub as the one picture of the network**: every machine sees the same hosts, profiles, traffic and samples
    through the fleet hub (a member's samples and lines reach the hub; Hosts lists the hosts members serve).
@@ -164,7 +202,11 @@ Studio route; never a model call:
 | `GET local/traffic?host=&since=15m` | the ledger's rows, the server events, the per-host minute buckets |
 | `POST local/traffic {lines, events}` | another process's ledger tap: `traffic` frames on the live feed |
 | `GET local/models?host=` | every model per host with its card, its meter and its intent scores |
+| `GET local/library?source=ollama\|hf\|all&q=&host=&window=&fits=1&intent=&family=&quant=&cap=&max_gb=&license=&page=` | the library's rows with their card, fit badge and intent scores, the total, and where each source came from (`studio/models_library_api.py`) |
+| `GET local/library/<source>/<id>?host=&window=` | one Ollama model's tags or one hub repo's files, each with its badge |
+| `POST local/library/refresh` | the library's cache dropped: the next read is live |
 
 Live frames: `resources` (one sample) and `traffic` (`{rows}`), beside the steward's own `steward` frames. From a terminal,
-`halo local hosts`, `halo local models [--host H]` and `halo local resources` print what the three built pages show
+`halo local hosts`, `halo local models [--host H]` and `halo local resources` print what the first three pages show, and
+`halo models browse` what the Library shows
 ([COMMANDS-local.md](COMMANDS-local.md)).

@@ -234,6 +234,9 @@ def cmd_models(argv) -> int:
     if argv and argv[0] == "analyze":  # 3.1.9.0 R1: rebuild what each model is good at
         from halo_harness.models_analyze_cli import cmd_models_analyze
         return cmd_models_analyze(list(argv[1:]))
+    if argv and argv[0] == "browse":  # 3.3.5.0 R2: the library browser (models_browse_cli.py)
+        from halo_harness.models_browse_cli import cmd_models_browse
+        return cmd_models_browse(list(argv[1:]))
     if argv and argv[0] == "show":  # 3.3.5.0 R0b: the model card
         from halo_harness.model_card_cli import cmd_models_show
         return cmd_models_show(list(argv[1:]))

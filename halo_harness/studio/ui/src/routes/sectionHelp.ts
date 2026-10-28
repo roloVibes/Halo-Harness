@@ -172,8 +172,8 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
     ],
   },
   local: {
-    terms: ["host", "steward", "profile", "fit plan", "speed card"], // 3.3.5.0 R1: "host" and "speed card" join the glossary
-    what: "Everything about the machines that serve your local models and the models they serve, one page at a time: Resources (the live GPU, VRAM, RAM and CPU, and every call to a local server as it happens), Hosts (every server Halo knows, with Load, Unload and Make it fit), Models (every installed model with its card, its fit meter and the intent filter), then Library, Hugging Face, Benchmarks and Steward, which the next rounds fill. Five ideas run through every page: the fit meter, why on every number, intents not model names, make it fit, and the hub as the one picture of the network. Nothing opens on its own; halo local opens it from a terminal.",
+    terms: ["host", "steward", "profile", "fit plan", "speed card", "library", "quant"], // 3.3.5.0 R1: "host", "speed card"; R2: "library", "quant"
+    what: "Everything about the machines that serve your local models and the models they serve, one page at a time: Resources (the live GPU, VRAM, RAM and CPU, and every call to a local server as it happens), Hosts (every server Halo knows, with Load, Unload and Make it fit), Models (every installed model with its card, its fit meter and the intent filter), Library (what could be installed from Ollama's library and the Hugging Face Hub, each with a fit badge), then Hugging Face, Benchmarks and Steward, which the next rounds fill. Five ideas run through every page: the fit meter, why on every number, intents not model names, make it fit, and the hub as the one picture of the network. Nothing opens on its own; halo local opens it from a terminal.",
     steps: [
       ["Pick a page", "The rail on the left lists the seven pages; a click opens one, and the page last open comes back next time."],
       ["Watch the card", "Resources: one strip per host, sampled once a second while the page is open: the VRAM bar names what holds it, the GPU line is the last minute, RAM, CPU and the temperature beside them; hover a number for its source."],
@@ -181,7 +181,8 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
       ["Load and unload", "Hosts: every server as a card with what is loaded and what is installed; Load warms a model at its profile's window, Unload lets it go; a host another machine serves goes through its fleet member, as its owner allows."],
       ["Make it fit", "A host whose models do not fit its card together offers the fit plan's chosen option in one click, with Undo beside it."],
       ["Find the right model", "Models: pick what you want a model for (code, chat, long documents, images, embed) and the rows rank by fit for this card; Use as default and Make it the coder lane are one click each."],
-      ["What comes next", "Library, Hugging Face, Benchmarks and Steward say what they will hold and the commands that do that work today."],
+      ["Browse the library", "Library: search Ollama's library and the Hugging Face Hub; each row's fit badge follows the host and window you pick, a click shows its other tags or files, Copy takes its pull line."],
+      ["What comes next", "Hugging Face, Benchmarks and Steward say what they will hold and the commands that do that work today."],
     ],
     keys: [
       ["?", "this help"],

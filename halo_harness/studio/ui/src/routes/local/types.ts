@@ -35,3 +35,20 @@ export type ModelEntry = {
 export type Intent = { id: string; title: string; why: string };
 export type ModelsAnswer = { hosts: { name: string; kind: string; url: string; models: ModelEntry[] }[]; intents: Intent[]; at: number };
 export type Said = { ok: boolean; text: string; undo?: number };
+// 3.3.5.0 R2: the Library's rows (studio/models_library_api.py; models_library/rows.py's LibraryRow).
+export type LibFit = Fit & { numbers?: { weights: number; kv: number; projector: number; total: number; budget: number; others: number; others_from: string; window: number; kv_cache: string } | null; estimate?: boolean; shape_source?: string };
+export type LibRow = {
+  source: "ollama" | "hf"; id: string; tag_or_file: string; name: string; model: string; family: string; params: number | null;
+  quant: string; size_bytes: number | null; weights_bytes: number | null; projector_bytes: number; capabilities: string[];
+  context: number | null; downloads: number | null; updated: string; license: string; gated: boolean | string; description: string;
+  pull_line: string; alt_line?: string; kind: string; key: string; sources: Record<string, string>; estimate?: boolean;
+  card: CardView; fit: LibFit; intent: Record<string, number | null>;
+};
+export type LibHost = { name: string; max_ctx: number | null; url: string };
+export type LibraryAnswer = {
+  rows: LibRow[]; total: number; page: number; pages: number; per: number; cached_at: number | null;
+  sources: { ollama?: string; hf?: string }; notes: { ollama?: string; hf?: string }; window: number;
+  host: { name: string | null; max_ctx: number | null; card: boolean }; hosts: LibHost[]; intents: Intent[]; intent: string;
+  snapshot: { taken: string };
+};
+export type LibDetail = { source: string; id: string; rows: LibRow[]; note: string; about: Record<string, unknown>; window: number; host: string | null };

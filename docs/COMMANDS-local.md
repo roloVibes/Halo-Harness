@@ -181,3 +181,29 @@ files are offered this path this round -- see [MODELS.md](MODELS.md).
 
 Deletes a fetched `llama-server` runtime from `~/.halo/runtimes/` -- one
 version, or every version when none is named.
+
+## `halo models browse`
+
+```sh
+halo models browse [query...]          # 3.3.5.0 R2: Ollama's library and the Hugging Face Hub, each row with its fit
+halo models browse ollama/<model>      # one model's tags (ollama/qwen3.5, or ollama/qwen3.5:9b), each with its fit
+halo models browse hf/<org>/<repo>     # one hub repo's files (one row per GGUF quant; an MLX repo's weights)
+```
+
+The library browser of Studio's Local -> Library ([STUDIO-local.md](STUDIO-local.md)) in a terminal. Each row is the
+fit word on the host (`fits`, `tight`, `spill`, `no`, or `?` when no hardware card is read for it), the name and tag or
+file, the size on disk, the model card's chips, and the pull line (`ollama pull qwen3.5:9b`, `ollama pull
+hf.co/<repo>:<quant>`, `halo local download <repo>`): nothing is pulled here. The head names where each list came from
+(`Ollama: live` or `Ollama: snapshot <date>`, the shipped snapshot; `Hugging Face: live`) and the host and window the
+fit is worked out at; the foot counts the rows.
+
+- `--source ollama|hf|all` (default `all`): which library.
+- `--host H`: the Ollama host whose hardware card the fit is worked out on (default the first `ollama.hosts` entry).
+- `--window N`: the window to fit at (default the host's `max_ctx`, else 32,768).
+- `--fits`: only the rows that fit there at that window (fits or tight).
+- `--intent code|chat|docs|images|embed`: ranked for that intent, as Local -> Models ranks installed models (`docs` is
+  long documents: the largest window that runs on that card first).
+- `--family F`, `--quant Q`, `--cap tools|vision|embedding|thinking`, `--max-gb N`, `--license L`: the page's filters.
+- `--limit N` (default 40; `0` prints every row), `--why` (each row's fit reason with its numbers: weights + KV cache at
+  the window against the card's free memory), `--json` (the route's answer), `--refresh` (read ollama.com and the hub
+  again; the cache, `<state>/cache/models-library.json`, keeps the catalog a day and a search an hour).

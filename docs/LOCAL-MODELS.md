@@ -463,6 +463,18 @@ its card, its fit meter and an intent filter: code, chat, long documents,
 images, embed). See [STUDIO-local.md](STUDIO-local.md); `halo local hosts`,
 `halo local models` and `halo local resources` print the same lines.
 
+**What could be installed, and whether it would fit** (3.3.5.0 R2): the
+**Library** page lists Ollama's library and the Hugging Face Hub's GGUF and
+MLX repos, each row with its model card and a fit badge for the host and the
+window you pick -- fits, tight, spill or no, with the numbers (the weights
+plus the KV cache at that window against the card's free memory). A model
+that is not installed has no `/api/show` yet, so its shape is the family's
+published one (or a typical one for its size, or a hub repo's `config.json`)
+and the badge says it is an estimate until it is pulled. `halo models
+browse` prints the same rows; each row's pull line copies
+([MODELS-ollama.md](MODELS-ollama.md) "Browsing the library",
+[MODELS-huggingface.md](MODELS-huggingface.md) "Browsing the hub").
+
 **A session that starts on a model that cannot take its tools** (3.3.5.0
 R1): a session launched on a local model whose card says no tool calling
 (or no vision while the history holds images, or a history larger than its
