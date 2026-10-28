@@ -856,13 +856,19 @@ async def _apply_event_inner(app, event) -> None:
         text = data.get("text")
         if pending and text in pending:
             pending.remove(text)
-        app.status_bar.apply_status({"phase": "thinking"})
+        if agent_id is None:  # 3.3.5.0: a steer forwarded into a child moves that child's lane, never the main bar
+            app.status_bar.apply_status({"phase": "thinking"})
     elif kind == "compaction":
         # U5 must-do: no handler existed at all before -- a "Compacting…"
         # indicator never appeared and a failure was invisible.
+        # 3.3.5.0 status-leak fix: a child's own compaction (tagged with its
+        # agent_id) keeps its note but never sets the MAIN bar's phase --
+        # finding 11's rule, which this kind had missed.
         phase = data.get("phase")
+        main = agent_id is None
         if phase == "start":
-            app.status_bar.apply_status({"phase": "compacting"})
+            if main:
+                app.status_bar.apply_status({"phase": "compacting"})
             await app.transcript.add_note("⧗ Compacting the conversation…", kind="compaction")
         elif phase == "retry":
             missing = ", ".join(data.get("headings_missing") or [])
@@ -872,12 +878,14 @@ async def _apply_event_inner(app, event) -> None:
             saved = f", freed ~{before - after} tokens" if isinstance(before, int) and isinstance(after, int) else ""
             await app.transcript.add_note(f"✓ Compacted the conversation (~{before} -> ~{after} tokens{saved})",
                                            kind="compaction")
-            app.status_bar.apply_status({"phase": "idle"})
+            if main:
+                app.status_bar.apply_status({"phase": "idle"})
         elif phase == "failed":
             reason = data.get("reason") or "see logs"
             await app.transcript.add_note(f"✗ Compaction failed: {reason} (the conversation is unchanged)",
                                            kind="error")
-            app.status_bar.apply_status({"phase": "idle"})
+            if main:
+                app.status_bar.apply_status({"phase": "idle"})
         elif phase == "skipped":
             # H5b finding 3: an auto-compaction the loop deliberately chose
             # NOT to attempt (still over the trigger right after the
@@ -886,4 +894,5 @@ async def _apply_event_inner(app, event) -> None:
             # styling "failed" gets.
             reason = data.get("reason") or "not enough new room since the last compaction"
             await app.transcript.add_note(f"⧗ Compaction skipped: {reason}", kind="compaction")
-            app.status_bar.apply_status({"phase": "idle"})
+            if main:
+                app.status_bar.apply_status({"phase": "idle"})
