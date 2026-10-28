@@ -46,7 +46,9 @@ def library(c, url, ctx) -> dict:
     c.go(f"{ctx['base']}?mode=local&page=library&tour=off#{ctx['frag']}")
     c.wait(f"{PAGE} === 'library'", 40)
     page(c, "library")
-    out = {"rows": c.wait(f"{qa(ROWS)}.length >= 50 && {qa(ROWS)}.length", 30)}
+    # WindowedRows draws 200 rows first and 100 more per frame: wait for the whole catalog, not the first paint
+    # (the Linux runner read 200 at the 50-row gate)
+    out = {"rows": c.wait(f"{qa(ROWS)}.length >= 300 && {qa(ROWS)}.length", 30)}
     src = q("[data-testid=local-library-sources]")
     out["sources"] = c.js(f"[{src}.dataset.ollama, {src}.dataset.hf, !!{q('[data-testid=local-library-snapshot]')}, "
                           f"{src}.textContent]")

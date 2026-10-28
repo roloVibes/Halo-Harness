@@ -23,7 +23,10 @@ class Site:
         self.got.append((url, headers))
         for key, name in self.pages.items():
             if key in url:
-                return text(name) if name and (FIX / name).is_file() else name
+                # a short name with no markup is a fixture file; page text is answered as it is (on Linux a
+                # Path.is_file() on a whole page raises ENAMETOOLONG, which Windows swallowed)
+                is_name = bool(name) and "\n" not in name and "<" not in name and len(name) < 200
+                return text(name) if is_name and (FIX / name).is_file() else name
         return None
 
     def __enter__(self):
