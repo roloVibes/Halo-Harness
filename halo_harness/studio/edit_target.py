@@ -18,7 +18,8 @@ name, else a lineup of that name.
 3.3.0.0 R4: `setup`, `setup:first` and `setup:<block>` are Setup targets
 (studio/setup_door.py `SetupTarget`: `?mode=setup&first=1`, `&block=team`),
 the doors `halo init`, `halo setup` and `/setup` open. 3.3.3.0 R2: `settings` and
-`settings:<group>` are Settings targets (studio/settings_door.py: `?mode=settings&group=fleet`).
+`settings:<group>` are Settings targets (studio/settings_door.py: `?mode=settings&group=fleet`); 3.3.5.0 R1:
+`local` and `local:<page>` are Local targets (studio/local_door.py: `?mode=local&page=hosts`).
 """
 
 from __future__ import annotations
@@ -69,6 +70,9 @@ def parse(text: str) -> "tuple[Optional[EditTarget], str]":
     if text.partition(":")[0].strip().lower() == "settings":  # 3.3.3.0 R2: Settings, or one group's page (settings_door.py)
         from halo_harness.studio.settings_door import parse as parse_settings
         return parse_settings(text)
+    if text.partition(":")[0].strip().lower() == "local":  # 3.3.5.0 R1: Local, or one of its pages (local_door.py)
+        from halo_harness.studio.local_door import parse as parse_local
+        return parse_local(text)
     kind, sep, name = text.partition(":")
     kind, name = kind.strip().lower(), name.strip()
     if not sep or kind not in ("bio", "lineup"):
@@ -83,7 +87,7 @@ def resolve(text: str, *, cwd=None, state_dir=None) -> "tuple[Optional[EditTarge
     text = (text or "").strip()
     if not text:
         return None, f"name what to edit: {USAGE}"
-    if ":" in text or text in ("team", "setup", "settings"):
+    if ":" in text or text in ("team", "setup", "settings", "local"):
         return parse(text)
     from halo_harness.agents_yaml import find_agent_bio_path
     from halo_harness.teams_yaml import find_team_template_path

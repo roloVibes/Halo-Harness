@@ -134,3 +134,11 @@ A profile (Ollama) is what every halo reads before a call to one model on one ho
 ## fit plan
 
 The fit plan is the steward's answer to "do the models the halos ask for fit this card together?": from the hardware card, what else holds memory and the windows asked, it lists options, each with what you lose: a window per model, one model at a time, a model asked on another host, a tuned twin, a smaller quantization, or a smaller KV cache on the server. A profile change can be applied; a server-side one is only shown with the exact line. `halo ollama steward plan` prints it, and Fleet's Ollama panel shows it with Apply and Copy.
+
+## host
+
+A host is one server Halo sends local-model calls to: an `ollama.hosts` entry (`ol:<model>@<host>`), a Hugging Face local server (`huggingface.local_servers`: llama-server, LM Studio, mlx), or a server Find or Scan found that is not added yet. Each has a URL, a kind, the machine that serves it and what it has loaded; Studio's Local section (3.3.5.0, Alt+0) lists every one on its Hosts page with Load, Unload and Make it fit, and `halo local hosts` prints the same.
+
+## speed card
+
+A model's speed card is what a short benchmark of it on one host measures: its load time, its prompt and reply tokens per second at a few windows, the largest window that stays on the GPU and the reply reserve that avoids cuts. The benchmark comes in 3.3.5.0 R5 (Local -> Benchmarks, `halo local bench`); until then the model card's `speed` is empty and `halo ollama calibrate` measures the largest window alone. Once measured it sits beside the learned window in the fit store, shows on the model card and the fit meter, and reaches every machine through the fleet hub.

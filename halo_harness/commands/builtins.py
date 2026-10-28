@@ -151,7 +151,8 @@ _STUDIO_MODE_LABELS = {"roles": "Roles: lineups and agent bios as a graph",
                        "session": "Session: this session, live",
                        "packs": "Packs: install, grant and enable packs",
                        "setup": "Setup: providers, the default model, permissions, the terminal theme and the lineup",  # 3.3.0.0 R1
-                       "settings": "Settings: every config key, one page per group"}  # 3.3.3.0 R2
+                       "settings": "Settings: every config key, one page per group",  # 3.3.3.0 R2
+                       "local": "Local: the machines that serve models, and the models they serve"}  # 3.3.5.0 R1
 
 
 def _cmd_studio(args: str, facade: HeadlessFacade) -> str:

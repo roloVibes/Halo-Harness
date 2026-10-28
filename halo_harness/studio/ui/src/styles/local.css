@@ -1,0 +1,48 @@
+/* 3.3.5.0 R1: the Local section (routes/local/) -- the page rail on the left (the open page lit, a small word each),
+   one page on the right (its head: the kicker, the title, the lead, the ideas line, How this page works), the blocks
+   each page is made of, the framed pages. The strips, the traffic view, the host cards and the model rows are
+   local-pages.css. Colours are tokens only. */
+.lc-room { position: absolute; inset: 0; display: flex; min-height: 0; min-width: 0; }
+.lc-rail { flex: 0 0 200px; min-height: 0; overflow: auto; border-right: 1px solid var(--line); background: var(--surface-glass); padding: 10px 8px; }
+.lc-rail-list { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.lc-rail-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 6px 10px;
+  border: 1px solid transparent; border-radius: var(--radius-sm); background: transparent; color: var(--muted); font: inherit;
+  font-size: 12.5px; text-align: left; cursor: pointer; }
+.lc-rail-item:hover { color: var(--text); border-color: var(--line); }
+.lc-rail-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.lc-rail-item.on { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); font-weight: 600; }
+.lc-rail-item:not([data-built]) .lc-rail-title { font-style: italic; }
+.lc-rail-word { flex: 0 0 auto; font-size: 10.5px; color: var(--accent); }
+.lc-rail-word[data-soon] { color: var(--faint); }
+.lc-rail-item.on .lc-rail-word { color: var(--accent-ink); }
+
+.lc-scroll { position: relative; flex: 1 1 auto; min-width: 0; min-height: 0; overflow: auto; padding: 16px; }
+.lc-page-card { display: grid; gap: 12px; align-content: start; max-width: 1180px; margin: 0 auto; padding: 18px 20px; min-width: 0;
+  border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: var(--glow); }
+.lc-page-head { display: grid; gap: 6px; min-width: 0; }
+.lc-page-kicker { font-size: 10.5px; letter-spacing: 0.08em; color: var(--muted); }
+.lc-page-title { margin: 0; font-size: 19px; font-weight: 600; color: var(--text); }
+.lc-lead { margin: 0; font-size: 12.5px; }
+.lc-ideas { margin: 0; font-size: 11px; }
+.lc-page-help summary { cursor: pointer; font-size: 11.5px; color: var(--accent); width: max-content; max-width: 100%; }
+.lc-page-help ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 3px; font-size: 12px; color: var(--muted); }
+
+.lc-block { display: grid; gap: 8px; min-width: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--bg-2); }
+.lc-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; min-width: 0; }
+.lc-resources, .lc-hosts, .lc-models, .lc-framed { display: grid; gap: 12px; min-width: 0; }
+.lc-holds { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--text); }
+.lc-cli { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 4px; font-size: 12px; }
+.lc-cli-line { color: var(--accent); user-select: all; }
+.lc-status { display: grid; gap: 2px; font-size: 11.5px; }
+.lc-empty, .lc-why { margin: 0; font-size: 12px; }
+.lc-said { font-size: 11px; color: var(--bad); flex: 1 1 100%; }
+.lc-said[data-ok] { color: var(--ok); }
+
+@media (max-width: 760px) {
+  .lc-room { flex-direction: column; }
+  .lc-rail { flex: 0 0 auto; max-height: 30%; border-right: 0; border-bottom: 1px solid var(--line); }
+  .lc-rail-list { grid-auto-flow: column; grid-auto-columns: max-content; overflow-x: auto; }
+  .lc-scroll { padding: 8px; }
+  .lc-page-card { padding: 12px; }
+}

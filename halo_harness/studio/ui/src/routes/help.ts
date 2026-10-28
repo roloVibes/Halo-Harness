@@ -2,7 +2,7 @@
 // short lines), spread into the PanelSpecs: Media here, Orchestra
 // in help-orchestra.ts, Fleet in help-fleet.ts, Design in
 // help-design.ts (3.0.7.0 R3), Roles in help-roles.ts (3.0.7.0 R2), Team in help-team.ts (3.0.8.0 R2),
-// Session in help-session.ts (3.1.4.0 R2), Packs in help-packs.ts (3.2.0.0 R6), Setup in help-setup.ts (3.3.0.0 R1), Settings in help-settings.ts (3.3.3.0 R2). 3.3.2.0 R3: the title
+// Session in help-session.ts (3.1.4.0 R2), Packs in help-packs.ts (3.2.0.0 R6), Setup in help-setup.ts (3.3.0.0 R1), Settings in help-settings.ts (3.3.3.0 R2), Local in help-local.ts (3.3.5.0 R1). 3.3.2.0 R3: the title
 // line shows no `about`; the ? popover (its first line), the Inspector and the section help show both.
 import { FLEET_HELP } from "./help-fleet";
 import { ORCHESTRA_HELP, type Help } from "./help-orchestra";
@@ -13,6 +13,7 @@ import { TEAM_HELP } from "./help-team";
 import { PACKS_HELP } from "./help-packs";
 import { SETUP_HELP } from "./help-setup";
 import { SETTINGS_HELP } from "./help-settings";
+import { LOCAL_HELP } from "./help-local";
 
 const lines = (...l: string[]) => l.join("\n");
 
@@ -26,6 +27,7 @@ export const HELP: Record<string, Help> = {
   ...PACKS_HELP, // 3.2.0.0 R6: the Pack Manager
   ...SETUP_HELP, // 3.3.0.0 R1: the Setup section
   ...SETTINGS_HELP, // 3.3.3.0 R2: the Settings section, one entry per group page
+  ...LOCAL_HELP, // 3.3.5.0 R1: the Local section, one entry per page
   "media-status": {
     about: "Whether ComfyUI answers, its version and the GPU's free memory.",
     help: lines(

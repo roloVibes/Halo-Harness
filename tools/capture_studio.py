@@ -2,7 +2,7 @@
 scratch home seeded with the shipped lineups, the halo-dev-cycle lineup
 open, through headless Chrome (Halo 2.1.0 round B3). Also the smoke
 `tests/test_studio_ui.py` runs: the page boots, draws nodes, no console
-errors. Usage: python tools/capture_studio.py [--out PATH] [--dom] [--mode roles|design|shell|orchestra|fleet|team|start|packs|setup|settings] [--panel ollama]
+errors. Usage: python tools/capture_studio.py [--out PATH] [--dom] [--mode roles|design|shell|orchestra|fleet|team|start|packs|setup|settings|local] [--panel ollama]
 
 3.0.7.0 R2: `--mode roles` (the default; tools/capture_roles.py) renders the
 React Roles section: a seeded lineup with two tiers and a live card
@@ -33,7 +33,9 @@ with Who can... gridcraft (studio-fleet-capabilities.png), 3.0.6.0 R8 a planned 
 (studio-setup.png, the banner's eighth tile and the README's first screenshot after install); --dom counts it.
 3.3.3.0 R2: `--mode settings` (tools/capture_settings.py) renders Settings on its Fleet page (studio-settings.png, the
 banner's ninth tile); --dom counts it. 3.3.4.0 R5: `--mode fleet --panel ollama` (tools/capture_ollama.py) renders
-Fleet with its Ollama panel over the steward fixture (studio-fleet-ollama.png); --dom counts it.
+Fleet with its Ollama panel over the steward fixture (studio-fleet-ollama.png); --dom counts it. 3.3.5.0 R1:
+`--mode local` (tools/capture_local.py) renders Local on its Resources page (studio-local.png, the banner's tenth
+tile); --dom counts it.
 """
 
 from __future__ import annotations
@@ -101,7 +103,7 @@ def main(argv: list) -> int:
     parser = argparse.ArgumentParser(description="Render docs/media/studio.png through headless Chrome")
     parser.add_argument("--out", default=str(REPO / "docs" / "media" / "studio.png"))
     parser.add_argument("--dom", action="store_true", help="print the rendered DOM's node count instead of a PNG")
-    parser.add_argument("--mode", choices=["roles", "design", "shell", "orchestra", "fleet", "team", "start", "packs", "setup", "settings"], default="roles", help="design: a seeded Launch page project (tools/design_demo.py), the React section (tools/capture_design.py)")
+    parser.add_argument("--mode", choices=["roles", "design", "shell", "orchestra", "fleet", "team", "start", "packs", "setup", "settings", "local"], default="roles", help="design: a seeded Launch page project (tools/design_demo.py), the React section (tools/capture_design.py)")
     parser.add_argument("--panel", choices=["ollama"], default=None, help="with --mode fleet: one panel's capture (3.3.4.0 R5: "
                         "the Ollama steward's, tools/capture_ollama.py)")
     args = parser.parse_args(argv)
@@ -171,6 +173,14 @@ def _render(args) -> int:
             args.out = args.out[:-4] + "-settings.png"
         try:
             return capture_settings(args.out, args.dom, serve, state)
+        finally:
+            shutil.rmtree(state.parent, ignore_errors=True)
+    if args.mode == "local":  # 3.3.5.0 R1: Local on its Resources page (tools/capture_local.py)
+        from capture_local import capture as capture_local
+        if args.out.endswith("studio.png"):
+            args.out = args.out[:-4] + "-local.png"
+        try:
+            return capture_local(args.out, args.dom, serve, state)
         finally:
             shutil.rmtree(state.parent, ignore_errors=True)
     if args.mode == "design":  # 3.0.7.0 R3: the React section over a seeded project (tools/capture_design.py)

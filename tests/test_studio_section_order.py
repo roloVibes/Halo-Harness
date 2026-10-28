@@ -7,7 +7,8 @@ section the registry gives that key, every "`Alt+1`..`Alt+6`" list runs in the r
 banner (tools/studio_modes_banner.py) draws its tiles in that order with those keys, and
 docs/STUDIO-sections.md tells the sections in it. 3.2.0.0 R6: Packs (the Pack Manager) is appended as the
 seventh section, `Alt+7`; the six keep their keys. 3.2.0.0 R7: the banner gains the Packs tile (seven). 3.3.0.0 R1:
-Setup is appended as the eighth, `Alt+8`; 3.3.3.0 R2: Settings as the ninth and last, `Alt+9` (a pack's own section has no key). The reader is
+Setup is appended as the eighth, `Alt+8`; 3.3.3.0 R2: Settings as the ninth, `Alt+9`; 3.3.5.0 R1: Local as the tenth and last,
+`Alt+0` (`shell/keys.ts` reads Digit0 as the tenth slot; a pack's own section has no key). The reader is
 tests/helpers/section_order.py; a reorder of SECTIONS fails here on every line it leaves behind.
 Run: python -m tests.test_studio_section_order
 """
@@ -35,20 +36,22 @@ def _docs() -> "list[Path]":
 @test
 def test_the_registry_runs_session_first_and_orchestra_last(ctx: Ctx):
     rows = so.registry()
-    ctx.check(f"nine sections (3.2.0.0 R6: Packs appended; 3.3.0.0 R1: Setup; 3.3.3.0 R2: Settings), got {[r[0] for r in rows]}", len(rows) == 9)
-    ctx.check(f"the keys follow the order, Alt+1 to Alt+9, got {[r[2] for r in rows]}", [r[2] for r in rows] == [f"Alt+{n}" for n in range(1, 10)])
-    ctx.check(f"the order is Session, Team, Roles, Fleet, Design, Orchestra, Packs, Setup, Settings, got {[r[1] for r in rows]}",
-              [r[0] for r in rows] == ["session", "team", "roles", "fleet", "design", "orchestra", "packs", "setup", "settings"])
+    ctx.check(f"ten sections (3.2.0.0 R6: Packs appended; 3.3.0.0 R1: Setup; 3.3.3.0 R2: Settings; 3.3.5.0 R1: Local), got {[r[0] for r in rows]}", len(rows) == 10)
+    ctx.check(f"the keys follow the order, Alt+1 to Alt+9 then Alt+0, got {[r[2] for r in rows]}", [r[2] for r in rows] == [f"Alt+{n % 10}" for n in range(1, 11)])
+    ctx.check(f"the order is Session, Team, Roles, Fleet, Design, Orchestra, Packs, Setup, Settings, Local, got {[r[1] for r in rows]}",
+              [r[0] for r in rows] == ["session", "team", "roles", "fleet", "design", "orchestra", "packs", "setup", "settings", "local"])
     ctx.check("Session is Alt+1, This session, live", rows[0][1:] == ("Session", "Alt+1", "This session, live"))
     ctx.check("Orchestra is Alt+6, Runs of your agents, live", rows[5][1:] == ("Orchestra", "Alt+6", "Runs of your agents, live"))
     ctx.check("Packs is Alt+7, the Pack Manager (3.2.0.0 R6)", rows[6][1:] == ("Packs", "Alt+7", "Install, grant and enable packs"))
     ctx.check("Setup is Alt+8 (3.3.0.0 R1)", rows[7][1:] == ("Setup", "Alt+8", "Providers, models, permissions, theme and lineup"))
-    ctx.check("Settings is the last, Alt+9 (3.3.3.0 R2)", rows[-1][1:] == ("Settings", "Alt+9", "Every config key, one page per group"))
+    ctx.check("Settings is Alt+9 (3.3.3.0 R2)", rows[8][1:] == ("Settings", "Alt+9", "Every config key, one page per group"))
+    ctx.check("Local is the last, Alt+0 (3.3.5.0 R1)", rows[-1][1:] == ("Local", "Alt+0", "The machines that serve models, and the models they serve"))
     reg = (UI / "routes" / "packs" / "registry.ts").read_text(encoding="utf-8")
-    ctx.check("3.3.3.0 R2: no key is left for a pack's own section (FIRST_KEY 10, past Alt+9)", "const FIRST_KEY = 10;" in reg and "const LAST_KEY = 9;" in reg)
+    ctx.check("3.3.3.0 R2: no key is left for a pack's own section (FIRST_KEY 10, past Alt+9; 3.3.5.0 R1: Alt+0 is Local)", "const FIRST_KEY = 10;" in reg and "const LAST_KEY = 9;" in reg)
     keys = (UI / "shell" / "keys.ts").read_text(encoding="utf-8")
-    ctx.check("Alt+1..6 take the registry's n-th section (3.2.0.0 R3: sections() is the six, then the packs')",
-              "sections()[Number(e.code.slice(5)) - 1]" in keys)
+    ctx.check("Alt+1..9 and Alt+0 take the registry's n-th section (3.2.0.0 R3: sections() is the core ones, then the packs'; "
+              "3.3.5.0 R1: Digit0 is the tenth slot)", "sections()[slot - 1]" in keys and "(Number(e.code.slice(5)) || 10)" in keys
+              and "/^Digit[0-9]$/" in keys)
 
 
 @test
@@ -82,15 +85,15 @@ def test_the_ui_copy_and_comments_name_the_registry_key(ctx: Ctx):
 
 @test
 def test_the_modes_banner_draws_the_registry_order(ctx: Ctx):
-    rows = so.registry()  # 3.2.0.0 R7: the Packs tile too (tools/capture_packs.py); 3.3.0.0 R1: Setup; 3.3.3.0 R2: Settings, nine in all
+    rows = so.registry()  # 3.2.0.0 R7: the Packs tile too (tools/capture_packs.py); 3.3.0.0 R1: Setup; 3.3.3.0 R2: Settings; 3.3.5.0 R1: Local, ten in all
     frames = so.banner_frames()
-    ctx.check(f"nine tiles, got {len(frames)}", len(frames) == 9)
+    ctx.check(f"ten tiles, got {len(frames)}", len(frames) == 10)
     ctx.check(f"the tiles run in the registry's order, got {[f[1] for f in frames]}", [f[1] for f in frames] == [r[1] for r in rows])
     ctx.check(f"each tile's key chip is its registry key, got {[f[2] for f in frames]}",
               [f[2] for f in frames] == [r[2].replace("+", " ") for r in rows])
     ctx.check(f"each tile is its section's capture, got {[f[0] for f in frames]}", [f[0] for f in frames] == [f"studio-{r[0]}.png" for r in rows])
     readme = (REPO / "README.md").read_text(encoding="utf-8")
-    alt = re.search(r'<img alt="(Halo Studio\'s nine sections[^"]*)" src="docs/media/studio-modes.png"', readme)
+    alt = re.search(r'<img alt="(Halo Studio\'s ten sections[^"]*)" src="docs/media/studio-modes.png"', readme)
     pairs = re.findall(r"(\w+) \((Alt\+\d)\)", alt.group(1)) if alt else []
     ctx.check(f"the README banner's alt text names each section with its key in that order, got {pairs}",
               pairs == [(r[1], r[2]) for r in rows])
@@ -129,6 +132,8 @@ def test_the_reader_catches_a_stale_key(ctx: Ctx):
     ctx.check("a heading names the section", probe("### Session\n\nPress `Alt+1` and it opens.\n") == [])
     ctx.check("a heading on another section flags it", len(probe("### Design\n\nPress `Alt+1` and it opens.\n")) == 1)
     ctx.check("a key with no section is flagged", len(probe("Press `Alt+2` now.\n")) == 1)
+    ctx.check("3.3.5.0 R1: Local (`Alt+0`) passes", probe("Local (`Alt+0`) shows the card live.\n") == [])
+    ctx.check("3.3.5.0 R1: Settings (`Alt+0`) is stale", len(probe("Settings (`Alt+0`) lists every key.\n")) == 1)
     good = "`Alt+1`..`Alt+6`: Session, Team, Roles,\nFleet, Design, Orchestra.\n"
     stale = "`Alt+1` to `Alt+6` switch between **Orchestra**, **Roles**, **Design**, **Fleet**,\n**Team** and **Session**.\n"
     ctx.check("a range over the registry order passes", probe(good) == [])

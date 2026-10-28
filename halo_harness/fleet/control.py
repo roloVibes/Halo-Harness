@@ -27,6 +27,8 @@ hands it here with the session's handle and that hub's policy:
     run_task                            3.0.6.0 R7: run one part of a mission here (fleet/mission_worker.py), under
                                         allow_control like steer: `ask` cards "<hub> asks to run mission <m> part
                                         <n> here: <title> (claims: ...)", `none` refuses, `all` starts it
+    ollama_load, ollama_unload          3.3.5.0 R1: a model on a host this machine serves (fleet/control_models.py),
+                                        under allow_control like steer
 
 Applied commands run through remote/agent_control.py with `by` = the person
 at the hub and `via` = "hub <name>", so the session's transcript records
@@ -93,6 +95,9 @@ def describe(handle, cmd: str, fields: dict, by: str, hub: str) -> str:
     if cmd == "run_task":
         from halo_harness.fleet.mission_worker import describe as describe_task
         return describe_task(fields, hub)
+    if cmd in protocol.MODEL_CMDS:  # 3.3.5.0 R1: the Local tab's Load / Unload
+        from halo_harness.fleet.control_models import describe as describe_model
+        return describe_model(cmd, fields, by, hub)
     what = " ".join(" ".join(str(fields.get(k) or "").split()) for k in ("text", "reason")).strip()
     target = "the main agent" if cmd in ("steer", "interrupt") else _label(handle, fields)
     if cmd == "shutdown":
@@ -222,6 +227,12 @@ def run(handle, msg: dict, pol: dict, interim: Optional[Callable] = None) -> dic
         if cmd == "run_task":
             from halo_harness.fleet.mission_worker import accept
             return {"state": "done", "result": accept(handle, fields, by=by, hub=hub, entry=pol.get("hub_entry"))}
+        if cmd in protocol.MODEL_CMDS:  # 3.3.5.0 R1 (fleet/control_models.py): this machine's own host only
+            from halo_harness.fleet import control_models
+            try:
+                return {"state": "done", "result": control_models.run({**fields, "cmd": cmd})}
+            except ValueError as e:
+                raise Refused(str(e)) from None
         return {"state": "done", "result": _act(handle, cmd, fields, by, via)}
     except Refused as e:
         _record(handle, cmd=cmd, by=by, via=via, refused=str(e))

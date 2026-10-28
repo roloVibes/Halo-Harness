@@ -1,0 +1,61 @@
+/* 3.3.5.0 R1: Local's built pages -- Resources' live strips (the VRAM bar and its holder, the GPU sparkline, the
+   small numbers), the traffic view (the per-host sparklines, the rows newest at the foot, the muted event rows, the
+   follow pill), Hosts' cards (loaded and installed models, Load / Unload, Make it fit, Add to hosts) and Models'
+   rows (the intent filter, the roles). Colours are tokens only. */
+.lc-strips { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 8px; }
+.lc-strip { display: grid; gap: 6px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); min-width: 0; }
+.lc-strip-head, .lc-host-head, .lc-model-top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+.lc-vram { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 12px; }
+.lc-vram-bar { position: relative; flex: 0 0 120px; height: 8px; border-radius: 999px; background: var(--line); overflow: hidden; }
+.lc-vram-bar > span { position: absolute; inset: 0 auto 0 0; background: var(--accent); border-radius: 999px; transition: width var(--t) var(--ease); }
+.lc-holder { color: var(--accent-2); }
+.lc-strip-nums { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; font-size: 11.5px; }
+.lc-gpu { display: inline-flex; align-items: center; gap: 6px; }
+.lc-num-label { color: var(--muted); font-size: 10.5px; }
+.lc-num-value { color: var(--text); }
+.lc-spark { width: 120px; height: 24px; }
+.lc-axis { stroke: var(--line); stroke-width: 1; }
+.lc-line { stroke: var(--accent); stroke-width: 1.4; vector-effect: non-scaling-stroke; }
+.lc-mark { fill: var(--warn); }
+.lc-mark[data-kind="cut"] { fill: var(--bad); }
+
+.lc-traffic { position: relative; }
+.lc-tsparks { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 6px; }
+.lc-tspark { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 2px 8px; font-size: 11px; min-width: 0; }
+.lc-tspark svg { width: 100%; height: 28px; grid-row: span 2; }
+.lc-tlist { max-height: 420px; overflow: auto; border-top: 1px solid var(--line); }
+.lc-tlist ul { margin: 0; padding: 0; list-style: none; }
+.lc-trow { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; padding: 3px 4px; font-size: 11.5px; border-bottom: 1px solid var(--line); }
+.lc-trow[data-state="trimmed"] .lc-ts { color: var(--warn); }
+.lc-trow[data-state="cut"] .lc-ts { color: var(--bad); }
+.lc-ts { color: var(--ok); }
+.lc-trow:not([data-state="ok"]):not([data-state="trimmed"]):not([data-state="cut"]) .lc-ts { color: var(--bad); }
+.lc-tevent { font-style: italic; background: var(--surface-2); }
+.lc-t { color: var(--faint); }
+.lc-th { color: var(--accent); }
+.lc-tm { color: var(--text); }
+.lc-new { position: absolute; right: 16px; bottom: 12px; padding: 3px 10px; border: 1px solid var(--accent); border-radius: 999px;
+  background: var(--surface); color: var(--accent); cursor: pointer; font-size: 11px; }
+
+.lc-host-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 8px; }
+.lc-host { display: grid; gap: 6px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); min-width: 0; }
+.lc-host[data-source="discovered"] { border-style: dashed; }
+.lc-host-url, .lc-host-card, .lc-host-line { font-size: 11.5px; overflow-wrap: anywhere; }
+.lc-loaded, .lc-installed { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.lc-loaded li, .lc-installed li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 12px; }
+.lc-fit { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 12px; }
+.lc-fit-says[data-fits="no"] { color: var(--warn); }
+.lc-add { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+
+.lc-intents { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.lc-intent { padding: 3px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--muted);
+  font: inherit; font-size: 12px; cursor: pointer; }
+.lc-intent:hover { color: var(--text); border-color: var(--line-strong); }
+.lc-intent.on { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); }
+.lc-model-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.lc-model { display: grid; gap: 4px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); }
+.lc-model-mid { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 11.5px; }
+.lc-roles { display: inline-flex; flex-wrap: wrap; gap: 8px; }
+.lc-role { color: var(--faint); }
+.lc-role[data-ok] { color: var(--ok); }
+.lc-model-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }

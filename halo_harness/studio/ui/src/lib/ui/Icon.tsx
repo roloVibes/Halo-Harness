@@ -45,6 +45,7 @@ const PATHS: Record<string, string> = {
   packs: "M2.5 5 8 2l5.5 3v6L8 14l-5.5-3ZM2.5 5 8 8l5.5-3M8 8v6",
   setup: "M4 2v12M8 2v12M12 2v12M2.5 5h3M6.5 10h3M10.5 6.5h3",
   settings: "M2.5 4h6M11.5 4h2M2.5 8h2M7.5 8h6M2.5 12h7M12.5 12h1M10 2.5v3M6 6.5v3M11 10.5v3", // 3.3.3.0 R2: rows with their knobs
+  local: "M3 2.5h10v5H3ZM3 9.5h10v4H3ZM5 5h1M5 11.5h1M8.5 5h3M8.5 11.5h3", // 3.3.5.0 R1: two servers in a rack
   "chevron-left": "M10 4 6 8l4 4",
   focus: "M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4",
   eye: "M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8ZM8 6.2a1.8 1.8 0 1 1 0 3.6 1.8 1.8 0 0 1 0-3.6Z", // 3.3.4.0 R5: a vision model

@@ -72,6 +72,10 @@ class _Server(http.server.ThreadingHTTPServer):
             self.files_watch.stop()
         if getattr(self, "steward_job", None) is not None:  # 3.3.4.0 R4: the Ollama steward's job
             self.steward_job.stop()
+        if getattr(self, "local_tap_stop", None) is not None:  # 3.3.5.0 R1: the Local tab's traffic and sampler
+            self.local_tap_stop()
+            from halo_harness.ollama_steward.resources import want
+            want(self.state_dir, "tab", False)
         if self.events is not None:
             self.events.close()
         if self.fleet_hub is not None:  # the fleet hub ends with Studio
@@ -273,7 +277,20 @@ def start_server(*, port: int = 0, cwd: Path, state_dir: Path, token: str | None
     from halo_harness.studio.files_live import watch  # 3.2.2.0 R6: `files_changed` when a lineup, bio, config or layout moves
     watch(server)
     start_steward(server)
+    start_local_tap(server)
     return server
+
+
+def start_local_tap(server: _Server) -> None:
+    """3.3.5.0 R1: every ledger line and server event written for this home is a `traffic` frame on the live feed
+    (ollama_steward/ledger_tap.py; studio/local_traffic.py), a member's resources samples a `resources` frame."""
+    try:
+        from halo_harness.ollama_steward import ledger_tap
+        from halo_harness.studio.events import bridge_for
+        from halo_harness.studio.local_traffic import tap
+        server.local_tap_stop = ledger_tap.listen(server.state_dir, tap(lambda f: bridge_for(server).publish_local(f)))
+    except Exception:
+        server.local_tap_stop = None
 
 
 def start_steward(server: _Server) -> None:
@@ -288,7 +305,7 @@ def start_steward(server: _Server) -> None:
         server.steward_job = None
 
 
-STUDIO_MODES = ("roles", "design", "orchestra", "fleet", "team", "session", "packs", "setup", "settings")  # 3.0.4.0: the shell's sections too; 3.0.5.0: Fleet; 3.0.8.0: Team; 3.1.4.0: Session; 3.2.0.0 R7: Packs; 3.3.0.0 R1: Setup; 3.3.3.0 R2: Settings
+STUDIO_MODES = ("roles", "design", "orchestra", "fleet", "team", "session", "packs", "setup", "settings", "local")  # 3.0.4.0: the shell's sections too; 3.0.5.0: Fleet; 3.0.8.0: Team; 3.1.4.0: Session; 3.2.0.0 R7: Packs; 3.3.0.0 R1: Setup; 3.3.3.0 R2: Settings; 3.3.5.0 R1: Local
 
 
 def url_for(server: _Server, mode: Optional[str] = None, edit: Optional[str] = None) -> str:
@@ -325,13 +342,13 @@ def ensure_background(*, cwd: Path, state_dir: Path, open_browser: bool = True, 
 
 def cmd_studio(argv: list) -> int:
     parser = argparse.ArgumentParser(prog="halo studio", description="Open Halo Studio, the browser GUI: Roles (lineups and agent bios as a graph) and Design (artboards on your own apps).")
-    parser.add_argument("--mode", choices=STUDIO_MODES, default=None, help="open straight into roles, design, orchestra, fleet, team, session, packs, setup or settings (default: the mode you used last)")
+    parser.add_argument("--mode", choices=STUDIO_MODES, default=None, help="open straight into roles, design, orchestra, fleet, team, session, packs, setup, settings or local (default: the mode you used last)")
     parser.add_argument("--port", type=int, default=0, help="port to listen on (default: a free one)")
     parser.add_argument("--no-open", action="store_true", help="print the URL, do not open a browser")
     parser.add_argument("--cwd", default=None, help="the project directory for project-scope files (default: the current directory)")
     parser.add_argument("--stop", action="store_true", help="stop the Studio that is running in the background (the wizard's Open Studio buttons start one)")
     parser.add_argument("--fleet", action="store_true", help="also run the fleet hub in this process: other harnesses join it with `halo fleet join` (docs/FLEET.md)")
-    parser.add_argument("--edit", default=None, metavar="TARGET", help="open Studio on bio:<name> (its form), lineup:<name> (its inspector), team, setup[:<block>] or settings[:<group>]; a Studio already running for this home opens it in its open page")
+    parser.add_argument("--edit", default=None, metavar="TARGET", help="open Studio on bio:<name> (its form), lineup:<name> (its inspector), team, setup[:<block>], settings[:<group>] or local[:<page>]; a Studio already running for this home opens it in its open page")
     parser.add_argument("--session", nargs="?", const="", default=None, metavar="ID", help="open the Session dashboard on this harness's session ID (a prefix will do; omitted: the newest live one): its map, activity, attention, agent and cost")
     args = parser.parse_args(argv)
     edit = None
