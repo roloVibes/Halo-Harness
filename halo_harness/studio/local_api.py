@@ -14,6 +14,8 @@ route. Never a model call; nothing here writes a server's settings.
     POST local/traffic {lines, events}  another process's ledger tap (ollama_steward/ledger_tap.py): `traffic` frames
     GET  local/models?host=             studio/local_models_view.models: per host every model, its card and meter
     local/library*                      3.3.5.0 R2: studio/models_library_api.py (the library browser and the fit badge)
+    local/pull*, local/host/<name>/pull | delete | show | copy | rename | twin | loaded
+                                        3.3.5.0 R3: studio/local_control_api.py (Ollama, controlled)
 """
 
 from __future__ import annotations
@@ -151,7 +153,11 @@ ROUTES = {("GET", "local/hosts"): get_hosts, ("POST", "local/host/add"): post_ho
 
 
 def dispatch_local(req):
+    from halo_harness.studio.local_control_api import dispatch_control  # 3.3.5.0 R3: pull, delete, show, ...
     from halo_harness.studio.models_library_api import dispatch_library
+    got = dispatch_control(req)
+    if got is not None:
+        return got
     got = dispatch_library(req)
     if got is not None:
         return got

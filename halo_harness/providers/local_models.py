@@ -255,7 +255,10 @@ def build_local_view(*, refresh: bool = False, env: Optional[dict] = None, state
     rows: "list[LocalModelRow]" = []
     from halo_harness.providers.ollama import resolve_ollama_hosts
     from halo_harness.providers import local_models_cached as cache
+    from halo_harness.providers.ollama_guard import skip_default
     for host in resolve_ollama_hosts(env):
+        if skip_default(host):  # 3.3.5.0 R3: under the test flag the made-up default host is never read
+            continue
         rows.extend(cache.ollama_cached_rows(host, state_dir) if cached
                     else _ollama_rows(host, refresh=refresh, hw_runner=hw_runner, state_dir=state_dir))
     from halo_harness.providers.huggingface import resolve_huggingface_local_servers

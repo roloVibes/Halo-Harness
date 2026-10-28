@@ -43,6 +43,7 @@ import "./styles/settings.css"; // 3.3.3.0 R2
 import "./styles/local.css"; // 3.3.5.0 R1
 import "./styles/local-pages.css"; // 3.3.5.0 R1
 import "./styles/local-library.css"; // 3.3.5.0 R2
+import "./styles/local-control.css"; // 3.3.5.0 R3
 import "./styles/model-card.css"; // 3.3.5.0 R0b: the model card and the fit meter
 import { App } from "./App";
 

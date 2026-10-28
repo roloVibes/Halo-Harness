@@ -118,3 +118,6 @@ def rank(rows: list, intent: str) -> list:
     """The rows for `intent`, best first (a row with no score for it left out)."""
     scored = [r for r in rows if (r.get("intent") or {}).get(intent) is not None]
     return sorted(scored, key=lambda r: (-r["intent"][intent], r["model"]))
+
+
+from halo_harness.studio.local_uses import uses_of  # noqa: E402,F401  (3.3.5.0 R3: what uses a model, the delete card)

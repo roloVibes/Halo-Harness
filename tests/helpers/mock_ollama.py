@@ -9,7 +9,8 @@ echo scenario for pinning `options.num_ctx`/`keep_alive`/`think` on the
 wire); Halo 3.2.3.0 R3: a derived-model `/api/create` (`from` +
 `parameters`) and `DELETE /api/delete` (tests/helpers/mock_ollama_create.py);
 Halo 3.3.5.0 R1: `POST /api/generate` with no prompt, the load / unload
-(tests/helpers/mock_ollama_generate.py).
+(tests/helpers/mock_ollama_generate.py); Halo 3.3.5.0 R3: a scripted `POST /api/pull` stream and
+`POST /api/copy` (tests/helpers/mock_ollama_pull.py).
 Never a literal LAN address anywhere in this file
 (`tests/test_privacy_scan.py`).
 """
@@ -399,6 +400,15 @@ class _Handler(BaseHTTPRequestHandler):
                 with mock._lock:
                     mock.disconnect_events.append({"scenario": f"create:{name}", "ts": time.monotonic()})
             return
+        if path == "/api/pull":  # Halo 3.3.5.0 R3: a scripted pull stream (tests/helpers/mock_ollama_pull.py)
+            from tests.helpers.mock_ollama_pull import apply_pull
+            apply_pull(self, mock, body)
+            return
+        if path == "/api/copy":  # Halo 3.3.5.0 R3
+            from tests.helpers.mock_ollama_pull import apply_copy
+            status, obj = apply_copy(mock, body)
+            send_json(self, status, obj)
+            return
         if path == "/api/generate":  # Halo 3.3.5.0 R1: the load / unload (tests/helpers/mock_ollama_generate.py)
             from tests.helpers.mock_ollama_generate import apply_generate
             status, obj = apply_generate(self.server.mock, body)  # type: ignore[attr-defined]
@@ -493,6 +503,13 @@ class MockUpstream:
         self.created: list = []
         self.deleted: list = []
         self.generated: list = []  # Halo 3.3.5.0 R1: the /api/generate loads and unloads seen
+        # Halo 3.3.5.0 R3: /api/pull and /api/copy (tests/helpers/mock_ollama_pull.py): name -> its /api/show
+        # answer once pulled, the wait between stream lines, and what was pulled, cancelled and copied
+        self.pullable: dict = {}
+        self.pull_delay_s = 0.0
+        self.pulled: list = []
+        self.pull_cancelled: list = []
+        self.copied: list = []
         self.create_records_parent = True
 
     def _begin_load(self, model: str, body) -> None:

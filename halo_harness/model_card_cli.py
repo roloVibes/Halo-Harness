@@ -58,18 +58,54 @@ def cmd_models_show(argv: list) -> int:
     from halo_harness.providers.model_card_words import card_lines
     parser = argparse.ArgumentParser(prog="halo models show", add_help=True,
                                      description="The model card: what the model is, how Halo calls it, its fit here.")
-    parser.add_argument("ref", help="a model ref, e.g. ol:qwen3-coder:30b@lan")
+    parser.add_argument("ref", help="a model ref, e.g. ol:qwen3-coder:30b@lan (with --host: the model's name)")
+    parser.add_argument("--host", default="", help="3.3.5.0 R3: the ollama.hosts entry; the ref is then the model's name")
     parser.add_argument("--json", action="store_true", help="the card as JSON")
     args = parser.parse_args(argv)
     from halo_harness.providers.config import load_provider_env_files
     load_provider_env_files()
-    card, meter = card_and_meter(args.ref, bridge_home())
+    ref = args.ref
+    if args.host and not ref.startswith(("ol:", "or:", "hf:", "ant:", "db:", "local:")):
+        ref = f"ol:{ref}@{args.host}"  # `halo models show qwen3.5:9b --host box`
+    card, meter = card_and_meter(ref, bridge_home())
+    facts = _show_facts(ref)
     if args.json:
-        print(json.dumps(_public(card, meter), indent=2, default=str))
+        print(json.dumps({**_public(card, meter), **({"api_show": facts} if facts else {})}, indent=2, default=str))
         return 0
-    for line in card_lines(card, meter):
+    for line in card_lines(card, meter) + show_lines(facts):
         print(line)
     return 0
+
+
+def _show_facts(ref: str) -> Optional[dict]:
+    """3.3.5.0 R3: `/api/show` of an Ollama ref (providers/ollama_control.show), None for any other ref."""
+    from halo_harness.providers.model_card import parse_ref
+    from halo_harness.providers.ollama import resolve_ollama_host
+    from halo_harness.providers.ollama_control import show
+    r = parse_ref(ref)
+    if r.provider != "ollama":
+        return None
+    host = resolve_ollama_host(r.host)
+    got = show(host, r.model) if host is not None else {"ok": False, "say": f"no Ollama host named {r.host!r}"}
+    return {"ok": got["ok"], "say": got["say"], "facts": got.get("facts"), "show": got.get("show")}
+
+
+def show_lines(got: Optional[dict]) -> list:
+    if not got:
+        return []
+    if not got["ok"]:
+        return [f"/api/show: {got['say']}"]
+    f, s = got["facts"] or {}, got["show"] or {}
+    lines = ["/api/show: " + ", ".join(f"{k} {v}" for k, v in f.items() if v not in (None, ""))]
+    if s.get("capabilities"):
+        lines.append("  capabilities: " + ", ".join(map(str, s["capabilities"])))
+    if s.get("params"):
+        lines.append("  parameters: " + ", ".join(f"{k} {v}" for k, v in s["params"].items()))
+    if s.get("license"):
+        lines.append("  licence: " + str(s["license"]).strip().splitlines()[0][:100])
+    if s.get("template"):
+        lines.append(f"  template: {len(str(s['template'])):,} characters (--json prints it)")
+    return lines
 
 
 def cmd_models_cards(*, as_json: bool = False) -> int:

@@ -3,11 +3,13 @@
 // weights + KV at that window against the card's free memory -- are its title, idea 2), downloads and updated,
 // the licence and a gated mark; every number's title says where it came from. A click on the name unfolds the
 // card's `how` lines (each "once pulled") and the model's other tags or files (GET local/library/<source>/<id>),
-// each with its own fit. The action: Pull, disabled until 3.3.5.0 R3, and Copy for the pull line.
+// each with its own fit. The actions: Pull onto the host picked (3.3.5.0 R3, LibraryPull.tsx: the progress bar while
+// it runs, "installed on <host>" after) and Copy for the pull line.
 import { useState } from "react";
 import { Button, FitMeter } from "../../lib/ui";
 import { CardChips, CardDetail } from "../shared/ModelCard";
 import { copyLine, count, detailKey, gb, loadDetail, useLib } from "./libstore";
+import { RowPull } from "./LibraryPull";
 import type { LibRow } from "./types";
 
 function Copy({ line }: { line: string }) {
@@ -30,6 +32,7 @@ function Other({ r, on }: { r: LibRow; on: boolean }) {
       <FitMeter fit={r.fit} />
       <span className="mono muted" title={r.sources?.size_bytes || "size on disk"}>{gb(r.size_bytes)}</span>
       {r.quant && <span className="mono muted" title={r.sources?.quant}>{r.quant}</span>}
+      <RowPull row={r} />
       <Copy line={r.pull_line} />
     </li>
   );
@@ -93,7 +96,7 @@ export function LibraryRow({ row, score }: { row: LibRow; score?: number | null 
       </div>
       {row.description && <p className="muted lc-lib-desc">{row.description}</p>}
       <div className="lc-model-acts">
-        <Button size="sm" variant="primary" disabled title="pulling lands in R3" data-testid="local-library-pull">Pull</Button>
+        <RowPull row={row} />
         <Copy line={row.pull_line} />
       </div>
       {open && <Unfolded row={row} />}

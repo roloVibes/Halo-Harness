@@ -5,10 +5,15 @@
 // their fit for this card and that intent (studio/local_models_view.py scores
 // each row: the card's purpose and roles decide the band, the fit meter the
 // place in it), a model that is not for the intent left out, and one line under
-// it saying why this order. The Fleet Ollama panel's rows link here.
+// it saying why this order. The Fleet Ollama panel's rows link here. 3.3.5.0 R3: the Loaded-now strip on top
+// (LoadedNow.tsx: what each host has in memory, its VRAM share, when it unloads, Unload), the Jobs list, and the
+// card a row's actions menu opens (ModelCards.tsx).
 import { useEffect, useMemo, useState } from "react";
 import { Empty } from "../../lib/ui";
+import { LoadedNow } from "./LoadedNow";
+import { ModelActCard } from "./ModelCards";
 import { ModelRow } from "./ModelRow";
+import { JobsList } from "./Pulls";
 import { goto, pages } from "./pages";
 import { loadModels, useLocal } from "./store";
 import { useStore } from "../../lib/store";
@@ -32,6 +37,9 @@ export function ModelsPage() {
   const why = data.intents.find((i) => i.id === intent)?.why || "";
   return (
     <div className="lc-models" data-testid="local-models">
+      <LoadedNow hosts={hosts} />
+      <JobsList />
+      <ModelActCard />
       <div className="lc-intents" role="group" aria-label="What do you want a model for" data-testid="local-intents">
         <span className="mono muted">for:</span>
         <button type="button" className={"lc-intent" + (intent ? "" : " on")} onClick={() => setIntent("")} data-testid="local-intent" data-intent="">any</button>

@@ -30,7 +30,7 @@ import socket
 import threading
 import time
 import urllib.parse
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
 log = logging.getLogger("bridge")
@@ -128,6 +128,11 @@ class OllamaHost:
     # exactly as before this field existed; only the literal "openai"
     # (case-insensitive) means the OpenAI dialect.
     dialect: Optional[str] = None
+    # Halo 3.3.5.0 R3: True on the ONE host `resolve_ollama_hosts` makes up
+    # from `OLLAMA_HOST` / 127.0.0.1:11434 when `ollama.hosts` is empty --
+    # under BRIDGE_TEST_NO_BACKGROUND_NET no catalog reader reads it
+    # (providers/ollama_guard.py). Not part of equality.
+    synthesized: bool = field(default=False, compare=False)
 
 
 def _parse_dialect_field(raw) -> Optional[str]:
@@ -263,7 +268,7 @@ def resolve_ollama_hosts(env: Optional[dict] = None) -> "list[OllamaHost]":
         return hosts
     url = _normalize_host_url(env.get("OLLAMA_HOST") or DEFAULT_OLLAMA_URL)
     api_key = env.get("OLLAMA_API_KEY") or None
-    return [OllamaHost(name="default", url=url, default=True, api_key=api_key)]
+    return [OllamaHost(name="default", url=url, default=True, api_key=api_key, synthesized=True)]
 
 
 def resolve_ollama_host(name: Optional[str] = None, env: Optional[dict] = None) -> Optional[OllamaHost]:
