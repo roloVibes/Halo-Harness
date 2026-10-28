@@ -3084,7 +3084,22 @@ for each action shown beside it.
   the Auto lineup's per-task pick; the compaction model's own window),
   the sources' order with fixtures, the ledger field and the rule. Docs:
   MODELS.md ("Switching models"), MODELS-ollama-steward.md, LOCAL-MODELS.md,
-  SLASH-COMMANDS (`/model` says what it will do first).
+  SLASH-COMMANDS (`/model` says what it will do first). (e) **the effort
+  tag follows the model** (rolo 2026-10-28: "does the effort level when
+  local models are selected matter? ... let's have the effort section in
+  the lower bar be n/a so users do not get confused"): today `effort` on
+  an Ollama model is only `think` on / off (off for low, on for medium and
+  above; gpt-oss gets low / medium / high) and nothing at all on a model
+  without the thinking capability or on a Hugging Face local server, yet
+  the status bar shows the effort word regardless. After this round the
+  segment shows what the level does on THIS model: `think on` / `think
+  off` / `think high` for a thinking-capable Ollama model, `effort n/a`
+  (muted) for a model it cannot change, the level as today on a cloud
+  route; `/effort` on such a model answers "<model> has no adjustable
+  effort: n/a (it would set think on/off on a thinking model)" and stores
+  the level for the next model that can use it; Studio's session header
+  and the model picker row carry the same word. Pinned in the status-bar
+  pilot and the `/effort` test.
 - R1 the library browser and the fit badge. `halo_harness/models_library/`:
   (a) Ollama: the catalog page and each model's tags read from ollama.com
   (HTML, parsed against fixtures; the shape pinned so a site change fails
