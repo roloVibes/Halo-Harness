@@ -912,6 +912,7 @@ def _build_child_session_inner(*, runtime: AgentRuntime, spec: AgentSpec, agent_
     from halo_harness.models_auto_spawn import record as _record_auto_pick
     _model_reason = _record_auto_pick(child, _auto.get("pick"), ran_on=model_ref.raw)
     child.opt_ins = _opt_ins  # 3.1.8.0 R5: "tools: ... (by lineup X)" on its agent row
+    child._parent_model_raw = getattr(parent.model_ref, "raw", None)  # 3.3.5.0 R0: model_switch_child
     # Halo 3.0.5.0 (Fleet): the child joins the session's live agent tree.
     _agent_tree.register_child(parent, child, agent_id=agent_id, spec=spec, model=model_ref.raw,
                                role=_effective_role_name, background=background, team_control=team_control,
@@ -1066,6 +1067,15 @@ def _run_child_to_completion(child, prompt_text: str, *, agent_id: str, parent_t
     fallback, and a background child's own parity/debuggability copy,
     still just want the whole thing at the end, no live channel needed)."""
     out = []
+    # Halo 3.3.5.0 R0: a child on another model than its parent's -- its first request fits that model
+    from halo_harness.agent.model_switch_child import fit_child_prompt
+    prompt_text, switch_line = fit_child_prompt(child, prompt_text)
+    if switch_line:
+        from halo_harness import events as _events
+        tagged = _tag(_events.turn_marker("switch", switch_line), agent_id=agent_id, parent_tool_use_id=parent_tool_use_id)
+        out.append(tagged)
+        if on_event is not None:
+            on_event(tagged)
     for ev in child.turn(prompt_text):
         tagged = _tag(ev, agent_id=agent_id, parent_tool_use_id=parent_tool_use_id)
         out.append(tagged)

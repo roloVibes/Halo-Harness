@@ -93,6 +93,16 @@ message, remembered for the rest of the session. `--effort`/settings
 when nothing more specific was set anywhere. See
 [MODELS.md](MODELS.md)'s "Reasoning effort" section for the accepted-level
 table per route family.
+Halo 3.3.5.0 R0: on a local model the level is what it does there. On an
+Ollama model with the thinking capability `/effort` lists the real options
+(`on`, `off`, `default`; gpt-oss: `low`, `medium`, `high`) and `/effort off`
+saves the choice for that model as `models.think.<ref>`; a level still
+works (low turns thinking off, medium and above on). On an Ollama model
+without it, or a Hugging Face local server, `/effort` answers
+"<model> has no adjustable effort: n/a (it would set think on/off on a
+thinking model)" and keeps a level you give for the next model that can use
+it; the status bar shows `effort n/a`, muted. See
+[MODELS-switching.md](MODELS-switching.md#effort-on-a-local-model).
 
 ### `/remote [status|pair [N]|off]`
 Halo 2.0.9. Bare `/remote` in the TUI opens the remote-control dialog: the

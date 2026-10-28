@@ -187,6 +187,17 @@ def config_findings(cwd=None, *, state_dir=None, settings_flag=None, rows=None) 
     return out + conflict_findings(rows, cwd=cwd) + pack_findings(cwd=cwd, state_dir=state)
 
 
+def _prefilled_lines(cwd) -> list:
+    """One line per provider the wizard would prefill but that is not set up: where the value came from."""
+    try:
+        from halo_harness.init_providers import TAB_LABEL, prefilled_line, tab_credential_state
+        st = tab_credential_state("databricks", cwd=cwd)
+        line = prefilled_line(st)
+        return [f"{TAB_LABEL.get('databricks', 'Databricks')}: {line}"] if line else []
+    except Exception:
+        return []
+
+
 def cmd_doctor_config(*, cwd=None, settings_flag=None, as_json: bool = False) -> int:
     """`halo doctor --config`: 0 when every file is clean, 1 when any finding."""
     from halo_harness.config_where import where_rows
@@ -200,6 +211,8 @@ def cmd_doctor_config(*, cwd=None, settings_flag=None, as_json: bool = False) ->
     print("halo doctor --config")
     print("  Every file `halo config where` lists, against Halo's schemas (unknown keys, wrong types) and its "
           "validators (missing bios and lineups), plus keys two files set to different values.")
+    for line in _prefilled_lines(cwd):  # 3.3.5.0 R0 (g): where a prefilled provider value came from
+        print(f"  {line}")
     for f in findings:
         tag = "[ERROR]" if f["severity"] == "blocks" else "[WARN]"
         text = f["text"] if f["text"].startswith(f["file"]) else f"{f['file']}: {f['text']}"

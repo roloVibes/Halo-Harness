@@ -24,6 +24,7 @@ export type Plan = { host: string; says: string; fits_now: boolean | null; chose
 export type Hour = { calls: number; trims: number; cuts: number; reloads: number; errors: number; p95_prompt: number | null; window: number | null; p95_pct: number | null };
 export type ModelRow = {
   model: string; vision: boolean; day_calls: number; hour: Hour | null;
+  window?: { tokens: number | null; source: string; ceiling: number | null } | null; // 3.3.5.0 R0: model_window.window_of
   loaded: { size: number | null; size_vram: number | null; vram_pct: number | null; expires: string | null; context_length: number | null } | null;
   profile: { num_ctx?: number; num_predict?: number; keep_alive?: string | number; by?: string; note?: string; at?: string } | null;
 };

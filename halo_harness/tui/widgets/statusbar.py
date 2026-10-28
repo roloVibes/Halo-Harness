@@ -725,7 +725,8 @@ class StatusBar(Static):
         text.append(f"{mode_str} ", style="bold cyan")
         if effort_str:
             text.append("│ ", style="dim")
-            text.append(f"{effort_str} ", style="magenta")
+            # Halo 3.3.5.0 R0 (e): "effort n/a" (a model whose effort does nothing) is muted
+            text.append(f"{effort_str} ", style="dim" if effort_str == "effort n/a" else "magenta")
         if offline_str:
             text.append("│ ", style="dim")
             text.append(f"{offline_str} ", style="bold yellow")

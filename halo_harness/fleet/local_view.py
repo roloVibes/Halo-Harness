@@ -68,7 +68,8 @@ def session_row(entry: dict, status: Optional[dict], agents: Optional[list]) -> 
                agents=with_tokens([a for a in (agents or []) if isinstance(a, dict)]),
                turns=_num(data.get("turn")), tokens_in=_num(data.get("total_input_tokens")),
                tokens_out=_num(data.get("total_output_tokens")), context_tokens=_num(data.get("context_tokens")),
-               context_limit=_num(data.get("context_limit")))
+               context_limit=_num(data.get("context_limit")),
+               effort=data.get("effort") if isinstance(data.get("effort"), str) else None)  # 3.3.5.0 R0 (e)
     return row
 
 

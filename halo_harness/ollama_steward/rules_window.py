@@ -14,6 +14,10 @@ findings):
 (h) two windows, one model: different halos (or sessions) send one model
     different windows; Ollama reloads it at every change -> one profile
     window for all of them.
+(i) switch without fit (3.3.5.0 R0): a call whose model differs from the
+    previous call's in the same session (`switched_from`) with no switch
+    step before it (`fitted` false): the window, the tools and the history
+    were the old model's.
 """
 
 from __future__ import annotations
@@ -147,4 +151,17 @@ def spilled(g: dict, ctx: dict) -> list:
                                      "a twin with every layer on the GPU and one fixed window; no disk"))]
 
 
-RULES = [two_windows, too_small, too_large, spilled]  # one window for every halo first: it is why the others reload
+def switch_without_fit(g: dict, ctx: dict) -> list:
+    bad = [x for x in g["lines"] if x.get("switched_from") and x.get("fitted") is False
+           and x.get("kind") in (None, "turn", "compaction")]
+    if not bad:
+        return []
+    frm = sorted({str(x.get("switched_from")) for x in bad})
+    return [finding("switch-without-fit", g, "warn",
+                    f"{len(bad)} call{'' if len(bad) == 1 else 's'} to {g['model']} followed a call to {', '.join(frm)} "
+                    "in the same session with no switch step before it: the window, the tools and the history were the "
+                    "old model's (a Halo before 3.3.5.0, or a path that moved the model without /model)",
+                    calls=bad, numbers={"calls": len(bad)}, switched_from=frm)]
+
+
+RULES = [two_windows, too_small, too_large, spilled, switch_without_fit]  # one window for every halo first: it is why the others reload

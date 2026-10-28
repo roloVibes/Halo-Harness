@@ -11,7 +11,7 @@
 // latest frame every second, so a closed feed or a reload still catches up.
 import { api, ApiError } from "../../lib/api";
 import { onEvent } from "../../lib/events";
-import { createStore, toast, useStore } from "../../lib/store";
+import { createStore, useStore } from "../../lib/store";
 import { refreshModels } from "../roles/bioActions";
 import { cards } from "./cards";
 import { setup, showStatus, type SetupData } from "./store";
@@ -123,6 +123,11 @@ export function startDiscover(): void {
   })();
 }
 
+/** 3.3.5.0 R0 (h): a result of the Ollama block goes to its own lines (CardLines "ollama-found"), never a toast. */
+function said(ok: boolean, lines: string[]): void {
+  cards.update((s) => ({ last: { ...s.last, "ollama-found": { ok, lines } } }));
+}
+
 export async function findServers(): Promise<void> {
   discover.update(() => ({ busy: "find" }));
   try {
@@ -130,9 +135,9 @@ export async function findServers(): Promise<void> {
     merge(r.rows);
     discover.update(() => ({ notes: r.notes, ports: r.ports }));
     const fresh = r.rows.filter((x) => !x.configured).length;
-    toast(r.rows.length ? `found ${r.rows.length} Ollama server${r.rows.length === 1 ? "" : "s"} on this machine, ${fresh} new` : "no Ollama server answered on this machine", "done", 4000);
+    said(true, [r.rows.length ? `found ${r.rows.length} Ollama server${r.rows.length === 1 ? "" : "s"} on this machine, ${fresh} new` : "no Ollama server answered on this machine"]);
   } catch (e) {
-    toast(msg(e)[0], "error", 6000);
+    said(false, msg(e));
   } finally {
     discover.update(() => ({ busy: "" }));
   }
@@ -144,7 +149,7 @@ export async function scanNetwork(): Promise<void> {
     adoptScan({ ...r.job, state: "running", running: true });
     poll();
   } catch (e) {
-    toast(msg(e)[0], "error", 6000);
+    said(false, msg(e));
   }
 }
 
@@ -152,7 +157,7 @@ export async function stopJob(kind: "scan" | "measure"): Promise<void> {
   try {
     await api.post(`setup/ollama/${kind}/stop`, {});
   } catch (e) {
-    toast(msg(e)[0], "error", 6000);
+    said(false, msg(e));
   }
 }
 
@@ -179,11 +184,9 @@ export async function addTicked(): Promise<void> {
     rows.filter((x) => added.includes(x.name)).forEach((x) => x.models.forEach((m) => (picks[`${m}@${x.name}`] = true)));
     discover.update((s) => ({ ticked: {}, added: [...s.added, ...added.filter((n) => !s.added.includes(n))], picks: { ...s.picks, ...picks } }));
     cards.update((s) => ({ last: { ...s.last, "ollama-found": { ok: true, lines: lines || [] } } }));
-    toast(lines?.[0] || "Added", "done", 4000);
     if (added.length) void refreshModels(); // the Models panel: each new host's models under Ollama (<name>)
   } catch (e) {
     cards.update((s) => ({ last: { ...s.last, "ollama-found": { ok: false, lines: msg(e) } } }));
-    toast(msg(e)[0], "error", 6000);
   } finally {
     discover.update(() => ({ busy: "" }));
   }
@@ -200,7 +203,7 @@ export async function measureTicked(): Promise<void> {
     adoptMeasure({ ...r.job, state: "running", running: true });
     poll();
   } catch (e) {
-    toast(msg(e)[0], "error", 6000);
+    said(false, msg(e));
   } finally {
     discover.update(() => ({ busy: "" }));
   }

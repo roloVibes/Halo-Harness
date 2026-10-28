@@ -491,6 +491,27 @@ def test_session_under_config_team_loads_control_and_caps(ctx: Ctx):
         mock.stop()
 
 
+@test
+def test_the_lineup_apply_answer_is_one_line(ctx: Ctx):
+    """3.3.5.0 R0 (h): applying local-first answers in one line, the per-role sentences under it
+    (`/teams apply`, Setup's Team block with its <details>)."""
+    from types import SimpleNamespace
+    from halo_harness.commands.builtins import _cmd_teams
+    from halo_harness.lineup_choice import apply_lineup_choice
+    with _Env() as e:
+        out = _cmd_teams("apply local-first", SimpleNamespace(cwd=e.cwd, session=None))
+        first = out.splitlines()[0]
+        want = ("lineup 'local-first' applied; main, small, researcher and judge run on the session model "
+                "(their agents name none)")
+        ctx.check(f"/teams apply: the one line first, got {first!r}", first == want)
+        ctx.check("the per-role sentences follow, indented", all(l.startswith("    main:") or l.startswith("    ") for l in out.splitlines()[1:5])
+                  and "has no models.preference/fallback of its own" in out)
+        details: list = []
+        ok, line, kind = apply_lineup_choice("local-first", cwd=e.cwd, state_dir=e.state_dir, details=details)
+        ctx.check(f"Setup's Team block: the same line, the notes as details, got {line!r}",
+                  ok and line == want and len(details) == 4 and kind == "lineup")
+
+
 if __name__ == "__main__":
     results, passed, failed, skipped = run_all(TESTS, Ctx())
     sys.exit(print_results(results, passed, failed, skipped))

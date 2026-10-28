@@ -242,20 +242,27 @@ def _known_databricks_host() -> Optional[str]:
     a fresh `init --preset work` -- verified live: this exact box's own
     ambient DATABRICKS_HOST, with no ANTHROPIC_MODEL alongside it, is NOT
     Claude Code's work settings and must never be adopted as one."""
+    return known_databricks_host_where()[0]
+
+
+def known_databricks_host_where() -> "tuple[Optional[str], Optional[str]]":
+    """Halo 3.3.5.0 R0 (g): `_known_databricks_host`'s host and where it was
+    found -- "the environment" or "Claude Code's settings.json" -- so a card
+    can say where a prefilled host came from."""
     from halo_harness.providers.config import (
         databricks_work_signal_present, derive_workspace_root, load_settings_env_chain, looks_like_databricks_host,
     )
     settings_env = load_settings_env_chain(Path.cwd())
-    for source in (os.environ, settings_env):
+    for where, source in (("the environment", os.environ), ("Claude Code's settings.json", settings_env)):
         if not databricks_work_signal_present(source):
             continue
         anth_host = source.get("ANTHROPIC_BASE_URL")
         if anth_host and looks_like_databricks_host(anth_host):
-            return derive_workspace_root(anth_host)
+            return derive_workspace_root(anth_host), where
         dbx_host = source.get("DATABRICKS_HOST")
         if dbx_host:
-            return derive_workspace_root(dbx_host)
-    return None
+            return derive_workspace_root(dbx_host), where
+    return None, None
 
 
 def _load_team_config(args, console: Console) -> Optional[dict]:

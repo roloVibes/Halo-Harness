@@ -94,6 +94,8 @@ export type BioPayload = { name: string; scope: string; path: string; raw: Raw; 
 
 export type ModelRow = {
   ref: string;
+  /** 3.3.5.0 R0 (e): think on/off, think low/medium/high, effort n/a, or "" on a cloud row. */
+  effort_word?: string;
   provider: string;
   group: string;
   detail: string;

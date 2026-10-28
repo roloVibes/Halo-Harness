@@ -9,7 +9,7 @@
 import { api, ApiError } from "../../lib/api";
 import { onEvent } from "../../lib/events";
 import { noProviderJump } from "../../lib/start";
-import { createStore, toast, useStore } from "../../lib/store";
+import { createStore, useStore } from "../../lib/store";
 import { loadSetup, setup, type CheckResult, type LastCheck, type SetupData } from "./store";
 
 export type CheckFrame = { key: string; title: string; state: string; lines: string[] };
@@ -129,8 +129,7 @@ export async function runChecks(): Promise<void> {
       check.update(() => ({ error: e.message }));
     } else {
       const text = e instanceof ApiError && e.problems.length ? e.problems.join("; ") : e instanceof Error ? e.message : String(e);
-      check.update(() => ({ error: text }));
-      toast(text, "error", 6000);
+      check.update(() => ({ error: text })); // 3.3.5.0 R0 (h): the block's error line, no toast
     }
   } finally {
     check.update(() => ({ busy: false }));
