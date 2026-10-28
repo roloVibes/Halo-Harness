@@ -2,7 +2,8 @@
 // last 24 h, what /api/ps has loaded now, a profile here): loaded now with its VRAM share and when it unloads,
 // the last hour's calls / trims / cuts / reloads / errors, the p95 prompt against the window sent, the
 // profile's window and reply reserve and who set them, and the eye for a vision model. A Hugging Face local
-// server's rows come from its OpenAI-dialect ledger lines, labelled "local server".
+// server's rows come from its OpenAI-dialect ledger lines, labelled "local server". 3.3.5.0 R0: each row's
+// window and its source (agent/model_window.py).
 import { Icon } from "../../lib/ui";
 import { byWho, gib, k, type HostView, type ModelRow } from "./ostore";
 
@@ -37,6 +38,18 @@ function Window({ m }: { m: ModelRow }) {
   return (
     <span className="mono" data-tight={tight || undefined} title="the 95th percentile prompt against the window sent">
       p95 {k(h.p95_prompt)}{h.window ? ` of ${k(h.window)}` : ""}{h.p95_pct != null ? ` (${Math.round(h.p95_pct)}%)` : ""}
+    </span>
+  );
+}
+
+/** 3.3.5.0 R0: the model's window here and where the number came from (the profile, the learned cap, the trained context ...). */
+function ModelWindow({ m }: { m: ModelRow }) {
+  const w = m.window;
+  if (!w || !w.tokens) return null;
+  return (
+    <span className="mono muted" data-testid="ollama-model-window" data-source={w.source}
+          title={`the window a switch to this model fits to${w.ceiling ? `; the most it can get here: ${w.ceiling.toLocaleString("en-US")}` : ""}`}>
+      window {w.tokens.toLocaleString("en-US")} ({w.source})
     </span>
   );
 }
@@ -81,6 +94,7 @@ function Row({ m, local }: { m: ModelRow; local: boolean }) {
       </div>
       <div className="oll-model-fit">
         <Window m={m} />
+        <ModelWindow m={m} />
         <span className="spacer" />
         <Profile m={m} />
       </div>

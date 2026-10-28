@@ -89,6 +89,7 @@ from halo_harness.providers.ollama import (
     trained_context_for,
 )
 from halo_harness.providers.ollama_request import build_ollama_request_body
+from halo_harness.providers.effort_on import think_choice_for as _think_choice_for
 from halo_harness.providers.responses_request import build_openai_responses_body
 from halo_harness.tools.base import ToolContext, ToolResult
 from halo_harness.tools.imageutil import sniff_dimensions
@@ -1620,6 +1621,9 @@ class Session:
                     ids = _node.get("stub_ids")
                     if isinstance(ids, list):
                         self._prune_committed_stub_ids |= {i for i in ids if isinstance(i, str)}
+            # Halo 3.3.5.0 R0: resumed on another model than it last ran on -> the switch step first
+            from halo_harness.agent.model_switch_paths import resumed_on_another_model
+            resumed_on_another_model(self, existing_nodes)
             self._fire_session_start("resume")
             self._fire_directory_added_at_start()
 
@@ -2852,6 +2856,13 @@ class Session:
         # explicit resume (a missing file degrades to a plain text note
         # instead, the turn still proceeds).
         from halo_harness.agent.image_attach import rehydrate_messages
+        # Halo 3.3.5.0 R0: after a switch, what the model moved to cannot take is converted on the wire
+        # (before the images are read back: a caption keeps the image's path)
+        if getattr(self, "_switch_caps", None):
+            from halo_harness.agent.model_switch_history import apply_to_wire
+            messages = apply_to_wire(self, messages)
+            if self._switch_caps.get("tools") is False and self._switch_caps.get("model") == self.model_ref.raw:
+                tools = []
         messages = rehydrate_messages(messages)
         # finding 4: `agent/prune.py` used to be wired ONLY into `/context`
         # (its "pruned ~N tokens" report never actually shrank anything a
@@ -2868,6 +2879,10 @@ class Session:
         requested_max_tokens = max_tokens_budget(
             self.provider_profile, model_key=self.model_ref.raw, requested=None, abort=self.abort,
         )
+        # Halo 3.3.5.0 R0 (d): on a local model a switch fitted, the reply's room is the switch's reserve
+        # (the profile's num_predict, else the window class's default), so prompt + reply fit the window
+        from halo_harness.agent.model_switch_history import switch_reserve
+        requested_max_tokens = switch_reserve(self, requested_max_tokens)
         # H5 scope C: a native-Anthropic-dialect route (`ant:`, Databricks
         # Claude passthrough) builds an Anthropic Messages body directly --
         # `messages`/`tools` are ALREADY Anthropic-shaped (agent/derive.py's
@@ -3198,6 +3213,7 @@ class Session:
             # docstring for what each one gates.
             supports_thinking=decision.supports_thinking, effort_explicit=effort_explicit,
             steward_profile=decision.profile,
+            think_choice=_think_choice_for(ref.raw),  # 3.3.5.0 R0: models.think.<ref>
         )
         # Halo 2.0.3 round 5c FIX PASS: `_build_request`'s own side-channel
         # read, same lazy-attribute pattern as `_last_ollama_host_url`/
@@ -3227,6 +3243,7 @@ class Session:
             # `/api/ps` read above), never a dedicated extra probe.
             self._last_ollama_host_url = host.url
             self._last_ollama_offloaded = decision.offloaded
+            self._ollama_supports_thinking = decision.supports_thinking  # 3.3.5.0 R0: the effort tag
         return body
 
     def _extra_headers_for_route(self, route: Route) -> dict:
@@ -3437,6 +3454,16 @@ class Session:
             from halo_harness.agent.ollama_window import drain_markers
             for _marker in drain_markers(self):
                 yield events.turn_marker("resend", f"↳ {_marker}", turn=turn_no)
+        # Halo 3.3.5.0 R0: a switch's line, a profile that lowered the window, and the compaction
+        # a switch left for the first call -- all before this call is sent
+        from halo_harness.agent import model_switch_paths as _switch
+        if not overflow_handled:
+            _switch.profile_change_check(self)
+        for _line in _switch.drain_lines(self):
+            yield events.turn_marker("switch", _line, turn=turn_no)
+        if not overflow_handled and getattr(self, "_switch_compact_pending", False) and not self._just_compacted:
+            yield events.turn_marker("resend", "↳ compacting to fit the window before the first call", turn=turn_no)
+            return _OVERFLOW_NEEDS_COMPACTION
         if self.route.dialect == "ollama" and not overflow_handled:
             # Halo 3.2.3.0 R1: the request (this turn's tool results
             # included) does not fit even the largest window this call can
@@ -5183,6 +5210,10 @@ class Session:
         `phase="failed"` with a human-readable `reason` so a caller/UI can
         react. Returns True iff the marker + replacement content were
         actually written."""
+        if trigger == "overflow" and getattr(self, "_switch_compact_pending", False):
+            trigger = "switch"  # Halo 3.3.5.0 R0: the compaction a switch left for the first call
+        if trigger == "switch":
+            self._switch_compact_pending = False
         system_text, raw_messages, tools = derive_request(self.log, tools=None)
         # finding 4: prune_messages used to be wired ONLY into `/context` --
         # applied here too, so the summarisation call's own prefix benefits
@@ -5200,6 +5231,9 @@ class Session:
         # UNTOUCHED `raw_messages`, so the retained tail spliced back into
         # the freshly-compacted log stays path-only, exactly like every
         # other image turn (never the rehydrated/base64 copy).
+        if getattr(self, "_switch_caps", None):  # 3.3.5.0 R0: converted for the model the session is on
+            from halo_harness.agent.model_switch_history import apply_to_wire
+            messages = apply_to_wire(self, messages)
         from halo_harness.agent.image_attach import rehydrate_messages
         messages = rehydrate_messages(messages)
         tokens_before = self._last_prompt_tokens or _rough_estimate(system_text, messages)
@@ -5220,6 +5254,21 @@ class Session:
             summary_text, stop_reason, ok, missing = "", None, False, []
             call_messages_base, call_tools = messages, tools
             tried_fallback = False
+            # Halo 3.3.5.0 R0: the summariser's own window, checked before the summary call -- a prefix
+            # larger than it goes straight to the flattened transcript, bounded to that window.
+            from halo_harness.agent.model_switch_paths import summary_window
+            _sum_window, _sum_estimate = summary_window(self, system_text, messages, tools,
+                                                        always=saved_model is not None or trigger == "switch")
+            if isinstance(_sum_window, int) and _sum_window > 0 and _sum_estimate > _sum_window:
+                tried_fallback = True
+                _cap = min(_SUMMARY_FALLBACK_MAX_CHARS, max(_SUMMARY_FALLBACK_MIN_CHARS // 4, int(
+                    _sum_window * CHARS_PER_TOKEN * _SUMMARY_FALLBACK_HEAD_SHARE)))
+                call_messages_base = [{"role": "user", "content": [
+                    {"type": "text", "text": _serialize_transcript_for_summary(messages, max_chars=_cap)}]}]
+                call_tools = []
+                yield events.turn_marker("resend", f"↳ the conversation ({_sum_estimate:,} tokens) is larger than "
+                                         f"{self.model_ref.raw}'s window ({_sum_window:,}): it summarises a "
+                                         f"transcript cut to fit", turn=turn_no)
             fatal_reason: Optional[str] = None
             content_retries = 0
             max_content_retries = 1  # "one corrective retry" (unchanged from before finding 4)
@@ -5297,7 +5346,9 @@ class Session:
             self._restore_compaction_model(saved_model)
 
         wrapped = wrap_compacted_summary(summary_text)
-        usable = _opencode_usable(self.model_profile.context_tokens, self.model_profile.max_output_tokens)
+        # Halo 3.3.5.0 R0: a switch's compaction keeps the tail the target's window holds
+        _tail_window = getattr(self, "_compaction_tail_window", None) or self.model_profile.context_tokens
+        usable = _opencode_usable(min(_tail_window, self.model_profile.context_tokens), self.model_profile.max_output_tokens)
         # H5b finding 1: select the tail from the UNPRUNED transcript, never
         # the copy stubbed/head-tailed for the summarisation call's own
         # request above -- otherwise a stubbed tool_result got written
@@ -8102,6 +8153,10 @@ class Session:
         # would otherwise read as a lie the moment the next turn goes out.
         from halo_harness.providers.profiles import effort_display_override
         effort_tag = effort_display_override(self.provider_profile) or self.effort
+        # Halo 3.3.5.0 R0 (e): on a local model the tag is what the level does there
+        # (`think on` / `think off` / `think high` / `effort n/a`), never a cloud level that does nothing
+        from halo_harness.providers.effort_on import local_word
+        effort_tag = local_word(self) or effort_tag
         # Round 5b (brief item 7): only an `ol:` route's own measured
         # throughput is ever sent -- a model switch away from `ollama`
         # must not keep showing a stale reading from the previous model.
@@ -8521,7 +8576,15 @@ class Session:
                     self.permission_engine.mode = mode
                 out(self.status_event())
             elif kind == "set_model":
-                self.set_model(data["model_ref"], data["model_profile"], data.get("creds"))
+                # Halo 3.3.5.0 R0: the switch step -- the line first, the fit, then the move
+                from halo_harness.agent.model_switch import run_switch
+                try:
+                    for _ev in run_switch(self, data["model_ref"], data["model_profile"], data.get("creds"), why="/model"):
+                        out(_ev)
+                except Exception:
+                    log.warning("the switch step failed; switching without it", exc_info=True)
+                    if getattr(self.model_ref, "raw", None) != getattr(data["model_ref"], "raw", None):
+                        self.set_model(data["model_ref"], data["model_profile"], data.get("creds"))
                 if self.effort_change_note:
                     out(events.notification(self.effort_change_note, level="info"))
                 out(self.status_event())

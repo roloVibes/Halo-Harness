@@ -5,7 +5,7 @@ file is `HALO_ENV_FILE` in that home (never ~/.config/halo/env); no network
 (`BRIDGE_TEST_NO_BACKGROUND_NET=1`), no provider request:
 
 1. the eight provider cards; OpenRouter's Save & test with a test key: the env
-   file has it, the card says "set, from the env file, ****<tail>", the field
+   file has it, the card says "key set (****<tail>), typed here" (3.3.5.0 R0), the field
    is empty again, the key is nowhere in the page, the strip names openrouter;
 2. Ollama: a host added by name and URL appears in the hosts table (the
    first is the default); (R5, studio_setup_discover.py) Find, Add, Measure;
@@ -74,7 +74,8 @@ def providers(c, url, ctx) -> dict:
            "or_placeholder": c.js(f"{q('[data-testid=setup-input][data-card=openrouter][data-field=key]')}.placeholder")}
     out["or_fill_by"] = fill(c, "openrouter", "key", KEY)
     state = _text("[data-testid=setup-provider-state][data-name=openrouter]")
-    out["or_save_by"] = press(c, "openrouter", f"{state}.startsWith('set') && !!{q('[data-testid=setup-card-lines][data-card=openrouter]')}")
+    # 3.3.5.0 R0 (g): the line names each field's source ("key set (****3344), typed here")
+    out["or_save_by"] = press(c, "openrouter", f"{state}.startsWith('key set') && !!{q('[data-testid=setup-card-lines][data-card=openrouter]')}")
     out["or_state"] = c.js(state)
     out["or_lines"] = c.js(_lines("openrouter"))
     out["or_test"] = c.js(_text("[data-testid=setup-provider-test][data-name=openrouter]"))

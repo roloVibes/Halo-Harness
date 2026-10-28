@@ -342,7 +342,11 @@ def _cmd_model(args: str, facade: HeadlessFacade) -> str:
     if session is not None:
         model_id = getattr(getattr(session, "model_ref", None), "raw", None) or facade.model_ref or "?"
         effort = getattr(session, "effort", None) or facade.effort or "default"
-        return f"Current model: {model_id}\nEffort: {effort}"
+        from halo_harness.providers.effort_on import local_word  # 3.3.5.0 R0: what the level does here
+        effort = local_word(session) or effort
+        window = getattr(getattr(session, "model_profile", None), "context_tokens", None)
+        tail = f"\nWindow: {window:,} tokens" if isinstance(window, int) and window > 0 else ""
+        return f"Current model: {model_id}\nEffort: {effort}{tail}"
     return f"Current model: {facade.model_ref or '?'}\nEffort: {facade.effort or 'default'}"
 
 
@@ -935,7 +939,9 @@ def _teams_verb(verb: str, rest: str, facade: HeadlessFacade) -> str:
     ok, lines, notes = apply_lineup(names[0], cwd=facade.cwd, session=getattr(facade, "session", None))
     if not ok:
         return f"Could not use {names[0]!r}:\n" + "\n".join(f"  - {x}" for x in lines)
-    return "\n".join([*(f"note: {n}" for n in notes), *lines])
+    from halo_harness.teams_apply_answer import apply_answer  # 3.3.5.0 R0 (h): one line, the notes indented
+    line, details = apply_answer(names[0], notes)
+    return "\n".join([line, *(f"    {n}" for n in details), *lines])
 
 
 def _cmd_teams(args: str, facade: HeadlessFacade) -> str:
@@ -1347,6 +1353,11 @@ def _cmd_effort(args: str, facade: HeadlessFacade) -> str:
     updated, which is exactly why the live `facade.session` reference is
     used here instead."""
     session = facade.session
+    # Halo 3.3.5.0 R0 (e): on a local model the level is Ollama's think field, or nothing at all
+    from halo_harness.providers.effort_on import effort_command
+    local_answer = effort_command(session, args)
+    if local_answer is not None:
+        return local_answer
     profile = getattr(session, "provider_profile", None) if session is not None else None
     current = getattr(session, "effort", None) if session is not None else facade.effort
     source = getattr(session, "effort_source", None) if session is not None else None

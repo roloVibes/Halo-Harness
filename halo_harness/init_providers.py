@@ -256,6 +256,15 @@ def configured_providers() -> "list[str]":
 # plain numbered-fallback path with no real terminal).
 # ---------------------------------------------------------------------------
 
+def prefilled_line(state: dict) -> "Optional[str]":
+    """Halo 3.3.5.0 R0 (g): the words for a prefilled, unfinished provider -- "host from Claude
+    Code's settings.json · token not set" -- the same in Studio's card, the terminal wizard's tab
+    and `halo doctor --config`; never the host value itself beside "not set". None otherwise."""
+    if state.get("configured") or not state.get("known_host"):
+        return None
+    return f"host from {state.get('host_from') or state.get('source') or 'a file here'} · token not set"
+
+
 def tab_credential_state(provider: str, *, team_cfg: Optional[dict] = None,
                           cwd: Optional[Path] = None, settings_flag: Optional[str] = None) -> dict:
     """`{"configured", "source", "masked", "known_host", "fields"}` for one
@@ -298,8 +307,9 @@ def tab_credential_state(provider: str, *, team_cfg: Optional[dict] = None,
         if dbx is not None:
             return {"configured": True, "source": resolve_databricks_source(env) or "env file",
                     "masked": f"{dbx.host} / {redact(dbx.token)}", "known_host": None, "fields": []}
-        from halo_harness.init_cli import _known_databricks_host
-        discovered_host = _known_databricks_host()
+        import halo_harness.init_cli as _init_cli
+        discovered_host = _init_cli._known_databricks_host()
+        discovered_where = _init_cli.known_databricks_host_where()[1] if discovered_host else None
         team_host = (team_cfg or {}).get("host")
         host_hint = None
         if team_host and not discovered_host:
@@ -317,7 +327,9 @@ def tab_credential_state(provider: str, *, team_cfg: Optional[dict] = None,
             fields.append({"name": "host", "label": "DATABRICKS_HOST", "secret": False})
         fields.append({"name": "token", "label": "DATABRICKS_TOKEN", "secret": True})
         source = "Claude Code's settings" if discovered_host else ("the team config" if team_host else None)
-        out = {"configured": False, "source": source, "masked": host, "known_host": host, "fields": fields}
+        out = {"configured": False, "source": source, "masked": host, "known_host": host, "fields": fields,
+               # 3.3.5.0 R0 (g): where the prefilled host came from, in the card's own words
+               "host_from": discovered_where if discovered_host else ("the team config" if team_host else None)}
         if host_hint:
             out["host_hint"] = host_hint
             out["source"] = (team_cfg or {}).get("_source", "the project's team config")

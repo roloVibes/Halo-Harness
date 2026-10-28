@@ -401,6 +401,31 @@ halo -p "reply with the single word pong" --model oai:gpt-5
 Two models (`gpt-6-astra`, `gpt-6.1-sol`) need a different request shape
 for tool calling to work; Halo switches to it for exactly those two ids.
 
+## The window of a model and where it came from
+
+Halo 3.3.5.0: when a session moves to a model (`/model`, a lineup's per-task
+pick, a resume, a compaction model; [MODELS-switching.md](MODELS-switching.md))
+it reads that model's window first, from the best source it has, and names
+the source in the switch line and in the steward's panel
+(`agent/model_window.window_of`). The first source that knows a number wins:
+
+| Order | Source | Ollama | llama-server | LM Studio | mlx-lm (`hf:mlx/`) | a `local:` server |
+|---|---|---|---|---|---|---|
+| 1 | the steward profile | `ollama.profiles["<host>\|<model>"].num_ctx` | - | - | - | - |
+| 2 | the learned cap | `~/.halo/ollama-fit.json` (`halo ollama calibrate`) | - | - | - | - |
+| 3 | the loaded window | `/api/ps` `context_length` (the hardware card) | `/props` `n_ctx` | its model API's loaded context | `/v1/models` when it says | - |
+| 4 | the trained context | `/api/show` `model_info.*.context_length` | the HF `config.json` `max_position_embeddings` | the same | the repo's `config.json` | - |
+| 5 | the host's `max_ctx` | the `ollama.hosts` entry | - | - | - | the `local.servers` entry's `context` |
+| 6 | the server default | 4,096 (the "vram-based default context" under 23 GiB) | the trained context (`-c 0`) | 4,096 | the trained context | - |
+
+A cloud route reads its catalog's context. A smaller bound the call itself
+obeys holds the number and is named instead: the learned cap, the host's
+`max_ctx`, what the hardware card fits, and Ollama's hard cap of 131,072
+("window 32,768 (host max_ctx)"). The steward's panel and `halo ollama
+traffic` show the same window and source per model, and the window's
+ceiling (the learned cap, else what the card fits) is the most the model
+can get on that host.
+
 ## Offline mode, escalation, and the savings meter
 
 ```sh

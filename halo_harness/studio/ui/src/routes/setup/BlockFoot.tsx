@@ -1,6 +1,8 @@
 // The foot every Setup block ends with (3.3.0.0 R1): Save and Revert, the
 // block's own line ("saved", "1 changed" or "problem") and, under them, the
-// lines its last Save answered (what was written, or why nothing was).
+// lines its last Save answered (what was written, or why nothing was);
+// 3.3.5.0 R0 (h): the answer's details (a lineup's per-role notes) fold under a
+// <details>, and no Save raises a toast.
 import { Button } from "../../lib/ui";
 import { blockWord, changed, revert, save, useSetup, type BlockId } from "./store";
 
@@ -26,6 +28,12 @@ export function BlockFoot({ block, label = "Save", what }: { block: BlockId; lab
         <pre className="su-lines mono" data-ok={last.ok || undefined} data-testid="setup-lines" data-block={block}>
           {last.lines.join("\n")}
         </pre>
+      )}
+      {last && last.details && last.details.length > 0 && (
+        <details className="su-details" data-testid="setup-details" data-block={block}>
+          <summary className="muted">the details ({last.details.length})</summary>
+          <pre className="su-lines mono" data-ok>{last.details.join("\n")}</pre>
+        </details>
       )}
     </div>
   );

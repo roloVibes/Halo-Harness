@@ -13,7 +13,11 @@ import { createStore, goSection, studio, toast, useStore } from "../../lib/store
 import { setupDoor } from "./door";
 import { setup } from "./store";
 
-export const done = createStore<{ busy: boolean }>({ busy: false });
+export const done = createStore<{ busy: boolean; error: string }>({ busy: false, error: "" });
+
+export function useDoneError(): string {
+  return useStore(done, (s) => s.error);
+}
 
 export function useDoneBusy(): boolean {
   return useStore(done, (s) => s.busy);
@@ -40,16 +44,16 @@ export function leaveSetup(at: string): void {
   goSection("session");
 }
 
-/** POST setup/done, then leave Setup; a refusal is a toast and the page stays. */
+/** POST setup/done, then leave Setup (the toast shows on Session); a refusal is the Done part's own line and the page stays. */
 export async function pressDone(): Promise<boolean> {
-  done.update(() => ({ busy: true }));
+  done.update(() => ({ busy: true, error: "" }));
   try {
     const r = await api.post<{ ok: boolean; done_at: string }>("setup/done", {});
     leaveSetup(r.done_at);
     toast("Setup is done: a halo init waiting in a terminal starts halo there", "done", 5000);
     return true;
   } catch (e) {
-    toast(e instanceof Error ? e.message : String(e), "error", 6000);
+    done.update(() => ({ error: e instanceof Error ? e.message : String(e) })); // 3.3.5.0 R0 (h): its own line, no toast
     return false;
   } finally {
     done.update(() => ({ busy: false }));

@@ -95,6 +95,8 @@ def _saved(req, provider: str, values: dict):
     ok, message = save_tab_credentials(provider, values)
     if not ok:
         return _refused([message])
+    from halo_harness.studio.setup_providers_state import TYPED  # 3.3.5.0 R0 (g): the card says "typed here"
+    TYPED.setdefault(provider, set()).update(k for k, v in values.items() if isinstance(v, str) and v.strip())
     enable_if_was_explicitly_disabled(provider)
     return _answer(req, [message, *probe_lines(provider)])
 

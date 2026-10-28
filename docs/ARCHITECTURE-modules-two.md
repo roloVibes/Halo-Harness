@@ -20,6 +20,7 @@ every call leaves a record: `ollama_steward/ledger.py` (the ledger line,
 `traffic.jsonl` written under a lock and rotated, read back, a calibration
 load's line), `ollama_steward/ledger_call.py` (the observer
 `agent/loop.py`'s `_stream` wraps every local-server call in),
+`ollama_steward/ledger_switch.py` (3.3.5.0 R0: the line's `switched_from` and `fitted`),
 `ollama_steward/traffic.py` (the rollups per host and model),
 `ollama_steward/server_rules.py` (one server-log line to an event),
 `ollama_steward/server_context.py` (the rules that need the lines around a

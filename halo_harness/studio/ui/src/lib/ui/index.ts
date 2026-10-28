@@ -12,4 +12,5 @@ export { Surface } from "./Surface";
 export { HudStrip, HudCell } from "./HudStrip";
 export { Icon, toolIcon } from "./Icon";
 export { Menu, type MenuGroup, type MenuRow } from "./Menu";
+export { WindowedRows, WINDOW_AT } from "./WindowedRows";
 export { Panel } from "../workspace/Panel";

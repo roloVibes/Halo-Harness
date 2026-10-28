@@ -7,7 +7,7 @@
 // routes/setup/store.ts) and the answer carries the row's fresh value.
 import { api, ApiError } from "../../lib/api";
 import { onFilesChanged } from "../../lib/filesLive";
-import { createStore, setSectionStatus, toast, useStore } from "../../lib/store";
+import { createStore, setSectionStatus, useStore } from "../../lib/store";
 
 export type Kind = "bool" | "enum" | "int" | "float" | "string" | "list" | "mapping" | "model" | "path" | "keyed";
 export type Effect = "now" | "next session" | "next launch";
@@ -136,8 +136,7 @@ export async function act(path: "settings/set" | "settings/unset", body: { key: 
     return true;
   } catch (e) {
     const lines = e instanceof ApiError && e.problems.length ? e.problems : [e instanceof Error ? e.message : String(e)];
-    settings.update((s) => ({ last: { ...s.last, [row]: { ok: false, lines, at: Date.now() } } }));
-    toast(lines[0], "error", 6000);
+    settings.update((s) => ({ last: { ...s.last, [row]: { ok: false, lines, at: Date.now() } } })); // 3.3.5.0 R0 (h): no toast
     return false;
   } finally {
     settings.update(() => ({ busy: "" }));

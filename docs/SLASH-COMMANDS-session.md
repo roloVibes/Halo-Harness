@@ -89,6 +89,18 @@ form `docs/MODELS.md` documents, including a bare `databricks-*`/
 `system.ai.*` name or any name that matches a cached Databricks endpoint)
 given directly as `/model <ref>`, switches the session to it immediately,
 no picker -- mid-session model changes are logged as a fresh `meta` node.
+Halo 3.3.5.0 R0: a switch says what it will do first, in one line ("switching
+to ol:qwen3.5:9b@lan: window 32,768 (learned cap); this conversation is
+48,210 tokens -> compacting to fit · effort: think off"), compacts on the
+model being left when the target's window needs it (`trigger: "switch"`),
+re-caps the tools, converts what the target cannot take (images to
+captions, thinking blocks dropped, tool turns as text on a model with no
+tools), then prints the report ("on ol:qwen3.5:9b@lan: compacted to 21,300
+tokens; tools 64; reply reserve 8,192"); see
+[MODELS-switching.md](MODELS-switching.md#switching-models-3350). The picker
+says how many models it lists ("312 models", "12 of 312 models" while the
+filter narrows it) and never cuts the list. Bare `/model` (print mode) names
+the effort word and the window.
 A `cc:`/`cx:` ref (routes removed in 3.1.5.0) shows the one removed-route
 line as the `/model` error instead.
 

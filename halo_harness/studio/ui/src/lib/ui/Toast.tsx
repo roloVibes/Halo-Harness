@@ -1,5 +1,7 @@
-// Toasts rise from the bottom right: `done` sweeps green once, `error`
-// flashes red once and keeps a red edge. Driven by `toast()` in lib/store.
+// Toasts sit at the top right under the header (3.3.5.0 R0 (h): never over a
+// page's foot, Setup's Back / Next): `done` sweeps green once, `error` flashes
+// red once and keeps a red edge. Driven by `toast()` in lib/store. A paged
+// section (Setup, Settings) raises none: a block's result is its own line.
 import { studio, useStore } from "../store";
 
 export function Toasts() {

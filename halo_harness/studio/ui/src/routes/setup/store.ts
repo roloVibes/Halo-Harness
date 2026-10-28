@@ -7,12 +7,12 @@
 // shape, routes/packs/manager/store.ts) and the answer is the fresh state.
 import { api, ApiError } from "../../lib/api";
 import { onFilesChanged } from "../../lib/filesLive";
-import { createStore, setSectionStatus, toast, useStore } from "../../lib/store";
+import { createStore, setSectionStatus, useStore } from "../../lib/store";
 
 export type ThemeRow = { name: string; palette: Record<string, string> };
 export type ModeRow = { id: string; label: string; note: string };
 export type LineupRow = { name: string; label: string; scope: string; description: string; active: boolean; default: boolean };
-export type ModelRow = { ref: string; provider: string; label: string; best_at: string; price: string; context: string };
+export type ModelRow = { ref: string; provider: string; label: string; best_at: string; price: string; context: string; effort?: string };
 export type FieldRow = { id: string; label: string; secret: boolean; present: boolean; placeholder?: string };
 export type ProviderInfo = {
   label: string;
@@ -25,6 +25,8 @@ export type ProviderInfo = {
   detail: string;
   host_hint: string;
   fields: FieldRow[];
+  /** 3.3.5.0 R0 (g): where each field's value came from ("typed here", "env file", "environment", "Claude Code's settings.json", ""). */
+  field_sources?: Record<string, string>;
 };
 export type OllamaHost = { name: string; url: string; default: boolean; key_env: string };
 export type HfEntry = { name: string; url: string; token_env?: string; key_env?: string };
@@ -62,7 +64,7 @@ export type LastCheck = { when: number; ok: boolean; stopped?: boolean; results:
 
 /** The blocks that save something this round, by the key their Save writes. */
 export type BlockId = "model" | "permission_mode" | "theme" | "team";
-export type Answer = { ok: boolean; lines: string[] };
+export type Answer = { ok: boolean; lines: string[]; details?: string[] }; // 3.3.5.0 R0 (h): details under a <details>
 
 export type SetupState = {
   data: SetupData | null;
@@ -180,20 +182,18 @@ export function revert(b: BlockId): void {
 export async function act(path: string, body: Record<string, unknown>, block: BlockId): Promise<boolean> {
   setup.update(() => ({ busy: block }));
   try {
-    const r = await api.post<SetupData & { lines?: string[] }>(path, body);
-    const { lines, ...data } = r;
+    const r = await api.post<SetupData & { lines?: string[]; details?: string[] }>(path, body);
+    const { lines, details, ...data } = r;
     adoptAnswer(data as SetupData);
     setup.update((s) => {
       const picks = { ...s.picks };
       delete picks[block];
-      return { picks, last: { ...s.last, [block]: { ok: true, lines: lines || [] } } };
+      return { picks, last: { ...s.last, [block]: { ok: true, lines: lines || [], details: details || [] } } };
     });
-    toast(lines?.[0] || "Saved", "done", 4000);
-    return true;
+    return true; // 3.3.5.0 R0 (h): the block's foot says what was written, no toast
   } catch (e) {
     const lines = e instanceof ApiError && e.problems.length ? e.problems : [e instanceof Error ? e.message : String(e)];
     setup.update((s) => ({ last: { ...s.last, [block]: { ok: false, lines } } }));
-    toast(lines[0], "error", 6000);
     return false;
   } finally {
     setup.update(() => ({ busy: "" }));

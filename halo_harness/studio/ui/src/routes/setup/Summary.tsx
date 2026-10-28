@@ -12,7 +12,7 @@ import { runStart, start } from "../../lib/start";
 import { useStore } from "../../lib/store";
 import { Button } from "../../lib/ui";
 import { useLoadState, Waiting } from "./BlockFoot";
-import { pressDone, useDoneBusy } from "./done";
+import { pressDone, useDoneBusy, useDoneError } from "./done";
 import { lastCheckWord, runChecks, startCheck, ticked, useCheck } from "./checkStore";
 import { goto, isDone, stepsOf, TITLES, usePage, valueOf, type StepId } from "./pages";
 import { NONE, setup, useSetup } from "./store";
@@ -88,6 +88,7 @@ function StartPart() {
 
 function DonePart() {
   const busy = useDoneBusy();
+  const error = useDoneError();
   return (
     <section className="su-sum-part su-sum-done" data-testid="setup-summary-done" aria-label="Done">
       <div className="su-foot-row">
@@ -97,6 +98,7 @@ function DonePart() {
         </Button>
         <span className="su-note muted">the terminal that ran halo init starts halo; Studio opens Session</span>
       </div>
+      {error && <pre className="su-lines mono" data-testid="setup-done-error">{error}</pre>}
     </section>
   );
 }
