@@ -3772,7 +3772,9 @@ def test_h9b_f11_two_parallel_children_get_separate_streams_and_never_touch_main
                 # second child ended and the gate read phase='writing' at the deadline
                 await _poll(lambda: app.status_bar.phase == "idle" and app._turn_done_count >= 1, seconds=90.0)
                 await _drain_a_few(app, pilot, n=3, pause=0.05)
-                settled_idle = await _poll(lambda: app.status_bar.phase == "idle")
+                # 90 s here too (e253d30: idle was seen, then the bar read 'waiting' for the whole 30 s default
+                # while the children's last events drained on the Windows runner)
+                settled_idle = await _poll(lambda: app.status_bar.phase == "idle", seconds=90.0)
 
                 texts = [w.raw_text for w in app.transcript.children if isinstance(w, AssistantText)]
                 child_a_widgets = [t for t in texts if "childA-answer" in t]
