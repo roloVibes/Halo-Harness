@@ -66,3 +66,4 @@
 .st-ollama-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: var(--fs-sm); }
 .st-ollama-row > span:first-child { min-width: 110px; }
 .st-ollama-status { font-size: 11px; display: grid; gap: 1px; }
+.oll-local { padding: 0 6px; border: 1px solid var(--line); border-radius: 999px; background: transparent; color: var(--accent); font-size: 10.5px; cursor: pointer; } /* 3.3.5.0 R1: a row opens Local -> Models */

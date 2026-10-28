@@ -5,9 +5,12 @@
 // server's rows come from its OpenAI-dialect ledger lines, labelled "local server". 3.3.5.0 R0: each row's
 // window and its source (agent/model_window.py). 3.3.5.0 R0b: each row's card chips (think, tools, vision,
 // the purpose, the window), the fit meter on this host's card, and the card's how lines (shared/ModelCard.tsx).
+// 3.3.5.0 R1: this panel is the short form; each row's "open in Local" opens Local -> Models on the host.
 import { FitMeter, Icon } from "../../lib/ui";
 import { CardChips, CardDetail } from "../shared/ModelCard";
 import { byWho, gib, k, type HostView, type ModelRow } from "./ostore";
+import { goSection } from "../../lib/store";
+import { goto as gotoLocal } from "../local/pages";
 
 function until(iso: string | null): string {
   if (!iso) return "";
@@ -69,7 +72,12 @@ function Profile({ m }: { m: ModelRow }) {
   );
 }
 
-function Row({ m, local }: { m: ModelRow; local: boolean }) {
+function openInLocal(host: string): void {
+  goSection("local");
+  gotoLocal("models", host);
+}
+
+function Row({ m, local, host }: { m: ModelRow; local: boolean; host: string }) {
   const h = m.hour;
   const n = (v: number | undefined, label: string) => (
     <span className="oll-n mono" data-n={label} data-hot={(v || 0) > 0 && label !== "calls" ? true : undefined}>
@@ -87,6 +95,8 @@ function Row({ m, local }: { m: ModelRow; local: boolean }) {
         <FitMeter fit={m.fit} />
         <span className="spacer" />
         {!local && <Loaded m={m} />}
+        <button type="button" className="oll-local mono" onClick={() => openInLocal(host)} data-testid="ollama-open-local"
+                title="Local -> Models: this host's models, their cards, the intent filter">open in Local</button>
       </div>
       <div className="oll-model-nums">
         {n(h?.calls, "calls")}
@@ -116,10 +126,10 @@ export function ModelsTable({ host }: { host: HostView }) {
       <div className="rail-label mono">MODELS · THE LAST HOUR</div>
       <ul className="oll-models">
         {host.models.map((m) => (
-          <Row key={m.model} m={m} local={local} />
+          <Row key={m.model} m={m} local={local} host={host.name} />
         ))}
       </ul>
-      {local && <p className="muted oll-next">The rest of Hugging Face (the Hub, endpoints, pulling a model): next, the Models section (3.3.5.0).</p>}
+      {local && <p className="muted oll-next">The rest of Hugging Face (the Hub, endpoints, pulling a model): next, Local → Hugging Face (3.3.5.0).</p>}
     </section>
   );
 }

@@ -34,8 +34,8 @@ def _default(kind: str):
     if kind == "card":
         from halo_harness.ollama_steward.hardware import hardware_card
         return hardware_card
-    from halo_harness.providers.ollama import get_catalog
-    return get_catalog
+    from halo_harness.studio.local_catalog import catalog_for  # 3.3.5.0 R1: read again only when /api/tags changed
+    return catalog_for
 
 
 def _cached(kind: str, host):

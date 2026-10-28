@@ -44,7 +44,7 @@ export function useStore<T extends object, S>(store: Store<T>, select: (s: T) =>
 
 // -- the shell's state -----------------------------------------------------------
 
-export type CoreSectionId = "orchestra" | "roles" | "design" | "fleet" | "team" | "session" | "packs" | "setup" | "settings"; // packs: 3.2.0.0 R6; setup: 3.3.0.0 R1; settings: 3.3.3.0 R2
+export type CoreSectionId = "orchestra" | "roles" | "design" | "fleet" | "team" | "session" | "packs" | "setup" | "settings" | "local"; // packs: 3.2.0.0 R6; setup: 3.3.0.0 R1; settings: 3.3.3.0 R2; local: 3.3.5.0 R1
 /** 3.2.0.0 R3: a pack's own section, `<pack id>--<section id>` (routes/packs: the registry the server builds). */
 export type PackSectionId = `${string}--${string}`;
 export type SectionId = CoreSectionId | PackSectionId;
@@ -99,7 +99,7 @@ export type StudioState = {
 };
 
 /** Every section id, in the tab order (routes/index.tsx SECTIONS is the order; store.ts cannot import it). */
-export const SECTION_IDS: CoreSectionId[] = ["session", "team", "roles", "fleet", "design", "orchestra", "packs", "setup", "settings"];
+export const SECTION_IDS: CoreSectionId[] = ["session", "team", "roles", "fleet", "design", "orchestra", "packs", "setup", "settings", "local"];
 
 function readLocal(key: string): string {
   try {
@@ -122,7 +122,7 @@ export function writeLocal(key: string, value: string | null): void {
  *  for this browser (a pack's own when the page names it, 3.2.1.0 R1); nothing saved: Session while a session is
  *  live here, else Roles. */
 function initialSection(): SectionId {
-  const asked = /[?&]mode=(orchestra|roles|design|fleet|team|session|packs|setup|settings)\b/.exec(location.search); // packs: 3.2.0.0 R7; setup: 3.3.0.0 R1; settings: 3.3.3.0 R2
+  const asked = /[?&]mode=(orchestra|roles|design|fleet|team|session|packs|setup|settings|local)\b/.exec(location.search); // packs: 3.2.0.0 R7; setup: 3.3.0.0 R1; settings: 3.3.3.0 R2; local: 3.3.5.0 R1
   if (asked) return asked[1] as SectionId;
   if (bootNoProvider()) return "setup";
   const saved = readLocal("halo.studio.section") || readLocal("halo-studio-mode");

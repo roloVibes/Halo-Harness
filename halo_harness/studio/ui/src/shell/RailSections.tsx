@@ -1,5 +1,5 @@
 // 3.3.2.0 R1 "the icon rail": the sections as the rail's first block, one
-// button per section (the nine core ones, then the packs' own under a thin
+// button per section (the ten core ones, then the packs' own under a thin
 // divider with the diamond), an icon each and the title as its tooltip and
 // accessible name; the label shows only while the rail is expanded. The
 // current one is lit; Session carries a dot while a session is live here,
@@ -24,7 +24,7 @@ import { startDigest, useAway } from "../routes/fleet/Digest";
 import { openTree } from "../routes/fleet/FleetTree";
 
 const ICONS: Record<string, string> = {
-  session: "session", team: "team", roles: "roles", fleet: "fleet", design: "design", orchestra: "orchestra", packs: "packs", setup: "setup", settings: "settings",
+  session: "session", team: "team", roles: "roles", fleet: "fleet", design: "design", orchestra: "orchestra", packs: "packs", setup: "setup", settings: "settings", local: "local",
 };
 
 /** The sections that ran something in the last few seconds (the old tab strip's "working" breath). */

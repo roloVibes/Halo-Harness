@@ -34,7 +34,7 @@ SEL = "document.querySelector('[data-testid=\"section-tab\"][aria-selected=\"tru
 TABS = ("[...document.querySelectorAll('[data-testid=\"section-tab\"]')].map((t) => "
         "[t.querySelector('.tab-label')?.textContent || '', t.title, t.querySelectorAll('.kbd').length])")
 ORDER = [("Session", "Alt 1"), ("Team", "Alt 2"), ("Roles", "Alt 3"), ("Fleet", "Alt 4"), ("Design", "Alt 5"), ("Orchestra", "Alt 6"),
-         ("Packs", "Alt 7"), ("Setup", "Alt 8"), ("Settings", "Alt 9")]  # Packs: 3.2.0.0 R6; Setup: 3.3.0.0 R1; Settings: 3.3.3.0 R2
+         ("Packs", "Alt 7"), ("Setup", "Alt 8"), ("Settings", "Alt 9"), ("Local", "Alt 0")]  # Packs: 3.2.0.0 R6; Setup: 3.3.0.0 R1; Settings: 3.3.3.0 R2; Local: 3.3.5.0 R1
 
 
 def maybe(c, expr: str, timeout: float):
@@ -47,14 +47,15 @@ def maybe(c, expr: str, timeout: float):
 
 def alt(c, n: int) -> None:
     for kind in ("keyDown", "keyUp"):
-        c.call("Input.dispatchKeyEvent", type=kind, key=str(n), code=f"Digit{n}", windowsVirtualKeyCode=48 + n, modifiers=1)
+        d = n % 10  # 3.3.5.0 R1: the tenth slot is Digit0
+        c.call("Input.dispatchKeyEvent", type=kind, key=str(d), code=f"Digit{d}", windowsVirtualKeyCode=48 + d, modifiers=1)
 
 
 def landing(c, url: str) -> dict:
     from halo_harness.theme import set_config_value
     set_config_value("model", "ol:ui-order:1b")  # 3.3.0.0 R3: a provider-less home opens on Setup instead
     c.go(url)
-    c.wait("document.querySelectorAll('[data-testid=\"section-tab\"]').length === 9", 40)  # 3.3.3.0 R2: + Settings
+    c.wait("document.querySelectorAll('[data-testid=\"section-tab\"]').length === 10", 40)  # 3.3.3.0 R2: + Settings; 3.3.5.0 R1: + Local
     if maybe(c, "!!document.querySelector('[data-testid=\"start-here-dismiss\"]')", 8):  # a fresh home's Start here overlay
         c.click_on("document.querySelector('[data-testid=\"start-here-dismiss\"]')")
         c.wait("!document.querySelector('[data-testid=\"start-here\"]')", 10)
@@ -68,7 +69,7 @@ def tabs(c) -> dict:
 
 def keys(c) -> dict:
     out: dict = {"pressed": []}
-    for n in (2, 3, 4, 5, 6, 7, 8, 9, 1):
+    for n in (2, 3, 4, 5, 6, 7, 8, 9, 10, 1):
         want = ORDER[n - 1][0]
         alt(c, n)
         out["pressed"].append([n, maybe(c, f"{SEL} === '{want}' && {SEL}", 15) or c.js(SEL)])
@@ -142,15 +143,15 @@ def register(test, json_of, chrome) -> None:
                   got.get("landing") == "Roles" and got.get("landing_live") == "" and got.get("landing_roles_start") == 1)
         ctx.check(f"3.3.2.0 R1: the rail's rows, in order, titled, no printed key, got {got.get('tabs')}",
                   [tuple(t) for t in got.get("tabs") or []] == [(t, t, 0) for t, _ in ORDER])
-        ctx.check(f"the keys in the palette's Go to: Session / Alt+1 first ... Settings / Alt+9 last, got {got.get('palette_goto_keys')}",
-                  [tuple(t) for t in got.get("palette_goto_keys") or []][:9] == ORDER)
-        want = [[n, ORDER[n - 1][0]] for n in (2, 3, 4, 5, 6, 7, 8, 9, 1)]
-        ctx.check(f"Alt+2 .. Alt+9 then Alt+1 select their tabs, got {got.get('pressed')}", got.get("pressed") == want)
+        ctx.check(f"the keys in the palette's Go to: Session / Alt+1 first ... Local / Alt+0 last, got {got.get('palette_goto_keys')}",
+                  [tuple(t) for t in got.get("palette_goto_keys") or []][:10] == ORDER)
+        want = [[n, ORDER[n - 1][0]] for n in (2, 3, 4, 5, 6, 7, 8, 9, 10, 1)]
+        ctx.check(f"Alt+2 .. Alt+9, Alt+0 then Alt+1 select their tabs, got {got.get('pressed')}", got.get("pressed") == want)
         ctx.check(f"Alt+1 with nothing live: the Session Start view, got {got.get('session_start')}", got.get("session_start") == 1)
         ctx.check(f"How Session works: Alt+1 Session is its first key, got {got.get('help_first_key')} {got.get('help_is_session')}",
                   got.get("help_first_key") == ["Alt 1", "Session"] and got.get("help_is_session") is True)
         hk = got.get("hint_keys") or []
-        ctx.check(f"the status bar's hint: Alt+1 to Alt+9 (3.3.3.0 R2: Settings last), got {hk}", "Alt 1" in hk and "Alt 9" in hk and hk.index("Alt 1") < hk.index("Alt 9"))
+        ctx.check(f"the status bar's hint: Alt+1 to Alt+0 (3.3.5.0 R1: Local last), got {hk}", "Alt 1" in hk and "Alt 0" in hk and hk.index("Alt 1") < hk.index("Alt 0"))
         groups = got.get("palette_groups") or []
         sections = [g for g in groups if g in {t for t, _ in ORDER}]
         ctx.check(f"the palette: Go to, Help, then the section groups in tab order, got {groups}",

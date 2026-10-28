@@ -57,7 +57,8 @@ TASK_CMDS = ("run_task",)  # 3.0.6.0 R7: a mission part, gated by fleet.allow_co
 RECALL_CMDS = ("recall",  # 3.1.2.0 R3: {query, k}, answered from the member's own index unless fleet.recall.share: false
                "coach_library",  # 3.1.6.0 R3: {entry}, one entry of its coach library (orchestra/coach_library_share.py)
                "knowledge")  # 3.1.8.0 R4: {id} | {kind, all}, its findings / decisions (knowledge/share.py)
-FLEET_CMDS = READ_CMDS + FULL_CMDS + ACTING_CMDS + ("answer", "note") + TASK_CMDS + RECALL_CMDS  # note: a person's message (R4)
+MODEL_CMDS = ("ollama_load", "ollama_unload")  # 3.3.5.0 R1: the Local tab's Load / Unload on a member's host (fleet/control_models.py), gated like steer
+FLEET_CMDS = READ_CMDS + FULL_CMDS + ACTING_CMDS + ("answer", "note") + TASK_CMDS + RECALL_CMDS + MODEL_CMDS  # note: a person's message (R4)
 
 TEXT_KINDS = frozenset({"text_chunk", "text_delta", "thinking_delta", "thinking_chunk"})
 FULL_KINDS = TEXT_KINDS | {"agent_event"}  # a followed agent's entries carry its text

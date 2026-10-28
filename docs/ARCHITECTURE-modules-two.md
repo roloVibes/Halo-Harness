@@ -177,3 +177,20 @@ and `isolation/Dockerfile` the worker image.
   coerced and checked by kind and choices), `studio/settings_door.py` (`SettingsTarget` = `settings`,
   `settings:<group>` as an edit target, `?mode=settings&group=fleet`), `settings_cli.py` (`halo settings`) and
   `ui/src/routes/settings/` (the group rail, one page per group, a row per key, one field per kind).
+- Studio's Local section (3.3.5.0 R1, docs/STUDIO-local.md): `ollama_steward/resources.py` (the sampler: one sample a
+  second per host this machine serves while the tab or the steward job holds it on, the 5-minute STORE, the watch
+  lease), `ollama_steward/resources_readers.py` (nvidia-smi, rocm-smi, a Mac's ioreg and sysctl, the compute processes),
+  `ollama_steward/resources_system.py` (RAM and CPU per OS: /proc, GlobalMemoryStatusEx / GetSystemTimes, memory_pressure
+  and ps), `ollama_steward/resources_share.py` (the recent file, a member's samples on its ledger push and the hub's
+  side, the member that serves a host, the planner's `others_for`), `ollama_steward/ledger_tap.py` (every ledger line and
+  server event published: a listener in Studio's process, else a POST to the Studio running for the home),
+  `ollama_steward/ledger_bytes.py` (`bytes_in` / `bytes_out`), `providers/ollama_load.py` (Load / Unload: a generate with
+  no prompt and a keep-alive), `fleet/control_models.py` (`ollama_load` / `ollama_unload` from a hub, under
+  `fleet.allow_control`), `fleet/ollama_share_take.py` (the member's side of the push's answer, out of
+  `fleet/ollama_share.py`), `studio/local_api.py` (the `local/` routes), `studio/local_hosts_view.py` (every host as a
+  card and its controls), `studio/local_models_view.py` (every model per host, its card, its meter, the intent scores),
+  `studio/local_traffic.py` (the ledger as rows, the per-host minute buckets, the tap's `traffic` frames),
+  `studio/local_catalog.py` (one catalog per host keyed by `/api/tags`' signature), `studio/local_door.py`
+  (`LocalTarget` = `local`, `local:<page>`, `?mode=local&page=hosts`), `local_tab_cli.py` (`halo local` opens it,
+  `halo local hosts | models | resources` print) and `ui/src/routes/local/` (the page rail, the seven pages, the
+  strips, the traffic view, the host cards, the model rows).

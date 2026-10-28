@@ -449,6 +449,29 @@ no -- from the host's hardware card. Per server kind:
 See [MODELS-cards.md](MODELS-cards.md) for the fields, the roles each model
 can hold and the coder-lane offer.
 
+### All of it in one tab: Studio's Local section (3.3.5.0)
+
+Studio's **Local** section (`Alt+0`; `halo local` opens it) puts the machines
+that serve your local models and the models they serve on one tab:
+**Resources** (this machine's GPU, VRAM and who holds it, RAM, CPU and
+temperature, sampled once a second while you watch, and every call to a
+local server as it happens), **Hosts** (every server Halo knows -- the
+`ollama.hosts` entries, the Hugging Face local servers, the hosts fleet
+members serve, the servers Find found -- with Load, Unload, keep-alive, Make
+it fit and Add to hosts) and **Models** (every installed model per host with
+its card, its fit meter and an intent filter: code, chat, long documents,
+images, embed). See [STUDIO-local.md](STUDIO-local.md); `halo local hosts`,
+`halo local models` and `halo local resources` print the same lines.
+
+**A session that starts on a model that cannot take its tools** (3.3.5.0
+R1): a session launched on a local model whose card says no tool calling
+(or no vision while the history holds images, or a history larger than its
+window) runs the switch step before its first call, `why: "start"`: the
+line "this session runs on ol:<model>: window ..." in the transcript, the
+tool catalog dropped (the model answers only), the reply reserve set, so
+the steward's `called-wrong` has nothing to flag
+([MODELS-switching.md](MODELS-switching.md)).
+
 ## Offline mode, escalation, and the savings meter
 
 ```sh

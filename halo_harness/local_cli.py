@@ -1,4 +1,4 @@
-"""halo_harness.local_cli -- `halo local [--refresh]` and its round 5c
+"""halo_harness.local_cli -- `halo local [--terminal] [--refresh]` and its round 5c
 subcommands (`add`/`forget`/`serve`/`stop`/`import`/`runtime remove`), the
 CLI twin of `/local`'s TUI dialog and `commands/builtins.py`'s `/local`
 print-mode fallback. The default (no subcommand) view renders `providers.
@@ -6,7 +6,10 @@ local_models.build_local_view`/`format_local_view`, so none of the three
 surfaces can quietly disagree about what's running/cached locally; every
 subcommand below is a thin argument-parsing wrapper over `providers.
 local_model_dirs`/`local_use`, which hold the actual logic (and its own
-tests) independent of argparse/stdin.
+tests) independent of argparse/stdin. 3.3.5.0 R1: on a real terminal `halo
+local` opens Studio's Local section (local_tab_cli.py); `--terminal` prints
+the merged view here, and `halo local hosts | models | resources` print the
+Local pages' lines.
 """
 
 from __future__ import annotations
@@ -33,6 +36,8 @@ def _cmd_default(argv: list) -> int:
         prog="halo local", add_help=True,
         description="Merged local-model view: Ollama hosts, running Hugging Face local servers "
                      "(auto-detected and manual), the Hugging Face Hub cache, and huggingface.model_dirs.")
+    parser.add_argument("--terminal", action="store_true", help="print the merged view here (on a real terminal "
+                         "`halo local` opens Studio's Local section instead)")
     parser.add_argument("--refresh", action="store_true",
                          help="bypass the Ollama catalog's short-TTL cache and probe every configured "
                               "huggingface.local_servers entry (skipped otherwise -- see docs/MODELS.md)")
@@ -213,4 +218,8 @@ _SUBCOMMANDS = {"add": _cmd_add, "forget": _cmd_forget, "serve": _cmd_serve, "st
 def cmd_local(argv: list) -> int:
     if argv and argv[0] in _SUBCOMMANDS:
         return _SUBCOMMANDS[argv[0]](argv[1:])
-    return _cmd_default(argv)
+    from halo_harness.local_tab_cli import cmd_tab  # 3.3.5.0 R1: the door into Studio's Local tab, and its printers
+    rc = cmd_tab(argv)
+    if rc >= 0:
+        return rc
+    return _cmd_default([a for a in argv if a in ("--terminal", "--refresh", "-h", "--help")])

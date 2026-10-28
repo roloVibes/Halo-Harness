@@ -44,6 +44,31 @@ version.
 #### Changed
 - `/effort` on a local model opens the selector with this model's options (think on / off / default; gpt-oss low / medium / high), or says "no adjustable effort"; the cloud level is kept for a cloud model.
 
+### R1: the Local tab, live resources and traffic, every host
+
+#### Added
+- Studio's **Local** section (`Alt+0`, the tenth): the machines that serve models and the models they serve, paged like Settings, with Resources, Hosts, Models, then Library, Hugging Face, Benchmarks and Steward framed for the next rounds. `halo local` opens it; `halo local hosts | models | resources` print its pages; `--terminal` keeps the merged view. `halo studio --mode local`, `--edit local:<page>` and `/studio local` open it too.
+- Resources: a live strip per host, sampled once a second while you watch or the steward job runs.
+- It shows GPU use with the last minute's line, VRAM used of total and what holds it, RAM, CPU, the temperature, and what is not Ollama's. Every number names its source.
+- The readers: nvidia-smi and rocm-smi on Linux and Windows; ioreg, sysctl and memory_pressure on a Mac. No sudo.
+- A fleet member's samples reach the hub with its ledger push; the hub keeps five minutes per host.
+- The fit planner counts the newest sample's other programs.
+- The traffic view: every call to a local server as it happens, newest at the foot.
+- Each row shows tokens in and out, the window and its source, trims, cuts, status, tok/s, the fitted and switched-from marks, and the bytes.
+- The steward's events appear inline; there is a sparkline per host and a bytes-per-minute count.
+- Filters for host, model, machine and kind, and Follow. The ledger gains `bytes_in` / `bytes_out`.
+- Hosts: every server Halo knows as a card — URL, kind, version, who serves it, what is loaded, profiles, who calls it, the steward's finding. Its controls:
+- Load (a warm generate at the profile's window) and Unload, with a keep-alive pick.
+- Make it fit (the fit plan's option, Undo beside it) and Add to hosts.
+- A remote host's Load goes through the fleet member that serves it, under its `fleet.allow_control`.
+- Models: every installed model per host with its card, fit meter, roles and `how` lines, plus Use as default and Make it the coder lane. An intent filter (code, chat, long documents, images, embed) ranks the rows by fit and says why this order.
+- Glossary words "host" and "speed card".
+
+#### Changed
+- A session that starts on a local model with no tool calling (or no vision with images in its history, or a brought history over its known window) is fitted before its first call: one line, no tool catalog, the reply reserve set.
+- Fleet's Ollama panel is the short form: each model row opens Local -> Models. The panel and Local read a host's catalog again only when its `/api/tags` changed (it used to re-read every host each minute).
+- The banner, the section help, the palette and every section-count pin cover ten sections.
+
 ### Also in 3.3.5.0
 
 #### Changed

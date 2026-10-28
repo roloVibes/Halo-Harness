@@ -10,10 +10,11 @@ How a key is matched to its section, nearest first:
      `/design`, `halo design`) on the same line, the closest one;
   2. else one on the line just above or below, in the same paragraph;
   3. else the nearest Markdown heading above that names exactly one section.
-A range (`Alt+1`..`Alt+9`, `Alt+1` to `Alt+7`, `Alt+1..8`) names no single
+A range (`Alt+1`..`Alt+9`, `Alt+1` to `Alt+7`, `Alt+1..8`, `Alt+1..0`) names no single
 section: its paragraph's run of six titles or more (`Orchestra, Roles, ...`,
 `**A** | **B**`, `A, B and C`) must be the registry's order from its start
-(3.2.0.0 R6: the six work sections, then Packs; 3.3.0.0 R1: then Setup; 3.3.3.0 R2: then Settings).
+(3.2.0.0 R6: the six work sections, then Packs; 3.3.0.0 R1: then Setup; 3.3.3.0 R2: then Settings; 3.3.5.0 R1:
+then Local, on Alt+0: the key `0` is the tenth slot).
 """
 from __future__ import annotations
 
@@ -26,8 +27,8 @@ INDEX = REPO / "halo_harness" / "studio" / "ui" / "src" / "routes" / "index.tsx"
 BANNER = REPO / "tools" / "studio_modes_banner.py"
 
 _ENTRY = re.compile(r'\{ id: "(\w+)", title: "(\w+)", kbd: "(Alt\+\d)", blurb: "([^"]*)"')
-KEY = re.compile(r"Alt\+([1-9])(?!\d)")  # 3.2.0.0 R6: Packs is Alt+7; 3.3.0.0 R1: Setup is Alt+8; 3.3.3.0 R2: Settings is Alt+9
-RANGE = re.compile(r"`?Alt\+1`?\s*(?:\.\.\.?|to|-)\s*`?(?:Alt\+)?[6789](?!\d)`?")  # 3.3.0.0 R1: ..8; 3.3.3.0 R2: ..9
+KEY = re.compile(r"Alt\+([0-9])(?!\d)")  # 3.2.0.0 R6: Packs is Alt+7; 3.3.0.0 R1: Setup is Alt+8; 3.3.3.0 R2: Settings is Alt+9; 3.3.5.0 R1: Local is Alt+0
+RANGE = re.compile(r"`?Alt\+1`?\s*(?:\.\.\.?|to|-)\s*`?(?:Alt\+)?[67890](?!\d)`?")  # 3.3.0.0 R1: ..8; 3.3.3.0 R2: ..9; 3.3.5.0 R1: ..0
 _SEP = re.compile(r"[\s*`,|/]*(?:and\s+)?[\s*`,|/]*")
 HEADING = re.compile(r"^#{1,6} ")
 
@@ -129,7 +130,7 @@ def scan(text: str, rows) -> "tuple[list, list]":
                         for j in (i - 1, i + 1) if lo <= j <= hi]
                 near = [n for n in sorted(near, key=lambda n: n[0]) if n[1]]
                 sid = near[0][1] if near else _heading_section(lines, i, rows)
-            pairs.append((i + 1, int(m.group(1)), sid, line.strip()))
+            pairs.append((i + 1, int(m.group(1)) or 10, sid, line.strip()))  # Alt+0 is the tenth slot
     return pairs, ranges
 
 
@@ -143,11 +144,11 @@ def problems(path: Path, rows) -> "list[str]":
     pairs, ranges = scan(path.read_text(encoding="utf-8"), rows)
     for no, n, sid, line in pairs:
         if sid is None:
-            out.append(f"{rel}:{no}: Alt+{n} names no section the reader can find: {line[:120]}")
+            out.append(f"{rel}:{no}: Alt+{n % 10} names no section the reader can find: {line[:120]}")
         elif sid != want[n]:
-            out.append(f"{rel}:{no}: Alt+{n} is {want[n]}, the line names {sid}: {line[:120]}")
+            out.append(f"{rel}:{no}: Alt+{n % 10} is {want.get(n)}, the line names {sid}: {line[:120]}")
     for no, runs, line in ranges:
         for run in runs:
-            if len(set(run)) >= 6 and run != order[:len(run)]:  # 3.2.0.0 R6: the six, or the six then Packs (3.3.0.0 R1: then Setup; 3.3.3.0 R2: then Settings)
+            if len(set(run)) >= 6 and run != order[:len(run)]:  # 3.2.0.0 R6: the six, or the six then Packs (3.3.0.0 R1: then Setup; 3.3.3.0 R2: then Settings; 3.3.5.0 R1: then Local)
                 out.append(f"{rel}:{no}: the sections run {', '.join(run)}, the registry {', '.join(order)}: {line[:120]}")
     return out

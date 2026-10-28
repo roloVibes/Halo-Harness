@@ -36,7 +36,8 @@ def mod_key(c, code: str, vk: int, mods: int, key: str) -> None:
 
 
 def alt(c, n: int) -> None:
-    mod_key(c, f"Digit{n}", 48 + n, 1, str(n))
+    d = n % 10  # 3.3.5.0 R1: the tenth slot (Local) is Digit0
+    mod_key(c, f"Digit{d}", 48 + d, 1, str(d))
 
 
 def open_tab(c, title: str) -> str:

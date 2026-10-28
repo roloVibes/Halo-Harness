@@ -13,6 +13,8 @@
          200 {edit: "", mode, session, block, first, pages}   the pages open Setup on that block
     POST focus {mode: "settings", group?: <group>}              (3.3.3.0 R2, studio/settings_door.py)
          200 {edit: "", mode, session, group, pages}   the pages open Settings on that group's page
+    POST focus {mode: "local", page?: <page>}                   (3.3.5.0 R1, studio/local_door.py)
+         200 {edit: "", mode, session, page, pages}    the pages open Local on that page
 
 Every open page (ui/src/shell/edit.ts) answers the frame the way it answers
 `?edit=` (or `?mode=session&session=`) in its URL: it switches to the section
@@ -59,6 +61,12 @@ def _post_section(req, body: dict):
         if group is None:
             return 422, {"error": why, "problems": [why]}
         data.update(group=group)
+    if mode == "local":  # 3.3.5.0 R1 (studio/local_door.py): the page that opens
+        from halo_harness.studio.local_door import page_word
+        page, why = page_word(str(body.get("page") or ""))
+        if page is None:
+            return 422, {"error": why, "problems": [why]}
+        data.update(page=page)
     return 200, {**data, "pages": _publish(req, data)}
 
 

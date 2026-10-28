@@ -71,11 +71,29 @@ separate step that makes it the live table. See [ROLES.md](ROLES.md)'s
 ## `halo local`
 
 ```sh
-halo local
-halo local --refresh
+halo local [page]                  # 3.3.5.0: Studio's Local section (resources, hosts, models, library, ...)
+halo local hosts                   # 3.3.5.0: Local -> Hosts as lines
+halo local models [--host H]       # 3.3.5.0: Local -> Models as lines
+halo local resources               # 3.3.5.0: one sample of this machine now
+halo local --terminal [--refresh]  # the merged local-model view below, here
 ```
 
-Halo 2.0.3 round 5: the shared local-model discovery view, merging THREE
+Halo 3.3.5.0: on a real terminal `halo local` opens Studio on its **Local** section (`Alt+0`;
+[STUDIO-local.md](STUDIO-local.md)) through the same door `halo settings` uses: a Studio already running for this home
+takes it in its open page, else one starts in the background and the browser opens `?mode=local` (`halo local hosts`
+opens the Hosts page; `halo local models` and `halo local resources` print). A page word opens that page: `halo local
+hosts` prints, `halo local library` opens Library. `--terminal` (or `--refresh`, or no TTY, or a box where no browser can
+open, after the URL) prints the merged view below instead, as `halo local` did before.
+
+- `halo local hosts` prints one block per host Halo knows -- kind, URL, who serves it, the version, what is loaded and
+  its VRAM share, who called it in the last 24 hours, the steward's open finding, and whether Load / Unload work from
+  here (and through which machine) or why not.
+- `halo local models [--host H]` prints one line per installed model per host: the fit meter's level on that host's
+  card, the window and its source, the card's chips.
+- `halo local resources` takes one sample of this machine now: GPU use, VRAM and what holds it, RAM, CPU and the
+  temperature, each with the tool or file it came from (or why there is none).
+
+Halo 2.0.3 round 5: the shared local-model discovery view (`halo local --terminal`), merging THREE
 sources into one list, in this order, with a group label per source/host:
 each configured Ollama host's own catalog (same analysis `halo ollama`
 shows), running Hugging Face local servers (auto-detected on the default
