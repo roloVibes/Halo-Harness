@@ -3040,6 +3040,51 @@ local server for a Hugging Face model. A new core section, **Models**
 (Alt+0), does all of it, on every host the fleet knows, with the CLI line
 for each action shown beside it.
 
+- R0 the switch: a session fits the model it moves to (ADDED 2026-10-28,
+  rolo: "a huge issue is changing from model to model because each model has
+  a different context window and that needs to be known in halo, and the
+  agent assisting with ollama needs to know how to change messages and
+  session to adjust to each different local model, ollama or hugging face or
+  any other"). This round runs FIRST in 3.3.5.0, before the browser. Today
+  the fit is per call: `prepare_window` picks the window for the model of
+  THIS call, `pre_send_line` compacts when even the largest window will not
+  hold the request, the tool catalog is capped by the window's class, and
+  llama.cpp servers answer `/props` with `n_ctx`; so a `/model` to a smaller
+  model compacts on its first call -- silently, after the fact, and with
+  the old model's tool cap, images and thinking blocks still in the
+  history. After this round a switch is one explicit step,
+  `agent/model_switch.py fit_session_to(ref)`, run by `/model`, by the Auto
+  lineup when a task's model differs from the session's, by the compaction
+  model override, and by a steward profile change that lowers a window:
+  (a) **know the target's window** from the best source in order: the
+  profile (`ollama.profiles`), the learned cap (the fit store), the server's
+  loaded window (`/api/ps` `context_length`, llama-server `/props` `n_ctx`,
+  LM Studio's model API), the model's trained context (`/api/show`, the HF
+  config's `max_position_embeddings`, mlx-lm's config), the host's `max_ctx`,
+  and the server default -- the source is named; (b) **say it** in one line
+  before anything moves ("switching to ol:qwen3.5:9b@lan: window 32,768
+  (learned cap); this conversation is 48,210 tokens -> compacting to fit"),
+  in the TUI, the session log and Studio's Live; (c) **fit the history**:
+  compact to `compact_at` of the target's window before the first call
+  (the summary written by the compaction model, whose own window is checked
+  the same way); re-cap the tool catalog for the new window class; convert
+  what the target cannot take -- images become their captions when it has
+  no vision, thinking blocks are dropped when it has no thinking, tool-call
+  turns are re-shaped for the target's dialect (native Ollama vs OpenAI vs
+  Anthropic) and flattened to text when it has no tool support (the
+  capability probe's answer), so Qwen's "no user query found" never comes
+  from a converted history; pick the reply reserve from the profile; (d)
+  **the steward knows**: the ledger line carries `switched_from`, a rule
+  "switch without fit" flags a call whose model differs from the previous
+  call's with no fit step before it, and the panel's model rows show each
+  model's window and source. Tests: the switch through the loop rig
+  (Ollama -> smaller Ollama: the line, the compaction before the first
+  call, the tool cap; Ollama -> HF local server with `/props`; a vision
+  model -> one without: captions; a tools model -> one without: flattened;
+  the Auto lineup's per-task pick; the compaction model's own window),
+  the sources' order with fixtures, the ledger field and the rule. Docs:
+  MODELS.md ("Switching models"), MODELS-ollama-steward.md, LOCAL-MODELS.md,
+  SLASH-COMMANDS (`/model` says what it will do first).
 - R1 the library browser and the fit badge. `halo_harness/models_library/`:
   (a) Ollama: the catalog page and each model's tags read from ollama.com
   (HTML, parsed against fixtures; the shape pinned so a site change fails
