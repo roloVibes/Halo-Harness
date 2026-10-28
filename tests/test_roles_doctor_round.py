@@ -159,11 +159,11 @@ def test_dbx_roles_probe_the_real_workspace_host_never_a_bare_literal(ctx: Ctx):
         # _known_databricks_host is gated on a work signal alongside the
         # host (an incidental DATABRICKS_HOST is deliberately ignored) --
         # set both, the way a real work box has both
-        os.environ["DATABRICKS_HOST"] = "https://cnc-pretend.cloud.databricks.com"
+        os.environ["DATABRICKS_HOST"] = "https://pretend-ws.cloud.databricks.com"
         os.environ["ANTHROPIC_MODEL"] = "some-endpoint"
         problems2 = check_roles_hygiene()
     ctx.check(f"the REAL workspace host is the one probed, got {problems2}",
-              any("cnc-pretend.cloud.databricks.com" in p for p in problems2))
+              any("pretend-ws.cloud.databricks.com" in p for p in problems2))
 
 
 @test
