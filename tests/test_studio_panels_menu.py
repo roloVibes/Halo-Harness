@@ -117,7 +117,8 @@ def test_fleet_tree_orchestra_runs_setup_and_the_rail(ctx: Ctx):
     before = {r[0]: r[1:3] for r in got.get("fleet_rows") or []}
     after = {r[0]: r[1:3] for r in got.get("fleet_rows_after") or []}
     ctx.check(f"Fleet: the Tree is 'add', each strip 'bring back' with its badge, got {before}",
-              before.get("fleet-tree") == ["add", []] and all(before.get(s) == ["bring back", ["strip"]] for s in STRIPS) and len(before) == 10)
+              before.get("fleet-tree") == ["add", []] and all(before.get(s) == ["bring back", ["strip"]] for s in STRIPS)
+              and before.get("fleet-ollama") == ["add", []] and len(before) == 11)  # 3.3.4.0 R5: + the optional Ollama panel
     ctx.check(f"the + added the Tree panel with the tree, its row now 'focus', got {got.get('tree')} {after.get('fleet-tree')}",
               got.get("tree") is True and after.get("fleet-tree") == ["focus", []])
     ctx.check(f"Orchestra's + carries RUNS with New run, got {got.get('orch_groups')} {got.get('orch_new_run')}",

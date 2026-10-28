@@ -54,3 +54,4 @@ This page is the entry point; the content lives in the parts below, one per task
 | [Architecture: steering, compaction, sub-agents and telemetry](ARCHITECTURE-runtime.md) | you change steering and interrupts, compaction, sub-agents and plan mode, or telemetry | Steering, interrupts, and pairing invariants · Compaction · Sub-agents and plan mode · Telemetry and `/improve` |
 | [Architecture: the TUI event model](ARCHITECTURE-tui.md) | you change how the TUI turns session events into widgets | The TUI event model |
 | [Architecture: the module map](ARCHITECTURE-modules.md) | you look for the module behind a Studio, fleet, Orchestra or team feature | Module map: Studio, fleet, Orchestra, team |
+| [Architecture: the module map, part two](ARCHITECTURE-modules-two.md) | you look for the module behind the Ollama steward, packs, the extension API, isolation, Setup or Settings | Module map, part two: the steward, packs, isolation, Setup, Settings |

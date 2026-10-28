@@ -1067,7 +1067,15 @@ async def _handle_fleet(app, args: str) -> None:
 
 
 async def _handle_ollama(app, args: str) -> None:
-    app.run_worker(lambda: _ollama_worker(app, args), thread=True, name="ollama", group="ollama")
+    """3.3.4.0 R5: `/ollama hosts ...` opens the per-host dialog (2.0.3 round 3); every other `/ollama` prints
+    the steward's view in the transcript (commands/ollama_slash.py), off the UI thread (a card read)."""
+    tokens = (args or "").split()
+    if tokens and tokens[0].lower() == "hosts":
+        rest = " ".join(tokens[1:])
+        app.run_worker(lambda: _ollama_worker(app, rest), thread=True, name="ollama", group="ollama")
+        return
+    app.run_worker(lambda: _run_slash_worker(app, "ollama", args), thread=True, name="ollama-steward",
+                   group="ollama", exit_on_error=False)
 
 
 def _ollama_worker(app, args: str) -> None:

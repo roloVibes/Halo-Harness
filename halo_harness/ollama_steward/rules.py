@@ -170,6 +170,9 @@ def run_rules(ctx: dict) -> list:
         for rule in rules_window.RULES + rules_reply.RULES:
             out.extend(rule(g, ctx) or [])
     out.extend(rules_host.host_rules(ctx))
+    from halo_harness.ollama_steward.steward import dismissed  # 3.3.4.0 R5: Studio's Dismiss, quiet for 24 hours
+    quiet = dismissed(ctx["state_dir"], now=ctx.get("now")) if ctx.get("state_dir") else set()
+    out = [f for f in out if f["id"] not in quiet]
     out.sort(key=lambda f: SEVERITY_ORDER.get(f["severity"], 3))
     seen = set()
     for f in out:

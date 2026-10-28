@@ -18,7 +18,8 @@
 // the hop keys, the mini stream, Live Roles and the canvas replay work from
 // every section. 3.3.2.0 R2: Tree (fleet-tree, FleetTree.tsx, optional: the
 // header's "+" adds it) is the tree the expanded rail used to carry, with its
-// inline answers and the "While you were away" card.
+// inline answers and the "While you were away" card. 3.3.4.0 R5: Ollama (fleet-ollama, Ollama.tsx,
+// optional: the "+" adds it, the steward's attention row and the palette open it), the Ollama steward's panel.
 import { useEffect } from "react";
 import type { MotionState } from "../../lib/motion";
 import type { PanelSpec } from "../../lib/workspace/types";
@@ -33,6 +34,7 @@ import { MapDetail, MapGlance, useMapMotion } from "./Map";
 import { MissionDetail, MissionGlance, useMissionMotion } from "./Mission";
 import { PeopleDetail, PeopleGlance, usePeopleMotion } from "./People";
 import { treePanel } from "./FleetTree";
+import { ollamaPanel } from "./Ollama";
 import { startFleet } from "./sync";
 
 function started(hook: () => MotionState): () => MotionState {
@@ -60,4 +62,5 @@ export const fleetPanels: PanelSpec[] = [
   panel("fleet-capabilities", { title: "Capabilities", x: 18, y: 5, w: 6, h: 22, minW: 5, minH: 12, face: "glance", collapsed: true, glance: CapabilitiesGlance, detail: CapabilitiesDetail, useMotion: started(useCapabilitiesMotion) }),
   panel("fleet-agent", { title: "Agent", x: 18, y: 10, w: 6, h: 0, minW: 5, minH: 32, face: "detail", collapsed: true, glance: AgentGlance, detail: AgentDetail, settings: AgentSettings, useMotion: started(useAgentMotion) }),
   treePanel, // 3.3.2.0 R2: optional, FleetTree.tsx
+  ollamaPanel, // 3.3.4.0 R5: optional, Ollama.tsx
 ];

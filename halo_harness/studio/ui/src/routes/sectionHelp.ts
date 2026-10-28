@@ -71,7 +71,7 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
     keys: [["Enter", "send the message (Shift+Enter: a new line)"], ["Mod+K", "Design: send, Design: cancel turn, Design: export, Design: new project"], ...PANEL_KEYS],
   },
   fleet: {
-    terms: ["fleet", "hub", "harness", "capability", "mission", "part", "hand-off", "claim"],
+    terms: ["fleet", "hub", "harness", "capability", "mission", "part", "hand-off", "claim", "steward", "fit plan"],
     what: "Every Halo harness you run or joined, its sessions and every agent in them, live: what each one thinks, runs and writes, every decision that waits on you, what it all costs, and the controls to steer, pause, stop, take over or hand off any one agent.",
     steps: [
       ["See every harness", "This harness is the first box. Another machine joins with a pair code: Make a pair code on the Start view (or the palette), then halo fleet join on the other machine. People lists them all."],
@@ -83,6 +83,7 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
       ["Give the fleet one goal", "Mission (M): type the goal and Plan it; the hub's lead splits it into parts and gives each to the harness that can do it. The plan draws on the map, drag a part to another harness to move it, then Approve and Run; the report says who did what and what it cost per harness."],
       ["Hand-offs", "A part that depends on another reads that part's outputs and hand-back (take: all for everything it left), and a repo part starts from the earlier part's finished branch. The map labels each edge with what it carries and each repo part with its base."],
       ["Watch the whole fleet", "Activity draws a lane per live agent (5, 15 or 60 minutes, tool calls as ticks) over the merged live log. Costs ticks today's spend and holds the caps; Health is a doctor summary per harness."],
+      ["Keep the model servers healthy", "Ollama (the + in the header, or O on the steward's attention row): each host's card, its models this hour, the steward's note and findings with Apply or Dismiss, and the fit plan with a Copy line for the server."],
       ["Record and replay", "Record saves a session or one agent as a single HTML file that plays anywhere. Replay plays a finished session on the Roles canvas: the cards light up in the order they worked."],
       ["Come back", "After ten minutes away, While you were away sums up what happened: sessions, cost, decisions and who made them, files, errors, hand-offs."],
     ],
