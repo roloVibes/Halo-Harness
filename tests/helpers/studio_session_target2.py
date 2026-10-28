@@ -49,7 +49,10 @@ def keys(c, lv) -> dict:
     row = f"{LINES}.filter((l) => l.dataset.key === '{impl}').pop()"
     c.wait(f"!!{row}", 10)
     c.js(f"{row}.scrollIntoView({{block: 'center'}}); {row}.focus(); 1")
-    out["row_focused"] = c.js(f"document.activeElement === {row}")
+    # keep focusing until the row holds it: on the Windows runner (f9cb274) the feed re-drew the line between the
+    # focus() and the read, so the element focused was no longer the one found
+    out["row_focused"] = bool(c.wait(f"(() => {{ const r = {row}; if (!r) return false; "
+                                     f"if (document.activeElement !== r) r.focus(); return document.activeElement === r; }})()", 5))
     press(c, "s", "KeyS", 83)
     out["s_key"] = c.wait(f"{TARGET_KEY} === '{impl}' && document.activeElement === {AREA} && {TARGET_KEY}", 5)
     out["impl_key"] = impl
