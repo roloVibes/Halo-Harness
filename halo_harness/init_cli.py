@@ -469,6 +469,13 @@ def _step_default_model(provider: str, args, console: Console, *, write: bool = 
     set_config_value("model", chosen)
     path = bridge_home() / "config.json"
     console.print(f"   Default model: {chosen} -- wrote {path}")
+    if args.model:  # 3.3.5.0 R0b (d): a --model that cannot orchestrate here says so, with the lineup command
+        try:
+            from halo_harness.agent.main_model_check import config_lines
+            for line in config_lines(chosen, bridge_home()):
+                console.print(f"   {line}", markup=False)
+        except Exception:
+            pass
     return chosen, path
 
 

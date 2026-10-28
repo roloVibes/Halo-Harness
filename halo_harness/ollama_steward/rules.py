@@ -14,8 +14,9 @@ A finding (the shape R4's note-writer and R5's panel read):
 
 `id` is stable for the same rule, host, model and proposal, so `halo
 ollama steward apply <id>` names what `findings` printed. The rules live
-in rules_window.py (a, b, h), rules_reply.py (c, d, e) and rules_host.py
-(f, g); knowledge/symptoms.md is their spec.
+in rules_window.py (a, b, h), rules_reply.py (c, d, e), rules_host.py
+(f, g) and rules_card.py (3.3.5.0 R0b: `called-wrong`); knowledge/symptoms.md
+is their spec.
 """
 
 from __future__ import annotations
@@ -164,10 +165,10 @@ def gather(state_dir, *, since=SINCE, host: Optional[str] = None, cards: Optiona
 
 def run_rules(ctx: dict) -> list:
     """Every rule over every group; one proposal per profile field (the most severe finding keeps it)."""
-    from halo_harness.ollama_steward import rules_host, rules_reply, rules_window
+    from halo_harness.ollama_steward import rules_card, rules_host, rules_reply, rules_window
     out: list = []
     for g in ctx["groups"]:
-        for rule in rules_window.RULES + rules_reply.RULES:
+        for rule in rules_window.RULES + rules_reply.RULES + rules_card.RULES:  # 3.3.5.0 R0b: called-wrong
             out.extend(rule(g, ctx) or [])
     out.extend(rules_host.host_rules(ctx))
     from halo_harness.ollama_steward.steward import dismissed  # 3.3.4.0 R5: Studio's Dismiss, quiet for 24 hours

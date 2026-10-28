@@ -85,6 +85,8 @@ def model_rows(state_dir=None, cwd=None, *, cached: bool = False) -> list:
     except Exception:
         learned = {}
     rows = []
+    from halo_harness.studio.model_card_api import row_view  # 3.3.5.0 R0b: the card's chips and the fit meter
+    host_cards: dict = {}
     for row in raw:
         ref = row["ref"]
         at = best.get(ref) or {}
@@ -106,6 +108,7 @@ def model_rows(state_dir=None, cwd=None, *, cached: bool = False) -> list:
             "best_at": {"line": at.get("line") or "", "kinds": list(at.get("kinds") or [])},
             "learned": learned.get(ref) or {},  # {kind: {n, passed, rate, picked, weight, counted, dropped, days}}
             "effort_word": effort_row_word(ref, row),  # 3.3.5.0 R0 (e): think on/off, effort n/a, or "" (cloud)
+            **row_view(ref, row, state_dir, read_hardware=not cached, host_cards=host_cards),  # card, fit
         })
     return rows
 

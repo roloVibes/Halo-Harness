@@ -242,6 +242,32 @@ dropped, the pick of Halo 3.1.9.0 R2. `models.learn.min_tasks` (default 3),
 `models.learn.window_days` (default 30; 0 counts every row) and
 `models.learn.drop_below` (default 0.34) are the only knobs.
 
+### The coder lane under an orchestrator (Halo 3.3.5.0)
+
+A coding model with no tool calling (or one whose window here is under
+32,768) cannot run the main agent: it can write, but it cannot act. When one
+is picked as the main model (`/model`, Setup, Settings' `model` row,
+`halo config set model`, `halo init --model`), Halo says so in one line and
+offers the lineup that keeps it where it is good: **`local-coder`** (a cloud
+model: `<model>-coder`), written through the `halo teams apply` path --
+
+    agents:
+      - {agent: default-model, role: main, models: {preference: <the orchestrator>}}
+      - {agent: auto-coder, role: coder, use_for: [implement, fix, refactor, code], models: {preference: <the model>}}
+      - {agent: auto-reviewer, role: reviewer}
+      - {agent: auto-researcher, role: researcher}
+      - {agent: auto-writer, role: small}
+
+-- with routing (`implement`, `fix`, `refactor`, `code` to the coder) and the
+`mid` band for the pool. The orchestrator is the best model among the
+configured ones whose card can hold the role (tool calling, a window of
+32,768 or more, an instruct or reasoning purpose): local first, then cloud
+(the model you were on, else the Auto pool's pick). Accepting makes the
+lineup active and moves the session to the orchestrator; Roles shows it.
+Sub-agents on the coder model get the flattened text protocol (no tool
+catalog, tool turns as text). Going ahead keeps the model as main and writes
+nothing. See [MODELS-cards.md](MODELS-cards.md#when-the-main-model-cannot-orchestrate).
+
 ## Roles on/off is one switch (Halo 2.0.5 round 2b)
 
 `roles.enabled` (default **on**) is the ONE switch, everywhere: `halo

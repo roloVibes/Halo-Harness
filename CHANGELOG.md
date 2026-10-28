@@ -31,6 +31,19 @@ version.
 - Images, unsigned thinking blocks and tool turns from the old model no longer reach a model that cannot take them (Qwen's "no user query found" from a converted history).
 - A Databricks host discovered in Claude Code's settings.json no longer reads like a shipped default on the card ("not set · https://..."); the wizard's tab says the same words.
 
+### R0b: the model card -- what each local model is, and how Halo talks to it
+
+#### Added
+- The model card (`providers/model_card.py`): what each model is -- thinks (yes / no / default-on), tools (declared / probed / none), vision, purpose (coder / instruct / reasoning / vision / embedding), family, size, quantization, the window with its source -- each field naming its source, the exact way Halo calls it ("think off (you set it)", "no tools: answers only", "images as captions (no vision)", "window 32,768 (learned cap), reserve 4,096", "dialect: native") and the roles it can hold (orchestrator, coder lane, reviewer, small, eyes) with the reason for each it cannot. `halo models show <ref>`, `halo models --cards`.
+- The fit meter (fits / tight / spill / no / cloud) beside every model row: the Roles picker, Setup -> Default model, Settings' `model` row, the Ollama panel, the TUI `/model` picker.
+- The card's chips on every picker row, its `how` lines as the picked row's detail and under Setup's and Settings' model lists; `/model <ref>` prints them before the switch line, `/model` with no argument prints the current card.
+- The coder lane under an orchestrator: a main model that cannot orchestrate here (no tool calling, a window under 32k, a coder-only or embedding model) gets one plain line and the offer -- the `local-coder` lineup, the coder role on it, main on the best local orchestrator -- one key in the TUI, one button in Studio, the command from `halo config set model` and `halo init --model`; going ahead anyway always works.
+- The steward's `called-wrong` finding (a think value, a tool catalog or images sent against the card, with the card's fix); the ledger's `body_flags`.
+- Studio's session header: the effort word is a control listing what effort does on this model.
+
+#### Changed
+- `/effort` on a local model opens the selector with this model's options (think on / off / default; gpt-oss low / medium / high), or says "no adjustable effort"; the cloud level is kept for a cloud model.
+
 ### Also in 3.3.5.0
 
 #### Changed

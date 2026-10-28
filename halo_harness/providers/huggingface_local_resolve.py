@@ -211,3 +211,12 @@ def reset_local_probe_cache() -> None:
     re-probe rather than reading a stale in-process cache entry."""
     with _context_cache_lock:
         _context_cache.clear()
+
+
+def served_window_cached(ref) -> Optional[int]:
+    """3.3.5.0 R0b: the context a local server last reported for `ref.model` (any server), from this process's
+    cache only -- never a probe (the model card and the pickers read this; a session's build reads the live one)."""
+    model = getattr(ref, "model", None)
+    with _context_cache_lock:
+        hits = [v[1] for (_url, mid), v in _context_cache.items() if mid == model and isinstance(v[1], int)]
+    return hits[0] if hits else None

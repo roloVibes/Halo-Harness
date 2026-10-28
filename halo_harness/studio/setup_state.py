@@ -73,7 +73,8 @@ def model_list(state_dir=None, cwd=None) -> list:
         best = r.get("best_at") if isinstance(r.get("best_at"), dict) else {}
         out.append({"ref": str(r["ref"]), "provider": str(r.get("provider") or ""), "label": str(r.get("detail") or r["ref"]),
                     "best_at": str(best.get("line") or ""), "price": str(r.get("price") or ""), "context": str(r.get("context") or ""),
-                    **({"effort": str(r["effort_word"])} if r.get("effort_word") else {})})  # 3.3.5.0 R0 (e): local rows only
+                    **({"effort": str(r["effort_word"])} if r.get("effort_word") else {}),  # 3.3.5.0 R0 (e): local rows only
+                    **({k: r[k] for k in ("card", "fit") if isinstance(r.get(k), dict)})})  # 3.3.5.0 R0b
     return out
 
 

@@ -1,0 +1,40 @@
+/* 3.3.5.0 R0b: the model card (routes/shared/ModelCard.tsx) and the fit meter (lib/ui/FitMeter.tsx) */
+.fit-meter { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; color: var(--muted); }
+.fit-meter-bar { display: inline-block; width: 28px; height: 5px; border-radius: 3px; background: var(--surface-2);
+  border: 1px solid var(--line); overflow: hidden; }
+.fit-meter-fill { display: block; height: 100%; width: 0; background: var(--faint); }
+.fit-meter-word { font-size: 10px; }
+.fit-meter[data-level="fits"] .fit-meter-fill { width: 100%; background: var(--ok); }
+.fit-meter[data-level="tight"] .fit-meter-fill { width: 70%; background: var(--warn); }
+.fit-meter[data-level="spill"] .fit-meter-fill { width: 40%; background: var(--bad); }
+.fit-meter[data-level="no"] .fit-meter-bar { border-color: var(--bad); }
+.fit-meter[data-level="cloud"] .fit-meter-fill { width: 100%; background: var(--accent-soft); }
+.fit-meter[data-level="fits"] .fit-meter-word { color: var(--ok); }
+.fit-meter[data-level="tight"] .fit-meter-word { color: var(--warn); }
+.fit-meter[data-level="spill"] .fit-meter-word, .fit-meter[data-level="no"] .fit-meter-word { color: var(--bad); }
+.mcard-chips { display: inline-flex; gap: 3px; flex-wrap: wrap; min-width: 0; }
+.mcard-chip { font-size: 9.5px; padding: 0 5px; cursor: default; }
+.mcard-chip[data-value="no tools"] { color: var(--warn); border-color: var(--warn-soft); }
+.mcard { margin: 2px 0 4px; font-size: 11px; }
+.mcard summary { cursor: pointer; font-size: 10.5px; }
+.mcard-how { margin: 4px 0; padding-left: 16px; display: grid; gap: 1px; color: var(--text); }
+.mcard-roles { display: flex; gap: 8px; flex-wrap: wrap; color: var(--muted); font-size: 10.5px; }
+.mcard-role[data-ok] { color: var(--ok); }
+.mcard-panel { display: grid; gap: 4px; padding: 6px 8px; border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--bg-2); }
+.mcard-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.mcard-check { display: grid; gap: 4px; padding: 6px 8px; border-left: 3px solid var(--warn); background: var(--warn-soft);
+  border-radius: var(--radius-sm); }
+.mcard-offer { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.mcard-said { font-size: 11px; color: var(--bad); }
+.mcard-said[data-ok] { color: var(--ok); }
+.rm-row .fit-meter { justify-self: start; }
+.rm-card { padding: 2px 10px 4px; border-bottom: 1px solid var(--line); background: var(--surface); }
+.rm-row { grid-template-columns: minmax(140px, 1fr) 96px 84px minmax(150px, 1.3fr) 38px; min-width: 572px; }
+.rm-ctx { display: inline-flex; gap: 4px; align-items: center; }
+.sco-effort { position: relative; display: inline-flex; gap: 4px; align-items: center; }
+.sco-effort > .og-link[data-na] { color: var(--faint); }
+.sco-effort-menu { display: inline-flex; gap: 4px; flex-wrap: wrap; align-items: center; padding: 2px 6px; border: 1px solid var(--line);
+  border-radius: var(--radius-sm); background: var(--surface-2); }
+.sco-effort-menu .og-chip { cursor: pointer; }
+.sco-effort-menu .og-chip[aria-checked="true"] { color: var(--accent); border-color: var(--accent); }

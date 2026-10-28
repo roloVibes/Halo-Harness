@@ -101,6 +101,17 @@ tokens; tools 64; reply reserve 8,192"); see
 says how many models it lists ("312 models", "12 of 312 models" while the
 filter narrows it) and never cuts the list. Bare `/model` (print mode) names
 the effort word and the window.
+Halo 3.3.5.0 R0b: `/model <ref>` prints the model's card first -- the `how`
+lines, the exact way Halo will call it ("no think field (the model does not
+think)", "no tools: answers only", "images as captions (no vision)", the
+window and its reserve, the dialect) -- then the switch line. When the model
+cannot run the main agent here (no tool calling, a window under 32,768, a
+coder-only or embedding model) one more line says so and offers to keep it
+as the coder lane under an orchestrator: `y` or Enter writes the lineup
+`local-coder` and moves the session to the orchestrator, any other key goes
+ahead with it as it is. Bare `/model` (print mode) ends with the current
+model's card; the TUI picker's local rows carry the card's chips and the fit
+word (`fits`, `tight`, `spill`, `no`). See [MODELS-cards.md](MODELS-cards.md).
 A `cc:`/`cx:` ref (routes removed in 3.1.5.0) shows the one removed-route
 line as the `/model` error instead.
 

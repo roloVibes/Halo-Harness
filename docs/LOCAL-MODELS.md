@@ -270,7 +270,9 @@ A local model defaults to a supporting role (`small`, `researcher`,
 `judge`, `subagent_default`) -- never main -- the moment you give it
 one; press `u` on a model in the picker to set its role. You can still
 pick one as your main model directly; if it can't call tools, Halo says
-so and lets you proceed anyway.
+so and lets you proceed anyway. Halo 3.3.5.0: that line comes from the
+model's card, and it offers to keep the model as the coder lane under one
+that can orchestrate ([MODELS-cards.md](MODELS-cards.md)).
 
 ### The gym and `halo doctor --local`
 
@@ -425,6 +427,27 @@ obeys holds the number and is named instead: the learned cap, the host's
 traffic` show the same window and source per model, and the window's
 ceiling (the learned cap, else what the card fits) is the most the model
 can get on that host.
+
+## What each local model is: the card and the fit meter
+
+Halo 3.3.5.0 R0b: every local model has a card -- whether it thinks
+(`yes`, `no`, `default-on`), calls tools (`declared`, `probed`, `none`),
+sees images, what it is for (coder, instruct, reasoning, vision, embedding),
+its window with the source above, and the exact way Halo calls it ("think off
+(you set it)", "no tools: answers only", "images as captions (no vision)",
+"window 32,768 (learned cap), reserve 4,096", "dialect: native"). The pickers
+(Setup, Settings, Roles, the TUI's `/model`), the Ollama panel and
+`halo models show <ref>` show it, with a fit meter -- fits / tight / spill /
+no -- from the host's hardware card. Per server kind:
+
+| Server | What the card reads | What stays unknown |
+|---|---|---|
+| Ollama | `/api/show` capabilities, details, `model_info`; the tool-call probe's cache | nothing the server knows |
+| llama-server, LM Studio, vLLM, `local:` | the name (purpose, size, quantization); the server's loaded window | tools (sent as usual), thinking, the fit |
+| mlx-lm (`hf:mlx/`) | the name; the repo's `config.json` window | tools, thinking, the fit |
+
+See [MODELS-cards.md](MODELS-cards.md) for the fields, the roles each model
+can hold and the coder-lane offer.
 
 ## Offline mode, escalation, and the savings meter
 

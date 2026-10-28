@@ -10,8 +10,13 @@
 // and a "learned for" select that strikes the models dropped for that kind.
 // 3.3.5.0 R0 (f): every row is drawn (lib/ui/WindowedRows past 200), with a
 // count line; (e) a local row carries its effort word (think on/off, effort n/a).
-import { useMemo, useState } from "react";
-import { Button, WindowedRows } from "../../lib/ui";
+// 3.3.5.0 R0b: every row carries its card's chips (think, tools, vision, the
+// purpose, the window) and the fit meter; the picked row unfolds the card's
+// `how` lines (data-testid=model-card); with `forMain` the picked model's card
+// panel offers the coder lane when it cannot orchestrate.
+import { Fragment, useMemo, useState } from "react";
+import { Button, FitMeter, WindowedRows } from "../../lib/ui";
+import { CardChips, CardDetail, ModelCardPanel } from "../shared/ModelCard";
 import { testModel } from "./bioActions";
 import { LearnedChips, droppedFor, learnedKinds } from "./LearnedChips";
 import { useRoles } from "./store";
@@ -45,6 +50,7 @@ function BestAt({ m, kinds, task }: { m: ModelRow; kinds: string[]; task: string
       <span className="rm-kinds">
         {kinds.slice(0, 4).map((k) => <span key={k} className="og-chip mono" data-kind={k}>{k}</span>)}
         {m.effort_word ? <span className="og-chip mono" data-testid="model-effort" title="what the effort level does on this model">{m.effort_word}</span> : null}
+        <CardChips card={m.card} />
       </span>
       {line && <span className="rm-line muted" data-testid="model-best-line">{line}</span>}
       <LearnedChips m={m} kind={task} />
@@ -55,7 +61,7 @@ function BestAt({ m, kinds, task }: { m: ModelRow; kinds: string[]; task: string
 const learnedWords = (m: ModelRow) =>
   Object.entries(m.learned || {}).map(([k, l]) => `${k} ${l.passed}/${l.n}${l.dropped ? " dropped" : ""}`).join(" ");
 
-export function ModelPicker({ value, onPick }: { value: string; onPick: (ref: string) => void }) {
+export function ModelPicker({ value, onPick, forMain }: { value: string; onPick: (ref: string) => void; forMain?: boolean }) {
   const models = useRoles((s) => s.models);
   const loaded = useRoles((s) => s.modelsLoaded);
   const bestFor = useRoles((s) => s.bestFor);
@@ -68,7 +74,8 @@ export function ModelPicker({ value, onPick }: { value: string; onPick: (ref: st
   const kindsOf = (m: ModelRow) => m.best_at?.kinds || bestFor[m.ref] || [];
   const rows = useMemo(() => {
     const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
-    const text = (m: ModelRow) => [m.ref, m.group, m.detail, m.price, m.context, m.chips, m.best_at?.line, ...kindsOf(m), learnedWords(m)].join(" ").toLowerCase();
+    const text = (m: ModelRow) => [m.ref, m.group, m.detail, m.price, m.context, m.chips, m.best_at?.line, ...kindsOf(m), learnedWords(m),
+      ...Object.values(m.card?.chips || {}), m.fit?.level || ""].join(" ").toLowerCase();
     const hit = models.filter((m) => words.every((w) => text(m).includes(w)));
     const by: Record<Sort, (a: ModelRow, b: ModelRow) => number> = {
       name: (a, b) => a.ref.localeCompare(b.ref),
@@ -109,15 +116,18 @@ export function ModelPicker({ value, onPick }: { value: string; onPick: (ref: st
             const dropped = droppedFor(m, task);
             const l = dropped ? m.learned?.[task] : undefined;
             return (
-              <button key={m.ref} className={dropped ? "rm-row rm-dropped" : "rm-row"} role="option" aria-selected={m.ref === value} onClick={() => onPick(m.ref)}
+              <Fragment key={m.ref}>
+              <button className={dropped ? "rm-row rm-dropped" : "rm-row"} role="option" aria-selected={m.ref === value} onClick={() => onPick(m.ref)}
                       data-testid="model-row" data-ref={m.ref} data-dropped={dropped || undefined}
                       title={l ? `${m.ref}: dropped for ${task} (${l.passed}/${l.n} checked tasks)` : m.detail || m.ref}>
                 <span className="mono rm-ref">{m.ref}</span>
                 <span className="mono">{money(m.price_in)} / {money(m.price_out)}</span>
-                <span className="mono">{m.context}</span>
+                <span className="mono rm-ctx">{m.context} <FitMeter fit={m.fit} label={false} /></span>
                 <BestAt m={m} kinds={kindsOf(m)} task={task} />
                 <span className="mono">{gym[m.ref] ? gym[m.ref].score.toFixed(2) : ""}</span>
               </button>
+              {m.ref === value && m.card ? <div className="rm-card"><CardDetail card={m.card} refName={m.ref} /></div> : null}
+              </Fragment>
             );
           }} />
           {!rows.length && <p className="muted rm-more">No model matches "{q}".</p>}
@@ -134,6 +144,7 @@ export function ModelPicker({ value, onPick }: { value: string; onPick: (ref: st
         {value && !inCatalog && <span className="rm-warn"> · not in the catalog</span>}
       </div>
       <TestButton value={value} />
+      {forMain && value ? <ModelCardPanel refName={value} /> : null}
     </div>
   );
 }

@@ -103,6 +103,14 @@ without it, or a Hugging Face local server, `/effort` answers
 thinking model)" and keeps a level you give for the next model that can use
 it; the status bar shows `effort n/a`, muted. See
 [MODELS-switching.md](MODELS-switching.md#effort-on-a-local-model).
+Halo 3.3.5.0 R0b: bare `/effort` in the TUI opens the selector card with THIS
+model's options -- `on`, `off`, `default` on a thinking Ollama model (`low`,
+`medium`, `high`, `default` on gpt-oss), the current one bracketed; Enter
+saves it as `models.think.<ref>` and the status bar follows at once. On a
+model whose effort does nothing the card says "no adjustable effort" and
+closes on any key; the cloud level stays for when the session returns to a
+cloud model. Studio's session header has the same control (the effort word
+is a button). See [MODELS-cards.md](MODELS-cards.md#effort-on-this-model).
 
 ### `/remote [status|pair [N]|off]`
 Halo 2.0.9. Bare `/remote` in the TUI opens the remote-control dialog: the

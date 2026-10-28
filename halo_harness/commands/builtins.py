@@ -346,7 +346,15 @@ def _cmd_model(args: str, facade: HeadlessFacade) -> str:
         effort = local_word(session) or effort
         window = getattr(getattr(session, "model_profile", None), "context_tokens", None)
         tail = f"\nWindow: {window:,} tokens" if isinstance(window, int) and window > 0 else ""
-        return f"Current model: {model_id}\nEffort: {effort}{tail}"
+        card_tail = ""
+        try:  # 3.3.5.0 R0b: the current model's card
+            from halo_harness.agent.model_card_switch import card_for
+            from halo_harness.providers.model_card_words import card_lines
+            card = card_for(session, session.model_ref, getattr(session, "model_profile", None))
+            card_tail = "\n" + "\n".join(card_lines(card)) if card else ""
+        except Exception:
+            card_tail = ""
+        return f"Current model: {model_id}\nEffort: {effort}{tail}{card_tail}"
     return f"Current model: {facade.model_ref or '?'}\nEffort: {facade.effort or 'default'}"
 
 

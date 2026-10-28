@@ -128,6 +128,14 @@ carries its effort word (`think on/off`, `effort n/a`; [MODELS-switching.md](MOD
 same rule holds in Roles' model picker, Settings' `model` row ("pick from the list") and the TUI's `/model`
 picker and `halo models` (a count line, never a silent cut).
 
+**The model card and the fit meter (3.3.5.0 R0b).** Each row also carries its card's chips (think, tools,
+vision, the purpose word, the window) and the fit meter (fits / tight / spill / no / cloud; its title says
+why); the model picked shows its card under the list: the `how` lines (the exact way Halo will call it) and
+the roles it can hold. When that model cannot run the main agent here, the card says so in one line and
+offers **Keep it as the coder lane under <orchestrator>**: the button writes the lineup `local-coder`, makes
+it active and saves the orchestrator as `model`; leaving it is going ahead anyway. Settings' `model` row
+shows the same card and offer under its list. See [MODELS-cards.md](MODELS-cards.md).
+
 **No toast on a paged page.** A block's Save, a card's Save & test, the Ollama block's Find / Add / Measure
 and Refresh answer on their own lines under the block or the card, never in a toast (toasts sit top right
 under the header on every section, clear of the Back / Next foot). Applying a lineup answers in one line --

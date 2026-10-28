@@ -2,20 +2,26 @@
 // catalog's every model (GET models, the Roles picker's rows) behind "pick
 // from the list": a search box, a count line and the full list (drawn a
 // window at a time past 200 rows, lib/ui/WindowedRows); a click saves that ref.
+// 3.3.5.0 R0b: each row carries its card's chips and the fit meter; on the
+// `model` row (`main`) the saved model's card shows under the list, with the
+// coder-lane offer when it cannot orchestrate here (shared/ModelCard.tsx).
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../../../lib/api";
-import { WindowedRows } from "../../../lib/ui";
+import { FitMeter, WindowedRows } from "../../../lib/ui";
+import { CardChips, ModelCardPanel, type CardFields } from "../../shared/ModelCard";
+import { loadValues } from "../store";
 import { TextField } from "./Text";
 
-type Row = { ref: string; provider?: string; context?: string; effort_word?: string };
+type Row = { ref: string; provider?: string; context?: string; effort_word?: string } & CardFields;
 
-export function ModelField({ id, value, fallback, label, disabled, onSave }: {
+export function ModelField({ id, value, fallback, label, disabled, onSave, main }: {
   id?: string;
   value: unknown;
   fallback: unknown;
   label: string;
   disabled?: boolean;
   onSave: (v: string) => void;
+  main?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [rows, setRows] = useState<Row[] | null>(null);
@@ -54,6 +60,8 @@ export function ModelField({ id, value, fallback, label, disabled, onSave }: {
                           aria-pressed={String(value || "") === r.ref} onClick={() => onSave(r.ref)}>
                     <span>{r.ref}</span>
                     <span className="muted">{[r.context && r.context !== "?" ? r.context : "", r.effort_word || ""].filter(Boolean).join(" · ")}</span>
+                    <CardChips card={r.card} />
+                    <FitMeter fit={r.fit} label={false} />
                   </button>
                 )} />
               </div>
@@ -61,6 +69,7 @@ export function ModelField({ id, value, fallback, label, disabled, onSave }: {
           )}
         </div>
       )}
+      {main && value ? <ModelCardPanel refName={String(value)} onLane={() => void loadValues()} /> : null}
     </div>
   );
 }

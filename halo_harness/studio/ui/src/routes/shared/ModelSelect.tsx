@@ -44,6 +44,8 @@ type Props = {
   compact?: boolean;
   /** The label for screen readers only and no hint line (a strip whose own line names the field). */
   bare?: boolean;
+  /** 3.3.5.0 R0b: the main agent's model -- the picker's card panel offers the coder lane when it cannot orchestrate. */
+  forMain?: boolean;
 };
 
 function groupsOf(models: ModelRow[]): [string, ModelRow[]][] {
@@ -52,7 +54,7 @@ function groupsOf(models: ModelRow[]): [string, ModelRow[]][] {
   return [...by.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([p, list]) => [p, [...list].sort((x, y) => x.ref.localeCompare(y.ref))]);
 }
 
-export function ModelSelect({ value, onPick, label, hint, inherit, testid, inline, focus, onFocused, busy, compact, bare }: Props) {
+export function ModelSelect({ value, onPick, label, hint, inherit, testid, inline, focus, onFocused, busy, compact, bare, forMain }: Props) {
   const id = useId();
   const h = useHelpGroup("model_select");
   const { models, fallback, loaded } = useCatalog();
@@ -84,7 +86,7 @@ export function ModelSelect({ value, onPick, label, hint, inherit, testid, inlin
   const opt = (m: ModelRow) => (
     <option key={m.ref} value={m.ref} title={modelLine(m)}>{shortRef(m.ref)}{m.verified === false ? " · not verified" : ""}</option>
   );
-  const table = <ModelPicker value={value} onPick={pick} />;
+  const table = <ModelPicker value={value} onPick={pick} forMain={forMain} />;
   return (
     <div className="field re-field msel" data-testid={testid} data-value={value} data-empty={empty || undefined}>
       <label className={"field-label mono" + (bare ? " msel-bare" : "")} htmlFor={id} title={hint}>{label}</label>

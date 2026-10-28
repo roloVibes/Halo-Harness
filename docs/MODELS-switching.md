@@ -74,6 +74,24 @@ change is one explicit step, `agent/model_switch.py`, run by:
 `/model` then prints the report: "on ol:qwen3.5:9b@lan: compacted to 21,300
 tokens; 2 images to captions; tools 64; reply reserve 8,192".
 
+Halo 3.3.5.0 R0b: before the step's first line, `/model` prints the target's
+model card -- its `how` lines, the exact way Halo will call it -- and after
+the report, when the target cannot run the main agent here, the main-model
+line with the coder-lane offer ([MODELS-cards.md](MODELS-cards.md)):
+
+```
+ol:qwen3-coder:30b@lan, a coding model -- how Halo calls it:
+  no think field (the model does not think)
+  no tools: answers only (tool turns in the history go as text)
+  images as captions (no vision)
+  window 65,536 (the card's fit), reserve 16,384
+  dialect: native (/api/chat)
+switching to ol:qwen3-coder:30b@lan: window 65,536 (the card's fit); fits (9,800 of 65,536)
+on ol:qwen3-coder:30b@lan: no tools (answers only); reply reserve 16,384
+qwen3-coder:30b is a coding model with no tool calling on this server: it can write and answer but cannot act; as the main agent it would not run tools
+Keep it as the coder lane under ol:qwen3.8:27b@lan (lineup 'local-coder'), or go ahead anyway.
+```
+
 ### A child on another model
 
 A sub-agent on another model than its parent's (`agent/model_switch_child.py`)
