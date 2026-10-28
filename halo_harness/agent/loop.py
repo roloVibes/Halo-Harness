@@ -3421,6 +3421,9 @@ class Session:
         calls `_step` with "required" for those rows, but the downgrade
         stays as a second, cheap line of defense)."""
         self._ollama_overflow_handled = overflow_handled  # Halo 3.2.3.0 R1 (agent/ollama_window.py)
+        if not overflow_handled:  # 3.3.5.0 R1: a session that starts on a model that cannot take its tools, fitted first
+            from halo_harness.agent.model_switch_paths import start_check
+            start_check(self)
         try:
             _, _, _, body = self._derive_and_build(tool_choice=tool_choice, no_tools=no_tools)
         except ToolCatalogTooLarge as e:

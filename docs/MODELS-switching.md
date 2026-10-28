@@ -25,6 +25,13 @@ change is one explicit step, `agent/model_switch.py`, run by:
   window is checked before the summary call;
 - a steward profile (`ollama.profiles`) that lowers a model's window below
   the live prompt: the next call fits first.
+- (3.3.5.0 R1) a session that STARTS on a local model whose card says it
+  cannot take what it would be sent -- no tool calling, no vision while the
+  history holds images, a history larger than its window: the step runs
+  before the first call (`why: "start"`), says "this session runs on
+  ol:<model>: window ..." and what it fitted, drops the tool catalog for a
+  no-tools model and sets the reply reserve. A local model that can take
+  everything gets no line.
 
 ### The step
 

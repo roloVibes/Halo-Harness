@@ -36,7 +36,7 @@ from tests.helpers.runner import Ctx, SkipTest, new_registry, print_results, run
 test, TESTS = new_registry()
 REPO = Path(__file__).resolve().parent.parent
 _RUN: dict = {}
-CORE = ["Session", "Team", "Roles", "Fleet", "Design", "Orchestra", "Packs", "Setup", "Settings"]  # Packs: 3.2.0.0 R6; Setup: 3.3.0.0 R1; Settings: 3.3.3.0 R2
+CORE = ["Session", "Team", "Roles", "Fleet", "Design", "Orchestra", "Packs", "Setup", "Settings", "Local"]  # Packs: 3.2.0.0 R6; Setup: 3.3.0.0 R1; Settings: 3.3.3.0 R2; Local: 3.3.5.0 R1
 
 
 def _got(ctx: Ctx) -> dict:
@@ -63,7 +63,7 @@ def test_the_packs_section_after_orchestra_with_its_panels(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"the six, then the packs' sections, got {got.get('tabs')}", got.get("tabs") == CORE + ["Docs review", "Hello"])
     ctx.check(f"Alt+1..6 kept, Alt+7 Packs, Alt+8 Setup, Alt+9 Settings, no pack section keyed (3.3.3.0 R2), got {got.get('kbds')}",
-              got.get("kbds") == [f"Alt+{n}" for n in range(1, 10)] + ["", ""])
+              got.get("kbds") == [f"Alt+{n % 10}" for n in range(1, 11)] + ["", ""])  # 3.3.5.0 R1: Local on Alt+0
     ctx.check(f"3.3.2.0 R1: no row prints its key, got {got.get('printed')}", got.get("printed") == 0)
     ctx.check(f"a thin packs divider before the first, got {got.get('divider')}", got.get("divider") == ["packs", "Docs review"])
     ctx.check(f"Alt+9 opens Settings, got {got.get('alt9')!r}", str(got.get("alt9")).startswith("Settings"))

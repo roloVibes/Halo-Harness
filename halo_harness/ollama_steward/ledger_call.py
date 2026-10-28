@@ -188,6 +188,8 @@ def _observed(session, req, gen, kind, abort, target):
     base.update(_window(session, target["host"]["url"], body))
     from halo_harness.ollama_steward.ledger_switch import switch_fields  # 3.3.5.0 R0
     base.update(switch_fields(session, model, kind))
+    from halo_harness.ollama_steward.ledger_bytes import body_bytes, event_bytes  # 3.3.5.0 R1
+    base.update(bytes_in=body_bytes(body), bytes_out=0)
     wall =lambda: round((time.monotonic() - t0) * 1000, 1)  # noqa: E731
     done = False
     answer: dict = {}  # the final message_delta's facts, written when the stream ends (usage may follow it)
@@ -204,6 +206,7 @@ def _observed(session, req, gen, kind, abort, target):
     try:
         for ev in gen:
             kind_ev = ev.get("type") if isinstance(ev, dict) else None
+            base["bytes_out"] += event_bytes(ev)
             if kind_ev == "message_delta" and not done:
                 answer.setdefault("_usage", {}).update(ev.get("usage") or {})
                 meta = ev.get("harness_meta") if isinstance(ev.get("harness_meta"), dict) else {}

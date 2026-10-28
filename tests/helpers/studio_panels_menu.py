@@ -181,6 +181,9 @@ def fleet(c, url, ctx) -> dict:
     load(c, ctx, "mode=setup&tour=off", "Setup")
     time.sleep(1.0)
     out["setup"] = c.js("['panels-add', 'section-more', 'layout-badge'].map((t) => !!document.querySelector(`[data-testid=${t}]`))")
+    load(c, ctx, "mode=local&tour=off", "Local")  # 3.3.5.0 R1: Local is paged too
+    time.sleep(1.0)
+    out["local"] = c.js("['panels-add', 'section-more', 'layout-badge'].map((t) => !!document.querySelector(`[data-testid=${t}]`))")
     return out
 
 

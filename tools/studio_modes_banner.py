@@ -1,12 +1,12 @@
-"""tools/studio_modes_banner.py -- the Studio nine-tile banner for the README.
+"""tools/studio_modes_banner.py -- the Studio ten-tile banner for the README.
 
 Composes studio-session.png, studio-team.png, studio-roles.png,
-studio-fleet.png, studio-design.png, studio-orchestra.png, studio-packs.png, studio-setup.png and studio-settings.png (the headless-Chrome
+studio-fleet.png, studio-design.png, studio-orchestra.png, studio-packs.png, studio-setup.png, studio-settings.png and studio-local.png (the headless-Chrome
 captures from tools/capture_studio.py; studio-session.png from tools/capture_session_anim.py;
-studio-packs.png from `--mode packs`, 3.2.0.0 R7; studio-setup.png, 3.3.0.0: R4 adds its capture; studio-settings.png from `--mode settings`, 3.3.3.0 R2) into one wide banner,
-docs/media/studio-modes.png: nine frames in a row on the Studio background, in the tab order (3.1.6.0 R6: Session first;
-3.2.0.0 R7: Packs after Orchestra; 3.3.0.0 R1: Setup; 3.3.3.0 R2: Settings last), with a section label over each and the key that switches to it
-(Alt+1 .. Alt+9). Pure Pillow, no fonts fetched: the label uses the default
+studio-packs.png from `--mode packs`, 3.2.0.0 R7; studio-setup.png, 3.3.0.0: R4 adds its capture; studio-settings.png from `--mode settings`, 3.3.3.0 R2; studio-local.png from `--mode local`, 3.3.5.0 R1) into one wide banner,
+docs/media/studio-modes.png: ten frames in a row on the Studio background, in the tab order (3.1.6.0 R6: Session first;
+3.2.0.0 R7: Packs after Orchestra; 3.3.0.0 R1: Setup; 3.3.3.0 R2: Settings; 3.3.5.0 R1: Local last), with a section label over each and the key
+that switches to it (Alt+1 .. Alt+9, then Alt+0). Pure Pillow, no fonts fetched: the label uses the default
 bitmap font scaled up, so the file is identical on every machine with the
 same inputs.
 
@@ -35,8 +35,9 @@ FRAMES = (  # 3.1.6.0 R6: the registry's order (routes/index.tsx SECTIONS), test
     ("studio-packs.png", "Packs", "Alt 7", "install, grant and enable packs"),  # 3.2.0.0 R7
     ("studio-setup.png", "Setup", "Alt 8", "this box's setup, one page at a time"),  # 3.3.0.0 R1 (R4: its capture; 3.3.1.0 R1: the pages)
     ("studio-settings.png", "Settings", "Alt 9", "every config key, one page per group"),  # 3.3.3.0 R2 (tools/capture_settings.py)
+    ("studio-local.png", "Local", "Alt 0", "the machines and the models they serve"),  # 3.3.5.0 R1 (tools/capture_local.py)
 )
-FRAME_W = 560           # each capture is scaled to this width (3.2.0.0 R7: 640 -> 600, seven tiles under 1 MB; 3.3.0.0 R4: 560, eight; 3.3.3.0 R2: nine, 757 KB)
+FRAME_W = 560           # each capture is scaled to this width (3.2.0.0 R7: 640 -> 600, seven tiles under 1 MB; 3.3.0.0 R4: 560, eight; 3.3.3.0 R2: nine, 757 KB; 3.3.5.0 R1: ten, 856 KB)
 GAP = 28
 PAD = 36
 LABEL_H = 92

@@ -13,8 +13,7 @@ is a second source of truth.
 your session edits, `halo teams apply`, a bio saved from the terminal appear
 within two seconds, no refresh (the server watches the lineup, bio, config
 and layout files and sends `files_changed`). A form you are editing keeps
-your draft and offers **Reload** or **Keep mine**; a file deleted on disk
-leaves the list. How: [The live feed](STUDIO-feed.md#the-live-feed).
+your draft and offers **Reload** or **Keep mine**; a file deleted on disk leaves the list. How: [The live feed](STUDIO-feed.md#the-live-feed).
 
 ```sh
 halo studio                 # starts a local server, opens the browser in the mode you used last
@@ -44,10 +43,10 @@ installing; `halo studio` afterwards starts the new version.
 
 Inside the TUI, `/roles` and `/design` open Studio straight into that
 mode from the live session; bare `/studio` (3.1.4.0) opens the **Session**
-section (`Alt+1`) on the session you are in, `/studio [session|roles|design|orchestra|fleet|team|packs|setup|settings]`
+section (`Alt+1`) on the session you are in, `/studio [session|roles|design|orchestra|fleet|team|packs|setup|settings|local]`
 opens that section, and `/studio url` prints the URL without opening a browser.
-The sections' keys are `Alt+1`..`Alt+9`: Session, Team, Roles, Fleet,
-Design, Orchestra, Packs, Setup, Settings. **Quiet by default (3.3.2.0):** nothing opens on its own when you open a section (the **?** in the header and each panel's help are one click away), the sections are a 56 px icon rail (its chevron expands it; it holds the sections only), a section's panels are the header's **+** and its layout the header's **...**, the inspector stays closed until something opens it, `F` is **Focus**, each section opens on one thing (its main panel filling the stage, the others strips at the foot) and the header's rows button sets the **density** ([the shell](STUDIO-shell.md#the-shell-3030)). A model running in a
+The sections' keys are `Alt+1`..`Alt+0`: Session, Team, Roles, Fleet, Design, Orchestra, Packs, Setup, Settings, Local
+([STUDIO-local.md](STUDIO-local.md): the machines that serve your local models, `halo local`). **Quiet by default (3.3.2.0):** nothing opens on its own when you open a section (the **?** in the header and each panel's help are one click away), the sections are a 56 px icon rail (its chevron expands it; it holds the sections only), a section's panels are the header's **+** and its layout the header's **...**, the inspector stays closed until something opens it, `F` is **Focus**, each section opens on one thing (its main panel filling the stage, the others strips at the foot) and the header's rows button sets the **density** ([the shell](STUDIO-shell.md#the-shell-3030)). A model running in a
 Halo session knows this too: the system prompt names Studio, its modes
 and the command, so "open the GUI for roles" runs `halo studio --mode roles`.
 
@@ -70,11 +69,12 @@ This page is the entry point; the content lives in the parts below, one per task
 |---|---|---|
 | [Studio: the shell](STUDIO-shell.md) | you find your way around Studio's header, sections, panels and Start views, or open it on a bio, a lineup or the Team | The shell (3.0.3.0) · Opening Studio on a bio, a lineup or the Team (`halo studio --edit`) · The guided first run (3.1.1.0) |
 | [Studio: steering and exporting a session](STUDIO-session.md) | you steer an agent from Session's Live column and want to know which agent and which call it reaches, or save a session as one Markdown trace file | The steer's target · Follow, and the view holding still · Keys · Export: the session as a trace file · Files |
-| [Studio: how each section works](STUDIO-sections.md), and [the live feed](STUDIO-feed.md) | you want the one-screen story of a section (Session, Team, Roles, Fleet, Design, Orchestra, Packs, Setup, Settings), or how its pages get their live frames | How each section works · The live feed |
+| [Studio: how each section works](STUDIO-sections.md), and [the live feed](STUDIO-feed.md) | you want the one-screen story of a section (Session, Team, Roles, Fleet, Design, Orchestra, Packs, Setup, Settings, Local), or how its pages get their live frames | How each section works · The live feed |
 | [Studio: the Orchestra console](STUDIO-orchestra.md) | you run an Orchestra goal from Studio: the run console, the plan canvas and the coach | Orchestra: the run console |
 | [Studio: Fleet](STUDIO-fleet.md) | you watch or steer every harness and agent from Studio's Fleet section | Fleet: every harness, every agent · How this works: Attention · How this works: Costs and caps · How this works: Conflicts and project rooms · How this works: Hand-offs · How this works: Recordings · How this works: Replay · How this works: Who can do what · How this works: Missions · How this works: While you were away · Keys: hop around · Live Roles: the lineup lights up |
 | [Studio: Team and Roles](STUDIO-team-roles.md) | you edit a team board or a lineup on the Roles canvas | Team: people, blocks and stages on one board · What you see (Roles) |
 | [Studio: Design mode](STUDIO-design.md) | you make prototypes, pages or decks with Studio's Design section on your own creative apps, or render pictures with the Media panels | Design mode: prototypes, pages and decks on your own apps · Media: the ComfyUI panels · Media routes (3.0.4.0) |
 | [Studio: the Pack Manager](STUDIO-packs.md) | you install, grant, enable, set up, update or remove packs from Studio's Packs section | Packs: the Pack Manager (3.2.0.0 R6) |
+| [Studio: the Local section](STUDIO-local.md) | you watch the machines that serve your local models and what they serve: the live resources and traffic, every host with its controls, every model with its fit | Local: the machines and the models (3.3.5.0) · Resources · Hosts · Models · The pages still to come · Local's five ideas · The routes |
 | [Studio: the Setup section](STUDIO-setup.md) | you set this box up from Studio's Setup section: what each block writes and the routes behind it | Setup: the wizard's blocks as forms (3.3.0.0) · The doors: `halo init` opens Setup (3.3.0.0 R4) · What each block writes · The routes |
 | [Studio: saving, security, SSH and shortcuts](STUDIO-security.md) | you save and apply from Studio, run it over SSH, check what it lets a page do, or want every shortcut | Validate, save, apply · Security model · Over SSH · Shortcuts · Files |

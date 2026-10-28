@@ -20,6 +20,7 @@
 // 3.3.0.0 R1: Setup (the terminal wizard's blocks as forms) is appended as the eighth and last, Alt+8; the seven keep theirs.
 // 3.3.1.0 R1: Setup is `paged`: its view is a step rail over one page at a time, no panels.
 // 3.3.3.0 R2: appended as the ninth, Alt+9 Settings (every config.json key, one page per group), paged too.
+// 3.3.5.0 R1: appended as the tenth, Alt+0 Local (the machines that serve models, and the models they serve), paged too.
 import type { ComponentType } from "react";
 import type { SectionId } from "../lib/store";
 import type { PanelSpec } from "../lib/workspace/types";
@@ -47,6 +48,7 @@ import { enterPacks, packsPanels } from "./packs/manager/Manager";
 import { TeamView } from "./team/Start";
 import { enterSetup, SetupView } from "./setup/Setup";
 import { enterSettings, SettingsView } from "./settings/Settings";
+import { enterLocal, LocalView } from "./local/Local";
 import { setView as enterTeam } from "./team/store";
 
 export type SectionDef = {
@@ -75,13 +77,14 @@ export const SECTIONS: SectionDef[] = [
   { id: "packs", title: "Packs", kbd: "Alt+7", blurb: "Install, grant and enable packs", panels: packsPanels, enter: enterPacks },
   { id: "setup", title: "Setup", kbd: "Alt+8", blurb: "Providers, models, permissions, theme and lineup", panels: [], paged: true, view: SetupView, enter: enterSetup },
   { id: "settings", title: "Settings", kbd: "Alt+9", blurb: "Every config key, one page per group", panels: [], paged: true, view: SettingsView, enter: enterSettings },
+  { id: "local", title: "Local", kbd: "Alt+0", blurb: "The machines that serve models, and the models they serve", panels: [], paged: true, view: LocalView, enter: enterLocal },
 ];
 
 // 3.2.0.0 R3: the packs' sections come after the core ones (3.3.3.0 R2: after Settings, reached by a click or the palette) and their
-// panels join the core sections' (routes/packs/registry.ts, from the registry the server builds); SECTIONS stays the core nine, in their order.
+// panels join the core sections' (routes/packs/registry.ts, from the registry the server builds); SECTIONS stays the core ten, in their order.
 let merged: { reg: unknown; out: SectionDef[] } = { reg: null, out: SECTIONS };
 
-/** Every section, the nine core ones (with the packs' panels added) then the packs' own. */
+/** Every section, the ten core ones (with the packs' panels added) then the packs' own. */
 export function sections(): SectionDef[] {
   const reg = packs.get().reg;
   if (merged.reg !== reg) {

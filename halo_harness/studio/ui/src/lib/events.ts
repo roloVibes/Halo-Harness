@@ -36,6 +36,8 @@ export const KNOWN_KINDS = [
   "files_changed", // 3.2.2.0 R6: a lineup, bio, config or layout file moved on disk (lib/filesLive.ts onFilesChanged)
   "setup", // 3.3.0.0 R3: a Setup Check job's checks (studio/setup_check_job.py; routes/setup/checkStore.ts)
   "steward", // 3.3.4.0 R5: the Ollama steward's job (ollama_steward/job.py; routes/fleet/ostore.ts)
+  "resources", // 3.3.5.0 R1: the Local tab's live samples (ollama_steward/resources.py; routes/local/store.ts)
+  "traffic", // 3.3.5.0 R1: a ledger line or a server event as it lands (ollama_steward/ledger_tap.py)
 ];
 
 const handlers = new Map<string, Set<Handler>>();

@@ -20,7 +20,9 @@ frames so far). One instance per state dir: an OS lock on
 does not start and names the holder (job_state.py: where, pid, since). It starts
 with Studio (studio/server.py) and the fleet hub (fleet/hub.py) unless
 `ollama.steward.job` is false; `halo ollama steward --watch` runs it in the
-foreground; `halo ollama steward status` reads job_state.py.
+foreground; `halo ollama steward status` reads job_state.py. 3.3.5.0 R1: while it runs it
+holds the resources sampler on (resources.want("job")): the fit planner sees the
+newest sample, and the Local tab's live strip has one the moment it opens.
 """
 
 from __future__ import annotations
@@ -174,6 +176,10 @@ class StewardJob:
         t = threading.Thread(target=self._loop, name="halo-steward-timer", daemon=True)
         self.threads.append(t)
         t.start()
+        from halo_harness.config.paths import background_net_disabled
+        from halo_harness.ollama_steward import resources  # 3.3.5.0 R1: the live samples while the job runs
+        resources.want(self.state_dir, "job", True, publish=self.publish, lease=None,
+                       start=self.watch_fn is not False and not background_net_disabled())
         return True, f"steward job running ({self.where}); model: {model or model_why}"
 
     def _loop(self) -> None:
@@ -188,6 +194,8 @@ class StewardJob:
     def stop(self) -> None:
         self.stop_event.set()
         self.wake.set()
+        from halo_harness.ollama_steward import resources
+        resources.want(self.state_dir, "job", False)
         if _JOBS.get(str(self.state_dir)) is self:
             _JOBS.pop(str(self.state_dir), None)
         if self.lock is not None:

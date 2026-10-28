@@ -29,6 +29,8 @@ over its own `by: "user"` entry); while sharing is not `off` the member asks
 every FLUSH_S even with no line to send, so a profile reaches it within half
 a minute. 3.3.4.0 R4: and the hub's newest steward note (`steward_note`,
 notes.py), kept in `<state>/ollama/hub-note.json` for the member's TUI.
+3.3.5.0 R1: each push also carries the member's newest resources samples
+(`resources`, ollama_steward/resources_share.py); the hub keeps 5 minutes.
 """
 
 from __future__ import annotations
@@ -98,7 +100,7 @@ class Forwarder:
         self.hub = str(entry.get("hub_id") or entry.get("url") or "hub")
         self.home = Path(home) if home is not None else identity.home()
         self.last_flush = time.monotonic()
-        self.last_check = 0.0
+        self.last_check, self.sent_t = 0.0, 0.0
 
     def _paths(self) -> "tuple[Path, Path, Path]":
         d = self.home / "ollama"
@@ -177,8 +179,11 @@ class Forwarder:
                 if len(send) > MAX_LINES:
                     send, cursor = send[:MAX_LINES], send[MAX_LINES - 1][1]
                 if send or how != "off":  # 3.3.4.0 R3: the answer carries the hub's profiles
+                    from halo_harness.ollama_steward.resources_share import read_recent  # 3.3.5.0 R1
+                    samples = read_recent(self.home, self.sent_t) if how != "off" else []
                     reply = link.request("POST", protocol.PREFIX + "/ollama",
-                                         protocol.doc(link=link_id, lines=[x for x, _c in send]))
+                                         protocol.doc(link=link_id, lines=[x for x, _c in send], resources=samples))
+                    self.sent_t = max([self.sent_t] + [float(x.get("t") or 0) for x in samples])
                     take_profiles(reply)
                     take_note(reply, self.home)
                 cpath.parent.mkdir(parents=True, exist_ok=True)
@@ -190,23 +195,7 @@ class Forwarder:
             return 0
 
 
-def take_profiles(reply) -> int:
-    """A member keeps the profiles the hub's answer carries (ollama_steward/profiles.py)."""
-    try:
-        from halo_harness.ollama_steward.profiles import merge_from_hub
-        return merge_from_hub((reply or {}).get("profiles") if isinstance(reply, dict) else None)
-    except Exception:
-        return 0
-
-
-def take_note(reply, home=None) -> bool:
-    """A member keeps the hub's newest steward note (3.3.4.0 R4); True when it is a new one."""
-    try:
-        from halo_harness.ollama_steward.notes import take_hub_note
-        payload = (reply or {}).get("steward_note") if isinstance(reply, dict) else None
-        return take_hub_note(home if home is not None else identity.home(), payload)
-    except Exception:
-        return False
+from halo_harness.fleet.ollama_share_take import take_note, take_profiles  # noqa: E402  (the member's side of an answer)
 
 
 def accept(home, member_name: str, lines: list) -> int:
@@ -239,6 +228,8 @@ def serve(handler):
         return handler._json(403, {"error": "not a member of this hub"})
     lines = body.get("lines") if isinstance(body.get("lines"), list) else []
     n = accept(handler.hub.home, member.name, lines)
+    from halo_harness.ollama_steward.resources_share import take_remote  # 3.3.5.0 R1: the member's samples
+    take_remote(handler.hub.home, member.name, body.get("resources"))
     try:  # 3.3.4.0 R3: the hub's profiles, keyed by the member's own host names
         from halo_harness.ollama_steward.profiles import payload_for_member
         profiles = payload_for_member(handler.hub.home, member.name)
