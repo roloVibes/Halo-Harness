@@ -138,7 +138,9 @@ def update_rollback(c, url, ctx) -> dict:
     last = _text('[data-testid=pm-last] .pm-lines')
     out["updated_last"] = w(c, f"/(1[.]0[.]0 -> 1[.]0[.]1|stays as it is|is up to date)/.test({last}) && {last}.split('\\n')", 30)
     try:
-        out["rollback_label"] = w(c, _text(f"{ROW} [data-testid=pm-rollback]"), 30)
+        # 90 s, not 30: the Windows runner twice (3a61491, 76e693a) showed the update's own lines in time but took
+        # longer than 30 s to re-list the installed rows with the rollback button; a re-run passed both times
+        out["rollback_label"] = w(c, _text(f"{ROW} [data-testid=pm-rollback]"), 90)
     except TimeoutError as e:
         raise TimeoutError(f"{e}; the update said {out['updated_last']}") from None
     out["version_after"] = c.js(_text(f"{ROW} .pm-row-ver"))
