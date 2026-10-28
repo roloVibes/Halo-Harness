@@ -6,7 +6,7 @@ request, no model call, nothing pulled:
 
 `library`: the page and its source line (the snapshot's date, Refresh); the source switch; a typed search; the host
 picker and the window control moving gemma3:27b's fit badge (fits / tight / no, the numbers as its title); fits this
-host; the embed intent; the unfold (the card's how lines, the other tags each with its fit); Pull disabled; Copy.
+host; the embed intent; the unfold (the card's how lines, the other tags each with its fit); Pull's state and title; Copy.
 The last stdout line is the JSON of what it saw (exit 2: no Chrome)."""
 from __future__ import annotations
 

@@ -86,6 +86,34 @@ version.
 - Local's Library page is built (Hugging Face, Benchmarks and Steward stay framed).
 - The fit meter can cap the windows it tries, so a list of hundreds of models rates quickly.
 
+### R3: Ollama, controlled -- pull, delete, show, twin, load
+
+#### Added
+- Pull from Studio's Local -> Library, onto the host you pick. This covers every Ollama model and every Hugging Face GGUF, which goes through Ollama as `hf.co/<repo>:<quant>`.
+- While it runs: a progress bar with the speed and the time left, and Cancel. After: "installed on <host>".
+- A box to pull any name by hand.
+- A pull is the server's job: it goes on when the page closes. The Jobs list (on Library and Models) shows every pull running, each with Cancel.
+- Local -> Models: an actions menu on each model.
+- Show: `/api/show`'s template, parameters, licence, capabilities and details, beside the model card.
+- Load now / Unload.
+- Make a tuned twin: pick the window. The twin is a manifest; it adds no new blobs.
+- Copy and Rename.
+- Delete: first it shows what uses the model (lineups, roles, the default and compaction models, steward profiles, live sessions). Delete anyway works whenever no session is on it.
+- A Loaded-now strip on top of the page.
+- New CLI commands: `halo models pull | rm | load | unload | copy | rename | twin | loaded`.
+- All take `--host` and `--json`; also `rm --force`, `twin --window N` and `load --num-ctx --keep-alive`.
+- `halo models show <name> --host H` adds the `/api/show` facts.
+- Every Studio button's title is its CLI line.
+- A hub controls the models on a fleet member's host the same way (pull, delete, copy, rename, twin), under the member's `fleet.allow_control`. The member's pull progress comes back with its ledger push.
+
+#### Changed
+- Every Local action names its CLI line, and every number names its source.
+
+#### Fixed
+- The test rigs never read this machine's Ollama.
+- Under the test flag, the model lists skip the default host Halo makes up from `OLLAMA_HOST`.
+- The Chrome rigs and the full run pin `OLLAMA_HOST` to a refused port unless it names a test's own fake.
+
 ### Also in 3.3.5.0
 
 #### Changed

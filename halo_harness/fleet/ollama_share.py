@@ -181,8 +181,9 @@ class Forwarder:
                 if send or how != "off":  # 3.3.4.0 R3: the answer carries the hub's profiles
                     from halo_harness.ollama_steward.resources_share import read_recent  # 3.3.5.0 R1
                     samples = read_recent(self.home, self.sent_t) if how != "off" else []
-                    reply = link.request("POST", protocol.PREFIX + "/ollama",
-                                         protocol.doc(link=link_id, lines=[x for x, _c in send], resources=samples))
+                    from halo_harness.fleet.control_pulls import read_pulls  # 3.3.5.0 R3: the pull jobs a hub asked for
+                    reply = link.request("POST", protocol.PREFIX + "/ollama", protocol.doc(
+                        link=link_id, lines=[x for x, _c in send], resources=samples, pulls=read_pulls(self.home)))
                     self.sent_t = max([self.sent_t] + [float(x.get("t") or 0) for x in samples])
                     take_profiles(reply)
                     take_note(reply, self.home)
@@ -230,6 +231,8 @@ def serve(handler):
     n = accept(handler.hub.home, member.name, lines)
     from halo_harness.ollama_steward.resources_share import take_remote  # 3.3.5.0 R1: the member's samples
     take_remote(handler.hub.home, member.name, body.get("resources"))
+    from halo_harness.fleet.control_pulls import take_pulls  # 3.3.5.0 R3
+    take_pulls(member.name, body.get("pulls"))
     try:  # 3.3.4.0 R3: the hub's profiles, keyed by the member's own host names
         from halo_harness.ollama_steward.profiles import payload_for_member
         profiles = payload_for_member(handler.hub.home, member.name)

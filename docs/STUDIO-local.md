@@ -123,6 +123,28 @@ documents** (the largest window this card runs), **look at images** (models that
 only) -- each band ordered by the fit meter, a model that is not for the intent left out, and one line under the filter
 saying why this order.
 
+**The actions** (3.3.5.0 R3): each installed Ollama model's `...` menu (`local-model-acts`), every item titled with
+the `halo models` line that does the same:
+
+- **Show**: `/api/show`'s facts -- family, parameters, quantization, format, the parent model, the trained context,
+  the capabilities, the Modelfile's `PARAMETER` lines, the licence's first line and the template's length (its start
+  as the title) -- beside the model card.
+- **Load now** / **Unload**: R1's warm generate at the profile's window, and `keep_alive: 0`.
+- **Make a tuned twin**: pick the window; the card names the twin (`qwen3.5:9b` -> `qwen3.5-halo:9b`), its plan line
+  and what it costs (a second name on disk: a manifest of a few KB pointing at the original's layers, no new blobs, no
+  download), then **Make it** creates it through `/api/create` and records it in the tune store
+  ([MODELS-ollama-tuning.md](MODELS-ollama-tuning.md)).
+- **Copy** / **Rename**: a new name for the same layers (`/api/copy`); a rename is a copy, then the old name deleted.
+- **Delete**: first the **uses card** -- what names the model: your lineups (the role it holds in each), the `roles`
+  table, the default `model`, `compactionModel`, the steward profiles (`ollama.profiles`) and the live sessions on it,
+  in one line ("qwen3-coder:30b is the coder in `local-coder` and the model of 2 profiles; 1 live session is on it").
+  Nothing uses it: **Delete**. Something does: **Delete anyway**, which always works while no session is on the model;
+  a live session keeps the button disabled with the reason until it ends or moves to another model.
+
+On top of the page, **Loaded now** (`local-loaded-row`): every model a host holds in memory (`/api/ps`), its share on
+the GPU, its window, when it unloads, and **Unload**; under it the **Jobs** list. A host another machine serves goes
+through its fleet member (below); a control that cannot run from here is disabled with the reason as its title.
+
 The page reads each host's catalog through one cache keyed by the catalog's mtime: `/api/tags` alone is read (at most
 every 15 seconds), and the per-model `/api/show` calls run again only when a model was pulled, deleted or changed. Fleet's
 Ollama panel reads its catalogs the same way since this round (it used to read every host's whole catalog each minute).
@@ -130,8 +152,13 @@ Ollama panel reads its catalogs the same way since this round (it used to read e
 ## Library
 
 **What could be installed** (3.3.5.0 R2), from the two sites that list it, every row with its model card and a **fit
-badge** for the host and the window you pick. Nothing is pulled from here yet: each row's **Pull** is disabled ("pulling
-lands in R3") and **Copy** puts its pull line on the clipboard.
+badge** for the host and the window you pick. **Pull** (3.3.5.0 R3) puts it on the host picked above the list (its
+title is the line, `halo models pull gemma3:4b --host box`): a progress bar on the row while it runs -- the percent of
+the layers' bytes, the speed over the last 5 seconds and the time left, each titled with where it comes from -- with
+**Cancel**, then "installed on <host>" (the host's own `/api/tags` has it, so the Models page lists it too). A GGUF file
+of a hub repo pulls through Ollama as `hf.co/<repo>:<quant>`; an MLX repo runs outside Ollama, so its Pull is disabled
+and its line is `halo local download <repo>`. **Pull by name** above the list takes any name Ollama can pull (a library
+tag or `hf.co/<repo>:<quant>`). **Copy** puts a row's pull line on the clipboard.
 
 - **Ollama's library**: one row per model and size chip (`qwen3.5:9b`, `qwen3.5:27b`), from ollama.com/library (the
   name, its one-line description, the capability chips, the pulls, when it was updated) and each model's tags page
@@ -164,6 +191,17 @@ with its own badge and pull line. The list draws every row (a long one a window 
 The cache is `<state>/cache/models-library.json`: the catalog, a model's tags and a manifest a day, a hub search an
 hour, a repo's files a day; Refresh (`POST local/library/refresh`, `halo models browse --refresh`) reads them again.
 `halo models browse` prints the same rows from a terminal ([COMMANDS-local.md](COMMANDS-local.md)).
+
+## Jobs
+
+A pull is the server's job (3.3.5.0 R3, `studio/local_pull_job.py`): Studio runs one per host and name (a second Pull of
+the same name joins it), and it goes on when the page closes. The **Jobs** list on the Library and Models pages shows
+every pull running and the last ended ones, each with its bar and **Cancel**; a page that opens later reads them
+(`GET local/pulls`) and follows the `pull` frames. A cancel closes the connection: Ollama stops and keeps the layers it
+already has in its own blob folder, so pulling the same name again starts from them. When a pull ends well every model
+list drops its cached catalog, so the next read shows the new model. A host a fleet member serves pulls on that member
+(its own job); its progress reaches the hub with the member's ledger push, every 30 seconds
+([FLEET.md](FLEET.md)).
 
 ## The pages still to come
 
@@ -205,8 +243,22 @@ Studio route; never a model call:
 | `GET local/library?source=ollama\|hf\|all&q=&host=&window=&fits=1&intent=&family=&quant=&cap=&max_gb=&license=&page=` | the library's rows with their card, fit badge and intent scores, the total, and where each source came from (`studio/models_library_api.py`) |
 | `GET local/library/<source>/<id>?host=&window=` | one Ollama model's tags or one hub repo's files, each with its badge |
 | `POST local/library/refresh` | the library's cache dropped: the next read is live |
+| `POST local/host/<name>/pull {name}` | a pull job (a second ask joins it); its view and `cli` |
+| `POST local/pull/<id>/cancel` | stop it (Ollama keeps the layers it has) |
+| `GET local/pulls` | every pull running and the last ended ones |
+| `POST local/host/<name>/delete {name, force?}` | 422 with the uses card when something uses it (`force`: delete anyway); 409 while a live session is on it |
+| `GET local/host/<name>/uses?model=` | the uses card alone (`studio/local_uses.py`) |
+| `GET local/host/<name>/show?model=` | `/api/show`'s facts |
+| `POST local/host/<name>/copy {src, dst}`, `.../rename {src, dst}` | a copy; a copy then the delete of the old name |
+| `POST local/host/<name>/twin {name, window?, dry?}` | the tuned twin (`dry`: the plan, its name and cost); recorded in the tune store |
+| `GET local/host/<name>/loaded` | `/api/ps` (a member's host: its newest resources sample) |
 
-Live frames: `resources` (one sample) and `traffic` (`{rows}`), beside the steward's own `steward` frames. From a terminal,
+Every R3 answer carries `cli`, the `halo models` line that does the same (`studio/local_control_api.py`). A host a
+fleet member serves goes through that member (`ollama_pull`, `ollama_delete`, `ollama_copy`, `ollama_twin`, under its
+`fleet.allow_control`); `none` answers 403 with the reason.
+
+Live frames: `resources` (one sample), `traffic` (`{rows}`) and `pull` (a job's view: host, name, status, digest,
+total, completed, percent, speed, eta, done, error), beside the steward's own `steward` frames. From a terminal,
 `halo local hosts`, `halo local models [--host H]` and `halo local resources` print what the first three pages show, and
 `halo models browse` what the Library shows
 ([COMMANDS-local.md](COMMANDS-local.md)).

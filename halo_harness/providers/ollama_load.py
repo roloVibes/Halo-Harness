@@ -55,6 +55,9 @@ def _say(reply, verb: str, model: str, host) -> str:
 def load(host, model: str, *, num_ctx: Optional[int] = None, keep_alive=None) -> dict:
     """Load `model` at the profile's window (or `num_ctx`), kept for `keep_alive`."""
     from halo_harness.providers.ollama import request_json
+    from halo_harness.providers.ollama_guard import control_blocked  # 3.3.5.0 R3
+    if control_blocked(host):
+        return {"ok": False, "say": control_blocked(host), "status": None, "num_ctx": num_ctx, "keep_alive": keep_alive}
     where = "asked"
     if num_ctx is None:
         num_ctx, where = window_for(host, model)
@@ -76,6 +79,9 @@ def load(host, model: str, *, num_ctx: Optional[int] = None, keep_alive=None) ->
 
 def unload(host, model: str) -> dict:
     from halo_harness.providers.ollama import request_json
+    from halo_harness.providers.ollama_guard import control_blocked  # 3.3.5.0 R3
+    if control_blocked(host):
+        return {"ok": False, "say": control_blocked(host), "status": None, "num_ctx": None, "keep_alive": 0}
     reply = request_json(host, "/api/generate", method="POST", body={"model": model, "keep_alive": 0, "stream": False},
                          timeout=UNLOAD_TIMEOUT_S)
     return {"ok": reply.failure is None, "say": _say(reply, "unloaded", model, host), "status": reply.status,

@@ -284,6 +284,8 @@ def _main(tier: "str | None") -> int:
     # setting its own BRIDGE_TEST_HOME.
     _clear_halo_env_vars()
     _pop_stray_bridge_state_dir()
+    from tests.helpers.ollama_pin import pinned_ollama_host  # 3.3.5.0 R3: never this machine's own Ollama
+    os.environ["OLLAMA_HOST"] = pinned_ollama_host(os.environ.get("OLLAMA_HOST"))
     _ensure_whole_run_state_dir()
     _ensure_whole_run_test_seams()
     real_state_before = _real_state_dir_snapshot()

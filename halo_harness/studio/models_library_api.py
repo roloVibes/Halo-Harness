@@ -1,6 +1,7 @@
 """halo_harness.studio.models_library_api -- Halo 3.3.5.0 R2: the routes of Local -> Library (docs/STUDIO-local.md
 "Library"), reached through studio/local_api.dispatch_local (prefix `local/`). The same guard as every Studio
-route; never a model call, never a pull (3.3.5.0 R3 adds Pull on these rows).
+route; never a model call. 3.3.5.0 R3: each row says `installed` -- the hosts whose catalog has it (`pull_target`:
+what Pull asks for, a library name or `hf.co/<repo>:<quant>`); Pull itself is studio/local_control_api.py.
 
     GET  local/library?source=ollama|hf|all&q=&host=&window=&fits=1&intent=&family=&quant=&cap=&max_gb=&license=&page=
          -> {rows: [row + card view + fit + intent], total, page, pages, cached_at, sources {ollama: "live" |
@@ -39,20 +40,42 @@ def _q(req, key: str) -> str:
     return str(req.query.get(key) or "").strip()
 
 
+def pull_target(row: dict) -> str:
+    line = str(row.get("pull_line") or "")
+    return line[len("ollama pull "):].strip() if line.startswith("ollama pull ") else ""
+
+
+def mark_installed(answer: dict) -> dict:
+    """Each row's `pull_target` and `installed` [host names]: read from the catalogs the Hosts page reads."""
+    from halo_harness.providers.ollama import ollama_names_match, resolve_ollama_hosts
+    from halo_harness.providers.ollama_guard import skip_default
+    from halo_harness.studio.ollama_hosts_view import catalog_of
+    have = []
+    for h in resolve_ollama_hosts():
+        if not skip_default(h):
+            have.append((h.name, [str(r.get("model") or r.get("name") or "") for r in catalog_of(h).get("models") or []
+                                  if isinstance(r, dict)]))
+    for row in answer.get("rows") or []:
+        target = pull_target(row)
+        row["pull_target"] = target
+        row["installed"] = [n for n, names in have if target and any(ollama_names_match(target, m) for m in names)]
+    return answer
+
+
 def get_library(req):
     from halo_harness.models_library.browse import library
-    return 200, library(req.state_dir, source=_q(req, "source") or "all", q=_q(req, "q"), host=_q(req, "host"),
+    return 200, mark_installed(library(req.state_dir, source=_q(req, "source") or "all", q=_q(req, "q"), host=_q(req, "host"),
                         window=_int(req.query.get("window")), fits=_q(req, "fits") in ("1", "true", "yes"),
                         intent=_q(req, "intent"), family=_q(req, "family"), quant=_q(req, "quant"), cap=_q(req, "cap"),
                         max_gb=_float(req.query.get("max_gb")), license=_q(req, "license"),
-                        page=_int(req.query.get("page")) or 1)
+                        page=_int(req.query.get("page")) or 1))
 
 
 def get_detail(req, source: str, model_id: str):
     from halo_harness.models_library.browse import detail
     if not model_id:
         return 422, {"error": "which model: local/library/<source>/<id>", "problems": ["id: the model or the repo"]}
-    return 200, detail(req.state_dir, source, model_id, host=_q(req, "host"), window=_int(req.query.get("window")))
+    return 200, mark_installed(detail(req.state_dir, source, model_id, host=_q(req, "host"), window=_int(req.query.get("window"))))
 
 
 def post_refresh(req):
