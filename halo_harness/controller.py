@@ -319,9 +319,11 @@ class Controller:
         (`Session.steer` is text-only, see its docstring) -- an image
         attached while a turn is already busy is simply not carried by
         this fallback path; the chip itself is still cleared by `tui/
-        app.py` either way, same as a plain pasted-text placeholder is."""
+        app.py` either way, same as a plain pasted-text placeholder is.
+        3.3.6.0 R6: it is now -- `Session.steer(text, images=...)` logs the
+        image (its saved path) at the steer's own safe point."""
         if self.session.busy:
-            if self.session.steer(text):
+            if (self.session.steer(text, images=images) if images else self.session.steer(text)):  # 3.3.6.0 R6: its image
                 self.events.put(events.steer_queued(text, turn=self.session.turn_count))
                 return
             # else: the turn finished in the race window above -- fall

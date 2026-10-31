@@ -2573,9 +2573,11 @@ class Session:
 
     def call_small_model(self, *, system_text: str, user_text: str, max_tokens: int = 4096,
                           timeout_s: float = 60.0, model_ref: Optional[ModelRef] = None,
-                          images: Optional[list] = None, usage_out: Optional[dict] = None) -> str:
+                          images: Optional[list] = None, usage_out: Optional[dict] = None, see: bool = False) -> str:
         """`usage_out` (3.3.4.0 R4, the steward's note): a dict that takes the
         reply's `usage` (input_tokens, output_tokens) as the stream reports it.
+        `see` (3.3.6.0 R6, the eyes' description): the caller knows the model
+        sees, so the images ride as real image blocks read from their files.
 
         A ONE-SHOT request built directly via `build_request_body`
         (never through `derive_request`/the session log, so this call is
@@ -2638,11 +2640,12 @@ class Session:
         # are converted, pre-shaped blocks pass through). Only meaningful
         # when the resolved ref's profile claims vision; a blind ref gets
         # text-only (the call still succeeds, images simply don't ride).
-        if images and getattr(profile, "vision", False):
+        if images and (see or getattr(profile, "vision", False)):
             from halo_harness.agent import image_attach
             for img in images:
                 if isinstance(img, dict) and img.get("type") == "image":
-                    user_content.append(image_attach.image_block_for_log(img))
+                    logged = image_attach.image_block_for_log(img)
+                    user_content.append(image_attach.rehydrate_image_block(logged) if see else logged)
                 elif isinstance(img, dict):
                     user_content.append(img)
         messages = [{"role": "user", "content": user_content}]
@@ -5790,30 +5793,14 @@ class Session:
             # as plain text instead, with one notice, so the turn still
             # completes instead of a provider 400.
             from halo_harness.agent import image_attach
-            vision_ok = bool(self.model_profile.vision) if images else True
-            if images and not vision_ok:
-                # Halo 2.0.7 round 0e (the concierge's eyes): before the
-                # images degrade to bare path mentions ("graceful but
-                # useless"), let a configured concierge with vision
-                # DESCRIBE them -- the descriptions fold into this turn's
-                # context as a snapshot right after the prompt, so the
-                # blind main model still gets real image understanding.
-                # No concierge / concierge blind / call failed: exactly
-                # the old behavior (path mention + the notice below).
-                eyes_text = None
-                try:
-                    from halo_harness.concierge import describe_images_for_blind_model
-                    eyes_text = describe_images_for_blind_model(self, images)
-                except Exception:
-                    eyes_text = None
-                if eyes_text:
-                    self.log.append_snapshot([{"type": "text", "text": eyes_text}],
-                                             kind="concierge_vision")
-                    yield events.notification(
-                        "the concierge described the image(s) -- the active model is blind")
-                else:
-                    yield events.notification(
-                        f"{self.model_ref.raw} does not take images; attached as a path")
+            vision_ok = True
+            if images:
+                # 3.3.6.0 R6 (agent/eyes_turn.py): a model that cannot see (or a local one nothing says sees) never
+                # has the image dropped without a word: one line, then the visual lane for this turn, a model that
+                # sees describing it into the turn, or the text alone with the path -- each a ladder rung.
+                from halo_harness.agent import eyes_turn
+                eyes = yield from eyes_turn.run(self, turn_no, images)
+                vision_ok = bool(eyes["send_images"])
             blocks = [{"type": "text", "text": text}]
             for img in (images or []):
                 if isinstance(img, dict) and img.get("type") == "image":
@@ -7586,7 +7573,8 @@ class Session:
                            bash_state=self._bash_state, session_dir=self.log.dir / self.log.session_id,
                            registry=self.tool_registry, env=self.tool_env, catalog=self.session_catalog,
                            mcp_manager=self.mcp_manager, agent_runtime=self.agent_runtime,
-                           job_registry=self.job_registry, vision=self.model_profile.vision,
+                           job_registry=self.job_registry, vision=self._tool_vision(),
+                           model_ref=getattr(self.model_ref, "raw", None),
                            session_allow_rule=lambda rule_text: self.permission_engine.add_session_allow_rule(
                                rule_text, temporary=True),
                            env_file=env_file_path(self.log.session_id),
@@ -8399,7 +8387,18 @@ class Session:
         whether new input becomes a fresh turn or a steer."""
         return self._busy.is_set()
 
-    def steer(self, text: str) -> bool:
+    def _tool_vision(self) -> bool:
+        """3.3.6.0 R6: what a tool's image result may assume -- the profile's vision, or the eyes fact of a local
+        model that sees (agent/eyes_offer.sees, kept per model)."""
+        if self.model_profile.vision:
+            return True
+        try:
+            from halo_harness.agent.eyes_offer import is_local, sees
+            return is_local(self.model_ref) and sees(self)["value"] is True
+        except Exception:
+            return False
+
+    def steer(self, text: str, images: Optional[list] = None) -> bool:
         """Thread-safe, called DIRECTLY (never through the command queue,
         same reasoning as `interrupt`/`resolve_permission`: the worker is
         parked inside the running turn's generator and can't read a
@@ -8424,11 +8423,22 @@ class Session:
         turn instead" rather than silently dropping the text."""
         if not text:
             return False
+        shown = [i for i in images or [] if isinstance(i, dict) and i.get("type") == "image"]
         with self._steer_lock:
             if not self._busy.is_set():
                 return False
+            if shown:  # 3.3.6.0 R6: a steer's image lands at the steer's safe point, before its text (the eyes offer
+                # first when the model cannot see: `_apply_steer_images`)
+                self._pending_worker_writes.append(("eyes_steer", {"images": shown}))
             self._steer_queue.append(text)
         return True
+
+    def _steer_image_blocks(self, images: list) -> list:
+        """The LOG shape of a mid-turn steer's images: the image path when this model sees, else the path as text."""
+        from halo_harness.agent import image_attach
+        sees = self._tool_vision()
+        return [image_attach.image_block_for_log(i) if sees else {"type": "text", "text": image_attach.path_mention_text(i)}
+                for i in images if isinstance(i, dict) and i.get("type") == "image"]
 
     def queue_log_write(self, kind: str, payload: dict) -> bool:
         """H5c finding 14: thread-safe way for a caller OUTSIDE the
@@ -8468,7 +8478,19 @@ class Session:
         self._apply_log_write(kind, payload)
         return False
 
+    def _apply_steer_images(self, turn_no: int, images: list):
+        """3.3.6.0 R6: a mid-turn steer's images: the eyes offer when the model cannot see (agent/eyes_turn.py; the
+        chip's choice rides on the image), then their LOG shape as a `steer_image` snapshot."""
+        from halo_harness.agent import eyes_turn, image_attach
+        eyes = yield from eyes_turn.run(self, turn_no, images)
+        self.log.append_snapshot([image_attach.image_block_for_log(i) if eyes["send_images"] else
+                                  {"type": "text", "text": image_attach.path_mention_text(i)} for i in images],
+                                 kind="steer_image")
+
     def _apply_log_write(self, kind: str, payload: dict) -> None:
+        if kind == "eyes_steer":  # the turn ended first: no one to ask, the LOG shape by what the model sees
+            self.log.append_snapshot(self._steer_image_blocks(payload.get("images") or []), kind="steer_image")
+            return
         if kind == "snapshot":
             self.log.append_snapshot(payload["blocks"], kind=payload.get("snapshot_kind", "at_mention"))
         elif kind == "inline_shell":
@@ -8573,7 +8595,10 @@ class Session:
         with self._steer_lock:
             writes, self._pending_worker_writes = self._pending_worker_writes, []
         for kind, payload in writes:
-            self._apply_log_write(kind, payload)
+            if kind == "eyes_steer":  # 3.3.6.0 R6: the steer's image, the offer at this safe point when it is blind
+                yield from self._apply_steer_images(turn_no, payload.get("images") or [])
+            else:
+                self._apply_log_write(kind, payload)
         texts = self._pop_all_steers()
         applied_any = False
         for i, text in enumerate(texts):

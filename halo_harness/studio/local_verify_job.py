@@ -114,7 +114,7 @@ def start(host, name: str, publish: Optional[Callable] = None, *, state_dir=None
             if not got.get("ok"):
                 return _end(job, False, got.get("say") or f"the pull of {name} stopped", error=got.get("error") or "pull")
             with _lock:
-                job.update(stage="probe", say=f"pulled; probing {name} on {host.name} (about 8 requests, 1-3 minutes)")
+                job.update(stage="probe", say=f"pulled; probing {name} on {host.name} (about 9 requests, 1-3 minutes)")
             qv = Q.start(host, name, publish, state_dir=state_dir, runner=runner)
             with _lock:
                 job["probe_job"] = qv["job"]

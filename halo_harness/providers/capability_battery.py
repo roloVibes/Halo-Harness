@@ -10,8 +10,8 @@ the probe set, so any change re-runs it).
 
 The requests, in order: `/api/version`, `/api/tags` (the digest and size),
 `/api/show` (the shape), `/api/ps` (was it loaded?), six `/api/chat` turns
-(battery_probes.ORDER: the warm-up first, never timed -- Part G4), `/api/ps`
-again (did it fit: `size_vram == size` at the window used). About eight
+(battery_probes.ORDER: the warm-up first, never timed -- Part G4), the multi-tool probe's two turns, the vision
+probe's one image (3.3.6.0 R6), `/api/ps` again (did it fit: `size_vram == size` at the window used). About nine
 requests to the model, a couple of minutes, no cost; it loads the model.
 `card` is the host's hardware card (providers/fit_meter.host_card_of): the
 usable window and co-reside / pivot come from it (ollama_steward/fit.py).
@@ -30,7 +30,8 @@ from typing import Callable, Optional
 from halo_harness.providers import battery_probes as B
 from halo_harness.providers.battery_profile import finish, resident
 
-COST_LINE = "about 8 requests to {model} on {host}, 1-3 minutes, no cost; it loads the model"
+COST_LINE = ("about 9 requests to {model} on {host} (one 1 px image, one tiny call, for the eyes), 1-3 minutes, "
+             "no cost; it loads the model")
 CALL_TIMEOUT_S = 180.0
 LOAD_TIMEOUT_S = 600.0
 DEFAULT_WINDOW = 32768
@@ -43,7 +44,8 @@ class HostClient:
 
     def call(self, method: str, path: str, body=None, timeout: float = CALL_TIMEOUT_S):
         from halo_harness.providers.ollama import request_json
-        return request_json(self.host, path, method=method, body=body, timeout=timeout).body
+        got = request_json(self.host, path, method=method, body=body, timeout=timeout)
+        return {"error": got.error} if got.body is None and got.error else got.body  # 3.3.6.0 R6: the vision probe
 
 
 def cost_line(model: str, host_name: str) -> str:
@@ -138,7 +140,7 @@ def _fit(card, row: dict, info: dict, used: int, tags, model: str, ps_after) -> 
                 r["size"] + 512 * 2 ** 20
             others.append((r.get("model") or r.get("name"), need, r["size"]))
         out["resident"] = resident(mine, others, b["budget"] or None, reserve=457 * 2 ** 20 * b["cards"])
-    kv =kv_bytes_per_token(info or {}, bytes_per_elem=bpe)
+    kv = kv_bytes_per_token(info or {}, bytes_per_elem=bpe)
     out["kv_per_token"] = int(kv) if isinstance(kv, (int, float)) else None
     return out
 
@@ -147,7 +149,7 @@ def _multitool(client, model: str, used: int, keep, say, total: int, tools: str,
     """3.3.6.0 R4: (accuracy 0-1, why) from the two-turn multi-tool probe (providers/battery_multitool.py); a model
     the tools probe found with no tool calling is not asked (0.0)."""
     from halo_harness.providers import battery_multitool as M
-    say({"step": total, "of": total, "probe": "multitool", "say": f"{total}/{total} {B.WORDS['multitool']}"})
+    say({"step": total - 1, "of": total, "probe": "multitool", "say": f"{total - 1}/{total} {B.WORDS['multitool']}"})
     if tools != "yes":
         ev["multitool"] = {"skipped": "no tool calling"}
         return 0.0, "no tool calling (the tools probe): not asked"
@@ -195,7 +197,7 @@ def run(host, model: str, *, client=None, card=None, on_status: Optional[Callabl
     was_loaded = _ps_entry(client.call("GET", "/api/ps", timeout=10.0), model) is not None
     used = _window(host, model, info, card, row, window)
     keep = getattr(host, "keep_alive", None) or "5m"
-    replies, ev, total = {}, {}, len(B.ORDER) + 1  # 3.3.6.0 R4: the multi-tool probe is the last step
+    replies, ev, total = {}, {}, len(B.ORDER) + 2  # 3.3.6.0 R4: the multi-tool probe, R6: the vision probe last
     for i, probe in enumerate(B.ORDER, 1):
         say({"step": i, "of": total, "probe": probe, "say": f"{i}/{total} {B.WORDS[probe]}"})
         reply = client.call("POST", "/api/chat", body=B.body(model, probe, num_ctx=used, keep_alive=keep),
@@ -215,6 +217,9 @@ def run(host, model: str, *, client=None, card=None, on_status: Optional[Callabl
             replies[probe + ":first"] = first
     tools, tools_why = B.score_tools(replies["tools"])
     acc, acc_why = _multitool(client, model, used, keep, say, total, tools, ev)
+    say({"step": total, "of": total, "probe": "vision", "say": f"{total}/{total} {B.WORDS['vision']}"})
+    vis, vis_why = B.vision_turn(lambda b: client.call("POST", "/api/chat", body=b, timeout=CALL_TIMEOUT_S), model, show,
+                                 num_ctx=used, keep_alive=keep, ev=ev)
     ps_after = client.call("GET", "/api/ps", timeout=10.0)
     output, output_why = B.score_json(replies["json"])
     ids, ids_why = B.score_reference(replies["reference"])
@@ -224,7 +229,7 @@ def run(host, model: str, *, client=None, card=None, on_status: Optional[Callabl
          "probe_set": B.PROBE_SET, "probed_at": time.time(), "tools": tools, "tools_why": tools_why,
          "system_role": B.score_system(replies["system"]), "instruction": B.score_instruction(replies["instruction"]),
          "output": output, "output_why": output_why, "identifiers": ids, "identifiers_why": ids_why,
-         "tool_call_accuracy": acc, "tool_call_why": acc_why,
+         "tool_call_accuracy": acc, "tool_call_why": acc_why, "vision": vis, "vision_why": vis_why,  # 3.3.6.0 R6
          "reasoning": "thinking" if thinks else "none",
          "size_gb": round(row["size"] / 1e9, 1) if isinstance(row.get("size"), int) else None,
          "speed": {"tok_s": sp["tok_s"], "ttft_ms": sp["ttft_ms"], "at_window": used,

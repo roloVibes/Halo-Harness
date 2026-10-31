@@ -21,7 +21,7 @@ export function useProbes<S>(select: (s: Probes) => S): S {
 
 export const probeKey = (host: string, model: string) => `${host}|${model}`;
 export const probeLine = (model: string, host: string, force = false) => `halo models probe ${model} --host ${host}${force ? " --force" : ""}`;
-export const costLine = (model: string, host: string) => `about 8 requests to ${model} on ${host}, 1-3 minutes, no cost; it loads the model`;
+export const costLine = (model: string, host: string) => `about 9 requests to ${model} on ${host} (one 1 px image, one tiny call, for the eyes), 1-3 minutes, no cost; it loads the model`;
 const msg = (e: unknown) => (e instanceof ApiError ? e.message : String(e));
 
 function take(j: ProbeJob): void {

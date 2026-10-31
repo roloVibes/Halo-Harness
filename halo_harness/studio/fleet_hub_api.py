@@ -170,6 +170,9 @@ def post_session_command(req):
         req.params = {"sid": sid}
         return post_command(req)
     cmd = str(body.get("cmd") or "")
+    if body.get("image") or body.get("image_path") or cmd == "screenshot":  # 3.3.6.0 R6: this harness's own sessions only
+        return 422, {"error": "an image or a screenshot goes to this harness's own sessions: a fleet member's files and "
+                              "display are its own (open that harness's Studio to attach one)", "problems": []}
     if cmd not in SESSION_CMDS:
         return 422, {"error": f"cmd is one of {', '.join(SESSION_CMDS)}, got {cmd!r}", "problems": []}
     if cmd == "answer":

@@ -65,7 +65,9 @@ def how_lines(card: dict) -> "list[str]":
         out.append("embeddings only: not a chat model, so Halo sends it no conversation")
     out.append(_think_line(card))
     out.append(_tools_line(card))
-    out.append("images sent as images" if card.get("vision") else "images as captions (no vision)")
+    v = card.get("vision")  # 3.3.6.0 R6: None is "nothing says" -- the turn asks before it shares an image
+    out.append("images sent as images" if v else "images as captions (no vision)" if v is False or card.get("kind") == "cloud"
+               else "images: nothing says it sees (the turn offers the eyes first)")
     out.append(_window_line(card))
     dialect = card.get("dialect") or ""
     out.append("dialect: native (/api/chat)" if dialect == "native" else
@@ -98,6 +100,11 @@ def card_line(card: dict, meter: "dict | None" = None) -> str:
     return f"{card.get('ref')}: {chip_words(card) or '?'} · roles: {', '.join(fits) or 'none'}{tail}"
 
 
+def _vision_word(card: dict) -> str:
+    v = card.get("vision")
+    return ("yes" if v else "no" if v is False else "unknown") + (f", {card['vision_truth']}" if card.get("vision_truth") else "")
+
+
 def card_lines(card: dict, meter: "dict | None" = None) -> "list[str]":
     src = card.get("sources") or {}
     params = f"{card['params']:g}B" if isinstance(card.get("params"), (int, float)) else "size unknown"
@@ -105,7 +112,7 @@ def card_lines(card: dict, meter: "dict | None" = None) -> "list[str]":
            f"  family {card.get('family') or '?'} · {params}" + (f" · {card['quant']}" if card.get("quant") else ""),
            f"  thinks: {card.get('thinks')} ({src.get('thinks', '?')})",
            f"  tools: {card.get('tools')} ({src.get('tools', '?')})",
-           f"  vision: {'yes' if card.get('vision') else 'no'} ({src.get('vision', '?')})",
+           f"  vision: {_vision_word(card)} ({src.get('vision', '?')})",
            f"  purpose: {card.get('purpose')} ({src.get('purpose', '?')})"]
     if meter:
         out.append(f"  fit here: {meter.get('word') or meter.get('level')} ({meter.get('why')})")

@@ -4,7 +4,7 @@ battery (providers/capability_battery.py) from the terminal.
     halo models probe <ref> [--host H] [--force] [--json]   one model: ol:<name>@<host> or a bare name
     halo models probe --all [--host H] [--force]            every model on the host (the default host without --host)
 
-The cost line comes first ("about 8 requests to <model> on <host>, 1-3
+The cost line comes first ("about 9 requests to <model> on <host> (one 1 px image ...), 1-3
 minutes, no cost; it loads the model"), then one line per probe, then the
 profile: where it sits, use it for / don't use it for, the limits. A cached
 profile (the same digest, Ollama version and probe set) answers at once;

@@ -8,6 +8,9 @@ import { editBundle, setFilters, useLib } from "./libstore";
 
 const CAPS = ["tools", "thinking", "coder", "agentic-ready", "planner", "verifier", "compactor", "bulk", "abliterated", "vision",
               "audio", "embedding", "security", "math", "multilingual", "long-context", "tool-accuracy"];
+// 3.3.6.0 R6: the vision need reads the one vision fact (providers/vision_fact.py), the same the eye chip shows
+const VISION_TITLE = "can see images: verified by the battery's image probe, declared by the server or the catalog, or " +
+  "expected from the family; the weakest truth it may have";
 const FIT: [string, string, string][] = [["quant_max", "quant ≤", "Q4"], ["params_max", "params ≤ B", "14"],
   ["speed_min", "tok/s ≥", "50"], ["cold_load_max_s", "cold load ≤ s", "30"], ["kv_efficiency", "KV ≤ KB/token", "48"],
   ["co_resides_with", "co-resides with", "qwen3.5:9b"]];
@@ -56,8 +59,8 @@ export function SearchFilters() {
         <div className="rail-label mono">ROLE &amp; CAPABILITY</div>
         <div className="lc-lib-line mono">
           {CAPS.map((c) => (
-            <label key={c} title="the weakest truth it may have">
-              {c}{" "}
+            <label key={c} title={c === "vision" ? VISION_TITLE : "the weakest truth it may have"}>
+              {c === "vision" ? "can see images" : c}{" "}
               <select value={f.need[c] || ""} onChange={(e) => editBundle("need", c, e.target.value || null)} data-testid="local-need" data-cap={c}>
                 <option value="">-</option>
                 <option value="verified">verified</option>

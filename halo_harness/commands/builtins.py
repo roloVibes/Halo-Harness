@@ -1752,6 +1752,13 @@ def _cmd_keys(args: str, facade: HeadlessFacade) -> str:
     return "halo: /keys needs the interactive TUI (it shows the key name halo receives per press)."
 
 
+def _cmd_screenshot(args: str, facade: HeadlessFacade) -> str:
+    """3.3.6.0 R6: the TUI's handler (tui/slash.py) captures and attaches the image to the next prompt; without a
+    TUI there is no next prompt to attach it to (the Screenshot tool works in every mode)."""
+    return ("halo: /screenshot needs the interactive TUI (it attaches the capture to your next prompt); "
+            "the Screenshot tool takes one in any mode.")
+
+
 def _cmd_undo(args: str, facade: HeadlessFacade) -> str:
     return "halo: /undo needs the interactive TUI."
 
@@ -1907,6 +1914,8 @@ _BUILTIN_SPECS = {
                None, _cmd_update),
     "editor": ("ui", "Edit the current prompt draft in $VISUAL/$EDITOR (same as Ctrl+E)", None, _cmd_editor),
     "keys": ("ui", "Open the key tester dialog (shows the key name halo receives per press)", None, _cmd_keys),
+    "screenshot": ("ui", "Capture the screen, a window or a region and attach it to your next prompt (3.3.6.0 R6)",
+                   "[window <title> | region x,y,w,h | display <n>]", _cmd_screenshot),
 }
 
 

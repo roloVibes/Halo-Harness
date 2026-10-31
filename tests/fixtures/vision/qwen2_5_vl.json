@@ -1,0 +1,12 @@
+{
+ "architectures": [
+  "Qwen2_5_VLForConditionalGeneration"
+ ],
+ "model_type": "qwen2_5_vl",
+ "hidden_size": 3584,
+ "vision_config": {
+  "depth": 32,
+  "hidden_size": 1280,
+  "patch_size": 14
+ }
+}

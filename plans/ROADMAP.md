@@ -3268,7 +3268,8 @@ for each action shown beside it.
   STUDIO-sections.md, COMMANDS-local.md (the new subcommands), CONFIG.md
   (the cache path). A parity test: every Models action has a CLI line and
   every `halo models` / `halo local` subcommand has a row.
-- R5 eyes: a screenshot tool, and knowing which models can see (ADDED
+- DONE in 3.3.6.0 R6 (the Screenshot tool and `/screenshot`, providers/vision_fact.py with the battery's vision probe, the eye chip, `halo models --vision`, Studio's steer image and Screenshot button, the eyes offer).
+  R5 eyes: a screenshot tool, and knowing which models can see (ADDED
   2026-10-27, rolo: "Does halo have the ability to take screenshots and have
   models visually see them? like from a copy paste into the session" -- "Yes
   add it, but we need to also identify if models have the ability to see

@@ -77,7 +77,10 @@ def roles_picker(c, url, ctx) -> dict:
     out = {"picker_chips": c.js(f"[...{picker}.querySelectorAll('[data-testid=\"model-row\"]')].map((r) => "
                                 "[...r.querySelectorAll('[data-chip]')].map((x) => x.textContent).join(' '))"),
            "picker_levels": c.js(f"[...{picker}.querySelectorAll('[data-testid=\"model-row\"] [data-testid=\"fit-meter\"]')]"
-                                 ".map((m) => m.dataset.level)")}
+                                 ".map((m) => m.dataset.level)"),
+           # 3.3.6.0 R6: the eye chip on every picker row (shared/EyeChip.tsx)
+           "picker_eyes": c.js(f"[...{picker}.querySelectorAll('[data-testid=\"model-row\"]')].map((r) => "
+                               "[r.querySelector('[data-testid=eye-chip]')?.dataset.eye, r.querySelector('[data-testid=eye-chip]')?.title])")}
     row = f"{picker}.querySelector('[data-testid=\"model-row\"][data-ref=\"ol:qwen3-coder:30b\"]')"
     c.js(f"{row}.click(); 1")  # the pick folds the table away; opened again, the picked row unfolds its card
     time.sleep(0.4)

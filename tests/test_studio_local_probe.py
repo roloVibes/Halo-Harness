@@ -27,7 +27,8 @@ from tests.helpers.runner import Ctx, SkipTest, new_registry, print_results, run
 test, TESTS = new_registry()
 REPO = Path(__file__).resolve().parent.parent
 _RUN: dict = {}
-COST = "about 8 requests to qwen3.5:9b on box, 1-3 minutes, no cost; it loads the model"
+COST = ("about 9 requests to qwen3.5:9b on box (one 1 px image, one tiny call, for the eyes), 1-3 minutes, no cost; "
+        "it loads the model")  # 3.3.6.0 R6: the vision probe
 
 
 def _got(ctx: Ctx) -> dict:
@@ -80,7 +81,9 @@ def test_after_the_probe_the_card_says_it(ctx: Ctx):
     four = [b for b in got.get("blocks") or [] if b not in ("measured", "dialect", "fit", "kv")]  # 3.3.6.0 R3 / R4's blocks
     ctx.check(f"the four blocks, got {got.get('blocks')}", four == ["sits", "use_for", "dont_use_for", "limits"]
               or four == ["sits", "use_for", "limits"])
-    ctx.check(f"every value verified, got {got.get('marks_after')}", got.get("marks_after") == ["verified"])
+    # 3.3.6.0 R6: /api/show lists no vision, so the battery does not ask it and "cannot see images" stays declared
+    ctx.check(f"every value verified (the eyes' declared no aside), got {got.get('marks_after')}",
+              got.get("marks_after") in (["verified"], ["verified", "declared"]))
     ctx.check(f"Re-probe now, got {got.get('label_after')!r}", got.get("label_after") == "Re-probe")
     ctx.check(f"the fit meter's word with the speed, got {got.get('fit_word')!r}", "~188 tok/s at 32k" in (got.get("fit_word") or ""))
 

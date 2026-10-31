@@ -1,0 +1,8 @@
+{
+ "architectures": [
+  "SomeChatModel"
+ ],
+ "model_type": "custom",
+ "image_processor_type": "CLIPImageProcessor",
+ "hidden_size": 4096
+}

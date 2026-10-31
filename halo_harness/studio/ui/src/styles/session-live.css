@@ -124,3 +124,11 @@
   border: 1px solid var(--warn); border-radius: var(--radius-sm); background: var(--warn-soft); }
 .slv-preflight-line { flex: 1 1 260px; font-size: var(--fs-sm); color: var(--text); }
 .slv-preflight-keys { display: flex; flex-wrap: wrap; gap: 6px; }
+/* 3.3.6.0 R6: the steer's image chip and the eyes offer (LiveImage.tsx) */
+.slv-image-wrap { display: grid; gap: 4px; margin-top: 4px; }
+.slv-image { display: inline-flex; align-items: center; gap: 6px; justify-self: start; max-width: 100%; overflow: hidden; }
+.slv-image-error { font-size: var(--fs-sm); color: var(--bad); }
+.slv-eyes { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 6px 8px; margin-bottom: 6px;
+  border: 1px solid var(--warn); border-radius: var(--radius-sm); background: var(--warn-soft); }
+.slv-eyes-line { flex: 1 1 260px; font-size: var(--fs-sm); color: var(--text); }
+.slv-eyes-keys { display: flex; flex-wrap: wrap; gap: 6px; }

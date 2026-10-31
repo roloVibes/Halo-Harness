@@ -319,9 +319,9 @@ held a long paste brings the pasted text back with it.
 Every pending chip becomes a real image on the NEXT submit, carried all
 the way to the model (shown inline in the transcript when the terminal
 supports it, else the same caption text the chip itself showed); a
-model whose catalog row says it has no vision gets one notice instead
-and the turn still runs, with the saved path mentioned in place of the
-image. Over SSH (no remote clipboard reaches the terminal at all) every
+model that cannot see (3.3.6.0 R6) gets the eyes offer first: one line,
+then the visual lane, a description or the text alone
+([COMMANDS-main-io.md](COMMANDS-main-io.md#the-eyes-offer)). Over SSH (no remote clipboard reaches the terminal at all) every
 reader comes back empty -- the one-line notice names the other two
 ways in: `/paste <path>` or dragging a file.
 
@@ -340,3 +340,13 @@ ways in: `/paste <path>` or dragging a file.
   "chip-only input" rule Backspace follows -- with other text typed
   around a chip, only the internal record is dropped, the leftover
   label text is left for you to edit by hand).
+
+### `/screenshot [window <title> | region x,y,w,h | display <n>]` (Halo 3.3.6.0)
+
+One capture of this machine's display, attached to your next prompt the way `/paste <path>` attaches a file (the
+chip): the whole screen, the window whose title contains `<title>`, a region in pixels, or one display. The PNG is
+saved as `shot-<n>.png` in the session's images folder (`~/.halo/attachments/<session-id>/`). Windows captures
+through PowerShell's System.Drawing, the Mac through `screencapture -x`, Linux through the first of grim (a region
+through slurp), spectacle, gnome-screenshot, scrot or ImageMagick's import; with no display (an SSH session) it says
+so in one line. The model takes one itself with the Screenshot tool. A model that cannot see gets the eyes offer
+before the image is shared ([COMMANDS-main-io.md](COMMANDS-main-io.md#the-eyes-offer)).

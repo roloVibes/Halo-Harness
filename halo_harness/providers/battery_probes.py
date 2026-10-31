@@ -16,6 +16,9 @@ are kept in the evidence.
     reference    the CWE number of "improper access control" (284)  trusted / unverified
     multitool    three tools, a task that needs two in order (3.3.6.0 R4): find_user, then get_orders with the id
                  the first returned -- two turns, scored on the right tools with the right arguments (0-1)
+    vision       (3.3.6.0 R6) a 1 px red PNG in `images`, "what colour is this image, one word": yes on red, no on
+                 an error naming images or an answer that says it cannot see, else unverified; a model whose
+                 /api/show capabilities list no vision (and no projector) is not asked: that declared no stands
 The reasoning split is read off every probe (any `thinking`); the speed off
 the json probe (`eval_count / eval_duration`, after the warm-up).
 """
@@ -26,7 +29,7 @@ import json
 import re
 from typing import Optional
 
-PROBE_SET = "battery-2"  # bump when a prompt or a rule changes: every cached profile re-runs
+PROBE_SET = "battery-3"  # bump when a prompt or a rule changes: every cached profile re-runs
 THINK_CAP = 600
 TOOL = {"type": "function", "function": {
     "name": "get_weather", "description": "Get the weather for a city",
@@ -53,7 +56,7 @@ PROBES = {
 ORDER = ("warmup", "tools", "system", "instruction", "json", "reference")
 WORDS = {"warmup": "warm-up (never timed)", "tools": "tool call", "system": "system role",
          "instruction": "user instruction", "json": "structured output", "reference": "reference fidelity",
-         "multitool": "two tools in order (tool-call accuracy)"}
+         "multitool": "two tools in order (tool-call accuracy)", "vision": "one 1 px image (can it see?)"}
 
 
 def body(model: str, name: str, *, num_ctx: int, keep_alive, cap: Optional[int] = None) -> dict:
@@ -165,3 +168,83 @@ def evidence(reply, *, retried=None) -> dict:
     if retried is not None:
         out["first"] = evidence(retried)
     return out
+
+
+# ---- 3.3.6.0 R6: the vision probe ----------------------------------------------------------------------------
+VISION_COLOUR = "red"
+VISION_ASK = "What colour is this image? Answer with one word."
+VISION_PREDICT = 24
+_COLOUR_WORDS = ("red", "crimson", "scarlet")
+_NO_EYES = re.compile(r"(?:can ?not|can't|unable to|not able to|don't|do not|no (?:way|ability) to)\s+"
+                      r"(?:see|view|process|read|look at|access|analy[sz]e|interpret|perceive)\b"
+                      r"|text[- ]only|only (?:process|read|handle|understand|see) text|no image (?:was |is )?(?:attached|provided|shown)"
+                      r"|(?:there is|i see) no image", re.IGNORECASE)
+_IMAGE_ERR = re.compile(r"image|vision|multimodal|projector", re.IGNORECASE)
+
+
+def _png_1px(rgb=(255, 0, 0)) -> bytes:
+    """A valid 1 x 1 PNG of one colour, built here (no file, no image library)."""
+    import struct, zlib  # noqa: E401
+
+    def chunk(tag: bytes, data: bytes) -> bytes:
+        return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF)
+    raw = b"\x00" + bytes(rgb)
+    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", 1, 1, 8, 2, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress(raw, 9)) + chunk(b"IEND", b""))
+
+
+VISION_PNG = _png_1px()
+
+
+def vision_asked(show) -> "tuple[bool, str]":
+    """(ask it?, why not): /api/show listing no vision (and no projector) or an embedding model: not asked."""
+    s = show if isinstance(show, dict) else {}
+    caps = [str(c).lower() for c in s.get("capabilities") or []] if isinstance(s.get("capabilities"), list) else None
+    if s.get("projector_info"):
+        return True, ""
+    if caps and "embedding" in caps and "completion" not in caps:
+        return False, "an embedding model: not asked"
+    if caps and "vision" not in caps:
+        return False, "/api/show capabilities list no vision: not asked (declared no)"
+    return True, ""
+
+
+def vision_body(model: str, *, num_ctx: int, keep_alive, cap: Optional[int] = None) -> dict:
+    import base64
+    return {"model": model, "stream": False, "keep_alive": keep_alive,
+            "messages": [{"role": "user", "content": VISION_ASK, "images": [base64.b64encode(VISION_PNG).decode("ascii")]}],
+            "options": {"num_ctx": num_ctx, "temperature": 0, "num_predict": cap or VISION_PREDICT}}
+
+
+def score_vision(reply) -> "tuple[str, str]":
+    """(yes | no | unverified, why) from the image turn's answer (an `error` key: what the server said)."""
+    r = reply if isinstance(reply, dict) else {}
+    err = str(r.get("error") or "")
+    if err:
+        if _IMAGE_ERR.search(err):
+            return "no", f"the server refused the image: {err[:120]}"
+        return "unverified", f"the image call failed: {err[:120]}"
+    content = parts(r)[0].strip()
+    if not content:
+        return "unverified", "an empty reply" + (" (it answered in thinking)" if parts(r)[1].strip() else "")
+    words = re.findall(r"[a-z]+", content.lower())
+    if any(w in _COLOUR_WORDS for w in words[:6]):
+        return "yes", f"answered {content[:24]!r} ({VISION_COLOUR}: right)"
+    if _NO_EYES.search(content):
+        return "no", f"it said it cannot see the image ({content[:60]!r})"
+    return "unverified", f"answered {content[:24]!r} (right: {VISION_COLOUR})"
+
+
+def vision_turn(call, model: str, show, *, num_ctx: int, keep_alive, ev: dict) -> "tuple[str, str]":
+    """`call(body) -> reply` sends the one `/api/chat` (a thinking-only answer re-asked at THINK_CAP)."""
+    ask, why = vision_asked(show)
+    if not ask:
+        ev["vision"] = {"skipped": why}
+        return "not asked", why
+    reply = call(vision_body(model, num_ctx=num_ctx, keep_alive=keep_alive))
+    first = None
+    if isinstance(reply, dict) and thinking_only(reply):
+        first, reply = reply, call(vision_body(model, num_ctx=num_ctx, keep_alive=keep_alive, cap=THINK_CAP))
+    reply = reply if isinstance(reply, dict) else {"error": "no answer"}
+    ev["vision"] = {**evidence(reply, retried=first), **({"error": str(reply["error"])[:200]} if reply.get("error") else {})}
+    return score_vision(reply)

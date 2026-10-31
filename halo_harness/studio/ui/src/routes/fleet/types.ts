@@ -37,6 +37,9 @@ export type Pending = Partial<Record<"permission" | "question" | "plan" | "appro
 export type Composition = { system: number; memory: number; topic_index: number; tools_schema: number; history: number; user: number; total: number };
 /** 3.3.5.0 R4: a preflight card waiting for an answer (agent/preflight.py). */
 export type Preflight = { id: string; line: string; switch_to?: string | null; default?: string };
+/** 3.3.6.0 R6: the eyes offer waiting for an answer (agent/eyes_offer.py): the line and the three choices. */
+export type EyesPending = { id: string; line: string; default?: string;
+  choices: { id: "lane" | "describe" | "send"; label: string; what: string; disabled?: boolean }[] };
 
 export type Project = { root?: string | null; repo?: string | null; branch?: string | null; dirty?: boolean | null };
 
@@ -72,6 +75,7 @@ export type SessionRow = {
   /** 3.3.5.0 R4: the last request's composition, and a preflight card waiting for an answer. */
   composition?: Composition | null;
   preflight?: Preflight | null;
+  eyes?: EyesPending | null;
   /** 3.0.6.0: a `mission-worker` session's mission id and part number. */
   mission?: string | null;
   part?: string | number | null;

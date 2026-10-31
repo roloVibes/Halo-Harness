@@ -97,6 +97,35 @@ def _message(handle, req: dict) -> dict:
     return {"delivered": True, "by": by}
 
 
+def _images(handle, req: dict):
+    """`image_path` (a file Studio wrote in the session's images folder) or `image` {media_type, data_b64} -> the
+    WIRE block list the TUI's paste builds (agent/image_attach); `eyes_choice` rides on it to the offer."""
+    path, inline = _str(req, "image_path"), req.get("image")
+    if not path and not isinstance(inline, dict):
+        return None
+    from halo_harness.agent import image_attach
+    from halo_harness.tools.imageutil import sniff_media_type
+    try:
+        if path:
+            block = image_attach.image_block_from_path(path)
+        else:
+            import base64
+            block = image_attach.image_block_from_bytes(base64.b64decode(str(inline.get("data_b64") or "")),
+                                                        str(inline.get("media_type") or "image/png"),
+                                                        image_attach.attachments_dir_for_session(handle.session))
+    except (OSError, ValueError, image_attach.ImageTooLarge) as e:
+        raise HandleError(f"the image could not be read: {e}")
+    if not sniff_media_type(base64_bytes(block)):
+        raise HandleError("the image is not a png, jpeg, gif or webp")
+    choice = _str(req, "eyes_choice")
+    return [{**block, **({"eyes_choice": choice} if choice in ("lane", "describe", "send") else {})}]
+
+
+def base64_bytes(block: dict) -> bytes:
+    import base64
+    return base64.b64decode(((block.get("source") or {}).get("data")) or "")
+
+
 def run_cmd(handle, req: dict, conn) -> Any:
     """Execute one request; `conn` offers `start_feed(kinds)` / `stop_feed()`."""
     cmd = req.get("cmd")
@@ -105,7 +134,8 @@ def run_cmd(handle, req: dict, conn) -> Any:
     if cmd == "status":
         return handle.status()
     if cmd in ("submit", "steer"):
-        return handle.submit(_str(req, "text"))
+        images = _images(handle, req)  # 3.3.6.0 R6: a steer may carry one image (Studio's paste, its screenshot)
+        return handle.submit(_str(req, "text"), images=images) if images else handle.submit(_str(req, "text"))
     if cmd == "interrupt":
         return handle.interrupt()
     if cmd == "answer":
