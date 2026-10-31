@@ -162,6 +162,19 @@ class HostRig:
             return HostClient(store.hosts()[-1], self.key, self.peer_id)
         return for_host(pc_host())
 
+    def audited(self, n: int, timeout: float = 5.0) -> int:
+        """Wait until the host's audit holds at least `n` lines and return the count. The host writes a request's
+        audit line after it answered (http._audited's finally), so a test that reads the file straight after a
+        reply can be ahead of the server thread -- the Windows runner showed it on 3.3.7.0 R1 (41220929419)."""
+        import time
+        from halo_harness.host.state import read_audit
+        deadline = time.monotonic() + timeout
+        while True:
+            k = len(read_audit(self.home, limit=100000))
+            if k >= n or time.monotonic() > deadline:
+                return k
+            time.sleep(0.02)
+
     def __enter__(self) -> "HostRig":
         return self
 
