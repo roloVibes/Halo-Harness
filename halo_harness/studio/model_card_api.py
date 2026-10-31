@@ -35,7 +35,8 @@ def view(card: dict, meter: Optional[dict]) -> dict:
     w = card.get("window") or {}
     return {"card": {"chips": chips(card), "how": list(card.get("how") or []), "fit_for": dict(card.get("fit_for") or {}),
                      "fit_why": dict(card.get("fit_why") or {}), "purpose": card.get("purpose"),
-                     "thinks": card.get("thinks"), "tools": card.get("tools"), "vision": bool(card.get("vision")),
+                     "thinks": card.get("thinks"), "tools": card.get("tools"), "vision": card.get("vision"),
+                     "vision_truth": card.get("vision_truth"),  # 3.3.6.0 R6: True | False | None, its truth
                      "kind": card.get("kind"), "embedding_only": bool(card.get("embedding_only")),
                      "window": {"tokens": w.get("tokens"), "source": w.get("source")},
                      "quirks": list(card.get("quirks") or []), "blocks": card.get("blocks") or {},  # 3.3.6.0 R1

@@ -23,9 +23,12 @@ export function focusSteer(where: SteerWhere = "agent"): void {
   fleet.update((s) => ({ steerFocus: s.steerFocus + 1 }));
 }
 
-type Props = { k: string; disabled: boolean; why?: string; where?: SteerWhere; head?: ReactNode; extra?: ReactNode };
+// 3.3.6.0 R6: `send` takes the steer instead (Session's Live box with an image attached: session/steerImage.ts);
+// it answers null when it has nothing to add and the plain steer goes as before
+type Props = { k: string; disabled: boolean; why?: string; where?: SteerWhere; head?: ReactNode; extra?: ReactNode;
+  send?: (text: string, mode: "nudge" | "redirect") => Promise<boolean> | null };
 
-export function Steer({ k, disabled, why, where = "agent", head, extra }: Props) {
+export function Steer({ k, disabled, why, where = "agent", head, extra, send: sendVia }: Props) {
   const [text, setText] = useState("");
   const [mode, setMode] = useState<"nudge" | "redirect">("nudge");
   const [busy, setBusy] = useState(false);
@@ -47,7 +50,7 @@ export function Steer({ k, disabled, why, where = "agent", head, extra }: Props)
   const send = async () => {
     if (!text.trim() || busy) return;
     setBusy(true);
-    const ok = await steer(k, text, mode);
+    const ok = await (sendVia?.(text, mode) ?? steer(k, text, mode));
     setBusy(false);
     if (ok) setText("");
   };

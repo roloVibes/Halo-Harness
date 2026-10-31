@@ -57,7 +57,7 @@ def test_every_probe_on_every_scripted_model(ctx: Ctx):
             got = tuple(p.get(k) for k in KEYS)
             ctx.check(f"{name}: {dict(zip(KEYS, want))}, got {dict(zip(KEYS, got))}", got == want)
             ctx.check(f"{name}: the evidence keeps every probe's answer, got {sorted(p['evidence'])}",
-                      sorted(p["evidence"]) == sorted(["warmup", "tools", "system", "instruction", "json", "reference", "multitool"]))
+                      sorted(p["evidence"]) == sorted(["warmup", "tools", "system", "instruction", "json", "reference", "multitool", "vision"]))
             for k in ("window", "kv_per_token", "size_gb", "speed", "resident", "quirks", "probed_at", "digest",
                       "ollama_version", "probe_set", "output_why", "chips"):
                 ctx.check(f"{name}: the profile has {k}", k in p)
@@ -156,9 +156,10 @@ def test_halo_models_probe_and_the_fit(ctx: Ctx):
         lines = buf.getvalue().splitlines()
         ctx.check(f"exit 0, got {rc}", rc == 0)
         ctx.check(f"the cost line first, got {lines[:1]}",
-                  lines[0] == "about 8 requests to bt-coder:30b on fake, 1-3 minutes, no cost; it loads the model")
-        ctx.check(f"one line per probe, got {lines[1:7]}", [x.strip()[:4] for x in lines[1:8]] == [f"{i}/7 " for i in range(1, 8)])
-        ctx.check(f"the profile and the blocks, got {lines[8:]}", "where it sits: full agent" in buf.getvalue()
+                  lines[0] == "about 9 requests to bt-coder:30b on fake (one 1 px image, one tiny call, for the eyes), "
+                  "1-3 minutes, no cost; it loads the model")
+        ctx.check(f"one line per probe, got {lines[1:9]}", [x.strip()[:4] for x in lines[1:9]] == [f"{i}/8 " for i in range(1, 9)])
+        ctx.check(f"the profile and the blocks, got {lines[9:]}", "where it sits: full agent" in buf.getvalue()
                   and "use it for:" in buf.getvalue() and "limits:" in buf.getvalue())
         p = rig.cache()["sha256:bt-coder-30b"]["battery"]["fake"]
         ctx.check(f"the usable window from the card, got {p['window']}", isinstance(p["window"]["usable"], int)

@@ -279,3 +279,12 @@ and `isolation/Dockerfile` the worker image.
   `studio/local_tune_api.py` (the tuning report and the changes' routes) and `ui/src/routes/local/` `BenchPage.tsx`,
   `BenchTable.tsx`, `TuneReport.tsx`, `ChangesList.tsx`, `BenchBits.tsx`, `benchstore.ts`, `ui/src/routes/shared/`
   `ScopePick.tsx`, `KvApply.tsx`, `ui/src/routes/settings/LocalBlock.tsx`, `ui/src/styles/local-bench.css`.
+- Eyes: the screenshot tool and which models can see (3.3.6.0 R6, docs/MODELS-vision.md; docs/COMMANDS-main-io.md
+  "The eyes offer"; docs/STUDIO-session.md "The steer's image and the Screenshot button"): `providers/vision_fact.py`
+  (one vision fact with its truth, read by the card, the search, placement, the measured card and the chip),
+  `providers/battery_probes.py` `vision_turn` (the battery's one-image probe), `tools/screenshot.py` (the Screenshot
+  tool, `/screenshot`'s capture), `tools/screenshot_capture.py` (the per-OS capture behind the runner seam),
+  `agent/eyes_offer.py` (the fact for the session's model, the visual lane, the describer, the three choices, the
+  card), `agent/eyes_turn.py` (what the choice does to the turn; the Screenshot tool's lines), `tui/widgets/eyes_card.py`
+  (the TUI's menu), `studio/session_eyes_api.py` (the steer's image, the screenshot command, `GET sessions/<sid>/eyes`)
+  and `ui/src/routes/shared/EyeChip.tsx`, `ui/src/routes/session/` `steerImage.ts`, `LiveImage.tsx`.

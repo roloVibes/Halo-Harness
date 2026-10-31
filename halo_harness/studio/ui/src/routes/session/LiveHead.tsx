@@ -7,12 +7,15 @@
 // picks are the Activity log's `.fac-pick` selects. 3.3.0.0 R6: Follow shows
 // whether the column follows now (off while you compose in the Steer field),
 // and Export downloads the session's trace (TraceExport.tsx).
+// 3.3.6.0 R6: Screenshot captures the display of the machine the session's harness runs on and attaches it to the
+// next steer (steerImage.ts): from a Mac or Kali driving this Studio, it is this PC's screen.
 import { Button, Icon } from "../../lib/ui";
 import { short } from "../orchestra/format";
-import { fleet, findAgent } from "../fleet/store";
+import { fleet, findAgent, useFleet } from "../fleet/store";
 import type { LiveKind, LiveLine } from "../shared/liveFeed";
 import { pinTo, useStripAgents } from "./steer";
-import { sess, useSession } from "./store";
+import { takeScreenshot, useSteerImage } from "./steerImage";
+import { chosenSession, sess, useSession } from "./store";
 import { TraceExport } from "./TraceExport";
 
 /** The kind pick's choices: value, label, the line kinds it keeps. */
@@ -59,6 +62,20 @@ function KindPick() {
   );
 }
 
+function ShotButton() {
+  const ss = useFleet(chosenSession);
+  const hid = useFleet((s) => s.scope.harness || "local");
+  const busy = useSteerImage((s) => s.busy);
+  return (
+    <Button size="sm" variant="ghost" icon={<Icon name="eye" />} disabled={!ss || busy} data-testid="session-live-screenshot"
+            onClick={() => ss && void takeScreenshot(hid, ss.session_id, ss.model)}
+            title={!ss ? "No session to attach a screenshot to" : "Capture the screen of the machine this session's harness runs on (a Mac " +
+              "or Kali driving this Studio captures this PC's screen) and attach it to your next steer"}>
+      {busy ? "Capturing..." : "Screenshot"}
+    </Button>
+  );
+}
+
 export function LiveHead({ working, count, onFollow, following }: { working: number; count: number; onFollow: () => void; following: boolean }) {
   const pin = useSession((s) => s.pin);
   const follow = following;
@@ -82,6 +99,7 @@ export function LiveHead({ working, count, onFollow, following }: { working: num
                 onClick={onFollow} title="Keep the newest line in view; scrolling up pauses it">
           Follow
         </Button>
+        <ShotButton />
         <TraceExport where="head" />
       </div>
     </header>

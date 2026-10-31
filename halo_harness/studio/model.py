@@ -110,6 +110,9 @@ def model_rows(state_dir=None, cwd=None, *, cached: bool = False) -> list:
             "effort_word": effort_row_word(ref, row),  # 3.3.5.0 R0 (e): think on/off, effort n/a, or "" (cloud)
             **row_view(ref, row, state_dir, read_hardware=not cached, host_cards=host_cards),  # card, fit
         })
+        card = rows[-1].get("card") or {}  # 3.3.6.0 R6: the vision fact on the row itself (Settings' model row, the picker)
+        rows[-1]["vision"] = {"value": card.get("vision"), "truth": card.get("vision_truth"),
+                              "source": (card.get("sources") or {}).get("vision")}
     return rows
 
 

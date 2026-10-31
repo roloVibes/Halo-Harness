@@ -191,9 +191,9 @@ parity; the TUI's own equivalent is Ctrl+V/Shift+Insert (a real clipboard
 image), `/paste <path>`, or dropping a path into the prompt. A path that
 doesn't exist, or isn't one of those five extensions, is a clean
 `halo: ...` stderr line and exit 2, never a provider error partway
-through the turn. A model whose catalog row says it has no vision gets
-one notice instead and the turn still runs, with the saved path
-mentioned in place of the image.
+through the turn. A model that cannot see gets the eyes offer instead
+(below): with nobody to ask in `-p`, the visual lane when one is set,
+else the text alone with the saved path mentioned in place of the image.
 
 ```sh
 halo -p --image ./screenshot.png "what's in this image?"
@@ -204,3 +204,36 @@ What: forces the plain type/size/dimensions caption for every image tool
 result this run, same as `images: "caption"` in `~/.halo/config.json`
 but scoped to one invocation (TUI only -- print mode has no inline-image
 concept to disable).
+
+### Screenshots and pasted images (Halo 3.3.6.0)
+
+An image reaches a session five ways: Ctrl+V / Shift+Insert (a real clipboard image), `/paste <path>`, dropping a
+path, `--image PATH` with `-p`, and `/screenshot [window <title> | region x,y,w,h | display <n>]` (one capture of
+this machine's display, attached to the next prompt). Studio's Session steer takes one too: Ctrl+V with an image or
+a file dropped on the Live steer box becomes a chip under it (its name, w x h and size, 5 MB at most), and the
+Screenshot button in the Live header attaches the harness's own capture
+([STUDIO-session.md](STUDIO-session.md#the-steers-image-and-the-screenshot-button)). The model itself can call the
+Screenshot tool (`target: screen | window | region`): a model that sees gets the image, one that cannot gets the
+file's path, its size and the ways on. Every capture is saved in `~/.halo/attachments/<session-id>/`, and the
+session log keeps an image's path, never its bytes.
+
+### The eyes offer
+
+Before an image is shared with a model that cannot see it (its vision fact says no, or a local model nothing says
+sees -- [MODELS-vision.md](MODELS-vision.md)), the turn says so in one line -- "ol:qwen3-coder:30b@lab cannot see
+images (declared: /api/show capabilities: no vision)" -- and offers three ways on, each with what it does, costs
+and writes:
+
+```text
+[1] this turn on the visual lane: ol:qwen2.5vl:7b@lab   switches this turn to it (roles.visual), back after it;
+                                                         local, no cost; loads qwen2.5vl:7b if it is not loaded, ~12 s
+[2] let ol:qwen2.5vl:7b@lab describe it                  one call writes what the image shows into the turn as text
+[3] send the text without it                             no extra call; the image rides as its path
+```
+
+The TUI shows them as a menu (Enter takes the first that can run, Esc the text alone); Studio shows them as
+buttons on the steer's image chip, and on a running turn's card in the Live column. With nobody to ask (`-p`, no
+TTY, a sub-agent) the visual lane wins when one is set, else the concierge's description when `roles.concierge`
+sees, else the text alone. The choice is one rung of the degradation ladder ("eyes", the turn's ledger line
+carries it). A cloud model the catalog says nothing about is sent the image (cloud catalogs state their
+modalities). Set a visual lane with `halo config set roles.visual <a model that sees>`; `halo models --vision` lists them.

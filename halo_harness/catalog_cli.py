@@ -290,7 +290,14 @@ def cmd_models(argv) -> int:
     parser.add_argument("--cards", action="store_true",  # 3.3.5.0 R0b (model_card_cli.py)
                          help="One line per model from its card: think, tools, vision, purpose, window, the roles it "
                               "can hold and its fit here (`halo models show <ref>` prints one card in full)")
+    parser.add_argument("--vision", action="store_true",  # 3.3.6.0 R6 (model_card_cli.py, providers/vision_fact.py)
+                         help="The models that can see images, each with its truth (verified by the battery's image "
+                              "probe, declared by the server or catalog, expected from the family)")
     args = parser.parse_args(argv)
+    if args.vision:
+        load_provider_env_files()
+        from halo_harness.model_card_cli import cmd_models_vision
+        return cmd_models_vision(as_json=args.json)
     if args.cards:
         load_provider_env_files()
         from halo_harness.model_card_cli import cmd_models_cards

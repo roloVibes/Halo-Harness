@@ -120,3 +120,17 @@ lines). The same answer comes from `/why [turn]` in the TUI and `halo session po
 `session_trace_cli.py` (`halo session export`), `studio/sessions_api.py`
 (the route), `studio/postmortem_api.py` (Why this answer?). Tests: `tests/test_postmortem.py`, `tests/test_session_trace.py`,
 `tests/test_studio_session_target.py` (headless Chrome).
+
+## The steer's image and the Screenshot button
+
+(3.3.6.0 R6.) Ctrl+V with an image on the clipboard, or an image file dropped on the Live column's Steer box, becomes a
+chip under it: the file name, its width x height and size, and a remove button; one image per steer, 5 MB at most.
+Send posts the steer with it (`fleet/<harness>/<sid>/command {cmd: steer, text, image: {media_type, data_b64}}`):
+Studio writes the PNG to the session's images folder and the control socket's steer carries its path; the session
+builds the same blocks the TUI's paste builds, its log keeps `image_path` only, and a steer sent while the turn works
+lands at the steer's safe point. The **Screenshot** button in the Live header captures the screen of the machine the
+session's harness runs on (a Mac or Kali driving this Studio captures this PC's screen, as its title says) and puts
+the capture on the chip for the next steer. When the session's model cannot see, the chip carries the eyes offer's
+line and its three buttons (Visual lane, Describe it, Text only; the one picked rides with the steer); a running
+turn's own eyes card shows the same three above the target line. Typing a whole new prompt from Studio is the
+composer of 3.3.9.0; this round's image rides the steer.

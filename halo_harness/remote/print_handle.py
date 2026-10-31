@@ -71,7 +71,7 @@ class PrintModeHandle(_BaseHandle):
         text = (text or "").strip()
         if not text:
             raise HandleError("empty prompt")
-        if self.session.busy and self.session.steer(text):
+        if self.session.busy and (self.session.steer(text, images=images) if images else self.session.steer(text)):  # R6
             return {"steered": True, "queued": False}
         if self.input_queue is None:
             raise HandleError("this print-mode run takes one prompt and has no input queue "

@@ -1,6 +1,7 @@
 """halo_harness.model_card_cli -- Halo 3.3.5.0 R0b: `halo models show <ref>`
 (the model card: what the model is, its fit here, how Halo will call it, the
-roles it can hold) and `halo models --cards` (one line per model).
+roles it can hold), `halo models --cards` (one line per model) and, 3.3.6.0 R6, `halo models --vision` (the
+models that can see, with the truth).
 
 `show` reads the model's host the way `halo local` does (an Ollama host's
 `/api/tags` + `/api/show`, the tool-call probe's cache file) and the host's
@@ -108,20 +109,12 @@ def show_lines(got: Optional[dict]) -> list:
     return lines
 
 
-def cmd_models_cards(*, as_json: bool = False) -> int:
-    """`halo models --cards`: one line per model, local ones first."""
-    from halo_harness.config.paths import bridge_home
+def all_cards(state_dir) -> list:
+    """[(card, meter)] for every catalog row, local ones first (`--cards`, `--vision`); raises when the catalog fails."""
     from halo_harness.providers.fit_meter import fit_meter, host_card_of
     from halo_harness.providers.model_card import card_of, parse_ref
-    from halo_harness.providers.model_card_words import card_line
     from halo_harness.studio.model import catalog_rows
-    state_dir = bridge_home()
-    try:
-        rows = catalog_rows(state_dir)
-    except Exception as e:
-        print(f"halo models --cards: could not read the catalog: {e}", file=sys.stderr)
-        return 1
-    rows = sorted(rows, key=lambda r: (not r.get("local"), str(r.get("ref"))))
+    rows = sorted(catalog_rows(state_dir), key=lambda r: (not r.get("local"), str(r.get("ref"))))
     out = []
     for row in rows:
         ref = parse_ref(str(row["ref"]))
@@ -130,8 +123,19 @@ def cmd_models_cards(*, as_json: bool = False) -> int:
             catalog, host = _catalog_for(ref, state_dir)
         card = card_of(ref, state_dir=state_dir, catalog=catalog if ref.provider == "ollama" else row, host=host,
                        host_card=host_card_of(host) if host is not None else None)
-        meter = fit_meter(card, host_card_of(host) if host is not None else None)
-        out.append((card, meter))
+        out.append((card, fit_meter(card, host_card_of(host) if host is not None else None)))
+    return out
+
+
+def cmd_models_cards(*, as_json: bool = False) -> int:
+    """`halo models --cards`: one line per model, local ones first."""
+    from halo_harness.config.paths import bridge_home
+    from halo_harness.providers.model_card_words import card_line
+    try:
+        out = all_cards(bridge_home())
+    except Exception as e:
+        print(f"halo models --cards: could not read the catalog: {e}", file=sys.stderr)
+        return 1
     if as_json:
         print(json.dumps([_public(c, m) for c, m in out], indent=2, default=str))
         return 0
@@ -139,4 +143,28 @@ def cmd_models_cards(*, as_json: bool = False) -> int:
         print(card_line(card, meter))
     local = sum(1 for c, _m in out if c.get("kind") != "cloud")
     print(f"{len(out)} models ({local} local); halo models show <ref> prints one card in full")
+    return 0
+
+
+def cmd_models_vision(*, as_json: bool = False) -> int:
+    """3.3.6.0 R6: `halo models --vision`: the models that can see, each with its truth and source
+    (providers/vision_fact.py), then how many say nothing (the probe settles a local one)."""
+    from halo_harness.config.paths import bridge_home
+    try:
+        out = all_cards(bridge_home())
+    except Exception as e:
+        print(f"halo models --vision: could not read the catalog: {e}", file=sys.stderr)
+        return 1
+    rows = [{"ref": c.get("ref"), "vision": c.get("vision"), "truth": c.get("vision_truth"),
+             "source": (c.get("sources") or {}).get("vision"), "kind": c.get("kind")} for c, _m in out]
+    sees = [r for r in rows if r["vision"] is True]
+    unknown = [r for r in rows if r["vision"] is None]
+    if as_json:
+        print(json.dumps({"sees": sees, "unknown": unknown}, indent=2, default=str))
+        return 0
+    for r in sees:
+        print(f"{r['ref']}: sees ({r['truth']}: {r['source']})")
+    local = [r for r in unknown if r["kind"] != "cloud"]
+    print(f"{len(sees)} of {len(rows)} models can see images" + (
+        f"; {len(unknown)} say nothing ({len(local)} local: halo models probe <ref> settles it)" if unknown else ""))
     return 0

@@ -363,10 +363,11 @@ halo models probe --all [--host H] [--force] [--json]    # every chat model on t
 ```
 
 The capability battery on a local model, where its GPU is ([MODELS-cards.md](MODELS-cards.md#the-profile-what-the-battery-measured-3360)).
-The first line is the cost -- "about 8 requests to <model> on <host>, 1-3 minutes, no cost; it loads the model" --
-then one line per probe (`1/6 warm-up (never timed)`, `2/6 tool call`, `3/6 system role`, `4/6 user instruction`,
-`5/6 structured output`, `6/6 reference fidelity`), then the profile: tools, system role, instruction, output,
-thinking, ids, tok/s; agentic-ready and interactive; each quirk; where it sits, use it for, don't use it for, the
+The first line is the cost -- "about 9 requests to <model> on <host> (one 1 px image, one tiny call, for the eyes), 1-3 minutes, no cost; it loads the model" --
+then one line per probe (`1/8 warm-up (never timed)`, `2/8 tool call`, `3/8 system role`, `4/8 user instruction`,
+`5/8 structured output`, `6/8 reference fidelity`, `7/8 two tools in order`, `8/8 one 1 px image (can it see?)` --
+3.3.6.0 R6, not sent to a model /api/show says cannot see), then the profile: tools, system role, instruction, output,
+thinking, ids, sees / no eyes, tok/s; agentic-ready and interactive; each quirk; where it sits, use it for, don't use it for, the
 limits; and what it changed (a thinking model's reply reserve in `ollama.profiles`). A model whose digest, Ollama
 version and probe set match a kept profile answers from it at once ("cached, probed <date>"); `--force` runs it
 again. `--json` prints the profile (with every probe's raw answer in `evidence`). Exit 1 when the host or the model is

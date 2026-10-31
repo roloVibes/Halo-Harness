@@ -3,8 +3,9 @@
 
     GET  sessions                 [{session_id, title, cwd, mode, kind, started, pid, harness, project, parent,
                                     status, busy, pending, model, agents, status_age_s}]
-    POST sessions/<sid>/command {cmd: answer|interrupt|steer|submit|shutdown|pause|resume|note, kind?, request_id?,
-                                 action?, instruction?, text?, reason?, agent_id?, ...}
+    POST sessions/<sid>/command {cmd: answer|interrupt|steer|submit|shutdown|pause|resume|note|screenshot, kind?,
+                                 request_id?, action?, instruction?, text?, reason?, agent_id?, image?, eyes?, ...}
+                                  (3.3.6.0 R6: a steer's image and the screenshot, studio/session_eyes_api.py)
                                   -> {ok, result}; 404 for a session not in the registry, 502 with the socket's error
     sessions/<sid>/agents...      the agent tree, one agent's tail and its commands (studio/fleet_api.py, 3.0.5.0)
     GET  sessions/<sid>/trace.md  the session as one Markdown trace (3.3.0.0 R6: session_trace.py), text/markdown
@@ -33,7 +34,8 @@ STATUS_TIMEOUT_S = 1.0
 STATUS_WAIT_S = 1.5
 STATUS_TTL_S = 2.0
 COMMAND_TIMEOUT_S = 5.0
-COMMANDS = ("answer", "interrupt", "steer", "submit", "shutdown", "pause", "resume", "note")  # note: 3.0.5.0 R4
+COMMANDS = ("answer", "interrupt", "steer", "submit", "shutdown", "pause", "resume", "note",  # note: 3.0.5.0 R4
+            "screenshot")  # 3.3.6.0 R6: a capture for the next steer (studio/session_eyes_api.py)
 FLEET_COMMANDS = ("shutdown", "pause", "resume")  # 3.0.5.0: sent with by = fleet.name, via = Studio
 ANSWER_FIELDS = ("kind", "request_id", "action", "instruction", "scope", "message", "rule", "answer", "approved",
                  "feedback", "mode_after")
@@ -129,11 +131,17 @@ def post_command(req):
     entry = next((e for e in _list_live() if e.get("session_id") == sid), None)
     if entry is None:
         return 404, {"error": f"no live session {sid!r}"}
+    from halo_harness.studio import session_eyes_api as eyes  # 3.3.6.0 R6: the steer's image, the screenshot
+    if cmd == "screenshot":
+        return eyes.screenshot(sid, req.body)
     fields = {}
     if cmd == "answer":
         fields = {k: req.body[k] for k in ANSWER_FIELDS if k in req.body}
     elif cmd in ("steer", "submit"):
-        fields = {"text": str(req.body.get("text") or "")}
+        status, image = eyes.image_fields(sid, req.body)
+        if status != 200:
+            return status, image
+        fields = {"text": str(req.body.get("text") or ""), **image}
     elif cmd == "note":  # 3.0.5.0 R4: Fleet's Message, a line the owner reads (remote/protocol.py `_message`)
         from halo_harness.studio.fleet_api import caller
         fields = {"name": "fleet.message", "text": str(req.body.get("text") or ""), "by": caller()["by"]}
@@ -173,6 +181,8 @@ from halo_harness.studio.fleet_api import ROUTES as _FLEET_ROUTES  # noqa: E402 
 ROUTES[len(ROUTES):] = _FLEET_ROUTES
 from halo_harness.studio.postmortem_api import ROUTES as _WHY_ROUTES  # noqa: E402  (3.3.6.0 R4: Why this answer?)
 ROUTES[len(ROUTES):] = _WHY_ROUTES
+from halo_harness.studio.session_eyes_api import ROUTES as _EYES_ROUTES  # noqa: E402  (3.3.6.0 R6: the chip's offer)
+ROUTES[len(ROUTES):] = _EYES_ROUTES
 
 
 def dispatch_sessions(req):

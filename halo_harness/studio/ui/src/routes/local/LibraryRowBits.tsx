@@ -79,7 +79,7 @@ export function VerifyBits({ row }: { row: LibRow }) {
     <>
       {(!job || job.done) && !(job && job.ok) && (
         <Button size="sm" variant={here ? "default" : "primary"} disabled={!host} onClick={() => void startVerify(host, target, role)}
-                data-testid="local-library-verify" title={`pull ${target} onto ${host || "the host"}, run the battery on it (about 8 requests, 1-3 minutes), `
+                data-testid="local-library-verify" title={`pull ${target} onto ${host || "the host"}, run the battery on it (about 9 requests, one of them a 1 px image, 1-3 minutes), `
                   + `write its profile${role ? `, then offer it the ${role} role` : ""}; nothing downloads until you press it`}>
           {here ? "Verify" : "Download and verify"}
         </Button>

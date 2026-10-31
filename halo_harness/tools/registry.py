@@ -31,6 +31,7 @@ from halo_harness.tools.media import MediaTool
 from halo_harness.tools.notebook_edit import NotebookEditTool
 from halo_harness.tools.orchestra_claims import orchestra_tools
 from halo_harness.tools.read import ReadTool
+from halo_harness.tools.screenshot import ScreenshotTool
 from halo_harness.tools.skill import SkillTool
 from halo_harness.tools.task_board import TaskCreateTool, TaskListTool, TaskUpdateTool
 from halo_harness.tools.task_stop import TaskStopTool
@@ -88,6 +89,7 @@ def default_tools() -> list:
         # Halo 2.0.7 round 0e: the one deterministic media-ingestion tool
         # (ffmpeg frames / ffprobe metadata) behind the media agent.
         MediaTool(),
+        ScreenshotTool(),  # 3.3.6.0 R6: one capture of this machine's display (tools/screenshot_capture.py)
         NotebookEditTool(), ReadTool(), SkillTool(),
         # Halo 2.0.2 round 3 (brief C item 3): the shared task board.
         TaskCreateTool(), TaskListTool(), TaskStopTool(), TaskTool(), TaskUpdateTool(), TodoWriteTool(),
