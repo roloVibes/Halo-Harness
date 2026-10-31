@@ -1,5 +1,5 @@
-// Local's framed pages (3.3.5.0 R1): Hugging Face, Benchmarks and Steward,
-// the rounds after R2 fill them (Library is built: LibraryPage.tsx) (plans/ROADMAP.md, the 3.3.5.0 entry).
+// Local's framed pages (3.3.5.0 R1): Benchmarks and Steward, the rounds after R5 fill them (Library and Hugging
+// Face are built: LibraryPage.tsx, HfPage.tsx) (plans/ROADMAP.md, the 3.3.5.0 entry).
 // Each says in one paragraph what it will hold and lists the commands that do
 // that work today, each one copyable; Steward also shows the steward job's
 // status line and its last note (the Ollama panel's steward block, read the
@@ -12,16 +12,6 @@ import type { PageId } from "./pages";
 type Frame = { round: string; holds: string; cli: [string, string][] };
 
 export const FRAMES: Partial<Record<PageId, Frame>> = {
-  huggingface: {
-    round: "R4",
-    holds: "Hugging Face local models, controlled: download a GGUF or MLX repo into a huggingface.model_dirs folder through " +
-      "the hub cache (progress, resume, the token for a gated repo, the licence first), what is on disk per folder with sizes " +
-      "and the fit badge, delete a download, start a local server for a model (llama-server or mlx_lm.server with the fit " +
-      "planner's window and layers), stop it, its health and the tail of its log.",
-    cli: [["halo local --terminal", "the merged local view: hosts, local servers, the hub cache, the model folders"],
-          ["halo local import <file.gguf>", "a GGUF file as an Ollama model"], ["halo local serve <model>", "start a local server"],
-          ["halo local stop", "stop it"]],
-  },
   benchmarks: {
     round: "R5",
     holds: "A short measured battery per model on this card -- load time, prompt and reply tokens per second at three " +

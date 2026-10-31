@@ -26,6 +26,11 @@ export type HostCard = {
   loaded: Loaded[]; card_lines: string[]; profiles: Record<string, { num_ctx?: number; num_predict?: number; keep_alive?: string | number; by?: string }>;
   users: { from: string | null; calls: number }[]; finding: string | null; findings: number;
   plan: { says: string; fits_now: boolean | null; chosen: PlanChoice | null } | null; models: string[]; controls: Controls;
+  managed?: Managed; // 3.3.5.0 R5: a server Halo started (source "managed server")
+};
+export type Managed = {
+  id: string; pid: number | null; port: number; model: string; model_path: string; flags: ServeFlags; sources: Record<string, string>;
+  ready: boolean; alive: boolean; keep: boolean; log: string; stop_cli: string; log_cli: string;
 };
 export type ModelEntry = {
   model: string; ref: string; card: CardView; fit: Fit; size: number | null;
@@ -47,6 +52,7 @@ export type LibRow = {
   pull_line: string; alt_line?: string; kind: string; key: string; sources: Record<string, string>; estimate?: boolean;
   card: CardView; fit: LibFit; intent: Record<string, number | null>;
   installed?: string[]; pull_target?: string; // 3.3.5.0 R3: the hosts that have it; what Pull asks for
+  on_disk?: string[]; // 3.3.5.0 R5: the model folders a hub row (or its file) is downloaded into
 };
 export type LibHost = { name: string; max_ctx: number | null; url: string };
 export type LibraryAnswer = {
@@ -61,6 +67,7 @@ export type PullJob = {
   job: string; host: string; name: string; status: string; digest: string | null; total: number | null; completed: number | null;
   percent: number | null; speed: number | null; eta: number | null; done: boolean; error: string | null; ok: boolean;
   cancelled: boolean; say: string; via: string; started: number; remote: boolean;
+  kind?: "pull" | "download"; repo?: string; file?: string; dir?: string; path?: string | null; // 3.3.5.0 R5
 };
 export type Uses = {
   ref: string; model: string; host: string; lineups: { name: string; role: string }[]; roles: string[]; compaction: boolean;
@@ -73,3 +80,20 @@ export type ShowAnswer = {
           details?: Record<string, unknown>; model_info?: Record<string, unknown>; modified_at?: string; system?: string } | null;
 };
 export type TwinPlan = { ok: boolean; dry?: boolean; twin: string; ref: string; window: number; layers: number; line: string; cost: string; cli: string; say?: string };
+// 3.3.5.0 R5: Hugging Face local (studio/local_hf_api.py, local_server_api.py, local_hf_view.py).
+export type ServeFlags = { window: number; ngl: number; parallel: number; kv_type: string | null; flash_attn: boolean; num_predict: number | null };
+export type HfServed = { id: string; port: number; ready: boolean; alive: boolean; kind: string; url: string };
+export type HfModel = {
+  key: string; path: string; dir: string; repo: string; file: string; model: string; kind: string; size: number; parts: number;
+  hub: boolean; quant: string; context: number | null; card: CardView; fit: LibFit; fits: Record<string, { level: string; why: string }>;
+  served: HfServed[]; ref: string | null; sources: Record<string, string>; cli: { serve: string; rm: string };
+};
+export type HfDir = { path: string; exists: boolean; size: number; models: HfModel[]; partial: { repo: string; bytes: number; files: number }[] };
+export type HfDirs = { dirs: HfDir[]; window: number; host: string | null; hosts: { name: string; card: boolean; here: boolean }[] };
+export type ServePlan = {
+  ok: boolean; dry?: boolean; runtime: string; model: string; flags: ServeFlags; sources: Record<string, string>; notes: string[];
+  host: string | null; layers: number | null; trained: number | null; argv: string[]; ref: string; cli: string;
+  id?: string; port?: number; url?: string; ready?: boolean; say?: string; log?: string;
+};
+export type Licence = { license: string; gated: boolean | string; line: string; prompt: string };
+export type DlPlan = { repo: string; file: string; kind: string; quant: string; total: number; commit: string; files: { name: string; size: number | null }[] };

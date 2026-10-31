@@ -1,0 +1,26 @@
+/* Local -> Hugging Face (3.3.5.0 R5): the model folders, a model on disk, the Serve / Delete / Log / Download cards,
+   and a server Halo started on its Hosts card. Colours from styles/tokens.css only. */
+.lc-hf { display: grid; gap: 10px; }
+.lc-hf-pick { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; font-size: 12px; }
+.lc-hf-pick select, .lc-hf-pick .input { min-width: 0; }
+.lc-hf-port { width: 7em; }
+.lc-hf-dir { display: grid; gap: 6px; }
+.lc-hf-dir-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; min-width: 0; }
+.lc-hf-dir-head .rail-label { overflow-wrap: anywhere; }
+.lc-hf-dir[data-exists="no"] .rail-label { color: var(--warn); }
+.lc-hf-row .lc-model-top > b { overflow-wrap: anywhere; min-width: 0; }
+.lc-hf-row [data-testid="local-hf-fit-host"][data-level="fits"] { color: var(--ok); }
+.lc-hf-row [data-testid="local-hf-fit-host"][data-level="tight"] { color: var(--warn); }
+.lc-hf-row [data-testid="local-hf-fit-host"][data-level="spill"], .lc-hf-row [data-testid="local-hf-fit-host"][data-level="no"] { color: var(--bad); }
+.lc-hf-go { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.lc-hf-log { margin: 0; max-height: 50vh; overflow: auto; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--bg-2); color: var(--text); font-size: 11.5px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.lc-act-body .lc-facts > div { grid-template-columns: minmax(120px, 180px) minmax(0, 1fr); }
+.lc-managed { display: grid; gap: 4px; font-size: 12px; }
+.lc-managed[data-alive="no"] { color: var(--muted); }
+.lc-managed[data-ready="no"][data-alive="yes"] [data-testid="local-host-flags"] { color: var(--warn); }
+
+@media (max-width: 760px) {
+  .lc-act-body .lc-facts > div { grid-template-columns: minmax(0, 1fr); }
+  .lc-hf-pick { gap: 6px; }
+}

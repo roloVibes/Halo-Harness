@@ -680,3 +680,7 @@ def stop_all_managed_servers_except_kept(state_dir=None) -> None:
         drop_registry_entries(state_dir, [(e.get("model"), e.get("pid")) for e in mine])
     except Exception:
         pass
+    # 3.3.5.0 R5: the servers Local -> Hugging Face starts (providers/local_server.py, rows with `halo: true`) stop
+    # with this process, and the ones whose starter has exited stop when no other Halo runs on this home.
+    from halo_harness.providers.local_server import exit_sweep
+    exit_sweep(state_dir)

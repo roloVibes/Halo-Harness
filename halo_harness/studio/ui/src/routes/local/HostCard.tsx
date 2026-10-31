@@ -6,10 +6,13 @@
 // steward's last finding; "Make it fit" (idea 4: the fit planner's chosen option
 // applied through steward/apply, Undo beside it). A discovered server has "Add to
 // hosts" (Setup's own writer). A control that cannot run from here is disabled
-// with the reason as its title and under it. Nothing here writes a server's settings.
+// with the reason as its title and under it. Nothing here writes a server's settings. 3.3.5.0 R5: a server Halo started
+// (Local -> Hugging Face) is a card of its own with its port, model, flags, Stop and Log; a local server Halo did not
+// start has Stop disabled, its title saying where it is stopped.
 import { useState } from "react";
 import { Button, FitMeter } from "../../lib/ui";
 import type { Fit } from "../../lib/ui/FitMeter";
+import { openLog, stopServer, useHf } from "./hfstore";
 import { addHost, gib, loadModel, makeItFit, undoFit, unloadModel, useLocal } from "./store";
 import type { HostCard as Host } from "./types";
 
@@ -48,6 +51,39 @@ function Fitting({ h }: { h: Host }) {
   );
 }
 
+function Managed({ h }: { h: Host }) {
+  const m = h.managed;
+  const busy = useHf((s) => s.busy);
+  const said = useHf((s) => s.said[`host|${h.name}`]);
+  if (h.source === "local server") {
+    return (
+      <div className="lc-model-acts">
+        <Button size="sm" disabled data-testid="local-host-stop" title={h.controls.why}>Stop</Button>
+      </div>
+    );
+  }
+  if (!m) return null;
+  const f = m.flags || ({} as NonNullable<Host["managed"]>["flags"]);
+  return (
+    <div className="lc-managed" data-testid="local-host-managed" data-alive={m.alive ? "yes" : "no"} data-ready={m.ready ? "yes" : "no"}>
+      <div className="mono" data-testid="local-host-managed-model" title={m.model_path}>{m.model} · port {m.port} · pid {m.pid ?? "?"}{m.keep ? " · keep" : ""}</div>
+      <div className="mono muted" data-testid="local-host-flags">
+        <span title={m.sources?.window || ""}>-c {f.window?.toLocaleString("en-US")}</span>{" "}
+        <span title={m.sources?.ngl || ""}>-ngl {f.ngl}</span>{" "}
+        <span title={m.sources?.parallel || ""}>-np {f.parallel}</span>
+        {f.kv_type ? <span title={m.sources?.kv_type || ""}> --cache-type-k/v {f.kv_type}</span> : null}
+        {" · "}{m.alive ? (m.ready ? "ready" : "loading") : "gone"}
+      </div>
+      <div className="lc-model-acts">
+        <Button size="sm" disabled={busy} onClick={() => void stopServer(m.id, `host|${h.name}`)} data-testid="local-host-stop"
+                title={`${m.stop_cli} (terminate, then kill after 10 s)`}>Stop</Button>
+        <Button size="sm" onClick={() => void openLog(m.id)} data-testid="local-host-log" title={m.log_cli}>Log</Button>
+        {said && <span className="mono lc-said" data-ok={said.ok || undefined} data-testid="local-host-stop-said">{said.text}</span>}
+      </div>
+    </div>
+  );
+}
+
 export function HostCard({ h, fits }: { h: Host; fits: Record<string, Fit> }) {
   const busy = useLocal((s) => s.busy);
   const [keep, setKeep] = useState("");
@@ -67,6 +103,7 @@ export function HostCard({ h, fits }: { h: Host; fits: Record<string, Fit> }) {
         <span className="mono muted" data-testid="local-host-served">{h.served_here ? "served here" : h.served_by ? `served by ${h.served_by}` : ""}</span>
       </header>
       <div className="mono lc-host-url" data-testid="local-host-url">{h.url}</div>
+      <Managed h={h} />
       {card.length > 0 && <div className="mono muted lc-host-card" title={h.card_lines.join("\n")}>{card.map((l) => <div key={l}>{l}</div>)}</div>}
       {h.loaded.length > 0 && <div className="rail-label mono" data-testid="local-host-loaded-label">LOADED NOW</div>}
       {h.loaded.length > 0 && (
@@ -86,7 +123,7 @@ export function HostCard({ h, fits }: { h: Host; fits: Record<string, Fit> }) {
           ))}
         </ul>
       )}
-      {h.models.length > 0 && (
+      {h.models.length > 0 && !h.managed && (
         <ul className="lc-installed">
           {h.models.filter((m) => !loaded.has(m)).map((m) => (
             <li key={m} data-testid="local-host-model" data-model={m}>
@@ -125,7 +162,7 @@ export function HostCard({ h, fits }: { h: Host; fits: Record<string, Fit> }) {
           <Said k={`add|${h.url}`} />
         </div>
       )}
-      {!ctl.ok && h.source !== "discovered" && <p className="muted lc-why" data-testid="local-control-why">{ctl.why}</p>}
+      {!ctl.ok && h.source !== "discovered" && ctl.why && <p className="muted lc-why" data-testid="local-control-why">{ctl.why}</p>}
     </article>
   );
 }

@@ -2,7 +2,8 @@
 127.0.0.1:0 poses as the default host (`OLLAMA_HOST` = it, `ollama.hosts` empty: the host Halo makes up); under
 BRIDGE_TEST_NO_BACKGROUND_NET=1 the server path of the two Roles Chrome tests (`GET models`, the Roles model list),
 Setup's state read (`GET setup/state`), `halo local`'s view and the catalog refresh (`build_local_view`, refresh too),
-Local's Hosts, Models and Library pages and every control route must send it nothing; without the flag the same
+Local's Hosts, Models and Library pages, every control route and (3.3.5.0 R5) Local -> Hugging Face's routes must send
+it nothing (a download under the flag reads no hub); without the flag the same
 model list does read it (so the listener is reachable and the pin means something). The rigs' environment pins
 `OLLAMA_HOST` to a refused port when it is unset or names a real address (tests/helpers/chrome_driver.driver_env,
 tests/run_all.py).
@@ -24,7 +25,7 @@ from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # no
 
 test, TESTS = new_registry()
 _VARS = ("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR", "OLLAMA_HOST", "OLLAMA_API_KEY", "BRIDGE_TEST_NO_BACKGROUND_NET",
-         "HF_LOCAL_PROBE_PORTS")
+         "HF_LOCAL_PROBE_PORTS", "HF_ENDPOINT")
 
 
 class Listener:
@@ -68,6 +69,7 @@ class Home:
         (self.state / "config.json").write_text(json.dumps({"model": "ol:qwen3:30b"}), encoding="utf-8")
         self.listener = Listener()
         os.environ.pop("BRIDGE_STATE_DIR", None)
+        os.environ.pop("HF_ENDPOINT", None)
         os.environ.update(BRIDGE_TEST_HOME=str(self.root), OLLAMA_HOST=f"http://127.0.0.1:{self.listener.port}",
                           BRIDGE_TEST_NO_BACKGROUND_NET="1", HF_LOCAL_PROBE_PORTS="9")
         from halo_harness.providers.ollama import reset_catalog_cache
@@ -119,6 +121,18 @@ def test_the_local_view_the_refresh_and_the_local_pages_never_read_it(ctx: Ctx):
         for act, body in (("load", {"model": "qwen3:30b"}), ("unload", {"model": "qwen3:30b"}), ("pull", {"name": "qwen3:30b"}), ("delete", {"name": "qwen3:30b", "force": True}),
                           ("copy", {"src": "a", "dst": "b"}), ("twin", {"name": "qwen3:30b", "window": 8192})):
             h.api("POST", f"local/host/default/{act}", body)
+        # 3.3.5.0 R5: Local -> Hugging Face's routes (the hub is HF_ENDPOINT or huggingface.co: blocked under the flag)
+        for path in ("local/hf/dirs", "local/downloads", "local/servers", "local/server/llama-1/status"):
+            h.api("GET", path)
+        h.api("GET", "local/hf/uses", query={"path": str(h.root / "x.gguf")})
+        models = h.root / "models"
+        models.mkdir()
+        h.api("POST", "local/hf/dirs", {"path": str(models)})
+        code, dl = h.api("POST", "local/hf/download", {"repo": "example-org/Tiny-1B-GGUF", "accept": True})
+        ctx.check(f"a download under the flag reads no hub, got {code} {dl.get('error')}", code == 502 and "test flag" in dl["error"])
+        for path, body in (("local/hf/serve", {"path": str(models / "x.gguf")}), ("local/hf/delete", {"path": str(models / "x.gguf")}),
+                           ("local/server/llama-1/stop", {})):
+            h.api("POST", path, body)
         import time
         time.sleep(0.3)  # a pull job's thread, had it started one
         ctx.check(f"the listener received nothing, got {h.listener.seen}", h.listener.seen == [])

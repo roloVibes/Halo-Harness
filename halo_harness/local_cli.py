@@ -9,7 +9,8 @@ local_model_dirs`/`local_use`, which hold the actual logic (and its own
 tests) independent of argparse/stdin. 3.3.5.0 R1: on a real terminal `halo
 local` opens Studio's Local section (local_tab_cli.py); `--terminal` prints
 the merged view here, and `halo local hosts | models | resources` print the
-Local pages' lines.
+Local pages' lines. 3.3.5.0 R5: `halo local download | ls | rm | serve | stop |
+servers | log` (local_hf_cli.py), and bare `halo local` opens the Hugging Face page.
 """
 
 from __future__ import annotations
@@ -215,7 +216,16 @@ _SUBCOMMANDS = {"add": _cmd_add, "forget": _cmd_forget, "serve": _cmd_serve, "st
                 "import": _cmd_import, "runtime": _cmd_runtime, "warm": _cmd_warm}
 
 
+def _hf_commands() -> dict:
+    """3.3.5.0 R5: download | ls | rm | serve | stop | servers | log (local_hf_cli.py; serve and stop replace round
+    5c's, which stay as `_cmd_serve` / `_cmd_stop` for the code that calls them)."""
+    from halo_harness.local_hf_cli import COMMANDS
+    return COMMANDS
+
+
 def cmd_local(argv: list) -> int:
+    if argv and argv[0] in _hf_commands():
+        return _hf_commands()[argv[0]](argv[1:])
     if argv and argv[0] in _SUBCOMMANDS:
         return _SUBCOMMANDS[argv[0]](argv[1:])
     from halo_harness.local_tab_cli import cmd_tab  # 3.3.5.0 R1: the door into Studio's Local tab, and its printers

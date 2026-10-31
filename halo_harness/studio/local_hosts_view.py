@@ -6,7 +6,8 @@ never a model call and never a write to a server.
 
     hosts(state_dir, hub=None) -> {hosts: [host], at, mode}
     host {name, url, kind, source (configured | discovered | local server |
-          member), version, served_here, served_by, loaded [{model, size,
+          managed server (3.3.5.0 R5: one Halo started; `managed` {id, pid, port, model, flags, ready, alive, log,
+          stop_cli, log_cli}) | member), version, served_here, served_by, loaded [{model, size,
           size_vram, vram_pct, expires, context_length}], card_lines, profiles
           {model: profile}, users [{from, calls}] (the ledger's `from`, 24 h),
           finding (the newest open one's line) | None, findings, plan {says,
@@ -159,6 +160,22 @@ def _members(known: set, hub) -> list:
     return out
 
 
+def managed_cards(state_dir, users: dict) -> list:
+    """3.3.5.0 R5: the servers Local -> Hugging Face started (providers/local_server.py), one card each."""
+    from halo_harness.providers.local_server import servers
+    out = []
+    for e in servers(state_dir):
+        alive = bool(e.get("alive"))
+        keep = ("id", "pid", "port", "model", "model_path", "flags", "sources", "ready", "keep", "log")
+        out.append(_blank(e["id"], f"http://127.0.0.1:{e.get('port')}", e.get("kind") or "llama-server", "managed server",
+                          "" if alive else "its process is gone (halo local servers; Stop drops the row)",
+                          served_here=True, served_by="this machine", models=[e.get("model")], users=users.get(e["id"], []),
+                          managed={**{k: e.get(k) for k in keep}, "alive": alive, "stop_cli": f"halo local stop {e['id']}",
+                                   "log_cli": f"halo local log {e['id']}"}))
+        out[-1]["controls"] = {"ok": alive, "via": "this machine", "why": out[-1]["controls"]["why"]}
+    return out
+
+
 def hosts(state_dir, *, hub=None, now: Optional[float] = None) -> dict:
     from halo_harness.providers.ollama import resolve_ollama_hosts
     from halo_harness.providers.ollama_discover import url_key
@@ -170,9 +187,10 @@ def hosts(state_dir, *, hub=None, now: Optional[float] = None) -> dict:
     out = [_configured(h, objs.get(h["name"]), users, hub) for h in view["hosts"] if h["name"] in objs]
     for s in view["local_servers"]:
         out.append(_blank(s["name"], s["url"], "local server (OpenAI dialect)", "local server",
-                          "a local server serves the model it was started with (starting and stopping one is Local "
-                          "-> Hugging Face, next)", users=users.get(s["name"], []), models=[m["model"] for m in s["models"]],
+                          "Halo did not start this server: it is stopped where it was started (Local -> Hugging Face "
+                          "starts and stops Halo's own)", users=users.get(s["name"], []), models=[m["model"] for m in s["models"]],
                           finding=_finding(s.get("findings") or []), findings=len(s.get("findings") or [])))
+    out += managed_cards(state_dir, users)
     out += _discovered({url_key(h.url) for h in objs.values()})
     out += _members({r["name"] for r in out}, hub)
     return {"hosts": out, "at": now, "mode": view.get("mode")}
