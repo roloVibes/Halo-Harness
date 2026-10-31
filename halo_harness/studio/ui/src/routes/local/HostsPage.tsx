@@ -7,13 +7,15 @@
 import { useEffect, useMemo } from "react";
 import { Empty } from "../../lib/ui";
 import type { Fit } from "../../lib/ui/FitMeter";
+import { HfCards } from "./HfCards";
 import { HostCard } from "./HostCard";
 import { loadHosts, loadModels, useLocal } from "./store";
 
 const REFRESH_MS = 30_000;
-const ORDER = ["configured", "local server", "member", "discovered"];
+const ORDER = ["configured", "managed server", "local server", "member", "discovered"];
 const GROUP: Record<string, string> = {
-  configured: "CONFIGURED · OLLAMA.HOSTS", "local server": "LOCAL SERVERS · HUGGINGFACE.LOCAL_SERVERS",
+  configured: "CONFIGURED · OLLAMA.HOSTS", "managed server": "LOCAL SERVERS · STARTED BY HALO",
+  "local server": "LOCAL SERVERS · HUGGINGFACE.LOCAL_SERVERS",
   member: "SERVED BY FLEET MEMBERS", discovered: "FOUND, NOT ADDED",
 };
 
@@ -51,6 +53,7 @@ export function HostsPage() {
           </section>
         );
       })}
+      <HfCards />
     </div>
   );
 }

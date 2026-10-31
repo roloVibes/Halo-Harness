@@ -16,6 +16,8 @@ route. Never a model call; nothing here writes a server's settings.
     local/library*                      3.3.5.0 R2: studio/models_library_api.py (the library browser and the fit badge)
     local/pull*, local/host/<name>/pull | delete | show | copy | rename | twin | loaded
                                         3.3.5.0 R3: studio/local_control_api.py (Ollama, controlled)
+    local/hf/*, local/download*, local/servers, local/server/<id>/*
+                                        3.3.5.0 R5: studio/local_hf_api.py + local_server_api.py (Hugging Face local)
 """
 
 from __future__ import annotations
@@ -154,7 +156,11 @@ ROUTES = {("GET", "local/hosts"): get_hosts, ("POST", "local/host/add"): post_ho
 
 def dispatch_local(req):
     from halo_harness.studio.local_control_api import dispatch_control  # 3.3.5.0 R3: pull, delete, show, ...
+    from halo_harness.studio.local_hf_api import dispatch_hf  # 3.3.5.0 R5: Hugging Face downloads and servers
     from halo_harness.studio.models_library_api import dispatch_library
+    got = dispatch_hf(req)
+    if got is not None:
+        return got
     got = dispatch_control(req)
     if got is not None:
         return got

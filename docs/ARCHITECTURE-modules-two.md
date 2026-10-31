@@ -212,3 +212,12 @@ and `isolation/Dockerfile` the worker image.
   `ollama_delete`, `ollama_copy`, `ollama_twin` from a hub) with `fleet/control_pulls.py` (a member's jobs on its
   ledger push), `models_control_cli.py` (`halo models pull | rm | load | unload | copy | rename | twin | loaded`) and
   `ui/src/routes/local/` `jobs.ts`, `Pulls.tsx`, `LibraryPull.tsx`, `ctl.ts`, `ModelCards.tsx`, `LoadedNow.tsx`.
+- Hugging Face local, controlled (3.3.5.0 R5, docs/STUDIO-local.md "Hugging Face"): `providers/hf_download.py` (a repo or
+  a file into a model folder through the hub cache's layout: the licence line first, `Range` resume from a `.part`,
+  the sha256 / git blob id check, the token for a gated repo), `providers/local_server.py` + `local_server_cmd.py` (a
+  managed `llama-server` / `mlx_lm.server`: the fit planner's flags and their sources, the log, `/health` until ready,
+  the registry row, stop, tail, status, the exit sweep), `studio/local_download_job.py` (the pull jobs' store with kind
+  `download`), `studio/local_hf_view.py` (the folders and what is on disk, with the card, the fit and who serves it),
+  `studio/local_hf_api.py` + `studio/local_server_api.py` (the `local/hf/*`, `local/download*`, `local/server*` routes),
+  `local_hf_cli.py` + `local_hf_serve_cli.py` (`halo local download | ls | rm | serve | stop | servers | log`) and
+  `ui/src/routes/local/` `HfPage.tsx`, `HfRow.tsx`, `HfCards.tsx`, `hfstore.ts`.

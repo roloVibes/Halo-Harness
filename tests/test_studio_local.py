@@ -4,7 +4,7 @@ tests/helpers/studio_local.py (skipped without one), over a scratch home with te
 the fixture's nvidia-smi and /proc answers; no provider request, no model call:
 
 1. Alt+0 opens Local with nothing open over it, on Resources;
-2. the seven pages in the rail's order, each titled; Hugging Face, Benchmarks and Steward framed (what they
+2. the seven pages in the rail's order, each titled; Benchmarks and Steward framed (what they
    will hold, the commands today; Library is built in R2: tests/test_studio_library.py); Steward shows the job's status and the last note; each page names its ideas;
 3. Resources: a strip per sampled host, moving on `resources` frames; every number titled with its source;
 4. the traffic view's rows match the fixture ledger, its sparklines per host; a line written now arrives at the foot;
@@ -62,8 +62,8 @@ def test_alt0_and_the_seven_pages(ctx: Ctx):
     ctx.check(f"each page titled, got {titles}", [titles.get(p) for p in PAGES] ==
               ["Resources", "Hosts", "Models", "Library", "Hugging Face", "Benchmarks", "Steward"])
     framed = got.get("framed") or {}
-    ctx.check(f"the three framed pages say what they will hold and the commands today (Library is built, 3.3.5.0 R2), got {framed}",
-              sorted(framed) == ["benchmarks", "huggingface", "steward"]
+    ctx.check(f"the two framed pages say what they will hold and the commands today (Library is built, 3.3.5.0 R2; Hugging "
+              f"Face, R5), got {framed}", sorted(framed) == ["benchmarks", "steward"]
               and all(n > 200 and k >= 3 for n, k in framed.values()))
     ctx.check(f"Steward: the job's status line and the last note, got {str(got.get('steward_status'))[:80]!r}",
               "steward job" in str(got.get("steward_status")) and str(got.get("steward_note") or "").startswith("The 27B spills"))

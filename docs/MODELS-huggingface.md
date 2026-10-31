@@ -363,6 +363,33 @@ projector's bytes added to each row), an MLX repo its safetensors as one -- with
 and its `config.json` (layers, KV heads, head size, vocabulary, a hybrid model's `full_attention_interval`) as the
 exact shape for the fit badge. A gated repo's files and config are read with `HF_TOKEN` from the env file; the token
 goes with no other request. Each row's pull line is `ollama pull hf.co/<repo>:<quant>` for a GGUF file (Ollama pulls
-from the hub itself) and `halo local download <repo>` for an MLX repo (3.3.5.0 R4 builds the download). A search is
+from the hub itself) and `halo local download <repo>` for an MLX repo (the download below). A search is
 cached an hour and a repo's files a day in `<state>/cache/models-library.json`. See [STUDIO-local.md](STUDIO-local.md).
 
+## Downloading and serving from Studio and the CLI (3.3.5.0)
+
+Studio's **Local -> Hugging Face** page and `halo local download | ls | rm | serve | stop | servers | log` take a
+repo from the hub to a running local server ([STUDIO-local.md](STUDIO-local.md), [COMMANDS-local.md](COMMANDS-local.md)):
+
+1. **Download** (a Library hub row's Download, `halo local download <repo> [<file>]`): the repo's info
+   (`GET /api/models/<repo>?blobs=true`) gives the files, their sizes, their checksums, the commit and the licence; the
+   licence line (`cardData.license`, a gated repo's `gated: "auto" | "manual"` and its `extra_gated_prompt`) is shown
+   before any byte moves, and the download waits for Accept (`--yes`). The files picked: the one named (a GGUF quant's
+   shards together, or a quant word such as `Q4_K_M`), else every file of an MLX repo, else a GGUF repo's one quant
+   (Q4_K_M first). Each file is `GET https://huggingface.co/<repo>/resolve/main/<file>` (the hub answers with a
+   redirect to its CDN; `HF_ENDPOINT` names a mirror), streamed into
+   `<folder>/models--<org>--<name>/blobs/<sha256>.part`, then moved to `snapshots/<commit>/<file>` with `refs/main`
+   holding the commit -- the hub cache's own layout, which `huggingface_hub` reads too. A stopped download keeps its
+   part; the next one sends `Range: bytes=<have>-` and goes on from there (a server that answers 200 instead of 206
+   starts it again). Every file is checked before it lands: an LFS file against its `lfs.sha256`, a small file against
+   its `blobId` (the git blob sha1 of `blob <size>\0<bytes>`); a mismatch removes the part and says so. A gated repo's
+   files need `HF_TOKEN`: without it the line says so and nothing is fetched; with it, a 401 or 403 says to accept
+   the repo's terms on its page first. The token goes to the hub only (a redirect to another host drops it).
+2. **List** (the page, `halo local ls`): every `huggingface.model_dirs` folder and what is on disk in it -- a hub-cache
+   download by repo and file, any other `.gguf` file or model folder by path -- with its kind, size, the card's chips
+   and the fit meter read from the file's own header.
+3. **Serve** (Serve, `halo local serve <path>`): `llama-server` (an MLX folder: `mlx_lm.server` on a Mac) with the
+   fit planner's window and layers ([LOCAL-MODELS.md](LOCAL-MODELS.md)'s "Managed local servers"); it is then
+   `hf:local/<model>` in every model list and a host on Local -> Hosts. **Stop**, **Log**, `halo local stop | log`.
+4. **Delete** (Delete, `halo local rm <path>`): the uses card first (what names `hf:local/<model>` or
+   `hf:mlx/<repo>`), never while a server Halo started serves it.

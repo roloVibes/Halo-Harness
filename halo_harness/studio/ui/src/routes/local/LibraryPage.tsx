@@ -3,9 +3,11 @@
 // its card and a fit badge on the host picked at the window picked (LibraryRow.tsx), the controls on top
 // (LibraryFilters.tsx), and one line naming where the list came from: live, or the shipped snapshot with its
 // date and a Refresh. Every row is drawn (R0's WindowedRows keeps a long list quick). 3.3.5.0 R3: each row's Pull
-// (LibraryPull.tsx), the box to pull a name typed by hand, and the Jobs list (Pulls.tsx) above the rows.
+// (LibraryPull.tsx), the box to pull a name typed by hand, and the Jobs list (Pulls.tsx) above the rows. 3.3.5.0 R5:
+// a hub row's Download opens the licence card (HfCards.tsx) before a byte moves.
 import { useEffect } from "react";
 import { Button, Empty, WindowedRows } from "../../lib/ui";
+import { HfCards } from "./HfCards";
 import { LibraryFilters } from "./LibraryFilters";
 import { LibraryRow } from "./LibraryRow";
 import { PullByName } from "./LibraryPull";
@@ -66,6 +68,7 @@ export function LibraryPage() {
       ) : (
         <Empty title="Nothing in the library matches" body="Clear a filter, pick another source, or search for other words." testid="local-library-none" />
       )}
+      <HfCards />
     </div>
   );
 }

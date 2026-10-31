@@ -110,6 +110,13 @@ def models(state_dir, host: str = "", *, now: Optional[float] = None) -> dict:
         if host and s.name.lower() != host.lower():
             continue
         out.append({"name": s.name, "kind": "local server (OpenAI dialect)", "url": s.url, "models": _hf_rows(s, state_dir)})
+    from halo_harness.providers.local_server import servers  # 3.3.5.0 R5: a server Halo started, as a host
+    from halo_harness.studio.model_card_api import row_view
+    for e in servers(state_dir):
+        if e.get("alive") and (not host or e["id"].lower() == host.lower()):
+            ref = f"hf:local/{e['model']}"
+            out.append({"name": e["id"], "kind": e.get("kind") or "llama-server", "url": f"http://127.0.0.1:{e.get('port')}",
+                        "models": [_row(e["model"], ref, row_view(ref, {"id": e["model"]}, state_dir) or {}, None, None, None)]})
     return {"hosts": out, "intents": [{"id": i, "title": t, "why": w} for i, t, w in INTENTS],
             "at": time.time() if now is None else now}
 
