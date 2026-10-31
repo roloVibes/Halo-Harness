@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.3.5.0] - unreleased
+## [3.3.5.0] - 2026-10-30
 
 **Local.** The owner's direction after 3.3.4.0: "I want halo to be the best software or harness to
 intuitively work with local models", then his measured brief (plans/local-model-fit-brief.md). Seven
