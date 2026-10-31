@@ -14,13 +14,16 @@ serves is touched; nothing about the server's settings changes.
                                                         something else using it only with force  (R3)
     ollama_copy   {host, src, dst, rename?}             providers/ollama_control.copy | rename  (R3)
     ollama_twin   {host, model, window?}                providers/ollama_tune: the tuned twin, recorded here  (R3)
+    ollama_probe  {host, model, force?}                 this member's own probe job (studio/local_probe_job.py, the
+                                                        battery); it answers at once, the profile reaches the hub
+                                                        with the ledger push (fleet/control_probes.py)  (3.3.6.0 R1)
 """
 
 from __future__ import annotations
 
-CMDS = ("ollama_load", "ollama_unload", "ollama_pull", "ollama_delete", "ollama_copy", "ollama_twin")
+CMDS = ("ollama_load", "ollama_unload", "ollama_pull", "ollama_delete", "ollama_copy", "ollama_twin", "ollama_probe")
 VERBS = {"ollama_load": "load", "ollama_unload": "unload", "ollama_pull": "pull", "ollama_delete": "delete",
-         "ollama_copy": "copy", "ollama_twin": "make a tuned twin of"}
+         "ollama_copy": "copy", "ollama_twin": "make a tuned twin of", "ollama_probe": "probe"}
 
 
 def describe(cmd: str, fields: dict, by: str, hub: str) -> str:
@@ -90,6 +93,9 @@ def _twin(host, model: str, fields: dict) -> dict:
     except TuneError as e:
         raise ValueError(e.message) from None
     got = create_twin(host, plan, state_dir=_state())
+    if got.ok:  # 3.3.6.0 R1: verified here in the background (studio/local_twin_verify.py)
+        from halo_harness.studio.local_twin_verify import start_verify
+        start_verify(host, plan.twin, plan.window, state_dir=_state())
     return {"ok": got.ok, "say": got.message, "twin": plan.twin, "ref": plan.ref, "line": plan.line}
 
 
@@ -109,6 +115,10 @@ def run(fields: dict) -> dict:
         return _delete(host, model, fields)
     if cmd == "ollama_twin":
         return _twin(host, model, fields)
+    if cmd == "ollama_probe":  # 3.3.6.0 R1: the battery, as this member's own job
+        from halo_harness.studio import local_probe_job as J
+        view = J.start(host, model, state_dir=_state(), force=fields.get("force") is True)
+        return {"ok": True, "job": view["job"], "say": f"probing {model} on {host.name}", "joined": view.get("joined")}
     if cmd == "ollama_unload":
         return unload(host, model)
     num_ctx = fields.get("num_ctx") if isinstance(fields.get("num_ctx"), int) else None

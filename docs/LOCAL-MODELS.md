@@ -492,6 +492,48 @@ no -- from the host's hardware card. Per server kind:
 See [MODELS-cards.md](MODELS-cards.md) for the fields, the roles each model
 can hold and the coder-lane offer.
 
+## What a local model can do here: the battery
+
+Halo 3.3.6.0: a model's card is what it declares; the battery is what it
+does. `halo models probe ol:<model>@<host>` (`--all` for every model on the
+host; Studio: Local -> Models, **Probe**) sends about 8 short requests where
+the model's GPU is -- a couple of minutes, no cost; it loads the model -- and
+keeps a **profile**: whether it emits a tool call at all, whether it honours
+the system role, whether it obeys a strict format, whether it returns JSON
+(and why not), whether its reference ids can be trusted, whether it answers
+in `thinking`, its measured tok/s, first token and cold load (never timed on
+the first call after a load), and the fit at the window it ran (`/api/ps`
+`size_vram == size`, the window trained vs usable, the cache per token, which
+other models it can share the card with or that it is pivot-only).
+
+The profile then decides where the model goes, on its own:
+
+- **no tool calling** -> never a tool-using sub-agent: Auto never picks it for
+  an agent, a spawn on it does not start and says what to do instead, a role
+  that needs tools fails `halo doctor --local` with the fix; compaction, bulk
+  and small single-shot steps stay open;
+- **a weak system role** -> Halo's instructions go at the front of the first
+  user message (and the transcript says so);
+- **thinking** -> the reply reserve is raised (an empty `content` was a budget
+  problem, not a failure);
+- **fenced JSON** -> the fence is stripped before parsing;
+- **unverified ids** -> a quirk on the card and a line on any answer citing a
+  CVE or CWE: resolve it with a tool or a stronger model;
+- **a 32k window** -> chunk inputs; never compaction (it receives whole
+  sessions);
+- **pivot-only** -> a lineup naming it beside another big model is flagged as
+  a pivot schedule (`halo teams show`, Roles -> Problems);
+- **not interactive** -> greyed in the `/model` picker with the reason.
+
+On the owner's RTX 4090 only one of six models passed every gate (`qwen3-coder`:
+a full agent); three ignored the system role, four answered in `thinking`,
+one could not emit a tool call at all (the measured run behind this release).
+The card says it in four blocks -- use it for, don't use it for, where it
+sits, limits -- each value **verified** or **expected**
+([MODELS-cards.md](MODELS-cards.md#the-profile-what-the-battery-measured-3360)).
+The steward probes a newly pulled model on its own while the card is idle
+([MODELS-ollama-steward.md](MODELS-ollama-steward.md#the-battery-on-new-models-3360)).
+
 ### All of it in one tab: Studio's Local section (3.3.5.0)
 
 Studio's **Local** section (`Alt+0`; `halo local` opens it) puts the machines

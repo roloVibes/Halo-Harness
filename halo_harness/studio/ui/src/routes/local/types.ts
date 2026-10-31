@@ -39,12 +39,16 @@ export type ModelEntry = {
   intent: Record<string, number | null>;
   /** 3.3.5.0 R4 (studio/local_warm.py): warm / cold with the last load's seconds, and the prompt cache's share. */
   warm?: { state: "warm" | "cold"; load_s: number | null; line: string; cache_reused_pct: number | null; cache_line: string };
+  /** 3.3.6.0 R1 (studio/local_twin_verify.py): a fitted twin and its verify line, or a raw tag with its twins. */
+  twin_of?: string | null;
+  twin?: { of: string; state: "verified" | "unverified" | "spilled"; line: string };
+  raw?: { twins: string[]; verified: boolean; offer: string };
 };
 export type Intent = { id: string; title: string; why: string };
 export type ModelsAnswer = { hosts: { name: string; kind: string; url: string; models: ModelEntry[] }[]; intents: Intent[]; at: number };
 export type Said = { ok: boolean; text: string; undo?: number };
 // 3.3.5.0 R2: the Library's rows (studio/models_library_api.py; models_library/rows.py's LibraryRow).
-export type LibFit = Fit & { numbers?: { weights: number; kv: number; projector: number; total: number; budget: number; others: number; others_from: string; window: number; kv_cache: string } | null; estimate?: boolean; shape_source?: string };
+export type LibFit = Fit & { pull_warning?: string; numbers?: { weights: number; kv: number; projector: number; total: number; budget: number; others: number; others_from: string; window: number; kv_cache: string } | null; estimate?: boolean; shape_source?: string };
 export type LibRow = {
   source: "ollama" | "hf"; id: string; tag_or_file: string; name: string; model: string; family: string; params: number | null;
   quant: string; size_bytes: number | null; weights_bytes: number | null; projector_bytes: number; capabilities: string[];

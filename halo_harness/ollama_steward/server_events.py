@@ -51,7 +51,9 @@ def record_events(state_dir, events: list, *, host: Optional[str] = None, quiet:
     now = time.time() if now is None else now
     quiet = quiet if quiet is not None else {}
     rows = []
+    from halo_harness.ollama_steward.failure_lines import explain  # 3.3.6.0 R1: the fix, read off the profile
     for ev in events:
+        ev = explain(ev, state_dir)
         at = ev.get("at")
         row = {**ev, "host": host, "at": ledger.now_iso(at if isinstance(at, (int, float)) else now)}
         row["notify"] = passes_quiet(row, quiet, at if isinstance(at, (int, float)) else now)

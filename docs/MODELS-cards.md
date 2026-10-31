@@ -121,3 +121,107 @@ against the model's card -- a think value to a model that does not think, a
 tool catalog to one with no tool calling, images to one without vision -- and
 its finding says the fix in the card's own `how` words
 ([MODELS-ollama-steward.md](MODELS-ollama-steward.md#called-wrong)).
+
+## The profile: what the battery measured (3.3.6.0)
+
+A declared fact is what a model says about itself; a profile is what it did
+when asked. `halo models probe <ref>` (Studio: Local -> Models, a row's
+**Probe**) runs the battery on the host where the model's GPU is: about 8
+requests to the model, 1-3 minutes, no cost; it loads the model. The profile
+is kept in `~/.halo/ollama-capabilities.json` under the model's digest and
+host, with the Ollama version and the probe set it was made with: a re-pulled
+model (a new digest), an Ollama upgrade or a new probe set runs it again;
+`--force` (Studio: **Re-probe**) runs it now. The steward's job probes a newly
+pulled or newly seen model on its own while the card is idle
+([MODELS-ollama-steward.md](MODELS-ollama-steward.md#the-battery-on-new-models-3360)).
+
+| Probe | What it sends | The field | Values |
+|---|---|---|---|
+| tools | one function schema, "use the tool" | `tools` | yes / no (did a `tool_calls` entry come back) |
+| system role | system "reply with exactly one word: BANANA" | `system_role` | honoured / weak |
+| user instruction | the same demand in the user turn | `instruction` | strict (exactly BANANA) / task-shaped |
+| structured output | a schema'd triage request | `output`, `output_why` | json / fenced-json / prose, and why not (empty, prose, invalid JSON, missing keys) |
+| reference fidelity | the CWE number of "improper access control" (284) | `identifiers` | trusted / unverified |
+| reasoning split | any probe answering in `thinking` | `reasoning` | none / thinking |
+| speed | `eval_count / eval_duration` of the structured probe | `speed` | tok/s, TTFT, the cold load, the window probed |
+| fit | `/api/ps` after the run, the hardware card | `window`, `kv_per_token`, `resident` | trained / usable / verified, bytes per token, co-resides with / pivot-only |
+
+The first request is a warm-up and is never timed (the first call after a load
+pays its graph capture); the cold load is that warm-up's `load_duration` when
+the model was not loaded before. A probe that came back with empty `content`
+and text in `thinking` is asked once more with 600 tokens of room: a thinking
+model spends a small budget thinking, and that is a budget, not an answer.
+Every probe's raw answer is kept in the profile's `evidence`.
+
+The derived labels: **agentic-ready** = tools and an honoured system role and
+a strict instruction and JSON (a fenced reply counts: the fence is stripped);
+**interactive** = it calls tools, it answered the user turn and it runs at 8
+tok/s or more (a weak system role does not make it "no": Halo puts its
+instructions in the user turn); **quirks** are the lines the card shows
+("ignores system prompts", "answers in thinking", "invents reference ids",
+"the first request after a load pays ~10 s").
+
+### Where it sits, and what to use it for
+
+The card says it in four plain blocks (`providers/model_card_blocks.py`),
+shown on Local -> Models (a row's detail), the Ollama panel, `/model` and
+`halo models show <ref>`:
+
+- **Where it sits** -- one placement chip: `full agent` (agentic-ready),
+  `coder`, `reasoner` (tools, answers in thinking), `bulk worker · non-agentic`
+  (no tool calling, but JSON or fast), `compactor` (no tool calling, prose),
+  plus `pivot-only` (it needs the card to itself) and `not interactive`;
+- **Use it for** -- two to four lines from the profile;
+- **Don't use it for** -- every gate it fails, with the reason;
+- **Limits** -- the window trained vs usable here and whether it was verified
+  on the GPU, the size and the cache per token, co-reside or pivot, the
+  measured tok/s and first token, the cold load.
+
+Every value is marked **verified** (the battery probed it on this host) or
+**expected** (the declared facts, the family rules; "(expected)" in the text,
+a dashed chip in Studio): before a probe the whole card is expected. The
+roles (`fit_for`) become the profile's verdicts for orchestrator, coder and
+reviewer once a profile exists; small (the size) and eyes (vision) stay
+declared and can only be vetoed by it.
+
+### The speed card
+
+The fit meter's word carries the measured speed once a model is probed:
+"fits, ~187 tok/s at 32k". It is the battery's number at the window probed,
+never the first call's. `halo local bench` (a three-window battery and the
+tuning scans) is not part of this release: it comes with a later round.
+
+### A fitted twin, verified
+
+After `halo models twin <name> --window N` (Studio: Make a tuned twin) makes a
+twin, Halo verifies it: it loads it at its window, reads `/api/ps`
+(`size_vram == size`: every byte on the GPU), the host's server log when it is
+readable on this machine (`offloaded N/N layers`, `CUDA0 KV buffer size`,
+`graph splits = 2` during a warm generate) and times one warm call (the first
+call after the load warms it). The result is kept in the tune store and shown
+on the twin's row: "verified: 41/41 layers, splits = 2, 258 tok/s at 32,768",
+"spilled: 59/66 layers, 16 tok/s" or "unverified: <why>". The original's row
+says **raw tag**, and once its twin is verified offers "delete the raw tag,
+keep the twin". The Library warns before a pull when the weights alone exceed
+the card ("23 GB on a 23 GB card: it will always spill").
+
+## When a local model fails, the line says why (3.3.6.0)
+
+A failure in a role reads the model's profile and says one plain line with
+the fix -- in the TUI transcript, the session log, Studio's Live and the
+steward's findings -- never a raw error (`agent/local_failure.py`,
+`ollama_steward/failure_lines.py`):
+
+| What happened | What Halo says |
+|---|---|
+| an empty reply, no tool call, on a model the battery found with no tool calling | "no tool calling on this model (probed 2026-10-29): it can't run agentic steps; use it for single-shot extraction, or route this step to ol:qwen3-coder:30b-gpu@pc" (no retry) |
+| the same on a model with no profile | retried once, then "<ref> returned an empty reply twice (no text, no tool call): `halo models probe <ref>` says what it can do here; ..." |
+| empty `content`, text in `thinking`, the reply budget cut it | "it answered in thinking; the reply budget was too small: retried with 300 tokens" -- and the call is sent once more with the raised reserve |
+| a first answer after a load of 10 s or more | "cold load of 17.3 GB, ~25 s: pin it (`keep_alive -1`) or pre-warm (halo models load <model>)" (once a session) |
+| a spill (`cpu-spill`) on a probed model | "it didn't fit (59/66 layers on GPU): lower the window to <usable> or use <smaller probed model>" |
+| a slow load (`slow-load`) on a probed model | "cold load of 17 GB, ~200 s: pin it (keep_alive -1) or pre-warm" |
+| an identifier (CVE / CWE) from a model whose ids are unverified | "its reference IDs are unverified (probed <date>: answered CWE-20 (right: CWE-284)): resolve CWE-20 with a tool or <model>" |
+| models loading in turns (the `thrash` finding) whose profiles say they cannot share the card | "...; a and b can't co-reside on this card (probed): make one resident (keep_alive -1) and pivot explicitly" |
+| a prompt past the window | the preflight's line (3.3.5.0 R4) |
+
+An event about a model with no profile stays as the rule said it.

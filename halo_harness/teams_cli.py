@@ -63,6 +63,10 @@ def _cmd_show(rest: list) -> int:
         print(f"    {k}: {shown}{' (picked at spawn)' if shown == 'auto' else ''}")
     for n in notes:
         print(f"    (note) {n}")
+    from halo_harness.config.paths import bridge_home  # 3.3.6.0 R1: two models that cannot share one card
+    from halo_harness.providers.placement_apply import lineup_pivots
+    for p in lineup_pivots(role_table, bridge_home()):
+        print(f"    (pivot) {p['line']}")
     # Halo 2.0.5 round 5: the per-section enforcement state -- every
     # section this template sets prints ENFORCED (with the one behaviour
     # line naming what the live loop actually does) or its doctor marker,

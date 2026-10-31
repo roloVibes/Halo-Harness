@@ -268,6 +268,38 @@ Sub-agents on the coder model get the flattened text protocol (no tool
 catalog, tool turns as text). Going ahead keeps the model as main and writes
 nothing. See [MODELS-cards.md](MODELS-cards.md#when-the-main-model-cannot-orchestrate).
 
+### The placement gates (Halo 3.3.6.0)
+
+A local model the battery probed (`halo models probe`,
+[MODELS-cards.md](MODELS-cards.md#the-profile-what-the-battery-measured-3360))
+carries a verdict for every role (`providers/placement.py`: main /
+orchestrator, coder, reviewer, researcher need tools; small, compaction and
+bulk are single-shot steps; eyes stays the card's vision). The gates land
+where a model is chosen:
+
+- **Auto** (`models_auto.pick`) never picks a model with no tool calling for
+  an agent; its reason line says "skipped ol:<model>: no tool calling (probed
+  <date>), so it can't run an agent";
+- **the role table** (`/roles`, `halo roles`) warns under a role whose model
+  fails its gate ("! no tool calling on this model (probed <date>): ...: route
+  this step to <model with tools>, or run it as a single-shot step without
+  tools");
+- **a spawn**: a tool-using sub-agent on a model with no tool calling does not
+  start; the spawning model gets the line with the fix (route the step to a
+  model with tools, or give the agent `tools: []` for a single-shot step) and
+  goes on. The main model is never held back: going ahead with it as main
+  stays the user's choice (the coder-lane offer above);
+- **`halo doctor --local`** adds one line per role on a local model: PASS with
+  where it sits, FAIL with the fix when its model lacks what the role needs,
+  INFO "not probed yet: halo models probe <ref>";
+- **a lineup** naming two models that cannot share one card is a pivot
+  schedule: `halo teams show` prints "(pivot) a and b cannot co-reside on pc:
+  every switch is a 20-55 s pivot", Roles -> Problems lists it under Warns.
+
+A weak system role, thinking, fenced JSON and unverified ids do not close a
+role; they change how Halo calls the model (the instruction in the user turn,
+a bigger reply reserve, the fence stripped, a quirk line on ids).
+
 ## Roles on/off is one switch (Halo 2.0.5 round 2b)
 
 `roles.enabled` (default **on**) is the ONE switch, everywhere: `halo

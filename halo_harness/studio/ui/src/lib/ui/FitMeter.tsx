@@ -4,8 +4,8 @@
 // forced on), spill (red: part on the CPU), no (red, empty: it does not fit
 // this machine), cloud (accent: the provider runs it), unknown (faint: no
 // hardware card read yet). `data-level` carries the level, the title says why
-// (providers/fit_meter.py writes both).
-export type Fit = { level: string; at_window?: number | null; gpu_window?: number | null; why?: string };
+// (providers/fit_meter.py writes both). 3.3.6.0 R1: `word` adds the battery's measured speed ("fits, ~187 tok/s at 32k").
+export type Fit = { level: string; at_window?: number | null; gpu_window?: number | null; why?: string; word?: string };
 
 const LEVELS = ["fits", "tight", "spill", "no", "cloud", "unknown"];
 
@@ -16,7 +16,7 @@ export function FitMeter({ fit, label }: { fit?: Fit | null; label?: boolean }) 
   return (
     <span className="fit-meter" data-testid="fit-meter" data-level={level} title={title} aria-label={title}>
       <span className="fit-meter-bar" aria-hidden="true"><span className="fit-meter-fill" /></span>
-      {label !== false && <span className="fit-meter-word mono">{level === "unknown" ? "?" : level}</span>}
+      {label !== false && <span className="fit-meter-word mono">{level === "unknown" ? "?" : fit.word || level}</span>}
     </span>
   );
 }

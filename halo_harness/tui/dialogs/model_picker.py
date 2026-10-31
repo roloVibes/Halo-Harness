@@ -361,6 +361,10 @@ class ModelPicker(ModalScreen):
         card_words = _card_suffix(m["ref"], self.state_dir)  # 3.3.5.0 R0b: the card's chips and the fit word
         if card_words:
             row_text.append(card_words, style="dim")
+        grey = _not_interactive(m["ref"], self.state_dir)  # 3.3.6.0 R1: a step model, greyed with the reason
+        if grey:
+            row_text.stylize("dim")
+            row_text.append(f"  {grey}", style="dim italic")
         if self.last_used and m["ref"] == self.last_used:
             row_text.append("  (last used)", style="dim italic")
         self._row_cache[id(m)] = (m, row_text)
@@ -688,6 +692,18 @@ class ModelPicker(ModalScreen):
                        for m in fresh if not (isinstance(m, dict) and "hint" in m)]
         self._refresh_list(self.query_one("#model-filter", Input).value)
         hint.update(message)
+
+
+def _not_interactive(ref: str, state_dir=None) -> str:
+    """3.3.6.0 R1: why a probed local model is not a `/model` target ("" when it is, or nothing was probed)."""
+    if not str(ref or "").startswith("ol:"):
+        return ""
+    try:
+        from halo_harness.config.paths import bridge_home
+        from halo_harness.providers.placement import interactive_note
+        return interactive_note(ref, state_dir or bridge_home()) or ""
+    except Exception:
+        return ""
 
 
 def _card_suffix(ref: str, state_dir=None) -> str:

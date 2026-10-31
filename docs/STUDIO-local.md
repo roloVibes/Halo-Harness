@@ -141,6 +141,18 @@ the `halo models` line that does the same:
   Nothing uses it: **Delete**. Something does: **Delete anyway**, which always works while no session is on the model;
   a live session keeps the button disabled with the reason until it ends or moves to another model.
 
+**The battery** (3.3.6.0): an Ollama row's **Probe** (`local-model-probe`; its title is the cost line -- "about 8
+requests to <model> on <host>, 1-3 minutes, no cost; it loads the model" -- and `halo models probe <model> --host
+<host>`) runs the capability battery as a job on the server; a progress strip under the row says the cost line and each
+probe as it runs (`probe` frames), then the result. The row then shows **where it sits** (the placement chip: `full
+agent`, `coder`, `reasoner`, `bulk worker · non-agentic`, `compactor`, with `pivot-only` / `not interactive`), "probed
+<date> · re-probe", the fit meter's word with the measured speed ("fits, ~187 tok/s at 32k"), and in its unfolded card
+the four blocks -- use it for, don't use it for, where it sits, limits -- each value marked verified or expected
+([MODELS-cards.md](MODELS-cards.md#the-profile-what-the-battery-measured-3360)). Before a probe the chip is dashed and
+every value says "(expected)". A fitted twin's row carries its verify line ("twin of qwen3.5:9b · verified"); its
+original's row says **raw tag** and, once the twin is verified, offers "delete the raw tag, keep the twin" (the Delete
+card). The Library warns under a row whose weights alone exceed the card ("23 GB on a 23 GB card: it will always spill").
+
 On top of the page, **Loaded now** (`local-loaded-row`): every model a host holds in memory (`/api/ps`), its share on
 the GPU, its window, when it unloads, and **Unload**; under it the **Jobs** list. A host another machine serves goes
 through its fleet member (below); a control that cannot run from here is disabled with the reason as its title.
@@ -296,6 +308,8 @@ Studio route; never a model call:
 | `POST local/host/<name>/copy {src, dst}`, `.../rename {src, dst}` | a copy; a copy then the delete of the old name |
 | `POST local/host/<name>/twin {name, window?, dry?}` | the tuned twin (`dry`: the plan, its name and cost); recorded in the tune store |
 | `GET local/host/<name>/loaded` | `/api/ps` (a member's host: its newest resources sample) |
+| `POST local/host/<name>/probe {model, force?}` | 3.3.6.0: a probe job (the battery; a second ask joins it), its view, `cost` and `cli`; a member's host: that member's own job |
+| `GET local/probes`, `GET local/profiles?host=` | the probe jobs running and the last ended ones; every kept profile (that host's only with `?host=`), without the raw evidence |
 | `GET local/hf/dirs?host=&window=` | each model folder and what is on disk in it, with the card, the fit and who serves it (`studio/local_hf_view.py`) |
 | `POST local/hf/dirs {path}`, `POST local/hf/forget {path}` | a folder added to or taken off `huggingface.model_dirs` |
 | `POST local/hf/download {repo, file?, dir?, accept}` | 422 with the licence line (`needs_accept`) until `accept`; a gated repo without `HF_TOKEN` 422 `needs_token`; then a download job |
@@ -305,11 +319,12 @@ Studio route; never a model call:
 | `GET local/servers`, `POST local/server/<id>/stop`, `GET local/server/<id>/log?n=`, `GET local/server/<id>/status` | the servers Halo started; stop one; its log's tail; `/health` and `/slots` |
 
 Every R3 answer carries `cli`, the `halo models` line that does the same (`studio/local_control_api.py`). A host a
-fleet member serves goes through that member (`ollama_pull`, `ollama_delete`, `ollama_copy`, `ollama_twin`, under its
+fleet member serves goes through that member (`ollama_pull`, `ollama_delete`, `ollama_copy`, `ollama_twin`, 3.3.6.0 `ollama_probe`, under its
 `fleet.allow_control`); `none` answers 403 with the reason.
 
 Live frames: `resources` (one sample), `traffic` (`{rows}`), `pull` (a job's view: host, name, status, digest,
-total, completed, percent, speed, eta, done, error) and `download` (the same view with kind, repo, file, dir and path), beside the steward's own `steward` frames. From a terminal,
+total, completed, percent, speed, eta, done, error) and `download` (the same view with kind, repo, file, dir and path), `probe` (3.3.6.0: a probe job's view: host,
+model, step, of, probe, say, done, ok, error, cost) and `twin-verify` (a new twin's verify line), beside the steward's own `steward` frames. From a terminal,
 `halo local hosts`, `halo local models [--host H]` and `halo local resources` print what the first three pages show, and
 `halo models browse` what the Library shows, `halo local ls` what the Hugging Face page shows
 ([COMMANDS-local.md](COMMANDS-local.md)).

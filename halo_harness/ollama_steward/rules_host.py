@@ -93,9 +93,12 @@ def thrash(ctx: dict) -> list:
         if change:
             prop = proposal(change["field"], (lead["profile"] or {}).get(change["field"]), change["to"],
                             f"{chosen['says']} (you lose: {chosen['lose']})")
+        from halo_harness.ollama_steward.failure_lines import swap_line  # 3.3.6.0 R1: the battery's co-reside
+        swap = swap_line([g["model"] for g in asked], host, ctx.get("state_dir"))
         out.append(finding("thrash", lead, "error",
                            f"{len(asked)} models on {host} load in turns ({switches} switches, "
-                           f"{len(paying)} models paying a load on most calls): {p.get('says', '')}",
+                           f"{len(paying)} models paying a load on most calls): {p.get('says', '')}"
+                           + (f"; {swap}" if swap else ""),
                            events=events, numbers={"switches": switches, "models": [g["model"] for g in asked]},
                            proposal=prop, plan=p,
                            server_hint=next((o["server_hint"] for o in p["options"] if o.get("server_hint")), None)))

@@ -580,6 +580,7 @@ def _build_child_session_inner(*, runtime: AgentRuntime, spec: AgentSpec, agent_
     # Halo 3.1.9.0 R2: when the one model order reaches `auto` (an auto bio,
     # below a tier's model and the call's own `model`), `models_auto.pick`
     # chooses for this task; the Pick (and its reason) lands in `_auto`.
+    # 3.3.6.0 R1: after it, the spawn-time placement gate (providers/placement.spawn_gate).
     from halo_harness.models_auto_spawn import resolver as _auto_resolver
     _auto: dict = {}
     model_ref, model_profile = resolve_agent_model(
@@ -614,6 +615,12 @@ def _build_child_session_inner(*, runtime: AgentRuntime, spec: AgentSpec, agent_
             ctx.tool_registry = parent.tool_registry.filtered([])
             ctx.system_prompt = (f"{ctx.system_prompt}\n\nThis endpoint supports no tool calls at all -- decide "
                                   f"and answer directly from the prompt text alone.")
+    if model_ref.provider == "ollama":  # 3.3.6.0 R1: a probed no-tools model never runs a tool-using child
+        from halo_harness.providers.placement import NoToolCalling, spawn_gate
+        _gate = spawn_gate(model_ref, ctx.tool_registry.names(), parent.state_dir,
+                           role=_effective_role_name or getattr(spec, "name", ""))
+        if _gate:
+            raise NoToolCalling(_gate)
 
     # Halo 2.0.3 pass-B fix (review finding 1, critical): a child used to
     # be built with creds=parent.creds, openrouter_base_url=parent.

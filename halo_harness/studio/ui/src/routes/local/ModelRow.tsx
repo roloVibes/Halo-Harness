@@ -8,8 +8,12 @@
 // (`local-model-acts`): Show, Load now / Unload, Make a tuned twin, Copy, Rename, Delete -- each row's title is
 // the `halo models` line that does the same; a host this Studio cannot control has them disabled with the reason.
 // 3.3.5.0 R4: "warm" / "cold (~N s to load)", "cache reused N %" and a card quirk ("re-reads the whole prompt every turn").
+// 3.3.6.0 R1: where it sits (the battery's placement chip), "probed <date> · re-probe", the twin chips, the Probe
+// action with its progress strip (ProbeBits.tsx); the detail adds the card's four blocks (shared/ModelCardBlocks.tsx).
 import { Button, FitMeter, Menu } from "../../lib/ui";
 import { CardChips, CardDetail } from "../shared/ModelCard";
+import { SitsChips } from "../shared/ModelCardBlocks";
+import { ProbeAction, ProbedMark, ProbeStrip, TwinChips } from "./ProbeBits";
 import { line, openAct } from "./ctl";
 import { coderLane, gib, loadModel, loadModels, unloadModel, useAsDefault, useLocal } from "./store";
 import type { ModelEntry } from "./types";
@@ -56,7 +60,9 @@ export function ModelRow({ m, host, score }: { m: ModelEntry; host: string; scor
       <div className="lc-model-top">
         <b className="mono">{m.model}</b>
         <CardChips card={m.card} />
+        <SitsChips blocks={card.blocks} />
         <FitMeter fit={m.fit} />
+        <TwinChips m={m} host={host} />
         <span className="spacer" />
         {m.size ? <span className="mono muted" title="the model's size on disk (/api/tags)">{gib(m.size)}</span> : null}
         {m.loaded && <span className="og-chip mono" data-testid="local-model-loaded" title={`${gib(m.loaded.size_vram)} on the GPU`}>loaded</span>}
@@ -64,6 +70,7 @@ export function ModelRow({ m, host, score }: { m: ModelEntry; host: string; scor
                          title="warm: loaded now; cold: the next call loads it first (the last load the traffic ledger saw)">{m.warm.line}</span>}
         {m.warm?.cache_line && <span className="mono muted" data-testid="local-model-cache"
                                      title="the newest turn's share of the prompt Ollama did not read again">{m.warm.cache_line}</span>}
+        {m.ref.startsWith("ol:") && <ProbedMark m={m} host={host} />}
         {(card.quirks || []).map((q) => <span key={q.kind} className="og-chip mono" data-testid="local-model-quirk" data-kind={q.kind} title={q.say}>{q.kind === "no-prompt-cache" ? "re-reads the whole prompt every turn" : q.kind}</span>)}
       </div>
       <div className="lc-model-mid mono muted">
@@ -82,6 +89,7 @@ export function ModelRow({ m, host, score }: { m: ModelEntry; host: string; scor
           ))}
         </span>
       </div>
+      {m.ref.startsWith("ol:") && <ProbeStrip m={m} host={host} />}
       <CardDetail card={m.card} refName={m.ref} />
       <div className="lc-model-acts">
         <Button size="sm" disabled={busy} onClick={() => void useAsDefault(m.ref)} data-testid="local-use-default" title={`model = ${m.ref} (Setup's save)`}>
@@ -94,6 +102,7 @@ export function ModelRow({ m, host, score }: { m: ModelEntry; host: string; scor
           </Button>
         )}
         <span className="spacer" />
+        {m.ref.startsWith("ol:") && <ProbeAction m={m} host={host} />}
         {m.ref.startsWith("ol:") && <Acts m={m} host={host} />}
         <Said k={`default|${m.ref}`} />
         <Said k={`lane|${m.ref}`} />

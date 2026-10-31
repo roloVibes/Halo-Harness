@@ -58,7 +58,8 @@ RECALL_CMDS = ("recall",  # 3.1.2.0 R3: {query, k}, answered from the member's o
                "coach_library",  # 3.1.6.0 R3: {entry}, one entry of its coach library (orchestra/coach_library_share.py)
                "knowledge")  # 3.1.8.0 R4: {id} | {kind, all}, its findings / decisions (knowledge/share.py)
 MODEL_CMDS = ("ollama_load", "ollama_unload",  # 3.3.5.0 R1: the Local tab's Load / Unload on a member's host
-              "ollama_pull", "ollama_delete", "ollama_copy", "ollama_twin")  # R3; fleet/control_models.py, gated like steer
+              "ollama_pull", "ollama_delete", "ollama_copy", "ollama_twin",  # R3; fleet/control_models.py, gated like steer
+              "ollama_probe")  # 3.3.6.0 R1: the battery on a member's host
 FLEET_CMDS = READ_CMDS + FULL_CMDS + ACTING_CMDS + ("answer", "note") + TASK_CMDS + RECALL_CMDS + MODEL_CMDS  # note: a person's message (R4)
 
 TEXT_KINDS = frozenset({"text_chunk", "text_delta", "thinking_delta", "thinking_chunk"})
