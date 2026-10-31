@@ -55,6 +55,25 @@ through remote/daemon_units.py). The harness side: `ollama_steward/host_client.p
 the ladder's host rung) and `ollama_steward/host_reads.py` (the card, log, tail, events and profiles read through
 it); `fleet/hub_hosts.py` (the hub's list of announced hosts); `ui/src/routes/local/HostServedBy.tsx`.
 
+**The host acts** (Halo 3.3.7.0 R2, docs/HOST.md "The vocabulary"): `host/grants.py` (per-peer grants under the host
+machine's `fleet.allow_control`, `me`) and `host/pending.py` (the rows `ask` queues); `host/ops.py` (the typed
+vocabulary's registry, `Ctx`, the params check), `host/ops_control.py` (warm, pin, unload, pivot, the profile
+fixes), `host/ops_jobs.py` (the stated KV / flash lines, the battery, the bench, a twin's verify),
+`host/ops_manage.py` (pull, delete, retire, the stated restart / env lines, revert), `host/routes_act.py` (the
+acting routes behind the grants, the guards and the preview), `host/jobs.py` (the frames bus and the jobs),
+`host/stream.py` (`GET stream`, moved out of http.py), `host/guards.py` (evidence, one at a time, the cooldown, the
+rate limit), `host/verify.py` (before / after, keep or revert), `host/invariants.py` (the fit, one resident, the
+helper's footprint), `host/findings.py` (`GET findings` with where / suggest), `host/ledger_take.py` and
+`host/ledger_push.py` (a peer's calls into the host's ledger), `host/duty.py` (the duty steward's pass;
+`host_steward_cli.py` is its command); `fleet/hub_host_cmd.py` (a Studio command to a host, no member session),
+`fleet/ollama_share_cards.py` (speed cards, dialect records and the fleet's fingerprints with the ledger push);
+`ollama_steward/host_land.py` (the steward lands through the host, the verdicts back), `ollama_steward/host_fold.py`
+(a host's findings in a peer's run, the ledger push tick), `ollama_steward/steward_review.py` (the review half of
+steward.py, moved for the cap); `studio/local_host_acts.py` (controls via the host, the job waiter) and
+`studio/local_host_api.py` (request control, the pending rows, the stated line, the offline promise);
+`agent/offline_promise.py`; `ui/src/routes/local/HostPending.tsx`, `HostStated.tsx`,
+`ui/src/routes/session/OfflineChip.tsx`.
+
 **Packs** (`halo_harness/packs/`, Halo 3.2.0.0 R1, docs/PACKS.md): the
 names (`packs/names.py`: ids, `<id>--<name>`, the `pack:<id>` label and
 `read_only_source`), `packs/semver.py` (versions and ranges),

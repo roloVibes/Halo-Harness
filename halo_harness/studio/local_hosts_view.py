@@ -85,20 +85,17 @@ def _member(hub, name: str):
 
 
 def controls(host_url: str, host_name: str, served: bool, hub=None) -> dict:
-    """{ok, via, why, member, member_host} for Load / Unload on this host from here; 3.3.7.0 R1: `via: "host"` when a
-    paired halo host serves it and no member takes the command (the host's `control` grant is 3.3.7.0 R2's)."""
+    """{ok, via, why, member, member_host} for Load / Unload on this host from here; 3.3.7.0 R2: `via: "host"` (ok)
+    when a paired halo host serves it and this peer holds its `control` grant -- no member session needed
+    (studio/local_host_acts.host_controls); else a member that takes the command; else the host's grant line."""
     if served:
         return {"ok": True, "via": "this machine", "why": ""}
+    from halo_harness.studio.local_host_acts import host_controls
+    hc = host_controls(host_url, host_name) if host_url else None
+    if hc is not None and hc["ok"]:
+        return hc
     got = _member_controls(host_url, host_name, hub)
-    if got["ok"] or not host_url:
-        return got
-    from types import SimpleNamespace
-    from halo_harness.ollama_steward.host_client import for_host
-    hc = for_host(SimpleNamespace(url=host_url, name=host_name))
-    if hc is None:
-        return got
-    return {"ok": False, "via": "host", "host": hc.addr, "why": f"served by halo host at {hc.addr}: Load, Unload, probe "
-            "and bench through it need the host's `control` grant, which arrives in 3.3.7.0 R2"}
+    return got if got["ok"] or hc is None else hc
 
 
 def _member_controls(host_url: str, host_name: str, hub=None) -> dict:
@@ -114,8 +111,10 @@ def _member_controls(host_url: str, host_name: str, hub=None) -> dict:
     if m.allow_control == "none":
         return {"ok": False, "via": "", "why": f"{m.name} has fleet.allow_control: none, so a hub does not load "
                 "models there (its owner sets ask or all)", **who}
-    if not m.sessions():
-        return {"ok": False, "via": "", "why": f"{m.name} has no live session to take the command right now", **who}
+    if not m.sessions():  # 3.3.7.0 R2: a halo host that member announced takes it with no session (hub_host_cmd.py)
+        from halo_harness.fleet.hub_host_cmd import member_controls
+        return member_controls(hub, m.name, who) or {"ok": False, "via": "", "why": f"{m.name} has no live session "
+                                                     "to take the command right now", **who}
     via = f"fleet member {m.name}" + (" (its owner is asked first)" if m.allow_control == "ask" else "")
     return {"ok": True, "via": via, "why": "", **who}
 

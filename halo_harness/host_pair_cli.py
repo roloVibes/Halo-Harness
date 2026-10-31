@@ -119,3 +119,104 @@ def peer_status(name: str, as_json: bool) -> int:
     for r in got.get("hosts") or []:
         print(f"  {r.get('name')} (port {r.get('port')}): {r.get('footprint')}; log: {(r.get('log') or {}).get('line')}")
     return 0
+
+
+# ---- 3.3.7.0 R2: the owner's grants (host/grants.py) -----------------------------------------------
+
+def _when(t) -> str:
+    return time.strftime("%Y-%m-%d %H:%M", time.localtime(t)) if isinstance(t, (int, float)) else "never"
+
+
+def cmd_grant(argv: list, *, take: bool = False) -> int:
+    from halo_harness.host import grants
+    verb = "revoke" if take else "grant"
+    p = _parser(verb, ("Take a grant back from a peer of this host." if take else
+                       "Give a peer of this host a grant: control (warm, unload, pivot, the profile fields, the stated "
+                       "server lines, the battery, the bench), manage (pull, delete, retire, revert, the restart and env "
+                       "lines) or admin (not part of this version)."))
+    p.add_argument("peer", help="the peer's name or id (halo host peers)")
+    p.add_argument("grant", choices=("view", "control", "manage", "admin"))
+    a, rc = C.parse(p, argv)
+    if a is None:
+        return rc
+    ok, line = (grants.revoke if take else grants.grant)(identity.home(), a.peer, a.grant)
+    if not ok:
+        return C.fail(a.json, "refused", f"halo host {verb}: {line}")
+    if a.json:
+        C.emit_json({"ok": True, "line": line, "cap": grants.cap(identity.home())})
+    else:
+        print(line)
+    return 0
+
+
+def cmd_revoke(argv: list) -> int:
+    return cmd_grant(argv, take=True)
+
+
+def cmd_peers(argv: list) -> int:
+    from halo_harness.host import grants
+    a, rc = C.parse(_parser("peers", "The peers paired with this host: their grants, last seen, requests."), argv)
+    if a is None:
+        return rc
+    home = identity.home()
+    rows, level = grants.peers(home), grants.cap(home)
+    if a.json:
+        C.emit_json({"ok": True, "peers": rows, "cap": level})
+        return 0
+    if not rows:
+        print("no peer is paired with this host (`halo host pair` makes a code)")
+        return 0
+    print(f"fleet.allow_control here: {level}" + {"none": " (view only for every peer: strictly a monitor)",
+                                                    "ask": " (a control / manage request is queued for you first)",
+                                                    "all": " (the grants apply as given)"}[level])
+    for r in rows:
+        print(f"  {r['name']} ({r['id'][:12]}): {', '.join(r['grants'])}; last seen {_when(r['last_seen'])}, "
+              f"{r['requests']} requests" + ("; the duty steward" if r.get("duty") else ""))
+    return 0
+
+
+def cmd_pending(argv: list) -> int:
+    from halo_harness.host import grants
+    a, rc = C.parse(_parser("pending", "The requests queued for you under fleet.allow_control: ask."), argv)
+    if a is None:
+        return rc
+    rows = grants.pending(identity.home())
+    if a.json:
+        C.emit_json({"ok": True, "pending": rows})
+        return 0
+    if not rows:
+        print("nothing is waiting for an answer")
+        return 0
+    now = time.time()
+    for r in rows:
+        what = r["op"] + (" " + ", ".join(f"{k} {v}" for k, v in (r.get("params") or {}).items()) if r.get("params") else "")
+        print(f"  [{r['id']}] {r['peer']} asks: {what} ({r['state']}, {max(0, int(r['expires'] - now))} s left)"
+              + (f" -- {r['why']}" if r.get("why") else ""))
+    print("`halo host allow <id>` or `halo host deny <id>` answers one.")
+    return 0
+
+
+def cmd_answer(argv: list, *, allow: bool) -> int:
+    from halo_harness.host import grants
+    verb = "allow" if allow else "deny"
+    p = _parser(verb, f"{verb.capitalize()} a request queued under fleet.allow_control: ask (halo host pending).")
+    p.add_argument("id", help="the pending row's id")
+    a, rc = C.parse(p, argv)
+    if a is None:
+        return rc
+    ok, line = grants.answer(identity.home(), a.id, allow)
+    if not ok:
+        return C.fail(a.json, "not_pending", f"halo host {verb}: {line}")
+    if a.json:
+        C.emit_json({"ok": True, "line": line})
+    else:
+        print(line)
+    return 0
+
+
+def cmd_allow(argv: list) -> int:
+    return cmd_answer(argv, allow=True)
+
+
+def cmd_deny(argv: list) -> int:
+    return cmd_answer(argv, allow=False)

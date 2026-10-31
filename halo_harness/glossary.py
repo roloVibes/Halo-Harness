@@ -25,11 +25,11 @@ TERMS = ("lineup", "bio", "role", "tier", "team", "member", "block", "stage", "l
          "mission", "gate", "claim", "hand-off", "plan", "coach", "orchestra run", "fleet", "hub", "harness",
          "capability", "unit", "pack", "guided first run", "setup", "provider", "env file",
          "config key", "steward", "profile", "fit plan",
-         "host", "grant", "peer", "speed card", "library", "quant",
+         "host", "grant", "peer", "fix", "duty steward", "offline promise", "speed card", "library", "quant",
          "declared", "expected", "verified", "fingerprint",
          "log status", "load result",
          "dialect record", "measured", "shelf", "post-mortem", "degradation ladder",
-         "scope", "warm-up", "vision", "eyes")  # 3.3.6.0 R6: which models can see, the offer  # 3.3.6.0 R5: the bench's two; 3.3.6.0 R4: the cards' five; 3.3.6.0 R3: the log's two; 3.3.6.0 R2: the three truths, the crash fingerprint; 3.3.5.0 R2: the Library's two; 3.2.1.0 R1: "pack"; 3.2.2.0 R2: "guided first run"; 3.3.0.0 R1: the Setup section's three; 3.3.3.0 R2: Settings' one; 3.3.4.0 R5: the Ollama steward's three; 3.3.5.0 R1: Local's two
+         "scope", "warm-up", "vision", "eyes")  # 3.3.7.0 R2: fix, duty steward, offline promise; 3.3.6.0 R6: which models can see, the offer  # 3.3.6.0 R5: the bench's two; 3.3.6.0 R4: the cards' five; 3.3.6.0 R3: the log's two; 3.3.6.0 R2: the three truths, the crash fingerprint; 3.3.5.0 R2: the Library's two; 3.2.1.0 R1: "pack"; 3.2.2.0 R2: "guided first run"; 3.3.0.0 R1: the Setup section's three; 3.3.3.0 R2: Settings' one; 3.3.4.0 R5: the Ollama steward's three; 3.3.5.0 R1: Local's two
 
 PACKAGE_DIR = Path(__file__).resolve().parent
 DOCS_FILE = PACKAGE_DIR.parent / "docs" / "GLOSSARY.md"

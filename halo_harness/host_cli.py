@@ -7,6 +7,8 @@
     halo host join <host:port|url> --code "<six words>" [--fingerprint HEX] [--json]   (host_pair_cli.py)
     halo host install [--port N] [--bind ADDR] [--os OS] [--anyway] [--json]   (host_install.py)
     halo host uninstall [--os OS] [--json]                                       (host_install.py)
+    halo host grant | revoke <peer> <grant> | peers | pending | allow <id> | deny <id>   (host_pair_cli.py, R2)
+    halo host steward on --model REF | off | status | run                        (host_steward_cli.py, R2)
 
 `serve` starts the host in the background (a detached `halo host serve --foreground`) and returns once its
 serve.json is written; `--foreground` runs it here until Ctrl+C or `halo host stop`. Exit codes: 0 done, 1 could
@@ -23,7 +25,9 @@ import time
 from halo_harness.fleet import identity
 from halo_harness.remote import cli_common as C
 
-VERBS = ("serve", "status", "stop", "pair", "join", "install", "uninstall")
+VERBS = ("serve", "status", "stop", "pair", "join", "install", "uninstall", "grant", "revoke", "peers", "pending",
+         "allow", "deny", "steward")
+PAIR_VERBS = ("pair", "join", "grant", "revoke", "peers", "pending", "allow", "deny")
 SEAMS: dict = {}  # "spawn": fn(argv) -> a Popen-like (the tests' seam: no detached process in a test)
 USAGE = """usage: halo host [serve] [--port N] [--bind ADDR] [--foreground] [--no-tls] [--json]
        halo host status [--peer NAME] [--json]
@@ -32,6 +36,9 @@ USAGE = """usage: halo host [serve] [--port N] [--bind ADDR] [--foreground] [--n
        halo host join <host:port|url> --code "<six words>" [--fingerprint HEX] [--json]
        halo host install [--port N] [--bind ADDR] [--os linux|macos|windows] [--anyway] [--json]
        halo host uninstall [--os linux|macos|windows] [--json]
+       halo host grant <peer> view|control|manage|admin [--json]   halo host revoke <peer> <grant> [--json]
+       halo host peers [--json]   halo host pending [--json]   halo host allow <id> [--json]   halo host deny <id>
+       halo host steward on --model REF | off | status | run [--json]
 
   serve      run halo host: the model-free monitor of this machine's model servers, serving paired peers
   status     is it running, since when, its port, peers, last request, what it watches (--peer: a paired host's)
@@ -39,7 +46,11 @@ USAGE = """usage: halo host [serve] [--port N] [--bind ADDR] [--foreground] [--n
   pair       a one-time six-word code that pairs one peer with this host (the view grant)
   join       pair this harness with a host (its code); fleet.json's hosts list keeps it
   install    write the service file (systemd user unit, launchd agent, Task Scheduler at logon); prints the enable line
-  uninstall  remove the service file it wrote; prints the disable line"""
+  uninstall  remove the service file it wrote; prints the disable line
+  grant      give a peer control, manage or admin here (fleet.allow_control caps it); revoke takes one back
+  peers      the peers paired here: grants, last seen, requests
+  pending    the requests queued for you under fleet.allow_control: ask; allow / deny answers one
+  steward    the duty steward: a separate opt-in process running the steward on a small local model (off by default)"""
 
 
 def _parser(verb: str, description: str) -> argparse.ArgumentParser:
@@ -214,9 +225,12 @@ def cmd_host(argv: list) -> int:
     verb, rest = (argv[0], argv[1:]) if argv and not argv[0].startswith("-") else ("serve", list(argv))
     if verb in ("serve", "status", "stop"):
         return {"serve": cmd_serve, "status": cmd_status, "stop": cmd_stop}[verb](rest)
-    if verb in ("pair", "join"):
+    if verb in PAIR_VERBS:
         from halo_harness import host_pair_cli
         return getattr(host_pair_cli, "cmd_" + verb)(rest)
+    if verb == "steward":
+        from halo_harness.host_steward_cli import cmd_steward
+        return cmd_steward(rest)
     if verb in ("install", "uninstall"):
         from halo_harness import host_install
         return getattr(host_install, "cmd_" + verb)(rest)

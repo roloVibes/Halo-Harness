@@ -19,13 +19,16 @@ The host is an in-depth monitor that informs the harness:
   install`, `halo host status`), running as `halo host`. It talks only to Halo peers on the LAN: no cloud, no
   relay, no third party.
 - **It is not autonomous.** Its default is *monitor*: what it finds waits for the next harness that asks. It
-  acts only on a typed request from a harness or the steward, and this release (R1) answers reads only.
-- **No model is ever in it.** It never loads a model and never runs one. Its watch is the steward's job with the
-  rules in "off" mode (findings only, nothing applied, no note written by a model). A model that answers "does
-  this fit" would turn arithmetic into an opinion, so the fit and the routing answers are computed.
+  acts only on a typed request from a harness or the steward (the vocabulary below, 3.3.7.0 R2), within the grant
+  that peer holds, plus its own deterministic invariants -- mechanics with no judgement in them.
+- **No model is ever in it.** It runs no model, ever, not even with the duty steward on (that is its own
+  process). Its watch is the steward's job with the rules in "off" mode (findings only, nothing applied, no note
+  written by a model). A model that answers "does this fit" would turn arithmetic into an opinion, so the fit and
+  the routing answers are computed. It loads a model only when a peer with the grant asks (`control/warm`).
 - **Prompt sizes, never prompt content.** A log line that carries a request body (Ollama's debug lines do) is
   replaced by its size before it leaves the machine.
-- **Every request leaves one audit line** in `<state>/host/audit.jsonl`: `{at, peer, path, ok, ms}`.
+- **Every request leaves one audit line** in `<state>/host/audit.jsonl`: `{at, peer, path, ok, ms}`; an acting
+  request's line adds `{op, params, evidence, dry, landed, fix, change_id?, job?}`.
 
 ## What it serves
 
@@ -43,14 +46,114 @@ window, a replay guard) and inside TLS with the host's own pinned certificate wh
 | `GET stream` | server-sent events: a `card` frame on open and every minute, an `event` frame per new event, a `resources` frame per new sample, a ping every 10 s |
 | `POST simulate {model \| size_gb, window, kv?}` | would it fit here: the installed row, else the packaged library snapshot's size and published shape, else the size given with a typical shape (said to be an estimate) |
 | `POST route {need: {model \| size_gb, window, tools?, vision?}}` | `{fits, now, warm, evicts, load_s, verdict}`: can it run here, and right now (free VRAM now, or loaded at that window already), which loaded models would have to unload, how long the load takes (the speed card) |
-| `POST control/*`, `manage/*`, `admin/*` | 403 with one line naming the grant this peer does not hold; R2 gives them meaning |
+| `GET me` | this peer's grants, the host machine's `fleet.allow_control`, what applies now, its pending rows, the vocabulary |
+| `GET findings` | the steward's rules over the host's own ledger and events, each finding with `where` (host / client) and `suggest` |
+| `GET changes` | the host's change rows, newest first, each with its fix row (`verdict`, before, after, the verify line) |
+| `GET job/<id>`, `GET jobs` | a job's progress (the battery, the bench, a twin's verify, a pull) |
+| `GET pending` | this peer's own rows queued under `fleet.allow_control: ask` |
+| `POST control/<op>`, `manage/<op>` | the typed vocabulary below |
+| `POST admin/<op>` | the `admin` grant, then 501: admin operations are not part of this version (nothing runs a shell on a host) |
+| `POST request {grant, why?}` | a peer asks the owner for a grant: a pending row |
+| `POST ledger {lines}` | a peer's calls to a server this host serves, kept in the host's ledger with `from` = the peer (the answer carries the host's profiles under the peer's own names) |
 
 ## Grants
 
-Every peer holds `view`: everything in the table above. `control` (warm, unload, pivot, the window and cache
-settings, a re-probe), `manage` (pull, delete, retire, restart, revert) and `admin` (a raw command) are granted per
-peer, one by one, and arrive in 3.3.7.0 R2 with the typed operations behind them. Until then Studio's Load,
-Unload, probe and bench on a host-served machine say so in one line.
+Every peer holds `view`: everything in the table above but the acting routes. The owner gives more, peer by peer:
+
+```sh
+halo host peers                          # name, id, grants, last seen, requests
+halo host grant bob@laptop control       # warm, pin, unload, pivot, the profile fields, the stated KV / flash lines, battery, bench, verify a twin
+halo host grant bob@laptop manage        # pull, delete, retire, revert, the stated restart / env lines (and control's ops)
+halo host revoke bob@laptop manage
+```
+
+`admin` is its own grant (`manage` never implies it); its operations are not part of this version. The host
+machine's `fleet.allow_control` caps every grant:
+
+| `fleet.allow_control` | What a peer's grant does |
+|---|---|
+| `none` | view only, for every peer: the host is strictly a monitor |
+| `ask` (the default) | a `control` / `manage` request is queued as a pending row (`<state>/host/pending.jsonl`, `host.ask_ttl_s`, 600 s); the owner answers it with `halo host pending`, `halo host allow <id>` / `halo host deny <id>`, or the Hosts page of that machine's Studio (ASKED OF THIS HOST); once allowed, the same request from that peer runs once within the TTL. A dry preview is never queued |
+| `all` | the grants apply as given |
+
+A peer without the grant gets one line naming it and the command that gives it; Studio's Hosts card says the same
+and offers "Request control", which writes a pending row of kind `grant` (allowed, it adds the grant).
+
+## The vocabulary
+
+Every operation is a named request with parameters, never a command line: `POST /host/v1/<grant>/<op>` with
+`{params, evidence: {finding?, lines?}, scope?, dry?, why?}`. `params.host` names the server (the host's own name
+for it; the only one when it serves one). `dry: true` answers `{would, writes, takes, cost}` and lands nothing; a
+job-shaped op answers `{job}` and streams `job` frames on `GET stream` (`GET job/<id>` catches up).
+
+| Op | Grant | What it does | What it writes | Stated or applied | Revertible |
+|---|---|---|---|---|---|
+| `warm {model, num_ctx?, keep_alive?, beside?}` | control | a load (Ollama's warm generate), after the invariants | nothing on disk | applied (an API call) | `unload` |
+| `pin {model, num_ctx?, beside?}` | control | the same, `keep_alive -1` | nothing on disk | applied | `unload` |
+| `unload {model}` | control | `keep_alive 0` | nothing | applied | `warm` |
+| `pivot {from, to, num_ctx?, keep_alive?}` | control | unload A, load B; one event each | nothing | applied | `pivot` back |
+| `set_num_ctx`, `set_num_predict`, `set_keep_alive`, `set_tools_max {model, value}` | control | the Halo-side profile field (a fix: it cites a finding), then the verify window | `ollama.profiles`, a row in `changes.jsonl` with its scope, a row in `fixes.jsonl` | applied (Halo's side) | `manage/revert <id>`; the verify reverts it when calls go worse |
+| `set_kv_cache_type {value}`, `set_flash_attn {on}` | control | the exact line for the host's OS | nothing | **stated**: `applied: false` | the revert line beside it |
+| `rerun_battery {model, force?}`, `bench {model, quick?}`, `verify_twin {model, window?}` | control | the battery / the bench / a twin's verify, on the host, as a job | the profile / the speed card / the twin's record | applied | re-run |
+| `pull {model}` | manage | a pull job | Ollama's blob store | applied | `delete` |
+| `delete {model, force?}`, `retire {model, why?, force?}` | manage | after the uses card: a live session refuses it, a role or lineup naming it too unless `force` | Ollama's blob store; retire adds a shelf line | applied | `pull` (the re-pull line) |
+| `restart_ollama {}`, `set_env {key, value}` | manage | the exact line for the host's OS | nothing | **stated** | the revert line |
+| `revert {change}` | manage | the change put back | `ollama.profiles`, a revert line | applied | -- |
+
+Code never changes a host-side Ollama setting, restarts a server or sets `OLLAMA_DEBUG`: the KV type, flash
+attention, the env and a restart are stated actions, the line you run there (`ollama_steward/tune_lines.py`).
+
+## The fix loop
+
+A **fix** is a request that changes a profile field or cites a finding. The host enforces, with no model:
+
+- a profile fix names the finding it acts on (`evidence`), else 422 "a fix names the finding it acts on";
+- one change in flight per host: a second answers 409 "one change at a time: set_num_ctx landed 40 s ago on pc,
+  verifying (2 of 5 calls, at most 560 s more)";
+- a cooldown between changes on the same host|model (`host.cooldown_s`, 120) and a rate limit per peer
+  (`host.changes_per_hour`, 10; 429), each one line naming the key.
+
+After a profile fix lands the host records `before` (the card's loaded row from `/api/ps`, the newest load's
+layers and splits, the ledger's median tok/s, trims, cut replies and errors over the last 10 calls) and watches the
+next `host.verify_calls` (5) calls or `host.verify_s` (600 s), whichever comes first. Then it writes `after` and the
+verdict into the fix's row and an `event` frame: "set_num_ctx 32768 on pc|qwen3-coder:30b: 16 -> 188 tok/s, no
+trims -- kept". Calls that went worse (more trims, cut replies and errors, or a tok/s 10 % lower) revert it and say
+so. A window with no calls in it measures nothing: the fix is kept and the line says so. A person's Load is not a
+fix: the invariants guard it.
+
+## The invariants
+
+Deterministic, no model: `warm` / `pin` / `pivot` run the fit planner first and refuse a model that does not fit at
+the asked window with the plan's verdict line; a second resident is refused unless `beside: true` and the plan says
+both fit (one resident per card otherwise); the asked `keep_alive` goes on the load and comes back in the answer; a
+request whose dry run says the card would be breached is refused in the same words. The card and `route` answers
+carry `usable_gb` and `usable_with_helper_gb`: "20.6 GB usable; 18.6 GB with the helper (qwen3.5:9b, 2.0 GB)".
+
+## Peers act through the host
+
+With `control` on a host, Studio's Load, Unload, Probe and Bench on a machine that host serves go through it, no
+fleet member session needed (Pull and Delete with `manage`); the battery and the bench run on the host and their
+frames come back as this Studio's jobs (the bench's speed card is kept here too). The Hosts card shows the grants,
+"through halo host at <addr>", and a server-setting picker that asks the host for the stated line. A hub whose
+member announced a host forwards there too once the hub is paired with it (`fleet/hub_host_cmd.py`).
+
+The steward on any peer lands a change for a host-served model through the host (`control/set_*`, the finding
+cited), mirrors it in its own profile and writes the host's verdict back into its journal; a reverted change takes
+the mirror with it ([MODELS-ollama-steward-host.md](MODELS-ollama-steward-host.md)). A peer's steward job folds
+the host's own findings into its run, and the `client` ones (a prompt that outgrew its window, a cut reply) become
+its own work: compaction, a bigger-window model. A peer's calls to a host-served server reach the host's ledger
+(`POST ledger`), so the verify window and the bench's busy wait see every client.
+
+## The duty steward
+
+`halo host steward on --model ol:qwen3.5:9b@pc` is an explicit opt-in, off by default: a separate process (`halo host
+steward run`, its pid in `<state>/host/steward.json`) running the steward on a small local model through this
+machine's Ollama like any other client. It has its own peer record (`duty: true`, `control` by default; `ask` does
+not queue it, `none` still caps it), reads `GET findings` and the card every `host.steward.every_s` (300 s), writes
+one note per pass (the stream's `note` frames), and lands its fixes through the same vocabulary with the finding
+cited -- the guards and the verify judge them like anyone's. Its model is kept 2 minutes and unloaded the moment a
+peer's `warm` or `pivot` needs the card; its footprint is the helper line above. `halo host steward off` stops it
+and drops its peer record. Its limits: one note and at most two fixes per pass, only Halo-side fields.
 
 ## Pairing
 
@@ -117,13 +220,14 @@ all the same); `halo host uninstall` removes the file it wrote and prints the di
 
 ## Config
 
-`host.port` (7431), `host.bind` (`0.0.0.0`), `host.enabled` (true), `host.tail_max` (400); see
-[CONFIG.md](CONFIG.md). Files under `<state>/host/`: `serve.json`, `codes.json`, `peers.json`, `audit.jsonl`,
-`cert.pem` / `key.pem`, and `stop` while `halo host stop` asks it to end.
+`host.port` (7431), `host.bind` (`0.0.0.0`), `host.enabled` (true), `host.tail_max` (400); R2: `host.ask_ttl_s` (600),
+`host.cooldown_s` (120), `host.changes_per_hour` (10), `host.verify_calls` (5), `host.verify_s` (600),
+`host.steward.enabled` (false), `host.steward.model`, `host.steward.every_s` (300); see [CONFIG.md](CONFIG.md).
+Files under `<state>/host/`: `serve.json`, `codes.json`, `peers.json`, `audit.jsonl`, `pending.jsonl`,
+`fixes.jsonl`, `steward.json` / `steward.key` while the duty steward is on, `cert.pem` / `key.pem`, and `stop` while
+`halo host stop` asks it to end.
 
-## What R2 adds
+## What R3 adds
 
-The host acts: the typed `control` / `manage` / `admin` operations and their per-peer grants, the fix loop (the
-steward sends a named operation with the finding it acts on, the host applies it, measures before and after, and
-keeps or reverts it), the session-less command path, probe and bench through the host, and the optional duty
-steward. R3 puts the routing answer to work across the fleet.
+The routing answer put to work across the fleet: the placement solver asks each paired host `route` and picks by
+fit, warm state and load time; the pivot scheduler uses `pivot`.

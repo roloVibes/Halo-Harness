@@ -2,7 +2,7 @@
 
 Read this when you want to know what the Ollama steward knows, records, finds and changes across your halos and model servers.
 
-Part of [Models](MODELS.md), which lists every part.
+Part of [Models](MODELS.md), which lists every part. A model a `halo host` serves: [MODELS-ollama-steward-host.md](MODELS-ollama-steward-host.md).
 
 ## The steward (3.3.4.0)
 

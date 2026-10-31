@@ -115,6 +115,12 @@ class StewardJob:
                 self.on_event(row)
         except Exception:
             pass
+        try:  # 3.3.7.0 R2: calls pushed to their halo host, its verdicts on this steward's changes (host_fold.py)
+            from halo_harness.ollama_steward.host_fold import tick as host_tick
+            for r in host_tick(self.state_dir)["verdicts"]:
+                self.emit("change", r["say"], {"change": r["id"], "key": r["key"], "kind": "host-verdict"}, attention=True)
+        except Exception:
+            pass
         ok, why = self.due(now)
         if ok:
             return self.run_once(now)
@@ -140,6 +146,9 @@ class StewardJob:
         notify, self.notify, self.last_run, self.idle = self.notify, 0, now, False
         ctx = gather(self.state_dir, **(self.readers if self.readers is not None else job_state.readers()))
         found = run_rules(ctx)
+        if self.where != "host":  # 3.3.7.0 R2: a paired host's own findings (host_fold.fold), its id kept
+            from halo_harness.ollama_steward.host_fold import fold
+            found = fold(self.state_dir, found)
         said: list = []
         done = steward.run(self.state_dir, found=found, say=said.append, now=now,
                            mode_name="off" if self.where == "host" else None)  # 3.3.7.0 R1: the host only reports

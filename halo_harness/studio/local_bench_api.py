@@ -7,7 +7,8 @@ that does the same, and `cost`, the line said before the run (local: time and a 
     POST local/host/<name>/bench {model, quick?}  a bench job (studio/local_bench_job.py; `bench` frames); 409 with one
                                                  line while the host had a call in the last minute, a session uses it,
                                                  or another bench runs there; a host a fleet member serves: 409 (that
-                                                 machine's own Studio benches it)
+                                                 machine's own Studio benches it); 3.3.7.0 R2: a host a paired halo
+                                                 host serves: the host runs it (control/bench), its frames come here
     GET  local/benches?host=                     per host every installed model and its speed card (stale marked),
                                                  the Benchmarks page's table, and the jobs
 """
@@ -65,6 +66,14 @@ def post_bench(req, name: str):
         return 404, {"error": f"no host named {name!r} here"}
     if not ctl.get("ok"):
         return _refused(ctl)
+    if not here and ctl.get("via") == "host":  # 3.3.7.0 R2: the bench runs on the host (control/bench)
+        from halo_harness.studio.local_host_acts import send, waiter
+        code, ans = send(ctl, "bench", {"model": model, "quick": quick})
+        if code != 200 or not ans.get("job"):
+            return (code if code >= 400 else 409), {"error": ans.get("error") or ans.get("line") or "the host did not start it"}
+        view = J.start(host, model, _pub(req), state_dir=req.state_dir, quick=quick, cost=ans.get("say") or "",
+                       runner=waiter(ctl, ans["job"], save_card_as=name))
+        return 200, {**view, "via": ctl.get("via_line"), "host_job": ans["job"], "cli": cli(name, model, quick)}
     if not here:
         return 409, {"error": f"{name} is served by another machine: its own Studio benches it (halo local bench there)"}
     other = J.running_on(name)

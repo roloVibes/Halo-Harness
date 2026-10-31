@@ -100,15 +100,15 @@ class View:
         return sorted(({"from": k, "calls": v} for k, v in who.items()), key=lambda r: -r["calls"])
 
     def card(self) -> dict:
+        from halo_harness.host.invariants import footprint
         from halo_harness.host.state import port_of
-        from halo_harness.ollama_steward.fit import card_budget
         rows = []
         for h in self.hosts():
             c = self.host_card(h)
-            usable = card_budget(c, h.name)["budget"] if c.get("gpus") else 0
+            fp = footprint(self, h, rows=[m for m in c.get("loaded") or [] if isinstance(m, dict)])  # R2: the helper
             rows.append({"name": h.name, "port": port_of(h.url), "card": c, "log": self.log_status(h),
-                         "other_clients": self.other_clients(h),
-                         "footprint": (f"{usable / GIB:.1f} GB usable" if usable else "usable memory not read yet")})
+                         "other_clients": self.other_clients(h), "footprint": fp["line"], "usable_gb": fp["usable_gb"],
+                         "usable_with_helper_gb": fp["usable_with_helper_gb"], "helper": fp["helper"]})
         return {"hosts": rows}
 
     def log_status(self, h) -> Optional[dict]:

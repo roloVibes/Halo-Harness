@@ -5,6 +5,7 @@
                            "runner died" | "load failed" | None (not a crash)
     record(state_dir, rows, host, *, card=None, catalog=None) -> [fingerprint]   server_events.record_events calls it
     read(state_dir, host=None) -> [fingerprint], newest first        line(fp) -> "crashed here on <date>: ..."
+        (3.3.7.0 R2, G11: with `host`, the fleet's rows too -- `from` set, "crashed on <member>:<host> on <date>")
     read_recent(state_dir, since) / take(state_dir, member, rows)   the ledger push to the hub and its side
 
 Fingerprint = {host, model, model_from, family, quant, window_used, kv_cache_type, flash_attention, spill
@@ -127,7 +128,8 @@ def read(state_dir, host: Optional[str] = None) -> list:
                     fp = json.loads(raw)
                 except ValueError:
                     continue
-                if isinstance(fp, dict) and (not host or str(fp.get("host") or "").lower() == host.lower()):
+                # 3.3.7.0 R2 (G11): a host's own rows and the fleet's (`from`: a member's, or the hub's sent back)
+                if isinstance(fp, dict) and (not host or fp.get("from") or str(fp.get("host") or "").lower() == host.lower()):
                     out.append({**fp, "line": line(fp)})
     except OSError:
         return []
@@ -190,7 +192,8 @@ def line(fp: dict) -> str:
     t = _t(fp.get("at"))
     date = time.strftime("%Y-%m-%d", time.localtime(t)) if t else "?"
     w, kv = fp.get("window_used"), fp.get("kv_cache_type")
-    out = f"crashed here on {date}: {WORDS.get(fp.get('signature'), fp.get('signature') or 'a crash')}"
+    where = f"on {fp.get('host')}" if fp.get("from") else "here"  # 3.3.7.0 R2: a fleet row says where it crashed
+    out = f"crashed {where} on {date}: {WORDS.get(fp.get('signature'), fp.get('signature') or 'a crash')}"
     out += " after a spill" if fp.get("spill") else ""
     out += f" at {w:,}" if isinstance(w, int) else ""
     out += f" with {kv} KV" if kv else ""

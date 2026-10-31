@@ -94,6 +94,12 @@ def post_pull(req, name: str, host, ctl: dict, here: bool):
     line = cli("pull", name, model=model)
     if here and host is not None:
         return 200, {**J.start(host, model, _pub(req), state_dir=req.state_dir), "cli": line}
+    if ctl.get("via") == "host" and host is not None:  # 3.3.7.0 R2: the host pulls (manage/pull); its job's steps come here
+        from halo_harness.studio.local_host_acts import puller, send as host_send
+        code, ans = host_send(ctl, "pull", {"model": model})
+        if code != 200 or not ans.get("job"):
+            return (code if code >= 400 else 409), {"error": ans.get("error") or ans.get("say") or "the host did not start it", "cli": line}
+        return 200, {**J.start(host, model, _pub(req), state_dir=req.state_dir, pull=puller(ctl, ans["job"])), "cli": line}
 
     def send(extra: dict):
         return _forward(req, ctl, "pull", {"model": model, **extra})

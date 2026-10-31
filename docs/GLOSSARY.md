@@ -141,11 +141,23 @@ A host is a model server Halo calls -- an `ollama.hosts` entry (`ol:<model>@<hos
 
 ## grant
 
-A grant is what one paired peer may do on a `halo host`: `view` (the card, the catalog and fit, the profiles, the events and the log, the live stream, the fit simulation and the routing answer) is every peer's; `control` (warm, unload, pivot, the window and cache settings, a re-probe), `manage` (pull, delete, restart, revert) and `admin` (a raw command) are granted per peer, one by one, and 3.3.7.0 R2 gives them meaning. A request a peer has no grant for gets one line naming the grant.
+A grant is what one paired peer may do on a `halo host`: `view` (the card, the catalog and fit, the profiles, the events and the log, the live stream, the fit simulation and the routing answer, the findings) is every peer's; `control` (warm, pin, unload, pivot, the profile fields as fixes, the stated KV and flash-attention lines, the battery, the bench, a twin's verify), `manage` (pull, delete, retire, revert, the stated restart and env lines; it holds `control`'s operations too) and `admin` (its own grant; its operations are not part of this version) are given per peer with `halo host grant <peer> <grant>`. The host machine's `fleet.allow_control` caps them: `none` keeps every peer at `view` (strictly a monitor), `ask` queues each `control` or `manage` request for the owner (`halo host pending`, `halo host allow <id>`), `all` applies them as given. A request a peer holds no grant for gets one line naming the grant and the command that gives it.
 
 ## peer
 
 A peer is a harness paired with a `halo host` through its six-word code (`halo host pair` there, `halo host join` here), kept in this machine's `fleet.json` under `hosts` with the pair key that signs its requests; the host keeps the peer's record and grants in `peers.json` and one audit line per request it answers. A peer is not a member: that word is the lineup's.
+
+## fix
+
+A fix is one named operation of a `halo host`'s typed vocabulary (`control/set_num_ctx 32768`, `control/warm`, `manage/revert <id>`) sent with the evidence it acts on -- the finding's id, or the log lines -- never a command line. A dry run (`dry: true`) says what it would do, write, cost and take and lands nothing; a landed profile fix is a change row with a scope, and the host measures the next calls before and after and keeps it or reverts it, saying so in one line. One change at a time per host, a cooldown and a rate limit are the host's own mechanics; a server setting (KV type, flash attention, env, a restart) is a stated action: the exact line for that OS, `applied: false`, which you run there.
+
+## duty steward
+
+The duty steward is the steward run by a `halo host` machine for itself when no harness is attached: an explicit opt-in (`halo host steward on --model REF`, off by default), a separate process -- never the host process, which stays model-free -- on a small local model through the host's own Ollama, with its own peer record and grant. Each pass reads the host's findings and card, writes one note, and lands its fixes through the same vocabulary with the finding cited; its model is kept briefly and unloaded the moment a peer's load needs the card, and the host reports its footprint ("20.6 GB usable; 18.6 GB with the helper").
+
+## offline promise
+
+The offline promise is a session's own account of what left this machine: "100 % local -- 0 tokens left this machine" when every call went to a server this machine serves, else how many calls left it and to where (a LAN server by name and the halo host that serves it, a cloud provider by route), read from the session log's calls and the traffic ledger's hosts, never estimated. It is on `/cost`, the Session header's chip and `halo session show <id>`, with a line per local call naming its host.
 
 ## speed card
 

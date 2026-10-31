@@ -7,12 +7,14 @@
 // picks are the Activity log's `.fac-pick` selects. 3.3.0.0 R6: Follow shows
 // whether the column follows now (off while you compose in the Steer field),
 // and Export downloads the session's trace (TraceExport.tsx).
+// 3.3.7.0 R2: the offline-promise chip (OfflineChip.tsx) for a session of this harness.
 // 3.3.6.0 R6: Screenshot captures the display of the machine the session's harness runs on and attaches it to the
 // next steer (steerImage.ts): from a Mac or Kali driving this Studio, it is this PC's screen.
 import { Button, Icon } from "../../lib/ui";
 import { short } from "../orchestra/format";
 import { fleet, findAgent, useFleet } from "../fleet/store";
 import type { LiveKind, LiveLine } from "../shared/liveFeed";
+import { OfflineChip } from "./OfflineChip";
 import { pinTo, useStripAgents } from "./steer";
 import { takeScreenshot, useSteerImage } from "./steerImage";
 import { chosenSession, sess, useSession } from "./store";
@@ -76,6 +78,12 @@ function ShotButton() {
   );
 }
 
+function OfflineSlot() {
+  const ss = useFleet(chosenSession);
+  const local = useFleet((s) => (s.scope.harness || "local") === "local");
+  return local ? <OfflineChip sid={ss?.session_id} /> : null;
+}
+
 export function LiveHead({ working, count, onFollow, following }: { working: number; count: number; onFollow: () => void; following: boolean }) {
   const pin = useSession((s) => s.pin);
   const follow = following;
@@ -91,6 +99,7 @@ export function LiveHead({ working, count, onFollow, following }: { working: num
           only {short(pinned.a.name || pinned.a.agent_id, 20)} <Icon name="close" size={12} />
         </button>
       )}
+      <OfflineSlot />
       <span className="spacer" />
       <div className="fac-filters slv-picks">
         <AgentPick />

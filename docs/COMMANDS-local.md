@@ -390,3 +390,7 @@ not there, or the model did not load. Studio's Local -> Models runs the same thr
 answer from the ledger and the session log -- cut, memory, thinking only, no tools, a small budget, the cache -- in
 one line with the details beneath; no session: the newest that called a local model, no turn: its newest
 ([MODELS-ollama-logs.md](MODELS-ollama-logs.md#the-answer-post-mortems-sources-3360-r4)).
+
+`halo session show <id> [--json]` (3.3.7.0 R2, G15) prints the session's offline promise -- "100 % local -- 0 tokens
+left this machine", or how many calls left it and to where -- and a line per local call naming the host it went to;
+`/cost` and the Session header's chip say the same ([HOST.md](HOST.md)).

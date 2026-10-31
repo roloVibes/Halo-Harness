@@ -135,7 +135,7 @@ function say(key: string, s: Said | null): void {
   });
 }
 
-async function act(key: string, path: string, body: Record<string, unknown>): Promise<Record<string, unknown> | null> {
+export async function act(key: string, path: string, body: Record<string, unknown>): Promise<Record<string, unknown> | null> {
   local.update(() => ({ busy: key }));
   try {
     const r = await api.post<Record<string, unknown>>(path, body);
@@ -158,6 +158,11 @@ export async function loadModel(host: string, model: string, keepAlive?: string)
 
 export async function unloadModel(host: string, model: string): Promise<void> {
   if (await act(`${host}|${model}`, `local/host/${encodeURIComponent(host)}/unload`, { model })) void loadHosts();
+}
+
+/** 3.3.7.0 R2: the Hosts card's "Request control" -- a pending row on the paired halo host (its owner answers it). */
+export async function requestControl(host: string): Promise<void> {
+  if (await act(`req|${host}`, `local/host/${encodeURIComponent(host)}/request-control`, {})) void loadHosts();
 }
 
 export async function addHost(url: string, name: string): Promise<void> {
