@@ -139,6 +139,33 @@ version.
 - `ssh` reads decode as UTF-8 with replacement.
 - `halo ollama events`, `crashes` and the new `log` live in `ollama_steward/cli_logs.py`.
 
+### R4: measured cards and the dialect record
+
+**Added**
+- The measured card: tok/s, the time to the first token, load time, cache reuse, the window verified vs assumed, KV per token, what it sees, speculative decoding, tool-call accuracy and its quirks, each "value (source, date, n)":
+- from the traffic ledger's answered calls (medians over the newest 20, never the first call after a load), the server log (`timing` from llama-server's print_timing lines, `load-result`, `spec-decode`, no prompt cache), the fit evidence and the battery;
+- kept beside the profile and read again on every read;
+- the card's Measured block, a speed chip on Local -> Models, `halo models show`, `halo models measured <model>`.
+- The battery's multi-tool probe: three tools, a task that needs two in order, scored on the right tools with the right arguments -> tool-call accuracy (0-1), verified in the search. The probe set is `battery-2`.
+- The dialect record, how Halo talks to each local model, applied before every call:
+- instruction placement, fence stripping, the reply reserve, the JSON repair loop, stop quirks, the loop guard, thinking, the tool budget;
+- filled from the battery, refined from the ledger (replies cut often raise the reserve; a loop turns the guard on) through the steward's apply modes; your edit always wins;
+- "How Halo talks to this model" on the card, every field editable with its source; `halo models dialect <model> [--set field=value] [--reset]`.
+- The loop guard: the same span three times stops the reply ("<model> started repeating; stopped").
+- The tool budget: a model with no tool calling gets none; a small window gets the task's most relevant tools, the rest named in one line.
+- The KV dial in the fit block: "f16 KV -> 32k, q8_0 KV -> 64k on this card (q8_0 KV: a small quality cost)", the crash note when this host's fingerprints implicate FA + q8_0 KV, and the host-side change as a stated action.
+- The model shelf: each model's last use, size and whether a role picked it; Retire (the delete with its uses card and a note) and Re-pull (the pull job); the Shelf on Local -> Models; `halo models retire`, `halo models shelf [--repull]`.
+- Why this answer?: one turn rebuilt from the ledger and the session log -- cut, memory-dominated, thinking only, no tools, an empty reply from a small budget, the cache -- in one line with the details; Studio's why? on every Live row (the Inspector shows it), `/why [turn]`, `halo session postmortem`.
+- The degradation ladder: repair -> a smaller ask -> another local model -> cloud when `routing.escalation` allows it -> ask, one pass per turn, each rung one line, on the ledger line and in the post-mortem; `local.ladder`.
+- Routes: `GET local/host/<n>/measured`, `GET|POST local/host/<n>/dialect`, `GET local/host/<n>/shelf`, `POST local/host/<n>/retire`, `GET local/shelf`, `POST local/shelf/repull`, `GET sessions/<sid>/postmortem`.
+- Glossary: dialect record, measured, shelf, post-mortem, degradation ladder.
+
+**Changed**
+- An empty reply twice, or an empty reply from a model with no tool calling, walks the degradation ladder before its line (`local.ladder: off` keeps the old line alone).
+- The tool-call repair round is the dialect's JSON repair loop: as many attempts as the record says, each with the previous parse error.
+- The ledger line carries `dialect_record`, `loop` and `ladder`.
+- Local's routes moved to their own part, docs/STUDIO-local-routes.md.
+
 ### Also in 3.3.6.0
 
 #### Changed
