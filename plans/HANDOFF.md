@@ -6,9 +6,9 @@ first, then `WORKER-RULES.md`, then the round you are starting.
 
 ## WHERE THINGS STAND -- 2026-10-30 night (authoritative, read this first)
 
-**3.3.5.0 "Local" IS THE RELEASE CANDIDATE** (seven rounds merged on master; the release follows once
-both runners are green on the candidate head -- if you read this after the release, the tag v3.3.5.0
-exists and the PC runs it). The owner's direction (2026-10-27/28: "the best ... harness to intuitively work
+**3.3.5.0 "Local" IS RELEASED** (tag v3.3.5.0, release commit 2f64c523 cut from 1e3963aa on 2026-10-31
+after both runners went green; installed on the PC: `halo 3.3.5.0`). Next on master: 3.3.6.0 "Local,
+verified" -- R1 the battery in flight on `v336/R1-battery` (brief `~/hh-336/briefs/v336-R1-battery-brief.md`). The owner's direction (2026-10-27/28: "the best ... harness to intuitively work
 with local models", a Local tab, monitoring, benchmarks, the browser, the steward's chat, pivots) and his
 measured brief of 2026-10-29 (`plans/local-model-fit-brief.md`, Parts A-L; the ROADMAP entry "ADDED
 2026-10-30 ... the local-model brief" maps every part to a round). On master: R0 the switch (9c4e4f9:
