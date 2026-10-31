@@ -71,6 +71,8 @@ export function ModelRow({ m, host, score }: { m: ModelEntry; host: string; scor
         {m.warm?.cache_line && <span className="mono muted" data-testid="local-model-cache"
                                      title="the newest turn's share of the prompt Ollama did not read again">{m.warm.cache_line}</span>}
         {m.ref.startsWith("ol:") && <ProbedMark m={m} host={host} />}
+        {m.crashed && <span className="og-chip mono ls-crash-chip" data-testid="local-model-crashed" data-signature={m.crashed.signature}
+                            title={`${m.crashed.line} (halo ollama crashes)`}>crashed here</span>}
         {(card.quirks || []).map((q) => <span key={q.kind} className="og-chip mono" data-testid="local-model-quirk" data-kind={q.kind} title={q.say}>{q.kind === "no-prompt-cache" ? "re-reads the whole prompt every turn" : q.kind}</span>)}
       </div>
       <div className="lc-model-mid mono muted">

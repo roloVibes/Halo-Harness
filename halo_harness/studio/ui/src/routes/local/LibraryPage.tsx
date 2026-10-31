@@ -4,7 +4,10 @@
 // (LibraryFilters.tsx), and one line naming where the list came from: live, or the shipped snapshot with its
 // date and a Refresh. Every row is drawn (R0's WindowedRows keeps a long list quick). 3.3.5.0 R3: each row's Pull
 // (LibraryPull.tsx), the box to pull a name typed by hand, and the Jobs list (Pulls.tsx) above the rows. 3.3.5.0 R5:
-// a hub row's Download opens the licence card (HfCards.tsx) before a byte moves.
+// a hub row's Download opens the licence card (HfCards.tsx) before a byte moves. 3.3.6.0 R2: the resource strip pinned
+// on top and the preset buttons with the bundle on show (SearchBar.tsx), the filters under a chevron, every row
+// with its truths, verdicts and cost (LibraryRowBits.tsx), the Download and verify jobs (VerifyList.tsx), and the
+// order explained ("why this order") when a search ranks the rows.
 import { useEffect } from "react";
 import { Button, Empty, WindowedRows } from "../../lib/ui";
 import { HfCards } from "./HfCards";
@@ -12,6 +15,8 @@ import { LibraryFilters } from "./LibraryFilters";
 import { LibraryRow } from "./LibraryRow";
 import { PullByName } from "./LibraryPull";
 import { JobsList } from "./Pulls";
+import { SearchBar } from "./SearchBar";
+import { VerifyList } from "./VerifyList";
 import { loadLibrary, refreshLibrary, useLib } from "./libstore";
 
 function when(at: number | null): string {
@@ -51,13 +56,17 @@ export function LibraryPage() {
   useEffect(() => {
     void loadLibrary();
   }, []);
-  const why = data?.intents.find((i) => i.id === intent)?.why || "";
+  const ranked = !!data?.search?.bundle;
+  const why = ranked ? "passes the gates (verified first, declared second, expected last), then fits at the window, measured speed, "
+    + "download size and licence" : data?.intents.find((i) => i.id === intent)?.why || "";
   return (
     <div className="lc-models lc-library" data-testid="local-library">
+      <SearchBar />
       <LibraryFilters />
       <SourceLine />
       <PullByName />
       <JobsList />
+      <VerifyList />
       {why && <p className="muted lc-why" data-testid="local-library-intent-why">why this order: {why}</p>}
       {!data ? (
         error ? <Empty title="Studio could not read the library" body={error} /> : <div className="mono muted">reading the library...</div>

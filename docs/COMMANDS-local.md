@@ -256,6 +256,33 @@ fit is worked out at; the foot counts the rows.
   the window against the card's free memory), `--json` (the route's answer), `--refresh` (read ollama.com and the hub
   again; the cache, `<state>/cache/models-library.json`, keeps the catalog a day and a search an hour).
 
+3.3.6.0 R2, the capability-filtered search ([MODELS-ollama.md](MODELS-ollama.md#finding-a-model-for-a-role-3360)):
+
+- `--preset coder|reasoner|bulk|compactor|verifier|security|multimodal|embeddings|offline`: the preset's filter bundle
+  (its needs, fit and supply), printed under the head as `search: Coder -- needs coder expected, tools declared`.
+- `--need cap[=verified|declared|expected|any]` (repeatable): a capability at its truth floor (`declared` keeps
+  verified or declared; `any` also keeps a model that needs a probe); a bare cap is `expected`.
+- `--for-role ROLE`: a lineup role's preset (`verify` -> Verifier, `planner` -> Reasoner, `small` -> Bulk worker).
+- `--ask "a local coder that can use tools"`: a sentence read as a preset and its extras.
+- `--exclude-crashed`: a model with a crash fingerprint on the host is greyed (`[crashed here]`) and put last.
+- Each row's capabilities print with their truth marks (`[tools◇ coder≈ agentic-ready?]`: ✓ verified, ◇ declared,
+  ≈ expected, ? needs a probe); `--why` adds the two verdicts (`fits: yes · role-ready: not yet (download and
+  verify)`), the cost line and the rank line.
+- `--save-template [--model M] [--lineup L]`: write `--preset` as the lineup `local-<preset>` (or that role's entry in
+  `--lineup`), through the `halo teams` path; nothing else runs.
+
+## `halo ollama crashes`
+
+```sh
+halo ollama crashes [--host H] [--json]
+```
+
+3.3.6.0 R2: every crash fingerprint the steward recorded from the hosts' server events, newest first: the host, the
+model and its line ("crashed here on 2026-10-29: CUDA error (an illegal memory access) after a spill at 65,536 with
+q8_0 KV, flash attention on"), then its family and quant, where the model came from (the event, or the newest load
+before it) and the first evidence line. Read-only (`<state>/ollama/fingerprints.jsonl`,
+[MODELS-ollama-steward.md](MODELS-ollama-steward.md#crash-fingerprints-3360-r2)).
+
 ## `halo models pull | rm | load | unload | copy | rename | twin | loaded`
 
 ```sh

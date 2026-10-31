@@ -43,6 +43,7 @@ export type ModelEntry = {
   twin_of?: string | null;
   twin?: { of: string; state: "verified" | "unverified" | "spilled"; line: string };
   raw?: { twins: string[]; verified: boolean; offer: string };
+  crashed?: { line: string; at: string; signature: string; count: number } | null; // 3.3.6.0 R2: ollama_steward/fingerprints.py
 };
 export type Intent = { id: string; title: string; why: string };
 export type ModelsAnswer = { hosts: { name: string; kind: string; url: string; models: ModelEntry[] }[]; intents: Intent[]; at: number };
@@ -57,6 +58,33 @@ export type LibRow = {
   card: CardView; fit: LibFit; intent: Record<string, number | null>;
   installed?: string[]; pull_target?: string; // 3.3.5.0 R3: the hosts that have it; what Pull asks for
   on_disk?: string[]; // 3.3.5.0 R5: the model folders a hub row (or its file) is downloaded into
+} & SearchBits;
+// 3.3.6.0 R2: the search (models_library/search.py): each capability's truth, the cost preview, the two verdicts.
+export type Truth = "declared" | "expected" | "verified";
+export type Fact = { value: boolean | null; truth: Truth | null; why: string; probe?: boolean };
+export type CapChip = { cap: string; title: string; value: boolean | null; truth: Truth | null; glyph: string; why: string; probe: boolean };
+export type Cost = {
+  download_gb: number | null; download_eta_s: number | null; line_from: string; vram_at_window: number | null; cold_load_s: number | null;
+  cold_from: string; tok_s_expected: number | null; tok_from: string; evicts: string[]; installed: boolean; text: string;
+};
+export type Crash = { line: string; at: string; signature: string; count: number };
+export type SearchBits = {
+  facts?: Record<string, Fact>; chips?: CapChip[]; cost?: Cost; gate_tier?: number; why_this_rank?: string; greyed?: boolean;
+  verdicts?: { fits: { ok: boolean | null; word: string; why: string }; role_ready: { ok: boolean | null; why: string } };
+  crashed?: Crash | null; runs?: string; supports?: string;
+};
+export type Bundle = {
+  id: string; title: string; role: string; lineup_role: string; agent: string; intent: string; why: string;
+  needs: Record<string, string>; fit: Record<string, unknown>; supply: Record<string, unknown>;
+};
+export type Strip = {
+  host: string | null; card: boolean; gpu?: string; usable?: number; free?: number; others?: number; kv?: string;
+  resident?: { model: string; bytes: number }[]; disk_free?: number | null; disk_from?: string; window: number; version?: string | null; line: string;
+};
+export type VerifyJob = {
+  job: string; host: string; name: string; stage: "pull" | "probe" | "offer" | "done"; pull_job: string | null; probe_job: string | null;
+  done: boolean; ok: boolean; say: string; role: string; started: number; error: string | null;
+  offer: { role: string; ref: string; ok: boolean; why: string; line: string } | null;
 };
 export type LibHost = { name: string; max_ctx: number | null; url: string };
 export type LibraryAnswer = {
@@ -64,6 +92,8 @@ export type LibraryAnswer = {
   sources: { ollama?: string; hf?: string }; notes: { ollama?: string; hf?: string }; window: number;
   host: { name: string | null; max_ctx: number | null; card: boolean }; hosts: LibHost[]; intents: Intent[]; intent: string;
   snapshot: { taken: string };
+  search?: { preset: string; bundle: Bundle | null; role: string; understood: string[]; for_role?: string; sentence?: string };
+  presets?: Bundle[]; strip?: Strip; // 3.3.6.0 R2
 };
 export type LibDetail = { source: string; id: string; rows: LibRow[]; note: string; about: Record<string, unknown>; window: number; host: string | null };
 // 3.3.5.0 R3: Ollama, controlled (studio/local_control_api.py, studio/local_pull_job.py, studio/local_uses.py).

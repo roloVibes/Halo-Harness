@@ -278,13 +278,19 @@ judged.
 
 ## The battery on new models (3.3.6.0)
 
-The job (`ollama_steward/probe_new.py`) runs the capability battery
-([MODELS-cards.md](MODELS-cards.md#the-profile-what-the-battery-measured-3360)) on one model of the host this machine
-serves with no profile for its digest and the server's Ollama version (newly pulled or seen, a new digest, an Ollama
-upgrade): one at a time, inside the job, only while no call reached the ledger for 3 minutes (never while a session's
-call is in flight); it asks the host at most every 5 minutes. `ollama.steward.probe_new: false` turns it off. A
-finding line says what it found; a server event on a probed model ends in its fix
-([MODELS-cards.md](MODELS-cards.md#when-a-local-model-fails-the-line-says-why-3360)).
+The job (`ollama_steward/probe_new.py`) runs the battery ([MODELS-cards.md](MODELS-cards.md#the-profile-what-the-battery-measured-3360))
+on one model of a host this machine serves with no profile for its digest and Ollama version, one at a time, only after
+3 minutes with no call in the ledger, asking the host at most every 5 minutes (`ollama.steward.probe_new: false`: off).
+A server event on a probed model ends in its fix ([MODELS-cards.md](MODELS-cards.md#when-a-local-model-fails-the-line-says-why-3360)).
+
+## Crash fingerprints (3.3.6.0 R2)
+
+Each crash event the job records (`gpu-memory`, a `CUDA error: an illegal memory access`, `llama runner terminated` /
+exit `0xc0000409`, a failed load; a client closing the connection is none) leaves one fingerprint in
+`<state>/ollama/fingerprints.jsonl` (`ollama_steward/fingerprints.py`): host, model (the event's, else the newest load
+before it), family, quant, the window it ran at, the KV type, flash attention, spill (`size_vram < size`), the signature,
+when, and a count; the lines of one crash within two minutes are one. `halo ollama crashes [--host H] [--json]` lists
+them; the Library greys the model ([STUDIO-local.md](STUDIO-local.md)); a member's ride its ledger push to the hub.
 
 ## In Studio
 
@@ -342,12 +348,8 @@ panel and Local read each host's catalog through one cache keyed by its
 `/api/tags` (the per-model `/api/show` calls run again only when a model
 changed); before, the panel read every host's whole catalog each minute.
 
-How the panel stays live:
-
-- The panel refetches every 30 s while it is open.
-- A `steward` frame from a job running in this Studio also refreshes it.
-- A job in another process (the hub, or `--watch`) sends no frames, so the
-  30 s refetch covers it.
+How it stays live: a refetch every 30 s while open; a `steward` frame from a job in this Studio refreshes it too (a
+job in another process, the hub or `--watch`, sends none: the refetch covers it).
 
 The routes behind the panel (`studio/ollama_steward_api.py`, under
 `/api/ollama/`) never call a model and never write to a server:
@@ -376,11 +378,9 @@ timer and a hand `run`) can no longer land the same change twice.
 - the job switch (`ollama.steward.job`, takes effect on the next launch);
 - **Open the Ollama panel**.
 
-`every_s`, `note_every_s`, `slow_tok_s`, `ledger` and `fleet.ollama.share`
-stay ordinary rows.
+`every_s`, `note_every_s`, `slow_tok_s`, `ledger` and `fleet.ollama.share` stay ordinary rows.
 
-**Setup -> Providers.** The Ollama card has one muted line, "steward: <the
-first line of its last note>" (or "no note yet"), and a link to the panel.
+**Setup -> Providers.** The Ollama card has one muted line, "steward: <the first line of its last note>" (or "no note yet"), and a link to the panel.
 
 **`/ollama` in the TUI and `-p`** prints the steward's view in the
 transcript:

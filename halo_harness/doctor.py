@@ -2012,6 +2012,8 @@ def cmd_doctor(argv: list) -> int:
         steps, ok = run_local_acceptance_check(args.model, state_dir=bridge_home())
         from halo_harness.doctor_local_roles import role_steps  # 3.3.6.0 R1: each role held to its model's profile
         roles_checked = role_steps(bridge_home(), main_ref=args.model or None)
+        from halo_harness.doctor_local_ids import id_steps  # 3.3.6.0 R2: dead role ids, Ollama version drift
+        roles_checked += id_steps(bridge_home(), main_ref=args.model or None)
         steps, ok = steps + roles_checked, ok and all(s["ok"] for s in roles_checked)
         if args.json:
             print(json.dumps(steps, indent=2))

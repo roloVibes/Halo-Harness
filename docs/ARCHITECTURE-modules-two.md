@@ -235,3 +235,13 @@ and `isolation/Dockerfile` the worker image.
   thread), `fleet/control_probes.py` (a member's profiles on its ledger push), `models_probe_cli.py`
   (`halo models probe`), `doctor_local_roles.py` and `ui/src/routes/local/` `probes.ts`, `ProbeBits.tsx`,
   `ui/src/routes/shared/ModelCardBlocks.tsx`.
+- The search (3.3.6.0 R2, docs/STUDIO-local.md "The search", docs/MODELS-cards.md "the three truths"):
+  `models_library/truths.py` + `truth_rules.py` (declared / expected / verified per capability and fit fact),
+  `search.py` (the gates, the ranking, the verdicts), `search_filters.py` (fit, supply, licence, platform, the
+  architectures per Ollama version), `search_cost.py` (the cost preview), `search_query.py` (the search as browse.py
+  runs it, the resource strip), `presets.py` + `presets_save.py` (the nine presets, the sentence parser, Save as role
+  template, the role offer), `role_gaps.py` (a lineup's gaps), `ollama_steward/fingerprints.py` (the crash
+  fingerprints, `halo ollama crashes`), `studio/local_verify_job.py` (Download and verify: the pull, the battery, the
+  offer), `studio/local_search_api.py` (the presets, template, verify, assign and crashes routes),
+  `doctor_local_ids.py` (dead role ids, Ollama version drift) and `ui/src/routes/local/` `SearchBar.tsx`,
+  `SearchFilters.tsx`, `LibraryRowBits.tsx`, `VerifyList.tsx`, `verify.ts`.
