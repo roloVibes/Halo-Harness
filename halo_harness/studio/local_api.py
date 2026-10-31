@@ -161,6 +161,10 @@ def dispatch_local(req):
     got = dispatch_hf(req)
     if got is not None:
         return got
+    from halo_harness.studio.local_probe_api import dispatch_probe  # 3.3.6.0 R1: the battery
+    got = dispatch_probe(req)
+    if got is not None:
+        return got
     got = dispatch_control(req)
     if got is not None:
         return got

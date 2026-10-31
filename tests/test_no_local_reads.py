@@ -2,7 +2,7 @@
 127.0.0.1:0 poses as the default host (`OLLAMA_HOST` = it, `ollama.hosts` empty: the host Halo makes up); under
 BRIDGE_TEST_NO_BACKGROUND_NET=1 the server path of the two Roles Chrome tests (`GET models`, the Roles model list),
 Setup's state read (`GET setup/state`), `halo local`'s view and the catalog refresh (`build_local_view`, refresh too),
-Local's Hosts, Models and Library pages, every control route and (3.3.5.0 R5) Local -> Hugging Face's routes must send
+Local's Hosts, Models and Library pages, every control route (3.3.6.0 R1: the probe too) and (3.3.5.0 R5) Local -> Hugging Face's routes must send
 it nothing (a download under the flag reads no hub); without the flag the same
 model list does read it (so the listener is reachable and the pin means something). The rigs' environment pins
 `OLLAMA_HOST` to a refused port when it is unset or names a real address (tests/helpers/chrome_driver.driver_env,
@@ -114,12 +114,14 @@ def test_the_local_view_the_refresh_and_the_local_pages_never_read_it(ctx: Ctx):
         build_local_view(state_dir=h.state)
         build_local_view(refresh=True, state_dir=h.state)
         _local_probe(h.state, dict(os.environ))  # the catalog refresh's local job (/model's refresh)
-        for path in ("local/hosts", "local/models", "local/pulls", "local/host/default/loaded"):
+        for path in ("local/hosts", "local/models", "local/pulls", "local/host/default/loaded", "local/probes",
+                     "local/profiles"):  # 3.3.6.0 R1: the battery's reads
             h.api("GET", path)
         h.api("GET", "local/library", query={"q": "qwen3", "source": "ollama"})
         h.api("GET", "local/host/default/show", query={"model": "qwen3:30b"})
         for act, body in (("load", {"model": "qwen3:30b"}), ("unload", {"model": "qwen3:30b"}), ("pull", {"name": "qwen3:30b"}), ("delete", {"name": "qwen3:30b", "force": True}),
-                          ("copy", {"src": "a", "dst": "b"}), ("twin", {"name": "qwen3:30b", "window": 8192})):
+                          ("copy", {"src": "a", "dst": "b"}), ("twin", {"name": "qwen3:30b", "window": 8192}),
+                          ("probe", {"model": "qwen3:30b"})):  # 3.3.6.0 R1: the battery under the flag sends nothing
             h.api("POST", f"local/host/default/{act}", body)
         # 3.3.5.0 R5: Local -> Hugging Face's routes (the hub is HF_ENDPOINT or huggingface.co: blocked under the flag)
         for path in ("local/hf/dirs", "local/downloads", "local/servers", "local/server/llama-1/status"):

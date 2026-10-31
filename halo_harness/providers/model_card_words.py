@@ -94,7 +94,7 @@ def chip_words(card: dict) -> str:
 
 def card_line(card: dict, meter: "dict | None" = None) -> str:
     fits = [ROLE_WORDS[r] for r, ok in (card.get("fit_for") or {}).items() if ok]
-    tail = f" · fit: {meter['level']}" if meter and meter.get("level") else ""
+    tail = f" · fit: {meter.get('word') or meter['level']}" if meter and meter.get("level") else ""
     return f"{card.get('ref')}: {chip_words(card) or '?'} · roles: {', '.join(fits) or 'none'}{tail}"
 
 
@@ -108,10 +108,19 @@ def card_lines(card: dict, meter: "dict | None" = None) -> "list[str]":
            f"  vision: {'yes' if card.get('vision') else 'no'} ({src.get('vision', '?')})",
            f"  purpose: {card.get('purpose')} ({src.get('purpose', '?')})"]
     if meter:
-        out.append(f"  fit here: {meter.get('level')} ({meter.get('why')})")
+        out.append(f"  fit here: {meter.get('word') or meter.get('level')} ({meter.get('why')})")
     out.append("  how Halo calls it:")
     out.extend(f"    {line}" for line in card.get("how") or [])
     out.append("  roles:")
+    marks = card.get("fit_source") or {}
     for role, ok in (card.get("fit_for") or {}).items():
-        out.append(f"    {ROLE_WORDS[role]}: " + ("yes" if ok else f"no ({(card.get('fit_why') or {}).get(role, '')})"))
+        tail = " (expected)" if marks.get(role) == "expected" and card.get("profile") else ""
+        out.append(f"    {ROLE_WORDS[role]}: " + ("yes" if ok else f"no ({(card.get('fit_why') or {}).get(role, '')})") + tail)
+    from halo_harness.providers.model_card_blocks import block_lines  # 3.3.6.0 R1: E4's four blocks
+    if card.get("profile"):
+        from halo_harness.providers.battery_profile import date_of
+        out.append(f"  probed {date_of(card['profile'])} (halo models probe {card.get('ref')} --force re-probes)")
+    else:
+        out.append(f"  not probed yet: halo models probe {card.get('ref')} (every value below is expected)")
+    out.extend(block_lines(card.get("blocks") or {}))
     return out

@@ -8,6 +8,59 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.3.6.0] - unreleased
+
+### R1: the battery -- every local model gets a capability and placement profile
+
+**Added**
+- `halo models probe <ref> [--host H] [--all] [--force] [--json]`, the capability battery.
+- About 8 requests to the model, 1-3 minutes, no cost; it loads the model.
+- It probes: tool calls, the system role, a strict instruction, structured output (and why not), reference fidelity, thinking, speed and fit.
+- The first call after a load is never timed.
+- The profile is kept in `~/.halo/ollama-capabilities.json` by digest, host, Ollama version and probe set.
+- Studio, Local -> Models:
+- **Probe** / **Re-probe**, whose title is the cost line, with a progress strip;
+- "probed <date> · re-probe";
+- the placement chip;
+- the card's four blocks (use it for, don't use it for, where it sits, limits), each value marked verified or expected;
+- a fitted twin's verify chip;
+- "raw tag" and "delete the raw tag, keep the twin" once the twin is verified.
+- Routes: `POST local/host/<name>/probe`, `GET local/probes`, `GET local/profiles`.
+- The placement rules:
+- Auto never picks a model with no tool calling for an agent;
+- a tool-using sub-agent on such a model does not start, and the line says what to do instead;
+- the roles table warns;
+- `halo doctor --local` checks each role against its model's profile;
+- a lineup naming two models that cannot share one card is flagged as a pivot schedule (`halo teams show`, Roles -> Problems);
+- a model that is not interactive is greyed in the `/model` picker.
+- How a model is called now follows its profile:
+- a weak system role puts Halo's instructions in the user turn;
+- a thinking model gets a reply reserve of at least 300 tokens (`ollama.profiles`);
+- fenced JSON is stripped before parsing.
+- Failure lines read off the profile:
+- "no tool calling on this model (probed <date>) ...";
+- "it answered in thinking; the reply budget was too small: retried with N tokens" (and it retries once);
+- the cold-load line;
+- the unverified-ID line;
+- the spill and slow-load fixes on server events;
+- the co-reside line on the thrash finding.
+- A fitted twin is verified after `halo models twin` or Studio's Make a tuned twin: `/api/ps`, the log's `offloaded N/N` and `graph splits`, and one warm call's tok/s ("verified: 41/41 layers, splits = 2, 258 tok/s at 32,768").
+- The Library warns before a pull when the weights alone exceed the card.
+- `ollama.steward.probe_new` (default true): the steward's job probes a newly pulled or changed model while the card is idle.
+- Fleet: `ollama_probe` runs a probe on a member's host; its profile reaches the hub with the member's ledger push.
+
+**Changed**
+- The model card's roles (`fit_for`) come from the profile when one exists, marked verified; declared facts stay as the fallback, marked expected.
+- The fit meter's word carries the measured speed ("fits, ~187 tok/s at 32k").
+- `halo models show` and `/model` print where the model sits, the probe date and the four blocks.
+
+**Fixed**
+- Studio's model card view now carries the server-log quirks, so the Models rows' quirk chips can show (3.3.5.0 R4 never passed them).
+
+### Also in 3.3.6.0
+
+#### Changed
+
 ## [3.3.5.0] - 2026-10-30
 
 **Local.** The owner's direction after 3.3.4.0: "I want halo to be the best software or harness to

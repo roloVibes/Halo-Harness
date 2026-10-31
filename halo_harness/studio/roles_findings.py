@@ -71,6 +71,18 @@ def _depth_finding(resolved: dict) -> "list[dict]":
              "fix": f"set delegation.max_depth: {need} (docs/ROLES.md, \"Tiers\")", "node": ""}]
 
 
+def _pivot_findings(resolved: dict, cwd, state_dir) -> "list[dict]":
+    try:
+        from halo_harness import teams_yaml as T
+        from halo_harness.providers.placement_apply import lineup_pivots
+        table, _notes = T.resolve_role_table(resolved, cwd=cwd, state_dir=state_dir)
+        return [{"id": f"pivot:{i}", "severity": "warns", "text": p["line"],
+                 "fix": "keep one of them resident (keep_alive -1) and run the other's steps together, or move one "
+                        "to another host", "node": ""} for i, p in enumerate(lineup_pivots(table, state_dir))]
+    except Exception:
+        return []
+
+
 def findings_for(raw: dict, *, problems: "list[str]", graph: dict, cwd=None, state_dir=None) -> "list[dict]":
     out: "list[dict]" = []
     for i, line in enumerate(problems or []):
@@ -91,6 +103,7 @@ def findings_for(raw: dict, *, problems: "list[str]", graph: dict, cwd=None, sta
         out.append({"id": "preflight-error", "severity": "warns", "text": f"the preflight could not finish: {e}",
                     "fix": "run `halo teams validate` on the lineup", "node": ""})
     out.extend(_depth_finding(resolved))
+    out.extend(_pivot_findings(resolved, cwd, state_dir))  # 3.3.6.0 R1: a lineup that is a pivot schedule
     seen = {f["text"] for f in out}
     for n in graph.get("nodes") or []:
         for sev, key in (("warns", "problems"), ("warns", "warnings")):

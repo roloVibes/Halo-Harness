@@ -137,8 +137,16 @@ def _twin(host, name: str, args) -> int:
     if not args.json:
         print(plan.line)
     got = create_twin(host, plan, on_progress=None if args.json else (lambda s: print(f"  {s}")), state_dir=bridge_home())
+    verified = None
+    if got.ok:  # 3.3.6.0 R1: load it at its window, read /api/ps and the log, time one warm call
+        from halo_harness.providers.ollama_twin_verify import verify
+        if not args.json:
+            print(f"  verifying: loads {plan.twin} at {plan.window:,} and times one warm call (the first is never timed)")
+        verified = verify(host, plan.twin, plan.window, state_dir=bridge_home())
+        if not args.json:
+            print(f"  {verified['line']}")
     return _say({"ok": got.ok, "say": f"{got.message} [{plan.ref}]" if got.ok else got.message, "twin": plan.twin,
-                 "ref": plan.ref}, args.json)
+                 "ref": plan.ref, "verify": verified}, args.json)
 
 
 def _loaded(host, as_json: bool) -> int:

@@ -70,7 +70,7 @@ def _row(model: str, ref: str, view: dict, profile, loaded, size) -> dict:
             "intent": intent_scores(card, fit)}
 
 
-def _ollama_rows(h, warm: Optional[dict] = None) -> list:
+def _ollama_rows(h, warm: Optional[dict] = None, state_dir=None) -> list:
     from halo_harness.ollama_steward.profiles import all_profiles, key_for, short_model
     from halo_harness.studio.local_warm import warm_view
     from halo_harness.studio.model_card_api import panel_view
@@ -88,6 +88,10 @@ def _ollama_rows(h, warm: Optional[dict] = None) -> list:
                          {"size_vram": ld.get("size_vram"), "size": ld.get("size"), "expires": ld.get("expires"),
                           "context_length": ld.get("context_length")} if ld else None, r.get("size")))
         rows[-1]["warm"] = warm_view((warm or {}).get((h.name, m)), ld)  # 3.3.5.0 R4: warm / cold, the cache
+        rows[-1]["twin_of"] = r.get("twin_of")  # 3.3.6.0 R1: raw tag vs fitted twin (studio/local_twin_verify.py)
+    if state_dir is not None:
+        from halo_harness.studio.local_twin_verify import raw_and_twins
+        raw_and_twins(h, rows, state_dir)
     return rows
 
 
@@ -109,7 +113,7 @@ def models(state_dir, host: str = "", *, now: Optional[float] = None) -> dict:
     for h in resolve_ollama_hosts():
         if host and h.name.lower() != host.lower():
             continue
-        out.append({"name": h.name, "kind": kind_of(h), "url": h.url, "models": _ollama_rows(h, warm)})
+        out.append({"name": h.name, "kind": kind_of(h), "url": h.url, "models": _ollama_rows(h, warm, state_dir)})
     for s in local_servers():
         if host and s.name.lower() != host.lower():
             continue

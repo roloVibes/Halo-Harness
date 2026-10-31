@@ -288,6 +288,28 @@ the call goes to that host's address; `--json` prints the answer as JSON on ever
   and `keep_alive: 0`.
 - `copy` / `rename`: a new name for the same layers (`/api/copy`); a rename is the copy, then the old name deleted.
 - `twin <name> --window N`: the tuned twin (`FROM <name>`, `num_ctx` N, every layer on the GPU), its plan line, then
-  each `/api/create` status and the ref ([MODELS-ollama-tuning.md](MODELS-ollama-tuning.md)).
+  each `/api/create` status and the ref ([MODELS-ollama-tuning.md](MODELS-ollama-tuning.md)); 3.3.6.0: then it is
+  verified -- loaded at N, `/api/ps` read (`size_vram == size`), the server log's `offloaded N/N layers` and `graph
+  splits` when the log is on this machine, one warm call timed (the first after the load never is) -- and the line
+  says it: "verified: 41/41 layers, splits = 2, 258 tok/s at 32,768", "spilled: ..." or "unverified: <why>".
 - `loaded`: what `/api/ps` holds: the model, its share on the GPU, its window, until when.
 
+
+## `halo models probe` (3.3.6.0)
+
+```sh
+halo models probe <ref> [--host H] [--force] [--json]    # ol:<name>@<host>, or a bare name with --host
+halo models probe --all [--host H] [--force] [--json]    # every chat model on the host
+```
+
+The capability battery on a local model, where its GPU is ([MODELS-cards.md](MODELS-cards.md#the-profile-what-the-battery-measured-3360)).
+The first line is the cost -- "about 8 requests to <model> on <host>, 1-3 minutes, no cost; it loads the model" --
+then one line per probe (`1/6 warm-up (never timed)`, `2/6 tool call`, `3/6 system role`, `4/6 user instruction`,
+`5/6 structured output`, `6/6 reference fidelity`), then the profile: tools, system role, instruction, output,
+thinking, ids, tok/s; agentic-ready and interactive; each quirk; where it sits, use it for, don't use it for, the
+limits; and what it changed (a thinking model's reply reserve in `ollama.profiles`). A model whose digest, Ollama
+version and probe set match a kept profile answers from it at once ("cached, probed <date>"); `--force` runs it
+again. `--json` prints the profile (with every probe's raw answer in `evidence`). Exit 1 when the host or the model is
+not there, or the model did not load. Studio's Local -> Models runs the same through its **Probe** button
+([STUDIO-local.md](STUDIO-local.md#models)). `halo local bench` (the three-window battery and the tuning scans) is not
+part of 3.3.6.0.

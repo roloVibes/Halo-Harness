@@ -261,12 +261,16 @@ def pick(state_dir, *, needs=(), task_text: str = "", attachments=(), band: str 
         cands = _candidates(entries, relaxed, main_ref)
         if cands:
             wanted, note = relaxed, "no model takes video, so vision reads the Media tool's frames: "
+    from halo_harness.providers.placement import auto_gate  # 3.3.6.0 R1: no tool calling -> never an agent
+    cands, gated = auto_gate(cands, state_dir)
     if not cands:
-        return Pick(main_ref, f"no model in the catalog has {'+'.join(wanted)}; using main's", wanted, [], True)
+        has = "+".join(wanted) or ("tools" if gated else "")
+        return Pick(main_ref, ("; ".join(gated[:1] + [""]) if gated else "") + f"no model in the catalog has {has}; "
+                    "using main's", wanted, [], True)
     from halo_harness.outcomes.learn import relearn  # 3.1.9.0 R3: what was measured weighs in
     (best, ordered, rule, tie), learned = relearn(state_dir, cands, wanted, band, main_ref,
                                                   _choose(cands, wanted, band, main_ref), kind=kind, role=role,
                                                   stats=stats, cfg=learn)
     deciding = next((why[n] for n in DECIDE_ORDER if n in why), "no special needs")
-    reason = f"{deciding}, {note}{rule} ({price_words(best.facts)}){tie}{learned}"
+    reason = f"{deciding}, {note}{rule} ({price_words(best.facts)}){tie}{learned}" + (f"; {gated[0]}" if gated else "")
     return Pick(best.ref, reason, wanted, [c.ref for c in ordered[1:4]])

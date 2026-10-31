@@ -1,0 +1,24 @@
+/* 3.3.6.0 R1: the battery on Local -> Models (routes/local/ProbeBits.tsx) and the card's four blocks
+   (routes/shared/ModelCardBlocks.tsx). Colours from tokens.css only. */
+.mprobe-sits { display: inline-flex; gap: 3px; flex-wrap: wrap; }
+.mprobe-chip { font-size: 9.5px; padding: 0 5px; cursor: default; color: var(--accent); border-color: var(--accent-soft); }
+.mprobe-chip[data-mark="expected"] { color: var(--muted); border-style: dashed; }
+.mprobe-chip[data-chip="not interactive"], .mprobe-chip[data-chip="pivot-only"] { color: var(--warn); border-color: var(--warn-soft); }
+.mprobe-mark { font-size: 10.5px; white-space: nowrap; }
+.mprobe-link { background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; font: inherit; text-decoration: underline; }
+.mprobe-link:hover { color: var(--text); }
+.mprobe-strip { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 11px; margin: 2px 0; }
+.mprobe-strip[data-done][data-ok] { color: var(--ok); }
+.mprobe-strip[data-done]:not([data-ok]) { color: var(--bad); }
+.mprobe-bar { display: inline-block; width: 90px; height: 5px; border-radius: 3px; background: var(--surface-2);
+  border: 1px solid var(--line); overflow: hidden; }
+.mprobe-fill { display: block; height: 100%; background: var(--accent); transition: width var(--t) var(--ease); }
+.mprobe-twin[data-state="verified"] { color: var(--ok); border-color: var(--ok-soft); }
+.mprobe-twin[data-state="spilled"] { color: var(--bad); border-color: var(--bad-soft); }
+.mprobe-raw { display: inline-flex; gap: 6px; align-items: center; }
+.mprobe-blocks { display: grid; gap: 4px; margin: 6px 0 2px; }
+.mprobe-block { display: grid; gap: 1px; }
+.mprobe-items { margin: 0; padding-left: 16px; display: grid; gap: 1px; color: var(--text); }
+.mprobe-items li[data-mark="expected"] { color: var(--muted); }
+.mcard-role[data-mark="expected"] { font-style: italic; }
+.lc-lib-warn { margin: 2px 0; font-size: 11px; color: var(--warn); }

@@ -101,6 +101,11 @@ class StewardJob:
 
     def tick(self, now: Optional[float] = None) -> Optional[dict]:
         now = self.clock() if now is None else now
+        try:  # 3.3.6.0 R1: a new or changed model is probed while the card is idle (probe_new.py)
+            from halo_harness.ollama_steward.probe_new import maybe
+            maybe(self, now)
+        except Exception:
+            pass
         ok, why = self.due(now)
         if ok:
             return self.run_once(now)

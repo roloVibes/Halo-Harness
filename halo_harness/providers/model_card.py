@@ -179,11 +179,11 @@ def fit_of(card: dict) -> "tuple[dict, dict]":
     return {r: r not in why for r in ROLES}, why
 
 
-def _key(raw, row, probe, choice, window, host_card) -> str:
+def _key(raw, row, probe, choice, window, host_card, profile=None) -> str:
     r = row or {}
     budget = sum(int(g.get("total_bytes") or 0) for g in (host_card or {}).get("gpus") or [] if isinstance(g, dict))
     return json.dumps([raw, r.get("digest"), r.get("modified_at"), r.get("capabilities"), r.get("size"), probe, choice,
-                       window.get("tokens"), window.get("source"), budget], default=str)
+                       window.get("tokens"), window.get("source"), budget, (profile or {}).get("probed_at")], default=str)
 
 
 def card_of(ref, *, state_dir=None, catalog=None, host=None, probe=None, host_card=None) -> dict:
@@ -215,7 +215,9 @@ def card_of(ref, *, state_dir=None, catalog=None, host=None, probe=None, host_ca
     window = _window(ref, kind, state_dir, host, row, host_card)
     from halo_harness.providers.effort_on import think_choice_for
     choice = think_choice_for(raw)
-    key = _key(raw, row, probe, choice, window, host_card)
+    from halo_harness.providers.model_card_blocks import profile_of
+    profile = profile_of(state_dir, ref, host, row) if kind == "ollama" else None  # 3.3.6.0 R1
+    key = _key(raw, row, probe, choice, window, host_card, profile)
     from halo_harness.providers.model_card_quirks import with_quirks  # 3.3.5.0 R4: what the server log said
     if isinstance(row, dict) and isinstance(row.get("card"), dict) and row.get("card_key") == key:
         return with_quirks(row["card"], state_dir)
@@ -232,6 +234,8 @@ def card_of(ref, *, state_dir=None, catalog=None, host=None, probe=None, host_ca
     card["thinks_source"], card["purpose_source"] = card["sources"]["thinks"], card["sources"]["purpose"]
     card["fit_for"], card["fit_why"] = fit_of(card)
     card["how"] = how_lines(card)
+    from halo_harness.providers.model_card_blocks import with_profile  # 3.3.6.0 R1: the battery's profile, E4's blocks
+    card = with_profile(card, profile, state_dir, host=host if kind == "ollama" else None)
     if isinstance(row, dict) and kind != "cloud":
         row["card"], row["card_at"], row["card_key"] = card, time.time(), key
     return with_quirks(card, state_dir)
