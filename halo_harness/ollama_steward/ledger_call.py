@@ -152,7 +152,7 @@ def _write(session, req, kind: str, target: dict, base: dict, extra: dict) -> No
             from halo_harness.providers.ollama_prompt import is_trimmed
             line["trimmed"] = bool(is_trimmed(line.get("prompt_eval_count"), line.get("estimate_tokens"), reserve))
         line["retry"] = _bump_retry(session, kind, line)
-        prompt_finish(line, reserve)  # 3.3.5.0 R4: warming, cache_reused_pct
+        prompt_finish(line, reserve, session)  # 3.3.5.0 R4: warming, cache; 3.3.6.0 R4: dialect, loop, ladder
         from halo_harness.agent.ollama_log_recovery import ledger_kinds  # 3.3.6.0 R3: what the server log showed
         line["log_events"] = ledger_kinds(session, target, line)
         ledger.record_call(getattr(session, "state_dir", None) or getattr(req, "state_dir", None), line)

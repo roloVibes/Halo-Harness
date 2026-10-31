@@ -1,6 +1,6 @@
 # Studio: steering and exporting a session
 
-Read this when you steer an agent from Session's Live column and want to know which agent and which call it reaches, or save a session as one Markdown trace file.
+Read this when you steer an agent from Session's Live column and want to know which agent and which call it reaches, or save a session as one Markdown trace file, or ask why an answer came out as it did.
 
 Part of [Halo Studio](STUDIO.md), which lists every part. The rest of the Session section (the map, Cost, the strips) is in [Session](STUDIO-sections.md#session).
 
@@ -97,13 +97,26 @@ in the TUI writes it beside the session log and says the path. Studio
 serves it at `GET /api/sessions/<sid>/trace.md` (`text/markdown`), behind
 the same token as every route.
 
+## Why this answer? (3.3.6.0 R4)
+
+Every text or output row of the Live column carries **why?** (`session-live-why`). A click opens the Inspector on the
+Live panel -- no pop-up; Esc closes it -- with what the model saw for that turn, rebuilt from the traffic ledger and
+the session log (`agent/postmortem.py`): one plain line ("the prompt was cut at 16,386 of 32,768; ... the task summary
+at the front was dropped", or "nothing cut; 92 % of the prompt reused from cache") and the details beneath -- the
+model and host, Ollama's read against what was sent, the prompt's parts (system, memory, topics, tools, history, you),
+the tools offered, the reply's length and why it ended, the server log's kinds, the dialect in force, the degradation
+ladder's rungs and a loop the guard saw. The row's agent and time pick the turn (a sub-agent's turn reads its own
+lines). The same answer comes from `/why [turn]` in the TUI and `halo session postmortem [--session ID] [--turn N]
+[--agent ID]`; Studio serves it at `GET /api/sessions/<sid>/postmortem?turn=&agent=&at=`
+([MODELS-ollama-logs.md](MODELS-ollama-logs.md#the-answer-post-mortems-sources-3360-r4) lists the sources).
+
 ## Files
 
 `ui/src/routes/session/steer.ts` (the target, the held row, Tab, `s`),
 `follow.ts` (when the column follows), `LiveTarget.tsx` (the target line),
 `LiveRows.tsx` (the outline, the steer row, "after your steer"),
-`TraceExport.tsx` (Export), `routes/shared/liveFeed.ts` (`addSteer`),
+`TraceExport.tsx` (Export), `Why.tsx` (why?, 3.3.6.0 R4), `routes/shared/liveFeed.ts` (`addSteer`),
 `styles/session-target.css`; `halo_harness/session_trace.py` (the trace),
 `session_trace_cli.py` (`halo session export`), `studio/sessions_api.py`
-(the route). Tests: `tests/test_session_trace.py`,
+(the route), `studio/postmortem_api.py` (Why this answer?). Tests: `tests/test_postmortem.py`, `tests/test_session_trace.py`,
 `tests/test_studio_session_target.py` (headless Chrome).

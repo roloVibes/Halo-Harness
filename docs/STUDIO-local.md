@@ -158,6 +158,15 @@ On top of the page, **Loaded now** (`local-loaded-row`): every model a host hold
 the GPU, its window, when it unloads, and **Unload**; under it the **Jobs** list. A host another machine serves goes
 through its fleet member (below); a control that cannot run from here is disabled with the reason as its title.
 
+**Measured, the dialect, the shelf** (3.3.6.0 R4): a row's speed chip is the card's measured tok/s (the median of its
+last answered calls here, never the first after a load); its unfolded card adds the **Measured** block (each line
+"value (source, date, n)"), the KV dial under the fit line and **How Halo talks to this model**, every dialect field
+editable where it stands with its `from` tag (battery, ledger, you; "back" undoes your edit)
+([MODELS-cards.md](MODELS-cards.md#measured-what-the-model-did-here-3360-r4)). An idle model's row says so ("not used in
+30 days, 17 GB"); its `...` menu has **Retire** (the uses card, a why, then the delete with a note) and the folded
+**Shelf** at the bottom of the page lists the retired models, each with **Re-pull** (the pull job; a fitted twin shows its
+recipe).
+
 The page reads each host's catalog through one cache keyed by the catalog's mtime: `/api/tags` alone is read (at most
 every 15 seconds), and the per-model `/api/show` calls run again only when a model was pulled, deleted or changed. Fleet's
 Ollama panel reads its catalogs the same way since this round (it used to read every host's whole catalog each minute).
@@ -343,58 +352,6 @@ Every page names which of them it carries (its head's "ideas here" line), and th
 
 ## The routes
 
-Studio's API under `/api/local/` (`halo_harness/studio/local_api.py`), the same loopback / origin / token guard as every
-Studio route; never a model call:
-
-| Route | What it answers |
-|---|---|
-| `GET local/hosts` | every host as a card (`studio/local_hosts_view.py`) |
-| `POST local/host/<name>/load {model, num_ctx?, keep_alive?}` | a load from here or through the member; 409 with the reason when neither can |
-| `POST local/host/<name>/unload {model}` | the same with `keep_alive: 0` |
-| `POST local/host/add {url, name}` | the entry written through Setup's Ollama writer |
-| `GET local/resources?host=` | the last five minutes of samples and the sampler's state |
-| `POST local/resources/watch {on}` | the page's lease on the sampler |
-| `GET local/traffic?host=&since=15m` | the ledger's rows, the server events, the per-host minute buckets |
-| `POST local/traffic {lines, events}` | another process's ledger tap: `traffic` frames on the live feed |
-| `GET local/models?host=` | every model per host with its card, its meter and its intent scores |
-| `GET local/library?source=ollama\|hf\|all&q=&host=&window=&fits=1&intent=&family=&quant=&cap=&max_gb=&license=&page=` | the library's rows with their card, fit badge and intent scores, the total, and where each source came from (`studio/models_library_api.py`) |
-| `GET local/library/<source>/<id>?host=&window=` | one Ollama model's tags or one hub repo's files, each with its badge |
-| `POST local/library/refresh` | the library's cache dropped: the next read is live |
-| `GET local/library?...&preset=&for_role=&ask=&need=tools=declared,coder&exclude_crashed=1&edited=1&<fit and supply filters>` | 3.3.6.0 R2: the search (`studio/local_search_api.spec_of`): the rows ranked with their facts, cost and verdicts, and `search`, `presets`, `strip` |
-| `GET local/library/presets` | the nine presets, each bundle expanded |
-| `POST local/library/template {preset, model?, lineup?, bundle?}` | Save as role template: `local-<preset>`, or the role entry of the lineup named |
-| `POST local/library/verify {host, name, role?}`, `GET local/library/verifies` | Download and verify (`studio/local_verify_job.py`); its jobs |
-| `POST local/library/assign {role, ref, lineup?}` | the role offer accepted: the lineup's role gets the model |
-| `GET local/crashes?host=` | the crash fingerprints (`ollama_steward/fingerprints.py`) |
-| `GET local/host/<name>/log?n=200&kind=all\|fit\|headroom\|truncation\|failure` | 3.3.6.0 R3: the bounded tail, each line's group and time, its source, `cli` and `tail_cli` |
-| `GET local/host/<name>/log/status`, `GET local/host/<name>/log/models` | the log status (`ollama_steward/log_status.py`); per model the last load, this session's cuts, the errors, the crash |
-| `POST local/host/<name>/pull {name}` | a pull job (a second ask joins it); its view and `cli` |
-| `POST local/pull/<id>/cancel` | stop it (Ollama keeps the layers it has) |
-| `GET local/pulls` | every pull running and the last ended ones |
-| `POST local/host/<name>/delete {name, force?}` | 422 with the uses card when something uses it (`force`: delete anyway); 409 while a live session is on it |
-| `GET local/host/<name>/uses?model=` | the uses card alone (`studio/local_uses.py`) |
-| `GET local/host/<name>/show?model=` | `/api/show`'s facts |
-| `POST local/host/<name>/copy {src, dst}`, `.../rename {src, dst}` | a copy; a copy then the delete of the old name |
-| `POST local/host/<name>/twin {name, window?, dry?}` | the tuned twin (`dry`: the plan, its name and cost); recorded in the tune store |
-| `GET local/host/<name>/loaded` | `/api/ps` (a member's host: its newest resources sample) |
-| `POST local/host/<name>/probe {model, force?}` | 3.3.6.0: a probe job (the battery; a second ask joins it), its view, `cost` and `cli`; a member's host: that member's own job |
-| `GET local/probes`, `GET local/profiles?host=` | the probe jobs running and the last ended ones; every kept profile (that host's only with `?host=`), without the raw evidence |
-| `GET local/hf/dirs?host=&window=` | each model folder and what is on disk in it, with the card, the fit and who serves it (`studio/local_hf_view.py`) |
-| `POST local/hf/dirs {path}`, `POST local/hf/forget {path}` | a folder added to or taken off `huggingface.model_dirs` |
-| `POST local/hf/download {repo, file?, dir?, accept}` | 422 with the licence line (`needs_accept`) until `accept`; a gated repo without `HF_TOKEN` 422 `needs_token`; then a download job |
-| `POST local/download/<id>/cancel`, `GET local/downloads` | stop one (the part file stays); the download jobs |
-| `GET local/hf/uses?path=`, `POST local/hf/delete {path, force?}` | the uses card; the delete (409 while a server Halo started serves it, 422 with the card unless `force`) |
-| `POST local/hf/serve {path, runtime?, window?, port?, keep?, dry?}` | `dry`: the flags and their sources; else the server started (`studio/local_server_api.py`) |
-| `GET local/servers`, `POST local/server/<id>/stop`, `GET local/server/<id>/log?n=`, `GET local/server/<id>/status` | the servers Halo started; stop one; its log's tail; `/health` and `/slots` |
-
-Every R3 answer carries `cli`, the `halo models` line that does the same (`studio/local_control_api.py`). A host a
-fleet member serves goes through that member (`ollama_pull`, `ollama_delete`, `ollama_copy`, `ollama_twin`, 3.3.6.0 `ollama_probe`, under its
-`fleet.allow_control`); `none` answers 403 with the reason.
-
-Live frames: `resources` (one sample), `traffic` (`{rows}`), `pull` (a job's view: host, name, status, digest,
-total, completed, percent, speed, eta, done, error) and `download` (the same view with kind, repo, file, dir and path), `probe` (3.3.6.0: a probe job's view: host,
-model, step, of, probe, say, done, ok, error, cost), `twin-verify` (a new twin's verify line) and `verify` (3.3.6.0 R2:
-Download and verify's stage: pull, probe, offer, done), beside the steward's own `steward` frames. From a terminal,
-`halo local hosts`, `halo local models [--host H]` and `halo local resources` print what the first three pages show, and
-`halo models browse` what the Library shows, `halo local ls` what the Hugging Face page shows
-([COMMANDS-local.md](COMMANDS-local.md)).
+Every route of the section (`GET local/hosts`, `local/models`, the Library's, the controls, the probe, the logs, the
+Hugging Face downloads and servers, 3.3.6.0 R4's measured card, dialect record and shelf) and its live frames are in
+[STUDIO-local-routes.md](STUDIO-local-routes.md).

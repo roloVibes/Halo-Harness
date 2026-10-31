@@ -41,8 +41,15 @@ def view(card: dict, meter: Optional[dict]) -> dict:
                      "quirks": list(card.get("quirks") or []), "blocks": card.get("blocks") or {},  # 3.3.6.0 R1
                      "fit_source": dict(card.get("fit_source") or {}), "system_role": card.get("system_role"),
                      "speed": card.get("speed"), "probe": _probe_view(card),
-                     "sources": dict(card.get("sources") or {}), "params": card.get("params")},  # 3.3.6.0 R2: the truths
+                     "sources": dict(card.get("sources") or {}), "params": card.get("params"),  # 3.3.6.0 R2: the truths
+                     "speed_chip": _speed_chip(card), "kv_dial": card.get("kv_dial"),  # 3.3.6.0 R4: measured, the dial
+                     "dialect": card.get("dialect")},
             "fit": dict(meter or {"level": "unknown", "at_window": None, "gpu_window": None, "why": ""})}
+
+
+def _speed_chip(card: dict) -> str:
+    from halo_harness.providers.measured import speed_chip
+    return speed_chip(card.get("measured"))
 
 
 def _probe_view(card: dict):
@@ -52,7 +59,8 @@ def _probe_view(card: dict):
     from halo_harness.providers.battery_profile import date_of, summary_line
     return {"date": date_of(p), "at": p.get("probed_at"), "line": summary_line(p), "agentic_ready": p.get("agentic_ready"),
             "interactive": p.get("interactive"), "quirks": list(p.get("quirks") or []), "sits": p.get("sits"),
-            "window": p.get("window"), "stale": p.get("probe_set") != _probe_set()}
+            "window": p.get("window"), "stale": p.get("probe_set") != _probe_set(),
+            "tool_call_accuracy": p.get("tool_call_accuracy"), "tool_call_why": p.get("tool_call_why")}
 
 
 def _probe_set() -> str:

@@ -57,6 +57,9 @@ def window_of(session) -> Optional[int]:
 
 
 def active(session) -> bool:
+    from halo_harness.agent.degrade import small_ask  # 3.3.6.0 R4: the ladder's smaller ask is always lean
+    if small_ask(session):
+        return True
     mode = knobs()["lean"]
     if mode in ("on", "off"):
         return mode == "on"
@@ -160,6 +163,9 @@ def _builtin_names() -> list:
 def tools_cap(session, window: Optional[int]) -> Optional[int]:
     """The steward profile's `tools_max`, else the lean class of the window; None: no cap."""
     from halo_harness.providers.ollama_fit import CORE_TOOL_NAMES
+    from halo_harness.agent.degrade import SMALL_TOOLS, small_ask
+    if small_ask(session):  # 3.3.6.0 R4: the ladder's smaller ask
+        return SMALL_TOOLS
     profile = getattr(session, "_lean_profile_tools_max", None)
     if isinstance(profile, int) and profile > 0:
         return profile
@@ -183,9 +189,23 @@ def no_tools(session) -> bool:
     return card.get("tools") == "none" or bool(card.get("embedding_only"))
 
 
-def cap_tools(session, tools) -> "tuple[list, int]":
+def relevance(tool: dict, task: str) -> float:
+    """3.3.6.0 R4 (G3): how well a tool's name and description match the task, the catalog's own scoring
+    (agent/catalog.py, ToolSearch's ranking)."""
+    from halo_harness.agent.catalog import _term_score, _tokens
+    if not task or not isinstance(tool, dict):
+        return 0.0
+    name, desc = str(tool.get("name") or ""), str(tool.get("description") or "")
+    dt = _tokens(desc)
+    kw = {"name_tokens": set(_tokens(name)), "name_lower": name.lower(), "desc_tokens_set": set(dt),
+          "desc_len_words": max(1, len(dt)), "hint_tokens": set()}
+    return sum(_term_score(t, **kw) for t in {w for w in _tokens(task) if len(w) > 2})
+
+
+def cap_tools(session, tools, task: str = "") -> "tuple[list, int]":
     """(the tools sent, how many were not offered): the core names first, then
-    the built-in set, then the rest in the catalog's order, up to the cap; the
+    the built-in set, then the rest -- 3.3.6.0 R4: each band by its relevance to
+    the task (the newest user words), else the catalog's order -- up to the cap; the
     kept ones go out in the catalog's own order (a stable prefix)."""
     from halo_harness.providers.ollama_fit import CORE_TOOL_NAMES
     tools = list(tools or [])
@@ -198,7 +218,8 @@ def cap_tools(session, tools) -> "tuple[list, int]":
         return tools, 0
     builtin = set(_builtin_names())
     name = lambda t: t.get("name") if isinstance(t, dict) else None  # noqa: E731
-    rank = {id(t): (0 if name(t) in CORE_TOOL_NAMES else 1 if name(t) in builtin else 2, i) for i, t in enumerate(tools)}
+    rank = {id(t): (0 if name(t) in CORE_TOOL_NAMES else 1 if name(t) in builtin else 2, -relevance(t, task), i)
+            for i, t in enumerate(tools)}
     keep = {id(t) for t in sorted(tools, key=lambda t: rank[id(t)])[:cap]}
     out = [t for t in tools if id(t) in keep]
     return out, len(tools) - len(out)

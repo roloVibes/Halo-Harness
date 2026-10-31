@@ -7,9 +7,10 @@ import { Button, Dialog } from "../../lib/ui";
 import { CardDetail } from "../shared/ModelCard";
 import { closeAct, copyModel, deleteModel, line, makeTwin, planTwin, useCtl } from "./ctl";
 import { WINDOWS } from "./libstore";
+import { RetireCard } from "./ShelfBits";
 import type { ModelEntry } from "./types";
 
-const TITLES = { show: "Show", twin: "Make a tuned twin", copy: "Copy", rename: "Rename", delete: "Delete" };
+const TITLES = { show: "Show", twin: "Make a tuned twin", copy: "Copy", rename: "Rename", delete: "Delete", retire: "Retire" };
 
 function Said() {
   const s = useCtl((c) => c.said);
@@ -141,6 +142,7 @@ export function ModelActCard() {
       {act === "twin" && <TwinCard host={host} m={m} />}
       {(act === "copy" || act === "rename") && <CopyCard host={host} m={m} rename={act === "rename"} />}
       {act === "delete" && <DeleteCard host={host} m={m} />}
+      {act === "retire" && <RetireCard host={host} m={m} />}
       <Said />
     </Dialog>
   );

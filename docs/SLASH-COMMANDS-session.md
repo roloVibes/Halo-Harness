@@ -54,6 +54,13 @@ when none is set), the reference price itself, and which one it is --
 omitted entirely on a cloud-model session. See [MODELS.md](MODELS.md)'s
 "Saved versus cloud" section for the arithmetic.
 
+### `/why [turn]`
+Halo 3.3.6.0 R4: why the newest answer (or turn N) came out as it did on a local model -- the prompt cut (where,
+how much), memory over half the prompt, thinking only, no tools offered, an empty reply from a small budget, the
+cache reused -- one line, then the details (the dialect in force, the degradation ladder's rungs), rebuilt from the
+traffic ledger and the session log (`agent/postmortem.py`; `halo session postmortem`, Studio's **why?** on a Live
+row). A turn with no local call says so.
+
 ### `/context`
 A live breakdown of the current request's system/tools/messages/pruned
 token counts against the model's context window, plus the token count at

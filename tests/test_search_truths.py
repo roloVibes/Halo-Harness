@@ -104,8 +104,12 @@ def test_the_verified_only_facts_need_a_probe(ctx: Ctx):
     v = _facts(_ollama_row(), profile("qwen3-coder:30b"))
     ctx.check(f"probed: agentic-ready and verifier verified, got {v['agentic-ready']} {v['verifier']}",
               v["agentic-ready"]["truth"] == "verified" and v["verifier"]["truth"] == "verified")
-    ctx.check(f"tool-call accuracy still needs a probe (no multi-tool probe yet), got {v['tool-accuracy']}",
+    ctx.check(f"tool-call accuracy needs the multi-tool probe on a profile made before it, got {v['tool-accuracy']}",
               v["tool-accuracy"]["probe"] and "multi-tool" in v["tool-accuracy"]["why"])
+    a = _facts(_ollama_row(), {**profile("qwen3-coder:30b"), "tool_call_accuracy": 1.0, "tool_call_why": "find_user right"})
+    ctx.check(f"3.3.6.0 R4: the multi-tool probe's score makes it verified, got {a['tool-accuracy']}",
+              a["tool-accuracy"]["truth"] == "verified" and a["tool-accuracy"]["value"] is True
+              and "100%" in a["tool-accuracy"]["why"])
 
 
 @test
