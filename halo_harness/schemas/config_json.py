@@ -57,12 +57,14 @@ _SCALARS = {
 # cache_write]} USD per 1M tokens (3.3.3.1, providers/databricks_prices.py), catalog_max_age_hours
 # `steer`: restart_when_silent, silent_restart_s (3.2.2.0 R4); `turn`: nudge_promises (3.2.2.0 R4, agent/turn_marker.py)
 # `ollama`: ledger (3.3.4.0 R2, ollama_steward/ledger.py); `fleet`: ollama.share auto|all|off (3.3.4.0 R2, fleet/ollama_share.py)
-# `ollama`: profiles (a map "<host>|<model>" -> {num_ctx, num_predict, keep_alive, tools_max, host_for, compact_at, note, by, at}),
+# `ollama`: profiles (a map "<host>|<model>" (3.3.7.0 R3: or "<host>|<model>|<role>", a lane's own) -> {num_ctx, num_predict, keep_alive, tools_max, host_for, compact_at, note, by, at}),
 # steward.apply auto|review|off, steward.slow_tok_s (3.3.4.0 R3, ollama_steward/profiles.py, steward.py)
 # steward.model (a model ref), steward.job (bool), steward.every_s, steward.note_every_s (seconds) (3.3.4.0 R4,
 # ollama_steward/job.py, agent.py); steward.probe_new (bool: the battery on a new or changed model, 3.3.6.0 R1)
 # `host` (3.3.7.0 R1, host/state.py): port (7431), bind ("0.0.0.0"), enabled (true), tail_max (400)
-# `local`: ladder (3.3.6.0 R4: the degradation ladder's rungs in order, or "off"; agent/degrade.py)
+# `local`: ladder (3.3.6.0 R4: the degradation ladder's rungs in order, or "off"; agent/degrade.py); min_resident_s (3.3.7.0 R3:
+# the scheduler's minimum residency, local_sched/pivot.py); `routing`: local_hop (3.3.7.0 R3: the local -> local hop,
+# agent/local_hop.py)
 # `prompt`: lean auto|on|off, topics_max, memory_max_tokens, preflight ask|compact|send (3.3.5.0 R4, agent/prompt_lean.py,
 # agent/preflight.py)
 _SECTIONS = ("agents", "clipboard", "coach", "comfy", "connectors", "databricks", "embeddings", "experiential", "fleet",

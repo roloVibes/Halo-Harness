@@ -1074,6 +1074,12 @@ def _run_child_to_completion(child, prompt_text: str, *, agent_id: str, parent_t
     fallback, and a background child's own parity/debuggability copy,
     still just want the whole thing at the end, no live channel needed)."""
     out = []
+    from halo_harness.roles_fit import first_events  # 3.3.7.0 R3: fits beside main? evicts, the swap time; the pivot
+    for ev in first_events(child) or ():
+        tagged = _tag(ev, agent_id=agent_id, parent_tool_use_id=parent_tool_use_id)
+        out.append(tagged)
+        if on_event is not None:
+            on_event(tagged)
     # Halo 3.3.5.0 R0: a child on another model than its parent's -- its first request fits that model
     from halo_harness.agent.model_switch_child import fit_child_prompt
     prompt_text, switch_line = fit_child_prompt(child, prompt_text)

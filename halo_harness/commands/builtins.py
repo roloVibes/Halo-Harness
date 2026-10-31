@@ -152,6 +152,10 @@ def _cmd_cost(args: str, facade: HeadlessFacade) -> str:
             f"Saved vs cloud: ${cm.saved_usd:.4f} across {cm.saved_turns} turn(s) -- reference price "
             f"${price_in_per_m:.2f}/M in, ${price_out_per_m:.2f}/M out ({cm.saved_price_source})"
         )
+    if session is not None:  # 3.3.7.0 R3 (G5): the loading tax, local cost in seconds, beside the dollars
+        from halo_harness.local_sched.loads import tally
+        tax = tally(getattr(session, "state_dir", None), getattr(getattr(session, "log", None), "session_id", None))
+        lines += [tax["line"]] if tax["count"] or (cm is not None and cm.saved_turns) else []
     return "\n".join(lines)
 
 

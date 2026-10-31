@@ -300,6 +300,23 @@ A weak system role, thinking, fenced JSON and unverified ids do not close a
 role; they change how Halo calls the model (the instruction in the user turn,
 a bigger reply reserve, the fence stripped, a quirk line on ids).
 
+### The spawn-time fit verdict and a lane's own profile (Halo 3.3.7.0 R3)
+
+The four roles the VRAM-aware rule redirects (small, researcher, judge,
+subagent_default) still run on main's model when theirs would not fit beside
+it. Every other lane is told, not redirected (`roles_fit.py`): before a child
+spawns on a different local model on main's card, its first event says whether
+it fits beside main, what it evicts and the swap time --
+"fit: coder on qwen3-coder:30b does not fit beside main (qwen3.8:27b) on pc
+(18.4 + 18.9 of 21.5 GB): evicts qwen3.8:27b, ~25 s to load (the ledger)" --
+and when it does not fit, the pivot follows as a step of its own (one at a time
+per card, `local.min_resident_s`). A lane may carry its own steward profile,
+`ollama.profiles["<host>|<model>|<role>"]` (its window, keep_alive, tools_max,
+host_for), read first and field by field over `<host>|<model>`:
+`halo ollama profile set pc qwen3.8:27b num_ctx 16384 --role coder`
+([MODELS-ollama-steward-sched.md](MODELS-ollama-steward-sched.md)). Auto's pick
+weighs the same facts: "already warm", "fits beside main", "needs a swap, 25 s".
+
 ### Find a model for this role (Halo 3.3.6.0 R2)
 
 A lineup gap -- a role with no model of its own (it falls through to the session model), or a role on a probed local

@@ -16,6 +16,7 @@
 // (`cost_complete === false`) the ticker and PER TURN carry a "+" whose title
 // names the model, and main's line says "no price" when its own model is one.
 // 3.3.5.0 R4: under the context bar, the last request's parts as one stacked bar (CostComposition.tsx).
+// 3.3.7.0 R3: LOADING, the loading tax -- the session's loads and their seconds (LoadingTax.tsx).
 import { useEffect } from "react";
 import type { MotionState } from "../../lib/motion";
 import { Empty } from "../../lib/ui";
@@ -31,6 +32,7 @@ import { ownCosts, partialTitle, unpricedMain } from "./shares";
 import { chosenSession } from "./store";
 import { EffortMenu } from "./EffortMenu"; // 3.3.5.0 R0b (c): the effort control
 import { CompositionBar } from "./CostComposition"; // 3.3.5.0 R4: what the last request was made of
+import { LoadingTax } from "./LoadingTax"; // 3.3.7.0 R3 (G5): the loads and their seconds, beside the dollars
 
 /** 45s, 12m 03s, 2h 05m since a unix time in seconds. */
 function since(ts: number | null | undefined, now: number): string {
@@ -111,6 +113,7 @@ export function CostDetail() {
         <Figure label="TURNS" value={turns == null ? "-" : String(turns)} testid="session-cost-turns" title="your turns in this session, as the terminal counts them" />
         <Figure label="PER TURN" value={perTurn == null ? "-" : `${cost(perTurn)}${partial ? "+" : ""}`} testid="session-cost-per-turn"
                 title={`the spend over your turns${last != null ? `; the last turn cost ${cost(last)}` : ""}${partial ? `; ${partial}` : ""}`} />
+        <LoadingTax sid={ss.session_id} />
       </div>
       {agents.length > 0 && (
         <section className="sco-agents">

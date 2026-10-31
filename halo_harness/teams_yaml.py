@@ -268,7 +268,7 @@ def resolve_team_template(name: str, *, cwd=None, state_dir=None, _chain: "Optio
     # together", free text) is an identity field like `description` --
     # never merged key-by-key (it's a single string, not a section), only
     # `extends` itself chains past it when a child never sets its own.
-    for field in ("description", "version", "tags", "about"):
+    for field in ("description", "version", "tags", "about", "warm"):  # warm: 3.3.7.0 R3, the declared warm set
         if field in raw:
             resolved[field] = raw[field]
     resolved["name"] = name
@@ -396,6 +396,8 @@ def validate_team_template(data, *, name: "Optional[str]" = None, cwd=None, stat
     problems.extend(acceptance_problems(data, cwd=cwd, state_dir=state_dir))
     from halo_harness.isolation.spec import lineup_problems  # 3.1.8.0 R5: isolation, secrets, tools.capabilities
     problems.extend(lineup_problems(data))
+    from halo_harness.local_sched.preview import warm_problems  # 3.3.7.0 R3: the `warm:` list's shape
+    problems.extend(warm_problems(data))
     # Halo 2.0.5 round 5: the enforced sections get VALUE checks, not just
     # mapping checks -- one plain line per problem, same style as every
     # other check above.

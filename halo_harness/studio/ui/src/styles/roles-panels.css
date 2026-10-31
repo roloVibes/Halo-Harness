@@ -49,6 +49,9 @@
 .re-yaml { display: grid; gap: 6px; }
 .re-yaml-text { width: 100%; box-sizing: border-box; font-size: 12px; resize: vertical; }
 .re-yaml-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+/* 3.3.7.0 R3: the Lineup tab's Local models block (LineupSched.tsx) */
+.re-sched-lines, .re-sched-hygiene { list-style: none; margin: 0 10px 6px; padding: 0; display: grid; gap: 2px; font-size: 11.5px; overflow-wrap: anywhere; }
+.re-block > .re-yaml-row { padding: 0 10px 8px; }
 .re-rows { display: grid; gap: 4px; }
 .re-row { display: grid; gap: 4px; align-items: center; }
 .re-row .field { margin: 0; }

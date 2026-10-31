@@ -516,6 +516,61 @@ def test_cmd_escalation_shows_policy_and_decisions(ctx: Ctx):
         _clear_env()
 
 
+@test
+def test_local_hop_plumbing(ctx: Ctx):
+    """3.3.7.0 R3: routing.local_hop (default on for a local-first session) and the triggers it answers."""
+    from types import SimpleNamespace
+    from halo_harness.agent.escalation import EscalationPolicy, local_hop_enabled, local_hop_triggers
+    from halo_harness.model import parse_model_ref
+    from halo_harness.theme import set_config_value
+    _fresh_state_dir("esc-hop-")
+    try:
+        local, cloud = SimpleNamespace(model_ref=parse_model_ref("ol:qwen3:30b")), SimpleNamespace(
+            model_ref=parse_model_ref("or:deepseek/deepseek-v3.2"))
+        ctx.check("unset: on for a local session, off for a cloud one", local_hop_enabled(local) and not local_hop_enabled(cloud))
+        set_config_value("routing.local_hop", False)
+        ctx.check("false turns it off", not local_hop_enabled(local))
+        ctx.check("no policy: the two the turn knows (the judge's call only with a policy)",
+                  local_hop_triggers(None) == ("tool_failures", "context_overflow"))
+        ctx.check("a policy: its own triggers", local_hop_triggers(EscalationPolicy("or:x/y", ("low_confidence",)))
+                  == ("low_confidence",))
+    finally:
+        _clear_env()
+
+
+@test
+def test_maybe_escalate_hops_to_a_bigger_local_model_before_cloud(ctx: Ctx):
+    """3.3.7.0 R3: context_overflow on a local model -> the next bigger probed local model, stated, before the cloud
+    policy; with routing.local_hop false the policy's ask comes back."""
+    from tests.helpers.model_switch_rig import Rig
+    from tests.helpers.sched_hop import bigger
+    from halo_harness.theme import set_config_value
+    with Rig() as rig:
+        bigger(rig)
+        set_config_value("routing.escalation", {"to": "or:some/cloud", "when": ["context_overflow"], "ask": True})
+        s = rig.session("ol:mid:14b@lan")
+        s._turn_context_overflow_count = 1
+        evs = list(s._maybe_escalate(1))
+        texts = [e.data.get("text", "") for e in evs]
+        ctx.check(f"the hop's line names the step and the cost, got {texts[:1]}", texts and texts[0] ==
+                  "↳ context_overflow: a bigger local model first -- ol:big:30b@lan (30B over 14B; a load ~21 s (the "
+                  "speed card (the battery)), fit not read)")
+        ctx.check(f"switched locally, said, no cloud ask, got {s.model_ref.raw} {texts[-2:]}",
+                  s.model_ref.raw == "ol:big:30b@lan" and "escalated locally to ol:big:30b@lan: context_overflow" in texts
+                  and not any("set to ask" in t for t in texts))
+        d = s._escalation_decisions[-1]
+        ctx.check(f"the decision says local -> local, got {d}", d.note == "local -> local" and d.to == "ol:big:30b@lan")
+    with Rig() as rig:
+        bigger(rig)
+        set_config_value("routing.escalation", {"to": "or:some/cloud", "when": ["context_overflow"], "ask": True})
+        set_config_value("routing.local_hop", False)
+        s = rig.session("ol:mid:14b@lan")
+        s._turn_context_overflow_count = 1
+        texts = [e.data.get("text", "") for e in s._maybe_escalate(1)]
+        ctx.check(f"local_hop off: the cloud policy's ask, got {texts}", len(texts) == 1 and "set to ask" in texts[0]
+                  and s.model_ref.raw == "ol:mid:14b@lan")
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

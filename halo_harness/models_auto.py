@@ -68,9 +68,10 @@ class Pick:
     alternatives: list = field(default_factory=list)  # the next candidates, best first
     fallback: bool = False                            # True: no candidate, main's model runs it
     how: str = AUTO                                   # 3.1.9.0 R3: `auto` or `measured` (the row's `picked`)
+    local_note: str = ""                              # 3.3.7.0 R3: already warm / fits beside main / needs a swap
 
     def line(self) -> str:
-        return f"auto: {self.ref or 'main'} -- {self.reason}"
+        return f"auto: {self.ref or 'main'} -- {self.reason}" + (f"; {self.local_note}" if self.local_note else "")
 
     def fall_back(self, main_ref: str, why: str) -> None:
         self.ref, self.reason, self.fallback = main_ref, f"{why}; using main's", True
@@ -190,9 +191,14 @@ def _candidates(entries: dict, needs: list, main_ref: str) -> list:
     return out
 
 
-def _choose(cands: list, needs: list, band: str, main_ref: str, weights: Optional[dict] = None) -> tuple:
+def _choose(cands: list, needs: list, band: str, main_ref: str, weights: Optional[dict] = None,
+            local_state: Optional[dict] = None) -> tuple:
     """`(chosen, ordered, rule, tie)` -- the band's rule over the candidates. `weights` (3.1.9.0 R3,
-    outcomes/learn.py): `{ref: factor}` on each score; band low weighs it right after the price."""
+    outcomes/learn.py): `{ref: factor}` on each score; band low weighs it right after the price. `local_state`
+    (3.3.7.0 R3, models_auto_local.py): fits / warm / swap_s per local candidate, weighed first."""
+    if local_state:
+        from halo_harness.models_auto_local import weigh
+        cands = weigh(cands, local_state)[0]
     inf, label = float("inf"), ("+".join(needs) + " model") if needs else ""
     w = lambda c: (weights or {}).get(c.ref, 1.0)  # noqa: E731
     cands = [c._replace(score=round(c.score * w(c), 4)) for c in cands] if weights else cands
@@ -242,7 +248,7 @@ def load_rows(state_dir) -> dict:
 
 def pick(state_dir, *, needs=(), task_text: str = "", attachments=(), band: str = DEFAULT_BAND,
          main_ref: str = "", role: str = "", rows: Optional[dict] = None, kind: str = "",
-         stats: Optional[dict] = None, learn: Optional[dict] = None) -> Pick:
+         stats: Optional[dict] = None, learn: Optional[dict] = None, local_state: Optional[dict] = None) -> Pick:
     """The model an `auto` agent runs on, and why (see the module docstring).
     `role`: the words naming the agent (its alias, its bio's kind); `rows`:
     the index's rows (default: read from `state_dir`); 3.1.9.0 R3: `kind`
@@ -267,10 +273,14 @@ def pick(state_dir, *, needs=(), task_text: str = "", attachments=(), band: str 
         has = "+".join(wanted) or ("tools" if gated else "")
         return Pick(main_ref, ("; ".join(gated[:1] + [""]) if gated else "") + f"no model in the catalog has {has}; "
                     "using main's", wanted, [], True)
+    from halo_harness.models_auto_local import note_for, state_for, weigh  # 3.3.7.0 R3: fit + warm state weigh in
+    local_state = state_for(cands, main_ref, state_dir) if local_state is None else local_state
+    cands, skipped = weigh(cands, local_state)
+    gated = gated + skipped
     from halo_harness.outcomes.learn import relearn  # 3.1.9.0 R3: what was measured weighs in
     (best, ordered, rule, tie), learned = relearn(state_dir, cands, wanted, band, main_ref,
                                                   _choose(cands, wanted, band, main_ref), kind=kind, role=role,
                                                   stats=stats, cfg=learn)
     deciding = next((why[n] for n in DECIDE_ORDER if n in why), "no special needs")
     reason = f"{deciding}, {note}{rule} ({price_words(best.facts)}){tie}{learned}" + (f"; {gated[0]}" if gated else "")
-    return Pick(best.ref, reason, wanted, [c.ref for c in ordered[1:4]])
+    return Pick(best.ref, reason, wanted, [c.ref for c in ordered[1:4]], local_note=note_for(best.ref, local_state))

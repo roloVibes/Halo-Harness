@@ -208,8 +208,9 @@ def _cmd_use(rest: list, *, verb: str = "use") -> int:
         return 2
     # 2.0.7 ollama polish (rolo's single-GPU reality): a lineup whose
     # worker/verify lanes are DIFFERENT local models that cannot co-reside
-    # pays a full model swap on every implement->verify transition. Warn at
-    # ACTIVATION, when the fix is cheapest.
+    # pays a full model swap on every implement->verify transition. Said at
+    # ACTIVATION, when the fix is cheapest -- 3.3.7.0 R3: as the swap preview
+    # (local_sched/preview.py: the warm set per card, the swaps a pass, the hygiene lines).
     template = resolve_team_template(name)
     ok, lines, notes = apply_lineup(name)
     if not ok:
@@ -217,11 +218,6 @@ def _cmd_use(rest: list, *, verb: str = "use") -> int:
         for line in lines:
             print(f"  - {line}", file=sys.stderr)
         return 1
-    try:
-        if template is not None:
-            _warn_single_gpu_swaps(template)
-    except Exception:
-        pass
     from halo_harness.teams_apply_answer import apply_answer  # 3.3.5.0 R0 (h): one line, the notes indented
     head, details = apply_answer(name, notes)
     print(head)
@@ -229,6 +225,12 @@ def _cmd_use(rest: list, *, verb: str = "use") -> int:
         print(f"    {note}")
     for line in lines:
         print(line)
+    try:
+        from halo_harness.local_sched.preview import use_lines
+        for line in use_lines(template) if template is not None else ():
+            print(line)
+    except Exception:
+        pass
     return 0
 
 
@@ -257,41 +259,6 @@ def _cmd_diff(rest: list) -> int:
     for line in lines:
         print(line, file=sys.stdout if ok else sys.stderr)
     return 0 if ok else 1
-
-
-def _warn_single_gpu_swaps(template: dict) -> None:
-    """One plain warning per LOCAL model pair in the lineup that measured
-    as unable to co-reside on the default Ollama host. `ol:` refs only;
-    non-local and unknown-fit pairs stay silent (benefit of the doubt)."""
-    from halo_harness.providers.ollama import resolve_ollama_host
-    from halo_harness.providers.ollama_hw import fits_beside_main
-    host = resolve_ollama_host(None)
-    if host is None:
-        return
-    # The distinct ol: models this lineup references (roles shorthand or
-    # full agents list).
-    refs = set()
-    roles = template.get("roles") or {}
-    if isinstance(roles, dict):
-        for v in roles.values():
-            if isinstance(v, str) and v.startswith("ol:"):
-                refs.add(v[3:].split("@")[0])
-            elif isinstance(v, dict) and isinstance(v.get("model"), str) and v["model"].startswith("ol:"):
-                refs.add(v["model"][3:].split("@")[0])
-    for entry in template.get("agents") or []:
-        if isinstance(entry, dict):
-            m = entry.get("model") or ""
-            if isinstance(m, str) and m.startswith("ol:"):
-                refs.add(m[3:].split("@")[0])
-    refs = {r for r in refs if r}
-    if len(refs) < 2:
-        return
-    import itertools
-    for a, b in itertools.combinations(sorted(refs), 2):
-        if fits_beside_main(host, main_model=a, candidate_model=b, catalog=None) is False:
-            print(f"  [!] {a} + {b} cannot co-reside on this GPU -- every switch between their roles "
-                  f"pays a full model swap (~1 min on a 24 GB card). Consider one model for both "
-                  f"lanes, or a smaller second lane.", file=sys.stderr)
 
 
 def _cmd_export(rest: list) -> int:
