@@ -10,6 +10,20 @@ version.
 
 ## [3.3.5.0] - unreleased
 
+**Local.** The owner's direction after 3.3.4.0: "I want halo to be the best software or harness to
+intuitively work with local models", then his measured brief (plans/local-model-fit-brief.md). Seven
+rounds: a model change is one explicit step that fits the session to the model it moves to, the effort
+tag says what the level does on this model, every model list shows every model (R0); every local model
+has a card -- what it is, how Halo talks to it, the roles it fits -- with a fit meter beside every row and
+a coder-lane offer when the main model cannot orchestrate (R0b); the Local tab with live resources and
+traffic, every host, every model (R1); the library browser over ollama.com and the Hugging Face hub with
+a fit badge at the window you pick (R2); Ollama controlled from Studio and the CLI -- pull, delete, show,
+twin, load -- and the test rigs never reading a real server again (R3); the prompt budget -- the doubled
+memory block found in compaction and removed, a lean profile for local sessions, the composition of every
+request, preflight as a decision before a cut, the task ordered to survive one (R4); Hugging Face local
+models downloaded, listed, deleted, served and stopped (R5). Also: the status bar no longer sticks on
+"waiting" after a turn (two drain passes could overlap).
+
 ### R0: the switch -- a session fits the model it moves to
 
 #### Added
@@ -148,10 +162,6 @@ version.
 - `halo local` with no argument opens Local -> Hugging Face.
 - The Jobs list shows downloads beside pulls.
 - The uses card also reads `hf:local/` and `hf:mlx/` refs and `huggingface.local_servers`.
-
-### Also in 3.3.5.0
-
-#### Changed
 
 ## [3.3.4.0] - 2026-10-28
 
