@@ -4,12 +4,15 @@
 // the licence and a gated mark; every number's title says where it came from. A click on the name unfolds the
 // card's `how` lines (each "once pulled") and the model's other tags or files (GET local/library/<source>/<id>),
 // each with its own fit. The actions: Pull onto the host picked (3.3.5.0 R3, LibraryPull.tsx: the progress bar while
-// it runs, "installed on <host>" after) and Copy for the pull line.
+// it runs, "installed on <host>" after) and Copy for the pull line. 3.3.6.0 R2 (LibraryRowBits.tsx): each capability
+// with its truth mark, the two verdicts side by side, the cost preview, a crashed model greyed with its reason, and
+// Download and verify (pull, probe, the role offer).
 import { useState } from "react";
 import { Button, FitMeter } from "../../lib/ui";
 import { CardChips, CardDetail } from "../shared/ModelCard";
 import { copyLine, count, detailKey, gb, loadDetail, useLib } from "./libstore";
 import { RowPull } from "./LibraryPull";
+import { CapMarks, CostLine, CrashLine, Verdicts, VerifyBits } from "./LibraryRowBits";
 import type { LibRow } from "./types";
 
 function Copy({ line }: { line: string }) {
@@ -69,7 +72,8 @@ export function LibraryRow({ row, score }: { row: LibRow; score?: number | null 
   const s = row.sources || {};
   return (
     <div role="listitem" className="lc-model lc-lib-row" data-testid="local-library-row" data-key={row.key} data-name={row.name} data-source={row.source}
-        data-fit={row.fit?.level || "unknown"} data-score={score ?? undefined} data-purpose={row.card?.purpose || ""}>
+        data-fit={row.fit?.level || "unknown"} data-score={score ?? undefined} data-purpose={row.card?.purpose || ""}
+        data-greyed={row.greyed || undefined} data-crashed={row.crashed ? "yes" : undefined} data-tier={row.gate_tier ?? undefined}>
       <div className="lc-model-top">
         <button type="button" className="lc-lib-name mono" onClick={toggle} aria-expanded={open} data-testid="local-library-unfold"
                 title="its card, and its other tags or files with their fit">
@@ -95,10 +99,16 @@ export function LibraryRow({ row, score }: { row: LibRow; score?: number | null 
         {row.gated ? <span className="lc-lib-gated" data-testid="local-library-gated" title="gated: the repo asks you to accept its terms; HF_TOKEN is sent for its files">gated</span> : null}
       </div>
       {row.description && <p className="muted lc-lib-desc">{row.description}</p>}
+      <CapMarks row={row} />
+      <Verdicts row={row} />
+      <CostLine row={row} />
+      <CrashLine row={row} />
+      {row.why_this_rank && <p className="mono muted ls-rank" data-testid="local-library-rank" title="why this row is here in the order">{row.why_this_rank}</p>}
       {row.fit?.pull_warning && <p className="mono lc-lib-warn" data-testid="local-library-pull-warning"
                                     title="the weights alone exceed what the card holds: Ollama will run part of it on the CPU at any window">{row.fit.pull_warning}</p>}
       <div className="lc-model-acts">
         <RowPull row={row} />
+        <VerifyBits row={row} />
         <Copy line={row.pull_line} />
       </div>
       {open && <Unfolded row={row} />}

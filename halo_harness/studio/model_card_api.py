@@ -40,7 +40,8 @@ def view(card: dict, meter: Optional[dict]) -> dict:
                      "window": {"tokens": w.get("tokens"), "source": w.get("source")},
                      "quirks": list(card.get("quirks") or []), "blocks": card.get("blocks") or {},  # 3.3.6.0 R1
                      "fit_source": dict(card.get("fit_source") or {}), "system_role": card.get("system_role"),
-                     "speed": card.get("speed"), "probe": _probe_view(card)},
+                     "speed": card.get("speed"), "probe": _probe_view(card),
+                     "sources": dict(card.get("sources") or {}), "params": card.get("params")},  # 3.3.6.0 R2: the truths
             "fit": dict(meter or {"level": "unknown", "at_window": None, "gpu_window": None, "why": ""})}
 
 

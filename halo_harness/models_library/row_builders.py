@@ -88,6 +88,13 @@ def ollama_row(entry: dict, size: str, tags: list, manifest: Optional[dict] = No
                  key=f"ollama/{full}", sources=src, input=tag.get("input") or [], tags_count=entry.get("tags_count"))
 
 
+def hub_tags(repo: dict) -> list:
+    """The repo's tags a search reads (3.3.6.0 R2: tools, security, math, languages ...), without the papers,
+    regions and base models."""
+    skip = ("arxiv:", "region:", "base_model:", "dataset:", "doi:")
+    return [str(t) for t in repo.get("tags") or [] if isinstance(t, str) and not t.startswith(skip)][:40]
+
+
 def _hf_caps(repo: dict) -> list:
     caps = []
     pipe, tags = repo.get("pipeline_tag") or "", [str(t).lower() for t in repo.get("tags") or []]
@@ -123,7 +130,7 @@ def hf_repo_row(repo: dict) -> dict:
                  params=params, quant=quant, size_bytes=est, capabilities=_hf_caps(repo), downloads=repo.get("downloads"),
                  updated=(repo.get("updated") or "")[:10], license=repo.get("license") or "", gated=repo.get("gated") or False,
                  description=f"from {repo['base_model']}" if repo.get("base_model") else "", pull_line=pull,
-                 kind=kind, key=f"hf/{rid}", sources=src, estimate=True)
+                 kind=kind, key=f"hf/{rid}", sources=src, estimate=True, tags=hub_tags(repo))
 
 
 def hf_file_row(repo: dict, f: dict, shape: Optional[dict] = None) -> dict:
@@ -150,4 +157,4 @@ def hf_file_row(repo: dict, f: dict, shape: Optional[dict] = None) -> dict:
                  updated=(repo.get("updated") or "")[:10], license=repo.get("license") or "", gated=repo.get("gated") or False,
                  description=f"from {repo['base_model']}" if repo.get("base_model") else "", pull_line=pull, kind=kind,
                  key=f"hf/{rid}/{f.get('file') or quant}", shape=shape or None, sources=src,
-                 alt_line=f"halo local download {rid} {f['file']}" if f.get("file") else "")
+                 alt_line=f"halo local download {rid} {f['file']}" if f.get("file") else "", tags=hub_tags(repo))

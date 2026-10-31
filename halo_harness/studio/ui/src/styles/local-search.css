@@ -1,0 +1,39 @@
+/* Local -> Library's search (3.3.6.0 R2): the pinned resource strip, the presets' bundle, the filters' three groups,
+   each capability's truth mark, the verdicts, the cost line, a crashed row greyed, Download and verify.
+   Colours are tokens only (styles/tokens.css). */
+.ls-top { position: sticky; top: 0; z-index: 2; display: grid; gap: 8px; padding: 8px 0; background: var(--bg); }
+.ls-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; margin: 0; padding: 6px 10px; font-size: 12px;
+  border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); }
+.ls-strip b { color: var(--accent); }
+.ls-bundle { display: grid; gap: 6px; padding: 8px 10px; border: 1px dashed var(--line-strong); border-radius: var(--radius-sm);
+  background: var(--bg-2); font-size: 12px; }
+.ls-needs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.ls-need { display: inline-flex; align-items: center; gap: 4px; }
+.ls-need select, .ls-more select { font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius-sm); padding: 1px 4px; }
+.ls-pair { display: inline-flex; align-items: center; gap: 4px; }
+.ls-x { border: 0; background: none; color: var(--muted); cursor: pointer; padding: 0 2px; font: inherit; }
+.ls-x:hover { color: var(--bad); }
+.ls-save { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ls-more { padding: 0; }
+.ls-more summary { cursor: pointer; color: var(--muted); font-size: 12px; }
+.ls-group { display: grid; gap: 4px; padding: 6px 0; border-top: 1px solid var(--grid-line); }
+.ls-caps { display: flex; flex-wrap: wrap; gap: 4px; }
+.ls-cap { font-size: 11px; }
+.ls-cap[data-truth="verified"] .ls-glyph { color: var(--ok); }
+.ls-cap[data-truth="declared"] .ls-glyph { color: var(--accent); }
+.ls-cap[data-truth="expected"] { color: var(--muted); border-style: dashed; }
+.ls-cap[data-truth="probe"] { color: var(--warn); border-color: var(--warn-soft); }
+.ls-verdicts, .ls-cost, .ls-rank, .ls-crash { margin: 0; font-size: 11.5px; overflow-wrap: anywhere; }
+.ls-crash { color: var(--bad); }
+.ls-crash-chip { color: var(--bad); border-color: var(--bad-soft); }
+.lc-lib-row[data-greyed] { opacity: 0.55; }
+.lc-lib-row[data-greyed]:hover { opacity: 0.85; }
+.ls-verify, .ls-stage { font-size: 11.5px; }
+.ls-verify[data-ok], .ls-stage[data-state="done"] { color: var(--ok); }
+.ls-stage[data-state="failed"] { color: var(--bad); }
+.ls-offer { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 11.5px; }
+
+@media (max-width: 760px) {
+  .ls-top { position: static; }
+}

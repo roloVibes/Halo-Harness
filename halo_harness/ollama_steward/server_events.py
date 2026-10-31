@@ -69,6 +69,11 @@ def record_events(state_dir, events: list, *, host: Optional[str] = None, quiet:
         return []
     from halo_harness.ollama_steward import ledger_tap  # 3.3.5.0 R1: the Local tab's traffic shows them inline
     ledger_tap.events(state_dir, rows)
+    try:  # 3.3.6.0 R2: a crash leaves its fingerprint (the search greys the model on this host)
+        from halo_harness.ollama_steward.fingerprints import record
+        record(state_dir, rows, host)
+    except Exception:
+        pass
     return rows
 
 

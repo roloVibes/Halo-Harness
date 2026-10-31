@@ -2,7 +2,8 @@
 tests/helpers/studio_local_probe.py (skipped without one), over R1's seeded home (`box` a fake Ollama on 127.0.0.1:0
 answering the battery's probes); no provider request, no model call, nothing sent but to the fake:
 
-1. a row not probed yet: "not probed", the card's blocks and placement chip all marked expected;
+1. a row not probed yet: "not probed", the card's blocks and placement chip marked declared or expected, never
+   verified (3.3.6.0 R2: the three truths);
 2. Probe: its title is the cost line and the `halo models probe` line; the progress strip shows the cost line and
    the step while it runs, then the result;
 3. after: "probed <date> · re-probe", the placement chip verified, the four blocks (where it sits, use it for,
@@ -52,8 +53,9 @@ def _got(ctx: Ctx) -> dict:
 def test_before_a_probe_everything_is_expected(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"not probed, got {got.get('mark_before')!r}", got.get("mark_before") == "no")
-    ctx.check(f"the blocks and the chip expected, got {got.get('marks_before')} {got.get('sits_before')!r}",
-              got.get("marks_before") == ["expected"] and got.get("sits_before") == "expected")
+    ctx.check(f"the blocks and the chip declared or expected, never verified, got {got.get('marks_before')} {got.get('sits_before')!r}",
+              set(got.get("marks_before") or []) <= {"expected", "declared"} and "expected" in (got.get("marks_before") or [])
+              and got.get("sits_before") in ("expected", "declared"))
     ctx.check(f"the button says Probe, got {got.get('label_before')!r}", got.get("label_before") == "Probe")
 
 

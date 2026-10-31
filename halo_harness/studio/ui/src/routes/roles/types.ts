@@ -69,7 +69,8 @@ export type Tier = {
 };
 export type Graph = { nodes: GraphNode[]; edges: GraphEdge[]; tiers: Tier[] };
 
-export type Finding = { id: string; severity: "blocks" | "warns"; text: string; fix: string; node: string };
+export type Finding = { id: string; severity: "blocks" | "warns"; text: string; fix: string; node: string;
+  find?: { role: string; preset: string } }; // 3.3.6.0 R2: a lineup gap -> "Find a model" (Local -> Library)
 
 export type LineupPayload = {
   name: string;

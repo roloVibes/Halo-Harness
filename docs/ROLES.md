@@ -300,6 +300,17 @@ A weak system role, thinking, fenced JSON and unverified ids do not close a
 role; they change how Halo calls the model (the instruction in the user turn,
 a bigger reply reserve, the fence stripped, a quirk line on ids).
 
+### Find a model for this role (Halo 3.3.6.0 R2)
+
+A lineup gap -- a role with no model of its own (it falls through to the session model), or a role on a probed local
+model that fails its placement gate (no tool calls for a tool-using role, a 32k window for compaction) -- is listed
+with its way out: Studio's Roles -> Problems has **Find a model**, which opens Local -> Library with the role's preset
+(`verify` -> Verifier, `planner` -> Reasoner / planner, `small` -> Bulk worker, `compaction` -> Compactor, `eyes` ->
+Multimodal, `coder` -> Coder), and `halo teams show <lineup>` prints a `(gap)` line with
+`halo models browse --for-role <role>`. There, **Download and verify** pulls a candidate, runs the battery and offers
+the role ("assign `verify` to ol:qwen3:8b@box?"): **Assign** writes it into the active lineup (applied again) or into
+`local-<preset>`. A preset's filters can also be kept as a role template, the lineup `local-<preset>` with a `search`
+block ([STUDIO-local.md](STUDIO-local.md), [MODELS-ollama.md](MODELS-ollama.md#finding-a-model-for-a-role-3360)).
 ## Roles on/off is one switch (Halo 2.0.5 round 2b)
 
 `roles.enabled` (default **on**) is the ONE switch, everywhere: `halo

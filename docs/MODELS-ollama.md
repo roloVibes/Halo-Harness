@@ -308,6 +308,26 @@ which one you see, and Refresh reads ollama.com (cached a day in `<state>/cache/
 parser fails one test and the list falls back to the snapshot, saying why. See [STUDIO-local.md](STUDIO-local.md) and
 [COMMANDS-local.md](COMMANDS-local.md).
 
+## Finding a model for a role (3.3.6.0)
+
+Before anything downloads, pick what you need and what you have; Halo returns a short, ranked, explained list
+(`models_library/search.py`). Start from a **preset** (Coder, Reasoner / planner, Bulk worker, Compactor, Verifier,
+Security / pentest, Multimodal, Embeddings, Offline-only: `halo models browse --preset coder`), a **lineup role**
+(`--for-role verify`: the role's preset) or a **sentence** (`--ask "a local coder that can use tools"` -> Coder + tools
+verified or declared). Each capability is held at a truth floor (`--need tools=verified`; [MODELS-cards.md](MODELS-cards.md)
+has the three truths). The order: passes the role's gates (verified first, declared second, expected last), fits at the
+window, measured speed, download size, licence. Every row states its cost (the download and its time, VRAM at the
+window, the cold load, tok/s, what it would evict) and its two verdicts (`fits: yes · role-ready: no (no tool calls)`).
+A model with a crash fingerprint on this host says so (`--exclude-crashed` greys it and puts it last;
+[MODELS-ollama-steward.md](MODELS-ollama-steward.md)).
+
+`runs here` keeps MLX for a Mac, a GGUF anywhere Ollama runs (CUDA on NVIDIA, ROCm / Vulkan on AMD, Metal); `this
+Ollama loads it` reads the architecture against the host's Ollama version (a table of architectures each seen loading
+on a release; one it does not know, or a new one, "may not load on 0.40.6"). **Download and verify** (Studio) pulls
+it, runs the battery, writes the profile and offers the role; `--save-template` keeps a preset as the lineup
+`local-<preset>`. A gap in a lineup links here: Roles -> Problems' **Find a model** and `halo teams show`'s `(gap)`
+line ([ROLES.md](ROLES.md)).
+
 ## Pulling, deleting, twins from Studio and the CLI (3.3.5.0)
 
 Every Ollama host Halo knows is controlled from Studio's **Local** tab and from `halo models` (3.3.5.0 R3;

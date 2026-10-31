@@ -6,7 +6,8 @@ intent (the third of Local's five ideas: intents, not model names).
 
     models(state_dir, host="") -> {hosts: [{name, kind, url, models: [row]}], intents [{id, title, why}], at}
     row {model, ref, card, fit, profile, loaded, size, intent {id: score | None},
-         warm {state, load_s, line, cache_reused_pct, cache_line} (3.3.5.0 R4, studio/local_warm.py)}
+         warm {state, load_s, line, cache_reused_pct, cache_line} (3.3.5.0 R4, studio/local_warm.py),
+         crashed {line, at, signature, count} | None (3.3.6.0 R2: ollama_steward/fingerprints.py)}
 
 An intent's score orders the rows (higher first; None = not for that intent):
 the card's purpose and `fit_for` decide the band, the fit meter the place in it.
@@ -92,7 +93,18 @@ def _ollama_rows(h, warm: Optional[dict] = None, state_dir=None) -> list:
     if state_dir is not None:
         from halo_harness.studio.local_twin_verify import raw_and_twins
         raw_and_twins(h, rows, state_dir)
+        _crash_marks(h, rows, state_dir)
     return rows
+
+
+def _crash_marks(h, rows: list, state_dir) -> None:
+    """3.3.6.0 R2: each row's newest crash fingerprint on this host ({line, at, signature, count} | None)."""
+    from halo_harness.ollama_steward.fingerprints import read
+    from halo_harness.providers.ollama import ollama_names_match
+    fps = read(state_dir, host=h.name)
+    for r in rows:
+        hit = next((f for f in fps if ollama_names_match(f.get("model"), r["model"])), None)
+        r["crashed"] = {k: hit.get(k) for k in ("line", "at", "signature", "count")} if hit else None
 
 
 def _hf_rows(s, state_dir) -> list:
