@@ -22,7 +22,11 @@ export type Traffic = { rows: TRow[]; events: TRow[]; spark: Record<string, Buck
 export type Loaded = { model: string | null; size: number | null; size_vram: number | null; vram_pct: number | null; expires: string | null; context_length: number | null;
   bench?: string | null }; // 3.3.6.0 R5: its speed card's line (studio/local_hosts_view._benched)
 export type PlanChoice = { kind: string; says: string; lose: string; fits: boolean; changes: { key: string; field: string; to: unknown }[] };
-export type Controls = { ok: boolean; via: string; why: string; member?: string; member_host?: string };
+export type Controls = { ok: boolean; via: string; why: string; member?: string; member_host?: string;
+  // 3.3.7.0 R2 (studio/local_host_acts.host_controls): this peer's grants on the paired halo host and its cap
+  grants?: string[]; cap?: string | null; asks?: boolean; request?: boolean; via_line?: string; host?: string };
+export type PendingRow = { id: string; at: number; peer: string; kind: string; grant: string; op: string;
+  params: Record<string, unknown>; why: string; state: string; expires: number };
 export type HostCard = {
   name: string; url: string; kind: string; source: string; version: string | null; served_here: boolean; served_by: string;
   loaded: Loaded[]; card_lines: string[]; profiles: Record<string, { num_ctx?: number; num_predict?: number; keep_alive?: string | number; by?: string }>;

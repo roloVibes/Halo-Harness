@@ -10,6 +10,7 @@ import { Empty } from "../../lib/ui";
 import type { Fit } from "../../lib/ui/FitMeter";
 import { HfCards } from "./HfCards";
 import { HostCard } from "./HostCard";
+import { HostPending } from "./HostPending";
 import { loadHosts, loadModels, useLocal } from "./store";
 
 const REFRESH_MS = 30_000;
@@ -42,6 +43,7 @@ export function HostsPage() {
     return <Empty title="No host yet" body="Add one in Setup -> Providers -> Ollama, or Find the servers on this machine there." testid="local-hosts-none" />;
   return (
     <div className="lc-hosts" data-testid="local-hosts">
+      <HostPending />
       {ORDER.map((src) => {
         const rows = hosts.filter((h) => (h.host ? "host" : h.source) === src);
         if (!rows.length) return null;

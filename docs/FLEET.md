@@ -740,6 +740,22 @@ here). That pairing is kept in this machine's `~/.halo/fleet.json` beside the hu
 host_id, key_ref, fingerprint, tls, serves, grants, joined_at, state}`, the pair key in `fleet/keys/` (0600). A paired
 harness is the host's peer, not a fleet member.
 
+3.3.7.0 R2: a hub whose member has no live session but announced a host forwards Studio's Load, Unload, probe and
+bench to that host once the hub is paired with it (`fleet/hub_host_cmd.py`; until then the card names the `halo host
+join` line), so a machine with only a host takes commands.
+
+## What travels with the ledger push
+
+3.3.7.0 R2 (G11): beside the lines, the resources samples, the pull jobs, the battery profiles, the crash
+fingerprints and the server events, a member's push carries its **speed cards** (benched in the last ten minutes on
+a host it serves; the hub keeps each in its capability cache under `<member>:<host>`, `from` the member) and its
+**dialect records** (each served model's, with the member's address and the server's port; the hub sets them on its
+own host entry at that address, never over a field its user set; sent when they change). The hub's answer carries,
+beside its profiles (dialect records included) and its newest steward note, **the fleet's crash fingerprints** --
+its own and every other member's -- which the member keeps under `<hub>:<host>` with `from`: its `fingerprints.read`
+for a host includes them, so `exclude: crashed`, the Models rows' crash line and `halo ollama crashes` know a
+failure another machine already had ("crashed on pc-hub:pc on <date>: ...").
+
 ## Config keys
 
 | Key | Default | Meaning |

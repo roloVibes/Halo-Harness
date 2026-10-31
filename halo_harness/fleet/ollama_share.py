@@ -182,13 +182,12 @@ class Forwarder:
                     from halo_harness.ollama_steward.resources_share import read_recent  # 3.3.5.0 R1
                     samples = read_recent(self.home, self.sent_t) if how != "off" else []
                     from halo_harness.fleet.control_pulls import read_pulls  # 3.3.5.0 R3: the pull jobs a hub asked for
-                    from halo_harness.fleet.control_probes import read_crashes, read_events, read_probes  # 3.3.6.0 R1-R3
+                    from halo_harness.fleet.ollama_share_cards import member_payload  # probes .. dialects (R2)
                     reply = link.request("POST", protocol.PREFIX + "/ollama", protocol.doc(
                         link=link_id, lines=[x for x, _c in send], resources=samples, pulls=read_pulls(self.home),
-                        probes=read_probes(self.home), crashes=read_crashes(self.home), events=read_events(self.home)))
+                        **member_payload(self.home)))
                     self.sent_t = max([self.sent_t] + [float(x.get("t") or 0) for x in samples])
-                    take_profiles(reply)
-                    take_note(reply, self.home)
+                    take_reply(reply, self.home)  # profiles, the note, 3.3.7.0 R2: the fleet's fingerprints
                 cpath.parent.mkdir(parents=True, exist_ok=True)
                 cpath.write_text(json.dumps(cursor), encoding="utf-8")
                 self.last_flush = now
@@ -198,7 +197,7 @@ class Forwarder:
             return 0
 
 
-from halo_harness.fleet.ollama_share_take import take_note, take_profiles  # noqa: E402  (the member's side of an answer)
+from halo_harness.fleet.ollama_share_take import take_note, take_profiles, take_reply  # noqa: E402,F401  (member side)
 
 
 def accept(home, member_name: str, lines: list) -> int:
@@ -235,10 +234,8 @@ def serve(handler):
     take_remote(handler.hub.home, member.name, body.get("resources"))
     from halo_harness.fleet.control_pulls import take_pulls  # 3.3.5.0 R3
     take_pulls(member.name, body.get("pulls"))
-    from halo_harness.fleet.control_probes import take_crashes, take_events, take_probes  # 3.3.6.0 R1-R3
-    take_probes(handler.hub.home, member.name, body.get("probes"))
-    take_crashes(handler.hub.home, member.name, body.get("crashes"))
-    take_events(handler.hub.home, member.name, body.get("events"))  # R3: the member's server events (log_status.ladder)
+    from halo_harness.fleet.ollama_share_cards import reply_extra, take_member_payload  # 3.3.6.0 R1-R3, 3.3.7.0 R2
+    take_member_payload(handler.hub.home, member.name, body)  # probes, crashes, events, speed cards, dialect records
     try:  # 3.3.4.0 R3: the hub's profiles, keyed by the member's own host names
         from halo_harness.ollama_steward.profiles import payload_for_member
         profiles = payload_for_member(handler.hub.home, member.name)
@@ -246,4 +243,5 @@ def serve(handler):
         profiles = {}
     from halo_harness.ollama_steward.notes import share_payload  # 3.3.4.0 R4: the hub's newest steward note
     note = share_payload(handler.hub.home, handler.hub.name)
-    return handler._json(200, protocol.doc(ok=True, accepted=n, profiles=profiles, steward_note=note))
+    return handler._json(200, protocol.doc(ok=True, accepted=n, profiles=profiles, steward_note=note,
+                                           **reply_extra(handler.hub.home, member.name, handler.hub.name)))

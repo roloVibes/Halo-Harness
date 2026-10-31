@@ -210,7 +210,7 @@ def merge_from_hub(payload, *, now: Optional[float] = None) -> int:
         if mine.get("by") == "user":
             continue
         new = clean({**entry, "by": "hub", "at": entry.get("at") or now_iso(now or time.time())})
-        if {k: mine.get(k) for k in CHANGEABLE} != {k: new.get(k) for k in CHANGEABLE}:
+        if {k: mine.get(k) for k in CHANGEABLE + ("dialect",)} != {k: new.get(k) for k in CHANGEABLE + ("dialect",)}:
             profiles[key] = new
             changed += 1
     if changed:

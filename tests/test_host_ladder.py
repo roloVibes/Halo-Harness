@@ -7,7 +7,7 @@ host_reads.py) and what reads through it, over tests/helpers/host_rig.py's fake 
 4. a profile shows verified from the host ("the host at <addr>"), the fit evidence reads its events, the fit meter its
    card;
 5. a host that does not answer: one line, and it is not asked again for a while;
-6. probe and bench through a host answer 409 naming the `control` grant and 3.3.7.0 R2.
+6. probe and bench through a host answer 409 naming the `control` grant (3.3.7.0 R2: a view-only peer).
 Run: python -m tests.test_host_ladder
 """
 from __future__ import annotations
@@ -146,8 +146,8 @@ def test_probe_and_bench_through_a_host_say_r2(ctx: Ctx):
         rig.pair()
         for act in ("probe", "bench", "load"):
             code, got = _api(rig, "POST", f"local/host/pc/{act}", body={"model": BIG})
-            ctx.check(f"{act}: 409 naming the control grant and R2, got {code} {got}", code == 409
-                      and "`control` grant" in got.get("error", "") and "3.3.7.0 R2" in got["error"])
+            ctx.check(f"{act}: 409 naming the control grant (3.3.7.0 R2: a view peer), got {code} {got}", code == 409
+                      and "need `control`" in got.get("error", "") and "halo host grant bob@peer control" in got["error"])
         code, hosts = _api(rig, "GET", "local/hosts")
         pc = next(h for h in hosts["hosts"] if h["name"] == "pc")
         ctx.check(f"the Hosts card: controls via host, the host block, got {pc['controls']} {pc.get('host')}",

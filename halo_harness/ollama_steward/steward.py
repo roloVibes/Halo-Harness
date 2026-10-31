@@ -142,6 +142,10 @@ def apply_change(state_dir, f: dict, change: dict, *, mode_name: str, now: Optio
                  scope: Optional[str] = None) -> dict:
     """3.3.6.0 R5: the change's row in changes.jsonl; `scope` defaults to until-restart in auto, keep for an Apply."""
     from halo_harness.ollama_steward import changes
+    from halo_harness.ollama_steward.host_land import via_host  # 3.3.7.0 R2: a host-served model lands through the host
+    got = via_host(state_dir, f, change, mode_name=mode_name, now=now, scope=scope)
+    if got is not None:
+        return got
     from halo_harness.ollama_steward.profiles import all_profiles, set_field
     old = all_profiles().get(f["key"]) or {}
     note = f"steward: {change['field']} {change['to']} for {f['model']} on {f['host']} ({change['why']})"
@@ -219,32 +223,4 @@ def _act(state_dir, found: list, done: dict, hosts: list, mode_name: str, now: f
             done["proposed"].append(propose(state_dir, f, change, now=now))
 
 
-def propose(state_dir, f: dict, change: dict, *, now: Optional[float] = None) -> dict:
-    """A review-mode proposal line (its id is the finding's: `halo ollama steward apply <id>`)."""
-    return _append(state_dir, {"_now": now, "id": f["id"], "kind": "proposal", "key": f["key"], "field": change["field"],
-                               "from": change.get("from"), "to": change["to"], "why": change["why"],
-                               "finding": f["id"], "rule": f["rule"], "evidence": f.get("evidence"),
-                               "plan": f.get("plan")})
-
-
-def apply_by_id(state_dir, fid: str, *, now: Optional[float] = None, **gather_kw) -> "tuple[Optional[dict], str]":
-    """`halo ollama steward apply <id>`: a finding of the current run (or a proposal in the journal) applied."""
-    from halo_harness.ollama_steward.rules import findings as get_findings
-    from halo_harness.providers.ollama import resolve_ollama_hosts
-    now = now or time.time()
-    f = None
-    row = next((r for r in reversed(read_journal(state_dir)) if r.get("kind") == "proposal" and r.get("id") == fid),
-               None)
-    if row is None:
-        f = next((x for x in get_findings(state_dir, **gather_kw) if x["id"] == fid), None)
-        if f is None:
-            return None, f"no finding or proposal with the id {fid}"
-    else:
-        from halo_harness.ollama_steward.profiles import split_key
-        host, model = split_key(row["key"])
-        f = {"id": fid, "rule": row.get("rule"), "key": row["key"], "host": host, "model": model,
-             "evidence": row.get("evidence"), "plan": row.get("plan"),
-             "proposal": {k: row.get(k) for k in ("field", "from", "to", "why")}}
-    with profile_lock(state_dir):
-        change, why = check(state_dir, f, hosts=resolve_ollama_hosts(), now=now)
-        return (None, why) if change is None else (apply_change(state_dir, f, change, mode_name="review", now=now), "")
+from halo_harness.ollama_steward.steward_review import apply_by_id, propose  # noqa: E402,F401  (R2: the cap)
