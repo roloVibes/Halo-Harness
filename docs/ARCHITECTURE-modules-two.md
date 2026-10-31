@@ -44,6 +44,17 @@ coder-lane lineup), `agent/model_card_switch.py` (the card and the check in a `/
 `tui/lane_offer_flow.py` (the one-key offer), `ui/src/lib/ui/FitMeter.tsx`, `ui/src/routes/shared/ModelCard.tsx`,
 `ui/src/routes/session/EffortMenu.tsx`.
 
+**The host** (`halo_harness/host/`, Halo 3.3.7.0 R1, docs/HOST.md): `halo host`, the model-free process on the
+machine that serves models -- `host/service.py` (the process: the listener, the steward's watch with `where="host"`,
+the resources sampler, the ledger forwarder and the announce to a joined hub), `host/state.py` (its files, config
+keys, peers and grants, the audit), `host/http.py` (the signed `/host/v1/` routes), `host/routes_view.py` (the
+`view` answers: card, catalog with fit, profiles, events, the tail without request bodies), `host/answers.py` (the
+fit simulation and the routing answer), `host/join.py` (a peer's half of pairing); `host_cli.py` (`halo host serve
+| status | stop`), `host_pair_cli.py` (`pair | join`, `status --peer`), `host_install.py` (`install | uninstall`
+through remote/daemon_units.py). The harness side: `ollama_steward/host_client.py` (`for_host`, the signed client,
+the ladder's host rung) and `ollama_steward/host_reads.py` (the card, log, tail, events and profiles read through
+it); `fleet/hub_hosts.py` (the hub's list of announced hosts); `ui/src/routes/local/HostServedBy.tsx`.
+
 **Packs** (`halo_harness/packs/`, Halo 3.2.0.0 R1, docs/PACKS.md): the
 names (`packs/names.py`: ids, `<id>--<name>`, the `pack:<id>` label and
 `read_only_source`), `packs/semver.py` (versions and ranges),

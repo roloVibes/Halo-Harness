@@ -3,7 +3,8 @@
 // members serve (their samples reach this hub: idea 5), and the servers Find or
 // Scan found that are not configured yet (with Add to hosts). GET local/hosts,
 // again every 30 s while the page is open and when config.json moves; the
-// models' fit meters come from GET local/models.
+// models' fit meters come from GET local/models. 3.3.7.0 R1: a machine a paired halo host serves is grouped first,
+// under SERVED BY HALO HOST (its card says so: HostServedBy.tsx).
 import { useEffect, useMemo } from "react";
 import { Empty } from "../../lib/ui";
 import type { Fit } from "../../lib/ui/FitMeter";
@@ -12,9 +13,9 @@ import { HostCard } from "./HostCard";
 import { loadHosts, loadModels, useLocal } from "./store";
 
 const REFRESH_MS = 30_000;
-const ORDER = ["configured", "managed server", "local server", "member", "discovered"];
+const ORDER = ["host", "configured", "managed server", "local server", "member", "discovered"];
 const GROUP: Record<string, string> = {
-  configured: "CONFIGURED · OLLAMA.HOSTS", "managed server": "LOCAL SERVERS · STARTED BY HALO",
+  host: "SERVED BY HALO HOST", configured: "CONFIGURED · OLLAMA.HOSTS", "managed server": "LOCAL SERVERS · STARTED BY HALO",
   "local server": "LOCAL SERVERS · HUGGINGFACE.LOCAL_SERVERS",
   member: "SERVED BY FLEET MEMBERS", discovered: "FOUND, NOT ADDED",
 };
@@ -42,7 +43,7 @@ export function HostsPage() {
   return (
     <div className="lc-hosts" data-testid="local-hosts">
       {ORDER.map((src) => {
-        const rows = hosts.filter((h) => h.source === src);
+        const rows = hosts.filter((h) => (h.host ? "host" : h.source) === src);
         if (!rows.length) return null;
         return (
           <section key={src} className="lc-block" aria-label={GROUP[src]} data-testid="local-hosts-group" data-source={src}>

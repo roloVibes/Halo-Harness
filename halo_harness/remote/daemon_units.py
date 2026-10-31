@@ -72,7 +72,7 @@ def render_launchd(argv: list, env: Optional[dict] = None, label: str = LABEL) -
     return ('<?xml version="1.0" encoding="UTF-8"?>\n'
             '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n'
             '<plist version="1.0">\n<dict>\n'
-            f"  <key>Label</key>\n  <string>{LABEL}</string>\n"
+            f"  <key>Label</key>\n  <string>{escape(label)}</string>\n"  # 3.3.7.0 R1: the unit's own label
             f"  <key>ProgramArguments</key>\n  <array>\n{args}  </array>\n{envs}"
             # restart on failure only (as systemd / Task Scheduler): the kill switch's clean exit stays down
             "  <key>RunAtLoad</key>\n  <true/>\n"

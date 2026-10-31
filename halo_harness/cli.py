@@ -504,6 +504,9 @@ def _main(argv: Optional[list] = None) -> int:
         # 3.1.8.0 R1: the supervisor -- a goal queue that runs without a TUI (docs/SUPERVISE.md).
         from halo_harness.supervise.cli import cmd_supervise
         return cmd_supervise(argv[1:])
+    if argv and argv[0] == "host":  # 3.3.7.0 R1: halo host, the model-free monitor of this machine's servers
+        from halo_harness.host_cli import cmd_host
+        return cmd_host(argv[1:])
     if argv and argv[0] == "outcomes":
         # 3.1.8.0 R3: every agent task's outcome, per bio and model (docs/OUTCOMES.md).
         from halo_harness.outcomes.cli import cmd_outcomes
