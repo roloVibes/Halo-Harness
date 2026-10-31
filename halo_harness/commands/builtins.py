@@ -110,6 +110,13 @@ def _cost_figure(session) -> "tuple[str, Optional[str]]":
     return describe_cost(cost_fields_of(session.cost_meter), main)
 
 
+def _composition_text(session) -> str:
+    """3.3.5.0 R4: "prompt 30,756: system 3,587 · memory 9,900 · topics 6,400 · tools 2,100 · history 8,700 · you 69"."""
+    from halo_harness.agent.prompt_composition import composition_line
+    from halo_harness.agent.prompt_wire import composition_now
+    return composition_line(composition_now(session))
+
+
 def _cmd_cost(args: str, facade: HeadlessFacade) -> str:
     session = getattr(facade, "session", None)
     if session is not None:
@@ -128,6 +135,8 @@ def _cmd_cost(args: str, facade: HeadlessFacade) -> str:
     from halo_harness.providers.openrouter_account import format_balance_line
     balance_line = format_balance_line()
     lines = [line]
+    if session is not None:  # Halo 3.3.5.0 R4: what the last request was made of
+        lines.append(_composition_text(session))
     if balance_line:
         lines.append(balance_line)
     # Halo 2.0.3 round 5e: "saved versus cloud" breakdown -- omitted
@@ -713,6 +722,9 @@ def _cmd_memory(args: str, facade: HeadlessFacade) -> str:
     if not facade.memory_store.enabled:
         return "Auto-memory is disabled (autoMemoryEnabled=false or CLAUDE_CODE_DISABLE_AUTO_MEMORY=1)."
     idx = facade.memory_store.load_index()
+    if args.strip() == "topics":  # Halo 3.3.5.0 R4: every topic file (the lean profile sends the newest)
+        rows = [f"- {t.name} ({t.type}): {t.description}" for t in idx.topics]
+        return "\n".join([f"Topic files in {facade.memory_store.memory_dir_path}: {len(rows)}"] + rows)
     return (f"Memory directory: {facade.memory_store.memory_dir_path}\n"
             f"MEMORY.md: {'present' if idx.exists else 'not found'}\n"
             f"Topic files: {len(idx.topics)}")
@@ -840,6 +852,8 @@ def _cmd_status(args: str, facade: HeadlessFacade) -> str:
     lines = [f"halo {__version__}", f"Model: {model_id}", f"cwd: {facade.cwd}",
              f"Permission mode: {permission_mode}", f"MCP servers: {mcp_n}",
              f"Theme: {facade.theme or '?'}", cost_line]
+    if session is not None:  # Halo 3.3.5.0 R4: the last request's composition
+        lines.append(_composition_text(session))
     # 3.1.9.0 R2: the lineup this session runs under ("auto (default)" when no team: is set)
     from halo_harness.lineup_default import lineup_line
     _team = getattr(session, "team_control", None) if session is not None else None
@@ -1787,7 +1801,7 @@ _BUILTIN_SPECS = {
     "local": ("core", "Local models: merged Ollama/Hugging Face/cache view, manage model_dirs, or ask "
                        "roles.small a question",
               "[refresh] | add <path> | forget <path> | <question>", _cmd_local),
-    "memory": ("core", "Show the auto-memory directory and index", None, _cmd_memory),
+    "memory": ("core", "Show the auto-memory directory and index", "[topics]", _cmd_memory),
     "permissions": ("core", "Show the active permission mode and rule counts", None, _cmd_permissions),
     "plan": ("ui", "Plan mode on, off, or its status and plan file", "[on|off|status]", _cmd_plan),
     "resume": ("ui", "Resume a previous session", "[session-id]", _cmd_resume),

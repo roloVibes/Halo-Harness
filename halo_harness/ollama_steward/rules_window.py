@@ -14,6 +14,9 @@ findings):
 (h) two windows, one model: different halos (or sessions) send one model
     different windows; Ollama reloads it at every change -> one profile
     window for all of them.
+(a) skips a trim the preflight let through on the user's choice (3.3.5.0 R4:
+    the ledger's `preflight: "sent"`, and the log's `prompt-trimmed` line
+    within two minutes of one).
 (i) switch without fit (3.3.5.0 R0): a call whose model differs from the
     previous call's in the same session (`switched_from`) with no switch
     step before it (`fitted` false): the window, the tools and the history
@@ -29,6 +32,7 @@ FAR = 0.4           # a p95 prompt under 40 % of the window
 SMALL_ASKED = (4096, 8192)
 REPLY_ROOM = 4096
 MIN_WINDOW = 8192
+CHOSEN_S = 120.0    # 3.3.5.0 R4: a log trim this close to a sent-anyway call is that call's
 
 
 def _pow2_ceil(n: int) -> int:
@@ -42,12 +46,25 @@ def _current(g: dict):
     return g["profile"].get("num_ctx") or g["stats"]["window"]
 
 
+def chosen_cut(g: dict, ev: dict, within_s: float = CHOSEN_S) -> bool:
+    """3.3.5.0 R4: a trim the user chose (the preflight's "send anyway", the ledger's `preflight: "sent"`)
+    near the log's `prompt-trimmed` line is not a finding."""
+    from halo_harness.ollama_steward.ledger import parse_at
+    t = ev.get("at") if isinstance(ev.get("at"), (int, float)) else parse_at(ev.get("at"))
+    for x in g["lines"]:
+        if x.get("preflight") == "sent":
+            tx = parse_at(x.get("at"))
+            if t is None or tx is None or abs(tx - t) <= within_s:
+                return True
+    return False
+
+
 def too_small(g: dict, ctx: dict) -> list:
     s, out = g["stats"], []
     window = _current(g)
     small = [x for x in s["trims"] if x.get("num_ctx_sent") in SMALL_ASKED]
     small_ev = [e for e in g["events"] if e.get("kind") == "prompt-trimmed"
-                and (e.get("data") or {}).get("window_sent") in SMALL_ASKED]
+                and (e.get("data") or {}).get("window_sent") in SMALL_ASKED and not chosen_cut(g, e)]
     if small or small_ev:
         src = sorted({f"{x.get('kind')} / {x.get('window_source')}" for x in small}) or ["the server log"]
         sent = sorted({x.get("num_ctx_sent") for x in small} | {(e.get("data") or {}).get("window_sent") for e in small_ev} - {None})

@@ -109,6 +109,17 @@ this task's text were cut to fit ol:qwen3.5:9b@lan's window (32,768 tokens)]"),
 the child's transcript gets the switch line, and the parent's view shows it
 as the child's first event.
 
+### When the request will not fit (3.3.5.0 R4)
+
+A switch fits the history to the new model's window before its first call;
+a conversation that grows past the window later meets the preflight: before
+the call one line ("prompt 41,104 tokens · window 32,768 · usable 16,386 ·
+this will be cut") and three answers -- compact, a bigger-window model on the
+same host (a switch with `why: preflight`, the same step as `/model`, kept
+for the rest of the session) or send anyway, ordered so the task survives the
+cut. A compaction on a local model is sized to the window of the model it
+runs on. See [MODELS-prompt-budget.md](MODELS-prompt-budget.md#the-preflight).
+
 ### The steward knows
 
 Each ledger line carries `switched_from` (the previous call's model in the

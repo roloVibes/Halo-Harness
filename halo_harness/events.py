@@ -249,7 +249,8 @@ def status(*, phase: str, model: Optional[str] = None, context_tokens: Optional[
             ollama_tokens_per_second: object = _OLLAMA_THROUGHPUT_UNSET,
             ollama_prefill_seconds: Optional[float] = None,
             ollama_offloaded: Optional[bool] = None, saved_usd: Optional[float] = None,
-            cost_complete: Optional[bool] = None, cost_unknown: Optional[list] = None) -> Event:
+            cost_complete: Optional[bool] = None, cost_unknown: Optional[list] = None,
+            ollama_warming: Optional[bool] = None, composition: Optional[dict] = None) -> Event:
     """data: {phase, model, context_tokens, context_limit, cost_usd, turn,
     permission_mode, mcp: {connected, total}, session_id, total_input_tokens,
     total_output_tokens, effort, saved_usd[, ollama_tokens_per_second,
@@ -296,6 +297,9 @@ def status(*, phase: str, model: Optional[str] = None, context_tokens: Optional[
         payload["ollama_tokens_per_second"] = ollama_tokens_per_second
         payload["ollama_prefill_seconds"] = ollama_prefill_seconds
         payload["ollama_offloaded"] = ollama_offloaded
+        payload["ollama_warming"] = bool(ollama_warming)  # 3.3.5.0 R4: the first call after a load
+    if composition is not None:  # 3.3.5.0 R4: the last request's parts (agent/prompt_composition.ledger_fields)
+        payload["composition"] = composition
     _put_cost_parts(payload, cost_complete, cost_unknown)
     return Event("status", payload, turn=turn)
 

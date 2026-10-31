@@ -61,10 +61,12 @@ _SCALARS = {
 # steward.apply auto|review|off, steward.slow_tok_s (3.3.4.0 R3, ollama_steward/profiles.py, steward.py)
 # steward.model (a model ref), steward.job (bool), steward.every_s, steward.note_every_s (seconds) (3.3.4.0 R4,
 # ollama_steward/job.py, agent.py)
+# `prompt`: lean auto|on|off, topics_max, memory_max_tokens, preflight ask|compact|send (3.3.5.0 R4, agent/prompt_lean.py,
+# agent/preflight.py)
 _SECTIONS = ("agents", "clipboard", "coach", "comfy", "connectors", "databricks", "embeddings", "experiential", "fleet",
              "governor", "huggingface", "improve", "knowledge", "local", "models", "network", "ollama", "openai",
-             "packs", "providers", "recall", "remote", "roles", "routing", "steer", "supervise", "turn", "update",
-             "worktree")
+             "packs", "prompt", "providers", "recall", "remote", "roles", "routing", "steer", "supervise", "turn",
+             "update", "worktree")
 REMOVED_SECTIONS = {"orgs": "3.1.4.0", "paperclip": "3.1.4.0",
                     "settings": "3.1.5.0", "subscription_routes": "3.1.5.0"}
 

@@ -70,10 +70,10 @@ def window_stats(lines: list) -> dict:
             "p50": percentile([x["prompt_eval_count"] for x in ok], 50),
             "p95": percentile([x["prompt_eval_count"] for x in ok], 95),
             "max_prompt": max([x["prompt_eval_count"] for x in ok], default=None),
-            "trims": [x for x in native if x.get("trimmed")],
+            "trims": [x for x in native if x.get("trimmed") and x.get("preflight") != "sent"],  # R4: a chosen cut
             "cuts": [x for x in lines if x.get("done_reason") == "length"],
             "reloads": [x for x in lines if isinstance(x.get("load_ms"), (int, float)) and x["load_ms"] > RELOAD_MS],
-            "eval_p50": percentile([x.get("eval_tok_s") for x in lines], 50)}
+            "eval_p50": percentile([x.get("eval_tok_s") for x in lines if not x.get("warming")], 50)}  # R4: warm-up
 
 
 def _cap(state_dir, group: dict, ctx: dict) -> "tuple[Optional[int], str]":

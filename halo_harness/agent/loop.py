@@ -134,6 +134,13 @@ Any attempt to use tools is a critical violation. Respond with text ONLY."""
 # looping forever.
 _OVERFLOW_NEEDS_COMPACTION = object()
 
+
+def _composition_fields(session) -> Optional[dict]:
+    """Halo 3.3.5.0 R4: the last request's composition for the status event (None before the first)."""
+    from halo_harness.agent.prompt_composition import ledger_fields
+    return ledger_fields(getattr(session, "_prompt_composition", None))
+
+
 _LOOP_BREAKER_REMIND_AT = 3
 _LOOP_BREAKER_DENY_AT = 5
 _LOOP_BREAKER_END_AT = 8
@@ -2876,6 +2883,10 @@ class Session:
         # call) is what keeps the stub boundary STABLE across requests --
         # see its own docstring.
         messages = self._pruned_messages_for_wire(messages)
+        # Halo 3.3.5.0 R4: the wire copy shaped -- the memory block once, placed for the model,
+        # the lean profile, the survival order of a sent-anyway request, the composition kept
+        from halo_harness.agent.prompt_wire import shape as _shape_prompt
+        system_text, messages, tools = _shape_prompt(self, system_text, messages, tools)
         requested_max_tokens = max_tokens_budget(
             self.provider_profile, model_key=self.model_ref.raw, requested=None, abort=self.abort,
         )
@@ -3421,6 +3432,7 @@ class Session:
         calls `_step` with "required" for those rows, but the downgrade
         stays as a second, cheap line of defense)."""
         self._ollama_overflow_handled = overflow_handled  # Halo 3.2.3.0 R1 (agent/ollama_window.py)
+        self._preflight_sent_now = False  # 3.3.5.0 R4: set by the preflight's "send anyway" for this call only
         if not overflow_handled:  # 3.3.5.0 R1: a session that starts on a model that cannot take its tools, fitted first
             from halo_harness.agent.model_switch_paths import start_check
             start_check(self)
@@ -3453,7 +3465,7 @@ class Session:
         # can queue one -- same list, same "never shown twice" contract.
         for _notice in self._drain_pending_ollama_notices():
             yield events.notification(_notice, level="info")
-        if self.route.dialect == "ollama":
+        if self.route.dialect == "ollama" or getattr(self, "_ollama_window_state", None):  # 3.3.5.0 R4: any lean line
             from halo_harness.agent.ollama_window import drain_markers
             for _marker in drain_markers(self):
                 yield events.turn_marker("resend", f"↳ {_marker}", turn=turn_no)
@@ -3468,12 +3480,28 @@ class Session:
             yield events.turn_marker("resend", "↳ compacting to fit the window before the first call", turn=turn_no)
             return _OVERFLOW_NEEDS_COMPACTION
         if self.route.dialect == "ollama" and not overflow_handled:
+            # Halo 3.3.5.0 R4: a request that will not fit is a decision (agent/preflight.py):
+            # compact, a bigger-window model, or send anyway -- never a silent cut.
+            from halo_harness.agent import preflight as _preflight
+            _choice = yield from _preflight.run(self, turn_no)
+            if _choice == "stop":  # the turn ends as an interrupt does (the next turn clears it)
+                if self._owns_abort:
+                    self.abort.set()
+                return None
+            if _choice in ("send", "switch"):
+                try:
+                    _, _, _, body = self._derive_and_build(tool_choice=tool_choice, no_tools=no_tools)
+                except (ToolCatalogTooLarge, ToolsNotSupported) as e:
+                    yield events.error(str(e), turn=turn_no, err_type="preflight_rebuild")
+                    return None
+                for _line in _switch.drain_lines(self):
+                    yield events.turn_marker("switch", _line, turn=turn_no)
             # Halo 3.2.3.0 R1: the request (this turn's tool results
             # included) does not fit even the largest window this call can
             # get -- compact BEFORE sending, never let Ollama trim it.
             from halo_harness.agent.ollama_window import pre_send_line
-            _too_large = pre_send_line(self)
-            if not _too_large and not self._just_compacted:
+            _too_large = None if _choice in ("send", "switch") else pre_send_line(self)
+            if not _too_large and not self._just_compacted and _choice != "send":
                 # Halo 3.3.4.0 R3: the compaction trigger per model, before the call
                 from halo_harness.agent.ollama_window_steward import compact_due
                 _too_large = compact_due(self)
@@ -4359,7 +4387,8 @@ class Session:
                     # Halo 3.3.4.0 R3: a reply that used up the room the window left it is a cut too
                     from halo_harness.agent.ollama_window_steward import squeezed_cut
                     _cut = squeezed_cut(self, harness_meta.get("done_reason"), _eval, _opts.get("num_predict"))
-                if _cut or is_trimmed(_seen, last_estimate(self), last_reserve(self)):
+                if _cut or (is_trimmed(_seen, last_estimate(self), last_reserve(self))
+                            and not getattr(self, "_preflight_sent_now", False)):  # 3.3.5.0 R4: a chosen cut stands
                     _recovery = yield from self._ollama_trimmed(
                         turn_no, (_seen + _eval) if _cut else _seen, body, overflow_handled,
                         cut_at=_opts.get("num_ctx") if _cut else None)
@@ -4642,26 +4671,36 @@ class Session:
             prefill_seconds = None
             if isinstance(prompt_eval_duration, (int, float)) and prompt_eval_duration >= 0:
                 prefill_seconds = round(prompt_eval_duration / 1_000_000_000.0, 2)
+            # Halo 3.3.5.0 R4 (warm-up truth): the first call after a load is "warming", never a speed
+            from halo_harness.ollama_steward.ledger_prompt import is_warming
+            warming = is_warming(timing_ns.get("load_duration"))
+            if warming:
+                tokens_per_second = None
             self._last_ollama_throughput = {
                 "tokens_per_second": tokens_per_second, "prefill_seconds": prefill_seconds,
-                "offloaded": self._last_ollama_offloaded,
+                "offloaded": self._last_ollama_offloaded, "warming": warming,
             }
             if self._last_ollama_host_url:
-                from halo_harness.agent.ollama_window import last_estimate
+                from halo_harness.agent.ollama_window import last_estimate, last_reserve
+                from halo_harness.ollama_steward.ledger_prompt import cache_pct
                 from halo_harness.providers.ollama_calibrate import record_last_turn_throughput
-                record_last_turn_throughput(
-                    self.state_dir, host_url=self._last_ollama_host_url, model=self.model_ref.model,
-                    tokens_per_second=tokens_per_second, prefill_seconds=prefill_seconds,
-                    offloaded=self._last_ollama_offloaded,
-                    output_tokens=eval_count if isinstance(eval_count, int) else None,
-                    prompt_floor=last_estimate(self),
-                )
+                if not warming:  # 3.3.5.0 R4: a warming call's speed is never kept
+                    record_last_turn_throughput(
+                        self.state_dir, host_url=self._last_ollama_host_url, model=self.model_ref.model,
+                        tokens_per_second=tokens_per_second, prefill_seconds=prefill_seconds,
+                        offloaded=self._last_ollama_offloaded,
+                        output_tokens=eval_count if isinstance(eval_count, int) else None,
+                        prompt_floor=last_estimate(self),
+                        cache_reused_pct=cache_pct(timing_ns.get("prompt_eval_count"), last_estimate(self),
+                                                   last_reserve(self)),
+                    )
                 # Halo 3.2.3.0 R1: the prompt reading speed, a rolling
                 # average per host+model (`halo ollama` shows it).
                 from halo_harness.providers.ollama_calibrate import record_prompt_speed
                 from halo_harness.providers.ollama_prompt import prompt_speed
                 record_prompt_speed(self.state_dir, host_url=self._last_ollama_host_url, model=self.model_ref.model,
-                                    tok_s=prompt_speed(timing_ns.get("prompt_eval_count"), prompt_eval_duration))
+                                    tok_s=None if warming else prompt_speed(timing_ns.get("prompt_eval_count"),
+                                                                            prompt_eval_duration))
                 # Review fix pass (finding 14): the OTHER half of the LAN-
                 # host MUST-FIX -- a REAL turn (never a calibration run)
                 # that just loaded partially offloaded must still leave a
@@ -5237,6 +5276,12 @@ class Session:
         if getattr(self, "_switch_caps", None):  # 3.3.5.0 R0: converted for the model the session is on
             from halo_harness.agent.model_switch_history import apply_to_wire
             messages = apply_to_wire(self, messages)
+        # Halo 3.3.5.0 R4: the summary call's prefix shaped like a turn's (the memory once, the lean
+        # profile), and the compaction sized to the window of the model it runs on
+        from halo_harness.agent.prompt_wire import shape as _shape_prompt
+        system_text, messages, tools = _shape_prompt(self, system_text, messages, tools, purpose="compaction")
+        from halo_harness.agent.compact_budget import budget as _compaction_budget
+        _budget = _compaction_budget(self, system_text, tools)
         from halo_harness.agent.image_attach import rehydrate_messages
         messages = rehydrate_messages(messages)
         tokens_before = self._last_prompt_tokens or _rough_estimate(system_text, messages)
@@ -5279,7 +5324,7 @@ class Session:
                 call_messages = call_messages_base + [{"role": "user", "content": [{"type": "text", "text": instruction}]}]
                 text, stop_reason, outcome = self._run_summary_call(
                     system_text, call_messages, call_tools,
-                    min(4096, self.model_profile.max_output_tokens or 4096),
+                    min(_budget["summary_max"] if _budget else 4096, self.model_profile.max_output_tokens or 4096),
                 )
                 # Round 5b part 2 (brief item 7): `_run_summary_call`'s own
                 # `_build_body_for_messages` call can trigger the auto-
@@ -5356,7 +5401,13 @@ class Session:
         # the copy stubbed/head-tailed for the summarisation call's own
         # request above -- otherwise a stubbed tool_result got written
         # permanently into the freshly-compacted log.
-        tail = select_verbatim_tail(raw_messages, tail_retention_tokens(usable))
+        # Halo 3.3.5.0 R4: never the snapshots re-injected below (the tail of a short session is its first
+        # user message, which holds them: the memory block went out twice), and no larger than the budget
+        from halo_harness.agent.compact_budget import strip_reinjected
+        _tail_tokens = tail_retention_tokens(usable)
+        if _budget:
+            _tail_tokens = max(256, min(_tail_tokens, _budget["tail_max"]))
+        tail = select_verbatim_tail(strip_reinjected(self.log, raw_messages), _tail_tokens)
 
         self.log.append_compacted(trigger=trigger, custom_instructions=custom_instructions)
         self.log.append_user([{"type": "text", "text": wrapped}], kind="compaction_summary")
@@ -5865,6 +5916,9 @@ class Session:
                     self._fire_stop_failure(turn_no, "context window overflow and compaction could not free enough room")
                     yield events.turn_done(turn=turn_no, reason="error")
                     return
+                if self.route.dialect == "ollama":  # Halo 3.3.5.0 R4: a summary that does not fit, compacted once more
+                    from halo_harness.agent.compact_budget import again_lines
+                    yield from again_lines(self, turn_no)
                 result = yield from self._step(turn_no, overflow_handled=True)
                 model_calls += 1
             if result is None:
@@ -8176,6 +8230,8 @@ class Session:
             ollama_tokens_per_second=(throughput or {}).get("tokens_per_second"),
             ollama_prefill_seconds=(throughput or {}).get("prefill_seconds"),
             ollama_offloaded=(throughput or {}).get("offloaded"),
+            ollama_warming=(throughput or {}).get("warming"),  # 3.3.5.0 R4: "warming", never a speed
+            composition=_composition_fields(self),  # 3.3.5.0 R4: the last request's parts
             # C-2 finding 9: carried on every status event (not just
             # message_end) so the TUI's "saved $x" chip survives a plain
             # idle/model-switch status too -- None (no change) on every

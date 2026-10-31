@@ -200,7 +200,7 @@ def format_live_token_count(n) -> str:
     return f"{round(n / 1_000_000)}M"
 
 
-def format_ollama_throughput(tokens_per_second, prefill_seconds, offloaded) -> str:
+def format_ollama_throughput(tokens_per_second, prefill_seconds, offloaded, warming: bool = False) -> str:
     """Halo 2.0.3 round 5b (brief item 7): the status bar's `ol:`-only
     throughput segment, shown right next to the model chip -- e.g.
     `"41 tok/s · prefill 1.2 s"`, with `"· offloaded"` appended when the
@@ -209,6 +209,8 @@ def format_ollama_throughput(tokens_per_second, prefill_seconds, offloaded) -> s
     convention as every other optional status-bar field) when NEITHER
     figure is known yet (no `ol:` reply this session, or a non-ollama
     route -- `Session.status_event` never passes these for one)."""
+    if warming:  # Halo 3.3.5.0 R4: the first call after a load is never a speed
+        return "warming · offloaded" if offloaded else "warming"
     parts = []
     if (isinstance(tokens_per_second, (int, float)) and not isinstance(tokens_per_second, bool)
             and tokens_per_second > 0):

@@ -287,8 +287,10 @@ def format_host_analysis(a: HostAnalysis) -> str:
                 tps = tp.get("tokens_per_second")
                 prefill = tp.get("prefill_seconds")
                 offloaded = " (offloaded)" if tp.get("offloaded") else ""
+                cache = tp.get("cache_reused_pct")  # 3.3.5.0 R4: the prompt cache's share of the last turn
+                cache = f", cache reused {cache} %" if isinstance(cache, int) else ""
                 if tps or prefill:
-                    lines.append(f"      last turn: {tps or '?'} tok/s, prefill {prefill or '?'} s{offloaded}")
+                    lines.append(f"      last turn: {tps or '?'} tok/s, prefill {prefill or '?'} s{offloaded}{cache}")
     lines.append(f"  {KV_FORMULA_ORIGIN_NOTE}")
     return "\n".join(lines)
 
