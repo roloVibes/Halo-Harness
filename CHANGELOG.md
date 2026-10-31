@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.3.6.0] - unreleased
+## [3.3.6.0] - 2026-10-31
 
 **Local, verified.** The owner's measured brief (plans/local-model-fit-brief.md, Parts A-G) made into six
 rounds: every local model gets a capability and placement profile from a real probe battery, cached by
