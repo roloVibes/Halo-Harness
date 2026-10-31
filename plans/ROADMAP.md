@@ -3475,3 +3475,103 @@ the old R1-R3 and R5 are renumbered R2-R4 and R7 and otherwise unchanged.
   same hosts, profiles, traffic and speed cards through the fleet hub, so a
   session on the Mac benefits from what the PC measured. Each lands in the
   round that owns the surface; the Local tab's help names all five.
+
+## ADDED 2026-10-30 (rolo, from two days of measuring his box: "I have more detailed updates for you with local models. The plan is here: ~/ollama-watch/local-model-fit.md ... Parts A-L"): the local-model brief -- plans/local-model-fit-brief.md -- and how its parts land
+
+The brief is the spec; this entry only maps it. Parts A-L are in
+`plans/local-model-fit-brief.md` (his measured readout before them stays on
+his machine). What it adds to the Local work: the prompt-budget bug (Part B:
+the auto-memory block is in the assembled prompt TWICE, 87 % of a 26 k-token
+user message; Ollama truncates an over-window prompt to half the window
+keeping 4 tokens from the start plus the tail, so the task summary dies and
+the memory boilerplate survives), the host's log as the source of truth for
+fit (Part C), a review of what the tree already has and 22 gaps (Part D),
+a capability and placement BATTERY per model per host (Part E: tools /
+system role / instruction / JSON / fence / thinking / speed / fit -- on his
+box only 1 of 6 models passed every behavioural gate; 3 of 6 ignore the
+system role), the capability-filtered search with declared / expected /
+verified truth (Part F), fifteen more ideas (Part G), the model-host
+service `halo host` with the typed fix loop (Part H, H9: facts are
+computed, never asked of a model; H10: sense -> decide -> apply -> verify ->
+keep or revert), a glossary (Part I), the roster adviser (Part J), voice mode
+(Part K) and capability bundles with reservations (Part L).
+
+The order (the owner's rule: all of this before Type into Studio and themes):
+
+- **3.3.5.0 "Local" closes with two more rounds and ships.** R4 **the prompt
+  budget** (Part B + D2 9-12 + G2-G4): dedupe the auto-memory / CLAUDE.md
+  block in the assembled prompt; a lean local-model profile (trim the
+  memory topic index, cap the tool schemas by the model's window --
+  `tools_max` capability-driven); the composition view (system / tools /
+  memory / history with token counts, in `/cost` and Studio's Cost panel);
+  preflight as a decision, not a silent edit ("prompt 30,756 · window 32,768
+  · usable 16,386 -> will truncate" with [bigger-window model] [compact]
+  [send anyway]); order the payload so the task survives truncation, or
+  refuse to send; compaction sized to the window; prompt-cache awareness
+  (a stable prefix, "cache reused N %", the hybrid-memory warning); warm-up
+  truth (never time the first call after a load; label it "warming").
+  R5 **Hugging Face local models, controlled** (the brief written as
+  `~/hh-335/briefs/v335-R4-hf-local-brief.md`; download, list, delete, serve,
+  stop). Then the candidate and the release: the switch, the card, the
+  Local tab, the library, Ollama controlled, HF local, the prompt budget.
+- **3.3.6.0 "Local, verified"** -- Part E in full (the battery as a job
+  beside the steward's, cached by digest + Ollama version + probe-set
+  version in `providers/ollama_capability`; the placement profile; the
+  placement rules in `roles.py` and `models_auto.pick`; E4 the card's "use
+  it for / don't use it for / where it sits / limits"; E5 the failure
+  explanations in `server_rules.classify` and the loop's error path; E6
+  `doctor_local` fails a role whose model lacks the capability); Part A's
+  verify (a fitted twin is loaded and checked: `size_vram == size`, the log's
+  `offloaded N/N`, `splits = 2`, measured tok/s; raw vs fitted tags marked;
+  "delete the raw tag, keep the variant"; a pull-time warning when weights
+  can never fit); Part F (the capability-filtered search with the three
+  truths, the presets, "find a model for this role", every row's cost
+  preview, the resource strip, "exclude: crashed on this host"); D3 (remote
+  logs through the `ssh:` host the hardware card already supports; the log
+  drives recovery; crash forensics with the signature; "is logging live"
+  per host); D4 17-19 (measured model cards with tok/s, TTFT, tool-call
+  accuracy, window verified vs assumed; doctor resolves every role's model
+  id and flags Ollama version drift per host); G1 the dialect record (how
+  Halo addresses each model: instruction placement, fence stripping, the
+  reply reserve, the JSON repair loop), G7 the KV-quantisation dial with
+  the crash note, G8 the model shelf with retirement, G9 the answer
+  post-mortem, G10 the degradation ladder; the old R5 benchmarks / tuning
+  / revert (the speed card becomes E1's speed probe); the eyes round
+  (screenshots, which models can see -- the vision probe is in the
+  battery).
+- **3.3.7.0 "Local, the host"** -- Part H: `halo host` (a headless, LAN-only,
+  model-free Halo component on every machine that serves models: host card,
+  catalog + fit, profiles, probe on demand, log events and a bounded tail,
+  live events, control opt-in per peer, fit simulation, the routing
+  answer; `halo host install | status`; the fallback ladder direct API ->
+  ssh -> host), H9 (facts computed, judgement in the client's model, an
+  optional evictable narrator), H10 (the typed fix vocabulary view /
+  control / manage / admin; every fix cites its finding; apply, measure,
+  keep or revert; client-side fixes requested of the harness; one change
+  per host, a cooldown, a rate limit; the deterministic invariants; the
+  words: the host and the steward, "agent" means a sub-agent only); D1 the
+  orchestration cluster (the pivot scheduler, the warm set and `halo local
+  warm`, the switch cost in the plan and a lineup's swap preview,
+  local-to-local escalation, the spawn-time fit verdict, `host|model|role`
+  profiles, Auto's pick weighing fit and warm state, lineup hygiene at
+  `teams use`); G5 the loading tax beside "saved vs cloud", G6 the warm-set
+  planner (bin packing), G11 failure fingerprints shared across the fleet,
+  G12 the placement solver across machines, G13 the off-hours battery and
+  benchmark refresh, G14 drift and deletion guards (a changed digest, a
+  deleted tag a role still names), G15 the offline-promise badge; Part J
+  the roster adviser (gaps, overlaps, mismatches, freshness; value per
+  gigabyte; one-click add; a scheduled roster review); Part L capability
+  bundles (a pack with a resource claim: needs, reservation, routing,
+  feasibility; the honest verdict ready / needs N downloads / won't work
+  with the ways out; routing around reservations; the glasses bundle
+  worked out in L6); the steward's chat (the old R6) over the host's
+  findings.
+- **3.3.8.0 "Voice"** -- Part K: the local loop (Silero VAD -> faster-whisper
+  large-v3-turbo or Parakeet TDT -> the session's model -> sentence
+  aggregator -> Kokoro-82M or Qwen3-TTS, through Pipecat or LiveKit Agents,
+  750-900 ms round trips, barge-in), as a bundle (Part L) with its
+  reservation; the Meta glasses path through the Wearables Device Access
+  Toolkit (a phone app in the loop, A2DP out, HFP or in-stream mic, "Hey
+  Meta, start <app>"), honest about its limits.
+- Then 3.3.9.0 "Type into Studio" and 3.3.10.0 "Themes and parity" (the
+  entries already written under their old numbers, 3.3.6.0 and 3.3.7.0).
