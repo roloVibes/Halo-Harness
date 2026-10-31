@@ -246,13 +246,9 @@ R4, the steward's agent, selectable and cheap, and the job that runs it:
 
 ### switch-without-fit
 
-`switch-without-fit` (a warning, no profile change): "N calls to
-qwen3.5:9b followed a call to qwen3.8:27b in the same session with no switch
-step before them: the window, the tools and the history were the old
-model's". A halo before 3.3.5.0, or a path that moved the model another way,
-leaves these; the switch step ([MODELS-switching.md](MODELS-switching.md))
-is the fix. `halo ollama explain switch-without-fit` prints its row of the
-symptoms table.
+`switch-without-fit` (a warning, no profile change): "N calls to qwen3.5:9b followed a call to qwen3.8:27b in the
+same session with no switch step before them: the window, the tools and the history were the old model's". The switch
+step ([MODELS-switching.md](MODELS-switching.md)) is the fix; `halo ollama explain switch-without-fit` prints its row.
 
 ### A chosen cut, and warming calls (3.3.5.0 R4)
 
@@ -290,6 +286,19 @@ Each crash event the job records (`gpu-memory`, a CUDA illegal memory access, `l
 `<state>/ollama/fingerprints.jsonl`; the lines of one crash within two minutes are one. `halo ollama crashes` lists
 them, the Library greys the model, a member's ride its ledger push. 3.3.6.0 R3 adds the load it died in, `--why`, the
 fix a repeated crash proposes, remote logs over `ssh:` and the log status: [MODELS-ollama-logs.md](MODELS-ollama-logs.md).
+
+## Scopes: when a change goes back (3.3.6.0 R5)
+
+Every Halo-side change to a profile is a row in `<state>/ollama/changes.jsonl` with a scope
+(`ollama_steward/changes.py`): `session` (put back when the session that made it ends), `until-restart` (when the halo
+process that made it exits: atexit and the TUI's quit; a halo that was killed is caught by the next one's exit or
+session end) or `keep`. The steward's auto changes and its model's proposals land `until-restart`, the ledger's dialect
+refinements too; a pass you run yourself (`halo ollama steward run --once`, Studio's Run) and an Apply of a proposal
+keep; your own change from the tuning report, the KV dial or Settings keeps unless you pick another; a bench's trial
+settings are `session`. The steward's undo and rollback mark the row reverted; Revert puts `before` back and says it
+("put num_ctx back to 32,768 on pc|qwen3-coder:30b (the session ended)"), and leaves a field changed again since as it
+is. A switch to another local or a cloud model stays the session's model until `/model`. The bench never times the
+first call after a load (warming). `halo local changes`, `halo local revert <id> | --all [--scope S]`.
 
 ## In Studio
 
@@ -367,29 +376,19 @@ A pass, an apply and an undo take the steward's profile lock between
 reading the ten-minute mark and writing. Two passes at once (the job's
 timer and a hand `run`) can no longer land the same change twice.
 
-**Settings -> Ollama.** Above the group's rows sits the steward's block:
-
-- its status lines;
-- the model that writes the notes: automatic (the key unset), none (no
-  notes; the rules still run), or one of this machine's local models
-  (`ollama.steward.model`);
-- the mode, auto, review or off (`ollama.steward.apply`);
-- the job switch (`ollama.steward.job`, takes effect on the next launch);
-- **Open the Ollama panel**.
+**Settings -> Ollama.** Above the group's rows sits the steward's block: its status lines; the model that writes the
+notes (automatic: the key unset, none: no notes while the rules still run, or one of this machine's local models,
+`ollama.steward.model`); the mode, auto, review or off (`ollama.steward.apply`); the job switch (`ollama.steward.job`,
+the next launch); **Open the Ollama panel**. Settings -> Local lists the changes with their scopes and Revert.
 
 `every_s`, `note_every_s`, `slow_tok_s`, `ledger` and `fleet.ollama.share` stay ordinary rows.
 
 **Setup -> Providers.** The Ollama card has one muted line, "steward: <the first line of its last note>" (or "no note yet"), and a link to the panel.
 
-**`/ollama` in the TUI and `-p`** prints the steward's view in the
-transcript:
-
-- the mode and the job's status lines;
-- the last note, and on a member the hub's note;
-- per host its card line, the last hour's rollups (`halo ollama traffic
-  --since 1h`) and its profiles;
-- the local servers' lines;
-- the review-mode proposals, each with `halo ollama steward apply <id>`.
+**`/ollama` in the TUI and `-p`** prints the steward's view in the transcript: the mode and the job's status lines;
+the last note (on a member the hub's too); per host its card line, the last hour's rollups (`halo ollama traffic
+--since 1h`) and its profiles; the local servers' lines; the review-mode proposals, each with `halo ollama steward
+apply <id>`.
 
 `--host NAME` narrows it to one host. `/ollama findings`, `/ollama plan`
 and `/ollama explain <kind>` print what the CLI prints. `/ollama hosts

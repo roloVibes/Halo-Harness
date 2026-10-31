@@ -10,7 +10,8 @@ tests) independent of argparse/stdin. 3.3.5.0 R1: on a real terminal `halo
 local` opens Studio's Local section (local_tab_cli.py); `--terminal` prints
 the merged view here, and `halo local hosts | models | resources` print the
 Local pages' lines. 3.3.5.0 R5: `halo local download | ls | rm | serve | stop |
-servers | log` (local_hf_cli.py), and bare `halo local` opens the Hugging Face page.
+servers | log` (local_hf_cli.py), and bare `halo local` opens the Hugging Face page. 3.3.6.0 R5: `halo local
+bench | tune | changes | revert` (local_bench_cli.py).
 """
 
 from __future__ import annotations
@@ -224,6 +225,9 @@ def _hf_commands() -> dict:
 
 
 def cmd_local(argv: list) -> int:
+    from halo_harness.local_bench_cli import COMMANDS as BENCH  # 3.3.6.0 R5: bench | tune | changes | revert
+    if argv and argv[0] in BENCH:
+        return BENCH[argv[0]](argv[1:])
     if argv and argv[0] in _hf_commands():
         return _hf_commands()[argv[0]](argv[1:])
     if argv and argv[0] in _SUBCOMMANDS:

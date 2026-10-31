@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import { api } from "../../lib/api";
 import { Button } from "../../lib/ui";
 import { FitMeter, type Fit } from "../../lib/ui/FitMeter";
+import type { SpeedCard } from "../local/benchstore";
 import type { FitEvidenceView } from "./FitEvidence";
 import { CardBlocks, type CardBlocksView } from "./ModelCardBlocks";
 
@@ -31,13 +32,15 @@ export type CardView = {
   blocks?: CardBlocksView;
   fit_source?: Record<string, "verified" | "expected">;
   system_role?: string | null;
-  speed?: { tok_s?: number | null; ttft_ms?: number | null; cold_load_s?: number | null; at_window?: number | null } | null;
+  speed?: { tok_s?: number | null; ttft_ms?: number | null; cold_load_s?: number | null; at_window?: number | null; stale?: string } | null;
   probe?: { date: string; at: number; line: string; agentic_ready: boolean; interactive: string; quirks: string[]; sits: string; stale: boolean } | null;
   /** 3.3.6.0 R3: the last load on its host as the server log says it (providers/fit_evidence.py). */
   fit_evidence?: FitEvidenceView | null;
   /** 3.3.6.0 R4: the Models rows' speed chip from the measured card, the KV dial (the window chip's title). */
   speed_chip?: string;
   kv_dial?: { text: string; crash?: string; action?: string } | null;
+  /** 3.3.6.0 R5: the bench's speed card (providers/local_bench_runs.view), its stale mark. */
+  speed_card?: SpeedCard | null;
 };
 export type CardFields = { card?: CardView; fit?: Fit };
 type Offer = { lineup: string; coder: string; orchestrator: string; why: string; command: string };

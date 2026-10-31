@@ -74,7 +74,7 @@ def _speed(answered: list, timing: list, p: Optional[dict]) -> "tuple[dict, dict
         tok = fact(_median([(e.get("data") or {}).get("eval_tok_s") for e in timing]), LOG, timing[-1].get("at"), len(timing))
     else:
         sp = (p or {}).get("speed") or {}
-        tok = fact(sp.get("tok_s"), PROBE, (p or {}).get("probed_at"), 1)
+        tok = fact(sp.get("tok_s"), _src(sp), sp.get("at") or (p or {}).get("probed_at"), 1)
     firsts = [x for x in answered if isinstance(x.get("prompt_eval_ms"), (int, float))]
     if firsts:
         ttft = fact(_median([x["prompt_eval_ms"] + (x.get("load_ms") or 0) for x in firsts], 0), LEDGER,
@@ -84,7 +84,7 @@ def _speed(answered: list, timing: list, p: Optional[dict]) -> "tuple[dict, dict
         ttft = fact(_median([e["data"]["prompt_ms"] for e in rows], 0), LOG, rows[-1].get("at"), len(rows))
     else:
         sp = (p or {}).get("speed") or {}
-        ttft = fact(sp.get("ttft_ms"), PROBE, (p or {}).get("probed_at"), 1)
+        ttft = fact(sp.get("ttft_ms"), _src(sp), sp.get("at") or (p or {}).get("probed_at"), 1)
     return tok, ttft
 
 
@@ -97,7 +97,12 @@ def _load(loads: list, calls: list, p: Optional[dict]) -> dict:
         return fact(_median([x["load_ms"] / 1000.0 for x in warm]), LEDGER + " (the first call after a load)",
                     warm[-1].get("at"), len(warm))
     sp = (p or {}).get("speed") or {}
-    return fact(sp.get("cold_load_s"), PROBE, (p or {}).get("probed_at"), 1)
+    return fact(sp.get("cold_load_s"), _src(sp), sp.get("at") or (p or {}).get("probed_at"), 1)
+
+
+def _src(sp: dict) -> str:
+    """3.3.6.0 R5: the profile's speed is the bench's ceiling row once the bench ran (local_bench_runs.mirror)."""
+    return "the bench" if (sp or {}).get("from") == "bench" else PROBE
 
 
 def _window(state_dir, host: str, model: str, p: Optional[dict]) -> dict:

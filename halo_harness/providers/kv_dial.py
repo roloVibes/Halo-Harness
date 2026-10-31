@@ -90,5 +90,35 @@ def dial_for(host, model: str, *, state_dir=None, card=None, row=None) -> Option
                   + f", then restart Ollama on {name}: Halo never sets them")
     else:
         action = ""
-    return {"rows": shown, "in_force": in_force, "window_in_force": model_window_on_card(card, row, step=STEP),
-            "text": text, "crash": crash, "crashes": n, "action": action, "flash_attention": fa}
+    in_window = model_window_on_card(card, row, step=STEP)
+    bench = _bench(state_dir, str(name), model, in_force)
+    for r in shown:
+        r["from"] = "computed" if not bench or r["kv"] != in_force else f"verified by the bench ({_k(bench)} on the GPU)"
+    if bench:
+        text += f"; {in_force} verified by the bench up to {_k(bench)}, the rest computed"
+    return {"rows": shown, "in_force": in_force, "window_in_force": in_window, "text": text, "crash": crash, "crashes": n,
+            "action": action, "flash_attention": fa, "apply": _apply(str(name), model, bench or in_window, in_force)}
+
+
+def _bench(state_dir, host_name: str, model: str, in_force: str):
+    """3.3.6.0 R5: the largest window the bench saw stay on the GPU at the KV type in force (the server's own setting:
+    the other types stay computed -- Halo never changes it to load them)."""
+    if state_dir is None:
+        return None
+    try:
+        from halo_harness.providers.local_bench_runs import load
+        sc = load(state_dir, host_name, model) or {}
+    except Exception:
+        return None
+    kv = sc.get("kv") or {}
+    return kv.get("verified_window") if str(kv.get("type") or "").lower() == in_force else None
+
+
+def _apply(host_name: str, model: str, window, in_force: str):
+    """The dial's Halo-side half: the profile's window set to the one this card holds at the KV type in force (an
+    Apply with a scope, agent_proposals.land_user); None when the profile already says it."""
+    from halo_harness.ollama_steward.profiles import key_for, lookup
+    if not isinstance(window, int) or window <= 0 or (lookup(host_name, model) or {}).get("num_ctx") == window:
+        return None
+    return {"key": key_for(host_name, model), "field": "num_ctx", "to": window,
+            "line": f"num_ctx {window:,}: the window this card holds at {in_force} KV"}

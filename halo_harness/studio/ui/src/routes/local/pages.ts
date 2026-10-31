@@ -18,7 +18,7 @@ export const PAGES: PageDef[] = [
   { id: "library", title: "Library", built: true },
   { id: "huggingface", title: "Hugging Face", built: true },
   { id: "logs", title: "Logs", built: true }, // 3.3.6.0 R3: each host's server log (LogsPage.tsx)
-  { id: "benchmarks", title: "Benchmarks", built: false, round: "R5" },
+  { id: "benchmarks", title: "Benchmarks", built: true }, // 3.3.6.0 R5: speed cards, tuning, changes (BenchPage.tsx)
   { id: "steward", title: "Steward", built: false, round: "R6" },
 ];
 

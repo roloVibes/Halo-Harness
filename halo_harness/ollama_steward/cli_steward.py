@@ -135,8 +135,8 @@ def _run(args, state) -> int:
     import time
     from halo_harness.ollama_steward import steward
     while True:
-        done = steward.run(state, mode_name=args.mode, since=args.since, host=args.host,
-                           say=(lambda s: None) if args.json else print, **_readers())
+        done = steward.run(state, mode_name=args.mode, since=args.since, host=args.host,  # R5: one pass you ran keeps
+                           say=(lambda s: None) if args.json else print, scope="keep" if args.once else None, **_readers())
         if args.json:
             print(json.dumps({k: v for k, v in done.items()}, indent=2, default=str))
         else:

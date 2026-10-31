@@ -3413,7 +3413,8 @@ the old R1-R3 and R5 are renumbered R2-R4 and R7 and otherwise unchanged.
   writes to a server's settings. Tests: the sampler on fake tool output
   per OS, the traffic stream from a fixture ledger, the Hosts page from
   a seeded fleet; Chrome: the tab, Alt+0, the strip moving on frames.
-- R5 benchmarks, tuning scans, revert. `halo local bench [--host H]
+- DONE in 3.3.6.0 R5 (the speed card, `halo local bench | tune | changes | revert`, Local -> Benchmarks, scopes).
+  R5 benchmarks, tuning scans, revert. `halo local bench [--host H]
   [--model M] [--quick]` (and the Benchmarks page): a short measured
   battery per model on this card -- load time, prompt tok/s and reply
   tok/s at three windows (8k / 32k / the ceiling), the largest window

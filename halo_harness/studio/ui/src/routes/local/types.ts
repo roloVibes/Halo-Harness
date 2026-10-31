@@ -19,7 +19,8 @@ export type TRow = {
 };
 export type Bucket = { t: number; calls: number; trims: number; cuts: number; errors: number; bytes_in: number; bytes_out: number };
 export type Traffic = { rows: TRow[]; events: TRow[]; spark: Record<string, Bucket[]>; since_s: number; hosts: string[]; at: number };
-export type Loaded = { model: string | null; size: number | null; size_vram: number | null; vram_pct: number | null; expires: string | null; context_length: number | null };
+export type Loaded = { model: string | null; size: number | null; size_vram: number | null; vram_pct: number | null; expires: string | null; context_length: number | null;
+  bench?: string | null }; // 3.3.6.0 R5: its speed card's line (studio/local_hosts_view._benched)
 export type PlanChoice = { kind: string; says: string; lose: string; fits: boolean; changes: { key: string; field: string; to: unknown }[] };
 export type Controls = { ok: boolean; via: string; why: string; member?: string; member_host?: string };
 export type HostCard = {

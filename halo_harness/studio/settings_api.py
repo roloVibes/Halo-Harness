@@ -134,8 +134,43 @@ def post_unset(req):
     return 200, _answer(key, r, False)
 
 
+def _profiles_now(key: str):
+    if not key.startswith("ollama.profiles"):
+        return None
+    from halo_harness.ollama_steward.profiles import all_profiles
+    return all_profiles()
+
+
+def _profile_rows(req, key: str, before) -> None:
+    """3.3.6.0 R5: an edit of ollama.profiles from Settings is a change with a scope (ollama_steward/changes.py): keep,
+    or until-restart when the body names it."""
+    if before is None:
+        return
+    from halo_harness.ollama_steward import changes
+    from halo_harness.ollama_steward.profiles import CHANGEABLE, all_profiles
+    after, scope = all_profiles(), str(_body(req).get("scope") or "keep")
+    for k in sorted(set(before) | set(after)):
+        b, a = before.get(k) or {}, after.get(k) or {}
+        for f in CHANGEABLE:
+            if b.get(f) != a.get(f):
+                changes.record(req.state_dir, by="settings", key=k, field=f, before=b.get(f), after=a.get(f),
+                               scope=scope if scope in ("keep", "until-restart") else "keep", why="Settings",
+                               before_by=b.get("by"))
+
+
+def _with_rows(fn):
+    def run(req):
+        key = str(_body(req).get("key") or "").strip()
+        before = _profiles_now(key)
+        code, answer = fn(req)
+        if code == 200:
+            _profile_rows(req, key, before)
+        return code, answer
+    return run
+
+
 ROUTES = {"settings/catalog": ("GET", get_catalog), "settings/values": ("GET", get_values),
-          "settings/set": ("POST", post_set), "settings/unset": ("POST", post_unset)}
+          "settings/set": ("POST", _with_rows(post_set)), "settings/unset": ("POST", _with_rows(post_unset))}
 
 
 def dispatch_settings(req):

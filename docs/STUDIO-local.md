@@ -20,7 +20,7 @@ comes back (`halo.studio.local.page`). The eight pages, in the rail's order:
 | Library | Ollama's library and the Hugging Face Hub to browse, each row with a fit badge | 3.3.5.0 R2 |
 | Hugging Face | the model folders and what is on disk in them; downloads, local servers started and stopped, deletes | 3.3.5.0 R5 |
 | Logs | each host's server log: its status, the last load per model, the cut prompts, errors and crashes, the newest lines | 3.3.6.0 R3 |
-| Benchmarks | a measured battery per model (the speed card), tuning scans, changes that revert | 3.3.6.0 |
+| Benchmarks | the speed cards per host (the bench), the tuning report, the changes with their scopes and Revert | 3.3.6.0 R5 |
 | Steward | the steward's chat, and several local models scheduled on one card | 3.3.5.0 R6 |
 
 The doors: `halo local` opens Studio on Local's Hugging Face page (3.3.5.0 R5; a Studio already running for this home
@@ -314,6 +314,27 @@ blocks, each with its own **?**:
 
 Local -> Hosts' cards carry the same status as one `log:` line with the path; `halo local logs` opens the page.
 
+## Benchmarks
+
+Three blocks (3.3.6.0 R5, `routes/local/BenchPage.tsx`; the bench itself: [MODELS-cards.md](MODELS-cards.md)):
+
+- **Speed cards**: per host a table of every installed model -- the cold load, the reply tok/s at each window tried
+  (a spilled one amber, "(spills)"), the largest window that stayed on the GPU with the planner's number beside it when
+  they differ, the reply reserve, the Ollama version and date it was measured on, and the stale mark ("measured on
+  0.40.6") -- with **Bench** / **Re-bench** per row. The button first shows the cost line ("local: ~N min on <host>, the
+  card is busy meanwhile, writes the speed card; no tokens leave this machine") with **Run the bench**; the job's lines
+  arrive as `bench` frames under the row (a page that opens later reads `GET local/benches`). A busy card answers one
+  line instead. Bench sits beside Probe on every Models row too, with the card's chip ("bench: 41 tok/s at 64k · GPU to
+  32k").
+- **Tuning report** (a host picker when there are several): the warm set that fits together and what a pivot to each
+  other model costs, each model's window alone, beside the warm set and with q8_0 KV, the reserve, the steward's
+  findings for that host, then every option with what it writes and how long it takes. A Halo-side option has the scope
+  pick (keep, until halo exits, until the session ends; keep preselected) and **Apply**; a server-side one shows the
+  exact line for that host's shell and its revert line (every OS's when the host's is not known). Halo runs neither.
+- **Changes**: every change Halo made to a local model's profile still in force -- who made it, from and to, its
+  scope (a new pick changes it) -- with **Revert** (and **Revert all**); the line under the list says what went back.
+  Settings -> Local shows the same list; the model card's KV dial has its own Apply with the scope pick.
+
 ## Jobs
 
 A pull is the server's job (3.3.5.0 R3, `studio/local_pull_job.py`): Studio runs one per host and name (a second Pull of
@@ -332,9 +353,9 @@ Library read again.
 
 ## The pages still to come
 
-Benchmarks and Steward are framed: each says in one paragraph what it will hold and lists the commands that do that
-work today, each copyable (`halo ollama calibrate`, `halo ollama steward status`, ...). Steward also shows the steward job's
-status line and its last note, read the way Fleet's Ollama panel reads them.
+Steward is framed: it says in one paragraph what it will hold and lists the commands that do that work today, each
+copyable (`halo ollama steward status`, ...), with the steward job's status line and its last note, read the way
+Fleet's Ollama panel reads them.
 
 ## Local's five ideas
 
@@ -353,5 +374,6 @@ Every page names which of them it carries (its head's "ideas here" line), and th
 ## The routes
 
 Every route of the section (`GET local/hosts`, `local/models`, the Library's, the controls, the probe, the logs, the
-Hugging Face downloads and servers, 3.3.6.0 R4's measured card, dialect record and shelf) and its live frames are in
+Hugging Face downloads and servers, 3.3.6.0 R4's measured card, dialect record and shelf, R5's bench, tuning report
+and changes) and its live frames are in
 [STUDIO-local-routes.md](STUDIO-local-routes.md).

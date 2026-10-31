@@ -1,5 +1,5 @@
-// Local's framed pages (3.3.5.0 R1): Benchmarks and Steward, the rounds after R5 fill them (Library and Hugging
-// Face are built: LibraryPage.tsx, HfPage.tsx) (plans/ROADMAP.md, the 3.3.5.0 entry).
+// Local's framed page (3.3.5.0 R1): Steward, a later round fills it (Library, Hugging Face and, 3.3.6.0 R5, Benchmarks
+// are built: LibraryPage.tsx, HfPage.tsx, BenchPage.tsx) (plans/ROADMAP.md, the 3.3.5.0 entry).
 // Each says in one paragraph what it will hold and lists the commands that do
 // that work today, each one copyable; Steward also shows the steward job's
 // status line and its last note (the Ollama panel's steward block, read the
@@ -12,17 +12,6 @@ import type { PageId } from "./pages";
 type Frame = { round: string; holds: string; cli: [string, string][] };
 
 export const FRAMES: Partial<Record<PageId, Frame>> = {
-  benchmarks: {
-    round: "R5",
-    holds: "A short measured battery per model on this card -- load time, prompt and reply tokens per second at three " +
-      "windows, the largest window that stays on the GPU, the reply reserve that avoids cuts, the tool-call and vision " +
-      "probes -- kept as the model's speed card and shown on its card and fit badge; tuning scans for the whole host with " +
-      "Apply for Halo's side and the exact line for the server's; every change tagged session, until-restart or keep, so " +
-      "a session's trial settings revert when it ends.",
-    cli: [["halo ollama calibrate <model>", "the largest window that stays on the GPU"],
-          ["halo ollama discover --calibrate", "find the servers here, then measure their models"],
-          ["halo ollama tune <model>", "a tuned twin with every layer on the GPU"]],
-  },
   steward: {
     round: "R6",
     holds: "The steward's page: the job's status, its notes, and a chat box to the steward's own small model (it reads the " +
