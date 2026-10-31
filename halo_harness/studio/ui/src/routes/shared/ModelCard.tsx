@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import { api } from "../../lib/api";
 import { Button } from "../../lib/ui";
 import { FitMeter, type Fit } from "../../lib/ui/FitMeter";
+import { CardBlocks, type CardBlocksView } from "./ModelCardBlocks";
 
 export type CardView = {
   chips: Record<string, string>;
@@ -25,6 +26,12 @@ export type CardView = {
   vision?: boolean;
   kind?: string;
   window?: { tokens: number | null; source?: string };
+  /** 3.3.6.0 R1: the battery's profile in words (providers/model_card_blocks.py), each role's mark, the probe. */
+  blocks?: CardBlocksView;
+  fit_source?: Record<string, "verified" | "expected">;
+  system_role?: string | null;
+  speed?: { tok_s?: number | null; ttft_ms?: number | null; cold_load_s?: number | null; at_window?: number | null } | null;
+  probe?: { date: string; at: number; line: string; agentic_ready: boolean; interactive: string; quirks: string[]; sits: string; stale: boolean } | null;
 };
 export type CardFields = { card?: CardView; fit?: Fit };
 type Offer = { lineup: string; coder: string; orchestrator: string; why: string; command: string };
@@ -58,11 +65,13 @@ export function CardDetail({ card, refName, open }: { card?: CardView; refName: 
       </ul>
       <div className="mcard-roles mono" data-testid="model-card-roles">
         {Object.entries(card.fit_for || {}).map(([role, ok]) => (
-          <span key={role} className="mcard-role" data-role={role} data-ok={ok || undefined} title={ok ? undefined : card.fit_why?.[role]}>
+          <span key={role} className="mcard-role" data-role={role} data-ok={ok || undefined} data-mark={card.fit_source?.[role]}
+                title={(ok ? "" : card.fit_why?.[role] || "") + (card.fit_source?.[role] === "verified" ? " (verified: probed)" : " (expected)")}>
             {ok ? "✓" : "·"} {ROLE_WORDS[role] || role}
           </span>
         ))}
       </div>
+      <CardBlocks blocks={card.blocks} />
     </details>
   );
 }

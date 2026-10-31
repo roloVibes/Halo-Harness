@@ -243,7 +243,8 @@ def send_repair(*, host, route, profile, decision, tool_name: str, schema: Optio
     if result.error:
         return None, result.error
     try:
-        parsed = json.loads(result.text.strip())
+        from halo_harness.providers.battery_probes import strip_fences  # 3.3.6.0 R1: a fenced reply parses
+        parsed = json.loads(strip_fences(result.text))
     except (json.JSONDecodeError, ValueError) as e:
         return None, f"repair reply was not valid JSON: {e}"
     if not isinstance(parsed, dict):

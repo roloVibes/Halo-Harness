@@ -276,6 +276,16 @@ tool-call probe; the fix is the card's own `how` lines, so the steward's note
 says how the model should be called. A model with no catalog row is not
 judged.
 
+## The battery on new models (3.3.6.0)
+
+The job (`ollama_steward/probe_new.py`) runs the capability battery
+([MODELS-cards.md](MODELS-cards.md#the-profile-what-the-battery-measured-3360)) on one model of the host this machine
+serves with no profile for its digest and the server's Ollama version (newly pulled or seen, a new digest, an Ollama
+upgrade): one at a time, inside the job, only while no call reached the ledger for 3 minutes (never while a session's
+call is in flight); it asks the host at most every 5 minutes. `ollama.steward.probe_new: false` turns it off. A
+finding line says what it found; a server event on a probed model ends in its fix
+([MODELS-cards.md](MODELS-cards.md#when-a-local-model-fails-the-line-says-why-3360)).
+
 ## In Studio
 
 Round R5 shows the steward in Studio, the TUI and Setup.

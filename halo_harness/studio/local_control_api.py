@@ -172,6 +172,9 @@ def post_twin(req, name: str, host, ctl: dict, here: bool):
     if body.get("dry") is True:
         return 200, {"ok": True, "dry": True, **about}
     got = create_twin(host, plan, state_dir=req.state_dir)
+    if got.ok:  # 3.3.6.0 R1: verified in the background; a `twin-verify` frame says the result
+        from halo_harness.studio.local_twin_verify import start_verify
+        about["verify"] = start_verify(host, plan.twin, plan.window, _pub(req), state_dir=req.state_dir)
     return _done({"ok": got.ok, "say": got.message}, about["cli"], **{k: v for k, v in about.items() if k != "cli"})
 
 

@@ -177,6 +177,9 @@ def no_tools(session) -> bool:
     if caps.get("tools") is False and caps.get("model") == getattr(getattr(session, "model_ref", None), "raw", None):
         return True
     card = getattr(session, "_prompt_card", None) or {}
+    if not card:  # 3.3.6.0 R1: the battery's answer (providers/placement_apply.prompt_card)
+        from halo_harness.agent.prompt_wire import _probed_card
+        card = _probed_card(session)
     return card.get("tools") == "none" or bool(card.get("embedding_only"))
 
 

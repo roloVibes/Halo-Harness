@@ -662,8 +662,9 @@ def resolve_all_roles(*, role_table: Optional[dict] = None, cli_overrides: Optio
         # table"` (there are none today, but the field is public) is
         # never broken by this round.
         vram_reason = vram_fit_reason(name, role_table=role_table, cli_overrides=cli_overrides, main_ref=parent_ref)
+        from halo_harness.providers.placement import role_warning  # 3.3.6.0 R1: the battery's placement gate warns
         rows.append({"role": name, "model": ref.raw, "effort": effort_display, "source": source,
-                     "vram_reason": vram_reason, **info})
+                     "vram_reason": vram_reason, "placement": role_warning(ref.raw, name, state_dir), **info})
     return rows
 
 
@@ -683,6 +684,8 @@ def format_roles_table(rows: "list[dict]") -> str:
         lines.append(f"  {r['role'].ljust(w_role)}  {r['model'].ljust(w_model)}  "
                       f"{r.get('effort', '-').ljust(w_effort)}  {r['path_type'].ljust(w_path)}  "
                       f"{r['price'].ljust(w_price)}  ({source_text})")
+        if r.get("placement"):
+            lines.append(f"    ! {r['placement']}")
     return "\n".join(lines)
 
 

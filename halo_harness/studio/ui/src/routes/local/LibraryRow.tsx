@@ -95,6 +95,8 @@ export function LibraryRow({ row, score }: { row: LibRow; score?: number | null 
         {row.gated ? <span className="lc-lib-gated" data-testid="local-library-gated" title="gated: the repo asks you to accept its terms; HF_TOKEN is sent for its files">gated</span> : null}
       </div>
       {row.description && <p className="muted lc-lib-desc">{row.description}</p>}
+      {row.fit?.pull_warning && <p className="mono lc-lib-warn" data-testid="local-library-pull-warning"
+                                    title="the weights alone exceed what the card holds: Ollama will run part of it on the CPU at any window">{row.fit.pull_warning}</p>}
       <div className="lc-model-acts">
         <RowPull row={row} />
         <Copy line={row.pull_line} />

@@ -129,4 +129,5 @@ def fit_for_row(row: dict, host_card: Optional[dict], window: int, *, host_name:
                 + f" = {_gib(nums['total'])} of {_gib(nums['budget'])} free"
                 + (" (other programs from the newest resources sample)" if hc.get("_sample") else ""))
         meter = {**meter, "why": f"{line}: {meter['why']}" + ("; an estimate until pulled (shape: " + shape_src + ")" if estimate else "")}
-    return {**meter, **base, "numbers": nums}
+    from halo_harness.providers.ollama_twin_verify import pull_warning  # 3.3.6.0 R1: weights past the card
+    return {**meter, **base, "numbers": nums, "pull_warning": pull_warning(weights, b["budget"])}

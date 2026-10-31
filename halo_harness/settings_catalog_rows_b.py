@@ -40,6 +40,7 @@ ROWS = [
     Row("ollama.steward.model", "ollama", "Steward model", "model", None, (), "The model that writes the steward's plain-language notes; unset, a local compactionModel, else the smallest local model, else no notes (the rules still run); none: no notes on purpose.", "now"),
     Row("ollama.steward.job", "ollama", "Steward job", "bool", True, (), "The steward's job runs with Studio or the fleet hub (halo ollama steward --watch runs it by hand); false keeps it off.", "next launch"),
     Row("ollama.steward.every_s", "ollama", "Steward every (s)", "int", 300, (), "How often the steward's job runs while calls flow; a server alert runs it at once.", "now"),
+    Row("ollama.steward.probe_new", "ollama", "Probe new models", "bool", True, (), "The steward's job runs the capability battery on a newly pulled or newly seen model (or a changed digest or Ollama version) while the card is idle; false probes only when you ask (halo models probe).", "now"),
     Row("ollama.steward.note_every_s", "ollama", "Note at most every (s)", "int", 600, (), "The steward's model writes at most one note per this many seconds, and only when something is new.", "now"),
     Row("ollama.auto_calibrate", "ollama", "Auto calibrate", "bool", True, (), "Run the fit calibration the first time a model is used on a host with no learned cap.", "now"),
     Row("ollama.discover.ports", "ollama", "Discovery ports", "list", [11434], (), "The ports Find Ollama servers and Scan this network ask on every address.", "now"),

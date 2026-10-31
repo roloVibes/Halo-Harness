@@ -38,8 +38,42 @@ def placement_for(session) -> str:
     from halo_harness.agent.prompt_lean import is_local
     if not is_local(getattr(session, "model_ref", None)):
         return "user"
-    card = getattr(session, "_prompt_card", None) or {}
+    card = getattr(session, "_prompt_card", None) or _probed_card(session)
     return "user-front" if card.get("system_role") == "weak" else "system"
+
+
+def _probed_card(session) -> dict:
+    """3.3.6.0 R1: the battery's dialect facts (providers/placement_apply.prompt_card) when no card was set."""
+    try:
+        from halo_harness.providers.placement_apply import prompt_card
+        return prompt_card(session)
+    except Exception:
+        return {}
+
+
+WEAK_NOTE = "(Halo's instructions for this session are at the start of the first user message.)"
+
+
+def _instructions_to_user(session, system_text: str, messages: list) -> "tuple[str, list]":
+    """A probed weak system role (the battery: it ignored the system message): the instructions go into the first
+    user message, after the memory, before the user's words; the system message keeps one line pointing there."""
+    if not (system_text or "").strip():
+        return system_text, messages
+    for i, msg in enumerate(messages):
+        if isinstance(msg, dict) and msg.get("role") == "user":
+            content = msg.get("content")
+            blocks = list(content) if isinstance(content, list) else [{"type": "text", "text": str(content or "")}]
+            from halo_harness.agent.prompt_composition import block_part, known_texts
+            known = known_texts(session)
+            at = next((j + 1 for j in range(len(blocks) - 1, -1, -1) if isinstance(blocks[j], dict)
+                       and block_part(blocks[j].get("text"), known) == "memory"), 0)
+            blocks = blocks[:at] + [{"type": "text", "text": system_text}] + blocks[at:]
+            card = _probed_card(session)
+            model = getattr(getattr(session, "model_ref", None), "raw", "this model")
+            _queue_line(session, f"{model} ignores the system role (probed {card.get('probed') or '?'}): Halo's "
+                                 "instructions go at the front of the user turn")
+            return WEAK_NOTE, messages[:i] + [{**msg, "content": blocks}] + messages[i + 1:]
+    return system_text, messages
 
 
 def _profile_tools_max(session) -> None:
@@ -190,6 +224,8 @@ def _shape(session, system_text: str, messages: list, tools, purpose: str):
             system_text = (system_text or "").rstrip() + "\n\n" + mem
         elif mem:
             messages = _front_of_first_user(messages, mem)
+    if placement == "user-front" and not getattr(session, "_prompt_card", None) and _probed_card(session).get("from"):
+        system_text, messages = _instructions_to_user(session, system_text, messages)
     if lean and tools:
         _profile_tools_max(session)
         tools, dropped = L.cap_tools(session, tools)

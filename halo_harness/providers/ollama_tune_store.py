@@ -30,6 +30,32 @@ def record_twin(state_dir, *, host_url: str, twin: str, origin: str, window: int
     return entry
 
 
+def set_twin_verify(state_dir, *, host_url: str, twin: str, result: dict) -> None:
+    """3.3.6.0 R1: the twin's verify result (providers/ollama_twin_verify.py) on its record (made when missing)."""
+    from halo_harness.filelock import file_lock
+    from halo_harness.providers.ollama_calibrate import _fit_store_path, load_fit_store, save_fit_store
+    with file_lock(_fit_store_path(state_dir)):
+        store = load_fit_store(state_dir)
+        twins = store.get("twins") if isinstance(store.get("twins"), dict) else {}
+        entry = twins.get(_key(host_url, twin)) if isinstance(twins.get(_key(host_url, twin)), dict) else {"at": time.time()}
+        entry["verify"] = {k: result.get(k) for k in ("state", "line", "layers", "splits", "kv_mib", "tok_s", "window",
+                                                        "on_gpu_pct", "at", "why")}
+        twins[_key(host_url, twin)] = entry
+        store["twins"] = twins
+        save_fit_store(state_dir, store)
+
+
+def twin_verify(state_dir, *, host_url: str, twin: str) -> Optional[dict]:
+    from halo_harness.providers.ollama_calibrate import load_fit_store
+    try:
+        twins = load_fit_store(state_dir).get("twins")
+    except Exception:
+        return None
+    entry = twins.get(_key(host_url, twin)) if isinstance(twins, dict) else None
+    v = entry.get("verify") if isinstance(entry, dict) else None
+    return v if isinstance(v, dict) else None
+
+
 def lookup_twin_record(state_dir, *, host_url: str, twin: str) -> Optional[dict]:
     from halo_harness.providers.ollama_calibrate import load_fit_store
     try:

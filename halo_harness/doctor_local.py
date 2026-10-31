@@ -248,7 +248,8 @@ def _structured_output(host, route, profile, decision, state_dir) -> "tuple[bool
         return False, turn.error
     import json
     try:
-        parsed = json.loads(turn.text.strip())
+        from halo_harness.providers.battery_probes import strip_fences  # 3.3.6.0 R1: a fenced reply parses
+        parsed = json.loads(strip_fences(turn.text))
     except (ValueError, TypeError) as e:
         return False, f"reply was not valid JSON: {e}"
     coerced, errors = validate_and_coerce(parsed if isinstance(parsed, dict) else {}, _STRUCTURED_SCHEMA)
@@ -299,6 +300,6 @@ def run_local_acceptance_check(model_ref_raw: Optional[str] = None, *, state_dir
 def format_acceptance_lines(steps: "list") -> "list[str]":
     lines = []
     for s in steps:
-        tag = "PASS" if s["ok"] else "FAIL"
+        tag = s.get("tag") or ("PASS" if s["ok"] else "FAIL")  # 3.3.6.0 R1: INFO for a role not probed yet
         lines.append(f"[{tag}] {s['step']} ({s['elapsed_s']}s): {s['reason']}")
     return lines

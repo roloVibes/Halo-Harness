@@ -37,8 +37,26 @@ def view(card: dict, meter: Optional[dict]) -> dict:
                      "fit_why": dict(card.get("fit_why") or {}), "purpose": card.get("purpose"),
                      "thinks": card.get("thinks"), "tools": card.get("tools"), "vision": bool(card.get("vision")),
                      "kind": card.get("kind"), "embedding_only": bool(card.get("embedding_only")),
-                     "window": {"tokens": w.get("tokens"), "source": w.get("source")}},
+                     "window": {"tokens": w.get("tokens"), "source": w.get("source")},
+                     "quirks": list(card.get("quirks") or []), "blocks": card.get("blocks") or {},  # 3.3.6.0 R1
+                     "fit_source": dict(card.get("fit_source") or {}), "system_role": card.get("system_role"),
+                     "speed": card.get("speed"), "probe": _probe_view(card)},
             "fit": dict(meter or {"level": "unknown", "at_window": None, "gpu_window": None, "why": ""})}
+
+
+def _probe_view(card: dict):
+    p = card.get("profile")
+    if not p:
+        return None
+    from halo_harness.providers.battery_profile import date_of, summary_line
+    return {"date": date_of(p), "at": p.get("probed_at"), "line": summary_line(p), "agentic_ready": p.get("agentic_ready"),
+            "interactive": p.get("interactive"), "quirks": list(p.get("quirks") or []), "sits": p.get("sits"),
+            "window": p.get("window"), "stale": p.get("probe_set") != _probe_set()}
+
+
+def _probe_set() -> str:
+    from halo_harness.providers.battery_probes import PROBE_SET
+    return PROBE_SET
 
 
 def _host_for(ref_raw: str):

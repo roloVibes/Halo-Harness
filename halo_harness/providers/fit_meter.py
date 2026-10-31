@@ -53,7 +53,24 @@ def _row_of(card: dict) -> Optional[dict]:
 
 def fit_meter(card: dict, host_card: Optional[dict], *, row: Optional[dict] = None, top: Optional[int] = None) -> dict:
     """See the module docstring. `top` caps the windows tried (3.3.5.0 R2: the Library rates hundreds of rows at the
-    window picked; `gpu_window` then says "up to `top`" at most)."""
+    window picked; `gpu_window` then says "up to `top`" at most). 3.3.6.0 R1: `word` -- the level with the
+    measured speed when the battery probed it ("fits, ~187 tok/s at 32k")."""
+    out = _meter(card, host_card, row=row, top=top)
+    out["word"] = speed_word(out.get("level"), (card or {}).get("speed"))
+    return out
+
+
+def speed_word(level, speed) -> str:
+    """'fits, ~187 tok/s at 32k' (the speed card), or the level alone when nothing was measured."""
+    tok = (speed or {}).get("tok_s") if isinstance(speed, dict) else None
+    if not level or not isinstance(tok, (int, float)) or tok <= 0:
+        return level or ""
+    at = (speed or {}).get("at_window")
+    tail = f" at {at // 1024}k" if isinstance(at, int) and at >= 1024 else ""
+    return f"{level}, ~{tok:.0f} tok/s{tail}"
+
+
+def _meter(card: dict, host_card: Optional[dict], *, row: Optional[dict] = None, top: Optional[int] = None) -> dict:
     kind = (card or {}).get("kind")
     w = (card or {}).get("window") or {}
     at = w.get("tokens") if isinstance(w.get("tokens"), int) else None
@@ -119,4 +136,4 @@ def host_card_of(host, *, read: bool = False) -> Optional[dict]:
 
 
 def meter_words(meter: Optional[dict]) -> str:
-    return (meter or {}).get("level") or ""
+    return (meter or {}).get("word") or (meter or {}).get("level") or ""

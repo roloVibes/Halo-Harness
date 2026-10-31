@@ -3532,6 +3532,7 @@ class Session:
 
         attempts = 0
         empty_retried = False
+        thinking_retried = False  # 3.3.6.0 R1: a thinking model's empty content, once more with a reserve
         # 1.0.1 fixpass finding 10: TWO independent one-shot flags, not one
         # shared `effort_retried` -- the gpt-6-with-tools repair
         # (reasoning_effort:"none") and the general strip-the-field repair
@@ -4305,8 +4306,27 @@ class Session:
 
             text_so_far = "".join(b.get("text", "") for b in assistant_blocks if b and b.get("type") == "text")
             tool_use_count = sum(1 for b in assistant_blocks if b and b.get("type") == "tool_use")
+            if self.route.dialect == "ollama" and not thinking_retried:  # 3.3.6.0 R1 (agent/local_failure.py)
+                from halo_harness.agent.local_failure import thinking_retry
+                _fix = thinking_retry(body, assistant_blocks, text_so_far, tool_use_count, harness_meta)
+                if _fix is not None:
+                    thinking_retried = True
+                    body, _line = _fix
+                    req = self._build_request(body)
+                    yield events.turn_marker("local", f"↳ {_line}", turn=turn_no)
+                    continue
+                if not text_so_far.strip() and not tool_use_count and stop_reason != "tool_use":
+                    from halo_harness.agent.local_failure import no_tools_line  # probed: no tool calling, say why
+                    _local_line = no_tools_line(self)
+                    if _local_line is not None:
+                        yield events.error(_local_line, turn=turn_no, err_type="local_model")
+                        return None
             if is_retryable_empty_completion(stop_reason=stop_reason, text=text_so_far, tool_use_count=tool_use_count,
                                               tools_present=bool(body.get("tools"))):
+                if empty_retried and self.route.dialect == "ollama":  # 3.3.6.0 R1: say why, never a raw error
+                    from halo_harness.agent.local_failure import empty_line
+                    yield events.error(empty_line(self), turn=turn_no, err_type="local_model")
+                    return None
                 if not empty_retried:
                     empty_retried = True
                     continue
@@ -4373,6 +4393,9 @@ class Session:
                     f"endpoint; {describe_fix(param_fix_pending)} and retried; remembered for this endpoint",
                     level="info")
             if self.route.dialect == "ollama":
+                from halo_harness.agent.local_failure import after_call  # 3.3.6.0 R1: a cold load, an unverified id
+                for _line in after_call(self, harness_meta, assistant_blocks):
+                    yield events.turn_marker("local", f"↳ {_line}", turn=turn_no)
                 # Halo 3.2.3.0 R1: Ollama read far fewer tokens than were
                 # sent -- the window trimmed the request.
                 # A reply cut at the window's end is the same "context full".
@@ -6267,7 +6290,8 @@ class Session:
             finally:
                 timer.cancel()
                 gen.close()
-            parsed = json.loads("".join(text_parts).strip())
+            from halo_harness.providers.battery_probes import strip_fences  # 3.3.6.0 R1: a fenced reply parses
+            parsed = json.loads(strip_fences("".join(text_parts)))
         except Exception:
             log.debug("ollama/huggingface: tool-call repair round failed for %s", tool_name, exc_info=True)
             return None
