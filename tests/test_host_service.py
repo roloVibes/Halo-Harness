@@ -62,6 +62,7 @@ def test_it_starts_writes_serve_json_status_and_stops(ctx: Ctx):
                   and "watches: pc" in text and "last request: none yet" in text)
         rig.pair()
         rig.client().ping()
+        rig.audited(2)  # join + ping: the audit line lands after each reply, wait for the server thread
         rc, text = _cli("status", "--json")
         got = json.loads(text)
         ctx.check(f"after a pairing and a ping: one peer, the last request named, got {got}", got["peers"] == 1
