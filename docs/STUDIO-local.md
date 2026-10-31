@@ -194,12 +194,54 @@ a hub repo's `config.json` makes it exact. The arithmetic is the steward's ([LOC
 **The controls**: a search box; the source switch (Both, Ollama, Hugging Face); **fit on** (the host) and **at window**
 (4,096 to 262,144, default the host's `max_ctx`, else 32,768): every badge follows both; the intent filter (R1's code,
 chat, long documents, images, embed; long documents ranks by the window that runs here, not the longest trained one);
-and the filters: fits this host (fits or tight), size at most N GB, family, capability, quantization, licence.
+fits this host (fits or tight); and (3.3.6.0 R2) the filters under a chevron, in three groups (below).
 
 **A row**: the name and tag (or repo and file), its source, the card's chips, the badge, the size on disk, then the
 parameters, quantization, context, downloads, updated, licence and gated mark; every number's title says where it came
 from. A click on the name unfolds the card's `how` lines (each "once pulled") and the model's other tags or files, each
 with its own badge and pull line. The list draws every row (a long one a window at a time, R0's `WindowedRows`).
+
+### The search: presets, the three truths, the cost (3.3.6.0 R2)
+
+The page opens with **the resource strip** pinned on top (`local-resource-strip`): the host every row is worked out on,
+its GPU, usable and free VRAM (usable minus the resident models), disk free (the Ollama models folder of a host this
+machine serves; another host's disk is not read), what is resident, the window and its Ollama version. Moving the host
+or the window reads every row again against it ("fits at 32,768 with 2.8 GB free").
+
+**The presets** (`local-preset`): Coder · Reasoner / planner · Bulk worker · Compactor · Verifier · Security / pentest
+· Multimodal · Embeddings · Offline-only. A preset opens its **bundle** (`local-preset-bundle`): each capability it
+needs at a truth floor (verified, verified or declared, expected, or any: "any" also keeps a model that needs a probe),
+its fit and supply values; every one is editable or removable, and the list reads again. **Save as role template**
+writes the bundle as the lineup `local-<preset>` (main on the session model, the preset's role -- `verify`, `planner`,
+`small`, `compaction`, `eyes`, `coder`, `security` -- its filters kept as the lineup's `search` block; not active until
+`halo teams apply`). The filters under the chevron are F2's three groups: **role and capability** (every capability at
+its floor), **fit and resources** (fits at the window, fully on the GPU, co-resides with a model, quant, params, disk,
+tok/s, cold load, KV per token) and **supply, licence, platform** (licence class, gated, source, runs on this OS and
+GPU, this Ollama loads it, updated within N months, exclude crashed, and the family / quant / licence words).
+
+**The three truths.** Every capability chip on a row carries one, as a glyph and a title: **✓ verified** (the battery
+probed it on this host), **◇ declared** (the metadata says it: the library's chips, the hub's tags, `/api/show`),
+**≈ expected** (inferred from the family, size or name), **?** needs a probe (agentic-ready, verifier and tool-call
+accuracy: nothing reliable declares them). Only verified makes a model **role-ready**: each row says
+`fits: yes · role-ready: no (no tool calls)` side by side ([MODELS-cards.md](MODELS-cards.md)).
+
+**The cost line** on every row: the download and its time (from the last pull's measured speed, else an assumed 50
+MB/s), VRAM at the window, the cold load (its probe, else this host's measured disk speed, else assumed), tok/s (its
+probe, else this host's measured read rate over the row's active weights) and the resident models it would evict;
+each number's source is the title. When a search ranks the rows, "why this order" says it: passes the gates (verified
+first, declared second, expected last), then fits at the window, measured speed, download size, licence; each row
+has its own rank line.
+
+**Download and verify** (`local-library-verify`) is one job: the pull (its bar), then the battery on the new tag
+(about 8 requests, 1-3 minutes), the profile written, then the role offer ("assign `verify` to ol:qwen3:8b@box?"):
+**Assign** puts the model on that role of the active lineup (applied again) or of `local-<preset>`. Nothing downloads
+until it is pressed; the Jobs list shows both stages. **A model that crashed here** shows its fingerprint's line
+("crashed here on <date>: CUDA error (an illegal memory access) after a spill at 65,536 with q8_0 KV"); **exclude:
+crashed on this host** greys it and puts it last. The Models page's row says "crashed here" too.
+
+**Find a model for this role**: Roles -> Problems lists a lineup gap (a role with no model of its own, or on a local
+model that fails its gate) with **Find a model**, which opens this page with the role's preset applied
+([ROLES.md](ROLES.md)).
 
 The cache is `<state>/cache/models-library.json`: the catalog, a model's tags and a manifest a day, a hub search an
 hour, a repo's files a day; Refresh (`POST local/library/refresh`, `halo models browse --refresh`) reads them again.
@@ -299,6 +341,12 @@ Studio route; never a model call:
 | `GET local/library?source=ollama\|hf\|all&q=&host=&window=&fits=1&intent=&family=&quant=&cap=&max_gb=&license=&page=` | the library's rows with their card, fit badge and intent scores, the total, and where each source came from (`studio/models_library_api.py`) |
 | `GET local/library/<source>/<id>?host=&window=` | one Ollama model's tags or one hub repo's files, each with its badge |
 | `POST local/library/refresh` | the library's cache dropped: the next read is live |
+| `GET local/library?...&preset=&for_role=&ask=&need=tools=declared,coder&exclude_crashed=1&edited=1&<fit and supply filters>` | 3.3.6.0 R2: the search (`studio/local_search_api.spec_of`): the rows ranked with their facts, cost and verdicts, and `search`, `presets`, `strip` |
+| `GET local/library/presets` | the nine presets, each bundle expanded |
+| `POST local/library/template {preset, model?, lineup?, bundle?}` | Save as role template: `local-<preset>`, or the role entry of the lineup named |
+| `POST local/library/verify {host, name, role?}`, `GET local/library/verifies` | Download and verify (`studio/local_verify_job.py`); its jobs |
+| `POST local/library/assign {role, ref, lineup?}` | the role offer accepted: the lineup's role gets the model |
+| `GET local/crashes?host=` | the crash fingerprints (`ollama_steward/fingerprints.py`) |
 | `POST local/host/<name>/pull {name}` | a pull job (a second ask joins it); its view and `cli` |
 | `POST local/pull/<id>/cancel` | stop it (Ollama keeps the layers it has) |
 | `GET local/pulls` | every pull running and the last ended ones |
@@ -324,7 +372,8 @@ fleet member serves goes through that member (`ollama_pull`, `ollama_delete`, `o
 
 Live frames: `resources` (one sample), `traffic` (`{rows}`), `pull` (a job's view: host, name, status, digest,
 total, completed, percent, speed, eta, done, error) and `download` (the same view with kind, repo, file, dir and path), `probe` (3.3.6.0: a probe job's view: host,
-model, step, of, probe, say, done, ok, error, cost) and `twin-verify` (a new twin's verify line), beside the steward's own `steward` frames. From a terminal,
+model, step, of, probe, say, done, ok, error, cost), `twin-verify` (a new twin's verify line) and `verify` (3.3.6.0 R2:
+Download and verify's stage: pull, probe, offer, done), beside the steward's own `steward` frames. From a terminal,
 `halo local hosts`, `halo local models [--host H]` and `halo local resources` print what the first three pages show, and
 `halo models browse` what the Library shows, `halo local ls` what the Hugging Face page shows
 ([COMMANDS-local.md](COMMANDS-local.md)).

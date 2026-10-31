@@ -15,7 +15,10 @@ saved or not, grouped by severity.
     an alias used twice, a model on a removed cc:/cx: route, not one main).
 
 Each finding is `{id, severity: "blocks"|"warns", text, fix, node}`; `node`
-is the graph card it is about (Studio selects it on a click), or "".
+is the graph card it is about (Studio selects it on a click), or "". 3.3.6.0
+R2: a gap (a role with no model, or on a local model that fails its gate)
+also carries `find: {role, preset}`: Problems' "Find a model" opens Local ->
+Library with the role's preset.
 """
 
 from __future__ import annotations
@@ -83,6 +86,18 @@ def _pivot_findings(resolved: dict, cwd, state_dir) -> "list[dict]":
         return []
 
 
+def _gap_findings(resolved: dict, cwd, state_dir) -> "list[dict]":
+    try:
+        from halo_harness import teams_yaml as T
+        from halo_harness.models_library.role_gaps import gaps
+        table, _notes = T.resolve_role_table(resolved, cwd=cwd, state_dir=state_dir)
+        roles = [e.get("as") or e.get("role") for e in resolved.get("agents") or [] if isinstance(e, dict)]
+        return [{"id": f"gap:{g['role']}", "severity": "warns", "text": g["why"], "fix": f"find a model for this role ({g['cli']})",
+                 "node": "", "find": {"role": g["role"], "preset": g["preset"]}} for g in gaps(table, state_dir, roles)]
+    except Exception:
+        return []
+
+
 def findings_for(raw: dict, *, problems: "list[str]", graph: dict, cwd=None, state_dir=None) -> "list[dict]":
     out: "list[dict]" = []
     for i, line in enumerate(problems or []):
@@ -104,6 +119,7 @@ def findings_for(raw: dict, *, problems: "list[str]", graph: dict, cwd=None, sta
                     "fix": "run `halo teams validate` on the lineup", "node": ""})
     out.extend(_depth_finding(resolved))
     out.extend(_pivot_findings(resolved, cwd, state_dir))  # 3.3.6.0 R1: a lineup that is a pivot schedule
+    out.extend(_gap_findings(resolved, cwd, state_dir))  # 3.3.6.0 R2: find a model for this role
     seen = {f["text"] for f in out}
     for n in graph.get("nodes") or []:
         for sev, key in (("warns", "problems"), ("warns", "warnings")):

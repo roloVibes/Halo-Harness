@@ -122,6 +122,28 @@ tool catalog to one with no tool calling, images to one without vision -- and
 its finding says the fix in the card's own `how` words
 ([MODELS-ollama-steward.md](MODELS-ollama-steward.md#called-wrong)).
 
+## Declared, expected, verified: the three truths (3.3.6.0 R2)
+
+Every capability and fit fact Halo shows about a local model is one of three, never blurred
+(`models_library/truths.py`, one rule per capability in `truth_rules.py`):
+
+- **declared**: read from metadata -- `/api/show` capabilities, the library's chips, the hub's pipeline tag and tags,
+  GGUF metadata, a registry config. Cheap, there before a download, sometimes wrong.
+- **expected**: inferred from the family rules, the size or the name ("-coder" is a coder; 9B or less is fast enough
+  for bulk). A heuristic, and it says so.
+- **verified**: probed on this host by the battery (below). The only one that may gate a role: a model is
+  **role-ready** only on its profile.
+
+A capability nothing says anything about is left out, never guessed. Three have no reliable declared source and are
+**verified-only**: agentic-ready (tools, system role, instruction and JSON, all four), verifier / judge (trustworthy
+reference ids and a structured verdict) and tool-call accuracy (a multi-tool probe is not in the battery yet): before
+a probe they say "needs a probe". The F2 list: tools, thinking, coder, agentic-ready, planner / orchestrator, verifier,
+compactor, bulk, abliterated, vision, audio, embedding / reranker, security / pentest (a weak signal: tags and names),
+math, multilingual, long-context recall (a claimed window is not a recalled one: a needle probe is not in the battery),
+tool-call accuracy. The card's four blocks carry the same marks: `(declared)` or `(expected)` after a value, nothing
+after a verified one. Studio's chips: ✓ verified, ◇ declared, ≈ expected, ? needs a probe
+([STUDIO-local.md](STUDIO-local.md)).
+
 ## The profile: what the battery measured (3.3.6.0)
 
 A declared fact is what a model says about itself; a profile is what it did

@@ -3,6 +3,7 @@
 .mprobe-sits { display: inline-flex; gap: 3px; flex-wrap: wrap; }
 .mprobe-chip { font-size: 9.5px; padding: 0 5px; cursor: default; color: var(--accent); border-color: var(--accent-soft); }
 .mprobe-chip[data-mark="expected"] { color: var(--muted); border-style: dashed; }
+.mprobe-chip[data-mark="declared"] { border-style: dashed; } /* 3.3.6.0 R2: the metadata says it, not probed */
 .mprobe-chip[data-chip="not interactive"], .mprobe-chip[data-chip="pivot-only"] { color: var(--warn); border-color: var(--warn-soft); }
 .mprobe-mark { font-size: 10.5px; white-space: nowrap; }
 .mprobe-link { background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; font: inherit; text-decoration: underline; }
@@ -20,5 +21,6 @@
 .mprobe-block { display: grid; gap: 1px; }
 .mprobe-items { margin: 0; padding-left: 16px; display: grid; gap: 1px; color: var(--text); }
 .mprobe-items li[data-mark="expected"] { color: var(--muted); }
+.mprobe-items li[data-mark="declared"] { color: var(--text); }
 .mcard-role[data-mark="expected"] { font-style: italic; }
 .lc-lib-warn { margin: 2px 0; font-size: 11px; color: var(--warn); }

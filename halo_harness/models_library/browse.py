@@ -1,8 +1,9 @@
 """halo_harness.models_library.browse -- Halo 3.3.5.0 R2: the library query the route and the CLI share.
 
     library(state_dir, *, source="all", q="", host="", window=None, fits=False, intent="", family="", quant="",
-            cap="", max_gb=None, license="", page=1, per=PER_PAGE, refresh=False)
-        -> {rows, total, page, pages, per, cached_at, sources {ollama, hf}, notes, host, hosts, window, intents, snapshot}
+            cap="", max_gb=None, license="", page=1, per=PER_PAGE, refresh=False, search=None)
+        -> {rows, total, page, pages, per, cached_at, sources {ollama, hf}, notes, host, hosts, window, intents, snapshot,
+            search {preset, bundle, role, understood}, presets [bundle], strip (search_query.strip)}
     detail(state_dir, source, model_id, *, host="", window=None, refresh=False) -> {source, id, rows, note, about}
     refresh(state_dir)  the cache dropped: the next read is live
 
@@ -10,7 +11,9 @@ A row (rows.py's LibraryRow, its `shape` left out) gains {model, card (studio/mo
 (rows.fit_for_row), intent {id: score}}. The list has one Ollama row per size chip (`qwen3.5:9b`, `qwen3.5:27b`),
 its sizes from the snapshot or a tags page this cache has read, and one row per hub repo (its size an estimate
 until the repo is opened); `detail` lists every tag or file of one model, each with its fit. The intent order is
-studio/local_models_view's `intent_scores` + `rank`.
+studio/local_models_view's `intent_scores` + `rank`. 3.3.6.0 R2: every row goes through models_library/search.py
+(its facts with their truth, the cost preview, the verdicts, a crash mark); `search` = a preset, a lineup role
+(`for_role`), a sentence, needs / fit / supply (search_query.run) filters and ranks them.
 """
 
 from __future__ import annotations
@@ -133,7 +136,7 @@ def _hosts_view(hosts) -> list:
 def library(state_dir, *, source: str = "all", q: str = "", host: str = "", window: Optional[int] = None,
             fits: bool = False, intent: str = "", family: str = "", quant: str = "", cap: str = "",
             max_gb: Optional[float] = None, license: str = "", page: int = 1, per: int = PER_PAGE,
-            refresh: bool = False) -> dict:
+            refresh: bool = False, search: Optional[dict] = None) -> dict:
     from halo_harness.studio.local_models_view import INTENTS, rank
     source = source if source in ("ollama", "hf", "all") else "all"
     h, hosts = _host(host)
@@ -153,8 +156,10 @@ def library(state_dir, *, source: str = "all", q: str = "", host: str = "", wind
     name = h.name if h is not None else ""
     views = [_view(r, hc, window, name) for r in rows]
     views = [v for v in views if _keep(v, fits=fits, family=family, quant=quant, cap=cap, max_gb=max_gb, license=license)]
-    if intent:
+    from halo_harness.models_library import search_query
+    if intent and not search:
         views = rank(views, intent)
+    views, info = search_query.run(state_dir, views, search, host=name, window=window, host_card=hc, intent=intent)
     per = max(1, min(int(per or PER_PAGE), 2000))
     pages = max(1, math.ceil(len(views) / per))
     page = max(1, min(int(page or 1), pages))
@@ -163,7 +168,13 @@ def library(state_dir, *, source: str = "all", q: str = "", host: str = "", wind
             "cached_at": min(ats) if ats else None, "sources": sources, "notes": notes, "window": window,
             "host": {"name": name or None, "max_ctx": getattr(h, "max_ctx", None), "card": _has_budget(hc)},
             "hosts": _hosts_view(hosts), "intents": [{"id": i, "title": t, "why": w} for i, t, w in INTENTS],
-            "intent": intent or "", "snapshot": {"taken": snapshot.taken()}}
+            "intent": intent or "", "snapshot": {"taken": snapshot.taken()}, "search": info,
+            "presets": _presets(), "strip": search_query.strip(h, hc, window=window)}
+
+
+def _presets() -> list:
+    from halo_harness.models_library.presets import all_bundles
+    return all_bundles()
 
 
 def _ollama_detail(state_dir, model: str, refresh: bool) -> "tuple[list, str, dict]":
@@ -206,7 +217,9 @@ def detail(state_dir, source: str, model_id: str, *, host: str = "", window: Opt
     else:
         rows, note, about = _ollama_detail(state_dir, model_id, refresh)
     name = h.name if h is not None else ""
-    return {"source": source, "id": model_id, "rows": [_view(r, hc, window, name) for r in rows], "note": note,
+    from halo_harness.models_library.search_query import run  # 3.3.6.0 R2: each tag or file's facts, cost, verdicts
+    views = run(state_dir, [_view(r, hc, window, name) for r in rows], None, host=name, window=window, host_card=hc)[0]
+    return {"source": source, "id": model_id, "rows": views, "note": note,
             "about": about, "window": window, "host": name or None}
 
 

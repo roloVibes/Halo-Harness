@@ -57,6 +57,45 @@ version.
 **Fixed**
 - Studio's model card view now carries the server-log quirks, so the Models rows' quirk chips can show (3.3.5.0 R4 never passed them).
 
+### R2: the capability-filtered search -- declared, expected, verified
+
+**Added**
+- The three truths on every local model fact:
+- declared (the metadata says it), expected (the family, size or name), verified (the battery probed it on this host);
+- only verified makes a model role-ready;
+- agentic-ready, verifier and tool-call accuracy say "needs a probe" until probed;
+- a capability nothing says anything about is left out.
+- Local -> Library, the search:
+- the resource strip pinned on top (host, GPU, usable / free VRAM, disk free, resident, window);
+- presets: Coder, Reasoner / planner, Bulk worker, Compactor, Verifier, Security / pentest, Multimodal, Embeddings, Offline-only, each bundle shown and editable;
+- the filters in three groups: role and capability; fit and resources; supply, licence and platform;
+- each capability chip with its truth (✓ ◇ ≈ ?);
+- `fits: yes · role-ready: no (...)` side by side;
+- a cost line (download and eta, VRAM at the window, cold load, tok/s, what it evicts), each number's source in its title;
+- a rank line;
+- **Download and verify**: pull, the battery, the profile, then "assign `verify` to <model>?" with **Assign**;
+- **Save as role template**: a `local-<preset>` lineup;
+- **exclude: crashed on this host**.
+- `halo models browse --preset P --need cap[=verified|declared|expected|any] --for-role ROLE --ask "<sentence>" --exclude-crashed --save-template [--model M] [--lineup L]`; rows print their truth marks; `--why` adds the verdicts, the cost and the rank.
+- Crash fingerprints:
+- one per crash (host, model, family, quant, window, KV type, flash attention, spill, signature, count) in `<state>/ollama/fingerprints.jsonl`;
+- `halo ollama crashes [--host H] [--json]` lists them;
+- Local -> Models' rows say "crashed here";
+- a member's fingerprints reach the hub with its ledger push.
+- Find a model for this role: Roles -> Problems lists a lineup gap with **Find a model** (the Library with the role's preset); `halo teams show` prints a `(gap)` line with `halo models browse --for-role <role>`.
+- `halo doctor --local`:
+- a role's dead model id FAILs and names the nearest equivalent;
+- Ollama version drift per host is a WARN;
+- an update staged on Windows reads "0.40.13 staged, 0.40.6 running".
+- Routes: `GET local/library/presets`, `POST local/library/template`, `POST local/library/verify`, `GET local/library/verifies`, `POST local/library/assign`, `GET local/crashes`; `GET local/library` takes `preset`, `for_role`, `ask`, `need`, `exclude_crashed` and the filters; a `verify` live frame.
+- Glossary: declared, expected, verified, fingerprint.
+
+**Changed**
+- The model card's blocks mark each value declared, expected or verified (R1 had verified and expected only).
+- A `CUDA error: an illegal memory access` server line is said as a CUDA error that kills llama-server, not as a full card.
+- A Hugging Face library row keeps its tags.
+- The Library's capability, size, family, quant and licence filters moved under the filters' chevron.
+
 ### Also in 3.3.6.0
 
 #### Changed

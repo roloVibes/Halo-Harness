@@ -22,7 +22,7 @@ export const IDEAS: Record<PageId, string[]> = {
   resources: ["why on every number", "the hub as the one picture"],
   hosts: ["fit meter", "make it fit", "why on every number", "the hub as the one picture"],
   models: ["fit meter", "intents, not model names", "why on every number"],
-  library: ["fit meter", "why on every number", "intents, not model names"],
+  library: ["fit meter", "why on every number", "intents, not model names", "presets and the three truths"],
   huggingface: ["fit meter", "why on every number"],
   benchmarks: ["fit meter", "why on every number"],
   steward: ["make it fit", "the hub as the one picture"],
