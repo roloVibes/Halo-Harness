@@ -5,9 +5,9 @@ model it moves to, in one explicit step.
     run_switch(session, ref, profile, creds, *, why)   `/model`: a generator of events
     fit_session_to(session, ref, *, why)               the session is already on `ref`
 
-SwitchReport = {from, to, why, window, source, ceiling, prompt_tokens,
-compacted, converted: {images, thinking, tools}, tools_max, reserve, effort,
-target_tokens, needs_compaction, line}.
+SwitchReport = {from, to, why, window, source, ceiling, prompt_tokens, compacted, converted: {images, thinking,
+tools}, tools_max, reserve, effort, target_tokens, needs_compaction, load_s, load_source (3.3.7.0 R3: the cold
+load, local_sched/swap_cost.py; the line says it), line}.
 
 The step: (a) the target's window (`agent/model_window.window_of`, the source
 named); (b) one line before anything moves ("switching to ol:qwen3.5:9b@lan:
@@ -36,6 +36,7 @@ import logging
 from typing import Optional
 
 from halo_harness import events
+from halo_harness.local_sched.swap_cost import switch_fields as swap_fields, words as swap_words
 
 log = logging.getLogger("bridge")
 
@@ -70,7 +71,7 @@ def _ollama_facts(session, ref) -> "tuple[Optional[dict], Optional[dict], Option
             return None, None, None
         row = catalog_row(get_catalog(host), ref.model)
         from halo_harness.ollama_steward.profiles import lookup
-        profile = lookup(host, ref.model)
+        profile = lookup(host, ref.model, role=getattr(session, "role_name", None) or "")  # 3.3.7.0 R3: the lane's
         probe = None
         digest = (row or {}).get("digest")
         if digest and getattr(session, "state_dir", None) is not None:
@@ -97,11 +98,10 @@ def estimate(system_text: str, messages, tools) -> int:
 def plan(session, ref, *, model_profile=None, why: str = "/model", readers=None,
          catalog_row=None, profile=None, tools_probe=None, prev_ref=None) -> dict:
     from halo_harness.agent.model_switch_history import caps_for, convert
-    from halo_harness.agent.model_window import window_of
+    from halo_harness.agent.model_window import kind_of, window_of
     from halo_harness.providers.effort_on import effort_on, think_choice_for
     if catalog_row is None and profile is None and tools_probe is None:
         catalog_row, profile, tools_probe = _ollama_facts(session, ref)
-    from halo_harness.agent.model_window import kind_of
     if kind_of(ref) == "cloud" and getattr(model_profile, "context_tokens", None):
         readers = {"cloud": lambda _r: model_profile.context_tokens, **(readers or {})}
     w = window_of(ref, state_dir=getattr(session, "state_dir", None), catalog=catalog_row, readers=readers)
@@ -132,7 +132,8 @@ def plan(session, ref, *, model_profile=None, why: str = "/model", readers=None,
               "source": w["source"], "ceiling": w["ceiling"], "prompt_tokens": prompt, "compacted": False,
               "converted": {k: counts.get(k, 0) for k in ("images", "thinking", "tools")}, "tools_max": tools_max,
               "reserve": reserve, "effort": eff["word"], "effort_kind": eff["kind"], "target_tokens": target,
-              "compact_at": share, "needs_compaction": bool(target and prompt > target), "caps": caps}
+              "compact_at": share, "needs_compaction": bool(target and prompt > target), "caps": caps,
+              **swap_fields(ref, getattr(session, "state_dir", None), catalog_row)}  # 3.3.7.0 R3: the load
     report["line"] = line_for(report)
     return report
 
@@ -153,7 +154,7 @@ def line_for(r: dict) -> str:
                 f"{r['prompt_tokens']:,} tokens -> {'cut' if r.get('why') == 'auto' else 'compacting'} to fit")
     else:
         head = f"{lead}: window {r['window']:,} ({r['source']}); fits ({r['prompt_tokens']:,} of {r['window']:,})"
-    return head + (f" · effort: {r['effort']}" if r.get("effort") else "")
+    return head + swap_words(r) + (f" · effort: {r['effort']}" if r.get("effort") else "")
 
 
 def after_line(r: dict) -> str:
@@ -173,9 +174,8 @@ def after_line(r: dict) -> str:
 
 
 def _record(session, report: dict) -> None:
-    keep = {k: v for k, v in report.items() if k != "caps"}
     try:
-        session.log._append({"type": "model_switch", "report": keep})
+        session.log._append({"type": "model_switch", "report": {k: v for k, v in report.items() if k != "caps"}})
     except Exception:
         log.debug("model_switch: the log node could not be written", exc_info=True)
 

@@ -213,8 +213,14 @@ def _cmd_warm(argv: list) -> int:
     return 0
 
 
+def _sched(name: str):
+    """3.3.7.0 R3: `halo local warm [<lineup>]` (local_warm_cli.py; model names: _cmd_warm) and `halo local place`."""
+    import importlib
+    return lambda argv: getattr(importlib.import_module(f"halo_harness.local_{name}_cli"), f"cmd_{name}")(argv)
+
+
 _SUBCOMMANDS = {"add": _cmd_add, "forget": _cmd_forget, "serve": _cmd_serve, "stop": _cmd_stop,
-                "import": _cmd_import, "runtime": _cmd_runtime, "warm": _cmd_warm}
+                "import": _cmd_import, "runtime": _cmd_runtime, "warm": _sched("warm"), "place": _sched("place")}
 
 
 def _hf_commands() -> dict:

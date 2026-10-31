@@ -3574,7 +3574,15 @@ The order (the owner's rule: all of this before Type into Studio and themes):
   per-peer grants (`halo host grant | revoke | peers | pending | allow | deny`), the fix loop (apply, measure, keep
   or revert; one at a time, cooldown, rate limit), the invariants, peers and the steward acting through the host,
   the duty steward (opt-in, its own process), speed cards / dialect records / fingerprints across the fleet, the
-  offline-promise badge; R3 scheduling next.
+  offline-promise badge. R3 "scheduling" DONE (2026-10-31): ~~D1 1 the pivot scheduler~~ (one visible step, one at a
+  time per card, `local.min_resident_s`), ~~D1 2 the warm policy + `halo local warm <lineup>`~~ (a lineup's `warm:`),
+  ~~D1 3 the switch cost in the plan + the swap preview~~, ~~D1 4 local -> local escalation~~ (the `bigger-local`
+  rung, `routing.local_hop`), ~~D1 5 the spawn-time fit verdict~~, ~~D1 6 `host|model|role` profiles~~ (`halo ollama
+  profile set --role`), ~~D1 7 Auto's pick with fit + warm state~~, ~~D1 8 lineup hygiene at `teams use`~~, ~~G5 the
+  loading tax~~, ~~G6 the warm-set planner~~, ~~G12 the placement solver~~ (`halo local place [--apply]`). Still
+  open from R3: the pivot back to main after a child ends is Ollama's own load on main's next call (counted on the
+  loading tax, not a pivot line); the placement plan is per lineup, not a fleet-wide bin packing across lineups;
+  R4 guards + refresh + adviser next (G13, G14, the busy wait, Part J), then R5 bundles.
 - **3.3.8.0 "Voice"** -- Part K: the local loop (Silero VAD -> faster-whisper
   large-v3-turbo or Parakeet TDT -> the session's model -> sentence
   aggregator -> Kokoro-82M or Qwen3-TTS, through Pipecat or LiveKit Agents,

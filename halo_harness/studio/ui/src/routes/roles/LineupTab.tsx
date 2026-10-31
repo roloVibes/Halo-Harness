@@ -6,7 +6,8 @@
 // (`POST yaml` both ways). A save that answers 422 lists the validator's
 // lines above the sections. 3.1.1.0 R3: Studio is the one editor of lineups
 // (`halo studio --edit lineup:<name>` opens this tab); each section's line
-// and the header's field lines are field_help.py's; Save to project scope.
+// and the header's field lines are field_help.py's; Save to project scope. 3.3.7.0 R3: a lineup with local
+// lanes shows its swap preview and a Warm button under the header (LineupSched.tsx).
 import { useEffect, useState } from "react";
 import { api } from "../../lib/api";
 import { useFieldHelp, useHelpGroup } from "../../lib/fieldHelp";
@@ -14,6 +15,7 @@ import { Button } from "../../lib/ui";
 import { edit } from "./actions";
 import { TextIn } from "./controls";
 import { ScopeCheck } from "./BioForm";
+import { LineupSched } from "./LineupSched"; // 3.3.7.0 R3: the swap preview, the warm set, Warm
 import { OptInFields } from "./OptInFields";
 import { SectionForm } from "./SectionForm";
 import { SECTIONS, type SectionDef } from "./sections";
@@ -120,6 +122,7 @@ export function LineupTab() {
     <div className="re-lineup" data-testid="roles-lineup-tab" data-lineup={name}>
       <SaveProblems />
       <LineupHeader />
+      <LineupSched name={name} />
       <OptInFields />
       {SECTIONS.map((d) => <Block key={d.name} def={d} />)}
     </div>

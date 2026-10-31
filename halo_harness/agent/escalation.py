@@ -75,6 +75,29 @@ def load_escalation_policy() -> "Optional[EscalationPolicy]":
     return EscalationPolicy(to=to.strip(), when=when, ask=ask)
 
 
+# Halo 3.3.7.0 R3: the local -> local hop (agent/local_hop.py) answers the same triggers before any cloud rung.
+# With no `routing.escalation` policy it answers the two the turn already knows; `low_confidence` needs the
+# judge's call, which runs only when the policy's `when` names it.
+LOCAL_HOP_TRIGGERS = ("tool_failures", "context_overflow")
+
+
+def local_hop_enabled(session) -> bool:
+    """`routing.local_hop`: true / false; unset, true on a local-first session (its own model is local)."""
+    try:
+        from halo_harness.theme import get_config_value
+        raw = get_config_value("routing.local_hop", default=None)
+    except Exception:
+        raw = None
+    if isinstance(raw, bool):
+        return raw
+    from halo_harness.model import is_local_model_ref
+    return is_local_model_ref(getattr(session, "model_ref", None))
+
+
+def local_hop_triggers(policy: "Optional[EscalationPolicy]") -> "tuple[str, ...]":
+    return policy.when if policy is not None else LOCAL_HOP_TRIGGERS
+
+
 def role_escalation_enabled(role_name: "Optional[str]", role_table: "Optional[dict]") -> bool:
     """Per-role override (brief: "Per-role overrides in the roles table may
     turn a role's escalation off") -- `role_table[role_name]` is a

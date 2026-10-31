@@ -446,6 +446,20 @@ What each section DOES at runtime:
   card, `agents[i].tools`) builds every member with only the tools of those
   capabilities. A bio's own `isolation`/`secrets` win over the lineup's; a
   card's or a tier's list wins over the bio's, which wins over the lineup's.
+- **warm** (Halo 3.3.7.0 R3, [MODELS-ollama-steward-sched.md](MODELS-ollama-steward-sched.md))
+  -- `warm: [coder, qwen2.5:1.5b]`: the lineup's own warm set, lane names or
+  model references, the models that stay loaded together on a card. The
+  scheduler packs them first, in that order; `halo local warm <name>` loads
+  them; `halo teams use` says when they cannot co-reside on the card. Not set,
+  the scheduler packs main's model first, then the models more lanes use.
+
+**The swap preview** (Halo 3.3.7.0 R3): `halo teams use <name>` prints, under
+the roles, what the lineup's local lanes cost on each card -- the warm set,
+"this lineup swaps 2x on one card ~ 50 s of loading a pass" -- and the
+hygiene lines: verify and worker sharing weights ("0 swaps between them") or
+not, a lane that never fits beside main, a `warm:` list that cannot co-reside.
+The Roles lineup tab shows the same block with a Warm button. A lineup with
+no `ol:` lanes prints nothing extra.
 
 `halo teams show <name>` prints the enforcement state per section
 (enforced / not set / checked by doctor), so a reader never has to guess

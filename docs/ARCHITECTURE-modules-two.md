@@ -31,7 +31,7 @@ quiet period, the `/api/ps` deltas) and `ollama_steward/server_log.py` (the
 read-only tail, journald, the watch loop); `fleet/ollama_share.py` sends a
 member's ledger lines to its hub and appends them there. R3: `ollama_steward/rules.py` (gather, the finding), the rules in
 `ollama_steward/rules_window.py`, `ollama_steward/rules_reply.py`, `ollama_steward/rules_host.py`, `ollama_steward/fit.py` (the planner),
-`ollama_steward/profiles.py` (`ollama.profiles`), `ollama_steward/steward.py` (modes, journal, undo), `ollama_steward/cli_steward.py`;
+`ollama_steward/profiles.py` (`ollama.profiles`), `ollama_steward/profiles_role.py` (3.3.7.0 R3: a lane's own `<host>|<model>|<role>` key, `lane`), `ollama_steward/steward.py` (modes, journal, undo), `ollama_steward/cli_steward.py`;
 `providers/ollama_fit_parts.py` (the corrected memory arithmetic), `agent/ollama_window_steward.py` (compaction before the call).
 R4: `ollama_steward/job.py` (the one job per state dir: the tail, the timer, the frames), `ollama_steward/job_state.py` (its lock and status), `ollama_steward/notes.py` (the note lines, the hub's note on a member), `ollama_steward/agent.py` + `ollama_steward/agent_prompt.py` + `ollama_steward/agent_proposals.py` (the model, what it reads, its checked proposals), `ollama_steward/explain.py` (`halo ollama explain`); `tui/steward_notice.py` (the status bar and transcript line), `fleet/steward_attention.py` (the attention row).
 R5: `studio/ollama_steward_api.py` (the `ollama/` routes: the steward, the hosts, the timeline, apply / dismiss / undo / run), `studio/ollama_hosts_view.py` (per host the card through a 60 s cache, the rollups, the models, the findings and the fit plan; the Hugging Face local servers' rows), `ollama_steward/steward_rollback.py` (the rollback judge, out of `steward.py`, which gained the profile lock and Dismiss), `commands/ollama_slash.py` (`/ollama`) and `ui/src/routes/fleet/Ollama*.tsx` + `ostore.ts` (the Ollama panel), `ui/src/routes/settings/OllamaBlock.tsx`, `ui/src/routes/setup/StewardLine.tsx`.
@@ -73,6 +73,18 @@ steward.py, moved for the cap); `studio/local_host_acts.py` (controls via the ho
 `studio/local_host_api.py` (request control, the pending rows, the stated line, the offline promise);
 `agent/offline_promise.py`; `ui/src/routes/local/HostPending.tsx`, `HostStated.tsx`,
 `ui/src/routes/session/OfflineChip.tsx`.
+
+**The scheduler** (`halo_harness/local_sched/`, Halo 3.3.7.0 R3, docs/MODELS-ollama-steward-sched.md): what a
+lineup's local models cost on a card and where they run -- `local_sched/facts.py` (a host's card, catalog row,
+`/api/ps`, the helper, a lane's window), `local_sched/swap_cost.py` (a load's seconds: the ledger, the speed card,
+the weights), `local_sched/warm_set.py` (the warm set: bin packing, the swaps a pass), `local_sched/pivot.py` (one
+pivot as a visible step, one at a time per card, the minimum residency), `local_sched/preview.py` (a lineup's swap
+preview and hygiene lines), `local_sched/loads.py` (the loading tax), `local_sched/place.py` (the placement solver
+over the hosts' `route` answers and the local reads); `local_warm_cli.py` (`halo local warm <lineup>`),
+`local_place_cli.py` (`halo local place`), `ollama_profile_cli.py` (`halo ollama profile`), `roles_fit.py` (the
+spawn-time verdict), `models_auto_local.py` (Auto's fit + warm weights), `agent/local_hop.py` (the local -> local
+hop), `studio/local_sched_api.py`; `ui/src/routes/roles/LineupSched.tsx`, `ui/src/routes/local/HostWarm.tsx`,
+`HostsPlace.tsx`, `ui/src/routes/session/LoadingTax.tsx`.
 
 **Packs** (`halo_harness/packs/`, Halo 3.2.0.0 R1, docs/PACKS.md): the
 names (`packs/names.py`: ids, `<id>--<name>`, the `pack:<id>` label and

@@ -181,6 +181,36 @@ def test_the_decision_a_call_reads(ctx: Ctx):
 
 
 @test
+def test_a_lane_carries_its_own_profile(ctx: Ctx):
+    """3.3.7.0 R3: `<host>|<model>|<role>` first, then `<host>|<model>` (field by field); the lane is the thread's
+    (`with lane(role):`) unless one is passed; `halo ollama profile set ... --role` writes it."""
+    from halo_harness.ollama_profile_cli import cmd_ollama_profile
+    from halo_harness.ollama_steward.profiles import all_profiles, key_for, lane, lookup, set_field, split_key, split_role
+    with Home():
+        set_field(KEY, "num_ctx", 32768, by="user")
+        set_field(KEY, "keep_alive", "30m", by="user")
+        ctx.check("the three-part key", key_for("pc", "qwen3.8:27b", "coder") == "pc|qwen3.8:27b|coder"
+                  and split_key("pc|qwen3.8:27b|coder") == ("pc", "qwen3.8:27b")
+                  and split_role("pc|qwen3.8:27b|coder") == ("pc", "qwen3.8:27b", "coder"))
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            rc = cmd_ollama_profile(["set", "pc", "qwen3.8:27b", "num_ctx", "16384", "--role", "coder"])
+        ctx.check(f"the verb writes the lane's key, got {rc} {out.getvalue()!r}", rc == 0
+                  and all_profiles().get("pc|qwen3.8:27b|coder", {}).get("num_ctx") == 16384)
+        mine = lookup("pc", "qwen3.8:27b", role="coder")
+        ctx.check(f"the lane's field wins, the others fall back, got {mine}", mine["num_ctx"] == 16384
+                  and mine["keep_alive"] == "30m" and mine["role"] == "coder")
+        ctx.check("another lane reads <host>|<model>", lookup("pc", "qwen3.8:27b", role="judge")["num_ctx"] == 32768)
+        with lane("coder"):
+            ctx.check("the thread's lane", lookup("pc", "qwen3.8:27b")["num_ctx"] == 16384)
+        ctx.check("main is no lane", lookup("pc", "qwen3.8:27b", role="main")["num_ctx"] == 32768)
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            cmd_ollama_profile(["list"])
+        ctx.check(f"list names the lane, got {out.getvalue()!r}", "pc|qwen3.8:27b (the coder lane): num_ctx 16384" in out.getvalue())
+
+
+@test
 def test_a_fresh_steward_change_is_said_once_in_the_session(ctx: Ctx):
     from halo_harness.agent.ollama_window_steward import note_prepared
     from halo_harness.ollama_steward.ledger import now_iso

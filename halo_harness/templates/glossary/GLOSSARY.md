@@ -213,7 +213,7 @@ A post-mortem (3.3.6.0 R4) is "Why this answer?": one assistant turn rebuilt fro
 
 ## degradation ladder
 
-The degradation ladder (3.3.6.0 R4) is the one explicit path a failed local call takes, one rung per failure and one pass per turn, each rung one visible line: repair (asked again with what was wrong), a smaller ask (the lean prompt and the six most relevant tools), another local model that fits beside the resident one, the cloud model your escalation policy names (only when that policy allows it), and finally one question to you with what was tried. `local.ladder` sets the order or turns it off.
+The degradation ladder (3.3.6.0 R4) is the one explicit path a failed local call takes, one rung per failure and one pass per turn, each rung one visible line: repair (asked again with what was wrong), a smaller ask (the lean prompt and the six most relevant tools), another local model that fits beside the resident one, a bigger local model under escalation's triggers (3.3.7.0 R3, `routing.local_hop`), the cloud model your escalation policy names (only when that policy allows it), and finally one question to you with what was tried. `local.ladder` sets the order or turns it off.
 
 ## scope
 
@@ -230,3 +230,19 @@ Vision (3.3.6.0 R6) is whether a model can see images: true, false or unknown, w
 ## eyes
 
 The eyes (3.3.6.0 R6) are what a turn gets when it carries an image its model cannot see: instead of dropping the image, the turn says so in one line and offers three ways on -- this turn on the lineup's visual lane (`roles.visual`; the turn's end switches back), a model that sees describing the image into the turn (the log names who saw it), or the text alone with the image as its path. The TUI asks with a menu (Enter takes the first), Studio with buttons on the steer's image chip; with nobody to ask the visual lane wins when one is set. Each choice is a rung of the degradation ladder.
+
+## pivot
+
+A pivot (3.3.7.0 R3) is the scheduler swapping the model on a card: the resident one unloaded, the one a lane needs loaded, as one visible step with one line before ("pivot: main (qwen3-coder:30b) -> coder (qwen3.8:27b) on pc, ~25 s (the ledger), fits history to 32 k") and one after ("pivoted in 24 s"). It goes through the halo host's `pivot` operation when a host serves the model, else the Ollama API; one pivot at a time per card, and a model the scheduler loaded stays at least `local.min_resident_s` (60) so two lanes cannot thrash one card.
+
+## warm set
+
+A warm set (3.3.7.0 R3) is the models of a lineup that co-reside on one card: packed from their weights plus the KV at each lane's window against the card's budget minus what other programs and the duty steward's helper hold, main's model first. The rest pivot. `halo local warm <lineup>` loads it, a lineup may declare its own (`warm:`), and the swap preview says how many swaps one pass of the lineup costs beyond it.
+
+## loading tax
+
+The loading tax (3.3.7.0 R3) is what a local model costs instead of dollars: the seconds spent loading models, and how many loads. A session's tally (its calls that paid a load plus the scheduler's own pivots and warms) is on `/cost` beside "saved vs cloud", on the session's Cost panel and in `halo session show`; a lineup's per-pass cost is in its swap preview.
+
+## placement
+
+Placement (3.3.7.0 R3) is deciding where each lane's model runs across the machines: every reachable host is asked (a halo host answers with its `route`, this machine from its own reads) and scored on fits, warm, the load time and what it would evict, so a lineup does not pile every model on one card. `halo local place` prints the plan; `--apply` writes `host_for` on each moved lane's profile, Halo-side only.
