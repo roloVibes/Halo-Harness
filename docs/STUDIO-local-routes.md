@@ -88,3 +88,12 @@ Download and verify's stage: pull, probe, offer, done), beside the steward's own
 | `GET local/changes?host=&all=`, `POST local/changes/revert {id \| "all", scope?, host?}`, `POST local/changes/scope {id, scope}` | the changes with their lines; put one or all back (the lines say what); a new scope |
 
 Live frames: `bench` (a job's view: host, model, quick, line, lines, done, ok, error, card, cost).
+
+## The guards, the refresh and the adviser (3.3.7.0 R4)
+
+| Route | What it answers |
+|---|---|
+| `GET local/idle?host=` | per Ollama host: idle or busy (the line), the foreign models and their line, the refresh's plan and last run; through the halo host that serves it (`GET idle`, `GET refresh`), else this machine's reads (`studio/local_guard_api.py`) |
+| `GET local/refresh` | this machine's off-hours refresh: the plan line, the last run, the last roster review, the settings |
+| `GET local/advise?host=&lineup=` | the roster adviser's suggestions (kind, says, unlocks / frees, cost, value per GB, one action) and whether it was due (`studio/local_advise_api.py`) |
+| `POST roles/<role>/point {to}` | `roles.<role>` -> `to`, nothing else (`studio/roles_point_api.py`); 422 with no target |

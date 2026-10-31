@@ -9,7 +9,8 @@ The sources, in order, the first that has a number wins and is named:
 1. the ledger: the median of the newest LEDGER_N calls of that model on that host whose `load_ms` was over 2 s
    (the call that paid a load; ollama_steward/ledger_prompt.WARM_LOAD_MS), over the last 30 days;
 2. the speed card: the bench's cold load (providers/local_bench_runs), else the battery profile's
-   `speed.cold_load_s`;
+   `speed.cold_load_s` -- 3.3.7.0 R4: neither when it was measured on an older build of this tag (the digest
+   ollama_steward/tag_digests.py last saw differs);
 3. the weights: the catalog row's size at DISK_GB_S GB/s (an estimate, said so).
 Nothing is loaded and nothing is sent (`fetch=False`: no catalog read either, the row given or none).
 """
@@ -52,9 +53,14 @@ def _ledger(state_dir, name: str, model: str) -> "tuple[Optional[float], int]":
 
 
 def _card(state_dir, name: str, model: str) -> "tuple[Optional[float], str]":
+    now_digest = None
     try:
         from halo_harness.providers.local_bench_runs import load
         sc = load(state_dir, name, model)
+        from halo_harness.ollama_steward.tag_digests import current  # 3.3.7.0 R4: a card from an older build is dropped
+        now_digest = current(state_dir, name, model)
+        if sc and now_digest and sc.get("digest") and sc["digest"] != now_digest:
+            sc = None
         if sc and isinstance(sc.get("cold_load_s"), (int, float)):
             return float(sc["cold_load_s"]), "the speed card (the bench)"
     except Exception:
@@ -62,6 +68,8 @@ def _card(state_dir, name: str, model: str) -> "tuple[Optional[float], str]":
     try:
         from halo_harness.providers.ollama_capability import profile_for
         p = profile_for(state_dir, model, name) or {}
+        if now_digest and p.get("digest") and p["digest"] != now_digest:
+            p = {}
         v = (p.get("speed") or {}).get("cold_load_s")
         if isinstance(v, (int, float)) and not isinstance(v, bool):
             return float(v), "the speed card (the battery)"

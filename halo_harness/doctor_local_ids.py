@@ -4,7 +4,8 @@
     id_steps(state_dir, *, role_table=None, main_ref=None, versions=None, staged=None) -> [{step, ok, reason, elapsed_s, tag?}]
 
 1. Every role's local model id resolved against its host's catalog (`/api/tags` through the Ollama panel's reader):
-   a dead id FAILs and names the nearest equivalent ("`qwen3.8:27b` was deleted -- nearest `qwen3.8:27b-gpu`").
+   a dead id FAILs and names the nearest equivalent (3.3.7.0 R4: ollama_steward/dead_tag.py's line, "`qwen3.8:27b` was
+   deleted from pc -- nearest equivalent `qwen3.8:27b-gpu` (same family, same quant, ...): halo roles point ...").
 2. Ollama version drift per configured host: the version each runs (the hardware card, else `/api/version`)
    against the newest one any host runs or the knowledge knows (models_library/search_filters.NEWEST_KNOWN); on a
    Windows host this machine serves, an update staged under %LOCALAPPDATA%\\Ollama\\updates ("0.40.13 staged, 0.40.6
@@ -73,11 +74,10 @@ def _id_steps(state_dir, role_table, main_ref) -> list:
             out.append(_step(f"role {role} id", True, f"{ref}: {host.name}'s catalog did not answer", "INFO"))
         elif any(ollama_names_match(n, r.model) for n in names):
             out.append(_step(f"role {role} id", True, f"{ref}: on {host.name}"))
-        else:
-            near = nearest(r.model, [n[:-len(':latest')] if n.endswith(":latest") else n for n in names])
-            out.append(_step(f"role {role} id", False, f"`{r.model}` was deleted from {host.name}" +
-                             (f" -- nearest `{near}`: halo config set roles.{role} ol:{near}@{host.name}" if near else
-                              " -- no model like it there: halo models browse --for-role " + role)))
+        else:  # 3.3.7.0 R4: the one dead-tag line (ollama_steward/dead_tag.py), the nearest by family / size / quant
+            from halo_harness.ollama_steward.dead_tag import check
+            got = check(ref, state_dir=state_dir, catalog=catalog_of(host), role=role)
+            out.append(_step(f"role {role} id", False, got["line"] or f"`{r.model}` is not on {host.name}"))
     return out
 
 

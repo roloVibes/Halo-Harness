@@ -55,6 +55,9 @@ window, a replay guard) and inside TLS with the host's own pinned certificate wh
 | `POST admin/<op>` | the `admin` grant, then 501: admin operations are not part of this version (nothing runs a shell on a host) |
 | `POST request {grant, why?}` | a peer asks the owner for a grant: a pending row |
 | `POST ledger {lines}` | a peer's calls to a server this host serves, kept in the host's ledger with `from` = the peer (the answer carries the host's profiles under the peer's own names) |
+| `GET residency` | 3.3.7.0 R4: the residency clock -- `{host, model, at, by, op, keep_alive}` per model a warm, pin or pivot through the host loaded, and `min_resident_s` |
+| `GET idle` | 3.3.7.0 R4: per served host, whether the card is idle (the newest use Halo saw) or busy, and the foreign models (`/api/ps` rows no Halo record explains) |
+| `GET refresh` | 3.3.7.0 R4: the off-hours refresh's plan line, its last run and the last roster review |
 
 ## Grants
 
@@ -222,10 +225,31 @@ all the same); `halo host uninstall` removes the file it wrote and prints the di
 
 `host.port` (7431), `host.bind` (`0.0.0.0`), `host.enabled` (true), `host.tail_max` (400); R2: `host.ask_ttl_s` (600),
 `host.cooldown_s` (120), `host.changes_per_hour` (10), `host.verify_calls` (5), `host.verify_s` (600),
-`host.steward.enabled` (false), `host.steward.model`, `host.steward.every_s` (300); see [CONFIG.md](CONFIG.md).
+`host.steward.enabled` (false), `host.steward.model`, `host.steward.every_s` (300); R4: `host.refresh.enabled` (true),
+`host.refresh.window` (`22:00-07:00`), `host.refresh.idle_min` (20), `host.refresh.max_age_days` (14); see
+[CONFIG.md](CONFIG.md).
 Files under `<state>/host/`: `serve.json`, `codes.json`, `peers.json`, `audit.jsonl`, `pending.jsonl`,
-`fixes.jsonl`, `steward.json` / `steward.key` while the duty steward is on, `cert.pem` / `key.pem`, and `stop` while
-`halo host stop` asks it to end.
+`fixes.jsonl`, `steward.json` / `steward.key` while the duty steward is on, `cert.pem` / `key.pem`, `stop` while
+`halo host stop` asks it to end; R4: `residency.json` (the residency clock), `refresh.jsonl` (the refresh's runs and
+roster reviews) and `refresh-now` while `halo host refresh now` asks for a run.
+
+## The residency clock (3.3.7.0 R4)
+
+Every peer's warm, pin and pivot through the host writes the model's row in `<state>/host/residency.json` (an unload
+removes it; `host/residency.py`), and every peer's scheduler reads it (`GET residency`) for the minimum residency
+(`local.min_resident_s`): one clock per card instead of one per process, so two halos pivoting on one card cannot
+thrash it between them. Two halos with no host each keep their own clock, and the pivot's held line says so.
+
+## The off-hours refresh (3.3.7.0 R4)
+
+The host's loop runs the capability battery and the quick bench when the card is free: inside `host.refresh.window`
+(`22:00-07:00`), after `host.refresh.idle_min` (20) minutes with no call, no load, nothing foreign in `/api/ps` and no
+session on the card; one model at a time (drifted tags first, then never probed, then profiles older than
+`host.refresh.max_age_days`, 14); it stops the moment a call arrives, stamps each profile and speed card "verified by
+the host", writes `<state>/host/refresh.jsonl`, and with nothing left to measure runs the roster review. The battery
+and the bench are Ollama API calls: the model loads in Ollama, never in this process. `halo host refresh status | now
+| off | on`; the Hosts card shows the plan and the last run. The guards it serves are in
+[MODELS-ollama-steward-guards.md](MODELS-ollama-steward-guards.md).
 
 ## The scheduler through the host (3.3.7.0 R3)
 

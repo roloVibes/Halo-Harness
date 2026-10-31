@@ -8,6 +8,7 @@ import { useEffect } from "react";
 import { NoteLines } from "../fleet/OllamaSteward";
 import { loadSteward, startOllamaFeed, useOllama } from "../fleet/ostore";
 import type { PageId } from "./pages";
+import { StewardRefresh } from "./StewardRefresh"; // 3.3.7.0 R4: the refresh's plan, its last run, the roster review
 
 type Frame = { round: string; holds: string; cli: [string, string][] };
 
@@ -64,6 +65,7 @@ export function FramedPage({ page }: { page: PageId }) {
         </ul>
       </section>
       {page === "steward" && <StewardNow />}
+      {page === "steward" && <StewardRefresh />}
     </div>
   );
 }

@@ -2033,6 +2033,10 @@ class Session:
             return
         if not is_local_model_ref(self.model_ref):
             return
+        from halo_harness.agent.degrade_crash import crash_turn  # 3.3.7.0 R4: a crash fingerprint steps the ladder first
+        if (yield from crash_turn(self, turn_no)):
+            self._escalated_this_turn = True
+            return
         from halo_harness.agent.escalation import (
             TOOL_FAILURE_THRESHOLD, EscalationDecision, count_tool_failures_since, load_escalation_policy,
             local_hop_enabled, local_hop_triggers, role_escalation_enabled,

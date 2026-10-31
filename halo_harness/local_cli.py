@@ -220,7 +220,8 @@ def _sched(name: str):
 
 
 _SUBCOMMANDS = {"add": _cmd_add, "forget": _cmd_forget, "serve": _cmd_serve, "stop": _cmd_stop,
-                "import": _cmd_import, "runtime": _cmd_runtime, "warm": _sched("warm"), "place": _sched("place")}
+                "import": _cmd_import, "runtime": _cmd_runtime, "warm": _sched("warm"), "place": _sched("place"),
+                "refresh": _sched("refresh"), "advise": _sched("advise")}  # 3.3.7.0 R4
 
 
 def _hf_commands() -> dict:

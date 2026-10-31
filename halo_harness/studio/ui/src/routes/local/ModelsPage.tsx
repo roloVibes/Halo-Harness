@@ -8,8 +8,10 @@
 // it saying why this order. The Fleet Ollama panel's rows link here. 3.3.5.0 R3: the Loaded-now strip on top
 // (LoadedNow.tsx: what each host has in memory, its VRAM share, when it unloads, Unload), the Jobs list, and the
 // card a row's actions menu opens (ModelCards.tsx). 3.3.6.0 R4: the folded Shelf block at the bottom (ShelfBits.tsx).
+// 3.3.7.0 R4: the Adviser block above it (Adviser.tsx): gap, overlap, mismatch, freshness, one button each.
 import { useEffect, useMemo, useState } from "react";
 import { Empty } from "../../lib/ui";
+import { Adviser } from "./Adviser"; // 3.3.7.0 R4: the roster adviser
 import { LoadedNow } from "./LoadedNow";
 import { ModelActCard } from "./ModelCards";
 import { ModelRow } from "./ModelRow";
@@ -75,6 +77,7 @@ export function ModelsPage() {
         );
       })}
       {!hosts.length && <Empty title="No host lists a model" body="Add an Ollama host in Setup -> Providers, or a local server." testid="local-models-none" />}
+      <Adviser host={only || undefined} />
       <ShelfBlock host={only || undefined} />
     </div>
   );

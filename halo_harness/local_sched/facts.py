@@ -66,9 +66,15 @@ def row(host, model: str) -> "tuple[Optional[dict], str]":
     from halo_harness.providers.ollama_hw import catalog_row
     if host is not None and not _guarded("catalog", host):
         from halo_harness.studio import ollama_hosts_view as V
-        hit = catalog_row(V.catalog_of(host), model)
+        cat = V.catalog_of(host)
+        hit = catalog_row(cat, model)
         if hit is not None and isinstance(hit.get("size"), int):
             return {**hit, "model": model}, "installed (/api/show)"
+        if hit is None and (cat or {}).get("models"):  # 3.3.7.0 R4: a tag Halo knew there and that is gone
+            from halo_harness.ollama_steward.dead_tag import check
+            dead = check(f"ol:{model}@{host.name}", catalog=cat)
+            if dead["dead"] and dead["known"]:
+                return None, dead["line"]
     try:
         from halo_harness.host.answers import library_row
         got, src = library_row(model)
