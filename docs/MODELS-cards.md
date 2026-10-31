@@ -221,8 +221,8 @@ declared and can only be vetoed by it.
 
 The fit meter's word carries the measured speed once a model is probed:
 "fits, ~187 tok/s at 32k". It is the battery's number at the window probed,
-never the first call's. `halo local bench` (a three-window battery and the
-tuning scans) is not part of this release: it comes with a later round.
+never the first call's, until the bench runs: then it is the bench's ceiling
+row ([the speed card](#the-speed-card-the-bench-3360-r5) below).
 
 ### A fitted twin, verified
 
@@ -307,5 +307,37 @@ quality cost)", the windows from the fit arithmetic at each KV cache type (q4_0 
 host's crash fingerprints count crashes with flash attention and a q8_0 KV cache, the crash note follows: "4 crashes
 here with FA + q8_0 KV -- see `halo ollama crashes --why`". The host-side half is a stated action
 (`OLLAMA_KV_CACHE_TYPE`, `OLLAMA_FLASH_ATTENTION`, then a restart of Ollama on that host); Halo never sets them. The
-Halo-side half needs nothing: the window a profile or the fit picks is already the one for the KV type in force. The
-Models rows' window line carries the dial in its title; `halo models show` prints it as "kv:".
+Halo-side half: the window a profile or the fit picks is already the one for the KV type in force, and 3.3.6.0 R5's
+Apply under the dial sets the profile's `num_ctx` to it (the bench's window when it ran) with a scope (keep, until halo
+exits, until the session ends). Once the bench ran, the type in force is "verified by the bench up to 32k" and the
+others stay "computed": the KV type is the server's own setting, and Halo never changes it to load them. The Models
+rows' window line carries the dial in its title; `halo models show` prints it as "kv:".
+
+## The speed card: the bench (3.3.6.0 R5)
+
+`halo local bench` (Bench on a Models row, Local -> Benchmarks) measures one model on its host
+(`providers/local_bench.py`): the model unloaded first so the load is cold, then per window -- 8,192, 32,768 and the
+planner's ceiling for this model on this card (`--quick`: the ceiling alone; never past the trained window or 128k) --
+one untimed warm-up call that loads it there ("warming": the first call after a load is graph capture, never timed),
+then one timed call, a fixed prompt of about 60 % of the window and a 256-token reply, through the gym's send path with
+the window, the reply room and keep_alive set exactly. Then the same short ask at `num_predict` 128, 256 and 512 at
+the largest window that stayed on the GPU. The cost line says it first: "local: ~N min on <host>, the card is busy
+meanwhile, writes the speed card; no tokens leave this machine". It waits (one line, nothing sent) while the host
+answered a call in the last minute or a live session uses it.
+
+| Field | What it is |
+|---|---|
+| `cold_load_s` | the first load's `load_duration` |
+| `windows[]` | per window: `prompt_tok_s`, `tok_s`, `ttft_ms` (prompt eval + load), `size` / `size_vram` and `on_gpu` (`/api/ps`: `size_vram >= size`), `layers` (the server log's load, when it is read), `cut` |
+| `max_gpu_window` | the largest window tried that stayed on the GPU; `planner_window` beside it (the fit arithmetic's ceiling) |
+| `reserve_floor` | the smallest `num_predict` (128 / 256 / 512) at which the reply ended on its own; none: cut even at 512 |
+| `kv` | the KV type in force and the window verified at it |
+| `digest`, `ollama_version`, `at`, `quick`, `took_s` | what it was measured on and when |
+
+The card lives beside the battery profile and the measured facts, never over them
+(`ollama-capabilities.json`: `cache[digest]["speed_card"][host]`); the profile's `speed` mirrors its ceiling row
+(`from: bench`). It shows in the card's Measured block (the three-window table), "where it sits" ("on the GPU up to
+32k (the bench)"), the fit badge ("fits, ~41 tok/s at 32k"), the Library row, the Hosts page's loaded row and `halo
+models show`. Placement reads `max_gpu_window` over the planner's estimate once a card exists. **Stale:** a card made
+on another Ollama version than the host runs now, or for another digest of the tag, is marked "measured on 0.40.6" (or
+"measured before the tag changed") on the badge and the table: Re-bench measures it again.

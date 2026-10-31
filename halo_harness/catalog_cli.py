@@ -250,6 +250,9 @@ def cmd_models(argv) -> int:
     if argv and argv[0] in ("retire", "shelf"):  # 3.3.6.0 R4: the model shelf (models_shelf_cli.py)
         from halo_harness.models_shelf_cli import cmd_models_shelf
         return cmd_models_shelf(argv[0], list(argv[1:]))
+    if argv and argv[0] == "bench":  # 3.3.6.0 R5: `halo local bench` (local_bench_cli.py)
+        from halo_harness.local_bench_cli import cmd_bench
+        return cmd_bench(list(argv[1:]))
     if argv and argv[0] == "show":  # 3.3.5.0 R0b: the model card
         from halo_harness.model_card_cli import cmd_models_show
         return cmd_models_show(list(argv[1:]))

@@ -6,7 +6,8 @@ line in the fit block (providers/kv_dial.py), added to a local card by
 model_card_quirks.with_quirks on every read (so a kept card stays current).
 
     with_measured(card, state_dir) -> the card, with `measured`, `dialect`, `kv_dial`, and
-        blocks.measured [{text, mark}], blocks.dialect {fields, from, lines}, blocks.kv_dial {text, crash, action}
+        blocks.measured [{text, mark}], blocks.dialect {fields, from, lines}, blocks.kv_dial {text, crash, action};
+        3.3.6.0 R5: `speed_card` (the bench), its table in blocks.measured, `speed` from its ceiling row
 
 Only an Ollama card (an `ol:` model on a host) gets them; nothing here sends a request.
 """
@@ -55,8 +56,13 @@ def with_measured(card: dict, state_dir) -> dict:
         k = dial_for(host, card["name"], state_dir=state_dir) if host is not None else None
         card["kv_dial"] = k
         if blocks is not None:
-            blocks["kv_dial"] = {key: k.get(key) for key in ("text", "crash", "action", "in_force")} if k and k.get("text") \
+            blocks["kv_dial"] = {key: k.get(key) for key in ("text", "crash", "action", "in_force", "apply")} if k and k.get("text") \
                 else None
     except Exception:
         log.debug("model card: the KV dial could not be read", exc_info=True)
+    try:  # 3.3.6.0 R5: the bench's speed card (providers/local_bench_runs.py): the table, the badge's speed, the GPU window
+        from halo_harness.providers.local_bench_runs import with_speed_card
+        with_speed_card(card, state_dir)
+    except Exception:
+        log.debug("model card: the speed card could not be read", exc_info=True)
     return card

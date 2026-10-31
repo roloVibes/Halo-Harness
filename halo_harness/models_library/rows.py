@@ -94,6 +94,18 @@ def _live_card(host_card: dict, host_name: str) -> dict:
     return {**host_card, "other_users": [{"name": "the newest resources sample", "bytes": int(live)}], "_sample": True}
 
 
+def _bench_speed(row: dict, host_name: str) -> Optional[dict]:
+    """3.3.6.0 R5: an installed tag's speed card on this host (its ceiling row), for the badge's "~41 tok/s at 32k"."""
+    if row.get("source") != "ollama" or not host_name or not row.get("tag_or_file"):
+        return None
+    try:
+        from halo_harness.config.paths import bridge_home
+        from halo_harness.providers.local_bench_runs import speed_index
+        return speed_index(bridge_home(), host_name).get(str(row["tag_or_file"]))
+    except Exception:
+        return None
+
+
 def fit_for_row(row: dict, host_card: Optional[dict], window: int, *, host_name: str = "") -> dict:
     from halo_harness.ollama_steward.fit import card_budget
     from halo_harness.providers.fit_meter import fit_meter
@@ -115,7 +127,8 @@ def fit_for_row(row: dict, host_card: Optional[dict], window: int, *, host_name:
              "projector_info": {"general.parameter_count": proj / 2} if proj else {}}
     hc = _live_card(host_card, host_name)
     top = min(max(window * 2, 65536), row.get("context") or 262144, 262144)
-    meter = fit_meter({"kind": "ollama", "host": host_name or "this host", "window": {"tokens": window}}, hc, row=synth, top=top)
+    meter = fit_meter({"kind": "ollama", "host": host_name or "this host", "window": {"tokens": window},
+                       "speed": _bench_speed(row, host_name)}, hc, row=synth, top=top)
     b = card_budget(hc)
     parts = load_parts(info, weight_bytes=weights, window=window, bytes_per_elem=b["bpe"], parallel=b["parallel"],
                        projector_bytes=projector_for(synth)) or {}

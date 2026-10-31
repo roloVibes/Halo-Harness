@@ -120,6 +120,7 @@ export function HostCard({ h, fits }: { h: Host; fits: Record<string, Fit> }) {
                 {m.vram_pct ?? "?"}% VRAM
               </span>
               <span className="muted">{until(m.expires)}</span>
+              {m.bench && <span className="mono muted" data-testid="local-host-bench" title="its speed card (Local -> Benchmarks)">{m.bench}</span>}
               <span className="spacer" />
               <Button size="sm" variant="ghost" disabled={!!busy || !ctl.ok} title={ctl.ok ? `halo models unload ${m.model} --host ${h.name} (keep_alive 0, via ${ctl.via})` : ctl.why}
                       onClick={() => void unloadModel(h.name, m.model || "")} data-testid="local-unload">Unload</Button>

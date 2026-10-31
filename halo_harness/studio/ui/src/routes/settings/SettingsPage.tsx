@@ -9,11 +9,12 @@ import { useEffect, useMemo, useRef, type ComponentType } from "react";
 import { Empty } from "../../lib/ui";
 import { HELP } from "../help";
 import { hits, setQuery, usePages } from "./pages";
+import { LocalBlock } from "./LocalBlock";
 import { OllamaBlock } from "./OllamaBlock";
 import { SettingRow } from "./Row";
 import { useSettings, type Row } from "./store";
 
-const GROUP_BLOCKS: Record<string, ComponentType> = { ollama: OllamaBlock };
+const GROUP_BLOCKS: Record<string, ComponentType> = { ollama: OllamaBlock, local: LocalBlock }; // 3.3.6.0 R5: the changes
 
 function Head({ title, about, help, count }: { title: string; about: string; help: string; count: string }) {
   const query = usePages((s) => s.query);

@@ -62,8 +62,8 @@ def test_alt0_and_the_seven_pages(ctx: Ctx):
     ctx.check(f"each page titled, got {titles}", [titles.get(p) for p in PAGES] ==
               ["Resources", "Hosts", "Models", "Library", "Hugging Face", "Logs", "Benchmarks", "Steward"])
     framed = got.get("framed") or {}
-    ctx.check(f"the two framed pages say what they will hold and the commands today (Library is built, 3.3.5.0 R2; Hugging "
-              f"Face, R5), got {framed}", sorted(framed) == ["benchmarks", "steward"]
+    ctx.check(f"the framed page says what it will hold and the commands today (Library is built, 3.3.5.0 R2; Hugging "
+              f"Face, R5; Benchmarks, 3.3.6.0 R5), got {framed}", sorted(framed) == ["steward"]
               and all(n > 200 and k >= 3 for n, k in framed.values()))
     ctx.check(f"Steward: the job's status line and the last note, got {str(got.get('steward_status'))[:80]!r}",
               "steward job" in str(got.get("steward_status")) and str(got.get("steward_note") or "").startswith("The 27B spills"))

@@ -141,7 +141,7 @@ A host is one server Halo sends local-model calls to: an `ollama.hosts` entry (`
 
 ## speed card
 
-A model's speed card is what a short benchmark of it on one host measures: its load time, its prompt and reply tokens per second at a few windows, the largest window that stays on the GPU and the reply reserve that avoids cuts. The benchmark comes in 3.3.5.0 R5 (Local -> Benchmarks, `halo local bench`); until then the model card's `speed` is empty and `halo ollama calibrate` measures the largest window alone. Once measured it sits beside the learned window in the fit store, shows on the model card and the fit meter, and reaches every machine through the fleet hub.
+A model's speed card (3.3.6.0 R5) is what the bench measures of it on one host: its cold load, then at 8k, 32k and the planner's ceiling its prompt and reply tokens per second, the time to the first token and whether it stayed on the GPU, the largest window that did, and the reply reserve below which a 256-token reply was cut. `halo local bench` (Bench on a Models row, Local -> Benchmarks) makes it; it sits beside the battery's profile and the measured facts in the fit store, shows in the card's Measured block, the fit badge ("fits, ~41 tok/s at 32k") and the Library row, and says "measured on 0.40.6" once the host runs another Ollama or the tag changed.
 
 ## library
 
@@ -195,3 +195,10 @@ A post-mortem (3.3.6.0 R4) is "Why this answer?": one assistant turn rebuilt fro
 
 The degradation ladder (3.3.6.0 R4) is the one explicit path a failed local call takes, one rung per failure and one pass per turn, each rung one visible line: repair (asked again with what was wrong), a smaller ask (the lean prompt and the six most relevant tools), another local model that fits beside the resident one, the cloud model your escalation policy names (only when that policy allows it), and finally one question to you with what was tried. `local.ladder` sets the order or turns it off.
 
+## scope
+
+A change's scope (3.3.6.0 R5) says when a change Halo made to a local model's profile goes back: `session` when the session that made it ends, `until-restart` when the halo that made it exits, `keep` until you revert it. The steward's own changes last until halo exits; yours keep unless you pick another; a bench's trial settings last the session. `halo local changes` lists them with their scopes and `halo local revert` (or Revert in Studio) puts one or all back, saying what it put back.
+
+## warm-up
+
+The warm-up is the first call after a model loads: llama.cpp captures its compute graph then, so that call is slow (5.7 tok/s where the next runs at 199) and is never timed. The battery and the bench send one small untimed call after each load and label it "warming"; the traffic ledger marks such calls `warming` and no speed counts them.

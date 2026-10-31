@@ -54,7 +54,12 @@ def refine(host, model: str, *, state_dir, now: Optional[float] = None, force: b
     m = mode()
     lines = [f"{model} on {name}: {w}" for w in why]
     if m == "auto":
+        before = stored(host, model)
         set_fields(host, model, changes, by="ledger")
+        from halo_harness.ollama_steward import changes as CH  # 3.3.6.0 R5: a refinement is a change with a scope
+        for f, v in changes.items():
+            CH.record(state_dir, by="ledger", key=_key(host, model), field=f"dialect.{f}", before=before.get(f), after=v,
+                      scope="until-restart", why="; ".join(why), before_by=(before.get("from") or {}).get(f))
     elif m == "review":
         _propose(state_dir, host, model, changes, why)
         lines = [f"{line} (proposed: ollama.steward.apply is review)" for line in lines]

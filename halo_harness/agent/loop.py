@@ -2453,6 +2453,11 @@ class Session:
         """H4 scope B: SessionEnd(quit, /clear). Best-effort/observational
         only -- nothing a SessionEnd hook returns can change anything, the
         session is already ending."""
+        try:  # 3.3.6.0 R5: the changes this session made with scope `session` go back (ollama_steward/changes.py)
+            from halo_harness.ollama_steward.changes import revert_scope
+            self.session_end_reverts = revert_scope(self.state_dir, "session", getattr(self.log, "session_id", None))
+        except Exception:
+            self.session_end_reverts = []
         if self.hook_runner is None:
             return
         try:

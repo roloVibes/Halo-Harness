@@ -13,10 +13,13 @@
 // 3.3.6.0 R3: the fit badge's evidence, the last load as the server log says it (shared/FitEvidence.tsx).
 // 3.3.6.0 R4: the measured speed chip (providers/measured.py), the shelf hint and Retire (ShelfBits.tsx), the KV
 // dial in the window line's title (providers/kv_dial.py).
+// 3.3.6.0 R5: the speed card's chip (the bench: tok/s at the ceiling, the GPU window, stale), Bench beside Probe with
+// the cost line as its confirmation, its live log (BenchBits.tsx).
 import { Button, FitMeter, Menu } from "../../lib/ui";
 import { CardChips, CardDetail } from "../shared/ModelCard";
 import { FitEvidenceChip } from "../shared/FitEvidence";
 import { SitsChips } from "../shared/ModelCardBlocks";
+import { BenchAction, BenchStrip, SpeedCardChip } from "./BenchBits";
 import { ProbeAction, ProbedMark, ProbeStrip, TwinChips } from "./ProbeBits";
 import { ShelfHint } from "./ShelfBits";
 import { line, openAct } from "./ctl";
@@ -72,6 +75,7 @@ export function ModelRow({ m, host, score }: { m: ModelEntry; host: string; scor
         <TwinChips m={m} host={host} />
         {card.speed_chip && <span className="og-chip mono" data-testid="local-model-speed"
                                   title="the median of its last answered calls here (never the first after a load): the card's Measured block">{card.speed_chip}</span>}
+        <SpeedCardChip m={m} />
         <ShelfHint m={m} />
         <span className="spacer" />
         {m.size ? <span className="mono muted" title="the model's size on disk (/api/tags)">{gib(m.size)}</span> : null}
@@ -102,6 +106,7 @@ export function ModelRow({ m, host, score }: { m: ModelEntry; host: string; scor
         </span>
       </div>
       {m.ref.startsWith("ol:") && <ProbeStrip m={m} host={host} />}
+      {m.ref.startsWith("ol:") && <BenchStrip m={m} host={host} />}
       <CardDetail card={m.card} refName={m.ref} />
       <div className="lc-model-acts">
         <Button size="sm" disabled={busy} onClick={() => void useAsDefault(m.ref)} data-testid="local-use-default" title={`model = ${m.ref} (Setup's save)`}>
@@ -115,6 +120,7 @@ export function ModelRow({ m, host, score }: { m: ModelEntry; host: string; scor
         )}
         <span className="spacer" />
         {m.ref.startsWith("ol:") && <ProbeAction m={m} host={host} />}
+        {m.ref.startsWith("ol:") && <BenchAction m={m} host={host} />}
         {m.ref.startsWith("ol:") && <Acts m={m} host={host} />}
         <Said k={`default|${m.ref}`} />
         <Said k={`lane|${m.ref}`} />

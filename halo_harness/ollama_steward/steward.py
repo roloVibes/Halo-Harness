@@ -2,11 +2,9 @@
 adjusts. `run()` = the rules' findings -> the fit plan (inside the thrash
 finding) -> each proposal applied per `ollama.steward.apply`:
 
-    auto    (default) apply it and say one line (the command prints it; a
-            session that next calls the model shows the profile's note in
-            its status area, agent/ollama_window_steward.py)
-    review  write it down as a proposal; `halo ollama steward apply <id>`
-    off     findings only
+    auto    (default) apply it and say one line (a session that next calls the model shows
+            the profile's note, agent/ollama_window_steward.py); scope until-restart (3.3.6.0 R5)
+    review  a proposal; `halo ollama steward apply <id>` (scope keep)     off  findings only
 
 Every change is one line in `<state>/ollama/steward.jsonl`: {id, at, kind
 ("apply" | "proposal" | "undo" | "rollback" | "dismissed"), key, field, from,
@@ -140,20 +138,30 @@ def check(state_dir, f: dict, *, hosts: list, now: float, journal: Optional[list
     return {**p, "to": to}, ""
 
 
-def apply_change(state_dir, f: dict, change: dict, *, mode_name: str, now: Optional[float] = None) -> dict:
-    from halo_harness.ollama_steward.profiles import set_field
+def apply_change(state_dir, f: dict, change: dict, *, mode_name: str, now: Optional[float] = None,
+                 scope: Optional[str] = None) -> dict:
+    """3.3.6.0 R5: the change's row in changes.jsonl; `scope` defaults to until-restart in auto, keep for an Apply."""
+    from halo_harness.ollama_steward import changes
+    from halo_harness.ollama_steward.profiles import all_profiles, set_field
+    old = all_profiles().get(f["key"]) or {}
     note = f"steward: {change['field']} {change['to']} for {f['model']} on {f['host']} ({change['why']})"
     set_field(f["key"], change["field"], change["to"], by="steward", note=note[:300])
-    return _append(state_dir, {"_now": now, "id": f"c-{f['id']}-{int(now or time.time())}", "kind": "apply",
-                               "key": f["key"], "field": change["field"], "from": change.get("from"),
-                               "to": change["to"], "why": change["why"], "finding": f["id"], "rule": f["rule"],
-                               "evidence": f.get("evidence"), "plan": f.get("plan"), "mode": mode_name, "say": note})
+    row = _append(state_dir, {"_now": now, "id": f"c-{f['id']}-{int(now or time.time())}", "kind": "apply",
+                              "key": f["key"], "field": change["field"], "from": change.get("from"),
+                              "to": change["to"], "why": change["why"], "finding": f["id"], "rule": f["rule"],
+                              "evidence": f.get("evidence"), "plan": f.get("plan"), "mode": mode_name, "say": note})
+    changes.record(state_dir, by="steward", key=f["key"], field=change["field"], before=old.get(change["field"]),
+                   after=change["to"], scope=scope or ("until-restart" if mode_name == "auto" else "keep"),
+                   why=change["why"], id=row["id"], journal_id=row["id"], before_by=old.get("by"), now=now)
+    return row
 
 
 def _revert(state_dir, row: dict, kind: str, why: str, now: Optional[float] = None) -> dict:
     from halo_harness.ollama_steward.profiles import set_field
     say = f"steward {kind}: {row['field']} back to {row.get('from')} for {row['key']} ({why})"
     set_field(row["key"], row["field"], row.get("from"), by="steward", note=say[:300])
+    from halo_harness.ollama_steward.changes import mark_reverted  # 3.3.6.0 R5: its change row says so
+    mark_reverted(state_dir, row["id"], say, why, now)
     return _append(state_dir, {"_now": now, "id": f"{kind[0]}-{row['id']}", "kind": kind, "reverts": row["id"],
                                "key": row["key"], "field": row["field"], "from": row.get("to"), "to": row.get("from"),
                                "why": why, "say": say})
@@ -172,7 +180,7 @@ def rollbacks(state_dir, *, lines: Optional[list] = None, now: Optional[float] =
 
 
 def run(state_dir, *, mode_name: Optional[str] = None, found: Optional[list] = None, say: Callable = print,
-        now: Optional[float] = None, **gather_kw) -> dict:
+        now: Optional[float] = None, scope: Optional[str] = None, **gather_kw) -> dict:
     """One pass: roll back what made calls worse, then judge and act per mode."""
     from halo_harness.ollama_steward.rules import findings as get_findings
     from halo_harness.providers.ollama import resolve_ollama_hosts
@@ -189,11 +197,11 @@ def run(state_dir, *, mode_name: Optional[str] = None, found: Optional[list] = N
         return done
     hosts = resolve_ollama_hosts()
     with profile_lock(state_dir):  # R5: the journal read below and the writes after it, one pass at a time
-        _act(state_dir, found, done, hosts, mode_name, now, say)
+        _act(state_dir, found, done, hosts, mode_name, now, say, scope)
     return done
 
 
-def _act(state_dir, found: list, done: dict, hosts: list, mode_name: str, now: float, say: Callable) -> None:
+def _act(state_dir, found: list, done: dict, hosts: list, mode_name: str, now: float, say: Callable, scope=None) -> None:
     journal = read_journal(state_dir)
     proposed = {r.get("finding") for r in journal if r.get("kind") == "proposal"}
     for f in found:
@@ -203,7 +211,7 @@ def _act(state_dir, found: list, done: dict, hosts: list, mode_name: str, now: f
                 done["skipped"].append({"finding": f["id"], "why": why})
             continue
         if mode_name == "auto":
-            row = apply_change(state_dir, f, change, mode_name=mode_name, now=now)
+            row = apply_change(state_dir, f, change, mode_name=mode_name, now=now, scope=scope)
             journal.append(row)
             done["applied"].append(row)
             say(row["say"])

@@ -50,6 +50,7 @@ import "./styles/model-probe.css"; // 3.3.6.0 R1: the battery's blocks, chips an
 import "./styles/local-search.css"; // 3.3.6.0 R2: the search's strip, presets, truth marks, verdicts and cost
 import "./styles/local-logs.css"; // 3.3.6.0 R3: Local -> Logs and the fit badge's evidence chip
 import "./styles/model-measured.css"; // 3.3.6.0 R4: the KV dial, the dialect block, the shelf, Why this answer?
+import "./styles/local-bench.css"; // 3.3.6.0 R5: Benchmarks: the speed cards, the tuning report, the changes, the scope pick
 import { App } from "./App";
 
 document.documentElement.dataset.theme = document.documentElement.dataset.theme || "dark";
