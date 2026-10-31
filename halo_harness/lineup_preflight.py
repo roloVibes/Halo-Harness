@@ -69,6 +69,17 @@ def _lineup_problems(name, *, cwd, state_dir) -> "list[dict]":
     return out
 
 
+def _dead(ref, alias: str, state_dir) -> "Optional[dict]":
+    if not str(ref or "").startswith("ol:"):
+        return None
+    try:
+        from halo_harness.ollama_steward.dead_tag import check
+        got = check(ref, state_dir=state_dir)  # a lineup's lane is its bio's model: the fix edits the bio
+    except Exception:
+        return None
+    return got if got["dead"] else None
+
+
 def template_problems(template: dict, *, cwd=None, state_dir=None) -> "list[dict]":
     """The findings for an already-resolved lineup mapping (3.0.7.0 R2:
     Studio's Problems panel runs this on the unsaved edit too)."""
@@ -93,7 +104,12 @@ def template_problems(template: dict, *, cwd=None, state_dir=None) -> "list[dict
         pref, fallback = _models(template, entry, bio, cwd=cwd, state_dir=state_dir)
         for ref, kind, severity in ((pref, "model", "blocks"), (fallback, "fallback", "warns")):
             provider = missing_model_provider(ref, catalogs=catalogs, state_dir=state_dir)
-            if provider is not None:
+            dead = _dead(ref, alias, state_dir)
+            if dead:  # 3.3.7.0 R4: a local tag that is gone names its nearest equivalent (ollama_steward/dead_tag.py)
+                out.append(_finding(f"dead-{kind}:{alias}", severity, f"`{alias}` (bio `{bio_name}`): {dead['line']}",
+                                    f"point bio `{bio_name}` at {dead['near'] or 'a live id'} (`halo agents edit {bio_name}`, "
+                                    "or the lineup's models override)"))
+            elif provider is not None:
                 out.append(_finding(
                     f"dead-{kind}:{alias}", severity,
                     f"`{alias}` (bio `{bio_name}`) names {kind} `{ref}`, which is not in the {provider} catalog: "

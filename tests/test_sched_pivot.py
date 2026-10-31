@@ -94,7 +94,7 @@ def test_the_minimum_residency_holds_a_fresh_model(ctx: Ctx):
         evs, got = _drain(run(plan(h.host, CODER, BIG, window=32768), host=h.host, sleep=slept.append))
         held = [e.data["text"] for e in evs if e.data["text"].startswith("pivot held")]
         ctx.check(f"held the rest of the 60 s, said, got {held} {slept}", held and slept and 59 <= slept[0] <= 60
-                  and "(local.min_resident_s 60)" in held[0] and "qwen3-coder:30b was loaded 0 s ago" in held[0])
+                  and "(local.min_resident_s 60; this halo's own clock" in held[0] and "qwen3-coder:30b was loaded 0 s ago" in held[0])
         ctx.check("then it pivoted", got["ok"])
 
 

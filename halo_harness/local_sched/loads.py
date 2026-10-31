@@ -4,6 +4,7 @@
     record(state_dir, *, session, host, model, seconds, why)   one line in <state>/local_sched/loads.jsonl
         (the scheduler's own loads: a pivot, `halo local warm`)
     tally(state_dir, session) -> {count, seconds, per_model {model: {count, seconds}}, line}
+    recent(state_dir, host=None, since=86400) -> every load line on that host (3.3.7.0 R4: what idle reads)
     line_for(t) -> "loading: 7 loads, 3 m 02 s (qwen3.8:27b 4, qwen3-coder:30b 3)" | "loading: no loads"
 
 A load is a ledger line of the session whose `load_ms` was over 2 s (the call that paid the load:
@@ -57,6 +58,24 @@ def _own(state_dir, session: str) -> list:
                 out.append(row)
     except OSError:
         pass
+    return out
+
+
+def recent(state_dir, *, host: Optional[str] = None, since: float = 86400.0) -> list:
+    """3.3.7.0 R4: every load line on `host` (any session, the refresh's too) newer than `since` seconds."""
+    from halo_harness.ollama_steward.ledger import parse_at
+    cutoff, out = time.time() - since, []
+    try:
+        raw = _path(state_dir).read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return []
+    for line in raw:
+        try:
+            row = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(row, dict) and (not host or str(row.get("host") or "").lower() == host.lower())                 and (parse_at(row.get("at")) or 0) >= cutoff:
+            out.append(row)
     return out
 
 

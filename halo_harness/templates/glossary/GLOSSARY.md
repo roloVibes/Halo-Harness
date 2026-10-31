@@ -246,3 +246,20 @@ The loading tax (3.3.7.0 R3) is what a local model costs instead of dollars: the
 ## placement
 
 Placement (3.3.7.0 R3) is deciding where each lane's model runs across the machines: every reachable host is asked (a halo host answers with its `route`, this machine from its own reads) and scored on fits, warm, the load time and what it would evict, so a lineup does not pile every model on one card. `halo local place` prints the plan; `--apply` writes `host_for` on each moved lane's profile, Halo-side only.
+
+## foreign client
+
+A foreign client (3.3.7.0 R4) is whatever holds a model on a card that no halo explains: a model in Ollama's `/api/ps` with no Halo call, scheduler load, battery or bench behind it in the last half hour and no row on the host's residency clock -- the Kali agent asking this box for a 128k window, a script, an app. Ollama names the model, never the client, and Halo says only that. The bench and the off-hours refresh wait for it like for any other user; the traffic view and the Hosts card show "foreign: 1 model, 17.3 GB, since 14:02".
+
+## refresh
+
+The refresh (3.3.7.0 R4) is the off-hours re-measuring of local models: on a machine running `halo host`, inside `host.refresh.window` and once the card has been idle `host.refresh.idle_min` minutes, the capability battery and the quick bench run for the models whose profile is unverified, older than `host.refresh.max_age_days` or drifted, one model at a time, stopping the moment a call arrives, each result stamped "verified by the host". `halo local refresh` does the same by hand on a machine with no host.
+
+## drift
+
+Drift (3.3.7.0 R4) is a tag whose digest changed since Halo measured it: `ollama pull` of the same name brought other weights, so its battery profile, speed card, window truth and crash fingerprints were "measured on an older build of this tag". The steward's `tag-drift` finding says what it invalidated, the swap cost and Auto's pick stop trusting that speed card, and the refresh measures the tag first. Its twin, the deletion guard, names a deleted tag's nearest equivalent wherever a role still points at it.
+
+## adviser
+
+The adviser (3.3.7.0 R4) is the roster review: a deterministic look, with no model, at the installed local models against the roles, the host's memory, the capability profiles and the host log, in four kinds -- gap (nothing embeds, nothing sees, a role with no model), overlap (models covering the same ground), mismatch (the verifier on the coder's family, a compactor that pivots) and freshness (a family with a newer line) -- each with what it unlocks or frees, what it costs and one button: add, retire or point. `halo local advise` and the Adviser block on Local -> Models.
+

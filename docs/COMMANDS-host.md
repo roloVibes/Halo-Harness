@@ -2,7 +2,7 @@
 
 Read this when you run `halo host` on a machine that serves models, pair a harness with it, or install it as a service.
 
-`halo host` (3.3.7.0 R1; R2: the grants, the pending rows and the duty steward) is the model-free Halo process on the
+`halo host` (3.3.7.0 R1; R2: the grants, the pending rows and the duty steward; R4: the refresh) is the model-free Halo process on the
 machine that serves models; what it is, what it serves, the vocabulary and the ladder are in [HOST.md](HOST.md). Part of [Commands](COMMANDS.md), which lists every part.
 Exit codes: 0 done, 1 could not (the reason on stderr), 2 usage.
 
@@ -125,3 +125,18 @@ gives it its own peer record with the `--grant` (default `control`), keeps its m
 starts `halo host steward run` as a separate detached process (never the host process). `run` is that process: one
 pass every `host.steward.every_s` (300 s), `--once` for one. `off` stops it and drops its peer record; `status` says
 whether it runs, its model and its last note.
+
+## `halo host refresh`
+
+```sh
+halo host refresh [status] [--json]
+halo host refresh now [--json]
+halo host refresh off | on [--json]
+```
+
+Halo 3.3.7.0 R4, the off-hours refresh ([HOST.md](HOST.md#the-off-hours-refresh-3370-r4)): `status` prints whether it
+is on, its window, the idle minutes and the age that re-verifies, the plan's next line ("next: qwen3-coder:30b on pc
+(unverified: never probed here), battery + bench ~4 min, tonight 22:00+ once the card has been idle 20 min"), the next
+few after it, the last run and the last roster review. `now` asks the running host to start at its next tick, the
+window aside (never during a session, never while a call or a foreign model holds the card); with no host running
+it runs here, as `halo local refresh` does. `off` / `on` write `host.refresh.enabled`.

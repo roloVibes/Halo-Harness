@@ -12,7 +12,8 @@
 - drives the ledger forwarder (fleet/ollama_share.Forwarder) to every hub this machine joined with its own loop,
   so the hub sees this machine's calls with no session open, and announces itself to that hub (`POST
   /fleet/v1/host {host: true, port, fingerprint, url, serves}`, fleet/hub_hosts.py) every ANNOUNCE_S;
-- writes `<state>/host/serve.json` (host/state.py); `halo host stop` writes the stop file and the loop ends.
+- writes `<state>/host/serve.json` (host/state.py); `halo host stop` writes the stop file and the loop ends;
+- 3.3.7.0 R4: ticks the off-hours refresh (host/refresh.py) when the card is idle inside `host.refresh.window`.
 """
 
 from __future__ import annotations
@@ -170,6 +171,8 @@ class HostService:
                         self.forward_tick()
                     from halo_harness.host.verify import tick  # 3.3.7.0 R2: the fix loop's verify windows
                     tick(self)
+                    from halo_harness.host.refresh import service_tick  # 3.3.7.0 R4: the off-hours refresh
+                    service_tick(self)
                 except Exception:
                     pass
         self._shutdown()

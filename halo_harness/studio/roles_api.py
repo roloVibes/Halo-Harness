@@ -64,3 +64,5 @@ ROUTES: list = [
     ("GET", r"^models/best-for$", get_best_for),
     ("POST", r"^models/analyze$", post_models_analyze),
 ]
+from .roles_point_api import ROUTES as _POINT_ROUTES  # noqa: E402  (3.3.7.0 R4: roles/<role>/point)
+ROUTES[len(ROUTES):] = _POINT_ROUTES

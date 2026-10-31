@@ -119,7 +119,8 @@ restart: the exact line for its OS, applied false). Without it, **Request contro
 answers; on the host machine those rows sit at the top of Hosts, **ASKED OF THIS HOST**, with Allow and Deny.
 3.3.7.0 R3: each card has the active lineup's **warm-set** line ("warm on pc: qwen3-coder:30b (main, coder) -- 19.3
 of 21.5 GB; ..."), and under the cards **Place** asks where each lane should run and **Apply** writes `host_for`
-([MODELS-ollama-steward-sched.md](MODELS-ollama-steward-sched.md)).
+([MODELS-ollama-steward-sched.md](MODELS-ollama-steward-sched.md)). 3.3.7.0 R4: the **foreign** line (a model in
+`/api/ps` no halo explains), the idle line and the off-hours **refresh** plan and last run ([MODELS-ollama-steward-guards.md](MODELS-ollama-steward-guards.md)).
 
 ## Models
 
@@ -178,7 +179,8 @@ editable where it stands with its `from` tag (battery, ledger, you; "back" undoe
 ([MODELS-cards.md](MODELS-cards.md#measured-what-the-model-did-here-3360-r4)). An idle model's row says so ("not used in
 30 days, 17 GB"); its `...` menu has **Retire** (the uses card, a why, then the delete with a note) and the folded
 **Shelf** at the bottom of the page lists the retired models, each with **Re-pull** (the pull job; a fitted twin shows its
-recipe).
+recipe). 3.3.7.0 R4: above it the **Adviser** -- gap, overlap, mismatch, freshness, ranked by value per GB, one button each
+(Add, Retire, Point) and its CLI line ([MODELS-adviser.md](MODELS-adviser.md)).
 
 The page reads each host's catalog through one cache keyed by the catalog's mtime: `/api/tags` alone is read (at most
 every 15 seconds), and the per-model `/api/show` calls run again only when a model was pulled, deleted or changed. Fleet's
@@ -368,7 +370,7 @@ Library read again.
 
 Steward is framed: it says in one paragraph what it will hold and lists the commands that do that work today, each
 copyable (`halo ollama steward status`, ...), with the steward job's status line and its last note, read the way
-Fleet's Ollama panel reads them.
+Fleet's Ollama panel reads them; 3.3.7.0 R4: and the off-hours refresh's plan, last run and roster review.
 
 ## Local's five ideas
 

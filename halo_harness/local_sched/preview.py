@@ -105,7 +105,8 @@ def _hygiene(ws: dict, lanes: list) -> list:
                            f"{m['why']}; every hand-off to it is a pivot"
                            + (f" (~{secs(m['load_s'])})" if m.get("load_s") else ""))
     for m in ws["unknown"]:
-        out.append(f"{', '.join(m['lanes'])} ({m['model']}) on {host}: not judged -- {m['why']}")
+        gone = "was deleted from" in str(m["why"])  # 3.3.7.0 R4: the dead-tag line (ollama_steward/dead_tag.py)
+        out.append(f"{', '.join(m['lanes'])} ({m['model']}) on {host}: " + (m["why"] if gone else f"not judged -- {m['why']}"))
     return out
 
 

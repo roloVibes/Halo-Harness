@@ -337,6 +337,7 @@ def cmd_roles(argv: list) -> int:
     if argv[0] in ("-h", "--help"):
         print("usage: halo roles                      show the configured role table", file=sys.stderr)
         print("       halo roles on|off                turn roles.enabled on/off", file=sys.stderr)
+        print("       halo roles point <role> <model>  point a role at a model (roles.<role>; nothing pulled)", file=sys.stderr)
         print("       halo roles template list|show <name>|save <name>|new <name>|load <name>|edit <name>|export <name> [file]|import <file>",
               file=sys.stderr)
         print("GUI:   halo studio --mode roles       the same roles as a graph in the browser (Halo Studio; /roles in the TUI)",
@@ -347,8 +348,11 @@ def cmd_roles(argv: list) -> int:
             print(f"halo roles {argv[0]}: takes no arguments", file=sys.stderr)
             return 2
         return _cmd_on_off(argv[0] == "on")
+    if argv[0] == "point":  # 3.3.7.0 R4: point a role at a model (the dead-tag line's "point the role at it")
+        from halo_harness.ollama_steward.dead_tag import cmd_point
+        return cmd_point(argv[1:])
     if argv[0] != "template":
-        print(f"halo roles: {argv[0]!r} is not a command (try: on, off, template)", file=sys.stderr)
+        print(f"halo roles: {argv[0]!r} is not a command (try: on, off, point, template)", file=sys.stderr)
         return 2
     rest = argv[1:]
     if not rest:

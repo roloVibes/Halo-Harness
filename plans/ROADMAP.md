@@ -3582,7 +3582,18 @@ The order (the owner's rule: all of this before Type into Studio and themes):
   loading tax~~, ~~G6 the warm-set planner~~, ~~G12 the placement solver~~ (`halo local place [--apply]`). Still
   open from R3: the pivot back to main after a child ends is Ollama's own load on main's next call (counted on the
   loading tax, not a pivot line); the placement plan is per lineup, not a fleet-wide bin packing across lineups;
-  R4 guards + refresh + adviser next (G13, G14, the busy wait, Part J), then R5 bundles.
+  R4 "guards, refresh and the adviser" DONE (2026-10-31): ~~G13 the off-hours refresh~~ (the host's loop: the battery
+  and the quick bench inside `host.refresh.window` once the card is idle, one model at a time, stopped by a call,
+  stamped "verified by the host"; `halo host refresh status | now | off`, `halo local refresh` with no host), ~~G14
+  drift and deletion guards~~ (`tag-drift`, `tag-deleted`, the one dead-tag line with its nearest equivalent, `halo
+  roles point`), ~~D5 21 traffic including foreign clients~~ (the busy wait, the traffic view and the Hosts card; the
+  host's residency clock), ~~Part J the roster adviser~~ (gap / overlap / mismatch / freshness, value per GB, one
+  button each, `halo local advise`, the nightly roster review), ~~the R6 eyes' leftovers~~ (a hub's capture on a
+  member's display kept on the member, `fleet.share_captures`; the vision probe on Hugging Face local servers), the
+  ladder's crash trigger. Still open from R4: a TUI-only peer's calls reach no host ledger (they look foreign there);
+  the refresh measures one card at a time per host and re-runs the battery on a drifted tag without diffing what
+  changed; the adviser's "newer" is the library's version number, not a measurement; the image prefill row on the
+  speed card. R5 bundles + the steward's chat next.
 - **3.3.8.0 "Voice"** -- Part K: the local loop (Silero VAD -> faster-whisper
   large-v3-turbo or Parakeet TDT -> the session's model -> sentence
   aggregator -> Kokoro-82M or Qwen3-TTS, through Pipecat or LiveKit Agents,

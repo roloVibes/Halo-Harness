@@ -1,0 +1,9 @@
+/* 3.3.7.0 R4: the guards' lines on Local -> Hosts and the traffic view, the Steward page's refresh, the Adviser. */
+.lc-guards { display: flex; flex-direction: column; gap: 2px; }
+.lc-foreign { color: var(--warn); }
+.lc-foreign-list { display: flex; flex-direction: column; gap: 2px; padding: 4px 0; font-size: 12px; }
+.lc-adviser summary { cursor: pointer; }
+.lc-adv-row { display: flex; flex-direction: column; gap: 4px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.lc-adv-head { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.lc-adv-says { flex: 1 1 320px; }
+.lc-adv-cost { font-size: 12px; }

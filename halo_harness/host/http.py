@@ -28,7 +28,7 @@ from halo_harness.fleet import protocol
 PREFIX = "/host/v1"
 MAX_BODY = 256_000
 GETS = ("ping", "card", "catalog", "profiles", "events", "tail", "stream", "me", "job", "jobs", "changes", "findings",
-        "pending")
+        "pending", "residency", "idle", "refresh")  # 3.3.7.0 R4: the residency clock, idle, the refresh
 POSTS = ("simulate", "route", "request", "ledger")
 GRANTED = ("control", "manage", "admin")
 

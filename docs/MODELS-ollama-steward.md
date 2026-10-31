@@ -2,7 +2,7 @@
 
 Read this when you want to know what the Ollama steward knows, records, finds and changes across your halos and model servers.
 
-Part of [Models](MODELS.md), which lists every part. A model a `halo host` serves: [MODELS-ollama-steward-host.md](MODELS-ollama-steward-host.md).
+Part of [Models](MODELS.md), which lists every part. A model a `halo host` serves: [MODELS-ollama-steward-host.md](MODELS-ollama-steward-host.md). The `tag-drift` and `tag-deleted` rules, foreign clients and the off-hours refresh (3.3.7.0 R4): [MODELS-ollama-steward-guards.md](MODELS-ollama-steward-guards.md).
 
 ## The steward (3.3.4.0)
 

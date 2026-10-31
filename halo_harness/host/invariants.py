@@ -96,6 +96,14 @@ def _plan_many(card: dict, items: list, host_name: str) -> dict:
     return plan(card, asked, {r["model"]: r for r, _w in items}, host_name=host_name)
 
 
+def _foreign(view, host, r: dict) -> str:
+    try:
+        from halo_harness.ollama_steward.idle import NOT_A_HALO, explained
+        return "" if explained(view.home, host.name, str(r.get("model") or "")) else f" ({NOT_A_HALO})"
+    except Exception:
+        return ""
+
+
 def check_load(view, host, model: str, window: Optional[int], *, beside: bool = False,
                rows: Optional[list] = None) -> dict:
     """Would loading `model` at `window` here keep the invariants? The verdict line either way."""
@@ -121,8 +129,8 @@ def check_load(view, host, model: str, window: Optional[int], *, beside: bool = 
     hrow = helper_row(view.home, rows)
     others = [r for r in rows if not ollama_names_match(r.get("model"), model) and r is not hrow]
     out["others"] = [r.get("model") for r in others]
-    if others and not beside:
-        names = ", ".join(str(r.get("model")) for r in others)
+    if others and not beside:  # 3.3.7.0 R4: a foreign client's model is a resident like any other, and named so
+        names = ", ".join(str(r.get("model")) + _foreign(view, host, r) for r in others)
         out["verdict"] = (f"one resident per card: {names} {'is' if len(others) == 1 else 'are'} loaded on {host.name}; "
                           f"pivot to {model} (it unloads first), or send beside: true when both fit")
         return out

@@ -170,9 +170,12 @@ def post_session_command(req):
         req.params = {"sid": sid}
         return post_command(req)
     cmd = str(body.get("cmd") or "")
-    if body.get("image") or body.get("image_path") or cmd == "screenshot":  # 3.3.6.0 R6: this harness's own sessions only
-        return 422, {"error": "an image or a screenshot goes to this harness's own sessions: a fleet member's files and "
-                              "display are its own (open that harness's Studio to attach one)", "problems": []}
+    if cmd == "screenshot":  # 3.3.7.0 R4: the member captures its own display and keeps the file (fleet/control_capture.py)
+        fields = {k: body[k] for k in ("target", "title", "rect", "display") if body.get(k)}
+        return _send(req, hid, sid, "capture", fields)
+    if body.get("image") or body.get("image_path"):  # 3.3.6.0 R6: a file goes to this harness's own sessions only
+        return 422, {"error": "an image goes to this harness's own sessions: a fleet member's files are its own (open that "
+                              "harness's Studio to attach one, or ask it for a screenshot)", "problems": []}
     if cmd not in SESSION_CMDS:
         return 422, {"error": f"cmd is one of {', '.join(SESSION_CMDS)}, got {cmd!r}", "problems": []}
     if cmd == "answer":
