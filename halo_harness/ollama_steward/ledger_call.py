@@ -1,17 +1,14 @@
-"""halo_harness.ollama_steward.ledger_call -- Halo 3.3.4.0 R2: the ledger's
-two writers.
-
-- `observe_call(session, req, gen, kind=...)` wraps the event stream of one
-  model call (`agent/loop.py`'s `_stream`, the one place every turn,
-  compaction, small-model and repair call is dispatched): for a call to a
-  LOCAL server -- an `ol:` host that is not Ollama's own cloud (native or
-  `dialect: openai`), an `hf:local/*` / `hf:mlx/*` server -- it passes
-  every event through unchanged and, once the call's facts are in hand
-  (the final `message_delta`, a wire error, a phase-1 exception, the
-  caller closing the stream early), writes one ledger line. Any other
-  call gets its stream back untouched.
-(`ledger.record_probe` writes a calibration load's line.)
-
+"""halo_harness.ollama_steward.ledger_call -- Halo 3.3.4.0 R2: the ledger's writer.
+`observe_call(session, req, gen, kind=...)` wraps the event stream of one model
+call (`agent/loop.py`'s `_stream`, the one place every turn, compaction,
+small-model and repair call is dispatched): for a call to a LOCAL server -- an
+`ol:` host that is not Ollama's own cloud (native or `dialect: openai`), an
+`hf:local/*` / `hf:mlx/*` server -- it passes every event through unchanged and,
+once the call's facts are in hand (the final `message_delta`, a wire error, a
+phase-1 exception, the caller closing the stream early), writes one ledger line.
+Any other call gets its stream back untouched. (`ledger.record_probe` writes a
+calibration load's line; 3.3.5.0 R4: ledger_prompt.py adds the prompt's
+composition, its prefix, the preflight's decision, warming and the cache.)
 `retry` counts the calls of one turn that immediately follow a failed or
 trimmed one (0 for a first send); a clean answer resets it.
 """
@@ -25,6 +22,7 @@ import urllib.parse
 from typing import Optional
 
 from halo_harness.ollama_steward import ledger
+from halo_harness.ollama_steward.ledger_prompt import finish as prompt_finish, prompt_fields
 
 log = logging.getLogger("bridge")
 
@@ -155,6 +153,7 @@ def _write(session, req, kind: str, target: dict, base: dict, extra: dict) -> No
             from halo_harness.providers.ollama_prompt import is_trimmed
             line["trimmed"] = bool(is_trimmed(line.get("prompt_eval_count"), line.get("estimate_tokens"), reserve))
         line["retry"] = _bump_retry(session, kind, line)
+        prompt_finish(line, reserve)  # 3.3.5.0 R4: warming, cache_reused_pct
         ledger.record_call(getattr(session, "state_dir", None) or getattr(req, "state_dir", None), line)
     except Exception:
         log.debug("ollama ledger: recording a call failed", exc_info=True)
@@ -187,10 +186,10 @@ def _observed(session, req, gen, kind, abort, target):
             "turn": getattr(session, "turn_count", None)}
     base.update(_window(session, target["host"]["url"], body))
     from halo_harness.ollama_steward.ledger_switch import switch_fields  # 3.3.5.0 R0
-    base.update(switch_fields(session, model, kind))
+    base.update(switch_fields(session, model, kind), **prompt_fields(session, kind))  # R4: the prompt budget
     from halo_harness.ollama_steward.ledger_bytes import body_bytes, event_bytes  # 3.3.5.0 R1
     base.update(bytes_in=body_bytes(body), bytes_out=0)
-    wall =lambda: round((time.monotonic() - t0) * 1000, 1)  # noqa: E731
+    wall = lambda: round((time.monotonic() - t0) * 1000, 1)  # noqa: E731
     done = False
     answer: dict = {}  # the final message_delta's facts, written when the stream ends (usage may follow it)
 

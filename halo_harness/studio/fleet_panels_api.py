@@ -52,7 +52,7 @@ def post_answer(req):
         return 404, {"error": f"no attention row {rid!r} (answered already, or gone)"}
     if key not in row["keys"]:
         return 422, {"error": f"a {row['kind']} row takes {', '.join(row['keys'])}, got {key!r}", "problems": []}
-    if (row["kind"], key) in NEEDS_TEXT and not text:
+    if (row["kind"], key) in NEEDS_TEXT and not text and row.get("text_for"):  # 3.3.5.0 R4: a preflight row takes none
         return 422, {"error": f"{row['keys'][key]} needs text", "problems": []}
     status, got, label = act(req, w, row, key, text)
     out = {"ok": status < 300, "id": rid, "kind": row["kind"], "key": key, "answer": label}

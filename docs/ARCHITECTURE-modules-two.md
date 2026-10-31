@@ -21,6 +21,8 @@ every call leaves a record: `ollama_steward/ledger.py` (the ledger line,
 load's line), `ollama_steward/ledger_call.py` (the observer
 `agent/loop.py`'s `_stream` wraps every local-server call in),
 `ollama_steward/ledger_switch.py` (3.3.5.0 R0: the line's `switched_from` and `fitted`),
+`ollama_steward/ledger_prompt.py` (3.3.5.0 R4: the prompt budget's fields -- the composition, the prefix,
+the preflight's decision, `warming`, `cache_reused_pct`),
 `ollama_steward/traffic.py` (the rollups per host and model),
 `ollama_steward/server_rules.py` (one server-log line to an event),
 `ollama_steward/server_context.py` (the rules that need the lines around a
@@ -190,6 +192,7 @@ and `isolation/Dockerfile` the worker image.
   `fleet/ollama_share.py`), `studio/local_api.py` (the `local/` routes), `studio/local_hosts_view.py` (every host as a
   card and its controls), `studio/local_models_view.py` (every model per host, its card, its meter, the intent scores),
   `studio/local_traffic.py` (the ledger as rows, the per-host minute buckets, the tap's `traffic` frames),
+  `studio/local_warm.py` (3.3.5.0 R4: a model row's "warm" / "cold (~N s to load)" and "cache reused N %"),
   `studio/local_catalog.py` (one catalog per host keyed by `/api/tags`' signature), `studio/local_door.py`
   (`LocalTarget` = `local`, `local:<page>`, `?mode=local&page=hosts`), `local_tab_cli.py` (`halo local` opens it,
   `halo local hosts | models | resources` print) and `ui/src/routes/local/` (the page rail, the seven pages, the

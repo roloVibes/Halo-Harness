@@ -60,6 +60,8 @@ KEYS = {
     "goal_replan": {"a": "apply the new plan", "r": "keep the old plan", "s": "stop the goal", "o": "open the plan"},  # R2
     "ollama_steward": {"a": "set aside", "o": "open Ollama"},  # 3.3.4.0 R4: the steward's note
 }
+# 3.3.5.0 R4: a preflight card (agent/preflight.py) answers accept = compact, edit = the bigger-window model, stop
+PREFLIGHT_KEYS = {"a": "compact", "r": "bigger-window model", "s": "stop", **OPEN}
 TEXT_FOR = {"permission": "r", "question": "r", "plan": "r", "approval": "r", "mission_plan": "r",
             "team_gate": "r", "goal_plan": "r", "goal_gate": "r", "goal_budget": "r", "goal_ask": "r",
             "goal_replan": "r"}
@@ -121,6 +123,8 @@ def session_rows(view: dict, asks: dict, seen: dict, now: float) -> list:
                     what, detail = _what(kind, ask)
                     out.append(_row(kind, rid, h, s, str(ask.get("agent_id") or "main"), what, detail, seen, now,
                                     request_id=rid))
+                    if kind == "approval" and rid.startswith("preflight-"):  # 3.3.5.0 R4: agent/preflight.py's card
+                        out[-1].update(keys={**PREFLIGHT_KEYS}, text_for=None)
                     listed = True
             for a in s.get("agents") or []:
                 aid = str(a.get("agent_id") or "")

@@ -29,6 +29,12 @@ A loaded model takes, per device: its weights, the window's caches (the KV cache
 - The measured 27B shows both: "llama_kv_cache: size = 1088.00 MiB ( 32768 cells, 16 layers ...)" for 64 layers, and "llama_memory_recurrent: size = 748.13 MiB" at every window. [S30]
 - Its draft layer (the multi-token-prediction head used for speculative decoding) keeps its own one-layer f16 cache: 128 MiB at 32,768. [S30]
 
+## The prompt cache
+
+- The runner keeps the KV cache of the previous prompt and reads only what changed after the longest common front, so a front that stays byte-stable from turn to turn (the system prompt, the tool list, the memory) is not read again. [S42]
+- A model with sliding-window or hybrid/recurrent memory cannot keep that cache: its log says "forcing full prompt re-processing due to lack of cache data (likely due to SWA or hybrid/recurrent memory)" and every turn reads the whole prompt again. [S42]
+- Halo keeps the front stable within a session (the memory block at the end of the system message, the tools in one order) and its ledger records the prefix's tokens and the share of the prompt not read again. [S43]
+
 ## The compute buffer, the minimum and the margin
 
 - The compute buffer grows with the window and the batch: the measured 27B used 180 MiB at 16,384 and 260 MiB at 32,768 (batch 512). [S30]

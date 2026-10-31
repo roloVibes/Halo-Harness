@@ -199,6 +199,7 @@ class StatusBar(Static):
         # these three together, never partially, so a stale reading from
         # a previous model can never survive a model switch).
         self.ollama_tokens_per_second: "float | None" = None
+        self.ollama_warming = False  # Halo 3.3.5.0 R4: the last call loaded the model first
         self.ollama_prefill_seconds: "float | None" = None
         self.ollama_offloaded: "bool | None" = None
         # An explicit ASCII-glyph override for the remote chip (None =
@@ -289,6 +290,7 @@ class StatusBar(Static):
             self.ollama_tokens_per_second = data["ollama_tokens_per_second"]
             self.ollama_prefill_seconds = data.get("ollama_prefill_seconds")
             self.ollama_offloaded = data.get("ollama_offloaded")
+            self.ollama_warming = bool(data.get("ollama_warming"))
         phase = data.get("phase")
         if phase and phase != self.phase:
             self.phase = phase
@@ -546,7 +548,7 @@ class StatusBar(Static):
         # segment) before the first `ol:` reply of the session, or on any
         # other route.
         throughput_str = format_ollama_throughput(self.ollama_tokens_per_second, self.ollama_prefill_seconds,
-                                                    self.ollama_offloaded)
+                                                    self.ollama_offloaded, warming=self.ollama_warming)
         # H15 part 2 addendum 4: "OR $12.40 left"/"OR $3.21 used" --
         # omitted entirely (blank, no segment at all, same convention as
         # effort_str/permission_str below) until a fetch has ever

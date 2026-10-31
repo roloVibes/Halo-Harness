@@ -326,6 +326,12 @@ async def _show_approval_card(app, data: dict, *, agent_id: "str | None" = None)
                        "was interrupted).", severity="warning", title="Approval")
         app.clear_pending_card()
 
+    if position == "preflight":  # Halo 3.3.5.0 R4: compact (Enter) / a bigger-window model / send anyway
+        from halo_harness.tui.widgets.preflight_card import PreflightCard
+        card = PreflightCard(request_id=request_id, text=data.get("text", ""), switch_to=data.get("switch_to"),
+                             on_decide=on_decide)
+        await app.enqueue_pending_card(card, marker_text="⏸ the prompt is larger than the window, see below")
+        return
     card = ApprovalCard(request_id=request_id, position=position, text=data.get("text", ""),
                          is_error=bool(data.get("is_error")), on_decide=on_decide)
     await app.enqueue_pending_card(card, marker_text=f"⏸ approval needed for {position}, see below")

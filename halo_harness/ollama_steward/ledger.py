@@ -22,7 +22,9 @@ A line (`blank_line` has every field, `None` when unknown):
     it differs), fitted (a switch step ran before this call), body_flags
     (3.3.5.0 R0b: {think, tools, images} -- the think value the body sent,
     None when it sent none; whether it carried a tool catalog and images),
-    bytes_in / bytes_out (3.3.5.0 R1: the request body's size, the reply's)
+    bytes_in / bytes_out (3.3.5.0 R1: the request body's size, the reply's),
+    composition, prefix_tokens, prefix_changed, preflight, warming,
+    cache_reused_pct (3.3.5.0 R4: the prompt budget, ledger_prompt.py)
 
 `from` is this machine's fleet name while it has joined a hub (None
 otherwise); the hub sets it to the member's name on the lines a member
@@ -50,7 +52,8 @@ KINDS = ("turn", "compaction", "calibrate", "small", "repair")
 FIELDS = ("at", "host", "model", "ref", "dialect", "kind", "num_ctx_sent", "window_source", "estimate_tokens",
           "prompt_eval_count", "eval_count", "done_reason", "total_ms", "load_ms", "prompt_eval_ms", "eval_ms",
           "eval_tok_s", "trimmed", "status", "error", "retry", "session", "turn", "tools_count", "images", "from",
-          "switched_from", "fitted", "body_flags", "bytes_in", "bytes_out")
+          "switched_from", "fitted", "body_flags", "bytes_in", "bytes_out", "composition", "prefix_tokens",
+          "prefix_changed", "preflight", "warming", "cache_reused_pct")
 _SINCE_RE = re.compile(r"^\s*(\d+(?:\.\d+)?)\s*([smhdw]?)\s*$", re.IGNORECASE)
 _UNIT_S = {"": 3600, "s": 1, "m": 60, "h": 3600, "d": 86400, "w": 7 * 86400}
 
@@ -110,7 +113,7 @@ def blank_line(**values) -> dict:
     """A line with every field, the defaults filled (`kind` "turn", `retry`
     0, `trimmed` False, `images` 0, `at` now, `from` this machine)."""
     line = {k: None for k in FIELDS}
-    line.update(kind="turn", retry=0, trimmed=False, images=0, fitted=False)
+    line.update(kind="turn", retry=0, trimmed=False, images=0, fitted=False, warming=False)
     line.update(values)
     if not line.get("at"):
         line["at"] = now_iso()
@@ -194,11 +197,8 @@ def _iter_file(path: Path):
 
 
 def host_matches(line: dict, host: Optional[str]) -> bool:
-    if not host:
-        return True
-    h = line.get("host") or {}
-    want = host.lower()
-    return isinstance(h, dict) and want in (str(h.get("name") or "").lower(), str(h.get("url") or "").lower())
+    h, want = line.get("host") or {}, (host or "").lower()
+    return not host or isinstance(h, dict) and want in (str(h.get("name") or "").lower(), str(h.get("url") or "").lower())
 
 
 def model_matches(line: dict, model: Optional[str]) -> bool:

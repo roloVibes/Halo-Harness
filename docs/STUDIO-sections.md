@@ -104,7 +104,13 @@ runs, hands back and asks, in the Fleet log's columns under this session's
 timeline strip, with the Steer box at its foot. Map (`session-map`): your
 sessions on this machine as cards, each one's agents as a tree. Cost
 (`session-cost`): the chosen session's spend and sparkline, the context bar, the tokens, your turns and cost
-per turn, elapsed, the model, each agent's own share, tokens and calls, moving with the terminal. Agent (`session-agent`):
+per turn, elapsed, the model, each agent's own share, tokens and calls, moving with the terminal; under the context
+bar (Halo 3.3.5.0 R4, `session-cost-composition`) the last request's parts as one stacked bar in tokens -- system,
+memory, topics, tools, history, you -- each in its own token colour with its count, the same line `/cost` prints
+([MODELS-prompt-budget.md](MODELS-prompt-budget.md#the-composition)). When the session holds a local request that
+will not fit its window, the Live column's Steer box shows the preflight line with three buttons above it:
+Compact (`preflight-compact`), the bigger-window model on the host (`preflight-switch`, disabled when none fits)
+and Send anyway (`preflight-send`), answering the same card the terminal shows. Agent (`session-agent`):
 the selected agent, its streams and controls. Activity (`session-activity`):
 the chosen session's timeline lanes and full live log. Attention
 (`session-attention`): what waits on you in this harness's sessions.

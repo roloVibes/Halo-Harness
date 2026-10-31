@@ -65,5 +65,9 @@ ROWS = [
     Row("models.learn.min_tasks", "models", "Learn after tasks", "int", 3, (), "Checked tasks of a kind a model needs before its rate counts.", "now"),
     Row("models.learn.window_days", "models", "Learn window (days)", "int", 30, (), "Only outcome rows of the last N days count; 0 counts every row.", "now"),
     Row("models.learn.drop_below", "models", "Drop below", "float", 0.34, (), "A model whose rate for a kind is below this is dropped for the kind; 0 drops nothing.", "now"),
+    Row("prompt.lean", "models", "Lean prompt", "enum", "auto", ("auto", "on", "off"), "What Halo sends a small model: the topic index as one line per file, the memory capped, the tools capped by the window; auto is a local model or a window under 64k.", "now"),
+    Row("prompt.topics_max", "models", "Topic files sent", "int", 12, (), "Under the lean prompt, the newest topic files named in the memory block; the rest are one line (/memory topics lists them).", "now"),
+    Row("prompt.memory_max_tokens", "models", "Memory tokens at most", "int", 4000, (), "Under the lean prompt, MEMORY.md is held to this many tokens, the newest entries kept and the cut said in one line.", "now"),
+    Row("prompt.preflight", "models", "Over the window", "enum", "ask", ("ask", "compact", "send"), "A local request larger than its window: ask (compact, a bigger-window model or send anyway; compact when nobody can answer), compact, or send it to be cut.", "now"),
     Row("models.think.<ref>", "models", "Think on a local model", "keyed", None, ("on", "off", "default"), "Per local model ref: on or off sends Ollama's think field whatever the effort level, default sends none (the model's own); gpt-oss also takes low, medium and high; unset, the effort level decides.", "now"),
 ]
