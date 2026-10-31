@@ -74,7 +74,8 @@ def test_agent_tree_tail_steer_pause_redirect_stop_and_frames(ctx: Ctx):
                       and hello["data"]["harness"]["id"] and hello["data"]["kind"] == "tui"
                       and "endpoint" not in hello["data"] and "token" not in hello["data"])
             controller.submit("go")
-            rows = wait_for(lambda: (lambda r: r if len(r) >= 4 and _by_name(c, "C:") else None)(_rows(c)))
+            # 60 s, not the 15 s default: the Windows runner (6d75a1b3) had no agent rows yet at 15 s
+            rows = wait_for(lambda: (lambda r: r if len(r) >= 4 and _by_name(c, "C:") else None)(_rows(c)), 60)
             ctx.check(f"agents: main plus A, B and C, got {sorted((rows or {}).keys())}", rows is not None)
             a, b, cc = _by_name(c, "A:"), _by_name(c, "B:"), _by_name(c, "C:")
             main = (rows or {}).get("main") or {}
