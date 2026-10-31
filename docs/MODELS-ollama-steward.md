@@ -68,7 +68,16 @@ R2, every call leaves a record:
   (`{think, tools, images}`: the think value the body sent, None when none,
   and whether it carried a tool catalog and images), and from 3.3.5.0 R1
   `bytes_in` / `bytes_out` (the request body as sent, the reply as it
-  streamed). Every line written is published at once
+  streamed), and from 3.3.5.0 R4 the prompt budget's fields
+  ([MODELS-prompt-budget.md](MODELS-prompt-budget.md)): `composition`
+  (`{system, memory, topic_index, tools_schema, history, user, total}`, the
+  request's parts in tokens), `prefix_tokens` and `prefix_changed` (the
+  system message and the tools, and whether they differ from the session's
+  previous call), `preflight` (the preflight's decision before this call:
+  "compact", "switch" or "sent"; None when the request fitted), `warming`
+  (the first call after a load, `load_ms` over 2 s: never counted as a speed)
+  and `cache_reused_pct` (the share of the prompt Ollama did not read again).
+  Every line written is published at once
   (`ollama_steward/ledger_tap.py`) for Studio's Local tab. The OpenAI dialect
   fills the counts from `usage` and `done_reason` from `finish_reason`.
   The file rotates to `traffic.1.jsonl` at 20 MB; `ollama.ledger: false`
@@ -108,6 +117,7 @@ R2, every call leaves a record:
 | `stall` | a request with no progress line for 5 minutes (while watching) |
 | `server-down` | `/api/version` unanswered three times in a row |
 | `other-error` | any other `level=ERROR` line |
+| `no-prompt-cache` | "forcing full prompt re-processing due to lack of cache data" (3.3.5.0 R4): the model keeps no prompt cache; its card gains the quirk "re-reads the whole prompt every turn" |
 | `loaded`, `unloaded`, `reloaded` | `/api/ps` from one poll to the next; `reloaded` is one model at another window |
 | `startup` | a new "server config" block: the hardware card is read again |
 
@@ -193,7 +203,7 @@ R4, the steward's agent, selectable and cheap, and the job that runs it:
 - **What it reads**: a guide built once from the knowledge files (each
   alert kind's meaning, cause, Halo-side change and server-side line from
   `symptoms.md`, and its rule that a smaller window answers a spill, never
-  an outgrown conversation; under 2,000 tokens), then the hardware card of
+  an outgrown conversation; under 2,100 tokens), then the hardware card of
   each host involved, the ledger's rollups per model, the last 20 events,
   the findings, the fit plans, the changes this run made and the machines
   that called.
@@ -243,6 +253,15 @@ model's". A halo before 3.3.5.0, or a path that moved the model another way,
 leaves these; the switch step ([MODELS-switching.md](MODELS-switching.md))
 is the fix. `halo ollama explain switch-without-fit` prints its row of the
 symptoms table.
+
+### A chosen cut, and warming calls (3.3.5.0 R4)
+
+A trim the user chose -- the preflight's "send anyway", the ledger's
+`preflight: "sent"` -- is not a finding: `window-small` and
+`window-asked-small` leave the call out, and a `prompt-trimmed` server line
+within two minutes of such a call too. A call tagged `warming` never counts
+toward a speed: the p50 the rules read, `slow-box` and `halo ollama
+traffic`'s tok/s leave it out.
 
 ### called-wrong
 

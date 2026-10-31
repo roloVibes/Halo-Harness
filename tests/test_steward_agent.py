@@ -3,7 +3,7 @@
 
 - the prompt's guide is built from the knowledge files (every symptoms.md
   kind, the "never a smaller window for an outgrown conversation" rule, no
-  source tags) and stays under 2,000 tokens; the context names the findings,
+  source tags) and stays under 2,100 tokens; the context names the findings,
   the changes and the machines;
 - a fake model answers a note and a proposals block: the note lines land in
   steward.jsonl (the first is the status line, the cost line last); a bounded

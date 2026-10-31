@@ -14,6 +14,7 @@ export type TRow = {
   window_source?: string | null; trimmed?: boolean; cut?: boolean; status?: number | string | null; ok?: boolean;
   tok_s?: number | null; fitted?: boolean; switched_from?: string | null; bytes_in?: number | null; bytes_out?: number | null;
   error?: string | null; say?: string; severity?: string; notify?: boolean;
+  warming?: boolean; cache_reused_pct?: number | null; preflight?: string | null; // 3.3.5.0 R4
 };
 export type Bucket = { t: number; calls: number; trims: number; cuts: number; errors: number; bytes_in: number; bytes_out: number };
 export type Traffic = { rows: TRow[]; events: TRow[]; spark: Record<string, Bucket[]>; since_s: number; hosts: string[]; at: number };
@@ -31,6 +32,8 @@ export type ModelEntry = {
   profile: { num_ctx?: number; num_predict?: number; keep_alive?: string | number; by?: string; note?: string } | null;
   loaded: { size_vram: number | null; size: number | null; expires: string | null; context_length: number | null } | null;
   intent: Record<string, number | null>;
+  /** 3.3.5.0 R4 (studio/local_warm.py): warm / cold with the last load's seconds, and the prompt cache's share. */
+  warm?: { state: "warm" | "cold"; load_s: number | null; line: string; cache_reused_pct: number | null; cache_line: string };
 };
 export type Intent = { id: string; title: string; why: string };
 export type ModelsAnswer = { hosts: { name: string; kind: string; url: string; models: ModelEntry[] }[]; intents: Intent[]; at: number };

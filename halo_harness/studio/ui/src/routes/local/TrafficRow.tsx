@@ -5,6 +5,7 @@
 // trimmed / cut / the status, tok/s, and the `fitted` and `switched from` marks
 // -- or a steward event (loaded, unloaded, reloaded, spilled, trimmed ...) as a
 // muted row between them. Every figure carries what it is as its title.
+// 3.3.5.0 R4: a warming call says "warming" instead of a speed; "cache reused N %"; the preflight's decision.
 import type { TRow } from "./types";
 import { kb } from "./store";
 
@@ -45,7 +46,13 @@ export function TrafficRow({ r }: { r: TRow }) {
         win {r.window ? k(r.window) : "default"}
       </span>
       <span className="mono lc-ts" data-state={state} data-testid="local-traffic-state">{state}</span>
-      <span className="mono muted" title="the reply's eval rate">{typeof r.tok_s === "number" ? `${Math.round(r.tok_s)} tok/s` : ""}</span>
+      <span className="mono muted" title={r.warming ? "the first call after a load: never timed" : "the reply's eval rate"} data-testid="local-traffic-speed">
+        {r.warming ? "warming" : typeof r.tok_s === "number" ? `${Math.round(r.tok_s)} tok/s` : ""}
+      </span>
+      {typeof r.cache_reused_pct === "number" && r.cache_reused_pct > 0 && (
+        <span className="mono muted" data-testid="local-traffic-cache" title="the share of the prompt Ollama did not read again">cache reused {r.cache_reused_pct} %</span>
+      )}
+      {r.preflight && <span className="og-chip mono" data-testid="local-traffic-preflight" title="the preflight's decision before this call (the prompt was larger than the window)">preflight: {r.preflight}</span>}
       <span className="mono muted" title="the request body in, the reply out">{r.bytes_in ? `${kb(r.bytes_in)} / ${kb(r.bytes_out)}` : ""}</span>
       {r.fitted && <span className="og-chip mono" data-testid="local-traffic-fitted" title="a switch step fitted the session to this model before the call">fitted</span>}
       {r.switched_from && <span className="og-chip mono" title="the previous call of this session went to another model">from {r.switched_from}</span>}

@@ -15,6 +15,7 @@
 // 3.3.3.1: the spend is the priced part; when some model reports no price
 // (`cost_complete === false`) the ticker and PER TURN carry a "+" whose title
 // names the model, and main's line says "no price" when its own model is one.
+// 3.3.5.0 R4: under the context bar, the last request's parts as one stacked bar (CostComposition.tsx).
 import { useEffect } from "react";
 import type { MotionState } from "../../lib/motion";
 import { Empty } from "../../lib/ui";
@@ -29,6 +30,7 @@ import { lastTurnCost, startSpend, useSpend } from "./spend";
 import { ownCosts, partialTitle, unpricedMain } from "./shares";
 import { chosenSession } from "./store";
 import { EffortMenu } from "./EffortMenu"; // 3.3.5.0 R0b (c): the effort control
+import { CompositionBar } from "./CostComposition"; // 3.3.5.0 R4: what the last request was made of
 
 /** 45s, 12m 03s, 2h 05m since a unix time in seconds. */
 function since(ts: number | null | undefined, now: number): string {
@@ -102,6 +104,7 @@ export function CostDetail() {
         <Spark list={series} />
       </div>
       <ContextBar used={ss.context_tokens} limit={ss.context_limit} />
+      <CompositionBar c={ss.composition} />
       <div className="sco-grid">
         <Figure label="TOKENS IN" value={tok(ss.tokens_in)} testid="session-cost-in" title="input tokens the session has sent its model so far" />
         <Figure label="TOKENS OUT" value={tok(ss.tokens_out)} testid="session-cost-out" title="output tokens its model has written so far" />

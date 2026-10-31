@@ -58,6 +58,8 @@ Some architectures always run one slot whatever `OLLAMA_NUM_PARALLEL` says: mlla
 - Chat requests first drop whole messages from the front, keeping every system message and always the last message, until the rendered prompt fits `num_ctx`; this step logs only at DEBUG level. [S6]
 - If the messages left hold no real user message (only tool results), the Qwen 3.5 family's renderer fails with "no user query found in messages", which the chat route returns as HTTP 500 after logging "chat prompt error". [S5][S7][S30]
 - A prompt still longer than the window is cut by the runner: it keeps the first `num_keep` tokens and only the newest tokens up to `num_ctx - (num_ctx - num_keep) / 2`, about half the window, and logs "truncating input prompt". [S4]
+- Measured on 0.40.13: a 21,239-token prompt to a 32,768 window passed untouched; a 41,239-token one was always cut to 16,386 tokens (32,768 / 2 + 2) with `keep=4`, with or without `num_predict`, so what survives is 4 tokens of the start and the tail: a task summary at the front is lost and the end of the prompt is kept. [S42]
+- Before a call that will not fit, Halo says so in one line and offers to compact, to move to a bigger-window model or to send anyway; a request sent anyway carries the task summary and the latest message last. [S43]
 - With context shift off, a too-long prompt is refused with HTTP 400 instead. Ollama starts llama-server with `--context-shift` for every family except deepseek2. [S3][S4]
 - llama-server turns context shift off for a multimodal model (one loaded with `--mmproj`) and for memory that cannot shift; a reply then stops when the window is full, the slot logs "truncated = 1", and the result's finish reason is "length". [S13][S15]
 
