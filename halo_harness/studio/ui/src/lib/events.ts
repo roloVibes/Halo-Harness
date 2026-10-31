@@ -40,6 +40,8 @@ export const KNOWN_KINDS = [
   "traffic", // 3.3.5.0 R1: a ledger line or a server event as it lands (ollama_steward/ledger_tap.py)
   "pull", // 3.3.5.0 R3: a pull job's progress (studio/local_pull_job.py; routes/local/jobs.ts)
   "download", // 3.3.5.0 R5: a Hugging Face download's progress (studio/local_download_job.py; routes/local/jobs.ts)
+  "probe", // 3.3.6.0 R1: a battery run's progress (studio/local_probe_job.py; routes/local/probes.ts)
+  "twin-verify", // 3.3.6.0 R1: a new twin verified (studio/local_twin_verify.py)
 ];
 
 const handlers = new Map<string, Set<Handler>>();

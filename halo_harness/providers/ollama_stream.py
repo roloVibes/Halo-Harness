@@ -173,7 +173,8 @@ class OllamaStreamToAnthropic:
                 self.tool_buf[index]["arguments"] = args
             elif isinstance(args, str):
                 try:
-                    parsed = json.loads(args) if args.strip() else {}
+                    from halo_harness.providers.battery_probes import strip_fences  # 3.3.6.0 R1
+                    parsed = json.loads(strip_fences(args)) if args.strip() else {}
                 except (json.JSONDecodeError, ValueError) as e:
                     parsed = {}
                     self.tool_call_flags[self.tool_buf[index]["id"]] = {

@@ -224,3 +224,14 @@ and `isolation/Dockerfile` the worker image.
   `studio/local_hf_api.py` + `studio/local_server_api.py` (the `local/hf/*`, `local/download*`, `local/server*` routes),
   `local_hf_cli.py` + `local_hf_serve_cli.py` (`halo local download | ls | rm | serve | stop | servers | log`) and
   `ui/src/routes/local/` `HfPage.tsx`, `HfRow.tsx`, `HfCards.tsx`, `hfstore.ts`.
+- The battery (3.3.6.0 R1, docs/MODELS-cards.md "The profile"): `providers/battery_probes.py` (the six probes and how
+  each answer is read), `providers/capability_battery.py` (`run`: the requests, the fit, the profile kept in
+  `providers/ollama_capability.py`'s cache by digest + Ollama version + probe set), `providers/battery_profile.py` (the
+  derived labels), `providers/placement.py` + `placement_apply.py` (the rules, the gates, the reserve, the pivot
+  schedule), `providers/model_card_blocks.py` (the card's four blocks), `providers/ollama_twin_verify.py` (a fitted twin
+  verified), `agent/local_failure.py` + `ollama_steward/failure_lines.py` (the failure lines),
+  `ollama_steward/probe_new.py` (the steward's job probes a new model), `studio/local_probe_job.py` +
+  `studio/local_probe_api.py` (the probe jobs and routes), `studio/local_twin_verify.py` (raw tag vs twin, the verify
+  thread), `fleet/control_probes.py` (a member's profiles on its ledger push), `models_probe_cli.py`
+  (`halo models probe`), `doctor_local_roles.py` and `ui/src/routes/local/` `probes.ts`, `ProbeBits.tsx`,
+  `ui/src/routes/shared/ModelCardBlocks.tsx`.

@@ -117,3 +117,71 @@ def probe_tool_capability(host: OllamaHost, model: str, digest: str, state_dir: 
         cache[digest] = {"tool_calls": result, "checked_at": time.time(), "model": model, "host": host.name}
         save_capability_cache(state_dir, cache)
     return result
+
+
+# ---- Halo 3.3.6.0 R1: the battery's profile, in THIS cache (never a parallel store) -------------------------
+# cache[digest]["battery"][host_name] = the profile (providers/battery_profile.py); the record's key is the digest,
+# the Ollama version and the probe set: a changed digest is a new record, a changed version or probe set re-runs.
+
+def profile_fresh(profile, *, ollama_version=None, probe_set=None) -> bool:
+    """True when `profile` was made by this probe set (and, when given, this Ollama version)."""
+    from halo_harness.providers.battery_probes import PROBE_SET
+    if not isinstance(profile, dict):
+        return False
+    if profile.get("probe_set") != (probe_set or PROBE_SET):
+        return False
+    return ollama_version is None or profile.get("ollama_version") == ollama_version
+
+
+def load_profile(state_dir, digest, host_name, *, ollama_version=None, probe_set=None, any_age=False):
+    """The battery profile for this digest on this host; None when there is none or it is stale (a different
+    Ollama version or probe set) unless `any_age`."""
+    if not digest or state_dir is None:
+        return None
+    entry = load_capability_cache(state_dir).get(digest)
+    got = ((entry or {}).get("battery") or {}).get(host_name) if isinstance(entry, dict) else None
+    if not isinstance(got, dict):
+        return None
+    return got if any_age or profile_fresh(got, ollama_version=ollama_version, probe_set=probe_set) else None
+
+
+def save_profile(state_dir, profile: dict) -> None:
+    """The profile kept under its digest and host; the record's `tool_calls` follows the probed answer."""
+    digest, host_name = profile.get("digest"), profile.get("host")
+    if not digest or not host_name or state_dir is None:
+        return
+    from halo_harness.filelock import file_lock
+    with file_lock(_capability_cache_path(state_dir)):
+        cache = load_capability_cache(state_dir)
+        entry = cache.get(digest) if isinstance(cache.get(digest), dict) else {}
+        battery = entry.get("battery") if isinstance(entry.get("battery"), dict) else {}
+        battery[host_name] = profile
+        entry.update(battery=battery, model=profile.get("model") or entry.get("model", ""), host=host_name,
+                     checked_at=profile.get("probed_at") or time.time())
+        if profile.get("tools") in ("yes", "no"):
+            entry["tool_calls"] = profile["tools"] == "yes"
+        cache[digest] = entry
+        save_capability_cache(state_dir, cache)
+
+
+def all_profiles(state_dir) -> list:
+    """Every battery profile in the cache, newest first."""
+    out = []
+    for entry in load_capability_cache(state_dir).values() if state_dir is not None else ():
+        for p in ((entry or {}).get("battery") or {}).values() if isinstance(entry, dict) else ():
+            if isinstance(p, dict):
+                out.append(p)
+    return sorted(out, key=lambda p: -float(p.get("probed_at") or 0))
+
+
+def profile_for(state_dir, model, host_name=None):
+    """The newest profile of `model` (an Ollama name; `:latest` and an untagged name match) on `host_name`
+    (any host when None). No request: the cache file only."""
+    if not model:
+        return None
+    from halo_harness.providers.ollama import ollama_names_match
+    for p in all_profiles(state_dir):
+        if ollama_names_match(p.get("model"), model) and (host_name is None or p.get("host") == host_name
+                                                           or p.get("from_host") == host_name):
+            return p
+    return None

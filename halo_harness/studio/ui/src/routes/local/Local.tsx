@@ -13,6 +13,7 @@ import { LocalPage } from "./LocalPage";
 import { LocalRail } from "./LocalRail";
 import { startJobs } from "./jobs";
 import { adoptRemembered } from "./pages";
+import { startProbes } from "./probes";
 import { loadHosts, startLocal } from "./store";
 
 /** The section's view: the rail beside the open page. */
@@ -20,6 +21,7 @@ export function LocalView() {
   useEffect(() => {
     startLocal();
     startJobs(); // 3.3.5.0 R3: the pull jobs (running ones too) and their frames
+    startProbes(); // 3.3.6.0 R1: the probe jobs and the twin-verify frames
     adoptRemembered();
     void loadHosts();
   }, []);
@@ -37,4 +39,5 @@ export function LocalView() {
 export function enterLocal(): void {
   startLocal();
   startJobs();
+  startProbes();
 }
