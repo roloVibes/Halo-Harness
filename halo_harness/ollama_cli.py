@@ -36,7 +36,7 @@ def cmd_ollama(argv: list) -> int:
     if argv and argv[0] == "explain":  # Halo 3.3.4.0 R4: an alert kind or a topic, from the knowledge (no model)
         from halo_harness.ollama_steward.explain import cmd_ollama_explain
         return cmd_ollama_explain(argv[1:])
-    if argv and argv[0] in ("traffic", "events", "crashes"):  # 3.3.4.0 R2: rollups, events; 3.3.6.0 R2: crashes
+    if argv and argv[0] in ("traffic", "events", "crashes", "log"):  # 3.3.4.0 R2; 3.3.6.0 R2: crashes; R3: log
         from halo_harness.ollama_steward import cli as steward_cli
         return getattr(steward_cli, f"cmd_ollama_{argv[0]}")(argv[1:])
     from halo_harness.providers.ollama import resolve_ollama_hosts
@@ -45,7 +45,8 @@ def cmd_ollama(argv: list) -> int:
     parser = argparse.ArgumentParser(prog="halo ollama", add_help=True,
                                       description="Per-host Ollama analysis: reachability, version, loaded "
                                                    "models (offload, context, KV cost), and tool-catalog sizing. "
-                                                   "Subcommands: discover, calibrate, tune, doctor, hardware, traffic, events, steward, explain.")
+                                                   "Subcommands: discover, calibrate, tune, doctor, hardware, traffic, events, log, crashes, "
+                                                   "steward, explain.")
     parser.add_argument("--host", default=None, help="only this configured host (by name), not every one")
     parser.add_argument("--refresh", action="store_true",
                          help="bypass the short-TTL catalog cache and re-read /api/tags+/api/show now")

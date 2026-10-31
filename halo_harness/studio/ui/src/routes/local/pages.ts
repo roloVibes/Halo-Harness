@@ -1,4 +1,4 @@
-// Local's pages (3.3.5.0 R1, plans/ROADMAP.md "3.3.5.0 becomes Local"): seven,
+// Local's pages (3.3.5.0 R1, plans/ROADMAP.md "3.3.5.0 becomes Local"; 3.3.6.0 R3: Logs, the eighth),
 // in this order -- Resources, Hosts, Models (built in R1), Library (built in R2:
 // the library browser and the fit badge), Hugging Face (built in R5: HF local models),
 // Benchmarks (R5: the speed card, tuning scans, revert) and Steward (R6: the
@@ -8,7 +8,7 @@
 // remembered for this browser under halo.studio.local.page.
 import { createStore, useStore, writeLocal } from "../../lib/store";
 
-export type PageId = "resources" | "hosts" | "models" | "library" | "huggingface" | "benchmarks" | "steward";
+export type PageId = "resources" | "hosts" | "models" | "library" | "huggingface" | "logs" | "benchmarks" | "steward";
 export type PageDef = { id: PageId; title: string; built: boolean; round?: string };
 
 export const PAGES: PageDef[] = [
@@ -17,6 +17,7 @@ export const PAGES: PageDef[] = [
   { id: "models", title: "Models", built: true },
   { id: "library", title: "Library", built: true },
   { id: "huggingface", title: "Hugging Face", built: true },
+  { id: "logs", title: "Logs", built: true }, // 3.3.6.0 R3: each host's server log (LogsPage.tsx)
   { id: "benchmarks", title: "Benchmarks", built: false, round: "R5" },
   { id: "steward", title: "Steward", built: false, round: "R6" },
 ];

@@ -285,12 +285,11 @@ A server event on a probed model ends in its fix ([MODELS-cards.md](MODELS-cards
 
 ## Crash fingerprints (3.3.6.0 R2)
 
-Each crash event the job records (`gpu-memory`, a `CUDA error: an illegal memory access`, `llama runner terminated` /
-exit `0xc0000409`, a failed load; a client closing the connection is none) leaves one fingerprint in
-`<state>/ollama/fingerprints.jsonl` (`ollama_steward/fingerprints.py`): host, model (the event's, else the newest load
-before it), family, quant, the window it ran at, the KV type, flash attention, spill (`size_vram < size`), the signature,
-when, and a count; the lines of one crash within two minutes are one. `halo ollama crashes [--host H] [--json]` lists
-them; the Library greys the model ([STUDIO-local.md](STUDIO-local.md)); a member's ride its ledger push to the hub.
+Each crash event the job records (`gpu-memory`, a CUDA illegal memory access, `llama runner terminated` / exit
+`0xc0000409`, a failed load; a client closing the connection is none) leaves one fingerprint in
+`<state>/ollama/fingerprints.jsonl`; the lines of one crash within two minutes are one. `halo ollama crashes` lists
+them, the Library greys the model, a member's ride its ledger push. 3.3.6.0 R3 adds the load it died in, `--why`, the
+fix a repeated crash proposes, remote logs over `ssh:` and the log status: [MODELS-ollama-logs.md](MODELS-ollama-logs.md).
 
 ## In Studio
 

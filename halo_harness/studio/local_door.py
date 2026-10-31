@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 PAGES = (("resources", "Resources"), ("hosts", "Hosts"), ("models", "Models"), ("library", "Library"),
-         ("huggingface", "Hugging Face"), ("benchmarks", "Benchmarks"), ("steward", "Steward"))
+         ("huggingface", "Hugging Face"), ("logs", "Logs"), ("benchmarks", "Benchmarks"), ("steward", "Steward"))
 TITLES = dict(PAGES)
 
 

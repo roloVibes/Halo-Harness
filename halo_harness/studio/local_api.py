@@ -15,6 +15,7 @@ route. Never a model call; nothing here writes a server's settings.
     GET  local/models?host=             studio/local_models_view.models: per host every model, its card and meter
     local/library*                      3.3.5.0 R2: studio/models_library_api.py (the library browser and the fit badge)
     local/pull*, local/host/<name>/pull | delete | show | copy | rename | twin | loaded
+    3.3.6.0 R3 (studio/local_logs_api.py): local/host/<name>/log, /log/status, /log/models
                                         3.3.5.0 R3: studio/local_control_api.py (Ollama, controlled)
     local/hf/*, local/download*, local/servers, local/server/<id>/*
                                         3.3.5.0 R5: studio/local_hf_api.py + local_server_api.py (Hugging Face local)
@@ -163,6 +164,10 @@ def dispatch_local(req):
         return got
     from halo_harness.studio.local_probe_api import dispatch_probe  # 3.3.6.0 R1: the battery
     got = dispatch_probe(req)
+    if got is not None:
+        return got
+    from halo_harness.studio.local_logs_api import dispatch_logs  # 3.3.6.0 R3: Local -> Logs
+    got = dispatch_logs(req)
     if got is not None:
         return got
     got = dispatch_control(req)

@@ -293,7 +293,8 @@ Ctrl+C:
 ```
 
 `--host` names the host whose log this is (default: the configured host on
-this machine), `--kind` keeps one kind, `--since` the span (`24h` the
+this machine; 3.3.6.0 R3: another machine's over its `ssh:` entry, and only
+its events are listed), `--kind` keeps one kind, `--since` the span (`24h` the
 default), `--json` prints JSON lines. Nothing is sent to the server but
 `/api/version` and `/api/ps`. With nothing found it says `no events yet:
 <host>'s server log is read from 3.3.4.0 on`, and why when the log is not on

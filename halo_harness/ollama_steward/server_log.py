@@ -12,7 +12,7 @@ events (server_rules.py, server_context.py) in `<state>/ollama/events.jsonl`
 - `tail_journal(state)`: on Linux with no log file, `journalctl -u ollama -o
   cat --show-cursor` (`--since` now on the first read, `--after-cursor` then)
   through `providers.ollama_hw._run_tool`, the subprocess seam every probe uses.
-- `scan(state_dir, host)`: one catch-up read (`halo ollama events`).
+- `scan(state_dir, host)`: one catch-up read (`halo ollama events`; R3: ssh).
 - `watch(state_dir, host, stop)`: the tail every TAIL_S and `/api/version` +
   `/api/ps` every POLL_S as one loop until `stop` is set (`halo ollama
   events --watch` today; R4's steward job owns it later). A new startup
@@ -86,8 +86,7 @@ def rotated_path(path: Path) -> Path:
     return path.with_name(f"{path.stem}-1{path.suffix}")
 
 
-def tail(path, state: dict, *, from_start: bool = False) -> "tuple[list, dict]":
-    """New whole lines of `path` since `state` -> (lines, the new state)."""
+def tail(path, state: dict, *, from_start: bool = False) -> "tuple[list, dict]":  # new whole lines since `state`
     path = Path(path)
     st = dict(state or {})
     head = _head(path)
@@ -139,14 +138,19 @@ def source_for(host, *, path=None, platform: Optional[str] = None) -> "tuple[Opt
     from halo_harness.fleet.ollama_share import served_here
     if path is not None:
         return Path(path), None
-    if host is not None and not served_here(host.url):
-        return None, f"the server log of '{host.name}' is on that machine, not this one"
+    if host is not None and not served_here(host.url):  # 3.3.6.0 R3: read over ssh in read_new (server_log_remote.py)
+        return None, f"the server log of '{host.name}' is on that machine ({'read over ssh' if getattr(host, 'ssh', None) else 'no ssh entry'})"
     target = server_log_path(platform)
     if target.exists():
         return target, None
     if (platform or sys.platform).startswith("linux"):
         return None, None
     return None, f"no server log at {target}"
+
+
+def _remote(host) -> bool:
+    from halo_harness.fleet.ollama_share import served_here
+    return host is not None and not served_here(getattr(host, "url", ""))
 
 
 def read_new(state_dir, host, *, path=None, platform=None, runner=None, from_start=False,
@@ -156,6 +160,10 @@ def read_new(state_dir, host, *, path=None, platform=None, runner=None, from_sta
     st = load_state(state_dir) if st is None else st
     if from_start:
         st = {"quiet": st.get("quiet") or {}}
+    if path is None and _remote(host):  # 3.3.6.0 R3: that machine's log over its ssh: entry
+        from halo_harness.ollama_steward.server_log_remote import read_new_remote
+        lines, why = read_new_remote(state_dir, host, from_start=from_start)
+        return lines, st, why
     target, why = source_for(host, path=path, platform=platform)
     if why:
         return [], st, why
@@ -217,6 +225,7 @@ def watch(state_dir, host, stop, *, path=None, platform=None, runner=None, api: 
     from halo_harness.ollama_steward.server_context import Rules
     from halo_harness.ollama_steward.server_events import ps_delta
     api = api or _default_api(host)
+    tail_s = max(tail_s, 10.0) if path is None and _remote(host) else tail_s  # 3.3.6.0 R3: an ssh read per 10 s
     rules, before, next_poll, first = Rules(), None, 0.0, True
     st = load_state(state_dir)
     while not stop.is_set():

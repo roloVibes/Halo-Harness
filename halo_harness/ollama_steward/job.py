@@ -1,7 +1,8 @@
 """halo_harness.ollama_steward.job -- Halo 3.3.4.0 R4: the steward runs on
 its own, one job per state dir.
 
-`StewardJob(state_dir, host=None)` owns the server-log tail and the
+`StewardJob(state_dir, host=None)` owns the server-log tail (3.3.6.0 R3: and
+every `ssh:` host's, log_tail.tail_remote_hosts) and the
 `/api/ps` poll (`server_log.watch`, on its own daemon thread, for the host
 this machine serves) and a timer: every `ollama.steward.every_s` (300 s)
 while calls flow (a ledger line in the last FLOW_S) or at once when an event
@@ -104,6 +105,12 @@ class StewardJob:
         try:  # 3.3.6.0 R1: a new or changed model is probed while the card is idle (probe_new.py)
             from halo_harness.ollama_steward.probe_new import maybe
             maybe(self, now)
+        except Exception:
+            pass
+        try:  # 3.3.6.0 R3: the log of every host with an ssh: entry, every 30 s (ollama_steward/log_tail.py)
+            from halo_harness.ollama_steward.log_tail import tail_remote_hosts
+            for row in tail_remote_hosts(self.state_dir, now) if self.watch_fn is not False else []:
+                self.on_event(row)
         except Exception:
             pass
         ok, why = self.due(now)

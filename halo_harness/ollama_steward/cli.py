@@ -8,8 +8,8 @@
   (R2): the ledger's rollups per host and model (traffic.py).
 - `halo ollama events [--host H] [--since] [--kind K] [--watch]
   [--from-start] [--json]` (R2): the local server's events (server_log.py).
-- `halo ollama crashes [--host H] [--json]` (3.3.6.0 R2): the crash
-  fingerprints (fingerprints.py), newest first.
+- `halo ollama crashes [--host H] [--why] [--json]` (3.3.6.0 R2, R3) and
+  `halo ollama log` (3.3.6.0 R3) live in cli_logs.py with `events`.
 """
 
 from __future__ import annotations
@@ -101,73 +101,4 @@ def cmd_ollama_traffic(argv: list) -> int:
     return 0
 
 
-def cmd_ollama_events(argv: list) -> int:
-    """`halo ollama events [--host H] [--since 24h] [--kind K] [--watch] [--from-start] [--json]` (3.3.4.0 R2)."""
-    from halo_harness.ollama_steward import server_log
-    from halo_harness.ollama_steward.server_events import format_event, read_events
-    from halo_harness.fleet.ollama_share import served_here
-    parser = argparse.ArgumentParser(
-        prog="halo ollama events", add_help=True,
-        description="The local Ollama server's own words as events (trims, cut replies, 500s, a client that gave "
-                    "up, a CPU spill, loads and unloads ...), newest last. The server log is read read-only; "
-                    "nothing is sent to the server but /api/version and /api/ps.")
-    parser.add_argument("--host", default=None, help="the host whose server log this is (default: the local one)")
-    parser.add_argument("--since", default="24h", help="how far back: 1h, 24h (the default), 7d, ...")
-    parser.add_argument("--kind", default=None, help="only this kind (prompt-trimmed, http-500, cpu-spill, ...)")
-    parser.add_argument("--watch", action="store_true", help="keep reading: print each new event (Ctrl+C stops)")
-    parser.add_argument("--from-start", action="store_true", help="read the server log from its top, not its end")
-    parser.add_argument("--json", action="store_true", help="print the events as JSON lines")
-    args = parser.parse_args(argv)
-    named, hosts = _hosts_named(args.host)
-    if args.host and not named:
-        print(f"halo ollama events: no configured host named {args.host!r} (see `ollama.hosts` in "
-              f"~/.halo/config.json)", file=sys.stderr)
-        return 1
-    host = next((h for h in named if served_here(h.url)), named[0] if named else None)
-    show = (lambda e: print(json.dumps(e, default=str))) if args.json else (lambda e: print(format_event(e)))
-    _written, why = server_log.scan(_state_dir(), host, from_start=args.from_start)
-    try:
-        rows = read_events(_state_dir(), since=args.since, kind=args.kind)
-    except ValueError as e:
-        print(f"halo ollama events: {e}", file=sys.stderr)
-        return 2
-    for e in rows:
-        show(e)
-    if not rows and not args.watch:
-        name = host.name if host is not None else "this host"
-        print(f"no events yet: {name}'s server log is read from 3.3.4.0 on" + (f" ({why})" if why else
-              " (--from-start reads it from the top)"))
-    if args.watch:
-        import threading
-        stop = threading.Event()
-        try:
-            server_log.watch(_state_dir(), host, stop, on_event=lambda e: (not args.kind or e["kind"] == args.kind)
-                             and show(e))
-        except KeyboardInterrupt:
-            stop.set()
-    return 0
-
-
-def cmd_ollama_crashes(argv: list) -> int:
-    """`halo ollama crashes [--host H] [--json]` (3.3.6.0 R2): every crash fingerprint, newest first."""
-    from halo_harness.ollama_steward.fingerprints import read
-    parser = argparse.ArgumentParser(
-        prog="halo ollama crashes", add_help=True,
-        description="The crash fingerprints the steward recorded from each host's server events: the model, its "
-                    "family and quant, the window it ran at, the KV type, flash attention, whether it spilled, and "
-                    "the signature (a CUDA illegal memory access, a runner that died, a failed load). Read-only.")
-    parser.add_argument("--host", default=None, help="only this host's fingerprints")
-    parser.add_argument("--json", action="store_true", help="print the fingerprints as JSON lines")
-    args = parser.parse_args(argv)
-    rows = read(_state_dir(), host=args.host)
-    for fp in rows:
-        if args.json:
-            print(json.dumps(fp, default=str))
-            continue
-        bits = [f"{fp.get('family') or '?'} {fp.get('quant') or ''}".strip(), f"model from {fp.get('model_from')}"]
-        print(f"{fp.get('host') or '?'} {fp.get('model') or '(model unknown)'}: {fp['line']}")
-        print(f"    {' · '.join(bits)}" + (f" · {fp['evidence'][0][:140]}" if fp.get("evidence") else ""))
-    if not rows and not args.json:
-        print("no crash fingerprints" + (f" for {args.host}" if args.host else "") +
-              ": they are written from the server's events (halo ollama events) as crashes happen")
-    return 0
+from halo_harness.ollama_steward.cli_logs import cmd_ollama_crashes, cmd_ollama_events, cmd_ollama_log  # noqa: E402,F401
