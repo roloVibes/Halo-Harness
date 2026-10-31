@@ -55,7 +55,7 @@ jobs:
     # every push to master and every pull request (not the tag, nightly or dispatch runs)
     if: (github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/')) || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
     env:
       PYTHONPATH: ${{ github.workspace }}
       BRIDGE_TEST_NO_BACKGROUND_NET: "1"
@@ -129,7 +129,7 @@ jobs:
       - name: tests/run_all.py
         id: run_all
         continue-on-error: true
-        timeout-minutes: 50
+        timeout-minutes: 75  # 3.3.6.0 R4: the full tier passed 6307/6307 at 50:03 and the 50-minute step limit cut it
         run: set -o pipefail; python tests/run_all.py 2>&1 | tee "$RUNNER_TEMP/run_all.log"
 
       - name: test_tui.py
