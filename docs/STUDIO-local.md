@@ -10,7 +10,7 @@ Part of [Halo Studio](STUDIO.md), which lists every part.
 its rail row or the palette). It holds everything Halo knows about local models in one tab, paged like Settings: a
 page rail on the left, one page on the right, a head on each page that says what it holds, which of Local's five ideas
 it carries, and its help behind **How this page works**. Nothing opens on its own; the page last open in this browser
-comes back (`halo.studio.local.page`). The seven pages, in the rail's order:
+comes back (`halo.studio.local.page`). The eight pages, in the rail's order:
 
 | Page | What it holds | Filled in |
 |---|---|---|
@@ -19,6 +19,7 @@ comes back (`halo.studio.local.page`). The seven pages, in the rail's order:
 | Models | every installed model per host with its card, its fit meter, its roles and the intent filter | 3.3.5.0 R1 |
 | Library | Ollama's library and the Hugging Face Hub to browse, each row with a fit badge | 3.3.5.0 R2 |
 | Hugging Face | the model folders and what is on disk in them; downloads, local servers started and stopped, deletes | 3.3.5.0 R5 |
+| Logs | each host's server log: its status, the last load per model, the cut prompts, errors and crashes, the newest lines | 3.3.6.0 R3 |
 | Benchmarks | a measured battery per model (the speed card), tuning scans, changes that revert | 3.3.6.0 |
 | Steward | the steward's chat, and several local models scheduled on one card | 3.3.5.0 R6 |
 
@@ -286,6 +287,24 @@ Hosts shows it under **Local servers · started by Halo** (its port, model, flag
 `huggingface.local_servers` entry) keeps its card with Stop disabled: it is stopped where it was started. Halo's servers
 stop when the last Halo process on this home exits, unless keep was ticked ([LOCAL-MODELS.md](LOCAL-MODELS.md)).
 
+## Logs
+
+Each host's Ollama server log, read-only (3.3.6.0 R3, `studio/local_logs_api.py`; how it is read:
+[MODELS-ollama-logs.md](MODELS-ollama-logs.md)). A host picker on top (the configured Ollama hosts); then three
+blocks, each with its own **?**:
+
+- **Log status**: one line -- live, stale, quiet, unreadable, on that machine (no ssh entry) or missing, the last
+  line's age, `debug: on` -- with the path, **Copy the tail command** (`Get-Content -Wait -Tail 50 ...`, `tail -f ...`,
+  `journalctl -u ollama -f`, or the same over `ssh`) and **Copy** `halo ollama log --host <name> --follow`, each said
+  on the row under it; the debug window as a stated action Halo never takes.
+- **Per model**: the last load result (layers on the GPU, where the KV cache sits, the graph splits, tok/s, when) with
+  the fit badge's state, the prompts the log cut in this session (since the first call of the newest session that called
+  the host), the error lines with their times, and **crashed here** with the fingerprint's line.
+- **The newest lines**: the last 200, each marked fit, headroom, truncation or failure; the kind filter; **Live** reads
+  them again every 5 seconds while the page is shown (a poll, never a stream). Nothing opens over the page.
+
+Local -> Hosts' cards carry the same status as one `log:` line with the path; `halo local logs` opens the page.
+
 ## Jobs
 
 A pull is the server's job (3.3.5.0 R3, `studio/local_pull_job.py`): Studio runs one per host and name (a second Pull of
@@ -347,6 +366,8 @@ Studio route; never a model call:
 | `POST local/library/verify {host, name, role?}`, `GET local/library/verifies` | Download and verify (`studio/local_verify_job.py`); its jobs |
 | `POST local/library/assign {role, ref, lineup?}` | the role offer accepted: the lineup's role gets the model |
 | `GET local/crashes?host=` | the crash fingerprints (`ollama_steward/fingerprints.py`) |
+| `GET local/host/<name>/log?n=200&kind=all\|fit\|headroom\|truncation\|failure` | 3.3.6.0 R3: the bounded tail, each line's group and time, its source, `cli` and `tail_cli` |
+| `GET local/host/<name>/log/status`, `GET local/host/<name>/log/models` | the log status (`ollama_steward/log_status.py`); per model the last load, this session's cuts, the errors, the crash |
 | `POST local/host/<name>/pull {name}` | a pull job (a second ask joins it); its view and `cli` |
 | `POST local/pull/<id>/cancel` | stop it (Ollama keeps the layers it has) |
 | `GET local/pulls` | every pull running and the last ended ones |

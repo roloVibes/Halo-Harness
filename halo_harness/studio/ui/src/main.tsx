@@ -48,6 +48,7 @@ import "./styles/local-hf.css"; // 3.3.5.0 R5
 import "./styles/model-card.css"; // 3.3.5.0 R0b: the model card and the fit meter
 import "./styles/model-probe.css"; // 3.3.6.0 R1: the battery's blocks, chips and progress strip
 import "./styles/local-search.css"; // 3.3.6.0 R2: the search's strip, presets, truth marks, verdicts and cost
+import "./styles/local-logs.css"; // 3.3.6.0 R3: Local -> Logs and the fit badge's evidence chip
 import { App } from "./App";
 
 document.documentElement.dataset.theme = document.documentElement.dataset.theme || "dark";

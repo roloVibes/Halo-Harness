@@ -9,8 +9,8 @@ phase-1 exception, the caller closing the stream early), writes one ledger line.
 Any other call gets its stream back untouched. (`ledger.record_probe` writes a
 calibration load's line; 3.3.5.0 R4: ledger_prompt.py adds the prompt's
 composition, its prefix, the preflight's decision, warming and the cache.)
-`retry` counts the calls of one turn that immediately follow a failed or
-trimmed one (0 for a first send); a clean answer resets it.
+`retry` counts the calls of one turn that immediately follow a failed or trimmed one (0 for a first send); a clean
+answer resets it. 3.3.6.0 R3: `log_events`, the kinds the server log showed (agent/ollama_log_recovery.py).
 """
 
 from __future__ import annotations
@@ -85,10 +85,9 @@ def _body(req) -> dict:
 def _images(body: dict) -> int:
     n = 0
     for msg in body.get("messages") or []:
-        if not isinstance(msg, dict):
-            continue
-        n += len(msg.get("images") or []) if isinstance(msg.get("images"), list) else 0
-        if isinstance(msg.get("content"), list):
+        if isinstance(msg, dict):
+            n += len(msg.get("images") or []) if isinstance(msg.get("images"), list) else 0
+        if isinstance(msg, dict) and isinstance(msg.get("content"), list):
             n += sum(1 for p in msg["content"] if isinstance(p, dict) and p.get("type") in ("image_url", "image"))
     return n
 
@@ -154,6 +153,8 @@ def _write(session, req, kind: str, target: dict, base: dict, extra: dict) -> No
             line["trimmed"] = bool(is_trimmed(line.get("prompt_eval_count"), line.get("estimate_tokens"), reserve))
         line["retry"] = _bump_retry(session, kind, line)
         prompt_finish(line, reserve)  # 3.3.5.0 R4: warming, cache_reused_pct
+        from halo_harness.agent.ollama_log_recovery import ledger_kinds  # 3.3.6.0 R3: what the server log showed
+        line["log_events"] = ledger_kinds(session, target, line)
         ledger.record_call(getattr(session, "state_dir", None) or getattr(req, "state_dir", None), line)
     except Exception:
         log.debug("ollama ledger: recording a call failed", exc_info=True)

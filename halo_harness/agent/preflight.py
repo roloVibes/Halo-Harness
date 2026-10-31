@@ -2,7 +2,8 @@
 not fit its window is a decision the user sees before it is sent, never a
 silent cut.
 
-    check(session) -> {prompt, window, usable, reserve, cut, line} | None
+    check(session) -> {prompt, window, usable, reserve, cut, line} | None   (3.3.6.0 R3: the log's last cut of
+        this model is its evidence: agent/ollama_log_recovery.preflight_evidence)
     bigger_model(session, need) -> "ol:<model>@<host>" | None
     run(session, turn_no)   a generator of events; returns "compact" | "switch" | "send" | "stop" | None
 
@@ -43,17 +44,21 @@ LEDGER = {"compact": "compact", "switch": "switch", "send": "sent"}
 def check(session) -> Optional[dict]:
     from halo_harness.agent.ollama_window import _state
     last = _state(session).get("last")
-    if not last or last["choice"].fits:
+    if not last:
         return None
+    from halo_harness.agent.ollama_log_recovery import preflight_evidence  # 3.3.6.0 R3: the log's last cut of it
+    ev = preflight_evidence(session, last)
     reserve = int(last.get("reserve") or 1024)
     prompt = max(1, int(last["estimate"]) - reserve)
     window = int(last["choice"].ceiling or 0)
-    if window <= 0:
+    if ev and ev["factor"] > 1.0:  # the log showed Halo's estimate short of the real prompt by this factor
+        prompt = max(prompt, int(prompt * ev["factor"]))
+    if window <= 0 or (last["choice"].fits and not (ev and prompt + reserve > window)):
         return None
     usable = window // 2 + 2
     cut = prompt > window
     tail = "this will be cut" if cut else f"no room left for the reply ({reserve:,})"
-    line = f"prompt {prompt:,} tokens · window {window:,} · usable {usable:,} · {tail}"
+    line = f"prompt {prompt:,} tokens · window {window:,} · usable {usable:,} · {tail}" + (f" ({ev['line']})" if ev else "")
     return {"prompt": prompt, "window": window, "usable": usable, "reserve": reserve, "cut": cut, "line": line,
             "model": last.get("model"), "host": last.get("host_name")}
 

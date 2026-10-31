@@ -57,3 +57,5 @@ check keeps the tags and the rows in step.
 | S43 | Halo's prompt budget: the composition, the lean profile, the preflight | repo:halo_harness/agent/preflight.py | Halo 3.3.5.0 R4 | 2026-10-30 |
 | S44 | rolo's local-model brief, Part E (the capability battery on six models, measured 2026-10-29 on Ollama 0.40.13) | repo:plans/local-model-fit-brief.md | Halo 3.3.6.0 R1 | 2026-10-30 |
 | S45 | Halo's battery and placement rules: the profile, the gates, the failure lines | repo:halo_harness/providers/placement.py | Halo 3.3.6.0 R1 | 2026-10-30 |
+| S46 | rolo's local-model brief, Part C (the host's log as the source of truth: the lines, the gotchas, the proxy recipe; measured on Ollama 0.40.13) | repo:plans/local-model-fit-brief.md | Halo 3.3.6.0 R3 | 2026-10-31 |
+| S47 | Halo's server-log readers: the ssh read, the load result, the log status, the recovery | repo:halo_harness/ollama_steward/server_log_remote.py | Halo 3.3.6.0 R3 | 2026-10-31 |

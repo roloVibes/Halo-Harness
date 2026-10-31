@@ -103,6 +103,10 @@ export function HostCard({ h, fits }: { h: Host; fits: Record<string, Fit> }) {
         <span className="mono muted" data-testid="local-host-served">{h.served_here ? "served here" : h.served_by ? `served by ${h.served_by}` : ""}</span>
       </header>
       <div className="mono lc-host-url" data-testid="local-host-url">{h.url}</div>
+      {h.log && (
+        <div className="mono muted lc-host-line" data-testid="local-host-log" data-state={h.log.state}
+             title={[h.log.why, h.log.tail_cli].filter(Boolean).join("\n") || "the server log (Local -> Logs)"}>log: {h.log.line}</div>
+      )}
       <Managed h={h} />
       {card.length > 0 && <div className="mono muted lc-host-card" title={h.card_lines.join("\n")}>{card.map((l) => <div key={l}>{l}</div>)}</div>}
       {h.loaded.length > 0 && <div className="rail-label mono" data-testid="local-host-loaded-label">LOADED NOW</div>}

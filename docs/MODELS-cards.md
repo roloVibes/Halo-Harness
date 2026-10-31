@@ -144,6 +144,17 @@ tool-call accuracy. The card's four blocks carry the same marks: `(declared)` or
 after a verified one. Studio's chips: ✓ verified, ◇ declared, ≈ expected, ? needs a probe
 ([STUDIO-local.md](STUDIO-local.md)).
 
+## The fit badge's evidence (3.3.6.0 R3)
+
+The fit meter says whether a model should fit; the badge's evidence says whether its last load did, from the host's
+server log (`providers/fit_evidence.py`): the newest `load-result` (`offloaded N/N layers`, the graph splits, the CUDA
+and CPU KV buffers) or the steward's `/api/ps` reading (`size_vram == size`), whichever is newer, with the median
+tok/s of the newest answered, not warming, calls in the ledger. **verified -- 41/41 layers, splits = 2, 258 tok/s**
+(every layer on the GPU); **spilled -- 59/66 layers, 16 tok/s** (fewer layers, a KV buffer on the CPU, more than two
+splits, or `size_vram < size`); **unverified** (no load seen on that host). It shows on Local -> Models' rows, the
+Library row of an installed model, the card's blocks ("Fit here") and `halo models show` (`fit:`); a fitted twin's
+verify line is the same line. How the log is read: [MODELS-ollama-logs.md](MODELS-ollama-logs.md).
+
 ## The profile: what the battery measured (3.3.6.0)
 
 A declared fact is what a model says about itself; a profile is what it did

@@ -8,6 +8,7 @@ truths.py): `verified` (the battery probed it on this host), `declared`
     blocks(card, profile=None) -> {use_for: [{text, mark}], dont_use_for: [...],
                                    sits: {chip, chips, mark}, limits: [{text, mark}]}
     block_lines(blocks) -> the lines `halo models show` and `/model` print
+    fit_block(evidence) -> {text, mark, state, source} | None   3.3.6.0 R3: the fit line the log cites
 """
 
 from __future__ import annotations
@@ -199,11 +200,19 @@ def _twin_verify(state_dir, host, name) -> Optional[dict]:
         return None
 
 
+def fit_block(ev: Optional[dict]) -> Optional[dict]:
+    """3.3.6.0 R3: the fit line from the model's last load on its host (providers/fit_evidence.py), verified (the
+    server log or /api/ps measured it); None until a load was seen (the rows' badge says "unverified")."""
+    if not ev or not ev.get("line") or ev.get("state") not in ("verified", "spilled"):
+        return None
+    return {"text": ev["line"], "mark": V, "state": ev.get("state"), "source": ev.get("source")}
+
+
 def block_lines(b: dict) -> list:
     if not b:
         return []
     m = lambda x: "" if x.get("mark") == V else f" ({x.get('mark') or E})"  # noqa: E731
-    out = []
+    out = [f"  fit: {b['fit']['text']}" + (f" ({b['fit']['source']})" if b["fit"].get("source") else "")] if b.get("fit") else []
     if (b.get("sits") or {}).get("chip"):
         s = b["sits"]
         out.append(f"  where it sits: {' · '.join(s.get('chips') or [s['chip']])}{m(s)}")

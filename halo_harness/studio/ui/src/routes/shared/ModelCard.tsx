@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import { api } from "../../lib/api";
 import { Button } from "../../lib/ui";
 import { FitMeter, type Fit } from "../../lib/ui/FitMeter";
+import type { FitEvidenceView } from "./FitEvidence";
 import { CardBlocks, type CardBlocksView } from "./ModelCardBlocks";
 
 export type CardView = {
@@ -32,6 +33,8 @@ export type CardView = {
   system_role?: string | null;
   speed?: { tok_s?: number | null; ttft_ms?: number | null; cold_load_s?: number | null; at_window?: number | null } | null;
   probe?: { date: string; at: number; line: string; agentic_ready: boolean; interactive: string; quirks: string[]; sits: string; stale: boolean } | null;
+  /** 3.3.6.0 R3: the last load on its host as the server log says it (providers/fit_evidence.py). */
+  fit_evidence?: FitEvidenceView | null;
 };
 export type CardFields = { card?: CardView; fit?: Fit };
 type Offer = { lineup: string; coder: string; orchestrator: string; why: string; command: string };

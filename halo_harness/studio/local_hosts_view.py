@@ -12,7 +12,7 @@ never a model call and never a write to a server.
           {model: profile}, users [{from, calls}] (the ledger's `from`, 24 h),
           finding (the newest open one's line) | None, findings, plan {says,
           fits_now, chosen {kind, says, lose, fits, changes}} | None, models
-          [names], controls {ok, via, why}}
+          [names], controls {ok, via, why}, log {state, line, path, why, debug, tail_cli, rung} | None (3.3.6.0 R3)}
 
 `controls` says whether Load / Unload / keep-alive work from here: a host this
 machine serves, yes; a host a fleet member serves (its resources samples say
@@ -113,7 +113,20 @@ def _configured(h: dict, host_obj, users: dict, hub) -> dict:
             "profiles": {k.split("|", 1)[1]: v for k, v in (h.get("profiles") or {}).items()},
             "users": users.get(h["name"], []), "finding": _finding(h.get("findings") or []),
             "findings": len([f for f in h.get("findings") or [] if not f.get("applied")]), "plan": _plan(h.get("plan")),
-            "models": names, "controls": controls(h["url"], h["name"], h["served_here"], hub)}
+            "models": names, "controls": controls(h["url"], h["name"], h["served_here"], hub), "log": _log(host_obj)}
+
+
+def _log(host_obj) -> Optional[dict]:
+    """3.3.6.0 R3: the host's log status line (ollama_steward/log_status.py), for the card's one line."""
+    if host_obj is None:
+        return None
+    try:
+        from halo_harness.config.paths import bridge_home
+        from halo_harness.ollama_steward.log_status import status
+        st = status(bridge_home(), host_obj)
+        return {k: st.get(k) for k in ("state", "line", "path", "why", "debug", "tail_cli", "rung")}
+    except Exception:
+        return None
 
 
 def _blank(name: str, url: str, kind: str, source: str, why: str, **kw) -> dict:

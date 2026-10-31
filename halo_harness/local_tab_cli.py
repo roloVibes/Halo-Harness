@@ -5,7 +5,8 @@ serve), and `halo local hosts | models | resources` print what its pages show.
     halo local [page]            opens Studio on Local (`?mode=local&page=huggingface` bare, 3.3.5.0 R5;
                                  studio/local_door.py) on a real terminal; the
                                  page word picks the page (resources, hosts,
-                                 models, library, huggingface, benchmarks, steward)
+                                 models, library, huggingface, logs, benchmarks,
+                                 steward; 3.3.6.0 R3: logs)
     halo local --terminal        the merged local-model view here instead (the
                                  pre-3.3.5.0 `halo local`; `--refresh` as before)
     halo local hosts             one block per host: kind, url, who serves it,
