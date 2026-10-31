@@ -21,7 +21,8 @@ SEVERITY = {k: "error" for k in ("http-500", "no-user-query", "load-failed", "gp
                                   "other-error", "retry-loop", "queue-full")}
 SEVERITY.update({k: "warn" for k in ("prompt-trimmed", "reply-cut", "window-full", "cancel-task", "client-gave-up",
                                      "cpu-spill", "slow-load", "stall", "reloaded", "no-prompt-cache")})
-SEVERITY.update({k: "info" for k in ("loaded", "unloaded", "startup", "load-result")})  # 3.3.6.0 R3: load-result
+SEVERITY.update({k: "info" for k in ("loaded", "unloaded", "startup", "load-result",  # 3.3.6.0 R3: load-result
+                                     "timing", "spec-decode")})  # 3.3.6.0 R4: print_timing, speculative decoding
 KINDS = tuple(SEVERITY)
 PAIR_LINES = 25  # the PC's log: a cancel task 3 to 19 lines from its 500
 RETRY_N, RETRY_S, SLOW_LOAD_S, STALL_S, DOWN_N = 3, 180.0, 180.0, 300.0, 3
@@ -38,6 +39,10 @@ _CUT = re.compile(r"stop processing: n_tokens = (\d+), truncated = 1")
 _OOM = re.compile(r"out of memory|cudaMalloc failed|CUDA error|runtime OOM detected", re.IGNORECASE)
 _CANCEL = re.compile(r"srv\s+stop: cancel task")
 _MODEL = re.compile(r'msg="template selection" model=(\S+)')
+_TIMING = re.compile(r"(prompt )?eval time =\s*([\d.]+) ms /\s*(\d+) tokens \(\s*[\d.]+ ms per token,\s*([\d.]+) "
+                     r"tokens per second\)")  # 3.3.6.0 R4: llama-server's slot print_timing lines
+_DRAFT = re.compile(r"draft acceptance rate = ([\d.]+) \(\s*(\d+) accepted /\s*(\d+) generated\)")
+_DRAFT_LOAD = re.compile(r"loading draft model '?([^'\s]*)")
 _DUR = re.compile(r"([\d.]+)(h|ms|µs|us|ns|m|s)")
 _DUR_S = {"h": 3600.0, "m": 60.0, "s": 1.0, "ms": 1e-3, "µs": 1e-6, "us": 1e-6, "ns": 1e-9}
 
@@ -147,6 +152,17 @@ def classify(line: str, at=None) -> Optional[dict]:
     if m and float(m.group(1)) > SLOW_LOAD_S:
         return event("slow-load", f"a load took {float(m.group(1)):.0f} s (over 3 minutes)", line, at=at,
                      seconds=float(m.group(1)))
+    if (m := _TIMING.search(line)) and not m.group(1):  # 3.3.6.0 R4: the reply's rate (server_context adds the prompt's)
+        ms, n, rate = float(m.group(2)), int(m.group(3)), float(m.group(4))
+        return event("timing", f"a reply of {n:,} tokens at {rate:.0f} tok/s ({ms / 1000:.1f} s)", line, at=at,
+                     eval_ms=ms, eval_n=n, eval_tok_s=rate)
+    if m := _DRAFT.search(line):
+        rate = float(m.group(1))
+        return event("spec-decode", f"speculative decoding is on: {rate:.0%} of the drafted tokens accepted", line, at=at,
+                     on=True, accept_rate=rate, accepted=int(m.group(2)), generated=int(m.group(3)))
+    if m := _DRAFT_LOAD.search(line):
+        return event("spec-decode", "speculative decoding is on: a draft model was loaded", line, at=at, on=True,
+                     draft_model=m.group(1) or None)
     if 'msg="server config"' in line:
         return event("startup", "the server started: its settings and card were read again", line, at=at)
     if "level=ERROR" in line:

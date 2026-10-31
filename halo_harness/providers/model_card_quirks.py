@@ -3,7 +3,8 @@ server log said about it, as card quirks (providers/model_card.py adds them).
 
     quirks_for(state_dir, model) -> [{kind, say}]
     with_quirks(card, state_dir) -> a copy of `card` with `quirks` and one `how` line per quirk, and (3.3.6.0 R3)
-        `fit_evidence` (providers/fit_evidence.py: the model's last load on its host, as the log says it)
+        `fit_evidence` (providers/fit_evidence.py: the model's last load on its host, as the log says it), and
+        (3.3.6.0 R4, providers/model_card_measured.py) `measured`, `dialect`, `kv_dial` with their blocks
 
 A model whose server logs "forcing full prompt re-processing due to lack of
 cache data" (the steward's `no-prompt-cache` event: sliding-window or
@@ -62,6 +63,8 @@ def with_quirks(card: dict, state_dir) -> dict:
     if isinstance(card.get("blocks"), dict):
         from halo_harness.providers.model_card_blocks import fit_block
         card["blocks"]["fit"] = fit_block(card["fit_evidence"])
+    from halo_harness.providers.model_card_measured import with_measured  # 3.3.6.0 R4: measured, the dialect, the KV dial
+    with_measured(card, state_dir)
     quirks = quirks_for(state_dir, card.get("name"))
     if not quirks and not card.get("quirks"):
         return card

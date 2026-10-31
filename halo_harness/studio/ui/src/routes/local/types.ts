@@ -47,7 +47,10 @@ export type ModelEntry = {
   twin?: { of: string; state: "verified" | "unverified" | "spilled"; line: string };
   raw?: { twins: string[]; verified: boolean; offer: string };
   crashed?: { line: string; at: string; signature: string; count: number } | null; // 3.3.6.0 R2: ollama_steward/fingerprints.py
+  shelf?: { last_used: number | null; never_used: boolean; idle_days: number | null; hint: string } | null; // 3.3.6.0 R4
 };
+/** 3.3.6.0 R4: a retired model on the shelf (models_library/shelf.py). */
+export type ShelfRow = { model: string; host: string; size: number | null; retired_at: string; why: string; repull: string };
 export type Intent = { id: string; title: string; why: string };
 export type ModelsAnswer = { hosts: { name: string; kind: string; url: string; models: ModelEntry[] }[]; intents: Intent[]; at: number };
 export type Said = { ok: boolean; text: string; undo?: number };

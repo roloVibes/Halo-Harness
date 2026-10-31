@@ -256,3 +256,15 @@ and `isolation/Dockerfile` the worker image.
   `providers/fit_evidence.py` (the fit badge's evidence), `fleet/control_probes.py` `read_events` / `take_events` (a
   member's server events on its ledger push), `studio/local_logs_api.py` (the Logs routes) and `ui/src/routes/local/`
   `LogsPage.tsx`, `LogTail.tsx`, `LogModelRows.tsx`, `logstore.ts`, `ui/src/routes/shared/FitEvidence.tsx`.
+- Measured cards and the dialect record (3.3.6.0 R4, docs/MODELS-cards.md "Measured", "The dialect record", "The KV
+  dial"; docs/MODELS-ollama-logs.md "The degradation ladder", "The model shelf"): `providers/battery_multitool.py` (the
+  battery's multi-tool probe: tool-call accuracy), `providers/measured.py` (the measured facts, each with its source,
+  date and n), `providers/model_card_measured.py` (the card's Measured, dialect and KV-dial blocks),
+  `providers/dialect.py` (the record, your edits), `providers/dialect_refine.py` (the ledger's rules per the apply
+  modes), `providers/dialect_apply.py` (the record applied: the body, fences, the repair loop's bound, the loop guard,
+  the tool budget), `providers/kv_dial.py` (the windows per KV type, the crash note), `models_library/shelf.py` (last
+  use, Retire, the shelf, Re-pull), `agent/postmortem.py` (Why this answer?), `agent/degrade.py` (the degradation
+  ladder), `models_card_facts_cli.py` (`halo models measured | dialect`), `models_shelf_cli.py` (`halo models retire |
+  shelf`), `studio/local_card_api.py` (the measured and dialect routes), `studio/local_shelf_api.py` (the shelf
+  routes), `studio/postmortem_api.py` (`GET sessions/<sid>/postmortem`) and `ui/src/routes/shared/DialectBlock.tsx`,
+  `ui/src/routes/local/ShelfBits.tsx`, `ui/src/routes/session/Why.tsx`, `ui/src/styles/model-measured.css`.

@@ -361,3 +361,20 @@ again. `--json` prints the profile (with every probe's raw answer in `evidence`)
 not there, or the model did not load. Studio's Local -> Models runs the same through its **Probe** button
 ([STUDIO-local.md](STUDIO-local.md#models)). `halo local bench` (the three-window battery and the tuning scans) is not
 part of 3.3.6.0.
+
+## `halo models measured | dialect | retire | shelf` (3.3.6.0 R4)
+
+- `halo models measured <model> [--host H] [--json]`: the card's Measured block alone, one fact a line, "value
+  (source, date, n)" ([MODELS-cards.md](MODELS-cards.md#measured-what-the-model-did-here-3360-r4)).
+- `halo models dialect <model> [--host H] [--set field=value ...] [--reset [FIELD]] [--json]`: how Halo talks to the
+  model, each field with its `from`; `--set` writes your edit (`reply_reserve=2048`, `loop_guard=on:40`,
+  `json_repair=on:2`, `stop_quirks=<|im_end|>`, `instruction_placement=user-turn`, `thinking=off`, `tools_max=8`),
+  `--reset` puts one field or all back to what the battery says.
+- `halo models retire <model> [--host H] [--why TEXT] [--force]`: the uses card, then the delete and one shelf line
+  with its re-pull line; `halo models shelf [--host H] [--json]` lists every installed model's last use, size and
+  whether a role picked it, then the retired ones; `--repull <model>` pulls one back (a fitted twin prints its recipe).
+
+`halo session postmortem [--session ID] [--turn N] [--agent ID] [--json]` (in the TUI `/why [turn]`) rebuilds one
+answer from the ledger and the session log -- cut, memory, thinking only, no tools, a small budget, the cache -- in
+one line with the details beneath; no session: the newest that called a local model, no turn: its newest
+([MODELS-ollama-logs.md](MODELS-ollama-logs.md#the-answer-post-mortems-sources-3360-r4)).

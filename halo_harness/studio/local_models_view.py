@@ -7,7 +7,8 @@ intent (the third of Local's five ideas: intents, not model names).
     models(state_dir, host="") -> {hosts: [{name, kind, url, models: [row]}], intents [{id, title, why}], at}
     row {model, ref, card, fit, profile, loaded, size, intent {id: score | None},
          warm {state, load_s, line, cache_reused_pct, cache_line} (3.3.5.0 R4, studio/local_warm.py),
-         crashed {line, at, signature, count} | None (3.3.6.0 R2: ollama_steward/fingerprints.py)}
+         crashed {line, at, signature, count} | None (3.3.6.0 R2: ollama_steward/fingerprints.py),
+         shelf {last_used, never_used, idle_days, hint} | None (3.3.6.0 R4: models_library/shelf.py)}
 
 An intent's score orders the rows (higher first; None = not for that intent):
 the card's purpose and `fit_for` decide the band, the fit meter the place in it.
@@ -94,7 +95,20 @@ def _ollama_rows(h, warm: Optional[dict] = None, state_dir=None) -> list:
         from halo_harness.studio.local_twin_verify import raw_and_twins
         raw_and_twins(h, rows, state_dir)
         _crash_marks(h, rows, state_dir)
+        _shelf_marks(h, rows, state_dir)
     return rows
+
+
+def _shelf_marks(h, rows: list, state_dir) -> None:
+    """3.3.6.0 R4: each row's shelf facts and hint ("not used in 30 days, 17 GB"; models_library/shelf.py)."""
+    try:
+        from halo_harness.models_library.shelf import facts
+        got = facts(state_dir, h, [{"model": r["model"], "size": r.get("size")} for r in rows], config_uses=False)
+    except Exception:
+        got = {}
+    for r in rows:
+        f = got.get(r["model"]) or {}
+        r["shelf"] = {k: f.get(k) for k in ("last_used", "never_used", "idle_days", "hint")} if f else None
 
 
 def _crash_marks(h, rows: list, state_dir) -> None:

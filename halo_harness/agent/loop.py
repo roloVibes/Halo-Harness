@@ -2946,6 +2946,10 @@ class Session:
                 requested_max_tokens=requested_max_tokens, tool_choice=tool_choice,
                 session_id=getattr(getattr(self, "log", None), "session_id", None),
             )
+        # Halo 3.3.6.0 R4: the dialect record on a local model's call -- its stop quirks, its reply reserve,
+        # thinking off (providers/dialect_apply.py); a cloud model's body is untouched
+        from halo_harness.providers.dialect_apply import apply_body as _dialect_body
+        body = _dialect_body(self, body)
         return system_text, messages, tools, body
 
     def _maybe_auto_calibrate_ollama(self, host, model: str, *, budget_s: float = 20.0) -> None:
@@ -3082,9 +3086,35 @@ class Session:
         if kind == "compact":
             yield events.turn_marker("resend", f"↳ {line}", turn=turn_no)
             return _OVERFLOW_NEEDS_COMPACTION
+        _lad = yield from self._degrade(turn_no, "cut-twice", body)  # 3.3.6.0 R4: the ladder before the error
+        if _lad == "stop":
+            return None
+        if _lad is not None:
+            return _lad
         yield events.error(f"{line} ({raw_message})" if raw_message else line, turn=turn_no,
                            err_type=PROMPT_TRIMMED, retryable=False)
         return None
+
+    def _degrade(self, turn_no: int, trigger: str, body: dict):
+        """Halo 3.3.6.0 R4: one rung of the degradation ladder (agent/degrade.py) for a failed local call: `(body,
+        req)` to send again (the repair note, or a body rebuilt after a smaller ask or a switch), "stop" after the
+        ask rung's line, or None (the ladder is off or this turn's pass is spent: the caller says its own line)."""
+        if not is_local_model_ref(self.model_ref):
+            return None
+        from halo_harness.agent.degrade import note_body, step
+        act = yield from step(self, turn_no, trigger, body)
+        if act is None:
+            return None
+        if act["do"] == "stop":
+            return "stop"
+        if act["do"] == "note":
+            new = note_body(body, act["note"])
+        else:
+            try:
+                _, _, _, new = self._derive_and_build()
+            except (ToolCatalogTooLarge, ToolsNotSupported):
+                return None
+        return new, self._build_request(new)
 
     def _drain_pending_ollama_notices(self) -> list:
         """Round 5b part 2 (brief item 7, "the auto-calibrate notice
@@ -3634,6 +3664,9 @@ class Session:
                 watcher.start()
             call_abort = _EitherAbort(self.abort, steer_restart_event) if watcher is not None else self.abort
             gen = self._stream(req, abort=call_abort)
+            from halo_harness.providers.dialect_apply import guard_for as _guard_for  # 3.3.6.0 R4: the loop guard
+            loop_guard, loop_cut = _guard_for(self), False
+            self._dialect_loop = None
             assistant_blocks: list = []
             partial_json: dict = {}
             stop_reason = None
@@ -3760,6 +3793,11 @@ class Session:
                             text = text if isinstance(text, str) else str(text)  # never crash on a non-str delta
                             assistant_blocks[idx]["text"] += text
                             yield events.text_delta(text, index=idx, turn=turn_no)
+                            if loop_guard is not None and (_seen := loop_guard.feed(text)):
+                                self._dialect_loop = _seen  # the ledger line's `loop` (dialect_refine turns it on)
+                                if _seen == "stop":
+                                    loop_cut = True
+                                    break
                         elif dtype == "thinking_delta":
                             # finding 15 (major, h4-h5-h3c review), point 1:
                             # the wire key is `thinking`, not `text` --
@@ -3886,6 +3924,23 @@ class Session:
                     self.log.append_assistant(content=partial, stop_reason="interrupted")
                 self._log_call_failure("aborted", retries=attempts - 1)
                 return None
+
+            if loop_cut:
+                # Halo 3.3.6.0 R4: the loop guard (providers/dialect_apply.LoopGuard) saw the same span three times:
+                # the stream stops, the repeats are cut off the reply, one line says so; never retried
+                _drop = len(loop_guard.text) - (loop_guard.cut_at or len(loop_guard.text))
+                for b in reversed([b for b in assistant_blocks if b and b.get("type") == "text"]):
+                    _keep = max(0, len(b["text"]) - _drop)
+                    _drop -= len(b["text"]) - _keep
+                    b["text"] = b["text"][:_keep].rstrip()
+                    if _drop <= 0:
+                        break
+                for idx in list(partial_json.keys()):
+                    if idx < len(assistant_blocks):
+                        assistant_blocks[idx] = None
+                stop_reason = stop_reason or "end_turn"
+                yield events.turn_marker("local", f"↳ {self.model_ref.raw} started repeating; stopped", turn=turn_no)
+                break
 
             if steered_cut:
                 # scope 0(c): the stream was cut for a queued steer, not
@@ -4329,11 +4384,27 @@ class Session:
                     from halo_harness.agent.local_failure import no_tools_line  # probed: no tool calling, say why
                     _local_line = no_tools_line(self)
                     if _local_line is not None:
-                        yield events.error(_local_line, turn=turn_no, err_type="local_model")
+                        from halo_harness.agent.degrade import rungs as _rungs
+                        if _rungs():
+                            yield events.turn_marker("local", f"↳ {_local_line}", turn=turn_no)
+                        _lad = yield from self._degrade(turn_no, "no-tools", body)  # 3.3.6.0 R4: the ladder
+                        if _lad not in (None, "stop"):
+                            body, req = _lad
+                            attempts -= 1
+                            continue
+                        if _lad is None:
+                            yield events.error(_local_line, turn=turn_no, err_type="local_model")
                         return None
             if is_retryable_empty_completion(stop_reason=stop_reason, text=text_so_far, tool_use_count=tool_use_count,
                                               tools_present=bool(body.get("tools"))):
                 if empty_retried and self.route.dialect == "ollama":  # 3.3.6.0 R1: say why, never a raw error
+                    _lad = yield from self._degrade(turn_no, "empty", body)  # 3.3.6.0 R4: the ladder first
+                    if _lad not in (None, "stop"):
+                        body, req = _lad
+                        attempts -= 1
+                        continue
+                    if _lad == "stop":
+                        return None
                     from halo_harness.agent.local_failure import empty_line
                     yield events.error(empty_line(self), turn=turn_no, err_type="local_model")
                     return None
@@ -4405,6 +4476,11 @@ class Session:
             if self.route.dialect == "ollama":
                 from halo_harness.agent.local_failure import after_call  # 3.3.6.0 R1: a cold load, an unverified id
                 for _line in after_call(self, harness_meta, assistant_blocks):
+                    yield events.turn_marker("local", f"↳ {_line}", turn=turn_no)
+                # Halo 3.3.6.0 R4: the dialect record -- thinking "strip", and the ledger's refinements
+                from halo_harness.providers.dialect_apply import after_reply as _dialect_after, refine_lines
+                _dialect_after(self, assistant_blocks)
+                for _line in refine_lines(self):
                     yield events.turn_marker("local", f"↳ {_line}", turn=turn_no)
                 # Halo 3.3.6.0 R3: the server log's own lines for this call (agent/ollama_log_recovery.py)
                 from halo_harness.agent.ollama_log_recovery import after_call as _log_after
@@ -6204,6 +6280,12 @@ class Session:
             # the NEXT `_step()` call this same `while True:` is about to
             # make, "for the rest of this turn", exactly like `_try_
             # fallback_after_exhaustion`'s own identically-shaped switch.
+            from halo_harness.agent.degrade import midturn as _ladder_midturn  # 3.3.6.0 R4: tool_failures' rung
+            yield from _ladder_midturn(self, turn_no)
+            if getattr(self, "_ladder_stop", False):  # the ask rung: the turn ends with its question
+                self._ladder_stop = False
+                yield events.turn_done(turn=turn_no, reason="end_turn")
+                return
             yield from self._maybe_escalate(turn_no)
             # Halo 2.0.5 round 5: the TEAM's own escalation section -- the
             # same two safe points, checked after the local policy so a
@@ -6220,6 +6302,22 @@ class Session:
 
     def _attempt_tool_repair(self, *, tool_name: Optional[str], schema: Optional[dict],
                               error_message: str, raw_input) -> Optional[dict]:
+        """Halo 3.3.6.0 R4: the JSON repair loop of the dialect record (providers/dialect_apply.repair_attempts):
+        at most `attempts` repair rounds, each asked with the previous round's parse error; 0 (off) asks none.
+        The round itself is `_attempt_tool_repair_once`."""
+        from halo_harness.providers.dialect_apply import repair_attempts
+        n = repair_attempts(self) if is_local_model_ref(self.model_ref) else 1
+        for i in range(n):
+            self._repair_error = None
+            got = self._attempt_tool_repair_once(tool_name=tool_name, schema=schema, error_message=error_message,
+                                                 raw_input=raw_input)
+            if got is not None or not self._repair_error:
+                return got
+            error_message = f"{error_message}; your repair attempt {i + 1} failed too: {self._repair_error}"
+        return None
+
+    def _attempt_tool_repair_once(self, *, tool_name: Optional[str], schema: Optional[dict],
+                                  error_message: str, raw_input) -> Optional[dict]:
         """Round 5b part 2 (brief item 2): ONE local, isolated repair
         round -- a tools-less, history-less completion against THIS
         session's own current model (never `small_model_ref`: it never
@@ -6306,15 +6404,23 @@ class Session:
             finally:
                 timer.cancel()
                 gen.close()
-            from halo_harness.providers.battery_probes import strip_fences  # 3.3.6.0 R1: a fenced reply parses
-            parsed = json.loads(strip_fences("".join(text_parts)))
+            from halo_harness.providers.dialect_apply import parse_text  # 3.3.6.0 R1/R4: the fence stripped per the dialect
+            raw_reply = "".join(text_parts)
+            try:
+                parsed = json.loads(parse_text(self, raw_reply))
+            except ValueError as e:
+                self._repair_error = f"not valid JSON ({e})"
+                return None
         except Exception:
             log.debug("ollama/huggingface: tool-call repair round failed for %s", tool_name, exc_info=True)
             return None
         if not isinstance(parsed, dict):
+            self._repair_error = "the reply was JSON but not an object"
             return None
         from halo_harness.agent.repair import validate_and_coerce
         coerced, errors = validate_and_coerce(parsed, schema)
+        if errors:
+            self._repair_error = "; ".join(str(x) for x in errors)[:300]
         return None if errors else coerced
 
     def _resolve_tool_call(self, tu: dict, outcome, tool_call_flags: dict) -> dict:

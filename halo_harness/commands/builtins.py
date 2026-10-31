@@ -274,6 +274,23 @@ def _cmd_private(args: str, facade: HeadlessFacade) -> str:
     return f"Private: {state}.\n{runtime.status_line()}"
 
 
+def _cmd_why(args: str, facade: HeadlessFacade) -> str:
+    """Halo 3.3.6.0 R4: the answer post-mortem (agent/postmortem.py) of this session's newest turn, or turn N."""
+    from halo_harness.agent.postmortem import postmortem
+    session = getattr(facade, "session", None)
+    sid = getattr(getattr(session, "log", None), "session_id", None) or getattr(facade, "session_id", "")
+    turn = int(args.strip()) if args.strip().isdigit() else None
+    nodes = session.log.nodes() if session is not None and getattr(session, "log", None) is not None else None
+    got = postmortem(getattr(session, "state_dir", None) or _state_dir(), sid, turn=turn, nodes=nodes)
+    head = f"turn {got.get('turn')}: {got['line']}" if got.get("turn") is not None else got["line"]
+    return "\n".join([head] + [f"  {d}" for d in got.get("details") or []])
+
+
+def _state_dir():
+    from halo_harness.config.paths import bridge_home
+    return bridge_home()
+
+
 def _cmd_escalation(args: str, facade: HeadlessFacade) -> str:
     """Halo 2.0.3 round 5e: shows `routing.escalation`'s policy and this
     session's last few decisions -- read-only (the policy itself is set
@@ -1839,6 +1856,8 @@ _BUILTIN_SPECS = {
                 "[id]", _cmd_mission),
     "escalation": ("core", "Show the hybrid-escalation policy and this session's last decisions", None,
                    _cmd_escalation),
+    "why": ("core", "Why this answer: what the local model saw for the newest turn (or turn N) -- cut, memory, "
+            "thinking, tools, cache", "[turn]", _cmd_why),
     "init": ("prompt", "Analyze the codebase and write/update CLAUDE.md", None, _cmd_init),
     "doctor": ("core", "Check the health of this halo installation", None, _cmd_doctor),
     "export": ("ui", "Export the conversation", None, _cmd_export),

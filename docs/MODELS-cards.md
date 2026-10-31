@@ -258,3 +258,54 @@ steward's findings -- never a raw error (`agent/local_failure.py`,
 | a prompt past the window | the preflight's line (3.3.5.0 R4) |
 
 An event about a model with no profile stays as the rule said it.
+
+## Measured: what the model did here (3.3.6.0 R4)
+
+The card's **Measured** block (`providers/measured.py`) says what this model did on this host, each line "value
+(source, date, n)": tok/s, the time to the first token, the load time, the prompt-cache reuse, the window verified vs
+assumed, KV per token, what it sees (text, images), speculative decoding on or off with its acceptance rate,
+tool-call accuracy, and its quirks (ignores system prompt, answers in thinking, loops, no prompt cache). The sources,
+in order: the traffic ledger's answered calls (medians over the newest 20, never a `warming` one: the first call after
+a load is never counted), the server log's `timing` (llama-server's `print_timing` lines), `load-result` and
+`spec-decode` events, the fit evidence (the window a load was verified at), the battery's profile. It is kept beside
+the profile (`~/.halo/ollama-capabilities.json`: `[digest]["measured"][host]`) and read again from the ledger on
+every read. The Models rows show a speed chip from it; `halo models show` prints it under "measured:" and
+`halo models measured <model> [--host H]` prints it alone.
+
+**Tool-call accuracy** comes from the battery's multi-tool probe (`providers/battery_multitool.py`, probe set
+`battery-2`): three tools and a task that needs two of them in order (look a user up, then list that user's orders
+with the id the first call returned), two turns, scored on the right tools with the right arguments (0 to 1; a wrong
+tool costs a quarter). A model with no tool calling is not asked. The search's tool-accuracy fact is verified from it
+(0.75 or more holds).
+
+## How Halo talks to it: the dialect record (3.3.6.0 R4)
+
+Where the profile decides where a model goes, the dialect record (`providers/dialect.py`) decides how Halo addresses
+it, applied before every call to an `ol:` model or an `hf:local` server (`providers/dialect_apply.py`):
+
+| Field | What it does | Filled from |
+|---|---|---|
+| `instruction_placement` | `system`, or `user-turn`: Halo's instructions at the front of the first user message | the battery: a weak system role |
+| `strip_fences` | a ```-fenced JSON reply is unwrapped before it is parsed (the repair round, the JSON repair loop) | on |
+| `reply_reserve` | the least room the reply gets (`num_predict`) | the probes' longest answer; a thinking model at least 300; the ledger raises it one step when over 10 % of the last 20 replies were cut |
+| `json_repair` | `{on, attempts}`: a reply that does not parse is asked again with the parse error, at most `attempts` times | 1; 2 when the probe's JSON failed |
+| `stop_quirks` | extra `stop` strings | an end token the probe saw printed |
+| `loop_guard` | `{on, window}`: the same 40-token span three times stops the reply ("<model> started repeating; stopped") | off; the ledger turns it on once a loop is seen |
+| `thinking` | `native`, `off` (asks for none), `strip` (cuts `<think>` text out of the reply) | native |
+| `tools_max` | the tool budget: 0 none; else the window and the profile decide, the task's most relevant tools first (the catalog's ranking), the rest named in one line of the system prompt | 0 when the battery saw no tool call |
+
+It is stored at `ollama.profiles["<host>|<model>"]["dialect"]`, only what differs from the battery, each field with
+its `from` (battery, ledger, user). A change Halo makes goes through `ollama.steward.apply` (auto writes it, review
+leaves a proposal, off does nothing); your edit always wins and is marked `user`. Edit it on the card's "How Halo
+talks to this model" block or with `halo models dialect <model> [--host H] [--set field=value ...] [--reset [FIELD]]`.
+The ledger line of every call carries the record in force (`dialect_record`) and whether the guard saw a loop (`loop`).
+
+## The KV dial (3.3.6.0 R4)
+
+The fit block adds one line (`providers/kv_dial.py`): "f16 KV -> 32k, q8_0 KV -> 64k on this card (q8_0 KV: a small
+quality cost)", the windows from the fit arithmetic at each KV cache type (q4_0 only when it buys more). When this
+host's crash fingerprints count crashes with flash attention and a q8_0 KV cache, the crash note follows: "4 crashes
+here with FA + q8_0 KV -- see `halo ollama crashes --why`". The host-side half is a stated action
+(`OLLAMA_KV_CACHE_TYPE`, `OLLAMA_FLASH_ATTENTION`, then a restart of Ollama on that host); Halo never sets them. The
+Halo-side half needs nothing: the window a profile or the fit picks is already the one for the KV type in force. The
+Models rows' window line carries the dial in its title; `halo models show` prints it as "kv:".

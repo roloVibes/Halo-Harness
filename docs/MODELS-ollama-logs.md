@@ -1,6 +1,6 @@
 # Models: the Ollama server log
 
-Read this when you want to know how Halo reads an Ollama host's server log, whether that log is live, how the log drives a call's recovery, what a crash fingerprint holds and what Halo proposes when a crash repeats.
+Read this when you want to know how Halo reads an Ollama host's server log, whether that log is live, how the log drives a call's recovery, what a crash fingerprint holds and what Halo proposes when a crash repeats, how a failed local call walks the degradation ladder, what the answer post-mortem reads and how the model shelf retires a model.
 
 Part of [Models](MODELS.md), which lists every part.
 
@@ -87,3 +87,45 @@ request), a fitted twin (`halo ollama tune <model> --window N`), and on a Window
 
 See [the model card](MODELS-cards.md#the-fit-badges-evidence-3360-r3): a model's last load on its host, as the log or
 `/api/ps` says it, with the tok/s the ledger measured.
+
+## The degradation ladder (3.3.6.0 R4)
+
+When a local call fails, Halo walks one explicit ladder, one rung per failure, each rung one line, one pass per turn
+(`agent/degrade.py`, `local.ladder` in [CONFIG.md](CONFIG.md)):
+
+1. **repair** -- the dialect's repair loop: the call asked once more with what was wrong (an empty reply, a reply
+   that did not parse); for broken tool arguments the repair round is this rung;
+2. **smaller-ask** -- one re-send with the lean prompt and the tool budget's six most relevant tools ("rung 2: a
+   smaller ask -- 6 tools instead of 31, the lean prompt");
+3. **other-local** -- the nearest probed local model with tools that shares the card with the resident one, through
+   the switch step;
+4. **cloud** -- only when `routing.escalation` allows it (its `to`; `ask: true`, no policy or a trigger outside its
+   `when` says why it was not taken and goes on): it is the escalation policy, never a second one;
+5. **ask** -- one question to the user with what was tried; the turn ends there.
+
+The triggers: an empty reply twice, an empty reply with no tool call from a model the battery found with no tool
+calling, the prompt cut twice (the log or the counts), two failed tool calls between rounds (`tool_failures`). A rung
+that does not fit the trigger is passed (repair only answers an empty or unparsed reply). The worst case adds four
+calls to a turn. The rungs taken ride the turn's ledger lines (`ladder`) and the post-mortem shows them;
+`local.ladder: off` leaves the plain failure lines of the table in [MODELS-cards.md](MODELS-cards.md).
+
+## The answer post-mortem's sources (3.3.6.0 R4)
+
+"Why this answer?" (`agent/postmortem.py`; Studio's Live rows, `/why [turn]`, `halo session postmortem`) rebuilds one
+assistant turn from what was recorded, no request sent: the turn's ledger lines (`session`, `turn`: `trimmed`, the
+read `prompt_eval_count` against `estimate_tokens` and `num_ctx_sent`, `composition`, `tools_count`, `done_reason`,
+`cache_reused_pct`, `log_events`, `dialect_record`, `ladder`, `loop`) and the session log (a thinking block and no text in
+the turn's last answer). The line names the first causes found, in this order: the prompt cut (where and how much),
+an empty reply from a small budget (`num_predict` hit), thinking only, memory over half the prompt, no tools offered;
+a turn with none says "nothing cut; 92 % of the prompt reused from cache". A sub-agent's turn reads its own
+`agent-<id>` lines.
+
+## The model shelf (3.3.6.0 R4)
+
+`models_library/shelf.py`: per installed model its last use (the ledger's newest answered call on that host), its
+size on disk, whether a role picked it (a small, compaction or repair call, or a role, lineup or the default naming
+it) and "never used"; the Models rows show a hint once it is idle ("not used in 30 days, 17 GB"). **Retire** is the
+existing delete with its uses card first (a live session on it waits; a use asks for force) plus one line in
+`~/.halo/ollama/shelf.jsonl` `{model, digest, size, host, retired_at, why, repull}`, the re-pull line `ollama pull
+<model>` or a fitted twin's recipe; **Re-pull** is the existing pull job. Nothing deletes without the button or
+`halo models retire`; `halo models shelf [--repull <model>]` lists both sides.

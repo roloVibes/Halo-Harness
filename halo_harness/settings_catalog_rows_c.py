@@ -45,6 +45,7 @@ ROWS = [
     Row("update.notify", "update", "Update note", "bool", True, (), "The once-a-day update available note at startup.", "next launch"),
     Row("update.channel", "update", "Update channel", "enum", None, ("stable", "main"), "Which releases halo update follows; unset, derived from the install (stable on a tag, else main).", "now"),
     Row("local.servers", "local", "Local servers", "mapping", None, (), "Named OpenAI-compatible local servers (name to base_url and model) a local route calls.", "now"),
+    Row("local.ladder", "local", "Degradation ladder", "list", ["repair", "smaller-ask", "other-local", "cloud", "ask"], (), "The rungs a failed local call walks once per turn, in order (repair, smaller-ask, other-local, cloud, ask); off (or []) turns the ladder off.", "now"),
     Row("embeddings.model", "local", "Embeddings model", "string", None, (), "The embeddings model recall ranks with; unset, embeddings are off.", "now"),
     Row("embeddings.enabled", "local", "Embeddings on", "bool", False, (), "Turn embeddings on with the default model when no model is named.", "now"),
     Row("embeddings.host", "local", "Embeddings Ollama host", "string", None, (), "The Ollama host (by name) that serves embeddings; unset, the default host.", "now"),

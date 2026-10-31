@@ -2,12 +2,7 @@
 
 Read this when you use Halo Studio, the browser console where you watch every agent work: the Session dashboard, your lineups in Roles, runs, designs, fleet and team.
 
-`halo studio` opens your lineups and agent bios as an editable graph in the
-browser. It is the visual front door to the same files the wizard and the
-CLI edit: a lineup is `~/.halo/teams/<name>.yaml` (or `.halo/teams/` in a
-project), a bio is `~/.halo/agents/<name>.yaml`, and Studio reads and writes
-them through the exact functions `halo teams` and `halo agents` use. Nothing
-is a second source of truth.
+`halo studio` opens your lineups and agent bios as an editable graph in the browser. It is the visual front door to the same files the wizard and the CLI edit: a lineup is `~/.halo/teams/<name>.yaml` (or `.halo/teams/` in a project), a bio is `~/.halo/agents/<name>.yaml`, and Studio reads and writes them through the exact functions `halo teams` and `halo agents` use. Nothing is a second source of truth.
 
 **What Studio shows is what is on disk, as it changes (3.2.2.0):** a lineup
 your session edits, `halo teams apply`, a bio saved from the terminal appear
@@ -68,7 +63,7 @@ This page is the entry point; the content lives in the parts below, one per task
 | Part | Read it when | What is in it |
 |---|---|---|
 | [Studio: the shell](STUDIO-shell.md) | you find your way around Studio's header, sections, panels and Start views, or open it on a bio, a lineup or the Team | The shell (3.0.3.0) · Opening Studio on a bio, a lineup or the Team (`halo studio --edit`) · The guided first run (3.1.1.0) |
-| [Studio: steering and exporting a session](STUDIO-session.md) | you steer an agent from Session's Live column and want to know which agent and which call it reaches, or save a session as one Markdown trace file | The steer's target · Follow, and the view holding still · Keys · Export: the session as a trace file · Files |
+| [Studio: steering and exporting a session](STUDIO-session.md) | you steer an agent from Session's Live column and want to know which agent and which call it reaches, or save a session as one Markdown trace file, or ask why an answer came out as it did | The steer's target · Follow, and the view holding still · Keys · Export: the session as a trace file · Why this answer? (3.3.6.0 R4) · Files |
 | [Studio: how each section works](STUDIO-sections.md), and [the live feed](STUDIO-feed.md) | you want the one-screen story of a section (Session, Team, Roles, Fleet, Design, Orchestra, Packs, Setup, Settings, Local), or how its pages get their live frames | How each section works · The live feed |
 | [Studio: the Orchestra console](STUDIO-orchestra.md) | you run an Orchestra goal from Studio: the run console, the plan canvas and the coach | Orchestra: the run console |
 | [Studio: Fleet](STUDIO-fleet.md) | you watch or steer every harness and agent from Studio's Fleet section | Fleet: every harness, every agent · How this works: Attention · How this works: Costs and caps · How this works: Conflicts and project rooms · How this works: Hand-offs · How this works: Recordings · How this works: Replay · How this works: Who can do what · How this works: Missions · How this works: While you were away · Keys: hop around · Live Roles: the lineup lights up |
@@ -76,5 +71,6 @@ This page is the entry point; the content lives in the parts below, one per task
 | [Studio: Design mode](STUDIO-design.md) | you make prototypes, pages or decks with Studio's Design section on your own creative apps, or render pictures with the Media panels | Design mode: prototypes, pages and decks on your own apps · Media: the ComfyUI panels · Media routes (3.0.4.0) |
 | [Studio: the Pack Manager](STUDIO-packs.md) | you install, grant, enable, set up, update or remove packs from Studio's Packs section | Packs: the Pack Manager (3.2.0.0 R6) |
 | [Studio: the Local section](STUDIO-local.md) | you watch the machines that serve your local models and what they serve: the live resources and traffic, every host with its controls, every model with its fit | Local: the machines and the models (3.3.5.0) · Resources · Hosts · Models · The pages still to come · Local's five ideas · The routes |
+| [Studio: the Local section's routes](STUDIO-local-routes.md) | you call Studio's Local routes yourself or want the live frames the Local section listens to | The routes · The measured card, the dialect record and the shelf (3.3.6.0 R4) |
 | [Studio: the Setup section](STUDIO-setup.md) | you set this box up from Studio's Setup section: what each block writes and the routes behind it | Setup: the wizard's blocks as forms (3.3.0.0) · The doors: `halo init` opens Setup (3.3.0.0 R4) · What each block writes · The routes |
 | [Studio: saving, security, SSH and shortcuts](STUDIO-security.md) | you save and apply from Studio, run it over SSH, check what it lets a page do, or want every shortcut | Validate, save, apply · Security model · Over SSH · Shortcuts · Files |

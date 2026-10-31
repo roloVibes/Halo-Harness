@@ -143,6 +143,29 @@ def _fit(card, row: dict, info: dict, used: int, tags, model: str, ps_after) -> 
     return out
 
 
+def _multitool(client, model: str, used: int, keep, say, total: int, tools: str, ev: dict) -> "tuple":
+    """3.3.6.0 R4: (accuracy 0-1, why) from the two-turn multi-tool probe (providers/battery_multitool.py); a model
+    the tools probe found with no tool calling is not asked (0.0)."""
+    from halo_harness.providers import battery_multitool as M
+    say({"step": total, "of": total, "probe": "multitool", "say": f"{total}/{total} {B.WORDS['multitool']}"})
+    if tools != "yes":
+        ev["multitool"] = {"skipped": "no tool calling"}
+        return 0.0, "no tool calling (the tools probe): not asked"
+    first = client.call("POST", "/api/chat", body=M.first_body(model, num_ctx=used, keep_alive=keep), timeout=CALL_TIMEOUT_S)
+    if isinstance(first, dict) and B.thinking_only(first):
+        first = client.call("POST", "/api/chat", body=M.first_body(model, num_ctx=used, keep_alive=keep, cap=B.THINK_CAP),
+                            timeout=CALL_TIMEOUT_S)
+    first = first if isinstance(first, dict) else {}
+    second = None
+    if len(M.calls_of(first)) == 1:
+        second = client.call("POST", "/api/chat", body=M.second_body(model, first, num_ctx=used, keep_alive=keep,
+                                                                     cap=B.THINK_CAP), timeout=CALL_TIMEOUT_S)
+    acc, why, checks = M.score(first, second if isinstance(second, dict) else None)
+    ev["multitool"] = {"first": B.evidence(first), "second": B.evidence(second) if isinstance(second, dict) else None,
+                       "checks": checks}
+    return acc, why
+
+
 def run(host, model: str, *, client=None, card=None, on_status: Optional[Callable[[dict], None]] = None,
         state_dir=None, force: bool = False, window: Optional[int] = None, apply: bool = True) -> dict:
     """See the module docstring."""
@@ -172,7 +195,7 @@ def run(host, model: str, *, client=None, card=None, on_status: Optional[Callabl
     was_loaded = _ps_entry(client.call("GET", "/api/ps", timeout=10.0), model) is not None
     used = _window(host, model, info, card, row, window)
     keep = getattr(host, "keep_alive", None) or "5m"
-    replies, ev, total = {}, {}, len(B.ORDER)
+    replies, ev, total = {}, {}, len(B.ORDER) + 1  # 3.3.6.0 R4: the multi-tool probe is the last step
     for i, probe in enumerate(B.ORDER, 1):
         say({"step": i, "of": total, "probe": probe, "say": f"{i}/{total} {B.WORDS[probe]}"})
         reply = client.call("POST", "/api/chat", body=B.body(model, probe, num_ctx=used, keep_alive=keep),
@@ -190,8 +213,9 @@ def run(host, model: str, *, client=None, card=None, on_status: Optional[Callabl
         replies[probe], ev[probe] = reply, B.evidence(reply, retried=first)
         if first is not None:
             replies[probe + ":first"] = first
-    ps_after = client.call("GET", "/api/ps", timeout=10.0)
     tools, tools_why = B.score_tools(replies["tools"])
+    acc, acc_why = _multitool(client, model, used, keep, say, total, tools, ev)
+    ps_after = client.call("GET", "/api/ps", timeout=10.0)
     output, output_why = B.score_json(replies["json"])
     ids, ids_why = B.score_reference(replies["reference"])
     thinks = any(B.parts(r)[1].strip() for k, r in replies.items() if k != "warmup")
@@ -200,6 +224,7 @@ def run(host, model: str, *, client=None, card=None, on_status: Optional[Callabl
          "probe_set": B.PROBE_SET, "probed_at": time.time(), "tools": tools, "tools_why": tools_why,
          "system_role": B.score_system(replies["system"]), "instruction": B.score_instruction(replies["instruction"]),
          "output": output, "output_why": output_why, "identifiers": ids, "identifiers_why": ids_why,
+         "tool_call_accuracy": acc, "tool_call_why": acc_why,
          "reasoning": "thinking" if thinks else "none",
          "size_gb": round(row["size"] / 1e9, 1) if isinstance(row.get("size"), int) else None,
          "speed": {"tok_s": sp["tok_s"], "ttft_ms": sp["ttft_ms"], "at_window": used,

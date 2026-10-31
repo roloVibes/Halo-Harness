@@ -7,6 +7,10 @@ the TUI's `/export` writes beside the session log.
     halo session export <id> --md FILE   writes FILE
     halo session export <id> --md -      prints the trace
 
+    halo session postmortem [--session ID] [--turn N] [--agent ID] [--json]   3.3.6.0 R4: why one answer came
+                                         out as it did (agent/postmortem.py); no session: the newest that called a
+                                         local model; no turn: its newest
+
 `<id>` is a session id or a unique prefix of one, looked up across every
 project's sessions under the state dir (`~/.halo/sessions/<slug>/<id>.jsonl`).
 """
@@ -82,7 +86,17 @@ def cmd_session(argv: list) -> int:
     exp.add_argument("session", metavar="ID", help="Session id or unique prefix")
     exp.add_argument("--md", default=None, metavar="FILE",
                      help="Write to FILE (- prints it; default: halo-trace-<id>-<yyyy-mm-dd-hhmm>.md here)")
+    pm = sub.add_parser("postmortem", help="Why one answer came out as it did: cut, memory, thinking, tools, cache",
+                        description="One assistant turn reconstructed from the traffic ledger and the session log: "
+                                    "was the prompt cut, memory-dominated, thinking only, no tools, an empty reply "
+                                    "from a small budget, the cache reused -- one line, the details beneath.")
+    pm.add_argument("--session", default=None, metavar="ID")
+    pm.add_argument("--turn", type=int, default=None)
+    pm.add_argument("--agent", default=None, metavar="ID", help="a sub-agent's own session id")
+    pm.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
+    if args.verb == "postmortem":
+        return _postmortem(args)
     if args.verb != "export":
         parser.print_help()
         return 0 if not argv else 2
@@ -99,3 +113,27 @@ def cmd_session(argv: list) -> int:
     out = write_trace(path, Path(args.md) if args.md else Path.cwd() / trace_name(path.stem))
     print(f"wrote {out}")
     return 0
+
+
+def _postmortem(args) -> int:
+    import json
+    from halo_harness.agent.postmortem import postmortem
+    from halo_harness.config.paths import bridge_home
+    from halo_harness.ollama_steward.ledger import read_calls
+    state = bridge_home()
+    sid = args.agent or args.session
+    if not sid:
+        turns = [x for x in read_calls(state) if x.get("kind") == "turn" and x.get("session")]
+        sid = turns[-1]["session"] if turns else None
+    if not sid:
+        print("halo session postmortem: no session has called a local model yet (the traffic ledger is empty)",
+              file=sys.stderr)
+        return 1
+    got = postmortem(state, sid, turn=args.turn)
+    if args.json:
+        print(json.dumps(got, indent=2, default=str))
+        return 0 if got.get("ok") else 1
+    print(f"turn {got.get('turn')} of {sid}: {got['line']}")
+    for line in got.get("details") or []:
+        print(f"  {line}")
+    return 0 if got.get("ok") else 1

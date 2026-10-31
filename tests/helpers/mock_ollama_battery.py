@@ -11,6 +11,9 @@ one JSON answer each). The kinds mirror the owner's measured run
                      prose instead of JSON, 284
     bt-fence:14b     JSON in a ``` fence, the rest like the coder
     bt-wrongid:8b    ignores the system role, answers CWE-601
+The multi-tool probe (3.3.6.0 R4, providers/battery_multitool.py): the coder and the fence model call find_user
+then get_orders with the id (1.0); the thinker answers in thinking under 600 tokens, then sends user_id "42"
+(0.75); the wrong-id model calls send_email after find_user (0.25); the mute model is never asked.
 
 `install(mock)` puts the scenarios, the `/api/tags` rows and the `/api/show`
 answers on a MockUpstream; `ps_full(mock, name)` / `ps_spill(...)` script
@@ -45,6 +48,8 @@ KINDS = {
 def probe_of(body: dict) -> str:
     msgs = (body or {}).get("messages") or []
     text = " ".join(str(m.get("content") or "") for m in msgs if isinstance(m, dict))
+    if len(body.get("tools") or []) >= 3:  # 3.3.6.0 R4: the multi-tool probe, turn one or two
+        return "multitool2" if any(m.get("role") == "tool" for m in msgs if isinstance(m, dict)) else "multitool1"
     if body.get("tools"):
         return "tools"
     if any(m.get("role") == "system" and "BANANA" in str(m.get("content")) for m in msgs if isinstance(m, dict)):
@@ -60,9 +65,26 @@ def probe_of(body: dict) -> str:
     return "other"
 
 
+def _call(tool: str, **args) -> dict:
+    return {"function": {"name": tool, "arguments": args}}
+
+
+def _multitool(name: str, probe: str, cap: int) -> dict:
+    if name == "bt-thinker:27b" and probe == "multitool1" and cap < 600:
+        return {"content": "", "thinking": "Which tool first? " * 4}
+    if probe == "multitool1":
+        return {"content": "", "tool_calls": [_call("find_user", name="Ada Lovelace")]}
+    second = {"bt-thinker:27b": _call("get_orders", user_id="42"),
+              "bt-wrongid:8b": _call("send_email", to="Ada Lovelace", body="your orders")}.get(name)
+    second = second or _call("get_orders", user_id="u-42")
+    return {"content": "", "tool_calls": [second]}
+
+
 def _answer(name: str, probe: str, body: dict) -> dict:
     """{content, thinking?, tool_calls?} for one probe of one kind."""
     cap = ((body.get("options") or {}).get("num_predict")) or 0
+    if probe.startswith("multitool"):
+        return _multitool(name, probe, cap)
     coder = {"warmup": "ready", "tools": "", "system": "BANANA", "instruction": "BANANA", "json": GOOD_JSON,
              "reference": "284", "other": "ok"}
     if name == "bt-coder:30b":
