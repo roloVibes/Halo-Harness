@@ -2,7 +2,7 @@
 Studio's Local section (the machines that serve models, and the models they
 serve), and `halo local hosts | models | resources` print what its pages show.
 
-    halo local [page]            opens Studio on Local (`?mode=local&page=hosts`,
+    halo local [page]            opens Studio on Local (`?mode=local&page=huggingface` bare, 3.3.5.0 R5;
                                  studio/local_door.py) on a real terminal; the
                                  page word picks the page (resources, hosts,
                                  models, library, huggingface, benchmarks, steward)
@@ -104,7 +104,7 @@ def cmd_tab(argv: list) -> int:
         return 0
     from halo_harness.studio.local_door import page_word
     words = [a for a in argv if not a.startswith("-")]
-    page, why = page_word(words[0] if words else "")
+    page, why = page_word(words[0] if words else "huggingface")  # 3.3.5.0 R5: bare `halo local` opens Hugging Face
     if page is None:
         print(f"halo local: {why}", file=sys.stderr)
         return 2

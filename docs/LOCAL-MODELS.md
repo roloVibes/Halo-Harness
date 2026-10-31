@@ -355,7 +355,7 @@ quantization without loading it.
 
 ```sh
 halo local serve /path/to/model.gguf
-halo local serve mlx-community/Qwen2.5-7B-Instruct-4bit --runtime mlx_lm   # Apple Silicon
+halo local serve mlx-community/Qwen2.5-7B-Instruct-4bit --runtime mlx   # Apple Silicon
 ```
 
 Starts a small background server on your own machine, sized to what
@@ -363,6 +363,49 @@ fits, and gives you an `hf:local/<name>` reference for the rest of the
 session. If `llama-server` isn't already on your machine, Halo offers to
 download the right build for your OS/GPU, names the size, and waits for
 a yes.
+
+### Download, serve and stop from Studio (3.3.5.0)
+
+Studio's Local -> Hugging Face page ([STUDIO-local.md](STUDIO-local.md)) and `halo local download | ls | rm | serve |
+stop | servers | log` ([COMMANDS-local.md](COMMANDS-local.md)) do all of it: a repo downloaded into a model folder
+(the licence line first; resume; the hub's checksums), what is on disk with the fit meter, a server started and stopped,
+its log, a delete behind the uses card.
+
+### Managed local servers
+
+A server Halo starts for a model on disk (Local -> Hugging Face's **Serve**, `halo local serve`) is a child process on
+`127.0.0.1` and a free port:
+
+```sh
+llama-server -m <file.gguf> --alias <model> -c <window> -ngl <layers> -np 1 --port <p> --host 127.0.0.1 \
+  [--cache-type-k q8_0 --cache-type-v q8_0 --flash-attn on] [-n <num_predict>]
+python -m mlx_lm.server --model <folder> --port <p>      # an MLX folder, on a Mac
+```
+
+- **The flags and where they come from.** `-c` and `-ngl` are the fit planner's (`ollama_steward/fit.py`'s
+  `model_window_on_card` on this machine's hardware card: the largest window with every layer on the GPU, the same
+  arithmetic as the fit meter), capped by the file's trained context; `-ngl` is every layer while that window holds,
+  else the share of the layers the card holds with the KV cache. `-np 1` keeps the whole window for one request. The
+  card's `kv_cache_type` (q8_0 or q4_0) gives `--cache-type-k/v`, with `--flash-attn on`, which llama.cpp needs for a
+  quantized V cache. A steward profile's `num_predict` for the model gives `-n`. Each is printed (and titled in Studio)
+  with its source before the server starts; a window you pick replaces the planner's.
+- **The binary.** `huggingface.llama_server_bin` when set (a path, or a list: the program and its first arguments),
+  else `llama-server` on `PATH`, else the build `halo local serve` fetched into `~/.halo/runtimes/`.
+- **The log.** Its stdout and stderr go to `~/.halo/local/servers/<id>.log` (`<id>` is `llama-<port>` or `mlx-<port>`):
+  llama.cpp's own load lines (`load_tensors: offloaded N/N layers to GPU`, `llama_kv_cache: CUDA0 KV buffer size`,
+  `graph splits`), the same lines the Ollama log reader keys on, and one line per request. `halo local log <id>` and
+  Studio's **Log** show its tail.
+- **Ready.** Halo polls `/health` until it answers `{"status": "ok"}`; past the wait (20 seconds from Studio, longer
+  for a big file from the CLI) it says "still loading" and the server goes on; `/slots` is read for its status.
+- **The registry.** Each server is a row of `~/.halo/run/local-servers.json` -- `{id, kind, model, model_path, runtime,
+  pid, port, base_url, flags, sources, log, keep, ready, started, halo: true, owner_pid, ...}` -- the file the
+  `hf:local/<model>` resolver already reads, so every model list shows `hf:local/<model>` while it runs, Local -> Hosts
+  shows it as a host, and any `halo` process finds it.
+- **When they stop.** With the Halo process that started them (Studio, a session), and a server whose starter has
+  exited (`halo local serve` returns at once) stops when the last Halo process on this home exits -- unless it was
+  started with `--keep` (Studio's **keep**). `halo local stop <id|port>` or **Stop** ends one at any time: terminate,
+  then kill after 10 seconds. A server Halo did not start (a `huggingface.local_servers` entry, an LM Studio) is listed
+  as before and stopped where it was started.
 
 ### Import into Ollama
 

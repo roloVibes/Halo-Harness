@@ -1,6 +1,6 @@
 # Studio: the Local section
 
-Read this when you watch the machines that serve your local models and what they serve: the live resources and traffic, every host with its controls, every model with its fit, and the library of models you could install.
+Read this when you watch the machines that serve your local models and what they serve: the live resources and traffic, every host with its controls, every model with its fit, the library of models you could install, and the Hugging Face models on disk with the local servers Halo starts for them.
 
 Part of [Halo Studio](STUDIO.md), which lists every part.
 
@@ -18,12 +18,12 @@ comes back (`halo.studio.local.page`). The seven pages, in the rail's order:
 | Hosts | every server Halo knows as a card, with Load, Unload, keep-alive, Make it fit and Add to hosts | 3.3.5.0 R1 |
 | Models | every installed model per host with its card, its fit meter, its roles and the intent filter | 3.3.5.0 R1 |
 | Library | Ollama's library and the Hugging Face Hub to browse, each row with a fit badge | 3.3.5.0 R2 |
-| Hugging Face | Hugging Face local models downloaded, served, stopped and deleted | 3.3.5.0 R4 |
-| Benchmarks | a measured battery per model (the speed card), tuning scans, changes that revert | 3.3.5.0 R5 |
+| Hugging Face | the model folders and what is on disk in them; downloads, local servers started and stopped, deletes | 3.3.5.0 R5 |
+| Benchmarks | a measured battery per model (the speed card), tuning scans, changes that revert | 3.3.6.0 |
 | Steward | the steward's chat, and several local models scheduled on one card | 3.3.5.0 R6 |
 
-The doors: `halo local` opens Studio on Local (a Studio already running for this home takes it in its open page),
-`halo local hosts` on the Hosts page (`?mode=local&page=hosts`), `halo studio --edit local:models` the same from the
+The doors: `halo local` opens Studio on Local's Hugging Face page (3.3.5.0 R5; a Studio already running for this home
+takes it in its open page), a page word opens that page (`halo local library`), `halo local hosts` on the Hosts page (`?mode=local&page=hosts`), `halo studio --edit local:models` the same from the
 studio command, `halo studio --mode local`, `/studio local` in the TUI, and the palette's **Local: <page>** rows. Fleet's
 Ollama panel stays the short form of the same data; each of its model rows has **open in Local**, which opens Models
 on that host ([MODELS-ollama-steward.md](MODELS-ollama-steward.md)).
@@ -156,8 +156,9 @@ badge** for the host and the window you pick. **Pull** (3.3.5.0 R3) puts it on t
 title is the line, `halo models pull gemma3:4b --host box`): a progress bar on the row while it runs -- the percent of
 the layers' bytes, the speed over the last 5 seconds and the time left, each titled with where it comes from -- with
 **Cancel**, then "installed on <host>" (the host's own `/api/tags` has it, so the Models page lists it too). A GGUF file
-of a hub repo pulls through Ollama as `hf.co/<repo>:<quant>`; an MLX repo runs outside Ollama, so its Pull is disabled
-and its line is `halo local download <repo>`. **Pull by name** above the list takes any name Ollama can pull (a library
+of a hub repo pulls through Ollama as `hf.co/<repo>:<quant>` (**Pull to <host>**). 3.3.5.0 R5: every hub row, GGUF or
+MLX, also has **Download** (into a model folder, below: the licence card first, the progress on the row, then "on disk
+in <folder>"). **Pull by name** above the list takes any name Ollama can pull (a library
 tag or `hf.co/<repo>:<quant>`). **Copy** puts a row's pull line on the clipboard.
 
 - **Ollama's library**: one row per model and size chip (`qwen3.5:9b`, `qwen3.5:27b`), from ollama.com/library (the
@@ -192,6 +193,45 @@ The cache is `<state>/cache/models-library.json`: the catalog, a model's tags an
 hour, a repo's files a day; Refresh (`POST local/library/refresh`, `halo models browse --refresh`) reads them again.
 `halo models browse` prints the same rows from a terminal ([COMMANDS-local.md](COMMANDS-local.md)).
 
+## Hugging Face
+
+**The Hugging Face models on this machine's disk** (3.3.5.0 R5): every `huggingface.model_dirs` folder, what is in it,
+and the local servers Halo starts for them. On top: **fit on** (the host whose hardware card rates the fit; this
+machine's by default -- the first host it serves that has a card) and **at** (the window); **Add folder** (the
+`/local add` writer: the folder goes on `huggingface.model_dirs`) and the **Jobs** list.
+
+**A folder** (`local-hf-dir`): its path, how many models and their size, **Forget** (it leaves the list; nothing on disk
+moves), its models, and any download stopped part-way (its `.part` bytes kept: Download again resumes). **A model**
+(`local-hf-row`): the repo and file (a hub-cache download, `models--<org>--<name>/snapshots/<commit>/`) or the path
+(any `.gguf` file or model folder in the folder), its kind (gguf, mlx, safetensors), its size (a GGUF quant split in
+shards is one model, the sizes summed), the card's chips, the **fit meter** at the window on the host picked, the
+other hosts' fit words, and which server serves it ("served by llama-8123 on :8123"). Its actions, each titled with its
+`halo local` line:
+
+- **Serve** opens the serve card before anything starts: the runtime (llama-server; mlx_lm.server on a Mac), each flag
+  and where it comes from -- the window `-c` and the layers on the GPU `-ngl` from the fit planner on this machine's
+  card (every layer while the window holds, capped by the file's trained context), one slot `-np 1`, the card's KV
+  cache type as `--cache-type-k/v` (with `--flash-attn on`, which a quantized V cache needs), a steward profile's
+  `num_predict` as `-n` -- a window to pick instead, a port (a free one by default), keep, and the command line.
+  **Start** runs it on `127.0.0.1`, polls `/health` until it answers (up to 20 seconds here, then "still loading": it
+  goes on), and says `use it as hf:local/<model>`.
+- **Stop** (terminate, then kill after 10 seconds) and **Log** (the tail of its log) while a server Halo started
+  serves it.
+- **Use as default** (`hf:local/<model>`, once served): the model a session starts on (Setup's save).
+- **Delete** opens the uses card first: what names `hf:local/<model>` (or `hf:mlx/<repo>`) -- the roles, your lineups,
+  the default and compaction models, `huggingface.local_servers`, the steward profiles, live sessions. Nothing:
+  **Delete**; something: **Delete anyway**. While a server Halo started serves it the button waits (Stop it first). A
+  hub-cache repo whose snapshot holds no other model goes whole.
+
+**Downloads** start from Library: a Hugging Face row's **Download** opens the licence card -- the repo's licence line
+(`cardData.license`; a gated repo's terms, and that `HF_TOKEN` reads its files), the files and their sizes, the folder
+-- and nothing moves until **Accept and download**. The bytes go through the hub cache's layout with resume (a `.part`
+file per file, `Range` on the next try), checked against the hub's checksums. A running server is a host too: Local ->
+Hosts shows it under **Local servers · started by Halo** (its port, model, flags, Stop, Log), Models lists
+`hf:local/<model>` under it, and every model list has it. A local server Halo did not start (a
+`huggingface.local_servers` entry) keeps its card with Stop disabled: it is stopped where it was started. Halo's servers
+stop when the last Halo process on this home exits, unless keep was ticked ([LOCAL-MODELS.md](LOCAL-MODELS.md)).
+
 ## Jobs
 
 A pull is the server's job (3.3.5.0 R3, `studio/local_pull_job.py`): Studio runs one per host and name (a second Pull of
@@ -203,11 +243,15 @@ list drops its cached catalog, so the next read shows the new model. A host a fl
 (its own job); its progress reaches the hub with the member's ledger push, every 30 seconds
 ([FLEET.md](FLEET.md)).
 
+A Hugging Face download is a job of the same list (3.3.5.0 R5, `studio/local_download_job.py`, kind `download`): one
+per folder and repo or file (a second Download joins it), its bar the files' bytes of their total, its **Cancel**
+keeping the part file so the next Download resumes, its frames `download`. When one lands the folder listing and the
+Library read again.
+
 ## The pages still to come
 
-Hugging Face, Benchmarks and Steward are framed: each says in one paragraph what it will hold and lists the
-commands that do that work today, each copyable (`halo local --terminal`,
-`halo local import`, `halo ollama calibrate`, `halo ollama steward status`, ...). Steward also shows the steward job's
+Benchmarks and Steward are framed: each says in one paragraph what it will hold and lists the commands that do that
+work today, each copyable (`halo ollama calibrate`, `halo ollama steward status`, ...). Steward also shows the steward job's
 status line and its last note, read the way Fleet's Ollama panel reads them.
 
 ## Local's five ideas
@@ -215,7 +259,7 @@ status line and its last note, read the way Fleet's Ollama panel reads them.
 Every page names which of them it carries (its head's "ideas here" line), and the section's help lists all five:
 
 1. **The fit meter**: a small green-to-red bar wherever a model is named -- will this run here at this window
-   (Hosts, Models, the Library's badge; the Hugging Face rows next).
+   (Hosts, Models, the Library's badge, the Hugging Face rows).
 2. **Why on every number**: each figure carries its source and a one-line cause as its title (every strip number, every
    traffic figure, the profiles, the Library's sizes and badges).
 3. **Intents, not model names**: code, chat, long documents, images, embed rank the models by fit for this card (Models
@@ -252,13 +296,20 @@ Studio route; never a model call:
 | `POST local/host/<name>/copy {src, dst}`, `.../rename {src, dst}` | a copy; a copy then the delete of the old name |
 | `POST local/host/<name>/twin {name, window?, dry?}` | the tuned twin (`dry`: the plan, its name and cost); recorded in the tune store |
 | `GET local/host/<name>/loaded` | `/api/ps` (a member's host: its newest resources sample) |
+| `GET local/hf/dirs?host=&window=` | each model folder and what is on disk in it, with the card, the fit and who serves it (`studio/local_hf_view.py`) |
+| `POST local/hf/dirs {path}`, `POST local/hf/forget {path}` | a folder added to or taken off `huggingface.model_dirs` |
+| `POST local/hf/download {repo, file?, dir?, accept}` | 422 with the licence line (`needs_accept`) until `accept`; a gated repo without `HF_TOKEN` 422 `needs_token`; then a download job |
+| `POST local/download/<id>/cancel`, `GET local/downloads` | stop one (the part file stays); the download jobs |
+| `GET local/hf/uses?path=`, `POST local/hf/delete {path, force?}` | the uses card; the delete (409 while a server Halo started serves it, 422 with the card unless `force`) |
+| `POST local/hf/serve {path, runtime?, window?, port?, keep?, dry?}` | `dry`: the flags and their sources; else the server started (`studio/local_server_api.py`) |
+| `GET local/servers`, `POST local/server/<id>/stop`, `GET local/server/<id>/log?n=`, `GET local/server/<id>/status` | the servers Halo started; stop one; its log's tail; `/health` and `/slots` |
 
 Every R3 answer carries `cli`, the `halo models` line that does the same (`studio/local_control_api.py`). A host a
 fleet member serves goes through that member (`ollama_pull`, `ollama_delete`, `ollama_copy`, `ollama_twin`, under its
 `fleet.allow_control`); `none` answers 403 with the reason.
 
-Live frames: `resources` (one sample), `traffic` (`{rows}`) and `pull` (a job's view: host, name, status, digest,
-total, completed, percent, speed, eta, done, error), beside the steward's own `steward` frames. From a terminal,
+Live frames: `resources` (one sample), `traffic` (`{rows}`), `pull` (a job's view: host, name, status, digest,
+total, completed, percent, speed, eta, done, error) and `download` (the same view with kind, repo, file, dir and path), beside the steward's own `steward` frames. From a terminal,
 `halo local hosts`, `halo local models [--host H]` and `halo local resources` print what the first three pages show, and
-`halo models browse` what the Library shows
+`halo models browse` what the Library shows, `halo local ls` what the Hugging Face page shows
 ([COMMANDS-local.md](COMMANDS-local.md)).

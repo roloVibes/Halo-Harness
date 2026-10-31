@@ -76,9 +76,15 @@ halo local hosts                   # 3.3.5.0: Local -> Hosts as lines
 halo local models [--host H]       # 3.3.5.0: Local -> Models as lines
 halo local resources               # 3.3.5.0: one sample of this machine now
 halo local --terminal [--refresh]  # the merged local-model view below, here
+halo local download <repo> [<file>] [--dir D] [--yes]   # 3.3.5.0 R5: a Hugging Face repo into a model folder
+halo local ls [--dir D] [--host H] [--window N] [--json] # what is on disk per folder, sizes, the fit word
+halo local rm <path> [--force]                           # the uses card, then the files go
+halo local serve <path> [--runtime llama-server|mlx] [--window N] [--port P] [--keep]
+halo local stop <id|port>  /  halo local servers [--json]  /  halo local log <id> [-n N]
 ```
 
-Halo 3.3.5.0: on a real terminal `halo local` opens Studio on its **Local** section (`Alt+0`;
+Halo 3.3.5.0: on a real terminal `halo local` opens Studio on its **Local** section (`Alt+0`; bare, on its Hugging
+Face page since R5;
 [STUDIO-local.md](STUDIO-local.md)) through the same door `halo settings` uses: a Studio already running for this home
 takes it in its open page, else one starts in the background and the browser opens `?mode=local` (`halo local hosts`
 opens the Hosts page; `halo local models` and `halo local resources` print). A page word opens that page: `halo local
@@ -124,34 +130,76 @@ forget` (`docs/SLASH-COMMANDS.md`). `add` refuses a path that isn't an
 existing directory, or one already in the list; `forget` refuses a path
 that isn't in the list. Neither touches the network.
 
-### `halo local serve <model> [--runtime llama-server|mlx_lm] [--port N] [--keep]`
+### `halo local download <repo> [<file>]` (3.3.5.0 R5)
 
-Starts a managed `llama-server` (`.gguf`) or `mlx_lm` (a safetensors/MLX
-folder, Apple Silicon only) child process on a free loopback port, sized
-to this machine's own fitted context, and records it in `~/.halo/run/
-local-servers.json`. `<model>` is either an exact path, or a name shown by
-a bare `halo local`. Stopped when Halo exits unless `--keep` is given.
-When the chosen runtime isn't found (on `PATH`, or already fetched into
-`~/.halo/runtimes/`), `llama-server` is offered as a download (named size
-and URL, verified against the GitHub Releases API's own per-asset
-`digest`) -- nothing downloads without a `y`/`--yes`; declining prints the
-one-line install hint for this OS instead. See [MODELS.md](MODELS.md)'s
-"Finding and using file-backed models" section for the full story.
+Downloads a Hugging Face repo, or one file of it, into a `huggingface.model_dirs` folder through the hub cache's own
+layout (`models--<org>--<name>/snapshots/<commit>/<file>`; Studio's Local -> Hugging Face lists it after). It prints
+the repo's licence line first (`cardData.license`; a gated repo's terms and what it says), then the files and their
+sizes and the folder, and asks; nothing moves before the answer. `<file>` is one file, a GGUF quant word (`Q4_K_M`,
+`BF16`: its shards together), or nothing: an MLX repo's every file, a GGUF repo's one quant (Q4_K_M first). The
+progress is one line; **Ctrl+C** keeps the part file, and the same line resumes it (`Range` from the bytes it has). Each
+file is checked against the hub's checksum (an LFS file's sha256, a small file's git blob id) before it lands. A gated
+repo needs `HF_TOKEN` (Setup -> Providers -> Hugging Face); the token goes to huggingface.co only. `HF_ENDPOINT` names
+another hub (a mirror).
 
-Round 5f: `<model>` with `--runtime mlx_lm` also accepts a bare Hugging
-Face Hub repo id instead of a path or folder (`halo local serve
-mlx-community/Qwen2.5-7B-Instruct-4bit --runtime mlx_lm`) -- the explicit,
-non-`--model` form of `hf:mlx/<org>/<repo>` (see [MODELS.md](MODELS.md)'s
-"Apple Silicon" section and [MAC.md](MAC.md)); `mlx_lm` itself is never
-fetched by `halo local serve` the way `llama-server` is -- it's the
-optional `uv tool install "halo-harness[mlx]"` extra instead.
+- `--dir D`: a `huggingface.model_dirs` folder (default: the first; `halo local add <path>` adds one).
+- `--yes`: accept the licence line without asking (without a terminal, the line to run is printed).
 
-### `halo local stop <model>`
+### `halo local ls` (3.3.5.0 R5)
 
-Stops a model `halo local serve` (or the `/local` dialog's `s` key)
-started, by the SAME `<model>` name it was started with. Works even in a
-brand new `halo` process -- it reads `~/.halo/run/local-servers.json` and
-kills by the recorded pid, rather than needing a live handle.
+What is on disk in each `huggingface.model_dirs` folder: per model its kind (gguf, mlx, safetensors), its size (a GGUF
+quant in shards summed), the fit word at the window on the host's card (`fits`, `tight`, `spill`, `no`, `?`), the repo
+and file, and the server Halo started that serves it with its `hf:local/<model>` ref; a download stopped part-way shows
+its bytes kept.
+
+- `--dir D`: one folder only. `--host H`: the host whose card rates the fit (default: this machine's).
+- `--window N`: the window the fit is rated at (default: that host's `max_ctx`, else 32,768). `--json`: the listing.
+
+### `halo local rm <path>` (3.3.5.0 R5)
+
+Deletes a model `halo local ls` lists: its file (a quant's shards together) or its folder; a hub-cache repo whose
+snapshot holds no other model goes whole. It prints the uses card first -- what names `hf:local/<model>` or
+`hf:mlx/<repo>`: roles, lineups, the default and compaction models, `huggingface.local_servers`, steward profiles, live
+sessions -- and asks. A model a server Halo started serves is kept until `halo local stop` ends it.
+
+- `--force`: delete it without asking, whatever names it.
+
+### `halo local serve <path>`
+
+Halo 3.3.5.0 R5: starts a local server for a model on disk -- `llama-server` for a GGUF file, `mlx_lm.server` for an
+MLX folder on a Mac -- on a free loopback port, prints each flag and where it comes from (the window `-c` and the layers
+on the GPU `-ngl` from the fit planner on this machine's card, capped by the file's trained context; one slot `-np 1`;
+the card's KV cache type as `--cache-type-k/v` with `--flash-attn on`; a steward profile's `num_predict` as `-n`), the
+command line, then polls `/health` until it answers and prints the URL and the `hf:local/<model>` ref the catalog lists
+it under. Its output goes to `<state>/local/servers/<id>.log`; it is recorded in `<state>/run/local-servers.json`, so
+Local -> Hosts shows it and a new `halo` process finds it. It stops when the last Halo process on this home exits,
+unless `--keep`. `<path>` is a path `halo local ls` lists, any exact `.gguf` file or model folder, or a name
+`halo local --terminal` shows. The binary is `huggingface.llama_server_bin` when set, else `llama-server` on `PATH`,
+else one Halo fetched; when none is found, `llama-server` is offered as a download (its size and URL, verified against
+the GitHub Releases API's own per-asset `digest`) -- nothing downloads without a `y`/`--yes`; declining prints the
+install hint for this OS. See [LOCAL-MODELS.md](LOCAL-MODELS.md)'s "Managed local servers".
+
+- `--runtime llama-server|mlx` (`mlx_lm` still reads as mlx): mlx is Apple Silicon only. Round 5f: with `--runtime mlx`
+  the model can be a bare Hugging Face repo id (`halo local serve mlx-community/Qwen2.5-7B-Instruct-4bit --runtime
+  mlx`), the explicit form of `hf:mlx/<org>/<repo>` ([MAC.md](MAC.md)); `mlx_lm` is the `uv tool install
+  "halo-harness[mlx]"` extra, never fetched.
+- `--window N`: the window instead of the planner's (a note says when it is past what stays on the GPU).
+- `--port P`: the port (default: a free one). `--keep`: keep it running after Halo exits.
+- `--yes`: fetch `llama-server` without asking when none is found. `--backend cuda|vulkan|cpu|metal`: which build to
+  fetch (default: CUDA when the driver reports a version, else Vulkan; Metal on macOS). `--json`: the result as JSON.
+
+### `halo local stop <id|port>` / `halo local servers` / `halo local log <id>`
+
+`stop` ends a server Halo started -- by its id (`llama-8123`), its port or its model -- terminate, then kill after 10
+seconds, from any `halo` process (it reads the registry, not a live handle). A server Halo did not start is stopped
+where it was started (the command says so). A round 5c server (`halo local serve` before 3.3.5.0 R5) still stops by its
+model name.
+
+`servers` lists the servers Halo started: id, kind, URL, ready / loading / gone, the `hf:local/<model>` ref, the flags
+(`-c -ngl -np`), keep, the model's path and the log's path. `--json`: the registry rows.
+
+`log` prints the last lines of a server's log (`<state>/local/servers/<id>.log`: llama-server's own load lines,
+`load_tensors: offloaded N/N layers to GPU`, the KV buffer, each request). `-n N`: how many lines (40).
 
 ### `halo local warm [MODELS...] [--host NAME] [--keep-alive DURATION]` (2.0.7)
 

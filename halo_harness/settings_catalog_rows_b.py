@@ -25,6 +25,7 @@ ROWS = [
     Row("huggingface.bill_to", "providers", "Hugging Face bill to", "string", None, (), "A Team or Enterprise org name billed for every router request.", "now"),
     Row("huggingface.local_servers", "providers", "Hugging Face local servers", "list", None, (), "Local servers, each with name, url, api_key_env, default and offline_ok; hf:local/<model>@<name> picks one.", "now"),
     Row("huggingface.local_probe_ports", "providers", "Local probe ports", "list", [8080, 8000, 1234], (), "The loopback ports the hf:local auto-detect sweep asks.", "now"),
+    Row("huggingface.llama_server_bin", "providers", "llama-server program", "path", None, (), "The llama-server Serve starts (a path, or the program and its first arguments); unset, llama-server on PATH or the one Halo fetched.", "now"),
     Row("huggingface.lmstudio_models_dir", "providers", "LM Studio model folder", "path", "~/.lmstudio/models", (), "Where LM Studio keeps its models, when its own Model Storage setting moved them.", "now"),
     Row("huggingface.model_dirs", "providers", "Model folders", "list", [], (), "Folders Halo scans for .gguf files and safetensors or MLX model folders (/local add).", "now"),
     Row("huggingface.preferred_runtime", "providers", "Local runtime", "enum", None, ("llama-server", "mlx_lm"), "The runtime halo local serve uses for a file it is not told one for.", "now"),

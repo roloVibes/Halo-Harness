@@ -44,13 +44,14 @@ def _key(host: str, name: str) -> str:
 
 def view(job: dict) -> dict:
     keys = ("job", "host", "name", "status", "digest", "total", "completed", "percent", "speed", "eta", "done", "error",
-            "ok", "cancelled", "say", "via", "started", "remote")
+            "ok", "cancelled", "say", "via", "started", "remote", "kind", "repo", "file", "dir", "path")  # R5: downloads
     return {k: job.get(k) for k in keys}
 
 
-def current() -> dict:
+def current(kind: Optional[str] = None) -> dict:
+    """Every job (or only one kind: "pull" | "download"), newest first."""
     with _lock:
-        jobs = sorted(_jobs.values(), key=lambda j: -j["started"])
+        jobs = sorted((j for j in _jobs.values() if not kind or j.get("kind") == kind), key=lambda j: -j["started"])
         return {"jobs": [view(j) for j in jobs], "running": sum(1 for j in jobs if not j["done"])}
 
 
@@ -71,7 +72,7 @@ def _new(host: str, name: str, via: str, publish, state_dir, remote: bool) -> di
     job = {"job": jid, "key": _key(host, name), "host": host, "name": name, "status": "starting", "digest": None,
            "total": None, "completed": None, "percent": None, "speed": None, "eta": None, "done": False, "error": None,
            "ok": False, "cancelled": False, "say": f"pulling {name} on {host}", "via": via, "started": round(time.time(), 3),
-           "remote": remote, "layers": {}, "samples": [], "sent": 0.0, "cancel": threading.Event(), "publish": publish,
+           "remote": remote, "kind": "pull", "layers": {}, "samples": [], "sent": 0.0, "cancel": threading.Event(), "publish": publish,
            "state_dir": state_dir}
     done = [j for j in _jobs.values() if j["done"]]
     for old in sorted(done, key=lambda j: j["started"])[:max(0, len(done) - KEEP_DONE + 1)]:
@@ -106,7 +107,7 @@ def _send(job: dict, force: bool = False) -> None:
     data = view(job)
     if job.get("publish") is not None:
         try:
-            job["publish"]({"session_id": "local", "event": "pull", "ts": time.time(), "data": data})
+            job["publish"]({"session_id": "local", "event": job.get("kind") or "pull", "ts": time.time(), "data": data})
         except Exception:
             pass
     if job.get("state_dir") is not None and not job.get("remote"):
@@ -119,7 +120,7 @@ def _write(state_dir) -> None:
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp = path.with_suffix(f".{os.getpid()}.tmp")
-        tmp.write_text(json.dumps({"at": time.time(), **current()}, default=str), encoding="utf-8")
+        tmp.write_text(json.dumps({"at": time.time(), **current("pull")}, default=str), encoding="utf-8")
         os.replace(tmp, path)
     except OSError:
         pass

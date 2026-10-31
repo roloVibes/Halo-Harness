@@ -76,6 +76,11 @@ class _Server(http.server.ThreadingHTTPServer):
             self.local_tap_stop()
             from halo_harness.ollama_steward.resources import want
             want(self.state_dir, "tab", False)
+        try:  # 3.3.5.0 R5: the local servers this Studio started stop with it unless kept (providers/local_server.py)
+            from halo_harness.providers.local_runtime import stop_all_managed_servers_except_kept
+            stop_all_managed_servers_except_kept(self.state_dir)
+        except Exception:
+            pass
         if self.events is not None:
             self.events.close()
         if self.fleet_hub is not None:  # the fleet hub ends with Studio

@@ -1,6 +1,6 @@
 // Local's pages (3.3.5.0 R1, plans/ROADMAP.md "3.3.5.0 becomes Local"): seven,
 // in this order -- Resources, Hosts, Models (built in R1), Library (built in R2:
-// the library browser and the fit badge), Hugging Face (R4: HF local models),
+// the library browser and the fit badge), Hugging Face (built in R5: HF local models),
 // Benchmarks (R5: the speed card, tuning scans, revert) and Steward (R6: the
 // steward's chat and the scheduling; R1 shows its status and last note). Which
 // page is open is this store: the rail opens any, the door (`?page=`, door.ts)
@@ -16,7 +16,7 @@ export const PAGES: PageDef[] = [
   { id: "hosts", title: "Hosts", built: true },
   { id: "models", title: "Models", built: true },
   { id: "library", title: "Library", built: true },
-  { id: "huggingface", title: "Hugging Face", built: false, round: "R4" },
+  { id: "huggingface", title: "Hugging Face", built: true },
   { id: "benchmarks", title: "Benchmarks", built: false, round: "R5" },
   { id: "steward", title: "Steward", built: false, round: "R6" },
 ];
