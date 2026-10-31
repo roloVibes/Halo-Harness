@@ -32,19 +32,25 @@ FIXTURE = Path(__file__).resolve().parent / "fixtures" / "vision" / "shot.png"
 
 
 class Seam:
-    """RUNNER replaced: every argv recorded; the fixture copied to the destination unless told otherwise."""
+    """RUNNER replaced: every argv recorded; the fixture copied to the destination unless told otherwise. The plan
+    sees a display and scrot on any OS (DISPLAY set, WHICH replaced), so a runner with no screen still plans."""
 
     def __init__(self, answers=None):
         from halo_harness.tools import screenshot_capture as C
         self.C, self.calls, self.answers = C, [], list(answers or [])
 
     def __enter__(self):
-        self.saved = self.C.RUNNER
-        self.C.RUNNER = self.run
+        self.saved = (self.C.RUNNER, self.C.WHICH, os.environ.get("DISPLAY"))
+        self.C.RUNNER, self.C.WHICH = self.run, _which("scrot", "xdotool")
+        os.environ.setdefault("DISPLAY", ":0")
         return self
 
     def __exit__(self, *exc):
-        self.C.RUNNER = self.saved
+        self.C.RUNNER, self.C.WHICH, disp = self.saved
+        if disp is None:
+            os.environ.pop("DISPLAY", None)
+        else:
+            os.environ["DISPLAY"] = disp
 
     def run(self, argv, *, dest, timeout):
         self.calls.append(list(argv))
