@@ -21,7 +21,7 @@ SEVERITY = {k: "error" for k in ("http-500", "no-user-query", "load-failed", "gp
                                   "other-error", "retry-loop", "queue-full")}
 SEVERITY.update({k: "warn" for k in ("prompt-trimmed", "reply-cut", "window-full", "cancel-task", "client-gave-up",
                                      "cpu-spill", "slow-load", "stall", "reloaded", "no-prompt-cache")})
-SEVERITY.update({k: "info" for k in ("loaded", "unloaded", "startup")})
+SEVERITY.update({k: "info" for k in ("loaded", "unloaded", "startup", "load-result")})  # 3.3.6.0 R3: load-result
 KINDS = tuple(SEVERITY)
 PAIR_LINES = 25  # the PC's log: a cancel task 3 to 19 lines from its 500
 RETRY_N, RETRY_S, SLOW_LOAD_S, STALL_S, DOWN_N = 3, 180.0, 180.0, 300.0, 3

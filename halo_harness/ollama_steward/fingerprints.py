@@ -8,7 +8,8 @@
     read_recent(state_dir, since) / take(state_dir, member, rows)   the ledger push to the hub and its side
 
 Fingerprint = {host, model, model_from, family, quant, window_used, kv_cache_type, flash_attention, spill
-(size_vram < size), signature, at, count, evidence [lines]} in `<state>/ollama/fingerprints.jsonl` (one line a
+(size_vram < size), signature, at, count, evidence [lines]; 3.3.6.0 R3 (fingerprint_facts.enrich): load_cmd, layers,
+splits, kv_gpu_mib, kv_cpu_mib, load_s, ollama_version, num_ctx_requested, facts_from} in `<state>/ollama/fingerprints.jsonl` (one line a
 crash). The events of one crash (the CUDA line, `llama-server terminated`, the 500) within JOIN_S of each other on
 one host and model are one fingerprint, its signature the most specific. The model is the event's, else the newest
 load on that host before it ("the newest load before it"); the window and the spill come from that load's `/api/ps`
@@ -170,14 +171,17 @@ def record(state_dir, rows: list, host: Optional[str], *, card=None, catalog=Non
                 near["evidence"] = (list(near.get("evidence") or []) + [str(ev.get("evidence") or "")[:300]])[-4:]
                 done.append(near)
                 continue
-            fp = {"host": host, "model": model, "model_from": "the event" if ev.get("model") else
-                  ("the newest load before it" if model else "unknown"), "family": f["family"], "quant": f["quant"],
+            fp = {"host": host, "model": model, "model_from": (ev.get("data") or {}).get("model_from") or ("the event" if
+                  ev.get("model") else ("the newest load before it" if model else "unknown")), "family": f["family"], "quant": f["quant"],
                   "window_used": (load or {}).get("context_length") or f.get("profile_window"),
                   "kv_cache_type": f["kv_cache_type"], "flash_attention": f["flash_attention"], "spill": spill,
                   "signature": sig, "at": now_iso(at), "evidence": [str(ev.get("evidence") or "")[:300]]}
+            from halo_harness.ollama_steward.fingerprint_facts import enrich, note_new  # 3.3.6.0 R3: the load it died in
+            enrich(fp, ev, state_dir, host, card)
             fp["count"] = 1 + sum(1 for x in have if all(x.get(k) == fp.get(k) for k in KEY))
             have.append(fp)
             done.append(fp)
+            note_new(state_dir, fp)
         _write(state_dir, have)
     return [{**fp, "line": line(fp)} for fp in done]
 

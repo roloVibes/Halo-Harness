@@ -166,3 +166,11 @@ Verified is the third truth (3.3.6.0 R2): probed on this host by the capability 
 ## fingerprint
 
 A crash fingerprint (3.3.6.0 R2) is what the steward records when a host's server log shows a crash: the host, the model, its family and quant, the window it ran at, the KV cache type, flash attention, whether it spilled to the CPU, the signature (a CUDA illegal memory access, a runner that died with 0xc0000409, a failed load), when, and how many times. `halo ollama crashes` lists them (`<state>/ollama/fingerprints.jsonl`); the Library greys a model that crashed on the host picked, with the reason, and a member's fingerprints reach the hub with its ledger push.
+
+## log status
+
+A host's log status (3.3.6.0 R3) says whether Halo can read that host's Ollama server log and whether it is live: live (its newest line is newer than the newest call Halo made to the host, give or take a minute), stale (calls the log never saw: it writes elsewhere), quiet (nothing in fifteen minutes), unreadable (the file or the ssh read did not answer), on that machine with no ssh entry (a fleet member's push carries its events, else only `/api/ps` says the fit) or missing; `debug: on` when debug-level lines appear. The host card, `halo ollama hardware`, Local -> Hosts and Local -> Logs show it with the path and the tail command; more detail is `OLLAMA_DEBUG=1` and a restart there, said as an action Halo never takes.
+
+## load result
+
+A load result (3.3.6.0 R3) is what the server log says about one load of a model, read when `llama-server started` closes it: how many layers went to the GPU (`offloaded 59/66`), the graph splits (2 means all on the GPU), where the KV cache sits (CUDA or CPU buffers), the window, the KV type and flash attention in force, how long it took. It is the evidence the fit badge cites ("verified -- 41/41 layers, splits = 2, 258 tok/s" or "spilled -- 59/66 layers, 16 tok/s", with the tok/s the ledger measured), the per-model row of Local -> Logs, and the load a crash fingerprint records.

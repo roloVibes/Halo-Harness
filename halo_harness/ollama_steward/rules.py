@@ -171,6 +171,8 @@ def run_rules(ctx: dict) -> list:
         for rule in rules_window.RULES + rules_reply.RULES + rules_card.RULES:  # 3.3.5.0 R0b: called-wrong
             out.extend(rule(g, ctx) or [])
     out.extend(rules_host.host_rules(ctx))
+    from halo_harness.ollama_steward.rules_crash import crash_rules  # 3.3.6.0 R3: a crash that repeats proposes the fix
+    out.extend(crash_rules(ctx))
     from halo_harness.ollama_steward.steward import dismissed  # 3.3.4.0 R5: Studio's Dismiss, quiet for 24 hours
     quiet = dismissed(ctx["state_dir"], now=ctx.get("now")) if ctx.get("state_dir") else set()
     out = [f for f in out if f["id"] not in quiet]

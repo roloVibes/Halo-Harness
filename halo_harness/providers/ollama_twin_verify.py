@@ -13,8 +13,8 @@ after the load warms it and is never timed -- Part G4).
 
 The result is kept on the twin's record in the tune store (`verify`,
 providers/ollama_tune_store.py), which the Models rows and the twin's card
-read: "verified: 41/41 layers, splits = 2, 258 tok/s at 32,768",
-"unverified: <why>", "spilled: 59/66 layers, 16 tok/s".
+read: "verified -- 41/41 layers, splits = 2, 258 tok/s at 32,768",
+"unverified -- <why>", "spilled -- 59/66 layers, 16 tok/s" (3.3.6.0 R3: the fit badge's line, fit_evidence.py).
 """
 
 from __future__ import annotations
@@ -64,16 +64,11 @@ def _log_tail(host) -> Optional[list]:
 
 
 def _line(r: dict) -> str:
-    lay = f"{r['layers'][0]}/{r['layers'][1]} layers" if r.get("layers") else ""
-    tok = f"{r['tok_s']:.0f} tok/s" if isinstance(r.get("tok_s"), (int, float)) else ""
-    if r["state"] == "verified":
-        bits = [b for b in (lay, f"splits = {r['splits']}" if r.get("splits") is not None else "",
-                            f"{tok} at {r['window']:,}" if tok and r.get("window") else tok) if b]
-        return "verified: " + (", ".join(bits) or "every byte on the GPU")
-    if r["state"] == "spilled":
-        pct = f"{r['on_gpu_pct']}% on the GPU" if r.get("on_gpu_pct") is not None else ""
-        return "spilled: " + ", ".join(b for b in (lay or pct, tok) if b)
-    return f"unverified: {r.get('why') or 'it could not be checked'}"
+    """3.3.6.0 R3: the fit badge's own line (providers/fit_evidence.line_of)."""
+    from halo_harness.providers.fit_evidence import line_of
+    return line_of(r["state"], layers=r.get("layers"), splits=r.get("splits"), tok_s=r.get("tok_s"),
+                   window=r.get("window") if r["state"] == "verified" else None, on_gpu_pct=r.get("on_gpu_pct"),
+                   why=r.get("why") or ("it could not be checked" if r["state"] == "unverified" else ""))
 
 
 def verify(host, twin: str, window: Optional[int] = None, *, client=None, state_dir=None, log_lines=None) -> dict:

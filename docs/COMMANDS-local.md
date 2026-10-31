@@ -271,11 +271,32 @@ fit is worked out at; the foot counts the rows.
 - `--save-template [--model M] [--lineup L]`: write `--preset` as the lineup `local-<preset>` (or that role's entry in
   `--lineup`), through the `halo teams` path; nothing else runs.
 
+## `halo ollama log` (3.3.6.0 R3)
+
+```sh
+halo ollama log [--host H] [-n 200] [--kind fit|headroom|truncation|failure|all] [--follow]
+```
+
+The newest lines of a host's Ollama server log, read-only: this machine's `server.log` and its rotated files (by
+modification time, bytes with invalid UTF-8 replaced), `journalctl -u ollama` on a Linux service, or that machine's
+log over its `ssh:` entry. First the host's log status line (live, stale, quiet, unreadable, on that machine, missing;
+[MODELS-ollama-logs.md](MODELS-ollama-logs.md)), then `# <where it was read>` and each line marked with its group;
+`--kind` keeps one group, `-n` how many (at most 5,000), `--follow` reads again every 2 s until Ctrl+C. Exit 1 when
+nothing could be read (the line says why) or for an unknown `--host`. `halo ollama events --host H` turns the same
+host's new lines into events (over ssh for a host served elsewhere) and lists only its events.
+
 ## `halo ollama crashes`
 
 ```sh
-halo ollama crashes [--host H] [--json]
+halo ollama crashes [--host H] [--why] [--json]
 ```
+
+3.3.6.0 R3: `--why` prints each fingerprint's evidence with where it came from: the signature, the load it died in
+(layers on the GPU, splits, the KV buffers, the load time), the KV type, flash attention and Ollama version in force then
+(the log's load block, else the host card), the `num_ctx` the nearest ledger line asked for, the model and where it
+came from (the event, the load command, the call, the newest load before it), the load command, the evidence lines,
+and for a fingerprint seen twice the fixes, Halo's (a smaller window) and the host's (f16 KV, flash attention off, a
+fitted twin, a staged update to start), each with what it costs.
 
 3.3.6.0 R2: every crash fingerprint the steward recorded from the hosts' server events, newest first: the host, the
 model and its line ("crashed here on 2026-10-29: CUDA error (an illegal memory access) after a spill at 65,536 with

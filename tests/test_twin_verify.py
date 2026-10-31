@@ -49,7 +49,7 @@ def test_verified_spilled_unverified(ctx: Ctx):
         MB.ps_full(rig.mock, TWIN, 32768)
         r = verify(rig.host, TWIN, 32768, state_dir=rig.state, log_lines=LOG)
         ctx.check(f"size_vram == size and 49/49: verified, got {r['state']} {r['line']!r}", r["state"] == "verified"
-                  and r["line"] == "verified: 49/49 layers, splits = 2, 188 tok/s at 32,768")
+                  and r["line"] == "verified -- 49/49 layers, splits = 2, 188 tok/s at 32,768")
         chats = rig.chats()
         ctx.check(f"a warm-up then one timed call, got {len(chats)}", len(chats) == 2)
         MB.ps_spill(rig.mock, TWIN, 32768, share=0.8)
@@ -57,10 +57,10 @@ def test_verified_spilled_unverified(ctx: Ctx):
         ctx.check(f"size_vram < size: spilled, got {r['line']!r}", r["state"] == "spilled" and "80% on the GPU" in r["line"])
         MB.ps_full(rig.mock, TWIN, 32768)
         r = verify(rig.host, TWIN, 32768, state_dir=rig.state, log_lines=["offloaded 59/66 layers to GPU"])
-        ctx.check(f"the log's 59/66: spilled, got {r['line']!r}", r["line"].startswith("spilled: 59/66 layers"))
+        ctx.check(f"the log's 59/66: spilled, got {r['line']!r}", r["line"].startswith("spilled -- 59/66 layers"))
         rig.mock.ps_response = {"models": []}
         r = verify(rig.host, TWIN, 32768, state_dir=rig.state, log_lines=[])
-        ctx.check(f"no /api/ps row: unverified, got {r['line']!r}", r["state"] == "unverified" and r["line"].startswith("unverified:"))
+        ctx.check(f"no /api/ps row: unverified, got {r['line']!r}", r["state"] == "unverified" and r["line"].startswith("unverified -- "))
 
 
 @test
@@ -79,7 +79,7 @@ def test_the_chips_and_the_raw_tag_offer(ctx: Ctx):
         rows = [{"model": "bt-coder:30b", "twin_of": None}, {"model": TWIN, "twin_of": "bt-coder:30b"}]
         raw_and_twins(rig.host, rows, rig.state)
         ctx.check(f"the twin's chip: verified with its line, got {rows[1]['twin']}", rows[1]["twin"]["state"] == "verified"
-                  and rows[1]["twin"]["line"].startswith("verified: 49/49"))
+                  and rows[1]["twin"]["line"].startswith("verified -- 49/49"))
         ctx.check(f"the raw tag offers its delete, got {rows[0]['raw']['offer']!r}",
                   rows[0]["raw"]["offer"].startswith("delete the raw tag, keep the twin " + TWIN))
         from halo_harness.providers.ollama_tune_store import twin_verify
@@ -89,7 +89,7 @@ def test_the_chips_and_the_raw_tag_offer(ctx: Ctx):
         card = card_of(f"ol:{TWIN}@fake", state_dir=rig.state, catalog={**MB.row("bt-coder:30b"), "model": TWIN, "name": TWIN},
                        host=rig.host)
         ctx.check(f"the twin's card says it, got {card.get('twin_verify')} {card['how'][-1]!r}",
-                  (card.get("twin_verify") or {}).get("state") == "verified" and card["how"][-1].startswith("fitted twin, verified:"))
+                  (card.get("twin_verify") or {}).get("state") == "verified" and card["how"][-1].startswith("fitted twin, verified -- "))
 
 
 @test

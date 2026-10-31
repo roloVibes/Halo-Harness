@@ -182,10 +182,10 @@ class Forwarder:
                     from halo_harness.ollama_steward.resources_share import read_recent  # 3.3.5.0 R1
                     samples = read_recent(self.home, self.sent_t) if how != "off" else []
                     from halo_harness.fleet.control_pulls import read_pulls  # 3.3.5.0 R3: the pull jobs a hub asked for
-                    from halo_harness.fleet.control_probes import read_crashes, read_probes  # 3.3.6.0 R1, R2
+                    from halo_harness.fleet.control_probes import read_crashes, read_events, read_probes  # 3.3.6.0 R1-R3
                     reply = link.request("POST", protocol.PREFIX + "/ollama", protocol.doc(
                         link=link_id, lines=[x for x, _c in send], resources=samples, pulls=read_pulls(self.home),
-                        probes=read_probes(self.home), crashes=read_crashes(self.home)))
+                        probes=read_probes(self.home), crashes=read_crashes(self.home), events=read_events(self.home)))
                     self.sent_t = max([self.sent_t] + [float(x.get("t") or 0) for x in samples])
                     take_profiles(reply)
                     take_note(reply, self.home)
@@ -235,9 +235,10 @@ def serve(handler):
     take_remote(handler.hub.home, member.name, body.get("resources"))
     from halo_harness.fleet.control_pulls import take_pulls  # 3.3.5.0 R3
     take_pulls(member.name, body.get("pulls"))
-    from halo_harness.fleet.control_probes import take_crashes, take_probes  # 3.3.6.0 R1, R2 (fingerprints)
+    from halo_harness.fleet.control_probes import take_crashes, take_events, take_probes  # 3.3.6.0 R1-R3
     take_probes(handler.hub.home, member.name, body.get("probes"))
     take_crashes(handler.hub.home, member.name, body.get("crashes"))
+    take_events(handler.hub.home, member.name, body.get("events"))  # R3: the member's server events (log_status.ladder)
     try:  # 3.3.4.0 R3: the hub's profiles, keyed by the member's own host names
         from halo_harness.ollama_steward.profiles import payload_for_member
         profiles = payload_for_member(handler.hub.home, member.name)

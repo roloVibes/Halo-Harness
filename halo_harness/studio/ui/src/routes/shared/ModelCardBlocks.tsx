@@ -4,11 +4,15 @@
 // measured tok/s, cold load). Every value carries its mark (3.3.6.0 R2: the three truths): verified (the battery
 // probed it on this host), declared (the metadata says it) or expected (the family rules, the size, the name) --
 // data-mark on each item, "declared" / "expected" said in words.
+import { FitEvidenceChip } from "./FitEvidence";
+
 export type Mark = "verified" | "declared" | "expected";
 export type BlockItem = { text: string; mark: Mark };
 export type CardBlocksView = {
   use_for?: BlockItem[]; dont_use_for?: BlockItem[]; limits?: BlockItem[];
   sits?: { chip: string; chips: string[]; mark: Mark };
+  /** 3.3.6.0 R3: the fit line the server log cites (model_card_blocks.fit_block). */
+  fit?: { text: string; mark: Mark; state: string; source?: string | null } | null;
 };
 
 const TITLES: [keyof CardBlocksView, string][] = [["use_for", "Use it for"], ["dont_use_for", "Don't use it for"], ["limits", "Limits"]];
@@ -36,6 +40,12 @@ export function CardBlocks({ blocks }: { blocks?: CardBlocksView }) {
       <div className="mprobe-block" data-testid="model-card-block" data-block="sits">
         <span className="rail-label mono">Where it sits</span> <SitsChips blocks={blocks} />
       </div>
+      {blocks.fit && (
+        <div className="mprobe-block" data-testid="model-card-block" data-block="fit">
+          <span className="rail-label mono">Fit here</span>{" "}
+          <FitEvidenceChip ev={{ state: blocks.fit.state, line: blocks.fit.text, source: blocks.fit.source }} testid="model-card-fit" />
+        </div>
+      )}
       {TITLES.map(([key, title]) => {
         const items = (blocks[key] as BlockItem[] | undefined) || [];
         if (!items.length) return null;

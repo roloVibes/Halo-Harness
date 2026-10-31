@@ -2,7 +2,8 @@
 server log said about it, as card quirks (providers/model_card.py adds them).
 
     quirks_for(state_dir, model) -> [{kind, say}]
-    with_quirks(card, state_dir) -> a copy of `card` with `quirks` and one `how` line per quirk
+    with_quirks(card, state_dir) -> a copy of `card` with `quirks` and one `how` line per quirk, and (3.3.6.0 R3)
+        `fit_evidence` (providers/fit_evidence.py: the model's last load on its host, as the log says it)
 
 A model whose server logs "forcing full prompt re-processing due to lack of
 cache data" (the steward's `no-prompt-cache` event: sliding-window or
@@ -56,6 +57,11 @@ def quirks_for(state_dir, model) -> list:
 def with_quirks(card: dict, state_dir) -> dict:
     if not isinstance(card, dict) or card.get("kind") == "cloud":
         return card
+    from halo_harness.providers.fit_evidence import for_card  # 3.3.6.0 R3: the fit badge cites the log
+    card["fit_evidence"] = for_card(card, state_dir)  # in place: read again on every call, so the kept card stays it
+    if isinstance(card.get("blocks"), dict):
+        from halo_harness.providers.model_card_blocks import fit_block
+        card["blocks"]["fit"] = fit_block(card["fit_evidence"])
     quirks = quirks_for(state_dir, card.get("name"))
     if not quirks and not card.get("quirks"):
         return card

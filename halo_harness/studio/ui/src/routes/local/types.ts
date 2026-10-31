@@ -1,4 +1,5 @@
 // The shapes the Local section's routes answer (studio/local_api.py, 3.3.5.0 R1).
+import type { FitEvidenceView } from "../shared/FitEvidence";
 import type { Fit } from "../../lib/ui/FitMeter";
 import type { CardView } from "../shared/ModelCard";
 
@@ -27,6 +28,8 @@ export type HostCard = {
   users: { from: string | null; calls: number }[]; finding: string | null; findings: number;
   plan: { says: string; fits_now: boolean | null; chosen: PlanChoice | null } | null; models: string[]; controls: Controls;
   managed?: Managed; // 3.3.5.0 R5: a server Halo started (source "managed server")
+  /** 3.3.6.0 R3 (ollama_steward/log_status.py): is its server log live, the path, the tail command. */
+  log?: { state: string; line: string; path: string; why: string; debug: boolean; tail_cli: string; rung: string } | null;
 };
 export type Managed = {
   id: string; pid: number | null; port: number; model: string; model_path: string; flags: ServeFlags; sources: Record<string, string>;
@@ -57,6 +60,7 @@ export type LibRow = {
   pull_line: string; alt_line?: string; kind: string; key: string; sources: Record<string, string>; estimate?: boolean;
   card: CardView; fit: LibFit; intent: Record<string, number | null>;
   installed?: string[]; pull_target?: string; // 3.3.5.0 R3: the hosts that have it; what Pull asks for
+  fit_evidence?: FitEvidenceView; // 3.3.6.0 R3: its last load on the first host that has it (providers/fit_evidence.py)
   on_disk?: string[]; // 3.3.5.0 R5: the model folders a hub row (or its file) is downloaded into
 } & SearchBits;
 // 3.3.6.0 R2: the search (models_library/search.py): each capability's truth, the cost preview, the two verdicts.

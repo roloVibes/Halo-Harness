@@ -12,7 +12,10 @@ log rules that need the lines around a line, a model and a clock
   the newest "template selection" line);
 - `slow-load` (a load over 3 minutes) and `stall` (an active request with
   no progress for 5 minutes) also fire from `tick(now)` while watching;
-- `server-down`: `api_result(False)` three times in a row.
+- `server-down`: `api_result(False)` three times in a row;
+- 3.3.6.0 R3: the load block (fingerprint_facts.LoadTracker): `load-result`
+  when a load finishes (layers, splits, KV placement, the window, KV type and
+  flash attention in force), and a crash event carries that load as `data.load`.
 """
 
 from __future__ import annotations
@@ -40,6 +43,8 @@ class Rules:
         self.active_at: Optional[float] = None
         self.flagged: set = set()
         self.down = 0
+        from halo_harness.ollama_steward.fingerprint_facts import LoadTracker
+        self.loads = LoadTracker()  # 3.3.6.0 R3: the load block in force (crash forensics, the fit evidence)
 
     def _near(self, mark: str, lines: int) -> bool:
         return mark in self.marks and self.n - self.marks[mark] <= lines
@@ -58,12 +63,15 @@ class Rules:
         if m := _MODEL.search(line):
             self.model = _short_model(m.group(1))
         self._activity(line)
+        loaded = self.loads.feed(line, self.clock, self.model)
         ev = classify(line, at=self.clock)
-        out = self._expire()
+        out = self._expire() + loaded
         if ev is None:
             return out
         ev["model"] = ev.get("model") or self.model
         kind = ev["kind"]
+        if kind in ("gpu-memory", "other-error", "load-failed") and self.loads.facts():
+            ev["data"]["load"] = self.loads.facts()
         if kind == "cancel-task":  # one cancel pairs with one 500, before or after it
             hit = next((p for p in self.pending if p[2] == "cancel"), None)
             if hit:
@@ -149,7 +157,7 @@ class Rules:
 
     def flush(self) -> list:
         """Every waiting event (the end of a read from the top)."""
-        out = [e for _n, e, _w in self.pending]
+        out = [e for _n, e, _w in self.pending] + self.loads.flush()
         self.pending = []
         return out
 

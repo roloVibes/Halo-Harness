@@ -4,6 +4,7 @@
 // title is the `halo models pull` line that does the same. 3.3.5.0 R5: a Hugging Face row (GGUF or MLX) has Download
 // (into a huggingface.model_dirs folder: the licence card first, routes/local/HfCards.tsx), its progress, and "on disk
 // in <folder>" after; a GGUF row keeps Pull to <host> (through Ollama) beside it.
+import { FitEvidenceChip } from "../shared/FitEvidence";
 import { useEffect, useState } from "react";
 import { Button } from "../../lib/ui";
 import { askDownload, loadDirs, useHf } from "./hfstore";
@@ -64,6 +65,7 @@ export function RowPull({ row }: { row: LibRow }) {
           installed on {installed.join(", ")}
         </span>
       )}
+      {installed.length > 0 && <FitEvidenceChip ev={row.fit_evidence} testid="local-library-fit-evidence" />}
       {!here && (!job || job.done) && (
         <Button size="sm" variant={hub ? "default" : "primary"} disabled={!host} onClick={() => void startPull(host, target)}
                 data-testid={hub ? "local-library-pull-ollama" : "local-library-pull"}
