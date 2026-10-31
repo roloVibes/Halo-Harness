@@ -6,12 +6,18 @@ Files under `<state>/host/` (all 0600):
     codes.json    the one-time pairing codes (fleet/pairing.py's shape: a hash of each code, never the code)
     peers.json    {version, members: {<harness id>: {id, name, host, user, version, os, key_hex, paired_at, address,
                    grants: ["view"]}}, kicked: {...}}   the paired peers (fleet/pairing.py's file shape)
-    audit.jsonl   {at, peer, path, ok, ms} one line per request (the offline promise's evidence)
+    audit.jsonl   {at, peer, path, ok, ms} one line per request (the offline promise's evidence); R2: an acting
+                  request's line adds {op, params, evidence, dry, landed, fix, change_id?, job?}
+    pending.jsonl R2: the requests queued under fleet.allow_control: ask (host/pending.py)
+    fixes.jsonl   R2: each profile fix's before / after / verdict (host/verify.py)
+    steward.json  R2: the duty steward's process {pid, model, peer, started} (host_steward_cli.py)
     cert.pem, key.pem   the host's self-signed certificate (fleet/tls.py), pinned by every peer
     stop          `halo host stop` writes it; the running host sees it within a second and stops
 
 Config keys (docs/CONFIG.md): `host.port` (7431), `host.bind` ("0.0.0.0"), `host.enabled` (true), `host.tail_max`
-(400). The grants are `view` (every peer, this round), `control`, `manage`, `admin` (3.3.7.0 R2 gives those meaning).
+(400); R2: `host.ask_ttl_s` (600), `host.cooldown_s` (120), `host.changes_per_hour` (10), `host.verify_calls` (5),
+`host.verify_s` (600), `host.steward.enabled` (false), `host.steward.model`, `host.steward.every_s` (300). The grants
+are `view` (every peer), `control`, `manage`, `admin` (host/grants.py).
 """
 
 from __future__ import annotations
@@ -131,11 +137,13 @@ def clear_stop(home) -> None:
 
 # ---- the audit ----------------------------------------------------------------------------------
 
-def audit(home, peer: str, path: str, ok: bool, ms: float, *, now: Optional[float] = None) -> None:
-    """One line per request: {at, peer, path, ok, ms}; the file is cut to its newer half past AUDIT_KEEP_BYTES."""
+def audit(home, peer: str, path: str, ok: bool, ms: float, *, now: Optional[float] = None,
+          extra: Optional[dict] = None) -> None:
+    """One line per request: {at, peer, path, ok, ms}; 3.3.7.0 R2: an acting request's line adds `extra` {op, params,
+    evidence, dry, landed, fix, change_id, job}. The file is cut to its newer half past AUDIT_KEEP_BYTES."""
     p = host_dir(home) / AUDIT_FILE
     row = {"at": round(time.time() if now is None else now, 3), "peer": peer or "", "path": path.split("?", 1)[0],
-           "ok": bool(ok), "ms": round(float(ms), 1)}
+           "ok": bool(ok), "ms": round(float(ms), 1), **{k: v for k, v in (extra or {}).items() if v is not None}}
     try:
         p.parent.mkdir(parents=True, exist_ok=True)
         from halo_harness.filelock import file_lock

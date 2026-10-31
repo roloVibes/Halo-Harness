@@ -109,8 +109,9 @@ def _land(state_dir, props: list, ctx: dict, *, mode_name: str, say: Callable, n
         if mode_name == "auto":
             r = steward.apply_change(state_dir, f, change, mode_name="auto", now=now, scope=scope)
             journal.append(r)
-            say(r["say"])
-            out.append({**row, "to": change["to"], "landed": True, "kind": "apply", "id": r["id"]})
+            say(r["say"])  # 3.3.7.0 R2: through a paired host the row is host-apply / -pending / -refused
+            out.append({**row, "to": change["to"], "landed": r.get("landed", True), "kind": r.get("kind", "apply"),
+                        "id": r["id"]})
         elif mode_name == "review":
             r = steward.propose(state_dir, f, change, now=now)
             say(f"steward proposes: {change['field']} {change.get('from')} -> {change['to']} for {f['model']} on "

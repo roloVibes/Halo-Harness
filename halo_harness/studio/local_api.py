@@ -21,6 +21,7 @@ route. Never a model call; nothing here writes a server's settings.
                                         3.3.5.0 R5: studio/local_hf_api.py + local_server_api.py (Hugging Face local)
     local/host/<name>/bench, local/benches   3.3.6.0 R5: studio/local_bench_api.py (the bench, the speed cards)
     local/host/<name>/tune[/apply], local/changes[/revert|/scope|/apply]   3.3.6.0 R5: studio/local_tune_api.py
+    local/host/<name>/request-control, local/host-pending[/<id>/allow|deny]   3.3.7.0 R2: studio/local_host_api.py
 """
 
 from __future__ import annotations
@@ -52,11 +53,15 @@ def get_hosts(req):
 
 
 def _remote(req, card: dict, act: str, fields: dict):
-    """Through the fleet member that serves the host (fleet/control_models.py on its side)."""
+    """Through the fleet member that serves the host (fleet/control_models.py on its side); 3.3.7.0 R2: through the
+    paired halo host that serves it (studio/local_host_acts.send: its typed vocabulary, no member session)."""
     from halo_harness.fleet.identity import fleet_name
     from halo_harness.studio.local_hosts_view import _member
     hub = _hub(req)
     c = card["controls"]
+    if c.get("via") == "host":
+        from halo_harness.studio.local_host_acts import send
+        return send(c, act, fields)
     m = _member(hub, c.get("member") or "")
     sessions = m.sessions() if m is not None else []
     if m is None or not sessions:
@@ -85,7 +90,10 @@ def post_host_act(req, name: str, act: str):
         if body.get("keep_alive") not in (None, ""):
             fields["keep_alive"] = body["keep_alive"]
     if card["controls"]["via"] != "this machine":
-        return _remote(req, card, act, fields)
+        code, out = _remote(req, card, act, fields)
+        from halo_harness.studio import ollama_hosts_view as V
+        V.reset_cache()
+        return code, out
     from halo_harness.providers.ollama_load import load, unload
     host = resolve_ollama_host(name)
     out = load(host, model, num_ctx=fields.get("num_ctx"), keep_alive=fields.get("keep_alive")) if act == "load" \
@@ -176,7 +184,8 @@ def dispatch_local(req):
     from halo_harness.studio.local_shelf_api import dispatch_shelf  # 3.3.6.0 R4: the shelf, Retire, Re-pull
     from halo_harness.studio.local_bench_api import dispatch_bench  # 3.3.6.0 R5: the bench, the speed cards
     from halo_harness.studio.local_tune_api import dispatch_tune  # 3.3.6.0 R5: the tuning report, the changes
-    for fn in (dispatch_card, dispatch_shelf, dispatch_bench, dispatch_tune):
+    from halo_harness.studio.local_host_api import dispatch_host  # 3.3.7.0 R2: halo host grants and pending rows
+    for fn in (dispatch_card, dispatch_shelf, dispatch_bench, dispatch_tune, dispatch_host):
         got = fn(req)
         if got is not None:
             return got

@@ -187,6 +187,9 @@ def route(view, body: dict) -> "tuple[int, dict]":
                    + ("s" if len(evicts) == 1 else "") + (f"; about {load_s:.0f} s to load" if load_s else ""))
     if not installed:
         verdict += f" (not pulled here: {src})"
-    return 200, {"host": h.name, "model": what, "fits": fits, "now": now and capable is not False, "warm": warm,
+    from halo_harness.host.invariants import footprint  # 3.3.7.0 R2: the helper's footprint, said
+    fp = footprint(view, h, rows=loaded)
+    return 200, {"host": h.name, "model": what, "usable_gb": fp["usable_gb"], "footprint": fp["line"],
+                 "usable_with_helper_gb": fp["usable_with_helper_gb"], "fits": fits, "now": now and capable is not False, "warm": warm,
                  "evicts": evicts, "load_s": load_s, "verdict": verdict, "need_bytes": p["need_bytes"],
                  "budget": p["budget"], "free_now": free, "capable": capable, "window": window, "installed": installed}

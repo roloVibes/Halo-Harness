@@ -4,7 +4,7 @@ fake host; no model call, no real ssh, never a request beyond 127.0.0.1:
 
 1. Local -> Hosts: pc sits first, under SERVED BY HALO HOST; its card's line "served by halo host at 127.0.0.1 --
    running since ..., last seen ..., N requests in its audit"; its log line says "via host"; Load's reason names the
-   control grant and 3.3.7.0 R2; nothing opens over the page;
+   control grant and Request control (3.3.7.0 R2: a view-only peer); nothing opens over the page;
 2. Local -> Logs with pc: the status says "via host", the tail arrives from the host with its groups, the cut prompt's
    sizes there and no request body.
 Run: python -m tests.test_studio_hosts_host
@@ -57,8 +57,8 @@ def test_the_hosts_card_says_served_by_halo_host(ctx: Ctx):
     ctx.check(f"pc first, under the host group, got {got.get('group')} {got.get('first_group')}",
               got.get("group") == "host" and got.get("first_group") == "host")
     ctx.check(f"its log line reads through the host, got {got.get('log_line')!r}", "via host" in str(got.get("log_line")))
-    ctx.check(f"Load says why not yet, got {got.get('why')!r}", "`control` grant" in str(got.get("why"))
-              and "3.3.7.0 R2" in str(got.get("why")))
+    ctx.check(f"Load says why not (a view-only peer), got {got.get('why')!r}", "need `control`" in str(got.get("why"))
+              and "Request control here" in str(got.get("why")))
     ctx.check(f"nothing opens over the page, got {got.get('dialogs')}", got.get("dialogs") == 0)
 
 

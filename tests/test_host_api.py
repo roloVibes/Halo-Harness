@@ -9,7 +9,7 @@ status; a fixture ledger, events and a profile in its home):
    route, ping;
 3. the signature: unsigned 401, a wrong key 401, an unknown peer 403, a replayed request 401;
 4. the tail never carries a prompt body (and `n` is held to host.tail_max);
-5. control / manage / admin answer 403 naming the grant and "3.3.7.0 R2";
+5. control / manage / admin answer 403 naming the grant and the command that gives it (3.3.7.0 R2);
 6. one audit line per request {at, peer, path, ok, ms};
 7. the live stream: a card frame first, an event frame when an event is recorded, the ping.
 Run: python -m tests.test_host_api
@@ -164,14 +164,15 @@ def test_the_tail_never_carries_a_prompt_body(ctx: Ctx):
 
 @test
 def test_control_manage_admin_answer_403_naming_the_grant(ctx: Ctx):
-    with HostRig() as rig:
+    with HostRig() as rig:  # 3.3.7.0 R2: the ops behind each prefix (tests.test_host_ops); a view peer is refused
         rig.start()
         rig.pair()
         c = rig.client()
-        for grant in ("control", "manage", "admin"):
-            status, text = _err(lambda: c._call("POST", f"{grant}/warm", {"v": 1}))
-            ctx.check(f"{grant}: 403 naming the grant and R2, got {status} {text!r}", status == 403
-                      and f"`{grant}` grant" in text and "3.3.7.0 R2" in text and len(text.splitlines()) == 1)
+        for grant, op in (("control", "warm"), ("manage", "pull"), ("admin", "raw")):
+            status, text = _err(lambda: c._call("POST", f"{grant}/{op}", {"v": 1, "params": {"model": BIG}}))
+            ctx.check(f"{grant}: 403 naming the grant and the command that gives it, got {status} {text!r}", status == 403
+                      and f"`{grant}` grant" in text and f"halo host grant bob@peer {grant}" in text
+                      and len(text.splitlines()) == 1)
 
 
 @test
@@ -193,7 +194,7 @@ def test_one_audit_line_per_request(ctx: Ctx):
 @test
 def test_the_live_stream(ctx: Ctx):
     from halo_harness.fleet import protocol
-    from halo_harness.host import http as H
+    from halo_harness.host import stream as H  # 3.3.7.0 R2: the stream moved out of host/http.py
     from halo_harness.ollama_steward.server_events import record_events
     from tests.helpers.steward_seed import event
     saved = (H.STREAM_EVENT_S, protocol.PING_S)

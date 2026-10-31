@@ -41,6 +41,13 @@ def post_probe(req, name: str):
     extra = {"cli": cli(name, model, force), "cost": cost_line(model, name)}
     if here and host is not None:
         return 200, {**J.start(host, model, _pub(req), state_dir=req.state_dir, force=force), **extra}
+    if ctl.get("via") == "host" and host is not None:  # 3.3.7.0 R2: the battery runs on the host (control/rerun_battery)
+        from halo_harness.studio.local_host_acts import send, waiter
+        code, ans = send(ctl, "probe", {"model": model, "force": force})
+        if code != 200 or not ans.get("job"):
+            return (code if code >= 400 else 409), {"error": ans.get("error") or ans.get("line") or "the host did not start it", **extra}
+        view = J.start(host, model, _pub(req), state_dir=req.state_dir, force=force, runner=waiter(ctl, ans["job"]))
+        return 200, {**view, "via": ctl.get("via_line"), "host_job": ans["job"], **extra}
 
     def send(more: dict):
         return _forward(req, ctl, "probe", {"model": model, "force": force, **more})

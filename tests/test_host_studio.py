@@ -42,8 +42,8 @@ def test_the_hosts_card_carries_the_host_block(ctx: Ctx):
         ctx.check(f"served by halo host at its address, running since, last seen, the audit count, got {b}",
                   b.get("addr") == "127.0.0.1" and b.get("started") and b.get("last_seen") and b.get("audit_count", 0) >= 1
                   and b.get("name") == "pc-host" and not b.get("error"))
-        ctx.check(f"controls via host, not from here yet, got {pc['controls']}", pc["controls"]["via"] == "host"
-                  and pc["controls"]["ok"] is False and "R2" in pc["controls"]["why"])
+        ctx.check(f"controls via host, not from here without the grant, got {pc['controls']}", pc["controls"]["via"] == "host"
+                  and pc["controls"]["ok"] is False and "need `control`" in pc["controls"]["why"])
         ctx.check(f"its log line reads through the host, got {pc.get('log')}", (pc.get("log") or {}).get("rung") == "host")
         rig.svc.stop()
         rig.svc = None

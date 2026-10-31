@@ -1,14 +1,17 @@
-"""halo_harness.host.http -- the host's signed routes (Halo 3.3.7.0 R1; docs/HOST.md has the table).
+"""halo_harness.host.http -- the host's signed routes (Halo 3.3.7.0 R1 + R2; docs/HOST.md has the table).
 
     POST /host/v1/join                 {v, harness, a, ts, nonce, mac}: the six-word code authenticates it (the hub's
                                        exchange, fleet/hub_join.py); the reply adds `serves` [{name, port, addr}]
     GET  /host/v1/ping | card | catalog?window=N | profiles | events?since=&kind= | tail?n=&host= | stream
     POST /host/v1/simulate {model | size_gb, window, kv?}    POST /host/v1/route {need: {...}}
-    POST /host/v1/control/* | manage/* | admin/*   403: the grant this peer does not hold (3.3.7.0 R2 gives them meaning)
+    R2 (host/routes_act.py): POST control/<op> | manage/<op> | admin/<op> | request; GET me | job/<id> | jobs |
+                             changes | findings | pending; POST ledger {lines} (host/ledger_take.py)
 
 Every route but `join` carries fleet/protocol.py's HMAC headers made with the peer's pair key (the 120 s window, the
 replay guard): an unknown peer gets 403, a wrong key or a stale or replayed request 401. Every request writes one
-audit line (host/state.audit). The routes read; nothing here loads a model or changes a server setting.
+audit line (host/state.audit; an acting request's line adds its op, params, evidence, dry, landed, change and job).
+The view routes read; the acting routes are the typed vocabulary (host/ops.py) -- nothing here runs a model,
+changes a server setting or restarts a server.
 """
 
 from __future__ import annotations
@@ -24,14 +27,10 @@ from halo_harness.fleet import protocol
 
 PREFIX = "/host/v1"
 MAX_BODY = 256_000
-GETS = ("ping", "card", "catalog", "profiles", "events", "tail", "stream")
-POSTS = ("simulate", "route")
+GETS = ("ping", "card", "catalog", "profiles", "events", "tail", "stream", "me", "job", "jobs", "changes", "findings",
+        "pending")
+POSTS = ("simulate", "route", "request", "ledger")
 GRANTED = ("control", "manage", "admin")
-STREAM_EVENT_S, STREAM_RES_S, STREAM_CARD_S = 2.0, 5.0, 60.0
-
-
-def grant_line(grant: str) -> str:
-    return f"this peer holds no `{grant}` grant on this host: `{grant}` operations arrive in 3.3.7.0 R2"
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -84,6 +83,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def _audited(self, fn) -> None:
         from halo_harness.ollama_steward.host_client import serving
         t0, self._status, self._who = time.monotonic(), 0, str(self.headers.get(protocol.H_MEMBER) or "")[:16]
+        self._act: dict = {}
         try:
             with serving():
                 fn()
@@ -97,7 +97,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         finally:
             from halo_harness.host.state import audit
             audit(self.svc.home, self._who, self.path, 200 <= (self._status or 0) < 300,
-                  (time.monotonic() - t0) * 1000.0)
+                  (time.monotonic() - t0) * 1000.0, extra=self._act)
 
     # ---- GET ----------------------------------------------------------------------------------
     def do_GET(self):
@@ -105,16 +105,22 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def _get(self) -> None:
         route = self._route()
-        if route not in GETS:
+        if route.split("/", 1)[0] not in GETS:
             return self._json(404, {"error": "this port serves only the Halo host protocol (/host/v1)"})
-        if not self._peer(b""):
+        hid = self._peer(b"")
+        if not hid:
             return None
         q, view = self._query(), self.svc.view
+        from halo_harness.host import routes_act
+        got = routes_act.get(self.svc, route, q, hid)
+        if got is not None:
+            return self._json(*got)
         if route == "ping":
             return self._json(200, protocol.doc(ok=True, host=self.svc.public(), you={"name": self._who,
                                                                                        "grants": list(self._grants())}))
         if route == "stream":
-            return self._stream()
+            from halo_harness.host.stream import serve
+            return serve(self)
         if route == "card":
             from halo_harness.host.state import audit_summary
             return self._json(200, protocol.doc(host=self.svc.public(), audit=audit_summary(self.svc.home), **view.card()))
@@ -140,58 +146,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
         hid = str(self.headers.get(protocol.H_MEMBER) or "")
         return self.svc.pairing.grants_of(hid)
 
-    def _frame(self, kind: str, data) -> None:
-        doc = json.dumps({"type": kind, "ts": time.time(), "data": data}, ensure_ascii=False, default=str)
-        self.wfile.write(f"event: {kind}\ndata: {doc}\n\n".encode("utf-8"))
-        self.wfile.flush()
-
-    def _stream(self) -> None:
-        from halo_harness.ollama_steward.resources import STORE
-        from halo_harness.ollama_steward.server_events import events_path
-        self.close_connection = True
-        self.send_response(200)
-        for k, v in (("Content-Type", "text/event-stream; charset=utf-8"), ("Cache-Control", "no-store"),
-                     ("Connection", "close"), ("X-Accel-Buffering", "no")):
-            self.send_header(k, v)
-        self.end_headers()
-        self._status = 200
-        view, names = self.svc.view, [h.name for h in self.svc.view.hosts()]
-        path = events_path(self.svc.home)
-        size = path.stat().st_size if path.exists() else 0
-        self._frame("card", view.card())
-        now = time.monotonic()
-        nxt = {"event": now + STREAM_EVENT_S, "res": now, "card": now + STREAM_CARD_S, "ping": now + protocol.PING_S}
-        seen_t: dict = {}
-        while not self.svc.stopping.is_set():
-            now = time.monotonic()
-            if now >= nxt["event"]:
-                nxt["event"] = now + STREAM_EVENT_S
-                cur = path.stat().st_size if path.exists() else 0
-                if cur != size:
-                    size = cur
-                    for ev in view.events(since=STREAM_EVENT_S * 3)["events"]:
-                        key = (ev.get("at"), ev.get("kind"), ev.get("model"))
-                        if key not in seen_t:
-                            seen_t[key] = 1
-                            self._frame("event", ev)
-            if now >= nxt["res"]:
-                nxt["res"] = now + STREAM_RES_S
-                for n in names:
-                    s = STORE.latest(n)
-                    if s and s.get("t") != seen_t.get(("res", n)):
-                        seen_t[("res", n)] = s.get("t")
-                        self._frame("resources", s)
-            if now >= nxt["card"]:
-                nxt["card"] = now + STREAM_CARD_S
-                self._frame("card", view.card())
-            if now >= nxt["ping"]:
-                nxt["ping"] = now + protocol.PING_S
-                self.wfile.write(b": ping\n\n")
-                self.wfile.flush()
-            if len(seen_t) > 4096:
-                seen_t.clear()
-            self.svc.stopping.wait(0.25)
-
     # ---- POST ---------------------------------------------------------------------------------
     def do_POST(self):
         self._audited(self._post)
@@ -210,10 +164,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
         head = route.split("/", 1)[0]
         if route not in POSTS and head not in GRANTED:
             return self._json(404, {"error": "this port serves only the Halo host protocol (/host/v1)"})
-        if not self._peer(raw):
+        hid = self._peer(raw)
+        if not hid:
             return None
-        if head in GRANTED:
-            return self._json(403, {"error": grant_line(head), "grant": head})
+        if head in GRANTED or route == "request":
+            from halo_harness.host.routes_act import post
+            status, out, self._act = post(self.svc, route, raw, hid)
+            return self._json(status, protocol.doc(**out) if status < 400 else out)
+        if route == "ledger":
+            from halo_harness.host.ledger_take import take
+            return self._json(*take(self.svc, raw, hid, self._who))
         try:
             body = protocol.decode(raw)
         except ValueError as e:

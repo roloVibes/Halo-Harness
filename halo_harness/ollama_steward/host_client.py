@@ -92,10 +92,10 @@ class HostClient:
         except ValueError:
             got = {}
         got = got if isinstance(got, dict) else {}
-        if status != 200:
+        if status not in (200, 202):  # 3.3.7.0 R2: 202 = queued for the owner (fleet.allow_control: ask)
             raise HostError(str(got.get("error") or f"the host answered {status}"), status)
         self.last_seen = time.time()
-        return got
+        return {**got, "queued": True} if status == 202 else got
 
     def _q(self, route: str, **query) -> str:
         q = urllib.parse.urlencode({k: v for k, v in query.items() if v not in (None, "")})
@@ -130,6 +130,38 @@ class HostClient:
 
     def route(self, need: dict) -> dict:
         return self._call("POST", "route", {"v": 1, "need": need})
+
+    # ---- 3.3.7.0 R2: the typed vocabulary (host/ops.py) -------------------------------------------
+    def act(self, grant: str, op: str, params: dict, *, evidence: Optional[dict] = None, scope: Optional[str] = None,
+            dry: bool = False, why: str = "") -> dict:
+        body = {"v": 1, "params": params, "dry": dry, "why": why}
+        body.update({k: v for k, v in (("evidence", evidence), ("scope", scope)) if v})
+        return self._call("POST", f"{grant}/{op}", body)
+
+    def me(self, *, fresh: bool = False) -> dict:
+        key = (self.url, "me")
+        hit = _CACHE.get(key)
+        if hit and not fresh and time.monotonic() - hit[0] < CARD_TTL_S:
+            return hit[1]
+        got = self._call("GET", "me")
+        _CACHE[key] = (time.monotonic(), got)
+        return got
+
+    def get(self, route: str) -> dict:
+        """GET job/<id> | jobs | changes | findings | pending."""
+        return self._call("GET", route)
+
+    def request_grant(self, grant: str, why: str = "") -> dict:
+        return self._call("POST", "request", {"v": 1, "grant": grant, "why": why})
+
+    def push_ledger(self, lines: list) -> dict:
+        return self._call("POST", "ledger", {"v": 1, "lines": lines})
+
+    def served_name(self, port: int) -> Optional[str]:
+        """The host's own name for the server on `port` (its join's `serves`), so an op names it."""
+        rows = [r for r in self.entry.get("serves") or [] if isinstance(r, dict)]
+        hit = next((r for r in rows if int(r.get("port") or 0) == int(port)), rows[0] if len(rows) == 1 else None)
+        return str(hit.get("name")) if hit and hit.get("name") else None
 
     def stream(self):
         """The host's SSE stream (fleet/relay_stream.Stream: `read(timeout)` returns the frames that arrived)."""
