@@ -4,7 +4,55 @@ This folder carries the whole plan so a new session (local or cloud) can
 pick the work up without the conversation that produced it. Read this file
 first, then `WORKER-RULES.md`, then the round you are starting.
 
-## WHERE THINGS STAND -- 2026-10-30 night (authoritative, read this first)
+## WHERE THINGS STAND -- 2026-11-01 (authoritative, read this first)
+
+**3.3.6.0 "Local, verified" IS THE RELEASE CANDIDATE** (six rounds merged on master; the release follows once
+both runners are green on the candidate head -- if you read this after the release, the tag v3.3.6.0 exists
+and the PC runs it). The specification is the owner's measured brief `plans/local-model-fit-brief.md`
+(Parts A-L) as cut by the ROADMAP entry "ADDED 2026-10-30 ... the local-model brief". On master: R1 the
+battery (4fa10c2e: `providers/capability_battery.py` + `battery_probes.py` + `battery_profile.py`, cached at
+`ollama_capability` cache[digest]["battery"][host]; `halo models probe`; `providers/placement.py` gates in
+`models_auto.pick` / `roles.py` / the spawn path / `doctor_local`; `model_card_blocks.py`; `agent/local_failure.py`;
+`providers/ollama_twin_verify.py`), R2 the search (5985ac9a: `models_library/truths.py` + `truth_rules.py`
+declared / expected / verified, `search*.py`, `presets*.py`, `role_gaps.py`, `ollama_steward/fingerprints.py`,
+`doctor_local_ids.py`, `studio/local_search_api.py` + `local_verify_job.py`, `halo models browse --preset --need
+--for-role --ask --exclude-crashed`), R3 logs (f36bf893: `ollama_steward/server_log_remote.py` + `log_tail.py`
++ `log_status.py`, `agent/ollama_log_recovery.py`, `fingerprint_facts.py` + `rules_crash.py`, the Local -> Logs
+page, `providers/fit_evidence.py`, `halo ollama log | events --host | crashes --why`, knowledge/server-log.md),
+R4 cards + dialect (f5113a9a: `providers/measured.py`, `battery_multitool.py` (probe set battery-2),
+`dialect.py` + `dialect_refine.py` + `dialect_apply.py` applied on every local call, `kv_dial.py`,
+`models_library/shelf.py`, `agent/postmortem.py` (`/why`), `agent/degrade.py` (`local.ladder`, on by default)),
+R5 bench + revert (573d002f: `providers/local_bench.py` + `local_bench_runs.py` -> the speed card,
+`halo local bench | tune | changes | revert`, `ollama_steward/tune_report.py` + `tune_options.py` + `tune_lines.py`,
+`ollama_steward/changes.py` with scopes session / until-restart / keep and the revert at session end and
+process exit, the Local -> Benchmarks page), R6 eyes (`tools/screenshot.py` + `screenshot_capture.py` behind a
+`RUNNER` seam, `/screenshot`, captures under `~/.halo/attachments/<sid>/`; `providers/vision_fact.py` read by the
+card, the search, placement, the measured card and the chips; the vision probe = probe set battery-3; `EyeChip.tsx`
+inside `CardChips`; `halo models --vision`; `studio/session_eyes_api.py` + `LiveImage.tsx` -- the steer carries the
+image's path, never its bytes; `agent/eyes_offer.py` + `eyes_turn.py` + `tui/widgets/eyes_card.py` -- the "eyes" rung
+on the ladder; the visual lane is `roles.visual` else `roles.eyes`; `test_ollama_trim_recovery`'s fixture sits
+44 tokens under a 32k boundary and the next built-in tool will likely move it).
+CI lessons this version: a test asking a Windows log path on a Linux runner (the logs rig takes `platform=`);
+the Linux `run_all` step limit raised to 75 min (6f6b7d81) after a green suite was cut at 50:03; the round
+script writes CHANGELOG.md after the merge is staged -- `git add CHANGELOG.md` before the merge commit.
+Worktrees `~/hh-336/*`, briefs and hand-backs under `~/hh-336/briefs/` (each hand-back's WHAT STAYS OPEN is
+the list for 3.3.7.0). Open for the owner's live check (nothing run on hardware yet): `halo models probe --all
+--force` and the tool-call accuracy per card; Library -> Coder preset on the 4090 at 32,768, Download and
+verify a small model, Assign; `halo ollama hardware`'s log line and Local -> Logs with a -gpu twin verified;
+a session past its window ("the log shows the prompt was cut at ..."); `halo ollama log --host pc --follow`
+from the Mac; `halo ollama crashes --why` after the next CUDA IMA; `halo models measured qwen3-coder:30b-gpu`;
+Retire and Re-pull an idle tag; `/why` on a cut turn; `halo local bench --host pc --model qwen3-coder:30b-gpu`
+then `--all --quick`; Apply "until the session ends" during a session and quit it; `/screenshot` into a session
+on a model that cannot see and take the offer. **Next:** 3.3.7.0 "Local, the host" (Part H `halo host`, H9,
+H10, D1 scheduling, G5 / G6 / G11-G15, Part J roster adviser, Part L bundles, the steward's chat; plus every
+hand-back's WHAT STAYS OPEN: off-hours refresh G13, bench + probe through a fleet member, speed cards and
+dialect records through the hub, the busy wait and foreign clients, the ladder's crash / low_confidence
+triggers, a capture on a fleet member's display, the vision probe on Hugging Face local servers, the image
+prefill row on the speed card), 3.3.8.0 "Voice" (Part K), then 3.3.9.0 "Type into Studio" (the composer's
+paste: an image into a new user turn; today it rides the steer, mid-turn only), 3.3.10.0 "Themes and parity". The
+owner's rule: all local-model work first.
+
+### Before it: 2026-10-30 night
 
 **3.3.5.0 "Local" IS RELEASED** (tag v3.3.5.0, release commit 2f64c523 cut from 1e3963aa on 2026-10-31
 after both runners went green; installed on the PC: `halo 3.3.5.0`). Next on master: 3.3.6.0 "Local,

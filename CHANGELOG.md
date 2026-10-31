@@ -10,6 +10,24 @@ version.
 
 ## [3.3.6.0] - unreleased
 
+**Local, verified.** The owner's measured brief (plans/local-model-fit-brief.md, Parts A-G) made into six
+rounds: every local model gets a capability and placement profile from a real probe battery, cached by
+digest and Ollama version, and the placement gates pick, spawn and doctor on it; a fitted twin is loaded
+and checked against the log before it is trusted (R1); the library search filters on declared, expected
+and verified facts, with presets, "find a model for this role", a cost line per row and "exclude: crashed
+on this host" (R2); the host's Ollama log is the source of truth -- read on a remote host through its ssh
+entry, a log status per host, the loop reading the log after each call to drive recovery, crash forensics
+with the load command, a Logs page, the fit badge citing the log (R3); every card fact measured with its
+source and date, the dialect record applied on every local call with the tool budget, the KV dial with the
+crash note, the shelf with Retire and Re-pull, `/why` the answer post-mortem, the degradation ladder (R4);
+`halo local bench` measures a model's limits on this card at three windows and writes the speed card, the
+tuning report puts the planner's options for a whole host in one place with Apply for Halo's side and the
+exact line for the server's, and every Halo-side change carries a scope -- session, until-restart, keep --
+and is put back on time (R5); eyes: a Screenshot tool per OS, vision as a three-truth fact with a one-pixel
+probe, an eye chip on every model row, a pasted image on Studio's steer, and the offer before an image
+reaches a model that cannot see (R6). Also: the Linux suite step gets 75 minutes (the full tier passed at
+50:03 and the old limit cut it).
+
 ### R1: the battery -- every local model gets a capability and placement profile
 
 **Added**
@@ -228,10 +246,6 @@ version.
 - A steer sent while a turn runs keeps its image: it lands at the steer's safe point.
 - The capability battery is about nine requests now (the image probe); every cached profile re-runs once.
 - The card's blocks say "reads images" or "cannot see images" with the truth; the `eyes` role follows the fact.
-
-### Also in 3.3.6.0
-
-#### Changed
 
 ## [3.3.5.0] - 2026-10-30
 
