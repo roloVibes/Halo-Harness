@@ -16,6 +16,8 @@ The API says what is loaded; the log says whether it fit and why it broke. Halo 
 | headroom | `gpu memory id=0 library=CUDA available="X GiB" free="Y GiB"` | `available="20.6 GiB" free="21.0 GiB"` | the memory the scheduler placed the load against [S46][S30] |
 | truncation | `truncating input prompt limit=X prompt=Y keep=4 new=Z` | `limit=2050 prompt=23536 keep=4 new=2050` | the prompt overflowed the window and its middle was dropped; Y is the real prompt in tokens [S46][S4] |
 | truncation | `stop processing: n_tokens = N, truncated = 1` | `n_tokens = 65535, truncated = 1` | the reply ran into the window's end [S13][S30] |
+| speed | `slot print_timing:` then `prompt eval time = X ms / N tokens` and `eval time = ...` | `eval time = 2345.67 ms / 456 tokens (... 194.40 tokens per second)` | one request's prompt read and reply rate; Halo keeps them as one `timing` event, the measured card's fallback when the ledger has no rate [S12] |
+| speed | `draft acceptance rate = R (A accepted / G generated)` / `loading draft model` | `draft acceptance rate = 0.57143` | speculative decoding is on (a `spec-decode` event): the share of drafted tokens kept [S12] |
 | failure | `CUDA error: an illegal memory access` | as quoted | a CUDA abort: llama-server dies [S46] |
 | failure | `llama-server terminated` / `llama runner terminated` | `exit status 0xc0000409` | on Windows 0xc0000409 is the death after a CUDA abort, not a second bug [S46] |
 | failure | `\| 500 \|` and `\| 499 \|` | `\| 499 \| 4.2862269s \|` | a failed request; a client that closed the connection [S46][S30] |

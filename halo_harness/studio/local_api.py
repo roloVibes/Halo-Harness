@@ -170,6 +170,12 @@ def dispatch_local(req):
     got = dispatch_logs(req)
     if got is not None:
         return got
+    from halo_harness.studio.local_card_api import dispatch_card  # 3.3.6.0 R4: measured, the dialect record
+    from halo_harness.studio.local_shelf_api import dispatch_shelf  # 3.3.6.0 R4: the shelf, Retire, Re-pull
+    for fn in (dispatch_card, dispatch_shelf):
+        got = fn(req)
+        if got is not None:
+            return got
     got = dispatch_control(req)
     if got is not None:
         return got

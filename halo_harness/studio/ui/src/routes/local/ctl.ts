@@ -6,7 +6,7 @@ import { createStore, useStore } from "../../lib/store";
 import { loadHosts, loadModels } from "./store";
 import type { ModelEntry, ShowAnswer, TwinPlan, Uses } from "./types";
 
-export type Act = "show" | "twin" | "copy" | "rename" | "delete";
+export type Act = "show" | "twin" | "copy" | "rename" | "delete" | "retire";
 type Ctl = {
   open: { act: Act; host: string; m: ModelEntry } | null;
   show: ShowAnswer | null; plan: TwinPlan | null; uses: Uses | null;
@@ -25,7 +25,7 @@ export const line = (verb: string, host: string, ...words: string[]) => ["halo m
 export function openAct(act: Act, host: string, m: ModelEntry): void {
   ctl.update(() => ({ open: { act, host, m }, show: null, plan: null, uses: null, said: null, busy: false }));
   if (act === "show") void readShow(host, m.model);
-  if (act === "delete") void readUses(host, m.model);
+  if (act === "delete" || act === "retire") void readUses(host, m.model);
 }
 
 export function closeAct(): void {
@@ -83,5 +83,11 @@ export async function copyModel(host: string, src: string, dst: string, rename: 
 
 export async function deleteModel(host: string, model: string, force: boolean): Promise<void> {
   const r = await run(`local/host/${enc(host)}/delete`, { name: model, force });
+  if (r) ctl.update(() => ({ uses: null }));
+}
+
+/** 3.3.6.0 R4: Retire (studio/local_shelf_api.py): the delete with a shelf line, so a re-pull is one click. */
+export async function retireModel(host: string, model: string, why: string, force: boolean): Promise<void> {
+  const r = await run(`local/host/${enc(host)}/retire`, { name: model, why, force });
   if (r) ctl.update(() => ({ uses: null }));
 }

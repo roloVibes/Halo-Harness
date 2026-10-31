@@ -11,11 +11,14 @@
 // 3.3.6.0 R1: where it sits (the battery's placement chip), "probed <date> · re-probe", the twin chips, the Probe
 // action with its progress strip (ProbeBits.tsx); the detail adds the card's four blocks (shared/ModelCardBlocks.tsx).
 // 3.3.6.0 R3: the fit badge's evidence, the last load as the server log says it (shared/FitEvidence.tsx).
+// 3.3.6.0 R4: the measured speed chip (providers/measured.py), the shelf hint and Retire (ShelfBits.tsx), the KV
+// dial in the window line's title (providers/kv_dial.py).
 import { Button, FitMeter, Menu } from "../../lib/ui";
 import { CardChips, CardDetail } from "../shared/ModelCard";
 import { FitEvidenceChip } from "../shared/FitEvidence";
 import { SitsChips } from "../shared/ModelCardBlocks";
 import { ProbeAction, ProbedMark, ProbeStrip, TwinChips } from "./ProbeBits";
+import { ShelfHint } from "./ShelfBits";
 import { line, openAct } from "./ctl";
 import { coderLane, gib, loadModel, loadModels, unloadModel, useAsDefault, useLocal } from "./store";
 import type { ModelEntry } from "./types";
@@ -39,6 +42,7 @@ function Acts({ m, host }: { m: ModelEntry; host: string }) {
             row("copy", "Copy", line("copy", host, m.model, "<new name>"), () => openAct("copy", host, m)),
             row("rename", "Rename", line("rename", host, m.model, "<new name>"), () => openAct("rename", host, m)),
             row("delete", "Delete", line("rm", host, m.model), () => openAct("delete", host, m)),
+            row("retire", "Retire (delete, keep a note)", line("retire", host, m.model), () => openAct("retire", host, m)),
           ] }]} />
   );
 }
@@ -66,6 +70,9 @@ export function ModelRow({ m, host, score }: { m: ModelEntry; host: string; scor
         <FitMeter fit={m.fit} />
         <FitEvidenceChip ev={card.fit_evidence} testid="local-model-fit-evidence" />
         <TwinChips m={m} host={host} />
+        {card.speed_chip && <span className="og-chip mono" data-testid="local-model-speed"
+                                  title="the median of its last answered calls here (never the first after a load): the card's Measured block">{card.speed_chip}</span>}
+        <ShelfHint m={m} />
         <span className="spacer" />
         {m.size ? <span className="mono muted" title="the model's size on disk (/api/tags)">{gib(m.size)}</span> : null}
         {m.loaded && <span className="og-chip mono" data-testid="local-model-loaded" title={`${gib(m.loaded.size_vram)} on the GPU`}>loaded</span>}
@@ -80,11 +87,11 @@ export function ModelRow({ m, host, score }: { m: ModelEntry; host: string; scor
       </div>
       <div className="lc-model-mid mono muted">
         {p && (p.num_ctx || p.num_predict) ? (
-          <span data-testid="local-model-profile" title={p.note || "the steward profile (ollama.profiles)"}>
+          <span data-testid="local-model-profile" title={(p.note || "the steward profile (ollama.profiles)") + (card.kv_dial?.text ? ` · KV dial: ${card.kv_dial.text}` : "")}>
             {p.num_ctx ? `window ${p.num_ctx.toLocaleString("en-US")}` : ""}{p.num_predict ? ` · reserve ${p.num_predict.toLocaleString("en-US")}` : ""} (by {p.by || "you"})
           </span>
         ) : (
-          <span>no profile: the window is {card.window?.tokens ? `${card.window.tokens.toLocaleString("en-US")} (${card.window.source})` : "the server's"}</span>
+          <span data-testid="local-model-window" title={card.kv_dial?.text ? `KV dial: ${card.kv_dial.text}${card.kv_dial.crash ? " · " + card.kv_dial.crash : ""}` : undefined}>no profile: the window is {card.window?.tokens ? `${card.window.tokens.toLocaleString("en-US")} (${card.window.source})` : "the server's"}</span>
         )}
         <span className="lc-roles" data-testid="local-model-roles">
           {Object.entries(fitFor).map(([role, ok]) => (

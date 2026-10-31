@@ -174,3 +174,24 @@ A host's log status (3.3.6.0 R3) says whether Halo can read that host's Ollama s
 ## load result
 
 A load result (3.3.6.0 R3) is what the server log says about one load of a model, read when `llama-server started` closes it: how many layers went to the GPU (`offloaded 59/66`), the graph splits (2 means all on the GPU), where the KV cache sits (CUDA or CPU buffers), the window, the KV type and flash attention in force, how long it took. It is the evidence the fit badge cites ("verified -- 41/41 layers, splits = 2, 258 tok/s" or "spilled -- 59/66 layers, 16 tok/s", with the tok/s the ledger measured), the per-model row of Local -> Logs, and the load a crash fingerprint records.
+
+## dialect record
+
+A dialect record (3.3.6.0 R4) is how Halo talks to one local model on one host, applied before every call: where its instructions go (the system message, or the front of the first user message for a model that ignores the system role), whether a fenced JSON reply is unwrapped, the least room its reply gets, how many times a reply that does not parse is asked again, extra stop strings, a loop guard that stops the same span repeated three times, how its thinking is handled, and how many tools it is offered. The battery fills it, the traffic ledger refines it (a reply cut often raises the reserve; a loop turns the guard on), and your edit on the card or with `halo models dialect` always wins; each field says where it came from.
+
+## measured
+
+A measured fact (3.3.6.0 R4) is a number the model's own calls on this host produced, not a vendor claim: tok/s, the time to the first token, the load time, the share of the prompt read from the cache, the window verified versus assumed, KV per token, speculative decoding, tool-call accuracy from the battery's multi-tool probe, and the quirks seen. Each one carries its source (the traffic ledger, the server log, the fit evidence, the battery), its date and how many calls it stands on, and the first call after a load never counts. The card's Measured block and `halo models measured` show them.
+
+## shelf
+
+The shelf (3.3.6.0 R4) is where retired local models wait: Retire deletes a model from its host the usual way (what uses it is shown first) and leaves one note with its size, the reason and the line that brings it back, and Re-pull runs that pull again. The Models page shows each installed model's last use and size, with a hint once it sits idle ("not used in 30 days, 17 GB"); `halo models retire` and `halo models shelf` do the same from a terminal.
+
+## post-mortem
+
+A post-mortem (3.3.6.0 R4) is "Why this answer?": one assistant turn rebuilt from what Halo recorded -- the traffic ledger's line for the call and the session log -- in one plain line with the details beneath: was the prompt cut and where, was it mostly memory, did the model answer only in thinking, were no tools offered, did a small reply budget leave it empty, how much of the prompt came from the cache, which dialect and ladder rungs were in force. Studio's why? on a Live row, `/why` and `halo session postmortem` show it.
+
+## degradation ladder
+
+The degradation ladder (3.3.6.0 R4) is the one explicit path a failed local call takes, one rung per failure and one pass per turn, each rung one visible line: repair (asked again with what was wrong), a smaller ask (the lean prompt and the six most relevant tools), another local model that fits beside the resident one, the cloud model your escalation policy names (only when that policy allows it), and finally one question to you with what was tried. `local.ladder` sets the order or turns it off.
+

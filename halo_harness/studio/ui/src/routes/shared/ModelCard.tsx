@@ -35,6 +35,9 @@ export type CardView = {
   probe?: { date: string; at: number; line: string; agentic_ready: boolean; interactive: string; quirks: string[]; sits: string; stale: boolean } | null;
   /** 3.3.6.0 R3: the last load on its host as the server log says it (providers/fit_evidence.py). */
   fit_evidence?: FitEvidenceView | null;
+  /** 3.3.6.0 R4: the Models rows' speed chip from the measured card, the KV dial (the window chip's title). */
+  speed_chip?: string;
+  kv_dial?: { text: string; crash?: string; action?: string } | null;
 };
 export type CardFields = { card?: CardView; fit?: Fit };
 type Offer = { lineup: string; coder: string; orchestrator: string; why: string; command: string };
@@ -74,7 +77,7 @@ export function CardDetail({ card, refName, open }: { card?: CardView; refName: 
           </span>
         ))}
       </div>
-      <CardBlocks blocks={card.blocks} />
+      <CardBlocks blocks={card.blocks} refName={refName} />
     </details>
   );
 }

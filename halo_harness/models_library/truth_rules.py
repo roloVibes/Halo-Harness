@@ -237,7 +237,7 @@ def long_context(row, card, p):
 
 
 def needs_probe(cap: str, row: dict, card: dict) -> dict:
-    why = {"tool-accuracy": "a multi-tool probe is not in the battery yet"}.get(cap, f"nothing reliable declares {TITLES[cap]}")
+    why = {"tool-accuracy": "the battery's multi-tool probe has not run on it"}.get(cap, f"nothing reliable declares {TITLES[cap]}")
     after = "halo models probe <ref>" if row.get("installed") else "download and verify"
     return fact(None, None, f"needs a probe: {why} ({after})", probe=True)
 
@@ -245,4 +245,6 @@ def needs_probe(cap: str, row: dict, card: dict) -> dict:
 RULES = {"tools": tools, "thinking": thinking, "coder": coder, "agentic-ready": agentic, "planner": planner,
          "verifier": verifier, "compactor": compactor, "bulk": bulk, "abliterated": abliterated, "vision": vision,
          "audio": audio, "embedding": embedding, "security": security, "math": math, "multilingual": multilingual,
-         "long-context": long_context, "tool-accuracy": lambda row, card, p: None}
+         "long-context": long_context, "tool-accuracy": lambda row, card, p: None if not isinstance((p or {}).get(
+             "tool_call_accuracy"), (int, float)) else fact(p["tool_call_accuracy"] >= 0.75, V, f"the multi-tool probe: "
+             f"{p['tool_call_accuracy']:.0%} ({p.get('tool_call_why') or 'scored'}, probed {_date(p)})")}  # 3.3.6.0 R4

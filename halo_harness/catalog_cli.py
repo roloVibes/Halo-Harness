@@ -244,6 +244,12 @@ def cmd_models(argv) -> int:
     if argv and argv[0] == "probe":  # 3.3.6.0 R1: the capability battery (models_probe_cli.py)
         from halo_harness.models_probe_cli import cmd_models_probe
         return cmd_models_probe(list(argv[1:]))
+    if argv and argv[0] in ("measured", "dialect"):  # 3.3.6.0 R4: the card's measured facts, the dialect record
+        from halo_harness import models_card_facts_cli as F
+        return (F.cmd_models_measured if argv[0] == "measured" else F.cmd_models_dialect)(list(argv[1:]))
+    if argv and argv[0] in ("retire", "shelf"):  # 3.3.6.0 R4: the model shelf (models_shelf_cli.py)
+        from halo_harness.models_shelf_cli import cmd_models_shelf
+        return cmd_models_shelf(argv[0], list(argv[1:]))
     if argv and argv[0] == "show":  # 3.3.5.0 R0b: the model card
         from halo_harness.model_card_cli import cmd_models_show
         return cmd_models_show(list(argv[1:]))

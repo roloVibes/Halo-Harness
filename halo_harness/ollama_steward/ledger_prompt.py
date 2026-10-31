@@ -4,7 +4,8 @@ the prompt budget adds to a call's ledger line (`ledger_call.py` writes it).
     prompt_fields(session, kind)   before the call: composition {system, memory, topic_index,
                                    tools_schema, history, user, total}, prefix_tokens,
                                    prefix_changed, preflight ("compact" | "switch" | "sent" | None)
-    finish(line, reserve)          after it: warming, cache_reused_pct
+    finish(line, reserve, session) after it: warming, cache_reused_pct; 3.3.6.0 R4 (a turn): dialect_record (the
+                                   record in force), loop (the loop guard saw one), ladder (the rungs taken)
     is_warming(load_ns)            the call loaded the model first (over 2 s of load)
 
 `preflight` is the decision the preflight took before this call
@@ -49,7 +50,16 @@ def prompt_fields(session, kind: str) -> dict:
     return out
 
 
-def finish(line: dict, reserve: int = 1024) -> None:
+def finish(line: dict, reserve: int = 1024, session=None) -> None:
+    if session is not None and line.get("kind") == "turn":  # 3.3.6.0 R4: what the dialect and the ladder did
+        try:
+            from halo_harness.providers.dialect_apply import ledger_view
+            line["dialect_record"] = ledger_view(session)
+            line["loop"] = bool(getattr(session, "_dialect_loop", None))
+            from halo_harness.agent.degrade import ledger_rungs
+            line["ladder"] = ledger_rungs(session)
+        except Exception:
+            pass
     load = line.get("load_ms")
     line["warming"] = isinstance(load, (int, float)) and not isinstance(load, bool) and load > WARM_LOAD_MS
     seen, est = line.get("prompt_eval_count"), line.get("estimate_tokens")

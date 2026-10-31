@@ -126,7 +126,8 @@ def blocks(card: dict, profile: Optional[dict] = None) -> dict:
 CARD_ROLES_FROM_PROFILE = ("orchestrator", "coder", "reviewer")  # small (size) and eyes (vision) stay declared
 PROFILE_KEYS = ("tools", "system_role", "instruction", "output", "output_why", "identifiers", "reasoning", "window",
                 "kv_per_token", "size_gb", "speed", "resident", "interactive", "quirks", "agentic_ready", "probed_at",
-                "digest", "ollama_version", "probe_set", "sits", "chips", "host", "model")
+                "digest", "ollama_version", "probe_set", "sits", "chips", "host", "model",
+                "tool_call_accuracy", "tool_call_why")  # 3.3.6.0 R4: the multi-tool probe
 
 
 def profile_of(state_dir, ref, host, row) -> Optional[dict]:
@@ -213,6 +214,8 @@ def block_lines(b: dict) -> list:
         return []
     m = lambda x: "" if x.get("mark") == V else f" ({x.get('mark') or E})"  # noqa: E731
     out = [f"  fit: {b['fit']['text']}" + (f" ({b['fit']['source']})" if b["fit"].get("source") else "")] if b.get("fit") else []
+    if (b.get("kv_dial") or {}).get("text"):  # 3.3.6.0 R4: the KV dial (providers/kv_dial.py)
+        out += [f"  kv: {b['kv_dial']['text']}"] + ([f"    {b['kv_dial']['crash']}"] if b["kv_dial"].get("crash") else [])
     if (b.get("sits") or {}).get("chip"):
         s = b["sits"]
         out.append(f"  where it sits: {' · '.join(s.get('chips') or [s['chip']])}{m(s)}")
@@ -220,4 +223,10 @@ def block_lines(b: dict) -> list:
         if b.get(key):
             out.append(f"  {title}:")
             out.extend(f"    {x['text']}{m(x)}" for x in b[key])
+    if b.get("measured"):  # 3.3.6.0 R4: providers/measured.py
+        out.append("  measured:")
+        out.extend(f"    {x['text']}" for x in b["measured"])
+    if (b.get("dialect") or {}).get("lines"):  # 3.3.6.0 R4: providers/dialect.py
+        out.append("  how Halo talks to it:")
+        out.extend(f"    {x}" for x in b["dialect"]["lines"])
     return out

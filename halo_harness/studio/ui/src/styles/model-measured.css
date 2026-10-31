@@ -1,0 +1,26 @@
+/* The measured card and what acts on it (3.3.6.0 R4): the KV dial under the fit line, How Halo talks to this
+   model (shared/DialectBlock.tsx), the shelf hint and the Shelf block (local/ShelfBits.tsx), a Live row's "why?"
+   and the Inspector's Why this answer? (session/Why.tsx). Colours are tokens only (styles/tokens.css). */
+.kv-dial { font-size: 12px; margin-top: 3px; overflow-wrap: anywhere; }
+.kv-crash { color: var(--bad); }
+.kv-action { color: var(--muted); }
+.dialect-fields { display: grid; gap: 4px; }
+.dialect-fields li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; list-style: none; }
+.dialect-name { min-width: 15ch; font-size: 12px; color: var(--text); }
+.dialect-pair { display: inline-flex; align-items: center; gap: 4px; }
+.dialect-num { width: 8ch; }
+.dialect-block select { font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius-sm); padding: 1px 4px; }
+.dialect-from { font-size: 11px; color: var(--muted); }
+.dialect-from[data-from="user"] { color: var(--accent); border-color: var(--accent); }
+.dialect-from[data-from="ledger"] { color: var(--warn); }
+.lc-shelf-hint { color: var(--warn); }
+.lc-shelf summary { cursor: pointer; }
+.lc-shelf-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 4px 0; font-size: 12px;
+  border-bottom: 1px solid var(--line); }
+.slv-why { margin-left: 6px; font-size: 11px; color: var(--muted); background: transparent; border: 1px solid var(--line);
+  border-radius: var(--radius-sm); padding: 0 5px; cursor: pointer; opacity: 0.6; }
+.slv-line:hover .slv-why, .slv-why[aria-pressed="true"] { opacity: 1; color: var(--accent); border-color: var(--accent); }
+.session-why { display: grid; gap: 4px; }
+.session-why-line { margin: 0; color: var(--text); }
+.session-why-details { margin: 0; padding-left: 16px; font-size: 12px; overflow-wrap: anywhere; }

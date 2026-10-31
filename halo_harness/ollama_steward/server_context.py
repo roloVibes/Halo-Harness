@@ -15,7 +15,10 @@ log rules that need the lines around a line, a model and a clock
 - `server-down`: `api_result(False)` three times in a row;
 - 3.3.6.0 R3: the load block (fingerprint_facts.LoadTracker): `load-result`
   when a load finishes (layers, splits, KV placement, the window, KV type and
-  flash attention in force), and a crash event carries that load as `data.load`.
+  flash attention in force), and a crash event carries that load as `data.load`;
+- 3.3.6.0 R4: a `timing` event (print_timing's reply line) carries the prompt
+  line before it: `prompt_ms`, `prompt_n`, `prompt_tok_s` (the time to the first
+  token, the prompt read's rate).
 """
 
 from __future__ import annotations
@@ -23,7 +26,7 @@ from __future__ import annotations
 from typing import Optional
 
 from halo_harness.ollama_steward.server_rules import (
-    _MODEL, _STARTED, DOWN_N, PAIR_LINES, RETRY_N, RETRY_S, SLOW_LOAD_S, STALL_S, _short_model, classify, event,
+    _MODEL, _STARTED, _TIMING, DOWN_N, PAIR_LINES, RETRY_N, RETRY_S, SLOW_LOAD_S, STALL_S, _short_model, classify, event,
     line_time, strip_prefix,
 )
 
@@ -45,6 +48,7 @@ class Rules:
         self.down = 0
         from halo_harness.ollama_steward.fingerprint_facts import LoadTracker
         self.loads = LoadTracker()  # 3.3.6.0 R3: the load block in force (crash forensics, the fit evidence)
+        self.prompt_timing: Optional[dict] = None  # 3.3.6.0 R4: print_timing's prompt line, for the reply line after it
 
     def _near(self, mark: str, lines: int) -> bool:
         return mark in self.marks and self.n - self.marks[mark] <= lines
@@ -64,12 +68,19 @@ class Rules:
             self.model = _short_model(m.group(1))
         self._activity(line)
         loaded = self.loads.feed(line, self.clock, self.model)
+        if (pt := _TIMING.search(line)) and pt.group(1):
+            self.prompt_timing = {"prompt_ms": float(pt.group(2)), "prompt_n": int(pt.group(3)),
+                                  "prompt_tok_s": float(pt.group(4))}
         ev = classify(line, at=self.clock)
         out = self._expire() + loaded
         if ev is None:
             return out
         ev["model"] = ev.get("model") or self.model
         kind = ev["kind"]
+        if kind == "timing" and self.prompt_timing:
+            ev["data"].update(self.prompt_timing)
+            ev["say"] += f"; the prompt read {self.prompt_timing['prompt_n']:,} tokens in {self.prompt_timing['prompt_ms']:.0f} ms"
+            self.prompt_timing = None
         if kind in ("gpu-memory", "other-error", "load-failed") and self.loads.facts():
             ev["data"]["load"] = self.loads.facts()
         if kind == "cancel-task":  # one cancel pairs with one 500, before or after it
