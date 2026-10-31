@@ -86,7 +86,7 @@ class HFContextDecision:
 
 def send_turn(*, host, route, profile, decision, system_text: str, messages: list,
               tools: Optional[list] = None, requested_max_tokens: int = 64,
-              force_format: Optional[dict] = None, state_dir) -> TurnResult:
+              force_format: Optional[dict] = None, state_dir, overrides: Optional[dict] = None) -> TurnResult:
     """One real, end-to-end `/api/chat` turn -- never raises (every
     failure, upstream or local, comes back as `TurnResult(error=...)` so a
     gym task can count it as a failed attempt and move on to the next
@@ -106,6 +106,8 @@ def send_turn(*, host, route, profile, decision, system_text: str, messages: lis
             recorded_does_not_fit=getattr(decision, "recorded_does_not_fit", False),
             cpu_only=getattr(decision, "cpu_only", False),
         )
+        for k, v in (overrides or {}).items():  # 3.3.6.0 R5: the bench's exact window, reply room and keep_alive
+            body[k] = {**(body.get(k) or {}), **v} if k == "options" else v
         req = CompletionRequest(
             body={"messages": []}, route=route,
             profile={"context_tokens": decision.num_ctx or 8192, "max_output_tokens": requested_max_tokens},

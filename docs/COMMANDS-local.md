@@ -230,6 +230,18 @@ files are offered this path this round -- see [MODELS.md](MODELS.md).
 Deletes a fetched `llama-server` runtime from `~/.halo/runtimes/` -- one
 version, or every version when none is named.
 
+### `halo local bench | tune | changes | revert` (3.3.6.0 R5)
+
+- `halo local bench [--host H] [--model M | --all] [--quick] [--yes] [--json]` (also `halo models bench`): the cost line
+  first ("local: ~N min on <host>, the card is busy meanwhile, writes the speed card; no tokens leave this machine"),
+  then one line per window as it lands, then the speed card ([MODELS-cards.md](MODELS-cards.md#the-speed-card-the-bench-3360-r5)).
+  `--all`: every installed model on the host, largest first; `--quick`: the ceiling alone; with no TTY it needs `--yes`.
+- `halo local tune [--host H] [--json] [--apply ID [--scope session|until-restart|keep] [--session SID]]`: the tuning
+  report, each option with its id, what it writes and how long it takes, a server-side one with the line per OS and
+  its revert; `--apply` lands a Halo-side option (keep unless named; `session` ends with the newest live session).
+- `halo local changes [--host H] [--all] [--json]`: the changes in force, each with its scope (`--all`: reverted too);
+  `halo local revert <id> | --all [--scope S] [--host H]` puts one or all back and says what it put back.
+
 ## `halo models browse`
 
 ```sh
@@ -359,8 +371,7 @@ limits; and what it changed (a thinking model's reply reserve in `ollama.profile
 version and probe set match a kept profile answers from it at once ("cached, probed <date>"); `--force` runs it
 again. `--json` prints the profile (with every probe's raw answer in `evidence`). Exit 1 when the host or the model is
 not there, or the model did not load. Studio's Local -> Models runs the same through its **Probe** button
-([STUDIO-local.md](STUDIO-local.md#models)). `halo local bench` (the three-window battery and the tuning scans) is not
-part of 3.3.6.0.
+([STUDIO-local.md](STUDIO-local.md#models)); `halo local bench` measures its speed card.
 
 ## `halo models measured | dialect | retire | shelf` (3.3.6.0 R4)
 

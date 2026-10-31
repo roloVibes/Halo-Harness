@@ -74,3 +74,17 @@ Download and verify's stage: pull, probe, offer, done), beside the steward's own
 | `POST local/host/<name>/retire {name, why?, force?}` | the delete's uses card first (409 while a live session is on it, 422 with the card unless `force`), then the delete and a shelf line; a member's host 409 |
 | `GET local/shelf?host=`, `POST local/shelf/repull {host, model}` | the retired models; the pull job that brings one back (a fitted twin: 409 with its recipe) |
 
+
+## The bench, the tuning report and the changes (3.3.6.0 R5)
+
+| Route | What it answers |
+|---|---|
+| `GET local/host/<name>/bench?model=&quick=` | that host's bench jobs, the cost line and `cli` (`halo local bench`) (`studio/local_bench_api.py`) |
+| `POST local/host/<name>/bench {model, quick?}` | a bench job (`studio/local_bench_job.py`); 409 with one line while the host answered a call in the last minute, a session uses it, another bench runs there, or another machine serves it; 422 with no model |
+| `GET local/benches?host=` | per host every installed model and its speed card (its lines, the stale mark), and the jobs |
+| `GET local/host/<name>/tune` | the tuning report (`ollama_steward/tune_report.py`) with `cli` (`studio/local_tune_api.py`) |
+| `POST local/host/<name>/tune/apply {id, scope?, session_id?}` | a Halo-side option landed with its scope (keep unless named; `session` ends with the named or the newest live session); a server-side option 409 with its line |
+| `POST local/changes/apply {key, field, to, scope?, why?}` | one profile change of yours (the KV dial's Apply); 422 when it is not a profile change |
+| `GET local/changes?host=&all=`, `POST local/changes/revert {id \| "all", scope?, host?}`, `POST local/changes/scope {id, scope}` | the changes with their lines; put one or all back (the lines say what); a new scope |
+
+Live frames: `bench` (a job's view: host, model, quick, line, lines, done, ok, error, card, cost).

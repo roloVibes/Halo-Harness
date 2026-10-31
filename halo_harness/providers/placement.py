@@ -67,6 +67,19 @@ def _better(state_dir, model: str) -> str:
     return got[0] if got else "a model with tools"
 
 
+def usable_window(profile: dict, state_dir=None) -> Optional[int]:
+    """3.3.6.0 R5: the largest window the bench saw stay on the GPU (the speed card) over the planner's estimate."""
+    if state_dir is not None:
+        try:
+            from halo_harness.providers.local_bench_runs import load
+            sc = load(state_dir, profile.get("host") or "", profile.get("model") or "", profile.get("digest"))
+            if sc and isinstance(sc.get("max_gpu_window"), int):
+                return sc["max_gpu_window"]
+        except Exception:
+            pass
+    return (profile.get("window") or {}).get("usable")
+
+
 def verdict(profile: Optional[dict], role: str, *, state_dir=None) -> dict:
     """See the module docstring. `state_dir` names a better model in the fix when one is probed."""
     if not isinstance(profile, dict) or profile.get("tools") not in ("yes", "no"):
@@ -83,7 +96,7 @@ def verdict(profile: Optional[dict], role: str, *, state_dir=None) -> dict:
     if profile.get("identifiers") == "unverified":
         notes.append("never let it emit authoritative IDs: resolve with a tool or a stronger model")
     out = {"ok": True, "why": "", "fix": "", "notes": notes, "source": "verified"}
-    usable = (profile.get("window") or {}).get("usable")
+    usable = usable_window(profile, state_dir)
     if profile.get("tools") == "no" and r in TOOL_ROLES:
         out.update(ok=False, why=f"no tool calling on this model (probed {date}): it can't run agentic steps",
                    fix=FIX_TOOLS.format(better=_better(state_dir, model)))

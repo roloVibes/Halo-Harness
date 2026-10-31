@@ -166,6 +166,52 @@ version.
 - The ledger line carries `dialect_record`, `loop` and `ladder`.
 - Local's routes moved to their own part, docs/STUDIO-local-routes.md.
 
+### R5: benchmarks, tuning scans, revert -- the limits of this card, measured
+
+**Added**
+- The bench measures a model on its host and writes its **speed card**:
+- the model is unloaded first, so the load is cold (`cold_load_s` from `load_duration`);
+- one untimed warm-up call after every load ("warming": the first call after a load is never timed);
+- per window (8k, 32k, and the planner's ceiling for this model on this card; `--quick`: the ceiling alone), a fixed prompt of about 60 % of the window and a 256-token reply;
+- per window it records prompt tok/s, reply tok/s, the time to the first token, `size_vram` and the layers, and whether it stayed on the GPU;
+- the largest window that stayed on the GPU (the planner's number beside it when they differ), and the reply reserve below which replies were cut (128 / 256 / 512);
+- the cost is said first ("local: ~N min on <host>, the card is busy meanwhile, writes the speed card; no tokens leave this machine");
+- it waits, with one line, while the host answered a call in the last minute or a session uses it;
+- `halo local bench [--host H] [--model M | --all] [--quick] [--yes] [--json]` (also `halo models bench`), Bench beside Probe on every Models row, and Re-bench on Local -> Benchmarks.
+- The speed card wherever a model is named:
+- the card's Measured block (the three-window table);
+- "where it sits" ("on the GPU up to 32k (the bench)");
+- the fit badge ("fits, ~41 tok/s at 32k");
+- the Library row, the Hosts page's loaded row and `halo models show`;
+- a card measured on another Ollama version or digest says "measured on 0.40.6".
+- The tuning report, the planner's options for a whole host in one place (`halo local tune [--host H] [--json] [--apply ID --scope S]`, the Benchmarks page's second block):
+- the warm set that fits together, and what a pivot costs;
+- each model's window alone, beside the warm set and with q8_0 KV;
+- the reserve, and the steward's findings for that host;
+- every option says what it does, what it writes and how long it takes;
+- Halo-side options have Apply; server-side ones (`OLLAMA_KV_CACHE_TYPE`, `OLLAMA_FLASH_ATTENTION`, `OLLAMA_NUM_PARALLEL`, an update) show the exact line for the host's shell and the line that reverts it, and nothing runs them.
+- Scopes: every Halo-side change to a local model's profile is a row in `ollama/changes.jsonl` with a scope:
+- the changes covered: the steward's, the ledger's dialect refinements, the tuning report's, the KV dial's and Settings';
+- the scopes: `session` (put back when that session ends), `until-restart` (when that halo exits), `keep`;
+- `halo local changes` and `halo local revert <id> | --all [--scope S]`;
+- Revert, with a new scope pick, on Benchmarks' third block and on Settings -> Local;
+- each revert says what it put back ("put num_ctx back to 32,768 on pc|qwen3-coder:30b (the session ended)").
+- Local -> Benchmarks: the speed cards per host with Bench / Re-bench and the live log, the tuning report, and the changes.
+- The KV dial's Halo-side Apply (the profile's window at the KV type in force) with the scope pick. The type in force says "verified by the bench", the others "computed".
+- Routes:
+- `GET|POST local/host/<n>/bench`, `GET local/benches`;
+- `GET local/host/<n>/tune`, `POST local/host/<n>/tune/apply`;
+- `GET local/changes`, `POST local/changes/revert | scope | apply`;
+- `bench` frames.
+- Glossary: scope and warm-up added, speed card rewritten. The steward's knowledge: benchmarks.md.
+
+**Changed**
+- The steward's auto changes and its model's proposals land `until-restart`. A pass you run with `--once` or from Studio keeps its changes, and so does an Apply of a proposal. A revert from the changes list writes the steward's undo line.
+- Placement reads the bench's largest GPU window over the planner's estimate once a speed card exists.
+- The battery profile's `speed` mirrors the speed card's ceiling row (`from: bench`); the measured card then names "the bench" as its source.
+- Settings' edits of `ollama.profiles` are changes with a scope (keep).
+- Local -> Benchmarks is built (it was a placeholder page); Steward is still a placeholder.
+
 ### Also in 3.3.6.0
 
 #### Changed
