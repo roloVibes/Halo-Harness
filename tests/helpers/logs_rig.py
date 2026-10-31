@@ -3,8 +3,8 @@ crash forensics, the fit evidence, the Logs routes). Never a real ssh (the fake 
 through server_log_remote.SEAMS), never a request to a server (BRIDGE_TEST_NO_BACKGROUND_NET=1, OLLAMA_HOST on a
 refused port), never the real ~/.halo.
 
-    with LogsHome(hosts=[...]) as h:
-        h.state, h.root, h.local_log (this machine's server.log path under the home), h.remote("pc", platform)
+    with LogsHome(hosts=[...], platform=None) as h:  # platform = the OS whose log path local_log takes (None = this one)
+        h.state, h.root, h.local_log (that OS's server.log path under the home), h.remote("pc", platform)
         h.write_local(text|bytes), h.call(host, model, at, **fields) (a ledger line), h.cli(fn, *argv) -> (code, out)
     T(sec, minute=14) -> an ISO `time=` stamp near now; GIN(sec, status) a [GIN] line at that local time
 """
@@ -55,8 +55,9 @@ def crash_log(model: str = "qwen3.8:27b", at: float = 0.0) -> str:
 
 
 class LogsHome:
-    def __init__(self, hosts=None) -> None:
+    def __init__(self, hosts=None, platform=None) -> None:
         self.hosts = hosts if hosts is not None else [{"name": "box", "url": "http://127.0.0.1:9"}]
+        self.platform = platform  # the OS whose log path local_log takes; None = this machine
 
     def __enter__(self):
         global BASE
@@ -78,7 +79,7 @@ class LogsHome:
         self.remotes: dict = {}
         server_log_remote.SEAMS["ssh"] = lambda host: self.remotes[host.name].runner
         from halo_harness.ollama_steward.hardware_readers import server_log_path
-        self.local_log = server_log_path()
+        self.local_log = server_log_path(self.platform)
         return self
 
     def remote(self, name: str, platform: str = "posix", journal=None):
