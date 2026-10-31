@@ -83,7 +83,7 @@ def rollup(lines: list, hosts: list) -> list:
                      "failed": sum(n for k, n in status.items() if k not in ("200", "499", "500", "timeout")),
                      "reloads": sum(1 for x in ls if isinstance(x.get("load_ms"), (int, float))
                                     and x["load_ms"] > RELOAD_MS),
-                     "eval_tok_s": percentile([x.get("eval_tok_s") for x in ls], 50),
+                     "eval_tok_s": percentile([x.get("eval_tok_s") for x in ls if not x.get("warming")], 50),  # R4
                      "machines": dict(machines), "model_window": _model_window(g)})
     return rows
 

@@ -33,6 +33,11 @@ export type AgentRow = {
 
 export type Pending = Partial<Record<"permission" | "question" | "plan" | "approval", string[]>> | null;
 
+/** 3.3.5.0 R4: the last request's parts in tokens (agent/prompt_composition.ledger_fields). */
+export type Composition = { system: number; memory: number; topic_index: number; tools_schema: number; history: number; user: number; total: number };
+/** 3.3.5.0 R4: a preflight card waiting for an answer (agent/preflight.py). */
+export type Preflight = { id: string; line: string; switch_to?: string | null; default?: string };
+
 export type Project = { root?: string | null; repo?: string | null; branch?: string | null; dirty?: boolean | null };
 
 export type SessionRow = {
@@ -64,6 +69,9 @@ export type SessionRow = {
   tokens_out?: number | null;
   context_tokens?: number | null;
   context_limit?: number | null;
+  /** 3.3.5.0 R4: the last request's composition, and a preflight card waiting for an answer. */
+  composition?: Composition | null;
+  preflight?: Preflight | null;
   /** 3.0.6.0: a `mission-worker` session's mission id and part number. */
   mission?: string | null;
   part?: string | number | null;

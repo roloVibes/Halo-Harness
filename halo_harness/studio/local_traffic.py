@@ -5,7 +5,8 @@ call to a local server, the steward's server events inline.
     row(line, hosts, servers)   {id, type: "call", t, host, model, from, kind,
                                  prompt_in, reply_out, window, window_source,
                                  trimmed, cut, status, ok, tok_s, fitted,
-                                 switched_from, bytes_in, bytes_out, error}
+                                 switched_from, bytes_in, bytes_out, error,
+                                 warming, cache_reused_pct, preflight, composition (3.3.5.0 R4)}
     event_row(ev)               {id, type: "event", t, host, model, kind (loaded,
                                  unloaded, reloaded, cpu-spill, ...), say,
                                  severity, notify}
@@ -55,7 +56,9 @@ def row(line: dict, hosts=None, servers=None) -> dict:
             "ok": status == 200, "tok_s": line.get("eval_tok_s"), "fitted": bool(line.get("fitted")),
             "switched_from": line.get("switched_from"), "bytes_in": line.get("bytes_in"),
             "bytes_out": line.get("bytes_out"), "error": line.get("error"), "session": line.get("session"),
-            "total_ms": line.get("total_ms"), "load_ms": line.get("load_ms")}
+            "total_ms": line.get("total_ms"), "load_ms": line.get("load_ms"),
+            "warming": bool(line.get("warming")), "cache_reused_pct": line.get("cache_reused_pct"),  # 3.3.5.0 R4
+            "preflight": line.get("preflight"), "composition": line.get("composition")}
 
 
 def event_row(ev: dict) -> dict:

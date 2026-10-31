@@ -123,6 +123,10 @@ confirmation, still does).
   click); `Tab` moves to the next question when more than one was asked;
   `Esc` dismisses without answering; selecting "Other..." (or just typing
   an answer directly) borrows the prompt input for a free-text answer.
+- **PreflightCard** (Halo 3.3.5.0 R4: a local request larger than its window,
+  [MODELS-prompt-budget.md](MODELS-prompt-budget.md#the-preflight)): `Enter`/`1`/`c`
+  compact first (the default, `Esc` too), `2`/`b` switch to the bigger-window model
+  it names (when one fits on the host), `3`/`s` send anyway.
 - **PlanCard**: `1`/`a` approve with auto-accept-edits mode after, `2`/`m`
   approve with manual mode after, `3`/`k`/`Esc` keep planning (borrows the
   prompt input for optional feedback, or just type it directly). The keys

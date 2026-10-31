@@ -11,7 +11,9 @@ waits at most WAIT_S, a slow session keeping its row without the extras).
 
     {...registry public fields, status: waiting|busy|idle|unknown, busy, pending, model, cost_usd,
      cost_complete, cost_unknown,
-     agents_live, agents: [agent row, ...], turns, tokens_in, tokens_out, context_tokens, context_limit}
+     agents_live, agents: [agent row, ...], turns, tokens_in, tokens_out, context_tokens, context_limit,
+     composition, preflight (3.3.5.0 R4: the last request's parts, agent/prompt_composition.ledger_fields;
+     the preflight card waiting for an answer, {id, line, switch_to, default})}
 
 (3.3.3.1: `cost_usd` is the priced part of the spend, `cost_complete` False
 when some model answered with no price, `cost_unknown` those models' refs;
@@ -69,7 +71,9 @@ def session_row(entry: dict, status: Optional[dict], agents: Optional[list]) -> 
                turns=_num(data.get("turn")), tokens_in=_num(data.get("total_input_tokens")),
                tokens_out=_num(data.get("total_output_tokens")), context_tokens=_num(data.get("context_tokens")),
                context_limit=_num(data.get("context_limit")),
-               effort=data.get("effort") if isinstance(data.get("effort"), str) else None)  # 3.3.5.0 R0 (e)
+               effort=data.get("effort") if isinstance(data.get("effort"), str) else None,  # 3.3.5.0 R0 (e)
+               composition=data.get("composition") if isinstance(data.get("composition"), dict) else None,  # R4
+               preflight=data.get("preflight") if isinstance(data.get("preflight"), dict) else None)  # R4: the ask
     return row
 
 

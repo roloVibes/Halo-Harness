@@ -64,3 +64,17 @@
 /* -- "Watch in Session" (Roles' Live tab header, Orchestra's run line) -------------------- */
 .watch-session { color: var(--accent); white-space: nowrap; }
 .rl-head .watch-session { font-size: 11px; }
+/* 3.3.5.0 R4: the last request's parts (CostComposition.tsx), token colours only */
+.sco-comp { display: flex; flex-direction: column; gap: 6px; }
+.sco-comp-head { display: flex; align-items: baseline; gap: 8px; }
+.sco-comp-bar { display: flex; gap: 2px; height: 10px; border-radius: 99px; overflow: hidden; background: var(--surface-2); }
+.sco-comp-seg { flex-basis: 0; min-width: 3px; background: var(--pc, var(--accent)); }
+.sco-comp-keys { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: var(--fs-sm); color: var(--muted); }
+.sco-comp-key { display: inline-flex; align-items: center; gap: 5px; }
+.sco-comp-dot { display: inline-block; width: 8px; height: 8px; border-radius: 2px; background: var(--pc, var(--accent)); }
+.sco-comp [data-part="system"] { --pc: var(--accent-2); }
+.sco-comp [data-part="memory"] { --pc: var(--warn); }
+.sco-comp [data-part="topic_index"] { --pc: var(--bad); }
+.sco-comp [data-part="tools_schema"] { --pc: var(--accent); }
+.sco-comp [data-part="history"] { --pc: var(--faint); }
+.sco-comp [data-part="user"] { --pc: var(--ok); }

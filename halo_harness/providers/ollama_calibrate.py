@@ -468,7 +468,8 @@ def remeasured_after_floor(state_dir, *, host_url: str, model: str) -> bool:
 def record_last_turn_throughput(state_dir, *, host_url: str, model: str, tokens_per_second: "Optional[float]",
                                  prefill_seconds: "Optional[float]", offloaded: "Optional[bool]",
                                  output_tokens: "Optional[int]" = None,
-                                 prompt_floor: "Optional[int]" = None) -> None:
+                                 prompt_floor: "Optional[int]" = None,
+                                 cache_reused_pct: "Optional[int]" = None) -> None:
     """Brief item 7: "`halo ollama` prints the last turn's numbers per
     host" -- persisted (not just kept in the live process's own memory) so
     a SEPARATE `halo ollama` CLI invocation, always a fresh process, can
@@ -486,7 +487,7 @@ def record_last_turn_throughput(state_dir, *, host_url: str, model: str, tokens_
         store["last_turns"][f"{host_url}|{normalize_ollama_model_name(model)}"] = {
             "tokens_per_second": tokens_per_second, "prefill_seconds": prefill_seconds,
             "offloaded": offloaded, "output_tokens": output_tokens, "prompt_floor": prompt_floor,
-            "at": time.time(),
+            "cache_reused_pct": cache_reused_pct, "at": time.time(),  # 3.3.5.0 R4: the prompt cache's share
         }
         save_fit_store(state_dir, store)
 

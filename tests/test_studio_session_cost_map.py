@@ -26,7 +26,9 @@ session figures (tests/helpers/studio_live_rig.py):
    sub-agent's frames never move them; a finished child is counted once in
    the share bar (main's share is the session total less its finished
    children's) and TURNS is the session's user turns, an agent's own count
-   its "calls".
+   its "calls";
+8. (3.3.5.0 R4) the last prompt's parts as one stacked bar in token colours, and the Live
+   composer's preflight: the line, Compact / Bigger window / Send anyway posting the answer.
 Run: python -m tests.test_studio_session_cost_map
 """
 from __future__ import annotations
@@ -211,6 +213,34 @@ def test_v3331_an_unpriced_main_shows_a_plus_and_no_price(ctx: Ctx):
     ctx.check(f"PER TURN carries the + too, got {got.get('partial_per_turn')!r}", str(got.get("partial_per_turn") or "").endswith("+"))
     ctx.check(f"main's line says no price, never $0.0000, got {got.get('noprice')!r}", got.get("noprice") == "no price")
     ctx.check(f"a complete total drops both, got {got.get('complete_again')!r}", got.get("complete_again") == "gone")
+
+
+@test
+def test_v3350_r4_the_composition_bar_and_the_preflight_buttons(ctx: Ctx):
+    from tests.helpers.studio_cost_composition import COMP, LINE
+    r, got = _driver("costmap")
+    _ran(ctx, r, got)
+    ctx.check(f"the bar shows the last prompt's total, got {got.get('comp_total')!r}", got.get("comp_total") == str(COMP["total"]))
+    segs = got.get("comp_segs") or []
+    parts = ["system", "memory", "topic_index", "tools_schema", "history", "user"]
+    ctx.check(f"a segment per part in order, got {[s[0] for s in segs]}", [s[0] for s in segs] == parts)
+    want = {p: round(COMP[p] / COMP["total"], 3) for p in parts}
+    ctx.check(f"each sized by its tokens, got {segs}", all(abs(s[1] - want[s[0]]) <= 0.002 for s in segs))
+    colours = [s[2] for s in segs]
+    ctx.check(f"each part its own token colour, got {colours}", len(set(colours)) == len(parts) and all(c.startswith("rgb") for c in colours))
+    keys = {k[0]: k[1] for k in got.get("comp_keys") or []}
+    ctx.check(f"a key per part with its count, got {keys}", keys == {p: COMP[p] for p in parts})
+    ctx.check(f"the title is the /cost line, got {got.get('comp_title')!r}",
+              str(got.get("comp_title") or "").startswith("prompt 30,756: system 3,587 · memory 9,900 · topics 6,400"))
+    ctx.check(f"a status frame's composition moves it, got {got.get('comp_after_frame')!r}", got.get("comp_after_frame") == "31587")
+    ctx.check(f"the preflight line above the steer box, got {got.get('pf_line')!r}", got.get("pf_line") == LINE)
+    ctx.check(f"three buttons, the switch naming the model, got {got.get('pf_buttons')}", got.get("pf_buttons") == [
+        ["compact", "Compact", False], ["switch", "Bigger window: ol:wide:14b@lan", False], ["send", "Send anyway", False]])
+    posted = got.get("pf_posted") or ["", ""]
+    ctx.check(f"send posts the answer to the session's command route, got {posted}", posted[0].endswith("/command")
+              and '"kind":"approval"' in posted[1] and '"action":"send"' in posted[1] and '"request_id":"preflight-r4test"' in posted[1])
+    ctx.check(f"no bigger-window model: the switch is disabled, got {got.get('pf_no_switch')!r}", got.get("pf_no_switch") == "disabled")
+    ctx.check(f"answered (no card waiting): the bar goes, got {got.get('pf_gone')!r}", got.get("pf_gone") == "gone")
 
 
 if __name__ == "__main__":

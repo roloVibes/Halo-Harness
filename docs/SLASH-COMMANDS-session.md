@@ -26,7 +26,12 @@ unchanged and says so.
 
 ### `/cost`
 Total cost and turn count for the session so far, in dollars: the sum of
-every priced call, the main model's and every sub-agent's (3.3.3.1). A
+every priced call, the main model's and every sub-agent's (3.3.3.1). Its
+second line (Halo 3.3.5.0 R4) is what the last request was made of, in
+tokens: "prompt 30,756: system 3,587 · memory 9,900 · topics 6,400 · tools
+2,100 · history 8,700 · you 69" (before the first request, what the next one
+would hold; "· 1 repeated block taken out (N)" when a block was in it twice;
+see [MODELS-prompt-budget.md](MODELS-prompt-budget.md#the-composition)). A
 trailing `+` ("$3.6348+") means a part has no price, and one detail line
 names it ("+ main's model databricks-glm-5-3 reports no price; this is what
 the priced agents spent"); "n/a (no priced call yet)" only when nothing is
@@ -204,7 +209,9 @@ sub-verb -- see `docs/COMMANDS.md`.
 
 ### `/memory`
 Shows the auto-memory directory path, whether `MEMORY.md` exists, and how
-many topic files are indexed.
+many topic files are indexed. `/memory topics` (Halo 3.3.5.0 R4) lists every
+topic file with its type and description: the lean prompt a local model gets
+names only the newest (`prompt.topics_max`) and points here for the rest.
 
 ### `/recall <query>` (2.0.7, the old 2.0.6 scope)
 Semantic search over auto-memory topics and past sessions on the LOCAL
@@ -275,7 +282,9 @@ A one-screen dashboard: version, current model, cwd, permission mode, MCP
 server count, theme, cost so far, and (Halo 3.1.9.0) the lineup this session
 runs under -- "Lineup: auto (default) -- main delegates to a pool whose models
 are picked for each task; change it with `halo config set team <name>` or
-Studio Roles -> Apply" while no `team:` is set.
+Studio Roles -> Apply" while no `team:` is set. Halo 3.3.5.0 R4: the line
+under the cost is the last request's composition, the same line `/cost`
+prints.
 
 ### `/config [key=value|where]`
 Read-only in headless mode (shows `model=... permissionMode=... theme=...`

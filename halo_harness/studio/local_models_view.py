@@ -5,7 +5,8 @@ roles it can hold, the steward profile, what is loaded, and its rank for each
 intent (the third of Local's five ideas: intents, not model names).
 
     models(state_dir, host="") -> {hosts: [{name, kind, url, models: [row]}], intents [{id, title, why}], at}
-    row {model, ref, card, fit, profile, loaded, size, intent {id: score | None}}
+    row {model, ref, card, fit, profile, loaded, size, intent {id: score | None},
+         warm {state, load_s, line, cache_reused_pct, cache_line} (3.3.5.0 R4, studio/local_warm.py)}
 
 An intent's score orders the rows (higher first; None = not for that intent):
 the card's purpose and `fit_for` decide the band, the fit meter the place in it.
@@ -69,8 +70,9 @@ def _row(model: str, ref: str, view: dict, profile, loaded, size) -> dict:
             "intent": intent_scores(card, fit)}
 
 
-def _ollama_rows(h) -> list:
+def _ollama_rows(h, warm: Optional[dict] = None) -> list:
     from halo_harness.ollama_steward.profiles import all_profiles, key_for, short_model
+    from halo_harness.studio.local_warm import warm_view
     from halo_harness.studio.model_card_api import panel_view
     from halo_harness.studio.ollama_hosts_view import card_of, catalog_of
     card = card_of(h)
@@ -85,6 +87,7 @@ def _ollama_rows(h) -> list:
         rows.append(_row(m, f"ol:{m}@{h.name}", panel_view(m, h, r, card), profiles.get(key_for(h.name, m)),
                          {"size_vram": ld.get("size_vram"), "size": ld.get("size"), "expires": ld.get("expires"),
                           "context_length": ld.get("context_length")} if ld else None, r.get("size")))
+        rows[-1]["warm"] = warm_view((warm or {}).get((h.name, m)), ld)  # 3.3.5.0 R4: warm / cold, the cache
     return rows
 
 
@@ -101,11 +104,12 @@ def models(state_dir, host: str = "", *, now: Optional[float] = None) -> dict:
     from halo_harness.providers.ollama import resolve_ollama_hosts
     from halo_harness.studio.local_hosts_view import kind_of
     from halo_harness.studio.ollama_hosts_view import local_servers
-    out = []
+    from halo_harness.studio.local_warm import warm_map
+    out, warm = [], warm_map(state_dir)
     for h in resolve_ollama_hosts():
         if host and h.name.lower() != host.lower():
             continue
-        out.append({"name": h.name, "kind": kind_of(h), "url": h.url, "models": _ollama_rows(h)})
+        out.append({"name": h.name, "kind": kind_of(h), "url": h.url, "models": _ollama_rows(h, warm)})
     for s in local_servers():
         if host and s.name.lower() != host.lower():
             continue

@@ -15,6 +15,8 @@ import { FitMeter, type Fit } from "../../lib/ui/FitMeter";
 export type CardView = {
   chips: Record<string, string>;
   how: string[];
+  /** 3.3.5.0 R4: what the server log said about it (providers/model_card_quirks.py). */
+  quirks?: { kind: string; say: string }[];
   fit_for: Record<string, boolean>;
   fit_why: Record<string, string>;
   purpose?: string;

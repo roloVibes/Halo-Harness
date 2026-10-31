@@ -7,6 +7,7 @@
 // offer: POST models/lane writes the local-coder lineup and makes it active). 3.3.5.0 R3: the actions menu
 // (`local-model-acts`): Show, Load now / Unload, Make a tuned twin, Copy, Rename, Delete -- each row's title is
 // the `halo models` line that does the same; a host this Studio cannot control has them disabled with the reason.
+// 3.3.5.0 R4: "warm" / "cold (~N s to load)", "cache reused N %" and a card quirk ("re-reads the whole prompt every turn").
 import { Button, FitMeter, Menu } from "../../lib/ui";
 import { CardChips, CardDetail } from "../shared/ModelCard";
 import { line, openAct } from "./ctl";
@@ -59,6 +60,11 @@ export function ModelRow({ m, host, score }: { m: ModelEntry; host: string; scor
         <span className="spacer" />
         {m.size ? <span className="mono muted" title="the model's size on disk (/api/tags)">{gib(m.size)}</span> : null}
         {m.loaded && <span className="og-chip mono" data-testid="local-model-loaded" title={`${gib(m.loaded.size_vram)} on the GPU`}>loaded</span>}
+        {m.warm && <span className="og-chip mono" data-testid="local-model-warm" data-state={m.warm.state}
+                         title="warm: loaded now; cold: the next call loads it first (the last load the traffic ledger saw)">{m.warm.line}</span>}
+        {m.warm?.cache_line && <span className="mono muted" data-testid="local-model-cache"
+                                     title="the newest turn's share of the prompt Ollama did not read again">{m.warm.cache_line}</span>}
+        {(card.quirks || []).map((q) => <span key={q.kind} className="og-chip mono" data-testid="local-model-quirk" data-kind={q.kind} title={q.say}>{q.kind === "no-prompt-cache" ? "re-reads the whole prompt every turn" : q.kind}</span>)}
       </div>
       <div className="lc-model-mid mono muted">
         {p && (p.num_ctx || p.num_predict) ? (

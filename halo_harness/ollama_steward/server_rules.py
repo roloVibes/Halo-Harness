@@ -20,7 +20,7 @@ from typing import Optional
 SEVERITY = {k: "error" for k in ("http-500", "no-user-query", "load-failed", "gpu-memory", "server-down",
                                   "other-error", "retry-loop", "queue-full")}
 SEVERITY.update({k: "warn" for k in ("prompt-trimmed", "reply-cut", "window-full", "cancel-task", "client-gave-up",
-                                     "cpu-spill", "slow-load", "stall", "reloaded")})
+                                     "cpu-spill", "slow-load", "stall", "reloaded", "no-prompt-cache")})
 SEVERITY.update({k: "info" for k in ("loaded", "unloaded", "startup")})
 KINDS = tuple(SEVERITY)
 PAIR_LINES = 25  # the PC's log: a cancel task 3 to 19 lines from its 500
@@ -106,6 +106,9 @@ def classify(line: str, at=None) -> Optional[dict]:
         return event("prompt-trimmed", f"the runner cut a {prompt:,}-token prompt to {limit:,}: the request asked for "
                      f"a {window:,} window. Send the measured window (a bigger one), and compact when the prompt is "
                      "past it", line, at=at, limit=limit, prompt=prompt, keep=keep, window_sent=window)
+    if "forcing full prompt re-processing" in line:  # 3.3.5.0 R4: a hybrid / SWA model keeps no prompt cache
+        return event("no-prompt-cache", "the model re-reads the whole prompt every turn (no prompt cache: sliding-window "
+                     "or hybrid/recurrent memory), so every call pays the full prompt read", line, at=at)
     if m := _CUT.search(line):
         n = int(m.group(1))
         return event("reply-cut", f"a reply stopped at {n:,} tokens because the window filled: keep a reply reserve "

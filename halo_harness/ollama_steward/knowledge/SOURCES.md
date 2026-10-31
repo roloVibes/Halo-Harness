@@ -53,3 +53,5 @@ check keeps the tags and the rows in step.
 | S39 | Halo's corrected fit arithmetic | repo:halo_harness/providers/ollama_fit_parts.py | Halo 3.3.4.0 R3 | 2026-10-27 |
 | S40 | Halo's roadmap, 3.3.5.0 R0 "the switch: a session fits the model it moves to" | repo:plans/ROADMAP.md | Halo 3.3.4.0 (8a14695) | 2026-10-27 |
 | S41 | Halo's model card: what each local model is and how Halo calls it | repo:halo_harness/providers/model_card.py | Halo 3.3.5.0 R0b | 2026-10-27 |
+| S42 | rolo's local-model brief, Part B and Part G (measured 2026-10-29 and 2026-10-30 on Ollama 0.40.13) | repo:plans/local-model-fit-brief.md | Halo 3.3.5.0 R3 (a5e9629f) | 2026-10-30 |
+| S43 | Halo's prompt budget: the composition, the lean profile, the preflight | repo:halo_harness/agent/preflight.py | Halo 3.3.5.0 R4 | 2026-10-30 |

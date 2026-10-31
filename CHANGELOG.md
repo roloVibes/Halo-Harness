@@ -114,6 +114,20 @@ version.
 - Under the test flag, the model lists skip the default host Halo makes up from `OLLAMA_HOST`.
 - The Chrome rigs and the full run pin `OLLAMA_HOST` to a refused port unless it names a test's own fake.
 
+### R4: the prompt budget
+#### Added
+- What a request is made of, in tokens: "prompt 30,756: system 3,587 · memory 9,900 · topics 6,400 · tools 2,100 · history 8,700 · you 69" on `/cost` and `/status`, the ledger's `composition`, and Studio's Cost panel as one stacked bar.
+- The lean prompt for a local model or a window under 64k (`prompt.lean`): the topic index as one pointer line per topic file (the 12 newest, then "N more: `/memory topics`"), MEMORY.md held to 4,000 tokens with the cut said once, the tools capped by the window (the core tools first; none for a model whose card says no tools). `/memory topics` lists every topic file.
+- The preflight: a local request larger than its window says "prompt N tokens · window W · usable U · this will be cut" and offers compact, a bigger-window model or send anyway (TUI keys, Studio Live buttons; `prompt.preflight` ask | compact | send is the default where nobody can answer). The choice is on the ledger (`preflight`) and in the session log.
+- Prompt-cache awareness: a byte-stable prompt front; the ledger's `prefix_tokens`, `prefix_changed`, `cache_reused_pct`; "cache reused N %" on the Ollama panel, the traffic view and Local's model rows; the steward's `no-prompt-cache` event and the card quirk "re-reads the whole prompt every turn".
+- Warm-up truth: the first call after a load is `warming` on the ledger and "warming" on the status bar, never counted as a speed; Local's model rows say "warm" or "cold (~N s to load)".
+#### Changed
+- On a local model the memory and the topic index ride at the end of the system message (the front of the prompt); a request sent over the window carries the task summary and your words last.
+- Compaction on a local model is sized to the window it runs on (the summary at most half the budget, the tail the rest), compacts once more when it still does not fit, then says so.
+- The steward skips a trim the user chose; the steward's guide budget is 2,100 tokens.
+#### Fixed
+- The auto-memory block and CLAUDE.md went out twice after a compaction, and once more after every further one: the compaction's verbatim tail carried the session-start snapshots it re-injects (since H5). The tail no longer carries them, and the wire copy keeps only the newest block.
+
 ### Also in 3.3.5.0
 
 #### Changed

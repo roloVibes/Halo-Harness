@@ -119,3 +119,8 @@
   .slv-line { animation: none; }
   .slv-steer-tag { transition: none; }
 }
+/* 3.3.5.0 R4: the preflight above the steer box (LivePreflight.tsx) */
+.slv-preflight { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 6px 8px; margin-bottom: 6px;
+  border: 1px solid var(--warn); border-radius: var(--radius-sm); background: var(--warn-soft); }
+.slv-preflight-line { flex: 1 1 260px; font-size: var(--fs-sm); color: var(--text); }
+.slv-preflight-keys { display: flex; flex-wrap: wrap; gap: 6px; }

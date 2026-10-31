@@ -44,7 +44,7 @@ def slow_threshold(model: str, row: Optional[dict]) -> float:
 def slow_box(g: dict, ctx: dict) -> list:
     s = g["stats"]
     rate = s["eval_p50"]
-    rated = [x for x in g["lines"] if isinstance(x.get("eval_tok_s"), (int, float))]
+    rated = [x for x in g["lines"] if isinstance(x.get("eval_tok_s"), (int, float)) and not x.get("warming")]  # R4
     if rate is None or len(rated) < 3:
         return []
     row = (ctx["catalogs"].get(g["host"]) or {}).get(g["model"])

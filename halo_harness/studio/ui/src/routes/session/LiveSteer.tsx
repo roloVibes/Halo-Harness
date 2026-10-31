@@ -11,11 +11,14 @@
 // not move (steer.ts setComposing); Tab / Shift+Tab in the field cycle the
 // target among the session's live agents; Escape leaves the field and follows
 // again. The field keeps its text when the target changes.
+// 3.3.5.0 R4: a request larger than its local window shows its preflight line
+// and three buttons above the target line (LivePreflight.tsx).
 import { useEffect, type FocusEvent, type KeyboardEvent } from "react";
 import { Button, Icon } from "../../lib/ui";
 import { askStop, togglePause } from "../fleet/actions";
 import { Steer } from "../fleet/Steer";
 import { hueOf } from "../shared/hues";
+import { LivePreflight } from "./LivePreflight"; // 3.3.5.0 R4: a request over the window, answered here
 import { TargetLine } from "./LiveTarget";
 import { cycleTarget, followAgain, setComposing, useSteerTarget } from "./steer";
 
@@ -71,6 +74,7 @@ export function LiveSteer() {
   return (
     <div className="slv-steer holo-frame" data-testid="session-live-steer" data-key={t.key} data-hc={hueOf(t.key)} data-main={t.main || undefined} data-disabled={!!why || undefined}
          onKeyDown={onKeys} onFocus={onFocus} onBlur={onBlur}>
+      <LivePreflight />
       <TargetLine t={t} name={name} />
       <Steer k={t.key} where="live" disabled={!!why} why={why} head={head} extra={extra} />
     </div>

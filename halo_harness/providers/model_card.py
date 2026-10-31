@@ -10,7 +10,8 @@ Card = {ref, name, host, kind ("ollama" | "llama-server" | "lmstudio" | "mlx" |
 family, params (billions), quant, window (`agent/model_window.window_of`'s
 dict), dialect ("native" | "openai" | the cloud route's), how [lines], fit_for
 {orchestrator, coder, reviewer, small, eyes}, fit_why {role: line}, speed
-(None: R5 measures it), sources {field: where it came from}}.
+(None: R5 measures it), sources {field: where it came from}, quirks [{kind, say}]
+(3.3.5.0 R4: what the server log said, providers/model_card_quirks.py)}.
 
 Sources, per field, in this order: the `/api/show` row (`capabilities`,
 `details.family`, `model_info`), the tool-call probe's cache
@@ -215,8 +216,9 @@ def card_of(ref, *, state_dir=None, catalog=None, host=None, probe=None, host_ca
     from halo_harness.providers.effort_on import think_choice_for
     choice = think_choice_for(raw)
     key = _key(raw, row, probe, choice, window, host_card)
+    from halo_harness.providers.model_card_quirks import with_quirks  # 3.3.5.0 R4: what the server log said
     if isinstance(row, dict) and isinstance(row.get("card"), dict) and row.get("card_key") == key:
-        return row["card"]
+        return with_quirks(row["card"], state_dir)
     facts = _cloud_facts(ref, row) if kind == "cloud" else _local_facts(ref, row, probe)
     details = (row or {}).get("details") if isinstance((row or {}).get("details"), dict) else {}
     params, params_src = P.params_of(ref.model, details, (row or {}).get("model_info"))
@@ -232,4 +234,4 @@ def card_of(ref, *, state_dir=None, catalog=None, host=None, probe=None, host_ca
     card["how"] = how_lines(card)
     if isinstance(row, dict) and kind != "cloud":
         row["card"], row["card_at"], row["card_key"] = card, time.time(), key
-    return card
+    return with_quirks(card, state_dir)

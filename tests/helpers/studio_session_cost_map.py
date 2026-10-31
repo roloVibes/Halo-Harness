@@ -16,7 +16,10 @@ tests/test_studio_session_cost_map.py runs it as a subprocess:
                                                               back, a sub-agent's frames ignored, a finished child
                                                               counted once and TURNS one unit (`figures`); then (3.3.3.1)
                                                               a "+" on the spend when main's model reports no price
-                                                              and main's line saying "no price" (`partial`)
+                                                              and main's line saying "no price" (`partial`); then
+                                                              (3.3.5.0 R4) the last prompt's composition bar and the
+                                                              Live composer's preflight buttons
+                                                              (studio_cost_composition.py)
 
 The last stdout line is a JSON object of what it saw (exit 2: no Chrome).
 No model is called."""
@@ -219,7 +222,8 @@ class CostMapDriver(Driver):
     def session(self, c):
         from tests.helpers.studio_fleet_rig import StudioFleetRig
         with StudioFleetRig() as rig:
-            yield ((costmap, (c, rig)), (figures, (c, rig)), (partial, (c, rig)))
+            from tests.helpers.studio_cost_composition import composition  # 3.3.5.0 R4: the prompt budget
+            yield ((costmap, (c, rig)), (figures, (c, rig)), (partial, (c, rig)), (composition, (c, rig)))
 
 
 if __name__ == "__main__":
