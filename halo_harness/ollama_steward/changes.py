@@ -160,7 +160,8 @@ def _do(state_dir, due: list, why: str, now: Optional[float]) -> list:
         return []
     from halo_harness.ollama_steward.steward import profile_lock
     with profile_lock(state_dir):
-        return [_put_back(state_dir, r, why, now) for r in sorted(due, key=lambda r: str(r.get("at")), reverse=True)]
+        order = sorted(enumerate(due), key=lambda t: (str(t[1].get("at")), t[0]), reverse=True)  # same ms: file order
+        return [_put_back(state_dir, r, why, now) for _, r in order]
 
 
 def revert(state_dir, which: str, why: str = "reverted by hand", *, scope: Optional[str] = None,
