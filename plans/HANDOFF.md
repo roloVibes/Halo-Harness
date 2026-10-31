@@ -4,7 +4,45 @@ This folder carries the whole plan so a new session (local or cloud) can
 pick the work up without the conversation that produced it. Read this file
 first, then `WORKER-RULES.md`, then the round you are starting.
 
-## WHERE THINGS STAND -- 2026-10-28 morning (authoritative, read this first)
+## WHERE THINGS STAND -- 2026-10-30 night (authoritative, read this first)
+
+**3.3.5.0 "Local" IS THE RELEASE CANDIDATE** (seven rounds merged on master; the release follows once
+both runners are green on the candidate head -- if you read this after the release, the tag v3.3.5.0
+exists and the PC runs it). The owner's direction (2026-10-27/28: "the best ... harness to intuitively work
+with local models", a Local tab, monitoring, benchmarks, the browser, the steward's chat, pivots) and his
+measured brief of 2026-10-29 (`plans/local-model-fit-brief.md`, Parts A-L; the ROADMAP entry "ADDED
+2026-10-30 ... the local-model brief" maps every part to a round). On master: R0 the switch (9c4e4f9:
+`agent/model_window.py`, `agent/model_switch*.py`, `providers/effort_on.py`, `lib/ui/WindowedRows.tsx`,
+provider-card sources, toasts top right), R0b the model card (0600bcb: `providers/model_card*.py`,
+`fit_meter.py` + `FitMeter.tsx`, `/effort` per model, `agent/main_model_check.py` + the `local-coder`
+lineup offer, rule `called-wrong`), R1 the Local tab (97e1cd3: Alt+0; `ollama_steward/resources*.py`; the
+traffic view; Hosts / Models pages; the session-start fit), R2 the library browser (7d88e40f + a32b2bb4 +
+83c57fd: `models_library/` with the snapshot, `fit_for_row`, `halo models browse`), R3 Ollama controlled
+(6d75a1b3: `providers/ollama_control.py` + `ollama_guard.py`, the pull job, the uses card, remote hosts
+through the member, `halo models pull | rm | show | load | unload | copy | rename | twin | loaded`; the
+synthesized default host is never read under the test flag, `OLLAMA_HOST` pinned to 127.0.0.1:9 in the
+rigs, `tests/test_no_local_reads.py`), the status-bar fix (6677283f: `_drain` under a lock -- two drain
+passes overlapped; a child's compaction / steer never moves the main bar), R4 the prompt budget (2a387f1e:
+the doubled memory block came from compaction re-appending the snapshots the kept tail already held, since
+H5; `agent/prompt_composition.py`, `prompt_lean.py`, `preflight.py`, payload order, compaction to the
+window, the byte-stable prefix with `cache_reused_pct`, `warming`; `prompt.lean / topics_max /
+memory_max_tokens / preflight`), R5 Hugging Face local (5b097385: `providers/hf_download.py`,
+`local_server*.py`, the Local -> Hugging Face page, `halo local download | ls | rm | serve | stop | servers |
+log`, `huggingface.llama_server_bin`, `HF_ENDPOINT`). Worktrees `~/hh-335/*`, briefs and hand-backs under
+`~/hh-335/briefs/`. Render pins to remember: `tests/test_screenshots` (docs/screenshots/*.svg) and
+`test_front_page_media` (docs/media captures) bit after R0's picker change -- re-render when the TUI
+changes. Open for the owner's live check (nothing run on hardware yet): `/model` to a smaller Ollama model
+and its line; `/effort` on a local model; Alt+0 Local with the Resources strip and the traffic view while a
+Mac session calls the PC; Library -> Pull a small model; Models -> a tuned twin and Delete's uses card;
+`halo models browse --fits`; `/cost`'s composition line and the preflight card on a 32k model; Library ->
+Download a small GGUF and Serve it with the real llama-server (`huggingface.llama_server_bin`); the
+`cache_reused_pct` reading vs the trim detector (they disagree on `prompt_eval_count`). **Next:** 3.3.6.0
+"Local, verified" (Part E battery + placement gates, Part F search, Part A verify, D3 logs, D4 cards, G1 /
+G7-G10, benchmarks + revert, eyes), 3.3.7.0 "Local, the host" (`halo host`, D1 scheduling, J, L, the
+steward's chat), 3.3.8.0 "Voice", then 3.3.9.0 "Type into Studio", 3.3.10.0 "Themes and parity". The
+owner's rule: all local-model work first.
+
+### Before it: 2026-10-28 morning
 
 **3.3.4.0 "The Ollama steward" IS RELEASED** (tag v3.3.4.0, release commit 76535d5 cut from c26b43e on
 2026-10-28 morning after both runners went green; installed on the PC: `halo 3.3.4.0`). On the way: the Pack
