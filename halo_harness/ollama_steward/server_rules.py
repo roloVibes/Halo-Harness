@@ -137,6 +137,9 @@ def classify(line: str, at=None) -> Optional[dict]:
     if m and int(m.group(2)) > 0:
         return event("cpu-spill", f"{m.group(2)} of {m.group(1)} layers overflow to system RAM", line, at=at,
                      layers=int(m.group(1)), overflowing=int(m.group(2)))
+    if "illegal memory access" in line:  # 3.3.6.0 R2: a CUDA abort, not a full card (ollama_steward/fingerprints.py)
+        return event("gpu-memory", "llama-server hit a CUDA error (an illegal memory access) and dies: the measured "
+                     "crashes were a spilled window with flash attention and a q8_0 KV cache (halo ollama crashes)", line, at=at)
     if _OOM.search(line):
         return event("gpu-memory", "the GPU ran out of memory: another model or program holds it, or the window's "
                      "cache did not fit", line, at=at)

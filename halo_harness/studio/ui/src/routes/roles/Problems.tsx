@@ -4,8 +4,12 @@
 // start stops on them: a model id its catalog does not know, a bio with no
 // tool) and Warns. Each row says how to fix it; a click selects its card.
 // 3.1.1.0 R2: a third block, Config, lists what `halo doctor --config` finds
-// in the files behind this lineup (ConfigProblems.tsx).
-import { Empty } from "../../lib/ui";
+// in the files behind this lineup (ConfigProblems.tsx). 3.3.6.0 R2: a gap (a role with no model, or on a local
+// model that fails its gate) has "Find a model": Local -> Library with the role's preset applied.
+import { goSection } from "../../lib/store";
+import { Button, Empty } from "../../lib/ui";
+import { findForRole } from "../local/libstore";
+import { goto as gotoLocal } from "../local/pages";
 import { focusPanel } from "../../lib/workspace/persist";
 import { Metric } from "../orchestra/bits";
 import { ConfigGroup, useConfigFindings } from "./ConfigProblems";
@@ -17,6 +21,12 @@ function pick(f: Finding): void {
   roles.update(() => ({ sel: f.node }));
   setTab("assignment");
   focusPanel("roles", "roles-graph");
+}
+
+function findModel(role: string): void {
+  findForRole(role);
+  goSection("local");
+  gotoLocal("library");
 }
 
 function Group({ title, rows, sev }: { title: string; rows: Finding[]; sev: string }) {
@@ -33,6 +43,12 @@ function Group({ title, rows, sev }: { title: string; rows: Finding[]; sev: stri
               <span className="rp-text">{f.text}</span>
               {f.fix && <span className="rp-fix muted">fix: {f.fix}</span>}
             </button>
+            {f.find && (
+              <Button size="sm" onClick={() => findModel(f.find!.role)} data-testid="roles-find-model" data-role={f.find.role}
+                      title={`Local -> Library with the ${f.find.preset} preset: the models that pass this role's gates, ranked`}>
+                Find a model
+              </Button>
+            )}
           </li>
         ))}
       </ul>

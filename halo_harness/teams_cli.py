@@ -67,6 +67,9 @@ def _cmd_show(rest: list) -> int:
     from halo_harness.providers.placement_apply import lineup_pivots
     for p in lineup_pivots(role_table, bridge_home()):
         print(f"    (pivot) {p['line']}")
+    from halo_harness.models_library.role_gaps import gaps  # 3.3.6.0 R2: find a model for this role
+    for g in gaps(role_table, bridge_home(), [e.get("as") or e.get("role") for e in template.get("agents") or []]):
+        print(f"    (gap) {g['why']}: find a model for this role: {g['cli']} (Studio: Local -> Library)")
     # Halo 2.0.5 round 5: the per-section enforcement state -- every
     # section this template sets prints ENFORCED (with the one behaviour
     # line naming what the live loop actually does) or its doctor marker,

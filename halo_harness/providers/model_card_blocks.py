@@ -1,7 +1,9 @@
 """halo_harness.providers.model_card_blocks -- Halo 3.3.6.0 R1: the card's
 four plain-language blocks (plans/local-model-fit-brief.md E4), each value
-marked `verified` (the battery probed it on this host) or `expected` (the
-declared facts or the family rules: Part F's three truths start here).
+marked with one of Part F's three truths (3.3.6.0 R2, models_library/
+truths.py): `verified` (the battery probed it on this host), `declared`
+(metadata said it: `/api/show`, the library's chips, the hub's tags) or
+`expected` (the family rules, the size, the name).
 
     blocks(card, profile=None) -> {use_for: [{text, mark}], dont_use_for: [...],
                                    sits: {chip, chips, mark}, limits: [{text, mark}]}
@@ -12,7 +14,12 @@ from __future__ import annotations
 
 from typing import Optional
 
-V, E = "verified", "expected"
+V, D, E = "verified", "declared", "expected"
+
+
+def _mark(card: dict, field: str) -> str:
+    from halo_harness.models_library.truths import mark_of
+    return mark_of(card, field)
 
 
 def _k(n) -> str:
@@ -84,10 +91,10 @@ def _limits(card: dict, p: Optional[dict]) -> list:
                     else "cold load: not measured (it was loaded already)", "mark": V if sp.get("cold_load_s") else E})
         return out
     if isinstance(w.get("tokens"), int):
-        out.append({"text": f"window {w['tokens']:,} ({w.get('source') or 'unknown'})", "mark": E})
+        out.append({"text": f"window {w['tokens']:,} ({w.get('source') or 'unknown'})", "mark": _mark(card, "window")})
     if isinstance(card.get("params"), (int, float)):
         out.append({"text": f"{card['params']:g}B parameters" + (f" · {card['quant']}" if card.get("quant") else ""),
-                    "mark": E})
+                    "mark": _mark(card, "params")})
     out.append({"text": "speed, cold load, co-reside: not measured (halo models probe)", "mark": E})
     return out
 
@@ -99,7 +106,7 @@ def _expected(card: dict) -> "tuple[list, list, str]":
     sits = ("bulk worker · non-agentic" if tools == "none" else
             {"coder": "coder", "reasoning": "reasoner", "embedding": "bulk worker · non-agentic"}.get(purpose, "full agent"))
     dont = [f"{r}: {why}" for r, why in (card.get("fit_why") or {}).items()][:3]
-    return ([{"text": use, "mark": E}] if use else []), [{"text": d, "mark": E} for d in dont], sits
+    return ([{"text": use, "mark": _mark(card, "purpose")}] if use else []), [{"text": d, "mark": E} for d in dont], sits
 
 
 def blocks(card: dict, profile: Optional[dict] = None) -> dict:
@@ -110,7 +117,8 @@ def blocks(card: dict, profile: Optional[dict] = None) -> dict:
     use, dont, sits = _expected(card)
     if card.get("kind") == "cloud":
         return {"use_for": use, "dont_use_for": dont, "sits": {"chip": "", "chips": [], "mark": E}, "limits": []}
-    return {"use_for": use, "dont_use_for": dont, "sits": {"chip": sits, "chips": [sits], "mark": E},
+    smark = _mark(card, "tools") if card.get("tools") == "none" else _mark(card, "purpose")
+    return {"use_for": use, "dont_use_for": dont, "sits": {"chip": sits, "chips": [sits], "mark": smark},
             "limits": _limits(card, None)}
 
 
@@ -194,7 +202,7 @@ def _twin_verify(state_dir, host, name) -> Optional[dict]:
 def block_lines(b: dict) -> list:
     if not b:
         return []
-    m = lambda x: "" if x.get("mark") == V else " (expected)"  # noqa: E731
+    m = lambda x: "" if x.get("mark") == V else f" ({x.get('mark') or E})"  # noqa: E731
     out = []
     if (b.get("sits") or {}).get("chip"):
         s = b["sits"]

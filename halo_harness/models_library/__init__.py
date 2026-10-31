@@ -11,5 +11,13 @@ What could be installed, read from the two sites that list it, each row with a c
     rows.py             LibraryRow, card_for_row, fit_for_row
     browse.py           the query the route (studio/models_library_api.py) and `halo models browse` share
 
-Nothing here pulls or downloads a model (3.3.5.0 R3 and R4 do).
+3.3.6.0 R2, the capability-filtered search (plans/local-model-fit-brief.md Part F):
+
+    truths.py, truth_rules.py   declared / expected / verified for every capability and fit fact
+    search.py                   the gates, the ranking, the verdicts; search_filters.py the fit and supply filters;
+                                search_cost.py the cost preview; search_query.py the search as browse runs it
+    presets.py, presets_save.py the nine presets, the sentence parser, Save as role template, the role offer
+    role_gaps.py                a lineup's gaps ("find a model for this role")
+
+Nothing here pulls or downloads a model (3.3.5.0 R3 and R4 do; Download and verify is studio/local_verify_job.py).
 """

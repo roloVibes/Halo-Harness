@@ -8,6 +8,8 @@
   (R2): the ledger's rollups per host and model (traffic.py).
 - `halo ollama events [--host H] [--since] [--kind K] [--watch]
   [--from-start] [--json]` (R2): the local server's events (server_log.py).
+- `halo ollama crashes [--host H] [--json]` (3.3.6.0 R2): the crash
+  fingerprints (fingerprints.py), newest first.
 """
 
 from __future__ import annotations
@@ -143,4 +145,29 @@ def cmd_ollama_events(argv: list) -> int:
                              and show(e))
         except KeyboardInterrupt:
             stop.set()
+    return 0
+
+
+def cmd_ollama_crashes(argv: list) -> int:
+    """`halo ollama crashes [--host H] [--json]` (3.3.6.0 R2): every crash fingerprint, newest first."""
+    from halo_harness.ollama_steward.fingerprints import read
+    parser = argparse.ArgumentParser(
+        prog="halo ollama crashes", add_help=True,
+        description="The crash fingerprints the steward recorded from each host's server events: the model, its "
+                    "family and quant, the window it ran at, the KV type, flash attention, whether it spilled, and "
+                    "the signature (a CUDA illegal memory access, a runner that died, a failed load). Read-only.")
+    parser.add_argument("--host", default=None, help="only this host's fingerprints")
+    parser.add_argument("--json", action="store_true", help="print the fingerprints as JSON lines")
+    args = parser.parse_args(argv)
+    rows = read(_state_dir(), host=args.host)
+    for fp in rows:
+        if args.json:
+            print(json.dumps(fp, default=str))
+            continue
+        bits = [f"{fp.get('family') or '?'} {fp.get('quant') or ''}".strip(), f"model from {fp.get('model_from')}"]
+        print(f"{fp.get('host') or '?'} {fp.get('model') or '(model unknown)'}: {fp['line']}")
+        print(f"    {' · '.join(bits)}" + (f" · {fp['evidence'][0][:140]}" if fp.get("evidence") else ""))
+    if not rows and not args.json:
+        print("no crash fingerprints" + (f" for {args.host}" if args.host else "") +
+              ": they are written from the server's events (halo ollama events) as crashes happen")
     return 0

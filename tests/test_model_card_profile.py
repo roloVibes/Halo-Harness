@@ -4,7 +4,8 @@ model_card_words.py, studio/model_card_api.view, providers/fit_meter.py):
 
 1. Use it for / Don't use it for / Where it sits / Limits from a probed
    profile, every value marked verified; the same blocks from the declared
-   facts before a probe, every value marked expected;
+   facts before a probe, every value marked declared or expected (3.3.6.0
+   R2: the three truths), never verified;
 2. `fit_for` becomes the profile's verdicts (orchestrator, coder, reviewer),
    each role's mark; the card's tools follow the probe; `system_role`;
 3. the words: `halo models show`'s lines ("where it sits", "probed <date>",
@@ -40,12 +41,13 @@ def _marks(blocks) -> set:
 
 
 @test
-def test_before_a_probe_every_block_is_expected(ctx: Ctx):
+def test_before_a_probe_every_block_is_declared_or_expected(ctx: Ctx):
     with BatteryRig(["bt-mute:24b"]) as rig:
         c = _card(rig, "bt-mute:24b")
         b = c["blocks"]
         ctx.check(f"no profile on the card, got {c['profile']}", c["profile"] is None and c["system_role"] is None)
-        ctx.check(f"the four blocks, all expected, got {_marks(b)}", _marks(b) == {"expected"} and b["sits"]["chip"])
+        ctx.check(f"the four blocks: declared (what /api/show says) or expected, never verified, got {_marks(b)}",
+                  _marks(b) <= {"declared", "expected"} and "expected" in _marks(b) and b["sits"]["chip"])
         ctx.check(f"the limits say nothing is measured yet, got {b['limits']}", any("not measured" in x["text"] for x in b["limits"]))
         ctx.check(f"every role marked expected, got {c['fit_source']}", set(c["fit_source"].values()) == {"expected"})
 

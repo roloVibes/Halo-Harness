@@ -150,3 +150,19 @@ The library is what could be installed on a host, as opposed to what is: Ollama'
 ## quant
 
 A quant (quantization) is how many bits each weight of a model is stored in: Q4_K_M keeps about 4.8 bits a weight, Q8_0 8.5, F16 and BF16 16, an MLX repo says 4bit or 8bit. A smaller quant is a smaller file and less memory for the weights, at some cost in quality; the KV cache's own type (f16, q8_0) is a separate server setting. The library's rows say each tag's or file's quant, the filter keeps one, and the fit badge counts its bytes.
+
+## declared
+
+Declared is the first of the three truths a fact about a local model can have (3.3.6.0 R2): read from metadata -- `/api/show`'s capabilities, the library's chips, a Hugging Face repo's pipeline tag and tags, GGUF metadata, a registry config. It is there before a download and costs nothing, and it is sometimes wrong (a model that declares tools may never emit a tool call). Studio marks it ◇; `halo models browse` prints the same glyph; it never makes a model role-ready.
+
+## expected
+
+Expected is the second of the three truths (3.3.6.0 R2): inferred, not read -- from the family rules ("qwen3 calls tools"), the size ("9B or less is fast enough for bulk") or the name ("-coder" is a coder, "-abliterated" is not safety-tuned). It is a heuristic and says so; Studio marks it ≈. A capability nothing declares and nothing infers is left out, never guessed.
+
+## verified
+
+Verified is the third truth (3.3.6.0 R2): probed on this host by the capability battery (`halo models probe`, Studio's Probe or Download and verify), kept in the model's profile by digest, host and Ollama version. It is the only truth that may gate a role: a library row is role-ready only when its profile passes the role's placement gate. Agentic-ready, verifier and tool-call accuracy can only be verified ("needs a probe" before). Studio marks it ✓.
+
+## fingerprint
+
+A crash fingerprint (3.3.6.0 R2) is what the steward records when a host's server log shows a crash: the host, the model, its family and quant, the window it ran at, the KV cache type, flash attention, whether it spilled to the CPU, the signature (a CUDA illegal memory access, a runner that died with 0xc0000409, a failed load), when, and how many times. `halo ollama crashes` lists them (`<state>/ollama/fingerprints.jsonl`); the Library greys a model that crashed on the host picked, with the reason, and a member's fingerprints reach the hub with its ledger push.

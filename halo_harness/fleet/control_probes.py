@@ -43,4 +43,15 @@ def take_probes(home, member: str, rows) -> int:
     return n
 
 
-__all__ = ["read_probes", "take_probes"]
+def read_crashes(home) -> list:
+    """3.3.6.0 R2: the member's crash fingerprints of the last RECENT_S (ollama_steward/fingerprints.py)."""
+    from halo_harness.ollama_steward.fingerprints import read_recent
+    return read_recent(home, RECENT_S)
+
+
+def take_crashes(home, member: str, rows) -> int:
+    from halo_harness.ollama_steward.fingerprints import take
+    return take(home, member, rows)
+
+
+__all__ = ["read_crashes", "read_probes", "take_crashes", "take_probes"]
