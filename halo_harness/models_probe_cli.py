@@ -80,6 +80,9 @@ def cmd_models_probe(argv: list) -> int:
     if not args.ref and not args.all:
         print("halo models probe: name a model (ol:<name>@<host>) or pass --all", file=sys.stderr)
         return 2
+    if args.ref.startswith("hf:"):  # 3.3.7.0 R4: the vision probe on a Hugging Face local server
+        from halo_harness.models_probe_hf import probe_hf
+        return probe_hf(args.ref, as_json=args.json, state_dir=bridge_home())
     model, host_name = _target(args.ref, args.host)
     host = resolve_ollama_host(host_name or None)
     if host is None:

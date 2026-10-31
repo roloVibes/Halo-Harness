@@ -8,7 +8,9 @@ agent/loop.py), through the loop rig with a scripted fake Ollama on 127.0.0.1:0 
    ends the turn with its question -- no call after it;
 3. the cloud rung is the escalation policy: `ask: true` refuses it (said), `ask: false` takes its `to`;
 4. `tool_failures` between tool rounds takes the next rung that fits it (a smaller ask; repair is the repair round's);
-5. `local.ladder: off` leaves R1's own line; a custom order is followed.
+5. `local.ladder: off` leaves R1's own line; a custom order is followed;
+6. 3.3.7.0 R4: a crash fingerprint of the model in use (here, at this window, just now) steps the ladder before
+   low_confidence: past the smaller ask, the line naming the fingerprint, once per fingerprint.
 Run: python -m tests.test_degrade
 """
 from __future__ import annotations
@@ -179,6 +181,28 @@ def test_off_and_a_custom_order(ctx: Ctx):
     ctx.check(f"an unknown rung is dropped, got {rungs()}", rungs() == ["smaller-ask", "ask"])
     _set("local.ladder", None)
     ctx.check("unset: the default order", rungs() == list(RUNGS))
+
+
+@test
+def test_a_crash_fingerprint_steps_the_ladder_first(ctx: Ctx):
+    from halo_harness.ollama_steward.fingerprints import _write
+    with Rig() as rig:
+        _probed(rig)
+        _set("routing.escalation", {"to": "ol:big:30b@lan", "when": ["low_confidence"], "ask": True})
+        _write(rig.state_dir, [{"host": "lan", "model": "mid:14b", "signature": "GPU out of memory", "count": 1,
+                                "at": time.time() - 30, "window_used": None, "kv_cache_type": "q8_0"}])
+        rig.mock.scenarios.update({"mid:14b": script([reply("all done")]), "big:30b": script([reply("from the big one")])})
+        s = rig.session("ol:mid:14b@lan")
+        evs = rig.run(s, [say("list the files")])
+        got = _rungs(evs)
+        ctx.check(f"the crash steps past the smaller ask to another local model, naming the fingerprint, got {got}",
+                  len(got) == 1 and got[0].startswith("rung 3: another local model -- ol:big:30b@lan (after mid:14b crashed "
+                                                      "here on ") and "the GPU ran out of memory with q8_0 KV" in got[0])
+        ctx.check(f"before low_confidence: no judge, no escalation card, the next turn on the other model, got "
+                  f"{s.model_ref.raw}", s.model_ref.raw == "ol:big:30b@lan"
+                  and not any("escalation to" in str(e.data) for e in evs))
+        evs2 = rig.run(s, [say("again")])
+        ctx.check("one fingerprint steps it once", _rungs(evs2) == [])
 
 
 if __name__ == "__main__":

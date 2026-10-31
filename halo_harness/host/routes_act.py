@@ -8,7 +8,7 @@
         answers {ok, job, view} and its `job` frames go out on `GET stream`; `GET job/<id>` catches up.
     POST admin/<op>                   the grant, then 501: admin operations are not part of this version
     POST request {grant, why?}        a peer asks the owner for a grant (a pending row of kind grant)
-    GET  me | job/<id> | jobs | changes | findings | pending
+    GET  me | job/<id> | jobs | changes | findings | pending; 3.3.7.0 R4: residency | idle | refresh (routes_guard.py)
 
 `act_audit` is the audit line's extra fields per request: {op, params, evidence, dry, ok, landed, fix, change_id?,
 job?}. Nothing here runs a model, changes a server setting or restarts a server.
@@ -97,6 +97,9 @@ def get(svc, route: str, q: dict, hid: str):
     from halo_harness.host import grants, verify
     from halo_harness.host.jobs import of
     head, _, rest = route.partition("/")
+    from halo_harness.host import routes_guard  # 3.3.7.0 R4: residency, idle, refresh
+    if head in routes_guard.ROUTES:
+        return routes_guard.get(svc, head, q)
     if head not in GET_ROUTES:
         return None
     if head == "me":

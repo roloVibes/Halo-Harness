@@ -37,7 +37,10 @@ scarlet) is a verified yes; an error that names images ("this model is missing d
 an answer that says it cannot see is a verified no; anything else is unverified, and the declared fact stands. A
 model whose `/api/show` lists no vision (and has no projector) is not asked: its declared no stands. The answer
 is cached with the rest of the profile by the model's digest, the Ollama version and the probe set, so it runs once
-per weights; the cost line says "one 1 px image, one tiny call". A Hugging Face local server is not probed yet.
+per weights; the cost line says "one 1 px image, one tiny call". 3.3.7.0 R4: on a Hugging Face local server the same image goes as an `image_url` to `/v1/chat/completions` where the
+endpoint takes one -- llama-server started with `--mmproj` (its `/props` lists vision), LM Studio's vlm models, MLX-VLM
+-- and the probe is "not asked" with the reason elsewhere (mlx-lm, vLLM, TGI): `halo models probe hf:local/<model>@<server>`
+(providers/battery_vision_hf.py); the card reads the answer the same way.
 
 ## What a turn with an image does
 
@@ -47,3 +50,12 @@ A model that sees gets the image as an image block (Ollama's `images`, the OpenA
 the visual lane for this turn, a model that sees describing it into the turn, or the text alone with the path. The
 Local section's Loaded now page counts which loaded Ollama models can see, so the right one is loaded before you
 share the screenshot.
+
+## A screenshot of a fleet member's display (3.3.7.0 R4)
+
+Studio's screenshot on a fleet member's session goes to that member as one `capture` command (under its
+`fleet.allow_control`, like a steer): the member takes the capture itself and keeps the file in its own attachments
+folder; the hub gets back the path, the size in bytes and the width and height, never the image -- unless that
+member's `fleet.share_captures` is `true`, which sends the PNG with it. An image file for a member's session is still
+that member's own to attach.
+

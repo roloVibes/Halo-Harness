@@ -340,7 +340,7 @@ The card lives beside the battery profile and the measured facts, never over the
 32k (the bench)"), the fit badge ("fits, ~41 tok/s at 32k"), the Library row, the Hosts page's loaded row and `halo
 models show`. Placement reads `max_gpu_window` over the planner's estimate once a card exists. **Stale:** a card made
 on another Ollama version than the host runs now, or for another digest of the tag, is marked "measured on 0.40.6" (or
-"measured before the tag changed") on the badge and the table: Re-bench measures it again.
+"measured on an older build of this tag") on the badge and the table: Re-bench measures it again.
 
 ## The eye chip (3.3.6.0 R6)
 

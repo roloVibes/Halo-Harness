@@ -5,7 +5,8 @@
     Pivot = {host, url, from, to, window, window_from, load_s, load_from, via ("host" | "local"), line}
     run(p, *, session=None, turn=0, sleep=time.sleep) -> a generator of events; returns {ok, took_s, waited_s, say, via}
     run_now(p, say=print, **kw) -> the same result, each line handed to `say` (the CLI's form)
-    held_for(host, model) -> the seconds `model` still stays resident (config local.min_resident_s, default 60)
+    held_for(host, model) -> the seconds `model` still stays resident (config local.min_resident_s, default 60); 3.3.7.0
+        R4: by the host's residency clock when a halo host serves the card (host/residency.py), one clock for every peer
     mark_loaded(host, model)    the scheduler loaded it now (the residency clock starts)
 
 The scheduler's own rules: one pivot at a time per card (a lock per host address: a second one waits and says so)
@@ -54,9 +55,34 @@ def mark_loaded(host, model: str, now: Optional[float] = None) -> None:
     _SINCE[_key(host, model)] = time.monotonic() if now is None else now
 
 
+def _shared(host, model: str) -> Optional[float]:
+    """3.3.7.0 R4: the seconds left by the host's residency clock (host/residency.py) when a halo host serves the
+    card, else None (this process keeps its own clock)."""
+    c = _client(host)
+    if c is None:
+        return None
+    from halo_harness.host.residency import held_for as shared_held
+    from halo_harness.ollama_steward.host_client import HostError, _addr_port
+    try:
+        rows = c.get("residency").get("residency") or []
+    except (HostError, OSError, AttributeError):
+        return None
+    name = c.served_name(_addr_port(_url(host))[1]) or str(getattr(host, "name", ""))
+    return shared_held(rows, name, model, min_resident_s())
+
+
+def clock_of(host) -> str:
+    return ("the host's residency clock" if _client(host) is not None else
+            f"this halo's own clock: no halo host serves {getattr(host, 'name', host)}, so another halo keeps its own")
+
+
 def held_for(host, model: Optional[str], now: Optional[float] = None) -> float:
     if not model:
         return 0.0
+    if now is None:
+        got = _shared(host, model)
+        if got is not None:
+            return got
     since = _SINCE.get(_key(host, model))
     if since is None:
         return 0.0
@@ -143,7 +169,7 @@ def run(p: dict, *, host=None, session=None, turn: int = 0, sleep=time.sleep):
         if hold > 0:
             yield events.turn_marker("pivot", f"pivot held {secs(hold)}: {p['from']} was loaded "
                                               f"{secs(min_resident_s() - hold)} ago (local.min_resident_s "
-                                              f"{min_resident_s():g})", turn=turn)
+                                              f"{min_resident_s():g}; {clock_of(host)})", turn=turn)
             sleep(hold)
         waited = time.monotonic() - start
         t0 = time.monotonic()

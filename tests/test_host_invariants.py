@@ -59,7 +59,8 @@ def test_one_resident_per_card(ctx: Ctx):
         rig.mock.ps_response = {"models": [_resident(CODER, 18.0)]}
         status, got = rig.act("control", "warm", {"model": SMALL, "num_ctx": 8192})
         ctx.check(f"a second resident is refused, got {status} {got}", status == 422 and got["error"].startswith(
-            "one resident per card: qwen3-coder:30b is loaded on pc; pivot to qwen3.5:9b") and "beside: true" in got["error"])
+            "one resident per card: qwen3-coder:30b (a client that is not a halo) is loaded on pc; pivot to qwen3.5:9b")
+                  and "beside: true" in got["error"])  # 3.3.7.0 R4: a resident no halo call explains is named so
         status, got = rig.act("control", "warm", {"model": SMALL, "num_ctx": 8192, "beside": True, "keep_alive": "5m"})
         ctx.check(f"beside, and both fit: loaded, keep_alive reported, got {status} {got}", status == 200 and got["ok"]
                   and got["keep_alive"] == "5m" and rig.mock.generated[-1]["keep_alive"] == "5m")

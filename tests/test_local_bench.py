@@ -134,7 +134,7 @@ def test_where_it_shows_and_the_stale_mark(ctx: Ctx):
         R.with_speed_card(card, rig.state, row=row)
         ctx.check(f"a newer Ollama marks it stale, got {card['speed']['stale']!r} {speed_word('spill', card['speed'])!r}",
                   card["speed"]["stale"] == "measured on 0.40.13" and speed_word("spill", card["speed"]).endswith("(measured on 0.40.13)"))
-        ctx.check("a changed tag marks it stale", R.stale(sc, digest="sha256:other") == "measured before the tag changed")
+        ctx.check("a changed tag marks it stale", R.stale(sc, digest="sha256:other") == "measured on an older build of this tag")
         ctx.check("placement prefers the bench's window", usable_window({"host": "fake", "model": "bn-coder:30b",
                                                                          "window": {"usable": 122880}}, rig.state) == 32768)
         d = dial_for(rig.host, "bn-coder:30b", state_dir=rig.state, card=rig.card, row=row)

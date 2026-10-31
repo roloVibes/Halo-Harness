@@ -106,7 +106,7 @@ def warm_lineup(name: Optional[str], *, host: Optional[str] = None, keep_alive=N
             rows.append(row)
             say(f"  {row['say']}")
         for m in ws["pivots"] + ws["unknown"]:
-            state = "pivots later" if m in ws["pivots"] else "not judged"
+            state = "pivots later" if m in ws["pivots"] else "deleted" if "was deleted from" in str(m.get("why")) else                 "not judged"  # 3.3.7.0 R4: a tag that is gone names its nearest equivalent (ollama_steward/dead_tag.py)
             cost = f"~{secs(m['load_s'])}, {m['load_from']}; " if m.get("load_s") is not None else ""
             rows.append({"model": m["model"], "lanes": m["lanes"], "state": state, "seconds": 0.0, "window": m["window"],
                          "say": f"{m['model']} ({', '.join(m['lanes'])}): {state} ({cost}{m.get('why')})"})

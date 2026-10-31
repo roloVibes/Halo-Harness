@@ -14,6 +14,8 @@ A line names its host as the machine that made the call knew it (the Mac's
 configured here by url, and a url that points at this machine (fleet/
 ollama_share.served_here) to the local host on the same port, so the
 serving machine sees one row per model with every halo's calls in it.
+3.3.7.0 R4: under each host's card line, the foreign line ("foreign: 1 model,
+17.3 GB, since 14:02"): what /api/ps holds that no Halo call explains.
 """
 
 from __future__ import annotations
@@ -135,7 +137,19 @@ def card_summary(host) -> str:
     return "; ".join(keep[:3]) or "card: nothing read"
 
 
-def format_rollups(rows: list, *, card=card_summary) -> list:
+def foreign_summary(host) -> str:
+    """3.3.7.0 R4: the models in /api/ps no Halo record explains (ollama_steward/idle.py), in one line, else ""."""
+    if host is None:
+        return ""
+    try:
+        from halo_harness.config.paths import bridge_home
+        from halo_harness.ollama_steward.idle import foreign, foreign_line
+        return foreign_line(foreign(bridge_home(), host))
+    except Exception:
+        return ""
+
+
+def format_rollups(rows: list, *, card=card_summary, foreign=foreign_summary) -> list:
     out, seen = [], []
     for r in rows:
         if r["host"] not in seen:
@@ -145,5 +159,8 @@ def format_rollups(rows: list, *, card=card_summary) -> list:
         if i:
             out.append("")
         out.append(f"'{name}': {card(mine[0]['host_obj'])}")
+        other = foreign(mine[0]["host_obj"]) if foreign else ""
+        if other:
+            out.append(f"  {other}")
         out.extend(format_row(r) for r in mine)
     return out

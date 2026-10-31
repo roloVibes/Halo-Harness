@@ -186,7 +186,10 @@ def dispatch_local(req):
     from halo_harness.studio.local_tune_api import dispatch_tune  # 3.3.6.0 R5: the tuning report, the changes
     from halo_harness.studio.local_host_api import dispatch_host  # 3.3.7.0 R2: halo host grants and pending rows
     from halo_harness.studio.local_sched_api import dispatch_sched  # 3.3.7.0 R3: warm set, swap preview, place, loads
-    for fn in (dispatch_card, dispatch_shelf, dispatch_bench, dispatch_tune, dispatch_host, dispatch_sched):
+    from halo_harness.studio.local_guard_api import dispatch_guard  # 3.3.7.0 R4: idle, foreign, the refresh
+    from halo_harness.studio.local_advise_api import dispatch_advise  # 3.3.7.0 R4: the roster adviser
+    for fn in (dispatch_card, dispatch_shelf, dispatch_bench, dispatch_tune, dispatch_host, dispatch_sched, dispatch_guard,
+               dispatch_advise):
         got = fn(req)
         if got is not None:
             return got

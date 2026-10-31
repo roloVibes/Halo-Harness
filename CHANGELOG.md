@@ -65,6 +65,26 @@ version.
 - `halo teams use` replaces 2.0.7's single-GPU warning with the swap preview.
 - `halo local warm` takes a lineup (named, else the active one); model names keep the 2.0.7 form.
 
+### R4: guards, refresh and the adviser -- off-hours refresh on the host, drift and deletion guards, foreign clients, the roster adviser
+
+#### Added
+- The off-hours refresh: on a machine running `halo host`, the capability battery and the quick bench run when the card has been idle `host.refresh.idle_min` (20) minutes inside `host.refresh.window` (`22:00-07:00`), one model at a time -- drifted tags first, then never probed, then profiles older than `host.refresh.max_age_days` (14) -- stopping the moment a call arrives, each result stamped "verified by the host"; `halo host refresh status | now | off | on`, `halo local refresh [--dry]` for a machine with no host; the Hosts card's refresh line and the Steward page's block.
+- Foreign clients: a model in `/api/ps` that no Halo call, load, battery or bench explains is "a client that is not a halo" -- "foreign: 1 model, 17.3 GB, since 14:02" in `halo ollama traffic`, the traffic view and the Hosts card; the bench and the refresh wait for it.
+- The host's residency clock (`GET residency`): every peer's scheduler reads one minimum-residency clock per card.
+- The drift guard: a tag whose digest changed is the steward's `tag-drift` finding, naming the profile, speed card, window truth and fingerprints "measured on an older build of this tag"; the swap cost and Auto's pick stop trusting that speed card; the refresh measures it first.
+- The deletion guard: a role, lineup lane, `warm:` entry or placement naming a deleted tag gets one line -- "`qwen3.8:27b` was deleted from pc -- nearest equivalent `qwen3.8:27b-gpu` (same family, same size, same quant, fits the same window)" -- in `halo doctor --local`, `halo teams use`, `halo local warm`, `halo local place`, the Roles page and the `tag-deleted` finding; `halo roles point <role> <model>` (and Studio's button) writes the role and nothing else.
+- The roster adviser: `halo local advise` and the Adviser block on Local -> Models -- gap, overlap, mismatch, freshness, ranked by value per gigabyte, each with what it unlocks or frees, what it costs and one button (Add, Retire, Point); re-run when the roster, an Ollama version or the hosts change, and nightly as the roster review.
+- A screenshot of a fleet member's display: the member captures it and keeps the file; the hub gets the path and the size, the image only with that member's `fleet.share_captures`.
+- The vision probe on Hugging Face local servers (llama-server with a projector, LM Studio vlm models, MLX-VLM): `halo models probe hf:local/<model>@<server>`; "not asked" elsewhere.
+- Glossary: foreign client, refresh, drift, adviser; docs/MODELS-ollama-steward-guards.md, MODELS-adviser.md, COMMANDS-local-guards.md.
+
+#### Changed
+- The degradation ladder steps on a crash fingerprint (the model in use crashed here at this window just now) before low_confidence: past the smaller ask, the line naming the fingerprint.
+- The speed card's stale mark for a changed tag reads "measured on an older build of this tag".
+- `halo doctor --local`'s dead-id line names the nearest equivalent by family, size and quant and ends with `halo roles point ...`.
+- The host's "one resident per card" refusal names a foreign resident.
+- Studio's screenshot on a member's session is sent to the member instead of refused.
+
 ### Also in 3.3.7.0
 
 #### Changed
