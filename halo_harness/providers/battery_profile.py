@@ -8,7 +8,8 @@ are Part I's glossary).
       reasoning: none|thinking, window: {trained, usable, used, verified: bool},
       kv_per_token, size_gb, speed: {tok_s, ttft_ms, cold_load_s, at_window},
       resident: {co_resides_with: [...], pivot_only: bool | None}, interactive: yes|no,
-      quirks: [...], agentic_ready: bool, evidence: {probe: answer}, sits, chips: [...]}
+      quirks: [...], agentic_ready: bool, evidence: {probe: answer}, sits, chips: [...],
+      vision: yes|no|unverified|not asked, vision_why}   (3.3.6.0 R6: the one-image probe; providers/vision_fact.py reads it)
 
 `agentic_ready` is the composite gate: tools and system role and instruction
 and JSON (a fenced reply counts: the wire strips the fence, Part E3).
@@ -131,6 +132,8 @@ def summary_line(p: dict) -> str:
     bits = [f"tools {p.get('tools')}", f"system {p.get('system_role')}", f"instruction {p.get('instruction')}",
             str(p.get("output")), "thinks" if p.get("reasoning") == "thinking" else "no thinking",
             f"ids {p.get('identifiers')}"]
+    if p.get("vision") in ("yes", "no"):  # 3.3.6.0 R6: the vision probe
+        bits.append("sees" if p["vision"] == "yes" else "no eyes")
     if s.get("tok_s"):
         bits.append(f"{s['tok_s']:g} tok/s")
     return " · ".join(bits)

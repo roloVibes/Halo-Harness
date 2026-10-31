@@ -5,7 +5,8 @@ and how Halo talks to it.
 
 Card = {ref, name, host, kind ("ollama" | "llama-server" | "lmstudio" | "mlx" |
 "openai-local" | "cloud"), thinks ("yes" | "no" | "default-on"), tools
-("declared" | "probed" | "none" | "unknown"), vision, embedding_only, purpose
+("declared" | "probed" | "none" | "unknown"), vision (True | False | None, with `vision_truth`; 3.3.6.0 R6:
+providers/vision_fact.py), embedding_only, purpose
 ("coder" | "instruct" | "reasoning" | "vision" | "embedding" | "unknown"),
 family, params (billions), quant, window (`agent/model_window.window_of`'s
 dict), dialect ("native" | "openai" | the cloud route's), how [lines], fit_for
@@ -174,8 +175,8 @@ def fit_of(card: dict) -> "tuple[dict, dict]":
             why["small"] = "its size is unknown"
         elif p > SMALL_PARAMS:
             why["small"] = f"{p:g}B, over the {SMALL_PARAMS:g}B a small model holds"
-        if not card["vision"]:
-            why["eyes"] = "no vision: images reach it as captions"
+        if not card["vision"]:  # 3.3.6.0 R6: None is "nothing says" (the probe settles it), False a stated no
+            why["eyes"] = "eyes? nothing says it reads images" if card["vision"] is None else "no vision: images reach it as captions"
     return {r: r not in why for r in ROLES}, why
 
 
@@ -232,6 +233,8 @@ def card_of(ref, *, state_dir=None, catalog=None, host=None, probe=None, host_ca
             "speed": None, "sources": {**facts["sources"], "params": params_src, "quant": quant_src,
                                        "window": window.get("source") or "unknown", "row": "/api/show" if row else "none"}}
     card["thinks_source"], card["purpose_source"] = card["sources"]["thinks"], card["sources"]["purpose"]
+    from halo_harness.providers.vision_fact import apply as with_vision  # 3.3.6.0 R6: vision with its truth
+    with_vision(card, row, profile)
     card["fit_for"], card["fit_why"] = fit_of(card)
     card["how"] = how_lines(card)
     from halo_harness.providers.model_card_blocks import with_profile  # 3.3.6.0 R1: the battery's profile, E4's blocks

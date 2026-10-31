@@ -13,12 +13,18 @@
 // again. The field keeps its text when the target changes.
 // 3.3.5.0 R4: a request larger than its local window shows its preflight line
 // and three buttons above the target line (LivePreflight.tsx).
-import { useEffect, type FocusEvent, type KeyboardEvent } from "react";
+// 3.3.6.0 R6: Ctrl+V with an image, or a file dropped on the box, becomes the chip under it (LiveImage.tsx,
+// steerImage.ts); Send then posts the steer with its image to the session, the offer's choice with it.
+import { useEffect, type ClipboardEvent, type DragEvent, type FocusEvent, type KeyboardEvent } from "react";
 import { Button, Icon } from "../../lib/ui";
 import { askStop, togglePause } from "../fleet/actions";
 import { Steer } from "../fleet/Steer";
 import { hueOf } from "../shared/hues";
 import { LivePreflight } from "./LivePreflight"; // 3.3.5.0 R4: a request over the window, answered here
+import { useFleet } from "../fleet/store";
+import { LiveEyes, LiveImage } from "./LiveImage"; // 3.3.6.0 R6: the steer's image and the eyes offer
+import { imageFile, sendWithImage, steerImage, takeFile } from "./steerImage";
+import { chosenSession } from "./store";
 import { TargetLine } from "./LiveTarget";
 import { cycleTarget, followAgain, setComposing, useSteerTarget } from "./steer";
 
@@ -37,6 +43,18 @@ const FINISHED = ["done", "failed", "stopped"];
 
 export function LiveSteer() {
   const t = useSteerTarget();
+  const ss = useFleet(chosenSession);
+  const hid = useFleet((s) => s.scope.harness || "local");
+  const take = (e: ClipboardEvent<HTMLDivElement> | DragEvent<HTMLDivElement>, from: "paste" | "drop") => {
+    const f = imageFile("clipboardData" in e ? e.clipboardData : e.dataTransfer);
+    if (!f || !ss) return;
+    e.preventDefault();
+    void takeFile(f, ss.session_id, ss.model, from);
+  };
+  const send = (text: string) => (steerImage.get().img && ss ? sendWithImage(hid, ss.session_id, text) : null);
+  const over = (e: DragEvent<HTMLDivElement>) => {
+    if (e.dataTransfer?.types?.includes("Files")) e.preventDefault();
+  };
   const off = !t.key || !t.ref || FINISHED.includes(String(t.ref.a.state)) || t.ref.h.allow_control === "none";
   useEffect(() => void (off && setComposing(false)), [off]); // a field that goes away (or is disabled) holds no keyboard
   if (!t.key)
@@ -73,10 +91,13 @@ export function LiveSteer() {
   );
   return (
     <div className="slv-steer holo-frame" data-testid="session-live-steer" data-key={t.key} data-hc={hueOf(t.key)} data-main={t.main || undefined} data-disabled={!!why || undefined}
-         onKeyDown={onKeys} onFocus={onFocus} onBlur={onBlur}>
+         onKeyDown={onKeys} onFocus={onFocus} onBlur={onBlur} onPaste={(e) => take(e, "paste")} onDrop={(e) => take(e, "drop")}
+         onDragOver={over}>
       <LivePreflight />
+      <LiveEyes />
       <TargetLine t={t} name={name} />
-      <Steer k={t.key} where="live" disabled={!!why} why={why} head={head} extra={extra} />
+      <Steer k={t.key} where="live" disabled={!!why} why={why} head={head} extra={extra} send={send} />
+      <LiveImage />
     </div>
   );
 }

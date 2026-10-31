@@ -341,3 +341,13 @@ The card lives beside the battery profile and the measured facts, never over the
 models show`. Placement reads `max_gpu_window` over the planner's estimate once a card exists. **Stale:** a card made
 on another Ollama version than the host runs now, or for another digest of the tag, is marked "measured on 0.40.6" (or
 "measured before the tag changed") on the badge and the table: Re-bench measures it again.
+
+## The eye chip (3.3.6.0 R6)
+
+Every card's chips carry the eye chip in place of the old "vision" word: **sees**, **no eyes** or **eyes?**, marked
+✓ verified (the battery's image probe), ◇ declared (the server, the catalog, a projector, a Hugging Face config) or
+≈ expected (the family), with the source in its title ([MODELS-vision.md](MODELS-vision.md)). The card's `vision:`
+line says the same ("vision: no, verified (the battery's image probe, probed 2026-10-31 (...)))"), the how lines say
+"images sent as images", "images as captions (no vision)" or "images: nothing says it sees (the turn offers the eyes
+first)", and the blocks add "reads images" to use-it-for or "cannot see images" to don't, with the mark. The `eyes`
+role is held only by a model that sees; a verified no takes it away.

@@ -73,6 +73,8 @@ def card_for_row(row: dict) -> dict:
                         "params": (row.get("sources") or {}).get("params", "the name"),
                         "quant": (row.get("sources") or {}).get("quant", "unknown"), "window": "library", "row": "library"}}
     card["thinks_source"], card["purpose_source"] = card["sources"]["thinks"], card["sources"]["purpose"]
+    from halo_harness.providers.vision_fact import apply as with_vision  # 3.3.6.0 R6: the row's metadata, the family
+    with_vision(card, row, None)
     card["fit_for"], card["fit_why"] = fit_of(card)
     card["how"] = [f"{line} (once pulled)" for line in how_lines(card)]
     return card

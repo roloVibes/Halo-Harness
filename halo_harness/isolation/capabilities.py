@@ -29,7 +29,7 @@ TABLE = {
     "web": ("WebFetch", "WebSearch"),
     "agent": ("Agent", "Task", "TaskCreate", "TaskList", "TaskUpdate"),
     "mcp": ("ToolSearch", "ListMcpResourcesTool", "ReadMcpResourceTool"),
-    "media": ("Media",),
+    "media": ("Media", "Screenshot"),  # Screenshot: 3.3.6.0 R6
     "recall": ("Skill", "TodoWrite", "knowledge_add", "knowledge_search"),  # knowledge_*: 3.1.8.0 R4
 }
 _BY_TOOL = {tool: cap for cap, tools in TABLE.items() for tool in tools}

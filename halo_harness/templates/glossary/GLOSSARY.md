@@ -202,3 +202,11 @@ A change's scope (3.3.6.0 R5) says when a change Halo made to a local model's pr
 ## warm-up
 
 The warm-up is the first call after a model loads: llama.cpp captures its compute graph then, so that call is slow (5.7 tok/s where the next runs at 199) and is never timed. The battery and the bench send one small untimed call after each load and label it "warming"; the traffic ledger marks such calls `warming` and no speed counts them.
+
+## vision
+
+Vision (3.3.6.0 R6) is whether a model can see images: true, false or unknown, with one of the three truths. Verified comes from the battery's image probe (one 1 px red PNG, one tiny call: it named the colour, or it said it cannot see); declared from the server or the catalog (`/api/show` capabilities, a projector, a Hugging Face config, a cloud catalog's modalities); expected from the family (llava, -vl, gemma3 ...), and only ever as a yes. Every model row shows it as the eye chip ("sees", "no eyes", "eyes?"); `halo models --vision` lists the ones that see.
+
+## eyes
+
+The eyes (3.3.6.0 R6) are what a turn gets when it carries an image its model cannot see: instead of dropping the image, the turn says so in one line and offers three ways on -- this turn on the lineup's visual lane (`roles.visual`; the turn's end switches back), a model that sees describing the image into the turn (the log names who saw it), or the text alone with the image as its path. The TUI asks with a menu (Enter takes the first), Studio with buttons on the steer's image chip; with nobody to ask the visual lane wins when one is set. Each choice is a rung of the degradation ladder.

@@ -38,3 +38,8 @@
   border-radius: var(--radius-sm); background: var(--surface-2); }
 .sco-effort-menu .og-chip { cursor: pointer; }
 .sco-effort-menu .og-chip[aria-checked="true"] { color: var(--accent); border-color: var(--accent); }
+/* 3.3.6.0 R6: the eye chip (routes/shared/EyeChip.tsx) */
+.mcard-eye[data-eye="sees"] { color: var(--ok); border-color: var(--ok-soft); }
+.mcard-eye[data-eye="no"] { color: var(--muted); }
+.mcard-eye[data-eye="unknown"] { color: var(--warn); border-color: var(--warn-soft); }
+.mcard-eye-mark { opacity: 0.8; }

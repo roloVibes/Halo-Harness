@@ -1,5 +1,5 @@
 // A Models row's battery bits (3.3.6.0 R1; routes/local/probes.ts): the Probe action (local-model-probe) whose
-// title is the cost line ("about 8 requests to <model> on <host>, 1-3 minutes, no cost; it loads the model") and
+// title is the cost line ("about 9 requests to <model> on <host> (one 1 px image, one tiny call, for the eyes), 1-3 minutes, no cost; it loads the model") and
 // the `halo models probe` line, the progress strip while it runs (one step per probe), the "probed <date> ·
 // re-probe" mark, and the twin chips: a fitted twin with its verify line, a raw library tag with "delete the raw
 // tag, keep the twin" once its twin is verified.

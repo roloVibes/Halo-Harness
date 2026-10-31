@@ -100,6 +100,9 @@ class ToolContext:
     # becomes a real `image` block or a text note; False (the default, and
     # every pre-H8 test's bare ToolContext) is the safe/old behaviour.
     vision: bool = False
+    # 3.3.6.0 R6: the session model's ref (`ol:qwen3:8b@lan`), for a tool's own words (the Screenshot tool's note
+    # names the model that cannot see); None in a bare ToolContext.
+    model_ref: Optional[str] = None
     # H4 scope C: the Skill tool's `allowed-tools` -> session rule (D-CFG:
     # "until the next user message") -- a callable(rule_text) -> bool, set
     # by agent/loop.py to `PermissionEngine.add_session_allow_rule(...,

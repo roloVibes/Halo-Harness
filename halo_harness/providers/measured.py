@@ -129,9 +129,12 @@ def _modality(p: Optional[dict]) -> dict:
     caps = (p or {}).get("capabilities") or []
     if not caps:
         return fact(None)
-    kinds = ["text"] + (["images"] if "vision" in caps else []) + (["audio"] if "audio" in caps else [])
+    from halo_harness.providers.vision_fact import vision_of  # 3.3.6.0 R6: the vision probe's verified answer first
+    f = vision_of(None, {"capabilities": caps}, p)
+    kinds = ["text"] + (["images"] if f["value"] else []) + (["audio"] if "audio" in caps else [])
     word = "embeddings only" if "embedding" in caps and "completion" not in caps else " + ".join(kinds)
-    return fact(word, "/api/show (declared; the vision probe is not in the battery yet)", (p or {}).get("probed_at"), 1)
+    src = f"{f['source']} ({f['truth']})" if f["truth"] == "verified" else "/api/show (declared)"
+    return fact(word, src, (p or {}).get("probed_at"), 1)
 
 
 def _quirks(calls: list, evs: list, p: Optional[dict]) -> list:

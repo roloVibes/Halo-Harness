@@ -27,7 +27,7 @@ ROLES = ("main", "orchestrator", "coder", "reviewer", "researcher", "small", "co
 TOOL_ROLES = ("main", "orchestrator", "coder", "reviewer", "researcher")
 SINGLE_SHOT = ("small", "compaction", "bulk")
 ALIASES = {"planner": "orchestrator", "judge": "reviewer", "tester": "coder", "subagent_default": "coder",
-           "lead": "orchestrator", "worker": "coder"}
+           "lead": "orchestrator", "worker": "coder", "visual": "eyes", "vision": "eyes"}  # 3.3.6.0 R6: the visual lane
 SESSION_WINDOW = 32768
 FIX_TOOLS = "route this step to {better}, or run it as a single-shot step without tools"
 
@@ -106,10 +106,19 @@ def verdict(profile: Optional[dict], role: str, *, state_dir=None) -> dict:
     elif r == "compaction" and isinstance(usable, int) and 0 < usable <= SESSION_WINDOW:
         out.update(ok=False, why=f"a {usable // 1024}k window here: chunk inputs; never a role that receives whole "
                                "sessions", fix="give compaction a model with a 65k window or more")
+    elif r == "eyes" and _sees(profile) is False:  # 3.3.6.0 R6: the vision probe said no
+        out.update(ok=False, why=f"cannot see images (verified: the battery's image probe, probed {date})",
+                   fix="give the visual lane a model that sees (halo models --vision)")
     elif r in ("main", "orchestrator") and isinstance(usable, int) and 0 < usable < SESSION_WINDOW:
         out.update(ok=False, why=f"its window here is {usable:,}, under the {SESSION_WINDOW:,} a main agent needs",
                    fix="lower other loads on the card, or use a smaller model")
     return out
+
+
+def _sees(profile: dict) -> Optional[bool]:
+    from halo_harness.providers.vision_fact import vision_of
+    f = vision_of(None, None, profile)
+    return f["value"] if f["truth"] == "verified" else None
 
 
 def profile_for_ref(ref, state_dir) -> Optional[dict]:
