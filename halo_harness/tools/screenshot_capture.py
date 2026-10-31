@@ -72,6 +72,7 @@ def _run(argv: list, *, dest: Path, timeout: float = TIMEOUT_S) -> "tuple[int, s
 
 
 RUNNER = _run
+WHICH = shutil.which  # the tool lookup; tests replace it beside RUNNER so no OS needs a real tool
 
 
 def _q(text) -> str:
@@ -143,7 +144,7 @@ def _linux(target, title, rect, display, dest, env, which) -> dict:
 
 def plan(target: str = "screen", *, title=None, rect=None, display=None, dest, platform=None, env=None, which=None) -> dict:
     target = target if target in TARGETS else "screen"
-    platform, env, which = platform or sys.platform, os.environ if env is None else env, which or shutil.which
+    platform, env, which = platform or sys.platform, os.environ if env is None else env, which or WHICH
     if target == "window" and not str(title or "").strip():
         return {"error": "a window capture needs its title (title: a part of the window's title)"}
     g = _rect(rect)
