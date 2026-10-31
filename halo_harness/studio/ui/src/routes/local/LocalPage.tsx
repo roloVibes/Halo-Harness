@@ -3,9 +3,10 @@
 // (closed by default), and a line naming which of Local's five ideas the page
 // carries (the fit meter, "why" on every number, intents, "make it fit", the hub
 // as the one picture). Resources, Hosts, Models and Library (3.3.5.0 R2) are
-// built, and Hugging Face (3.3.5.0 R5) and Logs (3.3.6.0 R3); Benchmarks and Steward are framed (FramedPage.tsx).
+// built, and Hugging Face (3.3.5.0 R5), Logs (3.3.6.0 R3) and Benchmarks (3.3.6.0 R5); Steward is framed (FramedPage.tsx).
 import { useEffect, useRef, type ComponentType } from "react";
 import { HELP } from "../help";
+import { BenchPage } from "./BenchPage";
 import { FramedPage } from "./FramedPage";
 import { HfPage } from "./HfPage";
 import { HostsPage } from "./HostsPage";
@@ -16,7 +17,7 @@ import { PAGES, titleOf, usePage, type PageId } from "./pages";
 import { ResourcesPage } from "./ResourcesPage";
 
 const BODY: Partial<Record<PageId, ComponentType>> = { resources: ResourcesPage, hosts: HostsPage, models: ModelsPage, library: LibraryPage,
-  huggingface: HfPage, logs: LogsPage };
+  huggingface: HfPage, logs: LogsPage, benchmarks: BenchPage };
 
 /** Which of the five ideas each page shows (the help names all five). */
 export const IDEAS: Record<PageId, string[]> = {

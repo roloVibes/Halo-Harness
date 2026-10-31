@@ -1,0 +1,36 @@
+/* Local -> Benchmarks (3.3.6.0 R5): the speed cards' table and the bench's live log (local/BenchTable.tsx), the tuning
+   report (local/TuneReport.tsx), the changes with their scopes (local/ChangesList.tsx), the scope pick
+   (shared/ScopePick.tsx) and the KV dial's Apply (shared/KvApply.tsx). Colours are tokens only (styles/tokens.css). */
+.lc-bench { display: grid; gap: 12px; }
+.bench-hosts { display: grid; gap: 12px; }
+.bench-host { overflow-x: auto; }
+.bench-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.bench-table th { text-align: left; font-weight: 500; color: var(--muted); padding: 3px 6px; border-bottom: 1px solid var(--line); }
+.bench-table td { padding: 4px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.bench-table tr.bench-sub td { padding: 0 6px; border-bottom: 0; }
+.bench-windows { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.bench-win { padding: 0 4px; border: 1px solid var(--line); border-radius: var(--radius-sm); }
+.bench-win[data-gpu="false"] { color: var(--warn); border-color: var(--warn); }
+.bench-stale { margin-left: 6px; color: var(--warn); border-color: var(--warn); }
+.bench-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 4px 0; font-size: 12px; color: var(--text); }
+.bench-log { margin: 2px 0 6px; padding-left: 18px; font-size: 11px; color: var(--muted); max-height: 160px; overflow-y: auto; }
+.bench-err { color: var(--bad); }
+.tune-report { display: grid; gap: 6px; font-size: 12px; }
+.tune-warm, .tune-models, .tune-findings { margin: 0; overflow-wrap: anywhere; }
+.tune-models, .tune-findings { padding-left: 16px; }
+.tune-findings li[data-severity="error"] { color: var(--bad); }
+.tune-findings li[data-severity="warn"] { color: var(--warn); }
+.tune-options { display: grid; gap: 8px; margin: 0; padding-left: 18px; }
+.tune-opt { overflow-wrap: anywhere; }
+.tune-meta { font-size: 11px; }
+.tune-apply { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 3px; }
+.tune-server { margin: 3px 0 0; padding-left: 14px; font-size: 11px; }
+.tune-server code { color: var(--text); overflow-wrap: anywhere; }
+.chg-list ul { display: grid; gap: 6px; margin: 0 0 6px; padding: 0; }
+.chg-row { list-style: none; padding: 4px 0; border-bottom: 1px solid var(--line); font-size: 12px; }
+.chg-line { overflow-wrap: anywhere; }
+.chg-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 3px; }
+.scope-pick { display: inline-flex; flex-wrap: wrap; gap: 8px; font-size: 11px; color: var(--muted); }
+.scope-opt { display: inline-flex; align-items: center; gap: 3px; cursor: pointer; }
+.scope-opt input { margin: 0; accent-color: var(--accent); }
+.kv-apply { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 4px; color: var(--text); }

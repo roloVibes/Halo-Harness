@@ -61,13 +61,15 @@ def fit_meter(card: dict, host_card: Optional[dict], *, row: Optional[dict] = No
 
 
 def speed_word(level, speed) -> str:
-    """'fits, ~187 tok/s at 32k' (the speed card), or the level alone when nothing was measured."""
+    """'fits, ~187 tok/s at 32k' (3.3.6.0 R5: the speed card's ceiling row when the bench ran, else the battery's
+    speed), '... (measured on 0.40.6)' when that card is stale; the level alone when nothing was measured."""
     tok = (speed or {}).get("tok_s") if isinstance(speed, dict) else None
     if not level or not isinstance(tok, (int, float)) or tok <= 0:
         return level or ""
     at = (speed or {}).get("at_window")
     tail = f" at {at // 1024}k" if isinstance(at, int) and at >= 1024 else ""
-    return f"{level}, ~{tok:.0f} tok/s{tail}"
+    stale = (speed or {}).get("stale")
+    return f"{level}, ~{tok:.0f} tok/s{tail}" + (f" ({stale})" if stale else "")
 
 
 def _meter(card: dict, host_card: Optional[dict], *, row: Optional[dict] = None, top: Optional[int] = None) -> dict:

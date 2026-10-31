@@ -43,6 +43,21 @@ def _loaded(rows) -> list:
     return out
 
 
+def _benched(rows: list, host_name: str) -> list:
+    """3.3.6.0 R5: each loaded model's speed card line ("187 tok/s at 32k, the bench"), when the bench ran it here."""
+    try:
+        from halo_harness.config.paths import bridge_home
+        from halo_harness.providers.local_bench_runs import speed_index
+        idx = speed_index(bridge_home(), host_name)
+    except Exception:
+        idx = {}
+    for r in rows:
+        sp = idx.get(r.get("model")) or {}
+        r["bench"] = (f"{sp['tok_s']:.0f} tok/s at {sp['at_window'] // 1024}k (the bench)"
+                      if isinstance(sp.get("tok_s"), (int, float)) and isinstance(sp.get("at_window"), int) else None)
+    return rows
+
+
 def users_by_host(state_dir) -> dict:
     """{host name here: [{from, calls}]} over the last 24 h (None = this machine)."""
     from halo_harness.ollama_steward.ledger import read_calls
@@ -109,7 +124,7 @@ def _configured(h: dict, host_obj, users: dict, hub) -> dict:
     return {"name": h["name"], "url": h["url"], "kind": kind_of(host_obj), "source": "configured",
             "version": (card.get("server") or {}).get("version"), "served_here": h["served_here"],
             "served_by": "this machine" if h["served_here"] else "another machine",
-            "loaded": _loaded(h.get("loaded")), "card_lines": h.get("card_lines") or [],
+            "loaded": _benched(_loaded(h.get("loaded")), h["name"]), "card_lines": h.get("card_lines") or [],
             "profiles": {k.split("|", 1)[1]: v for k, v in (h.get("profiles") or {}).items()},
             "users": users.get(h["name"], []), "finding": _finding(h.get("findings") or []),
             "findings": len([f for f in h.get("findings") or [] if not f.get("applied")]), "plan": _plan(h.get("plan")),

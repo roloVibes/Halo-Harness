@@ -265,6 +265,13 @@ class Controller:
             # session's background runs and schedule fires, and orphans
             # (children.json; the supervisor stays: `halo supervise stop`).
             self.stopped_line = _stop_children_for_quit(self.state_dir)
+            try:  # 3.3.6.0 R5: what this session and this halo changed on a local model with a scope goes back
+                from halo_harness.ollama_steward.changes import at_exit
+                said = list(getattr(self.session, "session_end_reverts", None) or []) + at_exit()
+                if said:
+                    self.stopped_line = "\n".join([x for x in [self.stopped_line] if x] + said)
+            except Exception:
+                pass
             # The session's own team schedulers must never outlive halo
             # either -- a safe no-op when none were armed.
             try:

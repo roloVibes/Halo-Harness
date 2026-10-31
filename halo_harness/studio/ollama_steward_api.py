@@ -152,7 +152,7 @@ def post_run(req):
     from halo_harness.ollama_steward import steward
     from halo_harness.studio.ollama_hosts_view import readers
     said: list = []
-    done = steward.run(req.state_dir, say=said.append, **readers())
+    done = steward.run(req.state_dir, say=said.append, scope="keep", **readers())  # 3.3.6.0 R5: your pass keeps
     counts = {k: len(done[k]) for k in ("findings", "applied", "proposed", "rolled_back", "skipped")}
     return 200, {"ok": True, "mode": done["mode"], **counts, "says": said}
 

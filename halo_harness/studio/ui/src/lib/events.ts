@@ -43,6 +43,7 @@ export const KNOWN_KINDS = [
   "probe", // 3.3.6.0 R1: a battery run's progress (studio/local_probe_job.py; routes/local/probes.ts)
   "twin-verify", // 3.3.6.0 R1: a new twin verified (studio/local_twin_verify.py)
   "verify", // 3.3.6.0 R2: Download and verify's stages (studio/local_verify_job.py; routes/local/verify.ts)
+  "bench", // 3.3.6.0 R5: a bench's lines as it runs (studio/local_bench_job.py; routes/local/benchstore.ts)
 ];
 
 const handlers = new Map<string, Set<Handler>>();

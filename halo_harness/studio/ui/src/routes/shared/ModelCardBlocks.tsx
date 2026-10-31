@@ -6,20 +6,22 @@
 // data-mark on each item, "declared" / "expected" said in words. 3.3.6.0 R4: the Measured block (each line "value
 // (source, date, n)", providers/measured.py), the KV dial under the fit line ("f16 KV -> 32k, q8_0 KV -> 64k on this
 // card", its crash note and the host-side action, providers/kv_dial.py) and How Halo talks to this model
-// (DialectBlock.tsx, the dialect record, editable).
+// (DialectBlock.tsx, the dialect record, editable). 3.3.6.0 R5: "where it sits" names the largest window the bench saw
+// stay on the GPU, and the KV dial's Halo-side half has Apply with a scope (KvApply.tsx).
 import { DialectBlock, type DialectView } from "./DialectBlock";
 import { FitEvidenceChip } from "./FitEvidence";
+import { KvApply, type KvApplyView } from "./KvApply";
 
 export type Mark = "verified" | "declared" | "expected";
 export type BlockItem = { text: string; mark: Mark };
 export type CardBlocksView = {
   use_for?: BlockItem[]; dont_use_for?: BlockItem[]; limits?: BlockItem[];
-  sits?: { chip: string; chips: string[]; mark: Mark };
+  sits?: { chip: string; chips: string[]; mark: Mark; gpu?: string };
   /** 3.3.6.0 R3: the fit line the server log cites (model_card_blocks.fit_block). */
   fit?: { text: string; mark: Mark; state: string; source?: string | null } | null;
   /** 3.3.6.0 R4 */
   measured?: BlockItem[];
-  kv_dial?: { text: string; crash?: string; action?: string; in_force?: string } | null;
+  kv_dial?: { text: string; crash?: string; action?: string; in_force?: string; apply?: KvApplyView | null } | null;
   dialect?: DialectView | null;
 };
 
@@ -37,6 +39,7 @@ export function SitsChips({ blocks }: { blocks?: CardBlocksView }) {
           {c}{s.mark !== "verified" ? " ?" : ""}
         </span>
       ))}
+      {s.gpu && <span className="og-chip mono mprobe-chip" data-testid="model-card-gpu" title="the largest window the bench saw stay on the GPU">{s.gpu}</span>}
     </span>
   );
 }
@@ -47,6 +50,7 @@ function KvDial({ k }: { k: NonNullable<CardBlocksView["kv_dial"]> }) {
       {k.text}
       {k.crash && <div className="kv-crash" data-testid="model-card-kv-crash">{k.crash}</div>}
       {k.action && <div className="kv-action">to change it: {k.action}</div>}
+      {k.apply && <KvApply a={k.apply} />}
     </div>
   );
 }

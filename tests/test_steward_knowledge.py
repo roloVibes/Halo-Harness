@@ -28,7 +28,8 @@ test, TESTS = new_registry()
 
 REPO = Path(__file__).resolve().parent.parent
 KDIR = REPO / "halo_harness" / "ollama_steward" / "knowledge"
-TOPICS = ("scheduler.md", "log-vocabulary.md", "memory.md", "local-servers.md", "symptoms.md", "server-log.md")  # R3
+TOPICS = ("scheduler.md", "log-vocabulary.md", "memory.md", "local-servers.md", "symptoms.md", "server-log.md",  # R3
+          "benchmarks.md")  # 3.3.6.0 R5
 TAG_RE = re.compile(r"\[S(\d+)\]")
 ROW_RE = re.compile(r"^\|\s*S(\d+)\s*\|(.*)\|\s*$")
 KINDS = ("prompt-trimmed", "reply-cut", "window-full", "no-user-query", "retry-loop", "http-500",
@@ -242,7 +243,7 @@ def test_the_knowledge_ships_as_package_data(ctx: Ctx):
     text = (REPO / "pyproject.toml").read_text(encoding="utf-8")
     ctx.check("pyproject's package-data lists ollama_steward/knowledge/*.md", '"ollama_steward/knowledge/*.md"' in text)
     from halo_harness.ollama_steward import knowledge_files
-    ctx.check("knowledge_files() finds the seven files (3.3.6.0 R3: server-log.md)", len(knowledge_files()) == 7)
+    ctx.check("knowledge_files() finds the eight files (3.3.6.0 R3: server-log.md; R5: benchmarks.md)", len(knowledge_files()) == 8)
 
 
 if __name__ == "__main__":

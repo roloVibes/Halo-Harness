@@ -81,7 +81,8 @@ def _gather_real_flags() -> "dict[str, set]":
     for sub in ("pull", "rm", "load", "unload", "copy", "rename", "twin", "loaded", "show"):  # 3.3.5.0 R3 (+ show --host)
         out[f"halo models {sub}"] = _flags_in(_capture(catalog_cli.cmd_models, [sub, "--help"]))
     from halo_harness.local_cli import cmd_local
-    for sub in ("download", "ls", "rm", "serve", "stop", "servers", "log"):  # 3.3.5.0 R5: Hugging Face local
+    for sub in ("download", "ls", "rm", "serve", "stop", "servers", "log",  # 3.3.5.0 R5: Hugging Face local
+                "bench", "tune", "changes", "revert"):  # 3.3.6.0 R5: the bench, the tuning report, the changes
         out[f"halo local {sub}"] = _flags_in(_capture(cmd_local, [sub, "--help"]))
     out["halo mcp"] = _flags_in(_capture(mcp_cli.cmd_mcp, ["--help"]))
     out["halo mcp list"] = _flags_in(_capture(mcp_cli._cmd_list, ["--help"]))

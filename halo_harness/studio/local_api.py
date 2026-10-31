@@ -19,6 +19,8 @@ route. Never a model call; nothing here writes a server's settings.
                                         3.3.5.0 R3: studio/local_control_api.py (Ollama, controlled)
     local/hf/*, local/download*, local/servers, local/server/<id>/*
                                         3.3.5.0 R5: studio/local_hf_api.py + local_server_api.py (Hugging Face local)
+    local/host/<name>/bench, local/benches   3.3.6.0 R5: studio/local_bench_api.py (the bench, the speed cards)
+    local/host/<name>/tune[/apply], local/changes[/revert|/scope|/apply]   3.3.6.0 R5: studio/local_tune_api.py
 """
 
 from __future__ import annotations
@@ -172,7 +174,9 @@ def dispatch_local(req):
         return got
     from halo_harness.studio.local_card_api import dispatch_card  # 3.3.6.0 R4: measured, the dialect record
     from halo_harness.studio.local_shelf_api import dispatch_shelf  # 3.3.6.0 R4: the shelf, Retire, Re-pull
-    for fn in (dispatch_card, dispatch_shelf):
+    from halo_harness.studio.local_bench_api import dispatch_bench  # 3.3.6.0 R5: the bench, the speed cards
+    from halo_harness.studio.local_tune_api import dispatch_tune  # 3.3.6.0 R5: the tuning report, the changes
+    for fn in (dispatch_card, dispatch_shelf, dispatch_bench, dispatch_tune):
         got = fn(req)
         if got is not None:
             return got

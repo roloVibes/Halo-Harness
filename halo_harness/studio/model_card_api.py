@@ -43,7 +43,7 @@ def view(card: dict, meter: Optional[dict]) -> dict:
                      "speed": card.get("speed"), "probe": _probe_view(card),
                      "sources": dict(card.get("sources") or {}), "params": card.get("params"),  # 3.3.6.0 R2: the truths
                      "speed_chip": _speed_chip(card), "kv_dial": card.get("kv_dial"),  # 3.3.6.0 R4: measured, the dial
-                     "dialect": card.get("dialect")},
+                     "dialect": card.get("dialect"), "speed_card": card.get("speed_card")},  # 3.3.6.0 R5: the bench
             "fit": dict(meter or {"level": "unknown", "at_window": None, "gpu_window": None, "why": ""})}
 
 

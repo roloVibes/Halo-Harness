@@ -81,15 +81,17 @@ def check(state_dir, p: dict, ctx: dict) -> "tuple[Optional[dict], str]":
 
 
 def land(state_dir, props: list, ctx: dict, *, mode_name: str, say: Callable = lambda _s: None,
-         now: Optional[float] = None) -> list:
+         now: Optional[float] = None, scope: str = "until-restart") -> list:
     """Each proposal checked and landed under the mode; the outcomes, in order (3.3.4.0 R5: under the
-    steward's profile lock, so a pass running beside this one cannot land the same change twice)."""
+    steward's profile lock, so a pass running beside this one cannot land the same change twice). 3.3.6.0 R5:
+    each landed change carries `scope` (ollama_steward/changes.py; the steward's own default: until-restart)."""
     from halo_harness.ollama_steward import steward
     with steward.profile_lock(state_dir):
-        return _land(state_dir, props, ctx, mode_name=mode_name, say=say, now=now)
+        return _land(state_dir, props, ctx, mode_name=mode_name, say=say, now=now, scope=scope)
 
 
-def _land(state_dir, props: list, ctx: dict, *, mode_name: str, say: Callable, now: Optional[float]) -> list:
+def _land(state_dir, props: list, ctx: dict, *, mode_name: str, say: Callable, now: Optional[float],
+          scope: str = "until-restart") -> list:
     from halo_harness.ollama_steward import steward
     now = time.time() if now is None else now
     out = []
@@ -105,7 +107,7 @@ def _land(state_dir, props: list, ctx: dict, *, mode_name: str, say: Callable, n
             out.append({**row, "landed": False, "kind": "dropped", "reason": why})
             continue
         if mode_name == "auto":
-            r = steward.apply_change(state_dir, f, change, mode_name="auto", now=now)
+            r = steward.apply_change(state_dir, f, change, mode_name="auto", now=now, scope=scope)
             journal.append(r)
             say(r["say"])
             out.append({**row, "to": change["to"], "landed": True, "kind": "apply", "id": r["id"]})
@@ -118,3 +120,39 @@ def _land(state_dir, props: list, ctx: dict, *, mode_name: str, say: Callable, n
             say(f"steward model proposes {change['field']} {change['to']} for {f['key']} (mode off: not applied)")
             out.append({**row, "landed": False, "kind": "reported"})
     return out
+
+
+def land_user(state_dir, change: dict, *, scope: str = "keep", by: str = "user", why: str = "",
+              session_id: Optional[str] = None, session_pid: Optional[int] = None) -> dict:
+    """3.3.6.0 R5: a change you apply (the tuning report, the KV dial, Settings, the bench's trial settings):
+    checked like a proposal (a profile field, a value of its type, num_ctx at least FLOOR_CTX, num_predict at most
+    half the window, host_for another configured host), written as yours, and its row in changes.jsonl carries
+    `scope` (keep unless you pick another). -> {ok, line, id?}"""
+    from halo_harness.ollama_steward import changes, steward
+    from halo_harness.ollama_steward.profiles import CHANGEABLE, all_profiles, clean, set_field, split_key
+    key, field, to = str(change.get("key") or ""), str(change.get("field") or ""), change.get("to")
+    host, model = split_key(key)
+    if not host or not model:
+        return {"ok": False, "line": f"{key or '(no key)'} names no host and model (<host>|<model>)"}
+    if field not in CHANGEABLE or (to is not None and field not in clean({field: to})):
+        return {"ok": False, "line": f"{field} {to!r} is not a profile change ({', '.join(CHANGEABLE)})"}
+    if scope == "session" and not session_id:
+        return {"ok": False, "line": "session needs a session to end with: open one (or name it), or pick "
+                                     "until-restart or keep"}
+    old = all_profiles().get(key) or {}
+    window = old.get("num_ctx")
+    if field == "num_ctx" and isinstance(to, int) and to < FLOOR_CTX:
+        return {"ok": False, "line": f"num_ctx {to} is under {FLOOR_CTX}"}
+    if field == "num_predict" and isinstance(to, int) and window and to > window // 2:
+        return {"ok": False, "line": f"num_predict {to} is more than half the window ({window})"}
+    if field == "host_for" and to is not None:
+        from halo_harness.providers.ollama import resolve_ollama_hosts
+        if to == host or to not in {h.name for h in resolve_ollama_hosts()}:
+            return {"ok": False, "line": f"{to!r} is not another configured host"}
+    with steward.profile_lock(state_dir):
+        note = f"{by}: {field} {to} ({why})" if why else f"{by}: {field} {to}"
+        set_field(key, field, to, by="user", note=note[:300])
+        row = changes.record(state_dir, by=by, key=key, field=field, before=old.get(field), after=to, scope=scope,
+                             why=why, session_id=session_id, session_pid=session_pid, before_by=old.get("by"))
+    return {"ok": True, "id": row["id"], "line": f"{field} {changes.fmt(old.get(field))} -> {changes.fmt(to)} on "
+                                                 f"{key} ({changes.WORDS[row['scope']]})"}

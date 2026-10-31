@@ -268,3 +268,14 @@ and `isolation/Dockerfile` the worker image.
   shelf`), `studio/local_card_api.py` (the measured and dialect routes), `studio/local_shelf_api.py` (the shelf
   routes), `studio/postmortem_api.py` (`GET sessions/<sid>/postmortem`) and `ui/src/routes/shared/DialectBlock.tsx`,
   `ui/src/routes/local/ShelfBits.tsx`, `ui/src/routes/session/Why.tsx`, `ui/src/styles/model-measured.css`.
+- The bench, the tuning report and the changes' scopes (3.3.6.0 R5, docs/MODELS-cards.md "The speed card: the bench";
+  docs/MODELS-ollama-steward.md "Scopes"): `providers/local_bench.py` (the bench over the gym's send path, the windows,
+  the cost line), `providers/local_bench_runs.py` (the speed card's store, the stale rule, where it shows, the busy
+  wait), `ollama_steward/tune_report.py` (the warm set, the windows per model, the findings),
+  `ollama_steward/tune_options.py` (the options: fit.plan's, the bench's, the server's), `ollama_steward/tune_lines.py` (the per-OS
+  server lines and their reverts, Apply), `ollama_steward/changes.py` (every change's row and scope, revert, the
+  session end and the exit path), `local_bench_cli.py` (`halo local bench | tune | changes | revert`),
+  `studio/local_bench_api.py` (the bench routes), `studio/local_bench_job.py` (the bench jobs, `bench` frames),
+  `studio/local_tune_api.py` (the tuning report and the changes' routes) and `ui/src/routes/local/` `BenchPage.tsx`,
+  `BenchTable.tsx`, `TuneReport.tsx`, `ChangesList.tsx`, `BenchBits.tsx`, `benchstore.ts`, `ui/src/routes/shared/`
+  `ScopePick.tsx`, `KvApply.tsx`, `ui/src/routes/settings/LocalBlock.tsx`, `ui/src/styles/local-bench.css`.

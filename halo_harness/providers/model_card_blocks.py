@@ -218,7 +218,7 @@ def block_lines(b: dict) -> list:
         out += [f"  kv: {b['kv_dial']['text']}"] + ([f"    {b['kv_dial']['crash']}"] if b["kv_dial"].get("crash") else [])
     if (b.get("sits") or {}).get("chip"):
         s = b["sits"]
-        out.append(f"  where it sits: {' · '.join(s.get('chips') or [s['chip']])}{m(s)}")
+        out.append(f"  where it sits: {' · '.join((s.get('chips') or [s['chip']]) + ([s['gpu']] if s.get('gpu') else []))}{m(s)}")
     for key, title in (("use_for", "use it for"), ("dont_use_for", "don't use it for"), ("limits", "limits")):
         if b.get(key):
             out.append(f"  {title}:")
