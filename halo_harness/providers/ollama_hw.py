@@ -273,7 +273,9 @@ def run_via_ssh(user_host: str, *, timeout: float = _GPU_PROBE_TIMEOUT_S):
         ssh_argv = ["ssh", "-o", "BatchMode=yes", "-o", f"ConnectTimeout={max(1, int(timeout))}",
                     user_host, remote_cmd]
         try:
-            result = subprocess.run(ssh_argv, capture_output=True, text=True, timeout=call_timeout)
+            # 3.3.6.0 R3: a remote server log can hold invalid UTF-8 (ollama_steward/server_log_remote.py)
+            result = subprocess.run(ssh_argv, capture_output=True, encoding="utf-8", errors="replace",
+                                    timeout=call_timeout)
         except (OSError, subprocess.TimeoutExpired, ValueError):
             return None
         return result.stdout if result.returncode == 0 else None

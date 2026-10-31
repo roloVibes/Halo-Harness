@@ -245,3 +245,14 @@ and `isolation/Dockerfile` the worker image.
   offer), `studio/local_search_api.py` (the presets, template, verify, assign and crashes routes),
   `doctor_local_ids.py` (dead role ids, Ollama version drift) and `ui/src/routes/local/` `SearchBar.tsx`,
   `SearchFilters.tsx`, `LibraryRowBits.tsx`, `VerifyList.tsx`, `verify.ts`.
+- Logs and diagnostics (3.3.6.0 R3, docs/MODELS-ollama-logs.md, docs/STUDIO-local.md "Logs"):
+  `ollama_steward/server_log_remote.py` (another machine's log over its `ssh:` entry: the read command, base64 bytes,
+  the per-host state, rotation, the journal, Windows), `ollama_steward/log_tail.py` (the bounded tail of any host,
+  `halo ollama log`'s reader, the steward job's remote reads), `ollama_steward/log_status.py` (live, stale, quiet,
+  unreadable, on that machine, missing; the ladder; the line groups), `ollama_steward/fingerprint_facts.py` (the load
+  block: `load-result` events, the load a crash died in, `crashes --why`), `ollama_steward/rules_crash.py` (a crash
+  that repeats proposes the fix), `ollama_steward/cli_logs.py` (`halo ollama log`, `events`, `crashes`),
+  `agent/ollama_log_recovery.py` (the log read after each call drives the recovery, the preflight's evidence),
+  `providers/fit_evidence.py` (the fit badge's evidence), `fleet/control_probes.py` `read_events` / `take_events` (a
+  member's server events on its ledger push), `studio/local_logs_api.py` (the Logs routes) and `ui/src/routes/local/`
+  `LogsPage.tsx`, `LogTail.tsx`, `LogModelRows.tsx`, `logstore.ts`, `ui/src/routes/shared/FitEvidence.tsx`.

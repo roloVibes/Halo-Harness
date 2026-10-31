@@ -96,6 +96,49 @@ version.
 - A Hugging Face library row keeps its tags.
 - The Library's capability, size, family, quant and licence filters moved under the filters' chevron.
 
+### R3: logs and diagnostics -- the host's log is the source of truth
+
+**Added**
+- Remote server logs:
+- a host with an `ssh:` entry has its Ollama log read over that entry, one command per read: `sh -c` on a Mac or Linux (the files or `journalctl -u ollama`), PowerShell on Windows;
+- the whole rotation set by modification time, read as bytes, invalid UTF-8 replaced;
+- the offset or the journal cursor kept per host;
+- the steward's job reads every such host every 30 s;
+- a host with no entry falls to a fleet member's pushed events, else `/api/ps` only.
+- `halo ollama log [--host H] [-n N] [--kind fit|headroom|truncation|failure|all] [--follow]`: the bounded raw tail of any host's log, each line marked with its group.
+- `halo ollama events --host H` reads that host's log (over ssh too) and lists only its events.
+- The log status per host:
+- live, stale, quiet, unreadable, on that machine (no ssh entry) or missing, with `debug: on`;
+- on the hardware card (`log`, `log_path`, `readable`), `halo ollama hardware`, Local -> Hosts and Local -> Logs;
+- the path and the tail command;
+- the debug window said as an action Halo never takes.
+- The log drives recovery. After each call to a host whose log is readable, the loop reads the call's lines (at most 2 s):
+- a cut prompt re-sends from the log's exact `limit / prompt / keep` ("the log shows the prompt was cut at N of M tokens");
+- a spill says its layers and the fit option;
+- a crash is fingerprinted at once and named;
+- a cut reply says the reserve;
+- the ledger line carries `log_events`;
+- the preflight uses the log's last cut of the model as its evidence.
+- Crash forensics:
+- each fingerprint carries the load it died in: the load command, layers, splits, the KV buffers, the KV type and flash attention in force then, the Ollama version, the request's `num_ctx`;
+- `halo ollama crashes --why`;
+- one steward note per new fingerprint;
+- a crash seen twice with the same settings is a `crash-repeats` finding: a smaller window through the apply modes, and f16 KV, flash attention off, a fitted twin and a staged update to start as stated actions.
+- Local -> Logs (Studio), per host:
+- the status line with the path and Copy the tail command;
+- per model: the last load result, this session's cut prompts, the error lines, "crashed here";
+- the newest 200 lines with a kind filter and Live (a 5 s poll);
+- `halo local logs` and `?page=logs` open it;
+- routes `GET local/host/<n>/log`, `/log/status`, `/log/models`.
+- The fit badge cites the log ("verified -- 41/41 layers, splits = 2, 258 tok/s", "spilled -- 59/66 layers, 16 tok/s", "unverified") on the Models rows, an installed Library row, the card's "Fit here" block and `halo models show`.
+- The steward's knowledge: server-log.md (the lines per kind, the gotchas, the proxy recipe). Glossary: log status, load result.
+
+**Changed**
+- A fitted twin's verify line reads "verified -- ..." / "spilled -- ..." / "unverified -- ...", the fit badge's own line.
+- A call whose server log shows its `[GIN]` line and no cut is not called trimmed from the reply counts.
+- `ssh` reads decode as UTF-8 with replacement.
+- `halo ollama events`, `crashes` and the new `log` live in `ollama_steward/cli_logs.py`.
+
 ### Also in 3.3.6.0
 
 #### Changed

@@ -49,8 +49,9 @@ def pull_target(row: dict) -> str:
     return line[len("ollama pull "):].strip() if line.startswith("ollama pull ") else ""
 
 
-def mark_installed(answer: dict) -> dict:
-    """Each row's `pull_target` and `installed` [host names]: read from the catalogs the Hosts page reads."""
+def mark_installed(answer: dict, state_dir=None) -> dict:
+    """Each row's `pull_target` and `installed` [host names]: read from the catalogs the Hosts page reads;
+    3.3.6.0 R3: `fit_evidence` {state, line} on the first host that has it (providers/fit_evidence.py)."""
     from halo_harness.providers.ollama import ollama_names_match, resolve_ollama_hosts
     from halo_harness.providers.ollama_guard import skip_default
     from halo_harness.studio.ollama_hosts_view import catalog_of
@@ -63,6 +64,10 @@ def mark_installed(answer: dict) -> dict:
         target = pull_target(row)
         row["pull_target"] = target
         row["installed"] = [n for n, names in have if target and any(ollama_names_match(target, m) for m in names)]
+        if row["installed"] and state_dir is not None:
+            from halo_harness.providers.fit_evidence import evidence
+            ev = evidence(state_dir, row["installed"][0], target)
+            row["fit_evidence"] = {"state": ev["state"], "line": ev["line"], "host": row["installed"][0]}
     from halo_harness.studio.local_hf_view import mark_on_disk  # 3.3.5.0 R5: a hub row's "on disk in <folder>"
     mark_on_disk(answer.get("rows") or [])
     return answer
@@ -75,14 +80,15 @@ def get_library(req):
                         window=_int(req.query.get("window")), fits=_q(req, "fits") in ("1", "true", "yes"),
                         intent=_q(req, "intent"), family=_q(req, "family"), quant=_q(req, "quant"), cap=_q(req, "cap"),
                         max_gb=_float(req.query.get("max_gb")), license=_q(req, "license"),
-                        page=_int(req.query.get("page")) or 1, search=spec_of(req.query)))
+                        page=_int(req.query.get("page")) or 1, search=spec_of(req.query)), req.state_dir)
 
 
 def get_detail(req, source: str, model_id: str):
     from halo_harness.models_library.browse import detail
     if not model_id:
         return 422, {"error": "which model: local/library/<source>/<id>", "problems": ["id: the model or the repo"]}
-    return 200, mark_installed(detail(req.state_dir, source, model_id, host=_q(req, "host"), window=_int(req.query.get("window"))))
+    return 200, mark_installed(detail(req.state_dir, source, model_id, host=_q(req, "host"), window=_int(req.query.get("window"))),
+                               req.state_dir)
 
 
 def post_refresh(req):

@@ -3053,16 +3053,26 @@ class Session:
             log.debug("ollama: auto-calibration for %s@%s failed", model, host.name, exc_info=True)
 
     def _ollama_trimmed(self, turn_no: int, seen, body: dict, overflow_handled: bool, *,
-                        raw_message: Optional[str] = None, cut_at: Optional[int] = None):
+                        raw_message: Optional[str] = None, cut_at: Optional[int] = None,
+                        log_trim: Optional[dict] = None):
         """Halo 3.2.3.0 R1: one trimmed Ollama request (a `prompt_eval_
         count` far under the estimate, or the 500 "no user query found in
         messages"). Yields the one line; returns `(body, req)` to re-send
         with a raised window, `_OVERFLOW_NEEDS_COMPACTION` to compact and
-        re-send, or None after an error line (a second trim this turn)."""
+        re-send, or None after an error line (a second trim this turn).
+        3.3.6.0 R3: `log_trim` is the server log's own `limit / prompt /
+        keep` (agent/ollama_log_recovery.py): the exact prompt, its line."""
         from halo_harness.agent.ollama_window import body_with_num_ctx, gpu_fits_up_to, trim_recovery
         current = (body.get("options") or {}).get("num_ctx")
+        if log_trim:
+            from halo_harness.agent.ollama_log_recovery import exact
+            exact(self, log_trim)
         kind, num_ctx, line = trim_recovery(self, turn_no, seen, overflow_handled=overflow_handled,
                                             current_num_ctx=current, cut_at=cut_at)
+        if log_trim and kind in ("resend", "compact"):
+            from halo_harness.agent.ollama_log_recovery import trim_said
+            line = trim_said(log_trim, kind, num_ctx, (self._ollama_window_state.get("last") or {}).get("host_name")
+                             or "the Ollama host")
         if kind == "resend":
             yield events.turn_marker("resend", f"↳ {line}", turn=turn_no)
             new_body = body_with_num_ctx(body, num_ctx, gpu_fits_up_to(self))
@@ -4396,6 +4406,11 @@ class Session:
                 from halo_harness.agent.local_failure import after_call  # 3.3.6.0 R1: a cold load, an unverified id
                 for _line in after_call(self, harness_meta, assistant_blocks):
                     yield events.turn_marker("local", f"↳ {_line}", turn=turn_no)
+                # Halo 3.3.6.0 R3: the server log's own lines for this call (agent/ollama_log_recovery.py)
+                from halo_harness.agent.ollama_log_recovery import after_call as _log_after
+                _log = _log_after(self, body, harness_meta)
+                for _line in _log["lines"]:
+                    yield events.turn_marker("local", f"↳ {_line}", turn=turn_no)
                 # Halo 3.2.3.0 R1: Ollama read far fewer tokens than were
                 # sent -- the window trimmed the request.
                 # A reply cut at the window's end is the same "context full".
@@ -4410,11 +4425,12 @@ class Session:
                     # Halo 3.3.4.0 R3: a reply that used up the room the window left it is a cut too
                     from halo_harness.agent.ollama_window_steward import squeezed_cut
                     _cut = squeezed_cut(self, harness_meta.get("done_reason"), _eval, _opts.get("num_predict"))
-                if _cut or (is_trimmed(_seen, last_estimate(self), last_reserve(self))
-                            and not getattr(self, "_preflight_sent_now", False)):  # 3.3.5.0 R4: a chosen cut stands
+                _trim = _log["trim"] if not getattr(self, "_preflight_sent_now", False) else None  # the log's exact cut
+                if _trim or _cut or (not _log["clean"] and is_trimmed(_seen, last_estimate(self), last_reserve(self))
+                                     and not getattr(self, "_preflight_sent_now", False)):  # 3.3.5.0 R4: a chosen cut stands
                     _recovery = yield from self._ollama_trimmed(
-                        turn_no, (_seen + _eval) if _cut else _seen, body, overflow_handled,
-                        cut_at=_opts.get("num_ctx") if _cut else None)
+                        turn_no, _trim["limit"] if _trim else (_seen + _eval) if _cut else _seen, body, overflow_handled,
+                        cut_at=_opts.get("num_ctx") if _cut and not _trim else None, log_trim=_trim)
                     if _recovery is None or _recovery is _OVERFLOW_NEEDS_COMPACTION:
                         return _recovery
                     body, req = _recovery

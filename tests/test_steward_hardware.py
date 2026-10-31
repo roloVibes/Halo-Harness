@@ -216,8 +216,9 @@ def test_a_host_with_nothing_readable(ctx: Ctx):
                   and all(v is None for v in c["server"].values()) and c["loaded"] is None and c["other_users"] is None)
         ctx.check("read_at is set", bool(c["read_at"]))
     lines = format_card(card)
-    ctx.check(f"one 'not read' line per reader: {lines}", [l.split(" (")[0] for l in lines] ==
+    ctx.check(f"one 'not read' line per reader: {lines}", [l.split(" (")[0] for l in lines if not l.startswith("log: ")] ==
               ["not read: server.log", "not read: /api/version and /api/ps", "not read: ssh GPU read"])
+    ctx.check(f"3.3.6.0 R3: the log status says the rung, got {lines[:1]}", lines[0].startswith("log: on that machine, no ssh entry"))
     ctx.check(f"background reads off -> nothing runs: {format_card(local_off)}",
               "not read: nvidia-smi / system_profiler (background reads are off)" in format_card(local_off))
     ctx.check(f"the card writes nothing under the home: {after}", before == after)

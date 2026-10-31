@@ -2,7 +2,7 @@
 127.0.0.1:0 poses as the default host (`OLLAMA_HOST` = it, `ollama.hosts` empty: the host Halo makes up); under
 BRIDGE_TEST_NO_BACKGROUND_NET=1 the server path of the two Roles Chrome tests (`GET models`, the Roles model list),
 Setup's state read (`GET setup/state`), `halo local`'s view and the catalog refresh (`build_local_view`, refresh too),
-Local's Hosts, Models and Library pages (3.3.6.0 R2: the search and Download and verify too), every control route (3.3.6.0 R1: the probe too) and (3.3.5.0 R5) Local -> Hugging Face's routes must send
+Local's Hosts, Models, Library and (3.3.6.0 R3) Logs pages (3.3.6.0 R2: the search and Download and verify too), every control route (3.3.6.0 R1: the probe too) and (3.3.5.0 R5) Local -> Hugging Face's routes must send
 it nothing (a download under the flag reads no hub); without the flag the same
 model list does read it (so the listener is reachable and the pin means something). The rigs' environment pins
 `OLLAMA_HOST` to a refused port when it is unset or names a real address (tests/helpers/chrome_driver.driver_env,
@@ -120,8 +120,9 @@ def test_the_local_view_the_refresh_and_the_local_pages_never_read_it(ctx: Ctx):
         h.api("GET", "local/library", query={"q": "qwen3", "source": "ollama"})
         # 3.3.6.0 R2: the search, its presets and crashes, Download and verify under the flag
         h.api("GET", "local/library", query={"q": "qwen3", "source": "ollama", "preset": "coder", "exclude_crashed": "1"})
-        for path in ("local/library/presets", "local/library/verifies", "local/crashes"):
-            h.api("GET", path)
+        for path in ("local/library/presets", "local/library/verifies", "local/crashes",
+                     "local/host/default/log", "local/host/default/log/status", "local/host/default/log/models"):
+            h.api("GET", path)  # 3.3.6.0 R3: Local -> Logs reads the log file, never the server
         h.api("POST", "local/library/verify", {"host": "default", "name": "qwen3:30b", "role": "verify"})
         h.api("GET", "local/host/default/show", query={"model": "qwen3:30b"})
         for act, body in (("load", {"model": "qwen3:30b"}), ("unload", {"model": "qwen3:30b"}), ("pull", {"name": "qwen3:30b"}), ("delete", {"name": "qwen3:30b", "force": True}),

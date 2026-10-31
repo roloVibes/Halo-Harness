@@ -10,8 +10,10 @@
 // 3.3.5.0 R4: "warm" / "cold (~N s to load)", "cache reused N %" and a card quirk ("re-reads the whole prompt every turn").
 // 3.3.6.0 R1: where it sits (the battery's placement chip), "probed <date> · re-probe", the twin chips, the Probe
 // action with its progress strip (ProbeBits.tsx); the detail adds the card's four blocks (shared/ModelCardBlocks.tsx).
+// 3.3.6.0 R3: the fit badge's evidence, the last load as the server log says it (shared/FitEvidence.tsx).
 import { Button, FitMeter, Menu } from "../../lib/ui";
 import { CardChips, CardDetail } from "../shared/ModelCard";
+import { FitEvidenceChip } from "../shared/FitEvidence";
 import { SitsChips } from "../shared/ModelCardBlocks";
 import { ProbeAction, ProbedMark, ProbeStrip, TwinChips } from "./ProbeBits";
 import { line, openAct } from "./ctl";
@@ -62,6 +64,7 @@ export function ModelRow({ m, host, score }: { m: ModelEntry; host: string; scor
         <CardChips card={m.card} />
         <SitsChips blocks={card.blocks} />
         <FitMeter fit={m.fit} />
+        <FitEvidenceChip ev={card.fit_evidence} testid="local-model-fit-evidence" />
         <TwinChips m={m} host={host} />
         <span className="spacer" />
         {m.size ? <span className="mono muted" title="the model's size on disk (/api/tags)">{gib(m.size)}</span> : null}

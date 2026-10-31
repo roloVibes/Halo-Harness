@@ -6,7 +6,8 @@ its models.
         available_bytes}], unified, ram_bytes, server: {version, max_loaded,
         parallel, keep_alive, kv_cache_type, flash_attention, gpu_overhead,
         source}, loaded: [{model, size, size_vram, expires}],
-        other_users: [{name, bytes}], read_at, sources: [...]}
+        other_users: [{name, bytes}], read_at, sources: [...], log (3.3.6.0 R3:
+        log_status.status's state, path, readable, line), log_path, readable}
 
 Every field is None when unknown. The readers run in this order, each one
 optional (`hardware_readers.py`): (a) the local server log's newest
@@ -140,7 +141,21 @@ def hardware_card(host=None, *, log_path=None, api: Optional[Callable] = None, r
     else:
         _note(card, reader, False, why)
     _unattributed(card)
+    card["log"] = _log(host, log_path, platform)  # 3.3.6.0 R3: is its server log live (log_status.py)
+    card["log_path"], card["readable"] = (card["log"] or {}).get("path"), bool((card["log"] or {}).get("readable"))
     return card
+
+
+def _log(host, log_path, platform) -> Optional[dict]:
+    if host is None:
+        return None
+    try:
+        from halo_harness.config.paths import bridge_home
+        from halo_harness.ollama_steward.log_status import status
+        st = status(bridge_home(), host, platform=platform, path=log_path)
+        return {k: st.get(k) for k in ("state", "path", "readable", "last_line_at", "line", "debug", "why", "rung")}
+    except Exception:
+        return None
 
 
 _SETTINGS_TTL_S = 300.0
@@ -211,6 +226,8 @@ def format_card(card: dict, *, host_name: str = "") -> "list[str]":
     if card["other_users"]:
         lines.append("other: " + "; ".join(f"{u['name']}" + (f" {_gib(u['bytes'])}" if u["bytes"] else "")
                                            for u in card["other_users"]))
+    if card.get("log"):
+        lines.append(f"log: {card['log']['line']}")
     for src in card["sources"]:
         if not src["ok"]:
             lines.append(f"not read: {src['reader']} ({src['detail']})")

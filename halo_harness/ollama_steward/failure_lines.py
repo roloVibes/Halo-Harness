@@ -5,7 +5,8 @@ agent/local_failure.py). `server_events.record_events` passes every event
 through `explain` before it is written, so the steward's findings, the
 Local tab's traffic and `halo ollama events` say the same line.
 
-    explain(event, state_dir) -> the event, its `say` ending in the fix and `fix` set when a rule applies
+    explain(event, state_dir, fingerprint=None) -> the event, its `say` ending in the fix and `fix` set when a rule
+        applies (3.3.6.0 R3: a crash with its fingerprint ends in the fingerprint's line, profile or not)
     swap_line(models, host, state_dir) -> "two models can't co-reside on this card: ..." | ""
 
     cpu-spill   "it didn't fit (59/66 layers on GPU): lower the window to <usable> or use <smaller model>"
@@ -38,9 +39,12 @@ def _smaller(state_dir, model: str, size_gb) -> str:
     return f"ol:{rows[0]['model']}" if rows else "a smaller model"
 
 
-def explain(ev: dict, state_dir) -> dict:
+def explain(ev: dict, state_dir, fingerprint: Optional[dict] = None) -> dict:
     try:
         kind, model, d = ev.get("kind"), ev.get("model"), ev.get("data") or {}
+        if fingerprint:  # 3.3.6.0 R3: a crash the loop read off the log names its fingerprint (fingerprints.py)
+            fix = f"{fingerprint.get('line') or 'crashed here'} (halo ollama crashes --why)"
+            return {**ev, "say": f"{ev.get('say')} -- {fix}" if ev.get("say") else fix, "fix": fix}
         p = _profile(state_dir, model, ev.get("host"))
         if not p:  # the fix is read off the battery's profile: an unprobed model's event stays as the rule said it
             return ev

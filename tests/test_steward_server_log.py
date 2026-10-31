@@ -51,9 +51,9 @@ def _home() -> Path:
 def test_every_rule_fires_once_with_r1s_corrections(ctx: Ctx):
     evs = _events("every-rule.txt")
     kinds = [e["kind"] for e in evs]
-    want = ["startup", "cpu-spill", "cpu-spill", "slow-load", "prompt-trimmed", "reply-cut", "window-full",
+    want = ["startup", "cpu-spill", "cpu-spill", "slow-load", "load-result", "prompt-trimmed", "reply-cut", "window-full",
             "no-user-query", "cancel-task", "retry-loop", "client-gave-up", "load-failed", "gpu-memory", "queue-full",
-            "other-error", "http-500"]
+            "other-error", "http-500"]  # 3.3.6.0 R3: load-result (fingerprint_facts.LoadTracker)
     ctx.check(f"one event per rule, got {kinds}", kinds == want)
     by = {e["kind"]: e for e in evs}
     t = by.get("prompt-trimmed", {})
