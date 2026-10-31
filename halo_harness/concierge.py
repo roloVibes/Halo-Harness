@@ -14,10 +14,10 @@ Three surfaces:
     session log, never touching the main conversation) over a
     deterministic digest of the recent session history + the pending
     status notices.
-  * the eyes -- when the ACTIVE model is blind (`ModelProfile.vision`
-    False) and images arrive, the concierge describes each one and the
-    description enters the turn's context as a snapshot: the main turn
-    proceeds with real image understanding it could never have itself.
+  * the eyes -- when the ACTIVE model is blind and images arrive, a
+    concierge that sees is the describer of the eyes offer (3.3.6.0 R6:
+    agent/eyes_offer.describer, agent/eyes_turn.py): its description
+    enters the turn as a snapshot and the main turn goes on with it.
   * the notice digest -- a pending-notice block (round 0b) that would
     reach the main model verbatim is digested to a couple of lines by the
     concierge; the model sees frame + digest, the full text is preserved
@@ -127,49 +127,6 @@ def ask_concierge(session, question: str, *, timeout_s: float = 60.0) -> str:
                  f"Question: {question}")
     return session.call_small_model(system_text=system_text, user_text=user_text,
                                     model_ref=ref, timeout_s=timeout_s)
-
-
-# ---- the eyes: describe images for a blind active model --------------------------
-
-def describe_images_for_blind_model(session, images: list, *, timeout_s: float = 45.0) -> Optional[str]:
-    """When the ACTIVE model cannot see images and the concierge can, one
-    call describes every attached image; the return value is the snapshot
-    text to fold into the turn (None = no concierge, no vision, or the
-    call failed -- the turn proceeds exactly as before)."""
-    if not images:
-        return None
-    if getattr(session.model_profile, "vision", False):
-        return None  # the active model sees them itself
-    resolved = resolve_concierge(session)
-    if resolved is None:
-        return None
-    ref, profile = resolved
-    if not getattr(profile, "vision", False):
-        return None  # the concierge is blind too -- nothing to add
-    try:
-        from halo_harness.agent import image_attach
-        vision_images = []
-        for img in images:
-            if isinstance(img, dict) and img.get("type") == "image":
-                vision_images.append(img)
-        if not vision_images:
-            return None
-        labels = ", ".join(image_attach.path_mention_text(img) for img in vision_images)
-        description = session.call_small_model(
-            system_text="You are the eyes for a coding session whose main model cannot see "
-                        "images. Describe each image concretely and compactly (what it shows, "
-                        "any text it contains, anything actionable), one labeled paragraph per "
-                        "image. These descriptions are all the main model will ever see of them.",
-            user_text="Describe these images for the main agent.",
-            model_ref=ref, timeout_s=timeout_s, images=vision_images,
-        )
-    except Exception:
-        return None
-    if not description or not description.strip():
-        return None
-    return (f"[concierge eyes -- the active model cannot see images; "
-            f"here is what they contain]\n{description.strip()}\n"
-            f"(attached as files: {labels})")
 
 
 # ---- the notice digest -----------------------------------------------------------

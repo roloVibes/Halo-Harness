@@ -135,7 +135,8 @@ class _BaseHandle:
         data.update(session_id=self.session_id, cwd=str(self.cwd), title=self.title(), busy=bool(self.session.busy),
                     kind=self.kind, pid=os.getpid(), pending=self._pending(),
                     remote_attached=len(self._remote_peers), agents=_live_agents(self.session),
-                    preflight=getattr(self.session, "_preflight_pending", None))  # 3.3.5.0 R4: {id, line, switch_to}
+                    preflight=getattr(self.session, "_preflight_pending", None),  # 3.3.5.0 R4: {id, line, switch_to}
+                    eyes=getattr(self.session, "_eyes_pending", None))  # 3.3.6.0 R6: {id, line, choices, default}
         return data
 
     def tail(self, n: int = 20) -> str:
@@ -203,8 +204,8 @@ class _BaseHandle:
         return ok
 
     def answer_approval(self, request_id: str, action: str, *, instruction: str = "") -> bool:
-        if action not in ("accept", "edit", "stop", "compact", "switch", "send"):  # 3.3.5.0 R4: the preflight's three
-            raise HandleError(f"approval action must be accept, edit, stop, compact, switch or send, got {action!r}")
+        if action not in ("accept", "edit", "stop", "compact", "switch", "send", "lane", "describe"):  # R4 preflight, R6 eyes
+            raise HandleError(f"approval action must be accept, edit, stop, compact, switch, send, lane or describe, got {action!r}")
         ok = self.session.resolve_approval(request_id, {"action": action, "instruction": instruction or None})
         if ok:
             self._note(f"approval {action}")

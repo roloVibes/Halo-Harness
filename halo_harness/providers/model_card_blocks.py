@@ -110,7 +110,21 @@ def _expected(card: dict) -> "tuple[list, list, str]":
     return ([{"text": use, "mark": _mark(card, "purpose")}] if use else []), [{"text": d, "mark": E} for d in dont], sits
 
 
+def _eyes(card: dict) -> "tuple[list, list]":
+    """3.3.6.0 R6: "reads images (verified)" in use-it-for, "cannot see images (declared)" in don't (vision_fact)."""
+    v, t = card.get("vision"), card.get("vision_truth") or E
+    return ([{"text": "reads images", "mark": t}] if v else []), ([{"text": "cannot see images", "mark": t}] if v is False else [])
+
+
 def blocks(card: dict, profile: Optional[dict] = None) -> dict:
+    out = _blocks(card, profile)
+    use, dont = _eyes(card)
+    out["use_for"] = [x for x in out.get("use_for") or [] if x.get("text") != "reading images"] + use
+    out["dont_use_for"] = list(out.get("dont_use_for") or []) + dont
+    return out
+
+
+def _blocks(card: dict, profile: Optional[dict] = None) -> dict:
     if profile:
         return {"use_for": _use(profile), "dont_use_for": _dont(profile),
                 "sits": {"chip": profile.get("sits"), "chips": list(profile.get("chips") or []), "mark": V},
@@ -127,7 +141,7 @@ CARD_ROLES_FROM_PROFILE = ("orchestrator", "coder", "reviewer")  # small (size) 
 PROFILE_KEYS = ("tools", "system_role", "instruction", "output", "output_why", "identifiers", "reasoning", "window",
                 "kv_per_token", "size_gb", "speed", "resident", "interactive", "quirks", "agentic_ready", "probed_at",
                 "digest", "ollama_version", "probe_set", "sits", "chips", "host", "model",
-                "tool_call_accuracy", "tool_call_why")  # 3.3.6.0 R4: the multi-tool probe
+                "tool_call_accuracy", "tool_call_why", "vision", "vision_why")  # 3.3.6.0 R4 multi-tool, R6 vision
 
 
 def profile_of(state_dir, ref, host, row) -> Optional[dict]:

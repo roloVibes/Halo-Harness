@@ -8,6 +8,8 @@ a role whose model lacks the capability it needs FAILs with the fix.
 The main model is checked as `main`, each `roles.<name>` entry as its role.
 A role on a model the battery never ran on passes with the line that runs
 it ("not probed yet: halo models probe <ref>"); a cloud role is not listed.
+3.3.6.0 R6: a `visual` (or `eyes`) lane on a model the vision probe found
+blind is a WARN with the fix (`halo models --vision` lists the ones that see).
 No request: the capability cache only.
 """
 
@@ -41,7 +43,10 @@ def role_steps(state_dir, *, role_table: Optional[dict] = None, main_ref: Option
                         "reason": f"{ref}: not probed yet: halo models probe {ref}"})
             continue
         v = verdict(p, role, state_dir=state_dir)
-        if v["ok"] is False:
+        if role in ("visual", "eyes", "vision") and p.get("vision") == "no":  # 3.3.6.0 R6: a lane that cannot see
+            out.append({"step": f"role {role}", "ok": True, "elapsed_s": 0.0, "tag": "WARN",
+                        "reason": f"{ref}: {v['why']}; fix: {v['fix']}"})
+        elif v["ok"] is False:
             out.append({"step": f"role {role}", "ok": False, "elapsed_s": 0.0,
                         "reason": f"{ref}: {v['why']}; fix: {v['fix']}"})
         else:

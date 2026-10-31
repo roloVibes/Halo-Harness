@@ -646,10 +646,20 @@ class JsonReply:
     """One `request_json` answer: `body` on a 200, else `None` with
     `failure` = "timeout" (the socket read ran past `timeout`),
     "unreachable" (the connect phase failed), "http" (a non-200, `status`
-    set) or "error" (bad JSON, a malformed response)."""
+    set) or "error" (bad JSON, a malformed response). 3.3.6.0 R6: `error` is
+    the server's own `error` text of a non-200 (the vision probe reads it)."""
     body: object = None
     failure: Optional[str] = None
     status: Optional[int] = None
+    error: Optional[str] = None
+
+
+def _error_text(raw: bytes) -> Optional[str]:
+    try:
+        got = json.loads(raw.decode("utf-8", "replace")) if raw else None
+    except ValueError:
+        return raw.decode("utf-8", "replace")[:300] if raw else None
+    return str(got.get("error"))[:300] if isinstance(got, dict) and got.get("error") else None
 
 
 def request_json(host: OllamaHost, path: str, *, timeout: float = _READ_TIMEOUT_S,
@@ -679,7 +689,7 @@ def request_json(host: OllamaHost, path: str, *, timeout: float = _READ_TIMEOUT_
         raw = resp.read()
         if resp.status != 200:
             log.debug("ollama: %s %s -> HTTP %s", method, full_path, resp.status)
-            return JsonReply(failure="http", status=resp.status)
+            return JsonReply(failure="http", status=resp.status, error=_error_text(raw))
         return JsonReply(body=json.loads(raw.decode("utf-8", "replace")) if raw else {}, status=200)
     except UpstreamConnectError as e:
         log.debug("ollama: %s %s unreachable: %s", method, full_path, e)

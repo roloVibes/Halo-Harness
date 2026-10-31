@@ -212,6 +212,23 @@ version.
 - Settings' edits of `ollama.profiles` are changes with a scope (keep).
 - Local -> Benchmarks is built (it was a placeholder page); Steward is still a placeholder.
 
+### R6: eyes -- a screenshot tool, and which models can see
+
+#### Added
+- The `Screenshot` tool: the whole screen, a window by title or a region (Windows through PowerShell's System.Drawing, the Mac through `screencapture -x`, Linux through grim / spectacle / gnome-screenshot / scrot / import), saved in the session's images folder; a model that sees gets the image, one that cannot gets the path, the size and the ways on.
+- `/screenshot [window <title> | region x,y,w,h | display <n>]` in the TUI: the capture attached to your next prompt.
+- Which models can see: one vision fact per model -- verified by the battery's new one-image probe (a 1 px PNG, one tiny call; the probe set is now battery-3), declared by `/api/show`, a projector, a Hugging Face config or the catalog, expected from the family -- with its source.
+- The eye chip ("sees" / "no eyes" / "eyes?") on every model row: Local's Library, Models and Loaded now (with a count of the loaded models that can see), the model picker, Setup's Default model, Settings' model row.
+- `halo models --vision`; the `vision:` line in `halo models show`; a WARN in `halo doctor --local` for a visual lane on a model that cannot see.
+- Studio's steer takes an image: Ctrl+V or a dropped file becomes a chip (name, size, w x h; 5 MB at most) and rides with the steer; a Screenshot button in the Live header attaches the harness's own capture.
+- The eyes offer: before an image goes to a model that cannot see, one line and three ways on -- this turn on the visual lane (`roles.visual`), a model that sees describes it into the turn, or the text alone -- as a menu in the TUI and buttons in Studio; each choice is a rung of the degradation ladder.
+
+#### Changed
+- A model that cannot see no longer has an image dropped without a word, and a local model that sees (per its card) now gets images as images even when its catalog profile says nothing.
+- A steer sent while a turn runs keeps its image: it lands at the steer's safe point.
+- The capability battery is about nine requests now (the image probe); every cached profile re-runs once.
+- The card's blocks say "reads images" or "cannot see images" with the truth; the `eyes` role follows the fact.
+
 ### Also in 3.3.6.0
 
 #### Changed

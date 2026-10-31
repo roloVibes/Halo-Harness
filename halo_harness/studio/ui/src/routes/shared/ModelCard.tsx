@@ -13,6 +13,7 @@ import { Button } from "../../lib/ui";
 import { FitMeter, type Fit } from "../../lib/ui/FitMeter";
 import type { SpeedCard } from "../local/benchstore";
 import type { FitEvidenceView } from "./FitEvidence";
+import { EyeChip, eyeOf } from "./EyeChip"; // 3.3.6.0 R6
 import { CardBlocks, type CardBlocksView } from "./ModelCardBlocks";
 
 export type CardView = {
@@ -25,7 +26,11 @@ export type CardView = {
   purpose?: string;
   thinks?: string;
   tools?: string;
-  vision?: boolean;
+  /** 3.3.6.0 R6: true / false / null (nothing says), its truth and `sources.vision` (providers/vision_fact.py). */
+  vision?: boolean | null;
+  vision_truth?: string | null;
+  embedding_only?: boolean;
+  sources?: Record<string, string>;
   kind?: string;
   window?: { tokens: number | null; source?: string };
   /** 3.3.6.0 R1: the battery's profile in words (providers/model_card_blocks.py), each role's mark, the probe. */
@@ -47,19 +52,23 @@ type Offer = { lineup: string; coder: string; orchestrator: string; why: string;
 type Check = { line: string; offer: Offer | null; offer_line: string };
 type CardAnswer = CardFields & { ref: string; check: Check | null };
 
-const ORDER = ["think", "tools", "vision", "purpose", "window"];
+const ORDER = ["think", "tools", "purpose", "window"]; // 3.3.6.0 R6: the eye chip stands where "vision" was
 const ROLE_WORDS: Record<string, string> = { orchestrator: "orchestrator", coder: "coder lane", reviewer: "reviewer", small: "small", eyes: "eyes" };
 
 export function CardChips({ card }: { card?: CardView }) {
   if (!card) return null;
+  const chip = (k: string) => (
+    <span key={k} className="og-chip mono mcard-chip" data-chip={k} data-value={card.chips[k]}
+          title={k === "window" ? `window ${card.window?.tokens ?? "?"} (${card.window?.source || "unknown"})` : undefined}>
+      {card.chips[k]}
+    </span>
+  );
+  const shown = ORDER.filter((k) => card.chips?.[k]);
   return (
     <span className="mcard-chips" data-testid="model-card-chips">
-      {ORDER.filter((k) => card.chips?.[k]).map((k) => (
-        <span key={k} className="og-chip mono mcard-chip" data-chip={k} data-value={card.chips[k]}
-              title={k === "window" ? `window ${card.window?.tokens ?? "?"} (${card.window?.source || "unknown"})` : undefined}>
-          {card.chips[k]}
-        </span>
-      ))}
+      {shown.filter((k) => k === "think" || k === "tools").map(chip)}
+      {!card.embedding_only && <EyeChip fact={eyeOf(card)} />}
+      {shown.filter((k) => k !== "think" && k !== "tools").map(chip)}
     </span>
   );
 }

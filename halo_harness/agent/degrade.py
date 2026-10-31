@@ -8,6 +8,8 @@ explicit pass down the rungs, each rung one visible line, never a loop.
     ledger_rungs(session) -> this turn's rungs taken [{rung, trigger, line}] | None   (the ledger line's `ladder`)
     note_body(body, note) -> body with one more user message (the repair rung's re-ask)
     midturn(session, turn_no) -> a generator: the `tool_failures` trigger between tool rounds
+    eyes_rung(session, turn_no, choice, line) -> a generator: 3.3.6.0 R6's "needs eyes" rung (agent/eyes_turn.py):
+        the visual lane, a description by a model that sees, or the text alone -- one marker, kept in the pass
 
 The rungs, in the default order:
     repair       the dialect's repair loop: the call asked once more with what was wrong (an empty reply, no
@@ -34,7 +36,8 @@ from halo_harness import events
 log = logging.getLogger("bridge")
 
 RUNGS = ("repair", "smaller-ask", "other-local", "cloud", "ask")
-TRIGGERS = ("empty", "no-tools", "no-json", "cut-twice", "crash", "low_confidence", "tool_failures", "context_overflow")
+TRIGGERS = ("empty", "no-tools", "no-json", "cut-twice", "crash", "low_confidence", "tool_failures", "context_overflow",
+            "needs-eyes")  # 3.3.6.0 R6: an image for a model that cannot see (eyes_rung)
 REPAIRABLE = ("empty", "no-json")
 SMALL_TOOLS = 6
 NOTES = {"empty": "Your last reply was empty. Answer now, in plain text (or with one tool call).",
@@ -42,7 +45,7 @@ NOTES = {"empty": "Your last reply was empty. Answer now, in plain text (or with
 WORDS = {"empty": "an empty reply", "no-tools": "no tool call from a model without tool calling",
          "no-json": "a reply that did not parse", "cut-twice": "the prompt cut twice", "crash": "the server crashed",
          "low_confidence": "an unsure answer", "tool_failures": "two failed tool calls",
-         "context_overflow": "the window overflowed"}
+         "context_overflow": "the window overflowed", "needs-eyes": "an image for a model that cannot see"}
 
 
 def rungs() -> list:
@@ -200,3 +203,11 @@ def midturn(session, turn_no: int):
     act = yield from step(session, turn_no, "tool_failures", None)
     if act and act["do"] == "stop":
         session._ladder_stop = True
+
+
+def eyes_rung(session, turn_no: int, choice: str, line: str):
+    """3.3.6.0 R6: "needs eyes -> the visual lane" (or a description, or the text alone): the offer's choice taken as
+    a rung of this turn's pass, one marker line, whatever `local.ladder` says (a choice, never a fallback)."""
+    p = _pass(session, turn_no)
+    p["taken"].append({"rung": "eyes", "trigger": "needs-eyes", "line": line, "choice": choice})
+    yield events.turn_marker("ladder", f"↳ eyes -- {line}", turn=turn_no)

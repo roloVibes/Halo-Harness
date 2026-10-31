@@ -117,6 +117,7 @@ async def handle_slash(app, name: str, args: str) -> None:
         # `/images` lists/clears pending attachments -- both act directly
         # on `app.prompt_input`, no Controller/session round trip at all.
         "paste": _handle_paste, "images": _handle_images,
+        "screenshot": _handle_screenshot,  # 3.3.6.0 R6: a capture, attached like /paste
         # Halo 2.0.5 round 2 (deliverable 4): "/agents"/"/teams" (list,
         # new, edit, duplicate/delete, activate) open the SAME form
         # module the wizard uses -- every OTHER subcommand (show/
@@ -1945,6 +1946,31 @@ async def _handle_paste(app, args: str) -> None:
     dims = sniff_dimensions(data)
     width, height = dims if dims else (None, None)
     app.prompt_input.add_image_chip(path=path, width=width, height=height, media_type=media_type)
+
+
+async def _handle_screenshot(app, args: str) -> None:
+    """3.3.6.0 R6: `/screenshot [window <title> | region x,y,w,h | display <n>]` -- one capture of this machine's
+    display (tools/screenshot.py), off the UI thread, saved in the session's images folder and attached to the
+    next prompt the way `/paste` attaches a file (the chip)."""
+    app.run_worker(lambda: _screenshot_worker(app, args), thread=True, name="screenshot")
+
+
+def _screenshot_worker(app, args: str) -> None:
+    from halo_harness.tools.screenshot import capture_for, parse_args
+    session = getattr(app.controller, "session", None)
+    sid = getattr(getattr(session, "log", None), "session_id", None)
+    inp = parse_args(args)
+    try:
+        got = capture_for(sid, inp.pop("target"), **inp)
+    except Exception as e:
+        got = {"ok": False, "say": f"{type(e).__name__}: {e}"}
+    if not got.get("ok"):
+        app.call_from_thread(app.transcript.add_note, f"/screenshot: {got.get('say')}", kind="error")
+        return
+    from pathlib import Path
+    app.call_from_thread(app.prompt_input.add_image_chip, path=Path(got["path"]), width=got.get("width"),
+                         height=got.get("height"), media_type="image/png")
+    app.call_from_thread(app.transcript.add_note, f"/screenshot: {got['say']}; attached to your next prompt", kind="note")
 
 
 def _paste_clipboard_image_worker(app) -> None:

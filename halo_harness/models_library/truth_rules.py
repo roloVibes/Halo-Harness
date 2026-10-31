@@ -170,14 +170,9 @@ def abliterated(row, card, p):
 
 
 def vision(row, card, p):
-    src = (card.get("sources") or {}).get("vision")
-    if int(row.get("projector_bytes") or 0) > 0:
-        return fact(True, D, "a projector (mmproj) in its files")
-    if card.get("vision") is True:
-        return fact(True, source_truth(src) or E, src or "the name")
-    if card.get("vision") is False and source_truth(src) == D:
-        return fact(False, D, src)
-    return None
+    from halo_harness.providers.vision_fact import vision_of  # 3.3.6.0 R6: the one source (the probe, then metadata)
+    f = vision_of(card, row, p)
+    return None if f["value"] is None else fact(f["value"], f["truth"], f["source"])
 
 
 def audio(row, card, p):

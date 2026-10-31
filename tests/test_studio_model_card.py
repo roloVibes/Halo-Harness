@@ -58,8 +58,12 @@ def _got(ctx: Ctx) -> dict:
 def test_the_roles_picker_rows_carry_the_card_and_the_meter(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"the chips per row, got {got.get('picker_chips')}",
-              got.get("picker_chips") == ["no tools coder 64k", "tools instruct 128k", "thinks tools vision instruct 64k"])
+              got.get("picker_chips") == ["no tools coder 64k", "tools instruct 128k", "thinks tools instruct 64k"])
     ctx.check(f"a meter per row with its level, got {got.get('picker_levels')}", got.get("picker_levels") == ["tight", "fits", "fits"])
+    eyes = got.get("picker_eyes") or []
+    ctx.check(f"3.3.6.0 R6: the eye chip on every row, its source in the title, got {eyes}",
+              len(eyes) == 3 and [e[0] for e in eyes] == ["no", "no", "sees"] and "declared" in str(eyes[2][1])
+              and "/api/show capabilities" in str(eyes[2][1]))
     detail = got.get("picker_detail") or []
     # the five "how Halo calls it" lines come first; since 3.3.6.0 R1 the card's
     # blocks (use it for / don't / where it sits / limits) follow them

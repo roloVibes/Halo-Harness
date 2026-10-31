@@ -332,6 +332,12 @@ async def _show_approval_card(app, data: dict, *, agent_id: "str | None" = None)
                              on_decide=on_decide)
         await app.enqueue_pending_card(card, marker_text="⏸ the prompt is larger than the window, see below")
         return
+    if position == "eyes":  # Halo 3.3.6.0 R6: the visual lane (Enter) / a description / the text without it
+        from halo_harness.tui.widgets.eyes_card import EyesCard
+        card = EyesCard(request_id=request_id, text=data.get("text", ""), choices=data.get("choices") or [],
+                        on_decide=on_decide)
+        await app.enqueue_pending_card(card, marker_text="⏸ the model cannot see the image, see below")
+        return
     card = ApprovalCard(request_id=request_id, position=position, text=data.get("text", ""),
                          is_error=bool(data.get("is_error")), on_decide=on_decide)
     await app.enqueue_pending_card(card, marker_text=f"⏸ approval needed for {position}, see below")

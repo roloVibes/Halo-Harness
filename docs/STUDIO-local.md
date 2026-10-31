@@ -243,7 +243,7 @@ first, declared second, expected last), then fits at the window, measured speed,
 has its own rank line.
 
 **Download and verify** (`local-library-verify`) is one job: the pull (its bar), then the battery on the new tag
-(about 8 requests, 1-3 minutes), the profile written, then the role offer ("assign `verify` to ol:qwen3:8b@box?"):
+(about 9 requests, 1-3 minutes), the profile written, then the role offer ("assign `verify` to ol:qwen3:8b@box?"):
 **Assign** puts the model on that role of the active lineup (applied again) or of `local-<preset>`. Nothing downloads
 until it is pressed; the Jobs list shows both stages. **A model that crashed here** shows its fingerprint's line
 ("crashed here on <date>: CUDA error (an illegal memory access) after a spill at 65,536 with q8_0 KV"); **exclude:
@@ -377,3 +377,6 @@ Every route of the section (`GET local/hosts`, `local/models`, the Library's, th
 Hugging Face downloads and servers, 3.3.6.0 R4's measured card, dialect record and shelf, R5's bench, tuning report
 and changes) and its live frames are in
 [STUDIO-local-routes.md](STUDIO-local-routes.md).
+
+Loaded now's eyes (3.3.6.0 R6): each loaded model's row carries the eye chip, and the header counts how many of them
+can see images, so the model that sees is loaded before a screenshot is shared ([MODELS-vision.md](MODELS-vision.md)).
