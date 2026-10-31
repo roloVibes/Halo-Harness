@@ -31,7 +31,10 @@ export type HostCard = {
   managed?: Managed; // 3.3.5.0 R5: a server Halo started (source "managed server")
   /** 3.3.6.0 R3 (ollama_steward/log_status.py): is its server log live, the path, the tail command. */
   log?: { state: string; line: string; path: string; why: string; debug: boolean; tail_cli: string; rung: string } | null;
+  host?: HostBlock | null; // 3.3.7.0 R1: the paired halo host that serves it (ollama_steward/host_reads.host_block)
 };
+export type HostBlock = { addr: string; url: string; name: string | null; started: number | null; last_seen: number | null;
+  audit_count: number | null; error: string };
 export type Managed = {
   id: string; pid: number | null; port: number; model: string; model_path: string; flags: ServeFlags; sources: Record<string, string>;
   ready: boolean; alive: boolean; keep: boolean; log: string; stop_cli: string; log_cli: string;

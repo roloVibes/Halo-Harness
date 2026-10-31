@@ -278,6 +278,8 @@ The job (`ollama_steward/probe_new.py`) runs the battery ([MODELS-cards.md](MODE
 on one model of a host this machine serves with no profile for its digest and Ollama version, one at a time, only after
 3 minutes with no call in the ledger, asking the host at most every 5 minutes (`ollama.steward.probe_new: false`: off).
 A server event on a probed model ends in its fix ([MODELS-cards.md](MODELS-cards.md#when-a-local-model-fails-the-line-says-why-3360)).
+3.3.7.0 R1: the watch also runs on the machine that serves the models, in `halo host` ([HOST.md](HOST.md)) with no
+session open (`where: host`: the rules only report, no model writes a note), and every paired harness reads it there.
 
 ## Crash fingerprints (3.3.6.0 R2)
 

@@ -4,7 +4,7 @@ job's lock and its status file.
 - `acquire(state_dir, where)`: the OS lock on `<state>/ollama/steward-job.lock`
   (filelock's primitive, held on an open handle for the job's life: one job per
   state dir across every process); a second one does not start and names the holder.
-- `<state>/ollama/steward-job.json` (`update`, `read`): {pid, where ("studio" |
+- `<state>/ollama/steward-job.json` (`update`, `read`): {pid, where ("studio" | "host" (3.3.7.0 R1) |
   "hub" | "watch"), machine, since, running, model, model_why, last_run {at,
   mode, findings, applied, proposed, rolled_back}, last_note {at, line}, idle,
   error, stopped}.
@@ -136,7 +136,7 @@ def format_status(st: dict, *, last_note: Optional[dict] = None) -> "list[str]":
         out = [f"steward job: running in {st.get('where')} (pid {st.get('pid')} on {st.get('machine') or 'this machine'})"
                f" since {_when(st.get('since'))}"]
     else:
-        out = ["steward job: not running (it starts with Studio or the fleet hub; `halo ollama steward --watch` runs "
+        out = ["steward job: not running (it starts with Studio, the fleet hub or `halo host`; `halo ollama steward --watch` runs "
                "it here)" + (f"; the last one stopped {_when(st.get('stopped'))}" if st.get("stopped") else "")]
     run = st.get("last_run") or {}
     if run:

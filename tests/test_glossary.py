@@ -33,7 +33,7 @@ BRIEF = ("lineup", "bio", "role", "tier", "team", "member", "block", "stage", "l
          "gate", "claim", "hand-off", "plan", "coach", "orchestra run", "fleet", "hub", "harness", "capability", "unit",
          "pack", "guided first run", "setup", "provider", "env file",
          "config key", "steward", "profile", "fit plan",
-         "host", "speed card", "library", "quant",
+         "host", "grant", "peer", "speed card", "library", "quant",
          "declared", "expected", "verified", "fingerprint",
          "log status", "load result",
          "dialect record", "measured", "shelf", "post-mortem", "degradation ladder",

@@ -29,7 +29,7 @@ A team (a team file, `<repo>/.halo/team.yaml`) is a project's people and work on
 
 ## member
 
-A member is one part of a lineup put to work on a team's project, on this machine or on a fleet harness (`harness:`). Each stage names the members that work on it; while the stage runs they write only inside its write blocks, and a part another member holds comes back naming the holder.
+A member is one part of a lineup put to work on a team's project, on this machine or on a fleet harness (`harness:`). Each stage names the members that work on it; while the stage runs they write only inside its write blocks, and a part another member holds comes back naming the holder. A harness paired with a `halo host` is a peer, not a member: the word member stays the lineup's.
 
 ## block
 
@@ -137,7 +137,15 @@ The fit plan is the steward's answer to "do the models the halos ask for fit thi
 
 ## host
 
-A host is one server Halo sends local-model calls to: an `ollama.hosts` entry (`ol:<model>@<host>`), a Hugging Face local server (`huggingface.local_servers`: llama-server, LM Studio, mlx), or a server Find or Scan found that is not added yet. Each has a URL, a kind, the machine that serves it and what it has loaded; Studio's Local section (3.3.5.0, Alt+0) lists every one on its Hosts page with Load, Unload and Make it fit, and `halo local hosts` prints the same.
+A host is a model server Halo calls -- an `ollama.hosts` entry (`ol:<model>@<host>`), a Hugging Face local server (`huggingface.local_servers`: llama-server, LM Studio, mlx), or a server Find or Scan found that is not added yet -- and, since 3.3.7.0, `halo host`: the model-free Halo process on the machine that serves it, which watches that machine's servers (the log, `/api/ps`, the events, the card) with no session open and answers paired peers on the LAN with signed, audited reads (the card, the catalog with a fit verdict, the profiles, the log). It never loads a model and never runs one. Studio's Local section (Alt+0) lists every host on its Hosts page, "served by halo host at <addr>" when one serves it; `halo local hosts` prints the same and `halo host status` the process.
+
+## grant
+
+A grant is what one paired peer may do on a `halo host`: `view` (the card, the catalog and fit, the profiles, the events and the log, the live stream, the fit simulation and the routing answer) is every peer's; `control` (warm, unload, pivot, the window and cache settings, a re-probe), `manage` (pull, delete, restart, revert) and `admin` (a raw command) are granted per peer, one by one, and 3.3.7.0 R2 gives them meaning. A request a peer has no grant for gets one line naming the grant.
+
+## peer
+
+A peer is a harness paired with a `halo host` through its six-word code (`halo host pair` there, `halo host join` here), kept in this machine's `fleet.json` under `hosts` with the pair key that signs its requests; the host keeps the peer's record and grants in `peers.json` and one audit line per request it answers. A peer is not a member: that word is the lineup's.
 
 ## speed card
 

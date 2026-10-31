@@ -29,7 +29,8 @@ STATE_FILE = "server-log-remote.json"
 MAX_BYTES = 1024 * 1024
 TAIL_BYTES = 256 * 1024
 REMOTE_S = 30.0
-SEAMS: dict = {}  # "ssh": fn(host) -> runner(argv, timeout) (the tests' seam: never a real ssh in a test)
+SEAMS: dict = {}  # "ssh": fn(host) -> runner(argv, timeout) (the tests' seam: never a real ssh in a test);
+# "host" (3.3.7.0 R1): fn(host) -> a host_client.HostClient or None, the ladder's host rung (ollama_steward/host_client.py)
 
 _POSIX = """d="$HOME/.ollama/logs"; o0=__O0__; o1=__O1__; t=__T__; i=0
 if ls "$d"/server*.log >/dev/null 2>&1; then
