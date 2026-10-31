@@ -3,7 +3,7 @@
 
     status(state_dir, host, *, now=None, platform=None, read=False, path=None) -> {state, path, last_line_at, why, line,
         debug, readable, rung, paths, tail_cli, halo_cli, debug_action, member?}
-    ladder(state_dir, host) -> {rung: "local" | "ssh" | "member" | "api-ps", why, member?, last_at?}
+    ladder(state_dir, host) -> {rung: "local" | "host" | "ssh" | "member" | "api-ps", why, member?, last_at?, addr?}
     group_of(line) -> "failure" | "truncation" | "fit" | "headroom" | None   (the Logs page's filter)
     debug_action(host_name) -> the debug window, said as a stated action (Halo never sets it)
 
@@ -12,6 +12,11 @@ arrive with no calls), `stale` (the ledger has calls in the last 15 minutes the 
 anything in the last 15 minutes), `unreadable` (the file or the ssh read did not answer), `remote-no-ssh` (on that
 machine, no `ssh:` entry: a fleet member's push, else `/api/ps` only), `missing` (no log where Ollama writes it).
 `debug: on` when debug-level lines appear (OLLAMA_DEBUG=1 is set there).
+
+3.3.7.0 R1: the rung `host` -- a paired `halo host` serves that machine's log, card, events and profiles
+(ollama_steward/host_client.py). The brief's fallback ladder for a machine with no host is direct API -> ssh;
+the host is the upgrade, so for reading the order is local -> host -> ssh -> member push -> api-ps: when a host
+answers it wins over ssh, and the status line says "via host <addr>".
 """
 
 from __future__ import annotations
@@ -89,6 +94,10 @@ def ladder(state_dir, host) -> dict:
     from halo_harness.fleet.ollama_share import served_here
     if served_here(host.url):
         return {"rung": "local", "why": ""}
+    from halo_harness.ollama_steward.host_client import _usable, for_host
+    hc = for_host(host)
+    if hc is not None and (_usable(hc) or not getattr(host, "ssh", None)):  # 3.3.7.0 R1: a host wins over ssh
+        return {"rung": "host", "addr": hc.addr, "why": f"read through halo host at {hc.addr}"}
     if getattr(host, "ssh", None):
         return {"rung": "ssh", "why": f"read over ssh ({host.ssh})"}
     ev = _member_events(state_dir, host)
@@ -125,8 +134,23 @@ def _local(st: dict, host, platform, path=None) -> None:
     st.update(state="missing", path=str(target), why=f"no server log at {target}: is Ollama installed on this machine?")
 
 
+def _via_host(st: dict, host, lad: dict) -> None:
+    """3.3.7.0 R1: the log status the host computed for its own server, said "via host <addr>"."""
+    from halo_harness.ollama_steward.host_reads import log_of
+    got = log_of(host) or {}
+    st.update(path=f"via host {lad['addr']}" + (f": {got['path']}" if got.get("path") else ""), via="host",
+              tail_cli=f"halo ollama log --host {host.name} --follow", readable=bool(got.get("readable")),
+              last_line_at=got.get("last_line_at"), debug=bool(got.get("debug")))
+    if not got.get("answered"):
+        st.update(state="unreadable", why=f"halo host at {lad['addr']} did not answer")
+    elif got.get("state"):
+        st.update(state=got["state"], why=str(got.get("why") or ""))
+
+
 def _remote(st: dict, state_dir, host, lad: dict, read: bool) -> None:
     from halo_harness.ollama_steward import server_log_remote as R
+    if lad["rung"] == "host":
+        return _via_host(st, host, lad)
     if lad["rung"] != "ssh":
         st.update(state="remote-no-ssh", why=lad["why"], path="", member=lad.get("member"))
         if lad.get("last_at"):

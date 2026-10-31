@@ -220,6 +220,8 @@ The tenth, **Local** (`Alt+0`, 3.3.5.0), is the machines that serve your local m
 this machine's GPU, VRAM, RAM and CPU live, every call to a local server as it happens, every host Halo knows with
 Load, Unload and Make it fit, and every installed model with its card, its fit meter and an intent filter (code,
 chat, long documents, images, embed). `halo local` opens it. See [docs/STUDIO-local.md](docs/STUDIO-local.md).
+On the machine that serves the models, `halo host` (3.3.7.0) watches them with no session open and lets a laptop
+with no GPU read that card, its models' fit, their profiles and the server log, no ssh: [docs/HOST.md](docs/HOST.md).
 
 The pictures here are headless-Chrome renders of Studio over fixture data
 (`tools/capture_studio.py`, and `tools/capture_session_anim.py` for the animated ones).

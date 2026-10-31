@@ -8,7 +8,8 @@ Studio's `GET /api/fleet`:
 
     {harnesses: [{id, name, host, user, version, os, share, allow_control, online, last_seen,
                   cost_today, version_mismatch, local, sessions: [{...row, agents: [...]}]}],
-     hub: {serving, name, port, bind, tls, fingerprint, url, members, online, pair_code_active}}
+     hub: {serving, name, port, bind, tls, fingerprint, url, members, online, pair_code_active},
+     hosts: [the halo hosts members announced, fleet/hub_hosts.py (3.3.7.0 R1)]}
 
 Member frames go to every sink (Studio's EventBridge) with `harness: <id>`
 and their `session_id` unchanged; `fleet` frames say join, leave, online,
@@ -241,6 +242,7 @@ class HubState:
             rows += [m.view(self.version) for m in members]
             online = sum(1 for m in members if m.online)
         serving = {k: self.serving.get(k) for k in ("port", "bind", "tls", "fingerprint", "url")}
-        return {"harnesses": rows, "hub": {"serving": bool(self.serving.get("port")), "name": self.name, **serving,
+        from halo_harness.fleet.hub_hosts import listing  # 3.3.7.0 R1: the halo hosts the members announced
+        return {"harnesses": rows, "hosts": listing(self.home), "hub": {"serving": bool(self.serving.get("port")), "name": self.name, **serving,
                                            "members": len(members), "online": online,
                                            "pair_code_active": self.pairing.active_codes() > 0}}

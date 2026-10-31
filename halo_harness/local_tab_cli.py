@@ -47,6 +47,12 @@ def hosts_lines(state_dir) -> "list[str]":
             out.append("  calls in 24 h: " + ", ".join(f"{u['from'] or 'this machine'} {u['calls']}" for u in h["users"]))
         if h["finding"]:
             out.append(f"  steward: {h['finding']}")
+        if h.get("log"):  # 3.3.7.0 R1: the rung its log and card are read through (local, host, ssh, member, api-ps)
+            out.append(f"  read through: {h['log'].get('rung')}" + (" (" + h["log"]["path"] + ")" if h["log"].get("path") else ""))
+        hb = h.get("host") or {}
+        if hb:
+            out.append(f"  served by halo host at {hb.get('addr')}" + (f": {hb['error']}" if hb.get("error") else
+                       f", {hb.get('audit_count') or 0} request{'' if hb.get('audit_count') == 1 else 's'} in its audit"))
         c = h["controls"]
         out.append(f"  load / unload: {'from here, via ' + c['via'] if c['ok'] else c['why']}")
     return out or ["no host: add one in Setup -> Providers -> Ollama, or halo ollama discover --add"]

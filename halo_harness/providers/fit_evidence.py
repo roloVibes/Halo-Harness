@@ -50,8 +50,10 @@ def _rows(state_dir, host_name: str) -> "tuple[list, list]":
         return hit[1], hit[2]
     from halo_harness.ollama_steward.ledger import read_calls
     from halo_harness.ollama_steward.server_events import read_events
-    evs = [e for e in read_events(state_dir, since=SINCE_S, host=host_name)
+    from halo_harness.ollama_steward.host_reads import events_of  # 3.3.7.0 R1: the events a paired halo host keeps
+    evs = [e for e in read_events(state_dir, since=SINCE_S, host=host_name) + events_of(state_dir, host_name, SINCE_S)
            if e.get("kind") in ("load-result", "loaded", "reloaded")]
+    evs.sort(key=lambda e: str(e.get("at") or ""))
     calls = [x for x in read_calls(state_dir, since=7 * 86400.0, host=host_name)
              if x.get("status") == 200 and not x.get("warming") and isinstance(x.get("eval_tok_s"), (int, float))]
     _CACHE[key] = (now, evs, calls)

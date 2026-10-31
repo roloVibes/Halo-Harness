@@ -79,7 +79,7 @@ def cmd_ollama_log(argv: list) -> int:
         while args.follow and (rounds is None or rounds > 0):
             rounds = None if rounds is None else rounds - 1
             sleep(FOLLOW_S)
-            fresh = (local_tail(source, n) if source and not source.startswith(("ssh ", "journalctl")) else
+            fresh = (local_tail(source, n) if source and not source.startswith(("ssh ", "journalctl", "via host")) else
                      remote_tail(host, n)[0] if source.startswith("ssh ") else tail_lines(host, n)[0])
             new = fresh[fresh.index(last) + 1:] if last in fresh else fresh
             _show(new, args.kind)

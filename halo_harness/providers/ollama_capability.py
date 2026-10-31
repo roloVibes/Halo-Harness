@@ -184,4 +184,8 @@ def profile_for(state_dir, model, host_name=None):
         if ollama_names_match(p.get("model"), model) and (host_name is None or p.get("host") == host_name
                                                            or p.get("from_host") == host_name):
             return p
-    return None
+    try:  # 3.3.7.0 R1: a profile verified on the paired halo host that serves it (source "the host at <addr>")
+        from halo_harness.ollama_steward.host_reads import profile_of
+        return profile_of(state_dir, model, host_name)
+    except Exception:
+        return None

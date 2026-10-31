@@ -11,6 +11,8 @@ serves only these routes (docs/FLEET.md has the full shapes):
     POST /fleet/v1/reply        {v, link, cid, state: asked|done|refused|error, result?, error?}
     GET  /fleet/v1/ping         -> {v, hub, you: {online, sessions, version_mismatch}}
     POST /fleet/v1/leave        {v}
+    POST /fleet/v1/host         {v, link, host: true, port, fingerprint, url, name, serves}   3.3.7.0 R1: a halo host
+                                announces itself (fleet/hub_hosts.py)
     POST /fleet/v1/mission_files {v, op: list|get|put, mission, path?, data_b64?}   3.0.6.0 R7 (fleet/mission_files.py)
     POST /fleet/v1/recall       {v, query, k}   3.1.2.0 R3: a member's recall across the fleet (fleet/hub_recall.py)
     POST /fleet/v1/local/recall the same from this machine (admin token): `halo recall --fleet`

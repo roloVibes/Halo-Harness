@@ -61,11 +61,12 @@ _SCALARS = {
 # steward.apply auto|review|off, steward.slow_tok_s (3.3.4.0 R3, ollama_steward/profiles.py, steward.py)
 # steward.model (a model ref), steward.job (bool), steward.every_s, steward.note_every_s (seconds) (3.3.4.0 R4,
 # ollama_steward/job.py, agent.py); steward.probe_new (bool: the battery on a new or changed model, 3.3.6.0 R1)
+# `host` (3.3.7.0 R1, host/state.py): port (7431), bind ("0.0.0.0"), enabled (true), tail_max (400)
 # `local`: ladder (3.3.6.0 R4: the degradation ladder's rungs in order, or "off"; agent/degrade.py)
 # `prompt`: lean auto|on|off, topics_max, memory_max_tokens, preflight ask|compact|send (3.3.5.0 R4, agent/prompt_lean.py,
 # agent/preflight.py)
 _SECTIONS = ("agents", "clipboard", "coach", "comfy", "connectors", "databricks", "embeddings", "experiential", "fleet",
-             "governor", "huggingface", "improve", "knowledge", "local", "models", "network", "ollama", "openai",
+             "governor", "host", "huggingface", "improve", "knowledge", "local", "models", "network", "ollama", "openai",
              "packs", "prompt", "providers", "recall", "remote", "roles", "routing", "steer", "supervise", "turn",
              "update", "worktree")
 REMOVED_SECTIONS = {"orgs": "3.1.4.0", "paperclip": "3.1.4.0",

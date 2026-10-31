@@ -19,7 +19,8 @@ model is configured and something is new. Each `say` is a `note` line in
 frames so far). One instance per state dir: an OS lock on
 `<state>/ollama/steward-job.lock`, held while the job runs; a second job
 does not start and names the holder (job_state.py: where, pid, since). It starts
-with Studio (studio/server.py) and the fleet hub (fleet/hub.py) unless
+with Studio (studio/server.py), the fleet hub (fleet/hub.py) and `halo host` (host/service.py, 3.3.7.0 R1:
+`where="host"` runs the watch and the rules in "off" mode -- findings only, no change, no model) unless
 `ollama.steward.job` is false; `halo ollama steward --watch` runs it in the
 foreground; `halo ollama steward status` reads job_state.py. 3.3.5.0 R1: while it runs it
 holds the resources sampler on (resources.want("job")): the fit planner sees the
@@ -38,6 +39,7 @@ EVERY_S = 300.0
 FLOW_S = 900.0
 TICK_S = 5.0
 FRAMES = 50
+HOST_NO_MODEL = "halo host runs no model: the findings wait for a harness's steward"
 _JOBS: dict = {}  # str(state_dir) -> the running StewardJob of this process
 
 
@@ -126,6 +128,8 @@ class StewardJob:
     def model(self) -> "tuple[Optional[str], str]":
         if self._model is not None:
             return self._model if isinstance(self._model, tuple) else (self._model, "given")
+        if self.where == "host":  # 3.3.7.0 R1: halo host runs no model (H9); a harness's steward writes the note
+            return None, HOST_NO_MODEL
         from halo_harness.ollama_steward.agent import choose_model
         return choose_model(state_dir=self.state_dir)
 
@@ -137,7 +141,8 @@ class StewardJob:
         ctx = gather(self.state_dir, **(self.readers if self.readers is not None else job_state.readers()))
         found = run_rules(ctx)
         said: list = []
-        done = steward.run(self.state_dir, found=found, say=said.append, now=now)
+        done = steward.run(self.state_dir, found=found, say=said.append, now=now,
+                           mode_name="off" if self.where == "host" else None)  # 3.3.7.0 R1: the host only reports
         named = job_state.noted_findings(self.state_dir, now)
         for f in found:
             if f["id"] not in named:

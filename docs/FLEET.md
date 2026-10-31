@@ -722,6 +722,24 @@ digest (both R4, from this harness's own files); `halo fleet capabilities
 `/fleet who <query>` in the TUI) ranks the fleet for it (R6). Every flag is in
 [COMMANDS-fleet.md](COMMANDS-fleet.md#halo-fleet).
 
+## The hub knows hosts
+
+3.3.7.0 R1: a machine that serves models runs `halo host` ([HOST.md](HOST.md)), the model-free Halo process that
+watches its servers with no session open. When that machine joined a hub, the host does two things a session's
+relay used to do only while a session was open: it sends the machine's Ollama ledger lines to the hub (the same
+`POST /fleet/v1/ollama`, the same cursor, so a line goes once whichever process sends it), and it announces itself
+every minute:
+
+    POST /fleet/v1/host {v, link, host: true, port, fingerprint, url, name, serves: [{name, port, addr}]}
+
+signed with the member's pair key. The hub keeps the newest announce per member in memory, and its merged view
+(`GET /api/fleet`, `hub_state.view()`) carries `hosts: [{member, harness, addr, port, url, fingerprint, serves,
+at, fresh}]` (`fresh`: announced within three minutes), so a hub-side Studio can find each host. The hub never
+contacts a host; a harness that wants the host's card pairs with it (`halo host pair` there, `halo host join`
+here). That pairing is kept in this machine's `~/.halo/fleet.json` beside the hubs, under `hosts`: `{url, name,
+host_id, key_ref, fingerprint, tls, serves, grants, joined_at, state}`, the pair key in `fleet/keys/` (0600). A paired
+harness is the host's peer, not a fleet member.
+
 ## Config keys
 
 | Key | Default | Meaning |
