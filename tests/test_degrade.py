@@ -81,9 +81,10 @@ def test_one_pass_then_the_ask(ctx: Ctx):
         rig.mock.scenarios["mid:14b"] = mid
         evs = rig.run(rig.session("ol:mid:14b@lan"), [say("list the files")])
         got = _rungs(evs)
-        ctx.check(f"every rung once, cloud not taken (no policy), then the ask, got {got}", len(got) == 5
-                  and "none probed with tools here" in got[2] and got[3] == "rung 4: cloud -- not taken: no routing.escalation policy"
-                  and got[4].startswith("rung 5: ask -- an empty reply on ol:mid:14b@lan; tried repair, smaller-ask."))
+        ctx.check(f"every rung once (a bigger local model answers only escalation's triggers: silent here), cloud not "
+                  f"taken (no policy), then the ask, got {got}", len(got) == 5
+                  and "none probed with tools here" in got[2] and got[3] == "rung 5: cloud -- not taken: no routing.escalation policy"
+                  and got[4].startswith("rung 6: ask -- an empty reply on ol:mid:14b@lan; tried repair, smaller-ask."))
         ctx.check(f"no call after the ask (two, the repair, the smaller ask), got {mid.box['turn']}", mid.box["turn"] == 4)
         errs = [e for e in evs if e.kind == "error"]
         ctx.check("the ask is the turn's one error line", len(errs) == 1 and "What next" in str(errs[0].data))
@@ -124,6 +125,37 @@ def test_tool_failures_between_rounds(ctx: Ctx):
         ctx.check(f"two failed calls: the next rung that fits (a smaller ask), got {got}", got == ["rung 2: a smaller ask -- the lean prompt"])
         ctx.check(f"the next call is the smaller ask, got {len(mid.box['bodies'][1].get('tools') or [])} tools",
                   0 < len(mid.box["bodies"][1].get("tools") or []) <= 6)
+
+
+@test
+def test_tool_failures_take_the_bigger_local_model_before_cloud(ctx: Ctx):
+    from tests.helpers.sched_hop import bigger
+    two = {"message": {"role": "assistant", "content": "", "tool_calls": [
+        {"function": {"name": "Read", "arguments": {"file_path": "a.txt"}}},
+        {"function": {"name": "Read", "arguments": {"file_path": "b.txt"}}}]}, "done": True, "done_reason": "stop",
+        "prompt_eval_count": 50, "eval_count": 30}
+    with Rig() as rig:
+        bigger(rig)
+        _set("local.ladder", ["bigger-local", "cloud", "ask"])
+        _set("routing.escalation", {"to": "or:some/cloud", "when": ["tool_failures"], "ask": False})
+        big = script([reply("done, on the bigger one")])
+        rig.mock.scenarios.update({"mid:14b": script([two]), "big:30b": big})
+        s = rig.session("ol:mid:14b@lan")
+        evs = rig.run(s, [say("read both")])
+        got = _rungs(evs)
+        ctx.check(f"the bigger local model, its size step and the load cost, before cloud, got {got}", got == [
+            "rung 1: a bigger local model -- ol:big:30b@lan (30B over 14B; a load ~21 s (the speed card (the battery)), "
+            "fit not read)"])
+        ctx.check(f"the turn went on there, offline, got {s.model_ref.raw} {big.box['turn']}",
+                  s.model_ref.raw == "ol:big:30b@lan" and big.box["turn"] >= 1)
+    with Rig() as rig:
+        bigger(rig)
+        _set("local.ladder", ["bigger-local", "ask"])
+        _set("routing.local_hop", False)
+        rig.mock.scenarios["mid:14b"] = script([two, reply("done")])
+        evs = rig.run(rig.session("ol:mid:14b@lan"), [say("read both")])
+        ctx.check(f"routing.local_hop false: said, the next rung, got {_rungs(evs)}", _rungs(evs)[:1] == [
+            "rung 1: a bigger local model -- not taken: routing.local_hop is off"])
 
 
 @test

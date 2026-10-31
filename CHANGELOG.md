@@ -45,6 +45,26 @@ version.
 - `halo host`'s stream also carries job, fix and note frames; its server no longer prints a traceback when a peer hangs up between requests.
 - A hub profile whose dialect record alone changed now reaches the member.
 
+### R3: scheduling -- the pivot scheduler, the warm set, the switch cost, local-to-local escalation, placement across machines
+
+#### Added
+- The scheduler of a session's local models (`halo_harness/local_sched/`): per card, the **warm set** -- the models of a lineup that co-reside, packed from their weights plus the KV at each lane's window against the card's budget minus other programs and the duty steward's helper -- and how many swaps one pass of the lineup costs beyond it.
+- **The pivot** as a visible step: "pivot: main (qwen3-coder:30b) -> coder (qwen3.8:27b) on pc, ~25 s (the ledger), fits history to 32 k", then "pivoted in N s"; through a halo host's `pivot` when a host serves the model, else the Ollama API; one pivot at a time per card and a minimum residency (`local.min_resident_s`, 60).
+- `halo local warm <lineup>` pre-warms a lineup's warm set (one row per model: loaded in N s, already warm, pivots later; `--dry`, `--json`); a lineup may declare `warm: [...]`; Studio's Warm on the Roles lineup tab and the warm-set line on each Local -> Hosts card.
+- The switch cost: the switch line says "~25 s to load when cold (the ledger)" (the ledger, else the speed card, else the weights, the source named); `halo teams use` prints the lineup's swap preview ("this lineup swaps 2x on one card ~ 50 s of loading a pass") and its hygiene lines; the Roles lineup tab shows the same.
+- Local -> local escalation: under low_confidence / tool_failures / context_overflow the next bigger probed local model that fits its card is tried before any cloud rung (the ladder's `bigger-local` rung; `routing.local_hop`, on by default for a local-first session), its pivot cost in the line.
+- The spawn-time fit verdict for every lane: "fit: coder on qwen3-coder:30b does not fit beside main (qwen3.8:27b) on pc (18.4 + 18.9 of 21.5 GB): evicts qwen3.8:27b, ~25 s to load", the child's first event, then the pivot.
+- A lane's own steward profile, `<host>|<model>|<role>` (read first, field by field); `halo ollama profile list | set | unset [--role]`.
+- Auto's pick weighs fit and warm state: a model that does not fit beside main is left out while another remains, a cold one weighs its load time, and the pick line says "already warm" / "fits beside main" / "needs a swap, 25 s".
+- The loading tax: "loading: 7 loads, 3 m 02 s" on `/cost` beside "Saved vs cloud", the Cost panel's LOADING figure and `halo session show`.
+- `halo local place [<lineup>] [--apply]`: where each lane's model should run across every reachable host (a halo host's `route`, this machine's own reads), each row with its reason; `--apply` writes `host_for` on each moved lane's profile, Halo-side only; Studio's Place on Local -> Hosts.
+- Glossary: pivot, warm set, loading tax, placement; docs/MODELS-ollama-steward-sched.md.
+
+#### Changed
+- The degradation ladder's default order is repair, smaller-ask, other-local, bigger-local, cloud, ask (cloud is rung 5).
+- `halo teams use` replaces 2.0.7's single-GPU warning with the swap preview.
+- `halo local warm` takes a lineup (named, else the active one); model names keep the 2.0.7 form.
+
 ### Also in 3.3.7.0
 
 #### Changed

@@ -111,6 +111,36 @@ def test_a_tie_goes_to_main_then_to_a_local_model(ctx: Ctx):
 
 
 @test
+def test_fit_and_warm_state_weigh_in(ctx: Ctx):
+    """3.3.7.0 R3 (models_auto_local.py): a local model that does not fit beside main is left out while another
+    remains, a cold one weighs its swap, a warm one keeps its score; the Pick's local_note says which."""
+    from halo_harness.models_auto import _choose, _candidates
+
+    def row(score):
+        return {"kinds": ["bulk"], "scores": {"bulk": score, "fast": score}, "facts": {"tools": True, "local": True,
+                                                                                       "price_in_per_m": 0.0, "price_out_per_m": 0.0}}
+    rows = {"ol:big@pc": row(0.9), "ol:warm@pc": row(0.7), "ol:cold@pc": row(0.8)}
+    state = {"ol:big@pc": {"fits": False, "warm": False, "swap_s": 25.0},
+             "ol:warm@pc": {"fits": True, "warm": True, "swap_s": None},
+             "ol:cold@pc": {"fits": True, "warm": False, "swap_s": 50.0}}
+    p = _pick(task_text="x", band="high", rows=rows, main_ref="ol:main@pc", local_state=state)
+    ctx.check(f"the thrashing 27 B left out, the cold one weighs its 50 s swap (0.8 x 0.75), the warm one wins, "
+              f"got {p.line()!r}", p.ref == "ol:warm@pc" and p.local_note == "already warm"
+              and p.line().endswith("; already warm") and "skipped ol:big@pc: it does not fit beside main" in p.reason)
+    state["ol:cold@pc"]["swap_s"] = 10.0
+    p = _pick(task_text="x", band="high", rows=rows, main_ref="ol:main@pc", local_state=state)
+    ctx.check(f"a 10 s swap weighs less (0.8 x 0.95 > 0.7), got {p.line()!r}", p.ref == "ol:cold@pc"
+              and p.local_note == "fits beside main, ~10 s to load")
+    only = {"ol:big@pc": row(0.9)}
+    p = _pick(task_text="x", band="high", rows=only, main_ref="ol:main@pc", local_state=state)
+    ctx.check(f"nothing else: the swap is the price, said, got {p.line()!r}", p.ref == "ol:big@pc"
+              and p.local_note == "does not fit beside main: needs a swap, 25 s")
+    cands = _candidates(rows, [], "ol:main@pc")
+    best = _choose(cands, [], "high", "ol:main@pc", local_state=state)[0]
+    ctx.check(f"_choose takes the map too, got {best.ref}", best.ref == "ol:cold@pc")
+
+
+@test
 def test_the_pick_is_deterministic_given_the_index(ctx: Ctx):
     rows = _index()
     reversed_rows = dict(reversed(list(rows.items())))

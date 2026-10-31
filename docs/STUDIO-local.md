@@ -117,6 +117,9 @@ through the host ("through halo host at <addr>", no member session), the battery
 frames come here, and a server-setting picker asks the host for the stated line (the KV type, flash attention, a
 restart: the exact line for its OS, applied false). Without it, **Request control** writes a pending row the owner
 answers; on the host machine those rows sit at the top of Hosts, **ASKED OF THIS HOST**, with Allow and Deny.
+3.3.7.0 R3: each card has the active lineup's **warm-set** line ("warm on pc: qwen3-coder:30b (main, coder) -- 19.3
+of 21.5 GB; ..."), and under the cards **Place** asks where each lane should run and **Apply** writes `host_for`
+([MODELS-ollama-steward-sched.md](MODELS-ollama-steward-sched.md)).
 
 ## Models
 

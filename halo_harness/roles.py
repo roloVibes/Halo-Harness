@@ -376,6 +376,8 @@ def vram_aware_override(role_name: str, raw_value, *, main_ref, state_dir=None,
     symmetry with `resolve_role_ref`'s own signature, not used by this
     function's current logic)."""
     if role_name not in VRAM_AWARE_ROLE_NAMES:
+        from halo_harness.roles_fit import observe  # 3.3.7.0 R3: every other lane gets the spawn-time verdict
+        observe(role_name, raw_value, main_ref)
         return raw_value, None
     model, effort = role_value_parts(raw_value)
     if not model or getattr(main_ref, "provider", None) != "ollama":

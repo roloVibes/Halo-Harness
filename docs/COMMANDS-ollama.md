@@ -353,16 +353,12 @@ halo ollama steward status
 halo ollama steward status --json
 ```
 
-Halo 3.3.4.0 R4: `--watch` runs the steward's job here in the foreground
-(on the machine that serves the models; Studio and the fleet hub run the
-same job on their own): the server-log tail and the `/api/ps` poll, a run
-every `ollama.steward.every_s` while calls flow and at once on a server
-alert, the changes per `ollama.steward.apply`, and the model's note when
-something is new. Each line is printed; Ctrl+C stops it. Exit 1 when a job
-already runs for this state dir (the line names where, the pid and since
-when). `status` prints whether one runs, where, since when, the last run's
-counts, the model it uses (or "no steward model: set ollama.steward.model")
-and the last note:
+Halo 3.3.4.0 R4: `--watch` runs the steward's job here in the foreground (on the machine that serves the models;
+Studio and the fleet hub run the same job on their own): the server-log tail and the `/api/ps` poll, a run every
+`ollama.steward.every_s` while calls flow and at once on a server alert, the changes per `ollama.steward.apply`, and
+the model's note when something is new. Each line is printed; Ctrl+C stops it. Exit 1 when a job already runs for this
+state dir (the line names where, the pid and since when). `status` prints whether one runs, where, since when, the
+last run's counts, the model it uses (or "no steward model: set ollama.steward.model") and the last note:
 
 ```text
 steward job: running in hub (pid 4120 on pc) since 2026-10-27 18:02:11
@@ -370,6 +366,13 @@ steward job: running in hub (pid 4120 on pc) since 2026-10-27 18:02:11
   model: ol:qwen3.5:9b (the smallest local model (6.1 GiB))
   last note 2026-10-27T18:07:12Z: the 27B on pc spilled 3 GiB to the CPU while ComfyUI held the card (local, free)
 ```
+
+## `halo ollama profile [list | set | unset]` (3.3.7.0 R3)
+
+The steward profiles by hand: `list [--host H] [--json]` (a lane's own marked); `set <host> <model> <field> <value>
+[--role R]` (num_ctx, num_predict, keep_alive, tools_max, host_for, compact_at; checked like any change you apply,
+kept in the changes journal; `--role R` writes the lane's key `<host>|<model>|<role>`, read first, field by field);
+`unset ... <field> [--role R]`. Halo-side only ([MODELS-ollama-steward-sched.md](MODELS-ollama-steward-sched.md)).
 
 ## `halo ollama explain`
 

@@ -8,7 +8,8 @@ the TUI's `/export` writes beside the session log.
     halo session export <id> --md -      prints the trace
 
     halo session show <id> [--json]      3.3.7.0 R2 (G15): the offline promise -- what left this machine, each
-                                         local call's host (agent/offline_promise.py)
+                                         local call's host (agent/offline_promise.py); R3 (G5): the loading
+                                         tax, its loads and their seconds (local_sched/loads.py)
     halo session postmortem [--session ID] [--turn N] [--agent ID] [--json]   3.3.6.0 R4: why one answer came
                                          out as it did (agent/postmortem.py); no session: the newest that called a
                                          local model; no turn: its newest
@@ -157,10 +158,13 @@ def _show(args) -> int:
         print(f"halo session show: {why}", file=sys.stderr)
         return 1
     got = promise(bridge_home(), path.stem, log_path=path)
+    from halo_harness.local_sched.loads import tally  # 3.3.7.0 R3 (G5): the loading tax
+    tax = tally(bridge_home(), path.stem)
     if args.json:
-        print(json.dumps({"session": path.stem, **got}, indent=2, default=str))
+        print(json.dumps({"session": path.stem, **got, "loads": tax}, indent=2, default=str))
         return 0
     print(f"session {path.stem}: {got['line']}")
+    print(f"  {tax['line']}")
     for line in got["per_call"]:
         print(f"  {line}")
     return 0

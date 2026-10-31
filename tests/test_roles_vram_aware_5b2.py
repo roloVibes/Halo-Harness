@@ -295,6 +295,48 @@ def test_resolve_agent_model_applies_vram_redirect_to_table_value_never_cli(ctx:
         roles_mod.vram_aware_override = real_override
 
 
+# ---- 3.3.7.0 R3: the spawn-time fit verdict for every lane (roles_fit.py) ------
+
+@test
+def test_every_other_lane_is_observed_not_redirected(ctx: Ctx):
+    from halo_harness import roles_fit
+    from halo_harness.model import parse_model_ref
+    from halo_harness.roles import vram_aware_override
+    roles_fit.SEEN.clear()
+    got = vram_aware_override("coder", "ol:qwen3-coder:30b@pc", main_ref=parse_model_ref("ol:qwen3.8:27b@pc"))
+    ctx.check(f"a fifth role is left as it is, got {got}", got == ("ol:qwen3-coder:30b@pc", None))
+    ctx.check(f"and remembered for the spawn verdict, got {list(roles_fit.SEEN)}",
+              ("coder", "ol:qwen3-coder:30b@pc", "ol:qwen3.8:27b@pc") in roles_fit.SEEN)
+
+
+@test
+def test_the_spawn_verdict_and_the_childs_first_events(ctx: Ctx):
+    from types import SimpleNamespace
+    from halo_harness.model import parse_model_ref
+    from halo_harness.roles_fit import first_events, verdict
+    from tests.helpers.sched_rig import BIG, CODER, TINY, SchedHome, ps_row
+    with SchedHome(loaded=[ps_row(BIG, 18.0)]) as h:
+        h.loads(CODER, 25.0, 24.0, 26.0)
+        v = verdict("coder", f"ol:{CODER}@pc", f"ol:{BIG}@pc", state_dir=h.state)
+        ctx.check(f"does not fit beside main: evicts it, the swap time from the ledger, got {v}",
+                  v["fits_beside_main"] is False and v["evicts"] == [BIG] and v["swap_s"] == 25.0
+                  and v["line"] == "fit: coder on qwen3-coder:30b does not fit beside main (qwen3.8:27b) on pc "
+                                   "(18.4 + 18.9 of 21.5 GB): evicts qwen3.8:27b, ~25 s to load (the ledger)")
+        v = verdict("small", f"ol:{TINY}@pc", f"ol:{BIG}@pc", state_dir=h.state)
+        ctx.check(f"a 1.5 B fits beside: no swap, got {v['line']!r}", v["fits_beside_main"] is True
+                  and v["line"].endswith("(18.4 + 1.5 of 21.5 GB): no swap"))
+        ctx.check("another host or a cloud main: no verdict", verdict("coder", f"ol:{CODER}@pc", "or:x/y") is None)
+        child = SimpleNamespace(_parent_model_raw=f"ol:{BIG}@pc", model_ref=parse_model_ref(f"ol:{CODER}@pc"),
+                                role_name="coder", state_dir=h.state, log=SimpleNamespace(session_id="kid"))
+        evs = list(first_events(child))
+        kinds = [(e.data.get("state"), e.data.get("text", "")[:24]) for e in evs]
+        ctx.check(f"the verdict is the child's first event, then the pivot (before, after), got {kinds}",
+                  [k[0] for k in kinds] == ["fit", "pivot", "pivot"] and kinds[0][1].startswith("fit: coder on ")
+                  and kinds[1][1].startswith("pivot: main (qwen3.8:27b"))
+        gen = [(g["model"], g["keep_alive"]) for g in h.mock.generated]
+        ctx.check(f"main unloaded, the child's model loaded, got {gen}", gen[0] == (BIG, 0) and gen[1][0] == CODER)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)
