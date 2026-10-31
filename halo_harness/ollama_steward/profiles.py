@@ -7,7 +7,10 @@ host and model, what every halo reads before each call to that model.
 
 in `~/.halo/config.json`. `<host>` is the host's name on this machine (a
 line from another machine is mapped by `traffic.canonical_host`, so the
-hub's key names its own host). How a call reads it
+hub's key names its own host). 3.3.7.0 R3: a lane may carry its own,
+`"<host>|<model>|<role>"` (its window, keep_alive, tools_max, host_for):
+`lookup` reads the role's key first, then `<host>|<model>`; the role is the
+call's lane (`with lane(role):`, agent/loop.py) unless one is passed. How a call reads it
 (`providers.ollama_hw.resolve_context_decision`, `agent/loop.py`):
 
 - `num_ctx`: the window, sent on every call to that model (one window per
@@ -31,6 +34,8 @@ from __future__ import annotations
 import time
 from typing import Optional
 
+from halo_harness.ollama_steward.profiles_role import current_lane, lane, resolve, split_role  # noqa: F401 (3.3.7.0 R3)
+
 FIELDS = ("num_ctx", "num_predict", "keep_alive", "tools_max", "host_for", "compact_at", "note", "by", "at",
           "dialect")  # 3.3.6.0 R4: the dialect record's stored fields (providers/dialect.py)
 CHANGEABLE = ("num_ctx", "num_predict", "keep_alive", "tools_max", "host_for", "compact_at")
@@ -43,12 +48,13 @@ def short_model(model) -> str:
     return m[:-len(":latest")] if m.endswith(":latest") else m
 
 
-def key_for(host_name, model) -> str:
-    return f"{host_name}|{short_model(model)}"
+def key_for(host_name, model, role: Optional[str] = None) -> str:
+    return f"{host_name}|{short_model(model)}" + (f"|{role}" if role else "")
 
 
 def split_key(key: str) -> "tuple[str, str]":
-    host, _, model = str(key).partition("|")
+    """(host, model) of a two- or three-part key (the role left out)."""
+    host, model, _role = split_role(key)
     return host, model
 
 
@@ -77,12 +83,13 @@ def all_profiles(home=None) -> dict:
         else {}
 
 
-def lookup(host, model) -> Optional[dict]:
-    """The profile for `host` (an OllamaHost or a host name) and `model`, or None."""
+def lookup(host, model, role: Optional[str] = None) -> Optional[dict]:
+    """The profile for `host` (an OllamaHost or a host name) and `model`, or None: the lane's
+    `<host>|<model>|<role>` over `<host>|<model>` (field by field; `role` defaults to the thread's lane)."""
     name = getattr(host, "name", host)
     if not name or not model:
         return None
-    return all_profiles().get(key_for(name, model))
+    return resolve(all_profiles(), name, model, role)
 
 
 def _save(profiles: dict) -> None:
@@ -189,9 +196,9 @@ def payload_for_member(home, member: str, *, since_s: float = 7 * 86400) -> dict
             names[here] = theirs
     out = {}
     for key, entry in profiles.items():
-        host, model = split_key(key)
+        host, model, role = split_role(key)
         if host in names and entry.get("by") != "hub":
-            out[key_for(names[host], model)] = {k: v for k, v in entry.items() if k in FIELDS}
+            out[key_for(names[host], model, role)] = {k: v for k, v in entry.items() if k in FIELDS}
     return out
 
 

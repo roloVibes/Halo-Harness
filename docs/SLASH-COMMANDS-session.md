@@ -53,6 +53,9 @@ configured `routing.escalation.to`, or the vendored catalog's median price
 when none is set), the reference price itself, and which one it is --
 omitted entirely on a cloud-model session. See [MODELS.md](MODELS.md)'s
 "Saved versus cloud" section for the arithmetic.
+Halo 3.3.7.0 R3: under it, the loading tax -- local cost in seconds:
+"loading: 7 loads, 3 m 02 s (qwen3.8:27b 4, qwen3-coder:30b 3)", the session's
+loads and their seconds ([MODELS-ollama-steward-sched.md](MODELS-ollama-steward-sched.md)).
 
 ### `/why [turn]`
 Halo 3.3.6.0 R4: why the newest answer (or turn N) came out as it did on a local model -- the prompt cut (where,

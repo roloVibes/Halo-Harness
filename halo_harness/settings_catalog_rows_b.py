@@ -47,4 +47,5 @@ ROWS = [
     Row("ollama.discover.subnets", "ollama", "Discovery subnets", "list", [], (), "Extra IPv4 CIDRs the network scan sweeps besides this machine's own /24.", "now"),
     Row("network.offline", "network", "Offline", "bool", False, (), "Only local hosts are called; every request to a remote host fails at once.", "now"),
     Row("routing.escalation", "network", "Escalation", "mapping", None, (), "Hand a local session's turn to a cloud model: to (a model ref), when (the triggers) and ask.", "next session"),
+    Row("routing.local_hop", "network", "Local -> local hop", "bool", None, (), "Under escalation's triggers, try the next bigger local model that fits its card before any cloud rung; unset, on for a local-first session.", "now"),
 ]

@@ -4,13 +4,15 @@
 // Scan found that are not configured yet (with Add to hosts). GET local/hosts,
 // again every 30 s while the page is open and when config.json moves; the
 // models' fit meters come from GET local/models. 3.3.7.0 R1: a machine a paired halo host serves is grouped first,
-// under SERVED BY HALO HOST (its card says so: HostServedBy.tsx).
+// under SERVED BY HALO HOST (its card says so: HostServedBy.tsx). 3.3.7.0 R3: each card's warm-set line (HostWarm.tsx)
+// and, under the cards, Place: where each local lane of the active lineup should run (HostsPlace.tsx).
 import { useEffect, useMemo } from "react";
 import { Empty } from "../../lib/ui";
 import type { Fit } from "../../lib/ui/FitMeter";
 import { HfCards } from "./HfCards";
 import { HostCard } from "./HostCard";
 import { HostPending } from "./HostPending";
+import { HostsPlace } from "./HostsPlace"; // 3.3.7.0 R3 (G12): where each lane of the lineup runs
 import { loadHosts, loadModels, useLocal } from "./store";
 
 const REFRESH_MS = 30_000;
@@ -57,6 +59,7 @@ export function HostsPage() {
         );
       })}
       <HfCards />
+      <HostsPlace />
     </div>
   );
 }

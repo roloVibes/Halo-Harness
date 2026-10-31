@@ -86,7 +86,8 @@ def _profile_tools_max(session) -> None:
         from halo_harness.providers.ollama import resolve_ollama_host
         env = getattr(getattr(session, "settings", None), "effective_env", None)
         host = resolve_ollama_host(ref.host, env)
-        tm = (lookup(host, ref.model) or {}).get("tools_max") if host is not None else None
+        tm = (lookup(host, ref.model, role=getattr(session, "role_name", None) or "") or {}).get("tools_max") \
+            if host is not None else None  # 3.3.7.0 R3: the lane's own profile first
         from halo_harness.providers.dialect_apply import tools_max  # 3.3.6.0 R4: the dialect record's wins
         tm = tools_max(session) or tm
         session._lean_profile_tools_max = tm if isinstance(tm, int) and tm > 0 else None

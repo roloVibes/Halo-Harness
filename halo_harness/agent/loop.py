@@ -2035,21 +2035,25 @@ class Session:
             return
         from halo_harness.agent.escalation import (
             TOOL_FAILURE_THRESHOLD, EscalationDecision, count_tool_failures_since, load_escalation_policy,
-            role_escalation_enabled,
+            local_hop_enabled, local_hop_triggers, role_escalation_enabled,
         )
         policy = load_escalation_policy()
+        # Halo 3.3.7.0 R3: the local -> local hop (agent/local_hop.py) answers the same triggers first, with or
+        # without a cloud policy (routing.local_hop; default on for a local-first session).
+        hop = local_hop_enabled(self)
         # `self.agent_runtime.role_table` -- see `_judge_confidence`'s own
         # matching comment: a sub-agent's `self.roles` is never populated,
         # the real table lives here instead.
-        if policy is None or not role_escalation_enabled(self.role_name, self.agent_runtime.role_table):
+        if (policy is None and not hop) or not role_escalation_enabled(self.role_name, self.agent_runtime.role_table):
             return
+        when = local_hop_triggers(policy)
         trigger = None
-        if "context_overflow" in policy.when and getattr(self, "_turn_context_overflow_count", 0) > 0:
+        if "context_overflow" in when and getattr(self, "_turn_context_overflow_count", 0) > 0:
             trigger = "context_overflow"
-        elif "tool_failures" in policy.when and count_tool_failures_since(
+        elif "tool_failures" in when and count_tool_failures_since(
                 self.log.nodes(), getattr(self, "_turn_log_start_idx", 0)) >= TOOL_FAILURE_THRESHOLD:
             trigger = "tool_failures"
-        elif "low_confidence" in policy.when and final_text and final_text.strip():
+        elif "low_confidence" in when and final_text and final_text.strip():
             try:
                 confident = self._judge_confidence(final_text)
             except Exception:
@@ -2057,6 +2061,18 @@ class Session:
             if not confident:
                 trigger = "low_confidence"
         if trigger is None:
+            return
+        if hop:
+            from halo_harness.agent.local_hop import escalate as _local_hop
+            hopped = yield from _local_hop(self, turn_no, trigger)
+            if hopped == "deferred":  # the ladder's bigger-local rung is still ahead: no cloud before it
+                return
+            if hopped:
+                self._escalated_this_turn = True
+                self._escalation_decisions.append(EscalationDecision(
+                    turn=turn_no, trigger=trigger, to=self.model_ref.raw, action="escalated", note="local -> local"))
+                return
+        if policy is None:
             return
         self._escalated_this_turn = True
         if policy.ask:
@@ -3215,11 +3231,14 @@ class Session:
         # entirely when `auto_calibrate` is False (`call_small_model`'s
         # own call site) -- see this method's own docstring for why.
         from halo_harness.agent.ollama_window_steward import host_for
-        host, decision_ref = host_for(self, host, ref, env)  # 3.3.4.0 R3: a profile's host_for
+        from halo_harness.ollama_steward.profiles import lane as _lane  # 3.3.7.0 R3: <host>|<model>|<role> first
+        with _lane(getattr(self, "role_name", None)):
+            host, decision_ref = host_for(self, host, ref, env)  # 3.3.4.0 R3: a profile's host_for
         if auto_calibrate:
             self._maybe_auto_calibrate_ollama(host, ref.model)
         from halo_harness.providers.ollama_hw import resolve_context_decision
-        decision = resolve_context_decision(decision_ref, env)
+        with _lane(getattr(self, "role_name", None)):
+            decision = resolve_context_decision(decision_ref, env)
         # Review fix pass (finding 4), "remember a successful retry for
         # the rest of the session": a bigger num_ctx a PRIOR overflow
         # retry already proved works for this exact host+model folds in

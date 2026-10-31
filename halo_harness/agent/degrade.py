@@ -17,13 +17,16 @@ The rungs, in the default order:
     smaller-ask  one re-send with the lean profile and the tool budget's top tools (SMALL_TOOLS)
     other-local  placement's nearest probed model with tools that shares the card with the resident one
                  (its profile's co_resides_with), else any other probed one, through the switch step
+    bigger-local 3.3.7.0 R3 (agent/local_hop.py): under low_confidence / tool_failures / context_overflow, the next
+                 bigger probed local model that fits its card, the pivot's cost in the line (routing.local_hop)
     cloud        only when `routing.escalation` (agent/escalation.py's policy) allows: its `to`, its triggers
                  (a trigger outside `when` or `ask: true` makes it the next rung); never a second policy
     ask          one question to the user with what was tried; the turn ends there
 Triggers: `local_failure`'s empty reply and no-tools reply, the server log's cut twice and crash
 (agent/ollama_log_recovery.py), escalation's low_confidence / tool_failures / context_overflow. One pass per
 turn: a rung is taken at most once a turn, the next failure takes the next rung, and after the last nothing
-more is tried. The worst case adds four calls to a turn (repair, a smaller ask, another local model, cloud).
+more is tried. The worst case adds five calls to a turn (repair, a smaller ask, another local model, a bigger local
+model, cloud).
 """
 
 from __future__ import annotations
@@ -35,7 +38,7 @@ from halo_harness import events
 
 log = logging.getLogger("bridge")
 
-RUNGS = ("repair", "smaller-ask", "other-local", "cloud", "ask")
+RUNGS = ("repair", "smaller-ask", "other-local", "bigger-local", "cloud", "ask")
 TRIGGERS = ("empty", "no-tools", "no-json", "cut-twice", "crash", "low_confidence", "tool_failures", "context_overflow",
             "needs-eyes")  # 3.3.6.0 R6: an image for a model that cannot see (eyes_rung)
 REPAIRABLE = ("empty", "no-json")
@@ -160,6 +163,12 @@ def step(session, turn_no: int, trigger: str, body: Optional[dict] = None):
                 continue
             p["taken"].append({"rung": rung, "trigger": trigger, "line": line})
             return {"rung": rung, "do": "rebuild"}
+        elif rung == "bigger-local":
+            from halo_harness.agent.local_hop import rung as hop
+            got = yield from hop(session, turn_no, trigger, n, p)
+            if got:
+                return got
+            continue
         elif rung == "cloud":
             to, why = _cloud(session, trigger)
             if not to:

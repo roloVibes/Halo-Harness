@@ -227,7 +227,12 @@ Files under `<state>/host/`: `serve.json`, `codes.json`, `peers.json`, `audit.js
 `fixes.jsonl`, `steward.json` / `steward.key` while the duty steward is on, `cert.pem` / `key.pem`, and `stop` while
 `halo host stop` asks it to end.
 
-## What R3 adds
+## The scheduler through the host (3.3.7.0 R3)
 
-The routing answer put to work across the fleet: the placement solver asks each paired host `route` and picks by
-fit, warm state and load time; the pivot scheduler uses `pivot`.
+The routing answer put to work across the fleet: the placement solver (`halo local place`) asks each paired host
+`route` and picks by fit, warm state and load time, reading `usable_with_helper_gb` (the duty steward's helper
+counted); the pivot scheduler sends `pivot` (a lane that needs a model which does not fit beside the resident one)
+and `halo local warm <lineup>` sends `warm` (`beside` for the second model of a warm set) when this host serves the
+model, so its invariants hold every load. A `pivot` is not a fix: the guards and the rate limit count fixes only,
+so the scheduler keeps its own rules -- one pivot at a time per card and `local.min_resident_s` -- see
+[MODELS-ollama-steward-sched.md](MODELS-ollama-steward-sched.md).
