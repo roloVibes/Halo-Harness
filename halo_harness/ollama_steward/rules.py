@@ -15,7 +15,8 @@ A finding (the shape R4's note-writer and R5's panel read):
 `id` is stable for the same rule, host, model and proposal, so `halo
 ollama steward apply <id>` names what `findings` printed. The rules live
 in rules_window.py (a, b, h), rules_reply.py (c, d, e), rules_host.py
-(f, g) and rules_card.py (3.3.5.0 R0b: `called-wrong`); knowledge/symptoms.md
+(f, g), rules_card.py (3.3.5.0 R0b: `called-wrong`), rules_crash.py and rules_drift.py (3.3.7.0 R4:
+`tag-drift`, `tag-deleted`); knowledge/symptoms.md
 is their spec.
 """
 
@@ -155,7 +156,8 @@ def gather(state_dir, *, since=SINCE, host: Optional[str] = None, cards: Optiona
                 catalogs[g["host"]] = {}
     profiles = all_profiles()
     ctx = {"state_dir": state_dir, "lines": lines, "events": events, "hosts": hosts, "cards": cards,
-           "catalogs": catalogs, "profiles": profiles, "now": now or time.time(), "groups": list(groups.values())}
+           "catalogs": catalogs, "profiles": profiles, "now": now or time.time(), "groups": list(groups.values()),
+           "catalog_reader": catalog_reader}  # 3.3.7.0 R4: the drift rules read every host's catalog
     for g in ctx["groups"]:
         g["stats"] = window_stats(g["lines"])
         g["profile"] = profiles.get(g["key"]) or {}
@@ -173,6 +175,8 @@ def run_rules(ctx: dict) -> list:
     out.extend(rules_host.host_rules(ctx))
     from halo_harness.ollama_steward.rules_crash import crash_rules  # 3.3.6.0 R3: a crash that repeats proposes the fix
     out.extend(crash_rules(ctx))
+    from halo_harness.ollama_steward.rules_drift import drift_rules  # 3.3.7.0 R4: tag-drift, tag-deleted
+    out.extend(drift_rules(ctx))
     from halo_harness.ollama_steward.steward import dismissed  # 3.3.4.0 R5: Studio's Dismiss, quiet for 24 hours
     quiet = dismissed(ctx["state_dir"], now=ctx.get("now")) if ctx.get("state_dir") else set()
     out = [f for f in out if f["id"] not in quiet]

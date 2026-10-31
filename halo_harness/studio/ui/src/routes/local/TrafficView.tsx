@@ -9,6 +9,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Button, Icon } from "../../lib/ui";
 import { loadTraffic, useLocal } from "./store";
+import { ForeignLines } from "./HostGuards"; // 3.3.7.0 R4: what /api/ps holds that no halo call explains
 import { EventRow, TrafficRow } from "./TrafficRow";
 import { TrafficSpark } from "./TrafficSpark";
 import type { TRow } from "./types";
@@ -81,6 +82,7 @@ export function TrafficView() {
           Follow
         </Button>
       </div>
+      <ForeignLines refreshKey={hosts.length} />
       {hosts.length > 0 && (
         <div className="lc-tsparks">
           {hosts.map((h) => <TrafficSpark key={h} host={h} buckets={spark[h]} />)}

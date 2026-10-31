@@ -11,7 +11,8 @@ the placement rule for the `eyes` role (providers/placement.verdict), the measur
     of_ref(ref, state_dir=None) -> the fact for a model ref (its card; no request)
 
 The order, the first that says wins:
-  1. the battery's image probe (profile `vision` yes / no; providers/battery_probes.vision_turn)   verified
+  1. the battery's image probe (profile `vision` yes / no; providers/battery_probes.vision_turn; 3.3.7.0 R4: on a
+     Hugging Face local server too, providers/battery_vision_hf.py, read by hf_profile)               verified
   2. the server's own row: `/api/show` capabilities (vision listed; a list without it says no), a projector
      (`projector_info`, `projector_bytes`)                                                            declared
   3. a Hugging Face config (`vision_config`, an image processor, a vision architecture)            declared
@@ -151,3 +152,14 @@ def of_ref(ref, state_dir=None) -> dict:
                 "source": (card.get("sources") or {}).get("vision") or ""}
     except Exception:
         return fact(None, None, "nothing says whether it reads images (no card)")
+
+
+def hf_profile(state_dir, ref) -> Optional[dict]:
+    """3.3.7.0 R4: an `hf:local/` model's vision probe (providers/battery_vision_hf.py), else None; no request."""
+    if getattr(ref, "provider", "") != "huggingface":
+        return None
+    try:
+        from halo_harness.providers.battery_vision_hf import any_profile
+        return any_profile(state_dir, getattr(ref, "model", ""))
+    except Exception:
+        return None

@@ -86,6 +86,21 @@ spawn-time verdict), `models_auto_local.py` (Auto's fit + warm weights), `agent/
 hop), `studio/local_sched_api.py`; `ui/src/routes/roles/LineupSched.tsx`, `ui/src/routes/local/HostWarm.tsx`,
 `HostsPlace.tsx`, `ui/src/routes/session/LoadingTax.tsx`.
 
+**The guards, the refresh and the adviser** (Halo 3.3.7.0 R4, docs/MODELS-ollama-steward-guards.md and
+docs/MODELS-adviser.md): `ollama_steward/idle.py` (is a card idle; a client that is not a halo in `/api/ps`),
+`providers/local_bench_busy.py` (the busy wait's foreign reason), `host/residency.py` (the host's residency clock
+every peer's `held_for` reads), `host/routes_guard.py` (`GET residency | idle | refresh`), `host/refresh_plan.py`
+(what the off-hours refresh measures, why, when, how long) and `host/refresh.py` (the tick, one model at a time, the
+stop on a call, the stamp, the roster review), `local_refresh_cli.py` (`halo local refresh`, `halo host refresh`);
+`ollama_steward/tag_digests.py` (each tag's digest, the stale records), `ollama_steward/rules_drift.py` (`tag-drift`,
+`tag-deleted`), `ollama_steward/dead_tag.py` (the one dead-tag line, `halo roles point`),
+`models_library/nearest.py` (the nearest equivalent); `models_library/advise.py`, `advise_rules.py` and
+`advise_lines.py` (the roster adviser), `local_advise_cli.py`; `agent/degrade_crash.py` (the ladder's crash
+trigger); `fleet/control_capture.py` (a hub's capture on a member's display), `providers/battery_vision_hf.py` and
+`models_probe_hf.py` (the vision probe on a Hugging Face local server); `studio/local_guard_api.py`,
+`studio/local_advise_api.py`, `studio/roles_point_api.py`; `ui/src/routes/local/HostGuards.tsx`,
+`StewardRefresh.tsx`, `Adviser.tsx`, `advstore.ts`.
+
 **Packs** (`halo_harness/packs/`, Halo 3.2.0.0 R1, docs/PACKS.md): the
 names (`packs/names.py`: ids, `<id>--<name>`, the `pack:<id>` label and
 `read_only_source`), `packs/semver.py` (versions and ranges),

@@ -5,13 +5,14 @@ and whether a host is quiet enough to bench (providers/local_bench.py runs the b
                                            beside the battery profile and the measured facts, never over them); the
                                            battery profile's `speed` mirrors the ceiling row
     load(state_dir, host_name, model, digest=None) -> card | None      all_cards(state_dir, host=None) -> [card]
-    stale(card, *, digest=None, version=None) -> "" | "measured on 0.40.6" | "measured before the tag changed"
+    stale(card, *, digest=None, version=None) -> "" | "measured on 0.40.6" | "measured on an older build of this tag"
     mirror(card) -> {tok_s, ttft_ms, cold_load_s, at_window, from: "bench", at}   the ceiling row
     lines(card) -> the card's three-window table, one line each      view(card, stale_word) -> the page's form
     with_speed_card(card, state_dir) -> a model card with `speed_card`, the badge's `speed`, the Measured lines and
                                         "where it sits" citing the largest window that stayed on the GPU
     speed_index(state_dir, host_name) -> {model: mirror}   the Library and Hosts rows (cached CACHE_S)
-    busy(state_dir, host_name, *, sessions=None) -> "" | why    a call on that host in the last BUSY_S, or a session on it
+    busy(state_dir, host_name, *, sessions=None, ps=None) -> "" | why    a call on that host in the last BUSY_S, a session
+                                           on it, or (3.3.7.0 R4) a model in /api/ps no Halo record explains
 """
 
 from __future__ import annotations
@@ -77,7 +78,7 @@ def stale(card: Optional[dict], *, digest: Optional[str] = None, version: Option
     if not card:
         return ""
     if digest and card.get("digest") and digest != card["digest"]:
-        return "measured before the tag changed"
+        return "measured on an older build of this tag"  # 3.3.7.0 R4: ollama_steward/tag_digests.WORD, the drift mark
     if version and card.get("ollama_version") and version != card["ollama_version"]:
         return f"measured on {card['ollama_version']}"
     return ""
@@ -97,6 +98,7 @@ def _row_line(r: dict) -> str:
 def lines(card: dict, stale_word: str = "") -> list:
     day = time.strftime("%Y-%m-%d", time.localtime(card.get("at") or 0))
     head = (f"speed card (the bench, {day}, Ollama {card.get('ollama_version') or '?'}"
+            + (f", verified by {card['verified_by']}" if card.get("verified_by") else "")  # 3.3.7.0 R4: the refresh
             + (f"; {stale_word}: re-bench" if stale_word else "") + ")"
             + (f": cold load {card['cold_load_s']:g} s" if isinstance(card.get("cold_load_s"), (int, float)) else ""))
     out = [head] + ["  " + _row_line(r) for r in card.get("windows") or []]
@@ -112,7 +114,7 @@ def lines(card: dict, stale_word: str = "") -> list:
 
 def view(card: dict, stale_word: str = "") -> dict:
     keep = ("model", "host", "digest", "ollama_version", "at", "cold_load_s", "windows", "max_gpu_window",
-            "planner_window", "reserve_floor", "quick", "kv", "took_s")
+            "planner_window", "reserve_floor", "quick", "kv", "took_s", "verified_by", "refreshed_at")
     return {**{k: card.get(k) for k in keep}, "stale": stale_word, "lines": lines(card, stale_word)}
 
 
@@ -182,7 +184,8 @@ def _sessions() -> list:
     return sessions()
 
 
-def busy(state_dir, host_name: str, *, sessions: Optional[Callable] = None, now: Optional[float] = None) -> str:
+def busy(state_dir, host_name: str, *, sessions: Optional[Callable] = None, now: Optional[float] = None,
+         ps: Optional[list] = None) -> str:
     """Why a bench waits on this host now ("" when the card is quiet)."""
     from halo_harness.ollama_steward.ledger import parse_at, read_calls
     now = time.time() if now is None else now
@@ -200,4 +203,5 @@ def busy(state_dir, host_name: str, *, sessions: Optional[Callable] = None, now:
         if r.get("pid") != os.getpid() and _on_host(r.get("model"), host_name):
             return (f"session {r.get('session_id') or '?'} is using {r.get('model')} on {host_name}: a bench needs the "
                     "card to itself; run it after that session ends")
-    return ""
+    from halo_harness.providers.local_bench_busy import foreign_reason  # 3.3.7.0 R4: a client that is not a halo
+    return foreign_reason(state_dir, host_name, ps=ps, now=now)

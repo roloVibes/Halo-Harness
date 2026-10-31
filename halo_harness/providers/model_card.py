@@ -233,8 +233,8 @@ def card_of(ref, *, state_dir=None, catalog=None, host=None, probe=None, host_ca
             "speed": None, "sources": {**facts["sources"], "params": params_src, "quant": quant_src,
                                        "window": window.get("source") or "unknown", "row": "/api/show" if row else "none"}}
     card["thinks_source"], card["purpose_source"] = card["sources"]["thinks"], card["sources"]["purpose"]
-    from halo_harness.providers.vision_fact import apply as with_vision  # 3.3.6.0 R6: vision with its truth
-    with_vision(card, row, profile)
+    from halo_harness.providers.vision_fact import apply as with_vision, hf_profile  # 3.3.6.0 R6; R4 3.3.7.0: HF local
+    with_vision(card, row, profile if kind == "ollama" else hf_profile(state_dir, ref))
     card["fit_for"], card["fit_why"] = fit_of(card)
     card["how"] = how_lines(card)
     from halo_harness.providers.model_card_blocks import with_profile  # 3.3.6.0 R1: the battery's profile, E4's blocks

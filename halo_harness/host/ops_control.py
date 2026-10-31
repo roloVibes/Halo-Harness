@@ -55,6 +55,10 @@ def _load(ctx, p: dict, model: str, keep, rows=None) -> dict:
         ctx.publish("event", {"kind": "unloaded", "model": chk["evict_helper"], "say": f"the helper: {gone['say']}"})
     got = load(ctx.host, model, num_ctx=chk["window"], keep_alive=keep)
     ctx.forget_card()
+    if got["ok"]:  # 3.3.7.0 R4: the residency clock every peer's scheduler reads (host/residency.py)
+        from halo_harness.host import residency
+        residency.mark(ctx.home, ctx.host.name, model, by=ctx.peer, op="pin" if keep == -1 else "warm",
+                       keep_alive=keep)
     ctx.publish("event", {"kind": "loaded" if got["ok"] else "load-failed", "model": model, "say": got["say"]})
     return {**got, "verdict": chk["verdict"], "evicted": chk["evict_helper"]}
 
@@ -84,6 +88,9 @@ def a_unload(ctx, p):
     from halo_harness.providers.ollama_load import unload
     got = unload(ctx.host, p["model"])
     ctx.forget_card()
+    if got["ok"]:
+        from halo_harness.host import residency
+        residency.forget(ctx.home, ctx.host.name, p["model"])
     ctx.publish("event", {"kind": "unloaded" if got["ok"] else "unload-failed", "model": p["model"], "say": got["say"]})
     return got
 
@@ -109,6 +116,8 @@ def a_pivot(ctx, p):
     ctx.publish("event", {"kind": "unloaded" if gone["ok"] else "unload-failed", "model": p["from"], "say": gone["say"]})
     if not gone["ok"]:
         return {"ok": False, "say": f"pivot stopped: {gone['say']}; {p['to']} was not loaded"}
+    from halo_harness.host import residency
+    residency.forget(ctx.home, ctx.host.name, p["from"])
     got = _load(ctx, p, p["to"], p.get("keep_alive"), rows=_without(ctx, p["from"]))
     if not got.get("ok"):
         got["say"] = f"{got.get('say')}; {p['from']} stays unloaded"

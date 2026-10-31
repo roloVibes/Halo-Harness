@@ -29,6 +29,8 @@ hands it here with the session's handle and that hub's policy:
                                         <n> here: <title> (claims: ...)", `none` refuses, `all` starts it
     ollama_load, ollama_unload, ...     3.3.5.0 R1 / R3: load, unload, pull, delete, copy, twin a model on a host
                                         this machine serves (fleet/control_models.py), under allow_control like steer
+    capture {target, title?, rect?, display?}   3.3.7.0 R4: a capture of this display, kept on this disk (the path and
+                                        the size go back; the image only with fleet.share_captures), like steer
 
 Applied commands run through remote/agent_control.py with `by` = the person
 at the hub and `via` = "hub <name>", so the session's transcript records
@@ -47,7 +49,7 @@ from halo_harness.remote.base import HandleError
 ASK_TIMEOUT_S = 120.0
 ASK_PREFIX = "fleet-ask:"
 VERBS = {"agent_steer": "steer", "agent_stop": "stop", "pause": "pause", "resume": "resume",
-         "shutdown": "shut down", "steer": "steer", "interrupt": "interrupt"}
+         "shutdown": "shut down", "steer": "steer", "interrupt": "interrupt", "capture": "screenshot this display for"}
 ANSWER_KEYS = ("kind", "request_id", "target", "id", "action", "instruction", "message", "answer", "approved",
                "feedback", "mode_after")
 
@@ -227,6 +229,9 @@ def run(handle, msg: dict, pol: dict, interim: Optional[Callable] = None) -> dic
         if cmd == "run_task":
             from halo_harness.fleet.mission_worker import accept
             return {"state": "done", "result": accept(handle, fields, by=by, hub=hub, entry=pol.get("hub_entry"))}
+        if cmd in protocol.CAPTURE_CMDS:  # 3.3.7.0 R4: this display, this disk; the image only under share_captures
+            from halo_harness.fleet.control_capture import run as capture
+            return {"state": "done", "result": capture(handle, fields)}
         if cmd in protocol.MODEL_CMDS:  # 3.3.5.0 R1 (fleet/control_models.py): this machine's own host only
             from halo_harness.fleet import control_models
             try:

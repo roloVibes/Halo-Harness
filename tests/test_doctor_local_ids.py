@@ -3,8 +3,8 @@
 home whose host `box` has its catalog through the Ollama panel's READERS seam, the versions and the staged update
 through the module's seams. No request, no model call:
 
-1. a role on a deleted tag FAILs and names the nearest equivalent ("`qwen3.8:27b` was deleted -- nearest
-   `qwen3.8:27b-gpu`"); a live id passes; a cloud role is not listed; a catalog that does not answer is INFO;
+1. a role on a deleted tag FAILs and names the nearest equivalent (3.3.7.0 R4, ollama_steward/dead_tag.py: "`qwen3.8:27b`
+   was deleted from box -- nearest equivalent `qwen3.8:27b-gpu` (...): halo roles point planner ..."); a live id passes; a cloud role is not listed; a catalog that does not answer is INFO;
 2. version drift per host: older than the newest known is a WARN; "0.40.13 staged, 0.40.6 running"; the newest
    passes; drift never fails the exit;
 3. `halo doctor --local` prints both kinds of line (the acceptance steps' four lines stay first).
@@ -31,6 +31,7 @@ CAT = {"models": [{"model": "qwen3.8:27b-gpu", "name": "qwen3.8:27b-gpu"}, {"mod
 def test_a_dead_role_id_names_the_nearest(ctx: Ctx):
     from halo_harness.doctor_local_ids import id_steps, nearest
     with SearchHome(card=box_card(), catalog=CAT) as h:
+        h.profile("qwen3.8:27b", size_gb=17.7)  # 3.3.7.0 R4: Halo saw it there, so it "was deleted"
         steps = id_steps(h.state, role_table={"coder": "ol:qwen3-coder:30b@box", "planner": "ol:qwen3.8:27b@box",
                                               "embed": "ol:nomic-embed-text@box", "reviewer": "or:some/model"},
                          main_ref="ol:qwen3.8:27b@box", versions={"box": "0.40.13"}, staged=lambda host: "")
@@ -40,9 +41,10 @@ def test_a_dead_role_id_names_the_nearest(ctx: Ctx):
     by = {s["step"]: s for s in steps}
     ctx.check(f"main and planner on a deleted tag FAIL with the nearest, got {by.get('role planner id')}",
               by["role main id"]["ok"] is False and by["role planner id"]["ok"] is False and
-              "`qwen3.8:27b` was deleted from box -- nearest `qwen3.8:27b-gpu`" in by["role planner id"]["reason"])
+              "`qwen3.8:27b` was deleted from box -- nearest equivalent `qwen3.8:27b-gpu` (same family, same size"
+              in by["role planner id"]["reason"])
     ctx.check(f"the fix names the command, got {by['role planner id']['reason']!r}",
-              "halo config set roles.planner ol:qwen3.8:27b-gpu@box" in by["role planner id"]["reason"])
+              by["role planner id"]["reason"].endswith(": halo roles point planner ol:qwen3.8:27b-gpu@box"))
     ctx.check(f"a live id passes (an untagged name matches :latest), got {by.get('role coder id')} {by.get('role embed id')}",
               by["role coder id"]["ok"] and by["role embed id"]["ok"])
     ctx.check(f"a cloud role is not listed, got {sorted(by)}", "role reviewer id" not in by)
@@ -88,7 +90,7 @@ def test_halo_doctor_local_prints_them(ctx: Ctx):
     lines = [ln.strip() for ln in out.getvalue().splitlines() if ln.strip().startswith("[")]
     ctx.check(f"the four acceptance lines first, then the role id and the drift lines, got {lines}",
               len(lines) >= 6 and lines[0].startswith(("[PASS] load", "[FAIL] load"))
-              and any(ln.startswith("[FAIL] role planner id") and "nearest `qwen3.8:27b-gpu`" in ln for ln in lines)
+              and any(ln.startswith("[FAIL] role planner id") and "nearest equivalent `qwen3.8:27b-gpu`" in ln for ln in lines)
               and any(ln.startswith("[WARN] ollama box") and "0.40.13 staged, 0.40.6 running" in ln for ln in lines))
     ctx.check(f"a dead id fails the exit, got {rc}", rc == 1)
 

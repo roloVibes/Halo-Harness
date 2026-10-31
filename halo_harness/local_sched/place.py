@@ -78,7 +78,7 @@ def _local(host, lane: dict, window: int, state_dir=None) -> dict:
         from halo_harness.providers.placement import profile_for_ref
         p = profile_for_ref(f"ol:{lane['model']}@{host.name}", state_dir) or {}
         out["capable"] = None if p.get("tools") not in ("yes", "no") else p["tools"] == "yes"
-    out["verdict"] = ("not read (no card or no catalog row)" if out["fits"] is None else
+    out["verdict"] = (src if "was deleted from" in src else "not read (no card or no catalog row)" if out["fits"] is None else
                       f"{'fits' if out['fits'] else 'does not fit'} ({F.gb(need)} of {F.gb(room)} GB)")
     return out
 

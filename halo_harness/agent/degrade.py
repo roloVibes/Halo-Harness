@@ -10,6 +10,8 @@ explicit pass down the rungs, each rung one visible line, never a loop.
     midturn(session, turn_no) -> a generator: the `tool_failures` trigger between tool rounds
     eyes_rung(session, turn_no, choice, line) -> a generator: 3.3.6.0 R6's "needs eyes" rung (agent/eyes_turn.py):
         the visual lane, a description by a model that sees, or the text alone -- one marker, kept in the pass
+    step(..., fingerprint=fp): 3.3.7.0 R4's `crash` trigger on a fingerprint match (agent/degrade_crash.py): past the
+        smaller ask (the crash is the card at this window, not the ask), each rung's line naming the fingerprint
 
 The rungs, in the default order:
     repair       the dialect's repair loop: the call asked once more with what was wrong (an empty reply, no
@@ -127,16 +129,19 @@ def _switch(session, to: str, turn_no: int):
     yield from switch_via_step(session, to, turn_no)
 
 
-def step(session, turn_no: int, trigger: str, body: Optional[dict] = None):
+def step(session, turn_no: int, trigger: str, body: Optional[dict] = None, fingerprint: Optional[dict] = None):
     order = rungs()
     if not order:
         return None
     p = _pass(session, turn_no)
+    why = f" (after {fingerprint['model']} {fingerprint['line']})" if fingerprint else ""  # 3.3.7.0 R4: the crash
     while p["i"] < len(order):
         rung = order[p["i"]]
         p["i"] += 1
         n = p["i"]
         act, line = None, ""
+        if fingerprint and rung == "smaller-ask":  # the crash is the card at this window, not the size of the ask
+            continue
         if rung == "repair":
             if trigger not in REPAIRABLE:
                 continue
@@ -154,7 +159,7 @@ def step(session, turn_no: int, trigger: str, body: Optional[dict] = None):
                                                    "next rung", turn=turn_no)
                 p["taken"].append({"rung": rung, "trigger": trigger, "line": "none probed with tools", "skipped": True})
                 continue
-            line = f"rung {n}: another local model -- {alt}"
+            line = f"rung {n}: another local model -- {alt}{why}"
             yield events.turn_marker("ladder", f"↳ {line}", turn=turn_no)
             try:
                 yield from _switch(session, alt, turn_no)
@@ -220,3 +225,4 @@ def eyes_rung(session, turn_no: int, choice: str, line: str):
     p = _pass(session, turn_no)
     p["taken"].append({"rung": "eyes", "trigger": "needs-eyes", "line": line, "choice": choice})
     yield events.turn_marker("ladder", f"↳ eyes -- {line}", turn=turn_no)
+

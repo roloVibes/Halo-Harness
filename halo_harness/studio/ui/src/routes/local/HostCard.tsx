@@ -16,6 +16,7 @@ import { openLog, stopServer, useHf } from "./hfstore";
 import { HostServedBy } from "./HostServedBy";
 import { HostStated } from "./HostStated";
 import { HostWarm } from "./HostWarm"; // 3.3.7.0 R3: the active lineup's warm set on this card
+import { HostGuards } from "./HostGuards"; // 3.3.7.0 R4: foreign clients, idle, the off-hours refresh
 import { addHost, gib, loadModel, makeItFit, undoFit, unloadModel, useLocal } from "./store";
 import type { HostCard as Host } from "./types";
 
@@ -114,6 +115,7 @@ export function HostCard({ h, fits }: { h: Host; fits: Record<string, Fit> }) {
       <Managed h={h} />
       {card.length > 0 && <div className="mono muted lc-host-card" title={h.card_lines.join("\n")}>{card.map((l) => <div key={l}>{l}</div>)}</div>}
       {(h.source === "configured" || !!h.host) && <HostWarm name={h.name} loadedKey={h.loaded.map((m) => m.model).join(",")} />}
+      {h.kind.toLowerCase() === "ollama" && <HostGuards name={h.name} loadedKey={h.loaded.map((m) => m.model).join(",")} />}
       {h.loaded.length > 0 && <div className="rail-label mono" data-testid="local-host-loaded-label">LOADED NOW</div>}
       {h.loaded.length > 0 && (
         <ul className="lc-loaded">
