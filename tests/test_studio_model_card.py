@@ -61,8 +61,11 @@ def test_the_roles_picker_rows_carry_the_card_and_the_meter(ctx: Ctx):
               got.get("picker_chips") == ["no tools coder 64k", "tools instruct 128k", "thinks tools vision instruct 64k"])
     ctx.check(f"a meter per row with its level, got {got.get('picker_levels')}", got.get("picker_levels") == ["tight", "fits", "fits"])
     detail = got.get("picker_detail") or []
-    ctx.check(f"the picked row's card: how Halo calls it, got {detail}",
-              len(detail) == 5 and detail[1].startswith("no tools: answers only") and detail[-1].startswith("dialect: native"))
+    # the five "how Halo calls it" lines come first; since 3.3.6.0 R1 the card's
+    # blocks (use it for / don't / where it sits / limits) follow them
+    ctx.check(f"the picked row's card: how Halo calls it, then its blocks, got {detail}",
+              len(detail) >= 5 and detail[1].startswith("no tools: answers only") and detail[4].startswith("dialect: native")
+              and any(line.endswith("(expected)") or line.endswith("(declared)") for line in detail[5:]))
 
 
 @test
