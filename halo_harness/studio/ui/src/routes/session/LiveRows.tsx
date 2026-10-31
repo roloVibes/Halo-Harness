@@ -17,7 +17,7 @@
 // on its own controls -- the tag, an ask's keys, a tool row that opens -- does
 // what that control does); a steer
 // reads "↳ steer to <agent>: ..." under it and the agent's next row is marked
-// "after your steer".
+// "after your steer". 3.3.6.0 R4: a text or output row carries "why?" (Why.tsx: Why this answer?, in the Inspector).
 import { memo, useRef, type MouseEvent } from "react";
 import { Kbd } from "../../lib/ui";
 import { clock, short } from "../orchestra/format";
@@ -28,6 +28,7 @@ import { patchPanel } from "../../lib/workspace/persist";
 import type { LiveKind, LiveLine } from "../shared/liveFeed";
 import { ToolRow } from "./LiveTool";
 import { steerAgent } from "./steer";
+import { WhyButton } from "./Why";
 
 export type Who = { name: string; hc: number; state: string };
 
@@ -152,6 +153,7 @@ export const LiveRow = memo(function LiveRow({ l, who, last, target, onPin, onHo
       <div className="fac-text slv-body">
         {l.after && <span className="slv-after mono" data-testid="live-after-steer">after your steer</span>}
         <Body l={l} name={who.name} live={last && who.state === "running" && (l.kind === "text" || l.kind === "thinking")} />
+        {(l.kind === "text" || l.kind === "output") && <WhyButton l={l} />}
       </div>
     </div>
   );

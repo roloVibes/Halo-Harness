@@ -31,7 +31,8 @@ from __future__ import annotations
 import time
 from typing import Optional
 
-FIELDS = ("num_ctx", "num_predict", "keep_alive", "tools_max", "host_for", "compact_at", "note", "by", "at")
+FIELDS = ("num_ctx", "num_predict", "keep_alive", "tools_max", "host_for", "compact_at", "note", "by", "at",
+          "dialect")  # 3.3.6.0 R4: the dialect record's stored fields (providers/dialect.py)
 CHANGEABLE = ("num_ctx", "num_predict", "keep_alive", "tools_max", "host_for", "compact_at")
 COMPACT_AT = 0.8
 CONFIG_KEY = "ollama.profiles"
@@ -113,6 +114,11 @@ def clean(entry: dict) -> dict:
     for k in ("note", "by", "at"):
         if isinstance(entry.get(k), str) and entry[k]:
             out[k] = entry[k]
+    if isinstance(entry.get("dialect"), dict) and entry["dialect"]:  # 3.3.6.0 R4: providers/dialect.clean_stored
+        from halo_harness.providers.dialect import clean_stored
+        d = clean_stored(entry["dialect"])
+        if d:
+            out["dialect"] = d
     return out
 
 
@@ -129,7 +135,7 @@ def set_field(key: str, field: str, value, *, by: str = "steward", note: Optiona
     if note:
         entry["note"] = note
     entry = clean(entry)
-    if any(k in entry for k in CHANGEABLE):
+    if any(k in entry for k in CHANGEABLE) or entry.get("dialect"):
         profiles[key] = entry
     else:
         profiles.pop(key, None)

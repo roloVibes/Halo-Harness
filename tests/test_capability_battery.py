@@ -16,7 +16,10 @@ thinking model, a fenced-JSON model, a wrong-ID model):
 4. never a real host under the flag (a LAN placeholder, the made-up default):
    nothing is sent;
 5. `halo models probe`: the cost line first, one line per probe, the profile;
-   `--json`; the fit with a hardware card (usable window, co-reside / pivot).
+   `--json`; the fit with a hardware card (usable window, co-reside / pivot);
+6. 3.3.6.0 R4, the multi-tool probe (providers/battery_multitool.py): two tools in order, scored on the right tools
+   with the right arguments -> `tool_call_accuracy` (1.0 / 0.75 / 0.25; a model with no tool calling is not asked),
+   the two turns it sends, and the score of every shape (both calls at once, no call, a wrong tool).
 Run: python -m tests.test_capability_battery
 """
 from __future__ import annotations
@@ -54,7 +57,7 @@ def test_every_probe_on_every_scripted_model(ctx: Ctx):
             got = tuple(p.get(k) for k in KEYS)
             ctx.check(f"{name}: {dict(zip(KEYS, want))}, got {dict(zip(KEYS, got))}", got == want)
             ctx.check(f"{name}: the evidence keeps every probe's answer, got {sorted(p['evidence'])}",
-                      sorted(p["evidence"]) == sorted(["warmup", "tools", "system", "instruction", "json", "reference"]))
+                      sorted(p["evidence"]) == sorted(["warmup", "tools", "system", "instruction", "json", "reference", "multitool"]))
             for k in ("window", "kv_per_token", "size_gb", "speed", "resident", "quirks", "probed_at", "digest",
                       "ollama_version", "probe_set", "output_why", "chips"):
                 ctx.check(f"{name}: the profile has {k}", k in p)
@@ -85,7 +88,8 @@ def test_the_warm_up_is_never_timed_and_a_thinker_is_re_asked(ctx: Ctx):
         rig.mock.clear()
         t = rig.probe("bt-thinker:27b")
         caps = [b["options"]["num_predict"] for b in rig.chats()]
-        ctx.check(f"each empty-content probe asked once more at 600, got {caps}", caps.count(600) == 5)
+        ctx.check(f"each empty-content probe asked once more at 600 (five, the multi-tool turn one), and the multi-tool "
+                  f"turn two at 600, got {caps}", caps.count(600) == 7)
         ctx.check(f"the first (empty) answer kept beside the second, got {sorted(t['evidence']['system'])}",
                   "first" in t["evidence"]["system"] and t["evidence"]["system"]["first"]["content"] == "")
         ctx.check(f"a cold model's ps after: verified on the GPU at the window used, got {t['window']}",
@@ -107,7 +111,8 @@ def test_the_cache_key_is_digest_version_and_probe_set(ctx: Ctx):
         ctx.check(f"a second run answers from the cache, no chat, got cached={again.get('cached')} chats {len(rig.chats()) - n}",
                   again.get("cached") is True and len(rig.chats()) == n)
         rig.probe("bt-coder:30b", force=True)
-        ctx.check(f"force runs it again, got {len(rig.chats()) - n} chats", len(rig.chats()) - n == 6)
+        ctx.check(f"force runs it again (six probes, the multi-tool probe's two turns), got {len(rig.chats()) - n} chats",
+                  len(rig.chats()) - n == 8)
         n = len(rig.chats())
         rig.mock.version_response = {"version": "0.41.0"}
         p = rig.probe("bt-coder:30b")
@@ -152,8 +157,8 @@ def test_halo_models_probe_and_the_fit(ctx: Ctx):
         ctx.check(f"exit 0, got {rc}", rc == 0)
         ctx.check(f"the cost line first, got {lines[:1]}",
                   lines[0] == "about 8 requests to bt-coder:30b on fake, 1-3 minutes, no cost; it loads the model")
-        ctx.check(f"one line per probe, got {lines[1:7]}", [x.strip()[:4] for x in lines[1:7]] == [f"{i}/6 " for i in range(1, 7)])
-        ctx.check(f"the profile and the blocks, got {lines[7:]}", "where it sits: full agent" in buf.getvalue()
+        ctx.check(f"one line per probe, got {lines[1:7]}", [x.strip()[:4] for x in lines[1:8]] == [f"{i}/7 " for i in range(1, 8)])
+        ctx.check(f"the profile and the blocks, got {lines[8:]}", "where it sits: full agent" in buf.getvalue()
                   and "use it for:" in buf.getvalue() and "limits:" in buf.getvalue())
         p = rig.cache()["sha256:bt-coder-30b"]["battery"]["fake"]
         ctx.check(f"the usable window from the card, got {p['window']}", isinstance(p["window"]["usable"], int)
@@ -226,6 +231,40 @@ def test_the_steward_probes_a_new_model_when_idle(ctx: Ctx):
         from halo_harness.theme import set_config_value
         set_config_value("ollama.steward.probe_new", False)
         ctx.check("off: never", probe_new.maybe(job, now + 99999) is None)
+
+
+@test
+def test_the_multi_tool_probe_scores_tool_call_accuracy(ctx: Ctx):
+    from halo_harness.providers import battery_multitool as M
+    want = {"bt-coder:30b": 1.0, "bt-fence:14b": 1.0, "bt-thinker:27b": 0.75, "bt-wrongid:8b": 0.25, "bt-mute:24b": 0.0}
+    with BatteryRig() as rig:
+        for name, acc in want.items():
+            p = rig.probe(name)
+            ctx.check(f"{name}: tool_call_accuracy {acc}, got {p.get('tool_call_accuracy')} ({p.get('tool_call_why')})",
+                      p.get("tool_call_accuracy") == acc)
+        mute = rig.cache()["sha256:bt-mute-24b"]["battery"]["fake"]
+        ctx.check(f"no tool calling: not asked, said, got {mute['tool_call_why']!r}", "not asked" in mute["tool_call_why"]
+                  and mute["evidence"]["multitool"] == {"skipped": "no tool calling"})
+        rig.mock.clear()
+        rig.probe("bt-coder:30b", force=True)
+        multi = [b for b in rig.chats() if len(b.get("tools") or []) == 3]
+        ctx.check(f"two turns with the three tools, got {len(multi)}", len(multi) == 2)
+        ctx.check("turn two carries the model's call and find_user's answer",
+                  multi[1]["messages"][-1]["role"] == "tool" and "u-42" in multi[1]["messages"][-1]["content"]
+                  and multi[1]["messages"][1]["tool_calls"][0]["function"]["name"] == "find_user")
+        why = rig.cache()["sha256:bt-coder-30b"]["battery"]["fake"]["tool_call_why"]
+        ctx.check(f"the why names each check, got {why!r}", "find_user right" in why and "its user_id right" in why)
+    call = lambda tool, **a: {"function": {"name": tool, "arguments": a}}  # noqa: E731
+    both = {"message": {"tool_calls": [call("find_user", name="ada lovelace"), call("get_orders", user_id="7")]}}
+    ctx.check("both calls at once: scored on what it sent (the id it could not know is wrong)",
+              M.score(both)[0] == 0.75)
+    ctx.check("no call: 0 and said", M.score({"message": {"content": "I would look her up"}})[:2] == (0.0, "no tool call at all"))
+    strings = {"message": {"tool_calls": [{"function": {"name": "find_user", "arguments": '{"name": "Ada Lovelace"}'}}]}}
+    second = {"message": {"tool_calls": [call("get_orders", user_id="u-42")]}}
+    ctx.check("arguments sent as a JSON string parse", M.score(strings, second)[0] == 1.0)
+    wrong = {"message": {"tool_calls": [call("send_email", to="x", body="y"), call("get_orders", user_id="u-42")]}}
+    ctx.check(f"the wrong tool first: the useful calls scored, a quarter off, got {M.score(wrong)[:2]}",
+              M.score(wrong)[0] == 0.0 and "send_email" in M.score(wrong)[1])
 
 
 if __name__ == "__main__":

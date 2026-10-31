@@ -87,9 +87,28 @@ def _profile_tools_max(session) -> None:
         env = getattr(getattr(session, "settings", None), "effective_env", None)
         host = resolve_ollama_host(ref.host, env)
         tm = (lookup(host, ref.model) or {}).get("tools_max") if host is not None else None
+        from halo_harness.providers.dialect_apply import tools_max  # 3.3.6.0 R4: the dialect record's wins
+        tm = tools_max(session) or tm
         session._lean_profile_tools_max = tm if isinstance(tm, int) and tm > 0 else None
     except Exception:
         log.debug("prompt_wire: the profile's tools_max could not be read", exc_info=True)
+
+
+def _task_text(messages: list) -> str:
+    """The newest user message's own words (the task the tool budget ranks by)."""
+    for msg in reversed(messages or []):
+        if isinstance(msg, dict) and msg.get("role") == "user":
+            c = msg.get("content")
+            return c if isinstance(c, str) else " ".join(str(b.get("text") or "") for b in c or [] if isinstance(b, dict)
+                                                         and b.get("type") == "text")[-4000:]
+    return ""
+
+
+def _by_name_line(offered: list, kept: list) -> str:
+    names = [t.get("name") for t in offered if isinstance(t, dict) and t not in kept and t.get("name")]
+    more = f" and {len(names) - 40} more" if len(names) > 40 else ""
+    return ("Other tools you can call by name (their schemas are left out to fit your window): "
+            + ", ".join(names[:40]) + more + ".")
 
 
 def _take_memory(messages: list, known: dict) -> "tuple[list, str]":
@@ -228,7 +247,10 @@ def _shape(session, system_text: str, messages: list, tools, purpose: str):
         system_text, messages = _instructions_to_user(session, system_text, messages)
     if lean and tools:
         _profile_tools_max(session)
-        tools, dropped = L.cap_tools(session, tools)
+        offered = list(tools)
+        tools, dropped = L.cap_tools(session, tools, _task_text(messages))
+        if dropped and tools:  # 3.3.6.0 R4 (G3): the rest are reachable by name
+            system_text = (system_text or "").rstrip() + "\n\n" + _by_name_line(offered, tools)
         if dropped and purpose == "turn":
             model = getattr(getattr(session, "model_ref", None), "raw", "this model")
             _queue_line(session, (f"{dropped} tool{'s' if dropped != 1 else ''} not offered to {model} "

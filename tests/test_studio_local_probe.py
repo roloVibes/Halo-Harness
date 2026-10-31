@@ -77,8 +77,9 @@ def test_after_the_probe_the_card_says_it(ctx: Ctx):
     ctx.check(f"probed <date> · re-probe, got {got.get('mark_after')!r}",
               (got.get("mark_after") or "").startswith("probed 20") and got["mark_after"].endswith("re-probe"))
     ctx.check(f"the chip verified, got {got.get('chip')}", got.get("chip") == ["full agent", "verified"])
-    ctx.check(f"the four blocks, got {got.get('blocks')}", got.get("blocks") == ["sits", "use_for", "dont_use_for", "limits"]
-              or got.get("blocks") == ["sits", "use_for", "limits"])
+    four = [b for b in got.get("blocks") or [] if b not in ("measured", "dialect", "fit", "kv")]  # 3.3.6.0 R3 / R4's blocks
+    ctx.check(f"the four blocks, got {got.get('blocks')}", four == ["sits", "use_for", "dont_use_for", "limits"]
+              or four == ["sits", "use_for", "limits"])
     ctx.check(f"every value verified, got {got.get('marks_after')}", got.get("marks_after") == ["verified"])
     ctx.check(f"Re-probe now, got {got.get('label_after')!r}", got.get("label_after") == "Re-probe")
     ctx.check(f"the fit meter's word with the speed, got {got.get('fit_word')!r}", "~188 tok/s at 32k" in (got.get("fit_word") or ""))

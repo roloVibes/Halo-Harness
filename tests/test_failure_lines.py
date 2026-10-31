@@ -78,9 +78,17 @@ def _lines(evs):
     return [e.data.get("text") or e.data.get("message") or "" for e in evs if e.kind in ("turn_marker", "error")]
 
 
+def _ladder_off() -> None:
+    """3.3.6.0 R4: with the degradation ladder on (agent/degrade.py) these failures walk its rungs first
+    (tests/test_degrade.py); off, R1's own line is the answer, as pinned here."""
+    from halo_harness.theme import set_config_value
+    set_config_value("local.ladder", "off")
+
+
 @test
 def test_no_tool_calling_says_why_and_names_a_model(ctx: Ctx):
     with Rig() as rig:
+        _ladder_off()
         _seed(rig.state_dir, "mid:14b", tools="no", interactive="no")
         _seed(rig.state_dir, "big:30b")
         scn = _scn([_reply("")])
@@ -97,6 +105,7 @@ def test_no_tool_calling_says_why_and_names_a_model(ctx: Ctx):
 @test
 def test_an_empty_reply_twice_on_an_unprobed_model(ctx: Ctx):
     with Rig() as rig:
+        _ladder_off()
         scn = _scn([_reply("")])
         rig.mock.scenarios["mid:14b"] = scn
         evs = rig.run(rig.session("ol:mid:14b@lan"), [_say("list the files")])

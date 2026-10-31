@@ -56,7 +56,7 @@ def probe(c, url, ctx) -> dict:
     strip = _row("qwen3.5:9b", "[data-testid=local-probe-strip]")
     press(c, btn, f"!!{strip}")
     out["running"] = c.wait(f"{strip} && !{strip}.dataset.done && {strip}.querySelector('[data-testid=local-probe-cost]') "
-                            f"&& {strip}.querySelector('[data-testid=local-probe-step]').textContent.includes('/6 ') "
+                            f"&& {strip}.querySelector('[data-testid=local-probe-step]').textContent.includes('/7 ') "
                             f"&& [{strip}.querySelector('[data-testid=local-probe-cost]').textContent, "
                             f"{strip}.querySelector('[data-testid=local-probe-step]').textContent]", 20)
     out["done"] = c.wait(f"{strip}?.dataset.done && [{strip}.dataset.ok || '', {strip}.querySelector('[data-testid=local-probe-step]').textContent]", 60)

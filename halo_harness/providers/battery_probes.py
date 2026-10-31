@@ -14,6 +14,8 @@ are kept in the evidence.
     instruction  the same demand in the user turn     strict (exactly BANANA) or task-shaped
     json         a schema'd triage request            json / fenced-json / prose, and why not
     reference    the CWE number of "improper access control" (284)  trusted / unverified
+    multitool    three tools, a task that needs two in order (3.3.6.0 R4): find_user, then get_orders with the id
+                 the first returned -- two turns, scored on the right tools with the right arguments (0-1)
 The reasoning split is read off every probe (any `thinking`); the speed off
 the json probe (`eval_count / eval_duration`, after the warm-up).
 """
@@ -24,7 +26,7 @@ import json
 import re
 from typing import Optional
 
-PROBE_SET = "battery-1"  # bump when a prompt or a rule changes: every cached profile re-runs
+PROBE_SET = "battery-2"  # bump when a prompt or a rule changes: every cached profile re-runs
 THINK_CAP = 600
 TOOL = {"type": "function", "function": {
     "name": "get_weather", "description": "Get the weather for a city",
@@ -50,7 +52,8 @@ PROBES = {
 }
 ORDER = ("warmup", "tools", "system", "instruction", "json", "reference")
 WORDS = {"warmup": "warm-up (never timed)", "tools": "tool call", "system": "system role",
-         "instruction": "user instruction", "json": "structured output", "reference": "reference fidelity"}
+         "instruction": "user instruction", "json": "structured output", "reference": "reference fidelity",
+         "multitool": "two tools in order (tool-call accuracy)"}
 
 
 def body(model: str, name: str, *, num_ctx: int, keep_alive, cap: Optional[int] = None) -> dict:

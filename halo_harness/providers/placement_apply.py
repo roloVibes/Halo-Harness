@@ -51,13 +51,16 @@ def apply_profile(profile: dict, state_dir=None) -> list:
 
 
 def prompt_card(session) -> dict:
-    """The dialect facts a call to this session's model reads (cached on the session per ref)."""
+    """The dialect facts a call to this session's model reads (cached on the session per ref and turn). 3.3.6.0 R4:
+    the dialect record (providers/dialect.py) decides the placement and a tools_max of 0 (`from: "dialect"` when no
+    probe stands behind it)."""
     ref = getattr(session, "model_ref", None)
     raw = getattr(ref, "raw", None)
     if getattr(ref, "provider", "") != "ollama":
         return {}
+    key = (raw, getattr(session, "turn_count", None))
     hit = getattr(session, "_placement_card", None)
-    if isinstance(hit, tuple) and hit[0] == raw:
+    if isinstance(hit, tuple) and hit[0] == key:
         return hit[1]
     card: dict = {}
     try:
@@ -68,9 +71,18 @@ def prompt_card(session) -> dict:
             card = {"system_role": "weak" if p.get("system_role") == "weak" else "ok",
                     "tools": "none" if p.get("tools") == "no" else "probed", "from": "probe", "probed": date_of(p),
                     "output": p.get("output"), "identifiers": p.get("identifiers"), "reasoning": p.get("reasoning")}
+        from halo_harness.providers.dialect_apply import record_for
+        rec = record_for(session)
+        if rec:
+            frm = rec.get("from") or {}
+            if frm.get("instruction_placement") in ("user", "ledger", "hub") or (card and rec.get("instruction_placement")):
+                card = {**card, "system_role": "weak" if rec["instruction_placement"] == "user-turn" else "ok",
+                        "from": card.get("from") or "dialect", "probed": card.get("probed") or "your dialect record"}
+            if rec.get("tools_max") == 0:
+                card = {**card, "tools": "none", "from": card.get("from") or "dialect"}
     except Exception:
-        card = {}
-    session._placement_card = (raw, card)
+        card = card or {}
+    session._placement_card = (key, card)
     return card
 
 

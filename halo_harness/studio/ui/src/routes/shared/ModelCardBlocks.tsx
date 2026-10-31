@@ -3,7 +3,11 @@
 // pivot-only / not interactive), Limits (window trained vs usable and whether verified, size, co-reside or pivot,
 // measured tok/s, cold load). Every value carries its mark (3.3.6.0 R2: the three truths): verified (the battery
 // probed it on this host), declared (the metadata says it) or expected (the family rules, the size, the name) --
-// data-mark on each item, "declared" / "expected" said in words.
+// data-mark on each item, "declared" / "expected" said in words. 3.3.6.0 R4: the Measured block (each line "value
+// (source, date, n)", providers/measured.py), the KV dial under the fit line ("f16 KV -> 32k, q8_0 KV -> 64k on this
+// card", its crash note and the host-side action, providers/kv_dial.py) and How Halo talks to this model
+// (DialectBlock.tsx, the dialect record, editable).
+import { DialectBlock, type DialectView } from "./DialectBlock";
 import { FitEvidenceChip } from "./FitEvidence";
 
 export type Mark = "verified" | "declared" | "expected";
@@ -13,6 +17,10 @@ export type CardBlocksView = {
   sits?: { chip: string; chips: string[]; mark: Mark };
   /** 3.3.6.0 R3: the fit line the server log cites (model_card_blocks.fit_block). */
   fit?: { text: string; mark: Mark; state: string; source?: string | null } | null;
+  /** 3.3.6.0 R4 */
+  measured?: BlockItem[];
+  kv_dial?: { text: string; crash?: string; action?: string; in_force?: string } | null;
+  dialect?: DialectView | null;
 };
 
 const TITLES: [keyof CardBlocksView, string][] = [["use_for", "Use it for"], ["dont_use_for", "Don't use it for"], ["limits", "Limits"]];
@@ -33,7 +41,17 @@ export function SitsChips({ blocks }: { blocks?: CardBlocksView }) {
   );
 }
 
-export function CardBlocks({ blocks }: { blocks?: CardBlocksView }) {
+function KvDial({ k }: { k: NonNullable<CardBlocksView["kv_dial"]> }) {
+  return (
+    <div className="mono muted kv-dial" data-testid="model-card-kv-dial" title={k.action ? `${k.action} (KV in force: ${k.in_force})` : `KV in force: ${k.in_force}`}>
+      {k.text}
+      {k.crash && <div className="kv-crash" data-testid="model-card-kv-crash">{k.crash}</div>}
+      {k.action && <div className="kv-action">to change it: {k.action}</div>}
+    </div>
+  );
+}
+
+export function CardBlocks({ blocks, refName = "" }: { blocks?: CardBlocksView; refName?: string }) {
   if (!blocks) return null;
   return (
     <div className="mprobe-blocks" data-testid="model-card-blocks">
@@ -44,6 +62,12 @@ export function CardBlocks({ blocks }: { blocks?: CardBlocksView }) {
         <div className="mprobe-block" data-testid="model-card-block" data-block="fit">
           <span className="rail-label mono">Fit here</span>{" "}
           <FitEvidenceChip ev={{ state: blocks.fit.state, line: blocks.fit.text, source: blocks.fit.source }} testid="model-card-fit" />
+          {blocks.kv_dial?.text && <KvDial k={blocks.kv_dial} />}
+        </div>
+      )}
+      {!blocks.fit && blocks.kv_dial?.text && (
+        <div className="mprobe-block" data-testid="model-card-block" data-block="kv">
+          <span className="rail-label mono">KV cache</span> <KvDial k={blocks.kv_dial} />
         </div>
       )}
       {TITLES.map(([key, title]) => {
@@ -62,6 +86,15 @@ export function CardBlocks({ blocks }: { blocks?: CardBlocksView }) {
           </div>
         );
       })}
+      {!!blocks.measured?.length && (
+        <div className="mprobe-block" data-testid="model-card-block" data-block="measured">
+          <span className="rail-label mono" title="each fact: its value (where it was measured, when, over how many calls)">Measured</span>
+          <ul className="mprobe-items">
+            {blocks.measured.map((x) => <li key={x.text} data-testid="model-card-measured">{x.text}</li>)}
+          </ul>
+        </div>
+      )}
+      <DialectBlock view={blocks.dialect} refName={refName} />
     </div>
   );
 }

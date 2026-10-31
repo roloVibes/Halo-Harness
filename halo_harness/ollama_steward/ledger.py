@@ -53,7 +53,7 @@ FIELDS = ("at", "host", "model", "ref", "dialect", "kind", "num_ctx_sent", "wind
           "prompt_eval_count", "eval_count", "done_reason", "total_ms", "load_ms", "prompt_eval_ms", "eval_ms",
           "eval_tok_s", "trimmed", "status", "error", "retry", "session", "turn", "tools_count", "images", "from",
           "switched_from", "fitted", "body_flags", "bytes_in", "bytes_out", "composition", "prefix_tokens",
-          "prefix_changed", "preflight", "warming", "cache_reused_pct", "log_events")  # 3.3.6.0 R3: log_events
+          "prefix_changed", "preflight", "warming", "cache_reused_pct", "log_events", "dialect_record", "loop", "ladder")  # R3, R4
 _SINCE_RE = re.compile(r"^\s*(\d+(?:\.\d+)?)\s*([smhdw]?)\s*$", re.IGNORECASE)
 _UNIT_S = {"": 3600, "s": 1, "m": 60, "h": 3600, "d": 86400, "w": 7 * 86400}
 

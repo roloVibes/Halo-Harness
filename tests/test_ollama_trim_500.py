@@ -37,6 +37,13 @@ def test_ollama_500_no_user_query_raises_once_then_one_error_line(ctx: Ctx):
     """RAISE path, then a second trim in the same turn: one error line
     with the raw text -- two sends, never six."""
     fh = build_fake_home()
+    # 3.3.6.0 R4: with the degradation ladder on, a second trim takes its rungs first (tests/test_degrade.py);
+    # off, this round's own pin holds: two sends, one error line
+    state = Path(fh["home"]) / ".halo"
+    state.mkdir(parents=True, exist_ok=True)
+    cfg = state / "config.json"
+    data = json.loads(cfg.read_text(encoding="utf-8")) if cfg.exists() else {}
+    cfg.write_text(json.dumps({**data, "local": {**(data.get("local") or {}), "ladder": "off"}}), encoding="utf-8")
     mock = _mock_with("q-model", None)
     mock.start()
     try:

@@ -8,6 +8,7 @@
                                   -> {ok, result}; 404 for a session not in the registry, 502 with the socket's error
     sessions/<sid>/agents...      the agent tree, one agent's tail and its commands (studio/fleet_api.py, 3.0.5.0)
     GET  sessions/<sid>/trace.md  the session as one Markdown trace (3.3.0.0 R6: session_trace.py), text/markdown
+    GET  sessions/<sid>/postmortem?turn=&agent=&at=  Why this answer? (3.3.6.0 R4: studio/postmortem_api.py)
 
 The rows come from `remote/registry.list_live()` (never an endpoint or a
 token) plus each session's `status` over its control socket: every call
@@ -170,6 +171,8 @@ ROUTES = [("GET", r"^sessions$", list_sessions),
           ("GET", r"^sessions/(?P<sid>[A-Za-z0-9_.-]+)/trace\.md$", get_trace)]
 from halo_harness.studio.fleet_api import ROUTES as _FLEET_ROUTES  # noqa: E402  (3.0.5.0: the agent routes)
 ROUTES[len(ROUTES):] = _FLEET_ROUTES
+from halo_harness.studio.postmortem_api import ROUTES as _WHY_ROUTES  # noqa: E402  (3.3.6.0 R4: Why this answer?)
+ROUTES[len(ROUTES):] = _WHY_ROUTES
 
 
 def dispatch_sessions(req):
