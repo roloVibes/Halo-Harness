@@ -33,7 +33,8 @@ def _box():
 def test_each_state(ctx: Ctx):
     from halo_harness.ollama_steward.log_status import status
     got = {}
-    with LogsHome(hosts=[BOX, {"name": "pc", "url": "http://192.0.2.10:11434", "ssh": "example@192.0.2.10"}]) as h:
+    with LogsHome(hosts=[BOX, {"name": "pc", "url": "http://192.0.2.10:11434", "ssh": "example@192.0.2.10"}],
+                  platform="win32") as h:  # status is asked as Windows: the log path must match on a Linux runner too
         got["missing"] = status(h.state, _box(), platform="win32")
         h.write_local(f'time={T(100)} level=INFO msg="a line"\n')
         h.call(BOX, "qwen3:8b", time.time() - 30)
@@ -69,7 +70,7 @@ def test_each_state(ctx: Ctx):
 @test
 def test_debug_is_said_and_never_set(ctx: Ctx):
     from halo_harness.ollama_steward.log_status import status
-    with LogsHome(hosts=[BOX]) as h:
+    with LogsHome(hosts=[BOX], platform="win32") as h:
         h.write_local(f'time={T(100)} level=DEBUG source=sched.go:1 msg="a debug line"\n')
         st = status(h.state, _box(), platform="win32")
         env = dict(os.environ)
