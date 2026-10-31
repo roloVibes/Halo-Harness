@@ -131,6 +131,10 @@ def host_card_of(host, *, read: bool = False) -> Optional[dict]:
             hit = V._CACHE.get(("card", str(getattr(host, "url", ""))))
         if hit is not None:
             return hit[1]
+        from halo_harness.ollama_steward.host_reads import card_of  # 3.3.7.0 R1: a paired halo host's card (cached 15 s)
+        hosted = card_of(host)
+        if hosted is not None:
+            return hosted
         from halo_harness.config.paths import background_net_disabled
         return V.card_of(host) if read and not background_net_disabled() else None
     except Exception:

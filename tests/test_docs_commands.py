@@ -162,6 +162,8 @@ def _gather_real_flags() -> "dict[str, set]":
     from halo_harness.isolation.secrets import cmd_secrets
     out.update({f"halo isolation {v}": _flags_in(_capture(cmd_isolation, [v, "--help"])) for v in ("image", "build", "check")})
     out["halo secrets check"] = _flags_in(_capture(cmd_secrets, ["check", "--help"]))
+    from halo_harness.host_cli import VERBS as HOST_VERBS, cmd_host  # 3.3.7.0 R1: `halo host`
+    out.update({f"halo host {v}": _flags_in(_capture(cmd_host, [v, "--help"])) for v in HOST_VERBS})
     return out
 
 

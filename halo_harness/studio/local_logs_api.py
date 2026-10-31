@@ -67,7 +67,8 @@ def log_models(state_dir, host) -> dict:
     from halo_harness.providers.fit_evidence import evidence
     from halo_harness.providers.ollama import ollama_names_match
     from halo_harness.studio.ollama_hosts_view import catalog_of
-    evs = read_events(state_dir, since=86400.0, host=host.name)
+    from halo_harness.ollama_steward.host_reads import events_of  # 3.3.7.0 R1: a paired halo host's events
+    evs = read_events(state_dir, since=86400.0, host=host.name) + events_of(state_dir, host, 86400.0)
     since, sid = session_since(state_dir, host)
     names: list = []
     for m in [str(r.get("model") or r.get("name") or "") for r in catalog_of(host).get("models") or [] if isinstance(r, dict)] + \

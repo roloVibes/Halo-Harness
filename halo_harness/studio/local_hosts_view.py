@@ -7,7 +7,8 @@ never a model call and never a write to a server.
     hosts(state_dir, hub=None) -> {hosts: [host], at, mode}
     host {name, url, kind, source (configured | discovered | local server |
           managed server (3.3.5.0 R5: one Halo started; `managed` {id, pid, port, model, flags, ready, alive, log,
-          stop_cli, log_cli}) | member), version, served_here, served_by, loaded [{model, size,
+          stop_cli, log_cli}) | member), version, host {addr, url, name, started, last_seen, audit_count, error} | None
+          (3.3.7.0 R1: the paired halo host that serves it, host_client.host_block), served_here, served_by, loaded [{model, size,
           size_vram, vram_pct, expires, context_length}], card_lines, profiles
           {model: profile}, users [{from, calls}] (the ledger's `from`, 24 h),
           finding (the newest open one's line) | None, findings, plan {says,
@@ -24,6 +25,8 @@ from __future__ import annotations
 
 import time
 from typing import Optional
+
+from halo_harness.ollama_steward.host_reads import host_block  # 3.3.7.0 R1
 
 KINDS = {"ollama": "Ollama", "openai": "OpenAI-dialect gateway"}
 
@@ -82,9 +85,23 @@ def _member(hub, name: str):
 
 
 def controls(host_url: str, host_name: str, served: bool, hub=None) -> dict:
-    """{ok, via, why, member, member_host} for Load / Unload on this host from here."""
+    """{ok, via, why, member, member_host} for Load / Unload on this host from here; 3.3.7.0 R1: `via: "host"` when a
+    paired halo host serves it and no member takes the command (the host's `control` grant is 3.3.7.0 R2's)."""
     if served:
         return {"ok": True, "via": "this machine", "why": ""}
+    got = _member_controls(host_url, host_name, hub)
+    if got["ok"] or not host_url:
+        return got
+    from types import SimpleNamespace
+    from halo_harness.ollama_steward.host_client import for_host
+    hc = for_host(SimpleNamespace(url=host_url, name=host_name))
+    if hc is None:
+        return got
+    return {"ok": False, "via": "host", "host": hc.addr, "why": f"served by halo host at {hc.addr}: Load, Unload, probe "
+            "and bench through it need the host's `control` grant, which arrives in 3.3.7.0 R2"}
+
+
+def _member_controls(host_url: str, host_name: str, hub=None) -> dict:
     from halo_harness.ollama_steward.resources_share import serving
     who = serving(host_url, host_name)
     if who is None:
@@ -128,7 +145,8 @@ def _configured(h: dict, host_obj, users: dict, hub) -> dict:
             "profiles": {k.split("|", 1)[1]: v for k, v in (h.get("profiles") or {}).items()},
             "users": users.get(h["name"], []), "finding": _finding(h.get("findings") or []),
             "findings": len([f for f in h.get("findings") or [] if not f.get("applied")]), "plan": _plan(h.get("plan")),
-            "models": names, "controls": controls(h["url"], h["name"], h["served_here"], hub), "log": _log(host_obj)}
+            "models": names, "controls": controls(h["url"], h["name"], h["served_here"], hub), "log": _log(host_obj),
+            "host": None if h["served_here"] else host_block(h["url"])}
 
 
 def _log(host_obj) -> Optional[dict]:
@@ -169,7 +187,8 @@ def _discovered(configured_urls: set) -> list:
         seen.add(key)
         out.append(_blank(r.name, r.url, "Ollama", "discovered", "add it to hosts first (Add to hosts writes the "
                           "ollama.hosts entry)", version=r.version, models=list(r.models), served_here=r.where != "lan",
-                          served_by="this machine" if r.where != "lan" else "another machine"))
+                          served_by="this machine" if r.where != "lan" else "another machine",
+                          host=host_block(r.url) if r.where == "lan" else None))
     return out
 
 
@@ -184,6 +203,7 @@ def _members(known: set, hub) -> list:
                    "context_length": None} for x in s.get("holders") or [] if x.get("kind") == "model"]
         row = _blank(name, s.get("url") or "", "Ollama", "member", "", served_by=s["from"], loaded=loaded)
         row["controls"] = controls(s.get("url") or "", name, False, hub)
+        row["host"] = host_block(s.get("url") or "")
         out.append(row)
     return out
 

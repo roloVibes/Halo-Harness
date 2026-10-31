@@ -108,6 +108,11 @@ it, `none` refuses). When that cannot happen the buttons are off and the card sa
 it has no live session, this Studio is not its hub, or no member serves the host. Nothing here writes a server's
 settings.
 
+3.3.7.0 R1: a machine a paired `halo host` serves ([HOST.md](HOST.md)) is grouped first, under **SERVED BY HALO
+HOST**, and its card says **served by halo host at <addr> -- running since ..., last seen ..., N requests in its
+audit** (or why it did not answer). Its hardware lines, its `log:` line ("via host"), its profiles and the Logs page
+read through that host; Load, Unload, probe and bench through it say they wait for its `control` grant (3.3.7.0 R2).
+
 ## Models
 
 Every model each host has installed (Ollama's `/api/tags` with `/api/show`; a local server's `/v1/models`), one row each:

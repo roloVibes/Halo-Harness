@@ -13,6 +13,7 @@ import { useState } from "react";
 import { Button, FitMeter } from "../../lib/ui";
 import type { Fit } from "../../lib/ui/FitMeter";
 import { openLog, stopServer, useHf } from "./hfstore";
+import { HostServedBy } from "./HostServedBy";
 import { addHost, gib, loadModel, makeItFit, undoFit, unloadModel, useLocal } from "./store";
 import type { HostCard as Host } from "./types";
 
@@ -103,6 +104,7 @@ export function HostCard({ h, fits }: { h: Host; fits: Record<string, Fit> }) {
         <span className="mono muted" data-testid="local-host-served">{h.served_here ? "served here" : h.served_by ? `served by ${h.served_by}` : ""}</span>
       </header>
       <div className="mono lc-host-url" data-testid="local-host-url">{h.url}</div>
+      <HostServedBy b={h.host} />
       {h.log && (
         <div className="mono muted lc-host-line" data-testid="local-host-log" data-state={h.log.state}
              title={[h.log.why, h.log.tail_cli].filter(Boolean).join("\n") || "the server log (Local -> Logs)"}>log: {h.log.line}</div>

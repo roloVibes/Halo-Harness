@@ -13,6 +13,7 @@ Install Halo, connect your models and providers, and fix what goes wrong.
 - [INSTALL.md](INSTALL.md) (Install): read this when you install, upgrade or update Halo.
 - [MAC.md](MAC.md) (Mac quick-start (Apple Silicon)): read this when you check Halo with local models on an Apple Silicon Mac.
 - [LOCAL-MODELS.md](LOCAL-MODELS.md) (Local and cloud models): read this when you set up Ollama, Hugging Face or the OpenAI API end to end.
+- [HOST.md](HOST.md) (halo host): read this when a machine serves models and you want every harness on the LAN to read its card, its models, its log and its profiles without a session or ssh there.
 - [DATABRICKS.md](DATABRICKS.md) (Databricks): read this when you run Halo against Databricks model serving, at work or with a team preset.
 - [MODELS.md](MODELS.md) (Models): read this when you need the exact behaviour of a model route: how a model name resolves, what each provider sends, the catalogs and the prices.
   - [MODELS-references.md](MODELS-references.md) (Models: references, picks and provider enablement): read this when you type a model name or prefix (`or:`, `dbx:`, `ant:`, `oai:`, `ol:`, `hf:` ...), choose a model for a job, or turn a provider on or off.
@@ -51,6 +52,7 @@ Work in the TUI and on the command line, and give agents bios, lineups, roles an
   - [COMMANDS-agents.md](COMMANDS-agents.md) (Commands: roles, review, bios and lineups): read this when you manage roles, reviews, bios and lineups from the command line.
   - [COMMANDS-studio.md](COMMANDS-studio.md) (Commands: Studio, design, media, Orchestra and teams): read this when you open Studio or run designs, media, an Orchestra goal or a team from the command line.
   - [COMMANDS-fleet.md](COMMANDS-fleet.md) (Commands: remote control and the fleet): read this when you control sessions remotely or run a fleet and its missions.
+  - [COMMANDS-host.md](COMMANDS-host.md) (Commands: halo host): read this when you run `halo host` on a machine that serves models, pair a harness with it, or install it as a service.
   - [COMMANDS-supervise.md](COMMANDS-supervise.md) (Commands: the supervisor, its goals and knowledge): read this when you give Halo a goal to work on without sitting at a terminal, keep what it verified and decided, or isolate its workers.
   - [COMMANDS-packs.md](COMMANDS-packs.md) (Commands: packs): read this when you list, inspect, install, enable, grant, update, roll back or remove a pack, or name where packs come from, on the command line (`halo pack`).
   - [COMMANDS-workflows.md](COMMANDS-workflows.md) (Commands: workflows): read this when you list, show, check or run a pack's workflow from the command line (`halo workflow`).

@@ -8,6 +8,27 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.3.7.0] - unreleased
+
+### R1: the host serves -- `halo host`, a model-free Halo component on every machine that serves models
+
+#### Added
+- `halo host [serve] | status [--peer] | stop | pair | join | install | uninstall`: a headless, LAN-only Halo process with no TUI, no session and no model on the machine that serves models; it runs the steward's watch there (`where: host`: findings only, no change, no model note), the resources sampler, the ledger push to a joined hub with no session open, and announces itself to that hub.
+- The host's signed API under `/host/v1/` (the fleet protocol's HMAC headers, TLS pinned to its own certificate): `card`, `catalog?window=` with a fit verdict per model from the host's own budget, `profiles`, `events`, `tail` (prompt sizes, never a request body), `stream` (SSE), `simulate` (would it fit here if pulled), `route` (can it run here, and right now: fits, now, warm, evicts, load_s, verdict); one audit line per request in `<state>/host/audit.jsonl`; `control` / `manage` / `admin` answer in one line naming the grant.
+- Pairing with a host through its six-word code; fleet.json's new `hosts` list.
+- The ladder's `host` rung: the hardware card, the log status and tail, the events, the fit evidence and the capability profiles ("verified, the host at <addr>") of a host-served machine read through `halo host`, before ssh.
+- Local -> Hosts: SERVED BY HALO HOST, "served by halo host at <addr> -- running since, last seen, N requests in its audit"; the hub's state lists the hosts its members announced.
+- `halo host install` writes a systemd user unit, a launchd agent or a Task Scheduler task and prints the one enable command; config keys `host.port` (7431), `host.bind`, `host.enabled`, `host.tail_max` (400); docs/HOST.md, docs/COMMANDS-host.md; the glossary's grant and peer.
+
+#### Changed
+- The glossary's `host` covers both senses (a model server Halo calls, and `halo host`); `member` says a paired harness is a peer.
+- `halo local hosts` names the rung each host is read through; `halo ollama hardware --host` and `halo ollama log --host` say "via host" in their source line.
+- A launchd plist written for the supervisor (or the host) carries its own label, not the Signal bridge's.
+
+### Also in 3.3.7.0
+
+#### Changed
+
 ## [3.3.6.0] - 2026-10-31
 
 **Local, verified.** The owner's measured brief (plans/local-model-fit-brief.md, Parts A-G) made into six

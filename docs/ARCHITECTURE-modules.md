@@ -82,7 +82,8 @@ this list against the tree.
   `fleet/tls.py`, `fleet/pair_kex.py`, `fleet/pairing.py`
 - the hub: `fleet/hub.py`, `fleet/hub_http.py`, `fleet/hub_join.py`,
   `fleet/hub_links.py`, `fleet/hub_state.py`, `fleet/hub_commands.py`,
-  `fleet/hub_capabilities.py`, `fleet/hub_mission.py`
+  `fleet/hub_capabilities.py`, `fleet/hub_mission.py`, `fleet/hub_hosts.py` (3.3.7.0 R1: the halo hosts members
+  announce)
 - the relay of a joined harness: `fleet/relay.py`, `fleet/relay_hub.py`,
   `fleet/relay_runtime.py`, `fleet/relay_stream.py`, `fleet/control.py`,
   `fleet/local_view.py`, `fleet/agent_tokens.py` (each agent row's own tokens,

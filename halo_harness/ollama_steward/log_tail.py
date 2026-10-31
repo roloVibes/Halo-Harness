@@ -76,6 +76,11 @@ def tail_lines(host, n: int = 200, *, runner: Optional[Callable] = None, ssh_run
     from halo_harness.fleet.ollama_share import served_here
     from halo_harness.ollama_steward.hardware_readers import server_log_path
     if host is not None and not served_here(host.url):
+        if ssh_runner is None:  # 3.3.7.0 R1: a paired halo host serves the tail before ssh (prompt sizes, no bodies)
+            from halo_harness.ollama_steward.host_reads import tail_of
+            got = tail_of(host, n)
+            if got is not None and (got[0] or not got[2] or not getattr(host, "ssh", None)):
+                return got  # a host that did not answer falls through to the ssh entry, when there is one
         if not getattr(host, "ssh", None):
             return [], "", f"the server log of '{host.name}' is on that machine (no ssh entry)"
         return remote_tail(host, n, runner=ssh_runner)

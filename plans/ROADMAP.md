@@ -3568,6 +3568,9 @@ The order (the owner's rule: all of this before Type into Studio and themes):
   with the ways out; routing around reservations; the glasses bundle
   worked out in L6); the steward's chat (the old R6) over the host's
   findings.
+  R1 "the host serves" DONE (2026-10-31): `halo host serve | status | stop |
+  pair | join | install | uninstall`, the signed `view` API, the ladder's
+  host rung, Studio's "served by halo host" card; R2 the host acts next.
 - **3.3.8.0 "Voice"** -- Part K: the local loop (Silero VAD -> faster-whisper
   large-v3-turbo or Parakeet TDT -> the session's model -> sentence
   aggregator -> Kokoro-82M or Qwen3-TTS, through Pipecat or LiveKit Agents,

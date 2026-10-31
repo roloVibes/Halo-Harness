@@ -13,6 +13,8 @@ Every field is None when unknown. The readers run in this order, each one
 optional (`hardware_readers.py`): (a) the local server log's newest
 startup block, (b) `/api/version` and `/api/ps`, (c) the ssh GPU read of a
 remote host with `ssh:`, (d) `nvidia-smi` / `system_profiler` where local.
+3.3.7.0 R1: a host a paired `halo host` serves is read through it first
+(ollama_steward/host_client.card_of: its own card, `via: "host"`) before ssh.
 A fact the first reader gives stays; a later reader fills what is still
 None, except a live GPU reading ((c) or (d)), whose free memory replaces
 the startup log's (the log's figure is from when the server started).
@@ -107,6 +109,11 @@ def hardware_card(host=None, *, log_path=None, api: Optional[Callable] = None, r
     if host is None:
         from halo_harness.providers.ollama import resolve_ollama_host
         host = resolve_ollama_host(None)
+    if host is not None and log_path is None and api is None and ssh_runner is None:
+        from halo_harness.ollama_steward.host_reads import card_of  # 3.3.7.0 R1: a paired halo host's card first
+        hosted = card_of(host) if not served_here(getattr(host, "url", "")) else None
+        if hosted is not None:
+            return {**hosted, "log": _log(host, None, platform)}
     card = _empty_card()
     # 3.3.4.0 R3: served here, not loopback only (OLLAMA_HOST=0.0.0.0:11434, the host name, the LAN address)
     local = host is not None and served_here(getattr(host, "url", ""))
@@ -228,6 +235,8 @@ def format_card(card: dict, *, host_name: str = "") -> "list[str]":
                                            for u in card["other_users"]))
     if card.get("log"):
         lines.append(f"log: {card['log']['line']}")
+    if card.get("via") == "host":  # 3.3.7.0 R1
+        lines.append(f"source: via host {card.get('via_addr')} (halo host serves this card; {card.get('footprint')})")
     for src in card["sources"]:
         if not src["ok"]:
             lines.append(f"not read: {src['reader']} ({src['detail']})")

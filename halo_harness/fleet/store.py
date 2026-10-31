@@ -2,7 +2,8 @@
 "Fleet" round R2): `~/.halo/fleet.json` and the pair keys.
 
     fleet.json                  {version: 1, hubs: [{url, name, hub_id, key_ref, fingerprint, tls, share,
-                                                     allow_control, member_name, joined_at, state}]}
+                                                     allow_control, member_name, joined_at, state}],
+                                 hosts: [...]  (3.3.7.0 R1: the paired halo hosts, add_host below)}
     fleet/keys/<key_ref>.key    that hub's 32-byte pair key as hex (0600)
 
 A hub's `share` / `allow_control` of null follows the config keys
@@ -132,3 +133,54 @@ def mark(hub_id: str, home=None, **fields) -> None:
         for h in d.get("hubs", []):
             if h.get("hub_id") == hub_id:
                 h.update(fields)
+
+
+# ---- 3.3.7.0 R1: the paired halo hosts (`halo host join`, host/join.py) -------------------------------------
+# fleet.json's `hosts`: [{url, name, host_id, key_ref, fingerprint, tls, serves: [{name, port, addr}], grants,
+# joined_at, state}]; the pair key beside the hubs' in fleet/keys/<key_ref>.key.
+
+def hosts(home=None) -> list:
+    data = _read(path(home), {})
+    rows = data.get("hosts") if isinstance(data.get("hosts"), list) else []
+    return [h for h in rows if isinstance(h, dict) and h.get("url")]
+
+
+def add_host(entry: dict, key: bytes, home=None) -> dict:
+    """Store (or replace: same host id or url) one paired host and its key."""
+    ref = "host-" + str(entry.get("host_id") or "x")[:12] + "-" + format(int(time.time()), "x")
+    write_private_atomic(keys_dir(home) / f"{ref}.key", key.hex() + "\n")
+    row = {**entry, "key_ref": ref, "joined_at": time.time(), "state": "joined"}
+    old_refs = []
+    with _edit(path(home), {"version": 1, "hubs": []}) as d:
+        kept = []
+        for h in d.get("hosts") or []:
+            same = h.get("host_id") == row.get("host_id") or h.get("url") == row.get("url")
+            (old_refs.append(h.get("key_ref")) if same else kept.append(h))
+        d["hosts"] = kept + [row]
+    for old in old_refs:
+        _drop_key(old, home)
+    return row
+
+
+def find_host(selector: Optional[str], home=None) -> list:
+    rows = hosts(home)
+    if not selector:
+        return rows
+    s = selector.strip().lower()
+    exact = [h for h in rows if s in (str(h.get("name") or "").lower(), str(h.get("url") or "").lower())]
+    return exact or [h for h in rows if str(h.get("host_id") or "").startswith(s) or s in str(h.get("url") or "")]
+
+
+def remove_host(entries: list, home=None) -> list:
+    ids = {(h.get("host_id"), h.get("url")) for h in entries}
+    gone: list = []
+    if not path(home).exists():
+        return gone
+    with _edit(path(home), {"version": 1, "hubs": []}) as d:
+        kept = []
+        for h in d.get("hosts") or []:
+            (gone if (h.get("host_id"), h.get("url")) in ids else kept).append(h)
+        d["hosts"] = kept
+    for h in gone:
+        _drop_key(h.get("key_ref"), home)
+    return gone
