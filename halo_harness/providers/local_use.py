@@ -35,6 +35,8 @@ def model_id_for_path(path, fmt: str) -> str:
     point of view) can never compute two different ids for the same
     file."""
     path = Path(path)
+    if fmt != "gguf" and path.parent.name == "snapshots" and path.parent.parent.name.startswith("models--"):
+        return path.parent.parent.name.split("--")[-1]  # 3.3.5.0 R5: a hub-cache snapshot is named by its commit
     return path.stem if fmt == "gguf" else path.name
 
 

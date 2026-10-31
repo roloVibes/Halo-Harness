@@ -128,6 +128,27 @@ version.
 #### Fixed
 - The auto-memory block and CLAUDE.md went out twice after a compaction, and once more after every further one: the compaction's verbatim tail carried the session-start snapshots it re-injects (since H5). The tail no longer carries them, and the wire copy keeps only the newest block.
 
+### R5: Hugging Face local models, controlled -- download, list, delete, serve, stop
+
+#### Added
+- Local -> Hugging Face, built.
+- Every `huggingface.model_dirs` folder (Add folder, Forget) and what is on disk in it: kind, size, the card, the fit meter on the host and window picked, and which server serves it.
+- Serve shows each flag and where it comes from before Start. The window and the layers on the GPU come from the fit planner on this machine's card.
+- Stop, Log, Use as default (`hf:local/<model>`), and Delete behind the uses card.
+- Download from Library: every Hugging Face row, GGUF or MLX, has Download into a model folder.
+- The repo's licence line and its files are shown first.
+- The bytes go into the hub cache's layout with progress, Cancel and resume, and every file is checked against the hub's checksum.
+- Gated repos are read with `HF_TOKEN`.
+- After a download the row says "on disk in <folder>".
+- Local servers Halo starts (llama-server; mlx_lm.server on a Mac) appear as hosts on Local -> Hosts (port, model, flags, Stop, Log) and as `hf:local/<model>` in every model list. They stop when the last Halo process on this home exits, unless kept.
+- New CLI commands: `halo local download | ls | rm | servers | log`, and new `halo local serve | stop` (each flag with its source; stop by id or port).
+- `huggingface.llama_server_bin` names the llama-server to start; `HF_ENDPOINT` names a hub mirror.
+
+#### Changed
+- `halo local` with no argument opens Local -> Hugging Face.
+- The Jobs list shows downloads beside pulls.
+- The uses card also reads `hf:local/` and `hf:mlx/` refs and `huggingface.local_servers`.
+
 ### Also in 3.3.5.0
 
 #### Changed

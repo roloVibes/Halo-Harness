@@ -391,7 +391,9 @@ Benchmarks and Steward), one page on the right. **Resources** is the live view: 
 the page is open (GPU use, VRAM and what holds it, RAM, CPU, the temperature, each number titled with its source) and the
 traffic view under it, every call to a local server as it happens with the steward's events inline. **Hosts** is every
 server Halo knows as a card with Load, Unload, keep-alive and Make it fit; **Models** is every installed model with its card,
-its fit meter and an intent filter. The four pages after them say what the next rounds put there and the commands that do it
-today. Nothing opens on its own; `halo local` opens it, `halo local hosts` on the Hosts page. The pages:
+its fit meter and an intent filter; **Library** is what could be installed, each row with a fit badge; **Hugging Face** is
+the model folders, what is on disk, downloads and the local servers Halo starts for them. Benchmarks and Steward say what the
+next rounds put there and the commands that do it today. Nothing opens on its own; `halo local` opens it on Hugging Face,
+`halo local library` on Library. The pages:
 [STUDIO-local.md](STUDIO-local.md).
 

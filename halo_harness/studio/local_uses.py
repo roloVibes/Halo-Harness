@@ -15,8 +15,10 @@ files that name a model -- never a server, never a model call:
   model, from the registry entry or the session's own log, is this one.
 
 A ref matches `ol:<model>@<host>` (or `ol:<model>`: the default host) with the
-tag rule of providers/ollama.ollama_names_match. `READERS["live"]` replaces the
-live-session reader (the tests' seam).
+tag rule of providers/ollama.ollama_names_match. 3.3.5.0 R5: an `hf:local/<model>`
+ref (a file on disk Halo serves; `@<server>` or bare) matches any `hf:local/<model>`
+value and, given the repo, `hf:mlx/<repo>`; its profiles are keyed `<server>|<model>`
+(`refers_to_hf`). `READERS["live"]` replaces the live-session reader (the tests' seam).
 """
 
 from __future__ import annotations
@@ -54,13 +56,39 @@ def refers_to(value, model: str, host: str) -> bool:
     return ollama_names_match(m, model) and (h or _default_host()).lower() == (host or _default_host()).lower()
 
 
+def hf_parts(value) -> "tuple[str, str]":
+    """('local', model) of `hf:local/<model>[@server]`, ('mlx', repo) of `hf:mlx/<repo>`, else ('', '')."""
+    from halo_harness.roles import role_value_parts
+    raw = role_value_parts(value)[0] if isinstance(value, dict) else value
+    raw = raw.strip() if isinstance(raw, str) else ""
+    if raw.startswith("hf:local/"):
+        return "local", raw[len("hf:local/"):].rpartition("@")[0] or raw[len("hf:local/"):]
+    if raw.startswith("hf:mlx/"):
+        return "mlx", raw[len("hf:mlx/"):]
+    return "", ""
+
+
+def refers_to_hf(value, model: str, repo: str = "") -> bool:
+    kind, name = hf_parts(value)
+    return bool(kind) and ((kind == "local" and name.lower() == model.lower())
+                           or (kind == "mlx" and bool(repo) and name.lower() == repo.lower()))
+
+
+def _matcher(ref: str, host: str, repo: str):
+    if hf_parts(ref)[0]:
+        model = hf_parts(ref)[1]
+        return model, lambda v: refers_to_hf(v, model, repo)
+    model = split_ref(ref)[0]
+    return model, lambda v: refers_to(v, model, host)
+
+
 def _tier_is_default(raw: dict, entry: dict) -> bool:
     from halo_harness.agents_yaml import DEFAULT_MODEL_REFERENCE
     from halo_harness.teams_yaml import tier_model_for
     return tier_model_for(raw, entry.get("as") or entry.get("role")) == DEFAULT_MODEL_REFERENCE
 
 
-def _lineups(model: str, host: str, cwd, state_dir) -> list:
+def _lineups(match, cwd, state_dir) -> list:
     from halo_harness.teams_yaml import list_team_templates, load_team_template_raw, member_model
     out = []
     for name in list_team_templates(cwd=cwd, state_dir=state_dir, include_templates=False):
@@ -77,7 +105,7 @@ def _lineups(model: str, host: str, cwd, state_dir) -> list:
                 pref, fallback, src = "", "", ""
             if src == "session" or (src.startswith("tier:") and _tier_is_default(raw, entry)):
                 pref = ""  # "the session's model": the default model's own use, counted once as `model`
-            if refers_to(pref, model, host) or refers_to(fallback, model, host):
+            if match(pref) or match(fallback):
                 out.append({"name": name, "role": str(entry.get("as") or entry.get("role") or entry.get("agent") or "?")})
     return out
 
@@ -116,6 +144,8 @@ def line(u: dict) -> str:
         parts.append("the default model (`model`)")
     if u["compaction"]:
         parts.append("the compaction model (`compactionModel`)")
+    if u.get("servers"):
+        parts.append("named by huggingface.local_servers (" + ", ".join(f"`{n}`" for n in u["servers"]) + ")")
     if u["profiles"]:
         n = len(u["profiles"])
         parts.append(f"the model of {n} profile{'s' if n != 1 else ''}")
@@ -128,26 +158,34 @@ def line(u: dict) -> str:
     return head
 
 
-def uses_of(ref: str, *, cwd=None, state_dir=None, host: Optional[str] = None) -> dict:
+def _servers(model: str) -> list:
+    """`huggingface.local_servers` entries that name the model (their `model` or `name`)."""
+    from halo_harness.theme import get_config_value
+    rows = get_config_value("huggingface.local_servers", default=None)
+    return [str(e.get("name")) for e in rows if isinstance(e, dict) and model.lower() in
+            (str(e.get("model") or "").lower(), str(e.get("name") or "").lower())] if isinstance(rows, list) else []
+
+
+def uses_of(ref: str, *, cwd=None, state_dir=None, host: Optional[str] = None, repo: str = "") -> dict:
     from halo_harness.ollama_steward.profiles import all_profiles, split_key
     from halo_harness.providers.ollama import ollama_names_match
     from halo_harness.roles import configured_role_table
     from halo_harness.theme import get_config_value
-    model, h = split_ref(ref)
-    host = host or h or _default_host()
-    roles = [k for k, v in configured_role_table().items() if refers_to(v, model, host)]
-    profiles = [k for k in sorted(all_profiles()) if split_key(k)[0].lower() == host.lower()
-                and ollama_names_match(split_key(k)[1], model)]
-    sessions = [{"id": r["session_id"], "title": r.get("title") or "", "live": True} for r in _live_rows()
-                if refers_to(r.get("model"), model, host)]
-    u = {"ref": f"ol:{model}@{host}", "model": model, "host": host,
-         "lineups": _lineups(model, host, cwd, state_dir), "roles": roles,
-         "compaction": refers_to(get_config_value("compactionModel", default=None), model, host),
-         "default_model": refers_to(get_config_value("model", default=None), model, host),
-         "profiles": profiles, "sessions": sessions, "live": len(sessions)}
-    u["any"] = bool(u["lineups"] or roles or u["compaction"] or u["default_model"] or profiles or sessions)
+    hf = bool(hf_parts(ref)[0])
+    host = "" if hf else (host or split_ref(ref)[1] or _default_host())
+    model, match = _matcher(ref, host, repo)
+    roles = [k for k, v in configured_role_table().items() if match(v)]
+    profiles = [k for k in sorted(all_profiles()) if (hf and split_key(k)[1].lower() == model.lower()) or (
+        not hf and split_key(k)[0].lower() == host.lower() and ollama_names_match(split_key(k)[1], model))]
+    sessions = [{"id": r["session_id"], "title": r.get("title") or "", "live": True} for r in _live_rows() if match(r.get("model"))]
+    u = {"ref": f"hf:local/{model}" if hf else f"ol:{model}@{host}", "model": model, "host": host,
+         "lineups": _lineups(match, cwd, state_dir), "roles": roles,
+         "compaction": match(get_config_value("compactionModel", default=None)),
+         "default_model": match(get_config_value("model", default=None)),
+         "profiles": profiles, "sessions": sessions, "live": len(sessions), "servers": _servers(model) if hf else []}
+    u["any"] = bool(u["lineups"] or roles or u["compaction"] or u["default_model"] or profiles or sessions or u["servers"])
     u["line"] = line(u)
     return u
 
 
-__all__ = ["READERS", "line", "refers_to", "split_ref", "uses_of"]
+__all__ = ["READERS", "hf_parts", "line", "refers_to", "refers_to_hf", "split_ref", "uses_of"]

@@ -59,6 +59,8 @@ def mark_installed(answer: dict) -> dict:
         target = pull_target(row)
         row["pull_target"] = target
         row["installed"] = [n for n, names in have if target and any(ollama_names_match(target, m) for m in names)]
+    from halo_harness.studio.local_hf_view import mark_on_disk  # 3.3.5.0 R5: a hub row's "on disk in <folder>"
+    mark_on_disk(answer.get("rows") or [])
     return answer
 
 
