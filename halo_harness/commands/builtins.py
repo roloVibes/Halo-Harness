@@ -139,6 +139,9 @@ def _cmd_cost(args: str, facade: HeadlessFacade) -> str:
         lines.append(_composition_text(session))
     if balance_line:
         lines.append(balance_line)
+    from halo_harness.agent.offline_promise import badge_line  # 3.3.7.0 R2 (G15): what left this machine
+    promise_line = badge_line(session) if session is not None else ""
+    lines += [promise_line] if promise_line else []
     # Halo 2.0.3 round 5e: "saved versus cloud" breakdown -- omitted
     # entirely on a cloud-model session (cm.saved_turns stays 0 there,
     # `CostMeter.add_savings` never even tries -- see its own docstring).

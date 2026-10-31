@@ -25,6 +25,26 @@ version.
 - `halo local hosts` names the rung each host is read through; `halo ollama hardware --host` and `halo ollama log --host` say "via host" in their source line.
 - A launchd plist written for the supervisor (or the host) carries its own label, not the Signal bridge's.
 
+### R2: the host acts -- the typed fix vocabulary, per-peer grants, apply / measure / keep or revert
+
+#### Added
+- Per-peer grants on `halo host`: `halo host grant <peer> view|control|manage|admin`, `revoke`, `peers`, `pending`, `allow <id>`, `deny <id>`; the host machine's `fleet.allow_control` caps them (`none`: strictly a monitor; `ask`: each control / manage request queued for the owner for `host.ask_ttl_s`; `all`); `GET me`; Studio's "Request control" and, on the host machine, ASKED OF THIS HOST with Allow / Deny.
+- The typed fix vocabulary under `/host/v1/control/*` and `manage/*`: warm, pin, unload, pivot, set_num_ctx / num_predict / keep_alive / tools_max, rerun_battery, bench, verify_twin, pull, delete, retire, revert, and the stated set_kv_cache_type / set_flash_attn / restart_ollama / set_env (the exact line for the host's OS, applied false); `dry: true` previews; job ops stream `job` frames and catch up on `GET job/<id>`; `admin/*` answers that admin operations are not part of this version; every request leaves an audit line with its op, params and evidence.
+- The fix loop: a profile fix cites its finding; one change at a time per host, `host.cooldown_s` (120), `host.changes_per_hour` (10); before / after over `host.verify_calls` (5) or `host.verify_s` (600) and kept or reverted with one line ("16 -> 188 tok/s, no trims -- kept"); `GET changes`, `GET findings` (where / suggest).
+- The invariants: never load what does not fit, one resident per card unless `beside`, keep_alive honoured, the helper's footprint on `card` and `route` ("N GB usable; M GB with the helper").
+- Peers act through the host: Load, Unload, Probe, Bench, Pull, Delete from any peer's Studio with no member session; the server-setting stated line on the Hosts card; a hub forwards to a host its member announced once paired.
+- The steward lands through the host (the finding cited, the verdict back into its journal), folds the host's findings and turns the client-side ones into its own; a peer's calls reach the host's ledger (`POST ledger`).
+- The duty steward: `halo host steward on --model REF | off | status | run`, an opt-in separate process with its own grant, evicted when the card is needed; config `host.steward.enabled` / `model` / `every_s`.
+- Across the fleet: speed cards and dialect records travel with the ledger push; the hub's answer carries the fleet's crash fingerprints, so every machine's `exclude: crashed` and `halo ollama crashes` know them.
+- The offline promise: "100 % local -- 0 tokens left this machine" (or which calls left and to where) on `/cost`, the Session header's chip and `halo session show <id>`, each local call naming its host.
+- Glossary: fix, duty steward, offline promise; docs/MODELS-ollama-steward-host.md.
+
+#### Changed
+- `POST control/* | manage/* | admin/*` no longer answer a blanket 403: a missing grant is one line naming the grant and the `halo host grant` command that gives it.
+- The Hosts card's controls go through a paired host when this peer holds `control` (before a fleet member).
+- `halo host`'s stream also carries job, fix and note frames; its server no longer prints a traceback when a peer hangs up between requests.
+- A hub profile whose dialect record alone changed now reaches the member.
+
 ### Also in 3.3.7.0
 
 #### Changed

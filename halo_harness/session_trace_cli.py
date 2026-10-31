@@ -7,6 +7,8 @@ the TUI's `/export` writes beside the session log.
     halo session export <id> --md FILE   writes FILE
     halo session export <id> --md -      prints the trace
 
+    halo session show <id> [--json]      3.3.7.0 R2 (G15): the offline promise -- what left this machine, each
+                                         local call's host (agent/offline_promise.py)
     halo session postmortem [--session ID] [--turn N] [--agent ID] [--json]   3.3.6.0 R4: why one answer came
                                          out as it did (agent/postmortem.py); no session: the newest that called a
                                          local model; no turn: its newest
@@ -94,9 +96,16 @@ def cmd_session(argv: list) -> int:
     pm.add_argument("--turn", type=int, default=None)
     pm.add_argument("--agent", default=None, metavar="ID", help="a sub-agent's own session id")
     pm.add_argument("--json", action="store_true")
+    show = sub.add_parser("show", help="A session's offline promise: what left this machine, each call's host",
+                          description="3.3.7.0 R2 (G15): '100 % local -- 0 tokens left this machine', or which calls "
+                                      "left it and to where, read from the session log and the traffic ledger.")
+    show.add_argument("session", metavar="ID", help="Session id or unique prefix")
+    show.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
     if args.verb == "postmortem":
         return _postmortem(args)
+    if args.verb == "show":
+        return _show(args)
     if args.verb != "export":
         parser.print_help()
         return 0 if not argv else 2
@@ -137,3 +146,21 @@ def _postmortem(args) -> int:
     for line in got.get("details") or []:
         print(f"  {line}")
     return 0 if got.get("ok") else 1
+
+
+def _show(args) -> int:
+    import json
+    from halo_harness.agent.offline_promise import promise
+    from halo_harness.config.paths import bridge_home
+    path, why = find_session_log(args.session)
+    if path is None:
+        print(f"halo session show: {why}", file=sys.stderr)
+        return 1
+    got = promise(bridge_home(), path.stem, log_path=path)
+    if args.json:
+        print(json.dumps({"session": path.stem, **got}, indent=2, default=str))
+        return 0
+    print(f"session {path.stem}: {got['line']}")
+    for line in got["per_call"]:
+        print(f"  {line}")
+    return 0

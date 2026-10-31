@@ -2,8 +2,8 @@
 
 Read this when you run `halo host` on a machine that serves models, pair a harness with it, or install it as a service.
 
-`halo host` (3.3.7.0 R1) is the model-free Halo process on the machine that serves models; what it is, what it
-serves and the ladder are in [HOST.md](HOST.md). Part of [Commands](COMMANDS.md), which lists every part.
+`halo host` (3.3.7.0 R1; R2: the grants, the pending rows and the duty steward) is the model-free Halo process on the
+machine that serves models; what it is, what it serves, the vocabulary and the ladder are in [HOST.md](HOST.md). Part of [Commands](COMMANDS.md), which lists every part.
 Exit codes: 0 done, 1 could not (the reason on stderr), 2 usage.
 
 ## `halo host serve`
@@ -77,3 +77,51 @@ halo host uninstall [--os linux|macos|windows] [--json]
 ```
 
 Removes the service file `install` wrote and prints the one command that disables the service if it was enabled.
+
+## `halo host grant` / `halo host revoke`
+
+```sh
+halo host grant <peer> view|control|manage|admin [--json]
+halo host revoke <peer> <grant> [--json]
+```
+
+On the host: gives a paired peer (by name or id) a grant, or takes one back (3.3.7.0 R2; what each covers is in
+[HOST.md](HOST.md#the-vocabulary)). `manage` carries `control`'s operations; `admin` is never implied by `manage`, and
+its operations are not part of this version. The line says what this machine's `fleet.allow_control` does to it
+(`none`: view only for every peer; `ask`: each request queued for you first). `view` stays every paired peer's.
+
+## `halo host peers`
+
+```sh
+halo host peers [--json]
+```
+
+The peers paired with this host: name, id, grants, last seen and how many requests its audit holds, and this
+machine's `fleet.allow_control`. The duty steward's own peer is marked.
+
+## `halo host pending` / `halo host allow` / `halo host deny`
+
+```sh
+halo host pending [--json]
+halo host allow <id> [--json]
+halo host deny <id> [--json]
+```
+
+Under `fleet.allow_control: ask`, a peer's `control` / `manage` request (or its "Request control") waits here for
+`host.ask_ttl_s` (600 s). `allow` lets the same request from that peer run once within the TTL (a grant request:
+adds the grant); `deny` drops it. An expired or answered row says so in one line.
+
+## `halo host steward`
+
+```sh
+halo host steward on --model REF [--grant control|manage] [--json]
+halo host steward off [--json]
+halo host steward status [--json]
+halo host steward run [--once] [--json]
+```
+
+The duty steward ([HOST.md](HOST.md#the-duty-steward)): `on` writes `host.steward.enabled` and `host.steward.model`,
+gives it its own peer record with the `--grant` (default `control`), keeps its model's profile at `keep_alive 2m` and
+starts `halo host steward run` as a separate detached process (never the host process). `run` is that process: one
+pass every `host.steward.every_s` (300 s), `--once` for one. `off` stops it and drops its peer record; `status` says
+whether it runs, its model and its last note.

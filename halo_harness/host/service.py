@@ -53,6 +53,11 @@ class _Server(http.server.ThreadingHTTPServer):
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
         super().server_bind()
 
+    def handle_error(self, request, client_address):  # a peer that hung up between two requests is not an error
+        import sys
+        if not isinstance(sys.exc_info()[1], (ConnectionResetError, ConnectionAbortedError, BrokenPipeError)):
+            super().handle_error(request, client_address)
+
     def finish_request(self, request, client_address):
         if self.ssl_ctx is not None:
             request.settimeout(10)
@@ -158,10 +163,13 @@ class HostService:
             if S.stop_path(self.home).exists():
                 self.stopping.set()
                 break
-            if self.forward and time.monotonic() >= nxt:
+            if time.monotonic() >= nxt:
                 nxt = time.monotonic() + FORWARD_S
                 try:
-                    self.forward_tick()
+                    if self.forward:
+                        self.forward_tick()
+                    from halo_harness.host.verify import tick  # 3.3.7.0 R2: the fix loop's verify windows
+                    tick(self)
                 except Exception:
                     pass
         self._shutdown()

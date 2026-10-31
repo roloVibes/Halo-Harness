@@ -111,7 +111,12 @@ settings.
 3.3.7.0 R1: a machine a paired `halo host` serves ([HOST.md](HOST.md)) is grouped first, under **SERVED BY HALO
 HOST**, and its card says **served by halo host at <addr> -- running since ..., last seen ..., N requests in its
 audit** (or why it did not answer). Its hardware lines, its `log:` line ("via host"), its profiles and the Logs page
-read through that host; Load, Unload, probe and bench through it say they wait for its `control` grant (3.3.7.0 R2).
+read through that host. 3.3.7.0 R2: the card's **grants there** line says what this peer holds on that host and
+whether its owner is asked first (`fleet.allow_control: ask`); with `control`, Load, Unload, Probe and Bench go
+through the host ("through halo host at <addr>", no member session), the battery and the bench run there and their
+frames come here, and a server-setting picker asks the host for the stated line (the KV type, flash attention, a
+restart: the exact line for its OS, applied false). Without it, **Request control** writes a pending row the owner
+answers; on the host machine those rows sit at the top of Hosts, **ASKED OF THIS HOST**, with Allow and Deny.
 
 ## Models
 
