@@ -147,7 +147,8 @@ def check_block(c, url, ctx) -> dict:
     summary = _text("[data-testid=setup-check-summary]")
     out["run_by"] = click(c, "[data-testid=setup-check-run]", f"{summary}.includes('failed')")
     out["summary"] = c.js(summary)
-    out["glyphs"] = c.js(f"{qa('[data-testid=setup-check-glyph]')}.map((g) => g.textContent)")
+    glyphs = f"{qa('[data-testid=setup-check-glyph]')}.map((g) => g.textContent)"  # five rows ran: the summary's frame
+    out["glyphs"] = c.wait(f"{glyphs}.filter((g) => g).length >= 5 && {glyphs}", 20)  # can land before the rows' (Windows 41348318605)
     out["logs"] = c.js(f"{qa('[data-testid=setup-check-log]')}.map((l) => [l.dataset.key, l.textContent])")
     cell = _text("[data-testid=setup-strip-cell][data-key=check] .su-cell-value")
     out["strip_check"] = c.wait(f"{cell}.includes('failed') && {cell}", 20)
