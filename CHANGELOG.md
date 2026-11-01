@@ -36,7 +36,8 @@ hardened (a mock Ollama upstream resets the per-url catalog cache on start; the 
 the pool watch driver reads the Bundles group before it degrades the pool (after it, the verdict honestly says so);
 the host tests wait on an operation's audit count, never an absolute one; the Pack Manager driver re-opens the page when
 Roll back's refetch misses on the slow runner; a pack swap's folder rename retries for 5 s on Windows (was 2 s); the pivot test waits for its audit line and
-the Setup Check driver waits for every row's glyph, not only the summary's frame.
+the Setup Check driver waits for every row's glyph, not only the summary's frame; `GET local/changes` orders two changes
+written in the same millisecond newest first (the later row), not in file order.
 
 ### R1: the pool -- discovery, members, the fit and the recommendation
 
