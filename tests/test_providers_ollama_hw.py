@@ -520,6 +520,7 @@ def test_resolve_context_decision_supports_thinking_reflects_catalog_capabilitie
                                               "model_info": {}}}
         ref = parse_model_ref("ol:qwen3:30b")
         env = {"OLLAMA_HOST": mock.base_url}
+        reset_catalog_cache()  # the first read must be this mock's catalog, never one cached for a reused port
         decision = resolve_context_decision(ref, env, hw_runner=_NO_GPU_RUNNER)
         ctx.check(f"no 'thinking' in the declared capabilities -> False, got {decision.supports_thinking}",
                   decision.supports_thinking is False)
