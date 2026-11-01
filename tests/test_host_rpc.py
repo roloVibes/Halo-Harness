@@ -56,9 +56,8 @@ def test_on_status_off_and_the_audit(ctx: Ctx):
         ctx.check(f"off: stopped, got {status} {off.get('say')!r}", status == 200 and "stopped rpc-server on 192.0.2.10"
                   in off["say"] and not fake.socks)
         ctx.check("status after off: not running", ops_rpc.status(rig.home)["running"] is False)
-        n = rig.rig.audited(4)
-        from halo_harness.host.state import read_audit
-        acts = [a for a in read_audit(rig.home, limit=100) if a.get("op") == "rpc_server"]
+        acts = rig.rig.audited_op("rpc_server", 3)  # the off's line lands after its reply: wait for the op's count
+        n = len(acts)
         ctx.check(f"the audit: three rpc_server lines, landed, got {n} {acts}", len(acts) == 3
                   and all(a.get("landed") for a in acts) and acts[0]["params"]["to"] == "on")
 

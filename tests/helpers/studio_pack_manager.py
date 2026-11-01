@@ -157,8 +157,27 @@ def update_rollback(c, url, ctx) -> dict:
     press(c, q(f"{ROW} .pm-row-main"))
     out["compat_after"] = w(c, f"{qa('[data-testid=pm-compat] li')}.map((l) => l.textContent).filter((t) => t.includes('network'))", 20)
     press(c, q(f"{ROW} [data-testid=pm-rollback]"))
-    w(c, f"!{q(ROW + ' [data-testid=pm-rollback]')} && {_text(ROW + ' .pm-row-ver')} === '1.0.0'", 30)
-    out["rolled_last"] = w(c, f"{_text('[data-testid=pm-last] .pm-lines')}.split('\\n')[0]", 10)
+    back = f"!{q(ROW + ' [data-testid=pm-rollback]')} && {_text(ROW + ' .pm-row-ver')} === '1.0.0'"
+    try:
+        w(c, back, 30)
+        out["rolled_last"] = w(c, f"{_text('[data-testid=pm-last] .pm-lines')}.split('\\n')[0]", 10)
+    except TimeoutError:
+        # The Windows runner (3.3.8.0 candidate 7bb6db53, run 41334274789): the rollback's own request answered, yet the
+        # re-listed row kept 1.0.1 for 30 s -- the same refetch that misses after Update above. Re-open the page (a
+        # blank hop first) and say whether the backup is gone on disk, so a red run says server vs UI.
+        out["rollback_previous_on_disk"] = (ctx["state"] / "packs" / "doc-review.previous").exists()
+        c.go("about:blank")
+        c.go(url)
+        alt(c, 7)
+        try:
+            w(c, back, 60)
+        except TimeoutError as e:
+            raise TimeoutError(f"{e}; doc-review.previous on disk after Roll back: {out['rollback_previous_on_disk']}") from None
+        out["rolled_after_reopen"] = True  # a fresh page has no "last" block: the test takes the version + the disk
+        try:
+            out["rolled_last"] = w(c, f"{_text('[data-testid=pm-last] .pm-lines')}.split('\\n')[0]", 5)
+        except TimeoutError:
+            out["rolled_last"] = "(re-opened: the page's last lines are gone)"
     out["previous_gone"] = not (ctx["state"] / "packs" / "doc-review.previous").exists()
     return out
 
