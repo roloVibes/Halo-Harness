@@ -36,8 +36,8 @@ def _api(state, method: str, path: str, body=None, query=None):
 def test_members_add_remove(ctx: Ctx):
     with PoolHome() as h:
         s, got = _api(h.state, "GET", "local/pool/members")
-        ctx.check(f"no members: the add line, the R2 line, got {s} {got.get('head')!r}", s == 200 and got["members"] == []
-                  and got["head"].startswith("no members yet") and got["not_yet"].startswith("warm and stop arrive in R2"))
+        ctx.check(f"no members: the add line (3.3.8.0 R3: no 'not yet' line), got {s} {got.get('head')!r}", s == 200
+                  and got["members"] == [] and got["head"].startswith("no members yet") and "not_yet" not in got)
         s, got = _api(h.state, "POST", "local/pool/members", {"op": "add", "name": "worker1", "host": "worker1.local",
                                                               "port": "50052", "vram_gb": "40"})
         ctx.check(f"add: 200, the line, the cli, got {s} {got}", s == 200 and got["ok"] and got["cli"] ==

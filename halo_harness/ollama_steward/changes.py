@@ -2,17 +2,11 @@
 a scope, and every one can be put back (plans/local-model-fit-brief.md D6 item 22: "revert-on-session-end for any
 tuning Halo applies").
 
-One line per change in `<state>/ollama/changes.jsonl`: {id, at, by (steward | ledger | user | bench | settings), host,
-model, key, field (a profile field or `dialect.<name>`), before, after, scope, session_id, pid, reverted_at, why,
-journal_id}. `scope`: `session` (undone when that session ends: agent/loop.py `_fire_session_end`), `until-restart`
-(undone when the halo process that made it exits: atexit and the TUI's quit, `at_exit`), `keep`. A revert or a new
-scope is one more line (`event: revert | scope`); `read` folds them.
-
-    revert(state_dir, id | "all", why, *, scope=None, host=None) -> lines   "put num_ctx back to 32,768 on pc|m (why)"
-    revert_scope(state_dir, "session", session_id) | (state_dir, "until-restart") -> lines ([] and nothing written when
-        nothing is due); until-restart also takes the rows of a halo that is gone (a killed process)
-
-A field changed again after this change is left as it is (the line says so); several revert newest first.
+One line per change in `<state>/ollama/changes.jsonl`: {id, at, by, host, model, key, field (a profile field,
+`dialect.<name>`, 3.3.8.0 R3's `pool.state`: changes_pool.py), before, after, scope, session_id, pid, reverted_at, why,
+journal_id}. `scope`: session | until-restart (the halo that made it exits: `at_exit`) | keep. A revert or a new scope
+is one more line (`event: revert | scope`); a field changed again after the change is left as it is (said).
+    revert(state_dir, id | "all", why, *, scope=None, host=None) -> lines; revert_scope(state_dir, scope, id) -> lines
 """
 
 from __future__ import annotations
@@ -112,6 +106,9 @@ def fmt(v) -> str:
 
 
 def _current(row: dict):
+    if row["field"] == "pool.state":  # 3.3.8.0 R3: the pool's live state (changes_pool.py)
+        from halo_harness.ollama_steward.changes_pool import current
+        return current(row)
     from halo_harness.ollama_steward.profiles import all_profiles
     entry = all_profiles().get(row["key"]) or {}
     if str(row["field"]).startswith("dialect."):
@@ -120,6 +117,9 @@ def _current(row: dict):
 
 
 def _set(row: dict, value, note: str) -> None:
+    if row["field"] == "pool.state":  # a revert of the pool's warm stops it
+        from halo_harness.ollama_steward.changes_pool import put
+        return put(row, value, note)
     from halo_harness.ollama_steward.profiles import set_field, split_key
     if str(row["field"]).startswith("dialect."):
         from halo_harness.providers import dialect as D

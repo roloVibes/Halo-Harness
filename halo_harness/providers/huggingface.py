@@ -157,6 +157,7 @@ class HFLocalServer:
     # runtime ("llama-server" | "lmstudio" | "mlx") when the probe cannot tell
     log: Optional[str] = None
     runtime: Optional[str] = None
+    max_ctx: Optional[int] = None  # 3.3.8.0 R3: the pool's fit window (agent/model_window.window_of clamps to it)
 
 
 def _local_server_from_dict(d: dict) -> Optional[HFLocalServer]:
@@ -170,6 +171,7 @@ def _local_server_from_dict(d: dict) -> Optional[HFLocalServer]:
         offline_ok=bool(d.get("offline_ok", False)),
         log=d["log"] if isinstance(d.get("log"), str) and d["log"].strip() else None,
         runtime=d["runtime"] if isinstance(d.get("runtime"), str) and d["runtime"].strip() else None,
+        max_ctx=d["max_ctx"] if isinstance(d.get("max_ctx"), int) and not isinstance(d["max_ctx"], bool) else None,
     )
 
 
@@ -215,6 +217,9 @@ def resolve_huggingface_local_server(name: Optional[str]) -> Optional[HFLocalSer
     typo'd name should fail plainly, not fall through to a different
     server than the one asked for."""
     entries = resolve_huggingface_local_servers()
+    if name and name.lower() == "pool" and not any(s.name.lower() == "pool" for s in entries):
+        from halo_harness.local_pool.peer import remote_entry  # 3.3.8.0 R3: a paired host's pool, for a peer
+        return remote_entry()
     if not entries:
         return None
     if name:

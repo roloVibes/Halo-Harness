@@ -4,8 +4,8 @@ route; never a model call; nothing here launches a process, loads a model or cha
 `cli`, the `halo pool` line that does the same.
 
     GET  local/pool/members          pool_cli.members_view: each member's GPU, free / total VRAM (its host card), link,
-                                     RTT of the last scan, share of the split; the validation lines; `not_yet` (warm and
-                                     stop arrive in R2); `scan` {at, line} of the last scan
+                                     RTT of the last scan, share of the split; the validation lines; `scan` {at, line}
+                                     of the last scan (3.3.8.0 R3: Warm / Stop are studio/pool_act_api.py)
     GET  local/pool/recommend?batch=1   local_pool/recommend.recommend over the members' budgets
     GET  local/pool/verdict?model=   one catalog model's fit and its preview (404 for a name not in the catalog)
     POST local/pool/scan {port?, subnets?, own_subnet?}   the RPC-port scan (local_pool/scan.py): explicit, a button
@@ -41,9 +41,8 @@ def get_recommend(req):
     from halo_harness.local_pool.budget import budgets
     from halo_harness.local_pool.recommend import recommend
     batch = str(req.query.get("batch") or "").lower() in TRUE
-    from halo_harness.pool_cli import NOT_YET
     return 200, {**recommend(budgets(state_dir=req.state_dir), allow_batch=batch, state_dir=req.state_dir),
-                 "not_yet": NOT_YET, "cli": "halo pool recommend" + (" --batch" if batch else "")}
+                 "cli": "halo pool recommend" + (" --batch" if batch else "")}
 
 
 def get_verdict(req):
@@ -101,9 +100,10 @@ def dispatch_pool(req):
     """The answer for a `local/pool/*` path, or None for any other path."""
     if not req.path.startswith("local/pool/"):
         return None
-    fn = ROUTES.get((req.method, req.path))
+    from halo_harness.studio.pool_act_api import ROUTES as ACTS  # 3.3.8.0 R3: run, preflight, warm, stop, rpc
+    fn = ROUTES.get((req.method, req.path)) or ACTS.get((req.method, req.path))
     if fn is not None:
         return fn(req)
-    if any(p == req.path for _m, p in ROUTES):
+    if any(p == req.path for _m, p in list(ROUTES) + list(ACTS)):
         return 405, {"error": "method not allowed"}
     return 404, {"error": f"no route for {req.method} /api/{req.path}"}

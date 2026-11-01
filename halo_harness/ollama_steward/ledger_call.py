@@ -67,10 +67,10 @@ def local_target(session, req) -> Optional[dict]:
         name, url = (host.name, str(host.url).rstrip("/")) if host is not None else (_netloc(url), url)
         return {"host": {"name": name, "url": url}, "dialect": dialect}
     if provider == "huggingface" and route is not None and getattr(route, "dialect", None) == "openai-chat":
-        hostname = _hostname(url)
-        if not hostname or any(hostname == d or hostname.endswith("." + d) for d in _HF_CLOUD):
+        if not _hostname(url) or any(_hostname(url) == d or _hostname(url).endswith("." + d) for d in _HF_CLOUD):
             return None
-        return {"host": {"name": _netloc(url), "url": url}, "dialect": "openai"}
+        from halo_harness.local_pool.entry import name_for  # 3.3.8.0 R3: a pool call's line names `pool` as its host
+        return {"host": {"name": name_for(url) or _netloc(url), "url": url}, "dialect": "openai"}
     return None
 
 

@@ -16,9 +16,19 @@ hold the model); a mixture of experts with few active parameters is the pooled c
     library.py    the Library's "Pool" preset rows with their fit badge
     scan.py       `halo pool scan` and Studio's Scan: the RPC-port probe (providers/rpc_probe.py) on explicit action
 
-R1 knows the pool and tells the truth about it before anything runs: nothing here launches a process, loads a model
-or changes a host. The pool becomes the `huggingface.local_servers` entry named `pool` (`hf:local/<model>@pool`) in
-R2; the name is reserved now (POOL_SERVER_NAME).
+R1 knows the pool and tells the truth about it before anything runs. R3 (the controller) runs it:
+
+    versions.py   the llama.cpp build of llama-server here and of each rpc-server, compared; min_build per node
+    preflight.py  every check before a launch, one answer (`halo pool preflight`, the page before Warm)
+    hosts.py      a member through its halo host: rpc_server, claim, renew, release, unload, warm
+    claims.py     the pool's claim on every member with its lease; residents pivoted out first; the return pivots
+    gguf.py       where the model's GGUF is on this machine (else the Download line)
+    launch.py     the argv, start (claims, rpc-servers, llama-server, the entry), stop, <state>/pool/run.json
+    spawn.py      the pool's llama-server process         entry.py  the `pool` local-server entry and its key
+    degrade.py    running / degraded (worker2 down) / down; a failed pool request's line
+    route.py      the pool's `route` answer and its pseudo-host for local_sched/place.solve
+    peer.py       the pool offered through the host's catalog, resolved from a peer
+The running pool is the `huggingface.local_servers` entry named `pool` (`hf:local/<model>@pool`, POOL_SERVER_NAME).
 """
 
 POOL_SERVER_NAME = "pool"

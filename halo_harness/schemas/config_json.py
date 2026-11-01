@@ -63,7 +63,8 @@ _SCALARS = {
 # ollama_steward/job.py, agent.py); steward.probe_new (bool: the battery on a new or changed model, 3.3.6.0 R1);
 # steward.chat_tokens (int: the steward's chat's context budget, 3.3.7.0 R5, ollama_steward/chat.py)
 # `host` (3.3.7.0 R1, host/state.py): port (7431), bind ("0.0.0.0"), enabled (true), tail_max (400)
-# `pool` (3.3.8.0 R1, local_pool/members.py): rpc_port (50052), scan_subnets ([] of CIDRs)
+# `pool` (3.3.8.0 R1, local_pool/members.py): rpc_port (50052), scan_subnets ([] of CIDRs); R3: claim_lease_s (120),
+# allow_wifi (false), bind (an address), rpc_server_bin (a path or [program, args...])
 # `local`: ladder (3.3.6.0 R4: the degradation ladder's rungs in order, or "off"; agent/degrade.py); min_resident_s (3.3.7.0 R3:
 # the scheduler's minimum residency, local_sched/pivot.py); `routing`: local_hop (3.3.7.0 R3: the local -> local hop,
 # agent/local_hop.py)

@@ -3656,14 +3656,37 @@ worse); the reference HTTP server is not shipped (routes through `studio/local_a
   measured; the RTT is a TCP connect's (an open port, not proof the far end is rpc-server); the link reader is
   fixture-tested per OS, not yet on a worker-grade Windows box with no `nvidia-smi`; no Download from the Pool
   page has run against the real hub in a test.
-- R2 the controller: the host op `rpc_server on|off`, `halo local serve --pool`, preflight (fit, probes, RTT, build
-  and RPC versions, resident + claims), the `pool` server entry, `route` for the pool, warm / stop as scoped changes,
-  the failure modes as lines (a worker down mid-generation: the request fails, the pool is "degraded"; VRAM
-  overcommit: refuse with the node and the missing GB; routing-table OOM: the matched-memory block before launch;
-  Wi-Fi RTT: excluded by default; version mismatch: block with both versions), the pool in `place.solve`.
-- R3 Studio controls + guards + bench: Warm / Stop on the Pool page, health + tok/s live, the steward's findings for
-  a degraded pool, `halo local bench --host pool`, a bundle may claim the pool, glossary `pool`, `rpc-server`,
-  `tensor split`.
+- ~~R3 the controller~~ (2026-11-01, worktree round v338/R3-controller; the second review's R3 -- the first plan's
+  "R2 the controller" plus its Warm / Stop and health): built: the host op `rpc_server on|off` (`host/ops_rpc.py`,
+  `host/rpc_runner.py`: `rpc-server -H <the host's LAN address> -p <pool.rpc_port> --mem <free VRAM MiB>`, the control
+  grant, a pending row under `ask`, one line under `none` naming the grant and once per host the trusted-LAN line,
+  `GET rpc`, `halo host rpc`, `halo pool rpc <member>`); `local_pool/versions.py` (llama-server's build against each
+  rpc-server's, `min_build` per node, cached per binary path + mtime); `local_pool/preflight.py` + `halo pool
+  preflight` (fit read now with residents as room, link, rpc, versions, build, GGUF else the Download line, resident,
+  window); claims with a lease (`claims_file` `until` + `renew`, `pool.claim_lease_s` 120, `local_sched/lease.py` the
+  heartbeat, host `renew`, `host/residency.claims`; a process-held bundle's claim gets the same lease) and
+  `local_pool/claims.py` (a claim on every member, residents pivoted out first, said; the overcommit line; the return
+  pivot lines at Stop); the launch (`local_pool/launch.py`, `spawn.py`, `entry.py`; `halo local serve --pool`;
+  `--rpc ... --tensor-split ... -ngl 999 --host <LAN> --api-key <generated> -c <F16>` or Q8_0 KV; the `pool` entry
+  with `max_ctx`, `api_key_env` HALO_SECRET_POOL_API_KEY, `log`, `runtime`, `members`; an OOM refused with the node);
+  `route` + `place.solve` (`local_pool/route.py`, the research's 38 % penalty until measured; `window_of` and the
+  request clamp to the entry's `max_ctx`); warm / stop under the steward contract (`ollama_steward/changes_pool.py`:
+  rows, one warm per 10 min, the auto-revert on the first three calls); the failure modes as lines
+  (`local_pool/degrade.py`: degraded (worker2 down) from the port probe and the controller's log; a pool request fails
+  once, never retried silently); the pool through the host to peers (`local_pool/peer.py`, the catalog's `pool`);
+  Studio Warm / Stop (`studio/pool_act_api.py`, `PoolRun.tsx`); docs POOL.md, COMMANDS-pool.md, COMMANDS-host.md,
+  HOST.md, CONFIG.md (`pool.claim_lease_s`, `pool.allow_wifi`, `pool.bind`, `pool.rpc_server_bin`), STUDIO-local-pool.md,
+  glossary `claim lease`, `preflight`. Still open (for R4): the speed card through the pool (`halo local bench --host
+  pool`: the measured tok/s and the penalty against the single node replace the 38 % placeholder and give the
+  auto-revert its baseline), the steward's pool findings (`pool-degraded`, `pool-rtt`, `pool-spill` from the RPC lines
+  of the controller's log, which R3 reads only for "degraded"), the bundle that claims the pool (`big-reasoner`), the
+  re-bench in the off-hours window when every member is idle; no live rpc-server / llama-server run yet (the RPC
+  log lines, rpc-server's `--version` and its "Starting RPC server" line, and llama.cpp's device order -- the --rpc
+  devices first, the local GPU last in `--tensor-split` -- are from memory, unverified on real hardware); the key is
+  on llama-server's command line (`--api-key`, as briefed), visible to local users of the controller in its process
+  list.
+- R4 (was the first plan's "R3 Studio controls + guards + bench", less what R3 shipped): health + tok/s live, the
+  steward's findings for a degraded pool, `halo local bench --host pool`, a bundle may claim the pool.
 - Adopted suggestions (rolo 2026-10-31: "add your suggestions to this update"): (1) measure, don't extrapolate --
   `halo local bench --host pool` writes the pool's speed card and the recommendation shows the measured tok/s and
   the penalty vs the single node that could hold it; (2) the honest pool preview before any download (needs / free

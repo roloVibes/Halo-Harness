@@ -146,7 +146,10 @@ def default_readers(ref, state_dir, host) -> "dict[str, Callable]":
                 if m.repo_id == r.model and m.path is not None and m.path.is_dir():
                     return ((safetensors_model_info_for_folder(m.path) or {}).get("context_length"))
             return None
-        out.update(loaded=_served, trained=_hf_config)
+        def _server_max(r):  # 3.3.8.0 R3: a server entry's max_ctx (the pool's fit window)
+            from halo_harness.providers.huggingface import resolve_huggingface_local_server as entry
+            return getattr(entry(r.host) if getattr(r, "host", None) else None, "max_ctx", None)
+        out.update(loaded=_served, trained=_hf_config, server_max=_server_max, host_max=_server_max)
     elif kind == "local":
         def _server_context(r):
             from halo_harness.theme import get_config_value
@@ -207,7 +210,8 @@ def window_of(ref, *, state_dir=None, host=None, catalog=None, card=None, reader
     tokens, source = next(((v, s) for s, v in found if v), (None, "unknown"))
     fit = _card_fit(card, row) if kind == "ollama" else None
     bounds = [("learned cap", learned), ("host max_ctx", _pos(getattr(host, "max_ctx", None)) if kind == "ollama" else None),
-              ("the card's fit", fit)]
+              ("the card's fit", fit), ("the pool's fit (max_ctx)", _pos(_call(r, "server_max", ref))
+                                         if kind == "hf-local" else None)]
     if kind == "ollama":
         from halo_harness.providers.ollama import HARD_CONTEXT_CAP
         bounds.append(("hard cap", HARD_CONTEXT_CAP))

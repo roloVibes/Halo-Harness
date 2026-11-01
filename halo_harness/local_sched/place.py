@@ -21,7 +21,8 @@ the score weighs warm (+30), fits beside what this plan already put on that card
 placed there: +20, shared weights), fits now without evicting (+10), the lane's own host (+5), minus half the load
 seconds, minus 5 a model it evicts, minus 25 when it would pivot beside this plan's other models, minus 50 when the
 model is not pulled there, minus 40 when the host could not be read. Deterministic: a tie goes to the lane's own
-host, then the name. Every row says the number behind it.
+host, then the name. Every row says the number behind it. 3.3.8.0 R3: the pool (local_pool/route.PoolHost) is one more
+option when it has members: its `route` answer, minus its decode penalty (38, the research's 21-55 % midpoint).
 """
 
 from __future__ import annotations
@@ -88,6 +89,9 @@ def _local(host, lane: dict, window: int, state_dir=None) -> dict:
 
 
 def answer(host, lane: dict, *, state_dir=None) -> dict:
+    if getattr(host, "pool", False):  # 3.3.8.0 R3: the pool answers like a host (local_pool/route.py)
+        from halo_harness.local_pool.route import route
+        return route({"model": lane["model"], "window": lane.get("window")}, state_dir=state_dir)
     window, _src = F.window(host, lane["model"], role=lane["lane"])
     return _via_host(host, lane, window) or _local(host, lane, window, state_dir)
 
@@ -127,6 +131,8 @@ def _score(a: dict, lane: dict, planned: dict) -> "tuple[Optional[float], str]":
         s, why = s - 5 * len(a["evicts"]), why + [f"evicts {', '.join(a['evicts'])}"]
     if a.get("installed") is False:
         s, why = s - 50, why + ["not pulled there"]
+    if a.get("penalty_pct"):  # the pool's cost: the measured RPC decode penalty until a bench measures its own
+        s, why = s - float(a["penalty_pct"]), why + [f"pooled: -{a['penalty_pct']:g} % decode ({a.get('penalty_from')})"]
     if a["host"] == lane.get("host"):
         s += 5
     return round(s, 1), ", ".join(["fits"] + why if a.get("fits") else why)
@@ -148,7 +154,10 @@ def _claimed(hosts: list, claims: Optional[dict], state_dir) -> dict:
 
 def solve(lanes: list, *, hosts: Optional[list] = None, answers=None, state_dir=None, claims=None) -> dict:
     from halo_harness.providers.ollama import resolve_ollama_hosts
-    hosts = list(hosts) if hosts is not None else list(resolve_ollama_hosts())
+    if hosts is None:
+        from halo_harness.local_pool.route import pool_host  # 3.3.8.0 R3: the pool, one more placement option
+        hosts = list(resolve_ollama_hosts()) + [h for h in (pool_host(state_dir),) if h is not None]
+    hosts = list(hosts)
     ask = answers or (lambda h, ln: answer(h, ln, state_dir=state_dir))
     planned: dict = _claimed(hosts, claims, state_dir)
     order = sorted(range(len(lanes)), key=lambda i: (lanes[i]["lane"] != "main", i))

@@ -39,7 +39,7 @@ window, a replay guard) and inside TLS with the host's own pinned certificate wh
 |---|---|
 | `GET ping` | the host (id, name, version, port, started) and this peer's grants |
 | `GET card` | per Ollama server it serves: the hardware card (`halo ollama hardware`'s), its log status, the other clients (the ledger's `from`s over a day), the usable memory ("22.0 GB usable"); the host's start time and its audit count; 3.3.8.0 R1: `link` {type wired \| wireless \| unknown, speed_mbps}, the adapter that carries this machine's address (the pool's wired-or-Wi-Fi rule, [POOL.md](POOL.md)); 3.3.8.0 R2: `servers`, the machine's local servers (llama-server, LM Studio, mlx_lm.server) with their runtime, model, window per slot and log status |
-| `GET catalog?window=N` | every model there with the fit planner's verdict at that window from the host's own budget (fits, says, need, the largest window it holds), its speed card, its measured facts and whether its profile is verified there |
+| `GET catalog?window=N` | every model there with the fit planner's verdict at that window from the host's own budget (fits, says, need, the largest window it holds), its speed card, its measured facts and whether its profile is verified there; 3.3.8.0 R3: `pool`, the pool this machine runs (its `huggingface.local_servers` entry and its key, so a paired peer reaches `hf:local/<model>@pool`; [POOL.md](POOL.md#from-a-peer)) |
 | `GET profiles` | the battery profiles verified there, each with its digest, Ollama version, probe set and date |
 | `GET events?since=&kind=` | the classified server events (the newest 500); a local server's carry `server: true`, its runtime and its port |
 | `GET tail?n=&host=` | the newest lines of the server log, at most `host.tail_max` (400), request bodies replaced by their size; `host` naming one of the machine's local servers answers that server's log ([MODELS-steward-servers.md](MODELS-steward-servers.md)) |
@@ -58,6 +58,7 @@ window, a replay guard) and inside TLS with the host's own pinned certificate wh
 | `GET residency` | 3.3.7.0 R4: the residency clock -- `{host, model, at, by, op, keep_alive}` per model a warm, pin or pivot through the host loaded, and `min_resident_s`; R5: `claims`, the bundles' reservations on the cards it serves |
 | `GET idle` | 3.3.7.0 R4: per served host, whether the card is idle (the newest use Halo saw) or busy, and the foreign models (`/api/ps` rows no Halo record explains) |
 | `GET refresh` | 3.3.7.0 R4: the off-hours refresh's plan line, its last run and the last roster review |
+| `GET rpc` | 3.3.8.0 R3: the rpc-server this host runs for a pool: running, pid, port, the bound address, `--mem`, the binary and its version ([rpc-server for a pool](#rpc-server-for-a-pool-3380-r3)) |
 
 ## Grants
 
@@ -102,7 +103,9 @@ job-shaped op answers `{job}` and streams `job` frames on `GET stream` (`GET job
 | `delete {model, force?}`, `retire {model, why?, force?}` | manage | after the uses card: a live session refuses it, a role or lineup naming it too unless `force` | Ollama's blob store; retire adds a shelf line | applied | `pull` (the re-pull line) |
 | `restart_ollama {}`, `set_env {key, value}` | manage | the exact line for the host's OS | nothing | **stated** | the revert line |
 | `revert {change}` | manage | the change put back | `ollama.profiles`, a revert line | applied | -- |
-| `claim {model, gb, bundle, window?, priority?, keep_alive?}`, `release {bundle}` | control | 3.3.7.0 R5: a bundle's reservation, held by the host: its GB count in every load, the model is never unloaded or pivoted out for anyone else ([MODELS-bundles.md](MODELS-bundles.md)) | `<state>/host/claims.json` | applied (Halo's side; nothing loads) | `release` |
+| `claim {model, gb, bundle, window?, priority?, keep_alive?, lease_s?}`, `release {bundle}` | control | 3.3.7.0 R5: a bundle's reservation, held by the host: its GB count in every load, the model is never unloaded or pivoted out for anyone else ([MODELS-bundles.md](MODELS-bundles.md)); 3.3.8.0 R3: `lease_s` gives it a lease (`until`): past it the claim is not a claim | `<state>/host/claims.json` | applied (Halo's side; nothing loads) | `release` |
+| `renew {bundle, lease_s?}` | control | 3.3.8.0 R3: the lease of the claims that peer placed moved to now + the lease (its heartbeat); never queued under `ask` (a renewal of the peer's own claim) | `<state>/host/claims.json` | applied | -- |
+| `rpc_server {to: on \| off, port?, mem_mib?}` | control | 3.3.8.0 R3: llama.cpp's rpc-server for a pool, on the LAN address this host serves on ([below](#rpc-server-for-a-pool-3380-r3)) | `<state>/host/rpc_server.json`, `<state>/host/rpc-server.log` | applied (a process Halo starts and stops) | `rpc_server {to: off}` |
 
 Code never changes a host-side Ollama setting, restarts a server or sets `OLLAMA_DEBUG`: the KV type, flash
 attention, the env and a restart are stated actions, the line you run there (`ollama_steward/tune_lines.py`).
@@ -269,3 +272,17 @@ and `halo local warm <lineup>` sends `warm` (`beside` for the second model of a 
 model, so its invariants hold every load. A `pivot` is not a fix: the guards and the rate limit count fixes only,
 so the scheduler keeps its own rules -- one pivot at a time per card and `local.min_resident_s` -- see
 [MODELS-ollama-steward-sched.md](MODELS-ollama-steward-sched.md).
+
+## rpc-server for a pool (3.3.8.0 R3)
+
+A pool worker's `halo host` starts and stops llama.cpp's `rpc-server` when a paired controller asks
+(`control/rpc_server {to: on | off}`; [POOL.md](POOL.md)): `rpc-server -H <the address this host serves on> -p
+<pool.rpc_port, 50052> --mem <this machine's free VRAM in MiB>`, through a runner (`host/rpc_runner.py`) whose
+binary is `pool.rpc_server_bin`, else `rpc-server` on PATH, else the one beside the llama-server Halo would run. The
+pid, the port, the bound address, the binary and its version (`--version`, and the RPC protocol rpc-server prints when
+it starts) go to `<state>/host/rpc_server.json`; `GET rpc` answers them, `halo host rpc status` prints them. Under
+`fleet.allow_control: ask` the request is a pending row; under `none` it is refused with one line naming the grant
+it needs, and -- the first time on a host -- that rpc-server has no authentication: a trusted LAN only (it binds the
+LAN address, never 0.0.0.0). The audit line carries the op. What the host can tell about its rpc-server: that the
+process it started lives, its port, the build its binary reports and the protocol its log line states; not whether a
+controller is connected, nor what the controller loaded into it.
