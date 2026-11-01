@@ -1,0 +1,22 @@
+# Meta glasses (voice): a bundle Halo ships (3.3.7.0 R5; plans/local-model-fit-brief.md L6, the glasses bundle worked
+# out). It reserves a small chat model at 8 k so a voice turn never waits for a load, runs speech-to-text and
+# text-to-speech on the CPU so they cost no VRAM, and sends task work to the coder when it fits beside the reservation,
+# else to a cloud model. The speech models themselves arrive with Voice (3.3.8.0); this bundle ships the claim and
+# the verdict. `halo pack verdict meta-glasses` says whether it fits here; `halo pack on meta-glasses` turns it on.
+id: meta-glasses
+name: Meta glasses (voice)
+version: 1.0.0
+description: Reserves a small chat model for a voice conversation; speech in and out on the CPU; task work goes elsewhere.
+author: Halo Harness
+license: MIT
+halo_api: {min: "1.0", max: "1.9"}
+halo: {min: "3.3"}
+capabilities: [voice]
+bundle:
+  needs:
+    chat: {any_of: [lfm3:1.7b, qwen3-coder:30b-gpu], window: 8192}
+    stt: {any_of: [faster-whisper:large-v3-turbo, faster-whisper:small.en], device: cpu-or-gpu}
+    tts: {any_of: [kokoro-82m], device: cpu}
+  reservation: {model: lfm3:1.7b, vram_gb: 1.2, keep_alive: -1, priority: high}
+  routing: {task_work: coder-or-cloud, never_evict: reserved}
+  latency_budget_ms: 1500

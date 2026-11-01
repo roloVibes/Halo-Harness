@@ -82,14 +82,16 @@ def post_warm(req):
 
 def get_warm_set(req):
     from halo_harness.local_sched.preview import preview
+    from halo_harness.local_sched.reserve import budget_line  # 3.3.7.0 R5: "1.2 GB reserved for ...; ... free for tasks"
     host = str(req.query.get("host") or "").strip()
     name = _lineup(req)
+    held = budget_line(host, state_dir=req.state_dir) if host else ""
     if not host or not name:
-        return 200, {"line": "", "host": host, "lineup": name}
+        return 200, {"line": "", "host": host, "lineup": name, "claims_line": held}
     pv = preview(name)
     ws = next((w for w in pv.get("hosts") or [] if w.get("host") == host), None)
     return 200, {"host": host, "lineup": name, "line": (ws or {}).get("line") or "",
-                 "swaps": (ws or {}).get("swaps") or 0}
+                 "swaps": (ws or {}).get("swaps") or 0, "claims_line": held}
 
 
 def get_place(req):
@@ -111,7 +113,8 @@ def get_loads(req):
     sid = str(req.query.get("session") or "").strip()
     if not sid or not is_safe_session_id(sid):
         return 422, {"error": "loads takes ?session=<id>"}
-    return 200, tally(req.state_dir, sid)
+    from halo_harness.local_sched.reserve import all_lines  # 3.3.7.0 R5: the reservations beside the loading tax
+    return 200, {**tally(req.state_dir, sid), "claims": all_lines(req.state_dir)}
 
 
 ROUTES = {("GET", "local/sched"): get_sched, ("POST", "local/warm"): post_warm, ("GET", "local/warm-set"): get_warm_set,

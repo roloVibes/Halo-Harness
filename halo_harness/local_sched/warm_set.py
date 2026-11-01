@@ -118,6 +118,10 @@ def pack(host, lanes: list, *, card: Optional[dict] = None, rows: Optional[list]
     helper = F.helper(host, rows)
     b = F.budget(card, name)
     room = F.usable(b, helper)
+    from halo_harness.local_sched.reserve import claims as held_on  # 3.3.7.0 R5: a bundle's reservation is not room
+    held = [c for c in held_on(host, state_dir=state_dir) if float(c.get("gb") or 0) > 0
+            and not any(_same(c.get("model"), ln["model"]) for ln in lanes)] if host is not None else []
+    room = max(0, room - int(sum(float(c["gb"]) for c in held) * F.GIB)) if room else room
     models = _models(host, lanes, card)
     main = next((ln["model"] for ln in lanes if ln["lane"] == "main"), None)
     first = [d for d in declared or []]
@@ -151,7 +155,7 @@ def pack(host, lanes: list, *, card: Optional[dict] = None, rows: Optional[list]
     used = F.together(b, warm)
     out = {"host": name, "budget": int(b.get("budget") or 0), "usable": room, "helper": helper,
            "others": int(b.get("others") or 0), "warm": warm, "pivots": pivots, "unknown": unknown, "used": used,
-           "swaps": len(loads), "swap_s": round(swap_s, 1), "loads": loads, "sequence": seq}
+           "swaps": len(loads), "swap_s": round(swap_s, 1), "loads": loads, "sequence": seq, "claims": held}
     for m in models:
         m.pop("row", None)
     label = lambda m: f"{m['model']} ({', '.join(m['lanes'])})"  # noqa: E731
@@ -161,6 +165,8 @@ def pack(host, lanes: list, *, card: Optional[dict] = None, rows: Optional[list]
     line = f"warm on {name}: {', '.join(label(m) for m in warm) or 'nothing'} -- {F.gb(used)} of {F.gb(room)} GB"
     if helper:
         line += f" (the helper {helper['model']} holds {F.gb(helper['bytes'])} GB)"
+    if held:
+        line += f" ({', '.join(sorted({c['bundle'] for c in held}))} holds {sum(float(c['gb']) for c in held):.1f} GB)"
     if pivots:
         line += f"; {', '.join(label(m) for m in pivots)} pivot{'s' if len(pivots) == 1 else ''}"
     line += (f"; {len(loads)} swap{'s' * (len(loads) != 1)} a pass, ~{secs(swap_s)} of loading" if loads

@@ -98,6 +98,7 @@ halo_harness = ["tui/*.tcss", "providers/*.json", "providers/catalog/*.json",
                 # 3.2.0.0 R6: the shipped reference pack (halo pack install doc-review), its dot files named
                 "templates/packs/*/*", "templates/packs/*/*/*", "templates/packs/*/*/*/*",
                 "templates/packs/*/.mcp.json", "templates/packs/*/.claude-plugin/*.json",
+                "templates/bundles/*/pack.yaml",  # 3.3.7.0 R5: the shipped bundles (halo pack list --bundles)
                 "studio/static/dist/*"]
 
 [tool.setuptools.dynamic]

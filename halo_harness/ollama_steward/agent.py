@@ -5,7 +5,9 @@ profile change the rules did not make.
 
 The model (`choose_model`): `ollama.steward.model` (any model ref; a cloud
 model only when it names one), else the configured `compactionModel` when it
-is a local model, else the smallest local model this machine lists (by its
+is a local model, else (3.3.7.0 R5) the best steward candidate here
+(candidates.py: tool calls verified, fits beside the main model, speed, size;
+the reason said), else the smallest local model this machine lists (by its
 size on disk), else none: the job runs the rules only and `status` says "no
 steward model: set ollama.steward.model". "none" (R5: Settings' picker) is none
 on purpose: the rules run, no note is written.
@@ -86,6 +88,13 @@ def choose_model(*, configured=None, compaction=None, local=None, state_dir=None
         return compaction.strip(), "compactionModel"
     rows = local_models(state_dir) if local is None else list(local)
     if rows:
+        try:  # 3.3.7.0 R5: the candidates' ranking (tools verified, fits beside main, speed, size), said
+            from halo_harness.ollama_steward.candidates import best, candidates
+            pick = best(candidates(state_dir, local=rows))
+        except Exception:
+            pick = None
+        if pick is not None:
+            return pick["ref"], f"the best steward candidate here: {pick['why']}"
         ref, size = min(rows, key=lambda t: (t[1], t[0]))
         return ref, f"the smallest local model ({size / 2 ** 30:.1f} GiB)"
     return None, NO_MODEL

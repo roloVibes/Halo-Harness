@@ -102,6 +102,16 @@ pack's section", until `GET pack/registry` brings its panels. A pack that
 is gone by then (disabled, removed) takes you to the first tab, as before;
 `?mode=` still wins.
 
+### Bundles (3.3.7.0 R5)
+
+Under Installed's rows, the **Bundles** group lists every bundle here and the nine Halo ships
+([MODELS-bundles.md](MODELS-bundles.md)): each a tick with its name, its state (`ready`, `needs downloads`, `won't
+work`, `not judged`) and one line under it -- the honest verdict -- then its ways out and warnings, each a number.
+Only a ready bundle can be ticked: the tick turns it on (installed, enabled, its reservation claimed and held by this
+Studio) and the line under it says what is reserved and what is left for tasks; unticking turns it off. A bundle that
+needs downloads has one button, "download 2 (4.1 GB, ~6 min)", which starts Local -> Library's Download and verify
+for each tag it names; nothing downloads before it is pressed. Each row's terminal line is `halo pack verdict <id>`.
+
 ### The routes
 
 The section reads and acts through `/api/pack/...`
@@ -121,6 +131,8 @@ The section reads and acts through `/api/pack/...`
 | `POST pack/<id>/remove {keep_config}` | `halo pack remove <id> [--keep-config]` |
 | `GET\|POST pack/<id>/settings` | the settings form of any pack installed here |
 | `POST orchestra/run {workflow, inputs}` | `halo workflow run <pack>/<name> --input k=v ...` (Run <workflow>) |
+| `GET pack/bundles` | 3.3.7.0 R5: every bundle with its verdict (`halo pack list --bundles`) |
+| `POST pack/bundle/<id>/on`, `POST pack/bundle/<id>/off` | `halo pack on\|off <id>` (the tick; held by this Studio: undone when unticked or when it exits) |
 
 A "no pack ..." line answers 404, every other refusal 422, each with the
 command's lines in `problems`.

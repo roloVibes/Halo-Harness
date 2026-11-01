@@ -1,0 +1,17 @@
+# Bulk worker: a bundle Halo ships (3.3.7.0 R5; plans/local-model-fit-brief.md L6). It reserves a small model that
+# calls tools for the many small jobs of a run (renames, lookups, one-file edits), so they never wait behind a load
+# of the coder; the coder keeps the hard work when it fits beside it, else a cloud model takes it.
+id: bulk-worker
+name: Bulk worker
+version: 1.0.0
+description: Reserves a small tool-calling model for the many small jobs of a run.
+author: Halo Harness
+license: MIT
+halo_api: {min: "1.0", max: "1.9"}
+halo: {min: "3.3"}
+capabilities: [bulk]
+bundle:
+  needs:
+    worker: {any_of: [qwen3.5:9b, qwen3:8b, llama3.1:8b], window: 32768, tools: true}
+  reservation: {model: worker, keep_alive: -1, priority: normal}
+  routing: {task_work: coder-or-cloud, never_evict: reserved}

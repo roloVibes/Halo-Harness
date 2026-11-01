@@ -75,7 +75,7 @@ def _gather_real_flags() -> "dict[str, set]":
     out["halo ollama hardware"] = _flags_in(_capture(ollama_cli.cmd_ollama, ["hardware", "--help"]))  # 3.3.4.0 R1
     for sub in ("traffic", "events"):  # 3.3.4.0 R2: the ledger's rollups, the server's events
         out[f"halo ollama {sub}"] = _flags_in(_capture(ollama_cli.cmd_ollama, [sub, "--help"]))
-    for sub in ("findings", "plan", "run"):  # 3.3.4.0 R3: the steward
+    for sub in ("findings", "plan", "run", "chat", "candidates"):  # 3.3.4.0 R3: the steward; 3.3.7.0 R5: chat, candidates
         out[f"halo ollama steward {sub}"] = _flags_in(_capture(ollama_cli.cmd_ollama, ["steward", sub, "--help"]))
     out["halo models browse"] = _flags_in(_capture(catalog_cli.cmd_models, ["browse", "--help"]))  # 3.3.5.0 R2
     for sub in ("pull", "rm", "load", "unload", "copy", "rename", "twin", "loaded", "show"):  # 3.3.5.0 R3 (+ show --host)

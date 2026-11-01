@@ -30,7 +30,8 @@ PARAMS = {"warm": {"model": SMALL}, "pin": {"model": SMALL}, "unload": {"model":
           "set_flash_attn": {"on": True}, "rerun_battery": {"model": SMALL}, "bench": {"model": SMALL},
           "verify_twin": {"model": SMALL}, "pull": {"model": "new-model:7b"}, "delete": {"model": SMALL},
           "retire": {"model": SMALL}, "restart_ollama": {}, "set_env": {"key": "OLLAMA_NUM_PARALLEL", "value": "2"},
-          "revert": {"change": "ch-none"}}
+          "revert": {"change": "ch-none"},
+          "claim": {"model": SMALL, "gb": 1.5, "bundle": "embeddings"}, "release": {"bundle": "embeddings"}}  # 3.3.7.0 R5
 
 
 def _writes(rig) -> dict:

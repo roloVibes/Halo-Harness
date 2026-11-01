@@ -1,0 +1,16 @@
+# Compactor: a bundle Halo ships (3.3.7.0 R5; plans/local-model-fit-brief.md L6). It reserves a small model for
+# summaries, so a compaction never costs a pivot of the coder (the roster adviser's "every summary costs a pivot").
+id: compactor
+name: Compactor
+version: 1.0.0
+description: Reserves a small model for compaction, so a summary never swaps the coder out.
+author: Halo Harness
+license: MIT
+halo_api: {min: "1.0", max: "1.9"}
+halo: {min: "3.3"}
+capabilities: [compact]
+bundle:
+  needs:
+    compact: {any_of: [qwen3.5:4b, qwen3:4b, qwen2.5:1.5b, llama3.2:3b], window: 32768}
+  reservation: {model: compact, keep_alive: -1, priority: normal}
+  routing: {task_work: coder-or-cloud, never_evict: reserved}

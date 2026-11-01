@@ -8,7 +8,9 @@ H10.6). Mechanics with no model and no judgement in them:
 - `keep_alive`: the asked one goes on the load and comes back in the answer;
 - the helper's footprint: when the duty steward's model is resident (`/api/ps`), the card and `route` answers carry
   `usable_gb` and `usable_with_helper_gb` and the line "20.6 GB usable; 18.6 GB with the helper";
-- a request whose dry run says the card would be breached is refused in the same words the preview shows.
+- a request whose dry run says the card would be breached is refused in the same words the preview shows;
+- 3.3.7.0 R5, a bundle's claim (host/ops_claim.py): its GB count in every load's budget, a load that would breach what
+  is left is refused with the claim and the numbers, and a reserved resident is not "another resident".
 
     loaded(view, host) -> [{model, size, size_vram, context_length}]   /api/ps, else the card's `loaded`
     helper(home) -> the duty steward's model name (when it is on) | None
@@ -127,7 +129,16 @@ def check_load(view, host, model: str, window: Optional[int], *, beside: bool = 
         return out
     rows = loaded(view, host) if rows is None else rows
     hrow = helper_row(view.home, rows)
-    others = [r for r in rows if not ollama_names_match(r.get("model"), model) and r is not hrow]
+    from halo_harness.host.ops_claim import claimed, held as claim_of  # 3.3.7.0 R5: the bundles' reservations
+    cs = claimed(view.home, host.name, but=model)
+    held_b = int(sum(float(c["gb"]) * GIB for c in cs))
+    if cs and (p["need_bytes"] or 0) + 457 * 2 ** 20 > p["budget"] - held_b:
+        from halo_harness.local_sched.reserve import breach_line
+        out.update(verdict=breach_line(host, model, (p["need_bytes"] or 0) + 457 * 2 ** 20, max(0, p["budget"] - held_b),
+                                       held_by=cs), claims=cs)
+        return out
+    others = [r for r in rows if not ollama_names_match(r.get("model"), model) and r is not hrow
+              and not claim_of(view.home, host.name, str(r.get("model") or ""))]  # a reserved resident is counted above
     out["others"] = [r.get("model") for r in others]
     if others and not beside:  # 3.3.7.0 R4: a foreign client's model is a resident like any other, and named so
         names = ", ".join(str(r.get("model")) + _foreign(view, host, r) for r in others)
@@ -145,7 +156,7 @@ def check_load(view, host, model: str, window: Optional[int], *, beside: bool = 
         if not both.get("fits_now"):
             out["verdict"] = f"{model} beside {', '.join(out['others'])} on {host.name}: {both.get('says')}"
             return out
-    free = max(0, p["budget"] - held)
+    free = max(0, p["budget"] - held - held_b)
     if hrow is not None and (p["need_bytes"] or 0) > free - int(hrow.get("size_vram") or 0):
         out["evict_helper"] = hrow.get("model")
     out.update(ok=True, verdict=(f"{model} fits {host.name} at {int(window):,} ({_gb(p['need_bytes'])} of "

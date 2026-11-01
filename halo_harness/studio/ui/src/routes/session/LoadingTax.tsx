@@ -5,7 +5,9 @@
 import { useEffect, useState } from "react";
 import { api } from "../../lib/api";
 
-type Tax = { count: number; seconds: number; line: string; per_model: Record<string, { count: number; seconds: number }> };
+type Tax = { count: number; seconds: number; line: string; per_model: Record<string, { count: number; seconds: number }>;
+  claims?: { host: string; line: string }[] }; // 3.3.7.0 R5: a bundle's reservation per host, beside the loading tax
+const NONE: { host: string; line: string }[] = [];
 const POLL_MS = 30_000;
 
 export function secs(s: number): string {
@@ -38,12 +40,23 @@ export function LoadingTax({ sid }: { sid: string | null | undefined }) {
       window.clearInterval(id);
     };
   }, [sid]);
-  if (!got || !got.count) return null;
+  const held = got?.claims || NONE;
+  if (!got || (!got.count && !held.length)) return null;
   const per = Object.entries(got.per_model || {}).map(([m, v]) => `${m}: ${v.count} load${v.count === 1 ? "" : "s"}, ${secs(v.seconds)}`);
   return (
-    <div className="sco-fig" title={[got.line, ...per].join("\n")}>
-      <span className="sco-label mono">LOADING</span>
-      <b className="sco-value mono" data-testid="session-cost-loading">{`${got.count} · ${secs(got.seconds)}`}</b>
-    </div>
+    <>
+      {got.count > 0 && (
+        <div className="sco-fig" title={[got.line, ...per].join("\n")}>
+          <span className="sco-label mono">LOADING</span>
+          <b className="sco-value mono" data-testid="session-cost-loading">{`${got.count} · ${secs(got.seconds)}`}</b>
+        </div>
+      )}
+      {held.map((c) => (
+        <div className="sco-fig" key={c.host} title={`${c.host}: ${c.line}`}>
+          <span className="sco-label mono">RESERVED</span>
+          <b className="sco-value mono" data-testid="session-cost-reserved">{c.line}</b>
+        </div>
+      ))}
+    </>
   );
 }

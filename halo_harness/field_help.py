@@ -180,6 +180,7 @@ PACK = {
     "config.defaults": "the settings it starts with; yours win",
     "permissions": "what it asks you to grant: mcp:<server>, hooks, bash, network, home-write, studio-script",
     "migrations": "what changes for you between two versions ({from, to, note, settings: {old: new}}); halo pack update prints it first and renames those settings",
+    "bundle": "3.3.7.0 R5: a capability bundle's resource claim -- needs (role -> any_of models, window, device), reservation (the model it holds), routing (where other work goes), latency_budget_ms",
 }
 
 

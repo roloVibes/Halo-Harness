@@ -337,6 +337,41 @@ def test_the_spawn_verdict_and_the_childs_first_events(ctx: Ctx):
         ctx.check(f"main unloaded, the child's model loaded, got {gen}", gen[0] == (BIG, 0) and gen[1][0] == CODER)
 
 
+@test
+def test_a_reservation_routes_the_child_around_it(ctx: Ctx):
+    """3.3.7.0 R5 (L4): a bundle holds 4 GB on pc, so the coder no longer fits even alone: never evicting the claim,
+    the child goes to routing.escalation's cloud model, one visible line, no pivot, nothing loaded."""
+    from types import SimpleNamespace
+    from halo_harness.agent import preflight
+    from halo_harness.local_sched import claims_file as CF
+    from halo_harness.model import parse_model_ref
+    from halo_harness.roles_fit import first_events, verdict
+    from tests.helpers.sched_rig import BIG, CODER, SchedHome, ps_row
+    with SchedHome(loaded=[ps_row(BIG, 18.0)]) as h:
+        CF.put(CF.local_file(h.state), {"bundle": "voice", "host": "pc", "model": "lfm3:1.7b", "gb": 4.0, "holder": "keep",
+                                        "scope": "keep", "via": "local", "escalation": "on"})
+        h.config(**{"routing.escalation": {"to": "or:vendor/cloud-model", "when": ["tool_failures"], "ask": False}})
+        v = verdict("coder", f"ol:{CODER}@pc", f"ol:{BIG}@pc", state_dir=h.state)
+        ctx.check(f"blocked by the claim, routed, got {v}", v["blocked"] and v["route_to"] == "or:vendor/cloud-model"
+                  and v["line"].endswith("voice holds 4.0 GB; sending this task to or:vendor/cloud-model rather than "
+                                         "evicting it"))
+        seen: list = []
+
+        def switch(session, to, turn):
+            seen.append(to)
+            yield from ()
+        child = SimpleNamespace(_parent_model_raw=f"ol:{BIG}@pc", model_ref=parse_model_ref(f"ol:{CODER}@pc"),
+                                role_name="coder", state_dir=h.state, log=SimpleNamespace(session_id="kid"))
+        real, preflight._switch = preflight._switch, switch
+        try:
+            evs = list(first_events(child))
+        finally:
+            preflight._switch = real
+        ctx.check(f"one line, then the switch, no pivot, got {[e.data.get('state') for e in evs]} {seen}",
+                  [e.data.get("state") for e in evs] == ["fit"] and seen == ["or:vendor/cloud-model"])
+        ctx.check(f"nothing loaded or unloaded, got {h.mock.generated}", h.mock.generated == [])
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

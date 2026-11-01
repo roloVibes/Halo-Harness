@@ -8,6 +8,8 @@
     preview.py    a lineup's swap preview and its hygiene lines (`halo teams use`, the Roles lineup tab)
     loads.py      the loading tax: the loads of a session and the seconds they took
     place.py      where each lane's model should run across the reachable hosts (`halo local place`)
+    bundle_fit.py, bundle_needs.py, bundle_options.py   3.3.7.0 R5: a bundle's honest verdict and its ways out
+    reserve.py, reserve_act.py, claims_file.py          3.3.7.0 R5: the reservations, claimed and released
 
 Deterministic and model-free: arithmetic over the card, the catalog rows, the ledger and the hosts' `route`
 answers. Loads go through the Ollama API (providers/ollama_load.py) or a halo host's typed operations

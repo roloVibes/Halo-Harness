@@ -79,6 +79,9 @@ def clock_of(host) -> str:
 def held_for(host, model: Optional[str], now: Optional[float] = None) -> float:
     if not model:
         return 0.0
+    from halo_harness.local_sched.reserve import held  # 3.3.7.0 R5: a bundle's claim holds it for the bundle's life
+    if held(host, model):
+        return float("inf")
     if now is None:
         got = _shared(host, model)
         if got is not None:
@@ -166,6 +169,10 @@ def run(p: dict, *, host=None, session=None, turn: int = 0, sleep=time.sleep):
                     "via": p["via"]}
     try:
         hold = held_for(host, p["from"])
+        why = _reserved_line(host, p, hold)  # 3.3.7.0 R5: never pivot a reserved model out, never breach a claim
+        if why:
+            yield events.turn_marker("pivot", why, turn=turn, reserved=True)
+            return {"ok": False, "took_s": 0.0, "waited_s": 0.0, "say": why, "via": p["via"], "queued": True}
         if hold > 0:
             yield events.turn_marker("pivot", f"pivot held {secs(hold)}: {p['from']} was loaded "
                                               f"{secs(min_resident_s() - hold)} ago (local.min_resident_s "
@@ -188,6 +195,15 @@ def run(p: dict, *, host=None, session=None, turn: int = 0, sleep=time.sleep):
     after = f"pivoted in {secs(took)}: {got['say']}" if got["ok"] else f"pivot did not land: {got['say']}"
     yield events.turn_marker("pivot", after, turn=turn, took_s=took, ok=got["ok"])
     return {"ok": got["ok"], "took_s": took, "waited_s": round(waited, 1), "say": got["say"], "via": p["via"]}
+
+
+def _reserved_line(host, p: dict, hold: float) -> str:
+    from halo_harness.local_sched.reserve import held, load_breach
+    if hold == float("inf"):
+        c = held(host, p["from"]) or {}
+        return (f"pivot: {p['from']} is reserved for {c.get('bundle')} on {p['host']} ({float(c.get('gb') or 0):.1f} GB "
+                f"held): {p['to']} is queued behind it, never loaded by evicting it (halo pack off {c.get('bundle')})")
+    return load_breach(host, p["to"], p.get("window"))
 
 
 def run_now(p: dict, say=print, **kw) -> dict:

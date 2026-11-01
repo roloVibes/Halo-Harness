@@ -79,9 +79,20 @@ def a_pin(ctx, p):
     return _load(ctx, p, p["model"], -1)
 
 
+def _reserved(ctx, model: str) -> str:
+    """3.3.7.0 R5: the line when a bundle holds `model` here (only its own release lets it go), else ''."""
+    from halo_harness.host.ops_claim import held
+    c = held(ctx.home, ctx.host.name, model)
+    return (f"{model} is reserved for {c['bundle']} on {ctx.host.name} ({float(c.get('gb') or 0):g} GB held): nothing "
+            f"evicts it until the bundle is turned off (halo pack off {c['bundle']})") if c else ""
+
+
 def p_unload(ctx, p):
-    return {"would": [f"unload {p['model']} from {ctx.host.name} (keep_alive 0)"], "writes": ["nothing"],
-            "takes": "~1 s", "cost": LOCAL_TIME}
+    out = {"would": [f"unload {p['model']} from {ctx.host.name} (keep_alive 0)"], "writes": ["nothing"],
+           "takes": "~1 s", "cost": LOCAL_TIME}
+    if _reserved(ctx, p["model"]):
+        out["breach"] = _reserved(ctx, p["model"])
+    return out
 
 
 def a_unload(ctx, p):
@@ -104,6 +115,8 @@ def _without(ctx, model: str) -> list:
 def p_pivot(ctx, p):
     out, _chk = _load_preview(ctx, p, p["to"], p.get("keep_alive"), rows=_without(ctx, p["from"]))
     out["would"].insert(0, f"unload {p['from']} from {ctx.host.name}")
+    if _reserved(ctx, p["from"]):
+        out["breach"] = _reserved(ctx, p["from"])
     return out
 
 
