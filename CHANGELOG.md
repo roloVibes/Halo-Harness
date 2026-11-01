@@ -10,6 +10,30 @@ version.
 
 ## [3.3.7.0] - unreleased
 
+**Local, the host.** The owner's measured brief (plans/local-model-fit-brief.md, Parts D1, G5-G6, G11-G15, H, J
+and L) made into five rounds: `halo host` is a model-free Halo component on every machine that serves models --
+it runs with no session open, keeps the steward's watch, serves the card, the catalog with fit, the profiles,
+the events and the log tail (sizes only) over a signed, pinned API, and takes the rung before ssh on the read
+ladder (R1); the host acts within a typed vocabulary behind per-peer grants -- every operation previewable,
+cited to its finding, one change at a time per host with a cooldown and a rate limit, measured after and kept
+or reverted, host-side server settings as stated actions carrying the exact line, deterministic invariants
+that subtract the helper's footprint, peers and the steward acting through the host, the duty steward as its
+own opt-in process, speed cards and dialect records and crash fingerprints across the fleet, and the
+offline-promise badge (R2); scheduling: one resident model per card, the warm set from bin packing and
+`halo local warm`, the pivot as one visible step, the switch cost in the plan and the lineup's swap preview,
+the bigger-local rung before cloud, the spawn-time fit verdict, `host|model|role` profiles, Auto's pick with
+fit and warm state, the loading tax beside "saved vs cloud", and `halo local place` across machines (R3);
+guards: a client that is not a halo in the busy wait and the traffic view, the host's shared residency clock,
+the off-hours refresh that re-measures drifted and unverified models when the card is idle, drift and deletion
+guards with the nearest equivalent and one dead-tag line everywhere, the roster adviser (gap, overlap,
+mismatch, freshness; value per gigabyte; one button each), a capture on a member's display and the vision
+probe on Hugging Face local servers (R4); bundles: a pack with a resource claim, the honest verdict before
+anything downloads (ready / needs N downloads / won't work with the ways out), reservations the host enforces
+and routes other work around with one visible line, nine shipped bundles, the steward's chat over the host's
+findings, and steward candidates at init (R5). Also: two Linux-runner races fixed (the host's audit line lands
+after its reply; several reverts in one millisecond keep file order) and the bench driver waits for the stale
+mark.
+
 ### R1: the host serves -- `halo host`, a model-free Halo component on every machine that serves models
 
 #### Added
@@ -102,10 +126,6 @@ version.
 - The first-run checklist has six rows; `halo check` runs the steward row by default when an installed candidate fits.
 - The host refuses a load that would breach a bundle's claim, and an unload or a pivot of a reserved model, with the claim's line; the scheduler's pivot does the same on a card no host serves.
 - While the offline-only bundle is on, `routing.escalation` reads as unset and the ladder's cloud rung says why.
-
-### Also in 3.3.7.0
-
-#### Changed
 
 ## [3.3.6.0] - 2026-10-31
 

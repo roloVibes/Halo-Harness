@@ -4,7 +4,72 @@ This folder carries the whole plan so a new session (local or cloud) can
 pick the work up without the conversation that produced it. Read this file
 first, then `WORKER-RULES.md`, then the round you are starting.
 
-## WHERE THINGS STAND -- 2026-11-01 (authoritative, read this first)
+## WHERE THINGS STAND -- 2026-11-01 evening (authoritative, read this first)
+
+**3.3.7.0 "Local, the host" IS THE RELEASE CANDIDATE** (five rounds merged on master; the release follows once
+both runners are green on the candidate head -- if you read this after the release, the tag v3.3.7.0 exists
+and the PC runs it). The specification is the owner's measured brief `plans/local-model-fit-brief.md` as cut by
+the ROADMAP entry "ADDED 2026-10-30 ... the local-model brief". On master: R1 the host serves (33aa2612:
+`halo_harness/host/` -- `service.py`, `state.py`, `http.py`, `routes_view.py`, `answers.py` (`simulate`, `route`),
+`join.py`; `host_cli.py` + `host_pair_cli.py` + `host_install.py`; `ollama_steward/host_client.py` + `host_reads.py`
+(`serving()` thread-local: a host never reads through another host); `fleet/hub_hosts.py`; `HostServedBy.tsx`;
+`/host/v1/` signed with the fleet HMAC + pinned TLS on port 7431; the ladder local -> host -> ssh -> member ->
+api-ps; `halo host serve | status | stop | pair | join | install | uninstall`; docs/HOST.md, COMMANDS-host.md),
+R2 the host acts (c6316cd0: `host/grants.py` + `pending.py` (`halo host grant | revoke | peers | pending | allow |
+deny`; `fleet.allow_control` none / ask / all caps every grant), `ops.py` / `ops_control.py` / `ops_jobs.py` /
+`ops_manage.py` / `routes_act.py` / `jobs.py` / `stream.py`, `guards.py` + `verify.py` (one change per host 409, a
+cooldown 409, a rate limit 429, before / after then keep or revert), `invariants.py` (the helper line "22.0 GB
+usable; 20.0 GB with the helper"), `fleet/hub_host_cmd.py`, `studio/local_host_acts.py` + `local_host_api.py`,
+`ollama_steward/host_land.py` + `host_fold.py` + `steward_review.py`, `host/findings.py` + `ledger_push.py` +
+`ledger_take.py` (`POST ledger`), `host_steward_cli.py` + `host/duty.py` (`halo host steward on | off | status |
+run`), `fleet/ollama_share_cards.py`, `agent/offline_promise.py`; stated actions for KV type / flash attention /
+env / restart carry the exact line and `applied: false`), R3 scheduling (d92cdb6d: `local_sched/` -- `facts.py`,
+`swap_cost.py`, `warm_set.py`, `pivot.py`, `preview.py`, `loads.py`, `place.py`; `local_warm_cli.py` (`halo local
+warm`), `halo local place [--apply]`, `agent/local_hop.py` (the `bigger-local` rung, `routing.local_hop`),
+`roles_fit.py` (the spawn verdict as the child's first event), `profiles_role.py` (`host|model|role`, `halo ollama
+profile list | set | unset --role`), `models_auto_local.py`, the loading tax on `/cost` + the Cost panel + `halo
+session show`; `LineupSched.tsx`, `HostWarm.tsx`, `HostsPlace.tsx`, `LoadingTax.tsx`; docs/MODELS-ollama-steward-
+sched.md), R4 guards (b12a20cc: `ollama_steward/idle.py` ("a client that is not a halo"), `providers/
+local_bench_busy.py`, `host/residency.py` (the shared clock, `GET residency`), `host/refresh_plan.py` + `refresh.py`
+(`halo host refresh status | now | off | on`, `halo local refresh [--dry]`, config `host.refresh.*`),
+`tag_digests.py` + `rules_drift.py` (`tag-drift`, `tag-deleted`) + `dead_tag.py` + `models_library/nearest.py`,
+`halo roles point` + `POST roles/<role>/point`, `models_library/advise.py` + `advise_rules.py` + `advise_lines.py`
+(`halo local advise`, `GET local/advise`, `routes/local/Adviser.tsx`), the fleet `capture` command
+(`fleet.share_captures`), the vision probe on HF local servers (`halo models probe hf:local/<m>@<server>`),
+`agent/degrade_crash.py`; docs/MODELS-ollama-steward-guards.md, MODELS-adviser.md, COMMANDS-local-guards.md --
+COMMANDS-local.md and MODELS-ollama-steward.md sit at the 400-line part cap), R5 bundles + the steward's chat
+(ee26f60d: `packs/manifest_bundle.py` + `schema/bundle.schema.json` (the `bundle:` block -- needs, reservation, routing,
+`latency_budget_ms`), `local_sched/bundle_fit.py` + `bundle_needs.py` + `bundle_options.py` (the verdict ready /
+needs N downloads / won't work, every way out a number; `halo pack verdict`, `GET pack/bundles`, the Pack Manager's
+Bundles group under Installed), `local_sched/reserve.py` + `reserve_act.py` + `claims_file.py` + `host/ops_claim.py`
+(claims in the residency state, `control/claim` + `release`, `GET residency` returns them; `keep_alive -1` as a
+scoped change; `halo pack on | off`; the budget line "N GB reserved for X; M GB free for tasks" in `halo local
+hosts`, the Hosts card and the Cost panel), `place.solve(claims=)`, the warm set, `roles_fit` and the ladder route
+around claims, `templates/bundles/` x 9 (`halo pack list --bundles`), `ollama_steward/chat.py` + `chat_tools.py` +
+`chat_acts.py` + `chat_log.py` + `studio/local_steward_chat_api.py` (`ollama/steward-chat.jsonl`; `halo ollama
+steward chat "<q>" [--bigger]`; Local -> Steward's chat box + model picker; config `ollama.steward.chat_tokens`),
+`ollama_steward/candidates.py` (`halo ollama steward candidates`, the first-run row; `choose_model` says why). A
+reservation binds every Halo path and nothing that talks to Ollama directly; the speech models of the glasses
+bundle "arrive with Voice").
+CI lessons this version: the host writes a request's audit line after its reply (the rig's `audited(n)` waits);
+`changes.revert` sorted by the ISO `at` alone and two changes in one millisecond tied on Linux (file order breaks
+the tie); the bench driver read the rows before the stale mark rendered (the wait includes it); the per-file cap:
+a file under 250 lines must not cross it (R3's `profiles.py` was split into `profiles_role.py`).
+Worktrees `~/hh-337/*`, briefs and hand-backs under `~/hh-337/briefs/` (each hand-back's WHAT STAYS OPEN is the
+list for later). Open for the owner's live check (nothing run on hardware yet): `halo host install` on the PC and
+`halo host join` from the Mac / Kali; `halo host grant <mac> control` then Load / Unload / Probe from the Mac's
+Studio; `fleet.allow_control: ask` and `halo host pending | allow`; `halo host steward on --model ...`; the
+offline chip on `/cost`; `halo local warm halo-dev-cycle` wired to local models; `halo local place --apply` with
+the PC + SAMUS; `halo host refresh now` on an idle card; a foreign load from the Kali agent on the Hosts card;
+`tag-drift` after an `ollama pull` over a tag; `halo local advise` on the real roster; tick the glasses bundle
+and read its verdict; a steward chat question with its cost. **Next:** 3.3.8.0 "Voice" (Part K; the glasses
+bundle's models: STT and TTS on CPU, the 1.7 B chat model's dialect), then -- after every local-model build --
+3.3.9.0 "Pack policy" (GitHub issue #4: the pre-tool-call verdict API a pack declares and the harness enforces,
+docs/EXTENSION_API.md updated in the same change), 3.3.10.0 "Type into Studio" (the composer's paste: an image
+into a new user turn), 3.3.11.0 "Themes and parity" (+ issue #5 mode-aware theming from a pack's state file).
+The owner's rule: all local-model work first; issues #4 and #5 only after it.
+
+### Before it: 2026-11-01
 
 **3.3.6.0 "Local, verified" IS THE RELEASE CANDIDATE** (six rounds merged on master; the release follows once
 both runners are green on the candidate head -- if you read this after the release, the tag v3.3.6.0 exists

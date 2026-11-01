@@ -3616,3 +3616,45 @@ The order (the owner's rule: all of this before Type into Studio and themes):
   Meta, start <app>"), honest about its limits.
 - Then 3.3.9.0 "Type into Studio" and 3.3.10.0 "Themes and parity" (the
   entries already written under their old numbers, 3.3.6.0 and 3.3.7.0).
+
+## ADDED 2026-10-31 evening (rolo: "a new feature update with code called halo-distributed-llm.zip ... add this distributed local llm feature to the local llm tab in studio ... add it to the local list of feature updates"): 3.3.8.0 "Pooled"
+
+The owner's drop (research + spec + ranked model candidates + a stdlib reference implementation `pool_kit`, produced
+in his Mac halo session on 2026-10-31) is now `plans/pooled-inference-spec.md`, `plans/pooled-inference-research.md`,
+`plans/pooled-inference-model-candidates.md` and `plans/pooled-inference-handoff.md` (scrubbed: hostnames and
+192.0.2.x placeholders only). The capability: run one model larger than any single card across the GPU memory of
+several LAN machines with llama.cpp RPC -- workers run `rpc-server`, the controller runs `llama-server --rpc ...
+--tensor-split ...` and serves an OpenAI-compatible API; layer-shard pipeline parallelism only. Pooling buys
+capacity, not speed (measured -21 % to -55 % vs a single node that could hold the model); MoE with few active
+params is the right pooled choice; expert routing tables replicate to every RPC device (matched node memory
+matters); KV honesty 16k F16 / 32k Q8_0 on a 50-60 GB pool; trusted LAN only. Queue: 3.3.8.0 "Pooled" (this) ->
+3.3.9.0 "Voice" (Part K) -> after every local-model build: 3.3.10.0 "Pack policy" (issue #4), 3.3.11.0 "Type into
+Studio", 3.3.12.0 "Themes and parity" (+ issue #5).
+
+Adaptation rules (the review of `pool_kit` against master): the pool is a `huggingface.local_servers` entry named
+`pool` (`hf:local/<model>@pool`) -- no new provider, no new placement path (the pool answers `route` like a host);
+members are paired hosts (3.3.7.0 R1) and `rpc-server` is a process a worker's `halo host` starts and stops behind
+grants (`rpc_server on|off`), not an Ollama setting; runtime accepts hostnames AND IP literals (the privacy scan
+governs committed files, not a user's config -- `pool_kit.Member`'s rejection is dropped); one KV floor (16k F16)
+for the single-node and the pool check, Q8_0 doubled, clamp 32k; budgets from `fit.card_budget` per member minus
+resident models and claims, the tensor split proportional to FREE VRAM; matched-memory blocks only when the model
+has routing tables; the real mismatch check is the RPC / build version between `llama-server` and each
+`rpc-server` (workers hold no GGUF; the controller ships tensors), plus b7186+ per model; launch through `halo
+local serve` (which finds / fetches llama-server) with `-ngl 999`, `--host 127.0.0.1`, `--cache-type-k/-v q8_0`
+past the F16 budget, never a CPU fallback; discovery = a new RPC-port probe (50052) on explicit action only; pool
+actions are `changes.py` changes under the steward contract (one per pool per 10 min, before / after, revert on
+worse); the reference HTTP server is not shipped (routes through `studio/local_api.py`).
+
+- R1 discovery + members + fit / recommend: `local_pool/` (`members.py`, `fit.py`, `catalog.py`, `recommend.py`,
+  `probe.py`), `halo pool scan | members | add | remove | recommend | verdict <model>`, Local -> Pool (read-only),
+  the Library's "Pool" preset with the fit badge, docs/POOL.md.
+- R2 the controller: the host op `rpc_server on|off`, `halo local serve --pool`, preflight (fit, probes, RTT, build
+  and RPC versions, resident + claims), the `pool` server entry, `route` for the pool, warm / stop as scoped changes,
+  the failure modes as lines (a worker down mid-generation: the request fails, the pool is "degraded"; VRAM
+  overcommit: refuse with the node and the missing GB; routing-table OOM: the matched-memory block before launch;
+  Wi-Fi RTT: excluded by default; version mismatch: block with both versions), the pool in `place.solve`.
+- R3 Studio controls + guards + bench: Warm / Stop on the Pool page, health + tok/s live, the steward's findings for
+  a degraded pool, `halo local bench --host pool`, a bundle may claim the pool, glossary `pool`, `rpc-server`,
+  `tensor split`.
+- Open from the drop (unverified): GPU enumeration on worker-grade Windows boxes, NIC speed detection, per-model RPC
+  benchmarks; Ollama PR #10844 would make pooled serving one command on Ollama hosts -- noted, not depended on.
