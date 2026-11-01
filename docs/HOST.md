@@ -96,14 +96,14 @@ job-shaped op answers `{job}` and streams `job` frames on `GET stream` (`GET job
 | `pin {model, num_ctx?, beside?}` | control | the same, `keep_alive -1` | nothing on disk | applied | `unload` |
 | `unload {model}` | control | `keep_alive 0` | nothing | applied | `warm` |
 | `pivot {from, to, num_ctx?, keep_alive?}` | control | unload A, load B; one event each | nothing | applied | `pivot` back |
-| `set_num_ctx`, `set_num_predict`, `set_keep_alive`, `set_tools_max {model, value}` | control | the Halo-side profile field (a fix: it cites a finding), then the verify window | `ollama.profiles`, a row in `changes.jsonl` with its scope, a row in `fixes.jsonl` | applied (Halo's side) | `manage/revert <id>`; the verify reverts it when calls go worse |
+| `set_num_ctx`, `set_num_predict`, `set_keep_alive`, `set_tools_max {model, value}` | control | the Halo-side profile field (a fix: it cites a finding), then the verify window; 3.3.8.0 R4: `host` may name one of this machine's local servers (llama-server, LM Studio, MLX, the pool), verified in tok/s from its log's `timing` | `ollama.profiles`, a row in `changes.jsonl` with its scope, a row in `fixes.jsonl` | applied (Halo's side) | `manage/revert <id>`; the verify reverts it when calls go worse |
 | `set_kv_cache_type {value}`, `set_flash_attn {on}` | control | the exact line for the host's OS | nothing | **stated**: `applied: false` | the revert line beside it |
 | `rerun_battery {model, force?}`, `bench {model, quick?}`, `verify_twin {model, window?}` | control | the battery / the bench / a twin's verify, on the host, as a job | the profile / the speed card / the twin's record | applied | re-run |
 | `pull {model}` | manage | a pull job | Ollama's blob store | applied | `delete` |
 | `delete {model, force?}`, `retire {model, why?, force?}` | manage | after the uses card: a live session refuses it, a role or lineup naming it too unless `force` | Ollama's blob store; retire adds a shelf line | applied | `pull` (the re-pull line) |
 | `restart_ollama {}`, `set_env {key, value}` | manage | the exact line for the host's OS | nothing | **stated** | the revert line |
 | `revert {change}` | manage | the change put back | `ollama.profiles`, a revert line | applied | -- |
-| `claim {model, gb, bundle, window?, priority?, keep_alive?, lease_s?}`, `release {bundle}` | control | 3.3.7.0 R5: a bundle's reservation, held by the host: its GB count in every load, the model is never unloaded or pivoted out for anyone else ([MODELS-bundles.md](MODELS-bundles.md)); 3.3.8.0 R3: `lease_s` gives it a lease (`until`): past it the claim is not a claim | `<state>/host/claims.json` | applied (Halo's side; nothing loads) | `release` |
+| `claim {model, gb, bundle, window?, priority?, keep_alive?, lease_s?, hours?}`, `release {bundle}` | control | 3.3.7.0 R5: a bundle's reservation, held by the host: its GB count in every load, the model is never unloaded or pivoted out for anyone else ([MODELS-bundles.md](MODELS-bundles.md)); 3.3.8.0 R3: `lease_s` gives it a lease (`until`): past it the claim is not a claim; R4: `hours` (the bundle's schedule, this host's clock): outside them it is dormant | `<state>/host/claims.json` | applied (Halo's side; nothing loads) | `release` |
 | `renew {bundle, lease_s?}` | control | 3.3.8.0 R3: the lease of the claims that peer placed moved to now + the lease (its heartbeat); never queued under `ask` (a renewal of the peer's own claim) | `<state>/host/claims.json` | applied | -- |
 | `rpc_server {to: on \| off, port?, mem_mib?}` | control | 3.3.8.0 R3: llama.cpp's rpc-server for a pool, on the LAN address this host serves on ([below](#rpc-server-for-a-pool-3380-r3)) | `<state>/host/rpc_server.json`, `<state>/host/rpc-server.log` | applied (a process Halo starts and stops) | `rpc_server {to: off}` |
 
@@ -153,6 +153,14 @@ the mirror with it ([MODELS-ollama-steward-host.md](MODELS-ollama-steward-host.m
 the host's own findings into its run, and the `client` ones (a prompt that outgrew its window, a cut reply) become
 its own work: compaction, a bigger-window model. A peer's calls to a host-served server reach the host's ledger
 (`POST ledger`), so the verify window and the bench's busy wait see every client.
+
+**Host-served local servers (3.3.8.0 R4).** The join's answer and every announce carry `servers` beside `serves`:
+this machine's local servers -- llama-server, LM Studio, mlx_lm.server, the pool -- `{name, port, addr, kind: server,
+runtime, pool}` (`host/state.served_rows` / `server_rows`), and the hub keeps them with the host. A member's pushed
+events include its servers' events (`server: true`), so a hub sees a pool's RPC lines. A peer reads such a server's
+log through the host (`halo local log <server>`: "via host <addr>"), and its steward lands a server's change through
+the host -- the op names the host's own name for the server, the host verifies it in tok/s from the server log's
+`timing` lines and its audit says so -- instead of in the peer's profile alone.
 
 ## The duty steward
 
@@ -259,7 +267,11 @@ The host's loop runs the capability battery and the quick bench when the card is
 session on the card; one model at a time (drifted tags first, then never probed, then profiles older than
 `host.refresh.max_age_days`, 14); it stops the moment a call arrives, stamps each profile and speed card "verified by
 the host", writes `<state>/host/refresh.jsonl`, and with nothing left to measure runs the roster review. The battery
-and the bench are Ollama API calls: the model loads in Ollama, never in this process. `halo host refresh status | now
+and the bench are Ollama API calls: the model loads in Ollama, never in this process. 3.3.8.0 R4: when this machine
+runs the pool and its speed card is missing, measured with other members or older than `max_age_days`, the plan has a
+row for it -- the pool's quick bench, once every member has been idle `idle_min` (no call through the pool; each
+member's card quiet, a paired one through its host's `GET idle`); `halo host refresh status` says when ("the pool:
+re-bench ... tonight 22:00+ once every member has been idle 20 min"), the card says "verified by the host". `halo host refresh status | now
 | off | on`; the Hosts card shows the plan and the last run. The guards it serves are in
 [MODELS-ollama-steward-guards.md](MODELS-ollama-steward-guards.md).
 

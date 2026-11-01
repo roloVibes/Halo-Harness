@@ -88,7 +88,7 @@ def cmd_members(argv: list) -> int:
     print(v["head"])
     for r in v["members"]:
         share = f" -- share {r['share']:.2f}" if r.get("share") is not None else ""
-        print(f"  {r['line']}; RTT {r['rtt_word']}{share}")
+        print(f"  {r['line']}; RTT {r['rtt_word']}{share} -- the link from {r.get('spoke') or 'nothing yet'}")
     for line in v["problems"]:
         print(f"  ! {line}")
     return 0

@@ -8,6 +8,11 @@ around a line (server_rules_hf.classify reads one line alone), the sibling of se
 - the load: from `loading model` (or Halo's start line) to `main: model loaded` / `all slots are
   idle` / `starting the main loop` -> one `load-result` event {window, n_ctx, n_slots, offloaded, layers, load_s} and `slow-load` past 180 s
   (the read clock times it: llama-server prints no timestamps; a read from the top cannot time it).
+- 3.3.8.0 R4, the devices (a pool's controller has several): `using device <name> (<desc>) - N MiB free`, each
+  `load_tensors: <device> model buffer size = N MiB`, `llama_kv_cache: <device> KV buffer size = N MiB` and the
+  debug `layer N assigned to device <name>` lines -> the load-result's `devices` [{device, free_mib, model_mib,
+  kv_mib, layers}] and `device_layers` [[device, layers]] -- one `layers` pair per device: counted from the
+  assigned lines, else estimated from each GPU device's share of the model buffers (`layers_from` says which).
 
     Rules(runtime).feed(line, at=None) -> [event]     .flush() -> []     .window -> the slot window seen last
 """
@@ -30,6 +35,11 @@ _NCTX = re.compile(r"\bn_ctx\s*=\s*(\d+)")
 _SLOTS = re.compile(r"n_slots\s*=\s*(\d+)")
 _LMS_CTX = re.compile(r"context length of only (\d+) tokens", re.I)
 _DONE = ("main: model loaded", "starting the main loop", "all slots are idle")
+_USING = re.compile(r"using device (\S+) \(([^)]*)\)(?: - (\d+) MiB free)?")
+_BUF = re.compile(r"load_tensors:\s+(\S+) model buffer size =\s*([\d.]+) MiB")
+_KVBUF = re.compile(r"llama_kv_cache\w*:\s+(\S+) KV buffer size =\s*([\d.]+) MiB")
+_ASSIGNED = re.compile(r"layer\s+\d+ assigned to device (\S+?),")
+HOST_BUFS = ("CPU", "CPU_Mapped", "CPU_REPACK", "CUDA_Host", "Metal_Mapped")
 
 
 def _stem(path: str) -> str:
@@ -49,9 +59,37 @@ class Rules:
         self.load_at: Optional[float] = None
         self.loading = False
         self.clock: Optional[float] = None
+        self.devices: dict = {}
+        self.assigned: dict = {}
 
     def _start(self, at) -> None:
         self.loading, self.load_at, self.layers = True, at, None
+        self.devices, self.assigned = {}, {}
+
+    def _dev(self, name: str) -> dict:
+        return self.devices.setdefault(name, {"device": name, "free_mib": None, "model_mib": None, "kv_mib": None,
+                                              "layers": None})
+
+    def _devices(self, line: str) -> None:
+        if m := _USING.search(line):
+            self._dev(m.group(1))["free_mib"] = int(m.group(3)) if m.group(3) else None
+        elif m := _BUF.search(line):
+            self._dev(m.group(1))["model_mib"] = float(m.group(2))
+        elif m := _KVBUF.search(line):
+            self._dev(m.group(1))["kv_mib"] = float(m.group(2))
+        elif m := _ASSIGNED.search(line):
+            self.assigned[m.group(1)] = self.assigned.get(m.group(1), 0) + 1
+
+    def device_layers(self) -> "tuple[list, str]":
+        """[[device, layers]] for the GPU devices (a pool's RPC devices and this machine's own), and where from."""
+        gpus = [d for d in self.devices.values() if d["device"] not in HOST_BUFS]
+        if self.assigned:
+            return [[k, v] for k, v in self.assigned.items() if k not in HOST_BUFS], "the assigned lines"
+        a = (self.layers or (None, None))[0]
+        total = sum(float(d["model_mib"] or 0) for d in gpus)
+        if not a or total <= 0:
+            return [], ""
+        return [[d["device"], round(a * float(d["model_mib"] or 0) / total)] for d in gpus], "estimated from the buffers"
 
     def _track(self, line: str, at) -> list:
         out: list = []
@@ -77,6 +115,8 @@ class Rules:
             self.window = int(m.group(1))
         if (m := _OFFLOAD.search(line)) and self.loading:
             self.layers = (int(m.group(1)), int(m.group(2)))
+        if self.loading:
+            self._devices(line)
         if self.loading and any(d in line for d in _DONE):
             out += self._loaded(line, at)
         return out
@@ -91,8 +131,14 @@ class Rules:
         say += f" ({self.n_slots} slots)" if self.n_slots and self.n_slots > 1 else ""
         say += f", {a}/{b} layers on the GPU" if a is not None else ""
         say += f", {took:.0f} s" if took is not None else ""
+        per, src = self.device_layers()
+        for dev, n in per:
+            self._dev(dev)["layers"] = n
+        if len(per) > 1:
+            say += " (" + ", ".join(f"{d} {n}" for d, n in per) + " layers)"
         out = [event("load-result", say, line, at=at, model=self.model, runtime=self.runtime, window=window,
-                     n_ctx=self.n_ctx, n_slots=self.n_slots, offloaded=a, layers=b, load_s=took)]
+                     n_ctx=self.n_ctx, n_slots=self.n_slots, offloaded=a, layers=b, load_s=took,
+                     devices=list(self.devices.values()) or None, device_layers=per or None, layers_from=src or None)]
         if took is not None and took > SLOW_LOAD_S:
             out.append(event("slow-load", f"a load took {took:.0f} s (over 3 minutes)", line, at=at, model=self.model,
                              runtime=self.runtime, seconds=took))

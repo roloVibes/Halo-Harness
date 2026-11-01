@@ -1,0 +1,24 @@
+# Big reasoner: a bundle Halo ships (3.3.8.0 R4; docs/MODELS-bundles.md "Several reservations, a schedule, a
+# priority"). It reserves the pool -- several LAN machines' GPU memory serving one model too big for any of them
+# (docs/POOL.md) -- for one reasoning lane, while the coder stays resident on this machine's own card for task work.
+# Pooling buys capacity, not speed: the pool's speed card (halo local bench --host pool) says how much slower than a
+# single node it runs. Reserving the pool launches nothing: Warm starts it (halo local serve --pool <model>).
+# `halo pack verdict big-reasoner` says whether both fit here; `halo pack on big-reasoner` turns it on.
+id: big-reasoner
+name: Big reasoner (the pool)
+version: 1.0.0
+description: Reserves the pool for one reasoning lane; the coder stays resident on this machine's card.
+author: Halo Harness
+license: MIT
+halo_api: {min: "1.0", max: "1.9"}
+halo: {min: "3.3"}
+capabilities: [code]
+bundle:
+  needs:
+    reasoner: {any_of: [qwen3-next-80b-a3b-q4km, gpt-oss-120b], window: 32768}
+    coder: {any_of: [qwen3-coder:30b, qwen3.8:27b, qwen2.5-coder:32b], window: 32768, tools: true}
+  reservations:
+    - {model: reasoner, host: pool}
+    - {model: coder, keep_alive: -1}
+  priority: high
+  routing: {task_work: coder, never_evict: reserved}

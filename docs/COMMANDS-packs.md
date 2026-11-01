@@ -259,6 +259,13 @@ halo host when one serves the card) and the reserved model's profile gets keep_a
 `halo pack off <bundle>` takes the claim back, reverts that change and disables the pack. `--host` names the Ollama
 host to judge (the default one when left out).
 
+3.3.8.0 R4: a bundle with several reservations prints one `+` line per other part, where it is held ("+ the pool for
+reasoner: Qwen3-Next-80B-A3B Q4_K_M fits the pool ... [ready]"), then its `schedule:` line, its priority, and `!` the
+notice of a pre-emption it suffered ("! pre-empted night-batch (low) on pc: focus (high) needs its 6.0 GB ..."). `on`
+releases the lower claims it pre-empts first, one line each, then claims every part (the pool: a claim on host
+`pool`, Warm still starts it; a paired host: its `claim` op), each row with the bundle's hours
+([MODELS-bundles.md](MODELS-bundles.md#several-reservations-a-schedule-a-priority-3380-r4)).
+
 ## A pack in `halo agents list` and `halo teams list`
 
 With a pack enabled, `halo agents list` and `halo teams list` print your

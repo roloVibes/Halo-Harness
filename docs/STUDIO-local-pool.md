@@ -48,6 +48,29 @@ back. Warm and Stop are changes under the steward contract (one warm per 10 minu
 three calls). A pool this Studio did not warm (`halo local serve --pool --keep`) is adopted when the page reads it:
 this Studio renews its claims from then on.
 
+## The speed card and the findings (3.3.8.0 R4)
+
+Under Warm and Stop, two blocks (`routes/local/PoolWatch.tsx`):
+
+- **Bench** -- its cost line first ("local: ~129 s on the pool (pc, me: their GPUs are busy for it), writes the pool's
+  speed card; no tokens leave the LAN"; "the pool is not running" while it is stopped), **Bench** and **Quick bench**
+  (the pool's `-c` alone), the penalty line -- "pool: 30-45 tok/s extrapolated (no pool speed card yet ...)" until a
+  card exists, then "pool: 11.2 tok/s measured, -38 % vs pc alone" (the reason on hover) -- the card's lines, the
+  bench's lines as they land, and the bundles that hold the pool ("big-reasoner holds the pool for ... (priority
+  high)"). `halo local bench --host pool` does the same.
+- **Findings** -- the steward's pool-degraded, pool-rtt and pool-spill, one line each (the Steward page lists them
+  too, under the server `pool`).
+
+Each member's row under the running pool names the bundle its claim belongs to ("19.7 GB claimed by pool:<model>")
+and shows every other bundle's claim on that card as a chip. The members' link cell says which spoke for the link on
+hover (the OS's adapter before the probe's RTT).
+
+| Route | What |
+|---|---|
+| `GET local/pool/bench` | the cost line, the pool's card, its penalty line, the bundles holding the pool |
+| `POST local/pool/bench {quick?}` | the bench in the background (202); 409 with the one line when it cannot run now |
+| `GET local/pool/findings` | the steward's pool findings |
+
 ## The Library's Pool preset
 
 The Library's tenth preset, **Pool**, replaces the rows with the pool catalog's models as Hugging Face GGUF rows: each

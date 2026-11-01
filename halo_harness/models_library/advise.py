@@ -9,7 +9,9 @@ add"). Deterministic: no model is asked anything.
         (fit.card_budget), the lineup's lanes and its roles with no model (role_gaps.gaps), the swap preview
         (local_sched/preview.preview: pivots, swaps), the crash fingerprints (the host log)
     advise(state_dir, host=None, *, inp=None, lineup=None) -> {suggestions, lines, fingerprint, at, kinds}
-        the four kinds (advise_rules.py), ranked by value per gigabyte (then value), one line each (advise_lines.say)
+        the four kinds (advise_rules.py), ranked by value per gigabyte (then value), one line each (advise_lines.say);
+        3.3.8.0 R4: a fifth, `placement` (local_sched/place_advice.py: a lane's placement score and loading tax against
+        the cheaper candidate across the fleet and the pool)
     fingerprint(inp) -> the roster (every tag's digest), each host's Ollama version and the hosts: what re-runs it
     due(state_dir, inp=None) -> (due, why)      the roster, the Ollama version or the host changed since the last run
     remember(state_dir, result)                 <state>/ollama/advise.json (the last run, for `due`)
@@ -83,7 +85,8 @@ def advise(state_dir, host: Optional[str] = None, *, inp: Optional[dict] = None,
     from halo_harness.models_library.advise_lines import say
     inp = inp if inp is not None else inputs(state_dir, host, lineup)
     out = []
-    for rule in (R.gap, R.overlap, R.mismatch, R.freshness):
+    inp.setdefault("state_dir", state_dir)  # 3.3.8.0 R4: the placement rule reads the fleet's cards and the pool
+    for rule in (R.gap, R.overlap, R.mismatch, R.freshness, R.placement):
         try:
             out.extend(rule(inp))
         except Exception:  # one rule that cannot read its inputs never hides the others
@@ -92,13 +95,14 @@ def advise(state_dir, host: Optional[str] = None, *, inp: Optional[dict] = None,
     for i, s in enumerate(out, 1):
         s["id"] = f"adv-{hashlib.sha1((s['kind'] + s['says']).encode('utf-8')).hexdigest()[:8]}"
         s["rank"], s["line"] = i, say(s)
-    kinds = {k: sum(1 for s in out if s["kind"] == k) for k in ("gap", "overlap", "mismatch", "freshness")}
+    kinds = {k: sum(1 for s in out if s["kind"] == k) for k in ("gap", "overlap", "mismatch", "freshness", "placement")}
     have = sum(len(h.get("rows") or []) for h in inp.get("hosts") or [])
     head = (f"roster: {have} model{'s' * (have != 1)} on {len(inp.get('hosts') or [])} host"
             f"{'s' * (len(inp.get('hosts') or []) != 1)}; " + (", ".join(f"{n} {k}" for k, n in kinds.items() if n)
                                                              or "nothing to add or retire"))
     return {"suggestions": out, "lines": [head] + [s["line"] for s in out], "fingerprint": fingerprint(inp),
-            "at": time.time(), "kinds": kinds, "head": head}
+            "at": time.time(), "kinds": kinds, "head": head,
+            "placement": {"lines": (inp.get("placement") or {}).get("lines") or []}}  # 3.3.8.0 R4: the scores
 
 
 def _path(state_dir) -> Path:

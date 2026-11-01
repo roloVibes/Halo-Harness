@@ -10,9 +10,19 @@ import { createStore, useStore } from "../../../lib/store";
 export type Need = { role: string; tag: string | null; gb: number | null; fits: boolean | null; minutes: number;
   download_gb: number | null; installed: boolean | null; runtime: string; placed: string; why: string };
 export type Option = { says: string; frees_gb: number; kind: string };
+// 3.3.8.0 R4: a bundle's other reservations (each where it is held: the pool, a paired host), its schedule, its
+// priority, the lower claims it would pre-empt, and the notices of its own pre-emption
+export type Part = { host: string; role: string | null; model: string | null; state: string; says: string;
+  gb: number | null; priority: string };
+export type Preempt = { bundle: string; host: string; gb: number; priority: string };
+export type Notice = { bundle: string; by: string; line: string; when?: string };
+export type Claims = { reservations: { model: string; role: string | null; host: string | null; priority: string;
+  min_free_gb: number | null }[]; priority: string; min_free_gb: number | null };
 export type Verdict = { bundle: string; host: string; state: "ready" | "downloads" | "wont" | "unknown"; says: string;
   needs: Need[]; downloads: Need[]; options: Option[]; button: { label: string; tags: string[]; host: string } | null;
-  latency_ms: number | null; claims_line?: string };
+  latency_ms: number | null; claims_line?: string; main_says?: string; parts?: Part[]; preempts?: Preempt[];
+  schedule?: { hours: string; now: boolean; line: string } | null; priority?: string; notices?: Notice[];
+  claims?: Claims };
 export type BundleRow = { id: string; name: string; description: string; scope: string; installed: boolean; on: boolean;
   verdict: Verdict | null; cli: { verdict: string; on: string; off: string } };
 type Said = { ok: boolean; lines: string[] };

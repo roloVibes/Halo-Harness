@@ -2,12 +2,13 @@
 
 A host this machine's member runs announces itself to every hub that machine joined (host/service.forward_tick):
 
-    POST /fleet/v1/host {v, link, host: true, port, fingerprint, url, name, serves: [{name, port, addr}]}
+    POST /fleet/v1/host {v, link, host: true, port, fingerprint, url, name, serves: [{name, port, addr}],
+                         servers: [{name, port, addr, runtime, pool}]}   (3.3.8.0 R4: its local servers)
       200 {v, ok, known}           signed with the member's pair key (the hub's 120 s window, the replay guard)
 
 The hub keeps the newest announce per member in memory (`HOSTS[str(home)]`, gone when the hub stops), and its merged
 view (`hub_state.view()["hosts"]`) lists them, so a hub-side Studio can find each host: `[{member, harness, addr,
-port, url, fingerprint, serves, at, fresh}]` (`fresh`: announced within FRESH_S). Nothing here contacts the host.
+port, url, fingerprint, serves, servers, at, fresh}]` (`fresh`: announced within FRESH_S). Nothing here contacts the host.
 """
 
 from __future__ import annotations
@@ -35,13 +36,22 @@ def record(home, hid: str, member_name: str, ip: str, body: dict, now: float = N
                                "addr": _clean(r.get("addr"), 64) or ip})
             except (TypeError, ValueError):
                 continue
+    servers = []  # 3.3.8.0 R4: the host's local servers (the pool among them), as announced
+    for r in (body.get("servers") or [])[:16]:
+        if isinstance(r, dict):
+            try:
+                servers.append({"name": _clean(r.get("name"), 64), "port": int(r.get("port") or 0),
+                                "addr": _clean(r.get("addr"), 64) or ip, "runtime": _clean(r.get("runtime"), 32),
+                                "pool": r.get("pool") is True})
+            except (TypeError, ValueError):
+                continue
     try:
         port = int(body.get("port") or 0)
     except (TypeError, ValueError):
         port = 0
     row = {"member": member_name, "harness": hid, "addr": ip, "port": port, "url": _clean(body.get("url"), 200),
            "fingerprint": _clean(body.get("fingerprint"), 80) or None, "name": _clean(body.get("name"), 64),
-           "serves": serves, "at": time.time() if now is None else now}
+           "serves": serves, "servers": servers, "at": time.time() if now is None else now}
     with _LOCK:
         HOSTS.setdefault(str(home), {})[hid] = row
     return row

@@ -14,7 +14,10 @@ A pack becomes a capability bundle with one more block in its pack.yaml:
 
     bundle_lines(data) -> [one line per problem]      validate_manifest's call (manifest.py)
     block(data) -> the normalized bundle | None       defaults filled in: device gpu, keep_alive -1, priority normal,
-                                                      task_work coder-or-cloud, never_evict reserved, escalation on
+                                                      task_work coder-or-cloud, never_evict reserved, escalation on;
+                                                      3.3.8.0 R4 (manifest_bundle_claims.py): `reservations` (each
+                                                      with host, min_free_gb, priority), `schedule`, `priority`,
+                                                      `min_free_gb`; `reservation` = the one on the default host
     is_bundle(pack_or_manifest) -> bool
     runtime(model) -> "ollama" | "voice"              a speech model (faster-whisper, kokoro, ...) runs beside Ollama, not
                                                       in it: Voice (3.3.8.0) brings it; this round knows its size only
@@ -144,6 +147,8 @@ def bundle_lines(data) -> "list[str]":
         return ["bundle.needs: a mapping of role -> {any_of, window?, device?}"]
     out = [ln for role, need in needs.items() for ln in _need_lines(role, need)]
     out += _reservation_lines(raw.get("reservation"), needs) + _routing_lines(raw.get("routing"))
+    from halo_harness.packs.manifest_bundle_claims import lines as claim_lines  # 3.3.8.0 R4: reservations, ...
+    out += claim_lines(raw, needs, _reservation_lines)
     lat = raw.get("latency_budget_ms")
     if lat is not None and (not isinstance(lat, int) or isinstance(lat, bool) or lat <= 0):
         out.append(f"bundle.latency_budget_ms: {lat!r} is not a time in milliseconds")
@@ -177,23 +182,26 @@ def block(data) -> Optional[dict]:
                             "device": need.get("device") if need.get("device") in DEVICES else "gpu",
                             "vision": need.get("vision") is True, "tools": need.get("tools") is True,
                             "runtime": runtime(names[0] if names else "", need.get("runtime"))}
-    res = raw.get("reservation") if isinstance(raw.get("reservation"), dict) else None
-    reservation = None
-    if res is not None and isinstance(res.get("model"), str) and res["model"].strip():
+    def norm(res: dict) -> Optional[dict]:
+        if not isinstance(res.get("model"), str) or not res["model"].strip():
+            return None
         role = res["model"] if res["model"] in needs else next((r for r, n in needs.items() if res["model"] in n["any_of"]), None)
         keep = res.get("keep_alive", -1)
-        reservation = {"model": res["model"], "role": role, "vram_gb": res.get("vram_gb"),
-                       "keep_alive": -1 if keep in (-1, "-1", None) else keep,
-                       "priority": res.get("priority") if res.get("priority") in PRIORITIES else "normal",
-                       "window": res.get("window") if isinstance(res.get("window"), int) else
-                       (needs.get(role) or {}).get("window")}
+        return {"model": res["model"], "role": role, "vram_gb": res.get("vram_gb"),
+                "keep_alive": -1 if keep in (-1, "-1", None) else keep,
+                "priority": res.get("priority") if res.get("priority") in PRIORITIES else "normal",
+                "window": res.get("window") if isinstance(res.get("window"), int) else (needs.get(role) or {}).get("window")}
+    from halo_harness.packs.manifest_bundle_claims import normalize  # 3.3.8.0 R4: several, a schedule, a priority
+    claims = normalize(raw, needs, norm)
+    reservation = next((r for r in claims["reservations"] if not r.get("host")), None)  # the default host's one
     routing = raw.get("routing") if isinstance(raw.get("routing"), dict) else {}
     return {"id": str(manifest.get("id") or ""), "name": str(manifest.get("name") or manifest.get("id") or ""),
             "description": str(manifest.get("description") or ""), "needs": needs, "reservation": reservation,
             "routing": {"task_work": routing.get("task_work") if routing.get("task_work") in TASK_WORK else "coder-or-cloud",
                         "never_evict": routing.get("never_evict") if routing.get("never_evict") in NEVER_EVICT else "reserved",
                         "escalation": _escalation(routing.get("escalation"))},
-            "latency_budget_ms": raw.get("latency_budget_ms") if isinstance(raw.get("latency_budget_ms"), int) else None}
+            "latency_budget_ms": raw.get("latency_budget_ms") if isinstance(raw.get("latency_budget_ms"), int) else None,
+            **claims}
 
 
 def reserved_model(b: Optional[dict], chosen: Optional[dict] = None) -> Optional[str]:

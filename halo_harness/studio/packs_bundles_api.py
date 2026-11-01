@@ -3,7 +3,9 @@
 origin / token guard as every Studio route.
 
     GET  pack/bundles?host=           {bundles: [{id, name, description, scope, installed, on, verdict}], host}
-                                      every bundle here and shipped, each with its verdict (local_sched/bundle_fit.py)
+                                      every bundle here and shipped, each with its verdict (local_sched/bundle_fit.py;
+                                      3.3.8.0 R4: bundle_parts -- `parts`, `schedule`, `preempts`, `notices`,
+                                      `claims` {reservations [{model, role, host, priority, min_free_gb}], priority})
     POST pack/bundle/<id>/on {host?}  the tick: halo pack on <id> -- a ready bundle is claimed, held by this Studio
                                       (undone when it is unticked or this Studio exits); any other state answers 422
                                       with the verdict's own line
@@ -25,14 +27,20 @@ def _body(req) -> dict:
 
 
 def get_bundles(req):
-    from halo_harness.local_sched.bundle_fit import verdict
+    from halo_harness.local_sched.bundle_parts import verdict  # 3.3.8.0 R4: every reservation, its schedule
     from halo_harness.local_sched.reserve import claims
+    from halo_harness.packs.cli_bundle import with_notices
     from halo_harness.packs.bundles import listing
     host = str((req.query or {}).get("host") or "").strip() or None
     on = {c["bundle"] for c in claims(None, state_dir=req.state_dir)}
     rows = []
     for e in listing(cwd=req.cwd, state_dir=req.state_dir):
-        v = verdict(e["block"], host, state_dir=req.state_dir) if e["block"] else None
+        v = with_notices(verdict(e["block"], host, state_dir=req.state_dir)) if e["block"] else None
+        b = e["block"] or {}
+        if v is not None:  # 3.3.8.0 R4: the new fields the Bundles group shows
+            v["claims"] = {"reservations": [{k: r.get(k) for k in ("model", "role", "host", "priority", "min_free_gb")}
+                                            for r in b.get("reservations") or []],
+                           "priority": b.get("priority"), "min_free_gb": b.get("min_free_gb")}
         rows.append({k: e[k] for k in ("id", "name", "description", "scope", "installed", "problems")} |
                     {"on": e["id"] in on, "verdict": v, "cli": {"verdict": f"halo pack verdict {e['id']}",
                                                                 "on": f"halo pack on {e['id']}",

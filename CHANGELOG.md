@@ -10,6 +10,30 @@ version.
 
 ## [3.3.8.0] - unreleased
 
+**Pooled.** The owner's distributed-LLM drop (plans/pooled-inference-spec.md, -research.md, -model-candidates.md:
+one model larger than any single card across the GPU memory of several LAN machines with llama.cpp RPC; pooling
+buys capacity, not speed) made into four rounds. The pool is a set of paired hosts: `halo pool members | add |
+remove | scan | recommend | verdict`, each member's free VRAM from its host card and the tensor split proportional
+to it, the host card's `link` (wired or Wi-Fi, read from the OS), one deterministic fit ("a single node holds it",
+"fits the pool: 2 nodes, split 0.69 / 0.31, 32k F16 / 32k Q8_0", "does not fit: needs ... GB"), the
+recommendation by the fewest active parameters with the honest preview before any download, the explicit
+RPC-port scan, Local -> Pool and the Library's Pool preset (R1); the steward sees every local server --
+llama-server, LM Studio and mlx_lm.server logs read like Ollama's, the same findings keyed `<server>|<model>`,
+Halo-side fixes the next `hf:local` call reads, `halo local log | events <server>`, `halo doctor --local`, a
+terminal-only session pushing its calls to its host (R2); the controller -- `rpc_server on|off|status` on the
+workers behind the control grant, the preflight (fit now, every port, link then RTT, versions and `min_build`,
+the GGUF, residents and claims), claims with a lease on every member (an expired claim is not a claim), the
+launch through `halo local serve --pool` as the `huggingface.local_servers` entry named `pool` whose `max_ctx`
+clamps every request, `route` and `place.solve` seeing the pool, warm / stop as changes under the steward
+contract, the failure modes as lines (a pool request is never retried silently), the pool offered to paired
+peers through the host, Warm / Stop on the Pool page (R3); measured -- the pool's speed card (`halo local bench
+--host pool`) and the measured penalty against the single node that could hold the model, the steward's
+`pool-degraded` / `pool-rtt` / `pool-spill` findings, bundles with several reservations, a schedule, a host, a
+`min_free_gb` floor and a priority (a pre-empted claim told in one line), the shipped `big-reasoner` bundle,
+fleet-wide placement with scores and the loading tax in the adviser, the off-hours re-bench of an idle pool,
+peers seeing host-served local servers, the pool's api key in a 0600 file (R4). Also: two run-order flakes
+hardened (a mock Ollama upstream resets the per-url catalog cache on start; the wizard's preview wait is 10 s).
+
 ### R1: the pool -- discovery, members, the fit and the recommendation
 
 #### Added
@@ -66,9 +90,24 @@ version.
 - The pool's recommendation counts a resident Ollama model as room (Warm pivots it out), said in its head; the "warm and stop arrive in R2" line is gone from the page and the CLI.
 - A pool call's ledger line names `pool` as its host.
 
-### Also in 3.3.8.0
+### R4: measured -- the pool's speed card, the steward's pool findings, bundles that claim the pool, fleet-wide placement
+
+#### Added
+- `halo local bench --host pool [--quick]` and the Pool page's Bench: the cost line first (seconds; the members' GPUs are busy for them), then the 3.3.6.0 battery against the running pool -> the pool's speed card (its members, split, each member's RTT and link, the cache, `-c`, prompt tok/s, reply tok/s and the first token per window, the cold load, the reply reserve). The recommendation, `route` and `halo local place` then say the measured figure and the penalty against the single node that could hold the model ("11.2 tok/s measured, -38 % vs pc alone"); "extrapolated" until a card exists.
+- The steward watches the pool: `pool-degraded` (an RPC backend lost mid-generation; the request failed once, never retried), `pool-rtt` (slower than the pool's own card by more than its round trips explain; the OS's link before the RTT, said), `pool-spill` (a node below its split, or layers on the CPU) -- one line each, keyed `pool|<model>`, on the Pool page, the Steward page, `halo ollama steward findings` and the host's findings; a load's event carries one `layers` pair per device.
+- Bundles may hold more: `reservations` (each with `host` -- a paired host or `pool` -- and `min_free_gb`), a `schedule` (`hours`, the host's clock), a bundle `priority` and `min_free_gb`. When two claims collide the lower one is pre-empted, said in one line naming the bundle that won and the number, and the pre-empted bundle carries a notice. The shipped `big-reasoner` reserves the pool for a reasoning lane while the coder stays resident here.
+- The adviser's `placement` kind and its placement scores: what each lane costs to place on every candidate (the load seconds, the switch, the pool's penalty) and the cheaper one; `halo local place` prints every candidate's score.
+- Placement is fleet-wide (every paired host's served card and the pool) and re-checks when a far card changes: a paired host's residency moves a lane in one stated line; nothing moves until `--apply`.
+- The off-hours refresh re-benches the pool when every member is idle; `halo host refresh status` says when.
+- Peers see host-served local servers: the join and the announce carry the host's `servers`, the hub keeps them and gets their events, a peer reads a server's log through the host and its steward lands a server's change there.
+- Studio: the Pool page's Bench and Findings blocks, each member's claims by bundle; the Pack Manager's Bundles group shows a bundle's other reservations, priority, schedule, floor and pre-emption notices; the Adviser's scores.
+- Glossary `pre-emption`, `placement score`.
 
 #### Changed
+- The pool's api key is read by llama-server from a private file (`--api-key-file ~/.halo/pool/api-key`, removed at stop): the controller's process list no longer shows it (`--api-key` only when a build refuses the flag, said).
+- The fix loop measures server-side fixes in tok/s too: the server log's `timing` lines fold into the host's verify and the local rollback; the pool's auto-revert takes its own speed card as the baseline.
+- A pool member's claim line names the bundle that holds it.
+- A claim outside its bundle's hours is dormant (kept, never counted); a higher-priority bundle that does not fit beside a lower one now pre-empts it instead of "won't work".
 
 ## [3.3.7.0] - 2026-11-01
 

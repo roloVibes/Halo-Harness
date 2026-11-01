@@ -14,7 +14,9 @@ export type Check = { check: string; ok: boolean; lines: string[] };
 export type Preflight = { ok: boolean; model: string; display: string; checks: Check[]; blocks: string[]; line: string;
   used: string[]; excluded: string[]; ctx: number; q8: boolean; cache: string; allow_wifi: boolean; order: string[];
   split: number[]; cli: string };
-export type Claim = { gb: number; until: number | null; live: boolean | null; line: string };
+export type CardClaim = { bundle: string; gb: number; priority: string; model: string | null };
+export type Claim = { gb: number; until: number | null; live: boolean | null; line: string; bundle?: string;
+  claims?: CardClaim[] };  // 3.3.8.0 R4: every claim on that member's card, by the bundle that holds it
 export type RunMember = { name: string; kind: string; share_gb: number | null; alive: boolean | null; addr: string | null;
   claim: Claim };
 export type Run = { state: "stopped" | "loading" | "running" | "degraded" | "down"; line: string; lines: string[];

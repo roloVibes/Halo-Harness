@@ -10,7 +10,10 @@ stand-ins on 127.0.0.1:0; the scan's network layer faked; no model call, never a
 3. the Library's Pool preset: the three pool rows with their badges, the members line, no Save as role template;
 4. (3.3.8.0 R3, tests/helpers/studio_pool_run.py over tests/helpers/pool_run_rig.RunRig) the preflight's eight checks
    with Warm enabled once green and the Wi-Fi switch; Warm -> running, both members with their claims and leases, the
-   pivot line for pc's resident model, the cooldown; Stop -> stopped, the entry gone, the preflight back.
+   pivot line for pc's resident model, the cooldown; Stop -> stopped, the entry gone, the preflight back;
+5. (3.3.8.0 R4, tests/helpers/studio_pool_watch.py) the Bench's cost line first, the penalty line extrapolated then
+   measured after Quick bench, the card; each member's claim by its bundle; the steward's pool-degraded on the page; the
+   Pack Manager's big-reasoner with its pool part and priority; the Adviser's placement scores.
 Run: python -m tests.test_studio_pool
 """
 from __future__ import annotations
@@ -109,7 +112,7 @@ def test_warm_and_stop(ctx: Ctx):
     m = {row[0]: row[1:] for row in got.get("members") or []}
     ctx.check(f"Warm: running, both members with their claims and leases, got {got.get('state')!r} {m}",
               str(got.get("state")).endswith(": running") and m.get("pc", [None])[0] == "up" and m["pc"][1] == "true"
-              and "claimed, lease" in m["pc"][2] and m.get("me", [None])[0] == "this GPU")
+              and "claimed by pool:qwen3-next-80b-a3b-q4km, lease" in m["pc"][2] and m.get("me", [None])[0] == "this GPU")
     ctx.check(f"the Warm's lines: the pivot first, the pool serving, got {got.get('lines')}", any(
         ln.startswith("pivot: qwen3.8:27b -> pool (Qwen3-Next") for ln in got.get("lines") or [])
               and any(ln.startswith("the pool serves Qwen3-Next") for ln in got["lines"]))
@@ -120,6 +123,29 @@ def test_warm_and_stop(ctx: Ctx):
               got.get("state_after") == "the pool is not running" and got.get("entry_gone") is True
               and got.get("preflight_back") == 8 and got.get("state_before") == "the pool is not running")
     ctx.check(f"one rpc-server started on pc, got {got.get('rpc_argv')}", len(got.get("rpc_argv") or []) == 1)
+
+
+@test
+def test_measured_and_watched(ctx: Ctx):
+    """3.3.8.0 R4 (tests/helpers/studio_pool_watch.py): the Bench's cost line first and the speed card; the steward's
+    pool finding; the Pack Manager's big-reasoner; the Adviser's placement scores."""
+    got = _got(ctx, "studio_pool_watch")
+    ctx.check(f"the cost line first: seconds, the members busy, got {got.get('cost')!r}", str(got.get("cost")).startswith(
+        "local: ~") and " s on the pool (pc, me: their GPUs are busy for it)" in str(got.get("cost")))
+    ctx.check(f"extrapolated, then measured after Quick bench, got {got.get('before')!r} {got.get('after')!r}",
+              str(got.get("before")).startswith("pool: 30-45 tok/s extrapolated")
+              and str(got.get("after")).startswith("pool: 11.2 tok/s measured"))
+    ctx.check(f"the card: its members and split, the -c alone, got {got.get('card')}", str((got.get("card") or [""])[0])
+              .startswith("pool speed card (the bench,") and "pc + me" in got["card"][0]
+              and any(x.strip().startswith("32k: prompt") for x in got["card"]))
+    ctx.check(f"each member's claim names its bundle, got {got.get('claim')!r}",
+              f"claimed by pool:{QWEN}" in str(got.get("claim")))
+    ctx.check(f"the steward's pool finding on the page, got {got.get('finding')!r}", str(got.get("finding")).startswith(
+        "pool-degraded") and "degraded (pc down)" in str(got.get("finding")) and got.get("severity") == "error")
+    ctx.check(f"the Bundles group: big-reasoner's pool part and its priority, got {got.get('part')!r} {got.get('priority')}",
+              str(got.get("part")).startswith("+ the pool for reasoner: Qwen3-Next") and got.get("priority") == "priority high")
+    ctx.check(f"the Adviser's placement scores, got {got.get('scores')}", any(
+        str(x).startswith("worker (qwen3.8:27b): ") and "pool --" in str(x) for x in got.get("scores") or []))
 
 
 if __name__ == "__main__":

@@ -5,7 +5,8 @@ route; never a model call; nothing here launches a process, loads a model or cha
 
     GET  local/pool/members          pool_cli.members_view: each member's GPU, free / total VRAM (its host card), link,
                                      RTT of the last scan, share of the split; the validation lines; `scan` {at, line}
-                                     of the last scan (3.3.8.0 R3: Warm / Stop are studio/pool_act_api.py)
+                                     of the last scan (3.3.8.0 R3: Warm / Stop are studio/pool_act_api.py; R4: the
+                                     bench and the findings studio/pool_watch_api.py)
     GET  local/pool/recommend?batch=1   local_pool/recommend.recommend over the members' budgets
     GET  local/pool/verdict?model=   one catalog model's fit and its preview (404 for a name not in the catalog)
     POST local/pool/scan {port?, subnets?, own_subnet?}   the RPC-port scan (local_pool/scan.py): explicit, a button
@@ -101,9 +102,10 @@ def dispatch_pool(req):
     if not req.path.startswith("local/pool/"):
         return None
     from halo_harness.studio.pool_act_api import ROUTES as ACTS  # 3.3.8.0 R3: run, preflight, warm, stop, rpc
-    fn = ROUTES.get((req.method, req.path)) or ACTS.get((req.method, req.path))
+    from halo_harness.studio.pool_watch_api import ROUTES as WATCH  # 3.3.8.0 R4: bench, findings
+    fn = ROUTES.get((req.method, req.path)) or ACTS.get((req.method, req.path)) or WATCH.get((req.method, req.path))
     if fn is not None:
         return fn(req)
-    if any(p == req.path for _m, p in list(ROUTES) + list(ACTS)):
+    if any(p == req.path for _m, p in list(ROUTES) + list(ACTS) + list(WATCH)):
         return 405, {"error": "method not allowed"}
     return 404, {"error": f"no route for {req.method} /api/{req.path}"}

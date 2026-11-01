@@ -14,6 +14,9 @@
     at_exit() -> lines    the bundles this process holds released (atexit, for holder="process")
 3.3.8.0 R3: a claim a halo process holds (holder="process") carries a lease (claims_file `until`, pool.claim_lease_s)
 here and on the host, renewed by this process's heartbeat (local_sched/lease.py): a killed Studio's claim expires.
+3.3.8.0 R4: the verdict is local_sched/bundle_parts.verdict (every reservation where it is held); the lower claims it
+pre-empts are released first, one line each (local_sched/preempt.py); the other parts are claimed by
+local_sched/reserve_parts.py (the pool, another host); every row carries the bundle's `hours`.
 Nothing downloads and nothing loads here: the reserved model loads on its first call (or `halo local warm <model>`).
 """
 
@@ -61,7 +64,7 @@ def _keep_alive(state, host_name: str, model: str, bundle_id: str, holder: str) 
 
 
 def claim(bundle_id: str, *, host=None, holder: str = "keep", cwd=None, state_dir=None) -> "tuple[bool, list, dict]":
-    from halo_harness.local_sched.bundle_fit import verdict
+    from halo_harness.local_sched.bundle_parts import verdict  # 3.3.8.0 R4: every reservation, where it is held
     from halo_harness.local_sched.facts import host_named
     from halo_harness.local_sched.reserve import forget, free_after_claims
     from halo_harness.packs.bundles import ensure_installed, find
@@ -85,12 +88,18 @@ def claim(bundle_id: str, *, host=None, holder: str = "keep", cwd=None, state_di
            "priority": None, "keep_alive": None, "at": round(time.time(), 3), "by": "halo", "holder": holder,
            "holder_pid": os.getpid() if holder == "process" else None, "scope": "until-restart" if holder == "process"
            else "keep", "change_id": None, "escalation": b["routing"]["escalation"], "task_work": b["routing"]["task_work"],
-           "via": "local", "until": round(time.time() + CF.lease_s(), 3) if holder == "process" else None}
+           "via": "local", "until": round(time.time() + CF.lease_s(), 3) if holder == "process" else None,
+           "hours": (b.get("schedule") or {}).get("hours")}  # 3.3.8.0 R4: outside its hours the claim is dormant
+    from halo_harness.local_sched import preempt as PE  # 3.3.8.0 R4: the lower claims it takes, one line each
+    for c in v.get("preempts") or []:
+        lines += PE.take(c, winner=bundle_id, priority=(res or {}).get("priority") or b.get("priority") or "normal",
+                         state_dir=state)
     if res:
         row.update(model=res["model"], gb=round(float(res["gb"]), 2), window=res["window"], priority=res["priority"], keep_alive=-1)
         landed, say = _host_act(h, "claim", {"model": res["model"], "gb": round(float(res["gb"]), 2), "bundle": bundle_id,
                                              "window": int(res["window"]), "priority": res["priority"],
-                                             **({"lease_s": CF.lease_s()} if holder == "process" else {})})
+                                             **({"lease_s": CF.lease_s()} if holder == "process" else {}),
+                                             **({"hours": row["hours"]} if row["hours"] else {})})
         if say and not landed:
             return False, lines + [f"{bundle_id}: the halo host did not take the claim: {say}"], v
         row["via"] = "host" if landed else "local"
@@ -100,6 +109,8 @@ def claim(bundle_id: str, *, host=None, holder: str = "keep", cwd=None, state_di
     else:
         lines.append(f"{bundle_id} is on: nothing reserved")
     CF.put(CF.local_file(state), row)
+    from halo_harness.local_sched.reserve_parts import claim_parts  # 3.3.8.0 R4: the pool, other hosts
+    lines += claim_parts(bundle_id, b, v, holder=holder, state=state)
     forget()
     if holder == "process":
         _hold(bundle_id, state)
@@ -165,7 +176,9 @@ def release(bundle_id: str, *, state_dir=None, cwd=None, disable: bool = True) -
             lines.append(f"released {r['model']} on {r.get('host')} ({float(r.get('gb') or 0):g} GB)")
     _MINE.pop(bundle_id, None)
     from halo_harness.local_sched import lease
-    lease.release(f"bundle:{bundle_id}")
+    from halo_harness.local_sched.reserve_parts import lease_keys
+    for key in [f"bundle:{bundle_id}"] + lease_keys(bundle_id):  # 3.3.8.0 R4: its parts' heartbeats too
+        lease.release(key)
     forget()
     if disable:
         from halo_harness.packs import grants as G

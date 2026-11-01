@@ -144,6 +144,9 @@ def budgets(members: Optional[list] = None, *, state_dir=None, home=None, fresh:
     from halo_harness.local_pool.scan import rtt_of
     for r in rows:
         r.update(rtt_of(r, state_dir))
+        kind = (r.get("link") or {}).get("type")  # 3.3.8.0 R4: the OS's adapter type beats the RTT; say which spoke
+        r["spoke"] = ("the OS (its adapter)" if kind in ("wired", "wireless") else
+                      "the probe (an RTT)" if r.get("rtt_alive") else "nothing yet (no card link, no Scan)")
     return rows
 
 

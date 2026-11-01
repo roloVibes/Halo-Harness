@@ -66,7 +66,7 @@ def post(svc, route: str, raw: bytes, hid: str) -> "tuple[int, dict, dict]":
         return status, out, audit
     ctx = Ctx(svc, hid, rec, body)
     if "host" in op.params:
-        why = ctx.pick_host(params)
+        why = ctx.pick_host(params, servers=op.profile)  # 3.3.8.0 R4: a profile field may name a local server
         if why:
             return 404, {"error": why}, audit
     model = params.get("model") or params.get("to")

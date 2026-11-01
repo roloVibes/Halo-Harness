@@ -60,3 +60,5 @@ check keeps the tags and the rows in step.
 | S46 | rolo's local-model brief, Part C (the host's log as the source of truth: the lines, the gotchas, the proxy recipe; measured on Ollama 0.40.13) | repo:plans/local-model-fit-brief.md | Halo 3.3.6.0 R3 | 2026-10-31 |
 | S47 | Halo's server-log readers: the ssh read, the load result, the log status, the recovery | repo:halo_harness/ollama_steward/server_log_remote.py | Halo 3.3.6.0 R3 | 2026-10-31 |
 | S48 | Halo's bench: the windows, the warm-up, the speed card, the reply reserve | repo:halo_harness/providers/local_bench.py | Halo 3.3.6.0 R5 | 2026-10-31 |
+| S49 | Distributed LLM inference across home-LAN machines: llama.cpp RPC, the measured pooling penalty, the round trip per layer boundary | repo:plans/pooled-inference-research.md | Halo 3.3.8.0 R1 | 2026-10-31 |
+| S50 | Halo's pool: the status, the failure lines and the steward's pool rules | repo:halo_harness/ollama_steward/rules_pool.py | Halo 3.3.8.0 R4 | 2026-11-01 |

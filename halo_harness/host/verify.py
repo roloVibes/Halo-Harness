@@ -114,8 +114,11 @@ def _load_result(home, host_name: str, model: str) -> dict:
 
 def before(view, host, model: str) -> dict:
     from halo_harness.ollama_steward.steward import JUDGE_CALLS
+    from halo_harness.ollama_steward.verify_timing import fold, rates  # 3.3.8.0 R4: a server's tok/s from its log
     lines = _lines(view.home, host.name, model, view.hosts())[-JUDGE_CALLS:]
-    return {"loaded": _loaded_row(view, host, model), **_load_result(view.home, host.name, model), **stats(lines)}
+    st = fold(stats(lines), rates(view.home, host.name, model, last=JUDGE_CALLS))
+    loaded = None if getattr(host, "server", False) else _loaded_row(view, host, model)
+    return {"loaded": loaded, **_load_result(view.home, host.name, model), **st}
 
 
 def open_fix(home, *, change_id: str, peer: str, op: str, host: str, model: str, key: str, field: str, to,
@@ -143,15 +146,16 @@ def _fmt(v) -> str:
     return f"{v:.0f}" if isinstance(v, (int, float)) else "?"
 
 
-def judge(row: dict, after_lines: list, *, window_s: float) -> "tuple[str, str, dict]":
-    b, a = row.get("before") or {}, stats(after_lines)
+def judge(row: dict, after_lines: list, *, window_s: float, timed=None) -> "tuple[str, str, dict]":
+    from halo_harness.ollama_steward.verify_timing import fold
+    b, a = row.get("before") or {}, fold(stats(after_lines), list(timed or []))
     label = f"{row['op']} {row.get('to')} on {row['key']}"
     if not after_lines:
         return "kept", f"{label}: no calls in {int(window_s)} s to judge by -- kept (nothing measured)", a
     slower = isinstance(a["tok_s"], (int, float)) and isinstance(b.get("tok_s"), (int, float)) and a["tok_s"] < b["tok_s"] * SLOWER
     worse = a["bad"] > int(b.get("bad") or 0) or slower
     speed = (f"{_fmt(b.get('tok_s'))} -> {_fmt(a['tok_s'])} tok/s" if a["tok_s"] is not None or b.get("tok_s") is not None
-             else "tok/s not measured")
+             else "tok/s not measured") + (" (the server log's timing)" if "timing" in str(a.get("tok_s_from")) else "")
     bad = ("no trims" if not (a["trims"] or a["cuts"] or a["errors"]) else
            f"{a['trims']} trims, {a['cuts']} cut replies, {a['errors']} errors in {a['calls']} calls (before: "
            f"{b.get('trims', 0)}, {b.get('cuts', 0)}, {b.get('errors', 0)})")
@@ -184,7 +188,10 @@ def tick(svc, now: Optional[float] = None) -> list:
             after = after[:int(row.get("need_calls") or VERIFY_CALLS)]
             if len(after) < int(row.get("need_calls") or VERIFY_CALLS) and now < float(row.get("ends_at") or 0):
                 continue
-            verdict, line, a = judge(row, after, window_s=float(row["ends_at"]) - float(row["at"]))
+            from halo_harness.ollama_steward.verify_timing import rates
+            timed = rates(home, row["host"], row["model"], since=float(row["at"]),
+                          first=int(row.get("need_calls") or VERIFY_CALLS))
+            verdict, line, a = judge(row, after, window_s=float(row["ends_at"]) - float(row["at"]), timed=timed)
             host = next((h for h in svc.view.hosts() if h.name == row["host"]), None)
             a["loaded"] = _loaded_row(svc.view, host, row["model"]) if host is not None else None
             if verdict == "reverted":

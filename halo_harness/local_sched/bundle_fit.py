@@ -74,6 +74,13 @@ def _cloud_words(b: dict) -> str:
 
 
 def verdict(bundle: dict, host=None, *, state_dir=None, reads_=None) -> dict:
+    """3.3.8.0 R4: every reservation where it is held (local_sched/bundle_parts.verdict; one on the default host and no
+    schedule is verdict_one's answer with `parts` [] beside it)."""
+    from halo_harness.local_sched.bundle_parts import verdict as across
+    return across(bundle, host, state_dir=state_dir, reads_=reads_)
+
+
+def verdict_one(bundle: dict, host=None, *, state_dir=None, reads_=None) -> dict:
     from halo_harness.local_sched import bundle_options as O
     from halo_harness.local_sched.reserve import free_after_claims
     h = _host(host)
@@ -107,9 +114,10 @@ def verdict(bundle: dict, host=None, *, state_dir=None, reads_=None) -> dict:
     res_gb = (res or {}).get("gb") or 0.0
     total = res_gb + sum(float(p.get("gb") or 0) for p in gpu if p["role"] != (res or {}).get("role")) + _g(rd.reserve)
     free = _g(fac["free"])
+    pe, floor = _preempt(bundle, res, fac, total, free, name)  # 3.3.8.0 R4: a lower claim gives way; the floor
+    free += sum(float(c.get("gb") or 0) for c in pe["take"])
     out.update(usable_gb=round(_g(rd.usable), 1), claimed_gb=round(_g(fac["claimed"]), 1), free_gb=round(free, 1),
-               total_gb=round(total, 1),
-               claims_line=fac["line"])
+               total_gb=round(total, 1), claims_line=fac["line"], preempts=pe["rows"], min_free_gb=floor or None)
     for p in picks.values():
         fits = None if p.get("gb") is None else (p["placed"] == "cpu" or float(p["gb"]) + _g(rd.reserve) <= free)
         row = {"role": p["role"], "tag": p.get("model"), "gb": None if p.get("gb") is None else round(p["gb"], 1), "fits": fits, "minutes": p.get("minutes") or 0,
@@ -127,7 +135,7 @@ def verdict(bundle: dict, host=None, *, state_dir=None, reads_=None) -> dict:
         out["coder"] = {"model": coder["model"], "gb": round(coder["gb"], 1) if coder.get("gb") else None, "beside": beside,
                         "spare_gb": None if spare is None else round(spare, 1),
                         "window": coder["window"]}
-    fits_alone = total <= free and all(p.get("model") for p in picks.values())
+    fits_alone = total + floor <= free and all(p.get("model") for p in picks.values())
     strict = bundle["routing"]["task_work"] == "coder"
     out["latency_ms"], lat = _latency((res or {}).get("model") or next((p["model"] for p in gpu), None), name, state_dir)
     if lat and bundle.get("latency_budget_ms") and out["latency_ms"]:
@@ -145,7 +153,9 @@ def verdict(bundle: dict, host=None, *, state_dir=None, reads_=None) -> dict:
         out["state"] = "wont"
         out["says"] = ("won't work -- " + ("; ".join(missing) if missing else
                        f"this bundle needs {total + (coder or {}).get('gb', 0) * strict:.1f} GB; you have "
-                       f"{free:.1f} GB usable" + (f" ({fac['line']})" if fac['claims'] else "")))
+                       f"{free:.1f} GB usable" + (f" ({fac['line']})" if fac['claims'] else "")
+                       + (f"; it keeps {floor:g} GB free for tasks (min_free_gb)" if floor else "")
+                       + (f"; {pe['held']}" if pe["held"] else "")))
     elif out["downloads"]:
         dl = out["downloads"]
         gbs = round(sum(float(d["download_gb"] or 0) for d in dl), 1)
@@ -163,9 +173,27 @@ def verdict(bundle: dict, host=None, *, state_dir=None, reads_=None) -> dict:
     else:
         out["state"] = "ready"
         out["says"] = head + (f"; {lat}" if lat else "")
+    if pe["rows"] and out["state"] != "wont":
+        out["says"] += "; " + "; ".join(f"pre-empts {c['bundle']} ({c['priority']}, {c['gb']:.1f} GB) on {c['host']}"
+                                        for c in pe["rows"])
     out["says"] += tail
     out["options"] = O.options(bundle, picks, res, coder, total=total, free=free, reserve_gb=_g(rd.reserve), rd=rd)
     return out
+
+
+def _preempt(bundle: dict, res, fac: dict, total: float, free: float, host: str) -> "tuple[dict, float]":
+    """({rows, take, held}, the min_free_gb floor): the lower claims this bundle's priority takes when it does not fit
+    beside them (local_sched/preempt.py); nothing is taken here -- `halo pack on` does it, said."""
+    from halo_harness.local_sched import preempt as PE
+    prio = (res or {}).get("priority") or bundle.get("priority") or "normal"
+    floor = float((res or {}).get("min_free_gb") or bundle.get("min_free_gb") or 0.0)
+    if total + floor <= free:
+        return {"rows": [], "take": [], "held": ""}, floor
+    got = PE.plan(fac["claims"], need_gb=total + floor, free_gb=free, priority=prio, bundle=bundle["id"])
+    rows = [{"bundle": c.get("bundle"), "host": c.get("host") or host, "gb": float(c.get("gb") or 0),
+             "priority": c.get("priority") or "normal", "via": c.get("via")} for c in got["take"]]
+    return {"rows": rows, "take": got["take"], "held": "" if got["ok"] else PE.held_line(bundle["id"], prio,
+                                                                                         got["held_by"])}, floor
 
 
 def _same(a, b) -> bool:
