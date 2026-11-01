@@ -2,12 +2,13 @@
 // status line (live / stale / quiet / unreadable / on that machine / missing) with the path, the tail command (Copy)
 // and the debug window said as a stated action (Halo never sets it); per model the last load result, the truncations
 // of this session, the error lines with times and "crashed here" (LogModelRows.tsx); the bounded tail with its kind
-// filter and a Live toggle (LogTail.tsx). Every block has its own "?" help. Nothing opens over the page.
+// filter and a Live toggle (LogTail.tsx). Every block has its own "?" help. Nothing opens over the page. 3.3.8.0 R2:
+// the local servers (llama-server, LM Studio, mlx_lm.server) are listed beside the hosts, the same blocks for each.
 import { useEffect } from "react";
 import { Button, Empty } from "../../lib/ui";
 import { BlockHelp, LogModelRows } from "./LogModelRows";
 import { LogTail } from "./LogTail";
-import { copyLine, loadAll, logs, pickHost, useLogs } from "./logstore";
+import { copyLine, loadAll, loadServers, logs, pickHost, useLogs } from "./logstore";
 import { loadHosts, useLocal } from "./store";
 
 const STATUS_HELP = "live: the newest log line is newer than the newest call to this host (minus a minute). stale: the " +
@@ -25,7 +26,9 @@ function Status() {
         <span className="rail-label mono">LOG STATUS</span>
         <BlockHelp text={STATUS_HELP} testid="local-logs-status-help" />
       </div>
-      <div className="mono lg-line" data-testid="local-logs-status-line" data-state={st.state} title={st.why || st.line}>{st.line}</div>
+      <div className="mono lg-line" data-testid="local-logs-status-line" data-state={st.state} title={st.why || st.line}>
+        {st.runtime ? <><span className="og-chip mono" data-testid="local-logs-runtime">{st.runtime}</span> {st.line}</> : st.line}
+      </div>
       {st.path && <div className="mono muted" data-testid="local-logs-path" title={(st.paths || []).join("\n")}>{st.path}</div>}
       <div className="lg-acts">
         {st.tail_cli && (
@@ -43,12 +46,16 @@ function Status() {
 
 export function LogsPage() {
   const hosts = useLocal((s) => s.hosts);
+  const servers = useLogs((s) => s.servers);
   const host = useLogs((s) => s.host);
   const error = useLogs((s) => s.error);
-  const names = (hosts || []).filter((h) => h.source === "configured" && h.kind === "Ollama").map((h) => h.name);
+  const ollama = (hosts || []).filter((h) => h.source === "configured" && h.kind === "Ollama").map((h) => h.name);
+  const local = (servers || []).filter((s) => !ollama.includes(s.name));
+  const names = [...ollama, ...local.map((s) => s.name)];
   const picked = names.includes(host) ? host : names[0] || "";
   useEffect(() => {
     void loadHosts();
+    void loadServers();
   }, []);
   useEffect(() => {
     if (!picked) return;
@@ -58,13 +65,18 @@ export function LogsPage() {
       loadAll(picked);
     }
   }, [picked]);
-  if (!hosts) return <div className="mono muted">reading the hosts...</div>;
-  if (!names.length) return <Empty title="No Ollama host yet" body="Add one in Setup -> Providers -> Ollama: its log shows here." testid="local-logs-none" />;
+  if (!hosts || !servers) return <div className="mono muted">reading the hosts...</div>;
+  if (!names.length) return <Empty title="No Ollama host or local server yet" body="Add one in Setup -> Providers (Ollama, or a Hugging Face local server): its log shows here." testid="local-logs-none" />;
   return (
     <div className="lg-page" data-testid="local-logs" data-host={picked}>
       <label className="mono muted lg-pick">host{" "}
         <select value={picked} onChange={(e) => pickHost(e.target.value)} data-testid="local-logs-host" aria-label="the host whose log this is">
-          {names.map((n) => <option key={n} value={n}>{n}</option>)}
+          {ollama.map((n) => <option key={n} value={n}>{n}</option>)}
+          {local.length > 0 && (
+            <optgroup label="local servers">
+              {local.map((s) => <option key={s.name} value={s.name} data-runtime={s.runtime || ""}>{s.name} ({s.runtime || "local server"})</option>)}
+            </optgroup>
+          )}
         </select>
       </label>
       {error && <div className="mono lc-said" data-testid="local-logs-error">{error}</div>}

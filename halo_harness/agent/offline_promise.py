@@ -4,7 +4,9 @@ plans/local-model-fit-brief.md G15: "100 % local -- 0 tokens left this machine",
 Read, never estimated:
 
 - the session log's `usage` nodes (agent/log.py `append_usage`: one per model call, its `model` ref and `route`): a
-  local model ref (ol:, hf:local/, hf:mlx/) is a local call, anything else a call to that route's provider;
+  local model ref (ol:, hf:local/, hf:mlx/) is a local call, anything else a call to that route's provider; 3.3.8.0
+  R2: every sub-agent's own log (`<session>/subagents/agent-<id>.jsonl`, nested ones too) and its ledger lines
+  (`session` = `agent-<id>`) are folded in;
 - the traffic ledger's lines of the session (`session` = its id; ollama_steward/ledger.py): which server each local
   call went to (`host` {name, url}); a server this machine serves is "this machine", another one on the LAN "left this
   machine" (the line names it, and the halo host that serves it when one is paired: host_client.for_host).
@@ -58,12 +60,23 @@ def _route(node: dict) -> str:
     return str(node.get("route") or node.get("provider") or str(node.get("model")).split("/", 1)[0] or "a provider")
 
 
-def _hosts(state_dir, session_id: str) -> "tuple[dict, list]":
+def sub_logs(log_path) -> list:
+    """3.3.8.0 R2: [(agent-<id>, path)] of every sub-agent's own log under the session's folder (nested ones too)."""
+    try:
+        p = Path(log_path)
+        d = p.parent / p.stem / "subagents"
+        return [(f.stem, f) for f in sorted(d.rglob("agent-*.jsonl"))] if d.is_dir() else []
+    except (OSError, TypeError, ValueError):
+        return []
+
+
+def _hosts(state_dir, session_id) -> "tuple[dict, list]":
     from types import SimpleNamespace
     from halo_harness.fleet.ollama_share import served_here
     from halo_harness.ollama_steward.host_client import for_host
     from halo_harness.ollama_steward.ledger import read_calls
-    lines = [x for x in read_calls(state_dir, since=30 * 86400.0) if x.get("session") == session_id
+    ids = {session_id} if isinstance(session_id, str) else set(session_id)
+    lines = [x for x in read_calls(state_dir, since=30 * 86400.0) if x.get("session") in ids
              and x.get("kind") != "calibrate"]
     hosts: dict = {}
     per = []
@@ -85,8 +98,10 @@ def promise(state_dir, session_id: str, *, log_path=None) -> dict:
     if log_path is None:
         from halo_harness.session_trace_cli import find_session_log
         log_path, _why = find_session_log(session_id)
-    nodes = usage_nodes(log_path) if log_path else []
-    hosts, per = _hosts(state_dir, session_id) if state_dir is not None else ({}, [])
+    subs = sub_logs(log_path) if log_path else []  # 3.3.8.0 R2: a sub-agent's calls are in its own log
+    nodes = (usage_nodes(log_path) if log_path else []) + [n for _sid, p in subs for n in usage_nodes(p)]
+    ids = {session_id} | {sid for sid, _p in subs}
+    hosts, per = _hosts(state_dir, ids) if state_dir is not None else ({}, [])
     cloud = Counter(_route(n) for n in nodes if not _is_local(str(n.get("model"))))
     local = sum(1 for n in nodes if _is_local(str(n.get("model"))))
     lan = {k: v for k, v in hosts.items() if not v["here"]}
@@ -94,7 +109,8 @@ def promise(state_dir, session_id: str, *, log_path=None) -> dict:
     local = max(local, led)
     total = local + sum(cloud.values())
     left = sum(cloud.values()) + sum(v["calls"] for v in lan.values())
-    out = {"calls": total, "local": local, "cloud": dict(cloud), "hosts": hosts, "left": left, "per_call": per[-50:]}
+    out = {"calls": total, "local": local, "cloud": dict(cloud), "hosts": hosts, "left": left, "per_call": per[-50:],
+           "subagents": len(subs)}
     if not total:
         return {**out, "line": NO_CALLS}
     pct = round(100.0 * local / total)

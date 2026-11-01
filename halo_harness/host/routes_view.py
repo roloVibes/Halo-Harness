@@ -6,11 +6,14 @@
     View.profiles()                            {profiles: [battery profile without its evidence]}
     View.events(since, kind)                   {events: [...]} (the newest EVENTS_MAX)
     View.tail(n, host)                         {host, lines, source, why, n} (prompt sizes, never a request body)
+    3.3.8.0 R2: the card's `servers` (this machine's llama-server / LM Studio / mlx_lm.server: runtime, model, window
+    per slot, log status; ollama_steward/hardware_servers.py), `events` carries theirs (`server: true`, `runtime`), and
+    `tail(n, host)` answers a server's log when `host` names one of them.
 
 Everything is computed here from this machine's own files and its own Ollama (`/api/tags`, `/api/show`, `/api/ps`,
 the server log, nvidia-smi): no model is called, nothing is written to the server. `readers` is the tests' seam:
 {"hosts": fn() -> [OllamaHost], "card": fn(host) -> card, "catalog": fn(host) -> {"models": [...]},
-"tail": fn(host, n) -> (lines, source, why), "log": fn(host) -> log status}.
+"tail": fn(host, n) -> (lines, source, why), "log": fn(host) -> log status, "servers": fn() -> [servers_hf.Server]}.
 """
 
 from __future__ import annotations
@@ -85,6 +88,16 @@ class View:
             got = {}
         return [r for r in got.get("models") or [] if isinstance(r, dict)]
 
+    def servers(self) -> list:
+        """3.3.8.0 R2: this machine's local servers (servers_hf.roster, the ones served here)."""
+        if "servers" in self.readers:
+            return list(self.readers["servers"]())
+        from halo_harness.ollama_steward.servers_hf import is_local, roster
+        try:
+            return [s for s in roster(self.home) if is_local(s)]
+        except Exception:
+            return []
+
     def _pick(self, name: str = "") -> list:
         hs = self.hosts()
         return [h for h in hs if h.name.lower() == name.lower()] if name else hs
@@ -109,7 +122,8 @@ class View:
             rows.append({"name": h.name, "port": port_of(h.url), "card": c, "log": self.log_status(h),
                          "other_clients": self.other_clients(h), "footprint": fp["line"], "usable_gb": fp["usable_gb"],
                          "usable_with_helper_gb": fp["usable_with_helper_gb"], "helper": fp["helper"]})
-        return {"hosts": rows, "link": self.link()}
+        from halo_harness.ollama_steward.hardware_servers import rows as server_rows
+        return {"hosts": rows, "link": self.link(), "servers": server_rows(self.home, self.servers())}
 
     def link(self) -> dict:
         """3.3.8.0 R1: the adapter that carries this machine's address (local_pool/link.py), read once a minute."""
@@ -183,15 +197,27 @@ class View:
         from halo_harness.host.state import port_of
         from halo_harness.ollama_steward.server_events import read_events
         ports = {h.name.lower(): port_of(h.url) for h in self.hosts()}
-        rows = [{**scrub_event(e), "port": ports[str(e.get("host") or "").lower()]}
-                for e in read_events(self.home, since=since if since is not None else 86400.0, kind=kind or None)
-                if str(e.get("host") or "").lower() in ports and not e.get("from")]
+        from halo_harness.ollama_steward.servers_hf import port_of as server_port
+        servers = {s.name.lower(): s for s in self.servers()}
+        rows = []
+        for e in read_events(self.home, since=since if since is not None else 86400.0, kind=kind or None):
+            name = str(e.get("host") or "").lower()
+            if e.get("from") or (name not in ports and name not in servers):
+                continue
+            extra = {"server": True, "runtime": servers[name].runtime} if name not in ports else {}
+            rows.append({**scrub_event(e), "port": ports[name] if name in ports else server_port(servers[name].url), **extra})
         return {"events": rows[-EVENTS_MAX:]}
 
     def tail(self, n: int, host: str = "") -> dict:
         from halo_harness.host.state import tail_max
         n = max(1, min(int(n), tail_max(self.home)))
         hs = self._pick(host)
+        srv = next((x for x in self.servers() if host and x.name.lower() == host.lower()), None) if not hs else None
+        if srv is not None:  # 3.3.8.0 R2: a local server's log (ollama_steward/server_log_hf.py)
+            from halo_harness.ollama_steward.server_log_hf import tail_lines as server_tail
+            lines, source, why = server_tail(srv, n)
+            return {"host": srv.name, "lines": [scrub_line(x) for x in lines][-n:], "source": source, "why": why, "n": n,
+                    "server": True, "runtime": srv.runtime}
         if not hs:
             return {"host": host, "lines": [], "source": "", "why": "this machine serves no Ollama host", "n": n}
         h = hs[0]

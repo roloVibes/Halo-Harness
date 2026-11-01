@@ -204,6 +204,7 @@ def cmd_log(argv: list) -> int:
 
 
 from halo_harness.local_hf_serve_cli import cmd_serve  # noqa: E402  (the serve subcommand, its own module)
+from halo_harness.local_log_cli import cmd_events, cmd_log as cmd_server_log  # noqa: E402  (3.3.8.0 R2: any server)
 
 COMMANDS = {"download": cmd_download, "ls": cmd_ls, "rm": cmd_rm, "serve": cmd_serve, "stop": cmd_stop,
-            "servers": cmd_servers, "log": cmd_log}
+            "servers": cmd_servers, "log": cmd_server_log, "events": cmd_events}

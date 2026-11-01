@@ -80,6 +80,18 @@ def test_the_tail_its_filter_and_live(ctx: Ctx):
     ctx.check(f"Live: an appended line arrives, got {got.get('live')}", got.get("live") == "arrived")
 
 
+@test
+def test_a_local_server_beside_the_hosts(ctx: Ctx):
+    """3.3.8.0 R2: the picker lists a llama-server Halo started; its status line, its runtime, its per-model row."""
+    got = _got(ctx)
+    state, runtime, text = (got.get("server_status") or ["", "", ""])[:3]
+    ctx.check(f"its status line with its runtime and its log's path, got {state} {runtime} {text!r}",
+              runtime == "llama-server" and f"{got.get('server_name')}.log" in text and state in ("live", "stale", "quiet"))
+    load, facts = (got.get("server_row") or ["", ""])[:2]
+    ctx.check(f"its row: spilled, 30/37 layers, the window per slot, got {load} {facts!r}", load == "spilled"
+              and "30/37 layers" in facts and "window 8,192" in facts)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

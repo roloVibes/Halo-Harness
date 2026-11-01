@@ -150,6 +150,8 @@ def hardware_card(host=None, *, log_path=None, api: Optional[Callable] = None, r
     _unattributed(card)
     card["log"] = _log(host, log_path, platform)  # 3.3.6.0 R3: is its server log live (log_status.py)
     card["log_path"], card["readable"] = (card["log"] or {}).get("path"), bool((card["log"] or {}).get("readable"))
+    from halo_harness.ollama_steward.hardware_servers import rows as server_rows  # 3.3.8.0 R2: this machine's servers
+    card["servers"] = server_rows() if local and log_path is None else []
     return card
 
 
@@ -235,6 +237,8 @@ def format_card(card: dict, *, host_name: str = "") -> "list[str]":
                                            for u in card["other_users"]))
     if card.get("log"):
         lines.append(f"log: {card['log']['line']}")
+    from halo_harness.ollama_steward.hardware_servers import lines as server_lines  # 3.3.8.0 R2
+    lines += server_lines(card.get("servers"))
     if card.get("via") == "host":  # 3.3.7.0 R1
         lines.append(f"source: via host {card.get('via_addr')} (halo host serves this card; {card.get('footprint')})")
     for src in card["sources"]:

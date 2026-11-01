@@ -37,6 +37,9 @@ def crash_match(session, now: Optional[float] = None) -> Optional[dict]:
             continue
         if window and isinstance(fp.get("window_used"), int) and fp["window_used"] != window:
             continue
+        from halo_harness.ollama_steward.fingerprint_hf import same_build  # 3.3.8.0 R2: a crash on another build
+        if same_build(state, fp) is False:
+            continue
         session._ladder_crash_seen = seen | {key}
         return {**fp, "line": line(fp)}
     return None

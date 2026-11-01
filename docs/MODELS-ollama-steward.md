@@ -2,7 +2,7 @@
 
 Read this when you want to know what the Ollama steward knows, records, finds and changes across your halos and model servers.
 
-Part of [Models](MODELS.md), which lists every part. A model a `halo host` serves: [MODELS-ollama-steward-host.md](MODELS-ollama-steward-host.md). The `tag-drift` and `tag-deleted` rules, foreign clients and the off-hours refresh (3.3.7.0 R4): [MODELS-ollama-steward-guards.md](MODELS-ollama-steward-guards.md).
+Part of [Models](MODELS.md), which lists every part. A model a `halo host` serves: [MODELS-ollama-steward-host.md](MODELS-ollama-steward-host.md). The `tag-drift` and `tag-deleted` rules, foreign clients and the off-hours refresh (3.3.7.0 R4): [MODELS-ollama-steward-guards.md](MODELS-ollama-steward-guards.md). llama-server, LM Studio and MLX, each one's log and findings (3.3.8.0 R2): [MODELS-steward-servers.md](MODELS-steward-servers.md).
 
 ## The steward (3.3.4.0)
 

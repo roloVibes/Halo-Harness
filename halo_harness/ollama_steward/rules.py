@@ -16,7 +16,8 @@ A finding (the shape R4's note-writer and R5's panel read):
 ollama steward apply <id>` names what `findings` printed. The rules live
 in rules_window.py (a, b, h), rules_reply.py (c, d, e), rules_host.py
 (f, g), rules_card.py (3.3.5.0 R0b: `called-wrong`), rules_crash.py and rules_drift.py (3.3.7.0 R4:
-`tag-drift`, `tag-deleted`); knowledge/symptoms.md
+`tag-drift`, `tag-deleted`), rules_servers.py (3.3.8.0 R2: a local server's groups, `server` and `runtime` on each
+finding); knowledge/symptoms.md
 is their spec.
 """
 
@@ -106,7 +107,8 @@ def card_fit(group: dict, ctx: dict) -> Optional[int]:
 
 def gather(state_dir, *, since=SINCE, host: Optional[str] = None, cards: Optional[dict] = None,
            catalogs: Optional[dict] = None, card_reader: Optional[Callable] = None,
-           catalog_reader: Optional[Callable] = None, hosts: Optional[list] = None, now: Optional[float] = None) -> dict:
+           catalog_reader: Optional[Callable] = None, hosts: Optional[list] = None, now: Optional[float] = None,
+           servers: Optional[list] = None) -> dict:
     """Everything the rules read. `cards` / `catalogs` ({host name: card} /
     {host name: {model: catalog row}}) or the readers that fetch them are
     the seams tests use; without either, the rules that need them say less."""
@@ -162,6 +164,8 @@ def gather(state_dir, *, since=SINCE, host: Optional[str] = None, cards: Optiona
         g["stats"] = window_stats(g["lines"])
         g["profile"] = profiles.get(g["key"]) or {}
         g["cap"], g["cap_source"] = _cap(state_dir, g, ctx)
+    from halo_harness.ollama_steward.rules_servers import prepare  # 3.3.8.0 R2: the local servers' groups
+    prepare(ctx, servers)
     return ctx
 
 
@@ -169,8 +173,9 @@ def run_rules(ctx: dict) -> list:
     """Every rule over every group; one proposal per profile field (the most severe finding keeps it)."""
     from halo_harness.ollama_steward import rules_card, rules_host, rules_reply, rules_window
     out: list = []
+    from halo_harness.ollama_steward.rules_servers import RULES as SERVER_RULES  # 3.3.8.0 R2
     for g in ctx["groups"]:
-        for rule in rules_window.RULES + rules_reply.RULES + rules_card.RULES:  # 3.3.5.0 R0b: called-wrong
+        for rule in SERVER_RULES if g.get("server") else rules_window.RULES + rules_reply.RULES + rules_card.RULES:
             out.extend(rule(g, ctx) or [])
     out.extend(rules_host.host_rules(ctx))
     from halo_harness.ollama_steward.rules_crash import crash_rules  # 3.3.6.0 R3: a crash that repeats proposes the fix

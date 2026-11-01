@@ -38,11 +38,11 @@ window, a replay guard) and inside TLS with the host's own pinned certificate wh
 | Route | Answers |
 |---|---|
 | `GET ping` | the host (id, name, version, port, started) and this peer's grants |
-| `GET card` | per Ollama server it serves: the hardware card (`halo ollama hardware`'s), its log status, the other clients (the ledger's `from`s over a day), the usable memory ("22.0 GB usable"); the host's start time and its audit count; 3.3.8.0 R1: `link` {type wired \| wireless \| unknown, speed_mbps}, the adapter that carries this machine's address (the pool's wired-or-Wi-Fi rule, [POOL.md](POOL.md)) |
+| `GET card` | per Ollama server it serves: the hardware card (`halo ollama hardware`'s), its log status, the other clients (the ledger's `from`s over a day), the usable memory ("22.0 GB usable"); the host's start time and its audit count; 3.3.8.0 R1: `link` {type wired \| wireless \| unknown, speed_mbps}, the adapter that carries this machine's address (the pool's wired-or-Wi-Fi rule, [POOL.md](POOL.md)); 3.3.8.0 R2: `servers`, the machine's local servers (llama-server, LM Studio, mlx_lm.server) with their runtime, model, window per slot and log status |
 | `GET catalog?window=N` | every model there with the fit planner's verdict at that window from the host's own budget (fits, says, need, the largest window it holds), its speed card, its measured facts and whether its profile is verified there |
 | `GET profiles` | the battery profiles verified there, each with its digest, Ollama version, probe set and date |
-| `GET events?since=&kind=` | the classified server events (the newest 500) |
-| `GET tail?n=` | the newest lines of the server log, at most `host.tail_max` (400), request bodies replaced by their size |
+| `GET events?since=&kind=` | the classified server events (the newest 500); a local server's carry `server: true`, its runtime and its port |
+| `GET tail?n=&host=` | the newest lines of the server log, at most `host.tail_max` (400), request bodies replaced by their size; `host` naming one of the machine's local servers answers that server's log ([MODELS-steward-servers.md](MODELS-steward-servers.md)) |
 | `GET stream` | server-sent events: a `card` frame on open and every minute, an `event` frame per new event, a `resources` frame per new sample, a ping every 10 s |
 | `POST simulate {model \| size_gb, window, kv?}` | would it fit here: the installed row, else the packaged library snapshot's size and published shape, else the size given with a typical shape (said to be an estimate) |
 | `POST route {need: {model \| size_gb, window, tools?, vision?}}` | `{fits, now, warm, evicts, load_s, verdict}`: can it run here, and right now (free VRAM now, or loaded at that window already), which loaded models would have to unload, how long the load takes (the speed card) |
@@ -194,6 +194,10 @@ host answers it wins over ssh for the log and the card. The catalog itself still
 `/api/tags` (the direct API). A host that does not answer is said so in one line and not asked again for 30 s.
 `halo local hosts` prints the rung of each host, `halo ollama hardware --host X` and `halo ollama log --host X`
 name "via host" in their source line, and Local -> Hosts shows "served by halo host at <addr>" on the card.
+3.3.8.0 R2: `halo ollama hardware --host X` lists that machine's local servers ("local server llama-8080: llama-server,
+qwen3-8b, window 8,192 per slot"); a `huggingface.local_servers` entry for one of them reads its status and tail through
+the host. The host's own watch (`halo host`, the steward job `where: host`) reads them every 10 s, and a terminal-only
+session pushes its calls to the host that serves its model (`host/session_push.py`).
 
 ## Running it
 

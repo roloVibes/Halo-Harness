@@ -27,7 +27,7 @@ function Numbers({ f }: { f: Finding }) {
   return <div className="oll-evidence mono muted">{nums.map(([key, v]) => `${key} ${v}`).join(" · ")}</div>;
 }
 
-function FindingRow({ f, review }: { f: Finding; review: boolean }) {
+export function FindingRow({ f, review }: { f: Finding; review: boolean }) {
   const busy = useOllama((s) => s.busy);
   const p = f.proposal;
   return (
@@ -35,6 +35,9 @@ function FindingRow({ f, review }: { f: Finding; review: boolean }) {
       <div className="oll-finding-top">
         <span className="og-chip mono" data-severity={f.severity}>{f.severity}</span>
         <span className="mono muted">{f.model}</span>
+        {f.runtime && (
+          <span className="og-chip mono" data-testid="ollama-finding-runtime" title={`a local server: ${f.server || f.host}`}>{f.runtime}</span>
+        )}
         <span className="spacer" />
         {f.applied && <span className="og-chip mono" data-testid="ollama-applied" data-tone="ok">applied</span>}
         {!f.applied && f.proposed && <span className="og-chip mono">proposed</span>}

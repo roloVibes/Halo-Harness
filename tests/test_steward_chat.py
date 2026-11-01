@@ -149,6 +149,32 @@ def test_the_cli_and_the_studio_routes(ctx: Ctx):
         ctx.check(f"no question: 422, got {st}", st == 422)
 
 
+@test
+def test_the_prompts_front_is_byte_identical_from_round_to_round(ctx: Ctx):
+    """3.3.8.0 R2 (5b): the guide (system), then the sections that change least, the findings and the events after
+    them, the conversation and the question last: a round's prompt starts with the round before's, and a new question
+    keeps every section's bytes in front of it (Ollama reuses the KV prefix)."""
+    import json as _json
+    from halo_harness.ollama_steward import chat
+    with ChatHome([{"tool": "card", "args": {"host": "loop"}}, {"answer": "one"}, {"answer": "two"}]) as h:
+        _ask(h, "first question?")
+        _ask(h, "second question?")
+        bodies = [r.get("body") for r in h.mock.requests if str(r.get("path")).startswith("/api/chat")]
+    msgs = [b if isinstance(b, dict) else _json.loads(b) for b in bodies]
+    system = [next(m["content"] for m in b["messages"] if m["role"] == "system") for b in msgs]
+    user = [b["messages"][-1]["content"] for b in msgs]
+    ctx.check(f"three calls, got {len(msgs)}", len(msgs) == 3)
+    ctx.check("the system text is the same every call, the rules sentence in it", len(set(system)) == 1
+              and "The rule:" in system[0])
+    ctx.check("round 2 of a question starts with round 1's prompt, byte for byte", user[1].startswith(user[0]))
+    front = user[0].split("Calls per model")[0]  # the calls change with every call (the steward's own among them)
+    ctx.check(f"a new question keeps the stable sections' bytes in front ({len(front):,} characters)",
+              len(front) > 200 and user[2].startswith(front) and "Earlier -- Q: first question?" in user[2][len(front):])
+    order = [user[0].find(x) for x in ("Mode:", "Hardware cards:", "Calls per model", "Findings (here", "The last ")]
+    ctx.check(f"the stable parts first, the findings and events last, got {order}", -1 not in order and order == sorted(order))
+    ctx.check("the budget drops the events first", chat.DROP[0] == "events" and chat.DROP[-1] == "findings")
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

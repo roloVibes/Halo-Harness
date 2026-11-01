@@ -26,6 +26,26 @@ version.
 - The capability catalog's hardware block carries `link`.
 - Local has nine pages; the Library ten presets.
 
+### R2: the steward sees every local server -- server-log findings for llama-server, LM Studio and MLX
+
+#### Added
+- Every local server is a source for the steward: a `huggingface.local_servers` entry (new `log` and `runtime` keys), a server Halo started (its process log), and one the probe found. llama-server, LM Studio (its server-logs folder, found by path) and mlx_lm.server logs are read like Ollama's.
+- They are turned into the same events, the window per slot from the load included.
+- The findings are keyed `<server>|<model>` and carry `server`, `runtime` and `not_asked`: window-small, reply-cut, cut-resent, cpu-spill, tools-heavy and crash-repeats.
+- Halo-side fixes for a server (the window, the reply's room, the tool budget) land through the steward's modes, and the next `hf:local` call reads them. Server-side changes are stated per runtime with their revert and `applied: false`: `--ctx-size`, `--n-gpu-layers`, `--cache-type-k/-v`, `--n-predict`, LM Studio's Context Length, mlx's `--max-tokens`.
+- New commands: `halo local log <server> [-n] [--kind] [--follow]` and `halo local events <server>`. `halo ollama crashes` covers every runtime, and `halo doctor --local` prints one line per server.
+- Local -> Logs lists the local servers beside the hosts. Local -> Steward gains a Findings block that shows the runtime.
+- The halo host's `card`, `events` and `tail?host=` carry the machine's local servers, and `halo ollama hardware --host` lists them.
+- After an `hf:local` call, the loop reads that call's lines in the server's log: the ledger's `log_events`, a crash fingerprinted at once with Halo's launch command, and one line under the turn.
+- A terminal-only session pushes its own calls to the halo host that serves its model.
+- New docs: `MODELS-steward-servers.md` and `COMMANDS-local-servers.md`. New glossary words: `server log` and `runtime`.
+
+#### Changed
+- A crash fingerprint carries the build it ran on (`digest`). A repeat is counted on one build, and a crash on a build the tag no longer has is stale (crash-repeats, the ladder's crash rung).
+- The offline promise folds every sub-agent's own log.
+- The steward chat orders its prompt from stable to volatile, so a local server reuses the cached front. It gains a `servers` tool and the rule sentence in its guide.
+- A ledger line of an `hf:local` call is named by its server, not its address.
+
 ### Also in 3.3.8.0
 
 #### Changed

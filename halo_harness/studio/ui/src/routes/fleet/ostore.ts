@@ -19,6 +19,7 @@ export type Finding = {
   id: string; rule: string; host: string; model: string; key: string; severity: string; finding: string;
   evidence: { numbers?: Record<string, unknown>; calls?: string[]; events?: string[] };
   proposal: Proposal | null; server_hint: Hint | null; applied: string | null; proposed: boolean;
+  server?: string; runtime?: string | null; // 3.3.8.0 R2: a local server's finding (llama-server, lmstudio, mlx)
 };
 export type PlanOption = { kind: string; says: string; changes: { key: string; field: string; to: unknown }[]; server_hint: Hint | null; lose: string; fits: boolean };
 export type Plan = { host: string; says: string; fits_now: boolean | null; chosen: number | null; models: { model: string; window: number; need: number | null }[]; options: PlanOption[]; missing: string[] };

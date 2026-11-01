@@ -169,6 +169,38 @@ def test_a_peers_calls_reach_the_host(ctx: Ctx):
 
 
 @test
+def test_a_terminal_sessions_own_calls_reach_the_host(ctx: Ctx):
+    """3.3.8.0 R2: with no Studio or hub on the peer, the ledger writer hands each line of the session's own calls to
+    the forwarder (host/session_push.py, a daemon thread): they reach the host's ledger with `from` the peer."""
+    from halo_harness.host import session_push
+    from halo_harness.host.ledger_push import reset
+    from halo_harness.ollama_steward.ledger import read_calls, record_call
+    from tests.helpers.steward_seed import line
+    with PeerRig(cap="all", grants=()) as rig:
+        reset()
+        session_push.SEAMS["wait_s"] = 0.2
+        try:
+            for i in range(2):
+                record_call(rig.peer, line(host={"name": "pc", "url": rig.peer_url}, model=CODER, session="tui-1", ago=5 - i))
+            end, mine = time.monotonic() + 15.0, []
+            while time.monotonic() < end:  # the worker's push: wait for the lines, never a fixed sleep
+                mine = [x for x in read_calls(rig.home) if x.get("from") == "bob@peer" and x.get("session") == "tui-1"]
+                if len(mine) == 2:
+                    break
+                time.sleep(0.05)
+            ctx.check(f"both lines on the host with from = the peer, got {len(mine)}", len(mine) == 2)
+            ctx.check("a line from another machine is never sent on", not session_push.wanted(rig.peer, {**line(
+                host={"name": "pc", "url": rig.peer_url}), "from": "mac@lab"}))
+            ctx.check("a call to this machine's own server: nothing to push", not session_push.wanted(rig.peer, line(
+                host={"name": "box", "url": "http://127.0.0.1:8080/v1"})))
+        finally:
+            session_push.SEAMS.pop("wait_s", None)
+            t = session_push._WORKERS.get(str(rig.peer))
+            if t is not None:
+                t.join(5.0)
+
+
+@test
 def test_the_hub_forwards_to_a_host_a_member_announced(ctx: Ctx):
     from types import SimpleNamespace
     from halo_harness.fleet import hub_hosts

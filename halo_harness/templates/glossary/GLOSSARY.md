@@ -290,3 +290,10 @@ The tensor split is how a pooled model's layers are shared out across the member
 ## pooled inference
 
 Pooled inference is running one model across several machines' GPUs with llama.cpp RPC: layer by layer (pipeline), every layer boundary a network round trip, so decode is 21-55 % slower than on one node that could hold the model while prompt processing pipelines well. A mixture of experts with few active parameters is the right pooled model; a dense 70B pooled is a batch lane. Wi-Fi members and mismatched node memory hurt it most.
+## server log
+
+A server log, in its first sense, is what a model server writes about itself: Ollama's `server.log` (or its journal), llama-server's output, LM Studio's `server-logs` file, mlx_lm.server's request and error lines. In its second sense (3.3.8.0 R2) it is the steward's source per server: where Halo reads that log (the process log Halo keeps for a server it started, LM Studio's newest file, a `huggingface.local_servers` entry's `log`, or through the halo host on that machine), read-only, its lines turned into the same events and findings for every runtime, with the log's status line ("not readable from here: start it with `halo local serve` or set `log`" when there is none). `halo local log <server>`, `halo ollama log --host`, Local -> Logs.
+
+## runtime
+
+A runtime (3.3.8.0 R2) is the program serving a local model: `llama-server` (llama.cpp's server), `lmstudio` (LM Studio's server) or `mlx` (mlx_lm.server). It decides what the server's log can say (mlx prints no window and no spill: "not asked"), which server-side line the steward states for a fix (`--ctx-size N`, LM Studio's Context Length, `--max-tokens N`) and how a crash is fingerprinted. The probe tells llama-server by its `/props`, LM Studio by its port; a `huggingface.local_servers` entry can name it (`runtime`).

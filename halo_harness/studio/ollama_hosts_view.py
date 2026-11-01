@@ -205,7 +205,8 @@ def hosts_view(state_dir, *, now: Optional[float] = None) -> dict:
     from halo_harness.ollama_steward.traffic import rollup
     from halo_harness.providers.ollama import resolve_ollama_hosts
     now = time.time() if now is None else now
-    hosts, servers = resolve_ollama_hosts(), local_servers()
+    from halo_harness.ollama_steward.servers_hf import roster  # 3.3.8.0 R2: every local server, Halo's and the probe's too
+    hosts, servers = resolve_ollama_hosts(), roster(state_dir)
     day = read_calls(state_dir, since=86400.0)
     hour = [x for x in day if (parse_at(x.get("at")) or 0) >= now - HOUR_S]
     found, plans = _judge(state_dir, hosts)
@@ -241,8 +242,8 @@ def _servers_view(servers: list, hour: list, day: list, found: list, profiles: d
         h1, h24 = _clean(rollup(mine(hour), [])), _clean(rollup(mine(day), []))
         netloc = _base(s.url).split("://", 1)[-1]
         prof = {k: v for k, v in profiles.items() if split_key(k)[0] == s.name}
-        out.append({"name": s.name, "url": s.url, "kind": "local server",
-                    "models": model_rows(s.name, h1, h24, [], prof, {}),
-                    "findings": [{**f, "host": s.name} for f in found if f["host"] in (netloc, s.name)
-                                 and f["rule"] in HF_RULES]})
+        out.append({"name": s.name, "url": s.url, "kind": "local server", "source": getattr(s, "source", "manual"),
+                    "runtime": getattr(s, "runtime", None), "models": model_rows(s.name, h1, h24, [], prof, {}),
+                    "findings": [{**f, "host": s.name} for f in found if f.get("server") == s.name  # 3.3.8.0 R2
+                                 or (f["host"] in (netloc, s.name) and f["rule"] in HF_RULES)]})
     return out
