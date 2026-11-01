@@ -9,7 +9,8 @@ VRAM").
         `GET residency`'s claims); this machine: the local reads (local_sched/facts, local_sched/reserve); a bare
         address: no card, so the VRAM you stated with `--vram` (vram_source "stated") or unknown
         free = usable with the helper - resident models - claims (a claimed model already resident counts once)
-    budgets(members=None, *, state_dir=None, home=None) -> [Row]        the RTT of the last scan merged in
+    budgets(members=None, *, state_dir=None, home=None, fresh=False) -> [Row]   the RTT of the last scan merged in;
+                                   fresh: each host's card read now (the preflight), not the 15 s cache
     tensor_split(rows) -> [w]      proportional to FREE VRAM (rounded to 4 places, summing to 1); the weights you set
                                    when every counted member has one
     split_from(rows) -> "free VRAM" | "the weights you set"
@@ -59,7 +60,7 @@ def _from_card(out: dict, card: dict, usable_b: int, helper: Optional[dict], cla
                free_gb=round(max(0.0, usable_b / GIB - held / GIB - claimed), 1))
 
 
-def _paired(out: dict, entry: dict, home=None) -> None:
+def _paired(out: dict, entry: dict, home=None, fresh: bool = False) -> None:
     from halo_harness.fleet import identity, store
     from halo_harness.ollama_steward.host_client import HostClient, HostError
     key = store.key_for(entry, home)
@@ -68,7 +69,7 @@ def _paired(out: dict, entry: dict, home=None) -> None:
         return
     c = HostClient(entry, key, identity.harness()["id"])
     try:
-        got = c.card()
+        got = c.card(fresh=fresh)  # 3.3.8.0 R3: the preflight reads the card now, not the cached one
     except HostError as e:
         out["source"] = str(e)
         return
@@ -102,12 +103,12 @@ def _local(out: dict, state_dir=None) -> None:
         "this machine's card was not read (no GPU listed)"
 
 
-def budget(member: dict, *, state_dir=None, home=None) -> dict:
+def budget(member: dict, *, state_dir=None, home=None, fresh: bool = False) -> dict:
     how = resolve(member, home)
     out = _row(member, how)
     try:
         if how["kind"] == "paired":
-            _paired(out, how["entry"], home)
+            _paired(out, how["entry"], home, fresh)
         elif how["kind"] == "local":
             _local(out, state_dir)
         else:
@@ -138,8 +139,8 @@ def line(r: dict) -> str:
             f"{r['free_gb']:.1f} GB free; link {r['link_word']}")
 
 
-def budgets(members: Optional[list] = None, *, state_dir=None, home=None) -> list:
-    rows = [budget(m, state_dir=state_dir, home=home) for m in (load(state_dir) if members is None else members)]
+def budgets(members: Optional[list] = None, *, state_dir=None, home=None, fresh: bool = False) -> list:
+    rows = [budget(m, state_dir=state_dir, home=home, fresh=fresh) for m in (load(state_dir) if members is None else members)]
     from halo_harness.local_pool.scan import rtt_of
     for r in rows:
         r.update(rtt_of(r, state_dir))

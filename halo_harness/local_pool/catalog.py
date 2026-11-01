@@ -7,7 +7,8 @@ published measurement.
            routing_from, min_build, batch_only, speed {tok_s_low, tok_s_high, measured, source}, single_node, tier}
     CATALOG: {name: Row}     ORDER: the candidates doc's rank     get(name) -> Row | None (a display name or repo too)
 
-weights_gb is the GGUF's size (GB = 2^30 bytes, as the host cards count). kv_bytes_per_token is the F16 KV cache per
+`match` (3.3.8.0 R3): the words a single node's model name carries for the same model (its bench card is the pool's
+auto-revert baseline: ollama_steward/changes_pool.py). weights_gb is the GGUF's size (GB = 2^30 bytes, as the host cards count). kv_bytes_per_token is the F16 KV cache per
 token across every layer (Q8_0 halves it). routing_table_gb is the expert routing data llama.cpp RPC replicates to
 EVERY device (measured ~20 GB for gpt-oss-120b regardless of the split); a dense model has none. min_build is the
 llama.cpp build a model needs (Qwen3-Next: b7186+). `repo` and `file` are what the one Download button fetches
@@ -28,7 +29,8 @@ CATALOG = {
         "min_build": 7186, "batch_only": False,
         "speed": {"tok_s_low": 30.0, "tok_s_high": 45.0, "measured": False,
                   "source": "extrapolated from the measured 28-55 % RPC penalty; no published RPC number for this model"},
-        "single_node": "one 48 GB card runs it at Q4 (53-89 tok/s reported): if a node has 48 GB, do not pool it"},
+        "single_node": "one 48 GB card runs it at Q4 (53-89 tok/s reported): if a node has 48 GB, do not pool it",
+        "match": ("qwen3-next",)},
     "gpt-oss-120b": {
         "name": "gpt-oss-120b", "display": "gpt-oss-120b MXFP4", "tier": 1,
         "repo": "ggml-org/gpt-oss-120b-GGUF", "file": "",
@@ -39,7 +41,8 @@ CATALOG = {
         "speed": {"tok_s_low": 33.8, "tok_s_high": 33.8, "measured": True,
                   "source": "measured 33.8 tok/s on a 2-node layer split vs 42.7 on one node (llamaperf.com), not on this "
                             "pool"},
-        "single_node": "a 64-80 GB box serves it at ~30-58 tok/s: pool it only when no node holds it"},
+        "single_node": "a 64-80 GB box serves it at ~30-58 tok/s: pool it only when no node holds it",
+        "match": ("gpt-oss:120b", "gpt-oss-120b")},
     "llama-3.3-70b-q4km": {
         "name": "llama-3.3-70b-q4km", "display": "Llama 3.3 70B Q4_K_M", "tier": 2,
         "repo": "unsloth/Llama-3.3-70B-Instruct-GGUF", "file": "Q4_K_M",
@@ -50,7 +53,7 @@ CATALOG = {
         "speed": {"tok_s_low": 3.0, "tok_s_high": 6.0, "measured": False,
                   "source": "the measured class (2.8 tok/s at 1 GbE, 5.9 at 10 GbE, 4.9-5.5 all-GPU RPC; single "
                             "sources), not this model on this pool"},
-        "single_node": "a 48 GB card holds it at 16k"},
+        "single_node": "a 48 GB card holds it at 16k", "match": ("llama3.3:70b", "llama-3.3-70b")},
 }
 ORDER = tuple(CATALOG)
 

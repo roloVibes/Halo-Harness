@@ -1,14 +1,13 @@
 # Commands: halo pool
 
-Read this when you put several machines' GPUs together for one model: list or edit the pool's members, scan the LAN for rpc-server ports, or ask what the pool can run.
+Read this when you put several machines' GPUs together for one model: list or edit the pool's members, scan the LAN for rpc-server ports, ask what the pool can run, or run the preflight, warm, stop and read the running pool.
 
-`halo pool` (3.3.8.0 R1) knows the pool and tells the truth about it before anything runs; what a pool is, the
-arithmetic of the fit and what this round does and does not do are in [POOL.md](POOL.md).
-Part of [Commands](COMMANDS.md), which lists every part. Nothing here launches `rpc-server` or `llama-server`, loads a
-model or changes a host: the only network traffic is `halo pool scan` (which you run) and the host-card reads Halo
-already does.
-Warm and stop arrive in R2. Exit codes: 0 done, 1 could not (the reason on stderr), 2 usage. Every verb takes
-`--json` (the same answer as JSON).
+`halo pool` (3.3.8.0) knows the pool, tells the truth about it before anything runs, and runs it: what a pool is,
+the arithmetic of the fit, the controller and its failure modes are in [POOL.md](POOL.md).
+Part of [Commands](COMMANDS.md), which lists every part. `members`, `add`, `remove`, `recommend`, `verdict`, `scan`
+and `preflight` launch nothing; `rpc` starts or stops a worker's rpc-server through its halo host, and `halo local
+serve --pool` / `halo pool stop` start and stop the pool. Exit codes: 0 done, 1 could not (the reason on stderr), 2
+usage. Every verb takes `--json` (the same answer as JSON).
 
 ## `halo pool members`
 
@@ -20,8 +19,8 @@ The members of `~/.halo/pool/pool.json`, one line each: the GPU and its total, w
 helper out, the models resident there, what bundles claim, the free VRAM that is left, the link ("1 GbE", "2.5 GbE",
 "Wi-Fi (adapter)", "unknown"), the RTT of the last scan ("0.4 ms", "12 ms -- Wi-Fi?", "not probed (Scan)") and the
 member's share of the tensor split. The head line sums the free VRAM and gives the split; a validation line (a name
-twice, a port out of range, a `huggingface.local_servers` entry already named `pool` -- the name R2 gives the pool) is
-marked `!`. A member whose VRAM no card reads says so and how to state it.
+twice, a port out of range, a `huggingface.local_servers` entry named `pool` that the pool did not write -- the name
+is the running pool's) is marked `!`. A member whose VRAM no card reads says so and how to state it.
 
 ## `halo pool add`
 
@@ -82,3 +81,63 @@ each `--subnet` (else `pool.scan_subnets`; a /24 at most each), then to every me
 scans on its own, and offline mode turns the network scan off. The answer is kept in `~/.halo/pool/scan.json`, so
 `halo pool members` and Local -> Pool show each member's RTT. A connect says a port is open and how far away the
 machine is; it does not say the far end is rpc-server, nor the link's speed (the host card's link does).
+
+## `halo pool preflight`
+
+```sh
+halo pool preflight <model> [--window N] [--allow-wifi] [--json]
+```
+
+Every check before the pool launches `<model>`, one row each with its lines (POOL.md "The preflight"): `fit` (each
+member's free VRAM read now; a resident Ollama model counts as room Warm pivots out), `link` (a Wi-Fi member left
+out unless `--allow-wifi`), `rpc` (each worker's rpc-server through its host, its port probed), `versions`
+(`llama-server --version` here against each rpc-server's build), `build` (the model's `min_build` on every node),
+`gguf` (the file here, else the one Download line), `resident` (what Warm pivots out first) and `window` (the fit's
+F16 window; `--window` past it uses Q8_0 KV up to the Q8_0 window; past that it is refused). The first line is
+"preflight green: ..." or "preflight blocks <model>: <the first block>"; it exits 1 when something blocks. Nothing
+starts.
+
+## `halo pool rpc`
+
+```sh
+halo pool rpc <member> on | off | status [--json]
+```
+
+A member's rpc-server through its halo host: `status` reads `GET rpc` (running, pid, port, the bound address, the
+version), `on` / `off` ask the host's `rpc_server` op (the `control` grant there; a pending row under
+`fleet.allow_control: ask`, one line naming the grant under `none`). A `local` member needs none (llama-server uses
+this machine's GPU); for a bare address the line says how to start it there by hand, and `status` probes its port.
+
+## `halo local serve --pool`
+
+```sh
+halo local serve --pool <model> [--window N] [--allow-wifi] [--keep] [--json]
+```
+
+Warms the pool (a change under the steward contract: one per 10 minutes): the preflight, the claim on every member
+with its lease (resident Ollama models pivoted out first, each said), each paired worker's rpc-server on, its version
+checked again, then `llama-server -m <gguf> --rpc ... --tensor-split ... -ngl 999 --host <LAN address> --port <p>
+--api-key <generated> -c <window>` and the `pool` entry (`hf:local/<model>@pool`). It holds the pool in the
+foreground, renewing the claims, until Ctrl+C, which stops it; `--keep` returns once it serves (a Studio on this home
+renews the claims while it runs, else they end with their lease).
+
+## `halo pool status`
+
+```sh
+halo pool status [--json]
+```
+
+The running pool: "the pool serves <model>: running", "loading", "degraded (worker2 down)" (a worker's RPC port does
+not answer, or the controller's log shows an RPC failure) or "down" (llama-server exited, its last line said); one
+line per member (up / down / this GPU, its claim and the lease left), the RPC lines of the log, and the auto-revert's
+verdict once the first three calls are in.
+
+## `halo pool stop`
+
+```sh
+halo pool stop [--json]
+```
+
+Stops the pool (a change; never held back by the 10 minute rule): llama-server stopped, the `pool` entry removed, the
+claims released, the rpc-servers the warm started turned off, and each model it pivoted out back as a stated pivot
+line ("pivot: pool -> qwen3.8:27b on pc: qwen3.8:27b reloads on pc, ~25 s").

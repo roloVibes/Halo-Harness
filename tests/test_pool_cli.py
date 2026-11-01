@@ -48,10 +48,10 @@ def test_add_members_remove(ctx: Ctx):
         rc, _o, err = _run("add", "worker2", "worker9.local")
         ctx.check(f"a name twice: 1, the line on stderr, got {rc} {err!r}", rc == 1 and "worker2 is a member twice" in err)
         rc, out, _ = _run("members")
-        ctx.check(f"members: the head with the split, each line, the R2 line, got {out!r}", rc == 0 and out.startswith(
+        ctx.check(f"members: the head with the split, each line (R3: no 'not yet' line), got {out!r}", rc == 0 and out.startswith(
             "2 members, 2 with VRAM read: 60.0 GB free of 60.0 GB; split 0.67 / 0.33 (from free VRAM)")
                   and "worker2 (192.0.2.12:50052): 20.0 GB free -- VRAM as you stated it; link unknown; RTT not probed (Scan) "
-                  "-- share 0.33" in out and "warm and stop arrive in R2" in out)
+                  "-- share 0.33" in out and "arrive in R2" not in out)
         rc, out, _ = _run("members", "--json")
         got = json.loads(out)
         ctx.check(f"members --json: the rows, the split, the port, got {list(got)}", rc == 0 and got["split"] == [0.6667, 0.3333]
@@ -63,7 +63,8 @@ def test_add_members_remove(ctx: Ctx):
         h.config(**{"huggingface.local_servers": [{"name": "pool", "url": "http://127.0.0.1:8080/v1"}]})
         rc, out, _ = _run("members")
         ctx.check(f"a local server named pool: the reserved-name line, got {out!r}", rc == 0
-                  and "! huggingface.local_servers has an entry named 'pool': the pool becomes that entry in R2" in out)
+                  and "! huggingface.local_servers has an entry named 'pool' that the pool did not write: rename it first"
+                  in out)
 
 
 @test
@@ -78,7 +79,7 @@ def test_recommend_and_verdict(ctx: Ctx):
                   and "1. Qwen3-Next-80B-A3B Q4_K_M [b7186+]: fits the pool: 2 nodes, split 0.69 / 0.31, 32k F16 / 32k Q8_0"
                   in out and "-  gpt-oss-120b MXFP4: does not fit: needs 106.0 GB with 20 GB of routing tables per node, "
                   "60.0 GB free across 2 nodes" in out and "-  Llama 3.3 70B Q4_K_M: batch-only, left out" in out
-                  and out.rstrip().endswith("warm and stop arrive in R2 (the controller); this round reads and recommends only"))
+                  and "arrive in R2" not in out)
         rc, out, _ = _run("recommend", "--batch")
         ctx.check(f"--batch: Llama ranked 2, tagged, got {rc}", rc == 0 and "2. Llama 3.3 70B Q4_K_M [batch-only]: fits the pool"
                   in out)

@@ -12,6 +12,8 @@
     release(bundle_id, *, state_dir=None, cwd=None, disable=True) -> (ok, lines)   the claim taken back, the keep_alive
         change reverted, the pack disabled
     at_exit() -> lines    the bundles this process holds released (atexit, for holder="process")
+3.3.8.0 R3: a claim a halo process holds (holder="process") carries a lease (claims_file `until`, pool.claim_lease_s)
+here and on the host, renewed by this process's heartbeat (local_sched/lease.py): a killed Studio's claim expires.
 Nothing downloads and nothing loads here: the reserved model loads on its first call (or `halo local warm <model>`).
 """
 
@@ -83,11 +85,12 @@ def claim(bundle_id: str, *, host=None, holder: str = "keep", cwd=None, state_di
            "priority": None, "keep_alive": None, "at": round(time.time(), 3), "by": "halo", "holder": holder,
            "holder_pid": os.getpid() if holder == "process" else None, "scope": "until-restart" if holder == "process"
            else "keep", "change_id": None, "escalation": b["routing"]["escalation"], "task_work": b["routing"]["task_work"],
-           "via": "local"}
+           "via": "local", "until": round(time.time() + CF.lease_s(), 3) if holder == "process" else None}
     if res:
         row.update(model=res["model"], gb=round(float(res["gb"]), 2), window=res["window"], priority=res["priority"], keep_alive=-1)
         landed, say = _host_act(h, "claim", {"model": res["model"], "gb": round(float(res["gb"]), 2), "bundle": bundle_id,
-                                             "window": int(res["window"]), "priority": res["priority"]})
+                                             "window": int(res["window"]), "priority": res["priority"],
+                                             **({"lease_s": CF.lease_s()} if holder == "process" else {})})
         if say and not landed:
             return False, lines + [f"{bundle_id}: the halo host did not take the claim: {say}"], v
         row["via"] = "host" if landed else "local"
@@ -100,6 +103,7 @@ def claim(bundle_id: str, *, host=None, holder: str = "keep", cwd=None, state_di
     forget()
     if holder == "process":
         _hold(bundle_id, state)
+        _lease(bundle_id, state, h if row["via"] == "host" else None)
     fac = free_after_claims(h, int((v.get("usable_gb") or 0) * 2 ** 30), state_dir=state)
     lines.append(fac["line"] + f" on {v['host']}")
     lines.append(_routing_line(b, v))
@@ -127,6 +131,22 @@ def _hold(bundle_id: str, state) -> None:
         _HOOKED[0] = True
 
 
+def _lease(bundle_id: str, state, host) -> None:
+    """The heartbeat renews this bundle's claim here and on the host while this process lives (3.3.8.0 R3)."""
+    from halo_harness.local_sched import lease
+
+    def renew(until: float) -> list:
+        from pathlib import Path
+        if not Path(state).is_dir():  # that home is gone (a test's scratch home): nothing to renew
+            return []
+        out = [f"{len(CF.renew(CF.local_file(state), bundle_id, until))} local"]
+        if host is not None:
+            ok, say = _host_act(host, "renew", {"bundle": bundle_id, "lease_s": CF.lease_s()})
+            out.append(say if ok else f"the host did not renew it ({say or 'no answer'})")
+        return out
+    lease.hold(f"bundle:{bundle_id}", renew)
+
+
 def release(bundle_id: str, *, state_dir=None, cwd=None, disable: bool = True) -> "tuple[bool, list]":
     from halo_harness.local_sched.facts import host_named
     from halo_harness.local_sched.reserve import forget
@@ -144,6 +164,8 @@ def release(bundle_id: str, *, state_dir=None, cwd=None, disable: bool = True) -
         if r.get("model"):
             lines.append(f"released {r['model']} on {r.get('host')} ({float(r.get('gb') or 0):g} GB)")
     _MINE.pop(bundle_id, None)
+    from halo_harness.local_sched import lease
+    lease.release(f"bundle:{bundle_id}")
     forget()
     if disable:
         from halo_harness.packs import grants as G

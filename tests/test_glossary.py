@@ -40,7 +40,8 @@ BRIEF = ("lineup", "bio", "role", "tier", "team", "member", "block", "stage", "l
          "scope", "warm-up", "vision", "eyes", "pivot", "warm set", "loading tax", "placement",
          "foreign client", "refresh", "drift", "adviser",
          "bundle", "reservation", "verdict",
-         "pool", "rpc-server", "tensor split", "pooled inference", "server log", "runtime")  # 3.3.8.0 R2: the local servers' two; 3.3.8.0 R1: the pool's four; 3.3.7.0 R5: the bundles' three; 3.3.7.0 R4: the guards' four; 3.3.7.0 R3: the scheduler's four; 3.3.7.0 R2: fix, duty steward, offline promise; 3.3.6.0 R6: which models can see, the offer  # 3.3.6.0 R5: the bench's two; 3.3.6.0 R4: the cards' five; 3.3.6.0 R3: the log's two; 3.3.6.0 R2: the three truths and the crash fingerprint; 3.3.5.0 R2: the Library's two; 3.2.1.0 R1: "pack"; 3.2.2.0 R2: "guided first run"; 3.3.0.0 R1: Setup's three; 3.3.3.0 R2: Settings' one; 3.3.4.0 R5: the steward's three; 3.3.5.0 R1: Local's two
+         "pool", "rpc-server", "tensor split", "pooled inference", "server log", "runtime",
+         "claim lease", "preflight")  # 3.3.8.0 R3: the controller's two; 3.3.8.0 R2: the local servers' two; 3.3.8.0 R1: the pool's four; 3.3.7.0 R5: the bundles' three; 3.3.7.0 R4: the guards' four; 3.3.7.0 R3: the scheduler's four; 3.3.7.0 R2: fix, duty steward, offline promise; 3.3.6.0 R6: which models can see, the offer  # 3.3.6.0 R5: the bench's two; 3.3.6.0 R4: the cards' five; 3.3.6.0 R3: the log's two; 3.3.6.0 R2: the three truths and the crash fingerprint; 3.3.5.0 R2: the Library's two; 3.2.1.0 R1: "pack"; 3.2.2.0 R2: "guided first run"; 3.3.0.0 R1: Setup's three; 3.3.3.0 R2: Settings' one; 3.3.4.0 R5: the steward's three; 3.3.5.0 R1: Local's two
 
 
 def _explain(*argv):

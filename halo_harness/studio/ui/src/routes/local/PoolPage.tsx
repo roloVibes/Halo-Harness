@@ -1,14 +1,15 @@
-// Local -> Pool (3.3.8.0 R1; docs/POOL.md): several paired hosts' GPU memory serving one model over llama.cpp RPC,
-// read-only this round. The members (PoolMembers.tsx: host, GPU, free / total VRAM, link, RTT, the split), what the
-// pool can run (PoolRecommend.tsx: the fit and the preview before any download), Scan (the RPC port on this machine's
-// /24 and on every member -- only when pressed, never on a page load) with Add on each new responder, and the line
-// that says what the pool cannot do yet. The page reads the members and the recommendation on open and every 30 s
-// while it is open (poolstore.ts); nothing here launches a process, loads a model or changes a host.
+// Local -> Pool (3.3.8.0 R1 + R3; docs/POOL.md): several paired hosts' GPU memory serving one model over llama.cpp RPC.
+// The members (PoolMembers.tsx: host, GPU, free / total VRAM, link, RTT, the split), Warm and Stop (PoolRun.tsx: the
+// preflight's checks, Warm only when they are green, the running pool's state and claims), Scan (the RPC port on this
+// machine's /24 and on every member -- only when pressed, never on a page load) with Add on each new responder, and
+// what the pool can run (PoolRecommend.tsx: the fit and the preview before any download). The page reads the members
+// and the recommendation on open and every 30 s while it is open (poolstore.ts), the run every 10 s (poolrunstore.ts).
 import { useEffect } from "react";
 import { Button } from "../../lib/ui";
 import { HfCards } from "./HfCards";
 import { PoolMembers } from "./PoolMembers";
 import { PoolRecommend } from "./PoolRecommend";
+import { PoolRun } from "./PoolRun";
 import { addMember, loadPool, nameFor, REFRESH_MS, scanNow, usePool, type Probe } from "./poolstore";
 
 function Candidate({ c }: { c: Probe }) {
@@ -64,7 +65,6 @@ function ScanBlock() {
 
 export function PoolPage() {
   const error = usePool((s) => s.error);
-  const notYet = usePool((s) => s.members?.not_yet || "");
   useEffect(() => {
     loadPool();
     const id = window.setInterval(() => {
@@ -74,11 +74,14 @@ export function PoolPage() {
   }, []);
   return (
     <div className="lc-pool" data-testid="local-pool">
-      <p className="mono pool-not-yet" data-testid="pool-not-yet">
-        {notYet || "warm and stop arrive in R2"} -- pooling adds capacity, not speed: measured 21-55 % slower than one node that holds the model.
+      <p className="mono pool-note" data-testid="pool-note">
+        Pooling adds capacity, not speed: measured 21-55 % slower than one node that holds the model. rpc-server has no
+        authentication -- a trusted LAN only; the pool's llama-server listens on this machine's LAN address behind a
+        generated key.
       </p>
       {error && <p className="mono lc-said" data-testid="pool-error">{error}</p>}
       <PoolMembers />
+      <PoolRun />
       <ScanBlock />
       <PoolRecommend />
       <HfCards />
