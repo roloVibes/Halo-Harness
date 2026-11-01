@@ -12,7 +12,7 @@ setup. With nothing ticked, or only the guided first run, Finish closes at
 once. The guided first run row IS the hand-off: it sets `state.run_start`
 and `halo init` runs `halo start` after the wizard has closed (it needs the
 terminal); Esc while the checks run closes setup with no hand-off
-(`state.checks_cancel`). A /setup Summary (no `offer_start`) shows the first four rows.
+(`state.checks_cancel`). A /setup Summary (no `offer_start`) shows every row but the start.
 
 `SummaryChecks` is the SummaryStep's half that holds this: `check_widgets()`,
 `ticked()`, `begin()` (False when nothing runs in the Summary) and the

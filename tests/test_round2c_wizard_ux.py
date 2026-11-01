@@ -718,10 +718,10 @@ def test_summary_change_jumps_back_into_a_step(ctx: Ctx):
 
 @test
 def test_summary_check_rows_space_toggles_finish_runs_the_ticked(ctx: Ctx):
-    """The standalone `halo init` Summary has the five check rows (doctor, catalog, hello on; the gym and the
-    guided first run off), each its title and a muted what / cost / time line; Space toggles the highlighted row;
+    """The standalone `halo init` Summary has the six check rows (doctor, catalog, hello on; the steward row (3.3.7.0
+    R5, on when an installed candidate fits), the gym and the guided first run off), each its title and a muted what / cost / time line; Space toggles the highlighted row;
     Finish runs the ticked ones in order (stubbed) and prints each one's lines, then Finish closes setup; only the
-    start ticked: Finish closes at once with `run_start`; a /setup Summary has four rows."""
+    start ticked: Finish closes at once with `run_start`; a /setup Summary has five rows."""
     from halo_harness.start import checks as C
     from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState
 
@@ -738,7 +738,7 @@ def test_summary_check_rows_space_toggles_finish_runs_the_ticked(ctx: Ctx):
                 out["prompt"] = str(getattr(rows.get_option_at_index(0).prompt, "plain", rows.get_option_at_index(0).prompt))
                 out["focus"] = getattr(app.focused, "id", None)
                 if keys_to_tick is None:  # Space on the highlighted rows: catalog off, the gym on
-                    await pilot.press("down", "space", "down", "down", "space")
+                    await pilot.press("down", "space", "down", "down", "down", "space")  # past the steward row
                 else:
                     rows.deselect_all()
                     for k in keys_to_tick:
@@ -761,7 +761,7 @@ def test_summary_check_rows_space_toggles_finish_runs_the_ticked(ctx: Ctx):
         for c in C.CHECKS:
             c["run"] = (lambda k: (lambda _ctx: ran.append(k) or [f"{k}: stub line"]))(c["key"])
         got = asyncio.run(drive(True, None))
-        ctx.check(f"five rows in order, got {got['keys']}", got["keys"] == list(C.KEYS))
+        ctx.check(f"six rows in order, got {got['keys']}", got["keys"] == list(C.KEYS))
         ctx.check(f"the defaults: doctor, catalog, hello, got {got['ticked']}", got["ticked"] == ["doctor", "catalog", "hello"])
         ctx.check(f"a row: its title then its what / cost / time line, got {got['prompt'][:90]!r}",
                   got["prompt"].startswith("[x] Doctor\n") and "Cost: free. Time: seconds." in got["prompt"])
@@ -777,8 +777,8 @@ def test_summary_check_rows_space_toggles_finish_runs_the_ticked(ctx: Ctx):
         ctx.check(f"only the start: Finish closes at once, run_start, nothing ran, got {got['screen']} {ran} {got['run_start']}",
                   got["screen"] != "SummaryStep" and ran == [] and got["run_start"] is True)
         got = asyncio.run(drive(False, []))
-        ctx.check(f"a /setup Summary: four rows, nothing ticked runs none, got {got['keys']} {ran}",
-                  got["keys"] == ["doctor", "catalog", "hello", "gym"] and ran == [] and got["run_start"] is False)
+        ctx.check(f"a /setup Summary: five rows, nothing ticked runs none, got {got['keys']} {ran}",
+                  got["keys"] == ["doctor", "catalog", "hello", "steward", "gym"] and ran == [] and got["run_start"] is False)
     finally:
         for c in C.CHECKS:
             c["run"] = saved[c["key"]]

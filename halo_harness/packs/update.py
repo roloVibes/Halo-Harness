@@ -48,7 +48,13 @@ def _copy_file(src: Path, dest: Path) -> None:  # one seam for the tests' copy e
 
 
 def _rename(a: Path, b: Path) -> None:  # one seam for the tests' swap error
-    os.rename(a, b)
+    for i in range(20):  # Windows: a handle still open inside the folder refuses the rename for a moment (WinError 5)
+        try:
+            return os.rename(a, b)
+        except PermissionError:
+            if i == 19:
+                raise
+            time.sleep(0.1)
 
 
 def plan(root: Path, src: Path, owned: dict) -> dict:
