@@ -183,7 +183,7 @@ def focus(c, rig) -> dict:
         time.sleep(0.1)
     r = open_edit(SectionTarget("session", FAKE_SID, "this session"), cwd=rig.proj, state_dir=rig.state)
     out["focus_how"], out["focus_line"] = r["how"], describe(r)
-    out["focus_tab"] = c.wait(f"{TAB}.startsWith('Session') && {TAB}", 15)
+    out["focus_tab"] = c.wait(f"{TAB}.startsWith('Session') && {TAB}", 30)  # 15 s timed out once on the Linux runner (41264332045)
     out["focus_agent"] = c.wait(f"{AGENT}?.dataset.key?.includes('|{FAKE_SID}|') && {AGENT}.dataset.key", 20)
     out["focus_tabs_opened"] = len(opened)
     return out
