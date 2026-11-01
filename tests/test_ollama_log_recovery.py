@@ -195,6 +195,50 @@ def test_no_log_no_change(ctx: Ctx):
               not any("the log shows" in x for x in _lines(evs)) and len(chats) == 1 and led and led[0].get("log_events") is None)
 
 
+@test
+def test_an_hf_local_call_reads_its_servers_log_the_same_way(ctx: Ctx):
+    """3.3.8.0 R2: the ledger's writer hands an OpenAI-dialect local call to agent/server_log_recovery.py: the lines of
+    this call in the server's own log (llama-server, Halo's process log) go on its ledger line, a crash is
+    fingerprinted at once with Halo's launch command, and the turn says one line each."""
+    from types import SimpleNamespace
+    from halo_harness.agent import server_log_recovery as R
+    from halo_harness.ollama_steward.fingerprints import read
+    from halo_harness.ollama_steward.ledger import read_calls
+    from halo_harness.ollama_steward.ledger_call import observe_call
+    from tests.helpers.servers_seed import LLAMA_CRASH, Home
+
+    def _call(session, appended: str):
+        R.SEAMS["before_read"] = lambda _s: h.append(h.llama_log, appended)
+        req = SimpleNamespace(route=SimpleNamespace(provider="huggingface", dialect="openai-chat", upstream_model="qwen3-8b"),
+                              creds=SimpleNamespace(base_url="http://127.0.0.1:8080/v1"), body={"model": "qwen3-8b", "messages": []})
+        gen = iter([{"type": "message_delta", "delta": {"stop_reason": "end_turn"}, "usage": {"input_tokens": 4560,
+                                                                                            "output_tokens": 40}}])
+        list(observe_call(session, req, gen))
+        return R.after_call(session)
+    with Home(lms=False, mlx=False, pid=None) as h:
+        try:
+            s = SimpleNamespace(state_dir=h.state, log=SimpleNamespace(session_id="hf-1"), turn_count=1, model_ref=None)
+            said = _call(s, "slot update_slots: id  0 | task 7 | input truncated, n_ctx = 8192, n_keep = 0, n_left = 8192\n"
+                            "srv  log_server_r: request: POST /v1/chat/completions 127.0.0.1 200\n")
+            led = read_calls(h.state)
+            ctx.check(f"the ledger line carries the log's kinds, got {[x.get('log_events') for x in led]}",
+                      led and led[-1].get("log_events") == ["prompt-trimmed"])
+            ctx.check(f"the turn says it, got {said}", said and said[0].startswith("the log of llama-8080 shows llama-server cut"))
+            said = _call(s, LLAMA_CRASH)
+            fps = read(h.state, host="llama-8080")
+            ctx.check(f"a crash: its fingerprint at once with Halo's launch command, got {fps[:1]}", fps
+                      and "--alias qwen3-8b" in (fps[0].get("load_cmd") or "") and fps[0].get("runtime") == "llama-server")
+            ctx.check(f"the turn names the crash, got {said}", any("halo ollama crashes --why" in x for x in said))
+            s2 = SimpleNamespace(state_dir=h.state, log=SimpleNamespace(session_id="hf-2"), turn_count=1, model_ref=None)
+            req = SimpleNamespace(route=SimpleNamespace(provider="huggingface", dialect="openai-chat", upstream_model="m"),
+                                  creds=SimpleNamespace(base_url="http://127.0.0.1:8090/v1"), body={"model": "m", "messages": []})
+            list(observe_call(s2, req, iter([{"type": "message_delta", "delta": {}, "usage": {}}])))
+            ctx.check("a server with no readable log: log_events None, nothing said",
+                      read_calls(h.state)[-1].get("log_events") is None and R.after_call(s2) == [])
+        finally:
+            R.SEAMS.pop("before_read", None)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

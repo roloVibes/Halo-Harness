@@ -30,8 +30,11 @@ LIVE_SLACK_S = 60.0
 RECENT_S = 900.0
 _TAIL_BYTES = 256 * 1024
 GROUPS = (("failure", ("CUDA error", "illegal memory access", "terminated", "level=ERROR", "| 500 |", "| 499 |",
-                       "aborting", "Load failed", "out of memory", "0xc0000409", "no user query")),
-          ("truncation", ("truncating input prompt", "truncated = 1", "failed to find a memory slot", "context shift")),
+                       "aborting", "Load failed", "out of memory", "0xc0000409", "no user query",
+                       "GGML_ASSERT", "failed to load model", "model has crashed", "Traceback")),  # 3.3.8.0 R2
+          ("truncation", ("truncating input prompt", "truncated = 1", "failed to find a memory slot", "context shift",
+                          "input truncated", "exceeds the available context size", "context the overflows",
+                          "stopped by limit")),
           ("fit", ("offloaded", "KV buffer size", "graph splits", "overflowing", "starting llama-server",
                    "llama-server started", "load_tensors", "llama_kv_cache")),
           ("headroom", ('msg="gpu memory"', 'msg="system memory"', "inference compute", "common_memory_breakdown")))

@@ -7,8 +7,9 @@ that called box. No provider request, no model call, never a real ssh:
 `logs`: the page opens from its door (`?page=logs`), box picked; the status line names the state and the path, Copy
 the tail command says it on its row; the per-model row for qwen3.8:27b says spilled with 59/66 layers, its cut
 prompt, its error lines and "crashed here"; the tail's lines carry their groups, the truncation filter keeps the cut
-line only; Live on, a line appended to the log arrives within a poll. The last stdout line is the JSON of what it saw
-(exit 2: no Chrome)."""
+line only; Live on, a line appended to the log arrives within a poll. 3.3.8.0 R2: a llama-server Halo started is
+listed beside the hosts; picked, its status line carries its runtime and its log's path, its per-model row the window
+per slot and the spill. The last stdout line is the JSON of what it saw (exit 2: no Chrome)."""
 from __future__ import annotations
 
 import sys
@@ -43,9 +44,54 @@ def _seed(ctx) -> Path:
     return log
 
 
+def _seed_server(ctx) -> str:
+    """3.3.8.0 R2: a llama-server Halo started (its registry row, its log: tests/helpers/servers_seed.py's fixture) on a
+    port held bound and never listened on, so any probe of it is refused here; `ready: false` with this process's pid
+    keeps the row (a server mid-load), `keep` keeps the exit sweep off this process. Returns its name."""
+    import json
+    import os
+    import socket
+    from tests.helpers.servers_seed import LLAMA_LOG
+    hold = socket.socket()
+    hold.bind(("127.0.0.1", 0))
+    ctx["held_port"] = hold  # kept open for the run
+    port = hold.getsockname()[1]
+    name = f"llama-{port}"
+    log = Path(ctx["state"]) / "local" / "servers" / f"{name}.log"
+    log.parent.mkdir(parents=True, exist_ok=True)
+    log.write_text(LLAMA_LOG, encoding="utf-8")
+    row = {"id": name, "kind": "llama-server", "model": "qwen3-8b", "port": port, "pid": os.getpid(), "halo": True,
+           "ready": False, "keep": True, "base_url": f"http://127.0.0.1:{port}/v1", "log": str(log),
+           "cmdline": ["llama-server", "--alias", "qwen3-8b", "--port", str(port)]}
+    (Path(ctx["state"]) / "run").mkdir(parents=True, exist_ok=True)
+    (Path(ctx["state"]) / "run" / "local-servers.json").write_text(json.dumps([row]), encoding="utf-8")
+    from halo_harness.ollama_steward import servers_hf
+    from halo_harness.ollama_steward.server_log_hf import scan
+    servers_hf.reset()
+    scan(ctx["state"], servers_hf.by_name(name, ctx["state"]), from_start=True)
+    return name
+
+
+def _server_steps(c, out: dict, name: str) -> None:
+    """Pick the server beside the hosts: its status line with its runtime, its per-model row with the window."""
+    host, status = q("[data-testid=local-logs-host]"), q("[data-testid=local-logs-status-line]")
+    c.wait(f"!!{host} && [...{host}.options].some((o) => o.value === '{name}')", 30)
+    set_field(c, host, name, "change")
+    runtime = q("[data-testid=local-logs-runtime]")
+    out["server_name"] = name
+    out["server_status"] = c.wait(f"{q('[data-testid=local-logs]')}?.dataset.host === '{name}' && !!{status} && "
+                                  f"{status}.textContent.includes('{name}.log') && !!{runtime} && "
+                                  f"[{status}.dataset.state, {runtime}.textContent, {status}.textContent]", 30)
+    row = q('[data-testid=local-logs-model][data-model="qwen3-8b"]')
+    out["server_row"] = c.wait(f"!!{row} && {row}.dataset.load === 'spilled' && "
+                               f"!!{row}.querySelector('[data-testid=local-logs-load-facts]') && "
+                               f"[{row}.dataset.load, {row}.querySelector('[data-testid=local-logs-load-facts]').textContent]", 30)
+
+
 def logs(c, url, ctx) -> dict:
     from tests.helpers.logs_rig import GIN
     log = _seed(ctx)
+    name = _seed_server(ctx)
     c.go(f"{ctx['base']}?mode=local&page=logs&tour=off#{ctx['frag']}")
     c.wait(f"{PAGE} === 'logs'", 40)
     host = q("[data-testid=local-logs-host]")
@@ -74,6 +120,8 @@ def logs(c, url, ctx) -> dict:
         f.write(GIN(90, 499, "4.2862269s") + "\n")
     out["live"] = c.wait(f"{lines}.some((x) => x.textContent.includes('| 499 |')) && 'arrived'", 20)
     out["dialogs"] = c.js("document.querySelectorAll('[role=dialog]').length")
+    press(c, q("[data-testid=local-logs-live]"), f"!{q('[data-testid=local-logs-live]')}.checked")
+    _server_steps(c, out, name)
     return out
 
 

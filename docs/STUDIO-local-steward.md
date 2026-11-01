@@ -8,10 +8,12 @@ Part of [Halo Studio](STUDIO.md), which lists every part. The other Local pages 
 
 ## The Steward page (3.3.7.0 R5)
 
-Local's eighth page, built in 3.3.7.0 R5 from the frame it had since 3.3.5.0, holds four blocks:
+Local's eighth page, built in 3.3.7.0 R5 from the frame it had since 3.3.5.0, holds four blocks (five since 3.3.8.0 R2):
 
 - **The steward now**: the steward job's status line and its last note (the Ollama panel's steward block, read the
   same way: `GET ollama/steward`).
+- **Findings** (3.3.8.0 R2, `StewardFindings.tsx`): every host's and every local server's findings of the last day
+  (`GET ollama/hosts`), the Ollama panel's rows with Apply and Dismiss; a local server's carries its runtime as a chip.
 - **Talk to the steward**: the chat box (below).
 - **The steward's model**: the candidates (below), open while none is chosen.
 - **The off-hours refresh** (3.3.7.0 R4): tonight's plan, the last run, the last roster review.

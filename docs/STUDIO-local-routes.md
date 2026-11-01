@@ -32,6 +32,7 @@ Studio route; never a model call:
 | `GET local/crashes?host=` | the crash fingerprints (`ollama_steward/fingerprints.py`) |
 | `GET local/host/<name>/log?n=200&kind=all\|fit\|headroom\|truncation\|failure` | 3.3.6.0 R3: the bounded tail, each line's group and time, its source, `cli` and `tail_cli` |
 | `GET local/host/<name>/log/status`, `GET local/host/<name>/log/models` | the log status (`ollama_steward/log_status.py`); per model the last load, this session's cuts, the errors, the crash |
+| `GET local/logs/servers` | 3.3.8.0 R2: the local servers the Logs page lists beside the hosts (`{name, runtime, source, url}`); the three log routes above answer a server's name too (`studio/local_logs_servers.py`: its runtime, the window per slot, what its log never says) |
 | `POST local/host/<name>/pull {name}` | a pull job (a second ask joins it); its view and `cli` |
 | `POST local/pull/<id>/cancel` | stop it (Ollama keeps the layers it has) |
 | `GET local/pulls` | every pull running and the last ended ones |

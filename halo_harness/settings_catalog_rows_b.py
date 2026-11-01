@@ -23,7 +23,7 @@ ROWS = [
     Row("experiential.zdr", "providers", "Experiential zero data retention", "bool", False, (), "Ask for zero-data-retention routing on every xp: request.", "now"),
     Row("huggingface.endpoints", "providers", "Hugging Face endpoints", "list", None, (), "Dedicated endpoints, each with name, url, token_env and default; hf:endpoint/<name> picks one.", "now"),
     Row("huggingface.bill_to", "providers", "Hugging Face bill to", "string", None, (), "A Team or Enterprise org name billed for every router request.", "now"),
-    Row("huggingface.local_servers", "providers", "Hugging Face local servers", "list", None, (), "Local servers, each with name, url, api_key_env, default and offline_ok; hf:local/<model>@<name> picks one.", "now"),
+    Row("huggingface.local_servers", "providers", "Hugging Face local servers", "list", None, (), "Local servers, each with name, url, api_key_env, default and offline_ok (and log, runtime: the server log the steward reads, llama-server, lmstudio or mlx); hf:local/<model>@<name> picks one.", "now"),
     Row("huggingface.local_probe_ports", "providers", "Local probe ports", "list", [8080, 8000, 1234], (), "The loopback ports the hf:local auto-detect sweep asks.", "now"),
     Row("huggingface.llama_server_bin", "providers", "llama-server program", "path", None, (), "The llama-server Serve starts (a path, or the program and its first arguments); unset, llama-server on PATH or the one Halo fetched.", "now"),
     Row("huggingface.lmstudio_models_dir", "providers", "LM Studio model folder", "path", "~/.lmstudio/models", (), "Where LM Studio keeps its models, when its own Model Storage setting moved them.", "now"),

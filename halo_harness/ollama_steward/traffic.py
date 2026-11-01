@@ -55,7 +55,11 @@ def canonical_host(host: dict, hosts: list) -> "tuple[str, Optional[object]]":
         for h in hosts:
             if served_here(h.url) and _port(h.url) == _port(url):
                 return h.name, h
-    return name, None
+    try:  # 3.3.8.0 R2: a local server's line (llama-server, LM Studio, mlx) under the server's own name
+        from halo_harness.ollama_steward.servers_hf import name_for_url
+        return name_for_url(url) or name, None
+    except Exception:
+        return name, None
 
 
 def rollup(lines: list, hosts: list) -> list:

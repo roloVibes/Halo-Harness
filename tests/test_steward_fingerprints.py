@@ -131,6 +131,34 @@ def test_the_fingerprint_travels_with_the_ledger_push(ctx: Ctx):
               n == 1 and again == 0 and got[0]["host"] == "mac@studio:box" and got[0]["from"] == "mac@studio")
 
 
+@test
+def test_a_fingerprint_carries_the_tags_digest_and_counts_one_build(ctx: Ctx):
+    """3.3.8.0 R2: the build a crash ran on; a repeat on another build is not counted with it, and a crash on a
+    build the tag no longer has is stale (judged by the digest, not by its age)."""
+    import time
+    from halo_harness.ollama_steward import tag_digests
+    from halo_harness.ollama_steward.fingerprint_hf import same_build
+    from halo_harness.ollama_steward.fingerprints import read
+    with SearchHome(card=box_card()) as h:
+        tag_digests.observe(h.state, "box", [{"model": "qwen3.8:27b", "digest": "sha256:aaaa"}])
+        h.events(_load())
+        h.events(_ev(IMA))
+        first = read(h.state, host="box")
+        tag_digests.observe(h.state, "box", [{"model": "qwen3.8:27b", "digest": "sha256:bbbb"}])
+        later = time.time() + 3600
+        h.events({**_load(), "at": later - 10}, {**_ev(IMA), "at": later})
+        rows = read(h.state, host="box")
+    ctx.check(f"the digest on the fingerprint, got {first[0].get('digest') if first else None}",
+              first and first[0].get("digest") == "sha256:aaaa")
+    ctx.check(f"the same crash on another build counts 1, got {[(r.get('digest'), r.get('count')) for r in rows]}",
+              len(rows) == 2 and rows[0]["digest"] == "sha256:bbbb" and rows[0]["count"] == 1)
+    with SearchHome(card=box_card()) as h:
+        tag_digests.observe(h.state, "box", [{"model": "qwen3.8:27b", "digest": "sha256:bbbb"}])
+        ctx.check("an old build's crash is stale", same_build(h.state, {**rows[1], "host": "box"}) is False)
+        ctx.check("the build it runs now is the same", same_build(h.state, {**rows[0], "host": "box"}) is True)
+        ctx.check("no digest: not judged", same_build(h.state, {"host": "box", "model": "x"}) is None)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

@@ -107,6 +107,9 @@ def crash_rules(ctx: dict) -> list:
     for fp in read(state_dir):
         if int(fp.get("count") or 1) < 2 or fp.get("from") or not fp.get("model"):
             continue
+        from halo_harness.ollama_steward.fingerprint_hf import same_build  # 3.3.8.0 R2: judged by the build it ran
+        if same_build(state_dir, fp) is False:
+            continue
         host = hosts.get(str(fp.get("host") or "").lower())
         name = host.name if host is not None else str(fp.get("host") or "?")
         key = key_for(name, fp["model"])
@@ -114,7 +117,11 @@ def crash_rules(ctx: dict) -> list:
             continue
         seen.add(key)
         group = {"host": name, "model": fp["model"], "key": key}
-        fixes = fixes_for(fp, host, _profile(state_dir, fp["model"], name))
+        if fp.get("runtime"):  # 3.3.8.0 R2: a local server's crash: its runtime's lines (tune_lines_hf.py)
+            from halo_harness.ollama_steward.tune_lines_hf import crash_fixes
+            fixes = crash_fixes(fp)
+        else:
+            fixes = fixes_for(fp, host, _profile(state_dir, fp["model"], name))
         to = _smaller(fp, _profile(state_dir, fp["model"], name))
         cur = ((ctx.get("profiles") or {}).get(key) or {}).get("num_ctx") or fp.get("window_used")
         prop = proposal("num_ctx", cur, to, f"{fp['count']} crashes ({fp.get('signature')}) at "
@@ -126,5 +133,6 @@ def crash_rules(ctx: dict) -> list:
                 ("; ".join(f["line"] for f in fixes[:3]) or "no fix is known for this signature yet"))
         out.append(finding("crash-repeats", group, "error", text, numbers={"count": fp["count"], "window": fp.get("window_used")},
                            proposal=prop, server_hint={"env": None, "line": hint_fix["line"], "cost": hint_fix["cost"]}
-                           if hint_fix else None, fixes=fixes, fingerprint=fp.get("line")))
+                           if hint_fix else None, fixes=fixes, fingerprint=fp.get("line"),
+                           **({"server": name, "runtime": fp["runtime"]} if fp.get("runtime") else {})))
     return out

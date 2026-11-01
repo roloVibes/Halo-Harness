@@ -121,7 +121,8 @@ def test_the_local_view_the_refresh_and_the_local_pages_never_read_it(ctx: Ctx):
         # 3.3.6.0 R2: the search, its presets and crashes, Download and verify under the flag
         h.api("GET", "local/library", query={"q": "qwen3", "source": "ollama", "preset": "coder", "exclude_crashed": "1"})
         for path in ("local/library/presets", "local/library/verifies", "local/crashes",
-                     "local/host/default/log", "local/host/default/log/status", "local/host/default/log/models"):
+                     "local/host/default/log", "local/host/default/log/status", "local/host/default/log/models",
+                     "local/logs/servers"):  # 3.3.8.0 R2: the local servers beside the hosts
             h.api("GET", path)  # 3.3.6.0 R3: Local -> Logs reads the log file, never the server
         h.api("POST", "local/library/verify", {"host": "default", "name": "qwen3:30b", "role": "verify"})
         h.api("GET", "local/host/default/show", query={"model": "qwen3:30b"})

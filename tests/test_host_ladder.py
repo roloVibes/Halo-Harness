@@ -155,6 +155,58 @@ def test_probe_and_bench_through_a_host_say_r2(ctx: Ctx):
                   and pc["host"]["started"] and pc["host"]["audit_count"] >= 1 and not pc["host"]["error"])
 
 
+@test
+def test_a_local_server_on_the_hosts_machine_reads_through_the_host(ctx: Ctx):
+    """3.3.8.0 R2: `halo ollama hardware --host` lists that machine's servers; a peer's entry for one (its LAN url)
+    reads its status and tail through the host, sizes only."""
+    from halo_harness.ollama_steward.cli import cmd_ollama_hardware
+    from halo_harness.ollama_steward.log_status_hf import status
+    from halo_harness.ollama_steward.server_log_hf import tail_lines
+    from halo_harness.ollama_steward.servers_hf import Server
+    from tests.helpers.host_rig import host_server
+    with HostRig() as rig:
+        srv = host_server(rig.home)
+        rig.readers["servers"] = lambda: [srv]
+        rig.start()
+        rig.pair()
+        out = io.StringIO()
+        with redirect_stdout(out):
+            rc = cmd_ollama_hardware(["--host", "pc"])
+        ctx.check(f"the card lists the server via the host, got {out.getvalue()!r}", rc == 0
+                  and "local server llama-8080: llama-server, qwen3-8b, window 8,192 per slot" in out.getvalue())
+        mine = Server("box", "http://192.0.2.10:8080/v1", "llama-server")
+        st = status(rig.peer, mine)
+        ctx.check(f"the status: rung host, via host, got {st['rung']} {st['line']!r}", st["rung"] == "host"
+                  and "via host 127.0.0.1" in st["line"])
+        lines, source, why = tail_lines(mine, 20)
+        ctx.check(f"the tail through the host, got {source} {why} {lines}", source.startswith("via host 127.0.0.1")
+                  and any("input truncated" in x for x in lines) and not any("the secret plan" in x for x in lines))
+
+
+@test
+def test_the_hosts_local_servers_through_the_signed_api(ctx: Ctx):
+    """3.3.8.0 R2: the card lists the machine's llama-server / LM Studio / mlx servers (runtime, model, window per
+    slot, log status), `events` carries theirs, `tail?host=<server>` reads its log -- never a prompt body."""
+    from tests.helpers.host_rig import host_server
+    with HostRig() as rig:
+        srv = host_server(rig.home)
+        rig.readers["servers"] = lambda: [srv]
+        rig.start()
+        rig.pair()
+        c = rig.client()
+        rows = c.card().get("servers") or []
+        ctx.check(f"the card's servers, got {rows}", len(rows) == 1 and rows[0]["name"] == "llama-8080"
+                  and rows[0]["port"] == 8080 and rows[0]["runtime"] == "llama-server" and rows[0]["window"] == 8192
+                  and rows[0]["model"] == "qwen3-8b" and rows[0]["log"]["readable"])
+        evs = [e for e in c.events()["events"] if e.get("server")]
+        ctx.check(f"its events, on its port, got {evs}", evs and evs[0]["host"] == "llama-8080" and evs[0]["port"] == 8080
+                  and evs[0]["runtime"] == "llama-server")
+        got = c.tail(50, host="llama-8080")
+        text = " | ".join(got["lines"])
+        ctx.check(f"its log, the body line replaced by its size, got {got}", got.get("server") and "input truncated" in text
+                  and "the secret plan" not in text and "stays on this machine" in text)
+        ctx.check("the Ollama tail is as before", "prompt=41104" in " | ".join(c.tail(50)["lines"]))
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)
