@@ -46,14 +46,17 @@ pool. Open for the owner's live check: pair SAMUS as a worker, `halo pool prefli
 --host pool --quick` (the card, the penalty line, the key file's path in the process list), pull SAMUS's cable
 mid-reply (one `pool-degraded` line); from the Mac `halo local log pool`, `halo pack verdict big-reasoner`, `halo
 local advise` with the pool among the candidates; from Kali `halo pack on big-reasoner` against the PC's pool and a
-host-served llama-server change landing through the host. **Next:** 3.3.9.0 "Voice" (ROADMAP Part K: the local
+host-served llama-server change landing through the host. **Next:** 3.3.8.1 "Bench from any halo" (ROADMAP "ADDED 2026-11-02 morning": a peer benches a remote Ollama host over
+the LAN when no halo host serves it, the card labelled with the link; the 409 becomes an offer), then 3.3.9.0 "Voice" (ROADMAP Part K: the local
 loop Silero VAD -> faster-whisper or Parakeet -> the session's model -> Kokoro or Qwen3-TTS, barge-in, as a bundle
 with its reservation; the glasses path; the speech models the glasses bundle says "arrive with Voice"), then --
 after every local-model build -- 3.3.10.0 "Pack policy" (GitHub issue #4: the pre-tool-call verdict API a pack
 declares and the harness enforces, docs/EXTENSION_API.md updated in the same change), 3.3.11.0 "Type into Studio"
 (the Prompt panel over the control socket, the composer's paste), 3.3.12.0 "Themes and parity" (+ issue #5
-mode-aware theming from a pack's state file). The owner's rule: all local-model work first; issues #4 and #5 only
-after it.
+mode-aware theming from a pack's state file; the pack gaps A-E mapped in ROADMAP "ADDED 2026-11-02 noon ... the
+pack-capability plan"), then 3.3.13.0 "Federation" (ROADMAP "ADDED 2026-11-02 morning": offers,
+delegation chains, hub-less hosts, knowledge with provenance, track records, policy that travels). Then 3.3.14.0 "Pack trust" (signed manifests, trusted sources, the capability review, provenance). The owner's rule:
+all local-model work first; issues #4 and #5 only after it; Federation after those.
 
 ### Before it: 2026-11-01 evening
 

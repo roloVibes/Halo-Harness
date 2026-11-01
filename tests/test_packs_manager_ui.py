@@ -115,8 +115,10 @@ def test_update_asks_first_and_rollback_brings_it_back(ctx: Ctx):
     ctx.check(f"Roll back names the version kept, got {got.get('rollback_label')!r}", got.get("rollback_label") == "Roll back to 1.0.0")
     ctx.check(f"Details names the grant the new version asks for, got {got.get('compat_after')}", got.get("compat_after") ==
               ["doc-review 1.0.1 requests network, which 1.0.0 did not; it is not granted, so what needs it does not run"])
-    ctx.check(f"Roll back's own first line, got {got.get('rolled_last')!r}", str(got.get("rolled_last")).startswith(
-        "rolled back doc-review 1.0.1 -> 1.0.0: doc-review.previous is doc-review/ again") and got.get("previous_gone") is True)
+    ctx.check(f"Roll back's own first line (or, after the driver re-opened the page, the row at 1.0.0), got "
+              f"{got.get('rolled_last')!r} {got.get('rolled_after_reopen')}", (str(got.get("rolled_last")).startswith(
+        "rolled back doc-review 1.0.1 -> 1.0.0: doc-review.previous is doc-review/ again") or got.get("rolled_after_reopen")
+        is True) and got.get("previous_gone") is True)
 
 
 @test

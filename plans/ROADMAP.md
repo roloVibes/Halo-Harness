@@ -3614,8 +3614,9 @@ The order (the owner's rule: all of this before Type into Studio and themes):
   reservation; the Meta glasses path through the Wearables Device Access
   Toolkit (a phone app in the loop, A2DP out, HFP or in-stream mic, "Hey
   Meta, start <app>"), honest about its limits.
-- Then, after every local-model build: 3.3.10.0 "Pack policy" (issue #4), 3.3.11.0 "Type into Studio"
-  and 3.3.12.0 "Themes and parity" (+ issue #5) -- the Studio entries already written under their old
+- Then, after every local-model build (3.3.8.1 "Bench from any halo" first, then Voice): 3.3.10.0 "Pack policy"
+  (issue #4), 3.3.11.0 "Type into Studio", 3.3.12.0 "Themes and parity" (+ issue #5), then 3.3.13.0
+  "Federation" -- the Studio entries already written under their old
   numbers, 3.3.6.0 and 3.3.7.0.
 
 ## ADDED 2026-10-31 evening (rolo: "a new feature update with code called halo-distributed-llm.zip ... add this distributed local llm feature to the local llm tab in studio ... add it to the local list of feature updates"): 3.3.8.0 "Pooled"
@@ -3629,8 +3630,9 @@ several LAN machines with llama.cpp RPC -- workers run `rpc-server`, the control
 capacity, not speed (measured -21 % to -55 % vs a single node that could hold the model); MoE with few active
 params is the right pooled choice; expert routing tables replicate to every RPC device (matched node memory
 matters); KV honesty 16k F16 / 32k Q8_0 on a 50-60 GB pool; trusted LAN only. Queue: 3.3.8.0 "Pooled" (this) ->
-3.3.9.0 "Voice" (Part K) -> after every local-model build: 3.3.10.0 "Pack policy" (issue #4), 3.3.11.0 "Type into
-Studio", 3.3.12.0 "Themes and parity" (+ issue #5).
+3.3.8.1 "Bench from any halo" -> 3.3.9.0 "Voice" (Part K) -> after every local-model build: 3.3.10.0 "Pack policy"
+(issue #4), 3.3.11.0 "Type into Studio", 3.3.12.0 "Themes and parity" (+ issue #5) -> 3.3.13.0 "Federation" ->
+3.3.14.0 "Pack trust".
 
 Adaptation rules (the review of `pool_kit` against master): the pool is a `huggingface.local_servers` entry named
 `pool` (`hf:local/<model>@pool`) -- no new provider, no new placement path (the pool answers `route` like a host);
@@ -3745,3 +3747,178 @@ worse); the reference HTTP server is not shipped (routes through `studio/local_a
   (no live llama-server / LM Studio / mlx log read this round); LM Studio's own app log (its layers and load time) is
   not read; mlx_lm.server prints no window; the pool's controller round reads the pool's llama-server log through this
   reader (`pool-degraded`, `pool-rtt`, `pool-spill` need its RPC lines, not classified yet).
+
+## ADDED 2026-11-02 morning (rolo: "When I try to benchmark from my macbook pro the models that exist on this PC via the ollama server I get an error 'served by another machine...'. I should be able to benchmark the models from any halo ... yes queue this"): 3.3.8.1 "Bench from any halo"
+
+The hotfix, right after 3.3.8.0 ships and before Voice R1. Today a peer's Bench of a remote Ollama host is allowed
+only through a path that acts on the serving machine -- a paired `halo host` with the `control` grant, or a fleet
+member session there -- and with neither the Studio answers 409 "served by another machine: its own Studio benches it"
+(`studio/local_bench_api.py`, `local_control_api.py`, `local_hosts_view._member_controls`), a dead end that names no
+way out. The fix: (1) when no host serves the machine, the bench runs **directly over the LAN from the peer** through
+the existing bench job, and its card says so -- `measured over the LAN from mac: includes the link (RTT 1.8 ms)` --
+with the link's RTT on the card and in the Benchmarks page's row, so it is never mistaken for the machine's own card;
+`halo local bench --host lan` from the CLI does the same with the same label; (2) the host path stays first when a
+paired host serves it (the card then has no link in it); (3) the refusal becomes the offer: the direct bench, plus one
+line naming `halo host serve` on that machine and `halo host join` here as the way to a card without the link; the
+same line replaces the Load / Unload refusal in `local_hosts_view` (those stay refused: a load is the owner's). Tests:
+`tests.test_studio_bench`, `tests.test_local_bench*`, a case per branch in the three API modules; the Mac live check is
+rolo's. The test hardening from the candidate rides with it (`host_rig.audited_op`: never wait on an absolute audit
+count). Queue after it: 3.3.9.0 "Voice" -> 3.3.10.0 "Pack policy" (#4) -> 3.3.11.0 "Type into Studio" -> 3.3.12.0
+"Themes and parity" (+ #5) -> 3.3.13.0 "Federation" (below).
+
+## ADDED 2026-11-02 morning (rolo: "are we following the concept of federated agents ... I believe a FEDERATED multi-agent harness would bring this to another level ... Add Federation to the roadmap as 3.3.13.0"): 3.3.13.0 "Federation"
+
+**What federated means here.** Agents under different owners or trust domains cooperate through one protocol while
+each keeps its own policy, data, models and keys; no node controls another; a node advertises what it can do, accepts
+or declines work on its own terms, runs it locally and returns results with provenance. Halo is half-way there: every
+halo keeps its own config / permission mode / keys / models; the fleet splits a mission by declared capabilities and a
+member's `fleet.allow_control` is its owner's policy; the host (3.3.7.0) is the federated unit for a machine -- peers
+act through it under grants the owner issued, every action audited and said; the pool (3.3.8.0) spreads one model
+across owners' machines with claims and leases. What is missing is below, in build order; each round's tests run
+against two or three fake halos on 127.0.0.1 (the fleet and host rigs), never the LAN.
+
+- **R1 contracts, not commands.** A mission offer carries cost (USD), time, what it writes and what it needs; the member
+  accepts, declines or counter-offers (a smaller window, a later hour, another model) and the accepting member's own
+  verdict rules -- `halo fleet offer`, the Fleet page's Offers block, the hub's split becomes offers. Today a split
+  mission is pushed.
+- **R2 delegation chains with grant intersection.** When halo A asks B for work that touches C, the effective
+  permission is A's intent ∩ B's grants ∩ C's policy, and every hop is in each audit with the chain
+  (`via: a@mac -> b@pc`); a hop that would widen a permission is refused in one line naming the hop. Today grants are
+  one hop deep.
+- **R3 hub-less operation.** Hosts talk to hosts: pairing between hosts, missions and offers routed peer to peer, the
+  hub an optional view (it may go away mid-mission and the mission survives); discovery by the existing LAN scan plus
+  the pair.
+- **R4 federated knowledge with provenance.** `knowledge/share.py` grows: a shared fact carries who verified it, on
+  which model and host, when; a peer accepts or ignores by source (`knowledge.trust: [a@mac]`); recall shows the source
+  on the line; a correction propagates to the peers that accepted the fact.
+- **R5 reputation from verified outcomes.** Each halo's verified outcomes (3.1.8.0) on a capability become a member's
+  track record the placement reads the way a speed card is read ("b@pc: 14 of 15 verified on `tests`"); never a score
+  hidden from the member it describes; the member can decline to publish it.
+- **R6 policy that travels with the task.** A task's budget, data boundary (which paths and providers it may touch)
+  and allowed tools go with it; a cheap worker cannot spend the requester's Databricks budget, a worker on another box
+  cannot read paths the task did not carry; `halo fleet policy` shows what travelled; the Studio Fleet page shows the
+  policy on the mission.
+- **R7 Studio and docs.** The Fleet section gains Offers, Chains and Trust blocks; docs/FEDERATION.md (the model, the
+  invariants: nothing silent, the owner's policy wins, data stays where it is, results travel with provenance);
+  glossary `offer`, `delegation chain`, `trust list`, `track record`.
+
+The owner's rule stands: all local-model work first (3.3.8.1, 3.3.9.0), then the Studio versions and issues #4 / #5,
+then this. The bench question above is the first contract: a bench from a peer is a small offer to the machine's
+agent, not a special case.
+
+## ADDED 2026-11-02 noon (rolo's pasted prompt "Build the pack-capability updates ... issues #4 and #5 ... gaps A-E"): the pack-capability plan -- what lands in 3.3.10.0, 3.3.11.0 and 3.3.12.0
+
+The prompt (written against master on 2026-11-01, post-3.3.7.0) is the spec; GitHub issues #4 and #5 carry the two
+headline features. The owner's rule holds: these build **after every local-model version** (3.3.8.1, 3.3.9.0 Voice),
+and nothing here touches the pooled release. Verified against master today: `contributes` has no theme, mode, policy
+or setup key (`packs/schema/pack.schema.json`, 145 lines; `docs/EXTENSION_API.md`'s status table is all `stable`,
+no `draft` row yet); a `kind: table` panel has no detail; the bundle `mount(el, api)` gives `{pack, panel, get,
+config}`; `packs/doctor.py` knows `blocks` and `warns` only; a lineup's `workflows` are resolved by `teams_yaml` for
+`halo teams show` alone. One rule from the prompt is binding across both issues: **a pack's state file is the single
+source of truth** -- the policy verdict (#4) and the active mode's theme (#5) derive from the same record, landed once
+in #4 as the contract `<state>/packs/<id>/state.json` is NOT it (that is the lifecycle's enabled / disabled record):
+the pack-written runtime file is `<state>/packs/<id>/mode.json` `{mode, since, by, armed: [policy ids], note}`, read by
+the files watcher (3.2.2.0 R6) so a change is live without new plumbing; the TUI and Studio show its `mode` label.
+
+**3.3.10.0 "Pack policy"** (issue #4 + gaps C and E; three rounds):
+- R1 **the contract**: `contributes.policy: [{id, run, when: {tools: [...], modes: [...]}, impact: ...}]` in
+  pack.yaml + the schema; the runtime `mode.json` contract above (`packs/mode_state.py`: read, validate, the watcher
+  hook); the hook protocol -- the pack's `run` (a command in the pack folder, the hooks permission) gets
+  `{tool, input, cwd, session, mode}` on stdin and answers `{"verdict": "allow"|"deny"|"ask", "reason", "rule"}` on
+  stdout within a budget (default 2 s; a late or malformed answer is `allow` with a logged line, never a hang -- stated
+  in the doc); `docs/EXTENSION_API.md` gains "Policy hooks" as the first `draft` row of the status table; the fixture
+  pack `tests/fixtures/packs/policy-fence` (keeps `bash` inside the project folder, denies writes outside declared
+  folders).
+- R2 **the enforcement**: the seam is `permission_engine.decide(...)` in `agent/loop.py` (the three call sites near
+  line 6658-6711): an armed policy runs BEFORE the engine; `deny` -> the call is refused with the reason shown to the
+  model and the user (the existing refused-tool path, the pack and rule named); `ask` -> the existing approval flow
+  with the reason as its line; `allow` -> the engine decides as today; with no pack armed, zero behaviour change (a
+  test pins the call count). Every verdict is logged with the call (the transcript's tool row + the pack's events log
+  `policy` kind, `halo pack policy log`); the Session feed and the TUI's tool line carry `policy: deny (fence: outside
+  the project)`. `halo pack policy status | arm <id> | disarm <id>` (arming writes `mode.json`'s `armed`); the Pack
+  Manager shows the armed policies on the pack's row. No classifier, no refusal wording of Halo's own: the line is
+  the pack's `reason`.
+- R3 **the bundle API and the small UX points**: gap C -- `mount(el, api)` gains `publish(kind, data)` (the same
+  `publish_event` check: declared kinds only), `route(section, panel?)`, `attention(row)` (through the answers
+  contract), `getData(path)` (the data folder, read-only, the pack's own); each rides the `studio-script` grant;
+  `studio_registry.py` and the bundle loader (`routes/packs/panels.tsx`), documented under Studio contributions. Gap E
+  -- `packs/doctor.py` gains `info` (a fleet capability hidden on purpose via `fleet.capabilities.hide` is an info
+  row, exit 0); the Pack Manager's Templates and `halo pack inspect` resolve a lineup's `workflows` through
+  `teams_yaml`'s `workflow_refs` to title + description.
+
+**3.3.11.0 "Type into Studio"** (the 3.3.6.0 entry above + gap D): D -- `contributes.setup: [{id, title, kind:
+form|check|note, fields|run, after: <core block>}]`, checked at install, drawn by Setup's own components
+(`studio/setup_api.py` + `routes/setup/*`), listed in the step rail after the core blocks, a pack's Check row runs
+through the checks job; nothing private.
+
+**3.3.12.0 "Themes and parity"** (the themes/parity entry + issue #5 + gaps A and B; one theming system, not two):
+- gap A -- `contributes.themes: [{id, label, palette: {...tokens}, posture: light|dark}]`: a pack theme registers like
+  a core one (`theme.VALID_THEMES` becomes a registry the packs feed; `tui/app.apply_theme`; Studio's token map), shows
+  in `/theme` and the Settings themes tab, restores the previous theme on disable or remove, unregisters with the pack.
+- issue #5 -- `contributes.modes: [{id, label, theme}]`: when `mode.json`'s `mode` names one, the TUI theme switches to
+  that theme and Studio's chrome accent follows (the existing toggle-and-restore contract: the previous theme is kept
+  and restored when the mode ends, the pack is disabled or removed); the theme and the policy's armed state come from
+  the same file, so the visuals never disagree with the enforcement; zero change for a pack without modes.
+- gap B -- a `kind: table` panel gains `detail: {source: "data:<path>" | "$.rows[*]", key: <column>, fields: [...]}`:
+  a row click opens the detail view fed by the second source keyed by the row's id, declaratively (no bundle);
+  `studio_registry.py` + the table renderer; pinned in EXTENSION_API.md with a fixture pack whose findings table opens
+  a finding.
+
+Definition of done for every item (the prompt's bar): contract documented in EXTENSION_API.md and the schema in the
+same commit, registry updated, tests on both runners, a fixture pack exercising it. The acceptance consumer is a
+security-assessment pack (findings table -> finding detail, policy enforcement, engagement-mode theming) kept outside
+this repo; everything above is generic.
+
+Adopted suggestions (2026-11-02 review of the plan; binding for the briefs):
+- #4 R1: the hook runs as a **long-lived process** speaking JSON lines (one request per line, the same shape), started
+  on arm and stopped on disarm, so a verdict costs a round trip and not a process spawn per tool call (Windows spawns
+  are 100-300 ms; a session makes thousands of calls); `when.tools` filters calls before they reach it. Each policy
+  declares `on_error: allow | deny` (default `allow`, the zero-change rule; a fence pack says `deny` and the doc says
+  what fail-closed means); the verdict JSON carries `scope` from the start (`session | machine | fleet`) so Federation
+  R6 reuses the shape. The hook's input carries `permission_mode`, the pack's own config and the sub-agent / worker
+  id: the policy applies to **sub-agent and Orchestra worker tool calls too** (the model cannot step around it by
+  delegating), and a fleet-dispatched task carries the armed policies with it (Federation R6 lands the far side).
+  Several armed packs: deny wins over ask over allow; every pack's verdict is logged, the winning one named.
+  `halo pack policy test <tool> <json>` runs a verdict dry, for pack authors. The doc says plainly that an armed
+  hook sees every matching tool input (a Write's content included): `when.tools` is how a pack limits what it reads,
+  and `redact: [env names]` strips declared secrets before the input leaves the harness.
+- #5 / gap A: a mode's **scope is declared** (`scope: machine | session`; machine = every session and Studio on this
+  box switch, session = the session that armed it); the mode's **label** shows in the TUI status bar and the Studio
+  header beside the colour (colour alone is not a signal); a mode change is a typed event (`mode` kind) other packs
+  and Studio subscribe to; the pack sets its mode through the stable surface (`ext.set_mode(id, on)`) or
+  `halo pack mode <pack> <id> on | off`, never by writing the file by hand (the file stays the record, the API the
+  door). A pack theme names a base (`extends: midnight`) and overrides tokens, so a partial palette never leaves a
+  token undefined; the Settings tab shows the pack's name on its theme.
+- gap B: a detail view may carry **offered actions** per row (`actions: [{id, run, says, cost}]`: each says what it
+  does and writes before it runs, the 3.3.x rule), and a table declares `page: N` + `sort` for data bigger than a
+  screen; the files watcher refreshes both sources.
+- gap C: the bundle API also gets `mode()` (the pack's active mode) and `on(kind, cb)` (subscribe to the pack's own
+  event kinds), with a per-bundle publish rate the doc states.
+- gap D: a Setup block shows **when the pack is turned on**, not only at `halo init` (packs install after init): `halo
+  pack on` prints the block's one line and `halo doctor` lists an unfinished pack setup.
+- New, cross-cutting: `halo pack test` runs a pack's own fixtures against a fake session (policy verdicts, a panel's
+  rows, a mode switch) -- the same rig the tree's fixture packs use, exported for pack authors; the extension API
+  version steps to 1.1 with the first `draft` row and `ext.compatible` says what 1.0 packs keep.
+- #4 R2 also lands **post-call verdicts** (rolo 2026-11-02: "add all of that"): the same policy may declare `after:
+  true` and is then asked once more with the tool's result (`{tool, input, result, ms}`), answering `{"verdict":
+  "pass" | "redact" | "drop", "reason", "rule", "result"?}` -- `redact` replaces the result with the hook's version
+  (the model and the transcript see the redacted one, the audit keeps a hash of the original and the rule), `drop`
+  replaces it with the reason line; the same budget, `on_error` and logging as the pre-call verdict; one contract,
+  two points.
+
+## ADDED 2026-11-02 (rolo: "add all of that"): 3.3.14.0 "Pack trust" -- after Federation; may move ahead of it if the pack ecosystem grows first
+
+Policy hooks (3.3.10.0) and modes (3.3.12.0) make a pack more powerful than any pack today: an armed hook reads tool
+inputs and decides calls; a bundle publishes and routes. Downloaded zips are untrusted by rule and the grant prompt is
+the only gate. The version: (R1) a **signed manifest** -- `pack.yaml` + the pack's file digests signed by the author
+(`halo pack sign` with a key the author keeps; the public key travels in the pack and in the source's index), verified
+at install, update and every start (a changed file is one line naming it, the pack stays off until re-verified);
+(R2) a **source allow-list and the trust prompt** -- `packs.trusted_sources` (the shipped templates are one), an
+install from elsewhere shows the author key's fingerprint, the permissions asked and the hooks the pack will run, and
+asks once; `halo pack trust <fingerprint>` records a key; (R3) a **capability review** before `hooks` or `studio-script`
+is granted -- the exact commands a pack's hooks run and the files its bundle reads, listed from the manifest, in the
+Pack Manager's grant dialog and `halo pack grant`; (R4) **provenance in the journal and the audit** -- every verdict,
+mode switch and bundle publish carries the pack's id and the signing fingerprint, so a reviewer can tell which pack
+did what; `halo pack doctor` flags an unsigned pack with a `hooks` grant as a warning. No classifier and no refusal
+wording: a pack that fails verification is one line, the fix named (`halo pack trust`, or reinstall from a trusted
+source).
