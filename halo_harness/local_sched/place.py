@@ -23,6 +23,9 @@ seconds, minus 5 a model it evicts, minus 25 when it would pivot beside this pla
 model is not pulled there, minus 40 when the host could not be read. Deterministic: a tie goes to the lane's own
 host, then the name. Every row says the number behind it. 3.3.8.0 R3: the pool (local_pool/route.PoolHost) is one more
 option when it has members: its `route` answer, minus its decode penalty (38, the research's 21-55 % midpoint).
+3.3.8.0 R4: the penalty the pool's bench card measured when it has one; the candidates are fleet-wide by default
+(local_sched/place_advice.candidates: every paired host's served card and the pool); `detail` keeps every candidate's
+score, why and numbers on each row (`options`: the adviser's placement scores, `halo local place`).
 """
 
 from __future__ import annotations
@@ -30,6 +33,8 @@ from __future__ import annotations
 from typing import Optional
 
 from halo_harness.local_sched import facts as F
+
+DETAIL = ("load_s", "warm", "now", "evicts", "penalty_pct", "fits", "via", "installed")  # 3.3.8.0 R4: each option's numbers
 
 
 def _tools(lane: str) -> bool:
@@ -131,7 +136,9 @@ def _score(a: dict, lane: dict, planned: dict) -> "tuple[Optional[float], str]":
         s, why = s - 5 * len(a["evicts"]), why + [f"evicts {', '.join(a['evicts'])}"]
     if a.get("installed") is False:
         s, why = s - 50, why + ["not pulled there"]
-    if a.get("penalty_pct"):  # the pool's cost: the measured RPC decode penalty until a bench measures its own
+    if a.get("measured") and a.get("speed"):  # 3.3.8.0 R4: the pool's own bench card (local_pool/speed.figures)
+        s, why = s - float(a.get("penalty_pct") or 0), why + [f"pooled: {a['speed']}"]
+    elif a.get("penalty_pct"):  # the pool's cost: the research's RPC decode penalty until a bench measures its own
         s, why = s - float(a["penalty_pct"]), why + [f"pooled: -{a['penalty_pct']:g} % decode ({a.get('penalty_from')})"]
     if a["host"] == lane.get("host"):
         s += 5
@@ -152,11 +159,11 @@ def _claimed(hosts: list, claims: Optional[dict], state_dir) -> dict:
     return out
 
 
-def solve(lanes: list, *, hosts: Optional[list] = None, answers=None, state_dir=None, claims=None) -> dict:
-    from halo_harness.providers.ollama import resolve_ollama_hosts
-    if hosts is None:
-        from halo_harness.local_pool.route import pool_host  # 3.3.8.0 R3: the pool, one more placement option
-        hosts = list(resolve_ollama_hosts()) + [h for h in (pool_host(state_dir),) if h is not None]
+def solve(lanes: list, *, hosts: Optional[list] = None, answers=None, state_dir=None, claims=None,
+          detail: bool = False) -> dict:
+    if hosts is None:  # 3.3.8.0 R4: fleet-wide -- every paired host's served card and the pool (place_advice.py)
+        from halo_harness.local_sched.place_advice import candidates
+        hosts = candidates(state_dir)
     hosts = list(hosts)
     ask = answers or (lambda h, ln: answer(h, ln, state_dir=state_dir))
     planned: dict = _claimed(hosts, claims, state_dir)
@@ -171,10 +178,13 @@ def solve(lanes: list, *, hosts: Optional[list] = None, answers=None, state_dir=
             sc, why = _score(a, ln, planned)
             tried.append((sc, h.name != ln.get("host"), h.name, a, why))
         good = sorted([t for t in tried if t[0] is not None], key=lambda t: (-t[0], t[1], t[2]))
+        opts = ([{"host": t[2], "score": t[0], "why": t[4], **{k: t[3].get(k) for k in DETAIL}} for t in tried]
+                if detail else None)
         if not good:
             why = "; ".join(f"{t[2]}: {t[4]}" for t in tried) or "no Ollama host here"
             rows[i] = {"lane": ln["lane"], "model": ln["model"], "host": None, "from_host": ln.get("host"),
-                       "moved": False, "score": None, "why": why, "says": f"{ln['lane']} nowhere ({why})"}
+                       "moved": False, "score": None, "why": why, "says": f"{ln['lane']} nowhere ({why})",
+                       **({"options": opts} if detail else {})}
             continue
         sc, _o, name, a, why = good[0]
         mine = planned.setdefault(name, {"bytes": 0, "models": []})
@@ -184,7 +194,7 @@ def solve(lanes: list, *, hosts: Optional[list] = None, answers=None, state_dir=
         rows[i] = {"lane": ln["lane"], "model": ln["model"], "host": name, "from_host": ln.get("host"),
                    "moved": name != ln.get("host"), "fits": a.get("fits"), "warm": a.get("warm"), "now": a.get("now"),
                    "load_s": a.get("load_s"), "installed": a.get("installed"), "via": a.get("via"), "score": sc,
-                   "why": why, "says": f"{ln['lane']} on {name} ({why})"}
+                   "why": why, "says": f"{ln['lane']} on {name} ({why})", **({"options": opts} if detail else {})}
         own = next((t for t in tried if t[2] == ln.get("host") and t[0] is None and " holds " in str(t[4])), None)
         if own is not None and name != ln.get("host"):  # one visible line: routed around a reservation
             rows[i]["routed"] = (f"{own[4].replace(' there', '')} on {ln.get('host')}; {ln['lane']} goes to {name} "

@@ -10,6 +10,7 @@ session, and stamp each model 'verified <date>'").
         more than max_age_days ago); battery / bench: which of the two it needs
     plan(state_dir, hosts, *, catalogs=None, now=None, settings_=None) -> {rows, total_min, line}
         rows (drifted first, then unverified, then the oldest) {host, model, why, says, battery, bench, minutes}
+        3.3.8.0 R4: the pool's row (host/refresh_pool.row: host "pool", bench only, `pool: true`) when it runs here
     next_line(p, s, now) -> "next: qwen3-coder:30b, battery ~4 min, tonight 22:00+" | "nothing to refresh: ..."
     stamp_words(rec) -> "verified 2026-10-31 by the host" | ""
 No request but the catalog read (the Ollama panel's 60 s cache, or `catalogs` given); nothing loads here.
@@ -156,6 +157,10 @@ def plan(state_dir, hosts: list, *, catalogs: Optional[dict] = None, now: Option
             p = profile_for(state_dir, model, h.name)
             rows.append({"host": h.name, "model": model, **rec, "minutes": minutes(r, rec, p, load(state_dir, h.name, model)),
                          "age": float((p or {}).get("probed_at") or 0)})
+    from halo_harness.host.refresh_pool import row as pool_row  # 3.3.8.0 R4: the pool's re-bench, when it runs here
+    pr = pool_row(state_dir, now=now, settings_=s)
+    if pr is not None:
+        rows.append(pr)
     rows.sort(key=lambda x: (ORDER[x["why"]], x["age"], x["model"]))
     total = sum(r["minutes"] for r in rows)
     return {"rows": rows, "total_min": total, "line": next_line({"rows": rows}, s, now)}
@@ -170,8 +175,9 @@ def next_line(p: dict, s: dict, now: Optional[float] = None) -> str:
     r = rows[0]
     what = " + ".join(w for w in ("battery", "bench") if r.get(w)) or "battery"
     more = f"; {len(rows) - 1} more after it" if len(rows) > 1 else ""
+    who = "every member" if r.get("pool") else "the card"
     return (f"next: {r['model']} on {r['host']} ({r['why']}: {r['says']}), {what} ~{r['minutes']} min, "
-            f"{start_words(s['window'], now)} once the card has been idle {s['idle_min']} min{more}")
+            f"{start_words(s['window'], now)} once {who} has been idle {s['idle_min']} min{more}")
 
 
 def stamp_words(rec: Optional[dict]) -> str:

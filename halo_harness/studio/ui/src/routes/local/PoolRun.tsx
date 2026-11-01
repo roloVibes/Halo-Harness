@@ -25,6 +25,12 @@ function MemberRow({ m }: { m: RunMember }) {
     <li className="pool-run-member mono" data-testid="pool-run-member" data-name={m.name} data-up={up}
         data-live={m.claim.live === null ? undefined : String(m.claim.live)}>
       <b>{m.name}</b> {up}{m.addr ? ` (${m.addr})` : ""} -- {m.claim.line}
+      {(m.claim.claims || []).filter((c) => c.bundle !== m.claim.bundle).map((c) => (
+        <span key={c.bundle} className="og-chip mono pool-claim-chip" data-testid="pool-run-claim" data-bundle={c.bundle}
+              title={`${c.bundle} holds ${c.model || "nothing"} on ${m.name} at priority ${c.priority}`}>
+          {c.bundle} {c.gb.toFixed(1)} GB ({c.priority})
+        </span>
+      ))}
     </li>
   );
 }

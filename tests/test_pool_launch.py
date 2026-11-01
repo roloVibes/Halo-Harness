@@ -45,17 +45,17 @@ def _pf(free: tuple, window=None) -> dict:
 def test_the_argv_for_the_fixture_pools(ctx: Ctx):
     from halo_harness.local_pool.launch import argv, redact
     pf = _pf((24, 24, 11))
-    got = argv(["llama-server"], pf, gguf="/models/Qwen3-Next-80B-A3B-Instruct-Q4_K_M.gguf", port=8090, key="KEY",
-               addr_="192.0.2.5")
+    got = argv(["llama-server"], pf, gguf="/models/Qwen3-Next-80B-A3B-Instruct-Q4_K_M.gguf", port=8090,
+               key_file="/state/pool/api-key", addr_="192.0.2.5")
     want = ["llama-server", "-m", "/models/Qwen3-Next-80B-A3B-Instruct-Q4_K_M.gguf", "--alias", QWEN, "--rpc",
             "192.0.2.11:50052,192.0.2.12:50052,192.0.2.13:50052", "--tensor-split", "0.42,0.42,0.16", "-ngl",
-            "999", "--host", "192.0.2.5", "--port", "8090", "--api-key", "KEY", "-c", "32768"]
-    ctx.check(f"24/24/11: the exact argv, got {got}", got == want)
-    shown = redact(got)
-    ctx.check(f"the key is *** in every logged copy, got {shown[-4:]}", shown[shown.index("--api-key") + 1] == "***"
-              and "KEY" not in shown)
+            "999", "--host", "192.0.2.5", "--port", "8090", "--api-key-file", "/state/pool/api-key", "-c", "32768"]
+    ctx.check(f"24/24/11: the exact argv, the key as a file (3.3.8.0 R4), got {got}", got == want)
+    shown = redact(argv(["llama-server"], pf, gguf="/m.gguf", port=8090, key="KEY", addr_="192.0.2.5"))
+    ctx.check(f"the --api-key fallback: *** in every logged copy, got {shown[-4:]}",
+              shown[shown.index("--api-key") + 1] == "***" and "KEY" not in shown)
     pf = _pf((19, 19, 19), window=32768)
-    got = argv(["llama-server"], pf, gguf="/m.gguf", port=8091, key="KEY", addr_="192.0.2.5")
+    got = argv(["llama-server"], pf, gguf="/m.gguf", port=8091, key_file="/k", addr_="192.0.2.5")
     ctx.check(f"19/19/19 at 32768: past the F16 window ({pf['fit']['max_ctx_f16']}), Q8_0 KV, got {got[-8:]}",
               pf["fit"]["max_ctx_f16"] == 20480 and pf["q8"] is True and got[-8:] == [
                   "--cache-type-k", "q8_0", "--cache-type-v", "q8_0", "--flash-attn", "on", "-c", "32768"]
@@ -81,7 +81,14 @@ def test_warm_writes_the_entry_and_stop_takes_it_back(ctx: Ctx):
         from halo_harness.init_cli import _env_file_path
         ctx.check(f"the key: in the env file only, got {len(key)} chars", len(key) >= 24 and key not in cfg
                   and key not in log and key not in run_json and f"{entry.KEY_ENV}={key}" in
-                  _env_file_path().read_text(encoding="utf-8") and "--api-key ***" in log)
+                  _env_file_path().read_text(encoding="utf-8") and "--api-key ***" not in log)
+        kf = launch.key_path(rig.peer)
+        ctx.check(f"3.3.8.0 R4: the key as --api-key-file <state>/pool/api-key (private), the argv shows the path only, "
+                  f"the fake read it, got {r['argv'][r['argv'].index('--port'):][:6]}",
+                  f"--api-key-file {kf}" in log and "--api-key" not in [x for x in r["argv"] if x != "--api-key-file"]
+                  and kf.read_text(encoding="utf-8").strip() == key and r.get("key_file") is True
+                  and f"api key read from a file ({len(key)} characters" in log
+                  and (os.name == "nt" or (kf.stat().st_mode & 0o777) == 0o600))
         ctx.check(f"pc's rpc-server was started, the argv carries it, got {r['argv'][:12]}", len(rig.fake.argvs) == 1
                   and f"127.0.0.1:{rig.rpc_port}" in r["argv"] and r["argv"][r["argv"].index("--host") + 1] == "127.0.0.1")
         from halo_harness.providers.huggingface import resolve_huggingface_local_server
@@ -95,7 +102,7 @@ def test_warm_writes_the_entry_and_stop_takes_it_back(ctx: Ctx):
                   and any(ln.startswith("released pool:") for ln in lines) and any(
                       ln.startswith("pivot: pool -> qwen3.8:27b on pc: qwen3.8:27b reloads on pc") for ln in lines)
                   and any("stopped rpc-server" in ln for ln in lines) and not rig.fake.socks
-                  and launch.run(rig.peer) == {})
+                  and launch.run(rig.peer) == {} and not kf.exists())
 
 
 @test
@@ -155,6 +162,24 @@ def test_the_refusals(ctx: Ctx):
                   and got["lines"][0].startswith("preflight blocks Qwen3-Next-80B-A3B Q4_K_M: the GGUF is not on this "
                                                  "machine: Download 46 GB") and not rig.fake.argvs
                   and CF.read(CF.host_file(rig.home)) == [])
+
+
+@test
+def test_a_build_without_the_key_file_flag(ctx: Ctx):
+    """3.3.8.0 R4: a llama-server that refuses --api-key-file is started once more with --api-key, said in one line."""
+    from halo_harness.local_pool import launch
+    from halo_harness.ollama_steward import changes_pool
+    with RunRig() as rig:
+        os.environ["FAKE_LLAMA_NO_KEY_FILE"] = "1"
+        try:
+            got = changes_pool.warm(QWEN, state_dir=rig.peer, by="test")
+        finally:
+            os.environ.pop("FAKE_LLAMA_NO_KEY_FILE", None)
+        r = launch.run(rig.peer)
+        ctx.check(f"warmed on the second start, the stated line, the key *** in the argv, got {got['lines']}",
+                  got["ok"] and launch.KEY_ARGV_LINE in got["lines"] and r.get("key_file") is False
+                  and r["argv"][r["argv"].index("--api-key") + 1] == "***" and not launch.key_path(rig.peer).exists())
+        changes_pool.stop(state_dir=rig.peer, by="test")
 
 
 if __name__ == "__main__":

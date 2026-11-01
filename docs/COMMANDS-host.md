@@ -139,7 +139,9 @@ is on, its window, the idle minutes and the age that re-verifies, the plan's nex
 (unverified: never probed here), battery + bench ~4 min, tonight 22:00+ once the card has been idle 20 min"), the next
 few after it, the last run and the last roster review. `now` asks the running host to start at its next tick, the
 window aside (never during a session, never while a call or a foreign model holds the card); with no host running
-it runs here, as `halo local refresh` does. `off` / `on` write `host.refresh.enabled`.
+it runs here, as `halo local refresh` does. `off` / `on` write `host.refresh.enabled`. 3.3.8.0 R4: one more line,
+the pool's: when it is re-benched ("the pool: re-bench qwen3-next-80b-a3b-q4km (~129 s, unverified: no pool speed
+card yet) tonight 22:00+ once every member has been idle 20 min"), fresh, or not running here.
 
 ## `halo host rpc`
 

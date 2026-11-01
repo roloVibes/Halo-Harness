@@ -23,7 +23,8 @@ function Row({ m }: { m: Member }) {
       <td className="mono" data-testid="pool-member-vram" title={`${m.source}${m.vram_source === "card" ? `\n${parts.filter(Boolean).join(" · ")}` : ""}`}>
         {vram}{m.vram_source === "stated" ? " (as you stated it)" : ""}
       </td>
-      <td className="mono" data-testid="pool-member-link" title="the adapter that carries the host's own address, read by halo host there">{m.link_word}</td>
+      <td className="mono" data-testid="pool-member-link" data-spoke={m.spoke || undefined}
+          title={`the adapter that carries the host's own address, read by halo host there -- the link from ${m.spoke || "nothing yet"}`}>{m.link_word}</td>
       <td className="mono" data-testid="pool-member-rtt" data-wifi={m.rtt_word.includes("Wi-Fi") || undefined}
           title="a TCP connect to its rpc-server port during the last Scan; the adapter type, when the card has it, wins">{m.rtt_word}</td>
       <td className="mono" data-testid="pool-member-share" title="its share of --tensor-split (from the free VRAM)">{m.share_word || "—"}</td>

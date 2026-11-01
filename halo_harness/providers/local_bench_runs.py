@@ -97,6 +97,11 @@ def _row_line(r: dict) -> str:
 
 def lines(card: dict, stale_word: str = "") -> list:
     day = time.strftime("%Y-%m-%d", time.localtime(card.get("at") or 0))
+    if card.get("pool"):  # 3.3.8.0 R4: the pool's own card (local_pool/bench.py): its members and split say where
+        from halo_harness.local_pool.speed import head_line
+        return [head_line(card, day, stale_word)] + ["  " + _row_line(r) for r in card.get("windows") or []] + [
+            f"  reply reserve: at least {card['reserve_floor']:,}" if card.get("reserve_floor") else
+            "  reply reserve: " + ("cut even at 512" if card.get("reserve_probes") else "not probed")]
     head = (f"speed card (the bench, {day}, Ollama {card.get('ollama_version') or '?'}"
             + (f", verified by {card['verified_by']}" if card.get("verified_by") else "")  # 3.3.7.0 R4: the refresh
             + (f"; {stale_word}: re-bench" if stale_word else "") + ")"

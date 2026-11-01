@@ -61,7 +61,8 @@ _SENT: dict = {}  # str(home) -> the newest event `at` this member pushed
 
 def read_events(home, now: Optional[float] = None) -> list:
     """3.3.6.0 R3: the member's new server events of the hosts it serves, each with `addr` / `port` (this machine's
-    LAN address and the server's port): the hub ties them to its own host entry by address (log_status.ladder)."""
+    LAN address and the server's port): the hub ties them to its own host entry by address (log_status.ladder).
+    3.3.8.0 R4: and of this machine's local servers (`server: true`, `runtime`; the pool's RPC events among them)."""
     import urllib.parse
     from halo_harness.fleet.ollama_share import served_here
     from halo_harness.ollama_steward.ledger import parse_at
@@ -69,8 +70,14 @@ def read_events(home, now: Optional[float] = None) -> list:
     from halo_harness.providers.ollama import resolve_ollama_hosts
     now = time.time() if now is None else now
     hosts = {h.name: h for h in resolve_ollama_hosts() if served_here(h.url)}
+    try:  # 3.3.8.0 R4: this machine's local servers too (llama-server, LM Studio, MLX, the pool): the hub forwards them
+        from halo_harness.ollama_steward.servers_hf import is_local, roster
+        servers = {s.name: s for s in roster(home) if is_local(s) and s.name not in hosts}
+    except Exception:
+        servers = {}
     since = _SENT.get(str(home), now - RECENT_S)
-    rows = [r for r in events(home, since=RECENT_S) if not r.get("from") and r.get("host") in hosts
+    rows = [r for r in events(home, since=RECENT_S) if not r.get("from") and (r.get("host") in hosts or r.get("host")
+                                                                               in servers)
             and (parse_at(r.get("at")) or 0) >= since][-MAX_EVENTS:]
     if not rows:
         return []
@@ -81,7 +88,10 @@ def read_events(home, now: Optional[float] = None) -> list:
     except Exception:
         return []
     keep = ("kind", "severity", "say", "evidence", "at", "model", "data", "host")
-    return [{**{k: r.get(k) for k in keep}, "addr": addr, "port": urllib.parse.urlparse(hosts[r["host"]].url).port or 11434}
+    from halo_harness.ollama_steward.servers_hf import port_of
+    return [{**{k: r.get(k) for k in keep}, "addr": addr,
+             **({"port": urllib.parse.urlparse(hosts[r["host"]].url).port or 11434} if r["host"] in hosts else
+                {"port": port_of(servers[r["host"]].url), "server": True, "runtime": servers[r["host"]].runtime})}
             for r in rows]
 
 
@@ -97,7 +107,8 @@ def take_events(home, member: str, rows) -> int:
     for r in rows[:MAX_EVENTS]:
         if not isinstance(r, dict) or not r.get("kind"):
             continue
-        row = {**{k: r.get(k) for k in ("kind", "severity", "say", "evidence", "at", "model", "data", "addr", "port")},
+        row = {**{k: r.get(k) for k in ("kind", "severity", "say", "evidence", "at", "model", "data", "addr", "port",
+                                        "server", "runtime")},
                "host": f"{member}:{r.get('host')}", "from": member, "notify": False}
         if (row["host"], row["at"], row["kind"]) not in seen:
             clean.append(row)

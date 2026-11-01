@@ -30,7 +30,9 @@
         "vram_gb": {"type": "number", "exclusiveMinimum": 0, "description": "its memory on the card; computed from the weights and the window when left out"},
         "keep_alive": {"oneOf": [{"const": -1}, {"type": "string", "pattern": "^(-1|\\d+(\\.\\d+)?[smh])$"}], "description": "-1 (the default) or a duration"},
         "priority": {"enum": ["high", "normal", "low"]},
-        "window": {"type": "integer", "minimum": 512, "description": "the window it is held at (the need's window by default)"}
+        "window": {"type": "integer", "minimum": 512, "description": "the window it is held at (the need's window by default)"},
+        "host": {"type": "string", "minLength": 1, "description": "3.3.8.0 R4: where it is held: a paired host's name, an ollama.hosts name, or pool (the default host when left out)"},
+        "min_free_gb": {"type": "number", "minimum": 0, "description": "3.3.8.0 R4: the GB that card keeps free for tasks beside the claim"}
       }
     },
     "routing": {
@@ -42,6 +44,30 @@
         "escalation": {"oneOf": [{"enum": ["on", "off"]}, {"type": "boolean"}], "description": "off: no cloud rung while the bundle is on (offline-only)"}
       }
     },
-    "latency_budget_ms": {"type": "integer", "exclusiveMinimum": 0, "description": "the round trip the bundle wants, said beside the verdict's expected latency"}
+    "latency_budget_ms": {"type": "integer", "exclusiveMinimum": 0, "description": "the round trip the bundle wants, said beside the verdict's expected latency"},
+    "reservations": {
+      "type": "array", "description": "3.3.8.0 R4: several reservations, one per host (a paired host, the pool, the default host); each is a reservation",
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["model"],
+        "properties": {
+          "model": {"type": "string", "description": "a model one of the needs lists, or a needs role"},
+          "vram_gb": {"type": "number", "exclusiveMinimum": 0, "description": "its memory on the card; computed when left out"},
+          "keep_alive": {"oneOf": [{"const": -1}, {"type": "string", "pattern": "^(-1|\\d+(\\.\\d+)?[smh])$"}], "description": "-1 (the default) or a duration"},
+          "priority": {"enum": ["high", "normal", "low"]},
+          "window": {"type": "integer", "minimum": 512, "description": "the window it is held at (the need's window by default)"},
+          "host": {"type": "string", "minLength": 1, "description": "a paired host's name, an ollama.hosts name, or pool (the default host when left out)"},
+          "min_free_gb": {"type": "number", "minimum": 0, "description": "the GB that card keeps free for tasks beside the claim"}
+        }
+      }
+    },
+    "schedule": {
+      "type": "object", "additionalProperties": false, "required": ["hours"],
+      "description": "3.3.8.0 R4: the hours the claims are held, the host's local clock; outside them the bundle claims nothing",
+      "properties": {
+        "hours": {"type": "string", "pattern": "^\\s*([01]?\\d|2[0-3]):[0-5]\\d\\s*-\\s*([01]?\\d|2[0-3]):[0-5]\\d\\s*$", "description": "HH:MM-HH:MM (it may wrap midnight: 22:00-07:00)"}
+      }
+    },
+    "priority": {"enum": ["high", "normal", "low"], "description": "3.3.8.0 R4: every reservation's default; when two claims collide the lower one is pre-empted and told"},
+    "min_free_gb": {"type": "number", "minimum": 0, "description": "3.3.8.0 R4: the GB each card keeps free for tasks beside the claims"}
   }
 }

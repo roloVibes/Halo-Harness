@@ -120,15 +120,21 @@ same lease; a bundle turned on from the CLI keeps no lease (until `halo pack off
 
 ```sh
 llama-server -m <gguf> --alias <model> --rpc 192.0.2.11:50052,192.0.2.12:50052,192.0.2.13:50052 \
-  --tensor-split 0.42,0.42,0.16 -ngl 999 --host <this machine's LAN address> --port <p> --api-key <generated> -c 32768
+  --tensor-split 0.42,0.42,0.16 -ngl 999 --host <this machine's LAN address> --port <p> \
+  --api-key-file ~/.halo/pool/api-key -c 32768
 ```
+
+3.3.8.0 R4: the generated key is in `~/.halo/pool/api-key` (a private file, 0600 where the OS has modes), passed as
+`--api-key-file`, so the controller's process list shows the path, never the key; the file goes when the pool stops. A
+llama-server build that does not know `--api-key-file` (its log says so at once) is started once more with
+`--api-key`, and one line says the key is then on its command line.
 
 `--rpc` lists the workers in member order, and this machine's GPU (a `local` member) comes last in `--tensor-split`;
 the split is the fit's (`model_split`); `-ngl 999` puts every layer on the GPUs -- never a CPU fallback: a node that
 runs out of memory while loading is refused with the node and its share, and nothing stays claimed. Past the F16
 window the KV cache goes to Q8_0: `--cache-type-k q8_0 --cache-type-v q8_0 --flash-attn on -c <the Q8_0 window>`. The
 binary is the one `halo local serve` finds or fetches. Its output goes to `~/.halo/local/servers/pool-<port>.log`,
-whose first line shows the command with the key as `***`.
+whose first line shows the command (the key file's path; with the `--api-key` fallback the key as `***`).
 
 The running pool is the `huggingface.local_servers` entry named `pool` (`hf:local/<model>@pool`): `url` (this
 machine's LAN address), `max_ctx` (the fit's window: the window truth clamps every request to it -- a 64k ask gets
@@ -145,8 +151,10 @@ pool in the foreground (Ctrl+C stops it); `--keep` returns once it serves, and t
 Warm and Stop are changes (`ollama_steward/changes_pool.py`, rows in `~/.halo/ollama/changes.jsonl`: key
 `pool|<model>`, field `pool.state`, before / after): one warm per 10 minutes (a second one inside it is one line with
 the minutes left; a stop is never held back), and the **auto-revert**: when the pool's first three calls are slower
-than the single-node bench card of the same model (their median tok/s under the card's), or half of them failed, the
-pool stops and the line says both numbers. With no such card, the failures alone judge (said). `halo local changes
+than its baseline, or half of them failed, the pool stops and the line says both numbers. The baseline (3.3.8.0 R4) is
+the pool's own speed card -- its slowest window, a fifth below it is worse -- else the single-node bench card of the
+same model; the calls' rate is the one the pool's log printed (its `timing` lines), else the ledger's. With no card,
+the failures alone judge (said). `halo local changes
 revert <id>` of a warm stops the pool. `halo host steward` and the duty steward keep their hands off the pool.
 
 ### The pool in placement
@@ -154,8 +162,9 @@ revert <id>` of a warm stops the pool. `halo host steward` and the duty steward 
 The pool answers `route` like a host (`local_pool/route.py`): a catalog model that fits it, `now` when it runs that
 model, the load seconds from the GGUF (on disk at an assumed 1.5 GB/s, else the download at your measured rate), and
 degraded when a worker is down. `place.solve` scores it as one more option, minus its penalty: 38, the research's
-measured 21-55 % decode penalty against one node (its midpoint) until a bench measures the pool's own -- so a single
-node that holds the model wins, and the pool takes a lane no node holds. `halo local place` says the pool's line.
+measured 21-55 % decode penalty against one node (its midpoint) until a bench measures the pool's own (3.3.8.0 R4:
+then the penalty measured against a single node's card, below) -- so a single node that holds the model wins, and the
+pool takes a lane no node holds. `halo local place` says the pool's line and every candidate's score.
 
 ### When something fails
 
@@ -186,6 +195,59 @@ rpc-server binds the LAN address its `halo host` serves on, never 0.0.0.0, and s
 so peers can reach it, behind a key generated at every Warm and handed only to paired peers. Neither should ever be
 reachable past your router.
 
+## Measured (3.3.8.0 R4)
+
+### Measured or extrapolated: the pool's speed card
+
+`halo local bench --host pool [--quick]` (and the Pool page's Bench) says its cost first -- the seconds, and that the
+members' GPUs are busy for them -- then runs the 3.3.6.0 battery against the running pool: per window (8k, 32k, the
+pool's `-c`; `--quick`: the `-c` alone) one untimed warm-up, then a prompt of about 60 % of the window and a 256-token
+reply, then the reply reserve (128 / 256 / 512). The pool's window is fixed at its launch, so each window is a prompt
+size inside it. It waits, one line and nothing sent, while the pool answered a call in the last minute, is degraded or
+is not running. The **pool's speed card** (host `pool`): the members and the split, each member's RTT and link, the
+cache type and `-c`, prompt tok/s, reply tok/s and the first token per window, the cold load (the launch's spawn to
+`/health`), the reply reserve. From then on the recommendation, `route` and `place.solve` read the measured figure and
+say the penalty against the single node that could hold the model: "11.2 tok/s measured, -38 % vs pc alone" -- a node
+that spills the model to its CPU can be the slower one ("+120 % vs pc alone (it spills to the CPU there)"); with no
+single-node card the research's -38 % stands, said. Until a pool card exists every figure says "extrapolated". A card
+measured with other members or another split says so ("measured with pc, me; the pool runs pc, me, worker2 now").
+
+### The steward watches the pool
+
+The steward reads the controller's log (the `pool` entry's `log`) like any llama-server's and adds three kinds of its
+own (`ollama_steward/rules_pool.py`), one line each, keyed `pool|<model>`, on the Pool page, the Steward page, `halo
+ollama steward findings` and the host's findings (its RPC events in the host's events):
+
+- **pool-degraded** -- an RPC backend lost mid-generation ("Remote RPC server crashed or returned malformed
+  response", "Failed to connect to <addr>"): "degraded (worker2 down)", the same word and the same lines as the pool's
+  status; the request failed once and is not retried.
+- **pool-rtt** -- the replies' rate (the log's `timing` lines) under three quarters of the pool's own card, slower by
+  more than twice what the round trips explain (each RPC member's RTT from the preflight). The link the OS read speaks
+  before the RTT, and the line says which spoke ("worker1 2.5 GbE (the OS)" or "worker1 0.4 ms RTT (the probe)"). No
+  pool card: no pool-rtt (an extrapolated figure says nothing about this pool).
+- **pool-spill** -- the newest load's per-device model buffers against the split (a node holding under 85 % of its
+  share), or layers left on the controller's CPU (`offloaded a/b`). The load's event carries one `layers` pair per
+  device (counted from llama.cpp's "layer N assigned to device" lines, else estimated from the buffers).
+
+### A bundle may claim the pool
+
+A bundle's reservation may name `host: pool` ([MODELS-bundles.md](MODELS-bundles.md)): the shipped **big-reasoner**
+reserves the pool for its reasoning lane while the coder stays resident on this machine's card. Reserving the pool
+launches nothing (Warm does); while a bundle holds it for one model, a Warm of another waits in one line naming the
+bundle and its priority, and a lower bundle's claim on the pool is pre-empted, said.
+
+### The off-hours re-bench
+
+When this machine runs the pool and its card is missing, measured with other members or older than
+`host.refresh.max_age_days`, the off-hours refresh plan gains a row: the pool's quick bench, once every member has been
+idle `host.refresh.idle_min` (no call through the pool; each member's card quiet, a paired one through its halo
+host). `halo host refresh status` says when; the refresh log keeps the line and the card says "verified by the host".
+
+### A watch line: Ollama PR #10844
+
+Ollama's open PR #10844 (llama.cpp-RPC based) would make pooled serving one command on Ollama hosts. It is a watch
+item, not a dependency: nothing here waits on it, and when it lands the deployment story is reviewed again.
+
 ## Config
 
 `pool.rpc_port` (50052): the rpc-server port `add` defaults to and `scan` probes. `pool.scan_subnets` ([]): the CIDRs
@@ -193,4 +255,6 @@ reachable past your router.
 `pool.allow_wifi` (false): keep Wi-Fi members. `pool.bind`: the address the pool's llama-server binds (default: the
 LAN address this machine's halo host serves on). `pool.rpc_server_bin`: the rpc-server a worker runs. See
 [CONFIG.md](CONFIG.md). Files: `~/.halo/pool/pool.json` (the members), `~/.halo/pool/scan.json` (the last scan),
-`~/.halo/pool/run.json` (the running pool), `~/.halo/host/rpc_server.json` (a worker's rpc-server).
+`~/.halo/pool/run.json` (the running pool), `~/.halo/pool/api-key` (the running pool's key, 3.3.8.0 R4),
+`~/.halo/host/rpc_server.json` (a worker's rpc-server). The pool's speed card lives with the bench cards (the
+capability cache, key `pool|<model>`).

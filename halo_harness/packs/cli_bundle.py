@@ -42,7 +42,15 @@ def _state():
 
 
 def verdict_lines(v: dict) -> list:
-    out = [f"{v['bundle']} on {v['host'] or 'this machine'}: {v['state']}", f"  {v['says']}"]
+    out = [f"{v['bundle']} on {v['host'] or 'this machine'}: {v['state']}", f"  {v.get('main_says') or v['says']}"]
+    for p in v.get("parts") or []:  # 3.3.8.0 R4: its other reservations, each where it is held
+        out.append(f"  + {p['says']} [{p['state']}]")
+    if v.get("schedule"):
+        out.append(f"  schedule: {v['schedule']['line']}")
+    if v.get("priority") and v.get("priority") != "normal":
+        out.append(f"  priority {v['priority']}: when two claims collide the lower one is pre-empted and told")
+    for n in v.get("notices") or []:
+        out.append(f"  ! {n['line']} (at {n.get('when') or '?'})")
     if v.get("claims_line"):
         out.append(f"  {v['claims_line']}")
     out += [f"  {'!' if o['kind'] == 'warn' else '-'} {o['says']}" for o in v.get("options") or []]
@@ -52,20 +60,29 @@ def verdict_lines(v: dict) -> list:
     return out
 
 
+def with_notices(v: dict) -> dict:
+    """3.3.8.0 R4: a pre-emption its owner is told of (claims_file.notice, the last day)."""
+    import time
+    from halo_harness.local_sched import claims_file as CF
+    rows = CF.notices(CF.local_file(_state()), v.get("bundle"))
+    v["notices"] = [{**n, "when": time.strftime("%H:%M", time.localtime(float(n.get("at") or 0)))} for n in rows]
+    return v
+
+
 def _verdict(args, cwd) -> int:
-    from halo_harness.local_sched.bundle_fit import verdict
+    from halo_harness.local_sched.bundle_parts import verdict  # 3.3.8.0 R4: every reservation where it is held
     from halo_harness.packs.bundles import find
     e = find(args.bundle, cwd=cwd)
     if e is None or e["block"] is None:
         print(f"halo pack: no bundle {args.bundle!r} here (halo pack list --bundles)", file=sys.stderr)
         return 1
-    v = verdict(e["block"], args.host, state_dir=_state())
+    v = with_notices(verdict(e["block"], args.host, state_dir=_state()))
     print(json.dumps(v, indent=2, default=str) if args.json else "\n".join(verdict_lines(v)))
     return 0
 
 
 def _list(args, cwd) -> int:
-    from halo_harness.local_sched.bundle_fit import verdict
+    from halo_harness.local_sched.bundle_parts import verdict
     from halo_harness.local_sched.reserve import claims
     from halo_harness.packs.bundles import listing
     on = {c["bundle"] for c in claims(None, state_dir=_state())}

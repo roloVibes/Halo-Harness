@@ -4,6 +4,8 @@ plans/local-model-fit-brief.md G12): where each of a lineup's local lanes should
     place_lineup(name=None) -> {lineup, rows, line, lanes}   local_sched/place.solve over the lineup's `ol:` lanes
     cmd_place(argv) -> exit code
 
+3.3.8.0 R4: every candidate's score is printed under its lane (`scores:`), with its loading tax; the candidates are
+fleet-wide (local_sched/place_advice.candidates: each paired host's served card, the pool).
 Every configured Ollama host is a candidate: one a paired halo host serves answers with its `route` (the helper's
 footprint counted), any other -- this machine's own, with no `halo host` running -- from the local reads. The plan
 prints one row per lane (its host, fits / warm / the load seconds, and why); `--apply` writes `host_for` on each
@@ -19,7 +21,7 @@ from typing import Optional
 
 
 def place_lineup(name: Optional[str] = None) -> dict:
-    from halo_harness.local_sched.place import solve
+    from halo_harness.local_sched.place_advice import scored as solve  # 3.3.8.0 R4: every candidate's score
     from halo_harness.local_sched.preview import lanes_for
     if not name:
         from halo_harness.teams_runtime import active_team_name
@@ -62,10 +64,13 @@ def cmd_place(argv: list) -> int:
         print(f"halo local place: {plan['lineup'] or 'this lineup'} has no local lanes (no `ol:` models)")
         return 0
     print(f"halo local place {plan['lineup']}: {plan['line']}")
+    from halo_harness.local_sched.place_advice import score_line
     for r in plan["rows"]:
         to = r["host"] or "nowhere"
         moved = f" (from {r['from_host']}: --apply writes host_for)" if r.get("moved") and not args.apply else ""
-        print(f"  {r['lane']}: {r['model']} on {to} -- {r['why']}{moved}")
+        score = f" (score {r['score']:g})" if isinstance(r.get("score"), (int, float)) else ""
+        print(f"  {r['lane']}: {r['model']} on {to}{score} -- {r['why']}{moved}")
+        print(f"    scores: {score_line(r).split(': ', 1)[1]}")  # 3.3.8.0 R4: every candidate, its loading tax
     if plan.get("pool"):
         print(f"  pool (one more option, scored with its decode penalty): {plan['pool']}")
     for line in written:

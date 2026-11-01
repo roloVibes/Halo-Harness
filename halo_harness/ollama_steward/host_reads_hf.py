@@ -19,9 +19,27 @@ def client_for(server):
     from halo_harness.ollama_steward.servers_hf import is_local
     if server is None or is_local(server) or not any_paired():
         return None
-    addr, _port = _addr_port(getattr(server, "url", ""), 80)
-    c = for_host(SimpleNamespace(url=f"http://{addr}:11434", name=getattr(server, "name", "")))
+    addr, port = _addr_port(getattr(server, "url", ""), 80)
+    c = _by_servers(addr, port) or for_host(SimpleNamespace(url=f"http://{addr}:11434", name=getattr(server, "name", "")))
     return c if _usable(c) else None
+
+
+def _by_servers(addr: str, port: int):
+    """3.3.8.0 R4: the paired host whose join (or announce) lists this server among its `servers`, else the one whose
+    Ollama rows share its address (a host on that machine, whatever port its Ollama is on)."""
+    from halo_harness.fleet import identity, store
+    from halo_harness.ollama_steward.host_client import HostClient
+    rows = [e for e in store.hosts() if e.get("state", "joined") == "joined"]
+
+    def near(e: dict, exact: bool) -> bool:
+        for r in (e.get("servers") if exact else e.get("serves")) or []:
+            if isinstance(r, dict) and str(r.get("addr") or "").lower() == addr.lower() and (
+                    not exact or int(r.get("port") or 0) == port):
+                return True
+        return False
+    hit = next((e for e in rows if near(e, True)), None) or next((e for e in rows if near(e, False)), None)
+    key = store.key_for(hit) if hit is not None else None
+    return HostClient(hit, key, identity.harness()["id"]) if key is not None else None
 
 
 def server_row(server, c=None) -> Optional[dict]:

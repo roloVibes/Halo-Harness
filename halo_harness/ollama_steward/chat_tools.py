@@ -123,7 +123,7 @@ def _findings(env, a):
 
 
 def _bundles(env, a):
-    from halo_harness.local_sched.bundle_fit import verdict
+    from halo_harness.local_sched.bundle_parts import verdict  # 3.3.8.0 R4: every reservation
     from halo_harness.local_sched.reserve import all_lines
     from halo_harness.packs.bundles import listing
     out = [f"{e['id']}: {verdict(e['block'], None, state_dir=env['state'])['says']}" for e in listing(state_dir=env["state"])

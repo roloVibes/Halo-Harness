@@ -52,3 +52,14 @@ Read this when a local model is served by something other than Ollama, or you ne
 
 - On the OpenAI path each reply carries `usage` (prompt and completion tokens) and a `finish_reason`; "length" means the reply was cut by the reply limit or the window, the same as Ollama's `done_reason: length`. [S9][S17][S15]
 - Ollama's native reply carries `prompt_eval_count`, `eval_count`, `done_reason` and the durations, the fields the traffic ledger records. [S9]
+
+## The pool's findings
+
+The pool's controller is a llama-server whose log carries llama.cpp's RPC lines. Three findings read them, one line
+each, keyed `pool|<model>` [S50]; the RPC failure lines are the event kind `rpc-lost` (an error). pool-degraded: an RPC backend was lost mid-generation ("Remote RPC server crashed or
+returned malformed response", "Failed to connect to <addr>"); the request failed once and is not retried; start the
+worker's rpc-server again, then Warm the pool. pool-rtt: the replies run under three quarters of the pool's own speed
+card and slower than the round trips explain; a pooled decode waits one round trip per RPC device per token, so a
+Wi-Fi member, a shared card or a throttled worker shows here [S49]. pool-spill: a node holds less than its split's
+share of the weights, or layers stayed on the controller's CPU; its free VRAM fell after the preflight, so Stop and
+Warm again re-reads it [S50].
