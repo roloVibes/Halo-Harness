@@ -126,6 +126,7 @@ mark.
 - The first-run checklist has six rows; `halo check` runs the steward row by default when an installed candidate fits.
 - The host refuses a load that would breach a bundle's claim, and an unload or a pivot of a reserved model, with the claim's line; the scheduler's pivot does the same on a card no host serves.
 - While the offline-only bundle is on, `routing.escalation` reads as unset and the ladder's cloud rung says why.
+- Benchmarks' tuning report: an applied Halo-side option that leaves the report keeps its "what landed" line in place (a landed row with the option's id) instead of vanishing with the option; the line is keyed per host.
 
 ## [3.3.6.0] - 2026-10-31
 
