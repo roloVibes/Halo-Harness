@@ -96,7 +96,8 @@ def test_a_pass_sends_a_cited_fix_that_is_kept(ctx: Ctx):
         from tests.helpers.steward_seed import line
         append_lines(rig.home, [line(host={"name": "pc", "url": rig.mock.base_url}, model=BIG, num_ctx_sent=sent["to"],
                                      prompt_eval_count=16000, eval_tok_s=40.0, ago=-1 - i) for i in range(5)])
-        closed = verify.tick(rig.svc)
+        closed = verify.tick(rig.svc) or [r for r in verify._rows(rig.home)  # the service loop ticks verify too and
+                                          if r.get("op") == "set_num_ctx" and r.get("verdict") != "verifying"]  # may win
         ctx.check(f"verified and kept, got {closed[0]['line'] if closed else None!r}", closed and closed[0]["verdict"] == "kept"
                   and closed[0]["line"].startswith(f"set_num_ctx {sent['to']} on pc|qwen3.8:27b: 16 -> 40 tok/s, no trims"))
 
