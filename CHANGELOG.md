@@ -46,6 +46,26 @@ version.
 - The steward chat orders its prompt from stable to volatile, so a local server reuses the cached front. It gains a `servers` tool and the rule sentence in its guide.
 - A ledger line of an `hf:local` call is named by its server, not its address.
 
+### R3: the controller -- rpc-server on the workers, the launch, the pool as a local server, claims with a lease
+
+#### Added
+- `rpc_server on | off`, a halo host op (control grant; a pending row under `fleet.allow_control: ask`; under `none` one line naming the grant and, once per host, that rpc-server is for a trusted LAN only): `rpc-server -H <the LAN address the host serves on> -p <pool.rpc_port> --mem <free VRAM MiB>`, its pid, port, address, binary and version in `~/.halo/host/rpc_server.json`, `GET rpc`; `halo host rpc on | off | status` on the worker, `halo pool rpc <member> on | off | status` from the controller.
+- `halo pool preflight <model>`: the fit over each member's free VRAM read now (a resident Ollama model counted as room), the link (a Wi-Fi member left out unless `--allow-wifi` / `pool.allow_wifi`), each worker's rpc-server and port, llama-server's build against each rpc-server's (both printed when they differ), the model's minimum build on every node (Qwen3-Next b7186+), the GGUF here (else the one Download line), what is resident and claimed, the window (F16, Q8_0 past it, refused past the Q8_0 window).
+- `halo local serve --pool <model>` and the Pool page's Warm: a claim on every member with a lease (the resident models pivoted out first, each said), each worker's rpc-server on, then `llama-server --rpc ... --tensor-split ... -ngl 999 --host <LAN address> --api-key <generated> -c <window>` (Q8_0 KV past the F16 window, never a CPU fallback); the running pool is the `huggingface.local_servers` entry `pool` (`hf:local/<model>@pool`) with its `max_ctx`, its key's env var (`HALO_SECRET_POOL_API_KEY`), its log and runtime. `halo pool stop` / Stop: stopped, the entry removed, the claims released, the pivoted-out models back as stated pivot lines. `halo pool status`.
+- Claim leases: a claim's `until` (`pool.claim_lease_s`, 120 s), renewed by its holder's heartbeat; an expired claim is not a claim. The host's `renew` op; `claim` takes `lease_s`.
+- The pool answers `route` like a host and is one more option in `halo local place` (scored with the measured 21-55 % decode penalty's midpoint until a bench measures the pool's own).
+- Warm and Stop are changes under the steward contract: rows in the change ledger, one warm per 10 minutes, the auto-revert when the first three calls are worse than the single-node bench card (or half of them failed).
+- The failure modes as lines: "degraded (worker2 down)" on the page, in `halo pool status` and in `route`; a pool request that fails is said once and never retried silently; an OOM while loading names the node and its share.
+- A paired peer resolves `hf:local/<model>@pool` through the controller's halo host (its catalog serves the entry and the key); an unpaired machine gets nothing.
+- Local -> Pool: Warm / Stop with the preflight's rows (Warm enabled only when green), the Wi-Fi switch, the running pool's state and each member's claim and lease.
+- Config `pool.claim_lease_s`, `pool.allow_wifi`, `pool.bind`, `pool.rpc_server_bin`; glossary `claim lease`, `preflight`.
+
+#### Changed
+- A bundle held by a halo process (the Pack Manager's tick) carries a claim lease on the host and here, renewed while that process lives; a killed Studio's bundle claim ends within the lease.
+- The window of an `hf:local` server is clamped to its entry's `max_ctx` ("the pool's fit (max_ctx)").
+- The pool's recommendation counts a resident Ollama model as room (Warm pivots it out), said in its head; the "warm and stop arrive in R2" line is gone from the page and the CLI.
+- A pool call's ledger line names `pool` as its host.
+
 ### Also in 3.3.8.0
 
 #### Changed

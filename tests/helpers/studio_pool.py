@@ -5,7 +5,8 @@ as stated); the scan's network layer is faked (rpc_probe.SEAMS) over two rpc-ser
 model call, no real ssh, never a request beyond 127.0.0.1 (the rig refuses one).
 
 `members`: the two rows with their numbers (every wait reads the data it checks), the recommendation table (Qwen3-Next
-fits the pool, gpt-oss does not), the line that says what R1 cannot do yet; nothing was scanned by the page load.
+fits the pool, gpt-oss does not), the capacity note (R3: the "not yet" line is gone); nothing was scanned by the page
+load. Warm and Stop are tests/helpers/studio_pool_run.py.
 `scan`: Scan is a button: pressed, the two responders (one is the member pc), Add on the other makes a third member.
 `library`: the Library's Pool preset shows the pool rows with their badges.
 The last stdout line is the JSON of what it saw (exit 2: no Chrome)."""
@@ -40,7 +41,8 @@ def members(c, url, ctx) -> dict:
           f"r.querySelector('[data-testid=pool-rec-badge]').textContent])"
     out["rec"] = c.wait(f"{qa(REC)}.length >= 2 && {rec}", 30)
     out["preview"] = c.wait(f"{q('[data-testid=pool-rec-preview]')}?.textContent", 15)
-    out["not_yet"] = c.wait(f"{q('[data-testid=pool-not-yet]')}.textContent.includes('R2') && {q('[data-testid=pool-not-yet]')}.textContent", 15)
+    out["note"] = c.wait(f"{q('[data-testid=pool-note]')}?.textContent.includes('capacity') && {q('[data-testid=pool-note]')}.textContent", 15)
+    out["not_yet"] = c.js(f"!!{q('[data-testid=pool-not-yet]')}")  # 3.3.8.0 R3: Warm and Stop exist, the line is gone
     out["head"] = c.js(f"{q('[data-testid=pool-members-head]')}.textContent")
     out["scanned_on_load"] = ctx["scan_file"].exists() or c.js(f"!!{q('[data-testid=pool-scan-candidates]')}")
     out["scan_line_before"] = c.js(f"{q('[data-testid=pool-scan-line]')}.textContent")

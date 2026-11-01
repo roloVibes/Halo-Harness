@@ -17,7 +17,7 @@ export type Member = {
 };
 export type Members = {
   members: Member[]; split: number[]; split_from: string; free_gb: number; total_gb: number; head: string; problems: string[];
-  file: string; rpc_port: number; not_yet: string; scan: { at: number | null; line: string }; cli: string;
+  file: string; rpc_port: number; scan: { at: number | null; line: string }; cli: string;
 };
 export type Download = { repo: string; file: string; gb: number; eta_s: number; eta: string; eta_from: string; cli: string };
 export type Verdict = {
@@ -28,7 +28,7 @@ export type Verdict = {
   repo: string;
 };
 export type Rec = { rows: Verdict[]; others: Verdict[]; hidden: { model: string; line: string }[]; head: string; nodes: number;
-  free_gb: number; allow_batch: boolean; not_yet: string; cli: string };
+  free_gb: number; allow_batch: boolean; cli: string };
 export type Probe = { host: string; port: number; alive: boolean; rtt_ms: number | null; error: string; wifi_suspect: boolean;
   line: string; name?: string | null; member?: string | null; paired?: string | null };
 export type Scan = { at: number; port: number; networks: string[]; candidates: Probe[]; members: (Probe & { name: string })[];

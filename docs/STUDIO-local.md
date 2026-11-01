@@ -22,7 +22,7 @@ comes back (`halo.studio.local.page`). The nine pages, in the rail's order:
 | Logs | each host's server log: its status, the last load per model, the cut prompts, errors and crashes, the newest lines | 3.3.6.0 R3 |
 | Benchmarks | the speed cards per host (the bench), the tuning report, the changes with their scopes and Revert | 3.3.6.0 R5 |
 | Steward | the job's status and note, the chat with the steward, its model and candidates, the refresh ([STUDIO-local-steward.md](STUDIO-local-steward.md)) | 3.3.7.0 R5 |
-| Pool | the pool's members (free VRAM, link, RTT, the split), what it can run, Scan; the Library's Pool preset ([STUDIO-local-pool.md](STUDIO-local-pool.md)) | 3.3.8.0 R1 |
+| Pool | the pool's members (free VRAM, link, RTT, the split), Warm and Stop with the preflight, what it can run, Scan; the Library's Pool preset ([STUDIO-local-pool.md](STUDIO-local-pool.md)) | 3.3.8.0 R1, R3 |
 
 The doors: `halo local` opens Studio on Local's Hugging Face page (3.3.5.0 R5; a Studio already running for this home
 takes it in its open page), a page word opens that page (`halo local library`), `halo local hosts` on the Hosts page (`?mode=local&page=hosts`), `halo studio --edit local:models` the same from the

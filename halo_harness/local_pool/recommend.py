@@ -14,7 +14,8 @@ plans/pooled-inference-model-candidates.md's decision rules).
     rate(state_dir) -> (bytes per second, where it came from): the last pull or download that ended well, else assumed
 
 The download is the existing Hugging Face download + verify job (`repo`, `file`), offered as one button; R3 replaces
-the speed estimate with the pool's own measured tok/s and the penalty against a single node.
+the speed estimate with the pool's own measured tok/s and the penalty against a single node. 3.3.8.0 R3: a model
+resident on a member counts as room (Warm pivots it out first; local_pool/preflight._room), said in the head.
 """
 
 from __future__ import annotations
@@ -79,7 +80,10 @@ def _row(v: dict, model: dict, r) -> dict:
 
 
 def recommend(rows: list, *, allow_batch: bool = False, catalog: Optional[dict] = None, state_dir=None) -> dict:
+    from halo_harness.local_pool.preflight import _room  # 3.3.8.0 R3: a resident Ollama model is room Warm pivots out
     cat = C.CATALOG if catalog is None else catalog
+    held = sum(float(x.get("resident_gb") or 0) for x in rows if x.get("resident"))
+    rows = [_room(x) for x in rows]
     r = rate(state_dir)
     pooled, single, others, hidden = [], [], [], []
     for name, model in cat.items():
@@ -101,13 +105,15 @@ def recommend(rows: list, *, allow_batch: bool = False, catalog: Optional[dict] 
         return f"{len(x)} {one if len(x) == 1 else many}"
     head = (f"{len(counted)} of {len(rows)} members with their VRAM read, {free:.1f} GB free; "
             f"{n(pooled, 'fits', 'fit')} the pool, {n(single, 'fits', 'fit')} one node, "
-            f"{n(others, 'does', 'do')} not fit" + (f", {len(hidden)} batch-only left out" if hidden else ""))
+            f"{n(others, 'does', 'do')} not fit" + (f", {len(hidden)} batch-only left out" if hidden else "")
+            + (f"; {held:.1f} GB of resident models counted as room (Warm pivots them out first)" if held else ""))
     return {"rows": ranked, "others": others, "hidden": hidden, "head": head, "nodes": len(counted), "free_gb": free,
             "allow_batch": allow_batch}
 
 
 def verdict(name: str, rows: list, *, state_dir=None) -> Optional[dict]:
+    from halo_harness.local_pool.preflight import _room
     model = C.get(name)
     if model is None:
         return None
-    return _row(fit(model, rows), model, rate(state_dir))
+    return _row(fit(model, [_room(x) for x in rows]), model, rate(state_dir))

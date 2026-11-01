@@ -4,10 +4,13 @@ stand-ins on 127.0.0.1:0; the scan's network layer faked; no model call, never a
 
 1. the page lists the two fixture members with their numbers (pc through its halo host: a 24 GB card, 24.0 GB free,
    2.5 GbE; worker1: 40 GB as stated), the recommendation table (Qwen3-Next fits the pool and ranks 1, gpt-oss does
-   not fit) with the preview, and the line saying warm and stop arrive in R2; nothing opens over the page;
+   not fit) with the preview, and the capacity note (3.3.8.0 R3: no "not yet" line); nothing opens over the page;
 2. Scan is a button, not a load: nothing was scanned when the page opened; pressed, the two responders arrive, one is
    the member pc (its RTT now in its row), Add on the other makes a third member;
-3. the Library's Pool preset: the three pool rows with their badges, the members line, no Save as role template.
+3. the Library's Pool preset: the three pool rows with their badges, the members line, no Save as role template;
+4. (3.3.8.0 R3, tests/helpers/studio_pool_run.py over tests/helpers/pool_run_rig.RunRig) the preflight's eight checks
+   with Warm enabled once green and the Wi-Fi switch; Warm -> running, both members with their claims and leases, the
+   pivot line for pc's resident model, the cooldown; Stop -> stopped, the entry gone, the preflight back.
 Run: python -m tests.test_studio_pool
 """
 from __future__ import annotations
@@ -29,19 +32,19 @@ _RUN: dict = {}
 QWEN, OSS = "qwen3-next-80b-a3b-q4km", "gpt-oss-120b"
 
 
-def _got(ctx: Ctx) -> dict:
+def _got(ctx: Ctx, helper: str = "studio_pool") -> dict:
     from tests.helpers.chrome_driver import driver_env, find_chrome
     if not find_chrome():
         raise SkipTest("no Chrome found (the Pool page checks need headless Chrome)")
-    if "r" not in _RUN:
-        r = subprocess.run([sys.executable, "-m", "tests.helpers.studio_pool"], capture_output=True, encoding="utf-8",
+    if helper not in _RUN:
+        r = subprocess.run([sys.executable, "-m", f"tests.helpers.{helper}"], capture_output=True, encoding="utf-8",
                            errors="replace", timeout=300, env=driver_env(REPO), cwd=str(REPO), stdin=subprocess.DEVNULL)
         try:
             info = json.loads(r.stdout.strip().splitlines()[-1])
         except (ValueError, IndexError):
             info = {}
-        _RUN["r"] = (r, info)
-    r, info = _RUN["r"]
+        _RUN[helper] = (r, info)
+    r, info = _RUN[helper]
     if info.get("skip"):
         raise SkipTest(info["skip"])
     ctx.check(f"the driver ran, got {r.returncode} {info.get('failed')!r} {r.stderr[-800:]!r}", r.returncode == 0 and "failed" not in info)
@@ -63,7 +66,8 @@ def test_the_page_lists_the_members_and_the_recommendation(ctx: Ctx):
     ctx.check(f"the preview, got {got.get('preview')!r}", str(got.get("preview")).startswith(
         "needs 53.6 GB -- 64.0 GB free across 2 nodes; 32k Q8_0; one 2 GB routing table per node; download 46 GB")
               and str(got.get("preview")).endswith("nothing downloads until you press it"))
-    ctx.check(f"what R1 cannot do yet, got {got.get('not_yet')!r}", "warm and stop arrive in R2" in str(got.get("not_yet")))
+    ctx.check(f"the capacity note, no 'not yet' line (R3), got {got.get('note')!r} {got.get('not_yet')}",
+              "Pooling adds capacity, not speed" in str(got.get("note")) and got.get("not_yet") is False)
     ctx.check(f"nothing opens over the page, got {got.get('dialogs')}", got.get("dialogs") == 0)
 
 
@@ -90,6 +94,32 @@ def test_the_librarys_pool_preset(ctx: Ctx):
         ["pool/qwen3-next-80b-a3b-q4km", "pool"], ["pool/llama-3.3-70b-q4km", "pool"], ["pool/gpt-oss-120b", "no"]])
     ctx.check(f"the members line, no Save as role template, got {got.get('lib_head')!r} {got.get('lib_save')}",
               str(got.get("lib_head")).startswith("2 of 3 members with their VRAM read") and got.get("lib_save") is False)
+
+
+@test
+def test_warm_and_stop(ctx: Ctx):
+    got = _got(ctx, "studio_pool_run")
+    ctx.check(f"the preflight's eight checks, every one green, got {got.get('checks')}", [c[0] for c in got.get("checks") or []]
+              == ["fit", "link", "rpc", "versions", "build", "gguf", "resident", "window"]
+              and all(c[1] for c in got["checks"]))
+    ctx.check(f"Warm enabled once green, Stop not, the switch, the note, got {got.get('warm_enabled')} "
+              f"{got.get('stop_disabled')} {got.get('wifi')} {got.get('not_yet')}", got.get("warm_enabled") == "enabled"
+              and got.get("stop_disabled") is True and got.get("wifi") == "checkbox" and got.get("not_yet") is False
+              and str(got.get("line")).startswith("preflight green: Qwen3-Next") and got.get("dialogs") == 0)
+    m = {row[0]: row[1:] for row in got.get("members") or []}
+    ctx.check(f"Warm: running, both members with their claims and leases, got {got.get('state')!r} {m}",
+              str(got.get("state")).endswith(": running") and m.get("pc", [None])[0] == "up" and m["pc"][1] == "true"
+              and "claimed, lease" in m["pc"][2] and m.get("me", [None])[0] == "this GPU")
+    ctx.check(f"the Warm's lines: the pivot first, the pool serving, got {got.get('lines')}", any(
+        ln.startswith("pivot: qwen3.8:27b -> pool (Qwen3-Next") for ln in got.get("lines") or [])
+              and any(ln.startswith("the pool serves Qwen3-Next") for ln in got["lines"]))
+    ctx.check(f"Stop enabled, Warm disabled, the cooldown said, got {got.get('stop_enabled')} {got.get('warm_disabled')} "
+              f"{got.get('cooldown')!r}", got.get("stop_enabled") == "enabled" and got.get("warm_disabled") is True
+              and str(got.get("cooldown")).startswith("one pool change per 10 min"))
+    ctx.check(f"Stop: stopped, the entry gone, the preflight back, got {got.get('state_after')!r} {got.get('entry_gone')}",
+              got.get("state_after") == "the pool is not running" and got.get("entry_gone") is True
+              and got.get("preflight_back") == 8 and got.get("state_before") == "the pool is not running")
+    ctx.check(f"one rpc-server started on pc, got {got.get('rpc_argv')}", len(got.get("rpc_argv") or []) == 1)
 
 
 if __name__ == "__main__":

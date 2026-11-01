@@ -125,7 +125,19 @@ host card, the tensor split), `local_pool/catalog.py` (the pool's models, every 
 preview before any download), `local_pool/scan.py` (the RPC-port scan and the members' RTT), `local_pool/library.py`
 (the Library's Pool preset); `providers/rpc_probe.py` (the RPC-port probe: a TCP connect and its time, the sweep on
 explicit action); `pool_cli.py`, `pool_scan_cli.py` (`halo pool`); `studio/pool_api.py`; `ui/src/routes/local/
-PoolPage.tsx`, `PoolMembers.tsx`, `PoolRecommend.tsx`, `poolstore.ts`.
+PoolPage.tsx`, `PoolMembers.tsx`, `PoolRecommend.tsx`, `poolstore.ts`. 3.3.8.0 R3, the controller:
+`local_pool/versions.py` (the llama.cpp build of llama-server and each rpc-server, compared), `local_pool/preflight.py` (every
+check before a launch), `local_pool/hosts.py` (a member through its halo host: rpc, claim, unload, warm),
+`local_pool/claims.py` (the pool's claim on every member, its lease, the release and the return pivots),
+`local_pool/gguf.py` (where the GGUF is), `local_pool/launch.py` (the argv, start, stop, run.json),
+`local_pool/spawn.py` (the llama-server process), `local_pool/entry.py` (the `pool` local-server entry and its key),
+`local_pool/degrade.py` (running / degraded / down, the failed request's line), `local_pool/route.py` (the pool's
+`route` answer, its pseudo-host for `place.solve`), `local_pool/peer.py` (the pool offered through the host's catalog
+and resolved from a peer); `local_sched/lease.py` (the heartbeat that renews leased claims); `host/ops_rpc.py` (the
+`rpc_server` op, `GET rpc`), `host/rpc_runner.py` (rpc-server's binary and its runner seam);
+`ollama_steward/changes_pool.py` (warm / stop as changes, the auto-revert); `pool_run_cli.py` (`halo pool preflight | rpc | status |
+stop`, `halo local serve --pool`), `host_rpc_cli.py` (`halo host rpc`); `studio/pool_act_api.py`; `ui/src/routes/
+local/PoolRun.tsx`, `poolrunstore.ts`.
 
 **Packs** (`halo_harness/packs/`, Halo 3.2.0.0 R1, docs/PACKS.md): the
 names (`packs/names.py`: ids, `<id>--<name>`, the `pack:<id>` label and

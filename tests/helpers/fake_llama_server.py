@@ -44,6 +44,13 @@ def main(argv: list) -> int:
     if os.environ.get("FAKE_LLAMA_EXIT") == "1":
         say("error: failed to load model (the fake was told to fail)")
         return 1
+    rpc = [x for x in (_arg(argv, "--rpc", default="") or "").split(",") if x]  # 3.3.8.0 R3: a pool's RPC devices
+    for i, door in enumerate(rpc):
+        say(f"load_tensors: RPC[{door}] model buffer size = {1024 * (i + 1):.2f} MiB")
+        if os.environ.get("FAKE_LLAMA_OOM") == door:
+            say(f"ggml_backend_rpc_buffer_type_alloc_buffer: RPC[{door}] failed to allocate buffer of size 24576 MiB: "
+                "out of memory")
+            return 1
     load_s = float(os.environ.get("FAKE_LLAMA_LOAD_S") or 0.3)
     ready = threading.Event()
 

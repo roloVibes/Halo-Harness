@@ -6,10 +6,11 @@
     halo pool recommend [--batch] [--json]
     halo pool verdict <model> [--json]
     halo pool scan [--port N] [--subnet CIDR ...] [--no-own-subnet] [--json]      (pool_scan_cli.py)
+    halo pool preflight <model> | rpc <member> on|off|status | status | stop       (pool_run_cli.py, 3.3.8.0 R3)
 
-The pool is a set of paired hosts whose GPU memory serves one model together over llama.cpp RPC. This round knows the
-pool and tells the truth about it: nothing here launches rpc-server or llama-server, loads a model or changes a host;
-the only network traffic is `scan` (which you run) and the host-card reads Halo already does. Exit codes: 0 done, 1
+The pool is a set of paired hosts whose GPU memory serves one model together over llama.cpp RPC. These verbs read and
+recommend: nothing here launches rpc-server or llama-server (pool_run_cli.py and `halo local serve --pool` do); the
+only network traffic is `scan` (which you run) and the host-card reads Halo already does. Exit codes: 0 done, 1
 could not (the reason on stderr), 2 usage.
 """
 
@@ -20,14 +21,16 @@ import sys
 
 from halo_harness.remote import cli_common as C
 
-VERBS = ("members", "add", "remove", "recommend", "verdict", "scan")
-NOT_YET = "warm and stop arrive in R2 (the controller); this round reads and recommends only"
+VERBS = ("members", "add", "remove", "recommend", "verdict", "scan", "preflight", "rpc", "status", "stop")
 USAGE = """usage: halo pool members [--json]
        halo pool add <name> <host[:port]> [--weight W] [--vram GB] [--json]
        halo pool remove <name> [--json]
        halo pool recommend [--batch] [--json]
        halo pool verdict <model> [--json]
        halo pool scan [--port N] [--subnet CIDR ...] [--no-own-subnet] [--json]
+       halo pool preflight <model> [--window N] [--allow-wifi] [--json]
+       halo pool rpc <member> on | off | status [--json]     halo pool status [--json]     halo pool stop [--json]
+       halo local serve --pool <model> [--window N] [--allow-wifi] [--keep] [--json]
 
   members    the members, each one's GPU, free / total VRAM (from its host card), link and RTT, and the tensor split
   add        a member: a paired host's name, `local`, or a worker's host[:port] running rpc-server (port 50052)
@@ -35,7 +38,11 @@ USAGE = """usage: halo pool members [--json]
   recommend  what fits the pool (the fewest active parameters first), then what one node holds; --batch shows the
              batch-only models
   verdict    one catalog model's fit on the pool, every number said, and the preview before any download
-  scan       probe the RPC port on this machine's /24 (and pool.scan_subnets) and on every member: candidates, RTT"""
+  scan       probe the RPC port on this machine's /24 (and pool.scan_subnets) and on every member: candidates, RTT
+  preflight  every check before a launch: the fit read now, each rpc-server, the link, the builds, the GGUF, the window
+  rpc        a member's rpc-server through its halo host (control grant there); status reads it
+  status     the running pool: health, degraded (a worker down), the claim on each member
+  stop       stop the pool: llama-server stopped, the claims released, the pivoted-out models back (said)"""
 
 
 def _parser(verb: str, description: str) -> argparse.ArgumentParser:
@@ -59,20 +66,14 @@ def members_view(state_dir=None) -> dict:
             f"{total:.1f} GB" + (f"; split {' / '.join(f'{w:.2f}' for w in split)} (from {split_from(rows)})" if split else ""))
     return {"members": rows, "split": split, "split_from": split_from(rows) if split else "", "free_gb": free,
             "total_gb": total, "head": head if rows else "no members yet: halo pool add <name> <host[:port]>",
-            "problems": check(load(state_dir)) + _reserved(), "file": str(path(state_dir)), "rpc_port": rpc_port(),
-            "not_yet": NOT_YET}
+            "problems": check(load(state_dir)) + _reserved(), "file": str(path(state_dir)), "rpc_port": rpc_port()}
 
 
 def _reserved() -> list:
-    """The name `pool` is reserved for the pool's own huggingface.local_servers entry (R2): one line when yours has it."""
-    from halo_harness.local_pool import POOL_SERVER_NAME
-    try:
-        from halo_harness.providers.huggingface import resolve_huggingface_local_servers
-        taken = any(s.name.lower() == POOL_SERVER_NAME for s in resolve_huggingface_local_servers())
-    except Exception:
-        taken = False
-    return [f"huggingface.local_servers has an entry named {POOL_SERVER_NAME!r}: the pool becomes that entry in R2 "
-            "(hf:local/<model>@pool), so rename yours"] if taken else []
+    """The name `pool` is reserved for the pool's own huggingface.local_servers entry: one line when yours has it."""
+    from halo_harness.local_pool.entry import clash
+    line = clash()
+    return [line] if line else []
 
 
 def cmd_members(argv: list) -> int:
@@ -90,7 +91,6 @@ def cmd_members(argv: list) -> int:
         print(f"  {r['line']}; RTT {r['rtt_word']}{share}")
     for line in v["problems"]:
         print(f"  ! {line}")
-    print(v["not_yet"])
     return 0
 
 
@@ -150,7 +150,7 @@ def cmd_recommend(argv: list) -> int:
     from halo_harness.local_pool.recommend import recommend
     rec = recommend(budgets(), allow_batch=a.batch)
     if a.json:
-        C.emit_json({"ok": True, **rec, "not_yet": NOT_YET})
+        C.emit_json({"ok": True, **rec})
         return 0
     print(rec["head"])
     for v in rec["rows"] + rec["others"]:
@@ -158,7 +158,6 @@ def cmd_recommend(argv: list) -> int:
             print(line)
     for h in rec["hidden"]:
         print(f"-  {h['line']}")
-    print(NOT_YET)
     return 0
 
 
@@ -191,6 +190,9 @@ def cmd_pool(argv: list) -> int:
     if verb == "scan":
         from halo_harness.pool_scan_cli import cmd_scan
         return cmd_scan(rest)
+    if verb in ("preflight", "rpc", "status", "stop"):  # 3.3.8.0 R3
+        from halo_harness.pool_run_cli import VERBS as RUN
+        return RUN[verb](rest)
     fn = {"members": cmd_members, "add": cmd_add, "remove": cmd_remove, "recommend": cmd_recommend,
           "verdict": cmd_verdict}.get(verb)
     if fn is None:

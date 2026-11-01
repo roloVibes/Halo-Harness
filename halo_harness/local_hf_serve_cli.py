@@ -5,6 +5,8 @@ trained context, the card's kv_cache_type, a steward profile), the command line,
 `hf:local/<model>` ref the catalog lists it under. The model is a path `halo local ls` lists, any exact .gguf file or
 model folder, a name `halo local --terminal` shows, or with `--runtime mlx` a Hugging Face repo id (the round 5f
 `hf:mlx/<repo>` path). When no llama-server is found, `--yes` lets Halo fetch the pinned release (round 5c).
+3.3.8.0 R3: `--pool <model>` runs a pool catalog model across the pool's members instead (pool_run_cli.serve_pool:
+the preflight, the claims, each worker's rpc-server, llama-server --rpc ..., the `pool` entry).
 """
 
 from __future__ import annotations
@@ -42,7 +44,12 @@ def cmd_serve(argv: list) -> int:
     p.add_argument("--backend", choices=("cuda", "vulkan", "cpu", "metal"), default=None,
                    help="which llama-server build to fetch (default: CUDA when the driver reports one, else Vulkan; Metal on macOS)")
     p.add_argument("--json", action="store_true")
+    p.add_argument("--pool", action="store_true", help="the model is a pool catalog model: serve it across the pool")
+    p.add_argument("--allow-wifi", action="store_true", help="with --pool: keep a Wi-Fi member (a slower decode)")
     a = p.parse_args(argv)
+    if a.pool:
+        from halo_harness.pool_run_cli import serve_pool
+        return serve_pool(a.model, window=a.window, keep=a.keep, allow_wifi=a.allow_wifi or None, as_json=a.json)
     raw = _resolve(a.model)
     if raw is None:
         if a.runtime in ("mlx", "mlx_lm") and "/" in a.model:

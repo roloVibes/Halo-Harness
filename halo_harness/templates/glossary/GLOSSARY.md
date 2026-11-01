@@ -277,11 +277,11 @@ A verdict (3.3.7.0 R5) is a bundle's honest answer before anything downloads: re
 
 ## pool
 
-A pool (3.3.8.0) is a set of paired hosts whose GPU memory serves one model together, for a model too big for any one card. Its members live in `~/.halo/pool/pool.json` (a paired host by its name, `local`, or a worker's address with its rpc-server port); each member's free VRAM comes from its host card. It adds capacity, not speed: a model one node holds runs there. `halo pool members | recommend | verdict | scan` and Local -> Pool.
+A pool (3.3.8.0) is a set of paired hosts whose GPU memory serves one model together, for a model too big for any one card. Its members live in `~/.halo/pool/pool.json` (a paired host by its name, `local`, or a worker's address with its rpc-server port); each member's free VRAM comes from its host card. It adds capacity, not speed: a model one node holds runs there. `halo pool members | recommend | verdict | scan | preflight | status | stop`, `halo local serve --pool <model>` and Local -> Pool (Warm, Stop); the running pool is the `huggingface.local_servers` entry named `pool` (`hf:local/<model>@pool`).
 
 ## rpc-server
 
-rpc-server is llama.cpp's small worker daemon: it lends its machine's GPU (CUDA, Metal or Vulkan) to a `llama-server` on another machine over TCP (port 50052 by default), and holds no model file of its own -- the controller ships it the tensors. It has no authentication: trusted LAN only. Halo's scan finds its port; from 3.3.8.0 R2 a worker's `halo host` starts and stops it.
+rpc-server is llama.cpp's small worker daemon: it lends its machine's GPU (CUDA, Metal or Vulkan) to a `llama-server` on another machine over TCP (port 50052 by default), and holds no model file of its own -- the controller ships it the tensors. It has no authentication: trusted LAN only. Halo's scan finds its port; from 3.3.8.0 R3 a worker's `halo host` starts and stops it on its LAN address (`rpc_server on | off`, behind the host's grants; `halo host rpc`, `halo pool rpc <member>`).
 
 ## tensor split
 
@@ -297,3 +297,11 @@ A server log, in its first sense, is what a model server writes about itself: Ol
 ## runtime
 
 A runtime (3.3.8.0 R2) is the program serving a local model: `llama-server` (llama.cpp's server), `lmstudio` (LM Studio's server) or `mlx` (mlx_lm.server). It decides what the server's log can say (mlx prints no window and no spill: "not asked"), which server-side line the steward states for a fix (`--ctx-size N`, LM Studio's Context Length, `--max-tokens N`) and how a crash is fingerprinted. The probe tells llama-server by its `/props`, LM Studio by its port; a `huggingface.local_servers` entry can name it (`runtime`).
+
+## claim lease
+
+A claim lease (3.3.8.0 R3) is the time a claim lasts unless its holder renews it: the claim's `until`, now + `pool.claim_lease_s` (120 s). The halo that warmed the pool renews its claim on every member every lease / 3 seconds (a heartbeat; a bundle held by a halo process the same), so the claims of a killed Studio end on their own within the lease and the cards are free again. A claim past its `until` is not a claim: the host's residency, its invariants and every peer's scheduler leave it out. A claim from the CLI (`halo pack on`) has no lease.
+
+## preflight
+
+The preflight (3.3.8.0 R3) is every check the pool runs before it launches a model, one row each: the fit over each member's free VRAM read now, the link (a Wi-Fi member left out unless allowed), each worker's rpc-server, the llama.cpp builds against each other and the model's minimum, the GGUF on this machine (else the one Download line), what is resident and claimed, and the window. Warm is enabled only when it is green; a block is one line with its number. `halo pool preflight <model>`, the Pool page.
