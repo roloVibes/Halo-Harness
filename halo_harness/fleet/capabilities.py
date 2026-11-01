@@ -5,7 +5,7 @@
                      skills: [name], roles: [{role, bio, lineup}], providers: [{name, id, ok}],
                      models: [{id, provider, best_for: [kind]}], craft_apps: [name],
                      media: {comfyui, models: [{name, kind}]},
-                     hardware: {os, distro, release, cpu, cores, ram_gb, gpu: [{name, vram_gb}], disk_free_gb},
+                     hardware: {os, distro, release, cpu, cores, ram_gb, gpu: [{name, vram_gb}], disk_free_gb, link},
                      clis: {name: version | "installed" | null}, projects: [{name, repo, branch}],
                      integrations: {signal}, packs: [{id, capabilities: [{name, available, why}], ...}]}  (R4)
 

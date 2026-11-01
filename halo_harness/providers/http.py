@@ -229,6 +229,13 @@ def allowlisted_local_hosts() -> "set[str]":
             _consider(s.url, offline_ok=bool(getattr(s, "offline_ok", False)))
     except Exception:
         pass
+    try:  # 3.3.8.0 R1: the pool's members (local_pool/members.py), held to the same local-only rule
+        from halo_harness.local_pool.members import load as pool_members
+        for m in pool_members():
+            h = str(m["host"])
+            _consider(f"tcp://[{h}]:1" if ":" in h else f"tcp://{h}:1")
+    except Exception:
+        pass
     try:
         from halo_harness.providers.config import default_state_dir
         from halo_harness.providers.local_runtime import load_registry

@@ -274,3 +274,19 @@ A reservation (3.3.7.0 R5) is a bundle's claim on a card for as long as it is on
 ## verdict
 
 A verdict (3.3.7.0 R5) is a bundle's honest answer before anything downloads: ready (everything is here and it fits, with the expected latency), needs N downloads (each tag with its size, its fit and the minutes, and one button that starts Download and verify) or won't work (what it needs against what there is, and the ways out, each a number: a speech model on the CPU, a smaller model, a smaller window). It is arithmetic over the card, the catalog and the claims; nothing is guessed.
+
+## pool
+
+A pool (3.3.8.0) is a set of paired hosts whose GPU memory serves one model together, for a model too big for any one card. Its members live in `~/.halo/pool/pool.json` (a paired host by its name, `local`, or a worker's address with its rpc-server port); each member's free VRAM comes from its host card. It adds capacity, not speed: a model one node holds runs there. `halo pool members | recommend | verdict | scan` and Local -> Pool.
+
+## rpc-server
+
+rpc-server is llama.cpp's small worker daemon: it lends its machine's GPU (CUDA, Metal or Vulkan) to a `llama-server` on another machine over TCP (port 50052 by default), and holds no model file of its own -- the controller ships it the tensors. It has no authentication: trusted LAN only. Halo's scan finds its port; from 3.3.8.0 R2 a worker's `halo host` starts and stops it.
+
+## tensor split
+
+The tensor split is how a pooled model's layers are shared out across the members, one weight per member (`--tensor-split 0.55,0.45`). Halo makes it proportional to each member's free VRAM (after its own copy of the routing tables and its buffers, for a model), not to the card's size; when you set every member's weight, it follows those.
+
+## pooled inference
+
+Pooled inference is running one model across several machines' GPUs with llama.cpp RPC: layer by layer (pipeline), every layer boundary a network round trip, so decode is 21-55 % slower than on one node that could hold the model while prompt processing pipelines well. A mixture of experts with few active parameters is the right pooled model; a dense 70B pooled is a batch lane. Wi-Fi members and mismatched node memory hurt it most.

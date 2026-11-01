@@ -2,13 +2,13 @@
 // in this order -- Resources, Hosts, Models (built in R1), Library (built in R2:
 // the library browser and the fit badge), Hugging Face (built in R5: HF local models),
 // Benchmarks (R5: the speed card, tuning scans, revert) and Steward (R6: the
-// steward's chat and the scheduling; R1 shows its status and last note). Which
+// steward's chat and the scheduling; R1 shows its status and last note); 3.3.8.0 R1: Pool. Which
 // page is open is this store: the rail opens any, the door (`?page=`, door.ts)
 // opens one, the palette's "Local: <page>" too, and the page last open is
 // remembered for this browser under halo.studio.local.page.
 import { createStore, useStore, writeLocal } from "../../lib/store";
 
-export type PageId = "resources" | "hosts" | "models" | "library" | "huggingface" | "logs" | "benchmarks" | "steward";
+export type PageId = "resources" | "hosts" | "models" | "library" | "huggingface" | "logs" | "benchmarks" | "steward" | "pool";
 export type PageDef = { id: PageId; title: string; built: boolean; round?: string };
 
 export const PAGES: PageDef[] = [
@@ -20,6 +20,7 @@ export const PAGES: PageDef[] = [
   { id: "logs", title: "Logs", built: true }, // 3.3.6.0 R3: each host's server log (LogsPage.tsx)
   { id: "benchmarks", title: "Benchmarks", built: true }, // 3.3.6.0 R5: speed cards, tuning, changes (BenchPage.tsx)
   { id: "steward", title: "Steward", built: true }, // 3.3.7.0 R5: the chat, the model picker (StewardPage.tsx)
+  { id: "pool", title: "Pool", built: true }, // 3.3.8.0 R1: several hosts serving one model over RPC (PoolPage.tsx)
 ];
 
 export const PAGE_KEY = "halo.studio.local.page";

@@ -359,6 +359,8 @@ this table to the same keys, so a new key lands in all three:
 | `host.refresh.window` | `22:00-07:00` | Halo 3.3.7.0 R4: `halo config set host.refresh.window "01:00-06:00"`; when the refresh may run, local time (it may wrap midnight); `off` disables it | Settings -> Local |
 | `host.refresh.idle_min` | `20` | Halo 3.3.7.0 R4: minutes the card must have been idle first: no call in the ledger, no scheduler load, nothing foreign in `/api/ps`, no session on it | Settings -> Local |
 | `host.refresh.max_age_days` | `14` | Halo 3.3.7.0 R4: a profile older than this many days is measured again | Settings -> Local |
+| `pool.rpc_port` | `50052` | Halo 3.3.8.0 R1: `halo config set pool.rpc_port 50053`; the rpc-server port `halo pool add` gives a member with no port and `halo pool scan` (and Local -> Pool's Scan) probes (see [POOL.md](POOL.md)) | Settings -> Local |
+| `pool.scan_subnets` | `[]` | Halo 3.3.8.0 R1: `halo config set pool.scan_subnets '["192.0.2.0/24"]'`; the CIDRs the pool's scan covers besides this machine's own /24 (a /24 at most each; `--subnet` overrides it for one scan) (see [POOL.md](POOL.md)) | Settings -> Local |
 | `embeddings.model` | unset (embeddings off) | `halo config set embeddings.model nomic-embed-text`; the embeddings model recall ranks with -- see [RECALL.md](RECALL.md) | Settings -> Local |
 | `embeddings.enabled` | `false` | hand-edited; `true` turns embeddings on with the default model when no model is named | Settings -> Local |
 | `embeddings.host` | unset (the default Ollama host) | hand-edited; the `ollama.hosts` entry (by name) that serves embeddings | Settings -> Local |

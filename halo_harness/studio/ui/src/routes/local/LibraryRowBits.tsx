@@ -104,3 +104,26 @@ export function VerifyBits({ row }: { row: LibRow }) {
     </>
   );
 }
+
+/** 3.3.8.0 R1: a Pool preset row's badge ("pool: fits (2 nodes, 32k Q8_0)" / "pool: 1 node holds it" / "pool: no"). */
+export function PoolBadge({ row }: { row: LibRow }) {
+  const p = row.pool;
+  if (!p) return null;
+  return (
+    <span className="pool-badge mono" data-testid="local-library-pool" data-state={p.state} title={p.lines.join("\n")}>
+      {p.badge}
+    </span>
+  );
+}
+
+/** Its verdict and the honest preview before any download (the Download beside it is the hub row's own). */
+export function PoolLines({ row }: { row: LibRow }) {
+  const p = row.pool;
+  if (!p) return null;
+  return (
+    <div className="pool-lib-lines" data-testid="local-library-pool-lines">
+      <p className="mono">{p.verdict}{p.tags.length ? ` [${p.tags.join(", ")}]` : ""} · {p.speed_word}</p>
+      <p className="mono muted" data-testid="local-library-pool-preview">{p.preview}</p>
+    </div>
+  );
+}

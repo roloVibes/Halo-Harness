@@ -1,6 +1,6 @@
 """halo_harness.host.routes_view -- the host's `view` answers (Halo 3.3.7.0 R1; host/http.py routes them).
 
-    View(home, readers=None).card()            {hosts: [{name, port, card, log, other_clients, footprint}]}
+    View(home, readers=None).card()            {hosts: [{name, port, card, log, other_clients, footprint}], link}
     View.catalog(window)                       {window, hosts: [{name, port, models: [{model, size, digest, fit, speed,
                                                 measured, profile}]}]}
     View.profiles()                            {profiles: [battery profile without its evidence]}
@@ -109,7 +109,17 @@ class View:
             rows.append({"name": h.name, "port": port_of(h.url), "card": c, "log": self.log_status(h),
                          "other_clients": self.other_clients(h), "footprint": fp["line"], "usable_gb": fp["usable_gb"],
                          "usable_with_helper_gb": fp["usable_with_helper_gb"], "helper": fp["helper"]})
-        return {"hosts": rows}
+        return {"hosts": rows, "link": self.link()}
+
+    def link(self) -> dict:
+        """3.3.8.0 R1: the adapter that carries this machine's address (local_pool/link.py), read once a minute."""
+        hit = self._cards.get("~link")
+        if hit and time.monotonic() - hit[0] < 60.0:
+            return hit[1]
+        from halo_harness.local_pool.link import read
+        got = self.readers["link"]() if "link" in self.readers else read()
+        self._cards["~link"] = (time.monotonic(), got)
+        return got
 
     def log_status(self, h) -> Optional[dict]:
         if "log" in self.readers:

@@ -89,6 +89,9 @@ def save(preset: str, *, state_dir=None, cwd=None, model: str = "", lineup: str 
     from halo_harness.models_library.presets import PRESETS, bundle
     if preset not in PRESETS:
         return False, [f"no preset {preset!r}: one of {', '.join(PRESETS)}"], ""
+    if preset == "pool":  # 3.3.8.0 R1: the pool serves one model across several hosts; it is no role's filters
+        return False, ["the Pool preset fills no lineup role: the pool serves one model across its members "
+                       "(halo pool recommend)"], ""
     b = bundle(preset, **(bundle_over or {}))
     _ensure(state_dir)
     role = LINEUP_ROLE.get(preset, "")

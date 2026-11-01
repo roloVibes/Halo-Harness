@@ -6,13 +6,13 @@
 // each with its own fit. The actions: Pull onto the host picked (3.3.5.0 R3, LibraryPull.tsx: the progress bar while
 // it runs, "installed on <host>" after) and Copy for the pull line. 3.3.6.0 R2 (LibraryRowBits.tsx): each capability
 // with its truth mark, the two verdicts side by side, the cost preview, a crashed model greyed with its reason, and
-// Download and verify (pull, probe, the role offer).
+// Download and verify (pull, probe, the role offer). 3.3.8.0 R1: a Pool preset row's badge and preview (PoolBadge).
 import { useState } from "react";
 import { Button, FitMeter } from "../../lib/ui";
 import { CardChips, CardDetail } from "../shared/ModelCard";
 import { copyLine, count, detailKey, gb, loadDetail, useLib } from "./libstore";
 import { RowPull } from "./LibraryPull";
-import { CapMarks, CostLine, CrashLine, Verdicts, VerifyBits } from "./LibraryRowBits";
+import { CapMarks, CostLine, CrashLine, PoolBadge, PoolLines, Verdicts, VerifyBits } from "./LibraryRowBits";
 import type { LibRow } from "./types";
 
 function Copy({ line }: { line: string }) {
@@ -86,6 +86,7 @@ export function LibraryRow({ row, score }: { row: LibRow; score?: number | null 
         <span className="lc-lib-badge" data-testid="local-library-fit" data-level={row.fit?.level || "unknown"} title={row.fit?.why || ""}>
           <FitMeter fit={row.fit} />
         </span>
+        <PoolBadge row={row} />
         <span className="spacer" />
         <span className="mono" data-testid="local-library-size" title={s.size_bytes || "size on disk"}>{gb(row.size_bytes)}{row.estimate ? " ≈" : ""}</span>
       </div>
@@ -99,6 +100,7 @@ export function LibraryRow({ row, score }: { row: LibRow; score?: number | null 
         {row.gated ? <span className="lc-lib-gated" data-testid="local-library-gated" title="gated: the repo asks you to accept its terms; HF_TOKEN is sent for its files">gated</span> : null}
       </div>
       {row.description && <p className="muted lc-lib-desc">{row.description}</p>}
+      <PoolLines row={row} />
       <CapMarks row={row} />
       <Verdicts row={row} />
       <CostLine row={row} />

@@ -70,4 +70,10 @@ export const LOCAL_HELP: Record<string, Help> = {
     "A change it makes is Halo-side, one per answer, citing a finding; retire, download, a bench or the battery wait for your button.",
     "Ask a bigger model says its cost first, then sends the same context once to the session's main model.",
     "halo ollama steward chat and halo ollama steward candidates say the same from a terminal."),
+  "local-pool": page("Several paired hosts' GPU memory serving one model over llama.cpp RPC: the members, what the pool can run, and Scan. Read-only this round: warm and stop arrive in R2.",
+    "Pooling adds capacity, not speed: every measured pooled decode is 21-55 % slower than one node that holds the model, so a model one node holds is said to run there.",
+    "Each member's free VRAM comes from its host card: usable with the duty steward's helper out, minus the models resident there, minus what bundles claim; the tensor split follows it.",
+    "The fit: weights + a routing table per node (a mixture of experts replicates them to every node) + 1 GB of buffers per node + the KV cache at 16k F16; the window it holds is said at F16 and Q8_0, never past 32k.",
+    "Scan connects to the RPC port (pool.rpc_port, 50052) on this machine's /24 and on every member, only when pressed. A Wi-Fi member (the adapter says so, or an RTT past 10 ms) poisons decode.",
+    "Download is the Hugging Face download + verify job, the licence card first; nothing downloads until you press it. halo pool members, recommend, verdict and scan say the same from a terminal."),
 };

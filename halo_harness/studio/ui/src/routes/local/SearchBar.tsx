@@ -52,6 +52,7 @@ function BundleView({ b }: { b: Bundle }) {
   const fit = f.edited ? f.fitf : b.fit;
   const supply = f.edited ? f.supply : b.supply;
   const understood = useLib((s) => s.data?.search?.understood || []);
+  const poolHead = useLib((s) => s.data?.pool?.head || ""); // 3.3.8.0 R1: the Pool preset's members line
   return (
     <section className="ls-bundle" data-testid="local-preset-bundle" data-preset={b.id} aria-label={`${b.title}: its filters`}>
       <div className="mono"><b>{b.title || "Search"}</b> <span className="muted">{b.why}</span></div>
@@ -70,7 +71,8 @@ function BundleView({ b }: { b: Bundle }) {
         <Pairs part="fitf" rows={fit as Record<string, unknown>} />
         <Pairs part="supply" rows={supply as Record<string, unknown>} />
       </div>
-      {b.id && (
+      {b.id === "pool" && poolHead && <p className="mono" data-testid="local-pool-head">{poolHead}</p>}
+      {b.id && b.id !== "pool" && (
         <div className="ls-save">
           <Button size="sm" onClick={() => void saveTemplate(b.id, { needs, fit, supply })} data-testid="local-save-template"
                   title={`write these filters as the lineup local-${b.id} (main and the ${b.lineup_role || "search"} role; not active until halo teams apply)`}>

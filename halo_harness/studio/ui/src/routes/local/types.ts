@@ -73,7 +73,10 @@ export type LibRow = {
   installed?: string[]; pull_target?: string; // 3.3.5.0 R3: the hosts that have it; what Pull asks for
   fit_evidence?: FitEvidenceView; // 3.3.6.0 R3: its last load on the first host that has it (providers/fit_evidence.py)
   on_disk?: string[]; // 3.3.5.0 R5: the model folders a hub row (or its file) is downloaded into
+  pool?: PoolBadge; // 3.3.8.0 R1: the Pool preset's rows (local_pool/library.py)
 } & SearchBits;
+export type PoolBadge = { state: "single" | "pool" | "no"; badge: string; verdict: string; preview: string; lines: string[];
+  tags: string[]; speed_word: string; rank: number | null; model: string };
 // 3.3.6.0 R2: the search (models_library/search.py): each capability's truth, the cost preview, the two verdicts.
 export type Truth = "declared" | "expected" | "verified";
 export type Fact = { value: boolean | null; truth: Truth | null; why: string; probe?: boolean };
@@ -109,6 +112,7 @@ export type LibraryAnswer = {
   snapshot: { taken: string };
   search?: { preset: string; bundle: Bundle | null; role: string; understood: string[]; for_role?: string; sentence?: string };
   presets?: Bundle[]; strip?: Strip; // 3.3.6.0 R2
+  pool?: { head: string; nodes: number; free_gb: number }; // 3.3.8.0 R1: under the Pool preset
 };
 export type LibDetail = { source: string; id: string; rows: LibRow[]; note: string; about: Record<string, unknown>; window: number; host: string | null };
 // 3.3.5.0 R3: Ollama, controlled (studio/local_control_api.py, studio/local_pull_job.py, studio/local_uses.py).

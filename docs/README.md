@@ -14,6 +14,7 @@ Install Halo, connect your models and providers, and fix what goes wrong.
 - [MAC.md](MAC.md) (Mac quick-start (Apple Silicon)): read this when you check Halo with local models on an Apple Silicon Mac.
 - [LOCAL-MODELS.md](LOCAL-MODELS.md) (Local and cloud models): read this when you set up Ollama, Hugging Face or the OpenAI API end to end.
 - [HOST.md](HOST.md) (halo host): read this when a machine serves models and you want every harness on the LAN to read its card, its models, its log and its profiles without a session or ssh there.
+- [POOL.md](POOL.md) (The pool: one model across several machines): read this when you want to run a model too big for any one of your GPUs across the GPU memory of several machines on your LAN, or you want to know what the pool can and cannot do yet.
 - [DATABRICKS.md](DATABRICKS.md) (Databricks): read this when you run Halo against Databricks model serving, at work or with a team preset.
 - [MODELS.md](MODELS.md) (Models): read this when you need the exact behaviour of a model route: how a model name resolves, what each provider sends, the catalogs and the prices.
   - [MODELS-references.md](MODELS-references.md) (Models: references, picks and provider enablement): read this when you type a model name or prefix (`or:`, `dbx:`, `ant:`, `oai:`, `ol:`, `hf:` ...), choose a model for a job, or turn a provider on or off.
@@ -59,6 +60,7 @@ Work in the TUI and on the command line, and give agents bios, lineups, roles an
   - [COMMANDS-studio.md](COMMANDS-studio.md) (Commands: Studio, design, media, Orchestra and teams): read this when you open Studio or run designs, media, an Orchestra goal or a team from the command line.
   - [COMMANDS-fleet.md](COMMANDS-fleet.md) (Commands: remote control and the fleet): read this when you control sessions remotely or run a fleet and its missions.
   - [COMMANDS-host.md](COMMANDS-host.md) (Commands: halo host): read this when you run `halo host` on a machine that serves models, pair a harness with it, or install it as a service.
+  - [COMMANDS-pool.md](COMMANDS-pool.md) (Commands: halo pool): read this when you put several machines' GPUs together for one model: list or edit the pool's members, scan the LAN for rpc-server ports, or ask what the pool can run.
   - [COMMANDS-local-guards.md](COMMANDS-local-guards.md) (Commands: refresh, advise and the guards): read this when you re-measure stale local models by hand, ask Halo what to add or retire, or point a role at the nearest equivalent of a deleted tag.
   - [COMMANDS-ollama-chat.md](COMMANDS-ollama-chat.md) (Commands: the steward's chat and candidates): read this when you ask the steward a question from a terminal, or want the list of models that could run it.
   - [COMMANDS-supervise.md](COMMANDS-supervise.md) (Commands: the supervisor, its goals and knowledge): read this when you give Halo a goal to work on without sitting at a terminal, keep what it verified and decided, or isolate its workers.
@@ -106,6 +108,7 @@ The browser console: every agent of your session live, your lineups, runs, fleet
   - [STUDIO-local.md](STUDIO-local.md) (Studio: the Local section): read this when you watch the machines that serve your local models and what they serve: the live resources and traffic, every host with its controls, every model with its fit, the library of models you could install, and the Hugging Face models on disk with the local servers Halo starts for them.
   - [STUDIO-local-routes.md](STUDIO-local-routes.md) (Studio: the Local section's routes): read this when you call Studio's Local routes yourself or want the live frames the Local section listens to.
   - [STUDIO-local-steward.md](STUDIO-local-steward.md) (Studio: Local -> Steward): read this when you talk to the steward from Studio, choose the model it runs on, or press a button its answer left.
+  - [STUDIO-local-pool.md](STUDIO-local-pool.md) (Studio: Local -> Pool): read this when you look at the pool from Studio: its members and their free VRAM, what the pool can run, the Scan, or the Library's Pool preset.
   - [STUDIO-setup.md](STUDIO-setup.md) (Studio: the Setup section): read this when you set this box up from Studio's Setup section: what each block writes and the routes behind it.
   - [STUDIO-security.md](STUDIO-security.md) (Studio: saving, security, SSH and shortcuts): read this when you save and apply from Studio, run it over SSH, check what it lets a page do, or want every shortcut.
 - [DESIGN.md](DESIGN.md) (Halo Design): read this when you make designs, pages, decks or logos with Halo Design on your own apps.
