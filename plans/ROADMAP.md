@@ -3593,7 +3593,20 @@ The order (the owner's rule: all of this before Type into Studio and themes):
   ladder's crash trigger. Still open from R4: a TUI-only peer's calls reach no host ledger (they look foreign there);
   the refresh measures one card at a time per host and re-runs the battery on a drifted tag without diffing what
   changed; the adviser's "newer" is the library's version number, not a measurement; the image prefill row on the
-  speed card. R5 bundles + the steward's chat next.
+  speed card. R5 "bundles and the steward's chat" DONE (2026-10-31): ~~Part L capability bundles~~ (~~L1 a tick is a
+  bundle~~, ~~L2 reservation semantics~~: the claim on the host or this machine's scheduler, keep_alive -1 as a
+  scoped change, refused / queued lines naming the claim; ~~L3 the honest verdict~~ ready / needs N downloads / won't
+  work with the ways out, before anything downloads; ~~L4 routing around reservations~~ in placement, the spawn
+  verdict, the ladder and the warm set, one line each; ~~L5 the `bundle:` block~~ in pack.yaml; ~~L6 the nine
+  bundles~~ in templates/bundles/; ~~L7 acceptance~~ on the fixture card), ~~the steward's chat over the host's
+  findings~~ (Local -> Steward built: the chat box with its tools, its log `ollama/steward-chat.jsonl`, the cost per
+  answer, "ask a bigger model" with its cost first, `halo ollama steward chat`), ~~steward candidates at init and
+  whenever~~ (`halo ollama steward candidates`, the checklist row, the Steward page's picker; choose_model picks from
+  them). Still open from R5: the voice bundle's speech models (faster-whisper / Parakeet STT, Kokoro / Qwen3-TTS) and
+  their runtime are 3.3.8.0 Voice's -- the bundle ships the claim and the verdict, its STT / TTS sizes are the
+  published ones, and no voice turn has run; a reservation binds Halo's own paths (a client that talks to Ollama
+  directly is not asked); a bundle cannot yet declare a second reserved model, a schedule, or a need on another host;
+  the chat's buttons (retire, add, bench, battery) run from Studio, the CLI prints their commands.
 - **3.3.8.0 "Voice"** -- Part K: the local loop (Silero VAD -> faster-whisper
   large-v3-turbo or Parakeet TDT -> the session's model -> sentence
   aggregator -> Kokoro-82M or Qwen3-TTS, through Pipecat or LiveKit Agents,

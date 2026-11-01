@@ -1,0 +1,16 @@
+# Vision: a bundle Halo ships (3.3.7.0 R5; plans/local-model-fit-brief.md L6). It needs a model that sees (its
+# battery profile says vision: yes, else its catalog row says it reads images) for screenshots and pasted images.
+# Nothing is reserved: it loads when an image arrives, through the eyes' offer.
+id: vision
+name: Vision (the eyes)
+version: 1.0.0
+description: A local model that sees, for screenshots and pasted images; loaded when an image arrives.
+author: Halo Harness
+license: MIT
+halo_api: {min: "1.0", max: "1.9"}
+halo: {min: "3.3"}
+capabilities: [vision]
+bundle:
+  needs:
+    see: {any_of: [qwen3.5:9b, gemma3:12b, qwen3-vl:8b, llava:7b], window: 16384, vision: true}
+  routing: {task_work: coder-or-cloud, never_evict: reserved}

@@ -101,6 +101,20 @@ trigger); `fleet/control_capture.py` (a hub's capture on a member's display), `p
 `studio/local_advise_api.py`, `studio/roles_point_api.py`; `ui/src/routes/local/HostGuards.tsx`,
 `StewardRefresh.tsx`, `Adviser.tsx`, `advstore.ts`.
 
+**Bundles and the steward's chat** (Halo 3.3.7.0 R5, docs/MODELS-bundles.md and docs/MODELS-ollama-steward-chat.md):
+`packs/manifest_bundle.py` (the `bundle:` block: needs, reservation, routing, latency budget), `packs/bundles.py` (the
+bundles here and the nine Halo ships, `templates/bundles/`), `packs/cli_bundle.py` (`halo pack verdict | on | off`,
+`list --bundles`); `local_sched/bundle_fit.py` (the honest verdict), `local_sched/bundle_needs.py` (which model fills
+each need, through a halo host's `route` or the local reads), `local_sched/bundle_options.py` (the ways out, each a
+number), `local_sched/reserve.py` (the claims on each card and what is left for tasks), `local_sched/reserve_act.py`
+(claim, release, the keep_alive change), `local_sched/claims_file.py` (where the claims live); `host/ops_claim.py` (the
+host's `claim` / `release`, its invariants count them); `ollama_steward/chat.py`, `ollama_steward/chat_tools.py`,
+`ollama_steward/chat_acts.py` and `ollama_steward/chat_log.py` (the chat, its tools, its acting tools, its log),
+`ollama_steward/candidates.py` (the models that could run the steward), `ollama_steward/cli_steward_chat.py`
+(`halo ollama steward chat | candidates`); `start/checks_steward.py` (the checklist's row);
+`studio/packs_bundles_api.py`, `studio/local_steward_chat_api.py`; `ui/src/routes/packs/manager/Bundles.tsx`,
+`bundlestore.ts`, `ui/src/routes/local/StewardPage.tsx`, `StewardChat.tsx`, `StewardModel.tsx`, `chatstore.ts`.
+
 **Packs** (`halo_harness/packs/`, Halo 3.2.0.0 R1, docs/PACKS.md): the
 names (`packs/names.py`: ids, `<id>--<name>`, the `pack:<id>` label and
 `read_only_source`), `packs/semver.py` (versions and ranges),

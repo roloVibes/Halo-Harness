@@ -12,7 +12,8 @@ contract is [EXTENSION_API.md](EXTENSION_API.md)). Every verb takes `--cwd
 DIR` (act as if run from DIR, so its `.halo/packs/` is the repo's) and
 `--json` (one JSON object on stdout). Exit codes: 0 done, 1 could not (the
 reason on stderr, one line each; for `doctor`: problems found), 2 usage. A
-bare `halo pack` prints the verb list.
+bare `halo pack` prints the verb list. 3.3.7.0 R5: `verdict`, `on`, `off` and
+`list --bundles` are the bundle verbs ([Bundles](#bundles) below).
 
 ### `halo pack list`
 
@@ -230,6 +231,33 @@ privacy scan finds in the pack's files. `halo doctor --config` lists the
 same lines under its packs group. A bio naming one provider, a stray
 workflow name, a tag Halo does not know and a need pack.yaml does not request
 are manifest problems (the first group).
+
+## Bundles
+
+A bundle is a pack with a resource claim (3.3.7.0 R5; [MODELS-bundles.md](MODELS-bundles.md)). Its verbs:
+
+```sh
+halo pack list --bundles [--host pc] [--json]   # every bundle here and shipped: [x] on / [ ] off, its state, its verdict
+halo pack verdict meta-glasses [--host pc] [--json]
+halo pack on meta-glasses [--host pc]           # only a ready bundle: installed, enabled, its reservation claimed
+halo pack off meta-glasses                      # released, keep_alive put back, the pack disabled
+```
+
+`halo pack verdict <bundle>` prints the honest verdict before anything downloads -- `ready`, `downloads` or `wont`,
+its line, the reservation's budget line, then each way out (`-`) and each warning (`!`), each a number, and for
+downloads the pull and probe lines to run (nothing is pulled here):
+
+    meta-glasses on pc: ready
+      fits today -- 1.2 GB reserved leaves ~20.8 GB, the coder (18.9 GB) still fits beside it, barely; ...
+      nothing reserved; 22.0 GB free for tasks
+      ! GPU STT (faster-whisper:large-v3-turbo, 1.5 GB) would break that: the coder would no longer fit beside it
+      - the coder's window 32 k -> 16 k frees 0.8 GB
+
+`halo pack on <bundle>` turns a ready one on (any other state prints the verdict's line and its ways out, exit 1):
+the bundle is installed from the shipped ones when it is not installed, enabled, its claim recorded (on the paired
+halo host when one serves the card) and the reserved model's profile gets keep_alive -1, kept until `halo pack off`.
+`halo pack off <bundle>` takes the claim back, reverts that change and disables the pack. `--host` names the Ollama
+host to judge (the default one when left out).
 
 ## A pack in `halo agents list` and `halo teams list`
 

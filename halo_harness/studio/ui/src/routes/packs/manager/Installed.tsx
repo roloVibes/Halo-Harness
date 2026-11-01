@@ -10,6 +10,7 @@
 // (shown once an update kept the version before) runs `halo pack rollback <id>`.
 import { useState } from "react";
 import { Button, Dialog, Empty } from "../../../lib/ui";
+import { BundlesGroup } from "./Bundles"; // 3.3.7.0 R5: the bundles, each a tick with its verdict
 import { cli, disablePack, enablePack, mgr, previewUpdate, removePack, rollbackPack, selectPack, updatePack, useMgr } from "./store";
 import type { PackRow } from "./types";
 
@@ -141,6 +142,7 @@ export function InstalledDetail() {
         <p key={h.text} className="pm-row-warn">{h.text}{h.fix ? ` -> ${h.fix}` : ""}</p>
       ))}
       <Last />
+      <BundlesGroup />
       <RemoveDialog />
       <UpdateDialog />
     </div>

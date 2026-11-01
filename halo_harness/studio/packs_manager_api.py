@@ -20,6 +20,8 @@ Studio -- this page too -- reads the manager and the registry again.
                                                        get_config / post_config) for any pack installed here,
                                                        a disabled one too
 
+    GET  pack/bundles, POST pack/bundle/<id>/on|off    3.3.7.0 R5: the Bundles group (studio/packs_bundles_api.py)
+
 `dispatch(req)` answers None for a path that is not one of these, so
 packs_studio_api.dispatch_pack goes on with R3's routes. A "no pack ..."
 line is a 404; every other refusal a 422.
@@ -126,6 +128,9 @@ def settings(req, pack_id: str):
 
 def dispatch(req):
     """The manager's answer, or None for a pack/ path that is R3's."""
+    if req.path == "pack/bundles" or req.path.startswith("pack/bundle/"):  # 3.3.7.0 R5: the Bundles group
+        from halo_harness.studio.packs_bundles_api import dispatch as bundles
+        return bundles(req)
     if req.path == "pack/manager":
         return get_manager(req) if req.method == "GET" else (405, {"error": "method not allowed"})
     if req.path in ("pack/install", "pack/sources"):

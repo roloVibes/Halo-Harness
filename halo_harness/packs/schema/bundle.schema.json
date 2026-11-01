@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:halo-harness:schema:bundle:1",
+  "title": "Halo bundle block (pack.yaml bundle:), extension API 1.x",
+  "description": "A capability bundle: a pack with a resource claim (Halo 3.3.7.0 R5). Read with halo_harness.packs.manifest_bundle; docs/EXTENSION_API.md \"Bundles\" is the reference. The same object is pack.schema.json's $defs.bundle.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "needs": {
+      "type": "object",
+      "description": "Each role the bundle needs (chat, stt, tts, worker, verify, ...), with the models that can fill it, best first.",
+      "propertyNames": {"pattern": "^[a-z][a-z0-9_-]*$"},
+      "additionalProperties": {
+        "type": "object", "additionalProperties": false, "required": ["any_of"],
+        "properties": {
+          "any_of": {"type": "array", "minItems": 1, "items": {"type": "string"}, "description": "the models that can fill the role, best first"},
+          "window": {"type": "integer", "minimum": 512, "description": "the window it runs at, in tokens"},
+          "device": {"enum": ["gpu", "cpu", "cpu-or-gpu"], "description": "where it runs (gpu by default); cpu costs no VRAM"},
+          "vision": {"type": "boolean", "description": "the model must see images (its battery profile says vision: yes)"},
+          "tools": {"type": "boolean", "description": "the model must call tools (its battery profile says tools: yes)"},
+          "runtime": {"enum": ["ollama", "voice"], "description": "ollama (a model Ollama serves) or voice (a speech model beside it); read from the name when left out"}
+        }
+      }
+    },
+    "reservation": {
+      "type": "object", "additionalProperties": false, "required": ["model"],
+      "description": "What the bundle holds for as long as it is on: the model stays loaded (keep_alive -1) and nothing else evicts it.",
+      "properties": {
+        "model": {"type": "string", "description": "a model one of the needs lists, or a needs role (whichever of its any_of the verdict picks)"},
+        "vram_gb": {"type": "number", "exclusiveMinimum": 0, "description": "its memory on the card; computed from the weights and the window when left out"},
+        "keep_alive": {"oneOf": [{"const": -1}, {"type": "string", "pattern": "^(-1|\\d+(\\.\\d+)?[smh])$"}], "description": "-1 (the default) or a duration"},
+        "priority": {"enum": ["high", "normal", "low"]},
+        "window": {"type": "integer", "minimum": 512, "description": "the window it is held at (the need's window by default)"}
+      }
+    },
+    "routing": {
+      "type": "object", "additionalProperties": false,
+      "description": "Where the other work goes while the bundle is on.",
+      "properties": {
+        "task_work": {"enum": ["coder", "coder-or-cloud", "cloud", "local"], "description": "coder-or-cloud (the default): the coder when it fits beside the reservation, else a cloud model"},
+        "never_evict": {"enum": ["reserved", "none"], "description": "reserved (the default): nothing evicts the reserved model"},
+        "escalation": {"oneOf": [{"enum": ["on", "off"]}, {"type": "boolean"}], "description": "off: no cloud rung while the bundle is on (offline-only)"}
+      }
+    },
+    "latency_budget_ms": {"type": "integer", "exclusiveMinimum": 0, "description": "the round trip the bundle wants, said beside the verdict's expected latency"}
+  }
+}

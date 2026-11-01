@@ -538,6 +538,22 @@ runs and shows the lines it prints, and every open Studio redraws on the
   (Roles' own actions), and Run <workflow>: Orchestra's new-run form filled
   in with the workflow and its inputs; Run compiles it as `halo workflow run` does.
   Orchestra's Start view offers the same workflows in its own picker (3.2.1.0 R2).
+- **Bundles** (3.3.7.0 R5, under Installed): every bundle here and the nine Halo ships, each a tick with its
+  verdict line, its ways out and the one download button; [Bundles](#bundles) below.
+
+## Bundles
+
+A **bundle** (3.3.7.0 R5) is a pack with a resource claim: one more block in `pack.yaml`, `bundle:`, says what local
+models it needs, the one it reserves while it is on, where the rest of the work goes and its latency budget (the
+contract: [EXTENSION_API.md](EXTENSION_API.md#bundles)). Before anything downloads, its verdict says whether it is
+ready, needs downloads (each tag with its size and fit, one button) or won't work (with the ways out, each a number);
+only a ready bundle turns on, and while it is on nothing Halo does evicts the reserved model and its GB count in
+every budget line. Halo ships nine in `halo_harness/templates/bundles/`: meta-glasses (voice), bulk-worker,
+verifier, compactor, embeddings, translation, vision, offline-only and coder-first. Turning a shipped one on installs
+it like any pack (into `~/.halo/packs/<id>/`), enables it (a bundle requests no permission) and claims its
+reservation; off releases it and disables the pack. `halo pack verdict | on | off <bundle>`, `halo pack list
+--bundles` ([COMMANDS-packs.md](COMMANDS-packs.md#bundles)); the arithmetic, the reservation and the routing are in
+[MODELS-bundles.md](MODELS-bundles.md).
 
 ## The reference pack
 

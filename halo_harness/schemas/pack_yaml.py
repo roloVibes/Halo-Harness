@@ -27,7 +27,7 @@ _RANGE = obj({"min": _VERSION, "max": _VERSION})
 _NAMES = {"type": "array", "items": STRING}
 
 TOP_KEYS = ("id", "name", "version", "description", "author", "license", "halo_api", "halo", "capabilities",
-            "requires", "contributes", "config", "permissions", "migrations")
+            "requires", "contributes", "config", "permissions", "migrations", "bundle")  # bundle: 3.3.7.0 R5
 CONTRIBUTION_KEYS = ("agents", "teams", "skills", "commands", "hooks", "mcp", "studio", "fleet", "artifacts",
                      "events", "workflows")  # 3.2.0.0 R2: workflows (names a lineup's workflows may use; R5 runs them)
 # 3.2.0.0 R3: contributes.studio
@@ -40,6 +40,11 @@ FLEET_KEYS = ("capabilities", "inspector", "mission")
 CAPABILITY_KEYS = ("name", "description", "requires", "capacity")
 REQUIRES_KEYS = ("tools", "runtimes", "platform", "hardware", "models", "grants", "locality")
 HARDWARE_KEYS = ("gpu", "ram_gb")
+# 3.3.7.0 R5: `bundle` (packs/manifest_bundle.py: a pack with a resource claim)
+BUNDLE_KEYS = ("needs", "reservation", "routing", "latency_budget_ms")
+NEED_KEYS = ("any_of", "window", "device", "vision", "tools", "runtime")
+RESERVATION_KEYS = ("model", "vram_gb", "keep_alive", "priority", "window")
+ROUTING_KEYS = ("task_work", "never_evict", "escalation")
 
 
 def panel(section: bool = False) -> dict:
@@ -78,6 +83,19 @@ def fleet() -> dict:
     return obj(props)
 
 
+def bundle() -> dict:
+    """3.3.7.0 R5: `bundle:` -- needs (role -> {any_of, window, device, ...}), reservation, routing, latency_budget_ms."""
+    need = obj({"any_of": _NAMES, "window": INT, "device": STRING, "vision": BOOL, "tools": BOOL, "runtime": STRING})
+    res = obj({"model": STRING, "vram_gb": NUMBER, "keep_alive": {"type": ["integer", "string"]}, "priority": STRING,
+               "window": INT})
+    routing = obj({"task_work": STRING, "never_evict": STRING, "escalation": {"type": ["string", "boolean"]}})
+    props = {"needs": {"type": "object", "properties": {}, "additionalProperties": need}, "reservation": res,
+             "routing": routing, "latency_budget_ms": INT}
+    assert tuple(props) == BUNDLE_KEYS and tuple(need["properties"]) == NEED_KEYS
+    assert tuple(res["properties"]) == RESERVATION_KEYS and tuple(routing["properties"]) == ROUTING_KEYS
+    return obj(props)
+
+
 def pack() -> dict:
     author = {"type": ["string", "object"], "properties": {"name": STRING, "email": STRING, "url": STRING},
               "additionalProperties": False}
@@ -94,6 +112,6 @@ def pack() -> dict:
     props = {"id": STRING, "name": STRING, "version": STRING, "description": STRING, "author": author,
              "license": STRING, "halo_api": _RANGE, "halo": _RANGE, "capabilities": _NAMES, "requires": requires,
              "contributes": contributes, "config": obj({"schema": MAPPING, "defaults": MAPPING}),
-             "permissions": _NAMES, "migrations": {"type": "array", "items": migration}}
+             "permissions": _NAMES, "migrations": {"type": "array", "items": migration}, "bundle": bundle()}
     assert tuple(props) == TOP_KEYS and tuple(contributes["properties"]) == CONTRIBUTION_KEYS
     return obj(props)

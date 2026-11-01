@@ -25,8 +25,9 @@ test, TESTS = new_registry()
 @test
 def test_usage_help_and_exit_codes(ctx: Ctx):
     from halo_harness.packs.cli import VERBS, cmd_pack
-    ctx.check("the verbs (3.2.0.0 R6: + grant, sources; R7: + rollback)", VERBS == ("list", "inspect", "install", "enable", "grant",
-                                                                                     "disable", "update", "rollback", "remove", "sources", "doctor"))
+    ctx.check("the verbs (3.2.0.0 R6: + grant, sources; R7: + rollback; 3.3.7.0 R5: + verdict, on, off)",
+              VERBS == ("list", "inspect", "install", "enable", "grant", "disable", "update", "rollback", "remove", "sources",
+                        "doctor", "verdict", "on", "off"))
     for argv, code in (([], 2), (["--help"], 0), (["frobnicate"], 2)):
         out, err = io.StringIO(), io.StringIO()
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):

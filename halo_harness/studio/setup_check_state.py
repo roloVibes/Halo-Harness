@@ -120,6 +120,11 @@ def _costs(ctx, rows: dict) -> dict:
         out["hello"] = ("one tiny call, " + R.call_price(ctx.model, *R.HELLO_TOKENS, rows=rows)) if ctx.model else R.hello_cost(ctx)
     except Exception as e:
         out["hello"] = f"one tiny call (the price could not be read: {type(e).__name__})"
+    try:  # 3.3.7.0 R5: the steward candidates row: free, or the download it names
+        from halo_harness.start.checks_steward import cost as steward_cost
+        out["steward"] = steward_cost(ctx)
+    except Exception as e:
+        out["steward"] = f"free, or the download it names (the candidates could not be read: {type(e).__name__})"
     try:
         out["gym"] = R.gym_cost(ctx)
     except Exception as e:
@@ -132,10 +137,10 @@ def _costs(ctx, rows: dict) -> dict:
 
 
 def check_rows(ctx, rows: dict) -> list:
-    from halo_harness.start.checks import CHECKS
+    from halo_harness.start.checks import CHECKS, default_on
     costs = _costs(ctx, rows)
     return [{"key": c["key"], "title": c["title"], "what": c["what"], "cost": costs.get(c["key"], c["cost"]), "time": c["time"],
-             "writes": c["writes"], "default_on": bool(c["default_on"])} for c in CHECKS]
+             "writes": c["writes"], "default_on": default_on(c, ctx)} for c in CHECKS]  # 3.3.7.0 R5: the steward row's
 
 
 def gym_rows(ctx) -> list:

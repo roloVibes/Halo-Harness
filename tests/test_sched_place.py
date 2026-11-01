@@ -8,7 +8,9 @@ warm, samus with a 10 GB card) and one plain fake Ollama this machine reads dire
    one line per lane with the number behind it;
 3. `halo local place --apply` writes host_for on each moved lane's `<host>|<model>|<role>` profile and nothing
    else (no pull, no load: the fakes saw no generate);
-4. Studio's GET local/place answers the same plan.
+4. Studio's GET local/place answers the same plan;
+5. 3.3.7.0 R5: the claims are an input -- a lane that would not fit beside a reservation goes elsewhere with one
+   `routed` line, the reserved model stays where it is held, and with no other room the claim is named.
 Run: python -m tests.test_sched_place
 """
 from __future__ import annotations
@@ -103,6 +105,36 @@ def test_studio_place(ctx: Ctx):
                                      cwd=Path(rig.rig.root_p), state_dir=rig.rig.peer, server=None))
         ctx.check(f"GET local/place, got {code} {got.get('line')}", code == 200 and got["local"]
                   and {r["lane"]: r["host"] for r in got["rows"]}["compactor"] == "samus")
+
+
+@test
+def test_lanes_route_around_a_reservation(ctx: Ctx):
+    """3.3.7.0 R5 (L4): `solve` takes the claims; a lane that would not fit beside one goes to another host, one line."""
+    from halo_harness.local_sched.place import solve
+    from halo_harness.providers.ollama import OllamaHost
+    pc, samus = OllamaHost(name="pc", url="http://192.0.2.10:11434"), OllamaHost(name="samus", url="http://192.0.2.20:11434")
+    gib = 2 ** 30
+    room = {"pc": 22 * gib, "samus": 10 * gib}
+
+    def ask(h, ln):
+        return {"host": h.name, "via": "local", "fits": 8 * gib <= room[h.name], "now": True, "warm": False, "evicts": [], "installed": True,
+                "capable": None, "load_s": 4.0 if h.name == "pc" else 18.0, "need_bytes": 8 * gib, "usable_bytes": room[h.name],
+                "verdict": "fits"}
+    lanes = [{"lane": "worker", "model": SMALL, "host": "pc"}]
+    plan = solve(lanes, hosts=[pc, samus], answers=ask, claims={})
+    ctx.check(f"no claim: the worker stays on pc, got {plan['line']}", plan["rows"][0]["host"] == "pc")
+    held = {"pc": [{"bundle": "meta-glasses", "model": "lfm3:1.7b", "gb": 15.0}]}
+    plan = solve(lanes, hosts=[pc, samus], answers=ask, claims=held)
+    row = plan["rows"][0]
+    ctx.check(f"the claim holds pc: the worker goes to samus, said, got {row}", row["host"] == "samus"
+              and row["routed"] == "meta-glasses holds 15.0 GB on pc; worker goes to samus rather than evicting it"
+              and row["says"].endswith(row["routed"]))
+    plan = solve([{"lane": "worker", "model": "lfm3:1.7b", "host": "pc"}], hosts=[pc, samus], answers=ask, claims=held)
+    ctx.check(f"the reserved model itself stays where it is held, got {plan['rows'][0]}", plan["rows"][0]["host"] == "pc")
+    room["samus"] = 4 * gib
+    plan = solve(lanes, hosts=[pc, samus], answers=ask, claims=held)
+    ctx.check(f"nowhere: the claim named, got {plan['rows'][0]['says']}", plan["rows"][0]["host"] is None
+              and "pc: meta-glasses holds 15.0 GB there" in plan["rows"][0]["says"])
 
 
 if __name__ == "__main__":

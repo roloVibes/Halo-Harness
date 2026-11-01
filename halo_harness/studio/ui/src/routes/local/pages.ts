@@ -19,7 +19,7 @@ export const PAGES: PageDef[] = [
   { id: "huggingface", title: "Hugging Face", built: true },
   { id: "logs", title: "Logs", built: true }, // 3.3.6.0 R3: each host's server log (LogsPage.tsx)
   { id: "benchmarks", title: "Benchmarks", built: true }, // 3.3.6.0 R5: speed cards, tuning, changes (BenchPage.tsx)
-  { id: "steward", title: "Steward", built: false, round: "R6" },
+  { id: "steward", title: "Steward", built: true }, // 3.3.7.0 R5: the chat, the model picker (StewardPage.tsx)
 ];
 
 export const PAGE_KEY = "halo.studio.local.page";

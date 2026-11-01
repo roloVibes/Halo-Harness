@@ -61,6 +61,12 @@ def load_escalation_policy() -> "Optional[EscalationPolicy]":
         return None
     if not isinstance(raw, dict):
         return None
+    try:  # 3.3.7.0 R5: while the offline-only bundle is on there is no cloud rung (local_sched/reserve.py)
+        from halo_harness.local_sched.reserve import escalation_off
+        if escalation_off():
+            return None
+    except Exception:
+        pass
     to = raw.get("to")
     if not isinstance(to, str) or not to.strip():
         return None

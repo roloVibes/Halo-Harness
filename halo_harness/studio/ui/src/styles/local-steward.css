@@ -1,0 +1,14 @@
+/* 3.3.7.0 R5: Local -> Steward -- the chat box (StewardChat.tsx) and the model picker (StewardModel.tsx). */
+.lc-steward { display: flex; flex-direction: column; gap: 12px; }
+.lc-chat-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 420px; overflow-y: auto; }
+.lc-chat-q { align-self: flex-end; max-width: 80%; padding: 6px 10px; border-radius: var(--radius-sm); background: var(--accent-soft); color: var(--text); }
+.lc-chat-a { align-self: flex-start; max-width: 90%; display: flex; flex-direction: column; gap: 4px; padding: 6px 10px; border-radius: var(--radius-sm); border: 1px solid var(--line); background: var(--surface-2); }
+.lc-chat-a[data-role="bigger"] { border-color: var(--line-strong); }
+.lc-chat-text { white-space: pre-wrap; }
+.lc-chat-a .og-chip { align-self: flex-start; }
+.lc-chat-tool { font-size: 12px; padding-left: 8px; }
+.lc-chat-tool:not([data-ok]) { color: var(--warn); }
+.lc-chat-button { display: flex; flex-direction: column; gap: 4px; padding: 4px 8px; border-left: 2px solid var(--accent); }
+.lc-chat-form { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.lc-chat-input { flex: 1 1 320px; min-width: 0; padding: 6px 10px; border-radius: var(--radius-sm); border: 1px solid var(--line-strong); background: var(--bg-2); color: var(--text); font: inherit; }
+.lc-chat-bigger { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 12px; }

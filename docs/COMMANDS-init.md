@@ -196,6 +196,7 @@ Nothing ticked (or Esc) runs none.
 | Doctor | your config, your files, `halo` on PATH (`halo doctor`) | free | seconds | nothing | on |
 | Model catalog | every provider's model list (`halo models --refresh`) | free (network) | seconds, 6 s per provider at most | the catalog caches under `~/.halo` | on |
 | Hello | one one-turn call to your default model, which answers pong | one tiny call: the catalog price of about 2k tokens in, a few out (free on a local model) | seconds | one session log | on |
+| Steward candidates | 3.3.7.0 R5: the local models that could run the steward here; sets `ollama.steward.model` to the best installed one (with none installed, pulls the known-good small one it names) | free, or the download it names | seconds (a download: its minutes) | `ollama.steward.model` in config.json | on when an installed one fits |
 | Model gym, quick | `halo gym --quick` on the models ticked under the rows (your default model and the start lineup's models; local ones ticked) | free for a local model; the gym does not run cloud models and says so | a few minutes per model | one card per model under `~/.halo/gym/<host>/` | off |
 | The guided first run | `halo start`: one real Orchestra run on your models (its card, `halo start --explain`) | the card's estimate | 5-20 minutes on cloud models; longer on local ones | a lineup copy and a sample repo under `~/.halo/start/<date>/` | off |
 
@@ -343,24 +344,23 @@ Studio's Start here show both lines.
 ## `halo check` (Halo 3.2.2.0)
 
 ```sh
-halo check                          # the default-on checks: doctor, catalog, hello
-halo check --all                    # all five, in order
-halo check --doctor --gym           # the ones named (any of --doctor --catalog --hello --gym --start)
+halo check                          # the default-on checks: doctor, catalog, hello (+ steward when a candidate is installed)
+halo check --all                    # all six, in order
+halo check --doctor --gym           # the ones named (any of --doctor --catalog --hello --steward --gym --start)
 halo check --gym --models ol:qwen3:8b,ol:llama3.2   # the gym on these models
-halo check --explain                # the five rows (what, cost, time, writes) and exit
+halo check --explain                # the six rows (what, cost, time, writes) and exit
 ```
 
 The checks the wizard's Summary offers (`halo_harness/start/checks.py`,
 the table under [`halo init`](#halo-init)). Each prints its title, its
 what / cost / time line, then its result lines and `[ok]` or `[failed]`;
 the last line counts them (`halo check: 2 of 3 passed; failed: catalog`).
-`--start` runs `halo start` last. `--models REF,REF` picks the gym's models
+`--steward` (3.3.7.0 R5) sets the steward's model from its candidates ([MODELS-ollama-steward-chat.md](MODELS-ollama-steward-chat.md#the-candidates)); `--start` runs `halo start` last. `--models REF,REF` picks the gym's models
 (default: your default model and the start lineup's models; the gym runs
 local models and names a cloud one as not run). Exit 0 when every check
 that ran passed, 1 when one failed, 2 on a usage error. `/check` in the TUI
-takes the same flags and prints into the transcript (`--start` there
-points at `/start`, which runs the guided first run in a panel). Studio's
-Setup section has the same five checks as its Check block, ticked rows run
+takes the same flags and prints into the transcript (`--start` there points at `/start`, which runs the guided first run in a panel). Studio's
+Setup section has the same six checks as its Check block, ticked rows run
 as one job with a live log ([STUDIO-setup.md](STUDIO-setup.md#check-and-linux-fixes-3300-r3)).
 
 ## `halo explain`
