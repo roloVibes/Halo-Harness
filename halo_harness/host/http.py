@@ -184,7 +184,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def _join(self, raw: bytes) -> None:
         from halo_harness.fleet.hub_join import handle_join
-        from halo_harness.host.state import DEFAULT_GRANTS, served_rows
+        from halo_harness.host.state import DEFAULT_GRANTS, server_rows, served_rows
         try:
             body = protocol.decode(raw)
         except ValueError as e:
@@ -198,5 +198,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if status == 200:
             hid = str((body.get("harness") or {}).get("id") or "")
             self.svc.pairing.update_member(hid, grants=list(DEFAULT_GRANTS))
-            reply = {**reply, "serves": served_rows(self.svc.addr(), self.svc.view.hosts()), "grants": list(DEFAULT_GRANTS)}
+            reply = {**reply, "serves": served_rows(self.svc.addr(), self.svc.view.hosts()), "grants": list(DEFAULT_GRANTS),
+                     "servers": server_rows(self.svc.addr(), self.svc.view.servers())}  # 3.3.8.0 R4: its local servers
         return self._json(status, reply)

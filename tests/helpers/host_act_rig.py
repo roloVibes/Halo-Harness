@@ -40,8 +40,9 @@ def mock_for() -> MockUpstream:
 
 
 class ActRig:
-    def __init__(self, *, cap: str = "all", grants=("control",), card=None) -> None:
+    def __init__(self, *, cap: str = "all", grants=("control",), card=None, servers=None) -> None:
         self.cap, self.grants_, self.card_ = cap, tuple(grants), card
+        self.servers_ = servers  # 3.3.8.0 R4: the host's local servers (servers_hf.Server rows), a list kept live
 
     def __enter__(self) -> "ActRig":
         from halo_harness.providers.ollama import OllamaHost
@@ -122,6 +123,8 @@ class PeerRig(ActRig):
         readers = {"hosts": lambda: [self.host], "card": lambda h: card,
                    "catalog": lambda h: {"models": [r[BIG], r[CODER], r[SMALL]]},
                    "tail": lambda h, n: ([], "fixture", None), "log": lambda h: {"state": "live", "line": "live"}}
+        if self.servers_ is not None:
+            readers["servers"] = lambda: list(self.servers_)
         self.rig = HostRig(readers_=readers, seed=False).__enter__()
         self.peer_url = f"http://192.0.2.10:{self.mock.port}"
         self.rig.set_peer(**{"ollama.hosts": [{"name": "pc", "url": self.peer_url}]})

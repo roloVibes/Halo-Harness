@@ -5,6 +5,9 @@
     halo pool status [--json]                                          the running pool: health, degraded, claims
     halo pool stop [--json]                                            stop it (a change: changes_pool.stop)
     halo local serve --pool <model> [--window N] [--allow-wifi] [--keep] [--json]   serve_pool: warm it
+    halo local bench --host pool [--quick] [--yes] [--json]            bench_pool (3.3.8.0 R4): the cost line first
+                                                                       (seconds; the pool is busy for them), then the
+                                                                       battery against the running pool -> its card
 
 `serve --pool` holds the pool in the foreground (its claims renewed by this process; Ctrl+C stops it, releases the
 claims and says how the models it pivoted out come back); `--keep` returns once it serves -- the pool outlives the
@@ -63,6 +66,29 @@ def serve_pool(model: str, *, window=None, keep: bool = False, allow_wifi=None, 
     else:
         for line in done["lines"]:
             print(line)
+    return 0
+
+
+def bench_pool(*, quick: bool = False, yes: bool = False, as_json: bool = False, ask=None) -> int:
+    from halo_harness.local_pool import bench
+    from halo_harness.local_pool.speed import figures
+    from halo_harness.providers.local_bench_runs import lines
+    est = bench.estimate(quick=quick)
+    print(est["line"])
+    if ask is not None and not ask("Run the bench now?", yes):
+        return 1
+    say = (lambda _s: None) if as_json else (lambda s: print(f"  {s}"))
+    got = bench.bench(quick=quick, on_line=say)
+    if as_json:
+        C.emit_json(got)
+        return 0 if got.get("ok") else 1
+    if not got.get("ok"):
+        print(f"  {got.get('say')}")
+        return 1
+    from halo_harness.local_pool.catalog import get
+    for x in lines(got):
+        print(f"  {x}")
+    print(f"  pool: {figures(get(got['model']) or {}, run=got)['word']}")
     return 0
 
 

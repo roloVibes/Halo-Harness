@@ -4,12 +4,14 @@
 // machine's /24 and on every member -- only when pressed, never on a page load) with Add on each new responder, and
 // what the pool can run (PoolRecommend.tsx: the fit and the preview before any download). The page reads the members
 // and the recommendation on open and every 30 s while it is open (poolstore.ts), the run every 10 s (poolrunstore.ts).
+// 3.3.8.0 R4: the Bench block and the steward's pool findings (PoolWatch.tsx, poolwatchstore.ts).
 import { useEffect } from "react";
 import { Button } from "../../lib/ui";
 import { HfCards } from "./HfCards";
 import { PoolMembers } from "./PoolMembers";
 import { PoolRecommend } from "./PoolRecommend";
 import { PoolRun } from "./PoolRun";
+import { PoolBench, PoolFindings } from "./PoolWatch";
 import { addMember, loadPool, nameFor, REFRESH_MS, scanNow, usePool, type Probe } from "./poolstore";
 
 function Candidate({ c }: { c: Probe }) {
@@ -82,6 +84,8 @@ export function PoolPage() {
       {error && <p className="mono lc-said" data-testid="pool-error">{error}</p>}
       <PoolMembers />
       <PoolRun />
+      <PoolBench />
+      <PoolFindings />
       <ScanBlock />
       <PoolRecommend />
       <HfCards />

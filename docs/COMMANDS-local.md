@@ -219,9 +219,9 @@ preview: the warm set per card, the swaps a pass, the hygiene lines (3.3.7.0 R3;
 Where each local lane of a lineup (named, else the active one) should run: every configured Ollama host is asked, a
 halo host-served one through its `route` (the helper's footprint counted), any other -- this machine's own, with no
 `halo host` -- from the local reads. One row per lane: its host and why ("fits, warm", "fits now, 18 s load", "shares
-weights with a lane placed there", "not pulled there"); main stays on its host. `--apply` writes `host_for` on each
-moved lane's `<host>|<model>|<role>` profile (Halo-side only, kept in the changes journal); nothing pulls or loads
-until the lane asks. Studio: Local -> Hosts' Place.
+weights with a lane placed there", "not pulled there"); main stays on its host; 3.3.8.0 R4: each lane's `scores:` --
+every candidate (fleet-wide: a paired host's card, the pool) with its loading tax. `--apply` writes `host_for` on each
+moved lane's `<host>|<model>|<role>` profile (Halo-side; the changes journal); nothing loads until the lane asks.
 
 ### `halo local import <model> [--name NAME] [--host NAME] [--yes]`
 

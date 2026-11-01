@@ -41,9 +41,11 @@ CAPABILITY_KEYS = ("name", "description", "requires", "capacity")
 REQUIRES_KEYS = ("tools", "runtimes", "platform", "hardware", "models", "grants", "locality")
 HARDWARE_KEYS = ("gpu", "ram_gb")
 # 3.3.7.0 R5: `bundle` (packs/manifest_bundle.py: a pack with a resource claim)
-BUNDLE_KEYS = ("needs", "reservation", "routing", "latency_budget_ms")
+BUNDLE_KEYS = ("needs", "reservation", "routing", "latency_budget_ms",
+               "reservations", "schedule", "priority", "min_free_gb")  # 3.3.8.0 R4: several claims, hours, a floor
 NEED_KEYS = ("any_of", "window", "device", "vision", "tools", "runtime")
-RESERVATION_KEYS = ("model", "vram_gb", "keep_alive", "priority", "window")
+RESERVATION_KEYS = ("model", "vram_gb", "keep_alive", "priority", "window", "host", "min_free_gb")  # 3.3.8.0 R4
+SCHEDULE_KEYS = ("hours",)
 ROUTING_KEYS = ("task_work", "never_evict", "escalation")
 
 
@@ -84,15 +86,19 @@ def fleet() -> dict:
 
 
 def bundle() -> dict:
-    """3.3.7.0 R5: `bundle:` -- needs (role -> {any_of, window, device, ...}), reservation, routing, latency_budget_ms."""
+    """3.3.7.0 R5: `bundle:` -- needs (role -> {any_of, window, device, ...}), reservation, routing, latency_budget_ms;
+    3.3.8.0 R4: reservations (each with host? and min_free_gb?), schedule {hours}, priority, min_free_gb."""
     need = obj({"any_of": _NAMES, "window": INT, "device": STRING, "vision": BOOL, "tools": BOOL, "runtime": STRING})
     res = obj({"model": STRING, "vram_gb": NUMBER, "keep_alive": {"type": ["integer", "string"]}, "priority": STRING,
-               "window": INT})
+               "window": INT, "host": STRING, "min_free_gb": NUMBER})
     routing = obj({"task_work": STRING, "never_evict": STRING, "escalation": {"type": ["string", "boolean"]}})
+    schedule = obj({"hours": STRING})
     props = {"needs": {"type": "object", "properties": {}, "additionalProperties": need}, "reservation": res,
-             "routing": routing, "latency_budget_ms": INT}
+             "routing": routing, "latency_budget_ms": INT, "reservations": {"type": "array", "items": res},
+             "schedule": schedule, "priority": STRING, "min_free_gb": NUMBER}
     assert tuple(props) == BUNDLE_KEYS and tuple(need["properties"]) == NEED_KEYS
     assert tuple(res["properties"]) == RESERVATION_KEYS and tuple(routing["properties"]) == ROUTING_KEYS
+    assert tuple(schedule["properties"]) == SCHEDULE_KEYS
     return obj(props)
 
 

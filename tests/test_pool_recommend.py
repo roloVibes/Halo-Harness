@@ -91,7 +91,8 @@ def test_the_preview_before_any_download(ctx: Ctx):
                   "Qwen/Qwen3-Next-80B-A3B-Instruct-GGUF" and d["file"] == "Q4_K_M" and d["eta_s"] == 988
                   and d["cli"] == "halo local download Qwen/Qwen3-Next-80B-A3B-Instruct-GGUF Q4_K_M")
         ctx.check(f"the speed word and the tags, got {v['speed_word']!r} {v['tags']}", v["speed_word"] ==
-                  "30-45 tok/s extrapolated" and v["tags"] == ["b7186+"])
+                  "30-45 tok/s extrapolated (no pool speed card yet: halo local bench --host pool)"
+                  and v["speed"]["measured"] is False and v["tags"] == ["b7186+"])  # 3.3.8.0 R4: the pool's card word
         pulls = h.state / "ollama" / "pulls.json"
         pulls.parent.mkdir(parents=True, exist_ok=True)
         pulls.write_text(json.dumps({"jobs": [{"ok": True, "speed": 100e6, "started": 100.0, "kind": "download",
@@ -106,7 +107,7 @@ def test_the_preview_before_any_download(ctx: Ctx):
         v = verdict(OSS, rows(32.0, 32.0), state_dir=h.state)
         ctx.check(f"what does not fit offers no download, got {v['preview']!r} {v['download']}", v["preview"] ==
                   "needs 106.0 GB -- 64.0 GB free; does not fit, so nothing to download" and v["download"] is None
-                  and v["speed_word"] == "33.8 tok/s measured elsewhere")
+                  and v["speed_word"].startswith("33.8 tok/s measured elsewhere (no pool speed card yet"))
 
 
 if __name__ == "__main__":

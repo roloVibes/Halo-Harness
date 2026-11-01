@@ -2,10 +2,13 @@
 3.3.8.0 R3; docs/POOL.md "The launch"; `halo local serve --pool <model>`, the Pool page's Warm through
 ollama_steward/changes_pool.py, which keeps the steward contract around this).
 
-    argv(prefix, pf, *, gguf, port, key, addr) -> [prefix..., -m <gguf> --alias <model> --rpc <addr:port,...>
+    argv(prefix, pf, *, gguf, port, key_file, addr) -> [prefix..., -m <gguf> --alias <model> --rpc <addr:port,...>
         --tensor-split <the fit's model_split, the --rpc devices first, this GPU last> -ngl 999 --host <LAN address>
-        --port <p> --api-key <generated> -c <F16 window>]   past the F16 window: --cache-type-k q8_0 --cache-type-v q8_0
-        --flash-attn on -c <Q8_0 window>. Every layer on the GPUs: never a CPU fallback.
+        --port <p> --api-key-file <state>/pool/api-key -c <F16 window>]   past the F16 window: --cache-type-k q8_0
+        --cache-type-v q8_0 --flash-attn on -c <Q8_0 window>. Every layer on the GPUs: never a CPU fallback.
+        3.3.8.0 R4: the key is in a 0600 file under the state dir (key_file), never on the command line, so the
+        controller's process list shows the path only; the file is removed at stop. A llama-server that does not know
+        --api-key-file (its log says so at once) is started again with `--api-key` (key=), said in one line.
     start(pf, *, port=0, state_dir=None, home=None, by="user", wait_s=None) -> {ok, lines, run}
         the preflight's answer `pf` must be green; then the claims on every member (local_pool/claims.place: the
         resident Ollama models pivoted out first), each paired worker's rpc-server turned on through its host and its
@@ -80,12 +83,26 @@ def redact(cmd: list) -> list:
     return [("***" if i and cmd[i - 1] == "--api-key" else x) for i, x in enumerate(cmd)]
 
 
-def argv(prefix: list, pf: dict, *, gguf: str, port: int, key: str, addr_: str) -> list:
+def key_path(state_dir=None) -> Path:
+    return Path(_state(state_dir)) / "pool" / "api-key"
+
+
+def write_key(key: str, state_dir=None) -> Path:
+    """The pool's api key in a private (0600) file llama-server reads (--api-key-file); one key, one line."""
+    from halo_harness.privateio import write_private_atomic
+    p = key_path(state_dir)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    write_private_atomic(p, key + "\n")
+    return p
+
+
+def argv(prefix: list, pf: dict, *, gguf: str, port: int, addr_: str, key_file=None, key: Optional[str] = None) -> list:
     split = ",".join(f"{w:g}" for w in pf["split"])
     out = list(prefix) + ["-m", str(gguf), "--alias", pf["model"]]
     if pf["rpc"]:
         out += ["--rpc", ",".join(r["addr"] for r in pf["rpc"])]
-    out += ["--tensor-split", split, "-ngl", "999", "--host", addr_, "--port", str(int(port)), "--api-key", key]
+    out += ["--tensor-split", split, "-ngl", "999", "--host", addr_, "--port", str(int(port))]
+    out += ["--api-key-file", str(key_file)] if key_file is not None else ["--api-key", str(key)]
     if pf["q8"]:
         out += ["--cache-type-k", "q8_0", "--cache-type-v", "q8_0", "--flash-attn", "on"]
     return out + ["-c", str(int(pf["ctx"]))]
@@ -113,6 +130,16 @@ def _rpc_on(pf: dict, home) -> "tuple[bool, list, list]":
     from halo_harness.local_pool.catalog import get
     more, more_notes = V.min_build(get(pf["model"]) or {}, pf["versions"]["controller"], workers)
     return not (blocks or more), lines + blocks + more + notes + more_notes, started
+
+
+KEY_ARGV_LINE = ("this llama-server does not know --api-key-file: started again with --api-key, so the key is on its "
+                 "command line (the controller's process list shows it to local users); a newer build reads the file")
+
+
+def _no_key_file(log: Path) -> bool:
+    from halo_harness.providers.local_server_cmd import tail_lines
+    text = " ".join(tail_lines(log, 20)).lower()
+    return "--api-key-file" in text and any(w in text for w in ("invalid argument", "unknown argument", "unrecognized"))
 
 
 def _oom(log: Path, pf: dict, shares: dict) -> str:
@@ -151,7 +178,8 @@ def start(pf: dict, *, port: int = 0, state_dir=None, home=None, by: str = "user
         return {"ok": False, "lines": lines + claims.release(placed, state_dir=state_dir, home=home, model=model["name"])
                 + _rpc_off(started, placed, home)}
     a, port = addr(), int(port) if port else R.find_free_port()
-    cmd = argv(prefix, pf, gguf=pf["gguf"]["path"], port=port, key=entry.new_key(), addr_=a)
+    key = entry.new_key()
+    cmd = argv(prefix, pf, gguf=pf["gguf"]["path"], port=port, key_file=write_key(key, state_dir), addr_=a)
     log = Path(_state(state_dir)) / "local" / "servers" / f"pool-{port}.log"
     from halo_harness.local_pool.spawn import spawn, wait_ready
     pid = spawn(cmd, log, redact(cmd))
@@ -159,9 +187,19 @@ def start(pf: dict, *, port: int = 0, state_dir=None, home=None, by: str = "user
     r = {"model": pf["model"], "display": pf["display"], "pid": pid, "port": port, "addr": a, "url": f"{url}/v1",
          "log": str(log), "argv": redact(cmd), "ctx": pf["ctx"], "cache": pf["cache"], "placed": placed,
          "rpc_started": started, "members": pf["used"], "rpc": pf["rpc"], "split": pf["split"], "order": pf["order"],
-         "started": round(time.time(), 3), "by": by, "binary": why}
+         "started": round(time.time(), 3), "by": by, "binary": why, "key_file": True}
     _save(r, state_dir)
     ready, said = wait_ready(pid, url, get, wait_s if wait_s is not None else 120.0)
+    if not ready and said == "exited" and _no_key_file(log):  # a build without --api-key-file: once more, said
+        key_path(state_dir).unlink(missing_ok=True)
+        cmd = argv(prefix, pf, gguf=pf["gguf"]["path"], port=port, key=key, addr_=a)
+        lines.append(KEY_ARGV_LINE)
+        r.update(pid=spawn(cmd, log, redact(cmd)), argv=redact(cmd), key_file=False)
+        _save(r, state_dir)
+        ready, said = wait_ready(r["pid"], url, get, wait_s if wait_s is not None else 120.0)
+    if ready:  # the cold load: from the spawn to /health answering (the pool's speed card reads it)
+        r["ready_s"] = round(time.time() - r["started"], 1)
+        _save(r, state_dir)
     if not ready and said == "exited":
         why = _oom(log, pf, claims.shares(model, pf["fit"], pf["ctx"], pf["q8"]))
         return {"ok": False, "lines": lines + [why] + stop(state_dir=state_dir, home=home, why="the load failed")["lines"]}
@@ -199,4 +237,5 @@ def stop(*, state_dir=None, home=None, why: str = "") -> dict:
     lines += claims.release(r.get("placed") or [], state_dir=state_dir, home=home, model=r.get("model") or "")
     lines += _rpc_off(r.get("rpc_started") or [], r.get("placed") or [], home)
     _save(None, state_dir)
+    key_path(state_dir).unlink(missing_ok=True)  # 3.3.8.0 R4: the key file goes with the process
     return {"ok": True, "lines": lines + ([f"why: {why}"] if why else [])}

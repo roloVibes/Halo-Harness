@@ -10,7 +10,10 @@ docs/POOL.md "When something fails").
         down      the pool's llama-server exited (its last log line said)
         each member row: {name, kind, addr, share_gb, alive, claim {gb, until, live}}, the claims' lease said
     rpc_failures(lines) -> [line]   the RPC lines of the controller's log ("Remote RPC server crashed or returned
-                                    malformed response", "failed to connect to <addr>", "RPC ... connection closed")
+                                    malformed response", "failed to connect to <addr>", "RPC ... connection closed"):
+                                    3.3.8.0 R4 -- exactly the lines the steward classifies `rpc-lost`
+                                    (server_rules_hf), so this status and the `pool-degraded` finding agree
+    word(names) -> "degraded (worker2 down)"      the one word both say
     is_pool_ref(ref) -> bool        an `hf:local/<model>@pool` ref
     failed_line(message, state_dir=None, http=None) -> the request's error line: "the pool is degraded (worker2
                                     down): the request failed once and is not retried -- the pool's llama-server answered 500"
@@ -19,16 +22,15 @@ Reads only: the probe is one TCP connect per worker, the log a tail of the file 
 
 from __future__ import annotations
 
-import re
 import time
-from typing import Optional
-
-RPC_BAD = re.compile(r"RPC server crashed|returned malformed response|failed to connect to|RPC\S*\s.*(?:closed|lost|"
-                     r"refused|failed|error)|ggml_backend_rpc\S*.*(?:failed|error)", re.IGNORECASE)
-
 
 def rpc_failures(lines: list) -> list:
-    return [x.strip() for x in lines if RPC_BAD.search(x)]
+    from halo_harness.ollama_steward.server_rules_hf import classify
+    return [x.strip() for x in lines if (classify(x, runtime="llama-server") or {}).get("kind") == "rpc-lost"]
+
+
+def word(names: list) -> str:
+    return f"degraded ({', '.join(names)} down)"
 
 
 def is_pool_ref(ref) -> bool:
@@ -59,14 +61,17 @@ def _claim(p: dict, bundle: str, state_dir, home) -> dict:
     else:
         return {"gb": 0.0, "until": None, "live": None, "line": "no halo host there: nothing claimed"}
     hit = next((x for x in rows if x.get("bundle") == bundle), None)
+    held = [{"bundle": x.get("bundle"), "gb": float(x.get("gb") or 0), "priority": x.get("priority") or "normal",
+             "model": x.get("model")} for x in rows if CF.live(x)]  # 3.3.8.0 R4: every claim on that card, by bundle
     if hit is None:
-        return {"gb": 0.0, "until": None, "live": False, "line": "no claim there now (released, or its lease ended)"}
+        return {"gb": 0.0, "until": None, "live": False, "line": "no claim there now (released, or its lease ended)",
+                "bundle": bundle, "claims": held}
     until = hit.get("until")
     live = CF.live(hit)
     left = (float(until) - time.time()) if isinstance(until, (int, float)) else None
-    return {"gb": float(hit.get("gb") or 0), "until": until, "live": live,
-            "line": (f"{float(hit.get('gb') or 0):.1f} GB claimed" + (f", lease {left:.0f} s left" if left and left > 0
-                                                                       else ", lease ended" if left is not None else ""))}
+    return {"gb": float(hit.get("gb") or 0), "until": until, "live": live, "bundle": bundle, "claims": held,
+            "line": (f"{float(hit.get('gb') or 0):.1f} GB claimed by {bundle}" + (
+                f", lease {left:.0f} s left" if left and left > 0 else ", lease ended" if left is not None else ""))}
 
 
 def status(state_dir=None, home=None) -> dict:
@@ -96,9 +101,9 @@ def status(state_dir=None, home=None) -> dict:
     up = launch.alive(r)
     code = get(f"{str(r.get('url') or '').removesuffix('/v1')}/health", timeout=1.0)[0] if up else 0
     state = "down" if not up else "degraded" if down else "running" if code == 200 else "loading"
-    word = {"down": f"down: the pool's llama-server exited ({(log or ['no log line'])[-1][:160]})",
-            "degraded": f"degraded ({', '.join(down)} down)", "running": "running", "loading": "loading"}[state]
-    line = f"the pool serves {r.get('display') or r.get('model')}: {word}"
+    said = {"down": f"down: the pool's llama-server exited ({(log or ['no log line'])[-1][:160]})",
+            "degraded": word(down), "running": "running", "loading": "loading"}[state]
+    line = f"the pool serves {r.get('display') or r.get('model')}: {said}"
     from halo_harness.ollama_steward.changes_pool import judge
     j = judge(state_dir, home=home) if state == "running" else {"verdict": "none", "line": ""}
     lines = [line] + [f"  {m['name']}: {'up' if m['alive'] else 'down' if m['alive'] is False else 'this GPU'}; "
@@ -113,7 +118,7 @@ def failed_line(message: str, state_dir=None, http=None) -> str:
         st = status(state_dir)
     except Exception:
         st = {"state": "unknown", "degraded": []}
-    head = (f"the pool is degraded ({', '.join(st['degraded'])} down)" if st.get("state") == "degraded" else
+    head = (f"the pool is {word(st['degraded'])}" if st.get("state") == "degraded" else
             "the pool is down (its llama-server exited)" if st.get("state") == "down" else "the pool's request failed")
     tail = f"the pool's llama-server answered {http}" if http else message  # not the cloud wording ("retries")
     return f"{head}: the request failed once and is not retried -- {tail}"

@@ -143,7 +143,7 @@ def _profile(name: str, field: str, kind: str, help_: str) -> Op:
     from halo_harness.ollama_steward.changes import WORDS, fmt
 
     def breach(ctx, p) -> str:
-        if field != "num_ctx":
+        if field != "num_ctx" or getattr(ctx.host, "server", False):  # 3.3.8.0 R4: a server's window is Halo-side
             return ""
         from halo_harness.host.answers import _plan
         from halo_harness.host.invariants import _row

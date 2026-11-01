@@ -105,6 +105,31 @@ Studio's Verbose Logging, mlx_lm.server's `--log-level DEBUG`.
 - A terminal-only session pushes its own ledger lines to the `halo host` that serves its model (`host/session_push.py`
   hands them to the forwarder on a daemon thread), so the host's verify, the busy wait and the promise see that peer.
 
+## The pool's three kinds (3.3.8.0 R4)
+
+The pool's controller is a llama-server Halo starts ([POOL.md](POOL.md)), so its log is read as the server `pool`
+with the llama-server rules above, and three kinds of its own (`ollama_steward/rules_pool.py`), one line each, keyed
+`pool|<model>`: **pool-degraded** (llama.cpp's RPC lines -- "Remote RPC server crashed or returned malformed
+response", "Failed to connect to <addr>", "RPC server version mismatch" -- are `rpc-lost` events; the member named by
+its address, "degraded (worker2 down)", the same lines the pool's status reads), **pool-rtt** (the `timing` rates
+under three quarters of the pool's own speed card and slower than its round trips explain; the OS's link before the
+RTT, which one spoke said), **pool-spill** (a node below its split's share of the model buffers, or layers on the
+CPU); the generic cpu-spill of the pool's group gives way to pool-spill.
+
+**Several `layers` pairs.** The load's `load-result` event carries `devices` -- each `using device <name> (...) - N MiB
+free`, `<device> model buffer size`, `<device> KV buffer size` -- and `device_layers`, one `[device, layers]` pair per
+GPU device (an `RPC[addr:port]` worker or this machine's own): counted from llama.cpp's debug `layer N assigned to
+device` lines when the log has them, else estimated from each device's share of the model buffers (`layers_from` says
+which). These lines were written from llama.cpp's source wording; no live pooled log has been read yet.
+
+## Measured in tok/s (3.3.8.0 R4)
+
+An OpenAI-dialect ledger line carries no reply rate, so a server-side fix was judged by trims, cuts and errors alone.
+The fix loop now folds the server log's `timing` events (`ollama_steward/verify_timing.py`): the host's verify keeps
+`tok_s` before and after ("40 -> 20 tok/s (the server log's timing)", a 10 % drop puts it back), the local rollback
+judge reverts a local server's change whose log rate fell by 10 % or more, and the pool's auto-revert reads the pool
+log's rate before the ledger's.
+
 ## What the logs cannot say
 
 LM Studio's server log does not print the layers it placed or a load time; mlx_lm.server prints no window, no cut and

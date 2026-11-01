@@ -82,7 +82,12 @@ def tick(state_dir) -> dict:
         return {"pushed": 0, "verdicts": []}
     pushed = push_all()
     from halo_harness.ollama_steward.host_land import sync
-    return {"pushed": pushed, "verdicts": sync(state_dir)}
+    try:  # 3.3.8.0 R4: a far card's residency changed -> the lanes it carries placed again, each move one line
+        from halo_harness.local_sched.place_advice import recheck
+        moves = recheck(state_dir)
+    except Exception:
+        moves = []
+    return {"pushed": pushed, "verdicts": sync(state_dir) + moves}
 
 
 def reset() -> None:

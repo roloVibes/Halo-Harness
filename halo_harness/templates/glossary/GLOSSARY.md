@@ -305,3 +305,11 @@ A claim lease (3.3.8.0 R3) is the time a claim lasts unless its holder renews it
 ## preflight
 
 The preflight (3.3.8.0 R3) is every check the pool runs before it launches a model, one row each: the fit over each member's free VRAM read now, the link (a Wi-Fi member left out unless allowed), each worker's rpc-server, the llama.cpp builds against each other and the model's minimum, the GGUF on this machine (else the one Download line), what is resident and claimed, and the window. Warm is enabled only when it is green; a block is one line with its number. `halo pool preflight <model>`, the Pool page.
+
+## pre-emption
+
+Pre-emption (3.3.8.0 R4) is what happens when two bundles' claims collide on one card (or on the pool): the claim of the lower `priority` (high, normal, low) gives way to the higher one -- the lowest first, the fewest that make room; a claim of equal or higher priority never does. It is never silent: the winner's verdict says it before anything happens ("pre-empts night-batch (low, 6.0 GB) on pc"), turning it on says it in one line naming the bundle that won and the number, and the pre-empted bundle's `halo pack verdict` and Pack Manager row carry the notice.
+
+## placement score
+
+A placement score (3.3.8.0 R4) is the number `halo local place` gives each candidate for a lane -- every configured host, each paired host's card and the pool: fits beside the plan (+15), warm (+30), fits now (+10), the lane's own host (+5), minus half the load seconds, minus 5 a model it evicts, minus 25 a pivot beside the plan's other models, minus 50 not pulled there, minus the pool's measured decode penalty. The highest wins; `halo local advise` and the Adviser show every candidate's score with its loading tax and point at a cheaper placement.

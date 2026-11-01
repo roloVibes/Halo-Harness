@@ -207,6 +207,15 @@ def port_of(url: str) -> int:
         return 11434
 
 
-def served_rows(addr: str, hosts=None) -> list:
-    """[{name, port, addr}] for the join reply and the announce: what a peer matches its own host entries by."""
-    return [{"name": h.name, "port": port_of(h.url), "addr": addr} for h in (served_hosts() if hosts is None else hosts)]
+def served_rows(addr: str, hosts=None, servers=None) -> list:
+    """[{name, port, addr}] for the join reply and the announce: what a peer matches its own host entries by. 3.3.8.0
+    R4: `servers` (this machine's local servers, the pool among them) add [{name, port, addr, kind: "server",
+    runtime, pool}] after the Ollama rows (server_rows); the join and the announce carry them under `servers`."""
+    rows = [{"name": h.name, "port": port_of(h.url), "addr": addr} for h in (served_hosts() if hosts is None else hosts)]
+    return rows + (server_rows(addr, servers) if servers else [])
+
+
+def server_rows(addr: str, servers) -> list:
+    from halo_harness.ollama_steward.servers_hf import port_of as sport
+    return [{"name": s.name, "port": sport(s.url), "addr": addr, "kind": "server", "runtime": s.runtime or "llama-server",
+             "pool": s.name.lower() == "pool"} for s in servers or []]

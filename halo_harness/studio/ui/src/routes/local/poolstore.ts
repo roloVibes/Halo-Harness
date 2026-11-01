@@ -14,6 +14,7 @@ export type Member = {
   total_gb: number | null; usable_gb: number | null; resident_gb: number; resident: string[]; helper_gb: number;
   claims_gb: number; free_gb: number | null; vram_source: "card" | "stated" | "unknown"; source: string; link: Link;
   link_word: string; line: string; share: number | null; share_word: string; rtt_ms: number | null; rtt_alive: boolean | null; rtt_word: string;
+  spoke?: string;  // 3.3.8.0 R4: which spoke for the link -- the OS's adapter before the probe's RTT
 };
 export type Members = {
   members: Member[]; split: number[]; split_from: string; free_gb: number; total_gb: number; head: string; problems: string[];

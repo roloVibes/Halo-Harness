@@ -239,5 +239,18 @@ note sources: the entries and `recall.sources`), `knowledge/share.py` (the
 `knowledge` fleet command and `halo knowledge fetch`) and `knowledge/cli.py`
 (`halo knowledge`); the agents' tools are `tools/knowledge.py`.
 
+**Measured, watched and shared** (Halo 3.3.8.0 R4, docs/POOL.md "Measured", docs/MODELS-bundles.md): the pool's
+speed card -- `local_pool/bench.py` (the 3.3.6.0 battery against the running pool, the cost line in seconds),
+`local_pool/speed.py` (the card, the single-node baseline, measured or extrapolated, the penalty line); the steward's
+pool findings -- `ollama_steward/rules_pool.py` (pool-degraded, pool-rtt, pool-spill), `ollama_steward/verify_timing.py`
+(the server log's `timing` rates folded into the fix loop's before / after); the off-hours re-bench --
+`host/refresh_pool.py` (the plan's pool row, every member idle, the run); bundles that claim more --
+`packs/manifest_bundle_claims.py` (reservations with a host, the schedule, the priority, the floor),
+`local_sched/bundle_parts.py` (the verdict across the parts), `local_sched/preempt.py` (the lower claim gives way,
+told), `local_sched/reserve_parts.py` (claiming the pool and another host); fleet-wide placement --
+`local_sched/place_advice.py` (the candidates, the scores and the loading tax, the adviser's placement kind, the
+re-check on a far card's change); Studio -- `studio/pool_watch_api.py` (the Pool page's Bench and Findings),
+`ui/src/routes/local/PoolWatch.tsx`, `poolwatchstore.ts`.
+
 The map goes on in [Architecture: the module map, part two](ARCHITECTURE-modules-two.md): the Ollama
 steward, packs, the extension API, isolation, the guided first run, Setup and Settings.

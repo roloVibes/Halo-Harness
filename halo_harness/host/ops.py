@@ -66,6 +66,16 @@ def validate(op: Op, params) -> "tuple[dict, list]":
     return clean, problems
 
 
+@dataclass(frozen=True)
+class Served:
+    """A local server this host's machine serves (llama-server, LM Studio, MLX, the pool) named by a profile op."""
+    name: str
+    url: str
+    runtime: str = "llama-server"
+    server: bool = True
+    max_ctx: Optional[int] = None
+
+
 class Ctx:
     def __init__(self, svc, hid: str, rec: Optional[dict], body: dict) -> None:
         self.svc, self.hid, self.rec, self.body = svc, hid, rec or {}, body
@@ -77,10 +87,15 @@ class Ctx:
         self.dry = body.get("dry") is True
         self.host = None
 
-    def pick_host(self, params: dict) -> Optional[str]:
-        """Sets self.host from `params.host` (a served name) or `params.port`; the reason when it cannot."""
+    def pick_host(self, params: dict, servers: bool = False) -> Optional[str]:
+        """Sets self.host from `params.host` (a served name) or `params.port`; the reason when it cannot. 3.3.8.0 R4:
+        with `servers` (a profile field) a local server this machine serves is named too (a Served: server=True)."""
         hs = self.view.hosts()
         name, port = str(params.get("host") or "").strip(), params.get("port")
+        srv = next((s for s in self.view.servers() if s.name.lower() == name.lower()), None) if servers and name else None
+        if srv is not None and not any(h.name.lower() == name.lower() for h in hs):
+            self.host = Served(srv.name, srv.url, srv.runtime or "llama-server")
+            return None
         if name:
             hit = [h for h in hs if h.name.lower() == name.lower()]
         elif isinstance(port, int):
@@ -139,4 +154,4 @@ def vocabulary() -> list:
              "stated": o.stated, "job": o.job, "profile": o.profile, "help": o.help} for o in table().values()]
 
 
-__all__ = ["Ctx", "HOST", "MODEL", "Op", "PORT", "table", "validate", "vocabulary"]
+__all__ = ["Ctx", "HOST", "MODEL", "Op", "PORT", "Served", "table", "validate", "vocabulary"]

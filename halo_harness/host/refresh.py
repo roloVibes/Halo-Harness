@@ -12,7 +12,7 @@
         profile and the speed card "verified <date> by the host" (`verified_by`, `refreshed_at`)
     review(home, now=None) -> "" | "roster review: ..."   with nothing left to measure: the roster adviser
         (models_library/advise.py) when the roster, an Ollama version or the hosts changed; a `roster-review` line
-    status(home, hosts=None, *, now=None) -> {settings, plan, line, last, running, log}
+    status(home, hosts=None, *, now=None) -> {settings, plan, line, last, running, log, pool_line (3.3.8.0 R4)}
     log(home, n=20) -> the newest lines of <state>/host/refresh.jsonl     request_now(home) / take_now(home)
 `runners` {"battery": fn(host, model, *, state_dir, on_status), "bench": fn(host, model, *, state_dir, on_line)} are
 the tests' seams; the defaults are providers/capability_battery.run and providers/local_bench.bench (their calls go to
@@ -181,18 +181,23 @@ def tick(home, hosts: list, *, now: Optional[float] = None, runners: Optional[di
     if not p["rows"]:
         return review(home, now=now)
     for row in p["rows"]:
-        host = next((h for h in hosts if h.name == row["host"]), None)
-        if host is None:
+        one, host = run_one, next((h for h in hosts if h.name == row["host"]), None)
+        if row.get("pool"):  # 3.3.8.0 R4: the pool's re-bench once every member is idle (host/refresh_pool.py)
+            from halo_harness.host import refresh_pool as RP
+            if not RP.members_idle(home, now=now, idle_min=s["idle_min"])["ok"]:
+                continue
+            one, host = RP.run, "pool"
+        elif host is None:
             continue
-        idle = idle_since(home, host, now=now)
+        idle = idle_since(home, host, now=now) if one is run_one else {"busy": "", "idle_s": None}
         if idle["busy"] or (idle["idle_s"] is not None and idle["idle_s"] < s["idle_min"] * 60):
             continue
         with _LOCK:
             _STATE["running"] = row
 
-        def go(row=row, host=host):
+        def go(row=row, host=host, one=one):
             try:
-                run_one(home, host, row, runners=runners, clock=clock, why="now" if asked else "the window")
+                one(home, host, row, runners=runners, clock=clock, why="now" if asked else "the window")
             finally:
                 with _LOCK:
                     _STATE["running"] = None
@@ -236,6 +241,7 @@ def status(home, hosts: Optional[list] = None, *, now: Optional[float] = None) -
     rows = log(home, 40)
     last = next((r for r in reversed(rows) if r.get("kind") == "end"), None)
     review = next((r for r in reversed(rows) if r.get("kind") == "roster-review"), None)
+    from halo_harness.host.refresh_pool import status_line  # 3.3.8.0 R4: when the pool is re-benched
     return {"settings": s, "plan": p, "line": p["line"], "last": last, "review": review,
-            "running": _STATE["running"], "log": rows[-10:],
+            "pool_line": status_line(home, p, s, now), "running": _STATE["running"], "log": rows[-10:],
             "last_line": f"last refresh: {last['line']}" if last else "last refresh: none yet"}

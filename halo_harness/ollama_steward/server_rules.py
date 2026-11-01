@@ -18,7 +18,7 @@ import re
 from typing import Optional
 
 SEVERITY = {k: "error" for k in ("http-500", "no-user-query", "load-failed", "gpu-memory", "server-down",
-                                  "other-error", "retry-loop", "queue-full")}
+                                  "other-error", "retry-loop", "queue-full", "rpc-lost")}  # 3.3.8.0 R4: rpc-lost
 SEVERITY.update({k: "warn" for k in ("prompt-trimmed", "reply-cut", "window-full", "cancel-task", "client-gave-up",
                                      "cpu-spill", "slow-load", "stall", "reloaded", "no-prompt-cache")})
 SEVERITY.update({k: "info" for k in ("loaded", "unloaded", "startup", "load-result",  # 3.3.6.0 R3: load-result

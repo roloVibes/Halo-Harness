@@ -56,7 +56,8 @@ def test_the_glasses_block_validates_and_normalizes(ctx: Ctx):
               and b["needs"]["tts"]["device"] == "cpu")
     ctx.check(f"the reservation: its role found, keep_alive -1, its window the need's, got {b['reservation']}",
               b["reservation"] == {"model": "lfm3:1.7b", "role": "chat", "vram_gb": 1.2, "keep_alive": -1,
-                                   "priority": "high", "window": 8192})
+                                   "priority": "high", "window": 8192, "host": None, "min_free_gb": None}  # 3.3.8.0 R4
+              and b["reservations"] == [b["reservation"]] and b["schedule"] is None and b["priority"] == "normal")
     ctx.check(f"routing defaults, got {b['routing']}", b["routing"] == {"task_work": "coder-or-cloud",
                                                                          "never_evict": "reserved", "escalation": "on"})
     ctx.check("the latency budget", b["latency_budget_ms"] == 1500)

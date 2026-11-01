@@ -55,9 +55,10 @@ def join(url: str, code: str, harness: dict, *, fingerprint: Optional[str] = Non
     if scheme == "https" and fp.lower() != (seen or "").lower():
         raise HubError("the certificate the host showed is not the one it vouched for; not paired")
     serves = [r for r in reply.get("serves") or [] if isinstance(r, dict)]
-    for r in serves:
+    servers = [r for r in reply.get("servers") or [] if isinstance(r, dict)]  # 3.3.8.0 R4: its local servers
+    for r in serves + servers:
         r.setdefault("addr", host)
     return {"url": format_url(scheme, host, port), "name": who.get("name"), "host_id": who.get("id"),
-            "fingerprint": fp or None, "tls": scheme == "https", "serves": serves,
+            "fingerprint": fp or None, "tls": scheme == "https", "serves": serves, "servers": servers,
             "grants": [g for g in reply.get("grants") or ["view"] if isinstance(g, str)],
             "host_version": who.get("version"), "key": pair_kex.pair_key(a_secret, b, ckey, a, b)}

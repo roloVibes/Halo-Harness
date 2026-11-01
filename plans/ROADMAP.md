@@ -3685,8 +3685,37 @@ worse); the reference HTTP server is not shipped (routes through `studio/local_a
   devices first, the local GPU last in `--tensor-split` -- are from memory, unverified on real hardware); the key is
   on llama-server's command line (`--api-key`, as briefed), visible to local users of the controller in its process
   list.
-- R4 (was the first plan's "R3 Studio controls + guards + bench", less what R3 shipped): health + tok/s live, the
-  steward's findings for a degraded pool, `halo local bench --host pool`, a bundle may claim the pool.
+- ~~R4 measured~~ (2026-11-01, worktree round v338/R4-measured; was the first plan's "R3 Studio controls + guards +
+  bench", less what R3 shipped, plus the second review's R4): built: the pool's speed card (`local_pool/bench.py`,
+  `local_pool/speed.py`; `halo local bench --host pool [--quick]`, the Pool page's Bench with its cost line first in
+  seconds; the card carries the members, the split, each member's RTT and link, the cache, `-c`, the cold load; the
+  recommendation, `route` and `place.solve` read it and say the penalty against the single node's card ("11.2 tok/s
+  measured, -38 % vs pc alone"), "extrapolated" until a card exists; the auto-revert's baseline is the pool's own card);
+  the steward's pool findings (`ollama_steward/rules_pool.py`: pool-degraded from `rpc-lost` events, pool-rtt against
+  the pool's card and the preflight's RTT with the OS's link speaking first, pool-spill from the per-device buffers;
+  `server_context_hf` writes one `layers` pair per device; `degrade.py` and the findings read the same lines and say
+  the same word) on the Pool page, the Steward page, `halo ollama steward findings` and the host's findings; bundles
+  (`reservations` with `host` -- a paired host or `pool` -- and `min_free_gb`, `schedule {hours}`, `priority`,
+  `min_free_gb`; pre-emption told in one line naming the bundle that won and the number, a notice for the loser;
+  the claim lease on every reservation; the shipped `big-reasoner`: the pool for the reasoner, the coder resident);
+  the adviser's `placement` kind and its scores block, fleet-wide candidates, the re-check on a far card's residency
+  change (one stated line, nothing moves), `halo local place` prints every candidate's score; the off-hours refresh's
+  pool row (every member idle; `halo host refresh status` says when); peers see host-served local servers (the join's
+  and the announce's `servers`, the hub's record and the servers' events, a server's change landed and verified
+  through the host); the fix loop's verify in tok/s from the server log's `timing`; the key off the process list
+  (`--api-key-file <state>/pool/api-key`, removed at stop, the `--api-key` fallback said); Studio (Bench, Findings, the
+  claims per member by bundle, the Bundles group's parts / priority / schedule / notices, the Adviser's scores); docs
+  POOL.md, COMMANDS-pool.md, MODELS-steward-servers.md, MODELS-bundles.md, EXTENSION_API.md, COMMANDS-packs.md,
+  COMMANDS-local*.md, MODELS-adviser.md, HOST.md, COMMANDS-host.md, CONFIG.md, STUDIO-local-pool.md, STUDIO-packs.md,
+  ARCHITECTURE-modules.md, glossary `pre-emption`, `placement score`. Still open: no live pooled run yet -- every RPC
+  log line the pool rules read (rpc-server's abort and connect lines, the `using device` / `RPC[...] model buffer`
+  lines, the debug `layer N assigned to device`) and `--api-key-file` are from llama.cpp's source wording, from
+  memory; pool-rtt's thresholds (three quarters of the card, twice the round trips) and pool-spill's 85 % want a real
+  pool to tune them; the re-check runs on the steward job's tick (a peer's residency poll every 60 s), not on the host's
+  live stream; a pre-emption across peers on one host releases the other peer's claim through the host's `release`
+  (that peer learns it when its lease renew finds nothing, its notice lives on the winner's machine); the open R1/R3
+  figures (Qwen3-Next's routing-table and KV estimates, gpt-oss's 20 GB overlap, 1 GB of buffers per node, the device
+  order) still want a two-node measurement.
 - Adopted suggestions (rolo 2026-10-31: "add your suggestions to this update"): (1) measure, don't extrapolate --
   `halo local bench --host pool` writes the pool's speed card and the recommendation shows the measured tok/s and
   the penalty vs the single node that could hold it; (2) the honest pool preview before any download (needs / free

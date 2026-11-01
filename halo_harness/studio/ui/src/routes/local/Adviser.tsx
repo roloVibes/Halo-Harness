@@ -3,7 +3,8 @@
 // kinds -- gap, overlap, mismatch, freshness -- ranked by value per gigabyte. Each row says what it unlocks or frees
 // and what it costs (the download, the VRAM, co-reside or pivot, the minutes), and has one button that names its one
 // thing (Add = download then verify, Retire = the shelf's retire, Point = the role write); nothing runs until pressed.
-// `halo local advise` prints the same lines.
+// `halo local advise` prints the same lines. 3.3.8.0 R4: a fifth kind, placement (a lane a cheaper candidate across the
+// fleet or the pool would serve; Place = halo local place --apply), and the placement scores under the rows.
 import { useEffect } from "react";
 import { Button } from "../../lib/ui";
 import { act, loadAdvice, useAdv, type Cost, type Suggestion } from "./advstore";
@@ -21,6 +22,7 @@ function label(s: Suggestion): string {
   if (a.verb === "add") return `Add ${a.model}`;
   if (a.verb === "retire") return `Retire ${a.model}`;
   if (a.verb === "point") return `Point ${a.role} at ${String(a.model || "").replace(/^ol:/, "")}`;
+  if (a.verb === "place") return `Place ${a.role} on ${a.host}`;
   return "";
 }
 
@@ -68,6 +70,14 @@ export function Adviser({ host }: { host?: string }) {
       <ul className="lc-model-list">
         {(rows || []).map((s) => <Row key={s.id} s={s} />)}
       </ul>
+      {(advice?.placement?.lines.length || 0) > 0 && (
+        <div className="lc-adv-scores" data-testid="local-adviser-scores">
+          <div className="rail-label mono">PLACEMENT SCORES · THE CHOSEN HOST FIRST, EACH WITH ITS LOADING TAX</div>
+          <ul className="mono muted">
+            {(advice?.placement?.lines || []).map((l) => <li key={l} data-testid="local-adviser-score">{l}</li>)}
+          </ul>
+        </div>
+      )}
       <Button size="sm" variant="ghost" onClick={() => void loadAdvice(host)} data-testid="local-adviser-again"
               title="halo local advise: review the roster again (no model, nothing runs)">Review again</Button>
     </details>

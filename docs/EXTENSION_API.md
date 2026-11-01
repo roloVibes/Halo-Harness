@@ -606,8 +606,13 @@ bundle:
 | `routing.never_evict` | `reserved` (default), `none` | nothing Halo does evicts the reserved model |
 | `routing.escalation` | `on` (default), `off` | `off`: no cloud rung for any session while the bundle is on (offline-only) |
 | `latency_budget_ms` | ms | said beside the verdict's expected latency |
+| `reservations` | a list of reservations | 3.3.8.0 R4: several claims, one per host; each takes the `reservation` keys plus `host` and `min_free_gb` |
+| `reservations[].host` | a paired host's name, an `ollama.hosts` name, or `pool` | where that reservation is held (the default host when left out) |
+| `reservations[].min_free_gb`, `min_free_gb` | GB, 0 or more | the GB that card keeps free for tasks beside the claim (the bundle's for every reservation) |
+| `schedule.hours` | `HH:MM-HH:MM` | 3.3.8.0 R4: the hours the claims are held, the host's local clock (it may wrap midnight); outside them the bundle claims nothing |
+| `priority` | `high`, `normal` (default), `low` | 3.3.8.0 R4: every reservation's default; when two claims collide the lower one is pre-empted and told in one line |
 
-A bundle requests no permission: turning it on grants nothing. Halo ships nine (`halo_harness/templates/bundles/`);
+A bundle requests no permission: turning it on grants nothing. Halo ships ten (`halo_harness/templates/bundles/`);
 `halo pack verdict | on | off <bundle>` and `halo pack list --bundles` are its verbs
 ([COMMANDS-packs.md](COMMANDS-packs.md#bundles)).
 

@@ -10,8 +10,10 @@ placement"; local_sched/place.py asks it beside every Ollama host).
         now / warm: the pool runs this model now (launched); load_s when it does not: the GGUF's download (its size
         over the measured pull rate) when it is not on disk, plus the load (the size over the disk rate assumed);
         degraded: a running pool with a worker down does not take a lane ("degraded (worker2 down)")
-        penalty_pct: the research's measured 21-55 % decode penalty (its midpoint, PENALTY_PCT) until R4's bench
-        measures the pool's own
+        penalty_pct: the research's measured 21-55 % decode penalty (its midpoint, PENALTY_PCT) until the pool's bench
+        card exists (3.3.8.0 R4: local_pool/speed.figures -- the measured penalty against the single node that could
+        hold the model, never below 0 in a score; `speed` = the line, "11.2 tok/s measured, -38 % vs pc alone", or
+        "extrapolated"); tok_s / measured beside it
 Reads only (the members' cached cards); nothing launches.
 """
 
@@ -70,6 +72,10 @@ def route(need: dict, *, state_dir=None) -> dict:
         from halo_harness.local_pool.catalog import names
         return _no(out, f"the pool serves its catalog models ({', '.join(names())}), not {need.get('model')}")
     r = launch.run(state_dir)
+    from halo_harness.local_pool.speed import figures  # 3.3.8.0 R4: measured once the pool's bench card exists
+    f = figures(model, state_dir, r)
+    out.update(penalty_pct=max(0.0, float(f["penalty_pct"])), penalty_from=f["penalty_from"], speed=f["word"],
+               tok_s=f["tok_s"], measured=f["measured"])
     if r and r.get("model") == model["name"] and launch.alive(r):
         from halo_harness.local_pool.degrade import status
         st = status(state_dir)
@@ -80,8 +86,9 @@ def route(need: dict, *, state_dir=None) -> dict:
         if window and cap and window > cap:
             return _no(out, f"{model['display']} runs on the pool at {cap:,} (the fit's window); {window:,} is past it")
         return {**out, "fits": True, "now": True, "warm": True, "installed": True, "window": window or cap,
-                "verdict": f"{model['display']} runs on the pool now ({r.get('cache')} KV, -c {cap:,}); pooled decode "
-                           f"is ~{PENALTY_PCT:.0f} % slower than one node that holds it"}
+                "verdict": f"{model['display']} runs on the pool now ({r.get('cache')} KV, -c {cap:,}); " + (
+                    f"pool: {f['word']}" if f["measured"] else
+                    f"pooled decode is ~{PENALTY_PCT:.0f} % slower than one node that holds it (extrapolated)")}
     from halo_harness.local_pool.preflight import _room  # a resident Ollama model is room Warm pivots out
     v = fit(model, [_room(x) for x in budgets(state_dir=state_dir)])
     if v["state"] != "pool":

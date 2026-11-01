@@ -9,7 +9,8 @@ Each finding carries `where` and `suggest`:
                      compaction that did not run, a switch without fit (`suggest`: ["compact", "a bigger-window
                      model"]); a peer's steward turns it into its own preflight / compact / bigger-window proposal
 
-    host_findings(view) -> [finding + {where, suggest, port}]
+    host_findings(view) -> [finding + {where, suggest, port}]   3.3.8.0 R4: this machine's local servers' findings too
+                     (the pool's pool-degraded / pool-rtt / pool-spill, keyed pool|<model>)
     where_of(f) / suggest_of(f)
 """
 
@@ -61,6 +62,8 @@ def host_findings(view) -> list:
     catalogs = {h.name: {str(r.get("model") or r.get("name")): r for r in view.host_catalog(h)} for h in hosts}
     ctx = gather(view.home, hosts=hosts, cards=cards, catalogs=catalogs)
     ports = {h.name: port_of(h.url) for h in hosts}
+    from halo_harness.ollama_steward.servers_hf import port_of as server_port  # 3.3.8.0 R4: the servers' findings
+    ports.update({s.name: server_port(s.url) for s in view.servers() if s.name not in ports})  # the pool's among them
     out = []
     for f in run_rules(ctx):
         if f.get("host") not in ports:

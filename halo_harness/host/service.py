@@ -235,7 +235,8 @@ class HostService:
                 if now - got["announced"] >= ANNOUNCE_S or got["announced"] < 0:
                     got["link"].request("POST", protocol.PREFIX + "/host", protocol.doc(
                         link=self.link_id, host=True, port=self.port, fingerprint=self.fingerprint, url=self.url(),
-                        name=self.name, serves=S.served_rows(self.addr(), self.view.hosts())))
+                        name=self.name, serves=S.served_rows(self.addr(), self.view.hosts()),
+                        servers=S.server_rows(self.addr(), self.view.servers())))  # 3.3.8.0 R4
                     got["announced"], st["announced"] = now, time.time()
                 n = got["fwd"].tick(got["link"], self.link_id)
                 st.update(sent=st["sent"] + n, error="", at=time.time())

@@ -28,6 +28,14 @@ Halo 3.3.7.0 R4: the roster adviser's lines, ranked by value per gigabyte, each 
 with what it unlocks or frees, what it costs and the one command that does it (`ollama pull ...`, `halo models retire
 ...`, `halo roles point ...`). It runs nothing. `--lineup` reads that lineup's roles instead of the active one.
 
+3.3.8.0 R4: a fifth kind, `[placement]` -- a lane a cheaper candidate across the fleet would serve, both scores and
+what each costs to place ("compactor (qwen3.5:9b) on pc scores 75 (evicts qwen3-coder:30b, pivots beside
+qwen3-coder:30b); samus scores 116 (18 s to load)"; `halo local place --apply` moves it) -- and under the lines the
+**placement scores**: each lane's score on every candidate (every paired host's card, the pool), the chosen host
+first, each with its loading tax (the load seconds, what it evicts or pivots beside, not pulled there, the pool's
+decode penalty). When a far card changes (a paired host's residency: a model loaded or unloaded there), the steward's
+job places the lanes it carries again and says each move in one line; nothing moves until `--apply`.
+
 ## `halo roles point`
 
 ```sh
