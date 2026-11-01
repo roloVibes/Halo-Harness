@@ -5,8 +5,10 @@ home's Studio serves the page. No model call, no real rpc-server or llama-server
 
 `bench`: the cost line first (seconds, the members busy), the penalty line extrapolated; Quick bench pressed -> the
 card's lines and "pool: 11.2 tok/s measured"; each member's claim names its bundle.
+`bundles`: Packs -> the Bundles group lists big-reasoner with its pool part and its priority chip -- read while the
+pool is healthy: `route` says "degraded ... it takes no lane" once the log below carries the lost backend (the Linux
+all-tiers run 41327065087 read it after `findings` and saw that line; the order below is the fix).
 `findings`: an RPC backend lost in the controller's log -> the page's Findings block lists pool-degraded.
-`bundles`: Packs -> the Bundles group lists big-reasoner with its pool part and its priority chip.
 `adviser`: Local -> Models' Adviser shows the placement scores of the lineup's worker lane.
 Every wait reads the data its assertion checks. The last stdout line is the JSON of what it saw (exit 2: no Chrome)."""
 from __future__ import annotations
@@ -98,7 +100,7 @@ class PoolWatchDriver(Driver):
             base, frag = url.split("?", 1)[0], url.split("#", 1)[1]
             ctx = {"base": base, "frag": frag, "rig": rig, "degrade": degrade}
             try:
-                yield tuple((fn, (c, url, ctx)) for fn in (bench, findings, bundles, adviser))
+                yield tuple((fn, (c, url, ctx)) for fn in (bench, bundles, findings, adviser))
             finally:
                 self.out["blocked"] = [str(a) for a in rig.rig.blocked]
                 srv.shutdown()
