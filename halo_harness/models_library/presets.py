@@ -3,7 +3,8 @@ fit-brief.md F3) and the inverse flow, "find a model for this role" (F4).
 
     PRESETS                       Coder, Reasoner / planner, Bulk worker, Compactor, Verifier, Security / pentest,
                                   Multimodal, Embeddings, Offline-only: each a filter bundle {needs, fit, supply,
-                                  role, intent} the page shows expanded and editable
+                                  role, intent} the page shows expanded and editable; 3.3.8.0 R1: Pool (no filters:
+                                  local_pool/library.mark swaps in the pool catalog's rows with their pool badge)
     bundle(preset, **overrides) -> the bundle (a copy) with its title and why
     preset_for_role(role) -> preset id     a lineup role ("verify", "coder", "planner", ...) -> its preset
     parse_sentence(text) -> {preset, needs, fit, supply, understood [words]}
@@ -53,6 +54,8 @@ PRESETS = {
                 "needs": {**TOOLS}, "fit": {"fits_at": True},
                 "supply": {"runs_here": True, "ollama_supports": True, "gated": False},
                 "why": "runs here with no network: fits, loads on this Ollama, not gated"},
+    "pool": {"title": "Pool", "role": "", "agent": "", "intent": "", "needs": {}, "fit": {}, "supply": {},
+             "why": "too big for any one card: the models several machines' GPUs serve together, each with its pool fit"},
 }
 ORDER = tuple(PRESETS)
 ROLE_PRESET = {"coder": "coder", "implement": "coder", "implementer": "coder", "tester": "coder", "worker": "coder",

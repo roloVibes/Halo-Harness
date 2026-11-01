@@ -50,6 +50,7 @@ SUBCOMMANDS = (
     "ollama", "local",  # Halo 3.2.3.0 round R2: the gap the round 5d note named, closed with `halo ollama discover`
     "session",  # Halo 3.3.0.0 round R6: `halo session export <id>` (the Markdown trace)
     "settings",  # Halo 3.3.3.0 round R2: Studio's Settings section (every config.json key)
+    "pool",  # Halo 3.3.8.0 round R1: the pool (members, the fit, the recommendation, the RPC scan)
 )
 
 # Halo 3.2.3.0 round R2: the words that follow `halo ollama` (and the discover flags);

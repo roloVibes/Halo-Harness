@@ -115,6 +115,18 @@ host's `claim` / `release`, its invariants count them); `ollama_steward/chat.py`
 `studio/packs_bundles_api.py`, `studio/local_steward_chat_api.py`; `ui/src/routes/packs/manager/Bundles.tsx`,
 `bundlestore.ts`, `ui/src/routes/local/StewardPage.tsx`, `StewardChat.tsx`, `StewardModel.tsx`, `chatstore.ts`.
 
+**The pool** (`halo_harness/local_pool/`, Halo 3.3.8.0 R1, docs/POOL.md): several paired hosts' GPU memory serving
+one model over llama.cpp RPC, known and told before anything runs. `local_pool/members.py` (`<state>/pool/pool.json`:
+the members, their checks, who answers for a member's card), `local_pool/link.py` (the adapter that carries a host's
+address: wired or Wi-Fi and its speed, per OS behind a runner seam; on the host card's `link` through
+`host/routes_view.py` and in `fleet/capabilities_host.py`), `local_pool/budget.py` (each member's free VRAM from its
+host card, the tensor split), `local_pool/catalog.py` (the pool's models, every estimate marked), `local_pool/fit.py`
+(single node / fits the pool / does not fit, every number said), `local_pool/recommend.py` (the ranking and the
+preview before any download), `local_pool/scan.py` (the RPC-port scan and the members' RTT), `local_pool/library.py`
+(the Library's Pool preset); `providers/rpc_probe.py` (the RPC-port probe: a TCP connect and its time, the sweep on
+explicit action); `pool_cli.py`, `pool_scan_cli.py` (`halo pool`); `studio/pool_api.py`; `ui/src/routes/local/
+PoolPage.tsx`, `PoolMembers.tsx`, `PoolRecommend.tsx`, `poolstore.ts`.
+
 **Packs** (`halo_harness/packs/`, Halo 3.2.0.0 R1, docs/PACKS.md): the
 names (`packs/names.py`: ids, `<id>--<name>`, the `pack:<id>` label and
 `read_only_source`), `packs/semver.py` (versions and ranges),

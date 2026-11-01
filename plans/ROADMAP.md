@@ -3645,9 +3645,16 @@ past the F16 budget, never a CPU fallback; discovery = a new RPC-port probe (500
 actions are `changes.py` changes under the steward contract (one per pool per 10 min, before / after, revert on
 worse); the reference HTTP server is not shipped (routes through `studio/local_api.py`).
 
-- R1 discovery + members + fit / recommend: `local_pool/` (`members.py`, `fit.py`, `catalog.py`, `recommend.py`,
-  `probe.py`), `halo pool scan | members | add | remove | recommend | verdict <model>`, Local -> Pool (read-only),
-  the Library's "Pool" preset with the fit badge, docs/POOL.md.
+- ~~R1 discovery + members + fit / recommend~~ (built: `local_pool/` `members.py`, `budget.py`, `link.py`,
+  `catalog.py`, `fit.py`, `recommend.py`, `scan.py`, `library.py`; the probe is `providers/rpc_probe.py`; `halo pool
+  scan | members | add | remove | recommend | verdict <model>`; Local -> Pool (read-only); the Library's "Pool" preset
+  with the fit badge; the host card's `link`; docs/POOL.md, COMMANDS-pool.md, STUDIO-local-pool.md; glossary `pool`,
+  `rpc-server`, `tensor split`, `pooled inference`). Still open from R1: the catalog's routing-table and KV figures
+  for Qwen3-Next and gpt-oss are estimates (gpt-oss's 20 GB may overlap its 59 GB of weights -- if so it needs 39 + 20n,
+  not 59 + 20n; a measurement on two nodes settles it); the 1 GB of buffers per node is the reference's figure, not
+  measured; the RTT is a TCP connect's (an open port, not proof the far end is rpc-server); the link reader is
+  fixture-tested per OS, not yet on a worker-grade Windows box with no `nvidia-smi`; no Download from the Pool
+  page has run against the real hub in a test.
 - R2 the controller: the host op `rpc_server on|off`, `halo local serve --pool`, preflight (fit, probes, RTT, build
   and RPC versions, resident + claims), the `pool` server entry, `route` for the pool, warm / stop as scoped changes,
   the failure modes as lines (a worker down mid-generation: the request fails, the pool is "degraded"; VRAM
