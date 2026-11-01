@@ -5,6 +5,8 @@ L2: "a deterministic claim the host enforces"; host/ops.py has the registry).
                                                     reserved for that bundle on the server this host serves; nothing
                                                     loads (the model loads on its first call, or with warm / pin)
     release {bundle}                                that bundle's rows taken out
+    3.3.8.0 R4: claim's `hours` (the bundle's schedule) is kept on the row: outside them, on this host's clock, the
+    claim is dormant (local_sched/claims_file.live)
     3.3.8.0 R3: claim's `lease_s` sets the row's `until` (now + lease_s; local_sched/claims_file.py): past it the claim
     is not a claim; `renew {bundle, lease_s?}` moves the lease of the rows that peer placed (its heartbeat:
     local_sched/lease.py) -- a renewal of a peer's own claim is never queued under fleet.allow_control: ask
@@ -37,7 +39,8 @@ def _row(ctx, p: dict) -> dict:
     return {"bundle": p["bundle"], "host": ctx.host.name, "model": p["model"], "gb": float(p["gb"]),
             "window": p.get("window"), "priority": p.get("priority") or "normal", "keep_alive": p.get("keep_alive", -1),
             "at": round(time.time(), 3), "by": ctx.peer, "holder": "peer", "holder_pid": None, "scope": "keep",
-            "change_id": None, "escalation": None, "task_work": None, "until": _until(p)}
+            "change_id": None, "escalation": None, "task_work": None, "until": _until(p),
+            "hours": p.get("hours") or None}  # 3.3.8.0 R4: the bundle's schedule, this host's clock
 
 
 def p_claim(ctx, p):
@@ -109,7 +112,9 @@ TABLE = [
                             "bundle": BUNDLE, "window": ("int", False, "the window it is held at"),
                             "priority": ("str", False, "high, normal or low"),
                             "keep_alive": ("any", False, "how long Ollama keeps it (-1)"),
-                            "lease_s": ("any", False, "the claim's lease in s (renewed by its holder)")}, p_claim, a_claim,
+                            "lease_s": ("any", False, "the claim's lease in s (renewed by its holder)"),
+                            "hours": ("str", False, "the hours it is held, HH:MM-HH:MM on this host's clock")},
+       p_claim, a_claim,
        help="reserve a model for a bundle: nothing else evicts it, every load counts it"),
     Op("renew", "control", {"host": HOST, "port": PORT, "bundle": BUNDLE, "lease_s": ("any", False, "the lease (s)")},
        p_renew, a_renew, help="renew the lease of a bundle's claims (the holder's heartbeat)"),

@@ -12,7 +12,8 @@ given and answers the way llama-server does:
 It prints llama.cpp's own log lines for the load (the ones a log reader keys on: `load_tensors: offloaded N/N
 layers to GPU`, `llama_kv_cache: CUDA0 KV buffer size`, `main: server is listening on`) and one line per request.
 FAKE_LLAMA_LOAD_S (env) is how long it "loads" (default 0.3); FAKE_LLAMA_EXIT=1 makes it exit at once with an
-error, the way a bad argument does.
+error, the way a bad argument does. 3.3.8.0 R4: `--api-key-file` / `--api-key` and POST /v1/chat/completions with
+llama-server's `timings` and the slot's print_timing lines (tests/helpers/fake_llama_chat.py).
 """
 from __future__ import annotations
 
@@ -51,6 +52,11 @@ def main(argv: list) -> int:
             say(f"ggml_backend_rpc_buffer_type_alloc_buffer: RPC[{door}] failed to allocate buffer of size 24576 MiB: "
                 "out of memory")
             return 1
+    from fake_llama_chat import answer, key_of  # 3.3.8.0 R4: the key file and the chat answer (this folder)
+    key, said = key_of(argv, _arg)
+    say(said)  # never the key itself
+    if key is False:
+        return 1
     load_s = float(os.environ.get("FAKE_LLAMA_LOAD_S") or 0.3)
     ready = threading.Event()
 
@@ -88,6 +94,19 @@ def main(argv: list) -> int:
                 self.wfile.write(body)
                 return None
             return self._json(404, {"error": {"code": 404, "message": "File Not Found"}})
+
+        def do_POST(self):  # noqa: N802  (3.3.8.0 R4: the chat answer, the key checked; fake_llama_chat.py)
+            n = int(self.headers.get("Content-Length") or 0)
+            try:
+                body = json.loads(self.rfile.read(n) or b"{}")
+            except ValueError:
+                body = {}
+            if not ready.is_set():
+                return self._json(503, {"error": {"code": 503, "message": "Loading model", "type": "unavailable_error"}})
+            code, obj, lines = answer(self.path, self.headers, body if isinstance(body, dict) else {}, key, alias)
+            for line in lines:
+                say(line)
+            return self._json(code, obj)
 
     srv = ThreadingHTTPServer(("127.0.0.1", port), H)
     srv.daemon_threads = True

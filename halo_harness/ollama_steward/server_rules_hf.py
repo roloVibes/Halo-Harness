@@ -11,6 +11,8 @@ embeds are read by server_rules.classify (offloaded a/b layers -> cpu-spill, out
 error -> gpu-memory, print_timing -> timing); here: `input truncated` and `context shift` (prompt-trimmed), `the request
 exceeds the available context size` (prompt-trimmed, refused), `stopped by limit` (reply-cut: the server's n_predict),
 `context shift is disabled` (window-full), `failed to load model` / `error loading model` (load-failed), GGML_ASSERT,
+3.3.8.0 R4: a pool's RPC lines -- "Remote RPC server crashed or returned malformed response" (the abort),
+"Failed to connect to <addr>", "RPC server version mismatch" -> `rpc-lost` {addr} (ollama_steward/rules_pool.py),
 `terminate called`, a segfault (a crash: other-error, the death line), the request lines' 500s. LM Studio (its
 server-logs file): `[timestamp][LEVEL]` lines -- the context-overflow error (prompt-trimmed), `"finish_reason": "length"`
 (reply-cut), a failed load, out of memory, `The model has crashed` (the death line), any other [ERROR]. mlx_lm.server
@@ -26,7 +28,7 @@ from typing import Optional
 from halo_harness.ollama_steward.server_rules import classify as classify_llama, event
 
 SAYS = {"llama-server": ("prompt-trimmed", "reply-cut", "window-full", "cpu-spill", "gpu-memory", "load-failed",
-                         "slow-load", "http-500", "other-error", "timing", "load-result"),
+                         "slow-load", "http-500", "other-error", "timing", "load-result", "rpc-lost"),
         "lmstudio": ("prompt-trimmed", "reply-cut", "gpu-memory", "load-failed", "other-error"),
         "mlx": ("http-500", "gpu-memory", "load-failed", "other-error")}
 ASKED = ("prompt-trimmed", "reply-cut", "window-full", "cpu-spill", "gpu-memory", "load-failed", "slow-load",
@@ -42,6 +44,9 @@ _SHIFT = re.compile(r"context shift, n_keep\s*=\s*(\d+), n_left\s*=\s*(\d+), n_d
 _LIMIT = re.compile(r"stopped by limit.*?n_predict\s*=\s*(-?\d+)")  # also "n_decoded = N, n_predict = N"
 _LMS_OVER = re.compile(r"context length of only (\d+) tokens", re.I)
 _LMS_KEEP = re.compile(r"keep the first (\d+) tokens", re.I)
+_RPC_LOST = re.compile(r"Remote RPC server crashed or returned malformed response|Failed to connect to (\S+)|"
+                       r"RPC server version mismatch|ggml_backend_rpc\S*: .*(?:failed|error|closed)|"
+                       r"RPC\[([^\]]+)\].*(?:connection (?:closed|lost|refused)|failed to (?:send|recv))", re.I)
 _DEATH = re.compile(r"GGML_ASSERT|terminate called after throwing|Segmentation fault|libc\+\+abi: terminating|"
                     r"model has crashed|exited with code|Aborted \(core dumped\)", re.I)
 
@@ -142,6 +147,12 @@ def classify(line: str, at=None, runtime: Optional[str] = None) -> Optional[dict
         return None
     at = at if at is not None else line_time(text)
     rt = runtime or "llama-server"
+    if rt == "llama-server" and "allocate" not in text and (m := _RPC_LOST.search(text)):  # 3.3.8.0 R4: a pool's RPC backend (rules_pool.py)
+        addr = next((g for g in m.groups() if g), None)
+        abort = "crashed or returned malformed" in text
+        return _ev("rpc-lost", "an RPC backend of the pool was lost" + (f" ({addr})" if addr else "") +
+                   (": llama-server aborted the request" if abort else ""), text, at, rt, addr=addr,
+                   death=abort or None, mismatch="version mismatch" in text.lower() or None)
     if _DEATH.search(text):
         return _ev("other-error", f"{'LM Studio' if rt == 'lmstudio' else rt} died: {text.strip()[:160]}", text, at, rt,
                    death=True)

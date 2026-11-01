@@ -3,12 +3,36 @@
 // 1.2 GB reserved leaves ~20.8 GB, the coder (18.9 GB) still fits beside it, barely"), needs N downloads (each tag,
 // its size and fit, and the one button that starts Download and verify), or won't work with the ways out, each a
 // number. The tick turns a ready bundle on (its reservation claimed, held by this Studio) and off. `halo pack verdict
-// <id>` and `halo pack on|off <id>` are the same from a terminal.
+// <id>` and `halo pack on|off <id>` are the same from a terminal. 3.3.8.0 R4: a bundle's other reservations (the pool,
+// a paired host), its schedule, its priority and its pre-emptions (Claimed).
 import { useEffect } from "react";
 import { Button } from "../../../lib/ui";
-import { download, startBundles, tick, useBundles, type BundleRow } from "./bundlestore";
+import { download, startBundles, tick, useBundles, type BundleRow, type Verdict } from "./bundlestore";
 
 const STATE: Record<string, string> = { ready: "ready", downloads: "needs downloads", wont: "won't work", unknown: "not judged" };
+
+// 3.3.8.0 R4: the claims beyond one reservation -- each part where it is held, the schedule, the priority, the
+// pre-emptions (the ones it would make, and the notice when it was the one pre-empted)
+function Claimed({ v }: { v: Verdict }) {
+  const prio = v.claims?.priority || v.priority || "normal";
+  return (
+    <>
+      {(v.parts || []).map((p) => (
+        <div key={`${p.host}|${p.role}`} className="mono pm-bundle-part" data-testid="pm-bundle-part" data-host={p.host}
+             data-state={p.state}>+ {p.says}</div>
+      ))}
+      <div className="pm-bundle-chips">
+        {prio !== "normal" && <span className="og-chip mono" data-testid="pm-bundle-priority">priority {prio}</span>}
+        {v.schedule && <span className="og-chip mono" data-testid="pm-bundle-schedule" data-now={v.schedule.now || undefined}
+                             title={v.schedule.line}>{v.schedule.hours}</span>}
+        {v.claims?.min_free_gb ? <span className="og-chip mono" data-testid="pm-bundle-floor">keeps {v.claims.min_free_gb} GB free</span> : null}
+      </div>
+      {(v.notices || []).map((n, i) => (
+        <div key={`${i}|${n.line}`} className="mono pm-bundle-notice" data-testid="pm-bundle-notice">! {n.line}{n.when ? ` (at ${n.when})` : ""}</div>
+      ))}
+    </>
+  );
+}
 
 function Row({ b }: { b: BundleRow }) {
   const busy = useBundles((s) => s.busy);
@@ -25,7 +49,8 @@ function Row({ b }: { b: BundleRow }) {
         <span className="og-chip mono" data-testid="pm-bundle-state">{STATE[v?.state || "unknown"]}</span>
         <span className="muted pm-bundle-desc">{b.description}</span>
       </div>
-      {v && <div className="mono pm-bundle-says" data-testid="pm-bundle-says">{v.says}</div>}
+      {v && <div className="mono pm-bundle-says" data-testid="pm-bundle-says">{v.main_says || v.says}</div>}
+      {v && <Claimed v={v} />}
       {v && v.options.length > 0 && (
         <ul className="pm-bundle-options mono muted" data-testid="pm-bundle-options">
           {v.options.map((o) => (

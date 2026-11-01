@@ -13,8 +13,9 @@ plans/pooled-inference-model-candidates.md's decision rules).
         downloads until you press it"
     rate(state_dir) -> (bytes per second, where it came from): the last pull or download that ended well, else assumed
 
-The download is the existing Hugging Face download + verify job (`repo`, `file`), offered as one button; R3 replaces
-the speed estimate with the pool's own measured tok/s and the penalty against a single node. 3.3.8.0 R3: a model
+The download is the existing Hugging Face download + verify job (`repo`, `file`), offered as one button. 3.3.8.0 R4:
+`speed_word` / `speed` are local_pool/speed.figures -- the pool's own measured tok/s and the penalty against the single
+node that could hold the model once `halo local bench --host pool` wrote its card, "extrapolated" until then. 3.3.8.0 R3: a model
 resident on a member counts as room (Warm pivots it out first; local_pool/preflight._room), said in the head.
 """
 
@@ -68,15 +69,16 @@ def preview(v: dict, model: dict, r: "tuple[float, str]") -> str:
     return f"needs {v['need_gb']:.1f} GB -- {v['free_gb']:.1f} GB free; does not fit, so nothing to download"
 
 
-def _row(v: dict, model: dict, r) -> dict:
+def _row(v: dict, model: dict, r, state_dir=None) -> dict:
+    from halo_harness.local_pool.launch import run
+    from halo_harness.local_pool.speed import figures  # 3.3.8.0 R4: the pool's own card, else extrapolated
     tags = (["batch-only"] if model.get("batch_only") else []) + ([f"b{model['min_build']}+"] if model.get("min_build")
                                                                     else [])
-    s = model["speed"]
+    f = figures(model, state_dir, run(state_dir))
     return {**v, "repo": model["repo"], "tags": tags, "preview": preview(v, model, r),
-            "download": _download(model, r) if v["state"] != "no" else None,
-            "speed_word": (f"{s['tok_s_low']:g}" if s["tok_s_low"] == s["tok_s_high"] else
-                           f"{s['tok_s_low']:g}-{s['tok_s_high']:g}") + " tok/s " + ("measured elsewhere" if s["measured"]
-                                                                                     else "extrapolated")}
+            "download": _download(model, r) if v["state"] != "no" else None, "speed_word": f["word"],
+            "speed": {k: f[k] for k in ("measured", "tok_s", "ttft_ms", "cold_load_s", "at", "stale", "penalty_pct",
+                                        "penalty_from", "vs", "extrapolated")}}
 
 
 def recommend(rows: list, *, allow_batch: bool = False, catalog: Optional[dict] = None, state_dir=None) -> dict:
@@ -87,7 +89,7 @@ def recommend(rows: list, *, allow_batch: bool = False, catalog: Optional[dict] 
     r = rate(state_dir)
     pooled, single, others, hidden = [], [], [], []
     for name, model in cat.items():
-        v = _row(fit(model, rows), model, r)
+        v = _row(fit(model, rows), model, r, state_dir)
         if model.get("batch_only") and not allow_batch:
             hidden.append({"model": name, "line": f"{model['display']}: batch-only, left out (--batch shows it): "
                                                   f"{v['verdict']}"})
@@ -116,4 +118,4 @@ def verdict(name: str, rows: list, *, state_dir=None) -> Optional[dict]:
     model = C.get(name)
     if model is None:
         return None
-    return _row(fit(model, [_room(x) for x in rows]), model, rate(state_dir))
+    return _row(fit(model, [_room(x) for x in rows]), model, rate(state_dir), state_dir)

@@ -117,9 +117,24 @@ halo local serve --pool <model> [--window N] [--allow-wifi] [--keep] [--json]
 Warms the pool (a change under the steward contract: one per 10 minutes): the preflight, the claim on every member
 with its lease (resident Ollama models pivoted out first, each said), each paired worker's rpc-server on, its version
 checked again, then `llama-server -m <gguf> --rpc ... --tensor-split ... -ngl 999 --host <LAN address> --port <p>
---api-key <generated> -c <window>` and the `pool` entry (`hf:local/<model>@pool`). It holds the pool in the
+--api-key-file ~/.halo/pool/api-key -c <window>` (3.3.8.0 R4: the key in a private file, off the process list) and the
+`pool` entry (`hf:local/<model>@pool`). It holds the pool in the
 foreground, renewing the claims, until Ctrl+C, which stops it; `--keep` returns once it serves (a Studio on this home
 renews the claims while it runs, else they end with their lease).
+
+## `halo local bench --host pool`
+
+```sh
+halo local bench --host pool [--quick] [--yes] [--json]
+```
+
+3.3.8.0 R4. The cost line first ("local: ~129 s on the pool (pc, me: their GPUs are busy for it), writes the pool's
+speed card; no tokens leave the LAN"), then, asked or `--yes`, the 3.3.6.0 battery against the running pool: one line
+per window as it lands (8k, 32k, the pool's `-c`; `--quick`: the `-c` alone), the reply reserve, then the pool's speed
+card (its members and split, the cache, `-c`, the cold load) and the measured line: "pool: 11.2 tok/s measured, -38 %
+vs pc alone" (against the single node's bench card of the same model; the research's -38 % when there is none). It
+waits with one line, nothing sent, while the pool answered a call in the last minute, is degraded or is not running.
+Exit 1 when it did not run.
 
 ## `halo pool status`
 

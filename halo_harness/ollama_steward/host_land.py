@@ -15,6 +15,9 @@ writes one journal line:
 `sync(state_dir)` (the steward job's pass) reads each host's `GET changes` and writes the verdict back:
 {kind: "host-verdict", reverts?, verdict, line}; a reverted change takes the local mirror back with it.
 A field the host vocabulary has no op for (host_for, compact_at: client-side decisions) lands here as before.
+3.3.8.0 R4: a local server on a paired host's machine (llama-server, LM Studio, MLX, the pool there) lands the same
+way: the host names it among its servers (`server_client`: its card's `servers`), the op carries the host's own name
+for it, the host verifies it with the server log's tok/s.
 
     via_host(state_dir, f, change, *, mode_name, now, scope) -> journal row | None (not served by a paired host)
     sync(state_dir, now=None) -> the verdict rows written
@@ -33,8 +36,24 @@ def client_for(host_name: str):
     from halo_harness.ollama_steward.host_client import _usable, for_host
     from halo_harness.providers.ollama import resolve_ollama_host
     h = resolve_ollama_host(host_name) if host_name else None
+    if h is not None and h.name.lower() != str(host_name or "").lower():
+        h = None  # the default host stood in for a name it is not (a local server's name)
     c = for_host(h) if h is not None else None
     return (c, h) if _usable(c) else (None, h)
+
+
+def server_client(name: str) -> "tuple[object, Optional[str]]":
+    """3.3.8.0 R4: (the halo host on a local server's machine, the host's own name for that server) | (None, None):
+    a server on another machine (llama-server, LM Studio, MLX, a pool there) is fixed through its host."""
+    try:
+        from halo_harness.ollama_steward.host_reads_hf import client_for as server_host, server_row
+        from halo_harness.ollama_steward.servers_hf import roster
+        srv = next((s for s in roster() if s.name.lower() == str(name or "").lower()), None)
+        c = server_host(srv) if srv is not None else None
+        row = server_row(srv, c) if c is not None else None
+    except Exception:
+        return None, None
+    return (c, str(row.get("name"))) if row and row.get("name") else (None, None)
 
 
 def via_host(state_dir, f: dict, change: dict, *, mode_name: str, now: Optional[float] = None,
@@ -45,10 +64,12 @@ def via_host(state_dir, f: dict, change: dict, *, mode_name: str, now: Optional[
     if op is None:
         return None
     c, h = client_for(str(f.get("host") or ""))
+    name = c.served_name(_addr_port(h.url)[1]) if c is not None else None
     if c is None:
-        return None
+        c, name = server_client(str(f.get("host") or "")) if h is None else (None, None)
+        if c is None:
+            return None
     params = {"model": f["model"], "value": change["to"]}
-    name = c.served_name(_addr_port(h.url)[1])
     if name:
         params["host"] = name
     ev = {"finding": f["id"], "lines": [str(f.get("finding") or "")[:300]]}

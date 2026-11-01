@@ -9,7 +9,7 @@ gap: nothing embeds (memory search, dedupe, "find similar"), nothing reads image
 own; overlap: two or more installed models of one family root, one purpose and one size (within 20 %) -- keep the one
 measured best (tools verified, agentic ready, tok/s), retire the others; mismatch: the verifier on the coder's family,
 a compactor that pivots on every summary, a lane whose model crashed here twice or more; freshness: a family the
-library has a newer line of. `value` is the stated worth (unitless, per kind); value_per_gb divides it by the download
+library has a newer line of; placement (3.3.8.0 R4): a lane a cheaper candidate across the fleet would serve. `value` is the stated worth (unitless, per kind); value_per_gb divides it by the download
 (retire and point cost no download: by 1). Arithmetic and the snapshot only: no request, no model.
 """
 
@@ -177,3 +177,10 @@ def freshness(inp: dict) -> list:
                       "prefer the newer", "unlocks", f"the newer {new['name']}", cost((o or {}).get("download_gb") or 0,
                       (o or {}).get("download_gb"), None, None), VALUE["fresh"], act))
     return out
+
+
+def placement(inp: dict) -> list:
+    """3.3.8.0 R4: a lane placed where another candidate across the fleet (a paired host's card, the pool) scores at
+    least local_sched/place_advice.GAIN more -- the load and the switch it pays there, said with both scores."""
+    from halo_harness.local_sched.place_advice import suggestions
+    return suggestions(inp, inp.get("state_dir"))

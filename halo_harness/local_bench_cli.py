@@ -3,7 +3,8 @@ local_cli.cmd_local; `halo models bench` is the same as `halo local bench`).
 
     halo local bench [--host H] [--model M | --all] [--quick] [--yes] [--json]
         the cost line first (local: time and a busy card, never dollars), then one line per window as it lands, then
-        the speed card; --all = every installed model on the host, largest first
+        the speed card; --all = every installed model on the host, largest first. 3.3.8.0 R4: `--host pool` benches
+        the running pool (pool_run_cli.bench_pool -> local_pool/bench.py): its card, the measured penalty
     halo local tune [--host H] [--json] [--apply ID [--scope S] [--session SID]]
         the tuning report: the warm set, each model's windows, the reserve, the findings, every option with what it
         writes and how long it takes; --apply lands a Halo-side option (scope keep unless you name another)
@@ -56,13 +57,16 @@ def cmd_bench(argv: list) -> int:
     from halo_harness.providers.local_bench_runs import lines
     p = argparse.ArgumentParser(prog="halo local bench", description="The bench: a measured battery per model on its host "
                                 "(cold load, three windows, the GPU window, the reply reserve) -> the speed card.")
-    p.add_argument("--host", default="", help="an ollama.hosts entry (default: the default host)")
+    p.add_argument("--host", default="", help="an ollama.hosts entry (default: the default host), or pool")
     p.add_argument("--model", default="", help="the model to bench")
     p.add_argument("--all", action="store_true", help="every installed model on the host, largest first")
     p.add_argument("--quick", action="store_true", help="one window: the planner's ceiling")
     p.add_argument("--yes", action="store_true", help="run without asking")
     p.add_argument("--json", action="store_true", help="the speed cards as JSON")
     args = p.parse_args(argv)
+    if args.host.strip().lower() == "pool":  # 3.3.8.0 R4: the running pool's own battery and speed card
+        from halo_harness.pool_run_cli import bench_pool
+        return bench_pool(quick=args.quick, yes=args.yes, as_json=args.json, ask=_ask)
     host = _host(args.host)
     if host is None:
         print(f"no Ollama host named {args.host!r} (ollama.hosts)")

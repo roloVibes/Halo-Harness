@@ -5,7 +5,8 @@
         -> {ok, lines, preflight, change}     one pool change per COOLDOWN_S (10 min): a second one inside it is one
         line with the minutes left; the preflight first (local_pool/preflight.py), then local_pool/launch.start; the
         change row: key `pool|<model>`, field `pool.state`, before `stopped`, after `running`, with the baseline (the
-        single-node bench card that could hold the model, else none) in its `why`
+        pool's own speed card, 3.3.8.0 R4; else the single-node bench card that could hold the model; else none) in
+        its `why`
     stop(*, state_dir=None, home=None, by="user", why="") -> {ok, lines, change}   launch.stop + its row
     judge(state_dir=None, *, home=None, calls=JUDGE_CALLS) -> {verdict, line, stopped, ...}
         the auto-revert: the first JUDGE_CALLS calls through the pool (ledger lines named `pool`) are worse than the
@@ -26,6 +27,7 @@ from typing import Optional
 COOLDOWN_S = 600.0
 JUDGE_CALLS = 3
 FIELD = "pool.state"
+OWN_SLACK = 0.8  # against the pool's own bench card: a fifth slower than it measured is worse
 
 
 def _state(state_dir=None):
@@ -52,6 +54,12 @@ def cooldown(state_dir=None, now: Optional[float] = None) -> str:
 
 
 def baseline(model: dict, state_dir=None) -> Optional[dict]:
+    """3.3.8.0 R4: the pool's own speed card first (its slowest window, OWN_SLACK below it is worse), else a single
+    node's card of the same model."""
+    from halo_harness.local_pool.speed import card_for, floor
+    own = card_for(model, _state(state_dir))
+    if floor(own):
+        return {"tok_s": floor(own), "host": "pool", "model": own.get("model"), "at": own.get("at"), "own": True}
     from halo_harness.providers.local_bench_runs import all_cards, mirror
     words = [w.lower() for w in model.get("match") or ()]
     for c in all_cards(_state(state_dir)):
@@ -61,6 +69,19 @@ def baseline(model: dict, state_dir=None) -> Optional[dict]:
             if isinstance(m.get("tok_s"), (int, float)):
                 return {"tok_s": float(m["tok_s"]), "host": c.get("host"), "model": c.get("model"), "at": c.get("at")}
     return None
+
+
+def held_for(name: str, state_dir=None) -> str:
+    """3.3.8.0 R4: '' unless a bundle holds the pool for another model (local_sched/reserve_parts: a row on host
+    `pool`) -- then the one line naming it and its priority; a Warm of the model it holds goes ahead."""
+    from halo_harness.local_pool.catalog import get
+    from halo_harness.local_sched.reserve import claims
+    want = (get(name) or {}).get("name") or name
+    for c in claims(None, state_dir=_state(state_dir)):
+        if str(c.get("host") or "").lower() == "pool" and c.get("model") and c["model"] != want:
+            return (f"{c['bundle']} holds the pool for {c['model']} (priority {c.get('priority') or 'normal'}): a Warm "
+                    f"of {want} waits until halo pack off {c['bundle']}")
+    return ""
 
 
 def _record(state, model: str, before: str, after: str, by: str, scope: str, why: str) -> dict:
@@ -73,9 +94,9 @@ def warm(name: str, *, allow_wifi=None, window=None, keep: bool = False, state_d
     from halo_harness.local_pool import catalog as C, launch
     from halo_harness.local_pool.preflight import preflight
     state = _state(state_dir)
-    wait = cooldown(state)
+    wait = cooldown(state) or held_for(name, state)
     if wait:
-        return {"ok": False, "lines": [wait], "cooldown": True}
+        return {"ok": False, "lines": [wait], "cooldown": not held_for(name, state)}
     pf = preflight(name, allow_wifi=allow_wifi, window=window, state_dir=state_dir, home=home)
     if pf is None:
         return {"ok": False, "lines": [f"{name!r} is not in the pool catalog ({', '.join(C.names())})"]}
@@ -128,13 +149,17 @@ def judge(state_dir=None, *, home=None, calls: int = JUDGE_CALLS) -> dict:
     if len(lines) < calls:
         return {"verdict": "waiting", "line": f"the pool's first {calls} calls decide the warm ({len(lines)} so far)"}
     bad = sum(1 for x in lines if x.get("status") != 200)
-    speeds = [s for s in (_tok_s(x) for x in lines if x.get("status") == 200) if s]
+    from halo_harness.ollama_steward.verify_timing import rates  # 3.3.8.0 R4: the reply rate the pool's log printed
+    speeds = rates(state, "pool", r.get("model"), since=since, first=calls) or [
+        s for s in (_tok_s(x) for x in lines if x.get("status") == 200) if s]
     med = statistics.median(speeds) if speeds else None
     b = r.get("baseline")
-    worse = bad * 2 >= calls or (b and med is not None and med < float(b["tok_s"]))
+    limit = float(b["tok_s"]) * (OWN_SLACK if b.get("own") else 1.0) if b else None
+    worse = bad * 2 >= calls or (limit is not None and med is not None and med < limit)
     said = (f"the pool's first {calls} calls: {bad} failed, median {med:.1f} tok/s" if med is not None else
-            f"the pool's first {calls} calls: {bad} failed") + (f" against {float(b['tok_s']):.1f} tok/s on {b['host']}"
-                                                                 if b else " (no single-node baseline)")
+            f"the pool's first {calls} calls: {bad} failed") + (
+        (f" against its own bench card's {float(b['tok_s']):.1f} tok/s" if b.get("own") else
+         f" against {float(b['tok_s']):.1f} tok/s on {b['host']}") if b else " (no single-node baseline)")
     if not worse:
         launch._save({**r, "judged": True, "judged_line": f"{said}: kept"}, state)
         return {"verdict": "kept", "line": f"{said}: kept"}

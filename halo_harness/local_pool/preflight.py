@@ -57,7 +57,9 @@ def _rpc(rows: list, home) -> "tuple[dict, list]":
             lines.append(f"{r['name']}: this machine -- llama-server serves its share on its own GPU (no rpc-server)")
             continue
         addr = rpc_addr(m, home)
-        rpcs.append({"member": r["name"], "addr": addr, "kind": r["kind"]})
+        lk = r.get("link") or {}  # 3.3.8.0 R4: the link the OS read wins over the RTT; both kept, the speaker named
+        rpcs.append({"member": r["name"], "addr": addr, "kind": r["kind"], "rtt_ms": r.get("rtt_ms"),
+                     "link": r.get("link_word") if lk.get("type") not in (None, "unknown") else None})
         st = rpc(m, "status", home=home)
         status = st.get("status") or {}
         up = status.get("running")
@@ -68,6 +70,8 @@ def _rpc(rows: list, home) -> "tuple[dict, list]":
             continue
         door, _sep, port = addr.rpartition(":")
         got = status.get("probe") or probe(door.strip("[]"), int(port))
+        if got.get("rtt_ms") is not None:
+            rpcs[-1].update(rtt_ms=got["rtt_ms"], rtt_from="the preflight's probe")
         if not got["alive"]:
             (blocks if r["kind"] == "address" else lines).append(f"{r['name']}: no rpc-server answers on {addr} ({got['line']})")
         else:

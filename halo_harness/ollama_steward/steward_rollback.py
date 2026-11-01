@@ -2,7 +2,9 @@
 judge, moved out of steward.py in R5 (the 250-line cap): a change in place
 whose next JUDGE_CALLS calls of that host and model went worse (more trims,
 cut replies and errors) than the JUDGE_CALLS before it is reverted, and the
-revert says so.
+revert says so. 3.3.8.0 R4: a local server's change is measured in tok/s
+too -- its log's `timing` events (ollama_steward/verify_timing.py) before and
+after; a median at least SLOWER lower is worse, said with both numbers.
 """
 
 from __future__ import annotations
@@ -10,6 +12,8 @@ from __future__ import annotations
 from typing import Optional
 
 from halo_harness.ollama_steward.steward import JUDGE_CALLS, _in_place, _revert, read_journal
+
+SLOWER = 0.9
 
 
 def _bad(line: dict) -> int:
@@ -34,7 +38,27 @@ def rollbacks(state_dir, *, lines: Optional[list] = None, now: Optional[float] =
         if len(after) < JUDGE_CALLS:
             continue
         b, a = sum(map(_bad, before)), sum(map(_bad, after))
-        if a > b:
+        slow = _slower(state_dir, row["key"], t)
+        if a > b or slow:
             out.append(_revert(state_dir, row, "rollback", f"{a} bad calls of the next {len(after)} against {b} of "
-                               f"the {len(before)} before", now=now))
+                               f"the {len(before)} before" + (f"; {slow}" if slow else ""), now=now))
     return out
+
+
+def _slower(state_dir, key: str, t: float) -> str:
+    """'' unless the server log's reply rate fell by SLOWER or more across the change (3.3.8.0 R4)."""
+    from statistics import median
+    from halo_harness.ollama_steward.profiles import split_key
+    from halo_harness.ollama_steward.verify_timing import rates
+    host, model = split_key(key)
+    try:
+        from halo_harness.ollama_steward.servers_hf import roster
+        if host.lower() not in {s.name.lower() for s in roster(state_dir)}:
+            return ""  # an Ollama host's change: judged as before (its ledger lines)
+    except Exception:
+        return ""
+    b = rates(state_dir, host, model, until=t, last=JUDGE_CALLS)
+    a = rates(state_dir, host, model, since=t, first=JUDGE_CALLS)
+    if not a or not b or median(a) >= SLOWER * median(b):
+        return ""
+    return f"the server log's reply rate fell from {median(b):.1f} to {median(a):.1f} tok/s"

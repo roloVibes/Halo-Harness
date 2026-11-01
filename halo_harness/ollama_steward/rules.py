@@ -17,7 +17,7 @@ ollama steward apply <id>` names what `findings` printed. The rules live
 in rules_window.py (a, b, h), rules_reply.py (c, d, e), rules_host.py
 (f, g), rules_card.py (3.3.5.0 R0b: `called-wrong`), rules_crash.py and rules_drift.py (3.3.7.0 R4:
 `tag-drift`, `tag-deleted`), rules_servers.py (3.3.8.0 R2: a local server's groups, `server` and `runtime` on each
-finding); knowledge/symptoms.md
+finding), rules_pool.py (3.3.8.0 R4: pool-degraded, pool-rtt, pool-spill); knowledge/symptoms.md
 is their spec.
 """
 
@@ -182,6 +182,8 @@ def run_rules(ctx: dict) -> list:
     out.extend(crash_rules(ctx))
     from halo_harness.ollama_steward.rules_drift import drift_rules  # 3.3.7.0 R4: tag-drift, tag-deleted
     out.extend(drift_rules(ctx))
+    from halo_harness.ollama_steward.rules_pool import pool_rules, supersede  # 3.3.8.0 R4: the pool's three kinds
+    out = supersede(out) + pool_rules(ctx)
     from halo_harness.ollama_steward.steward import dismissed  # 3.3.4.0 R5: Studio's Dismiss, quiet for 24 hours
     quiet = dismissed(ctx["state_dir"], now=ctx.get("now")) if ctx.get("state_dir") else set()
     out = [f for f in out if f["id"] not in quiet]

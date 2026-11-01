@@ -39,8 +39,8 @@ def test_a_running_pool_and_its_log(ctx: Ctx):
         changes_pool.warm(QWEN, state_dir=rig.peer, by="test")
         st = status(rig.peer)
         ctx.check(f"running, the members' claims, got {st['lines']}", st["state"] == "running" and st["lines"][0] ==
-                  "the pool serves Qwen3-Next-80B-A3B Q4_K_M: running" and st["lines"][1].startswith("  pc: up; 19.7 GB "
-                                                                                                    "claimed, lease"))
+                  "the pool serves Qwen3-Next-80B-A3B Q4_K_M: running" and st["lines"][1].startswith(
+                      "  pc: up; 19.7 GB claimed by pool:qwen3-next-80b-a3b-q4km, lease"))  # 3.3.8.0 R4: by its bundle
         reset()
         s = by_name("pool", rig.peer)
         lines, source, _why = tail_lines(s, 50) if s else ([], "", "")

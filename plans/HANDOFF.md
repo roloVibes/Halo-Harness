@@ -4,7 +4,57 @@ This folder carries the whole plan so a new session (local or cloud) can
 pick the work up without the conversation that produced it. Read this file
 first, then `WORKER-RULES.md`, then the round you are starting.
 
-## WHERE THINGS STAND -- 2026-11-01 evening (authoritative, read this first)
+## WHERE THINGS STAND -- 2026-11-01 night (authoritative, read this first)
+
+**3.3.8.0 "Pooled" IS THE RELEASE CANDIDATE** (four rounds merged on master on top of the 3.3.7.0 release
+23a64e6e; the release follows once both runners are green on the candidate head -- if you read this after the
+release, the tag v3.3.8.0 exists and the PC runs it). The specification is the owner's drop as adapted by the
+ROADMAP entry "ADDED 2026-10-31 evening ... 3.3.8.0 Pooled" (the adaptation rules, the adopted suggestions and
+the second review there are binding). On master: R1 the pool (e9bbe9ff: `halo_harness/local_pool/` -- `members.py`,
+`budget.py`, `link.py`, `catalog.py`, `fit.py`, `recommend.py`, `scan.py`, `library.py`; `providers/rpc_probe.py`;
+`halo pool scan | members | add | remove | recommend | verdict`; Local -> Pool read-only, the Library's Pool preset;
+the host card's `link`; docs/POOL.md, COMMANDS-pool.md, STUDIO-local-pool.md), R2 the steward sees every local
+server (6d45f9d6: `ollama_steward/servers_hf.py`, `server_log_hf.py`, `server_rules_hf.py`, `server_context_hf.py`,
+`log_status_hf.py`, `rules_servers.py`, `tune_lines_hf.py`, `fingerprint_hf.py`, `host_reads_hf.py`,
+`hardware_servers.py`; `providers/hf_profile.py`; `agent/server_log_recovery.py`; `host/session_push.py`;
+`doctor_local_servers.py`; `local_log_cli.py` (`halo local log | events <server>`); `studio/local_logs_servers.py`;
+`StewardFindings.tsx`; docs/MODELS-steward-servers.md, COMMANDS-local-servers.md), R3 the controller (63c55d97:
+`host/ops_rpc.py` + `rpc_runner.py` + `host_rpc_cli.py` (`halo host rpc`, `halo pool rpc <member>`),
+`local_pool/versions.py`, `preflight.py` (`halo pool preflight`), `claims.py`, `launch.py` + `spawn.py` + `entry.py`
+(`halo local serve --pool`; the `pool` server entry, the key as HALO_SECRET_POOL_API_KEY in the env file),
+`route.py`, `degrade.py`, `peer.py`, `gguf.py`, `hosts.py`; `local_sched/lease.py` + `claims_file.py` `until` / renew;
+`ollama_steward/changes_pool.py`; `studio/pool_act_api.py`, `PoolRun.tsx`; glossary `claim lease`, `preflight`),
+R4 measured (a2d81b17 on v338/R4-measured, merged as the candidate head: `local_pool/bench.py` + `speed.py`
+(`halo local bench --host pool`), `ollama_steward/rules_pool.py` (`pool-degraded`, `pool-rtt`, `pool-spill`),
+`packs/manifest_bundle_claims.py` (several reservations, `schedule`, `host`, `min_free_gb`, `priority`;
+pre-emption told), `templates/bundles/big-reasoner.yaml`, `local_sched/place_advice.py` (fleet-wide candidates,
+placement scores, the re-check on a far card's change), `host/refresh_pool.py`, `host/state.served_rows` with the
+host's local servers, `studio/pool_watch_api.py`; glossary `pre-emption`, `placement score`). The pool's api key
+travels in a 0600 file (`--api-key-file`); the launch falls back to `--api-key` with a stated line when a build
+refuses the flag.
+CI lessons this version: run_all runs every module in one process, so a mock on a reused 127.0.0.1 port answered
+from `providers.ollama`'s per-url catalog cache (`MockUpstream.start()` resets it); a Textual preview wait of 3 s
+is too short for the Linux all-tiers job (10 s); docs/STUDIO-local.md sits at the 400-line part cap; the steward's
+guide has a 2,100-token budget (new knowledge rows go in a section of `knowledge/local-servers.md`); a Chrome
+driver that re-queries "the first X" after an action that reloads the list is racy -- pin by id (the 3.3.7.0 bench
+fix d72faee7).
+Worktrees `~/hh-338/*`, briefs and hand-backs under `~/hh-338/briefs/` (each hand-back's WHAT STAYS OPEN is the
+list for later). Nothing pooled has run on hardware: every llama.cpp RPC log line, the device order and
+`--api-key-file` are written from the source wording; `pool-rtt`'s thresholds and `pool-spill`'s 85 % want a real
+pool. Open for the owner's live check: pair SAMUS as a worker, `halo pool preflight`, Warm, `halo local bench
+--host pool --quick` (the card, the penalty line, the key file's path in the process list), pull SAMUS's cable
+mid-reply (one `pool-degraded` line); from the Mac `halo local log pool`, `halo pack verdict big-reasoner`, `halo
+local advise` with the pool among the candidates; from Kali `halo pack on big-reasoner` against the PC's pool and a
+host-served llama-server change landing through the host. **Next:** 3.3.9.0 "Voice" (ROADMAP Part K: the local
+loop Silero VAD -> faster-whisper or Parakeet -> the session's model -> Kokoro or Qwen3-TTS, barge-in, as a bundle
+with its reservation; the glasses path; the speech models the glasses bundle says "arrive with Voice"), then --
+after every local-model build -- 3.3.10.0 "Pack policy" (GitHub issue #4: the pre-tool-call verdict API a pack
+declares and the harness enforces, docs/EXTENSION_API.md updated in the same change), 3.3.11.0 "Type into Studio"
+(the Prompt panel over the control socket, the composer's paste), 3.3.12.0 "Themes and parity" (+ issue #5
+mode-aware theming from a pack's state file). The owner's rule: all local-model work first; issues #4 and #5 only
+after it.
+
+### Before it: 2026-11-01 evening
 
 **3.3.7.0 "Local, the host" IS THE RELEASE CANDIDATE** (five rounds merged on master; the release follows once
 both runners are green on the candidate head -- if you read this after the release, the tag v3.3.7.0 exists

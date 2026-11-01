@@ -29,6 +29,11 @@ packaged library snapshot (sizes, families, dates) for what to add.
 - **mismatch** -- the verifier on the coder's family ("so their blind spots overlap": point it at an installed model of
   another family, else add one); "every summary costs a 16.9 GB pivot (...) because there is no compactor that
   co-resides" (add a small model); a lane whose model crashed here twice or more.
+- **placement** (3.3.8.0 R4) -- a lineup lane a cheaper candidate would serve: every configured host, each paired
+  host's card and the pool are scored (`halo local place`'s rule) and the line says both scores and what each costs
+  to place -- "compactor (qwen3.5:9b) on pc scores 75 (evicts qwen3-coder:30b, pivots beside qwen3-coder:30b); samus
+  scores 116 (18 s to load)"; Place is `halo local place --apply`. Under the suggestions, the **placement scores**:
+  each lane on every candidate with its loading tax (the load seconds, the switch, the pool's decode penalty).
 - **freshness** -- a family the library has a newer line of ("gemma3:12b's family has a newer line in the library:
   gemma4 (updated 2 weeks ago); when the two measure the same, prefer the newer"), offered at the same size; a newer
   line already installed is the overlap's to judge, not freshness.

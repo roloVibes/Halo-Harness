@@ -83,13 +83,57 @@ does not fit beside main ... : voice holds 4.0 GB; sending this task to or:vendo
 it"; the placement solver (`halo local place`) takes the claims as an input and moves a lane to another host -- "meta-
 glasses holds 15.0 GB on pc; worker goes to samus rather than evicting it"; the warm set counts the claim and names it.
 
+## Several reservations, a schedule, a priority (3.3.8.0 R4)
+
+A bundle may hold more than one thing, on more than one machine, for part of the day, and say what gives way:
+
+```yaml
+bundle:
+  needs:
+    reasoner: {any_of: [qwen3-next-80b-a3b-q4km, gpt-oss-120b], window: 32768}
+    coder: {any_of: [qwen3-coder:30b, qwen3.8:27b], window: 32768, tools: true}
+  reservations:
+    - {model: reasoner, host: pool}      # the pool for the reasoning lane
+    - {model: coder, keep_alive: -1}     # the coder resident on this machine's card
+  schedule: {hours: "09:00-18:00"}       # optional: the hours the claims are held
+  priority: high
+  min_free_gb: 4                         # optional: what each card keeps free for tasks
+  routing: {task_work: coder, never_evict: reserved}
+```
+
+- **`reservations`**: each one a reservation (`model`, `vram_gb`, `keep_alive`, `priority`, `window`) plus `host` --
+  a paired host's name, an `ollama.hosts` name, or `pool` -- and `min_free_gb`; one per host (two on one host is one
+  line: merge them). The verdict judges each where it is held: the default host's needs and reservation as before, a
+  paired host's on that host's card, the pool's by the pool's fit and its `route` ("the pool for reasoner:
+  Qwen3-Next-80B-A3B Q4_K_M fits the pool ..."). The bundle's state is the worst of its parts. Reserving the pool
+  writes a claim on host `pool` and launches nothing -- Warm starts it; while a bundle holds the pool for one model, a
+  Warm of another waits in one line naming the bundle.
+- **`schedule.hours`**: the claims are held inside those hours on the host's local clock (a host evaluates its own
+  claims by its clock); outside them a claim is dormant -- written, never counted, never read as live. The verdict
+  says "holds its claims 09:00-18:00 (the host's local clock): not held now (from 09:00)".
+- **`min_free_gb`**: a claim that would leave less than that free for tasks on its card won't work, said with the
+  floor ("it keeps 4 GB free for tasks (min_free_gb)").
+- **`priority`** and **pre-emption**: when a bundle's claim does not fit beside the others on a card, the claims of a
+  lower priority give way -- the lowest first, the fewest that make room; one of equal or higher priority never does
+  ("night-batch holds 6.0 GB there at priority normal: focus's normal does not pre-empt it"). The verdict says it
+  before anything happens ("pre-empts night-batch (low, 6.0 GB) on pc"), and turning the bundle on does it with one
+  line naming the bundle that won and the number: "pre-empted night-batch (low) on pc: focus (high) needs its 6.0 GB --
+  halo pack on night-batch claims it again once there is room". The pre-empted bundle is told: its `halo pack verdict`
+  and its Pack Manager row carry the notice. The pool is one resource: any other bundle's claim on it collides.
+- **The claim lease** (3.3.8.0 R3) applies to every reservation a halo process holds: each row has its `until`, the
+  heartbeat renews them all, a killed Studio's claims end within `pool.claim_lease_s`.
+
+Before 3.3.8.0 R4 a claim that did not fit beside another bundle's was simply "won't work"; now a higher priority
+takes the room, said. A claim with no priority is `normal`, as it always was.
+
 ## The bundles Halo ships
 
 `halo_harness/templates/bundles/`: **meta-glasses** (voice: the 1.7 B chat model reserved at 8 k, speech on the CPU,
 task work to the coder when it fits beside, else the cloud), **bulk-worker** (a small tool-calling model reserved for
 the many small jobs), **verifier** (another family than the coder), **compactor**, **embeddings** (memory search,
 dedupe), **translation**, **vision** (a model that sees, loaded when an image arrives: nothing reserved),
-**offline-only** (no cloud rung while it is on) and **coder-first** (no reservation: the coder gets the card). The
+**offline-only** (no cloud rung while it is on), **coder-first** (no reservation: the coder gets the card) and
+(3.3.8.0 R4) **big-reasoner** (the pool reserved for a reasoning lane, the coder resident on this card). The
 speech models of the voice bundle arrive with 3.3.8.0 Voice; this round ships the claim and the verdict.
 
 ## What a reservation cannot stop

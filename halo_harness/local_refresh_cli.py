@@ -41,6 +41,16 @@ def run_here(hosts: list, *, dry: bool = False, say=print, runners=None) -> dict
         say(f"  would: {row['model']} on {row['host']} ({row['why']}: {row['says']}), ~{row['minutes']} min")
     done = []
     for row in [] if dry else p["rows"]:
+        if row.get("pool"):  # 3.3.8.0 R4: the pool's re-bench (host/refresh_pool.py), once every member is idle
+            from halo_harness.host import refresh_pool as RP
+            quiet = RP.members_idle(home, idle_min=0)
+            if not quiet["ok"]:
+                say(f"  the pool: waits -- {quiet['line']}")
+                continue
+            got = RP.run(home, "pool", row, runners=runners, why="by hand")
+            say(f"  {got['line']}")
+            done.append(got)
+            continue
         host = next(h for h in hosts if h.name == row["host"])
         idle = idle_since(home, host)
         if idle["busy"]:
@@ -114,6 +124,7 @@ def cmd_host_refresh(argv: list) -> int:
     for r in st["plan"]["rows"][1:6]:
         print(f"    then {r['model']} on {r['host']} ({r['why']}), ~{r['minutes']} min")
     print(f"  {st['last_line']}")
+    print(f"  {st['pool_line']}")  # 3.3.8.0 R4: the pool's re-bench, when every member is idle
     if st.get("review"):
         print(f"  roster review: {(st['review'].get('lines') or ['-'])[0]}")
     return 0

@@ -84,7 +84,9 @@ def test_apply_writes_host_for_only(ctx: Ctx):
             rc = cmd_place(["spread", "--apply"])
         text = out.getvalue()
         ctx.check(f"the plan and what it wrote, got {rc} {text!r}", rc == 0 and text.startswith("halo local place spread: ")
-                  and "  compactor: qwen3.5:9b on samus -- " in text and "wrote: host_for" in text)
+                  and "  compactor: qwen3.5:9b on samus (score 116) -- " in text and "wrote: host_for" in text
+                  and "    scores: samus 116 (18 s to load) | pc 75 (evicts qwen3-coder:30b, pivots beside qwen3-coder:30b)"
+                  in text)  # 3.3.8.0 R4: every candidate's score and its loading tax
         prof = all_profiles()
         ctx.check(f"host_for on each moved lane's key, got {prof}", prof.get(f"pc|{SMALL}|compactor", {}).get("host_for")
                   == "samus" and prof.get(f"pc|{TINY}|small", {}).get("host_for") == "box"
