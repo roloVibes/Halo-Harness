@@ -9,6 +9,8 @@ responsibility:
     names.py      ids, qualified names (`<id>--<name>`), source labels
     semver.py     versions and version ranges
     manifest.py   pack.yaml: read and validate
+    manifest_bundle.py  3.3.7.0 R5: the `bundle:` block (a pack with a resource claim)
+    bundles.py    3.3.7.0 R5: the bundles here and the ones Halo ships (templates/bundles/)
     discover.py   the packs on disk, nearest first
     state.py      <state>/packs/state.json: installed, enabled, granted
     settings.py   config.json `packs.settings.<id>` against the pack's schema
@@ -31,6 +33,7 @@ responsibility:
     doctor.py     every problem, one line each
     cli.py        `halo pack ...`
     cli_views.py  the text `halo pack list` / `inspect` print
+    cli_bundle.py 3.3.7.0 R5: `halo pack verdict | on | off`, `halo pack list --bundles`
 
 A pack imports `halo_harness.ext` only (docs/EXTENSION_API.md).
 """

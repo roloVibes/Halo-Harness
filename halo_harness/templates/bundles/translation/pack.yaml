@@ -1,0 +1,17 @@
+# Translation: a bundle Halo ships (3.3.7.0 R5; plans/local-model-fit-brief.md L6). It reserves a model that
+# translates (a translation-tuned one first, else a general chat model), so a conversation in another language
+# never waits for a load.
+id: translation
+name: Translation
+version: 1.0.0
+description: Reserves a model for translation, so a conversation in another language never waits for a load.
+author: Halo Harness
+license: MIT
+halo_api: {min: "1.0", max: "1.9"}
+halo: {min: "3.3"}
+capabilities: [translate]
+bundle:
+  needs:
+    translate: {any_of: [translategemma:4b, translategemma:12b, qwen3.5:9b], window: 8192}
+  reservation: {model: translate, keep_alive: -1, priority: normal}
+  routing: {task_work: coder-or-cloud, never_evict: reserved}

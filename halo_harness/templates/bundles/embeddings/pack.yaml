@@ -1,0 +1,16 @@
+# Embeddings and memory: a bundle Halo ships (3.3.7.0 R5; plans/local-model-fit-brief.md L6). It reserves an
+# embedding model for memory search, dedupe and "find similar"; it is small enough to sit beside anything.
+id: embeddings
+name: Embeddings and memory
+version: 1.0.0
+description: Reserves an embedding model for memory search, dedupe and find similar.
+author: Halo Harness
+license: MIT
+halo_api: {min: "1.0", max: "1.9"}
+halo: {min: "3.3"}
+capabilities: [embed]
+bundle:
+  needs:
+    embed: {any_of: [nomic-embed-text, qwen3-embedding:0.6b, embeddinggemma], window: 2048}
+  reservation: {model: embed, keep_alive: -1, priority: low}
+  routing: {task_work: coder-or-cloud, never_evict: reserved}

@@ -82,9 +82,10 @@ def test_the_state_carries_the_checks_the_card_and_no_provider(ctx: Ctx):
     with _Env() as e:
         status, s = e.call("GET", "setup/state")
         rows = s["checks"]
-        ctx.check(f"the five checks in order, got {[r['key'] for r in rows]}", status == 200
-                  and [r["key"] for r in rows] == ["doctor", "catalog", "hello", "gym", "start"])
-        ctx.check("doctor, catalog and hello are on by default", [r["default_on"] for r in rows] == [True, True, True, False, False])
+        ctx.check(f"the six checks in order, got {[r['key'] for r in rows]}", status == 200
+                  and [r["key"] for r in rows] == ["doctor", "catalog", "hello", "steward", "gym", "start"])
+        ctx.check("doctor, catalog and hello are on by default (no local model here: the steward row is off)",
+                  [r["default_on"] for r in rows] == [True, True, True, False, False, False])
         ctx.check(f"each row: what, cost, time, writes, got {rows[0]}", all({"title", "what", "cost", "time", "writes"} <= set(r) for r in rows)
                   and rows[0]["cost"] == "free" and rows[0]["writes"] == "nothing")
         ctx.check(f"hello's cost with no default model, got {rows[2]['cost']!r}", rows[2]["cost"] == "nothing: no default model is set yet")
@@ -145,7 +146,7 @@ def test_a_job_publishes_each_check_then_the_summary(ctx: Ctx):
 def test_refusals_and_stop(ctx: Ctx):
     with _Env() as e:
         os.environ.pop("HALO_START_FAKE", None)
-        for body, want in (({"checks": ["doctor", "nope"]}, "nope: not a check (one of doctor, catalog, hello, gym, start)"),
+        for body, want in (({"checks": ["doctor", "nope"]}, "nope: not a check (one of doctor, catalog, hello, steward, gym, start)"),
                            ({"checks": []}, "tick at least one check"), ({}, "tick at least one check")):
             status, got = _call(e, "POST", "setup/check", body)
             ctx.check(f"{body}: a 422, got {status} {got.get('error')!r}", status == 422 and got["error"] == want)

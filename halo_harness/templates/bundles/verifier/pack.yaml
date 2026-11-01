@@ -1,0 +1,17 @@
+# Verifier: a bundle Halo ships (3.3.7.0 R5; plans/local-model-fit-brief.md L6). It reserves a verifier of a
+# different family from the coder, so their blind spots do not overlap: the verdict skips any model of the coder's
+# own family (the roster adviser's mismatch rule) and takes the first of the rest.
+id: verifier
+name: Verifier (another family)
+version: 1.0.0
+description: Reserves a verifier of a different family from the coder, so the two do not share blind spots.
+author: Halo Harness
+license: MIT
+halo_api: {min: "1.0", max: "1.9"}
+halo: {min: "3.3"}
+capabilities: [verify]
+bundle:
+  needs:
+    verify: {any_of: [gemma3:12b, phi4:14b, mistral-small3.2:24b, qwen3.8:27b], window: 32768, tools: true}
+  reservation: {model: verify, keep_alive: -1, priority: normal}
+  routing: {task_work: coder-or-cloud, never_evict: reserved}

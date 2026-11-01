@@ -3,10 +3,12 @@ saying what it does, what it costs, how long it takes and what it writes
 (Halo 3.2.2.0 R2). The wizard's Summary, `halo check`, the TUI's `/check`
 and `halo start`'s card read this one list.
 
-    CHECKS   five entries, in this order (the first three on by default):
+    CHECKS   six entries, in this order (the first three on by default):
              doctor   your config, files and PATH                 free, seconds
              catalog  every provider's model list                 free (network), seconds
              hello    one one-turn call to your default model     one tiny call
+             steward  3.3.7.0 R5: the steward candidates          free, or the download it names; on by default
+                      (start/checks_steward.py)                   when an installed one fits (`default_keys(ctx)`)
              gym      `halo gym --quick` on the models you pick   free for local models, minutes each
              start    the guided first run (`halo start`)         the card's estimate, 5-20 minutes
 
@@ -25,6 +27,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from halo_harness.start import checks_run as R
+from halo_harness.start import checks_steward as S
 from halo_harness.start.checks_run import CheckFailed  # noqa: F401 (the one a check raises)
 from halo_harness.start.steps import DEFAULT_LINEUP
 
@@ -52,6 +55,11 @@ CHECKS = (
     {"key": "hello", "title": "Hello", "default_on": True, "run": R.run_hello,
      "what": "one one-turn call to your default model, which answers pong",
      "cost": "one tiny call", "time": "seconds", "writes": "one session log, as every halo -p run does"},
+    {"key": "steward", "title": "Steward candidates", "default_on": False, "run": S.run_steward,
+     "what": "finds the local models that could run the steward here and sets ollama.steward.model to the best one "
+             "(halo ollama steward candidates); with none installed, it pulls the known-good small one it names",
+     "cost": "free, or the download it names", "time": "seconds (a download: its minutes)",
+     "writes": "ollama.steward.model in config.json"},
     {"key": "gym", "title": "Model gym, quick", "default_on": False, "run": R.run_gym,
      "what": "halo gym --quick on the models you pick: tool calls, edits, recall and instructions, scored",
      "cost": "free for local models; the gym does not run cloud models", "time": "a few minutes per model",
@@ -64,7 +72,23 @@ CHECKS = (
 )
 KEYS = tuple(c["key"] for c in CHECKS)
 DEFAULT_KEYS = tuple(c["key"] for c in CHECKS if c["default_on"])
-_COST: "dict[str, Callable]" = {"hello": R.hello_cost, "gym": R.gym_cost, "start": R.start_cost}
+_COST: "dict[str, Callable]" = {"hello": R.hello_cost, "gym": R.gym_cost, "start": R.start_cost, "steward": S.cost}
+
+
+def default_on(c: dict, ctx: Optional["CheckCtx"] = None) -> bool:
+    """A row's default: its own, and (3.3.7.0 R5) the steward row when an installed candidate fits here."""
+    if c["default_on"]:
+        return True
+    if c["key"] == "steward" and ctx is not None:
+        try:
+            return S.on_by_default(ctx)
+        except Exception:
+            return False
+    return False
+
+
+def default_keys(ctx: Optional["CheckCtx"] = None) -> "tuple[str, ...]":
+    return tuple(c["key"] for c in CHECKS if default_on(c, ctx))
 
 
 def check(key: str) -> dict:
@@ -92,7 +116,7 @@ def detail_line(c: dict, ctx: Optional[CheckCtx] = None) -> str:
 
 def explain(keys=None, ctx: Optional[CheckCtx] = None) -> "list[str]":
     """A row per check, `[x]` for the ones in `keys` (None: the defaults), then its detail line."""
-    on = set(DEFAULT_KEYS if keys is None else keys)
+    on = set(default_keys(ctx) if keys is None else keys)
     out = []
     for c in CHECKS:
         out.append(f"[{'x' if c['key'] in on else ' '}] {c['title']} ({c['key']})")

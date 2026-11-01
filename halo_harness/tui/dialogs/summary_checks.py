@@ -59,7 +59,7 @@ class SummaryChecks:
         from textual.widgets.selection_list import Selection
         from halo_harness.tui.dialogs.check_rows import CheckRows
         ctx = ctx_for(self.state)
-        rows = [(c["key"], c["title"], C.detail_line(c, ctx), c["default_on"]) for c in rows_for(self.state)]
+        rows = [(c["key"], c["title"], C.detail_line(c, ctx), C.default_on(c, ctx)) for c in rows_for(self.state)]
         widgets = [Static(HINT, classes="dialog-subtitle"), CheckRows(rows, id=LIST_ID)]
         from halo_harness.start.checks_run import gym_candidates, gym_model_cost, is_local
         models = gym_candidates(ctx)

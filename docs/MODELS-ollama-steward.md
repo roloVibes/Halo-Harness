@@ -192,8 +192,8 @@ R4, the steward's agent, selectable and cheap, and the job that runs it:
   false` starts none with Studio or the hub; `ollama.steward.apply: off`
   keeps the findings and the notes and applies nothing.
 - **The model**: `ollama.steward.model` (any model ref), else the
-  configured `compactionModel` when it is a local model, else the smallest
-  local model this machine lists (by its size on disk), else none: then the
+  configured `compactionModel` when it is a local model, else (3.3.7.0 R5) the best candidate, else the smallest
+  local model this machine lists (by its size on disk; the candidates and the chat: [MODELS-ollama-steward-chat.md](MODELS-ollama-steward-chat.md)), else none: then the
   job runs the rules alone and `status` says "no steward model: set
   ollama.steward.model". `none` (3.3.4.0 R5) turns the notes off on
   purpose; the rules still run. A cloud model is used only when

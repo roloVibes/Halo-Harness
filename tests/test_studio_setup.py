@@ -120,8 +120,9 @@ def test_no_provider_lands_on_setup(ctx: Ctx):
 @test
 def test_the_check_block(ctx: Ctx):
     got = _got(ctx)
-    ctx.check(f"five rows, doctor / catalog / hello ticked, got {got.get('check_rows')} {got.get('check_ticks')}",
-              got.get("check_rows") == ["doctor", "catalog", "hello", "gym", "start"] and got.get("check_ticks") == [True, True, True, False, False])
+    ctx.check(f"six rows, doctor / catalog / hello ticked, and the steward row (an installed local model fits here), got "
+              f"{got.get('check_rows')} {got.get('check_ticks')}", got.get("check_rows") == ["doctor", "catalog", "hello",
+              "steward", "gym", "start"] and got.get("check_ticks") == [True, True, True, True, False, False])
     ctx.check(f"each row says what / cost / time / writes, got {got.get('check_detail')!r}",
               all(w in str(got.get("check_detail")) for w in ("Cost: ", "Time: ", "Writes: ")))
     ctx.check(f"ticking the gym lists its models, got {got.get('gym_models')}", "or:mock/beta" in (got.get("gym_models") or []))
@@ -129,7 +130,7 @@ def test_the_check_block(ctx: Ctx):
               got.get("check_start_locked") is True and got.get("start_unlocked") is True)
     ctx.check(f"the card under its row, got {got.get('card_first')!r}", got.get("card_first") == "The guided first run (halo start)")
     ctx.check(f"Run: the summary, got {got.get('summary')!r}", got.get("summary") == "1 failed: hello")
-    ctx.check(f"each row's glyph, got {got.get('glyphs')}", got.get("glyphs") == ["ok", "ok", "!!", "ok", ""])
+    ctx.check(f"each row's glyph, got {got.get('glyphs')}", got.get("glyphs") == ["ok", "ok", "!!", "ok", "ok", ""])
     logs = dict(got.get("logs") or [])
     ctx.check(f"each row's log, got {logs}", logs.get("doctor") == "doctor stub: config ok" and logs.get("hello") == "no pong (stub)")
     ctx.check(f"the strip and the rail say the last check, got {got.get('strip_check')!r} {got.get('rail_check')!r}",

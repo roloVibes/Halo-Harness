@@ -1,0 +1,15 @@
+# Coder first: a bundle Halo ships (3.3.7.0 R5; plans/local-model-fit-brief.md L6). No reservation: the coder gets the
+# card, and the verdict says whether it fits alone at its window. Task work stays on the coder.
+id: coder-first
+name: Coder first
+version: 1.0.0
+description: No reservation; the coder gets the whole card.
+author: Halo Harness
+license: MIT
+halo_api: {min: "1.0", max: "1.9"}
+halo: {min: "3.3"}
+capabilities: [code]
+bundle:
+  needs:
+    coder: {any_of: [qwen3-coder:30b, qwen3.8:27b, qwen2.5-coder:32b], window: 32768, tools: true}
+  routing: {task_work: coder, never_evict: reserved}

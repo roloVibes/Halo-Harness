@@ -101,16 +101,31 @@ def _other_local(session) -> Optional[str]:
     ref = getattr(session, "model_ref", None)
     me = getattr(ref, "model", "") or ""
     cands = [r for r in with_tools(getattr(session, "state_dir", None)) if not ollama_names_match(
-        r.split(":", 1)[-1].rsplit("@", 1)[0], me)]
+        r.split(":", 1)[-1].rsplit("@", 1)[0], me) and not _reserved(r)]
     mine = profile_for_ref(ref, getattr(session, "state_dir", None)) or {}
     beside = (mine.get("resident") or {}).get("co_resides_with") or []
     near = [r for r in cands if any(ollama_names_match(r.split(":", 1)[-1].rsplit("@", 1)[0], b) for b in beside)]
     return (near or cands or [None])[0]
 
 
+def _reserved(ref: str) -> bool:
+    """3.3.7.0 R5: a model a bundle holds is never a rung's target while it is reserved (local_sched/reserve.py)."""
+    try:
+        from halo_harness.local_sched.facts import host_named, split_ref
+        from halo_harness.local_sched.reserve import held
+        model, host = split_ref(ref)
+        return held(host_named(host), model) is not None
+    except Exception:
+        return False
+
+
 def _cloud(session, trigger: str) -> "tuple[Optional[str], str]":
     """(the policy's `to` when it allows this trigger now, else None; the reason)."""
     from halo_harness.agent.escalation import load_escalation_policy, role_escalation_enabled
+    from halo_harness.local_sched.reserve import escalation_off  # 3.3.7.0 R5: the offline-only bundle
+    off = escalation_off(getattr(session, "state_dir", None))
+    if off:
+        return None, f"the {off} bundle is on: no cloud rung (halo pack off {off})"
     policy = load_escalation_policy()
     if policy is None:
         return None, "no routing.escalation policy"

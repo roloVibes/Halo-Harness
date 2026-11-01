@@ -81,7 +81,10 @@ def verdict(role: str, child_ref, main_ref, *, state_dir=None) -> Optional[dict]
         return None
     fits = any(m is m_child for m in ws["warm"])
     warm_now = F.is_loaded(rows, child, m_child["window"])
-    evicts = [] if fits or warm_now else _evicts(rows, child, float(m_child["need"] or 0), int(ws["usable"]))
+    from halo_harness.local_sched.reserve import cloud_target, held, route_line  # 3.3.7.0 R5: L4, never evict a claim
+    blocked = bool(ws.get("claims")) and not fits and not warm_now and bool(m_child.get("never"))
+    free_rows = [r for r in rows if not held(host, r.get("model") or r.get("name"), state_dir=state_dir)]
+    evicts = [] if fits or warm_now else _evicts(free_rows, child, float(m_child["need"] or 0), int(ws["usable"]))
     swap_s = None if warm_now else m_child.get("load_s")
     sizes = f"{m_main['gb']:.1f} + {m_child['gb']:.1f} of {F.gb(ws['usable'])} GB"
     who = f"fit: {role or 'the child'} on {child} {{}} beside main ({main}) on {host.name}"
@@ -96,7 +99,11 @@ def verdict(role: str, child_ref, main_ref, *, state_dir=None) -> Optional[dict]
         else:
             tail = f"evicts {gone}; load time unknown"
         line = who.format("does not fit") + f" ({sizes}): {tail}"
+    route_to = (cloud_target() or str(getattr(main_ref, "raw", main_ref) or "")) if blocked else None
+    if blocked:
+        line = who.format("does not fit") + f" ({sizes}): " + route_line(host, route_to, state_dir=state_dir)
     return {"fits_beside_main": fits, "evicts": evicts, "swap_s": swap_s, "swap_from": m_child.get("load_from"),
+            "blocked": blocked, "route_to": route_to,
             "host": host.name, "main": main, "child": child, "role": role, "window": m_child["window"],
             "warm_now": warm_now, "loaded_main": F.is_loaded(rows, main), "line": line}
 
@@ -118,6 +125,13 @@ def first_events(child, *, turn: int = 0):
     if v is None:
         return None
     yield events.turn_marker("fit", v["line"], turn=turn, verdict={k: x for k, x in v.items() if k != "line"})
+    if v.get("blocked") and v.get("route_to"):  # 3.3.7.0 R5: routed around a reservation, never evicting it
+        from halo_harness.agent.preflight import _switch
+        try:
+            yield from _switch(child, v["route_to"], turn)
+        except Exception:
+            log.debug("roles_fit: the switch around the reservation failed", exc_info=True)
+        return v
     if v["fits_beside_main"] or v["warm_now"]:
         return v
     from halo_harness.local_sched import facts as F
