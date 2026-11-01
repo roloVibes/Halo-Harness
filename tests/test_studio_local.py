@@ -30,7 +30,7 @@ from tests.helpers.runner import Ctx, SkipTest, new_registry, print_results, run
 test, TESTS = new_registry()
 REPO = Path(__file__).resolve().parent.parent
 _RUN: dict = {}
-PAGES = ["resources", "hosts", "models", "library", "huggingface", "logs", "benchmarks", "steward"]  # 3.3.6.0 R3: Logs
+PAGES = ["resources", "hosts", "models", "library", "huggingface", "logs", "benchmarks", "steward", "pool"]  # 3.3.6.0 R3: Logs; 3.3.8.0 R1: Pool
 
 
 def _got(ctx: Ctx) -> dict:
@@ -57,10 +57,10 @@ def test_alt0_and_the_seven_pages(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"Alt+0 opens Local with nothing over it, on Resources, got {got.get('alt0')} {got.get('alt0_open')} {got.get('alt0_page')}",
               got.get("alt0") == "Local" and got.get("alt0_open") == [0, 0] and got.get("alt0_page") == "resources")
-    ctx.check(f"the rail's eight pages in order, got {got.get('rail')}", got.get("rail") == PAGES)
+    ctx.check(f"the rail's nine pages in order, got {got.get('rail')}", got.get("rail") == PAGES)
     titles = got.get("titles") or {}
     ctx.check(f"each page titled, got {titles}", [titles.get(p) for p in PAGES] ==
-              ["Resources", "Hosts", "Models", "Library", "Hugging Face", "Logs", "Benchmarks", "Steward"])
+              ["Resources", "Hosts", "Models", "Library", "Hugging Face", "Logs", "Benchmarks", "Steward", "Pool"])
     framed = got.get("framed") or {}
     ctx.check(f"no page is framed any more (Library is built, 3.3.5.0 R2; Hugging Face, R5; Benchmarks, 3.3.6.0 R5; "
               f"Steward, 3.3.7.0 R5), got {framed}", sorted(framed) == [])

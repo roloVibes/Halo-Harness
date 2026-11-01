@@ -10,7 +10,7 @@ Part of [Halo Studio](STUDIO.md), which lists every part.
 its rail row or the palette). It holds everything Halo knows about local models in one tab, paged like Settings: a
 page rail on the left, one page on the right, a head on each page that says what it holds, which of Local's five ideas
 it carries, and its help behind **How this page works**. Nothing opens on its own; the page last open in this browser
-comes back (`halo.studio.local.page`). The eight pages, in the rail's order:
+comes back (`halo.studio.local.page`). The nine pages, in the rail's order:
 
 | Page | What it holds | Filled in |
 |---|---|---|
@@ -22,6 +22,7 @@ comes back (`halo.studio.local.page`). The eight pages, in the rail's order:
 | Logs | each host's server log: its status, the last load per model, the cut prompts, errors and crashes, the newest lines | 3.3.6.0 R3 |
 | Benchmarks | the speed cards per host (the bench), the tuning report, the changes with their scopes and Revert | 3.3.6.0 R5 |
 | Steward | the job's status and note, the chat with the steward, its model and candidates, the refresh ([STUDIO-local-steward.md](STUDIO-local-steward.md)) | 3.3.7.0 R5 |
+| Pool | the pool's members (free VRAM, link, RTT, the split), what it can run, Scan; the Library's Pool preset ([STUDIO-local-pool.md](STUDIO-local-pool.md)) | 3.3.8.0 R1 |
 
 The doors: `halo local` opens Studio on Local's Hugging Face page (3.3.5.0 R5; a Studio already running for this home
 takes it in its open page), a page word opens that page (`halo local library`), `halo local hosts` on the Hosts page (`?mode=local&page=hosts`), `halo studio --edit local:models` the same from the
@@ -346,8 +347,7 @@ Three blocks (3.3.6.0 R5, `routes/local/BenchPage.tsx`; the bench itself: [MODEL
   findings for that host, then every option with what it writes and how long it takes. A Halo-side option has the scope
   pick (keep, until halo exits, until the session ends; keep preselected) and **Apply**; a server-side one shows the
   exact line for that host's shell and its revert line (every OS's when the host's is not known). Halo runs neither.
-  An applied option often leaves the report (its change is in effect): the line that says what landed stays in its
-  place until the page is left, and the change is in the Changes list below.
+  An applied option often leaves the report (its change is in effect): its "what landed" line stays until the page is left.
 - **Changes**: every change Halo made to a local model's profile still in force -- who made it, from and to, its
   scope (a new pick changes it) -- with **Revert** (and **Revert all**); the line under the list says what went back.
   Settings -> Local shows the same list; the model card's KV dial has its own Apply with the scope pick.

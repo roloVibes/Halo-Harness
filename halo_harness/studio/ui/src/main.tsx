@@ -53,6 +53,7 @@ import "./styles/model-measured.css"; // 3.3.6.0 R4: the KV dial, the dialect bl
 import "./styles/local-bench.css"; // 3.3.6.0 R5: Benchmarks: the speed cards, the tuning report, the changes, the scope pick
 import "./styles/local-guards.css"; // 3.3.7.0 R4: the foreign line, the refresh lines, the Adviser
 import "./styles/local-steward.css"; // 3.3.7.0 R5: the Steward page's chat box and model picker
+import "./styles/local-pool.css"; // 3.3.8.0 R1: Local -> Pool, the members, the scan, the recommendation, the Pool badge
 import { App } from "./App";
 
 document.documentElement.dataset.theme = document.documentElement.dataset.theme || "dark";
