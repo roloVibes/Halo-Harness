@@ -563,6 +563,11 @@ class MockUpstream:
         self._server.mock = self  # type: ignore[attr-defined]
         self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
         self._thread.start()
+        # run_all runs ~800 modules in one process: an earlier module's mock on the SAME ephemeral port leaves its
+        # catalog in providers.ollama's per-url cache (last good entry within the TTL), so a fresh mock's first read
+        # answered from a stale catalog (3.3.8.0 R2's Linux run 41296616459: "no 'thinking' ... got True").
+        from halo_harness.providers.ollama import reset_catalog_cache
+        reset_catalog_cache()
         return self
 
     def stop(self) -> None:
