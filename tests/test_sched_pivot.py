@@ -113,8 +113,8 @@ def test_a_host_served_model_pivots_through_the_host(ctx: Ctx):
         gen = [(g["model"], g["keep_alive"]) for g in rig.mock.generated]
         ctx.check(f"the host unloaded then loaded on its server, got {got} {gen}", got["ok"] and got["via"] == "host"
                   and gen[0] == (CODER, 0) and gen[1][0] == BIG)
-        from halo_harness.host.state import read_audit
-        paths = [str(a.get("path") or "") for a in read_audit(rig.home)]
+        acts = rig.rig.audited_op("pivot", 1)  # the audit line lands after the reply: wait for it (Windows 41348318605)
+        paths = [str(a.get("path") or "") for a in acts]
         ctx.check(f"the host's audit has the pivot request, got {paths[-3:]}", any(x.endswith("control/pivot") for x in paths))
 
 
