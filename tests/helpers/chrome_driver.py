@@ -205,8 +205,8 @@ class Driver:
     def _drop_home(self) -> None:
         if self._made_home is not None:
             shutil.rmtree(self._made_home, ignore_errors=True)
-            if os.environ.get("BRIDGE_TEST_HOME") == str(self._made_home):
-                os.environ.pop("BRIDGE_TEST_HOME", None)
+            # BRIDGE_TEST_HOME stays pointed at the (gone) scratch path: an atexit hook that runs after this
+            # (headless._stop_managed_local_servers_quietly) must land in scratch, never in the real ~/.halo
             self._made_home = None
 
 

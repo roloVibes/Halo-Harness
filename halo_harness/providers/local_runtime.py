@@ -663,6 +663,8 @@ def stop_all_managed_servers_except_kept(state_dir=None) -> None:
     if state_dir is None:
         from halo_harness.config.paths import bridge_home
         state_dir = bridge_home()
+    if not registry_path(state_dir).is_file():
+        return  # nothing was ever registered here: no lock, and no `run/` created on the way out
     try:
         # Phase 1 (locked, short): pick this process's own non-kept entries.
         # Phase 2 (no lock held): signal them -- a slow shutdown must never
