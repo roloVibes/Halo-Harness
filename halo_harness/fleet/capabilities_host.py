@@ -93,8 +93,12 @@ def hardware(home: Path, *, spawn: bool) -> dict:
         free = round(shutil.disk_usage(str(home)).free / 1e9, 1)
     except OSError:
         free = None
+    from halo_harness.local_pool.link import UNKNOWN, read as read_link  # 3.3.8.0 R1: wired or Wi-Fi, and its speed
+    link = {k: v for k, v in (read_link() if spawn else {**UNKNOWN, "source": "not read"}).items()
+            if k in ("type", "speed_mbps")}
     return {"os": (platform.system() or os.name).lower(), "distro": _distro(), "release": platform.release(),
-            "cpu": _cpu(), "cores": os.cpu_count(), "ram_gb": _ram_gb(), "gpu": _gpus(spawn), "disk_free_gb": free}
+            "cpu": _cpu(), "cores": os.cpu_count(), "ram_gb": _ram_gb(), "gpu": _gpus(spawn), "disk_free_gb": free,
+            "link": link}
 
 
 # ---- command-line tools --------------------------------------------------------------------------

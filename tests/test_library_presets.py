@@ -43,8 +43,8 @@ def _api(h, method, path, body=None, query=None):
 def test_each_presets_bundle(ctx: Ctx):
     from halo_harness.models_library.presets import ORDER, all_bundles, bundle
     titles = [b["title"] for b in all_bundles()]
-    ctx.check(f"nine presets in the brief's order, got {titles}", titles == ["Coder", "Reasoner / planner", "Bulk worker", "Compactor",
-              "Verifier", "Security / pentest", "Multimodal", "Embeddings", "Offline-only"] and len(ORDER) == 9)
+    ctx.check(f"ten presets in the brief's order (3.3.8.0 R1: Pool last), got {titles}", titles == ["Coder", "Reasoner / planner", "Bulk worker", "Compactor",
+              "Verifier", "Security / pentest", "Multimodal", "Embeddings", "Offline-only", "Pool"] and len(ORDER) == 10)
     c, v, o = bundle("coder"), bundle("verifier"), bundle("offline")
     ctx.check(f"Coder: coder expected + tools declared, fits, runs here, role coder, got {c}",
               c["needs"] == {"coder": "expected", "tools": "declared"} and c["fit"] == {"fits_at": True} and c["role"] == "coder")
@@ -57,7 +57,7 @@ def test_each_presets_bundle(ctx: Ctx):
               e["needs"]["tools"] == "verified" and e["fit"] == {"fits_at": True, "params_max": 14} and bundle("coder")["needs"]["tools"] == "declared")
     with SearchHome(card=box_card()) as h:
         s, body = _api(h, "GET", "local/library/presets")
-    ctx.check(f"GET local/library/presets: the nine expanded, got {s} {[p['id'] for p in body.get('presets', [])]}",
+    ctx.check(f"GET local/library/presets: the ten expanded, got {s} {[p['id'] for p in body.get('presets', [])]}",
               s == 200 and [p["id"] for p in body["presets"]] == list(ORDER))
 
 

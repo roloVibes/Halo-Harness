@@ -38,7 +38,7 @@ window, a replay guard) and inside TLS with the host's own pinned certificate wh
 | Route | Answers |
 |---|---|
 | `GET ping` | the host (id, name, version, port, started) and this peer's grants |
-| `GET card` | per Ollama server it serves: the hardware card (`halo ollama hardware`'s), its log status, the other clients (the ledger's `from`s over a day), the usable memory ("22.0 GB usable"); the host's start time and its audit count |
+| `GET card` | per Ollama server it serves: the hardware card (`halo ollama hardware`'s), its log status, the other clients (the ledger's `from`s over a day), the usable memory ("22.0 GB usable"); the host's start time and its audit count; 3.3.8.0 R1: `link` {type wired \| wireless \| unknown, speed_mbps}, the adapter that carries this machine's address (the pool's wired-or-Wi-Fi rule, [POOL.md](POOL.md)) |
 | `GET catalog?window=N` | every model there with the fit planner's verdict at that window from the host's own budget (fits, says, need, the largest window it holds), its speed card, its measured facts and whether its profile is verified there |
 | `GET profiles` | the battery profiles verified there, each with its digest, Ollama version, probe set and date |
 | `GET events?since=&kind=` | the classified server events (the newest 500) |

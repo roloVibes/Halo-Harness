@@ -75,12 +75,14 @@ def mark_installed(answer: dict, state_dir=None) -> dict:
 
 def get_library(req):
     from halo_harness.models_library.browse import library
+    from halo_harness.local_pool.library import mark as mark_pool  # 3.3.8.0 R1: the Pool preset's rows and badges
     from halo_harness.studio.local_search_api import spec_of
-    return 200, mark_installed(library(req.state_dir, source=_q(req, "source") or "all", q=_q(req, "q"), host=_q(req, "host"),
-                        window=_int(req.query.get("window")), fits=_q(req, "fits") in ("1", "true", "yes"),
-                        intent=_q(req, "intent"), family=_q(req, "family"), quant=_q(req, "quant"), cap=_q(req, "cap"),
-                        max_gb=_float(req.query.get("max_gb")), license=_q(req, "license"),
-                        page=_int(req.query.get("page")) or 1, search=spec_of(req.query)), req.state_dir)
+    return 200, mark_pool(mark_installed(library(req.state_dir, source=_q(req, "source") or "all", q=_q(req, "q"),
+                          host=_q(req, "host"), window=_int(req.query.get("window")),
+                          fits=_q(req, "fits") in ("1", "true", "yes"), intent=_q(req, "intent"), family=_q(req, "family"),
+                          quant=_q(req, "quant"), cap=_q(req, "cap"), max_gb=_float(req.query.get("max_gb")),
+                          license=_q(req, "license"), page=_int(req.query.get("page")) or 1, search=spec_of(req.query)),
+                          req.state_dir), req.state_dir)
 
 
 def get_detail(req, source: str, model_id: str):

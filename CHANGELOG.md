@@ -8,6 +8,28 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.3.8.0] - unreleased
+
+### R1: the pool -- discovery, members, the fit and the recommendation
+
+#### Added
+- `halo pool members | add | remove | recommend | verdict <model> | scan`: a pool is a set of paired hosts whose GPU memory serves one model over llama.cpp RPC; `~/.halo/pool/pool.json` holds its members (a paired host by name, `local`, or a worker's host[:port]; `--vram` for a worker no card reads, said "as you stated it").
+- Each member's free VRAM from its host card (usable with the helper, minus resident models, minus claims) and the tensor split proportional to it; the host card now carries `link` {wired | wireless | unknown, speed_mbps}, read from the OS on the machine that runs `halo host`, and the member row says "2.5 GbE" / "Wi-Fi (adapter)".
+- The fit, one deterministic function: "a single node holds it -- run it there", "fits the pool: 2 nodes, split 0.69 / 0.31, 32k F16 / 32k Q8_0", or "does not fit: needs 106.0 GB with 20 GB of routing tables per node, 60.0 GB free"; one 16k F16 floor, Q8_0 doubled, clamped at 32k; the matched-memory block only for models with routing tables; the build line, the batch-only tag, the speed measured elsewhere or extrapolated.
+- The recommendation: what fits the pool by the fewest active parameters, then single-node rows; each with the preview before any download ("download 46 GB, ~16 min at ... -- nothing downloads until you press it") and one Download button on the existing Hugging Face download + verify job.
+- The RPC-port scan (`providers/rpc_probe.py`, port 50052, `pool.rpc_port`, `pool.scan_subnets`): explicit only, each responder with its connect time ("12 ms -- Wi-Fi?"); timed exactly on Windows.
+- Local -> Pool (read-only): the members, Scan (a button), the recommendation table; the Library's Pool preset with the pool badge on its rows.
+- docs/POOL.md, docs/COMMANDS-pool.md, docs/STUDIO-local-pool.md; glossary `pool`, `rpc-server`, `tensor split`, `pooled inference`.
+
+#### Changed
+- The pool's members join the offline allow-list (`allowlisted_local_hosts`) under the same local-only rule as `ollama.hosts`.
+- The capability catalog's hardware block carries `link`.
+- Local has nine pages; the Library ten presets.
+
+### Also in 3.3.8.0
+
+#### Changed
+
 ## [3.3.7.0] - 2026-11-01
 
 **Local, the host.** The owner's measured brief (plans/local-model-fit-brief.md, Parts D1, G5-G6, G11-G15, H, J

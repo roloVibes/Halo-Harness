@@ -3603,19 +3603,20 @@ The order (the owner's rule: all of this before Type into Studio and themes):
   answer, "ask a bigger model" with its cost first, `halo ollama steward chat`), ~~steward candidates at init and
   whenever~~ (`halo ollama steward candidates`, the checklist row, the Steward page's picker; choose_model picks from
   them). Still open from R5: the voice bundle's speech models (faster-whisper / Parakeet STT, Kokoro / Qwen3-TTS) and
-  their runtime are 3.3.8.0 Voice's -- the bundle ships the claim and the verdict, its STT / TTS sizes are the
+  their runtime are 3.3.9.0 Voice's -- the bundle ships the claim and the verdict, its STT / TTS sizes are the
   published ones, and no voice turn has run; a reservation binds Halo's own paths (a client that talks to Ollama
   directly is not asked); a bundle cannot yet declare a second reserved model, a schedule, or a need on another host;
   the chat's buttons (retire, add, bench, battery) run from Studio, the CLI prints their commands.
-- **3.3.8.0 "Voice"** -- Part K: the local loop (Silero VAD -> faster-whisper
+- **3.3.9.0 "Voice"** -- Part K: the local loop (Silero VAD -> faster-whisper
   large-v3-turbo or Parakeet TDT -> the session's model -> sentence
   aggregator -> Kokoro-82M or Qwen3-TTS, through Pipecat or LiveKit Agents,
   750-900 ms round trips, barge-in), as a bundle (Part L) with its
   reservation; the Meta glasses path through the Wearables Device Access
   Toolkit (a phone app in the loop, A2DP out, HFP or in-stream mic, "Hey
   Meta, start <app>"), honest about its limits.
-- Then 3.3.9.0 "Type into Studio" and 3.3.10.0 "Themes and parity" (the
-  entries already written under their old numbers, 3.3.6.0 and 3.3.7.0).
+- Then, after every local-model build: 3.3.10.0 "Pack policy" (issue #4), 3.3.11.0 "Type into Studio"
+  and 3.3.12.0 "Themes and parity" (+ issue #5) -- the Studio entries already written under their old
+  numbers, 3.3.6.0 and 3.3.7.0.
 
 ## ADDED 2026-10-31 evening (rolo: "a new feature update with code called halo-distributed-llm.zip ... add this distributed local llm feature to the local llm tab in studio ... add it to the local list of feature updates"): 3.3.8.0 "Pooled"
 
@@ -3645,9 +3646,16 @@ past the F16 budget, never a CPU fallback; discovery = a new RPC-port probe (500
 actions are `changes.py` changes under the steward contract (one per pool per 10 min, before / after, revert on
 worse); the reference HTTP server is not shipped (routes through `studio/local_api.py`).
 
-- R1 discovery + members + fit / recommend: `local_pool/` (`members.py`, `fit.py`, `catalog.py`, `recommend.py`,
-  `probe.py`), `halo pool scan | members | add | remove | recommend | verdict <model>`, Local -> Pool (read-only),
-  the Library's "Pool" preset with the fit badge, docs/POOL.md.
+- ~~R1 discovery + members + fit / recommend~~ (built: `local_pool/` `members.py`, `budget.py`, `link.py`,
+  `catalog.py`, `fit.py`, `recommend.py`, `scan.py`, `library.py`; the probe is `providers/rpc_probe.py`; `halo pool
+  scan | members | add | remove | recommend | verdict <model>`; Local -> Pool (read-only); the Library's "Pool" preset
+  with the fit badge; the host card's `link`; docs/POOL.md, COMMANDS-pool.md, STUDIO-local-pool.md; glossary `pool`,
+  `rpc-server`, `tensor split`, `pooled inference`). Still open from R1: the catalog's routing-table and KV figures
+  for Qwen3-Next and gpt-oss are estimates (gpt-oss's 20 GB may overlap its 59 GB of weights -- if so it needs 39 + 20n,
+  not 59 + 20n; a measurement on two nodes settles it); the 1 GB of buffers per node is the reference's figure, not
+  measured; the RTT is a TCP connect's (an open port, not proof the far end is rpc-server); the link reader is
+  fixture-tested per OS, not yet on a worker-grade Windows box with no `nvidia-smi`; no Download from the Pool
+  page has run against the real hub in a test.
 - R2 the controller: the host op `rpc_server on|off`, `halo local serve --pool`, preflight (fit, probes, RTT, build
   and RPC versions, resident + claims), the `pool` server entry, `route` for the pool, warm / stop as scoped changes,
   the failure modes as lines (a worker down mid-generation: the request fails, the pool is "degraded"; VRAM
@@ -3656,5 +3664,20 @@ worse); the reference HTTP server is not shipped (routes through `studio/local_a
 - R3 Studio controls + guards + bench: Warm / Stop on the Pool page, health + tok/s live, the steward's findings for
   a degraded pool, `halo local bench --host pool`, a bundle may claim the pool, glossary `pool`, `rpc-server`,
   `tensor split`.
+- Adopted suggestions (rolo 2026-10-31: "add your suggestions to this update"): (1) measure, don't extrapolate --
+  `halo local bench --host pool` writes the pool's speed card and the recommendation shows the measured tok/s and
+  the penalty vs the single node that could hold it; (2) the honest pool preview before any download (needs / free
+  across N nodes / KV / routing per node / download size + minutes; nothing downloads until pressed); (3) a bundle
+  may claim the pool (a shipped `big-reasoner` bundle reserves it for one lane while the coder stays resident); (4)
+  the steward watches the pool like a host: findings `pool-degraded`, `pool-rtt`, `pool-spill`, one line each; (5)
+  the off-hours refresh re-benches the pool when every member is idle; (6) Ollama PR #10844 stays a watch item.
+- Second review (2026-10-31, adopted): rounds = R1 the pool + R2 the steward sees every local server (llama-server,
+  LM Studio, MLX server-log findings, the same watch and fix loop; a TUI-only session pushes its ledger to the host;
+  fingerprints carry the digest; the chat's context is prefix-stable for KV reuse) in parallel, then R3 the
+  controller (the pool's `max_ctx` into the window truth; a claim on every member; llama-server on the LAN interface
+  behind a generated api key for peers; `rpc_server` refused under `allow_control: none`; claim leases that expire
+  with a dead peer; the return-to-main pivot said), then R4 (bundles: several reservations, a schedule, a need on
+  another host, `min_free_gb`, priority preemption told; the adviser reads placement scores and the loading tax;
+  fleet-wide placement + re-check on a far card's change; the pool findings; the link type from the OS beats RTT).
 - Open from the drop (unverified): GPU enumeration on worker-grade Windows boxes, NIC speed detection, per-model RPC
   benchmarks; Ollama PR #10844 would make pooled serving one command on Ollama hosts -- noted, not depended on.

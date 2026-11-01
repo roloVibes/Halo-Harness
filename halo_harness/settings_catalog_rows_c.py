@@ -64,6 +64,8 @@ ROWS = [
     Row("host.refresh.window", "local", "Refresh window", "string", "22:00-07:00", (), "When the off-hours refresh may run, local time (it may wrap midnight); off disables it.", "now"),
     Row("host.refresh.idle_min", "local", "Refresh after idle (min)", "int", 20, (), "Minutes the card must have been idle first: no call, no load, nothing foreign in /api/ps, no session.", "now"),
     Row("host.refresh.max_age_days", "local", "Re-verify after (days)", "int", 14, (), "A profile older than this many days is measured again by the refresh.", "now"),
+    Row("pool.rpc_port", "local", "Pool RPC port", "int", 50052, (), "The rpc-server port a pool member gets when you name none, and the port the pool's Scan probes.", "now"),
+    Row("pool.scan_subnets", "local", "Pool scan networks", "list", [], (), "The networks (CIDRs, a /24 at most each) the pool's Scan covers besides this machine's own /24.", "now"),
     Row("embeddings.model", "local", "Embeddings model", "string", None, (), "The embeddings model recall ranks with; unset, embeddings are off.", "now"),
     Row("embeddings.enabled", "local", "Embeddings on", "bool", False, (), "Turn embeddings on with the default model when no model is named.", "now"),
     Row("embeddings.host", "local", "Embeddings Ollama host", "string", None, (), "The Ollama host (by name) that serves embeddings; unset, the default host.", "now"),
