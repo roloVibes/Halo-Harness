@@ -7,7 +7,8 @@
 - `halo ollama events [--host H] [--since] [--kind K] [--watch] [--from-start] [--json]` (3.3.4.0 R2; 3.3.6.0 R3:
   `--host` reads that host's log, over ssh for a host served elsewhere, and lists only its events).
 - `halo ollama crashes [--host H] [--why] [--json]` (3.3.6.0 R2; R3: `--why` prints each fingerprint's evidence: the
-  load it died in, the settings in force, the request's window, the load command, and the fixes when it repeats).
+  load it died in, the settings in force, the request's window, the load command, and the fixes when it repeats;
+  3.3.8.0 R2: a local server's crashes too, with its runtime, Halo's launch command and that runtime's lines).
 """
 
 from __future__ import annotations
@@ -140,7 +141,8 @@ def cmd_ollama_crashes(argv: list) -> int:
     from halo_harness.ollama_steward.rules_crash import fixes_for
     parser = argparse.ArgumentParser(
         prog="halo ollama crashes", add_help=True,
-        description="The crash fingerprints the steward recorded from each host's server events: the model, its "
+        description="The crash fingerprints the steward recorded from each host's and each local server's events "
+                    "(Ollama, llama-server, LM Studio, mlx_lm.server): the model, its "
                     "family and quant, the window it ran at, the KV type, flash attention, whether it spilled, and "
                     "the signature (a CUDA illegal memory access, a runner that died, a failed load). Read-only.")
     parser.add_argument("--host", default=None, help="only this host's fingerprints")
@@ -154,14 +156,16 @@ def cmd_ollama_crashes(argv: list) -> int:
             print(json.dumps(fp, default=str))
             continue
         bits = [f"{fp.get('family') or '?'} {fp.get('quant') or ''}".strip(), f"model from {fp.get('model_from')}"]
-        print(f"{fp.get('host') or '?'} {fp.get('model') or '(model unknown)'}: {fp['line']}")
+        rt = f" [{fp['runtime']}]" if fp.get("runtime") else ""  # 3.3.8.0 R2: a local server's crash, its runtime
+        print(f"{fp.get('host') or '?'}{rt} {fp.get('model') or '(model unknown)'}: {fp['line']}")
         if not args.why:
             print(f"    {' · '.join(bits)}" + (f" · {fp['evidence'][0][:140]}" if fp.get("evidence") else ""))
             continue
         for line in why_lines(fp):
             print(f"  {line}")
         if int(fp.get("count") or 1) >= 2:
-            for f in fixes_for(fp):
+            from halo_harness.ollama_steward.tune_lines_hf import crash_fixes
+            for f in crash_fixes(fp) if fp.get("runtime") else fixes_for(fp):
                 print(f"    fix ({'Halo' if f['side'] == 'halo' else 'on the host'}): {f['line']} (costs: {f['cost']})")
     if not rows and not args.json:
         print("no crash fingerprints" + (f" for {args.host}" if args.host else "") +

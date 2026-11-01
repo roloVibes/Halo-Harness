@@ -198,8 +198,8 @@ model name.
 `servers` lists the servers Halo started: id, kind, URL, ready / loading / gone, the `hf:local/<model>` ref, the flags
 (`-c -ngl -np`), keep, the model's path and the log's path. `--json`: the registry rows.
 
-`log` prints the last lines of a server's log (`<state>/local/servers/<id>.log`: llama-server's own load lines,
-`load_tensors: offloaded N/N layers to GPU`, the KV buffer, each request). `-n N`: how many lines (40).
+`log` prints the last lines of a server's log (`<state>/local/servers/<id>.log`, or any local server's since 3.3.8.0 R2;
+`halo local events` beside it): [COMMANDS-local-servers.md](COMMANDS-local-servers.md). `-n N`: how many lines (40).
 
 ### `halo local warm [<lineup> | MODELS...] [--host NAME] [--keep-alive DURATION] [--dry] [--json]` (2.0.7; 3.3.7.0 R3)
 

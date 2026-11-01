@@ -36,6 +36,7 @@ def card_of(host) -> Optional[dict]:
     card = dict(row["card"])
     card["sources"] = [{"reader": "halo host", "ok": True, "detail": c.label}] + list(card.get("sources") or [])
     card.update(via="host", via_addr=c.addr, footprint=row.get("footprint"), other_clients=row.get("other_clients"))
+    card["servers"] = [r for r in (c.card().get("servers") or []) if isinstance(r, dict)]  # 3.3.8.0 R2: that machine's
     return card
 
 

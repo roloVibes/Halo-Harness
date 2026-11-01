@@ -712,6 +712,8 @@ def _resolve_model_profile(ref: ModelRef, state_dir: Path, routes: Optional[dict
         if ref.local:
             from halo_harness.providers.huggingface_local_resolve import cached_local_context_tokens
             ctx = cached_local_context_tokens(ref.host, ref.model, env=None)
+            from halo_harness.providers.hf_profile import window  # 3.3.8.0 R2: the steward's window for the server
+            ctx = window(ref, ctx)
             return ModelProfile(context_tokens=ctx) if ctx else ModelProfile()
         if ref.host is None:
             from halo_harness.providers.huggingface_catalog import load_hf_models_json

@@ -127,6 +127,31 @@ def test_the_window_ends_by_time(ctx: Ctx):
                   and closed[0]["verdict"] == "kept" and "no calls in 60 s to judge by" in closed[0]["line"])
 
 
+@test
+def test_the_fix_loop_measures_a_local_server_from_its_huggingface_lines(ctx: Ctx):
+    """3.3.8.0 R2: the before / after a fix is judged by comes from the ledger's huggingface lines of that server and
+    model (host/verify._lines, the steward's rollback), named by the server (servers_hf.name_for_url)."""
+    from halo_harness.host import verify
+    from halo_harness.ollama_steward import steward
+    from halo_harness.ollama_steward.profiles import all_profiles
+    from tests.helpers.servers_seed import Home as ServersHome, hf_line
+    with ServersHome(lms=False, mlx=False, pid=None) as h:
+        h.calls(*[hf_line(ago=900 - i, eval_tok_s=40.0) for i in range(10)])
+        lines = verify._lines(h.state, "llama-8080", "qwen3-8b")
+        st = verify.stats(lines)
+        ctx.check(f"the server's calls measured, got {st}", st["calls"] == 10 and st["tok_s"] == 40.0 and st["bad"] == 0)
+        f = {"id": "window-small-abc123", "rule": "window-small", "key": "llama-8080|qwen3-8b", "host": "llama-8080",
+             "model": "qwen3-8b", "evidence": {}}
+        row = steward.apply_change(h.state, f, {"field": "num_ctx", "from": None, "to": 8192, "why": "the server's window"},
+                                   mode_name="auto", now=__import__("time").time() - 300)
+        ctx.check("the change landed in the server's profile", (all_profiles().get("llama-8080|qwen3-8b") or {}).get("num_ctx") == 8192
+                  and row["kind"] == "apply")
+        h.calls(*[hf_line(ago=200 - i, status=400, error="the request exceeds the available context size") for i in range(10)])
+        back = steward.rollbacks(h.state)
+        ctx.check(f"worse calls after it: rolled back, got {[r.get('say') for r in back]}", back
+                  and back[0]["key"] == "llama-8080|qwen3-8b" and "num_ctx" not in (all_profiles().get("llama-8080|qwen3-8b") or {}))
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

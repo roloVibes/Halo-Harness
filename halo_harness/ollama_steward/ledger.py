@@ -1,13 +1,10 @@
 """halo_harness.ollama_steward.ledger -- Halo 3.3.4.0 R2: every call to a
 local model server leaves one line in `<state>/ollama/traffic.jsonl`.
 
-    record_call(state_dir, line)  one JSON line, appended under a file lock;
-                                  the file rotates to `traffic.1.jsonl` at 20 MB
-    read_calls(state_dir, since=None, host=None, model=None)
-                                  the lines back, oldest first (the rotated
-                                  file, then the current one)
-    record_probe(host, model, ...) a calibration load's line (kind "calibrate",
-                                  providers/ollama_calibrate_steps.measure_step);
+    record_call(state_dir, line)  one JSON line, appended under a file lock; the file rotates to `traffic.1.jsonl`
+                                  at 20 MB; 3.3.8.0 R2: then host/session_push.after_call (to the halo host)
+    read_calls(state_dir, since=None, host=None, model=None)  the lines back, oldest first (the rotated file first)
+    record_probe(host, model, ...) a calibration load's line (kind "calibrate", ollama_calibrate_steps.measure_step);
                                   ledger_call.py writes every other call's
 
 A line (`blank_line` has every field, `None` when unknown):
@@ -26,11 +23,9 @@ A line (`blank_line` has every field, `None` when unknown):
     composition, prefix_tokens, prefix_changed, preflight, warming,
     cache_reused_pct (3.3.5.0 R4: the prompt budget, ledger_prompt.py)
 
-`from` is this machine's fleet name while it has joined a hub (None
-otherwise); the hub sets it to the member's name on the lines a member
-forwards (fleet/ollama_share.py). `ollama.ledger: false` turns recording
-off. A write that fails is logged at DEBUG and never fails the call. 3.3.5.0
-R1: every line written is published (ledger_tap.py: the Local tab's traffic).
+`from` is this machine's fleet name while it has joined a hub (None otherwise); the hub sets it to the member's
+name on the lines a member forwards (fleet/ollama_share.py). `ollama.ledger: false` turns recording off. A write
+that fails is logged at DEBUG and never fails the call. 3.3.5.0 R1: every line written is published (ledger_tap.py).
 """
 
 from __future__ import annotations
@@ -176,7 +171,11 @@ def record_call(state_dir, line: dict) -> Optional[Path]:
     if state_dir is None or not enabled():
         return None
     full = blank_line(**{k: v for k, v in (line or {}).items()})
-    return traffic_path(state_dir) if append_lines(state_dir, [full]) else None
+    if not append_lines(state_dir, [full]):
+        return None
+    from halo_harness.host.session_push import after_call  # 3.3.8.0 R2: a terminal session's lines reach its host
+    after_call(state_dir, full)
+    return traffic_path(state_dir)
 
 
 def _iter_file(path: Path):

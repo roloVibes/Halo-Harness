@@ -314,8 +314,9 @@ stop when the last Halo process on this home exits, unless keep was ticked ([LOC
 ## Logs
 
 Each host's Ollama server log, read-only (3.3.6.0 R3, `studio/local_logs_api.py`; how it is read:
-[MODELS-ollama-logs.md](MODELS-ollama-logs.md)). A host picker on top (the configured Ollama hosts); then three
-blocks, each with its own **?**:
+[MODELS-ollama-logs.md](MODELS-ollama-logs.md)). A host picker on top (the configured Ollama hosts; since 3.3.8.0 R2
+the local servers too, `GET local/logs/servers`: [MODELS-steward-servers.md](MODELS-steward-servers.md)); then three
+blocks, each with its own **?** (a server's status line carries its runtime; its per-model block what its log never says):
 
 - **Log status**: one line -- live, stale, quiet, unreadable, on that machine (no ssh entry) or missing, the last
   line's age, `debug: on` -- with the path, **Copy the tail command** (`Get-Content -Wait -Tail 50 ...`, `tail -f ...`,

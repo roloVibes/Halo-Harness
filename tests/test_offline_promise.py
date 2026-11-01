@@ -83,6 +83,26 @@ def test_cost_session_show_and_studio(ctx: Ctx):
         ctx.check("no call yet: no line", badge_line(empty) == "")
 
 
+@test
+def test_a_sub_agents_own_log_is_folded_in(ctx: Ctx):
+    """3.3.8.0 R2: a sub-agent's calls are in its own log (`<session>/subagents/agent-<id>.jsonl`) and its ledger lines
+    carry `agent-<id>`: the promise counts them with the session's."""
+    from halo_harness.agent.offline_promise import promise
+    with Home(hosts=(HERE, LAN)) as home:
+        log = _log(home.state, "s-sub", ["ol:qwen3.5:9b@box"])
+        _calls(home, HERE, 1, "s-sub")
+        sub = log.parent / "s-sub" / "subagents"
+        sub.mkdir(parents=True)
+        rows = [{"type": "usage", "usage": {}, "model": "openrouter/x/y", "route": "openrouter"},
+                {"type": "usage", "usage": {}, "model": "ol:qwen3.5:9b@pc", "route": "ollama"}]
+        (sub / "agent-a1.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8")
+        _calls(home, LAN, 1, "agent-a1")
+        got = promise(home.state, "s-sub", log_path=log)
+    ctx.check(f"three calls, one sub-agent, got {got}", got["calls"] == 3 and got["subagents"] == 1 and got["left"] == 2)
+    ctx.check(f"the line names the cloud call and the LAN one, got {got['line']!r}",
+              got["line"] == "67 % local -- 2 calls left this machine: openrouter x 1, pc x 1")
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

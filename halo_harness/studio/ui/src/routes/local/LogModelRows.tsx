@@ -51,7 +51,8 @@ function Row({ m }: { m: LogModel }) {
       {m.crashed && <div className="mono lg-crash" data-testid="local-logs-crash-line">{m.crashed.line}</div>}
       {m.truncations.map((t) => (
         <div key={`t|${t.at}`} className="mono lg-trunc" data-testid="local-logs-truncation" title={t.say}>
-          {when(t.at)} cut at {t.limit?.toLocaleString("en-US")} of {t.prompt?.toLocaleString("en-US")} tokens
+          {when(t.at)} {t.limit != null && t.prompt != null
+            ? `cut at ${t.limit.toLocaleString("en-US")} of ${t.prompt.toLocaleString("en-US")} tokens` : t.say}
           {t.window_sent ? ` (the request's window ${t.window_sent.toLocaleString("en-US")})` : ""}
         </div>
       ))}
@@ -73,6 +74,11 @@ export function LogModelRows() {
         <BlockHelp text={HELP} testid="local-logs-models-help" />
         {models?.session?.since ? <span className="mono muted">this session since {new Date(models.session.since * 1000).toLocaleTimeString()}</span> : null}
       </div>
+      {models?.not_asked?.length ? (
+        <div className="mono muted" data-testid="local-logs-not-asked" title="a rule cannot see what the log never prints">
+          {models.runtime || "this server"}'s log never says: {models.not_asked.join(", ")}
+        </div>
+      ) : null}
       {!models ? <div className="mono muted">reading the models...</div> : models.models.length === 0
         ? <div className="mono muted" data-testid="local-logs-models-none">no model on this host yet</div>
         : <ul className="lg-models">{models.models.map((m) => <Row key={m.model} m={m} />)}</ul>}

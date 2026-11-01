@@ -2,7 +2,7 @@
 its own, one job per state dir.
 
 `StewardJob(state_dir, host=None)` owns the server-log tail (3.3.6.0 R3: and
-every `ssh:` host's, log_tail.tail_remote_hosts) and the
+every `ssh:` host's, log_tail.tail_remote_hosts; 3.3.8.0 R2: every local server's) and the
 `/api/ps` poll (`server_log.watch`, on its own daemon thread, for the host
 this machine serves) and a timer: every `ollama.steward.every_s` (300 s)
 while calls flow (a ledger line in the last FLOW_S) or at once when an event
@@ -109,9 +109,11 @@ class StewardJob:
             maybe(self, now)
         except Exception:
             pass
-        try:  # 3.3.6.0 R3: the log of every host with an ssh: entry, every 30 s (ollama_steward/log_tail.py)
+        try:  # 3.3.6.0 R3: every ssh: host's log every 30 s; 3.3.8.0 R2: every local server's (server_log_hf.py)
             from halo_harness.ollama_steward.log_tail import tail_remote_hosts
-            for row in tail_remote_hosts(self.state_dir, now) if self.watch_fn is not False else []:
+            from halo_harness.ollama_steward.server_log_hf import tail_servers
+            live = self.watch_fn is not False
+            for row in (tail_remote_hosts(self.state_dir, now) + tail_servers(self.state_dir, now)) if live else []:
                 self.on_event(row)
         except Exception:
             pass

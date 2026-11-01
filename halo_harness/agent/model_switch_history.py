@@ -155,7 +155,8 @@ def switch_reserve(session, budget):
     ref = getattr(session, "model_ref", None)
     from halo_harness.agent.model_window import kind_of
     if not caps or not isinstance(reserve, int) or caps.get("model") != getattr(ref, "raw", None) or kind_of(ref) == "cloud":
-        return budget
+        from halo_harness.providers.hf_profile import reply_budget  # 3.3.8.0 R2: a local server's profile num_predict
+        return reply_budget(session, budget)
     return reserve
 
 

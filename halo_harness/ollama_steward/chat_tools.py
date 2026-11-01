@@ -5,7 +5,7 @@ them, one at a time, as the model asks).
     run(env, name, args) -> {ok, text, button?, landed?}
     env = {state, ctx (rules.gather), found (the findings, a paired host's folded in), hosts, mode}
 
-Reads: card, ledger, events, profiles, speed, knowledge, findings, bundles, advice, busy (why the card is busy:
+Reads: card, ledger, events, servers (3.3.8.0 R2: the local servers), profiles, speed, knowledge, findings, bundles, advice, busy (why the card is busy:
 idle.idle_since), refresh (what the off-hours refresh does tonight). Acts, within the duty steward's bounds -- a
 Halo-side profile field (profiles.CHANGEABLE), one change per answer, citing a finding -- `propose` lands through
 agent_proposals (its bounds, steward.check, the mode; a host-served model through the host's guarded path). `apply`
@@ -19,6 +19,7 @@ TOOLS = {
     "card": ("{host?}", "the host's hardware card: its GPUs, what holds memory, the server's settings"),
     "ledger": ("{host?, model?}", "the calls per model: count, tok/s, trims, cut replies, errors, machines"),
     "events": ("{host?}", "the newest server events"),
+    "servers": ("{name?}", "the local servers (llama-server, LM Studio, mlx): runtime, model, window, log status"),
     "profiles": ("{host?}", "the Halo-side profiles and the battery profiles (tools, vision, where it sits)"),
     "speed": ("{host?, model?}", "the speed cards: tok/s and first-token time per window, the cold load"),
     "knowledge": ("{kind}", "what an alert kind or a topic means, from the steward's knowledge"),
@@ -71,6 +72,21 @@ def _events(env, a):
     from halo_harness.ollama_steward.server_events import format_event
     evs = [e for e in env["ctx"].get("events") or [] if not a.get("host") or e.get("host") == a["host"]][-10:]
     return _say([format_event(e) for e in evs], "no server events")
+
+
+def _servers(env, a):
+    """3.3.8.0 R2: the local servers beside the hosts: each one's line, its newest events, what its log never says."""
+    from halo_harness.ollama_steward.hardware_servers import lines, rows
+    from halo_harness.ollama_steward.server_events import format_event
+    from halo_harness.ollama_steward.server_rules_hf import not_asked
+    want = str(a.get("name") or a.get("host") or "").lower()
+    out = []
+    for r in rows(env["state"], env["ctx"].get("servers")):
+        if want and r["name"].lower() != want:
+            continue
+        out += lines([r]) + [f"  its log never says: {', '.join(not_asked(r.get('runtime'))) or 'nothing it is asked'}"]
+        out += [f"  {format_event(e)}" for e in env["ctx"].get("events") or [] if e.get("host") == r["name"]][-3:]
+    return _say(out, "no local server on this machine")
 
 
 def _profiles(env, a):
@@ -140,7 +156,7 @@ def _refresh(env, a):
 def run(env: dict, name: str, args) -> dict:
     from halo_harness.ollama_steward import chat_acts
     args = args if isinstance(args, dict) else {}
-    reads = {"card": _card, "ledger": _ledger, "events": _events, "profiles": _profiles, "speed": _speed,
+    reads = {"card": _card, "ledger": _ledger, "events": _events, "servers": _servers, "profiles": _profiles, "speed": _speed,
              "knowledge": _knowledge, "findings": _findings, "bundles": _bundles, "advice": _advice, "busy": _busy,
              "refresh": _refresh}
     acts = {"propose": chat_acts.propose, "apply": chat_acts.apply, "bench": chat_acts.bench, "battery": chat_acts.battery}

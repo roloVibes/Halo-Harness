@@ -4504,6 +4504,10 @@ class Session:
                     f"{provider_display_name(self.route.provider)} rejected {param_fix_pending.field} on this "
                     f"endpoint; {describe_fix(param_fix_pending)} and retried; remembered for this endpoint",
                     level="info")
+            if self.route.provider == "huggingface":  # 3.3.8.0 R2: the local server's own log (agent/server_log_recovery.py)
+                from halo_harness.agent.server_log_recovery import after_call as _server_log_after
+                for _line in _server_log_after(self):
+                    yield events.turn_marker("local", f"↳ {_line}", turn=turn_no)
             if self.route.dialect == "ollama":
                 from halo_harness.agent.local_failure import after_call  # 3.3.6.0 R1: a cold load, an unverified id
                 for _line in after_call(self, harness_meta, assistant_blocks):
