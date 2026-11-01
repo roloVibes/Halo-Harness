@@ -8,7 +8,8 @@
         answers {ok, job, view} and its `job` frames go out on `GET stream`; `GET job/<id>` catches up.
     POST admin/<op>                   the grant, then 501: admin operations are not part of this version
     POST request {grant, why?}        a peer asks the owner for a grant (a pending row of kind grant)
-    GET  me | job/<id> | jobs | changes | findings | pending; 3.3.7.0 R4: residency | idle | refresh (routes_guard.py)
+    GET  me | job/<id> | jobs | changes | findings | pending; 3.3.7.0 R4: residency | idle | refresh (routes_guard.py);
+         3.3.8.0 R3: rpc (the rpc-server this host runs: host/ops_rpc.status)
 
 `act_audit` is the audit line's extra fields per request: {op, params, evidence, dry, ok, landed, fix, change_id?,
 job?}. Nothing here runs a model, changes a server setting or restarts a server.
@@ -20,7 +21,7 @@ from halo_harness.fleet import protocol
 
 ADMIN_LINE = ("admin operations are not part of this version: nothing runs a shell on a host (the grant exists so an "
               "owner can see what it would mean)")
-GET_ROUTES = ("me", "job", "jobs", "changes", "findings", "pending")
+GET_ROUTES = ("me", "job", "jobs", "changes", "findings", "pending", "rpc")
 
 
 def _vocab_line(head: str) -> str:
@@ -56,8 +57,12 @@ def post(svc, route: str, raw: bytes, hid: str) -> "tuple[int, dict, dict]":
     if problems:
         return 422, {"error": f"{name}: " + "; ".join(problems), "problems": problems}, audit
     audit["params"] = params
-    status, out = grants.decide(svc.home, hid, rec, op.grant, name, body)
+    status, out = grants.decide(svc.home, hid, rec, op.grant, name, body) if not (  # 3.3.8.0 R3: a lease renewal
+        name == "renew" and grants.holds(grants.grants_of(rec), "control") and grants.cap(svc.home) != "none") else (200, None)
     if status != 200:
+        if name == "rpc_server":  # 3.3.8.0 R3: the grant it needs, and once per host the trusted-LAN line
+            from halo_harness.host.ops_rpc import refused
+            out = refused(svc.home, status, out)
         return status, out, audit
     ctx = Ctx(svc, hid, rec, body)
     if "host" in op.params:
@@ -115,5 +120,8 @@ def get(svc, route: str, q: dict, hid: str):
     if head == "pending":
         mine = grants.pending(svc.home, peer=hid)
         return 200, protocol.doc(pending=mine)
+    if head == "rpc":  # 3.3.8.0 R3: the rpc-server this host runs for a pool (host/ops_rpc.py)
+        from halo_harness.host.ops_rpc import status
+        return 200, protocol.doc(rpc=status(svc.home), addr=svc.addr())
     from halo_harness.host.findings import host_findings
     return 200, protocol.doc(findings=host_findings(svc.view))

@@ -44,11 +44,22 @@ def profile_for_ref(ref, state_dir=None) -> dict:
 
 
 def window(ref, served: Optional[int]) -> Optional[int]:
-    """The served window, or the profile's when it is smaller (or the server says none)."""
+    """The served window, or the profile's when it is smaller (or the server says none); 3.3.8.0 R3: never past the
+    server entry's `max_ctx` (the pool's fit window: a 64k promise never reaches a request)."""
     mine = _pos(profile_for_ref(ref).get("num_ctx"))
-    if mine and (not _pos(served) or mine < served):
-        return mine
-    return served
+    out = mine if mine and (not _pos(served) or mine < served) else served
+    cap = _entry_max(ref)
+    return cap if cap and (not _pos(out) or out > cap) else out
+
+
+def _entry_max(ref) -> Optional[int]:
+    if not _local(ref) or not getattr(ref, "host", None):
+        return None
+    try:
+        from halo_harness.providers.huggingface import resolve_huggingface_local_server
+        return _pos(getattr(resolve_huggingface_local_server(ref.host), "max_ctx", None))
+    except Exception:
+        return None
 
 
 def reply_budget(session, budget):

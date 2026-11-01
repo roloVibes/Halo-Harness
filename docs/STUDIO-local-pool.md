@@ -1,16 +1,16 @@
 # Studio: Local -> Pool
 
-Read this when you look at the pool from Studio: its members and their free VRAM, what the pool can run, the Scan, or the Library's Pool preset.
+Read this when you look at the pool from Studio: its members and their free VRAM, Warm and Stop with the preflight, what the pool can run, the Scan, or the Library's Pool preset.
 
 Part of [Halo Studio](STUDIO.md), which lists every part. The other Local pages are in
 [STUDIO-local.md](STUDIO-local.md); what a pool is and the arithmetic of its fit are in [POOL.md](POOL.md).
 
 ## The Pool page (3.3.8.0 R1)
 
-Local's ninth page, read-only this round: nothing on it launches a process, loads a model or changes a host. Its
-first line says so ("warm and stop arrive in R2") and why the pool exists at all (pooling adds capacity, not speed).
-It reads the members and the recommendation when it opens and every 30 seconds while it is open; the Scan runs only
-when its button is pressed. Three blocks:
+Local's ninth page. Its first line says why the pool exists at all (pooling adds capacity, not speed) and that
+rpc-server is for a trusted LAN only. It reads the members and the recommendation when it opens and every 30 seconds
+while it is open, the running pool every 10 seconds (every 1.5 s while a Warm runs); the Scan runs only when its
+button is pressed. Four blocks:
 
 - **Members**: one row per member of `pool.json` -- the host and RPC port (a paired host's name, `local`, or a
   worker's address), the GPU, the **free VRAM** of its total (its title: usable with the duty steward's helper out,
@@ -18,6 +18,7 @@ when its button is pressed. Three blocks:
   stated it"), the **link** the host card reads ("2.5 GbE", "Wi-Fi (adapter)", "unknown"), the **RTT** of the last
   scan ("0.4 ms", "12 ms -- Wi-Fi?", "not probed (Scan)"), its **share** of the tensor split, and **Remove** (pool.json
   only). The head line sums the free VRAM and gives the split; a validation line stands under it.
+- **Run -- Warm and Stop** (3.3.8.0 R3, below).
 - **Scan**: the button connects to the RPC port (`pool.rpc_port`, 50052) on this machine's /24 and on every member;
   each responder is listed with its connect time, the paired host at that address, and **Add as <name>** (a paired
   host by its name -- unless a member already counts that machine's card -- else by its address). The answer is kept,
@@ -28,6 +29,24 @@ when its button is pressed. Three blocks:
   verify job, the licence card first ([STUDIO-local.md](STUDIO-local.md#hugging-face)). Under each row the verdict, the
   preview before any download and, one click away, every number behind it (the matched-memory block, the build line,
   the speed's source). The check box shows the batch-only models.
+
+## Warm and Stop (3.3.8.0 R3)
+
+The **Run** block: the pool's state line ("the pool serves Qwen3-Next-80B-A3B Q4_K_M: running", "loading",
+"degraded (worker2 down)", "down: the pool's llama-server exited (...)", "the pool is not running"); while it runs,
+one row per member (up / down / this GPU, its address, its claim and the lease left). Below it: the **model** (what
+fits the pool, from the recommendation), the **Wi-Fi switch** (keep a Wi-Fi member: a slower decode; off, the
+preflight leaves it out and says so), **Warm** and **Stop**.
+
+While the pool is stopped the block shows the **preflight** of the model picked -- its eight checks, one row each
+with its lines and "ok" or "blocks" (fit, link, rpc, versions, build, gguf, resident, window; [POOL.md](POOL.md#the-preflight))
+-- and **Warm is enabled only when every check is green**; its title says the first block otherwise, or the 10
+minute cooldown. Warm answers at once and the block follows it: the claims on every member (each resident model it
+pivots out is a line), each worker's rpc-server, llama-server, the `pool` entry; the lines of the Warm stay under the
+block. **Stop** stops llama-server, removes the entry, releases the claims and says how each pivoted-out model comes
+back. Warm and Stop are changes under the steward contract (one warm per 10 minutes, the auto-revert on the first
+three calls). A pool this Studio did not warm (`halo local serve --pool --keep`) is adopted when the page reads it:
+this Studio renews its claims from then on.
 
 ## The Library's Pool preset
 
@@ -40,12 +59,17 @@ head ("2 of 2 members with their VRAM read, 60.0 GB free; ...").
 
 ## The routes
 
-All under `local/` (studio/pool_api.py, dispatched by studio/local_api.py), the same guard as every Studio route;
+All under `local/` (studio/pool_api.py and, 3.3.8.0 R3, studio/pool_act_api.py; dispatched by studio/local_api.py), the same guard as every Studio route;
 each answer carries `cli`, the `halo pool` line that does the same:
 
 | Route | Answers |
 |---|---|
-| `GET local/pool/members` | the members with their budget rows, the split and where it came from, the head, the validation lines, `rpc_port`, `not_yet`, the last scan's line |
+| `GET local/pool/members` | the members with their budget rows, the split and where it came from, the head, the validation lines, `rpc_port`, the last scan's line |
+| `GET local/pool/run` | 3.3.8.0 R3: the running pool (`state`, `line`, `members` with their claims, `degraded`, the auto-revert's `judge`), `warm` (the Warm in progress and its lines), `cooldown`; adopts a pool this process does not hold |
+| `GET local/pool/preflight?model=&allow_wifi=1&window=` | the preflight: `ok`, `checks`, `blocks`, `line`, the window and the KV cache it would use; 404 for a model not in the catalog |
+| `POST local/pool/warm {model, allow_wifi?, window?}` | 202 and `busy` at once (the launch waits for /health in the background); 409 inside the 10 minute cooldown or while a Warm runs |
+| `POST local/pool/stop` | the stop's lines |
+| `POST local/pool/rpc {member, to: on \| off \| status}` | a member's rpc-server through its halo host |
 | `GET local/pool/recommend?batch=1` | `{rows, others, hidden, head, nodes, free_gb}`: the ranked rows, what does not fit, the batch-only models left out |
 | `GET local/pool/verdict?model=` | one catalog model's fit and preview (404 for a name not in the catalog) |
 | `POST local/pool/scan {port?, subnets?, own_subnet?}` | `{candidates, members, networks, notes, line}`; a GET is 405: a scan is never a page load |

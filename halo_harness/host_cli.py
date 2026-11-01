@@ -9,6 +9,7 @@
     halo host uninstall [--os OS] [--json]                                       (host_install.py)
     halo host grant | revoke <peer> <grant> | peers | pending | allow <id> | deny <id>   (host_pair_cli.py, R2)
     halo host steward on --model REF | off | status | run                        (host_steward_cli.py, R2)
+    halo host rpc on | off | status [--port N] [--mem MIB]                       (host_rpc_cli.py, 3.3.8.0 R3)
 
 `serve` starts the host in the background (a detached `halo host serve --foreground`) and returns once its
 serve.json is written; `--foreground` runs it here until Ctrl+C or `halo host stop`. Exit codes: 0 done, 1 could
@@ -26,7 +27,7 @@ from halo_harness.fleet import identity
 from halo_harness.remote import cli_common as C
 
 VERBS = ("serve", "status", "stop", "pair", "join", "install", "uninstall", "grant", "revoke", "peers", "pending",
-         "allow", "deny", "steward", "refresh")
+         "allow", "deny", "steward", "refresh", "rpc")
 PAIR_VERBS = ("pair", "join", "grant", "revoke", "peers", "pending", "allow", "deny")
 SEAMS: dict = {}  # "spawn": fn(argv) -> a Popen-like (the tests' seam: no detached process in a test)
 USAGE = """usage: halo host [serve] [--port N] [--bind ADDR] [--foreground] [--no-tls] [--json]
@@ -40,6 +41,7 @@ USAGE = """usage: halo host [serve] [--port N] [--bind ADDR] [--foreground] [--n
        halo host peers [--json]   halo host pending [--json]   halo host allow <id> [--json]   halo host deny <id>
        halo host steward on --model REF | off | status | run [--json]
        halo host refresh status | now | off | on [--json]
+       halo host rpc on | off | status [--port N] [--mem MIB] [--json]
 
   serve      run halo host: the model-free monitor of this machine's model servers, serving paired peers
   status     is it running, since when, its port, peers, last request, what it watches (--peer: a paired host's)
@@ -52,7 +54,8 @@ USAGE = """usage: halo host [serve] [--port N] [--bind ADDR] [--foreground] [--n
   peers      the peers paired here: grants, last seen, requests
   pending    the requests queued for you under fleet.allow_control: ask; allow / deny answers one
   steward    the duty steward: a separate opt-in process running the steward on a small local model (off by default)
-  refresh    the off-hours refresh: the battery and the quick bench when the card is idle inside host.refresh.window"""
+  refresh    the off-hours refresh: the battery and the quick bench when the card is idle inside host.refresh.window
+  rpc        llama.cpp's rpc-server for a pool on this machine's LAN address (a trusted LAN only): on, off, status"""
 
 
 def _parser(verb: str, description: str) -> argparse.ArgumentParser:
@@ -233,9 +236,10 @@ def cmd_host(argv: list) -> int:
     if verb == "steward":
         from halo_harness.host_steward_cli import cmd_steward
         return cmd_steward(rest)
-    if verb == "refresh":  # 3.3.7.0 R4
+    if verb in ("refresh", "rpc"):  # 3.3.7.0 R4; 3.3.8.0 R3: rpc-server for a pool
+        from halo_harness.host_rpc_cli import cmd_rpc
         from halo_harness.local_refresh_cli import cmd_host_refresh
-        return cmd_host_refresh(rest)
+        return (cmd_host_refresh if verb == "refresh" else cmd_rpc)(rest)
     if verb in ("install", "uninstall"):
         from halo_harness import host_install
         return getattr(host_install, "cmd_" + verb)(rest)

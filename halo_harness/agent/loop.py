@@ -4158,8 +4158,9 @@ class Session:
                 # line below. Non-overload retryables (a spurious 404, an
                 # empty completion retry, anything not in the Governor's
                 # overload set) keep this ladder exactly as before.
+                from halo_harness.local_pool.degrade import is_pool_ref as _is_pool  # 3.3.8.0 R3: fails once, said
                 if merged_retryable and attempts <= max_retries_for(self.model_ref.provider, e.err_type) \
-                        and not _overload_owned_by_governor(e.status, e.message):
+                        and not _overload_owned_by_governor(e.status, e.message) and not _is_pool(self.model_ref):
                     hdrs = {"retry-after": e.retry_after} if e.retry_after else {}
                     delay = _capped_retry_delay(attempts, hdrs)
                     if self._abort_sleep(delay):
@@ -4195,6 +4196,9 @@ class Session:
                 # stderr line, and the TUI's error note/notification (tui/
                 # dispatch.py's own "error" handler prints `message` as-is).
                 display_status = e.upstream_status if e.upstream_status is not None else e.status
+                if _is_pool(self.model_ref):  # the pool's line: degraded (worker2 down), the request not retried
+                    from halo_harness.local_pool.degrade import failed_line
+                    e.message, display_status = failed_line(e.message, self.state_dir, display_status), None
                 yield events.error(f"HTTP {display_status}: {e.message}" if display_status else e.message,
                                     turn=turn_no, err_type=e.err_type, retryable=e.retryable,
                                     category=overflow_classifier(e.status, e.message))

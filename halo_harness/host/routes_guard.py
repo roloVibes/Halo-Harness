@@ -17,10 +17,9 @@ ROUTES = ("residency", "idle", "refresh")
 
 def get(svc, head: str, q: dict):
     if head == "residency":
-        from halo_harness.host.residency import rows
+        from halo_harness.host.residency import claims, rows  # 3.3.7.0 R5 claims; 3.3.8.0 R3: the live ones (a lease)
         from halo_harness.local_sched.pivot import min_resident_s
-        from halo_harness.local_sched.claims_file import host_file, read  # 3.3.7.0 R5: the bundles' claims
-        return 200, protocol.doc(residency=rows(svc.home), min_resident_s=min_resident_s(), claims=read(host_file(svc.home)))
+        return 200, protocol.doc(residency=rows(svc.home), min_resident_s=min_resident_s(), claims=claims(svc.home))
     if head == "idle":
         from halo_harness.ollama_steward.idle import idle_since
         out = []

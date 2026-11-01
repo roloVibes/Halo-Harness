@@ -10,6 +10,8 @@ instead of one per process. Two halos with no host each keep their own clock (pi
     forget(home, host_name, model)                                                    an unload landed
     read(home) -> {key: row}         rows(home) -> [{host, model, at, by, op, keep_alive}]   the GET answer
     held_for(rows, host_name, model, min_s, *, now=None) -> seconds still held (0.0 when free or not on the clock)
+    claims(home, now=None) -> the live claims on the cards this host serves (3.3.8.0 R3: a claim past its lease
+        `until` is not a claim -- its holder stopped renewing it; local_sched/claims_file.py)
 No request is sent; nothing here loads or unloads a model.
 """
 
@@ -92,3 +94,8 @@ def held_for(table: list, host_name: str, model: Optional[str], min_s: float, *,
                 and isinstance(r.get("at"), (int, float)):
             return max(0.0, float(min_s) - (now - float(r["at"])))
     return 0.0
+
+
+def claims(home, now: Optional[float] = None) -> list:
+    from halo_harness.local_sched.claims_file import host_file, read as read_claims
+    return read_claims(host_file(home), now=now)

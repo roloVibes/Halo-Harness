@@ -29,7 +29,12 @@ def place_lineup(name: Optional[str] = None) -> dict:
             name = None
     lanes, _declared, lineup = lanes_for(name)
     got = solve(lanes)
-    return {**got, "lineup": lineup}
+    from halo_harness.local_pool.route import pool_host  # 3.3.8.0 R3: the pool is one more option, said
+    pool = None
+    if pool_host() is not None:
+        from halo_harness.local_pool.degrade import status
+        pool = status()["line"]
+    return {**got, "lineup": lineup, "pool": pool}
 
 
 def cmd_place(argv: list) -> int:
@@ -61,6 +66,8 @@ def cmd_place(argv: list) -> int:
         to = r["host"] or "nowhere"
         moved = f" (from {r['from_host']}: --apply writes host_for)" if r.get("moved") and not args.apply else ""
         print(f"  {r['lane']}: {r['model']} on {to} -- {r['why']}{moved}")
+    if plan.get("pool"):
+        print(f"  pool (one more option, scored with its decode penalty): {plan['pool']}")
     for line in written:
         print(f"  wrote: {line}")
     return 0

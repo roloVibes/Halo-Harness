@@ -140,3 +140,15 @@ is on, its window, the idle minutes and the age that re-verifies, the plan's nex
 few after it, the last run and the last roster review. `now` asks the running host to start at its next tick, the
 window aside (never during a session, never while a call or a foreign model holds the card); with no host running
 it runs here, as `halo local refresh` does. `off` / `on` write `host.refresh.enabled`.
+
+## `halo host rpc`
+
+```sh
+halo host rpc on | off | status [--port N] [--mem MIB] [--json]
+```
+
+Halo 3.3.8.0 R3, a pool worker's rpc-server on this machine ([HOST.md](HOST.md#rpc-server-for-a-pool-3380-r3),
+[POOL.md](POOL.md)): `on` starts `rpc-server -H <the LAN address this host serves on> -p <pool.rpc_port> --mem <this
+machine's free VRAM in MiB>` (`--port`, `--mem` to choose) and says the trusted-LAN line (rpc-server has no
+authentication); `off` stops the one it started; `status` prints whether it runs, its address, pid, version and
+`--mem`. The owner needs no grant here; a controller asks the same through `halo pool rpc <member> on`.
