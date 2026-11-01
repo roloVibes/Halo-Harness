@@ -106,11 +106,11 @@ export async function loadTune(host: string): Promise<void> {
 export async function applyOption(host: string, id: string, scope: Scope): Promise<void> {
   try {
     const r = await api.post<{ lines: string[] }>(`local/host/${encodeURIComponent(host)}/tune/apply`, { id, scope });
-    say(`opt|${id}`, true, (r.lines || []).join(" · "));
+    say(`opt|${host}|${id}`, true, (r.lines || []).join(" · "));
     void loadChanges();
     void loadTune(host);
   } catch (e) {
-    say(`opt|${id}`, false, msg(e));
+    say(`opt|${host}|${id}`, false, msg(e));
   }
 }
 

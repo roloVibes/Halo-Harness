@@ -71,10 +71,14 @@ def bench(c, url, ctx) -> dict:
     opt = q("[data-testid=tune-option][data-kind=halo]")
     out["option"] = c.wait(f"{opt}?.querySelector('.tune-line')?.textContent", 20)
     before = dict((config(ctx).get("ollama") or {}).get("profiles") or {})
-    press(c, f"{opt}.querySelector('[data-testid=tune-scope-opt][data-scope=until-restart]')",
-          f"{opt}.querySelector('[data-testid=tune-scope]').dataset.value === 'until-restart'")
-    press(c, f"{opt}.querySelector('[data-testid=tune-apply]')", f"!!{opt}.querySelector('[data-testid=tune-said]')")
-    out["applied"] = c.js(f"{opt}.querySelector('[data-testid=tune-said]').textContent")
+    # pinned to the option's id: which option is first depends on whether the Local sampler's first sample (18 GB held by
+    # others on the fake machine) landed before the report was read, and an applied option often leaves the report --
+    # its line then stays on a landed row with the same id (TuneReport.tsx)
+    mine = q(f'[data-testid=tune-option][data-id="{c.js(f"{opt}.dataset.id")}"]')
+    press(c, f"{mine}?.querySelector('[data-testid=tune-scope-opt][data-scope=until-restart]')",
+          f"{mine}?.querySelector('[data-testid=tune-scope]')?.dataset.value === 'until-restart'")
+    press(c, f"{mine}?.querySelector('[data-testid=tune-apply]')", f"!!{mine}?.querySelector('[data-testid=tune-said]')")
+    out["applied"] = c.js(f"{mine}.querySelector('[data-testid=tune-said]').textContent")
     chg = "[data-testid=change-row][data-by=user]"
     out["change"] = c.wait(f"!!{q(chg)} && [{q(chg)}.dataset.scope, {q(chg)}.querySelector('[data-testid=change-line]').textContent]", 20)
     out["written"] = {k: v for k, v in ((config(ctx).get("ollama") or {}).get("profiles") or {}).items() if v != before.get(k)}

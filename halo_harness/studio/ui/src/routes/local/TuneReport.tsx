@@ -24,7 +24,7 @@ function Server({ o }: { o: TuneOption }) {
 
 function Option({ host, o }: { host: string; o: TuneOption }) {
   const [scope, setScope] = useState<Scope>(o.scope_default || "keep");
-  const said = useBench((s) => s.said[`opt|${o.id}`]);
+  const said = useBench((s) => s.said[`opt|${host}|${o.id}`]);
   return (
     <li className="tune-opt" data-testid="tune-option" data-kind={o.kind} data-id={o.id}>
       <div className="tune-line"><span className="og-chip mono" data-kind={o.kind}>{o.kind === "halo" ? "Halo" : "server"}</span> {o.line}</div>
@@ -47,6 +47,7 @@ export function TuneReport() {
   const name = host || hosts?.[0]?.name || "";
   const r = useBench((s) => (name ? s.reports[name] : undefined));
   const said = useBench((s) => s.said[`tune|${name}`]);
+  const saids = useBench((s) => s.said);
   useEffect(() => {
     if (name) {
       void loadTune(name);
@@ -75,7 +76,15 @@ export function TuneReport() {
           {r.findings.length > 0 && (
             <ul className="mono tune-findings">{r.findings.map((f) => <li key={f.id} data-severity={f.severity} data-testid="tune-finding">{f.line}</li>)}</ul>
           )}
-          <ol className="tune-options">{r.options.map((o) => <Option key={o.id} host={name} o={o} />)}</ol>
+          <ol className="tune-options">
+            {r.options.map((o) => <Option key={o.id} host={name} o={o} />)}
+            {Object.entries(saids).filter(([k]) => k.startsWith(`opt|${name}|`) && !r.options.some((o) => k === `opt|${name}|${o.id}`)).map(([k, s]) => (
+              // an applied option often leaves the report (its change is in effect): its line stays here, on a landed row
+              <li key={k} className="tune-opt" data-testid="tune-option" data-kind="halo" data-id={k.split("|")[2]} data-landed="1">
+                <div className="mono lc-said" data-ok={s.ok || undefined} data-testid="tune-said">{s.text}</div>
+              </li>
+            ))}
+          </ol>
           <p className="mono muted">the same from a terminal: <code>{r.cli}</code></p>
         </>
       )}

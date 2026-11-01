@@ -346,6 +346,8 @@ Three blocks (3.3.6.0 R5, `routes/local/BenchPage.tsx`; the bench itself: [MODEL
   findings for that host, then every option with what it writes and how long it takes. A Halo-side option has the scope
   pick (keep, until halo exits, until the session ends; keep preselected) and **Apply**; a server-side one shows the
   exact line for that host's shell and its revert line (every OS's when the host's is not known). Halo runs neither.
+  An applied option often leaves the report (its change is in effect): the line that says what landed stays in its
+  place until the page is left, and the change is in the Changes list below.
 - **Changes**: every change Halo made to a local model's profile still in force -- who made it, from and to, its
   scope (a new pick changes it) -- with **Revert** (and **Revert all**); the line under the list says what went back.
   Settings -> Local shows the same list; the model card's KV dial has its own Apply with the scope pick.
