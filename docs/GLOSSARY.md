@@ -263,3 +263,14 @@ Drift (3.3.7.0 R4) is a tag whose digest changed since Halo measured it: `ollama
 
 The adviser (3.3.7.0 R4) is the roster review: a deterministic look, with no model, at the installed local models against the roles, the host's memory, the capability profiles and the host log, in four kinds -- gap (nothing embeds, nothing sees, a role with no model), overlap (models covering the same ground), mismatch (the verifier on the coder's family, a compactor that pivots) and freshness (a family with a newer line) -- each with what it unlocks or frees, what it costs and one button: add, retire or point. `halo local advise` and the Adviser block on Local -> Models.
 
+## bundle
+
+A bundle (3.3.7.0 R5) is a pack with a resource claim: its `pack.yaml` has a `bundle:` block naming the local models it needs (each role and the models that can fill it, with a window and a device), the one it reserves while it is on, where the other work goes and its latency budget. The Pack Manager shows each as a tick with its verdict under it; `halo pack verdict | on | off <bundle>`. Halo ships nine: meta-glasses (voice), bulk-worker, verifier, compactor, embeddings, translation, vision, offline-only and coder-first. (A Studio panel's `bundle` kind, a script module, is another thing.)
+
+## reservation
+
+A reservation (3.3.7.0 R5) is a bundle's claim on a card for as long as it is on: the reserved model keeps `keep_alive -1` on its profile, its GB count in every budget line ("1.2 GB reserved for meta-glasses; 20.8 GB free for tasks"), nothing Halo does evicts it, and a load that would breach what is left is refused or queued with one line naming the claim and the numbers; other work routes around it. A halo host holds the claims for the cards it serves (`control/claim`); with no host this machine's scheduler holds them.
+
+## verdict
+
+A verdict (3.3.7.0 R5) is a bundle's honest answer before anything downloads: ready (everything is here and it fits, with the expected latency), needs N downloads (each tag with its size, its fit and the minutes, and one button that starts Download and verify) or won't work (what it needs against what there is, and the ways out, each a number: a speech model on the CPU, a smaller model, a smaller window). It is arithmetic over the card, the catalog and the claims; nothing is guessed.

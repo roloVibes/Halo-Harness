@@ -129,8 +129,8 @@ MODEL = ("str", True, "the model")
 
 
 def table() -> dict:
-    from halo_harness.host import ops_control, ops_jobs, ops_manage
-    return {op.name: op for op in ops_control.TABLE + ops_jobs.TABLE + ops_manage.TABLE}
+    from halo_harness.host import ops_claim, ops_control, ops_jobs, ops_manage  # ops_claim: 3.3.7.0 R5 (a bundle's claim)
+    return {op.name: op for op in ops_control.TABLE + ops_claim.TABLE + ops_jobs.TABLE + ops_manage.TABLE}
 
 
 def vocabulary() -> list:

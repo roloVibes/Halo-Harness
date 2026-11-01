@@ -55,7 +55,7 @@ window, a replay guard) and inside TLS with the host's own pinned certificate wh
 | `POST admin/<op>` | the `admin` grant, then 501: admin operations are not part of this version (nothing runs a shell on a host) |
 | `POST request {grant, why?}` | a peer asks the owner for a grant: a pending row |
 | `POST ledger {lines}` | a peer's calls to a server this host serves, kept in the host's ledger with `from` = the peer (the answer carries the host's profiles under the peer's own names) |
-| `GET residency` | 3.3.7.0 R4: the residency clock -- `{host, model, at, by, op, keep_alive}` per model a warm, pin or pivot through the host loaded, and `min_resident_s` |
+| `GET residency` | 3.3.7.0 R4: the residency clock -- `{host, model, at, by, op, keep_alive}` per model a warm, pin or pivot through the host loaded, and `min_resident_s`; R5: `claims`, the bundles' reservations on the cards it serves |
 | `GET idle` | 3.3.7.0 R4: per served host, whether the card is idle (the newest use Halo saw) or busy, and the foreign models (`/api/ps` rows no Halo record explains) |
 | `GET refresh` | 3.3.7.0 R4: the off-hours refresh's plan line, its last run and the last roster review |
 
@@ -102,6 +102,7 @@ job-shaped op answers `{job}` and streams `job` frames on `GET stream` (`GET job
 | `delete {model, force?}`, `retire {model, why?, force?}` | manage | after the uses card: a live session refuses it, a role or lineup naming it too unless `force` | Ollama's blob store; retire adds a shelf line | applied | `pull` (the re-pull line) |
 | `restart_ollama {}`, `set_env {key, value}` | manage | the exact line for the host's OS | nothing | **stated** | the revert line |
 | `revert {change}` | manage | the change put back | `ollama.profiles`, a revert line | applied | -- |
+| `claim {model, gb, bundle, window?, priority?, keep_alive?}`, `release {bundle}` | control | 3.3.7.0 R5: a bundle's reservation, held by the host: its GB count in every load, the model is never unloaded or pivoted out for anyone else ([MODELS-bundles.md](MODELS-bundles.md)) | `<state>/host/claims.json` | applied (Halo's side; nothing loads) | `release` |
 
 Code never changes a host-side Ollama setting, restarts a server or sets `OLLAMA_DEBUG`: the KV type, flash
 attention, the env and a restart are stated actions, the line you run there (`ollama_steward/tune_lines.py`).
@@ -129,7 +130,10 @@ fix: the invariants guard it.
 Deterministic, no model: `warm` / `pin` / `pivot` run the fit planner first and refuse a model that does not fit at
 the asked window with the plan's verdict line; a second resident is refused unless `beside: true` and the plan says
 both fit (one resident per card otherwise); the asked `keep_alive` goes on the load and comes back in the answer; a
-request whose dry run says the card would be breached is refused in the same words. The card and `route` answers
+request whose dry run says the card would be breached is refused in the same words; 3.3.7.0 R5: a bundle's claim
+counts in every load's budget -- a load that would breach what is left is refused with the claim and the numbers
+("qwen3.8:27b would need 18.9 GB with voice's 4.0 GB held; 18.0 GB free -- queued behind voice"), a reserved resident
+is not "another resident", and an unload or a pivot of a reserved model is refused. The card and `route` answers
 carry `usable_gb` and `usable_with_helper_gb`: "20.6 GB usable; 18.6 GB with the helper (qwen3.5:9b, 2.0 GB)".
 
 ## Peers act through the host
@@ -231,7 +235,8 @@ all the same); `halo host uninstall` removes the file it wrote and prints the di
 Files under `<state>/host/`: `serve.json`, `codes.json`, `peers.json`, `audit.jsonl`, `pending.jsonl`,
 `fixes.jsonl`, `steward.json` / `steward.key` while the duty steward is on, `cert.pem` / `key.pem`, `stop` while
 `halo host stop` asks it to end; R4: `residency.json` (the residency clock), `refresh.jsonl` (the refresh's runs and
-roster reviews) and `refresh-now` while `halo host refresh now` asks for a run.
+roster reviews) and `refresh-now` while `halo host refresh now` asks for a run; R5: `claims.json` (the bundles'
+reservations, local_sched/claims_file.py).
 
 ## The residency clock (3.3.7.0 R4)
 

@@ -10,7 +10,9 @@ agent/loop.py), through the loop rig with a scripted fake Ollama on 127.0.0.1:0 
 4. `tool_failures` between tool rounds takes the next rung that fits it (a smaller ask; repair is the repair round's);
 5. `local.ladder: off` leaves R1's own line; a custom order is followed;
 6. 3.3.7.0 R4: a crash fingerprint of the model in use (here, at this window, just now) steps the ladder before
-   low_confidence: past the smaller ask, the line naming the fingerprint, once per fingerprint.
+   low_confidence: past the smaller ask, the line naming the fingerprint, once per fingerprint;
+7. 3.3.7.0 R5: a model a bundle reserves is never a rung's target, and while the offline-only bundle is on the cloud
+   rung is not taken (said why).
 Run: python -m tests.test_degrade
 """
 from __future__ import annotations
@@ -203,6 +205,25 @@ def test_a_crash_fingerprint_steps_the_ladder_first(ctx: Ctx):
                   and not any("escalation to" in str(e.data) for e in evs))
         evs2 = rig.run(s, [say("again")])
         ctx.check("one fingerprint steps it once", _rungs(evs2) == [])
+
+
+@test
+def test_a_reserved_model_is_no_rung_and_offline_only_has_no_cloud(ctx: Ctx):
+    from halo_harness.local_sched import claims_file as CF
+    with Rig() as rig:  # 3.3.7.0 R5: a bundle holds big:30b; the offline-only bundle is on
+        _probed(rig)
+        for row in ({"bundle": "verifier", "host": "lan", "model": "big:30b", "gb": 18.0, "escalation": "on"},
+                    {"bundle": "offline-only", "host": "lan", "model": None, "gb": 0.0, "escalation": "off"}):
+            CF.put(CF.local_file(rig.state_dir), {**row, "holder": "keep", "scope": "keep", "via": "local"})
+        _set("local.ladder", ["other-local", "cloud", "ask"])
+        _set("routing.escalation", {"to": "or:some/cloud", "when": ["tool_failures"], "ask": False})
+        rig.mock.scenarios.update({"mid:14b": script([reply("")]), "big:30b": script([reply("never asked")])})
+        s = rig.session("ol:mid:14b@lan")
+        got = _rungs(rig.run(s, [say("hi")]))
+        ctx.check(f"the reserved model is no rung's target, and no cloud rung while offline-only is on, got {got}",
+                  got[:2] == ["rung 1: another local model -- none probed with tools here; next rung",
+                              "rung 2: cloud -- not taken: the offline-only bundle is on: no cloud rung "
+                              "(halo pack off offline-only)"] and s.model_ref.raw == "ol:mid:14b@lan")
 
 
 if __name__ == "__main__":

@@ -1,7 +1,8 @@
 """halo_harness.host.routes_guard -- the host's R4 reads (Halo 3.3.7.0 R4; docs/HOST.md "The residency clock", "The
 off-hours refresh"; dispatched by host/routes_act.get).
 
-    GET residency   {residency: [{host, model, at, by, op, keep_alive}], min_resident_s}: the shared clock
+    GET residency   {residency: [{host, model, at, by, op, keep_alive}], min_resident_s, claims}: the shared clock and
+                    (3.3.7.0 R5) the bundles' claims on the cards this host serves (local_sched/claims_file.py)
     GET idle        {hosts: [{host, idle_s, last, last_what, busy, foreign: [...], line, foreign_line}]}
     GET refresh     {settings, plan, line, last, last_line, review, running}
 Read-only: one /api/ps per served host for `idle`; nothing loads.
@@ -18,7 +19,8 @@ def get(svc, head: str, q: dict):
     if head == "residency":
         from halo_harness.host.residency import rows
         from halo_harness.local_sched.pivot import min_resident_s
-        return 200, protocol.doc(residency=rows(svc.home), min_resident_s=min_resident_s())
+        from halo_harness.local_sched.claims_file import host_file, read  # 3.3.7.0 R5: the bundles' claims
+        return 200, protocol.doc(residency=rows(svc.home), min_resident_s=min_resident_s(), claims=read(host_file(svc.home)))
     if head == "idle":
         from halo_harness.ollama_steward.idle import idle_since
         out = []

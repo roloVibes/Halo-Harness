@@ -1,7 +1,7 @@
-"""tests.test_start_checks -- Halo 3.2.2.0 R2: the five checks Halo offers
+"""tests.test_start_checks -- Halo 3.2.2.0 R2: the six checks Halo offers (3.3.7.0 R5: the steward candidates)
 after setup (halo_harness/start/checks.py, checks_run.py).
 
-1. the five rows in order, each with its what / cost / time / writes, the
+1. the six rows in order, each with its what / cost / time / writes, the
    first three on by default
 2. `explain`: a row per check, [x] for the ticked ones, then its detail line
 3. each `run` through stubs (no model call, no network): doctor, catalog,
@@ -48,7 +48,7 @@ def _ctx(**kw):
 @test
 def test_five_rows_in_order_with_their_defaults(ctx: Ctx):
     from halo_harness.start import checks as C
-    ctx.check(f"the five keys in order, got {C.KEYS}", C.KEYS == ("doctor", "catalog", "hello", "gym", "start"))
+    ctx.check(f"the six keys in order, got {C.KEYS}", C.KEYS == ("doctor", "catalog", "hello", "steward", "gym", "start"))
     ctx.check(f"the first three on, got {C.DEFAULT_KEYS}", C.DEFAULT_KEYS == ("doctor", "catalog", "hello"))
     fields = ("key", "title", "what", "cost", "time", "writes", "default_on", "run")
     ctx.check("every row has every field", all(all(f in c for f in fields) and callable(c["run"]) for c in C.CHECKS))
@@ -64,13 +64,14 @@ def test_five_rows_in_order_with_their_defaults(ctx: Ctx):
 def test_explain_is_a_row_per_check(ctx: Ctx):
     from halo_harness.start import checks as C
     lines = C.explain()
-    ctx.check(f"two lines per check, got {len(lines)}", len(lines) == 10)
+    ctx.check(f"two lines per check, got {len(lines)}", len(lines) == 12)
     ctx.check(f"the defaults ticked, got {lines[::2]}", lines[::2] == ["[x] Doctor (doctor)", "[x] Model catalog (catalog)",
-                                                                       "[x] Hello (hello)", "[ ] Model gym, quick (gym)",
+                                                                       "[x] Hello (hello)", "[ ] Steward candidates (steward)",
+                                                                       "[ ] Model gym, quick (gym)",
                                                                        "[ ] The guided first run (start)"])
     ctx.check("each detail line: what, cost, time, writes", all(l.startswith("    ") and ". Cost: " in l and ". Time: " in l
                                                                 and ". Writes: " in l for l in lines[1::2]))
-    ctx.check("explain(keys) ticks those", C.explain(["gym"])[6].startswith("[x] Model gym"))
+    ctx.check("explain(keys) ticks those", C.explain(["gym"])[8].startswith("[x] Model gym"))
 
 
 @test

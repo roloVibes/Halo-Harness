@@ -55,6 +55,10 @@ def hosts_lines(state_dir) -> "list[str]":
                        f", {hb.get('audit_count') or 0} request{'' if hb.get('audit_count') == 1 else 's'} in its audit"))
         c = h["controls"]
         out.append(f"  load / unload: {'from here, via ' + c['via'] if c['ok'] else c['why']}")
+        from halo_harness.local_sched.reserve import budget_line  # 3.3.7.0 R5: a bundle's reservation on this card
+        held = budget_line(h["name"], state_dir=state_dir)
+        if held:
+            out.append(f"  reserved: {held}")
     return out or ["no host: add one in Setup -> Providers -> Ollama, or halo ollama discover --add"]
 
 

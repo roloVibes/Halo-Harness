@@ -25,6 +25,7 @@ machine-readable manifest schema is
 | [Workflow contracts](#workflow-contracts) | stable | `workflows/<name>.yaml` (3.2.0.0 R5): compiled to an Orchestra goal, its hand-offs and a pinned plan; `halo workflow` |
 | [Events and artifacts](#events-and-artifacts) | stable | typed events (3.2.0.0 R5: schemas, the events log, subscriptions), typed artifacts with viewers, memory with provenance |
 | [Compatibility and migration](#compatibility-and-migration) | stable | the version policy (`ext.compatible`, `ext.deprecations`), `migrations` shown before an update and applied, `halo pack rollback` (3.2.0.0 R7) |
+| [Bundles](#bundles) | stable | `bundle:` (3.3.7.0 R5): a capability bundle, a pack with a resource claim -- needs, reservation, routing, latency budget; the verdict before anything downloads |
 | [The reference example](#the-reference-example) | stable | the Documentation Review pack Halo ships (3.2.0.0 R6): every part of the API in one pack a third party can copy |
 
 `stable`: a 1.x Halo keeps it. `removed <version>`: gone in that version,
@@ -99,6 +100,7 @@ migrations:
   - {from: 0.9.0, to: 1.0.0, note: the reviewer bio is now doc-review--reviewer}
   # 3.2.0.0 R7: settings renames packs.settings.<id> keys as the update runs
   # - {from: 1.1.0, to: 1.3.0, note: settings key `lint.level` is now `lint.strictness`, settings: {lint.level: lint.strictness}}
+bundle: {needs: {...}, reservation: {...}, routing: {...}, latency_budget_ms: 1500}   # 3.3.7.0 R5, Bundles below
 ```
 
 Version ranges compare release numbers of any length (missing parts are 0);
@@ -568,6 +570,46 @@ may read it. Recall honours it: a namespace reads its own entries plus the
 ones another pack shares with its pack; `retention: run` entries go when
 their run ends, `days:<n>` ones with `halo recall prune`; `halo recall
 --namespace <pack>/<ns> --provenance` lists them with their meta.
+
+## Bundles
+
+Status: **stable** (3.3.7.0 R5). A **capability bundle** -- not the `bundle` kind of a Studio panel above, which is a
+script module -- is a pack with one more block, `bundle:`, a resource claim on the local models
+([MODELS-bundles.md](MODELS-bundles.md)). It is read by `halo_harness.packs.manifest_bundle` (shape:
+`schemas/pack_yaml.bundle`; the JSON twin `packs/schema/bundle.schema.json`, also `$defs.bundle` of
+`pack.schema.json`); every bad value is one line naming the key.
+
+```yaml
+bundle:
+  needs:                          # each role the bundle needs, the models that can fill it, best first
+    chat: {any_of: [lfm3:1.7b, qwen3-coder:30b-gpu], window: 8192}
+    stt:  {any_of: [faster-whisper:large-v3-turbo, faster-whisper:small.en], device: cpu-or-gpu}
+    tts:  {any_of: [kokoro-82m], device: cpu}
+  reservation: {model: lfm3:1.7b, vram_gb: 1.2, keep_alive: -1, priority: high}
+  routing: {task_work: coder-or-cloud, never_evict: reserved}
+  latency_budget_ms: 1500
+```
+
+| Key | Takes | Meaning |
+|---|---|---|
+| `needs.<role>.any_of` | a list of model names (required) | the models that can fill the role, best first; an Ollama tag, or a speech model (`faster-whisper:*`, `kokoro-*`, `parakeet-*`, `qwen3-tts:*`: runtime `voice`) |
+| `needs.<role>.window` | tokens, 512 or more | the window it runs at (8,192 when left out) |
+| `needs.<role>.device` | `gpu` (default), `cpu`, `cpu-or-gpu` | where it runs; the CPU costs no VRAM; `cpu-or-gpu` speech runs on the CPU |
+| `needs.<role>.vision`, `.tools` | true / false | the model must see / call tools (its battery profile, else its catalog row) |
+| `needs.<role>.runtime` | `ollama`, `voice` | read from the name when left out |
+| `reservation.model` | a model a need lists, or a needs role | what the bundle holds while it is on; a role means whichever of its `any_of` the verdict picks |
+| `reservation.vram_gb` | GB | its memory; the weights plus the KV at its window when left out |
+| `reservation.keep_alive` | `-1` (default) or a duration | written on the reserved model's profile while the bundle is on |
+| `reservation.priority` | `high`, `normal` (default), `low` | the claim's priority, said on the Hosts card |
+| `reservation.window` | tokens | the window it is held at (the need's by default) |
+| `routing.task_work` | `coder-or-cloud` (default), `coder`, `cloud`, `local` | where task work goes while it is on: `coder` makes the coder fitting beside the reservation part of the verdict |
+| `routing.never_evict` | `reserved` (default), `none` | nothing Halo does evicts the reserved model |
+| `routing.escalation` | `on` (default), `off` | `off`: no cloud rung for any session while the bundle is on (offline-only) |
+| `latency_budget_ms` | ms | said beside the verdict's expected latency |
+
+A bundle requests no permission: turning it on grants nothing. Halo ships nine (`halo_harness/templates/bundles/`);
+`halo pack verdict | on | off <bundle>` and `halo pack list --bundles` are its verbs
+([COMMANDS-packs.md](COMMANDS-packs.md#bundles)).
 
 ## Compatibility and migration
 

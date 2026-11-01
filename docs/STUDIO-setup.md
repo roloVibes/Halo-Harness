@@ -153,6 +153,7 @@ one row each with what it does, what it costs, how long it takes and what it wri
 | Doctor | your config, your files and that halo is on PATH (`halo doctor`) | free | seconds | nothing |
 | Model catalog | every set-up provider's model list (`halo models --refresh`) | free (network) | seconds | the catalog caches |
 | Hello | one one-turn call to the default model, which answers pong | one tiny call, priced from the catalog | seconds | one session log |
+| Steward candidates | 3.3.7.0 R5: sets `ollama.steward.model` to the best local candidate (with none installed, pulls the one it names); ticked by default when an installed one fits | free, or the download it names | seconds | `ollama.steward.model` |
 | Model gym, quick | `halo gym --quick` on the models listed under the row (local models only) | free for local models | minutes per model | a card per model under `~/.halo/gym/` |
 | The guided first run | `halo start`: one real Orchestra run on your models | the card's estimate | 5-20 minutes | a lineup copy and a sample repo |
 

@@ -6,7 +6,11 @@ brief.md G12, the multi-host form of the pivot scheduler): where each lane's mod
         a host a paired halo host serves answers with its own `route` (3.3.7.0 R1; the helper's footprint is in
         `usable_with_helper_gb`, the room this solver uses); any other configured host -- this machine's included,
         with no `halo host` running -- from the local reads (local_sched/facts: its card, the catalog row, /api/ps)
-    solve(lanes, *, hosts=None, answers=None) -> {rows [Row], line, lanes}
+    solve(lanes, *, hosts=None, answers=None, claims=None) -> {rows [Row], line, lanes}
+        3.3.7.0 R5 (L4): `claims` ({host: [claim]}, else local_sched/reserve.claims per host): a bundle's reservation is
+        never evicted -- a lane that would not fit beside it is out on that host ("meta-glasses holds 1.2 GB there"),
+        the reserved model itself counts as held there; a lane moved off its own host by a claim carries `routed`, one
+        line: "meta-glasses holds 1.2 GB on pc; worker goes to samus rather than evicting it"
         Row = {lane, model, host, from_host, moved, fits, warm, now, load_s, installed, score, why, says}
     apply(plan) -> [line]   `host_for` on each moved lane's `<host>|<model>|<role>` profile (agent_proposals.land_user:
         Halo-side only, one row in changes.jsonl each; nothing pulls, nothing loads until a lane asks)
@@ -99,10 +103,17 @@ def _score(a: dict, lane: dict, planned: dict) -> "tuple[Optional[float], str]":
     if a.get("fits") is None:
         s, why = s - 40, ["not read"]
     mine = planned.setdefault(a["host"], {"bytes": 0, "models": []})
-    if any(ollama_names_match(m, lane["model"]) for m in mine["models"]):
+    held_b = int(mine.get("claimed") or 0)  # 3.3.7.0 R5: a bundle's reservation there is never evicted
+    reserved = any(ollama_names_match(c.get("model"), lane["model"]) for c in mine.get("held") or [] if c.get("model"))
+    if (held_b and not reserved and a.get("need_bytes") and a.get("usable_bytes")
+            and a["need_bytes"] + held_b > a["usable_bytes"]):
+        return None, f"{mine['words']} there"
+    if reserved:
+        s, why = s + 20, why + ["reserved there for " + ", ".join(sorted({str(c["bundle"]) for c in mine["held"]}))]
+    elif any(ollama_names_match(m, lane["model"]) for m in mine["models"]):
         s, why = s + 20, why + ["shares weights with a lane placed there"]
     elif a.get("need_bytes") and a.get("usable_bytes"):
-        if mine["bytes"] + a["need_bytes"] <= a["usable_bytes"]:
+        if mine["bytes"] + held_b + a["need_bytes"] <= a["usable_bytes"]:
             s += 15
         else:
             s, why = s - 25, why + [f"pivots beside {', '.join(mine['models'])}"]
@@ -121,11 +132,25 @@ def _score(a: dict, lane: dict, planned: dict) -> "tuple[Optional[float], str]":
     return round(s, 1), ", ".join(["fits"] + why if a.get("fits") else why)
 
 
-def solve(lanes: list, *, hosts: Optional[list] = None, answers=None, state_dir=None) -> dict:
+def _claimed(hosts: list, claims: Optional[dict], state_dir) -> dict:
+    """{host: {bytes, models, claimed, held, words}} seeded with each card's reservations (3.3.7.0 R5, L4)."""
+    from halo_harness.local_sched.reserve import claims as read, holds_words
+    out: dict = {}
+    for h in hosts:
+        cs = (claims or {}).get(h.name) if claims is not None else read(h, state_dir=state_dir)
+        cs = [c for c in cs or [] if float(c.get("gb") or 0) > 0]
+        if cs:
+            out[h.name] = {"bytes": 0, "models": [], "held": cs, "claimed": int(sum(float(c["gb"]) for c in cs) * F.GIB),
+                           "words": holds_words(h, state_dir=state_dir) if claims is None else
+                           f"{', '.join(sorted({c['bundle'] for c in cs}))} holds {sum(float(c['gb']) for c in cs):.1f} GB"}
+    return out
+
+
+def solve(lanes: list, *, hosts: Optional[list] = None, answers=None, state_dir=None, claims=None) -> dict:
     from halo_harness.providers.ollama import resolve_ollama_hosts
     hosts = list(hosts) if hosts is not None else list(resolve_ollama_hosts())
     ask = answers or (lambda h, ln: answer(h, ln, state_dir=state_dir))
-    planned: dict = {}
+    planned: dict = _claimed(hosts, claims, state_dir)
     order = sorted(range(len(lanes)), key=lambda i: (lanes[i]["lane"] != "main", i))
     rows: list = [None] * len(lanes)
     for i in order:
@@ -151,6 +176,11 @@ def solve(lanes: list, *, hosts: Optional[list] = None, answers=None, state_dir=
                    "moved": name != ln.get("host"), "fits": a.get("fits"), "warm": a.get("warm"), "now": a.get("now"),
                    "load_s": a.get("load_s"), "installed": a.get("installed"), "via": a.get("via"), "score": sc,
                    "why": why, "says": f"{ln['lane']} on {name} ({why})"}
+        own = next((t for t in tried if t[2] == ln.get("host") and t[0] is None and " holds " in str(t[4])), None)
+        if own is not None and name != ln.get("host"):  # one visible line: routed around a reservation
+            rows[i]["routed"] = (f"{own[4].replace(' there', '')} on {ln.get('host')}; {ln['lane']} goes to {name} "
+                                 "rather than evicting it")
+            rows[i]["says"] += f" -- {rows[i]['routed']}"
     line = ", ".join(r["says"] for r in rows if r) or "no local lanes to place"
     return {"rows": [r for r in rows if r], "line": line, "lanes": lanes}
 

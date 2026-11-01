@@ -1,11 +1,12 @@
 """halo_harness.check_cli -- `halo check`, the checks Halo offers after setup
 (Halo 3.2.2.0 R2; the list is halo_harness/start/checks.py).
 
-    halo check                       the default-on checks: doctor, catalog, hello
-    halo check --all                 all five, in order
-    halo check --doctor --catalog --hello --gym --start   the ones named
+    halo check                       the default-on checks: doctor, catalog, hello (3.3.7.0 R5: and the
+                                     steward candidates when an installed one fits)
+    halo check --all                 all six, in order
+    halo check --doctor --catalog --hello --steward --gym --start   the ones named
     halo check --gym --models REF,REF                     the gym on these models
-    halo check --explain             the five rows (what, cost, time, writes) and exit
+    halo check --explain             the six rows (what, cost, time, writes) and exit
 
 Each check prints its title, its what / cost / time line, then its result
 lines. Exit 0 when every check that ran passed, 1 when one failed, 2 on a
@@ -28,13 +29,13 @@ def _parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="halo check", description="Run the checks Halo offers after setup. Each says "
                                 "what it does, what it costs, how long it takes and what it writes; with no flag the "
                                 "default-on ones run (doctor, catalog, hello).")
-    p.add_argument("--all", action="store_true", help="run all five checks, in order")
+    p.add_argument("--all", action="store_true", help="run all six checks, in order")
     for c in C.CHECKS:
         p.add_argument(f"--{c['key']}", dest=c["key"], action="store_true",
                        help=f"{c['title']}: {c['what']} ({c['cost']}; {c['time']})")
     p.add_argument("--models", default=None, metavar="REF,REF",
                    help="the models --gym runs on (default: your default model and the start lineup's models)")
-    p.add_argument("--explain", action="store_true", help="print the five checks (what, cost, time, writes) and exit")
+    p.add_argument("--explain", action="store_true", help="print the six checks (what, cost, time, writes) and exit")
     return p
 
 
@@ -46,12 +47,12 @@ def _out(text: str, stream) -> None:
         stream.write(text.encode("ascii", "replace").decode("ascii") + "\n")
 
 
-def selected(args) -> "list[str]":
-    """The keys the flags name: --all, the named ones, or the default-on ones."""
+def selected(args, ctx=None) -> "list[str]":
+    """The keys the flags name: --all, the named ones, or the default-on ones (3.3.7.0 R5: C.default_keys(ctx))."""
     if args.all:
         return list(C.KEYS)
     named = [k for k in C.KEYS if getattr(args, k, False)]
-    return named or list(C.DEFAULT_KEYS)
+    return named or list(C.default_keys(ctx))
 
 
 def run(argv, stream=None, ctx=None) -> int:
@@ -64,7 +65,7 @@ def run(argv, stream=None, ctx=None) -> int:
     ctx = ctx or C.default_ctx(gym_models=gym)
     if gym is not None:
         ctx.gym_models = gym
-    keys = selected(args)
+    keys = selected(args, ctx)
     if args.explain:
         for line in C.explain(keys, ctx):
             _out(line, stream)

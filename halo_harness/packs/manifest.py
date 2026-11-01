@@ -221,6 +221,8 @@ def validate_manifest(data, *, root=None, folder_is_id: bool = False) -> "list[s
     from halo_harness.packs.typed import typed_lines  # 3.2.0.0 R5: artifact and event schemas
     from halo_harness.packs.workflow_rules import workflow_lines  # 3.2.0.0 R5: workflows/<name>.yaml
     out += typed_lines(data, root) + workflow_lines(data, root)
+    from halo_harness.packs.manifest_bundle import bundle_lines  # 3.3.7.0 R5: a bundle's resource claim
+    out += bundle_lines(data)
     if root is not None:
         root = Path(root)
         out += _file_lines(data, root)

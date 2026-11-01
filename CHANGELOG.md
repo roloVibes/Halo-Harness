@@ -85,6 +85,24 @@ version.
 - The host's "one resident per card" refusal names a foreign resident.
 - Studio's screenshot on a member's session is sent to the member instead of refused.
 
+### R5: bundles and the steward's chat -- a pack with a resource claim, the honest verdict, routing around reservations, the chat box over the host's findings
+
+#### Added
+- Bundles: a pack with a resource claim -- a `bundle:` block in pack.yaml naming what it needs (each role and the models that can fill it, with a window and a device), the model it reserves while it is on, where other work goes and its latency budget (`packs/schema/bundle.schema.json`, docs/EXTENSION_API.md "Bundles").
+- The honest verdict before anything downloads: ready ("fits today -- 1.2 GB reserved leaves ~20.8 GB, the coder (18.9 GB) still fits beside it, barely"), needs N downloads (each tag, its size, its fit and the minutes, one button that starts Download and verify) or won't work with the ways out, each a number; `halo pack verdict <bundle>`.
+- Reservations: `halo pack on | off <bundle>` and the Pack Manager's tick claim a ready bundle's model -- on the halo host when one serves the card (`control/claim`, `GET residency` answers the claims), else on this machine -- with keep_alive -1 on its profile; its GB count in every budget line ("1.2 GB reserved for meta-glasses; 20.8 GB free for tasks": Hosts card, `halo local hosts`, the Cost panel) and nothing Halo does evicts it.
+- Routing around reservations: placement, the spawn verdict, the warm set and the degradation ladder route work elsewhere with one line ("voice holds 4.0 GB; sending this task to <cloud model> rather than evicting it").
+- Nine bundles ship: meta-glasses (voice), bulk-worker, verifier (another family), compactor, embeddings, translation, vision, offline-only (no cloud rung while on), coder-first; `halo pack list --bundles`; the Pack Manager's Bundles group.
+- The steward's chat on Local -> Steward (now built): plain-word answers from the steward's own model over the hosts' findings, the reservations and the adviser, with tools (the card, the calls, the events, the profiles, the speed cards, the knowledge, why the card is busy, tonight's refresh), one Halo-side change per answer citing a finding, a button for a retire, a download, a bench or the battery; each answer's cost; "ask a bigger model" with its cost first; the log `ollama/steward-chat.jsonl`; `halo ollama steward chat "<question>"`.
+- Steward candidates: `halo ollama steward candidates`, the Steward page's picker and the first-run checklist's "Steward candidates" row -- the models that could run the steward here, best first, each with why.
+- `ollama.steward.chat_tokens` (6,000); glossary: bundle, reservation, verdict; docs/MODELS-bundles.md, MODELS-ollama-steward-chat.md, COMMANDS-ollama-chat.md, STUDIO-local-steward.md.
+
+#### Changed
+- The steward's model, with nothing configured, is the best candidate here (tool calls verified, fits beside the main model), its reason said, before the smallest local model.
+- The first-run checklist has six rows; `halo check` runs the steward row by default when an installed candidate fits.
+- The host refuses a load that would breach a bundle's claim, and an unload or a pivot of a reserved model, with the claim's line; the scheduler's pivot does the same on a card no host serves.
+- While the offline-only bundle is on, `routing.escalation` reads as unset and the ladder's cloud rung says why.
+
 ### Also in 3.3.7.0
 
 #### Changed

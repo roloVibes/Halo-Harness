@@ -3,12 +3,15 @@
 
 1. no flag runs the default-on checks (doctor, catalog, hello), each with its
    title, its what / cost / time line and its result lines; exit 0
-2. `--all` runs the five in order; named flags run those; `--models` feeds
+2. `--all` runs the six in order; named flags run those; `--models` feeds
    the gym
-3. `--explain` prints the five rows and runs nothing; exit 0
+3. `--explain` prints the six rows and runs nothing; exit 0
 4. exit 1 when one failed (named on the last line); exit 2 on a bad flag
 5. `halo check` is a verb of the CLI; `/check` is a built-in (its `--start`
    points at /start)
+6. 3.3.7.0 R5: the steward candidates row -- on by default when an installed
+   model fits (running it sets ollama.steward.model), off and naming the
+   download when nothing fits (running it pulls that one from the fake)
 Run: python -m tests.test_check_cli
 """
 from __future__ import annotations
@@ -75,7 +78,8 @@ def test_no_flag_runs_the_default_set(ctx: Ctx):
 def test_all_named_flags_and_models(ctx: Ctx):
     with _stubbed() as ran:
         rc, _text, _ = _check("--all")
-    ctx.check(f"--all: the five in order, got {ran}", rc == 0 and [k for k, _ in ran] == ["doctor", "catalog", "hello", "gym", "start"])
+    ctx.check(f"--all: the six in order, got {ran}", rc == 0 and [k for k, _ in ran] == ["doctor", "catalog", "hello", "steward",
+                                                                                            "gym", "start"])
     with _stubbed() as ran:
         rc, _text, _ = _check("--gym", "--doctor", "--models", "ol:a, ol:b")
     ctx.check(f"named: those, in the list's order; --models feeds the gym, got {ran}", rc == 0
@@ -88,12 +92,13 @@ def test_explain_runs_nothing(ctx: Ctx):
         rc, text, _ = _check("--explain")
     lines = text.splitlines()
     ctx.check(f"exit 0, nothing ran, got {rc} {ran}", rc == 0 and ran == [])
-    ctx.check(f"the five rows, the defaults ticked, got {lines[::2]}", len(lines) == 10 and lines[0] == "[x] Doctor (doctor)"
-              and lines[6] == "[ ] Model gym, quick (gym)" and lines[8] == "[ ] The guided first run (start)")
+    ctx.check(f"the six rows, the defaults ticked, got {lines[::2]}", len(lines) == 12 and lines[0] == "[x] Doctor (doctor)"
+              and lines[6] == "[ ] Steward candidates (steward)" and lines[8] == "[ ] Model gym, quick (gym)"
+              and lines[10] == "[ ] The guided first run (start)")
     ctx.check("hello's cost names the default model", "or:v/m" in lines[5])
     with _stubbed():
         _rc, text, _ = _check("--explain", "--all")
-    ctx.check("--explain --all ticks every row", text.count("[x]") == 5)
+    ctx.check("--explain --all ticks every row", text.count("[x]") == 6)
 
 
 @test
@@ -125,10 +130,41 @@ def test_the_cli_verb_and_the_builtin(ctx: Ctx):
               [k for k, _ in ran] == ["doctor"] and "doctor result line" in text and "/start" in text)
     with _stubbed() as ran:
         text = run("--all", None)
-    ctx.check(f"/check --all: the four that run in a transcript, got {ran}", [k for k, _ in ran] == ["doctor", "catalog", "hello", "gym"]
+    ctx.check(f"/check --all: the five that run in a transcript, got {ran}", [k for k, _ in ran] == ["doctor", "catalog", "hello",
+                                                                                                    "steward", "gym"]
               and "/start" in text)
     from halo_harness.completion_cli import SUBCOMMANDS
     ctx.check("completion offers check", "check" in SUBCOMMANDS)
+
+
+@test
+def test_the_steward_candidates_row(ctx: Ctx):
+    from halo_harness.start import checks as C
+    from halo_harness.start.checks import CheckCtx
+    from halo_harness.studio import ollama_hosts_view as V
+    from halo_harness.theme import get_config_value
+    from tests.helpers.sched_rig import TINY, SchedHome
+    with SchedHome() as h:
+        c = CheckCtx(cwd=Path(h.root), state_dir=h.state, model="or:v/m")
+        ctx.check(f"an installed model fits: on by default, free, got {C.default_keys(c)} {C.cost_line(C.check('steward'), c)}",
+                  "steward" in C.default_keys(c) and C.cost_line(C.check("steward"), c) == "free")
+        ok, lines = C.run_one("steward", c)
+        ctx.check(f"running it sets the best one, got {ok} {lines}", ok and get_config_value("ollama.steward.model")
+                  == f"ol:{TINY}@pc" and lines[0].startswith("candidates to run the steward on this machine: qwen2.5:1.5b ("))
+        ctx.check("once set, off by default", "steward" not in C.default_keys(c))
+    with SchedHome() as h:
+        V.READERS["catalog"] = lambda host: {"models": []}
+        V.reset_cache()
+        c = CheckCtx(cwd=Path(h.root), state_dir=h.state, model="or:v/m")
+        cost = C.cost_line(C.check("steward"), c)
+        ctx.check(f"nothing installed: off, the row names the download, got {C.default_keys(c)} {cost!r}",
+                  "steward" not in C.default_keys(c) and cost.startswith("a download: qwen3.5:9b (") and cost.endswith("onto pc"))
+        from tests.helpers.sched_rig import rows
+        h.mock.pullable["qwen3.5:9b"] = {"capabilities": ["tools"], "details": rows()["qwen3.5:9b"]["details"],
+                                         "model_info": {}}
+        ok, lines = C.run_one("steward", c)
+        ctx.check(f"ticked and run: it pulls that one from the fake, then sets it, got {ok} {lines} {h.mock.pulled}",
+                  ok and h.mock.pulled == ["qwen3.5:9b"] and get_config_value("ollama.steward.model") == "ol:qwen3.5:9b@pc")
 
 
 if __name__ == "__main__":

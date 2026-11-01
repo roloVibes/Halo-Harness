@@ -192,8 +192,9 @@ def test_the_default_model_and_the_cost_line(ctx: Ctx):
     ctx.check("then a local compactionModel",
               choose_model(configured="", compaction="ol:qwen3.5:4b", local=local) == ("ol:qwen3.5:4b", "compactionModel"))
     got = choose_model(configured="", compaction="or:vendor/model", local=local)
-    ctx.check(f"a cloud compactionModel is passed over for the smallest local model, got {got}",
-              got[0] == "ol:qwen3.5:9b" and "smallest local" in got[1])
+    ctx.check(f"a cloud compactionModel is passed over for the best steward candidate (3.3.7.0 R5: the smaller "
+              f"when nothing else is known), said why, got {got}", got[0] == "ol:qwen3.5:9b"
+              and got[1].startswith("the best steward candidate here: ") and "tool calls not probed" in got[1])
     ctx.check("none: the rules run alone", choose_model(configured="", compaction="", local=[]) == (None, NO_MODEL))
     with Home(extra={"ollama": {"steward": {"model": "ol:qwen3.5:9b"}}}):
         ctx.check("read from config.json", choose_model(local=[])[0] == "ol:qwen3.5:9b")

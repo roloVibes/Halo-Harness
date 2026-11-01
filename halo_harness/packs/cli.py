@@ -19,6 +19,11 @@
     halo pack sources [add|remove <folder|git url>] [--json]
                                                       where a bare id is looked for: config packs.sources, then the packs Halo ships
     halo pack doctor [--json]                         every problem, one line each
+    halo pack verdict <bundle> [--host H] [--json]    3.3.7.0 R5: a bundle's honest verdict -- ready / needs N downloads /
+                                                      won't work, with the ways out (packs/cli_bundle.py)
+    halo pack on <bundle> [--host H] [--json]         turn a bundle on: its reservation claimed
+    halo pack off <bundle> [--json]                   turn it off: released, keep_alive put back
+    halo pack list --bundles [--host H] [--json]      every bundle, on or off, with its verdict line
 
 Every verb takes `--cwd DIR` (act as if run from DIR: its `.halo/packs/`).
 Exit codes: 0 done, 1 could not (the reason on stderr; for doctor: problems
@@ -32,7 +37,8 @@ import json
 import sys
 from pathlib import Path
 
-VERBS = ("list", "inspect", "install", "enable", "grant", "disable", "update", "rollback", "remove", "sources", "doctor")
+VERBS = ("list", "inspect", "install", "enable", "grant", "disable", "update", "rollback", "remove", "sources", "doctor",
+         "verdict", "on", "off")  # 3.3.7.0 R5: the bundle verbs (packs/cli_bundle.py)
 USAGE = __doc__.split("\n\n")[1]
 
 
@@ -41,6 +47,8 @@ def _parser(verb: str) -> argparse.ArgumentParser:
     if verb == "list":
         p.add_argument("--available", action="store_true",
                        help="also list what packs.sources and the packs Halo ships hold that is not installed")
+        p.add_argument("--bundles", action="store_true",
+                       help="3.3.7.0 R5: the bundles instead, each on or off with its verdict (packs/cli_bundle.py)")
     if verb == "inspect":
         p.add_argument("target", help="an installed pack's id, or a pack folder")
     if verb == "install":
@@ -182,6 +190,9 @@ def cmd_pack(argv: list) -> int:
     verb = argv[0]
     if verb not in VERBS:
         return _err(f"unknown verb {verb!r}; one of {', '.join(VERBS)}", 2)
+    if verb in ("verdict", "on", "off") or (verb == "list" and "--bundles" in argv):
+        from halo_harness.packs.cli_bundle import cmd
+        return cmd(verb, argv[1:])
     try:
         args = _parser(verb).parse_args(argv[1:])
     except SystemExit as e:

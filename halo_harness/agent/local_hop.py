@@ -61,6 +61,11 @@ def pick(session):
         row, _r = F.row(host, model)
         if not isinstance((row or {}).get("size"), int) or row["size"] <= mine["size"]:
             continue
+        from halo_harness.local_sched.reserve import claimed_bytes, held  # 3.3.7.0 R5: a bundle's reservation
+        c = held(host, model, state_dir=state)
+        if c:
+            said.append(f"{raw} is reserved for {c['bundle']}")
+            continue
         v = verdict(profile_for_ref(raw, state), role, state_dir=state)
         if v.get("ok") is False:
             said.append(f"{raw}: {v['why']}")
@@ -68,11 +73,14 @@ def pick(session):
         card = F.card(host)
         rows = F.loaded(host)
         b = F.budget(card, host.name)
-        room = F.usable(b, F.helper(host, rows))
+        held_b = claimed_bytes(host, state_dir=state)
+        room = F.usable(b, F.helper(host, rows)) - held_b
         w, _wf = F.window(host, model, role=role, row_=row, card_=card)
         fits = None if not b.get("budget") else F.together(b, [{"row": row, "window": w}]) <= room
         if fits is False:
-            said.append(f"{raw} does not fit {host.name} at {w:,}")
+            from halo_harness.local_sched.reserve import holds_words
+            said.append(f"{raw} does not fit {host.name} at {w:,}" + (f" ({holds_words(host, state_dir=state)} there)"
+                                                                      if held_b else ""))
             continue
         warm = F.is_loaded(rows, model, w)
         same = me_host is not None and str(host.url).rstrip("/") == str(me_host.url).rstrip("/")

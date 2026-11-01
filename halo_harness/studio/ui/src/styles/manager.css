@@ -53,3 +53,15 @@
 /* the Orchestra Start view's workflow form (routes/orchestra/WorkflowForm.tsx) */
 .og-wf-ref { margin: 0; font-size: 15px; color: var(--accent); }
 .og-wf-pick { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+/* 3.3.7.0 R5: the Bundles group (Bundles.tsx): each bundle a tick with its verdict line, its ways out and one button. */
+.pm-bundles { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--line); }
+.pm-bundle-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.pm-bundle { display: flex; flex-direction: column; gap: 4px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.pm-bundle-head { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.pm-bundle-desc { flex: 1 1 240px; font-size: var(--fs-sm); }
+.pm-bundle-says { font-size: 12px; }
+.pm-bundle[data-state="wont"] .pm-bundle-says { color: var(--warn); }
+.pm-bundle[data-state="ready"] .pm-bundle-says { color: var(--ok); }
+.pm-bundle-options { list-style: none; margin: 0; padding: 0 0 0 12px; font-size: 12px; }
+.pm-bundle-options li[data-kind="warn"] { color: var(--warn); }
+.pm-bundle-acts { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }

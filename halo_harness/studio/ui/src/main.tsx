@@ -52,6 +52,7 @@ import "./styles/local-logs.css"; // 3.3.6.0 R3: Local -> Logs and the fit badge
 import "./styles/model-measured.css"; // 3.3.6.0 R4: the KV dial, the dialect block, the shelf, Why this answer?
 import "./styles/local-bench.css"; // 3.3.6.0 R5: Benchmarks: the speed cards, the tuning report, the changes, the scope pick
 import "./styles/local-guards.css"; // 3.3.7.0 R4: the foreign line, the refresh lines, the Adviser
+import "./styles/local-steward.css"; // 3.3.7.0 R5: the Steward page's chat box and model picker
 import { App } from "./App";
 
 document.documentElement.dataset.theme = document.documentElement.dataset.theme || "dark";

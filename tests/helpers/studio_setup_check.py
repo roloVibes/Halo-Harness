@@ -1,7 +1,7 @@
 """tests.helpers.studio_setup_check -- the fresh-home landing, the Check block
 and the Linux fixes block steps of the Setup driver (tests/helpers/studio_setup.py,
 Halo 3.3.0.0 R3), real clicks in headless Chrome over the driver's scratch
-home; no network, no model call (the five checks are stubs, the Linux fixes
+home; no network, no model call (the six checks are stubs, the Linux fixes
 are stubs: nothing downloaded, no rc file written):
 
 FIRST (no provider set up yet, the home fresh for the moment):
@@ -12,7 +12,7 @@ FIRST (no provider set up yet, the home fresh for the moment):
    served page says `data-no-provider`) with no overlay over it (3.3.1.0 R1);
    on Roles (Alt+3) the overlay shows, and "Set up this box" closes it on Setup.
 LAST (after the other blocks):
-3. the Check block: five rows, doctor / catalog / hello ticked; ticking the
+3. the Check block: six rows (3.3.7.0 R5: steward candidates), doctor / catalog / hello ticked; ticking the
    gym lists its models; the guided first run's box is off until its card
    is shown; Run the ticked checks fills each row's log and glyph, the
    summary, the strip's Last check and last-check.json;
@@ -29,7 +29,8 @@ from tests.helpers.studio_setup_pages import goto
 
 ROW = "[data-testid=setup-check-row]"
 RESULTS = {"doctor": (True, ["doctor stub: config ok"]), "catalog": (True, ["[ok] openrouter: 2 models (stub)"]),
-           "hello": (False, ["no pong (stub)"]), "gym": (True, ["or:mock/beta: not run (stub)"])}
+           "hello": (False, ["no pong (stub)"]), "gym": (True, ["or:mock/beta: not run (stub)"]),
+           "steward": (True, ["steward stub: no change"])}  # 3.3.7.0 R5
 
 
 def _text(sel: str) -> str:
@@ -53,7 +54,7 @@ def click(c, sel: str, done: str) -> str:
 
 @contextmanager
 def stubs():
-    """The five checks' runs swapped for stubs (they run in this process's Studio thread)."""
+    """The six checks' runs swapped for stubs (they run in this process's Studio thread)."""
     from halo_harness.start import checks as C
     saved = {c["key"]: c["run"] for c in C.CHECKS}
 
@@ -132,7 +133,7 @@ def _row(key: str, inner: str = "") -> str:
 def check_block(c, url, ctx) -> dict:
     c.go(url.replace("mode=roles", "mode=setup"))
     goto(c, "check")
-    c.wait(f"{qa(ROW)}.length === 5", 40)
+    c.wait(f"{qa(ROW)}.length === 6", 40)  # 3.3.7.0 R5: the steward candidates row
     ticks = f"{qa('[data-testid=setup-check-tick]')}.map((t) => t.checked)"
     out = {"check_rows": c.js(f"{qa(ROW)}.map((r) => r.dataset.key)"), "check_ticks": c.js(ticks),
            "check_start_locked": c.js(f"{q(_row('start', '[data-testid=setup-check-tick]'))}.disabled"),

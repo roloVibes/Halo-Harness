@@ -1,0 +1,15 @@
+# Offline only: a bundle Halo ships (3.3.7.0 R5; plans/local-model-fit-brief.md L6). While it is on, no session
+# here takes a cloud rung: routing.escalation is off and the degradation ladder stops at the local rungs. It needs
+# no model and reserves nothing.
+id: offline-only
+name: Offline only
+version: 1.0.0
+description: While it is on, nothing goes to a cloud model; the ladder stops at the local rungs.
+author: Halo Harness
+license: MIT
+halo_api: {min: "1.0", max: "1.9"}
+halo: {min: "3.3"}
+capabilities: [offline]
+bundle:
+  needs: {}
+  routing: {task_work: local, never_evict: reserved, escalation: "off"}
