@@ -37,7 +37,8 @@ from `providers.ollama`'s per-url catalog cache (`MockUpstream.start()` resets i
 is too short for the Linux all-tiers job (10 s); docs/STUDIO-local.md sits at the 400-line part cap; the steward's
 guide has a 2,100-token budget (new knowledge rows go in a section of `knowledge/local-servers.md`); a Chrome
 driver that re-queries "the first X" after an action that reloads the list is racy -- pin by id (the 3.3.7.0 bench
-fix d72faee7).
+fix d72faee7). A Chrome driver's steps run in the order it yields them: read a verdict before the step that
+changes its inputs (the pool watch driver degraded the pool, then read the Bundles group -- Linux run 41327065087).
 Worktrees `~/hh-338/*`, briefs and hand-backs under `~/hh-338/briefs/` (each hand-back's WHAT STAYS OPEN is the
 list for later). Nothing pooled has run on hardware: every llama.cpp RPC log line, the device order and
 `--api-key-file` are written from the source wording; `pool-rtt`'s thresholds and `pool-spill`'s 85 % want a real
