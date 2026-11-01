@@ -74,7 +74,8 @@ def get_changes(req):
     every = str(req.query.get("all") or "").lower() in ("1", "true", "yes")
     rows = [r for r in C.read(req.state_dir) if (every or not r.get("reverted_at"))
             and (not host or str(r.get("host")).lower() == host.lower())]
-    rows.sort(key=lambda r: str(r.get("at")), reverse=True)
+    order = sorted(enumerate(rows), key=lambda t: (str(t[1].get("at")), t[0]), reverse=True)  # same ms: the later row is
+    rows = [r for _i, r in order]  # the newer (Linux run 41354716504 wrote two changes in one ms; `at` alone kept file order)
     return 200, {"changes": [{**r, "line": C.line_of(r), "scope_words": C.WORDS.get(r.get("scope"), "")} for r in rows],
                  "scopes": [{"id": s, "words": C.WORDS[s]} for s in C.SCOPES], "cli": "halo local changes"}
 
