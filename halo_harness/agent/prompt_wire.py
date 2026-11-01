@@ -79,6 +79,10 @@ def _instructions_to_user(session, system_text: str, messages: list) -> "tuple[s
 def _profile_tools_max(session) -> None:
     ref = getattr(session, "model_ref", None)
     session._lean_profile_tools_max = None
+    if getattr(ref, "provider", "") == "huggingface":  # 3.3.8.0 R2: a local server's profile (providers/hf_profile.py)
+        from halo_harness.providers.hf_profile import tools_max as hf_tools_max
+        session._lean_profile_tools_max = hf_tools_max(ref)
+        return
     if getattr(ref, "provider", "") != "ollama":
         return
     try:

@@ -152,7 +152,10 @@ def _host_of(session, name: Optional[str]):
 
 def ledger_kinds(session, target: dict, line: dict) -> Optional[list]:
     """The kinds the log showed for the call this ledger line records (None: no readable log)."""
-    if session is None or target.get("dialect") != "ollama":
+    if session is not None and target.get("dialect") != "ollama":  # 3.3.8.0 R2: a local server's own log
+        from halo_harness.agent.server_log_recovery import ledger_kinds as server_kinds
+        return server_kinds(session, target, line)
+    if session is None:
         return None
     total = line.get("total_ms") if isinstance(line.get("total_ms"), (int, float)) else 0
     started = time.time() - float(total) / 1000.0 - 1.0

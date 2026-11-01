@@ -11,6 +11,8 @@ host-side setting changes.
                                                  truncations of this session (since the first ledger line of the
                                                  newest session that called the host), the error lines with times
                                                  (24 h), "crashed here" with the fingerprint's line
+    3.3.8.0 R2: GET local/logs/servers, and the three routes above for a local server's name
+                                                 (studio/local_logs_servers.py: llama-server, LM Studio, mlx)
 """
 
 from __future__ import annotations
@@ -93,8 +95,32 @@ def log_models(state_dir, host) -> dict:
     return {"host": host.name, "models": sorted(rows, key=rank), "session": {"id": sid, "since": since}}
 
 
+def _server_route(req, name: str, part):
+    """3.3.8.0 R2: `<name>` is a local server (llama-server, LM Studio, mlx): studio/local_logs_servers.py answers."""
+    from halo_harness.ollama_steward.servers_hf import by_name
+    from halo_harness.studio import local_logs_servers as S
+    server = by_name(name, req.state_dir)
+    if server is None:
+        return None
+    if part == "status":
+        return S.server_status(req, server)
+    if part == "models":
+        return S.server_models(req, server)
+    try:
+        n = max(1, min(MAX_N, int(req.query.get("n") or 200)))
+    except ValueError:
+        return 422, {"error": "n is a number of lines", "problems": ["n: 1 to 2000"]}
+    kind = str(req.query.get("kind") or "all").strip().lower()
+    if kind not in KINDS:
+        return 422, {"error": f"kind is one of {', '.join(KINDS)}", "problems": [f"kind: {kind!r}"]}
+    return S.server_log(req, server, n, kind)
+
+
 def dispatch_logs(req):
     """The answer for a route of this file, else None."""
+    if req.path == "local/logs/servers":  # 3.3.8.0 R2: the local servers beside the hosts
+        from halo_harness.studio.local_logs_servers import servers_list
+        return (200, servers_list(req.state_dir)) if req.method == "GET" else (405, {"error": "method not allowed"})
     m = _LOG.match(req.path)
     if not m:
         return None
@@ -103,7 +129,8 @@ def dispatch_logs(req):
     name = urllib.parse.unquote(m.group("name"))
     host = _host(name)
     if host is None:
-        return 404, {"error": f"no configured Ollama host named {name!r}"}
+        got = _server_route(req, name, m.group("part"))
+        return got if got is not None else (404, {"error": f"no configured Ollama host or local server named {name!r}"})
     part = m.group("part")
     if part == "status":
         from halo_harness.ollama_steward.log_status import status

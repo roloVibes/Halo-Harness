@@ -232,7 +232,7 @@ def hosts(state_dir, *, hub=None, now: Optional[float] = None) -> dict:
     objs = {h.name: h for h in resolve_ollama_hosts()}
     users = users_by_host(state_dir)
     out = [_configured(h, objs.get(h["name"]), users, hub) for h in view["hosts"] if h["name"] in objs]
-    for s in view["local_servers"]:
+    for s in [x for x in view["local_servers"] if x.get("source") in (None, "manual")]:  # Halo's: managed_cards
         out.append(_blank(s["name"], s["url"], "local server (OpenAI dialect)", "local server",
                           "Halo did not start this server: it is stopped where it was started (Local -> Hugging Face "
                           "starts and stops Halo's own)", users=users.get(s["name"], []), models=[m["model"] for m in s["models"]],

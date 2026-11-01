@@ -61,6 +61,22 @@ def seed_host(home: Path) -> None:
     save_profile(home, profile())
 
 
+def host_server(home: Path):
+    """3.3.8.0 R2: a llama-server Halo started on the host's machine: its log in the host's home (a request-body line
+    in it), one of its events recorded under its name."""
+    from halo_harness.ollama_steward.server_events import record_events
+    from halo_harness.ollama_steward.servers_hf import Server
+    from tests.helpers.steward_seed import event
+    log = home / "local" / "servers" / "llama-8080.log"
+    log.parent.mkdir(parents=True, exist_ok=True)
+    log.write_text("slot update_slots: id  0 | task 0 | input truncated, n_ctx = 8192, n_keep = 0, n_left = 8192\n"
+                   'srv  log_server_r: request: {"messages": [{"content": "the secret plan"}]}\n', encoding="utf-8")
+    record_events(home, [event("load-result", model="qwen3-8b", ago=300, window=8192, n_slots=2, runtime="llama-server")],
+                  host="llama-8080")
+    return Server("llama-8080", "http://127.0.0.1:8080", "llama-server", "halo", log=str(log), id="llama-8080",
+                  model="qwen3-8b")
+
+
 class HostRig:
     def __init__(self, *, host_home: "Path | None | bool" = False, readers_=None, job=None, forward=False,
                  tls_on=None, seed: bool = True) -> None:

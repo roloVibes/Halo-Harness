@@ -29,6 +29,7 @@ ROUNDS = 4
 TOKENS = 6000
 _FENCE = re.compile(r"```(?:json)?\s*(\{.*?\})\s*```", re.S)
 _THINK = re.compile(r"<think>.*?</think>", re.S | re.I)
+_GUIDE: dict = {}
 
 HEAD = """You are Halo's Ollama steward, talking with the person who runs these machines. Answer in plain words, at \
 most six short lines, using only the numbers you are given or a tool returns. Each reply is ONE JSON object and \
@@ -53,7 +54,11 @@ def guide(*, bigger: bool = False) -> str:
     if bigger:
         return HEAD.split(" Each reply is ONE")[0] + " Reply with your answer only (no tools: the steward's own model " \
             "read them; their answers are below)."
-    return HEAD + "\n" + "\n".join(f"  {n} {a}: {w}" for n, (a, w) in TOOLS.items())
+    if "rule" not in _GUIDE:  # 3.3.8.0 R2 (5b): the rules sentence joins the stable front, built once
+        from halo_harness.ollama_steward.agent_prompt import _rule_sentence
+        _GUIDE["rule"] = _rule_sentence()
+    rule = f"\nThe rule: {_GUIDE['rule']}" if _GUIDE["rule"] else ""
+    return HEAD + "\n" + "\n".join(f"  {n} {a}: {w}" for n, (a, w) in TOOLS.items()) + rule
 
 
 def env_for(state_dir, readers: Optional[dict] = None) -> dict:
@@ -67,8 +72,16 @@ def env_for(state_dir, readers: Optional[dict] = None) -> dict:
     return {"state": state_dir, "ctx": ctx, "found": found, "hosts": list(resolve_ollama_hosts()), "mode": steward.mode()}
 
 
+# 3.3.8.0 R2 (5b): the prompt in the order it changes -- the guide (system) never, then the mode and the
+# reservations and the adviser rarely, the cards and the servers per read, the calls per call, the findings and the
+# events last, then the conversation and the question -- so a local server reuses the prompt's cached front (Ollama's
+# KV prefix) from one round to the next. DROP is the order sections are left out when the budget is short.
+ORDER = ("mode", "reservations", "adviser", "cards", "servers", "calls", "findings", "events")
+DROP = ("events", "calls", "servers", "cards", "adviser", "reservations", "mode", "findings")
+
+
 def _sections(env: dict) -> list:
-    """[(name, text)] in the order they are kept; the last ones are left out first when the budget is short."""
+    """[(name, text)] in ORDER (the stable ones first); `context` leaves them out in DROP's order."""
     from halo_harness.ollama_steward import agent_prompt as P
     from halo_harness.ollama_steward.rules import format_finding
     found = env["found"]
@@ -89,12 +102,20 @@ def _sections(env: dict) -> list:
             f"\n  [{s['id']}] {s['line']}" for s in got["suggestions"][:4])))
     except Exception:
         pass
+    try:
+        from halo_harness.ollama_steward.hardware_servers import lines as server_lines, rows as server_rows
+        srv = server_lines(server_rows(env["state"], env["ctx"].get("servers")))
+        out.append(("servers", "Local servers (llama-server, LM Studio, mlx):\n" + ("\n".join(f"  {x}" for x in srv)
+                                                                                     or "  none")))
+    except Exception:
+        pass
     full = P.context(env["ctx"], {"mode": env["mode"], "findings": found})
     parts = full.split("\n\n")
-    out.append(("cards", "\n\n".join(p for p in parts if p.startswith(("Mode:", "Hardware")))))
+    out.append(("mode", "\n\n".join(p for p in parts if p.startswith("Mode:"))))
+    out.append(("cards", "\n\n".join(p for p in parts if p.startswith("Hardware"))))
     out.append(("calls", "\n\n".join(p for p in parts if p.startswith(("Calls per model", "Machines")))))
     out.append(("events", "\n\n".join(p for p in parts if p.startswith("The last"))))
-    return [(n, t) for n, t in out if t.strip()]
+    return sorted([(n, t) for n, t in out if t.strip()], key=lambda s: ORDER.index(s[0]))
 
 
 def context(env: dict, question: str, history: list, *, budget: Optional[int] = None) -> "tuple[str, list, int]":
@@ -105,7 +126,9 @@ def context(env: dict, question: str, history: list, *, budget: Optional[int] = 
     left: list = []
     text = "\n\n".join([t for _n, t in kept] + [head])
     while kept and tokens(guide()) + tokens(text) > budget:
-        left.insert(0, kept.pop()[0])
+        drop = next(n for n in DROP if any(k == n for k, _t in kept))
+        kept = [(k, t) for k, t in kept if k != drop]
+        left.insert(0, drop)
         text = "\n\n".join([t for _n, t in kept] + [head])
     return text, left, tokens(guide()) + tokens(text)
 

@@ -120,7 +120,12 @@ def context(ctx: dict, done: dict, *, events: Optional[list] = None, changes: Op
     found = list(done.get("findings") or [])
     out = [f"Mode: {done.get('mode')} (auto applies changes, review proposes them, off reports only)", "",
            "Hardware cards:"]
+    servers = {s.name: s for s in ctx.get("servers") or []}  # 3.3.8.0 R2: a local server has a log, not a card here
     for name in _hosts_in(ctx, found):
+        if name in servers:
+            out.append(f"  '{name}': a local server ({servers[name].runtime or 'llama-server'}); its log is read, its card "
+                       "is the machine's (halo ollama hardware)")
+            continue
         card = (ctx.get("cards") or {}).get(name)
         lines = format_card(card, host_name=name) if card else [f"'{name}': no card read"]
         out += [f"  {x}" for x in lines[:8]]

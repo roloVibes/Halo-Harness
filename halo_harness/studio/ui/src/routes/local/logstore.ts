@@ -1,7 +1,8 @@
 // Local -> Logs's store (3.3.6.0 R3; studio/local_logs_api.py): the host picked, its log status (GET
 // local/host/<n>/log/status), the per-model rows (GET .../log/models), the bounded tail (GET .../log?n=&kind=), the
 // kind filter and the Live toggle (a poll every LIVE_MS while it is on and the page is shown; never a stream). Each
-// answer is said on its own row (no toast). The host picked is remembered for this browser.
+// answer is said on its own row (no toast). The host picked is remembered for this browser. 3.3.8.0 R2: the local
+// servers (GET local/logs/servers) are picked the same way; their routes are the hosts' under the server's name.
 import { api, ApiError } from "../../lib/api";
 import { createStore, useStore, writeLocal } from "../../lib/store";
 
@@ -15,7 +16,9 @@ export type LogStatus = {
   host: string; state: "live" | "stale" | "quiet" | "unreadable" | "remote-no-ssh" | "missing"; line: string; path: string;
   paths: string[]; last_line_at: number | null; why: string; debug: boolean; readable: boolean; rung: string;
   tail_cli: string; halo_cli: string; debug_action: string; member?: string | null;
+  runtime?: string | null; source?: string; // 3.3.8.0 R2: a local server's status (llama-server, lmstudio, mlx)
 };
+export type ServerRow = { name: string; runtime: string | null; source: string; url: string };
 export type LogLine = { text: string; group: string | null; at: number | null };
 export type LogTailAnswer = { host: string; lines: LogLine[]; source: string; why: string | null; n: number; kind: LogKind;
   cli: string; tail_cli: string; path: string };
@@ -26,10 +29,11 @@ export type LogModel = { model: string; load: LoadResult;
   truncations: { at: string; say: string; limit: number | null; prompt: number | null; window_sent: number | null }[];
   errors: { at: string; kind: string; say: string }[];
   crashed: { line: string; signature: string; at: string; count: number } | null };
-export type LogModels = { host: string; models: LogModel[]; session: { id: string | null; since: number | null } };
+export type LogModels = { host: string; models: LogModel[]; session: { id: string | null; since: number | null };
+  runtime?: string | null; not_asked?: string[] };
 
 type LogsState = { host: string; status: LogStatus | null; models: LogModels | null; tail: LogTailAnswer | null;
-  kind: LogKind; live: boolean; error: string; said: string };
+  kind: LogKind; live: boolean; error: string; said: string; servers: ServerRow[] | null };
 
 function remembered(): string {
   try {
@@ -40,7 +44,7 @@ function remembered(): string {
 }
 
 export const logs = createStore<LogsState>({ host: remembered(), status: null, models: null, tail: null, kind: "all", live: false,
-  error: "", said: "" });
+  error: "", said: "", servers: null });
 
 export function useLogs<S>(select: (s: LogsState) => S): S {
   return useStore(logs, select);
@@ -48,6 +52,16 @@ export function useLogs<S>(select: (s: LogsState) => S): S {
 
 const msg = (e: unknown) => (e instanceof ApiError ? e.message : String(e));
 const base = (host: string) => `local/host/${encodeURIComponent(host)}/log`;
+
+/** 3.3.8.0 R2: the local servers the page lists beside the Ollama hosts (GET local/logs/servers). */
+export async function loadServers(): Promise<void> {
+  try {
+    const got = await api.get<{ servers: ServerRow[] }>("local/logs/servers");
+    logs.update(() => ({ servers: got.servers || [] }));
+  } catch (e) {
+    logs.update(() => ({ servers: [], error: msg(e) }));
+  }
+}
 
 export async function loadStatus(host: string): Promise<void> {
   try {

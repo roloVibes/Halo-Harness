@@ -371,3 +371,15 @@ and `isolation/Dockerfile` the worker image.
   card), `agent/eyes_turn.py` (what the choice does to the turn; the Screenshot tool's lines), `tui/widgets/eyes_card.py`
   (the TUI's menu), `studio/session_eyes_api.py` (the steer's image, the screenshot command, `GET sessions/<sid>/eyes`)
   and `ui/src/routes/shared/EyeChip.tsx`, `ui/src/routes/session/` `steerImage.ts`, `LiveImage.tsx`.
+- The steward sees every local server (3.3.8.0 R2, docs/MODELS-steward-servers.md, docs/COMMANDS-local-servers.md):
+  `ollama_steward/servers_hf.py` (the roster: manual entries, Halo's registry rows, the probe's cache; a ledger url's
+  server name), `ollama_steward/server_log_hf.py` (each server's log source, the new lines, the events, the job's tick),
+  `ollama_steward/server_rules_hf.py` + `ollama_steward/server_context_hf.py` (what llama-server, LM Studio and
+  mlx_lm.server print, by kind; what each never prints), `ollama_steward/log_status_hf.py` (the status line),
+  `ollama_steward/rules_servers.py` (the findings keyed `<server>|<model>`), `ollama_steward/tune_lines_hf.py` (the
+  stated lines per runtime), `ollama_steward/fingerprint_hf.py` (the build a crash ran on),
+  `ollama_steward/host_reads_hf.py` and `ollama_steward/hardware_servers.py` (a machine's servers through its halo host
+  and on its card), `providers/hf_profile.py` (the call reads the server's profile), `agent/server_log_recovery.py` (the
+  post-call read), `host/session_push.py` (a terminal session's calls reach its host), `doctor_local_servers.py`,
+  `local_log_cli.py` (`halo local log | events`), `studio/local_logs_servers.py` (Local -> Logs for a server) and
+  `ui/src/routes/local/StewardFindings.tsx`.

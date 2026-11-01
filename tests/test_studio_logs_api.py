@@ -92,6 +92,43 @@ def test_the_models_route(ctx: Ctx):
 
 
 @test
+def test_a_local_server_beside_the_hosts(ctx: Ctx):
+    """3.3.8.0 R2: GET local/logs/servers lists the local servers; the three routes answer a server's name with the
+    hosts' shapes (studio/local_logs_servers.py): the tail with groups, the status line with its runtime, per model
+    the load (the window per slot, the layers), the cut prompts, the errors, and what its log never says."""
+    from halo_harness.ollama_steward.server_log_hf import scan
+    from tests.helpers.servers_seed import Home
+
+    class _H:
+        def __init__(self, home):
+            self.root, self.state = home.root, home.state
+    with Home() as home:
+        h = _H(home)
+        scan(home.state, home.server("llama-8080"), from_start=True)
+        scan(home.state, home.server("mac-mlx"), from_start=True)
+        _c, listed = _api(h, "local/logs/servers")
+        code, tail = _api(h, "local/host/llama-8080/log", {"kind": "truncation"})
+        _c, st = _api(h, "local/host/llama-8080/log/status")
+        _c, models = _api(h, "local/host/llama-8080/log/models")
+        _c, mlx = _api(h, "local/host/mac-mlx/log/models")
+        nf, _w = _api(h, "local/host/nobody/log/status")
+    names = {s["name"]: s for s in listed.get("servers") or []}
+    ctx.check(f"the servers with their runtimes, got {names}", {"llama-8080", "studio", "mac-mlx"} <= set(names)
+              and names["studio"]["runtime"] == "lmstudio" and names["mac-mlx"]["runtime"] == "mlx")
+    ctx.check(f"the tail's truncation lines, got {tail}", code == 200 and tail.get("server") and tail["lines"]
+              and all(r["group"] == "truncation" for r in tail["lines"]) and tail["cli"].startswith("halo local log llama-8080"))
+    ctx.check(f"the status: its runtime, its path, got {st.get('line')!r}", st.get("runtime") == "llama-server"
+              and "llama-8080.log" in st.get("path", "") and st.get("halo_cli") == "halo local log llama-8080 --follow")
+    row = next((m for m in models.get("models") or [] if m["model"] == "qwen3-8b"), {})
+    ctx.check(f"the load: window per slot, layers, spilled, got {row.get('load')}", (row.get("load") or {}).get("window") == 8192
+              and row["load"]["layers"] == [30, 37] and row["load"]["state"] == "spilled")
+    ctx.check(f"the cut prompt, got {row.get('truncations')}", (row.get("truncations") or [{}])[0].get("window_sent") == 8192)
+    ctx.check(f"mlx: what its log never says, got {mlx.get('not_asked')}", mlx.get("runtime") == "mlx"
+              and {"prompt-trimmed", "cpu-spill"} <= set(mlx.get("not_asked") or []))
+    ctx.check(f"neither a host nor a server: 404, got {nf}", nf == 404)
+
+
+@test
 def test_the_door_knows_the_page(ctx: Ctx):
     from halo_harness.studio.local_door import page_word
     ctx.check(f"`halo local logs` / ?page=logs, got {page_word('logs')}", page_word("logs") == ("logs", ""))

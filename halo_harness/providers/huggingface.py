@@ -153,6 +153,10 @@ class HFLocalServer:
     # the one escape hatch for a manual server whose URL is neither a
     # private/loopback IP literal nor a bare/`.local` name.
     offline_ok: bool = False
+    # Halo 3.3.8.0 R2: where this server writes its log (read by the steward: ollama_steward/server_log_hf.py) and its
+    # runtime ("llama-server" | "lmstudio" | "mlx") when the probe cannot tell
+    log: Optional[str] = None
+    runtime: Optional[str] = None
 
 
 def _local_server_from_dict(d: dict) -> Optional[HFLocalServer]:
@@ -164,6 +168,8 @@ def _local_server_from_dict(d: dict) -> Optional[HFLocalServer]:
         name=name, url=url.rstrip("/"), default=bool(d.get("default", False)),
         api_key=_resolve_secret_field(d, plain_key="api_key", env_key="api_key_env"),
         offline_ok=bool(d.get("offline_ok", False)),
+        log=d["log"] if isinstance(d.get("log"), str) and d["log"].strip() else None,
+        runtime=d["runtime"] if isinstance(d.get("runtime"), str) and d["runtime"].strip() else None,
     )
 
 

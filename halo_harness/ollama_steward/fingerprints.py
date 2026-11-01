@@ -33,7 +33,7 @@ ORDER = ("CUDA IMA", "CUDA error", "GPU out of memory", "runner died (0xc0000409
 WORDS = {"CUDA IMA": "CUDA error (an illegal memory access)", "CUDA error": "a CUDA error",
          "GPU out of memory": "the GPU ran out of memory", "runner died (0xc0000409)": "llama-server died (exit 0xc0000409)",
          "runner died": "llama-server died", "load failed": "the load failed"}
-KEY = ("host", "model", "signature", "window_used", "kv_cache_type", "flash_attention", "spill")
+KEY = ("host", "model", "signature", "window_used", "kv_cache_type", "flash_attention", "spill", "digest")  # R2: one build
 
 
 def _path(state_dir):
@@ -46,6 +46,8 @@ def signature_of(ev: dict) -> Optional[str]:
     kind = ev.get("kind")
     if kind not in ("gpu-memory", "other-error", "load-failed"):
         return None
+    if (ev.get("data") or {}).get("death"):  # 3.3.8.0 R2: a local server's death line (server_rules_hf.py)
+        return "CUDA IMA" if "illegal memory access" in text else "runner died"
     if "illegal memory access" in text:
         return "CUDA IMA"
     if "0xc0000409" in text:
@@ -180,6 +182,8 @@ def record(state_dir, rows: list, host: Optional[str], *, card=None, catalog=Non
                   "signature": sig, "at": now_iso(at), "evidence": [str(ev.get("evidence") or "")[:300]]}
             from halo_harness.ollama_steward.fingerprint_facts import enrich, note_new  # 3.3.6.0 R3: the load it died in
             enrich(fp, ev, state_dir, host, card)
+            from halo_harness.ollama_steward.fingerprint_hf import stamp  # 3.3.8.0 R2: the build, the runtime, Halo's launch
+            stamp(fp, ev, state_dir, host)
             fp["count"] = 1 + sum(1 for x in have if all(x.get(k) == fp.get(k) for k in KEY))
             have.append(fp)
             done.append(fp)

@@ -3681,3 +3681,15 @@ worse); the reference HTTP server is not shipped (routes through `studio/local_a
   fleet-wide placement + re-check on a far card's change; the pool findings; the link type from the OS beats RTT).
 - Open from the drop (unverified): GPU enumeration on worker-grade Windows boxes, NIC speed detection, per-model RPC
   benchmarks; Ollama PR #10844 would make pooled serving one command on Ollama hosts -- noted, not depended on.
+- ~~The steward sees every local server~~ (2026-10-31, rolo: "fix where it is thinner than it should be"; built beside
+  the pool's R1 as its own worktree round, v338/R2-servers): llama-server, LM Studio and mlx_lm.server logs read like
+  Ollama's (Halo's own process log, LM Studio's server-logs folder, an entry's `log`), the same events, findings keyed
+  `<server>|<model>`, Halo-side fixes (window, reply room, tool budget) the next `hf:local` call reads, the server
+  side said per runtime with `applied: false`; `halo local log | events <server>`, `halo ollama crashes` across
+  runtimes, `halo doctor --local` lines, Local -> Logs and Local -> Steward list the servers, the host's card / tail /
+  events carry the machine's servers; the loop's post-call read for `hf:local` calls, the promise folds sub-agent logs,
+  a terminal-only session pushes its calls to its host, fingerprints carry the digest
+  ([MODELS-steward-servers.md](../docs/MODELS-steward-servers.md)). Open: the fixture formats were written from memory
+  (no live llama-server / LM Studio / mlx log read this round); LM Studio's own app log (its layers and load time) is
+  not read; mlx_lm.server prints no window; the pool's controller round reads the pool's llama-server log through this
+  reader (`pool-degraded`, `pool-rtt`, `pool-spill` need its RPC lines, not classified yet).
