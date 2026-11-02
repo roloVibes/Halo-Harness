@@ -56,6 +56,8 @@ lint rules, and a Chrome driver that timed out retries once, in the open.
   the auto-detect cache on start as the Ollama mock resets the catalog; the session registry's file lock waits 30 s
   (it yields unheld after its timeout, and a register that went on unlocked lost a row under eight concurrent
   registers on the Windows runner); the refresh tests' fake clock is two hours ahead of the real one (the idle rule).
+- A retried Chrome driver runs with a fresh scratch home SET, never with the home variables unset (the retried process
+  could resolve the real `~/.halo` before it scoped its own: the Linux shard-0 run ended on the real-state guard).
 
 ## [3.3.8.0] - 2026-11-01
 

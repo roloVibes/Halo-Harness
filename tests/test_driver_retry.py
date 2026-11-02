@@ -4,7 +4,7 @@ the re-run is a stand-in.
 
 1. which failures are retried: a step's TimeoutError, never an assertion, a setup error, a stand-in Chrome, the second
    run itself, or with HALO_DRIVER_NO_RETRY=1 (a local red stays red);
-2. the re-run: a fresh process, a fresh home (BRIDGE_TEST_HOME dropped when the driver made its own), its result with
+2. the re-run: a fresh process, a fresh scratch home (BRIDGE_TEST_HOME set to a new one when the driver made its own; never unset), its result with
    `retried: <the first failure>`; a second failure stays a failure, still naming the first;
 3. the runner's [PASS] line gains " (driver retried once: <first failure>)" through `ctx.retried` (driver_got.got).
 Run: python -m tests.test_driver_retry
@@ -70,7 +70,9 @@ def test_the_rerun_is_fresh_and_says_so(ctx: Ctx):
             got = DR.after(dict(T), own_home=True)
         ctx.check(f"the second result with `retried`, got {got}", got == {"rows": 3, "retried": T["failed"]})
         ctx.check("a fresh process with the mark and no inherited home", seen["argv"][0] == sys.executable
-                  and seen["env"][DR.MARK] == T["failed"] and "BRIDGE_TEST_HOME" not in seen["env"])
+                  and seen["env"][DR.MARK] == T["failed"]
+                  and seen["env"].get("BRIDGE_TEST_HOME") not in (None, "", os.environ.get("BRIDGE_TEST_HOME"))
+                  and "BRIDGE_STATE_DIR" not in seen["env"])  # a fresh scratch home, never the real one
         ctx.check("in the open: the stderr line, the child's other stdout", "retried once after: bench: TimeoutError" in err.getvalue()
                   and out.getvalue() == "noise\n")
         DR.subprocess.run = lambda argv, **kw: SimpleNamespace(returncode=1, stdout=json.dumps({"failed": "bench: TimeoutError: again"}),

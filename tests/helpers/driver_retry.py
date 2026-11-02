@@ -42,21 +42,34 @@ def _argv() -> list:
     return [sys.executable, *head, *sys.argv[1:]]
 
 
+def _drop(path) -> None:
+    if path:
+        import shutil
+        shutil.rmtree(path, ignore_errors=True)
+
+
 def after(out: dict, *, own_home: bool, real_chrome: bool = True) -> dict:
     first = why(out, real_chrome=real_chrome)
     if not first:
         return out
     env = dict(os.environ)
     env[MARK] = first[:300]
-    if own_home:  # the second run scopes a fresh home of its own (chrome_driver.scope_home)
-        env.pop("BRIDGE_TEST_HOME", None)
+    fresh = None
+    if own_home:  # the second run gets a fresh scratch home of its own, set BEFORE its first import: popping the
+        # variables instead let the retried process resolve the real ~/.halo until scope_home ran (the Linux shard-0
+        # run 41393796146 ended with the real-state guard: ~/.halo did not exist before and does now)
+        import tempfile
+        fresh = tempfile.mkdtemp(prefix="driver-retry-home-")
+        env["BRIDGE_TEST_HOME"] = fresh
         env.pop("BRIDGE_STATE_DIR", None)
     print(f"[driver] retried once after: {first}", file=sys.stderr)
     try:
         r = subprocess.run(_argv(), capture_output=True, encoding="utf-8", errors="replace", timeout=TIMEOUT_S, env=env,
                            stdin=subprocess.DEVNULL)
     except subprocess.TimeoutExpired:
+        _drop(fresh)
         return {**out, "retried": first, "failed": f"{first} (and the retry ran past {TIMEOUT_S} s)"}
+    _drop(fresh)
     sys.stderr.write(r.stderr or "")
     lines = (r.stdout or "").strip().splitlines()
     for line in lines[:-1]:
