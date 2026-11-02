@@ -110,11 +110,15 @@ Halo Studio is the browser console where you watch and steer every agent: what e
 thinks, which tool it runs and for how long, what it hands back and what it asks you.
 One session works across providers (OpenRouter, Databricks, the Anthropic API, the
 OpenAI API, Ollama, Hugging Face, or any OpenAI-compatible server you host), and
-`/model` swaps the model mid-conversation.
+`/model` swaps the model mid-conversation. The local half is built to run on your own
+machines: the Ollama steward watches every local server and plans what fits, the **Local**
+section shows the machines and their models, `halo host` runs on the machine that serves
+them, the pool puts one model across several machines' GPUs, and Voice lets you talk to a
+session and hear it answer, all locally.
 
 ## Halo Studio
 
-`halo studio` opens Studio in your browser. It is one window with nine sections under one
+`halo studio` opens Studio in your browser. It is one window with ten sections under one
 header, and two of them are where you watch your agents: **Session**, the dashboard of everything working
 right now, and **Roles**, your lineup as cards that light up as their agents work.
 
@@ -189,7 +193,7 @@ it; Save writes the lineup's YAML and Apply makes it the lineup new sessions use
 [Roles](docs/STUDIO-sections.md#roles) and
 [the canvas](docs/STUDIO-team-roles.md#what-you-see-roles).
 
-### Six sections, one window
+### Ten sections, one window
 
 <a href="docs/media/studio-modes.png"><img alt="Halo Studio's ten sections side by side, each under its key: Session (Alt+1), Team (Alt+2), Roles (Alt+3), Fleet (Alt+4), Design (Alt+5), Orchestra (Alt+6), Packs (Alt+7), Setup (Alt+8), Settings (Alt+9) and Local (Alt+0)" src="docs/media/studio-modes.png" width="100%"></a>
 
@@ -222,6 +226,13 @@ Load, Unload and Make it fit, and every installed model with its card, its fit m
 chat, long documents, images, embed). `halo local` opens it. See [docs/STUDIO-local.md](docs/STUDIO-local.md).
 On the machine that serves the models, `halo host` (3.3.7.0) watches them with no session open and lets a laptop
 with no GPU read that card, its models' fit, their profiles and the server log, no ssh: [docs/HOST.md](docs/HOST.md).
+A bench (3.3.8.1) runs from any halo, over the LAN, on a host that has no `halo host`; the card says it includes the link.
+
+**The pool** (3.3.8.0) is one model across the GPUs of several of your machines, over llama.cpp RPC: `halo pool`,
+or Local -> Pool, which shows each member's free VRAM, whether the model fits and the split, then warms or stops it.
+It buys capacity, not speed. See [docs/POOL.md](docs/POOL.md). **Voice** (3.3.9.0) is a session you talk to and hear,
+with the speech models on your own machines: `halo voice`, `/voice`, or Local -> Voice with Talk from the browser's
+microphone, the speech servers running on this machine or through a `halo host`. See [docs/VOICE.md](docs/VOICE.md).
 
 The pictures here are headless-Chrome renders of Studio over fixture data
 (`tools/capture_studio.py`, and `tools/capture_session_anim.py` for the animated ones).
@@ -342,6 +353,7 @@ tool, so check each tool's own docs.
 | Every machine at once | Studio's Fleet: every harness on one map, one queue of what waits on you, missions that split one goal across harnesses | Varies |
 | Config reuse | Reads your Claude Code setup in place: `~/.claude` settings, CLAUDE.md, skills, commands, agents, MCP servers, memory | Commonly their own config files and instruction files |
 | Models | DeepSeek, GLM, Kimi, Qwen, Claude and more, over OpenRouter, Databricks, the Anthropic and OpenAI APIs, Ollama, Hugging Face and local servers; `/model` swaps mid-conversation | Often one vendor's models, or one provider list per tool |
+| Local models | A steward that watches every local server and plans the fit, a host per machine, a pool across machines, voice on your own hardware, all in Studio's Local section | Commonly a base URL for a local server; fit, load and diagnosis are left to you |
 | Agents | Lineups with a model per role, per-role cost, `/tasks`, and Studio as the editor for lineups and bios | Sub-agents are common; a model per role, cost attribution and a visual editor vary |
 | Steering | Type during a turn; the steer shows at once and reaches the work, background commands survive, sub-agents get it | Commonly a queued message or an interrupt |
 | Liveness | A live phase line (seconds, token counts, `quiet`/`no data` counters) plus a status-bar word and timer | Commonly a spinner |
@@ -354,11 +366,17 @@ tool, so check each tool's own docs.
 
 | | |
 |---|---|
-| **Halo Studio** | `halo studio`, or `/studio` in a session: the browser console, nine sections under one header. Loopback only, a per-launch token, no CDN. |
+| **Halo Studio** | `halo studio`, or `/studio` in a session: the browser console, ten sections under one header. Loopback only, a per-launch token, no CDN. |
 | **The Session dashboard** | One live column of every agent's thinking, tool calls (what each runs on, its time, its result), hand-backs and asks; the map of who spawned whom with each agent's model, cost and running tool; the context bar, the spend and each agent's share. |
 | **The Roles glow** | Your lineup as cards in tier boxes. While a session runs, a card glows in its agent's state: working cyan, waiting amber, done green that fades over ten seconds, failed red until you click it. Hover the card and it explains its glow. |
 | **Fleet and missions** | Every harness on one map, one attention queue across all of them, and one goal split into parts by what each harness can do. |
 | **Orchestra** | Several agents write the same files at once: lanes in their own git worktrees, a plan you can review on a canvas, a gate that runs your test, and a coach that reads the run. |
+| **Packs** | An extension contract and `halo pack`: a pack adds bios, lineups, skills, commands, hooks and MCP servers through a manifest, with grants you set, and Studio's Pack Manager (`Alt+7`) installs, enables and removes them. |
+| **The Ollama steward** | A cheap model you pick watches the traffic of every local server across your halos, explains a failed call, plans what fits the card and makes Halo-side fixes only; a server change comes as the exact line to set. |
+| **Local, measured** | A probe battery per model per host, the speed card, tuning with a revert for every change, and a three-way search of the library (what a model declares, what is expected, what was verified here). |
+| **The host** | `halo host serve` on the machine that serves the models: peers read its card, models and log with no ssh and act through grants, one resident model per card, an off-hours refresh. |
+| **The pool** | One model across the GPUs of several machines over llama.cpp RPC: `halo pool`, a fit verdict before any download, warm and stop from Local -> Pool. |
+| **Voice** | `halo voice` and `/voice`: talk to a session and hear it, speech-to-text and text-to-speech on your own machines, barge-in, a latency card per turn. |
 | **Routes** | `or:` `dbx:` `ant:` `oai:` `ol:` `hf:` `local:` -- one session, any of them, and `/model` swaps the lane without losing context. |
 | **Your Claude Code setup, in place** | `~/.claude` settings, CLAUDE.md, skills, commands, agents, MCP servers and memory are read where they are. Nothing is configured twice. |
 | **Steering** | Type while a turn runs: the steer shows at once and reaches the work, a running command moves to the background instead of dying, sub-agents get your words forwarded into them. |
@@ -372,7 +390,7 @@ tool, so check each tool's own docs.
 | **MCP deep dive** | stdio/HTTP/SSE servers from every Claude Code scope, `D` diagnoses a failing server end to end, claude.ai connectors bridge through as tools. |
 | **Balances and picker columns** | Per-provider balances in the status bar (remaining first); free variants sit beside their paid rows in the picker. |
 | **Privacy audit** | `halo audit privacy` scans the tree (or, with `--history`, every commit) for real paths, hosts and key-shaped strings, one line per finding. |
-| **CI and release script** | Every push runs the three suites on Linux and Windows; `scripts/release.py` versions, tags, pushes and refreshes both installs. |
+| **CI and release script** | Every push runs the three suites on Linux and Windows, in four shards per platform, with the flake rules as tests; `scripts/release.py` versions, tags, pushes and refreshes both installs. |
 
 ## Documentation
 
@@ -395,10 +413,17 @@ line on when to read it. The longest docs are split by task; their entry pages b
 | [docs/CONFIG.md](docs/CONFIG.md) | Config keys, paths and environment variables |
 | [docs/MODELS.md](docs/MODELS.md) | Model families, effort levels and per-route rules |
 | [docs/LOCAL-MODELS.md](docs/LOCAL-MODELS.md) | Ollama, Hugging Face and the OpenAI API, end to end; `halo ollama discover` finds the Ollama servers on this machine and the network, adds them and measures their models |
+| [docs/MODELS-ollama-steward.md](docs/MODELS-ollama-steward.md) | The Ollama steward: what it knows, records, finds and changes across your halos and local servers |
+| [docs/STUDIO-local.md](docs/STUDIO-local.md) | Studio's Local section: the machines that serve your models, live resources and traffic, every host and model with its fit |
+| [docs/HOST.md](docs/HOST.md) | `halo host`: a machine that serves models lets every harness on the LAN read its card, models, log and profiles, no ssh |
+| [docs/POOL.md](docs/POOL.md) | The pool: one model across the GPUs of several machines, what it can and cannot do |
+| [docs/VOICE.md](docs/VOICE.md) | Voice: talk to a session and hear it locally; its parts cover [the glasses](docs/VOICE-glasses.md) and [a box with no GPU](docs/VOICE-cpu.md) |
 | [docs/DATABRICKS.md](docs/DATABRICKS.md) | Databricks endpoints, API types and the work matrix |
 | [docs/AGENTS.md](docs/AGENTS.md) | Agent bios and lineups: the 90-second version, then the field reference |
 | [docs/DESIGN.md](docs/DESIGN.md) | Halo Design: the project on disk, a design turn, the craft apps, knobs, systems, exports, the handoff |
 | [docs/ROLES.md](docs/ROLES.md) | Roles and the role table |
+| [docs/PACKS.md](docs/PACKS.md) | Packs: add bios, lineups, skills, commands, hooks and MCP servers to Halo, or take them out again |
+| [docs/EXTENSION_API.md](docs/EXTENSION_API.md) | The extension API: the pack manifest, the lifecycle and what a pack may import |
 | [docs/GOVERNOR.md](docs/GOVERNOR.md) | The Governor: shared per-host rate limiting, failover and lanes |
 | [docs/REMOTE.md](docs/REMOTE.md) | The per-session control socket and its agent-level commands |
 | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | "Is it frozen?", GLM pauses, copy and paste, connect timeouts |

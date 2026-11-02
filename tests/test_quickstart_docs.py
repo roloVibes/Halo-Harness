@@ -75,7 +75,7 @@ def test_rest_of_readme_unchanged_below_quick_start(ctx: Ctx):
     studio = text.split("\n## Halo Studio\n", 1)[-1].split("\n## ", 1)[0]
     parts = tuple(re.findall(r"^### .+$", studio, flags=re.M))
     ctx.check(f"Studio's parts: Session and Roles first, Design last, got {parts}",
-              parts == ("### Session: the dashboard", "### Roles: see your agents", "### Six sections, one window",
+              parts == ("### Session: the dashboard", "### Roles: see your agents", "### Ten sections, one window",
                         "### Fleet: every harness, one goal", "### Orchestra: agents writing the same files",
                         "### Team: people, blocks and stages", "### Design: on your own apps"))
     feels = text.split("\n## What it feels like\n", 1)[-1].split("\n## ", 1)[0]
