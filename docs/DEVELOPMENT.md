@@ -361,6 +361,16 @@ The modules read it through `tests/helpers/driver_got.py`, and the runner's line
 (driver retried once: bench: TimeoutError: waited 20s for: ...)`; the CI job summary counts them (`grep retried`).
 A second timeout fails as it would have. `HALO_DRIVER_NO_RETRY=1` turns it off, so a local red stays red.
 
+### The fake speech engine (3.3.9.0 R1)
+
+`HALO_VOICE_ENGINE=fake` makes the speech server's engine seam (`halo_harness/voice/engines.py`) load the fake engine
+(`voice/engine_fake.py`): a fixed transcript for any audio, a 440 Hz sine of `HALO_VOICE_FAKE_MS` (500) ms per
+sentence, `HALO_VOICE_FAKE_LOAD_S` to slow its load, `HALO_VOICE_FAKE_FAIL=1` to fail it, `HALO_VOICE_FAKE_DEVICES=
+cpu,cuda` for the devices it reports. It is a test flag: never set it outside tests. The tests never install the
+`voice` extra and never import a real engine; `huggingface.voice_server_cmd` points `halo local serve --stt | --tts` at
+`tests/helpers/fake_voice_server.py` (the real server with the fake engine), the way `huggingface.llama_server_bin`
+points at `fake_llama_server.py`, and `tests/helpers/voice_files.put` writes a speech model's files as a few bytes.
+
 ## Docs: the map and the split docs
 
 [docs/README.md](README.md) is the map: every doc, under the task it serves,

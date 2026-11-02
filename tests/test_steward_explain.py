@@ -25,7 +25,8 @@ test, TESTS = new_registry()
 KDIR = Path(__file__).resolve().parent.parent / "halo_harness" / "ollama_steward" / "knowledge"
 NAMED = ("scheduler", "memory", "log", "local-servers", "kv-cache", "parallel", "margin")
 RULES = ("window-asked-small", "window-small", "window-large", "two-windows", "cpu-spill", "reply-cut", "no-compaction",
-         "compaction-failed", "cut-resent", "slow-box", "thrash")
+         "compaction-failed", "cut-resent", "slow-box", "thrash",
+         "stt-slow", "tts-slow", "voice-cpu", "voice-load-failed")  # 3.3.9.0 R1: knowledge/local-servers.md's speech rows
 
 
 def _cli(*argv) -> "tuple[int, str]":

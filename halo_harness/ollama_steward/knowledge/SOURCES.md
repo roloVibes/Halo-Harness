@@ -62,3 +62,4 @@ check keeps the tags and the rows in step.
 | S48 | Halo's bench: the windows, the warm-up, the speed card, the reply reserve | repo:halo_harness/providers/local_bench.py | Halo 3.3.6.0 R5 | 2026-10-31 |
 | S49 | Distributed LLM inference across home-LAN machines: llama.cpp RPC, the measured pooling penalty, the round trip per layer boundary | repo:plans/pooled-inference-research.md | Halo 3.3.8.0 R1 | 2026-10-31 |
 | S50 | Halo's pool: the status, the failure lines and the steward's pool rules | repo:halo_harness/ollama_steward/rules_pool.py | Halo 3.3.8.0 R4 | 2026-11-01 |
+| S51 | Halo's speech servers: the log lines, the speech catalog and the steward's voice rules | repo:halo_harness/ollama_steward/rules_voice.py | Halo 3.3.9.0 R1 | 2026-11-02 |

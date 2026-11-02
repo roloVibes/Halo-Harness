@@ -7,6 +7,8 @@ model folder, a name `halo local --terminal` shows, or with `--runtime mlx` a Hu
 `hf:mlx/<repo>` path). When no llama-server is found, `--yes` lets Halo fetch the pinned release (round 5c).
 3.3.8.0 R3: `--pool <model>` runs a pool catalog model across the pool's members instead (pool_run_cli.serve_pool:
 the preflight, the claims, each worker's rpc-server, llama-server --rpc ..., the `pool` entry).
+3.3.9.0 R1: `--stt <model>` / `--tts <model>` [--device auto|cpu|cuda] runs Halo's speech server for a speech catalog
+model instead (voice/launch.serve: the `stt` / `tts` server and its huggingface.local_servers entry).
 """
 
 from __future__ import annotations
@@ -46,7 +48,17 @@ def cmd_serve(argv: list) -> int:
     p.add_argument("--json", action="store_true")
     p.add_argument("--pool", action="store_true", help="the model is a pool catalog model: serve it across the pool")
     p.add_argument("--allow-wifi", action="store_true", help="with --pool: keep a Wi-Fi member (a slower decode)")
+    p.add_argument("--stt", action="store_true", help="the model is a speech-to-text model of the speech catalog (halo "
+                   "voice models): Halo's speech server serves it as `stt`")
+    p.add_argument("--tts", action="store_true", help="the model is a text-to-speech model: Halo's speech server, `tts`")
+    p.add_argument("--device", choices=("auto", "cpu", "cuda"), default=None,
+                   help="with --stt / --tts: where it runs (default: voice.device, auto: CUDA when it fits)")
     a = p.parse_args(argv)
+    if a.stt or a.tts:  # 3.3.9.0 R1: voice/launch.py (docs/VOICE.md "Serve")
+        from halo_harness.voice.launch import serve as serve_speech
+        code, lines, row = serve_speech("stt" if a.stt else "tts", a.model, device=a.device, port=a.port, keep=a.keep)
+        print(json.dumps({"code": code, "lines": lines, "server": row}, indent=2, default=str) if a.json else "\n".join(lines))
+        return code
     if a.pool:
         from halo_harness.pool_run_cli import serve_pool
         return serve_pool(a.model, window=a.window, keep=a.keep, allow_wifi=a.allow_wifi or None, as_json=a.json)

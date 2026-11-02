@@ -1,8 +1,9 @@
 # Meta glasses (voice): a bundle Halo ships (3.3.7.0 R5; plans/local-model-fit-brief.md L6, the glasses bundle worked
 # out). It reserves a small chat model at 8 k so a voice turn never waits for a load, runs speech-to-text and
 # text-to-speech on the CPU so they cost no VRAM, and sends task work to the coder when it fits beside the reservation,
-# else to a cloud model. The speech models themselves arrive with Voice (3.3.8.0); this bundle ships the claim and
-# the verdict. `halo pack verdict meta-glasses` says whether it fits here; `halo pack on meta-glasses` turns it on.
+# else to a cloud model. Since 3.3.9.0 R1 the verdict reads whether each speech model is present (`halo voice
+# download <model>` fetches one) and its footprint, and `halo local serve --stt | --tts <model>` serves them; the voice
+# loop itself is R2's. `halo pack verdict meta-glasses` says whether it fits here; `halo pack on meta-glasses` turns it on.
 id: meta-glasses
 name: Meta glasses (voice)
 version: 1.0.0

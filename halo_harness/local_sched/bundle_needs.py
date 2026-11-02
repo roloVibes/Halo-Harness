@@ -10,8 +10,8 @@ there (Halo 3.3.7.0 R5; plans/local-model-fit-brief.md L3; local_sched/bundle_fi
     coder_of(host, state_dir=None) -> {model, lane, window, need_gb} | None   where task work goes on this host: the
         active lineup's coder / worker lane, else main, else the configured `model`, when it is an `ol:` model there
 
-The rules, need by need: a speech model (runtime voice) runs beside Ollama -- on the CPU when the need allows it (the
-smallest of its any_of: no VRAM), on the GPU otherwise (the first, at its published size); an Ollama model is the
+The rules, need by need: a speech model (runtime voice) runs beside Ollama, resolved through the speech catalog and what
+is on disk (local_sched/bundle_voice.py, 3.3.9.0 R1: present -> its footprint, absent -> a download); an Ollama model is the
 first of its any_of that passes the need's filters and is installed there, else the first that passes and has a
 size (a download), else the first that passes. The filters: `vision` / `tools` (the battery profile, else the catalog
 row's capabilities); a verify role never takes the coder's family (the adviser's mismatch rule). Arithmetic only.
@@ -22,7 +22,7 @@ from __future__ import annotations
 from typing import Optional
 
 from halo_harness.local_sched import facts as F
-from halo_harness.packs.manifest_bundle import runtime, voice_gb
+from halo_harness.packs.manifest_bundle import runtime
 
 DEFAULT_WINDOW = 8192
 VERIFY = ("verify", "verifier", "reviewer", "review", "judge", "checker")
@@ -106,15 +106,8 @@ def words(model: str, row: Optional[dict]) -> str:
 
 
 def _voice(role: str, need: dict) -> dict:
-    names = list(need["any_of"])
-    gpu_model = names[0] if names else ""
-    gpu_gb = voice_gb(gpu_model)
-    on_cpu = need["device"] in ("cpu", "cpu-or-gpu")
-    small = min(names, key=lambda n: (voice_gb(n) if voice_gb(n) is not None else 99, names.index(n))) if names else ""
-    model = small if on_cpu else gpu_model
-    return {"role": role, "model": model, "runtime": "voice", "device": need["device"], "placed": "cpu" if on_cpu else "gpu",
-            "installed": None, "gb": 0.0 if on_cpu else gpu_gb, "download_gb": None, "minutes": 0, "window": None,
-            "why": "a speech model: Voice (3.3.8.0) brings it", "gpu_model": gpu_model, "gpu_gb": gpu_gb, "smaller": []}
+    from halo_harness.local_sched.bundle_voice import pick as speech  # 3.3.9.0 R1: the catalog and what is on disk
+    return speech(role, need)
 
 
 def _ollama(role: str, need: dict, rd: Reads, coder: Optional[dict]) -> dict:

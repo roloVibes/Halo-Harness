@@ -252,5 +252,16 @@ told), `local_sched/reserve_parts.py` (claiming the pool and another host); flee
 re-check on a far card's change); Studio -- `studio/pool_watch_api.py` (the Pool page's Bench and Findings),
 `ui/src/routes/local/PoolWatch.tsx`, `poolwatchstore.ts`.
 
+**The speech servers** (Halo 3.3.9.0 R1, docs/VOICE.md): the speech catalog -- `voice/catalog.py` (seven models,
+their engine, repo, files and footprints; `VOICE_GB` for the bundles), `voice/install.py` (present on disk, the hub
+download cut to the engine's files, remove); the server -- `voice/server.py` (bind, load, serve), `voice/server_routes.py`
+(OpenAI's audio routes), `voice/engines.py` (the engine seam: faster-whisper, kokoro-onnx, the extra's install line),
+`voice/engine_fake.py` (HALO_VOICE_ENGINE=fake), `voice/log_lines.py` (the log lines, written and read from one
+place), `voice/launch.py` (`halo local serve --stt | --tts`: the subprocess, the registry row, the `stt` / `tts`
+entry), `voice/device.py` (auto, cpu, cuda, said); the steward -- `ollama_steward/server_log_voice.py` (the lines as
+events), `ollama_steward/rules_voice.py` (stt-slow, tts-slow, voice-cpu, voice-load-failed); the fit --
+`local_sched/bundle_voice.py` (a speech need through the catalog and the disk); `voice_cli.py` (`halo voice`) and
+`doctor_voice.py` (`halo doctor --voice`).
+
 The map goes on in [Architecture: the module map, part two](ARCHITECTURE-modules-two.md): the Ollama
 steward, packs, the extension API, isolation, the guided first run, Setup and Settings.

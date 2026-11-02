@@ -20,6 +20,7 @@ from __future__ import annotations
 from typing import Optional
 
 from halo_harness.local_sched import bundle_needs as N
+from halo_harness.local_sched import bundle_voice as V
 from halo_harness.packs.manifest_bundle import reserved_model
 
 GIB = 2 ** 30
@@ -119,6 +120,7 @@ def verdict_one(bundle: dict, host=None, *, state_dir=None, reads_=None) -> dict
     free = _g(fac["free"])
     pe, floor = _preempt(bundle, res, fac, total, free, name)  # 3.3.8.0 R4: a lower claim gives way; the floor
     free += sum(float(c.get("gb") or 0) for c in pe["take"])
+    total = V.place(picks, free=free, total=total, reserve_gb=_g(rd.reserve), coder_gb=(coder or {}).get("gb"))
     out.update(usable_gb=round(_g(rd.usable), 1), claimed_gb=round(_g(fac["claimed"]), 1), free_gb=round(free, 1),
                total_gb=round(total, 1), claims_line=fac["line"], preempts=pe["rows"], min_free_gb=floor or None)
     for p in picks.values():
@@ -127,7 +129,8 @@ def verdict_one(bundle: dict, host=None, *, state_dir=None, reads_=None) -> dict
                "download_gb": p.get("download_gb"), "installed": p.get("installed"), "runtime": p["runtime"],
                "placed": p["placed"], "why": p.get("why", "")}
         out["needs"].append(row)
-        if p["runtime"] == "ollama" and p.get("model") and p.get("installed") is False:
+        row["command"] = p.get("command")  # 3.3.9.0 R1: a speech need's `halo voice download <model>`
+        if p.get("model") and p.get("installed") is False:
             out["downloads"].append(row)
     left = free - res_gb
     if coder and any(p.get("model") and _same(p["model"], coder["model"]) for p in picks.values()):
@@ -145,12 +148,7 @@ def verdict_one(bundle: dict, host=None, *, state_dir=None, reads_=None) -> dict
         lat += f" ({'within' if out['latency_ms'] <= bundle['latency_budget_ms'] else 'over'} the " \
                f"{bundle['latency_budget_ms']} ms budget)"
     head = _fit_line(bundle, res, left, coder, beside, spare, total, free, fac)
-    voice = [p for p in picks.values() if p["runtime"] == "voice"]
-    tail = ""
-    if voice:
-        cpu = [p for p in voice if p["placed"] == "cpu"]
-        names = " and ".join("%s (%s)" % (p["role"], p["model"]) for p in cpu)
-        tail = (f"; {names} on the CPU: no VRAM" if cpu else "") + " (the speech models arrive with Voice, 3.3.8.0)"
+    tail = V.tail(picks)
     if not fits_alone or (strict and coder and not beside):
         missing = [f"{r}: {p['why']}" for r, p in picks.items() if not p.get("model")]
         out["state"] = "wont"
@@ -171,8 +169,9 @@ def verdict_one(bundle: dict, host=None, *, state_dir=None, reads_=None) -> dict
                                             "the library snapshot") + f", {'fits' if d['fits'] else 'fit not known'})"
                          for d in dl)
         out["says"] = f"needs {len(dl)} download{'s' * (len(dl) != 1)} ({size}): {each}; then {head}"
-        out["button"] = {"label": f"download {len(dl)} ({size})", "tags": [d["tag"] for d in dl],
-                         "host": name}
+        tags = [d["tag"] for d in dl if d["runtime"] == "ollama"]  # a speech model is `halo voice download`, not a pull
+        out["voice_downloads"] = [d["command"] for d in dl if d.get("command")]
+        out["button"] = {"label": f"download {len(dl)} ({size})", "tags": tags, "host": name} if tags else None
     else:
         out["state"] = "ready"
         out["says"] = head + (f"; {lat}" if lat else "")

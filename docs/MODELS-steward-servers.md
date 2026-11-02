@@ -130,6 +130,19 @@ The fix loop now folds the server log's `timing` events (`ollama_steward/verify_
 judge reverts a local server's change whose log rate fell by 10 % or more, and the pool's auto-revert reads the pool
 log's rate before the ledger's.
 
+## Speech servers (3.3.9.0 R1)
+
+Halo's own speech server (`halo local serve --stt | --tts`, [VOICE.md](VOICE.md)) is one more runtime: `voice-stt` or
+`voice-tts`, the `huggingface.local_servers` entry `stt` or `tts` with its `log`. Its lines are its own
+(`halo_harness/voice/log_lines.py` writes them, `ollama_steward/server_log_voice.py` reads them with the same
+patterns): the load (`load-result` with the model, the device and the GPU's free MiB the launcher read), one `timing`
+per request (`audio 4.2 s -> text in 0.31 s (13.5x realtime)`; `text 84 chars -> audio 3.9 s, first audio 92 ms`), a
+failed load (`load-failed`), a failed request (`http-500`). `ollama_steward/rules_voice.py` turns them into four
+findings keyed `stt|<model>` / `tts|<model>`: **stt-slow** (under 2x realtime), **tts-slow** (first audio past 400
+ms), **voice-cpu** (on the CPU while the GPU had its footprint free; info) and **voice-load-failed**, each with its
+stated line (`--device cuda`, a smaller built model, `--device cpu`, the install line) and `applied: false`. Their
+rows are in the knowledge's local-servers section, so the steward's guide keeps its budget.
+
 ## What the logs cannot say
 
 LM Studio's server log does not print the layers it placed or a load time; mlx_lm.server prints no window, no cut and

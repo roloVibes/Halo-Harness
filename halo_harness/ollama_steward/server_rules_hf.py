@@ -30,7 +30,9 @@ from halo_harness.ollama_steward.server_rules import classify as classify_llama,
 SAYS = {"llama-server": ("prompt-trimmed", "reply-cut", "window-full", "cpu-spill", "gpu-memory", "load-failed",
                          "slow-load", "http-500", "other-error", "timing", "load-result", "rpc-lost"),
         "lmstudio": ("prompt-trimmed", "reply-cut", "gpu-memory", "load-failed", "other-error"),
-        "mlx": ("http-500", "gpu-memory", "load-failed", "other-error")}
+        "mlx": ("http-500", "gpu-memory", "load-failed", "other-error"),
+        "voice-stt": ("load-failed", "http-500", "other-error", "timing", "load-result"),  # 3.3.9.0 R1 (server_log_voice)
+        "voice-tts": ("load-failed", "http-500", "other-error", "timing", "load-result")}
 ASKED = ("prompt-trimmed", "reply-cut", "window-full", "cpu-spill", "gpu-memory", "load-failed", "slow-load",
          "http-500", "other-error")
 
@@ -147,6 +149,9 @@ def classify(line: str, at=None, runtime: Optional[str] = None) -> Optional[dict
         return None
     at = at if at is not None else line_time(text)
     rt = runtime or "llama-server"
+    if rt in ("voice-stt", "voice-tts"):  # 3.3.9.0 R1: Halo's speech server writes its own lines (voice/log_lines.py)
+        from halo_harness.ollama_steward.server_log_voice import classify as classify_voice
+        return classify_voice(text, at=at, runtime=rt)
     if rt == "llama-server" and "allocate" not in text and (m := _RPC_LOST.search(text)):  # 3.3.8.0 R4: a pool's RPC backend (rules_pool.py)
         addr = next((g for g in m.groups() if g), None)
         abort = "crashed or returned malformed" in text

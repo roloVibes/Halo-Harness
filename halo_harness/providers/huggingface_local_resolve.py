@@ -146,7 +146,7 @@ def _most_recent_managed_server(state_dir=None) -> Optional[dict]:
     if state_dir is None:
         from halo_harness.config.paths import bridge_home
         state_dir = bridge_home()
-    entries = load_registry(state_dir)
+    entries = [e for e in load_registry(state_dir) if not str(e.get("kind") or "").startswith("voice-")]  # 3.3.9.0 R1
     return entries[-1] if entries else None
 
 

@@ -80,11 +80,12 @@ def mlx_log(ago: float = 900.0) -> str:
 
 class Home:
     """A scratch home: `llama` (a server Halo started, its registry row and log), `lms` (manual, LM Studio on 1234, its
-    fake server-logs folder under the home), `mlx` (manual, its `log` path)."""
+    fake server-logs folder under the home), `mlx` (manual, its `log` path); `voice` (3.3.9.0 R1, off by default): the
+    speech servers `stt` and `tts` (tests/helpers/servers_seed_voice.py)."""
 
     def __init__(self, *, llama: bool = True, lms: bool = True, mlx: bool = True, pid: int = DEAD_PID,
-                 extra: "dict | None" = None):
-        self.want, self.pid, self.extra = {"llama": llama, "lms": lms, "mlx": mlx}, pid, extra or {}
+                 extra: "dict | None" = None, voice: bool = False):
+        self.want, self.pid, self.extra = {"llama": llama, "lms": lms, "mlx": mlx, "voice": voice}, pid, extra or {}
 
     def __enter__(self):
         self._saved = {k: os.environ.get(k) for k in _VARS}
@@ -121,6 +122,9 @@ class Home:
                                "--port", "8080", "-c", "16384", "-ngl", "99", "-np", "2"]}
             (self.state / "run").mkdir(parents=True, exist_ok=True)
             (self.state / "run" / "local-servers.json").write_text(json.dumps([row]), encoding="utf-8")
+        if self.want["voice"]:  # 3.3.9.0 R1: the speech servers stt and tts (tests/helpers/servers_seed_voice.py)
+            from tests.helpers.servers_seed_voice import seed
+            seed(self)
         from halo_harness.ollama_steward import server_log_hf, servers_hf
         from halo_harness.providers import huggingface_local_probe as P
         self._probe, P._auto_detect_cache = P._auto_detect_cache, None  # another module's sweep is not this home's

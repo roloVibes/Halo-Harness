@@ -57,6 +57,8 @@ def verdict_lines(v: dict) -> list:
     if v.get("button"):
         out.append(f"  {v['button']['label']}: " + " && ".join(
             f"halo models pull {t} --host {v['host']} && halo models probe {t} --host {v['host']}" for t in v["button"]["tags"]))
+    for c in v.get("voice_downloads") or []:  # 3.3.9.0 R1: a speech model comes from the hub, on this machine
+        out.append(f"  speech model: {c}")
     return out
 
 

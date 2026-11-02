@@ -79,6 +79,7 @@ def claim(bundle_id: str, *, host=None, holder: str = "keep", cwd=None, state_di
         if v.get("button"):
             tail.append(f"  {v['button']['label']}: " + "; ".join(f"halo models pull {t} --host {v['host']}"
                                                                     for t in v["button"]["tags"]))
+        tail += [f"  speech model: {c}" for c in v.get("voice_downloads") or []]  # 3.3.9.0 R1
         return False, [f"{bundle_id} is not turned on: {v['says']}"] + tail, v
     ok, lines, _pack = ensure_installed(entry, cwd=cwd, state_dir=state_dir)
     if not ok:
