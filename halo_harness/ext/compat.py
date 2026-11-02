@@ -3,7 +3,7 @@
 
 The policy, as this module applies it:
 
-- The API version is MAJOR.MINOR (`API_VERSION`, "1.0"). A minor version only
+- The API version is MAJOR.MINOR (`API_VERSION`, "1.1" since Halo 3.3.10.0). A minor version only
   adds names: every name keeps its meaning for every later minor of the same
   major. A major version may remove a name, and only one `deprecations()` has
   listed for at least one minor version before it.
@@ -12,9 +12,12 @@ The policy, as this module applies it:
   its `min`'s major only: `{min: "1.0"}` runs on every 1.x and not on 2.0.
 - A Halo whose API is outside the range does not run the pack, and says so in
   one line (`halo_harness.packs.resolve.compat_lines`):
-  "pack doc-review needs extension API 1.2 to 1.9; this Halo has 1.0".
+  "pack doc-review needs extension API 1.2 to 1.9; this Halo has 1.1".
+- 1.1 (3.3.10.0 R1) adds `set_mode` / `current_mode` and the manifest's `contributes.policy` and
+  `contributes.modes` (both draft): a 1.0 pack keeps everything -- `{min: "1.0"}` and `{min: "1.0", max: "1.9"}`
+  take 1.1, and a pack with no `policy` or `modes` reads and runs as before (`CHANGES`).
 
-    api_version()                           "1.0"
+    api_version()                           "1.1"
     compatible({"min": "1.0", "max": "1.9"})   True on this Halo
     compatible({"min": "1.0"}, "2.0")       False: a new major
     range_words({"min": "1.2"})             "1.2 or a later 1.x"
@@ -26,8 +29,14 @@ from __future__ import annotations
 from typing import Optional
 
 #: The names announced for removal: `{name: {"since": "1.x", "removed_in": "2.0", "use": "<the name to use>"}}`.
-#: A name is listed here for at least one minor version before the major that removes it. Empty in 1.0.
+#: A name is listed here for at least one minor version before the major that removes it. Empty in 1.0 and 1.1.
 DEPRECATED: "dict[str, dict]" = {}
+#: What each minor version added, and what a pack written for the one before keeps (docs/EXTENSION_API.md
+#: "Changes in 1.x" lists the same).
+CHANGES: "dict[str, dict]" = {
+    "1.1": {"halo": "3.3.10.0", "adds": ["set_mode", "current_mode", "contributes.policy (draft)", "contributes.modes (draft)"],
+            "deprecates": [], "keeps": "everything: a 1.0 pack runs unchanged; one without policy or modes is untouched"},
+}
 
 
 def api_version() -> str:
@@ -70,4 +79,4 @@ def deprecations() -> "list[dict]":
              "use": str(info.get("use") or "")} for name, info in sorted(DEPRECATED.items())]
 
 
-__all__ = ["DEPRECATED", "api_version", "compatible", "range_words", "deprecations"]
+__all__ = ["DEPRECATED", "CHANGES", "api_version", "compatible", "range_words", "deprecations"]

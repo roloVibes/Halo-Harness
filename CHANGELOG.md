@@ -10,6 +10,20 @@ version.
 
 ## [3.3.10.0] - unreleased
 
+### R1: the policy contract -- a pack's runtime mode, a policy hook that answers a tool call, the first draft row of the extension API
+
+#### Added
+- `contributes.policy` and `contributes.modes` in pack.yaml and `pack.schema.json` (`$defs.policy`, `$defs.mode`): a policy hook is a command in the pack (`${halo_python}` and `${CLAUDE_PLUGIN_ROOT}` put in, the `hooks` grant) with `when: {tools, modes}`, `impact`, `on_error: allow | deny`, `redact: [env names]` and `after` (read from R2); a mode is `{id, label, theme}` (theme read from 3.3.12.0). Every bad value is one line naming the entry.
+- The runtime mode file `~/.halo/packs/.data/<id>/mode.json` `{mode, since, by, armed, note}`, written only through `packs/mode_state.py`; turning a mode on arms the policies that name it, every change is the pack's `mode` event. `halo pack mode <pack> <mode> on | off`, `halo pack policy status | arm | disarm`, and `ext.set_mode` / `ext.current_mode` for a pack's own code.
+- The policy runner: one long-lived process per armed policy speaking JSON lines (`{id, tool, input, cwd, session, agent, mode, permission_mode, config}` in, `{id, verdict, reason, rule, scope?}` out) within `packs.policy.budget_ms` (2000); a late, malformed or missing answer is the policy's `on_error`, with a logged line; `when.tools` filters before the process; `redact` takes named secrets out of the input; every verdict is a `policy` row in the pack's events log; several packs: deny over ask over allow.
+- `halo pack policy test <pack> <policy> <tool> '<json>'`: a verdict without a session, with its time.
+- docs/EXTENSION_API.md "Policy hooks", the status table's first `draft` row; the fixture pack `tests/fixtures/packs/policy-fence`.
+
+#### Changed
+- The extension API is 1.1: `set_mode` and `current_mode` added, nothing deprecated; a 1.0 pack keeps everything, and a pack without `policy` and `modes` is untouched.
+- `halo pack inspect` lists a pack's policy hooks and modes with each policy's state; `halo pack doctor` names a mode or an armed policy mode.json holds that the manifest does not declare; a pack's `policy/` folder is part of the discovery signature.
+- Nothing enforces a verdict yet: no session reads one until R2.
+
 ### Also in 3.3.10.0
 
 #### Changed
@@ -18,6 +32,8 @@ version.
   Halo is", "Ten sections, one window", the Features table (Packs, the steward, Local measured, the host, the pool, Voice,
   the four CI shards), the comparison table and the Documentation table; the Orchestra glyph is three lanes converging
   through a gate (was three staff lines with ticks); the front-page pictures are not re-rendered yet.
+- Two runner waits: a bundle claim through the host waits for the host's first route answer before judging (the test); the
+  Chrome driver gives the DevTools port 90 s to open (the Windows runner took over 30 s on two shards at once).
 
 ## [3.3.9.0] - 2026-11-02
 

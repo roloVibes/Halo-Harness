@@ -133,6 +133,16 @@ def test_through_a_halo_host(ctx: Ctx):
     from tests.helpers.host_act_rig import PeerRig
     with PeerRig() as rig:
         host = OllamaHost(name="pc", url=rig.peer_url)
+        # The claim judges the fit through the host's `route`; a route that does not answer yet reads as "not judged: no
+        # card read for pc" (the Linux shard-1 run 41516126225 on the R0 head lost it once under load). Wait for the host
+        # to answer the bundle's own model before claiming -- the readiness the check assumes, never a fixed sleep.
+        import time
+        from halo_harness.local_sched.bundle_needs import reads
+        deadline = time.monotonic() + 10.0
+        while time.monotonic() < deadline:
+            if reads(host, rig.peer).need(BIG, 32768).get("bytes"):
+                break
+            time.sleep(0.1)
         ok, lines, v = claim("bulk-worker", host=host, cwd=Path(rig.rig.root_p))
         ctx.check(f"claimed through the host, got {ok} {lines} {v.get('says')}", ok and any("held by the halo host" in ln
                                                                                            for ln in lines))

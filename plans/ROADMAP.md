@@ -3917,6 +3917,16 @@ the files watcher (3.2.2.0 R6) so a change is live without new plumbing; the TUI
   the project)`. `halo pack policy status | arm <id> | disarm <id>` (arming writes `mode.json`'s `armed`); the Pack
   Manager shows the armed policies on the pack's row. No classifier, no refusal wording of Halo's own: the line is
   the pack's `reason`.
+  **3.3.10.0 R1 BUILT 2026-11-02 (one Opus round, worktree ~/hh-3310/R1-policy-contract, hand-back v3310-R1-handback.md):**
+  the runtime mode file at `~/.halo/packs/.data/<id>/mode.json` (NOT inside the installed pack folder: Halo never writes
+  there; set_mode / arm / disarm / read, validated against the manifest, a typed `mode` event; `ext.set_mode` /
+  `current_mode`), `contributes.policy` + `contributes.modes` in the schema (`when.tools` against the LIVE tool list --
+  a frozen list failed in the full run on `PreflightProbe`; `on_error`, `redact`), the long-lived JSON-lines policy
+  process (measured: 47 ms first answer on Windows, then ~0.05 ms; WSL 43-50 ms then 0.13 ms), `armed()` reads
+  mode.json at verdict time (the 3.2.2.0 R6 watcher is Studio-only), every verdict and error in the pack's events
+  log, `halo pack mode` / `halo pack policy status | arm | disarm | test`, the `policy-fence` fixture pack,
+  EXTENSION_API.md "Policy hooks" as the first `draft` row (API 1.1). Nothing enforces a verdict yet. R2's seam:
+  `agent/loop.py _resolve_tool_call` (`decide` at 6674, 6711, 6755, 6658 and 7285 -- the hand-back lists them).
 - R3 **the bundle API and the small UX points**: gap C -- `mount(el, api)` gains `publish(kind, data)` (the same
   `publish_event` check: declared kinds only), `route(section, panel?)`, `attention(row)` (through the answers
   contract), `getData(path)` (the data folder, read-only, the pack's own); each rides the `studio-script` grant;

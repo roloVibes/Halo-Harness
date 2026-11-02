@@ -18,10 +18,10 @@ through the host, Studio and the glasses path (`host/ops_voice.py`, `voice/remot
 `voicemic.ts`; docs/VOICE-glasses.md, VOICE-cpu.md, STUDIO-local-voice.md). Every speech repo id, engine call and Meta
 toolkit line is from memory (`verified: false` in the catalog; the glasses doc says so); nothing has run against a real
 microphone or model: the owner's live checks are in each hand-back under `~/hh-339/briefs/`. The ROADMAP's R1 / R2 / R3
-BUILT notes under the Voice bullet carry what stays open. **Next:** 3.3.10.0 "Pack policy" (brief R1 at
-~/hh-3310/briefs/v3310-R1-policy-contract-brief.md: the mode file, the policy contract, the long-lived JSON-lines hook,
-the first draft row of the extension API; R2 the enforcement at `permission_engine.decide` + post-call verdicts + the
-audit; R3 the bundle API and the small UX points), then 3.3.11.0 "Type into Studio" (+ pack Setup blocks + the local
+BUILT notes under the Voice bullet carry what stays open. **Next:** 3.3.9.1 "FreeToken" (ROADMAP "ADDED 2026-11-02 afternoon": one more local runtime, a local-model ask
+that does not wait behind a Studio feature), then 3.3.10.0 "Pack policy" R2 (R0 the README catch-up and R1 the
+policy contract are merged -- the ROADMAP's R1 BUILT note under the pack-capability plan; R2 the enforcement at
+`permission_engine.decide` + post-call verdicts + the audit; R3 the bundle API, the small UX points, the concord pack), then 3.3.11.0 "Type into Studio" (+ pack Setup blocks + the local
 receipts ladder), 3.3.12.0 "Themes and parity" (+ issue #5, pack themes, table detail), 3.3.13.0 "Federation", 3.3.14.0
 "Pack trust". The owner's rule held: every local-model version shipped before the Studio features.
 
