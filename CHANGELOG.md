@@ -8,6 +8,12 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.3.9.0] - unreleased
+
+### Also in 3.3.9.0
+
+#### Changed
+
 ## [3.3.8.1] - 2026-11-02
 
 **Bench from any halo.** The owner, from his MacBook against this PC's Ollama: "I should be able to benchmark the
