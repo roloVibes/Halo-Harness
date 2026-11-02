@@ -78,10 +78,11 @@ def _static_text(widget) -> str:
     return str(widget.renderable) if hasattr(widget, "renderable") else str(widget.render())
 
 
-async def _settled(pilot, ready, timeout: float = 10.0) -> None:
+async def _settled(pilot, ready, timeout: float = 30.0) -> None:
     """Pause until `ready()` (the preview repainted after a highlight moved) or `timeout`: the Windows runner
     took longer than a fixed 0.1 s once (the v3.1.9.0 tag run) and the Linux all-tiers job once took longer than 3 s
-    (3.3.8.0 R2's run 41296616459); the check after it still says what was seen."""
+    (3.3.8.0 R2's run 41296616459) and the Windows shard once past 10 s (3.3.8.1 run 41393796353); the check after it
+    still says what was seen."""
     import time as _t
     end = _t.monotonic() + timeout
     while not ready() and _t.monotonic() < end:
