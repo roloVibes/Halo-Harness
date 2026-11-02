@@ -3632,6 +3632,14 @@ The order (the owner's rule: all of this before Type into Studio and themes):
   loop starts what the on bundle picks, cost line first, stops what it started). Open: no echo canceller (a headset or
   PTT on open speakers); the slow shares and the 250 ms end silence want a real box; Silero v5's call is from memory;
   R3 (brief v339-R3-host-studio-glasses-brief.md): the host door, Local -> Voice with the browser mic, the glasses contract.
+  **R3 BUILT 2026-11-02 (one Opus round, worktree ~/hh-339/R3-host-studio-glasses, hand-back v339-R3-handback.md):** the
+  speech servers through a paired host (signed `voice/stt` / `voice/tts` routes to the loopback servers, never a raw port on
+  the LAN; `voice.stt_server: stt@pc` with the link stage), the host's door `POST voice/turn` (one utterance in, the audio
+  and the card out, the `control` grant, never queued under `ask`), `halo voice client --host`, Studio Local -> Voice with
+  Talk (the browser microphone as one POST, `talk` frames on the live feed), docs/VOICE-glasses.md (the Meta DAT contract
+  from memory, to verify; no phone app ships), VOICE-cpu.md, STUDIO-local-voice.md; the control socket streams text per
+  piece for a voice subscriber. **3.3.9.0 IS THE CANDIDATE.** Open: the phone app; a real glasses session's latencies; the
+  one-model options; a cloned voice; the Parakeet engine; an echo canceller; mp3/ogg at the door; the prior art's licences.
 - Then, after every local-model build (3.3.8.1 "Bench from any halo" first, then Voice): 3.3.10.0 "Pack policy"
   (issue #4), 3.3.11.0 "Type into Studio", 3.3.12.0 "Themes and parity" (+ issue #5), then 3.3.13.0
   "Federation" -- the Studio entries already written under their old

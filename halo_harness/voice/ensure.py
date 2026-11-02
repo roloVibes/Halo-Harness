@@ -7,10 +7,11 @@
         the device the need allows); else voice.stt_model / voice.tts_model on voice.device
     running(kind, state_dir=None) -> the base url of a live `stt` / `tts` server, or None
     cost_line(kind, model, device) -> "starting stt: faster-whisper:small.en on the CPU: 0.9 GB RAM ... -- ~5 s to load"
-    ensure(state_dir=None, say=print) -> (urls {stt, tts} | None, started [kind], lines)
+    ensure(state_dir=None, say=print) -> (urls {stt, tts, link?} | None, started [kind], lines)
         a kind with no live server is started through R1's launch.serve (`halo local serve --stt | --tts`), the cost
         line said first; a failure stops what this call started and says the one line (not present: the download
-        command; the extra: the install line)
+        command; the extra: the install line). 3.3.9.0 R3: `voice.stt_server: stt@pc` takes that host's server
+        (voice/remote.py): its url, "stt on pc over the LAN (+N ms)", and `link` {kind: {host, ms}} for the card
     stop(started, state_dir=None) -> [line]  `/voice off` stops the servers the loop started, never one it found
 
 A bundle never starts a process (a claim is a claim): the loop starts what it needs and stops what it started.
@@ -105,7 +106,16 @@ def ensure(state_dir=None, say: Callable = print) -> "tuple[Optional[dict], list
     pk = picks(state_dir)
     if pk["bundle"]:
         lines.append(f"the {pk['bundle']} bundle is on: its speech picks")
+    from halo_harness.voice import remote
+    links: dict = {}
     for kind in ("stt", "tts"):
+        if remote.parse(remote.setting(kind)) is not None:  # 3.3.9.0 R3: voice.<kind>_server names a host on the LAN
+            r = remote.resolve(kind)
+            if r.get("error"):
+                return None, [], lines + [r["error"]] + stop(started, state)
+            got[kind], links[kind] = r["url"], {"host": r["host"], "ms": r["link_ms"]}
+            lines.append(r["line"])
+            continue
         url = running(kind, state)
         if url:
             got[kind] = url
@@ -122,6 +132,8 @@ def ensure(state_dir=None, say: Callable = print) -> "tuple[Optional[dict], list
         started.append(kind)
         got[kind] = str(reg["base_url"])
         lines.append(f"{kind}: {model} on {reg['base_url']} ({reg['device']})")
+    if links:
+        got["link"] = links
     return got, started, lines
 
 

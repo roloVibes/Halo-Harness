@@ -9,7 +9,8 @@
     POST admin/<op>                   the grant, then 501: admin operations are not part of this version
     POST request {grant, why?}        a peer asks the owner for a grant (a pending row of kind grant)
     GET  me | job/<id> | jobs | changes | findings | pending; 3.3.7.0 R4: residency | idle | refresh (routes_guard.py);
-         3.3.8.0 R3: rpc (the rpc-server this host runs: host/ops_rpc.status)
+         3.3.8.0 R3: rpc (the rpc-server this host runs: host/ops_rpc.status); 3.3.9.0 R3: `me` carries `voice` (the
+         voice door, the speech servers, the sessions it can reach: host/ops_voice.door)
 
 `act_audit` is the audit line's extra fields per request: {op, params, evidence, dry, ok, landed, fix, change_id?,
 job?}. Nothing here runs a model, changes a server setting or restarts a server.
@@ -109,7 +110,8 @@ def get(svc, route: str, q: dict, hid: str):
         return None
     if head == "me":
         from halo_harness.host.ops import vocabulary
-        return 200, protocol.doc(**grants.me(svc.home, hid), vocabulary=vocabulary())
+        from halo_harness.host.ops_voice import door  # 3.3.9.0 R3: the voice door, the speech servers, the sessions
+        return 200, protocol.doc(**grants.me(svc.home, hid), vocabulary=vocabulary(), voice=door(svc))
     if head == "job":
         view = of(svc).jobs.get(rest)
         return (200, protocol.doc(job=view)) if view else (404, {"error": f"no job {rest!r} on this host"})

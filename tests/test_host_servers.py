@@ -79,7 +79,8 @@ def test_the_join_the_announce_and_the_hub_list_the_servers(ctx: Ctx):
         got = hub_hosts.record(home, "h1", "pc-member", "192.0.2.10", {"host": True, "port": 7431, "serves": rows[:1],
                                                                        "servers": S.server_rows("192.0.2.10", [r.srv])})
         ctx.check(f"the hub keeps the announced servers, got {got['servers']}", got["servers"] == [
-            {"name": "coder-srv", "port": 8095, "addr": "192.0.2.10", "runtime": "llama-server", "pool": False}]
+            {"name": "coder-srv", "port": 8095, "addr": "192.0.2.10", "runtime": "llama-server", "pool": False,
+             "kind": "server", "model": None}]  # 3.3.9.0 R3: a row's kind (speech rows carry their model)
                   and hub_hosts.listing(home)[0]["servers"] == got["servers"])
 
 

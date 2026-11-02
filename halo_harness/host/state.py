@@ -216,6 +216,13 @@ def served_rows(addr: str, hosts=None, servers=None) -> list:
 
 
 def server_rows(addr: str, servers) -> list:
+    """3.3.9.0 R3: a speech server (runtime voice-stt / voice-tts) is `kind: speech` with its `model`, so a peer's loop
+    finds `stt@<host>` / `tts@<host>` among the rows (voice/remote.py); it is reached through the host's voice routes."""
     from halo_harness.ollama_steward.servers_hf import port_of as sport
-    return [{"name": s.name, "port": sport(s.url), "addr": addr, "kind": "server", "runtime": s.runtime or "llama-server",
-             "pool": s.name.lower() == "pool"} for s in servers or []]
+    out = []
+    for s in servers or []:
+        rt = s.runtime or "llama-server"
+        speech = rt in ("voice-stt", "voice-tts")
+        out.append({"name": s.name, "port": sport(s.url), "addr": addr, "kind": "speech" if speech else "server",
+                    "runtime": rt, "pool": s.name.lower() == "pool", **({"model": s.model} if speech else {})})
+    return out

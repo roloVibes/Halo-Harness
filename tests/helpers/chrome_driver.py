@@ -54,10 +54,13 @@ CHROME_NAMES = ("google-chrome", "google-chrome-stable", "chromium", "chromium-b
 HEADLESS = ("--headless=new", "--disable-gpu", "--hide-scrollbars")
 
 
+EXTRA_FLAGS: list = []  # 3.3.9.0 R3: a driver's own flags (the voice driver's fake microphone), set in its process only
+
+
 def headless_flags() -> tuple:
-    """HEADLESS, plus `--no-sandbox` when this process runs as root (Chrome will not start as root with its
-    sandbox on: a Kali root shell); never otherwise, and never on Windows (no geteuid). Read at each launch."""
-    return HEADLESS + (("--no-sandbox",) if getattr(os, "geteuid", lambda: -1)() == 0 else ())
+    """HEADLESS (+ EXTRA_FLAGS), plus `--no-sandbox` when this process runs as root (Chrome will not start as root
+    with its sandbox on: a Kali root shell); never otherwise, and never on Windows (no geteuid). Read at each launch."""
+    return HEADLESS + tuple(EXTRA_FLAGS) + (("--no-sandbox",) if getattr(os, "geteuid", lambda: -1)() == 0 else ())
 
 
 def find_chrome(explicit: str = "") -> "str | None":

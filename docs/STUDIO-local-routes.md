@@ -5,6 +5,14 @@ Read this when you call Studio's Local routes yourself or want the live frames t
 Part of [Halo Studio](STUDIO.md), which lists every part. The pages they serve are in
 [STUDIO-local.md](STUDIO-local.md).
 
+## The pages index
+
+Local's pages past the nine [STUDIO-local.md](STUDIO-local.md) lists (that page sits at its 400-line cap):
+
+| Page | What it holds | Filled in |
+|---|---|---|
+| Voice | the speech servers and the catalog, Talk with this browser's microphone, the session's voice loop, the last turns' latency cards ([STUDIO-local-voice.md](STUDIO-local-voice.md)) | 3.3.9.0 R3 |
+
 ## The routes
 
 Studio's API under `/api/local/` (`halo_harness/studio/local_api.py`), the same loopback / origin / token guard as every

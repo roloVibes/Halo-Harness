@@ -10,7 +10,7 @@ Part of [Halo Studio](STUDIO.md), which lists every part.
 its rail row or the palette). It holds everything Halo knows about local models in one tab, paged like Settings: a
 page rail on the left, one page on the right, a head on each page that says what it holds, which of Local's five ideas
 it carries, and its help behind **How this page works**. Nothing opens on its own; the page last open in this browser
-comes back (`halo.studio.local.page`). The nine pages, in the rail's order:
+comes back (`halo.studio.local.page`). The ten pages, in the rail's order (Voice's row is in [STUDIO-local-routes.md](STUDIO-local-routes.md#the-pages-index)):
 
 | Page | What it holds | Filled in |
 |---|---|---|

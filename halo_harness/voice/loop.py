@@ -66,6 +66,7 @@ class VoiceLoop:
         self._stop = threading.Event()
         self._mic: Optional[threading.Thread] = None
         self.errors: list = []
+        self.link: dict = {}  # 3.3.9.0 R3: {kind: {host, ms}} for a speech server on another halo (voice/remote.py)
 
     # ---- surface ---------------------------------------------------------------------------------------------
     def post(self, state: str, **data) -> None:
@@ -146,6 +147,7 @@ class VoiceLoop:
         self.utterances += 1
         self.talking, self.voiced, self.quiet_ms = False, 0, 0
         card = Card(self.clock, self.budget_ms)
+        card.link = dict(self.link)
         card.mark("spoke", self.last_voice)  # read as the frame arrived: the end of that speech
         card.mark("heard", now)
         self.run(lambda: self._utterance(pcm, card))

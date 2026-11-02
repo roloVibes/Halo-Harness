@@ -337,3 +337,11 @@ Barge-in (3.3.9.0 R2) is speaking over a reply: the voice loop's VAD hears speec
 ## push-to-talk
 
 Push-to-talk (3.3.9.0 R2) is the voice loop's other mode: nothing is heard until you press the push-to-talk key (`Ctrl+Space` in the TUI, `voice.ptt_key`), and what you say goes to the session at the second press -- a terminal sends no key release, so press, talk, press. `/voice ptt` or `voice.mode: ptt` turns it on; hands-free (the VAD) is the default.
+
+## voice door
+
+The voice door (3.3.9.0 R3) is the halo host's `POST /host/v1/voice/turn`: one utterance in (16-bit PCM at 8-48 kHz or a WAV, up to 30 s, the `control` grant), run through a session on the host machine exactly as `/voice` does, and the reply's audio streamed back with the transcript and the latency card. It is the one door a phone app for Meta's glasses needs -- no phone app ships with Halo; `halo voice client --host <host>` is its reference client (docs/VOICE-glasses.md).
+
+## talk
+
+Talk (3.3.9.0 R3) is Studio's Local -> Voice button: the browser's microphone into a Halo session -- press to record, press again to send, the transcript put to the session as typed text and the reply played in the page -- with no PortAudio or voice extra on the client. Its first press says what it does and costs (the microphone permission, the speech servers it starts, the seconds).

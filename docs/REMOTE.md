@@ -142,7 +142,10 @@ changes: consecutive `text_delta`s are merged into one `text_chunk` frame
 (`{"event": "text_chunk", "data": {"text": ...}}`) every 2 seconds or 1800
 bytes, flushed early whenever another event arrives so order is kept, and
 `thinking_delta` is not sent. The feed is a copy taken where the session emits
-events; the TUI's own queue is untouched.
+events; the TUI's own queue is untouched. (3.3.9.0 R3: a subscriber that
+names `text_delta` in its `kinds` gets each delta raw as it streams -- the
+voice door and Studio's Talk do, so the first sentence speaks without waiting
+for a chunk; no other subscriber sees one.)
 
 **Fleet frames (3.0.5.0).** Every frame also carries `session_id` and
 `harness` (the harness id). Three kinds join the feed: `agent_state` (a row

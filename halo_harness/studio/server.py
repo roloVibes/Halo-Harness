@@ -33,7 +33,7 @@ from urllib.parse import parse_qs, unquote, urlsplit
 STATIC = Path(__file__).resolve().parent / "static"
 DIST = STATIC / "dist"      # 3.0.3.0: the React shell's committed build (halo_harness/studio/ui); 3.0.7.0 R2: the only page
 SHELL_CSP = ("default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self'; "
-             "frame-src 'self' http://127.0.0.1:* http://localhost:*")
+             "frame-src 'self' http://127.0.0.1:* http://localhost:*; media-src 'self' blob:")  # 3.3.9.0 R3: Talk's reply
 # 3.0.7.0 R2: the classic page (static/legacy) is gone; a checkout without a build gets this one line at `/`
 NO_BUILD = (b"<!doctype html><meta charset=\"utf-8\"><title>Halo Studio</title>"
             b"<p>Build the Studio UI first: <code>cd halo_harness/studio/ui &amp;&amp; npm ci &amp;&amp; npm run build</code> "

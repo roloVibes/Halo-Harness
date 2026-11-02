@@ -4,7 +4,28 @@ This folder carries the whole plan so a new session (local or cloud) can
 pick the work up without the conversation that produced it. Read this file
 first, then `WORKER-RULES.md`, then the round you are starting.
 
-## WHERE THINGS STAND -- 2026-11-01 night (authoritative, read this first)
+## WHERE THINGS STAND -- 2026-11-02 morning (authoritative, read this first)
+
+**3.3.9.0 "Voice" IS THE RELEASE CANDIDATE** (three rounds merged on master on top of the 3.3.8.1 release 56a35974; the
+release follows once both runners are green on the candidate head -- if you read this after the release, the tag
+v3.3.9.0 exists and the PC runs it). R1 the speech servers (`halo_harness/voice/`: catalog, install, engines + the fake,
+server, launch; `halo voice models | download | rm`; `halo local serve --stt | --tts`; `voice-stt` / `voice-tts` runtimes;
+`ollama_steward/rules_voice.py`; `doctor_voice.py`; docs/VOICE.md, COMMANDS-voice.md), R2 the loop (`voice/loop.py`,
+`audio.py` + `audio_fake.py`, `vad.py`, `aggregate.py`, `speak.py`, `latency.py`, `session.py`, `ensure.py`, `client.py`;
+`tui/slash_voice.py`, `voice_view.py`; `voice_loop_cli.py`; `templates/bundles/voice-local`; `rules_voice_loop.py`), R3
+through the host, Studio and the glasses path (`host/ops_voice.py`, `voice/remote.py`, `voice/turn.py`,
+`voice_client_cli.py`, `studio/voice_api.py` + `voice_act_api.py`, `routes/local/Voice*.tsx` + `voicestore.ts` +
+`voicemic.ts`; docs/VOICE-glasses.md, VOICE-cpu.md, STUDIO-local-voice.md). Every speech repo id, engine call and Meta
+toolkit line is from memory (`verified: false` in the catalog; the glasses doc says so); nothing has run against a real
+microphone or model: the owner's live checks are in each hand-back under `~/hh-339/briefs/`. The ROADMAP's R1 / R2 / R3
+BUILT notes under the Voice bullet carry what stays open. **Next:** 3.3.10.0 "Pack policy" (brief R1 at
+~/hh-3310/briefs/v3310-R1-policy-contract-brief.md: the mode file, the policy contract, the long-lived JSON-lines hook,
+the first draft row of the extension API; R2 the enforcement at `permission_engine.decide` + post-call verdicts + the
+audit; R3 the bundle API and the small UX points), then 3.3.11.0 "Type into Studio" (+ pack Setup blocks + the local
+receipts ladder), 3.3.12.0 "Themes and parity" (+ issue #5, pack themes, table detail), 3.3.13.0 "Federation", 3.3.14.0
+"Pack trust". The owner's rule held: every local-model version shipped before the Studio features.
+
+### Before it: 2026-11-01 night
 
 **3.3.8.1 SHIPPED 2026-11-02 (tag v3.3.8.1 = 56a35974, installed): bench from any halo + the CI train (four shards per
 platform, `tests/test_flake_rules.py`, the driver retry-once). 3.3.9.0 "Voice" IS IN FLIGHT: R1 the speech servers

@@ -11,6 +11,8 @@ What a subscriber sees:
 * `text_delta` events are buffered into one `text_chunk` frame per
   `TEXT_FLUSH_S` seconds or `TEXT_FLUSH_BYTES` bytes (whichever comes
   first), flushed early whenever any other kind arrives so ordering holds;
+* 3.3.9.0 R3: a subscriber whose `kinds` names `text_delta` gets each delta raw as well (the voice turn's reader);
+  no other subscriber sees one;
 * `thinking_delta` is not forwarded (a raw per-token stream, never useful
   at a phone's pace);
 * every other kind in `events.EVENT_KINDS` is forwarded as-is.
@@ -165,6 +167,7 @@ class EventHub:
                 self._buf_bytes = 0
                 return
             if ev.kind == "text_delta":
+                self._raw(ev)
                 self._add_text(ev)
             else:
                 self._flush_locked()
@@ -177,6 +180,15 @@ class EventHub:
             self._flush_locked()
             self._fanout(frame)
             self._prune()
+
+    def _raw(self, ev) -> None:
+        """3.3.9.0 R3: a subscriber that names `text_delta` in its kinds (the voice door, Studio's Talk) gets each delta
+        as it streams; the coalesced text_chunk waits up to TEXT_FLUSH_S, which a voice turn hears as silence."""
+        frame = None
+        for sub in self._subs:
+            if sub.kinds is not None and "text_delta" in sub.kinds:
+                frame = frame or {**self.meta, **event_frame(ev)}
+                sub.offer(frame)
 
     def _add_text(self, ev) -> None:
         text = ev.data.get("text", "") if isinstance(ev.data, dict) else ""

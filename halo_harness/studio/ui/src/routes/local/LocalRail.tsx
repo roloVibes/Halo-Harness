@@ -5,16 +5,19 @@
 // (pages.ts). Settings' group rail turned to Local's pages.
 import { goto, PAGES, usePage, type PageId } from "./pages";
 import { useLocal } from "./store";
+import { useVoice } from "./voicestore";
 
 function useWords(): Record<PageId, string> {
   const hosts = useLocal((s) => (s.hosts ? s.hosts.length : -1));
   const models = useLocal((s) => (s.models ? s.models.hosts.reduce((n, h) => n + h.models.length, 0) : -1));
   const sampled = useLocal((s) => Object.keys(s.samples).length);
+  const speaking = useVoice((v) => (v.view ? v.view.servers.filter((x) => x.running || x.remote).length : -1)); // 3.3.9.0 R3
   const out = {} as Record<PageId, string>;
   for (const p of PAGES) out[p.id] = p.built ? "" : "soon";
   out.resources = sampled ? `${sampled} live` : "";
   out.hosts = hosts >= 0 ? String(hosts) : "";
   out.models = models >= 0 ? String(models) : "";
+  out.voice = speaking > 0 ? `${speaking} on` : "";
   return out;
 }
 

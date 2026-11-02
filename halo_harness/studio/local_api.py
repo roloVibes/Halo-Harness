@@ -23,6 +23,7 @@ route. Never a model call; nothing here writes a server's settings.
     local/host/<name>/tune[/apply], local/changes[/revert|/scope|/apply]   3.3.6.0 R5: studio/local_tune_api.py
     local/host/<name>/request-control, local/host-pending[/<id>/allow|deny]   3.3.7.0 R2: studio/local_host_api.py
     local/pool/members | recommend | verdict, POST local/pool/scan | members   3.3.8.0 R1: studio/pool_api.py
+    local/voice, local/voice/server | download | loop | talk   3.3.9.0 R3: studio/voice_api.py + voice_act_api.py
 """
 
 from __future__ import annotations
@@ -191,8 +192,9 @@ def dispatch_local(req):
     from halo_harness.studio.local_advise_api import dispatch_advise  # 3.3.7.0 R4: the roster adviser
     from halo_harness.studio.local_steward_chat_api import dispatch_steward_chat  # 3.3.7.0 R5: the chat, the picker
     from halo_harness.studio.pool_api import dispatch_pool  # 3.3.8.0 R1: Local -> Pool (members, recommend, scan)
+    from halo_harness.studio.voice_api import dispatch_voice  # 3.3.9.0 R3: Local -> Voice (the servers, Talk)
     for fn in (dispatch_card, dispatch_shelf, dispatch_bench, dispatch_tune, dispatch_host, dispatch_sched, dispatch_guard,
-               dispatch_advise, dispatch_steward_chat, dispatch_pool):
+               dispatch_advise, dispatch_steward_chat, dispatch_pool, dispatch_voice):
         got = fn(req)
         if got is not None:
             return got

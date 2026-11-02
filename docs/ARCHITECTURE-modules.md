@@ -274,5 +274,14 @@ card, `turns.jsonl`, `halo voice stats`), `voice/ensure.py` (the servers the loo
 the mic chip, the partial transcript, the echo, the latency line); the steward -- `ollama_steward/rules_voice_loop.py`
 (voice-slow).
 
+**Through the host, Studio, the glasses** (Halo 3.3.9.0 R3, docs/VOICE.md "Through the host", docs/VOICE-glasses.md):
+`voice/turn.py` (one voice turn through a session's control socket: the audio read and resampled to 16 kHz, the
+sessions of a home, the stt call, `submit`, the reply's sentences to the tts server, the trailer -- the voice door's and
+Talk's one core), `voice/remote.py` (`voice.stt_server: stt@pc`: the paired host found, its speech servers through its
+signed `voice/stt` / `voice/tts` routes, the link's round trip, the door's frames for `halo voice client`),
+`host/ops_voice.py` (the host's `POST voice/turn | stt | tts` and `GET me`'s voice block), `voice_client_cli.py`
+(`halo voice client`), `studio/voice_api.py` and `studio/voice_act_api.py` (Local -> Voice: the view; the servers,
+download, loop and Talk's job with its `talk` frames), `doctor_voice.py`'s CPU pair.
+
 The map goes on in [Architecture: the module map, part two](ARCHITECTURE-modules-two.md): the Ollama
 steward, packs, the extension API, isolation, the guided first run, Setup and Settings.
