@@ -276,6 +276,21 @@ its card (keys first: `[1] Approve, auto-accept edits · [2] Approve, manual
 not by typing `/plan`. In `-p`, prints whether plan mode is on; start a run
 with `--permission-mode plan` there.
 
+### `/voice [on|off|ptt|status]`
+Halo 3.3.9.0 R2: talk to this session and hear it answer, entirely locally
+([VOICE.md](VOICE.md#voice-in-a-session)). `/voice on` starts the voice loop
+hands-free (`voice.mode`), starting the speech servers it needs with their
+cost line first; `/voice ptt` turns it on (or switches it) to push-to-talk
+(`Ctrl+Space` to talk, again to send; `voice.ptt_key`); `/voice off` stops
+the loop and the speech servers it started; `/voice` or `/voice status`
+says on or off, the stt and tts picks and where they run, the budget and
+the last turn's latency card. What you say lands as `you said: ...` and is
+submitted exactly as typed text (it steers a running turn); speaking over a
+reply stops it. `halo voice on|off` reaches a running session through its
+control socket. A missing piece is one line with its command (the voice
+extra's install line, `halo voice devices`, `halo voice download <model>`).
+In `-p`, says where voice runs (`halo voice`, `halo voice --input-file`).
+
 ### `/resume [id-or-text]` `[TUI-only picker]`
 In `-p`: with text, reports the matching session id (you still pass it via
 `-r` on the command line to actually resume); with nothing, lists recent

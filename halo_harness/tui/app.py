@@ -185,6 +185,7 @@ class BridgeApp(App):
         # behaviour without this action needing to inspect `self.screen`.
         Binding("ctrl+t", "toggle_tasks", "Tasks", show=False),
         Binding("f1", "show_help", "Help", show=False),
+        Binding("ctrl+space,ctrl+@", "voice_ptt", "Talk", priority=True, show=False),  # 3.3.9.0 R2: push-to-talk
         # U5 scope A: brand-new keys, no existing single-key binding to
         # conflict with -- ctrl+p (palette) and ctrl+e (external editor)
         # are ordinary bindings; ctrl+x is a CHORD PREFIX and needs
@@ -1600,6 +1601,10 @@ class BridgeApp(App):
             self.notify(f"Cut {len(selected)} characters", timeout=2)
             return
         self._begin_chord("ctrl+x")
+
+    def action_voice_ptt(self) -> None:  # 3.3.9.0 R2: press to talk, press again to send (tui/slash_voice.py)
+        from halo_harness.tui.slash_voice import press
+        press(self)
 
     def action_next_subagent(self) -> None:
         self.transcript.scroll_to_next_subagent(1)

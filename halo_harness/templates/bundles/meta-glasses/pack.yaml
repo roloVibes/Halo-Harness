@@ -2,8 +2,10 @@
 # out). It reserves a small chat model at 8 k so a voice turn never waits for a load, runs speech-to-text and
 # text-to-speech on the CPU so they cost no VRAM, and sends task work to the coder when it fits beside the reservation,
 # else to a cloud model. Since 3.3.9.0 R1 the verdict reads whether each speech model is present (`halo voice
-# download <model>` fetches one) and its footprint, and `halo local serve --stt | --tts <model>` serves them; the voice
-# loop itself is R2's. `halo pack verdict meta-glasses` says whether it fits here; `halo pack on meta-glasses` turns it on.
+# download <model>` fetches one) and its footprint, and `halo local serve --stt | --tts <model>` serves them. 3.3.9.0
+# R2: while it is on, the voice loop (`halo voice`, `/voice on`) takes its speech picks and its latency_budget_ms, as it
+# does voice-local's; its reservation names the window it holds. The glasses' own loop (the phone in the path) is R3's.
+# `halo pack verdict meta-glasses` says whether it fits here; `halo pack on meta-glasses` turns it on.
 id: meta-glasses
 name: Meta glasses (voice)
 version: 1.0.0
@@ -18,6 +20,6 @@ bundle:
     chat: {any_of: [lfm3:1.7b, qwen3-coder:30b-gpu], window: 8192}
     stt: {any_of: [faster-whisper:large-v3-turbo, faster-whisper:small.en], device: cpu-or-gpu}
     tts: {any_of: [kokoro-82m], device: cpu}
-  reservation: {model: lfm3:1.7b, vram_gb: 1.2, keep_alive: -1, priority: high}
+  reservation: {model: lfm3:1.7b, vram_gb: 1.2, keep_alive: -1, priority: high, window: 8192}
   routing: {task_work: coder-or-cloud, never_evict: reserved}
   latency_budget_ms: 1500

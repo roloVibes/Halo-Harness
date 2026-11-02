@@ -26,6 +26,24 @@ version.
 - The bundles' `VOICE_GB` / `VOICE_PREFIXES` come from the speech catalog (one source).
 - A bare `hf:local/<model>` and the `/local` model list never pick a speech server.
 
+### R2: the loop -- talk to a Halo session and hear it answer
+
+#### Added
+- `halo voice` opens a session with voice on: speak, and the session answers aloud, entirely locally -- the microphone (16 kHz) -> Silero VAD (speech ends after 250 ms of quiet) -> the speech-to-text server (partial transcripts in the status bar while you speak) -> the transcript submitted exactly as typed text (`you said: ...`; a turn that runs is steered) -> the reply cut into sentences (code blocks said once as "a code block", tool-call lines and `[...]` markup never said) -> the text-to-speech server -> the speaker, the first sentence playing while the model writes the second.
+- `/voice on | off | ptt | status` in any session, and `halo voice on | off` for a running one through its control socket; hands-free or push-to-talk (`Ctrl+Space` to talk, again to send; `voice.ptt_key`); the status bar's mic chip.
+- Barge-in: speaking over a reply stops it within ~100 ms, the rest is never spoken (`(interrupted while speaking)`), and what you say steers the turn.
+- The latency card per turn (heard, text, token, audio, last, each in ms, against `voice.latency_budget_ms` / the bundle's `latency_budget_ms` / 1,500 ms; the 750-900 ms target said): one status-bar line after each turn, `~/.halo/voice/turns.jsonl`, `halo voice stats` (median and worst per stage over the newest 50, the slow stage named).
+- The steward's `voice-slow`: a stage over its share of the budget three turns running, with its fix line (`--device cuda` or `faster-whisper:small.en`; the bundle's reservation keeps the chat model resident; `tts-slow`; `halo voice download silero-vad`); on the Steward page, in `halo ollama steward findings` and `halo ollama explain`.
+- The `voice-local` bundle: a small resident chat model (lfm3:1.7b, qwen3.8:4b or gemma4:4b at 8 k, keep_alive -1, priority high), stt on the GPU or the CPU, tts on the CPU; `halo pack on voice-local` claims it, and `/voice on` starts the speech servers with its picks, the cost line (device, memory, seconds) first, and stops on `off` what it started.
+- `halo voice devices` (the microphones and speakers, the configured ones marked), `halo voice --input-file <wav> [--output-file <wav>]` (one turn from a file, no microphone), `halo doctor --voice`'s audio line.
+- Settings `voice.input_device`, `voice.output_device`, `voice.mode`, `voice.ptt_key`, `voice.latency_budget_ms`; glossary `voice loop`, `barge-in`, `push-to-talk`.
+
+#### Changed
+- The voice extra gains `sounddevice` (on Linux: `sudo apt install libportaudio2`); without the extra `halo voice` and `/voice on` print the one install line.
+- Silero VAD is built (the loop's VAD through onnxruntime); without it on disk a level gate stands in, said with `halo voice download silero-vad`.
+- Bare `halo voice` opens a session with voice on; the catalog is `halo voice models`.
+- `meta-glasses` names its reservation's 8 k window; while it or `voice-local` is on, the loop takes its speech picks and budget. Halo ships eleven bundles.
+
 ### Also in 3.3.9.0
 
 #### Changed

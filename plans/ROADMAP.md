@@ -3623,6 +3623,15 @@ The order (the owner's rule: all of this before Type into Studio and themes):
   `halo doctor --voice`, the `voice.*` rows, docs/VOICE.md + COMMANDS-voice.md. Open: the loop (R2, brief
   v339-R2-the-loop-brief.md), the host route + Local -> Voice + the glasses contract (R3); the Parakeet / Qwen3-TTS
   engines; mp3/ogg uploads; the slow thresholds want a real box.
+  **R2 BUILT 2026-11-02 (one Opus round, worktree ~/hh-339/R2-the-loop, hand-back v339-R2-handback.md):** the loop --
+  the microphone (sounddevice; `HALO_VOICE_AUDIO=fake` in tests) -> Silero VAD -> R1's stt server -> the session through
+  `controller.submit` (a transcript mid-turn steers) -> the `text_delta` stream through a sentence aggregator -> R1's
+  tts server -> playback as the chunks arrive; barge-in; hands-free and press-to-talk (press, press again to send: a
+  terminal has no key release); `/voice on | off | ptt | status`, `halo voice`, `halo voice on|off` over the control
+  socket; the per-turn latency card and `halo voice stats`; the steward's `voice-slow`; the `voice-local` bundle (the
+  loop starts what the on bundle picks, cost line first, stops what it started). Open: no echo canceller (a headset or
+  PTT on open speakers); the slow shares and the 250 ms end silence want a real box; Silero v5's call is from memory;
+  R3 (brief v339-R3-host-studio-glasses-brief.md): the host door, Local -> Voice with the browser mic, the glasses contract.
 - Then, after every local-model build (3.3.8.1 "Bench from any halo" first, then Voice): 3.3.10.0 "Pack policy"
   (issue #4), 3.3.11.0 "Type into Studio", 3.3.12.0 "Themes and parity" (+ issue #5), then 3.3.13.0
   "Federation" -- the Studio entries already written under their old

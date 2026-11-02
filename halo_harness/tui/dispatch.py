@@ -814,6 +814,9 @@ async def _apply_event_inner(app, event) -> None:
         await _apply_replay(app, data.get("messages") or [])
     elif kind == "notification":
         app.notify(data.get("text", ""), severity=_SEVERITY.get(data.get("level"), "information"))
+    elif kind == "voice":  # 3.3.9.0 R2: the voice loop's mic chip, partial transcript, prompt echo, latency line
+        from halo_harness.tui.voice_view import apply as _voice
+        await _voice(app, data)
     elif kind == "system_note":
         # W5b: an async, out-of-band transcript line (background connector
         # discovery finishing is the first user) -- a real transcript note,

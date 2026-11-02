@@ -40,8 +40,20 @@ def steps(state_dir) -> list:
     seen = engines.devices()
     out.append(_s("devices", "OK", "CUDA visible to the engines" if "cuda" in seen else
                   f"CPU only ({os.cpu_count() or '?'} cores): the engines see no CUDA device"))
+    out.append(_audio())  # 3.3.9.0 R2: the loop's microphone and speaker
     out += _servers(state_dir)
     return out
+
+
+def _audio() -> dict:
+    from halo_harness.voice import audio
+    m = audio.devices()
+    if m.get("error"):
+        return _s("audio", "WARN", m["error"])
+    mic, spk = audio.resolve("input", dev_map=m), audio.resolve("output", dev_map=m)
+    return _s("audio", "OK" if mic and spk else "WARN",
+              f"microphone: {mic['name'] if mic else 'none (halo voice --input-file <wav>)'}; speaker: "
+              f"{spk['name'] if spk else 'none (--output-file <wav>)'} (halo voice devices)")
 
 
 def _servers(state_dir) -> list:
