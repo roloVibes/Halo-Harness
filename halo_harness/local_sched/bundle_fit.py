@@ -64,7 +64,10 @@ def _latency(model: Optional[str], host_name: str, state_dir) -> "tuple[Optional
     if not isinstance(ttft, (int, float)) or not isinstance(tok_s, (int, float)) or tok_s <= 0:
         return None, f"latency not measured yet (no speed card for {model} on {host_name}: halo local bench {model})"
     ms = int(round(ttft + 24 / tok_s * 1000))
-    return ms, f"expected latency ~{ms} ms (first token {int(ttft)} ms + a 24-token sentence at {tok_s:g} tok/s)"
+    from halo_harness.providers.local_bench_link import tail  # 3.3.8.1: a LAN-measured card or speed row says so
+    lan = tail(card if rows else speed)
+    return ms, (f"expected latency ~{ms} ms (first token {int(ttft)} ms + a 24-token sentence at {tok_s:g} tok/s"
+                + (f"; {lan}: includes the link)" if lan else ")"))
 
 
 def _cloud_words(b: dict) -> str:

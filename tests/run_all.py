@@ -7,6 +7,8 @@ Run:
     python tests/run_all.py ; echo exit=$?          # every module (fast + full)
     python tests/run_all.py --fast                   # the fast tier: no Chrome, no TUI pilots
     python tests/run_all.py --tier full              # only the modules marked TIER = "full"
+    python tests/run_all.py --shard 2/4 --fast       # 3.3.8.1: the modules whose sorted index mod 4 is 2
+    python tests/run_all.py --shard-of tests.test_x  # which shard runs it ("2/4"), nothing run
 
 3.1.0.0 R1: every module runs with its OWN fresh `BRIDGE_TEST_HOME` (a
 subdirectory of the run's scratch root, named after the module, removed
@@ -105,7 +107,7 @@ def _clear_halo_env_vars() -> None:
         os.environ.pop(key, None)
 
 
-_KEPT_HALO_VARS = ("HALO_CHROME",)
+_KEPT_HALO_VARS = ("HALO_CHROME", "HALO_DRIVER_NO_RETRY")  # 3.3.8.1: the Chrome driver retry's off switch
 
 
 def _pop_stray_bridge_state_dir() -> None:
@@ -249,21 +251,26 @@ _MAIN_DEPTH = 0  # >1 while a test of this file calls main() from inside a modul
 
 
 def main(argv: "list | None" = None) -> int:
-    """`argv`: `--fast` / `--tier fast|full` (None or [] = every module)."""
+    """`argv`: `--fast` / `--tier fast|full` (None or [] = every module); 3.3.8.1: `--shard i/n` (composes with the
+    tier), `--shard-of tests.test_x [--shards n]` (prints its shard, runs nothing)."""
     global _MAIN_DEPTH
     try:
-        tier = support.parse_tier_args(list(argv or []))
+        opts = support.parse_run_args(list(argv or []))
     except ValueError as e:
         print(f"run_all.py: {e}", file=sys.stderr)
         return 2
+    if opts["shard_of"]:
+        got = support.shard_of(opts["shard_of"], discover_test_modules(), opts["shards"])
+        print(got or f"run_all.py: no test module named {opts['shard_of']!r}")
+        return 0 if got else 2
     _MAIN_DEPTH += 1
     try:
-        return _main(tier)
+        return _main(opts["tier"], opts["shard"])
     finally:
         _MAIN_DEPTH -= 1
 
 
-def _main(tier: "str | None") -> int:
+def _main(tier: "str | None", shard: "tuple | None" = None) -> int:
     # Line-buffered output even when redirected to a file: a run that is
     # killed mid-way must leave its last real line on disk, not a stale
     # module header from a block buffer (that misled a Kali investigation).
@@ -290,8 +297,10 @@ def _main(tier: "str | None") -> int:
     _ensure_whole_run_test_seams()
     real_state_before = _real_state_dir_snapshot()
     real_sessions_before = _real_sessions_snapshot()
-    module_names = select_modules(discover_test_modules(), tier)
-    print(f"[tier] {support.tier_label(tier)}: {len(module_names)} module(s)")
+    every = discover_test_modules()
+    module_names = support.select_shard(select_modules(every, tier), shard, every)
+    print(f"[tier] {support.tier_label(tier)}: {len(module_names)} module(s)"
+          + (f" -- [shard] {shard[0]}/{shard[1]} (a module's index in the sorted list mod {shard[1]})" if shard else ""))
     run_root = support.make_run_root()
     total_passed = total_failed = total_skipped = 0
     any_module_import_failed = False
@@ -316,16 +325,16 @@ def _main(tier: "str | None") -> int:
         total_skipped += totals.get("skipped", 0)
         any_module_import_failed = any_module_import_failed or totals.get("import_failed", False)
 
-    _print_summary_head(tier, total_passed, total_failed, total_skipped, len(module_names))
+    _print_summary_head(tier, total_passed, total_failed, total_skipped, len(module_names), shard)
     return _finish(real_state_before, real_sessions_before, total_failed, any_module_import_failed)
 
 
-def _print_summary_head(tier, passed: int, failed: int, skipped: int, n_modules: int) -> None:
+def _print_summary_head(tier, passed: int, failed: int, skipped: int, n_modules: int, shard=None) -> None:
     total = passed + failed + skipped
     print("-" * 74)
     print(f"RESULT: {total} tests across {n_modules} modules -- "
           f"{passed} passed, {failed} failed, {skipped} skipped")
-    print(f"[tier] ran: {support.tier_label(tier)}")
+    print(f"[tier] ran: {support.tier_label(tier)}" + (f", shard {shard[0]}/{shard[1]}" if shard else ""))
 
 
 def _run_one_module(mod_name: str, env_before_module: dict, totals: dict) -> None:
@@ -362,6 +371,8 @@ def _run_one_module(mod_name: str, env_before_module: dict, totals: dict) -> Non
         line = f"  [{status}] {name} ({dt:.2f}s)"
         if detail and status != "PASS":
             line += f": {detail}"
+        elif detail:  # 3.3.8.1: " (driver retried once: <the first failure>)"
+            line += f" ({detail})"
         print(line)
     totals.update(passed=passed, failed=failed, skipped=skipped)
 

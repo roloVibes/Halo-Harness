@@ -19,6 +19,7 @@ from __future__ import annotations
 import threading
 import time
 from typing import Callable, Optional
+from halo_harness.newest_first import newest_first  # 3.3.8.1: a same-ms tie, the later row first
 
 KEEP_DONE = 20
 _lock = threading.Lock()
@@ -34,7 +35,7 @@ def view(job: dict) -> dict:
 
 def current() -> dict:
     with _lock:
-        jobs = sorted(_jobs.values(), key=lambda j: -j["started"])
+        jobs = newest_first(_jobs.values(), lambda j: j["started"])
         return {"jobs": [view(j) for j in jobs], "running": sum(1 for j in jobs if not j["done"])}
 
 

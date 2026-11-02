@@ -2,7 +2,8 @@
 // reply tok/s at each window it tried, the largest window that stayed on the GPU (with the planner's number when
 // they differ), the reply reserve below which replies were cut, the Ollama version it was measured on and the stale
 // mark ("measured on 0.40.6": a newer Ollama or a changed tag since) -- with Bench / Re-bench, whose confirmation is
-// the cost line, and the job's live log while it runs (`bench` frames).
+// the cost line, and the job's live log while it runs (`bench` frames). 3.3.8.1: a card measured over the LAN from a
+// peer carries its chip (`over the LAN from mac · RTT 1.8 ms, wired`); the confirmation then says the `via` and the offer.
 import { Button } from "../../lib/ui";
 import { askBench, benchLine, cancelConfirm, jobFor, startBench, useBench, type BenchModel, type SpeedCard } from "./benchstore";
 
@@ -28,6 +29,8 @@ export function BenchConfirm({ host, model }: { host: string; model: string }) {
   return (
     <div className="bench-confirm mono" data-testid="bench-confirm">
       <span data-testid="bench-cost">{c.cost}</span>
+      {c.via && <span className="bench-via" data-testid="bench-via">{c.via}</span>}
+      {c.offer && <span className="bench-offer muted" data-testid="bench-offer">{c.offer}</span>}
       <Button size="sm" variant="primary" onClick={() => void startBench(host, model, c.quick)} data-testid="bench-go"
               title={benchLine(host, model, c.quick)}>Run the bench</Button>
       <Button size="sm" variant="ghost" onClick={cancelConfirm}>Not now</Button>
@@ -55,7 +58,9 @@ function Row({ host, m }: { host: string; m: BenchModel }) {
   return (
     <>
       <tr data-testid="bench-row" data-host={host} data-model={m.model} data-stale={c?.stale || undefined} data-benched={!!c || undefined}>
-        <td className="mono"><b>{m.model}</b></td>
+        <td className="mono"><b>{m.model}</b>
+          {c?.over_lan && <span className="og-chip mono bench-lan" data-testid="bench-over-lan" title={c.lines[0]}>over the LAN from {c.measured_from || "a peer"}{c.link?.line ? ` · ${c.link.line}` : ""}</span>}
+        </td>
         <td className="mono" title="the first load after an unload (load_duration)">{c?.cold_load_s != null ? `${c.cold_load_s} s` : "—"}</td>
         <td>{c ? <Windows c={c} /> : <span className="muted">not benched</span>}</td>
         <td className="mono" data-testid="bench-gpu" title={c?.planner_window && c.planner_window !== c.max_gpu_window ? `the planner says ${k(c.planner_window)}` : "the largest window the bench saw stay on the GPU"}>

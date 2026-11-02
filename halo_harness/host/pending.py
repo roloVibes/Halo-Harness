@@ -17,6 +17,7 @@ import time
 from typing import Optional
 
 from halo_harness.host import state as S
+from halo_harness.newest_first import newest_first  # 3.3.8.1: a same-ms tie, the later row first
 
 PENDING_FILE = "pending.jsonl"
 ASK_TTL_S = 600.0
@@ -87,7 +88,7 @@ def pending(home, *, now: Optional[float] = None, peer: Optional[str] = None) ->
     """The rows still open (pending or allowed and not spent), newest first."""
     now = time.time() if now is None else now
     rows = [r for r in _rows(home) if _live(r, now) and (peer is None or r.get("peer_id") == peer)]
-    return sorted(rows, key=lambda r: -float(r.get("at") or 0))
+    return newest_first(rows, lambda r: float(r.get("at") or 0))
 
 
 def queue(home, hid: str, rec: dict, kind: str, grant: str, op: str, body: dict, now: float) -> dict:

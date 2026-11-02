@@ -3750,6 +3750,8 @@ worse); the reference HTTP server is not shipped (routes through `studio/local_a
 
 ## ADDED 2026-11-02 morning (rolo: "When I try to benchmark from my macbook pro the models that exist on this PC via the ollama server I get an error 'served by another machine...'. I should be able to benchmark the models from any halo ... yes queue this"): 3.3.8.1 "Bench from any halo"
 
+**3.3.8.1 BUILT 2026-11-02 (one Opus round, worktree ~/hh-3381/R1-bench-anywhere, hand-back v3381-R1-handback.md), merged as the 3.3.8.1 candidate.** Built as written plus the CI addendum (the flake lint `tests/test_flake_rules.py`, `run_all.py --shard i/n` with a four-shard matrix per platform in suites.yml, a Chrome driver that retries once in the open through `tests/helpers/driver_retry.py` / `driver_got.py`), and `halo_harness/newest_first.py` for fourteen newest-first sorts that tied on a stamp. The worker's one deviation, kept: a PAIRED halo host on which this peer lacks `control` (or that is down, or whose cap is `none`) still answers with its grant line (tests.test_host_ladder pins 3.3.7.0 R2); only a host with no paired halo host is benched over the LAN -- rolo says whether a down host should go direct too. Open: the CI matrix's first green run on master is its only test; rolo's live checks (Mac, Kali) in the hand-back.
+
 The hotfix, right after 3.3.8.0 ships and before Voice R1. Today a peer's Bench of a remote Ollama host is allowed
 only through a path that acts on the serving machine -- a paired `halo host` with the `control` grant, or a fleet
 member session there -- and with neither the Studio answers 409 "served by another machine: its own Studio benches it"

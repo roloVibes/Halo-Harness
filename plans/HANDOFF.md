@@ -6,6 +6,17 @@ first, then `WORKER-RULES.md`, then the round you are starting.
 
 ## WHERE THINGS STAND -- 2026-11-01 night (authoritative, read this first)
 
+**3.3.8.0 SHIPPED 2026-11-01 (tag v3.3.8.0 = 8931469d, installed on the PC) after six candidate heads: every red was a
+test wait, a fake clock, a same-millisecond sort or the session push's cadence gate -- the lessons are
+`tests/test_flake_rules.py` now. 3.3.8.1 "Bench from any halo" IS THE RELEASE CANDIDATE** (ROADMAP "ADDED 2026-11-02
+morning" + its BUILT note; CHANGELOG `## [3.3.8.1]`): a peer benches a remote Ollama host over the LAN when no halo
+host serves it, the card labelled `measured over the LAN from <peer>` with the link's RTT (`providers/local_bench_link.py`),
+the refusals name the way; CI: `run_all.py --shard i/4` as a four-shard matrix per platform, the flake lint, the
+Chrome driver's retry-once. The first green run of the matrix on master is its test. Then 3.3.9.0 "Voice" (R1 brief
+at ~/hh-339/briefs/v339-R1-speech-servers-brief.md; Sonnet may take its docs half).
+
+### Before it: the 3.3.8.0 candidate
+
 **3.3.8.0 "Pooled" IS THE RELEASE CANDIDATE** (four rounds merged on master on top of the 3.3.7.0 release
 23a64e6e; the release follows once both runners are green on the candidate head -- if you read this after the
 release, the tag v3.3.8.0 exists and the PC runs it). The specification is the owner's drop as adapted by the

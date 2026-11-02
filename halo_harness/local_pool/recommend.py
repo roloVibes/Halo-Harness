@@ -36,8 +36,9 @@ def rate(state_dir=None) -> "tuple[float, str]":
         jobs = list(J.current()["jobs"]) + (J.read_file(state_dir) if state_dir is not None else [])
     except Exception:
         jobs = []
-    done = sorted((j for j in jobs if j.get("ok") and isinstance(j.get("speed"), (int, float)) and j["speed"] > 0),
-                  key=lambda j: -float(j.get("started") or 0))
+    from halo_harness.newest_first import newest_first
+    done = newest_first((j for j in jobs if j.get("ok") and isinstance(j.get("speed"), (int, float)) and j["speed"] > 0),
+                        lambda j: float(j.get("started") or 0))
     if done:
         s = float(done[0]["speed"])
         return s, f"your last measured {s / 1e6:.0f} MB/s ({done[0].get('kind') or 'pull'} of {done[0].get('name')})"

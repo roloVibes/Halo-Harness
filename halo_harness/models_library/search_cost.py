@@ -50,8 +50,9 @@ def _pull_speed(state_dir) -> Optional[float]:
         jobs = list(J.current("pull")["jobs"]) + (J.read_file(state_dir) if state_dir is not None else [])
     except Exception:
         return None
-    done = sorted((j for j in jobs if j.get("ok") and isinstance(j.get("speed"), (int, float)) and j["speed"] > 0),
-                  key=lambda j: -float(j.get("started") or 0))
+    from halo_harness.newest_first import newest_first
+    done = newest_first((j for j in jobs if j.get("ok") and isinstance(j.get("speed"), (int, float)) and j["speed"] > 0),
+                        lambda j: float(j.get("started") or 0))
     return float(done[0]["speed"]) if done else None
 
 

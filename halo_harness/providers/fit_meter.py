@@ -62,14 +62,16 @@ def fit_meter(card: dict, host_card: Optional[dict], *, row: Optional[dict] = No
 
 def speed_word(level, speed) -> str:
     """'fits, ~187 tok/s at 32k' (3.3.6.0 R5: the speed card's ceiling row when the bench ran, else the battery's
-    speed), '... (measured on 0.40.6)' when that card is stale; the level alone when nothing was measured."""
+    speed), '... (measured on 0.40.6)' when that card is stale, '... (over the LAN from mac)' when a peer measured it
+    over the LAN (3.3.8.1); the level alone when nothing was measured."""
     tok = (speed or {}).get("tok_s") if isinstance(speed, dict) else None
     if not level or not isinstance(tok, (int, float)) or tok <= 0:
         return level or ""
     at = (speed or {}).get("at_window")
     tail = f" at {at // 1024}k" if isinstance(at, int) and at >= 1024 else ""
-    stale = (speed or {}).get("stale")
-    return f"{level}, ~{tok:.0f} tok/s{tail}" + (f" ({stale})" if stale else "")
+    from halo_harness.providers.local_bench_link import tail as lan_tail  # 3.3.8.1: "(over the LAN from mac)"
+    notes = [w for w in ((speed or {}).get("stale"), lan_tail(speed)) if w]
+    return f"{level}, ~{tok:.0f} tok/s{tail}" + (f" ({'; '.join(notes)})" if notes else "")
 
 
 def _meter(card: dict, host_card: Optional[dict], *, row: Optional[dict] = None, top: Optional[int] = None) -> dict:

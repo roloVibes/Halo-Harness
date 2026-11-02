@@ -107,7 +107,8 @@ def _row(host, model: str, state_dir, installed: bool, size: Optional[int] = Non
     bits = [fit_words, f"{gb:g} GB" if gb else "size not read",
             {"yes": "tool calls verified", "no": "its battery says it cannot call tools"}.get(tools, "tool calls not probed")]
     if isinstance(tok_s, (int, float)):
-        bits.append(f"{tok_s:g} tok/s")
+        from halo_harness.providers.local_bench_link import tail  # 3.3.8.1: "(over the LAN from mac)"
+        bits.append(f"{tok_s:g} tok/s" + (f" ({tail(p.get('speed'))})" if tail(p.get("speed")) else ""))
     out = {"model": f"ol:{model}@{host.name}", "host": host.name, "installed": installed, "gb": gb, "fits_beside_main": fits,
            "tool_calls": tools, "tok_s": tok_s, "download_gb": None, "minutes": 0}
     if not installed:

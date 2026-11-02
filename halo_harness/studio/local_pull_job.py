@@ -27,6 +27,7 @@ import os
 import threading
 import time
 from typing import Callable, Optional
+from halo_harness.newest_first import newest_first  # 3.3.8.1: a same-ms tie, the later row first
 
 KEEP_DONE = 20
 FRAME_EVERY_S = 0.25
@@ -51,7 +52,7 @@ def view(job: dict) -> dict:
 def current(kind: Optional[str] = None) -> dict:
     """Every job (or only one kind: "pull" | "download"), newest first."""
     with _lock:
-        jobs = sorted((j for j in _jobs.values() if not kind or j.get("kind") == kind), key=lambda j: -j["started"])
+        jobs = newest_first((j for j in _jobs.values() if not kind or j.get("kind") == kind), lambda j: j["started"])
         return {"jobs": [view(j) for j in jobs], "running": sum(1 for j in jobs if not j["done"])}
 
 

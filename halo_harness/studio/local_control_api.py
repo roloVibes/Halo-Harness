@@ -9,7 +9,8 @@ ollama_control.py, providers/ollama_tune.py); a host a fleet member serves goes 
     GET  local/pulls                               every job running and the last ended ones
     POST local/host/<name>/delete {name, force?}   422 + the uses card when something uses it (force: delete
                                                    anyway); 409 while a live session is on it
-    GET  local/host/<name>/show?model=             /api/show's facts (template, parameters, licence, ...)
+    GET  local/host/<name>/show?model=             /api/show's facts (template, parameters, licence, ...); 3.3.8.1: asked
+                                                   directly on a host another machine serves too (a read is anyone's)
     POST local/host/<name>/copy {src, dst}         POST local/host/<name>/rename {src, dst}
     POST local/host/<name>/twin {name, window?, dry?}  the tuned twin (dry: the plan only), recorded in the tune store
     GET  local/host/<name>/loaded                  /api/ps (a member's host: its newest resources sample)
@@ -137,9 +138,9 @@ def get_show(req, name: str, host, ctl: dict, here: bool):
     model = str(req.query.get("model") or "").strip()
     if not model:
         return 422, {"error": "show takes ?model=", "problems": ["model: the model to show"]}
-    if not here or host is None:
-        return 409, {"error": f"{name} is served by another machine: its own Studio shows the model's /api/show"}
-    got = show(host, model)
+    if host is None:
+        return 409, {"error": ctl.get("why") or f"{name}: no address here to ask for the model's /api/show"}
+    got = show(host, model)  # 3.3.8.1: on a host another machine serves too -- a read is anyone's, over the LAN
     return (200 if got["ok"] else 502 if got.get("status") != 404 else 404), {**got, "cli": cli("show", name, model=model)}
 
 
@@ -226,7 +227,7 @@ def dispatch_control(req):
     host, ctl, here = _target(req, name)
     if ctl is None:
         return 404, {"error": f"no host named {name!r} here"}
-    if not ctl.get("ok") and act not in ("loaded", "uses"):
+    if not ctl.get("ok") and act not in ("loaded", "uses") and not (act == "show" and host is not None):
         return _refused(ctl)
     if act in ("copy", "rename"):
         return post_copy(req, name, host, ctl, here, act == "rename")
