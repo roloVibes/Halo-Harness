@@ -41,7 +41,7 @@ const PATHS: Record<string, string> = {
   roles: "M6 2h4v3H6zM2 11h4v3H2zM10 11h4v3h-4zM8 5v3M4 11V8h8v3",
   fleet: "M8 2a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3ZM3 10.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3ZM13 10.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3ZM7.2 4.8 3.8 10.7M8.8 4.8l3.4 5.9M4.5 12h7",
   design: "M2 14l1.2-3.8L10.6 2.8l2.6 2.6-7.4 7.4L2 14ZM9.2 4.2l2.6 2.6",
-  orchestra: "M2 4h12M2 8h12M2 12h12M5 2.5v3M10.5 6.5v3M7 10.5v3",
+  orchestra: "M2 4h3.5c2.5 0 3.5 4 6.5 4M2 12h3.5c2.5 0 3.5-4 6.5-4M2 8h12M14 5v6", // 3.3.10.0 R0: three lanes converging into one, through a gate
   packs: "M2.5 5 8 2l5.5 3v6L8 14l-5.5-3ZM2.5 5 8 8l5.5-3M8 8v6",
   setup: "M4 2v12M8 2v12M12 2v12M2.5 5h3M6.5 10h3M10.5 6.5h3",
   settings: "M2.5 4h6M11.5 4h2M2.5 8h2M7.5 8h6M2.5 12h7M12.5 12h1M10 2.5v3M6 6.5v3M11 10.5v3", // 3.3.3.0 R2: rows with their knobs

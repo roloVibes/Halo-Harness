@@ -3829,6 +3829,20 @@ against two or three fake halos on 127.0.0.1 (the fleet and host rigs), never th
 - **R7 Studio and docs.** The Fleet section gains Offers, Chains and Trust blocks; docs/FEDERATION.md (the model, the
   invariants: nothing silent, the owner's policy wins, data stays where it is, results travel with provenance);
   glossary `offer`, `delegation chain`, `trust list`, `track record`.
+  **One record, many views (rolo 2026-11-02: "will the research we added for agents sharing the same document be added to
+  multiple components like teams and fleet in studio?" -- yes, by design):** the shared work record of R1 (versioned,
+  `expected_version`, append-only ownership, the review packet at the end) is the ONE record an Orchestra run, a fleet
+  mission and a session's sub-agent tree are instances of, and every Studio component that shows work reads it rather
+  than a store of its own: **Roles Live** (3.3.11.0 R2, the live map) draws the record's agent tree -- it starts on the
+  fleet frames and switches to the record when R1 lands, same shape; **Orchestra** shows the run as the record's plan,
+  claims and hand-offs with the review packet as its last card; **Fleet** shows missions as records with their offers,
+  chains and the far halo's acceptance (R7's blocks); **Session** shows the session's own record -- its agents, its steer
+  receipts (3.3.11.0 R1's ladder), the packet when it ends; **Team** stays the PLAN (a lineup is what you intend) and
+  gains one chip per card: what the record says that role is doing now, across every live record. One record on disk
+  per run / mission / session (`<state>/work/<id>.json` + its `events.jsonl`), the markdown views (HANDOFF, REVIEW_PACKET)
+  rendered from it, never hand-written; a pack's typed artifact contract (3.2.0.0 R5) is how a pack reads the packet.
+  The rule for every round between now and then: a new Studio surface that shows agents or work reads the fleet
+  frames or the Orchestra run through one adapter (`lib/work/record.ts`), so the switch to the record is one file.
 
 The owner's rule stands: all local-model work first (3.3.8.1, 3.3.9.0), then the Studio versions and issues #4 / #5,
 then this. The bench question above is the first contract: a bench from a peer is a small offer to the machine's
@@ -3987,3 +4001,102 @@ mode switch and bundle publish carries the pack's id and the signing fingerprint
 did what; `halo pack doctor` flags an unsigned pack with a `hooks` grant as a warning. No classifier and no refusal
 wording: a pack that fails verification is one line, the fix named (`halo pack trust`, or reinstall from a trusted
 source).
+
+## ADDED 2026-11-02 (rolo: "i feel like the roles page doesn't adjust to what the main agent creates for workflows during auto mode. I can see it in the map of session in studio. but the mapping in roles isn't 1:1 to what is going on when auto mode is happening. It would be great to have more of a whole page of what is going on bc the map in session is tiny, if the roles tab kept up with what's happening during sessions for better map views that would be huge"): the live map -- 3.3.11.0 round R2
+
+**What is wrong today (read against master).** The Roles canvas draws the LINEUP: cards for the configured roles, and
+`routes/roles/live.ts matchNode` glows a card only when a live agent matches it -- by alias, by bio, by a role only one
+card has, or main for an agent with no parent. The shipped `auto` lineup (3.1.9.0) is one main card and one **pool**
+card whose roles are picked at spawn (planner, researcher, coder, reviewer, media, writer, ops), so an Auto session's
+spawned agents either pile onto the pool card as a count or, when their role or name matches nothing (`implementer`,
+a task-named worker, a second coder), are **dropped from the canvas**: the glow count is not the session. The Session
+section's `session-map` panel (`routes/session/Session.tsx`, `MapDetail`) does draw the real agent tree, but in a
+10-column panel. The fleet frames (`routes/fleet/frames.ts`) already carry every live agent of every harness with its
+parent, role, model, state, activity and cost -- the data is there; only Roles' view of it is planned-only.
+
+**The round: Roles gains a Live canvas.** A **Plan | Live** switch on the Roles toolbar (Plan = today's lineup canvas,
+unchanged). **Live** draws the session's actual agent tree, full page: one node per agent (name, role, model, state,
+the activity word, elapsed, cost), edges parent -> child from the spawn tree, the lineup card an agent was spawned
+from as a faint group behind its nodes when one matches and **nothing dropped** -- an unmatched agent is its own node
+under its parent; the `auto` pool opens into the roles Auto actually picked, with the pick's reason on the node ("auto
+picked researcher -> or:kimi-k3 -- long context"); the glow rules are live.ts's (typing, a tool, waiting on you, done
+for ten seconds, failed until clicked); a layered auto-layout (parents above children, siblings in spawn order, a
+compact and a spread density), zoom and pan, fit-to-screen, J / K hop across working nodes; click -> the Inspector's
+Live tab (as today) with Steer; a session picker when several sessions are live (the Session section's target rule);
+the Replay plays in Live too. **One map, two sizes:** the Session section's Map panel becomes the thumbnail of the
+same tree and its header's expand opens Roles Live on that session (and back); `?mode=roles&view=live`. **Parity:** the
+TUI's `/agents` (or the nearest existing tree command -- read `commands/builtins.py`) prints the same tree with the
+same words; `halo session agents <id>` from another terminal. **Honest edges:** an agent whose parent is not in the
+frames (a background job that never announced) hangs under "unknown parent", said; a finished session's tree stays
+until the next starts or the user clears it.
+
+Files (each under 250 lines): `routes/roles/LiveCanvas.tsx`, `LiveNode.tsx`, `LiveEdges.tsx`, `liveLayout.ts`,
+`liveTree.ts` (frames -> tree; the match from live.ts reused for the faint groups), `LiveBar.tsx` (the switch, the
+density, fit, the session picker); `routes/session/Session.tsx`'s Map panel gets the expand; `styles/roles-live.css`
+(tokens only); docs/STUDIO-team-roles.md "Live" (STUDIO-team-roles.md's size: split `STUDIO-roles-live.md` if it nears
+400), STUDIO-session.md (the Map's expand), SLASH-COMMANDS-session.md; glossary `live map`. Tests: a Chrome driver
+`tests/helpers/studio_roles_live.py` over the fleet rig with a scripted Auto session that spawns two unmatched agents
+and one matched (both drawn; the counts; the expand from Session; the replay), through `driver_got`; `tests/test_studio_
+roles_live.py`; `liveTree`'s layout as a unit test in `tests/test_roles_live_tree.py` through the exported JSON shape.
+Rule: never drop an agent; a node that cannot be matched is still drawn.
+
+Placement: 3.3.11.0 "Type into Studio" R2 (R1 the Prompt panel over the control socket + the local receipts ladder;
+R2 this; R3 pack Setup blocks (gap D) + docs + the candidate). The owner's words are the acceptance: the Roles tab
+keeps up with what is happening in a session, 1:1, on a whole page.
+
+## ADDED 2026-11-02 afternoon (rolo: "is this something we can use for our local use cases in halo harness? https://github.com/FlashML-org/FreeToken"): 3.3.9.1 "FreeToken" -- a serving engine for big MoE models on one consumer box, as one more local runtime
+
+**What it is (read 2026-11-02; every figure from its README and docs, none measured here).** FreeToken (Apache-2.0,
+Python, created 2026-07, ~16k stars, nightly wheels, 284 open issues) serves large Mixture-of-Experts models on one PC
+by treating the GPU, the CPU, host RAM and the link as one pool: bandwidth-adaptive CPU-GPU co-execution, a global LRU
+expert cache with layer-by-layer prefill streaming, VRAM re-split between the expert cache and the KV at runtime,
+MXFP4 / NVFP4 / FP8 / BF16 weights and its own FTW format, context checkpoints that spare recomputation after tool calls
+and thinking blocks. It exposes **OpenAI- and Anthropic-compatible APIs** (`ft serve --model <path>`, default
+`http://127.0.0.1:1919/v1`), a daemon with a proxy and metrics, `ft bench bw` (the host link's bandwidth, which decides
+the MoE strategy). Models: DeepSeek-V4(.1)-Flash, GLM-5.2 / 5.3-Flash, Qwen3.6-35B-A3B and 3.8-Flash-Next, gpt-oss-120b
+/ 20b, Gemma-4 26B-A4B / 31B, MiniMax-M2.5 / M3, Qwen3-VL. **Limits:** Linux x86_64 only, NVIDIA with driver r580+
+(CUDA 13) and `nvcc` on PATH (kernels JIT on first use); AMD "WIP"; no macOS; under WSL "CUDA pinned memory is capped
+near half of RAM, so large expert banks may not fully pin"; the biggest models want a lot of host RAM and fast NVMe
+(DeepSeek-V4.1-Flash: two 98 GiB tables streamed from the checkpoint shards, 6 GiB of scales in RAM; Qwen3.8-Flash-
+Next: a 47.7 GiB table pinned in RAM). No tok/s figures on the pages; the paper is arXiv:2608.16157.
+
+**Why it fits Halo's local use cases.** It is the other answer to "a model bigger than my card": the pool (3.3.8.0)
+spreads one model across several machines' GPUs over RPC and buys capacity at a speed cost; FreeToken runs one big
+MoE on ONE box out of RAM and NVMe. For the owner's boxes: the PC (Windows) only through WSL2 with the pinned-memory
+caveat; **SAMUS once it is Ubuntu (RTX 3080 10 GB, 64 GB DDR4, NVMe) is the natural FreeToken host** -- gpt-oss-120b or
+Qwen3.6-35B-A3B on a 10 GB card is exactly its pitch; the Kali VM has no GPU. To Halo it is **an OpenAI-compatible
+local server**, so it lands where LM Studio and mlx_lm.server did (3.3.8.0 R2): one more runtime word, not a provider.
+
+**The round (one Opus worker, after 3.3.10.0 R1 merges and before R2 -- the owner's rule: a local-model ask never waits
+behind a Studio feature):**
+- `huggingface.local_servers` runtime `freetoken` (`hf:local/<model>@<name>`; `halo local serve --runtime freetoken
+  --model <checkpoint dir>` launches `ft serve` the way llama-server is launched, the entry carries `url`, `log`,
+  `runtime`, `model`; `halo local servers | stop | log` unchanged); the steward reads `ft`'s daemon log like the others
+  (`servers_hf.RUNTIMES` += `freetoken`; a `server_log_ft.py` from the log lines its daemon prints -- written from the
+  source tree's `daemon/logfmt.py` wording, marked unverified until a live log); findings `ft-expert-thrash` (the LRU
+  expert cache misses: the host link is the limit), `ft-pinned-cap` (WSL: the pinned bank did not fit), `ft-kernel-jit`
+  (the first request after install compiles for minutes: said, never a timeout).
+- **The fit for a FreeToken server is RAM + link, not VRAM:** the fit planner gains a runtime-specific rule -- the
+  checkpoint's expert bytes against host RAM (and the pinned cap under WSL), the dense bytes against VRAM, the link's
+  measured GB/s from `ft bench bw` (run through the bench seam, the cost line first) -> "fits: 35B-A3B on samus, 3 GB
+  active on the 3080, 60 GB of experts in RAM over PCIe at 28 GB/s; expect N tok/s once measured" / "does not fit:
+  needs 98 GiB of tables, 64 GB here". The speed card and the battery run against it like any local server; the
+  Library's "fits your resources" badge knows the runtime.
+- The Models section's Hugging Face page lists the NVFP4 / FP8 checkpoints FreeToken serves as download targets with
+  the fit badge; `halo local serve` says the CUDA-13 / nvcc / Linux requirements in one line when they are missing
+  (`halo doctor --local` checks `ft --version`, the driver, `nvcc`).
+- Through the host (3.3.7.0 / 3.3.8.0 R4): a FreeToken server on SAMUS is a host-served local server the PC, the Mac
+  and Kali reach as `hf:local/<model>@samus`; placement (`place.solve`, the adviser) sees it beside the pool and the
+  Ollama hosts, with the loading tax (the JIT and the first expert load) said.
+- docs: a section of docs/LOCAL-MODELS.md or `MODELS-freetoken.md` (install on Ubuntu with CUDA 13 as stated lines,
+  WSL2 caveat, which checkpoints, the fit rule), MODELS-steward-servers.md (the runtime), COMMANDS-local-servers.md.
+- Tests: a fake `ft` server (OpenAI shape + the daemon's log lines) on 127.0.0.1:0, never the real one; the fit rule's
+  table; the steward's three findings from fixture logs.
+- Live check (rolo, on SAMUS after Ubuntu): `uv pip install "freetoken[accel]"` with CUDA 13 + nvcc, `ft serve --model
+  <Qwen3.6-35B-A3B-NVFP4 dir>`, `halo local add --runtime freetoken ...` (or `halo local serve --runtime freetoken`),
+  a session on `hf:local/qwen3.6-35b-a3b@samus`, `halo local bench --host samus`, the steward's findings after a few
+  turns; `ft bench bw` and the fit line's GB/s side by side.
+
+Not taken: FreeToken's own Anthropic-compatible API (Halo speaks OpenAI-compatible to local servers); its desktop app
+(none exists on the pages); replacing llama.cpp for dense GGUFs (FreeToken is MoE-first; the pool and Ollama stay for
+dense models).
