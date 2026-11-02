@@ -38,7 +38,8 @@ the host tests wait on an operation's audit count, never an absolute one; the Pa
 Roll back's refetch misses on the slow runner; a pack swap's folder rename retries for 5 s on Windows (was 2 s); the pivot test waits for its audit line and
 the Setup Check driver waits for every row's glyph, not only the summary's frame; `GET local/changes` orders two changes
 written in the same millisecond newest first (the later row), not in file order; the refresh tests' fake clock is the
-first 23:00 still ahead of the real one (a run between 23:00 and midnight local had it behind).
+first 23:00 still ahead of the real one (a run between 23:00 and midnight local had it behind); a terminal session's
+push of its own calls to its host flushes what arrived during its wait (the cadence gate held a second line back).
 
 ### R1: the pool -- discovery, members, the fit and the recommendation
 
