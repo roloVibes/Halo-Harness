@@ -488,6 +488,7 @@ no -- from the host's hardware card. Per server kind:
 | Ollama | `/api/show` capabilities, details, `model_info`; the tool-call probe's cache | nothing the server knows |
 | llama-server, LM Studio, vLLM, `local:` | the name (purpose, size, quantization); the server's loaded window | tools (sent as usual), thinking, the fit |
 | mlx-lm (`hf:mlx/`) | the name; the repo's `config.json` window | tools, thinking, the fit |
+| FreeToken (`hf:local/<model>@freetoken`, 3.3.9.1) | the name; `/v1/models` `context_length`; the fit is RAM + link ([MODELS-freetoken.md](MODELS-freetoken.md)) | tools (sent as usual), thinking, the speed until benched |
 
 See [MODELS-cards.md](MODELS-cards.md) for the fields, the roles each model
 can hold and the coder-lane offer.
@@ -703,4 +704,5 @@ check it yourself:
 
 [docs/MODELS.md](MODELS.md) (exhaustive reference), [docs/CONFIG.md](CONFIG.md)
 (config keys), [docs/COMMANDS.md](COMMANDS.md)/[docs/SLASH-COMMANDS.md](SLASH-COMMANDS.md)
-(commands), [docs/ROLES.md](ROLES.md) (roles), [docs/MAC.md](MAC.md) (Apple Silicon).
+(commands), [docs/ROLES.md](ROLES.md) (roles), [docs/MAC.md](MAC.md) (Apple Silicon),
+[docs/MODELS-freetoken.md](MODELS-freetoken.md) (a big Mixture-of-Experts model on one Linux box).

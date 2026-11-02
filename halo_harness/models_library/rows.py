@@ -13,7 +13,8 @@ qwen3.5:9b" | "ollama pull hf.co/<repo>:<quant>" | "halo local download <repo>")
                                     the context with source "library", each `how` line marked "once pulled"
     fit_for_row(row, host_card, window, *, host_name="") -> fit_meter(...) + {numbers, estimate, shape_source}
                                     at the window picked; `why` carries the numbers: weights + KV at that window
-                                    against the card's free memory, the newest resources sample included
+                                    against the card's free memory, the newest resources sample included;
+                                    3.3.9.1: a FreeToken row (kind freetoken) takes local_sched/fit_ft.badge
     window_default(host) -> int     the host's max_ctx, else 32,768
 """
 
@@ -113,6 +114,9 @@ def fit_for_row(row: dict, host_card: Optional[dict], window: int, *, host_name:
     from halo_harness.providers.fit_meter import fit_meter
     from halo_harness.providers.ollama_fit_parts import load_parts, projector_for
     window = int(window or DEFAULT_WINDOW)
+    if row.get("kind") == "freetoken":  # 3.3.9.1: RAM + link, not VRAM (local_sched/fit_ft.py)
+        from halo_harness.local_sched.fit_ft import badge
+        return badge(row, host_card, window, host_name=host_name)
     info, shape_src = shapes.shape_for(row.get("id"), row.get("tag_or_file") if row.get("source") == "ollama" else "",
                                        row.get("params"), row.get("shape"))
     estimate = shape_src != "the repo's config.json" or not row.get("weights_bytes")

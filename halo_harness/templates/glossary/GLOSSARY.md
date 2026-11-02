@@ -353,3 +353,11 @@ A policy hook (3.3.10.0 R1, draft) is a pack's own check on tool calls: a comman
 ## pack mode
 
 A pack mode (3.3.10.0 R1, draft) is a pack's runtime switch, declared under `contributes.modes` and recorded in `~/.halo/packs/.data/<id>/mode.json` with the policies it armed: turning a mode on arms each policy whose `when.modes` names it, turning it off disarms them, and every change is the pack's `mode` event. `halo pack mode <pack> <mode> on | off`, or `ext.set_mode` from the pack's own code; the label shows in the TUI and Studio from 3.3.12.0, with the mode's theme.
+
+## expert cache
+
+The expert cache (3.3.9.1) is FreeToken's GPU-side LRU cache of a Mixture-of-Experts model's expert slots: the experts a decode step asks for that are in it run at once, the ones that are not (its misses) are copied from host RAM over the host link. Its size comes from the free VRAM after the dense layers and the KV (`--moe-cache-auto`) and can be resized live (`ft ctl cache --moe N`); with `--moe-collect-stats`, which Halo's launch passes, each decode log line states its hit rate, and `ft-expert-thrash` says when the misses dominate.
+
+## offload
+
+Offload (3.3.9.1) is FreeToken's default strategy for a Mixture-of-Experts model on a discrete GPU: the dense layers and the KV stay on the GPU, the routed experts live in host RAM, and the expert cache on the GPU holds the ones in use, so a model far bigger than the card runs on one machine at the speed of the host link (PCIe, about 32-64 GB/s). Its fit is RAM + link, not VRAM (`halo local bench --host freetoken --bw` measures the link); `fused` keeps every expert on the GPU instead.
