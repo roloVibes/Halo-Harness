@@ -7,6 +7,7 @@
     halo voice rm <model> [--force]           its files go (not while a speech server serves it)
     halo voice serve <model> [--device auto|cpu|cuda] [--port P] [--log F]   the speech server in the foreground
                                               (`halo local serve --stt | --tts <model>` runs it in the background)
+    halo voice client --host <h> --input-file x.wav | --mic   3.3.9.0 R3: one turn through a halo host's voice door
 
 The engines are the optional extra: without it `serve` prints the one install line and exits 2; the catalog,
 download and rm need nothing extra.
@@ -140,7 +141,12 @@ def _serve(argv: list) -> int:
     return server.main(argv)
 
 
-COMMANDS = {"models": _models, "download": _download, "rm": _rm, "serve": _serve}
+def _client(argv: list) -> int:
+    from halo_harness.voice_client_cli import main  # 3.3.9.0 R3: the voice door's reference client
+    return main(argv)
+
+
+COMMANDS = {"models": _models, "download": _download, "rm": _rm, "serve": _serve, "client": _client}
 
 
 def cmd_voice(argv: list) -> int:
@@ -155,7 +161,7 @@ def cmd_voice(argv: list) -> int:
     if fn is None and argv and argv[0] in loop_cli.LOOP_COMMANDS:
         fn = loop_cli.LOOP_COMMANDS[argv[0]]
     if fn is None and argv and not argv[0].startswith("-"):
-        print(f"halo voice: no subcommand {argv[0]!r} (models, download, rm, serve, devices, stats, on, off)",
+        print(f"halo voice: no subcommand {argv[0]!r} (models, download, rm, serve, client, devices, stats, on, off)",
               file=sys.stderr)
         return 2
     return fn(argv[1:]) if fn is not None else loop_cli.start(argv)

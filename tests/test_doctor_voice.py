@@ -4,7 +4,8 @@
 1. the extra: installed, or the one install line (a monkeypatched import stands for a box without it);
 2. each catalog model: present with its folder, or the download line with its GB; a declared one says it has no engine;
 3. the devices through the engine seam: the fake says CPU only (N cores), HALO_VOICE_FAKE_DEVICES=cpu,cuda says CUDA;
-4. the speech servers: none, then `stt` with its model, device, url and /health 200; `--json` is the same rows.
+4. the speech servers: none, then `stt` with its model, device, url and /health 200; `--json` is the same rows;
+5. (3.3.9.0 R3) a CPU box (the fake devices()): the recommended pair and its commands, or the other halo it uses.
 No real engine, no model, nothing downloads.
 Run: python -m tests.test_doctor_voice
 """
@@ -66,6 +67,31 @@ def test_each_model_and_the_devices(ctx: Ctx):
         _code, out = _doctor()
         ctx.check("CUDA through the seam", "OK    CUDA visible to the engines" in out)
         ctx.check("no server yet", "no speech server running (halo local serve --stt | --tts <model>)" in out)
+
+
+@test
+def test_a_cpu_box_hears_the_recommended_pair(ctx: Ctx):
+    from halo_harness import theme
+    from halo_harness.voice import engines
+    with HfHome():
+        os.environ["HALO_VOICE_ENGINE"] = "fake"
+        real = engines.devices
+        engines.devices = lambda: ["cpu"]  # the fake devices(): a Kali-class box, no GPU
+        try:
+            _code, out = _doctor()
+            ctx.check(f"CPU only, then the pair with its RAM and the commands, got {out!r}", "CPU only (" in out and (
+                "INFO  the CPU pair: faster-whisper:base.en (int8, ") in out and "+ kokoro-82m (" in out
+                and "halo config set voice.stt_model faster-whisper:base.en; halo config set voice.device cpu" in out
+                and "voice.stt_server stt@<host> (docs/VOICE-cpu.md)" in out)
+            theme.set_config_value("voice.stt_server", "stt@pc")
+            _code, out = _doctor()
+            ctx.check(f"with stt@pc it says the other halo instead, got {out!r}", "OK    speech through another halo on the "
+                      "LAN (stt: stt@pc): its GPU hears and speaks" in out and "the CPU pair" not in out)
+            engines.devices = lambda: ["cpu", "cuda"]
+            _code, out = _doctor()
+            ctx.check("a CUDA box gets no pair line", "the CPU pair" not in out and "another halo" not in out)
+        finally:
+            engines.devices = real
 
 
 @test

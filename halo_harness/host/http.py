@@ -6,6 +6,8 @@
     POST /host/v1/simulate {model | size_gb, window, kv?}    POST /host/v1/route {need: {...}}
     R2 (host/routes_act.py): POST control/<op> | manage/<op> | admin/<op> | request; GET me | job/<id> | jobs |
                              changes | findings | pending; POST ledger {lines} (host/ledger_take.py)
+    3.3.9.0 R3 (host/ops_voice.py): POST voice/turn (the voice door: an utterance in, the reply's audio out) | voice/stt |
+                             voice/tts (the host's speech servers for a peer's loop)
 
 Every route but `join` carries fleet/protocol.py's HMAC headers made with the peer's pair key (the 120 s window, the
 replay guard): an unknown peer gets 403, a wrong key or a stale or replayed request 401. Every request writes one
@@ -156,17 +158,21 @@ class Handler(http.server.BaseHTTPRequestHandler):
             n = int(self.headers.get("Content-Length") or 0)
         except ValueError:
             n = 0
-        if n > MAX_BODY:
-            return self._json(413, {"error": "body too large"})
+        head = route.split("/", 1)[0]
+        from halo_harness.host import ops_voice  # 3.3.9.0 R3: the voice door takes an utterance (up to 30 s of PCM)
+        if n > (ops_voice.MAX_BODY if head == "voice" else MAX_BODY):
+            return self._json(413, {"error": "body too large" + (": the voice door takes up to 30 s" if head == "voice"
+                                                                 else "")})
         raw = self.rfile.read(n) if n > 0 else b""
         if route == "join":
             return self._join(raw)
-        head = route.split("/", 1)[0]
-        if route not in POSTS and head not in GRANTED:
+        if route not in POSTS and head not in GRANTED and head != "voice":
             return self._json(404, {"error": "this port serves only the Halo host protocol (/host/v1)"})
         hid = self._peer(raw)
         if not hid:
             return None
+        if head == "voice":
+            return ops_voice.post(self, route, raw, hid)
         if head in GRANTED or route == "request":
             from halo_harness.host.routes_act import post
             status, out, self._act = post(self.svc, route, raw, hid)

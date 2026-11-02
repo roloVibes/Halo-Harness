@@ -44,6 +44,7 @@ export const KNOWN_KINDS = [
   "twin-verify", // 3.3.6.0 R1: a new twin verified (studio/local_twin_verify.py)
   "verify", // 3.3.6.0 R2: Download and verify's stages (studio/local_verify_job.py; routes/local/verify.ts)
   "bench", // 3.3.6.0 R5: a bench's lines as it runs (studio/local_bench_job.py; routes/local/benchstore.ts)
+  "talk", // 3.3.9.0 R3: a Talk turn's transcript, audio and card (studio/voice_act_api.py; routes/local/voicestore.ts)
 ];
 
 const handlers = new Map<string, Set<Handler>>();

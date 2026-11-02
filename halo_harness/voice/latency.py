@@ -10,6 +10,8 @@
     rows(state_dir, n=50) / stats(state_dir, n=50) / stats_lines(st)          `halo voice stats`: median and worst per
                                             stage over the newest n turns, and the slow stage named
     over(row) -> [stage]                    the stages over their share of the budget (the steward's voice-slow)
+    3.3.9.0 R3: a card whose stt or tts is on another halo (voice/remote.py) carries `link` {kind: {host, ms}} and the
+    `link` stage (the LAN round trip, inside text / audio, said beside them like `last`): "stt on pc over the LAN (+40 ms)"
 
 The budget is `voice.latency_budget_ms`, else the bundle's `latency_budget_ms`, else 1,500 ms; Part K's measured local
 loop is 750-900 ms, said as the target. A stage's share of the budget: heard 20 %, text 25 %, token 40 %, audio 15 %.
@@ -46,6 +48,7 @@ class Card:
         self.t: dict = {}
         self.interrupted = self.steered = False
         self.text = ""
+        self.link: dict = {}  # 3.3.9.0 R3: {kind: {host, ms}} -- a speech server on another halo, its LAN round trip
 
     def mark(self, stamp: str, at: Optional[float] = None) -> None:
         if stamp not in self.t:
@@ -63,9 +66,14 @@ class Card:
         return self._ms("spoke", "audio")
 
     def row(self) -> dict:
-        return {"at": round(time.time(), 3), "total_ms": self.total_ms(), "stages": self.stages(),
-                "budget_ms": self.budget_ms, "interrupted": self.interrupted, "steered": self.steered,
-                "chars": len(self.text)}
+        st = self.stages()
+        out = {"at": round(time.time(), 3), "total_ms": self.total_ms(), "stages": st, "budget_ms": self.budget_ms,
+               "interrupted": self.interrupted, "steered": self.steered, "chars": len(self.text)}
+        if self.link:  # the link stage: inside text / audio already, said beside them (like `last`, outside the sum)
+            ms = [v.get("ms") for v in self.link.values() if isinstance(v.get("ms"), (int, float))]
+            st["link"] = int(round(sum(ms))) if ms else None
+            out["link"] = {k: dict(v) for k, v in self.link.items()}
+        return out
 
 
 def _s(ms) -> str:
@@ -86,7 +94,17 @@ def line(card) -> str:
         return f"voice: no audio this turn ({parts})" + (" -- interrupted" if row.get("interrupted") else "")
     slow = over(row)
     head = (f"voice: {_s(total)} s of {_s(b)} s" if total <= b else f"voice: {_s(total)} s, over the {_s(b)} s budget")
-    return f"{head} ({parts})" + (f" -- slow: {', '.join(slow)}" if slow and total > b else "")
+    return f"{head} ({parts})" + (f" -- slow: {', '.join(slow)}" if slow and total > b else "") + link_words(row)
+
+
+def link_words(row: dict) -> str:
+    """ "; stt on pc over the LAN (+40 ms)" for each speech server on another halo (3.3.9.0 R3)."""
+    bits = []
+    for kind, v in sorted((row.get("link") or {}).items()):
+        ms = v.get("ms") if isinstance(v, dict) else None
+        word = "?" if not isinstance(ms, (int, float)) else (f"{ms:.0f}" if ms >= 10 else f"{ms:.1f}")
+        bits.append(f"{kind} on {v.get('host')} over the LAN (+{word} ms)")
+    return ("; " + ", ".join(bits)) if bits else ""
 
 
 def path(state_dir) -> Path:
@@ -124,7 +142,7 @@ def stats(state_dir, n: int = KEEP) -> dict:
     if not rs:
         return out
     out["budget_ms"] = int(rs[-1].get("budget_ms") or BUDGET_MS)
-    for k in STAGES + ("last",):
+    for k in STAGES + ("last", "link"):
         got = [r["stages"][k] for r in rs if isinstance(r["stages"].get(k), int)]
         out["stages"][k] = {"median": int(median(got)), "worst": max(got), "n": len(got)} if got else None
     tot = [r["total_ms"] for r in rs if isinstance(r.get("total_ms"), int)]
@@ -144,10 +162,11 @@ def stats_lines(st: dict) -> list:
     out = [f"the newest {st['turns']} voice turn(s), budget {b:,} ms (target {st['target']}):"]
     if tot:
         out.append(f"  total   median {tot['median']:>6,} ms  worst {tot['worst']:>6,} ms")
-    for k in STAGES + ("last",):
+    for k in STAGES + ("last", "link"):
         s = st["stages"].get(k)
         if s:
-            share = f"  (share {int(SHARE[k] * b):,} ms)" if k in SHARE else "  (how long it spoke)"
+            share = f"  (share {int(SHARE[k] * b):,} ms)" if k in SHARE else (
+                "  (how long it spoke)" if k == "last" else "  (the LAN round trip to the speech servers)")
             out.append(f"  {k:<7} median {s['median']:>6,} ms  worst {s['worst']:>6,} ms{share}")
     slow = st.get("slow")
     if slow:
