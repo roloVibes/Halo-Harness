@@ -98,7 +98,6 @@ def test_a_peer_reads_the_servers_log_through_the_host(ctx: Ctx):
 @test
 def test_a_servers_change_lands_through_the_host_and_is_verified_in_tok_s(ctx: Ctx):
     from halo_harness.host import verify
-    from halo_harness.host.state import read_audit
     from halo_harness.ollama_steward import changes
     from halo_harness.ollama_steward.host_land import via_host
     from halo_harness.ollama_steward.ledger import append_lines
@@ -112,8 +111,8 @@ def test_a_servers_change_lands_through_the_host_and_is_verified_in_tok_s(ctx: C
         row = via_host(r.peer.peer, f, ch, mode_name="auto")
         ctx.check(f"landed through the host, got {row and row.get('say')!r}", row is not None and row["landed"]
                   and row["kind"] == "host-apply" and row["via"] == "host")
-        n = r.peer.rig.audited(1)
-        audit = [a for a in read_audit(home, limit=1000) if a.get("op") == "set_num_ctx"]
+        audit = r.peer.rig.audited_op("set_num_ctx", 1)  # the line lands after the reply
+        n = len(audit)
         ctx.check(f"the host's audit says so: set_num_ctx on coder-srv, landed, got {n} {audit[-1:]}", audit
                   and (audit[-1].get("params") or {}).get("host") == "coder-srv" and audit[-1].get("landed") is True)
         rows = [x for x in changes.read(home) if x.get("key") == f"coder-srv|{MODEL}"]

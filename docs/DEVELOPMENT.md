@@ -66,7 +66,12 @@ after it), and the state-dir caches are reset between modules
 (`tests/helpers/run_all_support.py`). The suite has two tiers:
 `python tests/run_all.py --fast` skips the modules marked `TIER = "full"`
 (the ones that need headless Chrome or a Textual pilot), `--tier full`
-runs only those, no flag runs everything. `docs/CONTRIBUTING.md` says which
+runs only those, no flag runs everything. Since 3.3.8.1 CI runs `run_all` in four shards per platform (a
+matrix job each; `test_bridge.py` and `test_tui.py` once, in shard 0's job): `python tests/run_all.py --shard 2/4`
+runs the modules whose index in the sorted discovered list is 2 mod 4 (it composes with `--fast` and `--tier`), and
+`python tests/run_all.py --shard-of tests.test_x` prints the shard a failing module runs in (`2/4`), so a red job's
+module is re-run locally the same way. The job summary and the log artifact (`suite-logs-linux-2`) name the shard;
+the run's conclusion stays one value. `docs/CONTRIBUTING.md` says which
 to run when, and how a headless Chrome driver is built on
 `tests/helpers/chrome_driver.py` (one Chrome at a time, the home scoped
 first).
@@ -330,6 +335,31 @@ stop at 400 ms.
 HALO_STUDIO_SLOW_MS=800 BRIDGE_TEST_NO_BACKGROUND_NET=1 python -m tests.helpers.studio_roles_room room
 python -m tests.test_studio_slow_box
 ```
+
+### Flake rules
+
+The 3.3.8.0 candidate went through five CI heads in one day with no product bug: every red was one of these
+classes, and `tests/test_flake_rules.py` (fast tier, about a second) fails on each with the file:line and the fix.
+
+1. A host audit wait names the op (`rig.audited_op(op, n)`, `rig.audit_rows(n, op=, path=)`) or a baseline plus k
+   (`audited(before + k)`), never `audited(<literal>)`: `audited(n)` counts every request, the pair and views too.
+2. A test module reads the host audit only through those waits (a `before = len(read_audit(...))` baseline aside):
+   the audit line lands after the reply.
+3. A Chrome driver never reads a list with `c.js(` right after the click that starts a job (`-run]`, `-go]`,
+   `-apply]`, `-bench]`, `-yes]`): it waits with `c.wait(` for the count it asserts.
+4. A fake clock in a test that builds a rig stays ahead of the real one (the helper that does the date arithmetic
+   compares with `time.time()`, as `tests/test_host_refresh.at` does) or is an epoch far from today.
+5. Rows listed newest first by an `at` / `ts` / `started` stamp alone break the tie (`halo_harness.newest_first`):
+   rows of one millisecond keep file order, the older first.
+6. A driver reads every verdict before the step that changes its inputs. Not lintable in general; the one known
+   case is pinned (`studio_pool_watch.py` yields bench, bundles, findings, adviser).
+
+**A Chrome driver retries once, in the open.** When a driver run ends `failed` on a step's `TimeoutError` (not an
+assertion, not a setup error), `chrome_driver.Driver.main` runs the whole session once more in a fresh process with a
+fresh home (`tests/helpers/driver_retry.py`) and prints the second result with `"retried": "<the first failure>"`.
+The modules read it through `tests/helpers/driver_got.py`, and the runner's line says it: `[PASS] test_x (12.3s)
+(driver retried once: bench: TimeoutError: waited 20s for: ...)`; the CI job summary counts them (`grep retried`).
+A second timeout fails as it would have. `HALO_DRIVER_NO_RETRY=1` turns it off, so a local red stays red.
 
 ## Docs: the map and the split docs
 

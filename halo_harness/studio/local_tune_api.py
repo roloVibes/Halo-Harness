@@ -28,8 +28,9 @@ def _session(body: dict):
     """(session_id, its pid): the one named, else the newest live session on this machine."""
     sid = str(body.get("session_id") or "").strip()
     try:
+        from halo_harness.newest_first import newest_first
         from halo_harness.remote.registry import list_live
-        rows = sorted(list_live(), key=lambda e: -(e.get("started") or 0))
+        rows = newest_first(list_live(), lambda e: e.get("started") or 0)
     except Exception:
         rows = []
     hit = next((r for r in rows if r.get("session_id") == sid), None) if sid else (rows[0] if rows else None)

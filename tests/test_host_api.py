@@ -186,7 +186,7 @@ def test_one_audit_line_per_request(ctx: Ctx):
         c.card(fresh=True)
         _err(lambda: c._call("POST", "admin/run", {"v": 1}))
         rig.audited(before + 2)  # the line lands after the reply: wait for the server thread
-        rows = read_audit(rig.home)[before:]
+        rows = rig.audit_rows(before + 2)[before:]
         ctx.check(f"two requests, two lines {{at, peer, path, ok, ms}}, got {rows}", len(rows) == 2
                   and set(rows[0]) == {"at", "peer", "path", "ok", "ms"} and rows[0]["path"] == "/host/v1/card"
                   and rows[0]["ok"] is True and rows[1]["ok"] is False and rows[0]["peer"] == "bob@peer")

@@ -7,21 +7,22 @@ fixture speed cards and a steward change; no provider request, no model call:
 2. the tuning report for box: its lines, Halo-side and server-side options, a server line and its revert;
 3. a Halo-side option applied with the scope "until halo exits": its change listed with that scope, the profile
    written; Revert: the line says what it put back and the profile is as it was; the steward's change with its scope;
-   Settings -> Local lists the changes too.
+   Settings -> Local lists the changes too;
+4. 3.3.8.1: box as another machine's host with no halo host on it: Bench's confirm carries the link's tail, the via
+   and the offer; the run's row carries the over-the-LAN chip with the link.
 Run: python -m tests.test_studio_bench
 """
 from __future__ import annotations
 
 TIER = "full"  # headless Chrome: the full tier
 
-import json
-import subprocess
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from tests.helpers.runner import Ctx, SkipTest, new_registry, print_results, run_all  # noqa: E402
+from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
+from tests.helpers.driver_got import got as driver_got  # noqa: E402
 
 test, TESTS = new_registry()
 REPO = Path(__file__).resolve().parent.parent
@@ -29,21 +30,8 @@ _RUN: dict = {}
 
 
 def _got(ctx: Ctx) -> dict:
-    from tests.helpers.chrome_driver import driver_env, find_chrome
-    if not find_chrome():
-        raise SkipTest("no Chrome found (the Benchmarks checks need headless Chrome)")
-    if "r" not in _RUN:
-        r = subprocess.run([sys.executable, "-m", "tests.helpers.studio_bench"], capture_output=True, encoding="utf-8",
-                           errors="replace", timeout=480, env=driver_env(REPO), cwd=str(REPO), stdin=subprocess.DEVNULL)
-        try:
-            info = json.loads(r.stdout.strip().splitlines()[-1])
-        except (ValueError, IndexError):
-            info = {}
-        _RUN["r"] = (r, info)
-    r, info = _RUN["r"]
-    if info.get("skip"):
-        raise SkipTest(info["skip"])
-    ctx.check(f"the driver ran, got {r.returncode} {info.get('failed')!r} {r.stderr[-800:]!r}", r.returncode == 0 and "failed" not in info)
+    info = driver_got(ctx, "tests.helpers.studio_bench", why="the Benchmarks checks need headless Chrome",
+                      cache=_RUN, timeout=480)
     return info
 
 
@@ -82,6 +70,20 @@ def test_a_scoped_change_and_its_revert(ctx: Ctx):
     ctx.check(f"the profile as it was, got {got.get('after')}", not got.get("after"))
     ctx.check(f"the steward's change with its scope, got {got.get('steward')}", got.get("steward") == ["until-restart", "steward"])
     ctx.check(f"Settings -> Local lists them, got {got.get('settings')}", (got.get("settings") or 0) >= 1)
+
+
+@test
+def test_a_bench_over_the_lan(ctx: Ctx):
+    got = _got(ctx)
+    cost, via, offer = (got.get("lan_confirm") or ["", "", ""])[:3]
+    ctx.check(f"the confirm: the cost line with the link's tail, the via, the offer, got {got.get('lan_confirm')}",
+              cost.endswith("measured over the LAN from mac: includes the link (RTT 1.8 ms, wired)")
+              and via == "over the LAN from mac" and offer.startswith("a card without the link: `halo host serve` on 127.0.0.1")
+              and "`halo host join 127.0.0.1` here" in offer)
+    chip, title = (got.get("lan_row") or ["", ""])[:2]
+    ctx.check(f"the row's chip names where and the link, its title the card's first line, got {got.get('lan_row')}",
+              chip == "over the LAN from mac · RTT 1.8 ms, wired"
+              and title == "measured over the LAN from mac: includes the link (RTT 1.8 ms, wired)")
 
 
 if __name__ == "__main__":

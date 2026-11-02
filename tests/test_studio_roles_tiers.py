@@ -32,14 +32,13 @@ from __future__ import annotations
 
 TIER = "full"  # headless Chrome: the full tier
 
-import json
-import subprocess
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from tests.helpers.runner import Ctx, SkipTest, new_registry, print_results, run_all  # noqa: E402
+from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
+from tests.helpers.driver_got import got as driver_got  # noqa: E402
 
 test, TESTS = new_registry()
 REPO = Path(__file__).resolve().parent.parent
@@ -47,22 +46,8 @@ _RUN: dict = {}
 
 
 def _got(ctx: Ctx, helper: str = "tests.helpers.studio_roles_tiers", mode: str = "tiers") -> dict:
-    from tests.helpers.chrome_driver import driver_env, find_chrome
-    if not find_chrome():
-        raise SkipTest("no Chrome found (the Roles tier checks need headless Chrome)")
-    if helper not in _RUN:
-        r = subprocess.run([sys.executable, "-m", helper, mode], capture_output=True, encoding="utf-8",
-                           errors="replace", timeout=500, env=driver_env(REPO), cwd=str(REPO))
-        try:
-            info = json.loads(r.stdout.strip().splitlines()[-1])
-        except (ValueError, IndexError):
-            info = {}
-        _RUN[helper] = (r, info)
-    r, info = _RUN[helper]
-    if info.get("skip"):
-        raise SkipTest(info["skip"])
-    ctx.check(f"the driver ran, got {r.returncode} {info.get('failed')!r} {r.stderr[-600:]!r}", r.returncode == 0 and "failed" not in info)
-    return info
+    return driver_got(ctx, helper, why="the Roles tier checks need headless Chrome", cache=_RUN, key=helper, args=(mode,),
+                      timeout=500, tail=600, stdin=False)
 
 
 def _clear(ctx: Ctx, key: str, got: dict, least: int) -> None:

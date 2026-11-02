@@ -19,6 +19,8 @@ tools/capture_*.py renders.
   to `out`. `Driver.main()` finds Chrome, opens it, enters `session(c)`
   (which yields the steps), runs them, closes everything and prints `out`
   as the last stdout line (exit 0; 1 when a step failed; 2 without Chrome).
+  3.3.8.1: a step's TimeoutError runs the whole session once more in a fresh
+  process (tests/helpers/driver_retry.py), `retried` in `out`.
 
 A subclass implements `session(c)`; see `SmokeDriver` below
 (`python -m tests.helpers.chrome_driver smoke`: Studio over the scoped home,
@@ -75,6 +77,7 @@ def find_chrome(explicit: str = "") -> "str | None":
 
 
 SCRUBBED_PREFIXES = ("HALO_", "OPENROUTER_", "DATABRICKS_", "ANTHROPIC_", "BRIDGE_")
+KEPT_VARS = ("HALO_CHROME", "HALO_DRIVER_NO_RETRY")  # the browser; 3.3.8.1: the retry's off switch
 
 
 from tests.helpers.ollama_pin import REFUSED_OLLAMA, pinned_ollama_host  # noqa: E402,F401  (3.3.5.0 R3)
@@ -85,7 +88,7 @@ def driver_env(repo: "Path | None" = None) -> dict:
     variable scrubbed (the driver scopes its own scratch home) except
     `HALO_CHROME`, which names the browser; PYTHONPATH = the repo, no
     background network; `OLLAMA_HOST` pinned (pinned_ollama_host)."""
-    env = {k: v for k, v in os.environ.items() if not k.startswith(SCRUBBED_PREFIXES) or k == "HALO_CHROME"}
+    env = {k: v for k, v in os.environ.items() if not k.startswith(SCRUBBED_PREFIXES) or k in KEPT_VARS}
     env["PYTHONPATH"] = str(repo or REPO)
     env["BRIDGE_TEST_NO_BACKGROUND_NET"] = "1"
     env["OLLAMA_HOST"] = pinned_ollama_host(env.get("OLLAMA_HOST"))
@@ -146,6 +149,7 @@ class Driver:
         self.argv = list(argv or [])
         self.out: dict = {}
         self._made_home = scope_home()  # first thing: nothing below may read the real home
+        self._own_home = self._made_home is not None  # 3.3.8.1: a retry scopes a fresh one (driver_retry.after)
         self._chrome_cls = chrome_cls  # test seam: a stand-in for cdp.Chrome
         self._find = find or find_chrome
         self._lock_path = lock_path
@@ -199,6 +203,8 @@ class Driver:
             traceback.print_exc(limit=6, file=sys.stderr)
         finally:
             self._drop_home()
+        from tests.helpers.driver_retry import after  # 3.3.8.1: a step's TimeoutError runs the session once more
+        self.out = after(self.out, own_home=self._own_home, real_chrome=self._chrome_cls is None)
         print(json.dumps(self.out))
         return 1 if "failed" in self.out else 0
 

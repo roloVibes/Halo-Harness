@@ -154,8 +154,7 @@ def test_through_a_paired_halo_host(ctx: Ctx):
         v = verdict(find("compactor", cwd=Path(rig.rig.root_p))["block"], host, state_dir=rig.peer)
         ctx.check(f"via the host's route, got {v['via']} {v['state']} {v['says']!r}", v["via"] == "host"
                   and v["state"] in ("ready", "downloads", "wont"))
-        from halo_harness.host.state import read_audit
-        paths = [str(a.get("path") or "") for a in read_audit(rig.home)]
+        paths = [str(a.get("path") or "") for a in rig.rig.audit_rows(1, path="route")]  # the line lands after the reply
         ctx.check(f"the host answered route, got {paths[-3:]}", any(p.endswith("route") for p in paths))
 
 

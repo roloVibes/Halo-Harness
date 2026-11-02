@@ -4,7 +4,10 @@ local_cli.cmd_local; `halo models bench` is the same as `halo local bench`).
     halo local bench [--host H] [--model M | --all] [--quick] [--yes] [--json]
         the cost line first (local: time and a busy card, never dollars), then one line per window as it lands, then
         the speed card; --all = every installed model on the host, largest first. 3.3.8.0 R4: `--host pool` benches
-        the running pool (pool_run_cli.bench_pool -> local_pool/bench.py): its card, the measured penalty
+        the running pool (pool_run_cli.bench_pool -> local_pool/bench.py): its card, the measured penalty. 3.3.8.1: a
+        host this machine does not serve is benched over the LAN from here: the cost line, the card's first line and
+        --json's `measured_from` / `link` / `over_lan` say so (providers/local_bench_link.py), then the way to a card
+        without the link (`halo host serve` there, `halo host join` here)
     halo local tune [--host H] [--json] [--apply ID [--scope S] [--session SID]]
         the tuning report: the warm set, each model's windows, the reserve, the findings, every option with what it
         writes and how long it takes; --apply lands a Halo-side option (scope keep unless you name another)
@@ -76,15 +79,19 @@ def cmd_bench(argv: list) -> int:
         print("name a model (--model M) or bench every installed one (--all)")
         return 2
     card, state = _card(host), bridge_home()
+    from halo_harness.providers.local_bench_link import offer_line, over_lan
+    lan = over_lan(host, state)  # 3.3.8.1: a host this machine does not serve is benched over the LAN, the card says so
     mins = sum(LB.estimate(host, m, card=card, state_dir=state, quick=args.quick)[0] for m in models)
-    print(LB.cost_line(host.name, mins) + (f" ({len(models)} models)" if len(models) > 1 else ""))
+    print(LB.cost_line(host.name, mins, (lan or {}).get("label") or "") + (f" ({len(models)} models)" if len(models) > 1 else ""))
+    if lan and not args.json:
+        print(offer_line(host.url, host.name, bench=True))
     if not _ask("Run the bench now?", args.yes):
         return 1
     out, rc = [], 0
     for m in models:
         print(f"{m} on {host.name}:")
         got = LB.bench(host, m, quick=args.quick, card=card, state_dir=state, on_line=(lambda s: None) if args.json
-                       else (lambda s: print(f"  {s}")))
+                       else (lambda s: print(f"  {s}")), lan=lan)
         out.append(got)
         if not got.get("ok"):
             print(f"  {got.get('say')}")
@@ -101,8 +108,9 @@ def _session_for(given: str):
     if given:
         return given, None
     try:
+        from halo_harness.newest_first import newest_first
         from halo_harness.remote.registry import list_live
-        rows = sorted(list_live(), key=lambda e: -(e.get("started") or 0))
+        rows = newest_first(list_live(), lambda e: e.get("started") or 0)
         return (rows[0].get("session_id"), rows[0].get("pid")) if rows else (None, None)
     except Exception:
         return None, None

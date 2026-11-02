@@ -5,6 +5,9 @@ studio/local_bench_job.py, studio/local_tune_api.py) in-process through studio/a
 1. GET local/host/<n>/bench?model= answers the cost line and the CLI; POST starts a job whose lines arrive as `bench`
    frames and whose end writes the speed card; GET local/benches lists it per host; a busy card, a second model while
    one runs, no model, an unknown host: 409 / 409 / 422 / 404, each one line;
+1b. 3.3.8.1: a host another machine serves and no halo host takes: no 409 -- the confirm carries the link's tail, the
+   `via` and the `offer` (`halo host serve` there, `halo host join` here); the job runs over the LAN and its card,
+   in GET local/benches too, opens with the label;
 2. GET local/host/<n>/tune; POST .../tune/apply {id, scope} lands with that scope (session with no live session says
    so); POST local/changes/apply (the KV dial's Apply); GET local/changes; POST local/changes/scope; POST
    local/changes/revert says what it put back.
@@ -91,6 +94,34 @@ def test_the_bench_routes(ctx: Ctx):
         ctx.check(f"a busy card: 409 with one line, got {st} {busy}", st == 409 and "answered a call" in busy["error"])
         ctx.check("no model: 422", _api(rig, "POST", "local/host/fake/bench", {})[0] == 422)
         ctx.check("an unknown host: 404", _api(rig, "POST", "local/host/nope/bench", {"model": "x"})[0] == 404)
+
+
+@test
+def test_a_host_another_machine_serves_is_benched_over_the_lan(ctx: Ctx):
+    from tests.helpers.bench_rig import over_the_lan
+    label = "measured over the LAN from mac: includes the link (RTT 1.8 ms, wired)"
+    with BenchRig(["bn-small:9b"]) as rig, over_the_lan():
+        st, ask = _api(rig, "GET", "local/host/fake/bench", query={"model": "bn-small:9b"})
+        ctx.check(f"the confirm: the cost line with the link's tail, the via, the offer, got {st} {ask}", st == 200
+                  and ask["cost"].endswith("no tokens leave the LAN; " + label) and ask["via"] == "over the LAN from mac"
+                  and ask["offer"].startswith("a card without the link: `halo host serve` on 127.0.0.1")
+                  and "`halo host join 127.0.0.1` here" in ask["offer"])
+        st, job = _api(rig, "POST", "local/host/fake/bench", {"model": "bn-small:9b", "quick": True})
+        ctx.check(f"no 409: the job starts with the label, got {st} {job.get('error') or job.get('cost')!r}", st == 200
+                  and job["job"].startswith("bench-") and job["cost"].endswith(label) and job["via"] == "over the LAN from mac"
+                  and job["offer"] == ask["offer"])
+        done = _wait(job["job"])
+        ctx.check(f"it ran over the LAN, the card labelled, got {done.get('line')!r}", done.get("ok")
+                  and done["card"]["over_lan"] and done["card"]["measured_from"] == "mac" and label in done["lines"])
+        st, b = _api(rig, "GET", "local/benches")
+        small = next(m for m in next(h for h in b["hosts"] if h["name"] == "fake")["models"] if m["model"] == "bn-small:9b")
+        ctx.check(f"the Benchmarks row: the card's first line is the label, got {small['card'] and small['card']['lines'][:1]}",
+                  st == 200 and small["card"]["over_lan"] and small["card"]["lines"][0] == label
+                  and small["card"]["link"]["rtt_ms"] == 1.8)
+    with BenchRig(["bn-small:9b"]) as rig:
+        st, ask = _api(rig, "GET", "local/host/fake/bench", query={"model": "bn-small:9b"})
+        ctx.check(f"a host this machine serves: no via, no offer, got {sorted(ask)}", st == 200 and "via" not in ask
+                  and "offer" not in ask and ask["cost"].endswith("no tokens leave this machine"))
 
 
 @test

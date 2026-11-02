@@ -195,11 +195,17 @@ class HostRig:
         """Wait until `n` audit lines carry `op` and return those lines. `audited(n)` counts EVERY request (the pair,
         a GET view), so a test that acted three times and waited for 4 lines could read before its last act landed
         -- the Windows runner on 3.3.8.0 (41334274789): two rpc_server lines of three."""
+        return self.audit_rows(n, op=op, timeout=timeout)
+
+    def audit_rows(self, n: int, *, op: "str | None" = None, path: "str | None" = None, timeout: float = 5.0) -> list:
+        """3.3.8.1: wait until `n` audit lines match (`op` equal, `path` a suffix of the line's path; neither: every
+        line) and return the matching lines -- the one way a test reads the audit (tests/test_flake_rules.py)."""
         import time
         from halo_harness.host.state import read_audit
         deadline = time.monotonic() + timeout
         while True:
-            rows = [a for a in read_audit(self.home, limit=100000) if a.get("op") == op]
+            rows = [a for a in read_audit(self.home, limit=100000) if (op is None or a.get("op") == op)
+                    and (path is None or str(a.get("path") or "").endswith(path))]
             if len(rows) >= n or time.monotonic() > deadline:
                 return rows
             time.sleep(0.02)

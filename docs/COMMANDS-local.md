@@ -237,9 +237,9 @@ Deletes a fetched `llama-server` runtime from `~/.halo/runtimes/` -- one version
 ### `halo local bench | tune | changes | revert` (3.3.6.0 R5)
 
 - `halo local bench [--host H] [--model M | --all] [--quick] [--yes] [--json]` (also `halo models bench`): the cost line
-  first ("local: ~N min on <host>, the card is busy meanwhile, writes the speed card; no tokens leave this machine"),
-  then one line per window as it lands, then the speed card ([MODELS-cards.md](MODELS-cards.md#the-speed-card-the-bench-3360-r5)).
-  `--all`: every installed model on the host, largest first; `--quick`: the ceiling alone; with no TTY it needs `--yes`.
+  first ("local: ~N min on <host>, the card is busy meanwhile, ..."), a line per window, then the speed card ([MODELS-cards.md](MODELS-cards.md#the-speed-card-the-bench-3360-r5));
+  `--all` every installed model, largest first; `--quick` the ceiling alone; no TTY: `--yes`. 3.3.8.1: a host this machine does not serve is
+  benched over the LAN from here, and the cost line, the card's first line and `--json` (`measured_from`, `link`) say so ([MODELS-cards.md](MODELS-cards.md#a-card-measured-over-the-lan-3381)).
 - `halo local tune [--host H] [--json] [--apply ID [--scope session|until-restart|keep] [--session SID]]`: the tuning
   report, each option with its id, what it writes and how long it takes, a server-side one with the line per OS and
   its revert; `--apply` lands a Halo-side option (keep unless named; `session` ends with the newest live session).
