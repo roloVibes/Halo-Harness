@@ -39,7 +39,7 @@ log = logging.getLogger("bridge")
 
 # research doc section 8/10 -- see this module's own docstring for the
 # vLLM/transformers-serve port-8000 ambiguity note.
-DEFAULT_LOCAL_PORTS: "tuple[int, ...]" = (8080, 8000, 1234)
+DEFAULT_LOCAL_PORTS: "tuple[int, ...]" = (8080, 8000, 1234, 1919)  # 3.3.9.1: 1919, FreeToken's `ft serve` default
 
 _PROBE_TIMEOUT_S = 1.5
 _PROPS_TIMEOUT_S = 1.0
@@ -85,7 +85,7 @@ class DetectedLocalServer:
     guess here).
 
     Round 5b part 2 (brief item 6, "mlx_lm.server... tell them apart"):
-    `runtime_label` is `"llama-server"`, `"mlx"`, or `None` (genuinely
+    `runtime_label` is `"llama-server"`, `"mlx"`, `"freetoken"` or `None` (genuinely
     unknown -- every other OpenAI-compatible server this module treats
     identically on purpose, see the module docstring's port-8000 note).
     See `_runtime_label_for` for exactly how, and how little, this is
@@ -250,9 +250,10 @@ def probe_models_endpoint(base_url: str, *, name: str = "", api_key: Optional[st
     if props_ctx is not None:
         for mid in missing:
             context_by_model[mid] = props_ctx
+    ft = any(r.get("owned_by") == "FreeToken" for r in rows)  # 3.3.9.1: FreeToken's ModelCard (from the source, unverified)
     return DetectedLocalServer(name=name, base_url=base_url.rstrip("/"), model_ids=model_ids,
                                 context_by_model=context_by_model, manual=manual,
-                                runtime_label=_runtime_label_for(base_url, props_ctx=props_ctx))
+                                runtime_label="freetoken" if ft else _runtime_label_for(base_url, props_ctx=props_ctx))
 
 
 _AUTO_DETECT_TTL_S = 60.0

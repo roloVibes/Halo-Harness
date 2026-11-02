@@ -54,9 +54,18 @@ def _mlx(change: str, value, was) -> Optional[tuple]:
     return None  # no fixed window, no layer offload on unified memory, no KV type flag
 
 
+def _ft(change: str, value, was) -> Optional[tuple]:
+    """3.3.9.1: `ft serve`'s flags (docs/cli.md, from the source, unverified); FreeToken sizes its own cache and layers."""
+    if change == "ctx-size":
+        return f"--max-seq-len-override {value}", f"--max-seq-len-override {was}" if was else "drop --max-seq-len-override"
+    if change == "n-predict":
+        return "--max-output-tokens 32768", f"--max-output-tokens {was}" if was else "drop --max-output-tokens"
+    return None
+
+
 def line(server, change: str, value, *, was=None) -> Optional[dict]:
     rt = getattr(server, "runtime", None) or "llama-server"
-    got = {"llama-server": _llama, "lmstudio": _lmstudio, "mlx": _mlx}.get(rt, _llama)(change, value, was)
+    got = {"llama-server": _llama, "lmstudio": _lmstudio, "mlx": _mlx, "freetoken": _ft}.get(rt, _llama)(change, value, was)
     if got is None:
         return None
     set_, revert = got

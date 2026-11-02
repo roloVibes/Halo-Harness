@@ -4107,6 +4107,89 @@ behind a Studio feature):**
   a session on `hf:local/qwen3.6-35b-a3b@samus`, `halo local bench --host samus`, the steward's findings after a few
   turns; `ft bench bw` and the fit line's GB/s side by side.
 
+**3.3.9.1 BUILT 2026-11-02 (one Opus round, worktree ~/hh-3391/R1-freetoken, hand-back v3391-R1-handback.md): the
+`freetoken` runtime (`halo_harness/freetoken/`: the managed `ft serve`, the requirements line, auto-detect naming), the
+steward's `server_log_ft.py` + `rules_ft.py` (`ft-expert-thrash`, `ft-pinned-cap`, `ft-kernel-jit`), `local_sched/fit_ft.py`
+(RAM + the host link; `ft bench bw` through the bench seam; extrapolated until measured), host-served to peers, placement,
+`doctor_freetoken.py`, docs/MODELS-freetoken.md. Every FreeToken log pattern and API shape is from its source (main at
+dacac5f), unverified until the owner's run on the Ubuntu box. Open: the capability battery is Ollama-only (a FreeToken
+server gets the speed card, not the gates); a far host's measured link does not reach the peer's fit line (it says
+"extrapolated"); no Studio page beyond the Library badge and the Steward page; FreeToken's README now links a desktop
+app for Windows and Linux (flashml.ai) -- still not taken. **3.3.9.1 IS THE CANDIDATE.**
+
 Not taken: FreeToken's own Anthropic-compatible API (Halo speaks OpenAI-compatible to local servers); its desktop app
 (none exists on the pages); replacing llama.cpp for dense GGUFs (FreeToken is MoE-first; the pool and Ollama stay for
 dense models).
+
+## ADDED 2026-11-02 afternoon (rolo: "there is also vllm and sgl - is there stuff there that would enhance halo harness?"): CANDIDATE 3.3.9.4 "Batching runtimes" -- vLLM and SGLang as runtimes, and what Halo takes from them
+
+**What they are.** vLLM and SGLang are datacenter serving engines: continuous batching over a paged KV cache (many
+requests share one model at once), prefix caching (SGLang's RadixAttention keeps shared prompt prefixes resident across
+requests), speculative decoding with a draft model, tensor parallel across GPUs in one box, structured outputs (a JSON
+schema or grammar constrains the decode), an OpenAI-compatible server and a Prometheus `/metrics` endpoint. Both are
+Linux + CUDA, heavy (PyTorch), and prefer HF safetensors / AWQ / GPTQ / FP8 weights over GGUF; vLLM reserves most of
+the GPU by default (`gpu_memory_utilization`), which fights a shared card (Ollama and ComfyUI on the 4090). FreeToken
+credits both (mini-sglang, SGLang, vLLM, FlashInfer).
+
+**Where they would enhance Halo (the owner's boxes: a 24 GB 4090 on Windows, a 10 GB 3080 on Ubuntu soon, a Mac):**
+- **Orchestra fan-out on one model.** llama-server and Ollama serve one stream well; when several lanes run the same
+  model at once (a lineup's workers, the review pool), a batching runtime serves them together -- placement
+  (`place.solve`) would gain a `lanes_per_model` fact and prefer a `vllm` / `sglang` server when two or more lanes share
+  a model on the same box; the swap cost and the loading tax say the trade.
+- **Measured prompt-cache reuse.** 3.3.5.0 R4's "cache reused N %" is Halo's estimate from a stable prefix; vLLM's and
+  SGLang's metrics expose the prefix-cache hit rate and the running / waiting sequence counts -- the steward reads
+  `/metrics` for these runtimes and the Cost panel's composition view shows a measured figure; a `cache-cold` finding
+  when a lineup's agents keep missing (the prefix is not stable: the fix is Halo's ordering, said).
+- **Constrained tool calls.** Both decode against a JSON schema; where the runtime offers it, Halo sends the tool
+  schema as guided decoding and the dialect record notes `tool calls: constrained` -- fewer of the fourteen families'
+  repairs fire, and the battery's tools gate measures the difference.
+- **Speculative decoding as a tuning option.** The steward's tuning report can propose a draft model on a `vllm` /
+  `sglang` server (a stated line with the expected gain, the bench measures it) the way it proposes KV quantization
+  on Ollama today.
+- **What is NOT taken:** tensor parallel (one GPU per box here; the pool is the multi-box answer), running either on
+  Windows (WSL2 only, with the same pinned-memory caveat as FreeToken), replacing llama.cpp for GGUFs (their GGUF
+  support is partial; the Ollama library stays the GGUF world).
+
+**The round, if the owner wants it (after 3.3.9.3 TensorFold; one Opus round):** runtime words `vllm` and `sglang` in
+`huggingface.local_servers` (auto-detected by `/v1/models` + `/metrics`; `halo local serve --runtime vllm --model <hf
+repo or dir>` with the stated Linux / CUDA requirements and a `gpu_memory_utilization` the fit planner computes from
+the card's free VRAM minus the steward's shared-card floor, never 0.9 by default), the steward's `/metrics` reader
+(`server_metrics_vllm.py`; prefix-cache hit rate, sequences running / waiting, preemptions -> findings `cache-cold`,
+`batch-saturated`, `preempting`), the `lanes_per_model` placement fact, constrained tool calls behind a capability
+flag read from the battery, the tuning report's speculative-decoding option, docs/MODELS-batching.md. Tests: fake
+`vllm` / `sglang` servers with their `/metrics` text on 127.0.0.1:0; the placement table; never the real engines.
+Live check: the Ubuntu box with a 7-9B model under three Orchestra lanes at once, the cache hit rate on the Cost panel.
+
+**Four more the owner named (2026-11-02; read from their pages, nothing run):**
+- **TensorFold** (github.com/ashhart/TensorFold, Apache-2.0, a Zig binary): an inference engine for Metal, CUDA and Vulkan
+  that serves HF checkpoints with no Python or MLX installed, OpenAI-compatible on 127.0.0.1:8080, a stats endpoint and a
+  dashboard; qualified models in 1.0.x include Nemotron 3.5 Lightning and GLM-5.3-Flash. **Fits Halo as a runtime word**
+  (`tensorfold`), the same shape as FreeToken's round: a managed `tensorfold serve`, the steward reading its stats
+  endpoint, the fit by its own figures. Its Metal build is the interesting one here: a native engine for the Mac beside
+  mlx_lm.server, and Vulkan for a box without CUDA. Candidate for the 3.3.9.2 round or a 3.3.9.3 "more runtimes" one.
+- **Strata** (github.com/Niko1221/Strata, MIT, ~38k stars): Qwen3.8-Flash-Next (a 125B MoE) on a 12 GB consumer GPU with
+  64 GB of RAM, one-click install on Windows and Linux, OpenAI- and Anthropic-compatible APIs on localhost, a browser chat.
+  **The same family as FreeToken** (expert paging from RAM and disk) but Windows-native -- the PC's 4090 could run it
+  without WSL2. Fits as a runtime word (`strata`) with the FreeToken fit rule (RAM + link) reused; one model today, so the
+  catalog is one row until Strata adds more.
+- **DeepInfer** (github.com/deepseek-ai/DeepInfer, Apache-2.0, released 2026-10-20): DeepSeek's production inference
+  engine -- batch-invariant inference, constrained generation (JSON Schema, regex, EBNF), built on vLLM with SGLang and
+  TensorRT-LLM ideas; **offline inference for DeepSeek-V4.1-Flash only**, no serving layer shipped, Linux + Python 3.12 +
+  CUDA 13 (or Ascend). **Not a Halo target now**: nothing to point a local-server entry at. Watch for its serving layer;
+  its constrained-generation grammar is the reference for the "constrained tool calls" item above.
+- **NVIDIA FLARE** (nvidia.github.io/NVFlare, v2.9): the Federated Learning Application Runtime Environment -- training
+  across institutions and devices without moving data, with 2026 work on federated LLM fine-tuning and an agent-driven
+  "Auto-FL" research loop. **Not an inference engine and not a runtime for Halo**; it IS a design reference for 3.3.13.0
+  Federation: its job/task model (a server-side controller hands tasks to clients that run them on their own data and
+  return results), its site-level policies (what each participant allows) and its provenance records map onto Halo's
+  offers, delegation chains and "data stays where it is" invariant. Read its controller/executor split when writing the
+  Federation R1 brief.
+
+**SCHEDULED (rolo 2026-11-02: "schedule strata next after freetoken, then tensorfold"):** 3.3.9.1 "FreeToken" (running)
+-> **3.3.9.2 "Strata"** (one round: runtime word `strata`, a managed `strata` serve on Windows AND Linux -- the one engine of
+this family that runs natively on the PC's 4090 -- the FreeToken RAM + link fit rule reused with Strata's figures, the
+steward's reader for its log, auto-detect on its localhost port, host-served to peers; brief ~/hh-3392/briefs/) ->
+**3.3.9.3 "TensorFold"** (one round: runtime word `tensorfold`, the Metal build for the Mac beside mlx_lm.server, Vulkan
+for a box without CUDA, the stats endpoint read by the steward, `tensorfold serve` managed like llama-server; brief
+~/hh-3393/briefs/) -> then 3.3.10.0 R2. The batching-runtimes candidate above stays a candidate (3.3.9.4) until the
+owner says.

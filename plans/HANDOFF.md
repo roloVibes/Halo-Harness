@@ -4,7 +4,19 @@ This folder carries the whole plan so a new session (local or cloud) can
 pick the work up without the conversation that produced it. Read this file
 first, then `WORKER-RULES.md`, then the round you are starting.
 
-## WHERE THINGS STAND -- 2026-11-02 morning (authoritative, read this first)
+## WHERE THINGS STAND -- 2026-11-02 evening (authoritative, read this first)
+
+**3.3.9.0 SHIPPED (v3.3.9.0 = a0911c6a). 3.3.9.1 "FreeToken" IS THE RELEASE CANDIDATE** (one round merged on master on top
+of 3.3.10.0 R0 + R1, which stay unreleased beneath it in the CHANGELOG; the release follows green on both runners). What
+it is: the `freetoken` local runtime (ROADMAP "ADDED 2026-11-02 afternoon ... 3.3.9.1 FreeToken" + its BUILT note). The
+owner scheduled two more runtimes before Pack policy resumes: **3.3.9.2 "Strata"** (brief ~/hh-3392/briefs/v3392-R1-strata-
+brief.md; the engine of this family that runs natively on the Windows PC) and **3.3.9.3 "TensorFold"** (brief ~/hh-3393/
+briefs/v3393-R1-tensorfold-brief.md; the Mac's native engine beside mlx). Then 3.3.10.0 R2 the enforcement (brief
+~/hh-3310/briefs/v3310-R2-enforcement-brief.md) and R3, then 3.3.11.0 "Type into Studio" (+ the live map, ROADMAP "ADDED
+2026-11-02 ... the live map"), 3.3.12.0, 3.3.13.0 Federation (+ the Concord adoptions and "one record, many views"),
+3.3.14.0 Pack trust. The owner's standing rule: a local-model ask never waits behind a Studio feature.
+
+### Before it: 2026-11-02 morning
 
 **3.3.9.0 "Voice" IS THE RELEASE CANDIDATE** (three rounds merged on master on top of the 3.3.8.1 release 56a35974; the
 release follows once both runners are green on the candidate head -- if you read this after the release, the tag
@@ -18,8 +30,8 @@ through the host, Studio and the glasses path (`host/ops_voice.py`, `voice/remot
 `voicemic.ts`; docs/VOICE-glasses.md, VOICE-cpu.md, STUDIO-local-voice.md). Every speech repo id, engine call and Meta
 toolkit line is from memory (`verified: false` in the catalog; the glasses doc says so); nothing has run against a real
 microphone or model: the owner's live checks are in each hand-back under `~/hh-339/briefs/`. The ROADMAP's R1 / R2 / R3
-BUILT notes under the Voice bullet carry what stays open. **Next:** 3.3.9.1 "FreeToken" (ROADMAP "ADDED 2026-11-02 afternoon": one more local runtime, a local-model ask
-that does not wait behind a Studio feature), then 3.3.10.0 "Pack policy" R2 (R0 the README catch-up and R1 the
+BUILT notes under the Voice bullet carry what stays open. **Next:** 3.3.9.1 "FreeToken", 3.3.9.2 "Strata", 3.3.9.3 "TensorFold" (ROADMAP "ADDED 2026-11-02 afternoon": three
+more local runtimes, local-model asks that do not wait behind a Studio feature; rolo's order), then 3.3.10.0 "Pack policy" R2 (R0 the README catch-up and R1 the
 policy contract are merged -- the ROADMAP's R1 BUILT note under the pack-capability plan; R2 the enforcement at
 `permission_engine.decide` + post-call verdicts + the audit; R3 the bundle API, the small UX points, the concord pack), then 3.3.11.0 "Type into Studio" (+ pack Setup blocks + the local
 receipts ladder), 3.3.12.0 "Themes and parity" (+ issue #5, pack themes, table detail), 3.3.13.0 "Federation", 3.3.14.0
