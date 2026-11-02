@@ -650,8 +650,8 @@ def test_invariant_i_the_round_surface_parity(ctx: Ctx):
     ctx.check("round-surface parity: " + "; ".join(problems), not problems)
 
 
-_MAP_PACKAGES = ("studio", "fleet", "orchestra", "team", "supervise", "packs", "ext", "outcomes", "workflows", "isolation", "knowledge", "ollama_steward", "host", "local_sched", "local_pool")  # local_pool: 3.3.8.0 R1; local_sched: 3.3.7.0 R3; host: 3.3.7.0 R1; ollama_steward: 3.3.4.0 R1; supervise: 3.1.8.0 R1; packs, ext: 3.2.0.0 R1; outcomes: 3.1.8.0 R3; workflows: 3.2.0.0 R5; knowledge: 3.1.8.0 R4
-_MAP_NAME = r"`((?:studio|fleet|orchestra|team|supervise|packs|ext|outcomes|workflows|isolation|knowledge|ollama_steward|host|local_sched|local_pool)/[a-z0-9_]+\.py|orchestra_cli[a-z_]*\.py|coach_cli\.py)`"  # isolation: 3.1.8.0 R5
+_MAP_PACKAGES = ("studio", "fleet", "orchestra", "team", "supervise", "packs", "ext", "outcomes", "workflows", "isolation", "knowledge", "ollama_steward", "host", "local_sched", "local_pool", "voice")  # voice: 3.3.9.0 R1; local_pool: 3.3.8.0 R1; local_sched: 3.3.7.0 R3; host: 3.3.7.0 R1; ollama_steward: 3.3.4.0 R1; supervise: 3.1.8.0 R1; packs, ext: 3.2.0.0 R1; outcomes: 3.1.8.0 R3; workflows: 3.2.0.0 R5; knowledge: 3.1.8.0 R4
+_MAP_NAME = r"`((?:studio|fleet|orchestra|team|supervise|packs|ext|outcomes|workflows|isolation|knowledge|ollama_steward|host|local_sched|local_pool|voice)/[a-z0-9_]+\.py|orchestra_cli[a-z_]*\.py|coach_cli\.py)`"  # isolation: 3.1.8.0 R5
 
 
 @test

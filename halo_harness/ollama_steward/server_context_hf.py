@@ -28,6 +28,7 @@ from halo_harness.ollama_steward.server_rules_hf import classify, line_time
 
 _ALIAS = re.compile(r"(?:--alias|-a)\s+(\S+)")
 _MODEL_ARG = re.compile(r"(?:--model|-m)\s+(\S+)")
+_VOICE_MODEL = re.compile(r"--model\s+(\S+)")  # 3.3.9.0 R1: a speech server's start line (`python -m ...` first)
 _LOADING = re.compile(r"loading model '([^']+)'")
 _LMS_MODEL = re.compile(r"\[LM STUDIO SERVER\]\s*\[([^\]]+)\]")
 _SLOT = re.compile(r"n_ctx_slot\s*=\s*(\d+)|new slot,? n_ctx\s*=\s*(\d+)|n_ctx_per_seq\s*(?:\(|=)\s*(\d+)")
@@ -94,7 +95,8 @@ class Rules:
     def _track(self, line: str, at) -> list:
         out: list = []
         if line.startswith("--- halo starts:"):
-            m = _ALIAS.search(line) or _MODEL_ARG.search(line)
+            voice = _VOICE_MODEL.search(line) if self.runtime.startswith("voice-") else None
+            m = _ALIAS.search(line) or voice or _MODEL_ARG.search(line)
             self.alias = _stem(m.group(1)) if m else None
             self.model = self.alias or self.model
             self._start(at)

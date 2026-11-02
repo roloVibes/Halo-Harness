@@ -6,6 +6,13 @@ first, then `WORKER-RULES.md`, then the round you are starting.
 
 ## WHERE THINGS STAND -- 2026-11-01 night (authoritative, read this first)
 
+**3.3.8.1 SHIPPED 2026-11-02 (tag v3.3.8.1 = 56a35974, installed): bench from any halo + the CI train (four shards per
+platform, `tests/test_flake_rules.py`, the driver retry-once). 3.3.9.0 "Voice" IS IN FLIGHT: R1 the speech servers
+merged (see the ROADMAP's R1 BUILT note under the Voice bullet; CHANGELOG `## [3.3.9.0]`), R2 the loop next (brief
+~/hh-339/briefs/v339-R2-the-loop-brief.md), then R3 the host route, Local -> Voice and the glasses contract, then
+the candidate and the release.** The two "arrive with Voice" mentions below are history: R1 made the speech models
+present-or-downloadable and the line is gone from the tree.
+
 **3.3.8.0 SHIPPED 2026-11-01 (tag v3.3.8.0 = 8931469d, installed on the PC) after six candidate heads: every red was a
 test wait, a fake clock, a same-millisecond sort or the session push's cadence gate -- the lessons are
 `tests/test_flake_rules.py` now. 3.3.8.1 "Bench from any halo" IS THE RELEASE CANDIDATE** (ROADMAP "ADDED 2026-11-02

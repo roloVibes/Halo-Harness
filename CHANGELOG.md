@@ -10,6 +10,22 @@ version.
 
 ## [3.3.9.0] - unreleased
 
+### R1: the speech servers -- speech-to-text and text-to-speech as local servers Halo installs, serves, fits and watches
+
+#### Added
+- The speech catalog: `halo voice models [--json]` lists faster-whisper large-v3-turbo / small.en / base.en and Parakeet TDT 0.6B (STT), Kokoro-82M and Qwen3-TTS 0.6B (TTS) and Silero VAD, each with its engine, Hugging Face repo ("repo unverified" until a live download confirms it), download size, footprint on a GPU and on the CPU, built or declared, and present or the download line (`halo_harness/voice/catalog.py`).
+- `halo voice download <model>` says the size, the repo and the folder first, then fetches the files the engine loads through the hub path `halo local download` uses; `halo voice rm <model>`; `halo voice serve <model>` in the foreground.
+- Halo's own speech server: `halo local serve --stt <model>` / `--tts <model>` [--device auto|cpu|cuda] starts it on a free loopback port with OpenAI's audio routes (`POST /v1/audio/transcriptions`, `POST /v1/audio/speech`, `GET /v1/models`, `GET /health`), as the managed server and the `huggingface.local_servers` entry `stt` / `tts` (runtime `voice-stt` / `voice-tts`); `halo local servers | log | stop` work on it. The device choice is said in one line ("faster-whisper:small.en on the CPU: 0.9 GB RAM, the GPU keeps its 22,000 MiB for the chat model").
+- The engines are the optional extra `uv tool install --reinstall "halo-harness[voice]"` (faster-whisper, kokoro-onnx, onnxruntime, numpy, soundfile); without it `serve` prints that one line and exits 2. Parakeet and Qwen3-TTS are declared: `serve` names the built model of their kind.
+- The steward watches a speech server like a llama-server: its load and per-request lines ("audio 4.2 s -> text in 0.31 s (13.5x realtime)"; "text 84 chars -> audio 3.9 s, first audio 92 ms"), and four findings keyed `stt|<model>` / `tts|<model>` -- `stt-slow`, `tts-slow`, `voice-cpu`, `voice-load-failed` -- each with its stated fix, never applied by itself; `halo ollama explain` answers them.
+- `halo doctor --voice`: the extra or the install line, each speech model present or its download line, CUDA visible to the engines or "CPU only (N cores)", the running speech servers.
+- Settings `voice.stt_model`, `voice.tts_model`, `voice.device`, `voice.tts_voice` and `huggingface.voice_server_cmd`; glossary `speech server`, `speech-to-text`, `text-to-speech`; docs/VOICE.md and docs/COMMANDS-voice.md.
+
+#### Changed
+- A bundle's speech needs are real: `halo pack verdict meta-glasses` says each speech model present with its footprint, or "not present -- halo voice download <model> (N GB)" as one download of the verdict (the Ollama button stays the Ollama tags'); "the speech models arrive with Voice" is gone.
+- The bundles' `VOICE_GB` / `VOICE_PREFIXES` come from the speech catalog (one source).
+- A bare `hf:local/<model>` and the `/local` model list never pick a speech server.
+
 ### Also in 3.3.9.0
 
 #### Changed

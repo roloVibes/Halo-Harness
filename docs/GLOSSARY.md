@@ -313,3 +313,15 @@ Pre-emption (3.3.8.0 R4) is what happens when two bundles' claims collide on one
 ## placement score
 
 A placement score (3.3.8.0 R4) is the number `halo local place` gives each candidate for a lane -- every configured host, each paired host's card and the pool: fits beside the plan (+15), warm (+30), fits now (+10), the lane's own host (+5), minus half the load seconds, minus 5 a model it evicts, minus 25 a pivot beside the plan's other models, minus 50 not pulled there, minus the pool's measured decode penalty. The highest wins; `halo local advise` and the Adviser show every candidate's score with its loading tax and point at a cheaper placement.
+
+## speech server
+
+A speech server (3.3.9.0 R1) is Halo's own local server for one speech model: `halo local serve --stt <model>` or `--tts <model>` starts it on a free loopback port with OpenAI's audio routes (`POST /v1/audio/transcriptions`, `POST /v1/audio/speech`), registered as the `huggingface.local_servers` entry `stt` or `tts` (runtime `voice-stt` / `voice-tts`); the steward reads its log like a llama-server's, and `halo local stop stt` stops it.
+
+## speech-to-text
+
+Speech-to-text (STT, 3.3.9.0 R1) turns audio into text: the speech catalog's faster-whisper models (large-v3-turbo, small.en, base.en) are built, Parakeet TDT is declared; `halo voice models` lists them with their size on a GPU and on the CPU, and `stt-slow` says when one transcribes under 2x realtime.
+
+## text-to-speech
+
+Text-to-speech (TTS, 3.3.9.0 R1) turns text into audio: Kokoro-82M is built (54 voices, the realtime default, voice `af_heart`), Qwen3-TTS is declared; the speech server streams PCM sentence by sentence, and `tts-slow` says when the first audio comes after 400 ms.

@@ -268,6 +268,8 @@ def build_local_view(*, refresh: bool = False, env: Optional[dict] = None, state
     for i, info in enumerate(detected):
         rows.extend(_hf_server_rows(info, reachable=True, addressable=(i == 0)))
     for server in resolve_huggingface_local_servers():
+        if str(server.runtime or "").startswith("voice-"):  # 3.3.9.0 R1: a speech server serves no chat model
+            continue
         if refresh:
             info = probe_manual_server(server)
             if info is not None:

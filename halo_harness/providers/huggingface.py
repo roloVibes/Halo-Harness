@@ -220,12 +220,13 @@ def resolve_huggingface_local_server(name: Optional[str]) -> Optional[HFLocalSer
     if name and name.lower() == "pool" and not any(s.name.lower() == "pool" for s in entries):
         from halo_harness.local_pool.peer import remote_entry  # 3.3.8.0 R3: a paired host's pool, for a peer
         return remote_entry()
-    if not entries:
-        return None
     if name:
         for s in entries:
             if s.name.lower() == name.lower():
                 return s
+        return None
+    entries = [s for s in entries if not str(s.runtime or "").startswith("voice-")]  # 3.3.9.0 R1: never a speech server
+    if not entries:
         return None
     for s in entries:
         if s.default:

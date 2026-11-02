@@ -58,6 +58,19 @@ mlx = [
 fleet = [
     "cryptography>=41",
 ]
+# Halo 3.3.9.0 round R1: `uv tool install --reinstall "halo-harness[voice]"` -- the
+# speech server's engines (halo_harness/voice/engines.py): faster-whisper
+# (CTranslate2) for speech-to-text, kokoro-onnx (onnxruntime) for
+# text-to-speech, numpy and soundfile for the audio. All MIT / Apache-2.0 /
+# BSD. Without the extra every catalog, download and doctor command works and
+# `serve` prints the one install line; R2 adds sounddevice for the microphone.
+voice = [
+    "faster-whisper>=1.1",
+    "kokoro-onnx>=0.4",
+    "onnxruntime>=1.18",
+    "numpy>=1.24",
+    "soundfile>=0.12",
+]
 
 [project.scripts]
 # 2.0.1: this distribution ships EXACTLY ONE executable. The 2.0.0
