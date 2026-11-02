@@ -1,6 +1,6 @@
 # Commands: halo voice, the voice loop and the speech servers
 
-Read this when you talk to a session from the command line (`halo voice`, `halo voice on|off`, an input file), list the microphones, read the voice turns' latency, or list, download, remove or serve a speech model.
+Read this when you talk to a session from the command line (`halo voice`, `halo voice on|off`, an input file, `halo voice client` through a halo host), list the microphones, read the voice turns' latency, or list, download, remove or serve a speech model.
 
 `halo voice` (3.3.9.0 R2) opens a session with voice on; `halo voice on|off` turns it on or off in a running one,
 `devices` and `stats` read the microphones and the turns' latency cards. `halo voice models | download | rm | serve`
@@ -42,6 +42,21 @@ halo voice off [--session ID]
 Voice on or off in a halo that runs here, through its control socket (`/voice on` arrives there as typed). With
 several sessions running it lists them and asks for `--session`; with none it says `halo voice` opens one.
 
+## `halo voice client`
+
+```sh
+halo voice client --host pc --input-file ask.wav [--output-file reply.wav] [--session ID] [--voice af_heart] [--json]
+halo voice client --host pc --mic
+```
+
+(3.3.9.0 R3.) One turn through a paired halo host's voice door (`POST /host/v1/voice/turn`,
+[HOST.md](HOST.md#the-voice-door-3390-r3)): the utterance -- a 16-bit WAV at any rate from 8 to 48 kHz, or `--mic`,
+the microphone until a 250 ms pause (the voice extra) -- goes to the host; it prints `you said: ...`, plays the reply's
+audio as it streams (or writes it to `--output-file` as a WAV), then `reply: ...` and the latency card measured on
+the host. `--session` picks a session there (default: the one running), `--json` prints the trailer. It needs the
+`control` grant on the host; each refusal is the host's one line (exit 1). It is the reference a phone app for the
+glasses is checked against ([VOICE-glasses.md](VOICE-glasses.md)).
+
 ## `halo voice devices`
 
 ```sh
@@ -59,7 +74,8 @@ halo voice stats [-n 50] [--json]
 ```
 
 The newest turns' latency cards (`~/.halo/voice/turns.jsonl`): the total and each stage (heard, text, token, audio,
-last) with its median and worst in ms, each stage's share of the budget, and the slow stage named.
+last) with its median and worst in ms, each stage's share of the budget, and the slow stage named; 3.3.9.0 R3: `link`,
+the LAN round trip, when a speech server is on another halo (`voice.stt_server: stt@pc`).
 
 ## `halo voice models`
 
@@ -118,4 +134,6 @@ halo doctor --voice [--json]
 ```
 
 The speech side, one line each: the extra or the install line, each catalog model present or its download line, CUDA
-visible to the engines or `CPU only (N cores)`, and the running speech servers with their `/health`.
+visible to the engines or `CPU only (N cores)` -- then (3.3.9.0 R3) the recommended CPU pair with its commands, or
+the other halo's speech servers it uses ([VOICE-cpu.md](VOICE-cpu.md)) -- and the running speech servers with their
+`/health`.

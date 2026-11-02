@@ -49,7 +49,8 @@ def _missing(state_dir) -> list:
     from halo_harness.voice.launch import server_cmd
     gone = list(audio.missing())
     seam = server_cmd()[1]
-    if not seam and not (running("stt", state_dir) and running("tts", state_dir)):
+    from halo_harness.voice.remote import parse, setting  # 3.3.9.0 R3: a server on another halo needs no engine here
+    if not seam and not all(running(k, state_dir) or parse(setting(k)) for k in ("stt", "tts")):
         gone += [m for m in engines.missing() if m not in gone]
     return gone
 
@@ -121,6 +122,7 @@ def on(controller, mode: Optional[str] = None, *, audio=None, say=None, mic: boo
         loop = VoiceLoop(controller, stt_url=urls["stt"], tts_url=urls["tts"], audio=dev, vad=vad, mode=mode,
                          voice=voice, budget_ms=budget(picks(state)["budget_ms"]), state_dir=state)
         loop.started = started
+        loop.link = dict(urls.get("link") or {})  # 3.3.9.0 R3: a speech server on another halo: the card's link stage
         _LOOPS[id(controller)] = (loop, started)
         loop.start(mic=mic)
     how = (f"push-to-talk: {ptt_key()} to talk, again to send" if mode == "ptt" else
@@ -155,7 +157,11 @@ def status_lines(controller) -> list:
     loop = get(controller)
     pk = picks(state)
     out = [f"voice is {'on: ' + loop.mode if loop else 'off'}" + (f" (vad {loop.vad.kind})" if loop else "")]
+    from halo_harness.voice.remote import parse, setting
     for kind in ("stt", "tts"):
+        if parse(setting(kind)):
+            out.append(f"  {kind}: {setting(kind)} (voice.{kind}_server: through that halo host, over the LAN)")
+            continue
         url = running(kind, state)
         model, device = pk[kind]
         out.append(f"  {kind}: {model}" + (f" on {url}" if url else f" (not running: /voice on starts it, "

@@ -5,6 +5,8 @@ server's /health on loopback):
     the extra        the engines' packages importable, or the one install line
     each model       present (its folder) or the download line with its GB; a declared model says it has no engine
     the devices      CUDA visible to the engines (engines.devices()), or "CPU only (N cores)"
+    the pair         3.3.9.0 R3, a box without CUDA: the recommended CPU pair (base.en / small.en int8 + Kokoro), or the
+                     speech servers of another halo it uses (voice.stt_server: stt@pc)
     the servers      `stt` / `tts` when Halo runs them: the model, the device, the url and its /health
 
     steps(state_dir) -> [{step, level (OK | WARN | INFO), line}]       lines(steps) -> the printed lines
@@ -40,9 +42,25 @@ def steps(state_dir) -> list:
     seen = engines.devices()
     out.append(_s("devices", "OK", "CUDA visible to the engines" if "cuda" in seen else
                   f"CPU only ({os.cpu_count() or '?'} cores): the engines see no CUDA device"))
+    if "cuda" not in seen:
+        out.append(_pair())  # 3.3.9.0 R3: the CPU box's pair, and the way to a GPU halo's servers
     out.append(_audio())  # 3.3.9.0 R2: the loop's microphone and speaker
     out += _servers(state_dir)
     return out
+
+
+def _pair() -> dict:
+    """On a box with no CUDA: the recommended CPU pair (docs/VOICE-cpu.md), or this machine's servers on another halo."""
+    from halo_harness.voice import catalog
+    from halo_harness.voice.remote import parse, setting
+    far = [f"{k}: {setting(k)}" for k in ("stt", "tts") if parse(setting(k))]
+    if far:
+        return _s("pair", "OK", "speech through another halo on the LAN (" + "; ".join(far) + "): its GPU hears and speaks")
+    base, small, tts = (catalog.get(n) for n in ("faster-whisper:base.en", "faster-whisper:small.en", "kokoro-82m"))
+    return _s("pair", "INFO", f"the CPU pair: {base.name} (int8, {base.cpu_gb:g} GB RAM; {small.name} hears better at "
+              f"{small.cpu_gb:g} GB) + {tts.name} ({tts.cpu_gb:g} GB) -- halo config set voice.stt_model {base.name}; halo "
+              "config set voice.device cpu; or a GPU halo's servers: halo config set voice.stt_server stt@<host> "
+              "(docs/VOICE-cpu.md)")
 
 
 def _audio() -> dict:

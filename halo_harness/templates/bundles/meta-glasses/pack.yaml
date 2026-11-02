@@ -4,12 +4,15 @@
 # else to a cloud model. Since 3.3.9.0 R1 the verdict reads whether each speech model is present (`halo voice
 # download <model>` fetches one) and its footprint, and `halo local serve --stt | --tts <model>` serves them. 3.3.9.0
 # R2: while it is on, the voice loop (`halo voice`, `/voice on`) takes its speech picks and its latency_budget_ms, as it
-# does voice-local's; its reservation names the window it holds. The glasses' own loop (the phone in the path) is R3's.
+# does voice-local's; its reservation names the window it holds. 3.3.9.0 R3: the glasses reach the loop through a
+# phone app -- the phone app is yours; the host door is here: `POST /host/v1/voice/turn` on this machine's `halo host`
+# (one utterance in, the reply's audio out; docs/VOICE-glasses.md has the contract), `halo voice client --host <h>` its
+# reference client. No phone app ships with Halo.
 # `halo pack verdict meta-glasses` says whether it fits here; `halo pack on meta-glasses` turns it on.
 id: meta-glasses
 name: Meta glasses (voice)
 version: 1.0.0
-description: Reserves a small chat model for a voice conversation; speech in and out on the CPU; task work goes elsewhere.
+description: Reserves a small chat model for a voice conversation; speech in and out on the CPU; task work goes elsewhere. The phone app is yours; the host door is here (POST /host/v1/voice/turn, docs/VOICE-glasses.md).
 author: Halo Harness
 license: MIT
 halo_api: {min: "1.0", max: "1.9"}

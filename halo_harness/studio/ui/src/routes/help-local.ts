@@ -80,4 +80,11 @@ export const LOCAL_HELP: Record<string, Help> = {
     "The fit: weights + a routing table per node (a mixture of experts replicates them to every node) + 1 GB of buffers per node + the KV cache at 16k F16; the window it holds is said at F16 and Q8_0, never past 32k.",
     "Scan connects to the RPC port (pool.rpc_port, 50052) on this machine's /24 and on every member, only when pressed. A Wi-Fi member (the adapter says so, or an RTT past 10 ms) poisons decode.",
     "Download is the Hugging Face download + verify job, the licence card first; nothing downloads until you press it. halo pool members, recommend, verdict and scan say the same from a terminal."),
+  "local-voice": page("Talk to a Halo session and hear it answer: the speech servers, Talk with this browser's microphone, the session's own voice loop, the last turns' latency cards.",
+    "Talk: the first press says what it does and costs (the browser asks for the microphone once; the speech servers it starts, with their seconds), then a press records and the next sends, up to 30 s. The transcript goes to the session exactly as typed text; the reply's audio plays here as it streams.",
+    "The session's voice loop (Voice on / off, Push-to-talk) is /voice in that session: the microphone of the machine it runs on, not this browser's.",
+    "Start says its cost line first (the device, the memory, about how many seconds to load); a speech server keeps running for the next turn until Stop. A server on another halo (voice.stt_server: stt@pc) is said with its LAN round trip.",
+    "Download says the size, the repo and the folder first and starts only on the second press; the progress is the Hugging Face page's download job.",
+    "Each turn leaves its latency card: heard, text, token, audio against the budget (1,500 ms unless voice.latency_budget_ms or the bundle says); halo voice stats summarises the newest 50 and the steward says voice-slow when a stage runs over three turns running.",
+    "The Meta glasses: no phone app ships with Halo. The halo host's voice door (docs/VOICE-glasses.md) is the contract a phone app talks to; halo voice client --host <host> is its reference."),
 };

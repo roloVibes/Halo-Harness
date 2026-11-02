@@ -46,7 +46,7 @@ window, a replay guard) and inside TLS with the host's own pinned certificate wh
 | `GET stream` | server-sent events: a `card` frame on open and every minute, an `event` frame per new event, a `resources` frame per new sample, a ping every 10 s |
 | `POST simulate {model \| size_gb, window, kv?}` | would it fit here: the installed row, else the packaged library snapshot's size and published shape, else the size given with a typical shape (said to be an estimate) |
 | `POST route {need: {model \| size_gb, window, tools?, vision?}}` | `{fits, now, warm, evicts, load_s, verdict}`: can it run here, and right now (free VRAM now, or loaded at that window already), which loaded models would have to unload, how long the load takes (the speed card) |
-| `GET me` | this peer's grants, the host machine's `fleet.allow_control`, what applies now, its pending rows, the vocabulary |
+| `GET me` | this peer's grants, the host machine's `fleet.allow_control`, what applies now, its pending rows, the vocabulary; 3.3.9.0 R3: `voice` -- the door, its grant, the speech servers by model, the sessions it reaches (no endpoint, no token) |
 | `GET findings` | the steward's rules over the host's own ledger and events, each finding with `where` (host / client) and `suggest` |
 | `GET changes` | the host's change rows, newest first, each with its fix row (`verdict`, before, after, the verify line) |
 | `GET job/<id>`, `GET jobs` | a job's progress (the battery, the bench, a twin's verify, a pull) |
@@ -58,6 +58,8 @@ window, a replay guard) and inside TLS with the host's own pinned certificate wh
 | `GET residency` | 3.3.7.0 R4: the residency clock -- `{host, model, at, by, op, keep_alive}` per model a warm, pin or pivot through the host loaded, and `min_resident_s`; R5: `claims`, the bundles' reservations on the cards it serves |
 | `GET idle` | 3.3.7.0 R4: per served host, whether the card is idle (the newest use Halo saw) or busy, and the foreign models (`/api/ps` rows no Halo record explains) |
 | `GET refresh` | 3.3.7.0 R4: the off-hours refresh's plan line, its last run and the last roster review |
+| `POST voice/turn?session=&voice=` | 3.3.9.0 R3: the voice door -- one utterance (PCM16 mono 8-48 kHz or a WAV, up to 30 s) through a session on this machine, the reply's audio streamed back; the `control` grant ([The voice door](#the-voice-door-3390-r3)) |
+| `POST voice/stt`, `POST voice/tts` | 3.3.9.0 R3: this machine's speech servers for a peer's loop (`voice.stt_server: stt@<host>`): the body as the speech server takes it, its answer back |
 | `GET rpc` | 3.3.8.0 R3: the rpc-server this host runs for a pool: running, pid, port, the bound address, `--mem`, the binary and its version ([rpc-server for a pool](#rpc-server-for-a-pool-3380-r3)) |
 
 ## Grants
@@ -301,3 +303,21 @@ it needs, and -- the first time on a host -- that rpc-server has no authenticati
 LAN address, never 0.0.0.0). The audit line carries the op. What the host can tell about its rpc-server: that the
 process it started lives, its port, the build its binary reports and the protocol its log line states; not whether a
 controller is connected, nor what the controller loaded into it.
+
+## The voice door (3.3.9.0 R3)
+
+`POST /host/v1/voice/turn` takes one utterance and answers with the reply's audio: the host calls this machine's stt
+server, puts the transcript to a running session's control socket exactly as typed text (`voice/turn.py`, the steps
+`/voice` takes in process; it subscribes to the session's raw `text_delta`s, not the 2 s `text_chunk`s), cuts the
+reply into sentences and streams each through the tts server back to the caller.
+No model runs in the host process. The body is `audio/pcm;rate=N` (16-bit mono, 8,000-48,000 Hz, resampled to 16 kHz)
+or `audio/wav`, up to 30 s; `?session=<id>` picks the session (default: the one interactive session here), `?voice=`
+the Kokoro voice. The answer is `application/x-halo-voice` frames -- 1 byte of kind, 4 bytes of big-endian length,
+the payload: `J {heard}`, `J {rate}`, `A <PCM16>` pieces, `N {note}`, and the trailer `J {done, transcript, reply,
+rate, audio_bytes, card, line, session}`. It needs the `control` grant (holding it is enough: a voice turn is never
+queued under `fleet.allow_control: ask`; `none` refuses it); each refusal is one line before any audio -- the grant
+command, no session here, no stt or tts server here (the serve command), past 30 s. The audit line is `op:
+voice_turn` with the seconds and the session; the card lands in this machine's `voice/turns.jsonl` (`via: host`). The
+phone-app contract built on it is [VOICE-glasses.md](VOICE-glasses.md); `halo voice client --host <h>` is the
+reference client. `voice/stt` and `voice/tts` serve the same speech servers to a peer's own loop
+([VOICE-cpu.md](VOICE-cpu.md)) with no grant beyond the pairing.

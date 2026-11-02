@@ -386,8 +386,8 @@ its notes (automatic, none, or one of this machine's local models: `ollama.stewa
 ### Local
 
 **What it is** (3.3.5.0). Local (`Alt+0`, the tenth slot) holds everything about the machines that serve your local models
-and the models they serve, paged like Settings: a page rail on the left (Resources, Hosts, Models, then Library, Hugging Face,
-Benchmarks and Steward), one page on the right. **Resources** is the live view: a strip per host sampled once a second while
+and the models they serve, paged like Settings: a page rail on the left (Resources, Hosts, Models, Library, Hugging Face, Logs,
+Benchmarks, Steward, Pool and Voice), one page on the right. **Resources** is the live view: a strip per host sampled once a second while
 the page is open (GPU use, VRAM and what holds it, RAM, CPU, the temperature, each number titled with its source) and the
 traffic view under it, every call to a local server as it happens with the steward's events inline. **Hosts** is every
 server Halo knows as a card with Load, Unload, keep-alive and Make it fit; **Models** is every installed model with its card,

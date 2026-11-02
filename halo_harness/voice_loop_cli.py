@@ -23,7 +23,9 @@ TURN_WAIT_S = 600.0
 def _missing_line(need_mic: bool = True):
     from halo_harness.voice import audio, engines
     from halo_harness.voice.launch import server_cmd
-    gone = list(audio.missing()) + ([] if server_cmd()[1] else [m for m in engines.missing()])
+    from halo_harness.voice.remote import parse, setting  # 3.3.9.0 R3: both servers on another halo: no engines here
+    far = all(parse(setting(k)) for k in ("stt", "tts"))
+    gone = list(audio.missing()) + ([] if server_cmd()[1] or far else [m for m in engines.missing()])
     if gone:
         from halo_harness.voice import INSTALL_LINE
         return f"voice needs the voice extra ({', '.join(dict.fromkeys(gone))} missing): {INSTALL_LINE}"

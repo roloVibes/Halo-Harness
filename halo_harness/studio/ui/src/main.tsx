@@ -54,6 +54,7 @@ import "./styles/local-bench.css"; // 3.3.6.0 R5: Benchmarks: the speed cards, t
 import "./styles/local-guards.css"; // 3.3.7.0 R4: the foreign line, the refresh lines, the Adviser
 import "./styles/local-steward.css"; // 3.3.7.0 R5: the Steward page's chat box and model picker
 import "./styles/local-pool.css"; // 3.3.8.0 R1: Local -> Pool, the members, the scan, the recommendation, the Pool badge
+import "./styles/local-voice.css"; // 3.3.9.0 R3: Local -> Voice, the speech servers, Talk, the turns
 import { App } from "./App";
 
 document.documentElement.dataset.theme = document.documentElement.dataset.theme || "dark";
