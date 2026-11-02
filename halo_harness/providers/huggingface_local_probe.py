@@ -259,6 +259,14 @@ _AUTO_DETECT_TTL_S = 60.0
 _auto_detect_cache: "tuple[float, tuple, tuple] | None" = None  # (ts, ports_key, results)
 
 
+def reset_auto_detect_cache() -> None:
+    """Test seam: forget the probed servers so the next auto-detect probes again. run_all runs every module in one
+    process: a mock OpenAI server an earlier module brought up on an ephemeral port stayed in this cache for its TTL and
+    the next module's hosts route listed it as `auto:<port>` (3.3.8.1 candidate f2fc91e0, shard 1 on both runners)."""
+    global _auto_detect_cache
+    _auto_detect_cache = None
+
+
 def auto_detect_local_servers(*, env: Optional[dict] = None, timeout: float = _PROBE_TIMEOUT_S,
                               force: bool = False) -> "list":
     """Probes every port `local_probe_ports(env)` names, on 127.0.0.1

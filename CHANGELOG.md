@@ -50,6 +50,12 @@ lint rules, and a Chrome driver that timed out retries once, in the open.
 - A Chrome driver whose step timed out runs once more in a fresh process and says so (`"retried"`, the runner's
   "(driver retried once: ...)", the job summary's count); `HALO_DRIVER_NO_RETRY=1` turns it off; the Chrome test
   modules read their driver through one `tests/helpers/driver_got.py`.
+- The shards' first run named what a single alphabetical pass had hidden: run_all's per-module resets now cover the
+  process-wide url-keyed caches (the Ollama catalog, the local-server context readback, the auto-detected local servers
+  by probed port) so a mock on a reused port is never answered from an earlier module's cache; the OpenAI mock resets
+  the auto-detect cache on start as the Ollama mock resets the catalog; the session registry's file lock waits 30 s
+  (it yields unheld after its timeout, and a register that went on unlocked lost a row under eight concurrent
+  registers on the Windows runner); the refresh tests' fake clock is two hours ahead of the real one (the idle rule).
 
 ## [3.3.8.0] - 2026-11-01
 

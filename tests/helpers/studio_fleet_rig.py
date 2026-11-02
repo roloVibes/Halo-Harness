@@ -165,7 +165,7 @@ class StudioFleetRig:
         self.closers.append(self._quit)
         self.act = runtime.start_for_controller(self.controller)
         self.controller.submit("Ship the basket discount fix")
-        ok = wait_for(lambda: len([a for a in self.agents() if a.get("state") == "running" and a.get("agent_id") != "main"]) >= 2 and len(s["a"]) and len(s["b"]), 30)
+        ok = wait_for(lambda: len([a for a in self.agents() if a.get("state") == "running" and a.get("agent_id") != "main"]) >= 2 and len(s["a"]) and len(s["b"]), 90)  # the Windows runner took over 30 s once (run 41387434690)
         if not ok:
             raise RuntimeError(f"the rig's agents did not start: {self.agents()}")
 

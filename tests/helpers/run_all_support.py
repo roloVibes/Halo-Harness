@@ -217,6 +217,11 @@ STATE_CACHES = (
 )
 STATE_RESETS = (
     ("halo_harness.mcp.connectors_bridge", "reset_session_state", "the once-per-process connector discovery flag (its cache file lives in the state dir)"),
+    # 3.3.8.1: the url-keyed caches a mock on a reused 127.0.0.1 port would be answered from in the NEXT module (the
+    # shards changed which modules neighbour which; both mocks reset these on start too, this is the harness-level half)
+    ("halo_harness.providers.ollama", "reset_catalog_cache", "the per-url Ollama catalog (TTL + last good entry)"),
+    ("halo_harness.providers.huggingface_local_resolve", "reset_local_probe_cache", "the per-url context-length readback (30 s)"),
+    ("halo_harness.providers.huggingface_local_probe", "reset_auto_detect_cache", "the auto-detected local servers by probed port (60 s)"),
 )
 
 
