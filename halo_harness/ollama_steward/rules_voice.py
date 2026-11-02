@@ -9,6 +9,8 @@ speech server's own log lines (server_log_voice.py); one finding per rule and gr
     voice-cpu          the newest load put the model on the CPU while the GPU had its footprint free (the launcher's
                        read, on the load line): `--device cuda` frees the CPU, at that many GB of VRAM (info)
     voice-load-failed  the load failed: the error line, and the install line when the extra was the cause
+    voice-slow         (3.3.9.0 R2, rules_voice_loop.py) a stage of the voice loop over its share of the budget three
+                       turns running, read from <state>/voice/turns.jsonl
 
     voice_rules(ctx) -> [finding]
 """
@@ -139,4 +141,5 @@ def voice_rules(ctx: dict) -> list:
         kind = _voice(g)
         if kind:
             out += load_failed(g, kind) + slow(g, kind) + on_cpu(g, kind)
-    return out
+    from halo_harness.ollama_steward.rules_voice_loop import voice_slow  # 3.3.9.0 R2: the loop's own latency cards
+    return out + voice_slow(ctx)

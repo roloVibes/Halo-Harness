@@ -630,6 +630,9 @@ class Controller:
         * anything else runs through the TUI facade right here (it is local
           and fast) and its returned text is handed back as the result.
         """
+        if name == "voice":  # 3.3.9.0 R2: /voice, and `halo voice on|off` through the control socket
+            from halo_harness.voice.session import slash
+            return slash(self, args)
         if self.registry is None:
             return f"No command registry is loaded: /{name}"
         cmd = self.registry.resolve(name)

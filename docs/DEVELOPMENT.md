@@ -371,6 +371,18 @@ cpu,cuda` for the devices it reports. It is a test flag: never set it outside te
 `tests/helpers/fake_voice_server.py` (the real server with the fake engine), the way `huggingface.llama_server_bin`
 points at `fake_llama_server.py`, and `tests/helpers/voice_files.put` writes a speech model's files as a few bytes.
 
+### The fake audio (3.3.9.0 R2)
+
+`HALO_VOICE_AUDIO=fake` makes `voice/audio.py`'s `Audio.open` return `voice/audio_fake.FakeAudio`: no device is opened;
+`feed(pcm)` is what the microphone hears (cut into 32 ms frames), `captured` holds every chunk played, `hold=True`
+keeps `play()` speaking until `release()` or a barge-in's `stop_output()` (which stamps the test's clock), and
+`HALO_VOICE_FAKE_INPUTS` / `HALO_VOICE_FAKE_OUTPUTS` name the devices `halo voice devices` lists (empty: none).
+With `HALO_VOICE_ENGINE=fake` the VAD is the fake too (any frame above the level gate's floor is speech). The loop's
+tests (`tests/helpers/voice_rig.py`) drive a real `Controller` over a real `Session` whose model replies are scripted
+on the mock upstream, R1's speech routes in process on 127.0.0.1:0, and a fake clock through `VoiceLoop(clock=)`; a
+wait is a condition re-checked at each event the session's sink carries, never a sleep. Never set either flag outside
+tests, and never install the `voice` extra into the test venv.
+
 ## Docs: the map and the split docs
 
 [docs/README.md](README.md) is the map: every doc, under the task it serves,

@@ -1,9 +1,9 @@
 """tests.test_bundles_shipped -- Halo 3.3.7.0 R5: the bundles Halo ships (halo_harness/templates/bundles/<id>/pack.yaml;
 plans/local-model-fit-brief.md L6), on the fixture 24 GB card and roster (tests/helpers/bundle_rig.BundleHome):
 
-1. the ten: meta-glasses (the brief's any_of lists and reservation), bulk-worker, verifier, compactor, embeddings,
-   translation, vision, offline-only, coder-first, and (3.3.8.0 R4) big-reasoner -- each validates clean and is named
-   by its folder;
+1. the eleven: meta-glasses (the brief's any_of lists and reservation), bulk-worker, verifier, compactor, embeddings,
+   translation, vision, offline-only, coder-first, (3.3.8.0 R4) big-reasoner and (3.3.9.0 R2) voice-local -- each
+   validates clean and is named by its folder;
 2. each gets a verdict on the fixture roster (ready, needs downloads or won't work; none "not judged") and none
    downloads (the fake's pulls stay empty);
 3. the verifier is of another family than the coder (the adviser's mismatch rule: no qwen for a qwen coder); vision
@@ -25,16 +25,16 @@ from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # no
 test, TESTS = new_registry()
 REPO = Path(__file__).resolve().parent.parent
 SHIPPED = ("big-reasoner", "bulk-worker", "coder-first", "compactor", "embeddings", "meta-glasses", "offline-only",
-        "translation", "verifier", "vision")  # 3.3.8.0 R4: big-reasoner, the tenth (it reserves the pool)
+        "translation", "verifier", "vision", "voice-local")  # 3.3.8.0 R4: big-reasoner; 3.3.9.0 R2: voice-local
 
 
 @test
-def test_the_ten_validate(ctx: Ctx):
+def test_the_eleven_validate(ctx: Ctx):
     from halo_harness.packs.bundles import shipped_dir
     from halo_harness.packs.discover import read_pack
     from halo_harness.packs.manifest_bundle import block
     folders = sorted(d.name for d in shipped_dir().iterdir() if (d / "pack.yaml").is_file())
-    ctx.check(f"ten bundles ship, got {folders}", tuple(folders) == SHIPPED)
+    ctx.check(f"eleven bundles ship, got {folders}", tuple(folders) == SHIPPED)
     for name in folders:
         pack = read_pack(shipped_dir() / name, "source", folder_is_id=True)
         ctx.check(f"{name} validates clean, got {pack.problems}", pack.problems == [] and pack.id == name
@@ -56,13 +56,13 @@ def test_each_gets_a_verdict_and_none_downloads(ctx: Ctx):
     from halo_harness.packs.bundles import listing
     with BundleHome() as h:
         got = {e["id"]: verdict(e["block"], h.host, state_dir=h.state) for e in listing(cwd=h.repo)}
-        ctx.check(f"all ten, got {sorted(got)}", tuple(sorted(got)) == SHIPPED)
+        ctx.check(f"all eleven, got {sorted(got)}", tuple(sorted(got)) == SHIPPED)
         for bid, v in sorted(got.items()):
             ctx.check(f"{bid}: a verdict on the fixture roster, got {v['state']}: {v['says']}",
                       v["state"] in ("ready", "downloads", "wont") and v["says"])
-        ctx.check(f"the glasses, the compactor, coder-first, offline-only are ready here, got "
-                  f"{[(b, got[b]['state']) for b in ('meta-glasses', 'compactor', 'coder-first', 'offline-only')]}",
-                  all(got[b]["state"] == "ready" for b in ("meta-glasses", "compactor", "coder-first", "offline-only")))
+        ready = ("meta-glasses", "voice-local", "compactor", "coder-first", "offline-only")
+        ctx.check(f"the glasses, voice-local, the compactor, coder-first, offline-only are ready here, got "
+                  f"{[(b, got[b]['state']) for b in ready]}", all(got[b]["state"] == "ready" for b in ready))
         ctx.check(f"the embeddings need a download (the button names it), got {got['embeddings']['button']}",
                   got["embeddings"]["state"] == "downloads" and got["embeddings"]["button"]["tags"] == ["nomic-embed-text"])
         ctx.check(f"nothing was pulled, got {h.mock.pulled}", h.mock.pulled == [] and not any(

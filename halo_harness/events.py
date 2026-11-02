@@ -107,6 +107,9 @@ EVENT_KINDS = frozenset({
     # (agent/turn_marker.py builds them; the TUI and Studio's Session feed
     # show `text`).
     "turn_marker",
+    # Halo 3.3.9.0 R2: the voice loop's state (voice/loop.py): {state: on|off|listening|partial|heard|interrupted|
+    # speaking|idle|card|note, text?, mode?, steer?, row?}; the TUI draws it (tui/voice_view.py), others ignore it.
+    "voice",
 })
 
 COMMAND_KINDS = frozenset({

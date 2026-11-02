@@ -50,6 +50,7 @@ async def handle_slash(app, name: str, args: str) -> None:
         "resume": _handle_resume, "permissions": _handle_permissions,
         # Halo 3.2.2.0 R4: /plan [on|off|status] (tui/slash_plan.py).
         "plan": _handle_plan,
+        "voice": _handle_voice,  # Halo 3.3.9.0 R2: /voice on|off|ptt|status (tui/slash_voice.py)
         "exit": _handle_exit, "quit": _handle_exit, "theme": _handle_theme,
         # U5 scope C: sessions UX.
         "rename": _handle_rename, "fork": _handle_fork, "export": _handle_export,
@@ -1071,6 +1072,11 @@ async def _handle_remote(app, args: str) -> None:
 async def _handle_plan(app, args: str) -> None:
     from halo_harness.tui.slash_plan import handle_plan
     await handle_plan(app, args)
+
+
+async def _handle_voice(app, args: str) -> None:
+    from halo_harness.tui.slash_voice import handle_voice
+    await handle_voice(app, args)
 
 
 async def _handle_fleet(app, args: str) -> None:

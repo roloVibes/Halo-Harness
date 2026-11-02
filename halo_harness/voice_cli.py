@@ -1,6 +1,6 @@
 """halo_harness.voice_cli -- `halo voice` (Halo 3.3.9.0 R1; docs/COMMANDS-voice.md, docs/VOICE.md):
 
-    halo voice [models] [--json]              the speech catalog: each model's kind, engine, repo, download size,
+    halo voice models [--json]                the speech catalog: each model's kind, engine, repo, download size,
                                               footprint on a GPU and on the CPU, built or declared, present or not
     halo voice download <model> [--dir D] [--yes]   the size and the folder first, then the hub download `halo local
                                               download` makes (Ctrl+C keeps the part file; the same line resumes)
@@ -144,14 +144,19 @@ COMMANDS = {"models": _models, "download": _download, "rm": _rm, "serve": _serve
 
 
 def cmd_voice(argv: list) -> int:
-    if not argv or argv[0] in ("--json",):
+    from halo_harness import voice_loop_cli as loop_cli  # 3.3.9.0 R2: the loop's commands
+    if argv and argv[0] == "--json":
         return _models(argv)
-    if argv[0] in ("-h", "--help"):
+    if argv and argv[0] in ("-h", "--help"):
         print(__doc__.split("\n\n", 1)[1].split("\n\nThe engines")[0])
+        print(loop_cli.__doc__.split("\n\n", 1)[1].rstrip().rstrip('"'))
         return 0
-    fn = COMMANDS.get(argv[0])
-    if fn is None:
-        print(f"halo voice: no subcommand {argv[0]!r} (models, download, rm, serve)", file=sys.stderr)
+    fn = COMMANDS.get(argv[0]) if argv else None
+    if fn is None and argv and argv[0] in loop_cli.LOOP_COMMANDS:
+        fn = loop_cli.LOOP_COMMANDS[argv[0]]
+    if fn is None and argv and not argv[0].startswith("-"):
+        print(f"halo voice: no subcommand {argv[0]!r} (models, download, rm, serve, devices, stats, on, off)",
+              file=sys.stderr)
         return 2
-    return fn(argv[1:])
+    return fn(argv[1:]) if fn is not None else loop_cli.start(argv)
 

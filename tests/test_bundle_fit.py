@@ -132,13 +132,14 @@ def test_the_cli_and_the_studio_route(ctx: Ctx):
         ctx.check("--json", code == 0 and json.loads(out)["state"] == "ready")
         code, out, _e = h.pack("list", "--bundles")
         lines = out.strip().splitlines()
-        ctx.check(f"list --bundles: ten (3.3.8.0 R4: big-reasoner), off, each with its state, got {lines}", len(lines) == 10
+        ctx.check(f"list --bundles: eleven (3.3.8.0 R4: big-reasoner, 3.3.9.0 R2: voice-local), off, each with its state, "
+                  f"got {lines}", len(lines) == 11
                   and all(ln.startswith("[ ] ") for ln in lines) and any("meta-glasses" in ln and "ready" in ln for ln in lines))
         code, _o, err = h.pack("verdict", "nosuch")
         ctx.check(f"an unknown bundle, got {code} {err!r}", code == 1 and "no bundle 'nosuch'" in err)
         status, body = h.studio("GET", "pack/bundles")
         ids = [b["id"] for b in body.get("bundles") or []]
-        ctx.check(f"GET pack/bundles: the ten with their verdicts, got {status} {ids}", status == 200 and len(ids) == 10
+        ctx.check(f"GET pack/bundles: the eleven with their verdicts, got {status} {ids}", status == 200 and len(ids) == 11
                   and next(b for b in body["bundles"] if b["id"] == "meta-glasses")["verdict"]["state"] == "ready")
         ctx.check(f"nothing pulled, got {h.mock.pulled}", h.mock.pulled == [])
 

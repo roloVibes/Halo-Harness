@@ -1,0 +1,25 @@
+# Voice, local: a bundle Halo ships (3.3.9.0 R2; plans/local-model-fit-brief.md Part K, docs/VOICE.md "The bundle").
+# Talk to a Halo session on this machine and hear it answer, with no cloud in the loop: a small chat model kept
+# resident at 8 k (keep_alive -1, priority high) so a voice turn never waits for a load, speech-to-text on the GPU when
+# it fits beside the coder (else the CPU), text-to-speech on the CPU. `halo pack verdict voice-local` says whether it
+# fits here; `halo pack on voice-local` claims the reservation and says what it reserved. The bundle never starts a
+# process: `halo voice` (or `/voice on`) starts the speech servers it needs, with this bundle's picks and their cost
+# line first, and `/voice off` stops what it started. The turn's budget is latency_budget_ms (Part K's measured local
+# loop: 750-900 ms).
+id: voice-local
+name: Voice, local
+version: 1.0.0
+description: Talk to a session on this machine -- a small resident chat model, speech in on the GPU or the CPU, speech out on the CPU.
+author: Halo Harness
+license: MIT
+halo_api: {min: "1.0", max: "1.9"}
+halo: {min: "3.3"}
+capabilities: [voice]
+bundle:
+  needs:
+    chat: {any_of: [lfm3:1.7b, qwen3.8:4b, gemma4:4b], window: 8192}
+    stt: {any_of: [faster-whisper:large-v3-turbo, faster-whisper:small.en], device: cpu-or-gpu}
+    tts: {any_of: [kokoro-82m], device: cpu}
+  reservation: {model: chat, keep_alive: -1, priority: high, window: 8192}
+  routing: {task_work: coder-or-cloud, never_evict: reserved}
+  latency_budget_ms: 1500
