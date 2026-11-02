@@ -35,7 +35,9 @@ def at(hour: int, minute: int = 0, days: int = 0) -> float:
     41361746057 / 41361745675); 3.3.8.1: every fake hour here is this one (tests/test_flake_rules.py)."""
     t = time.localtime()
     s = time.mktime((t.tm_year, t.tm_mon, t.tm_mday, hour, minute, 0, 0, 0, -1))
-    return (s if s > time.time() + 60 else s + 86400) + days * 86400
+    # at least two hours ahead: the tick needs the card idle `idle_min` (20 min) since the rig's real-time ledger line, so a
+    # fake now a few minutes ahead reads "not idle yet" and nothing runs (local run at 22:49 with 23:00: two reds)
+    return (s if s > time.time() + 7200 else s + 86400) + days * 86400
 
 
 def tonight(hour: int) -> float:

@@ -28,6 +28,10 @@ from pathlib import Path
 from typing import Optional
 
 from halo_harness.filelock import file_lock
+
+# 3.3.8.1: file_lock yields unheld after its timeout instead of raising, and a register that went on unlocked lost a
+# row under eight concurrent registers on the Windows runner (run 41387434690); 30 s is far past any real contention.
+LOCK_S = 30.0
 from halo_harness.privateio import write_private_atomic
 from halo_harness.remote import client
 
@@ -82,7 +86,7 @@ def public_entry(entry: dict) -> dict:
 
 def register(entry: dict) -> None:
     path = registry_path()
-    with file_lock(path):
+    with file_lock(path, timeout=LOCK_S):
         rows = [r for r in _load(path) if r.get("session_id") != entry["session_id"]]
         rows.append(entry)
         _write(path, rows)
@@ -90,7 +94,7 @@ def register(entry: dict) -> None:
 
 def unregister(session_id: str) -> None:
     path = registry_path()
-    with file_lock(path):
+    with file_lock(path, timeout=LOCK_S):
         rows = _load(path)
         kept = [r for r in rows if r.get("session_id") != session_id]
         if len(kept) != len(rows):
@@ -100,7 +104,7 @@ def unregister(session_id: str) -> None:
 def update(session_id: str, **fields) -> bool:
     """Patch one live entry (`title`, `mode`, ...); False when it is not there."""
     path = registry_path()
-    with file_lock(path):
+    with file_lock(path, timeout=LOCK_S):
         rows = _load(path)
         for r in rows:
             if r.get("session_id") == session_id:
@@ -131,7 +135,7 @@ def list_live() -> list:
     path = registry_path()
     if not path.exists():
         return []
-    with file_lock(path):
+    with file_lock(path, timeout=LOCK_S):
         rows = _load(path)
         live = [r for r in rows if _entry_alive(r)]
         if len(live) != len(rows):

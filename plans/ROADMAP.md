@@ -3808,6 +3808,43 @@ The owner's rule stands: all local-model work first (3.3.8.1, 3.3.9.0), then the
 then this. The bench question above is the first contract: a bench from a peer is a small offer to the machine's
 agent, not a special case.
 
+**Adopted from Concord MCP (github.com/Get-Concord-AI/concord-mcp, MIT, TypeScript; rolo 2026-11-02 night: "there is a
+lot in there that we can use"; designs, never code -- Halo is Python and keeps its pairing / grants, which Concord does
+not have: its identity is a self-supplied `agent_id`, "a cooperative boundary, not a security one").** What it proves
+and where it lands:
+- **R1 contracts:** work records carry a monotonic `version`; every lifecycle change passes `expected_version`, so of two
+  halos acting on the same record only the first succeeds (no lock, no hub arbitration); an assignment stays `assigned`
+  until the named halo accepts; a hand-off offer keeps ownership with the sender until accepted; ownership changes are an
+  append-only audit; a stale claim (owner gone, no hand-off) is flagged from the pool's lease logic (3.3.8.0 R3), not a
+  timer of its own.
+- **R1 also, the message receipts ladder** for steers and offers across halos: `sent` (stored) -> `delivered` (the
+  harness took it) -> `read` (the message id appears in the model's input: the transcript is the evidence, never a
+  timer) -> `replied`; `failed` with a reason (`expired`: a lazy TTL, default 24 h, applied when a send / read touches
+  it); `delivered -> sent` requeue when the session ends or its lease lapses; an idempotency key per send so a retry
+  after an ambiguous commit returns the stored message. Halo's steer (3.1.7.0) and the control-socket `note` have no
+  receipts today; the Prompt panel of 3.3.11.0 "Type into Studio" is where a session's own prompt first needs delivery
+  truth, so the ladder's local half (sent / delivered / read for THIS halo's control socket) lands there and Federation
+  R1 extends it across halos.
+- **R6 policy that travels / 3.3.10.0's fence policies:** a scope-overlap check before work starts -- `start_work`
+  reports the files an active task already claims; `concord check` runs the same in a pre-commit hook or CI. Halo's
+  Orchestra isolates workers in worktrees, so overlaps surface as merge conflicts later; a claim-time check across the
+  fleet ("b@pc already holds src/auth/*: 3 files overlap") is cheap and lands in R1's offer (the offer lists overlaps)
+  and as a shipped policy in the pack-policy fixtures (a fence that denies a Write into another halo's claimed paths).
+- **R5 track records / typed artifacts:** the review packet (scope, tests run, risks, provenance) as the typed artifact
+  every Orchestra worker and every fleet mission ends with (`artifacts` contract, 3.2.0.0 R5), generated from the
+  record, never hand-written; HANDOFF-style views are rendered from the store ("why not markdown": the store is the
+  truth, the markdown a view -- Halo's "logs as the source of truth" rule, kept).
+- **A `concord` pack** (3.3.10.0 R3, the packs round, as a shipped template beside doc-review; off unless turned on):
+  the MCP server (`contributes.mcp`) and the relay hook (`contributes.hooks`: Concord's `watch-inbox.sh` pattern -- a
+  monitor that exits with its parent) so a Halo session joins a repo's Concord workspace and messages a Codex / Cursor /
+  Gemini session there; the pack sets `CONCORD_TELEMETRY_DISABLED=1` (Concord's telemetry to getconcord.ai is on by
+  default and keeps request IPs without expiry -- said in the pack's description); install asks for `hooks` and
+  `mcp:concord`; the pack is the first real consumer of the policy hook (a `concord` mode: "coordinating" while a task
+  is claimed). Its live check is rolo's: a Halo session and a Codex session in one repo trading a prompt and a reply.
+- **Not taken:** the global `~/.concord/global.db` (Halo's home already scopes state), cloud mode (Federation is
+  hub-less by design), markdown instructions written into CLAUDE.md / AGENTS.md at setup (Halo's packs declare, never
+  edit a user's files).
+
 ## ADDED 2026-11-02 noon (rolo's pasted prompt "Build the pack-capability updates ... issues #4 and #5 ... gaps A-E"): the pack-capability plan -- what lands in 3.3.10.0, 3.3.11.0 and 3.3.12.0
 
 The prompt (written against master on 2026-11-01, post-3.3.7.0) is the spec; GitHub issues #4 and #5 carry the two

@@ -1074,6 +1074,11 @@ class MockUpstream:
         self._server.mock = self  # type: ignore[attr-defined]
         self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
         self._thread.start()
+        # run_all runs every module in one process: a mock on a reused ephemeral port must not be answered from the
+        # auto-detect cache an earlier module filled (3.3.8.1 candidate f2fc91e0: `auto:<port>` rows in another
+        # module's hosts route) -- the same lesson as mock_ollama's catalog-cache reset.
+        from halo_harness.providers.huggingface_local_probe import reset_auto_detect_cache
+        reset_auto_detect_cache()
         return self
 
     def stop(self) -> None:
