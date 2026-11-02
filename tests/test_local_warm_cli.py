@@ -112,9 +112,7 @@ def test_a_host_served_warm_set_goes_through_the_host(ctx: Ctx):
         states = [x["state"] for x in got["hosts"][0]["rows"]] if got["hosts"] else []
         ctx.check(f"both loaded through the host's warm, got {got['line']} {states} {gen}",
                   states == ["loaded", "loaded"] and gen == [CODER, SMALL_9B])
-        from halo_harness.host.state import read_audit
-        rig.rig.audited(2)  # the audit line lands after the reply (41258090075)
-        warms = [a for a in read_audit(rig.home) if str(a.get("path") or "").endswith("control/warm")]
+        warms = rig.rig.audit_rows(2, path="control/warm")  # the audit line lands after the reply (41258090075)
         ctx.check(f"two warm requests in the host's audit, got {len(warms)}", len(warms) == 2)
 
 

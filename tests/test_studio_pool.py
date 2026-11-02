@@ -20,14 +20,13 @@ from __future__ import annotations
 
 TIER = "full"  # headless Chrome: the full tier
 
-import json
-import subprocess
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from tests.helpers.runner import Ctx, SkipTest, new_registry, print_results, run_all  # noqa: E402
+from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
+from tests.helpers.driver_got import got as driver_got  # noqa: E402
 
 test, TESTS = new_registry()
 REPO = Path(__file__).resolve().parent.parent
@@ -36,21 +35,8 @@ QWEN, OSS = "qwen3-next-80b-a3b-q4km", "gpt-oss-120b"
 
 
 def _got(ctx: Ctx, helper: str = "studio_pool") -> dict:
-    from tests.helpers.chrome_driver import driver_env, find_chrome
-    if not find_chrome():
-        raise SkipTest("no Chrome found (the Pool page checks need headless Chrome)")
-    if helper not in _RUN:
-        r = subprocess.run([sys.executable, "-m", f"tests.helpers.{helper}"], capture_output=True, encoding="utf-8",
-                           errors="replace", timeout=300, env=driver_env(REPO), cwd=str(REPO), stdin=subprocess.DEVNULL)
-        try:
-            info = json.loads(r.stdout.strip().splitlines()[-1])
-        except (ValueError, IndexError):
-            info = {}
-        _RUN[helper] = (r, info)
-    r, info = _RUN[helper]
-    if info.get("skip"):
-        raise SkipTest(info["skip"])
-    ctx.check(f"the driver ran, got {r.returncode} {info.get('failed')!r} {r.stderr[-800:]!r}", r.returncode == 0 and "failed" not in info)
+    info = driver_got(ctx, f"tests.helpers.{helper}", why="the Pool page checks need headless Chrome", cache=_RUN,
+                      key=helper, timeout=300)
     ctx.check(f"nothing left 127.0.0.1, got {info.get('blocked')}", not info.get("blocked"))
     return info
 

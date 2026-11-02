@@ -80,8 +80,8 @@ Download and verify's stage: pull, probe, offer, done), beside the steward's own
 
 | Route | What it answers |
 |---|---|
-| `GET local/host/<name>/bench?model=&quick=` | that host's bench jobs, the cost line and `cli` (`halo local bench`) (`studio/local_bench_api.py`) |
-| `POST local/host/<name>/bench {model, quick?}` | a bench job (`studio/local_bench_job.py`); 409 with one line while the host answered a call in the last minute, a session uses it, another bench runs there, or another machine serves it; 422 with no model |
+| `GET local/host/<name>/bench?model=&quick=` | that host's bench jobs, the cost line and `cli` (`halo local bench`) (`studio/local_bench_api.py`); 3.3.8.1: on a host another machine serves with no halo host taking it, the cost line ends with the link's label and the answer carries `via` ("over the LAN from mac") and `offer` (`halo host serve` there, `halo host join <addr>` here) |
+| `POST local/host/<name>/bench {model, quick?}` | a bench job (`studio/local_bench_job.py`); 409 with one line while the host answered a call in the last minute, a session uses it or another bench runs there; 422 with no model. A host a paired halo host serves (with `control`): the host runs it. 3.3.8.1: any other host this machine does not serve: it runs over the LAN from here, the card labelled with the link ([MODELS-cards.md](MODELS-cards.md#a-card-measured-over-the-lan-3381)), `via` and `offer` as above; the Benchmarks row shows the `over the LAN from mac` chip |
 | `GET local/benches?host=` | per host every installed model and its speed card (its lines, the stale mark), and the jobs |
 | `GET local/host/<name>/tune` | the tuning report (`ollama_steward/tune_report.py`) with `cli` (`studio/local_tune_api.py`) |
 | `POST local/host/<name>/tune/apply {id, scope?, session_id?}` | a Halo-side option landed with its scope (keep unless named; `session` ends with the named or the newest live session); a server-side option 409 with its line |

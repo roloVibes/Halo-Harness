@@ -7,8 +7,10 @@ change the steward made (until-restart). No provider request, no model call, not
 the spill); the tuning report for box (its lines, Halo-side and server-side options, a server option's line and its
 revert); a Halo-side option applied with the scope "until halo exits" -> its change in the list with that scope and
 the profile written; Revert on it -> the line that says what it put back and the profile as it was; the steward's
-change listed with its scope; Settings -> Local's block lists the same. The last stdout line is the JSON of what it
-saw (exit 2: no Chrome)."""
+change listed with its scope; Settings -> Local's block lists the same.
+`lan` (3.3.8.1): box as another machine's host (served_here False for its address, the link fixed, the bench a seam):
+Bench on the unbenched row -> the confirm's cost line, `via` and offer; Run -> the row's over-the-LAN chip.
+The last stdout line is the JSON of what it saw (exit 2: no Chrome)."""
 from __future__ import annotations
 
 import sys
@@ -94,11 +96,50 @@ def bench(c, url, ctx) -> dict:
     return out
 
 
+def _lan_bench(host, model, *, lan=None, state_dir=None, on_line=None, **_kw) -> dict:
+    """The bench seam for `lan`: a card as the bench leaves it (no model call), stamped with the LAN fields."""
+    from halo_harness.providers.local_bench_link import stamp
+    from halo_harness.providers.local_bench_runs import save
+    card = _card(model, "sha256:b02", "0.40.6", [(2048, 310.0)], 2048)
+    card.update(at=time.time(), quick=True)
+    stamp(card, lan)
+    if on_line and lan:
+        on_line(lan["label"])
+    save(state_dir, card)
+    return {"ok": True, **card}
+
+
+def lan(c, url, ctx) -> dict:
+    """3.3.8.1: box as another machine's host with no halo host on it -- Bench on a row that has no card: the confirm says
+    the via and the offer, Run, and the row's chip names where it was measured and the link (the wait reads them)."""
+    from halo_harness.fleet import ollama_share as S
+    from halo_harness.providers import local_bench as LB, local_bench_link as L, local_bench_runs as R
+    real, saved = S.served_here, (S.served_here, L.link_of, L.from_where, R.busy, LB.bench)
+    S.served_here = lambda u: False if str(u).rstrip("/") == ctx["box"].rstrip("/") else real(u)
+    L.link_of = lambda _h, _s=None: {"rtt_ms": 1.8, "kind": "wired", "line": "RTT 1.8 ms, wired"}
+    L.from_where = lambda _s=None: "mac"
+    R.busy, LB.bench = (lambda *_a, **_k: ""), _lan_bench
+    try:
+        c.go(f"{ctx['base']}?mode=local&page=benchmarks&tour=off#{ctx['frag']}")
+        row = q('[data-testid=bench-row][data-host=box][data-model="nomic-embed-text"]')
+        c.wait(f"!!{row} && !{row}.dataset.benched", 40)
+        conf = q("[data-testid=bench-confirm]")
+        press(c, f"{row}.querySelector('[data-testid=bench-run]')", f"!!{conf}?.querySelector('[data-testid=bench-offer]')")
+        out = {"lan_confirm": c.wait(f"!!{conf}?.querySelector('[data-testid=bench-via]') && ['bench-cost', 'bench-via', "
+                                     f"'bench-offer'].map((t) => {conf}.querySelector(`[data-testid=${{t}}]`).textContent)", 20)}
+        press(c, f"{conf}.querySelector('[data-testid=bench-go]')", f"!!{row}?.querySelector('[data-testid=bench-over-lan]')")
+        chip = f"{row}.querySelector('[data-testid=bench-over-lan]')"
+        out["lan_row"] = c.wait(f"!!{row}?.dataset.benched && !!{chip} && [{chip}.textContent, {chip}.title]", 20)
+        return out
+    finally:
+        S.served_here, L.link_of, L.from_where, R.busy, LB.bench = saved
+
+
 class BenchDriver(LocalDriver):
     @contextmanager
     def session(self, c):
         with super().session(c) as steps:
-            yield ((bench, steps[0][1]),)
+            yield ((bench, steps[0][1]), (lan, steps[0][1]))  # `bench` reads the unbenched rows before `lan` benches one
 
 
 if __name__ == "__main__":

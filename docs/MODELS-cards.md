@@ -313,6 +313,26 @@ exits, until the session ends). Once the bench ran, the type in force is "verifi
 others stay "computed": the KV type is the server's own setting, and Halo never changes it to load them. The Models
 rows' window line carries the dial in its title; `halo models show` prints it as "kv:".
 
+## A card measured over the LAN (3.3.8.1)
+
+A bench run from one halo against an Ollama host another machine serves (the Mac benching the PC) goes through the
+host's halo when one serves it (`halo host serve` there, paired here with `control`: the card is the machine's own, no
+link in it; paired without `control`, the answer is the grant line). With no host there, it runs **directly over the LAN from here** through the same bench, and the card says
+so in its first line: `measured over the LAN from mac: includes the link (RTT 1.8 ms, wired)` -- `mac` is this halo's
+`fleet.name` (else its host name), the RTT one TCP connect to the host's port and the adapter this machine reaches it
+on (wired / Wi-Fi), measured once before the battery (`providers/local_bench_link.py`). **What the link adds:** every
+call's round trip -- small at 1-2 ms wired, more on Wi-Fi -- to the first-token times and a little to the reply tok/s,
+so the card is a peer's view of the machine, never its own. The card keeps `over_lan`, `measured_from` and `link`
+beside the machine's own card, never over it (`speed_card_lan[host]` in `ollama-capabilities.json`). **Which card the
+readers read** (the fit badge, the planner, the steward's recommendation, the latency of a bundle's route, the
+Benchmarks page): the machine's own card when both are of the same age class -- the same digest, the same Ollama
+version, both within a week (or both within a month, or both older) -- else the newer; a later bench from the machine
+itself or through its host replaces the LAN card. Each says which it read: "fits, ~38 tok/s at 32k (over the LAN from
+mac)", "38 tok/s at 32k (the bench, over the LAN from mac)". The battery run from a peer marks its speed row (tok/s,
+TTFT, the cold load) the same way; its gates (tools, the system role, JSON, fences) do not depend on where it ran.
+Studio's Benchmarks page: the confirmation carries the label, `over the LAN from mac` and the way to a card without
+the link (`halo host serve` on that machine, then `halo host join <addr>` here); the row shows the chip.
+
 ## The speed card: the bench (3.3.6.0 R5)
 
 `halo local bench` (Bench on a Models row, Local -> Benchmarks) measures one model on its host

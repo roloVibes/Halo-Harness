@@ -1,7 +1,8 @@
 """halo_harness.providers.local_bench_runs -- Halo 3.3.6.0 R5: the speed card's store, when it is stale, where it shows,
 and whether a host is quiet enough to bench (providers/local_bench.py runs the bench).
 
-    save(state_dir, card)                  cache[digest]["speed_card"][host] (providers/ollama_capability.py's file,
+    save(state_dir, card)                  cache[digest]["speed_card"][host] (3.3.8.1: a LAN-measured card in
+                                           ["speed_card_lan"][host]; all_cards / load read the pick) (the capability file,
                                            beside the battery profile and the measured facts, never over them); the
                                            battery profile's `speed` mirrors the ceiling row
     load(state_dir, host_name, model, digest=None) -> card | None      all_cards(state_dir, host=None) -> [card]
@@ -20,9 +21,11 @@ from __future__ import annotations
 import os
 import time
 from typing import Callable, Optional
+from halo_harness.newest_first import newest_first  # 3.3.8.1: a same-ms tie, the later row first
 
 BUSY_S = 60.0
 CACHE_S = 10.0
+LAN_SLOT = "speed_card_lan"  # 3.3.8.1: a card measured over the LAN from a peer, beside the machine-own one
 _INDEX: dict = {}
 
 
@@ -39,20 +42,27 @@ def load(state_dir, host_name: str, model: str, digest: Optional[str] = None) ->
 
 
 def all_cards(state_dir, host: Optional[str] = None) -> list:
+    """Per digest and host the card the readers read (3.3.8.1: a machine-own card over a LAN-measured one of the same age
+    class, else the newer -- providers/local_bench_link.pick), newest first."""
+    from halo_harness.providers.local_bench_link import pick
     from halo_harness.providers.ollama_capability import load_capability_cache
     out = []
     for entry in load_capability_cache(state_dir).values() if state_dir is not None else ():
-        for name, c in (((entry or {}).get("speed_card") or {}).items() if isinstance(entry, dict) else ()):
-            if isinstance(c, dict) and (not host or str(name).lower() == host.lower()):
+        own, lan = ((entry.get(k) or {}) for k in ("speed_card", LAN_SLOT)) if isinstance(entry, dict) else ({}, {})
+        for name in list(own) + [n for n in lan if n not in own]:
+            c = pick(own.get(name) if isinstance(own.get(name), dict) else None,
+                     lan.get(name) if isinstance(lan.get(name), dict) else None)
+            if c is not None and (not host or str(name).lower() == host.lower()):
                 out.append(c)
-    return sorted(out, key=lambda c: -float(c.get("at") or 0))
+    return newest_first(out, lambda c: float(c.get("at") or 0))
 
 
 def mirror(card: dict) -> dict:
     rows = [r for r in card.get("windows") or [] if isinstance(r.get("tok_s"), (int, float))]
     top = rows[-1] if rows else {}
     return {"tok_s": top.get("tok_s"), "ttft_ms": top.get("ttft_ms"), "cold_load_s": card.get("cold_load_s"),
-            "at_window": top.get("window"), "from": "bench", "at": card.get("at"), "on_gpu": top.get("on_gpu")}
+            "at_window": top.get("window"), "from": "bench", "at": card.get("at"), "on_gpu": top.get("on_gpu"),
+            "over_lan": bool(card.get("over_lan")), "measured_from": card.get("measured_from")}
 
 
 def save(state_dir, card: dict) -> None:
@@ -64,11 +74,17 @@ def save(state_dir, card: dict) -> None:
     with file_lock(C._capability_cache_path(state_dir)):
         cache = C.load_capability_cache(state_dir)
         entry = cache.get(digest) if isinstance(cache.get(digest), dict) else {}
-        entry.setdefault("speed_card", {})[host] = card
+        if card.get("over_lan"):  # 3.3.8.1: kept beside the machine's own card; a later own card replaces it
+            entry.setdefault(LAN_SLOT, {})[host] = card
+        else:
+            entry.setdefault("speed_card", {})[host] = card
+            (entry.get(LAN_SLOT) or {}).pop(host, None)
         entry.setdefault("model", card.get("model"))
         p = (entry.get("battery") or {}).get(host)
         if isinstance(p, dict):
-            p["speed"] = {**(p.get("speed") or {}), **mirror(card)}
+            from halo_harness.providers.local_bench_link import pick
+            read = pick((entry.get("speed_card") or {}).get(host), (entry.get(LAN_SLOT) or {}).get(host)) or card
+            p["speed"] = {**(p.get("speed") or {}), **mirror(read)}
         cache[digest] = entry
         C.save_capability_cache(state_dir, cache)
     _INDEX.clear()
@@ -106,7 +122,9 @@ def lines(card: dict, stale_word: str = "") -> list:
             + (f", verified by {card['verified_by']}" if card.get("verified_by") else "")  # 3.3.7.0 R4: the refresh
             + (f"; {stale_word}: re-bench" if stale_word else "") + ")"
             + (f": cold load {card['cold_load_s']:g} s" if isinstance(card.get("cold_load_s"), (int, float)) else ""))
-    out = [head] + ["  " + _row_line(r) for r in card.get("windows") or []]
+    from halo_harness.providers.local_bench_link import card_label
+    lan = card_label(card)  # 3.3.8.1: a card measured over the LAN says so first
+    out = ([lan] if lan else []) + [head] + ["  " + _row_line(r) for r in card.get("windows") or []]
     g, plan = card.get("max_gpu_window"), card.get("planner_window")
     out.append("  stays on the GPU up to " + (_k(g) if g else "none of the windows tried")
                + (f" (the planner says {_k(plan)})" if plan and plan != g else ""))
@@ -119,7 +137,8 @@ def lines(card: dict, stale_word: str = "") -> list:
 
 def view(card: dict, stale_word: str = "") -> dict:
     keep = ("model", "host", "digest", "ollama_version", "at", "cold_load_s", "windows", "max_gpu_window",
-            "planner_window", "reserve_floor", "quick", "kv", "took_s", "verified_by", "refreshed_at")
+            "planner_window", "reserve_floor", "quick", "kv", "took_s", "verified_by", "refreshed_at", "over_lan",
+            "measured_from", "link")
     return {**{k: card.get(k) for k in keep}, "stale": stale_word, "lines": lines(card, stale_word)}
 
 

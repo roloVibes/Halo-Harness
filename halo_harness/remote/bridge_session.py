@@ -11,6 +11,7 @@ from typing import Optional
 from halo_harness.remote import bridge_cards as cards
 from halo_harness.remote import bridge_outbox as outbox
 from halo_harness.remote.client import default_token_for
+from halo_harness.newest_first import newest_first  # 3.3.8.1: a same-ms tie, the later row first
 
 
 FEED_KINDS = ["text_chunk", "permission_request", "question", "plan_review", "approval_request", "error",
@@ -78,7 +79,7 @@ def live_sessions(b) -> list:
         rows = list(b.registry.list_live())
     except Exception:
         rows = []
-    return sorted(rows, key=lambda r: r.get("started") or 0, reverse=True)
+    return newest_first(rows, lambda r: r.get("started") or 0)
 
 
 def tell_session(rt, attached: bool) -> None:

@@ -1,6 +1,9 @@
 """tests.helpers.run_all_support -- what tests/run_all.py does around each
 module (Halo 3.1.0.0 round R1), kept here so run_all.py stays readable:
 
+* 3.3.8.1: the shard of a module (`--shard i/n`: its index in the sorted
+  discovered list mod n; `--shard-of tests.test_x` names it), composing with
+  the tier;
 * the tier of a module (`TIER = "full"` near the top of the file: it needs
   Chrome or a TUI pilot; every other module is "fast"), read with a regex
   over the file head, never by importing the module;
@@ -64,6 +67,57 @@ def parse_tier_args(argv: "list[str]") -> "str | None":
     if tier is not None and tier not in TIERS:
         raise ValueError(f"unknown tier {tier!r} (fast or full)")
     return tier
+
+
+SHARDS = 4  # 3.3.8.1: the CI matrix's shard count (.github/workflows/suites.yml), the default of --shard-of
+
+
+def parse_run_args(argv: "list[str]") -> dict:
+    """{tier, shard: (i, n) | None, shard_of: name | None, shards: n}: the tier flags (parse_tier_args) plus 3.3.8.1's
+    `--shard i/n` (the modules whose index in the sorted discovered list is i mod n) and `--shard-of tests.test_x
+    [--shards n]` (prints that module's shard). Raises ValueError on anything else."""
+    rest, shard, of, n = [], None, None, SHARDS
+    i = 0
+    while i < len(argv):
+        arg, nxt = argv[i], (argv[i + 1] if i + 1 < len(argv) else None)
+        if arg in ("--shard", "--shard-of", "--shards") and nxt is None:
+            raise ValueError(f"{arg} needs a value")
+        if arg == "--shard" or arg.startswith("--shard="):
+            shard = parse_shard(nxt if arg == "--shard" else arg.split("=", 1)[1])
+            i += 2 if arg == "--shard" else 1
+        elif arg == "--shard-of":
+            of, i = nxt, i + 2
+        elif arg == "--shards":
+            if not str(nxt).isdigit() or int(nxt) < 1:
+                raise ValueError(f"--shards takes a count, got {nxt!r}")
+            n, i = int(nxt), i + 2
+        else:
+            rest.append(arg)
+            i += 1
+    return {"tier": parse_tier_args(rest), "shard": shard, "shard_of": of, "shards": n}
+
+
+def parse_shard(text: str) -> "tuple[int, int]":
+    m = re.fullmatch(r"(\d+)/(\d+)", str(text or "").strip())
+    if not m or int(m.group(2)) < 1 or int(m.group(1)) >= int(m.group(2)):
+        raise ValueError(f"--shard takes i/n with 0 <= i < n, got {text!r}")
+    return int(m.group(1)), int(m.group(2))
+
+
+def select_shard(names: "list[str]", shard: "tuple[int, int] | None", every: "list[str] | None" = None) -> "list[str]":
+    """`names` narrowed to the shard: a module's index in `every` (the sorted discovered list; default `names`) mod n."""
+    if shard is None:
+        return list(names)
+    i, n = shard
+    index = {name: k for k, name in enumerate(sorted(every if every is not None else names))}
+    return [name for name in names if index.get(name, -1) % n == i]
+
+
+def shard_of(name: str, every: "list[str]", n: int = SHARDS) -> "str | None":
+    """'2/4': the shard that runs `name` (tests.test_x or test_x), None when it is not a discovered module."""
+    full = name if name.startswith("tests.") else f"tests.{name}"
+    ordered = sorted(every)
+    return f"{ordered.index(full) % n}/{n}" if full in ordered else None
 
 
 def tier_label(tier: "str | None") -> str:

@@ -24,15 +24,14 @@ from __future__ import annotations
 
 TIER = "full"  # headless Chrome: the full tier
 
-import json
 import re
-import subprocess
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from tests.helpers.runner import Ctx, SkipTest, new_registry, print_results, run_all  # noqa: E402
+from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
+from tests.helpers.driver_got import got as driver_got  # noqa: E402
 
 test, TESTS = new_registry()
 REPO = Path(__file__).resolve().parent.parent
@@ -48,24 +47,9 @@ def _floor_s() -> float:
 
 
 def _got(ctx: Ctx, helper: str, args: list, slow_ms: int) -> dict:
-    from tests.helpers.chrome_driver import driver_env, find_chrome
-    if not find_chrome():
-        raise SkipTest("no Chrome found (the slow-box checks need headless Chrome)")
-    if helper not in _RUN:
-        env = driver_env(REPO)
-        env["HALO_STUDIO_SLOW_MS"] = str(slow_ms)  # driver_env scrubs HALO_*: the one flag these runs need, put back
-        r = subprocess.run([sys.executable, "-m", helper, *args], capture_output=True, encoding="utf-8",
-                           errors="replace", timeout=600, env=env, cwd=str(REPO))
-        try:
-            info = json.loads(r.stdout.strip().splitlines()[-1])
-        except (ValueError, IndexError):
-            info = {}
-        _RUN[helper] = (r, info)
-    r, info = _RUN[helper]
-    if info.get("skip"):
-        raise SkipTest(info["skip"])
-    ctx.check(f"the driver ran, got {r.returncode} {info.get('failed')!r} {r.stderr[-600:]!r}", r.returncode == 0 and "failed" not in info)
-    return info
+    # driver_env scrubs HALO_*: the one flag these runs need, put back
+    return driver_got(ctx, helper, why="the slow-box checks need headless Chrome", cache=_RUN, key=helper, args=tuple(args),
+                      timeout=600, tail=600, stdin=False, env={"HALO_STUDIO_SLOW_MS": str(slow_ms)})
 
 
 def _room(ctx: Ctx) -> dict:

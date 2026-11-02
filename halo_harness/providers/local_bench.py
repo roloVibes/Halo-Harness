@@ -2,10 +2,12 @@
 (plans/local-model-fit-brief.md D4 17, G4, E1's speed probe): the model's **speed card**.
 
     bench(host, model, *, quick=False, send=None, card=None, state_dir=None, on_line=None, sessions=None,
-          client=None, now=time.time) -> SpeedCard | {ok: False, say}
+          client=None, now=time.time, lan=None) -> SpeedCard | {ok: False, say}
     SpeedCard = {ok, model, host, digest, ollama_version, at, cold_load_s, windows: [{window, prompt_tok_s, tok_s, ttft_ms,
                  size_vram, size, layers, on_gpu, prompt_tokens, cut}], max_gpu_window, planner_window, reserve_floor,
-                 reserve_probes, quick, kv: {type, verified_window}, took_s}
+                 reserve_probes, quick, kv: {type, verified_window}, took_s, over_lan, measured_from, link}
+    3.3.8.1: `lan` (providers/local_bench_link.over_lan) when a peer benches a host it does not serve: its label is the
+    first line said and the card's first line, its link (RTT, wired / Wi-Fi) on the card
 
 The order: the model unloaded if it was loaded (so the first load is cold, `cold_load_s` from its `load_duration`); per
 window {8192, 32768, the planner's ceiling for this model on this card} (`quick`: the ceiling alone) one untimed
@@ -83,11 +85,13 @@ def cost_minutes(size_bytes, windows: list, speed: Optional[dict] = None) -> int
     return max(1, int(-(-secs // 60)))
 
 
-def cost_line(host_name: str, minutes: int) -> str:
-    return COST.format(n=minutes, host=host_name)
+def cost_line(host_name: str, minutes: int, label: str = "") -> str:
+    """3.3.8.1: `label` (providers/local_bench_link.label) when the bench runs over the LAN from a peer."""
+    line = COST.format(n=minutes, host=host_name)
+    return line.replace("no tokens leave this machine", "no tokens leave the LAN") + f"; {label}" if label else line
 
 
-def estimate(host, model: str, *, card=None, state_dir=None, quick: bool = False) -> "tuple[int, str]":
+def estimate(host, model: str, *, card=None, state_dir=None, quick: bool = False, label: str = "") -> "tuple[int, str]":
     """(minutes, the cost line) from the cached catalog row, the windows it would try and the battery's speed."""
     from halo_harness.ollama_steward.profiles import lookup
     from halo_harness.providers.ollama import ollama_names_match
@@ -99,7 +103,7 @@ def estimate(host, model: str, *, card=None, state_dir=None, quick: bool = False
     from halo_harness.providers.ollama_capability import profile_for
     p = profile_for(state_dir, model, getattr(host, "name", None)) if state_dir is not None else None
     n = cost_minutes(row.get("size"), ws, (p or {}).get("speed"))
-    return n, cost_line(getattr(host, "name", "") or "this host", n)
+    return n, cost_line(getattr(host, "name", "") or "this host", n, label)
 
 
 def sender(host, model: str, state_dir) -> Callable:
@@ -150,7 +154,7 @@ def _fail(model: str, host_name: str, say: str, **extra) -> dict:
 
 def bench(host, model: str, *, quick: bool = False, send: Optional[Callable] = None, card=None, state_dir=None,
           on_line: Optional[Callable[[str], None]] = None, sessions: Optional[Callable] = None, client=None,
-          check_busy: bool = True, now: Callable[[], float] = time.time) -> dict:
+          check_busy: bool = True, now: Callable[[], float] = time.time, lan: Optional[dict] = None) -> dict:
     from halo_harness.providers import capability_battery as CB
     from halo_harness.providers.local_bench_runs import busy, save
     name, say = getattr(host, "name", "") or "this host", on_line or (lambda _s: None)
@@ -172,6 +176,10 @@ def bench(host, model: str, *, quick: bool = False, send: Optional[Callable] = N
     out = {"ok": True, "model": model, "host": name, "digest": row.get("digest"), "ollama_version": version, "at": t0,
            "cold_load_s": None, "windows": [], "max_gpu_window": None, "planner_window": ceiling, "ceiling_from": src,
            "reserve_floor": None, "reserve_probes": [], "quick": quick, "warmups": 0}
+    from halo_harness.providers.local_bench_link import stamp  # 3.3.8.1: `lan` = local_bench_link.over_lan, measured once
+    stamp(out, lan)
+    if lan:
+        say(lan.get("label") or "")
     loaded_at = None
     for w in windows:
         warm = send(_msg("Reply with the word ready."), num_ctx=w, num_predict=8)

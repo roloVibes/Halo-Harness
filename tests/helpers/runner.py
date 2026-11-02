@@ -167,7 +167,8 @@ def run_all(tests: list, ctx: Ctx):
         t0 = time.monotonic()
         try:
             fn(ctx)
-            results.append((name, "PASS", "", time.monotonic() - t0))
+            retried = str(getattr(ctx, "retried", "") or "")  # 3.3.8.1: tests/helpers/driver_got.py sets it
+            results.append((name, "PASS", f"driver retried once: {retried}" if retried else "", time.monotonic() - t0))
             passed += 1
         except SkipTest as e:
             results.append((name, "SKIP", str(e), time.monotonic() - t0))
@@ -201,6 +202,8 @@ def print_results(results, passed: int, failed: int, skipped: int, *, label: str
         line = f"[{status}] {name} ({dt:.2f}s)"
         if detail and status != "PASS":
             line += f": {detail}"
+        elif detail:
+            line += f" ({detail})"
         print(line)
     total = passed + failed + skipped
     print("-" * 74)

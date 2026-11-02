@@ -23,6 +23,7 @@ import json
 import statistics
 import time
 from typing import Optional
+from halo_harness.newest_first import newest_first  # 3.3.8.1: a same-ms tie, the later row first
 
 FIXES_FILE = "fixes.jsonl"
 VERIFY_CALLS = 5
@@ -214,7 +215,7 @@ def listing(home, *, limit: int = 100) -> list:
     from halo_harness.ollama_steward.changes import line_of, read
     fixes = {r["id"]: r for r in _rows(home)}
     out = []
-    for r in sorted(read(home), key=lambda r: str(r.get("at")), reverse=True)[:limit]:
+    for r in newest_first(read(home), lambda r: str(r.get("at")))[:limit]:
         f = fixes.get(r["id"]) or {}
         out.append({**r, "line": line_of(r), "verdict": f.get("verdict"), "verify_line": f.get("line") or None,
                     "before_m": f.get("before"), "after_m": f.get("after"), "peer": f.get("peer"), "op": f.get("op"),

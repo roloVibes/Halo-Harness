@@ -21,6 +21,7 @@ import json
 import time
 from pathlib import Path
 from typing import Optional
+from halo_harness.newest_first import newest_first  # 3.3.8.1: a same-ms tie, the later row first
 
 FILE = "residency.json"
 
@@ -80,7 +81,7 @@ def rows(home) -> list:
     for k, v in read(home).items():
         host, _, model = k.partition("|")
         out.append({"host": host, "model": model, **{f: v.get(f) for f in ("at", "by", "op", "keep_alive")}})
-    return sorted(out, key=lambda r: -float(r.get("at") or 0))
+    return newest_first(out, lambda r: float(r.get("at") or 0))
 
 
 def held_for(table: list, host_name: str, model: Optional[str], min_s: float, *, now: Optional[float] = None) -> float:

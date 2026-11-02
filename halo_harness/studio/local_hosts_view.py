@@ -56,7 +56,8 @@ def _benched(rows: list, host_name: str) -> list:
         idx = {}
     for r in rows:
         sp = idx.get(r.get("model")) or {}
-        r["bench"] = (f"{sp['tok_s']:.0f} tok/s at {sp['at_window'] // 1024}k (the bench)"
+        r["bench"] = (f"{sp['tok_s']:.0f} tok/s at {sp['at_window'] // 1024}k (the bench"
+                      + (", over the LAN from " + str(sp.get("measured_from") or "a peer") if sp.get("over_lan") else "") + ")"
                       if isinstance(sp.get("tok_s"), (int, float)) and isinstance(sp.get("at_window"), int) else None)
     return rows
 
@@ -102,8 +103,8 @@ def _member_controls(host_url: str, host_name: str, hub=None) -> dict:
     from halo_harness.ollama_steward.resources_share import serving
     who = serving(host_url, host_name)
     if who is None:
-        return {"ok": False, "via": "", "why": "served by another machine: its own Studio's Local tab loads it, or "
-                "that machine joins this hub (halo fleet join) and runs a session, and Load goes through it"}
+        from halo_harness.providers.local_bench_link import offer_line  # 3.3.8.1: one wording, the two commands
+        return {"ok": False, "via": "", "why": offer_line(host_url, host_name)}
     m = _member(hub, who["member"])
     if m is None:
         return {"ok": False, "via": "", "why": f"served by {who['member']}: Load goes through it from the hub "

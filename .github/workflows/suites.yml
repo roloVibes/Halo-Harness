@@ -51,11 +51,18 @@ concurrency:
 
 jobs:
   linux:
-    name: suites (linux, py3.12)
+    name: suites (linux, py3.12, shard ${{ matrix.shard }}/4)
     # every push to master and every pull request (not the tag, nightly or dispatch runs)
     if: (github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/')) || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    # 3.3.8.1: tests/run_all.py in four shards (`--shard i/4`: a module's index in the sorted list mod 4), one job
+    # each; test_bridge.py and test_tui.py run once, in shard 0's job. The run's conclusion rolls the four up, so
+    # scripts/release.py's wait and the orchestrator's poller read one value as before.
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
+    timeout-minutes: 70
     env:
       PYTHONPATH: ${{ github.workspace }}
       BRIDGE_TEST_NO_BACKGROUND_NET: "1"
@@ -122,18 +129,20 @@ jobs:
       # code (not tee's) is what the step actually fails on.
       - name: test_bridge.py
         id: bridge
+        if: matrix.shard == 0
         continue-on-error: true
         timeout-minutes: 15
         run: set -o pipefail; python test_bridge.py 2>&1 | tee "$RUNNER_TEMP/bridge.log"
 
-      - name: tests/run_all.py
+      - name: tests/run_all.py (shard ${{ matrix.shard }}/4)
         id: run_all
         continue-on-error: true
-        timeout-minutes: 75  # 3.3.6.0 R4: the full tier passed 6307/6307 at 50:03 and the 50-minute step limit cut it
-        run: set -o pipefail; python tests/run_all.py 2>&1 | tee "$RUNNER_TEMP/run_all.log"
+        timeout-minutes: 30  # 3.3.8.1: a quarter of the 50-75-minute all-tiers run
+        run: set -o pipefail; python tests/run_all.py --shard ${{ matrix.shard }}/4 2>&1 | tee "$RUNNER_TEMP/run_all.log"
 
       - name: test_tui.py
         id: tui
+        if: matrix.shard == 0
         continue-on-error: true
         timeout-minutes: 15
         run: set -o pipefail; python test_tui.py 2>&1 | tee "$RUNNER_TEMP/tui.log"
@@ -142,26 +151,31 @@ jobs:
         if: always()
         run: |
           {
-            echo "### suites (linux, py3.12)"
+            echo "### suites (linux, py3.12, shard ${{ matrix.shard }}/4)"
             echo
-            echo "platform: **linux**, tier: **all (fast + full)** (\`python tests/run_all.py\`), event: ${{ github.event_name }}, sha: ${{ github.sha }}"
+            echo "platform: **linux**, tier: **all (fast + full)**, shard: **${{ matrix.shard }}/4** (\`python tests/run_all.py --shard ${{ matrix.shard }}/4\`), event: ${{ github.event_name }}, sha: ${{ github.sha }}"
             echo
             for entry in "test_bridge.py bridge ${{ steps.bridge.outcome }}" \
                          "tests/run_all.py run_all ${{ steps.run_all.outcome }}" \
                          "test_tui.py tui ${{ steps.tui.outcome }}"; do
               set -- $entry
               name="$1"; key="$2"; outcome="$3"
+              [ "$outcome" = "skipped" ] && { echo "- \`$name\` -- runs in shard 0's job"; continue; }
               line=$(grep -E '^RESULT:|^exit=' "$RUNNER_TEMP/${key}.log" 2>/dev/null | tail -2 | tr '\n' ' ')
               mark="PASS"; [ "$outcome" = "success" ] || mark="FAIL"
               echo "- **$mark** \`$name\` -- ${line:-no RESULT line captured}"
             done
+            retried=$(grep -c 'driver retried once' "$RUNNER_TEMP/run_all.log" 2>/dev/null || true)
+            echo
+            echo "Chrome driver retries (\`grep retried\`): ${retried:-0}"
+            grep 'driver retried once' "$RUNNER_TEMP/run_all.log" 2>/dev/null | sed 's/^/    /' || true
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload logs on failure
-        if: steps.bridge.outcome != 'success' || steps.run_all.outcome != 'success' || steps.tui.outcome != 'success'
+        if: (steps.bridge.outcome != 'success' && steps.bridge.outcome != 'skipped') || steps.run_all.outcome != 'success' || (steps.tui.outcome != 'success' && steps.tui.outcome != 'skipped')
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: suite-logs-linux
+          name: suite-logs-linux-${{ matrix.shard }}
           path: |
             ${{ runner.temp }}/bridge.log
             ${{ runner.temp }}/run_all.log
@@ -170,17 +184,23 @@ jobs:
       - name: Fail the job if any suite failed
         if: always()
         run: |
-          if [ "${{ steps.bridge.outcome }}" != "success" ] || [ "${{ steps.run_all.outcome }}" != "success" ] || [ "${{ steps.tui.outcome }}" != "success" ]; then
+          ok() { [ "$1" = "success" ] || [ "$1" = "skipped" ]; }
+          if ! ok "${{ steps.bridge.outcome }}" || [ "${{ steps.run_all.outcome }}" != "success" ] || ! ok "${{ steps.tui.outcome }}"; then
             echo "one or more suites did not pass -- see the job summary and (on failure) the uploaded logs"
             exit 1
           fi
 
   windows:
-    name: suites (windows, py3.12)
+    name: suites (windows, py3.12, shard ${{ matrix.shard }}/4)
     # a version tag, the nightly schedule, or a dispatch (with the sha to test)
     if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: windows-latest
-    timeout-minutes: 140
+    # 3.3.8.1: four shards as on Linux (test_bridge.py and test_tui.py in shard 0's job); the run's conclusion is one value
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
+    timeout-minutes: 95
     env:
       PYTHONPATH: ${{ github.workspace }}
       BRIDGE_TEST_NO_BACKGROUND_NET: "1"
@@ -241,18 +261,20 @@ jobs:
 
       - name: test_bridge.py
         id: bridge
+        if: matrix.shard == 0
         continue-on-error: true
         timeout-minutes: 20
         run: set -o pipefail; python test_bridge.py 2>&1 | tee "$RUNNER_TEMP/bridge.log"
 
-      - name: tests/run_all.py
+      - name: tests/run_all.py (shard ${{ matrix.shard }}/4)
         id: run_all
         continue-on-error: true
-        timeout-minutes: 90  # 3.1.7.0: the v3.1.6.0 tag run finished green at 65:00 and the step limit cut it
-        run: set -o pipefail; python tests/run_all.py 2>&1 | tee "$RUNNER_TEMP/run_all.log"
+        timeout-minutes: 45  # 3.3.8.1: a quarter of the 65-90-minute all-tiers run, with the Windows runner's margin
+        run: set -o pipefail; python tests/run_all.py --shard ${{ matrix.shard }}/4 2>&1 | tee "$RUNNER_TEMP/run_all.log"
 
       - name: test_tui.py
         id: tui
+        if: matrix.shard == 0
         continue-on-error: true
         timeout-minutes: 20
         run: set -o pipefail; python test_tui.py 2>&1 | tee "$RUNNER_TEMP/tui.log"
@@ -261,26 +283,31 @@ jobs:
         if: always()
         run: |
           {
-            echo "### suites (windows, py3.12)"
+            echo "### suites (windows, py3.12, shard ${{ matrix.shard }}/4)"
             echo
-            echo "platform: **windows**, tier: **all (fast + full)** (\`python tests/run_all.py\`), event: ${{ github.event_name }}, sha: ${{ inputs.sha || github.sha }}"
+            echo "platform: **windows**, tier: **all (fast + full)**, shard: **${{ matrix.shard }}/4** (\`python tests/run_all.py --shard ${{ matrix.shard }}/4\`), event: ${{ github.event_name }}, sha: ${{ inputs.sha || github.sha }}"
             echo
             for entry in "test_bridge.py bridge ${{ steps.bridge.outcome }}" \
                          "tests/run_all.py run_all ${{ steps.run_all.outcome }}" \
                          "test_tui.py tui ${{ steps.tui.outcome }}"; do
               set -- $entry
               name="$1"; key="$2"; outcome="$3"
+              [ "$outcome" = "skipped" ] && { echo "- \`$name\` -- runs in shard 0's job"; continue; }
               line=$(grep -E '^RESULT:|^exit=' "$RUNNER_TEMP/${key}.log" 2>/dev/null | tail -2 | tr '\n' ' ')
               mark="PASS"; [ "$outcome" = "success" ] || mark="FAIL"
               echo "- **$mark** \`$name\` -- ${line:-no RESULT line captured}"
             done
+            retried=$(grep -c 'driver retried once' "$RUNNER_TEMP/run_all.log" 2>/dev/null || true)
+            echo
+            echo "Chrome driver retries (\`grep retried\`): ${retried:-0}"
+            grep 'driver retried once' "$RUNNER_TEMP/run_all.log" 2>/dev/null | sed 's/^/    /' || true
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload logs on failure
-        if: steps.bridge.outcome != 'success' || steps.run_all.outcome != 'success' || steps.tui.outcome != 'success'
+        if: (steps.bridge.outcome != 'success' && steps.bridge.outcome != 'skipped') || steps.run_all.outcome != 'success' || (steps.tui.outcome != 'success' && steps.tui.outcome != 'skipped')
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: suite-logs-windows
+          name: suite-logs-windows-${{ matrix.shard }}
           path: |
             ${{ runner.temp }}/bridge.log
             ${{ runner.temp }}/run_all.log
@@ -289,7 +316,8 @@ jobs:
       - name: Fail the job if any suite failed
         if: always()
         run: |
-          if [ "${{ steps.bridge.outcome }}" != "success" ] || [ "${{ steps.run_all.outcome }}" != "success" ] || [ "${{ steps.tui.outcome }}" != "success" ]; then
+          ok() { [ "$1" = "success" ] || [ "$1" = "skipped" ]; }
+          if ! ok "${{ steps.bridge.outcome }}" || [ "${{ steps.run_all.outcome }}" != "success" ] || ! ok "${{ steps.tui.outcome }}"; then
             echo "one or more suites did not pass -- see the job summary and (on failure) the uploaded logs"
             exit 1
           fi

@@ -8,6 +8,49 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.3.8.1] - unreleased
+
+**Bench from any halo.** The owner, from his MacBook against this PC's Ollama: "I should be able to benchmark the
+models from any halo that is using the local models on the network" -- a Bench on a host another machine serves,
+with no halo host there, ran into "served by another machine". Now it runs over the LAN from the halo that asked,
+and the card says so first, with the link's RTT; a paired halo host's path stays first and gives a card without the
+link; the refusals that remain (a load is the owner's) name the way. Also the CI train itself: the 3.3.8.0 candidate
+went through six heads for zero pool bugs, so the suite now runs as four shards per platform, the flake classes are
+lint rules, and a Chrome driver that timed out retries once, in the open.
+
+### Fixed
+- Bench from any halo: a Bench on an Ollama host another machine serves, with no halo host there, no longer stops at
+  "served by another machine: its own Studio benches it" -- it runs over the LAN from this halo, and the card says
+  so first: "measured over the LAN from mac: includes the link (RTT 1.8 ms, wired)" (`providers/local_bench_link.py`).
+- The Load / Unload / Pull / Delete refusal on such a host names the way instead of "its own Studio's Local tab loads
+  it": `halo host serve` there (`halo host install` for a service), `halo host join <addr>` here, `halo host grant
+  <you> control` there.
+- Local -> Models' Show on a host another machine serves asks its `/api/show` directly (a read is anyone's).
+- Rows listed newest first by a stamp break a same-millisecond tie by file order (`halo_harness/newest_first.py`): the
+  host's change verification list, its jobs, pending requests and residency rows, live sessions, Studio's bench /
+  probe / pull / verify jobs, the speed cards, the newest live session and the last measured download speed.
+
+### Changed
+- A speed card keeps `over_lan`, `measured_from` and `link`; a LAN-measured card sits beside the machine's own, the
+  readers take the machine's own card of the same age class (same digest, same Ollama, same age bucket) and the newer
+  otherwise, and each says which ("fits, ~38 tok/s at 32k (over the LAN from mac)"); a later bench on the machine
+  or through its host replaces the LAN card.
+- The battery run from a peer marks its speed row (tok/s, TTFT, cold load) the same way; its gates stay unmarked.
+- Studio's Bench confirm carries the label, "over the LAN from mac" and the way to a card without the link; the
+  Benchmarks row shows the chip; `halo local bench --host <remote>` prints the same, `--json` carries the fields.
+
+### CI
+- `tests/run_all.py --shard i/n` (a module's index in the sorted list mod n; composes with `--fast` / `--tier`) and
+  `--shard-of tests.test_x`; the Linux and Windows jobs run `run_all` as a four-shard matrix (`fail-fast: false`,
+  test_bridge.py and test_tui.py in shard 0's job), steps 30 / 45 min, the shard in the job name, summary and
+  artifact; the run's conclusion is still one value for release_gate.
+- `tests/test_flake_rules.py`: the five CI reds of the 3.3.8.0 candidate as six lint rules (absolute audit counts,
+  raw audit reads, list reads after a job, fake clocks behind the real one, newest-first sorts by a stamp alone, the
+  pool watch driver's step order); DEVELOPMENT.md "Flake rules".
+- A Chrome driver whose step timed out runs once more in a fresh process and says so (`"retried"`, the runner's
+  "(driver retried once: ...)", the job summary's count); `HALO_DRIVER_NO_RETRY=1` turns it off; the Chrome test
+  modules read their driver through one `tests/helpers/driver_got.py`.
+
 ## [3.3.8.0] - 2026-11-01
 
 **Pooled.** The owner's distributed-LLM drop (plans/pooled-inference-spec.md, -research.md, -model-candidates.md:
