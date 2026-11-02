@@ -42,7 +42,8 @@ BRIEF = ("lineup", "bio", "role", "tier", "team", "member", "block", "stage", "l
          "bundle", "reservation", "verdict",
          "pool", "rpc-server", "tensor split", "pooled inference", "server log", "runtime",
          "claim lease", "preflight", "pre-emption", "placement score",
-         "speech server", "speech-to-text", "text-to-speech")  # 3.3.9.0 R1: the speech servers' three; 3.3.8.0 R4: the bundles' and placement's two; 3.3.8.0 R3: the controller's two; 3.3.8.0 R2: the local servers' two; 3.3.8.0 R1: the pool's four; 3.3.7.0 R5: the bundles' three; 3.3.7.0 R4: the guards' four; 3.3.7.0 R3: the scheduler's four; 3.3.7.0 R2: fix, duty steward, offline promise; 3.3.6.0 R6: which models can see, the offer  # 3.3.6.0 R5: the bench's two; 3.3.6.0 R4: the cards' five; 3.3.6.0 R3: the log's two; 3.3.6.0 R2: the three truths and the crash fingerprint; 3.3.5.0 R2: the Library's two; 3.2.1.0 R1: "pack"; 3.2.2.0 R2: "guided first run"; 3.3.0.0 R1: Setup's three; 3.3.3.0 R2: Settings' one; 3.3.4.0 R5: the steward's three; 3.3.5.0 R1: Local's two
+         "speech server", "speech-to-text", "text-to-speech",
+         "voice loop", "barge-in", "push-to-talk")  # 3.3.9.0 R2: the loop's three; 3.3.9.0 R1: the speech servers' three; 3.3.8.0 R4: the bundles' and placement's two; 3.3.8.0 R3: the controller's two; 3.3.8.0 R2: the local servers' two; 3.3.8.0 R1: the pool's four; 3.3.7.0 R5: the bundles' three; 3.3.7.0 R4: the guards' four; 3.3.7.0 R3: the scheduler's four; 3.3.7.0 R2: fix, duty steward, offline promise; 3.3.6.0 R6: which models can see, the offer  # 3.3.6.0 R5: the bench's two; 3.3.6.0 R4: the cards' five; 3.3.6.0 R3: the log's two; 3.3.6.0 R2: the three truths and the crash fingerprint; 3.3.5.0 R2: the Library's two; 3.2.1.0 R1: "pack"; 3.2.2.0 R2: "guided first run"; 3.3.0.0 R1: Setup's three; 3.3.3.0 R2: Settings' one; 3.3.4.0 R5: the steward's three; 3.3.5.0 R1: Local's two
 
 
 def _explain(*argv):

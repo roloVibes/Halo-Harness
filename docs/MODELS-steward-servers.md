@@ -141,7 +141,10 @@ failed load (`load-failed`), a failed request (`http-500`). `ollama_steward/rule
 findings keyed `stt|<model>` / `tts|<model>`: **stt-slow** (under 2x realtime), **tts-slow** (first audio past 400
 ms), **voice-cpu** (on the CPU while the GPU had its footprint free; info) and **voice-load-failed**, each with its
 stated line (`--device cuda`, a smaller built model, `--device cpu`, the install line) and `applied: false`. Their
-rows are in the knowledge's local-servers section, so the steward's guide keeps its budget.
+rows are in the knowledge's local-servers section, so the steward's guide keeps its budget. A fifth, **voice-slow**
+(3.3.9.0 R2, `ollama_steward/rules_voice_loop.py`), reads the voice loop's own latency cards
+(`~/.halo/voice/turns.jsonl`): a stage over its share of the budget three turns running, keyed `voice|<stage>` on the
+Ollama host served here, with its fix line ([VOICE.md](VOICE.md#the-latency-card)).
 
 ## What the logs cannot say
 

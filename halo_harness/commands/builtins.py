@@ -827,6 +827,12 @@ def _cmd_plan(args: str, facade: HeadlessFacade) -> str:
             f"start with --permission-mode plan here.")
 
 
+def _cmd_voice(args: str, facade: HeadlessFacade) -> str:
+    """Halo 3.3.9.0 R2: a live session's /voice runs in voice/session.py (Controller.run_slash); here, print mode."""
+    return ("Voice runs in a live session: halo voice opens one with voice on; halo voice on|off turns it on or off in "
+            "a running one; halo voice --input-file <wav> drives one turn from a file.")
+
+
 def _cmd_improve(args: str, facade: HeadlessFacade) -> str:
     """H10 Part B5: `-p "/improve"` NEVER drafts or writes -- it needs the
     interactive TUI's card review (`a`/`e`/`s`/`d`/`q`); a real `-p`
@@ -1835,6 +1841,8 @@ _BUILTIN_SPECS = {
     "memory": ("core", "Show the auto-memory directory and index", "[topics]", _cmd_memory),
     "permissions": ("core", "Show the active permission mode and rule counts", None, _cmd_permissions),
     "plan": ("ui", "Plan mode on, off, or its status and plan file", "[on|off|status]", _cmd_plan),
+    "voice": ("ui", "Voice: talk to this session and hear it answer (hands-free or push-to-talk), or its status",
+              "[on|off|ptt|status]", _cmd_voice),  # 3.3.9.0 R2 (voice/session.py)
     "resume": ("ui", "Resume a previous session", "[session-id]", _cmd_resume),
     "status": ("core", "Show session status", None, _cmd_status),
     "config": ("core", "Show or set a config value; /config where lists every file in effect", "[key=value|where]", _cmd_config),

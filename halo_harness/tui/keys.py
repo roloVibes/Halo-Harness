@@ -87,6 +87,7 @@ STATIC_APP_BINDINGS = frozenset({
     "f1", "ctrl+p", "ctrl+e", "ctrl+x", "ctrl+end", "end", "ctrl+q",
     "ctrl+a", "ctrl+v", "ctrl+alt+v", "shift+insert",
     "ctrl+shift+c",  # 3.1.6.0 R5: copy the chat-box draft
+    "ctrl+space",  # 3.3.9.0 R2: push-to-talk while voice is on (voice.ptt_key binds another)
 })
 
 # ============================================================================

@@ -104,7 +104,7 @@ is gone by then (disabled, removed) takes you to the first tab, as before;
 
 ### Bundles (3.3.7.0 R5)
 
-Under Installed's rows, the **Bundles** group lists every bundle here and the ten Halo ships
+Under Installed's rows, the **Bundles** group lists every bundle here and the eleven Halo ships
 ([MODELS-bundles.md](MODELS-bundles.md)): each a tick with its name, its state (`ready`, `needs downloads`, `won't
 work`, `not judged`) and one line under it -- the honest verdict -- then its ways out and warnings, each a number.
 Only a ready bundle can be ticked: the tick turns it on (installed, enabled, its reservation claimed and held by this

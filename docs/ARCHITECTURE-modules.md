@@ -263,5 +263,16 @@ events), `ollama_steward/rules_voice.py` (stt-slow, tts-slow, voice-cpu, voice-l
 `local_sched/bundle_voice.py` (a speech need through the catalog and the disk); `voice_cli.py` (`halo voice`) and
 `doctor_voice.py` (`halo doctor --voice`).
 
+**The voice loop** (Halo 3.3.9.0 R2, docs/VOICE.md "The loop"): `voice/audio.py` (the devices, `Audio.open`, a WAV as
+frames) and `voice/audio_fake.py` (HALO_VOICE_AUDIO=fake), `voice/vad.py` (Silero through onnxruntime, the level gate),
+`voice/loop.py` (the microphone, the VAD's start and end, the utterance to STT, `controller.submit`, barge-in,
+push-to-talk), `voice/speak.py` (the event-sink tap, the sentences to TTS, playback, the cut), `voice/aggregate.py`
+(the sentence aggregator), `voice/client.py` (the two calls to the speech servers), `voice/latency.py` (the latency
+card, `turns.jsonl`, `halo voice stats`), `voice/ensure.py` (the servers the loop starts, the bundle's picks),
+`voice/session.py` (`/voice on | off | ptt | status`, one loop per session); `voice_loop_cli.py` (`halo voice`, `on`,
+`off`, `devices`, `stats`, `--input-file`); the TUI -- `tui/slash_voice.py`, `tui/voice_view.py` (the `voice` events:
+the mic chip, the partial transcript, the echo, the latency line); the steward -- `ollama_steward/rules_voice_loop.py`
+(voice-slow).
+
 The map goes on in [Architecture: the module map, part two](ARCHITECTURE-modules-two.md): the Ollama
 steward, packs, the extension API, isolation, the guided first run, Setup and Settings.

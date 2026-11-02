@@ -243,10 +243,13 @@ Ollama daemon and the optional, experimental `uv tool install
 "halo-harness[mlx]"` extra (`hf:mlx/<org>/<repo>`, round 5f) -- off by
 default and only installable on macOS/arm64 in the first place.
 
-**For speech-to-text and text-to-speech on this machine** (3.3.9.0), the engines are an optional extra:
-`uv tool install --reinstall "halo-harness[voice]"` (faster-whisper, kokoro-onnx, onnxruntime, numpy, soundfile).
-Without it every voice command but `serve` works and `serve` prints that line; `halo doctor --voice` says which you
-have. See [docs/VOICE.md](VOICE.md).
+**To talk to a session, and for speech-to-text and text-to-speech on this machine** (3.3.9.0), the engines and the
+audio are an optional extra: `uv tool install --reinstall "halo-harness[voice]"` (faster-whisper, kokoro-onnx,
+onnxruntime, numpy, soundfile, and sounddevice for the microphone and the speaker). On Linux (Kali included)
+sounddevice needs PortAudio from the system: `sudo apt install libportaudio2`. Without the extra the catalog,
+downloads, `halo voice devices` and `halo voice stats` work, and `halo voice`, `/voice on` and `serve` print that one
+line; `halo doctor --voice` says which you have, and `halo voice devices` lists the microphones and speakers. See
+[docs/VOICE.md](VOICE.md).
 
 **For local models (Ollama, Hugging Face) and the OpenAI API**, see [docs/LOCAL-MODELS.md](LOCAL-MODELS.md) for
 the end-to-end guide once `halo` itself is installed.

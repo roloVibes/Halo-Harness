@@ -8,8 +8,8 @@ first, then `WORKER-RULES.md`, then the round you are starting.
 
 **3.3.8.1 SHIPPED 2026-11-02 (tag v3.3.8.1 = 56a35974, installed): bench from any halo + the CI train (four shards per
 platform, `tests/test_flake_rules.py`, the driver retry-once). 3.3.9.0 "Voice" IS IN FLIGHT: R1 the speech servers
-merged (see the ROADMAP's R1 BUILT note under the Voice bullet; CHANGELOG `## [3.3.9.0]`), R2 the loop next (brief
-~/hh-339/briefs/v339-R2-the-loop-brief.md), then R3 the host route, Local -> Voice and the glasses contract, then
+merged, R2 the loop merged (the ROADMAP's R1 / R2 BUILT notes under the Voice bullet; CHANGELOG `## [3.3.9.0]`), R3 the
+host door, Local -> Voice and the glasses contract next (brief ~/hh-339/briefs/v339-R3-host-studio-glasses-brief.md), then
 the candidate and the release.** The two "arrive with Voice" mentions below are history: R1 made the speech models
 present-or-downloadable and the line is gone from the tree.
 

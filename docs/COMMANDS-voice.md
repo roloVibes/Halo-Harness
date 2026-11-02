@@ -1,17 +1,69 @@
-# Commands: halo voice and the speech servers
+# Commands: halo voice, the voice loop and the speech servers
 
-Read this when you list, download, remove or serve a speech model from the command line, or check the speech side of this machine.
+Read this when you talk to a session from the command line (`halo voice`, `halo voice on|off`, an input file), list the microphones, read the voice turns' latency, or list, download, remove or serve a speech model.
 
-`halo voice` (3.3.9.0 R1) is the speech catalog and its files; `halo local serve --stt | --tts` runs Halo's own speech
-server for one of them. What the models are, the routes, the device choice and the steward's findings are in
+`halo voice` (3.3.9.0 R2) opens a session with voice on; `halo voice on|off` turns it on or off in a running one,
+`devices` and `stats` read the microphones and the turns' latency cards. `halo voice models | download | rm | serve`
+(R1) are the speech catalog and its files; `halo local serve --stt | --tts` runs Halo's own speech server for one of
+them. What the loop does, the models, the routes, the device choice and the steward's findings are in
 [VOICE.md](VOICE.md). Part of [Commands](COMMANDS.md), which lists every part. Exit codes: 0 done, 1 could not (the
 reason printed), 2 nothing to run (a declared model with no engine, the voice extra not installed: the one install
 line `uv tool install --reinstall "halo-harness[voice]"`).
 
+## `halo voice`
+
+```sh
+halo voice [halo flags]          # halo with voice on: the TUI, then /voice on (voice.mode ptt: /voice ptt)
+halo voice --model ol:lfm3:1.7b@pc
+```
+
+The flags are `halo`'s own. Without the voice extra it prints the one install line and exits 2 before anything
+starts. In the session, `/voice off`, `/voice ptt` and `/voice status` work as typed
+([SLASH-COMMANDS-session.md](SLASH-COMMANDS-session.md)).
+
+## `halo voice --input-file`
+
+```sh
+halo voice --input-file ask.wav [--output-file reply.wav] [halo flags]
+```
+
+One turn from a WAV, no microphone: the file goes through the loop as one utterance, then `you said: ...`, the reply
+(spoken on the speaker, or written to `--output-file` as a 24 kHz WAV, no audio device opened), `reply: ...` and the
+turn's latency line. It starts the speech servers it needs like `/voice on` and stops them after. Exit 0 with a
+reply, 1 without one.
+
+## `halo voice on` and `halo voice off`
+
+```sh
+halo voice on [ptt] [--session ID]
+halo voice off [--session ID]
+```
+
+Voice on or off in a halo that runs here, through its control socket (`/voice on` arrives there as typed). With
+several sessions running it lists them and asks for `--session`; with none it says `halo voice` opens one.
+
+## `halo voice devices`
+
+```sh
+halo voice devices [--json]
+```
+
+The microphones and the speakers, the ones the loop opens marked `*` (`voice.input_device`, `voice.output_device`,
+else the system default); no microphone says `halo voice --input-file <wav>`. Without sounddevice: the install line,
+exit 2.
+
+## `halo voice stats`
+
+```sh
+halo voice stats [-n 50] [--json]
+```
+
+The newest turns' latency cards (`~/.halo/voice/turns.jsonl`): the total and each stage (heard, text, token, audio,
+last) with its median and worst in ms, each stage's share of the budget, and the slow stage named.
+
 ## `halo voice models`
 
 ```sh
-halo voice              # the same as halo voice models
 halo voice models --json
 ```
 

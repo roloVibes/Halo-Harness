@@ -133,9 +133,31 @@ task work to the coder when it fits beside, else the cloud), **bulk-worker** (a 
 the many small jobs), **verifier** (another family than the coder), **compactor**, **embeddings** (memory search,
 dedupe), **translation**, **vision** (a model that sees, loaded when an image arrives: nothing reserved),
 **offline-only** (no cloud rung while it is on), **coder-first** (no reservation: the coder gets the card) and
-(3.3.8.0 R4) **big-reasoner** (the pool reserved for a reasoning lane, the coder resident on this card). The voice
-bundle's speech models are the speech catalog's (3.3.9.0 R1, [VOICE.md](VOICE.md)): present or a download in its
-verdict, served by `halo local serve --stt | --tts`; the voice loop itself is 3.3.9.0 R2's.
+(3.3.8.0 R4) **big-reasoner** (the pool reserved for a reasoning lane, the coder resident on this card) and (3.3.9.0
+R2) **voice-local** (below). The voice bundles' speech models are the speech catalog's (3.3.9.0 R1,
+[VOICE.md](VOICE.md)): present or a download in their verdict, served by `halo local serve --stt | --tts`.
+
+## voice-local (3.3.9.0 R2)
+
+The bundle for talking to a session on this machine ([VOICE.md](VOICE.md#the-bundle)):
+
+```yaml
+bundle:
+  needs:
+    chat: {any_of: [lfm3:1.7b, qwen3.8:4b, gemma4:4b], window: 8192}
+    stt: {any_of: [faster-whisper:large-v3-turbo, faster-whisper:small.en], device: cpu-or-gpu}
+    tts: {any_of: [kokoro-82m], device: cpu}
+  reservation: {model: chat, keep_alive: -1, priority: high, window: 8192}
+  routing: {task_work: coder-or-cloud, never_evict: reserved}
+  latency_budget_ms: 1500
+```
+
+The reservation names the `chat` role, so it holds whichever of the three the verdict picks (the first present one).
+On the fixture 24 GB card the verdict is ready: `lfm3:1.7b` resident at 8 k, `stt` on the CPU (the GPU pick,
+large-v3-turbo's 1.5 GB, would break the coder's fit beside it), `tts` on the CPU. `halo pack on voice-local` claims
+the reservation and says what it reserved; it starts no process. While it is on, `/voice on` (and `halo voice`) start
+the speech servers with this bundle's picks, their cost line first, and measure each turn against its
+`latency_budget_ms`; `meta-glasses` gives the loop the same fields (its reservation names its 8 k window).
 
 ## Speech needs resolve (3.3.9.0 R1)
 

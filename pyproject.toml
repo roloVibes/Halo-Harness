@@ -63,13 +63,16 @@ fleet = [
 # (CTranslate2) for speech-to-text, kokoro-onnx (onnxruntime) for
 # text-to-speech, numpy and soundfile for the audio. All MIT / Apache-2.0 /
 # BSD. Without the extra every catalog, download and doctor command works and
-# `serve` prints the one install line; R2 adds sounddevice for the microphone.
+# `serve` prints the one install line. R2: sounddevice (MIT, PortAudio) for the
+# microphone and the speaker of the voice loop; on Linux PortAudio itself comes
+# from the system (docs/INSTALL.md: sudo apt install libportaudio2).
 voice = [
     "faster-whisper>=1.1",
     "kokoro-onnx>=0.4",
     "onnxruntime>=1.18",
     "numpy>=1.24",
     "soundfile>=0.12",
+    "sounddevice>=0.4.6",
 ]
 
 [project.scripts]
