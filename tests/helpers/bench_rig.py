@@ -5,11 +5,14 @@ Ollama panel's readers (studio/ollama_hosts_view.READERS) answering from them. N
     with BenchRig(kv="q8_0") as rig:
         card = rig.bench("bn-coder:30b")      # providers/local_bench.bench through the gym's send path
         rig.host, rig.mock, rig.state, rig.card
+    with over_the_lan(frm="mac", rtt=1.8, kind="wired"):   # 3.3.8.1: this machine does not serve any host, the link's
+        ...                                                 # RTT and this halo's name fixed (no probe, no adapter read)
 """
 
 from __future__ import annotations
 
 import json
+from contextlib import contextmanager
 
 from tests.helpers import mock_ollama_bench as MB
 from tests.helpers.battery_rig import gpu_card
@@ -58,3 +61,19 @@ class BenchRig:
 
     def cache(self) -> dict:
         return json.loads((self.state / "ollama-capabilities.json").read_text(encoding="utf-8"))
+
+
+@contextmanager
+def over_the_lan(frm: str = "mac", rtt=1.8, kind="wired"):
+    """fleet/ollama_share.served_here -> False (every host is another machine's), providers/local_bench_link's link
+    reader -> a fixed RTT and adapter, its `from` -> `frm`; all three put back after."""
+    from halo_harness.fleet import ollama_share as S
+    from halo_harness.providers import local_bench_link as L
+    saved = (S.served_here, L.link_of, L.from_where)
+    S.served_here = lambda _url: False
+    L.link_of = lambda _host, _state=None: {"rtt_ms": rtt, "kind": kind, "line": L.link_line(rtt, kind)}
+    L.from_where = lambda _state=None: frm
+    try:
+        yield L
+    finally:
+        S.served_here, L.link_of, L.from_where = saved

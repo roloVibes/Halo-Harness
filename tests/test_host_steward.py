@@ -71,7 +71,6 @@ def test_on_starts_a_separate_process(ctx: Ctx):
 @test
 def test_a_pass_sends_a_cited_fix_that_is_kept(ctx: Ctx):
     from halo_harness.host import duty, verify
-    from halo_harness.host.state import read_audit
     with ActRig(cap="ask") as rig:
         _on([])
         _trims(rig)
@@ -87,7 +86,7 @@ def test_a_pass_sends_a_cited_fix_that_is_kept(ctx: Ctx):
         ctx.check(f"the cited fix landed (ask does not queue the owner's own steward), got {got['sent']}",
                   sent.get("op") == "set_num_ctx" and sent.get("ok") is True and sent.get("finding", "").startswith("window-small"))
         time.sleep(0.3)
-        rows = [a for a in read_audit(rig.home) if a.get("op") == "set_num_ctx"]
+        rows = rig.rig.audited_op("set_num_ctx", 1)  # the line lands after the reply
         ctx.check(f"the audit line names the finding, got {rows[-1] if rows else None}", rows
                   and rows[-1]["evidence"]["finding"] == sent.get("finding") and rows[-1]["peer"] == "duty steward")
         ctx.check(f"a note for the pass, got {got['note']['say'] if got['note'] else None!r}", got["note"]

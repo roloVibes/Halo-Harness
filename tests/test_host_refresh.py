@@ -29,16 +29,18 @@ test, TESTS = new_registry()
 
 
 def at(hour: int, minute: int = 0, days: int = 0) -> float:
+    """hour:minute on the first day it is still ahead of the real clock (+ `days`): a fake `now` must never lie BEFORE
+    the rig's real-time stamps (its ledger line, its profile), or the card reads busy / the profile reads fresh and
+    nothing runs -- both runners failed so at 23:21 UTC with today's 23:00 (3.3.8.0 candidate 44617414, runs
+    41361746057 / 41361745675); 3.3.8.1: every fake hour here is this one (tests/test_flake_rules.py)."""
     t = time.localtime()
-    return time.mktime((t.tm_year, t.tm_mon, t.tm_mday, hour, minute, 0, 0, 0, -1)) + days * 86400
+    s = time.mktime((t.tm_year, t.tm_mon, t.tm_mday, hour, minute, 0, 0, 0, -1))
+    return (s if s > time.time() + 60 else s + 86400) + days * 86400
 
 
 def tonight(hour: int) -> float:
-    """`at(hour)` on the first day it is still ahead of the real clock: a tick's fake `now` must not lie BEFORE the rig's
-    real-time stamps (its ledger line, its profile), or the card reads busy / the profile reads fresh and nothing runs --
-    both runners failed so at 23:21 UTC with `at(23)` (3.3.8.0 candidate 44617414, runs 41361746057 / 41361745675)."""
-    t = at(hour)
-    return t if t > time.time() + 60 else t + 86400
+    """The tick tests' name for `at(hour)`: the first such hour still ahead of the real clock."""
+    return at(hour)
 
 
 def cats(big_digest: str = "sha256:0b27") -> dict:

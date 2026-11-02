@@ -96,8 +96,15 @@ def chips(p: dict) -> list:
     return out
 
 
-def finish(p: dict) -> dict:
-    """The derived labels filled in on a profile whose probe fields are set."""
+def finish(p: dict, host=None, state_dir=None) -> dict:
+    """The derived labels filled in on a profile whose probe fields are set. 3.3.8.1: with `host`, a battery run from a
+    peer against a host this machine does not serve stamps its speed row (tok/s, TTFT, the cold load) with the LAN
+    fields (providers/local_bench_link.over_lan); the behavioural gates are location-free and stay as they are."""
+    if host is not None and isinstance(p.get("speed"), dict):
+        from halo_harness.providers.local_bench_link import over_lan, stamp
+        lan = over_lan(host, state_dir)
+        if lan:
+            stamp(p["speed"], lan)
     p["agentic_ready"] = agentic_ready(p)
     p["interactive"] = interactive(p)
     p["quirks"] = quirks(p)

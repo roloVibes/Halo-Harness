@@ -11,11 +11,13 @@ import type { ModelEntry } from "./types";
 
 export function BenchAction({ m, host }: { m: ModelEntry; host: string }) {
   const job = useBench((s) => jobFor(s, host, m.model));
-  const ctl = useLocal((s) => s.hosts?.find((h) => h.name === host)?.controls);
+  const h = useLocal((s) => s.hosts?.find((x) => x.name === host));
   useEffect(() => {
     startBenchFeed();
   }, []);
-  const off = ctl && !ctl.ok ? ctl.why : "";
+  // 3.3.8.1: a configured host another machine serves is benched over the LAN from here (the confirm says so)
+  const ctl = h?.controls;
+  const off = ctl && !ctl.ok && (h?.source !== "configured" || ctl.via === "host") ? ctl.why : "";
   const running = !!job && !job.done;
   const benched = !!m.card?.speed_card;
   return (
@@ -45,6 +47,7 @@ export function SpeedCardChip({ m }: { m: ModelEntry }) {
           title={c.lines.join("\n")}>
       bench: {top ? `${Math.round(top.tok_s as number)} tok/s at ${Math.round(top.window / 1024)}k` : "no window answered"}
       {g ? ` · GPU to ${Math.round(g / 1024)}k` : " · spills"}{c.stale ? ` · ${c.stale}` : ""}
+      {c.over_lan ? ` · over the LAN from ${c.measured_from || "a peer"}` : ""}
     </span>
   );
 }

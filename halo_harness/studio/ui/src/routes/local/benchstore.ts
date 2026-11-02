@@ -4,7 +4,7 @@
 // local/host/<host>/tune; Apply = POST .../tune/apply {id, scope}), and the changes with their scopes (GET
 // local/changes; Revert = POST local/changes/revert, a new scope = POST local/changes/scope). Each action's answer
 // is said on its own row (no toast). The Bench button first reads the cost line (GET local/host/<host>/bench?model=)
-// and shows it as its confirmation.
+// and shows it as its confirmation (3.3.8.1: over the LAN, its `via` and the `offer` line too).
 import { api, ApiError } from "../../lib/api";
 import { onEvent } from "../../lib/events";
 import { createStore, useStore } from "../../lib/store";
@@ -15,7 +15,9 @@ export type BenchRow = { window: number; prompt_tok_s: number | null; tok_s: num
   size_vram: number | null; size: number | null; layers: number[] | null; on_gpu: boolean | null; error?: string };
 export type SpeedCard = { model: string; host: string; ollama_version: string | null; at: number; cold_load_s: number | null;
   windows: BenchRow[]; max_gpu_window: number | null; planner_window: number | null; reserve_floor: number | null;
-  quick: boolean; stale: string; lines: string[] };
+  quick: boolean; stale: string; lines: string[];
+  // 3.3.8.1: a card measured over the LAN from a peer (providers/local_bench_link.py) says so, with the link's RTT
+  over_lan?: boolean; measured_from?: string | null; link?: { rtt_ms: number | null; kind: string | null; line: string } | null };
 export type BenchModel = { model: string; size: number | null; card: SpeedCard | null };
 export type BenchHost = { name: string; version: string | null; models: BenchModel[] };
 export type BenchJob = { job: string; host: string; model: string; quick: boolean; line: string; lines: string[]; done: boolean;
@@ -28,7 +30,7 @@ export type TuneReport = { host: string; says: string; warm_set: { line: string;
   options: TuneOption[]; os: string | null; cli: string };
 export type Change = { id: string; at: string; by: string; host: string; model: string; key: string; field: string; scope: Scope;
   reverted_at: string | null; line: string; scope_words: string; session_id?: string | null };
-export type Confirm = { host: string; model: string; cost: string; quick: boolean };
+export type Confirm = { host: string; model: string; cost: string; quick: boolean; via?: string; offer?: string };
 
 type Bench = { hosts: BenchHost[] | null; jobs: Record<string, BenchJob>; reports: Record<string, TuneReport>;
   changes: Change[] | null; said: Record<string, { ok: boolean; text: string }>; confirm: Confirm | null; error: string };
@@ -71,8 +73,8 @@ export async function loadBenches(): Promise<void> {
 export async function askBench(host: string, model: string, quick = false): Promise<void> {
   const k = `${host}|${model}`;
   try {
-    const r = await api.get<{ cost: string }>(`local/host/${encodeURIComponent(host)}/bench?model=${encodeURIComponent(model)}${quick ? "&quick=1" : ""}`);
-    bench.update(() => ({ confirm: { host, model, cost: r.cost, quick } }));
+    const r = await api.get<{ cost: string; via?: string; offer?: string }>(`local/host/${encodeURIComponent(host)}/bench?model=${encodeURIComponent(model)}${quick ? "&quick=1" : ""}`);
+    bench.update(() => ({ confirm: { host, model, cost: r.cost, quick, via: r.via, offer: r.offer } }));
     say(k, true, "");
   } catch (e) {
     say(k, false, msg(e));

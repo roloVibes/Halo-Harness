@@ -236,7 +236,7 @@ def run(host, model: str, *, client=None, card=None, on_status: Optional[Callabl
                    "cold_load_s": warm["load_s"] if not was_loaded else None, "warm_at_start": was_loaded},
          "evidence": ev, "capabilities": show.get("capabilities") if isinstance(show.get("capabilities"), list) else None}
     p.update(_fit(card, row, info, used, tags, model, ps_after))
-    finish(p)
+    finish(p, host=host, state_dir=state_dir)  # 3.3.8.1: a peer's run over the LAN stamps its speed row
     if state_dir is not None:
         from halo_harness.providers.ollama_capability import save_profile
         save_profile(state_dir, {k: v for k, v in p.items() if k != "ok"})

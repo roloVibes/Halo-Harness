@@ -147,13 +147,9 @@ def test_job_ops_frames_and_catch_up(ctx: Ctx):
 
 @test
 def test_the_audit_line_and_the_refusals(ctx: Ctx):
-    from halo_harness.host.state import read_audit
     with ActRig(grants=("control",)) as rig:
         status, got = rig.act("control", "set_num_ctx", {"model": BIG, "value": 16384}, evidence=EV)
-        end, rows = time.monotonic() + 3, []
-        while time.monotonic() < end and not rows:  # the line is written as the answer goes out
-            rows = [a for a in read_audit(rig.home) if a.get("op") == "set_num_ctx"]
-            time.sleep(0.05)
+        rows = rig.rig.audited_op("set_num_ctx", 1, timeout=3.0)  # the line is written as the answer goes out
         row = rows[-1] if rows else {}
         ctx.check(f"the audit line: peer, op, params, evidence, dry, landed, change_id, got {row}", row["peer"] == "carol@peer"
                   and row["params"] == {"model": BIG, "value": 16384} and row["evidence"] == EV and row["dry"] is False

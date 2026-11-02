@@ -145,7 +145,10 @@ With `control` on a host, Studio's Load, Unload, Probe and Bench on a machine th
 fleet member session needed (Pull and Delete with `manage`); the battery and the bench run on the host and their
 frames come back as this Studio's jobs (the bench's speed card is kept here too). The Hosts card shows the grants,
 "through halo host at <addr>", and a server-setting picker that asks the host for the stated line. A hub whose
-member announced a host forwards there too once the hub is paired with it (`fleet/hub_host_cmd.py`).
+member announced a host forwards there too once the hub is paired with it (`fleet/hub_host_cmd.py`). Without a host
+there (3.3.8.1), a peer's Bench runs over the LAN from the peer, its card labelled with the link ("measured over the
+LAN from mac: includes the link (RTT 1.8 ms, wired)", [MODELS-cards.md](MODELS-cards.md#a-card-measured-over-the-lan-3381));
+Load, Unload, Pull and Delete stay the owner's, and their line names `halo host serve` there and `halo host join` here.
 
 The steward on any peer lands a change for a host-served model through the host (`control/set_*`, the finding
 cited), mirrors it in its own profile and writes the host's verdict back into its journal; a reverted change takes

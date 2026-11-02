@@ -9,8 +9,10 @@
 3. GET show (the facts), POST copy and rename, GET loaded after a Load;
 4. POST twin: the dry plan (the twin's name, the window, what it costs), then the twin made through /api/create and
    recorded in the tune store;
-5. a host another machine serves: 409 (no member), 403 when its member has fleet.allow_control: none, and with
-   `all` the pull / delete go to the member's session as ollama_pull / ollama_delete with its own host name.
+5. a host another machine serves: 409 (no member) whose line ends with the way (3.3.8.1: `halo host serve` there,
+   `halo host join` here, the grant), its /api/show asked directly, 403 when its member has fleet.allow_control:
+   none, and with `all` the pull / delete go to the member's session as ollama_pull / ollama_delete with its own
+   host name.
 Run: python -m tests.test_local_control_api
 """
 from __future__ import annotations
@@ -160,6 +162,19 @@ def test_another_machines_host(ctx: Ctx):
     with Box() as h:
         status, body = h.api("POST", "local/host/pc/pull", {"name": "gemma3:4b"})
         ctx.check(f"pc (no member serves it here): 409 with the reason, got {status} {body}", status == 409 and "another machine" in body["error"])
+        ctx.check(f"3.3.8.1: the refusal ends with the way (serve there, join here, the grant), got {body['error']!r}",
+                  "a load is the owner's" in body["error"] and "`halo host serve` on 192.0.2.10" in body["error"]
+                  and "`halo host join 192.0.2.10` here" in body["error"] and "control` there" in body["error"]
+                  and "its own Studio" not in body["error"])
+        from halo_harness.providers import ollama_control as OC
+        asked, saved = [], OC.show
+        OC.show = lambda host, name: asked.append((host.url, name)) or {"ok": True, "show": {"template": "t"}, "facts": {}}
+        try:
+            ss, shown = h.api("GET", "local/host/pc/show", query={"model": "qwen3.6:27b"})
+        finally:
+            OC.show = saved
+        ctx.check(f"3.3.8.1: show on another machine's host is asked directly (a read is anyone's), got {ss} {asked}",
+                  ss == 200 and asked == [("http://192.0.2.10:11434", "qwen3.6:27b")] and shown["cli"].endswith("--host pc"))
     for level in ("none", "all"):
         hub = FakeHub(level, None)
         with Box() as h:

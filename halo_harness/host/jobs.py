@@ -17,6 +17,7 @@ import itertools
 import threading
 import time
 from typing import Callable, Optional
+from halo_harness.newest_first import newest_first  # 3.3.8.1: a same-ms tie, the later row first
 
 KEEP = 400
 KEEP_JOBS = 40
@@ -113,7 +114,7 @@ class Jobs:
 
     def list(self) -> list:
         with self._lock:
-            return [self.view(j) for j in sorted(self._jobs.values(), key=lambda j: -j["started"])]
+            return [self.view(j) for j in newest_first(self._jobs.values(), lambda j: j["started"])]
 
     def wait(self, jid: str, timeout: float = 10.0) -> Optional[dict]:
         """The tests' helper: the job's view once it is done (or as it stands at the timeout)."""
