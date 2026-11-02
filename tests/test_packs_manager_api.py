@@ -60,7 +60,7 @@ def test_the_manager_route_lists_the_shipped_pack(ctx: Ctx):
         ctx.check(f"its details read like halo pack inspect, got {d['name']} {d['halo_api']} {d['requested']}",
                   d["name"] == "Documentation Review" and d["halo_api"] == "1.0 to 1.9" and d["requested"] == ["mcp:lint", "hooks", "bash"]
                   and d["contributes_lines"][0] == "contributes:" and [w["ref"] for w in d["workflows"]] == ["doc-review/review"])
-        ctx.check("this Halo's API", body["halo_api"] == "1.0" and d["this_api"] == "1.0")
+        ctx.check("this Halo's API (1.1 since 3.3.10.0 R1)", body["halo_api"] == "1.1" and d["this_api"] == "1.1")
         status, _raw, _h = s.raw("/api/pack/manager", token="wrong")
         ctx.check(f"a wrong token is 401, got {status}", status == 401)
 
@@ -171,7 +171,7 @@ def test_compatibility_lines_in_the_doctors_words(ctx: Ctx):
                   and row["requires"] == [{"pack": "base-docs", "version": ">= 1.2", "met": False, "have": "", "running": False}])
         src = next(p for x in data["sources"] for p in x["packs"] if p["id"] == "future-api")
         ctx.check(f"an API range this Halo is outside, before you install it, got {src['details']['compat']}",
-                  src["details"]["compat"] == ["pack future-api needs extension API 9.0 or a later 9.x; this Halo has 1.0"])
+                  src["details"]["compat"] == ["pack future-api needs extension API 9.0 or a later 9.x; this Halo has 1.1"])
         status, body, _ = s.call("POST", "pack/install", {"id": "future-api"})
         ctx.check(f"and install refuses it with the same line, got {status} {body.get('problems')}", status == 422
                   and body["problems"] == src["details"]["compat"])

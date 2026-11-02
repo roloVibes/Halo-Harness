@@ -17,10 +17,11 @@ from pathlib import Path
 
 from halo_harness.packs import names as N
 
-KINDS = ("bios", "lineups", "agents", "skills", "commands", "mcp", "hooks")
+KINDS = ("bios", "lineups", "agents", "skills", "commands", "mcp", "hooks", "policies", "modes")  # 3.3.10.0 R1: + policies, modes
 LABELS = {"bios": ("bio", "bios"), "lineups": ("lineup", "lineups"), "agents": ("agent", "agents"),
           "skills": ("skill", "skills"), "commands": ("command", "commands"),
-          "mcp": ("MCP server", "MCP servers"), "hooks": ("hook event", "hook events")}
+          "mcp": ("MCP server", "MCP servers"), "hooks": ("hook event", "hook events"),
+          "policies": ("policy hook", "policy hooks"), "modes": ("mode", "modes")}
 
 
 def _safe(fn, default):
@@ -58,6 +59,8 @@ def offers(pack) -> "dict[str, list[str]]":
         from halo_harness.hooks import load_plugin_hooks
         return sorted(load_plugin_hooks(root))
 
+    from halo_harness.packs import manifest_policy as MP  # 3.3.10.0 R1: the pack's policy hooks and modes
+    out["policies"], out["modes"] = MP.ids(MP.policies_of(pack.manifest)), MP.ids(MP.modes_of(pack.manifest))
     for kind, fn in (("agents", agents), ("skills", skills), ("commands", commands), ("mcp", mcp), ("hooks", hooks)):
         out[kind] = _safe(fn, [])
     return out

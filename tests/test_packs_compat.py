@@ -34,8 +34,11 @@ def _with_range(src: Path, api: str, halo: str = "") -> None:
 @test
 def test_the_policy_functions(ctx: Ctx):
     import halo_harness.ext as ext
+    from halo_harness.ext import compat
     from halo_harness.ext.compat import range_words
-    ctx.check("api_version() is API_VERSION", ext.api_version() == ext.API_VERSION == "1.0")
+    ctx.check("api_version() is API_VERSION", ext.api_version() == ext.API_VERSION == "1.1")
+    ctx.check("a 1.0 pack keeps everything on 1.1 (3.3.10.0 R1)", ext.compatible({"min": "1.0"}) and ext.compatible({"min": "1.0", "max": "1.9"})
+              and "everything" in compat.CHANGES["1.1"]["keeps"] and "set_mode" in compat.CHANGES["1.1"]["adds"])
     cases = [({"min": "1.0", "max": "1.9"}, "1.0", True), ({"min": "1.0", "max": "1.9"}, "1.9.4", True),
              ({"min": "1.0", "max": "1.9"}, "2.0", False), ({"min": "1.2", "max": "1.9"}, "1.0", False),
              ({"min": "1.0"}, "1.7", True), ({"min": "1.0"}, "2.0", False), ({"min": "2.0"}, "1.0", False),
@@ -79,7 +82,7 @@ def test_the_same_line_on_the_cli_and_in_studio(ctx: Ctx):
         src = s.source()
         _with_range(src, 'halo_api: {min: "1.2", max: "1.9"}')
         code, _out, err = s.cli("install", str(src))
-        line = "pack doc-review needs extension API 1.2 to 1.9; this Halo has 1.0"
+        line = "pack doc-review needs extension API 1.2 to 1.9; this Halo has 1.1"
         ctx.check(f"the CLI refuses with the one line, got {err!r}", code == 1 and err.strip() == f"halo pack: {line}")
         status, body, _ = s.call("POST", "pack/install", {"source": str(src)})
         ctx.check(f"Studio's Install answers the same line, got {status} {body}", status == 422 and body["problems"] == [line])
@@ -120,12 +123,14 @@ def test_a_deprecated_name_gets_a_doctor_row(ctx: Ctx):
 def test_the_doc_states_the_policy(ctx: Ctx):
     doc = (REPO / "docs" / "EXTENSION_API.md").read_text(encoding="utf-8")
     section = doc.split("## Compatibility and migration", 1)[1].split("\n## ", 1)[0]
-    for needle in ("pack doc-review needs extension API 1.2 to 1.9; this Halo has 1.0", "pack x needs Halo >= 3.3; this is 3.2.0.0",
+    for needle in ("pack doc-review needs extension API 1.2 to 1.9; this Halo has 1.1", "pack x needs Halo >= 3.3; this is 3.2.0.0",
                    "### Changes in 1.x", "### Updating a pack", "### Rolling back", "deprecations()", "compatible(", "api_version()"):
         ctx.check(f"the section has {needle!r}", needle in section)
     rows = [r for r in doc.split("## Status of each part", 1)[1].split("\n## ", 1)[0].splitlines() if r.startswith("| [")]
-    ctx.check(f"every part is stable or removed, got {[r.split('|')[2].strip() for r in rows]}",
-              rows and all(r.split("|")[2].strip() == "stable" or r.split("|")[2].strip().startswith("removed") for r in rows))
+    ctx.check(f"every part is stable, draft or removed, got {[r.split('|')[2].strip() for r in rows]}",
+              rows and all(r.split("|")[2].strip() in ("stable", "draft") or r.split("|")[2].strip().startswith("removed") for r in rows))
+    drafts = [r.split("|")[1].strip() for r in rows if r.split("|")[2].strip() == "draft"]
+    ctx.check(f"3.3.10.0 R1: the first draft row is Policy hooks, got {drafts}", drafts == ["[Policy hooks](#policy-hooks)"])
     init = (REPO / "halo_harness" / "ext" / "__init__.py").read_text(encoding="utf-8")
     ctx.check("ext's docstring states the policy next to API_VERSION", "The version policy" in init and "a minor adds names" in init)
     data = json.loads((REPO / "halo_harness" / "packs" / "schema" / "pack.schema.json").read_text(encoding="utf-8"))
