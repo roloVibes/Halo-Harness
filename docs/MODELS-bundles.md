@@ -32,8 +32,8 @@ Before anything downloads, `local_sched/bundle_fit.verdict` does the arithmetic 
 plus the KV at each need's window plus the per-card reserve, against the usable memory (the card's budget, minus
 what other programs hold, minus the duty steward's helper; a paired halo host's `route` answer when one serves the
 card) minus the other bundles' reservations. A need is filled by the first of its `any_of` that is installed there
-(else the first with a known size: a download); a speech model on `cpu-or-gpu` runs on the CPU (the smallest of its
-list: no VRAM); a `verify` role never takes the coder's own family; `vision: true` takes only a model that sees. Three
+(else the first with a known size: a download); a speech need resolves through the speech catalog (see "Speech needs
+resolve" below); a `verify` role never takes the coder's own family; `vision: true` takes only a model that sees. Three
 outcomes, one line each:
 
     ready      fits today -- 1.2 GB reserved leaves ~20.8 GB, the coder (18.9 GB) still fits beside it, barely;
@@ -133,8 +133,22 @@ task work to the coder when it fits beside, else the cloud), **bulk-worker** (a 
 the many small jobs), **verifier** (another family than the coder), **compactor**, **embeddings** (memory search,
 dedupe), **translation**, **vision** (a model that sees, loaded when an image arrives: nothing reserved),
 **offline-only** (no cloud rung while it is on), **coder-first** (no reservation: the coder gets the card) and
-(3.3.8.0 R4) **big-reasoner** (the pool reserved for a reasoning lane, the coder resident on this card). The
-speech models of the voice bundle arrive with 3.3.8.0 Voice; this round ships the claim and the verdict.
+(3.3.8.0 R4) **big-reasoner** (the pool reserved for a reasoning lane, the coder resident on this card). The voice
+bundle's speech models are the speech catalog's (3.3.9.0 R1, [VOICE.md](VOICE.md)): present or a download in its
+verdict, served by `halo local serve --stt | --tts`; the voice loop itself is 3.3.9.0 R2's.
+
+## Speech needs resolve (3.3.9.0 R1)
+
+A need whose models are speech models (`stt`, `tts`; runtime `voice`) resolves through the speech catalog and what is
+on disk (`local_sched/bundle_voice.py`): on the CPU the smallest of its `any_of`, on the GPU the first, a present one
+before an absent one. Present, it costs its footprint on the device the need allows -- `device: cpu` the CPU figure
+and no VRAM, `device: gpu` the GPU figure, `cpu-or-gpu` the GPU figure when the first of its `any_of` fits beside the
+bundle and the coder, else the CPU (the warning line "GPU STT (faster-whisper:large-v3-turbo, 1.5 GB) would break
+that" says why). The verdict says each one: `stt: faster-whisper:small.en present (0.5 GB on the GPU, 0.9 GB on the
+CPU)`. Absent, it is one download of the verdict, the class a missing Ollama model gets: `stt: not present -- halo
+voice download faster-whisper:small.en (0.5 GB)`, the state "needs 1 download", the line in `halo pack verdict` and
+`halo pack on`'s answer; the button pulls the Ollama tags only (a speech model comes from the hub, not a pull). A name
+the catalog does not hold is said so and never sized.
 
 ## What a reservation cannot stop
 

@@ -4,7 +4,10 @@ folder (`models`), whose `huggingface.llama_server_bin` is the fake (tests/helpe
 Ollama host `box` (127.0.0.1:9, never asked: its card comes from the ollama_hosts_view.READERS seam) is this
 machine's card; the fake hub (tests/helpers/mock_hub.py) on 127.0.0.1:0 named by HF_ENDPOINT with a GGUF repo
 (two quants), an MLX repo and a gated one; the test flag on, OLLAMA_HOST on a refused port, HF_TOKEN unset unless
-a test sets it. Nothing reaches anything but the fakes.
+a test sets it. 3.3.9.0 R1: the hub also holds two speech repos (faster-whisper:small.en's and kokoro-82m's, the files
+their engines load plus a README the download leaves out: tests/helpers/voice_files.hub_files) and
+`huggingface.voice_server_cmd` is the fake speech server (tests/helpers/fake_voice_server.py, HALO_VOICE_ENGINE=fake).
+Nothing reaches anything but the fakes.
 """
 from __future__ import annotations
 
@@ -17,12 +20,15 @@ from pathlib import Path
 from tests.helpers.mock_hub import MockHub, gguf_bytes
 
 FAKE = Path(__file__).resolve().parent / "fake_llama_server.py"
+FAKE_VOICE = Path(__file__).resolve().parent / "fake_voice_server.py"
+SPEECH = ("faster-whisper:small.en", "kokoro-82m")
 GGUF = "example-org/Tiny-1B-GGUF"
 MLX = "mlx-community/Tiny-4bit"
 GATED = "example-org/Gated-2B-GGUF"
 TOKEN = "hf_fixture_token"
 _VARS = ("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR", "BRIDGE_TEST_NO_BACKGROUND_NET", "HF_ENDPOINT", "HF_TOKEN", "OLLAMA_HOST",
-         "FAKE_LLAMA_LOAD_S", "FAKE_LLAMA_EXIT")
+         "FAKE_LLAMA_LOAD_S", "FAKE_LLAMA_EXIT", "HALO_VOICE_ENGINE", "HALO_VOICE_FAKE_DEVICES", "HALO_VOICE_FAKE_FAIL",
+         "HALO_VOICE_FAKE_LOAD_S", "HALO_VOICE_FAKE_MS")
 GIB, MIB = 2 ** 30, 2 ** 20
 
 
@@ -39,7 +45,7 @@ class HfHome:
         from halo_harness.studio import local_hf_view, local_pull_job as J, ollama_hosts_view as V
         self._saved = {k: os.environ.get(k) for k in _VARS}
         self.root = Path(tempfile.mkdtemp(prefix="l4_hf-")).resolve()
-        for k in ("BRIDGE_STATE_DIR", "HF_TOKEN", "FAKE_LLAMA_LOAD_S", "FAKE_LLAMA_EXIT"):
+        for k in ("BRIDGE_STATE_DIR", "HF_TOKEN") + _VARS[6:]:
             os.environ.pop(k, None)
         self.hub = MockHub().start()
         os.environ.update(BRIDGE_TEST_HOME=str(self.root), BRIDGE_TEST_NO_BACKGROUND_NET="1", HF_ENDPOINT=self.hub.base_url,
@@ -54,6 +60,10 @@ class HfHome:
                            "model.safetensors": b"\0" * 80_000, "tokenizer.json": b"{}"}, kind="mlx")
         self.hub.add(GATED, {"Gated-2B-Q4_K_M.gguf": gguf_bytes(90_000, "g")}, gated="manual", token=TOKEN, license="gemma",
                      prompt="Accept the fixture licence.")
+        from halo_harness.voice.catalog import get
+        from tests.helpers.voice_files import hub_files
+        for name in SPEECH:
+            self.hub.add(get(name).repo, {**hub_files(name), "README.md": b"# a speech model\n"}, kind="voice")
         self.write_config()
         V.reset_cache()
         V.READERS.update({"card": lambda host: box_card(), "catalog": lambda host: {"models": []}})
@@ -63,7 +73,8 @@ class HfHome:
 
     def write_config(self, **extra) -> None:
         cfg = {"ollama": {"hosts": [{"name": "box", "url": "http://127.0.0.1:9", "max_ctx": 32768}]},
-               "huggingface": {"model_dirs": [str(self.models)], "llama_server_bin": [sys.executable, str(FAKE)]}}
+               "huggingface": {"model_dirs": [str(self.models)], "llama_server_bin": [sys.executable, str(FAKE)],
+                               "voice_server_cmd": [sys.executable, str(FAKE_VOICE)]}}
         cfg.update(extra)
         (self.state / "config.json").write_text(json.dumps(cfg, indent=2), encoding="utf-8")
 
@@ -102,4 +113,4 @@ class HfHome:
                 os.environ[k] = v
 
 
-__all__ = ["FAKE", "GATED", "GGUF", "HfHome", "MLX", "TOKEN", "box_card"]
+__all__ = ["FAKE", "FAKE_VOICE", "GATED", "GGUF", "HfHome", "MLX", "SPEECH", "TOKEN", "box_card"]

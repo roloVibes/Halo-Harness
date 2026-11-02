@@ -176,6 +176,9 @@ def vision(row, card, p):
 
 
 def audio(row, card, p):
+    from halo_harness.voice.catalog import library_link  # 3.3.9.0 R1: a speech catalog row names itself
+    if hit := library_link(row, card):
+        return fact(True, D, hit)
     if "audio" in [str(c).lower() for c in row.get("capabilities") or []]:
         return fact(True, D, "the library's chips: audio")
     if hit := _tag_hit(row, ("automatic-speech-recognition", "text-to-speech", "audio", "speech", "audio-text-to-text")):

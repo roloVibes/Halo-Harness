@@ -165,8 +165,10 @@ def cmd_servers(argv: list) -> int:
     for e in rows:
         f = e.get("flags") or {}
         state = ("ready" if e.get("ready") else "loading") if e.get("alive") else "gone"
-        print(f"{e['id']}  {e.get('kind')}  http://127.0.0.1:{e.get('port')}  {state}  hf:local/{e.get('model')}"
-              f"  -c {f.get('window')} -ngl {f.get('ngl')} -np {f.get('parallel')}{'  (keep)' if e.get('keep') else ''}")
+        speech = str(e.get("kind") or "").startswith("voice-")  # 3.3.9.0 R1: a speech server has a device, no window
+        print(f"{e['id']}  {e.get('kind')}  http://127.0.0.1:{e.get('port')}  {state}  "
+              + (f"{e.get('model')}  device {e.get('device')}" if speech else f"hf:local/{e.get('model')}"
+                 f"  -c {f.get('window')} -ngl {f.get('ngl')} -np {f.get('parallel')}") + ("  (keep)" if e.get("keep") else ""))
         print(f"  {e.get('model_path')}  log: {e.get('log')}")
     if not rows:
         print("no server Halo started: halo local serve <path> (halo local ls lists the models)")
