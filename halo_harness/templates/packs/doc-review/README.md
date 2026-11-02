@@ -27,7 +27,7 @@ Once enabled, its own section "Docs review" comes after the core sections.
 uses. `halo` is the Halo it needs (the release it ships in: `{min: "3.2"}`
 from 3.2.0.0). Install refuses a pack whose range this Halo is outside, with
 one line saying which: `pack doc-review needs extension API 1.2 to 1.9; this
-Halo has 1.0`.
+Halo has 1.1`.
 
 ## Make your own pack from this one
 

@@ -24,6 +24,12 @@
     halo pack on <bundle> [--host H] [--json]         turn a bundle on: its reservation claimed
     halo pack off <bundle> [--json]                   turn it off: released, keep_alive put back
     halo pack list --bundles [--host H] [--json]      every bundle, on or off, with its verdict line
+    halo pack mode <pack> <mode> on|off [--note T] [--json]
+                                                      3.3.10.0 R1 (draft): a pack's runtime mode (mode.json); on arms
+                                                      the policy hooks that name it (packs/cli_policy.py)
+    halo pack policy status|arm|disarm|test ... [--json]
+                                                      the policy hooks: status, arm <pack> <policy>, disarm <pack>
+                                                      [<policy>], test <pack> <policy> <tool> '<json>' (a dry run)
 
 Every verb takes `--cwd DIR` (act as if run from DIR: its `.halo/packs/`).
 Exit codes: 0 done, 1 could not (the reason on stderr; for doctor: problems
@@ -38,7 +44,8 @@ import sys
 from pathlib import Path
 
 VERBS = ("list", "inspect", "install", "enable", "grant", "disable", "update", "rollback", "remove", "sources", "doctor",
-         "verdict", "on", "off")  # 3.3.7.0 R5: the bundle verbs (packs/cli_bundle.py)
+         "verdict", "on", "off",  # 3.3.7.0 R5: the bundle verbs (packs/cli_bundle.py)
+         "mode", "policy")  # 3.3.10.0 R1: the runtime mode and the policy hooks (packs/cli_policy.py)
 USAGE = __doc__.split("\n\n")[1]
 
 
@@ -190,6 +197,9 @@ def cmd_pack(argv: list) -> int:
     verb = argv[0]
     if verb not in VERBS:
         return _err(f"unknown verb {verb!r}; one of {', '.join(VERBS)}", 2)
+    if verb in ("mode", "policy"):
+        from halo_harness.packs.cli_policy import cmd as policy_cmd
+        return policy_cmd(verb, argv[1:])
     if verb in ("verdict", "on", "off") or (verb == "list" and "--bundles" in argv):
         from halo_harness.packs.cli_bundle import cmd
         return cmd(verb, argv[1:])

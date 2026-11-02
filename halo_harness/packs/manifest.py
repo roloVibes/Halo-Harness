@@ -75,7 +75,8 @@ def needed(data, root) -> "list[tuple[str, str]]":
             out.append(("network", f"MCP server {server} (a url)"))
     from halo_harness.packs.studio_rules import SCRIPT, bundle_ids  # 3.2.0.0 R3: a Studio bundle panel runs a script
     out += [(SCRIPT, f"Studio panel {pid} (a bundle)") for pid in bundle_ids(data)]
-    return out
+    from halo_harness.packs.manifest_policy import needs as policy_needs  # 3.3.10.0 R1: a policy rides on hooks
+    return out + policy_needs(data)
 
 
 def _permission_lines(data, root) -> "list[str]":
@@ -223,6 +224,8 @@ def validate_manifest(data, *, root=None, folder_is_id: bool = False) -> "list[s
     out += typed_lines(data, root) + workflow_lines(data, root)
     from halo_harness.packs.manifest_bundle import bundle_lines  # 3.3.7.0 R5: a bundle's resource claim
     out += bundle_lines(data)
+    from halo_harness.packs.manifest_policy import policy_lines  # 3.3.10.0 R1: contributes.policy and .modes
+    out += policy_lines(data, root)
     if root is not None:
         root = Path(root)
         out += _file_lines(data, root)

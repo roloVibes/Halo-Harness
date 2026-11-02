@@ -30,7 +30,7 @@ def _versions(api_version: Optional[str], halo_version: Optional[str]) -> "tuple
 def compat_lines(pack, *, api_version=None, halo_version=None) -> "list[str]":
     """The pack's `halo_api` and `halo` ranges against this Halo, one line each in the policy's words
     (3.2.0.0 R7, ext/compat.py: no `max` means the `min`'s major only):
-    "pack doc-review needs extension API 1.2 to 1.9; this Halo has 1.0", "pack x needs Halo >= 3.3; this is 3.2.0.0"."""
+    "pack doc-review needs extension API 1.2 to 1.9; this Halo has 1.1", "pack x needs Halo >= 3.3; this is 3.2.0.0"."""
     from halo_harness.ext.compat import compatible, range_words
     api, halo = _versions(api_version, halo_version)
     out = []

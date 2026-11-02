@@ -16,7 +16,8 @@ granted, and a use of an extension API name announced for removal (3.2.0.0 R7, p
 two packs, or a pack and you,
 offering one name; a pack shadowed by a same-id project pack; a state.json
 record whose folder is gone; a bio or lineup file the manifest does not
-list; and what `privacy_scan` finds in the pack's text files.
+list; what `privacy_scan` finds in the pack's text files; and (3.3.10.0 R1) a mode or an armed policy
+mode.json names that the manifest does not declare (a policy whose `run` is missing is a manifest problem).
 """
 
 from __future__ import annotations
@@ -106,6 +107,8 @@ def problems(*, cwd=None, state_dir=None) -> "list[dict]":
                     for r in CW.doctor_rows(pack, S.granted(pack.id, snap.state), cwd=cwd, state_dir=state_dir)]
             from halo_harness.packs.deprecations import update_request_rows  # 3.2.0.0 R7: a grant the update asked for
             out += update_request_rows(pack, S.entry(pack.id, data=snap.state) or {}, S.granted(pack.id, snap.state))
+        from halo_harness.packs.policy_views import doctor_rows as policy_rows  # 3.3.10.0 R1: mode.json vs the manifest
+        out += [_p(pack.id, r["severity"], r["check"], r["text"], r["fix"], r["path"]) for r in policy_rows(pack, state_dir)]
         from halo_harness.packs.deprecations import deprecated_rows  # 3.2.0.0 R7: an ext name announced for removal
         out += deprecated_rows(pack)
         out += [_p(pack.id, "warns", "undeclared", line, "list it in pack.yaml", yaml_path)

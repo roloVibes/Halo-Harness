@@ -65,7 +65,7 @@ def test_install_from_a_source(ctx: Ctx):
 @test
 def test_the_details_block_and_a_grant_picked_for_enable(ctx: Ctx):
     got = _got(ctx)
-    ctx.check(f"the API range beside this Halo's, got {got.get('api')!r}", got.get("api") == "1.0 to 1.9; this Halo has 1.0")
+    ctx.check(f"the API range beside this Halo's, got {got.get('api')!r}", got.get("api") == "1.0 to 1.9; this Halo has 1.1")
     ctx.check(f"no dependency, got {got.get('requires')!r}", got.get("requires") == "no other pack")
     text = str(got.get("contributes"))
     ctx.check(f"inspect's contributes block, got {text!r}", "Studio section docs (Docs review)" in text

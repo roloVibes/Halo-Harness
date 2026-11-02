@@ -273,7 +273,7 @@ A reservation (3.3.7.0 R5) is a bundle's claim on a card for as long as it is on
 
 ## verdict
 
-A verdict (3.3.7.0 R5) is a bundle's honest answer before anything downloads: ready (everything is here and it fits, with the expected latency), needs N downloads (each tag with its size, its fit and the minutes, and one button that starts Download and verify) or won't work (what it needs against what there is, and the ways out, each a number: a speech model on the CPU, a smaller model, a smaller window). It is arithmetic over the card, the catalog and the claims; nothing is guessed.
+A verdict (3.3.7.0 R5) is a bundle's honest answer before anything downloads: ready (everything is here and it fits, with the expected latency), needs N downloads (each tag with its size, its fit and the minutes, and one button that starts Download and verify) or won't work (what it needs against what there is, and the ways out, each a number: a speech model on the CPU, a smaller model, a smaller window). It is arithmetic over the card, the catalog and the claims; nothing is guessed. A policy hook's verdict (3.3.10.0 R1, draft) is another one: the pack's answer to one tool call, `allow`, `deny` or `ask` with the pack's own reason and the rule that fired (`deny -- fence: outside the project`); a late, malformed or missing answer is the policy's `on_error`, and several armed packs resolve deny over ask over allow.
 
 ## pool
 
@@ -345,3 +345,11 @@ The voice door (3.3.9.0 R3) is the halo host's `POST /host/v1/voice/turn`: one u
 ## talk
 
 Talk (3.3.9.0 R3) is Studio's Local -> Voice button: the browser's microphone into a Halo session -- press to record, press again to send, the transcript put to the session as typed text and the reply played in the page -- with no PortAudio or voice extra on the client. Its first press says what it does and costs (the microphone permission, the speech servers it starts, the seconds).
+
+## policy hook
+
+A policy hook (3.3.10.0 R1, draft) is a pack's own check on tool calls: a command in the pack (`contributes.policy`, the `hooks` grant) that Halo starts once when the policy is armed and asks about each matching call, one JSON line in, one verdict out, within `packs.policy.budget_ms` (2000 ms). `when.tools` decides which calls it sees (an armed hook sees every matching tool input, a Write's content included) and `redact` takes named secrets out first. `halo pack policy status | arm | disarm | test`; nothing enforces a verdict until 3.3.10.0 R2.
+
+## pack mode
+
+A pack mode (3.3.10.0 R1, draft) is a pack's runtime switch, declared under `contributes.modes` and recorded in `~/.halo/packs/.data/<id>/mode.json` with the policies it armed: turning a mode on arms each policy whose `when.modes` names it, turning it off disarms them, and every change is the pack's `mode` event. `halo pack mode <pack> <mode> on | off`, or `ext.set_mode` from the pack's own code; the label shows in the TUI and Studio from 3.3.12.0, with the mode's theme.

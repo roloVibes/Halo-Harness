@@ -1,0 +1,19 @@
+# A fixture pack with one policy hook and one mode (3.3.10.0 R1, docs/EXTENSION_API.md "Policy hooks"):
+# `fence` answers a Write or Edit whose path is outside the project folder with deny, every other call with
+# allow; a late, malformed or missing answer is deny too (on_error: deny). It runs once the pack is enabled
+# with the hooks grant and armed, here by its mode: halo pack mode policy-fence fenced on.
+id: policy-fence
+name: Policy fence
+version: 0.1.0
+description: Keeps a session's writes inside the project folder while the fenced mode is on.
+halo_api: {min: "1.1"}
+contributes:
+  policy:
+    - id: fence
+      run: ["${halo_python}", "${CLAUDE_PLUGIN_ROOT}/policy/fence.py"]
+      when: {tools: [Write, Edit], modes: [fenced]}
+      impact: high
+      on_error: deny
+  modes:
+    - {id: fenced, label: Fenced}
+permissions: [hooks]

@@ -1,12 +1,13 @@
 """halo_harness.ext -- the extension API a pack's code imports (Halo 3.2.0.0
-R1, docs/EXTENSION_API.md). Stable at `API_VERSION` 1.0: a name listed in
+R1, docs/EXTENSION_API.md). `API_VERSION` 1.1 (3.3.10.0 R1: + set_mode,
+current_mode; a 1.0 pack keeps everything): a name listed in
 `__all__` keeps its meaning for every 1.x; a pack imports this package and
 nothing else of `halo_harness` (tests/test_ext_api.py checks the fixture
 packs for exactly that).
 
     from halo_harness.ext import API_VERSION, read_yaml, get_config, publish_event
 
-    API_VERSION / HALO_API_VERSION  "1.0": what pack.yaml's `halo_api` range is matched against
+    API_VERSION / HALO_API_VERSION  "1.1": what pack.yaml's `halo_api` range is matched against
     api_version() / compatible(range) / deprecations()
                                     3.2.0.0 R7: this API's version, whether a `halo_api` range takes it under the
                                     policy below, the names announced for removal (none in 1.0)
@@ -25,6 +26,9 @@ packs for exactly that).
     memory.write(namespace, text, provenance=None)
                                     a note in the pack's memory namespace with its provenance (3.2.0.0 R5)
     is_granted(pack_id, permission) whether you granted the pack a permission it requests
+    set_mode(pack_id, mode_id, on=True) / current_mode(pack_id)
+                                    3.3.10.0 R1 (API 1.1, draft): the pack's runtime mode (mode.json); turning a
+                                    mode on arms the policy hooks that name it
     Unit                            the unit of work (halo_harness.work.unit.Unit)
     is_valid_pack_id, is_valid_name, qualified_name, split_name
                                     the name rules (`<id>--<name>` for a pack's bios and lineups)
@@ -40,7 +44,7 @@ is inclusive at its own precision, and with no `max` the pack runs on its `min`'
 
 from __future__ import annotations
 
-API_VERSION = "1.0"  # MAJOR.MINOR: a minor adds names, a major removes only names deprecations() announced
+API_VERSION = "1.1"  # 3.3.10.0 R1: 1.1 adds set_mode, current_mode. MAJOR.MINOR: a minor adds names, a major removes only names deprecations() announced
 HALO_API_VERSION = API_VERSION
 
 from halo_harness.ext.compat import api_version, compatible, deprecations  # noqa: E402  (3.2.0.0 R7)
@@ -49,6 +53,7 @@ from halo_harness.ext.events import publish_event  # noqa: E402
 from halo_harness.ext.files import data_dir, pack_dir, write_private  # noqa: E402
 from halo_harness.ext.grants import is_granted  # noqa: E402
 from halo_harness.ext import memory  # noqa: E402  (3.2.0.0 R5: memory.write)
+from halo_harness.ext.mode import current_mode, set_mode  # noqa: E402  (3.3.10.0 R1, API 1.1)
 from halo_harness.ext.names import is_valid_name, is_valid_pack_id, qualified_name, split_name  # noqa: E402
 from halo_harness.ext.schema import check_schema  # noqa: E402
 from halo_harness.ext.yamlio import read_yaml, write_yaml  # noqa: E402
@@ -57,4 +62,5 @@ from halo_harness.work.unit import Unit  # noqa: E402
 __all__ = ["API_VERSION", "HALO_API_VERSION", "read_yaml", "write_yaml", "check_schema", "get_config",
            "set_config", "write_private", "pack_dir", "data_dir", "publish_event", "is_granted", "Unit",
            "is_valid_pack_id", "is_valid_name", "qualified_name", "split_name", "memory",
-           "api_version", "compatible", "deprecations"]  # 3.2.0.0 R7: the version policy
+           "api_version", "compatible", "deprecations",  # 3.2.0.0 R7: the version policy
+           "set_mode", "current_mode"]  # 3.3.10.0 R1: API 1.1

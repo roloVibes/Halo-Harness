@@ -216,13 +216,15 @@ and `packs/interpreter.py` (`${halo_python}` and PYTHONPATH for a pack's hook
 and MCP server; 3.2.1.0 R4: `${CLAUDE_PLUGIN_ROOT}` in any plugin hook's shell
 `command`, filled for the quotes it sits in, forward slashes on Windows).
 
-**The extension API** (`halo_harness/ext/`, API 1.0, docs/EXTENSION_API.md):
+**The extension API** (`halo_harness/ext/`, API 1.1 since 3.3.10.0 R1, docs/EXTENSION_API.md):
 `ext/names.py` (the name rules), `ext/yamlio.py` (`read_yaml`, `write_yaml`),
 `ext/schema.py` (`check_schema`), `ext/config.py` (`get_config`,
 `set_config`), `ext/files.py` (`pack_dir`, `data_dir`, `write_private`),
 `ext/events.py` (`publish_event`), `ext/grants.py` (`is_granted`),
 `ext/memory.py` (`memory.write`, 3.2.0.0 R5), `ext/compat.py` (the version policy: `api_version`,
-`compatible`, `deprecations`, 3.2.0.0 R7); the package's `__init__` is the contract.
+`compatible`, `deprecations`, 3.2.0.0 R7; `CHANGES`, what each minor added, 3.3.10.0 R1), `ext/mode.py`
+(`set_mode`, `current_mode`, API 1.1); the package's `__init__` is the contract.
+
 
 **Isolation** (`halo_harness/isolation/`, Halo 3.1.8.0 R5, docs/ISOLATION.md):
 `isolation/spec.py` (the `isolation` / `secrets` declarations, their

@@ -456,8 +456,8 @@ and what to do:
 | pack.yaml is not YAML | `bad-yaml: pack.yaml: it does not read as a YAML mapping (key: value)` | fix the file (`halo pack inspect <folder>` reads it again) |
 | no id, or a bad one | `no-id: pack.yaml: id: required`; `Doc_Review: pack.yaml: id 'Doc_Review' is not a pack id: ...` | give it an id of lower-case letters, digits and single hyphens |
 | any other manifest problem | `<id>: pack.yaml: <the key and what is wrong>` (an unknown key names the closest) | fix pack.yaml; the pack installs and runs once it validates |
-| written for a newer extension API | `pack <id> needs extension API 1.2 to 1.9; this Halo has 1.0` | update Halo, or install an older version of the pack |
-| written for an older extension API | `pack <id> needs extension API 0.5 to 0.9; this Halo has 1.0` | install a newer version of the pack (its author widens `halo_api`) |
+| written for a newer extension API | `pack <id> needs extension API 1.2 to 1.9; this Halo has 1.1` | update Halo, or install an older version of the pack |
+| written for an older extension API | `pack <id> needs extension API 0.5 to 0.9; this Halo has 1.1` | install a newer version of the pack (its author widens `halo_api`) |
 | needs a newer Halo | `pack <id> needs Halo >= 9.0; this is 3.2.0.0` | update Halo |
 | a required pack is missing | `<id> requires base-docs, which is not installed` | `halo pack install base-docs`, then enable it |
 | a required pack is off or too old | `<id> requires base-docs, which is installed but not enabled (halo pack enable base-docs)`; `<id> requires base-docs 2.0 to 2.9; 1.4.0 is installed` | enable it, or update it |
@@ -555,6 +555,19 @@ reservation; off releases it and disables the pack. `halo pack verdict | on | of
 --bundles` ([COMMANDS-packs.md](COMMANDS-packs.md#bundles)); the arithmetic, the reservation and the routing are in
 [MODELS-bundles.md](MODELS-bundles.md).
 
+## Modes and policy hooks
+
+A pack may declare **modes** and **policy hooks** (3.3.10.0 R1, draft; the contract:
+[EXTENSION_API.md](EXTENSION_API.md#policy-hooks)). A policy hook is a command in the pack that Halo starts once and
+asks about each tool call it names (`when.tools`), one JSON line in and one verdict out -- `allow`, `deny` or `ask`
+with the pack's own reason -- within `packs.policy.budget_ms` (2000 ms); a mode is a switch that arms the policies
+that name it. Both are recorded in the pack's `mode.json`, which `halo pack mode <pack> <mode> on | off` and `halo
+pack policy arm | disarm` write, and `halo pack policy status` reads; `halo pack policy test` runs a verdict without a
+session ([COMMANDS-packs.md](COMMANDS-packs.md#modes-and-policy-hooks)). A policy needs the `hooks` grant, and an
+armed hook sees every matching tool input, a Write's content included, so read its `when.tools` and `redact` before
+you grant it. In this version nothing enforces a verdict: 3.3.10.0 R2 runs armed policies before the permission
+engine; a pack without policies and modes is untouched.
+
 ## The reference pack
 
 Halo ships one pack, **Documentation Review** (`doc-review`,
@@ -577,7 +590,8 @@ finds nothing of it left.
 
 A pack asks for what its contributions need: `mcp:<server>` for each MCP
 server (and `network` for one reached by a url), `hooks` for its hooks,
-`bash`, `network` and `home-write` for its own code and its bios' `tools.needs`. Nothing it asks for runs
+`bash`, `network` and `home-write` for its own code and its bios' `tools.needs`, and `hooks` for a policy hook
+(3.3.10.0 R1). Nothing it asks for runs
 until you grant it: an ungranted MCP server does not start, ungranted hooks
 do not load, and doctor names each one with the command that grants it.
 Grants add up across `enable` calls and live in state.json; `disable`
