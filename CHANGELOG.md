@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.3.8.1] - unreleased
+## [3.3.8.1] - 2026-11-02
 
 **Bench from any halo.** The owner, from his MacBook against this PC's Ollama: "I should be able to benchmark the
 models from any halo that is using the local models on the network" -- a Bench on a host another machine serves,
