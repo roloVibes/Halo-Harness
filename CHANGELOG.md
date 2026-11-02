@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.3.8.0] - unreleased
+## [3.3.8.0] - 2026-11-01
 
 **Pooled.** The owner's distributed-LLM drop (plans/pooled-inference-spec.md, -research.md, -model-candidates.md:
 one model larger than any single card across the GPU memory of several LAN machines with llama.cpp RPC; pooling
