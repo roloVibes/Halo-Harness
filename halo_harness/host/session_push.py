@@ -42,7 +42,8 @@ def _work(state_dir) -> None:
     try:
         push_all(state_dir)
         stop.wait(SEAMS.get("wait_s", FLUSH_S + 1.0))
-        push_all(state_dir)
+        push_all(state_dir, force=True)  # the lines that arrived during the wait go now: the cached pusher's cadence
+        # gate would hold them until another call (Linux run 41368923557: the second of two lines never left the peer)
     except Exception:
         pass
     finally:
