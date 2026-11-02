@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.3.9.0] - unreleased
+## [3.3.9.0] - 2026-11-02
 
 **Voice.** Talk to a Halo session and hear it answer, entirely locally (plans/local-model-fit-brief.md Part K), in three
 rounds. The speech models are file-backed local models like any GGUF: a catalog of seven (faster-whisper, Parakeet,
