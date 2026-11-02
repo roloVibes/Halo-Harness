@@ -10,6 +10,23 @@ version.
 
 ## [3.3.9.0] - unreleased
 
+**Voice.** Talk to a Halo session and hear it answer, entirely locally (plans/local-model-fit-brief.md Part K), in three
+rounds. The speech models are file-backed local models like any GGUF: a catalog of seven (faster-whisper, Parakeet,
+Kokoro, Qwen3-TTS, Silero VAD; every repo id written from memory and marked unverified until a download), `halo voice
+models | download | rm`, Halo's own OpenAI-compatible speech server (`halo local serve --stt | --tts`, the `voice-stt` /
+`voice-tts` runtimes the steward reads with `stt-slow` / `tts-slow` / `voice-cpu`), the fit that is real -- a speech need
+is present or "download N GB", never "arrives with Voice" (R1); the loop -- the microphone, Silero VAD, the stt server,
+the session through the same door as typed text (a transcript mid-turn steers), the reply stream through a sentence
+aggregator into the tts server and the speaker while the model still writes, barge-in, hands-free or press-to-talk,
+`/voice`, `halo voice`, the per-turn latency card against the bundle's budget, `halo voice stats`, the steward's
+`voice-slow`, the `voice-local` bundle (R2); the speech servers for every halo on the LAN through a paired `halo host`
+(`stt@pc`, the link stage on the card), the host's voice door (one utterance in, the reply's audio and card out, behind
+the `control` grant), `halo voice client --host`, Studio Local -> Voice with Talk from the browser's microphone, the
+Meta glasses contract as a document (the phone app is the reader's; every toolkit line to be checked against Meta's
+docs), the CPU path for a box without a GPU (R3). Nothing here has run against a real microphone or a real speech
+model yet: the engine calls and the toolkit details are written from source wording and memory, and the first live
+run is the owner's. No echo canceller: a headset or press-to-talk on open speakers.
+
 ### R1: the speech servers -- speech-to-text and text-to-speech as local servers Halo installs, serves, fits and watches
 
 #### Added
@@ -44,9 +61,22 @@ version.
 - Bare `halo voice` opens a session with voice on; the catalog is `halo voice models`.
 - `meta-glasses` names its reservation's 8 k window; while it or `voice-local` is on, the loop takes its speech picks and budget. Halo ships eleven bundles.
 
-### Also in 3.3.9.0
+### R3: through the host, Studio and the glasses path -- the speech servers for every halo on the LAN, Local -> Voice with a Talk button, the phone-app contract, honest about its limits
+
+#### Added
+- The voice door: a paired `halo host` answers `POST /host/v1/voice/turn` -- one utterance (16-bit PCM at 8-48 kHz or a WAV, up to 30 s) runs through a session on the host machine exactly as `/voice` does, and the reply's audio streams back with the transcript, the reply text and the latency card. The `control` grant; each refusal is one line with its command; one audit line per turn (`op: voice_turn`). `GET me` lists the door, the speech servers and the sessions it reaches.
+- `halo voice client --host <host> --input-file ask.wav | --mic [--output-file reply.wav] [--json]`: one turn through a host's voice door from any halo -- the reference client for a phone app.
+- Speech servers through the host: `halo config set voice.stt_server stt@pc` (and `voice.tts_server tts@pc`) -- a box with no GPU hears and speaks with the PC's speech models through its halo host (signed, the servers stay on loopback there); `/voice on` says `stt on pc over the LAN (+1.8 ms): <model>` and every latency card adds the `link` stage.
+- Studio: **Local -> Voice**, Local's tenth page -- the speech servers (running or stopped with the cost line, Start / Stop, the steward's findings), the speech catalog with Download (the size first, then the download job), the session's own voice loop (Voice on / off, Push-to-talk), the last turns' latency cards and `halo voice stats`, this machine's devices; and **Talk**: the browser's microphone into a Halo session -- the first press says what it does and costs, then press to talk, press again to send; the transcript, the reply's audio playing as it streams, the card -- no PortAudio or voice extra on the client.
+- docs/VOICE-glasses.md: the contract a phone app for Meta's glasses builds to (the steps, the door's wire shape with a worked example, the 2-3 s latency budget, the limits, the prior art); no phone app ships with Halo.
+- docs/VOICE-cpu.md: the voice loop on a box with no GPU -- the CPU pair or another halo's GPU, and how to measure it; `halo doctor --voice` on a CPU box says the recommended pair and its commands.
+- Settings `voice.stt_server`, `voice.tts_server`; glossary `voice door`, `talk`.
 
 #### Changed
+- A host's served rows give a speech server `kind: speech` and its model.
+- The control socket offers each raw `text_delta` to a subscriber that asks for it by name (the voice door, Talk), so a voice turn's first sentence speaks without waiting for the 2 s text chunk; every other subscriber is unchanged.
+- The `meta-glasses` bundle says the phone app is yours and the host door is here.
+- Studio's shell CSP allows `media-src blob:` (Talk's reply in an `<audio>` element).
 
 ## [3.3.8.1] - 2026-11-02
 

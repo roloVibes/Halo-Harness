@@ -3,7 +3,7 @@
 // (closed by default), and a line naming which of Local's five ideas the page
 // carries (the fit meter, "why" on every number, intents, "make it fit", the hub
 // as the one picture). Resources, Hosts, Models and Library (3.3.5.0 R2) are
-// built, and Hugging Face (3.3.5.0 R5), Logs (3.3.6.0 R3), Benchmarks (3.3.6.0 R5), Steward (3.3.7.0 R5: the chat) and Pool (3.3.8.0 R1).
+// built, and Hugging Face (3.3.5.0 R5), Logs (3.3.6.0 R3), Benchmarks (3.3.6.0 R5), Steward (3.3.7.0 R5: the chat), Pool (3.3.8.0 R1) and Voice (3.3.9.0 R3).
 import { useEffect, useRef, type ComponentType } from "react";
 import { HELP } from "../help";
 import { BenchPage } from "./BenchPage";
@@ -17,9 +17,11 @@ import { PAGES, titleOf, usePage, type PageId } from "./pages";
 import { PoolPage } from "./PoolPage";
 import { ResourcesPage } from "./ResourcesPage";
 import { StewardPage } from "./StewardPage";
+import { VoicePage } from "./VoicePage";
 
 const BODY: Partial<Record<PageId, ComponentType>> = { resources: ResourcesPage, hosts: HostsPage, models: ModelsPage, library: LibraryPage,
-  huggingface: HfPage, logs: LogsPage, benchmarks: BenchPage, steward: StewardPage, pool: PoolPage };
+  huggingface: HfPage, logs: LogsPage, benchmarks: BenchPage, steward: StewardPage, pool: PoolPage,
+  voice: VoicePage };
 
 /** Which of the five ideas each page shows (the help names all five). */
 export const IDEAS: Record<PageId, string[]> = {
@@ -32,6 +34,7 @@ export const IDEAS: Record<PageId, string[]> = {
   benchmarks: ["fit meter", "why on every number"],
   steward: ["make it fit", "the hub as the one picture"],
   pool: ["fit meter", "why on every number", "the hub as the one picture"],
+  voice: ["why on every number", "the hub as the one picture"],
 };
 
 function Head({ page }: { page: PageId }) {

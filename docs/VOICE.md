@@ -7,7 +7,8 @@ loop -- the microphone, Silero VAD, speech-to-text, the session's model, a sente
 speaker, with barge-in, push-to-talk and a latency card per turn. **Round R1, the speech servers** (the second half of
 this page): a speech model is a file-backed local model like any GGUF -- present or absent, downloadable, served,
 fitted into a bundle's verdict, and watched by the steward. The commands are in [COMMANDS-voice.md](COMMANDS-voice.md);
-R3 (the host, Studio, the glasses) is [at the end of the loop's part](#what-r3-brings).
+**Round R3**: the speech servers and the voice door [through the host](#through-the-host), Studio's Local -> Voice
+with a Talk button ([STUDIO-local-voice.md](STUDIO-local-voice.md)), and the glasses contract.
 
 ## The loop
 
@@ -128,7 +129,8 @@ halo pack on voice-local          # claims the reservation and says what it rese
 
 With the bundle on, `/voice on` takes its speech picks and its budget, and says which model it keeps resident when the
 session answers with another (`/model ol:lfm3:1.7b@<host>` answers from it). `meta-glasses` carries the same fields
-(its reservation names its 8 k window); its own loop, with the phone in the path, is R3's.
+(its reservation names its 8 k window); the glasses reach the loop through a phone app and the host's voice door
+([VOICE-glasses.md](VOICE-glasses.md): the phone app is yours, the door is here).
 
 ## Without a microphone
 
@@ -141,12 +143,27 @@ The WAV (any rate, mono or stereo, 16-bit) goes through the same loop as one utt
 or written to `--output-file` at 24 kHz), its card in `turns.jsonl`. It is the headless path and the one the tests use
 (`HALO_VOICE_AUDIO=fake`, see [DEVELOPMENT.md](DEVELOPMENT.md#the-fake-audio-3390-r2)).
 
-## What R3 brings
+## Through the host
 
-The speech servers offered to peers through `halo host`; Local -> Voice in Studio, with a browser-microphone Talk
-button; the glasses contract (the phone app between Meta's glasses and the host: HFP or in-stream microphone, A2DP
-out, a tap or "Hey Meta, start <app>"), honest about what the glasses cannot do. Later: the one-model options
-(`lfm3-omni`, `phonon`) and a cloned voice (Qwen3-TTS from a ~3 s reference).
+(3.3.9.0 R3.) A paired `halo host` lists its `stt` / `tts` servers among its served rows (`kind: speech`, their
+model), and serves them to its peers through two signed routes, `POST /host/v1/voice/stt` and `voice/tts` -- the
+speech servers keep listening on loopback only. A box with no GPU sets `halo config set voice.stt_server stt@pc` (and
+`voice.tts_server tts@pc`): its loop hears and speaks with the PC's models, `/voice on` says `stt on pc over the LAN
+(+1.8 ms): faster-whisper:large-v3-turbo`, and every latency card adds the `link` stage (the TCP round trip to the
+host's port, measured once when the loop starts) beside heard, text, token and audio. [VOICE-cpu.md](VOICE-cpu.md) is
+the whole CPU-box story.
+
+The host's **voice door**, `POST /host/v1/voice/turn` (the `control` grant), takes one utterance -- 16-bit mono PCM
+at 8-48 kHz or a WAV, up to 30 s -- runs it through a session on the host machine exactly as `/voice` does (its stt
+server, the session's control socket, the sentence aggregator, its tts server) and streams the reply's audio back
+(framed: the transcript, the rate, PCM pieces, the trailer with the reply and the card). `halo voice client --host
+pc --input-file ask.wav` is its reference client from any halo; `GET me` lists the door, its grant, the speech servers
+and the sessions it reaches. It is the one door a phone app for Meta's glasses needs: the contract, its wire shape
+and the glasses' limits are [VOICE-glasses.md](VOICE-glasses.md) -- no phone app ships with Halo.
+
+In Studio, **Local -> Voice** ([STUDIO-local-voice.md](STUDIO-local-voice.md)) shows the servers, the catalog, the
+last cards, and **Talk**: the browser's microphone into the same turn, the reply played in the page. Later: the
+one-model options (`lfm3-omni`, `phonon`) and a cloned voice (Qwen3-TTS from a ~3 s reference).
 
 
 ## The catalog

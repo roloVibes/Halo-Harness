@@ -42,7 +42,8 @@ def record(home, hid: str, member_name: str, ip: str, body: dict, now: float = N
             try:
                 servers.append({"name": _clean(r.get("name"), 64), "port": int(r.get("port") or 0),
                                 "addr": _clean(r.get("addr"), 64) or ip, "runtime": _clean(r.get("runtime"), 32),
-                                "pool": r.get("pool") is True})
+                                "pool": r.get("pool") is True, "kind": _clean(r.get("kind"), 16) or "server",
+                                "model": _clean(r.get("model"), 64) or None})  # 3.3.9.0 R3: speech rows
             except (TypeError, ValueError):
                 continue
     try:

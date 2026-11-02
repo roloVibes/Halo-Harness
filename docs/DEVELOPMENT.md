@@ -383,6 +383,17 @@ on the mock upstream, R1's speech routes in process on 127.0.0.1:0, and a fake c
 wait is a condition re-checked at each event the session's sink carries, never a sleep. Never set either flag outside
 tests, and never install the `voice` extra into the test venv.
 
+### The fake microphone in Chrome (3.3.9.0 R3)
+
+Local -> Voice's Talk records with the browser's `getUserMedia`. Its driver (`tests/helpers/studio_voice.py`) launches
+headless Chrome with **Chrome's fake media device** -- `--use-fake-device-for-media-stream --use-fake-ui-for-media-stream
+--use-file-for-fake-audio-capture=<a tone WAV it writes>` (and `--autoplay-policy=no-user-gesture-required`) -- through
+`tests/helpers/chrome_driver.EXTRA_FLAGS`, which only that driver sets, in its own process: every other Chrome here
+starts with the usual flags, and no Chrome opens a real microphone. The speech servers are R1's routes with fake
+engines (one in process, one through `huggingface.voice_server_cmd`), the session a real Controller with a scripted
+reply behind its control socket. The voice door's tests (`tests/helpers/voice_door_rig.DoorRig`) put the same speech
+servers behind `host_act_rig.PeerRig`'s host as its `servers` reader and register the session in the host's home.
+
 ## Docs: the map and the split docs
 
 [docs/README.md](README.md) is the map: every doc, under the task it serves,

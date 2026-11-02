@@ -4,8 +4,9 @@
     speak(base_url, text, voice) -> (rate, iterator of PCM16 chunks)   POST <base>/audio/speech, response_format pcm,
                                                           read as the server streams it (one sentence at a time)
 
-`base_url` is the `huggingface.local_servers` entry's url (`http://127.0.0.1:<port>/v1`). A failure is VoiceError
-with one line (the server, the status, its message); nothing retries by itself.
+`base_url` is the `huggingface.local_servers` entry's url (`http://127.0.0.1:<port>/v1`); 3.3.9.0 R3: a `halo-host:<host>#
+<kind>` url (voice/remote.py: `voice.stt_server: stt@pc`) goes through that host's signed voice routes. A failure is
+VoiceError with one line (the server, the status, its message); nothing retries by itself.
 """
 
 from __future__ import annotations
@@ -38,6 +39,9 @@ def _fail(what: str, base_url: str, r) -> VoiceError:
 
 
 def transcribe(base_url: str, pcm16: bytes, rate: int = 16000) -> str:
+    if str(base_url).startswith("halo-host:"):
+        from halo_harness.voice import remote
+        return remote.transcribe(base_url, pcm16, rate)
     c, root = _conn(base_url)
     try:
         c.request("POST", f"{root}/audio/transcriptions", body=pcm16,
@@ -53,6 +57,9 @@ def transcribe(base_url: str, pcm16: bytes, rate: int = 16000) -> str:
 
 
 def speak(base_url: str, text: str, voice: str) -> "tuple[int, Iterator[bytes]]":
+    if str(base_url).startswith("halo-host:"):
+        from halo_harness.voice import remote
+        return remote.speak(base_url, text, voice)
     c, root = _conn(base_url)
     body = json.dumps({"input": text, "voice": voice, "response_format": "pcm"}).encode("utf-8")
     try:
