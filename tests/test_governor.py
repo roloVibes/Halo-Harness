@@ -208,7 +208,9 @@ def test_two_timeouts_in_a_row_count_as_overload(ctx: Ctx):
     from halo_harness.providers import governor
     with _Scoped(_fresh()):
         key = "host:gw.test"
-        p = _params(rps=2.0)
+        # a 30 s cooldown: the check reads `cooldown_remaining > 0` after the second timeout, and the 1 s base
+        # had run out once on the Linux runner before inspect() read it (run 41399731896)
+        p = _params(rps=2.0, cooldown_base=30.0)
 
         def do():
             raise socket.timeout("gateway never answered")

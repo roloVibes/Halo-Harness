@@ -94,7 +94,10 @@ def ollama(c, url, ctx) -> dict:
     out["ollama_save_by"] = press(c, "ollama", f"{rows}.length === 1")
     out["ollama_rows"] = c.js(f"{rows}.map((r) => [...r.querySelectorAll('td')].slice(0, 4).map((t) => t.textContent))")
     out["ollama_state"] = c.js(_text("[data-testid=setup-provider-state][data-name=ollama]"))
-    out["ollama_finders"] = c.js(f"[{q('[data-testid=setup-ollama-find]')}.disabled, {q('[data-testid=setup-ollama-scan]')}.disabled]")
+    finders = f"[{q('[data-testid=setup-ollama-find]')}.disabled, {q('[data-testid=setup-ollama-scan]')}.disabled]"
+    # both enable when the card re-renders after the add: a plain read landed mid-render once ([True, False], the
+    # 3.3.8.1 release commit's Linux shard 3, run 41399731896) -- wait for the state the check asserts
+    out["ollama_finders"] = c.wait(f"({finders}).every((d) => d === false) && {finders}", 20)
     out["ollama_later"] = c.js(_text("[data-testid=setup-ollama-later]"))
     cfg = ctx["state"] / "config.json"
     out["ollama_config"] = [h.get("url") for h in json.loads(cfg.read_text(encoding="utf-8")).get("ollama", {}).get("hosts", [])]
