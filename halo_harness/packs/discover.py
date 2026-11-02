@@ -79,18 +79,18 @@ def _folders(d: Path) -> "list[Path]":
 
 
 #: 3.2.1.0 R1: the folders whose files a pack's validation reads (bios, lineups, workflows), stat'ed by `signature`
-WATCHED = ("agents", "teams", "workflows")
+WATCHED = ("agents", "teams", "workflows", "policy")  # 3.3.10.0 R1: policy/, where a policy hook's command lives
 
 
 def _watched(folder: Path) -> list:
-    """(name, mtime, size) of every *.yaml / *.md in a pack's agents/, teams/ and workflows/: one scandir each,
-    a missing folder is nothing."""
+    """(name, mtime, size) of every *.yaml / *.md / *.py in a pack's agents/, teams/, workflows/ and policy/: one
+    scandir each, a missing folder is nothing."""
     out = []
     for sub in WATCHED:
         try:
             with os.scandir(folder / sub) as it:
                 for e in it:
-                    if e.name.endswith((".yaml", ".md")) and e.is_file():
+                    if e.name.endswith((".yaml", ".md", ".py")) and e.is_file():
                         st = e.stat()
                         out.append((f"{sub}/{e.name}", st.st_mtime_ns, st.st_size))
         except OSError:

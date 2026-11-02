@@ -61,7 +61,9 @@ class Chrome:
 
     def _port(self) -> int:
         path = os.path.join(self.profile, "DevToolsActivePort")
-        deadline = time.time() + 30
+        deadline = time.time() + 90  # the Windows runner took over 30 s to open the port on two shards at once
+        # (3.3.10.0 R0 head bb2ba505, run 41516126091: 15 driver runs ended 'Chrome did not open its DevTools port');
+        # the wait returns the moment the port opens, so a longer deadline costs a healthy run nothing
         while time.time() < deadline:
             try:
                 with open(path, encoding="utf-8") as f:

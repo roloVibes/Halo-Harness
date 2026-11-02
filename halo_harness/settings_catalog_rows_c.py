@@ -36,6 +36,7 @@ ROWS = [
     Row("remote.pair_code_ttl_s", "remote", "Pairing code life (s)", "int", 600, (), "Seconds the one-time pairing code stays valid.", "now"),
     Row("packs.sources", "packs", "Pack sources", "list", None, (), "Folders holding packs and git urls of packs; halo pack install <id> takes the first that holds it.", "now"),
     Row("packs.settings.<id>", "packs", "Pack settings", "keyed", {}, (), "One pack's settings, checked against its own config schema; unset, the pack's own defaults.", "now"),
+    Row("packs.policy.budget_ms", "packs", "Policy hook budget (ms)", "int", 2000, (), "How long a policy hook's answer is waited for; a later, malformed or missing answer is the policy's on_error verdict (3.3.10.0 R1, draft).", "now"),
     Row("connectors.bridge", "connectors", "Connectors on", "bool", True, (), "Discover the claude.ai connectors and offer a connector tool for each; off turns every one off.", "next session"),
     Row("connectors.discover_on_start", "connectors", "Discover on start", "bool", False, (), "Print mode waits for connector discovery on a cold cache instead of skipping it.", "next session"),
     Row("connectors.<slug>.enabled", "connectors", "Connector on", "keyed", True, (), "Off removes just that one connector's tool.", "next session"),

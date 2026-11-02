@@ -13,7 +13,8 @@ DIR` (act as if run from DIR, so its `.halo/packs/` is the repo's) and
 `--json` (one JSON object on stdout). Exit codes: 0 done, 1 could not (the
 reason on stderr, one line each; for `doctor`: problems found), 2 usage. A
 bare `halo pack` prints the verb list. 3.3.7.0 R5: `verdict`, `on`, `off` and
-`list --bundles` are the bundle verbs ([Bundles](#bundles) below).
+`list --bundles` are the bundle verbs ([Bundles](#bundles) below). 3.3.10.0 R1:
+`mode` and `policy` ([Modes and policy hooks](#modes-and-policy-hooks) below).
 
 ### `halo pack list`
 
@@ -266,6 +267,53 @@ releases the lower claims it pre-empts first, one line each, then claims every p
 `pool`, Warm still starts it; a paired host: its `claim` op), each row with the bundle's hours
 ([MODELS-bundles.md](MODELS-bundles.md#several-reservations-a-schedule-a-priority-3380-r4)).
 
+## Modes and policy hooks
+
+3.3.10.0 R1 (draft; [EXTENSION_API.md](EXTENSION_API.md#policy-hooks)): a pack that declares `contributes.modes` and
+`contributes.policy` has a runtime mode and policy hooks, recorded in `~/.halo/packs/.data/<id>/mode.json`. Nothing
+enforces a verdict yet (3.3.10.0 R2 does); these verbs write the record and run a verdict dry.
+
+### `halo pack mode`
+
+`halo pack mode <pack> <mode> on | off`: turn one of the pack's modes on (each policy whose `when.modes` names it is
+armed; a mode that was on in its place goes off and its policies with it) or off (its policies disarmed). Every
+change is the pack's `mode` event. A mode the pack does not declare is one line and nothing is written (exit 1):
+
+```sh
+halo pack mode policy-fence fenced on
+policy-fence: mode fenced on (Fenced); armed: fence
+it is not asked until the pack runs here: halo pack enable policy-fence --grant hooks
+halo pack mode policy-fence audit on
+halo pack: policy-fence declares no mode 'audit' (contributes.modes: fenced)
+```
+
+#### `--note`
+
+`halo pack mode ... on --note TEXT`: a line kept in mode.json beside the mode (why it is on).
+
+### `halo pack policy`
+
+- `halo pack policy status`: every pack here that declares a policy or a mode, its mode, and each policy's state:
+  `armed, asked now`, `not armed (halo pack policy arm <pack> <policy>)`, or `armed, not asked:` and why (the pack
+  does not run here, hooks is not granted, its mode is not on). `--json`: `{"packs": [...]}`.
+- `halo pack policy arm <pack> <policy>` / `halo pack policy disarm <pack> [<policy>]`: arm one policy, or disarm
+  one (every armed one without a name); the mode stays as it is.
+- `halo pack policy test <pack> <policy> <tool> '<json input>'`: a verdict without a session. It arms nothing,
+  starts the policy's process for this one request, prints the verdict with its time and stops the process; a tool
+  `when.tools` does not name is not asked. Exit 0 for any verdict.
+
+```sh
+halo pack policy test policy-fence fence Write '{"file_path": "/tmp/x"}'
+deny -- fence: outside the project (12 ms)
+  rule: outside-project; scope: session
+  a dry run: nothing was armed; nothing enforces a verdict before 3.3.10.0 R2
+```
+
+#### `--budget-ms`
+
+`halo pack policy test ... --budget-ms N`: how long to wait for the answer (default `packs.policy.budget_ms`, 2000);
+a late answer is the policy's `on_error` verdict, said with what happened.
+
 ## A pack in `halo agents list` and `halo teams list`
 
 With a pack enabled, `halo agents list` and `halo teams list` print your
@@ -283,4 +331,5 @@ Every verb: act as if run from DIR.
 
 Every verb: print one JSON object (`list`: `{"packs"}`, with `--available`
 also `{"available"}`, `inspect`: the manifest view, `doctor`: `{"problems"}`,
-`sources`: `{"sources"}`, the others `{"ok", "lines"}`).
+`sources`: `{"sources"}`, the others `{"ok", "lines"}`;
+`policy status`: `{"packs"}`, `policy test`: `{"ok", "lines", "verdict"}`).

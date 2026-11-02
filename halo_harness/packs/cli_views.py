@@ -88,7 +88,9 @@ def inspect_payload(pack, snap, *, cwd=None) -> dict:
     problems += undeclared_lines(pack)
     from halo_harness.packs.roles import pack_bios, pack_lineups  # 3.2.0.0 R2: the model per bio, its needs
     from halo_harness.packs.contrib_views import contributes  # 3.2.0.0 R4: Studio and fleet contributions
+    from halo_harness.packs.policy_views import block  # 3.3.10.0 R1: the policy hooks and modes
     return {"contributes": contributes(pack, granted, running=pack.id in snap.order, cwd=cwd),
+            "policy": block(pack, running=pack.id in snap.order if pack.scope != "source" else None, granted=granted),
             "bios": pack_bios(pack, granted=granted), "lineups": pack_lineups(pack),
             "id": pack.id, "name": pack.name, "version": pack.version, "description": pack.description,
             "author": m.get("author"), "license": m.get("license"), "halo_api": m.get("halo_api"), "halo": m.get("halo"),
@@ -134,6 +136,8 @@ def inspect_lines(d: dict) -> "list[str]":
     out += role_lines(d)
     from halo_harness.packs.contrib_views import contributes_lines
     out += contributes_lines(d.get("contributes") or {})
+    from halo_harness.packs.policy_views import block_lines  # 3.3.10.0 R1
+    out += block_lines(d.get("policy"))
     out.append("permissions it requests:")
     for p in d["permissions"]:
         uses = f" ({', '.join(p['needed_by'])})" if p["needed_by"] else ""

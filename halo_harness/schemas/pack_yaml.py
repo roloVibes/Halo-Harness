@@ -29,7 +29,10 @@ _NAMES = {"type": "array", "items": STRING}
 TOP_KEYS = ("id", "name", "version", "description", "author", "license", "halo_api", "halo", "capabilities",
             "requires", "contributes", "config", "permissions", "migrations", "bundle")  # bundle: 3.3.7.0 R5
 CONTRIBUTION_KEYS = ("agents", "teams", "skills", "commands", "hooks", "mcp", "studio", "fleet", "artifacts",
-                     "events", "workflows")  # 3.2.0.0 R2: workflows (names a lineup's workflows may use; R5 runs them)
+                     "events", "workflows",  # 3.2.0.0 R2: workflows (names a lineup's workflows may use; R5 runs them)
+                     "policy", "modes")  # 3.3.10.0 R1: policy hooks and the pack's runtime modes (packs/manifest_policy.py)
+POLICY_KEYS = ("id", "run", "when", "impact", "on_error", "redact", "after")
+MODE_KEYS = ("id", "label", "theme")
 # 3.2.0.0 R3: contributes.studio
 STUDIO_KEYS = ("sections", "panels", "palette", "config_form", "events", "attention")
 PANEL_KEYS = ("id", "title", "kind", "source", "schema", "w", "h", "help", "columns", "links")  # schema: 3.2.0.0 R5 (artifact)
@@ -111,9 +114,15 @@ def pack() -> dict:
     # 3.2.0.0 R5: an event is a kind or {kind, schema, description}; artifacts are schema names (packs/typed.py)
     event = {"type": ["string", "object"], "properties": {"kind": STRING, "schema": STRING, "description": STRING},
              "additionalProperties": False}
+    # 3.3.10.0 R1: a policy hook and a mode (packs/manifest_policy.py names each problem with its entry)
+    policy = obj({"id": STRING, "run": {"type": ["string", "array"]}, "when": obj({"tools": _NAMES, "modes": _NAMES}),
+                  "impact": STRING, "on_error": STRING, "redact": _NAMES, "after": BOOL})
+    mode = obj({"id": STRING, "label": STRING, "theme": STRING})
+    assert tuple(policy["properties"]) == POLICY_KEYS and tuple(mode["properties"]) == MODE_KEYS
     contributes = obj({"agents": _NAMES, "teams": _NAMES, "skills": STRING, "commands": STRING, "hooks": STRING,
                        "mcp": {"type": "array", "items": mcp_entry}, "studio": studio(), "fleet": fleet(),
-                       "artifacts": _NAMES, "events": {"type": "array", "items": event}, "workflows": _NAMES})
+                       "artifacts": _NAMES, "events": {"type": "array", "items": event}, "workflows": _NAMES,
+                       "policy": {"type": "array", "items": policy}, "modes": {"type": "array", "items": mode}})
     migration = obj({"from": _VERSION, "to": _VERSION, "note": STRING, "settings": MAPPING})  # settings: 3.2.0.0 R7 renames
     props = {"id": STRING, "name": STRING, "version": STRING, "description": STRING, "author": author,
              "license": STRING, "halo_api": _RANGE, "halo": _RANGE, "capabilities": _NAMES, "requires": requires,
