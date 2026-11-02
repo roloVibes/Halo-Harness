@@ -8,6 +8,17 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.3.10.0] - unreleased
+
+### Also in 3.3.10.0
+
+#### Changed
+
+- README: the local-first half (the Ollama steward, Local, `halo host`, the pool, Voice, a bench from any halo) is in "What
+  Halo is", "Ten sections, one window", the Features table (Packs, the steward, Local measured, the host, the pool, Voice,
+  the four CI shards), the comparison table and the Documentation table; the Orchestra glyph is three lanes converging
+  through a gate (was three staff lines with ticks); the front-page pictures are not re-rendered yet.
+
 ## [3.3.9.0] - 2026-11-02
 
 **Voice.** Talk to a Halo session and hear it answer, entirely locally (plans/local-model-fit-brief.md Part K), in three
