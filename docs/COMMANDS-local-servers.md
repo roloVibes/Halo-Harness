@@ -41,3 +41,18 @@ window per slot. Then the kinds that runtime's log never prints ("its log never 
 `halo ollama crashes` lists a local server's crash fingerprints beside the Ollama hosts' (`llama-8080 [llama-server]
 qwen3-8b: crashed here on ...`), `--why` with the command Halo launched it with and that runtime's fixes. `halo doctor
 --local` prints one line per local server: its log's state, or a WARN saying how to make it readable.
+
+### `halo local serve --runtime freetoken --model <checkpoint dir> [--port P] [--keep] [--lan] [--json]` (3.3.9.1)
+
+Starts FreeToken's `ft serve` for a Mixture-of-Experts checkpoint folder ([MODELS-freetoken.md](MODELS-freetoken.md)):
+the command line first, then the URL and `hf:local/<model>@freetoken`, or "still loading (N of M GiB)" when the load
+outlasts two minutes (it goes on; exit 0). It is the server `freetoken` for `halo local servers | log | stop`; the
+stop removes the `freetoken` entry Halo wrote. `ft` is `huggingface.freetoken_bin` or the one on PATH. On a machine
+that is not Linux x86_64 with driver r580+ and `nvcc`, one line says the three requirements and the install command
+for each one missing (exit 2). `--lan` binds every address behind a generated key, for peers through `halo host`.
+
+### `halo local bench --host freetoken [--quick] [--yes] [--json]` and `halo local bench --bw [--model DIR] [--yes]`
+
+The FreeToken server's speed card (the battery's windows and reply reserve, two calls per window), or with `--bw` the
+host link measured by `ft bench bw` (about two minutes, the GPU and the CPU busy), the GB/s the FreeToken fit reads in
+place of the extrapolated 32-64 GB/s. Both print their cost line first and ask unless `--yes`.

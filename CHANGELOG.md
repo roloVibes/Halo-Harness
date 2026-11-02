@@ -8,6 +8,31 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.3.9.1] - unreleased
+
+**FreeToken.** The owner asked whether FreeToken (github.com/FlashML-org/FreeToken) fits Halo's local use cases: it serves a
+big Mixture-of-Experts model on one consumer box out of host RAM and NVMe, the other answer to "a model bigger than my
+card" beside the pool. It lands as one more local runtime -- never a provider -- the way LM Studio and mlx_lm.server did:
+a managed `ft serve`, the steward reading its log, a fit that is RAM plus the host link rather than VRAM, host-served to
+every halo on the LAN. Linux and CUDA 13 only, so the owner's Ubuntu box is its home; every FreeToken log pattern and API
+shape is written from its source and marked unverified until a live run.
+
+### R1: FreeToken -- a serving engine for big Mixture-of-Experts models on one consumer box, as one more local runtime
+
+#### Added
+- `halo local serve --runtime freetoken --model <checkpoint dir> [--lan]` runs FreeToken's `ft serve` (from `huggingface.freetoken_bin` or PATH) on a free loopback port with `--moe-collect-stats`, as the registry row and `huggingface.local_servers` entry `freetoken` (`hf:local/<model>@freetoken`); `halo local servers | log | stop` treat it like the others; a load past two minutes goes on in the background with its progress said; `--lan` binds every address behind a generated key.
+- The requirements in one line: Linux x86_64, an NVIDIA driver r580+ (CUDA 13) and nvcc on PATH, each missing one with its install command; the WSL2 pinned-memory caveat; `halo doctor --local` checks `ft --version`, the driver and nvcc when the runtime is configured.
+- The steward reads FreeToken's log (its stamp, the load block as one load-result, prefill / decode tok/s, the expert cache's hit rate, the pin-budget lines): `ft-expert-thrash`, `ft-pinned-cap`, `ft-kernel-jit`, keyed `<server>|<model>`, each with a stated fix never applied; `halo ollama explain` knows them.
+- The FreeToken fit, RAM + link not VRAM: the dense bytes + the KV + one layer of experts against the card, the experts against RAM (the WSL pin cap at 40 %), the link measured by `ft bench bw` or the extrapolated 32-64 GB/s, one line per model and host; the Library lists the checkpoints FreeToken names as download targets with it as the badge.
+- `halo local bench --host freetoken [--quick]` (the speed card against a FreeToken server) and `halo local bench --bw [--model DIR]` (`ft bench bw`), each with its cost line first.
+- Through the host: a FreeToken server on the host is a host-served local server with its model; with `--lan` the host's catalog offers it and a peer reaches it as `hf:local/<model>@<host>`; placement and the adviser see it beside the Ollama hosts and the pool, with the loading tax said (the restart, the experts from disk, the first-install JIT).
+- Setting `huggingface.freetoken_bin`; glossary `expert cache`, `offload`; docs/MODELS-freetoken.md.
+
+#### Changed
+- The loopback auto-detect also asks port 1919 and names a server whose `/v1/models` says `owned_by: FreeToken` by its runtime.
+- A session's first byte from a FreeToken server may take up to 30 minutes (its first request compiles kernels); every other server keeps the 5-minute wait.
+- A Halo-started server's status (Studio's Local -> Hugging Face server row) reads a `/health` that answers 200 while loading as still loading.
+
 ## [3.3.10.0] - unreleased
 
 ### R1: the policy contract -- a pack's runtime mode, a policy hook that answers a tool call, the first draft row of the extension API

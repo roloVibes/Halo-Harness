@@ -283,6 +283,18 @@ signed `voice/stt` / `voice/tts` routes, the link's round trip, the door's frame
 (`halo voice client`), `studio/voice_api.py` and `studio/voice_act_api.py` (Local -> Voice: the view; the servers,
 download, loop and Talk's job with its `talk` frames), `doctor_voice.py`'s CPU pair.
 
+**FreeToken** (Halo 3.3.9.1, docs/MODELS-freetoken.md): the runtime `freetoken` -- `freetoken/requirements.py` (Linux
+x86_64, the driver, nvcc, `ft --version`: the one line), `freetoken/launch.py` (`halo local serve --runtime freetoken`:
+`ft serve`, the registry row, the `freetoken` entry, `--lan` and its key), `freetoken/catalog.py` (the checkpoints
+FreeToken names, the Library's download targets), `freetoken/shape.py` (a checkpoint's dense, expert and KV bytes),
+`freetoken/link.py` (`ft bench bw` through the bench seam, the measured link), `freetoken/bench.py` and
+`freetoken/bench_cli.py` (the speed card, `halo local bench --host freetoken [--bw]`), `freetoken/peer.py` (the host's
+offer, a peer's `hf:local/<model>@<host>`), `freetoken/route.py` (a FreeToken server as a placement option, its
+loading tax), `freetoken/waits.py` (the first request's kernel JIT: the session's wait); the fit --
+`local_sched/fit_ft.py` (RAM + link, not VRAM: one line per model and host, the Library's badge); the steward --
+`ollama_steward/server_log_ft.py` (FreeToken's own lines as events) and `ollama_steward/rules_ft.py`
+(ft-expert-thrash, ft-pinned-cap, ft-kernel-jit); `doctor_freetoken.py` (`halo doctor --local`'s lines).
+
 **Policy hooks and modes** (Halo 3.3.10.0 R1, draft; docs/EXTENSION_API.md "Policy hooks"):
 `packs/manifest_policy.py` (`contributes.policy` and `contributes.modes`: the entries, their meaning lines, the
 command with `${halo_python}` and `${CLAUDE_PLUGIN_ROOT}` put in), `packs/mode_state.py` (the pack's `mode.json`:

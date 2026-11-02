@@ -25,7 +25,8 @@ host, then the name. Every row says the number behind it. 3.3.8.0 R3: the pool (
 option when it has members: its `route` answer, minus its decode penalty (38, the research's 21-55 % midpoint).
 3.3.8.0 R4: the penalty the pool's bench card measured when it has one; the candidates are fleet-wide by default
 (local_sched/place_advice.candidates: every paired host's served card and the pool); `detail` keeps every candidate's
-score, why and numbers on each row (`options`: the adviser's placement scores, `halo local place`).
+score, why and numbers on each row (`options`: the adviser's placement scores, `halo local place`). 3.3.9.1: a FreeToken
+server (freetoken/route.FtHost) is one more option: warm for the model it serves, else a restart with its loading tax.
 """
 
 from __future__ import annotations
@@ -34,7 +35,7 @@ from typing import Optional
 
 from halo_harness.local_sched import facts as F
 
-DETAIL = ("load_s", "warm", "now", "evicts", "penalty_pct", "fits", "via", "installed")  # 3.3.8.0 R4: each option's numbers
+DETAIL = ("load_s", "warm", "now", "evicts", "penalty_pct", "fits", "via", "installed", "ft_tax")  # 3.3.8.0 R4: each option's numbers
 
 
 def _tools(lane: str) -> bool:
@@ -97,6 +98,9 @@ def answer(host, lane: dict, *, state_dir=None) -> dict:
     if getattr(host, "pool", False):  # 3.3.8.0 R3: the pool answers like a host (local_pool/route.py)
         from halo_harness.local_pool.route import route
         return route({"model": lane["model"], "window": lane.get("window")}, state_dir=state_dir)
+    if getattr(host, "freetoken", False):  # 3.3.9.1: a FreeToken server answers like a host (freetoken/route.py)
+        from halo_harness.freetoken.route import route as ft_route
+        return ft_route(host, {"model": lane["model"], "window": lane.get("window")}, state_dir=state_dir)
     window, _src = F.window(host, lane["model"], role=lane["lane"])
     return _via_host(host, lane, window) or _local(host, lane, window, state_dir)
 

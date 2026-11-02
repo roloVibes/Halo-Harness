@@ -428,6 +428,9 @@ def _run_phase1(req: CompletionRequest, abort: "threading.Event | None" = None):
 
     def _register_sock(conn) -> None:
         sock_box[0] = conn.sock
+        if req.route.provider == "huggingface":  # 3.3.9.1: a FreeToken server's first request compiles for minutes
+            from halo_harness.freetoken.waits import widen
+            widen(conn, getattr(req.creds, "base_url", None))
 
     if req.route.provider == "databricks":
         def _call_upstream():

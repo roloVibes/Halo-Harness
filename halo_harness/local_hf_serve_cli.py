@@ -9,6 +9,7 @@ model folder, a name `halo local --terminal` shows, or with `--runtime mlx` a Hu
 the preflight, the claims, each worker's rpc-server, llama-server --rpc ..., the `pool` entry).
 3.3.9.0 R1: `--stt <model>` / `--tts <model>` [--device auto|cpu|cuda] runs Halo's speech server for a speech catalog
 model instead (voice/launch.serve: the `stt` / `tts` server and its huggingface.local_servers entry).
+3.3.9.1: `--runtime freetoken --model <checkpoint dir> [--lan]` runs FreeToken's `ft serve` (freetoken/launch.serve).
 """
 
 from __future__ import annotations
@@ -36,9 +37,12 @@ def cmd_serve(argv: list) -> int:
     from halo_harness.providers.local_server_cmd import binary, plan_flags, runtime_of
     p = argparse.ArgumentParser(prog="halo local serve", description="Start a local server (llama-server, or mlx_lm.server "
                                 "on a Mac) for a model on disk, with the fit planner's window and layers.")
-    p.add_argument("model", help="a path halo local ls lists, an exact .gguf file or model folder, a name halo local "
+    p.add_argument("model", nargs="?", default=None, help="a path halo local ls lists, an exact .gguf file or model folder, a name halo local "
                    "--terminal shows, or with --runtime mlx a Hugging Face repo id")
-    p.add_argument("--runtime", choices=("llama-server", "mlx", "mlx_lm"), default=None, help="mlx: Apple Silicon only")
+    p.add_argument("--runtime", choices=("llama-server", "mlx", "mlx_lm", "freetoken"), default=None,
+                   help="mlx: Apple Silicon only; freetoken: a Mixture-of-Experts checkpoint folder on Linux (FreeToken)")
+    p.add_argument("--model", dest="model_opt", default=None, help="the model (the same as the positional one)")
+    p.add_argument("--lan", action="store_true", help="with --runtime freetoken: bind every address, behind a key")
     p.add_argument("--window", type=int, default=None, help="the window (-c); default: the planner's for this card")
     p.add_argument("--port", type=int, default=None, help="default: a free loopback port")
     p.add_argument("--keep", action="store_true", help="keep it running after the last Halo process on this home exits")
@@ -54,6 +58,14 @@ def cmd_serve(argv: list) -> int:
     p.add_argument("--device", choices=("auto", "cpu", "cuda"), default=None,
                    help="with --stt / --tts: where it runs (default: voice.device, auto: CUDA when it fits)")
     a = p.parse_args(argv)
+    a.model = a.model or a.model_opt
+    if not a.model:
+        p.error("name the model: halo local serve <model> (or --model <model>)")
+    if a.runtime == "freetoken":  # 3.3.9.1: freetoken/launch.py (docs/MODELS-freetoken.md "Serve")
+        from halo_harness.freetoken.launch import serve as serve_ft
+        code, lines, row = serve_ft(a.model, port=a.port, keep=a.keep, lan=a.lan)
+        print(json.dumps({"code": code, "lines": lines, "server": row}, indent=2, default=str) if a.json else "\n".join(lines))
+        return code
     if a.stt or a.tts:  # 3.3.9.0 R1: voice/launch.py (docs/VOICE.md "Serve")
         from halo_harness.voice.launch import serve as serve_speech
         code, lines, row = serve_speech("stt" if a.stt else "tts", a.model, device=a.device, port=a.port, keep=a.keep)

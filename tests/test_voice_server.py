@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import contextlib
 import io
+import http.client
 import json
 import os
 import subprocess
@@ -68,8 +69,8 @@ def _get(port: int, path: str):
             return r.status, json.loads(r.read())
     except urllib.error.HTTPError as e:
         return e.code, json.loads(e.read() or b"{}")
-    except OSError:
-        return 0, {}
+    except (OSError, ValueError, http.client.HTTPException):  # a server that exits mid-reply (a failed load) reads as
+        return 0, {}  # not up: IncompleteRead is an HTTPException, not an OSError (Linux shard 0, run 41524830561)
 
 
 def _post(port: int, path: str, body: bytes, ctype: str):
