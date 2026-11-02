@@ -51,10 +51,10 @@ def stems() -> "list[str]":
     return [p.stem for p in sorted(KNOWLEDGE_DIR.glob("*.md"))]
 
 
-def symptom_rows() -> "dict[str, dict]":
+def symptom_rows(stem: str = "symptoms") -> "dict[str, dict]":
     """{kind: {symptom, cause, Halo-side change, server-side recommendation}} from symptoms.md's table."""
     rows = {}
-    for line in _read("symptoms").splitlines():
+    for line in _read(stem).splitlines():
         m = _ROW.match(line)
         if m:
             cells = [c.strip().replace("\\|", "|") for c in re.split(r"(?<!\\)\|", m.group(2))]
@@ -113,7 +113,7 @@ def _claims(lines: list) -> "list[str]":
 
 
 def answer_kind(name: str) -> "Optional[list[str]]":
-    rows = symptom_rows()
+    rows = {**symptom_rows("local-servers"), **symptom_rows()}  # 3.3.9.0 R1: the speech servers' rows, out of the guide
     kind = name if name in rows else ALIASES.get(name)
     if kind not in rows:
         return None
@@ -166,7 +166,7 @@ def cited(lines: list) -> "list[str]":
 
 
 def listing() -> "list[str]":
-    kinds = sorted(symptom_rows())
+    kinds = sorted({**symptom_rows(), **symptom_rows("local-servers")})
     return (["Alert kinds (halo ollama explain <kind>):", "  " + ", ".join(kinds),
              "  also: " + ", ".join(f"{a} ({k})" for a, k in sorted(ALIASES.items())), "",
              "Topics (halo ollama explain <topic>; a word that names no heading finds every line that mentions it):"]

@@ -152,6 +152,10 @@ def stop(key, *, state_dir) -> dict:
                 "start is stopped where it was started (halo local servers lists Halo's)"}
     how = C.halt(e["pid"]) if R._entry_process_matches(e) else "its pid belongs to another process now: nothing signalled"
     R.drop_registry_entries(state_dir, [(e.get("model"), e.get("pid"))])
+    from halo_harness.voice import is_voice_runtime
+    if is_voice_runtime(e.get("kind")):  # 3.3.9.0 R1: a speech server's `stt` / `tts` entry goes with it
+        from halo_harness.voice.launch import forget
+        forget(str(e["id"]))
     return {"ok": True, "id": e["id"], "say": f"stopped {e['kind']} {e['id']} ({e['model']} on port {e['port']}): {how}"}
 
 

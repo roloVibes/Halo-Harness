@@ -63,3 +63,14 @@ card and slower than the round trips explain; a pooled decode waits one round tr
 Wi-Fi member, a shared card or a throttled worker shows here [S49]. pool-spill: a node holds less than its split's
 share of the weights, or layers stayed on the controller's CPU; its free VRAM fell after the preflight, so Stop and
 Warm again re-reads it [S50].
+
+## Speech servers
+
+Halo's own speech server (`halo local serve --stt` or `--tts`) is a local server of runtime `voice-stt` or `voice-tts`: its log holds one line per load and one per request, and four findings read them, keyed `stt|<model>` or `tts|<model>`, each with a stated fix that is never applied by itself [S51].
+
+| Kind | Symptom | Cause | Halo-side change | Server-side recommendation |
+|------|---------|-------|------------------|----------------------------|
+| `stt-slow` | "voice stt: audio 4.2 s -> text in 3.1 s (1.4x realtime)" | the transcription runs under 2x realtime: a large model on the CPU, or a GPU the chat model keeps busy | none: the turn waits on the transcript | `halo local serve --stt <model> --device cuda` when the GPU has the model's footprint free, else a smaller built model such as faster-whisper:small.en (costs: VRAM beside the chat model, or some accuracy) [S51] |
+| `tts-slow` | "voice tts: ... first audio 650 ms" | the first sentence takes over 400 ms to speak: the CPU, or a model larger than Kokoro-82M | none: R2's sentence aggregator sends the first sentence alone | `halo local serve --tts <model> --device cuda` when the GPU has its footprint free, else kokoro-82m (costs: VRAM, or the cloned voice) [S51] |
+| `voice-cpu` | "voice load: stt ... on cpu ...; the GPU had 22,000 MiB free" | the speech model loaded on the CPU while the GPU had its footprint free (asked, or auto saw no CUDA) | none: a bundle may keep speech on the CPU on purpose, so the chat model keeps the VRAM | `--device cuda` on the next serve moves it (costs: its GPU footprint, 0.3 to 1.5 GB) [S51] |
+| `voice-load-failed` | "voice load failed: stt ... on cuda: ..." | the engine could not load the model: the extra not installed, a CUDA library missing, or files that are not the ones the engine loads | none | the install line (`uv tool install --reinstall "halo-harness[voice]"`), `--device cpu`, or `halo voice download <model>` again (costs: minutes, the download's GB) [S51] |

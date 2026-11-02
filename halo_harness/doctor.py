@@ -1825,6 +1825,10 @@ def cmd_doctor(argv: list) -> int:
                          help="Run the 60-second local-model acceptance check (load, tool call, structured "
                              "output, compaction summary against a fixture transcript) instead of the "
                              "general checks")
+    # Halo 3.3.9.0 R1: the speech side (doctor_voice.py): the extra, each speech model, CUDA, the speech servers.
+    parser.add_argument("--voice", action="store_true",
+                         help="Check the speech side instead of the general checks: the voice extra, each speech "
+                             "catalog model on disk, CUDA visible to the engines, the running speech servers")
     parser.add_argument("--model", default=None, metavar="REF",
                          help="With --local: the ol:/hf:local/hf:mlx model to check (default: the configured "
                              "default model if it is ol:, else the first model in the default Ollama host's "
@@ -2002,6 +2006,9 @@ def cmd_doctor(argv: list) -> int:
                 print(f"  {stage}: {'ok' if ok else 'FAILED'} -- {message}")
             print(f"RESULT: {sum(1 for _s, ok, _m in results if ok)}/{len(results)} gate check(s) passed.")
         return 0 if team_name is not None and all(ok for _s, ok, _m in results) else 1
+    if args.voice:
+        from halo_harness.doctor_voice import cmd as voice_doctor
+        return voice_doctor(as_json=args.json)
     if args.local:
         from halo_harness.config.paths import bridge_home
         from halo_harness.doctor_local import format_acceptance_lines, run_local_acceptance_check

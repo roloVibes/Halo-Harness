@@ -20,8 +20,8 @@ A pack becomes a capability bundle with one more block in its pack.yaml:
                                                       `min_free_gb`; `reservation` = the one on the default host
     is_bundle(pack_or_manifest) -> bool
     runtime(model) -> "ollama" | "voice"              a speech model (faster-whisper, kokoro, ...) runs beside Ollama, not
-                                                      in it: Voice (3.3.8.0) brings it; this round knows its size only
-    voice_gb(model) -> GB on a GPU | None             the speech models' published sizes (VOICE_GB)
+                                                      in it: Halo's own speech server (3.3.9.0 R1, halo_harness/voice/)
+    voice_gb(model) -> GB on a GPU | None             the speech catalog's GPU footprints (voice/catalog.VOICE_GB)
     reserved_model(b) -> the tag the reservation holds (a needs role names that need's first any_of)
 
 `reservation.model` is a tag one of the needs lists, or a needs role (whichever of its `any_of` the verdict picks);
@@ -42,11 +42,7 @@ ESCALATION = ("on", "off")
 RUNTIMES = ("ollama", "voice")
 ROLE_RE = re.compile(r"^[a-z][a-z0-9_-]*$")
 DURATION_RE = re.compile(r"^\d+(\.\d+)?[smh]$")
-#: the speech models a bundle may name: their size on a GPU (GB), from their published weights
-VOICE_GB = {"faster-whisper:large-v3-turbo": 1.5, "faster-whisper:large-v3": 3.0, "faster-whisper:medium.en": 1.5,
-            "faster-whisper:small.en": 0.5, "faster-whisper:base.en": 0.2, "parakeet-tdt:0.6b": 1.2,
-            "kokoro-82m": 0.3, "qwen3-tts:0.6b": 1.4}
-VOICE_PREFIXES = ("faster-whisper", "whisper", "parakeet", "kokoro", "qwen3-tts", "silero")
+from halo_harness.voice.catalog import VOICE_GB, VOICE_PREFIXES  # noqa: E402  3.3.9.0 R1: the speech catalog is the one source
 
 
 def runtime(model: str, declared: Optional[str] = None) -> str:

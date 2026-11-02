@@ -793,6 +793,24 @@ def test_cmd_offline_bare_reports_state_and_on_off_persists(ctx: Ctx):
     ctx.check(f"a bad argument gets a usage line, got {bad!r}", bad == "Usage: /offline [on|off]")
 
 
+@test
+@_env
+def test_a_speech_server_starts_and_answers_offline(ctx: Ctx):
+    """3.3.9.0 R1: Halo's speech server (the fake engine) is a loopback server: offline it starts, /health answers
+    through the choke point, and a transcription answers -- nothing leaves the machine."""
+    from tests.helpers.hf_local_env import HfHome
+    from tests.helpers.voice_files import put
+    with HfHome() as h:
+        os.environ["HALO_OFFLINE"] = "1"
+        put(h.models, "faster-whisper:small.en")
+        from halo_harness.voice.launch import serve
+        code, lines, row = serve("stt", "faster-whisper:small.en", device="cpu")
+        ctx.check(f"served offline, got {code} {lines}", code == 0 and row is not None and row["ready"] is True)
+        from halo_harness.providers.local_server_cmd import get
+        status, body = get(f"http://127.0.0.1:{row['port']}/health")
+        ctx.check(f"/health through the choke point, got {status} {body}", status == 200 and body.get("status") == "ok")
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

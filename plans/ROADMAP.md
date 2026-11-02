@@ -3614,6 +3614,15 @@ The order (the owner's rule: all of this before Type into Studio and themes):
   reservation; the Meta glasses path through the Wearables Device Access
   Toolkit (a phone app in the loop, A2DP out, HFP or in-stream mic, "Hey
   Meta, start <app>"), honest about its limits.
+  **R1 BUILT 2026-11-02 (one Opus round, worktree ~/hh-339/R1-speech-servers, hand-back v339-R1-handback.md):** the
+  speech catalog (seven models, every repo id and footprint `verified: false` until rolo's live check), `halo voice
+  models | download | rm`, Halo's own OpenAI-compatible speech server (`halo_harness/voice/server.py`, the engine seam
+  with faster-whisper and kokoro-onnx built, parakeet and qwen3-tts declared), `halo local serve --stt | --tts` as the
+  `voice-stt` / `voice-tts` runtimes, the fit that is real ("present" / "download N GB" -- the line "the speech
+  models arrive with Voice" is gone), the steward's `stt-slow` / `tts-slow` / `voice-cpu` / `voice-load-failed`,
+  `halo doctor --voice`, the `voice.*` rows, docs/VOICE.md + COMMANDS-voice.md. Open: the loop (R2, brief
+  v339-R2-the-loop-brief.md), the host route + Local -> Voice + the glasses contract (R3); the Parakeet / Qwen3-TTS
+  engines; mp3/ogg uploads; the slow thresholds want a real box.
 - Then, after every local-model build (3.3.8.1 "Bench from any halo" first, then Voice): 3.3.10.0 "Pack policy"
   (issue #4), 3.3.11.0 "Type into Studio", 3.3.12.0 "Themes and parity" (+ issue #5), then 3.3.13.0
   "Federation" -- the Studio entries already written under their old

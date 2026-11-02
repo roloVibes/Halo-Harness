@@ -510,6 +510,9 @@ def _main(argv: Optional[list] = None) -> int:
     if argv and argv[0] == "pool":  # 3.3.8.0 R1: the pool -- members, the fit, the recommendation, the RPC scan
         from halo_harness.pool_cli import cmd_pool
         return cmd_pool(argv[1:])
+    if argv and argv[0] == "voice":  # 3.3.9.0 R1: the speech catalog, download, rm, serve (docs/VOICE.md)
+        from halo_harness.voice_cli import cmd_voice
+        return cmd_voice(argv[1:])
     if argv and argv[0] == "outcomes":
         # 3.1.8.0 R3: every agent task's outcome, per bio and model (docs/OUTCOMES.md).
         from halo_harness.outcomes.cli import cmd_outcomes
