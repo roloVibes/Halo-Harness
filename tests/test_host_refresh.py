@@ -33,6 +33,14 @@ def at(hour: int, minute: int = 0, days: int = 0) -> float:
     return time.mktime((t.tm_year, t.tm_mon, t.tm_mday, hour, minute, 0, 0, 0, -1)) + days * 86400
 
 
+def tonight(hour: int) -> float:
+    """`at(hour)` on the first day it is still ahead of the real clock: a tick's fake `now` must not lie BEFORE the rig's
+    real-time stamps (its ledger line, its profile), or the card reads busy / the profile reads fresh and nothing runs --
+    both runners failed so at 23:21 UTC with `at(23)` (3.3.8.0 candidate 44617414, runs 41361746057 / 41361745675)."""
+    t = at(hour)
+    return t if t > time.time() + 60 else t + 86400
+
+
 def cats(big_digest: str = "sha256:0b27") -> dict:
     from tests.helpers.steward_seed import rows
     r = rows()
@@ -98,7 +106,7 @@ def test_a_tick_runs_one_model_and_stamps_it(ctx: Ctx):
     from halo_harness.host import refresh as R
     with HostRig() as rig:
         R._STATE.update(running=None, checked=0.0)
-        now = at(23)
+        now = tonight(23)
         clock = iter([now + i for i in range(200)])
         f = Fakes(rig.home, lambda: next(clock))
         R._STATE["checked"] = 0.0
@@ -124,7 +132,7 @@ def test_it_never_runs_during_a_session_and_stops_on_a_call(ctx: Ctx):
     from halo_harness.host import refresh as R
     from halo_harness.ollama_steward import idle
     with HostRig() as rig:
-        now = at(23)
+        now = tonight(23)
         f = Fakes(rig.home, lambda: now, call=True)
         saved = idle.idle_since
         idle.idle_since = lambda home, host, **kw: {**saved(home, host, sessions=lambda: [], **kw)}
