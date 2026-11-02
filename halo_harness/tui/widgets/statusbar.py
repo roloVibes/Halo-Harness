@@ -465,6 +465,11 @@ class StatusBar(Static):
             self.remote_attached = count
             self._refresh_display()
 
+    def set_voice(self, chip: "str | None") -> None:
+        """3.3.9.0 R2: the mic chip beside the remote one (tui/voice_view.py); None: voice is off."""
+        self.voice_chip = chip or None
+        self._refresh_display()
+
     def _remote_str(self) -> str:
         try:  # 3.0.5.0: a private session (--private, /private on) shows a `private` chip here
             from halo_harness.remote.runtime import private_chip as _private
@@ -542,7 +547,7 @@ class StatusBar(Static):
         # style as effort_str below -- blank (no segment) when offline mode
         # is off, the ordinary case.
         offline_str = "offline" if self.offline else ""
-        remote_str = self._remote_str()
+        remote_str = " · ".join(x for x in (getattr(self, "voice_chip", None), self._remote_str()) if x)  # 3.3.9.0 R2: mic
         # Halo 2.0.3 round 5b (brief item 7): "41 tok/s · prefill 1.2 s"
         # (plus "· offloaded"), right next to the model chip -- "" (no
         # segment) before the first `ol:` reply of the session, or on any

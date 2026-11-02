@@ -12,7 +12,8 @@ local-model-fit-brief.md Part K).
 A row: {name, kind, engine, repo, files, download_gb, gpu_gb, cpu_gb, built, verified, note}. `files` are the files
 the engine loads from the repo (empty: every file); `download_gb` is what `halo voice download` fetches; `gpu_gb` /
 `cpu_gb` the footprint while it serves (weights + the engine's working set, int8 on the CPU). `built` says this
-build has an engine for it (faster-whisper through CTranslate2, Kokoro through kokoro-onnx); a declared row is listed,
+build has an engine for it (faster-whisper through CTranslate2, Kokoro through kokoro-onnx, 3.3.9.0 R2: Silero VAD
+through onnxruntime in the voice loop, voice/vad.py); a declared row is listed,
 downloadable and fitted, and `serve` says in one line which built model serves its kind. The repo ids and the sizes
 are written from memory of the model cards (`verified: false`): `halo voice models` prints "(repo unverified)".
 """
@@ -58,8 +59,8 @@ ROWS = (
         0.34, 0.3, 0.5, True, False, "54 voices, ~75-100 ms to first audio; the realtime default (voice af_heart)"),
     Row("qwen3-tts:0.6b", "tts", "qwen3-tts", "Qwen/Qwen3-TTS-0.6B", (), 1.8, 1.4, 2.4, False, False,
         "declared: clones a voice from a ~3 s reference; its runtime is not in this build"),
-    Row("silero-vad", "vad", "silero-vad", "snakers4/silero-vad", ("silero_vad.onnx",), 0.002, 0.0, 0.05, False, False,
-        "the voice-activity detector R2's loop chunks the microphone with; no server of its own"),
+    Row("silero-vad", "vad", "silero-vad", "snakers4/silero-vad", ("silero_vad.onnx",), 0.002, 0.0, 0.05, True, False,
+        "the voice-activity detector the voice loop chunks the microphone with (onnxruntime); no server of its own"),
 )
 VOICE_GB = {r.name: r.gpu_gb for r in ROWS if r.kind in ("stt", "tts")}
 VOICE_PREFIXES = ("faster-whisper", "whisper", "parakeet", "kokoro", "qwen3-tts", "silero")

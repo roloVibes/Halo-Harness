@@ -325,3 +325,15 @@ Speech-to-text (STT, 3.3.9.0 R1) turns audio into text: the speech catalog's fas
 ## text-to-speech
 
 Text-to-speech (TTS, 3.3.9.0 R1) turns text into audio: Kokoro-82M is built (54 voices, the realtime default, voice `af_heart`), Qwen3-TTS is declared; the speech server streams PCM sentence by sentence, and `tts-slow` says when the first audio comes after 400 ms.
+
+## voice loop
+
+The voice loop (3.3.9.0 R2) is how you talk to a Halo session and hear it answer, with no cloud in it: the microphone (16 kHz, 32 ms frames) -> Silero VAD (speech start, and its end after 250 ms of quiet) -> the speech-to-text server (partial transcripts in the status bar while you speak) -> the transcript submitted exactly as typed text (`you said: ...`; a turn that runs is steered) -> the reply cut into sentences -> the text-to-speech server -> the speaker, the first sentence playing while the model writes the second. `halo voice`, `/voice on`; each turn's latency card lands in `voice/turns.jsonl`.
+
+## barge-in
+
+Barge-in (3.3.9.0 R2) is speaking over a reply: the voice loop's VAD hears speech start while a reply is queued, playing or still being written, stops the playback within about 100 ms (inside the ~250 ms Part K asks), does not speak the rest of that reply (the transcript says `(interrupted while speaking)`), and sends what you say next to the session as a steer.
+
+## push-to-talk
+
+Push-to-talk (3.3.9.0 R2) is the voice loop's other mode: nothing is heard until you press the push-to-talk key (`Ctrl+Space` in the TUI, `voice.ptt_key`), and what you say goes to the session at the second press -- a terminal sends no key release, so press, talk, press. `/voice ptt` or `voice.mode: ptt` turns it on; hands-free (the VAD) is the default.

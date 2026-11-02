@@ -1,7 +1,8 @@
 """tests.test_voice_catalog -- Halo 3.3.9.0 R1: the speech catalog (halo_harness/voice/catalog.py) and `halo voice
 models`: the seven rows with their engine, repo, files, sizes and built flag; every repo id marked unverified (written
 from memory); the bundle manifest's VOICE_GB / VOICE_PREFIXES are the catalog's own objects (one source); a declared
-row's one line; the Library's speech rows name their catalog row; `halo voice` with no subcommand lists them. Files
+row's one line; the Library's speech rows name their catalog row; `halo voice models` lists them (3.3.9.0 R2: a bare
+`halo voice` opens a session with voice on, tests/test_voice_control.py). Files
 only: nothing is downloaded, no engine is imported.
 Run: python -m tests.test_voice_catalog
 """
@@ -42,8 +43,9 @@ def test_the_seven_rows(ctx: Ctx):
     kinds = {r.name: r.kind for r in catalog.ROWS}
     ctx.check("four STT, two TTS, one VAD", sorted(kinds.values()) == ["stt"] * 4 + ["tts"] * 2 + ["vad"])
     built = {r.name for r in catalog.ROWS if r.built}
-    ctx.check(f"faster-whisper and kokoro are built, got {built}", built == {"faster-whisper:large-v3-turbo",
-              "faster-whisper:small.en", "faster-whisper:base.en", "kokoro-82m"})
+    ctx.check(f"faster-whisper, kokoro and (3.3.9.0 R2) silero-vad are built, got {built}", built == {
+              "faster-whisper:large-v3-turbo", "faster-whisper:small.en", "faster-whisper:base.en", "kokoro-82m",
+              "silero-vad"})
     ctx.check("every repo is <org>/<name> and unverified", all(r.repo.count("/") == 1 and r.verified is False
                                                                  for r in catalog.ROWS))
     ctx.check("the sizes are numbers, a speech model has a CPU figure", all(r.download_gb > 0 and r.cpu_gb > 0
@@ -94,8 +96,8 @@ def test_the_library_links_its_speech_rows(ctx: Ctx):
 
 @test
 def test_halo_voice_models(ctx: Ctx):
-    code, out = _halo("voice")
-    ctx.check(f"halo voice lists the seven, got {code}", code == 0 and all(n in out for n in NAMES))
+    code, out = _halo("voice", "models")
+    ctx.check(f"halo voice models lists the seven, got {code}", code == 0 and all(n in out for n in NAMES))
     ctx.check("each repo says unverified", out.count("(repo unverified)") == len(NAMES))
     ctx.check("not present here, with the download line", "not present (halo voice download kokoro-82m, 0.34 GB)" in out)
     ctx.check("the engines' line", "the engines: " in out)
