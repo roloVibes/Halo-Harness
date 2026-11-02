@@ -224,7 +224,8 @@ def resolve_huggingface_local_server(name: Optional[str]) -> Optional[HFLocalSer
         for s in entries:
             if s.name.lower() == name.lower():
                 return s
-        return None
+        from halo_harness.freetoken.peer import remote_entry as ft_remote  # 3.3.9.1: a paired host's FreeToken server
+        return ft_remote(name)
     entries = [s for s in entries if not str(s.runtime or "").startswith("voice-")]  # 3.3.9.0 R1: never a speech server
     if not entries:
         return None

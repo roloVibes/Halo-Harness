@@ -156,6 +156,9 @@ def stop(key, *, state_dir) -> dict:
     if is_voice_runtime(e.get("kind")):  # 3.3.9.0 R1: a speech server's `stt` / `tts` entry goes with it
         from halo_harness.voice.launch import forget
         forget(str(e["id"]))
+    if e.get("kind") == "freetoken":  # 3.3.9.1: the `freetoken` entry Halo wrote goes with it
+        from halo_harness.freetoken.launch import forget as forget_ft
+        forget_ft()
     return {"ok": True, "id": e["id"], "say": f"stopped {e['kind']} {e['id']} ({e['model']} on port {e['port']}): {how}"}
 
 
@@ -175,8 +178,9 @@ def status(key, *, state_dir) -> dict:
     from halo_harness.providers.local_server_cmd import get
     url = f"http://127.0.0.1:{e['port']}"
     code, health = get(f"{url}/health")
-    out = {"ok": True, "id": e.get("id"), "health": health if code else None, "status": code, "ready": code == 200,
-           "say": "ready" if code == 200 else ("still loading" if code == 503 else f"not answering ({health})")}
+    loading = isinstance(health, dict) and health.get("status") == "loading"  # 3.3.9.1: FreeToken's /health is 200 while it loads
+    out = {"ok": True, "id": e.get("id"), "health": health if code else None, "status": code, "ready": code == 200 and not loading,
+           "say": "ready" if code == 200 and not loading else "still loading" if loading else ("still loading" if code == 503 else f"not answering ({health})")}
     if code == 200 and e.get("kind") == "llama-server":
         scode, slots = get(f"{url}/slots")
         out["slots"] = slots if scode == 200 else None

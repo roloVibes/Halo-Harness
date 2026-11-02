@@ -62,6 +62,10 @@ class Rules:
         self.clock: Optional[float] = None
         self.devices: dict = {}
         self.assigned: dict = {}
+        self._ft = None
+        if self.runtime == "freetoken":  # 3.3.9.1: FreeToken's own lines (server_log_ft.FtRules)
+            from halo_harness.ollama_steward.server_log_ft import FtRules
+            self._ft = FtRules()
 
     def _start(self, at) -> None:
         self.loading, self.load_at, self.layers = True, at, None
@@ -147,7 +151,11 @@ class Rules:
         return out
 
     def feed(self, raw: str, at=None) -> list:
-        line = str(raw or "").rstrip("\r\n")
+        if self._ft is not None:
+            out = self._ft.feed(raw, at=at)
+            self.model, self.clock = self._ft.model, self._ft.clock
+            return out
+        line =str(raw or "").rstrip("\r\n")
         ev = classify(line, runtime=self.runtime)  # the line's own time first, the read clock (`at`) else
         if ev is not None and ev.get("at") is None:
             ev["at"] = at

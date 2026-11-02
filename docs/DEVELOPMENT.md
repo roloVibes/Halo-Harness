@@ -371,6 +371,17 @@ cpu,cuda` for the devices it reports. It is a test flag: never set it outside te
 `tests/helpers/fake_voice_server.py` (the real server with the fake engine), the way `huggingface.llama_server_bin`
 points at `fake_llama_server.py`, and `tests/helpers/voice_files.put` writes a speech model's files as a few bytes.
 
+### The fake FreeToken (3.3.9.1)
+
+`huggingface.freetoken_bin` = [python, `tests/helpers/fake_ft_server.py`] (tests/helpers/ft_home.FtHome) stands in for
+FreeToken's `ft`: `--version`, `bench bw` (its report's ceilings line and one row; `FAKE_FT_GATHER` sets the GB/s) and
+`serve` (127.0.0.1 only, whatever `--host` says: `/health` loading then ok, `/v1/models` with `owned_by: FreeToken`,
+chat completions with `usage`, the scheduler's and `--moe-collect-stats`'s lines; `FAKE_FT_LOAD_S`, `FAKE_FT_HIT`,
+`FAKE_FT_CTX`, `FAKE_FT_EXIT=nvcc|pin`, `FREETOKEN_API_KEY` for a keyed server). Its log lines are
+`tests/helpers/ft_lines.py`'s, written from FreeToken's source and unverified against a live run.
+`freetoken/requirements.SEAMS` (`platform`, `which`, `run`) answers the platform, `nvidia-smi` and `nvcc` checks, so a
+test never runs the real ones; `freetoken/link.SEAMS` and `freetoken/bench.SEAMS` are the bench seams.
+
 ### The fake audio (3.3.9.0 R2)
 
 `HALO_VOICE_AUDIO=fake` makes `voice/audio.py`'s `Audio.open` return `voice/audio_fake.FakeAudio`: no device is opened;

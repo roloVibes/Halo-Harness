@@ -27,7 +27,8 @@ NAMED = ("scheduler", "memory", "log", "local-servers", "kv-cache", "parallel", 
 RULES = ("window-asked-small", "window-small", "window-large", "two-windows", "cpu-spill", "reply-cut", "no-compaction",
          "compaction-failed", "cut-resent", "slow-box", "thrash",
          "stt-slow", "tts-slow", "voice-cpu", "voice-load-failed",  # 3.3.9.0 R1: knowledge/local-servers.md's speech rows
-         "voice-slow")  # 3.3.9.0 R2: the voice loop's latency cards
+         "voice-slow",  # 3.3.9.0 R2: the voice loop's latency cards
+         "ft-expert-thrash", "ft-pinned-cap", "ft-kernel-jit")  # 3.3.9.1: knowledge/local-servers.md's FreeToken rows
 
 
 def _cli(*argv) -> "tuple[int, str]":

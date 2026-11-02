@@ -2,7 +2,7 @@
 
     View(home, readers=None).card()            {hosts: [{name, port, card, log, other_clients, footprint}], link}
     View.catalog(window)                       {window, hosts: [{name, port, models: [{model, size, digest, fit, speed,
-                                                measured, profile}]}], pool (3.3.8.0 R3: local_pool/peer.offer)}
+                                                measured, profile}]}], pool (3.3.8.0 R3: local_pool/peer.offer), freetoken (3.3.9.1: freetoken/peer.offer)}
     View.profiles()                            {profiles: [battery profile without its evidence]}
     View.events(since, kind)                   {events: [...]} (the newest EVENTS_MAX)
     View.tail(n, host)                         {host, lines, source, why, n} (prompt sizes, never a request body)
@@ -183,7 +183,8 @@ class View:
                                "fit": self.fit_row(card, r, h, window), **self.model_facts(h, m)})
             out.append({"name": h.name, "port": port_of(h.url), "models": models})
         from halo_harness.local_pool.peer import offer  # 3.3.8.0 R3: the pool this machine runs, its entry and key
-        return {"window": window, "hosts": out, "pool": offer(self.home)}
+        from halo_harness.freetoken.peer import offer as ft_offer  # 3.3.9.1: the FreeToken server, when on the LAN
+        return {"window": window, "hosts": out, "pool": offer(self.home), "freetoken": ft_offer(self.home)}
 
     # ---- profiles, events, tail ----------------------------------------------------------------
     def profiles(self) -> dict:

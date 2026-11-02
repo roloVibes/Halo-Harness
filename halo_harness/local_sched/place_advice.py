@@ -2,7 +2,8 @@
 adviser and `halo local place` (Halo 3.3.8.0 R4; docs/COMMANDS-local.md "advise: placement scores").
 
     candidates(state_dir=None) -> [host]   fleet-wide: every configured Ollama host, each paired halo host's served
-        Ollama host this machine has no entry for (named by the host's own name for it), and the pool
+        Ollama host this machine has no entry for (named by the host's own name for it), the pool, and (3.3.9.1) each
+        FreeToken server (freetoken/route.ft_hosts)
     tax(row) -> "25 s to load, evicts qwen3.8:27b"   what the chosen placement costs: the load seconds,
         the switch (what it evicts or pivots beside), the pool's decode penalty
     scored(lanes, *, state_dir=None, hosts=None, answers=None) -> {rows, line}   place.solve with each row's
@@ -58,7 +59,8 @@ def candidates(state_dir=None) -> list:
             hosts.append(OllamaHost(name=name, url=url))
             urls.add(url.lower())
             names.add(name.lower())
-    return hosts + [h for h in (pool_host(state_dir),) if h is not None]
+    from halo_harness.freetoken.route import ft_hosts  # 3.3.9.1: this machine's and each paired host's FreeToken server
+    return hosts + [h for h in (pool_host(state_dir),) if h is not None] + ft_hosts(state_dir)
 
 
 def tax(r: dict) -> str:
@@ -77,6 +79,8 @@ def tax(r: dict) -> str:
         parts.append(seg)
     if r.get("penalty_pct"):
         parts.append(f"pooled -{float(r['penalty_pct']):g} % decode")
+    if r.get("ft_tax") and not r.get("warm"):  # 3.3.9.1: FreeToken's restart, expert load and first-install JIT
+        parts = [p for p in parts if not (p.startswith("evicts") or p.endswith("to load"))] + [r["ft_tax"]]
     return ", ".join(parts) or "no load tax"
 
 

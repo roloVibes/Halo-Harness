@@ -134,4 +134,6 @@ def _drift_steps(versions: Optional[dict], staged: Optional[Callable]) -> list:
 def id_steps(state_dir, *, role_table: Optional[dict] = None, main_ref: Optional[str] = None,
              versions: Optional[dict] = None, staged: Optional[Callable] = None) -> list:
     from halo_harness.doctor_local_servers import server_steps  # 3.3.8.0 R2: each local server's log, readable or not
-    return _id_steps(state_dir, role_table, main_ref) + _drift_steps(versions, staged) + server_steps(state_dir)
+    from halo_harness.doctor_freetoken import ft_steps  # 3.3.9.1: ft --version, the driver, nvcc when configured
+    return (_id_steps(state_dir, role_table, main_ref) + _drift_steps(versions, staged) + server_steps(state_dir)
+            + ft_steps(state_dir))

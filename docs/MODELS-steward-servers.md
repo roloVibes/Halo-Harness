@@ -1,6 +1,6 @@
 # Models: the steward and the local servers
 
-Read this when you run llama-server, LM Studio or mlx_lm.server and want to know what the steward reads in each one's log, what each log can and cannot say, what the steward changes on Halo's side and which server-side line it states.
+Read this when you run llama-server, LM Studio, mlx_lm.server or FreeToken and want to know what the steward reads in each one's log, what each log can and cannot say, what the steward changes on Halo's side and which server-side line it states.
 
 Part of [Models](MODELS.md), which lists every part. The steward itself: [MODELS-ollama-steward.md](MODELS-ollama-steward.md); Ollama's own log: [MODELS-ollama-logs.md](MODELS-ollama-logs.md).
 
@@ -145,6 +145,23 @@ rows are in the knowledge's local-servers section, so the steward's guide keeps 
 (3.3.9.0 R2, `ollama_steward/rules_voice_loop.py`), reads the voice loop's own latency cards
 (`~/.halo/voice/turns.jsonl`): a stage over its share of the budget three turns running, keyed `voice|<stage>` on the
 Ollama host served here, with its fix line ([VOICE.md](VOICE.md#the-latency-card)).
+
+## FreeToken (3.3.9.1)
+
+A FreeToken server ([MODELS-freetoken.md](MODELS-freetoken.md)) is the runtime `freetoken`: Halo's own `halo local
+serve --runtime freetoken` (the entry `freetoken`, its log `~/.halo/local/servers/freetoken.log`), a manual entry with
+`runtime: freetoken` and its `log`, or one the loopback sweep found on 1919 (its `/v1/models` says `owned_by:
+FreeToken`). `ollama_steward/server_log_ft.py` reads its lines with patterns written from FreeToken's source,
+unverified against a live log: FreeToken's own stamp, the load block (`Resolved config: moe_strategy=...`, `MoE experts:
+<format> via <kernel>`, `--moe-cache-auto resolved moe_cache_size=N`, `API server is ready to serve on ...`) as one
+`load-result`, each `Prefill batch` / `Decode batch` line as `timing` (the verify reads its tok/s), the
+`--moe-collect-stats` line as `expert-cache` (the hit rate), the pin-budget lines as `pin-cap`, a long startup warmup
+as `kernel-jit`, the nvcc mismatch and the stopped pinned load as `load-failed`. `ollama_steward/rules_ft.py` turns
+them into **ft-expert-thrash**, **ft-pinned-cap** and **ft-kernel-jit**, keyed `<server>|<model>`, each with a stated
+line never applied (`ft ctl cache --moe N`, native Linux, the CUDA 13 toolkit); their rows are in the knowledge's
+local-servers section. The stated lines for this runtime are `ft serve`'s own: `--max-seq-len-override N` for the
+window, `--max-output-tokens N` for the reply limit; it has no layer or cache-type flag to state (it sizes its expert
+cache and KV itself).
 
 ## What the logs cannot say
 
