@@ -66,6 +66,9 @@ class Rules:
         if self.runtime == "freetoken":  # 3.3.9.1: FreeToken's own lines (server_log_ft.FtRules)
             from halo_harness.ollama_steward.server_log_ft import FtRules
             self._ft = FtRules()
+        elif self.runtime == "strata":  # 3.3.9.2: Strata's own lines (server_log_strata.StRules)
+            from halo_harness.ollama_steward.server_log_strata import StRules
+            self._ft = StRules()
 
     def _start(self, at) -> None:
         self.loading, self.load_at, self.layers = True, at, None

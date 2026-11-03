@@ -14,6 +14,7 @@ prefix cache (`--cache-type radix`, FreeToken's default: from the source, unveri
 time is the decode. An untimed warm-up goes first: the first request after an install compiles FreeToken's CUDA
 kernels for minutes (docs/install.md), which the card must not count. The window ceiling is the served model's
 `context_length` from /v1/models. Card: host = the server's name, digest `freetoken|<model>`, runtime freetoken.
+3.3.9.2: `runtime="strata"` runs the same card against a Strata server (strata/bench.py): digest `strata|<model>`.
 """
 
 from __future__ import annotations
@@ -26,6 +27,7 @@ WARM_TIMEOUT_S = 1800.0
 COST = ("local: ~{s} s on {name} (its GPU, CPU and the host link are busy for it), writes its speed card; no tokens "
         "leave this machine")
 PREFILL_ASSUMED, DECODE_ASSUMED = 300.0, 10.0
+FIRST_WORDS = "a first request after an install compiles FreeToken's kernels"
 
 
 def _ceiling(server) -> int:
@@ -57,7 +59,7 @@ def sender(server) -> Callable:
         code, got = _post(url, body, key)
         took = time.monotonic() - t0
         if code != 200:
-            return {"error": got.get("error") if code == 0 else f"the FreeToken server answered {code}"}
+            return {"error": got.get("error") if code == 0 else f"the {getattr(server, 'label', 'FreeToken')} server answered {code}"}
         u, ch = got.get("usage") or {}, (got.get("choices") or [{}])[0]
         return {"prompt_tokens": u.get("prompt_tokens"), "completion_tokens": u.get("completion_tokens"),
                 "seconds": took, "cut": ch.get("finish_reason") == "length", "error": None}
@@ -69,7 +71,8 @@ def _rate(n, s) -> Optional[float]:
 
 
 def bench(server, *, quick: bool = False, send: Optional[Callable] = None, state_dir=None,
-          on_line: Optional[Callable[[str], None]] = None, now: Callable[[], float] = time.time) -> dict:
+          on_line: Optional[Callable[[str], None]] = None, now: Callable[[], float] = time.time,
+          runtime: str = "freetoken", warm_words: str = FIRST_WORDS) -> dict:
     from halo_harness.local_pool.bench import windows_for
     from halo_harness.providers.local_bench import REPLY, RESERVES, SHORT, _msg, prompt_for
     from halo_harness.providers.local_bench_runs import _row_line, save
@@ -77,14 +80,14 @@ def bench(server, *, quick: bool = False, send: Optional[Callable] = None, state
     send = send or SEAMS.get("send") or sender(server)
     model = getattr(server, "model", None) or "the model"
     t0, ctx = now(), _ceiling(server)
-    out = {"ok": True, "model": model, "host": server.name, "digest": f"freetoken|{model}", "runtime": "freetoken",
+    out = {"ok": True, "model": model, "host": server.name, "digest": f"{runtime}|{model}", "runtime": runtime,
            "ollama_version": None, "at": t0, "cold_load_s": None, "cold_load_from": "", "windows": [],
            "max_gpu_window": None, "planner_window": ctx, "ceiling_from": "the served model's context_length (/v1/models)",
            "reserve_floor": None, "reserve_probes": [], "quick": quick, "warmups": 0,
            "measured_from": "two calls per window: a one-token reply (the prompt), then the reply (the prefix cached)"}
     warm = send(_msg("Reply with the word ready."), max_tokens=8)
     out["warmups"] += 1
-    say(f"warming (untimed: a first request after an install compiles FreeToken's kernels"
+    say(f"warming (untimed: {warm_words}"
         f"{', ' + format(warm['seconds'], '.0f') + ' s' if isinstance(warm.get('seconds'), (int, float)) else ''})")
     for w in windows_for(ctx, quick):
         first = send(prompt_for(w), max_tokens=1) if not warm.get("error") else warm
@@ -120,13 +123,13 @@ def bench(server, *, quick: bool = False, send: Optional[Callable] = None, state
     return out
 
 
-def speed_word(state_dir, host: str, model) -> Optional[str]:
+def speed_word(state_dir, host: str, model, runtime: str = "freetoken") -> Optional[str]:
     """The newest FreeToken speed card's reply tok/s for `model` (on the server named `host`, else any FreeToken one)."""
     if state_dir is None or not model:
         return None
     try:
         from halo_harness.providers.local_bench_runs import all_cards
-        cards = [c for c in all_cards(state_dir) if c.get("runtime") == "freetoken"
+        cards = [c for c in all_cards(state_dir) if c.get("runtime") == runtime
                  and str(c.get("model") or "").lower() == str(model).lower()]
     except Exception:
         return None

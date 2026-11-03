@@ -63,9 +63,19 @@ def _ft(change: str, value, was) -> Optional[tuple]:
     return None
 
 
+def _st(change: str, value, was) -> Optional[tuple]:
+    """3.3.9.2: `strata launch`'s flags (docs/TERMINAL_LAUNCH.md, from the source, unverified); a new launch applies them."""
+    if change == "ctx-size":
+        return f"--context {value}", f"--context {was}" if was else "drop --context"
+    if change == "cache-type":
+        return "--kv q4_0" if str(value).startswith("q4") else "--kv int8", f"--kv {was}" if was else "drop --kv"
+    return None
+
+
 def line(server, change: str, value, *, was=None) -> Optional[dict]:
     rt = getattr(server, "runtime", None) or "llama-server"
-    got = {"llama-server": _llama, "lmstudio": _lmstudio, "mlx": _mlx, "freetoken": _ft}.get(rt, _llama)(change, value, was)
+    got = {"llama-server": _llama, "lmstudio": _lmstudio, "mlx": _mlx, "freetoken": _ft, "strata": _st}.get(
+        rt, _llama)(change, value, was)
     if got is None:
         return None
     set_, revert = got

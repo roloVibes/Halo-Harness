@@ -361,3 +361,7 @@ The expert cache (3.3.9.1) is FreeToken's GPU-side LRU cache of a Mixture-of-Exp
 ## offload
 
 Offload (3.3.9.1) is FreeToken's default strategy for a Mixture-of-Experts model on a discrete GPU: the dense layers and the KV stay on the GPU, the routed experts live in host RAM, and the expert cache on the GPU holds the ones in use, so a model far bigger than the card runs on one machine at the speed of the host link (PCIe, about 32-64 GB/s). Its fit is RAM + link, not VRAM (`halo local bench --host freetoken --bw` measures the link); `fused` keeps every expert on the GPU instead.
+
+## expert set
+
+An expert set (3.3.9.2) is one of the quantized builds Strata serves a Mixture-of-Experts model from (Strata calls them packs, not Halo packs): a family and a size, such as `qwen/IQ3_XXS` (Qwen3.8-Flash-Next by ISTA-DASLab) or `deepseek41/ist-das-2.00bpw`, each with its download (tens to hundreds of GB), the experts it holds in host RAM and what stays on the SSD. `halo local serve --runtime strata --model <family>/<set>` serves one once its first launch (the user's download, its GB said first) is done; the Strata fit reads the set's figures against the box's RAM, the VRAM guide for parallel requests and the SSD, and the Library lists the sets as download targets.

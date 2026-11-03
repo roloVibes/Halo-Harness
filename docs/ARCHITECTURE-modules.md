@@ -295,6 +295,20 @@ loading tax), `freetoken/waits.py` (the first request's kernel JIT: the session'
 `ollama_steward/server_log_ft.py` (FreeToken's own lines as events) and `ollama_steward/rules_ft.py`
 (ft-expert-thrash, ft-pinned-cap, ft-kernel-jit); `doctor_freetoken.py` (`halo doctor --local`'s lines).
 
+**Strata** (Halo 3.3.9.2, docs/MODELS-strata.md): the runtime `strata` -- `strata/requirements.py` (`strata` from
+`huggingface.strata_bin` or PATH, `strata --version`, the install route for this OS in one line), `strata/catalog.py`
+(the families and sets Strata names, their download GB and memory figures, the Library's download targets),
+`strata/launch.py` (`halo local serve --runtime strata`: `strata launch --plan` first and never a download, then
+`strata launch ... --no-tui`, the registry row, the `strata` entry, Halo's key in the env file), `strata/control.py`
+(after the launch returns: `strata launch --status` and `--stop`, the server's own log, the served id),
+`strata/detect.py` (the auto-detect's `/health` "service": "strata"), `strata/bench.py` (`halo local bench --host
+strata` on FreeToken's speed card), `strata/peer.py` (the host's offer, a peer's `hf:local/<model>@<host>`),
+`strata/route.py` (a Strata server as a placement option, its loading tax); the fit -- `local_sched/fit_st.py`
+(FreeToken's RAM + link rule with Strata's figures: the VRAM slot guide, the experts against RAM, the SSD, the table's
+speed until benched); the steward -- `ollama_steward/server_log_strata.py` (Strata's server and launch lines as
+events) and `ollama_steward/rules_strata.py` (strata-disk-bound, strata-slots, strata-download); `doctor_strata.py`
+(`halo doctor --local`'s lines).
+
 **Policy hooks and modes** (Halo 3.3.10.0 R1, draft; docs/EXTENSION_API.md "Policy hooks"):
 `packs/manifest_policy.py` (`contributes.policy` and `contributes.modes`: the entries, their meaning lines, the
 command with `${halo_python}` and `${CLAUDE_PLUGIN_ROOT}` put in), `packs/mode_state.py` (the pack's `mode.json`:
