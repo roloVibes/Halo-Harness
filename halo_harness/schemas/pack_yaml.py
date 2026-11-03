@@ -30,8 +30,10 @@ TOP_KEYS = ("id", "name", "version", "description", "author", "license", "halo_a
             "requires", "contributes", "config", "permissions", "migrations", "bundle")  # bundle: 3.3.7.0 R5
 CONTRIBUTION_KEYS = ("agents", "teams", "skills", "commands", "hooks", "mcp", "studio", "fleet", "artifacts",
                      "events", "workflows",  # 3.2.0.0 R2: workflows (names a lineup's workflows may use; R5 runs them)
-                     "policy", "modes")  # 3.3.10.0 R1: policy hooks and the pack's runtime modes (packs/manifest_policy.py)
+                     "policy", "modes",  # 3.3.10.0 R1: policy hooks and the pack's runtime modes (packs/manifest_policy.py)
+                     "setup")  # 3.3.11.0 R3: the pack's own Setup blocks (packs/manifest_setup.py)
 POLICY_KEYS = ("id", "run", "when", "impact", "on_error", "redact", "after")
+SETUP_KEYS = ("id", "title", "kind", "after", "help", "fields", "run", "what", "cost", "time", "writes", "text")
 MODE_KEYS = ("id", "label", "theme")
 # 3.2.0.0 R3: contributes.studio
 STUDIO_KEYS = ("sections", "panels", "palette", "config_form", "events", "attention")
@@ -119,10 +121,16 @@ def pack() -> dict:
                   "impact": STRING, "on_error": STRING, "redact": _NAMES, "after": BOOL})
     mode = obj({"id": STRING, "label": STRING, "theme": STRING})
     assert tuple(policy["properties"]) == POLICY_KEYS and tuple(mode["properties"]) == MODE_KEYS
+    # 3.3.11.0 R3: a Setup block (packs/manifest_setup.py names each problem with its entry)
+    setup = obj({"id": STRING, "title": STRING, "kind": STRING, "after": STRING, "help": STRING, "fields": _NAMES,
+                 "run": {"type": ["string", "array"]}, "what": STRING, "cost": STRING, "time": STRING, "writes": STRING,
+                 "text": STRING})
+    assert tuple(setup["properties"]) == SETUP_KEYS
     contributes = obj({"agents": _NAMES, "teams": _NAMES, "skills": STRING, "commands": STRING, "hooks": STRING,
                        "mcp": {"type": "array", "items": mcp_entry}, "studio": studio(), "fleet": fleet(),
                        "artifacts": _NAMES, "events": {"type": "array", "items": event}, "workflows": _NAMES,
-                       "policy": {"type": "array", "items": policy}, "modes": {"type": "array", "items": mode}})
+                       "policy": {"type": "array", "items": policy}, "modes": {"type": "array", "items": mode},
+                       "setup": {"type": "array", "items": setup}})
     migration = obj({"from": _VERSION, "to": _VERSION, "note": STRING, "settings": MAPPING})  # settings: 3.2.0.0 R7 renames
     props = {"id": STRING, "name": STRING, "version": STRING, "description": STRING, "author": author,
              "license": STRING, "halo_api": _RANGE, "halo": _RANGE, "capabilities": _NAMES, "requires": requires,

@@ -337,5 +337,11 @@ result), `packs/policy_after.py` (R2: the post-call verdict, pass / redact / dro
 Manager's block, a mission's armed ids), `packs/policy_views.py` (inspect's block, `halo pack policy status`, the
 doctor's mode.json rows) and `packs/cli_policy.py` (`halo pack mode`, `halo pack policy`).
 
+**A pack's Setup blocks** (Halo 3.3.11.0 R3; docs/EXTENSION_API.md "Setup blocks"): `packs/manifest_setup.py`
+(`contributes.setup`: the entries, the form's fields, the `pack:<id>:<block>` keys, the meaning lines),
+`packs/setup_state.py` (the pack's `setup.json`: done / skipped per block, the `setup:` lines `halo pack enable` ends
+with, the doctor's info row, `halo setup <pack>`'s door), `studio/setup_packs_api.py` (`GET setup/packs`, `GET|POST
+setup/packs/<id>/<block>`, the state's `packs`) and `start/checks_pack.py` (a pack's check as a row of the checks job).
+
 The map goes on in [Architecture: the module map, part two](ARCHITECTURE-modules-two.md): the Ollama
 steward, packs, the extension API, isolation, the guided first run, Setup and Settings.

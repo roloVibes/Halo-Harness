@@ -559,6 +559,18 @@ reservation; off releases it and disables the pack. `halo pack verdict | on | of
 --bundles` ([COMMANDS-packs.md](COMMANDS-packs.md#bundles)); the arithmetic, the reservation and the routing are in
 [MODELS-bundles.md](MODELS-bundles.md).
 
+## Setup blocks
+
+3.3.11.0 R3. A pack can add its own pages to Studio's Setup (`contributes.setup`,
+[EXTENSION_API.md](EXTENSION_API.md#setup-blocks)): a form for its settings, a
+check it runs, a note to read. They show while the pack is enabled, so a pack you
+install after `halo init` says so when you turn it on: `halo pack enable <id>`
+ends with a `setup: <id> -- <title> (halo setup <id>)` line per block still
+waiting, `halo setup <id>` opens the first one in Studio, and `halo doctor` and
+`halo pack doctor` keep an info row until each is done or skipped. A form writes
+the pack's own settings only; a check runs with what a pack hook gets (never
+Halo's provider keys); nothing of another pack is shown to it.
+
 ## Modes and policy hooks
 
 A pack may declare **modes** and **policy hooks** (3.3.10.0; the contract:

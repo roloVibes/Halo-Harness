@@ -62,8 +62,8 @@ def _parse_check_line(line: str) -> dict:
         status, rest = "warn", stripped[len(WARN):].strip()
     elif stripped.startswith(MISSING):
         status, rest = "missing", stripped[len(MISSING):].strip()
-    else:
-        status, rest = "info", stripped
+    else:  # 3.3.11.0 R3: an `[INFO]` note (a pack's Setup block waiting) is info too, its tag dropped
+        status, rest = "info", stripped[len("[INFO]"):].strip() if stripped.startswith("[INFO]") else stripped
     fix = see = None
     m = _FIX_SUFFIX_RE.search(rest)
     if m:
@@ -1766,6 +1766,8 @@ def _check_entries(cwd: Optional[Path] = None, settings_flag: Optional[str] = No
     entries.append(("command_on_path", check_command_on_path()))
     entries.append(("old_rolo_claude_on_path", _check_old_rolo_claude_leftover()))
     entries.extend(_check_remote())
+    from halo_harness.packs.setup_state import doctor_lines as _pack_setup  # 3.3.11.0 R3: a pack's Setup block waiting
+    entries.extend(_pack_setup(cwd))
     return [(cid, line) for cid, line in entries if line is not None]
 
 

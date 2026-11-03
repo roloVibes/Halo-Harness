@@ -136,7 +136,8 @@ def start(keys, ctx, state_dir, publish: Optional[Callable[[dict], None]] = None
         except Exception as e:  # anything run_many did not turn into a failed check
             results.append(["error", False, [f"{type(e).__name__}: {e}"]])
         stopped = len(results) < len(keys)
-        rows = [{"key": k, "title": C.check(k)["title"] if k in C.KEYS else k, "ok": bool(ok), "lines": list(lines)}
+        rows = [{"key": k, "title": C.check(k)["title"] if k in C.KEYS or C.known_key(k) else k, "ok": bool(ok),
+                 "lines": list(lines)}
                 for k, ok, lines in results]
         summary = {"ok": bool(rows) and not stopped and all(r["ok"] for r in rows), "stopped": stopped, "results": rows}
         try:

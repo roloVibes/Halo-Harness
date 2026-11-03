@@ -95,6 +95,10 @@ def check(key: str) -> dict:
     for c in CHECKS:
         if c["key"] == key:
             return c
+    from halo_harness.start.checks_pack import entry  # 3.3.11.0 R3: a pack's Setup check, `pack:<id>:<block>`
+    found = entry(key)
+    if found is not None:
+        return found
     raise KeyError(key)
 
 
@@ -124,10 +128,18 @@ def explain(keys=None, ctx: Optional[CheckCtx] = None) -> "list[str]":
     return out
 
 
+def known_key(key) -> bool:
+    """A core check's key, or (3.3.11.0 R3) an enabled pack's Setup check (start/checks_pack.py rows)."""
+    from halo_harness.start.checks_pack import known
+    return key in KEYS or known(key)
+
+
 def ordered(keys) -> "list[str]":
-    """`keys` in CHECKS order, unknown ones dropped."""
+    """`keys` in CHECKS order, unknown ones dropped; 3.3.11.0 R3: a pack's Setup checks after them, as given."""
+    from halo_harness.start.checks_pack import known
+    keys = list(keys)
     wanted = set(keys)
-    return [k for k in KEYS if k in wanted]
+    return [k for k in KEYS if k in wanted] + [k for k in dict.fromkeys(keys) if k not in KEYS and known(k)]
 
 
 def run_one(key: str, ctx: CheckCtx) -> "tuple[bool, list[str]]":

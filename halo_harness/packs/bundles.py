@@ -77,4 +77,5 @@ def ensure_installed(entry: dict, cwd=None, state_dir=None) -> "tuple[bool, list
         if not ok:
             return False, lines + got, None
         lines.append(got[0])
+        lines += [ln for ln in got if ln.startswith("setup: ")]  # 3.3.11.0 R3: its Setup blocks still waiting
     return True, lines, pack

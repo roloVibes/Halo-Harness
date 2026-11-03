@@ -1,4 +1,4 @@
-"""halo_harness.setup_cli -- `halo setup [team|roles] [--terminal]` (Halo 2.0.2
+"""halo_harness.setup_cli -- `halo setup [team|roles|<pack>] [--terminal]` (Halo 2.0.2
 round 7, init wizard brief item 3; 3.3.0.0 R4: the door into Studio's Setup).
 
 On a real terminal `halo setup` opens Halo Studio on its Setup section, the
@@ -12,7 +12,8 @@ fails to run -- the same "interactive picker failed -> fallback" shape every
 other picker in this package already uses), it prints the current roles table
 instead of blocking, and exits 0. `/setup` (the TUI slash command,
 `tui/slash.py::_handle_setup`) is the other way to reach this from a LIVE
-session.
+session. 3.3.11.0 R3: `halo setup <pack>` opens an enabled pack's own Setup blocks
+(`?mode=setup&block=pack:<id>:<block>`, the first one waiting), or lists them where no browser opens.
 """
 
 from __future__ import annotations
@@ -32,7 +33,7 @@ def _print_roles_table() -> int:
 # working unchanged.
 _STEP_KEYS = {"team": ("team",), "roles": ("roles",), "": ("roles", "summary")}
 _NO_TTY_FALLBACK = {"team": _print_roles_table, "roles": _print_roles_table, "": _print_roles_table}
-USAGE = "usage: halo setup [team|roles] [--terminal]"
+USAGE = "usage: halo setup [team|roles|<pack>] [--terminal]"
 
 
 def _open_in_studio(sub: str) -> bool:
@@ -43,17 +44,43 @@ def _open_in_studio(sub: str) -> bool:
     return cli_door(SetupTarget(block=block or ""), terminal_cli=cli, fallback="screen")
 
 
+def _pack_setup(pack_id: str, terminal: bool) -> "int | None":
+    """3.3.11.0 R3: `halo setup <pack>` -- Studio's Setup on the pack's first block waiting (`?block=pack:<id>:<block>`);
+    with no terminal, --terminal or no browser, the pack's blocks with their state. None: no pack has that id."""
+    from halo_harness.packs.setup_state import door
+    key, lines = door(pack_id)
+    if key is None:
+        return None
+    if not key:
+        print(lines[0], file=sys.stderr)
+        return 1
+    if not terminal and sys.stdin.isatty() and sys.stdout.isatty():
+        from halo_harness.studio.setup_door import SetupTarget, cli_door
+        if cli_door(SetupTarget(block=key), terminal_cli=f"halo setup {pack_id} --terminal", fallback="listing"):
+            return 0
+    for line in lines:
+        print(line)
+    print(f"open them in Studio: halo studio --edit setup:{key}")
+    return 0
+
+
 def cmd_setup(argv: list) -> int:
     words = [w for w in argv if w != "--terminal"]
     terminal = len(words) != len(argv)
     sub = words[0] if words else ""
     if sub in ("-h", "--help"):
         print(USAGE)
-        print("Opens Halo Studio on its Setup section (the Team block for team or roles); --terminal runs the "
-              "terminal screen instead, as does a box where no browser can open.")
+        print("Opens Halo Studio on its Setup section (the Team block for team or roles; an enabled pack's first "
+              "Setup block for its id); --terminal runs the terminal screen instead, as does a box where no browser "
+              "can open.")
         return 0
+    if sub not in _STEP_KEYS and len(words) == 1:
+        rc = _pack_setup(sub, terminal)  # 3.3.11.0 R3: a pack's own Setup blocks
+        if rc is not None:
+            return rc
     if sub not in _STEP_KEYS or len(words) > 1:
-        print(f"halo setup: unknown subcommand {' '.join(words)!r} (known: team, roles; --terminal)", file=sys.stderr)
+        print(f"halo setup: unknown subcommand {' '.join(words)!r} (known: team, roles, an enabled pack's id; "
+              "--terminal)", file=sys.stderr)
         return 2
     if not (sys.stdin.isatty() and sys.stdout.isatty()):
         return _NO_TTY_FALLBACK[sub]()
