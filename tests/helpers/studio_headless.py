@@ -66,7 +66,22 @@ def start_one(c, rig, server) -> dict:
 
 def a_turn(c, rig, server) -> dict:
     typed(c, "hello with no terminal")
-    reply = c.wait(f"{TEXTS}.includes('pong from headless') && 'reply'", 40)
+    try:
+        reply = c.wait(f"{TEXTS}.includes('pong from headless') && 'reply'", 90)  # the Linux runner's child is slow to start
+    except TimeoutError as e:
+        # Linux shard 1 of run 41697734325: no reply in 40 s and nothing to say why. Say where the turn stalled: the
+        # receipts' ladder (sent / delivered / read / replied), the child's status over its socket, its log tail.
+        sid = c.js(f"{P}?.dataset.session") or ""
+        try:
+            receipts = rig.api(server, "GET", f"sessions/{sid}/receipts")[1]
+        except Exception as x:  # the route itself failing is part of the picture
+            receipts = {"error": f"{type(x).__name__}: {x}"}
+        try:
+            entry = rig.entry(sid, 5)
+            status = rig.client(entry).call("status")["result"] if entry else "no registry row"
+        except Exception as x:
+            status = f"{type(x).__name__}: {x}"
+        raise TimeoutError(f"{e}; receipts: {receipts}; child status: {status}; child log tail: {rig.child_log()[-600:]!r}") from None
     return {"reply": reply}
 
 
