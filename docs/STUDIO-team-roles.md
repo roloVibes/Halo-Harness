@@ -117,6 +117,21 @@ what a lineup is, the steps, and **Make my first lineup** (a copy of a
 shipped one, opened on the canvas); "open the panels anyway" (or
 `?view=workspace`) goes straight to the panels.
 
+**Roles Live: what really runs (3.3.11.0 R2).** The owner: "the roles page doesn't adjust to what the main agent
+creates for workflows during auto mode ... the mapping in roles isn't 1:1". The canvas bar starts with **Plan | Live**
+(`L`, the palette's "Roles: Live" / "Roles: Plan", `?mode=roles&view=live[&session=<id>]`, the Session Map's **Open in
+Roles Live**). Plan is the lineup; Live (`routes/roles/LiveMap.tsx`) is the session's real agent tree on the whole
+canvas, read through the work record adapter (`ui/src/lib/work/record.ts`: the session as `{id, agents: [{id, parent,
+name, role, model, state, reason, started, ended, ...}], edges}`, the only file that changes when the shared work
+record lands): one node per agent, live or finished and still in the frames, parent -> child edges, nothing dropped --
+an agent whose parent is not in the session hangs under one "unknown parent" node. The card-matching rule above
+(alias, bio, a unique role, main) is informational here: the card a node matches is drawn as a faint dashed group
+behind its nodes, and an agent Auto spawned that matches no card is still a node. An `auto` pick's reason is on its
+node ("picked at spawn: coder on <model> -- <why>", the words the terminal's `/agents live` prints under the agent).
+The layout is the Session Map's (`routes/fleet/layoutTree.ts` `forestOf` / `placeForest`, shared) with bigger nodes,
+spread or compact; zoom, Fit and the first draw's fit; a click selects the agent and the Inspector's Live tab follows
+it (a finished one too); `J` / `K` hop the working agents; a node's `steer` and `...` are the Map's.
+
 **The default lineup (3.1.9.0).** While no `team:` is set, new sessions run
 the shipped `auto` lineup ([ROLES.md](ROLES.md#the-auto-lineup-halo-3190)):
 the Start view says so ("In use now: auto (the default)") with **Open auto**

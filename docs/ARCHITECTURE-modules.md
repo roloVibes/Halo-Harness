@@ -26,7 +26,8 @@ this list against the tree.
   `studio/coach_api.py`, `studio/coach_probe_job.py` (3.1.6.0: the probe on
   a thread, its step lines on the feed); the live sessions: `studio/sessions_api.py` (3.3.11.0 R1: the Prompt panel's
   sends with their receipts, its slash list and the receipts' rows: `studio/sessions_prompt_api.py`; the session's
-  side: `remote/prompt_queue.py`, `remote/receipts.py`, `remote/receipt_seams.py`); the
+  side: `remote/prompt_queue.py`, `remote/receipts.py`, `remote/receipt_seams.py`; 3.3.11.0 R2: a session with no terminal,
+  started and listed by `studio/sessions_new_api.py`, run by `headless_session.py`); the
   config checks behind Roles' Problems panel: `studio/doctor_config_api.py`
   (`GET /api/doctor/config`, the rows of `halo doctor --config`)
 - one editor (3.1.1.0): `studio/edit_target.py` (what `halo studio --edit`

@@ -55,6 +55,15 @@ def teams(server) -> list:
         return []
 
 
+def pages(server) -> int:
+    """3.3.11.0 R2: how many Studio pages the feed serves now (studio/events.py listeners); 0 without a feed."""
+    try:
+        bridge = getattr(server, "events", None)
+        return int(bridge.listeners()) if bridge is not None else 0
+    except Exception:
+        return 0
+
+
 def orchestra(server) -> list:
     """This repo's Orchestra runs the gate stopped, each with its report's `stop_reason`."""
     try:

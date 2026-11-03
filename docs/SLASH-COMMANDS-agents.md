@@ -25,7 +25,10 @@ agents instead: the main agent and every sub-agent at every depth (and
 background Bash jobs), indented under their parents, with state, cost so
 far, model and what each one is doing (the tool in flight, or its task).
 It is the same tree Studio and `halo remote agents <session>` show; see
-[SUBAGENTS.md](SUBAGENTS.md).
+[SUBAGENTS.md](SUBAGENTS.md). Since 3.3.11.0 R2 an agent an `auto` lineup picked a model for has its pick on the
+line under it (`picked at spawn: coder on <model> -- <why>`, the words Studio's Roles Live puts on the node), and an
+agent whose parent is not in the tree is listed under one "unknown parent" line (not as a second root), so the
+terminal and Roles Live agree 1:1 ([Roles](STUDIO-sections.md#roles)).
 
 **Halo 2.0.5 round 2, 3.1.1.0**: bare `/agents` instead opens an interactive
 list-with-actions screen over the bios (New, New from..., View, Edit in

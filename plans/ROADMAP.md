@@ -4281,3 +4281,23 @@ stays `delivered` until the session ends; the panel draws only the turns sent af
 Studio on a real terminal session; a turn typed from the Prompt showing "from Studio" in the terminal; `/cost` from the
 panel; an ask answered from the panel; a turn sent while busy -> Queue it (the hint says "1 queued from Studio"); the four
 marks reaching replied. Next: R2 a session without a terminal + the live map (Roles Plan | Live), R3 pack Setup blocks.**
+
+**3.3.11.0 R2 BUILT 2026-11-03 (two Opus workers -- the first cut off by server-side API errors mid-D2, the second verified
+D1-D4 and finished; worktree ~/hh-3311/R2-headless-live-map, hand-back v3311-R2-handback.md): `halo --headless [--session-for
+studio]` (`headless_session.py`: the TUI's controller without the Textual app, the control socket as its only door, kind
+`headless`, asks parked until an `answer` through the socket, /quit or `shutdown` ends it, `halo --resume <id>` later);
+Studio starts and ends one (`studio/sessions_new_api.py`: POST sessions/new with the model + cwd pickers, GET sessions/started,
+`~/.halo/studio-sessions.json` so a restarted server finds the children, a detached spawn; `routes/session/NewSession.tsx`,
+"End session" = shutdown; `fleet/attention.py` rows a parked ask as "waiting on you in Studio" while no page is attached);
+Roles Plan | Live (`roles/LiveMap.tsx`, `LiveNode.tsx`, `liveModel.ts`, `liveLayout.ts`: the whole-page agent tree, nothing
+dropped, Auto's reason per node, the lineup card faint behind the matching nodes, zoom/fit, click -> inspector; the Session
+Map = the thumbnail with "Open in Roles Live"); ONE adapter `lib/work/record.ts` read by both and by the Map (the switch to
+the shared work record is that file); `/agents live` prints the same tree. Choices: `liveModel.ts` not `liveMap.ts` (a
+case-insensitive clash with LiveMap.tsx); `remote/handle.py` untouched; the `--resume` test reads the log through
+build_controller, not a pilot; STUDIO-sections.md at its 400-line cap, so Roles Live rides in existing lines and the full
+text is in STUDIO-session.md. Not covered by a test: a Studio RESTART finding a still-running child through the Chrome UI
+(the API half is tested); Kali / WSL runs of the two new Chrome drivers. Live check (rolo), PC: Studio with no terminal ->
+Session -> New session on a cheap model -> a turn from the Prompt -> an ask answered -> close the tab, reopen (still
+running; the Fleet row says "waiting on you in Studio" while no page is open) -> End session -> `halo --resume <id>`; and
+Roles -> Live during an Auto-mode session with spawned agents, 1:1 with `/agents live`, the Map thumbnail's expand. Next:
+R3 pack Setup blocks (`contributes.setup`), then the 3.3.11.0 release.**

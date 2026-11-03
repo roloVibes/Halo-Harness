@@ -21,7 +21,7 @@ Live and Cost; Fleet keeps everything. The Fleet panels are the same
 components (one implementation each) reading the Fleet stores through one
 scope, `{harness, session}`, which the section sets while it shows.
 
-Until this harness has a live session the section is its Start view; when a
+Until this harness has a live session the section is its Start view, with **New session** (3.3.11.0 R2: the model, the folder, a session with no terminal at all: [A session without a terminal](STUDIO-session.md#a-session-without-a-terminal-33110-r2)); when a
 supervisor's pulse is live (Halo 3.1.8.0 R1, `halo supervise`,
 [SUPERVISE.md](SUPERVISE.md)) that view shows one line -- "N goals done, M
 waiting on you, $X" -- and the decisions that wait are the Attention queue's
@@ -102,7 +102,7 @@ waiting on you, $X" -- and the decisions that wait are the Attention queue's
 **Panels.** Live (`session-live`): every agent here at once, what it types,
 runs, hands back and asks, in the Fleet log's columns under this session's
 timeline strip, with the Steer box at its foot. Map (`session-map`): your
-sessions on this machine as cards, each one's agents as a tree. Cost
+sessions on this machine as cards, each one's agents as a tree -- since 3.3.11.0 R2 the thumbnail of the tree Roles Live draws full size (**Open in Roles Live** on its bar). Cost
 (`session-cost`): the chosen session's spend and sparkline, the context bar, the tokens, your turns and cost
 per turn, elapsed, the model, each agent's own share, tokens and calls, moving with the terminal; under the context
 bar (Halo 3.3.5.0 R4, `session-cost-composition`) the last request's parts as one stacked bar in tokens -- system,
@@ -114,7 +114,7 @@ and Send anyway (`preflight-send`), answering the same card the terminal shows. 
 the selected agent, its streams and controls. Activity (`session-activity`):
 the chosen session's timeline lanes and full live log. Attention
 (`session-attention`): what waits on you in this harness's sessions. Prompt (`session-prompt`, 3.3.11.0 R1): the
-session read like the terminal, a box to type into it (the slash list, Queue it / Steer) and each turn's receipt marks.
+session read like the terminal, a box to type into it (the slash list, Queue it / Steer) and each turn's receipt marks; with no session here it offers New session, and a session with no terminal (chip **no terminal**) has **Open in terminal** and **End session** in its header (3.3.11.0 R2).
 
 ### Team
 
@@ -164,6 +164,7 @@ boxes you can arrange and edit; the files are `~/.halo/teams/<name>.yaml` and
 8. **Read the glow**: hover a glowing card's state glyph or its live badge
    and the card explains its glow (below). The tier box takes the strongest
    state of its cards, and the edges into a card take that card's colour.
+9. **See what really runs: Plan | Live** (3.3.11.0 R2; the switch first on the canvas bar, `L`, the palette's "Roles: Live", `?mode=roles&view=live[&session=<id>]`). Plan is the lineup above; **Live** is the session's actual agent tree on the whole page -- one node per agent, live or finished and still in the frames, an edge from each parent, NOTHING dropped (an agent whose parent is not in the session hangs under "unknown parent"), so every agent Auto spawns is there even when it matches no card, 1:1 with the terminal's `/agents live`. A node shows its name, role, state, model, cost and time, and an `auto` pick's reason ("picked at spawn: coder on <model> -- <why>"); the lineup card a node matches is a faint dashed group behind it. Layered layout (the Session Map's own), spread or compact, `+` / `-` and Fit (`F`; the first draw fits a tree wider than the page); a click selects the agent and the Inspector's Live tab follows it; `steer` and `...` on a node are the Map's. The session picker lists every session the fleet carries, this harness first. All of it reads the frames through one adapter, `ui/src/lib/work/record.ts`.
 
 **The glow, and when it comes and goes (3.1.5.0).**
 
@@ -181,19 +182,15 @@ with no cards (or none open) shows "Drag a bio here, or New lineup" on the canva
 
 **Panels.** Lineups: your lineups and the shipped ones; the active one is
 marked. Canvas: the open lineup as cards, one box per tier: who plays each
-part, on which model. Inspector: the selected card's slot, every section of
+part, on which model (on Live: the session's agent tree). Inspector: the selected card's slot, every section of
 the lineup, and what runs on the card now. Problems: what is wrong with the
 lineup as you edit it, each with its fix. Bios: the agent bios: who each
 card is, on which model, with which tools. Models: the model catalog the
 pickers read, per provider, and why it is empty when it is.
 
-**Keys.** `Alt+3` Roles; on the canvas (click it first) `A` lays out, `F`
-fits, `+` / `-` zoom, the arrows nudge the selected card (`Shift`: further),
-`Del` removes it (asks first); `Ctrl+Z` / `Ctrl+Shift+Z` undo / redo a
-lineup edit, `Ctrl`/`Cmd`+`S` saves; `J` / `K` the next / previous card
-whose agent works (its Live tab opens), `Space` pins that agent's mini
-stream, with the Live tab open `F` follows and `P` pauses; `Esc` unpins (or
-closes a replay).
+**Keys.** `Alt+3` Roles; `L` Plan | Live (3.3.11.0 R2); on the canvas (click it first) `A` lays out, `F` fits, `+` / `-` zoom, the arrows nudge the selected card (`Shift`: further),
+`Del` removes it (asks first); `Ctrl+Z` / `Ctrl+Shift+Z` undo / redo a lineup edit, `Ctrl`/`Cmd`+`S` saves; `J` / `K` the next / previous card whose agent works (on Live: the next / previous working agent of the tree),
+its Live tab open; `Space` pins that agent's mini stream, with the Live tab open `F` follows and `P` pauses; `Esc` unpins (or closes a replay).
 
 ![Roles: the lineup in two declared tiers and the implicit last one, the implementer at work](media/studio-roles.png)
 

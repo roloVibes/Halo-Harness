@@ -2,12 +2,14 @@
 // three lines, "start a session in a terminal (halo), it appears here the
 // moment it registers" and "open the workspace anyway", built from Fleet's
 // Start pieces. SessionView switches to the five panels the moment a session
-// of this harness registers (and back when the last one ends).
+// of this harness registers (and back when the last one ends). 3.3.11.0 R2: "New session" starts one with no
+// terminal at all (NewSession.tsx: the model, the folder; Session opens on it with the Prompt focused).
 import { useEffect } from "react";
 import { Surface } from "../../lib/ui";
 import { Workspace } from "../../lib/workspace/Workspace";
 import type { PanelSpec } from "../../lib/workspace/types";
 import { Explain, OpenAnyway, TryIt } from "../fleet/Start";
+import { NewSession } from "./NewSession";
 import { useFleet } from "../fleet/store";
 import { setSessionView, startSession, useSessionStart } from "./store";
 import { useSupervise, watchSupervise } from "./supervise";
@@ -31,7 +33,8 @@ export function SessionStart() {
         </header>
         <Surface className="fl-start-form ss-start-form" motion="idle">
           <Explain lines={WHAT} />
-          <TryIt title="Start a session in a terminal (halo), it appears here the moment it registers.">
+          <NewSession />
+          <TryIt title="Or start a session in a terminal (halo), it appears here the moment it registers.">
             Run <code>halo</code> in any folder on this machine; <code>/studio</code> in it opens this view on that session. <code>halo --private</code> keeps one out.
           </TryIt>
           <OpenAnyway onOpen={() => setSessionView("workspace")} testid="session-open-workspace" />

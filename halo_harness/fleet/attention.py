@@ -24,6 +24,8 @@ serves them (`GET /api/fleet/attention`) and routes the answers.
 Each row: {id, kind, harness, harness_name, local, session_id, session, agent_id, agent, what, detail,
 since, keys: {a|r|s|o: label}, text_for: "r" | None, target: {...}}. `keys` holds only the answers
 that kind takes; `r` with `text_for` sends the typed text (deny reason, instruction, feedback, answer).
+3.3.11.0 R2: a card of a `headless` session (no terminal) is `parked: true`; with no Studio page open
+(`pages`, how many pages Studio's feed serves) its `what` ends "-- waiting on you in Studio".
 """
 
 from __future__ import annotations
@@ -99,7 +101,18 @@ def _row(kind: str, rid: str, h: dict, s: Optional[dict], aid: str, what: str, d
             "text_for": TEXT_FOR.get(kind), "target": {k: v for k, v in target.items() if v is not None}}
 
 
-def session_rows(view: dict, asks: dict, seen: dict, now: float) -> list:
+NO_PAGE = "waiting on you in Studio"  # 3.3.11.0 R2: a headless session's ask with no Studio page open
+
+
+def _parked(row: dict, pages: Optional[int]) -> None:
+    """A session with no terminal (headless_session.py) parks its asks: only Studio's Prompt panel answers them."""
+    row["parked"] = True
+    if not pages:
+        row["what"] = f"{row['what']} -- {NO_PAGE}"
+        row["detail"] = f"{row['detail']} (no terminal: open Session's Prompt panel to answer)".strip()
+
+
+def session_rows(view: dict, asks: dict, seen: dict, now: float, pages: Optional[int] = None) -> list:
     out = []
     for h in view.get("harnesses") or []:
         for s in h.get("sessions") or []:
@@ -125,6 +138,8 @@ def session_rows(view: dict, asks: dict, seen: dict, now: float) -> list:
                                     request_id=rid))
                     if kind == "approval" and rid.startswith("preflight-"):  # 3.3.5.0 R4: agent/preflight.py's card
                         out[-1].update(keys={**PREFLIGHT_KEYS}, text_for=None)
+                    if s.get("kind") == "headless":
+                        _parked(out[-1], pages)
                     listed = True
             for a in s.get("agents") or []:
                 aid = str(a.get("agent_id") or "")
@@ -179,12 +194,13 @@ def conflict_rows(conflicts: list, view: dict, seen: dict, now: float) -> list:
 
 
 def build(view: dict, *, asks: Optional[dict] = None, orchestra=(), commands=(), reached=(), conflicts=(),
-          seen: Optional[dict] = None, acks=(), now: Optional[float] = None, home=None, teams=(), packs=()) -> list:
+          seen: Optional[dict] = None, acks=(), now: Optional[float] = None, home=None, teams=(), packs=(),
+          pages: Optional[int] = None) -> list:
     """Every row, newest decision last within each harness, set-aside rows left out."""
     now = now or time.time()
     seen = seen if seen is not None else {}
     local = next((h for h in view.get("harnesses") or [] if h.get("local")), {"id": None, "name": "this harness", "local": True})
-    rows = (session_rows(view, asks or {}, seen, now)
+    rows = (session_rows(view, asks or {}, seen, now, pages)
             + orchestra_rows(list(orchestra), local, seen, now) + command_rows(list(commands), view, seen, now)
             + cap_rows(list(reached), local, seen, now) + conflict_rows(list(conflicts), view, seen, now))
     if home is not None:  # 3.0.6.0 R7: the missions' rows
