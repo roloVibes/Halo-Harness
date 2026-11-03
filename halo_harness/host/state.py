@@ -225,5 +225,5 @@ def server_rows(addr: str, servers) -> list:
         speech = rt in ("voice-stt", "voice-tts")
         out.append({"name": s.name, "port": sport(s.url), "addr": addr, "kind": "speech" if speech else "server",
                     "runtime": rt, "pool": s.name.lower() == "pool",
-                    **({"model": s.model} if speech or rt == "freetoken" else {})})  # 3.3.9.1: FreeToken's model too
+                    **({"model": s.model} if speech or rt in ("freetoken", "strata") else {})})  # 3.3.9.1, 3.3.9.2
     return out

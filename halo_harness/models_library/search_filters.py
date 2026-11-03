@@ -86,6 +86,8 @@ def ollama_supports(row: dict, version) -> "tuple[Optional[bool], str]":
         return None, "an MLX model: Ollama does not serve it (halo local serve does)"
     if row.get("kind") == "freetoken":  # 3.3.9.1
         return None, "a FreeToken checkpoint: Ollama does not serve it (halo local serve --runtime freetoken does)"
+    if row.get("kind") == "strata":  # 3.3.9.2
+        return None, "a Strata set: Ollama does not serve it (halo local serve --runtime strata does)"
     arch, v = arch_of(row), str(version or "")
     if not v:
         return None, "the host's Ollama version is not read yet"
@@ -118,6 +120,9 @@ def runs_here(row: dict, host_card: Optional[dict]) -> "tuple[bool, str]":
         return plat == "mac", "MLX runs on Apple silicon only" + ("" if plat == "mac" else f" (this host: {plat or 'unknown'})")
     if row.get("kind") == "freetoken":  # 3.3.9.1: FreeToken, Linux x86_64 with an NVIDIA card
         return plat in ("nvidia", ""), "FreeToken runs on NVIDIA under Linux x86_64" + ("" if plat in ("nvidia", "") else f" (this host: {plat})")
+    if row.get("kind") == "strata":  # 3.3.9.2: Strata, natively on Windows, Linux and the Mac
+        return plat != "cpu", "Strata runs on a graphics card: NVIDIA, AMD or Apple silicon" + (
+            f" (this host: {plat})" if plat == "cpu" else "")
     word = {"nvidia": "CUDA on NVIDIA", "amd": "ROCm / Vulkan on AMD", "mac": "Metal on Apple silicon",
             "cpu": "the CPU (no GPU on the card)", "": "Ollama (no hardware card read yet)"}[plat]
     return True, f"a GGUF through Ollama: {word}"

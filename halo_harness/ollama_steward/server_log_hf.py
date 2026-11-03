@@ -151,6 +151,9 @@ def scan(state_dir, server, *, from_start: bool = False, root=None, at=None) -> 
     rules = _rules(state_dir, server, from_start)
     evs = [e for x in lines for e in rules.feed(x, at=at)] + rules.flush()
     evs += _death(server, st, lines)
+    if server.runtime == "strata":  # 3.3.9.2: Strata's log never names the model it serves; the roster row does
+        for e in evs:
+            e["model"] = e.get("model") or server.model or "strata"
     for e in evs:
         e["data"].setdefault("runtime", server.runtime or "llama-server")
         if server.launch and e["kind"] in ("gpu-memory", "other-error", "load-failed"):

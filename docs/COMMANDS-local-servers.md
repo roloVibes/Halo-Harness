@@ -56,3 +56,21 @@ for each one missing (exit 2). `--lan` binds every address behind a generated ke
 The FreeToken server's speed card (the battery's windows and reply reserve, two calls per window), or with `--bw` the
 host link measured by `ft bench bw` (about two minutes, the GPU and the CPU busy), the GB/s the FreeToken fit reads in
 place of the extrapolated 32-64 GB/s. Both print their cost line first and ask unless `--yes`.
+
+### `halo local serve --runtime strata --model <family>/<set> | --model-path DIR [--port P] [--lan] [--plan] [--json]` (3.3.9.2)
+
+Starts Strata's `strata launch` for a set it names ([MODELS-strata.md](MODELS-strata.md)): `strata launch --plan
+--output json` first, and when it says anything is to download (the set's tens to hundreds of GB, the engine, a
+drafter) one line with the GB and the `strata launch` command you run yourself (exit 2, nothing started). Otherwise
+the command line, then the URL and `hf:local/<model>@strata`, or "still starting" when the launch outlasts three
+minutes (it goes on; exit 0). It is the server `strata` for `halo local servers | log | stop`; the stop is `strata
+launch --stop` for the launch serving its port, and removes the `strata` entry. The server outlives Halo (Strata's
+supervisor runs it). `strata` is `huggingface.strata_bin` or the one on PATH; when it is missing, one line with the
+install route for this OS (exit 2). `--lan` is `--access lan` behind Halo's key; `--plan` prints Strata's own plan and
+the fit here, and starts nothing.
+
+### `halo local bench --host strata [--quick] [--yes] [--json]` (3.3.9.2)
+
+The Strata server's speed card (FreeToken's: the battery's windows and reply reserve, two calls per window, an untimed
+warm-up), with its cost line first; it asks unless `--yes`. The card is kept under the set's name too, so the Strata
+fit line says "measured".
