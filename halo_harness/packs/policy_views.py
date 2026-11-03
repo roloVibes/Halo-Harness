@@ -1,9 +1,10 @@
 """halo_harness.packs.policy_views -- the policy hooks and modes as `halo pack inspect`, `halo pack policy status`
-and `halo pack doctor` show them (Halo 3.3.10.0 R1; docs/EXTENSION_API.md "Policy hooks", draft).
+and `halo pack doctor` show them (Halo 3.3.10.0 R1; docs/EXTENSION_API.md "Policy hooks").
 
     block(pack, state_dir=None, *, running=None, granted=()) -> {"mode": mode.json, "modes": [...], "policies": [...]}
     block_lines(d)        the lines under "policy hooks:" (each policy's command, when, impact, on_error, redact, state)
     status(cwd=None, state_dir=None) -> [block + {id, version, state}] for every pack that declares a policy or a mode
+                          (R2: each policy with its verdict counts and its process)
     status_lines(rows)
     doctor_rows(pack, state_dir=None) -> a row for a mode or an armed policy mode.json names and the manifest does not
 """
@@ -48,7 +49,7 @@ def block_lines(d) -> "list[str]":
     if not d:
         return []
     rec = d["mode"]
-    out = ["policy hooks and modes (draft: nothing enforces a verdict before 3.3.10.0 R2):"]
+    out = ["policy hooks and modes (a session asks every armed policy before each matching tool call):"]
     for m in d["modes"]:
         theme = f", theme {m['theme']} (read from 3.3.12.0)" if m.get("theme") else ""
         out.append(f"  mode {m['id']} ({m['label']}{theme}): " + ("on" if m["on"] else "off"))
@@ -59,7 +60,7 @@ def block_lines(d) -> "list[str]":
         when = f"tools {', '.join(p['tools']) or 'every tool'}" + (f"; modes {', '.join(p['modes'])}" if p["modes"] else "")
         extra = f"; redact {', '.join(p['redact'])}" if p["redact"] else ""
         out.append(f"  policy {p['id']}: {when}; impact {p['impact']}; on_error {p['on_error']}{extra}"
-                   + ("; after (read from R2)" if p["after"] else ""))
+                   + ("; after: asked again with the result" if p["after"] else ""))
         out.append(f"    run: {p['run']}")
         if p.get("state"):
             out.append(f"    {p['state']}")
@@ -77,8 +78,20 @@ def status(*, cwd=None, state_dir=None) -> "list[dict]":
         b = block(pack, state_dir, running=running, granted=granted)
         if b is not None:
             word = "runs here" if running else ("enabled, not running" if pack.id in snap.enabled else "disabled")
+            _audit(pack.id, b, state_dir)
             rows.append({"id": pack.id, "version": pack.version, "state": word, **b})
     return rows
+
+
+def _audit(pack_id: str, b: dict, state_dir) -> None:
+    """3.3.10.0 R2: each policy's verdict counts (the events log) and its process (the `policy_proc` rows)."""
+    from halo_harness.packs import policy_audit as A
+    if not b["policies"]:
+        return
+    rs, ps = A.rows(pack_id, state_dir=state_dir), A.procs(pack_id, state_dir=state_dir)
+    for p in b["policies"]:
+        p["verdicts"] = A.counts([r for r in rs if r.get("policy") == p["id"]])
+        p["process"] = ps.get(p["id"], "not running")
 
 
 def status_lines(rows) -> "list[str]":
@@ -89,6 +102,9 @@ def status_lines(rows) -> "list[str]":
         out.append(f"{r['id']} {r['version']} ({r['state']}): mode {r['mode']['mode'] or 'none'}")
         for p in r["policies"]:
             out.append(f"  {p['id']}: {p['state']}")
+            if "process" in p:
+                said = ", ".join(f"{k} {n}" for k, n in sorted(p["verdicts"].items())) or "none yet"
+                out.append(f"    process {p['process']}; verdicts: {said} (halo pack policy log {r['id']})")
     return out
 
 

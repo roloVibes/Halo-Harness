@@ -1,5 +1,5 @@
 """halo_harness.packs.cli_policy -- `halo pack mode` and `halo pack policy` (Halo 3.3.10.0 R1; docs/COMMANDS-packs.md,
-docs/EXTENSION_API.md "Policy hooks", draft).
+docs/EXTENSION_API.md "Policy hooks").
 
     halo pack mode <pack> <mode> on|off [--note TEXT] [--json]
                                     turn one of the pack's modes on or off (mode.json); on arms the policies that name it
@@ -10,6 +10,8 @@ docs/EXTENSION_API.md "Policy hooks", draft).
     halo pack policy test <pack> <policy> <tool> '<json input>' [--budget-ms N] [--json]
                                     a verdict without a session: arms nothing, starts the policy's process for
                                     this one request, prints `deny -- fence: outside the project (12 ms)`
+    halo pack policy log [<pack>] [--since 1h] [--json]
+                                    3.3.10.0 R2: every verdict sessions got (the pack's events log), oldest first
 
 Every verb takes `--cwd DIR`. Exit codes: 0 done (any verdict), 1 could not (one line on stderr), 2 usage.
 """
@@ -21,7 +23,7 @@ import json
 import sys
 from pathlib import Path
 
-ACTIONS = ("status", "arm", "disarm", "test")
+ACTIONS = ("status", "arm", "disarm", "test", "log")
 
 
 def _parser(verb: str) -> argparse.ArgumentParser:
@@ -32,9 +34,10 @@ def _parser(verb: str) -> argparse.ArgumentParser:
         p.add_argument("switch", choices=("on", "off"), help="on: the mode is on, its policies armed; off: both undone")
         p.add_argument("--note", default="", help="a line kept in mode.json beside the mode")
     else:
-        p.add_argument("action", choices=ACTIONS, help="status, arm, disarm or test")
-        p.add_argument("rest", nargs="*", metavar="ARG",
-                       help="arm <pack> <policy>; disarm <pack> [<policy>]; test <pack> <policy> <tool> '<json input>'")
+        p.add_argument("action", choices=ACTIONS, help="status, arm, disarm, test or log")
+        p.add_argument("rest", nargs="*", metavar="ARG", help="arm <pack> <policy>; disarm <pack> [<policy>]; "
+                       "test <pack> <policy> <tool> '<json input>'; log [<pack>]")
+        p.add_argument("--since", default=None, metavar="WHEN", help="log: 30m, 2h, 1d, epoch seconds or an ISO time")
         p.add_argument("--budget-ms", type=int, default=None, metavar="N",
                        help="test: how long to wait for the answer (default packs.policy.budget_ms, 2000)")
     p.add_argument("--cwd", default=None, metavar="DIR", help="act as if run from DIR")
@@ -96,9 +99,27 @@ def _test(args, cwd: Path) -> int:
     snap = snapshot(cwd=cwd)
     if pack.id not in snap.order or "hooks" not in S.granted(pack.id, snap.state):
         lines.append(f"  a session asks it once the pack runs with hooks: halo pack enable {pack.id} --grant hooks")
-    lines.append("  a dry run: nothing was armed; nothing enforces a verdict before 3.3.10.0 R2")
+    lines.append("  a dry run: nothing was armed, no session asked")
     from dataclasses import asdict
     return _done(args, True, lines, {"verdict": asdict(v)})
+
+
+def _log(args, cwd: Path) -> int:
+    from halo_harness.packs import policy_audit as A
+    if len(args.rest) > 1:
+        return _usage(args, "halo pack policy log [<pack>] [--since 1h]")
+    try:
+        since = A.since_ts(args.since) if args.since else 0.0
+    except ValueError as e:
+        return _usage(args, str(e))
+    pack = args.rest[0] if args.rest else None
+    if args.json:
+        ids = [pack] if pack else A._policy_packs(cwd, None)
+        rs = sorted((r for i in ids for r in A.rows(i, since)), key=lambda r: float(r.get("ts") or 0))
+        print(json.dumps({"verdicts": rs}, indent=2, ensure_ascii=False, default=str))
+        return 0
+    print("\n".join(A.log_lines(pack, since, cwd=cwd)))
+    return 0
 
 
 def cmd(verb: str, argv: list) -> int:
@@ -120,6 +141,8 @@ def cmd(verb: str, argv: list) -> int:
         return 0
     if args.action == "test":
         return _test(args, cwd)
+    if args.action == "log":
+        return _log(args, cwd)
     if args.action == "arm":
         if len(args.rest) != 2:
             return _usage(args, "halo pack policy arm <pack> <policy>")

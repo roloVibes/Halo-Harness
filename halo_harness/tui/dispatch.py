@@ -494,6 +494,8 @@ async def _apply_event_inner(app, event) -> None:
             # instead of just the plain caption text; a card that never
             # gets this kwarg (every non-image result) behaves exactly as
             # before.
+            if (data.get("policy") or {}).get("line"):  # 3.3.10.0 R2: `policy: deny -- fence: outside the project`
+                card.header = f"{card.header}  {data['policy']['line']}"
             card.set_result(ok=bool(data.get("ok")), summary=data.get("summary", ""), content=data.get("content"),
                              images=data.get("images"))
         if agent_id is None:

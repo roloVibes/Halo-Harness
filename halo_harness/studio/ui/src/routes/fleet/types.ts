@@ -122,6 +122,8 @@ export type Entry = {
   label?: string;
   task?: string;
   is_error?: boolean;
+  /** 3.3.10.0 R2: a tool result's pack verdicts as one line (`policy: deny -- fence: outside the project`). */
+  policy?: string;
   ts?: number | null;
   tag?: string | null;
   cmd?: string;

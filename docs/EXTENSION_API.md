@@ -2,8 +2,9 @@
 
 Read this when you write a pack, or change what Halo promises a pack: the manifest, the lifecycle, what a pack may import and what each part's status is.
 
-Halo 3.2.0.0 (written in R1, final in R7: every part was `stable`); 3.3.10.0 R1 adds the first `draft` part,
-[Policy hooks](#policy-hooks). A pack is a folder Halo installs, enables and removes (see
+Halo 3.2.0.0 (written in R1, final in R7: every part was `stable`); 3.3.10.0 R1 added
+[Policy hooks](#policy-hooks) as the first `draft` part, and R2 made it `stable` (a session enforces each verdict).
+A pack is a folder Halo installs, enables and removes (see
 [PACKS.md](PACKS.md) for using one); this page is the contract a pack is
 written against. The extension API version is `API_VERSION = "1.1"` (1.0 until 3.3.10.0; a 1.0 pack keeps
 everything, [Changes in 1.x](#changes-in-1x))
@@ -28,7 +29,7 @@ machine-readable manifest schema is
 | [Events and artifacts](#events-and-artifacts) | stable | typed events (3.2.0.0 R5: schemas, the events log, subscriptions), typed artifacts with viewers, memory with provenance |
 | [Compatibility and migration](#compatibility-and-migration) | stable | the version policy (`ext.compatible`, `ext.deprecations`), `migrations` shown before an update and applied, `halo pack rollback` (3.2.0.0 R7) |
 | [Bundles](#bundles) | stable | `bundle:` (3.3.7.0 R5): a capability bundle, a pack with a resource claim -- needs, reservation, routing, latency budget; the verdict before anything downloads |
-| [Policy hooks](#policy-hooks) | draft | `contributes.policy` and `contributes.modes` (3.3.10.0 R1, API 1.1): a pack's runtime mode (mode.json), a policy hook that answers a tool call, the dry run; the shape may still move until 3.3.10.0 R2 enforces it |
+| [Policy hooks](#policy-hooks) | stable | `contributes.policy` and `contributes.modes` (3.3.10.0, API 1.1): a pack's runtime mode (mode.json), a policy hook whose verdict decides a tool call before it runs (deny > ask > allow) and, with `after: true`, its result after (pass, redact, drop); every verdict in the audit; the dry run |
 | [The reference example](#the-reference-example) | stable | the Documentation Review pack Halo ships (3.2.0.0 R6): every part of the API in one pack a third party can copy |
 
 `stable`: a 1.x Halo keeps it. `removed <version>`: gone in that version,
@@ -36,7 +37,7 @@ announced a minor version before it ([Changes in 1.x](#changes-in-1x)).
 Since 3.2.0.0 every part is `stable` and none is removed; a later part may
 start as `draft` (usable, may change in a minor API version with a migration
 note) or `planned` (the shape proposed, nothing reads it yet). Policy hooks
-(3.3.10.0 R1) is the first `draft` part.
+was the first `draft` part (3.3.10.0 R1) and is `stable` from 3.3.10.0 R2; no part is `draft` now.
 
 ## The stable surface (`halo_harness.ext`)
 
@@ -64,7 +65,7 @@ names in `__all__` are the contract.
   `_meta.json` (source, run, stage, written, retention, shared; [Events and artifacts](#events-and-artifacts)).
 - `is_granted(pack_id, permission)`: whether you granted it (False while the pack is disabled).
 - `set_mode(pack_id, mode_id, on=True, note="")` / `current_mode(pack_id)`: API 1.1 (3.3.10.0 R1, part of the
-  draft [Policy hooks](#policy-hooks)): turn one of the pack's `contributes.modes` on or off in its `mode.json`
+  stable [Policy hooks](#policy-hooks) since R2): turn one of the pack's `contributes.modes` on or off in its `mode.json`
   (`[]` when written, else one line; on arms the policies that name it) and read the mode that is on (None for none).
 - `Unit`: the unit of work (`halo_harness.work.unit.Unit`, docs/WORK.md).
 - `is_valid_pack_id`, `is_valid_name`, `qualified_name(pack_id, name)`, `split_name(name)`: the name rules.
@@ -99,8 +100,8 @@ contributes:
   artifacts: [review-report]    # 3.2.0.0 R5: artifact schemas, artifacts/<name>.json
   events: [review.done]         # the kinds the pack publishes; a kind or {kind, schema} (R5: events/<kind>.json)
   workflows: [review]           # workflow names (R2), each workflows/<name>.yaml (R5)
-  policy: [{id: fence, run: [...], when: {tools: [...], modes: [...]}, impact, on_error, redact, after}]   # 3.3.10.0 R1 (draft), Policy hooks below
-  modes: [{id: fenced, label: Fenced, theme: midnight}]   # 3.3.10.0 R1 (draft): the pack's runtime modes
+  policy: [{id: fence, run: [...], when: {tools: [...], modes: [...]}, impact, on_error, redact, after}]   # 3.3.10.0, Policy hooks below
+  modes: [{id: fenced, label: Fenced, theme: midnight}]   # 3.3.10.0: the pack's runtime modes
 config:
   schema: {properties: {style: {type: string, enum: [short, long]}}, additionalProperties: false}
   defaults: {style: short}
@@ -627,10 +628,13 @@ A bundle requests no permission: turning it on grants nothing. Halo ships ten (`
 
 ## Policy hooks
 
-Status: **draft** (3.3.10.0 R1; extension API 1.1). The shape may still move until 3.3.10.0 R2 enforces it: in
-this version a pack can declare a policy, arm it through its runtime mode and answer a tool call, and **nothing
-enforces the answer yet** -- no session reads a verdict, so a pack without `policy` and `modes`, and every session,
-behave exactly as before. `halo pack policy test` runs a verdict without a session.
+Status: **stable** (3.3.10.0 R1 the contract, R2 the enforcement; extension API 1.1). A pack declares a policy,
+arms it through its runtime mode, and every session asks it about each matching tool call **before the call runs**:
+its verdict decides the call, enforced by the harness, independently of the model, which cannot argue past it. A
+policy that declares `after: true` is asked once more **after the call ran**, with the result. Every verdict is in
+the audit. **With no pack armed, nothing changes**: `policy.armed()` is empty (a home with no packs folder costs two
+`stat` calls), no process starts, and the loop makes exactly the calls it made before (pinned by a call-count test).
+`halo pack policy test` runs a verdict without a session.
 
 **The manifest block** (`halo_harness/packs/manifest_policy.py`; `$defs.policy` and `$defs.mode` of
 `pack.schema.json`). A policy rides on the `hooks` permission: the pack requests it, you grant it.
@@ -644,7 +648,7 @@ contributes:
       impact: high                  # low | medium (default) | high: what the pack says its verdicts weigh; shown
       on_error: deny                # allow (default) | deny
       redact: [MY_SERVICE_TOKEN]    # environment variable names, never their values
-      after: false                  # declared now, read by 3.3.10.0 R2 (the post-call verdict)
+      after: false                  # true: asked again after the call, with its result (the post-call verdict)
   modes:
     - {id: fenced, label: Fenced, theme: midnight}   # theme: accepted and ignored until 3.3.12.0
 permissions: [hooks]
@@ -656,10 +660,10 @@ permissions: [hooks]
 | `run` | a list (exec form, no shell), or one string split like a shell line | `${halo_python}` with a pack file after it, or a pack file itself; `${halo_python}` is Halo's own Python and `${CLAUDE_PLUGIN_ROOT}` the pack's folder, put in as `hooks/hooks.json`'s exec form does; a path outside the pack, or a file that is not there, is a manifest problem |
 | `when.tools` | tool names, `mcp__<server>__<tool>`, `connector__<slug>`, or `*` | the calls the policy is asked about; left out, every tool. A call it does not name never reaches the process. A name is any tool Halo has when the manifest is read (the core tools, and every tool class loaded then, `manifest_policy.tool_names()`) |
 | `when.modes` | ids of `contributes.modes` | the policy answers only while one of these modes is on; left out, whatever the mode |
-| `impact` | `low`, `medium`, `high` | shown in `halo pack inspect` and `halo pack policy status`; nothing reads it yet |
+| `impact` | `low`, `medium`, `high` | shown in `halo pack inspect` and `halo pack policy status`; no verdict reads it |
 | `on_error` | `allow`, `deny` | the verdict when the answer is late, malformed or missing (`allow` when left out: the zero-change rule) |
 | `redact` | environment variable names | each one's value is replaced by `[redacted:<NAME>]` in the tool input before the request leaves Halo |
-| `after` | `true`, `false` | 3.3.10.0 R2 asks the policy again with the tool's result |
+| `after` | `true`, `false` | `true`: the policy is asked again after the call ran, with its result (the post-call verdict, below) |
 | `modes[].id`, `label`, `theme` | a name; a line; a theme name | a runtime mode of the pack; the label is what a person reads; the theme is read from 3.3.12.0 |
 
 Each bad value is one line naming the entry, and the pack does not install or run:
@@ -697,8 +701,9 @@ a verdict is needed, and a mode switched in another terminal counts at the next 
 A policy **answers** when the pack runs here (enabled for its folder, no problem), `hooks` is granted, `mode.json`
 arms it, and its `when.modes` takes the mode that is on (`halo_harness.packs.policy.armed`).
 
-**The protocol.** `run` starts once, as a long-lived process, the first time the armed policy is asked (R2 starts
-it as the policy is armed), and stops when it is disarmed or the session ends -- a Windows spawn is 100-300 ms and a
+**The protocol.** `run` starts once, as a long-lived process: when a session starts with the policy armed, when it
+is armed in a process that runs sessions, or else the first time it is asked; it stops when it is disarmed or the
+session ends -- a Windows spawn is 100-300 ms and a
 session makes thousands of calls, so a verdict costs a round trip, not a spawn. It runs in the pack's folder with
 the environment every hook gets (the provider keys Halo holds taken out, `CLAUDE_PLUGIN_ROOT`, `PYTHONPATH` for
 `halo_harness.ext`, and `HALO_PACK_ID`, `HALO_POLICY_ID`), and speaks JSON lines: one request per line on its stdin,
@@ -716,7 +721,7 @@ answer   {"id": "r7", "verdict": "deny", "reason": "outside the project", "rule"
 | `id` | the request's; the answer carries it back |
 | `tool`, `input` | the call: the tool's name and its input (after `redact`) |
 | `cwd`, `session` | the session's folder and id (`dry-run` for `halo pack policy test`) |
-| `agent` | the sub-agent or Orchestra worker making the call (`""` for the main agent): the policy covers delegated calls too (R2) |
+| `agent` | the sub-agent's id, `worker:<lane>` for an Orchestra worker, `""` for the main agent: delegated calls are asked too |
 | `policy` | the policy's id (each policy has a process of its own) |
 | `mode`, `permission_mode` | the pack's mode now, and the session's permission mode |
 | `config` | the pack's own settings (`packs.settings.<id>` over `config.defaults`) |
@@ -730,15 +735,16 @@ policy's `on_error`, always with a logged line and the reason saying what happen
 (no answer within 2000 ms)`. A late answer that arrives afterwards is read and dropped (its id is an earlier
 request's), so it never answers the next request; a process that ended is started again for the next one. A fence
 pack says `on_error: deny`, which is fail-closed: while its process is slow or broken, every call it guards is
-denied (R2), so its author keeps the answer well inside the budget.
+denied, so its author keeps the answer well inside the budget.
 
 **What an armed hook sees.** An armed hook sees every matching tool input, a Write's content included. `when.tools`
 is how a pack limits what it reads, and `redact: [env names]` takes declared secrets out of the input before it
 leaves Halo. Every verdict and every error is a `policy` row in the pack's events log (`{policy, tool, verdict,
 reason, rule, scope, ms, session, agent, error?}`); the tool input itself is never written there.
 
-**Several packs.** With more than one policy armed, deny wins over ask over allow (`policy.winner`); R2 logs every
-pack's verdict and names the winning one.
+**Several packs.** With more than one policy armed, each is asked and **the winner** is the verdict that counts:
+deny over ask over allow (after the call: drop over redact over pass; `policy.winner`). Every pack's verdict is
+logged, the winning one named (`winner: true`, `of: <how many>`).
 
 **The dry run.** `halo pack policy test <pack> <policy> <tool> '<json input>'` arms nothing: it starts the policy's
 process for this one request, prints the verdict and its time, and stops it.
@@ -752,12 +758,49 @@ deny -- fence: outside the project (12 ms)
 The first answer of a process includes the interpreter's start (about 40-50 ms for Python on Windows, less on
 Linux); a long-lived process's later answers are a few milliseconds.
 
-**What 3.3.10.0 R2 adds** (this row becomes `stable` then): an armed policy runs before `permission_engine.decide`
-for every call, sub-agent and Orchestra worker calls too; `deny` refuses the call with the pack's reason shown to
-the model and to you, `ask` goes through the existing approval flow with the reason as its line, `allow` leaves the
-decision to the engine as today; with no pack armed, zero behaviour change. It also adds the post-call verdict
-(`after: true`: `{tool, input, result, ms}` in, `pass | redact | drop` out), `halo pack policy log`, and the
-verdict on the Session feed, the TUI's tool line and the Pack Manager's row.
+**The enforcement** (3.3.10.0 R2, `halo_harness/agent/policy_gate.py`). In the loop's `_resolve_tool_call`, the armed
+policies are asked before `permission_engine.decide`, and asked again wherever the engine decides again: after a
+PreToolUse or PermissionRequest hook rewrote the input (a rewrite never routes around a fence). The winner decides:
+
+- **deny**: the call does not run. It is refused through the same refused-tool path as one of your own deny rules,
+  and the line the model and you read is the pack's, the pack and the rule named:
+  `policy: deny -- fence: outside the project (pack policy-fence, rule outside-project)`. The session's
+  `permission_denials` entry carries `pack`, `policy` and `rule`.
+- **ask**: the call goes to the approval flow with that line as its reason (`policy: ask -- fence: ... (pack ...,
+  rule ...)`), so the card says which pack asks and why. A permission mode cycle while the card is up never answers
+  it, a PreToolUse hook's allow never lifts it, and your own deny rule still wins over it; with no one to ask (print
+  mode, a background sub-agent) it is refused like any ask there.
+- **allow**: the engine decides as before: your rules, the mode, the hooks.
+
+Sub-agent calls and Orchestra worker calls resolve through the same method (a worker is a session of its own, its
+`agent` is `worker:<lane>`), so the model cannot step around a fence by delegating. The plan specials
+(`EnterPlanMode`, `ExitPlanMode`) are gated only by a pack's deny, like your deny rules: their own bodies handle the
+confirmation. A fleet mission records the armed policies of the harness that made it (`policies` in `mission.json`,
+and each part's dispatch carries them); Federation R6 enforces them on the far side.
+
+**The post-call verdict.** A policy that declares `after: true` is asked once more after a call it names has run,
+on the same process, within the same budget, with the same `on_error` (allow reads as pass, deny as drop) and the
+same logging (`halo_harness/packs/policy_after.py`):
+
+```
+request  {...the pre-call fields..., "after": true, "result": "<the tool's result as text>", "ms": 41}
+answer   {"id": "r9", "verdict": "pass" | "redact" | "drop", "reason": "...", "rule": "...", "result": "..."}
+```
+
+`pass` keeps the result. `redact` replaces it with the answer's `result` (a string): the model and the transcript
+see the redacted one, and the audit row keeps `sha256:<hex>` of the original and the rule. `drop` replaces it with
+the pack's line (`policy after: drop -- <policy>: <reason> (pack ..., rule ...)`). With several, each policy sees
+the result as the one before it left it, and a drop ends the round. `redact: [env names]` takes the named secrets
+out of the result too before it leaves Halo.
+
+**The audit.** Every verdict, before and after, is a `policy` row in the pack's events log (`{policy, tool, verdict,
+reason, rule, scope, ms, session, agent, at: before | after, winner, of?, error?, sha256?}`; never the input) and
+is on the call itself: the transcript's tool row and the `tool_use_ready` / `tool_result` events carry `policy:
+{line, verdicts}` (no new event kind; a call no policy was asked about carries no such field), the TUI's tool line
+and the Session feed's tool row draw the line (`policy: deny -- fence: outside the project`), and the Pack Manager's
+row shows the armed policies and the last verdict. `halo pack policy log [<pack>] [--since 1h]` prints them, and
+`halo pack policy status` shows each policy's process (a `policy_proc` row when it starts and stops) and its verdict
+counts.
 
 `tests/fixtures/packs/policy-fence/` is the example: the `fence` policy (`policy/fence.py`, plain Python, nothing of
 Halo imported) denies a Write or Edit whose path is outside the project folder and allows the rest, `on_error:
@@ -808,8 +851,9 @@ Each minor version lists here the names it adds (the name, what it does, the
 version) and the names it deprecates (the name, the version it goes away in,
 what to use instead), one line each (`ext.compat.CHANGES` holds the same).
 
-- **1.1** (Halo 3.3.10.0 R1): adds `set_mode` and `current_mode` (a pack's runtime mode) and the manifest's
-  `contributes.policy` and `contributes.modes`, all part of the draft [Policy hooks](#policy-hooks); deprecates
+- **1.1** (Halo 3.3.10.0): adds `set_mode` and `current_mode` (a pack's runtime mode) and the manifest's
+  `contributes.policy` and `contributes.modes` ([Policy hooks](#policy-hooks): draft in R1, stable from R2, which
+  enforces each verdict and adds the post-call verdict, `after: true` -> pass | redact | drop); deprecates
   nothing. A 1.0 pack keeps everything: `{min: "1.0"}` and `{min: "1.0", max: "1.9"}` take 1.1, and a pack
   without `policy` and `modes` reads and runs exactly as before. (A pack that says `max: "1.0"` asked for 1.0 only
   and gets the one compatibility line.)

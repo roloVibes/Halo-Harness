@@ -130,7 +130,10 @@ def test_the_doc_states_the_policy(ctx: Ctx):
     ctx.check(f"every part is stable, draft or removed, got {[r.split('|')[2].strip() for r in rows]}",
               rows and all(r.split("|")[2].strip() in ("stable", "draft") or r.split("|")[2].strip().startswith("removed") for r in rows))
     drafts = [r.split("|")[1].strip() for r in rows if r.split("|")[2].strip() == "draft"]
-    ctx.check(f"3.3.10.0 R1: the first draft row is Policy hooks, got {drafts}", drafts == ["[Policy hooks](#policy-hooks)"])
+    policy = [r.split("|")[2].strip() for r in rows if r.split("|")[1].strip() == "[Policy hooks](#policy-hooks)"]
+    ctx.check(f"3.3.10.0 R2: Policy hooks is stable (R1's draft row), no draft row left, got {policy} {drafts}",
+              policy == ["stable"] and drafts == [])
+    ctx.check("ext.compat.CHANGES says so", "stable from R2" in __import__("halo_harness.ext.compat", fromlist=["x"]).CHANGES["1.1"]["status"])
     init = (REPO / "halo_harness" / "ext" / "__init__.py").read_text(encoding="utf-8")
     ctx.check("ext's docstring states the policy next to API_VERSION", "The version policy" in init and "a minor adds names" in init)
     data = json.loads((REPO / "halo_harness" / "packs" / "schema" / "pack.schema.json").read_text(encoding="utf-8"))

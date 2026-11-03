@@ -96,6 +96,21 @@ shape is written from its source and marked unverified until a live run.
 - `halo pack inspect` lists a pack's policy hooks and modes with each policy's state; `halo pack doctor` names a mode or an armed policy mode.json holds that the manifest does not declare; a pack's `policy/` folder is part of the discovery signature.
 - Nothing enforces a verdict yet: no session reads one until R2.
 
+### R2: the enforcement -- a pack's verdict decides a tool call, before and after, and every verdict is in the audit
+
+#### Added
+- The gate (`agent/policy_gate.py`): before `permission_engine.decide`, and again after a PreToolUse or PermissionRequest hook rewrote the input, every armed policy is asked and the winner decides -- deny over ask over allow. `deny` refuses the call through the refused-tool path with the pack's own line (`policy: deny -- fence: outside the project (pack policy-fence, rule outside-project)`), the denial naming pack, policy and rule; `ask` goes to the approval card with that line (a permission mode cycle never answers it, a PreToolUse allow never lifts it, your own deny rule still wins); `allow` leaves the call to the engine as before. Sub-agent and Orchestra worker calls take the same path (`agent` is the sub-agent's id or `worker:<lane>`); the plan specials are gated by a pack's deny only.
+- The post-call verdict: a policy with `after: true` is asked once more with the tool's result (`{..., after: true, result, ms}` in, `{verdict: pass | redact | drop, reason, rule, result?}` out; `packs/policy_after.py`), on the same process, budget and `on_error`, before the PostToolUse hooks. `redact` puts the pack's result in front of the model and the transcript and keeps the original's sha256 in the audit; `drop` puts the pack's line there.
+- The audit: every verdict, before and after, is a `policy` row in the pack's events log (`at`, `winner`, `of`, `sha256` added) and on the call: the transcript's tool row and the `tool_use_ready` / `tool_result` events carry `policy: {line, verdicts}` (no new event kind), the TUI's tool line and the Session feed's tool row draw the line, the agent transcript entries carry it, and the Pack Manager's row shows the armed policies and the last verdict (`pm-policy`).
+- `halo pack policy log [<pack>] [--since 1h] [--json]`: every verdict sessions got; `halo pack policy status` shows each policy's process (a `policy_proc` row when it starts and stops) and its verdict counts.
+- A fleet mission records the armed policies of the harness that made it (`policies` in `mission.json`; each part's dispatch carries them) for Federation R6 to enforce on the far side.
+- The policy-fence fixture's test seams for ask, redact and drop; `docs/ARCHITECTURE-permissions.md` "Pack policy hooks: the gate before decide()"; glossary `post-call verdict` and `winner`.
+
+#### Changed
+- Policy hooks is `stable` in the extension API's status table (it was R1's `draft` row), with the post-call shape; `ext.compat.CHANGES["1.1"]` says so. No part is `draft` now.
+- An armed policy's process starts when a session starts (`headless.build_session`) and when it is armed in a process that runs sessions, so the first tool call pays no interpreter start.
+- With no pack armed nothing changes: `policy.armed()` is empty, no process starts, and the loop makes the same `permission_engine.decide` calls it made before (pinned by a call-count test on a scripted session).
+
 ### Also in 3.3.10.0
 
 #### Changed

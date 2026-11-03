@@ -15,6 +15,7 @@ Run: python -m tests.test_pack_mode
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -140,8 +141,11 @@ def test_the_cli_verbs(ctx: Ctx):
         ctx.check(f"status --json: the pack, its mode, the policy asked now, got {rows}", code == 0 and rows[0]["id"] == "policy-fence"
                   and rows[0]["mode"]["mode"] == "fenced" and rows[0]["policies"][0]["state"] == "armed, asked now")
         code, out, _ = h.cli("policy", "status")
-        ctx.check(f"status in text, got {out!r}", code == 0 and out.splitlines() == [
-            "policy-fence 0.1.0 (runs here): mode fenced", "  fence: armed, asked now"])
+        lines = out.splitlines()  # 3.3.10.0 R2: the process line (running once a session process armed it, else not)
+        ctx.check(f"status in text, got {out!r}", code == 0 and lines[:2] == [
+            "policy-fence 0.1.0 (runs here): mode fenced", "  fence: armed, asked now"] and len(lines) == 3
+            and re.fullmatch(r"    process (running [(]pid [0-9]+[)]|not running); verdicts: none yet "
+                             r"[(]halo pack policy log policy-fence[)]", lines[2]))
         code, out, _ = h.cli("policy", "disarm", "policy-fence", "fence", "--json")
         ctx.check(f"disarm --json, got {out!r}", code == 0 and json.loads(out) == {"ok": True, "lines": ["policy-fence: disarmed fence"]})
         code, out, _ = h.cli("policy", "status")

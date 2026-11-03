@@ -108,6 +108,31 @@ hook** -- never a built-in judgment call, but a hook the user configured
 themselves is exactly as much "the user's own rule" as a permission rule
 is.
 
+### Pack policy hooks: the gate before `decide()` (3.3.10.0 R2)
+
+A pack's policy hook ([EXTENSION_API.md](EXTENSION_API.md#policy-hooks)) is the one more voice, and it speaks first:
+`agent/loop.py _resolve_tool_call` calls `agent/policy_gate.py decide`, which asks every armed policy about the
+call and takes the winner (deny over ask over allow) before the engine runs. The order, for one call:
+
+1. **The armed pack policies** (`policy.armed(cwd)`: the pack runs here with `hooks` granted, `mode.json` arms the
+   policy, its `when.modes` takes the mode; `when.tools` names the call). **deny** refuses the call with the pack's
+   line (`policy: deny -- fence: outside the project (pack policy-fence, rule outside-project)`) and the engine is
+   not asked; **ask** asks the engine too, and the call goes to the approval flow with the pack's line unless your
+   own deny rule matched (deny wins); **allow**, or no policy asked, is the engine alone, exactly as before.
+2. **`decide()`**: your deny / ask / allow rules and the mode table, above.
+3. **PreToolUse**: a rewrite of the input runs 1 and 2 again on the new input; its allow never lifts a pack's ask.
+4. On an ask, **PermissionRequest** (a rewrite runs 1 and 2 again), then the card or `--permission-prompt-tool`;
+   a permission mode cycle while the card is up never answers a pack's ask.
+5. The call runs; then a policy with `after: true` gives its post-call verdict (pass, redact, drop) **before** the
+   PostToolUse hooks, so they, the model and the transcript see the redacted result.
+
+The plan specials stay outside the engine as before; only a pack's deny gates them, like your deny rules. A
+sub-agent's and an Orchestra worker's calls take the same path. The Governor is not on this path at all: it paces
+model requests at the provider choke point (`providers/http.py`), never a tool call. With no pack armed step 1 is
+`policy.armed()` returning an empty list and nothing else (no process, no row, the same `decide()` call count), so
+the precise statement of what `auto` allows becomes: everything not matched by your own deny / ask rule, your own
+hook, or the verdict of a pack policy you armed.
+
 ## Hooks protocol
 
 `hooks.py` implements Claude Code's hook protocol verbatim -- matcher +

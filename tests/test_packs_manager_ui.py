@@ -17,7 +17,8 @@ skipped without one), over a fresh home with no pack installed:
    under the goal form lists the running pack's workflows, a pick fills the form;
 6. a disabled pack's row: disabled, 0/3, Enable back, its tab gone, no picker;
 7. Remove with its confirm (the command, --keep-config when ticked): the
-   pack's folder goes and Sources offers Install again.
+   pack's folder goes and Sources offers Install again;
+8. 3.3.10.0 R2: a pack with a policy hook armed: its row's chip names the armed policy and the last verdict.
 Run: python -m tests.test_packs_manager_ui
 """
 from __future__ import annotations
@@ -148,6 +149,15 @@ def test_remove_with_its_confirm(ctx: Ctx):
               and str(got.get("removed_last")).startswith("removed doc-review: ")
               and str(got.get("removed_last")).endswith("file(s) of its own deleted; its folder is gone"))
     ctx.check("its folder is gone; Sources offers Install again", got.get("on_disk_after") is False and got.get("install_again") == "Install")
+
+
+@test
+def test_a_policy_packs_row_names_what_is_armed_and_the_last_verdict(ctx: Ctx):
+    """3.3.10.0 R2: the policy-fence fixture armed, one verdict asked through the session's gate."""
+    got = _got(ctx)
+    ctx.check(f"the gate's verdict, got {got.get('policy_verdict')!r}", got.get("policy_verdict") == "deny")
+    ctx.check(f"the chip, got {got.get('policy_chip')!r}", got.get("policy_chip")
+              == "armed: fence · last: deny -- fence: outside the project (Write)" and got.get("policy_armed") == "1")
 
 
 if __name__ == "__main__":

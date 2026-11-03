@@ -48,7 +48,11 @@ export type PackRow = {
   has_settings: boolean;
   /** 3.2.0.0 R7: the version `halo pack rollback` goes back to (kept as <id>.previous), or "". */
   previous: string;
+  /** 3.3.10.0 R2: a pack with policy hooks: the armed ones, its mode, the last verdict a session got and the counts. */
+  policy?: PolicyBlock | null;
 };
+
+export type PolicyBlock = { armed: string[]; mode: string | null; last: string; last_ts: number | null; counts: Record<string, number> };
 
 export type SourcePack = { id: string; name: string; version: string; description: string; path: string; installed: boolean; problems: string[]; details?: PackRow };
 export type Source = { source: string; kind: "folder" | "url" | "shipped"; configured: boolean; exists: boolean; problem: string; packs: SourcePack[] };

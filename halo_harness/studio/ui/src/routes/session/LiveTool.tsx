@@ -4,6 +4,7 @@
 // when it lands. A click on the row (Enter or Space with the focus on it)
 // opens the whole result under it, up to the first 4000 characters, and
 // closes it again; only rows with more than that first line open.
+// 3.3.10.0 R2: a call a pack's policy answered carries the verdict line under it.
 import { useState } from "react";
 import { short } from "../orchestra/format";
 import { useNow } from "../fleet/store";
@@ -30,6 +31,7 @@ export function ToolRow({ l }: { l: LiveLine }) {
         <span className="slv-tool-name mono">{l.tool}</span>
         {l.target && <span className="slv-target mono" title={l.target}>{short(l.target, 90)}</span>}
         <span className="slv-elapsed mono" data-testid="session-live-elapsed">{l.ended ? took : dur(now - l.t0)}</span>
+        {l.policy && <div className="slv-policy mono" data-testid="session-live-policy" data-verdict={/^policy(?: after)?: (\w+)/.exec(l.policy)?.[1]}>{l.policy}</div>}
         {l.result !== undefined && (
           <div className="slv-result mono" data-testid="session-live-result">
             {more && <span className="slv-caret" aria-hidden="true">{open ? "▾ " : "▸ "}</span>}

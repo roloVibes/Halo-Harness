@@ -1537,6 +1537,8 @@ def build_session(
         team_name=_team_name_for_session,
     )
     session.opt_ins = _opt_ins or None  # 3.1.8.0 R5: its agent row's lines (the tool list, a worker's isolation)
+    from halo_harness.agent.policy_gate import warm as _warm_policies
+    _warm_policies(cwd)  # 3.3.10.0 R2: an armed pack policy's process starts now, before the first tool call
     if hook_runner is not None:
         hook_runner.prompt_caller = session._call_model_for_hook
     # H9 whole-tree review finding 3 ("plus an atexit kill_all"): a safety

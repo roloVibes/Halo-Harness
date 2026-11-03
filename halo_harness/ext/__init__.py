@@ -27,7 +27,7 @@ packs for exactly that).
                                     a note in the pack's memory namespace with its provenance (3.2.0.0 R5)
     is_granted(pack_id, permission) whether you granted the pack a permission it requests
     set_mode(pack_id, mode_id, on=True) / current_mode(pack_id)
-                                    3.3.10.0 R1 (API 1.1, draft): the pack's runtime mode (mode.json); turning a
+                                    3.3.10.0 (API 1.1): the pack's runtime mode (mode.json); turning a
                                     mode on arms the policy hooks that name it
     Unit                            the unit of work (halo_harness.work.unit.Unit)
     is_valid_pack_id, is_valid_name, qualified_name, split_name
