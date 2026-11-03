@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.3.10.0] - unreleased
+## [3.3.10.0] - 2026-11-03
 
 **Pack policy.** GitHub issue #4 built out, with the owner's additions: a pack can now hold a session to a rule the
 model cannot argue past. A pack declares policies and modes (R1), the harness asks every armed policy before a tool
