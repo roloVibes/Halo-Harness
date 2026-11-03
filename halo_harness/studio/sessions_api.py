@@ -6,6 +6,8 @@
     POST sessions/<sid>/command {cmd: answer|interrupt|steer|submit|shutdown|pause|resume|note|screenshot, kind?,
                                  request_id?, action?, instruction?, text?, reason?, agent_id?, image?, eyes?, ...}
                                   (3.3.6.0 R6: a steer's image and the screenshot, studio/session_eyes_api.py)
+                                  (3.3.11.0 R1: slash and tail, a submit's when_busy, the receipts and
+                                   GET sessions/<sid>/slash | receipts: studio/sessions_prompt_api.py)
                                   -> {ok, result}; 404 for a session not in the registry, 502 with the socket's error
     sessions/<sid>/agents...      the agent tree, one agent's tail and its commands (studio/fleet_api.py, 3.0.5.0)
     GET  sessions/<sid>/trace.md  the session as one Markdown trace (3.3.0.0 R6: session_trace.py), text/markdown
@@ -35,7 +37,8 @@ STATUS_WAIT_S = 1.5
 STATUS_TTL_S = 2.0
 COMMAND_TIMEOUT_S = 5.0
 COMMANDS = ("answer", "interrupt", "steer", "submit", "shutdown", "pause", "resume", "note",  # note: 3.0.5.0 R4
-            "screenshot")  # 3.3.6.0 R6: a capture for the next steer (studio/session_eyes_api.py)
+            "screenshot",  # 3.3.6.0 R6: a capture for the next steer (studio/session_eyes_api.py)
+            "slash", "tail")  # 3.3.11.0 R1: the Prompt panel (studio/sessions_prompt_api.py)
 FLEET_COMMANDS = ("shutdown", "pause", "resume")  # 3.0.5.0: sent with by = fleet.name, via = Studio
 ANSWER_FIELDS = ("kind", "request_id", "action", "instruction", "scope", "message", "rule", "answer", "approved",
                  "feedback", "mode_after")
@@ -145,6 +148,14 @@ def post_command(req):
     elif cmd == "note":  # 3.0.5.0 R4: Fleet's Message, a line the owner reads (remote/protocol.py `_message`)
         from halo_harness.studio.fleet_api import caller
         fields = {"name": "fleet.message", "text": str(req.body.get("text") or ""), "by": caller()["by"]}
+    from halo_harness.studio import sessions_prompt_api as P  # 3.3.11.0 R1: origin, when_busy, slash, tail, receipts
+    bad, extra = P.fields_for(cmd, req.body) if cmd in ("submit", "steer", "slash", "tail") else (None, {})
+    if bad is not None:
+        return bad
+    fields.update(extra)
+    answered, pending = P.before(sid, entry, cmd, req.body, fields)
+    if answered is not None:
+        return answered
     client = None
     try:
         client = _client(entry, COMMAND_TIMEOUT_S)
@@ -157,10 +168,12 @@ def post_command(req):
                 client.close()
             except Exception:
                 pass
-    if not resp.get("ok"):
-        return 502, {"error": str(resp.get("error") or "the session refused the command")}
     with _lock:
         _cache.pop(sid, None)  # the next list asks again
+    if pending.row is not None or cmd in ("slash", "tail"):
+        return P.after(pending, resp)
+    if not resp.get("ok"):
+        return 502, {"error": str(resp.get("error") or "the session refused the command")}
     return 200, {"ok": True, "result": resp.get("result")}
 
 
@@ -183,6 +196,8 @@ from halo_harness.studio.postmortem_api import ROUTES as _WHY_ROUTES  # noqa: E4
 ROUTES[len(ROUTES):] = _WHY_ROUTES
 from halo_harness.studio.session_eyes_api import ROUTES as _EYES_ROUTES  # noqa: E402  (3.3.6.0 R6: the chip's offer)
 ROUTES[len(ROUTES):] = _EYES_ROUTES
+from halo_harness.studio.sessions_prompt_api import ROUTES as _PROMPT_ROUTES  # noqa: E402  (3.3.11.0 R1: the Prompt panel)
+ROUTES[len(ROUTES):] = _PROMPT_ROUTES
 
 
 def dispatch_sessions(req):

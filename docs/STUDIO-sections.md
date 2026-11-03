@@ -95,9 +95,9 @@ waiting on you, $X" -- and the decisions that wait are the Attention queue's
    own spend shows on its line until it finishes and joins the total.
 6. **Open what you need**: Map, Cost, Agent (the inspector: its three streams, Steer,
    Pause, Stop, Follow, Pin), Activity (a lane per live agent over the full
-   log) and Attention (what waits on you, one key each) wait as strips at
+   log), Attention (what waits on you, one key each) and Prompt (3.3.11.0 R1: type into the session) wait as strips at
    the foot; one click opens each beside Live (or the header's **+**), Reset layout (its **...**) puts the arrangement back, a
-   layout you made is kept. `J` / `K` hop between this harness's live agents.
+   layout you made is kept. `J` / `K` hop between this harness's live agents; `Alt+Enter` opens Prompt, the keyboard in its box ([the Prompt panel](STUDIO-session.md#the-prompt-panel-33110-r1)).
 
 **Panels.** Live (`session-live`): every agent here at once, what it types,
 runs, hands back and asks, in the Fleet log's columns under this session's
@@ -113,7 +113,8 @@ Compact (`preflight-compact`), the bigger-window model on the host (`preflight-s
 and Send anyway (`preflight-send`), answering the same card the terminal shows. Agent (`session-agent`):
 the selected agent, its streams and controls. Activity (`session-activity`):
 the chosen session's timeline lanes and full live log. Attention
-(`session-attention`): what waits on you in this harness's sessions.
+(`session-attention`): what waits on you in this harness's sessions. Prompt (`session-prompt`, 3.3.11.0 R1): the
+session read like the terminal, a box to type into it (the slash list, Queue it / Steer) and each turn's receipt marks.
 
 ### Team
 

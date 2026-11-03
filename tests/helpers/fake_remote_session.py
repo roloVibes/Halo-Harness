@@ -7,6 +7,10 @@ Script: a `user_input` Command whose text contains "ask" makes the session
 emit a `permission_request` (id `perm_1`, suggested_rule `Bash(echo:*)`) and
 park on its waiter until `resolve_permission` answers; every turn streams a
 few `text_delta`s and ends with `message_end` + `turn_done`.
+3.3.11.0 R1: a turn's Command meta moves its receipt the way the real loop does
+(remote/receipt_seams: `read` where the user node is written, the
+`user_message` stamped with via / receipt); `cwd` (set by the rig) names the
+session's folder, since the fake log has none.
 """
 from __future__ import annotations
 
@@ -64,6 +68,7 @@ class FakeSession:
         self._approval_waiters: dict = {}
         self.job_registry = SimpleNamespace(kill_all=lambda: None)
         self.model_ref = SimpleNamespace(raw="mock/fake", provider="mock")
+        self.cwd = None  # 3.3.11.0 R1: the rig sets it (the receipts' folder)
 
     @property
     def busy(self) -> bool:
@@ -129,8 +134,12 @@ class FakeSession:
             n = self.turn_count
             self._busy.set()
             try:
+                from halo_harness.remote import receipt_seams as seams  # the loop's seam, as agent/loop.py has it
+                self._turn_meta = cmd.data.get("meta")
+                meta = seams.take_turn(self, text)
                 self.log.add("user", text)
-                emit(events.user_message(text, turn=n))
+                seams.mark_read(self, meta, n)
+                emit(seams.stamp(events.user_message(text, turn=n), meta))
                 emit(events.message_start(turn=n, model="mock/fake"))
                 if "ask-question" in text:
                     self.answers["q_1"] = self._wait(self._question_waiters, "q_1", emit, events.Event(

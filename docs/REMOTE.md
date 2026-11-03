@@ -84,7 +84,7 @@ event     {"event": "permission_request", "data": {...}, "turn": 3, "agent_id": 
 |---|---|---|
 | `ping` | | `{pong, session_id}` |
 | `status` | | the status payload (phase, model, context, cost, `permission_mode`, effort), plus `session_id`, `cwd`, `title`, `busy`, `kind` (`tui` or `print`), `pid`, `accepts_turns` (a print-mode run started with `--input-format stream-json`: a `submit` queues a turn; absent on a TUI session), and `pending` (the ids of unanswered permission / question / plan / approval cards) |
-| `submit`, `steer` | `text` | `{steered}`; while a turn runs the text steers it, otherwise it starts the next turn. In `halo -p` the next turn is queued only for `--input-format stream-json` runs |
+| `submit`, `steer` | `text`; optional `origin` (`{via, by}`), `when_busy` (`steer` / `refuse` / `queue`, `submit` only), `receipt` | `{steered}`; while a turn runs the text steers it (`when_busy: steer`, the default: the Signal bridge's call is unchanged), otherwise it starts the next turn. 3.3.11.0 R1: `refuse` answers `{busy: true, line}` and takes nothing; `queue` answers `{queued: true}` and the session holds that ONE turn until the running one ends (a second: `{busy, held: true, line}`). In `halo -p` the next turn is queued only for `--input-format stream-json` runs |
 | `interrupt` | | `{interrupted}` |
 | `answer` | `kind` = `permission`, `request_id`, `action` (`allow` / `deny`), optional `scope` (`once` / `session` / `always`), `message`, `rule` | `{resolved}`. With `allow`, `session` / `always` learn the card's suggested rule (or `rule`), as the TUI's buttons do; a `deny` learns nothing whatever its `scope` |
 | `answer` | `kind` = `question`, `request_id`, `answer` | `{resolved}` |
@@ -95,6 +95,7 @@ event     {"event": "permission_request", "data": {...}, "turn": 3, "agent_id": 
 | `effort` | `level` | `{effort, message}` |
 | `slash` | `name` and `args`, or `line` (`"/cost"`) | `{output}` |
 | `tail` | `n` (default 20, at most 200) | `{markdown}`: the last n user / assistant messages |
+| `receipts` | | `{receipts: [...]}`: the session's receipts ladder (3.3.11.0 R1, below) |
 | `subscribe` | optional `kinds` (a list; default all) | `{subscribed: true}`; event frames follow on this connection |
 | `unsubscribe` | | `{subscribed: false}` |
 | `note` | `name` = `remote.attached`, `peer` (an id prefix), `attached` (true or false) | `{attached: <count>}`; the Signal bridge announcing that a phone attached or detached (drives the status chip). A connection that closes takes its phones with it |
@@ -105,7 +106,31 @@ and the connection stays open.
 
 Several clients may connect at once; a subscription belongs to its
 connection. Commands that arrive over the socket show up in the TUI transcript
-as a `(remote) ...` note, never as a message typed by you.
+as a `(remote) ...` note, never as a message typed by you; a `submit` with
+`origin: {via: "studio"}` says `(from Studio) prompt: ...` instead (3.3.11.0 R1), and its turn's `user_message`
+frame carries `via`, `by` and `receipt`.
+
+### Receipts (3.3.11.0 R1)
+
+Every prompt, steer and answer Studio sends a live session (Session's Prompt panel, `POST
+/api/sessions/<sid>/command` with `cmd` submit / steer / answer) gets an id and a ladder, kept append-only in
+`~/.halo/sessions/<project>/<session id>/receipts.jsonl` (one writer, `remote/receipts.py`; every change is a new full
+row `{id, client_id, kind: prompt|steer|answer, sha256, at, sent_at, state, reason?, turn?, seq?}`, the text itself
+never, and the last row per id wins):
+
+| State | When |
+|---|---|
+| `sent` | Studio stored it, before the socket call. A retry with the same `client_id` (the idempotency key) returns the stored row and sends nothing: one turn, never two |
+| `delivered` | the session's handle took the text (an answer: before its card resolves) |
+| `read` | the message is in the model's input: the loop wrote the user node the request is derived from, and that node carries `receipt` (the turn's first node, or a steer's at the safe point that applies it); the row names the node's `seq` and the turn. The transcript is the evidence, never a timer. An answer has no `read` (its outcome is the tool result the turn goes on with) |
+| `replied` | the main session's `turn_done` for that turn (an answer: the turn it answered) |
+| `failed` | with a `reason`: `busy` (`when_busy: refuse` while a turn ran), `held` (a second `queue`), `expired` (sent or delivered and unread after 24 hours: a lazy TTL applied when a send or a read touches the file), or the socket's error |
+
+When the session ends (its handle detaches: `/exit`, a `shutdown`, the process ending) a `delivered` row still unread
+goes back to `sent` with the reason, and a held queued turn is dropped with one line in the transcript. `GET
+/api/sessions/<sid>/receipts` (Studio, the TTL applied) and the socket's `receipts` read the same rows; Studio's
+`slash` and `tail` reach the socket's own commands through the same route (`GET /api/sessions/<sid>/slash` lists the
+commands). Federation extends the ladder across halos.
 
 ## Agent-level commands (3.0.5.0 Fleet)
 

@@ -92,7 +92,7 @@ class SessionLog:
     def append_system(self, text: str) -> dict:
         return self._append({"type": "system", "text": text})
 
-    def append_user(self, content: list, *, kind: Optional[str] = None) -> dict:
+    def append_user(self, content: list, *, kind: Optional[str] = None, receipt: Optional[str] = None) -> dict:
         """H9 whole-tree review finding 29: `kind`, when given, tags a
         "user"-type node as something OTHER than a genuine new user prompt
         -- a background sub-agent/job completion notice, a Stop-hook
@@ -106,6 +106,8 @@ class SessionLog:
         node = {"type": "user", "content": content}
         if kind is not None:
             node["kind"] = kind
+        if receipt:  # 3.3.11.0 R1: what Studio sent carries its receipt id (remote/receipts.py `read`)
+            node["receipt"] = receipt
         return self._append(node)
 
     def append_snapshot(self, content: list, *, kind: str) -> dict:

@@ -30,7 +30,8 @@ class SessionHandle(Protocol):
     @property
     def session_id(self) -> str: ...
     def status(self) -> dict: ...
-    def submit(self, text: str, *, images: Optional[list] = None) -> dict: ...
+    def submit(self, text: str, *, images: Optional[list] = None, origin: Optional[dict] = None,
+               when_busy: str = "steer", receipt: str = "") -> dict: ...
     def interrupt(self) -> dict: ...
     def set_mode(self, mode: str) -> dict: ...
     def set_model(self, ref: str) -> dict: ...
@@ -55,6 +56,9 @@ class ControllerHandle(_BaseHandle):
     def __init__(self, controller) -> None:
         super().__init__(controller.session, controller.cwd)
         self.controller = controller
+        from halo_harness.remote.prompt_queue import PromptQueue  # 3.3.11.0 R1: the one held Studio turn
+        self.queue = controller.prompt_queue = PromptQueue(controller)
+        self.hub.add_observer(self._prompt_observe)
 
     def attach(self) -> None:
         super().attach()
@@ -62,11 +66,21 @@ class ControllerHandle(_BaseHandle):
 
     def detach(self) -> None:
         self.controller.remove_event_tap(self.hub.publish)
+        self.queue.drop()  # 3.3.11.0 R1: a held turn ends with the session; its unread receipts go back to sent
+        from halo_harness.remote import receipt_seams
+        receipt_seams.requeue(self.session, self.cwd)
         super().detach()
 
-    def _note(self, text: str) -> None:
+    def _prompt_observe(self, ev) -> None:
+        """3.3.11.0 R1: the main session's `turn_done` hands a held turn over and marks what it read replied."""
+        self.queue.on_event(ev)
+        if ev.kind == "turn_done" and not getattr(ev, "agent_id", None):
+            from halo_harness.remote import receipt_seams
+            receipt_seams.replied(self.session, int(ev.turn or 0), self.cwd)
+
+    def _note(self, text: str, word: str = "remote") -> None:
         try:
-            self.controller.events.put(events.system_note(f"(remote) {text}"))
+            self.controller.events.put(events.system_note(f"({word}) {text}"))
         except Exception:
             pass
 
@@ -95,13 +109,33 @@ class ControllerHandle(_BaseHandle):
     def title(self) -> str:
         return self.controller.get_title()
 
-    def submit(self, text: str, *, images: Optional[list] = None) -> dict:
+    def submit(self, text: str, *, images: Optional[list] = None, origin: Optional[dict] = None,
+               when_busy: str = "steer", receipt: str = "") -> dict:
+        """A new turn, or a steer while busy (`when_busy` steer, the default); 3.3.11.0 R1: `refuse` answers
+        `{busy: true, line}`, `queue` holds one turn for when the running one ends (remote/prompt_queue.py);
+        `origin` names the sender in the transcript, `receipt` is marked delivered once the text is taken."""
+        from halo_harness.remote import prompt_queue as PQ, receipt_seams
         text = (text or "").strip()
         if not text:
             raise HandleError("empty prompt")
+        meta = PQ.meta_of(origin, receipt)
         steered = bool(self.session.busy)
-        self._note(("steer: " if steered else "prompt: ") + _short(text))
-        self.controller.submit(text, images=images)
+        if steered and when_busy == "refuse":
+            return {"busy": True, "steered": False, "queued": False, "line": PQ.BUSY_LINE}
+        if steered and when_busy == "queue":
+            if self.queue.held is not None:
+                return {"busy": True, "held": True, "steered": False, "queued": False, "line": PQ.HELD_LINE}
+            receipt_seams.delivered(self.session, receipt, self.cwd)  # taken: before the hold, which may hand it on
+            if not self.queue.hold(text, images, meta):
+                receipt_seams.failed(self.session, receipt, "held", self.cwd)
+                return {"busy": True, "held": True, "steered": False, "queued": False, "line": PQ.HELD_LINE}
+            return {"busy": True, "steered": False, "queued": True}
+        self._note(("steer: " if steered else "prompt: ") + _short(text), PQ.origin_word(origin))
+        receipt_seams.delivered(self.session, receipt, self.cwd)  # taken: before the worker can read it
+        if meta:
+            self.controller.submit(text, images=images, meta=meta)
+        else:
+            self.controller.submit(text, images=images)
         return {"steered": steered}
 
     def set_mode(self, mode: str) -> dict:

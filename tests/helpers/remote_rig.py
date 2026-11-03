@@ -23,6 +23,7 @@ class Rig:
         os.environ["BRIDGE_TEST_NO_BACKGROUND_NET"] = "1"
         self.cwd = Path(tempfile.mkdtemp(prefix="remote-cwd-"))
         self.session = FakeSession(session_id) if session_id else FakeSession()
+        self.session.cwd = self.cwd  # 3.3.11.0 R1: the receipts' folder
         self.models: list = []
         from halo_harness.controller import Controller
         self.controller = Controller(session=self.session, cwd=self.cwd, registry=FakeRegistry(),

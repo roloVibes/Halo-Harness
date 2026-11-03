@@ -103,7 +103,8 @@ def dash(c, rig) -> dict:
     out: dict = {}
     hid, sid = harness()["id"], rig.act.session_id
     c.go(url(rig, "mode=session"))
-    panels = ["session-map", "session-activity", "session-attention", "session-agent", "session-cost", "session-live"]
+    panels = ["session-map", "session-activity", "session-attention", "session-agent", "session-cost", "session-live",
+              "session-prompt"]  # 3.3.11.0 R1
     c.wait(" && ".join(f"document.querySelectorAll('[data-testid=\"{p}\"]').length === 1" for p in panels), 30)
     out["panels"] = c.js("[" + ", ".join(f"document.querySelectorAll('[data-testid=\"{p}\"]').length" for p in panels) + "]")
     out["abouts"] = c.js("document.querySelectorAll('[data-section=\"session\"] [data-testid=\"panel-title\"][title]:not([title=\"\"])').length")  # 3.3.2.0 R3: the title's tooltip
