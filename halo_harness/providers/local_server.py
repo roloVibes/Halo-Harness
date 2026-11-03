@@ -150,6 +150,9 @@ def stop(key, *, state_dir) -> dict:
     if e is None or not e.get("halo"):
         return {"ok": False, "ours": e is not None, "say": f"no server Halo started is {key!r}: a server Halo did not "
                 "start is stopped where it was started (halo local servers lists Halo's)"}
+    if e.get("kind") == "strata":  # 3.3.9.2: `strata launch --stop` for the launch serving its port (strata/control.py)
+        from halo_harness.strata.control import stop_row
+        return stop_row(e, state_dir=state_dir)
     how = C.halt(e["pid"]) if R._entry_process_matches(e) else "its pid belongs to another process now: nothing signalled"
     R.drop_registry_entries(state_dir, [(e.get("model"), e.get("pid"))])
     from halo_harness.voice import is_voice_runtime
@@ -192,7 +195,10 @@ def status(key, *, state_dir) -> dict:
 def servers(state_dir) -> list:
     from halo_harness.bg_run import pid_alive
     from halo_harness.providers.local_runtime import load_registry
-    return [{**e, "alive": pid_alive(e.get("pid"))} for e in load_registry(state_dir) if e.get("halo")]
+    from halo_harness.strata.control import alive, settle  # 3.3.9.2: Strata's supervisor runs it, not Halo's child
+    rows = load_registry(state_dir)
+    settle(state_dir, rows)
+    return [{**e, "alive": alive(e) if e.get("kind") == "strata" else pid_alive(e.get("pid"))} for e in rows if e.get("halo")]
 
 
 def view(info: ServerInfo) -> dict:

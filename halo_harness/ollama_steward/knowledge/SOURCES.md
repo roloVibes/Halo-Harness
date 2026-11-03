@@ -66,3 +66,5 @@ check keeps the tags and the rows in step.
 | S52 | Halo's voice loop: the latency card, its stages and shares, and the steward's voice-slow | repo:halo_harness/ollama_steward/rules_voice_loop.py | Halo 3.3.9.0 R2 | 2026-11-02 |
 | S53 | FreeToken's README, docs/install.md, docs/cli.md, docs/models.md and engine source (engine/engine.py, moe/offload_cache.py, scheduler/status.py, server/api_server.py) | https://github.com/FlashML-org/FreeToken | main (dacac5f), unverified against a live run | 2026-11-02 |
 | S54 | Halo's FreeToken runtime: the log reader and the steward's FreeToken rules | repo:halo_harness/ollama_steward/rules_ft.py | Halo 3.3.9.1 R1 | 2026-11-02 |
+| S55 | Strata's README, AGENTS.md, docs/MODELS.md, docs/TERMINAL_LAUNCH.md, docs/DETAILS.md and source (serve/server.py, strata_cli/launch/cmd.py, strata_cli/launch/runner.py, strata_control/runtime.py) | https://github.com/Niko1221/Strata | main (ffa80d73), unverified against a live run | 2026-11-02 |
+| S56 | Halo's Strata runtime: the launch, the log reader and the steward's Strata rules | repo:halo_harness/ollama_steward/rules_strata.py | Halo 3.3.9.2 R1 | 2026-11-02 |

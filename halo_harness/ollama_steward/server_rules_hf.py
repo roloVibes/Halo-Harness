@@ -34,7 +34,9 @@ SAYS = {"llama-server": ("prompt-trimmed", "reply-cut", "window-full", "cpu-spil
         "voice-stt": ("load-failed", "http-500", "other-error", "timing", "load-result"),  # 3.3.9.0 R1 (server_log_voice)
         "voice-tts": ("load-failed", "http-500", "other-error", "timing", "load-result"),
         "freetoken": ("load-result", "timing", "expert-cache", "pin-cap", "kernel-jit", "load-failed", "gpu-memory",
-                      "other-error", "slow-load")}  # 3.3.9.1 (server_log_ft.SAYS)
+                      "other-error", "slow-load"),  # 3.3.9.1 (server_log_ft.SAYS)
+        "strata": ("load-result", "timing", "expert-cache", "slots", "ram-tight", "download", "load-failed", "gpu-memory",
+                   "other-error", "slow-load")}  # 3.3.9.2 (server_log_strata.SAYS)
 ASKED = ("prompt-trimmed", "reply-cut", "window-full", "cpu-spill", "gpu-memory", "load-failed", "slow-load",
          "http-500", "other-error")
 
@@ -157,6 +159,9 @@ def classify(line: str, at=None, runtime: Optional[str] = None) -> Optional[dict
     if rt == "freetoken":  # 3.3.9.1: FreeToken's engine lines (ollama_steward/server_log_ft.py)
         from halo_harness.ollama_steward.server_log_ft import classify as classify_ft
         return classify_ft(text, at=at, runtime=rt)
+    if rt == "strata":  # 3.3.9.2: Strata's server and launch lines (ollama_steward/server_log_strata.py)
+        from halo_harness.ollama_steward.server_log_strata import classify as classify_st
+        return classify_st(text, at=at, runtime=rt)
     if rt == "llama-server" and "allocate" not in text and (m := _RPC_LOST.search(text)):  # 3.3.8.0 R4: a pool's RPC backend (rules_pool.py)
         addr = next((g for g in m.groups() if g), None)
         abort = "crashed or returned malformed" in text

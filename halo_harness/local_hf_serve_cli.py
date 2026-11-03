@@ -10,6 +10,8 @@ the preflight, the claims, each worker's rpc-server, llama-server --rpc ..., the
 3.3.9.0 R1: `--stt <model>` / `--tts <model>` [--device auto|cpu|cuda] runs Halo's speech server for a speech catalog
 model instead (voice/launch.serve: the `stt` / `tts` server and its huggingface.local_servers entry).
 3.3.9.1: `--runtime freetoken --model <checkpoint dir> [--lan]` runs FreeToken's `ft serve` (freetoken/launch.serve).
+3.3.9.2: `--runtime strata --model <family>/<set>` (or `--model-path DIR`) `[--lan] [--plan]` runs Strata's `strata
+launch` once its plan says nothing to download (strata/launch.serve); `--plan` prints Strata's own plan and the fit.
 """
 
 from __future__ import annotations
@@ -39,10 +41,13 @@ def cmd_serve(argv: list) -> int:
                                 "on a Mac) for a model on disk, with the fit planner's window and layers.")
     p.add_argument("model", nargs="?", default=None, help="a path halo local ls lists, an exact .gguf file or model folder, a name halo local "
                    "--terminal shows, or with --runtime mlx a Hugging Face repo id")
-    p.add_argument("--runtime", choices=("llama-server", "mlx", "mlx_lm", "freetoken"), default=None,
-                   help="mlx: Apple Silicon only; freetoken: a Mixture-of-Experts checkpoint folder on Linux (FreeToken)")
+    p.add_argument("--runtime", choices=("llama-server", "mlx", "mlx_lm", "freetoken", "strata"), default=None,
+                   help="mlx: Apple Silicon only; freetoken: a Mixture-of-Experts checkpoint folder on Linux (FreeToken); "
+                   "strata: a Strata set, <family>/<set> (Windows, Linux, the Mac)")
+    p.add_argument("--model-path", default=None, help="with --runtime strata: the folder of a set's files you already have")
+    p.add_argument("--plan", action="store_true", help="with --runtime strata: Strata's own plan and the fit; nothing starts")
     p.add_argument("--model", dest="model_opt", default=None, help="the model (the same as the positional one)")
-    p.add_argument("--lan", action="store_true", help="with --runtime freetoken: bind every address, behind a key")
+    p.add_argument("--lan", action="store_true", help="with --runtime freetoken or strata: every address, behind a key")
     p.add_argument("--window", type=int, default=None, help="the window (-c); default: the planner's for this card")
     p.add_argument("--port", type=int, default=None, help="default: a free loopback port")
     p.add_argument("--keep", action="store_true", help="keep it running after the last Halo process on this home exits")
@@ -59,6 +64,13 @@ def cmd_serve(argv: list) -> int:
                    help="with --stt / --tts: where it runs (default: voice.device, auto: CUDA when it fits)")
     a = p.parse_args(argv)
     a.model = a.model or a.model_opt
+    if a.runtime == "strata":  # 3.3.9.2: strata/launch.py (docs/MODELS-strata.md "Serve")
+        from halo_harness.strata.launch import serve as serve_st
+        if not (a.model or a.model_path):
+            p.error("name the set: halo local serve --runtime strata --model <family>/<set> (or --model-path DIR)")
+        code, lines, row = serve_st(a.model, model_path=a.model_path, port=a.port, lan=a.lan, plan=a.plan)
+        print(json.dumps({"code": code, "lines": lines, "server": row}, indent=2, default=str) if a.json else "\n".join(lines))
+        return code
     if not a.model:
         p.error("name the model: halo local serve <model> (or --model <model>)")
     if a.runtime == "freetoken":  # 3.3.9.1: freetoken/launch.py (docs/MODELS-freetoken.md "Serve")

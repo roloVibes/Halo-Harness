@@ -28,7 +28,8 @@ RULES = ("window-asked-small", "window-small", "window-large", "two-windows", "c
          "compaction-failed", "cut-resent", "slow-box", "thrash",
          "stt-slow", "tts-slow", "voice-cpu", "voice-load-failed",  # 3.3.9.0 R1: knowledge/local-servers.md's speech rows
          "voice-slow",  # 3.3.9.0 R2: the voice loop's latency cards
-         "ft-expert-thrash", "ft-pinned-cap", "ft-kernel-jit")  # 3.3.9.1: knowledge/local-servers.md's FreeToken rows
+         "ft-expert-thrash", "ft-pinned-cap", "ft-kernel-jit",  # 3.3.9.1: knowledge/local-servers.md's FreeToken rows
+         "strata-disk-bound", "strata-slots", "strata-download")  # 3.3.9.2: its Strata rows
 
 
 def _cli(*argv) -> "tuple[int, str]":
