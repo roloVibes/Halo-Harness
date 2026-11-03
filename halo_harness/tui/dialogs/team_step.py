@@ -71,6 +71,7 @@ class TeamStep(StepRailMixin, TeamActionsMixin, Screen):
         self._lineups: "list[dict]" = []
         self._catalog: "Optional[dict]" = None
         self._syncing = False
+        self._mine: list = []  # switch values this code set: their Changed arrives later and must not move the list
 
     # -- compose --------------------------------------------------------------
     def compose(self) -> ComposeResult:
@@ -132,6 +133,9 @@ class TeamStep(StepRailMixin, TeamActionsMixin, Screen):
     def on_switch_changed(self, event) -> None:
         if event.switch.id != "wiz-roles-switch" or self._syncing:
             return
+        if self._mine and self._mine[0] == event.value:
+            self._mine.pop(0)  # our own sync, delivered after the list moved on (run 41600166305): not the user's flip
+            return
         option_list = self.query_one("#wiz-team-lineups-list", OptionList)
         current = self._highlighted_lineup_name()
         if (event.value and current not in (None, tp.ONE_MODEL_ID)) or (not event.value and current == tp.ONE_MODEL_ID):
@@ -154,7 +158,10 @@ class TeamStep(StepRailMixin, TeamActionsMixin, Screen):
             return
         self._syncing = True
         try:
-            self.query_one("#wiz-roles-switch", Switch).value = name != tp.ONE_MODEL_ID
+            switch, want = self.query_one("#wiz-roles-switch", Switch), name != tp.ONE_MODEL_ID
+            if switch.value != want:
+                self._mine.append(want)
+                switch.value = want
         except Exception:
             pass
         finally:
