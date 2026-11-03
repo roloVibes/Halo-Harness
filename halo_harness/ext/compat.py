@@ -37,8 +37,9 @@ DEPRECATED: "dict[str, dict]" = {}
 CHANGES: "dict[str, dict]" = {
     "1.1": {"halo": "3.3.10.0", "adds": ["set_mode", "current_mode", "contributes.policy", "contributes.modes",
                                          "the post-call verdict (contributes.policy[].after: pass | redact | drop)",
-                                         "the bundle panel's api: publish, on, getData, mode, attention, route (R3)"],
-            "deprecates": [], "keeps": "everything: a 1.0 pack runs unchanged; one without policy or modes is untouched",
+                                         "the bundle panel's api: publish, on, getData, mode, attention, route (R3)",
+                                         "contributes.setup: a pack's own Setup blocks, stable (Halo 3.3.11.0 R3)"],
+            "deprecates": [], "keeps": "everything: a 1.0 pack runs unchanged; one without policy, modes or setup is untouched",
             "status": "Policy hooks: draft in 3.3.10.0 R1, stable from R2 (a session enforces each verdict)"},
 }
 

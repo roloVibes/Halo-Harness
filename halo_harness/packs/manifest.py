@@ -226,6 +226,8 @@ def validate_manifest(data, *, root=None, folder_is_id: bool = False) -> "list[s
     out += bundle_lines(data)
     from halo_harness.packs.manifest_policy import policy_lines  # 3.3.10.0 R1: contributes.policy and .modes
     out += policy_lines(data, root)
+    from halo_harness.packs.manifest_setup import setup_lines  # 3.3.11.0 R3: contributes.setup, a pack's Setup blocks
+    out += setup_lines(data, root)
     if root is not None:
         root = Path(root)
         out += _file_lines(data, root)

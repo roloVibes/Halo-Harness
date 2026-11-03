@@ -204,6 +204,13 @@ token in the fragment stays). A Studio page already open takes the same as a `fo
 `SSH_CONNECTION`, Linux with no `DISPLAY` / `WAYLAND_DISPLAY`, or a browser that does not take the URL)
 prints the URL with `halo studio`'s port-forward line and runs the terminal screen instead.
 
+## A pack's blocks
+
+3.3.11.0 R3: an enabled pack may add pages of its own ([Setup blocks](EXTENSION_API.md#setup-blocks)), each a step in the rail
+behind the core step its `after` names (the pack's name on it), else after the core steps under the pack's name; the Summary lists them
+with their state. A **form** saves the pack's own settings, a **check** says what it does, costs, takes and writes and runs as one Check
+job (on the Check page too, under **From packs**, unticked), a **note** has **Mark as read**, any block **Skip**. Routes: `GET setup/packs`, `GET|POST setup/packs/<id>/<block>` and the state's `packs` (`studio/setup_packs_api.py`); `?block=pack:<id>:<block>` opens one.
+
 ## What each block writes
 
 | Block | Writes | The same as |

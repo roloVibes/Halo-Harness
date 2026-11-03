@@ -9,6 +9,7 @@ A setup target names the page and, optionally, the block whose page opens:
                                                                                   nothing on its own, the rail's
                                                                                   line says "set up this box")
     SetupTarget(block="team")     Setup, the Team page      ?mode=setup&block=team (`halo setup team`, `/setup`)
+    SetupTarget(block="pack:<id>:<block>")   a pack's own block (3.3.11.0 R3, `halo setup <pack>`)
 
 It travels as an edit-target text (`setup`, `setup:first`, `setup:team`), so
 `halo studio --edit setup:team`, the detached Studio's argv and
@@ -58,6 +59,9 @@ class SetupTarget:
 
     @property
     def display(self) -> str:
+        if self.block.startswith("pack:"):  # 3.3.11.0 R3: a pack's own block
+            pack_id, _sep, block_id = self.block[len("pack:"):].partition(":")
+            return f"Setup ({pack_id}: {block_id})"
         return f"Setup ({BLOCK_TITLES[self.block]})" if self.block in BLOCK_TITLES else "Setup"
 
     @property
@@ -82,7 +86,10 @@ def block_word(word: str) -> "tuple[Optional[str], str]":
     w = ALIASES.get(w, w)
     if not w or w in BLOCKS:
         return w, ""
-    return None, f"{word!r} is not a Setup block: use one of {', '.join(BLOCKS)} (roles = team)"
+    from halo_harness.packs.manifest_setup import split_key  # 3.3.11.0 R3: a pack's own block, pack:<id>:<block>
+    if split_key(w)[0]:
+        return w, ""
+    return None, f"{word!r} is not a Setup block: use one of {', '.join(BLOCKS)} (roles = team) or pack:<id>:<block>"
 
 
 def parse(text: str) -> "tuple[Optional[SetupTarget], str]":

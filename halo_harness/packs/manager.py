@@ -122,6 +122,8 @@ def row(pack, snap, *, listed: "dict | None" = None, health=(), cwd=None, state_
     out["previous"] = str(prev.get("version") or "") if isinstance(prev, dict) else ""  # 3.2.0.0 R7: Rollback
     from halo_harness.packs.policy_audit import manager_block
     out["policy"] = manager_block(pack, state_dir=state_dir)  # 3.3.10.0 R2: the armed policies, the last verdict
+    from halo_harness.packs.setup_state import waiting_count  # 3.3.11.0 R3: "setup waiting" beside the notes count
+    out["setup_waiting"] = waiting_count(pack, state_dir) if pack.id in snap.order else 0
     return out
 
 

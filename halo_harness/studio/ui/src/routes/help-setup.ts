@@ -73,6 +73,16 @@ export const SETUP_HELP: Record<string, Help> = {
       "The same five as halo check in a terminal; the rail's Last check is the last run here.",
     ),
   },
+  // 3.3.11.0 R3: a pack's own block (its `about` is the block's help line, routes/setup/SetupPage.tsx)
+  "setup-pack": {
+    about: "A step an enabled pack adds to Setup: a form for its settings, a check it runs, or a note to read.",
+    help: lines(
+      "The pack's name is beside the step in the rail; it shows while the pack is enabled.",
+      "A form saves to the pack's own settings (packs.settings.<id> in config.json), checked against its schema first.",
+      "A check says what it does, costs, takes and writes; Run this check runs it as one Check job, its lines below.",
+      "A note is the pack's text: Mark as read. Skip leaves any block for now; halo setup <pack> opens it again.",
+    ),
+  },
   "setup-summary": {
     about: "What this setup holds now, one row per step, each with a Change jump to its page.",
     help: lines(

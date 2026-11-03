@@ -5,7 +5,8 @@
 // the 3.3.0.0 ones, unchanged inside, each with its own Save. Keys: Enter in
 // a block's field is that block's Save (a card's form submits itself);
 // Ctrl+Left / Ctrl+Right are Back / Next outside a text field, as in the
-// terminal wizard. Focus lands on the content when a page opens (rule 7).
+// terminal wizard. Focus lands on the content when a page opens (rule 7). 3.3.11.0 R3: a pack's block is a page
+// too (PackBlocks.tsx), its head the block's title and help line.
 import { useEffect, useRef, type ComponentType, type KeyboardEvent } from "react";
 import { Button } from "../../lib/ui";
 import { HELP } from "../help";
@@ -14,7 +15,9 @@ import { CheckDetail } from "./Check";
 import { DefaultModelDetail } from "./DefaultModel";
 import { LinuxFixesDetail } from "./LinuxFixes";
 import { LocalModelsDetail } from "./LocalModels";
-import { HELP_KEY, step, stepsOf, TITLES, usePage, type StepId } from "./pages";
+import { PackBlockPage } from "./PackBlocks";
+import { blockOf, isPackStep } from "./packSetup";
+import { HELP_KEY, step, stepsOf, titleOf, usePage, type CoreStep, type StepId } from "./pages";
 import { PermissionsDetail } from "./Permissions";
 import { ProvidersDetail } from "./Providers";
 import { useSetup } from "./store";
@@ -22,7 +25,7 @@ import { SummaryDetail } from "./Summary";
 import { TeamDetail } from "./Team";
 import { ThemeDetail } from "./Theme";
 
-const BODY: Record<StepId, ComponentType> = {
+const BODY: Record<CoreStep, ComponentType> = {
   providers: ProvidersDetail,
   local: LocalModelsDetail,
   model: DefaultModelDetail,
@@ -63,7 +66,10 @@ function focusContent(root: HTMLElement): void {
 }
 
 function Head({ page, n, of }: { page: StepId; n: number; of: number }) {
-  const h = HELP[HELP_KEY[page]];
+  const pack = isPackStep(page);
+  const title = useSetup((s) => titleOf(s.data, page));
+  const blockHelp = useSetup((s) => (pack ? blockOf(s.data, page)?.block.help || "" : ""));
+  const h = pack ? { about: blockHelp, help: HELP["setup-pack"]?.help || "" } : HELP[HELP_KEY[page as CoreStep]];
   const lines = (h?.help || "").split("\n").filter(Boolean);
   return (
     <header className="su-page-head">
@@ -71,7 +77,7 @@ function Head({ page, n, of }: { page: StepId; n: number; of: number }) {
         STEP {n} OF {of}
       </div>
       <h2 className="su-page-title" data-testid="setup-page-title">
-        {TITLES[page]}
+        {title}
       </h2>
       {h?.about && <p className="su-lead muted">{h.about}</p>}
       {lines.length > 0 && (
@@ -102,7 +108,9 @@ export function SetupPage() {
     else ref.current.focus({ preventScroll: true }); // the page as it loads: the page itself, so a typed key lands in no field
     shown.current = true;
   }, [page, ready]);
-  const Body = BODY[page];
+  const Body = isPackStep(page) ? PackBlockPage : BODY[page as CoreStep];
+  const title = useSetup((s) => titleOf(s.data, page));
+  const nextTitle = useSetup((s) => (nextTo ? titleOf(s.data, nextTo) : ""));
   const onKey = (e: KeyboardEvent<HTMLElement>) => {
     if (e.key === "Enter" && !e.ctrlKey && !e.altKey && ref.current && enterSaves(e, ref.current)) {
       e.preventDefault();
@@ -115,7 +123,7 @@ export function SetupPage() {
   };
   return (
     <section className="su-page-card" ref={ref} tabIndex={-1} onKeyDown={onKey} data-testid="setup-step-page" data-step={page}
-             aria-label={`Setup: ${TITLES[page]}`}>
+             aria-label={`Setup: ${title}`}>
       <Head page={page} n={i + 1} of={steps.length} />
       <div className="su-step-body">
         <Body />
@@ -128,7 +136,7 @@ export function SetupPage() {
           {i + 1} / {steps.length}
         </span>
         {nextTo && (
-          <Button variant="primary" onClick={() => step(1)} data-testid="setup-next" title={`${TITLES[nextTo]} (Ctrl+Right)`}>
+          <Button variant="primary" onClick={() => step(1)} data-testid="setup-next" title={`${nextTitle} (Ctrl+Right)`}>
             {nextTo === "summary" ? "Summary" : "Next"}
           </Button>
         )}

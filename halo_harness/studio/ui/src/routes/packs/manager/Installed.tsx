@@ -59,6 +59,11 @@ function Row({ p, on }: { p: PackRow; on: boolean }) {
             {notes} note{notes === 1 ? "" : "s"}
           </span>
         )}
+        {(p.setup_waiting || 0) > 0 && (
+          <span className="og-chip mono muted" title={`halo setup ${p.id} opens them`} data-testid="pm-setup-waiting">
+            setup waiting
+          </span>
+        )}
         {p.policy && <PolicyChip b={p.policy} id={p.id} />}
         {warn && <span className="pm-row-warn" data-testid="pm-row-warn">{warn}</span>}
       </button>

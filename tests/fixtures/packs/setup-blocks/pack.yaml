@@ -1,0 +1,40 @@
+# A fixture pack with its own Setup blocks (3.3.11.0 R3, docs/EXTENSION_API.md "Setup blocks"): a form over two
+# of its config.schema keys drawn right after the Default model step, a check that runs setup/reach.py through
+# Setup's checks job (it prints two lines; HALO_SETUP_TEST_FAIL=1 makes it exit 1), and a note from setup/about.md.
+# Each shows in Setup while the pack is enabled; `halo pack enable setup-blocks` names the ones still waiting.
+id: setup-blocks
+name: Setup blocks
+version: 0.1.0
+description: Three Setup blocks of its own, one of each kind.
+author: Halo fixtures
+license: MIT
+halo_api: {min: "1.1"}
+contributes:
+  setup:
+    - id: prefs
+      title: Review preferences
+      kind: form
+      fields: [style, depth]
+      after: model
+      help: How long the reviews are and how deep they read.
+    - id: reach
+      title: Reach the review service
+      kind: check
+      run: ["${halo_python}", "${CLAUDE_PLUGIN_ROOT}/setup/reach.py"]
+      what: asks the pack's script whether the review service answers
+      cost: free
+      time: seconds
+      writes: nothing
+    - id: about
+      title: Before you start
+      kind: note
+      text: setup/about.md
+config:
+  schema:
+    type: object
+    properties:
+      style: {type: string, enum: [short, long], description: How long a review is}
+      depth: {type: integer, description: How many levels of headings a review reads}
+      extra: {type: string, description: A key no Setup block shows}
+    additionalProperties: false
+  defaults: {style: short, depth: 2}

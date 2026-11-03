@@ -397,3 +397,7 @@ A headless session (3.3.11.0 R2) is a whole Halo session with no terminal: `halo
 ## live map
 
 The live map (3.3.11.0 R2) is Roles' **Live** canvas (`L` on Roles): the session's actual agent tree on the whole page -- one node per agent, live or finished and still in the frames, parent -> child edges, nothing dropped, an `auto` pick's reason on its node, the lineup card a node matches drawn as a faint group behind it. It is 1:1 with the terminal's `/agents live`; Session's Map panel is its thumbnail ("Open in Roles Live"). Both read the frames through one adapter, the work record (`ui/src/lib/work/record.ts`).
+
+## setup block
+
+A setup block (3.3.11.0 R3) is a page a pack adds to Studio's Setup with `contributes.setup`: a **form** over its own settings (`config.schema` keys, saved to `packs.settings.<id>`), a **check** that runs a command in the pack through Setup's checks job (it says what it does, costs, takes and writes first, and is off until ticked), or a **note** to read. It shows in the step rail while the pack is enabled -- behind the core step its `after` names, else after the core steps under the pack's name -- and is done once saved, run green or read (or skipped); `~/.halo/packs/.data/<id>/setup.json` keeps that. `halo pack enable` names the blocks still waiting, `halo setup <pack>` opens the first, and `halo doctor` lists a waiting one as an info row.
