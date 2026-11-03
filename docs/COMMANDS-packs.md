@@ -269,9 +269,11 @@ releases the lower claims it pre-empts first, one line each, then claims every p
 
 ## Modes and policy hooks
 
-3.3.10.0 R1 (draft; [EXTENSION_API.md](EXTENSION_API.md#policy-hooks)): a pack that declares `contributes.modes` and
-`contributes.policy` has a runtime mode and policy hooks, recorded in `~/.halo/packs/.data/<id>/mode.json`. Nothing
-enforces a verdict yet (3.3.10.0 R2 does); these verbs write the record and run a verdict dry.
+3.3.10.0 ([EXTENSION_API.md](EXTENSION_API.md#policy-hooks)): a pack that declares `contributes.modes` and
+`contributes.policy` has a runtime mode and policy hooks, recorded in `~/.halo/packs/.data/<id>/mode.json`. Every
+session asks the armed policies before each matching tool call (R2): a deny refuses it with the pack's line, an ask
+goes to the approval card, an allow leaves it to your permissions as before. These verbs write the record, run a
+verdict dry and read the verdicts back.
 
 ### `halo pack mode`
 
@@ -295,24 +297,38 @@ halo pack: policy-fence declares no mode 'audit' (contributes.modes: fenced)
 
 - `halo pack policy status`: every pack here that declares a policy or a mode, its mode, and each policy's state:
   `armed, asked now`, `not armed (halo pack policy arm <pack> <policy>)`, or `armed, not asked:` and why (the pack
-  does not run here, hooks is not granted, its mode is not on). `--json`: `{"packs": [...]}`.
+  does not run here, hooks is not granted, its mode is not on); under it (3.3.10.0 R2) the policy's process
+  (`running (pid N)` while a session keeps it, else `not running`) and its verdict counts. `--json`: `{"packs":
+  [...]}`, each policy with `process` and `verdicts`.
 - `halo pack policy arm <pack> <policy>` / `halo pack policy disarm <pack> [<policy>]`: arm one policy, or disarm
   one (every armed one without a name); the mode stays as it is.
 - `halo pack policy test <pack> <policy> <tool> '<json input>'`: a verdict without a session. It arms nothing,
   starts the policy's process for this one request, prints the verdict with its time and stops the process; a tool
   `when.tools` does not name is not asked. Exit 0 for any verdict.
+- `halo pack policy log [<pack>]` (3.3.10.0 R2): every verdict sessions got, before and after the call, oldest
+  first, one line each: the time, the pack, the verdict and the pack's reason, then the tool, the time it took, the
+  rule, the sub-agent or worker when it was one, `the winner` when several policies answered, the error when the
+  policy did not, and the sha256 of a result it redacted or dropped. Without a pack: every pack that declares a
+  policy. `--json`: `{"verdicts": [...]}`, the rows as the events log keeps them (never the tool input).
 
 ```sh
 halo pack policy test policy-fence fence Write '{"file_path": "/tmp/x"}'
 deny -- fence: outside the project (12 ms)
   rule: outside-project; scope: session
-  a dry run: nothing was armed; nothing enforces a verdict before 3.3.10.0 R2
+  a dry run: nothing was armed, no session asked
+halo pack policy log policy-fence --since 1h
+2026-11-03 12:00:01 policy-fence  deny -- fence: outside the project  (Write, 3 ms, rule outside-project)
 ```
 
 #### `--budget-ms`
 
 `halo pack policy test ... --budget-ms N`: how long to wait for the answer (default `packs.policy.budget_ms`, 2000);
 a late answer is the policy's `on_error` verdict, said with what happened.
+
+#### `--since`
+
+`halo pack policy log ... --since WHEN`: only the verdicts after WHEN: `30m`, `2h`, `1d` (that long ago), epoch
+seconds, or an ISO time (`2026-11-03T12:00`, local when it has no zone). Anything else is a usage line (exit 2).
 
 ## A pack in `halo agents list` and `halo teams list`
 

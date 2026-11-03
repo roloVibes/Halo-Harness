@@ -27,9 +27,10 @@
     halo pack mode <pack> <mode> on|off [--note T] [--json]
                                                       3.3.10.0 R1 (draft): a pack's runtime mode (mode.json); on arms
                                                       the policy hooks that name it (packs/cli_policy.py)
-    halo pack policy status|arm|disarm|test ... [--json]
+    halo pack policy status|arm|disarm|test|log ... [--json]
                                                       the policy hooks: status, arm <pack> <policy>, disarm <pack>
-                                                      [<policy>], test <pack> <policy> <tool> '<json>' (a dry run)
+                                                      [<policy>], test <pack> <policy> <tool> '<json>' (a dry run),
+                                                      log [<pack>] [--since 1h] (3.3.10.0 R2: every verdict)
 
 Every verb takes `--cwd DIR` (act as if run from DIR: its `.halo/packs/`).
 Exit codes: 0 done, 1 could not (the reason on stderr; for doctor: problems

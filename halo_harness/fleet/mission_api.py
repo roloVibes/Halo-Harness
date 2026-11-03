@@ -108,6 +108,8 @@ def create(ctx: Ctx, body: dict) -> "tuple[int, dict]":
     if lineup:  # 3.2.1.0 R1: the lineup the request names (Studio's Mission form, `halo fleet mission new --lineup`)
         doc["lineup"] = lineup
     doc.update(pack_mission(lineup or None, cwd=ctx.cwd, state_dir=ctx.home))  # 3.2.0.0 R4: a pack lineup's metadata
+    from halo_harness.packs.policy_audit import armed_ids  # 3.3.10.0 R2: the requester's armed policies, recorded
+    doc.update({"policies": ids} if (ids := armed_ids(cwd=ctx.cwd, state_dir=ctx.home)) else {})
     S.create(ctx.home, doc)
     if root:
         S.set_local(ctx.home, mid, repo_root=str(root))

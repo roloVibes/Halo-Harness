@@ -95,9 +95,11 @@ def test_when_tools_filters_before_the_process(ctx: Ctx):
     from halo_harness.packs.events_log import since
     with fenced() as (h, pol):
         from halo_harness.packs import policy as P
+        before = {k: p.started for k, p in P._procs.items()}  # R2: a session process starts it as it is armed
         v = _ask(h, pol, "Read", {"file_path": "/etc/hosts"})
         ctx.check(f"not named: allow, not asked, got {v}", v.action == "allow" and not v.asked and v.ms == 0)
-        ctx.check("no process was started, nothing logged", P._procs == {} and since("policy-fence:policy") == [])
+        ctx.check("the ask started no process, nothing logged",
+                  {k: p.started for k, p in P._procs.items()} == before and since("policy-fence:policy") == [])
         star = dataclasses.replace(pol, tools=("*",))
         ctx.check("* names every tool", P.matches(star, "Read") and P.matches(dataclasses.replace(pol, tools=()), "Bash"))
 

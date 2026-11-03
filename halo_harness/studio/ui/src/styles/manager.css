@@ -12,6 +12,9 @@
 .pm-row-name { font-weight: 600; }
 .pm-row-warn { flex-basis: 100%; margin: 0; font-size: 12px; color: var(--warn); overflow-wrap: anywhere; }
 .pm-warn { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, transparent); }
+/* 3.3.10.0 R2: a pack's armed policies and the last verdict */
+.pm-policy { max-width: 46ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pm-policy[data-armed] { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
 .pm-row-acts { display: flex; flex-wrap: wrap; gap: 6px; }
 .pm-last { display: grid; gap: 4px; padding-top: 6px; border-top: 1px solid var(--line); }
 .pm-last:not([data-ok]) .pm-lines { color: var(--bad); }

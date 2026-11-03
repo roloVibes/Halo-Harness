@@ -273,7 +273,7 @@ A reservation (3.3.7.0 R5) is a bundle's claim on a card for as long as it is on
 
 ## verdict
 
-A verdict (3.3.7.0 R5) is a bundle's honest answer before anything downloads: ready (everything is here and it fits, with the expected latency), needs N downloads (each tag with its size, its fit and the minutes, and one button that starts Download and verify) or won't work (what it needs against what there is, and the ways out, each a number: a speech model on the CPU, a smaller model, a smaller window). It is arithmetic over the card, the catalog and the claims; nothing is guessed. A policy hook's verdict (3.3.10.0 R1, draft) is another one: the pack's answer to one tool call, `allow`, `deny` or `ask` with the pack's own reason and the rule that fired (`deny -- fence: outside the project`); a late, malformed or missing answer is the policy's `on_error`, and several armed packs resolve deny over ask over allow.
+A verdict (3.3.7.0 R5) is a bundle's honest answer before anything downloads: ready (everything is here and it fits, with the expected latency), needs N downloads (each tag with its size, its fit and the minutes, and one button that starts Download and verify) or won't work (what it needs against what there is, and the ways out, each a number: a speech model on the CPU, a smaller model, a smaller window). It is arithmetic over the card, the catalog and the claims; nothing is guessed. A policy hook's verdict (3.3.10.0) is another one: the pack's answer to one tool call, `allow`, `deny` or `ask` with the pack's own reason and the rule that fired (`deny -- fence: outside the project`); a late, malformed or missing answer is the policy's `on_error`, and several armed packs resolve deny over ask over allow.
 
 ## pool
 
@@ -348,11 +348,19 @@ Talk (3.3.9.0 R3) is Studio's Local -> Voice button: the browser's microphone in
 
 ## policy hook
 
-A policy hook (3.3.10.0 R1, draft) is a pack's own check on tool calls: a command in the pack (`contributes.policy`, the `hooks` grant) that Halo starts once when the policy is armed and asks about each matching call, one JSON line in, one verdict out, within `packs.policy.budget_ms` (2000 ms). `when.tools` decides which calls it sees (an armed hook sees every matching tool input, a Write's content included) and `redact` takes named secrets out first. `halo pack policy status | arm | disarm | test`; nothing enforces a verdict until 3.3.10.0 R2.
+A policy hook (3.3.10.0) is a pack's own check on tool calls: a command in the pack (`contributes.policy`, the `hooks` grant) that Halo starts once when the policy is armed and asks about each matching call, one JSON line in, one verdict out, within `packs.policy.budget_ms` (2000 ms). Its verdict decides the call, enforced by the harness whatever the model says (3.3.10.0 R2): deny refuses it with the pack's own line, ask shows the approval card with it, allow leaves the call to your permissions; sub-agents and Orchestra workers are asked too. `when.tools` decides which calls it sees (an armed hook sees every matching tool input, a Write's content included) and `redact` takes named secrets out first. `halo pack policy status | arm | disarm | test | log`; with no pack armed nothing changes.
 
 ## pack mode
 
-A pack mode (3.3.10.0 R1, draft) is a pack's runtime switch, declared under `contributes.modes` and recorded in `~/.halo/packs/.data/<id>/mode.json` with the policies it armed: turning a mode on arms each policy whose `when.modes` names it, turning it off disarms them, and every change is the pack's `mode` event. `halo pack mode <pack> <mode> on | off`, or `ext.set_mode` from the pack's own code; the label shows in the TUI and Studio from 3.3.12.0, with the mode's theme.
+A pack mode (3.3.10.0) is a pack's runtime switch, declared under `contributes.modes` and recorded in `~/.halo/packs/.data/<id>/mode.json` with the policies it armed: turning a mode on arms each policy whose `when.modes` names it, turning it off disarms them, and every change is the pack's `mode` event. `halo pack mode <pack> <mode> on | off`, or `ext.set_mode` from the pack's own code; the label shows in the TUI and Studio from 3.3.12.0, with the mode's theme.
+
+## post-call verdict
+
+A post-call verdict (3.3.10.0 R2) is a policy hook's second answer, after the call ran: a policy that declares `after: true` gets the tool's result and answers `pass` (keep it), `redact` (the model and the transcript see the pack's version instead; the audit keeps the original's sha256 and the rule) or `drop` (the result is the pack's line). The same process, budget and `on_error` as the verdict before the call (allow reads as pass, deny as drop); it runs before the PostToolUse hooks.
+
+## winner
+
+The winner (3.3.10.0 R2) is the one verdict that counts when several armed policies answer the same call: deny over ask over allow before it, drop over redact over pass after it, the packs' run order among equals (`policy.winner`). Every policy's verdict is a row in its pack's events log; the winner's row says `winner: true`, and its line is what the tool line shows (`policy: deny -- fence: outside the project`).
 
 ## expert cache
 

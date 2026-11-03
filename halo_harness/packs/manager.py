@@ -118,6 +118,8 @@ def row(pack, snap, *, listed: "dict | None" = None, health=(), cwd=None, state_
                has_settings=ST.schema_of(pack.manifest) is not None)
     prev = (S.entry(pack.id, data=snap.state) or {}).get("previous") if pack.scope != "source" else None
     out["previous"] = str(prev.get("version") or "") if isinstance(prev, dict) else ""  # 3.2.0.0 R7: Rollback
+    from halo_harness.packs.policy_audit import manager_block
+    out["policy"] = manager_block(pack, state_dir=state_dir)  # 3.3.10.0 R2: the armed policies, the last verdict
     return out
 
 

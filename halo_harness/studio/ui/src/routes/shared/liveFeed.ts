@@ -39,6 +39,8 @@ export type LiveLine = {
   /** When its result landed (ms). */
   ended?: number;
   error?: boolean;
+  /** 3.3.10.0 R2: the packs' verdicts on the call, one line (`policy: deny -- fence: outside the project`). */
+  policy?: string;
   ask?: string;
   state?: string;
   /** 3.2.0.0 R3: a pack line's KIND column (the pack's label). */
@@ -128,8 +130,8 @@ export function toolStart(key: AgentKey, id: string, tool: string, ts: number, t
   addLine({ key, kind: "tool", ts, text: "", tool, id, target: target || (cur.startsWith(tool + ":") ? cur.slice(tool.length + 1).trim() : "") });
 }
 
-/** The newest open tool row of `key` (with `id` when the frame names one) takes its result. */
-export function toolEnd(key: AgentKey, id: string, text: string, isError: boolean): void {
+/** The newest open tool row of `key` (with `id` when the frame names one) takes its result (and its policy line). */
+export function toolEnd(key: AgentKey, id: string, text: string, isError: boolean, policy = ""): void {
   live.update((s) => {
     const open = { ...s.open };
     if (open[key] && (!id || !open[key].id || open[key].id === id)) delete open[key];
@@ -137,7 +139,7 @@ export function toolEnd(key: AgentKey, id: string, text: string, isError: boolea
       const x = s.lines[j];
       if (x.key === key && x.kind === "tool" && !x.ended && (!id || !x.id || x.id === id)) {
         const lines = s.lines.slice();
-        lines[j] = { ...x, result: firstLine(text) || (isError ? "failed" : "ok"), full: fullOf(text), ended: Date.now(), error: isError };
+        lines[j] = { ...x, result: firstLine(text) || (isError ? "failed" : "ok"), full: fullOf(text), ended: Date.now(), error: isError, ...(policy ? { policy } : {}) };
         return { lines, open };
       }
     }
@@ -163,7 +165,7 @@ export function fromEntry(key: AgentKey, e: Entry, at = false): void {
   if ((e.kind === "text" || e.kind === "thinking") && !at) return addText(key, e.kind, String(e.text || ""), ts);
   if (e.kind === "text" || e.kind === "thinking") return addLine({ key, kind: e.kind, ts, text: clip(String(e.text || "")) }, true);
   if (e.kind === "tool_call") return at ? addLine({ key, kind: "tool", ts, text: "", tool: name, id: String(e.id || ""), target, ended: ts * 1000 }, true) : toolStart(key, String(e.id || ""), name, ts, target);
-  if (e.kind === "tool_result") return at ? backlogResult(key, e) : toolEnd(key, String(e.id || ""), String(e.text || ""), !!e.is_error);
+  if (e.kind === "tool_result") return at ? backlogResult(key, e) : toolEnd(key, String(e.id || ""), String(e.text || ""), !!e.is_error, String(e.policy || ""));
   if (e.kind === "spawn") return addLine({ key, kind: "spawn", ts, text: label || `${name}: ${e.task || ""}` }, at);
   if (e.kind === "handback") return addLine({ key, kind: "output", ts, text: clip(String(e.text || "")) }, at);
   if (e.kind === "user") return addLine({ key, kind: e.you ? "you" : "asked", ts, text: clip(String(e.text || "")) }, at);
@@ -176,7 +178,7 @@ function backlogResult(key: AgentKey, e: Entry): void {
     const j = s.lines.findIndex((x) => x.key === key && x.kind === "tool" && !!e.id && x.id === String(e.id));
     if (j < 0) return {};
     const lines = s.lines.slice();
-    lines[j] = { ...lines[j], result: firstLine(e.text) || (e.is_error ? "failed" : "ok"), full: fullOf(e.text), error: !!e.is_error };
+    lines[j] = { ...lines[j], result: firstLine(e.text) || (e.is_error ? "failed" : "ok"), full: fullOf(e.text), error: !!e.is_error, ...(e.policy ? { policy: e.policy } : {}) };
     return { lines };
   });
 }
@@ -195,8 +197,11 @@ function onRaw(f: FeedFrame): void {
   const ts = Number(f.ts) || Date.now() / 1000;
   if (f.event === "text_chunk") addText(key, "text", String(d.text || ""), ts);
   else if (f.event === "tool_use_start") toolStart(key, String(d.id || ""), String(d.name || "?"), ts);
-  else if (f.event === "tool_result") toolEnd(key, String(d.id || ""), typeof d.content === "string" ? d.content : String(d.summary || ""), !!d.is_error);
+  else if (f.event === "tool_result") toolEnd(key, String(d.id || ""), typeof d.content === "string" ? d.content : String(d.summary || ""), !!d.is_error, policyLine(d.policy));
 }
+
+/** 3.3.10.0 R2: a tool_result frame's `policy: {line, verdicts}` as its line ("" when none). */
+const policyLine = (p: unknown) => (p && typeof p === "object" ? String((p as { line?: unknown }).line || "") : "");
 
 function onAgentEvent(f: FeedFrame): void {
   const e = f.data as Entry | null;

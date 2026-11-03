@@ -6,9 +6,11 @@ line on stdout, the request's id in it.
               "session": "...", "agent": "", "mode": "fenced", "permission_mode": "default", "config": {}}
     answer   {"id": "r1", "verdict": "deny", "reason": "outside the project", "rule": "outside-project"}
 
-A Write or Edit whose path is outside `cwd` (the project folder) is denied; every other call is allowed. Plain
-Python, nothing of Halo imported. The HALO_POLICY_TEST_* variables are the tests' seams (a slow answer, a bad
-line, an echo of the input, an exit before answering); nothing outside the tests sets them.
+A Write or Edit whose path is outside `cwd` (the project folder) is denied; every other call is allowed. A
+post-call request (3.3.10.0 R2: `"after": true` with the tool's `result`, for a policy that declares `after: true`)
+is answered pass. Plain Python, nothing of Halo imported. The HALO_POLICY_TEST_* variables are the tests' seams (a
+slow answer, a bad line, an echo of the input, an exit before answering, ask instead of deny, and after the call a
+word to redact or a drop); nothing outside the tests sets them.
 """
 
 import json
@@ -39,7 +41,21 @@ def verdict(req: dict) -> dict:
         return {"verdict": "allow", "reason": "no path to check", "rule": "no-path"}
     if _inside(path, str(req.get("cwd") or os.getcwd())):
         return {"verdict": "allow", "reason": "inside the project", "rule": "inside-project"}
+    if os.environ.get("HALO_POLICY_TEST_ASK"):
+        return {"verdict": "ask", "reason": "outside the project", "rule": "outside-project"}
     return {"verdict": "deny", "reason": "outside the project", "rule": "outside-project", "scope": "session"}
+
+
+def after(req: dict) -> dict:
+    """The post-call verdict: pass, or (the tests' seams) a drop, or a redact of one word."""
+    text = req.get("result") if isinstance(req.get("result"), str) else ""
+    if os.environ.get("HALO_POLICY_TEST_DROP"):
+        return {"verdict": "drop", "reason": "the result stays out of the session", "rule": "drop-all"}
+    word = os.environ.get("HALO_POLICY_TEST_REDACT")
+    if word and word in text:
+        return {"verdict": "redact", "reason": "a held word was taken out", "rule": "redact-word",
+                "result": text.replace(word, "[held]")}
+    return {"verdict": "pass", "reason": "nothing to take out", "rule": "pass"}
 
 
 def main() -> int:
@@ -58,7 +74,8 @@ def main() -> int:
         if os.environ.get("HALO_POLICY_TEST_BAD"):
             sys.stdout.write("this is not json\n")
         else:
-            sys.stdout.write(json.dumps({"id": req.get("id"), **verdict(req)}) + "\n")
+            answer = after(req) if req.get("after") else verdict(req)
+            sys.stdout.write(json.dumps({"id": req.get("id"), **answer}) + "\n")
         sys.stdout.flush()
     return 0
 

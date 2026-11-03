@@ -4220,4 +4220,24 @@ mlx-community Qwen3.6 checkpoint the brief named is not in its table. Two log li
 capacity line, a driver refusal) are guesses the reader does not key on. Open: `halo local bench --host tensorfold` is not
 wired; the `.sha256.sig` signature is not verified; Strata's lines now name `strata models list` (they named a `halo models
 search` that does not exist). Every TensorFold fact is from its source, unverified until the owner's run on the Mac.
-**3.3.9.3 IS THE CANDIDATE.** After it: 3.3.10.0 R2 the enforcement.
+3.3.9.3 shipped 2026-11-03 (v3.3.9.3 = 6a58e59d): the runtime series (FreeToken, Strata, TensorFold) is done.
+
+**3.3.10.0 R2 BUILT 2026-11-03 (one Opus round, worktree ~/hh-3310/R2-enforcement, hand-back v3310-R2-handback.md): the
+gate (`agent/policy_gate.py`) before `permission_engine.decide` and again after a hook rewrote the input; deny > ask > allow;
+deny refuses through the refused-tool path with the pack's own line (pack, policy, rule named), ask reaches the approval
+card with that line (a mode cycle never answers it, a PreToolUse allow never lifts it), allow leaves the call to the engine;
+sub-agent and Orchestra worker calls take the same path; post-call verdicts (`packs/policy_after.py`: pass | redact | drop,
+the original's sha256 kept); the audit everywhere (`packs/policy_audit.py`: the pack's events log, the transcript tool row,
+the tool_use_ready / tool_result events, the TUI tool line, the Session feed, the Pack Manager row `pm-policy`, `halo pack
+policy log [--since] [--json]`, `status` with processes + counts); the process starts with the session and at arm; a
+mission records the requester's armed `policies` for Federation R6; Policy hooks is `stable` in the extension API. Zero
+change with no pack armed (a decide call-count pin). Choices: a fourth fixture seam HALO_POLICY_TEST_ASK; a
+PermissionRequest hook or `--permission-prompt-tool` may still answer a pack's ask (the existing approval flow); several
+`after: true` policies chain, a drop ends the round. Open for R3: fail-closed when the pack catalog itself cannot be read
+(today no policy answers, logged once per call, even for `on_error: deny`); the bundle API (`publish`, `route`, `attention`,
+`getData`, `mode()`, `on()`), doctor `info`, workflow refs in Templates and inspect, the concord pack; 3.3.12.0: the mode's
+label in the TUI status bar / Studio header. Live check (rolo): a scratch home, `halo pack install
+tests/fixtures/packs/policy-fence`, `halo pack enable policy-fence --grant hooks`, `halo pack mode policy-fence fenced on`,
+a session on a cheap model asked to write /tmp/x -> the tool result is the pack's deny line and the model says so; `halo pack
+policy log`; `status` shows the process while the session is open; Studio's Session feed and the Pack Manager row show it.
+Next: R3 (the bundle API + UX points + the concord pack), then the 3.3.10.0 release.**

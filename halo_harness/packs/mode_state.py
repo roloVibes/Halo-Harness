@@ -1,5 +1,5 @@
 """halo_harness.packs.mode_state -- a pack's runtime mode file (Halo 3.3.10.0 R1; docs/EXTENSION_API.md
-"Policy hooks", draft).
+"Policy hooks"; stable since R2).
 
     ~/.halo/packs/.data/<id>/mode.json
     {"mode": "fenced" | null, "since": "<UTC time>", "by": "cli" | "pack:<id>" | ..., "armed": ["fence"], "note": ""}
@@ -66,7 +66,7 @@ def _find(pack_id: str, cwd, state_dir):
     return (pack, "") if pack is not None else (None, no_pack_line(pack_id))
 
 
-def _write(pack, rec: dict, change: str, by: str, state_dir) -> None:
+def _write(pack, rec: dict, change: str, by: str, state_dir, cwd=None) -> None:
     from halo_harness.packs.events_log import append
     from halo_harness.packs.grants import notify_studio
     from halo_harness.packs.state import now
@@ -78,6 +78,9 @@ def _write(pack, rec: dict, change: str, by: str, state_dir) -> None:
     live = sys.modules.get("halo_harness.packs.policy")  # a process this one runs for a policy no longer armed stops
     if live is not None:
         live.reconcile(pack.id, rec["armed"])
+    gate = sys.modules.get("halo_harness.agent.policy_gate")  # 3.3.10.0 R2: a session process starts the armed now
+    if gate is not None and rec["armed"]:
+        gate.on_armed(cwd)
     notify_studio("mode")
 
 
@@ -118,7 +121,7 @@ def set_mode(pack_id: str, mode: str, on: bool = True, *, by: str = "cli", note:
     keep = [a for a in rec["armed"] if a not in names(was) or a in names(mode)] if was and was != mode else rec["armed"]
     armed = sorted(set(keep) | names(mode))
     rec.update(mode=mode, since=now() if was != mode else rec["since"], note=note, armed=armed)
-    _write(pack, rec, f"mode {mode} on", by, state_dir)
+    _write(pack, rec, f"mode {mode} on", by, state_dir, cwd)
     label = (MP.mode_entry(pack.manifest, mode) or {}).get("label")
     lines = [f"{pack.id}: mode {mode} on" + (f" ({label})" if label else "") + (f", was {was}" if was and was != mode else "")
              + f"; armed: {', '.join(armed) or 'none'}"]
@@ -138,7 +141,7 @@ def arm(pack_id: str, policy_id: str, *, by: str = "cli", cwd=None, state_dir=No
     if policy_id in rec["armed"]:
         return True, [f"{pack.id}: policy {policy_id} is already armed"]
     rec["armed"] = rec["armed"] + [policy_id]
-    _write(pack, rec, f"arm {policy_id}", by, state_dir)
+    _write(pack, rec, f"arm {policy_id}", by, state_dir, cwd)
     lines = [f"{pack.id}: policy {policy_id} armed"]
     modes = MP.when_of(MP.entry(pack.manifest, policy_id))[1]
     if modes and rec["mode"] not in modes:
