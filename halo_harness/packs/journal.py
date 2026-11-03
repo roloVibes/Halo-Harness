@@ -116,6 +116,18 @@ def _write_bytes(path: Path, data: bytes, mode: Optional[int] = None) -> None:
         raise
 
 
+def _unlink(path: Path, *, missing_ok: bool = False) -> None:
+    """Windows: a reader still holding a pack file (the Studio watcher, a scanner) refuses the unlink for a moment
+    (WinError 32); the 3.3.11.0 R1 merge's Windows run saw a whole remove stop and roll back on it. Five seconds in all."""
+    for i in range(50):
+        try:
+            return path.unlink(missing_ok=missing_ok)
+        except PermissionError:
+            if i == 49:
+                raise
+            time.sleep(0.1)
+
+
 class Op:
     """One install / update / remove: its rows, its backups, its rollback."""
 
@@ -151,7 +163,7 @@ class Op:
         if before is None:
             return
         self._keep(path)
-        path.unlink()
+        _unlink(path)
         self.done.append(self._row(path, True, before, None))
 
     def rollback(self) -> "list[str]":
@@ -165,7 +177,7 @@ class Op:
                     problems.append(f"{path}: changed since this {self.op} wrote it; left as it is")
                     continue
                 if row["before"] is None:
-                    path.unlink(missing_ok=True)
+                    _unlink(path, missing_ok=True)
                 else:
                     _write_bytes(path, kept.read_bytes())
                 self._row(path, row["after"] is not None, row["after"], row["before"], op="rollback")

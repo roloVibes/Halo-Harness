@@ -34,6 +34,14 @@ a pack's own Setup blocks.
 - The fake remote session (`tests/helpers/fake_remote_session.py`) moves its receipts the way the real loop does; `tests/test_remote_control_socket.py`'s command set names `receipts`.
 - Docs: STUDIO-session.md (the Prompt panel), STUDIO-sections.md (Session's panels), REMOTE.md (`submit`'s fields, `receipts`, the ladder and the TTL), COMMANDS-studio.md (`--prompt`).
 
+### Also in 3.3.11.0
+
+#### Changed
+
+- A pack's remove, update and rollback wait up to five seconds for a file another process still holds (Windows:
+  WinError 32, a reader of the pack folder such as the Studio watcher) before giving up. Before, one held file stopped the
+  whole remove and rolled it back, so the pack came back as if nothing had happened (seen on the Windows runner).
+
 ## [3.3.10.0] - 2026-11-03
 
 **Pack policy.** GitHub issue #4 built out, with the owner's additions: a pack can now hold a session to a rule the
