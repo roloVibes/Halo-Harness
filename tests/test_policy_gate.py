@@ -10,7 +10,9 @@ with the `policy-fence` fixture pack armed (its `run` is a real process speaking
 5. a sub-agent's Write outside is refused too, its agent id on the events log row;
 6. with no pack armed the loop makes exactly the calls it made before (decide's call count, the events, no
    process, no row);
-7. the process starts at session start: the first verdict's time is under a tenth of the budget.
+7. the process starts at session start: the first verdict's time is under a tenth of the budget;
+8. (3.3.10.0 R3) the pack catalog unreadable: the last list `armed()` read answers, so the fence still denies, the
+   failure said once per call; with nothing ever armed in the process the loop makes the calls it made before.
 Run: python -m tests.test_policy_gate
 """
 
@@ -183,6 +185,62 @@ def test_the_process_starts_with_the_session(ctx: Ctx):
         budget = P.default_budget_ms()
         ctx.check(f"the first verdict under a tenth of the budget ({budget} ms), got {row['ms']} ms",
                   row["ms"] < budget / 10 and procs[0].started == 1)
+
+
+class _Unreadable:
+    """3.3.10.0 R3: the pack catalog's read raises (packs.registry.snapshot, the read `policy.armed` makes); the
+    gate's warnings are counted."""
+
+    def __enter__(self):
+        import logging
+        from halo_harness.agent import policy_gate as G
+        from halo_harness.packs import registry
+        self.saved, self.warned = registry.snapshot, []
+        registry.snapshot = lambda *a, **k: (_ for _ in ()).throw(OSError("the packs folder cannot be read"))
+        self.handler = logging.Handler()
+        self.handler.emit = lambda r: self.warned.append(r.getMessage())
+        G.log.addHandler(self.handler)
+        return self
+
+    def __exit__(self, *exc):
+        from halo_harness.agent import policy_gate as G
+        from halo_harness.packs import registry
+        registry.snapshot = self.saved
+        G.log.removeHandler(self.handler)
+
+
+@test
+def test_an_unreadable_catalog_keeps_the_last_armed_list(ctx: Ctx):
+    from halo_harness.packs import policy as P
+    with fenced_home() as h:
+        target = outside(h)
+        got = P.armed(cwd=h.repo)
+        ctx.check(f"armed() keeps the list it read, got {P._last}", [p.id for p in got] == ["fence"] and P._last == got)
+        with Upstream("pg-unreadable", [tool_step("Write", {"file_path": str(target), "content": "x"}), text_step("ok")]) as up:
+            s = session_in(h, up)
+            with _Unreadable() as u:
+                evs = list(s.turn("write the file"))
+        res = _results(evs)
+        ctx.check(f"still refused with the pack's line, got {[r.data.get('summary') for r in res]}", len(res) == 1
+                  and res[0].data["summary"] == LINE and not target.exists())
+        said = [w for w in u.warned if "could not be read" in w]
+        ctx.check(f"the failure said once per call, naming what answers, got {said}", len(said) == 1
+                  and "the packs folder cannot be read; the last ones read here answer: policy-fence/fence" in said[0])
+
+
+@test
+def test_nothing_ever_armed_and_an_unreadable_catalog_changes_nothing(ctx: Ctx):
+    from halo_harness.packs import policy as P
+    with fenced_home(install=False) as h:
+        P._last[:] = []  # a fresh process: nothing was ever armed in it
+        base_n, base_shape, _ = _counted_turn(h, "pg-fresh-base", gate=False)
+        with _Unreadable() as u:
+            n, shape, rows = _counted_turn(h, "pg-fresh-gate", gate=True)
+        ctx.check(f"decide called as often as before ({base_n}), got {n}", n == base_n == 2)
+        ctx.check("the same events, no policy field, no policy row", shape == base_shape
+                  and all("policy" not in keys for _, keys in shape) and all("policy" not in r for r in rows))
+        ctx.check(f"the failure is said, and nothing answers, got {u.warned}", u.warned
+                  and all(w.endswith("cannot be read") for w in u.warned if "could not be read" in w) and P._procs == {})
 
 
 if __name__ == "__main__":

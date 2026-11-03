@@ -4241,3 +4241,26 @@ tests/fixtures/packs/policy-fence`, `halo pack enable policy-fence --grant hooks
 a session on a cheap model asked to write /tmp/x -> the tool result is the pack's deny line and the model says so; `halo pack
 policy log`; `status` shows the process while the session is open; Studio's Session feed and the Pack Manager row show it.
 Next: R3 (the bundle API + UX points + the concord pack), then the 3.3.10.0 release.**
+
+**3.3.10.0 R3 BUILT 2026-11-03 (one Opus round, worktree ~/hh-3310/R3-bundle-api, hand-back v3310-R3-handback.md): the
+bundle PANEL's `api` acts (`routes/packs/bundleApi.ts` + `studio/packs_studio_bundle_api.py`: `publish` through
+`publish_event`'s check at 20 writes per 10 s per pack then 429, `on`, `getData`, `mode`, `attention` into the Fleet attention
+queue with the pack named, `route`; 403 naming `studio-script` without the grant); the doctor's `info` severity (a hidden
+fleet capability is a note, printed last and dimmed, exit 0 when every row is one; the Pack Manager counts notes apart) and
+`packs/doctor_mcp.py`'s `not-on-path` row; a lineup's workflows resolve to `<pack>/<name> -- <title>: <description>` in
+inspect, the payload and Templates; the gate remembers (`policy.armed()` keeps its last list, answers on a catalog read
+failure, logged once per call; nothing changes with nothing ever armed); the `concord` pack (`templates/packs/concord/`:
+the owner's own `concord-mcp` with `CONCORD_TELEMETRY_DISABLED=1` and `CONCORD_REPO_ROOT` from `${CLAUDE_PROJECT_DIR}`,
+which `config/plugins.py` now fills with the session folder for every plugin's .mcp.json; Concord's delivery hooks from
+upstream 75c45160 with the flag in front; the `coordinating` mode's `claimed-files` policy running `concord check <path>`,
+`on_error: allow`; `CONCORD_TASK` / `CONCORD_AGENT_ID` are the owner's to set). Deviations: `publish_event` accepts kinds a
+pack does not declare -- the route refuses them itself; upstream's SessionStart / AskUserQuestion / Notification hooks and
+its idle monitor are not in the pack; the last-good policy list is per process, not per cwd; `packs/policy.py` is at the
+cap (250): the next change there moves something out. Open: `publish_event` takes no cwd (a pack in a repo's .halo/packs
+resolves from Studio's own folder, fine while Studio starts in the repo); 3.3.11.0 pack Setup blocks; 3.3.12.0 the mode
+label; 3.3.14.0 `halo pack test`; Federation R6 the far side. Live check (rolo): a Halo session and a Codex session in one
+repo with Concord installed (`npm install -g @concord-ai/concord-mcp`, `concord setup`, `CONCORD_AGENT_ID` for the Halo
+side) trading a prompt and a reply through the concord pack; `halo pack mode concord coordinating on`; a Write to a file
+the Codex task claims -> the pack's deny line; `halo pack policy log concord`; the fixture bundle's buttons in a real
+Studio; `halo pack doctor` with a hidden capability (one [INFO] row, exit 0). **3.3.10.0 IS THE CANDIDATE.** After it:
+3.3.11.0 "Type into Studio" R1 (the Prompt panel + receipts).**

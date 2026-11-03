@@ -37,6 +37,7 @@ function Row({ p, on }: { p: PackRow; on: boolean }) {
   const picks = useMgr((s) => s.picks[p.id] || NONE); // a stable empty list: a new [] per read re-renders forever
   const warn = p.compat[0] || "";
   const health = p.health.length;
+  const notes = (p.notes || []).length; // 3.3.10.0 R3: the doctor's info rows, counted apart
   return (
     <li className="pm-row" data-on={on || undefined} data-state={p.running ? "running" : p.enabled ? "enabled" : "disabled"}
         data-testid="pm-installed-row" data-id={p.id}>
@@ -51,6 +52,11 @@ function Row({ p, on }: { p: PackRow; on: boolean }) {
         {health > 0 && (
           <span className="og-chip mono pm-warn" title={p.health.map((h) => h.text).join("\n")} data-testid="pm-health-count">
             {health} doctor line{health === 1 ? "" : "s"}
+          </span>
+        )}
+        {notes > 0 && (
+          <span className="og-chip mono muted" title={p.notes.map((h) => h.text).join("\n")} data-testid="pm-notes-count">
+            {notes} note{notes === 1 ? "" : "s"}
           </span>
         )}
         {p.policy && <PolicyChip b={p.policy} id={p.id} />}

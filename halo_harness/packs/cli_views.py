@@ -91,7 +91,7 @@ def inspect_payload(pack, snap, *, cwd=None) -> dict:
     from halo_harness.packs.policy_views import block  # 3.3.10.0 R1: the policy hooks and modes
     return {"contributes": contributes(pack, granted, running=pack.id in snap.order, cwd=cwd),
             "policy": block(pack, running=pack.id in snap.order if pack.scope != "source" else None, granted=granted),
-            "bios": pack_bios(pack, granted=granted), "lineups": pack_lineups(pack),
+            "bios": pack_bios(pack, granted=granted), "lineups": pack_lineups(pack, cwd=cwd),
             "id": pack.id, "name": pack.name, "version": pack.version, "description": pack.description,
             "author": m.get("author"), "license": m.get("license"), "halo_api": m.get("halo_api"), "halo": m.get("halo"),
             "capabilities": m.get("capabilities") or [], "requires": m.get("requires") or [],
@@ -101,7 +101,8 @@ def inspect_payload(pack, snap, *, cwd=None) -> dict:
 
 
 def role_lines(d: dict) -> "list[str]":
-    """3.2.0.0 R2: each bio with the model it runs on and the grants it needs; each lineup with its members."""
+    """3.2.0.0 R2: each bio with the model it runs on and the grants it needs; each lineup with its members (3.3.10.0 R3:
+    and one line per workflow, `<pack>/<name> -- <title>: <description>`, or "(not found)")."""
     out = ["bios:"] if d.get("bios") else []
     for b in d.get("bios") or []:
         out.append(f"  {b['name']}: runs on {b['line']}")
@@ -114,9 +115,9 @@ def role_lines(d: dict) -> "list[str]":
     for t in d.get("lineups") or []:
         members = ", ".join(f"{m['agent']} ({m['role']})" for m in t["members"]) or "no members"
         extra = [f"{t['tiers']} tiers"] if t["tiers"] else []
-        extra += [f"workflows {', '.join(t['workflows'])}"] if t["workflows"] else []
         extra += [f"acceptance.{k}: {str(v).lower() if isinstance(v, bool) else v}" for k, v in t["acceptance"].items()]
         out.append(f"  {t['name']}: {members}" + (f"; {'; '.join(extra)}" if extra else ""))
+        out += [f"    workflow {w['line']}" for w in t.get("workflow_lines") or []]  # 3.3.10.0 R3: resolved
     return out
 
 

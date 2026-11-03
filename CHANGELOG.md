@@ -8,6 +8,94 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.3.10.0] - unreleased
+
+**Pack policy.** GitHub issue #4 built out, with the owner's additions: a pack can now hold a session to a rule the
+model cannot argue past. A pack declares policies and modes (R1), the harness asks every armed policy before a tool
+call and again after a hook rewrote its input, deny over ask over allow, and a policy that says so is asked once more
+with the tool's result (R2); every verdict is in the audit, on the call's row in the transcript, the TUI, the Session
+feed and the Pack Manager, and `halo pack policy log` prints them. With no pack armed nothing changes. R3 lets a
+pack's bundle panel act (publish, route, attention, data, mode, events), gives the doctor an `info` severity and
+resolved workflow refs, makes the gate remember its last armed list when the pack catalog cannot be read, and ships
+the `concord` pack -- the first real consumer of the policy hook -- off until turned on, with Concord's telemetry
+off. Also here: the README's local-first half, the Orchestra glyph, the Pack Manager's reload after an action, the
+terminal wizard's Roles step race, the fleet hand-off route's body check, and the runner waits of the week.
+
+### R1: the policy contract -- a pack's runtime mode, a policy hook that answers a tool call, the first draft row of the extension API
+
+#### Added
+- `contributes.policy` and `contributes.modes` in pack.yaml and `pack.schema.json` (`$defs.policy`, `$defs.mode`): a policy hook is a command in the pack (`${halo_python}` and `${CLAUDE_PLUGIN_ROOT}` put in, the `hooks` grant) with `when: {tools, modes}`, `impact`, `on_error: allow | deny`, `redact: [env names]` and `after` (read from R2); a mode is `{id, label, theme}` (theme read from 3.3.12.0). Every bad value is one line naming the entry.
+- The runtime mode file `~/.halo/packs/.data/<id>/mode.json` `{mode, since, by, armed, note}`, written only through `packs/mode_state.py`; turning a mode on arms the policies that name it, every change is the pack's `mode` event. `halo pack mode <pack> <mode> on | off`, `halo pack policy status | arm | disarm`, and `ext.set_mode` / `ext.current_mode` for a pack's own code.
+- The policy runner: one long-lived process per armed policy speaking JSON lines (`{id, tool, input, cwd, session, agent, mode, permission_mode, config}` in, `{id, verdict, reason, rule, scope?}` out) within `packs.policy.budget_ms` (2000); a late, malformed or missing answer is the policy's `on_error`, with a logged line; `when.tools` filters before the process; `redact` takes named secrets out of the input; every verdict is a `policy` row in the pack's events log; several packs: deny over ask over allow.
+- `halo pack policy test <pack> <policy> <tool> '<json>'`: a verdict without a session, with its time.
+- docs/EXTENSION_API.md "Policy hooks", the status table's first `draft` row; the fixture pack `tests/fixtures/packs/policy-fence`.
+
+#### Changed
+- The extension API is 1.1: `set_mode` and `current_mode` added, nothing deprecated; a 1.0 pack keeps everything, and a pack without `policy` and `modes` is untouched.
+- `halo pack inspect` lists a pack's policy hooks and modes with each policy's state; `halo pack doctor` names a mode or an armed policy mode.json holds that the manifest does not declare; a pack's `policy/` folder is part of the discovery signature.
+- Nothing enforces a verdict yet: no session reads one until R2.
+
+### R2: the enforcement -- a pack's verdict decides a tool call, before and after, and every verdict is in the audit
+
+#### Added
+- The gate (`agent/policy_gate.py`): before `permission_engine.decide`, and again after a PreToolUse or PermissionRequest hook rewrote the input, every armed policy is asked and the winner decides -- deny over ask over allow. `deny` refuses the call through the refused-tool path with the pack's own line (`policy: deny -- fence: outside the project (pack policy-fence, rule outside-project)`), the denial naming pack, policy and rule; `ask` goes to the approval card with that line (a permission mode cycle never answers it, a PreToolUse allow never lifts it, your own deny rule still wins); `allow` leaves the call to the engine as before. Sub-agent and Orchestra worker calls take the same path (`agent` is the sub-agent's id or `worker:<lane>`); the plan specials are gated by a pack's deny only.
+- The post-call verdict: a policy with `after: true` is asked once more with the tool's result (`{..., after: true, result, ms}` in, `{verdict: pass | redact | drop, reason, rule, result?}` out; `packs/policy_after.py`), on the same process, budget and `on_error`, before the PostToolUse hooks. `redact` puts the pack's result in front of the model and the transcript and keeps the original's sha256 in the audit; `drop` puts the pack's line there.
+- The audit: every verdict, before and after, is a `policy` row in the pack's events log (`at`, `winner`, `of`, `sha256` added) and on the call: the transcript's tool row and the `tool_use_ready` / `tool_result` events carry `policy: {line, verdicts}` (no new event kind), the TUI's tool line and the Session feed's tool row draw the line, the agent transcript entries carry it, and the Pack Manager's row shows the armed policies and the last verdict (`pm-policy`).
+- `halo pack policy log [<pack>] [--since 1h] [--json]`: every verdict sessions got; `halo pack policy status` shows each policy's process (a `policy_proc` row when it starts and stops) and its verdict counts.
+- A fleet mission records the armed policies of the harness that made it (`policies` in `mission.json`; each part's dispatch carries them) for Federation R6 to enforce on the far side.
+- The policy-fence fixture's test seams for ask, redact and drop; `docs/ARCHITECTURE-permissions.md` "Pack policy hooks: the gate before decide()"; glossary `post-call verdict` and `winner`.
+
+#### Changed
+- Policy hooks is `stable` in the extension API's status table (it was R1's `draft` row), with the post-call shape; `ext.compat.CHANGES["1.1"]` says so. No part is `draft` now.
+- An armed policy's process starts when a session starts (`headless.build_session`) and when it is armed in a process that runs sessions, so the first tool call pays no interpreter start.
+- With no pack armed nothing changes: `policy.armed()` is empty, no process starts, and the loop makes the same `permission_engine.decide` calls it made before (pinned by a call-count test on a scripted session).
+
+### R3: the bundle panel API, the small UX points and the concord pack
+
+#### Added
+- A bundle panel's `api` acts, not only draws: `publish(kind, data)` (the pack's own declared kinds, through
+  `publish_event`'s check; 20 writes per 10 s per pack, then 429), `on(kind, cb)`, `getData(path)` (the data folder,
+  read-only), `mode()`, `attention(row)` (a row of the Fleet attention queue, the pack named) and `route(section,
+  panel?)`; each rides the `studio-script` grant (`POST pack/<id>/publish`, `POST pack/<id>/attention`, `GET
+  pack/<id>/mode`: 403 naming the grant without it).
+- The doctor's `info` severity: a fleet capability hidden on purpose (`fleet.capabilities.hide`) is a note, printed
+  last and dimmed; `halo pack doctor` exits 0 when every row is one; the Pack Manager counts notes apart ("1 note").
+- `halo pack doctor`'s `not-on-path` row: an enabled pack's `.mcp.json` server whose command is not on PATH.
+- The concord pack, shipped beside doc-review and off until turned on: your own `concord-mcp` as the `concord` MCP
+  server with Concord's telemetry off and CONCORD_REPO_ROOT set to the project folder, Concord's message-delivery
+  hooks, and the `coordinating` mode's `claimed-files` policy (a Write or Edit to a file another Concord task claims
+  is denied with `concord: <path> is claimed by task <id>`; a box without Concord blocks nothing).
+- Glossary: "info row".
+
+#### Changed
+- A lineup's workflows read as what they are: `halo pack inspect` and the Pack Manager's Templates show
+  `<pack>/<name> -- <title>: <description>` per workflow, "(not found)" for a name no pack knows.
+- The policy gate remembers: when the pack catalog cannot be read, the last armed list read in the process answers
+  (an armed `on_error: deny` fence still denies), the failure logged once per call; with nothing ever armed in the
+  process nothing changes.
+- A pack's `.mcp.json` may use `${CLAUDE_PROJECT_DIR}`: Halo fills it with the session's folder.
+
+### Also in 3.3.10.0
+
+#### Changed
+
+- README: the local-first half (the Ollama steward, Local, `halo host`, the pool, Voice, a bench from any halo) is in "What
+  Halo is", "Ten sections, one window", the Features table (Packs, the steward, Local measured, the host, the pool, Voice,
+  the four CI shards), the comparison table and the Documentation table; the Orchestra glyph is three lanes converging
+  through a gate (was three staff lines with ticks); the front-page pictures are not re-rendered yet.
+- Two runner waits: a bundle claim through the host waits for the host's first route answer before judging (the test); the
+  Chrome driver gives the DevTools port 90 s to open (the Windows runner took over 30 s on two shards at once).
+- Pack Manager: the list read after an action (Enable, Update, Roll back, Remove, a grant) is always a fresh one. Before, a
+  read already in flight -- a `pack_changed` frame mid-action, the lineups watcher -- was handed back as the refetch, and
+  its answer came from before the action finished, so a removed pack's row stayed and a rolled-back version did not show
+  until the next frame (the Windows runner's three Pack Manager misses were this one cause, not three).
+- The terminal wizard's "Roles and lineup" step: a `Switch.Changed` the step's own sync caused is never taken for the user's
+  flip. Before, that message could arrive after the list had moved back to "One model for everything" and re-highlight the
+  active lineup, and the two messages it spawned left the list on the wrong row for good (seen on the Windows runner; the
+  same race is possible on a slow terminal). The step now remembers the switch values it set and consumes their Changed.
+- Fleet hand-off route: a malformed body (`take_over` without a brief, `hand_to` without `to`) is 422 before the agent is
+  looked up, so the answer does not depend on whether the agent still runs (it was 404 once the agent had stopped).
+
 ## [3.3.9.3] - 2026-11-03
 
 **TensorFold.** The last of the three runtimes the owner scheduled after FreeToken: TensorFold (github.com/ashhart/TensorFold,
@@ -79,58 +167,6 @@ shape is written from its source and marked unverified until a live run.
 - The loopback auto-detect also asks port 1919 and names a server whose `/v1/models` says `owned_by: FreeToken` by its runtime.
 - A session's first byte from a FreeToken server may take up to 30 minutes (its first request compiles kernels); every other server keeps the 5-minute wait.
 - A Halo-started server's status (Studio's Local -> Hugging Face server row) reads a `/health` that answers 200 while loading as still loading.
-
-## [3.3.10.0] - unreleased
-
-### R1: the policy contract -- a pack's runtime mode, a policy hook that answers a tool call, the first draft row of the extension API
-
-#### Added
-- `contributes.policy` and `contributes.modes` in pack.yaml and `pack.schema.json` (`$defs.policy`, `$defs.mode`): a policy hook is a command in the pack (`${halo_python}` and `${CLAUDE_PLUGIN_ROOT}` put in, the `hooks` grant) with `when: {tools, modes}`, `impact`, `on_error: allow | deny`, `redact: [env names]` and `after` (read from R2); a mode is `{id, label, theme}` (theme read from 3.3.12.0). Every bad value is one line naming the entry.
-- The runtime mode file `~/.halo/packs/.data/<id>/mode.json` `{mode, since, by, armed, note}`, written only through `packs/mode_state.py`; turning a mode on arms the policies that name it, every change is the pack's `mode` event. `halo pack mode <pack> <mode> on | off`, `halo pack policy status | arm | disarm`, and `ext.set_mode` / `ext.current_mode` for a pack's own code.
-- The policy runner: one long-lived process per armed policy speaking JSON lines (`{id, tool, input, cwd, session, agent, mode, permission_mode, config}` in, `{id, verdict, reason, rule, scope?}` out) within `packs.policy.budget_ms` (2000); a late, malformed or missing answer is the policy's `on_error`, with a logged line; `when.tools` filters before the process; `redact` takes named secrets out of the input; every verdict is a `policy` row in the pack's events log; several packs: deny over ask over allow.
-- `halo pack policy test <pack> <policy> <tool> '<json>'`: a verdict without a session, with its time.
-- docs/EXTENSION_API.md "Policy hooks", the status table's first `draft` row; the fixture pack `tests/fixtures/packs/policy-fence`.
-
-#### Changed
-- The extension API is 1.1: `set_mode` and `current_mode` added, nothing deprecated; a 1.0 pack keeps everything, and a pack without `policy` and `modes` is untouched.
-- `halo pack inspect` lists a pack's policy hooks and modes with each policy's state; `halo pack doctor` names a mode or an armed policy mode.json holds that the manifest does not declare; a pack's `policy/` folder is part of the discovery signature.
-- Nothing enforces a verdict yet: no session reads one until R2.
-
-### R2: the enforcement -- a pack's verdict decides a tool call, before and after, and every verdict is in the audit
-
-#### Added
-- The gate (`agent/policy_gate.py`): before `permission_engine.decide`, and again after a PreToolUse or PermissionRequest hook rewrote the input, every armed policy is asked and the winner decides -- deny over ask over allow. `deny` refuses the call through the refused-tool path with the pack's own line (`policy: deny -- fence: outside the project (pack policy-fence, rule outside-project)`), the denial naming pack, policy and rule; `ask` goes to the approval card with that line (a permission mode cycle never answers it, a PreToolUse allow never lifts it, your own deny rule still wins); `allow` leaves the call to the engine as before. Sub-agent and Orchestra worker calls take the same path (`agent` is the sub-agent's id or `worker:<lane>`); the plan specials are gated by a pack's deny only.
-- The post-call verdict: a policy with `after: true` is asked once more with the tool's result (`{..., after: true, result, ms}` in, `{verdict: pass | redact | drop, reason, rule, result?}` out; `packs/policy_after.py`), on the same process, budget and `on_error`, before the PostToolUse hooks. `redact` puts the pack's result in front of the model and the transcript and keeps the original's sha256 in the audit; `drop` puts the pack's line there.
-- The audit: every verdict, before and after, is a `policy` row in the pack's events log (`at`, `winner`, `of`, `sha256` added) and on the call: the transcript's tool row and the `tool_use_ready` / `tool_result` events carry `policy: {line, verdicts}` (no new event kind), the TUI's tool line and the Session feed's tool row draw the line, the agent transcript entries carry it, and the Pack Manager's row shows the armed policies and the last verdict (`pm-policy`).
-- `halo pack policy log [<pack>] [--since 1h] [--json]`: every verdict sessions got; `halo pack policy status` shows each policy's process (a `policy_proc` row when it starts and stops) and its verdict counts.
-- A fleet mission records the armed policies of the harness that made it (`policies` in `mission.json`; each part's dispatch carries them) for Federation R6 to enforce on the far side.
-- The policy-fence fixture's test seams for ask, redact and drop; `docs/ARCHITECTURE-permissions.md` "Pack policy hooks: the gate before decide()"; glossary `post-call verdict` and `winner`.
-
-#### Changed
-- Policy hooks is `stable` in the extension API's status table (it was R1's `draft` row), with the post-call shape; `ext.compat.CHANGES["1.1"]` says so. No part is `draft` now.
-- An armed policy's process starts when a session starts (`headless.build_session`) and when it is armed in a process that runs sessions, so the first tool call pays no interpreter start.
-- With no pack armed nothing changes: `policy.armed()` is empty, no process starts, and the loop makes the same `permission_engine.decide` calls it made before (pinned by a call-count test on a scripted session).
-
-### Also in 3.3.10.0
-
-#### Changed
-
-- README: the local-first half (the Ollama steward, Local, `halo host`, the pool, Voice, a bench from any halo) is in "What
-  Halo is", "Ten sections, one window", the Features table (Packs, the steward, Local measured, the host, the pool, Voice,
-  the four CI shards), the comparison table and the Documentation table; the Orchestra glyph is three lanes converging
-  through a gate (was three staff lines with ticks); the front-page pictures are not re-rendered yet.
-- Two runner waits: a bundle claim through the host waits for the host's first route answer before judging (the test); the
-  Chrome driver gives the DevTools port 90 s to open (the Windows runner took over 30 s on two shards at once).
-- Pack Manager: the list read after an action (Enable, Update, Roll back, Remove, a grant) is always a fresh one. Before, a
-  read already in flight -- a `pack_changed` frame mid-action, the lineups watcher -- was handed back as the refetch, and
-  its answer came from before the action finished, so a removed pack's row stayed and a rolled-back version did not show
-  until the next frame (the Windows runner's three Pack Manager misses were this one cause, not three).
-- The terminal wizard's "Roles and lineup" step: a `Switch.Changed` the step's own sync caused is never taken for the user's
-  flip. Before, that message could arrive after the list had moved back to "One model for everything" and re-highlight the
-  active lineup, and the two messages it spawned left the list on the wrong row for good (seen on the Windows runner; the
-  same race is possible on a slow terminal). The step now remembers the switch values it set and consumes their Changed.
-- Fleet hand-off route: a malformed body (`take_over` without a brief, `hand_to` without `to`) is 422 before the agent is
-  looked up, so the answer does not depend on whether the agent still runs (it was 404 once the agent had stopped).
 
 ## [3.3.9.0] - 2026-11-02
 

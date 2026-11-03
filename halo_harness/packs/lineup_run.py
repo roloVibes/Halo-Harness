@@ -23,6 +23,7 @@ yours a ref no running pack holds is one line (`halo teams validate`).
 
     acceptance_problems(data, cwd=..., state_dir=...)  # one line per bad value (teams_yaml.validate_team_template)
     workflow_refs(raw)                      # ["<pack>/<name>", ...] (teams_yaml.resolve_team_template)
+    resolved_workflows(pack, raw, cwd=, state_dir=)   # [{ref, found, line}]: inspect and the Pack Manager (3.3.10.0 R3)
     run_defaults(name, cwd=..., state_dir=...)  # {"test": "...", "review": True} (only what the lineup sets)
     goal_defaults(goal, cwd=..., explicit_test=False)  # fills an Orchestra Goal; the lines saying what it took
 """
@@ -66,6 +67,42 @@ def workflow_refs(raw) -> "list[str]":
         if pack_id or own:
             out.append(f"{pack_id or own}/{name if pack_id else item.strip()}")
     return list(dict.fromkeys(out))
+
+
+def _own_workflow(pack, name: str) -> "dict | None":
+    from halo_harness.packs.workflow_rules import read_workflow, workflow_files
+    path = workflow_files(pack.manifest, pack.root).get(name)
+    if path is None:
+        return None
+    data, _t = read_workflow(path)
+    return data if isinstance(data, dict) else {}
+
+
+def resolved_workflows(pack, raw, *, cwd=None, state_dir=None) -> "list[dict]":
+    """3.3.10.0 R3: a pack lineup's `workflows`, each resolved through `workflow_refs`: `{ref, found, line}`, the line
+    `<pack>/<name> -- <title>: <description>` (the title is the workflow's `name:`), or the item as written with
+    "(not found)" when no pack knows it. The pack's own are read from its folder (inspect of a folder before it is
+    installed resolves them too); another pack's must run here (workflows.spec.find)."""
+    from halo_harness.workflows.spec import find
+    flows = raw.get("workflows") if isinstance(raw, dict) else None
+    out, seen = [], set()
+    for item in [f for f in flows or [] if isinstance(f, str) and f.strip()] if isinstance(flows, list) else []:
+        ref = workflow_refs({"workflows": [item], "_pack": pack.id})[0]
+        if ref in seen:
+            continue
+        seen.add(ref)
+        pack_id, _, name = ref.partition("/")
+        if pack_id == pack.id:
+            data = _own_workflow(pack, name)
+        else:
+            wf, _why = find(ref, cwd=cwd, state_dir=state_dir)
+            data = wf.data if wf is not None else None
+        if data is None:
+            out.append({"ref": ref, "found": False, "line": f"{item.strip()} (not found)"})
+            continue
+        title, about = str(data.get("name") or name), str(data.get("description") or "").strip()
+        out.append({"ref": ref, "found": True, "line": f"{ref} -- {title}" + (f": {about}" if about else "")})
+    return out
 
 
 def workflow_lines(lineup: dict) -> "list[str]":

@@ -154,7 +154,7 @@ offered twice), `packs/offers.py` (the names a pack offers, by kind),
 MCP grant filters), `packs/journal.py` (the journal and its journaled writes),
 `packs/fetch.py` (a folder or a git url), `packs/install.py` (install and
 update), `packs/remove.py` (remove; your work stays), `packs/doctor.py`
-(every problem), `packs/cli.py` and `packs/cli_views.py` (`halo pack`);
+(every problem; 3.3.10.0 R3: `packs/doctor_mcp.py`, an MCP command not on PATH), `packs/cli.py` and `packs/cli_views.py` (`halo pack`);
 `where/pack_files.py` is the packs group of `halo config where`. 3.2.0.0 R2,
 a pack's bios and lineups: `packs/bio_models.py` (`models.capabilities` to the
 best catalog model), `packs/bio_rules.py` (what a pack's bio and lineup may not
@@ -168,7 +168,8 @@ recall's filter), `packs/lineup_run.py` (`workflows`, `acceptance.test` /
 panels, then the other keys),
 `packs/studio_registry.py` (the registry the shell reads: ids qualified, routes
 resolved, grant state); `studio/packs_studio_api.py` (`/api/pack/...`: the
-registry, a pack's files and bundle, its settings form) and
+registry, a pack's files and bundle, its settings form; 3.3.10.0 R3: `studio/packs_studio_bundle_api.py`, the
+routes behind a bundle panel's `api`: publish, attention, mode) and
 `studio/packs_studio_live.py` (the `pack_changed` frame; 3.2.2.0 R6: `studio/files_live.py`, the
 `files_changed` frame for the lineup, bio, config and layout files). 3.2.0.0 R4, Fleet
 capabilities: `packs/fleet_rules.py` (what `contributes.fleet` may say, with

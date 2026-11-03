@@ -70,13 +70,14 @@ def events(c, url, ctx) -> dict:
     out: dict = {}
     alt(c, 4)
     c.wait(f"{CUR}.startsWith('Fleet') && !!{q('[data-testid=fleet-log]')}", 20)
+    log = qa("[data-testid=fleet-log-line][data-kind=pack]")
+    seen = c.js(f"{log}.length")  # 3.3.10.0 R3: the bundle step's own hello.said line came first
     publish(ctx, "review.done", {"file": "README.md", "findings": 3})
     publish(ctx, "review.started", {"file": "docs/A.md"})
-    log = qa("[data-testid=fleet-log-line][data-kind=pack]")
-    c.wait(f"{log}.length >= 2", 15)
-    out["activity"] = c.js(f"{log}.map((l) => l.querySelector('.fac-text').textContent)")
+    c.wait(f"{log}.length >= {seen + 2}", 15)
+    out["activity"] = c.js(f"{log}.slice({seen}).map((l) => l.querySelector('.fac-text').textContent)")
     alt(c, 1)
-    live = qa("[data-testid=session-live-line][data-kind=pack]")
+    live = qa("[data-testid=session-live-line][data-kind=pack]") + ".filter((l) => !l.textContent.includes('HELLO'))"  # not R3's bundle line
     c.wait(f"{live}.length >= 2", 15)
     out["live"] = c.js(f"{live}.map((l) => [l.querySelector('[data-testid=session-live-kind]').textContent, l.querySelector('[data-testid=session-live-pack]').textContent])")
     press(c, panel("doc-review--reviews", "button[aria-label=Open]"))

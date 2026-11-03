@@ -1,0 +1,17 @@
+{
+  "description": "Concord inter-agent message delivery (the concord-relay plugin's commands, telemetry off)",
+  "hooks": {
+    "UserPromptSubmit": [
+      {"hooks": [{"type": "command", "command": "CONCORD_TELEMETRY_DISABLED=1 concord inbox observe"}]}
+    ],
+    "PostToolUse": [
+      {"hooks": [{"type": "command", "command": "CONCORD_TELEMETRY_DISABLED=1 concord inbox drain --from-hook --format post-tool-use"}]}
+    ],
+    "Stop": [
+      {"hooks": [{"type": "command", "command": "CONCORD_TELEMETRY_DISABLED=1 concord inbox drain --from-hook --format stop"}]}
+    ],
+    "SessionEnd": [
+      {"hooks": [{"type": "command", "command": "CONCORD_TELEMETRY_DISABLED=1 concord inbox observe"}]}
+    ]
+  }
+}
