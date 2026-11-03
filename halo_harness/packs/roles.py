@@ -8,7 +8,7 @@ shadows its name), `extends` followed inside the pack first; its model is
 or not. Works for an installed pack and for a source folder being inspected.
 
     pack_bios(pack, granted=..., cwd=..., state_dir=...)   # [{name, file, model, how, problem, capabilities, needs, namespace}]
-    pack_lineups(pack)                                     # [{name, file, members, tiers, workflows, acceptance}]
+    pack_lineups(pack)                                     # [{name, file, members, tiers, workflows, workflow_lines, acceptance}]
     doctor_rows(pack, granted, ...)                        # one per unresolved capability set, one per ungranted need
     shadows(kind, cwd=..., state_dir=...)                  # {qualified name: (pack id, your file)}
     pack_groups(kind, cwd=..., state_dir=...)              # [(pack id, [qualified names])] for the active packs
@@ -81,8 +81,9 @@ def pack_bios(pack, *, granted=(), cwd=None, state_dir=None, rows=None) -> "list
     return out
 
 
-def pack_lineups(pack) -> "list[dict]":
+def pack_lineups(pack, *, cwd=None, state_dir=None) -> "list[dict]":
     from halo_harness.agents_yaml import _read_yaml_file
+    from halo_harness.packs.lineup_run import resolved_workflows  # 3.3.10.0 R3: each workflow's ref, title, description
     bios = _stems(Path(pack.root) / "agents")
     out = []
     for stem in _stems(Path(pack.root) / "teams"):
@@ -103,6 +104,7 @@ def pack_lineups(pack) -> "list[dict]":
         out.append({"name": N.qualify(pack.id, stem), "file": f"teams/{stem}.yaml", "members": members,
                     "tiers": len(raw["tiers"]) if isinstance(raw.get("tiers"), list) else 0,
                     "workflows": [w for w in raw.get("workflows") or [] if isinstance(w, str)],
+                    "workflow_lines": resolved_workflows(pack, raw, cwd=cwd, state_dir=state_dir),
                     "acceptance": {k: acc[k] for k in ("test", "review") if k in acc}})
     return out
 

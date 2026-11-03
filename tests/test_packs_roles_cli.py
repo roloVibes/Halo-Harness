@@ -52,8 +52,10 @@ def test_inspect_lists_each_bio_with_its_model_and_needs(ctx: Ctx):
         ctx.check("its needs and whether granted, its memory namespace",
                   "    needs: bash (not granted)" in out and "    memory namespace: doc-review/reviews" in out)
         ctx.check("the lineup: members, tiers, workflows, acceptance",
-                  "  doc-review--review: doc-review--writer (main), doc-review--reviewer (reviewer); 2 tiers; workflows review; "
-                  "acceptance.test: python -m pytest -q; acceptance.review: true" in out)
+                  "  doc-review--review: doc-review--writer (main), doc-review--reviewer (reviewer); 2 tiers; "
+                  "acceptance.test: python -m pytest -q; acceptance.review: true" in out
+                  and "\n    workflow doc-review/review -- review: Review the Markdown files under a folder and write one "
+                      "review report." in out)  # 3.3.10.0 R3: each workflow resolved, a line of its own
         code, out, _err = h.cli("inspect", "doc-review", "--json")
         d = json.loads(out)
         rev = next(b for b in d["bios"] if b["name"] == "doc-review--reviewer")

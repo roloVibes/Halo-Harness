@@ -54,7 +54,7 @@ def test_the_manager_route_lists_the_shipped_pack(ctx: Ctx):
         last = body["sources"][-1]
         ctx.check(f"the shipped folder is the last source, got {last['source']} {last['kind']}",
                   last["kind"] == "shipped" and Path(last["source"]) == shipped_dir() and not last["configured"])
-        p = last["packs"][0]
+        p = next(x for x in last["packs"] if x["id"] == "doc-review")  # 3.3.10.0 R3: concord ships beside it
         ctx.check(f"doc-review, not installed, got {p['id']} {p['installed']}", p["id"] == "doc-review" and not p["installed"])
         d = p["details"]
         ctx.check(f"its details read like halo pack inspect, got {d['name']} {d['halo_api']} {d['requested']}",
@@ -139,7 +139,7 @@ def test_sources_add_and_remove(ctx: Ctx):
         code, out, _err = s.cli("sources")
         lines = out.splitlines()
         ctx.check(f"halo pack sources lists them in that order, got {lines}", code == 0 and lines[0].startswith("packs.sources, searched in this order")
-                  and lines[1].endswith("(folder): studio-bundle 0.1.0") and lines[2].endswith("(shipped): doc-review 1.0.0"))
+                  and lines[1].endswith("(folder): studio-bundle 0.1.0") and lines[2].endswith("(shipped): concord 1.0.0, doc-review 1.0.0"))
         status, body, _ = s.call("POST", "pack/install", {"id": "studio-bundle"})
         ctx.check(f"installed by id from the source, got {status}", status == 201 and body["source"] == str(folder / "studio-bundle"))
         gone = str(s.home / "gone")

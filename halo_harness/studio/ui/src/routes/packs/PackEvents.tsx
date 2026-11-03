@@ -7,16 +7,17 @@
 // PackBundle: the pack's own ES module, loaded only once you grant
 // studio-script (the registry says `script: granted`); until then the panel
 // is one line naming the command that grants it. The module exports
-// `mount(el, api)`; `api` is { pack, panel, get(path), config() }: get reads a
-// file of the pack (as text), config its settings; what mount returns, when a
-// function, runs when the panel goes away.
+// `mount(el, api)`; `api` is bundleApi.ts's: { pack, panel, get(path), config() }
+// (get reads a file of the pack as text, config its settings) and, 3.3.10.0 R3,
+// publish, on, getData, mode, attention and route; what mount returns, when a
+// function, runs when the panel goes away, and every on() it made stops.
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api, token } from "../../lib/api";
+import { token } from "../../lib/api";
 import { Empty } from "../../lib/ui";
 import { clock } from "../orchestra/format";
 import { ArtifactProblems, ArtifactView } from "./ArtifactView";
+import { bundleApi, type BundleApi } from "./bundleApi";
 import { lineOf } from "./events";
-import { fetchText } from "./nav";
 import { usePacks } from "./store";
 import type { PackPanel } from "./types";
 
@@ -63,13 +64,13 @@ export function PackBundle({ p }: { p: PackPanel }) {
     const m: Mounted = {};
     let live = true;
     const url = new URL(`${p.file}?t=${encodeURIComponent(token())}`, location.origin + "/").href;
-    const bridge = { pack: p.pack, panel: p.name, get: (path: string) => fetchText(`api/pack/${p.pack}/file/${path}`), config: () => api.get(`pack/${p.pack}/config`) };
+    const made = bundleApi(p);
     import(/* @vite-ignore */ url).then(
-      (mod: { mount?: (el: HTMLElement, a: typeof bridge) => unknown }) => {
+      (mod: { mount?: (el: HTMLElement, a: BundleApi) => unknown }) => {
         if (!live) return;
         if (typeof mod.mount !== "function") return setError(`${p.source} exports no mount(el, api)`);
         try {
-          const off = mod.mount(host, bridge);
+          const off = mod.mount(host, made.api);
           if (typeof off === "function") m.off = off as () => void;
         } catch (e) {
           setError(`${p.source}: ${e instanceof Error ? e.message : String(e)}`);
@@ -80,9 +81,10 @@ export function PackBundle({ p }: { p: PackPanel }) {
     return () => {
       live = false;
       m.off?.();
+      made.close();
       host.replaceChildren();
     };
-  }, [granted, p.file, p.pack, p.name, p.source]);
+  }, [granted, p.file, p.pack, p.name, p.source]); // p itself is a new object on every registry read
   if (!granted)
     return (
       <div className="pk-grant" data-testid="pack-bundle-grant">

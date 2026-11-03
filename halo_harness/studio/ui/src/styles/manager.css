@@ -51,6 +51,7 @@
 .pm-tpl-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 6px 8px; border: 1px solid var(--line);
   border-radius: var(--radius); min-width: 0; }
 .pm-tpl-row .muted { flex: 1 1 160px; min-width: 0; font-size: 12px; overflow-wrap: anywhere; }
+.pm-tpl-row .pm-tpl-flow { flex-basis: 100%; } /* 3.3.10.0 R3: a lineup's workflow, resolved, on a line of its own */
 
 
 /* the Orchestra Start view's workflow form (routes/orchestra/WorkflowForm.tsx) */
