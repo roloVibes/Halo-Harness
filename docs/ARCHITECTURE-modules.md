@@ -309,6 +309,19 @@ speed until benched); the steward -- `ollama_steward/server_log_strata.py` (Stra
 events) and `ollama_steward/rules_strata.py` (strata-disk-bound, strata-slots, strata-download); `doctor_strata.py`
 (`halo doctor --local`'s lines).
 
+**TensorFold** (Halo 3.3.9.3, docs/MODELS-tensorfold.md): the runtime `tensorfold` -- `tensorfold/requirements.py`
+(the binary from `huggingface.tensorfold_bin`, PATH or the fetched archive, `--version`, `capabilities --json`, the
+install line for this OS), `tensorfold/catalog.py` (the models TensorFold qualifies, their sizes and machines, the
+Library's download targets), `tensorfold/source.py` (what `tensorfold serve` is given: the Hub cache, Halo's download,
+a folder; the missing model's one line), `tensorfold/peer.py` (the host's offer, a peer's `hf:local/<model>@<host>`),
+`tensorfold/route.py` (a TensorFold server as a placement option, its loading tax); the launcher
+`providers/local_runtime_tensorfold.py` (`tensorfold serve`, the registry row, the entry, the 0600 key file) and the
+release table `providers/local_runtime_fetch_tf.py` (the Linux archive and its `.sha256` on the llama-server fetcher);
+the fit -- `local_sched/fit_tf.py` (the VRAM / unified-memory rule with TensorFold's sizes and reserve); the steward --
+`ollama_steward/server_log_tensorfold.py` (its `[tensorfold]` lines as events), `ollama_steward/server_stats_tensorfold.py`
+(the queue from `/health` and `/metrics`) and `ollama_steward/rules_tensorfold.py` (tf-waiting, tf-backend-fallback,
+tf-load); `doctor_tensorfold.py` (`halo doctor --local`'s lines).
+
 **Policy hooks and modes** (Halo 3.3.10.0 R1, draft; docs/EXTENSION_API.md "Policy hooks"):
 `packs/manifest_policy.py` (`contributes.policy` and `contributes.modes`: the entries, their meaning lines, the
 command with `${halo_python}` and `${CLAUDE_PLUGIN_ROOT}` put in), `packs/mode_state.py` (the pack's `mode.json`:

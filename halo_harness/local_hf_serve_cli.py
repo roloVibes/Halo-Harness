@@ -12,6 +12,8 @@ model instead (voice/launch.serve: the `stt` / `tts` server and its huggingface.
 3.3.9.1: `--runtime freetoken --model <checkpoint dir> [--lan]` runs FreeToken's `ft serve` (freetoken/launch.serve).
 3.3.9.2: `--runtime strata --model <family>/<set>` (or `--model-path DIR`) `[--lan] [--plan]` runs Strata's `strata
 launch` once its plan says nothing to download (strata/launch.serve); `--plan` prints Strata's own plan and the fit.
+3.3.9.3: `--runtime tensorfold --model <hf repo | checkpoint dir> [--window N] [--parallel N] [--lan] [--yes]` runs
+TensorFold's `tensorfold serve` (providers/local_runtime_tensorfold.serve; `--yes` fetches the Linux archive).
 """
 
 from __future__ import annotations
@@ -41,13 +43,17 @@ def cmd_serve(argv: list) -> int:
                                 "on a Mac) for a model on disk, with the fit planner's window and layers.")
     p.add_argument("model", nargs="?", default=None, help="a path halo local ls lists, an exact .gguf file or model folder, a name halo local "
                    "--terminal shows, or with --runtime mlx a Hugging Face repo id")
-    p.add_argument("--runtime", choices=("llama-server", "mlx", "mlx_lm", "freetoken", "strata"), default=None,
-                   help="mlx: Apple Silicon only; freetoken: a Mixture-of-Experts checkpoint folder on Linux (FreeToken); "
-                   "strata: a Strata set, <family>/<set> (Windows, Linux, the Mac)")
+    p.add_argument("--runtime", choices=("llama-server", "mlx", "mlx_lm", "freetoken", "strata", "tensorfold"),
+                   default=None, help="mlx: Apple Silicon only; freetoken: a Mixture-of-Experts checkpoint folder on Linux "
+                   "(FreeToken); strata: a Strata set, <family>/<set> (Windows, Linux, the Mac); tensorfold: a Hugging "
+                   "Face repo or checkpoint folder (TensorFold: Metal on the Mac, CUDA on Linux)")
     p.add_argument("--model-path", default=None, help="with --runtime strata: the folder of a set's files you already have")
     p.add_argument("--plan", action="store_true", help="with --runtime strata: Strata's own plan and the fit; nothing starts")
     p.add_argument("--model", dest="model_opt", default=None, help="the model (the same as the positional one)")
-    p.add_argument("--lan", action="store_true", help="with --runtime freetoken or strata: every address, behind a key")
+    p.add_argument("--lan", action="store_true", help="with --runtime freetoken, strata or tensorfold: every address, "
+                   "behind a key")
+    p.add_argument("--parallel", type=int, default=None, help="with --runtime tensorfold: streams at once (default: "
+                   "TensorFold's auto, up to 8 as memory allows)")
     p.add_argument("--window", type=int, default=None, help="the window (-c); default: the planner's for this card")
     p.add_argument("--port", type=int, default=None, help="default: a free loopback port")
     p.add_argument("--keep", action="store_true", help="keep it running after the last Halo process on this home exits")
@@ -73,6 +79,12 @@ def cmd_serve(argv: list) -> int:
         return code
     if not a.model:
         p.error("name the model: halo local serve <model> (or --model <model>)")
+    if a.runtime == "tensorfold":  # 3.3.9.3: providers/local_runtime_tensorfold.py (docs/MODELS-tensorfold.md "Serve")
+        from halo_harness.providers.local_runtime_tensorfold import serve as serve_tf
+        code, lines, row = serve_tf(a.model, port=a.port, keep=a.keep, lan=a.lan, window=a.window, parallel=a.parallel,
+                                    confirm=lambda q: _confirm(q, yes=a.yes))
+        print(json.dumps({"code": code, "lines": lines, "server": row}, indent=2, default=str) if a.json else "\n".join(lines))
+        return code
     if a.runtime == "freetoken":  # 3.3.9.1: freetoken/launch.py (docs/MODELS-freetoken.md "Serve")
         from halo_harness.freetoken.launch import serve as serve_ft
         code, lines, row = serve_ft(a.model, port=a.port, keep=a.keep, lan=a.lan)

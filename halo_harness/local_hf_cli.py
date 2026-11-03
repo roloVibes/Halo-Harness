@@ -5,7 +5,7 @@ providers/hf_download.py, studio/local_hf_view.py, providers/local_server.py; di
                                                              part file and the same line resumes it
     halo local ls [--dir D] [--host H] [--window N] [--json] what is on disk per folder, sizes, the fit word
     halo local rm <path> [--force]                           the uses card, then the files go
-    halo local serve <path> [--runtime llama-server|mlx|freetoken|strata] [--window N] [--port P] [--keep] [--yes] [--backend B]
+    halo local serve <path> [--runtime llama-server|mlx|freetoken|strata|tensorfold] [--window N] [--port P] [--keep] [--yes] [--backend B]
                                                              the flags and their sources, the URL, the hf:local ref
     halo local stop <id|port>   halo local servers [--json]   halo local log <id> [-n N]
 """
@@ -170,8 +170,11 @@ def cmd_servers(argv: list) -> int:
         st = e.get("kind") == "strata"  # 3.3.9.2: Strata's supervisor runs it; its set, `strata launch`
         if st and e.get("alive"):
             state = "ready" if e.get("ready") or e.get("settled") else "starting"
+        tf = e.get("kind") == "tensorfold"  # 3.3.9.3: TensorFold's window and streams
         print(f"{e['id']}  {e.get('kind')}  http://127.0.0.1:{e.get('port')}  {state}  "
-              + (f"{e.get('model')}  device {e.get('device')}" if speech else f"hf:local/{e.get('model')}@freetoken  ft "
+              + (f"hf:local/{e.get('model')}@tensorfold  tensorfold serve --context {f.get('window')}"
+                 + (f" --parallel {f.get('parallel')}" if f.get("parallel") else "") + (" --lan" if f.get("lan") else "")
+                 if tf else f"{e.get('model')}  device {e.get('device')}" if speech else f"hf:local/{e.get('model')}@freetoken  ft "
                  f"serve{' --lan' if f.get('lan') else ''}" if ft else f"hf:local/{e.get('model')}@strata  strata launch "
                  f"{e.get('set')}{' --access lan' if f.get('lan') else ''}" if st else f"hf:local/{e.get('model')}"
                  f"  -c {f.get('window')} -ngl {f.get('ngl')} -np {f.get('parallel')}") + ("  (keep)" if e.get("keep") else ""))

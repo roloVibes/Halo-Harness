@@ -365,3 +365,7 @@ Offload (3.3.9.1) is FreeToken's default strategy for a Mixture-of-Experts model
 ## expert set
 
 An expert set (3.3.9.2) is one of the quantized builds Strata serves a Mixture-of-Experts model from (Strata calls them packs, not Halo packs): a family and a size, such as `qwen/IQ3_XXS` (Qwen3.8-Flash-Next by ISTA-DASLab) or `deepseek41/ist-das-2.00bpw`, each with its download (tens to hundreds of GB), the experts it holds in host RAM and what stays on the SSD. `halo local serve --runtime strata --model <family>/<set>` serves one once its first launch (the user's download, its GB said first) is done; the Strata fit reads the set's figures against the box's RAM, the VRAM guide for parallel requests and the SSD, and the Library lists the sets as download targets.
+
+## streams
+
+Streams (3.3.9.3) are TensorFold's word for the requests a server runs at once: Halo calls the same thing `parallel` (llama-server's `-np` slots, Ollama's `OLLAMA_NUM_PARALLEL`). `tensorfold serve --parallel auto`, its default, asks for up to eight as memory allows and the startup line says how many it accepted ("4 streams at once"); an explicit `--parallel N` that does not fit is refused. Requests past the streams wait in its queue (`/health`'s `live.waiting`, `tensorfold:requests_waiting` in `/metrics`), and the steward's `tf-waiting` says when they do; `halo local serve --runtime tensorfold --parallel N` sets it.

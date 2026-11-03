@@ -151,6 +151,9 @@ def scan(state_dir, server, *, from_start: bool = False, root=None, at=None) -> 
     rules = _rules(state_dir, server, from_start)
     evs = [e for x in lines for e in rules.feed(x, at=at)] + rules.flush()
     evs += _death(server, st, lines)
+    if server.runtime == "tensorfold" and not from_start:  # 3.3.9.3: its queue from /health or /metrics (loopback)
+        from halo_harness.ollama_steward.servers_hf import is_local
+        evs += _tf_stats(server) if is_local(server) else []
     if server.runtime == "strata":  # 3.3.9.2: Strata's log never names the model it serves; the roster row does
         for e in evs:
             e["model"] = e.get("model") or server.model or "strata"
@@ -163,6 +166,14 @@ def scan(state_dir, server, *, from_start: bool = False, root=None, at=None) -> 
     if why is None or written:
         save_server_state(state_dir, server.name, st)
     return written, why
+
+
+def _tf_stats(server) -> list:
+    try:
+        from halo_harness.ollama_steward.server_stats_tensorfold import read
+        return read(server)
+    except Exception:
+        return []
 
 
 def tail_servers(state_dir, now: Optional[float] = None, *, servers=None, root=None) -> list:
