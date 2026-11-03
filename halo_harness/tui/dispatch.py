@@ -824,6 +824,8 @@ async def _apply_event_inner(app, event) -> None:
         # discovery finishing is the first user) -- a real transcript note,
         # never a toast, and never logged/sent to the model.
         await app.transcript.add_note(data.get("text", ""), kind="note")
+        if callable(getattr(app, "_refresh_tip_placeholder", None)):  # 3.3.11.0 R1: a Studio turn queued or started
+            app._refresh_tip_placeholder()
     elif kind == "status_notice":
         # 2.0.7 round 0b (rolo: notices must stop impersonating the user):
         # a pending background job / sub-agent completion, delivered at the

@@ -8,10 +8,9 @@ mid-work), a second session of this harness and a member harness `kali@lab`:
 1. landing: with nothing saved for the browser and a session live here the
    page lands on Session (the served page carries `data-live-session`); with
    nothing live it lands on Roles as before;
-2. `?mode=session` mounts the six panels (session-map, -activity,
-   -attention, -agent, -cost and, 3.1.5.0 R3, -live: Agent, Activity and
-   Attention as strips; the arrangement itself is
-   tests/test_studio_session_live.py's), each with its about line;
+2. `?mode=session` mounts the seven panels (session-map, -activity,
+   -attention, -agent, -cost, 3.1.5.0 R3, -live and, 3.3.11.0 R1, -prompt: Agent, Activity, Attention and Prompt
+   as strips; the arrangement itself is tests/test_studio_session_live.py's), each with its about line;
 3. the map draws only this harness's box: one card per session on it, its
    agent tree, the working nodes lit, the newest working agent selected (lit)
    and its session the chosen card; Cost speaks of that session (its model,
@@ -79,11 +78,11 @@ def test_landing_follows_a_live_session_here(ctx: Ctx):
 
 
 @test
-def test_mode_session_mounts_the_six_panels(ctx: Ctx):
+def test_mode_session_mounts_the_seven_panels(ctx: Ctx):
     r, got = _driver("dash")
     _ran(ctx, r, got)
-    ctx.check(f"the six panels once each, got {got.get('panels')}", got.get("panels") == [1, 1, 1, 1, 1, 1])
-    ctx.check(f"each with its about line, got {got.get('abouts')}", got.get("abouts") == 6)
+    ctx.check(f"the seven panels once each (3.3.11.0 R1: Prompt), got {got.get('panels')}", got.get("panels") == [1] * 7)
+    ctx.check(f"each with its about line, got {got.get('abouts')}", got.get("abouts") == 7)
 
 
 @test

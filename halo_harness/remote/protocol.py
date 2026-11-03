@@ -21,7 +21,7 @@ from halo_harness.remote.agent_control import AGENT_CMDS
 from halo_harness.remote.base import HandleError
 
 CMDS = ("status", "submit", "steer", "interrupt", "answer", "model", "effort", "mode", "slash", "tail",
-        "subscribe", "unsubscribe", "ping", "note") + AGENT_CMDS
+        "subscribe", "unsubscribe", "ping", "note", "receipts") + AGENT_CMDS  # receipts: 3.3.11.0 R1
 ANSWER_KINDS = ("permission", "question", "plan", "approval")
 TAIL_DEFAULT = 20
 TAIL_MAX = 200
@@ -135,11 +135,17 @@ def run_cmd(handle, req: dict, conn) -> Any:
         return handle.status()
     if cmd in ("submit", "steer"):
         images = _images(handle, req)  # 3.3.6.0 R6: a steer may carry one image (Studio's paste, its screenshot)
-        return handle.submit(_str(req, "text"), images=images) if images else handle.submit(_str(req, "text"))
+        from halo_harness.remote.prompt_queue import submit_kw  # 3.3.11.0 R1: origin, when_busy, receipt
+        kw = {**submit_kw(req), **({"images": images} if images else {})}
+        return handle.submit(_str(req, "text"), **kw)
     if cmd == "interrupt":
         return handle.interrupt()
     if cmd == "answer":
-        return _answer(handle, req)
+        from halo_harness.remote.receipt_seams import answered  # 3.3.11.0 R1: an answer's receipt
+        return answered(handle, req, lambda: _answer(handle, req))
+    if cmd == "receipts":
+        from halo_harness.remote.receipt_seams import rows
+        return {"receipts": rows(handle.session, handle.cwd)}
     if cmd == "model":
         return handle.set_model(_str(req, "ref", "model"))
     if cmd == "effort":

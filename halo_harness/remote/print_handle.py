@@ -67,11 +67,15 @@ class PrintModeHandle(_BaseHandle):
         data["accepts_turns"] = self.input_queue is not None  # 3.2.1.0: a submit queues a turn (stream-json input)
         return data
 
-    def submit(self, text: str, *, images: Optional[list] = None) -> dict:
+    def submit(self, text: str, *, images: Optional[list] = None, origin: Optional[dict] = None,
+               when_busy: str = "steer", receipt: str = "") -> dict:
         text = (text or "").strip()
         if not text:
             raise HandleError("empty prompt")
-        if self.session.busy and (self.session.steer(text, images=images) if images else self.session.steer(text)):  # R6
+        if self.session.busy and when_busy == "refuse":  # 3.3.11.0 R1 (remote/prompt_queue.py); `queue` = the input queue
+            from halo_harness.remote.prompt_queue import BUSY_LINE
+            return {"busy": True, "steered": False, "queued": False, "line": BUSY_LINE}
+        if self.session.busy and when_busy != "queue" and (self.session.steer(text, images=images) if images else self.session.steer(text)):  # R6
             return {"steered": True, "queued": False}
         if self.input_queue is None:
             raise HandleError("this print-mode run takes one prompt and has no input queue "

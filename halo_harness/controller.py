@@ -323,6 +323,9 @@ class Controller:
         3.3.6.0 R6: it is now -- `Session.steer(text, images=...)` logs the
         image (its saved path) at the steer's own safe point."""
         if self.session.busy:
+            if meta:  # 3.3.11.0 R1: meta = {via, by, receipt}; a steer's receipt is found again by its text where it applies
+                from halo_harness.remote.receipt_seams import note_steer
+                note_steer(self.session, text, meta)
             if (self.session.steer(text, images=images) if images else self.session.steer(text)):  # 3.3.6.0 R6: its image
                 self.events.put(events.steer_queued(text, turn=self.session.turn_count))
                 return

@@ -4262,5 +4262,22 @@ label; 3.3.14.0 `halo pack test`; Federation R6 the far side. Live check (rolo):
 repo with Concord installed (`npm install -g @concord-ai/concord-mcp`, `concord setup`, `CONCORD_AGENT_ID` for the Halo
 side) trading a prompt and a reply through the concord pack; `halo pack mode concord coordinating on`; a Write to a file
 the Codex task claims -> the pack's deny line; `halo pack policy log concord`; the fixture bundle's buttons in a real
-Studio; `halo pack doctor` with a hidden capability (one [INFO] row, exit 0). **3.3.10.0 IS THE CANDIDATE.** After it:
-3.3.11.0 "Type into Studio" R1 (the Prompt panel + receipts).**
+Studio; `halo pack doctor` with a hidden capability (one [INFO] row, exit 0). 3.3.10.0 shipped 2026-11-03 (v3.3.10.0 = d0ab4261).**
+
+**3.3.11.0 R1 BUILT 2026-11-03 (one Opus round, worktree ~/hh-3311/R1-prompt-panel, hand-back v3311-R1-handback.md): the
+Prompt panel (`routes/session/Prompt*.tsx`, `promptStore.ts`, `promptSend.ts`; a strip at the foot by default, Alt+Enter or
+the palette focuses it; keys as the terminal's, history per session, the `/` list from `GET sessions/<sid>/slash`, image
+paste and file drop as the steer composer's, the asks with their buttons, the four receipt marks); the control socket's
+`submit` gains `origin` (the terminal shows "(from Studio) prompt: ..."), `when_busy` (`steer` = the default, unchanged for
+the Signal remote; `refuse` answers `{busy, line}`; `queue` holds ONE turn in `remote/prompt_queue.py` and starts it on
+`turn_done`, the TUI hint saying "1 queued from Studio"; a second queue is 409) and `receipt`; `slash` + `tail` join
+`sessions_api.COMMANDS` (`studio/sessions_prompt_api.py`); receipts (`remote/receipts.py` + `receipt_seams.py`): every
+prompt, steer and answer Studio sends climbs sent -> delivered -> read (the loop writing the user node with the receipt id)
+-> replied, `failed` with busy / held / expired (lazy 24 h TTL), delivered -> sent when the session ends unread, a retry
+with the same `client_id` sends nothing; `halo studio --session <id> --prompt` and `?prompt=1`. Choices: an answer's
+ladder has no `read` step; every Studio steer / submit / answer now gets a receipt and shows "(from Studio)" instead of
+"(remote)"; Cost's default strip leaves 20 rows under it for the Prompt strip. Limits: a steer forwarded into a child agent
+stays `delivered` until the session ends; the panel draws only the turns sent after the page loaded. Live check (rolo):
+Studio on a real terminal session; a turn typed from the Prompt showing "from Studio" in the terminal; `/cost` from the
+panel; an ask answered from the panel; a turn sent while busy -> Queue it (the hint says "1 queued from Studio"); the four
+marks reaching replied. Next: R2 a session without a terminal + the live map (Roles Plan | Live), R3 pack Setup blocks.**

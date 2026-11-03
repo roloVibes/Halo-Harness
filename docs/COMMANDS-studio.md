@@ -16,7 +16,7 @@ Studio as well, and `halo update` stops it before installing.
 ```sh
 halo studio [--mode roles|design|orchestra|fleet|team|session|packs|setup] [--port N] [--no-open] [--cwd DIR] [--fleet]
 halo studio --edit bio:<name> | lineup:<name> | team [--no-open]
-halo studio --session [<id>] [--no-open]
+halo studio --session [<id>] [--prompt] [--no-open]
 ```
 
 ### `--session`
@@ -34,6 +34,15 @@ URL, with no browser the URL is printed, and with none running one starts
 (`halo studio --session <id>` in the background). `--no-open` only prints the
 URL; `--edit` with `--session` is exit 2. The TUI's bare `/studio` runs the
 same thing on the session you are in.
+
+### `--prompt`
+
+3.3.11.0 R1: with `--session [<id>]` (or alone: the newest live session) Studio opens Session on that session with
+its **Prompt** panel up and the keyboard in its box, to type into the session as in the terminal
+([Studio: the Prompt panel](STUDIO-session.md#the-prompt-panel-33110-r1)). It rides in the URL as
+`?mode=session&session=<id>&prompt=1`, and a Studio already running gets it in the `focus` frame
+(`POST /api/focus {mode: "session", session, prompt: true}`); in Studio itself `Alt+Enter` or the palette's
+"Prompt: type into this session" does the same.
 
 ### `--edit`
 

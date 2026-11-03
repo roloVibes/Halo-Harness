@@ -380,7 +380,10 @@ class BridgeApp(App):
     # Part B2) ------------------------------------------------------------
 
     def _current_placeholder_text(self) -> str:
+        from halo_harness.remote.prompt_queue import hint_for  # 3.3.11.0 R1: "1 queued from Studio"
         from halo_harness.tui import tips as tips_mod
+        if hint_for(getattr(self, "controller", None)):
+            return hint_for(self.controller)
         if self._tip_rotator is None or self._tip_rotator.current is None:
             return tips_mod.STATIC_PLACEHOLDER
         prompt_input = getattr(self, "prompt_input", None)

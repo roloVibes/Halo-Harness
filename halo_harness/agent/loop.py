@@ -48,6 +48,7 @@ from halo_harness.agent import agent_hooks as _agent_tree
 from halo_harness.agent import mode_notice as _mode_notice
 from halo_harness.agent import turn_marker as _turn_marker
 from halo_harness.agent import policy_gate as _policy_gate  # 3.3.10.0 R2: a pack's verdict on each tool call
+from halo_harness.remote import receipt_seams as _receipt_seams  # 3.3.11.0 R1: the receipts ladder's read mark
 from halo_harness.agent.subagent import AgentRuntime
 from halo_harness.agent.compact import (
     CHARS_PER_TOKEN, build_files_read_snapshot, build_summary_instruction, resolve_knobs, select_verbatim_tail,
@@ -5840,12 +5841,14 @@ class Session:
                                   else {"type": "text", "text": image_attach.path_mention_text(img)})
                 else:
                     blocks.append(img)
-            self.log.append_user(blocks)
+            # 3.3.11.0 R1: the node the request is derived from carries the receipt id: `read` (remote/receipt_seams)
+            _rmeta = _receipt_seams.take_turn(self, text)
+            _receipt_seams.mark_read(self, _rmeta, turn_no, self.log.append_user(blocks, **_receipt_seams.tag(_rmeta)))
             # Halo 3.2.2.0 R4: the mode in one line (and the plan-mode note
             # on a way in made outside the EnterPlanMode tool).
             _mode_notice.sync(self, turn_start=True)
             turn_images = images if vision_ok else None
-            yield events.user_message(text, turn=turn_no, images=turn_images)
+            yield _receipt_seams.stamp(events.user_message(text, turn=turn_no, images=turn_images), _rmeta)
             yield events.status(
                 phase="thinking", model=self.model_ref.raw, turn=turn_no,
                 context_limit=self.model_profile.context_tokens,
@@ -8681,8 +8684,10 @@ class Session:
                 yield events.notification(f"Steer dropped: {blocked_reason}", level="error")
                 yield events.steer_applied(text, turn=turn_no)
                 continue
-            self.log.append_user([{"type": "text", "text": text}], kind="steer")
-            yield events.user_message(text, turn=turn_no)
+            _rmeta = _receipt_seams.take_steer(self, text)  # 3.3.11.0 R1: a steer's receipt is read here
+            _receipt_seams.mark_read(self, _rmeta, turn_no, self.log.append_user([{"type": "text", "text": text}], kind="steer",
+                                                                                **_receipt_seams.tag(_rmeta)))
+            yield _receipt_seams.stamp(events.user_message(text, turn=turn_no), _rmeta)
             yield events.steer_applied(text, turn=turn_no)
             applied_any = True
         # 0c: this safe point just drained every pending steer -- the cut
@@ -8806,6 +8811,7 @@ class Session:
             kind = getattr(cmd, "kind", None)
             data = getattr(cmd, "data", None) or {}
             if kind == "user_input":
+                self._turn_meta = data.get("meta")  # 3.3.11.0 R1: {via, by, receipt} (remote/receipt_seams.take_turn)
                 self._pump_turn(data.get("text", ""), data.get("images"), out)
                 # finding 5: whatever `turn()`'s own `finally` drained as
                 # "never got applied" is resubmitted here, on THIS same
