@@ -23,7 +23,7 @@ const RECENT_MS = 3000;
 const ACT_MS = 4000;
 
 /** typing | tool | waiting | working | queued | done | failed: the card's glow (live.css). */
-function activityOf(r: AgentRef, s: FleetState, now: number): string {
+export function activityOf(r: AgentRef, s: FleetState, now: number): string {
   const st = String(r.a.state || "");
   const act = s.activity[r.key];
   if (st === "waiting" || st === "paused") return "waiting";
@@ -38,14 +38,19 @@ export function liveRows(s: FleetState): LiveRow[] {
   const now = Date.now();
   return allAgents(s)
     .filter((r) => isLive(r.a) || now - (s.doneAt[r.key] || 0) < RECENT_MS)
-    .map((r) => ({
-      key: r.key, harness: r.h.name || r.h.id.slice(0, 8), local: !!r.h.local, session: sessionTitle(r.s),
-      session_id: r.s.session_id, agent_id: r.a.agent_id, parent: r.a.parent || null, name: r.a.name || r.a.agent_id,
-      role: r.a.role || "", bio: r.a.bio || "", lineup: r.a.lineup || "", model: r.a.model || "", model_reason: r.a.model_reason || "", state: String(r.a.state || ""),
-      task: r.a.task || "", current: r.a.current || "", last_text: short(r.a.last_text, 160), cost_usd: Number(r.a.cost_usd) || 0,
-      since: Number(r.a.since) || 0, activity: activityOf(r, s, now), tool: toolOf(r.a, s.activity[r.key]),
-      calls: s.activity[r.key]?.calls || 0, control: r.h.allow_control || "all",
-    }));
+    .map((r) => rowOf(r, s, now));
+}
+
+/** One agent as the Roles store holds it (3.3.11.0 R2: Roles Live's inspector reads a finished one too). */
+export function rowOf(r: AgentRef, s: FleetState, now = Date.now()): LiveRow {
+  return {
+    key: r.key, harness: r.h.name || r.h.id.slice(0, 8), local: !!r.h.local, session: sessionTitle(r.s),
+    session_id: r.s.session_id, agent_id: r.a.agent_id, parent: r.a.parent || null, name: r.a.name || r.a.agent_id,
+    role: r.a.role || "", bio: r.a.bio || "", lineup: r.a.lineup || "", model: r.a.model || "", model_reason: r.a.model_reason || "", state: String(r.a.state || ""),
+    task: r.a.task || "", current: r.a.current || "", last_text: short(r.a.last_text, 160), cost_usd: Number(r.a.cost_usd) || 0,
+    since: Number(r.a.since) || 0, activity: activityOf(r, s, now), tool: toolOf(r.a, s.activity[r.key]),
+    calls: s.activity[r.key]?.calls || 0, control: r.h.allow_control || "all",
+  };
 }
 
 export function useRolesLive(): void {

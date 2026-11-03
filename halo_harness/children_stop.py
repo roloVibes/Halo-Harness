@@ -191,7 +191,7 @@ def stop_all(owner: Optional[int] = None, timeout: float = 5.0, *, state_dir=Non
 
 
 def other_live_sessions() -> list:
-    """Pids of the other halo TUI sessions of this home that still run (run/sessions.json)."""
+    """Pids of the other halo TUI (and 3.3.11.0 R2: headless) sessions of this home that still run (run/sessions.json)."""
     try:
         from halo_harness.remote import registry
         rows = registry._load(registry.registry_path())
@@ -199,7 +199,7 @@ def other_live_sessions() -> list:
         return []
     me = os.getpid()
     return [r["pid"] for r in rows if isinstance(r.get("pid"), int) and r["pid"] != me
-            and (r.get("kind") or "tui") == "tui" and C.pid_running(r["pid"])]
+            and (r.get("kind") or "tui") in ("tui", "headless") and C.pid_running(r["pid"])]
 
 
 def quit_targets(state_dir=None) -> list:

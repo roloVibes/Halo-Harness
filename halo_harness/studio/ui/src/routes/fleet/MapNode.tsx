@@ -168,7 +168,7 @@ export function SessionCard({ c, onMenu, byProject }: { c: Card; onMenu: (m: Men
       <text className="fm-title" x={24} y={20}>{fit(sessionTitle(s), c.w - (clash ? 196 : 120))}</text>
       <g className="fm-chip" transform={`translate(${c.w - 92} 7)`}>
         <rect width={62} height={15} rx={7.5} />
-        <text x={31} y={11} textAnchor="middle">{short(s.kind || "session", 10)}</text>
+        <text x={31} y={11} textAnchor="middle">{s.kind === "headless" ? "no terminal" : short(s.kind || "session", 10)}</text>
       </g>
       <text className="fm-sub" x={24} y={39}>{fit(projectLabel(s), c.w - 110)}</text>
       <text className="fm-cost" x={c.w - 30} y={39} textAnchor="end">{cost(sessionCost)}</text>

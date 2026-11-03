@@ -83,7 +83,7 @@ event     {"event": "permission_request", "data": {...}, "turn": 3, "agent_id": 
 | `cmd` | Fields | Result |
 |---|---|---|
 | `ping` | | `{pong, session_id}` |
-| `status` | | the status payload (phase, model, context, cost, `permission_mode`, effort), plus `session_id`, `cwd`, `title`, `busy`, `kind` (`tui` or `print`), `pid`, `accepts_turns` (a print-mode run started with `--input-format stream-json`: a `submit` queues a turn; absent on a TUI session), and `pending` (the ids of unanswered permission / question / plan / approval cards) |
+| `status` | | the status payload (phase, model, context, cost, `permission_mode`, effort), plus `session_id`, `cwd`, `title`, `busy`, `kind` (`tui`, `print` or 3.3.11.0 R2 `headless`), `pid`, `accepts_turns` (a print-mode run started with `--input-format stream-json`, or a headless session: a `submit` runs or queues a turn; absent on a TUI session), `pending` (the ids of unanswered permission / question / plan / approval cards) and, on a headless session, `parked` (`[{id, kind, since}]`, the asks it waits on, oldest first) |
 | `submit`, `steer` | `text`; optional `origin` (`{via, by}`), `when_busy` (`steer` / `refuse` / `queue`, `submit` only), `receipt` | `{steered}`; while a turn runs the text steers it (`when_busy: steer`, the default: the Signal bridge's call is unchanged), otherwise it starts the next turn. 3.3.11.0 R1: `refuse` answers `{busy: true, line}` and takes nothing; `queue` answers `{queued: true}` and the session holds that ONE turn until the running one ends (a second: `{busy, held: true, line}`). In `halo -p` the next turn is queued only for `--input-format stream-json` runs |
 | `interrupt` | | `{interrupted}` |
 | `answer` | `kind` = `permission`, `request_id`, `action` (`allow` / `deny`), optional `scope` (`once` / `session` / `always`), `message`, `rule` | `{resolved}`. With `allow`, `session` / `always` learn the card's suggested rule (or `rule`), as the TUI's buttons do; a `deny` learns nothing whatever its `scope` |
@@ -201,7 +201,7 @@ socket:
 ```
 
 Since 3.0.5.0: `kind` is `tui`, `print`, `orchestra-worker` or
-`mission-worker`; `harness.id` is a stable per-home id kept in `~/.halo/fleet-id` and
+`mission-worker` (3.3.11.0 R2: or `headless`, below); `harness.id` is a stable per-home id kept in `~/.halo/fleet-id` and
 `harness.name` is `fleet.name` (default `user@host`); `project` is read from
 git a moment after the session starts (None fields outside a repo);
 `parent` is the session that started this one (an Orchestra worker names
@@ -222,6 +222,30 @@ halo remote sessions
 lists the live sessions (id prefix, pid, kind, mode, age, cwd, endpoint,
 title). `halo_harness.remote.client.ControlClient` is a small stdlib client
 for scripts and tests.
+
+### A session without a terminal (3.3.11.0 R2)
+
+`halo --headless --session-for studio` ([COMMANDS-main.md](COMMANDS-main.md#--headless---session-for-who)) runs a
+whole session whose control socket is its ONLY door: `halo_harness/headless_session.py` builds the controller the
+TUI builds (`tui/bootstrap.build_controller`) and starts it without the Textual app; this process drains the
+controller's events in the TUI's place, so the feed and the session log are the TUI's own. Its registry row says
+`kind: headless` and `parent: studio:<pid>` (the starter's `HALO_FLEET_PARENT` wins over `--session-for`), and Fleet,
+the Map, Session and `halo studio --session` list it as a session of this harness.
+
+* **Asks park.** A permission, a question, a plan or an approval waits on the handle until an `answer` comes through
+  the socket; `status` lists each under `parked` with the time it was first seen. Studio's Prompt panel answers it with
+  the card's buttons; the Fleet attention card is `parked: true`, and while no Studio page is open (Studio's feed
+  serves no page) its line ends "-- waiting on you in Studio".
+* **It ends** on `/quit` (or `/exit`) through `slash`, on `shutdown` (Studio's **End session**: the turn ends at its
+  next tool boundary), on SIGTERM, or when its worker ends; its registry row goes with it. A quit here stops only what
+  this process started (a background run, a schedule fire), never the Studio above it.
+* **Studio starts it** (`POST /api/sessions/new {model, cwd}`, `studio/sessions_new_api.py`): the child is detached
+  the way `studio/launch.py` detaches Studio (no console; its own process group on Windows, its own session on POSIX),
+  so closing the tab or stopping Studio never ends it; its output goes to `~/.halo/run/headless/<session id>.log`. The
+  session id is chosen by Studio (`--session-id`), so the page opens Session on it before it registers. The children
+  are kept in `~/.halo/studio-sessions.json` (`{version, sessions: [{session_id, pid, cwd, model, started, log}]}`,
+  private, written under the file lock; a row whose pid is gone is dropped the next read), and `GET
+  /api/sessions/started` lists the ones still running with `live` (registered now), so a restarted Studio finds them.
 
 ## The Signal bridge
 
