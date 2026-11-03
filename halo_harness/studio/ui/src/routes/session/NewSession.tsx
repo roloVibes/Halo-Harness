@@ -7,6 +7,7 @@
 // copies the `halo --resume <id>` line that opens it in a terminal later.
 import { useEffect, useMemo, useState } from "react";
 import { api, ApiError } from "../../lib/api";
+import { onEvent } from "../../lib/events";
 import { toast } from "../../lib/store";
 import { Button } from "../../lib/ui";
 import { fleet } from "../fleet/store";
@@ -29,24 +30,42 @@ function whenBoxShows(tries = 100): void {
   else window.setTimeout(() => whenBoxShows(tries - 1), 100);
 }
 
-/** The keyboard into the Prompt box once the new session is listed (the box takes no keys before). */
-function focusWhenListed(sid: string): void {
+/** The keyboard into the Prompt box once the new session is listed AND Studio's event bridge is attached to it (its
+ *  `sessions` frame names it): a turn typed before the bridge listens would stream its reply unseen (Linux runner,
+ *  run 41702427101: the child answered, the panel never showed it). The box takes no keys before. */
+function focusWhenListed(sid: string, attached: () => boolean): void {
   let done = false;
-  const off = fleet.subscribe(() => {
-    if (done || !localSessions(fleet.get()).some((x) => x.session_id === sid)) return;
+  let off: () => void = () => {};
+  const ready = () => !done && attached() && localSessions(fleet.get()).some((x) => x.session_id === sid);
+  const offEv = onEvent("sessions", () => { if (ready()) go(); });
+  function go(): void {
     done = true;
     off();
+    offEv();
     window.setTimeout(() => whenBoxShows(), 80);
-  });
-  window.setTimeout(() => (done = true, off()), 120_000);
+  }
+  off = fleet.subscribe(() => { if (ready()) go(); });
+  window.setTimeout(() => { done = true; off(); offEv(); }, 120_000);
 }
+
+type SessionsFrame = { sessions?: { session_id: string }[] } | null | undefined;
 
 /** Start one; Session opens on it (it registers a moment later), the Prompt focused. */
 export async function startNew(model: string, cwd: string): Promise<Started> {
-  const r = await api.post<Started>("sessions/new", { model, cwd });
+  // the bridge's `sessions` frames, subscribed BEFORE the start so the one that names the child is never missed
+  const seen = new Set<string>();
+  const offSeen = onEvent("sessions", (f) => { for (const s of (f.data as SessionsFrame)?.sessions || []) seen.add(s.session_id); });
+  let r: Started;
+  try {
+    r = await api.post<Started>("sessions/new", { model, cwd });
+  } catch (e) {
+    offSeen();
+    throw e;
+  }
+  window.setTimeout(offSeen, 125_000);
   openSession({ session: r.session_id });
   openPrompt();
-  focusWhenListed(r.session_id);
+  focusWhenListed(r.session_id, () => seen.has(r.session_id));
   toast(`Started a session with no terminal (${r.session_id.slice(0, 8)}): it shows here the moment it registers`, "done", 5000);
   window.setTimeout(() => void loadFleet(), 1500);
   return r;

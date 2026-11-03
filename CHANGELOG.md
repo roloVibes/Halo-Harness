@@ -58,6 +58,10 @@ sends twice. The Signal remote is unchanged. Next in this version: a pack's own 
 - A pack's remove, update and rollback wait up to five seconds for a file another process still holds (Windows:
   WinError 32, a reader of the pack folder such as the Studio watcher) before giving up. Before, one held file stopped the
   whole remove and rolled it back, so the pack came back as if nothing had happened (seen on the Windows runner).
+- New session: the Prompt takes the keyboard only once Studio's event bridge is attached to the new child (its
+  `sessions` frame names it), and the server nudges the bridge the moment the child registers instead of leaving it to the
+  two-second scan. Before, a first turn typed inside that window could stream its reply before Studio listened, and the
+  panel never showed it (the Linux runner did exactly that).
 
 ## [3.3.10.0] - 2026-11-03
 
