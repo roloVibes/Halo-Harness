@@ -106,6 +106,10 @@ shape is written from its source and marked unverified until a live run.
   through a gate (was three staff lines with ticks); the front-page pictures are not re-rendered yet.
 - Two runner waits: a bundle claim through the host waits for the host's first route answer before judging (the test); the
   Chrome driver gives the DevTools port 90 s to open (the Windows runner took over 30 s on two shards at once).
+- Pack Manager: the list read after an action (Enable, Update, Roll back, Remove, a grant) is always a fresh one. Before, a
+  read already in flight -- a `pack_changed` frame mid-action, the lineups watcher -- was handed back as the refetch, and
+  its answer came from before the action finished, so a removed pack's row stayed and a rolled-back version did not show
+  until the next frame (the Windows runner's three Pack Manager misses were this one cause, not three).
 
 ## [3.3.9.0] - 2026-11-02
 

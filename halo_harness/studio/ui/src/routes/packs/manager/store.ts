@@ -37,6 +37,7 @@ export function useMgr<S>(select: (s: MgrState) => S): S {
 
 let started = false;
 let loading: Promise<void> | null = null;
+let again = false; // a read that started before an action finished may predate it: one more pass after it
 
 /** The selected pack: an installed one, else a source pack's details (not installed yet). */
 export function selected(s: MgrState = mgr.get()): PackRow | null {
@@ -55,17 +56,24 @@ function status(d: Manager): void {
 }
 
 export async function loadManager(): Promise<void> {
-  if (loading) return loading;
+  if (loading) {
+    // A read already in flight (a `pack_changed` frame mid-action, the lineups watcher) was answered from before the
+    // action finished; `act()` awaiting it then kept the stale list (Windows runner: Update, Roll back, Remove rows).
+    again = true;
+    return loading;
+  }
   loading = (async () => {
-    try {
-      const data = await api.get<Manager>("pack/manager");
-      mgr.update((s) => ({ data, loaded: true, error: "", sel: s.sel || data.packs[0]?.id || "" }));
-      status(data);
-    } catch (e) {
-      mgr.update(() => ({ loaded: true, error: e instanceof Error ? e.message : String(e) }));
-    } finally {
-      loading = null;
-    }
+    do {
+      again = false;
+      try {
+        const data = await api.get<Manager>("pack/manager");
+        mgr.update((s) => ({ data, loaded: true, error: "", sel: s.sel || data.packs[0]?.id || "" }));
+        status(data);
+      } catch (e) {
+        mgr.update(() => ({ loaded: true, error: e instanceof Error ? e.message : String(e) }));
+      }
+    } while (again);
+    loading = null;
   })();
   return loading;
 }
