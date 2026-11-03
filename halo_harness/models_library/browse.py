@@ -106,6 +106,8 @@ def _hf_rows(state_dir, q: str, refresh: bool) -> "tuple[list, dict]":
     out += library_rows(q) if listed(q) else []
     from halo_harness.strata import catalog as st  # 3.3.9.2: the sets Strata names (its download, never Halo's)
     out += st.library_rows(q) if st.listed(q) else []
+    from halo_harness.tensorfold import catalog as tf  # 3.3.9.3: the models TensorFold names (`tensorfold pull`)
+    out += tf.library_rows(q) if tf.listed(q) else []
     return out, {"source": "fixtures" if "fixtures" in src else "live", "note": "; ".join(dict.fromkeys(notes)),
                  "at": min(at) if at else None}
 

@@ -396,6 +396,20 @@ server.log`; `FAKE_STRATA_MODE`, `FAKE_STRATA_TOK_S`, `FAKE_STRATA_HIT`, `FAKE_S
 `tests/helpers/st_lines.py`'s, written from Strata's source and unverified against a live run.
 `strata/requirements.SEAMS` (`run`, `which`, `os`) answers `strata --version`, PATH and the OS word for a test.
 
+### The fake TensorFold (3.3.9.3)
+
+`huggingface.tensorfold_bin` = [python, `tests/helpers/fake_tensorfold_server.py`] (tests/helpers/tf_home.TfHome)
+stands in for TensorFold's `tensorfold`: `--version`, `capabilities --json` (`FAKE_TF_BACKEND` says `cuda` or `metal`)
+and `serve` (127.0.0.1 only, whatever `--host` says; it binds only after `FAKE_TF_LOAD_S`, as the real server opens
+its port once loaded; the key file's keys guard every route but `/health`, which then says only `{"status": "ok"}`;
+`/v1/models` with `owned_by: tensorfold`, `/metrics` with `tensorfold:requests_waiting`, chat completions with
+`usage`; the capacity, serving and done lines; `FAKE_TF_SM`, `FAKE_TF_STREAMS`, `FAKE_TF_WAITING`,
+`FAKE_TF_EXIT=driver|keyfile`). `TfHome` points `HF_HUB_CACHE` at a scratch folder (`h.cached(repo)` writes a
+snapshot there), never the real Hugging Face cache. Its lines are `tests/helpers/tf_lines.py`'s, written from
+TensorFold's source and unverified against a live run. `tensorfold/requirements.SEAMS` (`run`, `which`, `os`,
+`machine`) answers the binary, PATH and the platform; the archive fetch takes a `fetcher` and a `releases` list
+(tests/test_local_runtime_fetch_tensorfold.py), never the network.
+
 ### The fake audio (3.3.9.0 R2)
 
 `HALO_VOICE_AUDIO=fake` makes `voice/audio.py`'s `Audio.open` return `voice/audio_fake.FakeAudio`: no device is opened;

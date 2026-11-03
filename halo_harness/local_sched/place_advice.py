@@ -3,7 +3,8 @@ adviser and `halo local place` (Halo 3.3.8.0 R4; docs/COMMANDS-local.md "advise:
 
     candidates(state_dir=None) -> [host]   fleet-wide: every configured Ollama host, each paired halo host's served
         Ollama host this machine has no entry for (named by the host's own name for it), the pool, and (3.3.9.1) each
-        FreeToken server (freetoken/route.ft_hosts), and (3.3.9.2) each Strata server (strata/route.st_hosts)
+        FreeToken server (freetoken/route.ft_hosts), (3.3.9.2) each Strata server (strata/route.st_hosts), and
+        (3.3.9.3) each TensorFold server (tensorfold/route.tf_hosts)
     tax(row) -> "25 s to load, evicts qwen3.8:27b"   what the chosen placement costs: the load seconds,
         the switch (what it evicts or pivots beside), the pool's decode penalty
     scored(lanes, *, state_dir=None, hosts=None, answers=None) -> {rows, line}   place.solve with each row's
@@ -61,7 +62,9 @@ def candidates(state_dir=None) -> list:
             names.add(name.lower())
     from halo_harness.freetoken.route import ft_hosts  # 3.3.9.1: this machine's and each paired host's FreeToken server
     from halo_harness.strata.route import st_hosts  # 3.3.9.2: and each Strata server
-    return hosts + [h for h in (pool_host(state_dir),) if h is not None] + ft_hosts(state_dir) + st_hosts(state_dir)
+    from halo_harness.tensorfold.route import tf_hosts  # 3.3.9.3: and each TensorFold server
+    return (hosts + [h for h in (pool_host(state_dir),) if h is not None] + ft_hosts(state_dir) + st_hosts(state_dir)
+            + tf_hosts(state_dir))
 
 
 def tax(r: dict) -> str:
@@ -80,7 +83,7 @@ def tax(r: dict) -> str:
         parts.append(seg)
     if r.get("penalty_pct"):
         parts.append(f"pooled -{float(r['penalty_pct']):g} % decode")
-    own = r.get("ft_tax") or r.get("st_tax")  # 3.3.9.1 FreeToken's restart, expert load, JIT; 3.3.9.2 Strata's
+    own = r.get("ft_tax") or r.get("st_tax") or r.get("tf_tax")  # 3.3.9.1 FreeToken's; 3.3.9.2 Strata's; 3.3.9.3
     if own and not r.get("warm"):
         parts = [p for p in parts if not (p.startswith("evicts") or p.endswith("to load"))] + [own]
     return ", ".join(parts) or "no load tax"

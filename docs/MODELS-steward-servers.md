@@ -1,6 +1,6 @@
 # Models: the steward and the local servers
 
-Read this when you run llama-server, LM Studio, mlx_lm.server, FreeToken or Strata and want to know what the steward reads in each one's log, what each log can and cannot say, what the steward changes on Halo's side and which server-side line it states.
+Read this when you run llama-server, LM Studio, mlx_lm.server, FreeToken, Strata or TensorFold and want to know what the steward reads in each one's log, what each log can and cannot say, what the steward changes on Halo's side and which server-side line it states.
 
 Part of [Models](MODELS.md), which lists every part. The steward itself: [MODELS-ollama-steward.md](MODELS-ollama-steward.md); Ollama's own log: [MODELS-ollama-logs.md](MODELS-ollama-logs.md).
 
@@ -181,6 +181,26 @@ the computer as `load-failed`. `ollama_steward/rules_strata.py` turns them into 
 set down, `--parallel` by the VRAM guide, nothing for a download); their rows are in the knowledge's local-servers
 section. The stated lines for this runtime are `strata launch`'s own: `--context N` for the window, `--kv q4_0` /
 `--kv int8` for the KV format, applied by the next launch.
+
+## TensorFold (3.3.9.3)
+
+A TensorFold server ([MODELS-tensorfold.md](MODELS-tensorfold.md)) is the runtime `tensorfold`: Halo's own `halo local
+serve --runtime tensorfold` (the entry `tensorfold`, its log `~/.halo/local/servers/tensorfold.log`, each line stamped
+with its UTC time by TENSORFOLD_LOG_TIME=1), a manual entry with `runtime: tensorfold` and its `log`, or one the
+loopback sweep found (its `/v1/models` says `owned_by: tensorfold`). `ollama_steward/server_log_tensorfold.py` reads
+its lines with patterns written from TensorFold's source, unverified against a live log: Halo's start line as
+`load-start`, the capacity line ("CUDA sm_89 device 0 (...): model ... GiB; 4 streams at once, ...", or Metal's) as
+`capacity`, the serving line ("serving <model> at http://...; context: N; loaded in S s") as one `load-result`
+{backend, sm, streams, window, load_s}, each `done ...` line as `timing` (tok/s, the queued seconds), the live status
+line (on a terminal only) as `queue`, `ended ... reason=error (...)` as `gpu-memory` or `other-error`, the
+max-tokens-while-thinking warning as `reply-cut`, a fatal `tensorfold: ...` startup line as `load-failed`. Beside the
+log, `ollama_steward/server_stats_tensorfold.py` reads the queue on each tick, loopback only: `/health`'s
+`live.waiting` on a server without keys, `tensorfold:requests_waiting` from `/metrics` with Halo's key for Halo's own
+(with keys `/health` says only `{"status": "ok"}`). `ollama_steward/rules_tensorfold.py` turns them into
+**tf-waiting**, **tf-backend-fallback** and **tf-load**, keyed `<server>|<model>`, each with a stated line never
+applied (`--parallel` or a smaller model; the MLX 4-bit checkpoint or a newer card; nothing for a load); their rows are
+in the knowledge's local-servers section. The stated lines for this runtime are `tensorfold serve`'s own: `--context
+N` for the window, `--max-tokens N` for the reply limit; it places the whole checkpoint itself (no layers, no KV type).
 
 ## What the logs cannot say
 

@@ -136,5 +136,6 @@ def id_steps(state_dir, *, role_table: Optional[dict] = None, main_ref: Optional
     from halo_harness.doctor_local_servers import server_steps  # 3.3.8.0 R2: each local server's log, readable or not
     from halo_harness.doctor_freetoken import ft_steps  # 3.3.9.1: ft --version, the driver, nvcc when configured
     from halo_harness.doctor_strata import st_steps  # 3.3.9.2: strata --version, strata launch --status when configured
+    from halo_harness.doctor_tensorfold import tf_steps  # 3.3.9.3: tensorfold --version, capabilities --json
     return (_id_steps(state_dir, role_table, main_ref) + _drift_steps(versions, staged) + server_steps(state_dir)
-            + ft_steps(state_dir) + st_steps(state_dir))
+            + ft_steps(state_dir) + st_steps(state_dir) + tf_steps(state_dir))
