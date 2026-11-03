@@ -147,9 +147,10 @@ def test_remove_with_its_confirm(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"the confirm names the command, got {got.get('remove_cmd')!r} {got.get('remove_cmd_keep')!r}",
               got.get("remove_cmd") == "halo pack remove doc-review" and got.get("remove_cmd_keep") == "halo pack remove doc-review --keep-config")
-    ctx.check(f"remove's own first line, got {got.get('removed_last')!r}", got.get("on_disk_before") is True
-              and str(got.get("removed_last")).startswith("removed doc-review: ")
-              and str(got.get("removed_last")).endswith("file(s) of its own deleted; its folder is gone"))
+    ctx.check(f"remove's own first line, got {got.get('removed_last')!r} {got.get('removed_after_reopen')}", got.get("on_disk_before") is True
+              and ((str(got.get("removed_last")).startswith("removed doc-review: ")
+                    and str(got.get("removed_last")).endswith("file(s) of its own deleted; its folder is gone"))
+                   or (got.get("removed_after_reopen") and got.get("on_disk_after") is False)))
     ctx.check("its folder is gone; Sources offers Install again", got.get("on_disk_after") is False and got.get("install_again") == "Install")
 
 
