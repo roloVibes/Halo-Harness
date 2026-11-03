@@ -20,6 +20,7 @@ Run: python -m tests.test_fleet_mission_handoffs
 from __future__ import annotations
 
 import json
+import time
 import sys
 from pathlib import Path
 
@@ -87,7 +88,14 @@ def test_a_part_with_two_repo_dependencies_starts_from_their_merge(ctx: Ctx):
     ctx.check("result.json carries the base", res["base"] == b3)
     ctx.check("its prompt lists the hand-offs and the start", "Hand-offs from part(s) 1, 2" in prompts.get("3", "")
               and "parts/1/handback.md" in prompts["3"] and f"starts from {b3[:12]}" in prompts["3"])
-    report = json.loads(S.read_text(S.folder(home, mid), "report.json"))
+    # the report is written after the state flips: wait for the file, never read it on the same tick (Linux shard 3,
+    # run 41575394441: read_text returned None 1.8 s in)
+    deadline = time.time() + 10.0
+    raw = S.read_text(S.folder(home, mid), "report.json")
+    while raw is None and time.time() < deadline:
+        time.sleep(0.1)
+        raw = S.read_text(S.folder(home, mid), "report.json")
+    report = json.loads(raw)
     rows = {p["id"]: p for p in report["parts"]}
     ctx.check("report.json names each part's base", rows["3"]["base"] == b3 and rows["1"]["base"] == base)
     md = S.read_text(S.folder(home, mid), "report.md")
