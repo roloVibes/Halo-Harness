@@ -1,20 +1,17 @@
-"""halo_harness.packs.policy -- the armed policy hooks and the verdict runner (Halo 3.3.10.0 R1; docs/EXTENSION_API.md
-"Policy hooks", draft). Nothing in a session reads a verdict yet: 3.3.10.0 R2 calls `armed` and `ask` before
-`permission_engine.decide`.
+"""halo_harness.packs.policy -- the armed policy hooks and the verdict runner (Halo 3.3.10.0 R1; R2: a session asks
+them before every tool call, agent/policy_gate.py; docs/EXTENSION_API.md "Policy hooks").
 
     armed(state_dir=None, cwd=None) -> [Policy]   the policies that answer now: the pack runs here with the hooks
                                                   grant, mode.json arms the policy, its when.modes takes the mode
     request(policy, tool, tool_input, cwd=, session=, agent=, mode=, permission_mode=) -> the request line's dict
-    ask(policy, request, budget_ms=None, keep=True) -> Verdict (budget_ms: packs.policy.budget_ms, 2000)
+    ask(policy, request, budget_ms=None, keep=True, log=True) -> Verdict (budget_ms: packs.policy.budget_ms, 2000)
+    ask_after(policy, request, result, ms) -> (Verdict, result | None)   the post-call verdict (packs/policy_after.py)
     winner(verdicts) -> the one that counts: deny over ask over allow (None for none)
 
-`ask` filters by `when.tools` first (a call it does not name never reaches the process and is not logged), takes
-the `redact` values out of the input, sends the request to the policy's one process (started on its first request,
-or by `start`), and reads the answer: `{id, verdict: allow | deny | ask, reason, rule, scope?: session | machine |
-fleet}`. A late, malformed or missing answer is the policy's `on_error` verdict (allow when left out), with the
-reason saying what went wrong. Every verdict and every error is a `policy` row in the pack's events log; the tool
-input itself is never written there.
-"""
+`ask` filters by `when.tools` first (a call it does not name never reaches the process, nor the log), takes out the
+`redact` values, asks the policy's one process and reads `{id, verdict, reason, rule, scope?}`; a late, malformed or
+missing answer is the policy's `on_error`. Every verdict is a `policy` row in the pack's events log (the gate writes
+its own, the winner named), a process start / stop a `policy_proc` row; the tool input is never written there."""
 
 from __future__ import annotations
 
@@ -24,10 +21,13 @@ import os
 import threading
 from dataclasses import dataclass, field
 
+from halo_harness.packs.policy_redact import redact  # noqa: F401  (re-exported: R1's name)
+
 log = logging.getLogger(__name__)
 VERDICTS = ("allow", "deny", "ask")
 SCOPES = ("session", "machine", "fleet")
 EVENT = "policy"
+PROC_EVENT = "policy_proc"
 BUDGET_KEY = "packs.policy.budget_ms"
 BUDGET_MS = 2000
 _procs: dict = {}
@@ -36,9 +36,9 @@ _lock = threading.Lock()
 
 @dataclass(frozen=True)
 class Verdict:
-    """A policy's answer in `permissions.Decision`'s words: `action` allow | deny | ask, `reason` (the pack's own
-    line), `source` ("pack:<id>/<policy>"); plus the rule that fired, the scope, the time and, when the policy did
-    not answer, `error` (and `action` is then its on_error)."""
+    """A policy's answer in `permissions.Decision`'s words: `action` allow | deny | ask (after the call: pass |
+    redact | drop), `reason` (the pack's own line), `source` ("pack:<id>/<policy>"); plus the rule that fired, the
+    scope, the time and, when the policy did not answer, `error` (and `action` is then its on_error)."""
     action: str
     reason: str
     source: str = ""
@@ -112,26 +112,6 @@ def matches(policy: Policy, tool: str) -> bool:
     return not policy.tools or "*" in policy.tools or tool in policy.tools
 
 
-def redact(value, names, env=None):
-    """`value` with every non-empty value of the environment variables `names` replaced by `[redacted:<NAME>]`."""
-    env = os.environ if env is None else env
-    secrets = [(n, env.get(n)) for n in names or () if isinstance(env.get(n), str) and env.get(n)]
-    if not secrets:
-        return value
-
-    def walk(v):
-        if isinstance(v, str):
-            for name, secret in secrets:
-                v = v.replace(secret, f"[redacted:{name}]")
-            return v
-        if isinstance(v, dict):
-            return {k: walk(x) for k, x in v.items()}
-        if isinstance(v, list):
-            return [walk(x) for x in v]
-        return v
-    return walk(value)
-
-
 def request(policy: Policy, tool: str, tool_input, *, cwd, session: str = "", agent: str = "", mode=None,
             permission_mode: str = "default") -> dict:
     return {"tool": tool, "input": tool_input if isinstance(tool_input, dict) else {}, "cwd": str(cwd),
@@ -157,19 +137,28 @@ def _env(policy: Policy) -> dict:
     return pack_env(policy.root, env)
 
 
+def _proc_row(policy: Policy, state_dir=None):
+    def tell(change: str, pid) -> None:
+        from halo_harness.packs.events_log import append
+        append(policy.pack, PROC_EVENT, {"policy": policy.id, "change": change, "pid": pid, "by": os.getpid()},
+               state_dir=state_dir)
+    return tell
+
+
 def process(policy: Policy, *, new: bool = False):
     from halo_harness.packs.policy_proc import PolicyProcess
     with _lock:
         p = None if new else _procs.get(policy.key)
         if p is None:
-            p = PolicyProcess(policy.argv, cwd=policy.root, env=_env(policy), label=f"{policy.pack}/{policy.id}")
+            p = PolicyProcess(policy.argv, cwd=policy.root, env=_env(policy), label=f"{policy.pack}/{policy.id}",
+                              on_change=None if new else _proc_row(policy))
             if not new:
                 _procs[policy.key] = p
         return p
 
 
 def start(policy: Policy) -> str:
-    """Start the policy's process now (R2: when it is armed, before the first tool call); '' or why not."""
+    """Start the policy's process now (R2: when it is armed and at session start, before the first tool call)."""
     return process(policy).start()
 
 
@@ -189,9 +178,18 @@ def _verdict(policy: Policy, answer, why: str, ms: int) -> Verdict:
                    policy.id, ms, error=why)
 
 
-def ask(policy: Policy, req: dict, *, budget_ms: "int | None" = None, keep: bool = True, state_dir=None) -> Verdict:
-    """One verdict. `keep=False` (the dry run) uses a process of its own and stops it after the answer."""
+def log_row(policy: Policy, v: Verdict, req: dict, *, state_dir=None, **extra) -> dict:
+    """The verdict's `policy` row in the pack's events log (never the tool input)."""
     from halo_harness.packs.events_log import append
+    row = {"policy": policy.id, "tool": str(req.get("tool") or ""), "verdict": v.action, "reason": v.reason,
+           "rule": v.rule, "scope": v.scope, "ms": v.ms, "session": req.get("session") or "", "agent": req.get("agent") or ""}
+    return append(policy.pack, EVENT, {**row, **({"error": v.error} if v.error else {}), **extra}, state_dir=state_dir)
+
+
+def ask(policy: Policy, req: dict, *, budget_ms: "int | None" = None, keep: bool = True, log: bool = True,
+        state_dir=None) -> Verdict:
+    """One verdict. `keep=False` (the dry run) uses a process of its own and stops it after the answer; `log=False`
+    leaves the row to the caller (the session's gate names the winner on it)."""
     tool = str(req.get("tool") or "")
     if not matches(policy, tool):
         return Verdict("allow", f"not asked: {tool} is not in when.tools", f"pack:{policy.pack}/{policy.id}", "",
@@ -206,16 +204,20 @@ def ask(policy: Policy, req: dict, *, budget_ms: "int | None" = None, keep: bool
             proc.stop()
     v = _verdict(policy, answer, why, ms)
     if v.error:
-        log.warning("policy %s/%s: %s", policy.pack, policy.id, v.reason)
-    row = {"policy": policy.id, "tool": tool, "verdict": v.action, "reason": v.reason, "rule": v.rule, "scope": v.scope,
-           "ms": v.ms, "session": req.get("session") or "", "agent": req.get("agent") or ""}
-    append(policy.pack, EVENT, {**row, **({"error": v.error} if v.error else {})}, state_dir=state_dir)
+        logging.getLogger(__name__).warning("policy %s/%s: %s", policy.pack, policy.id, v.reason)
+    if log:
+        log_row(policy, v, req, state_dir=state_dir)
     return v
 
 
+def ask_after(policy: Policy, req: dict, result, ms, **kw):
+    from halo_harness.packs.policy_after import ask_after as after
+    return after(policy, req, result, ms, **kw)
+
+
 def winner(verdicts) -> "Verdict | None":
-    """deny wins over ask over allow; among equals the first (the packs' run order)."""
-    rank = {"deny": 0, "ask": 1, "allow": 2}
+    """deny wins over ask over allow (after the call: drop over redact over pass); among equals the first."""
+    rank = {"deny": 0, "ask": 1, "allow": 2, "drop": 0, "redact": 1, "pass": 2}
     vs = [v for v in verdicts or [] if isinstance(v, Verdict)]
     return min(vs, key=lambda v: rank.get(v.action, 3)) if vs else None
 

@@ -557,7 +557,7 @@ reservation; off releases it and disables the pack. `halo pack verdict | on | of
 
 ## Modes and policy hooks
 
-A pack may declare **modes** and **policy hooks** (3.3.10.0 R1, draft; the contract:
+A pack may declare **modes** and **policy hooks** (3.3.10.0; the contract:
 [EXTENSION_API.md](EXTENSION_API.md#policy-hooks)). A policy hook is a command in the pack that Halo starts once and
 asks about each tool call it names (`when.tools`), one JSON line in and one verdict out -- `allow`, `deny` or `ask`
 with the pack's own reason -- within `packs.policy.budget_ms` (2000 ms); a mode is a switch that arms the policies
@@ -565,8 +565,14 @@ that name it. Both are recorded in the pack's `mode.json`, which `halo pack mode
 pack policy arm | disarm` write, and `halo pack policy status` reads; `halo pack policy test` runs a verdict without a
 session ([COMMANDS-packs.md](COMMANDS-packs.md#modes-and-policy-hooks)). A policy needs the `hooks` grant, and an
 armed hook sees every matching tool input, a Write's content included, so read its `when.tools` and `redact` before
-you grant it. In this version nothing enforces a verdict: 3.3.10.0 R2 runs armed policies before the permission
-engine; a pack without policies and modes is untouched.
+you grant it. A session asks the armed policies before each call they name (3.3.10.0 R2), sub-agents and
+Orchestra workers included: a `deny` refuses the call with the pack's own line, which the model and you read
+(`policy: deny -- fence: outside the project (pack policy-fence, rule outside-project)`); an `ask` shows the approval
+card with that line; an `allow` leaves the call to your permissions as before. A policy with `after: true` also
+sees the result and may pass it, redact it (the model sees the pack's version; the audit keeps the original's
+sha256) or drop it. Every verdict is on the call's tool line (the TUI, Studio's Session feed, the transcript), on
+the pack's row in the Pack Manager, and in `halo pack policy log`. With no pack armed nothing changes; a pack
+without policies and modes is untouched.
 
 ## The reference pack
 

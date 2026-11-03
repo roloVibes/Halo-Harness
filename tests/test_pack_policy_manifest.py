@@ -128,8 +128,8 @@ def test_the_shape_the_json_twin_and_field_help(ctx: Ctx):
               and schema["$defs"]["policy"]["properties"]["on_error"]["enum"] == list(MP.ON_ERROR)
               and schema["$defs"]["policy"]["properties"]["impact"]["enum"] == list(MP.IMPACT))
     ctx.check("its $defs.mode holds the same keys", tuple(schema["$defs"]["mode"]["properties"]) == MODE_KEYS)
-    ctx.check("field_help has a draft line for each", "draft" in field_help.PACK["contributes.policy"]
-              and "draft" in field_help.PACK["contributes.modes"])
+    ctx.check("field_help has a 3.3.10.0 line for each (stable since R2)", "3.3.10.0" in field_help.PACK["contributes.policy"]
+              and "3.3.10.0" in field_help.PACK["contributes.modes"] and "draft" not in field_help.PACK["contributes.policy"])
     live = MP.tool_names()  # the contract: every tool class loaded in this process, read now (never a frozen list)
     ctx.check("the core names are in it", set(MP.KNOWN_TOOLS) <= live)
     refused = sorted(n for n in live if not MP.tool_known(n))

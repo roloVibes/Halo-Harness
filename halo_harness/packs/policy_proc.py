@@ -1,5 +1,5 @@
 """halo_harness.packs.policy_proc -- the long-lived process of one policy hook (Halo 3.3.10.0 R1;
-docs/EXTENSION_API.md "Policy hooks", draft).
+docs/EXTENSION_API.md "Policy hooks").
 
 The policy's `run` starts ONCE (a Windows spawn costs 100-300 ms, a session makes thousands of tool calls) and
 speaks JSON lines: Halo writes one request per line on its stdin, it writes one answer per line on its stdout,
@@ -28,8 +28,9 @@ _ids = itertools.count(1)
 
 
 class PolicyProcess:
-    def __init__(self, argv, *, cwd, env, label: str = ""):
+    def __init__(self, argv, *, cwd, env, label: str = "", on_change=None):
         self.argv, self.cwd, self.env, self.label = [str(a) for a in argv], str(cwd), dict(env), label
+        self.on_change = on_change  # 3.3.10.0 R2: on_change("start" | "stop", pid), the audit's process rows
         self.proc = None
         self.lines: "queue.Queue" = queue.Queue()
         self.err = b""
@@ -60,12 +61,20 @@ class PolicyProcess:
             self.proc = None
             return f"it did not start: {e}"
         self.started += 1
+        self._tell("start", self.proc.pid)
         self.lines = queue.Queue()
         self.err = b""
         proc, lines = self.proc, self.lines
         threading.Thread(target=self._read, args=(proc, lines), daemon=True, name=f"policy-out-{self.label}").start()
         threading.Thread(target=self._drain, args=(proc,), daemon=True, name=f"policy-err-{self.label}").start()
         return ""
+
+    def _tell(self, change: str, pid) -> None:
+        if self.on_change is not None:
+            try:
+                self.on_change(change, pid)
+            except Exception:  # the audit row never stops a verdict
+                pass
 
     def _read(self, proc, lines) -> None:
         try:
@@ -135,6 +144,7 @@ class PolicyProcess:
         proc, self.proc = self.proc, None
         if proc is None:
             return
+        self._tell("stop", proc.pid)
         try:
             proc.stdin.close()  # EOF: a well-behaved policy ends on its own
         except (OSError, ValueError):

@@ -14,7 +14,8 @@ The policy, as this module applies it:
   one line (`halo_harness.packs.resolve.compat_lines`):
   "pack doc-review needs extension API 1.2 to 1.9; this Halo has 1.1".
 - 1.1 (3.3.10.0 R1) adds `set_mode` / `current_mode` and the manifest's `contributes.policy` and
-  `contributes.modes` (both draft): a 1.0 pack keeps everything -- `{min: "1.0"}` and `{min: "1.0", max: "1.9"}`
+  `contributes.modes`; R2 enforces a verdict and adds the post-call verdict (`after: true`: pass | redact | drop),
+  and Policy hooks is stable: a 1.0 pack keeps everything -- `{min: "1.0"}` and `{min: "1.0", max: "1.9"}`
   take 1.1, and a pack with no `policy` or `modes` reads and runs as before (`CHANGES`).
 
     api_version()                           "1.1"
@@ -34,8 +35,10 @@ DEPRECATED: "dict[str, dict]" = {}
 #: What each minor version added, and what a pack written for the one before keeps (docs/EXTENSION_API.md
 #: "Changes in 1.x" lists the same).
 CHANGES: "dict[str, dict]" = {
-    "1.1": {"halo": "3.3.10.0", "adds": ["set_mode", "current_mode", "contributes.policy (draft)", "contributes.modes (draft)"],
-            "deprecates": [], "keeps": "everything: a 1.0 pack runs unchanged; one without policy or modes is untouched"},
+    "1.1": {"halo": "3.3.10.0", "adds": ["set_mode", "current_mode", "contributes.policy", "contributes.modes",
+                                         "the post-call verdict (contributes.policy[].after: pass | redact | drop)"],
+            "deprecates": [], "keeps": "everything: a 1.0 pack runs unchanged; one without policy or modes is untouched",
+            "status": "Policy hooks: draft in 3.3.10.0 R1, stable from R2 (a session enforces each verdict)"},
 }
 
 

@@ -9,7 +9,7 @@ docs/EXTENSION_API.md "Policy hooks", status draft).
           impact: high            # low | medium (default) | high: what the pack says its verdicts weigh; shown
           on_error: deny          # allow (default) | deny: a late, malformed or missing answer
           redact: [MY_TOKEN]      # env names whose values are taken out of the input before it leaves Halo
-          after: false            # declared now, read by 3.3.10.0 R2 (the post-call verdict)
+          after: false            # true: asked again with the result (3.3.10.0 R2, the post-call verdict)
       modes:
         - {id: fenced, label: Fenced, theme: midnight}   # theme: accepted, read from 3.3.12.0
 

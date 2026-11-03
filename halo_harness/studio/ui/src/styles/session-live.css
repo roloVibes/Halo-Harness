@@ -72,6 +72,10 @@
 .slv-tool[data-running] .slv-elapsed { color: var(--accent); }
 .slv-result { flex-basis: 100%; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .slv-caret { color: var(--accent); }
+/* 3.3.10.0 R2: the packs' verdicts on the call (`policy: deny -- fence: outside the project`) */
+.slv-policy { flex-basis: 100%; color: var(--muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.slv-policy[data-verdict="deny"], .slv-policy[data-verdict="drop"] { color: var(--bad); }
+.slv-policy[data-verdict="ask"], .slv-policy[data-verdict="redact"] { color: var(--warn); }
 .slv-tool[data-error] .slv-result, .slv-tool[data-error] .slv-tool-name { color: var(--bad); }
 .slv-full { margin: 0; padding: 6px 8px; max-height: 18em; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11px; line-height: 1.45; color: var(--text);
   background: color-mix(in srgb, var(--bg) 70%, transparent); border: 1px solid var(--line); border-left: 2px solid var(--accent); border-radius: var(--radius-sm); }
