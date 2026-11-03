@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.3.9.2] - unreleased
+## [3.3.9.2] - 2026-11-02
 
 **Strata.** The owner's order after FreeToken: Strata (github.com/Niko1221/Strata), the engine of the same family -- a
 big Mixture-of-Experts model paged from RAM and disk on one consumer box -- that runs natively on Windows, Linux and the
