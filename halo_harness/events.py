@@ -111,6 +111,10 @@ EVENT_KINDS = frozenset({
     # speaking|idle|card|note, text?, mode?, steer?, row?}; the TUI draws it (tui/voice_view.py), others ignore it.
     "voice",
 })
+# Halo 3.3.10.0 R2: no new kind -- a `tool_use_ready` / `tool_result` a pack's policy answered carries this field,
+# {"line": "policy: deny -- fence: outside the project", "verdicts": [{at, pack, policy, verdict, reason, rule, ms,
+# winner, error?, sha256?}]} (agent/policy_gate.py); a call no policy was asked about carries none.
+TOOL_POLICY_FIELD = "policy"
 
 COMMAND_KINDS = frozenset({
     "user_input", "interrupt", "set_mode", "set_model", "slash", "permission_reply",

@@ -1,5 +1,5 @@
 """halo_harness.ext.mode -- a pack's runtime mode (extension API 1.1, Halo 3.3.10.0 R1; docs/EXTENSION_API.md
-"Policy hooks", draft).
+"Policy hooks", stable since 3.3.10.0 R2).
 
     set_mode("policy-fence", "fenced")            # [] when written: the mode is on, its policies armed
     set_mode("policy-fence", "fenced", on=False)  # [] when written: off, its policies disarmed

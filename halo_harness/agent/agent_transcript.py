@@ -11,7 +11,7 @@ code path:
     {"kind": "thinking",    "text"}               its reasoning, when the route returns any
     {"kind": "tool_call",   "id", "name", "input", "label"}
     {"kind": "spawn",       "id", "name", "task"}  an Agent/Task call (a sub-agent of its own)
-    {"kind": "tool_result", "id", "name"?, "text", "is_error"}
+    {"kind": "tool_result", "id", "name"?, "text", "is_error", "policy"?}   policy: the packs' verdict line (3.3.10.0)
     {"kind": "handback",    "text"}               its final answer (a finished agent's last text)
     {"kind": "control",     "cmd", "by", ...}     a command recorded from Studio or the CLI
     {"kind": "note",        "text"}               a one-line notice (a child steered, stopped, paused)
@@ -112,7 +112,8 @@ def entries_from_nodes(nodes: list, *, final: bool = False) -> list:
                     out.append(_tool_entry(block, ts))
         elif kind == "tool_result":
             out.append({"kind": "tool_result", "id": node.get("tool_use_id"), "name": node.get("tool"),
-                        "text": _cap(node.get("content")), "is_error": bool(node.get("is_error")), "ts": ts})
+                        "text": _cap(node.get("content")), "is_error": bool(node.get("is_error")), "ts": ts,
+                        **_policy(node.get("policy"))})
         elif kind == "meta" and isinstance(node.get("fleet"), dict):
             out.append({"kind": "control", **node["fleet"], "ts": ts})
         elif kind == "meta" and isinstance(node.get("fleet_note"), str):
@@ -127,6 +128,11 @@ def entries_from_nodes(nodes: list, *, final: bool = False) -> list:
             if entry["kind"] in ("user", "tool_call", "spawn"):
                 break
     return out
+
+
+def _policy(p) -> dict:
+    """3.3.10.0 R2: a tool row's pack verdicts as one line (`policy: deny -- fence: outside the project`)."""
+    return {"policy": str(p["line"])} if isinstance(p, dict) and p.get("line") else {}
 
 
 def tail(entries: list, n: int, kinds=None) -> list:
@@ -145,7 +151,7 @@ def entry_from_event(ev) -> Optional[dict]:
     if kind == "tool_result":
         return {"kind": "tool_result", "id": data.get("id"), "name": data.get("name"),
                 "text": _cap(data.get("content") if data.get("content") is not None else data.get("summary") or ""),
-                "is_error": bool(data.get("is_error")), "ts": ts}
+                "is_error": bool(data.get("is_error")), "ts": ts, **_policy(data.get("policy"))}
     if kind == "user_message":
         return {"kind": "user", "text": _cap(data.get("text") or ""), "ts": ts}
     if kind in ("permission_request", "question", "plan_review"):

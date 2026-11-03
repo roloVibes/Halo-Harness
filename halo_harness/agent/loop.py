@@ -47,6 +47,7 @@ from halo_harness.agent import agent_inbox as _fleet_gate
 from halo_harness.agent import agent_hooks as _agent_tree
 from halo_harness.agent import mode_notice as _mode_notice
 from halo_harness.agent import turn_marker as _turn_marker
+from halo_harness.agent import policy_gate as _policy_gate  # 3.3.10.0 R2: a pack's verdict on each tool call
 from halo_harness.agent.subagent import AgentRuntime
 from halo_harness.agent.compact import (
     CHARS_PER_TOKEN, build_files_read_snapshot, build_summary_instruction, resolve_knobs, select_verbatim_tail,
@@ -6655,9 +6656,9 @@ class Session:
             # call, with the same refusal shape every other denied call
             # gets.
             _plan_tool = self.tool_registry.get(name)
-            _plan_decision = self.permission_engine.decide(name, tool_input, tool=_plan_tool)
-            if _plan_decision.action == "deny" and _plan_decision.matched_rule is not None:
-                _text = f"Permission denied: {_plan_decision.reason}"
+            _plan_decision = _policy_gate.decide(self, item, name, tool_input, _plan_tool)  # 3.3.10.0 R2: a pack deny too
+            if _plan_decision.action == "deny" and (_plan_decision.matched_rule is not None or _policy_gate.is_pack(_plan_decision)):
+                _text = _policy_gate.text(_plan_decision) or f"Permission denied: {_plan_decision.reason}"
                 if _plan_decision.suggested_rule:
                     _text += f" (suggested rule: {_plan_decision.suggested_rule})"
                 item["text"] = _text
@@ -6671,7 +6672,8 @@ class Session:
             return item
 
         tool = self.tool_registry.get(name)
-        decision: Decision = self.permission_engine.decide(name, tool_input, tool=tool)
+        # 3.3.10.0 R2: an armed pack policy is asked first (deny > ask > allow); none armed: decide() alone, as before
+        decision: Decision = _policy_gate.decide(self, item, name, tool_input, tool)
 
         # H4 scope B: PreToolUse fires AFTER decide(), before dispatch, for
         # EVERY call (must-do: for a run of batched read-only calls this
@@ -6707,22 +6709,23 @@ class Session:
                 # != "deny":` block below still lets an EXPLICIT hook
                 # decision override this fresh one, same as before, except
                 # a genuine deny match on the NEW input now correctly wins
-                # over it either way.
-                decision = self.permission_engine.decide(name, tool_input, tool=tool)
+                # over it either way. 3.3.10.0 R2: the packs are asked again too.
+                decision = _policy_gate.decide(self, item, name, tool_input, tool)
             if pre_outcome.blocked:
                 item["text"] = f"Blocked by a PreToolUse hook: {pre_outcome.block_reason or 'blocked'}"
                 item["permission_denial"] = {"tool_name": name, "tool_input": tool_input,
                                               "reason": pre_outcome.block_reason or "blocked by a PreToolUse hook",
                                               "suggested_rule": None}
                 return item
-            if pre_outcome.permission_decision and decision.action != "deny":
+            if (pre_outcome.permission_decision and decision.action != "deny"
+                    and _policy_gate.hook_may(decision, pre_outcome.permission_decision)):  # a pack's ask holds
                 reason = pre_outcome.permission_decision_reason or f"{pre_outcome.permission_decision}ed by a PreToolUse hook"
                 if pre_outcome.permission_decision in ("allow", "deny", "ask"):
                     decision = Decision(pre_outcome.permission_decision, reason, source="hook")
                 # "defer": leave `decision` exactly as decide() computed it.
 
         if decision.action == "deny":
-            text = f"Permission denied: {decision.reason}"
+            text = _policy_gate.text(decision) or f"Permission denied: {decision.reason}"  # a pack's: its own line
             if decision.suggested_rule:
                 text += f" (suggested rule: {decision.suggested_rule})"
             item["text"] = text
@@ -6752,7 +6755,7 @@ class Session:
                     # of the user's own deny/ask rules.
                     tool_input = pr_outcome.updated_input
                     item["input"] = tool_input
-                    decision = self.permission_engine.decide(name, tool_input, tool=tool)
+                    decision = _policy_gate.decide(self, item, name, tool_input, tool)  # 3.3.10.0 R2: packs again
                 # H5c finding 9: `updatedPermissions` (2.1.281's real LIST
                 # shape -- hooks.py's own `_apply_updated_permissions_list`
                 # already rejected anything else with a warning) applies
@@ -6783,7 +6786,7 @@ class Session:
                     self._fire_permission_denied(name, tool_input, text)
                     return item
             if decision.action == "deny":
-                text = f"Permission denied: {decision.reason}"
+                text = _policy_gate.text(decision) or f"Permission denied: {decision.reason}"
                 item["text"] = text
                 item["permission_denial"] = decision.permission_denial or {
                     "tool_name": name, "tool_input": tool_input, "reason": decision.reason, "suggested_rule": None,
@@ -6904,6 +6907,7 @@ class Session:
                 self._permission_waiters[request_id] = {
                     "event": threading.Event(), "decision": None,
                     "tool_name": name, "tool_input": tool_input, "tool": tool,
+                    "policy_ask": _policy_gate.is_pack(decision),  # 3.3.10.0 R2: a mode cycle never answers it
                 }
                 return item
             # decision.action == "allow" (the PermissionRequest hook just
@@ -7133,12 +7137,14 @@ class Session:
                     error_class = "other"
             self.log.append_tool_result(tool_use_id=tool_id, content=text, is_error=True,
                                          tool=name, error_class=error_class,
-                                         num_bytes=len(text.encode("utf-8", errors="replace")) if isinstance(text, str) else None)
-            yield events.Event("tool_result", {"id": tool_id, "ok": False, "summary": text}, turn=turn_no)
+                                         num_bytes=len(text.encode("utf-8", errors="replace")) if isinstance(text, str) else None,
+                                         policy=_policy_gate.fields(item).get("policy"))
+            yield events.Event("tool_result", {"id": tool_id, "ok": False, "summary": text, **_policy_gate.fields(item)},
+                               turn=turn_no)
             if item.get("permission_denial") is not None:
                 self.permission_denials.append(item["permission_denial"])
             return text, True
-        tr = item["result"]
+        tr = _policy_gate.after(self, item, item["result"])  # 3.3.10.0 R2: an `after: true` policy's pass | redact | drop
         tr, hook_system_messages = self._apply_post_tool_use_hooks(name, tool_id, item["input"], tr)
         for msg in hook_system_messages:
             yield events.notification(msg)
@@ -7225,7 +7231,7 @@ class Session:
             tool_use_id=tool_id, content=content_for_log, is_error=tr.is_error, tool=name,
             error_class=error_class, ms=tr.duration_ms,
             num_bytes=len(summary_text.encode("utf-8", errors="replace")) if isinstance(summary_text, str) else None,
-            spilled=spilled,
+            spilled=spilled, policy=_policy_gate.fields(item).get("policy"),
         )
         # review finding 15: `summary` alone (200 chars) is what Ctrl+O's
         # pager showed too, since `set_result` used to overwrite the
@@ -7238,7 +7244,8 @@ class Session:
                                             # finding 9 (W6a): the synchronous "before" snapshot stashed
                                             # just above the dispatch call, Bash-only (None otherwise) --
                                             # never logged, UI-event-only, same as `images` just above.
-                                            "bash_shadow_before": item.get("_bash_shadow_before")},
+                                            "bash_shadow_before": item.get("_bash_shadow_before"),
+                                            **_policy_gate.fields(item)},  # 3.3.10.0 R2: the verdicts, when any
                            turn=turn_no)
         return content_for_log, tr.is_error
 
@@ -7280,7 +7287,7 @@ class Session:
         if slot is None:
             return None
         tool_name = slot.get("tool_name")
-        if tool_name is None:
+        if tool_name is None or slot.get("policy_ask"):  # 3.3.10.0 R2: a pack's ask waits for you, whatever the mode
             return None
         decision = self.permission_engine.decide(tool_name, slot.get("tool_input"), slot.get("tool"))
         if decision.action not in ("allow", "deny"):
@@ -7880,7 +7887,7 @@ class Session:
                 return True
 
             yield events.Event("tool_use_ready", {"id": tool_id, "name": name, "input": item["input"],
-                                                    "repaired": item["repaired"]}, turn=turn_no)
+                                                    "repaired": item["repaired"], **_policy_gate.fields(item)}, turn=turn_no)
             for msg in item.pop("hook_system_messages", None) or []:
                 yield events.notification(msg)
             if "ask_reason" in item:

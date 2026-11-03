@@ -8,16 +8,28 @@
 // 3.2.0.0 R7: Update asks first, showing what `halo pack update <id> --dry-run`
 // says (its migration notes, the files and settings that change); Rollback
 // (shown once an update kept the version before) runs `halo pack rollback <id>`.
+// 3.3.10.0 R2: a pack with policy hooks shows its armed policies and the last verdict (pm-policy).
 import { useState } from "react";
 import { Button, Dialog, Empty } from "../../../lib/ui";
 import { BundlesGroup } from "./Bundles"; // 3.3.7.0 R5: the bundles, each a tick with its verdict
 import { cli, disablePack, enablePack, mgr, previewUpdate, removePack, rollbackPack, selectPack, updatePack, useMgr } from "./store";
-import type { PackRow } from "./types";
+import type { PackRow, PolicyBlock } from "./types";
 
 const NONE: string[] = [];
 
 function stateWord(p: PackRow): string {
   return p.running ? "enabled" : p.state;
+}
+
+/** 3.3.10.0 R2: the armed policies and the last verdict a session got (`halo pack policy status`, `log`). */
+function PolicyChip({ b, id }: { b: PolicyBlock; id: string }) {
+  const counts = Object.entries(b.counts).map(([k, n]) => `${k} ${n}`).join(", ");
+  const title = [`mode: ${b.mode || "none"}`, `verdicts: ${counts || "none yet"}`, `halo pack policy log ${id}`].join("\n");
+  return (
+    <span className="og-chip mono pm-policy" title={title} data-testid="pm-policy" data-armed={b.armed.length || undefined}>
+      {b.armed.length ? `armed: ${b.armed.join(", ")}` : "no policy armed"}{b.last ? ` · last: ${b.last}` : ""}
+    </span>
+  );
 }
 
 function Row({ p, on }: { p: PackRow; on: boolean }) {
@@ -41,6 +53,7 @@ function Row({ p, on }: { p: PackRow; on: boolean }) {
             {health} doctor line{health === 1 ? "" : "s"}
           </span>
         )}
+        {p.policy && <PolicyChip b={p.policy} id={p.id} />}
         {warn && <span className="pm-row-warn" data-testid="pm-row-warn">{warn}</span>}
       </button>
       <span className="pm-row-acts">

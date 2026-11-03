@@ -142,7 +142,7 @@ class SessionLog:
     def append_tool_result(self, *, tool_use_id: str, content, is_error: bool = False,
                             tool: Optional[str] = None, error_class: Optional[str] = None,
                             ms: Optional[float] = None, num_bytes: Optional[int] = None,
-                            spilled: Optional[bool] = None) -> dict:
+                            spilled: Optional[bool] = None, policy: Optional[dict] = None) -> dict:
         """H10 Part A: `tool`/`error_class`/`ms`/`num_bytes`/`spilled` are
         non-wire telemetry -- `derive_request` reconstructs a `tool_result`
         wire block from ONLY `tool_use_id`/`content`/`is_error` (see its own
@@ -163,6 +163,8 @@ class SessionLog:
             node["bytes"] = num_bytes
         if spilled is not None:
             node["spilled"] = spilled
+        if policy:  # 3.3.10.0 R2: the packs' verdicts on this call, `{line, verdicts}` (agent/policy_gate.py)
+            node["policy"] = policy
         return self._append(node)
 
     def append_usage(self, usage: dict, cost_usd=None, *, agent_id: Optional[str] = None,

@@ -322,13 +322,17 @@ the fit -- `local_sched/fit_tf.py` (the VRAM / unified-memory rule with TensorFo
 (the queue from `/health` and `/metrics`) and `ollama_steward/rules_tensorfold.py` (tf-waiting, tf-backend-fallback,
 tf-load); `doctor_tensorfold.py` (`halo doctor --local`'s lines).
 
-**Policy hooks and modes** (Halo 3.3.10.0 R1, draft; docs/EXTENSION_API.md "Policy hooks"):
+**Policy hooks and modes** (Halo 3.3.10.0; docs/EXTENSION_API.md "Policy hooks"; the session's gate is
+`agent/policy_gate.py`, docs/ARCHITECTURE-permissions.md):
 `packs/manifest_policy.py` (`contributes.policy` and `contributes.modes`: the entries, their meaning lines, the
 command with `${halo_python}` and `${CLAUDE_PLUGIN_ROOT}` put in), `packs/mode_state.py` (the pack's `mode.json`:
 read, set_mode, arm, disarm, the `mode` event), `packs/policy_proc.py` (one policy's long-lived process: JSON lines,
 the budget, a late answer dropped), `packs/policy.py` (the armed policies, `ask` -> `Verdict`, the `when` filter,
-`redact`, `on_error`, the `policy` rows, `winner`), `packs/policy_views.py` (inspect's block, `halo pack policy
-status`, the doctor's mode.json rows) and `packs/cli_policy.py` (`halo pack mode`, `halo pack policy`).
+`on_error`, the `policy` rows, `winner`), `packs/policy_redact.py` (`redact: [env names]` out of the input and the
+result), `packs/policy_after.py` (R2: the post-call verdict, pass / redact / drop, the original's sha256),
+`packs/policy_audit.py` (R2: the verdicts read back: `halo pack policy log`, status counts and processes, the Pack
+Manager's block, a mission's armed ids), `packs/policy_views.py` (inspect's block, `halo pack policy status`, the
+doctor's mode.json rows) and `packs/cli_policy.py` (`halo pack mode`, `halo pack policy`).
 
 The map goes on in [Architecture: the module map, part two](ARCHITECTURE-modules-two.md): the Ollama
 steward, packs, the extension API, isolation, the guided first run, Setup and Settings.
