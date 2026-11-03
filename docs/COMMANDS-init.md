@@ -392,7 +392,7 @@ On a real terminal `halo setup` opens Studio on Setup, on the Team page (focused
 `team` / `roles` (one line says it opened, as `halo init` does). `--terminal` keeps the SAME Team setup
 screen `halo init`'s own wizard shows (see [WIZARD.md](WIZARD.md)), reachable again later without
 re-running the whole provider flow; so does a box where no browser can open (the URL and the
-port-forward line first). With no TTY it prints the current roles table instead of blocking, and exits 0.
+port-forward line first). With no TTY it prints the current roles table instead of blocking, and exits 0 (3.3.11.0 R3: `halo setup <pack>`, [COMMANDS-packs.md](COMMANDS-packs.md#halo-setup-pack)).
 `/setup` and `/setup team` (`/setup roles` stays as an alias) open Setup the same way from a running
 session (the line in the transcript says it opened, or gives the URL); `/setup --terminal [team]` pushes
 the terminal screen onto the live app (a modal stack over the session, not a separate program): saving a

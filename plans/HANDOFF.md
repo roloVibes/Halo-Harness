@@ -6,10 +6,11 @@ first, then `WORKER-RULES.md`, then the round you are starting.
 
 ## WHERE THINGS STAND -- 2026-11-02 evening (authoritative, read this first)
 
-**3.3.9.1 (cf96d422), 3.3.9.2 (7d4476e3), 3.3.9.3 (6a58e59d) and 3.3.10.0 (d0ab4261) SHIPPED 2026-11-02/03; the PC's
-reinstall waits on the owner's `/quit`. 3.3.11.0 "Type into Studio" is the open section: R1 (the Prompt panel, with receipts)
-and R2 (a session without a terminal + the live map: Roles Plan | Live) merged on master; R3 (pack Setup blocks) follows,
-then the release.** The ROADMAP's 3.3.11.0 R1 and R2 BUILT notes carry the choices, the limits and the owner's live checks.
+**3.3.9.1 (cf96d422), 3.3.9.2 (7d4476e3), 3.3.9.3 (6a58e59d) and 3.3.10.0 (d0ab4261) SHIPPED 2026-11-02/03; the
+PC was reinstalled at v3.3.10.0 on 2026-11-03 once the owner quit halo. 3.3.11.0 "Type into Studio" IS THE RELEASE
+CANDIDATE** (R1 the Prompt panel with receipts, R2 a session without a terminal + the live map, R3 a pack's own Setup
+blocks, all merged on master; the release follows green on both runners; the ROADMAP's three BUILT notes carry the
+choices, the limits and the owner's live checks). After it: 3.3.12.0 "Themes and parity", then 3.3.13.0 Federation.
 
 ### Before it: 2026-11-02 morning
 

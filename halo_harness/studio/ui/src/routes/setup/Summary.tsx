@@ -14,26 +14,28 @@ import { Button } from "../../lib/ui";
 import { useLoadState, Waiting } from "./BlockFoot";
 import { pressDone, useDoneBusy, useDoneError } from "./done";
 import { lastCheckWord, runChecks, startCheck, ticked, useCheck } from "./checkStore";
-import { goto, isDone, stepsOf, TITLES, usePage, valueOf, type StepId } from "./pages";
+import { goto, isDone, stepsOf, titleOf, usePage, valueOf, type StepId } from "./pages";
 import { NONE, setup, useSetup } from "./store";
 
 function Rows() {
   const page = usePage();
+  // 3.3.11.0 R3: a pack's blocks are rows too (their title, "<pack>: done | skipped | waiting"); JSON, as the rail
   const joined = useSetup((s) =>
-    stepsOf(s.data, page)
-      .filter((st) => st !== "summary")
-      .map((st) => [st, isDone(s.data, st) ? "done" : "todo", valueOf(s.data, st)].join("~"))
-      .join("|"),
+    JSON.stringify(
+      stepsOf(s.data, page)
+        .filter((st) => st !== "summary")
+        .map((st) => [st, isDone(s.data, st) ? "done" : "todo", valueOf(s.data, st), titleOf(s.data, st)]),
+    ),
   );
-  const rows = joined.split("|").map((x) => x.split("~") as [StepId, string, string]);
+  const rows = JSON.parse(joined) as [StepId, string, string, string][];
   return (
     <div className="su-sum-rows" data-testid="setup-summary-rows">
-      {rows.map(([st, state, value]) => (
+      {rows.map(([st, state, value, title]) => (
         <div key={st} className="su-sum-row" data-testid="setup-summary-row" data-step={st} data-state={state}>
           <span className="su-sum-mark mono" aria-hidden="true">{state === "done" ? "✓" : "-"}</span>
-          <span className="su-sum-title">{TITLES[st]}</span>
+          <span className="su-sum-title">{title}</span>
           <span className="su-sum-value mono" data-testid="setup-summary-value">{value}</span>
-          <Button size="sm" variant="ghost" onClick={() => goto(st)} data-testid="setup-summary-change" data-step={st} title={`Open the ${TITLES[st]} page`}>
+          <Button size="sm" variant="ghost" onClick={() => goto(st)} data-testid="setup-summary-change" data-step={st} title={`Open the ${title} page`}>
             Change
           </Button>
         </div>

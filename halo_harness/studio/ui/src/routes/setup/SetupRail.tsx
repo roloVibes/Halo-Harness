@@ -5,9 +5,11 @@
 // summary (what was 3.3.0.0's status strip): the providers set up, the default
 // model, the lineup, the permission mode, the theme and the last check; a page
 // `halo init` opened (`?first=1`) leads it with "set up this box". Nothing
-// opens on its own here: the help is the ? in the header.
+// opens on its own here: the help is the ? in the header. 3.3.11.0 R3: a pack's own blocks follow the core steps
+// under the pack's name (one placed by `after` sits behind its core step, the pack's name on its button).
 import { useFirstRun } from "./door";
-import { goto, lineupWord, stateOf, stepsOf, TITLES, usePage, valueOf, type StepId } from "./pages";
+import { blockOf, isPackStep } from "./packSetup";
+import { goto, lineupWord, stateOf, stepsOf, titleOf, usePage, valueOf, type StepId } from "./pages";
 import { providersSet, useSetup } from "./store";
 import { lastCheckWord } from "./checkStore";
 
@@ -58,24 +60,38 @@ function Strip() {
 
 export function SetupRail() {
   const page = usePage();
-  // one string per read (a new array each read would redraw forever), split back into the steps
-  const joined = useSetup((s) => stepsOf(s.data, page).map((st) => [st, stateOf(s.data, st, page), valueOf(s.data, st)].join("~")).join("|"));
-  const steps = joined.split("|").map((x) => x.split("~") as [StepId, string, string]);
+  // one string per read (a new array each read would redraw forever), parsed back into the steps (3.3.11.0 R3: JSON,
+  // a pack's title may hold any character)
+  const joined = useSetup((s) =>
+    JSON.stringify(
+      stepsOf(s.data, page).map((st) => {
+        const f = blockOf(s.data, st);
+        return [st, stateOf(s.data, st, page), valueOf(s.data, st), titleOf(s.data, st), f?.pack.name || "", f?.block.after ? "1" : ""];
+      }),
+    ),
+  );
+  const steps = JSON.parse(joined) as [StepId, string, string, string, string, string][];
   return (
     <div className="su-top">
       <nav className="su-steps" aria-label="Setup steps" data-testid="setup-rail">
         <ol className="su-steps-list">
-          {steps.map(([st, state, word], i) => (
-            <li key={st} className="su-steps-item">
-              {i > 0 && <span className="su-steps-sep mono" aria-hidden="true">&gt;</span>}
-              <button type="button" className="su-step" onClick={() => goto(st)} data-testid="setup-rail-step" data-step={st} data-state={state}
-                      data-word={word || undefined} aria-current={state === "current" ? "step" : undefined}
-                      title={word ? `${TITLES[st]}: ${word}` : TITLES[st]}>
-                <span className="su-step-n mono" aria-hidden="true">{state === "done" ? "✓" : i + 1}</span>
-                <span className="su-step-title">{TITLES[st]}</span>
-              </button>
-            </li>
-          ))}
+          {steps.map(([st, state, word, title, pack, placed], i) => {
+            const prev = steps[i - 1];
+            const after = !!placed; // behind its core step: the pack's name on the button
+            const group = !!pack && !after && !(prev && prev[4] === pack && isPackStep(prev[0]) && !prev[5]);
+            return (
+              <li key={st} className="su-steps-item" data-pack={pack || undefined}>
+                {i > 0 && <span className="su-steps-sep mono" aria-hidden="true">&gt;</span>}
+                {group && <span className="su-steps-pack mono" data-testid="setup-rail-pack">{pack}:</span>}
+                <button type="button" className="su-step" onClick={() => goto(st)} data-testid="setup-rail-step" data-step={st} data-state={state}
+                        data-word={word || undefined} aria-current={state === "current" ? "step" : undefined}
+                        title={word ? `${title}: ${word}` : title}>
+                  <span className="su-step-n mono" aria-hidden="true">{state === "done" ? "✓" : i + 1}</span>
+                  <span className="su-step-title">{after ? `${pack}: ${title}` : title}</span>
+                </button>
+              </li>
+            );
+          })}
         </ol>
       </nav>
       <Strip />

@@ -193,6 +193,50 @@ def test_slash_setup_opens_setup_and_terminal_keeps_the_screen(ctx: Ctx):
     ctx.check(f"an unknown word: the usage, got {app.notes}", app.notes and "/setup [team|roles] [--terminal]" in app.notes[-1])
 
 
+@test
+def test_halo_setup_a_pack_opens_its_first_block_waiting(ctx: Ctx):
+    """3.3.11.0 R3: `halo setup <pack>` -> Setup on `?block=pack:<id>:<block>` (the first block waiting); no terminal:
+    a line per block and the edit target; a disabled pack: one line, exit 1; a word that is no pack: the usage, 2."""
+    import contextlib
+    import io
+    from halo_harness.packs.setup_state import DONE, mark
+    from halo_harness.setup_cli import cmd_setup
+    from halo_harness.studio.edit_target import parse
+    from halo_harness.studio.setup_door import SetupTarget
+    from tests.helpers.packs_home import PacksHome
+    from tests.helpers.setup_door_stubs import fake_tty
+    key = "pack:setup-blocks:reach"
+    t = parse(f"setup:{key}")[0]
+    ctx.check(f"the target, its URL and its words, got {t}", t == SetupTarget(block=key) and t.display == "Setup (setup-blocks: reach)"
+              and t.query() == f"?mode=setup&block={key}")
+    with PacksHome() as h:
+        h.install(h.source("setup-blocks"), enable=True)
+        mark("setup-blocks", "prefs", DONE)
+        with door_stubs() as rec, fake_tty() as out:
+            rc = cmd_setup(["setup-blocks"])
+        url = rec["opened"][0] if rec["opened"] else ""
+        ctx.check(f"Studio on the first block waiting, got {rc} {rec['launched']}", rc == 0 and rec["launched"]
+                  and rec["launched"][0]["edit"] == f"setup:{key}" and f"?mode=setup&block={key}#t=" in url)
+        ctx.check(f"its line, got {out.getvalue()!r}", f"Setup (setup-blocks: reach) is open in your browser: {url}. "
+                  "`halo setup setup-blocks --terminal` runs the terminal listing instead." in out.getvalue())
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = cmd_setup(["setup-blocks"])  # no terminal here: the listing
+        ctx.check(f"no terminal: each block with its state, then the target, got {rc} {buf.getvalue()!r}", rc == 0
+                  and buf.getvalue().splitlines() == ["setup-blocks -- Review preferences (form): done",
+                                                      "setup-blocks -- Reach the review service (check): waiting",
+                                                      "setup-blocks -- Before you start (note): waiting",
+                                                      f"open them in Studio: halo studio --edit setup:{key}"])
+        from halo_harness.packs.grants import disable
+        disable("setup-blocks")
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
+            rc = cmd_setup(["setup-blocks"])
+            bad = cmd_setup(["kitchen"])
+        ctx.check(f"disabled: one line, exit 1; no pack: the usage, 2, got {rc} {bad} {err.getvalue()!r}", rc == 1 and bad == 2
+                  and "setup-blocks does not run here" in err.getvalue() and "an enabled pack's id" in err.getvalue())
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

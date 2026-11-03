@@ -4301,3 +4301,22 @@ Session -> New session on a cheap model -> a turn from the Prompt -> an ask answ
 running; the Fleet row says "waiting on you in Studio" while no page is open) -> End session -> `halo --resume <id>`; and
 Roles -> Live during an Auto-mode session with spawned agents, 1:1 with `/agents live`, the Map thumbnail's expand. Next:
 R3 pack Setup blocks (`contributes.setup`), then the 3.3.11.0 release.**
+
+**3.3.11.0 R3 BUILT 2026-11-03 (one Opus round, worktree ~/hh-3311/R3-pack-setup, hand-back v3311-R3-handback.md):
+`contributes.setup` blocks (`form` | `check` | `note`, `after: <core step>`) checked at install (`packs/manifest_setup.py`,
+`schemas/pack_yaml.py`, `pack.schema.json` `$defs.setup`; extension API 1.1 `stable` row), their state in
+`~/.halo/packs/.data/<id>/setup.json` (`packs/setup_state.py`), served by `studio/setup_packs_api.py` (a form saves through
+the pack's own config route; a check rides the checks job as `pack:<id>:<block>` via `start/checks_pack.py`, off by default,
+with the pack's what/cost/time/writes lines), drawn in the Setup rail after the core steps (`routes/setup/PackBlocks.tsx`,
+`packSetup.ts`; `pages.ts` steps = core or `pack:...`) only while the pack is enabled; `halo pack enable` (and `halo pack on
+<bundle>`) ends with `setup:` lines; `halo setup <pack>`; doctor's info row for an unfinished pack setup (exit 0); the Pack
+Manager's "setup waiting" chip. Nothing private (a test greps every answer and frame for the fake key); with no pack
+contributing setup the rail is exactly today's (pinned). Choices: no `/setup <pack>` TUI door (the brief named only the
+CLI); a pack check needs no grant (it runs only when ticked or pressed, after its four lines) and writes last-check.json like
+any check, so it also marks the core Check step done; block ids lower-case only; `_parse_check_line` drops an `[INFO]` tag so
+`halo doctor --json` gives `status: info`. Live check (rolo): a scratch home, `halo pack install tests/fixtures/packs/
+setup-blocks`, `halo pack enable setup-blocks` (three `setup:` lines), `halo doctor` (the `[INFO] Pack setup:` line), `halo
+setup setup-blocks` (Studio on Review preferences right after Default model), save style/depth, Run this check (green, two
+lines), Mark as read on the note, `halo doctor` again (no line), the Pack Manager row without "setup waiting".
+**3.3.11.0 IS THE CANDIDATE.** After it: 3.3.12.0 "Themes and parity" (gap A pack themes, issue #5 mode themes, gap B
+offered actions + paged tables, the themes/parity entry), then 3.3.13.0 Federation, 3.3.14.0 Pack trust.**

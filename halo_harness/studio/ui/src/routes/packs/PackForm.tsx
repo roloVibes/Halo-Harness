@@ -4,7 +4,8 @@
 // schema's description or the default as the help line). Save posts the
 // values to `pack/<id>/config`, which checks them against the schema and
 // writes packs.settings.<id> in ~/.halo/config.json; a problem shows under
-// its field and nothing is written.
+// its field and nothing is written. 3.3.11.0 R3: Setup draws a pack's form block with it (`path` its block route,
+// `onSaved` re-reads Setup, no toast: the foot says saved).
 import { useEffect, useState } from "react";
 import { api, ApiError } from "../../lib/api";
 import { toast } from "../../lib/store";
@@ -47,8 +48,9 @@ function Control({ f, id, value, onChange }: { f: FieldDef; id: string; value: u
   );
 }
 
-/** `path`: 3.2.0.0 R6, the Pack Manager's `pack/<id>/settings` (any pack installed here, a disabled one too). */
-export function PackForm({ p, path }: { p: PackPanel; path?: string }) {
+/** `path`: 3.2.0.0 R6, the Pack Manager's `pack/<id>/settings` (any pack installed here, a disabled one too);
+ *  3.3.11.0 R3, Setup's `setup/packs/<id>/<block>`, with `onSaved` in place of the toast. */
+export function PackForm({ p, path, onSaved }: { p: Pick<PackPanel, "pack">; path?: string; onSaved?: () => void }) {
   const route = path || `pack/${p.pack}/config`;
   const reg = usePacks((s) => s.reg);
   const [cfg, setCfg] = useState<Config | null>(null);
@@ -77,7 +79,8 @@ export function PackForm({ p, path }: { p: PackPanel; path?: string }) {
       setCfg(c);
       setDraft({ ...c.values });
       setProblems([]);
-      toast(`Saved: ${c.key}`, "done");
+      if (onSaved) onSaved();
+      else toast(`Saved: ${c.key}`, "done");
     } catch (e) {
       setProblems(e instanceof ApiError && e.problems.length ? e.problems : [e instanceof Error ? e.message : String(e)]);
     } finally {
