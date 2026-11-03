@@ -7,7 +7,8 @@
          422 {error, problems}     not an edit target (studio/edit_target.py)
     POST focus {mode: <section>, session?: <sid>}       (3.1.4.0 R2, studio/session_open.py)
          200 {edit: "", mode, session, pages}   the pages switch to that section; Session
-                                   chooses that session (`/studio`, `halo studio --session`)
+                                   chooses that session (`/studio`, `halo studio --session`);
+                                   3.3.11.0 R1: `prompt: true` opens its Prompt panel too (`--prompt`)
          422 {error, problems}     not a section, or not a session id
     POST focus {mode: "setup", block?: <block>, first?: bool}    (3.3.0.0 R4, studio/setup_door.py)
          200 {edit: "", mode, session, block, first, pages}   the pages open Setup on that block
@@ -49,6 +50,8 @@ def _post_section(req, body: dict):
         why = f"{sid!r} is not a session id for Session"
         return 422, {"error": why, "problems": [why]}
     data = {"edit": "", "mode": mode, "session": sid}
+    if mode == "session" and body.get("prompt"):  # 3.3.11.0 R1: `halo studio --session <id> --prompt`
+        data["prompt"] = True
     if mode == "setup":  # 3.3.0.0 R4 (studio/setup_door.py): the block whose page opens, the first run's line (3.3.1.0 R1: no help opens)
         from halo_harness.studio.setup_door import block_word
         block, why = block_word(str(body.get("block") or ""))

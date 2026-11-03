@@ -34,6 +34,7 @@ import "./styles/model-select.css";
 import "./styles/holo.css";
 import "./styles/session-live.css";
 import "./styles/session-target.css";
+import "./styles/prompt.css"; // 3.3.11.0 R1: Session's Prompt panel
 import "./styles/packs.css";
 import "./styles/manager.css";
 import "./styles/setup.css";

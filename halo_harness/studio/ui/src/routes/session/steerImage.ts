@@ -52,23 +52,31 @@ async function offerFor(sid: string, model: string | null | undefined): Promise<
   }
 }
 
-/** A pasted or dropped file: checked (an image, 5 MB at most), read, measured, the chip set. */
-export async function takeFile(file: File, sid: string, model: string | null | undefined, from: "paste" | "drop"): Promise<boolean> {
-  if (!/^image\/(png|jpeg|gif|webp)$/.test(file.type)) {
-    steerImage.update(() => ({ error: `${file.name || "that file"} is not a png, jpeg, gif or webp image` }));
-    return false;
-  }
-  if (file.size > MAX_BYTES) {
-    steerImage.update(() => ({ error: `image is ${file.size} bytes, over the 5 MB limit` }));
-    return false;
-  }
+/** A pasted or dropped file checked (an image, 5 MB at most), read and measured: the chip's image, or why not.
+ *  3.3.11.0 R1: the Prompt panel's paste and drop take the same path (session/PromptComposer.tsx). */
+export async function readImage(file: File, from: "paste" | "drop"): Promise<{ img?: SteerImage; error?: string }> {
+  if (!/^image\/(png|jpeg|gif|webp)$/.test(file.type)) return { error: `${file.name || "that file"} is not a png, jpeg, gif or webp image` };
+  if (file.size > MAX_BYTES) return { error: `image is ${file.size} bytes, over the 5 MB limit` };
   const data_b64 = await readB64(file);
   const d = await dims(`data:${file.type};base64,${data_b64}`);
-  steerImage.update(() => ({ img: { name: file.name || "pasted.png", media_type: file.type, bytes: file.size, width: d?.w, height: d?.h,
-                                     data_b64, from }, error: "", offer: null, eyes: "", sid }));
+  return { img: { name: file.name || "pasted.png", media_type: file.type, bytes: file.size, width: d?.w, height: d?.h, data_b64, from } };
+}
+
+/** A pasted or dropped file: checked (an image, 5 MB at most), read, measured, the chip set. */
+export async function takeFile(file: File, sid: string, model: string | null | undefined, from: "paste" | "drop"): Promise<boolean> {
+  const got = await readImage(file, from);
+  if (!got.img) {
+    steerImage.update(() => ({ error: got.error || "that file is not an image" }));
+    return false;
+  }
+  steerImage.update(() => ({ img: got.img!, error: "", offer: null, eyes: "", sid }));
   await offerFor(sid, model);
   return true;
 }
+
+/** The image as a session command's fields (a capture's path, else its bytes). */
+export const imageFields = (img: SteerImage) =>
+  img.path ? { image_path: img.path } : { image: { media_type: img.media_type, data_b64: img.data_b64, name: img.name } };
 
 /** The first image file a clipboard or a drop carries, if any. */
 export function imageFile(items: DataTransfer | null): File | null {

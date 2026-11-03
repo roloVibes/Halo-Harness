@@ -1,6 +1,6 @@
 # Studio: steering and exporting a session
 
-Read this when you steer an agent from Session's Live column and want to know which agent and which call it reaches, or save a session as one Markdown trace file, or ask why an answer came out as it did.
+Read this when you steer an agent from Session's Live column and want to know which agent and which call it reaches, or save a session as one Markdown trace file, or ask why an answer came out as it did, or type a turn into the session from Studio with the Prompt panel.
 
 Part of [Halo Studio](STUDIO.md), which lists every part. The rest of the Session section (the map, Cost, the strips) is in [Session](STUDIO-sections.md#session).
 
@@ -97,6 +97,42 @@ in the TUI writes it beside the session log and says the path. Studio
 serves it at `GET /api/sessions/<sid>/trace.md` (`text/markdown`), behind
 the same token as every route.
 
+## The Prompt panel (3.3.11.0 R1)
+
+The owner: "a box to just type into like it is the tui but it's in session view, and you can open it if you want like
+how the cost and map modules work. I love looking at live, but that's more for steering". **Prompt**
+(`session-prompt`) is a strip at the foot of Session (in the header's **+** menu like Cost and Map); `Alt+Enter`, the
+palette's "Prompt: type into this session", `?prompt=1` and `halo studio --session <id> --prompt` open it with the
+keyboard in its box. It talks to the chosen session (the map's, else the newest live one here).
+
+**The box** behaves like the terminal's prompt: `Enter` sends, `Shift+Enter` is a new line, `Up` / `Down` walk this
+session's history (kept in this browser, per session; a private window keeps none) when the caret is on the first /
+last line. `/` opens the **slash list** -- the same table the TUI completes from (`commands/builtins.py`) plus the
+session's project and user commands and skills, each with its arguments and one line of help (`GET
+/api/sessions/<sid>/slash`) -- filtered as you type: `Up` / `Down` move in it, `Tab` (or `Enter` on a name not yet
+complete) completes, `Esc` closes it. A `/` line runs in the session through the control socket's `slash` and its
+output lands in the panel as the lines the terminal would print. Ctrl+V with an image, or an image file dropped on the
+box, becomes the chip under it, as on the steer box; a dropped file path lands in the text.
+
+**While a turn runs**, a send asks first (`submit` with `when_busy: refuse`): the busy line keeps your text and offers
+**Queue it** (the session holds it, one turn at a time, and starts it the moment the running turn ends; the terminal's
+prompt hint says "1 queued from Studio") and **Steer** (it goes into the running turn now). Cancel keeps the text in
+the box.
+
+**The conversation** reads like the terminal: your turns (marked **from Studio** when this page sent them; the
+terminal's transcript says `(from Studio) prompt: ...` above the turn), the assistant's text, each tool call on one line
+(with a pack policy's line when one answered it), the turn's end line and the asks. An ask the terminal shows as a card
+(a permission, a question, a plan, an approval) shows here with the same buttons -- Allow, Allow for this session,
+Deny; the question's options; Approve the plan, Keep planning; Accept, Stop -- and answers through the socket's
+`answer`. Live stays the stream for steering.
+
+**The receipt's four marks** sit beside each turn you sent: **sent** (Studio stored it, before it talked to the
+session), **delivered** (the session took it), **read** (it is in the model's input: the user node the request is
+built from carries the receipt's id, so the transcript is the evidence), **replied** (the turn that read it ended).
+A mark lights cyan when reached (replied green); a failed send is red with the reason in its title (`busy`, `held`,
+`expired` after 24 hours unread, or the socket's error). The ladder and its file are in
+[REMOTE.md](REMOTE.md#receipts-33110-r1).
+
 ## Why this answer? (3.3.6.0 R4)
 
 Every text or output row of the Live column carries **why?** (`session-live-why`). A click opens the Inspector on the
@@ -116,7 +152,11 @@ lines). The same answer comes from `/why [turn]` in the TUI and `halo session po
 `follow.ts` (when the column follows), `LiveTarget.tsx` (the target line),
 `LiveRows.tsx` (the outline, the steer row, "after your steer"),
 `TraceExport.tsx` (Export), `Why.tsx` (why?, 3.3.6.0 R4), `routes/shared/liveFeed.ts` (`addSteer`),
-`styles/session-target.css`; `halo_harness/session_trace.py` (the trace),
+`styles/session-target.css`; 3.3.11.0 R1 the Prompt panel: `Prompt.tsx`, `PromptComposer.tsx`, `PromptFeed.tsx`,
+`promptStore.ts`, `promptSend.ts`, `styles/prompt.css`, `studio/sessions_prompt_api.py`, `remote/prompt_queue.py`,
+`remote/receipts.py`, `remote/receipt_seams.py` (tests: `tests/test_studio_prompt.py` in headless Chrome,
+`tests/test_remote_submit.py`, `tests/test_receipts.py`, `tests/test_sessions_api_prompt.py`);
+`halo_harness/session_trace.py` (the trace),
 `session_trace_cli.py` (`halo session export`), `studio/sessions_api.py`
 (the route), `studio/postmortem_api.py` (Why this answer?). Tests: `tests/test_postmortem.py`, `tests/test_session_trace.py`,
 `tests/test_studio_session_target.py` (headless Chrome).
@@ -133,4 +173,4 @@ session's harness runs on (a Mac or Kali driving this Studio captures this PC's 
 the capture on the chip for the next steer. When the session's model cannot see, the chip carries the eyes offer's
 line and its three buttons (Visual lane, Describe it, Text only; the one picked rides with the steer); a running
 turn's own eyes card shows the same three above the target line. Typing a whole new prompt from Studio is the
-composer of 3.3.9.0; this round's image rides the steer.
+Prompt panel's (3.3.11.0 R1, above), whose paste and drop take the same path.

@@ -381,3 +381,11 @@ Streams (3.3.9.3) are TensorFold's word for the requests a server runs at once: 
 ## info row
 
 An info row (3.3.10.0 R3) is a `halo pack doctor` row of severity `info`: a note, never a problem, printed `[INFO]` after the errors and warnings (dimmed on a terminal) and counted apart on the RESULT line (`1 note(s)`). Today there is one kind: a fleet capability a pack offers that you hid from the fleet on purpose with `fleet.capabilities.hide`. `halo pack doctor` exits 0 when every row is an info row (`--json` keeps the severity on each row), `halo doctor --config` does not count it as a finding, and the Pack Manager shows it as a note ("1 note"), apart from the doctor lines.
+
+## receipt
+
+A receipt (3.3.11.0 R1) is the record of one thing Studio sent a live session -- a prompt, a steer or an answer -- and how far it got: `sent` (Studio stored it, before the socket call), `delivered` (the session took it), `read` (it is in the model's input: the user node the request is built from carries the receipt's id) and `replied` (that turn ended), or `failed` with a reason (`busy`, `held`, `expired` after 24 hours unread). The rows live in the session's `receipts.jsonl`; a retry with the same `client_id` returns the stored row instead of sending again, and the Prompt panel draws the ladder as four marks beside each of your turns.
+
+## queued turn
+
+A queued turn (3.3.11.0 R1) is the one user turn a session holds while another runs: the Prompt panel's **Queue it** (the control socket's `submit` with `when_busy: queue`) hands it to the session, which starts it the moment the running turn ends (`turn_done`) as the next turn, never as a steer. One at a time: a second answers that one is already queued. The terminal's prompt hint says "1 queued from Studio" while it waits, and a session that quits with one held drops it with one line in its transcript.

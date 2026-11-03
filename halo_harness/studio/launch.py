@@ -55,7 +55,7 @@ def _query(mode: Optional[str], edit: Optional[str]) -> str:
     for Session (3.1.4.0 R2, studio/session_open.py) `edit` is the session: `?mode=session&session=<sid>`."""
     if mode == "session" and edit:
         from halo_harness.studio.session_open import SectionTarget
-        return SectionTarget("session", edit).query()
+        return SectionTarget.from_text(edit).query()  # 3.3.11.0 R1: `prompt:<sid>` adds &prompt=1
     if edit:
         from halo_harness.studio.edit_target import parse
         target, _why = parse(edit)
@@ -89,8 +89,10 @@ def launch_detached(mode: Optional[str], *, cwd: Path, state_dir: Path, open_bro
             _open(url)
         return url
     argv = [sys.executable, "-u", "-m", "halo_harness", "studio", "--cwd", str(cwd)]
-    if mode == "session":  # 3.1.4.0 R2: `edit` is the session to watch ('' = the newest live one)
-        argv += ["--session"] + ([edit] if edit else [])
+    if mode == "session":  # 3.1.4.0 R2: `edit` is the session to watch ('' = the newest live one); 3.3.11.0 R1: --prompt
+        from halo_harness.studio.session_open import SectionTarget
+        t = SectionTarget.from_text(edit or "")
+        argv += ["--session"] + ([t.session] if t.session else []) + (["--prompt"] if t.prompt else [])
     elif edit:
         argv += ["--edit", edit]
     elif mode in STUDIO_MODES:

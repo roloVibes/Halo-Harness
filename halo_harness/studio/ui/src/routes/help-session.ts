@@ -21,6 +21,16 @@ export const SESSION_HELP: Record<string, Help> = {
       "An ask lands as an amber card with its A / R / S / O answers; the newest 500 lines stay here, the full log is in Activity.",
     ),
   },
+  "session-prompt": { // 3.3.11.0 R1
+    about: "Type into the chosen session as in the terminal, and see what became of what you typed.",
+    help: lines(
+      "Enter sends, Shift+Enter is a new line, Up / Down walk this session's history; Alt+Enter (or the palette) opens this panel with the keyboard in it.",
+      "/ opens the slash list, the terminal's own commands and the session's custom ones, filtered as you type: Tab completes, Esc closes; a / line runs in the session and its output lands here.",
+      "While a turn runs, a send asks first: Queue it starts it when that turn ends (one at a time), Steer puts it into the running turn. A pasted image or a dropped file rides along.",
+      "Beside each of your turns, four marks: sent (Studio stored it), delivered (the session took it), read (it is in the model's input), replied (that turn ended); red when it failed, the reason in its title.",
+      "The conversation reads like the terminal: replies, one line per tool call, the asks with their buttons. Live stays the stream for steering.",
+    ),
+  },
   "session-map": {
     about: "Your sessions on this machine, each one's agents as a tree: who spawned whom, the model, the cost, the tool running now.",
     help: lines(

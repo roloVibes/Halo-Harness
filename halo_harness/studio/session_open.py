@@ -23,6 +23,9 @@ Studio sections runs, `data-pack-sections` (`[{id, pack, title}]`, JSON) so
 a saved pack section is the first paint (its frame says "loading the
 pack's section" until `GET pack/registry` answers). `cli_target` is `halo studio
 --session [<id>]`, `section_target` the TUI's `/studio [<section>]`.
+3.3.11.0 R1: `prompt` (`halo studio --session <id> --prompt`) opens Session's
+Prompt panel with the keyboard in it: `&prompt=1` in the URL, `prompt: true`
+in the frame; as `text` it rides as `prompt:<sid>` (`SectionTarget.from_text`).
 """
 
 from __future__ import annotations
@@ -37,6 +40,7 @@ from urllib.parse import quote
 BOOT_ATTR = "data-live-session"
 PACK_ATTR = "data-pack-sections"  # 3.2.1.0 R1: the running packs' own sections, read by ui/src/lib/store.ts
 _SID_RE = re.compile(r"[A-Za-z0-9_.:-]{1,128}")
+PROMPT_TAG = "prompt:"
 
 
 @dataclass(frozen=True)
@@ -44,11 +48,18 @@ class SectionTarget:
     mode: str
     session: str = ""
     name: str = ""  # how the one-line outcome names it ("this session"); default below
+    prompt: bool = False  # 3.3.11.0 R1: Session's Prompt panel, focused
+
+    @classmethod
+    def from_text(cls, text: str) -> "SectionTarget":
+        """The Session target a `text` names (`<sid>`, `prompt:<sid>`, `prompt:`)."""
+        text = text or ""
+        return cls("session", text[len(PROMPT_TAG):], prompt=True) if text.startswith(PROMPT_TAG) else cls("session", text)
 
     @property
     def text(self) -> str:
         """What `url_for` / `existing_url` / `launch_detached` carry as `edit`: the session id, '' for a section."""
-        return self.session if self.mode == "session" else ""
+        return ((PROMPT_TAG if self.prompt else "") + self.session) if self.mode == "session" else ""
 
     @property
     def display(self) -> str:
@@ -65,17 +76,19 @@ class SectionTarget:
     @property
     def cli(self) -> str:
         if self.mode == "session":
-            return "halo studio --session" + (f" {self.session}" if self.session else "")
+            return "halo studio --session" + (f" {self.session}" if self.session else "") + (" --prompt" if self.prompt else "")
         return f"halo studio --mode {self.mode}"
 
     def query(self) -> str:
+        tail = "&prompt=1" if self.mode == "session" and self.prompt else ""
         if self.mode == "session" and self.session:
-            return f"?mode=session&session={quote(self.session, safe='')}"
-        return f"?mode={self.mode}"
+            return f"?mode=session&session={quote(self.session, safe='')}{tail}"
+        return f"?mode={self.mode}{tail}"
 
     def focus(self) -> dict:
         """The `focus` frame's data, and POST /api/focus's body."""
-        return {"edit": "", "mode": self.mode, "session": self.text}
+        data = {"edit": "", "mode": self.mode, "session": self.session if self.mode == "session" else ""}
+        return {**data, "prompt": True} if self.mode == "session" and self.prompt else data
 
 
 def valid_session_id(sid: str) -> bool:
@@ -121,9 +134,14 @@ def boot_html(page: bytes, sid: Optional[str] = None, *, cwd=None, state_dir=Non
     return page.replace(b"<html", b"<html" + attr, 1) if b"<html" in page else page
 
 
-def cli_target(asked: str) -> "tuple[SectionTarget, str]":
-    """`halo studio --session [<id>]`: the target and a note ('' or what Studio shows instead).
+def cli_target(asked: str, prompt: bool = False) -> "tuple[SectionTarget, str]":
+    """`halo studio --session [<id>] [--prompt]`: the target and a note ('' or what Studio shows instead).
     `<id>` may be a prefix of a live session's id; omitted, the newest live one."""
+    target, note = _cli_target(asked)
+    return (SectionTarget("session", target.session, prompt=True) if prompt else target), note
+
+
+def _cli_target(asked: str) -> "tuple[SectionTarget, str]":
     asked = (asked or "").strip()
     live = [str(r["session_id"]) for r in live_sessions()]
     if asked:
