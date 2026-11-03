@@ -72,12 +72,23 @@ def test_take_over_is_recorded_in_both_transcripts_and_reaches_a_member(ctx: Ctx
         ctx.check("both are journaled", [r["action"] for r in journal.read(rig.state, 0, kinds=("handoff",))] == ["take_over", "take_over"])
 
 
+def _wait_listed(agent_id: str, timeout: float = 10.0) -> None:
+    """The hand-off route reads the fleet local view (a cached snapshot), not the live socket tree the rig read: wait until
+    that view lists the agent, or the slow runner answers 404 "no agent" (Windows shard 0, run 41578034998)."""
+    from halo_harness.fleet import local_view
+    deadline = time.time() + timeout
+    while time.time() < deadline and not any(a.get("agent_id") == agent_id for s in local_view.snapshot().get("sessions") or []
+                                                for a in s.get("agents") or []):
+        time.sleep(0.1)
+
+
 @test
 def test_hand_to_writes_the_markdown_then_stops(ctx: Ctx):
     from halo_harness.theme import set_config_value
     from tests.helpers.studio_fleet_rig import MEMBER, StudioFleetRig
     with StudioFleetRig() as rig:
         a = rig.agent("Implement")["agent_id"]
+        _wait_listed(a)  # the first hand-off hit the same cached-view 404 (Windows shard 1, run 41593119831)
         status, got = rig.api("POST", f"fleet/local/{rig.act.session_id}/agents/{a}/handoff", {"mode": "hand_to", "to": "kali@lab"})
         path = Path(got.get("path") or "")
         md = path.read_text(encoding="utf-8") if path.is_file() else ""
@@ -90,13 +101,7 @@ def test_hand_to_writes_the_markdown_then_stops(ctx: Ctx):
         set_config_value("paperclip.enabled", True)  # 3.1.4.0: a leftover section of a removed feature
         try:
             b = rig.agent("Research")["agent_id"]
-            # the hand-off route reads the fleet local view (a cached snapshot), not the live socket tree the rig read: wait
-            # until that view lists the agent, or the slow runner answers 404 "no agent" (Windows shard 0, run 41578034998)
-            from halo_harness.fleet import local_view
-            deadline = time.time() + 10.0
-            while time.time() < deadline and not any(a.get("agent_id") == b for s in local_view.snapshot().get("sessions") or []
-                                                        for a in s.get("agents") or []):
-                time.sleep(0.1)
+            _wait_listed(b)
             status, got = rig.api("POST", f"fleet/local/{rig.act.session_id}/agents/{b}/handoff", {"mode": "hand_to", "to": MEMBER})
         finally:
             set_config_value("paperclip.enabled", False)

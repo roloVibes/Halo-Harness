@@ -57,6 +57,17 @@ def write_yaml(path: Path, raw: dict) -> None:
             time.sleep(0.05)
 
 
+def _unlink(path: Path) -> None:
+    for attempt in range(50):  # Windows: the server's reader still holds the file (WinError 32, Windows shard 1, run 41593119831)
+        try:
+            path.unlink()
+            return
+        except PermissionError:
+            if attempt == 49:
+                raise
+            time.sleep(0.1)
+
+
 def press(c, expr: str, until: str, timeout: float = 10):
     """Click `expr` with the pointer; the Linux runner's pointer path misses at times: then the element's own click()."""
     c.js(f"{expr}.scrollIntoView({{block: 'center'}}); 1")
@@ -101,7 +112,7 @@ def live(c, url: str, state: Path, raw: dict) -> dict:
     out["after_reload"] = c.js(f"{FIELD}.value")
     out["note_after_reload"] = c.js(f"!!{NOTE}")
     # 3. the bio's file deleted on disk: the list drops it, the form closes, the line says so
-    (state / "agents" / f"{BIO}.yaml").unlink()
+    _unlink(state / "agents" / f"{BIO}.yaml")
     out["gone_note"] = c.wait(f"{NOTE}?.hasAttribute('data-gone') && {NOTE}.textContent", 20)
     out["gone_in_list"] = c.js(f"!!{BIO_ROW}")
     out["form_closed"] = c.js("!document.querySelector('[data-testid=\"bio-form\"]')")
