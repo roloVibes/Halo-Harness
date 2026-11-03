@@ -33,14 +33,15 @@
                                                       log [<pack>] [--since 1h] (3.3.10.0 R2: every verdict)
 
 Every verb takes `--cwd DIR` (act as if run from DIR: its `.halo/packs/`).
-Exit codes: 0 done, 1 could not (the reason on stderr; for doctor: problems
-found), 2 usage.
+Exit codes: 0 done, 1 could not (the reason on stderr; for doctor: a blocks or
+warns row; info rows alone are 0), 2 usage.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -179,16 +180,21 @@ def _sources(args, cwd) -> int:
 def _doctor(args, cwd) -> int:
     from halo_harness.packs.doctor import problems
     found = problems(cwd=cwd)
+    real = [f for f in found if f["severity"] != "info"]  # 3.3.10.0 R3: an info row is a note, never a problem
     if args.json:
         print(json.dumps({"problems": found}, indent=2, ensure_ascii=False))
-        return 1 if found else 0
+        return 1 if real else 0
     print("halo pack doctor")
-    for f in found:
-        tag = "[ERROR]" if f["severity"] == "blocks" else "[WARN]"
-        print(f"  {tag} {f['text']}" + (f" -> {f['fix']}" if f["fix"] else ""))
-    blocks = sum(1 for f in found if f["severity"] == "blocks")
-    print(f"RESULT: {len(found)} problem(s) ({blocks} error(s), {len(found) - blocks} warning(s)).")
-    return 1 if found else 0
+    dim = sys.stdout.isatty() and not os.environ.get("NO_COLOR")
+    for f in real + [f for f in found if f["severity"] == "info"]:  # the notes last, dimmed on a terminal
+        tag = {"blocks": "[ERROR]", "info": "[INFO]"}.get(f["severity"], "[WARN]")
+        line = f"  {tag} {f['text']}" + (f" -> {f['fix']}" if f["fix"] else "")
+        print(f"\x1b[2m{line}\x1b[0m" if dim and f["severity"] == "info" else line)
+    blocks = sum(1 for f in real if f["severity"] == "blocks")
+    notes = len(found) - len(real)
+    print(f"RESULT: {len(real)} problem(s) ({blocks} error(s), {len(real) - blocks} warning(s))"
+          + (f", {notes} note(s)." if notes else "."))
+    return 1 if real else 0
 
 
 def cmd_pack(argv: list) -> int:

@@ -31,11 +31,18 @@ def _P():
 
 
 def _armed(cwd) -> list:
+    """3.3.10.0 R3: when the pack catalog cannot be read, the last list `armed()` read in this process answers (an
+    armed `on_error: deny` fence still denies); with nothing ever armed here that list is empty: no change."""
     try:
         return _P().armed(cwd=cwd)
-    except Exception as e:  # a pack catalog that cannot be read: no policy answers, said once per call
-        log.warning("policy: the armed policies could not be read: %s", e)
-        return []
+    except Exception as e:  # said once per call
+        try:
+            last = list(_P()._last)
+        except Exception:
+            last = []
+        log.warning("policy: the armed policies could not be read: %s%s", e, "; the last ones read here answer: " +
+                    ", ".join(f"{p.pack}/{p.id}" for p in last) if last else "")
+        return last
 
 
 def agent_of(session) -> str:

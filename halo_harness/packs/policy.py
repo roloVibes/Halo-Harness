@@ -30,7 +30,7 @@ EVENT = "policy"
 PROC_EVENT = "policy_proc"
 BUDGET_KEY = "packs.policy.budget_ms"
 BUDGET_MS = 2000
-_procs: dict = {}
+_procs, _last = {}, []  # the running processes; 3.3.10.0 R3: the last list armed() read in this process
 _lock = threading.Lock()
 
 
@@ -89,8 +89,8 @@ def declared(pack) -> "list[Policy]":
 
 
 def armed(state_dir=None, *, cwd=None) -> "list[Policy]":
-    """The policies that answer now, in the packs' run order. mode.json is read at each call (a stat and a small
-    read per pack that declares a policy), so a mode switched in another process counts at the next verdict."""
+    """The policies that answer now, in the packs' run order; mode.json is read at each call, so a mode switched in
+    another process counts at the next verdict. 3.3.10.0 R3: the list is kept (`_last`); a read that raises leaves it."""
     from halo_harness.packs import mode_state as M
     from halo_harness.packs import state as S
     from halo_harness.packs.registry import snapshot
@@ -105,6 +105,7 @@ def armed(state_dir=None, *, cwd=None) -> "list[Policy]":
     live = {p.key for p in out}
     for key in [k for k in list(_procs) if k not in live]:  # disarmed elsewhere (another terminal): its process stops
         stop(key[0], key[1])
+    _last[:] = out
     return out
 
 

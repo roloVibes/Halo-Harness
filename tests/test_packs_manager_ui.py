@@ -112,6 +112,8 @@ def test_update_asks_first_and_rollback_brings_it_back(ctx: Ctx):
 def test_run_a_workflow_fills_the_orchestra_form(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"its lineup under Templates, got {got.get('lineups')}", got.get("lineups") == ["doc-review--review"])
+    ctx.check(f"3.3.10.0 R3: its workflow resolved, got {got.get('template_workflow')}", got.get("template_workflow") ==
+              ["workflow doc-review/review -- review: Review the Markdown files under a folder and write one review report."])
     ctx.check(f"Run review goes to Orchestra, got {got.get('section_after_run')!r}", str(got.get("section_after_run")).startswith("Orchestra"))
     ctx.check(f"the form names the workflow, got {got.get('wf_ref')!r} {got.get('wf_title')!r}", got.get("wf_ref") == "doc-review/review"
               and got.get("wf_title") == "Run the workflow review")

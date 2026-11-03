@@ -14,6 +14,7 @@ not granted); this process serves Studio in a thread with the live feed on
 4b. (3.2.1.0 R1) a reload with Docs review saved paints Docs review first
    (the page's data-pack-sections; its frame says it is loading);
 5. the bundle panel shows the grant line, then (granted here) "hello from";
+5b. (3.3.10.0 R3) its api acts: publish, on, getData, mode, attention, route (tests/helpers/studio_packs_bundle.py);
 6. a review.done frame: the pack's line in Fleet's Activity, Session's Live
    column and the Reviews panel; an undeclared kind keeps the generic line;
 7. a row file: the attention row with the pack's label and keys, A answers it;
@@ -35,6 +36,7 @@ sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "tools"))
 
 from tests.helpers.chrome_driver import Driver  # noqa: E402
+from tests.helpers.studio_packs_bundle import bundle_api  # noqa: E402
 from tests.helpers.studio_packs_steps import (CUR, TABS, alt, attention, disabled, events, first_paint, mod_key, pa,  # noqa: E402
                                               open_tab, panel, press, q, qa)
 
@@ -151,7 +153,7 @@ class PacksStudioDriver(Driver):
         url = url.replace("mode=orchestra&feed=off", "mode=roles&tour=off&view=workspace")
         ctx = {"state": state, "srv": srv}
         try:
-            yield tuple((fn, (c, url, ctx)) for fn in (sections, session_panel, palette, form, first_paint, bundle, events,
+            yield tuple((fn, (c, url, ctx)) for fn in (sections, session_panel, palette, form, first_paint, bundle, bundle_api, events,
                                                         attention, disabled))
         finally:
             srv.shutdown()

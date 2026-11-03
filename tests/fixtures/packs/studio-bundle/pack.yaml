@@ -1,6 +1,9 @@
 # A fixture pack (3.2.0.0 R3, tests/test_packs_studio_*.py): one Studio
 # section with a bundle panel -- an ES module that exports mount(el, api) --
-# which Studio loads only once you grant studio-script.
+# which Studio loads only once you grant studio-script. 3.3.10.0 R3: the
+# bundle's api acts too (publish, on, getData, mode, attention, route), so the
+# pack declares one event kind, an events panel that shows it, one attention
+# row kind and one mode.
 id: studio-bundle
 name: Studio bundle
 version: 0.1.0
@@ -9,6 +12,9 @@ author: Halo fixtures
 license: MIT
 halo_api: {min: "1.0"}
 contributes:
+  events: [hello.said]
+  modes:
+    - {id: loud, label: Loud}
   studio:
     sections:
       - id: hello
@@ -20,6 +26,16 @@ contributes:
             kind: bundle
             source: studio/hello.js
             w: 12
-            h: 16
+            h: 30
             help: The pack's own script draws this panel (it runs once you grant studio-script).
+          - id: said
+            title: Said
+            kind: events
+            w: 12
+            h: 30
+            help: Each hello.said the bundle publishes, newest last.
+    events:
+      hello.said: {label: HELLO, line: "{text}"}
+    attention:
+      hello.ask: {label: hello, keys: {a: ok, s: skip}}
 permissions: [studio-script]

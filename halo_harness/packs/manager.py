@@ -9,7 +9,8 @@ docs/STUDIO-packs.md). One read of everything, in the words the CLI prints:
                                   "problems": [doctor row]  the ones of no pack (sources, conflicts)}
 
 A row is `halo pack list`'s row and `halo pack inspect`'s payload (cli_views)
-plus: `health` (halo pack doctor's rows for it), `compat` (the lines that
+plus: `health` (halo pack doctor's blocks and warns rows for it; 3.3.10.0
+R3: its info rows are `notes`), `compat` (the lines that
 keep it from running here, in the doctor's words: the extension API or Halo
 range, a dependency, a fleet capability not available here), `requires`
 with `met`, `granted` / `requested`, `contributes_lines` (the block `halo
@@ -63,7 +64,7 @@ def _compat(pack, snap, granted, *, cwd, state_dir) -> "list[str]":
         _order, problems = resolve(snap.packs, enabled=sorted(set(snap.enabled) | {pack.id}))
         lines = [ln for ln in problems.get(pack.id, []) if ": pack.yaml: " not in ln]
     try:
-        lines += [r["text"] for r in CW.doctor_rows(pack, granted, cwd=cwd, state_dir=state_dir)]
+        lines += [r["text"] for r in CW.doctor_rows(pack, granted, cwd=cwd, state_dir=state_dir) if r["severity"] != "info"]
     except Exception:  # an unreadable catalog cache: the doctor itself says so
         pass
     if pack.id in snap.order:  # 3.2.0.0 R7: a grant the last update asked for, in the doctor's words
@@ -110,7 +111,8 @@ def row(pack, snap, *, listed: "dict | None" = None, health=(), cwd=None, state_
     out.update(installed=pack.scope != "source", problems=list(d["problems"]), granted=granted,
                requested=MF.requested(pack.manifest), halo_api=V.describe(d["halo_api"]), halo=V.describe(d["halo"]),
                this_api=API_VERSION, this_halo=__version__, requires=_requires(pack, snap),
-               health=[h for h in health if h.get("pack") == pack.id],
+               health=[h for h in health if h.get("pack") == pack.id and h.get("severity") != "info"],
+               notes=[h for h in health if h.get("pack") == pack.id and h.get("severity") == "info"],  # 3.3.10.0 R3
                compat=_compat(pack, snap, granted, cwd=cwd, state_dir=state_dir),
                contributes_lines=CW.contributes_lines(d["contributes"]), workflows=_workflows(pack),
                sections=[{"id": qualify(pack.id, str(s.get("id"))), "title": str(s.get("title") or s.get("id"))}

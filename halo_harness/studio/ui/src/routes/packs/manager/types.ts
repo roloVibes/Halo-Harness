@@ -5,11 +5,14 @@
 
 export type Permission = { name: string; needed_by: string[]; granted: boolean };
 export type Requirement = { pack: string; version: string; met: boolean; have: string; running: boolean };
-export type HealthRow = { pack: string; severity: "blocks" | "warns"; check: string; text: string; fix: string; path: string };
+export type HealthRow = { pack: string; severity: "blocks" | "warns" | "info"; check: string; text: string; fix: string; path: string };
 export type WorkflowInput = { name: string; type: string; required: boolean; default: unknown; description: string };
 export type PackWorkflow = { ref: string; name: string; description: string; stages: string[]; inputs: WorkflowInput[] };
 export type PackBio = { name: string; file: string; model: string; line: string; kind: string; needs: { need: string; granted: boolean }[] };
-export type PackLineup = { name: string; file: string; members: { agent: string; role: string }[]; tiers: number; workflows: string[] };
+/** 3.3.10.0 R3: a lineup's workflow resolved: `<pack>/<name> -- <title>: <description>`, or "<name> (not found)". */
+export type WorkflowLine = { ref: string; found: boolean; line: string };
+export type PackLineup = { name: string; file: string; members: { agent: string; role: string }[]; tiers: number; workflows: string[];
+  workflow_lines?: WorkflowLine[] };
 
 export type PackRow = {
   id: string;
@@ -35,7 +38,10 @@ export type PackRow = {
   permissions: Permission[];
   granted: string[];
   requested: string[];
+  /** halo pack doctor's blocks and warns rows for it. */
   health: HealthRow[];
+  /** 3.3.10.0 R3: its info rows (a note, never a problem: a fleet capability hidden on purpose). */
+  notes: HealthRow[];
   /** What keeps it from running here, in the doctor's words. */
   compat: string[];
   problems: string[];

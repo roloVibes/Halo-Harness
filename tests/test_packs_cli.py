@@ -143,6 +143,30 @@ def test_config_where_and_doctor_config_have_the_packs_group(ctx: Ctx):
                   and all(f["severity"] == "warns" for f in found))  # 3.2.0.0 R2: the bios' model row and bash; R4: docs.review
 
 
+@test
+def test_a_lineups_workflows_resolve(ctx: Ctx):
+    """3.3.10.0 R3: inspect and the Pack Manager's payload read a lineup's workflows as `<pack>/<name> -- <title>:
+    <description>` (packs/lineup_run.resolved_workflows); a name no pack knows stays as written with "(not found)"."""
+    from halo_harness.packs.discover import read_pack
+    from halo_harness.packs.lineup_run import resolved_workflows
+    from halo_harness.packs.manager import payload
+    line = "doc-review/review -- review: Review the Markdown files under a folder and write one review report."
+    with PacksHome() as h:
+        code, out, _err = h.cli("inspect", str(h.source()))
+        ctx.check(f"a folder before install: its own workflow resolved, got {code}", code == 0 and f"    workflow {line}" in out)
+        h.install(h.source(), enable=True)
+        code, out, _err = h.cli("inspect", "doc-review", "--json")
+        got = json.loads(out)["lineups"][0]["workflow_lines"]
+        ctx.check(f"--json carries them, got {got}", got == [{"ref": "doc-review/review", "found": True, "line": line}])
+        row = next(p for p in payload(cwd=h.repo, state_dir=h.state)["packs"] if p["id"] == "doc-review")
+        ctx.check(f"the Pack Manager's lineups too, got {row['lineups'][0].get('workflow_lines')}",
+                  row["lineups"][0]["workflow_lines"] == got)
+        pack = read_pack(h.packs / "doc-review", "user")
+        got = resolved_workflows(pack, {"workflows": ["review", "doc-review--review", "audit", "other-pack/sweep"]}, cwd=h.repo)
+        ctx.check(f"a bare name of its own, the -- form once, two names no pack knows, got {got}", [g["line"] for g in got]
+                  == [line, "audit (not found)", "other-pack/sweep (not found)"] and [g["found"] for g in got] == [True, False, False])
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

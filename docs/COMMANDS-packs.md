@@ -11,7 +11,7 @@ and MCP servers with a `pack.yaml` at its root ([PACKS.md](PACKS.md); the
 contract is [EXTENSION_API.md](EXTENSION_API.md)). Every verb takes `--cwd
 DIR` (act as if run from DIR, so its `.halo/packs/` is the repo's) and
 `--json` (one JSON object on stdout). Exit codes: 0 done, 1 could not (the
-reason on stderr, one line each; for `doctor`: problems found), 2 usage. A
+reason on stderr, one line each; for `doctor`: a blocks or warns row; info rows alone exit 0), 2 usage. A
 bare `halo pack` prints the verb list. 3.3.7.0 R5: `verdict`, `on`, `off` and
 `list --bundles` are the bundle verbs ([Bundles](#bundles) below). 3.3.10.0 R1:
 `mode` and `policy` ([Modes and policy hooks](#modes-and-policy-hooks) below).
@@ -47,7 +47,11 @@ API and Halo versions it works with, what it requires), every name it
 offers, each bio with the model it resolves to (and why: its
 `models.capabilities`, or your default model when no catalog model has
 them), the grants it needs (granted or not) and its memory namespace, each
-lineup with its members, tiers, workflows and acceptance, each permission it
+lineup with its members, tiers and acceptance (3.3.10.0 R3: then one line per
+workflow it runs, resolved: `workflow <pack>/<name> -- <title>: <description>`,
+the title being the workflow's `name:`; a name no pack here knows stays as
+written with "(not found)"; `--json`: `workflow_lines: [{ref, found, line}]`),
+each permission it
 requests with what needs it and whether it is granted, its settings
 (defaults with yours on top) and its problems. 3.2.0.0 R4: a "contributes:"
 block lists what it adds to Studio (sections and their panels, panels in a
@@ -65,7 +69,8 @@ bios:
     needs: bash (not granted)
     memory namespace: doc-review/reviews
 lineups:
-  doc-review--review: doc-review--writer (main), doc-review--reviewer (reviewer); 2 tiers; workflows review; acceptance.test: python -m pytest -q; acceptance.review: true
+  doc-review--review: doc-review--writer (main), doc-review--reviewer (reviewer); 2 tiers; acceptance.test: python -m pytest -q; acceptance.review: true
+    workflow doc-review/review -- review: Review the Markdown files under a folder and write one review report.
 contributes:
   Studio section docs (Docs review): notes (markdown), checks (table), links (links)
   Studio panel in session: reviews (events)
@@ -231,7 +236,21 @@ folder is gone, a bio or lineup file pack.yaml does not list, and what the
 privacy scan finds in the pack's files. `halo doctor --config` lists the
 same lines under its packs group. A bio naming one provider, a stray
 workflow name, a tag Halo does not know and a need pack.yaml does not request
-are manifest problems (the first group).
+are manifest problems (the first group). 3.3.10.0 R3: an enabled pack's
+`.mcp.json` server whose command is not on PATH (a program its owner installs,
+like the concord pack's `concord-mcp`) is one warns row, `not-on-path`.
+
+**Severities and the exit code** (3.3.10.0 R3). Each row is `blocks` (printed
+`[ERROR]`: the pack contributes nothing until it is fixed), `warns` (`[WARN]`:
+a part of it does not run) or `info` (`[INFO]`: a note, never a problem; today
+one kind: a fleet capability hidden on purpose with `fleet.capabilities.hide`).
+Info rows print last (dimmed on a terminal) and the RESULT line counts them
+apart (`RESULT: 0 problem(s) (0 error(s), 0 warning(s)), 1 note(s).`); the
+exit code is 1 when any blocks or warns row is there and 0 when every row is
+info. `--json` keeps its shape (`{"problems": [...]}`, each row with its
+`severity`) and the same exit rule; `halo doctor --config` tags the row
+`[INFO]` and does not count it as a finding. The Pack Manager counts info rows
+apart from the doctor lines ("1 note").
 
 ## Bundles
 

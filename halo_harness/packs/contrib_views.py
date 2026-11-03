@@ -8,7 +8,8 @@ inspect` and the fleet rows of `halo pack doctor` (Halo 3.2.0.0 R4).
                                available here or not and why, the inspector lines, the mission metadata)
     doctor_rows(pack, granted, cwd=, state_dir=) -> one "fleet-capability" row per capability not available,
                                and (3.2.1.0 R3) one "fleet-hidden" row saying how many fleet.capabilities.hide
-                               keeps off the catalog (inspect marks each "hidden from the fleet")
+                               keeps off the catalog (inspect marks each "hidden from the fleet"); 3.3.10.0 R3:
+                               severity `info` (hidden on purpose: `halo pack doctor` exits 0 on it)
 
 Availability is checked against this harness's capabilities catalog as
 cached (packs/fleet_registry.host_catalog: any age, else a light look at the
@@ -129,9 +130,9 @@ def doctor_rows(pack, granted, *, cwd=None, state_dir=None) -> "list[dict]":
     fl = _fleet(pack, granted, running=True, cwd=cwd, state_dir=state_dir)
     out = []
     shut = [c["name"] for c in (fl or {}).get("capabilities") or [] if c.get("hidden")]
-    if shut:  # 3.2.1.0 R3: how many fleet.capabilities.hide keeps off the catalog
+    if shut:  # 3.2.1.0 R3: how many fleet.capabilities.hide keeps off the catalog; 3.3.10.0 R3: on purpose, an info row
         from halo_harness.fleet.identity import home
-        out.append({"severity": "warns", "check": "fleet-hidden", "path": str(Path(state_dir or home()) / "config.json"),
+        out.append({"severity": "info", "check": "fleet-hidden", "path": str(Path(state_dir or home()) / "config.json"),
                     "fix": "take it out of fleet.capabilities.hide to offer it to the fleet",
                     "text": f"{pack.id}: {len(shut)} fleet capabilit{'y is' if len(shut) == 1 else 'ies are'} hidden from "
                             f"the fleet by fleet.capabilities.hide: {', '.join(shut)}"})

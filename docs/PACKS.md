@@ -229,6 +229,10 @@ This panel is studio-bundle's own script (studio/hello.js). It runs once you gra
 halo pack enable studio-bundle --grant studio-script
 ```
 
+  Since 3.3.10.0 R3 the script can act, not only draw: publish the pack's own events (at most 20 writes in 10
+  seconds), listen for them, read its data folder and its mode, raise an attention row, and take you to a section
+  ([the bundle panel's `api`](EXTENSION_API.md#the-bundle-panels-api)).
+
 ## In the fleet
 
 A pack may bring worker capabilities to your fleet: what its `pack.yaml`
@@ -576,7 +580,8 @@ without policies and modes is untouched.
 
 ## The reference pack
 
-Halo ships one pack, **Documentation Review** (`doc-review`,
+Halo ships two packs: **Documentation Review**, below, and **Concord** ([The concord pack](#the-concord-pack)).
+**Documentation Review** (`doc-review`,
 `halo_harness/templates/packs/doc-review/`): a reviewer and a writer bio, the
 review lineup, the review workflow (read each Markdown file, judge the
 findings, write one typed `review-report`), a Studio section with the last
@@ -591,6 +596,35 @@ version, installing from a folder or a git url, checking it with `halo pack
 doctor`. `tests/test_reference_pack.py` installs it in a fresh home, runs its
 workflow, finds it in Studio, Roles and the fleet catalog, removes it and
 finds nothing of it left.
+
+## The concord pack
+
+**Concord** (`concord`, `halo_harness/templates/packs/concord/`, 3.3.10.0 R3) lets a Halo session take part in a
+repository's [Concord](https://github.com/Get-Concord-AI/concord-mcp) workspace: the shared record of who works on
+what (tasks with the files they claim, hand-offs, messages between Claude Code, Codex, Cursor or Gemini sessions in
+the same repo). It ships with Halo and stays off until you turn it on, and it is the first real consumer of the
+policy hook. Concord's telemetry to getconcord.ai is on by default upstream; this pack turns it off
+(`CONCORD_TELEMETRY_DISABLED=1` on the MCP server, every hook command and the policy's check).
+
+- **Install Concord yourself**, once per machine: `npm install -g @concord-ai/concord-mcp` (Halo never downloads
+  or installs it). In the repo, Concord's own `concord setup --no-mcp --no-adapters` creates its `.concord/` folder.
+  Until `concord-mcp` is on PATH, `halo pack doctor` says so in one `not-on-path` row.
+- **Turn it on**: `halo pack install concord`, `halo pack enable concord --grant hooks --grant mcp:concord`.
+- **What it adds**: the `concord` MCP server (your `concord-mcp`, `CONCORD_REPO_ROOT` set to the project folder
+  through `${CLAUDE_PROJECT_DIR}`, which Halo fills in for a pack's `.mcp.json`); Concord's Claude Code hook commands
+  for UserPromptSubmit, PostToolUse, Stop and SessionEnd (message delivery and read receipts); the `coordinating`
+  mode and its `claimed-files` policy: `halo pack mode concord coordinating on`, and a Write or Edit to a file an
+  active Concord task claims is denied with the pack's line (`policy: deny -- claimed-files: concord: src/auth.py is
+  claimed by task t-42 (pack concord, rule claimed)`). The policy runs `concord check <path>` (exit 1 = an overlap);
+  a box without Concord blocks nothing (`on_error: allow`, and no `concord` on PATH is an allow).
+- **Identity**: Concord tells agents apart by an id; Claude Code hands it a session id and Halo does not, so set
+  `CONCORD_AGENT_ID` before starting halo, and `CONCORD_TASK=<your task id>` so your own claim is not counted
+  against your own writes.
+- **The live check** (the pack's `README.md` has it in full): a Halo session and a Codex session in one repo trading
+  a prompt and a reply through Concord, and a Write to a file the Codex task claims getting the pack's line.
+
+`tests/test_pack_concord.py` checks the manifest, the server's environment, the hooks and the policy against a fake
+`concord` (never the real one).
 
 ## Grants
 
