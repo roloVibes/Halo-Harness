@@ -68,7 +68,10 @@ def _get(port: int, path: str):
         with urllib.request.urlopen(f"http://127.0.0.1:{port}{path}", timeout=5) as r:
             return r.status, json.loads(r.read())
     except urllib.error.HTTPError as e:
-        return e.code, json.loads(e.read() or b"{}")
+        try:
+            return e.code, json.loads(e.read() or b"{}")
+        except (OSError, ValueError, http.client.HTTPException):  # the error body cut by the exit: IncompleteRead
+            return e.code, {}  # raised from e.read() here, not from urlopen (Linux shard 2, run 41572679224)
     except (OSError, ValueError, http.client.HTTPException):  # a server that exits mid-reply (a failed load) reads as
         return 0, {}  # not up: IncompleteRead is an HTTPException, not an OSError (Linux shard 0, run 41524830561)
 
