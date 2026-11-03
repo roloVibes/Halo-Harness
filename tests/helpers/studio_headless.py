@@ -104,6 +104,9 @@ def end_it(c, rig, server) -> dict:
     c.click_on("document.querySelector('[data-testid=\"prompt-end\"]')")
     c.click_on("document.querySelector('[data-testid=\"prompt-end-yes\"]')")
     gone = wait_for(lambda: not any(r.get("session_id") == sid for r in rig.rows()) and "gone", 60)
+    # the registry row goes before the process is fully gone (Windows shard 1, run 41707642102: pid still alive at the
+    # read): wait for the exit, then say what survived
+    wait_for(lambda: not rig.survivors() and "none", 30)
     alive = rig.survivors()
     return {"ended": gone, "survivors": alive}
 
