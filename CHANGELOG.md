@@ -110,6 +110,10 @@ shape is written from its source and marked unverified until a live run.
   read already in flight -- a `pack_changed` frame mid-action, the lineups watcher -- was handed back as the refetch, and
   its answer came from before the action finished, so a removed pack's row stayed and a rolled-back version did not show
   until the next frame (the Windows runner's three Pack Manager misses were this one cause, not three).
+- The terminal wizard's "Roles and lineup" step: a `Switch.Changed` the step's own sync caused is never taken for the user's
+  flip. Before, that message could arrive after the list had moved back to "One model for everything" and re-highlight the
+  active lineup, and the two messages it spawned left the list on the wrong row for good (seen on the Windows runner; the
+  same race is possible on a slow terminal). The step now remembers the switch values it set and consumes their Changed.
 
 ## [3.3.9.0] - 2026-11-02
 
