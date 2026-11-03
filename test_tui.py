@@ -8578,6 +8578,8 @@ def test_mcp_dialog_D_deep_dives_the_highlighted_row_without_applying(ctx: Ctx):
             ctx.check(f"deep_dive_mcp_server called with the right name, got {fake.deep_dives}",
                       fake.deep_dives == ["broken"])
             ctx.check(f"D never applies anything by itself, got {fake.applies}", fake.applies == [])
+            # the hint says "Deep-diving ..." until the worker's result lands: wait for it (Windows shard 0, run 41603934550)
+            await _wait_until(app, pilot, lambda: "CONFIG_EDIT" in _static_text(screen.query_one("#mcp-hint", Static)), n=400)
             hint = _static_text(screen.query_one("#mcp-hint", Static))
             ctx.check(f"the hint shows the proposed fix, got {hint!r}", "CONFIG_EDIT" in hint)
     asyncio.run(body())
@@ -8596,6 +8598,7 @@ def test_mcp_dialog_A_applies_the_fix_and_refreshes_the_row(ctx: Ctx):
             await pilot.press("A")
             await _wait_until(app, pilot, lambda: fake.applies)
             ctx.check(f"apply_mcp_fix called with the right name, got {fake.applies}", fake.applies == ["broken"])
+            await _wait_until(app, pilot, lambda: "fixed and verified" in _static_text(screen.query_one("#mcp-hint", Static)), n=400)
             hint = _static_text(screen.query_one("#mcp-hint", Static))
             ctx.check(f"the hint reports it fixed and verified, got {hint!r}", "fixed and verified" in hint)
             option_list = screen.query_one(OptionList)
