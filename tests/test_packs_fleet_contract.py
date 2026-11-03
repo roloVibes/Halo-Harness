@@ -177,7 +177,7 @@ def test_a_hidden_capability_is_marked_counted_and_not_offered(ctx: Ctx):
         ctx.check(f"inspect marks it, got {out!r}", "fleet capability docs.review: available here (tools: or:anthropic/claude-sonnet-4.6; "
                   "bash granted); 2 at once; hidden from the fleet (fleet.capabilities.hide)" in out)
         code, out, _err = h.cli("doctor")
-        ctx.check(f"doctor counts it, got {out!r}", "[WARN] doc-review: 1 fleet capability is hidden from the fleet by "
+        ctx.check(f"doctor counts it (3.3.10.0 R3: an info row), got {out!r}", "[INFO] doc-review: 1 fleet capability is hidden from the fleet by "
                   "fleet.capabilities.hide: docs.review -> take it out of fleet.capabilities.hide to offer it to the fleet" in out)
         ctx.check("one not available here and hidden: the hidden row only", "fleet-needs-gpu: 1 fleet capability is hidden from the "
                   "fleet by fleet.capabilities.hide: gpu.render" in out and "gpu.render is not available here" not in out)

@@ -2,7 +2,12 @@
 3.2.0.0 R1): what `halo pack doctor` prints and `halo doctor --config` lists
 under the packs group.
 
-    problems(cwd=..., state_dir=...) -> [{"pack", "severity": "blocks" | "warns", "check", "text", "fix", "path"}]
+    problems(cwd=..., state_dir=...) -> [{"pack", "severity": "blocks" | "warns" | "info", "check", "text", "fix", "path"}]
+
+3.3.10.0 R3: `info` is a note, not a problem (a fleet capability hidden on purpose with
+`fleet.capabilities.hide`): `halo pack doctor` prints it last, dimmed, and exits 0 when every row is one; the
+Pack Manager counts it apart (`notes`). An enabled pack's `.mcp.json` server whose command is not on PATH is a
+warns row "not-on-path" (packs/doctor_mcp.py).
 
 Checked: a pack.yaml that does not validate (blocks for an enabled pack, a
 warning for one that is not); the extension API or Halo version outside a
@@ -107,6 +112,8 @@ def problems(*, cwd=None, state_dir=None) -> "list[dict]":
                     for r in CW.doctor_rows(pack, S.granted(pack.id, snap.state), cwd=cwd, state_dir=state_dir)]
             from halo_harness.packs.deprecations import update_request_rows  # 3.2.0.0 R7: a grant the update asked for
             out += update_request_rows(pack, S.entry(pack.id, data=snap.state) or {}, S.granted(pack.id, snap.state))
+            from halo_harness.packs.doctor_mcp import rows as path_rows  # 3.3.10.0 R3: an MCP command not on PATH
+            out += [_p(pack.id, r["severity"], r["check"], r["text"], r["fix"], r["path"]) for r in path_rows(pack)]
         from halo_harness.packs.policy_views import doctor_rows as policy_rows  # 3.3.10.0 R1: mode.json vs the manifest
         out += [_p(pack.id, r["severity"], r["check"], r["text"], r["fix"], r["path"]) for r in policy_rows(pack, state_dir)]
         from halo_harness.packs.deprecations import deprecated_rows  # 3.2.0.0 R7: an ext name announced for removal

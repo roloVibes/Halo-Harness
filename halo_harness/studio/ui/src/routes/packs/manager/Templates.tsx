@@ -69,6 +69,9 @@ function Lists({ p }: { p: PackRow }) {
               <span className="mono">{l.name}</span>
               <span className="muted">{l.members.map((m) => `${m.agent} (${m.role})`).join(", ")}{l.tiers ? ` · ${l.tiers} tiers` : ""}</span>
               <Acts kind="lineup" name={l.name} />
+              {(l.workflow_lines || []).map((w) => (
+                <span key={w.ref} className="muted pm-tpl-flow" data-testid="pm-template-workflow" data-found={w.found || undefined}>workflow {w.line}</span>
+              ))}
             </li>
           ))}
         </ul>

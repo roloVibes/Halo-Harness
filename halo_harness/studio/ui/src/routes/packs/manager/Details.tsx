@@ -88,11 +88,11 @@ export function DetailsDetail() {
       <pre className="pm-lines mono" data-testid="pm-contributes">{p.contributes_lines.slice(1).map((l) => l.replace(/^ {2}/, "")).join("\n") || "offers: " + p.problems.join("; ")}</pre>
       <Links p={p} />
       <div className="rail-label mono">HEALTH (HALO PACK DOCTOR)</div>
-      {p.health.length ? (
+      {p.health.length || p.notes?.length ? (
         <ul className="pm-health">
-          {p.health.map((h) => (
+          {[...p.health, ...(p.notes || [])].map((h) => (
             <li key={h.check + h.text} data-severity={h.severity} data-testid="pm-health-row">
-              <span className="mono">{h.severity === "blocks" ? "[ERROR]" : "[WARN]"}</span> {h.text}{h.fix ? <span className="muted"> -&gt; {h.fix}</span> : null}
+              <span className="mono">{h.severity === "blocks" ? "[ERROR]" : h.severity === "info" ? "[INFO]" : "[WARN]"}</span> {h.text}{h.fix ? <span className="muted"> -&gt; {h.fix}</span> : null}
             </li>
           ))}
         </ul>

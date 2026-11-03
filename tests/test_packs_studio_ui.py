@@ -12,6 +12,9 @@ the doc-review reference pack and studio-bundle enabled:
 4b. (3.2.1.0 R1) after a reload the saved pack section is the first paint;
 5. the bundle panel shows the grant line until studio-script is granted,
    then "hello from studio-bundle";
+5b. (3.3.10.0 R3) the bundle panel's api: publish shows in the pack's events panel and on() hears it, an
+   undeclared kind is refused with the server's line, getData and mode() read, attention raises a row and route
+   lands on Fleet, where the row shows;
 6. a review.done frame renders with the pack's line in Fleet's Activity,
    Session's Live column and the Reviews panel; an undeclared kind keeps the
    generic line;
@@ -105,6 +108,23 @@ def test_the_bundle_waits_for_its_grant(ctx: Ctx):
     ctx.check(f"the grant line first, got {got.get('bundle_grant')!r}", "halo pack enable studio-bundle --grant studio-script" in str(got.get("bundle_grant"))
               and got.get("bundle_before") is False)
     ctx.check(f"granted: the pack's script draws it, got {got.get('bundle_hello')!r}", got.get("bundle_hello") == "hello from studio-bundle")
+
+
+@test
+def test_the_bundle_panels_api_acts(ctx: Ctx):
+    got = _got(ctx)
+    ctx.check(f"publish, then the line in the pack's events panel, got {got.get('bundle_publish')!r} {got.get('bundle_events_panel')}",
+              got.get("bundle_publish") == "published" and (got.get("bundle_events_panel") or [None])[0] == ["HELLO", "hi from the bundle"])
+    ctx.check(f"on() hears its own publish, got {got.get('bundle_on')!r}", got.get("bundle_on") == "heard hello.said: hi from the bundle")
+    ctx.check(f"an undeclared kind: the server's line, got {got.get('bundle_publish_bad')!r}",
+              got.get("bundle_publish_bad") == "error: studio-bundle declares no event hello.nope (contributes.events: hello.said): "
+                                               "a bundle panel publishes its pack's own kinds")
+    ctx.check(f"getData reads the data folder, got {got.get('bundle_getdata')!r}", got.get("bundle_getdata") == '{"note": "kept in the data folder"}')
+    ctx.check(f"mode() reads the mode, got {got.get('bundle_mode')!r}", got.get("bundle_mode") == "mode loud (Loud)")
+    ctx.check(f"attention raises a row, route lands on Fleet, got {got.get('bundle_attention')!r} {got.get('bundle_route')!r}",
+              got.get("bundle_attention") == "row greet" and str(got.get("bundle_route")).startswith("Fleet"))
+    ctx.check(f"the row in the attention queue, the pack's label, got {got.get('bundle_attn_chip')!r} {got.get('bundle_attn_what')!r}",
+              got.get("bundle_attn_chip") == "hello" and got.get("bundle_attn_what") == "the bundle asks you")
 
 
 @test

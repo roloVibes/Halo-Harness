@@ -199,25 +199,26 @@ def _prefilled_lines(cwd) -> list:
 
 
 def cmd_doctor_config(*, cwd=None, settings_flag=None, as_json: bool = False) -> int:
-    """`halo doctor --config`: 0 when every file is clean, 1 when any finding."""
+    """`halo doctor --config`: 0 when every file is clean (or only a pack's info notes), 1 when any finding."""
     from halo_harness.config_where import where_rows
     cwd = Path(cwd).resolve() if cwd is not None else Path.cwd().resolve()
     rows = where_rows(cwd, settings_flag=settings_flag)
     findings = config_findings(cwd, settings_flag=settings_flag, rows=rows)
     checked = sum(len(r["files"]) for r in rows if r["scope"] not in ("shipped", "pack") and r["read"])
+    real = [f for f in findings if f["severity"] != "info"]  # 3.3.10.0 R3: a pack's info row is a note
     if as_json:
         print(json.dumps({"findings": findings, "files_checked": checked}, indent=2))
-        return 1 if findings else 0
+        return 1 if real else 0
     print("halo doctor --config")
     print("  Every file `halo config where` lists, against Halo's schemas (unknown keys, wrong types) and its "
           "validators (missing bios and lineups), plus keys two files set to different values.")
     for line in _prefilled_lines(cwd):  # 3.3.5.0 R0 (g): where a prefilled provider value came from
         print(f"  {line}")
     for f in findings:
-        tag = "[ERROR]" if f["severity"] == "blocks" else "[WARN]"
+        tag = {"blocks": "[ERROR]", "info": "[INFO]"}.get(f["severity"], "[WARN]")
         text = f["text"] if f["text"].startswith(f["file"]) else f"{f['file']}: {f['text']}"
         print(f"  {tag} {text}" + (f" -> fix: {f['fix']}" if f["fix"] else ""))
-    blocks = sum(1 for f in findings if f["severity"] == "blocks")
-    print(f"RESULT: {len(findings)} finding(s) in {checked} file(s) checked ({blocks} error(s), "
-          f"{len(findings) - blocks} warning(s)).")
-    return 1 if findings else 0
+    blocks = sum(1 for f in real if f["severity"] == "blocks")
+    print(f"RESULT: {len(real)} finding(s) in {checked} file(s) checked ({blocks} error(s), "
+          f"{len(real) - blocks} warning(s)" + (f", {len(findings) - len(real)} note(s))." if len(real) < len(findings) else ")."))
+    return 1 if real else 0

@@ -187,7 +187,8 @@ def update_rollback(c, url, ctx) -> dict:
 def templates(c, url, ctx) -> dict:
     run = q("[data-testid=pm-workflow][data-ref='doc-review/review'] [data-testid=pm-run-workflow]")
     w(c, f"!!{run}", 20)
-    out = {"lineups": c.js(f"{qa('[data-testid=pm-template][data-kind=lineup]')}.map((r) => r.dataset.name)")}
+    out = {"lineups": c.js(f"{qa('[data-testid=pm-template][data-kind=lineup]')}.map((r) => r.dataset.name)"),
+           "template_workflow": c.js(f"{qa('[data-testid=pm-template-workflow]')}.map((r) => r.textContent)")}  # 3.3.10.0 R3
     press(c, run)
     out["section_after_run"] = w(c, f"{CUR}.startsWith('Orchestra') && {CUR}", 15)
     w(c, f"!!{q('[data-testid=orchestra-workflow-form]')}", 20)

@@ -13,6 +13,9 @@ contributions"). Same loopback / origin / token guard as every Studio route.
     POST pack/<id>/config {values: {key: value}}   checked against config.schema, then packs.settings.<id>.<key>
                                     for each (422 {error, problems}: nothing written)
 
+3.3.10.0 R3: `pack/<id>/publish`, `pack/<id>/attention` and `pack/<id>/mode` (a bundle panel's api) are
+studio/packs_studio_bundle_api.py's, answered first.
+
 3.2.0.0 R6: `pack/manager`, `pack/install`, `pack/sources` and `pack/<id>/<verb>`
 (enable, grant, disable, update, remove, settings) are the Pack Manager's,
 answered first by studio/packs_manager_api.py.
@@ -138,6 +141,10 @@ def post_config(req, pack):
 def dispatch_pack(req):
     if req.path == "pack/registry" and req.method == "GET":
         return get_registry(req)
+    from halo_harness.studio.packs_studio_bundle_api import dispatch as bundle  # 3.3.10.0 R3: a bundle panel's api
+    answered = bundle(req)
+    if answered is not None:
+        return answered
     from halo_harness.studio.packs_manager_api import dispatch as manager  # 3.2.0.0 R6: the Pack Manager's routes
     managed = manager(req)
     if managed is not None:

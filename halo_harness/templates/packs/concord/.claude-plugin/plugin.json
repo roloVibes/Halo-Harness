@@ -1,0 +1,4 @@
+{
+  "name": "concord",
+  "description": "The Claude-plugin half of the Concord pack: the concord MCP server (your own concord-mcp, telemetry off) and Concord's message-delivery hooks."
+}

@@ -377,3 +377,7 @@ An expert set (3.3.9.2) is one of the quantized builds Strata serves a Mixture-o
 ## streams
 
 Streams (3.3.9.3) are TensorFold's word for the requests a server runs at once: Halo calls the same thing `parallel` (llama-server's `-np` slots, Ollama's `OLLAMA_NUM_PARALLEL`). `tensorfold serve --parallel auto`, its default, asks for up to eight as memory allows and the startup line says how many it accepted ("4 streams at once"); an explicit `--parallel N` that does not fit is refused. Requests past the streams wait in its queue (`/health`'s `live.waiting`, `tensorfold:requests_waiting` in `/metrics`), and the steward's `tf-waiting` says when they do; `halo local serve --runtime tensorfold --parallel N` sets it.
+
+## info row
+
+An info row (3.3.10.0 R3) is a `halo pack doctor` row of severity `info`: a note, never a problem, printed `[INFO]` after the errors and warnings (dimmed on a terminal) and counted apart on the RESULT line (`1 note(s)`). Today there is one kind: a fleet capability a pack offers that you hid from the fleet on purpose with `fleet.capabilities.hide`. `halo pack doctor` exits 0 when every row is an info row (`--json` keeps the severity on each row), `halo doctor --config` does not count it as a finding, and the Pack Manager shows it as a note ("1 note"), apart from the doctor lines.

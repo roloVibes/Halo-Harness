@@ -23,7 +23,7 @@ machine-readable manifest schema is
 | [Agents and teams](#agents-and-teams) | stable | bios and lineups under `<id>--<name>`; R2: capabilities, needs, namespace, workflows, acceptance |
 | [Skills, commands, hooks and MCP](#skills-commands-hooks-and-mcp) | stable | the Claude-plugin layout, namespaced |
 | [Permissions and grants](#permissions-and-grants) | stable | requested in pack.yaml, granted by you |
-| [Studio contributions](#studio-contributions) | stable | `contributes.studio` (3.2.0.0 R3): sections, panels, palette, the settings form, event lines, attention rows; a bundle only with `studio-script` |
+| [Studio contributions](#studio-contributions) | stable | `contributes.studio` (3.2.0.0 R3): sections, panels, palette, the settings form, event lines, attention rows; a bundle only with `studio-script` (3.3.10.0 R3: its `api` publishes, listens, routes and asks for attention) |
 | [Fleet capabilities](#fleet-capabilities) | stable | `contributes.fleet` (3.2.0.0 R4): worker capabilities in the catalog, available or not and why; mission needs, the worker's own check, inspector lines, mission metadata |
 | [Workflow contracts](#workflow-contracts) | stable | `workflows/<name>.yaml` (3.2.0.0 R5): compiled to an Orchestra goal, its hand-offs and a pinned plan; `halo workflow` |
 | [Events and artifacts](#events-and-artifacts) | stable | typed events (3.2.0.0 R5: schemas, the events log, subscriptions), typed artifacts with viewers, memory with provenance |
@@ -252,7 +252,7 @@ A `<panel>` is `{id, title, kind, source, schema, w, h, help, columns, links}`:
 | `form` | the pack's `config.schema` (`properties`, each with `type`, `enum`, `description`) | one field per key; Save checks the values against the schema and writes `packs.settings.<id>` (`GET/POST /api/pack/<id>/config`) |
 | `links` | `links: [{label, route}]` or `[{label, url}]` | a route into Studio (a core section, or the pack's own section and panel), or an http(s) or mailto address in a new tab |
 | `events` | the pack's own `pack_event` frames | a live list, newest last, each with its `line` |
-| `bundle` | `source`: an ES module (`.js`, `.mjs`) in the pack's folder | `mount(el, api)`, loaded only when `studio-script` is granted; until then one line naming `halo pack enable <id> --grant studio-script` |
+| `bundle` | `source`: an ES module (`.js`, `.mjs`) in the pack's folder | `mount(el, api)`, loaded only when `studio-script` is granted; until then one line naming `halo pack enable <id> --grant studio-script`. 3.3.10.0 R3: `api` acts too (publish, on, getData, mode, attention, route: [the bundle panel's `api`](#the-bundle-panels-api) below) |
 | `artifact` | `schema`: one of `contributes.artifacts`; `source`: `latest` (the default: the newest finished run of Studio's repo with an artifact of that schema, `GET /api/pack/<id>/artifact/<schema>`), a `.json` file in the pack's folder or `data:<path>` | 3.2.0.0 R5: the document drawn by its schema's `x-halo-view`: `table`, `markdown` or `keyvalue` (the default) |
 
 Ids (a section, a panel, a palette line) are names without `--` (letters,
@@ -308,9 +308,11 @@ contributes:
       review.ask: {label: review, keys: {a: accept, r: redo, s: skip, o: open}}
 ```
 
-`tests/fixtures/packs/studio-bundle/` is the bundle example: one section, one
-`bundle` panel (`studio/hello.js`, twenty lines that write "hello from
-<id>"), `permissions: [studio-script]`.
+`tests/fixtures/packs/studio-bundle/` is the bundle example: one section with a
+`bundle` panel (`studio/hello.js`: "hello from <id>", and since 3.3.10.0 R3 one
+button per `api` call, each with its result line) and an `events` panel, one
+event kind (`hello.said`), one attention row kind (`hello.ask`), one mode
+(`loud`), `permissions: [studio-script]`.
 
 **The routes** (`halo_harness/studio/packs_studio_api.py`, behind the token
 guard of every Studio route; a pack that does not run here answers 404):
@@ -331,14 +333,41 @@ guard of every Studio route; a pack that does not run here answers 404):
 - `GET /api/pack/<id>/config` and `POST /api/pack/<id>/config {values: {key:
   value}}`: the form's fields and values; a value that does not fit the
   schema answers 422 and nothing is written.
+- 3.3.10.0 R3, behind a bundle panel's `api` (`halo_harness/studio/packs_studio_bundle_api.py`; each 403 naming
+  the grant until `studio-script` is granted): `POST /api/pack/<id>/publish {kind, data}`, `POST
+  /api/pack/<id>/attention {row, kind, what, detail}` and `GET /api/pack/<id>/mode`; the table below.
 
 **A bundle** is a module that exports `mount(el, api)`: `el` is the panel's
-body, `api` is `{pack, panel, get(path), config()}` (`get` reads a file of
-the pack as text, `config` its settings); what `mount` returns, when it is a
-function, runs when the panel goes away. It runs in the page like the
-shell's own script, so it is the one Studio contribution that takes your
-explicit grant (`halo pack enable <id> --grant studio-script`), as `bash` and
-`hooks` do.
+body, `api` is the bundle panel's `api` below; what `mount` returns, when it
+is a function, runs when the panel goes away (and every `on` the panel made
+stops then). It runs in the page like the shell's own script, so it is the
+one Studio contribution that takes your explicit grant (`halo pack enable
+<id> --grant studio-script`), as `bash` and `hooks` do.
+
+### The bundle panel's `api`
+
+3.3.10.0 R3 (`halo_harness/studio/ui/src/routes/packs/bundleApi.ts`; the routes:
+`halo_harness/studio/packs_studio_bundle_api.py`). Every call is the pack's own (its files, its data folder,
+its declared event kinds and attention rows, its mode) and rides the `studio-script` grant: the module loads only
+once it is granted, and each route behind a call answers 403 naming `halo pack enable <id> --grant studio-script`
+without it. A call the server refuses rejects its promise with an `Error` whose message is the server's line.
+
+| Call | Takes | Returns | Through |
+|---|---|---|---|
+| `pack`, `panel` | | the pack's id, the panel's id | |
+| `get(path)` | a file of the pack (markdown, JSON) | `Promise<string>` | `GET pack/<id>/file/<path>` |
+| `config()` | | `Promise<{fields, values, problems, ...}>` | `GET pack/<id>/config` |
+| `publish(kind, data)` | one of the pack's `contributes.events` kinds, its data | `Promise<{ok, kind, published, problems?}>`: `problems` when the data does not fit the kind's schema (published all the same) | `POST pack/<id>/publish`: `ext.events.publish_event`'s own check and its events log; a kind the pack does not declare, or a name that is not one, is 422 with the line; past the rate, 429 |
+| `on(kind, cb)` | one of the pack's kinds, a callback | `off()`: the function that stops it | the pack's own `pack_event` frames as they arrive on the live feed; `cb({kind, data, ts, problems?})` |
+| `getData(path)` | a file of the pack's data folder (markdown, JSON) | `Promise<string>`, read-only | `GET pack/<id>/data/<path>` (any write method is 405) |
+| `mode()` | | `Promise<{pack, mode, label, since, by, armed, modes}>` | `GET pack/<id>/mode`: the pack's `mode.json` ([Policy hooks](#policy-hooks)) |
+| `attention({row, kind, what, detail?})` | a row name, one of the pack's `attention` kinds, its line | `Promise<{ok, row, kind, file}>` | `POST pack/<id>/attention`: writes `attention/<row>.json` in the pack's data folder, the row the attention queue shows at once (the pack named, its keys; answered through the answers contract above); the same rate |
+| `route(section, panel?)` | a core section, or one of the pack's own sections (its id, or qualified), and maybe a panel | `true`, or `false` when it names neither | the shell's own section switch and panel focus, as a `links` route |
+
+**The rate.** `publish` and `attention` share one rate per pack: **20 writes in any 10 seconds** (a sliding window,
+per Studio server); the 21st is 429 `{error, rate: {limit: 20, window_s: 10}, retry_after}` and nothing is
+written. A panel publishes on a click or a change of its own state, a few a second at most; the rate keeps a loop in
+a bundle from filling the feed (Studio keeps the last 300 frames) or the pack's events log.
 
 **Attention rows** come from the pack's code: it writes one JSON file per row
 in its data folder with the stable surface,
@@ -802,9 +831,17 @@ row shows the armed policies and the last verdict. `halo pack policy log [<pack>
 `halo pack policy status` shows each policy's process (a `policy_proc` row when it starts and stops) and its verdict
 counts.
 
+**When the pack catalog cannot be read** (3.3.10.0 R3). `policy.armed()` keeps the last list it read in the process.
+When a later read fails (the packs folder or `state.json` unreadable), the gate uses that list, so an armed `on_error:
+deny` fence still denies, and logs the failure once per call naming what answers (`policy: the armed policies could
+not be read: <why>; the last ones read here answer: policy-fence/fence`). In a process that never read an armed
+policy the list is empty and the failure changes nothing: the zero-change promise holds.
+
 `tests/fixtures/packs/policy-fence/` is the example: the `fence` policy (`policy/fence.py`, plain Python, nothing of
 Halo imported) denies a Write or Edit whose path is outside the project folder and allows the rest, `on_error:
-deny`, armed by its one mode, `fenced`.
+deny`, armed by its one mode, `fenced`. The first real consumer is the **concord** pack Halo ships
+(`halo_harness/templates/packs/concord/`, [PACKS.md](PACKS.md#the-concord-pack)): its `claimed-files` policy runs
+`concord check <path>` and denies a Write or Edit to a file another Concord task claims, `on_error: allow`.
 
 ## Compatibility and migration
 
@@ -853,8 +890,8 @@ what to use instead), one line each (`ext.compat.CHANGES` holds the same).
 
 - **1.1** (Halo 3.3.10.0): adds `set_mode` and `current_mode` (a pack's runtime mode) and the manifest's
   `contributes.policy` and `contributes.modes` ([Policy hooks](#policy-hooks): draft in R1, stable from R2, which
-  enforces each verdict and adds the post-call verdict, `after: true` -> pass | redact | drop); deprecates
-  nothing. A 1.0 pack keeps everything: `{min: "1.0"}` and `{min: "1.0", max: "1.9"}` take 1.1, and a pack
+  enforces each verdict and adds the post-call verdict, `after: true` -> pass | redact | drop), and (R3) the bundle
+  panel's `api` calls `publish`, `on`, `getData`, `mode`, `attention` and `route`; deprecates nothing. A 1.0 pack keeps everything: `{min: "1.0"}` and `{min: "1.0", max: "1.9"}` take 1.1, and a pack
   without `policy` and `modes` reads and runs exactly as before. (A pack that says `max: "1.0"` asked for 1.0 only
   and gets the one compatibility line.)
 - **1.0** (Halo 3.2.0.0): the first version.
@@ -919,8 +956,10 @@ other change is the note's to say.
 
 ## The reference example
 
-Status: **stable** (3.2.0.0 R6). Halo ships one pack, **Documentation
-Review**, at `halo_harness/templates/packs/doc-review/`: the reference a
+Status: **stable** (3.2.0.0 R6). Halo ships two packs: **Documentation
+Review** and (3.3.10.0 R3) **Concord**, the second reference example, the one
+that shows a policy hook and a mode on a real tool ([PACKS.md](PACKS.md#the-concord-pack)).
+Documentation Review, at `halo_harness/templates/packs/doc-review/`, is the reference a
 third party copies, and the regression test of this whole page
 (`tests/test_reference_pack.py` installs it in a fresh home, runs its
 workflow, finds it in Studio, Roles and the fleet catalog, removes it and

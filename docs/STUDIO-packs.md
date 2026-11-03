@@ -57,12 +57,16 @@ Documentation Review reference pack). There is no marketplace.
   panels, palette lines, settings form, event lines, attention rows, fleet
   capabilities, workflows, artifact and event schemas) with links that open
   its section, its lineup in Roles and each workflow's Run; and its health,
-  the doctor's rows with their fixes.
+  the doctor's rows with their fixes (3.3.10.0 R3: its info rows too, tagged
+  `[INFO]`; Installed's row counts them apart, "1 note", beside "N doctor
+  lines", which count blocks and warns only).
 - **Settings**: the pack's own form (R3's, one field per key of its
   `config.schema`). Save checks the values against the schema, then writes
   `packs.settings.<id>`. It works for a disabled pack too, so you can set a
   pack up before you enable it.
-- **Templates**: what the pack lets you start from. Its lineups and bios
+- **Templates**: what the pack lets you start from. Its lineups (3.3.10.0
+  R3: each with the workflows it runs, resolved: `workflow <pack>/<name> --
+  <title>: <description>`, or the name with "(not found)") and bios
   with Roles' own actions: **Preview** (opens it in Roles, read-only),
   **Clone** (a copy in your files, with `from_pack`), **Customize** (Clone,
   then your copy opened) and **Apply** (a lineup becomes the one new

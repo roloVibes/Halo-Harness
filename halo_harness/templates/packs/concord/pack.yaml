@@ -1,0 +1,36 @@
+# Concord: the second pack Halo ships (3.3.10.0 R3), off unless you turn it on. It joins a repo's Concord
+# workspace (github.com/Get-Concord-AI/concord-mcp, MIT) so a Halo session claims work, hands it off and trades
+# messages with a Codex, Cursor or Gemini session in the same repo. README.md beside this file says how to install
+# Concord itself (Halo never downloads or installs it) and the live check.
+#
+# What it carries, one part of the extension API each (docs/EXTENSION_API.md):
+# - the concord MCP server (.mcp.json): your own `concord-mcp`, with CONCORD_TELEMETRY_DISABLED=1 and
+#   CONCORD_REPO_ROOT set to the project folder (${CLAUDE_PROJECT_DIR});
+# - Concord's Claude Code hook commands (hooks/hooks.json) for UserPromptSubmit, PostToolUse, Stop and SessionEnd;
+# - the coordinating mode and the claimed-files policy (policy/claimed_files.py): while coordinating, a Write or
+#   Edit to a file an active Concord task claims is denied with `concord: <path> is claimed by task <id>`; a box
+#   without Concord blocks nothing (on_error: allow).
+id: concord
+name: Concord
+version: 1.0.0
+description: >-
+  Joins a repo's Concord workspace through your own concord-mcp, so a Halo session claims work and trades messages
+  with other agents there, and while coordinating keeps writes off files another task claims. Concord's telemetry
+  to getconcord.ai is on by default upstream, and this pack turns it off (CONCORD_TELEMETRY_DISABLED=1).
+author: Halo Harness
+license: MIT
+halo_api: {min: "1.1", max: "1.9"}
+halo: {min: "3.3"}
+contributes:
+  hooks: hooks/hooks.json
+  mcp:
+    - {name: concord, description: "Concord's work records, claims, hand-offs and messages between the agents in this repo"}
+  modes:
+    - {id: coordinating, label: Coordinating}
+  policy:
+    - id: claimed-files
+      run: ["${halo_python}", "${CLAUDE_PLUGIN_ROOT}/policy/claimed_files.py"]
+      when: {tools: [Write, Edit], modes: [coordinating]}
+      impact: medium
+      on_error: allow
+permissions: [hooks, "mcp:concord"]
