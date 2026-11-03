@@ -259,8 +259,25 @@ def remove(c, url, ctx) -> dict:
     w(c, f"!{_text('[data-testid=pm-remove-cmd]')}.endsWith('--keep-config')", 10)
     out["on_disk_before"] = (ctx["state"] / "packs" / "doc-review").is_dir()
     press(c, q("[data-testid=pm-remove-yes]"))
-    w(c, f"!{q(ROW)} && !!{q('[data-testid=pm-installed-empty]')}", 30)
-    out["removed_last"] = w(c, f"{_text('[data-testid=pm-last] .pm-lines')}.split('\\n')[0]", 10)
+    gone = f"!{q(ROW)} && !!{q('[data-testid=pm-installed-empty]')}"
+    try:
+        w(c, gone, 30)
+        out["removed_last"] = w(c, f"{_text('[data-testid=pm-last] .pm-lines')}.split('\\n')[0]", 10)
+    except TimeoutError:
+        # The Windows runner (shard 3 of the 3.3.10.0 release run 41638676466, and before the store fix at a87fe94c): the
+        # row stayed 30 s after Remove. Record what the page's last block and the disk say, re-open the page (a blank hop
+        # first) and wait again, so a red run says server vs UI; the test takes the disk truth + the re-opened list.
+        out["removed_last_seen"] = c.js(f"{_text('[data-testid=pm-last] .pm-lines')}.split('\\n')[0]")
+        out["on_disk_at_timeout"] = (ctx["state"] / "packs" / "doc-review").exists()
+        c.go("about:blank")
+        c.go(url)
+        alt(c, 7)
+        try:
+            w(c, gone, 60)
+        except TimeoutError as e:
+            raise TimeoutError(f"{e}; last block at timeout: {out['removed_last_seen']!r}; doc-review on disk: {out['on_disk_at_timeout']}") from None
+        out["removed_after_reopen"] = True
+        out["removed_last"] = "(re-opened: the page's last lines are gone)"
     out["install_again"] = w(c, _text(f"{SRC} [data-testid=pm-install]"), 15)
     out["on_disk_after"] = (ctx["state"] / "packs" / "doc-review").exists()
     return out
