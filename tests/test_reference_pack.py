@@ -29,6 +29,7 @@ import json
 import shutil
 import subprocess
 import sys
+import time
 import tempfile
 from pathlib import Path
 
@@ -103,9 +104,16 @@ def test_the_reference_pack_end_to_end(ctx: Ctx):
         panels = {x["id"]: x["kind"] for s in entry_["sections"] for x in s["panels"]}
         ctx.check(f"its section and its artifact panel in Studio's registry, got {panels}", [s["id"] for s in entry_["sections"]] == ["doc-review--docs"]
                   and panels.get("doc-review--report") == "artifact")
-        status, body, _ = h.call("GET", "pack/doc-review/artifact/review-report")
-        ctx.check(f"the panel draws that run's report, got {status} {body.get('run')} {body.get('view')}", status == 200
-                  and body["data"] == GOOD_REPORT and body["run"] == run.name and body["view"] == "table")
+        # the newest run's artifact is read from disk: on the Linux runner the route answered before the run's file was
+        # there (shard 1, run 41697734325: no "data" in the body), so wait for it instead of reading once
+        deadline = time.time() + 10.0
+        while True:
+            status, body, _ = h.call("GET", "pack/doc-review/artifact/review-report")
+            if (status == 200 and "data" in body) or time.time() > deadline:
+                break
+            time.sleep(0.2)
+        ctx.check(f"the panel draws that run's report, got {status} {body.get('run')} {body.get('view')} {sorted(body)}", status == 200
+                  and body.get("data") == GOOD_REPORT and body.get("run") == run.name and body.get("view") == "table")
         status, rows, _ = h.call("GET", "lineups")
         mine = [r for r in rows if r.get("name") == "doc-review--review"]
         ctx.check(f"its lineup under Roles, got {[(r['name'], r['scope']) for r in mine]}", status == 200 and len(mine) == 1
