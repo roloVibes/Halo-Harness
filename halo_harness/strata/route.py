@@ -71,7 +71,7 @@ def route(host: StHost, need: dict, *, state_dir=None) -> dict:
                 "verdict": f"Strata serves {host.model} on {host.name}"}
     row = match(want)
     if row is None:
-        return {**out, "fits": False, "verdict": f"Strata serves the sets it names (halo models search strata), not "
+        return {**out, "fits": False, "verdict": f"Strata serves the sets it names (`strata models list`; docs/MODELS-strata.md), not "
                                                  f"{need.get('model')}"}
     load = round(row["experts_gb"] * 1e9 / DISK_BPS, 1) if row.get("experts_gb") else None
     dl = f", the first launch's {row['download_gb']:g} GB download if the set is not there (yours to run)" if row.get(

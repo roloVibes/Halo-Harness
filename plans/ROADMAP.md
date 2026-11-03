@@ -4205,4 +4205,19 @@ to the bullet above, from Strata's docs: three model families and 24 sets, not o
 slots, not 1; its measured figure for IQ3_XXS is 62 tok/s on an RTX 5070 (9-11 tok/s was DeepSeek 2.00 bpw on a 3060).
 Every Strata log pattern and API shape is from its source (main at ffa80d73), unverified until the owner's run on the
 PC. Open: reading `/metrics` (the SSD-read counts live there); the capability battery (Ollama-only, as for FreeToken);
-Studio pages beyond the Library badge. **3.3.9.2 IS THE CANDIDATE.**
+Studio pages beyond the Library badge. 3.3.9.2 shipped 2026-11-02 (v3.3.9.2 = 7d4476e3).
+
+**3.3.9.3 BUILT 2026-11-02 (one Opus round, worktree ~/hh-3393/R1-tensorfold, hand-back v3393-R1-handback.md): the
+`tensorfold` runtime (`halo_harness/tensorfold/` + `providers/local_runtime_tensorfold.py`: the managed `tensorfold serve` with a
+0600 key file, the per-OS install line), the Linux release archive fetched like llama-server (`providers/local_runtime_fetch_tf.py`:
+`tensorfold-<V>-linux-{x86_64,aarch64}.tar.gz`, GitHub's digest and the `.sha256` both checked), the steward's
+`server_log_tensorfold.py` + `server_stats_tensorfold.py` (`/health` live.connections / live.waiting, `/metrics`) +
+`rules_tensorfold.py` (`tf-waiting`, `tf-backend-fallback`, `tf-load`), `local_sched/fit_tf.py` (the ordinary VRAM /
+unified-memory fit with TensorFold's published sizes), host-served to peers, placement, `doctor_tensorfold.py`,
+docs/MODELS-tensorfold.md + MAC.md. Corrections to the bullet above: TensorFold ships Metal and CUDA only -- there is NO
+Vulkan build; the Mac live-check model is TensorFold's own `TensorFold/Qwen3.8-27B-MLX-4bit` (16 GiB), since the
+mlx-community Qwen3.6 checkpoint the brief named is not in its table. Two log lines its source does not spell out (the Metal
+capacity line, a driver refusal) are guesses the reader does not key on. Open: `halo local bench --host tensorfold` is not
+wired; the `.sha256.sig` signature is not verified; Strata's lines now name `strata models list` (they named a `halo models
+search` that does not exist). Every TensorFold fact is from its source, unverified until the owner's run on the Mac.
+**3.3.9.3 IS THE CANDIDATE.** After it: 3.3.10.0 R2 the enforcement.

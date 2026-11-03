@@ -27,7 +27,8 @@ option when it has members: its `route` answer, minus its decode penalty (38, th
 (local_sched/place_advice.candidates: every paired host's served card and the pool); `detail` keeps every candidate's
 score, why and numbers on each row (`options`: the adviser's placement scores, `halo local place`). 3.3.9.1: a FreeToken
 server (freetoken/route.FtHost) is one more option: warm for the model it serves, else a restart with its loading tax.
-3.3.9.2: a Strata server (strata/route.StHost) the same way, its own loading tax.
+3.3.9.2: a Strata server (strata/route.StHost) the same way, its own loading tax. 3.3.9.3: a TensorFold server
+(tensorfold/route.TfHost) too: the Mac's beside its mlx_lm.server and Ollama.
 """
 
 from __future__ import annotations
@@ -105,6 +106,9 @@ def answer(host, lane: dict, *, state_dir=None) -> dict:
     if getattr(host, "strata", False):  # 3.3.9.2: a Strata server answers like a host (strata/route.py)
         from halo_harness.strata.route import route as st_route
         return st_route(host, {"model": lane["model"], "window": lane.get("window")}, state_dir=state_dir)
+    if getattr(host, "tensorfold", False):  # 3.3.9.3: a TensorFold server answers like a host (tensorfold/route.py)
+        from halo_harness.tensorfold.route import route as tf_route
+        return tf_route(host, {"model": lane["model"], "window": lane.get("window")}, state_dir=state_dir)
     window, _src = F.window(host, lane["model"], role=lane["lane"])
     return _via_host(host, lane, window) or _local(host, lane, window, state_dir)
 

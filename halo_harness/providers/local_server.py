@@ -162,6 +162,9 @@ def stop(key, *, state_dir) -> dict:
     if e.get("kind") == "freetoken":  # 3.3.9.1: the `freetoken` entry Halo wrote goes with it
         from halo_harness.freetoken.launch import forget as forget_ft
         forget_ft()
+    if e.get("kind") == "tensorfold":  # 3.3.9.3: the `tensorfold` entry and its key file go with it
+        from halo_harness.providers.local_runtime_tensorfold import forget as forget_tf
+        forget_tf(state_dir)
     return {"ok": True, "id": e["id"], "say": f"stopped {e['kind']} {e['id']} ({e['model']} on port {e['port']}): {how}"}
 
 

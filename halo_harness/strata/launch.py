@@ -126,7 +126,7 @@ def serve(model: Optional[str] = None, *, model_path=None, port: Optional[int] =
     row = parse(model) if model else None
     if model_path is None and row is None:
         return 1, [f"no Strata set named {model!r}: name it as <family>/<set> (qwen/IQ3_XXS, deepseek41/ist-das-2.00bpw; "
-                   "halo models search strata lists them) or pass --model-path <the folder of its files>"], None
+                   "`strata models list` names them, docs/MODELS-strata.md has the table) or pass --model-path <the folder of its files>"], None
     if model_path is not None and not Path(str(model_path)).expanduser().exists():
         return 1, [f"no files at {model_path}: --model-path names a folder of shards or one .gguf"], None
     c = check()

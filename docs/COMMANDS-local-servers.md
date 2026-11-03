@@ -74,3 +74,17 @@ the fit here, and starts nothing.
 The Strata server's speed card (FreeToken's: the battery's windows and reply reserve, two calls per window, an untimed
 warm-up), with its cost line first; it asks unless `--yes`. The card is kept under the set's name too, so the Strata
 fit line says "measured".
+
+### `halo local serve --runtime tensorfold --model <hf repo | checkpoint dir> [--window N] [--parallel N] [--port P] [--keep] [--lan] [--yes] [--json]` (3.3.9.3)
+
+Starts TensorFold's `tensorfold serve` ([MODELS-tensorfold.md](MODELS-tensorfold.md)) for a repo in the Hugging Face
+cache (by its id), a repo Halo's download put in a model folder, or a checkpoint folder: the fit here, the command line
+(`--name <model> --host 127.0.0.1 --port P --context N --api-key-file <0600 file>`, `--parallel N` when given), then
+the URL and `hf:local/<model>@tensorfold`, or "still loading" when the load outlasts two minutes (it goes on; exit 0).
+A repo nowhere on disk starts nothing: one line with its size from TensorFold's table, `tensorfold pull <repo>` (yours
+to run) or `halo local download <repo>` (exit 2). No binary: one line with this OS's route -- `brew install
+ashhart/tensorfold/tensorfold` on the Mac, the native build guide on Windows, and on Linux x86_64 / aarch64 the
+release archive Halo fetches (its size, URL and destination said first; `--yes` answers yes; the `.sha256` checked;
+`~/.halo/runtimes/tensorfold-<tag>/`, never on PATH, `halo local runtime remove tensorfold-<tag>` takes it out). It is
+the server `tensorfold` for `halo local servers | log | stop`; the stop removes the entry and the key file. `--lan`
+binds every address behind the same key, for peers through `halo host`.
