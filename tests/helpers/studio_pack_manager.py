@@ -134,8 +134,14 @@ def update_rollback(c, url, ctx) -> dict:
     (newer / "pack.yaml").write_text(text + "  - {from: 1.0.0, to: 1.0.1, note: it also asks for network}\n", encoding="utf-8")
     S.put("doc-review", {"source": str(newer)})
     press(c, q(f"{ROW} [data-testid=pm-update]"))
-    w(c, f"!!{q('[data-testid=pm-update-dialog]')}", 15)
-    out = {"update_lines": c.js(f"{_text('[data-testid=pm-update-lines]')}.split('\\n')"),
+    retried = False
+    try:
+        w(c, f"!!{q('[data-testid=pm-update-dialog]')}", 20)
+    except TimeoutError:
+        retried = True  # Windows shard 2, run 41702427674: the click landed while the row re-rendered; press once more
+        press(c, q(f"{ROW} [data-testid=pm-update]"))
+        w(c, f"!!{q('[data-testid=pm-update-dialog]')}", 30)
+    out = {"update_retry": retried, "update_lines": c.js(f"{_text('[data-testid=pm-update-lines]')}.split('\\n')"),
            "update_cmd": c.js(_text("[data-testid=pm-update-cmd]")), "untouched": not (ctx["state"] / "packs" / "doc-review.previous").exists()}
     press(c, q("[data-testid=pm-update-yes]"))
     try:

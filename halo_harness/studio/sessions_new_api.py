@@ -25,6 +25,7 @@ import json
 import os
 import subprocess
 import sys
+import threading
 import time
 import uuid
 from pathlib import Path
@@ -148,7 +149,26 @@ def post_new(req):
     row = {"session_id": sid, "pid": proc.pid, "cwd": str(cwd), "model": model or _default_model(),
            "started": time.time(), "log": str(log)}
     remember(req.state_dir, row)
+    if getattr(req, "server", None) is not None:
+        threading.Thread(target=_nudge_bridge, args=(req.server, sid), name=f"halo-studio-nudge-{sid[:8]}", daemon=True).start()
     return 202, {**row, "resume": f"halo --cwd \"{cwd}\" --resume {sid}"}
+
+
+def _nudge_bridge(server, sid: str, timeout_s: float = 60.0) -> None:
+    """The event bridge scans the registry every two seconds; a child that registers and answers its first turn inside
+    that window streams its reply before Studio listens (Linux shard 1, run 41702427101: the child's status said the
+    turn ran, the page never saw it). Scan the moment the child's row appears instead."""
+    from halo_harness.remote import registry
+    from halo_harness.studio.events import bridge_for
+    end = time.monotonic() + timeout_s
+    while time.monotonic() < end:
+        if registry.entry_for(sid) is not None:
+            try:
+                bridge_for(server).scan()
+            except Exception:
+                pass
+            return
+        time.sleep(0.2)
 
 
 def get_started(req):
