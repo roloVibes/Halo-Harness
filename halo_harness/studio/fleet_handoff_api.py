@@ -51,6 +51,13 @@ def post_handoff(req):
     mode, text = str(body.get("mode") or ""), str(body.get("brief") or "").strip()
     if mode not in ("take_over", "hand_to"):
         return 422, {"error": f"mode is take_over or hand_to, got {mode!r}", "problems": []}
+    to = str(body.get("to") or "").strip()
+    # the body is judged before the agent is looked up: a malformed request is 422 whether or not the agent still runs
+    # (the Windows runner answered 404 for "hand to nobody" once the first hand-off had stopped the agent, run 41613118985)
+    if mode == "take_over" and not text:
+        return 422, {"error": "a take over needs the new brief", "problems": []}
+    if mode == "hand_to" and not to:
+        return 422, {"error": "hand to whom? {to: <harness id or name>}", "problems": []}
     view, h, s, local = _find(req, hid, sid)
     if s is None:
         return 404, {"error": f"no live session {sid!r} on {hid}"}
@@ -61,18 +68,13 @@ def post_handoff(req):
     note = {"harness": h.get("id"), "harness_name": hname, "session_id": sid, "agent_id": aid,
             "agent": agent.get("name") or aid, "by": by}
     if mode == "take_over":
-        if not text:
-            return 422, {"error": "a take over needs the new brief", "problems": []}
         status, got = send.session_cmd(req.server, req.state_dir, str(h["id"]), sid, "agent_steer",
                                      {"agent_id": aid, "text": text, "mode": "redirect", "handoff": True})
         if status >= 300 and status != 202:
             return status, got
         journal.append(req.state_dir, "handoff", action="take_over", text=text[:300], **note)
         return 200, {"ok": True, "mode": mode, "result": got}
-    to = str(body.get("to") or "").strip()
-    target = next((x for x in view.get("harnesses") or [] if to and to in (str(x.get("id")), x.get("name"))), None)
-    if not to:
-        return 422, {"error": "hand to whom? {to: <harness id or name>}", "problems": []}
+    target = next((x for x in view.get("harnesses") or [] if to in (str(x.get("id")), x.get("name"))), None)
     target = target or {"id": to, "name": to}
     entries = _tail(req, h, sid, aid)
     files = []

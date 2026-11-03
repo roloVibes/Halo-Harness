@@ -129,6 +129,8 @@ shape is written from its source and marked unverified until a live run.
   flip. Before, that message could arrive after the list had moved back to "One model for everything" and re-highlight the
   active lineup, and the two messages it spawned left the list on the wrong row for good (seen on the Windows runner; the
   same race is possible on a slow terminal). The step now remembers the switch values it set and consumes their Changed.
+- Fleet hand-off route: a malformed body (`take_over` without a brief, `hand_to` without `to`) is 422 before the agent is
+  looked up, so the answer does not depend on whether the agent still runs (it was 404 once the agent had stopped).
 
 ## [3.3.9.0] - 2026-11-02
 
