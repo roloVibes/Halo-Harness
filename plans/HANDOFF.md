@@ -6,11 +6,10 @@ first, then `WORKER-RULES.md`, then the round you are starting.
 
 ## WHERE THINGS STAND -- 2026-11-02 evening (authoritative, read this first)
 
-**3.3.9.1 (cf96d422), 3.3.9.2 (7d4476e3) and 3.3.9.3 (6a58e59d) SHIPPED 2026-11-02/03; the PC's reinstall waits on the
-owner's `/quit`. 3.3.10.0 "Pack policy" IS THE RELEASE CANDIDATE** (R0 + R1 + R2 + R3 merged on master; its CHANGELOG
-section sits at the top with its lead; the release follows green on both runners; the ROADMAP's R2 and R3 BUILT notes
-carry what stays open and the owner's live checks). After it: 3.3.11.0 "Type into Studio" R1 (the Prompt panel over the
-control socket + the receipts ladder's local half), R2 the live map, R3 pack Setup blocks.
+**3.3.9.1 (cf96d422), 3.3.9.2 (7d4476e3), 3.3.9.3 (6a58e59d) and 3.3.10.0 (d0ab4261) SHIPPED 2026-11-02/03; the PC's
+reinstall waits on the owner's `/quit`. 3.3.11.0 "Type into Studio" is the open section: R1 (the Prompt panel, with receipts)
+merged on master; R2 (a session without a terminal + the live map: Roles Plan | Live) and R3 (pack Setup blocks) follow,
+then the release.** The ROADMAP's 3.3.11.0 R1 BUILT note carries the choices, the limits and the owner's live check.
 
 ### Before it: 2026-11-02 morning
 

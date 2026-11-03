@@ -14,6 +14,8 @@
 // Until this harness has a live session the section is its Start view.
 // 3.1.5.0 R3 follow-up: a panel's face draws only while Session shows (a
 // visited section stays mounted): nothing of Session runs for the Fleet page.
+// 3.3.11.0 R1: Prompt (session-prompt, Prompt.tsx), the fourth strip under Cost: type into the session as in
+// the terminal (Alt+Enter, the palette, `?prompt=1`), what it sends with its receipt.
 import { useEffect, type ComponentType } from "react";
 import { studio, useStore } from "../../lib/store";
 import type { MotionState } from "../../lib/motion";
@@ -25,12 +27,14 @@ import { AttentionDetail, AttentionGlance, useAttentionMotion } from "../fleet/A
 import { MapDetail, MapGlance, useMapMotion } from "../fleet/Map";
 import { CostDetail, CostGlance, useCostMotion } from "./Cost";
 import { LiveDetail, LiveGlance, useLiveMotion } from "./Live";
+import { PromptDetail, PromptGlance, usePromptMotion } from "./Prompt";
+import { registerPromptPanel, startPrompt } from "./promptStore";
 import { WhySettings } from "./Why";
 import { startSession } from "./store";
 
 function started(hook: () => MotionState): () => MotionState {
   return () => {
-    useEffect(() => startSession(), []);
+    useEffect(() => (startSession(), startPrompt()), []);
     return hook();
   };
 }
@@ -48,14 +52,16 @@ const panel = (id: string, rest: Omit<PanelSpec, "id" | "testid">): PanelSpec =>
 
 // 24 columns, 8 px rows; h 0 fills the visible height, a negative h fills it but leaves that many rows below.
 // Left (10 columns, about 40 %): Map (46 rows, the tree fitted to it) over Cost (to the bottom, less the 15
-// rows of the three strips under it: Agent, Activity, Attention; a y past the others only orders them, the
+// rows of the four strips under it: Agent, Activity, Attention, Prompt; a y past the others only orders them, the
 // grid packs them up).
 // Right (14 columns, about 60 %, the full height): Live. The list order is the "+" menu's and the palette's.
 export const sessionPanels: PanelSpec[] = [
   panel("session-map", { title: "Map", x: 0, y: 0, w: 10, h: 46, minW: 7, minH: 20, face: "detail", glance: MapGlance, detail: MapDetail, useMotion: started(useMapMotion) }),
   panel("session-live", { title: "Live", primary: true, x: 10, y: 0, w: 14, h: 0, minW: 6, minH: 30, face: "detail", glance: LiveGlance, detail: LiveDetail, settings: WhySettings, useMotion: started(useLiveMotion) }),
-  panel("session-cost", { title: "Cost", x: 0, y: 46, w: 10, h: -15, minW: 4, minH: 14, face: "detail", glance: CostGlance, detail: CostDetail, useMotion: started(useCostMotion) }),
+  panel("session-cost", { title: "Cost", x: 0, y: 46, w: 10, h: -20, minW: 4, minH: 14, face: "detail", glance: CostGlance, detail: CostDetail, useMotion: started(useCostMotion) }),
   panel("session-agent", { title: "Agent", x: 0, y: 200, w: 10, h: 0, minW: 5, minH: 32, face: "detail", collapsed: true, glance: AgentGlance, detail: AgentDetail, settings: AgentSettings, useMotion: started(useAgentMotion) }),
   panel("session-activity", { title: "Activity", x: 0, y: 205, w: 10, h: 0, minW: 5, minH: 24, face: "detail", collapsed: true, glance: ActivityGlance, detail: ActivityDetail, useMotion: started(useActivityMotion) }),
   panel("session-attention", { title: "Attention", x: 0, y: 210, w: 10, h: 0, minW: 4, minH: 18, face: "detail", collapsed: true, glance: AttentionGlance, detail: AttentionDetail, useMotion: started(useAttentionMotion) }),
+  panel("session-prompt", { title: "Prompt", x: 0, y: 215, w: 10, h: 0, minW: 6, minH: 26, face: "detail", collapsed: true, glance: PromptGlance, detail: PromptDetail, useMotion: started(usePromptMotion) }),
 ];
+registerPromptPanel(sessionPanels.find((p) => p.id === "session-prompt"));

@@ -6,10 +6,11 @@
 // Inspector. A key a panel, a menu or a dialog already handled (its default
 // prevented) stops there. 3.3.2.0 R1: F toggles Focus (useFocusKey, after the
 // hop keys: where F already follows an agent or the Log, or fits the Roles
-// canvas, that F wins and Shift+F is Focus).
+// canvas, that F wins and Shift+F is Focus). 3.3.11.0 R1: Alt+Enter opens Session's Prompt panel, the keyboard in its box.
 import { useEffect } from "react";
 import { closeHelp, goSection, openHelp, studio, toggleFocus } from "../lib/store";
 import { sections } from "../routes";
+import { openPrompt } from "../routes/session/promptStore";
 
 const TYPING = "input, textarea, select, [contenteditable]";
 
@@ -29,6 +30,11 @@ export function useGlobalKeys(): void {
       if (def && def.kbd) {
         e.preventDefault();
         goSection(def.id);
+        return;
+      }
+      if (e.altKey && !mod && !e.shiftKey && e.key === "Enter") {
+        e.preventDefault();
+        openPrompt();
         return;
       }
       const typing = (e.target as HTMLElement | null)?.closest?.(TYPING);

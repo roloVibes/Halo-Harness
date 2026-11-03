@@ -8,6 +8,32 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.3.11.0] - unreleased
+
+**Type into Studio.** The owner's ask of 2026-10-27: "a box to just type into like it is the tui but it's in session view,
+and you can open it if you want like how the cost and map modules work". R1 is that box, with one thing the terminal never
+had: a receipt for what you sent. The Prompt panel is an optional strip in Session; it sends through the control socket's
+existing `submit`, which now says who sent the turn and what to do when the session is busy (steer, refuse, or hold one
+turn for when it is free); a `/` command runs as the terminal would run it; an ask shows with its buttons. Every prompt,
+steer and answer climbs a ladder -- sent, delivered, read (the transcript is the evidence), replied -- and a retry never
+sends twice. The Signal remote is unchanged. Next in this version: a session without a terminal, the live map in Roles, and
+a pack's own Setup blocks.
+
+### R1: the Prompt panel -- type into the session from Studio, with receipts
+
+#### Added
+- Session's **Prompt** panel (`session-prompt`; a strip at the foot by default, in the header's "+" menu like Cost and Map; `Alt+Enter`, the palette's "Prompt: type into this session" and `?prompt=1` open it with the keyboard in its box): a box that behaves like the terminal's prompt -- Enter sends, Shift+Enter a new line, Up / Down this session's history (kept in the browser, per session), `/` the slash list from the TUI's own table plus the session's custom commands and skills (name, arguments, one line of help; Tab completes, Esc closes), a pasted image or a dropped image file on the steer box's path, a dropped file path into the text. A `/` line runs through the control socket's `slash` and its output lands as the lines the terminal prints. While a turn runs a send is refused first and the busy line offers **Queue it** and **Steer**. The conversation reads like the TUI (your turns marked "from Studio", the replies, one line per tool call with its policy line, the turn's end, the asks with the TUI card's buttons answering through the socket's `answer`); Live stays the stream for steering.
+- Receipts: every prompt, steer and answer Studio sends gets an id and a ladder in `<session folder>/receipts.jsonl` (`remote/receipts.py`, append-only, the last row per id wins): `sent` when Studio stored it (before the socket call; a retry with the same `client_id` returns the stored row and sends nothing), `delivered` when the session's handle took it, `read` when the user node the request is derived from carries the receipt id (the loop's seam, `remote/receipt_seams.py`: the transcript is the evidence, never a timer), `replied` when that turn ends; `failed` with `busy`, `held` or `expired` (a lazy 24 h TTL applied when a send or a read touches the file); `delivered -> sent` when the session ends with the row unread. The panel draws four marks beside each of your turns. `GET /api/sessions/<sid>/receipts`, the socket's `receipts`.
+- The control socket's `submit` takes `origin` (`{via: "studio", by}`: the TUI's transcript says `(from Studio) prompt: ...`, the turn's `user_message` carries `via`, `by` and `receipt`) and `when_busy`: `steer` (the default, so the Signal remote is unchanged), `refuse` (`{busy: true, line}`, nothing taken) and `queue` (the session holds ONE user turn and starts it on the running turn's `turn_done`; a second answers held with the line, Studio's 409; the TUI's prompt hint says "1 queued from Studio"; a session that quits with one held drops it with one line): `remote/prompt_queue.py`.
+- Studio: `slash` and `tail` join `POST /api/sessions/<sid>/command`, `GET /api/sessions/<sid>/slash` lists the commands (`studio/sessions_prompt_api.py`); `halo studio --session <id> --prompt` (`--prompt` alone: the newest live session) opens Session on it with the Prompt focused, through the URL (`&prompt=1`) or a running Studio's `focus` frame (`prompt: true`).
+- Glossary: "receipt" and "queued turn". Tests: `tests/test_remote_submit.py`, `tests/test_receipts.py` (the ladder on a real session over the mock upstream), `tests/test_sessions_api_prompt.py`, `tests/test_studio_prompt.py` (headless Chrome over a scripted fake session on its control socket).
+
+#### Changed
+- `ControllerHandle.submit(text, images, origin, when_busy, receipt)`; `Controller.submit`'s steer path notes a steer's receipt; `SessionLog.append_user(..., receipt=)`; `PrintModeHandle.submit` answers `when_busy: refuse` and puts a `queue` on its input queue.
+- Session's default arrangement: Prompt is the fourth strip under Cost (Cost leaves 20 rows under it, not 15). `steerImage.ts` shares `readImage` / `imageFields` with the Prompt panel.
+- The fake remote session (`tests/helpers/fake_remote_session.py`) moves its receipts the way the real loop does; `tests/test_remote_control_socket.py`'s command set names `receipts`.
+- Docs: STUDIO-session.md (the Prompt panel), STUDIO-sections.md (Session's panels), REMOTE.md (`submit`'s fields, `receipts`, the ladder and the TTL), COMMANDS-studio.md (`--prompt`).
+
 ## [3.3.10.0] - 2026-11-03
 
 **Pack policy.** GitHub issue #4 built out, with the owner's additions: a pack can now hold a session to a rule the

@@ -356,7 +356,10 @@ def cmd_studio(argv: list) -> int:
     parser.add_argument("--fleet", action="store_true", help="also run the fleet hub in this process: other harnesses join it with `halo fleet join` (docs/FLEET.md)")
     parser.add_argument("--edit", default=None, metavar="TARGET", help="open Studio on bio:<name> (its form), lineup:<name> (its inspector), team, setup[:<block>], settings[:<group>] or local[:<page>]; a Studio already running for this home opens it in its open page")
     parser.add_argument("--session", nargs="?", const="", default=None, metavar="ID", help="open the Session dashboard on this harness's session ID (a prefix will do; omitted: the newest live one): its map, activity, attention, agent and cost")
+    parser.add_argument("--prompt", action="store_true", help="with --session (or alone: the newest live session): open its Prompt panel with the keyboard in the box, to type into the session as in the terminal")
     args = parser.parse_args(argv)
+    if args.prompt and args.session is None:  # 3.3.11.0 R1: --prompt alone is --session --prompt
+        args.session = ""
     edit = None
     if args.edit and args.session is not None:
         print("halo studio: --edit and --session each open one thing: pick one", file=sys.stderr)
@@ -370,7 +373,7 @@ def cmd_studio(argv: list) -> int:
         args.mode = edit.mode
     if args.session is not None:  # 3.1.4.0 R2: the Session dashboard, on the session asked for or the newest live one
         from halo_harness.studio.session_open import cli_target
-        edit, note = cli_target(args.session)
+        edit, note = cli_target(args.session, prompt=args.prompt)
         args.mode = "session"
         if note:
             print(f"halo studio: {note}")
