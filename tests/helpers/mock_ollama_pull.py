@@ -69,16 +69,18 @@ def apply_pull(handler, mock, body: dict) -> None:
         return
     delay = float(getattr(mock, "pull_delay_s", 0.0) or 0.0)
     start_ndjson(handler)
+    lines = list(script(name))
     try:
-        for line in script(name):
+        for i, line in enumerate(lines):
             if delay:
                 time.sleep(delay)
+            if i == len(lines) - 1:  # record the pull BEFORE the client can read 'success': a caller that returns on
+                _add(mock, name, show)  # that line and then reads mock.pulled saw it empty once (Linux shard 1, run 41578035477)
             write_ndjson_line(handler, line)
     except ClientDisconnected:
         with mock._lock:
             mock.pull_cancelled.append(name)
         return
-    _add(mock, name, show)
     end_ndjson(handler)
 
 

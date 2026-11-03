@@ -90,6 +90,13 @@ def test_hand_to_writes_the_markdown_then_stops(ctx: Ctx):
         set_config_value("paperclip.enabled", True)  # 3.1.4.0: a leftover section of a removed feature
         try:
             b = rig.agent("Research")["agent_id"]
+            # the hand-off route reads the fleet local view (a cached snapshot), not the live socket tree the rig read: wait
+            # until that view lists the agent, or the slow runner answers 404 "no agent" (Windows shard 0, run 41578034998)
+            from halo_harness.fleet import local_view
+            deadline = time.time() + 10.0
+            while time.time() < deadline and not any(a.get("agent_id") == b for s in local_view.snapshot().get("sessions") or []
+                                                        for a in s.get("agents") or []):
+                time.sleep(0.1)
             status, got = rig.api("POST", f"fleet/local/{rig.act.session_id}/agents/{b}/handoff", {"mode": "hand_to", "to": MEMBER})
         finally:
             set_config_value("paperclip.enabled", False)
