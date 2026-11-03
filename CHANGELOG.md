@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.3.9.3] - unreleased
+## [3.3.9.3] - 2026-11-03
 
 **TensorFold.** The last of the three runtimes the owner scheduled after FreeToken: TensorFold (github.com/ashhart/TensorFold,
 Apache-2.0, a Zig binary), an inference engine for Metal and CUDA with no Python, OpenAI-compatible on its own port, a
