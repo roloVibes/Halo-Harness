@@ -95,7 +95,14 @@ def details(c, url, ctx) -> dict:
            "contributes": c.js(_text("[data-testid=pm-contributes]")),
            "perms": c.js(f"{qa('[data-testid=pm-perm]')}.map((p) => p.dataset.name)")}
     press(c, q("[data-testid=pm-grant][data-name=bash]"))
-    out["picked"] = w(c, f"{q('[data-testid=pm-grant][data-name=bash]')}?.checked === true", 10)
+    try:
+        out["picked"] = w(c, f"{q('[data-testid=pm-grant][data-name=bash]')}?.checked === true", 5)
+    except TimeoutError:
+        # Linux shard 3 of the 3.3.10.0 tag run (41638673041): the click landed while Details re-rendered after a reload pass
+        # and the box stayed unchecked. Press once more and say so, so a red run tells a lost click from a broken toggle.
+        out["picked_retry"] = True
+        press(c, q("[data-testid=pm-grant][data-name=bash]"))
+        out["picked"] = w(c, f"{q('[data-testid=pm-grant][data-name=bash]')}?.checked === true", 10)
     out["enable_label"] = w(c, _text(f"{ROW} [data-testid=pm-enable]") + ".includes('1 grant') && " + _text(f"{ROW} [data-testid=pm-enable]"), 10)
     out["enable_title"] = c.js(f"{q(ROW + ' [data-testid=pm-enable]')}?.title")
     return out
