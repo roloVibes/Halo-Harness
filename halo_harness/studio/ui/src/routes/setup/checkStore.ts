@@ -115,7 +115,9 @@ export async function startCheck(): Promise<void> {
 export async function runChecks(): Promise<void> {
   const s = check.get();
   const d = setup.get().data;
-  const keys = (d?.checks || []).map((c) => c.key).filter((k) => ticked(s, d, k));
+  // 3.3.11.0 R3: the pack checks ticked under "From packs" (`pack:<id>:<block>`) run after the core ones
+  const packKeys = (d?.packs || []).flatMap((p) => p.blocks.filter((b) => b.kind === "check").map((b) => b.key));
+  const keys = [...(d?.checks || []).map((c) => c.key), ...packKeys].filter((k) => ticked(s, d, k));
   const models = (d?.gym_models || []).map((m) => m.ref).filter((r) => modelTicked(s, r));
   check.update(() => ({ busy: true, error: "", frames: {}, summary: null }));
   try {

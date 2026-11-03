@@ -7,7 +7,7 @@ Halo 3.2.0.0 (written in R1, final in R7: every part was `stable`); 3.3.10.0 R1 
 A pack is a folder Halo installs, enables and removes (see
 [PACKS.md](PACKS.md) for using one); this page is the contract a pack is
 written against. The extension API version is `API_VERSION = "1.1"` (1.0 until 3.3.10.0; a 1.0 pack keeps
-everything, [Changes in 1.x](#changes-in-1x))
+everything, [Changes in 1.x](#changes-in-1x); 3.3.11.0 added [Setup blocks](#setup-blocks) to it)
 (`halo_harness.ext.API_VERSION`, also exported as `HALO_API_VERSION`). The
 machine-readable manifest schema is
 `halo_harness/packs/schema/pack.schema.json`; the reference pack is
@@ -29,6 +29,7 @@ machine-readable manifest schema is
 | [Events and artifacts](#events-and-artifacts) | stable | typed events (3.2.0.0 R5: schemas, the events log, subscriptions), typed artifacts with viewers, memory with provenance |
 | [Compatibility and migration](#compatibility-and-migration) | stable | the version policy (`ext.compatible`, `ext.deprecations`), `migrations` shown before an update and applied, `halo pack rollback` (3.2.0.0 R7) |
 | [Bundles](#bundles) | stable | `bundle:` (3.3.7.0 R5): a capability bundle, a pack with a resource claim -- needs, reservation, routing, latency budget; the verdict before anything downloads |
+| [Setup blocks](#setup-blocks) | stable | `contributes.setup` (3.3.11.0 R3, API 1.1): a pack's own pages in Studio's Setup -- a form over its `config.schema` keys, a check through Setup's checks job, a note -- shown while the pack is enabled, their state in `setup.json`; `halo pack enable` and `halo doctor` say what waits, `halo setup <pack>` opens it |
 | [Policy hooks](#policy-hooks) | stable | `contributes.policy` and `contributes.modes` (3.3.10.0, API 1.1): a pack's runtime mode (mode.json), a policy hook whose verdict decides a tool call before it runs (deny > ask > allow) and, with `after: true`, its result after (pass, redact, drop); every verdict in the audit; the dry run |
 | [The reference example](#the-reference-example) | stable | the Documentation Review pack Halo ships (3.2.0.0 R6): every part of the API in one pack a third party can copy |
 
@@ -102,6 +103,7 @@ contributes:
   workflows: [review]           # workflow names (R2), each workflows/<name>.yaml (R5)
   policy: [{id: fence, run: [...], when: {tools: [...], modes: [...]}, impact, on_error, redact, after}]   # 3.3.10.0, Policy hooks below
   modes: [{id: fenced, label: Fenced, theme: midnight}]   # 3.3.10.0: the pack's runtime modes
+  setup: [{id: prefs, title: Review preferences, kind: form, fields: [style], after: model}]   # 3.3.11.0, Setup blocks below
 config:
   schema: {properties: {style: {type: string, enum: [short, long]}}, additionalProperties: false}
   defaults: {style: short}
@@ -843,6 +845,55 @@ deny`, armed by its one mode, `fenced`. The first real consumer is the **concord
 (`halo_harness/templates/packs/concord/`, [PACKS.md](PACKS.md#the-concord-pack)): its `claimed-files` policy runs
 `concord check <path>` and denies a Write or Edit to a file another Concord task claims, `on_error: allow`.
 
+## Setup blocks
+
+Status: **stable** (3.3.11.0 R3, API 1.1). A pack adds its own pages to Studio's Setup section
+([STUDIO-setup.md](STUDIO-setup.md#a-packs-blocks)) by listing them under `contributes.setup`; Setup's own parts draw
+each one, and nothing of the pack's runs to draw it. `halo_harness/packs/manifest_setup.py` checks the list at install,
+one line per problem (an unknown kind, a field `config.schema` does not have, a `run` outside the pack or missing, a
+check without its four lines, a missing `text` file, an `after` that is not a core step, a key of another kind), and
+the install is refused.
+
+```yaml
+contributes:
+  setup:
+    - {id: prefs, title: Review preferences, kind: form, fields: [style, depth], after: model}
+    - id: reach
+      title: Reach the review service
+      kind: check
+      run: ["${halo_python}", "${CLAUDE_PLUGIN_ROOT}/setup/reach.py"]
+      what: asks the pack's script whether the review service answers
+      cost: free
+      time: seconds
+      writes: nothing
+    - {id: about, title: Before you start, kind: note, text: setup/about.md}
+```
+
+| Key | What it is |
+|---|---|
+| `id` | lower-case letters, digits, `-` and `_`; the step's id is `pack:<pack id>:<id>` |
+| `title` | the step's name in Setup's rail and Summary |
+| `kind` | `form`, `check` or `note` |
+| `after` | optional: a core step (`providers`, `local`, `model`, `permissions`, `theme`, `team`, `linux`, `check`) the block is drawn right behind, the pack's name on it; left out, the block follows the core steps under the pack's name, before the Summary |
+| `help` | optional: the page's one line (the pack's `description` when left out) |
+| `fields` | form: the `config.schema` keys it shows, in the schema's order (left out: every key); Save checks them against the schema and writes `packs.settings.<id>`, nothing else |
+| `run` | check: a command in the pack folder with the substitutions hooks use (`${halo_python}`, `${CLAUDE_PLUGIN_ROOT}`), exec form; exit 0 is green, its output the row's lines |
+| `what`, `cost`, `time`, `writes` | check, all four required: the line the row shows before it runs (an offered action says what it does first); the row is off until you tick it |
+| `text` | note: a markdown file in the pack, drawn as the page |
+
+**The state** is `~/.halo/packs/.data/<id>/setup.json` (`packs/setup_state.py`), `{"blocks": {<id>: {state, at,
+by}}}`: a form is `done` once saved from Setup, a check once it ran green through the checks job, a note once
+marked read, and any block may be `skipped`; a block not in the file is waiting. Each change is the pack's `setup`
+event in its events log. **The doors**: the blocks show only while the pack is enabled; `halo pack enable <id>` (and
+`halo pack on`) end with one line per block waiting, `setup: <id> -- <title> (halo setup <id>)`; `halo setup <id>`
+opens Setup on the first block waiting (`?mode=setup&block=pack:<id>:<block>`, or the lines where no browser opens);
+`halo doctor`, `halo pack doctor` and the Pack Manager list a pack setup still waiting as an `info` row
+("setup-waiting", exit 0; the Manager's row says "setup waiting"). **Nothing private**: a block's answers carry the
+pack's own manifest lines, its own settings for the form's keys and its own note file, never an environment value, a
+key, the provider state or another pack's settings; the check runs with the environment a pack hook gets (Halo's
+provider keys taken out, `CLAUDE_PLUGIN_ROOT`, `CLAUDE_PROJECT_DIR`, `HALO_PACK_ID`, `HALO_SETUP_BLOCK` put in). With
+no pack contributing `setup`, Setup is as it was. `tests/fixtures/packs/setup-blocks/` is the example: one of each kind.
+
 ## Compatibility and migration
 
 Status: **stable** (3.2.0.0 R7). The policy, as `halo_harness/ext/compat.py`
@@ -891,7 +942,8 @@ what to use instead), one line each (`ext.compat.CHANGES` holds the same).
 - **1.1** (Halo 3.3.10.0): adds `set_mode` and `current_mode` (a pack's runtime mode) and the manifest's
   `contributes.policy` and `contributes.modes` ([Policy hooks](#policy-hooks): draft in R1, stable from R2, which
   enforces each verdict and adds the post-call verdict, `after: true` -> pass | redact | drop), and (R3) the bundle
-  panel's `api` calls `publish`, `on`, `getData`, `mode`, `attention` and `route`; deprecates nothing. A 1.0 pack keeps everything: `{min: "1.0"}` and `{min: "1.0", max: "1.9"}` take 1.1, and a pack
+  panel's `api` calls `publish`, `on`, `getData`, `mode`, `attention` and `route`, and (Halo 3.3.11.0) the manifest's
+  `contributes.setup` ([Setup blocks](#setup-blocks), stable); deprecates nothing. A 1.0 pack keeps everything: `{min: "1.0"}` and `{min: "1.0", max: "1.9"}` take 1.1, and a pack
   without `policy` and `modes` reads and runs exactly as before. (A pack that says `max: "1.0"` asked for 1.0 only
   and gets the one compatibility line.)
 - **1.0** (Halo 3.2.0.0): the first version.

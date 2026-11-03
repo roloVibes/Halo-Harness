@@ -8,16 +8,20 @@
 // "done" when its block has what it needs: a provider set; nothing for Local
 // models; a model picked; a mode; a theme; a lineup or auto; the fixes
 // applied; a check run once. The Summary is done when every other step is.
+// 3.3.11.0 R3: an enabled pack's own blocks are steps too (`pack:<id>:<block>`, packSetup.ts): behind the core step
+// their `after` names, else after the core steps, before the Summary; done once saved, run green, read or skipped.
 import { createStore, useStore } from "../../lib/store";
 import { lastCheckWord } from "./checkStore";
+import { blockDone, blockOf, blockWord, isPackStep, placeSteps } from "./packSetup";
 import { providersSet, setup, type SetupData } from "./store";
 
-export type StepId = "providers" | "local" | "model" | "permissions" | "theme" | "team" | "linux" | "check" | "summary";
+export type CoreStep = "providers" | "local" | "model" | "permissions" | "theme" | "team" | "linux" | "check" | "summary";
+export type StepId = CoreStep | `pack:${string}`;
 export type StepState = "current" | "done" | "todo";
 
-const ORDER: StepId[] = ["providers", "local", "model", "permissions", "theme", "team", "linux", "check", "summary"];
+const ORDER: CoreStep[] = ["providers", "local", "model", "permissions", "theme", "team", "linux", "check", "summary"];
 
-export const TITLES: Record<StepId, string> = {
+export const TITLES: Record<CoreStep, string> = {
   providers: "Providers",
   local: "Local models",
   model: "Default model",
@@ -30,7 +34,7 @@ export const TITLES: Record<StepId, string> = {
 };
 
 /** Each step's block by its help key (routes/help-setup.ts): its one-line `about` and its `help` lines. */
-export const HELP_KEY: Record<StepId, string> = {
+export const HELP_KEY: Record<CoreStep, string> = {
   providers: "setup-providers",
   local: "setup-local",
   model: "setup-model",
@@ -42,16 +46,26 @@ export const HELP_KEY: Record<StepId, string> = {
   summary: "setup-summary",
 };
 
-/** A door's word (studio/setup_door.py BLOCKS, plus `summary`) as a step; `roles` is the Team block's old name. */
+/** 3.3.11.0 R3: a step's name -- a core step's, or a pack block's title. */
+export function titleOf(d: SetupData | null, s: StepId): string {
+  if (!isPackStep(s)) return TITLES[s as CoreStep];
+  return blockOf(d, s)?.block.title || s.split(":")[2] || s;
+}
+
+/** A door's word (studio/setup_door.py BLOCKS, plus `summary`) as a step; `roles` is the Team block's old name;
+ *  3.3.11.0 R3: `pack:<id>:<block>`, a pack's block. */
 export function stepOf(word: string): StepId | null {
   const w = String(word || "").toLowerCase();
   if (w === "roles") return "team";
+  if (/^pack:[a-z][a-z0-9-]*:[a-z][a-z0-9_-]*$/.test(w)) return w as StepId;
   return (ORDER as string[]).includes(w) ? (w as StepId) : null;
 }
 
-/** The steps in the rail: Linux fixes only while this box needs them (or while it is the page open). */
+/** The steps in the rail: Linux fixes only while this box needs them (or while it is the page open); 3.3.11.0 R3:
+ *  the enabled packs' blocks placed among them (packSetup.ts placeSteps). */
 export function stepsOf(d: SetupData | null, page: StepId): StepId[] {
-  return ORDER.filter((s) => s !== "linux" || !!d?.linux_fixes.needed || page === "linux");
+  const core = ORDER.filter((s) => s !== "linux" || !!d?.linux_fixes.needed || page === "linux");
+  return placeSteps(core, d) as StepId[];
 }
 
 export function lineupWord(d: SetupData): string {
@@ -61,7 +75,11 @@ export function lineupWord(d: SetupData): string {
 /** Does step `s`'s block have what it needs. */
 export function isDone(d: SetupData | null, s: StepId): boolean {
   if (!d) return false;
-  switch (s) {
+  if (isPackStep(s)) {
+    const f = blockOf(d, s);
+    return !!f && blockDone(f.block);
+  }
+  switch (s as CoreStep) {
     case "providers":
       return providersSet(d).length > 0;
     case "local":
@@ -79,8 +97,9 @@ export function isDone(d: SetupData | null, s: StepId): boolean {
     case "check":
       return !!d.last_check?.when;
     case "summary":
-      return ORDER.every((x) => x === "summary" || (x === "linux" && !d.linux_fixes.needed) || isDone(d, x));
+      return stepsOf(d, "summary").every((x) => x === "summary" || (x === "linux" && !d.linux_fixes.needed) || isDone(d, x));
   }
+  return false;
 }
 
 export function stateOf(d: SetupData | null, s: StepId, page: StepId): StepState {
@@ -90,7 +109,11 @@ export function stateOf(d: SetupData | null, s: StepId, page: StepId): StepState
 /** What step `s` holds now, in a few words (the Summary's rows, the rail's tooltips). */
 export function valueOf(d: SetupData | null, s: StepId): string {
   if (!d) return "reading the setup...";
-  switch (s) {
+  if (isPackStep(s)) {
+    const f = blockOf(d, s);
+    return f ? `${f.pack.name}: ${blockWord(f.block)}` : "not here (the pack is not enabled)";
+  }
+  switch (s as CoreStep) {
     case "providers": {
       const set = providersSet(d);
       return set.length ? set.join(", ") : "no provider set";
@@ -114,6 +137,7 @@ export function valueOf(d: SetupData | null, s: StepId): string {
     case "summary":
       return "";
   }
+  return "";
 }
 
 // -- which page is open ----------------------------------------------------------------------------------------
@@ -153,7 +177,7 @@ export function adoptRemembered(home: string): void {
     saved = "";
   }
   const s = stepOf(saved);
-  if (s) pages.update(() => ({ page: s }));
+  if (s && (!isPackStep(s) || blockOf(setup.get().data, s))) pages.update(() => ({ page: s })); // a pack's block: while it is here
 }
 
 export function step(by: 1 | -1): void {

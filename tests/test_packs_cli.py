@@ -167,6 +167,30 @@ def test_a_lineups_workflows_resolve(ctx: Ctx):
                   == [line, "audit (not found)", "other-pack/sweep (not found)"] and [g["found"] for g in got] == [True, False, False])
 
 
+@test
+def test_enable_names_the_setup_blocks_waiting(ctx: Ctx):
+    """3.3.11.0 R3: `halo pack enable <id>` ends with one `setup:` line per Setup block neither done nor skipped; a pack
+    without blocks prints none; --json carries them in its lines."""
+    from halo_harness.packs.setup_state import DONE, mark
+    with PacksHome() as h:
+        h.install(h.source("setup-blocks"))
+        code, out, _err = h.cli("enable", "setup-blocks")
+        lines = out.strip().splitlines()
+        ctx.check(f"exit 0, the three lines last, got {code} {lines[-3:]}", code == 0 and lines[-3:] == [
+            "setup: setup-blocks -- Review preferences (halo setup setup-blocks)",
+            "setup: setup-blocks -- Reach the review service (halo setup setup-blocks)",
+            "setup: setup-blocks -- Before you start (halo setup setup-blocks)"])
+        mark("setup-blocks", "prefs", DONE)
+        mark("setup-blocks", "about", "skipped")
+        code, out, _err = h.cli("enable", "setup-blocks", "--json")
+        got = [ln for ln in json.loads(out).get("lines", []) if ln.startswith("setup: ")]
+        ctx.check(f"--json: only the block still waiting, got {got}", code == 0
+                  and got == ["setup: setup-blocks -- Reach the review service (halo setup setup-blocks)"])
+        h.install(h.source(), grants=[])
+        code, out, _err = h.cli("enable", "doc-review")
+        ctx.check("a pack without blocks: no setup line", code == 0 and "setup: " not in out)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

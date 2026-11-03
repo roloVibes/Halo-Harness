@@ -6,13 +6,15 @@
 // its state and its lines as they arrive. The gym row lists the models it
 // would run on (only local models run); the guided first run's row shows
 // its card first, and only then can it be ticked; it runs through the Start
-// here job, whose steps show under the row.
+// here job, whose steps show under the row. 3.3.11.0 R3: an enabled pack's Setup checks follow under "From packs",
+// each with its own what / cost / time / writes line and unticked until you tick it; they run in the same job.
 import { useEffect } from "react";
 import { runStart, start } from "../../lib/start";
 import { useStore } from "../../lib/store";
 import { Button } from "../../lib/ui";
 import { useLoadState, Waiting } from "./BlockFoot";
 import { lastCheckWord, runChecks, showCard, startCheck, stopChecks, tick, tickModel, ticked, useCheck } from "./checkStore";
+import { packBlocks, type Found } from "./packSetup";
 import { NONE, setup, useSetup, type CheckRow } from "./store";
 
 const GLYPH: Record<string, string> = { running: ">>", done: "ok", failed: "!!", pending: "..", stopped: "--", ready: ".." };
@@ -68,7 +70,7 @@ function StartPart() {
   );
 }
 
-function Row({ c }: { c: CheckRow }) {
+export function Row({ c, pack }: { c: CheckRow; pack?: string }) {
   const on = useCheck((s) => ticked(s, setup.get().data, c.key));
   const shown = useCheck((s) => s.cardShown);
   const frame = useCheck((s) => s.frames[c.key]);
@@ -82,7 +84,7 @@ function Row({ c }: { c: CheckRow }) {
                title={lockStart ? "show the card first" : undefined} data-testid="setup-check-tick" data-key={c.key} />
         <span className="su-glyph mono" data-testid="setup-check-glyph" data-key={c.key}>{GLYPH[state] || ""}</span>
         <b>{c.title}</b>
-        <span className="muted mono">({c.key})</span>
+        <span className="muted mono">({pack || c.key})</span>
       </label>
       <span className="su-check-detail muted">
         {c.what}. Cost: {c.cost}. Time: {c.time}. Writes: {c.writes}.
@@ -111,12 +113,32 @@ function Summary() {
   return <span className="su-word mono" data-testid="setup-check-summary">last check: {lastCheckWord(last)}</span>;
 }
 
+function checkRow(f: Found): CheckRow {
+  const b = f.block;
+  return { key: b.key, title: b.title, what: b.what || "", cost: b.cost || "", time: b.time || "", writes: b.writes || "", default_on: false };
+}
+
+/** 3.3.11.0 R3: the enabled packs' Setup checks, under "From packs", unticked until ticked. */
+function PackRows() {
+  const joined = useSetup((s) => JSON.stringify(packBlocks(s.data).filter((f) => f.block.kind === "check").map((f) => [f.pack.name, checkRow(f)])));
+  const rows = JSON.parse(joined) as [string, CheckRow][];
+  if (!rows.length) return null;
+  return (
+    <div className="su-checks" data-testid="setup-check-packs">
+      <div className="su-check-from mono muted" data-testid="setup-check-from-packs">From packs</div>
+      {rows.map(([pack, c]) => (
+        <Row key={c.key} c={c} pack={pack} />
+      ))}
+    </div>
+  );
+}
+
 export function CheckDetail() {
   const { ready, error } = useLoadState();
   const rows = useSetup((s) => s.data?.checks || NONE);
   const running = useCheck((s) => s.running);
   const busy = useCheck((s) => s.busy);
-  const any = useCheck((s) => rows.some((c) => ticked(s, setup.get().data, c.key)));
+  const any = useCheck((s) => rows.some((c) => ticked(s, setup.get().data, c.key)) || Object.entries(s.ticks).some(([k, on]) => on && k.startsWith("pack:")));
   const problem = useCheck((s) => s.error);
   useEffect(() => void startCheck(), []);
   if (!ready) return <Waiting error={error} />;
@@ -128,6 +150,7 @@ export function CheckDetail() {
           <Row key={c.key} c={c} />
         ))}
       </div>
+      <PackRows />
       <div className="su-foot-row">
         <Button variant="primary" size="sm" onClick={() => void runChecks()} disabled={busy || running || !any} data-testid="setup-check-run">
           {busy ? "Starting..." : "Run the ticked checks"}

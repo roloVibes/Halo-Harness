@@ -53,3 +53,7 @@
   .su-sum-row { grid-template-columns: 2ch minmax(0, 1fr) auto; }
   .su-sum-row .su-sum-value { grid-column: 2 / 4; grid-row: 2; }
 }
+/* 3.3.11.0 R3: a pack's own blocks -- the pack's name before its steps, the Check page's "From packs" line, a note */
+.su-steps-pack { color: var(--muted); font-size: 11px; padding: 0 4px 0 6px; }
+.su-check-from { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; padding: 10px 0 2px; }
+.su-pack-note { max-width: 72ch; }

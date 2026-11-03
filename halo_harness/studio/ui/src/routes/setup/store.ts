@@ -9,6 +9,7 @@ import { api, ApiError } from "../../lib/api";
 import { onFilesChanged } from "../../lib/filesLive";
 import { createStore, setSectionStatus, useStore } from "../../lib/store";
 import type { CardFields } from "../shared/ModelCard";
+import type { PackSetup } from "./packSetup";
 
 export type ThemeRow = { name: string; palette: Record<string, string> };
 export type ModeRow = { id: string; label: string; note: string };
@@ -58,6 +59,8 @@ export type SetupData = {
   home?: string;
   /** 3.3.3.0 R1: when the Summary's Done was last pressed for this home (studio/setup_done.py), or null. */
   done_at?: string | null;
+  /** 3.3.11.0 R3: the enabled packs' own Setup blocks (studio/setup_packs_api.py); [] when none adds one. */
+  packs?: PackSetup[];
 };
 export type CheckRow = { key: string; title: string; what: string; cost: string; time: string; writes: string; default_on: boolean };
 export type CheckResult = { key: string; title: string; ok: boolean; lines: string[] };

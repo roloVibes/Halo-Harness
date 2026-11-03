@@ -108,7 +108,10 @@ lose `permissions.mode` and allow rules).
 
 `halo pack enable <id>` turns the pack on and prints what it requests. A
 contribution whose permission is not granted does not run: its MCP server
-does not start, its hooks do not load. Grants add up across calls.
+does not start, its hooks do not load. Grants add up across calls. 3.3.11.0 R3:
+it ends with one line per [Setup block](EXTENSION_API.md#setup-blocks) of the
+pack neither done nor skipped, `setup: <id> -- <title> (halo setup <id>)`
+(`halo pack on <bundle>` prints the same lines).
 
 #### `--grant`
 
@@ -247,10 +250,25 @@ one kind: a fleet capability hidden on purpose with `fleet.capabilities.hide`).
 Info rows print last (dimmed on a terminal) and the RESULT line counts them
 apart (`RESULT: 0 problem(s) (0 error(s), 0 warning(s)), 1 note(s).`); the
 exit code is 1 when any blocks or warns row is there and 0 when every row is
-info. `--json` keeps its shape (`{"problems": [...]}`, each row with its
+info. 3.3.11.0 R3: an enabled pack's Setup block still waiting is the second
+kind, one row per pack, `setup-waiting` (`[INFO] <id>: setup waiting: 2 blocks
+not done yet (...) -> halo setup <id>`); `halo doctor` prints the same as an
+`[INFO] Pack setup:` line, and the Pack Manager's row says "setup waiting".
+`--json` keeps its shape (`{"problems": [...]}`, each row with its
 `severity`) and the same exit rule; `halo doctor --config` tags the row
 `[INFO]` and does not count it as a finding. The Pack Manager counts info rows
 apart from the doctor lines ("1 note").
+
+### `halo setup <pack>`
+
+3.3.11.0 R3: `halo setup <id>` (an enabled pack's id) opens Studio's Setup on the
+pack's first [Setup block](EXTENSION_API.md#setup-blocks) still waiting
+(`?mode=setup&block=pack:<id>:<block>`; every block done: its first), with the
+one line `halo setup team` prints. With no terminal, `--terminal`, or a box where
+no browser opens, it prints a line per block with its state (`done`, `skipped`,
+`waiting`) and `halo studio --edit setup:pack:<id>:<block>`, exit 0. A disabled
+pack, or one with no blocks, is one line and exit 1; a word that is no pack's id
+is the usage line and exit 2.
 
 ## Bundles
 

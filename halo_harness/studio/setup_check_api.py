@@ -49,9 +49,11 @@ def post_check(req):
     keys = _strings(body.get("checks"))
     if not keys:
         return 422, {"error": "tick at least one check", "problems": [f"checks: a list of keys, from {', '.join(C.KEYS)}"]}
-    unknown = [k for k in keys if k not in C.KEYS]
+    from halo_harness.start.checks_pack import rows as pack_rows  # 3.3.11.0 R3: the enabled packs' Setup checks
+    offered = list(C.KEYS) + [r["key"] for r in pack_rows(req.cwd, req.state_dir)]
+    unknown = [k for k in keys if k not in offered]
     if unknown:
-        lines = [f"{k}: not a check (one of {', '.join(C.KEYS)})" for k in unknown]
+        lines = [f"{k}: not a check (one of {', '.join(offered)})" for k in unknown]
         return 422, {"error": lines[0], "problems": lines}
     if "start" in keys:
         if start_job.running():

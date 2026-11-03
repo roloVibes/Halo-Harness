@@ -42,6 +42,8 @@ export type PackRow = {
   health: HealthRow[];
   /** 3.3.10.0 R3: its info rows (a note, never a problem: a fleet capability hidden on purpose). */
   notes: HealthRow[];
+  /** 3.3.11.0 R3: how many of its Setup blocks are neither done nor skipped (0 while it is disabled). */
+  setup_waiting?: number;
   /** What keeps it from running here, in the doctor's words. */
   compat: string[];
   problems: string[];

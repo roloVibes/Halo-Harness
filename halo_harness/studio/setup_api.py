@@ -18,6 +18,8 @@ state (studio/setup_state.py) plus the lines saying what was written.
                                         the Check and Linux fixes blocks (studio/setup_check_api.py, R3)
     POST setup/done                     3.3.3.0 R1: the Summary's Done: <state>/setup-done.json and a `setup` frame
                                         {stage: "done", at} -> {ok, done_at}; the state's `done_at` (studio/setup_done.py)
+    GET setup/packs, GET|POST setup/packs/<id>/<block>
+                                        3.3.11.0 R3: a pack's own Setup blocks (studio/setup_packs_api.py)
 
 The page reads the state again on `files_changed` (config.json moved: a
 `halo config set` in a terminal, another Studio), so every open Setup page
@@ -150,3 +152,14 @@ def dispatch_setup(req):  # noqa: F811  (the R5 routes, then the routes above)
     from halo_harness.studio.setup_discover_api import dispatch_setup_discover
     answered = dispatch_setup_discover(req)
     return answered if answered is not None else _dispatch_setup_before_r5(req)
+
+
+# 3.3.11.0 R3: `setup/packs` and `setup/packs/<id>/<block>`, a pack's own Setup blocks (studio/setup_packs_api.py),
+# answer first; every other path goes on to the routes above.
+_dispatch_setup_before_packs = dispatch_setup
+
+
+def dispatch_setup(req):  # noqa: F811  (a pack's blocks, then the routes above)
+    from halo_harness.studio.setup_packs_api import dispatch_setup_packs
+    answered = dispatch_setup_packs(req)
+    return answered if answered is not None else _dispatch_setup_before_packs(req)
