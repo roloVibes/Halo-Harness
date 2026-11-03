@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.3.9.1] - unreleased
+## [3.3.9.1] - 2026-11-02
 
 **FreeToken.** The owner asked whether FreeToken (github.com/FlashML-org/FreeToken) fits Halo's local use cases: it serves a
 big Mixture-of-Experts model on one consumer box out of host RAM and NVMe, the other answer to "a model bigger than my
