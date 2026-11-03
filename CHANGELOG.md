@@ -8,6 +8,29 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.3.9.2] - unreleased
+
+**Strata.** The owner's order after FreeToken: Strata (github.com/Niko1221/Strata), the engine of the same family -- a
+big Mixture-of-Experts model paged from RAM and disk on one consumer box -- that runs natively on Windows, Linux and the
+Mac, so the PC's own card serves Qwen3.8-Flash-Next without WSL2. One more local runtime, never a provider: a managed
+`strata launch` that Halo starts only when Strata's own plan shows nothing left to download (the GB and the command are
+the owner's otherwise), the steward reading its log, FreeToken's RAM + link fit rule with Strata's sets and its VRAM slot
+guide, host-served to every halo on the LAN. Every Strata log pattern and API shape is from its source, unverified until
+the owner's run on the PC.
+
+### R1: Strata -- a big Mixture-of-Experts engine that runs natively on Windows, Linux and the Mac, as one more local runtime
+
+#### Added
+- `halo local serve --runtime strata --model <family>/<set>` (or `--model-path DIR`) runs Strata's `strata launch` (from `huggingface.strata_bin` or PATH) on a free loopback port behind a key Halo keeps in the env file, as the registry row and `huggingface.local_servers` entry `strata` (`hf:local/<model>@strata`); `strata launch --plan` goes first and when the first launch would download (the set's tens to hundreds of GB, the engine for the card) Halo starts nothing and says the GB and the command you run; `--plan` prints Strata's own plan and the fit here; `--lan` is `--access lan`; `halo local servers | log | stop` treat it like the others (`stop` is `strata launch --stop`; the server outlives Halo under Strata's own supervisor).
+- A missing `strata` is one line with the install route for this OS (`install.ps1` on Windows, `install.sh` on Linux and the Mac) and the set's download GB; `halo doctor --local` checks `strata --version` and `strata launch --status` when the runtime is configured.
+- The steward reads Strata's server log (the experts' loading words, the `ready:` line's window, each request's `done:` line with its tok/s and expert-cache hit rate, the parallel-slot lines, the RAM warnings) and the launch's download lines: `strata-disk-bound`, `strata-slots`, `strata-download`, keyed `<server>|<model>`, each with a stated fix never applied; `halo ollama explain` knows them.
+- The Strata fit, FreeToken's RAM + link rule with Strata's figures: the VRAM guide for parallel requests (12 GB runs 1, 20 GB 2, 24 GB 3, 32 GB and more 4), the set's experts against host RAM, what streams from the SSD, Strata's measured table as the extrapolated speed until `halo local bench --host strata` measures it; the Library lists Strata's sets as download targets with it as the badge.
+- Through the host: a Strata server on the host is a host-served local server with its model; with `--lan` the host's catalog offers it and a peer reaches it as `hf:local/<model>@<host>`; placement and the adviser see it beside the Ollama hosts, the pool and FreeToken, with the loading tax said (the restart, the experts into RAM, the first launch's download).
+- Setting `huggingface.strata_bin`; glossary `expert set`; docs/MODELS-strata.md.
+
+#### Changed
+- The loopback auto-detect names a server whose `/health` says `"service": "strata"` by its runtime, its window from `meta.n_ctx`.
+
 ## [3.3.9.1] - 2026-11-02
 
 **FreeToken.** The owner asked whether FreeToken (github.com/FlashML-org/FreeToken) fits Halo's local use cases: it serves a

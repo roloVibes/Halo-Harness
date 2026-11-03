@@ -1,6 +1,6 @@
 # Models: the steward and the local servers
 
-Read this when you run llama-server, LM Studio, mlx_lm.server or FreeToken and want to know what the steward reads in each one's log, what each log can and cannot say, what the steward changes on Halo's side and which server-side line it states.
+Read this when you run llama-server, LM Studio, mlx_lm.server, FreeToken or Strata and want to know what the steward reads in each one's log, what each log can and cannot say, what the steward changes on Halo's side and which server-side line it states.
 
 Part of [Models](MODELS.md), which lists every part. The steward itself: [MODELS-ollama-steward.md](MODELS-ollama-steward.md); Ollama's own log: [MODELS-ollama-logs.md](MODELS-ollama-logs.md).
 
@@ -162,6 +162,25 @@ line never applied (`ft ctl cache --moe N`, native Linux, the CUDA 13 toolkit); 
 local-servers section. The stated lines for this runtime are `ft serve`'s own: `--max-seq-len-override N` for the
 window, `--max-output-tokens N` for the reply limit; it has no layer or cache-type flag to state (it sizes its expert
 cache and KV itself).
+
+## Strata (3.3.9.2)
+
+A Strata server ([MODELS-strata.md](MODELS-strata.md)) is the runtime `strata`: Halo's own `halo local serve --runtime
+strata` (the entry `strata`; its log is the launch's output in `~/.halo/local/servers/strata.log` until `strata launch`
+returns, then the server's own `<Strata's state>/runtime/launch-<name>.server.log`), a manual entry with `runtime:
+strata` and its `log`, or one the loopback sweep found (its `/health` says `"service": "strata"`). Strata's log names no
+model, so its events carry the roster's model (`strata` for a hand-written entry with none).
+`ollama_steward/server_log_strata.py` reads its lines with patterns written from Strata's source, unverified against a
+live log: the start narrator (the experts into RAM, under a RAM budget, or mapped from the model files) through the
+`ready: http://.../v1 (... context N tokens` line as one `load-result` {strategy, window, load_s}, each `done:` line and
+the engine's `prompt P tokens = ...` summary as `timing` (tok/s, the expert cache's hit rate, the PCIe share), the
+`parallel requests: A asked, the engine runs B` and `a request has waited N s` lines as `slots`, the RAM-tight and
+RAM-budget warnings as `ram-tight`, the launch's `Downloading X of Y GB` / engine lines as `download`, no engine for
+the computer as `load-failed`. `ollama_steward/rules_strata.py` turns them into **strata-disk-bound**,
+**strata-slots** and **strata-download**, keyed `<server>|<model>`, each with a stated line never applied (the next
+set down, `--parallel` by the VRAM guide, nothing for a download); their rows are in the knowledge's local-servers
+section. The stated lines for this runtime are `strata launch`'s own: `--context N` for the window, `--kv q4_0` /
+`--kv int8` for the KV format, applied by the next launch.
 
 ## What the logs cannot say
 

@@ -8,7 +8,8 @@ local_cli.cmd_local; `halo models bench` is the same as `halo local bench`).
         host this machine does not serve is benched over the LAN from here: the cost line, the card's first line and
         --json's `measured_from` / `link` / `over_lan` say so (providers/local_bench_link.py), then the way to a card
         without the link (`halo host serve` there, `halo host join` here). 3.3.9.1: `--host freetoken` benches the
-        FreeToken server (freetoken/bench_cli.py); `--bw [--model DIR]` measures the host link with `ft bench bw`
+        FreeToken server (freetoken/bench_cli.py); `--bw [--model DIR]` measures the host link with `ft bench bw`;
+        3.3.9.2: `--host strata` benches the Strata server (strata/bench.py), the card the Strata fit reads
     halo local tune [--host H] [--json] [--apply ID [--scope S] [--session SID]]
         the tuning report: the warm set, each model's windows, the reserve, the findings, every option with what it
         writes and how long it takes; --apply lands a Halo-side option (scope keep unless you name another)
@@ -73,6 +74,9 @@ def cmd_bench(argv: list) -> int:
         from halo_harness.freetoken.bench_cli import bench_ft
         return bench_ft(args.host, quick=args.quick, yes=args.yes, as_json=args.json, bw=args.bw,
                         model=args.model or None, ask=_ask)
+    if args.host.strip().lower() == "strata":  # 3.3.9.2: strata/bench.py
+        from halo_harness.strata.bench import bench_st
+        return bench_st(args.host, quick=args.quick, yes=args.yes, as_json=args.json, ask=_ask)
     if args.host.strip().lower() == "pool":  # 3.3.8.0 R4: the running pool's own battery and speed card
         from halo_harness.pool_run_cli import bench_pool
         return bench_pool(quick=args.quick, yes=args.yes, as_json=args.json, ask=_ask)

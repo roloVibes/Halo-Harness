@@ -382,6 +382,20 @@ chat completions with `usage`, the scheduler's and `--moe-collect-stats`'s lines
 `freetoken/requirements.SEAMS` (`platform`, `which`, `run`) answers the platform, `nvidia-smi` and `nvcc` checks, so a
 test never runs the real ones; `freetoken/link.SEAMS` and `freetoken/bench.SEAMS` are the bench seams.
 
+### The fake Strata (3.3.9.2)
+
+`huggingface.strata_bin` = [python, `tests/helpers/fake_strata.py`] (tests/helpers/st_home.StHome) stands in for
+Strata's `strata`: `--version`, `launch --plan [--output json]` (`FAKE_STRATA_DOWNLOAD_GB`, `FAKE_STRATA_ENGINE_MISSING`
+say what would download), `launch --family F --model S ... --no-tui` (starts the server in a process of its own, as
+Strata's supervisor does, prints "Strata is serving." and the "Engine log" line and returns; `FAKE_STRATA_LAUNCH_S`,
+`FAKE_STRATA_NO_ENGINE`, `FAKE_STRATA_ENGINE_PCT`), `launch --status --output json`, `launch --stop --preset NAME`, and
+the server itself (127.0.0.1 only: `/health` with `"service": "strata"`, `/v1/models` with `meta.n_ctx`, chat
+completions with `usage`, the narrator's, `ready:` and `done:` lines in `<FAKE_STRATA_STATE>/runtime/launch-<name>.
+server.log`; `FAKE_STRATA_MODE`, `FAKE_STRATA_TOK_S`, `FAKE_STRATA_HIT`, `FAKE_STRATA_PARALLEL`). Its state is
+`FAKE_STRATA_STATE`, a scratch folder, never Strata's own; the rig's exit stops every server it started. Its lines are
+`tests/helpers/st_lines.py`'s, written from Strata's source and unverified against a live run.
+`strata/requirements.SEAMS` (`run`, `which`, `os`) answers `strata --version`, PATH and the OS word for a test.
+
 ### The fake audio (3.3.9.0 R2)
 
 `HALO_VOICE_AUDIO=fake` makes `voice/audio.py`'s `Audio.open` return `voice/audio_fake.FakeAudio`: no device is opened;

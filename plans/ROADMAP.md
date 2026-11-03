@@ -4193,3 +4193,16 @@ steward's reader for its log, auto-detect on its localhost port, host-served to 
 for a box without CUDA, the stats endpoint read by the steward, `tensorfold serve` managed like llama-server; brief
 ~/hh-3393/briefs/) -> then 3.3.10.0 R2. The batching-runtimes candidate above stays a candidate (3.3.9.4) until the
 owner says.
+
+**3.3.9.2 BUILT 2026-11-02 (one Opus round, worktree ~/hh-3392/R1-strata, hand-back v3392-R1-handback.md): the `strata`
+runtime (`halo_harness/strata/`: `launch.py` + `control.py` -- `strata launch --no-tui` hands the server to Strata's own
+supervisor, so it outlives Halo and `halo local stop strata` is `strata launch --stop`; Halo runs `strata launch --plan
+--output json` first and starts nothing when anything is left to download: the GB and the command are the owner's), the
+steward's `server_log_strata.py` + `rules_strata.py` (`strata-disk-bound`, `strata-slots`, `strata-download`),
+`local_sched/fit_st.py` (FreeToken's RAM + link rule with Strata's own figures; the bench card kept per set because Strata
+reports the family as its model id), host-served to peers, placement, `doctor_strata.py`, docs/MODELS-strata.md. Corrections
+to the bullet above, from Strata's docs: three model families and 24 sets, not one row; by its VRAM guide the 4090 runs 3
+slots, not 1; its measured figure for IQ3_XXS is 62 tok/s on an RTX 5070 (9-11 tok/s was DeepSeek 2.00 bpw on a 3060).
+Every Strata log pattern and API shape is from its source (main at ffa80d73), unverified until the owner's run on the
+PC. Open: reading `/metrics` (the SSD-read counts live there); the capability battery (Ollama-only, as for FreeToken);
+Studio pages beyond the Library badge. **3.3.9.2 IS THE CANDIDATE.**
