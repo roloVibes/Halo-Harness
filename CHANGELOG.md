@@ -8,6 +8,30 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.3.9.3] - unreleased
+
+**TensorFold.** The last of the three runtimes the owner scheduled after FreeToken: TensorFold (github.com/ashhart/TensorFold,
+Apache-2.0, a Zig binary), an inference engine for Metal and CUDA with no Python, OpenAI-compatible on its own port, a
+health route that says how many streams run and wait, a metrics route and a dashboard. It is the Mac's second native
+engine beside mlx_lm.server and one more runtime word for Linux, where Halo fetches the release archive and checks both
+GitHub's digest and the archive's own sha256 the way it does for llama-server. The fit is the ordinary one -- the
+checkpoint in the card's memory, unified on the Mac -- with the sizes TensorFold publishes. Every TensorFold log pattern
+and API shape is from its source, unverified until the owner's run on the Mac; two log lines its source does not spell
+out (the Metal capacity line, a driver refusal) are guesses the reader does not depend on.
+
+### R1: TensorFold -- a Metal / CUDA inference engine with no Python, as one more local runtime and the Mac's second native engine
+
+#### Added
+- `halo local serve --runtime tensorfold --model <hf repo | checkpoint dir> [--window N] [--parallel N] [--lan]` runs TensorFold's `tensorfold serve` (from `huggingface.tensorfold_bin`, PATH, or the Linux archive Halo fetched) on a free loopback port behind Halo's key in an owner-only key file, as the registry row and `huggingface.local_servers` entry `tensorfold` (`hf:local/<model>@tensorfold`); a repo in the Hugging Face cache is served by its id, one Halo downloaded by its folder; a repo nowhere on disk starts nothing and says its size and `tensorfold pull <repo>` (your download); a long first load goes on in the background, said; `halo local servers | log | stop` treat it like the others; `--lan` binds every address behind the same key.
+- The binary per OS in one line: `brew install ashhart/tensorfold/tensorfold` on the Mac; on Linux x86_64 / aarch64 Halo fetches the `tensorfold-<version>-<platform>.tar.gz` release archive (its size, URL and destination said first, `--yes` answers yes), checks GitHub's digest and its `.sha256`, and unpacks it under `~/.halo/runtimes/tensorfold-<tag>/` (never on PATH; `halo local runtime remove` takes it out); on Windows the native build guide.
+- The steward reads TensorFold's log (the capacity line's backend and streams, the serving line's window and load time, each request's tok/s and queued seconds, its errors) and its queue from `/health` or, behind Halo's key, `/metrics`: `tf-waiting`, `tf-backend-fallback`, `tf-load`, keyed `<server>|<model>`, each with a stated fix never applied; `halo ollama explain` knows them.
+- The TensorFold fit: the checkpoint's size from TensorFold's table plus its reserve against the card's VRAM or the Mac's unified memory, the window and the streams in what is left; models TensorFold qualifies only on CUDA, only on Metal, only on two machines or not on M1-M4 say so; NVFP4 on an RTX 30 / 40 card says the slower fallback path; the Library lists TensorFold's models as download targets with it as the badge.
+- Through the host: a TensorFold server on the Mac is a host-served local server with its model; with `--lan` the host's catalog offers it and the PC or Kali reach it as `hf:local/<model>@<host>`; placement and the adviser see it beside mlx_lm.server and Ollama, with the loading tax said.
+- `halo doctor --local` checks `tensorfold --version` and `tensorfold capabilities --json` (its Metal or CUDA backend) when the runtime is configured; setting `huggingface.tensorfold_bin`; glossary `streams`; docs/MODELS-tensorfold.md; docs/MAC.md step 11.
+
+#### Changed
+- The loopback auto-detect names a server whose `/v1/models` says `owned_by: tensorfold` by its runtime, its window from `context_length`.
+
 ## [3.3.9.2] - 2026-11-02
 
 **Strata.** The owner's order after FreeToken: Strata (github.com/Niko1221/Strata), the engine of the same family -- a

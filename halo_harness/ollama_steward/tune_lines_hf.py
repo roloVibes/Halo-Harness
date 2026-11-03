@@ -72,9 +72,20 @@ def _st(change: str, value, was) -> Optional[tuple]:
     return None
 
 
+def _tf(change: str, value, was) -> Optional[tuple]:
+    """3.3.9.3: `tensorfold serve`'s flags (README "Serve flags", from the source, unverified); TensorFold places the
+    whole checkpoint itself, so there are no layers to move or a KV type to pick."""
+    if change == "ctx-size":
+        return f"--context {value}", f"--context {was}" if was else "drop --context (the model's own window)"
+    if change == "n-predict":
+        return "--max-tokens 32768", f"--max-tokens {was}" if was else "drop --max-tokens (4096, TensorFold's default)"
+    return None
+
+
 def line(server, change: str, value, *, was=None) -> Optional[dict]:
     rt = getattr(server, "runtime", None) or "llama-server"
-    got = {"llama-server": _llama, "lmstudio": _lmstudio, "mlx": _mlx, "freetoken": _ft, "strata": _st}.get(
+    got = {"llama-server": _llama, "lmstudio": _lmstudio, "mlx": _mlx, "freetoken": _ft, "strata": _st,
+           "tensorfold": _tf}.get(
         rt, _llama)(change, value, was)
     if got is None:
         return None

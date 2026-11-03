@@ -6,9 +6,10 @@ first, then `WORKER-RULES.md`, then the round you are starting.
 
 ## WHERE THINGS STAND -- 2026-11-02 evening (authoritative, read this first)
 
-**3.3.9.1 SHIPPED (v3.3.9.1 = cf96d422; the PC's reinstall waits on the owner's `/quit`). 3.3.9.2 "Strata" IS THE RELEASE
-CANDIDATE** (one round merged on master; 3.3.10.0 R0 + R1 stay unreleased beneath it in the CHANGELOG; the release follows
-green on both runners; the ROADMAP's 3.3.9.2 BUILT note under the SCHEDULED paragraph carries what stays open). What
+**3.3.9.1 (cf96d422) and 3.3.9.2 (7d4476e3) SHIPPED 2026-11-02; the PC's reinstall waits on the owner's `/quit`. 3.3.9.3
+"TensorFold" IS THE RELEASE CANDIDATE** (one round merged on master; 3.3.10.0 R0 + R1 stay unreleased beneath it in the
+CHANGELOG; the release follows green on both runners; the ROADMAP's 3.3.9.3 BUILT note carries what stays open). After
+it the runtimes are done: 3.3.10.0 R2 the enforcement (brief ~/hh-3310/briefs/v3310-R2-enforcement-brief.md) is next. What
 it is: the `freetoken` local runtime (ROADMAP "ADDED 2026-11-02 afternoon ... 3.3.9.1 FreeToken" + its BUILT note). The
 owner scheduled two more runtimes before Pack policy resumes: **3.3.9.2 "Strata"** (brief ~/hh-3392/briefs/v3392-R1-strata-
 brief.md; the engine of this family that runs natively on the Windows PC) and **3.3.9.3 "TensorFold"** (brief ~/hh-3393/

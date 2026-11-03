@@ -16,6 +16,7 @@ qwen3.5:9b" | "ollama pull hf.co/<repo>:<quant>" | "halo local download <repo>")
                                     against the card's free memory, the newest resources sample included;
                                     3.3.9.1: a FreeToken row (kind freetoken) takes local_sched/fit_ft.badge
                                     3.3.9.2: a Strata row (kind strata) takes local_sched/fit_st.badge
+                                    3.3.9.3: a TensorFold row (kind tensorfold) takes local_sched/fit_tf.badge
     window_default(host) -> int     the host's max_ctx, else 32,768
 """
 
@@ -121,6 +122,9 @@ def fit_for_row(row: dict, host_card: Optional[dict], window: int, *, host_name:
     if row.get("kind") == "strata":  # 3.3.9.2: FreeToken's RAM + link rule with Strata's figures (local_sched/fit_st.py)
         from halo_harness.local_sched.fit_st import badge as st_badge
         return st_badge(row, host_card, window, host_name=host_name)
+    if row.get("kind") == "tensorfold":  # 3.3.9.3: the VRAM / unified-memory rule with TensorFold's sizes (fit_tf.py)
+        from halo_harness.local_sched.fit_tf import badge as tf_badge
+        return tf_badge(row, host_card, window, host_name=host_name)
     info, shape_src = shapes.shape_for(row.get("id"), row.get("tag_or_file") if row.get("source") == "ollama" else "",
                                        row.get("params"), row.get("shape"))
     estimate = shape_src != "the repo's config.json" or not row.get("weights_bytes")

@@ -69,6 +69,9 @@ class Rules:
         elif self.runtime == "strata":  # 3.3.9.2: Strata's own lines (server_log_strata.StRules)
             from halo_harness.ollama_steward.server_log_strata import StRules
             self._ft = StRules()
+        elif self.runtime == "tensorfold":  # 3.3.9.3: TensorFold's own lines (server_log_tensorfold.TfRules)
+            from halo_harness.ollama_steward.server_log_tensorfold import TfRules
+            self._ft = TfRules()
 
     def _start(self, at) -> None:
         self.loading, self.load_at, self.layers = True, at, None
