@@ -157,6 +157,7 @@ class Controller:
         # TUI prints it as the last line (`stopped_line_shown` once it did).
         self.stopped_line = ""
         self.stopped_line_shown = False
+        self.quit_stops_children = True  # 3.3.11.0 R2: a headless session (headless_session.py) never ends its Studio
         # set by the TUI right before quitting when `tui != "fullscreen"`:
         # the transcript is then printed to normal scrollback on exit.
         self.replay_messages: list = []
@@ -264,7 +265,7 @@ class Controller:
             # 3.2.2.0 R3: a quit leaves no halo behind -- the Studio, this
             # session's background runs and schedule fires, and orphans
             # (children.json; the supervisor stays: `halo supervise stop`).
-            self.stopped_line = _stop_children_for_quit(self.state_dir)
+            self.stopped_line = _stop_children_for_quit(self.state_dir) if self.quit_stops_children else ""
             try:  # 3.3.6.0 R5: what this session and this halo changed on a local model with a scope goes back
                 from halo_harness.ollama_steward.changes import at_exit
                 said = list(getattr(self.session, "session_end_reverts", None) or []) + at_exit()

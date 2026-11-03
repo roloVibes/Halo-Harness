@@ -1,6 +1,6 @@
 # Studio: steering and exporting a session
 
-Read this when you steer an agent from Session's Live column and want to know which agent and which call it reaches, or save a session as one Markdown trace file, or ask why an answer came out as it did, or type a turn into the session from Studio with the Prompt panel.
+Read this when you steer an agent from Session's Live column and want to know which agent and which call it reaches, or save a session as one Markdown trace file, or ask why an answer came out as it did, or type a turn into the session from Studio with the Prompt panel, or run a session from Studio with no terminal at all.
 
 Part of [Halo Studio](STUDIO.md), which lists every part. The rest of the Session section (the map, Cost, the strips) is in [Session](STUDIO-sections.md#session).
 
@@ -133,6 +133,27 @@ A mark lights cyan when reached (replied green); a failed send is red with the r
 `expired` after 24 hours unread, or the socket's error). The ladder and its file are in
 [REMOTE.md](REMOTE.md#receipts-33110-r1).
 
+## A session without a terminal (3.3.11.0 R2)
+
+**New session** starts one from Studio with no terminal open anywhere: on Session's Start view (while this harness
+has no live session) and in the Prompt panel when no session is here. Pick the **model** -- the configured catalog,
+grouped by provider, the rows the Setup default-model block lists, the default first -- and the **folder** (Studio's
+own by default), then **New session**. Studio's server starts `halo --headless --session-for studio` as a child: the
+same loop the terminal runs, the same session log, its control socket the only door
+([REMOTE.md](REMOTE.md#a-session-without-a-terminal-33110-r2)). Session opens on it with the keyboard in the Prompt
+box; it registers a moment later and shows in Fleet and on the Map as a session of this harness, its chip saying
+**no terminal**.
+
+You drive it from the Prompt panel exactly as a terminal session: a turn, a `/` command, Queue it and Steer while a
+turn runs. **Its asks wait for you there** -- a permission, a question, a plan, an approval shows in the panel with
+the card's buttons and the turn holds until you answer. With no Studio page open, the Fleet attention row says
+"waiting on you in Studio", so whoever opens Studio next sees it.
+
+**Closing the tab does not end it**; nor does stopping Studio. The Prompt header of a session with no terminal has
+**Open in terminal** (copies `halo --cwd "<folder>" --resume <id>`, which opens the same log in a terminal once the
+session ended) and **End session** (asks first, then sends `shutdown`: the session finishes its step and leaves the
+registry). A Studio that restarts finds the sessions it started in `~/.halo/studio-sessions.json`.
+
 ## Why this answer? (3.3.6.0 R4)
 
 Every text or output row of the Live column carries **why?** (`session-live-why`). A click opens the Inspector on the
@@ -156,6 +177,9 @@ lines). The same answer comes from `/why [turn]` in the TUI and `halo session po
 `promptStore.ts`, `promptSend.ts`, `styles/prompt.css`, `studio/sessions_prompt_api.py`, `remote/prompt_queue.py`,
 `remote/receipts.py`, `remote/receipt_seams.py` (tests: `tests/test_studio_prompt.py` in headless Chrome,
 `tests/test_remote_submit.py`, `tests/test_receipts.py`, `tests/test_sessions_api_prompt.py`);
+3.3.11.0 R2 a session without a terminal: `NewSession.tsx`, `studio/sessions_new_api.py`, `halo_harness/headless_session.py`
+(tests: `tests/test_studio_headless.py` in headless Chrome, `tests/test_sessions_new_api.py`, `tests/test_headless_session.py`,
+`tests/test_fleet_attention_headless.py`);
 `halo_harness/session_trace.py` (the trace),
 `session_trace_cli.py` (`halo session export`), `studio/sessions_api.py`
 (the route), `studio/postmortem_api.py` (Why this answer?). Tests: `tests/test_postmortem.py`, `tests/test_session_trace.py`,

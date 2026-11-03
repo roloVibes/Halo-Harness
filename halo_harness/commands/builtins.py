@@ -242,7 +242,8 @@ def _agents_live(session) -> str:
     from halo_harness.agent.agent_hooks import format_tree
     from halo_harness.agent.agent_registry import tree_for
     rows = tree_for(session).public_rows()
-    head = f"Live agents ({len(rows)}): id, name, state, cost, model, what it is doing"
+    head = (f"Live agents ({len(rows)}): id, name, state, cost, model, what it is doing; an auto pick's reason under it "
+            "(3.3.11.0 R2: the tree Studio's Roles Live draws)")
     return "\n".join([head, *("  " + line for line in format_tree(rows))])
 
 

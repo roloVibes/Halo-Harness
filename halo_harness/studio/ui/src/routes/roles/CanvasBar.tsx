@@ -2,12 +2,13 @@
 // whether it is saved, Save (Mod+S), Undo / Redo (Ctrl+Z, Ctrl+Shift+Z),
 // Apply (asks first), Lay out (A), Fit (F) and the zoom. 3.1.6.0 R1: Add tier
 // opens a name field on the bar; Enter adds the tier (an empty box appears:
-// drag cards in), Escape closes it (tierActions.addTier).
+// drag cards in), Escape closes it (tierActions.addTier). 3.3.11.0 R2: Plan | Live first on the bar: Plan is
+// this canvas (the lineup), Live the session's real agent tree (LiveMap.tsx); L toggles it.
 import { useEffect, useRef, type KeyboardEvent } from "react";
 import { useHelpGroup } from "../../lib/fieldHelp";
 import { Button } from "../../lib/ui";
 import { redo, save, undo } from "./actions";
-import { openDialog, packOf, readOnlySource, roles, scopeLabel, useRoles } from "./store";
+import { openDialog, packOf, readOnlySource, roles, scopeLabel, setCanvasView, useRoles } from "./store";
 import { addTier } from "./tierActions";
 
 type Props = { zoom: number; setZoom: (z: number) => void; fit: () => void; layout: () => void };
@@ -31,6 +32,19 @@ function AddTierField() {
   );
 }
 
+/** 3.3.11.0 R2: the lineup (Plan) or what runs now (Live); on both bars and over an empty canvas. */
+export function PlanLive() {
+  const v = useRoles((s) => s.canvasView);
+  return (
+    <span className="segmented rc-planlive" role="group" aria-label="Plan or Live">
+      <button className={v === "plan" ? "on" : ""} aria-pressed={v === "plan"} onClick={() => setCanvasView("plan")} title="The lineup: its cards in their tiers (L)"
+              data-testid="roles-view-plan">Plan</button>
+      <button className={v === "live" ? "on" : ""} aria-pressed={v === "live"} onClick={() => setCanvasView("live")}
+              title="What runs now: the session's agent tree, every agent, 1:1 with the terminal's /agents live (L)" data-testid="roles-view-live">Live</button>
+    </span>
+  );
+}
+
 export function CanvasBar({ zoom, setZoom, fit, layout }: Props) {
   const name = useRoles((s) => s.name);
   const scope = useRoles((s) => s.current?.scope || "");
@@ -46,6 +60,7 @@ export function CanvasBar({ zoom, setZoom, fit, layout }: Props) {
   const h = useHelpGroup("lineup_fields");
   return (
     <div className="rc-bar">
+      <PlanLive />
       <b className="rc-bar-name">{name}</b>
       <span className="rc-scope mono" data-scope={scope}>
         {packOf(scope) ? `from pack ${packOf(scope)}, read-only` : readOnlySource(scope) ? `${scopeLabel(scope)}: saving makes your copy` : scopeLabel(scope)}

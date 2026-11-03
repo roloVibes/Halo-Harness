@@ -117,6 +117,10 @@ _REAL_FLAGS = [
     # (sets HALO_FLEET_PRIVATE for THIS process; `/private on|off` in the
     # TUI, `fleet.private` in ~/.halo/config.json).
     (["--private"], dict(dest="private", action="store_true")),
+    # Halo 3.3.11.0 R2: a session with no terminal (headless_session.py): the TUI's loop and session log, the
+    # control socket its only door; Studio's "New session" starts one with `--session-for studio`.
+    (["--headless"], dict(dest="headless", action="store_true")),
+    (["--session-for"], dict(dest="session_for", default=None, metavar="WHO")),
     # Halo 2.0.3.1 (clipboard image paste): `-p`'s own way to attach an
     # image to the one turn it sends, Claude Code stream-json parity for
     # a plain `-p`/`--input-format text` run -- repeatable (several
@@ -745,6 +749,9 @@ def _main(argv: Optional[list] = None) -> int:
         print(f"halo: log -> {info['log_path']}", file=sys.stderr)
         return 0
 
+    if getattr(args, "headless", False):  # 3.3.11.0 R2: a session with no terminal (headless_session.py)
+        from halo_harness.headless_session import run as run_headless
+        return run_headless(args)
     if not args.print_mode:
         # U2: bare `halo [PROMPT]` and `halo --demo` (without
         # -p) both open the full-screen TUI; textual/rich become real

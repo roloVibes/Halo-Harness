@@ -10,7 +10,8 @@
 // 3.1.4.0 R2: while the agent is live on this harness its header has Watch
 // in Session (the Session dashboard on its session, the agent selected).
 // 3.1.9.0 R2: an `auto` member shows why it runs on its model ("auto: <model> -- <reason>").
-import { useEffect, useRef } from "react";
+// 3.3.11.0 R2: on Roles Live the tab follows the agent clicked on the tree (matched to a card or not, live or done).
+import { useEffect, useMemo, useRef } from "react";
 import { useLocalAgent, WatchInSession } from "../session/Watch";
 import { api } from "../../lib/api";
 import { Button, Icon } from "../../lib/ui";
@@ -20,7 +21,8 @@ import { openReplay } from "../fleet/replay";
 import { Steer } from "../fleet/Steer";
 import { EMPTY } from "../fleet/streams";
 import { OutputView, ThinkingView, WorkingView } from "../fleet/StreamViews";
-import { useFleet } from "../fleet/store";
+import { rowOf } from "../fleet/frames";
+import { findAgent, fleet, useFleet } from "../fleet/store";
 import { isLiveAgent, useByNode, watchAgent } from "./live";
 import { nodeById, roles, useRoles, type LiveSub } from "./store";
 import type { HistoryRun, LiveAgent } from "./types";
@@ -132,7 +134,20 @@ function Watched({ a }: { a: LiveAgent }) {
   );
 }
 
+/** 3.3.11.0 R2: the agent clicked on Roles Live, from the fleet frames (finished ones too). */
+function useLiveViewAgent(on: boolean, key: string): LiveAgent | null {
+  const harnesses = useFleet((s) => s.harnesses);
+  const activity = useFleet((s) => s.activity);
+  return useMemo(() => {
+    const st = fleet.get();
+    const ref = on && key ? findAgent(st, key) : null;
+    return ref ? rowOf(ref, st) : null;
+  }, [on, key, harnesses, activity]);
+}
+
 export function LiveTab() {
+  const liveView = useRoles((s) => s.canvasView === "live");
+  const viewed = useLiveViewAgent(liveView, useRoles((s) => s.watched));
   const sel = useRoles((s) => s.sel);
   const n = useRoles((s) => nodeById(s, s.sel));
   const watched = useRoles((s) => s.watched);
@@ -140,8 +155,14 @@ export function LiveTab() {
   const list = (sel && byNode[sel]) || [];
   const a = list.find((x) => x.key === watched) || list[0];
   useEffect(() => {
-    if (a && a.key !== roles.get().watched) watchAgent(a.key);
+    if (!liveView && a && a.key !== roles.get().watched) watchAgent(a.key);
   }, [a?.key]);
+  if (liveView && viewed)
+    return (
+      <div className="rl" data-testid="roles-live" data-view="live">
+        <Watched a={viewed} />
+      </div>
+    );
   if (!sel || !n) return <p className="muted" data-testid="roles-live">Select a card: the agents that run under it right now, or its last runs, show here. J / K hop between the working cards.</p>;
   if (!list.length || !a)
     return (
