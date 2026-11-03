@@ -31,6 +31,7 @@ import { CanvasInvite, NoLineup } from "./CanvasEmpty";
 import { dropPatch } from "./drop";
 import { toast } from "../../lib/store";
 import { GlowLegend } from "./GlowLegend";
+import { LiveMap } from "./LiveMap";
 import { glowOf, hideLegend, startGlow, type GlowState } from "./glow";
 import { autoLayout, columns, extent, hiddenCards, placeAll, tierAt, tierBox } from "./layout";
 import { cardActivity, selectCard, useByNode } from "./live";
@@ -53,6 +54,7 @@ export function CanvasDetail() {
   const name = useRoles((s) => s.name);
   const loaded = useRoles((s) => s.loaded);
   const replaying = useRoles((s) => !!s.replay);
+  const liveView = useRoles((s) => s.canvasView === "live"); // 3.3.11.0 R2: Plan | Live (LiveMap.tsx)
   const byNode = useByNode();
   useEffect(() => startGlow(), []);
   const [drag, setDrag] = useState<Drag | null>(null);
@@ -194,6 +196,7 @@ export function CanvasDetail() {
     addCard(bio, ["main", "subagent", "reviewer", "researcher", "judge"].includes(kind) ? kind : "subagent");
   };
 
+  if (liveView) return <LiveMap />;
   if (!loaded) return null; // 3.3.2.0 R3: the section's own wait says it while it reads (RolesView)
   if (!graph || !name) return <NoLineup />;
   return (

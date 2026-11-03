@@ -12,6 +12,7 @@
     sessions/<sid>/agents...      the agent tree, one agent's tail and its commands (studio/fleet_api.py, 3.0.5.0)
     GET  sessions/<sid>/trace.md  the session as one Markdown trace (3.3.0.0 R6: session_trace.py), text/markdown
     GET  sessions/<sid>/postmortem?turn=&agent=&at=  Why this answer? (3.3.6.0 R4: studio/postmortem_api.py)
+    GET|POST sessions/new, GET sessions/started  a session with no terminal (3.3.11.0 R2: studio/sessions_new_api.py)
 
 The rows come from `remote/registry.list_live()` (never an endpoint or a
 token) plus each session's `status` over its control socket: every call
@@ -198,6 +199,8 @@ from halo_harness.studio.session_eyes_api import ROUTES as _EYES_ROUTES  # noqa:
 ROUTES[len(ROUTES):] = _EYES_ROUTES
 from halo_harness.studio.sessions_prompt_api import ROUTES as _PROMPT_ROUTES  # noqa: E402  (3.3.11.0 R1: the Prompt panel)
 ROUTES[len(ROUTES):] = _PROMPT_ROUTES
+from halo_harness.studio.sessions_new_api import ROUTES as _NEW_ROUTES  # noqa: E402  (3.3.11.0 R2: no terminal)
+ROUTES[len(ROUTES):] = _NEW_ROUTES
 
 
 def dispatch_sessions(req):

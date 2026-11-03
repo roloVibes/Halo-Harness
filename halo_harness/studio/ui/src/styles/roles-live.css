@@ -1,0 +1,57 @@
+/* Roles Live (3.3.11.0 R2, routes/roles/LiveMap.tsx): the session's agent tree on the whole canvas -- a node per
+   agent, its glow by what it does now (working cyan, waiting amber, done green, failed red), the elbow edges in
+   the same colours, a lineup card as a faint group behind the nodes that match it, the "unknown parent" node;
+   the Plan | Live switch; Session's New session form and the Prompt header's no-terminal line. Tokens only. */
+
+.rc-planlive button { padding: 3px 12px; font-size: 12px; }
+.rlm-bar select { max-width: 320px; font-size: 12px; padding: 3px 8px; }
+.rlm-inner { pointer-events: none; }
+.rlm-inner > * { pointer-events: auto; }
+.rlm-edges { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
+.rlm-edge { fill: none; stroke: var(--line-strong); stroke-width: 1.4; transition: stroke var(--t) var(--ease); }
+.rlm-edge[data-glow="working"] { stroke: var(--accent); stroke-dasharray: 8 5; animation: og-dash .9s linear infinite; }
+.rlm-edge[data-glow="waiting"] { stroke: var(--warn); }
+.rlm-edge[data-glow="done"] { stroke: var(--ok); }
+.rlm-edge[data-glow="failed"] { stroke: var(--bad); }
+.rlm-edge[data-on] { stroke-width: 2.4; }
+
+.rlm-group { position: absolute; border: 1px dashed color-mix(in srgb, var(--accent-2) 34%, transparent); border-radius: 14px;
+  background: color-mix(in srgb, var(--accent-2) 5%, transparent); }
+.rlm-group-label { position: absolute; left: 10px; top: -17px; font-size: 10.5px; color: color-mix(in srgb, var(--accent-2) 70%, var(--muted));
+  letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; }
+
+.rlm-node { --g: var(--line-strong); position: absolute; display: flex; flex-direction: column; gap: 3px; padding: 7px 10px 6px; overflow: hidden;
+  border: 1.2px solid var(--g); border-radius: 10px; background: var(--surface); cursor: pointer; outline: none;
+  transition: border-color var(--t) var(--ease), box-shadow var(--t) var(--ease), background var(--t) var(--ease); }
+.rlm-node:hover, .rlm-node:focus-visible { border-color: var(--accent); }
+.rlm-node[data-glow="working"] { --g: var(--accent); box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 28%, transparent); }
+.rlm-node[data-glow="waiting"] { --g: var(--warn); box-shadow: 0 0 14px color-mix(in srgb, var(--warn) 30%, transparent); }
+.rlm-node[data-glow="done"] { --g: var(--ok); }
+.rlm-node[data-glow="failed"] { --g: var(--bad); background: color-mix(in srgb, var(--bad) 6%, var(--surface)); }
+.rlm-node[data-selected] { border-width: 2px; border-color: var(--accent); background: color-mix(in srgb, var(--accent) 9%, var(--surface)); }
+.rlm-head { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.rlm-dot { width: 7px; height: 7px; flex: none; border-radius: 50%; background: var(--g); }
+.rlm-name { font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rlm-role { font-size: 10px; }
+.rlm-head .og-badge { font-size: 9.5px; }
+.rlm-line { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rlm-pick { font-size: 10.5px; line-height: 1.3; color: var(--accent-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.rlm[data-density="compact"] .rlm-pick { -webkit-line-clamp: 1; }
+.rlm-more { flex: none; border: 1px solid var(--line); border-radius: 5px; padding: 0 5px; font-size: 11px; line-height: 14px; color: var(--muted);
+  background: transparent; cursor: pointer; }
+.rlm-more:hover { color: var(--text); border-color: var(--accent); }
+.rlm-steer { position: absolute; right: 8px; bottom: 6px; border: 1px solid var(--accent); border-radius: 8px; padding: 0 7px; font-size: 10px;
+  color: var(--accent); background: var(--surface); opacity: 0; pointer-events: none; cursor: pointer; transition: opacity var(--t) var(--ease); }
+.rlm-node:hover .rlm-steer, .rlm-node:focus-within .rlm-steer { opacity: 1; pointer-events: auto; }
+.rlm-virtual { cursor: default; border-style: dashed; --g: var(--faint); background: color-mix(in srgb, var(--faint) 7%, var(--surface)); }
+
+/* Session: New session (no terminal) and the Prompt header's line */
+.ss-new { display: grid; gap: 8px; margin: 10px 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--accent) 4%, var(--surface)); }
+.ss-new[data-compact] { margin: 8px; }
+.ss-new-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ss-new-row > .mono:first-child { width: 52px; font-size: 11px; }
+.ss-new-row select, .ss-new-row input { flex: 1; min-width: 180px; font-size: 12px; }
+.ss-new-note { margin: 0; font-size: 11.5px; }
+.spp-noterm { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; font-size: 11px; }
+.fm-expand { margin-left: auto; font-size: 11px; }

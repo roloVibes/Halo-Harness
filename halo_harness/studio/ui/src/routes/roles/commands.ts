@@ -1,12 +1,12 @@
 // The palette's Roles group (3.0.7.0 R2): a new lineup, apply the open one,
 // a new bio, test the open bio's model (or the selected card's), add a tier
-// (3.1.6.0 R1), save, undo, redo, and open any lineup or bio by name.
+// (3.1.6.0 R1), save, undo, redo, and open any lineup or bio by name. 3.3.11.0 R2: Roles: Live and Roles: Plan.
 import { goSection, toast } from "../../lib/store";
 import { focusPanel } from "../../lib/workspace/persist";
 import { redo, save, undo } from "./actions";
 import { openBio, testModel } from "./bioActions";
 import { showBio } from "./Assignment";
-import { nodeById, openDialog, roles, scopeLabel, setView } from "./store";
+import { nodeById, openDialog, roles, scopeLabel, setCanvasView, setView } from "./store";
 import { openLineup, startRoles } from "./sync";
 
 export type RolesCommand = { id: string; group: string; label: string; hint?: string; kbd?: string; run: () => void };
@@ -48,6 +48,10 @@ export function rolesCommands(): RolesCommand[] {
       // the field opens once the canvas panel took the focus (a field that loses it while empty closes)
       run: inRoles(() => (!open ? toast("Open a lineup first (Lineups)", "info") : (setView("workspace"), focusPanel("roles", "roles-graph"),
         void window.setTimeout(() => roles.update(() => ({ tierAdd: true })), 120)))) },
+    // 3.3.11.0 R2: the canvas's two faces
+    { id: "roles-live", group: g, label: "Roles: Live", kbd: "L", hint: "what runs now: the session's agent tree, every agent on the whole canvas",
+      run: inRoles(() => (setCanvasView("live"), focusPanel("roles", "roles-graph"))) },
+    { id: "roles-plan", group: g, label: "Roles: Plan", kbd: "L", hint: "the lineup: its cards in their tiers", run: inRoles(() => setCanvasView("plan")) },
     { id: "roles-save", group: g, label: "Roles: save lineup", kbd: "Mod+S", hint: open ? `write ${open} to your scope` : "open a lineup first", run: inRoles(() => void save()) },
     { id: "roles-undo", group: g, label: "Roles: undo", kbd: "Ctrl+Z", hint: `${s.past.length} edit${s.past.length === 1 ? "" : "s"} to undo`, run: inRoles(() => void undo()) },
     { id: "roles-redo", group: g, label: "Roles: redo", kbd: "Ctrl+Shift+Z", run: inRoles(() => void redo()) },

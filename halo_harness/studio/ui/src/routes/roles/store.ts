@@ -79,6 +79,11 @@ export type RolesState = {
   /** 3.2.2.0 R6 (disk.ts): the open lineup / bio changed or went on disk while it had an unsaved draft (or went). */
   diskLineup: DiskNote | null;
   diskBio: DiskNote | null;
+  /** 3.3.11.0 R2: the canvas draws the lineup (plan) or the session's real agent tree (live, LiveMap.tsx); the
+   *  session Live draws ("" = the newest of this harness) and its density. `?mode=roles&view=live[&session=<id>]`. */
+  canvasView: "plan" | "live";
+  liveSid: string;
+  liveDensity: "compact" | "spread";
 };
 
 /** 3.2.2.0 R6: "<name> changed on disk" (Reload / Keep mine) or "<name> was deleted on disk" over the form. */
@@ -143,6 +148,9 @@ export const roles = createStore<RolesState>({
   tierMenu: null,
   diskLineup: null,
   diskBio: null,
+  canvasView: /[?&]mode=roles(&|$)/.test(location.search) && /[?&]view=live(&|$)/.test(location.search) ? "live" : "plan",
+  liveSid: (/[?&]mode=roles(&|$)/.test(location.search) && new URLSearchParams(location.search).get("session")) || "",
+  liveDensity: "spread",
 });
 
 export function useRoles<S>(pick: (s: RolesState) => S): S {
@@ -152,6 +160,9 @@ export function useRoles<S>(pick: (s: RolesState) => S): S {
 export const openDialog = (dialog: RolesDialog) => roles.update(() => ({ dialog }));
 export const closeDialog = () => roles.update(() => ({ dialog: null }));
 export const setView = (view: RolesState["view"]) => roles.update(() => ({ view }));
+/** 3.3.11.0 R2: Plan (the lineup) or Live (the session's agent tree); `sid` picks the session Live draws. */
+export const setCanvasView = (canvasView: RolesState["canvasView"], sid?: string) =>
+  roles.update(() => ({ canvasView, ...(sid !== undefined ? { liveSid: sid } : {}) }));
 export const setTab = (tab: InspectorTab) => roles.update((s) => (s.tab === tab ? {} : { tab }));
 
 /** A lineup of your own: not one Halo ships or a pack offers, nor the untouched copy of one Halo puts in ~/.halo/teams. */
@@ -159,6 +170,7 @@ export const ownLineups = (s: RolesState) => s.lineups.filter((l) => !readOnlySo
 
 /** The Start view: asked for, or only shipped lineups exist and none of them is active. */
 export function showsStart(s: RolesState): boolean {
+  if (s.canvasView === "live") return false; // 3.3.11.0 R2: Roles Live draws a session, lineup or not
   if (s.view !== "auto") return s.view === "start";
   return s.loaded && !ownLineups(s).length && !s.info?.active_team && !s.name;
 }

@@ -8,8 +8,8 @@ first, then `WORKER-RULES.md`, then the round you are starting.
 
 **3.3.9.1 (cf96d422), 3.3.9.2 (7d4476e3), 3.3.9.3 (6a58e59d) and 3.3.10.0 (d0ab4261) SHIPPED 2026-11-02/03; the PC's
 reinstall waits on the owner's `/quit`. 3.3.11.0 "Type into Studio" is the open section: R1 (the Prompt panel, with receipts)
-merged on master; R2 (a session without a terminal + the live map: Roles Plan | Live) and R3 (pack Setup blocks) follow,
-then the release.** The ROADMAP's 3.3.11.0 R1 BUILT note carries the choices, the limits and the owner's live check.
+and R2 (a session without a terminal + the live map: Roles Plan | Live) merged on master; R3 (pack Setup blocks) follows,
+then the release.** The ROADMAP's 3.3.11.0 R1 and R2 BUILT notes carry the choices, the limits and the owner's live checks.
 
 ### Before it: 2026-11-02 morning
 

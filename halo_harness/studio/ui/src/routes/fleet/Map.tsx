@@ -12,8 +12,14 @@
 // that harness's box, By harness, with no mission over it. 3.1.5.0 R3: and
 // as a tree (layoutTree.ts): each agent's children fanned out under it, the
 // edge to an agent glowing with its state (working cyan, waiting amber, done
-// green fading, failed red).
+// green fading, failed red). 3.3.11.0 R2: under Session's scope it is the THUMBNAIL of the session's tree (it
+// fits the whole tree, down to THUMB_FIT) and its bar's "Open in Roles Live" opens the same tree, full size, on
+// Roles' Live canvas; the tree is read through the work record adapter (layoutTree.ts, lib/work/record.ts).
 import { useEffect, useMemo, useRef, useState } from "react";
+import { goSection } from "../../lib/store";
+import { openRolesLive } from "../roles/liveModel";
+import { startRoles } from "../roles/sync";
+import { chosenSession } from "../session/store";
 import { useRecent, type MotionState } from "../../lib/motion";
 import { Empty } from "../../lib/ui";
 import { Metric } from "../orchestra/bits";
@@ -31,6 +37,7 @@ import type { AgentRef, LitEdge } from "./types";
 
 const LIT_MS = 3000;
 const MIN_FIT = 0.62; // below this the tree scrolls instead of shrinking further
+const THUMB_FIT = 0.4; // 3.3.11.0 R2: Session's thumbnail shrinks this far; the full size is Roles Live
 
 function LitEdges({ edges, pos }: { edges: LitEdge[]; pos: Map<string, { x: number; y: number; w: number; h: number }> }) {
   const last = edges.length ? edges[edges.length - 1].ts : 0;
@@ -108,7 +115,7 @@ export function FleetMap() {
       const k = Math.min(1, (room.w - 2) / g.width, (room.h - 2) / g.height);
       if (k > best.scale + 0.01) best = { geo: g, scale: k };
     }
-    return { geo: best.geo, scale: Math.max(MIN_FIT, best.scale) };
+    return { geo: best.geo, scale: Math.max(scoped ? THUMB_FIT : MIN_FIT, best.scale) };
   }, [harnesses, byProject, slots, scoped, room]);
   const pos = useMemo(() => new Map(geo.nodes.map((n) => [n.ref.key, n])), [geo]);
   return (
@@ -165,7 +172,18 @@ function Toolbar() {
         {attn > 0 && <b className="fm-attn"> · {attn} need{attn === 1 ? "s" : ""} you</b>}
       </span>
       {!scoped && <MissionChip byProject={byProject} />}
+      {scoped && <ExpandToLive />}
     </div>
+  );
+}
+
+/** 3.3.11.0 R2: the thumbnail's expand: Roles, its Live canvas, on the session Session shows. */
+function ExpandToLive() {
+  const sid = useFleet((s) => chosenSession(s)?.session_id || "");
+  const go = () => openRolesLive(sid, () => (goSection("roles"), startRoles()));
+  return (
+    <button className="og-link mono fm-expand" onClick={go} disabled={!sid} title="The same tree, full size: Roles, Live (and back: Session in the rail)"
+            data-testid="session-map-expand">Open in Roles Live</button>
   );
 }
 

@@ -7,12 +7,14 @@
 // anything. 3.0.6.0 R8: M (in Fleet) brings the Mission panel up and focuses
 // it. Keys typed in a box, with a modifier, or that a panel, a menu
 // or a dialog already took, stay where they are. An F nothing here takes
-// (and every Shift+F) goes on to Focus (3.3.2.0 R1, shell/keys.ts).
+// (and every Shift+F) goes on to Focus (3.3.2.0 R1, shell/keys.ts). 3.3.11.0 R2: in Roles, L switches the
+// canvas between Plan and Live, and on Live J / K hop the session tree's working agents.
 import { useEffect } from "react";
 import { studio } from "../../lib/store";
 import { focusLane, orch, setOpt } from "../orchestra/store";
 import { hopCard } from "../roles/live";
-import { roles } from "../roles/store";
+import { hopLive } from "../roles/liveModel";
+import { roles, setCanvasView } from "../roles/store";
 import { askStop, hop, pin, toggleFollow, togglePause } from "./actions";
 import { showFleetPanel } from "./extras";
 import { fleet } from "./store";
@@ -58,7 +60,8 @@ export function useHopKeys(): void {
       if (s.section === "roles") {
         const watched = roles.get().watched;
         const real = watched && !watched.startsWith("replay|") ? watched : "";
-        if (dir) hopCard(dir);
+        if (dir) (roles.get().canvasView === "live" ? hopLive(dir) : hopCard(dir)); // 3.3.11.0 R2: Live hops the tree
+        else if (key === "l") setCanvasView(roles.get().canvasView === "live" ? "plan" : "live"); // 3.3.11.0 R2: Plan | Live
         else if (key === " " && real && !t?.closest?.(PRESSABLE)) pin(f.pinned === real ? "" : real);
         else if (key === "p" && real && roles.get().tab === "live") void togglePause(real);
         else if (key === "f" && real && roles.get().tab === "live") toggleFollow();

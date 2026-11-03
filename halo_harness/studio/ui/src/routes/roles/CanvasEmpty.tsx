@@ -4,6 +4,7 @@
 // its first card), and with no lineup open the same box naming Lineups and
 // New lineup (a copy of the open or the balanced lineup, opened here).
 import { Button } from "../../lib/ui";
+import { PlanLive } from "./CanvasBar";
 import { openDialog, useRoles } from "./store";
 
 function Invite({ title, line, testid }: { title: string; line: string; testid: string }) {
@@ -31,6 +32,9 @@ export function NoLineup() {
   const any = useRoles((s) => s.lineups.length);
   return (
     <div className="rc rc-none holo-grid" data-testid="roles-canvas-empty">
+      <div className="rc-bar">
+        <PlanLive />
+      </div>
       <Invite title="Drag a bio here, or New lineup" testid="roles-canvas-invite"
               line={any ? "Open a lineup in Lineups (or the palette: Roles: open lineup) and its cards land here; or make your own with New lineup." : "Make your first lineup with New lineup: its cards land here, and any bio from the Bios panel can join it."} />
     </div>

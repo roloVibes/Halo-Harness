@@ -389,3 +389,11 @@ A receipt (3.3.11.0 R1) is the record of one thing Studio sent a live session --
 ## queued turn
 
 A queued turn (3.3.11.0 R1) is the one user turn a session holds while another runs: the Prompt panel's **Queue it** (the control socket's `submit` with `when_busy: queue`) hands it to the session, which starts it the moment the running turn ends (`turn_done`) as the next turn, never as a steer. One at a time: a second answers that one is already queued. The terminal's prompt hint says "1 queued from Studio" while it waits, and a session that quits with one held drops it with one line in its transcript.
+
+## headless session
+
+A headless session (3.3.11.0 R2) is a whole Halo session with no terminal: `halo --headless` runs the loop the TUI runs and writes the same session log, and its control socket is its only door (registry `kind: headless`, `parent: studio:<pid>`). Studio's **New session** starts one detached from the Studio server, so closing the tab never ends it; you type into it and answer its asks in Session's Prompt panel, where an ask waits ("parks") until you answer -- with no Studio page open, the Fleet attention row says "waiting on you in Studio". **End session** (the socket's `shutdown`) ends it, and `halo --resume <id>` opens its log in a terminal afterwards.
+
+## live map
+
+The live map (3.3.11.0 R2) is Roles' **Live** canvas (`L` on Roles): the session's actual agent tree on the whole page -- one node per agent, live or finished and still in the frames, parent -> child edges, nothing dropped, an `auto` pick's reason on its node, the lineup card a node matches drawn as a faint group behind it. It is 1:1 with the terminal's `/agents live`; Session's Map panel is its thumbnail ("Open in Roles Live"). Both read the frames through one adapter, the work record (`ui/src/lib/work/record.ts`).

@@ -88,14 +88,34 @@ def register_queued(parent, agent_id: str, *, name: str, task: str, role: Option
         pass
 
 
+def pick_line(r: dict) -> str:
+    """3.3.11.0 R2: an `auto` pick's reason, in the words Studio's Roles Live puts on the node."""
+    reason = r.get("model_reason")
+    if not reason:
+        return ""
+    model = r.get("model")
+    return f"picked at spawn: {r.get('role') or r.get('name') or r.get('agent_id')}{f' on {model}' if model else ''} -- {reason}"
+
+
 def format_tree(rows: list) -> list:
-    """`/agents live`: one line per agent, indented under its parent."""
+    """`/agents live`: one line per agent, indented under its parent; 3.3.11.0 R2: the pick's reason on the
+    line under it, and an agent whose parent is not in the tree under one "unknown parent" line (Roles Live's tree)."""
     depth: dict = {}
-    lines = []
+    ids = {r["agent_id"] for r in rows}
+    lines: list = []
     for r in rows:
-        d = depth[r["agent_id"]] = depth.get(r.get("parent"), -1) + 1
+        parent = r.get("parent")
+        if parent is not None and parent not in ids:
+            if "unknown parent (not in this session's tree)" not in lines:
+                lines.append("unknown parent (not in this session's tree)")
+            d = 1
+        else:
+            d = depth.get(parent, -1) + 1
+        depth[r["agent_id"]] = d
         cost = f"${r['cost_usd']:.4f}" if isinstance(r.get("cost_usd"), (int, float)) else "$-"
         what = r.get("current") or r.get("task") or ""
         lines.append(f"{'  ' * d}{r['agent_id']:<10} {r.get('name') or '?':<16} {r.get('state') or '?':<8} "
                      f"{cost:>9}  {r.get('model') or '-'}  {what}".rstrip())
+        if pick_line(r):
+            lines.append(f"{'  ' * (d + 1)}{pick_line(r)}")
     return lines
