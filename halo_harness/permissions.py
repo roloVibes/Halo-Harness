@@ -767,6 +767,17 @@ def _is_opaque_reexec(command: str) -> bool:
             return True
         if head in ("sh", "bash", "zsh", "dash", "ksh") and tokens[1:2] == ["-c"]:
             return True
+        # finding 53 (3.3.11.0 security review H1): every interpreted
+        # language's one-shot code flag whose argument is a string this
+        # engine cannot scan, so nothing about it can be checked against
+        # the deny rules.  python3 -c, perl -e, ruby -e, node -e, php -r, lua -e.
+        _INTERP_FLAG = {"python": "-c", "python2": "-c", "python3": "-c",
+                         "perl": "-e", "perl5": "-e",
+                         "ruby": "-e", "lua": "-e",
+                         "node": "-e", "nodejs": "-e",
+                         "php": "-r", "pypy": "-c", "pypy3": "-c"}
+        if head in _INTERP_FLAG and tokens[1:2] == [_INTERP_FLAG[head]]:
+            return True
         # finding 12: `bash -lc '...'` (clustered flags) and a script fed on
         # stdin (`sh <<EOF`, `sh <<< 'rm x'`, `... | sh`) are the same
         # opaque string; so is `exec`/`watch` reaching a shell through the
@@ -777,6 +788,11 @@ def _is_opaque_reexec(command: str) -> bool:
             if any(t.startswith("<<") for t in tokens[1:]) or "-s" in tokens[1:2]:
                 return True
             if len(tokens) == 1:  # a bare shell reads its script from stdin
+                return True
+            # finding 53 (H2): any remaining non-option argument is a
+            # script file whose content the engine cannot scan, defeating
+            # every deny rule the same way a -c payload does.
+            if len(tokens) > 1 and not tokens[1].startswith("-"):
                 return True
     return False
 
@@ -848,6 +864,11 @@ def _git_read_only(tokens: list) -> bool:
         # finding 5: `-O<cmd>` also arrives glued to its value (`-Oless`,
         # `-O"touch /tmp/pwn"`) after shlex -- catch the prefix form too.
         if any(t.startswith(_GIT_PAGER_FLAG_PREFIX) for t in rest):
+            return False
+        # finding 54 (3.3.11.0 security review M3): --ext-diff runs the
+        # configured diff driver, which is arbitrary code -- never read-only,
+        # in any mode.
+        if any(t == "--ext-diff" for t in rest):
             return False
         return not any(_GIT_OUTPUT_FLAG_RE.match(t) for t in rest)
     return False
@@ -1696,6 +1717,9 @@ class PermissionEngine:
     # readers whose first non-option word is a pattern / script, not a path
     _BASH_PATTERN_FIRST = frozenset({"grep", "egrep", "fgrep", "rg", "ag", "sed", "awk", "gawk", "mawk", "jq"})
     _REDIRECT_IN_RE = re.compile(r"(?<![<>&])<(?![<(&>])\s*(\S+)")
+    _REDIRECT_OUT_RE = re.compile(r"(?<![>&])>>?\s*(\S+)")  # > file, >> file, 1> file, 2> file, &> file
+    # finding 54 (3.3.11.0 security review M2): redirect-OUT targets
+    # checked against Edit/Write path deny rules (line mirrors _REDIRECT_IN_RE)
     _PATTERN_LONG = ("--regexp", "--expression")
     _PATTERN_FILE_LONG = ("--file", "--from-file", "--files-from")
 
@@ -1807,6 +1831,30 @@ class PermissionEngine:
                 return hit
         return None
 
+    def _bash_write_deny_hit(self, command: str) -> Optional[Rule]:
+        """finding 54 (3.3.11.0 security review M2): a redirect-OUT target
+        (> file, 1> file, &> file, >> file) must be gated by Edit/Write
+        path deny rules the same way redirect-IN targets are gated by Read
+        path rules (above).  Without this, `echo x > /etc/cron.d/pwn` sails
+        past an `Edit(//etc/**)` deny in every mode, including plan mode,
+        whose write ban also depends on the same edit-path infrastructure."""
+        if not any(r.kind == "path" and r.tool == "Edit" for r in self.deny_rules):
+            return None
+        for seg, cwd in self._bash_read_units(command, self.cwd):
+            for m in self._REDIRECT_OUT_RE.findall(seg):
+                raw = _ps.expand_pwd_token(_ps.expand_home_token(m.strip("'\"").strip()), cwd)
+                for tok in _words.brace_expand(_ps.expand_home_token(raw)):
+                    if any(ch in tok for ch in "<>{}$`"):
+                        continue
+                    rooted = Path(tok).is_absolute() or tok.startswith(("/", "\\"))
+                    if not rooted and cwd is None:
+                        continue
+                    target = Path(tok) if (Path(tok).is_absolute() or rooted) else (cwd / tok)
+                    hit = self._path_rule_hit(self.deny_rules, "Edit", {"file_path": str(target)}, None, action="deny")
+                    if hit is not None:
+                        return hit
+        return None
+
     def _bash_unit_read_hit(self, seg: str, cwd: "Optional[Path]", rules: list, action: str) -> Optional[Rule]:
         tokens = _deny_tokens(seg)
         words = [m.strip("'\"") for m in self._REDIRECT_IN_RE.findall(seg)]
@@ -1826,6 +1874,12 @@ class PermissionEngine:
             for tok in _words.brace_expand(raw):
                 tok = _ps.expand_home_token(tok)
                 if any(ch in tok for ch in "<>{}$`"):
+                    # finding 54 (3.3.11.0 security review M1): an
+                    # unresolved path ($VAR, backtick) cannot be checked
+                    # against Read path rules, so pretend it matched every
+                    # Read deny/ask rule rather than silently skipping it.
+                    if rules:
+                        return rules[0]
                     continue
                 rooted = Path(tok).is_absolute() or tok.startswith(("/", "\\"))
                 if not rooted and cwd is None:
@@ -1910,6 +1964,12 @@ class PermissionEngine:
         if read_deny is not None:
             return Decision("deny", f"denied by rule {read_deny.raw!r} (a Bash file-reader reaching a Read-denied path)",
                             source=read_deny.source, matched_rule=read_deny)
+        # finding 54 (3.3.11.0 security review M2): a redirect-OUT target
+        # (> file, &> ...) must be gated by Edit/Write path deny rules
+        write_deny = self._bash_write_deny_hit(command)
+        if write_deny is not None:
+            return Decision("deny", f"denied by rule {write_deny.raw!r} (a Bash redirect-OUT target reaching an Edit/Write-denied path)",
+                            source=write_deny.source, matched_rule=write_deny)
 
         if self.mode != "bypassPermissions":
             ask_bare = [r for r in bash_rules(self.ask_rules) if r.kind == "bare"]

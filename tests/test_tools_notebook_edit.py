@@ -5,6 +5,7 @@ import json
 import sys
 import tempfile
 from pathlib import Path
+from typing import Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -32,8 +33,11 @@ def _read(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def _ctx(cwd: Path) -> ToolContext:
-    return ToolContext(cwd=cwd)
+def _ctx(cwd: Path, read_cache_for: "Optional[Path]" = None) -> ToolContext:
+    ctx = ToolContext(cwd=cwd)
+    if read_cache_for is not None and read_cache_for.is_file():
+        ctx.read_cache = {str(read_cache_for): read_cache_for.stat().st_mtime}
+    return ctx
 
 
 @test
@@ -57,7 +61,7 @@ def test_replace_missing_file_is_an_error(ctx: Ctx):
     with tempfile.TemporaryDirectory() as d:
         path = Path(d) / "nope.ipynb"
         tool = NotebookEditTool()
-        result = tool.run({"notebook_path": str(path), "cell_id": "a", "new_source": "x = 1"}, _ctx(Path(d)))
+        result = tool.run({"notebook_path": str(path), "cell_id": "a", "new_source": "x = 1"}, _ctx(Path(d), path))
         ctx.check(f"error about missing file, got {result.content!r}",
                   result.is_error and "does not exist" in result.content)
 
@@ -68,7 +72,7 @@ def test_replace_cell_updates_source_and_preserves_others(ctx: Ctx):
         path = Path(d) / "nb.ipynb"
         _write(path, _notebook([_code_cell("a", "x = 1"), _code_cell("b", "y = 2")]))
         tool = NotebookEditTool()
-        result = tool.run({"notebook_path": str(path), "cell_id": "b", "new_source": "y = 99"}, _ctx(Path(d)))
+        result = tool.run({"notebook_path": str(path), "cell_id": "b", "new_source": "y = 99"}, _ctx(Path(d), path))
         ctx.check(f"result names the cell, got {result.content!r}", not result.is_error and "b" in result.content)
         nb = _read(path)
         ctx.check(f"cell a untouched, got {nb['cells'][0]['source']}", nb["cells"][0]["source"] == ["x = 1"])
@@ -82,7 +86,7 @@ def test_replace_missing_cell_id_is_an_error(ctx: Ctx):
         path = Path(d) / "nb.ipynb"
         _write(path, _notebook([_code_cell("a", "x = 1")]))
         tool = NotebookEditTool()
-        result = tool.run({"notebook_path": str(path), "new_source": "x = 2"}, _ctx(Path(d)))
+        result = tool.run({"notebook_path": str(path), "new_source": "x = 2"}, _ctx(Path(d), path))
         ctx.check(f"cell_id required for replace, got {result.content!r}",
                   result.is_error and "cell_id" in result.content)
 
@@ -93,7 +97,7 @@ def test_replace_unknown_cell_id_is_an_error(ctx: Ctx):
         path = Path(d) / "nb.ipynb"
         _write(path, _notebook([_code_cell("a", "x = 1")]))
         tool = NotebookEditTool()
-        result = tool.run({"notebook_path": str(path), "cell_id": "zzz", "new_source": "x = 2"}, _ctx(Path(d)))
+        result = tool.run({"notebook_path": str(path), "cell_id": "zzz", "new_source": "x = 2"}, _ctx(Path(d), path))
         ctx.check(f"no such cell, got {result.content!r}", result.is_error and "zzz" in result.content)
 
 
@@ -104,7 +108,7 @@ def test_replace_changing_cell_type_to_markdown_drops_outputs_and_execution_coun
         _write(path, _notebook([_code_cell("a", "x = 1")]))
         tool = NotebookEditTool()
         result = tool.run({"notebook_path": str(path), "cell_id": "a", "new_source": "# heading",
-                            "cell_type": "markdown"}, _ctx(Path(d)))
+                            "cell_type": "markdown"}, _ctx(Path(d), path))
         ctx.check("no error", not result.is_error)
         cell = _read(path)["cells"][0]
         ctx.check(f"cell_type is markdown, got {cell}", cell["cell_type"] == "markdown")
@@ -119,7 +123,7 @@ def test_insert_requires_cell_type(ctx: Ctx):
         _write(path, _notebook([_code_cell("a", "x = 1")]))
         tool = NotebookEditTool()
         result = tool.run({"notebook_path": str(path), "cell_id": "a", "new_source": "y = 2",
-                            "edit_mode": "insert"}, _ctx(Path(d)))
+                            "edit_mode": "insert"}, _ctx(Path(d), path))
         ctx.check(f"cell_type required for insert, got {result.content!r}",
                   result.is_error and "cell_type" in result.content)
 
@@ -131,7 +135,7 @@ def test_insert_after_a_cell_id(ctx: Ctx):
         _write(path, _notebook([_code_cell("a", "x = 1"), _code_cell("b", "z = 3")]))
         tool = NotebookEditTool()
         result = tool.run({"notebook_path": str(path), "cell_id": "a", "new_source": "y = 2",
-                            "cell_type": "code", "edit_mode": "insert"}, _ctx(Path(d)))
+                            "cell_type": "code", "edit_mode": "insert"}, _ctx(Path(d), path))
         ctx.check("no error", not result.is_error)
         cells = _read(path)["cells"]
         ctx.check(f"3 cells now, got {len(cells)}", len(cells) == 3)
@@ -148,7 +152,7 @@ def test_insert_with_no_cell_id_goes_at_the_start(ctx: Ctx):
         _write(path, _notebook([_code_cell("a", "x = 1")]))
         tool = NotebookEditTool()
         result = tool.run({"notebook_path": str(path), "new_source": "# first", "cell_type": "markdown",
-                            "edit_mode": "insert"}, _ctx(Path(d)))
+                            "edit_mode": "insert"}, _ctx(Path(d), path))
         ctx.check("no error", not result.is_error)
         cells = _read(path)["cells"]
         ctx.check(f"new cell first, got {cells}", cells[0]["source"] == ["# first"] and cells[1]["id"] == "a")
@@ -160,7 +164,7 @@ def test_insert_into_a_brand_new_file_creates_it(ctx: Ctx):
         path = Path(d) / "sub" / "brand-new.ipynb"
         tool = NotebookEditTool()
         result = tool.run({"notebook_path": str(path), "new_source": "print('hi')", "cell_type": "code",
-                            "edit_mode": "insert"}, _ctx(Path(d)))
+                            "edit_mode": "insert"}, _ctx(Path(d), path))
         ctx.check(f"no error, got {result.content!r}", not result.is_error)
         ctx.check("file created (parent dir too)", path.is_file())
         nb = _read(path)
@@ -173,7 +177,7 @@ def test_delete_requires_cell_id(ctx: Ctx):
         path = Path(d) / "nb.ipynb"
         _write(path, _notebook([_code_cell("a", "x = 1")]))
         tool = NotebookEditTool()
-        result = tool.run({"notebook_path": str(path), "new_source": "", "edit_mode": "delete"}, _ctx(Path(d)))
+        result = tool.run({"notebook_path": str(path), "new_source": "", "edit_mode": "delete"}, _ctx(Path(d), path))
         ctx.check(f"cell_id required for delete, got {result.content!r}",
                   result.is_error and "cell_id" in result.content)
 
@@ -185,7 +189,7 @@ def test_delete_removes_exactly_that_cell(ctx: Ctx):
         _write(path, _notebook([_code_cell("a", "x = 1"), _code_cell("b", "y = 2"), _code_cell("c", "z = 3")]))
         tool = NotebookEditTool()
         result = tool.run({"notebook_path": str(path), "cell_id": "b", "new_source": "",
-                            "edit_mode": "delete"}, _ctx(Path(d)))
+                            "edit_mode": "delete"}, _ctx(Path(d), path))
         ctx.check("no error", not result.is_error)
         cells = _read(path)["cells"]
         ctx.check(f"2 cells left, b gone, got {[c['id'] for c in cells]}",
@@ -199,7 +203,7 @@ def test_invalid_edit_mode_is_an_error(ctx: Ctx):
         _write(path, _notebook([_code_cell("a", "x = 1")]))
         tool = NotebookEditTool()
         result = tool.run({"notebook_path": str(path), "cell_id": "a", "new_source": "x",
-                            "edit_mode": "bogus"}, _ctx(Path(d)))
+                            "edit_mode": "bogus"}, _ctx(Path(d), path))
         ctx.check(f"invalid edit_mode rejected, got {result.content!r}",
                   result.is_error and "edit_mode" in result.content)
 
@@ -211,7 +215,7 @@ def test_invalid_cell_type_is_an_error(ctx: Ctx):
         _write(path, _notebook([_code_cell("a", "x = 1")]))
         tool = NotebookEditTool()
         result = tool.run({"notebook_path": str(path), "cell_id": "a", "new_source": "x",
-                            "cell_type": "prose"}, _ctx(Path(d)))
+                            "cell_type": "prose"}, _ctx(Path(d), path))
         ctx.check(f"invalid cell_type rejected, got {result.content!r}",
                   result.is_error and "cell_type" in result.content)
 
@@ -222,7 +226,7 @@ def test_not_a_notebook_file_is_a_clear_error(ctx: Ctx):
         path = Path(d) / "not-a-notebook.ipynb"
         path.write_text(json.dumps({"hello": "world"}), encoding="utf-8")
         tool = NotebookEditTool()
-        result = tool.run({"notebook_path": str(path), "cell_id": "a", "new_source": "x"}, _ctx(Path(d)))
+        result = tool.run({"notebook_path": str(path), "cell_id": "a", "new_source": "x"}, _ctx(Path(d), path))
         ctx.check(f"clear error, got {result.content!r}",
                   result.is_error and "does not look like" in result.content)
 
@@ -240,7 +244,7 @@ def test_pre_4_5_notebook_without_cell_ids_gets_ids_assigned_on_touch(ctx: Ctx):
         tool = NotebookEditTool()
         # insert at the start (cell_id omitted) still touches/rewrites every cell's id-assignment pass
         result = tool.run({"notebook_path": str(path), "new_source": "y = 2", "cell_type": "code",
-                            "edit_mode": "insert"}, _ctx(Path(d)))
+                            "edit_mode": "insert"}, _ctx(Path(d), path))
         ctx.check("no error", not result.is_error)
         nb = _read(path)
         ctx.check(f"the old cell now has a real id, got {nb['cells'][1]}", bool(nb["cells"][1].get("id")))
@@ -267,7 +271,7 @@ def test_h9b_f15_pre_4_5_notebook_replace_and_delete_via_cell_dash_n_index(ctx: 
         tool = NotebookEditTool()
 
         result = tool.run({"notebook_path": str(path), "cell_id": "cell-0", "new_source": "print(3+3)"},
-                           _ctx(Path(d)))
+                           _ctx(Path(d), path))
         ctx.check(f"replace via cell-0 (a positional index) succeeds, got {result.content!r}",
                   not result.is_error)
         nb = _read(path)
@@ -283,7 +287,7 @@ def test_h9b_f15_pre_4_5_notebook_replace_and_delete_via_cell_dash_n_index(ctx: 
         ctx.check("cell 0 now has a real id (persisted, this call succeeded)", bool(nb["cells"][0].get("id")))
 
         result2 = tool.run({"notebook_path": str(path), "cell_id": "cell-1", "edit_mode": "delete",
-                             "new_source": ""}, _ctx(Path(d)))
+                             "new_source": ""}, _ctx(Path(d), path))
         ctx.check(f"delete via cell-1 succeeds, got {result2.content!r}", not result2.is_error)
         nb2 = _read(path)
         ctx.check(f"only 1 cell remains, got {len(nb2['cells'])}", len(nb2["cells"]) == 1)
@@ -298,7 +302,7 @@ def test_h9b_f15_cell_dash_n_out_of_range_is_still_a_clear_error(ctx: Ctx):
         cell0 = {"cell_type": "code", "metadata": {}, "outputs": [], "execution_count": None, "source": ["x = 1"]}
         _write(path, {"cells": [cell0], "metadata": {}, "nbformat": 4, "nbformat_minor": 2})
         tool = NotebookEditTool()
-        result = tool.run({"notebook_path": str(path), "cell_id": "cell-5", "new_source": "y = 2"}, _ctx(Path(d)))
+        result = tool.run({"notebook_path": str(path), "cell_id": "cell-5", "new_source": "y = 2"}, _ctx(Path(d), path))
         ctx.check(f"out-of-range cell-N is a clear error, not a crash, got {result.content!r}",
                   result.is_error and "No cell with id" in result.content)
 
@@ -315,7 +319,7 @@ def test_h9b_f15_replace_on_an_already_code_cell_with_no_type_change_still_clear
                 "execution_count": 7, "source": ["1 + 1"]}
         _write(path, _notebook([cell]))
         tool = NotebookEditTool()
-        result = tool.run({"notebook_path": str(path), "cell_id": "a", "new_source": "3 + 3"}, _ctx(Path(d)))
+        result = tool.run({"notebook_path": str(path), "cell_id": "a", "new_source": "3 + 3"}, _ctx(Path(d), path))
         ctx.check(f"no error, got {result.content!r}", not result.is_error)
         nb = _read(path)
         ctx.check(f"stale outputs cleared, got {nb['cells'][0]['outputs']}", nb["cells"][0]["outputs"] == [])
@@ -334,7 +338,7 @@ def test_source_as_a_single_string_is_read_fine_and_rewritten_as_a_list(ctx: Ctx
                 "source": "x = 1\ny = 2\n"}  # single-string form
         _write(path, {"cells": [cell], "metadata": {}, "nbformat": 4, "nbformat_minor": 5})
         tool = NotebookEditTool()
-        result = tool.run({"notebook_path": str(path), "cell_id": "a", "new_source": "z = 3"}, _ctx(Path(d)))
+        result = tool.run({"notebook_path": str(path), "cell_id": "a", "new_source": "z = 3"}, _ctx(Path(d), path))
         ctx.check(f"no error reading the single-string form, got {result.content!r}", not result.is_error)
         nb = _read(path)
         ctx.check(f"rewritten as a list, got {nb['cells'][0]['source']}", nb["cells"][0]["source"] == ["z = 3"])

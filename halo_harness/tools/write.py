@@ -87,7 +87,7 @@ class WriteTool(Tool):
                     f"File has not been read yet. Read it first before writing to it: {file_path}",
                     is_error=True,
                 )
-            if read_mtime < current_mtime:
+            if read_mtime != current_mtime:
                 return ToolResult(
                     f"File has been modified since it was last read (mtime mismatch). "
                     f"Read it again before writing: {file_path}",
@@ -136,7 +136,10 @@ class WriteTool(Tool):
             return ToolResult(f"Error creating parent directories: {e}", is_error=True)
 
         try:
-            with open(path, "wb") as f:
+            # finding 54 (3.3.11.0 security review M9): resolve before
+            # opening so a symlink/junction swap does not escape a deny rule.
+            target = Path(str(path)).resolve()
+            with open(target, "wb") as f:
                 f.write(bom)
                 f.write(encoded)
         except OSError as e:

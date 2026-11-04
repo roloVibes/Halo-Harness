@@ -46,8 +46,9 @@ def sync_cmd(checkout: str, quote: Callable[[str], str], *, detached: bool,
     where = quote(checkout)
     if not detached:
         return f"git -C {where} pull --ff-only"
+    target_ref = quote(target) if target else "origin/master"
     return (f"git -C {where} fetch --tags --force origin && "
-            f"git -C {where} checkout --detach {target or 'origin/master'}")
+            f"git -C {where} checkout --detach {target_ref}")
 
 
 def pick_target(channel: Optional[str], avail: Optional[dict], to: Optional[str] = None) -> Optional[str]:

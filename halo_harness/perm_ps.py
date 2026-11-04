@@ -16,7 +16,7 @@ _TOKEN_RE = re.compile(r'"[^"]*"|\'[^\']*\'|\S+')
 _NESTED = {"powershell", "powershell.exe", "pwsh", "pwsh.exe"}
 _CMD = {"cmd", "cmd.exe"}
 _OPAQUE_HEADS = {"invoke-expression", "iex"}
-_OPAQUE_FLAGS = {"-encodedcommand", "-enc", "-ec", "-e"}
+_OPAQUE_FLAGS = {"-encodedcommand", "-enc", "-ec", "-e", "-file", "-f"}
 _COMMAND_FLAGS = {"-command", "-c", "-cmd"}
 
 

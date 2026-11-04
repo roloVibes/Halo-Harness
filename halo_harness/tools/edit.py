@@ -486,7 +486,7 @@ class EditTool(Tool):
                 f"File has not been read yet. Use the Read tool at least once before editing: {file_path}",
                 is_error=True,
             )
-        if read_mtime < current_mtime:
+        if read_mtime != current_mtime:
             return ToolResult(
                 f"File has been modified since it was last read (mtime mismatch). "
                 f"Read it again before editing: {file_path}",
@@ -563,7 +563,12 @@ class EditTool(Tool):
             return ToolResult(f"Error encoding content as UTF-8: {e}", is_error=True)
 
         try:
-            with open(path, "wb") as f:
+            # finding 54 (3.3.11.0 security review M9): resolve the
+            # real path before opening so a symlink/junction swapped
+            # between the permission decision and the write does not
+            # escape a deny rule.
+            target = Path(str(path)).resolve()
+            with open(target, "wb") as f:
                 f.write(bom)
                 f.write(encoded)
         except OSError as e:

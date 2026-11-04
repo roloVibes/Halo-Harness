@@ -159,7 +159,19 @@ def _hasher(f: dict):
 
 
 def _fetch(repo: str, f: dict, root: Path, commit: str, token, on, cancel) -> dict:
-    final = root / "snapshots" / commit / f["name"]
+    # finding 54 (3.3.11.0 security review H4): the hub controls both
+    # `f["name"]` and `commit`; resolve the path first and assert it is
+    # still inside `root`, rejecting traversal, absolute, drive-letter and
+    # UNC names before anything is written.
+    name = f["name"]
+    if name.split("/")[-1].split("\\")[-1] != name.split("/")[-1] or name.startswith(("/", "\\")) or \
+       ".." in name.replace("\\", "/").split("/"):
+        raise HubError("path", f"{name}: the hub returned a file name that escapes the download tree")
+    commit_safe = commit.replace("\\", "/").split("/")[-1] if ".." not in commit.replace("\\", "/") and \
+                  not commit.startswith(("/", "\\")) else commit
+    if commit_safe != commit:
+        raise HubError("path", f"{commit}: the hub returned a commit id that escapes the download tree")
+    final = root / "snapshots" / commit_safe / name
     size = f["size"]
     if final.is_file() and (size is None or final.stat().st_size == size):
         on({"status": f"on disk: {f['name']}", "digest": f["name"], "total": size or final.stat().st_size,

@@ -146,6 +146,10 @@ def _composition_fields(session) -> Optional[dict]:
 _LOOP_BREAKER_REMIND_AT = 3
 _LOOP_BREAKER_DENY_AT = 5
 _LOOP_BREAKER_END_AT = 8
+# finding 54 (3.3.11.0 security review M6): BashOutput polls per turn
+# when --max-turns is unset, so a runaway poll without explicit limits
+# does not result in unbounded model calls.
+_BASH_OUTPUT_POLL_CAP = 200
 
 # A wire ("error" SSE event) carries an Anthropic-shaped `type` string, not
 # an HTTP status -- reverses providers.errors.map_upstream_error's own
@@ -6586,13 +6590,18 @@ class Session:
         # test_max_turns_caps_model_calls_per_turn).
         key = (name, _canonical_args(tool_input))
         if name == "BashOutput":
-            # exempt entirely -- never recorded in _loop_breaker, never
-            # added to _loop_breaker_history (so it can't back-door into a
-            # period-2 pattern with some other call either), count/
-            # period2_count stay 0 so the threshold checks below are
-            # always a no-op for it.
+            # exempt entirely from the identical-args breaker (polling a
+            # background job by shell_id is normal), but still bounded by
+            # its own per-turn cap so a runaway poll without --max-turns
+            # does not make unbounded paid-model calls.
             count = 0
             period2_count = 0
+            self._bash_output_count = getattr(self, "_bash_output_count", 0) + 1
+            if self._bash_output_count > _BASH_OUTPUT_POLL_CAP:
+                item["end_turn"] = True
+                item["error_class"] = "bash_output_overflow"
+                item["say"] = f"BashOutput was called {self._bash_output_count} times this turn"
+                return item
         else:
             count = self._loop_breaker.get(key, 0) + 1
             self._loop_breaker[key] = count

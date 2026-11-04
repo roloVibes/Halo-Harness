@@ -79,6 +79,19 @@ def post(h, route: str, raw: bytes, hid: str) -> None:
         return h._json(404, {"error": f"no voice route {name!r}: POST voice/turn | voice/stt | voice/tts"})
     if name == "turn":
         return _turn(h, raw, hid)
+    # finding 54 (3.3.11.0 security review M11): stt and tts proxy
+    # routes must observe the same control grant and allow_control
+    # checks that voice/turn already enforces -- without this, a
+    # paired peer with the default `view` grant gets free GPU
+    # speech-server proxying through loopback.
+    from halo_harness.host import grants
+    rec = h.svc.pairing.member(hid)
+    if not grants.holds(grants.grants_of(rec), "control"):
+        return h._json(403, {"error": grants.missing_line("control",
+                              f"voice/{name}", rec, h.svc.home), "grant": "control"})
+    if grants.cap(h.svc.home) == "none":
+        return h._json(403, {"error": grants.none_line(h.svc.home),
+                              "grant": "control", "cap": "none"})
     got = speech(h.svc, name)
     if got is None:
         return h._json(409, {"error": _missing(h.svc, name)})
