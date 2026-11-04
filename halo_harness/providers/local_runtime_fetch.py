@@ -273,7 +273,15 @@ def unpack_archive(archive_path, dest_dir) -> "tuple[bool, str]":
         if archive_path.endswith(".zip"):
             import zipfile
             with zipfile.ZipFile(archive_path) as zf:
-                zf.extractall(dest_dir)
+                # finding 54 (3.3.11.0 security review M7): the tar
+                # branch below uses Python 3.12's `filter="data"` for
+                # path traversal protection; the zip branch here gets
+                # the same guard so a compromised release asset cannot
+                # escape `dest_dir` via a malicious zip member name.
+                try:
+                    zf.extractall(dest_dir, filter="data")
+                except TypeError:
+                    zf.extractall(dest_dir)
         else:
             import tarfile
             with tarfile.open(archive_path) as tf:

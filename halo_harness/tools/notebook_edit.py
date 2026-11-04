@@ -100,6 +100,28 @@ class NotebookEditTool(Tool):
 
         cell_id = input.get("cell_id") or None
 
+        # finding 54 (3.3.11.0 security review M10): the same must-Read /
+        # stale-mtime gate that Write and Edit enforce so a notebook is
+        # not silently overwritten when it changed (or was never read).
+        if path.exists() and (edit_mode != "insert" or cell_id is not None):
+            read_cache = getattr(ctx, "read_cache", None) if isinstance(getattr(ctx, "read_cache", None), dict) else {}
+            read_mtime = read_cache.get(str(path))
+            if read_mtime is None:
+                return ToolResult(
+                    f"File has not been read yet. Use the Read tool at least once before editing: {notebook_path}",
+                    is_error=True,
+                )
+            try:
+                current_mtime = path.stat().st_mtime
+            except OSError as e:
+                return ToolResult(f"Error checking file: {e}", is_error=True)
+            if read_mtime != current_mtime:
+                return ToolResult(
+                    f"File has been modified since it was last read (mtime mismatch). "
+                    f"Read it again before editing: {notebook_path}",
+                    is_error=True,
+                )
+
         if not path.exists():
             if edit_mode != "insert":
                 return ToolResult(f"File does not exist: {notebook_path}", is_error=True)

@@ -77,7 +77,7 @@ def _git_mounts(cwd) -> list:
     if not text.startswith("gitdir:"):
         return []
     common = Path(text[len("gitdir:"):].strip()).parent.parent
-    return ["-v", f"{common}:{common}"] if common.name == ".git" else []
+    return ["-v", f"{common}:{common}:ro"] if common.name == ".git" else []
 
 
 def wrap(argv: list, cwd, env: dict, spec: dict, *, run_dir, lane_n: int, keys=(), which=shutil.which) -> "tuple[list, dict]":
