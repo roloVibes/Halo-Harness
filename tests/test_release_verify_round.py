@@ -124,14 +124,16 @@ def test_update_installs_when_the_tag_has_checksums(ctx: Ctx):
 
 
 @test
-def test_update_fails_open_offline_and_respects_no_verify(ctx: Ctx):
+def test_update_fails_closed_offline_and_respects_no_verify(ctx: Ctx):
     from halo_harness import update_cli
-    # offline: assets unreadable (None) -> installs with a printed warning
+    # offline: assets unreadable (None) -> nothing installed, exit 1, the line names --no-verify (3.3.11.0 security
+    # review M5: before, it installed with a printed warning)
     with _fake_update_world(assets=None) as applied:
         with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()) as err:
             rc = update_cli.cmd_update(["--to", "v9.8.7"])
-        ctx.check(f"offline fails OPEN (installs, exit 0), got rc={rc}", rc == 0 and len(applied) == 1)
-        ctx.check("the warning says so", "without the checksums check" in err.getvalue())
+        ctx.check(f"offline fails CLOSED (nothing installed, exit 1), got rc={rc} applied={len(applied)}", rc == 1 and not applied)
+        ctx.check(f"the line says the checksums could not be checked and names --no-verify, got {err.getvalue()!r}",
+                  "cannot read release" in err.getvalue() and "--no-verify" in err.getvalue())
     # --no-verify: no check at all, even against a verifiably assetless tag
     with _fake_update_world(assets=[]) as applied:
         with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
