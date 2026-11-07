@@ -80,8 +80,8 @@ def _cmd_set(rest: list) -> int:
     except (ValueError, TypeError):
         value = args.value
     if args.key == "theme" and not theme_mod.is_valid_theme(value):
-        print(f"halo config: not a valid theme name: {value!r} "
-              f"(expected one of {sorted(theme_mod.VALID_THEMES)})" + theme_mod.removed_theme_hint(value),
+        from halo_harness.themes.cli import refusal  # 3.3.12.0 R1: the ten palettes named
+        print(f"halo config: {refusal(value)}",
               file=sys.stderr)
         return 2
     from halo_harness.schemas.config_json import REMOVED_KEYS, removed_key_line

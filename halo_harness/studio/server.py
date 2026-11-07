@@ -229,6 +229,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             from halo_harness.studio.setup_check_state import boot_attrs
             body = boot_attrs(body, self.server.state_dir)  # 3.3.0.0 R3: no provider set up yet: the page opens on Setup
             # (3.3.3.0 R1: until Setup's Done was pressed)
+            from halo_harness.studio.theme_boot import theme_attr
+            body = theme_attr(body)  # 3.3.12.0 R1: the first paint in the saved palette (`theme`), else "auto"
         self._send(200, body, ctype, {"Content-Security-Policy": SHELL_CSP})
 
     def _design_file(self) -> None:

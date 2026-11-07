@@ -46,16 +46,14 @@ def permission_rows() -> list:
 
 
 def theme_rows() -> list:
-    """Every TUI theme name in the wizard's order (each base, then its -daltonized and -ansi twins) with the
-    colours the terminal draws it in (tui/theme.py `variables_for`)."""
-    from halo_harness.theme import _BASE_THEMES, _SUFFIXES
+    """3.3.12.0 R1: the ten palettes of the registry, in its order, with the colours the terminal draws each in
+    (tui/theme.py `variables_for`); the -daltonized / -ansi modifiers are Settings -> Themes' toggles."""
+    from halo_harness.themes.registry import ids
     from halo_harness.tui.theme import variables_for
     rows = []
-    for base in _BASE_THEMES:
-        for suffix in _SUFFIXES:
-            name = base + suffix
-            colours = variables_for(name)
-            rows.append({"name": name, "palette": {short: colours.get(long, "") for short, long in PALETTE_KEYS}})
+    for name in ids():
+        colours = variables_for(name)
+        rows.append({"name": name, "palette": {short: colours.get(long, "") for short, long in PALETTE_KEYS}})
     return rows
 
 

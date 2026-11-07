@@ -38,7 +38,7 @@ from urllib.parse import urlsplit
 BLOCKS = ("providers", "local", "model", "permissions", "theme", "team", "linux", "check")
 ALIASES = {"roles": "team"}
 BLOCK_TITLES = {"providers": "Providers", "local": "Local models", "model": "Default model", "permissions": "Permissions",
-                "theme": "Terminal theme", "team": "Team", "linux": "Linux fixes", "check": "Check"}
+                "theme": "Theme", "team": "Team", "linux": "Linux fixes", "check": "Check"}
 
 
 @dataclass(frozen=True)

@@ -3,7 +3,7 @@ studio/setup_api.py, studio/setup_state.py, lineup_choice.py) through
 `api.dispatch` over a scratch home; no model call, no network:
 
 1. `GET setup/state`: every block's value and rows (the wizard's four
-   permission modes, the six terminal themes with their palettes, the eight
+   permission modes, the ten palettes (3.3.12.0) with their colours, the eight
    provider tabs by name, the lineups with One model first and auto the
    default), and no key in it even with one set in the environment;
 2. `POST setup/config`: a key outside model / permission_mode / theme is a
@@ -92,8 +92,8 @@ def test_the_state_has_every_block_and_no_key(ctx: Ctx):
         ctx.check("each mode carries its label and note", s["permission_modes"][0] == {
             "id": "auto", "label": "auto (recommended)", "note": "allow everything except explicit deny/ask rules"})
         names = [t["name"] for t in s["themes"]]
-        ctx.check(f"six terminal themes, got {names}", names == ["claude-dark", "claude-dark-daltonized", "claude-dark-ansi",
-                                                                  "claude-light", "claude-light-daltonized", "claude-light-ansi"])
+        from halo_harness.themes.registry import ids  # 3.3.12.0 R1: the ten palettes, the modifiers on Settings -> Themes
+        ctx.check(f"the ten palettes, got {names}", names == list(ids()) and names[:3] == ["claude-dark", "claude-light", "holo"])
         pal = s["themes"][0]["palette"]
         ctx.check(f"a palette from tui/theme.py, got {pal}", pal["bg"] == "#1e1e2e" and pal["accent"] == "#89b4fa" and len(pal) == 10)
         ctx.check(f"the eight provider tabs by name, got {list(s['providers'])}",

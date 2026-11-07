@@ -167,11 +167,33 @@ panel alone (3.3.2.0) adds a soft glow, small corner brackets
 face), and an idle panel breathes only while focused. Cyan is
 the one accent for "live" and "do this", amber means "needs you", magenta-red
 an error, green done. Data labels and numbers are monospaced next to a clean
-sans for prose. The light theme is Catppuccin Latte; the theme menu offers
-dark, light and "follow the system". Every colour is a token in
+sans for prose. Every colour is a token in
 `ui/src/styles/tokens.css` (`--bg`, `--surface`, `--surface-glass`,
 `--line`, `--glow`, `--accent`, `--accent-2`, `--warn`, `--bad`, `--ok`,
 `--text`, `--muted`, `--mono`, `--sans`, `--radius`, `--ease`, ...).
+
+**The palette set (3.3.12.0).** The terminal and Studio draw from one palette
+set, chosen by one key: `theme` in `~/.halo/config.json`. The registry
+(`halo_harness/themes/palettes.py`) holds ten palettes, each `{id, label,
+posture, tokens}` in one token vocabulary: `claude-dark`, `claude-light`,
+`holo` (the look above), `paper`, `midnight`, `ember`, `forest`, `slate`,
+`dusk`, `dawn`; `-daltonized` and `-ansi` modify any of them. Studio's
+colours are one `:root[data-theme="<name>"]` rule per palette, generated
+between two marker comments of `tokens.css` by `scripts/themes_css.py`
+(`tests/test_themes_css_drift.py` regenerates and compares); the glass,
+lines, glows, soft fills and scrim are derived from the tokens by posture.
+The server paints the first frame in the saved palette (`data-theme` on
+`<html>`); unset is `data-theme="auto"`, "follow the system": `holo` on a
+dark system, `paper` on a light one. The header's **theme menu** lists
+"Follow the system" and the ten, each with a swatch row (surface, text,
+accent, accent-2, ok, warn, bad), the current one checked; a pick writes the
+key through `POST settings/set` (`settings/unset` for follow), so `/theme`,
+`halo config set theme`, Settings -> Themes and the header move one value,
+and a change made in a terminal reaches an open page through
+`files_changed`. The palette (Mod+K) has "Theme: <id>" per palette and
+"Theme: follow the system". The per-browser dark / light choice of before is
+read once: written to the key when the key is unset (`dark` -> `holo`,
+`light` -> `claude-light`), then dropped.
 Motion is short (150-250 ms, ease-out) and always means the same state,
 through `data-motion` on any element:
 

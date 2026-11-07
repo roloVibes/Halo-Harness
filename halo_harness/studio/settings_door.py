@@ -3,6 +3,7 @@ studio/setup_door.py pattern:
 
     SettingsTarget()                Settings                 ?mode=settings
     SettingsTarget(group="fleet")   Settings, the Fleet page ?mode=settings&group=fleet   (`halo settings fleet`)
+    SettingsTarget(group="themes")  Settings -> Themes      ?mode=settings&page=themes    (`halo settings themes`, 3.3.12.0)
 
 It travels as an edit-target text (`settings`, `settings:fleet`), so `halo studio --edit settings:fleet`, the
 detached Studio's argv and `launch.url_from_info` all carry it (studio/edit_target.py hands the `settings` kind to
@@ -16,6 +17,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
+THEMES = "themes"
+
 
 def group_word(word: str) -> "tuple[Optional[str], str]":
     """`(group id, '')` for a group's id or title ('' = the page last open), or `(None, why)`."""
@@ -23,10 +26,12 @@ def group_word(word: str) -> "tuple[Optional[str], str]":
     w = (word or "").strip().lower()
     if not w:
         return "", ""
+    if w in (THEMES, "theme"):  # 3.3.12.0 R1: Settings -> Themes, a page beside the catalog's groups
+        return THEMES, ""
     for gid, title in GROUPS:
         if w in (gid, title.lower(), title.lower().split()[0]):
             return gid, ""
-    return None, f"{word!r} is not a Settings group: use one of {', '.join(g for g, _ in GROUPS)}"
+    return None, f"{word!r} is not a Settings group: use one of {', '.join(g for g, _ in GROUPS)}, or {THEMES}"
 
 
 @dataclass(frozen=True)
@@ -45,6 +50,8 @@ class SettingsTarget:
     @property
     def display(self) -> str:
         from halo_harness.settings_catalog import GROUP_TITLES
+        if self.group == THEMES:
+            return "Settings (Themes)"
         return f"Settings ({GROUP_TITLES[self.group]})" if self.group in GROUP_TITLES else "Settings"
 
     @property
@@ -56,6 +63,8 @@ class SettingsTarget:
         return f"halo studio --edit {self.text}"
 
     def query(self) -> str:
+        if self.group == THEMES:
+            return "?mode=settings&page=themes"
         return "?mode=settings" + (f"&group={self.group}" if self.group else "")
 
     def focus(self) -> dict:

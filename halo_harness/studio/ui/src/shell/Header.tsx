@@ -6,40 +6,16 @@
 // layout" badge (shell/SectionMore.tsx), the Focus button (3.3.2.0 R1: hides
 // the rail, the inspector and the status bar; F), the command palette button,
 // 3.3.2.0 R3's density toggle (comfortable / compact, lib/density.ts) and the
-// theme menu.
-import { useEffect, useRef, useState } from "react";
+// theme menu (3.3.12.0 R1: shell/ThemeMenu.tsx, the palettes of the registry).
 import { Button, Icon, Kbd } from "../lib/ui";
-import { openHelp, setTheme, studio, toggleFocus, useStore, type SectionId, type ThemeChoice } from "../lib/store";
+import { openHelp, studio, toggleFocus, useStore, type SectionId } from "../lib/store";
 import { openGlossary } from "../lib/glossary";
 import { toggleDensity, useDensity } from "../lib/density";
 import { sectionDef } from "../routes";
 import { PanelsMenu } from "./PanelsMenu";
 import { SectionMore } from "./SectionMore";
-
-const THEMES: { id: ThemeChoice; label: string; icon: string }[] = [
-  { id: "dark", label: "Dark (holo)", icon: "moon" },
-  { id: "light", label: "Light", icon: "sun" },
-  { id: "auto", label: "Follow the system", icon: "auto" },
-];
-
-/** A menu's open state: closes on Esc and on a press outside its box. */
-function useMenu() {
-  const [open, setOpen] = useState(false);
-  const box = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const off = (e: Event) => {
-      if (e instanceof KeyboardEvent ? e.key === "Escape" : !box.current?.contains(e.target as Node)) setOpen(false);
-    };
-    window.addEventListener("pointerdown", off);
-    window.addEventListener("keydown", off);
-    return () => {
-      window.removeEventListener("pointerdown", off);
-      window.removeEventListener("keydown", off);
-    };
-  }, [open]);
-  return { open, setOpen, box };
-}
+import { ThemeMenu } from "./ThemeMenu"; // 3.3.12.0 R1: the ten palettes, one `theme` key
+import { useMenu } from "./useMenu";
 
 function HelpMenu({ section }: { section: SectionId }) {
   const { open, setOpen, box } = useMenu();
@@ -83,38 +59,6 @@ function DensityToggle() {
             title={`Density: ${d} (press for ${next})`} data-testid="density-toggle" data-density={d}>
       <Icon name={d === "compact" ? "density-compact" : "density"} />
     </button>
-  );
-}
-
-function ThemeMenu() {
-  const theme = useStore(studio, (s) => s.theme);
-  const { open, setOpen, box } = useMenu();
-  const cur = THEMES.find((t) => t.id === theme) ?? THEMES[0];
-  return (
-    <div className="menu-wrap" ref={box}>
-      <button className="icon-btn icon-btn-lg" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)} title={`Theme: ${cur.label}`} aria-label="Theme">
-        <Icon name={cur.icon} />
-      </button>
-      {open && (
-        <div className="menu glass" role="menu" aria-label="Theme">
-          {THEMES.map((t) => (
-            <button
-              key={t.id}
-              role="menuitemradio"
-              aria-checked={t.id === theme}
-              className={"menu-item" + (t.id === theme ? " on" : "")}
-              onClick={() => {
-                setTheme(t.id);
-                setOpen(false);
-              }}
-            >
-              <Icon name={t.icon} />
-              <span>{t.label}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
   );
 }
 

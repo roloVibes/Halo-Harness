@@ -42,6 +42,7 @@ import "./styles/setup.css";
 import "./styles/setup-providers.css";
 import "./styles/setup-pages.css"; // 3.3.1.0 R1
 import "./styles/settings.css"; // 3.3.3.0 R2
+import "./styles/themes.css"; // 3.3.12.0 R1: the theme menu's swatches and Settings -> Themes
 import "./styles/local.css"; // 3.3.5.0 R1
 import "./styles/local-pages.css"; // 3.3.5.0 R1
 import "./styles/local-library.css"; // 3.3.5.0 R2
@@ -59,7 +60,7 @@ import "./styles/local-pool.css"; // 3.3.8.0 R1: Local -> Pool, the members, the
 import "./styles/local-voice.css"; // 3.3.9.0 R3: Local -> Voice, the speech servers, Talk, the turns
 import { App } from "./App";
 
-document.documentElement.dataset.theme = document.documentElement.dataset.theme || "dark";
+document.documentElement.dataset.theme = document.documentElement.dataset.theme || "auto"; // 3.3.12.0 R1: unset follows the system
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <App />

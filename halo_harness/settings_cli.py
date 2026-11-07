@@ -23,6 +23,10 @@ def _word(value) -> str:
 
 def group_lines(group: str = "") -> "list[str]":
     """The `--terminal` listing: a heading per group, then `key = value (default ...)` per row."""
+    if group == "themes":  # 3.3.12.0 R1: Settings -> Themes in a terminal is the words of /theme
+        from halo_harness.theme import load_persisted_theme
+        from halo_harness.themes.cli import listing
+        return listing(load_persisted_theme()).splitlines()
     from halo_harness.settings_catalog import GROUPS, rows
     from halo_harness.studio.settings_values import values
     from halo_harness.theme import load_config
