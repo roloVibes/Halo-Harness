@@ -8,6 +8,35 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.3.12.0] - unreleased
+
+**Themes and parity.** One theming system, not two. Until now the terminal had two palettes and Studio a dark/light switch
+per browser, and the two knew nothing of each other. R1 makes a palette registry of ten -- claude-dark, claude-light, holo,
+paper, midnight, ember, forest, slate, dusk, dawn -- in one token vocabulary that both renderers draw from, chosen by one
+`theme` key: `/theme`, `halo config set theme`, the header menu and a new Settings -> Themes page all move the same value,
+Studio's palette blocks are generated from the registry so a colour lives in one place, and the daltonized variants now mean
+something. Next in this version: a pack's own themes (R2), a pack mode's theme with toggle-and-restore (R3, issue #5), the
+table panel's detail view and the parity audit (R4).
+
+### R1: one palette set -- ten palettes, one `theme` key, the terminal and Studio in step
+
+#### Added
+- The palette registry (`halo_harness/themes/`): ten palettes as data in one token vocabulary (`palettes.py`: bg, bg2, surface, surface2, border, line, text, muted, faint, accent, accent2, accent_ink, ok, warn, bad, user, tool) -- `claude-dark`, `claude-light`, `holo` (Studio's glass, cyan and amber), `paper`, `midnight`, `ember`, `forest`, `slate`, `dusk`, `dawn`, each `{id, label, posture, tokens}`; `registry.py` answers the valid names (the ten x `-daltonized` / `-ansi`), the tokens a name draws in, its posture, and the WCAG contrast of every pinned pair (body text 4.5:1 on every face, a large or UI colour 3:1, a primary button's label 4.5:1); `cli.py` holds the words `/theme` and the refusals say.
+- `-daltonized` now means something: the accent pair, the status pair and the terminal's user / tool lines become blue and orange (the Okabe-Ito hues), moved in lightness per palette until they read on its backgrounds -- never red against green.
+- Studio from the same source: `scripts/themes_css.py` writes one `:root[data-theme="<name>"]` rule per palette (its id and `-ansi`), one override per `-daltonized` name and the "follow the system" rules between two marker comments of `styles/tokens.css`; the glass, lines, glows, soft fills and scrim derive from the tokens by posture. `--check` reports drift.
+- `GET settings/themes` (the ten with their tokens and daltonized tokens, the vocabulary, the modifiers, the saved `theme`); the served index.html carries `data-theme` = the saved theme or `auto` (`studio/theme_boot.py`), so the first paint is in the right palette.
+- The header's theme menu (`shell/ThemeMenu.tsx`): Follow the system and the ten, each with a swatch row (surface, text, accent, accent-2, ok, warn, bad), the current one checked, a door to Settings -> Themes; the palette's "Theme: <id>" per palette and "Theme: follow the system".
+- Settings -> Themes (`?mode=settings&page=themes`, `halo settings themes`, after General on the rail): the ten rows with their swatches in the colours the API sends, posture and label, the current one marked; Follow the system; pointing at a row previews it on the page, Esc or moving away reverts, a click saves; Daltonized and ANSI as toggles.
+- `/theme` with no argument lists the ten with their posture and one-line label, the current one marked; `halo settings themes --terminal` prints the same.
+- Glossary: "palette" and "posture". Tests: `tests/test_theme_registry.py` (the ten, the postures, every modifier, daltonized blue / orange, the contrast pins over all thirty names, `resolve_theme` and the removed-theme notice unchanged, `halo config set theme`, the doctor), `tests/test_themes_css_drift.py`, `tests/test_studio_theme_api.py`, the Chrome `tests/test_studio_themes.py` (TIER full), and the TUI pilot `test_slash_theme_lists_the_ten_palettes_and_sets_one`.
+
+#### Changed
+- One key for both: `theme` in `~/.halo/config.json` names the palette for the terminal and Studio; the header menu, the palette, Settings -> Themes, Setup's Theme page, `/theme` and `halo config set theme` all write it (Studio through `POST settings/set` / `settings/unset`). Unset, the terminal keeps its truecolor-aware default (`claude-dark` / `claude-dark-ansi`) and Studio follows the system (`holo` dark, `paper` light). Studio's per-browser dark / light switch is gone: a saved `halo.studio.theme` is read once, written to the key when the key is unset (`dark` -> `holo`, `light` -> `claude-light`), then dropped. Studio follows a change made in a terminal at once (`files_changed`); the terminal has no config watch, so a change made in Studio reaches it on `/theme` or its next launch.
+- `theme.VALID_THEMES`, the config schema's `theme` enum and the Settings row's choices come from the registry (30 names), never a literal list; an unknown name is one line naming the ten (`/theme`, `halo config set theme`, the settings route, Setup).
+- `tui/theme.py variables_for` maps the registry's tokens to Textual's variables; `claude-dark` draws exactly as before; `claude-light`'s ok, warn and tool are a shade darker (`#3b9428`, `#b67418`, `#e45401`) so each reads 3:1 on the page. `holo` is Studio's dark of before, value for value; Studio's light of before is `claude-light` (its `--surface-2` is now the terminal's panel colour, `#dce0e8`).
+- Setup's Theme page shows the ten palettes (the modifiers live on Settings -> Themes) and says the key is the terminal's and Studio's; the Settings row is titled "Theme".
+- The Chrome drivers start headless Chrome on a dark system (`--blink-settings=preferredColorScheme=0`), so an unset theme draws holo on every runner as before.
+
 ## [3.3.11.0] - 2026-11-06
 
 **Type into Studio.** The owner's ask of 2026-10-27: "a box to just type into like it is the tui but it's in session view,

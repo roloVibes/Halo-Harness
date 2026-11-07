@@ -42,10 +42,10 @@ export const SETUP_HELP: Record<string, Help> = {
     ),
   },
   "setup-theme": {
-    about: "The colours of halo in your terminal: theme in ~/.halo/config.json.",
+    about: "The palette of halo in your terminal and of Studio: theme in ~/.halo/config.json.",
     help: lines(
-      "Each swatch is drawn in the colours the terminal uses for that theme; -daltonized and -ansi are the variants.",
-      "Save writes it (the same as /theme in a session). Studio's own dark / light switch is a setting of this browser.",
+      "Each swatch is one of the ten palettes, drawn in the colours the terminal uses for it.",
+      "Save writes it (the same as /theme in a session); Studio redraws at once. Settings -> Themes has the -daltonized and -ansi modifiers and a live preview.",
     ),
   },
   "setup-team": {

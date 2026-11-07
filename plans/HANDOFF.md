@@ -6,13 +6,11 @@ first, then `WORKER-RULES.md`, then the round you are starting.
 
 ## WHERE THINGS STAND -- 2026-11-02 evening (authoritative, read this first)
 
-**3.3.9.1 (cf96d422), 3.3.9.2 (7d4476e3), 3.3.9.3 (6a58e59d) and 3.3.10.0 (d0ab4261) SHIPPED 2026-11-02/03; the
-PC was reinstalled at v3.3.10.0 on 2026-11-03 once the owner quit halo. 3.3.11.0 "Type into Studio" IS THE RELEASE
-CANDIDATE** (R1 the Prompt panel with receipts, R2 a session without a terminal + the live map, R3 a pack's own Setup
-blocks, all merged on master; the release follows green on both runners; the ROADMAP's three BUILT notes carry the
-choices, the limits and the owner's live checks). A security review's fix pass (821abd77, H1-H4 + M1-M12: the deny matcher,
-path containment, fail-closed `halo update` verification, the NotebookEdit read gate, a BashOutput poll cap) rides in the
-candidate; its CHANGELOG lines are under "Also in 3.3.11.0". After it: 3.3.12.0 "Themes and parity", then 3.3.13.0 Federation.
+**3.3.11.0 "Type into Studio" SHIPPED 2026-11-06 (v3.3.11.0 = f30b5823, with the security review fix pass 821abd77); the
+PC runs 3.3.10.0 until the owner quits halo and reinstalls. 3.3.12.0 "Themes and parity" is the open section: R1 (one
+palette set: the registry of ten, one `theme` key, Studio generated from the registry, Settings -> Themes) merged on
+master; R2 pack themes, R3 mode themes (issue #5), R4 the table detail + the parity audit follow, then the release.** The
+ROADMAP's R1 BUILT note carries the choices, what R2 needs from the registry and the owner's live check.
 
 ### Before it: 2026-11-02 morning
 

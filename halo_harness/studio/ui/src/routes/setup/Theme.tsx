@@ -1,8 +1,8 @@
-// setup-theme (3.3.0.0 R1): the terminal theme, the TUI's `theme` key -- each
-// of the six names as a swatch drawn in the colours the terminal uses for it
+// setup-theme (3.3.0.0 R1): the `theme` key -- 3.3.12.0 R1: each of the ten
+// palettes as a swatch drawn in the colours the terminal uses for it
 // (tui/theme.py variables_for, served in the state); Save writes `theme` in
-// ~/.halo/config.json. Studio's own dark / light switch (the header) is a
-// setting of this browser and is not this key.
+// ~/.halo/config.json, the one key the terminal and Studio both draw from.
+// The -daltonized / -ansi modifiers and a live preview are Settings -> Themes.
 import type { CSSProperties } from "react";
 import { BlockFoot, useLoadState, Waiting } from "./BlockFoot";
 import { NONE, pick, shownOf, useSetup, type ThemeRow } from "./store";
@@ -44,10 +44,10 @@ export function ThemeDetail() {
   return (
     <div className="su-block" data-testid="setup-theme">
       <p className="su-lead muted" data-testid="setup-theme-note">
-        The colours of halo in your terminal. Studio's own dark / light switch, in the header, is a setting of this browser, not this one.
-        {saved ? "" : " Nothing saved yet: halo uses claude-dark."}
+        One palette for halo in your terminal and for Studio. Settings -&gt; Themes has the colour-blind and 16-colour modifiers and a live preview.
+        {saved ? "" : " Nothing saved yet: the terminal uses claude-dark and Studio follows the system."}
       </p>
-      <div className="su-swatches" role="radiogroup" aria-label="Terminal theme">
+      <div className="su-swatches" role="radiogroup" aria-label="Theme">
         {themes.map((t) => (
           <Swatch key={t.name} t={t} on={shown === t.name} />
         ))}
@@ -61,7 +61,7 @@ export function ThemeGlance() {
   const shown = useSetup((s) => s.data?.theme || s.data?.theme_default || "");
   return (
     <div className="glance">
-      <div className="glance-kicker mono">TERMINAL THEME</div>
+      <div className="glance-kicker mono">THEME</div>
       <div className="glance-text">{shown}</div>
       <div className="glance-hint">theme in config.json</div>
     </div>

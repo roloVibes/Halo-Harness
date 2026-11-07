@@ -1520,11 +1520,11 @@ def _cmd_add_dir(args: str, facade: HeadlessFacade) -> str:
 def _cmd_theme(args: str, facade: HeadlessFacade) -> str:
     from halo_harness import theme as theme_mod
     name = (args or "").strip()
+    from halo_harness.themes import cli as theme_cli  # 3.3.12.0 R1: the ten palettes
     if not name:
-        return f"Current theme: {facade.theme or theme_mod.DEFAULT_THEME}"
+        return theme_cli.listing(facade.theme or theme_mod.DEFAULT_THEME)
     if not theme_mod.is_valid_theme(name):
-        return (f"halo: not a valid theme name: {name!r} (expected one of {sorted(theme_mod.VALID_THEMES)})"
-                + theme_mod.removed_theme_hint(name))
+        return f"halo: {theme_cli.refusal(name)}"
     try:
         theme_mod.persist_theme(name)
     except (ValueError, theme_mod.CorruptConfigError) as exc:

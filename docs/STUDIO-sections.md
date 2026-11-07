@@ -381,6 +381,9 @@ page); nothing opens on its own. `halo settings fleet` opens the Fleet page (`?m
 its notes (automatic, none, or one of this machine's local models: `ollama.steward.model`), the mode (auto, review, off:
 `ollama.steward.apply`), the job switch and **Open the Ollama panel**; the thresholds stay ordinary rows below it.
 
+**The Themes page** (3.3.12.0, after General on the rail; `?mode=settings&page=themes`, `halo settings themes`) draws the `theme` key as the ten palettes of the registry: one row each with its swatch row (surface, text, accent, accent-2, ok, warn, bad, in the colours `GET settings/themes` sends, never hard-coded), its posture and its one-line label, the current one marked **CURRENT**, and **Follow the system** above them (holo on a dark system, paper on a light one; the key unset).
+Pointing at a row previews it on the page itself (the key untouched); Esc or moving away puts the saved one back, a click saves it. The modifiers are two toggles, **Daltonized** (blue and orange for the accents and the status colours, never red against green) and **ANSI** (a terminal's 16 colours; Studio stays in full colour), one at a time; the footer is the `halo config set theme <name>` line. `/theme`, `halo config set theme` and the header's theme menu move the same value.
+
 ### Local
 
 **What it is** (3.3.5.0). Local (`Alt+0`, the tenth slot) holds everything about the machines that serve your local models
