@@ -2,8 +2,9 @@
 // catalog group in its order (General ... Local), how many of its keys are set
 // out of how many, the open group lit; a click opens its page (pages.ts). It
 // is Setup's step rail turned on its side: there is no order to walk here,
-// every group is a page of its own.
-import { goto, usePages } from "./pages";
+// every group is a page of its own. 3.3.12.0 R1: Themes (the `theme` key as
+// the ten palettes, Themes.tsx) follows General, a page beside the groups.
+import { goto, THEMES_PAGE, usePages } from "./pages";
 import { useSettings } from "./store";
 
 export function SettingsRail() {
@@ -28,6 +29,14 @@ export function SettingsRail() {
                   {n ? `${n}/${g.count}` : g.count}
                 </span>
               </button>
+              {g.id === "general" && (
+                <button type="button" className={"st-rail-item st-rail-themes" + (page === THEMES_PAGE && !searching ? " on" : "")}
+                        onClick={() => goto(THEMES_PAGE)} data-testid="settings-rail-themes" data-group={THEMES_PAGE}
+                        aria-current={page === THEMES_PAGE && !searching ? "page" : undefined} title="Themes: the ten palettes, one theme key">
+                  <span className="st-rail-title">Themes</span>
+                  <span className="st-rail-count mono">10</span>
+                </button>
+              )}
             </li>
           );
         })}

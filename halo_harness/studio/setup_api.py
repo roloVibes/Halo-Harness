@@ -60,8 +60,9 @@ def _check(key: str, value: str, req) -> "list[str]":
         modes = [r["id"] for r in S.permission_rows()]
         return [] if value in modes else [f"permission_mode: {value!r} is not a permission mode (one of {', '.join(modes)})"]
     if key == "theme":
-        names = [r["name"] for r in S.theme_rows()]
-        return [] if value in names else [f"theme: {value!r} is not a terminal theme (one of {', '.join(names)})"]
+        from halo_harness.themes.cli import ten_words  # 3.3.12.0 R1: the registry's names, a modifier included
+        from halo_harness.themes.registry import is_name
+        return [] if is_name(value) else [f"theme: {value!r} is not a palette (one of {ten_words()})"]
     refs = {r["ref"] for r in S.model_list(req.state_dir, req.cwd)}
     if value in refs:
         return []

@@ -140,7 +140,7 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
       ["Point at your local models", "Local models: the folders your model files are in and the runtime that serves them (llama-server or mlx_lm). Nothing here is required."],
       ["Pick the default model", "Default model lists the catalog of the providers set up here, grouped by provider, with what each model is best at; search, pick one, Save (Enter saves too)."],
       ["Pick the permission mode", "Permissions: auto, acceptEdits, default or plan, each with what it allows; Save writes the mode every new session starts in."],
-      ["Pick the terminal theme", "Theme: the colours of halo in your terminal, each swatch drawn in its own colours. Studio's dark / light switch in the header is this browser's own."],
+      ["Pick the theme", "Theme: one of ten palettes for halo in your terminal and for Studio, each swatch drawn in its own colours; Settings -> Themes has the modifiers and a preview."],
       ["Pick the lineup", "Team: One model for everything, auto (the default) or a lineup, with its preview; Apply writes what the wizard's Team step writes."],
       ["Run the check", "Check: doctor, the model catalog and one hello call are ticked; the quick gym and the guided first run say what they cost first. Linux fixes is a step only when this box needs them."],
       ["Read the Summary", "One row per step with what it holds and a Change jump, the last check with Run the ticked checks, and the guided first run's card."],

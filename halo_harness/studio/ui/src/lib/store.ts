@@ -48,7 +48,8 @@ export type CoreSectionId = "orchestra" | "roles" | "design" | "fleet" | "team" 
 /** 3.2.0.0 R3: a pack's own section, `<pack id>--<section id>` (routes/packs: the registry the server builds). */
 export type PackSectionId = `${string}--${string}`;
 export type SectionId = CoreSectionId | PackSectionId;
-export type ThemeChoice = "auto" | "dark" | "light";
+/** 3.3.12.0 R1: a theme name of the palette registry (`holo`, `ember-daltonized`, ...) or "auto" (follow the system). */
+export type ThemeChoice = string;
 export type FeedStatus = "off" | "connecting" | "open" | "retrying" | "down";
 
 export type SessionInfo = {
@@ -131,9 +132,14 @@ function initialSection(): SectionId {
   return bootLiveSession() ? "session" : "roles";
 }
 
+/** 3.3.12.0 R1: the theme the server painted the page in (`theme` in config.json, studio/theme_boot.py), else follow
+ *  the system; lib/theme.ts reads the registry and keeps it in step with the key. */
 function initialTheme(): ThemeChoice {
-  const saved = readLocal("halo.studio.theme");
-  return saved === "dark" || saved === "light" || saved === "auto" ? saved : "dark";
+  try {
+    return document.documentElement.dataset.theme || "auto";
+  } catch {
+    return "auto";
+  }
 }
 
 const first = initialSection();
@@ -202,17 +208,6 @@ export function closeHelp(): void {
 export function goSection(section: SectionId): void {
   writeLocal("halo.studio.section", section);
   studio.update((s) => ({ section, visited: s.visited.includes(section) ? s.visited : [...s.visited, section], inspector: null }));
-}
-
-export function setTheme(theme: ThemeChoice): void {
-  writeLocal("halo.studio.theme", theme);
-  document.documentElement.dataset.theme = theme;
-  studio.update(() => ({ theme }));
-}
-
-export function cycleTheme(): void {
-  const order: ThemeChoice[] = ["dark", "light", "auto"];
-  setTheme(order[(order.indexOf(studio.get().theme) + 1) % order.length]);
 }
 
 /** 3.3.2.0 R1: the rail's chevron: icons <-> expanded (the titles; R2: nothing else). */

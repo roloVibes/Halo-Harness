@@ -20,7 +20,7 @@ env file in that home (`HALO_ENV_FILE`); no provider request, no model call:
    for each, Measure (the calibration stubbed) fills the log;
 2. Permissions: plan picked says "1 changed", Save writes it to
    config.json and the strip follows;
-3. Terminal theme: six swatches drawn in their own colours, claude-light saved;
+3. Terminal theme: the ten palettes (3.3.12.0) drawn in their own colours, claude-light saved;
 4. Default model: grouped by provider, the search narrows it, saved;
 5. Team: balanced with its preview, Apply writes team and roles on; One
    model for everything removes team and turns roles off;
@@ -218,10 +218,11 @@ def test_permissions_save(ctx: Ctx):
 @test
 def test_terminal_theme_save(ctx: Ctx):
     got = _got(ctx)
-    ctx.check(f"six swatches, got {got.get('swatches')}", len(got.get("swatches") or []) == 6 and "claude-light-ansi" in got["swatches"])
+    from halo_harness.themes.registry import ids  # 3.3.12.0 R1: the ten palettes
+    ctx.check(f"ten swatches, got {got.get('swatches')}", got.get("swatches") == list(ids()))
     ctx.check(f"a swatch is drawn in its theme's colours (claude-light's bg #eff1f5), got {got.get('swatch_bg')!r}",
               got.get("swatch_bg") == "rgb(239, 241, 245)")
-    ctx.check("the block says Studio's own switch is a browser setting", "setting of this browser" in str(got.get("theme_note")))
+    ctx.check("the block says one palette for the terminal and Studio", "terminal and for Studio" in str(got.get("theme_note")))
     ctx.check(f"Save writes config.json, got {got.get('theme_config')!r}", got.get("theme_config") == "claude-light" and got.get("theme_strip") == "claude-light")
 
 

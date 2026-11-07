@@ -137,7 +137,7 @@ def test_refusals_write_nothing(ctx: Ctx):
                  ({"key": "openai.dialect_overrides", "value": "{not json"}, "openai.dialect_overrides: not valid JSON"),
                  ({"key": "no.such.key", "value": 1}, "no.such.key: not a config key Settings knows"),
                  ({"key": "theme_scene", "value": "x"}, "theme_scene: removed in 3.1.5.0 with the game themes, the key is ignored"),
-                 ({"key": "theme", "value": "doom"}, "not a valid theme name: 'doom' (expected one of"),
+                 ({"key": "theme", "value": "doom"}, "not a valid theme name: 'doom' (the palettes: claude-dark, claude-light, holo"),
                  ({"key": "connectors.<slug>.enabled", "value": True}, "connectors.<slug>.enabled: name the entry"),
                  ({"key": "ollama.hosts[none].ssh", "value": "me@box"}, "ollama.hosts has no entries yet"),
                  ({"key": "fleet.name", "value": ""}, "fleet.name: needs a value"),

@@ -18,7 +18,7 @@ the live feed on. No provider request, no model call:
    Ollama host and a model folder added, the runtime saved;
 2. Permissions: pick plan, the block says "1 changed", Save: config.json has
    it, the strip and the block say so;
-3. Terminal theme: the six swatches, pick claude-light, Save: config.json;
+3. Terminal theme: the ten palettes' swatches, pick claude-light, Save: config.json;
 4. Default model: the stub catalog grouped by provider, search narrows it,
    pick or:mock/beta, Save: config.json;
 5. Team: pick balanced, its preview, Apply: `team` in config.json, the

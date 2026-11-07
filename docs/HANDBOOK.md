@@ -507,12 +507,21 @@ flight.
 
 ## Themes
 
-`/theme <name>` (or `halo init`'s Theme step, `halo config set theme <name>`,
-`--theme`, `HALO_THEME`) picks one of six names: `claude-dark`,
-`claude-light` and their `-daltonized` and `-ansi` variants. The choice
-persists in `~/.halo/config.json` under `theme`. With nothing chosen, Halo
-uses `claude-dark` on a truecolor terminal and `claude-dark-ansi` elsewhere.
-The status bar is the same single line under every theme.
+Since 3.3.12.0 the terminal and Studio draw from one palette set, chosen by
+one key. `/theme <name>` (or `halo init`'s Theme step, `halo config set theme
+<name>`, Studio's header menu or Settings -> Themes, `--theme`, `HALO_THEME`)
+picks one of ten palettes: `claude-dark`, `claude-light`, `holo` (Studio's
+glass, cyan and amber), `paper`, `midnight`, `ember`, `forest`, `slate`,
+`dusk`, `dawn`. Each also takes a modifier: `-daltonized` swaps the accents
+and the status colours for blue and orange (never red against green), `-ansi`
+draws the 16-colour set of a terminal without truecolor. `/theme` with no
+name lists the ten with their one-line labels. The choice persists in
+`~/.halo/config.json` under `theme`; Studio redraws at once, a running
+terminal on `/theme` or its next launch. With nothing chosen, the terminal
+uses `claude-dark` on a truecolor terminal and `claude-dark-ansi` elsewhere,
+and Studio follows the system (`holo` dark, `paper` light). Every palette's
+text meets WCAG AA contrast (`tests/test_theme_registry.py` computes it from
+the tokens). The status bar is the same single line under every theme.
 
 The game themes (DOOM, Metroid, Mario, Beetlejuice, Alien) with their level
 band, status-bar skins and toggles were removed in 3.1.5.0. A `config.json`

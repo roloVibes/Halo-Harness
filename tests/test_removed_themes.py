@@ -2,7 +2,7 @@
 
   1. nothing under halo_harness imports a scene / HUD / game-palette /
      toggle / level-band module, no builtin or TUI handler is a game toggle
-     or `/level`, and `VALID_THEMES` is the six ordinary names;
+     or `/level`, and `VALID_THEMES` is the registry's ordinary names (3.3.12.0);
   2. a saved game theme is one line, never a crash: `resolve_theme` falls
      back, the TUI shows the notice at startup, `halo doctor --config`
      prints the same line (and one per leftover game-theme key);
@@ -39,8 +39,9 @@ from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # no
 
 test, TESTS = new_registry()
 
-SIX = {"claude-dark", "claude-light", "claude-dark-daltonized", "claude-light-daltonized",
-       "claude-dark-ansi", "claude-light-ansi"}
+from halo_harness.themes.registry import names as _registry_names  # noqa: E402
+
+SIX = set(_registry_names())  # 3.3.12.0 R1: the ordinary names, the ten palettes x the two modifiers
 GAMES = ("doom", "metroid", "mario", "beetlejuice", "alien")
 GONE_MODULE = re.compile(r"(^|\.)(scene\w*|hud\w*|theme_games|theme_mario|theme_metroid|theme_toggle|borders)$")
 NOTICE = "theme: doom was a game theme, removed in 3.1.5.0; using claude-dark"
@@ -97,7 +98,7 @@ def test_1_nothing_imports_the_game_modules_and_the_commands_are_gone(ctx: Ctx):
     src = inspect.getsource(slash.handle_slash)
     tui_rows = [n for n in gone if re.search(rf'"{n}"\s*:', src) or hasattr(slash, f"_handle_{n}")]
     ctx.check(f"no TUI handler for them either, got {tui_rows}", not tui_rows)
-    ctx.check(f"VALID_THEMES is the six, got {sorted(theme.VALID_THEMES)}", set(theme.VALID_THEMES) == SIX)
+    ctx.check(f"VALID_THEMES is the registry's, got {sorted(theme.VALID_THEMES)}", set(theme.VALID_THEMES) == SIX == SIX - set(GAMES))
     for name in ("GAME_THEMES", "GAME_VARIANTS", "variant_for", "variants_of", "VARIANT_KEY"):
         ctx.check(f"theme.{name} is gone", not hasattr(theme, name))
 

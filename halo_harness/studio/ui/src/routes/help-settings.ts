@@ -18,7 +18,7 @@ function page(about: string, ...own: string[]): Help {
 }
 
 export const SETTINGS_HELP: Record<string, Help> = {
-  "settings-general": page("The model a session starts on, the lineup, the permission mode, effort, the terminal theme and the terminal's own switches.",
+  "settings-general": page("The model a session starts on, the lineup, the permission mode, effort, the theme and the terminal's own switches.",
     "Setup sets the model, the permission mode, the theme and the lineup with a preview; here each is one row."),
   "settings-agents": page("How many sub-agents run at once and how deep, whether roles route the work, and the model each role runs on.",
     "A role's model is a table of the roles saved: change one, or add one in roles as JSON."),
@@ -39,4 +39,13 @@ export const SETTINGS_HELP: Record<string, Help> = {
   "settings-worktree": page("What a -w session does with its own git worktree when it ends."),
   "settings-update": page("halo update's check, its daily note and the channel it follows."),
   "settings-local": page("Named local servers, the embeddings recall ranks with, the ComfyUI server and the governor that paces every call."),
+  // 3.3.12.0 R1: the Themes page (Themes.tsx): not a catalog group, the `theme` key drawn as the ten palettes
+  "settings-themes": {
+    about: "One palette for the terminal and Studio: theme in ~/.halo/config.json. Pick one, or follow the system.",
+    help: lines(
+      "Point at a palette to see this page in it; Esc or moving away puts the saved one back. A click saves it.",
+      "Daltonized swaps the accents and the status colours for blue and orange (never red against green); ANSI is the 16-colour set a terminal without truecolor draws, Studio stays in full colour.",
+      "/theme in the terminal and halo config set theme <name> move the same key; a running terminal follows on /theme or its next launch.",
+    ),
+  },
 };

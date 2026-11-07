@@ -9744,6 +9744,51 @@ def test_paste_command_with_a_path_and_a_dragged_path_both_attach(ctx: Ctx):
     asyncio.run(body())
 
 
+
+# ============================================================================
+# 3.3.12.0 R1: one palette set -- `/theme` lists the ten, sets one, refuses an
+# unknown name in one line; the write lands in the scratch config.json.
+# ============================================================================
+
+@test
+def test_slash_theme_lists_the_ten_palettes_and_sets_one(ctx: Ctx):
+    from halo_harness import theme as theme_mod
+    from halo_harness.themes.registry import ids
+    from halo_harness.tui.slash import handle_slash
+
+    async def body():
+        fh = build_fake_home()
+        old = os.environ.get("BRIDGE_TEST_HOME")
+        os.environ["BRIDGE_TEST_HOME"] = str(fh["home"])
+        try:
+            app = BridgeApp(FakeController(), cwd="~/project", theme_name="claude-dark")
+            async with app.run_test(size=(120, 40)) as pilot:
+                await pilot.pause(0.2)
+                await handle_slash(app, "theme", "")
+                await pilot.pause(0.1)
+                listing = [n.message for n in app._notifications if n.message.startswith("Current theme")]
+                lines = listing[-1].splitlines() if listing else []
+                named = [ln.split()[1] if ln.startswith(" *") else ln.split()[0] for ln in lines[1:11]]
+                ctx.check(f"/theme lists the ten in order, got {named}", named == list(ids()))
+                ctx.check("claude-dark marked, each with its label", lines[1].startswith(" * claude-dark") and "Catppuccin Mocha" in lines[1])
+                await handle_slash(app, "theme", "ember")
+                await pilot.pause(0.2)
+                ctx.check(f"/theme ember: saved and drawn, got {theme_mod.load_persisted_theme()!r} {app.theme_name!r}",
+                          theme_mod.load_persisted_theme() == "ember" and app.theme_name == "ember"
+                          and app.get_css_variables()["bridge-bg"] == "#140a08")
+                await handle_slash(app, "theme", "solarized")
+                await pilot.pause(0.1)
+                errs = [n.message for n in app._notifications if n.severity == "error"]
+                ctx.check(f"an unknown name: one line naming the ten, got {errs[-1:]}", errs and len(errs[-1].splitlines()) == 1
+                          and errs[-1].startswith("Not a valid theme name: 'solarized'") and "dawn" in errs[-1])
+                ctx.check("nothing written for it", theme_mod.load_persisted_theme() == "ember")
+        finally:
+            if old is None:
+                os.environ.pop("BRIDGE_TEST_HOME", None)
+            else:
+                os.environ["BRIDGE_TEST_HOME"] = old
+    asyncio.run(body())
+
 if __name__ == "__main__":
     # NEW (post-H9 acceptance): see tests/helpers/runner.py's own docstring.
     from tests.helpers.runner import cleanup_tracked_temp_dirs, install_temp_dir_tracking

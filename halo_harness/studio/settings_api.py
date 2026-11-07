@@ -4,6 +4,8 @@ origin / token guard as every Studio route; every write goes through `theme.set_
 `halo config set` takes, with its refusals (a theme name it does not know, a key of a removed feature).
 
     GET  settings/catalog            {groups, rows, kinds, effects}: the catalog as JSON
+    GET  settings/themes             {palettes, tokens, modifiers, follow, theme, posture, saved}: the palette registry
+                                     (3.3.12.0 R1) and the saved `theme` (null: Studio follows the system)
     GET  settings/values             {values: {row key: {value, set, default, masked, cli[, entries, section]}}}:
                                      the saved value per row (masked as `halo config get` masks, a secret row only
                                      says it is set), a keyed row's saved entries and its whole section
@@ -36,6 +38,16 @@ def _data() -> dict:
 def get_catalog(_req):
     from halo_harness.settings_catalog import catalog_json
     return 200, catalog_json()
+
+
+def get_themes(_req):
+    """3.3.12.0 R1: the palette registry for the header's theme menu and Settings -> Themes: the ten with their tokens
+    (and -daltonized tokens), the saved `theme` (None: follow the system) and its posture."""
+    from halo_harness.themes import registry
+    saved = _data().get("theme")
+    theme = saved if registry.is_name(saved) else None
+    return 200, {**registry.as_json(), "theme": theme, "posture": registry.posture(theme) if theme else "",
+                 "saved": saved if isinstance(saved, str) else None}
 
 
 def get_values(_req):
@@ -90,7 +102,8 @@ def post_set(req):
         return _refused(problems)
     if key == "theme" and not T.is_valid_theme(body.get("value")):  # the words `halo config set theme` says
         value = body.get("value")
-        return _refused([f"not a valid theme name: {value!r} (expected one of {sorted(T.VALID_THEMES)})" + T.removed_theme_hint(value)])
+        from halo_harness.themes.cli import refusal  # 3.3.12.0 R1: the ten palettes named
+        return _refused([refusal(value)])
     value, problems = coerce(kind, r.choices, body.get("value"), key, r.secret)
     if problems:
         return _refused(problems)
@@ -169,7 +182,7 @@ def _with_rows(fn):
     return run
 
 
-ROUTES = {"settings/catalog": ("GET", get_catalog), "settings/values": ("GET", get_values),
+ROUTES = {"settings/catalog": ("GET", get_catalog), "settings/values": ("GET", get_values), "settings/themes": ("GET", get_themes),
           "settings/set": ("POST", _with_rows(post_set)), "settings/unset": ("POST", _with_rows(post_unset))}
 
 

@@ -11,6 +11,8 @@ import { settings, type Row } from "./store";
 
 export const PAGE_KEY = "halo.studio.settings.page";
 export const FIRST = "general";
+/** 3.3.12.0 R1: Settings -> Themes (Themes.tsx), a page of its own beside the catalog's groups; `?page=themes`. */
+export const THEMES_PAGE = "themes";
 
 type Pages = { page: string; chosen: boolean; query: string; lit: string };
 export const pages = createStore<Pages>({ page: FIRST, chosen: false, query: "", lit: "" });
@@ -20,6 +22,7 @@ export function usePages<S>(select: (s: Pages) => S): S {
 }
 
 export function isGroup(id: string): boolean {
+  if (id === THEMES_PAGE) return true;
   const groups = settings.get().groups;
   return groups.length ? groups.some((g) => g.id === id) : /^[a-z]+$/.test(id);
 }
@@ -40,7 +43,7 @@ export function adoptRemembered(): void {
   } catch {
     saved = "";
   }
-  if (saved && settings.get().groups.some((g) => g.id === saved)) pages.update(() => ({ page: saved }));
+  if (saved && (saved === THEMES_PAGE || settings.get().groups.some((g) => g.id === saved))) pages.update(() => ({ page: saved }));
 }
 
 export function setQuery(query: string): void {

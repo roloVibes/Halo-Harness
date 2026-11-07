@@ -7,10 +7,13 @@ Part of [Slash commands, keys, and prompt prefixes](SLASH-COMMANDS.md), which li
 ## Built-in commands: themes, Studio and the TUI
 
 ### `/theme [name]`
-No argument: shows the current theme. With a name (`claude-dark`,
-`claude-light`, either with a `-daltonized`/`-ansi` suffix), persists it to
-`~/.halo/config.json` and (in the TUI) re-applies it live. In the TUI, Tab
-completes theme names. The game themes and their toggles were removed in
+No argument: shows the current theme and lists the ten palettes (3.3.12.0),
+one line each with its posture and label, the current one marked. With a
+name (`claude-dark`, `claude-light`, `holo`, `paper`, `midnight`, `ember`,
+`forest`, `slate`, `dusk`, `dawn`, any with a `-daltonized`/`-ansi`
+modifier), persists it to `~/.halo/config.json` -- the one `theme` key Studio
+draws from too -- and (in the TUI) re-applies it live. An unknown name is one
+line naming the ten. In the TUI, Tab completes theme names. The game themes and their toggles were removed in
 3.1.5.0. See the Themes section of the [handbook](HANDBOOK.md).
 
 ### `/studio` `[session|roles|design|orchestra|fleet|team|packs|setup] [url]`
