@@ -13,10 +13,11 @@ import { LocalBlock } from "./LocalBlock";
 import { OllamaBlock } from "./OllamaBlock";
 import { SettingRow } from "./Row";
 import { useSettings, type Row } from "./store";
+import { ThemesPage } from "./Themes"; // 3.3.12.0 R1
 
 const GROUP_BLOCKS: Record<string, ComponentType> = { ollama: OllamaBlock, local: LocalBlock }; // 3.3.6.0 R5: the changes
 
-function Head({ title, about, help, count }: { title: string; about: string; help: string; count: string }) {
+export function Head({ title, about, help, count }: { title: string; about: string; help: string; count: string }) {
   const query = usePages((s) => s.query);
   const lines = help.split("\n").filter(Boolean);
   return (
@@ -95,6 +96,7 @@ export function SettingsPage() {
         {error ? <p className="st-error">Studio could not read the settings: {error}</p> : <div className="mono muted">reading the settings...</div>}
       </section>
     );
+  if (page === "themes" && !query) return <ThemesPage />;
   const h = HELP[`settings-${group.id}`] || { about: "", help: "" };
   const Block = GROUP_BLOCKS[group.id];
   const count = query ? "SEARCH" : `${own.length} KEY${own.length === 1 ? "" : "S"}`;

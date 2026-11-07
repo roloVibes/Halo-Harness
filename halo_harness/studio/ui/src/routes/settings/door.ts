@@ -21,9 +21,10 @@ export function applyDoor(d: Door): void {
 export function doorFromUrl(): Door | null {
   if (typeof location === "undefined") return null;
   const q = new URLSearchParams(location.search);
-  if (q.get("mode") !== "settings" || !q.has("group")) return null;
-  const d: Door = { group: q.get("group") || "" };
+  if (q.get("mode") !== "settings" || !(q.has("group") || q.has("page"))) return null;
+  const d: Door = { group: q.get("group") || q.get("page") || "" }; // 3.3.12.0 R1: `page=themes` too
   q.delete("group");
+  q.delete("page");
   try {
     const rest = q.toString();
     history.replaceState(history.state, "", location.pathname + (rest ? `?${rest}` : "") + location.hash);

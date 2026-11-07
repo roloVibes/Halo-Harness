@@ -401,3 +401,11 @@ The live map (3.3.11.0 R2) is Roles' **Live** canvas (`L` on Roles): the session
 ## setup block
 
 A setup block (3.3.11.0 R3) is a page a pack adds to Studio's Setup with `contributes.setup`: a **form** over its own settings (`config.schema` keys, saved to `packs.settings.<id>`), a **check** that runs a command in the pack through Setup's checks job (it says what it does, costs, takes and writes first, and is off until ticked), or a **note** to read. It shows in the step rail while the pack is enabled -- behind the core step its `after` names, else after the core steps under the pack's name -- and is done once saved, run green or read (or skipped); `~/.halo/packs/.data/<id>/setup.json` keeps that. `halo pack enable` names the blocks still waiting, `halo setup <pack>` opens the first, and `halo doctor` lists a waiting one as an info row.
+
+## palette
+
+A palette (3.3.12.0) is one of the ten colour sets the terminal and Studio both draw from: `claude-dark`, `claude-light`, `holo` (Studio's glass, cyan and amber), `paper`, `midnight`, `ember`, `forest`, `slate`, `dusk`, `dawn` (`halo_harness/themes/palettes.py`). Each is a set of tokens in one vocabulary (bg, surface, text, muted, accent, accent-2, ok, warn, bad, ...) with a posture and a one-line label; `theme` in `~/.halo/config.json` names the one in use, and `/theme`, `halo config set theme`, Studio's header menu and Settings -> Themes all move it. A modifier changes any palette: `-daltonized` (blue and orange for the accents and the status colours, never red against green) or `-ansi` (the 16-colour set of a terminal without truecolor). Every palette's text meets WCAG AA contrast.
+
+## posture
+
+A palette's posture (3.3.12.0) is whether it is dark or light. It decides how Studio derives its glass, lines, glows and soft fills from the palette's tokens, which 16-colour set `-ansi` draws in the terminal, and what "follow the system" picks while `theme` is unset: `holo` on a dark system, `paper` on a light one.

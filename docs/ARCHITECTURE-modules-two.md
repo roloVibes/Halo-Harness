@@ -272,11 +272,11 @@ and `isolation/Dockerfile` the worker image.
 - Studio's Settings section (3.3.3.0 R2): `settings_catalog.py` (every `~/.halo/config.json` key as one row:
   key, group, title, kind, default, choices, help, effect, secret; the rows in `settings_catalog_rows_{a,b,c}.py`;
   `cli_line`, `match` for a keyed row's entry), `studio/settings_api.py` (`GET settings/catalog`,
-  `GET settings/values`, `POST settings/set`, `POST settings/unset`, through `theme.set_config_value`),
-  `studio/settings_values.py` (each row's masked value against its default, a keyed row's entries, a posted value
-  coerced and checked by kind and choices), `studio/settings_door.py` (`SettingsTarget` = `settings`,
-  `settings:<group>` as an edit target, `?mode=settings&group=fleet`), `settings_cli.py` (`halo settings`) and
-  `ui/src/routes/settings/` (the group rail, one page per group, a row per key, one field per kind).
+  `GET settings/values`, `POST settings/set`, `POST settings/unset`, 3.3.12.0 `GET settings/themes`, through
+  `theme.set_config_value`), `studio/settings_values.py` (each row's masked value against its default, a keyed row's
+  entries, a posted value coerced and checked), `studio/settings_door.py` (`settings:<group>` as an edit target,
+  `?mode=settings&group=fleet`, `?page=themes`), `settings_cli.py` (`halo settings`), `ui/src/routes/settings/` (the
+  rail, a page per group, Themes) and, 3.3.12.0, `themes/` (the ten palettes, the registry) with `studio/theme_boot.py`.
 - Studio's Local section (3.3.5.0 R1, docs/STUDIO-local.md): `ollama_steward/resources.py` (the sampler: one sample a
   second per host this machine serves while the tab or the steward job holds it on, the 5-minute STORE, the watch
   lease), `ollama_steward/resources_readers.py` (nvidia-smi, rocm-smi, a Mac's ioreg and sysctl, the compute processes),

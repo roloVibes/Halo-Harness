@@ -9,8 +9,10 @@ Part of [Commands](COMMANDS.md), which lists every part.
 ### Misc flags
 
 #### `--theme THEME`
-What: one of `claude-dark`/`claude-light` (`-daltonized`/`-ansi` variants of
-each) for this run; `/theme` persists a choice for future sessions.
+What: one of the ten palettes (`claude-dark`, `claude-light`, `holo`, `paper`,
+`midnight`, `ember`, `forest`, `slate`, `dusk`, `dawn`; each also `-daltonized`
+or `-ansi`) for this run; `/theme` persists a choice, which Studio draws too
+(3.3.12.0).
 
 #### `--no-intro`
 What: skips the launch intro a fresh interactive launch otherwise shows

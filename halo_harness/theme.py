@@ -22,14 +22,13 @@ from halo_harness.config.paths import bridge_home
 
 DEFAULT_THEME = "claude-dark"
 
-_BASE_THEMES = ("claude-dark", "claude-light")
-_SUFFIXES = ("", "-daltonized", "-ansi")
+# 3.3.12.0 R1: the ten palettes of the registry (halo_harness/themes), each also with a
+# "-daltonized" or "-ansi" modifier; one `theme` key for the terminal and Studio.
+from halo_harness.themes import registry as _registry  # noqa: E402
 
-# Every valid theme name: the two base themes, plus each with a "-daltonized"
-# or "-ansi" suffix (plan D-TUI: "claude-dark/claude-light (+ daltonized,
-# ansi variants)"; help capture's own shorthand for the family is
-# "claude-dark", "claude-light", "*-daltonized", "*-ansi").
-VALID_THEMES = frozenset(f"{base}{suffix}" for base in _BASE_THEMES for suffix in _SUFFIXES)
+_BASE_THEMES = _registry.ids()
+_SUFFIXES = ("", "-daltonized", "-ansi")
+VALID_THEMES = frozenset(_registry.names())
 
 # 3.1.5.0: the 2.0.7 game themes are gone. A config.json that still names
 # one falls back like any unknown name (resolve_theme skips it), and the TUI

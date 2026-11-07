@@ -1282,14 +1282,15 @@ async def _handle_exit(app, _args: str) -> None:
 
 async def _handle_theme(app, args: str) -> None:
     from halo_harness import theme as theme_mod
+    from halo_harness.themes import cli as theme_cli  # 3.3.12.0 R1: the ten palettes
 
     name = (args or "").strip()
     if not name:
-        app.notify(f"Current theme: {app.theme_name}", title="/theme")
+        app.notify(theme_cli.listing(app.theme_name), title="/theme", timeout=12)
         return
     if not theme_mod.is_valid_theme(name):
-        app.notify(f"Not a valid theme name: {name} (expected one of {sorted(theme_mod.VALID_THEMES)})"
-                   + theme_mod.removed_theme_hint(name), severity="error", title="/theme")
+        line = theme_cli.refusal(name)
+        app.notify(line[:1].upper() + line[1:], severity="error", title="/theme")
         return
     try:
         theme_mod.persist_theme(name)
@@ -1297,7 +1298,7 @@ async def _handle_theme(app, args: str) -> None:
         app.notify(str(exc), severity="error", title="/theme")
         return
     app.apply_theme(name)
-    app.notify(f"Theme set to {name}", title="/theme")
+    app.notify(f"Theme set to {name}: the terminal and Studio", title="/theme")
 
 
 # ============================================================================
