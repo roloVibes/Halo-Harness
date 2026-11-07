@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.3.11.0] - unreleased
+## [3.3.11.0] - 2026-11-06
 
 **Type into Studio.** The owner's ask of 2026-10-27: "a box to just type into like it is the tui but it's in session view,
 and you can open it if you want like how the cost and map modules work". R1 is that box, with one thing the terminal never
