@@ -245,13 +245,11 @@ def cmd_update(argv: "list[str]") -> int:
                 print(f"halo update: refusing -- release {target} has no checksums.txt asset "
                       f"(broken or foreign release; --no-verify skips this check)", file=sys.stderr)
                 return 1
-            # finding 54 (3.3.11.0 security review M5): a missing release
-            # now REFUSES instead of silently accepting unverified content
-            # (an offline or rate-limited request cannot verify, so it
-            # fails closed rather than installing blindly).
+            # 3.3.11.0 security review M5: when the release's assets cannot be read (offline, rate-limited) the
+            # checksums cannot be checked, so nothing is installed (before: installed with a printed warning).
             if assets is None:
-                print(f"halo update: cannot read release {target}'s assets "
-                      f"(offline or rate-limited) -- refusing to install "
-                      f"unverified; try again or use --no-verify", file=sys.stderr)
+                print(f"halo update: cannot read release {target}'s assets (offline or rate-limited), so the "
+                      f"checksums cannot be checked -- nothing installed; try again, or `halo update --no-verify` "
+                      f"installs without the check", file=sys.stderr)
                 return 1
     return apply_update(cmd=cmd, force=args.force, keep_running=args.keep_running)

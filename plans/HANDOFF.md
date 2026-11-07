@@ -10,7 +10,9 @@ first, then `WORKER-RULES.md`, then the round you are starting.
 PC was reinstalled at v3.3.10.0 on 2026-11-03 once the owner quit halo. 3.3.11.0 "Type into Studio" IS THE RELEASE
 CANDIDATE** (R1 the Prompt panel with receipts, R2 a session without a terminal + the live map, R3 a pack's own Setup
 blocks, all merged on master; the release follows green on both runners; the ROADMAP's three BUILT notes carry the
-choices, the limits and the owner's live checks). After it: 3.3.12.0 "Themes and parity", then 3.3.13.0 Federation.
+choices, the limits and the owner's live checks). A security review's fix pass (821abd77, H1-H4 + M1-M12: the deny matcher,
+path containment, fail-closed `halo update` verification, the NotebookEdit read gate, a BashOutput poll cap) rides in the
+candidate; its CHANGELOG lines are under "Also in 3.3.11.0". After it: 3.3.12.0 "Themes and parity", then 3.3.13.0 Federation.
 
 ### Before it: 2026-11-02 morning
 

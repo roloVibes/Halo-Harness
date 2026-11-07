@@ -81,6 +81,15 @@ Roles; R3 lets a pack add its own pages to Setup, and says when one is waiting.
   `sessions` frame names it), and the server nudges the bridge the moment the child registers instead of leaving it to the
   two-second scan. Before, a first turn typed inside that window could stream its reply before Studio listened, and the
   panel never showed it (the Linux runner did exactly that).
+- A security review's fix pass (commit 821abd77, findings H1-H4 and M1-M12): the deny matcher treats interpreter `-c`/`-e`
+  flags, file-fed shells and `powershell -File` as opaque, an unresolved `$VAR` or backtick path triggers a rule instead of
+  skipping it, a Bash redirect's target is gated by the Edit/Write path rules, `git --ext-diff` leaves the read-only list;
+  Hugging Face downloads are contained to their folder before a write, zip extraction uses the `data` filter, Write and
+  Edit resolve a path before opening it and the stale-file check uses "changed" rather than "older", NotebookEdit gets the
+  same must-Read gate, BashOutput polls are capped per turn, the voice routes observe the `control` grant, a container
+  mounts `.git` read-only, `halo update --to` is quoted. `halo update` with a release whose assets cannot be read (offline,
+  rate-limited) now installs nothing and says so, naming `--no-verify` for installing without the check; before it installed
+  with a printed warning.
 
 ## [3.3.10.0] - 2026-11-03
 
