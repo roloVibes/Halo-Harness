@@ -113,6 +113,8 @@ def post_set(req):
             problems = write_list_entry(section, entry, leaf, value)
             if problems:
                 return _refused(problems)
+        elif key == "theme":  # 3.3.12.0 R2: through persist_theme, which keeps a pack palette's restore record
+            T.persist_theme(value)
         else:
             T.set_config_value(key, value)
     except T.CorruptConfigError as e:  # a config.json that does not parse is never written over

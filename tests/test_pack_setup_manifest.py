@@ -106,7 +106,7 @@ def test_the_shape_the_json_twin_and_field_help(ctx: Ctx):
     from halo_harness.packs import manifest_setup as MS
     from halo_harness.packs.discover import read_pack
     from halo_harness.schemas.pack_yaml import CONTRIBUTION_KEYS, SETUP_KEYS
-    ctx.check("contributes has setup, last", CONTRIBUTION_KEYS[-1] == "setup")
+    ctx.check("contributes has setup, then 3.3.12.0's themes", CONTRIBUTION_KEYS[-2:] == ("setup", "themes"))
     ctx.check("one key list in both modules", SETUP_KEYS == MS.SETUP_KEYS)
     schema = json.loads((REPO / "halo_harness" / "packs" / "schema" / "pack.schema.json").read_text(encoding="utf-8"))
     entry = schema["$defs"]["setup"]

@@ -10,7 +10,9 @@ call. Every theme write lands in the scratch config.json:
    `GET settings/themes` sends, ember marked current; the pointer on paper previews it on the page, config.json
    untouched; Esc puts ember back; a click on dusk saves it and the current mark moves; Daltonized on writes
    dusk-daltonized and the page's --accent is the daltonized one;
-5. the header's "Follow the system" removes the key and the page is `auto` again.
+5. the header's "Follow the system" removes the key and the page is `auto` again;
+6. (3.3.12.0 R2, tests/helpers/studio_pack_themes.py) the fixture pack's palettes under "pack-theme", picked, painted
+   first by the server, restored away from when the pack is disabled.
 The last stdout line is the JSON of what it saw (exit 2: no Chrome)."""
 from __future__ import annotations
 
@@ -27,6 +29,7 @@ sys.path.insert(0, str(REPO / "tools"))
 
 from tests.helpers.chrome_driver import Driver  # noqa: E402
 from tests.helpers.studio_packs_steps import CUR, q, qa  # noqa: E402
+from tests.helpers.studio_pack_themes import pack_themes  # noqa: E402
 
 THEME = "document.documentElement.dataset.theme"
 VAR = "getComputedStyle(document.documentElement).getPropertyValue('{}').trim()"
@@ -154,7 +157,7 @@ class ThemesDriver(Driver):
         base, frag = url.split("?", 1)[0], url.split("#", 1)[1]
         ctx = {"state": state, "srv": srv, "base": base, "frag": frag, "proj": state.parent / "project"}
         try:
-            yield tuple((fn, (c, url, ctx)) for fn in (follow_first, header_menu, page, follow))
+            yield tuple((fn, (c, url, ctx)) for fn in (follow_first, header_menu, page, follow, pack_themes))
         finally:
             srv.shutdown()
             srv.server_close()

@@ -409,3 +409,7 @@ A palette (3.3.12.0) is one of the ten colour sets the terminal and Studio both 
 ## posture
 
 A palette's posture (3.3.12.0) is whether it is dark or light. It decides how Studio derives its glass, lines, glows and soft fills from the palette's tokens, which 16-colour set `-ansi` draws in the terminal, and what "follow the system" picks while `theme` is unset: `holo` on a dark system, `paper` on a light one.
+
+## pack palette
+
+A pack palette (3.3.12.0 R2) is a palette a pack ships under `contributes.themes`, named `<pack-id>/<id>` (`pack-theme/nightshade`). While the pack is enabled it is a theme like the ten: the same token vocabulary, the same `-daltonized` and `-ansi` modifiers, the same WCAG AA floors, listed under the pack's name in `/theme`, Studio's header menu and Settings -> Themes. Choosing one keeps the theme you had before it in the pack's `theme.json`; disabling or removing the pack puts that theme back and says so in one line, and a saved pack palette whose pack is gone falls back to the default with one line.

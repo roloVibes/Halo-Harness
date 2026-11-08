@@ -13,7 +13,8 @@ name (`claude-dark`, `claude-light`, `holo`, `paper`, `midnight`, `ember`,
 `forest`, `slate`, `dusk`, `dawn`, any with a `-daltonized`/`-ansi`
 modifier), persists it to `~/.halo/config.json` -- the one `theme` key Studio
 draws from too -- and (in the TUI) re-applies it live. An unknown name is one
-line naming the ten. In the TUI, Tab completes theme names. The game themes and their toggles were removed in
+line naming the ten. 3.3.12.0 R2: an enabled pack's palettes are listed after the ten under the pack's name and
+set by their `<pack-id>/<id>` name (`/theme pack-theme/nightshade`), at once. In the TUI, Tab completes theme names. The game themes and their toggles were removed in
 3.1.5.0. See the Themes section of the [handbook](HANDBOOK.md).
 
 ### `/studio` `[session|roles|design|orchestra|fleet|team|packs|setup] [url]`

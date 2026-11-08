@@ -118,7 +118,7 @@ def test_the_shape_the_json_twin_and_field_help(ctx: Ctx):
     from halo_harness import field_help
     from halo_harness.packs import manifest_policy as MP
     from halo_harness.schemas.pack_yaml import CONTRIBUTION_KEYS, MODE_KEYS, POLICY_KEYS
-    ctx.check("contributes has policy and modes", CONTRIBUTION_KEYS[-3:-1] == ("policy", "modes"))  # 3.3.11.0 R3: setup last
+    ctx.check("contributes has policy and modes", CONTRIBUTION_KEYS[-4:-2] == ("policy", "modes"))  # 3.3.11.0 R3: setup, 3.3.12.0 R2: themes after them
     ctx.check("one key list in both modules", POLICY_KEYS == MP.POLICY_KEYS and MODE_KEYS == MP.MODE_KEYS)
     schema = json.loads((REPO / "halo_harness" / "packs" / "schema" / "pack.schema.json").read_text(encoding="utf-8"))
     contributes = schema["properties"]["contributes"]["properties"]

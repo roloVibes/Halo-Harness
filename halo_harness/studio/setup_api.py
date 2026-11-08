@@ -82,9 +82,9 @@ def post_config(req):
     problems = _check(key, value, req)
     if problems:
         return _refused(problems)
-    from halo_harness.theme import set_config_value
-    try:
-        path = set_config_value(key, value)
+    from halo_harness.theme import persist_theme, set_config_value
+    try:  # 3.3.12.0 R2: theme through persist_theme, which keeps a pack palette's restore record
+        path = persist_theme(value) if key == "theme" else set_config_value(key, value)
     except Exception as e:  # a config.json that does not parse is never written over
         return _refused([f"{key}: {e}"])
     return 200, {**_state(req), "lines": [f"{key} = {value} (saved to {path})"]}

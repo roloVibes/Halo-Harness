@@ -5,9 +5,9 @@ key, group, title, kind, default, choices, help, effect, secret)."""
 from __future__ import annotations
 
 from halo_harness.settings_catalog import Row
-from halo_harness.themes.registry import names as _theme_names
+from halo_harness.themes.registry import LIVE_NAMES
 
-_THEMES = _theme_names()  # 3.3.12.0 R1: the palette registry's names (each id, then -daltonized, -ansi)
+_THEMES = LIVE_NAMES  # 3.3.12.0 R1: the palette registry's names (each id, then -daltonized, -ansi); R2: read at each use
 _MODES = ("auto", "acceptEdits", "default", "plan")
 _EFFORTS = ("low", "medium", "high", "xhigh", "max")
 

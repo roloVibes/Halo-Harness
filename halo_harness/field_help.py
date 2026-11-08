@@ -178,6 +178,7 @@ PACK = {
     "contributes.workflows": "its workflows (workflows/<name>.yaml), compiled to Orchestra runs: halo workflow run <id>/<name>",
     "contributes.policy": "3.3.10.0: its policy hooks -- a command in the pack whose allow, deny or ask decides each matching tool call once armed (after: true, its result too: pass, redact, drop; halo pack policy)",
     "contributes.modes": "3.3.10.0: its runtime modes (id, label, theme); turning one on arms the policies that name it (halo pack mode)",
+    "contributes.themes": "3.3.12.0: its own palettes (id, label, posture: dark | light, palette: every token as #rrggbb); each is the theme <pack-id>/<id> while the pack is enabled (/theme, Settings -> Themes)",
     "contributes.setup": "3.3.11.0: its own Setup blocks (id, title, kind: form | check | note, after); shown in Setup while the pack is enabled (halo setup <pack>)",
     "config.schema": "the shape of its settings (packs.settings.<id> in config.json)",
     "config.defaults": "the settings it starts with; yours win",

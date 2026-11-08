@@ -113,6 +113,8 @@ def remove(pack_id: str, *, keep_config: bool = False, cwd=None, state_dir=None)
     changed(state_dir)
     gone = "its folder is gone" if not root.exists() else f"{root} stays (it holds files that are not the pack's)"
     lines.append(f"removed {pack_id}: {len(op.done)} file(s) of its own deleted; {gone}")
+    from halo_harness.themes.restore import on_pack_off  # 3.3.12.0 R2: its palette was the theme: the one before it
+    lines += on_pack_off(pack_id, verb="removed", state_dir=state_dir)
     if not owned and pack is not None:
         lines.append(f"{pack_id} was found in place, not installed by Halo: none of its files are removed")
     lines += kept + yours(pack_id, cwd=cwd, state_dir=state_dir)

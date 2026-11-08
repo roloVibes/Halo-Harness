@@ -141,7 +141,8 @@ def disable(pack_id: str, *, state_dir=None) -> "tuple[bool, list[str]]":
     lines = [f"disabled {pack_id}: nothing of it runs from now on; its files stay"]
     if cleared:
         lines.append(f"grants cleared: {', '.join(cleared)} (halo pack enable {pack_id} --grant ... states them again)")
-    return True, lines
+    from halo_harness.themes.restore import on_pack_off  # 3.3.12.0 R2: its palette was the theme: the one before it
+    return True, lines + on_pack_off(pack_id, verb="disabled", state_dir=state_dir)
 
 
 def changed(state_dir=None) -> None:

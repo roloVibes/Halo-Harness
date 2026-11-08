@@ -8,7 +8,10 @@ model call, no network:
 3. the served index.html: `data-theme` on <html> is the saved theme, "auto" when unset or not a palette, and the
    page carries exactly one `data-theme`;
 4. the door: `settings:themes` / `halo settings themes` opens `?mode=settings&page=themes`, `--terminal` lists the ten;
-5. scripts/themes_css.py --check passes (the drift test proper is tests/test_themes_css_drift.py).
+5. scripts/themes_css.py --check passes (the drift test proper is tests/test_themes_css_drift.py);
+6. (3.3.12.0 R2) an enabled pack's palettes follow the ten with `pack` and their tokens and Studio variables, only
+   while the pack is enabled; the served page inlines a saved pack palette's variables in one `<style>` the CSP allows
+   by its hash, and disabling the pack through the Pack Manager's route restores the previous theme.
 Run: python -m tests.test_studio_theme_api
 """
 from __future__ import annotations
@@ -135,6 +138,53 @@ def test_the_door_to_settings_themes(ctx: Ctx):
         ctx.check("`theme` is the same page", group_word("theme") == ("themes", ""))
         lines = group_lines("themes")
         ctx.check(f"`halo settings themes --terminal` lists the ten, got {lines[:2]}", len(lines) == 13 and lines[0].startswith("Current theme"))
+
+
+@test
+def test_pack_palettes_only_while_the_pack_is_enabled(ctx: Ctx):
+    from halo_harness.studio.api import Request, dispatch
+    from halo_harness.studio.server import start_server
+    from halo_harness.themes.studio_css import studio_vars
+    from tests.helpers.packs_home import PacksHome
+    with PacksHome() as h:
+        def call(method: str, path: str, body=None):
+            return dispatch(Request(method=method, path=path, query={}, body=body or {}, cwd=h.repo, state_dir=h.state))
+        h.install(h.source("pack-theme"))
+        ids = [p["id"] for p in call("GET", "settings/themes")[1]["palettes"]]
+        ctx.check(f"installed, disabled: the ten only, got {len(ids)}", len(ids) == 10)
+        call("POST", "pack/pack-theme/enable")
+        got = call("GET", "settings/themes")[1]
+        packs = [p for p in got["palettes"] if p.get("pack")]
+        ctx.check(f"enabled: two pack palettes after the ten, got {[p['id'] for p in packs]}", [p["id"] for p in got["palettes"][10:]]
+                  == ["pack-theme/nightshade", "pack-theme/linen"] and all(p["pack"] == "pack-theme" and p["pack_name"] == "Pack themes" for p in packs))
+        night = packs[0]
+        ctx.check("its tokens, -daltonized tokens and Studio variables", night["tokens"]["accent"] == "#b48cff"
+                  and night["vars"] == dict(studio_vars(night["tokens"], "dark")) and night["daltonized_vars"]["--accent"] == night["daltonized"]["accent"])
+        call("POST", "settings/set", {"key": "theme", "value": "claude-light"})
+        status, _ = call("POST", "settings/set", {"key": "theme", "value": "pack-theme/nightshade"})
+        ctx.check("a pack palette saves through the route", status == 200 and call("GET", "settings/themes")[1]["theme"] == "pack-theme/nightshade")
+        srv = start_server(port=0, cwd=h.repo, state_dir=h.state)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        try:
+            with urllib.request.urlopen(f"http://127.0.0.1:{srv.server_address[1]}/", timeout=10) as r:
+                page, csp = r.read().decode("utf-8"), r.headers.get("Content-Security-Policy", "")
+        finally:
+            srv.shutdown()
+            srv.server_close()
+        style = re.search(r'<style id="halo-pack-theme">(.*?)</style>', page, re.S)
+        body = style.group(1) if style else ""
+        ctx.check(f"the page: data-theme the pack palette and one inline rule, got {body[:90]!r}",
+                  'data-theme="pack-theme/nightshade"' in page and page.count('id="halo-pack-theme"') == 1
+                  and body.startswith(':root[data-theme="pack-theme/nightshade"] {') and "--accent: #b48cff;" in body)
+        import base64
+        import hashlib
+        digest = base64.b64encode(hashlib.sha256(body.encode("utf-8")).digest()).decode("ascii")
+        ctx.check(f"the CSP allows exactly that rule, got {csp!r}", f"style-src 'self' 'sha256-{digest}'" in csp and "unsafe-inline" not in csp)
+        status, ans = call("POST", "pack/pack-theme/disable")
+        ctx.check(f"disable through the route: the restore line, got {ans.get('lines')}", status == 200
+                  and any("restored claude-light" in ln for ln in ans.get("lines", [])))
+        got = call("GET", "settings/themes")[1]
+        ctx.check("the ten again, the theme claude-light", got["theme"] == "claude-light" and len(got["palettes"]) == 10)
 
 
 @test

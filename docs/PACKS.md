@@ -571,6 +571,20 @@ waiting, `halo setup <id>` opens the first one in Studio, and `halo doctor` and
 the pack's own settings only; a check runs with what a pack hook gets (never
 Halo's provider keys); nothing of another pack is shown to it.
 
+## Themes
+
+3.3.12.0 R2. A pack can ship palettes of its own (`contributes.themes`,
+[EXTENSION_API.md](EXTENSION_API.md#themes)). While the pack is enabled each
+one is a theme like the ten Halo has, named `<pack-id>/<id>`
+(`pack-theme/nightshade`, also `-daltonized` and `-ansi`): `/theme` lists it
+under the pack's name, `/theme pack-theme/nightshade` draws the terminal in it
+at once, and Studio's header menu and Settings -> Themes show it in a group
+under the pack's id. Halo keeps the theme you had before you chose it; `halo
+pack disable` or `halo pack remove` puts that one back and says so in one line
+(`theme: pack-theme/linen was pack-theme's palette and the pack is disabled;
+restored claude-dark`). Every pack palette meets the same contrast floors as
+the ten; one that does not is refused at install with the pair and its ratio.
+
 ## Modes and policy hooks
 
 A pack may declare **modes** and **policy hooks** (3.3.10.0; the contract:

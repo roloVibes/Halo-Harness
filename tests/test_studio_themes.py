@@ -7,7 +7,11 @@ every theme write lands in the scratch config.json:
    ember` to config.json and flips the page's `data-theme`; a reload keeps it;
 3. Settings -> Themes: the ten rows (and Follow), the swatches in the colours the API gives, Preview on hover with
    config.json untouched, Esc reverts, the current mark moves on a click, Daltonized writes `<id>-daltonized`;
-4. "Follow the system" removes the key and the page is `auto` again, across a reload.
+4. "Follow the system" removes the key and the page is `auto` again, across a reload;
+5. (3.3.12.0 R2) the fixture pack enabled: `pack-theme/nightshade` in the menu and on Settings -> Themes under
+   "pack-theme"; picking it writes the key and the page's --accent is the fixture's token; a reload with the page's
+   scripts off is already drawn in it (the server's inline rule: no holo frame); disabling the pack through the Pack
+   Manager's route restores midnight, the theme saved before, on the open page.
 Run: python -m tests.test_studio_themes
 """
 from __future__ import annotations
@@ -70,6 +74,27 @@ def test_follow_the_system_clears_the_key(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"the key gone, the page auto, across a reload, got {got.get('follow_saved')} {got.get('follow_theme')} {got.get('follow_reload')}",
               got.get("follow_key_gone") is True and got.get("follow_theme") == "auto" and got.get("follow_reload") == "auto")
+
+
+@test
+def test_a_pack_palette_in_the_menu_the_page_and_the_first_paint(ctx: Ctx):
+    got = _got(ctx)
+    night = "pack-theme/nightshade"
+    ctx.check(f"the fixture installed and enabled, got {got.get('pack_installed')}", got.get("pack_installed") is True)
+    ctx.check(f"the menu: its two palettes under pack-theme, got {got.get('pack_menu_group')} {got.get('pack_menu_head')!r}",
+              got.get("pack_menu_group") == [night, "pack-theme/linen"] and str(got.get("pack_menu_head", "")).startswith("pack-theme"))
+    ctx.check(f"picked: the key and the page's --accent, got {got.get('pack_saved')} {got.get('pack_accent')}",
+              got.get("pack_saved") == night and got.get("pack_accent") == "#b48cff")
+    ctx.check(f"Settings -> Themes: under pack-theme, current, got {got.get('pack_page_rows')} {got.get('pack_page_current')}",
+              got.get("pack_page_rows") == [night, "pack-theme/linen"] and got.get("pack_page_current") == [night]
+              and str(got.get("pack_page_head", "")).startswith("pack-theme"))
+    ctx.check(f"the first paint, scripts off: the pack palette already, got {got.get('first_theme')} {got.get('first_accent')} "
+              f"{got.get('first_bg')} app ran {got.get('first_app_ran')}", got.get("first_theme") == night and got.get("first_accent") == "#b48cff"
+              and got.get("first_bg") == "#0d0b14" and got.get("first_app_ran") is False and got.get("first_inline_vars") == 0)
+    ctx.check(f"disabled through the route: midnight back on the page, got {got.get('off_saved')} {got.get('off_theme')} {got.get('off_accent')}",
+              got.get("off_saved") == "midnight" and got.get("off_theme") == "midnight" and got.get("off_accent") == "#5b9dff"
+              and got.get("off_inline_accent") == "" and got.get("off_rows") == 11)
+    ctx.check(f"and the disable said so, got {got.get('off_lines')}", any("restored midnight" in ln for ln in got.get("off_lines") or []))
 
 
 if __name__ == "__main__":

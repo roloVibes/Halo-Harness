@@ -100,13 +100,15 @@ def _removed_theme_findings(found: list, data, row: dict) -> list:
     from halo_harness.schemas.config_json import REMOVED_KEYS, removed_key_line
     if not isinstance(data, dict):
         return found
-    game = data.get("theme") if data.get("theme") in T.REMOVED_THEMES else None
+    from halo_harness.themes.restore import pack_of  # 3.3.12.0 R2: a gone pack's palette reads like a game theme
+    saved = data.get("theme")
+    game = saved if saved in T.REMOVED_THEMES or (pack_of(saved) and not T.is_valid_theme(saved)) else None
     out = [f for f in found if f["key"] not in REMOVED_KEYS and not (game and f["key"] == "theme")]
     out += [finding("removed-key", "warns", row, removed_key_line(key), key=key)
             for key in sorted(REMOVED_KEYS) if key in data]
     if game:
         using = T.resolve_theme(persisted_theme=game)
-        out.append(finding("removed-theme", "warns", row, T.removed_theme_line(game, using), key="theme"))
+        out.append(finding("removed-theme", "warns", row, T.removed_theme_notice(using, persisted=game), key="theme"))
     return out
 
 
