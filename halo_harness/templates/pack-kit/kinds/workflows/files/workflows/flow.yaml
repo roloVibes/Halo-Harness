@@ -1,0 +1,35 @@
+# __NAME__'s workflow (docs/WORKFLOWS.md): the lead drafts the request (following the brief skill), the checker goes
+# through the checklist skill and writes one typed report (artifacts/report.json, checked at the gate). It compiles to
+# an Orchestra goal, its hand-offs and a pinned plan:
+#   halo workflow run __ID__/flow --input request="a one-page README for the tool"
+name: flow
+description: Draft one piece of work from a request, check it against the checklist and write one report.
+inputs:
+  request: {type: text, required: true, description: "What to make, in one sentence"}
+outputs:
+  report: {type: "artifact:report", from: check, description: The checklist's answer for the draft}
+stages:
+  - id: draft
+    title: Draft it
+    brief: "Follow the brief skill (__ID__:brief) and draft this: {request}"
+    role: lead
+    gives:
+      - {name: draft, kind: summary}
+    retries: 1
+    timeout_s: 900
+  - id: check
+    title: Check the draft
+    brief: "Go through the checklist skill (__ID__:checklist) and write the report as JSON: {summary, items: [{item, state, note}]}."
+    role: checker
+    after: [draft]
+    takes:
+      - {from: draft, take: draft}
+    gives:
+      - {name: report, kind: artifact}
+    retries: 1
+    budget_usd: 0.5
+    verify:
+      evidence: [report]
+done_when: The report answers every item of the checklist for the draft.
+budget_usd: 1.5
+checkpoint: true

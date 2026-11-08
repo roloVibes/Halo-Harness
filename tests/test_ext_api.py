@@ -25,7 +25,8 @@ SURFACE = ("API_VERSION", "HALO_API_VERSION", "read_yaml", "write_yaml", "check_
            "write_private", "pack_dir", "data_dir", "publish_event", "is_granted", "Unit", "is_valid_pack_id",
            "is_valid_name", "qualified_name", "split_name", "memory",  # memory: 3.2.0.0 R5
            "api_version", "compatible", "deprecations",  # 3.2.0.0 R7: the version policy
-           "set_mode", "current_mode")  # 3.3.10.0 R1: API 1.1 (the pack's runtime mode)
+           "set_mode", "current_mode",  # 3.3.10.0 R1: API 1.1 (the pack's runtime mode)
+           "testing")  # 3.3.12.0 R4: API 1.1 (a pack's tests: halo pack test)
 
 
 @test
@@ -109,7 +110,8 @@ def _halo_imports(path: Path) -> "list[tuple[int, str]]":
 
 @test
 def test_fixture_packs_import_only_the_extension_api(ctx: Ctx):
-    files = sorted(FIXTURES.rglob("*.py")) + sorted(SHIPPED.rglob("*.py"))  # 3.2.0.0 R6: and the shipped packs
+    kit = SHIPPED.parent / "pack-kit"  # 3.3.12.0 R4: and the pack kit's templates (halo pack new writes them)
+    files = sorted(FIXTURES.rglob("*.py")) + sorted(SHIPPED.rglob("*.py")) + sorted(kit.rglob("*.py"))
     ctx.check(f"the fixture and shipped packs hold Python ({len(files)} file(s))", len(files) >= 2)
     problems, used = [], 0
     for path in files:

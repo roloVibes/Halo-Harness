@@ -1,0 +1,23 @@
+contributes:
+  themes:
+    - id: night
+      label: A violet night with a green second accent
+      posture: dark
+      palette:
+        bg: "#0d0b14"
+        bg2: "#120f1c"
+        surface: "#171325"
+        surface2: "#201a33"
+        border: "#3a2f57"
+        line: "#9d8cff"
+        text: "#ece6ff"
+        muted: "#a59cc6"
+        faint: "#5d5480"
+        accent: "#b48cff"
+        accent2: "#6fe0a8"
+        accent_ink: "#120a24"
+        ok: "#6fe0a8"
+        warn: "#ffd27a"
+        bad: "#ff7a9a"
+        user: "#c9b3ff"
+        tool: "#ffb38a"

@@ -52,8 +52,8 @@ Four words, in this order: **bio -> lineup -> role -> session**.
 - A **bio** says what an agent IS: its name, its model, its tools, its
   limits. `coder` is a bio; so is `local-small`. (`halo agents`.)
 - A **lineup** hands bios to jobs: "planning goes to this bio, coding to that
-  one". Seven ship with Halo -- `auto` (the default), `standard`,
-  `balanced`, `quality`, `local-first`, `code-review`, `halo-dev-cycle` --
+  one". Eight ship with Halo -- `auto` (the default), `standard`,
+  `balanced`, `quality`, `local-first`, `code-review`, `halo-dev-cycle`, `pack-author` --
   and you can write your own. (`halo teams`.)
 - A **role** is one job slot the session fills: main, planner, coder,
   reviewer, researcher and so on. A lineup gives every role an agent and a
@@ -110,8 +110,8 @@ bios under "Pack <id> agents:", and `halo agents list` / `halo teams list`
 under `pack <id>:` (3.2.0.0 R2), where a name a file of yours shadows says
 "shadowed by" your file.
 
-The seven shipped team templates (`auto`, `balanced`, `code-review`,
-`halo-dev-cycle`, `local-first`, `quality`, `standard`) are copied into `~/.halo/teams/` the first time each is
+The eight shipped team templates (`auto`, `balanced`, `code-review`,
+`halo-dev-cycle`, `local-first`, `pack-author` (3.3.12.0 R4), `quality`, `standard`) are copied into `~/.halo/teams/` the first time each is
 missing there (never overwritten after -- the same "copy on first use"
 rule `roles.py`'s own three presets already
 follow); the shipped bios are NOT auto-copied -- `extends:`/`--from`

@@ -93,7 +93,12 @@ def test_h9_wheel_ships_the_required_runtime_data_files(ctx: Ctx):
                              "halo_harness/templates/comfy/image-to-video-wan22.json",
                              # 3.3.4.0 R1: the steward's knowledge, read at runtime.
                              "halo_harness/ollama_steward/knowledge/SOURCES.md",
-                             "halo_harness/ollama_steward/knowledge/symptoms.md"):
+                             "halo_harness/ollama_steward/knowledge/symptoms.md",
+                             # 3.3.12.0 R4: the pack kit halo pack new writes from, its deepest files too
+                             "halo_harness/templates/pack-kit/base/manifest.yaml",
+                             "halo_harness/templates/pack-kit/kinds/events/files/tests/samples/events/note.added.json",
+                             "halo_harness/templates/pack-kit/github/files/dot-github/workflows/pack-test.yml",
+                             "halo_harness/templates/teams/pack-author.yaml"):
         ctx.check(f"{required_suffix} is in the wheel", any(n.endswith(required_suffix) for n in names))
 
 

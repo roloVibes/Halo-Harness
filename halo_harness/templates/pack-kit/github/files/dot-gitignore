@@ -1,0 +1,7 @@
+# Caches and the pack's run-time data: none of it belongs in the repo.
+__pycache__/
+*.pyc
+.pytest_cache/
+.halo/
+.data/
+node_modules/

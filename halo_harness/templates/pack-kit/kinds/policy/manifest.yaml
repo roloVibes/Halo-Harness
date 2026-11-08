@@ -1,0 +1,10 @@
+contributes:
+  policy:
+    - id: guard
+      run: ["${halo_python}", "${CLAUDE_PLUGIN_ROOT}/policy/guard.py"]
+      when: {tools: [Write, Edit], modes: [careful]}
+      impact: medium
+      on_error: allow
+  modes:
+    - {id: careful, label: Careful}
+permissions: [hooks]

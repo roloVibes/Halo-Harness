@@ -71,7 +71,8 @@ def test_preview_lines_for_every_shipped_lineup(ctx: Ctx):
     with _Env() as e:
         ensure_builtin_team_templates(state_dir=e.state_dir)
         names = list_bundled_team_templates()
-        ctx.check(f"seven lineups ship (3.1.9.0 R2: auto joins), got {names}", len(names) == 7 and "auto" in names)
+        ctx.check(f"eight lineups ship (3.1.9.0 R2: auto joins; 3.3.12.0 R4: pack-author), got {names}",
+                  len(names) == 8 and "auto" in names and "pack-author" in names)
         for name in names:
             lines = preview_lines(name, cwd=e.cwd, state_dir=e.state_dir, models_by_ref={}, width=200)
             tree = [ln for ln in lines if " -> " in ln]

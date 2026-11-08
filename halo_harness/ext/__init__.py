@@ -29,6 +29,8 @@ packs for exactly that).
     set_mode(pack_id, mode_id, on=True) / current_mode(pack_id)
                                     3.3.10.0 (API 1.1): the pack's runtime mode (mode.json); turning a
                                     mode on arms the policy hooks that name it
+    testing                         3.3.12.0 R4 (API 1.1): a pack's tests -- testing.run(folder) makes every check
+                                    `halo pack test` makes (a scratch home, no model, no network); Report.add for its own
     Unit                            the unit of work (halo_harness.work.unit.Unit)
     is_valid_pack_id, is_valid_name, qualified_name, split_name
                                     the name rules (`<id>--<name>` for a pack's bios and lineups)
@@ -53,6 +55,7 @@ from halo_harness.ext.events import publish_event  # noqa: E402
 from halo_harness.ext.files import data_dir, pack_dir, write_private  # noqa: E402
 from halo_harness.ext.grants import is_granted  # noqa: E402
 from halo_harness.ext import memory  # noqa: E402  (3.2.0.0 R5: memory.write)
+from halo_harness.ext import testing  # noqa: E402  (3.3.12.0 R4, API 1.1: a pack's tests, halo pack test)
 from halo_harness.ext.mode import current_mode, set_mode  # noqa: E402  (3.3.10.0 R1, API 1.1)
 from halo_harness.ext.names import is_valid_name, is_valid_pack_id, qualified_name, split_name  # noqa: E402
 from halo_harness.ext.schema import check_schema  # noqa: E402
@@ -63,4 +66,5 @@ __all__ = ["API_VERSION", "HALO_API_VERSION", "read_yaml", "write_yaml", "check_
            "set_config", "write_private", "pack_dir", "data_dir", "publish_event", "is_granted", "Unit",
            "is_valid_pack_id", "is_valid_name", "qualified_name", "split_name", "memory",
            "api_version", "compatible", "deprecations",  # 3.2.0.0 R7: the version policy
-           "set_mode", "current_mode"]  # 3.3.10.0 R1: API 1.1
+           "set_mode", "current_mode",  # 3.3.10.0 R1: API 1.1
+           "testing"]  # 3.3.12.0 R4: API 1.1, stable (testing.run, Report, manifest, ask_policy)

@@ -1,0 +1,2 @@
+contributes:
+  agents: [agents/lead.yaml, agents/checker.yaml]

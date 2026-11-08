@@ -14,7 +14,8 @@ DIR` (act as if run from DIR, so its `.halo/packs/` is the repo's) and
 reason on stderr, one line each; for `doctor`: a blocks or warns row; info rows alone exit 0), 2 usage. A
 bare `halo pack` prints the verb list. 3.3.7.0 R5: `verdict`, `on`, `off` and
 `list --bundles` are the bundle verbs ([Bundles](#bundles) below). 3.3.10.0 R1:
-`mode` and `policy` ([Modes and policy hooks](#modes-and-policy-hooks) below).
+`mode` and `policy` ([Modes and policy hooks](#modes-and-policy-hooks) below). 3.3.12.0 R4: `new`, `test`, `unlink`
+and `install --link` are the pack kit's ([COMMANDS-packs-kit.md](COMMANDS-packs-kit.md)).
 
 ### `halo pack list`
 

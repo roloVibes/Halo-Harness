@@ -3,8 +3,9 @@
     halo pack list [--available] [--json]             every pack here: id, version, state, scope, source, what it offers;
                                                       --available: and what the sources hold that is not installed
     halo pack inspect <id|path> [--json]              the manifest, what it offers, its permissions and which are granted, problems
-    halo pack install <path|git url|id> [--project] [--json]
-                                                      copy it into ~/.halo/packs/<id>/ (or .halo/packs/<id>/), disabled
+    halo pack install <path|git url|id> [--project] [--link] [--json]
+                                                      copy it into ~/.halo/packs/<id>/ (or .halo/packs/<id>/), disabled;
+                                                      --link: the folder itself, read in place (3.3.12.0 R4, packs/link.py)
     halo pack enable <id> [--grant NAME ...] [--grant-all] [--json]
                                                       turn it on; grant what it requests (mcp:<server>, hooks, bash, network, home-write)
     halo pack grant <id> NAME [NAME ...] [--off] [--json]
@@ -16,6 +17,9 @@
                                                       swapped in, the old one kept as <id>.previous (--dry-run: say it, change nothing)
     halo pack rollback <id> [--json]                  back to the version the last update replaced (<id>.previous)
     halo pack remove <id> [--keep-config] [--json]    the pack's own files only; yours stay and are listed
+    halo pack unlink <id> [--keep-config] [--json]    3.3.12.0 R4: the same; a linked pack's link goes, its folder stays
+    halo pack new <id> [--kinds ...] [--all] ...      3.3.12.0 R4: a new pack that works (packs/cli_new.py)
+    halo pack test <folder|id> [--kinds ...] [--json] 3.3.12.0 R4: every check against fakes (packs/cli_test.py)
     halo pack sources [add|remove <folder|git url>] [--json]
                                                       where a bare id is looked for: config packs.sources, then the packs Halo ships
     halo pack doctor [--json]                         every problem, one line each
@@ -47,7 +51,8 @@ from pathlib import Path
 
 VERBS = ("list", "inspect", "install", "enable", "grant", "disable", "update", "rollback", "remove", "sources", "doctor",
          "verdict", "on", "off",  # 3.3.7.0 R5: the bundle verbs (packs/cli_bundle.py)
-         "mode", "policy")  # 3.3.10.0 R1: the runtime mode and the policy hooks (packs/cli_policy.py)
+         "mode", "policy",  # 3.3.10.0 R1: the runtime mode and the policy hooks (packs/cli_policy.py)
+         "new", "test", "unlink")  # 3.3.12.0 R4: the pack kit (packs/cli_new.py, packs/cli_test.py); unlink = remove
 USAGE = __doc__.split("\n\n")[1]
 
 
@@ -63,7 +68,8 @@ def _parser(verb: str) -> argparse.ArgumentParser:
     if verb == "install":
         p.add_argument("source", help="a pack folder, a git url, or an id found in packs.sources or the packs Halo ships")
         p.add_argument("--project", action="store_true", help="install into this repo's .halo/packs/ instead of ~/.halo/packs/")
-    if verb in ("enable", "grant", "disable", "update", "rollback", "remove"):
+        p.add_argument("--link", action="store_true", help="use the folder in place: an edit shows at once (no copy)")
+    if verb in ("enable", "grant", "disable", "update", "rollback", "remove", "unlink"):
         p.add_argument("id")
     if verb == "update":
         p.add_argument("--dry-run", action="store_true",
@@ -77,7 +83,7 @@ def _parser(verb: str) -> argparse.ArgumentParser:
     if verb == "grant":
         p.add_argument("names", nargs="+", metavar="NAME", help="a permission the pack requests")
         p.add_argument("--off", action="store_true", help="take the grants back instead")
-    if verb == "remove":
+    if verb in ("remove", "unlink"):
         p.add_argument("--keep-config", action="store_true",
                        help="keep the pack's record and grants for a later install")
     if verb == "sources":
@@ -204,6 +210,9 @@ def cmd_pack(argv: list) -> int:
     verb = argv[0]
     if verb not in VERBS:
         return _err(f"unknown verb {verb!r}; one of {', '.join(VERBS)}", 2)
+    if verb in ("new", "test"):
+        import importlib
+        return importlib.import_module(f"halo_harness.packs.cli_{verb}").cmd(argv[1:])
     if verb in ("mode", "policy"):
         from halo_harness.packs.cli_policy import cmd as policy_cmd
         return policy_cmd(verb, argv[1:])
@@ -219,13 +228,13 @@ def cmd_pack(argv: list) -> int:
         return {"list": _list, "inspect": _inspect, "doctor": _doctor, "sources": _sources}[verb](args, cwd)
     if verb == "install":
         from halo_harness.packs.install import install
-        return _done(args, *install(args.source, project=args.project, cwd=cwd))
+        return _done(args, *install(args.source, project=args.project, cwd=cwd, link=args.link))
     if verb == "update":
         return _update(args, cwd)
     if verb == "rollback":
         from halo_harness.packs.rollback import rollback
         return _done(args, *rollback(args.id, cwd=cwd))
-    if verb == "remove":
+    if verb in ("remove", "unlink"):
         from halo_harness.packs.remove import remove
         return _done(args, *remove(args.id, keep_config=args.keep_config, cwd=cwd))
     from halo_harness.packs import grants as G

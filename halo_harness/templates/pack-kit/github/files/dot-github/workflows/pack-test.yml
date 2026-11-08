@@ -1,0 +1,31 @@
+# __NAME__: `halo pack test .` on every push and pull request, on Linux and Windows, against the Halo Harness
+# release this pack was made with (a tag, so the run does not change under you; move it when you test a newer Halo).
+# The test uses a scratch home of its own, makes no model call and reaches no network beyond the install below.
+name: pack test
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  pack-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Install Halo Harness v__HALO_VERSION__
+        run: uv tool install git+https://github.com/roloVibes/Halo-Harness@v__HALO_VERSION__
+      - name: halo pack test
+        shell: bash
+        env:
+          BRIDGE_TEST_HOME: ${{ runner.temp }}/halo-home
+        run: |
+          mkdir -p "$BRIDGE_TEST_HOME"
+          halo pack test .

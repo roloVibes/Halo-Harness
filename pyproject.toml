@@ -115,6 +115,9 @@ halo_harness = ["tui/*.tcss", "providers/*.json", "providers/catalog/*.json",
                 "templates/packs/*/*", "templates/packs/*/*/*", "templates/packs/*/*/*/*",
                 "templates/packs/*/.mcp.json", "templates/packs/*/.claude-plugin/*.json",
                 "templates/bundles/*/pack.yaml",  # 3.3.7.0 R5: the shipped bundles (halo pack list --bundles)
+                # 3.3.12.0 R4: the pack kit (halo pack new); its dot files are named dot-<name> in the kit
+                "templates/pack-kit/*/*", "templates/pack-kit/*/*/*", "templates/pack-kit/*/*/*/*",
+                "templates/pack-kit/*/*/*/*/*", "templates/pack-kit/*/*/*/*/*/*", "templates/pack-kit/*/*/*/*/*/*/*",
                 "studio/static/dist/*"]
 
 [tool.setuptools.dynamic]

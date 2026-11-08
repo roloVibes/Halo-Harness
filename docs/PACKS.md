@@ -173,6 +173,11 @@ list` print the pack's under its group as "shadowed by
 ~/.halo/agents/<id>--<name>.yaml", Studio's row says "shadows pack <id>", and
 `halo pack doctor` names it.
 
+Yours first holds for a pack you write too: start it with the pack kit (3.3.12.0 R4), not a copy of a shipped pack.
+`halo pack new <id> --kinds ...` writes a pack that works, `halo pack test .` checks it against fakes, and `halo pack
+install . --link` makes the installed pack your folder, so an edit shows at once ([PACK-AUTHORING.md](PACK-AUTHORING.md),
+[COMMANDS-packs-kit.md](COMMANDS-packs-kit.md)).
+
 ## In Studio's Roles
 
 The Lineups and Bios panels group by where each one lives: **yours**,

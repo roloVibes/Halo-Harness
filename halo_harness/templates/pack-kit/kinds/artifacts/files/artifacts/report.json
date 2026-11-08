@@ -1,0 +1,42 @@
+{
+  "title": "__NAME__ report",
+  "description": "What a check found, one row per checklist item (the workflow's output).",
+  "type": "object",
+  "x-halo-view": "table",
+  "additionalProperties": false,
+  "required": [
+    "summary",
+    "items"
+  ],
+  "properties": {
+    "summary": {
+      "type": "string"
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "item",
+          "state"
+        ],
+        "properties": {
+          "item": {
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "ok",
+              "missing",
+              "wrong"
+            ]
+          },
+          "note": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

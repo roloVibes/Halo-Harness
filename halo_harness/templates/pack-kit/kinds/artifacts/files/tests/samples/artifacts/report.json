@@ -1,0 +1,19 @@
+{
+  "summary": "Two items ok, one missing.",
+  "items": [
+    {
+      "item": "title",
+      "state": "ok",
+      "note": "one line"
+    },
+    {
+      "item": "plan",
+      "state": "ok"
+    },
+    {
+      "item": "questions",
+      "state": "missing",
+      "note": "no open questions listed"
+    }
+  ]
+}

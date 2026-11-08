@@ -1,0 +1,21 @@
+# Halo 3.3.12.0 R4 -- the lineup a session runs to build a Halo pack. From inside a folder `halo pack new` wrote:
+#   halo --team pack-author
+# The pack-author bio (main) carries the one-page contract and the loop (edit -> halo pack test . -> halo pack
+# install . --link --project -> try it -> halo pack doctor); the researcher finds an open-source tool to wrap and
+# writes its evaluation into the README; the reviewer reads the pack before it is shared. docs/PACK-AUTHORING.md.
+name: pack-author
+description: Builds a Halo pack in the current folder -- the author tests every change, a researcher finds tools to wrap, a reviewer checks it before sharing.
+version: "1.0"
+tags: [starter, packs]
+about: >-
+  The author builds the pack against HALO-PACK.md and runs halo pack test after every change. When the pack wraps an
+  open-source tool, the researcher finds and evaluates candidates and writes them into the README. Before the pack is
+  shared, the reviewer runs the doctor and the test and reads it against the checklist.
+agents:
+  - {agent: pack-author, role: main}
+  - {agent: pack-researcher, role: researcher, use_for: [research, find, evaluate]}
+  - {agent: pack-reviewer, role: reviewer, use_for: [review, check]}
+delegation: {mode: by-skill, max_parallel: 2, max_depth: 1, handoff: structured}
+acceptance:
+  prompt: "Name the command that checks a Halo pack folder, in one line."
+  expect: non-empty

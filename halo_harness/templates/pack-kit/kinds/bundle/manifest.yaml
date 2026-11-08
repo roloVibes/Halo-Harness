@@ -1,0 +1,6 @@
+bundle:
+  needs:
+    chat: {any_of: ["qwen3:8b", "llama3.2:3b"], window: 8192, tools: true}
+  reservation: {model: chat, vram_gb: 6.5, keep_alive: -1, priority: normal}
+  routing: {task_work: coder-or-cloud, never_evict: reserved, escalation: "on"}
+  latency_budget_ms: 2000

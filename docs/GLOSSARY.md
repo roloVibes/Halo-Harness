@@ -409,3 +409,15 @@ A palette (3.3.12.0) is one of the ten colour sets the terminal and Studio both 
 ## posture
 
 A palette's posture (3.3.12.0) is whether it is dark or light. It decides how Studio derives its glass, lines, glows and soft fills from the palette's tokens, which 16-colour set `-ansi` draws in the terminal, and what "follow the system" picks while `theme` is unset: `holo` on a dark system, `paper` on a light one.
+
+## pack kit
+
+The pack kit (3.3.12.0) is what you start a pack from and check it with: `halo pack new <id> --kinds ...` writes a complete pack folder with one working example of each part you ask for (bios, a lineup, a workflow, skills, commands, a hook, an MCP server, Studio panels, a policy, Setup blocks, a bundle, a wrapped open-source tool), its entry command, a README written from the manifest and `HALO-PACK.md`, the page a Halo session follows when pointed at the folder; `halo pack test` runs every check against fakes in a scratch home, one line per failure; `halo pack install . --link` makes the installed pack the folder itself. The `pack-author` lineup is the session that builds with it (docs/PACK-AUTHORING.md).
+
+## requirement
+
+A requirement (3.3.12.0) is an open-source tool a pack needs that Halo does not ship, declared in its `pack.yaml` under `requires:` beside the packs it depends on: `{kind: command | python | npm | git, name, version, install: {windows, linux, mac}, url, license, why, used_by}`. Halo never installs one. `halo pack doctor` names a missing one (`missing-requirement`, with the install line for this OS), `halo pack test` skips the parts it gates with one line, and the Pack Manager's row says "needs <name>".
+
+## entry command
+
+A pack's entry command (3.3.12.0) is `commands/<id>.md`, the slash command named like the pack itself: once the pack is enabled, `/<id>` in a session (the terminal or Studio's Prompt panel) says what the pack is, lists its commands, workflows and lineups one line each, and with text after it runs the pack's default action (its first workflow, else its first command). `halo pack new` writes one and `halo pack test` runs it in a fake session and checks the list.

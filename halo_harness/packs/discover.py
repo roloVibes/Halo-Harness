@@ -7,7 +7,8 @@ way `teams_yaml._drop_untrusted_raise` does) and `~/.halo/packs/<id>/`
 `.backup`, `.staging-*`), never a pack, and so is `<id>.previous` (3.2.0.0
 R7: the version an update replaced, for `halo pack rollback`); `state.json`
 and `journal.jsonl` beside the packs are files. A pack id found in both folders: the project
-one is used and the user one is listed in its `shadowed`.
+one is used and the user one is listed in its `shadowed`. 3.3.12.0 R4: a `<id>.link` file in either folder names a
+pack folder elsewhere that is read in place as that scope's pack (`halo pack install <folder> --link`, packs/link.py).
 
     discover(cwd=..., state_dir=...)   # [Pack, ...] by id, project first
     find(pack_id, cwd=..., state_dir=...)
@@ -31,6 +32,7 @@ class Pack:
     manifest: dict = field(default_factory=dict)
     problems: list = field(default_factory=list)
     shadowed: list = field(default_factory=list)
+    link: str = ""  # 3.3.12.0 R4: the `<id>.link` file a linked pack is read through (packs/link.py), else ''
 
     @property
     def version(self) -> str:
@@ -82,6 +84,11 @@ def _folders(d: Path) -> "list[Path]":
 WATCHED = ("agents", "teams", "workflows", "policy")  # 3.3.10.0 R1: policy/, where a policy hook's command lives
 
 
+def _links(d: Path) -> list:
+    from halo_harness.packs.link import links
+    return links(d)
+
+
 def _watched(folder: Path) -> list:
     """(name, mtime, size) of every *.yaml / *.md / *.py in a pack's agents/, teams/, workflows/ and policy/: one
     scandir each, a missing folder is nothing."""
@@ -109,7 +116,7 @@ def signature(*, cwd=None, state_dir=None) -> tuple:
             out.append((str(d), None))
             continue
         out.append((str(d), st.st_mtime_ns))
-        for folder in _folders(d):
+        for folder in _folders(d) + [f for _l, f in _links(d)]:  # 3.3.12.0 R4: a linked folder, read in place
             try:
                 mst = (folder / MF.MANIFEST).stat()
                 out.append((str(folder), mst.st_mtime_ns, mst.st_size, tuple(_watched(folder))))
@@ -122,8 +129,9 @@ def discover(*, cwd=None, state_dir=None) -> "list[Pack]":
     """Every pack folder, one Pack per id (the project's wins), sorted by id."""
     by_id: "dict[str, Pack]" = {}
     for d, scope in search_dirs(cwd=cwd, state_dir=state_dir):
-        for folder in _folders(d):
-            pack = read_pack(folder, scope)
+        for folder, link in [(f, None) for f in _folders(d)] + [(f, lk) for lk, f in _links(d)]:
+            pack = read_pack(folder, scope, folder_is_id=link is None)
+            pack.link = str(link or "")
             if pack.id in by_id:
                 by_id[pack.id].shadowed.append(str(folder))
             else:

@@ -40,7 +40,10 @@ def _copy(op: "J.Op", src: Path, dest: Path, rels) -> None:
         op.write(dest / rel, source.read_bytes(), mode=source.stat().st_mode & 0o777)
 
 
-def install(source: str, *, project: bool = False, cwd=None, state_dir=None) -> "tuple[bool, list[str]]":
+def install(source: str, *, project: bool = False, cwd=None, state_dir=None, link: bool = False) -> "tuple[bool, list[str]]":
+    if link:  # 3.3.12.0 R4: the folder itself, read in place (packs/link.py)
+        from halo_harness.packs.link import link as link_folder
+        return link_folder(source, project=project, cwd=cwd, state_dir=state_dir)
     from halo_harness.packs import state as S
     from halo_harness.packs.fetch import source_for
     from halo_harness.packs.offers import offers, summary
@@ -96,5 +99,9 @@ def install(source: str, *, project: bool = False, cwd=None, state_dir=None) -> 
 def update(pack_id: str, *, dry_run: bool = False, cwd=None, state_dir=None, confirm=None) -> "tuple[bool, list[str]]":
     """`halo pack update` (3.2.0.0 R7: staged and swapped, the old version kept as `<id>.previous`; packs/update.py;
     3.2.1.0 R4: `confirm`, the question a terminal run asks before the swap)."""
+    from halo_harness.packs.link import linked_line  # 3.3.12.0 R4: a linked pack is its folder as it is now
+    from halo_harness.packs.state import entry
+    if linked_line(pack_id, entry(pack_id, state_dir)):
+        return True, [linked_line(pack_id, entry(pack_id, state_dir))]
     from halo_harness.packs.update import update as _update
     return _update(pack_id, dry_run=dry_run, cwd=cwd, state_dir=state_dir, confirm=confirm)

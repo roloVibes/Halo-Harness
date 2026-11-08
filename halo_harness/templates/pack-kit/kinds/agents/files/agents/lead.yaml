@@ -1,0 +1,52 @@
+# __NAME__'s lead bio, read in place as __ID__--lead (Roles and `halo agents` list it under "pack __ID__").
+# A bio says what an agent IS; a lineup (teams/) hands it a role. Every section a bio has is here, so you can see each
+# one; delete what you do not need. Studio's Clone makes an editable copy in your own scope, which then wins.
+name: lead
+# The line Auto and a lineup's routing read to pick this bio: say when to pick it, in one sentence.
+description: Pick me to plan and draft __NAME__'s work -- I turn a request into a short plan and a first draft.
+version: "0.1"
+tags: [__ID__, lead]
+kind: planner
+
+models:
+  # A pack's bio names no provider (no ol:, or:, ...): it says what the model must do. `local` picks a local model
+  # from your catalog (Ollama on this machine or a paired host, the steward watching it as it watches your own);
+  # with none, the bio runs on your default model -- that is the cloud tier it falls back to. `preference` is a
+  # family name the pick prefers when several fit. To pin a model, clone the bio into your scope and name it there.
+  capabilities: [local, tools]
+  preference: qwen3
+  effort: medium
+  temperature: 0.3
+  thinking: native
+
+tools:
+  # Only these tools; the lineup's tier and your own permissions narrow it further, never widen it.
+  allow: [Read, Grep, Glob, Write, Edit]
+  deny: [WebFetch, WebSearch]
+  permission_mode: default
+
+context:
+  # The pack's own skills, by their session names (__ID__:<skill>).
+  skills: [__ID__:brief]
+  # The pack's memory namespace: ~/.halo/packs/.data/__ID__/memory/notes/, read apart from yours.
+  memory: {namespace: notes}
+  system_prompt: >-
+    You lead __NAME__. Read the request, write a short plan (three steps at most), then draft the work.
+    Follow the brief skill for the shape of the draft. Hand back the draft and one line per open question.
+
+limits:
+  max_iterations: 40
+  timeout: 30m
+  max_budget_usd: 2
+  concurrency: 1
+
+output:
+  handoff: summary
+
+environment:
+  worktree: false
+  offline: false
+
+acceptance:
+  prompt: "Reply with exactly one word: ready"
+  expect: ready

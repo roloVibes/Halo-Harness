@@ -28,8 +28,8 @@ Four words, in this order: **bio -> lineup -> role -> session**.
 - A **bio** says what an agent IS: its name, its model, its tools, its
   limits. `coder` is a bio; so is `local-small`. (`halo agents`.)
 - A **lineup** hands bios to jobs: "planning goes to this bio, coding to that
-  one". Seven ship with Halo -- `auto` (the default), `standard`,
-  `balanced`, `quality`, `local-first`, `code-review`, `halo-dev-cycle` --
+  one". Eight ship with Halo -- `auto` (the default), `standard`,
+  `balanced`, `quality`, `local-first`, `code-review`, `halo-dev-cycle`, `pack-author` --
   and you can write your own. (`halo teams`.)
 - A **role** is one job slot the session fills: main, planner, coder,
   reviewer, researcher and so on. A lineup gives every role an agent and a
