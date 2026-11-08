@@ -4384,8 +4384,21 @@ the pool, bundles, the gym and measured strengths, benchmarks and tuning, Voice 
   on load with one line, never kept as a value (the same migration `init` does for provider keys).
 - F2 providers: Typesafe and Experiential Labs leave the core (an adapter is 1,500-2,500 lines each with their Setup cards
   and docs); Databricks stays until the Kali audit says otherwise (the owner's Kali runs on it by his own account).
-- F3 Team merges into Roles (Team = the plan; Roles = plan | live): one section, the eight-section rail, the shortcuts shift
-  once with a one-line notice.
+- F3 + F5 together, **one Agents section** (rolo 2026-11-08: "orchestration and roles are extremely similar" -> "yes do
+  it, call it Agents"): Roles, Team and Orchestra fold into one section named **Agents** (Alt+2) with three views and one
+  action -- **Cast** (today's Roles canvas: lineups, bios, tiers, Auto's picks; Team's board of stages and blocks as an
+  optional panel over the cast, or a pack if unused after), **Live** (the tree of what runs, any session, any run: an
+  Orchestra run is the same tree with a worktree badge and a lane colour per worker and the merge and tests as its last
+  nodes; nothing drawn twice), **Runs** (past and present Orchestra runs with their reports and coach notes), and **Run a
+  goal** (the Orchestra action as a button and a palette command with today's plan-approval card). The engine --
+  worktrees, merge, tests, the supervisor's replanning and verified outcomes, the coach -- stays as it is; only the
+  sections go; `halo orchestra` stays as the command. Underneath, `orchestra/` + `supervise/` + `outcomes/` +
+  `workflows/` (14,800 lines, four record shapes) become one package on the one work record (`<state>/work/<id>.json` +
+  `events.jsonl`) that Agents' Live, Fleet and Session all read -- the Concord design applied inward before Federation
+  adds a fifth layer. Ten sections become eight (Session, Agents, Fleet, Design, Packs, Setup, Settings, Local; Design
+  leaves with F4), the rail and the shortcuts shift once with a one-line notice, `?mode=roles|team|orchestra` and the
+  old `/roles` `/team` doors land on the right view. One round larger than F3 or F5 alone; after the review's fix pass
+  and the steward hotfix.
 - F4 out to packs, each a shipped template the owner turns on, the core keeping only the seam it plugs into: the
   **design** pack (the Design section + `/design`, `design/` 1,686 lines: a pack section with its panels); the
   **guided-first-run** pack (`start/`, 1,779: the sample Orchestra run as a pack Setup check block + `/start`); the
@@ -4393,9 +4406,7 @@ the pool, bundles, the gym and measured strengths, benchmarks and tuning, Voice 
   the **coach** pack (the coach probes and the improvement library, `improve/` + the coach notes; the supervisor stays
   core); the **concord** pack (already one). No theme pack (rolo 2026-11-08: "i don't care about a theme pack"). NOT packs:
   Voice, the engines adapter, the steward, the pool, the host, bundles, the gym (local-model work is core).
-- F5 one orchestration: `orchestra/` + `supervise/` + `outcomes/` + `workflows/` (14,800 lines, four record shapes) become
-  one package on the one work record (`<state>/work/<id>.json` + `events.jsonl`) that Roles Live, Orchestra, Fleet and
-  Session read -- the Concord design applied inward before Federation adds a fifth layer.
+- F5: folded into F3 above (one Agents section on one work record).
 - F6 Federation trimmed to R1 offers, R2 grant intersection and R6 policy that travels; R3-R5 and R7 wait for two real
   machines using the first three daily. Pack trust trimmed to R1 signed manifests and R2 the trust prompt; R3-R4 follow demand.
 - F7 the terminal wizard shrinks to the console fallback (`halo init --terminal` keeps working, the step screens go: Setup is
