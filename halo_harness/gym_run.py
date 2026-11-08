@@ -117,7 +117,9 @@ def _run_gym_for_ollama_model(ref, model_ref_raw: str, *, quick: bool, state_dir
 
     catalog = get_catalog(host)
     row = catalog_row(catalog, ref.model) or {}
-    version_info = probe_version(host)
+    # a battery run measures for minutes: give the version probe a real timeout and one more try (the Linux runner lost it
+    # to the 1.5 s enablement timeout once -- run 42517487753 -- and the card had no version)
+    version_info = probe_version(host, timeout=10.0) or probe_version(host, timeout=10.0)
     decision = resolve_context_decision(ref)
     route = Route(provider="ollama", upstream_model=ref.model, dialect="ollama")
     profile = resolve_profile(route, state_dir=state_dir)
