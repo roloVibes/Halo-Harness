@@ -4336,3 +4336,53 @@ R2: `registry.py` has no register/unregister yet and `theme.VALID_THEMES` is a f
 for pack themes; a small config watch if wanted. Live check (rolo): /theme and the header menu moving the same value,
 the ten on Settings -> Themes, ember and holo on the PC, -daltonized visibly different, bad vs warn on a light
 palette's daltonized variant. Next: R2 pack themes (gap A), R3 mode themes (#5), R4 table detail + the parity audit.**
+
+## ADDED 2026-11-08 (rolo: "I think halo harness is getting bloated too. what are some recommendations for things to remove to give the harness more focus" -> "Yes do the usage audit and write the focus plan"): the Focus plan
+
+**The audit (this PC's `~/.halo`, metadata only, last 30 days).** 939 sessions, of which 664 are the Ollama steward's own
+ten-minute runs (model `ollama.steward.model`, cwd `~/.halo`, since the 3.3.10.0 reinstall on 11-03) and 175 sub-agents;
+the owner's real sessions are the rest. Models: OpenRouter 2,338 calls (glm-5.3-flash, glm-5.3, deepseek v4.1-flash / v4-pro
+/ v4-flash, claude-haiku), Ollama 777 (the steward's model, qwen3-coder:30b-gpu, Qwen3.8-27B); no Databricks, Typesafe,
+Experiential Labs or Hugging Face call on this PC (Kali and the Mac were not audited). Slash commands: `/model` 480,
+`/resume` 150, `/rename` 125, `/stats` 125, `/fork` 63, `/export` 63, `/undo` 62, `/help` 22, `/effort` 22, `/compact` 13,
+`/update` 7, `/theme` 4, `/roles` 4, `/design` 4, `/plan` 2, `/mcp` 2; the removed game themes were still typed 17 times
+(`/doom`, `/metroid`, `/mario`); never typed: `/agents`, `/team`, `/fleet`, `/pack`, `/voice`, `/local`, `/ollama`,
+`/orchestra`, `/gym`. No pack installed. Studio: the Setup check and the model refresh ran; two lineup layouts. State
+folders touched: coach, design, fleet, governor, gym, knowledge, mcp, models, ollama, roles, run, start, studio, teams.
+**Two defects the audit surfaced** (the first is live on the owner's machine): the steward's `num_predict` proposals
+compound without a bound -- the owner's profiles hold values of 2^160 and a 141-digit number, 781 applies and 137
+rollbacks in five days, the rollback target itself absurd, and the steward's own calls are what it is tuning (a loop:
+its ten-minute sessions on a 4,096-token window get cut, so it proposes more room for itself); and a host entry in
+config.json carries an `api_key` VALUE (the LAN proxy's), where the contract is an env-var NAME.
+
+**The rule.** The core stays small; everything optional becomes a pack (the contract now carries agents, commands, hooks,
+MCP, Studio panels, policy, Setup blocks and themes). Core = the agent loop and tools, permissions and policy, providers,
+the TUI, the Studio shell with Session, Roles, Fleet, Local, Packs, Setup and Settings, and the pack system.
+
+**The rounds (after the review's fix pass; nothing removed before the owner sees the round's list):**
+- F1 the steward hotfix (first, a 3.3.12.x hotfix if the review's fix pass is far): a proposal is bounded by the model's
+  window and never compounds (the target from the measured cut, not from `current`); the steward's own calls are excluded
+  from its statistics and never tuned; quiet when there was no traffic but its own since the last note (no session file,
+  no model call); a doctor line for an absurd profile value and `halo ollama profiles reset <host|model>`; a profile value
+  is validated on write (an int at most the window) -- plus the config contract: a host `api_key` moves to an env-var name
+  on load with one line, never kept as a value (the same migration `init` does for provider keys).
+- F2 providers: Typesafe and Experiential Labs leave the core (an adapter is 1,500-2,500 lines each with their Setup cards
+  and docs); Databricks stays until the Kali audit says otherwise (the owner's Kali runs on it by his own account).
+- F3 Team merges into Roles (Team = the plan; Roles = plan | live): one section, the eight-section rail, the shortcuts shift
+  once with a one-line notice.
+- F4 out to packs: Voice (3,059 lines + `host/ops_voice`), the Design section (1,686), the guided first run (`start/`, 1,779),
+  the other-engines adapter (after R3's fold) -- each as a shipped pack template the owner turns on; the core keeps the
+  seams they plug into (a pack's section, a pack's check, a pack's runtime word).
+- F5 one orchestration: `orchestra/` + `supervise/` + `outcomes/` + `workflows/` (14,800 lines, four record shapes) become
+  one package on the one work record (`<state>/work/<id>.json` + `events.jsonl`) that Roles Live, Orchestra, Fleet and
+  Session read -- the Concord design applied inward before Federation adds a fifth layer.
+- F6 Federation trimmed to R1 offers, R2 grant intersection and R6 policy that travels; R3-R5 and R7 wait for two real
+  machines using the first three daily. Pack trust trimmed to R1 signed manifests and R2 the trust prompt; R3-R4 follow demand.
+- F7 the terminal wizard shrinks to the console fallback (`halo init --terminal` keeps working, the step screens go: Setup is
+  Studio); `halo mcp`'s deep-dive and corpus tooling trims to what `halo doctor --mcp` uses.
+- F8 docs: 123 pages consolidate by section (one page per Studio section, one per pillar), the glossary the one list.
+- F9 the root: 184 `halo_harness/*.py` modules into packages by area (`cli/`, `local/`, `doctor/`, `settings/`); no behaviour
+  change, pinned by the module map in tests.test_invariants.
+Each round: its CHANGELOG "Removed" list names every file and verb that goes and the pack or page that replaces it; the
+measure is lines and files after versus before, said in the hand-back.
+
