@@ -8,10 +8,12 @@ first, then `WORKER-RULES.md`, then the round you are starting.
 
 **3.3.11.0 "Type into Studio" SHIPPED 2026-11-06 (v3.3.11.0 = f30b5823, with the security review fix pass 821abd77); the
 PC runs 3.3.10.0 until the owner quits halo and reinstalls. 3.3.12.0 "Themes and parity" is the open section: R1 (one
-palette set) and R2 (a pack's own themes through `contributes.themes`) merged on master; R4 the pack kit (`halo pack new`,
-`halo pack test`, `--link`, the authoring guide) and R3 the engines fold follow, then the release -- the owner wants the
-kit out first; mode themes (#5) and the parity audit may move to the next version.** The ROADMAP's R1 and R2 BUILT notes
-and the Focus plan (2026-11-08) carry the choices and the owner's live checks.
+palette set), R2 (a pack's own themes through `contributes.themes`) and R4 the pack kit (`halo pack new`, `halo pack
+test`, `--link`, `requires:` tool entries, the `pack-author` lineup, docs/PACK-AUTHORING.md) merged on master; the release
+follows on green both. R3 the engines fold, mode themes (#5) and the parity audit move to the next version; after them
+the review (six areas, bugs in scope), its fix pass with the steward hotfix first, then L1 the Instrument look and the
+Focus rounds.** The ROADMAP's R1, R2 and R4 BUILT notes, the Focus plan and the Instrument entry (all 2026-11-08) carry the
+choices and the owner's live checks.
 
 ### Before it: 2026-11-02 morning
 

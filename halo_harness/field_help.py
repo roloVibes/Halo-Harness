@@ -164,7 +164,7 @@ PACK = {
     "halo_api": "the extension API versions it works with ({min: '1.0', max: '1.9'})",
     "halo": "the Halo versions it works with (halo --version)",
     "capabilities": "what it can do, as names (docs.review)",
-    "requires": "other packs it needs, each with a version or a range",
+    "requires": "other packs it needs, each with a version or a range; and (3.3.12.0) the tools it needs, each {kind, name, install, url, license, why}: Halo never installs one",
     "contributes.agents": "its bios (agents/<name>.yaml, listed as <id>--<name>) and plugin agents (agents/<name>.md)",
     "contributes.teams": "its lineups (teams/<name>.yaml, listed as <id>--<name>)",
     "contributes.skills": "its skills folder (skills), each skill named <id>:<skill>",

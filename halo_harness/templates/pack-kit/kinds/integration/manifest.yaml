@@ -1,0 +1,17 @@
+requires:
+  - kind: command
+    name: rg
+    version: ">=13"
+    install:
+      windows: winget install BurntSushi.ripgrep.MSVC
+      linux: sudo apt install ripgrep
+      mac: brew install ripgrep
+    url: https://github.com/BurntSushi/ripgrep
+    license: MIT OR Unlicense
+    why: searches the project's files for the pack's search command, its rg MCP server and its TODO hook
+    used_by: ["mcp:rg", hooks/rg_todos.py]
+contributes:
+  hooks: hooks/hooks.json
+  mcp:
+    - {name: rg, description: "searches the project's files with ripgrep (rg), one line per match"}
+permissions: [hooks, "mcp:rg"]

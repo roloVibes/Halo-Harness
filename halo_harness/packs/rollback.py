@@ -61,6 +61,9 @@ def rollback(pack_id: str, *, cwd=None, state_dir=None) -> "tuple[bool, list[str
     rec = S.entry(pack_id, state_dir)
     if rec is None:
         return False, [no_pack_line(pack_id)]
+    from halo_harness.packs.link import linked_line  # 3.3.12.0 R4: a linked pack keeps no earlier version
+    if linked_line(pack_id, rec):
+        return False, [linked_line(pack_id, rec)]
     root = Path(str(rec.get("root") or ""))
     prev, info = previous_dir(root), rec.get("previous") if isinstance(rec.get("previous"), dict) else {}
     if not info or not prev.is_dir():

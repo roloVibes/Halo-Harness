@@ -8,7 +8,8 @@ under the packs group.
 `fleet.capabilities.hide`): `halo pack doctor` prints it last, dimmed, and exits 0 when every row is one; the
 Pack Manager counts it apart (`notes`). 3.3.11.0 R3: an enabled pack's Setup block neither done nor skipped is
 one `info` row "setup-waiting" (packs/setup_state.py), fixed by `halo setup <id>`. An enabled pack's `.mcp.json` server whose command is not on PATH is a
-warns row "not-on-path" (packs/doctor_mcp.py).
+warns row "not-on-path" (packs/doctor_mcp.py). 3.3.12.0 R4: a tool its `requires:` names that is not here is a warns
+row "missing-requirement" with the install line for this OS (packs/manifest_requires.py; Halo never installs it).
 
 Checked: a pack.yaml that does not validate (blocks for an enabled pack, a
 warning for one that is not); the extension API or Halo version outside a
@@ -115,6 +116,8 @@ def problems(*, cwd=None, state_dir=None) -> "list[dict]":
             out += update_request_rows(pack, S.entry(pack.id, data=snap.state) or {}, S.granted(pack.id, snap.state))
             from halo_harness.packs.doctor_mcp import rows as path_rows  # 3.3.10.0 R3: an MCP command not on PATH
             out += [_p(pack.id, r["severity"], r["check"], r["text"], r["fix"], r["path"]) for r in path_rows(pack)]
+            from halo_harness.packs.manifest_requires import doctor_rows as need_rows  # 3.3.12.0 R4: a tool not here
+            out += [_p(pack.id, r["severity"], r["check"], r["text"], r["fix"], r["path"]) for r in need_rows(pack)]
             from halo_harness.packs.setup_state import doctor_rows as setup_rows  # 3.3.11.0 R3: a Setup block waiting
             out += [_p(pack.id, r["severity"], r["check"], r["text"], r["fix"], r["path"]) for r in setup_rows(pack, state_dir)]
         from halo_harness.packs.policy_views import doctor_rows as policy_rows  # 3.3.10.0 R1: mode.json vs the manifest

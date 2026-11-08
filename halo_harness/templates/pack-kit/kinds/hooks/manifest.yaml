@@ -1,0 +1,3 @@
+contributes:
+  hooks: hooks/hooks.json
+permissions: [hooks]

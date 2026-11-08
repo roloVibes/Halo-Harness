@@ -53,6 +53,7 @@ BUNDLE_KEYS = ("needs", "reservation", "routing", "latency_budget_ms",
 NEED_KEYS = ("any_of", "window", "device", "vision", "tools", "runtime")
 RESERVATION_KEYS = ("model", "vram_gb", "keep_alive", "priority", "window", "host", "min_free_gb")  # 3.3.8.0 R4
 SCHEDULE_KEYS = ("hours",)
+OSES = ("windows", "linux", "mac")  # 3.3.12.0 R4: a tool requirement's install lines
 ROUTING_KEYS = ("task_work", "never_evict", "escalation")
 
 
@@ -112,7 +113,10 @@ def bundle() -> dict:
 def pack() -> dict:
     author = {"type": ["string", "object"], "properties": {"name": STRING, "email": STRING, "url": STRING},
               "additionalProperties": False}
-    requires = {"type": "array", "items": obj({"pack": STRING, "version": {"type": ["string", "number", "object"]}})}
+    # 3.3.12.0 R4: an entry is a pack {pack, version} or a tool {kind, name, version, install, ...} (packs/manifest_requires.py)
+    requires = {"type": "array", "items": obj({"pack": STRING, "version": {"type": ["string", "number", "object"]},
+                                               "kind": STRING, "name": STRING, "install": obj({o: STRING for o in OSES}),
+                                               "url": STRING, "license": STRING, "why": STRING, "used_by": _NAMES})}
     mcp_entry = {"type": "object", "properties": {"name": STRING, "description": STRING},
                  "additionalProperties": True}
     # 3.2.0.0 R5: an event is a kind or {kind, schema, description}; artifacts are schema names (packs/typed.py)

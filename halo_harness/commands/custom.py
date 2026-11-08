@@ -65,11 +65,14 @@ def _discover_dir(commands_dir: Path, *, source: str, name_prefix: Optional[str]
         fm, body = parse_frontmatter(raw)
         fm = fm if isinstance(fm, dict) else {}
         name = _namespaced_name(commands_dir, path)
+        # 3.3.12.0 R4: a plugin's (a pack's) entry command, commands/<its name>.md, is also `/<its name>` when no
+        # other command has that name (Registry.add registers an alias only then; a builtin keeps its own)
+        entry = (name_prefix,) if name_prefix and name == name_prefix else ()
         if name_prefix:
             name = f"{name_prefix}:{name}"
         out.append(SlashCommand(
             name=name, description=fm.get("description", "") or "", kind="prompt",
-            argument_hint=fm.get("argument-hint"), source="custom", path=path,
+            argument_hint=fm.get("argument-hint"), source="custom", path=path, aliases=entry,
             run=_make_run(body, _allowed_tools_list(fm)),
         ))
     return out

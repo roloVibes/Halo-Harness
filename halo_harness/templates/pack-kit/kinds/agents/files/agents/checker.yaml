@@ -1,0 +1,36 @@
+# __NAME__'s checker bio, read in place as __ID__--checker: the second role of the crew lineup. It reads, it does
+# not write: its tools say so, and a lineup's tier keeps it below the lead.
+name: checker
+# The line Auto and a lineup's routing read to pick this bio.
+description: Pick me to check a draft against __NAME__'s checklist and say what is missing, one line per item.
+version: "0.1"
+tags: [__ID__, review]
+kind: reviewer
+
+models:
+  # A local model when your catalog has one that calls tools; else your default model (the cloud tier).
+  capabilities: [local, tools]
+  effort: high
+
+tools:
+  allow: [Read, Grep, Glob]
+  deny: [Edit, Write, Bash]
+
+context:
+  skills: [__ID__:checklist]
+  memory: {namespace: notes}
+  system_prompt: >-
+    You check __NAME__'s drafts. Go through the checklist skill item by item and say for each one: ok, missing or
+    wrong, with the line it is on. Change nothing.
+
+limits:
+  max_iterations: 20
+  timeout: 15m
+  max_budget_usd: 1
+
+output:
+  handoff: structured
+
+acceptance:
+  prompt: "Reply with exactly one word: ready"
+  expect: ready

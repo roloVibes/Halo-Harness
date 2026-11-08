@@ -74,6 +74,7 @@ Work in the TUI and on the command line, and give agents bios, lineups, roles an
   - [COMMANDS-ollama-chat.md](COMMANDS-ollama-chat.md) (Commands: the steward's chat and candidates): read this when you ask the steward a question from a terminal, or want the list of models that could run it.
   - [COMMANDS-supervise.md](COMMANDS-supervise.md) (Commands: the supervisor, its goals and knowledge): read this when you give Halo a goal to work on without sitting at a terminal, keep what it verified and decided, or isolate its workers.
   - [COMMANDS-packs.md](COMMANDS-packs.md) (Commands: packs): read this when you list, inspect, install, enable, grant, update, roll back or remove a pack, or name where packs come from, on the command line (`halo pack`).
+  - [COMMANDS-packs-kit.md](COMMANDS-packs-kit.md) (Commands: the pack kit): read this when you start a pack, check one, or install your own folder so every edit shows at once (`halo pack new`, `halo pack test`, `halo pack install --link`).
   - [COMMANDS-workflows.md](COMMANDS-workflows.md) (Commands: workflows): read this when you list, show, check or run a pack's workflow from the command line (`halo workflow`).
   - [COMMANDS-proxy.md](COMMANDS-proxy.md) (Commands: the proxy, exit codes and config checks): read this when you run the old proxy, read an exit code, or list and check the config files in effect.
 - [SLASH-COMMANDS.md](SLASH-COMMANDS.md) (Slash commands, keys, and prompt prefixes): read this when you want what a `/command`, a key or a prompt prefix does in the TUI.
@@ -145,6 +146,7 @@ How Halo is built, tested and released, and the record of how it got here.
   - [ARCHITECTURE-tui.md](ARCHITECTURE-tui.md) (Architecture: the TUI event model): read this when you change how the TUI turns session events into widgets.
   - [ARCHITECTURE-modules.md](ARCHITECTURE-modules.md) (Architecture: the module map): read this when you look for the module behind a Studio, fleet, Orchestra or team feature.
   - [ARCHITECTURE-modules-two.md](ARCHITECTURE-modules-two.md) (Architecture: the module map, part two): read this when you look for the module behind the Ollama steward, packs, the extension API, isolation, Setup or Settings.
+- [PACK-AUTHORING.md](PACK-AUTHORING.md) (Writing a pack: the kit, the loop, the checks): read this when you write a pack, or point a Halo session at a folder to write one, and want it to work the first time.
 - [EXTENSION_API.md](EXTENSION_API.md) (The extension API): read this when you write a pack, or change what Halo promises a pack: the manifest, the lifecycle, what a pack may import and what each part's status is.
 - [PACKS-inventory.md](PACKS-inventory.md) (Packs: the inventory of extension points): read this when you change how a pack plugs into Halo: the extension points a pack reuses and the places that assumed nothing outside Halo adds files.
 - [WIZARD.md](WIZARD.md) (The wizard interaction model): read this when you change or add a wizard screen: the ten rules every screen follows.

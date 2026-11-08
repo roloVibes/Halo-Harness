@@ -1,0 +1,27 @@
+contributes:
+  setup:
+    - id: prefs
+      title: "__NAME__: preferences"
+      kind: form
+      fields: [style]
+      after: model
+      help: How long the pack's drafts are.
+    - id: reach
+      title: "__NAME__: check this machine"
+      kind: check
+      run: ["${halo_python}", "${CLAUDE_PLUGIN_ROOT}/setup/check.py"]
+      what: runs the pack's own check script, which reads the Python version and prints it
+      cost: free
+      time: seconds
+      writes: nothing
+    - id: about
+      title: "__NAME__: before you start"
+      kind: note
+      text: setup/about.md
+config:
+  schema:
+    type: object
+    properties:
+      style: {type: string, enum: [short, long], description: How long the pack's drafts are}
+    additionalProperties: false
+  defaults: {style: short}

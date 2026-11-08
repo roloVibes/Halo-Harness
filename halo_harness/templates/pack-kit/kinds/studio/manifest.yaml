@@ -1,0 +1,35 @@
+contributes:
+  studio:
+    sections:
+      - id: home
+        title: __NAME__
+        blurb: The pack's notes, its rows and its own panel
+        help: What the pack shows in Studio. Each panel's ? says where its data comes from.
+        panels:
+          - id: notes
+            title: Notes
+            kind: markdown
+            source: studio/notes.md
+            w: 12
+            h: 30
+            help: The pack's notes, from studio/notes.md in its folder.
+          - id: rows
+            title: Rows
+            kind: table
+            source: data:rows.json
+            columns: [item, state, note]
+            w: 12
+            h: 30
+            help: |-
+              rows.json in the pack's data folder (~/.halo/packs/.data/__ID__/), a list of rows the pack's code writes
+              with ext.write_private("__ID__", "rows.json", ...). Empty until it does.
+          - id: view
+            title: The pack's own panel
+            kind: bundle
+            source: studio/view.js
+            w: 24
+            h: 20
+            help: studio/view.js draws this panel; it runs once the owner grants studio-script.
+    palette:
+      - {id: open-notes, label: "__NAME__: open the notes", action: "route:home/notes"}
+permissions: [studio-script]

@@ -1,0 +1,10 @@
+id: __ID__
+name: __NAME__
+version: 0.1.0
+description: __DESCRIPTION__
+author: __AUTHOR__
+license: __LICENSE__
+halo_api: {min: "1.1", max: "1.9"}
+halo: {min: "3.3"}
+contributes:
+  commands: commands

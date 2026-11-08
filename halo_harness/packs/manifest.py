@@ -168,7 +168,7 @@ def _meaning_lines(data) -> "list[str]":
         if isinstance(cap, str) and not CAPABILITY_RE.match(cap):
             out.append(f"capabilities: {cap!r} is not a capability name (lower-case, digits, . _ -)")
     for i, req in enumerate(_list(data, "requires")):
-        if not isinstance(req, dict):
+        if not isinstance(req, dict) or "kind" in req:  # 3.3.12.0 R4: a tool entry is manifest_requires.py's
             continue
         if not N.is_valid_pack_id(req.get("pack")):
             out.append(f"requires[{i}]: pack {req.get('pack')!r} is not a pack id")
@@ -230,6 +230,8 @@ def validate_manifest(data, *, root=None, folder_is_id: bool = False) -> "list[s
     out += setup_lines(data, root)
     from halo_harness.packs.manifest_themes import theme_lines  # 3.3.12.0 R2: contributes.themes, a pack's palettes
     out += theme_lines(data)
+    from halo_harness.packs.manifest_requires import requires_lines  # 3.3.12.0 R4: the tools a pack needs
+    out += requires_lines(data)
     if root is not None:
         root = Path(root)
         out += _file_lines(data, root)

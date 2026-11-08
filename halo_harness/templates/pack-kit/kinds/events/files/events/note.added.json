@@ -1,0 +1,22 @@
+{
+  "title": "note.added",
+  "description": "__NAME__ added a note: the file it is about and how many lines it has.",
+  "type": "object",
+  "x-halo-view": "keyvalue",
+  "additionalProperties": false,
+  "required": [
+    "file",
+    "lines"
+  ],
+  "properties": {
+    "file": {
+      "type": "string"
+    },
+    "lines": {
+      "type": "integer"
+    },
+    "tag": {
+      "type": "string"
+    }
+  }
+}

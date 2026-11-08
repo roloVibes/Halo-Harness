@@ -14,6 +14,11 @@ machine-readable manifest schema is
 `halo_harness/packs/schema/pack.schema.json`; the reference pack is
 `halo_harness/templates/packs/doc-review/` (3.2.0.0 R6, shipped with Halo).
 
+**Start here** (3.3.12.0 R4): to write a pack, start from the pack kit, not a blank folder. `halo pack new <id> --kinds
+...` writes a pack that installs, passes `halo pack test` and that `halo pack doctor` finds nothing wrong with; `halo
+pack test .` checks every part against fakes; `halo pack install . --link` makes the installed pack your folder. The
+guide, for a person and for a Halo session (`halo --team pack-author`), is [PACK-AUTHORING.md](PACK-AUTHORING.md).
+
 ## Status of each part
 
 | Part | Status | What the status means here |
@@ -32,6 +37,7 @@ machine-readable manifest schema is
 | [Bundles](#bundles) | stable | `bundle:` (3.3.7.0 R5): a capability bundle, a pack with a resource claim -- needs, reservation, routing, latency budget; the verdict before anything downloads |
 | [Setup blocks](#setup-blocks) | stable | `contributes.setup` (3.3.11.0 R3, API 1.1): a pack's own pages in Studio's Setup -- a form over its `config.schema` keys, a check through Setup's checks job, a note -- shown while the pack is enabled, their state in `setup.json`; `halo pack enable` and `halo doctor` say what waits, `halo setup <pack>` opens it |
 | [Themes](#themes) | stable | `contributes.themes` (3.3.12.0 R2, API 1.1): a pack's own palettes, registered as `<pack-id>/<id>` while the pack is enabled and drawn by the terminal and Studio like the ten (the `-daltonized` / `-ansi` modifiers, the WCAG AA pins); the theme saved before is restored when the pack is disabled or removed |
+| [Requirements](#requirements) | stable | `requires:` tool entries (3.3.12.0 R4, API 1.1): the open-source tools a pack wraps, each with its install line per OS, license and why; Halo never installs one -- the doctor names a missing one, `halo pack test` skips what it gates |
 | [Policy hooks](#policy-hooks) | stable | `contributes.policy` and `contributes.modes` (3.3.10.0, API 1.1): a pack's runtime mode (mode.json), a policy hook whose verdict decides a tool call before it runs (deny > ask > allow) and, with `after: true`, its result after (pass, redact, drop); every verdict in the audit; the dry run |
 | [The reference example](#the-reference-example) | stable | the Documentation Review pack Halo ships (3.2.0.0 R6): every part of the API in one pack a third party can copy |
 
@@ -70,6 +76,11 @@ names in `__all__` are the contract.
 - `set_mode(pack_id, mode_id, on=True, note="")` / `current_mode(pack_id)`: API 1.1 (3.3.10.0 R1, part of the
   stable [Policy hooks](#policy-hooks) since R2): turn one of the pack's `contributes.modes` on or off in its `mode.json`
   (`[]` when written, else one line; on arms the policies that name it) and read the mode that is on (None for none).
+- `testing`: API 1.1 (3.3.12.0 R4, stable): a pack's tests. `testing.run(folder, kinds=None, timeout_s=10)` makes every
+  check `halo pack test` makes in a scratch home of its own (never a model call, never the network) and answers a
+  `Report` (`add(file, what, ok, fix)` for the pack's own checks, `ok`, `exit_code`, `text()`, `as_json()`);
+  `testing.manifest(folder)` reads pack.yaml; `testing.ask_policy(folder, policy, tool, input)` asks one of the
+  pack's policies about one call. A pack's `tests/pack_test.py` (written by `halo pack new`) is the example.
 - `Unit`: the unit of work (`halo_harness.work.unit.Unit`, docs/WORK.md).
 - `is_valid_pack_id`, `is_valid_name`, `qualified_name(pack_id, name)`, `split_name(name)`: the name rules.
 
@@ -90,7 +101,7 @@ license: MIT
 halo_api: {min: "1.0", max: "1.9"}   # required min: the extension API versions it works with
 halo: {min: "3.1"}              # optional: the Halo versions it works with
 capabilities: [docs.review]     # names (lower-case, digits, . _ -)
-requires: [{pack: base-docs, version: "1.2"}]   # version: a minimum, or {min, max}
+requires: [{pack: base-docs, version: "1.2"}]   # version: a minimum, or {min, max}; 3.3.12.0 R4: a tool too, below
 contributes:
   agents: [agents/reviewer.yaml, agents/writer.yaml, agents/helper.md]
   teams: [teams/review.yaml]
@@ -967,6 +978,41 @@ pack palette whose pack is not enabled reads like a removed game theme: one line
 --config`, the default drawn, never a crash. With no pack contributing `themes`, everything is as it was (the ten, the
 generated CSS). `tests/fixtures/packs/pack-theme/` is the example: `nightshade` (dark) and `linen` (light).
 
+## Requirements
+
+Status: **stable** (3.3.12.0 R4, API 1.1). A pack that wraps an open-source tool declares it in `requires:`, the list
+that also names the packs it depends on: a pack is `{pack, version}`, a tool is an entry with a `kind`
+(`halo_harness/packs/manifest_requires.py`; the JSON twin is `requires` in `pack.schema.json`).
+
+```yaml
+requires:
+  - kind: command                  # command (a program on PATH) | python (a module) | npm (a package) | git (a repo)
+    name: rg
+    version: ">=13"                # optional: >=x, <=x, ==x or x (a minimum)
+    install:                       # the line the owner runs, one for each OS
+      windows: winget install BurntSushi.ripgrep.MSVC
+      linux: sudo apt install ripgrep
+      mac: brew install ripgrep
+    url: https://github.com/BurntSushi/ripgrep
+    license: MIT OR Unlicense
+    why: searches the project's files for the pack's search command
+    used_by: ["mcp:rg", hooks/rg_todos.py]   # optional: the parts of the pack it gates
+```
+
+**Halo never installs a requirement.** What it does with the entry:
+
+| Where | What it says |
+|---|---|
+| `halo pack doctor` | one warns row per tool not found here, `missing-requirement`: `<id>: needs rg (command): rg is not on PATH; without it mcp:rg, hooks/rg_todos.py does not run -> install it: <the line for this OS>` |
+| `halo pack test` | the parts `used_by` names are skipped with one line each (and so is any hook or MCP server whose program is not on PATH); the requirement itself is a skip line with the install line |
+| the Pack Manager | the pack's row says "needs rg" (its health lines carry the doctor's row) |
+| the README `halo pack new` writes | an "Install" section, one line per tool and OS |
+
+A `command` is found on PATH and a `python` module by import; an `npm` package is looked for as a program of its name
+and a `git` repo is not checked. Each bad value is one line naming the entry (a kind outside the four, a name, a
+version that is not a range, an install line missing for an OS, the url, license or why left out), and the pack does
+not install. How to choose and wrap a tool is [PACK-AUTHORING.md](PACK-AUTHORING.md#wrapping-an-open-source-tool).
+
 ## Compatibility and migration
 
 Status: **stable** (3.2.0.0 R7). The policy, as `halo_harness/ext/compat.py`
@@ -1016,8 +1062,9 @@ what to use instead), one line each (`ext.compat.CHANGES` holds the same).
   `contributes.policy` and `contributes.modes` ([Policy hooks](#policy-hooks): draft in R1, stable from R2, which
   enforces each verdict and adds the post-call verdict, `after: true` -> pass | redact | drop), and (R3) the bundle
   panel's `api` calls `publish`, `on`, `getData`, `mode`, `attention` and `route`, and (Halo 3.3.11.0) the manifest's
-  `contributes.setup` ([Setup blocks](#setup-blocks), stable), and (Halo 3.3.12.0) the manifest's `contributes.themes`
-  ([Themes](#themes), stable); deprecates nothing. A 1.0 pack keeps everything: `{min: "1.0"}` and `{min: "1.0", max: "1.9"}` take 1.1, and a pack
+  `contributes.setup` ([Setup blocks](#setup-blocks), stable), (Halo 3.3.12.0 R2) the manifest's `contributes.themes`
+  ([Themes](#themes), stable), and (3.3.12.0 R4) `testing` (a pack's tests, what `halo pack test` runs) and the
+  `requires:` tool entries ([Requirements](#requirements)), both stable; deprecates nothing. A 1.0 pack keeps everything: `{min: "1.0"}` and `{min: "1.0", max: "1.9"}` take 1.1, and a pack
   without `policy` and `modes` reads and runs exactly as before. (A pack that says `max: "1.0"` asked for 1.0 only
   and gets the one compatibility line.)
 - **1.0** (Halo 3.2.0.0): the first version.

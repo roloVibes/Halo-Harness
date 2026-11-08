@@ -1,0 +1,22 @@
+# __NAME__'s lineup, read in place as __ID__--crew: two roles (the lead as main, the checker as reviewer), two tiers
+# (the lead spawns only into the checks tier below it) and an acceptance block. `halo --team __ID__--crew` runs a
+# session under it; Roles shows it under the pack, Team and Orchestra offer it like any lineup.
+name: crew
+description: The lead drafts __NAME__'s work; the checker reads every draft before it is done.
+version: "0.1"
+tags: [__ID__]
+about: >-
+  The lead plans and drafts; it hands each draft to the checker, which goes through the checklist and says what is
+  missing. The lead fixes what the checker found, then hands back.
+agents:
+  - {agent: lead, role: main}
+  - {agent: checker, role: reviewer, use_for: [check, review]}
+delegation: {mode: manual, max_parallel: 1}
+tiers:
+  - {name: lead, members: [main]}
+  - {name: checks, members: [reviewer]}
+acceptance:
+  review: true
+  prompt: "Reply with exactly one word: ready"
+  expect: non-empty
+#__WORKFLOWS__

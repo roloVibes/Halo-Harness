@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "rg": {
+      "command": "${halo_python}",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/rg_server.py"]
+    }
+  }
+}

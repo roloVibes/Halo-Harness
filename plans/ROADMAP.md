@@ -4350,6 +4350,31 @@ palette; a TUI config watch. Live check (rolo): install the fixture in a scratch
 terminal, the header menu and Settings -> Themes showing it under the pack, disable the pack and watch the previous palette
 return in both. Next: R4 the pack kit (merging next), R3 the engines fold, then the 3.3.12.0 release.**
 
+**3.3.12.0 R4 BUILT 2026-11-08 (one Opus round, worktree ~/hh-3312/R4-pack-kit, progress v3312-R4-progress.md): the pack
+kit. `halo pack new <id> [--kinds ...|--all] [--github|--no-github]` (`packs/cli_new.py`, `packs/scaffold/`,
+`templates/pack-kit/`, dot files shipped as `dot-<name>`) writes a pack that inspects clean, installs with every grant,
+passes the doctor and `halo pack test`, with one working example per kind (agents, teams, skills, commands, hooks, mcp,
+events, artifacts, workflows, studio, bundle, fleet, policy, modes, setup, themes, integration), the entry command
+`commands/<id>.md` = `/<id>` (`commands/custom.py` alias), README from the manifest, `HALO-PACK.md` (the contract and the loop
+a Halo session follows in the folder), `tests/pack_test.py`, and with `--github` LICENSE, .gitignore and a pack-test Actions
+workflow (Ubuntu + Windows against this release's tag). `halo pack test <folder|id>` (`packs/cli_test.py`, `test_run*.py`,
+`ext/testing.py` stable API 1.1) runs every check in a scratch home with no model and no network: one line per failure
+(`<file>: <what> -- <fix>`), skips for what needs the network or a program not here, `RESULT: N checks ...`, exit 0 / 1.
+`halo pack install <folder> --link [--project]` (`packs/link.py`, journal ops link / unlink) reads the folder in place;
+`halo pack unlink` leaves the folder. `requires:` tool entries (`packs/manifest_requires.py`: kind command | python | npm |
+git, name, version, install per OS, url, license, why, used_by) beside `{pack, version}`; Halo never installs one: the
+doctor's `missing-requirement` row with the install line for this OS, the Pack Manager's `needs` tag, `halo pack test`
+skipping what it gates. The shipped `pack-author` lineup (bios pack-author, pack-researcher, pack-reviewer): `halo --team
+pack-author` in a kit folder; eight lineups ship. Decisions: the addendum's tool requirements live in the existing
+`requires:` list as entries with a `kind`; a pack bio cannot name a provider (bio_rules), so the scaffold's bios ask for a
+local model by `models.capabilities: [local, tools]` and fall back to the owner's default; the themes kind is written once
+this Halo reads `contributes.themes` (R2). Docs: PACK-AUTHORING.md, COMMANDS-packs-kit.md, EXTENSION_API.md "Start here" +
+Requirements, PACKS.md "Yours first", glossary `pack kit` / `requirement` / `entry command`. Tests: test_pack_new,
+test_pack_test, test_pack_link, test_pack_author_team (+ test_ext_api, test_team_preview, test_packaging, test_glossary,
+test_packs_cli, test_invariants). Live check (rolo): `halo pack new demo --all` in a scratch folder, `halo pack test .`,
+`halo pack install . --link --project`, `/demo` in a session, then `halo --team pack-author` in the folder with one change
+asked for. Next: the 3.3.12.0 release on green both, then R3 the engines fold in the next version.**
+
 ## ADDED 2026-11-08 (rolo: "I think halo harness is getting bloated too. what are some recommendations for things to remove to give the harness more focus" -> "Yes do the usage audit and write the focus plan"): the Focus plan
 
 **The audit (this PC's `~/.halo`, metadata only, last 30 days).** 939 sessions, of which 664 are the Ollama steward's own

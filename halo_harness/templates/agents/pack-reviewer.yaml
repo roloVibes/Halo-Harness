@@ -1,0 +1,36 @@
+# Halo 3.3.12.0 R4 -- the pack-author lineup's reviewer: reads a pack before it is shared, against the checklist of
+# docs/PACK-AUTHORING.md "Before you share it". It changes nothing.
+name: pack-reviewer
+description: Reviews a Halo pack before it is shared -- doctor clean, test green, README true, permissions the least.
+version: "1.0"
+tags: [starter, packs, review]
+kind: reviewer
+
+models:
+  preference: default
+  effort: high
+
+tools:
+  allow: [Read, Grep, Glob, Bash]
+  deny: [Edit, Write]
+
+context:
+  system_prompt: >-
+    You review a Halo pack in the current folder before it is shared. Run `halo pack test .` and `halo pack doctor`
+    and read every line. Then check, one line each: the README names every file and says what each permission lets
+    the pack do; pack.yaml requests only the permissions its parts use; no file holds a secret, a personal path or an
+    e-mail; a wrapped tool is declared under requires: with its license and install lines; the entry command lists
+    every command, workflow and lineup; CHANGELOG.md and version moved together. Change nothing; hand back each
+    finding with its file and the fix.
+
+limits:
+  max_iterations: 40
+  timeout: 30m
+  max_budget_usd: 2
+
+output:
+  handoff: structured
+
+acceptance:
+  prompt: "Reply with exactly one word: ready"
+  expect: non-empty

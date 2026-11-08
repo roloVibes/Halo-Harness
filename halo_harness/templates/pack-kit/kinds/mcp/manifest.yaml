@@ -1,0 +1,4 @@
+contributes:
+  mcp:
+    - {name: words, description: counts the words and lines of a text file}
+permissions: ["mcp:words"]

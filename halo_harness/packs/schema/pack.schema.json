@@ -112,10 +112,19 @@
                  "description": "The extension API versions the pack works with (halo_harness.ext.API_VERSION)."},
     "halo": {"$ref": "#/$defs/range", "description": "The Halo versions the pack works with (halo --version)."},
     "capabilities": {"type": "array", "items": {"type": "string", "pattern": "^[a-z][a-z0-9._-]*$"}},
-    "requires": {"type": "array", "items": {
-      "type": "object", "additionalProperties": false, "required": ["pack"],
-      "properties": {"pack": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"},
-                     "version": {"oneOf": [{"$ref": "#/$defs/version"}, {"$ref": "#/$defs/range"}]}}}},
+    "requires": {"type": "array", "description": "The packs it needs ({pack, version}) and, 3.3.12.0 R4, the tools it needs ({kind, name, ...}): Halo never installs a tool.",
+      "items": {"oneOf": [
+      {"type": "object", "additionalProperties": false, "required": ["pack"],
+       "properties": {"pack": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"},
+                      "version": {"oneOf": [{"$ref": "#/$defs/version"}, {"$ref": "#/$defs/range"}]}}},
+      {"type": "object", "additionalProperties": false, "required": ["kind", "name", "install", "url", "license", "why"],
+       "properties": {"kind": {"enum": ["command", "python", "npm", "git"]},
+                      "name": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]*$"},
+                      "version": {"type": "string", "pattern": "^(>=|<=|==)? *[0-9]+([.][0-9]+){0,3}$"},
+                      "install": {"type": "object", "additionalProperties": false, "required": ["windows", "linux", "mac"],
+                                  "properties": {"windows": {"type": "string"}, "linux": {"type": "string"}, "mac": {"type": "string"}}},
+                      "url": {"type": "string", "pattern": "^https?://"}, "license": {"type": "string"},
+                      "why": {"type": "string"}, "used_by": {"type": "array", "items": {"type": "string"}}}}]}},
     "contributes": {
       "type": "object", "additionalProperties": false,
       "properties": {

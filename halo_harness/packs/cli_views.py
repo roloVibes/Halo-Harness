@@ -128,7 +128,8 @@ def inspect_lines(d: dict) -> "list[str]":
            f"  folder: {Path(d['root']).as_posix()} ({d['scope']})",
            f"  works with: extension API {V.describe(d['halo_api'])}, Halo {V.describe(d['halo'])}"]
     if d["requires"]:
-        out.append("  requires: " + ", ".join(f"{r.get('pack')} {r.get('version') or ''}".strip() for r in d["requires"]))
+        out.append("  requires: " + ", ".join(f"{r.get('pack') or r.get('name')} {r.get('version') or ''}".strip()
+                                          + (f" ({r.get('kind')})" if r.get("kind") else "") for r in d["requires"]))
     out.append("offers:")
     for kind in KINDS:
         names = d["offers"].get(kind) or []

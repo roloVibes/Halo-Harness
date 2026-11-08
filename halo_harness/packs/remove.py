@@ -75,6 +75,9 @@ def remove(pack_id: str, *, keep_config: bool = False, cwd=None, state_dir=None)
     from halo_harness.packs.discover import find
     from halo_harness.packs.grants import changed
     rec = S.entry(pack_id, state_dir)
+    if rec is not None and rec.get("link") and not rec.get("removed"):  # 3.3.12.0 R4: the link goes, the folder stays
+        from halo_harness.packs.link import unlink
+        return unlink(pack_id, rec, keep_config=keep_config, cwd=cwd, state_dir=state_dir)
     pack = find(pack_id, cwd=cwd, state_dir=state_dir)
     if rec is None and pack is None:
         return False, [f"no pack {pack_id!r} is installed here (halo pack list)"]
