@@ -222,16 +222,17 @@ class Handler(http.server.BaseHTTPRequestHandler):
         ctype = mimetypes.guess_type(str(cand))[0] or "application/octet-stream"
         if ctype.startswith("text/") or ctype in ("application/javascript", "application/json"):
             ctype += "; charset=utf-8"
-        body = cand.read_bytes()
+        body, csp = cand.read_bytes(), SHELL_CSP
         if cand.name == "index.html":  # 3.1.4.0 R2: the page learns this harness's newest live session first
             from halo_harness.studio.session_open import boot_html
             body = boot_html(body, cwd=self.server.cwd, state_dir=self.server.state_dir)  # 3.2.1.0 R1: + the pack sections
             from halo_harness.studio.setup_check_state import boot_attrs
             body = boot_attrs(body, self.server.state_dir)  # 3.3.0.0 R3: no provider set up yet: the page opens on Setup
             # (3.3.3.0 R1: until Setup's Done was pressed)
-            from halo_harness.studio.theme_boot import theme_attr
+            from halo_harness.studio.theme_boot import theme_attr, theme_csp
             body = theme_attr(body)  # 3.3.12.0 R1: the first paint in the saved palette (`theme`), else "auto"
-        self._send(200, body, ctype, {"Content-Security-Policy": SHELL_CSP})
+            csp = theme_csp(SHELL_CSP, body)  # 3.3.12.0 R2: a pack palette's first-paint rule, allowed by its hash
+        self._send(200, body, ctype, {"Content-Security-Policy": csp})
 
     def _design_file(self) -> None:
         """3.0.1.0 D3: a design artboard's raw file for the page's sandboxed iframes (its own CSP, loopback only)."""

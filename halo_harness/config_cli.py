@@ -89,7 +89,10 @@ def _cmd_set(rest: list) -> int:
         print(f"halo config: {removed_key_line(args.key)}", file=sys.stderr)
         return 2
     try:
-        theme_mod.set_config_value(args.key, value)
+        if args.key == "theme":  # 3.3.12.0 R2: through persist_theme, which keeps a pack palette's restore record
+            theme_mod.persist_theme(value)
+        else:
+            theme_mod.set_config_value(args.key, value)
     except theme_mod.CorruptConfigError as e:
         # vibes/review.md finding 19: the human-facing writer surfaces the
         # refusal instead of crashing -- the file is left exactly as it was.

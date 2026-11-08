@@ -7,7 +7,8 @@ Halo 3.2.0.0 (written in R1, final in R7: every part was `stable`); 3.3.10.0 R1 
 A pack is a folder Halo installs, enables and removes (see
 [PACKS.md](PACKS.md) for using one); this page is the contract a pack is
 written against. The extension API version is `API_VERSION = "1.1"` (1.0 until 3.3.10.0; a 1.0 pack keeps
-everything, [Changes in 1.x](#changes-in-1x); 3.3.11.0 added [Setup blocks](#setup-blocks) to it)
+everything, [Changes in 1.x](#changes-in-1x); 3.3.11.0 added [Setup blocks](#setup-blocks) to it, 3.3.12.0
+[Themes](#themes))
 (`halo_harness.ext.API_VERSION`, also exported as `HALO_API_VERSION`). The
 machine-readable manifest schema is
 `halo_harness/packs/schema/pack.schema.json`; the reference pack is
@@ -30,6 +31,7 @@ machine-readable manifest schema is
 | [Compatibility and migration](#compatibility-and-migration) | stable | the version policy (`ext.compatible`, `ext.deprecations`), `migrations` shown before an update and applied, `halo pack rollback` (3.2.0.0 R7) |
 | [Bundles](#bundles) | stable | `bundle:` (3.3.7.0 R5): a capability bundle, a pack with a resource claim -- needs, reservation, routing, latency budget; the verdict before anything downloads |
 | [Setup blocks](#setup-blocks) | stable | `contributes.setup` (3.3.11.0 R3, API 1.1): a pack's own pages in Studio's Setup -- a form over its `config.schema` keys, a check through Setup's checks job, a note -- shown while the pack is enabled, their state in `setup.json`; `halo pack enable` and `halo doctor` say what waits, `halo setup <pack>` opens it |
+| [Themes](#themes) | stable | `contributes.themes` (3.3.12.0 R2, API 1.1): a pack's own palettes, registered as `<pack-id>/<id>` while the pack is enabled and drawn by the terminal and Studio like the ten (the `-daltonized` / `-ansi` modifiers, the WCAG AA pins); the theme saved before is restored when the pack is disabled or removed |
 | [Policy hooks](#policy-hooks) | stable | `contributes.policy` and `contributes.modes` (3.3.10.0, API 1.1): a pack's runtime mode (mode.json), a policy hook whose verdict decides a tool call before it runs (deny > ask > allow) and, with `after: true`, its result after (pass, redact, drop); every verdict in the audit; the dry run |
 | [The reference example](#the-reference-example) | stable | the Documentation Review pack Halo ships (3.2.0.0 R6): every part of the API in one pack a third party can copy |
 
@@ -104,6 +106,7 @@ contributes:
   policy: [{id: fence, run: [...], when: {tools: [...], modes: [...]}, impact, on_error, redact, after}]   # 3.3.10.0, Policy hooks below
   modes: [{id: fenced, label: Fenced, theme: midnight}]   # 3.3.10.0: the pack's runtime modes
   setup: [{id: prefs, title: Review preferences, kind: form, fields: [style], after: model}]   # 3.3.11.0, Setup blocks below
+  themes: [{id: nightshade, label: Violet night, posture: dark, palette: {bg: "#0d0b14", ...}}]   # 3.3.12.0, Themes below
 config:
   schema: {properties: {style: {type: string, enum: [short, long]}}, additionalProperties: false}
   defaults: {style: short}
@@ -894,6 +897,76 @@ key, the provider state or another pack's settings; the check runs with the envi
 provider keys taken out, `CLAUDE_PLUGIN_ROOT`, `CLAUDE_PROJECT_DIR`, `HALO_PACK_ID`, `HALO_SETUP_BLOCK` put in). With
 no pack contributing `setup`, Setup is as it was. `tests/fixtures/packs/setup-blocks/` is the example: one of each kind.
 
+## Themes
+
+Status: **stable** (3.3.12.0 R2, API 1.1). A pack ships palettes of its own under `contributes.themes`; while the pack
+is enabled each one is a theme exactly like the ten Halo has (`halo_harness/themes`, [CONFIG.md](CONFIG.md) `theme`):
+`/theme`, `halo config set theme`, Setup's Theme page, Studio's header menu and Settings -> Themes list it under the
+pack's id, and the terminal and Studio draw it. `halo_harness/packs/manifest_themes.py` checks the list at install, one
+line per problem, and the install is refused: an id that is not `^[a-z][a-z0-9-]*$`, a core palette's id, an id that
+ends in a modifier (`-daltonized`, `-ansi`), an id used twice, a label left out, a posture other than `dark` or
+`light`, a missing or an extra token, a value that is not `#rrggbb`, and every pinned pair under its WCAG AA floor
+(below), the palette's own and its `-daltonized` variant's, each with its ratio.
+
+```yaml
+contributes:
+  themes:
+    - id: nightshade
+      label: Violet night, a green second accent
+      posture: dark                 # dark | light
+      palette: {bg: "#0d0b14", bg2: "#120f1c", surface: "#171325", ...}   # every token below, each "#rrggbb"
+```
+
+**The tokens** (`halo_harness/themes/palettes.py` `TOKENS`; a palette names every one):
+
+| Token | What it colours |
+|---|---|
+| `bg` | the page behind everything |
+| `bg2` | the second band: Studio's canvas, the terminal's surface |
+| `surface` | a panel's or a card's face (Studio) |
+| `surface2` | a raised face: hover, inputs, the terminal's panels |
+| `border` | an opaque edge (the terminal's borders) |
+| `line` | the tint Studio's lines and grid are drawn in (dark: with alpha; light: as is) |
+| `text` | body text |
+| `muted` | secondary text: hints, labels |
+| `faint` | decoration: dim text, the strong line on a light page |
+| `accent` | this is live / do this |
+| `accent2` | the second accent |
+| `accent_ink` | text on an accent fill (a primary button) |
+| `ok` | done, healthy |
+| `warn` | needs you |
+| `bad` | failed |
+| `user` | the user's lines in the terminal |
+| `tool` | a tool call in the terminal |
+
+**The contrast rule** is the one the ten meet (`themes/registry.py` `PAIRS`, WCAG AA): `text` reads 4.5:1 on `bg`,
+`bg2`, `surface` and `surface2`; `accent_ink` 4.5:1 on `accent` (a primary button's label); `muted`, `accent`,
+`accent2`, `ok`, `warn`, `bad`, `user` and `tool` 3:1 on `bg`, `bg2` and `surface`. `faint` is decoration and not
+pinned. The `-daltonized` variant is derived as for the ten (the accent pair, the status pair and the user / tool
+lines moved to blue and orange, never red against green) and must meet the same floors.
+
+**The name** is `<pack-id>/<id>` (`pack-theme/nightshade`): never a core id, visibly a pack's; with a modifier,
+`pack-theme/nightshade-daltonized` or `-ansi`. It is what `theme` in `~/.halo/config.json` holds and what Studio's
+`data-theme` attribute says. **Live, no watcher**: the registry reads the enabled packs' manifests at call time
+(`halo_harness/themes/packs.py`, cached on the packs registry's own signature), so `halo pack enable` makes the
+palettes valid at once and `disable` / `remove` takes them away; `theme.VALID_THEMES` is a live view of that set.
+**Studio**: `GET settings/themes` lists a pack palette after the ten with `pack`, `pack_name`, its tokens and the CSS
+variables it is drawn in (`halo_harness/themes/studio_css.py`, the derivation `scripts/themes_css.py` runs for the
+ten at build time); the page sets those variables on `<html>` while the palette is drawn, and the served page carries
+them as one inline rule for the first frame (allowed by its hash in the page's style-src), so a reload never shows
+`holo` first. A pack palette never touches the built stylesheet.
+
+**The restore rule.** Choosing a pack palette through any door (`/theme`, `halo config set theme`, Setup, the header
+menu, Settings -> Themes: all go through `theme.persist_theme`) keeps the value saved before it in
+`~/.halo/packs/.data/<id>/theme.json` (`halo_harness/themes/restore.py`); moving to another palette of the same pack
+keeps that first value; a core palette, or the key unset, clears the record. When the pack is disabled or removed while
+its palette is the saved `theme`, the value before it is written back (or the key unset when there was none) and the
+command says so in one line, `theme: pack-theme/linen was pack-theme's palette and the pack is disabled; restored
+claude-dark`; Studio follows at once, a running terminal on `/theme` or its next launch. A saved `theme` naming a
+pack palette whose pack is not enabled reads like a removed game theme: one line at startup and in `halo doctor
+--config`, the default drawn, never a crash. With no pack contributing `themes`, everything is as it was (the ten, the
+generated CSS). `tests/fixtures/packs/pack-theme/` is the example: `nightshade` (dark) and `linen` (light).
+
 ## Compatibility and migration
 
 Status: **stable** (3.2.0.0 R7). The policy, as `halo_harness/ext/compat.py`
@@ -943,7 +1016,8 @@ what to use instead), one line each (`ext.compat.CHANGES` holds the same).
   `contributes.policy` and `contributes.modes` ([Policy hooks](#policy-hooks): draft in R1, stable from R2, which
   enforces each verdict and adds the post-call verdict, `after: true` -> pass | redact | drop), and (R3) the bundle
   panel's `api` calls `publish`, `on`, `getData`, `mode`, `attention` and `route`, and (Halo 3.3.11.0) the manifest's
-  `contributes.setup` ([Setup blocks](#setup-blocks), stable); deprecates nothing. A 1.0 pack keeps everything: `{min: "1.0"}` and `{min: "1.0", max: "1.9"}` take 1.1, and a pack
+  `contributes.setup` ([Setup blocks](#setup-blocks), stable), and (Halo 3.3.12.0) the manifest's `contributes.themes`
+  ([Themes](#themes), stable); deprecates nothing. A 1.0 pack keeps everything: `{min: "1.0"}` and `{min: "1.0", max: "1.9"}` take 1.1, and a pack
   without `policy` and `modes` reads and runs exactly as before. (A pack that says `max: "1.0"` asked for 1.0 only
   and gets the one compatibility line.)
 - **1.0** (Halo 3.2.0.0): the first version.

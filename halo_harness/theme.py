@@ -23,12 +23,13 @@ from halo_harness.config.paths import bridge_home
 DEFAULT_THEME = "claude-dark"
 
 # 3.3.12.0 R1: the ten palettes of the registry (halo_harness/themes), each also with a
-# "-daltonized" or "-ansi" modifier; one `theme` key for the terminal and Studio.
+# "-daltonized" or "-ansi" modifier; one `theme` key for the terminal and Studio. R2: a live
+# view (registry.LiveNames), read at each use: an enabled pack's palettes (<pack-id>/<id>) join it.
 from halo_harness.themes import registry as _registry  # noqa: E402
 
 _BASE_THEMES = _registry.ids()
 _SUFFIXES = ("", "-daltonized", "-ansi")
-VALID_THEMES = frozenset(_registry.names())
+VALID_THEMES = _registry.LIVE_NAMES
 
 # 3.1.5.0: the 2.0.7 game themes are gone. A config.json that still names
 # one falls back like any unknown name (resolve_theme skips it), and the TUI
@@ -52,7 +53,8 @@ def removed_theme_notice(using: str, *, persisted: Optional[str] = None) -> Opti
     """The TUI's startup line when config.json's `theme` (`persisted`, read
     fresh when not given) is a removed game theme; None otherwise."""
     name = persisted if persisted is not None else load_persisted_theme()
-    return removed_theme_line(name, using) if name in REMOVED_THEMES else None
+    from halo_harness.themes.restore import gone_line  # 3.3.12.0 R2: a pack palette whose pack is gone
+    return removed_theme_line(name, using) if name in REMOVED_THEMES else gone_line(name, using)
 
 
 # HALO_THEME is the 2.0.0 canonical name; CLAUDE_BRIDGE_THEME (claude-bridge
@@ -205,6 +207,9 @@ def unset_config_value(key: str) -> bool:
     if not isinstance(cursor, dict) or parts[-1] not in cursor:
         return False
     cursor.pop(parts[-1])
+    if key == "theme":  # 3.3.12.0 R2: no pack palette is chosen now, so no restore record stays
+        from halo_harness.themes.restore import note_choice
+        note_choice(None, None)
     for parent, part in reversed(trail):
         if parent[part] == {}:
             parent.pop(part)
@@ -237,6 +242,8 @@ def persist_theme(name: str) -> Path:
     themselves and surface a friendly message rather than let this raise."""
     if not is_valid_theme(name):
         raise ValueError(f"not a valid theme name: {name!r} (expected one of {sorted(VALID_THEMES)})")
+    from halo_harness.themes.restore import note_choice  # 3.3.12.0 R2: a pack palette keeps the value it replaced
+    note_choice(name, load_persisted_theme())
     return set_config_value("theme", name)
 
 

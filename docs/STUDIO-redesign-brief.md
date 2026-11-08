@@ -1,4 +1,8 @@
-# Halo Studio -- a brief for designing a new look
+# Studio: a brief for a new look
+
+Read this when you design a new look for Halo Studio, or hand the job to a design session: what Studio is made of, what a look must be expressed as, and what must not change.
+
+Part of [Halo Studio](STUDIO.md), which lists every part.
 
 This page is for a design session (a person, or Claude in a design session) asked to propose a new look for Halo Studio.
 It says what Studio is made of, what a look must be expressed as so the harness can adopt it, and what must not change.

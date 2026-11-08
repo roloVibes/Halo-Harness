@@ -273,7 +273,7 @@ and `isolation/Dockerfile` the worker image.
   key, group, title, kind, default, choices, help, effect, secret; the rows in `settings_catalog_rows_{a,b,c}.py`;
   `cli_line`, `match` for a keyed row's entry), `studio/settings_api.py` (`GET settings/catalog`,
   `GET settings/values`, `POST settings/set`, `POST settings/unset`, 3.3.12.0 `GET settings/themes`, through
-  `theme.set_config_value`), `studio/settings_values.py` (each row's masked value against its default, a keyed row's
+  `theme.set_config_value`, `theme` through `theme.persist_theme` since 3.3.12.0 R2), `studio/settings_values.py` (each row's masked value against its default, a keyed row's
   entries, a posted value coerced and checked), `studio/settings_door.py` (`settings:<group>` as an edit target,
   `?mode=settings&group=fleet`, `?page=themes`), `settings_cli.py` (`halo settings`), `ui/src/routes/settings/` (the
   rail, a page per group, Themes) and, 3.3.12.0, `themes/` (the ten palettes, the registry) with `studio/theme_boot.py`.

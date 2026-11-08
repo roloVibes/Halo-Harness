@@ -4,8 +4,9 @@
 // bad, in the colours `GET settings/themes` sends), its posture and its label,
 // the current one marked; "Follow the system" above them; the -daltonized and
 // -ansi modifiers as two toggles. Pointing at a row previews it on this page,
-// Esc puts the saved one back, a click saves it (themePage.ts).
-import { FOLLOW, splitTheme, useThemes } from "../../lib/theme";
+// Esc puts the saved one back, a click saves it (themePage.ts). 3.3.12.0 R2:
+// an enabled pack's palettes follow under the pack's id, drawn the same way.
+import { FOLLOW, groupPalettes, splitTheme, useThemes, type Palette } from "../../lib/theme";
 import { studio, useStore } from "../../lib/store";
 import { HELP } from "../help";
 import { Swatch } from "../../shell/Swatch";
@@ -29,6 +30,20 @@ function Modifiers({ mod, following }: { mod: string; following: boolean }) {
         </label>
       ))}
     </div>
+  );
+}
+
+function Row({ p, on, mod, previewing }: { p: Palette; on: boolean; mod: string; previewing: string }) {
+  return (
+    <button type="button" role="radio" aria-checked={on} className="th-row" data-testid="theme-row" data-theme-id={p.id}
+            data-current={on || undefined} data-preview={previewing && splitTheme(previewing)[0] === p.id ? true : undefined}
+            title={p.pack ? p.id : undefined} onMouseEnter={() => preview(p.id)} onFocus={() => preview(p.id)} onClick={() => save(p.id)}>
+      <Swatch tokens={mod === "daltonized" ? p.daltonized : p.tokens} big />
+      <span className="th-row-name mono">{p.local_id || p.id}</span>
+      <span className="th-row-posture mono" data-posture={p.posture}>{p.posture}</span>
+      <span className="th-row-label muted">{p.label}</span>
+      {on && <span className="th-row-mark mono" data-testid="theme-current">CURRENT</span>}
+    </button>
   );
 }
 
@@ -57,20 +72,21 @@ export function ThemesPage() {
               <span className="th-row-label muted">{info.follow.dark} on a dark system, {info.follow.light} on a light one</span>
               {following && <span className="th-row-mark mono" data-testid="theme-current">CURRENT</span>}
             </button>
-            {info.palettes.map((p) => {
-              const on = !following && p.id === base;
-              return (
-                <button key={p.id} type="button" role="radio" aria-checked={on} className="th-row" data-testid="theme-row" data-theme-id={p.id}
-                        data-current={on || undefined} data-preview={previewing && splitTheme(previewing)[0] === p.id ? true : undefined}
-                        onMouseEnter={() => preview(p.id)} onFocus={() => preview(p.id)} onClick={() => save(p.id)}>
-                  <Swatch tokens={mod === "daltonized" ? p.daltonized : p.tokens} big />
-                  <span className="th-row-name mono">{p.id}</span>
-                  <span className="th-row-posture mono" data-posture={p.posture}>{p.posture}</span>
-                  <span className="th-row-label muted">{p.label}</span>
-                  {on && <span className="th-row-mark mono" data-testid="theme-current">CURRENT</span>}
-                </button>
-              );
-            })}
+            {groupPalettes(info.palettes).map((g) => (
+              <div key={g.pack || "core"} className="th-list" role="group" aria-label={g.pack ? `From the pack ${g.pack}` : "Palettes"}
+                   data-testid="theme-group" data-pack={g.pack || undefined}>
+                {g.pack && (
+                  <div className="th-group" data-testid="theme-group-name">
+                    <span className="mono">{g.pack}</span>
+                    {g.name !== g.pack && <span className="th-group-name">{g.name}</span>}
+                    <span className="th-group-name">turning the pack off puts the palette before it back</span>
+                  </div>
+                )}
+                {g.palettes.map((p) => (
+                  <Row key={p.id} p={p} on={!following && p.id === base} mod={mod} previewing={previewing} />
+                ))}
+              </div>
+            ))}
           </div>
           <p className="st-cli mono muted" data-testid="theme-cli">{cli} · /theme &lt;name&gt; in a session</p>
         </>

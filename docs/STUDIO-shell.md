@@ -194,6 +194,19 @@ and a change made in a terminal reaches an open page through
 "Theme: follow the system". The per-browser dark / light choice of before is
 read once: written to the key when the key is unset (`dark` -> `holo`,
 `light` -> `claude-light`), then dropped.
+**A pack's palettes (3.3.12.0 R2).** An enabled pack's `contributes.themes`
+([EXTENSION_API.md](EXTENSION_API.md#themes)) join the set as
+`<pack-id>/<id>`: the theme menu and Settings -> Themes list them after the
+ten in a group under the pack's id, with the same swatches; the palette has a
+"Theme: <pack-id>/<id>" command each. tokens.css has no block for them (they
+are not known at build time): `GET settings/themes` sends each one's CSS
+variables (`halo_harness/themes/studio_css.py`, the derivation the ten's
+blocks are generated with) and `lib/theme.ts` sets them on `<html>` while the
+palette is drawn, taking them off for any other; the server inlines the
+saved pack palette's variables as one `<style id="halo-pack-theme">` rule the
+page's CSP allows by its hash, so the first frame is already in it. When the
+pack is disabled or removed, the theme saved before it comes back and the
+page follows the `files_changed` frame.
 Motion is short (150-250 ms, ease-out) and always means the same state,
 through `data-motion` on any element:
 

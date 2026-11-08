@@ -343,5 +343,12 @@ doctor's mode.json rows) and `packs/cli_policy.py` (`halo pack mode`, `halo pack
 with, the doctor's info row, `halo setup <pack>`'s door), `studio/setup_packs_api.py` (`GET setup/packs`, `GET|POST
 setup/packs/<id>/<block>`, the state's `packs`) and `start/checks_pack.py` (a pack's check as a row of the checks job).
 
+**A pack's palettes** (Halo 3.3.12.0 R2; docs/EXTENSION_API.md "Themes"): `packs/manifest_themes.py`
+(`contributes.themes`: the entries, the `<pack-id>/<id>` names, the meaning lines and the contrast lines),
+`themes/packs.py` (the enabled packs' palettes, read live on the packs registry's snapshot, and their rows for `GET
+settings/themes`), `themes/restore.py` (the pack's `theme.json`: the value a pack palette replaced, written back by
+`halo pack disable` / `remove`; the gone-palette line) and `themes/studio_css.py` (the CSS variables Studio draws a
+palette in, run by `scripts/themes_css.py` for the ten and by the server for a pack's).
+
 The map goes on in [Architecture: the module map, part two](ARCHITECTURE-modules-two.md): the Ollama
 steward, packs, the extension API, isolation, the guided first run, Setup and Settings.

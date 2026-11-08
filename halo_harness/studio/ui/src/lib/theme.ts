@@ -8,13 +8,29 @@
 // "follow the system" (`auto`: holo on a dark system, paper on a light one).
 // A change made elsewhere (`files_changed` for config.json) is read again.
 // The per-browser choice of before (halo.studio.theme) is read once: written
-// to the key when the key is unset, then dropped.
+// to the key when the key is unset, then dropped. 3.3.12.0 R2: a pack's
+// palette (`<pack-id>/<id>`, `pack` set) has no block in tokens.css; its CSS
+// variables come with the API's answer and are set on <html> while it is drawn
+// (packVars), the same variables the server inlined for the first paint.
 import { api, ApiError } from "./api";
 import { onFilesChanged } from "./filesLive";
 import { createStore, studio, toast, useStore } from "./store";
 
 export type Tokens = Record<string, string>;
-export type Palette = { id: string; label: string; posture: "dark" | "light"; tokens: Tokens; daltonized: Tokens };
+export type Palette = {
+  id: string;
+  label: string;
+  posture: "dark" | "light";
+  tokens: Tokens;
+  daltonized: Tokens;
+  pack?: string;
+  pack_name?: string;
+  local_id?: string;
+  vars?: Tokens;
+  daltonized_vars?: Tokens;
+};
+/** The ten, then each enabled pack's palettes under its id (3.3.12.0 R2). */
+export type PaletteGroup = { pack: string; name: string; palettes: Palette[] };
 export type ThemesInfo = {
   palettes: Palette[];
   modifiers: string[];
@@ -65,9 +81,38 @@ export function paletteOf(name: string): Palette | undefined {
   return info.palettes.find((p) => p.id === id);
 }
 
+/** The palettes grouped: the core ones first (pack ""), then one group per pack, in the API's order. */
+export function groupPalettes(palettes: Palette[]): PaletteGroup[] {
+  const out: PaletteGroup[] = [{ pack: "", name: "", palettes: [] }];
+  for (const p of palettes) {
+    const key = p.pack || "";
+    let g = out.find((x) => x.pack === key);
+    if (!g) out.push((g = { pack: key, name: p.pack_name || key, palettes: [] }));
+    g.palettes.push(p);
+  }
+  return out;
+}
+
+let painted: string[] = [];
+
+/** A pack palette's variables on <html> while it is drawn; any other name takes them off again. */
+function packVars(name: string): void {
+  const root = document.documentElement;
+  for (const k of painted) root.style.removeProperty(k);
+  painted = [];
+  const p = paletteOf(name);
+  if (!p?.pack || !p.vars) return;
+  const vars = splitTheme(name)[1] === "daltonized" && p.daltonized_vars ? p.daltonized_vars : p.vars;
+  for (const [k, v] of Object.entries(vars)) {
+    root.style.setProperty(k, v);
+    painted.push(k);
+  }
+}
+
 /** Draw the page in `name` (a theme name or FOLLOW) without saving anything. */
 export function paint(name: string): void {
   document.documentElement.dataset.theme = name || FOLLOW;
+  packVars(name || FOLLOW);
 }
 
 /** Preview `name` on the page (hover); null puts the saved one back (leave, Esc). */
@@ -87,6 +132,7 @@ export function loadThemes(): Promise<void> {
         themes.update(() => ({ info, error: "" }));
         const want = info.theme || FOLLOW;
         if (studio.get().theme !== want) studio.update(() => ({ theme: want }));
+        paint(themes.get().preview || want); // a pack palette's variables need the registry's answer
       } catch (e) {
         themes.update(() => ({ error: e instanceof Error ? e.message : String(e) }));
       } finally {

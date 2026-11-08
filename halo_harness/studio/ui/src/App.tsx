@@ -28,7 +28,7 @@ import { SectionHelp } from "./shell/SectionHelp";
 import { Glossary } from "./shell/Glossary";
 import { StartHere } from "./shell/StartHere";
 import { startFeed } from "./shell/feed";
-import { startThemes } from "./lib/theme";
+import { paint, startThemes } from "./lib/theme";
 import { installEdit } from "./shell/edit";
 import { useFocusKey, useGlobalKeys } from "./shell/keys";
 import { FleetDialogs } from "./routes/fleet/Dialogs";
@@ -53,7 +53,7 @@ export function App() {
   useFocusKey(); // after the hop keys: an F a section already uses wins there
   useRolesLive();
   useEffect(() => {
-    document.documentElement.dataset.theme = theme;
+    paint(theme); // 3.3.12.0 R2: data-theme, and a pack palette's variables on <html>
   }, [theme]);
   useEffect(() => startFeed(), []);
   useEffect(() => startThemes(), []); // 3.3.12.0 R1: the palette registry and the `theme` key

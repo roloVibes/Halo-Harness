@@ -3,11 +3,12 @@
 // A pick writes `theme` in ~/.halo/config.json through the settings route
 // (lib/theme.ts chooseTheme), the one key the terminal reads too; a modifier
 // already on (-daltonized, -ansi) stays on with the new palette. Settings ->
-// Themes has the modifiers, the preview and the labels in full.
+// Themes has the modifiers, the preview and the labels in full. 3.3.12.0 R2:
+// an enabled pack's palettes follow the ten under the pack's id.
 import { Icon } from "../lib/ui";
 import { studio, useStore } from "../lib/store";
 import { applyDoor } from "../routes/settings/door";
-import { chooseTheme, FOLLOW, joinTheme, paletteOf, splitTheme, systemPosture, useThemes } from "../lib/theme";
+import { chooseTheme, FOLLOW, groupPalettes, joinTheme, paletteOf, splitTheme, systemPosture, useThemes } from "../lib/theme";
 import { Swatch } from "./Swatch";
 import { useMenu } from "./useMenu";
 
@@ -38,17 +39,29 @@ export function ThemeMenu() {
             <span className="th-menu-name">Follow the system</span>
             <span className="menu-word">holo / paper</span>
           </button>
-          {(palettes || []).map((p) => {
-            const on = !following && p.id === base;
-            return (
-              <button key={p.id} role="menuitemradio" aria-checked={on} className={"menu-item" + (on ? " on" : "")} title={p.label}
-                      data-testid="theme-item" data-theme-id={p.id} onClick={() => pick(joinTheme(p.id, mod))}>
-                <Swatch tokens={p.tokens} />
-                <span className="th-menu-name mono">{p.id}</span>
-                <span className="menu-word">{p.posture}</span>
-              </button>
-            );
-          })}
+          {groupPalettes(palettes || []).map((g) => (
+            <div key={g.pack || "core"} role="group" aria-label={g.pack ? `From the pack ${g.pack}` : "Palettes"}
+                 data-testid="theme-group" data-pack={g.pack || undefined}>
+              {g.pack && (
+                <div className="th-group" data-testid="theme-group-name">
+                  <span className="mono">{g.pack}</span>
+                  {g.name !== g.pack && <span className="th-group-name">{g.name}</span>}
+                </div>
+              )}
+              {g.palettes.map((p) => {
+                const on = !following && p.id === base;
+                return (
+                  <button key={p.id} role="menuitemradio" aria-checked={on} className={"menu-item" + (on ? " on" : "")}
+                          title={p.pack ? `${p.id}: ${p.label}` : p.label} data-testid="theme-item" data-theme-id={p.id}
+                          onClick={() => pick(joinTheme(p.id, mod))}>
+                    <Swatch tokens={p.tokens} />
+                    <span className="th-menu-name mono">{p.local_id || p.id}</span>
+                    <span className="menu-word">{p.posture}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ))}
           {!palettes && <div className="menu-item muted">reading the palettes...</div>}
           <button role="menuitem" className="menu-item th-menu-more" data-testid="theme-menu-settings"
                   onClick={() => (setOpen(false), applyDoor({ group: "themes" }))}>

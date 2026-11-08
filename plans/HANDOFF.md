@@ -8,9 +8,10 @@ first, then `WORKER-RULES.md`, then the round you are starting.
 
 **3.3.11.0 "Type into Studio" SHIPPED 2026-11-06 (v3.3.11.0 = f30b5823, with the security review fix pass 821abd77); the
 PC runs 3.3.10.0 until the owner quits halo and reinstalls. 3.3.12.0 "Themes and parity" is the open section: R1 (one
-palette set: the registry of ten, one `theme` key, Studio generated from the registry, Settings -> Themes) merged on
-master; R2 pack themes, R3 mode themes (issue #5), R4 the table detail + the parity audit follow, then the release.** The
-ROADMAP's R1 BUILT note carries the choices, what R2 needs from the registry and the owner's live check.
+palette set) and R2 (a pack's own themes through `contributes.themes`) merged on master; R4 the pack kit (`halo pack new`,
+`halo pack test`, `--link`, the authoring guide) and R3 the engines fold follow, then the release -- the owner wants the
+kit out first; mode themes (#5) and the parity audit may move to the next version.** The ROADMAP's R1 and R2 BUILT notes
+and the Focus plan (2026-11-08) carry the choices and the owner's live checks.
 
 ### Before it: 2026-11-02 morning
 

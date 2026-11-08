@@ -4337,6 +4337,19 @@ for pack themes; a small config watch if wanted. Live check (rolo): /theme and t
 the ten on Settings -> Themes, ember and holo on the PC, -daltonized visibly different, bad vs warn on a light
 palette's daltonized variant. Next: R2 pack themes (gap A), R3 mode themes (#5), R4 table detail + the parity audit.**
 
+**3.3.12.0 R2 BUILT 2026-11-08 (one Opus round, worktree ~/hh-3312/R2-pack-themes, hand-back v3312-R2-handback.md; the
+worker died once of an expired login and was resumed): `contributes.themes` checked at install (`packs/manifest_themes.py`,
+AA for the palette and its -daltonized twin, no `-daltonized` / `-ansi` id); the registry live (`themes/packs.py` reads the
+enabled packs' palettes on the packs-registry snapshot; `theme.VALID_THEMES` = `registry.LIVE_NAMES`, a live view); names
+`<pack-id>/<id>`; Studio applies a pack palette's variables at run time (`lib/theme.ts paint()`), `theme_boot.py` inlines a
+first-paint `<style>` allowed by a CSP sha256, the header menu and Settings -> Themes group them under the pack; the lifecycle
+(`themes/restore.py`: the previous theme in the pack's data folder, written by `persist_theme`, which every door now uses;
+disable / remove restore it and say so; a gone pack's palette = the removed-theme line + a doctor row). Zero change for the
+ten (tokens.css byte for byte R1's). Fixture `tests/fixtures/packs/pack-theme`. Open: `extends: <base>` for a partial
+palette; a TUI config watch. Live check (rolo): install the fixture in a scratch home, `/theme pack-theme/nightshade` in the
+terminal, the header menu and Settings -> Themes showing it under the pack, disable the pack and watch the previous palette
+return in both. Next: R4 the pack kit (merging next), R3 the engines fold, then the 3.3.12.0 release.**
+
 ## ADDED 2026-11-08 (rolo: "I think halo harness is getting bloated too. what are some recommendations for things to remove to give the harness more focus" -> "Yes do the usage audit and write the focus plan"): the Focus plan
 
 **The audit (this PC's `~/.halo`, metadata only, last 30 days).** 939 sessions, of which 664 are the Ollama steward's own

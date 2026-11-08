@@ -120,6 +120,7 @@ The browser console: every agent of your session live, your lineups, runs, fleet
   - [STUDIO-local-pool.md](STUDIO-local-pool.md) (Studio: Local -> Pool): read this when you look at the pool from Studio: its members and their free VRAM, Warm and Stop with the preflight, what the pool can run, the Scan, or the Library's Pool preset.
   - [STUDIO-local-voice.md](STUDIO-local-voice.md) (Studio: Local -> Voice): read this when you talk to a Halo session from Studio with your browser's microphone, start or stop the speech servers, download a speech model, turn a session's voice loop on or off, or read the last turns' latency cards.
   - [STUDIO-setup.md](STUDIO-setup.md) (Studio: the Setup section): read this when you set this box up from Studio's Setup section: what each block writes and the routes behind it.
+  - [STUDIO-redesign-brief.md](STUDIO-redesign-brief.md) (Studio: a brief for a new look): read this when you design a new look for Halo Studio, or hand the job to a design session: what Studio is made of, what a look must be expressed as, and what must not change.
   - [STUDIO-security.md](STUDIO-security.md) (Studio: saving, security, SSH and shortcuts): read this when you save and apply from Studio, run it over SSH, check what it lets a page do, or want every shortcut.
 - [DESIGN.md](DESIGN.md) (Halo Design): read this when you make designs, pages, decks or logos with Halo Design on your own apps.
 

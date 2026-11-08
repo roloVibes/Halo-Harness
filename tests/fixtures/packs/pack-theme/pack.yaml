@@ -1,0 +1,55 @@
+# A fixture pack with two palettes of its own (3.3.12.0 R2, docs/EXTENSION_API.md "Themes"): `nightshade`, a dark
+# violet with a green second accent, and `linen`, a light warm paper. While the pack is enabled they are the themes
+# pack-theme/nightshade and pack-theme/linen (each also -daltonized and -ansi): /theme, halo config set theme, the
+# header's menu and Settings -> Themes list them under the pack's id. Every pinned pair meets WCAG AA.
+id: pack-theme
+name: Pack themes
+version: 0.1.0
+description: Two palettes of its own, one dark and one light.
+author: Halo fixtures
+license: MIT
+halo_api: {min: "1.1"}
+contributes:
+  themes:
+    - id: nightshade
+      label: Violet night, a green second accent
+      posture: dark
+      palette:
+        bg: "#0d0b14"
+        bg2: "#120f1c"
+        surface: "#171325"
+        surface2: "#201a33"
+        border: "#3a2f57"
+        line: "#9d8cff"
+        text: "#ece6ff"
+        muted: "#a59cc6"
+        faint: "#5d5480"
+        accent: "#b48cff"
+        accent2: "#6fe0a8"
+        accent_ink: "#120a24"
+        ok: "#6fe0a8"
+        warn: "#ffd27a"
+        bad: "#ff7a9a"
+        user: "#c9b3ff"
+        tool: "#ffb38a"
+    - id: linen
+      label: Warm linen and ink, for daylight
+      posture: light
+      palette:
+        bg: "#f8f5ef"
+        bg2: "#efe9df"
+        surface: "#fffdf9"
+        surface2: "#e7dfd2"
+        border: "#d8cfbf"
+        line: "#d8cfbf"
+        text: "#2f2a24"
+        muted: "#655b4e"
+        faint: "#a39886"
+        accent: "#2f5d8a"
+        accent2: "#8a3f6b"
+        accent_ink: "#ffffff"
+        ok: "#2e6e3e"
+        warn: "#855a00"
+        bad: "#b02a2a"
+        user: "#2f6670"
+        tool: "#8a4a1a"

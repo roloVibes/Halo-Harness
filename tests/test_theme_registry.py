@@ -1,6 +1,9 @@
 """tests.test_theme_registry -- the palette registry (Halo 3.3.12.0 R1, halo_harness/themes): ten palettes, two
 postures, the `-daltonized` / `-ansi` modifiers, the WCAG contrast pins, `resolve_theme` unchanged for the two
 classic names, a removed game theme's notice unchanged, and the words `/theme` and `halo config set theme` say.
+R2: the registry is live -- a pack's palette (`<pack-id>/<id>`) is valid only while its pack is enabled, its
+modifiers derived like the ten's, `is_valid_theme`, the schema, the Settings row and `/theme` read it at call time,
+register / unregister, and the ten unchanged.
 Run: python -m tests.test_theme_registry
 """
 from __future__ import annotations
@@ -150,6 +153,66 @@ def test_schema_and_catalog_read_the_registry(ctx: Ctx):
     src = "\n".join((Path(__file__).resolve().parent.parent / "halo_harness" / f).read_text(encoding="utf-8")
                     for f in ("schemas/config_json.py", "settings_catalog_rows_a.py"))
     ctx.check("no literal palette list in either", '"claude-light"' not in src and '"holo"' not in src)
+
+
+@test
+def test_a_pack_palette_is_valid_only_while_its_pack_is_enabled(ctx: Ctx):
+    from halo_harness import theme as T
+    from halo_harness.packs.grants import disable, enable_id
+    from halo_harness.schemas.config_json import schema
+    from halo_harness.settings_catalog import rows
+    from halo_harness.themes import registry as R
+    from halo_harness.themes.cli import listing
+    from tests.helpers.packs_home import PacksHome
+    with PacksHome() as h:
+        h.install(h.source("pack-theme"))
+        ctx.check("installed and disabled: not a theme", not T.is_valid_theme("pack-theme/nightshade") and R.pack_ids() == ()
+                  and len(T.VALID_THEMES) == 30)
+        enable_id("pack-theme", cwd=h.repo)
+        names = {"pack-theme/nightshade", "pack-theme/linen"}
+        ctx.check(f"enabled: both valid at once, got {R.pack_ids()}", set(R.pack_ids()) == names and all(T.is_valid_theme(n) for n in names)
+                  and len(T.VALID_THEMES) == 36 and "pack-theme/linen-ansi" in T.VALID_THEMES)
+        ctx.check("the ten unchanged, first", R.ids() == TEN and R.all_ids()[:10] == TEN and R.names()[:30] == tuple(
+            f"{p}{m}" for p in TEN for m in ("", "-daltonized", "-ansi")))
+        ctx.check("the schema and the Settings row see it now", "pack-theme/linen" in schema()["properties"]["theme"]["enum"]
+                  and "pack-theme/nightshade-daltonized" in next(r for r in rows() if r.key == "theme").choices)
+        base = R.palette("pack-theme/nightshade")
+        dal = R.tokens("pack-theme/nightshade-daltonized")
+        ctx.check("-daltonized is the same derivation as the ten's", dal == R.daltonize(base["tokens"], "dark") and dal != base["tokens"]
+                  and {dal["accent"], dal["ok"]} == {dal["accent"]} and R.split("pack-theme/nightshade-daltonized") == ("pack-theme/nightshade", "daltonized"))
+        ctx.check("-ansi is the posture's 16 colours", R.tokens("pack-theme/linen-ansi") == R.tokens("paper-ansi"))
+        ctx.check("posture and label", R.posture("pack-theme/linen") == "light" and R.label("pack-theme/linen-daltonized").startswith("Warm linen"))
+        rows_low = [r for name in ("pack-theme/nightshade", "pack-theme/linen") for suf in ("", "-daltonized", "-ansi")
+                    for r in R.contrast_rows(name + suf) if r[2] < r[3]]
+        ctx.check(f"every pin over its six names, got {rows_low}", rows_low == [])
+        ctx.check("resolve_theme honours it", T.resolve_theme(env={}, persisted_theme="pack-theme/linen") == "pack-theme/linen")
+        from halo_harness.tui.theme import variables_for
+        ctx.check("the terminal draws it at once", variables_for("pack-theme/nightshade")["bridge-accent"] == base["tokens"]["accent"])
+        text = listing("pack-theme/linen")
+        ctx.check("/theme lists it under the pack's name, marked", "From the pack pack-theme (Pack themes):" in text
+                  and " * pack-theme/linen" in text and text.index("dawn") < text.index("From the pack"))
+        disable("pack-theme")
+        ctx.check("disabled: gone at once", not T.is_valid_theme("pack-theme/nightshade") and len(T.VALID_THEMES) == 30
+                  and T.resolve_theme(env={"COLORTERM": "truecolor"}, persisted_theme="pack-theme/linen") == "claude-dark")
+        ctx.check("a core name never reads the packs", R.split("holo-ansi") == ("holo", "ansi") and R.split("x/y") == ("", ""))
+
+
+@test
+def test_register_and_unregister(ctx: Ctx):
+    from halo_harness import theme as T
+    from halo_harness.themes import registry as R
+    from halo_harness.themes.palettes import PALETTES
+    holo = next(p for p in PALETTES if p["id"] == "holo")
+    try:
+        got = R.register("hand", {"id": "glow", "label": "By hand", "posture": "dark", "tokens": dict(holo["tokens"])})
+        ctx.check(f"registered as hand/glow, got {got}", got == ["hand/glow"] and T.is_valid_theme("hand/glow-daltonized")
+                  and R.palette("hand/glow")["pack"] == "hand")
+        rows_ = [r for r in R.as_json()["palettes"] if r.get("pack") == "hand"]
+        ctx.check("the API's rows carry pack and the Studio variables", len(rows_) == 1 and rows_[0]["vars"]["--accent"] == holo["tokens"]["accent"])
+    finally:
+        ctx.check("unregister takes it out", R.unregister("hand") and not T.is_valid_theme("hand/glow") and not R.unregister("hand"))
+    ctx.check("as_json without packs: the ten exactly as R1 sent them", [p["id"] for p in R.as_json()["palettes"]] == list(TEN)
+              and all("pack" not in p and "vars" not in p for p in R.as_json()["palettes"]))
 
 
 if __name__ == "__main__":

@@ -1,7 +1,11 @@
-"""halo_harness.themes.registry -- the palette registry (Halo 3.3.12.0 R1): ten palettes, two modifiers, one `theme`.
+"""halo_harness.themes.registry -- the palette registry (Halo 3.3.12.0 R1): ten palettes, two modifiers, one `theme`;
+R2: live -- the enabled packs' palettes (`<pack-id>/<id>`) are read at call time (themes/packs.py), never at import.
 
     ids()                  the ten palette ids, in their order (palettes.PALETTES)
-    names()                every valid `theme` value: each id, then `<id>-daltonized`, `<id>-ansi`
+    pack_ids()             the enabled packs' palette names (`<pack-id>/<id>`), packs in run order
+    all_ids()              ids() then pack_ids()
+    names()                every valid `theme` value: each of all_ids(), then `<id>-daltonized`, `<id>-ansi`
+    register(pack, pals)   add palettes under a pack id by hand (a test, an embedding); unregister(pack) takes them out
     split(name)            (palette id, modifier) -- ("", "") for a name the registry does not know
     palette(pid)           {id, label, posture, tokens} or None
     tokens(name)           the token dict a renderer draws `name` in (modifier applied), None when unknown
@@ -19,12 +23,15 @@ Pure data and arithmetic: no Textual, no file read.
 from __future__ import annotations
 
 import colorsys
+from collections.abc import Sequence
 from typing import Optional
 
 from halo_harness.themes.palettes import (ANSI, DALTONIZED_HUES, FOLLOW_DARK, FOLLOW_LIGHT, MODIFIERS, PALETTES,
                                           TOKEN_NAMES, TOKENS)
 
 _BY_ID = {p["id"]: p for p in PALETTES}
+_REGISTERED: dict = {}  # pack id -> [palette]: register() / unregister(); the enabled packs' own come from themes/packs.py
+SEP = "/"  # a pack palette's name is <pack-id>/<id>: never a core id, visibly a pack's
 
 # The contrast pins (WCAG AA): body text 4.5:1 on every face, a large or UI colour 3:1 on the three backgrounds a
 # word in that colour sits on, and the label of a primary button 4.5:1 on the accent. `faint` is decoration (dim
@@ -40,22 +47,79 @@ PAIRS = (tuple(("text", b, BODY) for b in _BODY_ON) + (("accent_ink", "accent", 
 _DALTON = {"accent": "blue", "accent2": "orange", "ok": "blue", "bad": "vermillion", "user": "blue", "tool": "orange"}
 
 
+def register(pack_id: str, palettes) -> "list[str]":
+    """Add `palettes` (one or a list of {id, label, posture, tokens}; `id` without the pack) under `pack_id`; the names."""
+    rows = [palettes] if isinstance(palettes, dict) else list(palettes or [])
+    _REGISTERED[pack_id] = [{**p, "id": f"{pack_id}{SEP}{p.get('local_id') or p['id'].split(SEP)[-1]}",
+                             "local_id": p.get("local_id") or p["id"].split(SEP)[-1], "pack": pack_id} for p in rows]
+    return [p["id"] for p in _REGISTERED[pack_id]]
+
+
+def unregister(pack_id: str) -> bool:
+    return _REGISTERED.pop(pack_id, None) is not None
+
+
+def packs() -> dict:
+    """{name: palette} of every pack palette now: the enabled packs' (themes/packs.py, cached on the packs
+    registry's signature) and the registered ones."""
+    from halo_harness.themes.packs import live
+    out = dict(live())
+    for rows in _REGISTERED.values():
+        out.update({p["id"]: p for p in rows})
+    return out
+
+
+def _get(pid) -> Optional[dict]:
+    if pid in _BY_ID:
+        return _BY_ID[pid]
+    return packs().get(pid) if isinstance(pid, str) and SEP in pid else None
+
+
 def ids() -> tuple:
     return tuple(_BY_ID)
 
 
+def pack_ids() -> tuple:
+    return tuple(packs())
+
+
+def all_ids() -> tuple:
+    return ids() + pack_ids()
+
+
 def names() -> tuple:
-    return tuple(f"{pid}{suffix}" for pid in _BY_ID for suffix in ("",) + tuple(f"-{m}" for m in MODIFIERS))
+    return tuple(f"{pid}{suffix}" for pid in all_ids() for suffix in ("",) + tuple(f"-{m}" for m in MODIFIERS))
+
+
+class LiveNames(Sequence):
+    """`names()` read at every use: `theme.VALID_THEMES` and the Settings row's choices are this, never a frozen copy,
+    so a pack palette is valid exactly while its pack is enabled. `in` asks `is_name`; iteration, `len` and indexing
+    read `names()` now."""
+
+    def __contains__(self, name) -> bool:
+        return is_name(name)
+
+    def __getitem__(self, i):
+        return names()[i]
+
+    def __len__(self) -> int:
+        return len(names())
+
+    def __repr__(self) -> str:
+        return f"LiveNames({len(self)} names)"
+
+
+LIVE_NAMES = LiveNames()
 
 
 def split(name) -> "tuple[str, str]":
     if not isinstance(name, str):
         return "", ""
-    if name in _BY_ID:
+    if _get(name) is not None:
         return name, ""
     for mod in MODIFIERS:
         base = name[:-len(mod) - 1] if name.endswith(f"-{mod}") else ""
-        if base in _BY_ID:
+        if base and _get(base) is not None:
             return base, mod
     return "", ""
 
@@ -65,12 +129,12 @@ def is_name(name) -> bool:
 
 
 def palette(pid: str) -> Optional[dict]:
-    return _BY_ID.get(pid)
+    return _get(pid)
 
 
 def posture(name) -> str:
     base, _mod = split(name)
-    return _BY_ID[base]["posture"] if base else ""
+    return _get(base)["posture"] if base else ""
 
 
 def label(name) -> str:
@@ -79,7 +143,7 @@ def label(name) -> str:
         return ""
     words = {"daltonized": " (blue and orange for red-green colour blindness)",
              "ansi": " (16 colours, for a terminal without truecolor)"}
-    return _BY_ID[base]["label"] + words.get(mod, "")
+    return _get(base)["label"] + words.get(mod, "")
 
 
 def follow(system_posture: str) -> str:
@@ -90,7 +154,7 @@ def tokens(name) -> Optional[dict]:
     base, mod = split(name)
     if not base:
         return None
-    p = _BY_ID[base]
+    p = _get(base)
     if mod == "ansi":
         return dict(ANSI[p["posture"]])
     if mod == "daltonized":
@@ -156,12 +220,14 @@ def daltonize(base: dict, posture_word: str) -> dict:
 
 def as_json() -> dict:
     """`GET settings/themes`'s palettes: each with its tokens and its -daltonized tokens, the vocabulary, the
-    modifiers and what "follow the system" picks."""
+    modifiers and what "follow the system" picks. R2: then the pack palettes, each with `pack` and the CSS
+    variables Studio draws it in (themes/packs.py rows)."""
+    from halo_harness.themes.packs import json_rows
     return {"palettes": [{"id": p["id"], "label": p["label"], "posture": p["posture"], "tokens": dict(p["tokens"]),
-                          "daltonized": daltonize(p["tokens"], p["posture"])} for p in PALETTES],
+                          "daltonized": daltonize(p["tokens"], p["posture"])} for p in PALETTES] + json_rows(),
             "tokens": [{"name": n, "about": about} for n, about in TOKENS], "modifiers": list(MODIFIERS),
             "follow": {"dark": FOLLOW_DARK, "light": FOLLOW_LIGHT}}
 
 
-__all__ = ["ids", "names", "split", "is_name", "palette", "posture", "label", "follow", "tokens", "contrast",
+__all__ = ["LIVE_NAMES", "ids", "pack_ids", "all_ids", "register", "unregister", "packs", "names", "split", "is_name", "palette", "posture", "label", "follow", "tokens", "contrast",
            "contrast_rows", "daltonize", "as_json", "PAIRS", "TOKEN_NAMES"]
