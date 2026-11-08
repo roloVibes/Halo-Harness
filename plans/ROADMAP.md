@@ -4378,8 +4378,7 @@ the pool, bundles, the gym and measured strengths, benchmarks and tuning, Voice 
   **guided-first-run** pack (`start/`, 1,779: the sample Orchestra run as a pack Setup check block + `/start`); the
   **signal-remote** pack (the Signal phone bridge in `remote/bridge*.py`; the control socket and the registry stay core);
   the **coach** pack (the coach probes and the improvement library, `improve/` + the coach notes; the supervisor stays
-  core); the **concord** pack (already one); and a **game-themes** pack (the five palettes removed in 3.1.5.0 as
-  `contributes.themes` -- the owner typed them 17 times in 30 days, and it is the first real consumer of R2). NOT packs:
+  core); the **concord** pack (already one). No theme pack (rolo 2026-11-08: "i don't care about a theme pack"). NOT packs:
   Voice, the engines adapter, the steward, the pool, the host, bundles, the gym (local-model work is core).
 - F5 one orchestration: `orchestra/` + `supervise/` + `outcomes/` + `workflows/` (14,800 lines, four record shapes) become
   one package on the one work record (`<state>/work/<id>.json` + `events.jsonl`) that Roles Live, Orchestra, Fleet and
@@ -4394,3 +4393,7 @@ the pool, bundles, the gym and measured strengths, benchmarks and tuning, Voice 
 Each round: its CHANGELOG "Removed" list names every file and verb that goes and the pack or page that replaces it; the
 measure is lines and files after versus before, said in the hand-back.
 
+**Order from 2026-11-08 afternoon (rolo: "let's get the pack creating kit out soon"):** 3.3.12.0 releases as soon as
+R4 the pack kit is merged and green on both runners, with whatever of R2 pack themes and R3 the engines fold has landed;
+R5 mode themes (#5) and R6 the table detail + the parity audit may move to the next version. The Studio redesign brief for
+an outside design session is `docs/STUDIO-redesign-brief.md`; a proposal lands as a round on tokens.css, styles and lib/ui.
