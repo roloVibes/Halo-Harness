@@ -4500,3 +4500,36 @@ action rule made visible and the Dialog's three mono lines are the same rule for
   for Agents and the folds (planned until shipped), the pack kit and the local-first core as pillars, the engines fold as the
   story it is; real captures come from L1's shipped Studio and the shot list is redone for the six sections.
 
+## ADDED 2026-11-08 night: 3.3.12.0 shipped; 3.3.13.0 opens with three rounds at once; the pack template is on GitHub
+
+**3.3.12.0 "Themes and the pack kit" RELEASED 2026-11-08** (v3.3.12.0 = ecee432a; candidate 6d68dbc9 green on both runners;
+R1 one palette set, R2 pack themes, R4 the pack kit). R3 the engines fold did not make it and opens the next version.
+
+**The pack template repo** (rolo: "we need to release the pack creating framework that will be hosted on github that users
+can use to create their own packs"): https://github.com/roloVibes/halo-pack-template, a public GitHub template repository =
+the `halo pack new my-pack --all --github` folder from 3.3.12.0 plus `rename.py <id>` and a "Start here" README top; its
+pack-test workflow ran green on Ubuntu and Windows. Refresh it when a release changes the kit (the tag in the README and the
+workflow). docs/PACK-AUTHORING.md points at it.
+
+**3.3.13.0, three rounds in parallel worktrees (rolo 2026-11-08 night: "move design out of halo harness, save it for a pack";
+"move out the signal remote set up ... have that as a pack ... it needs to be a full back and forth communication option for
+signal, not just like a note sent to the user"):**
+- R1 **the engines fold** (brief ~/hh-3312/briefs/v3312-R3-engines-fold-brief.md, worktree ~/hh-3312/R3-engines-fold): one
+  OpenAI-compatible local-engine adapter with a descriptor table; the FreeToken / Strata / TensorFold packages, fetcher and
+  docs go; the paged-MoE fit rule and the steward's per-engine log reading stay as descriptors.
+- R2 **Design out** (brief ~/hh-3313/briefs/v3313-R2-design-out-brief.md, worktree ~/hh-3313/R2-design-out) = F4's design
+  pack: D1 the seam (a pack section with a whole-page bundle `view`, `api.lib` sharing the shell's React and lib/ui,
+  pack-owned Studio routes behind the grant `studio-routes`, the kit's checks and example; extension API 1.2), D2 the
+  shipped `design` pack (off by default) carrying the Design code; the core keeps nine sections (keys shift up, packs from
+  Alt+0), the media panels move to Local (local-model work is core).
+- R3 **the Signal pack** (brief ~/hh-3313/briefs/v3313-R3-signal-pack-brief.md, worktree ~/hh-3313/R3-signal-pack) = F4's
+  signal-remote pack, conversation first: the gap list (why it felt like a one-way note) written from the code, then a
+  service the supervisor owns through the new `contributes.services` seam (grant `services`), a text that always gets an
+  answer (no session open -> one starts in the phone's home folder), replies paragraph by paragraph, pairing in one
+  message with signing optional, attachments and voice notes in (the Voice servers transcribe), files out, `/notify`
+  for what arrives unprompted through one core `remote.notify` seam, Setup pages; the control socket, the feed and the
+  registry stay core.
+- Then: the merge order is whichever hands back first (the pack-contract files are additive between R2 and R3), the
+  six-area review on the merged tree and its fix pass with the F1 steward hotfix first, L1 the Instrument look, the
+  Agents section (F3+F5), the Fleet fold (F3+F5b), mode themes (#5) and the parity audit.
+

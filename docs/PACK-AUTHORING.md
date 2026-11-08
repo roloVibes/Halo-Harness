@@ -16,6 +16,9 @@ halo pack install . --link --project      # the installed pack is this folder: a
 halo pack enable my-pack --grant-all
 ```
 
+**Or take the template on GitHub:** https://github.com/roloVibes/halo-pack-template is the `--all --github` folder as a
+GitHub template repository ("Use this template", then `python rename.py <id>`; its workflow runs `halo pack test .`).
+
 `halo pack new` writes a complete pack: one working example of each kind you ask for, `pack.yaml`, the entry command
 `commands/my-pack.md` (`/my-pack` in a session lists what the pack brings and runs its default action), a README written
 from the manifest, `HALO-PACK.md`, `CHANGELOG.md`, `tests/pack_test.py`, and (by default) the GitHub files. Change the
