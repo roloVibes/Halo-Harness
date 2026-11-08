@@ -4407,6 +4407,16 @@ the pool, bundles, the gym and measured strengths, benchmarks and tuning, Voice 
   core); the **concord** pack (already one). No theme pack (rolo 2026-11-08: "i don't care about a theme pack"). NOT packs:
   Voice, the engines adapter, the steward, the pool, the host, bundles, the gym (local-model work is core).
 - F5: folded into F3 above (one Agents section on one work record).
+- F3+F5b **Fleet's views into Agents and Local** (rolo 2026-11-08: "What about fleet? ... should that be a pack itself or rolled
+  into another section?" -> fold, not a pack): the fleet fabric stays core (pairing, allow-control, missions, hand-offs, the
+  host, the pool, the Attention queue -- a security boundary no pack may own; Federation builds on it), the Fleet SECTION
+  goes: Agents gains a scope switch (this session | this machine | the fleet) so Live draws today's cross-halo Map as the
+  same tree; missions and hand-offs become rows of Agents' Runs with a "where" column (and Federation's offers and chains
+  land there); members, pairing and `halo fleet join` join Local's Hosts page beside the host's controls; Attention becomes
+  a header count that opens a panel from any section; the trust list (allow-control, Federation's trust) moves to Settings.
+  `halo fleet` and every command stay as they are. Six sections: Session, Agents, Local, Packs, Setup, Settings (+ Design
+  until F4). Right after the Agents round and before Federation R1, so Federation never builds a Fleet section of its own;
+  the round's live check is the fabric's first real run (a Kali halo pairing with the PC) through the new homes.
 - F6 Federation trimmed to R1 offers, R2 grant intersection and R6 policy that travels; R3-R5 and R7 wait for two real
   machines using the first three daily. Pack trust trimmed to R1 signed manifests and R2 the trust prompt; R3-R4 follow demand.
 - F7 the terminal wizard shrinks to the console fallback (`halo init --terminal` keeps working, the step screens go: Setup is
