@@ -6,11 +6,11 @@ first, then `WORKER-RULES.md`, then the round you are starting.
 
 ## WHERE THINGS STAND -- 2026-11-02 evening (authoritative, read this first)
 
-**3.3.11.0 "Type into Studio" SHIPPED 2026-11-06 (v3.3.11.0 = f30b5823, with the security review fix pass 821abd77); the
-PC runs 3.3.10.0 until the owner quits halo and reinstalls. 3.3.12.0 "Themes and parity" is the open section: R1 (one
-palette set), R2 (a pack's own themes through `contributes.themes`) and R4 the pack kit (`halo pack new`, `halo pack
-test`, `--link`, `requires:` tool entries, the `pack-author` lineup, docs/PACK-AUTHORING.md) merged on master; the release
-follows on green both. R3 the engines fold, mode themes (#5) and the parity audit move to the next version; after them
+**3.3.12.0 "Themes and the pack kit" SHIPPED 2026-11-08 (v3.3.12.0 = ecee432a; candidate 6d68dbc9 green on both runners):
+R1 one palette set, R2 a pack's own themes through `contributes.themes`, R4 the pack kit (`halo pack new`, `halo pack
+test`, `--link`, `requires:` tool entries, the `pack-author` lineup, docs/PACK-AUTHORING.md). 3.3.11.0 shipped 2026-11-06
+(f30b5823, with the security review fix pass 821abd77). The next version opens with R3 the engines fold (one descriptor
+table for FreeToken / Strata / TensorFold); mode themes (#5) and the parity audit follow it; after them
 the review (six areas, bugs in scope), its fix pass with the steward hotfix first, then L1 the Instrument look and the
 Focus rounds.** The ROADMAP's R1, R2 and R4 BUILT notes, the Focus plan and the Instrument entry (all 2026-11-08) carry the
 choices and the owner's live checks.

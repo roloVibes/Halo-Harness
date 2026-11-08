@@ -214,7 +214,10 @@ def _render(args) -> int:
         if args.dom:  # the shell twice: Orchestra (its Start view: no run here) and Roles (the canvas of the active lineup)
             from capture_identity import checked_dump
             budget = "--virtual-time-budget=20000"  # the Roles canvas needs the lineup fetched: 6 s is short on the Windows runner
-            a, b = checked_dump(chrome, url, "shell orchestra", budget), checked_dump(chrome, url.replace("mode=orchestra", "mode=roles"), "shell roles", budget)
+            roles_url = url.replace("mode=orchestra", "mode=roles")
+            a, b = checked_dump(chrome, url, "shell orchestra", budget), checked_dump(chrome, roles_url, "shell roles", budget)
+            if b is not None and shell_counts(b.stdout).get("roles-canvas") == 0:  # the lineup fetch outran 20 s once on the Windows runner (e0957871): one more try, twice the budget
+                b = checked_dump(chrome, roles_url, "shell roles", "--virtual-time-budget=40000")
             if a is None or b is None:
                 print("no Chrome found")
                 return 2
