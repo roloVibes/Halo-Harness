@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Instrument: Local</title>
+</head>
+<body style="background:#07090C">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#22D3EE}a:hover{color:#7FE6F5}
+.app,.app *{box-sizing:border-box}
+.app{font-family:Inter,-apple-system,system-ui,sans-serif;color:#E6EDF3;font-size:13px;line-height:20px}
+.mono{font-family:'JetBrains Mono',ui-monospace,'SF Mono',monospace}
+.rail{flex:0 0 52px;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 0;background:#0B0E12;border-right:1px solid #1A2028}
+.ri{position:relative;width:40px;height:40px;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#7D8995;text-decoration:none}
+.ri svg{width:19px;height:19px}
+.ri:hover{color:#E6EDF3;background:#0F1318}
+.ri.sel{color:#22D3EE;background:#0F1318}
+.ri.sel::before{content:'';position:absolute;left:-6px;top:10px;bottom:10px;width:2px;background:#22D3EE}
+.ri .bd{position:absolute;top:2px;right:2px;min-width:15px;height:15px;padding:0 4px;border-radius:2px;background:#F5A524;color:#1A1203;font:700 10px/15px 'JetBrains Mono',monospace;text-align:center}
+.dv{width:22px;height:1px;background:#1A2028;margin:5px 0}
+.hdr{height:48px;flex:0 0 48px;display:flex;align-items:center;gap:12px;padding:0 16px;background:#0B0E12;border-bottom:1px solid #1A2028}
+.btn{height:30px;padding:0 10px;border-radius:4px;background:#0F1318;border:1px solid #232A33;color:#E6EDF3;font:500 12px/1 'JetBrains Mono',monospace;display:inline-flex;align-items:center;gap:8px;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:#36404C;background:#151A21}
+.btn:focus-visible,.ri:focus-visible,.pg:focus-visible{outline:1px solid #22D3EE;outline-offset:2px}
+.btn.ghost{background:transparent;border-color:transparent;color:#9AA6B2}
+.ib{width:30px;padding:0;justify-content:center}
+.kbd{font-family:'JetBrains Mono',monospace;font-size:10.5px;line-height:16px;padding:0 5px;border-radius:3px;border:1px solid #232A33;color:#9AA6B2}
+.panel{position:relative;background:#0F1318;border:1px solid #232A33;border-radius:6px;display:flex;flex-direction:column;min-width:0;overflow:hidden;background-image:linear-gradient(#22D3EE,#22D3EE),linear-gradient(#22D3EE,#22D3EE),linear-gradient(#22D3EE,#22D3EE),linear-gradient(#22D3EE,#22D3EE);background-size:10px 1px,1px 10px,10px 1px,1px 10px;background-position:0 0,0 0,100% 100%,100% 100%;background-repeat:no-repeat}
+.ph{height:40px;flex:0 0 40px;display:flex;align-items:center;gap:10px;padding:0 8px 0 14px;border-bottom:1px solid #1A2028}
+.ph .t{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase}
+.ph .g{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:#9AA6B2}
+.sp{flex:1 1 auto}
+.dot{width:7px;height:7px;border-radius:1px;flex:0 0 7px;display:inline-block}
+.dw{background:#22D3EE;animation:blink 1.4s ease-in-out infinite}
+@keyframes blink{50%{opacity:.35}}
+.dd{background:#3DD68C}.di{background:#36404C}
+.pg{display:flex;align-items:center;justify-content:space-between;height:34px;padding:0 12px;color:#9AA6B2;text-decoration:none;font:500 12px/1 'JetBrains Mono',monospace;border-left:2px solid transparent}
+.pg:hover{color:#E6EDF3;background:#0F1318}
+.pg.sel{color:#E6EDF3;background:#0F1318;border-left-color:#22D3EE}
+.pg i{font-style:normal;color:#7D8995;font-size:11px}
+.hcs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border-top:1px solid #1A2028}
+.hc{padding:12px 14px;border-right:1px solid #1A2028;display:flex;flex-direction:column;gap:6px;min-width:0}
+.hc:last-child{border-right:0}
+.hc .l{font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.12em;color:#7D8995;display:flex;justify-content:space-between}
+.hc .v{font-family:'JetBrains Mono',monospace;font-size:22px;line-height:26px}
+.hc .v small{font-size:12px;color:#9AA6B2}
+.tick{height:6px;display:flex;gap:2px}
+.tick span{flex:1;background:#1A2028}
+.tick span.on{background:#22D3EE}
+.vb{height:16px;display:flex;gap:2px;background:#0B0E12;border:1px solid #1A2028;padding:2px}
+.vb span{height:10px;transform-origin:left;animation:fillin .6s cubic-bezier(.2,.8,.2,1) 1}
+@keyframes fillin{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+.vk{display:flex;gap:16px;flex-wrap:wrap;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:#9AA6B2}
+.vk span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:8px;height:8px;display:inline-block}
+.log{font-family:'JetBrains Mono',monospace;font-size:12px;line-height:18px}
+.lr{display:grid;grid-template-columns:66px 92px minmax(0,1fr) 110px 82px 60px 80px;gap:12px;padding:8px 14px;border-top:1px solid #151A21;align-items:center}
+.lr.h{font-size:10.5px;letter-spacing:.12em;color:#7D8995;border-top:0}
+.ev{padding:8px 14px;border-top:1px solid #151A21;color:#A78BFA;display:flex;gap:12px}
+.still *{animation:none !important}
+@media (prefers-reduced-motion: reduce){.app *{animation:none !important}}
+</style>
+<div class="app" style="display: flex; width: 100%; min-width: 1024px; height: 900px; background: #07090C; overflow: hidden">
+
+<nav class="rail" aria-label="Sections">
+<span aria-hidden="true" style="height: 40px; display: flex; align-items: center; justify-content: center; color: #22D3EE; margin-bottom: 4px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><ellipse cx="12" cy="7" rx="8" ry="3"></ellipse><path d="M6 13v4M12 13v6M18 13v4"></path></svg></span>
+<a class="ri" href="#" aria-label="Session, Alt 1" title="Session · ⌥1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" aria-hidden="true"><path d="M3 12h4l2-6 4 12 2-6h6"></path></svg></a>
+<a class="ri" href="#" aria-label="Team, Alt 2" title="Team · ⌥2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" aria-hidden="true"><circle cx="9" cy="8" r="3"></circle><path d="M3 19c0-3 3-5 6-5s6 2 6 5M16 5a3 3 0 0 1 0 6M18 14c2 .5 3 2.5 3 5"></path></svg></a>
+<a class="ri" href="#" aria-label="Roles, Alt 3" title="Roles · ⌥3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" aria-hidden="true"><rect x="9" y="3" width="6" height="5"></rect><rect x="3" y="16" width="6" height="5"></rect><rect x="15" y="16" width="6" height="5"></rect><path d="M12 8v4M6 16v-4h12v4"></path></svg></a>
+<a class="ri" href="#" aria-label="Fleet, Alt 4" title="Fleet · ⌥4"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" aria-hidden="true"><circle cx="12" cy="5" r="2"></circle><circle cx="5" cy="19" r="2"></circle><circle cx="19" cy="19" r="2"></circle><path d="M11 7l-5 10M13 7l5 10M7 19h10"></path></svg></a>
+<a class="ri sel" href="#" aria-current="page" aria-label="Local, Alt 5" title="Local · ⌥5"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" aria-hidden="true"><rect x="6" y="6" width="12" height="12"></rect><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"></path></svg></a>
+<span class="dv" aria-hidden="true"></span>
+<a class="ri" href="#" aria-label="Orchestra, Alt 6" title="Orchestra · ⌥6"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" aria-hidden="true"><circle cx="6" cy="5" r="2"></circle><circle cx="6" cy="19" r="2"></circle><circle cx="18" cy="12" r="2"></circle><path d="M6 7v10M6 9c0 3 4 3 10 3"></path></svg></a>
+<a class="ri" href="#" aria-label="Packs, Alt 7" title="Packs · ⌥7"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"></path><path d="M4 7.5l8 4.5 8-4.5M12 12v9"></path></svg></a>
+<a class="ri" href="#" aria-label="Design, Alt 8" title="Design · ⌥8"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" aria-hidden="true"><path d="M4 20l4-1 11-11-3-3L5 16z"></path><path d="M14 6l3 3"></path></svg></a>
+<span class="dv" aria-hidden="true"></span>
+<a class="ri" href="#" aria-label="Setup, Alt 9" title="Setup · ⌥9"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M10 8.5l5 3.5-5 3.5z"></path></svg></a>
+<a class="ri" href="#" aria-label="Settings, Alt 0" title="Settings · ⌥0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"></path><circle cx="16" cy="6" r="2"></circle><circle cx="10" cy="12" r="2"></circle><circle cx="18" cy="18" r="2"></circle></svg></a>
+<span class="sp"></span>
+<span class="dot dd" title="connected · halo 3.3.1.0" aria-label="connected"></span>
+<button class="ri" type="button" aria-label="Expand sidebar" title="Expand · ⌥[" style="border: 0; background: transparent; cursor: pointer; margin-top: 6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></button>
+</nav>
+
+<div style="flex: 1 1 0; min-width: 0; display: flex; flex-direction: column">
+<header class="hdr">
+<span class="mono" style="font-size: 13px; font-weight: 600; letter-spacing: .14em">LOCAL</span>
+<span style="color: #36404C">/</span>
+<span class="mono" style="font-size: 12px">resources</span>
+<span class="mono" style="font-size: 11.5px; color: #9AA6B2">2 hosts · 4 models loaded · 1 Hz</span>
+<span class="sp"></span>
+<label style="height: 30px; width: 300px; border-radius: 4px; background: #0F1318; border: 1px solid #232A33; display: flex; align-items: center; gap: 8px; padding: 0 10px; color: #7D8995"><span class="mono" style="font-size: 12px">&gt;</span><input type="text" placeholder="search or run a command" aria-label="Command palette" style="flex: 1; min-width: 0; background: transparent; border: 0; outline: 0; color: #E6EDF3; font: 12px 'JetBrains Mono', monospace"><span class="kbd">⌘K</span></label>
+<button class="btn" type="button">focus<span class="kbd">⇧F</span></button>
+<button class="btn ib ghost" type="button" aria-label="How this section works">?</button>
+</header>
+
+<div style="flex: 1 1 0; min-height: 0; display: flex; gap: 12px; padding: 12px; flex-wrap: wrap">
+<nav style="flex: 0 0 188px; display: flex; flex-direction: column; border: 1px solid #1A2028; border-radius: 6px; padding: 6px 0; background: #0B0E12; align-self: flex-start" aria-label="Local pages">
+<a class="pg sel" href="#" aria-current="page">Resources<i>live</i></a>
+<a class="pg" href="#">Hosts<i>2</i></a>
+<a class="pg" href="#">Models<i>9</i></a>
+<a class="pg" href="#">Library<i>140</i></a>
+<a class="pg" href="#">Hugging Face</a>
+<a class="pg" href="#">Logs</a>
+<a class="pg" href="#">Benchmarks</a>
+<a class="pg" href="#">Steward<i>on</i></a>
+<a class="pg" href="#">Pool</a>
+<a class="pg" href="#">Voice</a>
+</nav>
+
+<div style="flex: 999 1 560px; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 12px">
+<section class="panel" aria-label="gpu-box">
+<div class="ph"><span class="dot dw" aria-hidden="true"></span><span class="t">gpu-box</span><span class="g">RTX 4090 · llama.cpp :8080 · vLLM :8000</span><span class="sp"></span><button class="btn" type="button">make it fit</button><button class="btn ib ghost" type="button" aria-label="More for gpu-box">⋯</button></div>
+<div style="padding: 12px 14px; display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; align-items: baseline; gap: 12px"><span class="mono" style="font-size: 10.5px; letter-spacing: .12em; color: #7D8995">VRAM</span><span class="mono" style="font-size: 18px">17.3<span style="color: #9AA6B2; font-size: 12px"> / 24 GB</span></span><span class="mono" style="font-size: 11.5px; color: #3DD68C">6.7 GB free</span></div>
+<div class="vb" role="img" aria-label="VRAM: qwen3-coder 9.1 GB, glm-5-coder 6.2 GB, KV cache 2.0 GB"><span style="width: 38%; background: #22D3EE"></span><span style="width: 26%; background: #1597AB"></span><span style="width: 8%; background: #A78BFA"></span></div>
+<div class="vk"><span><i class="sw" style="background: #22D3EE"></i>qwen3-coder 9.1</span><span><i class="sw" style="background: #1597AB"></i>glm-5-coder 6.2</span><span><i class="sw" style="background: #A78BFA"></i>kv cache 2.0</span></div>
+</div>
+<div class="hcs">
+<div class="hc" title="nvidia-smi utilization.gpu"><span class="l">GPU<span>smi</span></span><span class="v">62<small>%</small></span><span class="tick" aria-hidden="true"><span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span><span></span><span></span><span></span><span></span></span></div>
+<div class="hc" title="free -g"><span class="l">RAM<span>free</span></span><span class="v">41<small>/64 GB</small></span><span class="tick" aria-hidden="true"><span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span><span></span><span></span><span></span><span></span></span></div>
+<div class="hc" title="/proc/stat"><span class="l">CPU<span>stat</span></span><span class="v">23<small>%</small></span><span class="tick" aria-hidden="true"><span class="on"></span><span class="on"></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></div>
+<div class="hc" title="nvidia-smi temperature.gpu"><span class="l">TEMP<span>smi</span></span><span class="v">68<small>°C</small></span><span class="tick" aria-hidden="true"><span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span><span></span><span></span><span></span></span></div>
+<div class="hc" title="nvidia-smi power.draw"><span class="l">POWER<span>smi</span></span><span class="v">284<small>W</small></span><span class="tick" aria-hidden="true"><span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span><span></span><span></span><span></span></span></div>
+</div>
+</section>
+
+<section class="panel" aria-label="macbookpro">
+<div class="ph" style="border-bottom: 0"><span class="dot dd" aria-hidden="true"></span><span class="t">macbookpro</span><span class="g">M3 Max · Ollama :11434</span><span class="sp"></span><span class="mono" style="font-size: 11.5px; color: #9AA6B2">GPU 18% · CPU 12% · 51°C · unified 52/96 GB · qwen3-lead</span><span style="width: 8px"></span></div>
+</section>
+
+<section class="panel" style="flex: 1 1 0; min-height: 0" aria-label="Traffic">
+<div class="ph"><span class="dot dw" aria-hidden="true"></span><span class="t">Traffic</span><span class="g">every call to a local server</span><span class="sp"></span><button class="btn" type="button">all hosts ▾</button></div>
+<div class="log" style="flex: 1 1 0; min-height: 0; overflow: auto">
+<div class="lr h"><span>TIME</span><span>HOST</span><span>MODEL · AGENT</span><span>TOKENS</span><span>SPEED</span><span>TOOK</span><span>STATE</span></div>
+<div class="lr"><span style="color: #7D8995">05:09:46</span><span>gpu-box</span><span>qwen3-coder · tester</span><span>3.1k → 212</span><span style="color: #67E8F9">88 tok/s</span><span>2.4s</span><span style="color: #22D3EE">streaming</span></div>
+<div class="lr"><span style="color: #7D8995">05:09:44</span><span>gpu-box</span><span>glm-5-coder · implementer</span><span>8.4k → 640</span><span>96 tok/s</span><span>6.7s</span><span style="color: #3DD68C">200</span></div>
+<div class="ev"><span style="color: #7D8995">05:09:40</span><span>STEWARD unloaded glm-4-air after 10 min idle · freed 5.8 GB on gpu-box</span></div>
+<div class="lr"><span style="color: #7D8995">05:09:38</span><span>macbookpro</span><span>qwen3-lead · main</span><span>12.0k → 388</span><span>41 tok/s</span><span>9.5s</span><span style="color: #3DD68C">200</span></div>
+<div class="lr"><span style="color: #7D8995">05:09:31</span><span>gpu-box</span><span>qwen3-coder · verifier</span><span>5.2k → 96</span><span>—</span><span>0.8s</span><span style="color: #FF5C6A">ctx 95%</span></div>
+<div class="lr"><span style="color: #7D8995">05:09:20</span><span>gpu-box</span><span>glm-5-coder · docs</span><span>2.7k → 410</span><span>102 tok/s</span><span>4.1s</span><span style="color: #3DD68C">200</span></div>
+</div>
+</section>
+</div>
+</div>
+
+<footer class="mono" style="height: 26px; flex: 0 0 26px; display: flex; align-items: center; gap: 16px; padding: 0 16px; border-top: 1px solid #1A2028; background: #0B0E12; font-size: 11px; color: #9AA6B2; white-space: nowrap; overflow: hidden">
+<span style="display: flex; align-items: center; gap: 6px"><span class="dot dd" aria-hidden="true"></span>CONNECTED</span><span>halo 3.3.1.0</span><span>steward on</span><span class="sp"></span><span>gpu-box rtx4090 62%</span><span>⌘K</span>
+</footer>
+</div>
+</div>
+</body>
+</html>

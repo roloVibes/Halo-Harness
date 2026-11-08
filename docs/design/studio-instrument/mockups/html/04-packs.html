@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Instrument: Packs</title>
+</head>
+<body style="background:#07090C">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#22D3EE}a:hover{color:#7FE6F5}
+.app,.app *{box-sizing:border-box}
+.app{font-family:Inter,-apple-system,system-ui,sans-serif;color:#E6EDF3;font-size:13px;line-height:20px}
+.mono{font-family:'JetBrains Mono',ui-monospace,'SF Mono',monospace}
+.rail{flex:0 0 52px;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 0;background:#0B0E12;border-right:1px solid #1A2028}
+.ri{position:relative;width:40px;height:40px;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#7D8995;text-decoration:none}
+.ri svg{width:19px;height:19px}
+.ri:hover{color:#E6EDF3;background:#0F1318}
+.ri.sel{color:#22D3EE;background:#0F1318}
+.ri.sel::before{content:'';position:absolute;left:-6px;top:10px;bottom:10px;width:2px;background:#22D3EE}
+.ri .bd{position:absolute;top:2px;right:2px;min-width:15px;height:15px;padding:0 4px;border-radius:2px;background:#F5A524;color:#1A1203;font:700 10px/15px 'JetBrains Mono',monospace;text-align:center}
+.dv{width:22px;height:1px;background:#1A2028;margin:5px 0}
+.hdr{height:48px;flex:0 0 48px;display:flex;align-items:center;gap:12px;padding:0 16px;background:#0B0E12;border-bottom:1px solid #1A2028}
+.btn{height:30px;padding:0 10px;border-radius:4px;background:#0F1318;border:1px solid #232A33;color:#E6EDF3;font:500 12px/1 'JetBrains Mono',monospace;display:inline-flex;align-items:center;gap:8px;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:#36404C;background:#151A21}
+.btn:focus-visible,.ri:focus-visible,.pg:focus-visible{outline:1px solid #22D3EE;outline-offset:2px}
+.btn.ghost{background:transparent;border-color:transparent;color:#9AA6B2}
+.ib{width:30px;padding:0;justify-content:center}
+.kbd{font-family:'JetBrains Mono',monospace;font-size:10.5px;line-height:16px;padding:0 5px;border-radius:3px;border:1px solid #232A33;color:#9AA6B2}
+.panel{position:relative;background:#0F1318;border:1px solid #232A33;border-radius:6px;display:flex;flex-direction:column;min-width:0;overflow:hidden;background-image:linear-gradient(#22D3EE,#22D3EE),linear-gradient(#22D3EE,#22D3EE),linear-gradient(#22D3EE,#22D3EE),linear-gradient(#22D3EE,#22D3EE);background-size:10px 1px,1px 10px,10px 1px,1px 10px;background-position:0 0,0 0,100% 100%,100% 100%;background-repeat:no-repeat}
+.ph{height:40px;flex:0 0 40px;display:flex;align-items:center;gap:10px;padding:0 8px 0 14px;border-bottom:1px solid #1A2028}
+.ph .t{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase}
+.ph .g{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:#9AA6B2}
+.sp{flex:1 1 auto}
+.dot{width:7px;height:7px;border-radius:1px;flex:0 0 7px;display:inline-block}
+.dw{background:#22D3EE;animation:blink 1.4s ease-in-out infinite}
+@keyframes blink{50%{opacity:.35}}
+.dd{background:#3DD68C}.di{background:#36404C}
+.pg{display:flex;align-items:center;justify-content:space-between;height:34px;padding:0 12px;color:#9AA6B2;text-decoration:none;font:500 12px/1 'JetBrains Mono',monospace;border-left:2px solid transparent}
+.pg:hover{color:#E6EDF3;background:#0F1318}
+.pg.sel{color:#E6EDF3;background:#0F1318;border-left-color:#22D3EE}
+.pg i{font-style:normal;color:#7D8995;font-size:11px}
+.hcs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border-top:1px solid #1A2028}
+.hc{padding:12px 14px;border-right:1px solid #1A2028;display:flex;flex-direction:column;gap:6px;min-width:0}
+.hc:last-child{border-right:0}
+.hc .l{font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.12em;color:#7D8995;display:flex;justify-content:space-between}
+.hc .v{font-family:'JetBrains Mono',monospace;font-size:22px;line-height:26px}
+.hc .v small{font-size:12px;color:#9AA6B2}
+.tick{height:6px;display:flex;gap:2px}
+.tick span{flex:1;background:#1A2028}
+.tick span.on{background:#22D3EE}
+.vb{height:16px;display:flex;gap:2px;background:#0B0E12;border:1px solid #1A2028;padding:2px}
+.vb span{height:10px;transform-origin:left;animation:fillin .6s cubic-bezier(.2,.8,.2,1) 1}
+@keyframes fillin{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+.vk{display:flex;gap:16px;flex-wrap:wrap;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:#9AA6B2}
+.vk span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:8px;height:8px;display:inline-block}
+.log{font-family:'JetBrains Mono',monospace;font-size:12px;line-height:18px}
+.lr{display:grid;grid-template-columns:66px 92px minmax(0,1fr) 110px 82px 60px 80px;gap:12px;padding:8px 14px;border-top:1px solid #151A21;align-items:center}
+.lr.h{font-size:10.5px;letter-spacing:.12em;color:#7D8995;border-top:0}
+.ev{padding:8px 14px;border-top:1px solid #151A21;color:#A78BFA;display:flex;gap:12px}
+.still *{animation:none !important}
+@media (prefers-reduced-motion: reduce){.app *{animation:none !important}}
+.pk{display:grid;grid-template-columns:minmax(0,1.4fr) 84px minmax(0,1.2fr) 90px 90px;gap:12px;align-items:center;padding:10px 14px;border-top:1px solid #151A21;font-size:12.5px;cursor:pointer}
+.pk:hover{background:#151A21}
+.pk.sel{background:#151A21;box-shadow:inset 2px 0 0 #22D3EE}
+.pk.h{font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.12em;color:#7D8995;border-top:0;cursor:default}
+.pk .m{font-family:'JetBrains Mono',monospace;font-size:11px;color:#9AA6B2}
+.tag{display:inline-flex;align-items:center;height:18px;padding:0 6px;border:1px solid #232A33;border-radius:2px;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:#9AA6B2;margin-right:4px}
+.sec{font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.12em;color:#7D8995;padding:12px 14px 6px;border-top:1px solid #1A2028}
+.kv2{display:grid;grid-template-columns:96px minmax(0,1fr);row-gap:4px;padding:0 14px 12px;font-size:12.5px;line-height:18px}
+.kv2 span:nth-child(odd){color:#7D8995;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:18px}
+.file{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:#E6EDF3;background:#151A21;padding:0 4px;border-radius:2px}
+</style>
+<div class="app" style="display: flex; width: 100%; min-width: 1024px; height: 900px; background: #07090C; overflow: hidden">
+
+<nav class="rail" aria-label="Sections">
+<span aria-hidden="true" style="height: 40px; display: flex; align-items: center; justify-content: center; color: #22D3EE; margin-bottom: 4px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><ellipse cx="12" cy="7" rx="8" ry="3"></ellipse><path d="M6 13v4M12 13v6M18 13v4"></path></svg></span>
+<a class="ri" href="#" aria-label="Session, Alt 1" title="Session · ⌥1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" aria-hidden="true"><path d="M3 12h4l2-6 4 12 2-6h6"></path></svg></a>
+<a class="ri" href="#" aria-label="Team, Alt 2" title="Team · ⌥2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" aria-hidden="true"><circle cx="9" cy="8" r="3"></circle><path d="M3 19c0-3 3-5 6-5s6 2 6 5M16 5a3 3 0 0 1 0 6M18 14c2 .5 3 2.5 3 5"></path></svg></a>
+<a class="ri" href="#" aria-label="Roles, Alt 3" title="Roles · ⌥3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" aria-hidden="true"><rect x="9" y="3" width="6" height="5"></rect><rect x="3" y="16" width="6" height="5"></rect><rect x="15" y="16" width="6" height="5"></rect><path d="M12 8v4M6 16v-4h12v4"></path></svg></a>
+<a class="ri" href="#" aria-label="Fleet, Alt 4" title="Fleet · ⌥4"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" aria-hidden="true"><circle cx="12" cy="5" r="2"></circle><circle cx="5" cy="19" r="2"></circle><circle cx="19" cy="19" r="2"></circle><path d="M11 7l-5 10M13 7l5 10M7 19h10"></path></svg></a>
+<a class="ri" href="#" aria-label="Local, Alt 5" title="Local · ⌥5"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" aria-hidden="true"><rect x="6" y="6" width="12" height="12"></rect><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"></path></svg></a>
+<span class="dv" aria-hidden="true"></span>
+<a class="ri" href="#" aria-label="Orchestra, Alt 6" title="Orchestra · ⌥6"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" aria-hidden="true"><circle cx="6" cy="5" r="2"></circle><circle cx="6" cy="19" r="2"></circle><circle cx="18" cy="12" r="2"></circle><path d="M6 7v10M6 9c0 3 4 3 10 3"></path></svg></a>
+<a class="ri sel" href="#" aria-current="page" aria-label="Packs, Alt 7" title="Packs · ⌥7"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"></path><path d="M4 7.5l8 4.5 8-4.5M12 12v9"></path></svg></a>
+<a class="ri" href="#" aria-label="Design, Alt 8" title="Design · ⌥8"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" aria-hidden="true"><path d="M4 20l4-1 11-11-3-3L5 16z"></path><path d="M14 6l3 3"></path></svg></a>
+<span class="dv" aria-hidden="true"></span>
+<a class="ri" href="#" aria-label="Setup, Alt 9" title="Setup · ⌥9"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M10 8.5l5 3.5-5 3.5z"></path></svg></a>
+<a class="ri" href="#" aria-label="Settings, Alt 0" title="Settings · ⌥0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"></path><circle cx="16" cy="6" r="2"></circle><circle cx="10" cy="12" r="2"></circle><circle cx="18" cy="18" r="2"></circle></svg></a>
+<span class="sp"></span>
+<span class="dot dd" title="connected · halo 3.3.1.0" aria-label="connected"></span>
+<button class="ri" type="button" aria-label="Expand sidebar" title="Expand · ⌥[" style="border: 0; background: transparent; cursor: pointer; margin-top: 6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></button>
+</nav>
+<div style="flex: 1 1 0; min-width: 0; display: flex; flex-direction: column">
+<header class="hdr">
+<span class="mono" style="font-size: 13px; font-weight: 600; letter-spacing: .14em">PACKS</span>
+<span style="color: #36404C">/</span>
+<span class="mono" style="font-size: 12px">pack manager</span>
+<span class="mono" style="font-size: 11.5px; color: #9AA6B2">6 installed · 2 updates · 14 available</span>
+<span class="sp"></span>
+<label style="height: 30px; width: 300px; border-radius: 4px; background: #0F1318; border: 1px solid #232A33; display: flex; align-items: center; gap: 8px; padding: 0 10px; color: #7D8995"><span class="mono" style="font-size: 12px">&gt;</span><input type="text" placeholder="search packs" aria-label="Search packs" style="flex: 1; min-width: 0; background: transparent; border: 0; outline: 0; color: #E6EDF3; font: 12px 'JetBrains Mono', monospace"><span class="kbd">/</span></label>
+<button class="btn" type="button">add from path</button>
+<button class="btn" type="button">focus<span class="kbd">⇧F</span></button>
+<button class="btn ib ghost" type="button" aria-label="How this section works">?</button>
+</header>
+
+<div style="flex: 1 1 0; min-height: 0; display: flex; gap: 12px; padding: 12px">
+<section class="panel" style="flex: 1 1 0" aria-label="Packs">
+<div class="ph"><span class="t">Packs</span><span class="g">what each one adds, and whether it is current</span><span class="sp"></span><span style="display: inline-flex; border: 1px solid #232A33; border-radius: 4px"><button class="btn on" type="button" style="height: 26px; border-radius: 0">installed</button><button class="btn ghost" type="button" style="height: 26px">available</button><button class="btn ghost" type="button" style="height: 26px">updates <span style="color: #F5A524">2</span></button></span></div>
+<div class="pk h"><span>PACK</span><span>VERSION</span><span>ADDS</span><span>SIZE</span><span>STATE</span></div>
+<div class="pk" tabindex="0"><span><b style="font-weight: 600">core-coding</b><br><span class="m">halo · shipped</span></span><span class="m">3.3.1</span><span><span class="tag">4 agents</span><span class="tag">9 tools</span></span><span class="m">1.2 MB</span><span class="mono" style="font-size: 11px; color: #3DD68C">current</span></div>
+<div class="pk sel" tabindex="0"><span><b style="font-weight: 600">security-review</b><br><span class="m">roloVibes · github</span></span><span class="m">1.4.0 <span style="color: #F5A524">→ 1.5.0</span></span><span><span class="tag">2 agents</span><span class="tag">6 tools</span><span class="tag">3 skills</span></span><span class="m">840 KB</span><span class="mono" style="font-size: 11px; color: #F5A524">update</span></div>
+<div class="pk" tabindex="0"><span><b style="font-weight: 600">web-research</b><br><span class="m">halo · shipped</span></span><span class="m">3.3.1</span><span><span class="tag">1 agent</span><span class="tag">4 tools</span></span><span class="m">310 KB</span><span class="mono" style="font-size: 11px; color: #3DD68C">current</span></div>
+<div class="pk" tabindex="0"><span><b style="font-weight: 600">local-models</b><br><span class="m">halo · shipped</span></span><span class="m">3.3.1</span><span><span class="tag">steward</span><span class="tag">7 tools</span></span><span class="m">2.0 MB</span><span class="mono" style="font-size: 11px; color: #3DD68C">current</span></div>
+<div class="pk" tabindex="0"><span><b style="font-weight: 600">docs-writer</b><br><span class="m">community</span></span><span class="m">0.9.2 <span style="color: #F5A524">→ 1.0.0</span></span><span><span class="tag">1 agent</span><span class="tag">2 skills</span></span><span class="m">120 KB</span><span class="mono" style="font-size: 11px; color: #F5A524">update</span></div>
+<div class="pk" tabindex="0" style="opacity: .7"><span><b style="font-weight: 600">voice</b><br><span class="m">halo · shipped</span></span><span class="m">3.3.1</span><span><span class="tag">2 tools</span></span><span class="m">4.6 MB</span><span class="mono" style="font-size: 11px; color: #9AA6B2">disabled</span></div>
+<div style="padding: 10px 14px; border-top: 1px solid #1A2028; font-size: 12px; color: #7D8995" class="mono">packs live in ~/.halo/packs · a pack never runs until you apply it to a lineup</div>
+</section>
+
+<aside class="panel" style="flex: 0 0 440px" aria-label="security-review">
+<div style="padding: 14px 14px 10px; display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; align-items: center; gap: 10px"><span style="font-size: 16px; font-weight: 600">security-review</span><span class="mono" style="font-size: 11px; color: #F5A524">1.4.0 → 1.5.0</span><span class="sp"></span><button class="btn ib ghost" type="button" aria-label="Close">✕</button></div>
+<div style="font-size: 12.5px; color: #9AA6B2; line-height: 18px">Adds a reviewer and a scanner that read diffs for auth, injection and secret handling, with three skills the lineup's coder can call.</div>
+</div>
+<div class="sec">BEFORE IT RUNS · WHAT THIS UPDATE DOES</div>
+<div class="kv2">
+<span>DOES</span><span>Replaces the scanner's rules (OWASP 2025 set), adds a <span class="file">secrets</span> skill, bumps the reviewer's default model to kimi-k3-research.</span>
+<span>COSTS</span><span>840 KB on disk · ~$0.004 per review at the default model · no network calls at run time.</span>
+<span>WRITES</span><span><span class="file">~/.halo/packs/security-review/</span> · <span class="file">~/.halo/agents/sec-reviewer.yaml</span> · <span class="file">~/.halo/agents/sec-scanner.yaml</span> · a line in <span class="file">packs.lock</span>.</span>
+<span>TOUCHES</span><span>2 lineups use this pack: <span class="file">default</span>, <span class="file">bounty</span>. They pick up the change on their next session.</span>
+</div>
+<div class="sec">CONTENTS</div>
+<div class="kv2">
+<span>AGENTS</span><span>sec-reviewer · sec-scanner</span>
+<span>TOOLS</span><span>semgrep · gitleaks · trufflehog · nuclei · bandit · diff-scope</span>
+<span>SKILLS</span><span>auth-review · injection-review · secrets</span>
+<span>SOURCE</span><span class="mono" style="font-size: 11.5px">github.com/roloVibes/halo-pack-security-review @ v1.5.0 · signed</span>
+</div>
+<div class="sec">CHANGES · 1.5.0</div>
+<div style="padding: 0 14px 12px; font-size: 12.5px; line-height: 18px; color: #9AA6B2; display: flex; flex-direction: column; gap: 4px"><span>+ secrets skill: flags keys and tokens in diffs before commit</span><span>+ scanner: OWASP 2025 rule set</span><span>~ reviewer: default model kimi-k3-research (was glm-5)</span><span>− drops the deprecated <span class="file">quick-scan</span> tool</span></div>
+<span class="sp"></span>
+<div style="padding: 10px 14px 12px; border-top: 1px solid #1A2028; display: flex; gap: 6px; align-items: center"><button class="btn on" type="button">update to 1.5.0</button><button class="btn" type="button">view diff</button><span class="sp"></span><button class="btn ghost" type="button" style="color: #FF5C6A">remove</button></div>
+</aside>
+</div>
+
+<footer class="mono" style="height: 26px; flex: 0 0 26px; display: flex; align-items: center; gap: 16px; padding: 0 16px; border-top: 1px solid #1A2028; background: #0B0E12; font-size: 11px; color: #9AA6B2; white-space: nowrap; overflow: hidden">
+<span style="display: flex; align-items: center; gap: 6px"><span class="dot dd" aria-hidden="true"></span>CONNECTED</span><span>halo 3.3.1.0</span><span>packs.lock clean</span><span class="sp"></span><span style="color: #F5A524">2 updates</span><span>⌘K</span>
+</footer>
+</div>
+</div>
+</body>
+</html>

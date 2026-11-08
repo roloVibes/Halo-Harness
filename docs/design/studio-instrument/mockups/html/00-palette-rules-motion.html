@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Halo Studio looks</title>
+</head>
+<body style="background:#07090C">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#5AC8FA}a:hover{color:#9BDDFB}
+.sheet *{box-sizing:border-box}
+.col{border-radius:20px;padding:28px;display:flex;flex-direction:column;gap:20px;min-width:0}
+.col h2{margin:0;font-size:22px;font-weight:600;letter-spacing:-0.01em}
+.col p{margin:0;font-size:13px;line-height:20px}
+.sws{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:16px;row-gap:6px}
+.sw{display:flex;align-items:center;gap:8px;font-size:12px;line-height:18px;min-width:0}
+.chip{width:18px;height:18px;border-radius:5px;flex:0 0 18px}
+.tk{font-family:'JetBrains Mono',ui-monospace,monospace;flex:1 1 auto}
+.hx{font-family:'JetBrains Mono',ui-monospace,monospace;opacity:.8}
+.cr{font-family:'JetBrains Mono',ui-monospace,monospace;width:34px;text-align:right}
+.lab{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+.kv{display:grid;grid-template-columns:96px minmax(0,1fr);row-gap:6px;font-size:12px;line-height:18px}
+.kv .m{font-family:'JetBrains Mono',ui-monospace,monospace}
+.edges{display:flex;flex-direction:column;gap:8px}
+.edge{display:flex;align-items:center;gap:12px;font-size:12px}
+.edge svg{flex:0 0 120px;overflow:visible}
+.flow{stroke-dasharray:4 8;animation:flow .9s linear infinite}
+@keyframes flow{to{stroke-dashoffset:-12}}
+.blip{animation:blip 1.6s ease-out 3;transform-origin:center}
+@keyframes blip{0%{opacity:1}50%{opacity:.35}100%{opacity:1}}
+.motion{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:20px}
+.mv{border-radius:16px;padding:20px;background:#121826;border:1px solid #2A3446;display:flex;flex-direction:column;gap:12px;min-width:0}
+.mv b{font-size:14px;font-weight:600;color:#EEF2F8}
+.mv span.d{font-size:12px;line-height:18px;color:#A3AEC2}
+.stage{height:84px;border-radius:10px;background:#0B0F17;position:relative;overflow:hidden}
+.spawn{position:absolute;left:96px;top:44px;width:96px;height:28px;border-radius:8px;border:1px solid #5AC8FA;background:#13283a;animation:spawn 4s ease-out infinite}
+@keyframes spawn{0%{opacity:0;transform:translateY(-6px) scale(.96)}12%{opacity:1;transform:none}70%{border-color:#5AC8FA;background:#13283a}80%{border-color:#34D399;background:#12302a}100%{border-color:#2A3446;background:#151C29}}
+.drop{position:absolute;left:143px;top:8px;width:2px;height:36px;background:#5AC8FA;transform-origin:top;animation:drop 4s ease-out infinite}
+@keyframes drop{0%{transform:scaleY(0)}10%{transform:scaleY(1)}75%{background:#5AC8FA}85%{background:#34D399}100%{background:#2A3446}}
+.rung{position:absolute;left:24px;width:48px;height:10px;border-radius:3px;background:#222B3A}
+.r1{bottom:10px;animation:rung 4s infinite 0s}.r2{bottom:26px;animation:rung 4s infinite .5s}.r3{bottom:42px;animation:rung 4s infinite 1s}.r4{bottom:58px;animation:rung 4s infinite 1.5s}
+@keyframes rung{0%,8%{background:#222B3A}14%,90%{background:#34D399}100%{background:#222B3A}}
+.fit{position:absolute;left:20px;right:20px;top:36px;height:12px;border-radius:6px;background:#222B3A;overflow:hidden}
+.fitv{height:12px;width:72%;border-radius:6px;background:#5AC8FA;transform-origin:left;animation:fitf 4s cubic-bezier(.2,.8,.2,1) infinite}
+@keyframes fitf{0%{transform:scaleX(0)}30%,100%{transform:scaleX(1)}}
+.toast{position:absolute;right:14px;bottom:12px;width:150px;height:30px;border-radius:10px;background:#1C2433;border:1px solid #2A3446;animation:toast 4s cubic-bezier(.2,.8,.2,1) infinite}
+@keyframes toast{0%{opacity:0;transform:translateY(16px)}10%,80%{opacity:1;transform:none}92%,100%{opacity:0;transform:translateY(0)}}
+.still *{animation:none !important}
+@media (prefers-reduced-motion: reduce){.sheet *{animation:none !important}}
+</style>
+<div class="sheet" style="width: 1440px; height: 1040px; box-sizing: border-box; padding: 48px 56px; background: #0A0D13; font-family: Inter, -apple-system, 'SF Pro Text', system-ui, sans-serif; color: #EEF2F8; display: flex; flex-direction: column; gap: 28px">
+<div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 24px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span class="lab" style="color: #8590A6">Halo Studio · the chosen look · 17-token palette, AA checked</span>
+<h1 style="margin: 0; font-size: 34px; font-weight: 600; letter-spacing: -0.02em">Instrument: light moves only where work moves</h1>
+</div>
+<span style="font-size: 13px; color: #A3AEC2; max-width: 360px; line-height: 20px; text-align: right">Ratios are text on <span style="font-family: 'JetBrains Mono', monospace">surface</span>. Every pair clears 4.5:1.</span>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px">
+
+<div class="col" style="background: #121826; border: 1px solid #2A3446; color: #EEF2F8">
+<div style="display: flex; flex-direction: column; gap: 6px"><span class="lab" style="color: #8590A6">Shell rules</span><h2>What the look commits to</h2><p style="color: #A3AEC2">Icon rail, 52 px, collapsible; order Session · Team · Roles · Fleet · Local · Orchestra · Packs · Design · Setup · Settings. Everything else below.</p></div>
+<div style="display: flex; flex-direction: column; gap: 14px; font-size: 13px; line-height: 20px">
+<div style="display: flex; flex-direction: column; gap: 4px"><b style="font-weight: 600">Model names, not provider prefixes</b><span style="color: #A3AEC2">Nodes and lines show <span class="hx">qwen3-coder</span>, never <span class="hx">ol/qwen3-coder</span>. The host and provider live in the inspector and on hover.</span></div>
+<div style="display: flex; flex-direction: column; gap: 4px"><b style="font-weight: 600">Nothing is cut off</b><span style="color: #A3AEC2">Node tiles carry only a name, a model, a cost and a short state. Full commands and paths wrap in Live and in the inspector, with <span class="hx">overflow-wrap: anywhere</span>.</span></div>
+<div style="display: flex; flex-direction: column; gap: 4px"><b style="font-weight: 600">One state language</b><span style="color: #A3AEC2">Working flows along the edge toward the agent. Waiting pulses three times then holds. Done goes green and fades over 10 s. Failed stays until clicked. Every state also differs in lightness, not hue alone.</span></div>
+<div style="display: flex; flex-direction: column; gap: 4px"><b style="font-weight: 600">Linked highlight</b><span style="color: #A3AEC2">Hover or select an agent anywhere (a Live line, a list row, a node) and the same agent lights everywhere else on the page with a white ring.</span></div>
+<div style="display: flex; flex-direction: column; gap: 4px"><b style="font-weight: 600">Quiet shell</b><span style="color: #A3AEC2">No background grids or scanlines that run while nothing happens. Chrome earns its pixels: 44 px rail or less, 48 px header, 26 px status bar.</span></div>
+<div style="display: flex; flex-direction: column; gap: 4px"><b style="font-weight: 600">Seventeen tokens</b><span style="color: #A3AEC2">The palette is exactly the harness's token set. Glass, glow and soft tints derive from it in <span class="hx">tokens.css</span>; no component carries a colour literal.</span></div>
+</div>
+</div>
+
+<div class="col" style="background: #0B0E12; border: 1px solid #232A33; border-radius: 6px; color: #E6EDF3">
+<div style="display: flex; flex-direction: column; gap: 6px"><span class="lab" style="color: #22D3EE">B · dark</span><h2 style="font-family: 'JetBrains Mono', monospace; font-size: 20px; font-weight: 500">Instrument</h2><p style="color: #9AA6B2">Near-black, 1px hairlines, a faint dot grid and corner ticks. Data first, mono labels. Mission control without the glow.</p></div>
+<div class="sws" style="color: #E6EDF3">
+<div class="sw"><span class="chip" style="background: #07090C; border: 1px solid #232A33; border-radius: 2px"></span><span class="tk">bg</span><span class="hx">#07090C</span><span class="cr"></span></div>
+<div class="sw"><span class="chip" style="background: #E6EDF3; border-radius: 2px"></span><span class="tk">text</span><span class="hx">#E6EDF3</span><span class="cr" style="color: #3DD68C">15.8</span></div>
+<div class="sw"><span class="chip" style="background: #0B0E12; border: 1px solid #232A33; border-radius: 2px"></span><span class="tk">bg2</span><span class="hx">#0B0E12</span><span class="cr"></span></div>
+<div class="sw"><span class="chip" style="background: #9AA6B2; border-radius: 2px"></span><span class="tk">muted</span><span class="hx">#9AA6B2</span><span class="cr" style="color: #3DD68C">7.5</span></div>
+<div class="sw"><span class="chip" style="background: #0F1318; border: 1px solid #232A33; border-radius: 2px"></span><span class="tk">surface</span><span class="hx">#0F1318</span><span class="cr"></span></div>
+<div class="sw"><span class="chip" style="background: #7D8995; border-radius: 2px"></span><span class="tk">faint</span><span class="hx">#7D8995</span><span class="cr" style="color: #3DD68C">5.2</span></div>
+<div class="sw"><span class="chip" style="background: #151A21; border: 1px solid #232A33; border-radius: 2px"></span><span class="tk">surface2</span><span class="hx">#151A21</span><span class="cr"></span></div>
+<div class="sw"><span class="chip" style="background: #22D3EE; border-radius: 2px"></span><span class="tk">accent</span><span class="hx">#22D3EE</span><span class="cr" style="color: #3DD68C">10.3</span></div>
+<div class="sw"><span class="chip" style="background: #232A33; border-radius: 2px"></span><span class="tk">border</span><span class="hx">#232A33</span><span class="cr"></span></div>
+<div class="sw"><span class="chip" style="background: #F5A524; border-radius: 2px"></span><span class="tk">accent2</span><span class="hx">#F5A524</span><span class="cr" style="color: #3DD68C">9.1</span></div>
+<div class="sw"><span class="chip" style="background: #1A2028; border-radius: 2px"></span><span class="tk">line</span><span class="hx">#1A2028</span><span class="cr"></span></div>
+<div class="sw"><span class="chip" style="background: #031317; border: 1px solid #22D3EE; border-radius: 2px"></span><span class="tk">accent_ink</span><span class="hx">#031317</span><span class="cr" style="color: #3DD68C">10.5</span></div>
+<div class="sw"><span class="chip" style="background: #3DD68C; border-radius: 2px"></span><span class="tk">ok</span><span class="hx">#3DD68C</span><span class="cr" style="color: #3DD68C">9.9</span></div>
+<div class="sw"><span class="chip" style="background: #F5A524; border-radius: 2px"></span><span class="tk">warn</span><span class="hx">#F5A524</span><span class="cr" style="color: #3DD68C">9.1</span></div>
+<div class="sw"><span class="chip" style="background: #FF5C6A; border-radius: 2px"></span><span class="tk">bad</span><span class="hx">#FF5C6A</span><span class="cr" style="color: #3DD68C">6.2</span></div>
+<div class="sw"><span class="chip" style="background: #A78BFA; border-radius: 2px"></span><span class="tk">user</span><span class="hx">#A78BFA</span><span class="cr" style="color: #3DD68C">6.8</span></div>
+<div class="sw"><span class="chip" style="background: #67E8F9; border-radius: 2px"></span><span class="tk">tool</span><span class="hx">#67E8F9</span><span class="cr" style="color: #3DD68C">12.9</span></div>
+</div>
+<div class="kv" style="color: #E6EDF3">
+<span style="color: #7D8995">Radii</span><span class="m">panel 6 · card 4 · control 4 · chip 3</span>
+<span style="color: #7D8995">Glass</span><span class="m">none: solid surfaces, hairline borders</span>
+<span style="color: #7D8995">Grid</span><span class="m">1px dots @ 16px, line @ 6% on maps</span>
+<span style="color: #7D8995">Type</span><span class="m">title 13 mono caps · body 13 · data 12 · cap 11</span>
+<span style="color: #7D8995">Spacing</span><span class="m">4 · 8 · 12 · 16 · 20 · 28</span>
+</div>
+<div class="edges">
+<span class="lab" style="color: #7D8995">Edges by state</span>
+<div class="edge"><svg width="120" height="8" viewBox="0 0 120 8" aria-hidden="true" style="fill: none"><path d="M 0 4 L 120 4" style="stroke: #22D3EE; stroke-opacity: .25; stroke-width: 1.5"></path><path class="flow" d="M 0 4 L 120 4" style="stroke: #22D3EE; stroke-width: 1.5"></path></svg><span>working: dashes flow toward the agent</span></div>
+<div class="edge"><svg width="120" height="8" viewBox="0 0 120 8" aria-hidden="true" style="fill: none"><path class="blip" d="M 0 4 L 120 4" style="stroke: #F5A524; stroke-width: 1.5"></path></svg><span>waiting: three pulses, then steady</span></div>
+<div class="edge"><svg width="120" height="8" viewBox="0 0 120 8" aria-hidden="true" style="fill: none"><path d="M 0 4 L 120 4" style="stroke: #3DD68C; stroke-width: 1.5"></path></svg><span>done: green, fades over 10 s</span></div>
+<div class="edge"><svg width="120" height="8" viewBox="0 0 120 8" aria-hidden="true" style="fill: none"><path d="M 0 4 L 120 4" style="stroke: #FF5C6A; stroke-width: 1.5; stroke-dasharray: 2 4"></path></svg><span>failed: red dotted, stays</span></div>
+</div>
+</div>
+
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 24px"><span class="lab" style="color: #8590A6">Motion that carries meaning</span><span style="font-size: 12px; color: #A3AEC2">Everything else is still. Nothing moves while nothing changes. Reduced motion: instant colour swaps.</span></div>
+<div class="motion">
+<div class="mv"><div class="stage"><span class="drop"></span><span class="spawn"></span></div><b>Agent starts, then ends</b><span class="d">Edge draws down 240 ms, card rises in 240 ms ease-out. On finish: green, then fades to plain over 10 s.</span></div>
+<div class="mv"><div class="stage"><span class="rung r1"></span><span class="rung r2"></span><span class="rung r3"></span><span class="rung r4"></span><span style="position: absolute; left: 88px; top: 30px; font-size: 12px; color: #A3AEC2; font-family: 'JetBrains Mono', monospace">plan → edit → test → ok</span></div><b>Receipt ladder climbs</b><span class="d">Each rung fills green 160 ms after the last, bottom up. One pass, no loop in product.</span></div>
+<div class="mv"><div class="stage"><div class="fit"><div class="fitv"></div></div><span style="position: absolute; left: 20px; top: 56px; font-size: 12px; color: #A3AEC2; font-family: 'JetBrains Mono', monospace">17.3 of 24 GB · fits</span></div><b>Fit meter fills</b><span class="d">Fills once to its value over 600 ms, decelerating. Amber past 80 %, red past 95 %.</span></div>
+<div class="mv"><div class="stage"><span class="toast"></span></div><b>Toast arrives</b><span class="d">Rises 16 px and fades in, 220 ms. Sits 4 s, fades out 180 ms. One line and a path.</span></div>
+</div>
+</div>
+</div>
+</body>
+</html>

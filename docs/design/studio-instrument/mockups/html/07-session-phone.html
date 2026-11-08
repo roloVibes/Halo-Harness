@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Instrument: Session on a phone</title>
+</head>
+<body style="background:#07090C">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#22D3EE}a:hover{color:#7FE6F5}
+.app,.app *{box-sizing:border-box}
+.app{font-family:Inter,-apple-system,system-ui,sans-serif;color:#E6EDF3;font-size:14px;line-height:20px}
+.mono{font-family:'JetBrains Mono',ui-monospace,'SF Mono',monospace}
+.btn{height:36px;padding:0 12px;border-radius:4px;background:#0F1318;border:1px solid #232A33;color:#E6EDF3;font:500 12px/1 'JetBrains Mono',monospace;display:inline-flex;align-items:center;gap:8px;cursor:pointer;white-space:nowrap}
+.btn.on{border-color:#22D3EE;color:#22D3EE;background:rgba(34,211,238,.08)}
+.btn.ghost{background:transparent;border-color:transparent;color:#9AA6B2}
+.kbd{font-family:'JetBrains Mono',monospace;font-size:10.5px;line-height:16px;padding:0 5px;border-radius:3px;border:1px solid #232A33;color:#9AA6B2}
+.sp{flex:1 1 auto}
+.dot{width:7px;height:7px;border-radius:1px;flex:0 0 7px;display:inline-block}
+.dw{background:#22D3EE;animation:blink 1.4s ease-in-out infinite}
+@keyframes blink{50%{opacity:.35}}
+.da{background:#F5A524;transform:rotate(45deg)}.dd{background:#3DD68C}.dx{background:#FF5C6A}.di{background:#7D8995}
+.panel{background:#0F1318;border:1px solid #232A33;border-radius:6px;display:flex;flex-direction:column;min-width:0;overflow:hidden}
+.ph{height:40px;display:flex;align-items:center;gap:10px;padding:0 8px 0 12px;border-bottom:1px solid #1A2028}
+.ph .t{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase}
+.ph .g{font-family:'JetBrains Mono',monospace;font-size:11px;color:#9AA6B2}
+.lr{display:flex;flex-direction:column;gap:4px;padding:10px 12px;border-top:1px solid #151A21}
+.lr .m{display:flex;align-items:center;gap:8px;font-size:11px;line-height:16px}
+.lr .tm{font-family:'JetBrains Mono',monospace;color:#7D8995}
+.k{font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:600;letter-spacing:.06em}
+.kT{color:#67E8F9}.kX{color:#9AA6B2}.kE{color:#FF5C6A}.kA{color:#F5A524}.kO{color:#3DD68C}
+.tag{display:inline-flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-weight:500;font-size:12px}
+.x{font-size:13px;line-height:19px;overflow-wrap:anywhere}
+.code{font-family:'JetBrains Mono',monospace;font-size:12px;color:#E6EDF3;background:#151A21;padding:0 4px;border-radius:2px}
+.ask{margin-top:4px;padding:10px;border:1px solid rgba(245,165,36,.55);background:rgba(245,165,36,.06);border-radius:4px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.nd{position:absolute;width:104px;height:44px;padding:5px 8px;border-radius:4px;background:#151A21;border:1px solid #232A33;font-family:'JetBrains Mono',monospace;font-size:10.5px;line-height:14px;color:#9AA6B2;display:flex;flex-direction:column}
+.nd b{font-family:Inter,system-ui,sans-serif;font-weight:600;font-size:12px;color:#E6EDF3;display:flex;align-items:center;gap:6px}
+.nd.w{border-color:rgba(34,211,238,.55);box-shadow:inset 0 2px 0 #22D3EE;color:#67E8F9}
+.nd.a2{border-color:rgba(245,165,36,.6);box-shadow:inset 0 2px 0 #F5A524;color:#F5A524}
+.nd.d{border-color:rgba(61,214,140,.5);box-shadow:inset 0 2px 0 #3DD68C;color:#3DD68C}
+.nd.x{border-color:rgba(255,92,106,.6);box-shadow:inset 0 2px 0 #FF5C6A;color:#FF5C6A}
+.e{position:absolute;overflow:visible;fill:none}
+.e .b{stroke:#2A323D;stroke-width:1.5}
+.e.w .b{stroke:#22D3EE;stroke-opacity:.25}
+.e.w .f{stroke:#22D3EE;stroke-width:1.5;stroke-dasharray:4 8;animation:flow .8s linear infinite}
+.e.a2 .b{stroke:#F5A524}.e.d .b{stroke:#3DD68C}.e.x .b{stroke:#FF5C6A;stroke-dasharray:2 4}
+@keyframes flow{to{stroke-dashoffset:-12}}
+.tab{flex:1 1 0;height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#7D8995;text-decoration:none;font:500 9.5px/12px 'JetBrains Mono',monospace;letter-spacing:.06em;text-transform:uppercase;position:relative}
+.tab.sel{color:#22D3EE}
+.tab svg{width:20px;height:20px}
+.still *{animation:none !important}
+@media (prefers-reduced-motion: reduce){.app *{animation:none !important}}
+</style>
+<div class="app" style="display: flex; flex-direction: column; width: 100%; max-width: 390px; min-height: 1180px; background: #07090C; overflow: hidden">
+
+<header style="height: 52px; flex: 0 0 52px; display: flex; align-items: center; gap: 10px; padding: 0 12px; background: #0B0E12; border-bottom: 1px solid #1A2028">
+<button class="btn ghost" type="button" aria-label="Sections" style="padding: 0 6px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path></svg></button>
+<span class="mono" style="font-size: 12px; font-weight: 600; letter-spacing: .14em">SESSION</span>
+<span class="sp"></span>
+<span class="mono" style="font-size: 11px; color: #9AA6B2">$0.0580 · ctx 38%</span>
+<button class="btn ghost" type="button" aria-label="Command palette" style="padding: 0 6px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg></button>
+</header>
+
+<div style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid #1A2028; background: #0B0E12; overflow-x: auto; white-space: nowrap">
+<button class="btn" type="button" style="height: 30px"><span class="dot dw" aria-hidden="true"></span>Ship the basket discount fix ▾</button>
+<span class="mono" style="font-size: 11px"><span style="color: #22D3EE">3 working</span> · <span style="color: #F5A524">1 waits</span> · <span style="color: #FF5C6A">1 failed</span></span>
+</div>
+
+<div style="flex: 1 1 auto; display: flex; flex-direction: column; gap: 10px; padding: 10px">
+
+<section class="panel" aria-label="Map">
+<div class="ph"><span class="dot dw" aria-hidden="true"></span><span class="t">Map</span><span class="g">4 of 7 live</span><span class="sp"></span><button class="btn ghost" type="button" style="height: 28px">roles ↗</button></div>
+<div style="overflow-x: auto; padding: 12px">
+<div style="position: relative; width: 352px; height: 232px">
+<svg class="e w" width="8" height="24" viewBox="0 0 8 24" aria-hidden="true" style="left: 172px; top: 44px; width: 8px; height: 24px"><path class="b" d="M 4 0 L 4 24"></path><path class="f" d="M 4 0 L 4 24"></path></svg>
+<svg class="e" width="248" height="8" viewBox="0 0 248 8" aria-hidden="true" style="left: 52px; top: 64px; width: 248px; height: 8px"><path class="b" d="M 0 4 L 248 4"></path></svg>
+<svg class="e" width="8" height="26" viewBox="0 0 8 26" aria-hidden="true" style="left: 48px; top: 68px; width: 8px; height: 26px"><path class="b" d="M 4 0 L 4 26"></path></svg>
+<svg class="e w" width="8" height="26" viewBox="0 0 8 26" aria-hidden="true" style="left: 172px; top: 68px; width: 8px; height: 26px"><path class="b" d="M 4 0 L 4 26"></path><path class="f" d="M 4 0 L 4 26"></path></svg>
+<svg class="e w" width="8" height="26" viewBox="0 0 8 26" aria-hidden="true" style="left: 296px; top: 68px; width: 8px; height: 26px"><path class="b" d="M 4 0 L 4 26"></path><path class="f" d="M 4 0 L 4 26"></path></svg>
+<svg class="e d" width="8" height="48" viewBox="0 0 8 48" aria-hidden="true" style="left: 48px; top: 138px; width: 8px; height: 48px"><path class="b" d="M 4 0 L 4 48"></path></svg>
+<svg class="e a2" width="8" height="48" viewBox="0 0 8 48" aria-hidden="true" style="left: 172px; top: 138px; width: 8px; height: 48px"><path class="b" d="M 4 0 L 4 48"></path></svg>
+<svg class="e x" width="8" height="48" viewBox="0 0 8 48" aria-hidden="true" style="left: 296px; top: 138px; width: 8px; height: 48px"><path class="b" d="M 4 0 L 4 48"></path></svg>
+<div class="nd w" style="left: 124px; top: 0"><b><span class="dot dw" aria-hidden="true"></span>main</b><span>planning 4s</span></div>
+<div class="nd" style="left: 0; top: 94px"><b><span class="dot di" aria-hidden="true"></span>researcher</b><span>done 41s</span></div>
+<div class="nd w" style="left: 124px; top: 94px"><b><span class="dot dw" aria-hidden="true"></span>implementer</b><span>Edit 2s</span></div>
+<div class="nd w" style="left: 248px; top: 94px"><b><span class="dot dw" aria-hidden="true"></span>tester</b><span>Bash 12s</span></div>
+<div class="nd d" style="left: 0; top: 186px"><b><span class="dot dd" aria-hidden="true"></span>docs</b><span>done 29s</span></div>
+<div class="nd a2" style="left: 124px; top: 186px"><b><span class="dot da" aria-hidden="true"></span>reviewer</b><span>waits on you</span></div>
+<div class="nd x" style="left: 248px; top: 186px"><b><span class="dot dx" aria-hidden="true"></span>verifier</b><span>failed · 2</span></div>
+</div>
+</div>
+</section>
+
+<section class="panel" style="flex: 1 1 auto" aria-label="Live">
+<div class="ph"><span class="dot dw" aria-hidden="true"></span><span class="t">Live</span><span class="g">23 lines</span><span class="sp"></span><button class="btn on" type="button" style="height: 28px">follow</button><button class="btn ghost" type="button" style="height: 28px">⋯</button></div>
+<div class="lr"><div class="m"><span class="tm">05:09:33</span><span class="k kT">TOOL</span><span class="tag"><span class="dot dw" aria-hidden="true"></span>implementer</span></div><div class="x">Edit <span class="code">shop/basket.py</span> +12 −4</div></div>
+<div class="lr"><div class="m"><span class="tm">05:09:41</span><span class="k kO">STATE</span><span class="tag"><span class="dot dd" aria-hidden="true"></span>docs</span></div><div class="x">done · 29 s · wrote <span class="code">CHANGELOG.md</span></div></div>
+<div class="lr" style="background: rgba(34,211,238,.06)"><div class="m"><span class="tm">05:09:44</span><span class="k kT">TOOL</span><span class="tag"><span class="dot dw" aria-hidden="true"></span>tester</span><span class="sp"></span><span class="tm" style="color: #67E8F9">12 s</span></div><div class="x">Bash <span class="code">pytest -q tests/test_basket.py</span></div></div>
+<div class="lr"><div class="m"><span class="tm">05:09:45</span><span class="k kE">ERR</span><span class="tag"><span class="dot dx" aria-hidden="true"></span>verifier</span></div><div class="x">exit 1 · 2 failed · <a href="#" class="mono" style="font-size: 12px">logs/verifier/0945.log</a></div></div>
+<div class="lr"><div class="m"><span class="tm">05:09:46</span><span class="k kA">ASK</span><span class="tag"><span class="dot da" aria-hidden="true"></span>reviewer</span></div><div class="x">asks to run <span class="code">git push origin feature/basket</span></div>
+<div class="ask"><button class="btn" type="button" style="justify-content: center"><span class="kbd">A</span>allow</button><button class="btn" type="button" style="justify-content: center"><span class="kbd">R</span>deny</button><button class="btn" type="button" style="justify-content: center"><span class="kbd">S</span>stop</button><button class="btn" type="button" style="justify-content: center"><span class="kbd">O</span>open</button></div></div>
+</section>
+</div>
+
+<div style="padding: 10px 10px 8px; border-top: 1px solid #1A2028; background: #0B0E12; display: flex; flex-direction: column; gap: 6px">
+<div class="mono" style="display: flex; gap: 10px; font-size: 11px; color: #9AA6B2"><span style="color: #22D3EE; font-weight: 600; letter-spacing: .08em">STEER main</span><span>planning · 4 s</span></div>
+<div style="display: flex; gap: 6px"><label style="flex: 1; min-width: 0; height: 40px; border-radius: 4px; background: #07090C; border: 1px solid #232A33; display: flex; align-items: center; padding: 0 10px; gap: 8px"><span class="mono" style="color: #22D3EE">›</span><input type="text" placeholder="tell main what to do next" aria-label="Steer main" style="flex: 1; min-width: 0; background: transparent; border: 0; outline: 0; color: #E6EDF3; font: 13px 'JetBrains Mono', monospace"></label><button class="btn" type="button" style="height: 40px">send</button></div>
+</div>
+
+<nav style="display: flex; border-top: 1px solid #1A2028; background: #0B0E12; padding-bottom: 8px" aria-label="Session panels">
+<a class="tab sel" href="#" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 12h4l2-6 4 12 2-6h6"></path></svg>live</a>
+<a class="tab" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="5" r="2"></circle><circle cx="5" cy="19" r="2"></circle><circle cx="19" cy="19" r="2"></circle><path d="M11 7l-5 10M13 7l5 10"></path></svg>map</a>
+<a class="tab" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 18V8M10 18V4M16 18v-7M22 18H2"></path></svg>cost</a>
+<a class="tab" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v5M12 16h0"></path></svg>attention<span style="position: absolute; top: 6px; right: 22px; min-width: 14px; height: 14px; border-radius: 2px; background: #F5A524; color: #1A1203; font-size: 9px; line-height: 14px; text-align: center; font-weight: 700">1</span></a>
+<a class="tab" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 6h16v12H4zM8 10l3 2-3 2"></path></svg>prompt</a>
+</nav>
+</div>
+</body>
+</html>

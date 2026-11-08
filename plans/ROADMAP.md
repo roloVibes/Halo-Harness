@@ -4431,3 +4431,47 @@ measure is lines and files after versus before, said in the hand-back.
 R4 the pack kit is merged and green on both runners, with whatever of R2 pack themes and R3 the engines fold has landed;
 R5 mode themes (#5) and R6 the table detail + the parity audit may move to the next version. The Studio redesign brief for
 an outside design session is `docs/STUDIO-redesign-brief.md`; a proposal lands as a round on tokens.css, styles and lib/ui.
+
+## ADDED 2026-11-08 evening (rolo: "I downloaded a new gui look for halo ... make our new plans fit into the new look and redo the social media posts with the new gui and changes we made"): the Instrument look, on the six-section shell
+
+**What arrived.** A design session answered `docs/STUDIO-redesign-brief.md` with the "Instrument" look, now in the repo at
+`docs/design/studio-instrument/` (PROPOSAL.md, the mock-ups as HTML -- the source of truth for sizes and CSS -- and PNG at
+1440 x 900, 1280 x 800 and a 390-wide phone Session, and the prompt it was written to be applied with): one dark palette in
+the seventeen tokens (`instrument`: solid surfaces, hairlines, corner ticks on panels, cyan = working / selection / focus,
+amber = waiting / asks / attention, every text pair over 4.5:1 with the lowest at 4.9), the derived variables (no glass, a
+1 px ring for glow, a static dot grid on map canvases only, one shadow level, 4/8/12/16/20/28 spacing, mono data 12 px and
+prose 13 px, 160/240/600 ms motion), component specs for every `lib/ui` primitive and the shell, section mock-ups for
+Session (with the `+` menu, Focus and the phone), Roles Live, Local and Packs, and four animations that carry meaning (an
+agent starting and ending, the receipt ladder, the fit meter, a toast) with everything else still. The proposal restyles
+only: no section or panel is renamed, no shortcut or `data-testid` changes. Two shell notes ride outside the look: a rail
+that collapses to icons and expands to labels, and showing the resolved model id without the provider prefix on nodes.
+
+**The fit.** The mock-ups assume today's ten sections; the Focus plan's shell is six (Session, Agents, Local, Packs,
+Setup, Settings, + Design until F4). So the look is adopted as drawn and the shell beneath it is the six-section one: the
+rail order the proposal suggests (Session, Team, Roles, Fleet, Local, Orchestra, Packs, Design, Setup, Settings) is NOT
+taken; the rail is Session, Agents, Local, a divider, Packs, a divider, Setup, Settings. The proposal's Roles Live mock-up IS
+Agents' Live view (tier bands, the `auto` chip and its note card, the inspector on selection); an Orchestra run draws on
+the same tree with the worktree badge and lane colour the Agents round specifies; the Fleet Tree's nodes are the same node
+spec at the fleet scope; the Packs mock-up's detail block (`DOES / COSTS / WRITES / TOUCHES`) is the pack kit's offered-
+action rule made visible and the Dialog's three mono lines are the same rule for every confirmation.
+
+**The rounds (the look first, since it is independent of the consolidations; then the consolidations wear it):**
+- L1 **Instrument, the look** -- one round after 3.3.12.0 ships and the review's fix pass lands, as the proposal's own
+  prompt orders it minus the rail order: (1) the `instrument` palette added to `palettes.py` and made the Studio default
+  (`holo` stays available; `paper` stays the light default; the terminal picks the palette up through the generator);
+  (2) the derived block of `tokens.css` per PROPOSAL §2, old variable names kept, new ones added; (3) the shell per §3 --
+  Rail (52 px, collapsible to 176 px with labels, per-browser), Header, StatusBar, Inspector, Palette, ThemeMenu, Swatch --
+  on the SIX-section rail; (4) `lib/ui/*` per §3 incl. the Surface's three faces and corner ticks, the Dialog's DOES /
+  COSTS / WRITES block, FitMeter, WindowedRows; (5) map nodes and edges per §3 across the Session Map, Roles Live and the
+  Fleet Tree, the resolved model id without the provider prefix on nodes and Live tags; (6) motion per §5 exactly, nothing
+  on section load, `prefers-reduced-motion` = instant swaps; (7) each section compared against its PNG at the three sizes,
+  the shell-rule tests kept and extended, the dist rebuilt. The brief wins where a mock-up disagrees with it; an eighteenth
+  token or a new generator variable stops the round and is said.
+- F3+F5 **one Agents section** and F3+F5b **Fleet's views into Agents and Local** then build in the Instrument vocabulary
+  (the Roles Live mock-up as Live; Runs as WindowedRows; the Cast as the lineup canvas restyled), so the consolidation never
+  redraws a surface twice.
+- **Communications.** The LinkedIn kit under `~/hh-comms` is redone against this: every graphic in the `instrument` palette
+  and on the six-section shell, every post that named ten sections or Team / Roles / Orchestra / Fleet as sections rewritten
+  for Agents and the folds (planned until shipped), the pack kit and the local-first core as pillars, the engines fold as the
+  story it is; real captures come from L1's shipped Studio and the shot list is redone for the six sections.
+
