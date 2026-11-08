@@ -4357,7 +4357,10 @@ config.json carries an `api_key` VALUE (the LAN proxy's), where the contract is 
 
 **The rule.** The core stays small; everything optional becomes a pack (the contract now carries agents, commands, hooks,
 MCP, Studio panels, policy, Setup blocks and themes). Core = the agent loop and tools, permissions and policy, providers,
-the TUI, the Studio shell with Session, Roles, Fleet, Local, Packs, Setup and Settings, and the pack system.
+the TUI, the Studio shell with Session, Roles, Fleet, Local, Packs, Setup and Settings, the pack system, and ALL the
+local-model work (rolo 2026-11-08: "make sure all the local llm stuff is part of core"): the Ollama steward, the Local
+tab, Ollama on the network, Hugging Face local servers, llama-server / mlx_lm and the other-engines adapter, the host,
+the pool, bundles, the gym and measured strengths, benchmarks and tuning, Voice (local speech models).
 
 **The rounds (after the review's fix pass; nothing removed before the owner sees the round's list):**
 - F1 the steward hotfix (first, a 3.3.12.x hotfix if the review's fix pass is far): a proposal is bounded by the model's
@@ -4370,9 +4373,14 @@ the TUI, the Studio shell with Session, Roles, Fleet, Local, Packs, Setup and Se
   and docs); Databricks stays until the Kali audit says otherwise (the owner's Kali runs on it by his own account).
 - F3 Team merges into Roles (Team = the plan; Roles = plan | live): one section, the eight-section rail, the shortcuts shift
   once with a one-line notice.
-- F4 out to packs: Voice (3,059 lines + `host/ops_voice`), the Design section (1,686), the guided first run (`start/`, 1,779),
-  the other-engines adapter (after R3's fold) -- each as a shipped pack template the owner turns on; the core keeps the
-  seams they plug into (a pack's section, a pack's check, a pack's runtime word).
+- F4 out to packs, each a shipped template the owner turns on, the core keeping only the seam it plugs into: the
+  **design** pack (the Design section + `/design`, `design/` 1,686 lines: a pack section with its panels); the
+  **guided-first-run** pack (`start/`, 1,779: the sample Orchestra run as a pack Setup check block + `/start`); the
+  **signal-remote** pack (the Signal phone bridge in `remote/bridge*.py`; the control socket and the registry stay core);
+  the **coach** pack (the coach probes and the improvement library, `improve/` + the coach notes; the supervisor stays
+  core); the **concord** pack (already one); and a **game-themes** pack (the five palettes removed in 3.1.5.0 as
+  `contributes.themes` -- the owner typed them 17 times in 30 days, and it is the first real consumer of R2). NOT packs:
+  Voice, the engines adapter, the steward, the pool, the host, bundles, the gym (local-model work is core).
 - F5 one orchestration: `orchestra/` + `supervise/` + `outcomes/` + `workflows/` (14,800 lines, four record shapes) become
   one package on the one work record (`<state>/work/<id>.json` + `events.jsonl`) that Roles Live, Orchestra, Fleet and
   Session read -- the Concord design applied inward before Federation adds a fifth layer.
