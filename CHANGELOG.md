@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.3.12.0] - unreleased
+## [3.3.12.0] - 2026-11-08
 
 **Themes and parity.** One theming system, not two. Until now the terminal had two palettes and Studio a dark/light switch
 per browser, and the two knew nothing of each other. R1 makes a palette registry of ten -- claude-dark, claude-light, holo,
