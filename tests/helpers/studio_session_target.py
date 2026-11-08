@@ -97,7 +97,8 @@ def choose_row(c, lv) -> dict:
     out["outline"] = c.js(f"getComputedStyle({HELD}).outlineStyle")
     node = f"document.querySelector('[data-testid=\"session-map\"] [data-testid=\"fleet-node\"][data-key=\"{res}\"]')"
     out["node_target"] = c.js(f"{node}.hasAttribute('data-target') && !!{node}.querySelector('[data-testid=\"fleet-node-target\"]')")
-    out["node_chip"] = c.js(f"getComputedStyle({node}.querySelector('[data-testid=\"fleet-node-steer\"]')).opacity")
+    chip = f"{node}.querySelector('[data-testid=\"fleet-node-steer\"]')"  # the chip fades in: wait for the transition's end, not a frame of it
+    out["node_chip"] = c.wait(f"(() => {{ const e = {chip}; return e && getComputedStyle(e).opacity === '1' && '1'; }})()", 10) or c.js(f"getComputedStyle({chip}).opacity")
     out["lane_lit"] = c.js(f"!!{COL}.querySelector('[data-testid=\"fleet-lane\"][data-key=\"{res}\"][data-selected]')")
     for i in range(10):  # rows arrive from two other agents: the held row stays the held row, in view
         lv.tool(("tester", "docs")[i % 2], "Read", f"tg-fill-{i}", f"fill-{i}.py")
