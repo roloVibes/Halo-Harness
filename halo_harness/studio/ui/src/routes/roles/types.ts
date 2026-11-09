@@ -122,6 +122,8 @@ export type ModelRow = {
   reasoning?: { kind: string; efforts: string[] } | null;
   measured?: Record<string, unknown> | null;
   best_at?: { line: string; kinds: string[] };
+  /** 3.3.15.0 R2: what it takes (halo_harness/model_takes.py): text vision audio video pdf, image, tools, think; ["?"]. */
+  takes?: string[] | null;
   /** 3.1.9.0 R3: what Auto learned per task kind (outcomes/learn.py), the window's checked tasks. */
   learned?: Record<string, Learned>;
 };

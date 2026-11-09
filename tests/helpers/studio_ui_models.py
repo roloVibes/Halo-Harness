@@ -7,9 +7,10 @@ cache (tests/helpers/catalog_facts_seed.py; no network, no model call):
 1. the Models panel: Analyze (`POST models/analyze`) shows how many models
    it analyzed and the count per kind, each kind's strongest model;
 2. the bio form's picker table (a card, "change the bio's model", more...):
-   the "best at" column header, a row's kinds as chips and its one line
-   ("vision+pdf in, tools, reasoning; no audio" for or:v/eyes), the full line
-   on hover;
+   3.3.15.0 R2: the "takes" column header, a row's takes as tags, and for the
+   focused row its one line ("vision+pdf in, tools, reasoning; no audio" for
+   or:v/eyes) and the kinds it is best at on the detail line under the list,
+   the line on the tags' hover too;
 3. the "best" sort puts the model good at the most kinds first; a search by
    a line's words ("pdf in") finds the rows that say it.
 
@@ -63,16 +64,23 @@ def models(c, url: str, state: Path) -> dict:
     out["rows"] = c.wait(f"{ROWS}.length", 15)
     out["head"] = c.js(f"{FORM}.querySelector('.rm-head')?.textContent")
     eyes = f"{ROWS}.find((r) => r.dataset.ref === 'or:v/eyes')"
-    out["eyes_kinds"] = c.js(f"[...{eyes}.querySelectorAll('[data-testid=\"model-best-at\"] .og-chip')].map((n) => n.textContent)")
-    out["eyes_line"] = c.js(f"{eyes}.querySelector('[data-testid=\"model-best-line\"]')?.textContent")
-    out["eyes_title"] = c.js(f"{eyes}.querySelector('[data-testid=\"model-best-at\"]')?.title")
+    # 3.3.15.0 R2 (owner feedback 2026-11-09): the TAKES column's tags; the line is the detail line under the list
+    # for the focused row and the tag group's title; the ranked kinds sit on that line
+    out["eyes_kinds"] = c.js(f"[...{eyes}.querySelectorAll('[data-testid=\"model-takes\"] [data-take]')].map((n) => n.dataset.take)")
+    c.call("Emulation.setFocusEmulationEnabled", enabled=True)  # focus events fire without window focus
+    c.js(f"{eyes}.focus(); 1")
+    detail = f"{FORM}.querySelector('[data-testid=\"model-detail\"]')"
+    out["eyes_line"] = c.wait(f"{detail}?.dataset.ref === 'or:v/eyes' && {detail}.querySelector('[data-testid=\"model-best-line\"]').textContent", 10)
+    out["eyes_best"] = c.js(f"{detail}.querySelector('[data-testid=\"model-best-kinds\"]')?.textContent")
+    out["eyes_title"] = c.js(f"{eyes}.querySelector('[data-testid=\"model-takes\"]')?.title")
+    out["eyes_row_line"] = c.js(f"!!{eyes}.querySelector('[data-testid=\"model-best-line\"]')")
     sort_best = f"{FORM}.querySelector('[data-testid=\"model-sort-best\"]')"
     c.js(f"{sort_best}.scrollIntoView({{block: 'center'}}); 1")
     time.sleep(0.3)
     c.click_on(sort_best)
     out["best_first"] = c.wait(f"{FORM}.querySelector('[data-testid=\"model-sort-best\"]').getAttribute('aria-pressed') === 'true' && "
-                               f"{ROWS}.slice(0, 3).map((r) => [r.dataset.ref, r.querySelectorAll('.og-chip').length])", 10)
-    out["max_chips"] = c.js(f"Math.max(...{ROWS}.map((r) => r.querySelectorAll('.og-chip').length))")
+                               f"{ROWS}.slice(0, 3).map((r) => [r.dataset.ref, Number(r.dataset.kinds)])", 10)
+    out["max_chips"] = c.js(f"Math.max(...{ROWS}.map((r) => Number(r.dataset.kinds)))")
     search = f"{FORM}.querySelector('[data-testid=\"model-search\"]')"
     c.js(f"""(() => {{ const s = {search}; const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
       set.call(s, 'pdf in'); s.dispatchEvent(new Event('input', {{bubbles: true}})); return 1; }})()""")

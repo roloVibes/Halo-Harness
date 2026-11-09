@@ -9,10 +9,11 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../../../lib/api";
 import { FitMeter, WindowedRows } from "../../../lib/ui";
 import { CardChips, ModelCardPanel, type CardFields } from "../../shared/ModelCard";
+import { ModelTakes, type TakesFields } from "../../shared/ModelTakes"; // 3.3.15.0 R2
 import { loadValues } from "../store";
 import { TextField } from "./Text";
 
-type Row = { ref: string; provider?: string; context?: string; effort_word?: string } & CardFields;
+type Row = { ref: string; provider?: string; context?: string; effort_word?: string } & CardFields & TakesFields;
 
 export function ModelField({ id, value, fallback, label, disabled, onSave, main }: {
   id?: string;
@@ -60,6 +61,7 @@ export function ModelField({ id, value, fallback, label, disabled, onSave, main 
                           aria-pressed={String(value || "") === r.ref} onClick={() => onSave(r.ref)}>
                     <span>{r.ref}</span>
                     <span className="muted">{[r.context && r.context !== "?" ? r.context : "", r.effort_word || ""].filter(Boolean).join(" · ")}</span>
+                    <ModelTakes row={r} />
                     <CardChips card={r.card} />
                     <FitMeter fit={r.fit} label={false} />
                   </button>

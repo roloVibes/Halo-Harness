@@ -22,6 +22,7 @@ import { ModelPicker } from "../roles/ModelPicker";
 import { useRoles } from "../roles/store";
 import type { ModelRow } from "../roles/types";
 import { CatalogLines, modelLine, shortRef, useCatalog } from "./catalog";
+import { ModelTakes } from "./ModelTakes"; // 3.3.15.0 R2: what the picked model takes, under the select
 
 export type Inherit = { label: string; model: string };
 
@@ -106,6 +107,7 @@ export function ModelSelect({ value, onPick, label, hint, inherit, testid, inlin
           {probe === "running" ? "Testing..." : "Test"}
         </Button>
       </div>
+      {row && <div className="msel-takes"><ModelTakes row={row} /></div>}
       {probe && probe !== "running" && (
         <div className="msel-result mono" data-ok={probe.ok || undefined} data-testid="model-select-result" title={probe.cost_line}>
           {shortRef(probe.ref || effective)}: {probe.ok ? `ok in ${probe.latency_ms} ms` : `failed: ${probe.error || "no reply"}`}

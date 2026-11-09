@@ -96,6 +96,19 @@ best-at cache `halo models analyze` rebuilds -- see
 [MODELS-references.md](MODELS-references.md#what-each-model-is-good-at-halo-3190)),
 and `Ctrl+S` cycles name, price, context, speed and best (the model good at
 the most kinds first).
+Halo 3.3.15.0 R2: every picker row says what the model takes, right after
+the ref: `takes=text,vision,pdf,tools,think` -- what it reads (`text` always,
+then `vision`, `audio`, `video`, `pdf`), `image` when it makes images, then
+`tools` and `think` when the catalog states them or this host measured them;
+`takes=?` when the catalog states no inputs (`?` = not known, never blank).
+The column header says so. The prices follow, so on a narrow terminal the
+row keeps ref, takes and price and ellipsizes ctx and speed. When the
+highlight moves, the subtitle line (the footer's) shows that model's honest
+line -- "vision+pdf in, tools, reasoning, long context (1M), premium; no
+audio", the best-at cache's, the same line `halo models analyze` prints --
+and the footer comes back when nothing is highlighted. `/model <ref>`'s
+one-line confirmation ends with the same words ("Model set to or:v/eyes --
+saved as the default for next launch · takes text,vision,pdf,tools,think").
 Databricks
 pricing/context data comes from models.dev (refreshed by `/models
 refresh`) when that endpoint is listed there, else from `model_table.json`

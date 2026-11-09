@@ -1,0 +1,32 @@
+/* 3.3.15.0 R2: what a model takes (routes/shared/ModelTakes.tsx), wherever a model is picked. Owner feedback
+   2026-11-09 ("the chips"): one line, fixed-height square tags that never stretch to the row, a fixed column grid in
+   Roles' picker table and Setup's default model so MODEL, IN / OUT, CTX and TAKES line up. Tokens only. */
+.mtakes { display: inline-flex; align-items: center; gap: 3px; flex-wrap: nowrap; overflow: hidden; min-width: 0;
+  max-width: 100%; height: 18px; vertical-align: middle; }
+.mtakes-tag { display: inline-flex; align-items: center; flex: none; height: 18px; box-sizing: border-box; padding: 0 5px;
+  border: 1px solid var(--line); border-radius: 2px; font-family: var(--mono); font-size: 12px; line-height: 1;
+  color: var(--text); white-space: nowrap; cursor: default; }
+.mtakes-tag[data-take="vision"], .mtakes-tag[data-take="audio"], .mtakes-tag[data-take="video"],
+.mtakes-tag[data-take="pdf"], .mtakes-tag[data-take="image"] { color: var(--accent); border-color: var(--accent-soft); }
+.mtakes-tag[data-muted] { color: var(--muted); border-style: dashed; }
+.msel-takes { margin-top: 3px; min-width: 0; display: flex; }
+
+/* Roles' picker table: one row = one line, fixed columns (the model's ref keeps its ellipsis) */
+.rm-row { grid-template-columns: minmax(120px, 1fr) 104px 84px 236px 88px; min-width: 652px; align-items: center;
+  height: 27px; padding-top: 0; padding-bottom: 0; }
+.rm-row > span { min-width: 0; overflow: hidden; white-space: nowrap; }
+.rm-row .rm-takes { display: flex; align-items: center; }
+.rm-row .rm-gym { display: flex; align-items: center; gap: 3px; }
+.rm-row .rm-learned { flex-wrap: nowrap; }
+.rm-row .og-chip { display: inline-flex; align-items: center; height: 18px; box-sizing: border-box; padding: 0 5px;
+  border-radius: 2px; font-size: 11px; line-height: 1; white-space: nowrap; }
+.rm-detail { display: flex; align-items: center; gap: 6px; min-height: 22px; min-width: 0; padding: 2px 8px; font-size: 11.5px;
+  color: var(--muted); border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-2); }
+.rm-detail-ref { color: var(--text); flex: none; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rm-detail-line { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rm-detail .mcard-chips, .rm-detail .og-chip { flex: none; }
+
+/* Setup's default model: the same one-line row, fixed columns */
+.su-model { grid-template-columns: auto minmax(0, 1.4fr) minmax(0, 1fr) 236px 72px 96px; }
+.su-model-takes { display: flex; align-items: center; }
+.su-model-detail { margin: 2px 0 0; font-size: 11.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

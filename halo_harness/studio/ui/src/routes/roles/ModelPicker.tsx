@@ -14,9 +14,16 @@
 // purpose, the window) and the fit meter; the picked row unfolds the card's
 // `how` lines (data-testid=model-card); with `forMain` the picked model's card
 // panel offers the coder lane when it cannot orchestrate.
+// 3.3.15.0 R2 (owner feedback 2026-11-09, "the chips"): one row = one line. The
+// best-at column became TAKES (shared/ModelTakes.tsx: vision audio video pdf,
+// image, tools, think as fixed-height tags, the honest line on hover); the
+// ranked kinds stay the "best" sort and, with the effort word and the card's
+// chips, move to the detail line under the list for the highlighted row (else
+// the picked one), the way the terminal picker's subtitle shows the line.
 import { Fragment, useMemo, useState } from "react";
 import { Button, FitMeter, WindowedRows } from "../../lib/ui";
 import { CardChips, CardDetail, ModelCardPanel } from "../shared/ModelCard";
+import { honestLine, ModelTakes } from "../shared/ModelTakes";
 import { testModel } from "./bioActions";
 import { LearnedChips, droppedFor, learnedKinds } from "./LearnedChips";
 import { useRoles } from "./store";
@@ -42,19 +49,19 @@ export function TestButton({ value }: { value: string }) {
   );
 }
 
-/** The "best at" cell: the kinds as chips, the line under them (the full line on hover); 3.1.9.0 R3: what was learned. */
-function BestAt({ m, kinds, task }: { m: ModelRow; kinds: string[]; task: string }) {
-  const line = m.best_at?.line || "";
+/** The detail line under the list (3.3.15.0 R2): the highlighted (else picked) row's honest line, the kinds it is best
+ *  at, its effort word and its card's chips -- what the row itself no longer draws. */
+function Detail({ m, kinds }: { m?: ModelRow; kinds: string[] }) {
+  if (!m) return <div className="rm-detail mono" data-testid="model-detail">point at a model: what it is best at shows here</div>;
+  const line = honestLine(m);
   return (
-    <span className="rm-best" data-testid="model-best-at" title={line || undefined}>
-      <span className="rm-kinds">
-        {kinds.slice(0, 4).map((k) => <span key={k} className="og-chip mono" data-kind={k}>{k}</span>)}
-        {m.effort_word ? <span className="og-chip mono" data-testid="model-effort" title="what the effort level does on this model">{m.effort_word}</span> : null}
-        <CardChips card={m.card} />
-      </span>
-      {line && <span className="rm-line muted" data-testid="model-best-line">{line}</span>}
-      <LearnedChips m={m} kind={task} />
-    </span>
+    <div className="rm-detail mono" data-testid="model-detail" data-ref={m.ref} title={line || undefined}>
+      <span className="rm-detail-ref">{m.ref}</span>
+      <span className="rm-detail-line" data-testid="model-best-line">{line || "?"}</span>
+      {kinds.length > 0 && <span className="rm-detail-kinds" data-testid="model-best-kinds" title="the kinds it is best at (the best sort)">best at {kinds.join(", ")}</span>}
+      {m.effort_word ? <span className="og-chip mono" data-testid="model-effort" title="what the effort level does on this model">{m.effort_word}</span> : null}
+      <CardChips card={m.card} />
+    </div>
   );
 }
 
@@ -74,7 +81,7 @@ export function ModelPicker({ value, onPick, forMain }: { value: string; onPick:
   const kindsOf = (m: ModelRow) => m.best_at?.kinds || bestFor[m.ref] || [];
   const rows = useMemo(() => {
     const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
-    const text = (m: ModelRow) => [m.ref, m.group, m.detail, m.price, m.context, m.chips, m.best_at?.line, ...kindsOf(m), learnedWords(m),
+    const text = (m: ModelRow) => [m.ref, m.group, m.detail, m.price, m.context, m.chips, m.best_at?.line, ...kindsOf(m), ...(m.takes || []), learnedWords(m),
       ...Object.values(m.card?.chips || {}), m.fit?.level || ""].join(" ").toLowerCase();
     const hit = models.filter((m) => words.every((w) => text(m).includes(w)));
     const by: Record<Sort, (a: ModelRow, b: ModelRow) => number> = {
@@ -86,6 +93,8 @@ export function ModelPicker({ value, onPick, forMain }: { value: string; onPick:
     return hit.sort(by[sort]);
   }, [models, q, sort, bestFor]);
   const inCatalog = !value || models.some((m) => m.ref === value);
+  const [hot, setHot] = useState("");
+  const shown = models.find((m) => m.ref === hot) || models.find((m) => m.ref === value); // the detail line's row
   return (
     <div className="rm" data-testid="model-picker">
       <div className="rm-bar">
@@ -111,20 +120,21 @@ export function ModelPicker({ value, onPick, forMain }: { value: string; onPick:
         <>
         <div className="muted mono rm-count" data-testid="model-count">{q.trim() ? `${rows.length} of ${models.length} models` : `${models.length} models`}</div>
         <div className="rm-table" role="listbox" aria-label="Models">
-          <div className="rm-row rm-head mono" aria-hidden="true"><span>model</span><span>in / out</span><span>ctx</span><span>best at</span><span>gym</span></div>
+          <div className="rm-row rm-head mono" aria-hidden="true"><span>model</span><span>in / out</span><span>ctx</span><span>takes</span><span>gym</span></div>
           <WindowedRows items={rows} render={(m) => {
             const dropped = droppedFor(m, task);
             const l = dropped ? m.learned?.[task] : undefined;
             return (
               <Fragment key={m.ref}>
               <button className={dropped ? "rm-row rm-dropped" : "rm-row"} role="option" aria-selected={m.ref === value} onClick={() => onPick(m.ref)}
-                      data-testid="model-row" data-ref={m.ref} data-dropped={dropped || undefined}
+                      onMouseEnter={() => setHot(m.ref)} onFocus={() => setHot(m.ref)}
+                      data-testid="model-row" data-ref={m.ref} data-dropped={dropped || undefined} data-kinds={kindsOf(m).length}
                       title={l ? `${m.ref}: dropped for ${task} (${l.passed}/${l.n} checked tasks)` : m.detail || m.ref}>
                 <span className="mono rm-ref">{m.ref}</span>
                 <span className="mono">{money(m.price_in)} / {money(m.price_out)}</span>
                 <span className="mono rm-ctx">{m.context} <FitMeter fit={m.fit} label={false} /></span>
-                <BestAt m={m} kinds={kindsOf(m)} task={task} />
-                <span className="mono">{gym[m.ref] ? gym[m.ref].score.toFixed(2) : ""}</span>
+                <span className="rm-takes" data-testid="model-best-at"><ModelTakes row={m} /></span>
+                <span className="mono rm-gym">{gym[m.ref] ? gym[m.ref].score.toFixed(2) : ""}<LearnedChips m={m} kind={task} /></span>
               </button>
               {m.ref === value && m.card ? <div className="rm-card"><CardDetail card={m.card} refName={m.ref} /></div> : null}
               </Fragment>
@@ -132,6 +142,7 @@ export function ModelPicker({ value, onPick, forMain }: { value: string; onPick:
           }} />
           {!rows.length && <p className="muted rm-more">No model matches "{q}".</p>}
         </div>
+        <Detail m={shown} kinds={shown ? kindsOf(shown) : []} />
         </>
       )}
       <div className="rm-typed">

@@ -8,6 +8,39 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.3.15.0] - unreleased
+
+### R2: the picker says what a model takes
+
+The owner: "When you use forward slash model, show what the models capabilities are like visual, audio, pdf, etc. Is
+there a way to see this info via studio?" The facts were in every catalog row and the honest line in the best-at
+cache; now every place a model is picked says them.
+
+#### Changed
+- The terminal `/model` picker's rows carry a `takes=` column right after the ref (`halo_harness/model_takes.py`):
+  what the model reads (`text` always, then `vision`, `audio`, `video`, `pdf`), `image` when it makes images, `tools`
+  and `think` when stated or measured, `?` when the catalog states no inputs. The header line explains it. The prices
+  follow it, so a narrow terminal keeps ref, takes and price and ellipsizes ctx and speed.
+- The picker's subtitle shows the highlighted model's honest line ("vision+pdf in, tools, reasoning, long context
+  (1M), premium; no audio") and the footer again when nothing is highlighted (`tui/dialogs/model_picker_takes.py`).
+- `/model <ref>`'s confirmation ends with the takes words; `halo models` prints a `takes` column for the OpenRouter
+  and Databricks tables; `halo models show <ref>` prints `takes:` and `best at:` (`--json`: `takes`, `best_at_line`).
+- Studio: one tag group (`routes/shared/ModelTakes.tsx`, `data-testid="model-takes"`, the honest line its title)
+  wherever a model is picked -- under the model select (Orchestra's goal and workflow forms, Roles' Assignment, MODEL
+  strip, tier menu, bio form), beside Session's new-session select, Settings' model rows, and as the TAKES column of
+  Roles' picker table and Setup's default model. `GET models`, the Setup rows and `GET sessions/new` carry `takes` (and
+  the new-session rows the line); no new route.
+- Studio, the owner's note on the picker's chips ("funky": ovals stretched to the row, rows several lines tall): a row
+  is one line with fixed columns (MODEL, IN / OUT, CTX, TAKES, GYM); the tags are 18 px square-cornered mono words in
+  a fixed order (vision, audio, video, pdf, image, tools, think; at most six, then `+n`; `text in` or `?` muted); the
+  ranked "best at" kinds are no longer chips in the row: they stay the "best" sort and, with the honest line, the
+  effort word and the card's chips, sit on one detail line under the list for the highlighted row
+  (`styles/model-takes.css`).
+
+#### Docs
+- SLASH-COMMANDS-session.md (`/model`: the column, the line, the confirmation), COMMANDS-providers.md (`halo models`'
+  takes column, `halo models show`'s lines), STUDIO-sections.md (the chips wherever a model is picked).
+
 ## [3.3.14.0] - 2026-11-09
 
 **The review's fix pass: the token and the grants, then children and keys.** The November code and security review

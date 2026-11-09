@@ -69,11 +69,16 @@ def cmd_models_show(argv: list) -> int:
     if args.host and not ref.startswith(("ol:", "or:", "hf:", "ant:", "db:", "local:")):
         ref = f"ol:{ref}@{args.host}"  # `halo models show qwen3.5:9b --host box`
     card, meter = card_and_meter(ref, bridge_home())
+    from halo_harness.model_takes import takes_for_ref  # 3.3.15.0 R2: what it takes and the honest line
+    takes, best_line = takes_for_ref(ref, bridge_home())
     facts = _show_facts(ref)
     if args.json:
-        print(json.dumps({**_public(card, meter), **({"api_show": facts} if facts else {})}, indent=2, default=str))
+        print(json.dumps({**_public(card, meter), "takes": takes, "best_at_line": best_line,
+                          **({"api_show": facts} if facts else {})}, indent=2, default=str))
         return 0
-    for line in card_lines(card, meter) + show_lines(facts):
+    said = [f"takes: {','.join(takes)}", "best at: " + (best_line or "? (not in the best-at cache: `halo models analyze` "
+                                                                     "builds it)")]
+    for line in card_lines(card, meter) + said + show_lines(facts):
         print(line)
     return 0
 

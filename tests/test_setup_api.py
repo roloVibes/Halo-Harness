@@ -133,7 +133,8 @@ def test_config_takes_three_keys_and_checks_each_value(ctx: Ctx):
         status, s = e.call("POST", "setup/config", {"key": "model", "value": "or:mock/beta"})
         ctx.check("a model the catalog lists saves", status == 200 and e.config().get("model") == "or:mock/beta" and s["model"] == "or:mock/beta")
         ctx.check(f"the state lists the catalog's rows, got {s['models'][0]}", s["models"][0] == {
-            "ref": "or:mock/alpha", "provider": "openrouter", "label": "Mock Alpha", "best_at": "code, review", "price": "$1.00", "context": "128k"})
+            "ref": "or:mock/alpha", "provider": "openrouter", "label": "Mock Alpha", "best_at": "code, review", "price": "$1.00", "context": "128k",
+            "takes": ["?"]})  # 3.3.15.0 R2: the mock row states no takes
     with _Env([]) as e:
         status, body = e.call("POST", "setup/config", {"key": "model", "value": "or:mock/alpha"})
         ctx.check(f"no provider, no catalog: the model line says to set one up, got {body.get('error')}",

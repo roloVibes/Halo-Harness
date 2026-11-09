@@ -9,14 +9,15 @@ import { useEffect } from "react";
 import { priceText, roles, useRoles } from "../roles/store";
 import { loadModels, loadModelsStatus } from "../roles/sync";
 import type { ModelRow } from "../roles/types";
+import { takesText } from "./ModelTakes";
 
 /** The ref without its provider prefix (the provider is the option group). */
 export const shortRef = (ref: string) => ref.replace(/^[a-z]{2,4}:/, "");
 
-/** "or:vendor/model · $0.60 / $2.40 per 1M · ctx 200k" (an option's and the select's title). */
+/** "or:vendor/model · $0.60 / $2.40 per 1M · ctx 200k · takes text,vision" (an option's and the select's title). */
 export function modelLine(m: ModelRow | undefined, ref = ""): string {
   if (!m) return ref ? `${ref} · not in the catalog` : "";
-  return `${m.ref} · ${priceText(m)} per 1M · ctx ${m.context}${m.verified === false ? ` · ${m.detail}` : ""}`;
+  return `${m.ref} · ${priceText(m)} per 1M · ctx ${m.context} · takes ${takesText(m)}${m.verified === false ? ` · ${m.detail}` : ""}`;
 }
 
 /** "just now", "4 min ago", "2 h ago", else the date. */
