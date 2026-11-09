@@ -24,7 +24,7 @@ from __future__ import annotations
 import time
 from contextlib import contextmanager
 
-from tests.helpers.studio_packs_steps import CUR, alt, q, qa
+from tests.helpers.studio_packs_steps import CUR, alt, mod_key, q, qa
 from tests.helpers.studio_setup_pages import goto
 
 ROW = "[data-testid=setup-check-row]"
@@ -85,12 +85,36 @@ def _fresh(on: bool) -> None:
         set_config_value("roles.enabled", True)
 
 
+def _palette_start(c) -> None:
+    """The palette's "Start: the guided first run" (the overlay whatever the home)."""
+    mod_key(c, "KeyK", 75, 2, "k")
+    c.wait(f"!!{q('[data-testid=palette]')}", 10)
+    c.wait("document.activeElement?.classList.contains('palette-input')", 10)
+    c.type_text("Start: the guided first run")
+    c.wait(f"{q('.palette-item.on .palette-label')}?.textContent === 'Start: the guided first run'", 10)
+    c.key("Enter")
+
+
 def no_provider_jump(c, url, ctx) -> dict:
     _fresh(True)
     try:
         c.go(url.replace("tour=off&", ""))  # ?mode=roles, the overlay on
-        c.wait(f"{CUR}.startsWith('Roles') && !!{q('[data-testid=start-here-run]')}", 40)
-        out = {"jump_first_button": c.js(f"{q('[data-testid=start-here] .os-buttons .btn')}.textContent.trim()")}
+        c.wait(f"{CUR}.startsWith('Roles') && !!{q('[data-testid=start-here-auto]')}", 40)
+        # 3.3.15.0 R5: a fresh home runs the Auto lineup: the line in place of Run, Set up this box first
+        out = {"jump_first_button": c.js(f"{q('[data-testid=start-here] .os-buttons .btn')}.textContent.trim()"),
+               "jump_auto": c.js(_text("[data-testid=start-here-auto]")),
+               "jump_auto_run": c.js(f"{qa('[data-testid=start-here-run]')}.length")}
+        c.key("Escape")
+        c.wait(f"!{q('[data-testid=start-here]')}", 10)
+        from halo_harness.start import fresh
+        end = time.time() + 5  # Esc posts start/dismiss (remembered for the home): wait for it, then forget it
+        while time.time() < end and not fresh.dismissed(ctx["state"]):
+            time.sleep(0.1)
+        (fresh.start_root(ctx["state"]) / fresh.DISMISSED).unlink(missing_ok=True)
+        from halo_harness.theme import set_config_value
+        set_config_value("team", "halo-dev-cycle")  # a custom lineup: the palette's overlay offers Run
+        _palette_start(c)
+        c.wait(f"!!{q('[data-testid=start-here-run]')}", 20)
         out["jump_by"] = click(c, "[data-testid=start-here-run]", f"{CUR}.startsWith('Setup') && !{q('[data-testid=start-here]')}")
         out["jump_section"] = c.js(CUR)
         out["jump_toast"] = c.wait(f"[...document.querySelectorAll('.toast')].map((t) => t.textContent).find((t) => t.includes('no provider')) || ''", 10)
@@ -131,13 +155,27 @@ def _row(key: str, inner: str = "") -> str:
 
 
 def check_block(c, url, ctx) -> dict:
+    from halo_harness.theme import set_config_value, unset_config_value
+    unset_config_value("team")  # 3.3.15.0 R5: the Auto lineup first: five rows, the line in the start's place
+    set_config_value("roles.enabled", True)
+    c.go("about:blank")
+    c.go(url.replace("mode=roles", "mode=setup"))
+    goto(c, "check")
+    c.wait(f"{qa(ROW)}.length === 5 && !!{q('[data-testid=setup-check-start-auto]')}", 40)
+    out = {"auto_rows": c.js(f"{qa(ROW)}.map((r) => r.dataset.key)"), "auto_line": c.js(_text("[data-testid=setup-check-start-auto]"))}
+    goto(c, "summary")
+    out["auto_summary"] = c.wait(f"{_text('[data-testid=setup-summary-start-auto]')}", 20)
+    out["auto_summary_run"] = c.js(f"{qa('[data-testid=setup-summary-run-start]')}.length")
+    set_config_value("team", "halo-dev-cycle")  # a custom lineup: the row is back
+    c.go("about:blank")
     c.go(url.replace("mode=roles", "mode=setup"))
     goto(c, "check")
     c.wait(f"{qa(ROW)}.length === 6", 40)  # 3.3.7.0 R5: the steward candidates row
     ticks = f"{qa('[data-testid=setup-check-tick]')}.map((t) => t.checked)"
-    out = {"check_rows": c.js(f"{qa(ROW)}.map((r) => r.dataset.key)"), "check_ticks": c.js(ticks),
-           "check_start_locked": c.js(f"{q(_row('start', '[data-testid=setup-check-tick]'))}.disabled"),
-           "check_detail": c.js(_text(_row("hello", ".su-check-detail")))}
+    out.update({"check_rows": c.js(f"{qa(ROW)}.map((r) => r.dataset.key)"), "check_ticks": c.js(ticks),
+                "check_start_locked": c.js(f"{q(_row('start', '[data-testid=setup-check-tick]'))}.disabled"),
+                "check_detail": c.js(_text(_row("hello", ".su-check-detail"))),
+                "custom_line": c.js(f"{qa('[data-testid=setup-check-start-auto]')}.length")})
     gym = _row("gym", "[data-testid=setup-check-tick]")
     out["gym_by"] = click(c, gym, f"!!{q('[data-testid=setup-check-gym-models]')} || !!{q('[data-testid=setup-check-gym-none]')}")
     out["gym_models"] = c.js(f"{qa('[data-testid=setup-check-gym-model]')}.map((m) => m.dataset.ref)")

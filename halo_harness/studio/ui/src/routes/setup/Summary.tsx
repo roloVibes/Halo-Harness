@@ -6,7 +6,8 @@
 // page; then the guided first run's card (what `halo start` does, the models
 // it calls, the estimate, the time, what it writes) and its Run button.
 // 3.3.3.0 R1: at the foot, the primary "Done: start halo" (done.ts): the
-// terminal that ran `halo init` starts halo, Studio opens Session.
+// terminal that ran `halo init` starts halo, Studio opens Session. 3.3.15.0 R6:
+// its note says whether an init terminal waits; with none, Studio opens one.
 import { useEffect } from "react";
 import { runStart, start } from "../../lib/start";
 import { useStore } from "../../lib/store";
@@ -73,7 +74,15 @@ function CheckPart() {
 
 function StartPart() {
   const card = useSetup((s) => s.data?.card || NONE);
+  const auto = useSetup((s) => s.data?.start_auto || "");
   const busy = useStore(start, (s) => s.busy || (s.running && !s.summary));
+  if (auto)
+    return ( // 3.3.15.0 R5: the guided first run belongs to a custom lineup; on Auto, the line in its place
+      <section className="su-sum-part" data-testid="setup-summary-start" aria-label="The guided first run">
+        <div className="su-sum-title">The guided first run</div>
+        <p className="su-note muted" data-testid="setup-summary-start-auto">{auto}</p>
+      </section>
+    );
   return (
     <section className="su-sum-part" data-testid="setup-summary-start" aria-label="The guided first run">
       <div className="su-sum-title">The guided first run</div>
@@ -91,6 +100,10 @@ function StartPart() {
 function DonePart() {
   const busy = useDoneBusy();
   const error = useDoneError();
+  const waiting = useSetup((s) => !!s.data?.init_waiting); // 3.3.15.0 R6
+  const note = waiting
+    ? "halo starts in the terminal that ran halo init, paired with this Studio; Studio opens Session"
+    : "no halo init is waiting: Studio opens a terminal running halo (or says to run halo yourself); Studio opens Session";
   return (
     <section className="su-sum-part su-sum-done" data-testid="setup-summary-done" aria-label="Done">
       <div className="su-foot-row">
@@ -98,7 +111,7 @@ function DonePart() {
                 title="Marks this box set up; the terminal that ran `halo init` starts halo; Studio opens Session">
           {busy ? "Marking..." : "Done: start halo"}
         </Button>
-        <span className="su-note muted">the terminal that ran halo init starts halo; Studio opens Session</span>
+        <span className="su-note muted" data-testid="setup-done-note" data-waiting={waiting || undefined}>{note}</span>
       </div>
       {error && <pre className="su-lines mono" data-testid="setup-done-error">{error}</pre>}
     </section>

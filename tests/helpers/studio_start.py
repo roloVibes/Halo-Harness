@@ -25,11 +25,30 @@ Q = "document.querySelectorAll"
 STEP = "[data-testid=\"start-step\"]"
 
 
+def _palette_start(c) -> None:
+    """The palette's "Start: the guided first run": the overlay whatever the home."""
+    from tests.helpers.studio_packs_steps import mod_key
+    mod_key(c, "KeyK", 75, 2, "k")
+    c.wait("!!document.querySelector('[data-testid=\"palette\"]')", 10)
+    c.wait("document.activeElement?.classList.contains('palette-input')", 10)
+    c.type_text("Start: the guided first run")
+    c.wait("document.querySelector('.palette-item.on .palette-label')?.textContent === 'Start: the guided first run'", 10)
+    c.key("Enter")
+
+
 def run_start(c, url: str, frames: list, shot: str = "") -> dict:
     out = {}
     c.go(url)
-    out["offer"] = c.wait(f"{Q}('[data-testid=\"start-here-run\"]').length", 30)
+    # 3.3.15.0 R5: a fresh home runs the Auto lineup: the offer has the line in place of Run
+    out["auto"] = c.wait("document.querySelector('[data-testid=\"start-here-auto\"]')?.textContent || ''", 30)
+    out["auto_run"] = c.js(f"{Q}('[data-testid=\"start-here-run\"]').length")
     out["welcome_with_offer"] = c.js(f"{Q}('[data-testid=\"section-help\"]').length")
+    c.key("Escape")
+    c.wait("!document.querySelector('[data-testid=\"start-here\"]')", 10)
+    from halo_harness.theme import set_config_value
+    set_config_value("team", "halo-dev-cycle")  # a custom lineup: the palette's overlay offers Run
+    _palette_start(c)
+    out["offer"] = c.wait(f"{Q}('[data-testid=\"start-here-run\"]').length", 30)
     out["button"] = c.js("document.querySelector('[data-testid=\"start-here-run\"]').textContent.trim()")  # 3.2.2.0 R2
     out["card"] = c.wait("document.querySelector('[data-testid=\"start-here-card\"]')?.textContent || ''", 10)
     c.click_on("document.querySelector('[data-testid=\"start-here-run\"]')")

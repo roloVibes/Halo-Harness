@@ -11,12 +11,21 @@ again whenever the GET fails. A marker from an earlier init does not count:
 only a `done_at` not earlier than the wait's start. The answer is one word:
 
     done          Done was pressed: the Summary's four lines are printed and
-                  `launch_halo(cwd)` starts the TUI exactly as bare `halo` does
+                  `launch_halo(cwd, studio)` starts the TUI exactly as bare `halo` does
     gone          Studio stopped answering for GONE_S (10 s) and no marker
     interrupted   Ctrl+C
 
-`launch_halo`, `sleep` and `http_get` are this module's names so a test
+`launch_halo`, `sleep`, `http_get` and `studio_answers` are this module's names so a test
 swaps them: no test waits a real second or opens a TUI.
+
+3.3.15.0 R6 ("init ends with both running"): while it waits, init keeps `<state>/setup-wait.json`
+(studio/init_waiting.py), so Studio's Done answers "halo is starting in your terminal" and opens no
+terminal of its own; the record goes when the wait ends. A GET that fails while Studio's port still
+answers (a busy Studio: a check or the guided first run running in it) is not "gone" -- only a Studio
+whose port no longer answers counts toward GONE_S, so the terminal no longer gives up during a long
+Check. Once Done is seen, halo starts in this terminal with the Studio of `studio.json` named
+(`launch_halo(cwd, studio)`): the same home, so the session registers where that Studio reads it and
+shows in its Session section, as `halo` beside `halo studio` always has.
 """
 
 from __future__ import annotations
@@ -32,14 +41,37 @@ NO_LAUNCH_ENV = "HALO_INIT_NO_LAUNCH"
 POLL_ENV = "HALO_INIT_POLL_S"
 INTERRUPTED_LINE = "Setup stays open in the browser; run `halo` when you are done there."
 GONE_LINE = "Studio closed; run `halo` when you are ready."
+WAIT_LINE = ("{where}: {url}. This terminal starts halo when you press Done there (Ctrl+C: stop here; `halo` later "
+             "starts it).")  # 3.3.15.0 R6: the door's one line when init waits
+STARTING_LINE = "Setup is done: halo starts here, paired with Studio{at} (its Session section shows this session)."
+# The last line of the paths that start nothing themselves (the console flow, `--yes`, no TTY, `--no-launch`)
+FINAL_LINE = ("Start halo with `halo`; `halo studio` opens Studio beside it, and the two pair on their own (Studio's "
+              "Session section shows the session).")
 
 sleep = time.sleep
 
 
-def launch_halo(cwd) -> int:
-    """Bare `halo` in `cwd`: the default args, the full-screen session, `/update`'s restart (cli.launch_bare)."""
+def launch_halo(cwd, studio: Optional[dict] = None) -> int:
+    """Bare `halo` in `cwd`: the default args, the full-screen session, `/update`'s restart (cli.launch_bare).
+    `studio` (3.3.15.0 R6) is the running Studio's `studio.json` record the session pairs with: the same home, so
+    nothing more is passed -- the session's registry entry is where that Studio reads its sessions."""
     from halo_harness.cli import launch_bare
     return launch_bare(cwd)
+
+
+def studio_answers(state_dir) -> bool:
+    """3.3.15.0 R6: whether the Studio `studio.json` names still answers on its port (busy is not gone)."""
+    from halo_harness.studio.launch import port_answers, read_info
+    info = read_info(Path(state_dir))
+    return bool(info) and port_answers(info["port"])
+
+
+def studio_info(state_dir) -> Optional[dict]:
+    from halo_harness.studio.launch import read_info
+    try:
+        return read_info(Path(state_dir))
+    except Exception:
+        return None
 
 
 def http_get(state_dir, path: str, timeout: float = 5.0) -> Optional[dict]:
@@ -86,6 +118,8 @@ def _wait(state_dir, poll_s: float, sleep_fn: Callable[[float], None],
                 state, failed = got, 0.0
                 if later(got.get("done_at"), since):
                     return "done", state
+            elif studio_answers(state_dir):  # 3.3.15.0 R6: busy, not gone (a long check holds the answer up)
+                failed = 0.0
             else:
                 failed += max(poll_s, 0.001)
                 if failed >= GONE_S:
@@ -153,9 +187,17 @@ def run(say: Callable[[str], None], *, cwd, state_dir, poll_s: Optional[float] =
         deadline: Optional[float] = None) -> int:
     """`halo init`'s wait after the door: Done -> the four lines and bare halo (its exit code); Ctrl+C or Studio
     gone -> one line and 0."""
+    from halo_harness.studio import init_waiting
     from halo_harness.studio.setup_done import now_iso
     since = now_iso()
-    word, state = _wait(state_dir, poll_seconds() if poll_s is None else poll_s, globals()["sleep"], deadline, since)
+    try:
+        init_waiting.mark(state_dir, cwd)  # 3.3.15.0 R6: Studio's Done knows this terminal starts halo
+    except OSError:
+        pass
+    try:
+        word, state = _wait(state_dir, poll_seconds() if poll_s is None else poll_s, globals()["sleep"], deadline, since)
+    finally:
+        init_waiting.clear(state_dir)
     if word == "interrupted":
         say(INTERRUPTED_LINE)
         return 0
@@ -165,4 +207,6 @@ def run(say: Callable[[str], None], *, cwd, state_dir, poll_s: Optional[float] =
     fresh = http_get(state_dir, "setup/state")
     for line in summary_lines(fresh or state or _local_state(cwd, state_dir)):
         say(line)
-    return launch_halo(cwd)
+    studio = studio_info(state_dir)
+    say(STARTING_LINE.format(at=f" at http://127.0.0.1:{studio['port']}/" if studio else ""))
+    return launch_halo(cwd, studio)

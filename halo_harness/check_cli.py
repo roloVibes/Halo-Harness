@@ -84,10 +84,16 @@ def run(argv, stream=None, ctx=None) -> int:
         _out(f"  {MARK[ok]}", stream)
         if not ok:
             failed.append(key)
-    C.run_many(keys, ctx, on_each=each)
+    ran = C.ordered(keys)  # 3.3.15.0 R5: on Auto the guided first run is left out, its line said instead
+    if "start" in keys and "start" not in ran:
+        from halo_harness.start.auto_gate import lines as auto_lines
+        _out("", stream)
+        for line in auto_lines():
+            _out(line, stream)
+    C.run_many(ran, ctx, on_each=each)
     _out("", stream)
-    _out(f"halo check: {len(keys) - len(failed)} of {len(keys)} passed" + (f"; failed: {', '.join(failed)}" if failed
-                                                                            else ""), stream)
+    _out(f"halo check: {len(ran) - len(failed)} of {len(ran)} passed" + (f"; failed: {', '.join(failed)}" if failed
+                                                                          else ""), stream)
     return 1 if failed else 0
 
 

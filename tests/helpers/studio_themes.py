@@ -2,7 +2,8 @@
 headless Chrome through the driver base over a fresh scratch home (no `theme` saved); no provider request, no model
 call. Every theme write lands in the scratch config.json:
 
-1. a fresh page follows the system (`data-theme="auto"`): instrument's --bg on a dark system (holo before 3.3.15.0), paper's on a light one;
+1. a fresh page is instrument (3.3.15.0 R4: `data-theme="instrument"`, its --bg on a dark AND a light system; it
+   followed the system before), and Settings -> Themes marks instrument current;
 2. the header's theme menu: Follow the system and the eleven palettes, each with a swatch row;
 3. picking ember writes `theme: ember` to config.json and flips the page's `data-theme`; a reload keeps it (the
    server paints the first frame in it);
@@ -10,7 +11,8 @@ call. Every theme write lands in the scratch config.json:
    `GET settings/themes` sends, ember marked current; the pointer on paper previews it on the page, config.json
    untouched; Esc puts ember back; a click on dusk saves it and the current mark moves; Daltonized on writes
    dusk-daltonized and the page's --accent is the daltonized one;
-5. the header's "Follow the system" removes the key and the page is `auto` again;
+5. the header's "Follow the system" writes `theme: auto` (R4; it removed the key before): the page is `auto`,
+   instrument on a dark system and paper on a light one, across a reload, the menu's mark on it;
 6. (3.3.12.0 R2, tests/helpers/studio_pack_themes.py) the fixture pack's palettes under "pack-theme", picked, painted
    first by the server, restored away from when the pack is disabled.
 The last stdout line is the JSON of what it saw (exit 2: no Chrome)."""
@@ -74,13 +76,27 @@ def press(c, expr: str, done: str) -> None:
         c.wait(done, 15)
 
 
+def _bg_after(c, value: str) -> str:
+    """--bg once the emulated system is `value` and the page had time to redraw (nothing may change)."""
+    scheme(c, value)
+    time.sleep(0.6)
+    return c.js(VAR.format("--bg"))
+
+
 def follow_first(c, url, ctx) -> dict:
+    """3.3.15.0 R4: a fresh home is instrument on a dark AND a light system; Settings -> Themes marks instrument."""
     scheme(c, "dark")
     _load(c, ctx, "mode=roles", "Roles")
     out = {"fresh_theme": c.js(THEME), "fresh_bg_dark": c.js(VAR.format("--bg"))}
-    scheme(c, "light")
-    out["fresh_bg_light"] = c.wait(f"{VAR.format('--bg')} !== '{out['fresh_bg_dark']}' && {VAR.format('--bg')}", 10)
+    out["fresh_bg_light"] = _bg_after(c, "light")
+    _load(c, ctx, "mode=roles", "Roles")  # a page loaded on a light system draws instrument from its first frame too
+    out["fresh_light_load"] = [c.js(THEME), c.js(VAR.format("--bg"))]
+    _load(c, ctx, "mode=settings&page=themes", "Settings")
+    c.wait(f"{qa('[data-testid=theme-row][data-current]')}.length === 1", 30)
+    out["fresh_current"] = c.js(qa("[data-testid=theme-row][data-current]") + ".map((r) => r.dataset.themeId)")
+    out["fresh_cli"] = c.js(f"{q('[data-testid=theme-cli]')}?.textContent || ''")
     scheme(c, "dark")
+    _load(c, ctx, "mode=roles", "Roles")
     return out
 
 
@@ -89,7 +105,8 @@ def header_menu(c, url, ctx) -> dict:
     press(c, btn, f"!!{q('[data-testid=theme-menu]')}")
     c.wait(f"{qa('[data-testid=theme-menu] [data-testid=theme-item]')}.length === 12", 15)
     out = {"menu_ids": c.js(qa("[data-testid=theme-menu] [data-testid=theme-item]") + ".map((b) => b.dataset.themeId)"),
-           "menu_swatches": c.js(f"{qa('[data-testid=theme-menu] [data-testid=theme-swatch]')}.length")}
+           "menu_swatches": c.js(f"{qa('[data-testid=theme-menu] [data-testid=theme-swatch]')}.length"),
+           "menu_checked": c.js(qa("[data-testid=theme-menu] [data-testid=theme-item][aria-checked=true]") + ".map((b) => b.dataset.themeId)")}
     press(c, q(ITEM.format("ember")), f"{THEME} === 'ember'")
     out["pick_theme"] = c.js(THEME)
     out["pick_saved"] = until_saved(ctx, "ember")
@@ -135,14 +152,19 @@ def page(c, url, ctx) -> dict:
 
 
 def follow(c, url, ctx) -> dict:
+    """3.3.15.0 R4: "Follow the system" writes `theme: auto` and the page follows the system (it cleared the key before)."""
     btn = q("[data-testid=theme-menu-btn]")
     press(c, btn, f"!!{q('[data-testid=theme-menu]')}")
     press(c, q(ITEM.format("auto")), f"{THEME} === 'auto'")
-    out = {"follow_theme": c.js(THEME), "follow_saved": until_saved(ctx, None)}
-    cfg = ctx["state"] / "config.json"
-    out["follow_key_gone"] = "theme" not in (json.loads(cfg.read_text(encoding="utf-8")) if cfg.is_file() else {})
+    out = {"follow_theme": c.js(THEME), "follow_saved": until_saved(ctx, "auto")}
+    out["follow_bg_dark"] = _bg_after(c, "dark")
+    out["follow_bg_light"] = _bg_after(c, "light")
+    scheme(c, "dark")
     _load(c, ctx, "mode=roles", "Roles")
     out["follow_reload"] = c.js(THEME)
+    press(c, btn, f"!!{q('[data-testid=theme-menu]')}")
+    out["follow_checked"] = c.js(qa("[data-testid=theme-menu] [data-testid=theme-item][aria-checked=true]") + ".map((b) => b.dataset.themeId)")
+    c.key("Escape")
     return out
 
 

@@ -86,7 +86,7 @@ def test_the_state_has_every_block_and_no_key(ctx: Ctx):
                 "linux_fixes", "last_check", "checks", "gym_models", "card", "no_provider", "model_notes"}  # R3: the last five
         ctx.check(f"the blocks' keys, got {sorted(s)}", want <= set(s))
         ctx.check("nothing saved yet: model, mode and theme are blank, the default theme named",
-                  s["model"] == "" and s["permission_mode"] == "" and s["theme"] == "" and s["theme_default"] == "claude-dark")
+                  s["model"] == "" and s["permission_mode"] == "" and s["theme"] == "" and s["theme_default"] == "instrument")  # 3.3.15.0 R4
         ctx.check(f"the wizard's four modes in order, got {[m['id'] for m in s['permission_modes']]}",
                   [m["id"] for m in s["permission_modes"]] == ["auto", "acceptEdits", "default", "plan"])
         ctx.check("each mode carries its label and note", s["permission_modes"][0] == {
@@ -254,6 +254,69 @@ def test_done_writes_the_marker_publishes_the_frame_and_the_state_carries_it(ctx
             ctx.check("a marker that does not parse reads as none", setup_done_at(e.state_dir) is None)
     finally:
         events.bridge_for = real
+
+
+@test
+def test_done_says_who_starts_halo(ctx: Ctx):
+    """3.3.15.0 R6: Done with a `halo init` waiting answers "halo is starting in your terminal" and opens nothing; with
+    none waiting Studio opens a terminal running halo (the launcher stubbed), and with no terminal emulator it says
+    "no terminal found to start halo in; run `halo` yourself" -- never silent. GET setup/state's `init_waiting`."""
+    from halo_harness.studio import events, halo_terminal, init_waiting
+    from halo_harness.studio.api import Request, dispatch
+    real = (events.bridge_for, halo_terminal.open_halo)
+    opened: list = []
+    events.bridge_for = lambda _server: SimpleNamespace(publish_local=lambda _f: None)
+    try:
+        with _Env() as e:
+            post = lambda: dispatch(Request(method="POST", path="setup/done", query={}, body={}, cwd=e.cwd, state_dir=e.state_dir, server=object()))
+            halo_terminal.open_halo = lambda cwd, **_k: opened.append(cwd) or (True, halo_terminal.OPENED_LINE.format(name="xterm"))
+            init_waiting.mark(e.state_dir, e.cwd)  # what a waiting `halo init` writes (this process stands in for it)
+            _s, s = e.call("GET", "setup/state")
+            status, got = post()
+            ctx.check(f"an init waits: the state says so, Done answers it, no terminal opened, got {s.get('init_waiting')} {got} {opened}",
+                      s.get("init_waiting") is True and status == 200 and got.get("starts") == "init"
+                      and got.get("line") == "halo is starting in your terminal" and opened == [])
+            init_waiting.clear(e.state_dir)
+            _s, s = e.call("GET", "setup/state")
+            status, got = post()
+            ctx.check(f"none waits: Studio opens a terminal running halo, got {s.get('init_waiting')} {got} {opened}",
+                      s.get("init_waiting") is False and got.get("starts") == "terminal" and opened == [e.cwd]
+                      and got.get("line") == "halo is starting in a new terminal window (xterm)")
+            halo_terminal.open_halo = real[1]  # the real one, under a test home: no window, the plain line
+            status, got = post()
+            ctx.check(f"no terminal: the plain line, got {got}", got.get("starts") == "none"
+                      and got.get("line") == "no terminal found to start halo in; run `halo` yourself" and got.get("ok") is True)
+            stale = e.state_dir / init_waiting.RECORD
+            stale.write_text(json.dumps({"pid": 999999991, "since": "x", "cwd": str(e.cwd)}), encoding="utf-8")
+            ctx.check("a record whose init is gone does not count and is removed", init_waiting.waiting(e.state_dir) is None
+                      and not stale.exists())
+    finally:
+        events.bridge_for, halo_terminal.open_halo = real
+
+
+@test
+def test_the_terminal_a_done_opens(ctx: Ctx):
+    """3.3.15.0 R6 (studio/halo_terminal.py): which terminal opens halo per platform, and none without a display."""
+    from halo_harness.studio import halo_terminal as H
+    on = {"xfce4-terminal", "halo"}
+    which = lambda name: f"/usr/bin/{name}" if name in on else None
+    name, argv = H.terminal_argv("/w", env={"DISPLAY": ":0"}, platform="linux", which=which)
+    ctx.check(f"Kali (Xfce): xfce4-terminal -x halo, got {name} {argv}", name == "xfce4-terminal" and argv == ["xfce4-terminal", "-x", "/usr/bin/halo"])
+    name, argv = H.terminal_argv("/w", env={"DISPLAY": ":0", "TERMINAL": "kitty"}, platform="linux",
+                                 which=lambda n: f"/usr/bin/{n}" if n in ("kitty", "halo") else None)
+    ctx.check(f"$TERMINAL first, got {argv}", argv == ["kitty", "-e", "/usr/bin/halo"])
+    for env in ({}, {"DISPLAY": ":0", "SSH_CONNECTION": "1 2 3 4"}):
+        ctx.check(f"no display / SSH {env}: none", H.terminal_argv("/w", env=env, platform="linux", which=which) == ("", []))
+    ctx.check("no known terminal: none", H.terminal_argv("/w", env={"DISPLAY": ":0"}, platform="linux", which=lambda n: None) == ("", []))
+    name, argv = H.terminal_argv("C:/w", env={}, platform="win32", which=lambda n: None)
+    ctx.check(f"Windows: a console window, halo through this Python, got {name} {argv}", name == "a console window"
+              and argv[1:] == ["-m", "halo_harness"])
+    spawned: list = []
+    ok, line = H.open_halo("/w", env={"DISPLAY": ":0"}, platform="linux", which=which, spawn=lambda argv, **kw: spawned.append((argv, kw)))
+    ctx.check(f"open_halo spawns it in cwd, got {ok} {line} {spawned}", ok and line == "halo is starting in a new terminal window (xfce4-terminal)"
+              and spawned and spawned[0][1]["cwd"] == "/w")
+    ok, line = H.open_halo("/w", env={}, platform="linux", which=which, spawn=lambda *a, **k: spawned.append(a))
+    ctx.check(f"no display: not spawned, the line, got {ok} {line}", not ok and line == H.NO_TERMINAL and len(spawned) == 1)
 
 
 @test

@@ -114,6 +114,73 @@ cache; now every place a model is picked says them.
 - SLASH-COMMANDS-session.md (`/model`: the column, the line, the confirmation), COMMANDS-providers.md (`halo models`'
   takes column, `halo models show`'s lines), STUDIO-sections.md (the chips wherever a model is picked).
 
+### R4: instrument is the default, until you change it
+
+The owner: "instrument theme should be the default theme for halo unless a user changes it." L1 drew instrument only on
+a dark system with `theme` unset; now unset means instrument everywhere, and "Follow the system" is a choice you save.
+
+#### Changed
+- `theme` unset is `instrument` for every surface: Studio on a dark AND a light system (`:root` and the page with no
+  attribute, the server's first paint, `main.tsx`'s fallback), and the terminal (`theme.DEFAULT_THEME`, `instrument-ansi`
+  on a terminal without truecolor; `claude-dark` before). `halo config get theme` with it unset prints
+  `(unset: instrument)`. The registry names it (`palettes.DEFAULT`) and `GET settings/themes` sends it (`default`).
+- `theme: auto` is a value the key takes ("follow the system": instrument on a dark system, paper on a light one); the
+  header's and Settings -> Themes' **Follow the system** write it (they cleared the key before) and are marked current
+  only while it is saved; with the key unset the mark sits on instrument. `/theme auto`, `halo config set theme auto`,
+  the config schema and the Settings row take it; a terminal draws the default for it. `halo config unset theme` is the
+  way back to the default. Setup's Theme block says "Nothing saved yet: halo and Studio draw instrument".
+- The TUI snapshots under `docs/harness/tui-snapshots/` are drawn in instrument now (re-rendered by `test_tui.py`).
+
+#### Docs
+- CONFIG.md `theme` (unset = instrument; `auto` follows the system), STUDIO-shell.md and STUDIO-sections.md (the theme
+  menu and the Themes page), GLOSSARY.md and its packaged twin (palette, posture).
+
+### R5: the guided first run belongs to custom lineups
+
+The owner: "If I have a model selected for auto, then it just tests that 1 model a bunch of times and not really has
+value ... If the user is on auto then that shouldn't happen." On the Auto lineup (or none) every part is one model
+picked per task, so the guided first run would rehearse one model five times.
+
+#### Changed
+- `halo start` on the Auto lineup (or none) prints "Your lineup is Auto: the guided first run would rehearse one model
+  five times. Build a lineup or a workflow in Roles (Agents from 3.3.16.0) and test it there.", offers `halo gym
+  --quick`, writes nothing and exits 0 (`--json`: `{ok, ran: false, reason: "auto_lineup"}`); `--lineup <name>` or an
+  active custom lineup runs as before (`halo_harness/start/auto_gate.py`).
+- The same rule everywhere the start is offered: `halo init`'s wizard Summary and console offer (`--yes` included), `halo
+  check` (`--all` and `--explain` leave it out, `--start` prints the line), the TUI's `/start`, Setup -> Check (no row;
+  `start_auto` in `GET setup/state`) and Setup's Summary, and Studio's Start here (no Run button; `auto` in `GET start`;
+  `POST start` and a Check with `start` answer 422 `auto_lineup`). The card and its costs are unchanged for a custom
+  lineup.
+
+#### Docs
+- COMMANDS-init.md and HANDBOOK.md (where the test lives now: `halo start` for a custom lineup; Agents -> Runs adds "Test
+  this lineup / workflow" in 3.3.16.0), WIZARD.md and STUDIO-setup.md (the row on Auto).
+
+### R6: init ends with both running
+
+The owner, on Kali: "during init the halo harness cli closes ... the terminal part never launched just the gui." The
+wait counted a busy Studio as gone (ten failed GETs while a check or the guided first run held it up), so `halo init`
+ended, and Setup's Done had no terminal to start halo in and said nothing.
+
+#### Changed
+- `halo init` on a terminal stays until Setup is done, then becomes the session: its line is "Setup is open in your
+  browser: <url>. This terminal starts halo when you press Done there (Ctrl+C: stop here; `halo` later starts it).";
+  failed GETs while Studio's port still answers no longer count toward "Studio closed" (only a silent port does); on
+  Done it prints the Summary's lines and "Setup is done: halo starts here, paired with Studio at <url>", then starts
+  halo in this terminal (the same home, so the session shows in Studio's Session section). Ctrl+C prints the stop line
+  and exits 0.
+- While it waits, init keeps `~/.halo/setup-wait.json` (its pid; `studio/init_waiting.py`), and Studio's Done answers
+  who starts halo (`starts`, `line`): "halo is starting in your terminal" while an init waits; with none waiting it
+  opens a terminal running halo (`studio/halo_terminal.py`: a console on Windows, Terminal on macOS, `$TERMINAL` then
+  qterminal, xfce4-terminal, gnome-terminal, ... with a display on Linux) or says "no terminal found to start halo in;
+  run `halo` yourself" in an error toast -- never silent. The Summary's Done note says which (`init_waiting` in
+  `GET setup/state`).
+- The console flow (`--yes`, no TTY), `--no-launch` and a terminal wizard that starts nothing end on one line: "Start
+  halo with `halo`; `halo studio` opens Studio beside it, and the two pair on their own".
+
+#### Docs
+- COMMANDS-init.md, WIZARD.md and STUDIO-setup.md: the terminal waits, both come up, and what Done says.
+
 ## [3.3.14.0] - 2026-11-09
 
 **The review's fix pass: the token and the grants, then children and keys.** The November code and security review

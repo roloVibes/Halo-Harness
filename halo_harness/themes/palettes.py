@@ -37,8 +37,11 @@ TOKEN_NAMES = tuple(name for name, _ in TOKENS)
 
 MODIFIERS = ("daltonized", "ansi")
 
-# The default when `theme` is unset: Studio follows the system (dark -> instrument since 3.3.15.0 L1, holo before;
-# light -> paper); the terminal keeps its own default (theme.DEFAULT_THEME, truecolor-aware).
+# 3.3.15.0 R4: the default when `theme` is unset, for every surface: Studio on a dark or a light system, the server's
+# first paint and the terminal (theme.DEFAULT_THEME; `instrument-ansi` without truecolor). "Follow the system" is a
+# choice the user saves (`theme: auto`): instrument on a dark system, paper on a light one.
+DEFAULT = "instrument"
+FOLLOW = "auto"
 FOLLOW_DARK = "instrument"
 FOLLOW_LIGHT = "paper"
 
@@ -62,7 +65,7 @@ PALETTES = (
     _p("holo", "Studio's look before 3.3.15.0: navy, cyan and amber", "dark",
        "#070b14", "#0b1222", "#0e1628", "#142038", "#2d4b64", "#78c8ff", "#dbe7ff", "#7d8fb3", "#4a5878",
        "#39d7ff", "#7c8cff", "#04121c", "#4ef0a8", "#ffb347", "#ff4d8d", "#7ce3ff", "#ffb347"),
-    # 3.3.15.0 L1: the Instrument look's palette (docs/design/studio-instrument/PROPOSAL.md section 1), Studio's dark default
+    # 3.3.15.0 L1: the Instrument look's palette (docs/design/studio-instrument/PROPOSAL.md section 1); R4: Halo's default
     _p("instrument", "Studio's instrument panel: solid near-black, hairlines, cyan works, amber waits", "dark",
        "#07090c", "#0b0e12", "#0f1318", "#151a21", "#232a33", "#1a2028", "#e6edf3", "#9aa6b2", "#7d8995",
        "#22d3ee", "#f5a524", "#031317", "#3dd68c", "#f5a524", "#ff5c6a", "#a78bfa", "#67e8f9"),

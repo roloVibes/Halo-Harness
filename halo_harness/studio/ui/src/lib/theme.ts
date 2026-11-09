@@ -4,8 +4,9 @@
 // studio/theme_boot.py), `GET settings/themes` gives the eleven with their
 // tokens, and a choice here (the header's menu, the palette, Settings ->
 // Themes) writes the key through the settings route, so `/theme`, `halo
-// config set theme`, Settings and the header all move one value. Unset is
-// "follow the system" (`auto`: instrument on a dark system since 3.3.15.0, paper on a light one).
+// config set theme`, Settings and the header all move one value. 3.3.15.0 R4:
+// unset is Halo's default, instrument, on any system; "Follow the system" is a
+// choice the user saves (`theme: auto`: instrument on a dark system, paper on a light one).
 // A change made elsewhere (`files_changed` for config.json) is read again.
 // The per-browser choice of before (halo.studio.theme) is read once: written
 // to the key when the key is unset, then dropped. 3.3.12.0 R2: a pack's
@@ -35,13 +36,17 @@ export type ThemesInfo = {
   palettes: Palette[];
   modifiers: string[];
   follow: { dark: string; light: string };
+  /** 3.3.15.0 R4: what an unset `theme` draws (instrument). */
+  default?: string;
   theme: string | null;
   posture: string;
   saved: string | null;
 };
 
-/** "Follow the system": the key unset, `data-theme="auto"`. */
+/** "Follow the system": `theme: auto` saved, `data-theme="auto"` (3.3.15.0 R4: a choice, no longer the unset key). */
 export const FOLLOW = "auto";
+/** 3.3.15.0 R4: Halo's default, what an unset `theme` draws on any system (the registry's `default`). */
+export const DEFAULT_THEME = "instrument";
 export const MODIFIERS = ["daltonized", "ansi"] as const;
 /** The swatch row's tokens, in the order a swatch draws them. */
 export const SWATCH = ["surface", "text", "accent", "accent2", "ok", "warn", "bad"] as const;
@@ -77,7 +82,7 @@ export function systemPosture(): "dark" | "light" {
 export function paletteOf(name: string): Palette | undefined {
   const info = themes.get().info;
   if (!info) return undefined;
-  const id = name === FOLLOW || !name ? info.follow[systemPosture()] : splitTheme(name)[0];
+  const id = !name ? info.default || DEFAULT_THEME : name === FOLLOW ? info.follow[systemPosture()] : splitTheme(name)[0];
   return info.palettes.find((p) => p.id === id);
 }
 
@@ -109,10 +114,10 @@ function packVars(name: string): void {
   }
 }
 
-/** Draw the page in `name` (a theme name or FOLLOW) without saving anything. */
+/** Draw the page in `name` (a theme name or FOLLOW; "" the default) without saving anything. */
 export function paint(name: string): void {
-  document.documentElement.dataset.theme = name || FOLLOW;
-  packVars(name || FOLLOW);
+  document.documentElement.dataset.theme = name || DEFAULT_THEME;
+  packVars(name || DEFAULT_THEME);
 }
 
 /** Preview `name` on the page (hover); null puts the saved one back (leave, Esc). */
@@ -130,7 +135,7 @@ export function loadThemes(): Promise<void> {
       try {
         const info = await api.get<ThemesInfo>("settings/themes");
         themes.update(() => ({ info, error: "" }));
-        const want = info.theme || FOLLOW;
+        const want = info.theme || info.default || DEFAULT_THEME; // 3.3.15.0 R4: unset is the default, not follow
         if (studio.get().theme !== want) studio.update(() => ({ theme: want }));
         paint(themes.get().preview || want); // a pack palette's variables need the registry's answer
       } catch (e) {
@@ -142,11 +147,11 @@ export function loadThemes(): Promise<void> {
   return reading;
 }
 
-/** Save `name` to `theme` (FOLLOW: the key removed) and draw it; false (and a toast) when the server said no. */
+/** Save `name` to `theme` (3.3.15.0 R4: FOLLOW writes `theme: auto`, it no longer clears the key) and draw it; false
+ *  (and a toast) when the server said no. `halo config unset theme` is the way back to the default. */
 export async function chooseTheme(name: string): Promise<boolean> {
   try {
-    if (name === FOLLOW) await api.post("settings/unset", { key: "theme" });
-    else await api.post("settings/set", { key: "theme", value: name });
+    await api.post("settings/set", { key: "theme", value: name });
   } catch (e) {
     const why = e instanceof ApiError && e.problems.length ? e.problems[0] : e instanceof Error ? e.message : String(e);
     toast(`Theme not saved: ${why}`, "error", 6000);

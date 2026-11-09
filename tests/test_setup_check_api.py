@@ -79,11 +79,17 @@ def _stub_checks(results: dict, gate=None):
 
 @test
 def test_the_state_carries_the_checks_the_card_and_no_provider(ctx: Ctx):
+    from halo_harness.start.auto_gate import AUTO_LINE
+    from tests.helpers.custom_lineup import custom_lineup
     with _Env() as e:
-        status, s = e.call("GET", "setup/state")
+        status, s = e.call("GET", "setup/state")  # 3.3.15.0 R5: a fresh home runs the Auto lineup
+        ctx.check(f"on Auto: five rows, no guided first run, its line, got {[r['key'] for r in s['checks']]} {s.get('start_auto')!r}",
+                  [r["key"] for r in s["checks"]] == ["doctor", "catalog", "hello", "steward", "gym"] and s["start_auto"] == AUTO_LINE)
+        with custom_lineup():
+            status, s = e.call("GET", "setup/state")
         rows = s["checks"]
-        ctx.check(f"the six checks in order, got {[r['key'] for r in rows]}", status == 200
-                  and [r["key"] for r in rows] == ["doctor", "catalog", "hello", "steward", "gym", "start"])
+        ctx.check(f"a custom lineup: the six checks in order, no line, got {[r['key'] for r in rows]}", status == 200
+                  and [r["key"] for r in rows] == ["doctor", "catalog", "hello", "steward", "gym", "start"] and s["start_auto"] == "")
         ctx.check("doctor, catalog and hello are on by default (no local model here: the steward row is off)",
                   [r["default_on"] for r in rows] == [True, True, True, False, False, False])
         ctx.check(f"each row: what, cost, time, writes, got {rows[0]}", all({"title", "what", "cost", "time", "writes"} <= set(r) for r in rows)
@@ -150,7 +156,13 @@ def test_refusals_and_stop(ctx: Ctx):
                            ({"checks": []}, "tick at least one check"), ({}, "tick at least one check")):
             status, got = _call(e, "POST", "setup/check", body)
             ctx.check(f"{body}: a 422, got {status} {got.get('error')!r}", status == 422 and got["error"] == want)
+        from halo_harness.start.auto_gate import AUTO_LINE
+        from tests.helpers.custom_lineup import custom_lineup
         status, got = _call(e, "POST", "setup/check", {"checks": ["doctor", "start"]})
+        ctx.check(f"3.3.15.0 R5: the guided first run on Auto: a 422 with the line, got {status} {got.get('reason')}",
+                  status == 422 and got["reason"] == "auto_lineup" and got["error"] == AUTO_LINE)
+        with custom_lineup():
+            status, got = _call(e, "POST", "setup/check", {"checks": ["doctor", "start"]})
         ctx.check(f"the guided first run with no provider: the start's own no_provider 422, got {status} {got.get('reason')}",
                   status == 422 and got["reason"] == "no_provider" and got["error"].startswith("No model provider is set up yet"))
         ctx.check("GET on stop is a 405", _call(e, "GET", "setup/check/stop")[0] == 405)
@@ -173,7 +185,8 @@ def test_refusals_and_stop(ctx: Ctx):
 
 @test
 def test_the_guided_first_run_runs_through_the_start_job(ctx: Ctx):
-    with _Env() as e:
+    from tests.helpers.custom_lineup import custom_lineup
+    with _Env() as e, custom_lineup():  # 3.3.15.0 R5: the guided first run belongs to a custom lineup
         server = _Server()
         os.environ["HALO_START_FAKE"] = "1"
         try:

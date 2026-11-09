@@ -19,7 +19,12 @@ halo check          # the checks after setup: doctor, the model catalog, one hel
 ```
 
 `halo start` is one real Orchestra run on your models, not a test of them
-(`halo gym` measures models). It opens on a card: the seven steps in one
+(`halo gym` measures models). Halo 3.3.15.0: it belongs to a custom lineup or
+workflow. On the Auto lineup it would rehearse one model five times, so
+`halo start` says so, offers `halo gym --quick` and exits 0 (`--lineup <name>`
+runs it anyway), and init, Setup and Start here leave it out. The test lives
+here, in `halo start`, for now; Agents -> Runs adds "Test this lineup /
+workflow" in 3.3.16.0, on the same engine. It opens on a card: the seven steps in one
 sentence each, the models it will call (the lead and the five workers, from
 your role table or your default model, and the copied lineup's cards), an
 estimated cost (one lead plan, five worker lanes, one judge pass, each with

@@ -2,7 +2,7 @@
 Chrome on the driver base; no provider request, no model call. tests/test_studio_instrument.py runs it:
 
     python -m tests.helpers.studio_instrument fresh      capture_studio's seeded home on a dark system: the page's theme
-                                                         (`auto`, instrument's colours), the rail (52 px, 176 px on its
+                                                         (`instrument`, its colours), the rail (52 px, 176 px on its
                                                          chevron, kept across a reload), a panel's and the palette's
                                                          corner ticks, and nothing animating on any section's load (an
                                                          `animationstart` listener installed before each page's scripts)

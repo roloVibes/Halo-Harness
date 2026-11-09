@@ -1,9 +1,10 @@
 """halo_harness.studio.theme_boot -- the served page's first paint in the saved palette (Halo 3.3.12.0 R1).
 
 `theme_attr(page)` sets `data-theme` on index.html's <html> tag to `theme` in ~/.halo/config.json when it names a
-palette of the registry (halo_harness/themes), else to "auto" (follow the system: instrument on a dark system, paper on a
-light one). lib/store.ts reads it as the page's first theme, so the page never paints in one palette and then
-switches; the header's menu and Settings -> Themes write the key through `settings/set`.
+palette of the registry (halo_harness/themes) or is "auto" (the saved "follow the system": instrument on a dark system,
+paper on a light one), else to "instrument" (3.3.15.0 R4: Halo's default on any system; "auto" before). lib/store.ts
+reads it as the page's first theme, so the page never paints in one palette and then switches; the header's menu and
+Settings -> Themes write the key through `settings/set`.
 
 R2: a pack's palette has no block in the built tokens.css (it is not known at build time), so when the saved theme
 is one, its variables (themes/studio_css.py, the same derivation as the eleven) go into the page as one
@@ -25,11 +26,11 @@ _STYLE = re.compile(rb'<style id="' + STYLE_ID.encode() + rb'">(.*?)</style>', r
 
 
 def saved_theme() -> str:
-    """The palette name Studio draws in: the saved `theme`, or "auto" when it is unset or not a palette."""
+    """The palette name Studio draws in: the saved `theme` (a palette or "auto"), else the default (instrument)."""
     from halo_harness.theme import load_config
-    from halo_harness.themes.registry import is_name
+    from halo_harness.themes.registry import DEFAULT, FOLLOW, is_name
     saved = load_config().get("theme")
-    return saved if is_name(saved) else "auto"
+    return saved if is_name(saved) or saved == FOLLOW else DEFAULT
 
 
 def pack_rule(name: str) -> str:

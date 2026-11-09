@@ -45,7 +45,7 @@ export function ThemeDetail() {
     <div className="su-block" data-testid="setup-theme">
       <p className="su-lead muted" data-testid="setup-theme-note">
         One palette for halo in your terminal and for Studio. Settings -&gt; Themes has the colour-blind and 16-colour modifiers and a live preview.
-        {saved ? "" : " Nothing saved yet: the terminal uses claude-dark and Studio follows the system."}
+        {saved ? "" : " Nothing saved yet: halo and Studio draw instrument, Halo's default."}
       </p>
       <div className="su-swatches" role="radiogroup" aria-label="Theme">
         {themes.map((t) => (

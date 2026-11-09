@@ -5,7 +5,9 @@ connection: the costs and the card read the cached catalog
 (`catalog_by_ref`, no host probed).
 
     checks: [{key, title, what, cost, time, writes, default_on}]
-                     start/checks.py CHECKS (doctor, catalog, hello, gym, start), each cost with its models' prices
+                     start/checks.py CHECKS (doctor, catalog, hello, gym, start), each cost with its models' prices;
+                     3.3.15.0 R5: no `start` row while the active lineup is Auto or none (start/checks.offered)
+    start_auto: str                  then the line in its place ("" with a custom lineup; start/auto_gate.AUTO_LINE)
     gym_models: [{ref, cost}]        the models the gym row offers (start/checks_run.gym_candidates)
     card: [lines]                    the guided first run's card (start/card.card_lines), shown before its row is ticked
     last_check: {when, ok, stopped, results: [{key, title, ok, lines}]} | null
@@ -137,10 +139,16 @@ def _costs(ctx, rows: dict) -> dict:
 
 
 def check_rows(ctx, rows: dict) -> list:
-    from halo_harness.start.checks import CHECKS, default_on
+    from halo_harness.start.checks import default_on, offered  # 3.3.15.0 R5: no guided first run on the Auto lineup
     costs = _costs(ctx, rows)
     return [{"key": c["key"], "title": c["title"], "what": c["what"], "cost": costs.get(c["key"], c["cost"]), "time": c["time"],
-             "writes": c["writes"], "default_on": default_on(c, ctx)} for c in CHECKS]  # 3.3.7.0 R5: the steward row's
+             "writes": c["writes"], "default_on": default_on(c, ctx)} for c in offered()]  # 3.3.7.0 R5: the steward row's
+
+
+def start_auto() -> str:
+    """3.3.15.0 R5: the line in the guided first run's place on the Auto lineup (or none); "" with a custom lineup."""
+    from halo_harness.start.auto_gate import AUTO_LINE, offers_start
+    return "" if offers_start() else AUTO_LINE
 
 
 def gym_rows(ctx) -> list:
@@ -179,7 +187,7 @@ def check_blocks(cwd=None, state_dir=None) -> dict:
     gym = gym_rows(ctx)
     return {"checks": check_rows(ctx, rows), "gym_models": gym, "card": card(cwd, state_dir, rows),
             "last_check": read_last_check(state_dir), "linux_fixes": linux_block(), "no_provider": no_provider(),
-            "model_notes": model_notes()}
+            "model_notes": model_notes(), "start_auto": start_auto()}
 
 
 def boot_attrs(page: bytes, state_dir=None) -> bytes:

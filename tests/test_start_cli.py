@@ -3,6 +3,9 @@
 
 Every run here uses HALO_START_FAKE=1 (the fake lead, workers and judge in
 start/fake.py: real git, no model) in this module's own home:
+0. 3.3.15.0 R5: on the Auto lineup (team unset) it prints why the start would
+   say little there and the gym, exits 0 and writes nothing; `--lineup` runs.
+   Every other test runs with a custom lineup active (tests/helpers/custom_lineup.py).
 1. `--yes`: the seven steps done in order, each screen with its why and its
    command; the lineup copied to my-halo-dev-cycle (the active lineup
    untouched), the sample repo a git repo, the run finished with its plan
@@ -24,7 +27,7 @@ import io
 import json
 import os
 import sys
-from contextlib import contextmanager, redirect_stderr, redirect_stdout
+from contextlib import contextmanager, nullcontext, redirect_stderr, redirect_stdout
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -36,6 +39,7 @@ ensure_scoped_state_dir_once()
 test, TESTS = new_registry()
 
 KEYS = ["lineup", "repo", "goal", "plan", "run", "report", "next"]
+KEEP = "keep"  # _start's lineup: leave config's `team` as the caller set it
 
 
 @contextmanager
@@ -56,13 +60,16 @@ def _env(**values):
                 os.environ[k] = v
 
 
-def _start(argv, stdin: str = "", fake: bool = True):
+def _start(argv, stdin: str = "", fake: bool = True, lineup: "str | None" = "halo-dev-cycle"):
+    """`cmd_start(argv)`; 3.3.15.0 R5: with `lineup` the active custom lineup (None: the Auto lineup)."""
     from halo_harness.start_cli import cmd_start
+    from tests.helpers.custom_lineup import custom_lineup
     out, err = io.StringIO(), io.StringIO()
     old_in = sys.stdin
     sys.stdin = io.StringIO(stdin)
     try:
-        with _env(HALO_START_FAKE="1" if fake else None), redirect_stdout(out), redirect_stderr(err):
+        held = nullcontext() if lineup == KEEP else custom_lineup(lineup)
+        with held, _env(HALO_START_FAKE="1" if fake else None), redirect_stdout(out), redirect_stderr(err):
             rc = cmd_start(list(argv))
     finally:
         sys.stdin = old_in
@@ -75,10 +82,33 @@ def _home() -> Path:
 
 
 @test
+def test_on_auto_the_start_says_why_and_runs_nothing(ctx: Ctx):
+    """3.3.15.0 R5: the Auto lineup (team unset): the line, the gym, exit 0, nothing under start/; --lineup runs."""
+    from halo_harness.start.auto_gate import AUTO_LINE
+    before = sorted((_home() / "start").glob("*/*")) if (_home() / "start").is_dir() else []
+    rc, text, err = _start(["--yes"], lineup=None)
+    after = sorted((_home() / "start").glob("*/*")) if (_home() / "start").is_dir() else []
+    ctx.check(f"exit 0, the line and the gym, got {rc} {text!r} {err!r}", rc == 0 and AUTO_LINE in text
+              and "halo gym --quick" in text and "Step 1 of 7" not in text)
+    ctx.check(f"nothing written under start/, got {len(before)} -> {len(after)}", after == before)
+    rc, text, _ = _start(["--json"], lineup=None)
+    data = json.loads(text)
+    ctx.check(f"--json: ok, not run, the reason, got {data}", rc == 0 and data == {"ok": True, "ran": False, "reason": "auto_lineup",
+                                                                                     "message": AUTO_LINE})
+    rc, text, err = _start(["--json", "--lineup", "halo-dev-cycle"], lineup=None)
+    data = json.loads(text) if text.strip().startswith("{") else {}
+    ctx.check(f"--lineup <name> runs on Auto too, got {rc} {data.get('ok')} {data.get('lineup')}", rc == 0 and data.get("ok") is True
+              and data.get("lineup") == "my-halo-dev-cycle")
+
+
+@test
 def test_yes_runs_every_step_through_the_fake(ctx: Ctx):
     from halo_harness.theme import get_config_value
-    team_before = get_config_value("team", "")
-    rc, text, err = _start(["--yes"])
+    from tests.helpers.custom_lineup import custom_lineup
+    with custom_lineup():  # 3.3.15.0 R5: an active custom lineup, which the start must leave as it is
+        team_before = get_config_value("team", "")
+        rc, text, err = _start(["--yes"], lineup=KEEP)
+        team_after = get_config_value("team", "")
     ctx.check(f"exit 0, got {rc} {err[-400:]!r} {text[-600:]!r}", rc == 0)
     ctx.check("the card comes first (3.2.2.0 R2)", 0 <= text.find("Estimated cost: free") < text.find("Step 1 of 7"))
     titles = ["The lineup", "The sample repo", "The goal", "The plan", "The run", "The report and the coach", "Where to go next"]
@@ -90,7 +120,7 @@ def test_yes_runs_every_step_through_the_fake(ctx: Ctx):
     lineup = _home() / "teams" / "my-halo-dev-cycle.yaml"
     ctx.check(f"the lineup copied into your scope, got {lineup}", lineup.is_file() and "name: my-halo-dev-cycle" in lineup.read_text(encoding="utf-8"))
     ctx.check("its cards as a table with tiers", "tier       card" in text and "all        boss         main" in text)
-    ctx.check("the active lineup is unchanged", get_config_value("team", "") == team_before)
+    ctx.check("the active lineup is unchanged", team_after == team_before == "halo-dev-cycle")
     repos = sorted((_home() / "start").glob("*/basket*"))
     ctx.check(f"the sample repo is a git repo with basket.py, got {repos}", repos and (repos[-1] / ".git").exists()
               and (repos[-1] / "basket.py").is_file())
@@ -213,10 +243,18 @@ def test_the_summarys_start_row_defaults_to_off(ctx: Ctx):
     from rich.console import Console
     from halo_harness import init_cli
     from halo_harness.start import checks as C
+    from halo_harness.start.auto_gate import AUTO_LINE
+    from tests.helpers.custom_lineup import custom_lineup
     out = io.StringIO()
-    rc = init_cli._step_offer_start(SimpleNamespace(yes=True), Console(file=out, width=120))
+    with custom_lineup():
+        rc = init_cli._step_offer_start(SimpleNamespace(yes=True), Console(file=out, width=120))
     ctx.check(f"non-interactive: No, init's exit 0, got {rc} {out.getvalue()!r}", rc == 0 and "halo start" in out.getvalue()
               and "--explain" in out.getvalue() and "Estimated cost" not in out.getvalue())
+    out = io.StringIO()
+    with custom_lineup(None):  # 3.3.15.0 R5: the console / --yes path on Auto: the line, not the offer
+        rc = init_cli._step_offer_start(SimpleNamespace(yes=True), Console(file=out, width=400))
+    ctx.check(f"on Auto: the line in its place, no question, got {rc} {out.getvalue()!r}", rc == 0 and AUTO_LINE in out.getvalue()
+              and "halo gym --quick" in out.getvalue() and "Run the guided first run now?" not in out.getvalue())
     ctx.check("the question names the guided first run", init_cli.START_QUESTION.startswith("Run the guided first run now?"))
     ctx.check("the start row is the last check and off", C.KEYS[-1] == "start" and C.check("start")["default_on"] is False)
     from halo_harness.tui.dialogs.init_wizard import WizardState

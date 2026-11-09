@@ -396,11 +396,11 @@ A setup block (3.3.11.0 R3) is a page a pack adds to Studio's Setup with `contri
 
 ## palette
 
-A palette (3.3.12.0) is one of the eleven colour sets the terminal and Studio both draw from: `claude-dark`, `claude-light`, `holo` (Studio's look before 3.3.15.0), `instrument` (3.3.15.0: Studio's dark default, the Instrument look's colours), `paper`, `midnight`, `ember`, `forest`, `slate`, `dusk`, `dawn` (`halo_harness/themes/palettes.py`). Each is a set of tokens in one vocabulary (bg, surface, text, muted, accent, accent-2, ok, warn, bad, ...) with a posture and a one-line label; `theme` in `~/.halo/config.json` names the one in use, and `/theme`, `halo config set theme`, Studio's header menu and Settings -> Themes all move it. A modifier changes any palette: `-daltonized` (blue and orange for the accents and the status colours, never red against green) or `-ansi` (the 16-colour set of a terminal without truecolor). Every palette's text meets WCAG AA contrast.
+A palette (3.3.12.0) is one of the eleven colour sets the terminal and Studio both draw from: `claude-dark`, `claude-light`, `holo` (Studio's look before 3.3.15.0), `instrument` (3.3.15.0: the Instrument look's colours; Halo's default everywhere while `theme` is unset), `paper`, `midnight`, `ember`, `forest`, `slate`, `dusk`, `dawn` (`halo_harness/themes/palettes.py`). Each is a set of tokens in one vocabulary (bg, surface, text, muted, accent, accent-2, ok, warn, bad, ...) with a posture and a one-line label; `theme` in `~/.halo/config.json` names the one in use, and `/theme`, `halo config set theme`, Studio's header menu and Settings -> Themes all move it. A modifier changes any palette: `-daltonized` (blue and orange for the accents and the status colours, never red against green) or `-ansi` (the 16-colour set of a terminal without truecolor). Every palette's text meets WCAG AA contrast.
 
 ## posture
 
-A palette's posture (3.3.12.0) is whether it is dark or light. It decides how Studio derives its glass, lines, glows and soft fills from the palette's tokens, which 16-colour set `-ansi` draws in the terminal, and what "follow the system" picks while `theme` is unset: `holo` on a dark system, `paper` on a light one.
+A palette's posture (3.3.12.0) is whether it is dark or light. It decides how Studio derives its glass, lines, glows and soft fills from the palette's tokens, which 16-colour set `-ansi` draws in the terminal, and what "follow the system" (`theme: auto`, a choice since 3.3.15.0) picks: `instrument` on a dark system, `paper` on a light one.
 
 ## pack palette
 

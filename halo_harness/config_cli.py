@@ -64,6 +64,9 @@ def _cmd_get(rest: list) -> int:
     from halo_harness.schemas.config_json import MOVED_KEYS, moved_key_line
     if args.key in MOVED_KEYS:  # 3.3.13.0 R3: an old key of a feature that is a pack now: its new home
         print(f"halo config: {moved_key_line(args.key)}", file=sys.stderr)
+    if value is theme_mod._MISSING and args.key == "theme":  # 3.3.15.0 R4: unset has a value everywhere
+        print(f"(unset: {theme_mod.DEFAULT_THEME})")
+        return 0
     if value is theme_mod._MISSING:
         print(f"halo config: {args.key!r} is not set", file=sys.stderr)
         return 1
@@ -82,7 +85,7 @@ def _cmd_set(rest: list) -> int:
         value = json.loads(args.value)
     except (ValueError, TypeError):
         value = args.value
-    if args.key == "theme" and not theme_mod.is_valid_theme(value):
+    if args.key == "theme" and not theme_mod.is_theme_value(value):
         from halo_harness.themes.cli import refusal  # 3.3.12.0 R1: the ten palettes named
         print(f"halo config: {refusal(value)}",
               file=sys.stderr)

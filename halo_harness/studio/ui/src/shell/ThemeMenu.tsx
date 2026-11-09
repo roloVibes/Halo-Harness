@@ -1,5 +1,7 @@
 // The header's theme menu (3.3.12.0 R1): "Follow the system" and the eleven
-// palettes of the registry, each with its swatch row, the current one checked.
+// palettes of the registry, each with its swatch row, the current one checked
+// (3.3.15.0 R4: nothing saved checks instrument, Halo's default; Follow the
+// system is checked only when `theme: auto` is saved, and picking it writes that).
 // A pick writes `theme` in ~/.halo/config.json through the settings route
 // (lib/theme.ts chooseTheme), the one key the terminal reads too; a modifier
 // already on (-daltonized, -ansi) stays on with the new palette. Settings ->

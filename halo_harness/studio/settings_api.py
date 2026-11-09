@@ -5,7 +5,7 @@ origin / token guard as every Studio route; every write goes through `theme.set_
 
     GET  settings/catalog            {groups, rows, kinds, effects}: the catalog as JSON
     GET  settings/themes             {palettes, tokens, modifiers, follow, theme, posture, saved}: the palette registry
-                                     (3.3.12.0 R1) and the saved `theme` (null: Studio follows the system)
+                                     (3.3.12.0 R1) and the saved `theme` (null: unset, instrument; "auto": follow)
     GET  settings/values             {values: {row key: {value, set, default, masked, cli[, entries, section]}}}:
                                      the saved value per row (masked as `halo config get` masks, a secret row only
                                      says it is set), a keyed row's saved entries and its whole section
@@ -42,10 +42,11 @@ def get_catalog(_req):
 
 def get_themes(_req):
     """3.3.12.0 R1: the palette registry for the header's theme menu and Settings -> Themes: the eleven with their tokens
-    (and -daltonized tokens), the saved `theme` (None: follow the system) and its posture."""
+    (and -daltonized tokens), the saved `theme` and its posture. 3.3.15.0 R4: None is unset (Halo's default, `default`:
+    instrument); "auto" is the saved "follow the system"."""
     from halo_harness.themes import registry
     saved = _data().get("theme")
-    theme = saved if registry.is_name(saved) else None
+    theme = saved if registry.is_name(saved) or saved == registry.FOLLOW else None
     return 200, {**registry.as_json(), "theme": theme, "posture": registry.posture(theme) if theme else "",
                  "saved": saved if isinstance(saved, str) else None}
 
@@ -100,7 +101,7 @@ def post_set(req):
     r, entry, kind, problems = _resolve(key)
     if problems:
         return _refused(problems)
-    if key == "theme" and not T.is_valid_theme(body.get("value")):  # the words `halo config set theme` says
+    if key == "theme" and not T.is_theme_value(body.get("value")):  # the words `halo config set theme` says
         value = body.get("value")
         from halo_harness.themes.cli import refusal  # 3.3.12.0 R1: the eleven palettes named
         return _refused([refusal(value)])

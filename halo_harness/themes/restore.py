@@ -97,12 +97,12 @@ def on_pack_off(pack_id: str, *, verb: str = "disabled", state_dir=None) -> "lis
         return []
     prev = rec["previous"] if rec else None
     try:
-        if prev and T.is_valid_theme(prev):
+        if prev and T.is_theme_value(prev):
             T.set_config_value("theme", prev)
             back = prev
         else:
             T.unset_config_value("theme")
-            back = "the default (theme unset: Studio follows the system, the terminal its own default)"
+            back = f"the default (theme unset: {T.DEFAULT_THEME} in the terminal and Studio)"
     except T.CorruptConfigError as e:
         return [f"theme: {saved} was {pack_id}'s palette; config.json was left as it is: {e}"]
     return [f"theme: {saved} was {pack_id}'s palette and the pack is {verb}; restored {back}"]

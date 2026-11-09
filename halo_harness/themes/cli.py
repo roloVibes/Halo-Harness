@@ -23,7 +23,8 @@ def pack_words() -> str:
 def refusal(name) -> str:
     """One line: the name is not a palette, the eleven named (plus the removed-game-theme note when it was one)."""
     from halo_harness.theme import removed_theme_hint
-    return f"not a valid theme name: {name!r} (the palettes: {ten_words()}{pack_words()})" + removed_theme_hint(name)
+    return (f"not a valid theme name: {name!r} (the palettes: {ten_words()}{pack_words()}; auto follows the system)"
+            + removed_theme_hint(name))
 
 
 def listing(current: Optional[str]) -> str:
@@ -31,7 +32,7 @@ def listing(current: Optional[str]) -> str:
     palette marked, then how the modifiers and a change work."""
     base, mod = registry.split(current)
     width = max(len(pid) for pid in registry.all_ids())
-    lines = [f"Current theme: {current}" if current else "Current theme: none saved (the terminal's default)"]
+    lines = [f"Current theme: {current}" if current else f"Current theme: none saved (Halo's default, {registry.DEFAULT})"]
     shown = ""
     for pid in registry.all_ids():
         mark = "*" if pid == base else " "
@@ -42,5 +43,6 @@ def listing(current: Optional[str]) -> str:
         lines.append(f" {mark} {pid.ljust(width)}  {p['posture']:<5}  {p['label']}")
     lines.append("Modifiers: <id>-daltonized (blue and orange, never red against green), "
                  "<id>-ansi (16 colours)" + (f"; on now: -{mod}" if mod else ""))
-    lines.append("/theme <name> sets it for the terminal and Studio (theme in ~/.halo/config.json).")
+    lines.append("/theme <name> sets it for the terminal and Studio (theme in ~/.halo/config.json); /theme auto follows "
+                 f"the system (Studio: {registry.FOLLOW_DARK} on dark, {registry.FOLLOW_LIGHT} on light); unset is {registry.DEFAULT}.")
     return "\n".join(lines)

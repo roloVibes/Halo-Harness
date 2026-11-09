@@ -3,7 +3,8 @@
 Precedence: `--theme` (CLI flag) > `HALO_THEME`/`CLAUDE_BRIDGE_THEME`/
 `ROLO_CLAUDE_THEME` (env, checked in that order -- the 2.0.0 rename's new
 canonical name first, both legacy names still honoured) > settings `theme`
-> "claude-dark" (built-in default). Pure data -- Textual itself is NOT
+> "instrument" (built-in default since 3.3.15.0 R4; "claude-dark" before;
+`auto`, follow the system, draws the default in the terminal). Pure data -- Textual itself is NOT
 imported here (U2's job); this module only decides WHICH theme name is
 active and reads/writes the one place a `/theme` command would persist a
 user's choice: `~/.halo/config.json`'s `"theme"` key (never Claude Code's
@@ -20,16 +21,21 @@ from typing import Optional
 
 from halo_harness.config.paths import bridge_home
 
-DEFAULT_THEME = "claude-dark"
-
 # 3.3.12.0 R1: the eleven palettes of the registry (halo_harness/themes), each also with a
 # "-daltonized" or "-ansi" modifier; one `theme` key for the terminal and Studio. R2: a live
 # view (registry.LiveNames), read at each use: an enabled pack's palettes (<pack-id>/<id>) join it.
 from halo_harness.themes import registry as _registry  # noqa: E402
 
+# 3.3.15.0 R4: unset `theme` is instrument everywhere (claude-dark before); `auto` is the saved
+# choice "follow the system", which the terminal draws as the default (a terminal does not say
+# whether the system is light or dark).
+DEFAULT_THEME = _registry.DEFAULT
+FOLLOW_SYSTEM = _registry.FOLLOW
+
 _BASE_THEMES = _registry.ids()
 _SUFFIXES = ("", "-daltonized", "-ansi")
 VALID_THEMES = _registry.LIVE_NAMES
+THEME_VALUES = _registry.LIVE_VALUES  # what the `theme` key takes: "auto", then VALID_THEMES
 
 # 3.1.5.0: the 2.0.7 game themes are gone. A config.json that still names
 # one falls back like any unknown name (resolve_theme skips it), and the TUI
@@ -69,6 +75,11 @@ _DEPRECATED_ENV_VARS = ("ROLO_CLAUDE_THEME",)
 
 def is_valid_theme(name: Optional[str]) -> bool:
     return isinstance(name, str) and name in VALID_THEMES
+
+
+def is_theme_value(name: Optional[str]) -> bool:
+    """3.3.15.0 R4: a value the `theme` key takes: a palette name, or "auto" (follow the system)."""
+    return name == FOLLOW_SYSTEM or is_valid_theme(name)
 
 
 def _config_path() -> Path:
@@ -239,8 +250,9 @@ def persist_theme(name: str) -> Path:
     [now `~/.halo`], never Claude's settings". Returns the path
     written. Raises ValueError for a name outside `VALID_THEMES` -- callers
     (the `/theme` command, tests) are expected to validate user input
-    themselves and surface a friendly message rather than let this raise."""
-    if not is_valid_theme(name):
+    themselves and surface a friendly message rather than let this raise.
+    3.3.15.0 R4: "auto" (follow the system) is a value it writes too."""
+    if not is_theme_value(name):
         raise ValueError(f"not a valid theme name: {name!r} (expected one of {sorted(VALID_THEMES)})")
     from halo_harness.themes.restore import note_choice  # 3.3.12.0 R2: a pack palette keeps the value it replaced
     note_choice(name, load_persisted_theme())
@@ -302,20 +314,28 @@ def resolve_theme(*, cli_theme: Optional[str] = None, env: Optional[dict] = None
     to an -ansi sibling."""
     environ = env if env is not None else os.environ
 
-    if is_valid_theme(cli_theme):
-        return cli_theme
+    def drawn(name: str) -> str:  # 3.3.15.0 R4: "auto" at any tier is a choice the terminal draws as the default
+        return auto_theme_for_env(environ) if name == FOLLOW_SYSTEM else name
+
+    if is_theme_value(cli_theme):
+        return drawn(cli_theme)
 
     for var in _ENV_VARS:
         candidate = environ.get(var)
-        if is_valid_theme(candidate):
+        if is_theme_value(candidate):
             if var in _DEPRECATED_ENV_VARS:
                 logging.getLogger(__name__).debug("%s is deprecated, use HALO_THEME instead", var)
-            return candidate
+            return drawn(candidate)
 
-    if is_valid_theme(settings_theme):
-        return settings_theme
+    if is_theme_value(settings_theme):
+        return drawn(settings_theme)
 
-    if is_valid_theme(persisted_theme):
-        return persisted_theme
+    if is_theme_value(persisted_theme):
+        return drawn(persisted_theme)
 
     return auto_theme_for_env(environ)
+
+
+def drawn_theme(name: str, env: Optional[dict] = None) -> str:
+    """3.3.15.0 R4: the palette name the terminal draws for a `theme` value: "auto" -> the default (truecolor-aware)."""
+    return auto_theme_for_env(env) if name == FOLLOW_SYSTEM else name

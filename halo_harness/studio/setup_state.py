@@ -130,8 +130,9 @@ def setup_state(cwd=None, state_dir=None) -> dict:  # noqa: F811  (the state abo
     from halo_harness.studio.setup_discover_api import discover_block
     from halo_harness.studio.setup_done import setup_done_at  # 3.3.3.0 R1: when the Summary's Done was last pressed
     from halo_harness.studio.setup_packs_api import pack_blocks  # 3.3.11.0 R3: the enabled packs' own Setup blocks
+    from halo_harness.studio.init_waiting import waiting  # 3.3.15.0 R6: a `halo init` terminal waits for Done
     return {**_setup_state_before_r5(cwd, state_dir), "ollama_discover": discover_block(), "home": home_id(state_dir),
-            "done_at": setup_done_at(state_dir), "packs": pack_blocks(cwd, state_dir)}
+            "done_at": setup_done_at(state_dir), "packs": pack_blocks(cwd, state_dir), "init_waiting": bool(waiting(state_dir))}
 
 
 def home_id(state_dir=None) -> str:

@@ -44,13 +44,13 @@ from halo_harness.themes.registry import names as _registry_names  # noqa: E402
 SIX = set(_registry_names())  # 3.3.12.0 R1: the ordinary names, the ten palettes x the two modifiers
 GAMES = ("doom", "metroid", "mario", "beetlejuice", "alien")
 GONE_MODULE = re.compile(r"(^|\.)(scene\w*|hud\w*|theme_games|theme_mario|theme_metroid|theme_toggle|borders)$")
-NOTICE = "theme: doom was a game theme, removed in 3.1.5.0; using claude-dark"
+NOTICE = "theme: doom was a game theme, removed in 3.1.5.0; using instrument"
 
 
 @contextlib.contextmanager
 def _truecolor():
     """A truecolor terminal with no theme variable set, so the fallback is
-    `claude-dark` on every runner."""
+    `instrument` (3.3.15.0 R4; claude-dark before) on every runner."""
     names = ("COLORTERM", "HALO_THEME", "CLAUDE_BRIDGE_THEME", "ROLO_CLAUDE_THEME")
     saved = {k: os.environ.get(k) for k in names}
     for k in names[1:]:
@@ -109,8 +109,8 @@ def test_2_a_saved_game_theme_is_one_line_at_startup_and_in_the_doctor(ctx: Ctx)
     with _truecolor():
         for game in GAMES:
             ctx.check(f"resolve_theme skips a saved {game}",
-                      theme.resolve_theme(persisted_theme=game) == "claude-dark")
-        ctx.check("the notice, verbatim", theme.removed_theme_notice("claude-dark", persisted="doom") == NOTICE)
+                      theme.resolve_theme(persisted_theme=game) == "instrument")  # 3.3.15.0 R4: the default
+        ctx.check("the notice, verbatim", theme.removed_theme_notice("instrument", persisted="doom") == NOTICE)
         ctx.check("no notice for an ordinary theme", theme.removed_theme_notice("claude-dark", persisted="claude-light") is None)
         with ConfigHome() as h:
             h.config({"theme": "doom", "theme_scene": False, "theme_variant": "norfair",
@@ -135,7 +135,7 @@ def _check_startup(ctx: Ctx) -> None:
         rc = launch.run_tui(args)
     finally:
         BridgeApp.run, console_mode.install = real_run, real_install
-    ctx.check(f"run_tui starts on claude-dark, got {seen}", rc == 0 and seen.get("theme") == "claude-dark")
+    ctx.check(f"run_tui starts on instrument (3.3.15.0 R4), got {seen}", rc == 0 and seen.get("theme") == "instrument")
     ctx.check(f"with the one notice line, got {seen.get('notice')!r}", (seen.get("notice") or "").splitlines()[-1:] == [NOTICE])
 
     async def body():

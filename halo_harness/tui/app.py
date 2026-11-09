@@ -1826,9 +1826,9 @@ class BridgeApp(App):
     def _complete_theme_command_arg(self, token: str) -> "list":
         """Halo 2.0.8: theme names for `/theme <name>` (`halo_harness.theme.
         VALID_THEMES`, sorted)."""
-        from halo_harness.theme import VALID_THEMES
+        from halo_harness.theme import THEME_VALUES  # 3.3.15.0 R4: + auto (follow the system)
         from halo_harness.tui.completion import filter_items
-        names = sorted(VALID_THEMES)
+        names = sorted(THEME_VALUES)
         if token in names:
             return []
         return filter_items(names, token)

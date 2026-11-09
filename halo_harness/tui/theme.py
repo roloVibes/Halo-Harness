@@ -26,8 +26,9 @@ TOKEN_FOR = (
 
 def variables_for(theme_name: str) -> dict:
     """CSS custom-property values (no leading `$`) for `theme_name` --
-    always returns a complete dict, falling back to `claude-dark`'s
-    palette for an unrecognized name rather than raising (a stale/typo'd
+    always returns a complete dict, falling back to the default's
+    (`instrument` since 3.3.15.0 R4, `claude-dark` before) palette for an
+    unrecognized name rather than raising (a stale/typo'd
     theme must never crash startup, matching `halo_harness.theme`'s own
     fallback philosophy)."""
     if not is_valid_theme(theme_name):

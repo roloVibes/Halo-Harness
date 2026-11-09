@@ -9859,12 +9859,32 @@ def test_slash_theme_lists_the_ten_palettes_and_sets_one(ctx: Ctx):
                 ctx.check(f"an unknown name: one line naming the eleven, got {errs[-1:]}", errs and len(errs[-1].splitlines()) == 1
                           and errs[-1].startswith("Not a valid theme name: 'solarized'") and "dawn" in errs[-1])
                 ctx.check("nothing written for it", theme_mod.load_persisted_theme() == "ember")
+                await handle_slash(app, "theme", "auto")  # 3.3.15.0 R4: follow the system is a value; a terminal draws the default
+                await pilot.pause(0.2)
+                ctx.check(f"/theme auto: saved, drawn as instrument, got {theme_mod.load_persisted_theme()!r} {app.theme_name!r}",
+                          theme_mod.load_persisted_theme() == "auto" and app.theme_name in ("instrument", "instrument-ansi"))
         finally:
             if old is None:
                 os.environ.pop("BRIDGE_TEST_HOME", None)
             else:
                 os.environ["BRIDGE_TEST_HOME"] = old
     asyncio.run(body())
+
+
+@test
+def test_the_terminal_default_is_instrument(ctx: Ctx):
+    """3.3.15.0 R4: with `theme` unset the terminal draws instrument (claude-dark before), instrument-ansi without truecolor."""
+    from halo_harness import theme as theme_mod
+
+    async def body():
+        app = BridgeApp(FakeController(), cwd="~/project")
+        async with app.run_test(size=(100, 30)) as pilot:
+            await pilot.pause(0.1)
+            ctx.check(f"the app's default is instrument, got {app.theme_name!r} {app.get_css_variables()['bridge-bg']}",
+                      app.theme_name == "instrument" and app.get_css_variables()["bridge-bg"] == "#07090c")
+    asyncio.run(body())
+    ctx.check("resolve_theme: instrument, instrument-ansi", theme_mod.resolve_theme(env={"COLORTERM": "truecolor"}) == "instrument"
+              and theme_mod.resolve_theme(env={"TERM": "xterm"}) == "instrument-ansi")
 
 if __name__ == "__main__":
     # NEW (post-H9 acceptance): see tests/helpers/runner.py's own docstring.

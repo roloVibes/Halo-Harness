@@ -133,15 +133,15 @@ def test_a_gone_pack_palette_reads_as_a_removed_theme(ctx: Ctx):
         _home(h, enable=False)
         T.set_config_value("theme", "pack-theme/linen")
         using = T.resolve_theme(env={"COLORTERM": "truecolor"}, persisted_theme=T.load_persisted_theme())
-        ctx.check(f"the default is drawn, got {using}", using == "claude-dark")
+        ctx.check(f"the default is drawn, got {using}", using == "instrument")  # 3.3.15.0 R4
         line = T.removed_theme_notice(using)
         ctx.check(f"one line, like a removed game theme, got {line!r}", line == "theme: pack-theme/linen is a palette of the pack "
-                  "pack-theme, which is not enabled here (or no longer has it); using claude-dark")
+                  "pack-theme, which is not enabled here (or no longer has it); using instrument")
         found = [f for f in config_findings(h.repo) if f.get("key") == "theme"]
         ctx.check(f"doctor --config: one warns row with that line, got {found}", len(found) == 1 and found[0]["severity"] == "warns"
                   and found[0]["text"].startswith("theme: pack-theme/linen is a palette of the pack pack-theme"))
         from halo_harness.studio.theme_boot import saved_theme
-        ctx.check("Studio follows the system", saved_theme() == "auto")
+        ctx.check("Studio draws the default", saved_theme() == "instrument")
         h.cli("enable", "pack-theme")
         ctx.check("enabled again: it is a theme again, no notice", T.is_valid_theme("pack-theme/linen")
                   and T.removed_theme_notice("pack-theme/linen") is None)

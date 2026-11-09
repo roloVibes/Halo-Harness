@@ -6,7 +6,8 @@
    palettes.py), one `[data-theme]` rule each, generated between the two marker
    comments below by scripts/themes_css.py with the posture's rule of
    halo_harness/themes/studio_css.py (tests/test_themes_css_drift.py compares);
-   unset, `data-theme="auto"` follows the system (instrument dark, paper light).
+   unset (and `:root` alone) is instrument on any system (3.3.15.0 R4); the saved
+   `data-theme="auto"` follows the system (instrument dark, paper light).
    Everything here derives from those variables: add no raw colour.
    3.3.2.0 R3: the density tokens come in two sets, comfortable (the default)
    and compact (`data-density="compact"`); the colours are the same in both. */

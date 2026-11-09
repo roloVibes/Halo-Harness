@@ -828,6 +828,8 @@ def test_init_opens_setup_in_studio(ctx: Ctx):
               and "?mode=setup&first=1#t=" in url)
     ctx.check(f"the line with the URL, got {text!r}", f"Setup is open in your browser: {url}. `halo init --terminal` runs "
               "the terminal wizard instead." in text)
+    from halo_harness.init_wait import FINAL_LINE
+    ctx.check(f"3.3.15.0 R6: then the line that says how both come up, got {text!r}", FINAL_LINE in " ".join(text.split()))
     rc, text, rec, ran = _door_init(["--no-launch"], running=True, pages=0)
     ctx.check(f"a running Studio is reused, got {rec}", rc == 0 and not rec["launched"] and len(rec["opened"]) == 1 and not ran)
 
@@ -877,17 +879,26 @@ _DONE_STATE = {"providers": {"openrouter": {"set": True}, "ollama": {"set": Fals
                "team": {"active": "auto", "source": "default"}, "last_check": None}
 
 
-def _wait_init(argv, getter, *, env=None, stale=False, **stubs):
+STUDIO = {"port": 4567, "token": "tok", "pid": 1}  # the running Studio's studio.json (3.3.15.0 R6: the pairing)
+
+
+def _wait_init(argv, getter, *, env=None, stale=False, answers=False, seen=None, **stubs):
     """`_door_init` with init_wait's getter, sleeper and launcher swapped:
-    `(rc, text, rec, launched cwds, GET paths, sleeps)`. `stale`: the door first writes an earlier init's marker."""
+    `(rc, text, rec, launched cwds, GET paths, sleeps)`. `stale`: the door first writes an earlier init's marker.
+    3.3.15.0 R6: `answers` is whether Studio's port still answers (a busy Studio is not gone); `seen` (a dict) gets
+    the Studio each launch was paired with and the waiting record as each GET saw it."""
     from halo_harness import init_wait
-    from halo_harness.studio import setup_door, setup_done
+    from halo_harness.studio import init_waiting, setup_door, setup_done
     launched, gets, slept = [], [], []
-    saved = (init_wait.http_get, init_wait.sleep, init_wait.launch_halo, setup_door.open_setup)
+    seen = {} if seen is None else seen
+    saved = (init_wait.http_get, init_wait.sleep, init_wait.launch_halo, setup_door.open_setup, init_wait.studio_answers,
+             init_wait.studio_info)
     real_open = setup_door.open_setup
 
     def get(state_dir, path, timeout=5.0):
         gets.append(path)
+        seen.setdefault("records", []).append(init_waiting.waiting(state_dir))
+        seen["state_dir"] = state_dir
         return getter(len(gets))
 
     def open_then_mark(target, **kw):
@@ -900,13 +911,18 @@ def _wait_init(argv, getter, *, env=None, stale=False, **stubs):
         return real_open(target, **kw)
 
     init_wait.http_get, init_wait.sleep = get, slept.append
-    init_wait.launch_halo = lambda cwd: launched.append(Path(cwd)) or 7
+    init_wait.launch_halo = lambda cwd, studio=None: launched.append(Path(cwd)) or seen.setdefault("paired", []).append(studio) or 7
+    init_wait.studio_answers = lambda state_dir: answers
+    init_wait.studio_info = lambda state_dir: dict(STUDIO, state_dir=str(state_dir))
     if stale:
         setup_door.open_setup = open_then_mark
     try:
         rc, text, rec, _ran = _door_init(argv, extra_env=env, **stubs)
+        if seen.get("state_dir") is not None:
+            seen["after"] = init_waiting.waiting(seen["state_dir"])
     finally:
-        init_wait.http_get, init_wait.sleep, init_wait.launch_halo, setup_door.open_setup = saved
+        (init_wait.http_get, init_wait.sleep, init_wait.launch_halo, setup_door.open_setup, init_wait.studio_answers,
+         init_wait.studio_info) = saved
     return rc, text, rec, launched, gets, slept
 
 
@@ -918,25 +934,47 @@ def _done_after(n: int):
 
 @test
 def test_init_waits_for_done_then_starts_halo_here(ctx: Ctx):
-    rc, text, rec, launched, gets, slept = _wait_init([], _done_after(3))
+    seen: dict = {}
+    rc, text, rec, launched, gets, slept = _wait_init([], _done_after(3), seen=seen)
     url = rec["opened"][0] if rec["opened"] else ""
-    ctx.check(f"ONE door line saying Press Done, got {text!r}", text.count(url) == 1 and f"Setup is open in your browser: {url}. Press "
-              "Done there and halo starts here (Ctrl+C stops waiting; `halo init --terminal` runs the terminal wizard)." in text
-              and "runs the terminal wizard instead" not in text)
+    one = " ".join(text.split())  # the console wraps long lines
+    ctx.check(f"ONE door line: this terminal starts halo on Done (3.3.15.0 R6), got {text!r}", text.count(url) == 1
+              and f"Setup is open in your browser: {url}. This terminal starts halo when you press Done there (Ctrl+C: stop "
+              "here; `halo` later starts it)." in one and "runs the terminal wizard instead" not in text)
     ctx.check(f"polled GET setup/state until Done, a poll_s apart, got {gets} {slept}", gets[:3] == ["setup/state"] * 3 and slept == [1.0, 1.0])
+    records = seen.get("records") or []
+    ctx.check(f"while it waits, setup-wait.json names this process (Studio's Done reads it), got {records[:1]}",
+              len(records) >= 3 and all(r and r.get("pid") == os.getpid() for r in records[:3]))
+    ctx.check(f"the record goes once the wait ends, got {seen.get('after')}", seen.get("after") is None)
     ctx.check(f"the Summary's four lines, got {text!r}", "Provider: openrouter\n" in text and "Default model: or:mock/alpha\n" in text
               and "Lineup: auto (default)\n" in text and "Last check: not run\n" in text)
-    ctx.check(f"halo launched once, in the directory init ran from, its exit code returned, got {launched} {rc}",
-              launched == [Path.cwd()] and rc == 7)
+    ctx.check(f"the starting line names the Studio it pairs with, got {text!r}",
+              "Setup is done: halo starts here, paired with Studio at http://127.0.0.1:4567/" in one)
+    ctx.check(f"halo launched once, in the directory init ran from, with the running Studio, its exit code returned, got "
+              f"{launched} {seen.get('paired')} {rc}", launched == [Path.cwd()] and rc == 7 and len(seen.get("paired") or []) == 1
+              and seen["paired"][0]["port"] == 4567 and seen["paired"][0]["state_dir"] == str(seen.get("state_dir")))
+
+
+@test
+def test_init_waits_out_a_busy_studio(ctx: Ctx):
+    """3.3.15.0 R6: GETs failing while Studio's port still answers (a long check, the guided first run) are not "gone":
+    init keeps waiting and starts halo on Done (on Kali the wait gave up after 10 s of a busy Studio)."""
+    from halo_harness.studio.setup_done import now_iso
+    rc, text, rec, launched, gets, slept = _wait_init([], lambda i: dict(_DONE_STATE, done_at=now_iso()) if i > 15 else None,
+                                                      answers=True)
+    ctx.check(f"15 failed GETs with the port answering, then Done: launched, got {rc} {len(gets)} {launched} {text[-200:]!r}",
+              rc == 7 and len(gets) == 17 and launched == [Path.cwd()] and "Studio closed" not in text)  # 16 polls + the Summary's read
 
 
 @test
 def test_init_wait_ctrl_c_and_studio_gone_launch_nothing(ctx: Ctx):
     def interrupted(_i):
         raise KeyboardInterrupt
-    rc, text, rec, launched, gets, slept = _wait_init([], interrupted)
+    seen: dict = {}
+    rc, text, rec, launched, gets, slept = _wait_init([], interrupted, seen=seen)
     ctx.check(f"Ctrl+C: the line and 0, no launch, got {rc} {launched} {text!r}", rc == 0 and not launched
               and "Setup stays open in the browser; run `halo` when you are done there." in text)
+    ctx.check(f"Ctrl+C: the waiting record goes too, got {seen.get('after')}", seen.get("after") is None and seen.get("records"))
     rc, text, rec, launched, gets, slept = _wait_init([], lambda _i: None)
     ctx.check(f"Studio gone for 10 s: the line and 0, no launch, got {rc} {launched} {len(gets)} {text!r}", rc == 0 and not launched
               and len(gets) == 10 and "Studio closed; run `halo` when you are ready." in text)

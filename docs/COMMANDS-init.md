@@ -8,22 +8,23 @@ Part of [Commands](COMMANDS.md), which lists every part.
 
 **Halo 3.3.0.0: `halo init` opens Studio.** On a real terminal (no `--provider`, no `--yes`) it starts Studio, or
 reuses the one running for this home, on its **Setup** section (`?mode=setup&first=1`: 3.3.1.0 opens nothing over it,
-the wizard's steps one page at a time, the rail's line says "set up this box") and prints one line. **3.3.3.0: it
-then waits for Setup's Done** and starts halo in this terminal:
+the wizard's steps one page at a time, the rail's line says "set up this box") and prints one line. **3.3.3.0: the
+terminal stays until Setup is done, then becomes the session** (3.3.15.0: both end up running and paired):
 
 ```text
-Setup is open in your browser: http://127.0.0.1:<port>/?mode=setup&first=1#t=<token>. Press Done there and halo starts here (Ctrl+C stops waiting; `halo init --terminal` runs the terminal wizard).
+Setup is open in your browser: http://127.0.0.1:<port>/?mode=setup&first=1#t=<token>. This terminal starts halo when you press Done there (Ctrl+C: stop here; `halo` later starts it).
 ```
 
-The Summary's last button, **Done: start halo**, writes `~/.halo/setup-done.json` (`at`, `home`) and Studio goes to
-Session. The waiting terminal sees it (that file, or `GET setup/state`'s `done_at` polled once a second with the
-token in `~/.halo/studio.json`; a marker from an earlier init does not count), prints the Summary's four lines
-(`Provider:`, `Default model:`, `Lineup:`, `Last check:`) and starts halo exactly as bare `halo` does, in the
-directory `halo init` ran from. Ctrl+C: "Setup stays open in the browser; run `halo` when you are done there.",
-exit 0; Studio gone mid-wait (no answer for 10 s, no marker): "Studio closed; run `halo` when you are ready.", exit
-0. `--no-launch` (or `HALO_INIT_NO_LAUNCH=1`) keeps 3.3.0.0's return-at-once for scripts: the one line ending
-"`halo init --terminal` runs the terminal wizard instead.", exit 0. `halo start`'s no-provider door and `halo setup
-<block>` open Setup the same way and never wait.
+While it waits it keeps `~/.halo/setup-wait.json` (its pid), so the Summary's **Done: start halo** answers "halo is
+starting in your terminal"; with no init waiting, Done opens a terminal running halo itself (Windows a console, macOS
+Terminal, Linux `$TERMINAL`, then qterminal, xfce4-terminal, gnome-terminal, ... with a display) or says "no terminal
+found to start halo in; run `halo` yourself" -- never silent. Done writes `~/.halo/setup-done.json`; the terminal sees
+it (that file, or `GET setup/state`'s `done_at` once a second), prints the Summary's four lines and starts halo as bare
+`halo` does, in its directory, paired with the running Studio (same home: Session shows it). A busy Studio (a long check)
+is waited out; Ctrl+C: "Setup stays open in the browser; run `halo` when you are done there.", exit 0; Studio gone (its
+port silent 10 s, no marker): "Studio closed; run `halo` when you are ready.", exit 0. `--no-launch` (or
+`HALO_INIT_NO_LAUNCH=1`) returns at once; it, `--yes` and the console flow end on "Start halo with `halo`; `halo studio`
+opens Studio beside it ...". `halo start`'s no-provider door and `halo setup <block>` open Setup and never wait.
 
 Setup is the wizard's steps as one page of forms ([STUDIO-setup.md](STUDIO-setup.md)). Everything below is the
 terminal wizard: `halo init --terminal`, or one of its own flags (`--step`, `--team`, `--no-live`), or no browser
@@ -256,9 +257,13 @@ halo start --lineup balanced        # copy another shipped lineup (default halo-
 halo start --repo ~/src/mine --file basket.py   # run in a git repo of your own
 ```
 
-The guided first run: one real Orchestra run on your models (it is not a
-test of them: `halo gym` measures models). It opens on a card (Halo
-3.2.2.0, `halo_harness/start/card.py`), before step 1:
+The guided first run: one real Orchestra run on your models (`halo gym` measures models). **3.3.15.0: it belongs to a
+custom lineup.** On the Auto lineup (or none) `halo start` prints "Your lineup is Auto: the guided first run would
+rehearse one model five times. Build a lineup or a workflow in Roles (Agents from 3.3.16.0) and test it there.", offers
+`halo gym --quick` and exits 0 without running; `--lineup <name>` or an active custom lineup runs it. `halo init`'s
+Summary and console offer, `halo check`, Setup's Check and Summary and Studio's Start here leave it out on Auto, that
+line in its place. The test stays here for a custom lineup; Agents -> Runs (3.3.16.0) adds "Test this lineup /
+workflow" on the same engine. It opens on a card (Halo 3.2.2.0, `halo_harness/start/card.py`), before step 1:
 
 - what it does: the seven steps, one sentence each;
 - the models it will call: the lead (its plan, and the judge when two
@@ -310,16 +315,11 @@ Options: `--lineup NAME`, `--repo DIR`, `--file F` (repeatable, with
 `--yes`, `--json`, `--no-studio` (step 4 does not offer the plan canvas),
 `--explain` (only the card, exit 0).
 
-It runs on the model you configured. With no provider configured it says
-so and offers `halo init` (which sets one up; `halo setup` is the team
-screen for later), exit 2. `HALO_START_FAKE=1` swaps every model call
-for a fake lead, fake workers and a fake judge (`halo_harness/start/fake.py`),
-so the whole path runs in a few seconds with no model: the tests use it.
-`halo init`'s Summary offers it as its last check row, off by default
-(the console path shows the card and asks "Run the guided first run now?",
-No in a non-interactive run); `/start` in the TUI and Studio's Start here
-overlay (the card above its Run button) run the same start. Exit codes: 0 every step done, 1 a step
-failed or the start was stopped, 2 usage or no provider.
+It runs on the model you configured; with no provider it says so and offers `halo init`, exit 2. `HALO_START_FAKE=1`
+swaps every model call for a fake lead, workers and judge (`halo_harness/start/fake.py`): the tests use it. For a
+custom lineup `halo init`'s Summary offers it as its last check row, off by default (the console path shows the card
+and asks "Run the guided first run now?", No when non-interactive); `/start` in the TUI and Studio's Start here run
+the same start. Exit codes: 0 every step done (or not run on Auto), 1 a step failed or was stopped, 2 usage or no provider.
 
 When a step fails on an error it did not expect (Halo 3.2.2.0), the step
 is `[failed]` with one line and the file that holds the full traceback,

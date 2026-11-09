@@ -4,7 +4,7 @@ setup_home.py) with the fixture pack setup-blocks; no model call, no request any
 
 1. the blocks appear only while the pack is enabled (`GET setup/packs`, `GET setup/state`'s `packs`), in the
    manifest's order, a form with its two schema fields and values, a check with its four lines, a note with its text;
-   with no pack contributing setup the state's `packs` is [] and the checks are the core six;
+   with no pack contributing setup the state's `packs` is [] and the checks are the core ones (3.3.15.0 R5: five on the Auto lineup);
 2. a form save writes the pack's settings and marks the block done; a bad value is 422 with the schema's line and a
    key the block does not show 422 too, nothing written;
 3. the note is dismissed (done), any block can be skipped, the state file says so;
@@ -103,7 +103,8 @@ def test_the_blocks_show_only_while_the_pack_is_enabled(ctx: Ctx):
         status, body = _call(e, "GET", "setup/packs")
         _s, state = _call(e, "GET", "setup/state")
         ctx.check(f"disabled: no blocks anywhere, got {status} {body}", status == 200 and body == {"packs": []} and state["packs"] == [])
-        ctx.check("the checks are the core six", [c["key"] for c in state["checks"]] == ["doctor", "catalog", "hello", "steward", "gym", "start"])
+        ctx.check("the checks are the core ones (3.3.15.0 R5: this home runs Auto, so no guided first run)",
+                  [c["key"] for c in state["checks"]] == ["doctor", "catalog", "hello", "steward", "gym"])
         ctx.check("a block of a disabled pack is 404", _call(e, "GET", "setup/packs/setup-blocks/prefs")[0] == 404)
         from halo_harness.packs.discover import find
         from halo_harness.packs.grants import enable
