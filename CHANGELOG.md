@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.3.13.0] - unreleased
+## [3.3.13.0] - 2026-11-08
 
 **The fold.** The three runtime rounds of 3.3.9.1-3.3.9.3 (FreeToken, Strata, TensorFold) were not what the owner meant:
 "I wanted just new info that could be helpful for us ... the intent was to research and add helpful parts", and an
