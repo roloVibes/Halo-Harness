@@ -78,7 +78,7 @@ def test_every_readme_png_comes_from_captures_json(ctx: Ctx):
 def test_every_capture_has_its_files_and_every_png_is_a_capture(ctx: Ctx):
     caps = _captures()["captures"]
     names = {c["name"] for c in caps}
-    ctx.check("captures.json lists the nine TUI scenes (the HUD and level captures went in 3.1.5.0)", len(caps) >= 9)
+    ctx.check("captures.json lists the eight TUI scenes (the HUD and level captures went in 3.1.5.0, remote-contact-request with the signal pack in 3.3.13.0 R3)", len(caps) >= 8)
     for cap in caps:
         n = cap["name"]
         for suffix in (".svg", ".png") + ((".anim.svg",) if cap.get("anim") else ()):

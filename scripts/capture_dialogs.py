@@ -106,15 +106,8 @@ async def scene_review(size, theme) -> list:
         return [await S._export(app, pilot)]
 
 
-async def scene_remote(size, theme) -> list:
-    snap = S.remote_fixture_snap()
-    snap["pending"] = [{"index": 1, "aci": "a1b2c3d4-0000-4000-8000-000000000001", "aci_prefix": "a1b2c3d4",
-                        "number": "+15555550101", "state": "pending", "first_seen": 0,
-                        "safety_number": "11111 22222 33333 44444 55555 66666 77777 88888 99999 00000 11111 22222"}]
-    return [await S.remote_svg(snap, size, code=None)]
-
 
 SCENES = {
     "turn-phase": C.scene_turn_phase, "auto": C.scene_auto, "steer": C.scene_steer, "pending-dock": C.scene_pending_dock,
-    "picker": scene_picker, "tasks": scene_tasks, "mcp": scene_mcp, "review": scene_review, "remote": scene_remote,
+    "picker": scene_picker, "tasks": scene_tasks, "mcp": scene_mcp, "review": scene_review,
 }

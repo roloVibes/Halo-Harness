@@ -113,7 +113,7 @@ def test_fleet_tree_orchestra_runs_setup_and_the_rail(ctx: Ctx):
     ctx.check(f"the rail: sections only, in both widths, <= 200 px expanded, got {got.get('rail_icons')} {got.get('rail_open')} {got.get('rail_open_w')}",
               got.get("rail_icons") == only and got.get("rail_open") == only and 64 < (got.get("rail_open_w") or 0) <= 200)
     ctx.check(f"Setup: no +, no ..., no badge, got {got.get('setup')}", got.get("setup") == [False, False, False])
-    ctx.check(f"3.3.5.0 R1: Local (paged) the same, got {got.get('local')}", got.get("local") == [False, False, False])
+    ctx.check(f"3.3.5.0 R1: Local (paged) has a + since 3.3.13.0 R2 (the Media panels are its optional panels), no ..., no badge, got {got.get('local')}", got.get("local") == [True, False, False])
 
 
 if __name__ == "__main__":

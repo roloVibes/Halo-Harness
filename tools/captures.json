@@ -13,7 +13,6 @@
     {"name": "tasks-org-tree", "scene": "tasks", "size": [120, 16] },
     {"name": "mcp-connectors", "scene": "mcp", "size": [120, 22] },
     {"name": "review-cards", "scene": "review" },
-    {"name": "remote-contact-request", "scene": "remote", "size": [120, 22] },
     {"name": "steer-mid-turn", "scene": "steer", "anim": true, "frame_seconds": [2.2, 2.2, 1.6, 3.4] }
  ]
 }
