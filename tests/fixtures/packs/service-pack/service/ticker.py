@@ -16,6 +16,12 @@ def main() -> int:
         print("HALO_PACK_ID=" + os.environ.get("HALO_PACK_ID", ""))  # 3.3.14.0 R1: the id, not the folder's name
         return 0
     health, stop = Path(os.environ["HALO_SERVICE_HEALTH"]), Path(os.environ["HALO_SERVICE_STOP"])
+    if (health.parent / "slow.flag").exists():  # 3.3.14.0 R2 (REVIEW #17): a child sleeper, the stop file ignored
+        import subprocess
+        child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(120)"])
+        (health.parent / "child.pid").write_text(str(child.pid), encoding="utf-8")
+        time.sleep(120)
+        return 0
     flag = health.parent / "crash.flag"
     if flag.exists():
         flag.unlink()

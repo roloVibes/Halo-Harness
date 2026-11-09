@@ -193,6 +193,24 @@ def after(session, item: dict, tr):
     return tr
 
 
+def progress(session, item: dict, chunks: list) -> list:
+    """3.3.14.0 R2 (REVIEW #11, PERMS-5): a call's live output (`tool_progress`) under an armed `after: true` policy
+    that matches the tool is what the policy left of the result: the verdict is taken here, once, and kept on the item
+    for the result (`item["_after_tr"]`); a drop sends no output, a redact sends the redacted text."""
+    pols = item.get("_policies")
+    pols = _armed(session.cwd) if pols is None else pols
+    if not chunks or not any(p.after and _P().matches(p, item.get("name") or "") for p in pols or []):
+        return list(chunks)
+    before = item["result"]
+    tr = item["_after_tr"] = after(session, item, before)
+    if tr is before:
+        return list(chunks)
+    if any(r.get("at") == "after" and r.get("winner") and r.get("verdict") == "drop" for r in item.get("policy") or []):
+        return []
+    from halo_harness.packs.policy_after import as_text
+    return [as_text(tr.content)]
+
+
 def fields(item: dict) -> dict:
     """`{events.TOOL_POLICY_FIELD: {"line", "verdicts"}}` for a call a policy answered, else {} (no key at all)."""
     from halo_harness.events import TOOL_POLICY_FIELD

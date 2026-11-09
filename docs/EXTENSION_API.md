@@ -42,7 +42,7 @@ guide, for a person and for a Halo session (`halo --team pack-author`), is [PACK
 | [Themes](#themes) | stable | `contributes.themes` (3.3.12.0 R2, API 1.1): a pack's own palettes, registered as `<pack-id>/<id>` while the pack is enabled and drawn by the terminal and Studio like the ten (the `-daltonized` / `-ansi` modifiers, the WCAG AA pins); the theme saved before is restored when the pack is disabled or removed |
 | [Requirements](#requirements) | stable | `requires:` tool entries (3.3.12.0 R4, API 1.1): the open-source tools a pack wraps, each with its install line per OS, license and why; Halo never installs one -- the doctor names a missing one, `halo pack test` skips what it gates |
 | [Policy hooks](#policy-hooks) | stable | `contributes.policy` and `contributes.modes` (3.3.10.0, API 1.1): a pack's runtime mode (mode.json), a policy hook whose verdict decides a tool call before it runs (deny > ask > allow) and, with `after: true`, its result after (pass, redact, drop); every verdict in the audit; the dry run |
-| [Services](#services) | stable | `contributes.services` (3.3.13.0 R3, API 1.2): a pack's program the supervisor keeps running while the pack is enabled and granted `services` -- autostart, a restart rule, a health file or url, a log; `halo supervise services`, the Pack Manager's Start / Stop |
+| [Services](#services) | stable | `contributes.services` (3.3.13.0 R3, API 1.2): a pack's program the supervisor keeps running while the pack is enabled and granted `services` -- autostart, a restart rule, a health file, a log; `halo supervise services`, the Pack Manager's Start / Stop |
 | [Transports](#transports) | stable | `ext.remote` (3.3.13.0 R3, API 1.2): what a pack that carries Halo to a phone or a chat uses -- the live sessions and their control sockets, a session started for it, the cards' text, the core's notes, a voice note's transcript; the shipped signal pack is one |
 | [The reference example](#the-reference-example) | stable | the Documentation Review pack Halo ships (3.2.0.0 R6): every part of the API in one pack a third party can copy |
 
@@ -936,7 +936,9 @@ The answer must come **within the budget**, `packs.policy.budget_ms` (2000 when 
 is not a JSON object, a verdict or scope outside the words above, or the process ending (or not starting) is the
 policy's `on_error`, always with a logged line and the reason saying what happened: `deny -- fence: on_error deny
 (no answer within 2000 ms)`. A late answer that arrives afterwards is read and dropped (its id is an earlier
-request's), so it never answers the next request; a process that ended is started again for the next one. A fence
+request's), so it never answers the next request; a process that ended is started again for the next one. Writing
+the request has the same budget (3.3.14.0): a process that stops reading its input is ended at the budget, the call
+says `policy did not answer in <n>s` (its `on_error` applies), and the next call starts it again. A fence
 pack says `on_error: deny`, which is fail-closed: while its process is slow or broken, every call it guards is
 denied, so its author keeps the answer well inside the budget.
 
@@ -994,7 +996,9 @@ answer   {"id": "r9", "verdict": "pass" | "redact" | "drop", "reason": "...", "r
 see the redacted one, and the audit row keeps `sha256:<hex>` of the original and the rule. `drop` replaces it with
 the pack's line (`policy after: drop -- <policy>: <reason> (pack ..., rule ...)`). With several, each policy sees
 the result as the one before it left it, and a drop ends the round. `redact: [env names]` takes the named secrets
-out of the result too before it leaves Halo.
+out of the result too before it leaves Halo. The call's live output (the `tool_progress` frames the TUI, Studio and
+every control-socket client, a phone included, show) goes through the same verdict (3.3.14.0): `pass` streams it as
+it was, `redact` sends the redacted text, `drop` sends none.
 
 **The audit.** Every verdict, before and after, is a `policy` row in the pack's events log (`{policy, tool, verdict,
 reason, rule, scope, ms, session, agent, at: before | after, winner, of?, error?, sha256?}`; never the input) and
@@ -1188,7 +1192,7 @@ contributes:
       run: ["${halo_python}", "${CLAUDE_PLUGIN_ROOT}/bin/signal.py", "service"]   # exec form, a file of the pack
       autostart: true                            # halo supervise starts it (false: only Start starts it)
       restart: on-failure                        # on-failure (an exit other than 0) | always | never
-      health: {file: health.json, max_age_s: 90} # a file in the data folder it rewrites, or {url: http://127.0.0.1:<port>/...}
+      health: {file: health.json, max_age_s: 90} # a file in the data folder it rewrites
       log: service.log                           # its stdout and stderr, in the data folder
 permissions: [services]
 ```
@@ -1197,10 +1201,9 @@ permissions: [services]
 |---|---|
 | **start** | each tick (5 s) of `halo supervise`, an autostart service of a pack that is enabled and granted `services` and is not running starts, in the pack's folder, with the environment a hook gets (Halo's provider keys left out) plus `HALO_SERVICE` (`<pack>/<name>`), `HALO_SERVICE_HEALTH` (the health file's path), `HALO_SERVICE_STOP` (the file whose existence asks it to end) and `HALO_SUPERVISOR=1` |
 | **restart** | after an exit other than 0 (`on-failure`) or any exit (`always`), it starts again after 5 s, doubling to 300 s; ten minutes up puts the wait back to 5 s |
-| **stop** | Stop (the Pack Manager's row, `halo supervise service stop <pack>/<name>`), the grant taken back, the pack disabled, or the supervisor's own way out: the stop file first, then after 5 s the process ended |
+| **stop** | Stop (the Pack Manager's row, `halo supervise service stop <pack>/<name>`), the grant taken back, the pack disabled, or the supervisor's own way out: the stop file first, then after 5 s the process ended; 3.3.14.0: a service runs in its own process group (a Job object on Windows), so ending it ends the programs it started too (signal-cli's JVM with the bridge) |
 | **state** | `<state>/supervise/services.json`, read by `halo supervise services` and `status`, the Pack Manager's row ("running since 09:12" / "stopped: <line>"), `halo doctor` (one row per service), the TUI's remote chip and `ext.remote.service(pack, name)` |
-| **health** | a file younger than `max_age_s` (120 when left out) is `ok`; its JSON's `line` (or `state`) is the row's line |
-| **the enable line** | `halo pack enable <id>` says, per service, where it starts and whether the supervisor runs now |
+| **health** | a file younger than `max_age_s` (120 when left out) is `ok`; its JSON's `line` (or `state`) is the row's line. A `{url: ...}` health is accepted and not checked in this version: the row reads `unknown` (3.3.14.0, REVIEW #26) || **the enable line** | `halo pack enable <id>` says, per service, where it starts and whether the supervisor runs now |
 | **halo pack test** | checks that each service's command resolves and its health and log have a shape the supervisor reads; it does not start it |
 
 A service needs the session a person would have: it asks for one through [Transports](#transports)'s

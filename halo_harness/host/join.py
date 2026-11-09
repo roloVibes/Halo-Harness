@@ -54,8 +54,12 @@ def join(url: str, code: str, harness: dict, *, fingerprint: Optional[str] = Non
         raise HubError("the host's answer does not prove it knows the code; not paired")
     if scheme == "https" and fp.lower() != (seen or "").lower():
         raise HubError("the certificate the host showed is not the one it vouched for; not paired")
-    serves = [r for r in reply.get("serves") or [] if isinstance(r, dict)]
-    servers = [r for r in reply.get("servers") or [] if isinstance(r, dict)]  # 3.3.8.0 R4: its local servers
+    from halo_harness.engines.peer import port_of  # 3.3.14.0 R2 (REVIEW #41): a row with a bad port is not stored
+
+    def fine(r) -> bool:
+        return isinstance(r, dict) and (r.get("port") is None or port_of(r["port"]) is not None)
+    serves = [r for r in reply.get("serves") or [] if fine(r)]
+    servers = [r for r in reply.get("servers") or [] if fine(r)]  # 3.3.8.0 R4: its local servers
     for r in serves + servers:
         r.setdefault("addr", host)
     return {"url": format_url(scheme, host, port), "name": who.get("name"), "host_id": who.get("id"),

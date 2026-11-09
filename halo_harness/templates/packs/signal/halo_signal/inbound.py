@@ -5,8 +5,9 @@ Order: a group message is dropped first (never a command, never a pairing); with
 own Note to Self counts. An untrusted-identity notification from a new phone while a pairing phrase is open queues
 the trust of its key (pairing.note_untrusted; signal-cli then hands over the held message); a paired phone's is a
 changed safety number (blocked until /signal reverify). A sender that is not paired: its text may redeem the open
-phrase; otherwise it is never answered. A paired phone: blocked check, files taken, the signature when the phone is
-set to signed, the rate limit, the read receipt, then routing.py. Nothing of a message is logged; the audit line is a
+phrase; otherwise it is never answered. A paired phone: blocked check, the signature when the phone is set to signed,
+the rate limit, the read receipt, then its files are taken into inbox/ (3.3.14.0 R2: a refused message's files are
+deleted from signal-cli's folder, never kept), then routing.py. Nothing of a message is logged; the audit line is a
 hash.
 """
 
@@ -93,34 +94,57 @@ def refuse_bad(b, aci: str, text: str, reason: str, notice: str, counter: int = 
     b.say(aci, notice)
 
 
+def _split(atts: list) -> "tuple[list, list]":
+    """(the long-text attachment(s), every other file): the text is read for the checks, the files wait for them."""
+    atts = [a for a in atts or [] if isinstance(a, dict)]
+    text = [a for a in atts if str(a.get("contentType") or "").lower() == "text/x-signal-plain"]
+    return text, [a for a in atts if a not in text]
+
+
 def on_peer(b, peer: dict, ts, msg: str, atts: list) -> None:
     aci = peer["aci"]
     ok_peer = not peer.get("blocked_until_reverified")
-    long_text, got = b.transport.take_attachments(atts, ok_peer, b.inbox_dir if ok_peer else None)
+    texts, others = _split(atts)
+    long_text = b.transport.take_attachments(texts, ok_peer)[0] if texts else None
     text = long_text or msg
-    if not ok_peer:
-        b.audit.record(aci, 0, text, "refused", "blocked")
+    passed = _checked(b, peer, ts, text)
+    if passed is None:  # 3.3.14.0 R2 (REVIEW #20, REMOTE-3): a refused message's files are deleted, never kept
+        if others:
+            b.transport.take_attachments(others, False)
         return
+    counter, shown = passed
+    _, got = b.transport.take_attachments(others, True, b.inbox_dir) if others else (None, [])
+    kind, outcome = routing.route(b, b.rt(aci), shown, got)
+    b.audit.record(aci, counter, shown, kind, outcome)
+
+
+def _checked(b, peer: dict, ts, text: str):
+    """The blocked check, the signature, the rate limit and the read receipt: (counter, the text shown) when the
+    message goes on, None when it was refused (the refusal said and audited here)."""
+    aci = peer["aci"]
+    if peer.get("blocked_until_reverified"):
+        b.audit.record(aci, 0, text, "refused", "blocked")
+        return None
     counter, shown = 0, text
     if peer.get("signed"):
         try:
             key = signing.secret_from_hex((peer.get("signing") or {}).get("secret_hex"))
         except ValueError:
             refuse_bad(b, aci, text, "no_secret", NO_SECRET)
-            return
+            return None
         v = signing.verify(key, (peer.get("signing") or {}).get("counter", 0), text, ts, b.clock.time(), b.window)
         if not v.ok:
             if v.reason == "stale":
                 b.pairing.advance_counter(aci, v.counter)
             refuse_bad(b, aci, text, v.reason, SIGN_ANSWERS.get(v.reason, SIGNED_HINT), v.counter)
-            return
+            return None
         counter, shown = v.counter, v.text
     verdict = b.limiter.allow(aci)
     if verdict != OK:
         b.audit.record(aci, counter, shown, "refused", "rate_limited")
         if verdict == DROP_NOTIFY:
             b.say(aci, "Too many messages; slow down. Further ones this minute are dropped.")
-        return
+        return None
     if counter:
         b.pairing.advance_counter(aci, counter)
     try:
@@ -128,5 +152,4 @@ def on_peer(b, peer: dict, ts, msg: str, atts: list) -> None:
             b.transport.send_receipt(aci, ts)
     except Exception:
         pass
-    kind, outcome = routing.route(b, b.rt(aci), shown, got)
-    b.audit.record(aci, counter, shown, kind, outcome)
+    return counter, shown

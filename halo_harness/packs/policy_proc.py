@@ -6,7 +6,8 @@ speaks JSON lines: Halo writes one request per line on its stdin, it writes one 
 each answer carrying its request's `id`. A request waits for its answer up to the budget; an answer that comes
 later is read and dropped when it arrives (its id is an earlier request's), so it never answers the next one.
 The process ending, a write into a closed pipe, a line that is not a JSON object: each is the request's error,
-said in one line, and the next request starts the process again.
+said in one line, and the next request starts the process again. The write has the same budget (3.3.14.0 R2): a
+process that stops reading its input is ended at the budget, said once, and the next request starts it again.
 
     p = PolicyProcess(argv, cwd=root, env=env)
     answer, why, ms = p.ask({"id": ..., "tool": ..., ...}, budget_s=2.0)   # (dict, '', ms) or (None, why, ms)
@@ -110,10 +111,16 @@ class PolicyProcess:
                 return None, why, _ms(t0)
             rid = str(request.get("id") or f"r{next(_ids)}")
             line = json.dumps({**request, "id": rid}, ensure_ascii=False) + "\n"
-            try:
-                self.proc.stdin.write(line.encode("utf-8"))
-                self.proc.stdin.flush()
-            except (OSError, ValueError):
+            # 3.3.14.0 R2 (REVIEW #12, PERMS-6): the write has the budget too; a policy that stops reading its input
+            # (a big Write's request fills the pipe) is ended at the budget and the next call starts it again
+            done, failed = threading.Event(), []
+            threading.Thread(target=_write, args=(self.proc, line.encode("utf-8"), done, failed), daemon=True,
+                             name=f"policy-in-{self.label}").start()
+            if not done.wait(max(0.0, float(budget_s))):
+                self._kill()
+                return None, (f"policy did not answer in {float(budget_s):g}s (it stopped reading its input; the "
+                              "next call starts it again)"), _ms(t0)
+            if failed:
                 return None, self._ended(), _ms(t0)
             deadline = t0 + max(0.0, float(budget_s))
             while True:
@@ -140,6 +147,24 @@ class PolicyProcess:
                     continue
                 return answer, "", _ms(t0)
 
+    def _kill(self) -> None:
+        """Out of step with its input: the process group ends now (no EOF wait), its pipes are closed."""
+        proc, self.proc = self.proc, None
+        if proc is None:
+            return
+        self._tell("stop", proc.pid)
+        from halo_harness.tools._proc import _kill_process_group
+        _kill_process_group(proc)
+        try:
+            proc.wait(timeout=2.0)
+        except subprocess.TimeoutExpired:
+            pass
+        for stream in (proc.stdin, proc.stdout, proc.stderr):
+            try:
+                stream.close()
+            except (OSError, ValueError, AttributeError):
+                pass
+
     def stop(self) -> None:
         proc, self.proc = self.proc, None
         if proc is None:
@@ -163,6 +188,15 @@ class PolicyProcess:
                 stream.close()
             except (OSError, ValueError, AttributeError):
                 pass
+
+
+def _write(proc, data: bytes, done, failed: list) -> None:
+    try:
+        proc.stdin.write(data)
+        proc.stdin.flush()
+    except (OSError, ValueError, AttributeError) as e:
+        failed.append(e)
+    done.set()
 
 
 def _ms(t0: float) -> int:

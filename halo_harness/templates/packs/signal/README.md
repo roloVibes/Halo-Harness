@@ -127,7 +127,8 @@ listening on this computer now ..." -- texts sent after that wait on Signal's se
 
 **A VM behind a proxy.** signal-cli asks the JVM for its proxy: use the JVM build and set
 `JAVA_TOOL_OPTIONS="-Dhttps.proxyHost=proxy.example.invalid -Dhttps.proxyPort=3128"` where `halo supervise` starts
-(`halo supervise --service` carries it into the at-logon file). Allow `chat.signal.org`, `cdn.signal.org`,
+(`halo supervise --service` carries it into the systemd unit or launchd plist; on Windows set it for your user, since
+the at-logon task does not carry it). Allow `chat.signal.org`, `cdn.signal.org`,
 `cdn2.signal.org`, `cdn3.signal.org`, `storage.signal.org`, `cdsi.signal.org`, `svr2.signal.org` on TCP 443 with
 WebSockets. Halo's offline mode keeps the bridge off.
 

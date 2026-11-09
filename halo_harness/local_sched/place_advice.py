@@ -47,11 +47,12 @@ def candidates(state_dir=None) -> list:
         entries = [e for e in store.hosts() if e.get("state", "joined") == "joined"]
     except Exception:
         entries = []
+    from halo_harness.engines.peer import port_of  # 3.3.14.0 R2 (REVIEW #41): a bad port drops the row, not placement
     for e in entries:
         for r in e.get("serves") or []:
-            if not isinstance(r, dict) or not r.get("addr") or not r.get("port"):
+            if not isinstance(r, dict) or not r.get("addr") or not port_of(r.get("port")):
                 continue
-            url = f"http://{r['addr']}:{int(r['port'])}"
+            url = f"http://{r['addr']}:{port_of(r['port'])}"
             if url.lower() in urls:
                 continue
             name = str(r.get("name") or e.get("name") or url)

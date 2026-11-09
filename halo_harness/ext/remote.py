@@ -111,8 +111,12 @@ def _wav(path: Path) -> "tuple[Optional[Path], str]":
         r = subprocess.run([ffmpeg, "-nostdin", "-loglevel", "error", "-i", str(path), "-ac", "1", "-ar", "16000",
                             str(out)], capture_output=True, timeout=60)
     except (OSError, subprocess.SubprocessError) as e:
+        shutil.rmtree(out.parent, ignore_errors=True)
         return None, f"ffmpeg did not convert the note: {type(e).__name__}"
-    return (out, "") if r.returncode == 0 and out.is_file() else (None, "ffmpeg did not convert the note")
+    if r.returncode == 0 and out.is_file():
+        return out, ""
+    shutil.rmtree(out.parent, ignore_errors=True)
+    return None, "ffmpeg did not convert the note"
 
 
 def transcribe(path) -> "tuple[Optional[str], str]":
@@ -129,6 +133,9 @@ def transcribe(path) -> "tuple[Optional[str], str]":
         text = client.transcribe(url, pcm)
     except Exception as e:  # the speech server's or the file's trouble, in one line
         return None, f"the note could not be transcribed: {type(e).__name__}: {e}"[:300]
+    finally:  # 3.3.14.0 R2 (REVIEW #29, REMOTE-4 / PACKS-7): the converted copy never stays in the temp folder
+        if wav != Path(path):
+            shutil.rmtree(wav.parent, ignore_errors=True)
     return (text.strip() or None), ("" if text.strip() else "the note held no words the speech server heard")
 
 

@@ -150,10 +150,34 @@ class OptIns:
     caps: Optional[list] = None
     caps_by: str = ""
     problems: list = field(default_factory=list)
+    dropped: list = field(default_factory=list)  # 3.3.14.0 R2: the lines for keys an untrusted project file lost
 
     @property
     def declared(self) -> bool:
-        return bool(self.isolation or self.secrets or self.caps is not None)
+        return bool(self.isolation or self.secrets or self.caps is not None or self.dropped)
+
+
+_HOST_KEYS = ("image", "mounts", "user", "group", "env")
+
+
+def untrusted_split(layer: Optional[dict], what: str) -> "tuple[Optional[dict], str]":
+    """3.3.14.0 R2 (REVIEW #10, PERMS-4): a project-level bio or lineup read in a folder that is not trusted keeps
+    everything but what reaches the owner's keys or the host: `secrets`, `environment.secrets` / `pass_to_tools`, and
+    the isolation's image, mounts, user, group and env (the user-level file keeps them). (layer, the line or "")."""
+    if not isinstance(layer, dict) or "project" not in (layer.get("_source"), layer.get("_pack_scope")):
+        return layer, ""
+    out, gone = dict(layer), []
+    if out.pop("secrets", None) is not None:
+        gone.append("secrets")
+    for section, keys in (("environment", ("secrets", "pass_to_tools")), ("isolation", _HOST_KEYS)):
+        if isinstance(out.get(section), dict):
+            kept = {k: v for k, v in out[section].items() if k not in keys}
+            gone += [f"{section}.{k}" for k in keys if k in out[section]]
+            out[section] = kept if section != "isolation" else {"mode": "container", **kept}
+    if not gone:
+        return layer, ""
+    return out, (f"{what}: {', '.join(gone)} not applied: this folder is not trusted yet (trust it when halo asks "
+                 "and they apply)")
 
 
 def _member(template: dict, worker: str, bio_name: str) -> "tuple[Optional[str], Optional[dict]]":
@@ -202,6 +226,21 @@ def for_lane(run_dir, job, *, team: Optional[str] = None) -> OptIns:
         alias, entry = _member(template or {}, goal.worker, bio_name)
         bio_name = bio_name or str((entry or {}).get("agent") or "")
         bio = resolve_agent_bio(bio_name, cwd=repo) if bio_name else None
-        return resolve(template, name, bio, bio_name, alias)
+        dropped = []
+        if not _trusted(repo):  # 3.3.14.0 R2 (REVIEW #10): the same trust gate the project's skills and settings get
+            template, t_line = untrusted_split(template, f"lineup {name}")
+            bio, b_line = untrusted_split(bio, f"bio {bio_name}")
+            dropped = [x for x in (t_line, b_line) if x]
+        out = resolve(template, name, bio, bio_name, alias)
+        out.dropped = dropped
+        return out
     except Exception:
         return OptIns()
+
+
+def _trusted(repo) -> bool:
+    try:
+        from halo_harness.config.claude_json import is_trusted, load_claude_json
+        return bool(is_trusted(Path(repo), load_claude_json()))
+    except Exception:
+        return False

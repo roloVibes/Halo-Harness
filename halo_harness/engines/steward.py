@@ -62,7 +62,8 @@ def line_time(d: dict, text: str) -> "tuple[Optional[float], str]":
 def classify(line: str, at=None, runtime: Optional[str] = None, model=None) -> Optional[dict]:
     d = get(runtime)
     text = _ANSI.sub("", str(line or "")).rstrip("\r\n")
-    if d is None or not text.strip() or text.startswith("--- halo starts:"):
+    from halo_harness.ollama_steward.body_lines import is_body_line  # 3.3.14.0 R2 (REVIEW #23): a body is no event
+    if d is None or not text.strip() or text.startswith("--- halo starts:") or is_body_line(text):
         return None
     t, body = line_time(d, text)
     for word, rx, sentence, *conds in d["log"]["patterns"]:

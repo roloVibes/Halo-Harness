@@ -159,25 +159,16 @@ def _hasher(f: dict):
 
 
 def _fetch(repo: str, f: dict, root: Path, commit: str, token, on, cancel) -> dict:
-    # finding 54 (3.3.11.0 security review H4): the hub controls both
-    # `f["name"]` and `commit`; resolve the path first and assert it is
-    # still inside `root`, rejecting traversal, absolute, drive-letter and
-    # UNC names before anything is written.
-    name = f["name"]
-    if name.split("/")[-1].split("\\")[-1] != name.split("/")[-1] or name.startswith(("/", "\\")) or \
-       ".." in name.replace("\\", "/").split("/"):
-        raise HubError("path", f"{name}: the hub returned a file name that escapes the download tree")
-    commit_safe = commit.replace("\\", "/").split("/")[-1] if ".." not in commit.replace("\\", "/") and \
-                  not commit.startswith(("/", "\\")) else commit
-    if commit_safe != commit:
-        raise HubError("path", f"{commit}: the hub returned a commit id that escapes the download tree")
-    final = root / "snapshots" / commit_safe / name
+    # 3.3.14.0 R2 (REVIEW #14, PERMS-8): the hub controls `f["name"]`, `commit` and the hashes; the target is checked
+    # (no drive, no `:`, no `..`, resolved inside the model folder) and the `.part` named from it (hf_paths.py)
+    from halo_harness.providers import hf_paths
+    final = hf_paths.target(root, commit, f["name"])
     size = f["size"]
     if final.is_file() and (size is None or final.stat().st_size == size):
         on({"status": f"on disk: {f['name']}", "digest": f["name"], "total": size or final.stat().st_size,
             "completed": size or final.stat().st_size})
         return {"name": f["name"], "path": str(final), "size": final.stat().st_size, "resumed_from": 0, "skipped": True}
-    part = root / "blobs" / f"{f.get('sha256') or f.get('blob_id') or f['name'].replace('/', '--')}.part"
+    part = hf_paths.part(root, f, final)
     part.parent.mkdir(parents=True, exist_ok=True)
     have = part.stat().st_size if part.is_file() else 0
     if size is not None and have > size:

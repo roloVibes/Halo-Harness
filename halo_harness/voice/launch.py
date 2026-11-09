@@ -125,8 +125,10 @@ def _start(kind, row, path: Path, dev: dict, prefix: list, *, port, keep, state_
     with open(log, "ab") as out:
         out.write(f"--- halo starts: {' '.join(argv)}\n".encode("utf-8"))
         out.flush()
-        try:
-            proc = subprocess.Popen(argv, stdout=out, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL)
+        try:  # 3.3.14.0 R2 (REVIEW #22): a tool child's environment, Halo's provider keys left out
+            from halo_harness.engines.launch_env import child_env
+            proc = subprocess.Popen(argv, stdout=out, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
+                                    env=child_env())
         except OSError as e:
             return 1, lines + [f"the speech server did not start: {e}"], None
     R._register_popen(proc)

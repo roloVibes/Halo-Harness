@@ -2024,8 +2024,22 @@ class PermissionEngine:
         hit = powershell_deny_or_ask_matches(command, [r for r in ps_rules(self.deny_rules) if r.kind in ("exact", "prefix", "glob")])
         if hit is not None:
             return Decision("deny", f"denied by rule {hit.raw!r}", source=hit.source, matched_rule=hit)
+        # 3.3.14.0 R2 (REVIEW #13, PERMS-7): Read / Edit path rules gate PowerShell's readers and writers as they
+        # gate Bash's (permissions_ps.py)
+        from halo_harness import permissions_ps as _pw
+        read_deny = _pw.read_hit(self, command)
+        if read_deny is not None:
+            return Decision("deny", f"denied by rule {read_deny.raw!r} (a PowerShell reader reaching a Read-denied path)",
+                            source=read_deny.source, matched_rule=read_deny)
+        write_deny = _pw.write_hit(self, command)
+        if write_deny is not None:
+            return Decision("deny", f"denied by rule {write_deny.raw!r} (a PowerShell writer reaching an Edit/Write-denied "
+                            "path)", source=write_deny.source, matched_rule=write_deny)
 
         if self.mode != "bypassPermissions":
+            read_ask = _pw.read_hit(self, command, action="ask")
+            if read_ask is not None:
+                return self._resolve_ask("PowerShell", tool_input, None, read_ask)
             ask_bare = [r for r in ps_rules(self.ask_rules) if r.kind == "bare"]
             if ask_bare:
                 return self._resolve_ask("PowerShell", tool_input, None, ask_bare[0])

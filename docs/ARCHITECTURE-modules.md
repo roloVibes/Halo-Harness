@@ -214,7 +214,9 @@ by the rule, stop, each tick), `supervise/services_rows.py` (the state file, the
 rows other processes read, Start / Stop, the enable lines, the Pack Manager's
 block) and `supervise/services_cli.py` (`halo supervise services | service`, the
 session-request lane); 3.3.13.1: `supervise/single.py` (one supervisor per state
-folder: the lock on `supervise/supervisor.lock`, held for its life).
+folder: the lock on `supervise/supervisor.lock`, held for its life); 3.3.14.0 R2:
+`supervise/procgroup.py` (a service and its children as one group: a new
+session on POSIX, a Job object on Windows; the stop signals the group).
 
 **A pack's services and the transport seam** (Halo 3.3.13.0 R3; docs/EXTENSION_API.md "Services", "Transports"):
 `packs/manifest_services.py` (`contributes.services`: the entries, the health and log shapes, the `services` grant,
@@ -308,7 +310,10 @@ detection, program, install lines, where it runs, managed start, log patterns wi
 tuning flags, `verified: False`), `engines/models.py` (the models each engine names: the Library's download targets
 and the fit's sizes), `engines/adapter.py` (the program, the auto-detect by owned_by or /health, the
 `huggingface.local_servers` entry, Halo's key, the stop, the first request's wait), `engines/launch.py` (`halo local
-serve --runtime <id>`: the descriptor's start, a supervised engine's plan and settle), `engines/steward.py` (the
+serve --runtime <id>`: the descriptor's start, a supervised engine's plan and settle), `engines/launch_env.py`
+(3.3.14.0 R2: a managed server child's environment without Halo's keys, a program from a PATH folder only, the `--lan`
+key check, the key file), `ollama_steward/body_lines.py` (3.3.14.0 R2: a request body's line in a server log is no
+server event, for every classifier and the host's peer view), `engines/steward.py` (the
 descriptor-driven log reader, the queue read, the one rule over the events), `engines/fit.py` (the `vram` and
 `paged-moe` rules), `engines/doctor.py` (`halo doctor --local`'s line per engine found), `engines/peer.py` (the host's
 `engines` offer, a peer's `hf:local/<model>@<host>`, an engine server as a placement option) and `engines/bench.py`

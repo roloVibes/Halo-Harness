@@ -76,7 +76,9 @@ The SPDX id pack.yaml and LICENSE carry (MIT by default, with its text; another 
 ### `halo pack test`
 
 `halo pack test <folder | installed id>` makes every check against fakes, in a scratch home and project of its own
-(`halo_harness.ext.testing`): never a model call, never the network, nothing of your own home read or written. The
+(`halo_harness.ext.testing`): Halo's own checks make no model call and use no network. The pack's own
+`tests/test_*.py` run as the pack's code with your home and the network unless those tests set a scratch home
+themselves (the `halo pack new` template's tests do; 3.3.14.0, REVIEW #37): read a pack's tests before you run them. The
 manifest and every file it names; an install into the scratch home with every grant and `halo pack doctor` on that
 copy; each bio and lineup loads; each skill and command parses and is offered; the entry command runs in a fake session
 and lists every command, workflow and lineup; each hook runs once with a sample event of its matcher on stdin and exits
@@ -91,7 +93,7 @@ GB card; each fleet capability; each requirement; (3.3.13.0 R3) each service's c
 have a shape the supervisor reads (it is not started); (3.3.13.0 R2, extension API 1.2) a section's view is there and
 exports `mount`, and the routes module imports through the pack's folder and answers `GET <prefix>/ping` in shape (a
 status below 500); and the pack's own `tests/test_*.py` (the kind `tests`), each run as `python -m tests.<name>` from
-the pack's folder in the scratch home, one check per module (the design pack's nine, the signal pack's thirteen). An id
+the pack's folder in the scratch home, one check per module (the design pack's nine, the signal pack's fourteen). An id
 Halo ships (`halo pack test signal`, `halo pack test design`) is tested from the shipped folder when it is not installed.
 
 A part that needs the network (an http hook, an MCP server by url), a model (a prompt hook) or a program not on this

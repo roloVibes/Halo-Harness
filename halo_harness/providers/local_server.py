@@ -95,8 +95,10 @@ def start(model_path, *, runtime: str, port: int = 0, window: int, ngl: int, par
     with open(log, "ab") as out:
         out.write(f"--- halo starts: {' '.join(info.argv)}\n".encode("utf-8"))
         out.flush()
-        try:
-            proc = subprocess.Popen(info.argv, stdout=out, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL)
+        try:  # 3.3.14.0 R2 (REVIEW #22): a tool child's environment, Halo's provider keys left out
+            from halo_harness.engines.launch_env import child_env
+            proc = subprocess.Popen(info.argv, stdout=out, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
+                                    env=child_env())
         except OSError as e:
             info.ok, info.say = False, f"{runtime} did not start: {e}"
             return info
@@ -166,7 +168,9 @@ def stop(key, *, state_dir) -> dict:
 def tail(key, n: int = 40, *, state_dir) -> dict:
     from halo_harness.providers import local_server_cmd as C
     e = _entry(state_dir, key)
-    path = Path(e["log"]) if e and e.get("log") else servers_dir(state_dir) / f"{key}.log"
+    if e is None:  # 3.3.14.0 R2 (REVIEW #39): only a registry row's log, never a path built from the id
+        return {"ok": False, "path": "", "lines": [], "say": f"no server Halo started is {key!r} (halo local servers)"}
+    path = Path(e["log"]) if e.get("log") else servers_dir(state_dir) / f"{e.get('id') or key}.log"
     lines = C.tail_lines(path, n)
     return {"ok": bool(lines) or path.is_file(), "path": str(path), "lines": lines,
             "say": "" if path.is_file() else f"no log for {key!r} under {servers_dir(state_dir)}"}

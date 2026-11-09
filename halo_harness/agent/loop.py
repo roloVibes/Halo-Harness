@@ -7156,7 +7156,8 @@ class Session:
             if item.get("permission_denial") is not None:
                 self.permission_denials.append(item["permission_denial"])
             return text, True
-        tr = _policy_gate.after(self, item, item["result"])  # 3.3.10.0 R2: an `after: true` policy's pass | redact | drop
+        tr = item.pop("_after_tr", None)  # 3.3.14.0 R2: taken already when the live output went through it
+        tr = tr if tr is not None else _policy_gate.after(self, item, item["result"])  # 3.3.10.0 R2: pass | redact | drop
         tr, hook_system_messages = self._apply_post_tool_use_hooks(name, tool_id, item["input"], tr)
         for msg in hook_system_messages:
             yield events.notification(msg)
@@ -8050,7 +8051,8 @@ class Session:
                 # insta-kill this call.
                 self._steer_cut_event.clear()
                 item["result"] = self.tool_registry.dispatch(name, item["input"], item_ctx)
-                for chunk in progress_chunks.chunks:
+                # 3.3.14.0 R2 (REVIEW #11): under a matching `after` policy the live output is what it left
+                for chunk in _policy_gate.progress(self, item, progress_chunks.chunks):
                     yield events.Event("tool_progress", {"id": tool_id, "name": name, "text": chunk}, turn=turn_no)
             yield from self._finalize_tool_result(turn_no, item, ctx.session_dir)
             if item.get("_plan_as_final_text") is not None:

@@ -53,7 +53,8 @@ def binary(runtime: str, *, state_dir=None) -> "tuple[Optional[list], str]":
         return ([str(p)], "huggingface.llama_server_bin") if p.exists() else (None, f"huggingface.llama_server_bin names {p}, which is not there")
     if background_net_disabled():
         return None, "under the test flag (BRIDGE_TEST_NO_BACKGROUND_NET) only a configured huggingface.llama_server_bin runs"
-    found = shutil.which("llama-server")
+    from halo_harness.engines.launch_env import vet  # 3.3.14.0 R2 (REVIEW #43): a PATH folder, never the cwd
+    found, refused = vet(shutil.which("llama-server"), "llama-server")
     if found:
         return [found], f"llama-server on PATH ({found})"
     from halo_harness.providers.local_runtime import find_runtime_binary
@@ -61,8 +62,9 @@ def binary(runtime: str, *, state_dir=None) -> "tuple[Optional[list], str]":
     if got:
         return got, f"the runtime Halo fetched ({got[0]})"
     from halo_harness.providers.local_use import install_hint
-    return None, ("llama-server is not on PATH and huggingface.llama_server_bin is not set: " + install_hint()
-                  + " (or halo local serve <file> fetches one)")
+    return None, ((refused + "; ") if refused else "") + (
+        "llama-server is not on PATH and huggingface.llama_server_bin is not set: " + install_hint()
+        + " (or halo local serve <file> fetches one)")
 
 
 def this_machine_card() -> "tuple[Optional[dict], str]":

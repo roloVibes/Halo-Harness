@@ -29,7 +29,7 @@ An owner's live run turns an entry's `verified` to true.
 
 | Engine | What it is | Port | Recognised by | Runs on | Start / stop | Fit rule |
 |--------|------------|------|---------------|---------|--------------|----------|
-| `freetoken` -- [FreeToken](https://github.com/FlashML-org/FreeToken) (Apache-2.0; main at dacac5f) | a big Mixture-of-Experts model on one machine: the routed experts in host RAM, an LRU cache of them on the GPU, each miss streamed over PCIe | 1919 | `/v1/models` `owned_by: FreeToken` | Linux x86_64, NVIDIA driver r580+ (CUDA 13), nvcc on PATH | `ft serve --model <dir> --served-model-name <name> --host 127.0.0.1 --port P --moe-collect-stats`; Halo stops the process; its first request compiles kernels for minutes (the session waits 30 minutes for it) | paged-moe |
+| `freetoken` -- [FreeToken](https://github.com/FlashML-org/FreeToken) (Apache-2.0; main at dacac5f) | a big Mixture-of-Experts model on one machine: the routed experts in host RAM, an LRU cache of them on the GPU, each miss streamed over PCIe | 1919 | `/v1/models` `owned_by: FreeToken` | Linux x86_64, NVIDIA driver r580+ (CUDA 13), nvcc on PATH | `ft serve --model <dir> --served-model-name <name> --host 127.0.0.1 --port P --moe-collect-stats`; Halo stops the process; its first request compiles kernels for minutes (the session waits 30 minutes for that first one; later requests keep the normal wait) | paged-moe |
 | `strata` -- [Strata](https://github.com/Niko1221/Strata) (MIT; main at ffa80d73) | one big Mixture-of-Experts model on one machine, natively on Windows, Linux and the Mac: experts in RAM, the rest from the SSD | 8080 | `/health` `"service": "strata"` (asked only for rows with `meta.n_ctx`) | NVIDIA, AMD or Apple Silicon | `strata launch --family F --model S --yes --no-tui --access local --port P --api-key-env ...` after `strata launch --plan` says nothing to download; its own supervisor runs the server; the stop is `strata launch --stop --preset <its launch>` | paged-moe |
 | `tensorfold` -- [TensorFold](https://github.com/ashhart/TensorFold) (Apache-2.0; main at 532589e4, release v1.2.1) | a Hugging Face checkpoint held whole in the card's memory, one Zig binary: Metal on Apple Silicon, CUDA on NVIDIA | 8080 | `/v1/models` `owned_by: tensorfold` | Apple Silicon or NVIDIA (CUDA 13, driver R580+) | `tensorfold serve <repo or dir> --name <name> --host 127.0.0.1 --port P --context N [--parallel N] --api-key-file <0600 file>`; Halo stops the process | vram |
 
@@ -59,7 +59,11 @@ PATH; the old `huggingface.<id>_bin` words are still read, and `halo doctor --lo
 (or still loading in the background), 1 not started (no such model, another model runs, an entry of that name Halo
 did not write), 2 the program or the model is missing, or the engine's plan says its first start downloads (the GB and
 the command said). `--lan` binds every address behind Halo's key (`HALO_SECRET_<ID>_API_KEY` in the env file, never on
-a command line or in config.json); `--window` and `--parallel` go to an engine that takes them. The registry row and
+a command line or in config.json); 3.3.14.0: once it serves, one request without the key goes to its loopback port, and
+only a refusal (401 / 403) is announced as "behind Halo's key" -- an engine that answers it is stopped and started
+again on 127.0.0.1, the line and the registry row (`lan_off`) say why. Every managed server (an engine, llama-server,
+mlx, the speech servers) gets a tool child's environment: Halo's provider keys left out, its own key added.
+`--window` and `--parallel` go to an engine that takes them. The registry row and
 the `huggingface.local_servers` entry are named by the engine id and carry `engine: <id>`; an entry Halo wrote before
 3.3.13.0 (`freetoken: true`, `strata: true`, `tensorfold: true`) is still Halo's. `halo local bench --host <id>` runs
 the speed card through the engine's OpenAI-compatible route, its cost line first.

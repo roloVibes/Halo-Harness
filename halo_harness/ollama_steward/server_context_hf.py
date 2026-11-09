@@ -158,6 +158,9 @@ class Rules:
             self.model, self.clock = self._ft.model, self._ft.clock
             return out
         line = str(raw or "").rstrip("\r\n")
+        from halo_harness.ollama_steward.body_lines import is_body_line
+        if is_body_line(line):  # 3.3.14.0 R2 (REVIEW #23): a request's text moves no load, model or clock
+            return []
         ev = classify(line, runtime=self.runtime)  # the line's own time first, the read clock (`at`) else
         if ev is not None and ev.get("at") is None:
             ev["at"] = at

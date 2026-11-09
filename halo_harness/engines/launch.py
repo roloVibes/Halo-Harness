@@ -13,7 +13,6 @@ the command line or in config.json; the log is `<state>/local/servers/<id>.log`,
 from __future__ import annotations
 
 import json
-import os
 import subprocess
 import time
 from datetime import datetime, timezone
@@ -87,7 +86,7 @@ def serve(engine: str, model: str, *, port: Optional[int] = None, keep: bool = F
     prefix, src = A.binary(engine)
     v = A.version(engine, prefix) if prefix else None
     if v is None and not src.startswith("huggingface."):  # a configured program is taken as stated (the tests' fake)
-        head = f"{'/'.join(d['programs'])} did not answer --version" if prefix else f"no {d['label']} program on PATH"
+        head = f"{'/'.join(d['programs'])} did not answer --version" if prefix else src or f"no {d['label']} program on PATH"
         return 2, [f"{head}: {install_line(d, A.os_word())} (it needs {d['requires']})"], None
     from halo_harness.providers import local_runtime as R
     running = next((e for e in R.load_registry(state_dir) if e.get("id") == engine), None)
@@ -103,21 +102,25 @@ def serve(engine: str, model: str, *, port: Optional[int] = None, keep: bool = F
                   window=int(window or d["start"].get("window") or 32768), key_env=A.key_env(engine), parallel=parallel)
     if d["start"].get("plan") and (stop := _plan(d, prefix, fields)):
         return 2, [stop], None
-    return _start(d, prefix, src, v, fields, keep=keep, lan=lan, state_dir=state_dir, wait_s=wait_s)
-
-
-def _write_key(path: Path, k: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        path.unlink()
-    except OSError:
-        pass
-    fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as f:
-        f.write(f"halo: {k}\n")
+    code, lines, row = _start(d, prefix, src, v, fields, keep=keep, lan=lan, state_dir=state_dir, wait_s=wait_s)
+    if not (lan and code == 0 and row is not None):
+        return code, lines, row
+    from halo_harness.engines.launch_env import key_refused  # 3.3.14.0 R2 (REVIEW #24): announced only when true
+    shut, why = key_refused(row["base_url"])
+    if shut:
+        return code, [lines[0] + f": every address, behind Halo's key ({why})"] + lines[1:], row
+    A.stop_row(row, state_dir=state_dir)  # it does not check the key: it serves on loopback only, the row says why
+    fields.update(host="127.0.0.1", access="local")
+    code, more, row = _start(d, prefix, src, v, fields, keep=keep, lan=False, state_dir=state_dir, wait_s=wait_s)
+    if row is not None:
+        row["lan_off"] = f"--lan was not kept: {why}"
+        _mark(state_dir, engine, lan_off=row["lan_off"])
+    return code, [lines[0], f"  {d['label']} does not check Halo's key: {why}; it serves on 127.0.0.1 only"] + more[1:], row
 
 
 def _start(d: dict, prefix: list, src: str, v, fields: dict, *, keep, lan, state_dir, wait_s):
+    from halo_harness.bg_run import process_start_time
+    from halo_harness.engines.launch_env import child_env, write_key
     from halo_harness.providers import local_runtime as R
     from halo_harness.providers import local_server_cmd as C
     from halo_harness.providers.local_server import servers_dir
@@ -128,16 +131,15 @@ def _start(d: dict, prefix: list, src: str, v, fields: dict, *, keep, lan, state
     cmd = list(prefix) + [str(a).format(**fields) for a in start["argv"]]
     cmd += [str(a).format(**fields) for a in start.get("parallel") or ()] if fields.get("parallel") else []
     keyed = start.get("key") or {}
-    drop = {A.key_env(engine), str(keyed.get("env") or "").format(**fields)}
-    env = {k: x for k, x in os.environ.items() if k not in drop}
+    # 3.3.14.0 R2 (REVIEW #22, LOCAL-2): the child gets a tool child's environment plus its own key, nothing more
+    env = child_env(drop={A.key_env(engine), str(keyed.get("env") or "").format(**fields)})
     if keyed.get("env") and (lan or not keyed.get("lan_only")):
         env[keyed["env"].format(**fields)] = A.key(engine, make=True) or ""
     if keyed.get("file"):
-        _write_key(A.key_file(engine, state_dir), A.key(engine, make=True) or "")
+        write_key(A.key_file(engine, state_dir), A.key(engine, make=True) or "")
         cmd += [keyed["file"], str(A.key_file(engine, state_dir))]
     env.update(start.get("env") or {})
-    lines = [f"{d['label']} {v or ''} from {src}".replace("  ", " ") + (": every address, behind Halo's key" if lan else ""),
-             "  " + " ".join(cmd)]
+    lines = [f"{d['label']} {v or ''} from {src}".replace("  ", " "), "  " + " ".join(cmd)]
     with open(log, "ab") as out:
         out.write(f"--- halo starts: {' '.join(cmd)}\n".encode("utf-8"))
         out.flush()
@@ -151,7 +153,8 @@ def _start(d: dict, prefix: list, src: str, v, fields: dict, *, keep, lan, state
     reg = {"id": engine, "kind": engine, "runtime": engine, "model": fields["name"], "set": fields["model"],
            "model_path": fields["path"], "pid": proc.pid, "port": port, "base_url": f"{url}{d['base_path']}",
            "started": datetime.now(timezone.utc).isoformat(), "keep": bool(keep) or sup, "owner_pid": owner_pid,
-           "owner_start": owner_start, "cmdline": list(cmd), "ready": False, "log": str(log), "launch_log": str(log),
+           "owner_start": owner_start, "proc_start": process_start_time(proc.pid), "cmdline": list(cmd),
+           "ready": False, "log": str(log), "launch_log": str(log),
            "flags": {"lan": bool(lan), "window": fields["window"], "parallel": fields.get("parallel")}, "halo": True}
     with R._registry_lock(state_dir):
         R.save_registry(state_dir, [e for e in R.load_registry(state_dir) if e.get("id") != engine and e.get("port") != port]
@@ -191,13 +194,13 @@ def _start(d: dict, prefix: list, src: str, v, fields: dict, *, keep, lan, state
     return 0, lines, reg
 
 
-def _mark(state_dir, engine: str, ready: bool) -> None:
+def _mark(state_dir, engine: str, ready: Optional[bool] = None, **fields) -> None:
     from halo_harness.providers import local_runtime as R
     with R._registry_lock(state_dir):
         rows = R.load_registry(state_dir)
         for e in rows:
             if e.get("id") == engine:
-                e["ready"] = ready
+                e.update(fields, **({} if ready is None else {"ready": ready}))
         R.save_registry(state_dir, rows)
 
 

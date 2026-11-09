@@ -35,6 +35,11 @@ def route(b, rt, text: str, files=None) -> tuple:
         if line:
             b.say(rt.aci, line)
             return "held", "asked"
+    if t.startswith("/") and files:  # 3.3.14.0 R2 (REVIEW #20): a command takes no file; it is not kept
+        for f in files:
+            media._drop(f.get("path", ""))
+        b.say(rt.aci, "A file sent with a /command is not kept: send it on its own.")
+        files = []
     if t.startswith("/"):
         name, _, args = t[1:].partition(" ")
         handler = chat.HANDLERS.get(name.lower())
