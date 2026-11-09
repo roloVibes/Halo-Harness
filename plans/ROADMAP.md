@@ -4742,3 +4742,64 @@ engine stays as "Run a goal" in Agents; Team's claim ledger becomes a run-plan d
 Team board goes; `?mode=team` and `?mode=orchestra` land on Agents. R2 of the same version is the Fleet fold (a
 machine's agents in Agents, its models in Local). The shell after: Session, Agents, Local, Packs, Setup, Settings (+
 Design when its pack is on) -- the six-section shell the Instrument look was drawn for.**
+
+## ADDED 2026-11-09 evening (rolo: "What about a multi-workflow harness? ... have that whole entire workflow in like a
+square ... your main kind of orchestration agent can just now point to the different workflow squares when it's time to
+do that action ... I might be using a model that has no visualization, can't read PDFs, but it knows that there's a
+workflow that has other models that can process that information, so it can call that workflow"; "Let's add that
+including suggestions to make it clean and clear too"): 3.3.16.0 "Agents" is three rounds, the third one Workflows
+
+**The version.** 3.3.16.0 "Agents" (after 3.3.15.0): **R1 one section, one thing at a time** -- Team, Roles and
+Orchestra fold into one Agents section with three views, Cast (the lineup and bios: today's Roles canvas), Runs
+(Orchestra: a goal -> the lead's plan -> parallel worktrees -> merge -> tests -> report + coach; saved workflows; fleet
+missions; "Test this lineup" = the guided first run moved here) and Live (what runs now), and the inspector opens on a
+plain-words SUMMARY (what this lineup does, the main model, where workers run, "7 policies: 3 set, 4 at Halo's default")
+with Edit per block, one block per page when editing, "what this does" and "not set = Halo does ..." per block,
+explainers in `?`, text boxes sized to their text; Orchestra and Team go as sections (the engine stays; Team's claim
+ledger is a run-plan detail; `?mode=team|orchestra` land on Agents); a density pass over every section at the Instrument
+spacing (no control bar under 36 px, no strip under 40 px, 12 px minimum padding, one thing per section). **R2 the Fleet
+fold** -- a machine's agents in Agents, its models in Local; the shell lands at Session, Agents, Local, Packs, Setup,
+Settings (+ Design when its pack is on). **R3 Workflows: squares and the router** (below). Design R1's Agents layout with
+the board in mind so no surface is drawn twice.
+
+**R3 Workflows: what a square is.** A saved orchestration as one unit with a contract, a YAML file beside the lineups
+(`~/.halo/workflows/<name>.yaml`, a project's `.halo/workflows/`, a pack's through `contributes.workflows`, the shipped
+ones in `halo_harness/templates/workflows/`): `name`, `does` (one sentence), `takes` (what it accepts: text, files, pdf,
+images, audio, video, urls), `gives` (what comes back: text, files, a report, a repo change -- required, and checked
+when the square returns), `covers` (the needs it answers: pdf, vision, audio, video, code, plan, research, media, review,
+work-data), `lineup` (which bios on which models), `engine` (session | orchestra | mission), `budget` (band and cap),
+`limits` (depth, turns, wall time). Shipped squares: media (read and make images, audio, video, pdf), plan, code, review,
+research; the Copilot-at-work provider (3.3.17.0) ships a `work-data` square. A square is tested like a lineup (`halo
+workflows test <name>`; the pack kit checks a pack's), and `halo workflows` lists them with their contract lines.
+
+**The router.** One tool, `Workflow(need | name, task, files)`, on the main agent and on every bio its lineup lets
+delegate. The pick is Auto's rule applied to squares: the task's needs (a PDF, an image, audio in the task or its files;
+"plan", "review", "research" in the ask) minus what the current model takes (the `takes` column from 3.3.15.0 R2) are
+matched against the enabled squares' `covers`, nearest band first; one line says why ("handing the PDF to media: your
+model takes text only"); no square -> the main model does what it can and says what it could not read. Each handoff is a
+receipt in the transcript and the Live tree (which square, what went in, what came back, the cost), its cost rolls into
+the session total, and `limits.depth` (default 1: a square may not call a square unless its contract allows one more)
+and the budget cap are bounded per square so squares calling squares cannot run away. The policy and permission gates
+apply inside a square as in the parent (a child never runs more permissive).
+
+**Clean and clear (the rules this board is built by).**
+- The Workflows board is one view in Agents, beside Cast, Runs and Live; nothing opens on load; the empty board is one
+  sentence ("No workflows enabled: drag one from the library, or `halo workflows enable media`") and a Library button.
+- One square per workflow, one fixed card size (240 x 140 at the default density), laid on a 12 px grid, never
+  overlapping; a card shows the name, then four mono lines -- DOES / TAKES / GIVES / COSTS -- and a limits chip; nothing
+  else. Hover or select shows the full contract in the inspector (summary first, as R1), never on the card.
+- The library is a side panel with a search box and three groups (yours, packs, shipped), one row per square with its
+  DOES line; dragging a row onto the board enables the square for this lineup after one confirm card that states what it
+  costs and what it writes (the offered-action rule); dropping is the only way a square gets on the board, the `x` on a
+  card the only way off, and both say what changed.
+- Main's lines to squares are the allow-list, drawn as the Instrument edges: still at rest, a moving dash only toward
+  the square that is working, one glowing square at a time; no other motion.
+- The router never pops a dialog: a handoff is one receipt line; the one line of reason reads in plain words; a square
+  that cannot start (no model that takes pdf; budget hit) says so in one line and the main model continues.
+- Every square's card states its limits and band; the Live view shows the running square's cost next to the session's;
+  the report of a run lists the squares it used, in order.
+- CLI parity from day one: `halo workflows [list | show | enable | disable | test | new <name> --from <square>]`, the
+  TUI `/workflows`, and `/model`'s takes column is what the router reads.
+
+**Why.** Today a lineup is picked once per session and only Auto adapts per task, and only the model. A square makes the
+orchestration itself the unit that is picked per task, declared and tested, shippable in a pack, visible on one board.
