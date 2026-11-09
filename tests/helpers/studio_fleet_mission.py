@@ -121,7 +121,10 @@ def run_and_ask(c, rig, fakes, mid: str, out: dict) -> None:
     press(c, f"document.querySelector('[data-testid=\"fleet-mission-row\"][data-id=\"{mid}\"] [data-testid=\"fleet-mission-open\"]')")
     out["reopened"] = c.wait("document.querySelector('[data-testid=\"fleet-mission-detail\"]')?.dataset.face === 'run' && 'run'", 15)
     out["allowed"] = fakes.allow_member(mid)
-    out["member_line"] = c.wait(f"{LIVE.format('1')}?.dataset.state === 'running' && {LIVE.format('1')}.querySelector('[data-testid=\"fleet-mission-now\"]').textContent", 30)
+    # the node turns running before its "now" line leaves "starting its session..." for the tool call: wait for the call
+    out["member_line"] = c.wait(f"{LIVE.format('1')}?.dataset.state === 'running' && "
+                                f"({LIVE.format('1')}.querySelector('[data-testid=\"fleet-mission-now\"]')?.textContent || '').includes(':') && "
+                                f"{LIVE.format('1')}.querySelector('[data-testid=\"fleet-mission-now\"]').textContent", 30)
     open_tree(c)  # 3.3.2.0 R2: the chips are in Fleet's Tree panel (the "+" menu adds it), the expanded rail's before
     out["rail_chips"] = c.wait("document.querySelectorAll('[data-testid=\"fleet-tree-mission\"]').length >= 2 && document.querySelectorAll('[data-testid=\"fleet-tree-mission\"]').length", 20)
     out["status_missions"] = c.wait("document.querySelector('[data-testid=\"status-missions\"]')?.textContent", 20)

@@ -59,6 +59,7 @@ import "./styles/local-pool.css"; // 3.3.8.0 R1: Local -> Pool, the members, the
 import "./styles/local-voice.css"; // 3.3.9.0 R3: Local -> Voice, the speech servers, Talk, the turns
 import "./styles/nodes.css"; // 3.3.15.0 L1: the Instrument look's map nodes and edges (after fleet.css and roles-live.css)
 import "./styles/instrument.css"; // 3.3.15.0 L1: the kit's pieces whose CSS lived elsewhere (fit meter, the Dialog's cost block)
+import "./styles/model-takes.css"; // 3.3.15.0 R2: what a model takes, the picker's one-line rows (after model-card.css)
 import { App } from "./App";
 import { installLib } from "./packlib";
 

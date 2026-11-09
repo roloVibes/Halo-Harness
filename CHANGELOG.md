@@ -12,7 +12,7 @@ version.
 
 **Studio wears the Instrument look.** A design session answered `docs/STUDIO-redesign-brief.md` with "Instrument"
 (`docs/design/studio-instrument/`: the proposal, the mock-ups, the prompt it was written to be applied with), and this
-version applies it as one round: an eleventh palette, `instrument`, that Studio draws on a dark system; solid surfaces,
+version applies it as its first round (the second, R2, makes every model list say what a model takes): an eleventh palette, `instrument`, that Studio draws on a dark system; solid surfaces,
 1 px hairlines, corner ticks on every panel, cyan for work and selection, amber for what waits on you, mono for data
 and sans for prose; four animations that carry meaning and nothing else that moves. It restyles only: no section or
 panel is renamed, no shortcut, route, `?mode=` word or `data-testid` changes, and the rail keeps its nine core
@@ -73,6 +73,37 @@ sections in their order with the packs' after them.
   lines, the motion rule), the eleven palettes; docs/CONFIG.md `theme` and docs/GLOSSARY.md: eleven palettes,
   `instrument` the dark default; docs/STUDIO-sections.md and docs/STUDIO-setup.md where a line counted palettes or
   described chrome that changed; docs/STUDIO-redesign-brief.md: what shipped.
+
+### R2: the picker says what a model takes
+
+The owner: "When you use forward slash model, show what the models capabilities are like visual, audio, pdf, etc. Is
+there a way to see this info via studio?" The facts were in every catalog row and the honest line in the best-at
+cache; now every place a model is picked says them.
+
+#### Changed
+- The terminal `/model` picker's rows carry a `takes=` column right after the ref (`halo_harness/model_takes.py`):
+  what the model reads (`text` always, then `vision`, `audio`, `video`, `pdf`), `image` when it makes images, `tools`
+  and `think` when stated or measured, `?` when the catalog states no inputs. The header line explains it. The prices
+  follow it, so a narrow terminal keeps ref, takes and price and ellipsizes ctx and speed.
+- The picker's subtitle shows the highlighted model's honest line ("vision+pdf in, tools, reasoning, long context
+  (1M), premium; no audio") and the footer again when nothing is highlighted (`tui/dialogs/model_picker_takes.py`).
+- `/model <ref>`'s confirmation ends with the takes words; `halo models` prints a `takes` column for the OpenRouter
+  and Databricks tables; `halo models show <ref>` prints `takes:` and `best at:` (`--json`: `takes`, `best_at_line`).
+- Studio: one tag group (`routes/shared/ModelTakes.tsx`, `data-testid="model-takes"`, the honest line its title)
+  wherever a model is picked -- under the model select (Orchestra's goal and workflow forms, Roles' Assignment, MODEL
+  strip, tier menu, bio form), beside Session's new-session select, Settings' model rows, and as the TAKES column of
+  Roles' picker table and Setup's default model. `GET models`, the Setup rows and `GET sessions/new` carry `takes` (and
+  the new-session rows the line); no new route.
+- Studio, the owner's note on the picker's chips ("funky": ovals stretched to the row, rows several lines tall): a row
+  is one line with fixed columns (MODEL, IN / OUT, CTX, TAKES, GYM); the tags are 18 px square-cornered mono words in
+  a fixed order (vision, audio, video, pdf, image, tools, think; at most six, then `+n`; `text in` or `?` muted); the
+  ranked "best at" kinds are no longer chips in the row: they stay the "best" sort and, with the honest line, the
+  effort word and the card's chips, sit on one detail line under the list for the highlighted row
+  (`styles/model-takes.css`).
+
+#### Docs
+- SLASH-COMMANDS-session.md (`/model`: the column, the line, the confirmation), COMMANDS-providers.md (`halo models`'
+  takes column, `halo models show`'s lines), STUDIO-sections.md (the chips wherever a model is picked).
 
 ## [3.3.14.0] - 2026-11-09
 

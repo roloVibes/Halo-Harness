@@ -9,6 +9,19 @@ Part of [Halo Studio](STUDIO.md), which lists every part.
 The same copy as Studio's **How this works** card (`ui/src/routes/sectionHelp.ts` for the steps,
 `routes/help.ts` and `routes/help-<section>.ts` for the panels' about lines and help).
 
+**What a model takes, wherever a model is picked** (3.3.15.0 R2). Every place a model is chosen shows the same tags
+(`routes/shared/ModelTakes.tsx`, `data-testid="model-takes"`, one line of fixed-height tags): what the model reads
+(vision, audio, video, pdf), image when it makes images, then tools and think when stated or measured, at most six
+then `+n`; a text-only model reads `text in` and one whose catalog states no inputs `?` -- the words of the terminal
+`/model` picker's `takes=` column, from the `takes` key the model rows carry. The group's title is the model's honest
+line (the best-at cache's). They show under the model select (Orchestra's goal and workflow forms, Roles' Assignment,
+the MODEL strip, the tier menu and the bio form), beside Session's new-session select, in Settings' model rows, and as
+the TAKES column of Roles' picker table and Setup's default model, where a row is one line with fixed columns: the
+ranked kinds (code, research, design, bulk, fast, local) stay the "best" sort, and the honest line, those kinds, the
+effort word and the card's chips sit on the detail line under the list for the highlighted row (else the picked one),
+as the terminal picker's subtitle does. An option's title carries the takes words too. Local's Library rows keep
+their own capability chips with each one's truth (verified, declared, expected).
+
 ### Session
 
 **What it is.** Your own session, live (3.1.4.0, `Alt+1`, "This session,

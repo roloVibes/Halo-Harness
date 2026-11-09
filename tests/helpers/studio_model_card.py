@@ -7,9 +7,10 @@ the fixture catalog and hardware card in this process's caches
 `row_view` of those (studio/model_card_api.py), no provider request, no
 model call:
 
-1. Roles: the bio form's picker rows carry the card's chips and the fit
-   meter; the picked row unfolds the card (`model-card`);
-2. Setup -> Default model: the rows' chips and meters; the coder picked shows
+1. Roles: the bio form's picker rows carry the fit meter and (3.3.15.0 R2)
+   the focused row's card chips sit on the detail line under the list; the
+   picked row unfolds the card (`model-card`);
+2. Setup -> Default model: the rows' takes tags and meters; the coder picked shows
    its card, the main-model line and the offer; the offer's button writes the
    lineup (active) and sets `model` to the orchestrator;
 3. Settings: the `model` row shows the saved model's card (no offer: it can
@@ -74,13 +75,18 @@ def roles_picker(c, url, ctx) -> dict:
     c.click_on(more)
     picker = f"{FORM}.querySelector('[data-testid=\"model-picker\"]')"
     c.wait(f"{picker}?.querySelectorAll('[data-testid=\"model-row\"]').length === {len(LOCAL)}", 20)
-    out = {"picker_chips": c.js(f"[...{picker}.querySelectorAll('[data-testid=\"model-row\"]')].map((r) => "
-                                "[...r.querySelectorAll('[data-chip]')].map((x) => x.textContent).join(' '))"),
-           "picker_levels": c.js(f"[...{picker}.querySelectorAll('[data-testid=\"model-row\"] [data-testid=\"fit-meter\"]')]"
-                                 ".map((m) => m.dataset.level)"),
-           # 3.3.6.0 R6: the eye chip on every picker row (shared/EyeChip.tsx)
-           "picker_eyes": c.js(f"[...{picker}.querySelectorAll('[data-testid=\"model-row\"]')].map((r) => "
-                               "[r.querySelector('[data-testid=eye-chip]')?.dataset.eye, r.querySelector('[data-testid=eye-chip]')?.title])")}
+    out = {"picker_levels": c.js(f"[...{picker}.querySelectorAll('[data-testid=\"model-row\"] [data-testid=\"fit-meter\"]')]"
+                                 ".map((m) => m.dataset.level)"), "picker_chips": [], "picker_eyes": []}
+    # 3.3.15.0 R2 (owner feedback 2026-11-09): a row is one line; its card's chips and the eye chip (3.3.6.0 R6) show
+    # on the detail line under the list for the focused row
+    detail = f"{picker}.querySelector('[data-testid=\"model-detail\"]')"
+    c.call("Emulation.setFocusEmulationEnabled", enabled=True)  # focus events fire without window focus
+    for ref in c.js(f"[...{picker}.querySelectorAll('[data-testid=\"model-row\"]')].map((r) => r.dataset.ref)") or []:
+        c.js(f"{picker}.querySelector('[data-testid=\"model-row\"][data-ref=\"{ref}\"]').focus(); 1")
+        c.wait(f"{detail}?.dataset.ref === {json.dumps(ref)}", 10)
+        out["picker_chips"].append(c.js(f"[...{detail}.querySelectorAll('[data-chip]')].map((x) => x.textContent).join(' ')"))
+        out["picker_eyes"].append(c.js(f"[{detail}.querySelector('[data-testid=eye-chip]')?.dataset.eye, "
+                                       f"{detail}.querySelector('[data-testid=eye-chip]')?.title]"))
     row = f"{picker}.querySelector('[data-testid=\"model-row\"][data-ref=\"ol:qwen3-coder:30b\"]')"
     c.js(f"{row}.click(); 1")  # the pick folds the table away; opened again, the picked row unfolds its card
     time.sleep(0.4)
@@ -100,7 +106,7 @@ def setup_default(c, url, ctx) -> dict:
     goto(c, "model")
     sel = "[data-testid=setup-model-row]"
     c.wait(f"{qa(sel)}.length === {len(LOCAL)}", 20)
-    out = {"setup_chips": c.js(f"{qa(sel)}.map((r) => [...r.querySelectorAll('[data-chip]')].map((x) => x.textContent).join(' '))"),
+    out = {"setup_chips": c.js(f"{qa(sel)}.map((r) => r.querySelector('[data-testid=model-takes]')?.dataset.takes || '')"),
            "setup_levels": c.js(_levels(sel))}
     pick = q("[data-testid=setup-model-input][data-ref='ol:qwen3-coder:30b']")
     c.js(f"{pick}.click(); 1")

@@ -1612,10 +1612,20 @@ def test_roles_edit_pick_model_set_effort_then_save_persists_to_disk(ctx: Ctx):
                     if isinstance(app.screen, RolesEditor):
                         break
                 editor = app.screen
-                editor.query_one("#roles-list").highlighted = 0  # "orchestrator", the first built-in row
-                await pilot.press("enter")
-                for _ in range(40):  # the picker builds its model list first; a slow runner takes longer than one pause
+                roles_list = editor.query_one("#roles-list")
+                for _ in range(40):  # the rows land after the editor mounts; Enter on an empty list opens nothing
+                    if getattr(roles_list, "option_count", 0) > 0:
+                        break
                     await pilot.pause(0.1)
+                roles_list.focus()
+                await pilot.pause(0.1)
+                roles_list.highlighted = 0  # "orchestrator", the first built-in row
+                for attempt in range(4):  # the picker builds its model list first; a slow runner (Windows shard 0) needs
+                    await pilot.press("enter")  # the Enter again when the first one met a list still settling
+                    for _ in range(10):
+                        await pilot.pause(0.1)
+                        if isinstance(app.screen, ModelPicker):
+                            break
                     if isinstance(app.screen, ModelPicker):
                         break
                 ctx.check(f"the nested ModelPicker opened, got {type(app.screen).__name__}, stack "
@@ -1769,6 +1779,67 @@ def test_model_picker_down_down_enter_selects_third_entry_filter_keeps_focus(ctx
             await pilot.pause(0.1)
             ctx.check(f"the third visible entry was selected, got {result.get('ref')!r}, expected {expected!r}",
                       result.get("ref") == expected)
+    asyncio.run(body())
+
+
+@test
+def test_model_picker_rows_say_what_a_model_takes_and_the_subtitle_its_line(ctx: Ctx):
+    """3.3.15.0 R2: every /model row carries `takes=` (what the catalog states it reads, makes, tools, think);
+    the highlighted row's honest line replaces the footer, the footer comes back with nothing highlighted; and
+    `/model <ref>`'s confirmation ends with what the model takes."""
+    from halo_harness.capabilities_line import best_at_line
+    from halo_harness.model_display import PICKER_FOOTER
+    from halo_harness.tui.dialogs.model_picker import ModelPicker
+    from textual.widgets import OptionList, Static
+    eyes = {"ref": "or:v/eyes", "provider": "openrouter", "modalities_in": ["text", "image", "file"], "tools": True,
+            "reasoning": {"kind": "native", "efforts": []}, "price_in_per_m": 3.0, "price_out_per_m": 15.0,
+            "context_tokens": 1_000_000}
+    plain = {"ref": "or:v/plain", "provider": "openrouter", "modalities_in": ["text"], "price_in_per_m": 0.1,
+             "price_out_per_m": 0.4}
+
+    async def body():
+        scratch = Path(tempfile.mkdtemp(prefix="r3315-picker-takes-"))
+        saved = {k: os.environ.get(k) for k in ("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR")}
+        os.environ["BRIDGE_TEST_HOME"], os.environ["BRIDGE_STATE_DIR"] = str(scratch), str(scratch / ".halo")
+        try:
+            app = await _mounted(FakeController())
+            async with app.run_test(size=(180, 40)) as pilot:
+                app.push_screen(ModelPicker([eyes, plain], current=""))
+                await pilot.pause(0.2)
+                ol = app.screen.query_one("#model-list", OptionList)
+                rows = [ol.get_option_at_index(i).prompt.plain for i in range(ol.option_count)]
+                ctx.check(f"the vision+pdf row says what it takes, got {rows}",
+                          any(r.startswith("or:v/eyes") and "takes=text,vision,pdf,tools,think " in r for r in rows))
+                ctx.check(f"the text-only row says text, got {rows}",
+                          any(r.startswith("or:v/plain") and "takes=text " in r for r in rows))
+                footer = app.screen.query_one("#model-footer", Static)
+                ctx.check(f"the highlighted row's honest line replaces the footer, got {_static_text(footer)!r}",
+                          _static_text(footer) == best_at_line(eyes) and "vision+pdf in" in _static_text(footer))
+                await pilot.press("down")
+                await pilot.pause(0.1)
+                ctx.check(f"the line follows the highlight, got {_static_text(footer)!r}",
+                          "text in only" in _static_text(footer))
+                await _type(pilot, "zzzz")
+                await pilot.pause(0.1)
+                ctx.check(f"nothing highlighted: the footer comes back, got {_static_text(footer)!r}",
+                          _static_text(footer) == PICKER_FOOTER)
+                await pilot.press("escape")
+                await pilot.pause(0.1)
+                said = []
+                app.notify = lambda message, **kw: said.append(str(message))
+                await pilot.click("#prompt-input")
+                await _type(pilot, "/model or:v/eyes")
+                await pilot.press("enter")
+                await pilot.pause(0.2)
+                ctx.check(f"the confirmation ends with what the model takes, got {said}",
+                          any(s.startswith("Model set to or:v/eyes") and s.endswith(" · takes text,vision,pdf,tools,think")
+                              for s in said))
+        finally:
+            for k, v in saved.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
     asyncio.run(body())
 
 

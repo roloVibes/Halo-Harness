@@ -18,6 +18,8 @@ from __future__ import annotations
 
 from typing import Optional
 
+from halo_harness.model_takes import TAKES_HEADER, picker_cell  # 3.3.15.0 R2
+
 _REF_WIDTH = 36
 
 
@@ -287,8 +289,8 @@ PICKER_FOOTER = ("Enter: select  |  Ctrl+O: set a role  |  Ctrl+S: cycle sort (n
 # columns mean, and the house "?" convention (distinct from ROW_HEADER's
 # "blank = not published", which still governs every OTHER row-building
 # surface unchanged).
-PICKER_COLUMN_HEADER = ("price = USD per 1M tokens in/out · ctx = context window · "
-                         "speed = median time-to-first-token · tokens/s (3+ uses) · ? = not known")
+PICKER_COLUMN_HEADER = (TAKES_HEADER + " · price = USD per 1M tokens in/out · ctx = context window · "
+                        "speed = median time-to-first-token · tokens/s (3+ uses) · ? = not known")
 
 
 def format_picker_row(entry: dict) -> str:
@@ -319,7 +321,8 @@ def format_picker_row(entry: dict) -> str:
     price_out = unknown_as_qmark(format_price_per_m(entry.get("price_out_per_m")))
     ctx = unknown_as_qmark(format_token_count(entry.get("context_tokens")))
     speed = unknown_as_qmark(format_speed(entry.get("speed_ttft_s"), entry.get("speed_tokens_per_second")))
-    return f"{ref:<{_REF_WIDTH}} in={price_in:<9} out={price_out:<9} ctx={ctx:<5} speed={speed}"
+    # 3.3.15.0 R2: what it takes right after the ref, then the price: a narrow terminal ellipsizes ctx and speed first
+    return f"{ref:<{_REF_WIDTH}} takes={picker_cell(entry)} in={price_in:<9} out={price_out:<9} ctx={ctx:<5} speed={speed}"
 
 
 def format_model_row(entry: dict) -> str:

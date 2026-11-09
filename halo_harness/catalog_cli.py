@@ -15,6 +15,7 @@ import sys
 
 from halo_harness.config.paths import bridge_home
 from halo_harness.model_display import ROW_HEADER, format_price_per_m, format_token_count
+from halo_harness.model_takes import TAKES_HEADER, TAKES_WIDTH, picker_cell, takes_text  # 3.3.15.0 R2
 from halo_harness.providers.config import (
     load_provider_env_files, resolve_databricks, resolve_openrouter, derive_workspace_root,
 )
@@ -182,14 +183,15 @@ def format_dbx_table_lines(rows: dict, *, urls: bool = False) -> "list[str]":
     `/models`/init picker surfaces, which show a compact single ref+price
     line per row via `format_model_row`, stay narrower)."""
     header = (f"{'name':<42} {'family':<16} {'path':<18} {'chat':>5} "
-              f"{'ctx':>6} {'out':>6} {'in/M':>9} {'out/M':>9}")
-    lines = [header + ("  url" if urls else ""), f"  ({ROW_HEADER})"]
+              f"{'ctx':>6} {'out':>6} {'in/M':>9} {'out/M':>9}  {'takes':<{TAKES_WIDTH}}")
+    lines = [header + ("  url" if urls else ""), f"  ({ROW_HEADER}; {TAKES_HEADER}; ? = not stated)"]
     for name in sorted(rows):
         r = rows[name]
         line = (f"{name:<42} {r['family']:<16} {_path_display(r.get('path_type', '?')):<18} "
                 f"{('yes' if r['chat'] else 'no'):>5} "
                 f"{format_token_count(r.get('context_tokens')):>6} {format_token_count(r.get('max_output_tokens')):>6} "
-                f"{format_price_per_m(r.get('price_in_per_m')):>9} {format_price_per_m(r.get('price_out_per_m')):>9}")
+                f"{format_price_per_m(r.get('price_in_per_m')):>9} {format_price_per_m(r.get('price_out_per_m')):>9}"
+                f"  {picker_cell(r.get('facts') or {})}")  # 3.3.15.0 R2: what it takes (models.dev's facts)
         if urls:
             line += f"  {r.get('url', '?')}"
         lines.append(line)
@@ -445,7 +447,9 @@ def cmd_models(argv) -> int:
               "set OPENROUTER_API_KEY and run `halo models --refresh` for live pricing):")
     else:
         print("OpenRouter models (models.json):")
-    print(f"{'id':<48} {'ctx':>8} {'out':>8} {'in/M':>10} {'out/M':>10}    ({ROW_HEADER})")
+    print(f"{'id':<48} {'ctx':>8} {'out':>8} {'in/M':>10} {'out/M':>10}  {'takes':<{TAKES_WIDTH}}  "
+          f"({ROW_HEADER}; {TAKES_HEADER}; ? = not stated)")
+    from halo_harness.providers.model_row_facts import openrouter_facts  # 3.3.15.0 R2: the takes column
     for mid in sorted(models):
         entry = models[mid]
         pricing = entry.get("pricing") or {}
@@ -463,7 +467,7 @@ def cmd_models(argv) -> int:
         print(f"{mid:<48} {format_token_count(entry.get('context_length')):>8} "
               f"{format_token_count(entry.get('max_output_tokens')):>8} "
               f"{format_price_per_m(_price_per_m(pricing.get('prompt'))):>10} "
-              f"{format_price_per_m(_price_per_m(pricing.get('completion'))):>10}")
+              f"{format_price_per_m(_price_per_m(pricing.get('completion'))):>10}  {takes_text(openrouter_facts(entry))}")
     if models:
         print(f"{len(models)} models")  # 3.3.5.0 R0 (f): every row printed, the count said
 

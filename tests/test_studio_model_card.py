@@ -4,9 +4,9 @@ without one), over a seeded home whose Ollama host `pc` (a placeholder,
 never asked) has the fixture catalog and hardware card in the server
 process's caches; no provider request, no model call:
 
-1. the Roles picker's rows carry the card's chips and the fit meter
+1. the Roles picker's rows carry the fit meter, the focused row's card chips the detail line (3.3.15.0 R2)
    (`data-level`), and the picked row unfolds the card's `how` lines;
-2. Setup -> Default model: the chips and meters; the coder picked shows the
+2. Setup -> Default model: the takes tags and meters; the coder picked shows the
    main-model line and the offer, whose button writes the lineup (active),
    the coder role on the model and `model` on the orchestrator;
 3. Settings' `model` row shows the saved model's card (no offer: it can
@@ -43,7 +43,7 @@ def _got(ctx: Ctx) -> dict:
 @test
 def test_the_roles_picker_rows_carry_the_card_and_the_meter(ctx: Ctx):
     got = _got(ctx)
-    ctx.check(f"the chips per row, got {got.get('picker_chips')}",
+    ctx.check(f"the chips per row (the focused row's detail line), got {got.get('picker_chips')}",
               got.get("picker_chips") == ["no tools coder 64k", "tools instruct 128k", "thinks tools instruct 64k"])
     ctx.check(f"a meter per row with its level, got {got.get('picker_levels')}", got.get("picker_levels") == ["tight", "fits", "fits"])
     eyes = got.get("picker_eyes") or []
@@ -61,8 +61,9 @@ def test_the_roles_picker_rows_carry_the_card_and_the_meter(ctx: Ctx):
 @test
 def test_setup_default_model_shows_the_card_and_the_offer_writes_the_lineup(ctx: Ctx):
     got = _got(ctx)
-    ctx.check(f"Setup's rows carry chips and meters, got {got.get('setup_chips')} {got.get('setup_levels')}",
-              len(got.get("setup_chips") or []) == 3 and sorted(got.get("setup_levels") or []) == ["fits", "fits", "tight"])
+    ctx.check(f"Setup's rows carry takes tags and meters, got {got.get('setup_chips')} {got.get('setup_levels')}",
+              len(got.get("setup_chips") or []) == 3 and all(got.get("setup_chips") or [""])
+              and sorted(got.get("setup_levels") or []) == ["fits", "fits", "tight"])
     ctx.check(f"the one plain line, got {got.get('setup_line')!r}", got.get("setup_line") == LINE)
     ctx.check(f"the offer names the orchestrator, got {got.get('setup_offer')!r}",
               got.get("setup_offer") == "Keep it as the coder lane under ol:qwen3.8:27b")

@@ -75,6 +75,7 @@ def _row(ref: str, detail: str, source: str, *, price_in=None, price_out=None, c
     from halo_harness.capabilities_line import best_at_kinds, best_at_line
     from halo_harness.model import is_local_ref_string
     from halo_harness.model_display import format_price_per_m, format_token_count
+    from halo_harness.model_takes import takes_words
     provider = provider_of(ref)
     base = {"ref": ref, "provider": provider, "price_in_per_m": price_in, "price_out_per_m": price_out,
             "context_tokens": context_tokens, "local": is_local_ref_string(ref), **(facts or {})}
@@ -84,6 +85,7 @@ def _row(ref: str, detail: str, source: str, *, price_in=None, price_out=None, c
             "chips": capability_profile(base)["chips"] if facts else "?",
             **{k: base.get(k) for k in ("modalities_in", "modalities_out", "tools", "reasoning")},
             "best_at": {"line": best_at_line(base), "kinds": best_at_kinds(base)},
+            "takes": takes_words(base),  # 3.3.15.0 R2
             "verified": False, "source": source}
 
 

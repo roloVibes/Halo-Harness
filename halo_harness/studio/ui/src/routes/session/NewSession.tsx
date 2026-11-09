@@ -11,12 +11,13 @@ import { onEvent } from "../../lib/events";
 import { toast } from "../../lib/store";
 import { Button } from "../../lib/ui";
 import { fleet } from "../fleet/store";
+import { ModelTakes, takesText, type TakesFields } from "../shared/ModelTakes";
 import { load as loadFleet } from "../fleet/sync";
 import type { SessionRow } from "../fleet/types";
 import { openPrompt } from "./promptStore";
 import { localSessions, openSession } from "./store";
 
-type ModelOpt = { ref: string; label?: string | null; provider?: string | null; price?: string | null };
+type ModelOpt = { ref: string; label?: string | null; provider?: string | null; price?: string | null } & TakesFields;
 type NewInfo = { model: string; cwd: string; models: ModelOpt[] };
 type Started = { session_id: string; pid: number; cwd: string; model: string; resume: string };
 
@@ -85,6 +86,7 @@ export function NewSession({ compact }: { compact?: boolean }) {
     for (const m of info?.models || []) out.set(m.provider || "other", [...(out.get(m.provider || "other") || []), m]);
     return [...out.entries()];
   }, [info]);
+  const picked = (info?.models || []).find((m) => m.ref === (model || info?.model)); // 3.3.15.0 R2: its takes chips
   const go = async () => {
     setBusy(true);
     setSaid("");
@@ -105,11 +107,13 @@ export function NewSession({ compact }: { compact?: boolean }) {
           <option value="">{info?.model ? `the default: ${info.model}` : "the default model"}</option>
           {groups.map(([provider, list]) => (
             <optgroup key={provider} label={provider}>
-              {list.map((m) => <option key={m.ref} value={m.ref}>{m.ref}{m.price && m.price !== "?" ? ` · ${m.price}` : ""}</option>)}
+              {list.map((m) => <option key={m.ref} value={m.ref} title={`takes ${takesText(m)}${m.line ? ` · ${m.line}` : ""}`}>
+                {m.ref}{m.price && m.price !== "?" ? ` · ${m.price}` : ""}</option>)}
             </optgroup>
           ))}
         </select>
       </label>
+      {picked && <div className="ss-new-row"><span className="mono muted">takes</span><ModelTakes row={picked} /></div>}
       <label className="ss-new-row">
         <span className="mono muted">folder</span>
         <input className="input mono" value={cwd} onChange={(e) => setCwd(e.target.value)} placeholder={info?.cwd || "Studio's folder"}

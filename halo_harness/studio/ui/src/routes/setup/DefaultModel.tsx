@@ -13,11 +13,15 @@
 // local row carries its effort word (think on/off, effort n/a). 3.3.5.0 R0b:
 // each row carries its card's chips and the fit meter; the model picked shows
 // its card under the list, and when it cannot orchestrate here the one line
-// with the coder-lane offer (shared/ModelCard.tsx).
+// with the coder-lane offer (shared/ModelCard.tsx). 3.3.15.0 R2 (owner feedback
+// 2026-11-09): a row is one line -- ref, label, what it takes (shared/
+// ModelTakes.tsx tags, the honest line on hover), price, context and meter;
+// the picked row's line, effort word and card chips sit on one line under the list.
 import { useMemo, useState } from "react";
 import { api } from "../../lib/api";
 import { Button, Empty, FitMeter, Icon, WindowedRows } from "../../lib/ui";
 import { CardChips, ModelCardPanel } from "../shared/ModelCard";
+import { ModelTakes } from "../shared/ModelTakes"; // 3.3.15.0 R2
 import { BlockFoot, useLoadState, Waiting } from "./BlockFoot";
 import { loadSetup, NONE, pick, shownOf, useSetup, type ModelRow } from "./store";
 
@@ -55,11 +59,7 @@ function Row({ r, on }: { r: ModelRow; on: boolean }) {
       <input type="radio" name="setup-model" checked={on} onChange={() => pick("model", r.ref)} data-testid="setup-model-input" data-ref={r.ref} />
       <span className="su-model-ref mono">{r.ref}</span>
       <span className="su-model-label">{r.label !== r.ref ? r.label : ""}</span>
-      <span className="su-model-best muted" title="what the best-at cache says it is good at (halo models analyze)">
-        {r.best_at}
-        {r.effort ? <span className="og-chip mono" data-testid="setup-model-effort" title="what the effort level does on this model">{r.effort}</span> : null}
-        <CardChips card={r.card} />
-      </span>
+      <span className="su-model-takes"><ModelTakes row={r} /></span>{/* 3.3.15.0 R2: the line is its title and the detail line */}
       <span className="su-model-num mono muted">{r.price && r.price !== "?" ? r.price : ""}</span>
       <span className="su-model-num mono muted">{r.context && r.context !== "?" ? r.context : ""} <FitMeter fit={r.fit} label={false} /></span>
     </label>
@@ -117,6 +117,7 @@ export function DefaultModelDetail() {
   const grouped = useMemo(() => groups(rows, q), [rows, q]);
   if (!ready) return <Waiting error={error} />;
   const known = rows.some((r) => r.ref === saved);
+  const picked = rows.find((r) => r.ref === shown); // 3.3.15.0 R2: its honest line, effort word and card chips, one line
   const matched = grouped.reduce((n, [, l]) => n + l.length, 0);
   const fold = (p: string) => {
     const next = { ...folded, [p]: !folded[p] };
@@ -146,6 +147,13 @@ export function DefaultModelDetail() {
             {grouped.length === 0 && <div className="su-more muted">No model matches {JSON.stringify(q)}.</div>}
           </div>
         </>
+      )}
+      {picked && (
+        <div className="su-model-detail mono" data-testid="setup-model-line" data-ref={picked.ref} title={picked.best_at || undefined}>
+          {picked.ref}: {picked.best_at || "?"}{" "}
+          {picked.effort ? <span className="og-chip mono" data-testid="setup-model-effort" title="what the effort level does on this model">{picked.effort}</span> : null}
+          <CardChips card={picked.card} />
+        </div>
       )}
       {shown ? <ModelCardPanel refName={shown} onLane={() => void loadSetup()} /> : null}
       <BlockFoot block="model" what="halo config set model <ref>" />

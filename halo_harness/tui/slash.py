@@ -520,7 +520,10 @@ def _apply_model(app, ref) -> None:
         # provider default.
         from halo_harness import launch_state
         launch_state.record_last_model(ref, cwd=app.cwd)
-        app.notify(f"Model set to {ref} -- saved as the default for next launch", title="/model")
+        from halo_harness.model_takes import confirm_suffix  # 3.3.15.0 R2: the line ends with what the model takes
+        now = getattr(getattr(getattr(app.controller, "session", None), "model_ref", None), "raw", None)
+        takes = confirm_suffix([ref, now], getattr(app.controller, "state_dir", None))
+        app.notify(f"Model set to {ref} -- saved as the default for next launch{takes}", title="/model")
 
 
 # ============================================================================

@@ -14,7 +14,9 @@ import type { PackSetup } from "./packSetup";
 export type ThemeRow = { name: string; palette: Record<string, string> };
 export type ModeRow = { id: string; label: string; note: string };
 export type LineupRow = { name: string; label: string; scope: string; description: string; active: boolean; default: boolean };
-export type ModelRow = { ref: string; provider: string; label: string; best_at: string; price: string; context: string; effort?: string } & CardFields;
+export type ModelRow = { ref: string; provider: string; label: string; best_at: string; price: string; context: string; effort?: string;
+  /** 3.3.15.0 R2: what it takes (halo_harness/model_takes.py). */
+  takes?: string[] } & CardFields;
 export type FieldRow = { id: string; label: string; secret: boolean; present: boolean; placeholder?: string };
 export type ProviderInfo = {
   label: string;

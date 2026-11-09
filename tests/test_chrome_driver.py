@@ -209,10 +209,12 @@ def test_a_driver_with_bridge_scrubbed_leaves_the_real_home_untouched(ctx: Ctx):
     ctx.check("the (fake) real home has no .halo and no .rolo-claude",
               not (home / ".halo").exists() and not (home / ".rolo-claude").exists())
     scratch = Path(str(got.get("state") or home / "x")).parent
-    deadline = time.time() + 10.0  # Windows shard 0 (scheduled run 42254683588): the folder's removal lagged the child's exit
+    # Windows shard 0 (run 42254683588, again 42679972220 on e4bcbcb8): the folder's removal lags the child's exit, over
+    # 10 s under load, so the wait is 40 s and the check says how long it took
+    deadline, t0 = time.time() + 40.0, time.time()
     while scratch.exists() and time.time() < deadline:
         time.sleep(0.2)
-    ctx.check("the scratch home the driver made is gone", not scratch.exists())
+    ctx.check(f"the scratch home the driver made is gone (after {time.time() - t0:.1f}s)", not scratch.exists())
 
 
 if __name__ == "__main__":

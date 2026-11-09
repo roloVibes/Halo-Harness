@@ -34,6 +34,7 @@ from textual.widgets.option_list import Option
 
 from halo_harness.model_display import PICKER_COLUMN_HEADER, PICKER_FOOTER, format_picker_row
 from halo_harness.tui.dialogs.listnav import NavInput
+from halo_harness.tui.dialogs.model_picker_takes import sync_subtitle
 
 # Halo 2.0.4 round 3 (deliverable 1): "s cycles the sort key (name, price,
 # ctx, speed)" (2.0.3-brief A2) -- "name" is this dialog's existing
@@ -239,19 +240,10 @@ class ModelPicker(ModalScreen):
         # from the filter can no longer be TYPED into it ("sonnet", "mistral",
         # "unsloth"), which is a worse cost than a chord.
         Binding("ctrl+o", "set_role", "Set role", show=True, priority=True),
-        # Halo 2.0.4 round 3 (deliverable 1/G4): "s cycles the sort key" /
-        # "r refreshes the current group and R all groups" -- same
-        # priority-binding-plus-extra_keys-forwarding shape `u` already
-        # uses (see `on_mount`'s `NavInput(extra_keys=...)` and that
-        # widget's own docstring for why a plain Binding alone can never
-        # reach a dialog while the filter Input holds focus, which it
-        # always does under normal use here). WHAT YOU FOUND (hand-back):
-        # the SAME tradeoff `u` already accepted now also applies to these
-        # three letters -- "s"/"r" can no longer be TYPED into the filter
-        # box at all (not even inside a longer word like "sonnet"/
-        # "mistral"), a materially bigger cost than `u`'s own (rarer in
-        # real model/vendor names) since both are common letters; flagged
-        # for the orchestrator/owner to weigh, not silently decided here.
+        # Halo 2.0.4 round 3 (deliverable 1/G4): cycle the sort key, refresh the
+        # current group / every group -- the same priority-binding-plus-
+        # extra_keys-forwarding shape as set_role (see `NavInput`'s docstring:
+        # a plain Binding never reaches a dialog while the filter holds focus).
         Binding("ctrl+s", "cycle_sort", "Sort", show=True, priority=True),
         Binding("ctrl+g", "refresh_group", "Refresh group", show=True, priority=True),
         Binding("f5", "refresh_all", "Refresh all", show=True, priority=True),
@@ -373,7 +365,7 @@ class ModelPicker(ModalScreen):
     def compose(self):
         with Vertical():
             yield Static(f"Select a model (current: {self.current or '?'})", classes="dialog-title")
-            yield Static(PICKER_FOOTER, classes="dialog-subtitle")
+            yield Static(PICKER_FOOTER, classes="dialog-subtitle", id="model-footer")  # 3.3.15.0 R2: or the line
             yield Static(PICKER_COLUMN_HEADER, classes="dialog-subtitle")
             # C-2 finding 12: `extra_keys={"u": "set_role", ...}` -- the
             # ONLY way these screen-level letter-key shortcuts can fire
@@ -454,6 +446,7 @@ class ModelPicker(ModalScreen):
             no_match = f"No exact match. Did you mean: {', '.join(near)}" if near else "No matching models."
             extra = self._hint_text()
             hint.update(f"{no_match}\n{extra}" if extra else no_match)
+            sync_subtitle(self)  # nothing highlighted: the footer comes back
 
     def _hint_text(self) -> str:
         """H15 item 21.2: one dim line per detected-but-disabled provider,
@@ -515,6 +508,9 @@ class ModelPicker(ModalScreen):
 
     def on_input_changed(self, event: Input.Changed) -> None:
         self._refresh_list(event.value)
+
+    def on_option_list_option_highlighted(self, event: OptionList.OptionHighlighted) -> None:
+        sync_subtitle(self)  # 3.3.15.0 R2: the highlighted model's honest line in the subtitle
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         if self._source == "agents":

@@ -125,7 +125,8 @@ def get_new(req):
     rows = []
     try:
         for r in M.model_rows(req.state_dir, req.cwd, cached=True):
-            rows.append({k: r.get(k) for k in ("ref", "label", "provider", "price", "context")})
+            rows.append({**{k: r.get(k) for k in ("ref", "label", "provider", "price", "context")},  # 3.3.15.0 R2: + takes
+                         "takes": list(r.get("takes") or ["?"]), "line": str((r.get("best_at") or {}).get("line") or "")})
     except Exception:
         rows = []
     return 200, {"model": _default_model(), "cwd": str(req.cwd), "models": rows}
