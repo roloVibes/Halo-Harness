@@ -115,14 +115,16 @@ def test_i80_bio_and_team_writers_into_a_blocked_dir_return_problems(ctx: Ctx):
 # ---- item 41: design.json is never rewritten from a torn read -------------------
 
 def _project():
-    from halo_harness.design.store import Project
+    from tests.helpers import design_pack as _DP
+    Project = _DP.module("server/store.py").Project
     state = Path(tempfile.mkdtemp(prefix="r3e2-design-"))
     return Project.create("Landing page", model="or:mock/design", systems=["brand"], state_dir=state)
 
 
 @test
 def test_i41_unparsable_design_json_is_left_alone(ctx: Ctx):
-    from halo_harness.design.store import UnreadableFile
+    from tests.helpers import design_pack as _DP
+    UnreadableFile = _DP.module("server/store.py").UnreadableFile
     p = _project()
     (p.path / "artboards" / "hero").mkdir(parents=True)
     (p.path / "artboards" / "hero" / "index.html").write_text("<p>hi</p>", encoding="utf-8")
@@ -159,7 +161,8 @@ def test_i41_good_design_json_keeps_name_model_and_systems(ctx: Ctx):
 
 @test
 def test_i41_torn_comments_and_controls_are_not_overwritten(ctx: Ctx):
-    from halo_harness.design.store import UnreadableFile
+    from tests.helpers import design_pack as _DP
+    UnreadableFile = _DP.module("server/store.py").UnreadableFile
     p = _project()
     (p.path / "comments.json").write_text("[{\"id\": \"c1\"", encoding="utf-8")
     d = p.artboard_dir("hero")

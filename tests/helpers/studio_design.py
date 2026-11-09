@@ -1,5 +1,6 @@
 """tests.helpers.studio_design -- the Design click checks of
-tests/test_studio_ui.py (Halo 3.0.7.0 round R3: a React section now),
+tests/test_pack_design_ui.py (Halo 3.0.7.0 round R3: a React section; 3.3.13.0 R2: the design pack's section,
+enabled in the scratch home through tests/helpers/design_pack.py),
 driven through real clicks, drags and keys in headless Chrome over the
 DevTools protocol (tests/helpers/cdp.py). Run as a subprocess with a
 scrubbed environment, like tools/capture_studio.py:
@@ -8,7 +9,7 @@ scrubbed environment, like tools/capture_studio.py:
     python -m tests.helpers.studio_design design-rest   # R3b: knobs, text edit, pins, system, 3 directions, device
 
 The last stdout line is a JSON object of what it saw (exit 2: no Chrome).
-No model is called: Design's turns run through design_api.RUNNER."""
+No model is called: Design's turns run through the pack's api.RUNNER."""
 from __future__ import annotations
 
 import json
@@ -32,8 +33,8 @@ def tid(name: str) -> str:
 
 
 def design(c, url: str, state: Path) -> dict:
-    from design_demo import seed
-    from halo_harness.studio import design_api
+    from tests.helpers.design_pack import module, seed
+    design_api = module("server/api.py")
     out: dict = {}
     c.go(url)
     out["start"] = c.wait(f"{tid('design-start')}.length", 20)
@@ -73,19 +74,21 @@ def design(c, url: str, state: Path) -> dict:
 
 
 class DesignDriver(Driver):
-    """`design`, `design-rest` over capture_studio's seeded home (no model call: design_api.RUNNER)."""
+    """`design`, `design-rest` over capture_studio's seeded home with the design pack on (no model call: its api.RUNNER)."""
 
     no_chrome = {"skip": "no Chrome found"}
 
     @contextmanager
     def session(self, c):
         from capture_studio import seeded_home, serve
+        from tests.helpers.design_pack import MODE, enable
         state = seeded_home()
+        enable(state)
         mode = self.argv[0] if self.argv else "design"
         srv, url = serve(state, True)
         from tests.helpers.studio_full import full
         url = full(url)  # 3.3.2.0 R3: every panel open, the arrangement this driver works in
-        url = url.replace("mode=orchestra", "mode=design").replace("feed=off", "tour=off")
+        url = url.replace("mode=orchestra", f"mode={MODE}").replace("feed=off", "tour=off")
         try:
             if mode == "design-rest":
                 from tests.helpers.studio_design_rest import design_rest

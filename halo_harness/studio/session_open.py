@@ -166,4 +166,8 @@ def section_target(word: str, session_id: str = "") -> "tuple[Optional[SectionTa
         return SectionTarget("session", sid, "this session" if sid else ""), ""
     if w in STUDIO_MODES:
         return SectionTarget(w), ""
-    return None, f"/studio opens this session, or a section: {', '.join(STUDIO_MODES)} (got {word!r})"
+    from halo_harness.studio.modes import check  # 3.3.13.0 R2: a running pack's section, <pack id>--<section>
+    mode, why = check((word or "").strip())
+    if mode is not None:
+        return SectionTarget(mode), ""
+    return None, f"/studio opens this session, or a section: {why}"

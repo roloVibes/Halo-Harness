@@ -146,8 +146,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return False
         return True
 
-    def _guard(self) -> bool:
-        """Loopback peer and Host, own Origin (when one is sent), the launch token."""
+    def _guard(self, query_token: bool = False) -> bool:
+        """Loopback peer and Host, own Origin (when one is sent), the launch token. `query_token` (3.3.13.0 R2, a
+        GET of a pack's routes: an iframe or an image sends no header) takes the token from `?t=` too."""
         if not self._local_only():
             return False
         origin = self.headers.get("Origin")
@@ -156,6 +157,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return False
         auth = self.headers.get("Authorization", "")
         presented = auth[7:] if auth.startswith("Bearer ") else ""
+        if not presented and query_token:
+            presented = (parse_qs(urlsplit(self.path).query).get("t") or [""])[-1]
         if not presented or not hmac.compare_digest(presented, self.server.token):
             self._json(401, {"error": "missing or wrong studio token: open the URL `halo studio` printed"})
             return False
@@ -165,9 +168,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
         n = int(self.headers.get("Content-Length") or 0)
         if n <= 0:
             return {}
-        big = (self.path.startswith("/api/design/") and urlsplit(self.path).path.endswith("/assets")) or (
-            urlsplit(self.path).path.endswith("/command"))  # 3.3.6.0 R6: a steer's image (studio/session_eyes_api.py)
-        if n > (22_000_000 if big else 4_000_000):  # a design asset is 15 MB base64
+        path = urlsplit(self.path).path
+        limit = 22_000_000 if path.endswith("/command") else 4_000_000  # 3.3.6.0 R6: a steer's image (session_eyes_api)
+        if path.startswith("/api/packs/"):  # 3.3.13.0 R2: a pack's routes module may raise it for its prefix (MAX_BODY)
+            from halo_harness.studio.packs_routes import max_body
+            limit = max_body(path, self.server)
+        if n > limit:
             raise ValueError("body too large")
         data = json.loads(self.rfile.read(n).decode("utf-8") or "{}")
         return data if isinstance(data, dict) else {"value": data}
@@ -175,7 +181,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
     # -- routing ----------------------------------------------------------------
     def _api(self, method: str) -> None:
         from halo_harness.studio.api import Request, dispatch
-        if not self._guard():
+        if not self._guard(query_token=method == "GET" and self.path.startswith("/api/packs/")):
             return
         parts = urlsplit(self.path)
         path = unquote(parts.path)[len("/api/"):]
@@ -234,21 +240,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
             csp = theme_csp(SHELL_CSP, body)  # 3.3.12.0 R2: a pack palette's first-paint rule, allowed by its hash
         self._send(200, body, ctype, {"Content-Security-Policy": csp})
 
-    def _design_file(self) -> None:
-        """3.0.1.0 D3: a design artboard's raw file for the page's sandboxed iframes (its own CSP, loopback only)."""
-        from halo_harness.studio import design_files
-        if not self._local_only():
-            return
-        parts = urlsplit(self.path)
-        status, body, ctype = design_files.read(self.server.state_dir, parts.path, {k: v[-1] for k, v in parse_qs(parts.query).items()})
-        self._send(status, body, ctype, {"Content-Security-Policy": design_files.csp_for(ctype)})
-
     def do_GET(self):
         if urlsplit(self.path).path == "/api/events":  # streams: before the JSON dispatch
             from halo_harness.studio.events import serve_sse
             serve_sse(self)
-        elif self.path.startswith("/design-files/"):
-            self._design_file()
         elif self.path.startswith("/api/pack/") and "t=" in urlsplit(self.path).query and not self.headers.get("Authorization"):
             # 3.2.0.0 R3: a pack's bundle module -- an import() sends no header, so its token rides in ?t= (as /api/events)
             from halo_harness.studio.packs_studio_api import serve_module
@@ -314,7 +309,7 @@ def start_steward(server: _Server) -> None:
         server.steward_job = None
 
 
-STUDIO_MODES = ("roles", "design", "orchestra", "fleet", "team", "session", "packs", "setup", "settings", "local")  # 3.0.4.0: the shell's sections too; 3.0.5.0: Fleet; 3.0.8.0: Team; 3.1.4.0: Session; 3.2.0.0 R7: Packs; 3.3.0.0 R1: Setup; 3.3.3.0 R2: Settings; 3.3.5.0 R1: Local
+STUDIO_MODES = ("roles", "orchestra", "fleet", "team", "session", "packs", "setup", "settings", "local")  # 3.0.4.0: the shell's sections too; 3.0.5.0: Fleet; 3.0.8.0: Team; 3.1.4.0: Session; 3.2.0.0 R7: Packs; 3.3.0.0 R1: Setup; 3.3.3.0 R2: Settings; 3.3.5.0 R1: Local; 3.3.13.0 R2: design is the design pack's (studio/modes.py)
 
 
 def url_for(server: _Server, mode: Optional[str] = None, edit: Optional[str] = None) -> str:
@@ -350,8 +345,8 @@ def ensure_background(*, cwd: Path, state_dir: Path, open_browser: bool = True, 
 
 
 def cmd_studio(argv: list) -> int:
-    parser = argparse.ArgumentParser(prog="halo studio", description="Open Halo Studio, the browser GUI: Roles (lineups and agent bios as a graph) and Design (artboards on your own apps).")
-    parser.add_argument("--mode", choices=STUDIO_MODES, default=None, help="open straight into roles, design, orchestra, fleet, team, session, packs, setup, settings or local (default: the mode you used last)")
+    parser = argparse.ArgumentParser(prog="halo studio", description="Open Halo Studio, the browser GUI: this session live, lineups and agent bios as a graph, every harness, the local models, packs, Setup and Settings.")
+    parser.add_argument("--mode", default=None, metavar="SECTION", help="open straight into session, team, roles, fleet, orchestra, packs, setup, settings, local, or a pack's section <pack id>--<section> (default: the mode you used last)")
     parser.add_argument("--port", type=int, default=0, help="port to listen on (default: a free one)")
     parser.add_argument("--no-open", action="store_true", help="print the URL, do not open a browser")
     parser.add_argument("--cwd", default=None, help="the project directory for project-scope files (default: the current directory)")
@@ -383,6 +378,12 @@ def cmd_studio(argv: list) -> int:
     from halo_harness.providers.config import default_state_dir
     state_dir = Path(default_state_dir())
     cwd = Path(args.cwd).resolve() if args.cwd else Path.cwd()
+    if args.mode and not args.edit and args.session is None:  # 3.3.13.0 R2: a core section or a running pack's own
+        from halo_harness.studio.modes import check
+        args.mode, why = check(args.mode, cwd=cwd, state_dir=state_dir)
+        if args.mode is None:
+            print(f"halo studio: --mode: {why}", file=sys.stderr)
+            return 2
     from halo_harness.studio.launch import existing_url, stop
     if args.stop:
         ok, note = stop(state_dir)

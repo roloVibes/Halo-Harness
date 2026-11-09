@@ -4,7 +4,7 @@
 // panel that is not up, "focus" an open one) with the strip / float badges;
 // revealPanel does the work. A section may add its own group under the panels
 // (routes/index.tsx `menu`; Orchestra: New run and its runs). A paged section
-// (Setup) has no panels and draws no "+".
+// (Setup) has no panels and draws no "+"; 3.3.13.0 R2: one with optional panels (Local: Media) lists those.
 import { Menu, type MenuGroup, type MenuRow } from "../lib/ui";
 import { studio, useStore } from "../lib/store";
 import { layoutStore } from "../lib/workspace/persist";
@@ -44,6 +44,7 @@ function SectionPanels({ def }: { def: SectionDef }) {
 export function PanelsMenu() {
   const section = useStore(studio, (s) => s.section);
   const def = useSections().find((s) => s.id === section);
-  if (!def || def.paged || (!def.panels.length && !def.menu)) return null;
+  // 3.3.13.0 R2: a paged section with optional panels (Local: Media) lists them; they float over its page
+  if (!def || (def.paged && !def.panels.some((p) => p.optional)) || (!def.panels.length && !def.menu)) return null;
   return <SectionPanels key={def.id} def={def} />;
 }

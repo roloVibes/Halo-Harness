@@ -149,7 +149,8 @@ def system(c, p, state: Path, out: dict) -> None:
 
 
 def directions(c, p, state: Path, out: dict) -> None:
-    from halo_harness.studio import design_api
+    from tests.helpers.design_pack import module
+    design_api = module("server/api.py")
     seen: dict = {}
 
     def runner(cmd, cwd, env, on_line, stdin="", cancel=None):
@@ -191,7 +192,7 @@ def device(c, url: str, out: dict) -> None:
 
 
 def design_rest(c, url: str, state: Path) -> dict:
-    from design_demo import seed
+    from tests.helpers.design_pack import seed
     p = seed(state)
     out: dict = {}
     c.go(url)

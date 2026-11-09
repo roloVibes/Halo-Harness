@@ -2,13 +2,14 @@
 C-studio-tools, part 2: Studio's Design store, lineup graph, Paperclip
 install and name checks.
 
-  * item 7    file-derived numbers reach the page as numbers; the templates
-              escape them
   * item 36   an artboard whose id starts with `v` is discovered
   * item 110  concurrent comment writers lose no rows; writes are atomic
   * item 37   a hand-edited lineup or bio opens with the validator's words
   * item 38   a Paperclip install finishes on its success line, one child only
   * item 111  layout / delete names are validated
+
+3.3.13.0 R2: item 7 is the design pack's (its tests/test_review_pins.py); items 36 and 110 load the
+pack's store by path (tests/helpers/design_pack.py).
 """
 
 from __future__ import annotations
@@ -26,42 +27,12 @@ from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # no
 
 test, TESTS = new_registry()
 REPO = Path(__file__).resolve().parent.parent
-DESIGN_UI = REPO / "halo_harness" / "studio" / "ui" / "src" / "routes" / "design"  # 3.0.7.0 R2: the React Design section
-IFRAME = '<iframe src="/design-files/probe/hero/index.html"></iframe>'
-
-
-@test
-def test_item7_file_derived_values_are_numbers_and_escaped(ctx: Ctx):
-    import urllib.request
-    with _Studio() as s:
-        p = s.project("Xss Lab")
-        (p.path / "history.jsonl").write_text(json.dumps({"ts": "t", "prompt": "p", "tool_calls": IFRAME, "elapsed": "x", "cost": IFRAME}) + "\n"
-                                              + json.dumps({"ts": "t2", "prompt": "q", "tool_calls": 3, "elapsed": 1.5, "cost": 0.02}) + "\n", encoding="utf-8")
-        (p.path / "comments.json").write_text(json.dumps([
-            {"id": "c1", "artboard": "hero", "version": IFRAME, "x": '0"><iframe src=x><b x="', "y": IFRAME, "text": "t", "resolved": False},
-            {"id": "c2", "artboard": "hero", "version": 2, "x": 12.5, "y": 40, "text": "t", "resolved": False}, "junk"]), encoding="utf-8")
-        req = urllib.request.Request(f"http://127.0.0.1:{s.port}/api/design/{p.slug}", headers={"Authorization": "Bearer " + s.srv.token})
-        with urllib.request.urlopen(req, timeout=10) as r:
-            data = json.loads(r.read())
-        c1, c2 = data["comments"][0], data["comments"][1]
-        ctx.check("markup in x / y / version becomes numbers", (c1["x"], c1["y"], c1["version"]) == (0.0, 0.0, 0) and (c2["x"], c2["y"], c2["version"]) == (12.5, 40, 2))
-        ctx.check("a non-object comment row is dropped", len(data["comments"]) == 2)
-        h1, h2 = data["history"]
-        ctx.check("markup in tool_calls / elapsed / cost is dropped", h1["tool_calls"] is None and h1["elapsed"] is None and h1["cost"] is None)
-        ctx.check("real numbers are kept", (h2["tool_calls"], h2["elapsed"], h2["cost"]) == (3, 1.5, 0.02))
-        ctx.check("no iframe markup reaches the project payload", "<iframe" not in json.dumps({"c": data["comments"], "h": data["history"]}))
-    # 3.0.7.0 R2: the classic page's string-built rows are gone; the React Design section renders every
-    # file-derived value as JSX text (escaped by React) and never writes HTML from data
-    src = {p.name: p.read_text(encoding="utf-8") for p in DESIGN_UI.glob("*.ts*")}
-    ctx.check("the Design section has its sources", len(src) >= 10)
-    ctx.check(f"no Design source writes HTML from data, got {[n for n, t in src.items() if 'dangerouslySetInnerHTML' in t or '.innerHTML' in t]}",
-              not any("dangerouslySetInnerHTML" in t or ".innerHTML" in t for t in src.values()))
-    ctx.check("the pins are drawn as React elements", any('data-testid="design-pin"' in t for t in src.values()))
 
 
 @test
 def test_item36_artboards_starting_with_v_are_discovered(ctx: Ctx):
-    from halo_harness.design.store import Project
+    from tests.helpers import design_pack as _DP
+    Project = _DP.module("server/store.py").Project
     with _Studio() as s:
         p = Project.create("V Lab", state_dir=s.state)
         for name in ("vector-logo", "video-hero", "v2", "hero"):
@@ -76,8 +47,9 @@ def test_item36_artboards_starting_with_v_are_discovered(ctx: Ctx):
 
 @test
 def test_item110_concurrent_comment_writers_lose_nothing(ctx: Ctx):
-    from halo_harness.design import jsonio
-    from halo_harness.design.store import Project
+    from tests.helpers import design_pack as _DP
+    jsonio = _DP.module("server/jsonio.py")
+    Project = _DP.module("server/store.py").Project
     with _Studio() as s:
         p = Project.create("Race Lab", state_dir=s.state)
         errors = []

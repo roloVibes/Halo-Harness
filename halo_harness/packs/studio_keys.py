@@ -27,7 +27,8 @@ def _config_and_sections(L, manifest, studio: dict, own: dict) -> None:
             L.add("contributes.studio.config_form", ": the form is the Settings panel of the pack's first section; "
                   "declare a section under sections:")
     for i, s in enumerate(R._list(studio, "sections")):
-        if isinstance(s, dict) and not R._list(s, "panels") and not (i == 0 and studio.get("config_form") is True):
+        if isinstance(s, dict) and not R._list(s, "panels") and s.get("view") is None \
+                and not (i == 0 and studio.get("config_form") is True):  # 3.3.13.0 R2: a view draws the page itself
             L.add(f"contributes.studio.sections[{i}].panels", ": a section shows its panels; it lists none", "id", s.get("id"))
     for j, p in enumerate(R._list(studio, "panels")):
         if isinstance(p, dict) and p.get("section") not in R.CORE_SECTIONS:

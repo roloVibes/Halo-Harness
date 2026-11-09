@@ -3,9 +3,10 @@ a density setting (rolo, 2026-10-27: "the visuals in studio are too cluttered").
 through tests/helpers/studio_quiet_panels.py (skipped without one), over a seeded scratch home; no provider
 request, no model call:
 
-1. one thing per section: on a fresh browser each of Session, Team, Roles, Fleet, Design, Orchestra and Packs
-   opens on its primary panel (Live, Board, Canvas, Map, Artboards, Workflow, Installed), its box >= 60 % of the
-   stage, every other panel a strip at the foot;
+1. one thing per section: on a fresh browser each of Session, Team, Roles, Fleet, Orchestra and Packs
+   opens on its primary panel (Live, Board, Canvas, Map, Workflow, Installed), its box >= 60 % of the
+   stage, every other panel a strip at the foot (3.3.13.0 R2: Design's Artboards is the design pack's page,
+   its own primary: the pack's tests/test_studio_design_live.py and tests/test_pack_design_ui.py);
 2. the ornament on one panel at a time: one `.panel.focused` (the primary until a click), one set of HUD
    brackets, one mono data line, no about line in any panel; a click moves it; the panel's ? opens its help on
    the about line and toggles it shut;
@@ -35,7 +36,7 @@ REPO = Path(__file__).resolve().parent.parent
 UI = REPO / "halo_harness" / "studio" / "ui" / "src"
 _RUN: dict = {}
 PRIMARY = {"session": "session-live", "team": "team-board", "roles": "roles-graph", "fleet": "fleet-map",
-           "design": "design-artboards", "orchestra": "graph", "packs": "pm-installed"}
+           "orchestra": "graph", "packs": "pm-installed"}
 
 
 def _got(ctx: Ctx) -> dict:

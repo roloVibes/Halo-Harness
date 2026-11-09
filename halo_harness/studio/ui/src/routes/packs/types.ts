@@ -35,7 +35,9 @@ export type PackPanel = {
   grant?: string;
 };
 
-export type PackSection = { id: PackSectionId; name: string; pack: string; title: string; blurb: string; help: string; panels: PackPanel[] };
+/** 3.3.13.0 R2: a section drawn whole by one module of the pack (its `file` only once studio-script is granted). */
+export type PackView = { source: string; script: "granted" | "not granted"; grant: string; file?: string };
+export type PackSection = { id: PackSectionId; name: string; pack: string; title: string; blurb: string; help: string; panels: PackPanel[]; view?: PackView };
 export type PaletteEntry = { id: string; label: string; group: string; action: { kind: "route" | "url" | "none"; section?: string; panel?: string; url?: string } };
 export type EventLine = { label: string; line: string; view?: string }; // view: the kind schema's hint (3.2.0.0 R5)
 export type AttnKind = { label: string; keys: Record<string, string> };
@@ -53,6 +55,8 @@ export type PackEntry = {
   config_form: boolean;
   events: Record<string, EventLine>;
   attention: Record<string, AttnKind>;
+  /** 3.3.13.0 R2: the pack's own API routes (`api`: api/packs/<id>/<prefix>), null without them. */
+  routes?: { prefix: string; api: string; granted: boolean } | null;
 };
 
 /** boot (3.2.1.0 R1): the served page's sections only (`data-pack-sections`), before `GET pack/registry` answers. */

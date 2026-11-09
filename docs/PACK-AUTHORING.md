@@ -43,7 +43,7 @@ link and its own `halo pack test`.
 | `mcp` | give the model tools of its own | `.mcp.json` + `mcp/words_server.py` (one tool) |
 | `events` | tell Studio, bios' triggers and workflows that something happened | `events/note.added.json` + its sample |
 | `artifacts` | produce a typed document Studio draws | `artifacts/report.json` + its sample |
-| `studio` | show something in Studio | a section: a markdown panel, a table over `data:rows.json`, a bundle panel |
+| `studio` | show something in Studio | a section: a markdown panel, a table over `data:rows.json`, a bundle panel; a page of its own (`studio/page.js` with `api.lib`) over its own routes (`server/routes.py`) |
 | `fleet` | offer a capability other harnesses can send work to | a capability and an inspector line |
 | `policy` | decide tool calls before they run while a mode is on | `policy/guard.py` and the `careful` mode |
 | `modes` | have a runtime switch of its own | the `focus` mode |
@@ -95,7 +95,10 @@ or `{"skip": "why"}`.
 
 While the pack is enabled its section comes after Studio's own (the rail's diamond), each panel drawn by Studio from
 the data: markdown never as HTML, a table from a JSON file of the pack or of its data folder, a bundle panel only once
-the owner grants `studio-script`. Its palette line, its event lines and its attention rows show where the core ones do;
+the owner grants `studio-script`. A section can also be the pack's own page (a `view`, 3.3.13.0 R2: one ES module that
+draws with `api.lib`, Studio's own React and parts) over the pack's own routes (`server/routes.py`, granted
+`studio-routes`); `halo pack new --kinds studio` writes one of each, and `halo pack test` checks the page exports
+`mount` and the routes answer `GET ping`. Its palette line, its event lines and its attention rows show where the core ones do;
 its Setup blocks show in Setup; its bios and lineup in Roles. With `--link`, an edit to a panel's file shows at its next
 read. [EXTENSION_API.md](EXTENSION_API.md#studio-contributions) has every key.
 

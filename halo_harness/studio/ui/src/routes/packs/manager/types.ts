@@ -3,7 +3,8 @@
 // (halo_harness/packs/manager.py, packs/sources.py). Every line is in the
 // words `halo pack` prints.
 
-export type Permission = { name: string; needed_by: string[]; granted: boolean };
+/** 3.3.13.0 R2: `what` is the grant's one line (packs/grants.py WHAT: studio-routes "runs this pack's Python inside Studio's server"). */
+export type Permission = { name: string; needed_by: string[]; granted: boolean; what?: string };
 export type Requirement = { pack: string; version: string; met: boolean; have: string; running: boolean };
 export type HealthRow = { pack: string; severity: "blocks" | "warns" | "info"; check: string; text: string; fix: string; path: string };
 export type WorkflowInput = { name: string; type: string; required: boolean; default: unknown; description: string };

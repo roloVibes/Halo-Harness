@@ -1,9 +1,8 @@
 // The Media panels' store (ComfyUI through studio/media_api.py): the server
 // status (refreshed every 15 s while a Media panel is on screen), the cached
-// model inventory, the workflows, one workflow's inputs, and the renders
-// started here with their `media_render` frames (session `media:<prompt id>`).
+// model inventory, the workflows and one workflow's inputs (3.3.13.0 R2: the renders into a design project went
+// with Design to its pack).
 import { api, ApiError } from "../../lib/api";
-import { onEvent } from "../../lib/events";
 import { createStore, toast, useStore, writeLocal } from "../../lib/store";
 
 export type Gpu = { name: string; type?: string; vram_total?: number | null; vram_free?: number | null };
@@ -32,18 +31,6 @@ export type MediaModel = {
 };
 export type Workflow = { name: string; source: "starter" | "saved" | string };
 export type InputNode = { node: string; class_type: string; title?: string; inputs: Record<string, unknown>; keys?: Record<string, string> };
-export type RenderArt = { id: string; kind?: string; url?: string; version?: number; bytes?: number };
-export type RenderState = {
-  prompt_id: string;
-  state: "queued" | "progress" | "done" | "error" | string;
-  text?: string;
-  project?: string;
-  artboard?: string;
-  workflow?: string;
-  artboards?: RenderArt[];
-  error?: string;
-  at?: number;
-};
 
 export type MediaState = {
   status: MediaStatus | null;
@@ -55,8 +42,6 @@ export type MediaState = {
   inputsOf: Workflow | null;
   inputs: InputNode[];
   inputsError: string;
-  renders: Record<string, RenderState>;
-  current: string;
   scanning: boolean;
   started: boolean;
 };
@@ -89,8 +74,6 @@ export const media = createStore<MediaState>({
   inputsOf: null,
   inputs: [],
   inputsError: "",
-  renders: {},
-  current: "",
   scanning: false,
   started: false,
 });
@@ -156,19 +139,6 @@ export async function openInputs(w: Workflow): Promise<void> {
   }
 }
 
-/** POST media/render -> 202 {prompt_id}; the frames fill in the rest. Returns the problems, if any. */
-export async function render(w: Workflow, set: Record<string, unknown>, project: string, artboard: string): Promise<string[]> {
-  try {
-    const r = await api.post<{ prompt_id: string }>("media/render", { workflow: w.name, source: w.source, set, project, artboard });
-    const row: RenderState = { prompt_id: r.prompt_id, state: "queued", text: `queued ${w.name}`, project, artboard, workflow: w.name, at: Date.now() };
-    media.update((s) => ({ renders: { ...s.renders, [r.prompt_id]: { ...row, ...s.renders[r.prompt_id] } }, current: r.prompt_id }));
-    toast(`Render ${r.prompt_id} queued`, "info");
-    return [];
-  } catch (e) {
-    return e instanceof ApiError && e.problems.length ? e.problems : [text(e)];
-  }
-}
-
 let timer = 0;
 let mounted = 0;
 /** Start once; while any Media panel is mounted the status refreshes every 15 s. Returns the unmount. */
@@ -176,14 +146,6 @@ export function attachMedia(): () => void {
   mounted += 1;
   if (!media.get().started) {
     media.update(() => ({ started: true }));
-    onEvent("media_render", (f) => {
-      const d = (f.data || {}) as RenderState;
-      const pid = String(d.prompt_id || (f.session_id || "").replace(/^media:/, ""));
-      if (!pid) return;
-      media.update((s) => ({ renders: { ...s.renders, [pid]: { ...s.renders[pid], ...d, prompt_id: pid, at: Date.now() } } }));
-      if (d.state === "done") toast(`Render ${pid} done: ${d.text || ""}`, "done");
-      if (d.state === "error") toast(`Render ${pid}: ${d.error || d.text}`, "error", 5000);
-    });
     void Promise.all([loadStatus(), loadModels(), loadWorkflows()]);
   }
   if (!timer) timer = window.setInterval(() => void loadStatus(), 15000);

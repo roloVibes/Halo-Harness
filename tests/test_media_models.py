@@ -192,15 +192,15 @@ def test_models_cli_media_and_best_for(ctx: Ctx):
 def test_studio_get_models_media(ctx: Ctx):
     from halo_harness.media.comfy_client import ComfyClient
     from halo_harness.providers import media_models as MM
-    from halo_harness.studio import design_api
+    from tests.helpers import design_pack as DP
+    api = DP.module("server/api.py")  # 3.3.13.0 R2: the design pack's models route, over ext.host
     state = _state()
     with FakeComfy() as fake:
         MM.scan(ComfyClient(fake.url, timeout=10), state)
-    req = SimpleNamespace(method="GET", path="design/models", query={"media": "1"}, state_dir=state, body={})
-    status, body = design_api.dispatch_design(req)
+    status, body = api.get_models(SimpleNamespace(query={"media": "1"}, cwd=None))
     ctx.check("get_models?media=1 is {media: rows}", status == 200 and set(body) == {"media"} and len(body["media"]) > 20
               and all(r["ref"].startswith("comfy:") for r in body["media"]))
-    status, body = design_api.dispatch_design(SimpleNamespace(method="GET", path="design/models", query={}, state_dir=state, body={}))
+    status, body = api.get_models(SimpleNamespace(query={}, cwd=None))
     ctx.check("get_models without media is still the design ranking (a list)", status == 200 and isinstance(body, list))
     ctx.check("the design ranking carries no comfy: ref", not any(str(r.get("ref", "")).startswith("comfy:") for r in body))
     # 3.0.7.0 R2: the classic page's model chooser (its "Media models (ComfyUI)" group) went with static/legacy;

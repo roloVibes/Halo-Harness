@@ -29,18 +29,19 @@ the URL. The same as `halo studio --session` from a shell.
 Halo 2.1.0, modes in 3.0.2.0: the sections are `roles` and `design`;
 3.0.4.0: `orchestra` too; 3.0.5.0: `fleet`, every harness and agent live;
 3.0.8.0: `team`, the team's board; 3.1.4.0: `session` (Org and Flow are gone
-since 3.1.4.0). Bare `/roles` and `/design` are unchanged short forms. Roles
+since 3.1.4.0; Design is the design pack's since 3.3.13.0: `/studio design--design`). Bare `/roles` is an
+unchanged short form. Roles
 is your lineups and agent bios as an editable graph in the browser.
 `/studio url` (or `/studio <section> url`) prints the URL of the Studio
 this session serves without opening a browser; over SSH, forward the port it
 names and open the same URL. See [STUDIO.md](STUDIO.md).
 
-### `/design` `[url]`
-Halo 3.0.2.0: opens Halo Studio's **Design mode**: artboards (HTML prototypes
-in sandboxed frames, renders from the ArtCraft apps), chat, comment pins,
-knobs, versions, variants, critique, contrast, exports and the handoff. The
-same as `/studio design`; `/design url` prints the URL only. The command
-family on the shell is `halo design` ([DESIGN.md](DESIGN.md)).
+**`/design [url]`** is not a built-in since 3.3.13.0 R2: it is the design pack's command (Halo 3.0.2.0 made it) (its `commands/design.md`, `studio: design` in the
+frontmatter): opens Halo Studio on the pack's **Design** section: artboards (HTML prototypes in sandboxed frames,
+renders from the ArtCraft apps), chat, comment pins, knobs, versions, variants, critique, contrast, exports and the
+handoff. The same as `/studio design--design`; `/design url` prints the URL only. With the pack off, `/design` is one
+line saying how to turn it on (`halo pack install design`, `halo pack enable design --grant-all`); see [the design
+pack](../halo_harness/templates/packs/design/README.md).
 
 ### `/exit`, `/quit` `[TUI-only for /quit]`
 `/exit` in `-p` is a no-op note (the call already ends after this turn).

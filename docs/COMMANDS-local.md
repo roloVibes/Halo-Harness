@@ -83,7 +83,7 @@ halo local serve <path> [--runtime llama-server|mlx] [--window N] [--port P] [--
 halo local stop <id|port>  /  halo local servers [--json]  /  halo local log <id> [-n N]
 ```
 
-Halo 3.3.5.0: on a real terminal `halo local` opens Studio on its **Local** section (`Alt+0`; bare, on its Hugging
+Halo 3.3.5.0: on a real terminal `halo local` opens Studio on its **Local** section (`Alt+9`; bare, on its Hugging
 Face page since R5;
 [STUDIO-local.md](STUDIO-local.md)) through the same door `halo settings` uses: a Studio already running for this home
 takes it in its open page, else one starts in the background and the browser opens `?mode=local` (`halo local hosts`

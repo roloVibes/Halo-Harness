@@ -289,7 +289,7 @@ HALO_STUDIO_PORT=8765 npm run dev        # http://127.0.0.1:5173/#t=<token from 
 npm run build                            # typecheck, then write ../static/dist
 ```
 
-`npm run dev` proxies `/api` and `/design-files` to that Studio
+`npm run dev` proxies `/api` to that Studio
 and drops the `Origin` header, so Studio's guard accepts the dev page; the
 token is the `#t=` value `halo studio` printed. **Every UI change commits
 the rebuilt `static/dist` with it.** The build is deterministic (same

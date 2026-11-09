@@ -5,8 +5,8 @@
 // 3.0.5.0 the Fleet pieces that work in every section: the hop keys, Live
 // Roles (3.0.7.0 R2: the live agents into the Roles store for its React
 // canvas), the mini stream and the Fleet dialogs (R4: take over, hand to,
-// message, kick, a recording); 3.0.7.0 R3: the Design dialogs; R2:
-// the Roles dialogs. 3.1.1.0 R1: the Glossary and "Start here" (a fresh home's offer of the guided first run).
+// message, kick, a recording); 3.0.7.0 R2: the Roles dialogs (the Design dialogs of R3 went with Design to its
+// pack, 3.3.13.0 R2). 3.1.1.0 R1: the Glossary and "Start here" (a fresh home's offer of the guided first run).
 // 3.1.1.0 R3: `?edit=` and the `focus` frame open a bio, a lineup or the Team (shell/edit.ts).
 // 3.2.0.0 R3: the packs' sections and panels (routes/packs: the registry, reloaded on `pack_changed`).
 // 3.3.2.0 R1 "Quiet Studio": nothing opens on its own when a section shows (the first-visit welcome is gone); the
@@ -37,7 +37,6 @@ import { MissionDialogs } from "./routes/fleet/MissionDialogs";
 import { useRolesLive } from "./routes/fleet/frames";
 import { useHopKeys } from "./routes/fleet/hop";
 import { FleetPip } from "./routes/fleet/Pip";
-import { DesignDialogs } from "./routes/design/Dialogs";
 import { RolesDialogs } from "./routes/roles/Dialogs";
 
 export function App() {
@@ -85,7 +84,6 @@ export function App() {
       <FleetDialogs />
       <PanelDialogs />
       <MissionDialogs />
-      <DesignDialogs />
       <RolesDialogs />
       <Toasts />
     </div>

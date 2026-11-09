@@ -4,7 +4,7 @@ through the driver base, over a scratch home (capture_studio's seeded_home) with
 the fixture's nvidia-smi and /proc answers (resources.SAMPLER_SEAMS); the live feed is on. No provider request, no
 model call:
 
-1. `alt0`: from Roles, Alt+0 opens Local with nothing over it (no help, no dialog), on Resources;
+1. `alt9`: from Roles, Alt+9 opens Local with nothing over it (no help, no dialog), on Resources;
 2. `pages`: the rail's seven pages, each with its title; the three framed ones say what they will hold and the CLI;
    Steward shows the job's status line and the last note;
 3. `resources`: a strip per sampled host; it moves on `resources` frames; every number carries its source;
@@ -48,15 +48,15 @@ def config(ctx) -> dict:
     return json.loads((ctx["state"] / "config.json").read_text(encoding="utf-8"))
 
 
-def alt0(c, url, ctx) -> dict:
+def alt9(c, url, ctx) -> dict:
     c.go(f"{ctx['base']}?mode=roles&tour=off#{ctx['frag']}")
     c.wait(f"{CUR}.startsWith('Roles')", 40)
     c.js("document.activeElement?.blur?.(); 1")
-    alt(c, 10)
-    out = {"alt0": c.wait(f"{CUR}.startsWith('Local') && {CUR}", 15)}
+    alt(c, 9)
+    out = {"alt9": c.wait(f"{CUR}.startsWith('Local') && {CUR}", 15)}
     time.sleep(1.5)
-    out["alt0_open"] = c.js(OPEN)
-    out["alt0_page"] = c.wait(f"!!{q('[data-testid=local-room]')} && {PAGE}", 15)
+    out["alt9_open"] = c.js(OPEN)
+    out["alt9_page"] = c.wait(f"!!{q('[data-testid=local-room]')} && {PAGE}", 15)
     return out
 
 
@@ -172,7 +172,7 @@ class LocalDriver(Driver):
         base, frag = url.split("?", 1)[0], url.split("#", 1)[1]
         ctx = {"state": state, "srv": srv, "base": base, "frag": frag, "mock": mock, "box": mock.base_url}
         try:
-            yield tuple((fn, (c, url, ctx)) for fn in (alt0, pages, resources, traffic, hosts, models))
+            yield tuple((fn, (c, url, ctx)) for fn in (alt9, pages, resources, traffic, hosts, models))
         finally:
             M.model_rows, M.catalog_rows = saved
             R.stop_all()

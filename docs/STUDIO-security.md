@@ -97,7 +97,7 @@ in your own browser.
 
 ## Shortcuts
 
-The shell's keys: `Alt+1`..`Alt+8` sections (`Alt+1`: Session, the first row since 3.1.6.0; `Alt+7`: Packs; and Setup `Alt+8`; 3.3.2.0: the rail prints no key, the palette's Go to shows them), `Ctrl`/`Cmd`+`K` the palette,
+The shell's keys: `Alt+1`..`Alt+9` sections (`Alt+1`: Session, the first row since 3.1.6.0; `Alt+6`: Packs; and Setup `Alt+7`; `Alt+0`: the first pack section, 3.3.13.0 R2; 3.3.2.0: the rail prints no key, the palette's Go to shows them), `Ctrl`/`Cmd`+`K` the palette,
 `?` the focused panel's help (again, or away from a panel: How this works),
 `Alt`+arrows / `Alt+Shift`+arrows move / resize the focused panel, `Esc`
 closes. `F` (3.3.2.0) is Focus: the rail, the inspector and the status bar
@@ -120,9 +120,9 @@ and follows again, `s` on a focused row makes it the target.
 `ui/` (the React shell's sources; see docs/DEVELOPMENT.md "Studio UI"),
 `static/dist/` (its committed build; the only page since 3.0.7.0 R2),
 `api.py` (the routes), `roles_api.py` (`GET gym`, `GET models/best-for`, `POST models/analyze`), `roles_findings.py`
-(the Problems panel's findings), `doctor_config_api.py` (`GET doctor/config`, the panel's Config group), `models_api.py` (the catalog status, Refresh, the probe), `media_api.py` / `media_render.py` (the ComfyUI
-routes and a render's background thread), `sessions_api.py` (the live sessions and
-their commands), `design_api.py` (the routes) with `design_artboards_api.py` / `design_assets_api.py` / `design_critique_api.py` / `design_system_api.py` / `design_export_api.py` / `design_request.py` / `design_turns.py` / `design_api_edit.py` / `design_files.py` (Design mode), `model.py` (the graph, the catalog rows, the session
+(the Problems panel's findings), `doctor_config_api.py` (`GET doctor/config`, the panel's Config group), `models_api.py` (the catalog status, Refresh, the probe), `media_api.py` (the ComfyUI
+routes), `sessions_api.py` (the live sessions and
+their commands), `packs_routes.py` (3.3.13.0 R2: a pack's own routes; Design's are the design pack's `server/`), `model.py` (the graph, the catalog rows, the session
 reader). Tests: `tests/test_studio_api.py`,
 `tests/test_studio_model.py`, `tests/test_studio_dist.py` (the build and
 its routes), `tests/test_studio_live.py` (the live feed),
@@ -133,15 +133,11 @@ and clicks and keys through `tests/helpers/studio_clarity.py` over the
 DevTools protocol, `tests/helpers/cdp.py`). The Media
 panels are `ui/src/routes/media/`; the Orchestra
 Start view `ui/src/routes/orchestra/Start.tsx`; the help copy
-`ui/src/routes/sectionHelp.ts`, `help.ts`, `help-orchestra.ts` and
-`help-design.ts`. Design (3.0.7.0 R3) is
-`ui/src/routes/design/` (`store.ts`, `sync.ts`: the turns over the live
-feed, `actions.ts`, `Projects.tsx`, `Thread.tsx` + `ThreadParts.tsx`,
-`Artboards.tsx` + `ArtboardCard.tsx`, `Assets.tsx`, `Start.tsx`,
-`Dialogs.tsx`, `commands.ts`), the safe markdown `ui/src/lib/markdown.tsx`,
-`styles/shared.css`, `design.css` and `design-thread.css`; tests
-`tests/test_studio_design_live.py` and the Chrome checks in
-`tests/helpers/studio_design.py`. Roles (3.0.7.0 R2) is
+`ui/src/routes/sectionHelp.ts`, `help.ts` and `help-orchestra.ts`. Design (3.0.7.0 R3) is the design pack's since
+3.3.13.0 R2: its page's sources are `halo_harness/templates/packs/design/studio/src/`, built into its
+`studio/design.js` by `vite.pack.config.ts` on the shell's own React and parts (`ui/src/packlib/`, the bundle api's
+`lib`); the safe markdown is `ui/src/lib/markdown.tsx`; tests the pack's own `tests/` and the Chrome checks in
+`tests/helpers/studio_design.py` (`tests/test_pack_design_ui.py`). Roles (3.0.7.0 R2) is
 `ui/src/routes/roles/` (the store `store.ts`, `sync.ts`, the edits and the
 undo history `actions.ts`, `bioActions.ts`, the canvas `Canvas.tsx` +
 `CanvasParts.tsx` + `CanvasBar.tsx` + `layout.ts`, Live Roles `live.ts` +

@@ -39,7 +39,7 @@ A key may be dotted (`improve.model`) to read/write a nested value without distu
 (one argv token) is accepted as shorthand for `config set key value`. The value is parsed as JSON when possible (`true`,
 `123`, a quoted string), so non-string values round-trip too.
 
-Every key also has a row in Studio's **Settings** section (3.3.3.0, `Alt+9`; `halo settings` below): its help line, its
+Every key also has a row in Studio's **Settings** section (3.3.3.0, `Alt+8`; `halo settings` below): its help line, its
 value against its default, Reset to default and this same `halo config set` line.
 
 ## `halo settings`

@@ -570,6 +570,13 @@ _ALLOWED_RAW_NETWORK_CALLERS = {
         "category as mcp/oauth.py and mcp/doctor_probe.py above -- never the model-provider/update/"
         "catalog surface; it builds one opener with an empty ProxyHandler for a local host so an "
         "HTTP(S)_PROXY meant for the internet never swallows a LAN render; not wired to the offline gate",
+    "halo_harness/ext/testing_studio.py":
+        "3.3.13.0 R2: a pack's tests drive a Studio this same process started on 127.0.0.1 (`testing.studio`): "
+        "each call is to that loopback server's own API, its routes or its live feed with its own token; never "
+        "a remote host, a provider or the update surface",
+    "halo_harness/templates/packs/design/tests/test_review_pins.py":
+        "3.3.13.0 R2: the design pack's Host-header pin sends one request with a chosen Host header to the "
+        "loopback Studio its rig started (http.client, since urllib sets the Host itself); never a remote host",
 }
 
 _RAW_NETWORK_RE = re.compile(

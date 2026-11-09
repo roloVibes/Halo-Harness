@@ -86,11 +86,11 @@ def models(home: Path) -> list:
 
 
 def craft_apps(server_names: list) -> list:
-    from halo_harness.design.crafts import APPS
+    from halo_harness.fleet.capabilities_who import CRAFT_WORDS  # 3.3.13.0 R2: the craft apps fleet knows by name
     out = set()
     for name in server_names:
         low = str(name).lower()
-        if low in APPS or (low.endswith("craft") and low.isidentifier()):
+        if low in CRAFT_WORDS or (low.endswith("craft") and low.isidentifier()):
             out.add(low)
     return sorted(out)
 

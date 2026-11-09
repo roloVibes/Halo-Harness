@@ -69,11 +69,11 @@ lineup views run the same thing (see
 [FLEET.md](FLEET.md).
 
 Halo 2.1.0, modes in 3.0.2.0: opens Halo Studio, the browser GUI, straight
-into `--mode roles` (lineups and agent bios as an editable graph) or
-`--mode design` (artboards on your own apps), 3.0.4.0: `--mode orchestra`
+into `--mode roles` (lineups and agent bios as an editable graph), 3.0.4.0: `--mode orchestra`
 (the run console), 3.2.0.0 R7: `--mode packs` (the Pack Manager; `?mode=packs` in the URL);
-without `--mode` it opens in the mode you used last. The TUI's `/roles`
-and `/design` are the same doors from a live session. It Starts a loopback-only server on a free port (or
+without `--mode` it opens in the mode you used last; 3.3.13.0 R2: `--mode <pack>--<section>` opens a running pack's
+section (`--mode design--design`, the design pack's), and `--mode design` with that pack off says how to turn it on.
+The TUI's `/roles` (and, with the design pack on, `/design`) are the same doors from a live session. It Starts a loopback-only server on a free port (or
 `--port`), prints its URL (the URL carries a per-launch token: open exactly
 that) and opens the browser unless `--no-open`; `--cwd` is the project
 directory for project-scope files (default: the current directory). Ctrl+C
@@ -81,25 +81,19 @@ stops it. Over SSH, forward the printed port and open the same URL. The
 TUI's `/studio` serves the same page from the running session. See
 [STUDIO.md](STUDIO.md).
 
-## `halo design`
+## Design: a pack
+
+Halo 3.3.13.0 R2: Design is the **design pack** Halo ships, and the `halo design` verbs are gone: each is a panel or a
+route of the pack's Design section (`/api/packs/design/design/...`; `GET crafts?probe=1` is the old `doctor --probe`).
+`halo design ...` prints one line saying so. Turn the pack on and open it:
 
 ```sh
-halo design new <name> [--model M]                 a project under ~/.halo/design/<slug>/
-halo design list                                   every project
-halo design show <slug>                            artboards, versions, open comments, the system, cost so far
-halo design run <slug> "<prompt>" [--model M] [--budget USD] [--variants N] [--base ID]   --variants makes N artboards named <base>-a, -b, ...
-halo design critique <slug> <artboard> [--model M]   a read-only second opinion (Read and Glob only), pinned as comments
-halo design sync <slug> [PATH|URL]                 a design system from a codebase or a page
-halo design comment <slug> <artboard> "<text>" [--at X,Y]
-halo design restore <slug> <artboard> <version>
-halo design export <slug> [--as html|pdf|png|svg|folder] [--out DIR] [--artboard ID]
-halo design handoff <slug> [--out DIR]             the bundle a Halo or Claude Code session continues from
-halo design doctor [--probe]                       which craft apps are registered; --probe spawns each and checks its tools
+halo pack install design
+halo pack enable design --grant-all
+halo studio --mode design--design             # or /design in a session (/design url prints the address)
 ```
 
-GUI: `halo studio --mode design` opens the same projects as artboards in the browser (in the TUI, `/design`).
-
-Halo 3.0.1.0: Halo Design. A project is a folder of artboards (an
+Halo 3.0.1.0 made it, as Halo Design. A project is a folder of artboards (an
 `index.html` prototype, or a craft app's render plus its source) with
 versions, pinned comments, knobs (`controls.json`) and a design system
 (`system.json`). `run` is one design turn: a headless Halo session in the
@@ -108,8 +102,8 @@ registered craft app (DesignCraft, VectorCraft, PhotoCraft, LightCraft,
 EffectCraft, FilmCraft, PdfCraft, and ComfyUI after `halo media init`) as its tools; afterwards every changed
 artboard gets a new version and the turn's cost is logged. `sync` reads CSS
 custom properties, a Tailwind config, `tokens.json` files and component
-names from a codebase, or a page's stylesheets from a URL. Studio's Design
-mode is the same project in the browser. See [DESIGN.md](DESIGN.md).
+names from a codebase, or a page's stylesheets from a URL. See [the design pack's
+README](../halo_harness/templates/packs/design/README.md) and its docs/DESIGN.md.
 
 ## `halo media`
 

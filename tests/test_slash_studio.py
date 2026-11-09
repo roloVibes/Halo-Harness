@@ -112,11 +112,16 @@ def test_studio_section_opens_that_section(ctx: Ctx):
     ctx.check(f"/studio fleet: mode=fleet, no session, got {t}", t is not None and t.mode == "fleet" and t.text == "")
     ctx.check(f"its line names Fleet, got {app.lines}", len(app.lines) == 1 and app.lines[0].startswith("Opened Fleet in the Studio page")
               and "?mode=fleet#t=" in app.lines[0])
-    for word in ("orchestra", "roles", "design", "fleet", "team", "session"):
+    for word in ("orchestra", "roles", "fleet", "team", "session", "local"):
         app = _App()
         with _opener("focused") as targets:
             _slash(app, "studio", word)
         ctx.check(f"/studio {word} opens {word}", targets and targets[0].mode == word)
+    app = _App()
+    with _opener("focused") as targets:
+        _slash(app, "studio", "design")
+    ctx.check(f"3.3.13.0 R2: /studio design with the design pack off opens nothing and says how to turn it on, got {app.lines}",
+              not targets and any("halo pack enable design" in line for line in app.lines))
     app = _App()
     with _opener() as targets:
         _slash(app, "studio", "kitchen")

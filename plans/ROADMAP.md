@@ -4575,3 +4575,27 @@ and `halo supervise services` showing signal/bridge connected; with no session o
 then `/notify asks on`; stop the supervisor -> "No one is listening on this computer now ..." and a text sent then waits.
 Next: R2 Design out merges on its hand-back; then the 3.3.13.0 release on green both.**
 
+**3.3.13.0 R2 BUILT 2026-11-08 night (one Opus round, worktree ~/hh-3313/R2-design-out, hand-back v3313-R2-handback.md):
+Design out. D1 the seam (extension API 1.2): a pack section can be a whole page (`contributes.studio.sections[].view:
+{bundle}`, drawn by PackView); the page gets `api.lib` -- the shell's React and lib/ui through `globalThis.__haloStudioLib`,
+built with `vite.pack.config.ts`; pack-owned Studio routes behind the grant `studio-routes` (`/api/packs/<id>/<prefix>/...`,
+`MAX_BODY` per module, `?t=` on GET, the route's CSP passed through, a 500 plus a doctor row on failure, unloaded on
+disable); `ext.host`, `ext.testing.studio`; `?mode=<pack>--<section>`; command frontmatter `studio:`; the kit's studio kind
+writes a page and routes, `halo pack test` checks views, the routes' ping and the pack's own tests; the Inspector opens
+panels a pack page draws in its own Workspace. D2 the shipped `design` pack (`templates/packs/design/`: server/ importing
+only ext, studio/src plus the built design.js, docs, nine own test modules; the Render panel and its routes went with it;
+projects move once from ~/.halo/design to the pack's data folder). The core has NINE sections: Orchestra Alt+5, Packs Alt+6,
+Setup Alt+7, Settings Alt+8, Local Alt+9, the first pack section Alt+0; the Media panels are Local's optional panels; a
+saved `design` section opens Session; `?mode=design` gives Session plus a toast when the pack is off and the pack's section
+when on; `halo design` prints one line pointing at the pack (exit 2); `/design` is the pack's entry command. Measure: core
+326,999 -> 323,185 lines; the pack 77 files / 9,160 lines; tests -5 files, docs -1. Decisions: two core test modules
+(test_pack_design fast, test_pack_design_ui full); the raw file route is `_files/`; the loopback-only callers are on the
+raw-network allowlist with reasons; the Chrome drivers' `press` waits until a control is enabled (the Pack Manager's busy
+flag stayed on after a redraw and presses were dropped); the system prompt's Studio paragraph is shorter (a 2-token margin in
+test_ollama_trim_recovery). Live check (rolo, fresh scratch home): `halo pack install design`, `halo pack enable design
+--grant studio-script --grant studio-routes`, `halo studio` (Design after Local in the rail, Alt+0 or the palette opens its
+Start view), a new project and a prompt (a craft app on PATH or a model) -> an artboard, `/design` in a session, `halo pack
+disable design` (the tab leaves; `/design` and `?mode=design` say how to turn it back on). Also: the worker left an empty
+folder C:\AppData on the PC by mistake (rmdir refused); rolo removes it. Next: the 3.3.13.0 release on green both, then the
+six-area review on this tree.**
+

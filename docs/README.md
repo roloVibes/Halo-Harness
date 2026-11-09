@@ -106,14 +106,14 @@ The browser console: every agent of your session live, your lineups, runs, fleet
 - [STUDIO.md](STUDIO.md) (Halo Studio): read this when you use Halo Studio, the browser console where you watch every agent work: the Session dashboard, your lineups in Roles, runs, designs, fleet and team.
   - [STUDIO-shell.md](STUDIO-shell.md) (Studio: the shell): read this when you find your way around Studio's header, sections, panels and Start views, or open it on a bio, a lineup or the Team.
   - [STUDIO-session.md](STUDIO-session.md) (Studio: steering and exporting a session): read this when you steer an agent from Session's Live column and want to know which agent and which call it reaches, or save a session as one Markdown trace file, or ask why an answer came out as it did, or type a turn into the session from Studio with the Prompt panel, or run a session from Studio with no terminal at all.
-  - [STUDIO-sections.md](STUDIO-sections.md) (Studio: how each section works): read this when you want the one-screen story of a section (Session, Team, Roles, Fleet, Design, Orchestra, Packs, Setup, Settings, Local).
+  - [STUDIO-sections.md](STUDIO-sections.md) (Studio: how each section works): read this when you want the one-screen story of a section (Session, Team, Roles, Fleet, Orchestra, Packs, Setup, Settings, Local).
   - [STUDIO-feed.md](STUDIO-feed.md) (Studio: the live feed): read this when you want how Studio's pages get their live frames: the Server-Sent Events stream, its kinds and its catch-up.
   - [STUDIO-orchestra.md](STUDIO-orchestra.md) (Studio: the Orchestra console): read this when you run an Orchestra goal from Studio: the run console, the plan canvas and the coach.
   - [STUDIO-fleet.md](STUDIO-fleet.md) (Studio: Fleet): read this when you watch or steer every harness and agent from Studio's Fleet section.
   - [STUDIO-team-roles.md](STUDIO-team-roles.md) (Studio: Team and Roles): read this when you edit a team board or a lineup on the Roles canvas.
-  - [STUDIO-design.md](STUDIO-design.md) (Studio: Design mode): read this when you make prototypes, pages or decks with Studio's Design section on your own creative apps.
   - [STUDIO-packs.md](STUDIO-packs.md) (Studio: the Pack Manager): read this when you install, grant, enable, set up, update or remove packs from Studio's Packs section.
   - [STUDIO-local.md](STUDIO-local.md) (Studio: the Local section): read this when you watch the machines that serve your local models and what they serve: the live resources and traffic, every host with its controls, every model with its fit, the library of models you could install, and the Hugging Face models on disk with the local servers Halo starts for them.
+  - [STUDIO-local-media.md](STUDIO-local-media.md) (Studio: Local -> the Media panels): read this when you check ComfyUI from Studio: whether it answers, its models and its workflows, in the Media panels Local's "+" menu adds.
   - [STUDIO-local-routes.md](STUDIO-local-routes.md) (Studio: the Local section's routes): read this when you call Studio's Local routes yourself or want the live frames the Local section listens to.
   - [STUDIO-local-steward.md](STUDIO-local-steward.md) (Studio: Local -> Steward): read this when you talk to the steward from Studio, choose the model it runs on, or press a button its answer left.
   - [STUDIO-local-pool.md](STUDIO-local-pool.md) (Studio: Local -> Pool): read this when you look at the pool from Studio: its members and their free VRAM, Warm and Stop with the preflight, what the pool can run, the Scan, or the Library's Pool preset.
@@ -121,7 +121,9 @@ The browser console: every agent of your session live, your lineups, runs, fleet
   - [STUDIO-setup.md](STUDIO-setup.md) (Studio: the Setup section): read this when you set this box up from Studio's Setup section: what each block writes and the routes behind it.
   - [STUDIO-redesign-brief.md](STUDIO-redesign-brief.md) (Studio: a brief for a new look): read this when you design a new look for Halo Studio, or hand the job to a design session: what Studio is made of, what a look must be expressed as, and what must not change.
   - [STUDIO-security.md](STUDIO-security.md) (Studio: saving, security, SSH and shortcuts): read this when you save and apply from Studio, run it over SSH, check what it lets a page do, or want every shortcut.
-- [DESIGN.md](DESIGN.md) (Halo Design): read this when you make designs, pages, decks or logos with Halo Design on your own apps.
+- The design pack (3.3.13.0 R2: the Design section, out of the core) keeps its own docs: the project on disk, a design turn,
+  the craft apps and the Studio section with its routes, in [its README](../halo_harness/templates/packs/design/README.md)
+  and its docs/DESIGN.md and docs/STUDIO-design.md.
 
 ## I want to run a fleet
 

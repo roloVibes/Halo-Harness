@@ -12,7 +12,7 @@ The policy, as this module applies it:
   its `min`'s major only: `{min: "1.0"}` runs on every 1.x and not on 2.0.
 - A Halo whose API is outside the range does not run the pack, and says so in
   one line (`halo_harness.packs.resolve.compat_lines`):
-  "pack doc-review needs extension API 1.2 to 1.9; this Halo has 1.1".
+  "pack doc-review needs extension API 1.3 to 1.9; this Halo has 1.2".
 - 1.1 (3.3.10.0 R1) adds `set_mode` / `current_mode` and the manifest's `contributes.policy` and
   `contributes.modes`; R2 enforces a verdict and adds the post-call verdict (`after: true`: pass | redact | drop),
   and Policy hooks is stable: a 1.0 pack keeps everything -- `{min: "1.0"}` and `{min: "1.0", max: "1.9"}`
@@ -45,16 +45,22 @@ CHANGES: "dict[str, dict]" = {
                                          "(Halo 3.3.12.0 R4)"],
             "deprecates": [], "keeps": "everything: a 1.0 pack runs unchanged; one without policy, modes, setup or themes is untouched",
             "status": "Policy hooks: draft in 3.3.10.0 R1, stable from R2 (a session enforces each verdict)"},
+    "1.2": {"halo": "3.3.13.0", "adds": ["host: what Halo does for a pack's code (state folder, models for a task, MCP "
+                                         "servers and a probe, the tool env, a URL fetch, ComfyUI)",
+                                         "contributes.studio.sections[].view: a section drawn whole by one bundle",
+                                         "the bundle api's lib: the shell's React, ReactDOM, lib/ui and helpers",
+                                         "contributes.studio.routes and the studio-routes grant: a pack's own Studio "
+                                         "API routes", "a command's `studio:` frontmatter: it opens the pack's section",
+                                         "testing.scratch_home, testing.studio, testing.pack_module",
+                                         "remote: the transport seam -- sessions, connect, start_session, cards, notify / listen / "
+                                         "notes, transcribe, qr_text, words, service, capture_studio (ext/remote.py), stable",
+                                         "contributes.services: programs the supervisor keeps running while the pack is enabled "
+                                         "and granted services, stable",
+                                         "a pack command with `run:` in its frontmatter runs that program of the pack (no model call)",
+                                         "halo pack test runs the pack's own tests/test_*.py, one check per module"],
+            "deprecates": [], "keeps": "everything: a 1.0 or 1.1 pack runs unchanged; one without services is untouched",
+            "status": "stable (Halo 3.3.13.0: the signal and design packs are built on it)"},
 }
-# 3.3.13.0 R3: what 1.2 adds (kept as its own statement, so another round's additions to 1.2 merge beside it).
-CHANGES["1.2"] = {"halo": "3.3.13.0", "adds": [
-    "remote: the transport seam -- sessions, connect, start_session, cards, notify / listen / notes, transcribe, "
-    "qr_text, words, service, capture_studio (ext/remote.py), stable",
-    "contributes.services: programs the supervisor keeps running while the pack is enabled and granted services, stable",
-    "a pack command with `run:` in its frontmatter runs that program of the pack (no model call), stable",
-    "halo pack test runs the pack's own tests/test_*.py, one check per module"],
-    "deprecates": [], "keeps": "everything: a 1.0 or 1.1 pack runs unchanged; one without services is untouched",
-    "status": "stable"}
 
 
 def api_version() -> str:

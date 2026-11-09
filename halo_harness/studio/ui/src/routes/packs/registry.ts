@@ -1,9 +1,10 @@
 // What the shell takes from the packs registry (3.2.0.0 R3), built once per
-// registry read: the packs' own sections (after the ten core sections; the last keys are taken (Settings Alt+9,
-// 3.3.5.0 R1: Local Alt+0), so a pack's section has none and is reached by its rail row or the palette), the panels they
+// registry read: the packs' own sections (after the core sections; 3.3.13.0 R2: nine core sections end at Local Alt+9,
+// so the first pack section takes Alt+0 and the rest are reached by their rail row or the palette), the panels they
 // add to each core section, the palette's actions (group "pack <id>") and a
 // pack section's "How this works" copy. routes/index.tsx sections() merges
-// them with the ten core sections, whose order and keys never change.
+// them with the core sections, whose order and keys never change. 3.3.13.0 R2: a section with a `view` is drawn whole
+// by the pack's own module (PackView.tsx): no panel grid, no "+" menu (`paged`).
 import type { Command } from "../../shell/commands";
 import type { SectionDef } from "../index";
 import type { SectionHelpCopy } from "../sectionHelp";
@@ -11,11 +12,15 @@ import type { PackSectionId } from "../../lib/store";
 import { PackSectionLoading } from "./Loading";
 import { runAction } from "./nav";
 import { coreSpecs, sectionSpecs } from "./panels";
+import { PackView } from "./PackView";
 import type { PanelSpec } from "../../lib/workspace/types";
 import type { Registry } from "./types";
 
-const FIRST_KEY = 10; // 3.2.0.0 R6: Alt+7 is the Packs section (the Pack Manager); 3.3.0.0 R1: Alt+8 is Setup; 3.3.3.0 R2: Alt+9 is Settings; 3.3.5.0 R1: Alt+0 is Local
-const LAST_KEY = 9;
+// 3.3.13.0 R2: Design left the core: Local is the last core key (Alt+9), and the tenth slot is the first pack section's
+// (the design pack's section, when it is the first, on Alt+0).
+const FIRST_KEY = 10;
+const LAST_KEY = 10;
+const keyOf = (n: number) => `Alt+${n % 10}`;
 
 export type PackSectionDef = SectionDef & { pack: string; help: string };
 type Built = { reg: Registry | null; sections: PackSectionDef[]; core: Record<string, PanelSpec[]> };
@@ -27,9 +32,10 @@ function build(reg: Registry): Built {
   let key = FIRST_KEY;
   for (const p of reg.packs) {
     for (const s of p.sections) {
-      const kbd = key <= LAST_KEY ? `Alt+${key++}` : "";
+      const kbd = key <= LAST_KEY ? keyOf(key++) : "";
+      const page = s.view ? { view: PackView, paged: true } : {}; // 3.3.13.0 R2: the pack's own module draws the page
       sections.push({ id: s.id as PackSectionId, title: s.title, kbd, blurb: s.blurb, panels: sectionSpecs(s.panels), pack: p.id, help: s.help,
-                      ...(reg.boot ? { view: PackSectionLoading } : {}) }); // 3.2.1.0 R1: the page's boot sections, before the registry
+                      ...page, ...(reg.boot ? { view: PackSectionLoading } : {}) }); // 3.2.1.0 R1: the page's boot sections, before the registry
     }
     for (const x of p.panels) (core[x.section] ||= []).push(...coreSpecs([x]));
   }
@@ -68,13 +74,16 @@ const KEYS: [string, string][] = [
   ["Mod+K", "every command, with its key"],
 ];
 
-/** "How this works" for a pack's section: its help line, then one step per panel (its first help line). */
+/** "How this works" for a pack's section: its help's first line, then one step per panel (its first help line); a
+ *  section the pack draws itself (3.3.13.0 R2, a view) takes its steps from its help's other lines, "Step: what". */
 export function packHelp(def: SectionDef): SectionHelpCopy {
   const d = def as PackSectionDef;
-  const what = d.help || `${def.title}: ${def.blurb}.`;
+  const [first, ...rest] = (d.help || "").split("\n").map((l) => l.trim()).filter(Boolean);
+  const what = first || `${def.title}: ${def.blurb}.`;
+  const own = rest.map((l) => (l.includes(": ") ? (l.split(/: (.*)/s, 2) as [string, string]) : (["", l] as [string, string])));
   return {
     what: `${what} A section of pack ${d.pack || "?"}: Studio draws it from the pack's pack.yaml, and it goes away when the pack is disabled.`,
-    steps: def.panels.map((p) => [p.title, (p.help || "").split("\n")[0] || p.about || ""] as [string, string]),
+    steps: def.view && def.paged ? own : def.panels.map((p) => [p.title, (p.help || "").split("\n")[0] || p.about || ""] as [string, string]),
     keys: KEYS,
     terms: [],
   };

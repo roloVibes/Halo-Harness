@@ -40,7 +40,7 @@ from pathlib import Path
 
 from halo_harness.packs import names as N
 
-CORE_SECTIONS = ("session", "team", "roles", "fleet", "design", "orchestra")
+CORE_SECTIONS = ("session", "team", "roles", "fleet", "orchestra")  # 3.3.13.0 R2: design is the design pack's section now
 KINDS = ("markdown", "table", "form", "links", "events", "bundle", "artifact")  # artifact: 3.2.0.0 R5
 NEED_SOURCE = ("markdown", "table", "bundle", "artifact")
 SUFFIXES = {"markdown": (".md", ".markdown", ".txt"), "table": (".json",), "bundle": (".js", ".mjs"), "artifact": (".json",)}
@@ -231,4 +231,6 @@ def studio_lines(manifest, root=None) -> "list[str]":
         _panel(L, key, p, root, manifest, own)
     from halo_harness.packs.studio_keys import check  # config_form, sections, palette, events, attention
     check(L, manifest, own)
+    from halo_harness.packs import studio_view_rules  # 3.3.13.0 R2 (API 1.2): a section's view, the pack's routes
+    studio_view_rules.check(L, manifest, root)
     return L.out

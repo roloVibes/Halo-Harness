@@ -204,7 +204,7 @@ the files above.
 
 Read/written with `halo config get/set` (dotted paths supported),
 directly by the features that own them, or in Studio's Settings section
-(Halo 3.3.3.0, `Alt+9`, `halo settings [group]`): every key below is a row
+(Halo 3.3.3.0, `Alt+8`, `halo settings [group]`): every key below is a row
 there, on the page the Studio column names, with its help line, its value
 against its default, Reset to default and the exact `halo config set` line.
 The rows come from one catalog (`halo_harness/settings_catalog.py`), and

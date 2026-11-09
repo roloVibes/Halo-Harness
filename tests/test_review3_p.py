@@ -28,8 +28,9 @@ test, TESTS = new_registry()
 def test_i43_run_turn_kills_a_child_that_hangs_with_stdout_open(ctx: Ctx):
     import subprocess
     import time
-    from halo_harness.design import session
-    from halo_harness.design.store import Project
+    from tests.helpers import design_pack as _DP
+    session = _DP.module("server/session.py")
+    Project = _DP.module("server/store.py").Project
     p = Project.create("Hang turn")
     real = subprocess.Popen
     script = "import time; print('{\"type\": \"system\"}', flush=True); time.sleep(120)"
@@ -50,8 +51,9 @@ def test_i43_run_turn_kills_a_child_that_hangs_with_stdout_open(ctx: Ctx):
 @test
 def test_i43_a_normal_child_still_returns_its_exit_code_and_lines(ctx: Ctx):
     import subprocess
-    from halo_harness.design import session
-    from halo_harness.design.store import Project
+    from tests.helpers import design_pack as _DP
+    session = _DP.module("server/session.py")
+    Project = _DP.module("server/store.py").Project
     p = Project.create("Quick turn")
     real = subprocess.Popen
     script = "import sys; print('{\"type\": \"result\", \"result\": \"hi\"}'); print('plain text'); sys.exit(3)"

@@ -96,10 +96,9 @@ EVENT_KINDS = frozenset({
     # with the run log's own entry as data: {ts, elapsed_s, lane, kind,
     # text, data, run}. A UI with no handler for them simply ignores them.
     "orchestra_state", "orchestra_claim", "orchestra_merge", "orchestra_gate", "orchestra_report",
-    # Halo 3.0.4.0 R5: a ComfyUI render started from Studio (`POST
-    # /api/media/render`): {prompt_id, state: queued|progress|done|error,
-    # text, project, artboard, workflow, artboards?, error?}.
-    "media_render",
+    # (Halo 3.0.4.0 R5's `media_render`, a ComfyUI render into a design
+    # project, is the design pack's `pack_live` frame of kind `render` since
+    # 3.3.13.0 R2.)
     # Halo 3.2.2.0 R4: the line a finished turn ends with (`◼ done · 42 s ·
     # 3 tools · $0.012`, `◼ waiting on you: <what>`, `◼ stopped: <why>`)
     # and the loop's own `↳` notes (a nudge, a silent call resent). data:

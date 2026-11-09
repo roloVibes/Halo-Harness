@@ -3,7 +3,7 @@ tests/helpers/studio_local.py (skipped without one), over a scratch home with te
 (the Ollama panel's hosts, ledger, cards and catalogs, and `box`, a fake Ollama on 127.0.0.1:0); the sampler reads
 the fixture's nvidia-smi and /proc answers; no provider request, no model call:
 
-1. Alt+0 opens Local with nothing open over it, on Resources;
+1. Alt+9 opens Local with nothing open over it, on Resources (Alt+0 until 3.3.13.0 R2);
 2. the eight pages in the rail's order (3.3.6.0 R3: Logs), each titled; none framed (3.3.7.0 R5 built Steward: its chat is
    tests/test_studio_steward_chat.py); Steward shows the job's status and the last note; each page names its ideas;
 3. Resources: a strip per sampled host, moving on `resources` frames; every number titled with its source;
@@ -40,10 +40,10 @@ def _got(ctx: Ctx) -> dict:
 
 
 @test
-def test_alt0_and_the_seven_pages(ctx: Ctx):
+def test_alt9_and_the_seven_pages(ctx: Ctx):
     got = _got(ctx)
-    ctx.check(f"Alt+0 opens Local with nothing over it, on Resources, got {got.get('alt0')} {got.get('alt0_open')} {got.get('alt0_page')}",
-              got.get("alt0") == "Local" and got.get("alt0_open") == [0, 0] and got.get("alt0_page") == "resources")
+    ctx.check(f"Alt+9 opens Local with nothing over it, on Resources, got {got.get('alt9')} {got.get('alt9_open')} {got.get('alt9_page')}",
+              got.get("alt9") == "Local" and got.get("alt9_open") == [0, 0] and got.get("alt9_page") == "resources")
     ctx.check(f"the rail's ten pages in order, got {got.get('rail')}", got.get("rail") == PAGES)
     titles = got.get("titles") or {}
     ctx.check(f"each page titled, got {titles}", [titles.get(p) for p in PAGES] ==

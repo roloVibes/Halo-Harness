@@ -4,7 +4,7 @@ headless Chrome through the driver base, over a scratch home with no pack
 installed (the shipped Documentation Review pack is in Sources); this process
 serves Studio in a thread with the live feed on (no provider, no model call):
 
-1. Packs is the seventh tab, Alt+7 opens it (Setup the eighth, 3.3.0.0 R1): Installed is empty, Sources
+1. Packs is the sixth tab, Alt+6 opens it (Setup the seventh; 3.3.13.0 R2: Design is a pack's): Installed is empty, Sources
    lists the shipped doc-review with Install;
 2. Install: the row shows, disabled, the last action's lines are install's;
 3. Details: the API range beside this Halo's, no dependency, the contributes
@@ -70,8 +70,8 @@ def section(c, url, ctx) -> dict:
     w(c, f"{TABS}.length >= 8", 40)
     out["tabs"] = c.js(f"{TABS}.map((t) => t.querySelector('.tab-label').textContent)")
     out["kbds"] = c.js(f"{TABS}.map((t) => t.dataset.kbd || '')")  # 3.3.2.0 R1: the icon rail keeps the key as data-kbd, never printed
-    alt(c, 7)
-    out["alt7"] = w(c, f"{CUR}.startsWith('Packs') && {CUR}", 10)
+    alt(c, 6)
+    out["alt6"] = w(c, f"{CUR}.startsWith('Packs') && {CUR}", 10)
     out["empty"] = bool(w(c, f"!!{q('[data-testid=pm-installed-empty]')}", 30))
     out["source_install"] = w(c, _text(f"{SRC} [data-testid=pm-install]"), 20)
     out["panels"] = c.js(f"{qa('[data-section=packs] .panel-title')}.map((t) => t.textContent)")
@@ -163,7 +163,7 @@ def update_rollback(c, url, ctx) -> dict:
         out["previous_on_disk"] = (ctx["state"] / "packs" / "doc-review.previous").exists()
         c.go("about:blank")
         c.go(url)
-        alt(c, 7)
+        alt(c, 6)
         try:
             out["rollback_label"] = w(c, _text(f"{ROW} [data-testid=pm-rollback]"), 60)
             out["rollback_after_reopen"] = True
@@ -185,7 +185,7 @@ def update_rollback(c, url, ctx) -> dict:
         out["rollback_previous_on_disk"] = (ctx["state"] / "packs" / "doc-review.previous").exists()
         c.go("about:blank")
         c.go(url)
-        alt(c, 7)
+        alt(c, 6)
         try:
             w(c, back, 60)
         except TimeoutError as e:
@@ -210,7 +210,7 @@ def templates(c, url, ctx) -> dict:
     out["wf_ref"] = c.js(_text("[data-testid=orchestra-workflow-ref]"))
     out["wf_inputs"] = c.js(f"{qa('[data-testid=orchestra-workflow-input]')}.map((i) => [i.dataset.key, i.value])")
     out["wf_title"] = c.js(_text(".fl-start-title"))
-    alt(c, 7)
+    alt(c, 6)
     w(c, f"{CUR}.startsWith('Packs')", 10)
     return out
 
@@ -221,7 +221,7 @@ PICK = q("[data-testid=orchestra-workflow-pick]")
 def picker(c, url, ctx) -> dict:
     """3.2.1.0 R2: Orchestra's Start view with no workflow filled in: the picker under the goal form; a pick fills in
     the form Run <workflow> fills."""
-    alt(c, 6)
+    alt(c, 5)
     w(c, f"{CUR}.startsWith('Orchestra') && !!{q('[data-testid=orchestra-workflow-form]')}", 15)
     press(c, q("[data-testid=orchestra-workflow-clear]"))
     w(c, f"!!{PICK}", 20)
@@ -236,7 +236,7 @@ def picker(c, url, ctx) -> dict:
     out["picked_title"] = c.js(_text(".fl-start-title"))
     press(c, q("[data-testid=orchestra-workflow-clear]"))
     w(c, f"!!{PICK}", 10)
-    alt(c, 7)
+    alt(c, 6)
     w(c, f"{CUR}.startsWith('Packs')", 10)
     return out
 
@@ -249,10 +249,10 @@ def disable(c, url, ctx) -> dict:
            "disabled_enable": c.js(f"!!{q(ROW + ' [data-testid=pm-enable]')}"),
            "tabs_off": c.js(f"{TABS}.map((t) => t.querySelector('.tab-label').textContent)"),
            "templates_off": bool(w(c, f"!!{q('[data-testid=pm-templates-off]')}", 10))}
-    alt(c, 6)  # 3.2.1.0 R2: no running pack with a workflow, no picker
+    alt(c, 5)  # 3.2.1.0 R2: no running pack with a workflow, no picker
     w(c, f"{CUR}.startsWith('Orchestra') && !!{q('[data-testid=orchestra-goal-form]')}", 15)
     out["picker_off"] = bool(w(c, f"!{PICK}", 15))
-    alt(c, 7)
+    alt(c, 6)
     w(c, f"{CUR}.startsWith('Packs')", 10)
     return out
 
@@ -279,7 +279,7 @@ def remove(c, url, ctx) -> dict:
         out["on_disk_at_timeout"] = (ctx["state"] / "packs" / "doc-review").exists()
         c.go("about:blank")
         c.go(url)
-        alt(c, 7)
+        alt(c, 6)
         try:
             w(c, gone, 60)
         except TimeoutError as e:

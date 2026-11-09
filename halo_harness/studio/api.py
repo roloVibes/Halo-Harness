@@ -156,11 +156,12 @@ def apply_lineup(req: Request):
     return 200, {"ok": True, "notes": list(notes), "active_team": _active_team()}
 
 
-_LAYOUT_NAME = re.compile(r"^((pc|design):)?[A-Za-z0-9][A-Za-z0-9_.-]*$")  # 3.0.7.0 R3: design:<slug> too
+# 3.0.7.0 R3: design:<slug> too; 3.3.13.0 R2: <pack id>:<name> (the design pack keeps design:<project slug>)
+_LAYOUT_NAME = re.compile(r"^((pc|[a-z][a-z0-9-]*):)?[A-Za-z0-9][A-Za-z0-9_.-]*$")
 
 
 def _layout_name_problem(name: str):
-    return None if _LAYOUT_NAME.match(name) else _problems([f"{name!r} is not a valid layout name (a lineup name, pc:<company id> or design:<project slug>)"])
+    return None if _LAYOUT_NAME.match(name) else _problems([f"{name!r} is not a valid layout name (a lineup name, pc:<company id> or <pack id>:<name>)"])
 
 
 def get_layout(req: Request):
@@ -322,6 +323,7 @@ _PREFIXES = (("media", "halo_harness.studio.media_api", "dispatch_media"),
              ("recall", "halo_harness.studio.recall_api", "dispatch_recall"),  # 3.1.2.0 R3: the recall box
              ("supervise", "halo_harness.studio.supervise_api", "dispatch_supervise"),  # 3.1.8.0 R1: the morning line
              ("pack", "halo_harness.studio.packs_studio_api", "dispatch_pack"),  # 3.2.0.0 R3: Studio contributions
+             ("packs", "halo_harness.studio.packs_routes", "dispatch"),  # 3.3.13.0 R2: a pack's own routes (API 1.2)
              ("setup", "halo_harness.studio.setup_api", "dispatch_setup"),  # 3.3.0.0 R1: the Setup section
              ("settings", "halo_harness.studio.settings_api", "dispatch_settings"),  # 3.3.3.0 R2: the Settings section
              ("ollama", "halo_harness.studio.ollama_steward_api", "dispatch_ollama"),  # 3.3.4.0 R5: the steward's panel
@@ -338,9 +340,6 @@ def dispatch(req: Request):
     worked = dispatch_work(req)
     if worked is not None:
         return worked
-    if req.path == "design" or req.path.startswith("design/"):  # 3.0.1.0: Design mode routes
-        from halo_harness.studio.design_api import dispatch_design
-        return dispatch_design(req)
     if req.path == "orchestra" or req.path.startswith("orchestra/"):  # 3.0.3.0: the Orchestra run console
         from halo_harness.studio.orchestra_api import dispatch_orchestra
         return dispatch_orchestra(req)

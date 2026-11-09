@@ -54,7 +54,9 @@ def open_tab(c, title: str) -> str:
 
 
 def press(c, expr: str) -> None:
-    c.wait(f"!!({expr})", 15)
+    # 3.3.13.0 R2: a control the page holds disabled (the Pack Manager's busy flag lasts until its own reload after the
+    # pack_changed frame already redrew the row) drops a press: wait until it takes one
+    c.wait(f"!!({expr}) && !({expr}).disabled", 15)
     c.js(f"({expr}).scrollIntoView({{block: 'center'}}); 1")
     time.sleep(0.25)
     c.click_on(expr)

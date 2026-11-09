@@ -37,7 +37,8 @@ def _engine(cwd: Path, deny=()):
 
 @test
 def test_item40_probe_starts_servers_without_provider_keys(ctx: Ctx):
-    from halo_harness.design import crafts_probe
+    # 3.3.13.0 R2: the design pack's craft probe starts each server through ext.host.mcp_probe
+    from halo_harness.ext import host
     from halo_harness.mcp import manager as M
     seen = {}
 
@@ -60,7 +61,7 @@ def test_item40_probe_starts_servers_without_provider_keys(ctx: Ctx):
     saved = os.environ.get("OPENROUTER_API_KEY")
     os.environ["OPENROUTER_API_KEY"] = "sk-or-r3b-probe"
     try:
-        crafts_probe.probe_craft("photocraft", object())
+        host.mcp_probe("photocraft", {"command": "photocraft-cli", "args": ["mcp"]})
     finally:
         M.McpManager = real
         if saved is None:

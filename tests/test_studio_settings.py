@@ -1,8 +1,8 @@
-"""tests.test_studio_settings -- the Settings section (Halo 3.3.3.0 R2, Alt+9: every config.json key from one
+"""tests.test_studio_settings -- the Settings section (Halo 3.3.3.0 R2, Alt+8 since 3.3.13.0 R2: every config.json key from one
 catalog). Headless Chrome through tests/helpers/studio_settings.py (skipped without one), over a fresh scratch home
 with one placeholder secret saved; no provider request, no model call:
 
-1. Alt+9 opens Settings with nothing open over it, on General, no panels;
+1. Alt+8 opens Settings with nothing open over it, on General, no panels;
 2. every group page lists exactly the catalog's rows for that group (count and `data-key` set equal), in the
    catalog's group order;
 3. a bool toggled (config.json has it, the flash names the effect), an enum picked, a number set (its
@@ -37,12 +37,12 @@ def _got(ctx: Ctx) -> dict:
 
 
 @test
-def test_alt9_opens_settings_with_nothing_over_it(ctx: Ctx):
+def test_alt8_opens_settings_with_nothing_over_it(ctx: Ctx):
     got = _got(ctx)
-    ctx.check(f"Alt+9 is Settings, got {got.get('alt9_section')!r}", str(got.get("alt9_section")).startswith("Settings"))
-    ctx.check(f"no help, no Start here, no dialog after 2 s, got {got.get('alt9_open')}", got.get("alt9_open") == [False, False, 0])
-    ctx.check(f"it lands on General, got {got.get('alt9_page')!r}", got.get("alt9_page") == "general")
-    ctx.check(f"no panel workspace, got {got.get('alt9_panels')}", got.get("alt9_panels") == 0)
+    ctx.check(f"Alt+8 is Settings, got {got.get('alt8_section')!r}", str(got.get("alt8_section")).startswith("Settings"))
+    ctx.check(f"no help, no Start here, no dialog after 2 s, got {got.get('alt8_open')}", got.get("alt8_open") == [False, False, 0])
+    ctx.check(f"it lands on General, got {got.get('alt8_page')!r}", got.get("alt8_page") == "general")
+    ctx.check(f"no panel workspace, got {got.get('alt8_panels')}", got.get("alt8_panels") == 0)
 
 
 @test
@@ -106,7 +106,7 @@ def test_the_door_and_the_secret_and_the_palette(ctx: Ctx):
 
 @test
 def test_the_source_keeps_the_shape(ctx: Ctx):
-    """No Chrome needed: the files the round names, each under the cap, and Settings is paged after Setup on Alt+9."""
+    """No Chrome needed: the files the round names, each under the cap, and Settings is paged after Setup on Alt+8."""
     ui = REPO / "halo_harness" / "studio" / "ui" / "src"
     names = ["Settings.tsx", "SettingsRail.tsx", "SettingsPage.tsx", "Row.tsx", "pages.ts", "store.ts", "door.ts"]
     names += [f"fields/{n}.tsx" for n in ("Toggle", "Select", "Number", "Text", "ListEditor", "JsonEditor")]
@@ -114,7 +114,7 @@ def test_the_source_keeps_the_shape(ctx: Ctx):
         p = ui / "routes" / "settings" / name
         ctx.check(f"{name} exists and is under 250 lines", p.is_file() and len(p.read_text(encoding="utf-8").splitlines()) < 250)
     routes = (ui / "routes" / "index.tsx").read_text(encoding="utf-8")
-    ctx.check("Settings' entry is paged, after Setup, on Alt+9", 'id: "settings", title: "Settings", kbd: "Alt+9", blurb: "Every config key, one page per group", '
+    ctx.check("Settings' entry is paged, after Setup, on Alt+8", 'id: "settings", title: "Settings", kbd: "Alt+8", blurb: "Every config key, one page per group", '
               'panels: [], paged: true, view: SettingsView' in routes and routes.index('id: "setup"') < routes.index('id: "settings"'))
     pages = (ui / "routes" / "settings" / "pages.ts").read_text(encoding="utf-8")
     ctx.check("the remembered page is halo.studio.settings.page", '"halo.studio.settings.page"' in pages)

@@ -13,11 +13,15 @@
 //                               the Fleet attention queue, the pack named, answered through the answers contract
 //   route(section, panel?)   -> boolean  Studio goes to a core section or one of the pack's own (and focuses the
 //                               panel), with the shell's own goSection / focusPanel; false when it names neither
+// 3.3.13.0 R2 (API 1.2): `lib` (packlib/index.ts: the shell's React, ReactDOM, lib/ui and helpers), `routes` (the
+// path of the pack's own routes under /api/, "" without them), `section` (the section the module draws in); `on`
+// hears the pack's `pack_live` frames (its routes' ctx.publish) as well as its `pack_event` ones.
 import { api as http, ApiError } from "../../lib/api";
 import { onEvent, type FeedFrame } from "../../lib/events";
 import { SECTION_IDS, type CoreSectionId } from "../../lib/store";
+import { libFor, type StudioLib } from "../../packlib";
 import { fetchText, openRoute } from "./nav";
-import { packSectionIds } from "./store";
+import { packs, packSectionIds } from "./store";
 import type { PackPanel } from "./types";
 
 export type BundleFrame = { kind: string; data: unknown; ts: number; problems?: string[] };
@@ -38,6 +42,9 @@ export type BundleApi = {
   mode: () => Promise<ModeState>;
   attention: (row: AttentionRow) => Promise<Attention>;
   route: (section: string, panel?: string) => boolean;
+  lib: StudioLib;
+  routes: string;
+  section: string;
 };
 
 /** The server's own line as the Error a bundle catches (ApiError keeps status and problems). */
@@ -64,7 +71,7 @@ export function bundleApi(p: PackPanel): { api: BundleApi; close: () => void } {
   const base = `pack/${p.pack}`;
   const offs = new Set<() => void>();
   const on = (kind: string, cb: (f: BundleFrame) => void) => {
-    const stop = onEvent("pack_event", (f: FeedFrame) => {
+    const hear = (f: FeedFrame) => {
       const d = (f.data || {}) as { pack?: unknown; kind?: unknown; data?: unknown; problems?: unknown };
       if (d.pack !== p.pack || d.kind !== kind) return;
       const frame: BundleFrame = { kind, data: d.data ?? null, ts: Number(f.ts) || Date.now() / 1000 };
@@ -74,9 +81,10 @@ export function bundleApi(p: PackPanel): { api: BundleApi; close: () => void } {
       } catch (e) {
         console.error(`${p.pack}: an on(${kind}) callback threw`, e);
       }
-    });
+    };
+    const stops = [onEvent("pack_event", hear), onEvent("pack_live", hear)]; // pack_live: 3.3.13.0 R2
     const off = () => {
-      stop();
+      stops.forEach((stop) => stop());
       offs.delete(off);
     };
     offs.add(off);
@@ -97,6 +105,9 @@ export function bundleApi(p: PackPanel): { api: BundleApi; close: () => void } {
       if (r) openRoute(r);
       return !!r;
     },
+    lib: libFor(p.pack),
+    routes: packs.get().reg.packs.find((x) => x.id === p.pack)?.routes?.api.replace(/^api\//, "") || "",
+    section: p.section,
   };
   return { api, close: () => [...offs].forEach((off) => off()) };
 }

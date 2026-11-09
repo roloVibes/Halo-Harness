@@ -1,0 +1,54 @@
+# The design pack (Halo 3.3.13.0 R2): the Design section, out of Halo's core. Studio draws its page with the pack's
+# own module (studio/design.js, built from studio/src/ by the Studio UI's `npm run build`), and the pack's Python
+# answers its routes (server/routes.py). docs/DESIGN.md and docs/STUDIO-design.md are what it does.
+id: design
+name: Design
+version: 1.0.0
+description: >-
+  Prototypes, pages, decks and logos made by your own craft apps and models, on artboards in Studio: projects, a
+  thread of design turns, versions, comments, knobs, a design system, exports and the handoff. The Design section,
+  as a pack since Halo 3.3.13.0.
+author: Halo Harness
+license: MIT
+halo_api: {min: "1.2", max: "1.9"}
+capabilities: [design.artboards, design.prototypes]
+contributes:
+  commands: commands
+  studio:
+    sections:
+      - id: design
+        title: Design
+        blurb: Prototypes, pages and decks on your own apps
+        help: |-
+          Prototypes, pages, decks and logos made by your own apps and models. A project is a folder of artboards in the pack's data folder (~/.halo/packs/.data/design/projects/<slug>/), and every turn saves a new version.
+          Make a project: name it in the Start view, or New project in Projects (its model too, if you like).
+          Say what to design: write it in Thread and press Enter; the reply streams in as the turn works, Cancel turn stops it.
+          Look and compare: Artboards shows every artboard; its slider goes back through the versions, Restore makes one the newest.
+          Pin feedback: Comment, then click a frame; Send comments turns the open pins into one turn.
+          Change it by hand: double-click a text in a prototype to edit it in place; a card's Knobs; the Design system's tokens and Sync.
+          Ship it: Export (a folder, HTML, PNG, SVG or PDF) or Handoff (the bundle the next session continues from).
+        view: {bundle: studio/design.js}
+    routes: {module: server/routes.py, prefix: design}
+    palette:
+      - {id: open, label: "Design: open the Design section", action: "route:design"}
+    config_form: true
+config:
+  schema:
+    properties:
+      model:
+        type: string
+        description: "the model a new project starts with (empty: the session's default model)"
+      budget_usd:
+        type: number
+        description: "what one design turn may spend, in US dollars (0: no cap of the pack's own)"
+    additionalProperties: false
+  defaults: {model: "", budget_usd: 0}
+requires:
+  - {kind: command, name: designcraft-cli, why: "pages, one-pagers, decks and posters: a design turn's page-layout app", url: "https://getartcraft.com/apps/designcraft", license: NOASSERTION, used_by: [server/session.py], install: {windows: "the installer from https://getartcraft.com/apps/designcraft, then: halo mcp add -s user designcraft designcraft-cli mcp", linux: "the build from https://getartcraft.com/apps/designcraft, then: halo mcp add -s user designcraft designcraft-cli mcp", mac: "the build from https://getartcraft.com/apps/designcraft, then: halo mcp add -s user designcraft designcraft-cli mcp"}}
+  - {kind: command, name: vectorcraft-cli, why: "logos, icons, illustrations and diagrams: a design turn's vector app", url: "https://getartcraft.com/apps/vectorcraft", license: NOASSERTION, used_by: [server/session.py], install: {windows: "the installer from https://getartcraft.com/apps/vectorcraft, then: halo mcp add -s user vectorcraft vectorcraft-cli mcp", linux: "the build from https://getartcraft.com/apps/vectorcraft, then: halo mcp add -s user vectorcraft vectorcraft-cli mcp", mac: "the build from https://getartcraft.com/apps/vectorcraft, then: halo mcp add -s user vectorcraft vectorcraft-cli mcp"}}
+  - {kind: command, name: photocraft-cli, why: "photo compositing, retouching and raster mockups: a design turn's image editor", url: "https://getartcraft.com/apps/photocraft", license: NOASSERTION, used_by: [server/session.py], install: {windows: "the installer from https://getartcraft.com/apps/photocraft, then: halo mcp add -s user photocraft photocraft-cli mcp", linux: "the build from https://getartcraft.com/apps/photocraft, then: halo mcp add -s user photocraft photocraft-cli mcp", mac: "the build from https://getartcraft.com/apps/photocraft, then: halo mcp add -s user photocraft photocraft-cli mcp"}}
+  - {kind: command, name: lightcraft-cli, why: "developing and exporting photos: a design turn's photo library", url: "https://getartcraft.com/apps/lightcraft", license: NOASSERTION, used_by: [server/session.py], install: {windows: "the installer from https://getartcraft.com/apps/lightcraft, then: halo mcp add -s user lightcraft lightcraft-cli mcp", linux: "the build from https://getartcraft.com/apps/lightcraft, then: halo mcp add -s user lightcraft lightcraft-cli mcp", mac: "the build from https://getartcraft.com/apps/lightcraft, then: halo mcp add -s user lightcraft lightcraft-cli mcp"}}
+  - {kind: command, name: effectcraft-cli, why: "motion graphics, animated logos and title cards: a design turn's compositor", url: "https://getartcraft.com/apps/effectcraft", license: NOASSERTION, used_by: [server/session.py], install: {windows: "the installer from https://getartcraft.com/apps/effectcraft, then: halo mcp add -s user effectcraft effectcraft-cli mcp", linux: "the build from https://getartcraft.com/apps/effectcraft, then: halo mcp add -s user effectcraft effectcraft-cli mcp", mac: "the build from https://getartcraft.com/apps/effectcraft, then: halo mcp add -s user effectcraft effectcraft-cli mcp"}}
+  - {kind: command, name: filmcraft-cli, why: "video cuts, trailers and product clips: a design turn's video editor", url: "https://getartcraft.com/apps/filmcraft", license: NOASSERTION, used_by: [server/session.py], install: {windows: "the installer from https://getartcraft.com/apps/filmcraft, then: halo mcp add -s user filmcraft filmcraft-cli mcp", linux: "the build from https://getartcraft.com/apps/filmcraft, then: halo mcp add -s user filmcraft filmcraft-cli mcp", mac: "the build from https://getartcraft.com/apps/filmcraft, then: halo mcp add -s user filmcraft filmcraft-cli mcp"}}
+  - {kind: command, name: pdfcraft-cli, why: "assembling, annotating and checking PDFs: a design turn's PDF app", url: "https://getartcraft.com/apps/pdfcraft", license: NOASSERTION, used_by: [server/session.py], install: {windows: "the installer from https://getartcraft.com/apps/pdfcraft, then: halo mcp add -s user pdfcraft pdfcraft-cli mcp", linux: "the build from https://getartcraft.com/apps/pdfcraft, then: halo mcp add -s user pdfcraft pdfcraft-cli mcp", mac: "the build from https://getartcraft.com/apps/pdfcraft, then: halo mcp add -s user pdfcraft pdfcraft-cli mcp"}}
+permissions: [studio-script, studio-routes]

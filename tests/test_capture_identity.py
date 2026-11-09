@@ -182,7 +182,9 @@ def test_the_dom_guard_fires_on_a_real_path_or_name(ctx: Ctx):
 
 @test
 def test_every_committed_studio_picture_is_a_tools_output(ctx: Ctx):
-    sources = "\n".join(p.read_text(encoding="utf-8") for p in (REPO / "tools").glob("*.py"))
+    tools = list((REPO / "tools").glob("*.py"))  # 3.3.13.0 R2: and a shipped pack's own capture (the design pack's)
+    tools += list((REPO / "halo_harness" / "templates" / "packs").glob("*/tests/capture*.py"))
+    sources = "\n".join(p.read_text(encoding="utf-8") for p in tools)
     media = REPO / "docs" / "media"
     pics = sorted(p for p in media.iterdir() if p.suffix in (".png", ".gif") and (p.stem.startswith("studio-") or p.stem in ("hero", "social-preview")))
     ctx.check(f"the Studio pictures are there, got {len(pics)}", len(pics) >= 19)

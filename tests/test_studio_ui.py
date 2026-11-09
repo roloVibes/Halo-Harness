@@ -3,7 +3,8 @@
 / by its data-testid counts. 3.0.4.0 R6b (tests/helpers/studio_clarity.py): the Orchestra
 Start view then the grid, a click focuses a panel and `?` opens its help; no section nests a
 second header. Registered here: R2 Roles (studio_ui_roles.py), 3.0.5.0 Fleet (studio_ui_fleet.py),
-3.0.6.0 Missions (studio_ui_mission.py), 3.0.7.0 R3 the React Design section (studio_ui_design.py),
+3.0.6.0 Missions (studio_ui_mission.py) (3.0.7.0 R3's Design checks, studio_ui_design.py, are tests/test_pack_design_ui.py's
+since 3.3.13.0 R2: the design pack),
 3.0.8.0 R2 the Team tab (studio_ui_team.py), 3.0.9.0 R2 the plan canvas (studio_ui_plan.py), R3 the coach
 (studio_ui_coach.py); five section tabs since 3.1.4.0 R3 (Org and Flow are gone), six with Session (Alt+1 and the first tab since
 3.1.6.0 R6: tests/helpers/studio_ui_order.py reads the tab strip in order);
@@ -27,7 +28,6 @@ from tests.helpers.studio_ui_fleet_layout import register as register_fleet_layo
 from tests.helpers.studio_ui_coach import register as register_coach
 from tests.helpers.studio_ui_mission import register as register_mission
 from tests.helpers.studio_ui_order import register as register_order
-from tests.helpers.studio_ui_design import register as register_design
 from tests.helpers.studio_ui_plan import register as register_plan
 from tests.helpers.studio_ui_roles import register as register_roles
 from tests.helpers.studio_ui_team import register as register_team
@@ -92,9 +92,9 @@ def test_shell_boots_with_its_sections_in_headless_chrome(ctx: Ctx):
         info = {}
     orch, roles = info.get("orchestra", {}), info.get("roles", {})
     # R6b: a folder with no Orchestra run opens on the Start view, not on empty panels
-    ctx.check(f"Orchestra: ten section tabs and the Start view, got {orch}", orch.get("section-tab") == 10 and orch.get("start-view") == 1 and orch.get("orchestra-root") == 0)
+    ctx.check(f"Orchestra: nine section tabs and the Start view, got {orch}", orch.get("section-tab") == 9 and orch.get("start-view") == 1 and orch.get("orchestra-root") == 0)
     ctx.check(f"Roles: seven section tabs and its canvas, no frame, got {roles}",
-              roles == {"section-tab": 10, "orchestra-root": 0, "start-view": 0, "roles-canvas": 1, "roles-start": 0, "legacy-frame": 0})
+              roles == {"section-tab": 9, "orchestra-root": 0, "start-view": 0, "roles-canvas": 1, "roles-start": 0, "legacy-frame": 0})
     ctx.check("the title names the section", "Halo Studio" in info.get("title", ""))
 
 
@@ -113,7 +113,7 @@ def test_orchestra_run_console_draws_a_finished_run_in_headless_chrome(ctx: Ctx)
     ctx.check(f"a band per claimed unit, got {info}", info.get("claim-region", 0) >= 5)
     ctx.check(f"every report check, got {info}", info.get("report-check") == 8)
     ctx.check(f"3.0.9.0: lane 2's hand-off edge and every lane's base, got {info}", info.get("lane-edge") == 1 and info.get("lane-base") == 5)
-    ctx.check(f"the shell around it, got {info}", info.get("section-tab") == 10 and info.get("orchestra-root") == 1)
+    ctx.check(f"the shell around it, got {info}", info.get("section-tab") == 9 and info.get("orchestra-root") == 1)
 
 
 @test
@@ -180,7 +180,7 @@ def test_roles_header_is_not_nested(ctx: Ctx):
     r, dom = _json_of(str(REPO / "tools" / "capture_studio.py"), "--mode", "orchestra", "--dom")
     roles = dom.get("roles", {})
     ctx.check(f"the Roles section: its canvas and cards, no frame, got {roles}",
-              roles.get("roles-canvas") == 1 and (roles.get("roles-card") or 0) >= 7 and roles.get("legacy-frame") == 0 and roles.get("section-tab") == 10)
+              roles.get("roles-canvas") == 1 and (roles.get("roles-card") or 0) >= 7 and roles.get("legacy-frame") == 0 and roles.get("section-tab") == 9)
 
 
 @test
@@ -200,7 +200,6 @@ def test_roles_canvas_draws_tier_boxes(ctx: Ctx):
 register_fleet(test, _json_of, _chrome)  # the Fleet checks (R3 and R4): tests/helpers/studio_ui_fleet.py
 register_fleet_layout(test, _json_of, _chrome)  # 3.1.4.0 R1: the default layout, the log line, the folds: tests/helpers/studio_ui_fleet_layout.py
 register_mission(test, _json_of, _chrome)  # 3.0.6.0 R8: the Mission panel, tests/helpers/studio_ui_mission.py
-register_design(test, _json_of, _chrome)  # 3.0.7.0 R3: Design in React, tests/helpers/studio_ui_design.py
 register_roles(test, _json_of, _chrome)  # 3.0.7.0 R2: Roles in React, tests/helpers/studio_ui_roles.py
 register_team(test, _json_of, _chrome)  # 3.0.8.0 R2: the Team tab, tests/helpers/studio_ui_team.py
 register_plan(test, _json_of, _chrome)  # 3.0.9.0 R2: the plan canvas, tests/helpers/studio_ui_plan.py

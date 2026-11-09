@@ -71,14 +71,17 @@
     },
     "studio": {
       "type": "object", "additionalProperties": false,
-      "description": "What the pack adds to Studio (3.2.0.0 R3): its own sections after Orchestra, panels in a core section, palette actions, a config form, its event lines and attention rows.",
+      "description": "What the pack adds to Studio (3.2.0.0 R3): its own sections after the core ones, panels in a core section, palette actions, a config form, its event lines and attention rows; 3.3.13.0 R2 (API 1.2): a section drawn whole by one bundle (view) and the pack's own API routes (routes).",
       "properties": {
         "sections": {"type": "array", "items": {
           "type": "object", "additionalProperties": false, "required": ["id", "title"],
           "properties": {"id": {"type": "string"}, "title": {"type": "string"}, "blurb": {"type": "string"},
-                         "help": {"type": "string"}, "panels": {"type": "array", "items": {"$ref": "#/$defs/panel"}}}}},
+                         "help": {"type": "string"}, "panels": {"type": "array", "items": {"$ref": "#/$defs/panel"}},
+                         "view": {"type": "object", "additionalProperties": false, "required": ["bundle"],
+                                  "description": "3.3.13.0 R2: the section's whole page is one ES module of the pack, mount(el, api); needs studio-script",
+                                  "properties": {"bundle": {"type": "string"}}}}}},
         "panels": {"type": "array", "items": {"allOf": [
-          {"properties": {"section": {"enum": ["session", "team", "roles", "fleet", "design", "orchestra"]}}, "required": ["section"]},
+          {"properties": {"section": {"enum": ["session", "team", "roles", "fleet", "orchestra"]}}, "required": ["section"]},
           {"$ref": "#/$defs/panel"}]}},
         "palette": {"type": "array", "items": {
           "type": "object", "additionalProperties": false, "required": ["id", "label", "action"],
@@ -93,7 +96,11 @@
           "properties": {"label": {"type": "string"},
                          "keys": {"type": "object", "additionalProperties": false,
                                   "properties": {"a": {"type": "string"}, "r": {"type": "string"},
-                                                 "s": {"type": "string"}, "o": {"type": "string"}}}}}}
+                                                 "s": {"type": "string"}, "o": {"type": "string"}}}}}},
+        "routes": {"type": "object", "additionalProperties": false, "required": ["module", "prefix"],
+                   "description": "3.3.13.0 R2: the pack's own Studio API routes, served under /api/packs/<id>/<prefix>/ by handle(ctx, method, path, body, query) in module; needs studio-routes",
+                   "properties": {"module": {"type": "string", "pattern": "\\.py$"},
+                                  "prefix": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"}}}
       }
     }
   },
@@ -153,7 +160,7 @@
       "properties": {"schema": {"type": "object", "description": "A halo_harness.schemas.check schema for packs.settings.<id>."},
                      "defaults": {"type": "object"}}
     },
-    "permissions": {"type": "array", "items": {"type": "string", "pattern": "^(mcp:.+|hooks|bash|network|home-write|studio-script|services)$"}},
+    "permissions": {"type": "array", "items": {"type": "string", "pattern": "^(mcp:.+|hooks|bash|network|home-write|studio-script|studio-routes|services)$"}},
     "migrations": {"type": "array", "items": {
       "type": "object", "additionalProperties": false, "required": ["from", "to", "note"],
       "properties": {"from": {"$ref": "#/$defs/version"}, "to": {"$ref": "#/$defs/version"}, "note": {"type": "string"},

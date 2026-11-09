@@ -31,6 +31,11 @@ export function registerSpecs(section: string, specs: PanelSpec[]): void {
   specsOf.set(section, specs);
 }
 
+/** 3.3.13.0 R2: the specs a section's Workspace drew last (a pack's page draws its own: the Inspector finds them here). */
+export function specsFor(section: string): PanelSpec[] | undefined {
+  return specsOf.get(section);
+}
+
 /** `next` laid out quietly again when `cur` was the quiet arrangement; null when the user's own arrangement rules. */
 function requiet(section: string, cur: Layout, next: Layout): Layout | null {
   const specs = specsOf.get(section);

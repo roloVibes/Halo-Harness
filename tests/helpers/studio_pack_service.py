@@ -42,7 +42,7 @@ def service_row(c, url, ctx) -> dict:
     c.go("about:blank")
     c.go(url)
     c.wait(f"{TABS}.length >= 8", 40)
-    alt(c, 7)
+    alt(c, 6)  # 3.3.13.0 R2: Packs is the sixth section (Design is a pack now)
     c.wait(f"{CUR}.startsWith('Packs')", 15)
     chip = f"{ROW} [data-testid=pm-service]"
     text = c.wait(f"{_text(chip)}.includes('running since') && {_text(chip)}", 30)

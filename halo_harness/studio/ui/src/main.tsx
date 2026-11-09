@@ -20,8 +20,6 @@ import "./styles/fleet-caps.css";
 import "./styles/fleet-mission.css";
 import "./styles/fleet-mission2.css";
 import "./styles/shared.css";
-import "./styles/design.css";
-import "./styles/design-thread.css";
 import "./styles/roles.css";
 import "./styles/roles-panels.css";
 import "./styles/disk-note.css";
@@ -59,7 +57,9 @@ import "./styles/local-steward.css"; // 3.3.7.0 R5: the Steward page's chat box 
 import "./styles/local-pool.css"; // 3.3.8.0 R1: Local -> Pool, the members, the scan, the recommendation, the Pool badge
 import "./styles/local-voice.css"; // 3.3.9.0 R3: Local -> Voice, the speech servers, Talk, the turns
 import { App } from "./App";
+import { installLib } from "./packlib";
 
+installLib(); // 3.3.13.0 R2: a pack's bundle takes the shell's React and parts from here (packlib/index.ts)
 document.documentElement.dataset.theme = document.documentElement.dataset.theme || "auto"; // 3.3.12.0 R1: unset follows the system
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

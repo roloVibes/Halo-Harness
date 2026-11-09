@@ -60,7 +60,7 @@ ollama` and `halo local` list a local server that is found but not added
 as "found, not added (halo ollama discover --add)".
 
 In Studio (3.3.0.0): Setup's Ollama card (`halo studio --mode setup`,
-`Alt+8`) has **Find Ollama servers**, the same local pass at once. Each
+`Alt+7`) has **Find Ollama servers**, the same local pass at once. Each
 server found is a row with its name, address, version and models, marked
 "configured" or with a tick; **Add the ticked** writes the ticked ones the
 same way `--add` does, and the Models panel then lists each new host as
@@ -537,7 +537,7 @@ The steward probes a newly pulled model on its own while the card is idle
 
 ### All of it in one tab: Studio's Local section (3.3.5.0)
 
-Studio's **Local** section (`Alt+0`; `halo local` opens it) puts the machines
+Studio's **Local** section (`Alt+9`; `halo local` opens it) puts the machines
 that serve your local models and the models they serve on one tab:
 **Resources** (this machine's GPU, VRAM and who holds it, RAM, CPU and
 temperature, sampled once a second while you watch, and every call to a

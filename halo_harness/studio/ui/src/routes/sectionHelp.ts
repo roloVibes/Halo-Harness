@@ -55,21 +55,6 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
     keys: [["A", "lay the canvas out (click the canvas first)"], ["F", "fit it to the panel (with the Live tab open: follow)"], ["Arrows", "nudge the selected card"], ["Del", "remove the selected card (asks first)"],
       ["Ctrl+Z / Ctrl+Shift+Z", "undo / redo a lineup edit"], ["Mod+S", "save the lineup"], ["J / K", "the next / previous card whose agent works: its Live tab opens"], ["Space", "pin that agent's mini stream"], ...PANEL_KEYS],
   },
-  design: {
-    terms: ["harness", "capability"],
-    what: "Prototypes, pages, decks and logos made by your own apps and models. A project is a folder of artboards under ~/.halo/design/<slug>/, and every turn saves a new version.",
-    steps: [
-      ["Make or open a project", "The Start view names the first one; then Projects lists them all, and New project makes another."],
-      ["Say what to design", "Write it in Thread and press Enter: the reply streams in as the turn works; Cancel turn stops it."],
-      ["Look and compare", "Artboards: drag a card by its title (the places are saved with the project), slide back through its versions, Restore one."],
-      ["Pin comments, ask for notes", "Pick Comment and click a frame to pin a note; Critique has a second model pin its own; Contrast checks text against its background; Send comments turns the pins into a turn."],
-      ["Change it by hand", "Double-click a text in a prototype to edit it in place; a card's Knobs; the Design system panel's tokens and Sync; Rename, Delete or Download an artboard."],
-      ["Hand it off", "Export writes a folder, HTML, PNG, SVG or PDF; Handoff bundles it for the next Halo or Claude Code session."],
-      ["Use your own files", "Assets: add or drop logos and photos; click one to put its path in the message."],
-      ["Render pictures", "The palette's Media commands add the ComfyUI panels to the section."],
-    ],
-    keys: [["Enter", "send the message (Shift+Enter: a new line)"], ["Mod+K", "Design: send, Design: cancel turn, Design: export, Design: new project"], ...PANEL_KEYS],
-  },
   fleet: {
     terms: ["fleet", "hub", "harness", "capability", "mission", "part", "hand-off", "claim", "steward", "fit plan"],
     what: "Every Halo harness you run or joined, its sessions and every agent in them, live: what each one thinks, runs and writes, every decision that waits on you, what it all costs, and the controls to steer, pause, stop, take over or hand off any one agent.",
@@ -183,6 +168,7 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
       ["Find the right model", "Models: pick what you want a model for (code, chat, long documents, images, embed) and the rows rank by fit for this card; Use as default and Make it the coder lane are one click each."],
       ["Browse the library", "Library: search Ollama's library and the Hugging Face Hub; each row's fit badge follows the host and window you pick, a click shows its other tags or files, Copy takes its pull line."],
       ["What comes next", "Hugging Face, Benchmarks and Steward say what they will hold and the commands that do that work today."],
+      ["Media on ComfyUI", "The header's + menu (or the palette's Media lines) adds Media status, Media models and Workflows: each floats over the page until you close it."], // 3.3.13.0 R2: Design's before
     ],
     keys: [
       ["?", "this help"],

@@ -28,7 +28,8 @@ FILE_WHAT = {
 }
 FOLDER_WHAT = {"agents": "a bio", "teams": "a lineup", "skills": "a skill", "commands": "a slash command",
                "workflows": "a workflow", "events": "an event kind's schema", "artifacts": "an artifact schema",
-               "studio": "a Studio panel's source", "fleet": "a fleet inspector line", "policy": "a policy hook",
+               "studio": "a Studio panel's or page's source", "fleet": "a fleet inspector line", "policy": "a policy hook",
+               "server": "the pack's own Studio routes (Python, run inside Studio's server with studio-routes)",
                "setup": "a Setup block's file", "mcp": "an MCP server", "hooks": "a hook script",
                "tests": "a sample a schema is checked against"}
 
@@ -133,13 +134,10 @@ def readme(manifest: dict, files: dict, *, github: bool) -> str:
     out += ["## Use it", "", "```", f"halo pack install ./{pid}", f"halo pack enable {pid} --grant-all",
             "```", "", f"Then `/{pid}` in a session lists what it brings:", "", brings(manifest, files), ""]
     perms = manifest.get("permissions") or []
-    grant = {"hooks": "its hooks and its policy hooks run", "studio-script": "its Studio bundle panel's script runs in "
-             "the page", "bash": "its code may run commands", "network": "its code may reach the network",
-             "home-write": "its code may write outside its data folder",
-             "services": "runs a program of this pack in the background while the supervisor runs"}  # 3.3.13.0 R3
+    from halo_harness.packs.grants import what  # 3.3.13.0 R2: one table of what each grant lets the pack do
     out += ["## Permissions", "", "Each one runs nothing until you grant it (`halo pack enable "
             f"{pid} --grant <name>`):", ""]
-    out += [f"- `{p}`: " + (f"its MCP server {p[4:]} starts" if p.startswith("mcp:") else grant.get(p, "")) for p in perms]
+    out += [f"- `{p}`: {what(p)}" for p in perms]
     out += ([] if perms else ["- none"]) + [""]
     out += ["## Files", ""] + [f"- `{rel}`: {_what(rel, manifest)}" for rel in sorted(set(files) | {"README.md", "pack.yaml"})]
     out += ["", "## Develop it", "", "`halo pack test .` checks every part in a scratch home; `halo pack install . --link "

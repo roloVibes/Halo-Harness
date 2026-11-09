@@ -24,7 +24,7 @@ import { startDigest, useAway } from "../routes/fleet/Digest";
 import { openTree } from "../routes/fleet/FleetTree";
 
 const ICONS: Record<string, string> = {
-  session: "session", team: "team", roles: "roles", fleet: "fleet", design: "design", orchestra: "orchestra", packs: "packs", setup: "setup", settings: "settings", local: "local",
+  session: "session", team: "team", roles: "roles", fleet: "fleet", orchestra: "orchestra", packs: "packs", setup: "setup", settings: "settings", local: "local",
 };
 
 /** The sections that ran something in the last few seconds (the old tab strip's "working" breath). */

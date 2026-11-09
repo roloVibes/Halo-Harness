@@ -137,7 +137,7 @@ The fit plan is the steward's answer to "do the models the halos ask for fit thi
 
 ## host
 
-A host is a model server Halo calls -- an `ollama.hosts` entry (`ol:<model>@<host>`), a Hugging Face local server (`huggingface.local_servers`: llama-server, LM Studio, mlx), or a server Find or Scan found that is not added yet -- and, since 3.3.7.0, `halo host`: the model-free Halo process on the machine that serves it, which watches that machine's servers (the log, `/api/ps`, the events, the card) with no session open and answers paired peers on the LAN with signed, audited reads (the card, the catalog with a fit verdict, the profiles, the log). It never loads a model and never runs one. Studio's Local section (Alt+0) lists every host on its Hosts page, "served by halo host at <addr>" when one serves it; `halo local hosts` prints the same and `halo host status` the process.
+A host is a model server Halo calls -- an `ollama.hosts` entry (`ol:<model>@<host>`), a Hugging Face local server (`huggingface.local_servers`: llama-server, LM Studio, mlx), or a server Find or Scan found that is not added yet -- and, since 3.3.7.0, `halo host`: the model-free Halo process on the machine that serves it, which watches that machine's servers (the log, `/api/ps`, the events, the card) with no session open and answers paired peers on the LAN with signed, audited reads (the card, the catalog with a fit verdict, the profiles, the log). It never loads a model and never runs one. Studio's Local section (Alt+9) lists every host on its Hosts page, "served by halo host at <addr>" when one serves it; `halo local hosts` prints the same and `halo host status` the process.
 
 ## grant
 

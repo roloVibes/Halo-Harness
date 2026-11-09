@@ -24,7 +24,8 @@ from halo_harness.packs import semver as V
 
 MANIFEST = "pack.yaml"
 #: The names `permissions:` takes besides `mcp:<server>` (one per MCP server a pack declares).
-PERMISSIONS = ("hooks", "bash", "network", "home-write", "studio-script", "services")  # studio-script 3.2.0.0 R3; services 3.3.13.0 R3
+PERMISSIONS = ("hooks", "bash", "network", "home-write", "studio-script",  # 3.2.0.0 R3: studio-script (a Studio bundle)
+               "studio-routes", "services")  # 3.3.13.0 R2 (API 1.2): the pack's own Python inside Studio's server; R3: a program the supervisor runs
 MCP_PREFIX = "mcp:"
 CAPABILITY_RE = re.compile(r"^[a-z][a-z0-9._-]*$")
 EVENT_RE = re.compile(r"^[a-z][a-z0-9_.-]*$")
@@ -75,6 +76,10 @@ def needed(data, root) -> "list[tuple[str, str]]":
             out.append(("network", f"MCP server {server} (a url)"))
     from halo_harness.packs.studio_rules import SCRIPT, bundle_ids  # 3.2.0.0 R3: a Studio bundle panel runs a script
     out += [(SCRIPT, f"Studio panel {pid} (a bundle)") for pid in bundle_ids(data)]
+    from halo_harness.packs.studio_view_rules import ROUTES, routes_of, view_sections  # 3.3.13.0 R2 (API 1.2)
+    out += [(SCRIPT, f"Studio section {sid} (a view)") for sid in view_sections(data)]
+    if routes_of(data):
+        out.append((ROUTES, f"Studio routes /api/packs/<id>/{routes_of(data).get('prefix')}/"))
     from halo_harness.packs.manifest_policy import needs as policy_needs  # 3.3.10.0 R1: a policy rides on hooks
     from halo_harness.packs.manifest_services import needs as service_needs  # 3.3.13.0 R3: a service needs `services`
     return out + policy_needs(data) + service_needs(data)
@@ -95,7 +100,7 @@ def _permission_lines(data, root) -> "list[str]":
     if root is not None:
         asked = set(requested(data))
         for perm, why in needed(data, root):
-            if perm not in asked and perm != "studio-script":  # 3.2.0.0 R3: studio_rules names that one's line
+            if perm not in asked and perm not in ("studio-script", "studio-routes"):  # studio_rules names those lines
                 out.append(f"permissions: {why} needs {perm!r}, which the pack does not request")
     return out
 

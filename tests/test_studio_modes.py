@@ -1,6 +1,6 @@
 """tests.test_studio_modes -- Halo 3.0.2.0: `halo studio --mode <section>` and `url_for(server, mode)`
-put the mode in the query ahead of the token; `/studio <section>`, `/design`, `/roles gui`
-open Studio there (`url` keeps the browser shut); `/roles table` is the text table; the help and the
+put the mode in the query ahead of the token; `/studio <section>`, `/roles gui`
+open Studio there (3.3.13.0 R2: `/design` and `--mode design` are the design pack's: tests/test_pack_design.py) (`url` keeps the browser shut); `/roles table` is the text table; the help and the
 system prompt name Studio; 3.0.7.0: design and roles are React sections (their DOM through
 tools/capture_studio.py --dom); 3.0.8.0 R2: Team; 3.1.4.0 R3: Org and Flow are gone; R2: Session, six sections.
 Run: python -m tests.test_studio_modes
@@ -26,7 +26,7 @@ ensure_scoped_state_dir_once()
 from tests.helpers.runner import SkipTest, Ctx, new_registry, print_results, run_all  # noqa: E402
 from tests.helpers.fake_home import build_fake_home  # noqa: E402
 from halo_harness.commands.registry import Registry  # noqa: E402
-from halo_harness.commands.builtins import HeadlessFacade, _cmd_design, _cmd_roles, _cmd_studio  # noqa: E402
+from halo_harness.commands.builtins import HeadlessFacade, _cmd_roles, _cmd_studio  # noqa: E402
 from halo_harness.studio import server as studio_server  # noqa: E402
 
 test, TESTS = new_registry()
@@ -58,13 +58,15 @@ def test_url_for_puts_the_mode_in_the_query_ahead_of_the_token(ctx: Ctx):
     srv = studio_server.start_server(port=0, cwd=state.parent / "proj", state_dir=state)
     try:
         plain = studio_server.url_for(srv)
-        design = studio_server.url_for(srv, "design")
+        roles = studio_server.url_for(srv, "roles")
+        pack = studio_server.url_for(srv, "design--design")
         bogus = studio_server.url_for(srv, "kitchen")
-        gone = [studio_server.url_for(srv, m) for m in ("org", "flow")]  # 3.1.4.0: removed sections
+        gone = [studio_server.url_for(srv, m) for m in ("org", "flow", "design")]  # 3.1.4.0; 3.3.13.0 R2: design
         ctx.check("plain URL has no query", "?" not in plain and "#t=" in plain)
-        ctx.check(f"design URL carries ?mode=design before #t=, got {design!r}", "/?mode=design#t=" in design)
+        ctx.check(f"roles URL carries ?mode=roles before #t=, got {roles!r}", "/?mode=roles#t=" in roles)
+        ctx.check(f"a pack's section rides the query too (3.3.13.0 R2), got {pack!r}", "/?mode=design--design#t=" in pack)
         ctx.check("an unknown mode is ignored", bogus == plain)
-        ctx.check(f"org and flow are no modes any more, got {gone}", gone == [plain, plain])
+        ctx.check(f"org, flow and design are no core modes any more, got {gone}", gone == [plain, plain, plain])
     finally:
         srv.server_close()
 
@@ -86,18 +88,19 @@ def test_the_shell_has_six_sections_and_opens_orchestra_fleet_team_and_session_b
         srv.server_close()
     ui = REPO_DIR / "halo_harness" / "studio" / "ui" / "src"
     routes = (ui / "routes" / "index.tsx").read_text(encoding="utf-8")
-    ctx.check("ten sections, Session on Alt+1, Team on Alt+2, Roles on Alt+3, Fleet on Alt+4, Design on Alt+5, Orchestra on Alt+6, "
-              "Packs on Alt+7 (3.2.0.0 R6), Setup on Alt+8 (3.3.0.0 R1), Settings on Alt+9, Local on Alt+0 (3.3.5.0 R1)",
-              routes.count('kbd: "Alt+') == 10 and 'id: "packs", title: "Packs", kbd: "Alt+7"' in routes
-              and 'id: "setup", title: "Setup", kbd: "Alt+8"' in routes and 'id: "settings", title: "Settings", kbd: "Alt+9"' in routes
-              and 'id: "local", title: "Local", kbd: "Alt+0"' in routes
+    ctx.check("nine sections (3.3.13.0 R2: Design is the design pack's), Session on Alt+1, Team on Alt+2, Roles on Alt+3, "
+              "Fleet on Alt+4, Orchestra on Alt+5, Packs on Alt+6, Setup on Alt+7, Settings on Alt+8, Local on Alt+9",
+              routes.count('kbd: "Alt+') == 9 and 'id: "packs", title: "Packs", kbd: "Alt+6"' in routes
+              and 'id: "setup", title: "Setup", kbd: "Alt+7"' in routes and 'id: "settings", title: "Settings", kbd: "Alt+8"' in routes
+              and 'id: "local", title: "Local", kbd: "Alt+9"' in routes
               and 'id: "session", title: "Session", kbd: "Alt+1"' in routes and 'id: "team", title: "Team", kbd: "Alt+2"' in routes
               and 'id: "roles", title: "Roles", kbd: "Alt+3"' in routes and 'id: "fleet", title: "Fleet", kbd: "Alt+4"' in routes
-              and 'id: "design", title: "Design", kbd: "Alt+5"' in routes and 'id: "orchestra", title: "Orchestra", kbd: "Alt+6"' in routes
+              and 'id: "orchestra", title: "Orchestra", kbd: "Alt+5"' in routes and 'id: "design"' not in routes
               and 'id: "org"' not in routes and 'id: "flow"' not in routes)
-    store = (ui / "lib" / "store.ts").read_text(encoding="utf-8")
-    ctx.check("the shell reads ?mode= for every section", "mode=(orchestra|roles|design|fleet|team|session|packs|setup|settings|local)" in store)
-    ctx.check("Alt+1..9 and Alt+0 switch sections (3.3.0.0 R1: Alt+7 Packs, Alt+8 Setup; 3.3.3.0 R2: Alt+9 Settings; 3.3.5.0 R1: Alt+0 Local)",
+    start = (ui / "lib" / "sectionStart.ts").read_text(encoding="utf-8")
+    ctx.check("the shell reads ?mode= for a core section or a pack's (<pack>--<section>) and the moved word design",
+              "MODE_RE" in start and "(?:--[A-Za-z0-9]" in start and "design: { pack: \"design\", section: \"design--design\" }" in start)
+    ctx.check("Alt+1..9 and Alt+0 switch sections (3.3.13.0 R2: Alt+0 is the first pack section's)",
               "Digit[0-9]" in (ui / "shell" / "keys.ts").read_text(encoding="utf-8"))
     ctx.check("no classic page ships beside the shell (3.0.7.0 R2)", not (REPO_DIR / "halo_harness" / "studio" / "static" / "legacy").exists())
     facade = _facade()
@@ -119,9 +122,9 @@ def test_setup_is_the_banners_eighth_frame_and_has_its_doors(ctx: Ctx):
         import studio_modes_banner as B
     except ModuleNotFoundError as e:  # the banner tool draws with Pillow, an optional extra CI does not install
         raise SkipTest(f"the banner tool needs {e.name} (pip install Pillow)")
-    ctx.check(f"ten frames, Setup on Alt 8, Settings on Alt 9 and Local last on Alt 0 (3.3.5.0 R1), got {[f[1] for f in B.FRAMES]}",
-              len(B.FRAMES) == 10 and B.FRAMES[7][:3] == ("studio-setup.png", "Setup", "Alt 8")
-              and B.FRAMES[8][:3] == ("studio-settings.png", "Settings", "Alt 9") and B.FRAMES[-1][:3] == ("studio-local.png", "Local", "Alt 0"))
+    ctx.check(f"nine frames, Setup on Alt 7, Settings on Alt 8 and Local last on Alt 9 (3.3.13.0 R2), got {[f[1] for f in B.FRAMES]}",
+              len(B.FRAMES) == 9 and B.FRAMES[6][:3] == ("studio-setup.png", "Setup", "Alt 7")
+              and B.FRAMES[7][:3] == ("studio-settings.png", "Settings", "Alt 8") and B.FRAMES[-1][:3] == ("studio-local.png", "Local", "Alt 9"))
     for name in ("studio-setup.png", "studio-settings.png", "studio-local.png"):
         f = REPO_DIR / "docs" / "media" / name
         ctx.check(f"{name} exists and is under 1 MB", f.is_file() and 10_000 < f.stat().st_size < 1024 * 1024)
@@ -131,7 +134,7 @@ def test_setup_is_the_banners_eighth_frame_and_has_its_doors(ctx: Ctx):
     ctx.check("the banner is under 1 MB", banner.is_file() and banner.stat().st_size < 1024 * 1024)
     r = subprocess.run([sys.executable, str(REPO_DIR / "tools" / "studio_modes_banner.py"), "--check"], capture_output=True,
                        text=True, encoding="utf-8", errors="replace", timeout=120, cwd=str(REPO_DIR))
-    ctx.check(f"the banner is rendered from the ten captures, got {r.returncode} {r.stdout.strip()!r}", r.returncode == 0)
+    ctx.check(f"the banner is rendered from the nine captures, got {r.returncode} {r.stdout.strip()!r}", r.returncode == 0)
     from halo_harness.providers.config import default_state_dir
     state = Path(default_state_dir())
     srv = studio_server.start_server(port=0, cwd=state.parent / "proj", state_dir=state)
@@ -146,20 +149,21 @@ def test_setup_is_the_banners_eighth_frame_and_has_its_doors(ctx: Ctx):
 
 
 @test
-def test_slash_studio_roles_design_open_that_mode(ctx: Ctx):
+def test_slash_studio_and_roles_open_that_mode(ctx: Ctx):
     facade = _facade()
     with _NoBrowser() as nb:
         out = _cmd_studio("roles url", facade)
         ctx.check(f"/studio roles url names Roles and its URL, got {out!r}", "Roles:" in out and "?mode=roles#t=" in out)
         ctx.check("`url` keeps the browser shut", nb.calls == [])
-        out = _cmd_design("url", facade)
-        ctx.check(f"/design url opens Design mode, got {out!r}", "Design:" in out and "?mode=design#t=" in out)
         out = _cmd_roles("gui url", facade)
         ctx.check(f"/roles gui url opens Roles mode, got {out!r}", "Roles:" in out and "?mode=roles#t=" in out)
         out = _cmd_studio("url", facade)
-        ctx.check("bare /studio keeps the saved mode (no query)", "?mode=" not in out and "Roles | Design" in out)
-        _cmd_studio("design", facade)
-        ctx.check(f"without `url` the browser opens on the mode URL, got {nb.calls}", len(nb.calls) == 1 and "?mode=design#t=" in nb.calls[0])
+        ctx.check("bare /studio keeps the saved mode (no query)", "?mode=" not in out)
+        out = _cmd_studio("design", facade)
+        ctx.check(f"3.3.13.0 R2: /studio design with the pack off says how to turn it on, got {out!r}",
+                  "design pack" in out and "halo pack enable design" in out and nb.calls == [])
+        _cmd_studio("fleet", facade)
+        ctx.check(f"without `url` the browser opens on the mode URL, got {nb.calls}", len(nb.calls) == 1 and "?mode=fleet#t=" in nb.calls[0])
 
 
 @test
@@ -183,7 +187,7 @@ def test_tui_bare_roles_routes_to_the_gui(ctx: Ctx):
 def test_top_level_help_names_the_gui(ctx: Ctx):
     from halo_harness.cli import _build_parser
     text = " ".join(_build_parser().format_help().split())  # width-independent
-    for word in ("studio", "design", "teams", "agents", "--mode roles|design", "/roles and /design"):
+    for word in ("studio", "teams", "agents", "pack", "--mode roles", "/studio and /roles", "halo pack install design"):
         ctx.check(f"halo --help mentions {word!r}", word in text)
     for mod, fn in (("halo_harness.roles_cli", "cmd_roles"), ("halo_harness.teams_cli", "cmd_teams"), ("halo_harness.agents_cli", "cmd_agents")):
         import importlib
@@ -200,30 +204,40 @@ def test_system_prompt_tells_the_model_about_studio(ctx: Ctx):
     from halo_harness.agent.prompt import build_harness_self_description
     text = build_harness_self_description([{"name": "Bash"}, {"name": "Read"}])
     ctx.check("names Halo Studio", "**Halo Studio**" in text)
-    ctx.check("names the two modes", "Roles (" in text and "Design (" in text and "Org (" not in text)
-    ctx.check("names the command", "halo studio --mode roles|design" in text)
-    ctx.check("names the slash commands", "`/roles` or `/design`" in text)
+    ctx.check("names its sections and a pack's (3.3.13.0 R2)", "Roles (" in text and "Session (" in text and "design pack's Design" in text and "Org (" not in text)
+    ctx.check("names the command", "halo studio --mode roles" in text and "--mode design--design" in text)
+    ctx.check("names the slash commands", "`/studio` or `/roles`" in text and "`/design`" in text)
 
 
 from tests.helpers.studio_modes_dom import dom as _dom, need_chrome as _need_chrome  # noqa: E402
 
 
 @test
-def test_design_opens_as_a_react_section(ctx: Ctx):
-    """3.0.7.0 R3: `--mode design`, no framed classic page: Design's Start view without a project, then the
-    thread and the artboards of a seeded one."""
+def test_design_opens_as_the_packs_page(ctx: Ctx):
+    """3.0.7.0 R3, the design pack's since 3.3.13.0 R2: its tests/capture_design.py --dom (the pack enabled in the
+    capture's home, `?mode=design--design`): the Start view without a project, then the thread and the artboards of
+    a seeded one, drawn by the pack's own module."""
+    import json
+    import subprocess
     _need_chrome()
-    design = _dom("design")
+    from tests.helpers.chrome_driver import driver_env
+    script = REPO_DIR / "halo_harness" / "templates" / "packs" / "design" / "tests" / "capture_design.py"
+    r = subprocess.run([sys.executable, str(script), "--dom"], capture_output=True, encoding="utf-8", errors="replace",
+                       timeout=300, env=driver_env(REPO_DIR), cwd=str(REPO_DIR))
+    try:
+        design = json.loads(r.stdout.strip().splitlines()[-1])
+    except (ValueError, IndexError):
+        design = {"error": (r.stdout + r.stderr)[-400:]}
     start, seeded = design.get("start", {}), design.get("design", {})
-    ctx.check(f"Design without a project: ten tabs, the Start view, no frame, got {start or design}",
-              start.get("section-tab") == 10 and start.get("design-start") == 1 and start.get("legacy-frame") == 0 and start.get("design-artboard") == 0)
+    ctx.check(f"Design without a project: the pack's page, the Start view, got {start or design}",
+              start.get("pack-view") == 1 and start.get("design-start") == 1 and start.get("design-artboard") == 0)
     ctx.check(f"Design over a seeded project: the thread with two turns, two artboards, two pins, got {seeded}",
               seeded.get("design-thread") == 1 and seeded.get("design-turn") == 2 and seeded.get("design-artboard") == 2
-              and seeded.get("design-pin") == 2 and seeded.get("design-start") == 0 and seeded.get("legacy-frame") == 0)
+              and seeded.get("design-pin") == 2 and seeded.get("design-start") == 0)
     ui = REPO_DIR / "halo_harness" / "studio" / "ui" / "src"
     routes = (ui / "routes" / "index.tsx").read_text(encoding="utf-8")
     ctx.check("no section is framed any more (3.0.7.0 R2)", "legacyPanels" not in routes and "panels: rolesPanels, view: RolesView" in routes
-              and "...designPanels" in routes)
+              and "designPanels" not in routes)
     ctx.check("the legacy bridge is gone", not (ui / "shell" / "legacy.ts").exists() and not (ui / "routes" / "legacy").exists())
 
 
@@ -236,7 +250,7 @@ def test_roles_opens_as_a_react_section(ctx: Ctx):
     got = _dom("roles")
     start, roles = got.get("start", {}), got.get("roles", {})
     ctx.check(f"the Start view, no canvas and no frame, got {start or got}",
-              start.get("section-tab") == 10 and start.get("roles-start") == 1 and start.get("roles-canvas") == 0
+              start.get("section-tab") == 9 and start.get("roles-start") == 1 and start.get("roles-canvas") == 0
               and start.get("panel-title") == 0 and start.get("legacy-frame") == 0)
     ctx.check(f"the canvas, eight cards, three tier boxes, the edges, got {roles}",
               roles.get("roles-canvas") == 1 and roles.get("roles-card") == 8 and roles.get("roles-tier") == 3 and (roles.get("roles-edge") or 0) >= 7
@@ -253,7 +267,7 @@ def test_team_opens_as_a_react_section(ctx: Ctx):
     _need_chrome()
     got = _dom("team")
     start, team = got.get("start", {}), got.get("team", {})
-    ctx.check(f"the Start view, no board, got {start or got}", start.get("section-tab") == 10 and start.get("team-start") == 1
+    ctx.check(f"the Start view, no board, got {start or got}", start.get("section-tab") == 9 and start.get("team-start") == 1
               and start.get("team-start-init") == 1 and start.get("team-board") == 0 and start.get("team-stage") == 0)
     ctx.check(f"the board, got {team}", team.get("team-member") == 3 and team.get("team-stage") == 4 and team.get("team-block") == 3
               and team.get("team-edge") == 8 and team.get("panel-title") == 3 and team.get("team-start") == 0 and team.get("legacy-frame") == 0)
@@ -268,7 +282,7 @@ def test_orchestra_opens_a_planned_run_on_the_plan_canvas(ctx: Ctx):
     got = _dom("orchestra")
     plan, start = got.get("plan") or {}, got.get("start") or {}
     ctx.check(f"the plan panel, not the console, got {plan or got}", plan.get("orchestra-plan") == 1 and plan.get("orchestra-root") == 0
-              and plan.get("panel-title") == 1 and plan.get("section-tab") == 10)
+              and plan.get("panel-title") == 1 and plan.get("section-tab") == 9)
     ctx.check(f"five lanes, three boxes, one edge, the inspector and Approve, no problem, got {plan}",
               plan.get("plan-canvas") == 1 and plan.get("plan-lane") == 5 and plan.get("plan-layer") == 3 and plan.get("plan-edge") == 1
               and plan.get("plan-inspector") == 1 and plan.get("plan-approve") == 1 and plan.get("plan-problem") == 0)
@@ -284,12 +298,12 @@ def test_start_here_on_a_fresh_home_and_gone_after_dismiss(ctx: Ctx):
     got = _dom("start")
     first, gone, lineup = got.get("fresh") or {}, got.get("dismissed") or {}, got.get("lineup") or {}
     ctx.check(f"the home reads as fresh, got {got.get('status') or got}", (got.get("status") or {}).get("show") is True)
-    ctx.check(f"fresh: the overlay, Run and Just look around, no welcome card, ten section rows, got {first}",
+    ctx.check(f"fresh: the overlay, Run and Just look around, no welcome card, nine section rows, got {first}",
               first.get("start-here") == 1 and first.get("start-here-run") == 1 and first.get("start-here-dismiss") == 1
-              and first.get("section-help") == 0 and first.get("section-tab") == 10 and first.get("start-step") == 0)
+              and first.get("section-help") == 0 and first.get("section-tab") == 9 and first.get("start-step") == 0)
     ctx.check(f"the Roles Start view under it, with its Next footer, got {first}", first.get("roles-start") == 1 and first.get("start-next") == 1)
     ctx.check(f"after dismiss: no overlay and no welcome (3.3.2.0 R1), got {gone}", gone.get("start-here") == 0 and gone.get("section-help") == 0)
-    ctx.check(f"a lineup active: no overlay, got {lineup}", lineup.get("start-here") == 0 and lineup.get("section-tab") == 10)
+    ctx.check(f"a lineup active: no overlay, got {lineup}", lineup.get("start-here") == 0 and lineup.get("section-tab") == 9)
 
 
 if __name__ == "__main__":

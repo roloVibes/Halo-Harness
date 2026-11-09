@@ -61,7 +61,8 @@ def _query(mode: Optional[str], edit: Optional[str]) -> str:
         target, _why = parse(edit)
         if target is not None:
             return target.query()
-    return f"?mode={mode}" if mode in STUDIO_MODES else ""
+    from halo_harness.studio.modes import known  # 3.3.13.0 R2: a pack's section (<pack id>--<section>) too
+    return f"?mode={mode}" if known(mode) else ""
 
 
 def url_from_info(info: dict, mode: Optional[str] = None, edit: Optional[str] = None) -> str:
@@ -95,7 +96,7 @@ def launch_detached(mode: Optional[str], *, cwd: Path, state_dir: Path, open_bro
         argv += ["--session"] + ([t.session] if t.session else []) + (["--prompt"] if t.prompt else [])
     elif edit:
         argv += ["--edit", edit]
-    elif mode in STUDIO_MODES:
+    elif mode in STUDIO_MODES or "--" in str(mode or ""):  # 3.3.13.0 R2: a pack's section too
         argv += ["--mode", mode]
     if not open_browser:
         argv.append("--no-open")

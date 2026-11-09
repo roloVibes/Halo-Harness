@@ -32,7 +32,16 @@ NOT_HERE = "; not available here: "
 STOP = frozenset("a an and any are be best build can could create do does for from get has have help how i in is it "
                  "make me my need of on one or our please run should some someone something that the this to us use "
                  "we what which who whom will with would you".split())
-CRAFT_WORDS = {"gridcraft": "spreadsheets, workbooks, formulas, charts, tables (an Excel-class app)",
+# 3.3.13.0 R2: the eight the Design section drove (its crafts table went to the design pack) are named here too
+CRAFT_WORDS = {"designcraft": "pages, one-pagers, decks, posters, print layouts (an InDesign-class page layout app)",
+               "vectorcraft": "logos, icons, illustrations, diagrams, anything that must stay crisp at any size (an Illustrator-class app)",
+               "photocraft": "photo compositing, retouching, raster mockups, social images (a Photoshop-class app)",
+               "lightcraft": "developing and batch-exporting photos, building an asset library (a Lightroom-class app)",
+               "effectcraft": "motion graphics, animated logos, title cards, animated social assets (an After Effects-class compositor)",
+               "filmcraft": "video cuts, trailers, product clips (a Premiere-class editor)",
+               "pdfcraft": "assembling, annotating, signing and checking PDFs; forms; accessibility; exporting a deck to PDF",
+               "comfyui": "generated images and video from local diffusion models (Qwen Image, Wan 2.2): stills, image-to-video clips, upscales",
+               "gridcraft": "spreadsheets, workbooks, formulas, charts, tables (an Excel-class app)",
                "deckcraft": "presentations, slide decks, slides, charts (a PowerPoint-class app)",
                "wordcraft": "documents, letters, reports, docx word processing (a Word-class app)",
                "soundcraft": "audio, music, mixing, recording, a digital audio workstation (a Pro Tools-class app)",
@@ -50,7 +59,6 @@ def query_words(q: str) -> list:
 
 def items(cat: dict) -> list:
     """`[(kind, name, desc)]` for one catalog."""
-    from halo_harness.design.crafts import APPS
     out = []
     for s in cat.get("mcp") or []:
         tools = s.get("tools") if isinstance(s.get("tools"), list) else []
@@ -63,7 +71,7 @@ def items(cat: dict) -> list:
         out.append(("model", str(m.get("id")), f"{why} ({m.get('provider') or '?'})"))
     for m in (cat.get("media") or {}).get("models") or []:
         out.append(("model", str(m.get("name")), f"ComfyUI {m.get('kind')} model"))
-    out += [("craft_app", str(a), str((APPS.get(a) or {}).get("for") or CRAFT_WORDS.get(a) or "craft app"))
+    out += [("craft_app", str(a), str(CRAFT_WORDS.get(a) or "craft app"))
             for a in cat.get("craft_apps") or []]
     out += [("cli", str(k), f"command-line tool {v}") for k, v in (cat.get("clis") or {}).items() if v]
     hw = cat.get("hardware") or {}

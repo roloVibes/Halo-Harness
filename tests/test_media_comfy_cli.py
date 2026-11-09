@@ -170,25 +170,19 @@ def test_inspect_models_workflows(ctx: Ctx):
 
 
 @test
-def test_crafts_probe_sees_comfyui(ctx: Ctx):
-    from halo_harness.design import crafts
-    from halo_harness.design.crafts_probe import craft_server_configs, craft_server_entries, probe_crafts
-    from halo_harness.media.setup_cli import server_entry
-    ctx.check("comfyui is the eighth craft app", list(crafts.APPS)[-1] == "comfyui" and len(crafts.APPS) == 8)
-    spec = crafts.APPS["comfyui"]
-    ctx.check("its spec: kinds, render tool, ext", spec["kinds"] == ("image", "video") and spec["render"] == "mcp__comfyui__comfy_run" and spec["ext"] == "png")
-    ctx.check("the recipe ends in comfy_fetch into the artboard and source.json",
-              "comfy_fetch" in spec["recipe"] and "artboards/<id>/render.mp4" in spec["recipe"] and "source.json" in spec["recipe"])
-    guide = "\n".join(crafts.guide_lines({"comfyui"}))
-    ctx.check("the Design skill names it", "- comfyui:" in guide and "render.mp4" in guide)
-    with FakeComfy() as fake:
-        entry = server_entry(fake.url)
-        entry["env"]["PYTHONPATH"] = os.pathsep.join(p for p in (str(REPO_DIR), os.environ.get("PYTHONPATH", "")) if p)
-        cj = {"mcpServers": {"ComfyUI": entry}}
-        ctx.check("the entry is found case-insensitively", set(craft_server_entries(cj, REPO_DIR)) == {"comfyui"})
-        rows = probe_crafts(craft_server_configs(cj, REPO_DIR), tool_env=dict(os.environ), cwd=REPO_DIR)
-        ctx.check(f"the probe connects and finds the render tool, got {rows}",
-                  rows and rows[0]["state"] == "connected" and rows[0]["tool_count"] == 7 and rows[0]["render_present"] is True)
+def test_registered_entry_reads_the_session_config(ctx: Ctx):
+    """3.3.13.0 R2: the comfyui entry is found in the session's MCP config, case-insensitively (the Design crafts
+    probe that found it before went to the design pack, whose own tests check comfyui as its eighth craft app)."""
+    import halo_harness.config.claude_json as CJ
+    from halo_harness.media.setup_cli import registered_entry, server_entry
+    entry = server_entry("http://127.0.0.1:9")
+    orig = CJ.load_claude_json
+    CJ.load_claude_json = lambda *a, **k: {"mcpServers": {"ComfyUI": entry, "filesystem": {"command": "x"}}}
+    try:
+        got = registered_entry(REPO_DIR)
+    finally:
+        CJ.load_claude_json = orig
+    ctx.check(f"the ComfyUI entry is the registered one, got {got}", got == entry)
 
 
 if __name__ == "__main__":

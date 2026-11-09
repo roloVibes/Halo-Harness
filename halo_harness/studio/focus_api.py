@@ -43,9 +43,11 @@ def _post_section(req, body: dict):
     from halo_harness.studio.server import STUDIO_MODES
     from halo_harness.studio.session_open import valid_session_id
     mode, sid = str(body.get("mode") or ""), str(body.get("session") or "")
-    if mode not in STUDIO_MODES:
-        why = f"{mode!r} is not a Studio section: use one of {', '.join(STUDIO_MODES)}"
-        return 422, {"error": why, "problems": [why]}
+    if mode not in STUDIO_MODES:  # 3.3.13.0 R2: or a running pack's section (studio/modes.py)
+        from halo_harness.studio.modes import check
+        mode, why = check(mode, cwd=req.cwd, state_dir=req.state_dir)
+        if mode is None:
+            return 422, {"error": why, "problems": [why]}
     if sid and (mode != "session" or not valid_session_id(sid)):
         why = f"{sid!r} is not a session id for Session"
         return 422, {"error": why, "problems": [why]}

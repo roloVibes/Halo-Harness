@@ -2,7 +2,8 @@
 // update / subscribe, and `useStore(store, selector)` reads a slice through
 // React's useSyncExternalStore. `studio` is the shell's one app store.
 import { useSyncExternalStore } from "react";
-import { bootLiveSession, bootNoProvider, bootPackSections } from "./boot";
+import { bootLiveSession, bootNoProvider } from "./boot";
+import { askedSection, sectionFor } from "./sectionStart";
 export { bootLiveSession, bootNoProvider, bootPackSections, type BootPackSection } from "./boot";
 
 export type Store<T> = {
@@ -44,7 +45,8 @@ export function useStore<T extends object, S>(store: Store<T>, select: (s: T) =>
 
 // -- the shell's state -----------------------------------------------------------
 
-export type CoreSectionId = "orchestra" | "roles" | "design" | "fleet" | "team" | "session" | "packs" | "setup" | "settings" | "local"; // packs: 3.2.0.0 R6; setup: 3.3.0.0 R1; settings: 3.3.3.0 R2; local: 3.3.5.0 R1
+// packs: 3.2.0.0 R6; setup: 3.3.0.0 R1; settings: 3.3.3.0 R2; local: 3.3.5.0 R1; 3.3.13.0 R2: design is the design pack's
+export type CoreSectionId = "orchestra" | "roles" | "fleet" | "team" | "session" | "packs" | "setup" | "settings" | "local";
 /** 3.2.0.0 R3: a pack's own section, `<pack id>--<section id>` (routes/packs: the registry the server builds). */
 export type PackSectionId = `${string}--${string}`;
 export type SectionId = CoreSectionId | PackSectionId;
@@ -100,7 +102,7 @@ export type StudioState = {
 };
 
 /** Every section id, in the tab order (routes/index.tsx SECTIONS is the order; store.ts cannot import it). */
-export const SECTION_IDS: CoreSectionId[] = ["session", "team", "roles", "fleet", "design", "orchestra", "packs", "setup", "settings", "local"];
+export const SECTION_IDS: CoreSectionId[] = ["session", "team", "roles", "fleet", "orchestra", "packs", "setup", "settings", "local"];
 
 function readLocal(key: string): string {
   try {
@@ -122,13 +124,15 @@ export function writeLocal(key: string, value: string | null): void {
 /** `?mode=` wins; then (3.3.0.0 R3) Setup while no provider is set up, whatever was saved; then the section saved
  *  for this browser (a pack's own when the page names it, 3.2.1.0 R1); nothing saved: Session while a session is
  *  live here, else Roles. */
+let firstNote = ""; // 3.3.13.0 R2: `?mode=design` with the design pack off (lib/sectionStart.ts)
+
 function initialSection(): SectionId {
-  const asked = /[?&]mode=(orchestra|roles|design|fleet|team|session|packs|setup|settings|local)\b/.exec(location.search); // packs: 3.2.0.0 R7; setup: 3.3.0.0 R1; settings: 3.3.3.0 R2; local: 3.3.5.0 R1
-  if (asked) return asked[1] as SectionId;
+  const asked = askedSection(SECTION_IDS);
+  firstNote = asked.note;
+  if (asked.section) return asked.section as SectionId;
   if (bootNoProvider()) return "setup";
-  const saved = readLocal("halo.studio.section") || readLocal("halo-studio-mode");
-  if ((SECTION_IDS as string[]).includes(saved)) return saved as SectionId;
-  if (saved.includes("--") && bootPackSections().some((s) => s.id === saved)) return saved as SectionId;
+  const saved = sectionFor(readLocal("halo.studio.section") || readLocal("halo-studio-mode"), SECTION_IDS);
+  if (saved) return saved as SectionId;
   return bootLiveSession() ? "session" : "roles";
 }
 
@@ -180,8 +184,9 @@ export const studio = createStore<StudioState>({
   status: {},
   feed: { status: "off", events: 0, lastKind: "", lastTs: 0, sessions: [] },
   activity: {},
-  toasts: [],
+  toasts: firstNote ? [{ id: -1, text: firstNote, tone: "info" }] : [], // 3.3.13.0 R2: `?mode=design`, its pack off
 });
+if (firstNote) window.setTimeout(() => studio.update((s) => ({ toasts: s.toasts.filter((t) => t.id !== -1) })), 9000);
 
 // 3.3.2.0 R1: the inspector's open/closed choice, remembered per browser whatever opened or closed it
 // (a panel's Settings, a Design artboard's knobs, its close button, Esc, a section switch).

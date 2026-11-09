@@ -10,9 +10,10 @@ first, then `WORKER-RULES.md`, then the round you are starting.
 R1 one palette set, R2 a pack's own themes through `contributes.themes`, R4 the pack kit (`halo pack new`, `halo pack
 test`, `--link`, `requires:` tool entries, the `pack-author` lineup, docs/PACK-AUTHORING.md). 3.3.11.0 shipped 2026-11-06
 (f30b5823, with the security review fix pass 821abd77). 3.3.13.0 is open: R1 the engines fold is merged (one adapter and one
-descriptor table for FreeToken / Strata / TensorFold, about -5,860 lines) and R3 the Signal pack are merged (pack
-services + the transport seam in the core, the bridge as the shipped `signal` pack, a conversation); R2 Design out is
-building in ~/hh-3313/R2-design-out; mode themes (#5) and the parity audit follow; after them
+descriptor table for FreeToken / Strata / TensorFold, about -5,860 lines), R3 the Signal pack (pack services + the
+transport seam in the core, the bridge as the shipped `signal` pack, a conversation) and R2 Design out (the page-view /
+api.lib / studio-routes seam, the shipped `design` pack, nine core sections) are merged; the release follows on green
+both; mode themes (#5) and the parity audit follow; after them
 the review (six areas, bugs in scope), its fix pass with the steward hotfix first, then L1 the Instrument look and the
 Focus rounds.** The ROADMAP's R1, R2 and R4 BUILT notes, the Focus plan and the Instrument entry (all 2026-11-08) carry the
 choices and the owner's live checks.

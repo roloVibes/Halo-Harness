@@ -40,9 +40,11 @@ SETUP_KEYS = ("id", "title", "kind", "after", "help", "fields", "run", "what", "
 MODE_KEYS = ("id", "label", "theme")
 THEME_KEYS = ("id", "label", "posture", "palette")  # 3.3.12.0 R2
 # 3.2.0.0 R3: contributes.studio
-STUDIO_KEYS = ("sections", "panels", "palette", "config_form", "events", "attention")
+STUDIO_KEYS = ("sections", "panels", "palette", "config_form", "events", "attention",
+               "routes")  # 3.3.13.0 R2: routes (a pack's own Studio API routes, API 1.2)
 PANEL_KEYS = ("id", "title", "kind", "source", "schema", "w", "h", "help", "columns", "links")  # schema: 3.2.0.0 R5 (artifact)
-SECTION_KEYS = ("id", "title", "blurb", "help", "panels")
+SECTION_KEYS = ("id", "title", "blurb", "help", "panels", "view")  # view: 3.3.13.0 R2 (a whole-page bundle, API 1.2)
+ROUTES_KEYS = ("module", "prefix")
 ANSWER_KEYS = ("a", "r", "s", "o")
 # 3.2.0.0 R4: contributes.fleet
 FLEET_KEYS = ("capabilities", "inspector", "mission")
@@ -70,15 +72,17 @@ def panel(section: bool = False) -> dict:
 
 def studio() -> dict:
     section = obj({"id": STRING, "title": STRING, "blurb": STRING, "help": STRING,
-                   "panels": {"type": "array", "items": panel()}})
+                   "panels": {"type": "array", "items": panel()}, "view": obj({"bundle": STRING})})
+    routes = obj({"module": STRING, "prefix": STRING})  # 3.3.13.0 R2: packs/studio_routes_rules.py has the meaning
     entry = obj({"id": STRING, "label": STRING, "action": STRING})
     event = obj({"label": STRING, "line": STRING})
     attention = obj({"label": STRING, "keys": obj({k: STRING for k in ANSWER_KEYS})})
     props = {"sections": {"type": "array", "items": section}, "panels": {"type": "array", "items": panel(True)},
              "palette": {"type": "array", "items": entry}, "config_form": BOOL,
              "events": {"type": "object", "properties": {}, "additionalProperties": event},
-             "attention": {"type": "object", "properties": {}, "additionalProperties": attention}}
+             "attention": {"type": "object", "properties": {}, "additionalProperties": attention}, "routes": routes}
     assert tuple(props) == STUDIO_KEYS and tuple(section["properties"]) == SECTION_KEYS
+    assert tuple(routes["properties"]) == ROUTES_KEYS
     return obj(props)
 
 

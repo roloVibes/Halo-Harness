@@ -15,6 +15,19 @@ from __future__ import annotations
 from halo_harness.packs import manifest as MF
 
 
+#: What each grant lets the pack do, one line (the Pack Manager, `halo pack inspect`, the README `halo pack new` writes).
+WHAT = {"hooks": "its hooks run (a policy's hooks too)", "bash": "its code may run commands",
+        "network": "its code may reach the network", "home-write": "its code may write outside its data folder",
+        "studio-script": "its Studio script (a bundle panel, a section's page) runs in the page",
+        "studio-routes": "runs this pack's Python inside Studio's server",  # 3.3.13.0 R2 (API 1.2)
+        "services": "runs a program of this pack in the background while the supervisor runs"}  # 3.3.13.0 R3
+
+
+def what(perm: str) -> str:
+    """The one line a grant's row says; `mcp:<server>` is that server starting."""
+    return f"its MCP server {perm[4:]} starts" if str(perm).startswith("mcp:") else WHAT.get(str(perm), "")
+
+
 def needs(pack) -> "list[tuple[str, str]]":
     """`[(permission, what needs it)]` for the pack's contributions."""
     return MF.needed(pack.manifest, pack.root)
@@ -161,6 +174,9 @@ def changed(state_dir=None) -> None:
 def notify_studio(why: str = "changed") -> None:
     """3.2.0.0 R3: a Studio this process serves reloads its packs registry now (Studio is never imported here)."""
     import sys
+    routes = sys.modules.get("halo_harness.studio.packs_routes")  # 3.3.13.0 R2: a pack turned off unloads its routes
+    if routes is not None:
+        routes.drop_inactive()
     live = sys.modules.get("halo_harness.studio.packs_studio_live")
     if live is not None:
         live.notify(why)

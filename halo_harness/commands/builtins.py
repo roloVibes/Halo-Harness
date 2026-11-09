@@ -160,7 +160,6 @@ def _cmd_cost(args: str, facade: HeadlessFacade) -> str:
 
 
 _STUDIO_MODE_LABELS = {"roles": "Roles: lineups and agent bios as a graph",
-                       "design": "Design: artboards on your own apps",
                        "orchestra": "Orchestra: runs of your agents, live",
                        "fleet": "Fleet: every harness, every agent, live",
                        "team": "Team: people, blocks and stages on one board",
@@ -174,27 +173,28 @@ _STUDIO_MODE_LABELS = {"roles": "Roles: lineups and agent bios as a graph",
 def _cmd_studio(args: str, facade: HeadlessFacade) -> str:
     """2.1.0 round B3: `/studio` opens Halo Studio in the browser, served
     from this process; `/studio url` prints the URL without opening a
-    browser (SSH: forward the port it names). 3.0.2.0: `/studio roles|
-    design` opens straight into that mode -- `/roles` and `/design`
-    (bare, in the TUI) and `/roles gui` land here too."""
+    browser (SSH: forward the port it names). 3.0.2.0: `/studio roles`
+    opens straight into that mode -- `/roles` (bare, in the TUI) and `/roles gui`
+    land here too. 3.3.13.0 R2: a running pack's section too (`/studio
+    design--design`; a pack command with `studio:` in its frontmatter lands here)."""
     from pathlib import Path
     from halo_harness.providers.config import default_state_dir
-    from halo_harness.studio.server import STUDIO_MODES, ensure_background
+    from halo_harness.studio.modes import check
+    from halo_harness.studio.server import ensure_background
     words = (args or "").split()
-    mode = next((w.lower() for w in words if w.lower() in STUDIO_MODES), None)
-    open_browser = "url" not in [w.lower() for w in words]
     cwd = Path(getattr(facade, "cwd", None) or Path.cwd())
-    url = ensure_background(cwd=cwd, state_dir=Path(default_state_dir()), open_browser=open_browser, mode=mode)
-    what = _STUDIO_MODE_LABELS.get(mode, "Roles | Design")
+    state_dir = Path(default_state_dir())
+    mode = None
+    for w in (w for w in words if w.lower() != "url"):
+        mode, why = check(w, cwd=cwd, state_dir=state_dir)
+        if mode is None:
+            return f"halo: /studio: {why}"
+        break
+    open_browser = "url" not in [w.lower() for w in words]
+    url = ensure_background(cwd=cwd, state_dir=state_dir, open_browser=open_browser, mode=mode)
+    what = _STUDIO_MODE_LABELS.get(mode or "") or (f"the {mode} section of a pack" if mode else "Session")
     return (f"Halo Studio ({what}): {url}\n"
             "(served from this session; it closes with it. Over SSH: forward the port and open the same URL.)")
-
-
-def _cmd_design(args: str, facade: HeadlessFacade) -> str:
-    """3.0.2.0: `/design` opens Halo Studio's Design mode (artboards,
-    knobs, comments, versions, the craft apps as the model's tools);
-    `/design url` prints the URL only. The command family is `halo design`."""
-    return _cmd_studio("design " + (args or ""), facade)
 
 
 def _cmd_offline(args: str, facade: HeadlessFacade) -> str:
@@ -1865,8 +1865,7 @@ _BUILTIN_SPECS = {
     "effort": ("core", "Show or change the active reasoning effort level", "[level]", _cmd_effort),
     "offline": ("core", "Show or change enforced offline mode (network.offline)", "[on|off]", _cmd_offline),
     "studio": ("core", "Open Halo Studio, the browser GUI: in the TUI bare /studio watches this session (the Session dashboard)",
-               "[session|roles|design|orchestra|fleet|team|packs|setup] [url]", _cmd_studio),
-    "design": ("core", "Open Studio's Design GUI: artboards on your own apps (the `halo design` family)", "[url]", _cmd_design),
+               "[session|roles|orchestra|fleet|team|packs|setup|settings|local|<pack>--<section>] [url]", _cmd_studio),
     "remote": ("core", "Remote control: this session's control socket, the transports listening, the packs' services",
                "[status]", _cmd_remote),
     "private": ("core", "Private session: no control socket, no registry entry (Studio and the fleet never see it)",
