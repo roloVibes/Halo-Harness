@@ -13,7 +13,7 @@
 .rc-dirty { color: var(--warn); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
 .rc-zoom button { padding: 3px 10px; font-size: 12px; }
 .rc-scroll { overflow: auto; min-height: 0; border: 1px solid var(--line); border-radius: var(--radius-sm); background-color: var(--bg-2);
-  background-image: linear-gradient(var(--grid-line) 1px, transparent 1px), linear-gradient(90deg, var(--grid-line) 1px, transparent 1px); background-size: 24px 24px; }
+  background: var(--grid), var(--bg-2); /* 3.3.15.0 L1: the static dot grid, a map canvas only */ }
 .rc-scroll:focus-visible { outline: none; box-shadow: var(--glow-strong); }
 .rc-world { position: relative; }
 .rc-inner { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
@@ -125,7 +125,7 @@
 .rc-edge[data-state="waiting"] { stroke: var(--warn); stroke-width: 2; filter: drop-shadow(0 0 3px var(--warn)); }
 .rc-edge[data-state="done"] { stroke: var(--ok); }
 .rc-edge[data-state="failed"] { stroke: var(--bad); stroke-width: 2; }
-.rc-legend { position: fixed; z-index: 80; width: 320px; display: grid; gap: 6px; padding: 10px 12px; pointer-events: none; animation: rise var(--t) var(--ease); }
+.rc-legend { position: fixed; z-index: 80; width: 320px; display: grid; gap: 6px; padding: 10px 12px; pointer-events: none; }
 .rc-legend-head { font-size: 9.5px; letter-spacing: .1em; color: var(--muted); }
 .rc-legend-row { display: grid; grid-template-columns: 10px auto 1fr; grid-template-areas: "sw label color" ". when when"; gap: 1px 8px; align-items: baseline;
   padding: 3px 6px; border-radius: var(--radius-sm); border: 1px solid transparent; }

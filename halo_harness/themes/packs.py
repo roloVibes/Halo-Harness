@@ -25,7 +25,7 @@ def _snapshot():
     try:
         from halo_harness.packs.registry import snapshot
         return snapshot()
-    except Exception:  # an unreadable packs folder: no pack palettes, the ten as always
+    except Exception:  # an unreadable packs folder: no pack palettes, the eleven as always
         return None
 
 

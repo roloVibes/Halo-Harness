@@ -3,7 +3,7 @@ packs/manifest_themes.py, schemas/pack_yaml.py, pack.schema.json, field_help; do
 
 1. the fixture pack-theme validates and installs; its two palettes read back as `pack-theme/nightshade` (dark) and
    `pack-theme/linen` (light) with every token, and every pinned pair of both (and their -daltonized variants) meets
-   the floor the ten meet;
+   the floor the core palettes meet;
 2. every bad value is one line naming the entry (an id that is not `[a-z][a-z0-9-]*`, a core palette's id, an id
    ending in a modifier, an id used twice, a missing and an extra token, a value that is not #rrggbb, a posture
    outside the two, a label left out, a text-on-surface pair under WCAG AA) and install refuses it;
@@ -91,8 +91,8 @@ def test_every_bad_value_is_one_line_naming_the_entry(ctx: Ctx):
         got = _lines(h, entries)
         want = [
             "contributes.themes[0].id 'Night_Shade' is not a palette id (lower-case letters, digits and -, a letter first)",
-            "contributes.themes[1].id 'holo' is a core palette's id; pick another (the ten: claude-dark, claude-light, dawn, "
-            "dusk, ember, forest, holo, midnight, paper, slate)",
+            "contributes.themes[1].id 'holo' is a core palette's id; pick another (the core palettes: claude-dark, claude-light, dawn, "
+            "dusk, ember, forest, holo, instrument, midnight, paper, slate)",
             "contributes.themes[2].id 'dim-ansi' ends in a modifier (-daltonized, -ansi); pick another",
             "contributes.themes[4].id 'twice' is used twice",
             "contributes.themes[5].palette: missing bad (a palette names every token)",

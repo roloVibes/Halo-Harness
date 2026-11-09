@@ -4,7 +4,8 @@
 // answered it), the asks with the TUI card's buttons (answered through the socket's `answer`), the turn's end
 // line and a slash command's output lines. It reads the stream the Live panel already keeps (shared/liveFeed.ts,
 // the session's main agent) plus the turns and outputs of promptStore.ts; Live stays the stream for steering.
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useBorn } from "../../lib/motion/born";
 import { Empty } from "../../lib/ui";
 import { short } from "../orchestra/format";
 import { keyOf } from "../fleet/store";
@@ -16,14 +17,21 @@ type Row = { ts: number; n: number; turn?: Turn; line?: LiveLine; out?: Out };
 const SHOWN: LiveLine["kind"][] = ["text", "tool", "ask", "state", "error", "output", "you"];
 const MAX_ROWS = 240;
 
-/** The receipt's four marks beside your turn; the state's word (and a failure's reason) in the title. */
+/** The receipt's four marks beside your turn; the state's word (and a failure's reason) in the title. 3.3.15.0 L1:
+ *  a rung reached after the page drew climbs (`data-climb`, 160 ms after the one before, once: styles/motion.css). */
 export function Marks({ r }: { r: Receipt | undefined }) {
   const at = r ? LADDER.indexOf(r.state) : -1;
+  const [born] = useBorn();
+  const [base, setBase] = useState(born ? -1 : at); // the rungs on before the page drew stay still
   const failed = r?.state === "failed";
   const title = !r ? "no receipt (typed in the terminal)" : `${STATE_WORDS[r.state] || r.state}${r.reason ? `: ${r.reason}` : ""}`;
   return (
     <span className="spp-marks" data-testid="prompt-receipt" data-state={r?.state || "none"} title={title} aria-label={title}>
-      {LADDER.map((s, i) => <i key={s} className="spp-mark" data-step={s} data-on={i <= at || undefined} data-failed={failed || undefined} />)}
+      {LADDER.map((s, i) => {
+        const climb = i <= at && i > base && !failed;
+        return <i key={s} className="spp-mark" data-step={s} data-on={i <= at || undefined} data-failed={failed || undefined} data-climb={climb || undefined}
+                  style={climb ? ({ "--climb": i - base - 1 } as CSSProperties) : undefined} onAnimationEnd={i === at ? () => setBase(at) : undefined} />;
+      })}
     </span>
   );
 }

@@ -41,7 +41,7 @@ def get_catalog(_req):
 
 
 def get_themes(_req):
-    """3.3.12.0 R1: the palette registry for the header's theme menu and Settings -> Themes: the ten with their tokens
+    """3.3.12.0 R1: the palette registry for the header's theme menu and Settings -> Themes: the eleven with their tokens
     (and -daltonized tokens), the saved `theme` (None: follow the system) and its posture."""
     from halo_harness.themes import registry
     saved = _data().get("theme")
@@ -102,7 +102,7 @@ def post_set(req):
         return _refused(problems)
     if key == "theme" and not T.is_valid_theme(body.get("value")):  # the words `halo config set theme` says
         value = body.get("value")
-        from halo_harness.themes.cli import refusal  # 3.3.12.0 R1: the ten palettes named
+        from halo_harness.themes.cli import refusal  # 3.3.12.0 R1: the eleven palettes named
         return _refused([refusal(value)])
     value, problems = coerce(kind, r.choices, body.get("value"), key, r.secret)
     if problems:

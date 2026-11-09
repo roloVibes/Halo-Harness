@@ -72,7 +72,7 @@
 .sco-comp-keys { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: var(--fs-sm); color: var(--muted); }
 .sco-comp-key { display: inline-flex; align-items: center; gap: 5px; }
 .sco-comp-dot { display: inline-block; width: 8px; height: 8px; border-radius: 2px; background: var(--pc, var(--accent)); }
-.sco-comp [data-part="system"] { --pc: var(--accent-2); }
+.sco-comp [data-part="system"] { --pc: var(--user); } /* 3.3.15.0 L1: instrument's accent-2 is its warn, on purpose */
 .sco-comp [data-part="memory"] { --pc: var(--warn); }
 .sco-comp [data-part="topic_index"] { --pc: var(--bad); }
 .sco-comp [data-part="tools_schema"] { --pc: var(--accent); }

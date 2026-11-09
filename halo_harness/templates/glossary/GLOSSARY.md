@@ -396,7 +396,7 @@ A setup block (3.3.11.0 R3) is a page a pack adds to Studio's Setup with `contri
 
 ## palette
 
-A palette (3.3.12.0) is one of the ten colour sets the terminal and Studio both draw from: `claude-dark`, `claude-light`, `holo` (Studio's glass, cyan and amber), `paper`, `midnight`, `ember`, `forest`, `slate`, `dusk`, `dawn` (`halo_harness/themes/palettes.py`). Each is a set of tokens in one vocabulary (bg, surface, text, muted, accent, accent-2, ok, warn, bad, ...) with a posture and a one-line label; `theme` in `~/.halo/config.json` names the one in use, and `/theme`, `halo config set theme`, Studio's header menu and Settings -> Themes all move it. A modifier changes any palette: `-daltonized` (blue and orange for the accents and the status colours, never red against green) or `-ansi` (the 16-colour set of a terminal without truecolor). Every palette's text meets WCAG AA contrast.
+A palette (3.3.12.0) is one of the eleven colour sets the terminal and Studio both draw from: `claude-dark`, `claude-light`, `holo` (Studio's look before 3.3.15.0), `instrument` (3.3.15.0: Studio's dark default, the Instrument look's colours), `paper`, `midnight`, `ember`, `forest`, `slate`, `dusk`, `dawn` (`halo_harness/themes/palettes.py`). Each is a set of tokens in one vocabulary (bg, surface, text, muted, accent, accent-2, ok, warn, bad, ...) with a posture and a one-line label; `theme` in `~/.halo/config.json` names the one in use, and `/theme`, `halo config set theme`, Studio's header menu and Settings -> Themes all move it. A modifier changes any palette: `-daltonized` (blue and orange for the accents and the status colours, never red against green) or `-ansi` (the 16-colour set of a terminal without truecolor). Every palette's text meets WCAG AA contrast.
 
 ## posture
 
@@ -404,7 +404,7 @@ A palette's posture (3.3.12.0) is whether it is dark or light. It decides how St
 
 ## pack palette
 
-A pack palette (3.3.12.0 R2) is a palette a pack ships under `contributes.themes`, named `<pack-id>/<id>` (`pack-theme/nightshade`). While the pack is enabled it is a theme like the ten: the same token vocabulary, the same `-daltonized` and `-ansi` modifiers, the same WCAG AA floors, listed under the pack's name in `/theme`, Studio's header menu and Settings -> Themes. Choosing one keeps the theme you had before it in the pack's `theme.json`; disabling or removing the pack puts that theme back and says so in one line, and a saved pack palette whose pack is gone falls back to the default with one line.
+A pack palette (3.3.12.0 R2) is a palette a pack ships under `contributes.themes`, named `<pack-id>/<id>` (`pack-theme/nightshade`). While the pack is enabled it is a theme like the eleven: the same token vocabulary, the same `-daltonized` and `-ansi` modifiers, the same WCAG AA floors, listed under the pack's name in `/theme`, Studio's header menu and Settings -> Themes. Choosing one keeps the theme you had before it in the pack's `theme.json`; disabling or removing the pack puts that theme back and says so in one line, and a saved pack palette whose pack is gone falls back to the default with one line.
 
 ## pack kit
 

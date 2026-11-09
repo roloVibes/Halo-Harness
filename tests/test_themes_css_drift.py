@@ -2,11 +2,14 @@
 
 1. scripts/themes_css.py renders the block between tokens.css's two marker comments byte for byte (the way the dist
    gate holds the build), and a palette changed in memory makes `--check` fail;
-2. one rule per palette naming its id, -daltonized and -ansi; one override rule per -daltonized name; holo is also
-   `:root` and `auto`, paper is `auto` under a light system;
-3. holo's variables are Studio's dark of before (every value pinned), so a page with no `theme` draws as before;
+2. one rule per palette naming its id, -daltonized and -ansi; one override rule per -daltonized name; the dark default
+   (3.3.15.0 L1: instrument, holo before) is also `:root` and `auto`, paper is `auto` under a light system;
+3. holo keeps its colours (every variable copied from a token as before 3.3.12.0); 3.3.15.0 L1: instrument's
+   variables are PROPOSAL.md section 1 and 2 (every value pinned): solid surfaces, opaque hairlines from `border`,
+   no resting glow, a 1 px accent ring, 6-8 % soft fills, one shadow level; the same rule for every dark palette;
 4. a colour lives in one place: no `#rrggbb` / `rgb(` in the theme files of ui/src (the menu, the swatch, the page,
-   lib/theme.ts, styles/themes.css), and tokens.css stays under the 250-line cap.
+   lib/theme.ts, styles/themes.css), and tokens.css stays under the 250-line cap; 3.3.15.0 L1: its static block (the
+   derived look, the scales) carries no colour literal either.
 Run: python -m tests.test_themes_css_drift
 """
 from __future__ import annotations
@@ -23,15 +26,19 @@ from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # no
 
 test, TESTS = new_registry()
 UI = REPO / "halo_harness" / "studio" / "ui" / "src"
-HOLO_BEFORE = {  # styles/tokens.css :root before 3.3.12.0 (Studio's dark, "holo")
+HOLO_COLOURS = {  # holo's variables copied from its tokens, as before 3.3.12.0 (3.3.15.0 L1: the derived ones follow the look)
     "--bg": "#070b14", "--bg-2": "#0b1222", "--surface": "#0e1628", "--surface-2": "#142038",
-    "--surface-glass": "rgba(14, 22, 40, 0.72)", "--line": "rgba(120, 200, 255, 0.16)", "--line-strong": "rgba(120, 200, 255, 0.34)",
-    "--accent": "#39d7ff", "--accent-2": "#7c8cff", "--accent-ink": "#04121c", "--accent-soft": "rgba(57, 215, 255, 0.14)",
-    "--warn": "#ffb347", "--warn-soft": "rgba(255, 179, 71, 0.16)", "--bad": "#ff4d8d", "--bad-soft": "rgba(255, 77, 141, 0.16)",
-    "--ok": "#4ef0a8", "--ok-soft": "rgba(78, 240, 168, 0.14)", "--text": "#dbe7ff", "--muted": "#7d8fb3", "--faint": "#4a5878",
-    "--grid-line": "rgba(120, 200, 255, 0.045)", "--scrim": "rgba(2, 5, 12, 0.62)", "--bracket-alpha": "0.55",
-    "--glow": "0 0 0 1px rgba(57, 215, 255, 0.10), 0 8px 32px rgba(0, 0, 0, 0.45), 0 0 24px rgba(57, 215, 255, 0.06)",
-    "--glow-strong": "0 0 0 1px rgba(57, 215, 255, 0.35), 0 0 28px rgba(57, 215, 255, 0.22)",
+    "--accent": "#39d7ff", "--accent-2": "#7c8cff", "--accent-ink": "#04121c", "--warn": "#ffb347", "--bad": "#ff4d8d",
+    "--ok": "#4ef0a8", "--text": "#dbe7ff", "--muted": "#7d8fb3", "--faint": "#4a5878",
+}
+INSTRUMENT = {  # 3.3.15.0 L1: PROPOSAL.md section 1 (the tokens) and section 2 (what Studio derives from them)
+    "--bg": "#07090c", "--bg-2": "#0b0e12", "--surface": "#0f1318", "--surface-2": "#151a21", "--surface-glass": "#0f1318",
+    "--border": "#232a33", "--line": "#232a33", "--line-soft": "#1a2027", "--line-strong": "#3a414a", "--grid-line": "#20262e",
+    "--text": "#e6edf3", "--muted": "#9aa6b2", "--faint": "#7d8995", "--accent": "#22d3ee", "--accent-2": "#f5a524",
+    "--accent-ink": "#031317", "--ok": "#3dd68c", "--warn": "#f5a524", "--bad": "#ff5c6a", "--user": "#a78bfa", "--tool": "#67e8f9",
+    "--glow": "0 0 0 0 transparent", "--glow-strong": "0 0 0 1px rgba(34, 211, 238, 0.55)",
+    "--accent-soft": "rgba(34, 211, 238, 0.08)", "--warn-soft": "rgba(245, 165, 36, 0.06)", "--ok-soft": "rgba(61, 214, 140, 0.08)",
+    "--bad-soft": "rgba(255, 92, 106, 0.08)", "--shadow-1": "0 16px 40px rgba(0, 0, 0, 0.7)", "--bracket-alpha": "1",
 }
 
 
@@ -81,18 +88,28 @@ def test_one_rule_per_palette_and_the_follow_rules(ctx: Ctx):
         ctx.check(f"{pid}: one rule names it, -daltonized and -ansi", len(base) == 1 and f':root[data-theme="{pid}-ansi"]' in base[0][0]
                   and f':root[data-theme="{pid}-daltonized"]' in base[0][0])
         ctx.check(f"{pid}: one -daltonized override, the accent pair in it", len(dal) == 1 and {"--accent", "--accent-2", "--ok", "--bad"} <= set(dal[0][1]))
+    default = next(r for r in rules if ':root[data-theme="instrument"]' in r[0])
+    ctx.check("instrument (3.3.15.0 L1) is :root and auto too", ":root" in default[0] and ':root[data-theme="auto"]' in default[0])
     holo = next(r for r in rules if ':root[data-theme="holo"]' in r[0])
-    ctx.check("holo is :root and auto too", ":root" in holo[0] and ':root[data-theme="auto"]' in holo[0])
+    ctx.check("holo is neither any more", ":root" not in holo[0] and ':root[data-theme="auto"]' not in holo[0])
     media = m.render().split("@media (prefers-color-scheme: light)")[1]
     ctx.check("paper under a light system", ':root[data-theme="auto"]' in media and "--bg: #f7f3ea;" in media)
 
 
 @test
-def test_holo_draws_as_before(ctx: Ctx):
+def test_holo_keeps_its_colours_and_instrument_is_the_proposal(ctx: Ctx):
     m = _script()
-    holo = next(d for s, d in _rules(m.render()) if ':root[data-theme="holo"]' in s)
-    off = {k: (v, holo.get(k)) for k, v in HOLO_BEFORE.items() if holo.get(k) != v}
-    ctx.check(f"every holo variable as before 3.3.12.0, off: {off}", not off)
+    rules = _rules(m.render())
+    holo = next(d for s, d in rules if ':root[data-theme="holo"]' in s)
+    off = {k: (v, holo.get(k)) for k, v in HOLO_COLOURS.items() if holo.get(k) != v}
+    ctx.check(f"every holo colour as before 3.3.12.0, off: {off}", not off)
+    inst = next(d for s, d in rules if ':root[data-theme="instrument"]' in s)
+    off = {k: (v, inst.get(k)) for k, v in INSTRUMENT.items() if inst.get(k) != v}
+    ctx.check(f"every instrument variable as PROPOSAL.md says, off: {off}", not off)
+    for sels, d in rules:
+        if "color-scheme" in d and d["color-scheme"] == "dark":
+            ctx.check(f"{sels[0]}: solid, no resting glow, a 1 px ring", d["--surface-glass"] == d["--surface"]
+                      and d["--glow"] == "0 0 0 0 transparent" and d["--glow-strong"].startswith("0 0 0 1px rgba("))
 
 
 @test
@@ -101,8 +118,13 @@ def test_colours_live_in_one_place(ctx: Ctx):
              UI / "routes" / "settings" / "Themes.tsx", UI / "routes" / "settings" / "themePage.ts", UI / "styles" / "themes.css"]
     raw = [f"{p.name}: {hit}" for p in files for hit in re.findall(r"#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{3}\b|rgba?\(", p.read_text(encoding="utf-8"))]
     ctx.check(f"no raw colour in the theme files, got {raw}", all(p.is_file() for p in files) and not raw)
-    n = len((UI / "styles" / "tokens.css").read_text(encoding="utf-8").splitlines())
+    css = (UI / "styles" / "tokens.css").read_text(encoding="utf-8")
+    n = len(css.splitlines())
     ctx.check(f"tokens.css under the 250-line cap, got {n}", n <= 250)
+    static = re.sub(r"/\*.*?\*/", "", css.split("/* themes:begin")[0], flags=re.S)
+    raw = re.findall(r"#[0-9a-fA-F]{3,8}\b|rgba?\(", static)
+    ctx.check(f"3.3.15.0 L1: the static block (the derived look, the scales) has no colour literal, got {raw}", not raw
+              and "--grid: radial-gradient(var(--grid-dot)" in static and "--soft-user: color-mix(in srgb, var(--user) 8%" in static)
 
 
 if __name__ == "__main__":

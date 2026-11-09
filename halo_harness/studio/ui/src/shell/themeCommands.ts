@@ -11,7 +11,7 @@ export function themeCommands(): Command[] {
   if (!info) void loadThemes();
   const mod = splitTheme(studio.get().theme)[1];
   const out: Command[] = [
-    { id: "theme-follow", group: "View", label: "Theme: follow the system", hint: "holo on a dark system, paper on a light one",
+    { id: "theme-follow", group: "View", label: "Theme: follow the system", hint: "instrument on a dark system, paper on a light one",
       run: () => void chooseTheme(FOLLOW) },
   ];
   for (const p of info?.palettes || [])

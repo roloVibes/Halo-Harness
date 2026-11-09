@@ -22,10 +22,12 @@ const LIVE = ["queued", "running", "waiting", "paused"];
 function Edges({ boxes, w, h, sel }: { boxes: ReturnType<typeof liveLayout>["boxes"]; w: number; h: number; sel: string }) {
   return (
     <svg className="rlm-edges" width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden="true">
-      {boxes.filter((b) => b.d).map((b) => (
+      {boxes.filter((b) => b.d).map((b) => [
         <path key={b.node.id} className="rlm-edge" d={b.d} data-testid="roles-live-edge" data-from={b.from || undefined} data-to={b.node.id}
-              data-glow={b.node.glow || undefined} data-on={(b.node.key && b.node.key === sel) || undefined} />
-      ))}
+              data-glow={b.node.glow || undefined} data-on={(b.node.key && b.node.key === sel) || undefined} />,
+        // 3.3.15.0 L1 (styles/nodes.css): a working child's edge carries a dash moving toward it
+        b.node.glow === "working" && <path key={b.node.id + "~flow"} className="rlm-edge-flow" d={b.d} />,
+      ])}
     </svg>
   );
 }

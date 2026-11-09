@@ -18,6 +18,8 @@ function StopDialog() {
   const go = () => void stopRun(reason.trim());
   return (
     <Dialog open onClose={closeDialog} title="Stop the run?" kicker={`TEAM · RUN ${run}`} testid="team-stop-dialog"
+            cost={{ does: "skips every stage that is not done; a running member finishes its call first", costs: "nothing more after that call",
+                    writes: "the reason, in the run's log" }}
             footer={<>
               <Button variant="ghost" onClick={closeDialog}>Keep it running</Button>
               <Button variant="danger" disabled={busy} onClick={go} data-testid="team-stop-confirm">Stop the run</Button>

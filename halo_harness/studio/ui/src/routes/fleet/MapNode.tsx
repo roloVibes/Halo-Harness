@@ -23,7 +23,7 @@ import { askShutdown, askStop, openAgentPanel, pin, select, togglePause } from "
 import { askHandoff, record } from "./extras";
 import { usePanels } from "./pstore";
 import { projectLabel, type Card, type NodeBox } from "./layout";
-import { NodeBrackets, TreeNode } from "./MapTreeNode";
+import { TreeNode } from "./MapTreeNode";
 import { SteerChip } from "./MapSteer";
 import { focusSteer } from "./Steer";
 import { agentMotion, DONE_MS, keyOf, sessionMotion, sessionTitle, toolOf, useFleet } from "./store";
@@ -91,8 +91,7 @@ function ListNode({ n, onMenu }: { n: NodeBox; onMenu: (m: MenuAt) => void }) {
        data-hover={hovered || undefined} data-hc={n.hc} transform={`translate(${n.x} ${n.y})`} role="button" tabIndex={0} aria-label={`${name}: ${a.state}`}
        onClick={() => select(key)} onDoubleClick={() => openAgentPanel(key)} onKeyDown={(e) => e.key === "Enter" && openAgentPanel(key)}>
       <title>{`${name}${role ? " (" + role + ")" : ""}: ${a.state}${a.task ? "\n" + a.task : ""}`}</title>
-      {selected && <rect className="fm-ring" x={-4} y={-4} width={n.w + 8} height={n.h + 8} rx={11} />}
-      {selected && <NodeBrackets w={n.w} h={n.h} />}
+      {(selected || hovered) && <rect className="fm-ring" x={-3.5} y={-3.5} width={n.w + 7} height={n.h + 7} rx={6} />}
       <rect className="fm-shape" width={n.w} height={n.h} rx={8} />
       <circle className="fm-dot" cx={12} cy={14} r={4} />
       <text className="fm-name" x={22} y={17}>

@@ -14,6 +14,8 @@ function StopAsk() {
   const close = () => missions.update(() => ({ stopAsk: false }));
   return (
     <Dialog open onClose={close} title="Stop the mission?" kicker="FLEET · MISSION" testid="fleet-mission-stop-ask"
+            cost={{ does: "asks every running part to stop; the parts still waiting are skipped", costs: "nothing more: the running calls end",
+                    writes: "the mission's report: stopped, and your reason" }}
             footer={<><Button onClick={close}>Keep it running</Button><Button variant="danger" onClick={() => void stopIt(reason.trim())} data-testid="fleet-mission-stop-yes">Stop it</Button></>}>
       <p>{goal}</p>
       <p className="muted">Every running part is asked to stop on its harness, parts still waiting are skipped, and the mission ends stopped. What is done stays done; the report keeps your reason.</p>

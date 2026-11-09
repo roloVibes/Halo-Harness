@@ -26,7 +26,7 @@
 .md-models { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
 .md-model {
   display: grid; grid-template-columns: minmax(0, 1fr) auto auto 7ch; gap: 2px 8px; align-items: center;
-  padding: 4px 6px; border-radius: 4px; font-size: 11.5px; animation: og-slide-in var(--t-slow) var(--ease);
+  padding: 4px 6px; border-radius: 4px; font-size: 11.5px;
 }
 .md-model:hover { background: var(--accent-soft); }
 .md-model-file { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -137,7 +137,9 @@ export function ModelActCard() {
   if (!open) return null;
   const { act, host, m } = open;
   return (
-    <Dialog open onClose={closeAct} title={`${TITLES[act]}: ${m.model}`} kicker={`on ${host}`} testid="local-act-card" className="lc-act-dialog">
+    <Dialog open onClose={closeAct} title={`${TITLES[act]}: ${m.model}`} kicker={`on ${host}`} testid="local-act-card" className="lc-act-dialog"
+            cost={act === "delete" ? { does: `deletes ${m.model} from ${host}'s Ollama`, costs: "nothing: no model call; pulling it back is a download",
+                                       writes: `${host}'s model store: its files go, the disk comes back` } : undefined}>
       {act === "show" && <ShowCard host={host} m={m} />}
       {act === "twin" && <TwinCard host={host} m={m} />}
       {(act === "copy" || act === "rename") && <CopyCard host={host} m={m} rename={act === "rename"} />}

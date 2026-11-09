@@ -30,7 +30,7 @@ import { ToolRow } from "./LiveTool";
 import { steerAgent } from "./steer";
 import { WhyButton } from "./Why";
 
-export type Who = { name: string; hc: number; state: string };
+export type Who = { name: string; hc: number; state: string; model?: string }; // 3.3.15.0 L1: model without its provider prefix
 
 /** The KIND column, Fleet's log vocabulary. */
 export const KIND: Record<LiveKind, string> = {
@@ -51,7 +51,7 @@ function Tag({ k, who, onPin }: { k: string; who: Who; onPin: (k: string) => voi
   return (
     <span className="slv-who">
       <button type="button" className="slv-tag mono" data-testid="session-live-tag" data-hc={who.hc} data-state={who.state} data-key={k}
-              onClick={() => onPin(k)} title={`${who.name}: ${who.state || "?"}. Click: show only it (again, or Esc: everyone)`}>
+              onClick={() => onPin(k)} title={`${who.name}${who.model ? " on " + who.model : ""}: ${who.state || "?"}. Click: show only it (again, or Esc: everyone)`} data-model={who.model || undefined}>
         <span className="slv-glyph" aria-hidden="true">{GLYPH[who.state] || "·"}</span>
         <span className="slv-name">{short(who.name, 18)}</span>
       </button>

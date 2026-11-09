@@ -1,13 +1,16 @@
-/* Base: reset, type, the glass surface and HUD brackets, and the UI kit
-   (buttons, kbd, fields, tabs, menu, dialog, toast, empty, skeleton, error). */
+/* Base: reset, type, the panel frame and its corner ticks, and the UI kit
+   (buttons, kbd, fields, tabs, menu, dialog, toast, empty, skeleton, error).
+   3.3.15.0 L1, the Instrument look (docs/design/studio-instrument/PROPOSAL.md
+   section 3): solid surfaces, 1 px hairlines, mono data, no glow and no
+   motion but the four that carry meaning (styles/motion.css). */
 
 *, *::before, *::after { box-sizing: border-box; }
 [hidden] { display: none !important; }
 html, body, #root { height: 100%; margin: 0; }
 body {
-  font: var(--fs)/1.45 var(--sans);
+  font: var(--fs)/1.54 var(--sans); /* 20 px at 13 px; smaller text keeps its own proportion */
   color: var(--text);
-  background: radial-gradient(1200px 600px at 70% -10%, var(--accent-soft), transparent 60%), var(--bg);
+  background: var(--bg);
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
 }
@@ -15,142 +18,153 @@ button, input, select, textarea { font: inherit; color: inherit; }
 a { color: var(--accent); }
 .mono, code, kbd { font-family: var(--mono); }
 .muted { color: var(--muted); }
-:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
-::selection { background: var(--accent-soft); }
+:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; border-radius: var(--r-control); }
+::selection { background: color-mix(in srgb, var(--accent) 30%, transparent); }
 * { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
 
-/* -- glass + brackets ------------------------------------------------------ */
+/* -- the panel frame: solid, a hairline, four corner ticks (10 x 1 px at the top left and the bottom right) -- */
 .glass {
+  --tick: var(--accent);
   position: relative;
-  background: var(--surface-glass);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
+  background-color: var(--glass);
+  background-image: linear-gradient(var(--tick), var(--tick)), linear-gradient(var(--tick), var(--tick)),
+    linear-gradient(var(--tick), var(--tick)), linear-gradient(var(--tick), var(--tick));
+  background-size: 10px 1px, 1px 10px, 10px 1px, 1px 10px;
+  background-position: 0 0, 0 0, 100% 100%, 100% 100%;
+  background-repeat: no-repeat;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-panel);
   box-shadow: var(--glow);
-  backdrop-filter: blur(var(--blur));
 }
-.hud-brackets { position: absolute; inset: -1px; pointer-events: none; opacity: var(--bracket-alpha); border-radius: inherit; }
-.hud-brackets::before, .hud-brackets::after {
-  content: ""; position: absolute; width: 12px; height: 12px; border: 1.5px solid var(--accent);
-}
-.hud-brackets::before { top: 0; left: 0; border-right: 0; border-bottom: 0; border-top-left-radius: var(--radius); }
-.hud-brackets::after { right: 0; bottom: 0; border-left: 0; border-top: 0; border-bottom-right-radius: var(--radius); }
+/* the selected panel (keyboard focus inside it, or the one you are on): its ticks go from the accent to the text;
+   a static Surface (a dialog, the palette, the inspector) keeps its accent ticks */
+.surface > .hud-brackets { display: none; }
+.hud-brackets { position: absolute; inset: 0; pointer-events: none; z-index: 1; opacity: var(--bracket-alpha); border-radius: inherit;
+  background: linear-gradient(var(--text), var(--text)) 0 0 / 10px 1px no-repeat, linear-gradient(var(--text), var(--text)) 0 0 / 1px 10px no-repeat,
+    linear-gradient(var(--text), var(--text)) 100% 100% / 10px 1px no-repeat, linear-gradient(var(--text), var(--text)) 100% 100% / 1px 10px no-repeat; }
 
-/* -- buttons ----------------------------------------------------------------- */
+/* -- buttons: 30 px, mono, a hairline; on = the accent; one primary per screen at most -- */
 .btn {
-  display: inline-flex; align-items: center; gap: 8px; border-radius: var(--radius-sm);
-  border: 1px solid var(--line-strong); background: var(--surface-2); color: var(--text);
-  cursor: pointer; white-space: nowrap;
-  transition: background var(--t) var(--ease), border-color var(--t) var(--ease), box-shadow var(--t) var(--ease), transform var(--t) var(--ease);
+  display: inline-flex; align-items: center; gap: 8px; border-radius: var(--r-control);
+  border: 1px solid var(--line); background: var(--surface); color: var(--text);
+  font: 500 12px/1 var(--mono); cursor: pointer; white-space: nowrap;
 }
-.btn:hover:not(:disabled) { border-color: var(--accent); box-shadow: var(--glow-strong); }
-.btn:active:not(:disabled) { transform: translateY(1px); }
-.btn:disabled { opacity: .45; cursor: default; }
-.btn-sm { height: 28px; padding: 0 10px; font-size: 12.5px; }
-.btn-md { height: 34px; padding: 0 14px; }
-.btn-lg { height: 44px; padding: 0 20px; font-size: 15px; font-weight: 600; }
+.btn:hover:not(:disabled) { background: var(--surface-2); border-color: var(--line-strong); }
+.btn:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
+.btn.on, .btn[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: var(--soft-accent); }
+.btn:disabled { opacity: .4; cursor: default; }
+.btn-sm { height: 26px; padding: 0 8px; font-size: 11.5px; }
+.btn-md { height: 30px; padding: 0 10px; }
+.btn-lg { height: 36px; padding: 0 16px; font-size: 13px; font-weight: 600; }
 .btn-primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; font-weight: 600; }
-.btn-primary:hover:not(:disabled) { filter: brightness(1.08); }
-.btn-primary .kbd { background: rgba(0, 0, 0, .18); color: inherit; border-color: transparent; }
-.btn-ghost { background: transparent; border-color: var(--line); }
-.btn-danger { color: var(--bad); border-color: var(--bad); background: var(--bad-soft); }
+.btn-primary:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 88%, var(--text)); border-color: transparent; }
+.btn-primary .kbd { border-color: color-mix(in srgb, var(--accent-ink) 30%, transparent); color: var(--accent-ink); }
+.btn-ghost { background: transparent; border-color: transparent; color: var(--muted); }
+.btn-ghost:hover:not(:disabled) { color: var(--text); }
+.btn-danger { color: var(--bad); }
+.btn-busy { font-variant-numeric: tabular-nums; color: var(--muted); }
 .icon-btn {
   display: inline-grid; place-items: center; width: 26px; height: 26px; padding: 0;
-  border: 1px solid transparent; border-radius: var(--radius-sm); background: transparent; color: var(--muted); cursor: pointer;
-  transition: color var(--t) var(--ease), background var(--t) var(--ease), border-color var(--t) var(--ease);
+  border: 1px solid transparent; border-radius: var(--r-control); background: transparent; color: var(--muted); cursor: pointer;
 }
-.icon-btn-lg { width: 34px; height: 34px; }
-.icon-btn:hover, .icon-btn[aria-pressed="true"] { color: var(--accent); background: var(--accent-soft); border-color: var(--line); }
+.icon-btn-lg { width: 30px; height: 30px; }
+.icon-btn:hover { color: var(--text); background: var(--surface-2); }
+.icon-btn[aria-pressed="true"], .icon-btn[aria-expanded="true"] { color: var(--accent); border-color: var(--accent); background: var(--soft-accent); }
 .icon { flex: none; display: block; }
 
-/* -- kbd ------------------------------------------------------------------- */
+/* -- kbd: 16 px, mono 10.5 px, a hairline -- */
 .kbd-group { display: inline-flex; gap: 3px; vertical-align: middle; }
 .kbd {
-  display: inline-block; min-width: 18px; padding: 0 5px; height: 18px; line-height: 17px; text-align: center;
-  font-size: 10.5px; color: var(--muted); background: var(--bg-2); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px;
+  display: inline-block; min-width: 16px; padding: 0 5px; height: 16px; line-height: 14px; text-align: center;
+  font-size: 10.5px; color: var(--muted); background: transparent; border: 1px solid var(--line); border-radius: var(--r-chip);
 }
 
-/* -- fields ---------------------------------------------------------------- */
+/* -- fields: 30 px, the page's ground, a leading glyph on a text input -- */
 .field { display: grid; gap: 4px; }
-.field-label { font-size: 10.5px; letter-spacing: .08em; color: var(--muted); }
+.field-label { font-size: 10.5px; line-height: 14px; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); }
 .field-hint { font-size: 12px; color: var(--muted); }
 .field-error { font-size: 12px; color: var(--bad); }
+.field-control { position: relative; display: grid; }
+.field-control:has(> input.input:not([type]), > input.input[type="text"], > input.input[type="search"])::before {
+  content: "\203A"; position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font: 12px var(--mono); color: var(--faint); pointer-events: none; }
+.field-control:has(> input.input:focus)::before { color: var(--accent); }
+.field-control > input.input:not([type]), .field-control > input.input[type="text"], .field-control > input.input[type="search"] { padding-left: 24px; }
+.field-bad .input { border-color: var(--bad); }
 .input {
-  height: 32px; padding: 0 10px; border-radius: var(--radius-sm); border: 1px solid var(--line-strong);
-  background: var(--bg-2); color: var(--text); width: 100%;
+  height: 30px; padding: 0 10px; border-radius: var(--r-control); border: 1px solid var(--line);
+  background: var(--bg); color: var(--text); width: 100%; font-size: 12px;
 }
-.input:focus { outline: none; border-color: var(--accent); box-shadow: var(--glow-strong); }
+.input:focus { outline: none; border-color: var(--accent); }
 .check { display: flex; align-items: center; gap: 8px; cursor: pointer; }
 .check input { accent-color: var(--accent); }
-.segmented { display: inline-flex; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); overflow: hidden; }
-.segmented button { border: 0; background: transparent; padding: 6px 14px; cursor: pointer; color: var(--muted); }
-.segmented button.on { background: var(--accent-soft); color: var(--accent); }
+.segmented { display: inline-flex; border: 1px solid var(--line); border-radius: var(--r-control); overflow: hidden; }
+.segmented button { border: 0; background: transparent; padding: 0 12px; height: 26px; cursor: pointer; color: var(--muted); font: 500 11.5px var(--mono); }
+.segmented button + button { border-left: 1px solid var(--line); }
+.segmented button.on { background: var(--soft-accent); color: var(--accent); }
 .badge {
-  font: 10px/16px var(--mono); padding: 0 6px; border-radius: 99px; color: var(--muted);
+  font: 10px/16px var(--mono); padding: 0 6px; border-radius: var(--r-chip); color: var(--muted);
   border: 1px solid var(--line); text-transform: uppercase; letter-spacing: .06em;
 }
 
-/* -- tabs (sliding indicator) ------------------------------------------- */
-.tabs { position: relative; display: flex; gap: 2px; padding: 3px; border-radius: var(--radius); background: var(--bg-2); border: 1px solid var(--line); }
+/* -- tabs: 36 px, mono caps; the selected one the accent with a 1 px underline; no sliding -- */
+.tabs { position: relative; display: flex; gap: 0; padding: 0; border-bottom: 1px solid var(--line-soft); background: transparent; }
 .tab {
-  position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 14px;
-  border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--muted); cursor: pointer; font-weight: 500;
-  overflow: hidden; transition: color var(--t) var(--ease);
+  position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px;
+  border: 0; background: transparent; color: var(--faint); cursor: pointer; font: 500 11px var(--mono); letter-spacing: .08em; text-transform: uppercase;
 }
 .tab:hover { color: var(--text); }
-.tab.on { color: var(--text); }
+.tab.on { color: var(--accent); background: var(--bg); }
 .tab-kbd { opacity: .7; }
-.tab-indicator {
-  position: absolute; z-index: 0; top: 3px; left: 0; height: 32px; border-radius: var(--radius-sm);
-  background: var(--accent-soft); border: 1px solid var(--line-strong); box-shadow: inset 0 -2px 0 var(--accent);
-  transition: transform var(--t-slow) var(--ease), width var(--t-slow) var(--ease);
-}
+.tab-indicator { position: absolute; z-index: 2; bottom: -1px; left: 0; height: 1px; background: var(--accent); }
 
-/* -- menu ---------------------------------------------------------------------- */
+/* -- menu: a surface, a lifted hairline, the one shadow level -- */
 .menu-wrap { position: relative; }
-.menu { position: absolute; right: 0; top: calc(100% + 6px); min-width: 200px; padding: 6px; z-index: 60; display: grid; gap: 2px; animation: rise var(--t) var(--ease); }
-.menu-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 0; border-radius: var(--radius-sm); background: transparent; cursor: pointer; text-align: left; }
-.menu-item:hover { background: var(--accent-soft); }
+.menu { position: absolute; right: 0; top: calc(100% + 6px); min-width: 200px; padding: 4px; z-index: 60; display: grid; gap: 1px;
+  border-color: var(--line-strong); box-shadow: var(--shadow-1); background-image: none; }
+.menu-item { display: flex; align-items: center; gap: 10px; min-height: 32px; padding: 6px 10px; border: 0; border-radius: var(--r-control); background: transparent; cursor: pointer; text-align: left; }
+.menu-item:hover, .menu-item:focus-visible { background: var(--surface-2); outline: none; }
 .menu-item.on { color: var(--accent); }
 
-/* -- dialog / scrim ------------------------------------------------------- */
-.scrim { position: fixed; inset: 0; z-index: 80; background: var(--scrim); display: grid; place-items: center; animation: fade var(--t) var(--ease); }
-.scrim-top { place-items: start center; padding-top: 12vh; }
-.dialog { width: min(560px, calc(100vw - 32px)); animation: rise var(--t-slow) var(--ease); }
-.dialog-surface { padding: 0; }
-.dialog-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--line); }
-.dialog-title { margin: 0; font-size: 15px; }
+/* -- dialog / scrim: 480 px, the frame with its ticks, the one shadow level -- */
+.scrim { position: fixed; inset: 0; z-index: 80; background: var(--scrim); display: grid; place-items: center; }
+.scrim-top { place-items: start center; padding-top: 60px; }
+.dialog { width: min(480px, calc(100vw - 32px)); }
+.dialog-surface { padding: 0; box-shadow: var(--shadow-1); }
+.dialog-head { display: flex; align-items: center; justify-content: space-between; min-height: 40px; padding: 8px 8px 8px 16px; border-bottom: 1px solid var(--line-soft); }
+.dialog-title { margin: 0; font: var(--t-title); letter-spacing: .04em; } /* mono, not caps: a title often names a file or a pack, whose case matters */
 .dialog-body { padding: 16px; }
-.dialog-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--line); }
+.dialog-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--line-soft); }
 
-/* -- toasts ---------------------------------------------------------------- */
-/* 3.3.5.0 R0 (h): top right under the header on every section, never over a page's foot (Setup's Back / Next) */
+/* -- toasts: top right under the header (3.3.5.0 R0 (h): never over a page's foot), 300 px -- */
 .toasts { position: fixed; right: 16px; top: calc(var(--topbar-h) + 8px); z-index: 90; display: grid; gap: 8px; justify-items: end; pointer-events: none; }
 .toast {
-  position: relative; overflow: hidden; display: flex; align-items: center; gap: 10px; padding: 10px 14px; max-width: 420px;
-  background: var(--surface-glass); border: 1px solid var(--line-strong); border-radius: var(--radius); box-shadow: var(--glow);
-  backdrop-filter: blur(var(--blur)); animation: rise var(--t-slow) var(--ease);
+  position: relative; display: flex; align-items: center; gap: 10px; padding: 8px 12px; width: 300px; max-width: calc(100vw - 32px);
+  background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-card); box-shadow: var(--shadow-1);
+  font: 12px/18px var(--mono); pointer-events: none; /* clicks pass through to the page; only the ✕ takes one */
 }
-.toast-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex: none; }
+.toast-dot { width: 7px; height: 7px; border-radius: 1px; background: var(--accent); flex: none; }
 .toast-done .toast-dot { background: var(--ok); }
 .toast-error .toast-dot { background: var(--bad); }
+.toast-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.toast .icon-btn { pointer-events: auto; }
 
 /* -- a long list, a window at a time (lib/ui/WindowedRows, 3.3.5.0 R0) -- */
 .wrows-chunk { display: grid; gap: inherit; content-visibility: auto; contain-intrinsic-size: auto 2400px; }
 
-/* -- empty / skeleton / error ------------------------------------------ */
-.empty { display: grid; justify-items: center; align-content: center; gap: 10px; text-align: center; padding: 24px; height: 100%; }
-.empty-title { font-size: 18px; font-weight: 600; }
-.empty-body { max-width: 52ch; color: var(--muted); }
-.empty-action { margin-top: 8px; }
-.skeleton { display: grid; gap: 8px; }
-.skeleton-bar { display: block; border-radius: 4px; background: linear-gradient(90deg, var(--surface-2), var(--line), var(--surface-2)); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
-.error-state { display: grid; gap: 8px; padding: 14px; border-radius: var(--radius-sm); border: 1px solid var(--bad); background: var(--bad-soft); }
-.error-title { font-weight: 600; color: var(--bad); }
+/* -- empty / skeleton / error: one line and one button; one line in bad and a path -- */
+.empty { display: grid; justify-items: center; align-content: center; gap: 8px; text-align: center; padding: 24px; height: 100%; }
+.empty-title { font-size: 13px; font-weight: 500; color: var(--muted); }
+.empty-body { max-width: 52ch; color: var(--muted); font-size: 12px; }
+.empty-action { margin-top: 4px; }
+.skeleton { display: grid; gap: 8px; opacity: 0; animation: skel-show 0s linear 300ms forwards; } /* appears after 300 ms of waiting */
+.skeleton-bar { display: block; border-radius: var(--r-chip); background: var(--surface-2); }
+.error-state { display: grid; gap: 6px; padding: 10px 12px; border-radius: var(--r-control); border: 1px solid color-mix(in srgb, var(--bad) 55%, var(--line)); background: var(--soft-bad); }
+.error-title { color: var(--bad); }
 .error-problems { margin: 0; padding-left: 18px; font-size: 12px; }
 
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-@keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@keyframes skel-show { to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0ms !important; animation-iteration-count: 1 !important; transition-duration: 0ms !important; scroll-behavior: auto !important; }
 }

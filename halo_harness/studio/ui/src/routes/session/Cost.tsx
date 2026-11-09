@@ -33,6 +33,7 @@ import { chosenSession } from "./store";
 import { EffortMenu } from "./EffortMenu"; // 3.3.5.0 R0b (c): the effort control
 import { CompositionBar } from "./CostComposition"; // 3.3.5.0 R4: what the last request was made of
 import { LoadingTax } from "./LoadingTax"; // 3.3.7.0 R3 (G5): the loads and their seconds, beside the dollars
+import { shortModel } from "../../lib/modelName";
 
 /** 45s, 12m 03s, 2h 05m since a unix time in seconds. */
 function since(ts: number | null | undefined, now: number): string {
@@ -43,7 +44,7 @@ function since(ts: number | null | undefined, now: number): string {
   return `${Math.floor(s / 3600)}h ${String(Math.floor((s % 3600) / 60)).padStart(2, "0")}m`;
 }
 
-const modelName = (m: string | null | undefined) => String(m || "").replace(/^[a-z]+:/, "").split("/").pop() || "-";
+const modelName = (m: string | null | undefined) => shortModel(m) || "-"; // 3.3.15.0 L1: one rule for the prefix (lib/modelName.ts)
 
 /** The session's user turns (the terminal's turn count), never an agent's model calls. */
 function turnsOf(ss: SessionRow): number | null {

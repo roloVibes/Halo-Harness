@@ -8,9 +8,17 @@
 // a green that fades, failed a red that stays. 3.1.7.0 R1: the "steer" chip
 // shows on hover (MapSteer.tsx): pin it in Live and steer it there.
 // 3.3.0.0 R6: the Steer box's target carries `data-target` (a steady outline,
-// its steer chip lit) while Session shows.
+// its steer chip lit) while Session shows. 3.3.15.0 L1, the Instrument look
+// (styles/nodes.css): a 2 px rule across the top in the state colour, a state
+// square, the model without its provider prefix (lib/modelName.ts; the full id
+// in the tooltip and the Agent panel), a 1 px outline at 3 px when selected or
+// hovered elsewhere (a Live line), a node that appears after the page drew
+// fades in once (`data-born`), and a failed one keeps its red until clicked
+// (`data-ack` after the click).
 import { useEffect, type MouseEvent } from "react";
 import { useRecent } from "../../lib/motion";
+import { ackFailed, failedAcked, useBorn } from "../../lib/motion/born";
+import { shortModel } from "../../lib/modelName";
 import { Icon, toolIcon } from "../../lib/ui";
 import { cost, short } from "../orchestra/format";
 import { startLive, useOpenTool } from "../shared/liveFeed";
@@ -23,7 +31,6 @@ import { agentMotion, DONE_MS, toolOf, useFleet, useNow } from "./store";
 import type { AgentRow, Activity } from "./types";
 
 const fit = (text: string, px: number) => short(text, Math.max(4, Math.floor(px / 6.4)));
-const modelOf = (m: string | null | undefined) => String(m || "").replace(/^[a-z]+:/, "").split("/").pop() || "";
 
 /** "Bash 12s" while a tool runs (its start seen on the feed), "Bash" when only the row says so, "" when none. */
 export function useToolClock(key: string, a: AgentRow, act: Activity | undefined): { tool: string; text: string; secs: number | null } {
@@ -36,16 +43,6 @@ export function useToolClock(key: string, a: AgentRow, act: Activity | undefined
   const secs = open ? Math.max(0, Math.round((now - open.t0) / 1000)) : null;
   const clock = secs == null ? "" : secs < 60 ? ` ${secs}s` : ` ${Math.floor(secs / 60)}m ${String(secs % 60).padStart(2, "0")}s`;
   return { tool, text: tool + clock, secs };
-}
-
-/** The HUD corner brackets around a node (the selected one). */
-export function NodeBrackets({ w, h }: { w: number; h: number }) {
-  const c = 9, o = 5;
-  const x0 = -o, y0 = -o, x1 = w + o, y1 = h + o;
-  return (
-    <path className="fm-brackets" aria-hidden="true"
-          d={`M${x0} ${y0 + c} V${y0} H${x0 + c} M${x1 - c} ${y0} H${x1} V${y0 + c} M${x1} ${y1 - c} V${y1} H${x1 - c} M${x0 + c} ${y1} H${x0} V${y1 - c}`} />
-  );
 }
 
 export function TreeNode({ n, onMenu, menuOf }: { n: NodeBox; onMenu: (m: MenuAt) => void; menuOf: (e: MouseEvent, key: string) => MenuAt }) {
@@ -62,17 +59,22 @@ export function TreeNode({ n, onMenu, menuOf }: { n: NodeBox; onMenu: (m: MenuAt
   const name = a.name || a.role || a.agent_id;
   const role = a.role && a.role !== name ? a.role : a.bio && a.bio !== name ? a.bio : "";
   const parent = (n.ref.s.agents || []).find((x) => x.agent_id === a.parent);
-  const model = modelOf(a.model);
+  const model = shortModel(a.model);
   const pillW = Math.min(n.w - 74, Math.max(40, model.length * 5.9 + 14));
+  const [born, grown] = useBorn();
+  const failed = a.state === "failed";
+  const pick = () => (failed && ackFailed(key), pickNode(key));
   return (
     <g className="fm-node" data-testid="fleet-node" data-tree="" data-key={key} data-state={a.state || "none"} data-motion={agentMotion(a, doneAt)} data-selected={selected || undefined} data-target={target || undefined}
-       data-hover={hovered || undefined} data-parent={a.parent || undefined} data-hc={n.hc} transform={`translate(${n.x} ${n.y})`} role="button" tabIndex={0}
-       aria-label={`${name}: ${a.state}`} onClick={() => pickNode(key)} onDoubleClick={() => openAgentPanel(key)} onKeyDown={(e) => e.key === "Enter" && openAgentPanel(key)}>
+       data-hover={hovered || undefined} data-parent={a.parent || undefined} data-hc={n.hc} data-born={born || undefined} data-ack={(failed && failedAcked(key)) || undefined}
+       transform={`translate(${n.x} ${n.y})`} role="button" tabIndex={0} onAnimationEnd={(e) => e.target === e.currentTarget && grown()}
+       aria-label={`${name}: ${a.state}`} onClick={pick} onDoubleClick={() => openAgentPanel(key)} onKeyDown={(e) => e.key === "Enter" && openAgentPanel(key)}>
       <title>{`${name}${role ? " (" + role + ")" : ""}: ${a.state}${parent ? "\nspawned by " + (parent.name || parent.role || parent.agent_id) : ""}${a.model ? "\non " + a.model : ""}${a.task ? "\n" + a.task : ""}`}</title>
-      {selected && <NodeBrackets w={n.w} h={n.h} />}
+      {(selected || hovered) && <rect className="fm-ring" data-testid="fleet-node-outline" x={-3.5} y={-3.5} width={n.w + 7} height={n.h + 7} rx={6} />}
       {target && <rect className="fm-target" data-testid="fleet-node-target" x={-3} y={-3} width={n.w + 6} height={n.h + 6} rx={10} />}
-      <rect className="fm-shape" width={n.w} height={n.h} rx={8} />
-      <circle className="fm-dot" cx={12} cy={13} r={4} />
+      <rect className="fm-shape" width={n.w} height={n.h} rx={4} />
+      <rect className="fm-rule" width={n.w} height={2} aria-hidden="true" />
+      <rect className="fm-dot" x={9} y={10} width={7} height={7} rx={1} />
       <text className="fm-name" x={22} y={17}>
         {fit(name, n.w - 52 - (role ? 40 : 0))}
         {role && <tspan className="fm-role">{" · " + fit(role, 40)}</tspan>}

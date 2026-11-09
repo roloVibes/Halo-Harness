@@ -4662,3 +4662,83 @@ HF_TOKEN; with `Read(.env)` denied a PowerShell `Get-Content .env` is denied "a 
 path"; an untrusted repo's bio with `secrets:` shows "not applied: this folder is not trusted yet" in the run report;
 `--lan` on TensorFold says "behind Halo's key (it refused a request without the key (401))". Next: the 3.3.14.0 release on
 green both, the PC reinstall, then L1 the Instrument look.**
+
+## ADDED 2026-11-09 midday (rolo: "Copilot has a Microsoft Graph API ... go to your work's Copilot ... use that as another
+kind of provider ... put that in the orchestration ... some of these Copilots have more access and work than your other
+models ... control it all via the Halo harness ... research and test it"; order: "put that before federation"): 3.3.17.0
+"Copilot at work"
+
+**What the research found (2026-11-09, learn.microsoft.com).** Two doors, one user identity:
+- **Work IQ API (GA since 2026-06-16, the production successor of the Copilot Chat API):** REST, A2A and MCP over
+  Microsoft 365 data (mail, meetings, OneDrive/SharePoint documents, Teams messages, people, Planner, enterprise search),
+  permission-trimmed; A2A at `POST https://workiq.svc.cloud.microsoft/a2a/` (JSON-RPC `SendMessage`, `A2A-Version: 1.0`,
+  multi-turn by `contextId`, a `Location` time zone in metadata), a remote MCP server and a local one (`workiq mcp`, the
+  Work IQ CLI); Entra ID DELEGATED auth only (the signed-in user; on-behalf-of supported; application-only not supported);
+  billed by Copilot Credits on consumption, independent of a Copilot seat (an admin enables consumptive billing first).
+- **Microsoft 365 Copilot Chat API (Graph `/beta`, preview, "not supported in production"):** `POST
+  https://graph.microsoft.com/beta/copilot/conversations` then `POST .../conversations/{id}/chat` (`message.text`,
+  `locationHint.timeZone` required, `additionalContext` text grounding, `contextualResources.files[].uri` for
+  OneDrive/SharePoint files, `webContext.isWebEnabled`), `chatOverStream` for streaming; the answer carries `messages[]`
+  with `text`, `attributions` (citations with `seeMoreWebUrl`), `sensitivityLabel`, `adaptiveCards`; needs ALL of
+  `Sites.Read.All Mail.Read People.Read.All OnlineMeetingTranscript.Read.All Chat.Read ChannelMessage.Read.All
+  ExternalItem.Read.All` delegated and a Microsoft 365 Copilot licence per user; global cloud only; throttling unpublished.
+- Neither door is a token-priced model: no tool calls out, no model choice, a conversation with an agent that already
+  holds the user's work. The cost meter shows credits / "covered by the licence", never $0 (the 3.3.3.1 rule).
+
+**The design.** A provider `copilot` with one ref `cp:work` ("your work's Copilot"), built on `providers/http.py` like
+every other adapter (no MSAL, no litellm): R1 **the door** -- the sign-in is the browser (rolo 2026-11-09: "you'll have to pop up a
+browser to log in and other authentication steps"): the OAuth authorization-code flow with PKCE on the user's tenant
+with the user's own app registration (tenant id + client id in config; redirect `http://localhost:<port>`, which Entra
+allows for a public client on any port), Halo opens the Microsoft sign-in page -- MFA, conditional access and consent
+happen there -- and listens once on a 127.0.0.1 loopback port for the redirect, exchanges the code, and says who is
+signed in; Studio's Setup -> Providers "Sign in" button does the same from the page; device code
+(`oauth2/v2.0/devicecode`, the code shown in the terminal or Studio) is the fallback for a box with no browser (SSH,
+a headless Kali); the refresh token goes to the env file as `HALO_SECRET_COPILOT_REFRESH`, access tokens stay in
+memory, `halo copilot signout` forgets both; `halo doctor` says signed in as whom, until when, the adapter
+over both transports (`copilot.api: workiq` default, `graph-beta` the fallback; one conversation per Halo session,
+`contextId` / conversation id kept per session), `halo copilot ask "..." [--file <sharepoint url>] [--no-web]`, the
+attributions as the session's citations, a mock Entra + Work IQ + Graph server in tests (device code, refresh, A2A
+JSON-RPC, the beta conversations, a 401 and a 429); R2 **in the harness** -- `cp:work` in the catalog with `takes: text,
+files (OneDrive/SharePoint), web; tools: no` (so Auto never hands it a tool-calling role), a `copilot_ask` tool every
+lineup can give a role (the prompt, optional files, the answer with its citations into the transcript), Auto's strengths
+"research over your work data", the cost meter line, Setup -> Providers' Copilot card (tenant, app id, Sign in, the
+status, the scopes an admin must consent to), a doctor row (signed in / token expired / consent missing / billing not
+enabled, each with the one next step), docs; R3 (if R1 shows it is the better path) **the MCP door** -- Work IQ's remote
+or local MCP registered through `halo mcp add` so the search tools come as tools, beside the chat. Testing: the mock
+server covers everything but the live tenant; rolo's live check is the device-code sign-in with his work account, one
+`halo copilot ask` about his calendar, one with a SharePoint file, one from a lineup role; nothing in this repo ever holds
+his tenant, app id or a token (`pretend-tenant` in tests and docs). Open before R1: the exact Work IQ delegated scope
+names and whether rolo's tenant has consumptive billing on (he used the Graph API with tests before, so the beta door
+may be the one that works first).
+
+**The order after 3.3.15.0 (rolo 2026-11-09):** 3.3.16.0 Agents (R1 the inspector says one thing at a time + the Agents
+section, R2 the Fleet fold) -> 3.3.17.0 Copilot at work -> 3.3.18.0 Federation -> Pack trust -> the remaining Focus
+rounds -> mode themes (#5) + the parity audit.
+
+**3.3.15.0 L1 "Instrument, the look" BUILT and MERGED 2026-11-09 afternoon (one Opus round, worktree
+~/hh-3315/L1-instrument, brief ~/hh-3315/briefs/v3315-L1-instrument-brief.md, hand-back v3315-L1-handback.md; branch
+commit c6fb17f8):** the `instrument` palette is Studio's dark default (holo stays; paper the light default; the terminal
+default unchanged; eleven palettes everywhere), the derived block per posture from studio_css.py (solid surfaces, 1 px
+ring, hairlines from `border`, --border / --line-soft / --shadow-1 / --user / --tool, the dot grid on map canvases), the
+shell per §3 (rail 52 -> 176 px per browser, header 48, status bar 26, inspector 344, palette 560; no key, order or
+testid change), lib/ui per §3 (corner ticks, Surface faces, DialogCost's DOES / COSTS / WRITES on fourteen confirmations),
+map nodes and edges per §3 on the Session Map, Roles Live and the Fleet Tree with the model id without its provider
+prefix (lib/modelName.ts), motion per §5 only (lib/motion/born.ts; reduced motion = instant swaps). Brief over mock-up:
+rail order unchanged, no rail shortcuts / connection square, toasts under the header, Session opens on Live with strips,
+no Alt+[, mono dialog titles in their own case. Not done (no caller): the Button busy timer, WindowedRows / HudCell bars;
+sections' own chrome takes the tokens only. Coordinator: the dist rebuilt on the merge (the worker's last spacing tweaks
+had not been rebuilt); test_tui's shadow-hook rewind test is red only inside a git worktree (a `.git` file), green on a
+plain checkout -- noted, not a product change. For rolo: Session near-black with hairlines and cyan corner ticks; the
+rail chevron opens to 176 px and a reload keeps it; Roles -> Apply shows DOES / COSTS / WRITES; nodes read `qwen3-coder`
+not `or:qwen/qwen3-coder` (the Inspector keeps the full id); Shift+F hides rail, inspector and status bar.**
+
+**The Agents fold, decided 2026-11-09 afternoon (rolo: "what does teams even give us? ... roles and orchestration are
+almost the same ... all rolled into the new agents"):** 3.3.16.0 "Agents" is ONE section with three views -- Cast (the
+lineup and bios: today's Roles canvas), Runs (Orchestra: a goal -> the lead's plan -> parallel worktrees -> merge -> tests
+-> report + coach; saved workflows; fleet missions; drawn on the same tree Live uses) and Live -- with the inspector
+saying one thing at a time (a plain-words summary first; one block per page when editing; "what this does" and "not set
+= Halo does ..." per block; explainers in `?`; text boxes sized to their text). Orchestra and Team go as SECTIONS: the
+engine stays as "Run a goal" in Agents; Team's claim ledger becomes a run-plan detail ("coder A owns src/api"); the
+Team board goes; `?mode=team` and `?mode=orchestra` land on Agents. R2 of the same version is the Fleet fold (a
+machine's agents in Agents, its models in Local). The shell after: Session, Agents, Local, Packs, Setup, Settings (+
+Design when its pack is on) -- the six-section shell the Instrument look was drawn for.**

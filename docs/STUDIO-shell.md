@@ -116,12 +116,14 @@ The classic plain-JS page (`/legacy/`, `halo studio --legacy`) is gone since
   dialog (the first-visit welcome and its `halo.studio.seen.<section>` keys
   are gone). The one exception is **Start here** on a fresh home, over the
   section the page opened on, once per browser (below).
-- **The rail** (left, 3.3.2.0) is an icon rail, 56 px: one icon per
-  section, its title as the tooltip, the current one lit, a dot on Session
+- **The rail** (left, 3.3.2.0) is an icon rail, 52 px (3.3.15.0; 56 px
+  before): one 40 x 40 icon per
+  section, its title as the tooltip, the current one in the accent with a
+  2 px bar at its left edge, a square on Session
   while a session is live, the number of agents at work on Fleet, the packs'
   own sections under a thin divider with the diamond. The rows print no key:
   `Alt+N` is in the palette's **Go to** and in **How this works**. The
-  chevron at its foot expands it to 200 px (remembered per browser,
+  chevron at its foot expands it to 176 px (3.3.15.0; 200 px before; remembered per browser,
   `halo.studio.rail`; `?rail=open` expands it for one page): each section's
   title beside its icon, and nothing else (3.3.2.0 R2: the rail holds the
   sections only, collapsed or expanded). The panels are the header's **+**,
@@ -131,7 +133,7 @@ The classic plain-JS page (`/legacy/`, `halo studio --legacy`) is gone since
   with its inline answer, the "While you were away" card) is Fleet's
   optional **Tree** panel, added with the **+**. While that card waits, the
   Fleet icon carries an amber dot; a click on it opens Fleet on its Tree.
-- **The inspector asks first** (3.3.2.0). The 340 px column on the right is
+- **The inspector asks first** (3.3.2.0). The 344 px column on the right (340 before 3.3.15.0) is
   closed until something opens it: a panel's **Settings**, an artboard's knobs
   (the design pack's). Its close button (or `Esc`) gives the width back to the
   stage; open or closed is remembered per browser (`halo.studio.inspector`),
@@ -145,48 +147,60 @@ The classic plain-JS page (`/legacy/`, `halo studio --legacy`) is gone since
 - **Density** (3.3.2.0): the header's rows button beside the theme (or
   the palette's **Density: compact** / **Density: comfortable**) switches
   two token sets in `ui/src/styles/tokens.css`: compact has tighter spacing
-  (a 30 px title line, 9 px inside a panel, 2 px between panels, a 46 px
-  header) and a type scale one step smaller; the colours stay. Remembered
+  (a 32 px title line, 9 px inside a panel, 2 px between panels, a 42 px
+  header; comfortable since 3.3.15.0: 40 px, 12 px, 12 px, 48 px) and a type scale one step smaller; the colours stay. Remembered
   per browser (`halo.studio.density`), `data-density` on `<html>`.
 - **The palette** (`Ctrl`/`Cmd`+`K`): a mono prompt with fuzzy matching and
   grouped results (Go to, Help, then the sections in the tab order: Team, Roles,
   Fleet, Orchestra; then Media, View, Layout, then each pack's group), keyboard first: arrows,
   `Enter`, `Esc`. Every shortcut is shown next to its command.
-- **The status bar** shows the live feed (a dot that is green when
-  connected, amber while connecting or reconnecting, red when unreachable,
-  and ticks once per event), the session count, the fleet (agents at work
+- **The status bar** (26 px, 11 px mono) shows the live feed (a square that is green when
+  connected, amber while connecting or reconnecting, red when unreachable;
+  3.3.15.0: it no longer ticks per event, the EVENTS count says it), the session count, the fleet (agents at work
   and how many wait on you), the team (3.0.8.0: its stages running now, when
   the repo has a team file), the event count, the section's own status
   line (Roles: the open lineup, its cards and problems, saved or not;
   a pack's page its own) and the section's layout
   state. `Esc` closes the palette, a menu or a help card, then the Inspector.
 
-**Visual language.** The dark theme ("holo", the default) is a near-black
-navy with glass panels: a translucent surface and a 1 px edge; the focused
-panel alone (3.3.2.0) adds a soft glow, small corner brackets
-(`--bracket-alpha`, 0 turns them off) and a mono data line (its size and
-face), and an idle panel breathes only while focused. Cyan is
-the one accent for "live" and "do this", amber means "needs you", magenta-red
-an error, green done. Data labels and numbers are monospaced next to a clean
-sans for prose. Every colour is a token in
-`ui/src/styles/tokens.css` (`--bg`, `--surface`, `--surface-glass`,
-`--line`, `--glow`, `--accent`, `--accent-2`, `--warn`, `--bad`, `--ok`,
-`--text`, `--muted`, `--mono`, `--sans`, `--radius`, `--ease`, ...).
+**Visual language: the Instrument look (3.3.15.0).** The design session's proposal
+([design/studio-instrument/PROPOSAL.md](design/studio-instrument/PROPOSAL.md)) as shipped: solid surfaces (no glass),
+1 px hairlines, one shadow level for menus, dialogs and floating cards, and no glow. Cyan is work, selection and
+focus; amber is what waits on you; red failed; green done. Data, labels and numbers are mono (12 px), prose sans (13 px);
+a title is mono caps. A state is told four ways at once: a square, a colour, a rule and a word.
+
+- **The panel frame** (`.glass`, `lib/ui/Surface.tsx` and every workspace panel): the surface, a hairline, a 6 px
+  radius and four corner ticks, 10 x 1 px in the accent at the top left and the bottom right; the panel you are on
+  (the focused one) has them in the text colour. Its three faces: the **full** face (title row and body), the
+  **compact** summary and the **strip** (the collapsed title row), as above; the title row is 40 px (`--bar-h`,
+  32 compact) with the state square, the title in mono caps and the mono data line.
+- **A confirmation says what it does.** A Dialog that asks before an action shows three mono lines before its buttons,
+  **DOES**, **COSTS** and **WRITES** (`lib/ui/DialogCost.tsx`, `Dialog`'s `cost`): a pack's remove and update, Roles'
+  Apply and its deletes, stopping a mission or a team run, a hand-off, a kick, deleting a local model.
+- **Map nodes** (the Session Map, Roles Live, the Fleet Tree's rows): a 2 px rule across the top in the state colour,
+  a 1 px outline 3 px out when the node is selected or a Live line for it is hovered, the model without its provider
+  prefix (the full id in the tooltip and the Inspector).
+
+Every colour is a variable of `ui/src/styles/tokens.css` (`--bg`, `--surface`, `--border`, `--line`, `--line-soft`,
+`--accent`, `--warn`, `--bad`, `--ok`, `--text`, `--muted`, `--faint`, ...) next to the scales (`--r-panel`,
+`--s-1`..`--s-6`, `--t-title`, `--t-data`, `--dur-fast`, ...); no component file carries a colour literal.
 
 **The palette set (3.3.12.0).** The terminal and Studio draw from one palette
 set, chosen by one key: `theme` in `~/.halo/config.json`. The registry
-(`halo_harness/themes/palettes.py`) holds ten palettes, each `{id, label,
+(`halo_harness/themes/palettes.py`) holds eleven palettes, each `{id, label,
 posture, tokens}` in one token vocabulary: `claude-dark`, `claude-light`,
-`holo` (the look above), `paper`, `midnight`, `ember`, `forest`, `slate`,
+`holo` (Studio's look before 3.3.15.0), `instrument` (3.3.15.0, the look above),
+`paper`, `midnight`, `ember`, `forest`, `slate`,
 `dusk`, `dawn`; `-daltonized` and `-ansi` modify any of them. Studio's
 colours are one `:root[data-theme="<name>"]` rule per palette, generated
 between two marker comments of `tokens.css` by `scripts/themes_css.py`
-(`tests/test_themes_css_drift.py` regenerates and compares); the glass,
-lines, glows, soft fills and scrim are derived from the tokens by posture.
+(`tests/test_themes_css_drift.py` regenerates and compares); the surfaces,
+lines, ring, soft fills, shadow and scrim are derived from the tokens by posture
+(`halo_harness/themes/studio_css.py`).
 The server paints the first frame in the saved palette (`data-theme` on
-`<html>`); unset is `data-theme="auto"`, "follow the system": `holo` on a
-dark system, `paper` on a light one. The header's **theme menu** lists
-"Follow the system" and the ten, each with a swatch row (surface, text,
+`<html>`); unset is `data-theme="auto"`, "follow the system": `instrument` on a
+dark system (`holo` before 3.3.15.0), `paper` on a light one. The header's **theme menu** lists
+"Follow the system" and the eleven, each with a swatch row (surface, text,
 accent, accent-2, ok, warn, bad), the current one checked; a pick writes the
 key through `POST settings/set` (`settings/unset` for follow), so `/theme`,
 `halo config set theme`, Settings -> Themes and the header move one value,
@@ -198,32 +212,32 @@ read once: written to the key when the key is unset (`dark` -> `holo`,
 **A pack's palettes (3.3.12.0 R2).** An enabled pack's `contributes.themes`
 ([EXTENSION_API.md](EXTENSION_API.md#themes)) join the set as
 `<pack-id>/<id>`: the theme menu and Settings -> Themes list them after the
-ten in a group under the pack's id, with the same swatches; the palette has a
+eleven in a group under the pack's id, with the same swatches; the palette has a
 "Theme: <pack-id>/<id>" command each. tokens.css has no block for them (they
 are not known at build time): `GET settings/themes` sends each one's CSS
-variables (`halo_harness/themes/studio_css.py`, the derivation the ten's
+variables (`halo_harness/themes/studio_css.py`, the derivation the eleven's
 blocks are generated with) and `lib/theme.ts` sets them on `<html>` while the
 palette is drawn, taking them off for any other; the server inlines the
 saved pack palette's variables as one `<style id="halo-pack-theme">` rule the
 page's CSP allows by its hash, so the first frame is already in it. When the
 pack is disabled or removed, the theme saved before it comes back and the
 page follows the `files_changed` frame.
-Motion is short (150-250 ms, ease-out) and always means the same state,
-through `data-motion` on any element:
+**Motion (3.3.15.0: the Instrument look's rule).** Four animations carry meaning and everything else is still:
 
-| `data-motion` | Looks like | Means |
+| What moves | How | When |
 |---|---|---|
-| `idle` | a slow breathing glow on the border (4 s) | present, nothing running |
-| `working` | a thin light flowing along the top edge | something is running |
-| `waiting` | a soft amber pulse (1.2 s) | it needs you |
-| `done` | one brief green sweep, then still | it just finished |
-| `error` | one red flash, then a steady red edge | it failed |
-| `live` | a small dot that ticks once per event | a feed is connected |
+| an agent starts and ends | its node fades in and its edge draws from the parent (240 ms); a working child's edge carries a 4/8 dash moving toward it; done, the node and edge go green and fade to rest over 10 s | on a map: the Session Map, Roles Live |
+| a receipt ladder climbs | each of the four marks fills 160 ms after the one before, once | the Prompt panel, beside your turn |
+| the fit meter fills | once, from 0 to its level over 600 ms | a model row's fit meter |
+| a toast arrives | a 16 px rise and fade over 220 ms; it holds 4 s and leaves with a 180 ms fade; an error stays until its ✕ | top right, under the header |
 
-Under `prefers-reduced-motion` none of it moves; each state keeps its colour
-cue. A section tab "works" while that section has fresh activity, toasts
-sweep green or flash red once, and nothing loops except `idle`, `working`
-and `waiting`, which describe an ongoing state.
+Besides those, the working state square blinks at 1.4 s, a waiting one pulses three times and then holds, and the
+agent's Live caret blinks at 1 Hz, each only while that agent works or waits. `data-motion` on any element still names
+the state (`idle`, `working`, `waiting`, `done`, `error`, `live`), drawn as a colour and a steady rule: working a 2 px
+accent rule across the top, waiting an amber edge, done a green rule, error a red edge; nothing breathes, flows or
+sweeps. **Nothing moves on a section load**: an animation plays only for a thing that appears after its page drew
+(`lib/motion/born.ts`), never for what a section shows when it opens or opens again. Under `prefers-reduced-motion`
+each one is an instant state swap: the dash stops and a working edge is solid accent.
 
 **Toasts sit top right, under the header** (3.3.5.0 R0), on every section
 (`.toasts` in `styles/base.css`: `top: calc(var(--topbar-h) + 8px); right:

@@ -231,10 +231,11 @@ export function toggleFocus(): void {
 }
 
 let toastSeq = 0;
-export function toast(text: string, tone: ToastItem["tone"] = "info", ms = 3200): void {
+/** 3.3.15.0 L1: a toast holds 4 s (lib/ui/Toast.tsx fades it out); an error stays until dismissed (its ✕). */
+export function toast(text: string, tone: ToastItem["tone"] = "info", ms = 4000): void {
   const id = ++toastSeq;
   studio.update((s) => ({ toasts: [...s.toasts.slice(-3), { id, text, tone }] }));
-  window.setTimeout(() => studio.update((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })), ms);
+  if (tone !== "error") window.setTimeout(() => studio.update((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })), ms);
 }
 
 /** A section's line in the status bar (setSectionStatus("roles", "...")). */

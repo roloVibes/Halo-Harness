@@ -7,12 +7,12 @@ fresh one; no provider request, no model call:
    by Alt+1..9, shows no section help, no dialog, no Start here after 2 s, on the seeded home and the fresh one;
 2. Start here only on the fresh home's first section; "Set up this box" closes it for this browser (not on the
    next section, not on a reload); a browser without the key gets it once more, "Just look around" closes it;
-3. the icon rail: 56 px of section icons by default (<= 64), 200 px expanded by its chevron (R2: <= 200), the
+3. the icon rail: 52 px of section icons by default (<= 64; 56 before 3.3.15.0), 176 px expanded by its chevron (<= 200), the
    choice remembered across a reload; a row per section with its title as tooltip and name, the current one
    lit, no printed shortcut; no tab strip in the header; R2: the section rows and the chevron only, in both
    widths (no panel row, no layout block, no Fleet tree, no runs); Alt+4 and a click still switch;
 4. the inspector closed on load; a Roles card click selects in Roles' own Inspector panel and leaves the column
-   closed; a panel's Settings opens it (340 px, the stage gives the width), it is remembered across a reload,
+   closed; a panel's Settings opens it (344 px since 3.3.15.0, the stage gives the width), it is remembered across a reload,
    its close button gives the width back and a reload keeps it closed;
 5. Focus: F hides the rail, the inspector and the status bar (`0 1fr 0`, the status row 0), remembered across
    a reload; F again brings back the rail and the inspector as they were; the header button; Shift+F in
@@ -53,7 +53,7 @@ def test_the_source_has_no_welcome_left(ctx: Ctx):
     src = "\n".join(p.read_text(encoding="utf-8") for p in UI.rglob("*.ts*"))
     ctx.check("nothing in ui/src calls it or reads halo.studio.seen", "welcomeIfNew" not in src and "halo.studio.seen" not in src)
     css = (UI / "styles" / "shell.css").read_text(encoding="utf-8")
-    for rule in ("grid-template-columns: 56px minmax(0, 1fr) 0;", '.app[data-rail="open"] { grid-template-columns: 200px minmax(0, 1fr) 0; }',
+    for rule in ("grid-template-columns: 52px minmax(0, 1fr) 0;", '.app[data-rail="open"] { grid-template-columns: 176px minmax(0, 1fr) 0; }',
                  '.app[data-focus="on"][data-rail][data-inspector] { grid-template-columns: 0 minmax(0, 1fr) 0;'):
         ctx.check(f"shell.css has {rule}", rule in css)
 
@@ -102,7 +102,7 @@ def test_the_icon_rail(ctx: Ctx):
     ctx.check(f"R2: the section rows and the chevron only, in both widths, got {got.get('panels_icons')} / {got.get('panels_open')}",
               got.get("panels_icons") == sections_only and got.get("panels_open") == sections_only)
     ctx.check(f"remembered across a reload both ways, got {got.get('rail_after_reload')} / {got.get('rail_back')}",
-              got.get("rail_after_reload") == ["open", 200] and got.get("rail_back") == ["icons", 56, "icons"])
+              got.get("rail_after_reload") == ["open", 176] and got.get("rail_back") == ["icons", 52, "icons"])
     ctx.check(f"Alt+4 and a click still switch, got {got.get('alt4')} {got.get('click_team')}", got.get("alt4") == "fleet" and got.get("click_team") == "team")
 
 
@@ -112,8 +112,8 @@ def test_the_inspector_asks_first(ctx: Ctx):
     ctx.check(f"closed on load, got {got.get('insp_load')} {got.get('insp_aside')}", got.get("insp_load") == "closed" and got.get("insp_aside") is False)
     ctx.check(f"a card click selects in Roles' own panel, the column stays closed, got {got.get('card_selected')} {got.get('insp_after_card')}",
               got.get("card_selected") is True and got.get("insp_after_card") == "closed")
-    ctx.check(f"a panel's Settings opens it at 340 px, the stage gives the width, got {got.get('insp_open')} {got.get('insp_w')} {got.get('stage_w')} -> {got.get('stage_w_open')}",
-              got.get("insp_open") == "Canvas" and got.get("insp_w") == 340 and (got.get("stage_w") or 0) - (got.get("stage_w_open") or 0) == 340)
+    ctx.check(f"a panel's Settings opens it at 344 px (3.3.15.0 L1), the stage gives the width, got {got.get('insp_open')} {got.get('insp_w')} {got.get('stage_w')} -> {got.get('stage_w_open')}",
+              got.get("insp_open") == "Canvas" and got.get("insp_w") == 344 and (got.get("stage_w") or 0) - (got.get("stage_w_open") or 0) == 344)
     ctx.check(f"remembered per browser, open across a reload, got {got.get('insp_saved')} {got.get('insp_reload_open')}",
               json.loads(got.get("insp_saved") or "{}") == {"section": "roles", "panel": "roles-graph"} and got.get("insp_reload_open") == "Canvas")
     ctx.check(f"its close button gives the width back, closed across a reload, got {got.get('insp_closed')} {got.get('stage_w_closed')} {got.get('insp_reload_closed')}",

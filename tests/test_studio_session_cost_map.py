@@ -83,7 +83,7 @@ def test_the_context_bar_turns_amber_past_80_and_red_past_95(ctx: Ctx):
     lv = [x[0] for x in got.get("ctx") or []]
     ctx.check(f"50 % ok, 85 % warn, 97 % bad, got {lv}", lv == ["ok", "warn", "bad"])
     colors = [x[1] for x in (got.get("ctx") or [])[1:]]
-    ctx.check(f"in amber, then red, got {colors}", colors == ["rgb(255, 179, 71)", "rgb(255, 77, 141)"])
+    ctx.check(f"in amber, then red (instrument's warn and bad, 3.3.15.0), got {colors}", colors == ["rgb(245, 165, 36)", "rgb(255, 92, 106)"])
 
 
 @test
@@ -135,7 +135,7 @@ def test_state_colours_and_the_done_fade(ctx: Ctx):
     f = got.get("red") or ["", "", ""]
     ctx.check(f"failed: red on its edge, got {f}", f[0] == "error" and f[1] == _rgb(f[2]))
     d = got.get("done") or ["", ""]
-    ctx.check(f"done: green that fades (the fade animation runs), got {d}", d[0] == "done" and d[1] == "fm-done-fade")
+    ctx.check(f"done: green that fades (the fade animation runs), got {d}", d[0] == "done" and d[1] == "n-edge-rest")  # 3.3.15.0 L1: styles/nodes.css, the border fades to rest over 10 s
     ctx.check(f"ten seconds on, done has settled and failed has stayed, got {got.get('done_later')} {got.get('red_later')}",
               got.get("done_later") == "idle" and got.get("red_later") == "error")
 
@@ -146,7 +146,7 @@ def test_under_reduced_motion_done_is_green_with_no_fade(ctx: Ctx):
     _ran(ctx, r, got)
     rd = got.get("reduced_done") or ["", "", "", False]
     ctx.check(f"prefers-reduced-motion: reduce: the done node is green, no fade animation, got {rd}",
-              rd[0] == "done" and rd[1] == "none" and rd[2] == "rgb(78, 240, 168)" and rd[3] is True)
+              rd[0] == "done" and rd[1] == "none" and "0.239216 0.839216 0.54902" in str(rd[2]) and rd[3] is True)  # instrument's ok, the border at 50 %
 
 
 @test

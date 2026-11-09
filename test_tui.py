@@ -9752,7 +9752,7 @@ def test_paste_command_with_a_path_and_a_dragged_path_both_attach(ctx: Ctx):
 
 
 # ============================================================================
-# 3.3.12.0 R1: one palette set -- `/theme` lists the ten, sets one, refuses an
+# 3.3.12.0 R1: one palette set -- `/theme` lists the palettes (eleven since 3.3.15.0), sets one, refuses an
 # unknown name in one line; the write lands in the scratch config.json.
 # ============================================================================
 
@@ -9774,8 +9774,8 @@ def test_slash_theme_lists_the_ten_palettes_and_sets_one(ctx: Ctx):
                 await pilot.pause(0.1)
                 listing = [n.message for n in app._notifications if n.message.startswith("Current theme")]
                 lines = listing[-1].splitlines() if listing else []
-                named = [ln.split()[1] if ln.startswith(" *") else ln.split()[0] for ln in lines[1:11]]
-                ctx.check(f"/theme lists the ten in order, got {named}", named == list(ids()))
+                named = [ln.split()[1] if ln.startswith(" *") else ln.split()[0] for ln in lines[1:12]]
+                ctx.check(f"/theme lists the eleven in order (3.3.15.0: + instrument), got {named}", named == list(ids()))
                 ctx.check("claude-dark marked, each with its label", lines[1].startswith(" * claude-dark") and "Catppuccin Mocha" in lines[1])
                 await handle_slash(app, "theme", "ember")
                 await pilot.pause(0.2)
@@ -9785,7 +9785,7 @@ def test_slash_theme_lists_the_ten_palettes_and_sets_one(ctx: Ctx):
                 await handle_slash(app, "theme", "solarized")
                 await pilot.pause(0.1)
                 errs = [n.message for n in app._notifications if n.severity == "error"]
-                ctx.check(f"an unknown name: one line naming the ten, got {errs[-1:]}", errs and len(errs[-1].splitlines()) == 1
+                ctx.check(f"an unknown name: one line naming the eleven, got {errs[-1:]}", errs and len(errs[-1].splitlines()) == 1
                           and errs[-1].startswith("Not a valid theme name: 'solarized'") and "dawn" in errs[-1])
                 ctx.check("nothing written for it", theme_mod.load_persisted_theme() == "ember")
         finally:

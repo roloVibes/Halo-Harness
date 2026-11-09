@@ -1,10 +1,10 @@
-// The header's theme menu (3.3.12.0 R1): "Follow the system" and the ten
+// The header's theme menu (3.3.12.0 R1): "Follow the system" and the eleven
 // palettes of the registry, each with its swatch row, the current one checked.
 // A pick writes `theme` in ~/.halo/config.json through the settings route
 // (lib/theme.ts chooseTheme), the one key the terminal reads too; a modifier
 // already on (-daltonized, -ansi) stays on with the new palette. Settings ->
 // Themes has the modifiers, the preview and the labels in full. 3.3.12.0 R2:
-// an enabled pack's palettes follow the ten under the pack's id.
+// an enabled pack's palettes follow the eleven under the pack's id.
 import { Icon } from "../lib/ui";
 import { studio, useStore } from "../lib/store";
 import { applyDoor } from "../routes/settings/door";
@@ -15,6 +15,7 @@ import { useMenu } from "./useMenu";
 export function ThemeMenu() {
   const theme = useStore(studio, (s) => s.theme);
   const palettes = useThemes((s) => s.info?.palettes);
+  const follow = useThemes((s) => s.info?.follow); // 3.3.15.0 L1: instrument / paper, read from the registry
   const { open, setOpen, box } = useMenu();
   const [base, mod] = splitTheme(theme);
   const following = theme === FOLLOW;
@@ -37,7 +38,7 @@ export function ThemeMenu() {
                   data-testid="theme-item" data-theme-id={FOLLOW} onClick={() => pick(FOLLOW)}>
             <Icon name="auto" />
             <span className="th-menu-name">Follow the system</span>
-            <span className="menu-word">holo / paper</span>
+            <span className="menu-word">{follow ? `${follow.dark} / ${follow.light}` : ""}</span>
           </button>
           {groupPalettes(palettes || []).map((g) => (
             <div key={g.pack || "core"} role="group" aria-label={g.pack ? `From the pack ${g.pack}` : "Palettes"}

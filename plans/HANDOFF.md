@@ -21,8 +21,10 @@ way: 3.3.13.1 (the steward hotfix + the three highs #1 #2 #3 + #15 #16 #18 #19) 
 #35, #36, #39-#43, #45; docs #26 #27 #37; brief ~/hh-review/FIXPASS-3314-R2-brief.md, hand-back
 fixpass-3314-R2-handback.md) are both merged onto master: **3.3.14.0 IS THE RELEASE CANDIDATE** (if you read this after
 the release, the tag v3.3.14.0 exists). The review's open rows after it are the lows that need a design (#28 #30 #31
-#44 #46 #47) and R1's named Pack-trust gaps (a sandboxed frame for bundles). Then L1 the Instrument look, the Agents
-section, the Fleet fold, the remaining Focus rounds, mode themes (#5), the parity audit, Federation, Pack trust.** The ROADMAP's R1, R2 and R4 BUILT notes, the Focus plan and the Instrument entry (all 2026-11-08) carry the
+#44 #46 #47) and R1's named Pack-trust gaps (a sandboxed frame for bundles). Then 3.3.15.0 = L1 the Instrument look (MERGED 2026-11-09 afternoon) + R2 the picker says what a
+model takes (running; ROADMAP "The Agents fold, decided 2026-11-09" carries the 3.3.16.0 design), 3.3.16.0 Agents (the inspector says one thing at a time + the Agents section;
+the Fleet fold), 3.3.17.0 Copilot at work (ROADMAP "ADDED 2026-11-09 midday"), 3.3.18.0 Federation, Pack trust, the
+remaining Focus rounds, mode themes (#5) + the parity audit -- rolo's order of 2026-11-09.** The ROADMAP's R1, R2 and R4 BUILT notes, the Focus plan and the Instrument entry (all 2026-11-08) carry the
 choices and the owner's live checks.
 
 ### Before it: 2026-11-02 morning

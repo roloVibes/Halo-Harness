@@ -5,16 +5,18 @@
 // this machine), cloud (accent: the provider runs it), unknown (faint: no
 // hardware card read yet). `data-level` carries the level, the title says why
 // (providers/fit_meter.py writes both). 3.3.6.0 R1: `word` adds the battery's measured speed ("fits, ~187 tok/s at 32k").
+// 3.3.15.0 L1, the Instrument look (styles/instrument.css, motion.css): an 8 px track; a meter that appears after
+// its page drew fills once from 0 to its level over 600 ms (`data-born`, lib/motion/born.ts), then stays.
+import { useBorn } from "../motion/born";
 export type Fit = { level: string; at_window?: number | null; gpu_window?: number | null; why?: string; word?: string };
-
 const LEVELS = ["fits", "tight", "spill", "no", "cloud", "unknown"];
-
 export function FitMeter({ fit, label }: { fit?: Fit | null; label?: boolean }) {
+  const [born, grown] = useBorn();
   if (!fit || !fit.level) return null;
   const level = LEVELS.includes(fit.level) ? fit.level : "unknown";
   const title = `fit here: ${level}${fit.why ? ` -- ${fit.why}` : ""}`;
   return (
-    <span className="fit-meter" data-testid="fit-meter" data-level={level} title={title} aria-label={title}>
+    <span className="fit-meter" data-testid="fit-meter" data-level={level} title={title} aria-label={title} data-born={born || undefined} onAnimationEnd={grown}>
       <span className="fit-meter-bar" aria-hidden="true"><span className="fit-meter-fill" /></span>
       {label !== false && <span className="fit-meter-word mono">{level === "unknown" ? "?" : fit.word || level}</span>}
     </span>

@@ -21,6 +21,7 @@ import { openRolesLive } from "../roles/liveModel";
 import { startRoles } from "../roles/sync";
 import { chosenSession } from "../session/store";
 import { useRecent, type MotionState } from "../../lib/motion";
+import { useBorn } from "../../lib/motion/born";
 import { Empty } from "../../lib/ui";
 import { Metric } from "../orchestra/bits";
 import { short } from "../orchestra/format";
@@ -59,12 +60,21 @@ function LitEdges({ edges, pos }: { edges: LitEdge[]; pos: Map<string, { x: numb
 
 type Pos = Map<string, { x: number; y: number; w: number; h: number }>;
 
-/** The edge into an agent: lit while it is selected or hovered, coloured by its state. */
+/** The edge into an agent: lit while it is selected or hovered, coloured by its state. 3.3.15.0 L1 (styles/nodes.css):
+ *  one born after the page drew draws from the parent once; a working child's edge carries a dash moving toward it. */
 function TreeEdge({ d, to, from, r }: { d: string; to: string; from: string | null; r: AgentRef | undefined }) {
   const on = useFleet((s) => s.selected === to || (!!from && s.selected === from) || s.hover === to);
   const doneAt = useFleet((s) => s.doneAt[to] || 0);
   useRecent(doneAt, DONE_MS);
-  return <path className="fm-edge" data-on={on || undefined} data-motion={r ? agentMotion(r.a, doneAt) : undefined} data-testid="fleet-edge" data-to={to} d={d} />;
+  const [born, grown] = useBorn();
+  const motion = r ? agentMotion(r.a, doneAt) : undefined;
+  return (
+    <>
+      <path className="fm-edge" data-on={on || undefined} data-motion={motion} data-testid="fleet-edge" data-to={to} d={d}
+            data-born={born || undefined} pathLength={born ? 1 : undefined} onAnimationEnd={grown} />
+      {motion === "working" && <path className="fm-edge-flow" data-testid="fleet-edge-flow" d={d} aria-hidden="true" />}
+    </>
+  );
 }
 
 function ConflictEdges({ pos }: { pos: Pos }) {

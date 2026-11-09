@@ -20,7 +20,7 @@
 .fa-col { display: grid; gap: 6px; min-width: 0; }
 .fa-list { display: grid; gap: 6px; }
 .fa-empty { margin: 4px 0; font-size: 12.5px; }
-.fa-row { display: grid; gap: 2px; font-size: 13px; line-height: 1.45; animation: fade var(--t) var(--ease); }
+.fa-row { display: grid; gap: 2px; font-size: 13px; line-height: 1.45; }
 .fa-row .fa-text { white-space: pre-wrap; overflow-wrap: anywhere; }
 .fa-row[data-kind="thinking"] .fa-text { color: var(--muted); font-style: italic; }
 .fa-who { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }

@@ -37,10 +37,10 @@ def test_valid_theme_names(ctx: Ctx):
     ctx.check("claude-light-daltonized valid", t.is_valid_theme("claude-light-daltonized"))
     ctx.check("claude-dark-ansi valid", t.is_valid_theme("claude-dark-ansi"))
     ctx.check("claude-light-ansi valid", t.is_valid_theme("claude-light-ansi"))
-    # 3.1.5.0: the game themes are gone. 3.3.12.0 R1: the ten palettes x the two modifiers are the whole set.
+    # 3.1.5.0: the game themes are gone. 3.3.12.0 R1: the palettes x the two modifiers are the whole set (3.3.15.0: eleven palettes, + instrument).
     for game in ("doom", "metroid", "mario", "beetlejuice", "alien"):
         ctx.check(f"{game} is no longer a theme", not t.is_valid_theme(game))
-    ctx.check("exactly thirty names", len(t.VALID_THEMES) == 30 and t.is_valid_theme("holo-daltonized"))
+    ctx.check("exactly thirty-three names", len(t.VALID_THEMES) == 33 and t.is_valid_theme("holo-daltonized"))
     ctx.check("garbage invalid", not t.is_valid_theme("solarized"))
     ctx.check("None invalid", not t.is_valid_theme(None))
 

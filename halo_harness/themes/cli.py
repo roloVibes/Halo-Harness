@@ -1,5 +1,5 @@
 """halo_harness.themes.cli -- the words `/theme`, `halo config set theme` and Studio's settings route say about a
-theme (Halo 3.3.12.0 R1): the listing of the ten and the one-line answer for a name the registry does not know.
+theme (Halo 3.3.12.0 R1): the listing of the eleven and the one-line answer for a name the registry does not know.
 R2: an enabled pack's palettes are listed under the pack's name, by their `<pack-id>/<id>` names."""
 
 from __future__ import annotations
@@ -21,13 +21,13 @@ def pack_words() -> str:
 
 
 def refusal(name) -> str:
-    """One line: the name is not a palette, the ten named (plus the removed-game-theme note when it was one)."""
+    """One line: the name is not a palette, the eleven named (plus the removed-game-theme note when it was one)."""
     from halo_harness.theme import removed_theme_hint
     return f"not a valid theme name: {name!r} (the palettes: {ten_words()}{pack_words()})" + removed_theme_hint(name)
 
 
 def listing(current: Optional[str]) -> str:
-    """`/theme` with no argument: the current theme, then the ten, one line each (id, posture, label), the current
+    """`/theme` with no argument: the current theme, then the eleven, one line each (id, posture, label), the current
     palette marked, then how the modifiers and a change work."""
     base, mod = registry.split(current)
     width = max(len(pid) for pid in registry.all_ids())

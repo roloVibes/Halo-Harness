@@ -31,6 +31,8 @@ function TakeOver({ d }: { d: Extract<D, { kind: "take_over" }> }) {
   };
   return (
     <Dialog open onClose={closeDialog} title={`Take over ${d.label}`} kicker="FLEET · HAND-OFF" testid="fleet-takeover"
+            cost={{ does: `replaces what ${d.label} was doing with your brief, read before its next step`, costs: "its next calls, on its own model",
+                    writes: "both transcripts record the hand-off and that you made it" }}
             footer={<><Button onClick={closeDialog}>Cancel</Button><Button variant="primary" disabled={!brief.trim() || busy} onClick={() => void go()} data-testid="fleet-takeover-go">Take over</Button></>}>
       <p className="muted">Your brief replaces what it was doing: it reads it before its next step. Both transcripts record the hand-off and that you made it.</p>
       <textarea ref={box} className="input fd-text" rows={5} value={brief} onChange={(e) => setBrief(e.target.value)} placeholder="What it does now, in your words" data-testid="fleet-takeover-brief"
@@ -54,6 +56,8 @@ function HandTo({ d }: { d: Extract<D, { kind: "hand_to" }> }) {
   };
   return (
     <Dialog open onClose={closeDialog} title={`Hand ${d.label} to...`} kicker="FLEET · HAND-OFF" testid="fleet-handto"
+            cost={{ does: `hands ${d.label}'s work to the harness you pick, then stops it`, costs: "the picking-up agent's calls, on its model",
+                    writes: "a hand-off note in the repo: the task, the last hand-back, the files it touched" }}
             footer={<><Button onClick={closeDialog}>Cancel</Button><Button variant="primary" disabled={!to || busy} onClick={() => void go()} data-testid="fleet-handto-go">Hand it over</Button></>}>
       <p className="muted">The agent's task, its last hand-back and the files it touched go into a hand-off note in the repo. Then this agent stops.</p>
       {choices.length < 2 && <p className="muted">Only this harness is in the fleet: pair another one to hand work across machines.</p>}
@@ -116,6 +120,8 @@ export function PanelDialogs() {
   if (d.kind === "recording") return <Recording d={d} />;
   return (
     <Dialog open onClose={closeDialog} title={`Kick ${d.name}?`} kicker="FLEET · PEOPLE" testid="fleet-kick"
+            cost={{ does: `${d.name} leaves this hub; it pairs again with a new code to come back`, costs: "nothing: no model call",
+                    writes: "the hub's member list" }}
             footer={<><Button onClick={closeDialog}>Cancel</Button><Button variant="danger" onClick={() => void kickConfirmed(d.hid, d.name)} data-testid="fleet-kick-yes">Kick it</Button></>}>
       <p>{d.name} leaves this hub; to come back it pairs again with a new code.</p>
     </Dialog>

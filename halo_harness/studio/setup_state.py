@@ -46,7 +46,7 @@ def permission_rows() -> list:
 
 
 def theme_rows() -> list:
-    """3.3.12.0 R1: the ten palettes of the registry, in its order, with the colours the terminal draws each in
+    """3.3.12.0 R1: the eleven palettes of the registry, in its order, with the colours the terminal draws each in
     (tui/theme.py `variables_for`); the -daltonized / -ansi modifiers are Settings -> Themes' toggles. R2: then the
     enabled packs' palettes (`<pack-id>/<id>`)."""
     from halo_harness.themes.registry import all_ids

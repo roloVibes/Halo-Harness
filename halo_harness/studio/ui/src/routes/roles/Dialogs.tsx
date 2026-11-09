@@ -7,7 +7,7 @@
 // name of yours asks (replace it, or another name) -- the only path that
 // writes into a file of yours.
 import { useState, type ReactNode } from "react";
-import { Button, Dialog } from "../../lib/ui";
+import { Button, Dialog, type DialogCostLines } from "../../lib/ui";
 import { applyLineup, deleteLineup, newLineup, removeCard } from "./actions";
 import { deleteBio, newBio } from "./bioActions";
 import { cloneFromPack } from "./packActions";
@@ -45,9 +45,11 @@ function NameDialog({ title, kicker, start, from, froms, go, testid, busyKey }: 
   );
 }
 
-function Ask({ title, kicker, body, yes, onYes, testid, danger }: { title: string; kicker: string; body: ReactNode; yes: string; onYes: () => void; testid: string; danger?: boolean }) {
+function Ask({ title, kicker, body, yes, onYes, testid, danger, cost }: {
+  title: string; kicker: string; body: ReactNode; yes: string; onYes: () => void; testid: string; danger?: boolean; cost: DialogCostLines;
+}) {
   return (
-    <Dialog open onClose={closeDialog} title={title} kicker={kicker} testid={testid}
+    <Dialog open onClose={closeDialog} title={title} kicker={kicker} testid={testid} cost={cost}
             footer={<><Button onClick={closeDialog}>Cancel</Button><Button variant={danger ? "danger" : "primary"} onClick={onYes} data-testid={`${testid}-yes`}>{yes}</Button></>}>
       {body}
     </Dialog>
@@ -63,6 +65,8 @@ function Apply() {
   const replaces = was && was !== cur.name ? `It replaces ${was} as the lineup new sessions use.` : was ? "" : "No lineup is the default yet.";
   return (
     <Ask title={`Apply ${cur.name}?`} kicker="ROLES · APPLY" testid="roles-apply-dialog" yes="Apply" onYes={() => void applyLineup()}
+         cost={{ does: `makes ${cur.name} the lineup new sessions use`, costs: "nothing now; a new session calls its models",
+                 writes: "~/.halo/config.json: the role table and the active team" }}
          body={<>
            {pack && <p data-testid="roles-apply-pack">From pack {pack}: Apply reads it where it is; no bio or lineup file of yours is written.</p>}
            <p data-testid="roles-apply-replaces">New sessions use this lineup. {replaces} Studio writes the role table and the active team into ~/.halo/config.json, exactly like halo teams use.</p>
@@ -80,6 +84,8 @@ function CloneExists({ d }: { d: Extract<NonNullable<RolesDialog>, { kind: "clon
   const go = () => ok && !busy && void cloneFromPack(d.what, d.name, d.open, same ? { as: d.target, replace: true } : { as: name.trim() });
   return (
     <Dialog open onClose={closeDialog} title={d.shipped ? `Halo ships a ${d.what} named ${d.target}` : `${d.target} is already yours`} kicker="ROLES · CLONE" testid="roles-clone-dialog"
+            cost={{ does: same ? `copies the pack's ${d.what} as ${d.target}${d.shipped ? "" : ", over yours"}` : `copies the pack's ${d.what} as ${name.trim() || "?"}`,
+                    costs: "nothing: no model call", writes: `a ${d.what} file in your scope` }}
             footer={<><Button onClick={closeDialog}>Cancel</Button>
               <Button variant={same && !d.shipped ? "danger" : "primary"} disabled={!ok || busy} onClick={go} data-testid="roles-clone-go">
                 {same ? (d.shipped ? `Keep ${d.target}` : `Replace your ${d.target}`) : `Clone as ${name.trim()}`}</Button></>}>
@@ -102,6 +108,7 @@ function body(d: NonNullable<RolesDialog>, lineups: string[], bios: string[]) {
       return <NameDialog title={`Duplicate ${d.from}`} kicker="ROLES · LINEUP" start={`${d.from}-copy`} from={d.from} go={(n, f) => void newLineup(n, f)} testid="roles-dup-dialog" busyKey="new" />;
     case "delete-lineup":
       return <Ask title={`Delete ${d.name}?`} kicker="ROLES · LINEUP" testid="roles-delete-dialog" yes="Delete" danger onYes={() => void deleteLineup(d.name)}
+                  cost={{ does: `deletes the lineup ${d.name}`, costs: "nothing: no model call", writes: `removes its file from your ${roles.get().scope} scope` }}
                   body={<p>Removes the lineup file from your {roles.get().scope} scope. Its saved layout stays; a session that uses it falls back to the default model.</p>} />;
     case "apply":
       return <Apply />;
@@ -111,14 +118,17 @@ function body(d: NonNullable<RolesDialog>, lineups: string[], bios: string[]) {
       return <NameDialog title={`Duplicate ${d.from}`} kicker="ROLES · BIO" start={`${d.from}-mine`} from={d.from} go={(n, f) => void newBio(n, f)} testid="roles-dup-bio-dialog" busyKey="new-bio" />;
     case "delete-bio":
       return <Ask title={`Delete ${d.name}?`} kicker="ROLES · BIO" testid="roles-delete-bio-dialog" yes="Delete" danger onYes={() => void deleteBio(d.name)}
+                  cost={{ does: `deletes the bio ${d.name}`, costs: "nothing: no model call", writes: `removes its file from your ${roles.get().scope} scope` }}
                   body={<p>Removes the bio file from your {roles.get().scope} scope. Cards that name it show "bio not found" until you point them at another.</p>} />;
     case "delete-card": {
       const n = nodeById(roles.get(), d.node);
       return <Ask title={`Remove ${n ? keyOf(n) : "this card"}?`} kicker="ROLES · CARD" testid="roles-delete-card" yes="Remove" danger onYes={() => removeCard(d.node)}
+                  cost={{ does: "takes the card out of the open lineup (Ctrl+Z puts it back)", costs: "nothing: no model call", writes: "nothing until you Save" }}
                   body={<p>The slot leaves the lineup ({n?.agent} as {n ? keyOf(n) : ""}). The bio stays. Ctrl+Z puts it back; Save keeps the change.</p>} />;
     }
     case "discard":
       return <Ask title="Leave your unsaved edits?" kicker="ROLES · UNSAVED" testid="roles-discard" yes={`Open ${d.then}`}
+                  cost={{ does: `opens ${d.then} and drops the unsaved edits`, costs: "nothing: no model call", writes: "nothing" }}
                   onYes={() => (closeDialog(), void openLineup(d.then, true))} body={<p>{roles.get().name} has edits you did not save. Opening {d.then} drops them (Cancel, then Save, keeps them).</p>} />;
     case "clone-exists":
       return <CloneExists key={d.name + d.target} d={d} />;
