@@ -26,19 +26,20 @@ SURFACE = ("API_VERSION", "HALO_API_VERSION", "read_yaml", "write_yaml", "check_
            "is_valid_name", "qualified_name", "split_name", "memory",  # memory: 3.2.0.0 R5
            "api_version", "compatible", "deprecations",  # 3.2.0.0 R7: the version policy
            "set_mode", "current_mode",  # 3.3.10.0 R1: API 1.1 (the pack's runtime mode)
-           "testing")  # 3.3.12.0 R4: API 1.1 (a pack's tests: halo pack test)
+           "testing",  # 3.3.12.0 R4: API 1.1 (a pack's tests: halo pack test)
+           "remote")  # 3.3.13.0 R3: API 1.2 (the transport seam)
 
 
 @test
 def test_the_version_and_the_surface(ctx: Ctx):
     import halo_harness.ext as ext
-    ctx.check("API_VERSION is 1.1 (3.3.10.0 R1), HALO_API_VERSION its alias", ext.API_VERSION == "1.1" and ext.HALO_API_VERSION == ext.API_VERSION)
+    ctx.check("API_VERSION is 1.2 (3.3.13.0 R3), HALO_API_VERSION its alias", ext.API_VERSION == "1.2" and ext.HALO_API_VERSION == ext.API_VERSION)
     ctx.check(f"__all__ is the surface, got {ext.__all__}", tuple(ext.__all__) == SURFACE)
     ctx.check("every name is importable", all(hasattr(ext, name) for name in SURFACE))
     doc = (REPO / "docs" / "EXTENSION_API.md").read_text(encoding="utf-8")
     missing = [name for name in SURFACE if f"`{name}" not in doc]
     ctx.check(f"docs/EXTENSION_API.md names every one; missing {missing}", not missing)
-    ctx.check("the doc states the version", "API_VERSION = \"1.1\"" in doc)
+    ctx.check("the doc states the version", "API_VERSION = \"1.2\"" in doc)
     bad = [p.name for p in (REPO / "halo_harness" / "ext").glob("*.py") if any(ch.isdigit() for ch in p.stem)]
     ctx.check(f"no ext module is named for a version, got {bad}", not bad)
     from halo_harness.work.unit import Unit

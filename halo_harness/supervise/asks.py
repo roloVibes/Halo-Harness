@@ -70,7 +70,7 @@ def session_goals(state_dir) -> dict:
 
 
 def _what(kind: str, data: dict) -> "tuple[str, str]":
-    from halo_harness.remote.bridge_cards import describe_input, normalize_questions, one_line
+    from halo_harness.remote.cards import describe_input, normalize_questions, one_line
     if kind == "permission":
         name = str(data.get("name") or "a tool")
         return f"Permission: {name}", one_line(describe_input(name, data.get("input")) or data.get("reason"), 240)

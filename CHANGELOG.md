@@ -8,6 +8,94 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.3.13.0] - unreleased
+
+**Focus.** Optional parts leave the core for packs the owner turns on (the Focus plan, F4).
+
+### R3: the Signal pack -- the bridge leaves the core and becomes a conversation
+
+The owner: "it is just like a note that is sent to the user via signal. it needs to be a full back and forth
+communication option". Why it felt like a note, from the code: the bridge was a foreground process nothing started;
+pairing took four steps on two devices and every later plain text was refused unsigned; a text with no live session
+got two error lines and was dropped; the answer came as timer-cut chunks followed by "Done."; the state showed only in
+the TUI. Now the bridge is the shipped **signal pack**, run by the supervisor as a pack service, and a conversation.
+
+#### Added
+- **Pack services** (extension API 1.2, stable): `contributes.services: [{name, description, run, autostart, restart,
+  health: {file | url, max_age_s}, log}]` (`packs/manifest_services.py`, `schemas/pack_yaml.py`, `pack.schema.json`),
+  the grant `services` ("runs a program of this pack in the background while the supervisor runs"). `halo supervise`
+  starts an enabled, granted pack's autostart services, restarts them by the rule (5 s doubling to 300 s), stops them
+  on its way out (`supervise/services.py`, `services_rows.py`, `services_cli.py`); `halo supervise services`,
+  `halo supervise service start|stop <pack>/<name>`, its lines in `halo supervise status`; `halo pack enable` says
+  where each service starts; the Pack Manager's row shows "service running since 09:12" / "stopped: <line>" with
+  Start / Stop (`POST pack/<id>/service`); `halo doctor` has one row per service; `halo pack test` checks a service's
+  command and health shape (`packs/test_run_services.py`).
+- **The transport seam** (`halo_harness.ext.remote`, API 1.2, stable): the live sessions and their control sockets,
+  `start_session` (the supervisor starts it: `remote/session_start.py`, a 0.5 s lane in `halo supervise`), the cards'
+  text, the core's notes (`remote/notify.py`: `asks` from the fleet's attention queue, `supervisor` when a goal ends,
+  `steward` from the steward's attention notes via `remote/notify_sources.py`; written only while a transport
+  listens), `transcribe` (a voice note through the local speech server), `qr_text`, `words`, `service`,
+  `service_ask`, `logon_lines`, `fleet_lines`, `capture_studio`, `offline`. `halo remote transports`.
+- **A pack command that runs a program** (`run:` in a pack command's frontmatter, `commands/pack_run.py`): kind core,
+  no model call, the words as its arguments.
+- **`halo pack test` runs a pack's own `tests/test_*.py`** (`packs/test_run_own.py`), one check per module; a Setup
+  check whose file a missing requirement gates is a skip line; `halo pack test <id>` finds a pack Halo ships.
+- **The signal pack** (`halo_harness/templates/packs/signal/`, off until enabled): the bridge as the service
+  `signal/bridge`; `/signal` (status, pair, phones, unpair, reverify, sign, home, off, on, url, test, link, register,
+  notices); Setup blocks (Signal on this box, link, a number of its own, a test message, pair a phone, phones, the
+  conversation's settings, the service); `requires: signal-cli` (GPL-3.0) with the install line per OS; its README
+  (threat model, pairing, signing, chat commands, live verification), HALO-PACK.md, CHANGELOG.md and 13 test modules (with their fakes).
+  The conversation: pairing in one six-word text (a QR too), signing optional per phone; a text with no session starts
+  one in the phone's home folder (`/cd`, `/new`) and says so first; the session kept across restarts (phones.json);
+  the answer paragraph by paragraph, a code block whole, `reply.txt` past four messages, a closing line only after
+  tool work, a status line after 20 s of silence; a text that is not a card's answer is held ("... or `send`");
+  thumbs up / down answer a card; pictures, PDFs and voice notes in, `/file` and `/shot` out; `/cost`, `/fleet`,
+  `/notify on|off <kind>`; one goodbye line when the supervisor stops.
+- `tests/test_pack_signal.py` (the shipped pack in a scratch home, a whole conversation over real control sockets
+  through the stub transport, the service under the supervisor against the fake signal-cli),
+  `tests/test_supervise_services.py` (+ the `service-pack` fixture), `tests/test_remote_notify.py`,
+  `tests/test_remote_cards.py`; glossary: `pack service`, `transport`.
+
+#### Changed
+- Extension API 1.1 -> 1.2 (`ext.API_VERSION`, `ext.compat.CHANGES["1.2"]`); the `api-too-new` fixture asks for 1.3.
+- `remote.enabled` defaults to **true** and is every transport's switch (it was the Signal bridge's, default false).
+- `remote/bridge_cards.py` -> `remote/cards.py` (core: the attention queue, the supervisor's asks and every transport
+  draw the same text); `remote/daemon_units.py` -> `logon_units.py` (the supervisor's and the host's "at logon"
+  files; `JAVA_TOOL_OPTIONS` carried into the supervisor's); the pulse liveness rule -> `remote/proc_ident.pulse_alive`.
+- `fleet/push.py`: the attention queue's cards are `asks` notes on the transport seam (no `~/.halo/remote/fleet-push/`);
+  the Fleet catalog's `integrations` lists the transports listening.
+- `/remote` prints the control socket's status (socket, registry, `remote.enabled`, transports, pack services); the
+  remote chip names the transport listening or its stopped service when no phone is attached; `remote/doctor_check.py`
+  is the control line plus one row per pack service; `remote/cli_common.py` keeps only the shared CLI helpers;
+  `remote/pairing_files.py` keeps only the locked JSON helpers.
+- Docs: REMOTE.md (the control socket, the feed, the registry, a new "Transports"; the Signal sections went to the
+  pack's README), EXTENSION_API.md ("Services", "Transports", 1.2), SUPERVISE.md ("Pack services"), PACKS.md ("The
+  signal pack"), CONFIG.md, COMMANDS-fleet.md, COMMANDS-supervise.md, COMMANDS-packs-kit.md, PACK-AUTHORING.md,
+  STUDIO-packs.md, SLASH-COMMANDS-providers.md, HANDBOOK.md, FLEET.md, SECURITY.md, GLOSSARY.md.
+
+#### Removed
+- From the core, to the signal pack: `remote/bridge.py`, `bridge_commands.py`, `bridge_session.py`,
+  `bridge_outbox.py`, `bridge_state.py`, `signal_calls.py`, `signal_config.py`, `signal_errors.py`,
+  `signal_link.py`, `signal_transport.py`, `signal_typing.py`, `pairing.py`, `signing.py`, `audit.py`,
+  `ratelimit.py`, `render.py`, `cli_setup.py`, `cli_pair.py`, `cli_link.py`, `cli_run.py`, `dialog_model.py`, and
+  the TUI's `tui/dialogs/remote_status.py` and `remote_digits.py` (the `/remote` dialog).
+- `halo remote signal setup | register | link | run [--daemon] | pair | peers | unpair | reverify | status | off |
+  on`: `halo remote signal ...` prints one line pointing at the pack (`/signal`, Setup -> Signal).
+- `remote/signal_install.py`: the pinned, digest-checked signal-cli download (Halo never installs a requirement; the
+  pack's `requires:` says how).
+- Config keys `remote.signal.enabled`, `remote.rate_per_minute`, `remote.verbosity`, `remote.stale_window_s`,
+  `remote.pair_code_ttl_s` -> `packs.settings.signal.on | rate_per_minute | verbosity | stale_window_s | pair_ttl_s`
+  (`halo config get|set` of an old key says the new home; Settings -> Remote keeps only `remote.enabled`).
+- `~/.halo/remote/{signal.json, signal-cli/, peers.json, pending.json, audit.jsonl, registration-pin, register.json}`
+  -> the pack's data folder (moved once by its service; `bridge.json`, `stop`, `fleet-push/` dropped).
+- Tests moved into the pack: `test_remote_signal_transport`, `test_remote_signal_io`, `test_remote_signing`,
+  `test_remote_render` (its card test stays as `test_remote_cards`), `test_remote_bridge`, `test_remote_bridge_auth`,
+  `test_remote_pairing`, `test_remote_peers`, `test_remote_cli_install`, `test_remote_cli_run`,
+  `test_remote_cli_signal`, `test_remote_dialog`, `test_remote_dialog_text`, `test_review3_d2`, `test_review3_d2b`,
+  `test_review3_d2c`, `test_security_round5b` and the helpers `bridge_rig`, `cli_rig`, `signal_transport_rig`,
+  `fake_signal_cli`, `fake_signal_admin`; their Signal pins are the pack's `test_transport_pins` and
+  `test_bridge_pins`, the downloader's went with it.
+
 ## [3.3.12.0] - 2026-11-08
 
 **Themes and parity.** One theming system, not two. Until now the terminal had two palettes and Studio a dark/light switch

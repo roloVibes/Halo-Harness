@@ -24,7 +24,7 @@ from halo_harness.packs import semver as V
 
 MANIFEST = "pack.yaml"
 #: The names `permissions:` takes besides `mcp:<server>` (one per MCP server a pack declares).
-PERMISSIONS = ("hooks", "bash", "network", "home-write", "studio-script")  # 3.2.0.0 R3: studio-script (a Studio bundle)
+PERMISSIONS = ("hooks", "bash", "network", "home-write", "studio-script", "services")  # studio-script 3.2.0.0 R3; services 3.3.13.0 R3
 MCP_PREFIX = "mcp:"
 CAPABILITY_RE = re.compile(r"^[a-z][a-z0-9._-]*$")
 EVENT_RE = re.compile(r"^[a-z][a-z0-9_.-]*$")
@@ -76,7 +76,8 @@ def needed(data, root) -> "list[tuple[str, str]]":
     from halo_harness.packs.studio_rules import SCRIPT, bundle_ids  # 3.2.0.0 R3: a Studio bundle panel runs a script
     out += [(SCRIPT, f"Studio panel {pid} (a bundle)") for pid in bundle_ids(data)]
     from halo_harness.packs.manifest_policy import needs as policy_needs  # 3.3.10.0 R1: a policy rides on hooks
-    return out + policy_needs(data)
+    from halo_harness.packs.manifest_services import needs as service_needs  # 3.3.13.0 R3: a service needs `services`
+    return out + policy_needs(data) + service_needs(data)
 
 
 def _permission_lines(data, root) -> "list[str]":
@@ -232,6 +233,8 @@ def validate_manifest(data, *, root=None, folder_is_id: bool = False) -> "list[s
     out += theme_lines(data)
     from halo_harness.packs.manifest_requires import requires_lines  # 3.3.12.0 R4: the tools a pack needs
     out += requires_lines(data)
+    from halo_harness.packs.manifest_services import service_lines  # 3.3.13.0 R3: contributes.services
+    out += service_lines(data, root)
     if root is not None:
         root = Path(root)
         out += _file_lines(data, root)

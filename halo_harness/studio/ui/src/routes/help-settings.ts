@@ -33,7 +33,7 @@ export const SETTINGS_HELP: Record<string, Help> = {
     "A host's own field (KV cache type, ssh) is a table of the hosts saved; add a host in ollama.hosts as JSON."),
   "settings-network": page("Offline (only local hosts are called) and the escalation that hands a local turn to a cloud model."),
   "settings-fleet": page("Whether sessions list themselves for Studio and a hub, what a hub sees and may do, the hub's port, the caps and missions."),
-  "settings-remote": page("The Signal bridge's switches, its rate, how much it relays and its pairing code's life."),
+  "settings-remote": page("Every transport's switch (remote.enabled): a pack's bridge, the signal pack's, answers and the core's notes go out only while it is on. The Signal settings are the signal pack's (Setup -> Signal)."),
   "settings-packs": page("Where halo pack install looks for packs, and each pack's own settings."),
   "settings-connectors": page("The claude.ai connectors: all of them on or off, discovery at start, and each connector's own switches."),
   "settings-worktree": page("What a -w session does with its own git worktree when it ends."),

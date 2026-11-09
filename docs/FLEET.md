@@ -22,8 +22,8 @@ missions: one goal split into parts across every harness ([Missions](#missions-3
   opens each session's loopback control socket and lists it in
   `~/.halo/run/sessions.json`: the TUI, `halo -p` (and `--bg`), Orchestra
   workers and mission workers. It listens on loopback
-  only (see [REMOTE.md](REMOTE.md)). `remote.enabled` is only the Signal
-  phone bridge's switch.
+  only (see [REMOTE.md](REMOTE.md)). `remote.enabled` is every transport's
+  switch (3.3.13.0: a pack's bridge, the signal pack's for one).
 - **A private switch.** `halo --private`, `/private on` or `fleet.private:
   true`: the session registers nothing and opens no socket, so Studio, `halo
   remote` and every hub never see it (a `private` chip in the status bar).
@@ -359,10 +359,11 @@ true`, scope once), `/api/fleet/<harness>/<sid>/agents/<aid>/command` for a
 stop or a resume. Each decision
 is journaled with `by` (`fleet.name`), so the digest says who decided what.
 
-When the Signal bridge is enabled (`remote.enabled`), running and paired, a
-new row also goes to the phone as the card the bridge already sends,
-prefixed with the harness name (see [REMOTE.md](REMOTE.md#the-signal-bridge));
-`fleet.attention.signal: false` keeps the queue in Studio only.
+While a transport listens (3.3.13.0: the signal pack's bridge) and `remote.enabled` is on, a
+new row is also an `asks` note every transport may carry, as the card the bridge sends for its
+own session, prefixed with the harness name (see [REMOTE.md](REMOTE.md#transports)); the signal
+pack sends it to each phone whose `/notify` takes `asks`. `fleet.attention.signal: false` keeps
+the queue in Studio only.
 
 ### Caps
 
@@ -770,7 +771,7 @@ failure another machine already had ("crashed on pc-hub:pc on <date>: ...").
 | `fleet.caps.per_harness_usd_per_day` | unset | R4, on the hub: a harness's spend today that pauses its sessions (`0` or unset: no cap) |
 | `fleet.caps.per_project_usd_per_day` | unset | the same for every session on one repo, any harness |
 | `fleet.caps.fleet_usd_per_day` | unset | the same for every session the hub sees |
-| `fleet.attention.signal` | `true` | new attention rows go to the paired phone when the Signal bridge runs; `false` keeps them in Studio |
+| `fleet.attention.signal` | `true` | new attention rows are `asks` notes for the transports (the signal pack's phones); `false` keeps them in Studio |
 | `fleet.tags` | `[]` | 3.0.6.0 R6: your own words for this harness; first on its chips, double weight in `who` |
 | `fleet.capabilities.hide` | `[]` | MCP servers, tools (`tool` or `server/tool`), skills, craft apps or pack capabilities (`name` or `<pack>/<name>`, 3.2.1.0 R3) its capability catalog never lists |
 | `fleet.ollama.share` | `auto` | 3.3.4.0 R2: the Ollama ledger's lines a joined harness sends: `auto` (the calls to a host it does not serve itself), `all`, `off` |

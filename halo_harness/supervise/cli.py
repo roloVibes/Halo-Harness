@@ -4,8 +4,10 @@ docs/COMMANDS-supervise.md).
     halo supervise                 run the daemon in the foreground (Ctrl+C stops it)
     halo supervise --daemon        detach it (studio/launch.py's way; Windows DETACHED_PROCESS) and return
     halo supervise --service [--os OS]   write the service-manager file (never enabled) and print the one enable command
-    halo supervise status [--json] the pulse: pid, state, the goal counts, what waits on you
+    halo supervise status [--json] the pulse: pid, state, the goal counts, the packs' services, what waits on you
     halo supervise stop            ask a running supervisor to end (a stop file it polls)
+    halo supervise services [--json]                 3.3.13.0 R3: the packs' services, one line each
+    halo supervise service start|stop <pack>/<name>  ask the running supervisor to start or stop one
 
 One supervisor per state dir: a second `halo supervise` sees the live pulse
 and says who runs. Exit codes: 0 done, 1 could not (the reason on stderr),
@@ -41,11 +43,20 @@ def cmd_supervise(argv: list) -> int:
     st.add_argument("--json", action="store_true", help="machine-readable output")
     sp = sub.add_parser("stop", help="ask a running supervisor to end")
     sp.add_argument("--json", action="store_true", help="machine-readable output")
+    sv = sub.add_parser("services", help="the packs' services the supervisor runs, one line each")
+    sv.add_argument("--json", action="store_true", help="machine-readable output")
+    so = sub.add_parser("service", help="ask the running supervisor to start or stop one pack service")
+    so.add_argument("verb", choices=("start", "stop"))
+    so.add_argument("key", help="<pack>/<name>, as `halo supervise services` lists it")
+    so.add_argument("--json", action="store_true", help="machine-readable output")
     try:
         a = p.parse_args(argv)
     except SystemExit as e:
         return int(e.code or 0)
     state_dir = _state_dir()
+    if a.cmd in ("services", "service"):
+        from halo_harness.supervise.services_cli import cmd
+        return cmd(a, state_dir)
     if a.cmd == "status":
         return _status(state_dir, a.json)
     if a.cmd == "stop":
@@ -69,6 +80,9 @@ def _status(state_dir, as_json: bool) -> int:
     g = counts
     print(f"supervisor: {row['state']} (pid {row['pid']})")
     print(f"goals: {g['queued']} queued, {g['running']} running, {g['parked']} parked, {g['done']} done")
+    from halo_harness.supervise.services_cli import status_lines  # 3.3.13.0 R3: the packs' services
+    for line in status_lines(state_dir):
+        print(line)
     from halo_harness.supervise import decisions
     from halo_harness.supervise.replan_rows import line as replan_line
     for goal in queue.all_goals(state_dir):  # R2: what each goal's replans did
@@ -93,20 +107,15 @@ def _stop(state_dir, as_json: bool) -> int:
     return 0
 
 
-def _unit():
-    from halo_harness.remote.daemon_units import files_for
-    return {"stem": "halo-supervise", "label": "dev.halo.supervise", "desc": "Halo supervisor (the goal queue)",
-            "task": "Halo Supervise", "files": files_for}
-
-
 def _service(state_dir, os_n: Optional[str], as_json: bool) -> int:
-    from halo_harness.remote.daemon_units import run_argv, write_unit
-    argv = run_argv()[:-3] + ["supervise"]  # `halo supervise`, not `remote signal run`
-    path, enable = write_unit(os_n, argv, env={}, unit=_unit(), out_dir=queue.root(state_dir))
+    """The supervisor's "at logon" file (logon_units.py; 3.3.13.0 R3: it carries the packs' services too)."""
+    from halo_harness.logon_units import SUPERVISOR, halo_argv, write_unit
+    path, enable = write_unit(os_n, halo_argv() + ["supervise"], env=None, unit=SUPERVISOR, out_dir=queue.root(state_dir))
     if as_json:
         print(json.dumps({"ok": True, "unit": str(path), "enable": enable}))
     else:
-        print(f"Wrote {path}\nHalo does not enable it. To start the supervisor at login, run:\n  {enable}")
+        print(f"Wrote {path}\nHalo does not enable it. To start the supervisor (and the packs' services) at logon, "
+              f"run:\n  {enable}")
     return 0
 
 
@@ -154,6 +163,8 @@ def run_foreground(state_dir, *, ticks: Optional[int] = None, popen=None, feed: 
     drain, closer = (feed, None) if feed is not None else _bridge_feed()
     sup = Supervisor(state_dir, popen=popen, feed=drain)
     sup.pulse.write("starting", queue.counts(state_dir))
+    from halo_harness.supervise.services_cli import start_lane  # 3.3.13.0 R3: sessions a transport asks for
+    lane = start_lane(state_dir)
     print(f"Halo supervisor: the goal queue is running. Ctrl+C or `halo supervise stop` ends it. "
           f"(tick {cfg['tick_s']:g}s, {cfg['max_running']} at a time)", flush=True)
     n = 0
@@ -170,6 +181,7 @@ def run_foreground(state_dir, *, ticks: Optional[int] = None, popen=None, feed: 
     except KeyboardInterrupt:
         pass
     finally:
+        lane.set()
         sup.close()
         if closer is not None:
             closer()

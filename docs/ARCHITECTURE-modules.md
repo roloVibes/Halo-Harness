@@ -207,7 +207,20 @@ supervised job's asks), `supervise/arm.py` (the lineups' schedules and
 triggers, armed by the supervisor), `supervise/loop.py` (the tick),
 `supervise/apply.py` (settling a goal and applying a decision),
 `supervise/cli.py` (`halo supervise`) and `supervise/goal_cli.py` (`halo
-goal`).
+goal`); 3.3.13.0 R3, the packs' services: `supervise/services.py` (start, restart
+by the rule, stop, each tick), `supervise/services_rows.py` (the state file, the
+rows other processes read, Start / Stop, the enable lines, the Pack Manager's
+block) and `supervise/services_cli.py` (`halo supervise services | service`, the
+session-request lane).
+
+**A pack's services and the transport seam** (Halo 3.3.13.0 R3; docs/EXTENSION_API.md "Services", "Transports"):
+`packs/manifest_services.py` (`contributes.services`: the entries, the health and log shapes, the `services` grant,
+the meaning lines), `packs/test_run_services.py` (`halo pack test`'s services check), `packs/test_run_own.py` (`halo
+pack test` runs the pack's `tests/test_*.py`) and `ext/remote.py` (what a transport pack imports: the sessions, a
+session started for it, the cards, the notes, a transcript, the QR text, its service's row); the core's side is
+`remote/notify.py`, `remote/notify_sources.py`, `remote/session_start.py`, `remote/status.py` and
+`commands/pack_run.py` (a pack command with `run:`). The shipped signal pack is
+`halo_harness/templates/packs/signal/` (its own code under `halo_signal/`).
 R2 (replanning while it runs): `supervise/drift.py` (when a run drifts), `supervise/replan.py` (the pause, its gate, the spawn hook),
 `supervise/replan_ask.py` (the lead asked in the goal's thread), `supervise/replan_prompt.py` (the replan prompt),
 `supervise/replan_plan.py` (the answer checked), `supervise/replan_moves.py` (the moves and the diff),

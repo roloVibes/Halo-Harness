@@ -1,6 +1,6 @@
 """tests.test_supervise_pulse -- Halo 3.1.8.0 R1: the supervisor's pulse and
 stop file (supervise/pulse.py), the generalized service-file writer
-(remote/daemon_units.py) behind `halo supervise --service`, and `halo
+(logon_units.py, renamed from remote/daemon_units.py in 3.3.13.0 R3) behind `halo supervise --service`, and `halo
 supervise status|stop`. No daemon is ever started against the real home.
 
 Run: python -m tests.test_supervise_pulse
@@ -119,15 +119,7 @@ def test_service_file_windows_and_macos(ctx: Ctx):
             ctx.check(f"{os_n}: the right file and label, got {unit.name}", unit.name == name and needle in (text + row["enable"]))
 
 
-@test
-def test_the_signal_bridge_unit_is_unchanged(ctx: Ctx):
-    """The generalized writer keeps the Signal bridge's own files and names."""
-    with _Env() as e:
-        from halo_harness.remote import daemon_units as du
-        path, cmd = du.write_unit("linux", ["/usr/bin/halo", "remote", "signal", "run"], {})
-        ctx.check("the bridge still writes halo-remote.service with its description",
-                  path.name == "halo-remote.service" and "Halo remote control (Signal bridge)" in path.read_text(encoding="utf-8"))
-        ctx.check("the bridge's enable command is unchanged", cmd.startswith("systemctl --user link "))
+# test_the_signal_bridge_unit_is_unchanged: the Signal bridge's unit went with it (3.3.13.0 R3); the supervisor's at-logon file carries the packs' services
 
 
 if __name__ == "__main__":

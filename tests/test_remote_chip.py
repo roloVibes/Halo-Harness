@@ -1,9 +1,9 @@
 """tests.test_remote_chip -- Halo 2.0.9 round 4: the `remote` status chip and
-the one protocol addition behind it. The bridge sends `note remote.attached`
-over the control socket on attach / detach; the session counts attached
-phones (and forgets a connection's phones when it closes), queues a
-`remote_attached` event for the TUI, and the status bar shows `⇄ remote N`
-(ASCII `<> remote N`)."""
+the one protocol addition behind it. A transport's bridge (the signal pack's since 3.3.13.0 R3, halo_signal/
+session.py) sends `note remote.attached` over the control socket on attach / detach; the session counts attached
+phones (and forgets a connection's phones when it closes), queues a `remote_attached` event for the TUI, and the
+status bar shows `⇄ remote N` (ASCII `<> remote N`); 3.3.13.0 R3: with no phone attached, the chip names the
+transport that listens or the pack service that should run and does not (remote/status.chip)."""
 from __future__ import annotations
 
 TIER = "full"  # a TUI pilot (Textual run_test): the full tier
@@ -21,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from tests.helpers.provider_env_defaults import ensure_default_provider_credentials, ensure_scoped_state_dir_once
 from tests.helpers.remote_rig import Rig
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all
-from tests.helpers.signal_rig import ACI_A, mk_bridge, wait_for
+from tests.helpers.signal_rig import wait_for
 
 ensure_default_provider_credentials()
 ensure_scoped_state_dir_once()
@@ -74,50 +74,8 @@ def test_a_closed_connection_takes_its_phones_with_it(ctx: Ctx):
         ctx.check("and the TUI was told", [e["count"] for e in _events(rig.controller.events)] == [1, 0])
 
 
-class _Recorder:
-    def __init__(self, endpoint, token=None):
-        self.calls = []
-
-    def call(self, cmd, **kw):
-        self.calls.append((cmd, kw))
-        return {"ok": True, "result": {}}
-
-    def next_event(self, timeout=0.4):
-        import time
-        time.sleep(min(timeout, 0.05))
-        return None
-
-    def close(self):
-        pass
-
-
-@test
-def test_bridge_attach_and_detach_send_the_note(ctx: Ctx):
-    from halo_harness.remote import bridge_session as sess
-    with Rig(serve=False):
-        b, tr, clock = mk_bridge()
-        b.client_factory = _Recorder
-        rt = b.rt(ACI_A)
-        ctx.check("attach succeeds", sess.attach(b, rt, {"endpoint": "unix:/nowhere", "session_id": "s"}) is None)
-        client = rt.client
-        sess.detach(b, rt)
-        notes = [kw for cmd, kw in client.calls if cmd == "note"]
-        ctx.check("attach then detach send note remote.attached true / false",
-                  [n["attached"] for n in notes] == [True, False] and all(n["name"] == "remote.attached" for n in notes))
-        ctx.check("the peer is the ACI prefix, never the whole id", notes[0]["peer"] == ACI_A[:8])
-
-
-@test
-def test_bridge_to_session_end_to_end(ctx: Ctx):
-    from halo_harness.remote import bridge_session as sess
-    with Rig() as rig:
-        b, tr, clock = mk_bridge()
-        entry = {"endpoint": rig.server.endpoint, "token": rig.server.token, "session_id": rig.handle.session_id}
-        rt = b.rt(ACI_A)
-        ctx.check("attach to the live socket", sess.attach(b, rt, entry) is None)
-        ctx.check("the session counts the phone", wait_for(lambda: rig.handle.status()["remote_attached"] == 1))
-        sess.detach(b, rt)
-        ctx.check("and forgets it on detach", wait_for(lambda: rig.handle.status()["remote_attached"] == 0))
+# The bridge's side (the note on attach and detach, a bridge to a session end to end) is the signal pack's
+# (3.3.13.0 R3): tests/test_pack_signal.py drives it over a real control socket.
 
 
 @test
@@ -125,6 +83,14 @@ def test_chip_text(ctx: Ctx):
     from halo_harness.tui.widgets.statusbar import remote_chip
     ctx.check("unicode chip", remote_chip(2) == f"{ARROWS} remote 2")
     ctx.check("ascii chip", remote_chip(1, True) == "<> remote 1")
+    from halo_harness.tui.widgets.statusbar import StatusBar
+    bar = StatusBar.__new__(StatusBar)
+    bar.remote_attached, bar.hud_ascii, bar.transport_chip = 0, True, None
+    bar._refresh_display = lambda: None
+    bar.set_transport("signal")
+    ctx.check("3.3.13.0 R3: with no phone attached the chip names the transport", bar._remote_str() == "<> signal")
+    bar.set_transport("")
+    ctx.check("and goes with it", bar._remote_str() == "")
 
 
 @contextlib.contextmanager

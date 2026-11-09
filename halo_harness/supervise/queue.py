@@ -195,7 +195,17 @@ def set_state(state_dir, gid: str, state: str, why: str = "", **fields) -> Optio
             goal["started"] = round(time.time(), 3)
         if state in OVER:
             goal["ended"] = round(time.time(), 3)
-    return update(state_dir, gid, apply)
+    goal = update(state_dir, gid, apply)
+    if goal is not None and state in ("done", "parked", "failed", "stopped"):  # 3.3.13.0 R3: a note for the transports
+        try:
+            from halo_harness.remote.notify import notify
+            cost = goal.get("cost_usd")
+            text = f"Goal {gid} {state}: {' '.join(str(goal.get('what') or '').split())[:140]}" + \
+                (f" ({why})" if why and why != state else "") + (f", ${cost:.2f}" if isinstance(cost, (int, float)) else "")
+            notify("supervisor", text, source=gid, state_dir=state_dir)
+        except Exception:
+            pass
+    return goal
 
 
 def remove(state_dir, gid: str) -> bool:

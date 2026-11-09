@@ -1,13 +1,10 @@
 """tests.test_review3_d1 -- pins for the 3.0.2.0 review fix pass, round D1
 (remote control core), part one:
 
-  * review item 26  a correctly signed command refused as stale burns its
-                    counter, so the same bytes cannot be replayed later
-  * review item 27  a sub-agent's feed events never close the parent's open
-                    cards; a sub-agent's own card is relayed, tagged
+  * review items 26-27 (the Signal bridge): the signal pack's tests/test_bridge_pins.py since 3.3.13.0 R3
   * review item 28  a sub-agent's status event never re-keys the registry
   * review item 29  a pulse whose pid now belongs to another process reads
-                    as stopped
+                    as stopped (3.3.13.0 R3: remote/proc_ident.pulse_alive)
   * review item 96  a deny with scope session/always learns no allow rule
 
 Part two is tests/test_review3_d1b.py.
@@ -28,78 +25,12 @@ from tests.helpers.provider_env_defaults import ensure_scoped_state_dir_once
 
 ensure_scoped_state_dir_once()
 
-from halo_harness.remote import signing
-from halo_harness.remote.bridge import Bridge
-from tests.helpers.fake_signal_cli import data_message
-from tests.helpers.runner import Ctx, new_registry, print_results, run_all
-from tests.helpers.signal_rig import ACI_A, SAFETY_A, Home, NoRegistry, StubTransport, now_ms, pair_peer
+from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
 
 test, TESTS = new_registry()
 
-
-def _deliver(bridge, text: str, ts: int) -> None:
-    params = data_message(ACI_A, text, ts)
-    bridge.handle({"kind": "envelope", "envelope": params["envelope"], "exception": None, "account": None})
-
-
-# ---- item 26 -------------------------------------------------------------------
-
-@test
-def test_item26_stale_signed_command_burns_its_counter(ctx: Ctx):
-    with Home():
-        tr = StubTransport()
-        b = Bridge({"rate_per_minute": 100}, tr, NoRegistry())
-        secret = pair_peer(b.pairing, ACI_A, "+15555550101", SAFETY_A, signed=True)
-        late = signing.sign(secret, 7, "/remote status")
-        _deliver(b, late, now_ms() - 10 * 60 * 1000)
-        ctx.check("the late copy is refused as outside the window", "time window" in "\n".join(tr.texts(ACI_A)))
-        ctx.check("its counter is used up", b.pairing.peer(ACI_A)["signing"]["counter"] == 7)
-        _deliver(b, late, now_ms())
-        joined = "\n".join(tr.texts(ACI_A))
-        ctx.check("the identical bytes with a fresh timestamp are a replay", "already used" in joined)
-        ctx.check("and were never acted on", "Paired as" not in joined and tr.receipts == [])
-        tampered = late.replace("/remote status", "/remote unpair")
-        _deliver(b, tampered, now_ms() - 10 * 60 * 1000)
-        ctx.check("a stale message with a bad MAC burns nothing", b.pairing.peer(ACI_A)["signing"]["counter"] == 7)
-        _deliver(b, signing.sign(secret, 8, "/remote status"), now_ms())
-        ctx.check("re-signed with a higher counter it is answered",
-                  "Paired as" in "\n".join(tr.texts(ACI_A)) and len(tr.receipts) == 1)
-
-
-# ---- item 27 -------------------------------------------------------------------
-
-class _FeedBridge:
-    def __init__(self) -> None:
-        self.said: list = []
-        self.typing: list = []
-        self.registry = NoRegistry()
-        self.transport = SimpleNamespace(typing=SimpleNamespace(start=lambda a: self.typing.append("start"),
-                                                                stop=lambda a: self.typing.append("stop")))
-
-    def say(self, aci, text, **kw) -> None:
-        self.said.append(text)
-
-
-@test
-def test_item27_child_feed_never_closes_parent_cards(ctx: Ctx):
-    from halo_harness.remote import bridge_session as sess
-    b, rt = _FeedBridge(), sess.PeerRT(ACI_A, "loud")
-    perm = {"id": "p1", "name": "Bash", "input": {"command": "make"}, "suggested_rule": "Bash(make:*)"}
-    sess.on_feed(b, rt, {"event": "permission_request", "data": perm, "agent_id": None})
-    ctx.check("the parent's card is open", [c["id"] for c in rt.permission] == ["p1"])
-    n = len(b.said)
-    for ev in ("message_start", "text_chunk", "error", "turn_done"):
-        sess.on_feed(b, rt, {"event": ev, "data": {"text": "child words", "message": "child broke"},
-                             "agent_id": "ab12cd34ef"})
-    ctx.check("a sub-agent's text, typing, error and turn_done send nothing", len(b.said) == n and b.typing == [])
-    ctx.check("a sub-agent's turn_done leaves the parent's card open", [c["id"] for c in rt.permission] == ["p1"])
-    sess.on_feed(b, rt, {"event": "permission_request", "data": {**perm, "id": "c1"}, "agent_id": "ab12cd34ef"})
-    ctx.check("a sub-agent's own card is answerable", [c["id"] for c in rt.permission] == ["p1", "c1"])
-    ctx.check("and tagged with the sub-agent", b.said[n].startswith("[sub-agent ab12cd34] Permission needed"))
-    sess.on_feed(b, rt, {"event": "text_chunk", "data": {"text": "parent words"}, "agent_id": None})
-    ctx.check("the parent's own text is still relayed", any("parent words" in s for s in b.said))
-    sess.on_feed(b, rt, {"event": "turn_done", "data": {}, "agent_id": None})
-    ctx.check("the parent's turn_done closes the cards", rt.permission == [] and "stop" in b.typing)
+# items 26 and 27 (the Signal bridge's signed counter and a sub-agent's feed): moved to the signal pack
+# (3.3.13.0 R3), its tests/test_bridge_pins.py.
 
 
 # ---- item 28 -------------------------------------------------------------------
@@ -144,28 +75,24 @@ def test_item28_child_status_never_rekeys_the_registry(ctx: Ctx):
 
 @test
 def test_item29_reused_pid_reads_as_stopped(ctx: Ctx):
-    from halo_harness.remote import bridge_state as BS, proc_ident
-    path = Path(tempfile.mkdtemp(prefix="d1-pulse-")) / "bridge.json"
-
-    def pulse(**row) -> dict:
-        path.write_text(json.dumps({"state": "connected", "until": 0.0, **row}), encoding="utf-8")
-        return BS.read(path)
-    BS.BridgeState(path=path).write("connected")
-    ctx.check("this process's own pulse reads as running", BS.read(path)["running"] is True)
-    ctx.check("the pulse carries the process's start record",
-              json.loads(path.read_text(encoding="utf-8")).get("pstart") == proc_ident.start_token(os.getpid()))
+    """3.3.13.0 R3: the rule moved from the Signal bridge's pulse to remote/proc_ident.pulse_alive (the supervisor's
+    pulse and its services read it)."""
+    from halo_harness.remote import proc_ident
     mine = proc_ident.start_token(os.getpid())
+    ctx.check("this process's own row reads as alive",
+              proc_ident.pulse_alive({"pid": os.getpid(), "pstart": mine, "started": time.time()}))
     if mine is not None:
         other = proc_ident.start_token(os.getppid())
         ctx.check("a live pid whose start record differs reads as stopped (the pid was reused)",
-                  pulse(pid=os.getpid(), pstart=(other if other and other != mine else mine + "x"),
-                        started=time.time())["state"] == "stopped")
+                  not proc_ident.pulse_alive({"pid": os.getpid(), "pstart": (other if other and other != mine else mine + "x"),
+                                              "started": time.time()}))
     boot = proc_ident.boot_time()
     if boot is not None:
-        ctx.check("an old pulse with no start record written before this boot reads as stopped",
-                  pulse(pid=os.getpid(), started=boot - 3600)["running"] is False)
-    ctx.check("an old pulse with no start record from this boot still reads as running",
-              pulse(pid=os.getpid(), started=time.time())["running"] is True)
+        ctx.check("an old row with no start record written before this boot reads as stopped",
+                  not proc_ident.pulse_alive({"pid": os.getpid(), "started": boot - 3600}))
+    ctx.check("a row with no start record from this boot still reads as alive",
+              proc_ident.pulse_alive({"pid": os.getpid(), "started": time.time()}))
+    ctx.check("no pid is not alive", not proc_ident.pulse_alive({}) and not proc_ident.pulse_alive({"pid": -1}))
 
 
 # ---- item 96 -------------------------------------------------------------------

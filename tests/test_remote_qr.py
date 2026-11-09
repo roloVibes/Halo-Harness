@@ -14,8 +14,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from halo_harness.remote import qr, qr_tables as T, signing
+from halo_harness.remote import qr, qr_tables as T
 from tests.helpers.qr_decode import FORMAT_L, decode
+
+# The signal pack's pairing link (its halo_signal.signing.pair_uri) for secret bytes 0..31: a 157-byte payload.
+PAIR_URI = ("halo-remote://pair?aci=00000000-0000-4000-8000-000000000001&v=1&alg=hmac-sha256&len=8&secret="
+            + bytes(range(32)).hex())
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all
 
 test, TESTS = new_registry()
@@ -88,7 +92,7 @@ def _raises(fn) -> bool:
 def test_pinned_matrices(ctx: Ctx):
     ctx.check("HELLO WORLD matrix digest", _digest(qr.encode("HELLO WORLD")) == "fd8287e68916269f")
     ctx.check("URL matrix digest", _digest(qr.encode("https://example.invalid/")) == "0be0c44ec6b0da27")
-    uri = signing.pair_uri(bytes(range(32)), "00000000-0000-4000-8000-000000000001")
+    uri = PAIR_URI
     ctx.check("a 157-byte pairing link is a version 8 code with a pinned digest",
               len(qr.encode(uri)) == 49 and _digest(qr.encode(uri)) == "f921d55058019149")
 
@@ -107,7 +111,7 @@ def test_round_trip_through_an_independent_reader(ctx: Ctx):
     for s in ("HELLO WORLD", "A" * 100, "0123456789ABC", "SGNL://LINKDEVICE?UUID=ABC-DEF"):
         ctx.check(f"alphanumeric {s[:12]!r} round-trips", decode(qr.encode(s)) == s)
     ctx.check("non-ASCII text round-trips as UTF-8", decode(qr.encode("café ✓")) == "café ✓")
-    uri = signing.pair_uri(bytes(range(32)), "00000000-0000-4000-8000-000000000001")
+    uri = PAIR_URI
     ctx.check("the pairing link round-trips", decode(qr.encode(uri)) == uri)
     link = "sgnl://linkdevice?uuid=AAAAAAAAAAAAAAAAAAAAAA&pub_key=" + "B" * 60
     ctx.check("a linking URI round-trips", decode(qr.encode(link)) == link)

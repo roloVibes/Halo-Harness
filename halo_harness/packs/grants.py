@@ -82,7 +82,8 @@ def enable(pack, *, grant=None, grant_all: bool = False, state_dir=None) -> "tup
     for perm, why in missing(pack, rec["granted"]):
         lines.append(f"not running until granted: {why} (halo pack enable {pack.id} --grant {perm})")
     from halo_harness.packs.setup_state import enable_lines  # 3.3.11.0 R3: its Setup blocks still waiting
-    return True, lines + enable_lines(pack, state_dir)
+    from halo_harness.supervise.services_rows import enable_lines as service_lines  # 3.3.13.0 R3: its services
+    return True, lines + enable_lines(pack, state_dir) + service_lines(pack, rec["granted"], state_dir)
 
 
 def enable_id(pack_id: str, *, grant=None, grant_all: bool = False, cwd=None, state_dir=None) -> "tuple[bool, list[str]]":

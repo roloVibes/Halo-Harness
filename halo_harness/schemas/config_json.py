@@ -34,6 +34,19 @@ def removed_key_line(key: str) -> str:
     return f"{key}: removed in {REMOVED_KEYS[key]} with the game themes, the key is ignored"
 
 
+#: 3.3.13.0 R3: keys whose feature left the core for a shipped pack -> (pack id, the pack's own key).
+MOVED_KEYS = {"remote.signal.enabled": ("signal", "on"), "remote.rate_per_minute": ("signal", "rate_per_minute"),
+              "remote.verbosity": ("signal", "verbosity"), "remote.stale_window_s": ("signal", "stale_window_s"),
+              "remote.pair_code_ttl_s": ("signal", "pair_ttl_s")}
+
+
+def moved_key_line(key: str) -> str:
+    """The one line `halo config` and the doctor say for a key that moved to a pack."""
+    pack, new = MOVED_KEYS[key]
+    return (f"{key} moved to the {pack} pack in 3.3.13.0: halo config set packs.settings.{pack}.{new} <value> "
+            f"(or Setup -> the {pack} pack's page)")
+
+
 _SCALARS = {
     "model": STRING,
     "team": STRING,

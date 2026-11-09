@@ -6,9 +6,9 @@ Halo 3.2.0.0 (written in R1, final in R7: every part was `stable`); 3.3.10.0 R1 
 [Policy hooks](#policy-hooks) as the first `draft` part, and R2 made it `stable` (a session enforces each verdict).
 A pack is a folder Halo installs, enables and removes (see
 [PACKS.md](PACKS.md) for using one); this page is the contract a pack is
-written against. The extension API version is `API_VERSION = "1.1"` (1.0 until 3.3.10.0; a 1.0 pack keeps
-everything, [Changes in 1.x](#changes-in-1x); 3.3.11.0 added [Setup blocks](#setup-blocks) to it, 3.3.12.0
-[Themes](#themes))
+written against. The extension API version is `API_VERSION = "1.2"` (1.0 until 3.3.10.0, 1.1 until 3.3.13.0; a
+1.0 or 1.1 pack keeps everything, [Changes in 1.x](#changes-in-1x); 3.3.11.0 added [Setup blocks](#setup-blocks) to
+1.1, 3.3.12.0 [Themes](#themes); 3.3.13.0 made it 1.2 with [Services](#services) and [Transports](#transports))
 (`halo_harness.ext.API_VERSION`, also exported as `HALO_API_VERSION`). The
 machine-readable manifest schema is
 `halo_harness/packs/schema/pack.schema.json`; the reference pack is
@@ -39,6 +39,8 @@ guide, for a person and for a Halo session (`halo --team pack-author`), is [PACK
 | [Themes](#themes) | stable | `contributes.themes` (3.3.12.0 R2, API 1.1): a pack's own palettes, registered as `<pack-id>/<id>` while the pack is enabled and drawn by the terminal and Studio like the ten (the `-daltonized` / `-ansi` modifiers, the WCAG AA pins); the theme saved before is restored when the pack is disabled or removed |
 | [Requirements](#requirements) | stable | `requires:` tool entries (3.3.12.0 R4, API 1.1): the open-source tools a pack wraps, each with its install line per OS, license and why; Halo never installs one -- the doctor names a missing one, `halo pack test` skips what it gates |
 | [Policy hooks](#policy-hooks) | stable | `contributes.policy` and `contributes.modes` (3.3.10.0, API 1.1): a pack's runtime mode (mode.json), a policy hook whose verdict decides a tool call before it runs (deny > ask > allow) and, with `after: true`, its result after (pass, redact, drop); every verdict in the audit; the dry run |
+| [Services](#services) | stable | `contributes.services` (3.3.13.0 R3, API 1.2): a pack's program the supervisor keeps running while the pack is enabled and granted `services` -- autostart, a restart rule, a health file or url, a log; `halo supervise services`, the Pack Manager's Start / Stop |
+| [Transports](#transports) | stable | `ext.remote` (3.3.13.0 R3, API 1.2): what a pack that carries Halo to a phone or a chat uses -- the live sessions and their control sockets, a session started for it, the cards' text, the core's notes, a voice note's transcript; the shipped signal pack is one |
 | [The reference example](#the-reference-example) | stable | the Documentation Review pack Halo ships (3.2.0.0 R6): every part of the API in one pack a third party can copy |
 
 `stable`: a 1.x Halo keeps it. `removed <version>`: gone in that version,
@@ -55,7 +57,7 @@ else of Halo (`tests/test_ext_api.py` walks every fixture and shipped pack's Pyt
 check it). The modules under `halo_harness/ext/` are the implementation; the
 names in `__all__` are the contract.
 
-- `API_VERSION`, `HALO_API_VERSION`: `"1.1"` (3.3.10.0 R1; `"1.0"` before).
+- `API_VERSION`, `HALO_API_VERSION`: `"1.2"` (3.3.13.0 R3; `"1.1"` from 3.3.10.0 R1, `"1.0"` before).
 - `api_version()`, `compatible(range)`, `deprecations()`: 3.2.0.0 R7, the version policy
   ([Compatibility and migration](#compatibility-and-migration)): this API's version, whether a `halo_api`
   range takes it, the names announced for removal (`[{name, since, removed_in, use}]`, none in 1.0).
@@ -81,6 +83,10 @@ names in `__all__` are the contract.
   `Report` (`add(file, what, ok, fix)` for the pack's own checks, `ok`, `exit_code`, `text()`, `as_json()`);
   `testing.manifest(folder)` reads pack.yaml; `testing.ask_policy(folder, policy, tool, input)` asks one of the
   pack's policies about one call. A pack's `tests/pack_test.py` (written by `halo pack new`) is the example.
+- `remote`: API 1.2 (3.3.13.0 R3, stable): the transport seam ([Transports](#transports)) -- `sessions()`,
+  `connect(session_id)`, `start_session(cwd, model, by)`, `cards`, `KINDS` / `notify` / `listen` / `notes`,
+  `transcribe(path)`, `qr_text(data)`, `words()`, `service(pack, name)`, `service_ask(pack, name, verb)`,
+  `logon_lines()`, `fleet_lines()`, `capture_studio()`, `enabled()`, `offline()`, `default_model()`.
 - `Unit`: the unit of work (`halo_harness.work.unit.Unit`, docs/WORK.md).
 - `is_valid_pack_id`, `is_valid_name`, `qualified_name(pack_id, name)`, `split_name(name)`: the name rules.
 
@@ -118,10 +124,11 @@ contributes:
   modes: [{id: fenced, label: Fenced, theme: midnight}]   # 3.3.10.0: the pack's runtime modes
   setup: [{id: prefs, title: Review preferences, kind: form, fields: [style], after: model}]   # 3.3.11.0, Setup blocks below
   themes: [{id: nightshade, label: Violet night, posture: dark, palette: {bg: "#0d0b14", ...}}]   # 3.3.12.0, Themes below
+  services: [{name: bridge, run: [...], autostart: true, restart: on-failure, health: {file: health.json}, log: service.log}]   # 3.3.13.0, Services below
 config:
   schema: {properties: {style: {type: string, enum: [short, long]}}, additionalProperties: false}
   defaults: {style: short}
-permissions: ["mcp:lint", hooks]    # mcp:<server>, hooks, bash, network, home-write, studio-script
+permissions: ["mcp:lint", hooks]    # mcp:<server>, hooks, bash, network, home-write, studio-script, services
 migrations:
   - {from: 0.9.0, to: 1.0.0, note: the reviewer bio is now doc-review--reviewer}
   # 3.2.0.0 R7: settings renames packs.settings.<id> keys as the update runs
@@ -221,6 +228,12 @@ Every other field of the entry, and the hook's `CLAUDE_PLUGIN_ROOT`
 environment variable, get the path as it is
 ([PACKS.md](PACKS.md#a-packs-own-python)).
 
+**A command that runs a program** (3.3.13.0 R3, API 1.2): a pack's `commands/<name>.md` whose frontmatter says
+`run: ["${halo_python}", "${CLAUDE_PLUGIN_ROOT}/<file>", ...]` is a command the session runs itself, with no model
+call: the words after `/<pack>:<name>` (or the entry command `/<pack>`) go to the program as its arguments, and its
+output is the answer in the transcript (`halo_harness/commands/pack_run.py`; the environment a hook gets, stopped
+after 120 s). The body is what the command says when the program cannot start. The signal pack's `/signal` is one.
+
 A skill's `SKILL.md` body follows the same rule for its own variables
 (3.2.1.0 R5): in a `` !`sh ${CLAUDE_SKILL_DIR}/scripts/x.sh` `` span the
 skill's folder goes in as the span's shell reads it, and the rest of the
@@ -231,7 +244,8 @@ body gets it as it is. A skill or command body does not get
 ## Permissions and grants
 
 Status: **stable**. A pack requests `permissions:` in pack.yaml: `mcp:<server>`,
-`hooks`, `bash`, `network`, `home-write`, `studio-script` (3.2.0.0 R3: a Studio bundle panel). You grant them with `halo pack
+`hooks`, `bash`, `network`, `home-write`, `studio-script` (3.2.0.0 R3: a Studio bundle panel), `services` (3.3.13.0 R3:
+"runs a program of this pack in the background while the supervisor runs"). You grant them with `halo pack
 enable <id> --grant NAME` (or `--grant-all`); grants add up and live in
 state.json; `disable` clears them. A contribution whose permission is not
 granted does not run, and `halo pack doctor` says so. `bash` and `network`
@@ -1013,6 +1027,63 @@ and a `git` repo is not checked. Each bad value is one line naming the entry (a 
 version that is not a range, an install line missing for an OS, the url, license or why left out), and the pack does
 not install. How to choose and wrap a tool is [PACK-AUTHORING.md](PACK-AUTHORING.md#wrapping-an-open-source-tool).
 
+## Services
+
+Status: **stable** (3.3.13.0 R3, API 1.2). A pack that must keep a program running -- a bridge to a phone, a watcher,
+a small server -- lists it under `contributes.services`; the supervisor (`halo supervise`,
+[SUPERVISE.md](SUPERVISE.md#pack-services)) runs it while the pack is enabled and granted `services`.
+`halo_harness/packs/manifest_services.py` checks the list at install, one line per problem naming the entry (a name
+that is not one, a `run` outside the pack, a restart rule that is not one of the three, a health with both or neither
+of file and url, a url that is not on this machine, a log outside the data folder), and the install is refused.
+
+```yaml
+contributes:
+  services:
+    - name: bridge                               # lower-case letters, digits, - and _; the service is <pack>/<name>
+      description: answers the paired phones     # one line: what it does while it runs
+      run: ["${halo_python}", "${CLAUDE_PLUGIN_ROOT}/bin/signal.py", "service"]   # exec form, a file of the pack
+      autostart: true                            # halo supervise starts it (false: only Start starts it)
+      restart: on-failure                        # on-failure (an exit other than 0) | always | never
+      health: {file: health.json, max_age_s: 90} # a file in the data folder it rewrites, or {url: http://127.0.0.1:<port>/...}
+      log: service.log                           # its stdout and stderr, in the data folder
+permissions: [services]
+```
+
+| What | How |
+|---|---|
+| **start** | each tick (5 s) of `halo supervise`, an autostart service of a pack that is enabled and granted `services` and is not running starts, in the pack's folder, with the environment a hook gets (Halo's provider keys left out) plus `HALO_SERVICE` (`<pack>/<name>`), `HALO_SERVICE_HEALTH` (the health file's path), `HALO_SERVICE_STOP` (the file whose existence asks it to end) and `HALO_SUPERVISOR=1` |
+| **restart** | after an exit other than 0 (`on-failure`) or any exit (`always`), it starts again after 5 s, doubling to 300 s; ten minutes up puts the wait back to 5 s |
+| **stop** | Stop (the Pack Manager's row, `halo supervise service stop <pack>/<name>`), the grant taken back, the pack disabled, or the supervisor's own way out: the stop file first, then after 5 s the process ended |
+| **state** | `<state>/supervise/services.json`, read by `halo supervise services` and `status`, the Pack Manager's row ("running since 09:12" / "stopped: <line>"), `halo doctor` (one row per service), the TUI's remote chip and `ext.remote.service(pack, name)` |
+| **health** | a file younger than `max_age_s` (120 when left out) is `ok`; its JSON's `line` (or `state`) is the row's line |
+| **the enable line** | `halo pack enable <id>` says, per service, where it starts and whether the supervisor runs now |
+| **halo pack test** | checks that each service's command resolves and its health and log have a shape the supervisor reads; it does not start it |
+
+A service needs the session a person would have: it asks for one through [Transports](#transports)'s
+`start_session`, which the supervisor starts with the keys it holds, so the pack's program never holds one.
+
+## Transports
+
+Status: **stable** (3.3.13.0 R3, API 1.2). A transport carries a session somewhere else -- a phone, a chat -- and is
+a pack; the core never knows which one. `halo_harness.ext.remote` is what it uses
+([REMOTE.md](REMOTE.md#transports) has the core's side):
+
+| Name | What it does |
+|---|---|
+| `sessions()` / `connect(session_id, timeout=10)` | the live sessions (newest first, never a token) and a client of one's control socket: `.call(cmd, **fields)`, `.next_event(timeout)`, `.close()` -- the wire is [REMOTE.md](REMOTE.md#the-wire) |
+| `start_session(cwd, model="", by="", timeout_s=45)` | a session with no terminal for the transport; `(row, "")` or `(None, the line)` |
+| `default_model()`, `enabled()`, `offline()` | config `model`; `remote.enabled` (every transport's switch); Halo's offline mode |
+| `cards` | the plain-text cards (`permission_messages`, `question_card`, `plan_card`, `approval_card`, `status_text`, `one_line`) and the reply parsers (`parse_permission_reply`, `parse_question_reply`, `normalize_questions`) |
+| `KINDS`, `listen(name)`, `notes(cursor, kinds=None)`, `notify(kind, text, source="", session="")` | the core's notes: say you listen (once a minute), read the ones after your cursor; kinds `turn_done`, `asks`, `errors`, `supervisor`, `steward` |
+| `transcribe(path)` | a voice note's text through the local speech server that runs ([VOICE.md](VOICE.md)); `(text, "")` or `(None, the line)` |
+| `qr_text(data)`, `words()` | a QR code in half-block text; the 256 words of the signing and pairing phrases |
+| `service(pack, name)`, `service_ask(pack, name, "start" \| "stop")`, `logon_lines()` | its own service's row, a Start / Stop, how to start the supervisor at logon |
+| `fleet_lines()`, `capture_studio(session_id="")` | this harness's sessions, the fleet's members and what waits; a capture of the Studio window when it is open here |
+
+The shipped **signal pack** (`halo_harness/templates/packs/signal/`) is the example: its service runs the bridge,
+its `/signal` command runs its program, its Setup blocks walk signal-cli, the account, pairing and the service, and
+its tests drive a whole conversation through fakes.
+
 ## Compatibility and migration
 
 Status: **stable** (3.2.0.0 R7). The policy, as `halo_harness/ext/compat.py`
@@ -1034,7 +1105,7 @@ and `halo_harness/packs/resolve.py` apply it:
   `halo pack doctor` and in the Pack Manager's Details, in these words:
 
 ```
-pack doc-review needs extension API 1.2 to 1.9; this Halo has 1.1
+pack doc-review needs extension API 1.3 to 1.9; this Halo has 1.2
 pack x needs Halo >= 3.3; this is 3.2.0.0
 ```
 
@@ -1067,6 +1138,10 @@ what to use instead), one line each (`ext.compat.CHANGES` holds the same).
   `requires:` tool entries ([Requirements](#requirements)), both stable; deprecates nothing. A 1.0 pack keeps everything: `{min: "1.0"}` and `{min: "1.0", max: "1.9"}` take 1.1, and a pack
   without `policy` and `modes` reads and runs exactly as before. (A pack that says `max: "1.0"` asked for 1.0 only
   and gets the one compatibility line.)
+- **1.2** (Halo 3.3.13.0 R3): adds `remote` (the transport seam, [Transports](#transports)), the manifest's
+  `contributes.services` and the grant `services` ([Services](#services)), a pack command's `run:` frontmatter (a
+  program of the pack, no model call), and `halo pack test` running the pack's own `tests/test_*.py`; all stable;
+  deprecates nothing. A 1.0 or 1.1 pack keeps everything: `{min: "1.0", max: "1.9"}` and `{min: "1.1"}` take 1.2.
 - **1.0** (Halo 3.2.0.0): the first version.
 
 ### Updating a pack

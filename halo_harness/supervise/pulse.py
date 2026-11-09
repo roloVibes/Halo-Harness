@@ -1,7 +1,7 @@
 """halo_harness.supervise.pulse -- the supervisor's pulse file and stop file
 (Halo 3.1.8.0 R1), so `halo supervise status`, Studio's Session landing and
 a session arming its lineup's schedules can tell what a supervisor running in
-another process does. The Signal bridge's pattern (remote/bridge_state.py).
+another process does (3.3.13.0 R3: the liveness rule is remote/proc_ident.pulse_alive).
 
     <state>/supervise/pulse.json  {pid, pstart, started, updated, state, goals: {queued, running, done, parked}}  0600
     <state>/supervise/stop        its existence asks the running supervisor to end (Windows has no signal for it)
@@ -74,7 +74,7 @@ def read(state_dir=None) -> dict:
     row = read_row(state_dir)
     if row is None:
         return {"state": "off", "pid": None, "started": None, "updated": None, "goals": {}, "running": False}
-    from halo_harness.remote.bridge_state import alive
+    from halo_harness.remote.proc_ident import pulse_alive as alive
     state = str(row.get("state") or "stopped")
     running = state in LIVE_STATES and (row.get("pid") == os.getpid() or alive(row))
     return {"state": state if running else "stopped", "pid": row.get("pid"), "started": row.get("started"),

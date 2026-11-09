@@ -131,7 +131,7 @@ Several harnesses, one picture, one goal; and control from another process or yo
 
 - [FLEET.md](FLEET.md) (Fleet): read this when you connect several harnesses into one fleet and watch or steer them from one place.
 - [MISSIONS.md](MISSIONS.md) (Fleet missions): read this when you give one goal to the whole fleet and want to follow its parts.
-- [REMOTE.md](REMOTE.md) (Remote control): read this when you control a running session from another process or from your phone over Signal.
+- [REMOTE.md](REMOTE.md) (Remote control): read this when you control a running session from another process, or wire a transport (a phone, a chat) to Halo.
 
 ## I want to develop Halo
 

@@ -117,7 +117,7 @@ pack neither done nor skipped, `setup: <id> -- <title> (halo setup <id>)`
 #### `--grant`
 
 `--grant NAME`, repeatable: grant one permission the pack requests
-(`mcp:<server>`, `hooks`, `bash`, `network`, `home-write`). A name it does
+(`mcp:<server>`, `hooks`, `bash`, `network`, `home-write`, `studio-script`, `services`). A name it does
 not request is one line and exit 1.
 
 #### `--grant-all`

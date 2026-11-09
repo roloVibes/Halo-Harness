@@ -7,7 +7,7 @@
                      media: {comfyui, models: [{name, kind}]},
                      hardware: {os, distro, release, cpu, cores, ram_gb, gpu: [{name, vram_gb}], disk_free_gb, link},
                      clis: {name: version | "installed" | null}, projects: [{name, repo, branch}],
-                     integrations: {signal}, packs: [{id, capabilities: [{name, available, why}], ...}]}  (R4)
+                     integrations: {<transport>: true}, packs: [{id, capabilities: [{name, available, why}], ...}]}  (R4)
 
 Full local paths never leave the machine: projects are basenames and repo
 names, and every string in the catalog is scrubbed of absolute paths (a path

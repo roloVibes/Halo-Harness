@@ -67,7 +67,7 @@ def pending(cwd, state_dir) -> list:
 
 
 def rows(items: list, local: dict, seen: dict, now: float) -> list:
-    from halo_harness.remote.bridge_cards import one_line
+    from halo_harness.remote.cards import one_line
     out = []
     for it in items:
         kind = f"{PREFIX}{it['pack']}:{it['kind']}"

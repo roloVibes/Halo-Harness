@@ -1,60 +1,43 @@
-"""halo_harness.fleet.push -- the attention queue on the phone (Halo 3.0.5.0
-"Fleet" round R4). When the Signal bridge is ENABLED (`remote.enabled`),
-RUNNING and PAIRED with at least one phone, every new attention row (any
-harness, any session) goes to the phone as the same card the bridge already
-sends for the session it is attached to (remote/bridge_cards.py), prefixed
-with the harness name: `[kali@lab] Permission needed: Bash ...`. Otherwise
-nothing is written and nothing is sent.
+"""halo_harness.fleet.push -- the attention queue on the owner's phone or chat (Halo 3.0.5.0 "Fleet" round R4; 3.3.13.0
+R3: through the transports' seam, remote/notify.py, instead of the Signal bridge's own spool). While a transport
+listens (a pack's bridge, the signal pack's for one) and `remote.enabled` is not false, every new attention row (any
+harness, any session) becomes one `asks` note, the same card text the bridge sends for the session it is attached to
+(remote/cards.py), prefixed with the harness name: `[kali@lab] Permission needed: Bash ...`. Otherwise nothing is
+written.
 
-The hub (Studio's fleet watcher) writes one small file per card into
-`<home>/remote/fleet-push/` (0600); the bridge process drains it on its own
-loop (`drain`, called from remote/bridge.py) and sends each card to every
-paired phone that is not blocked. A card older than KEEP_S is dropped
-unsent, so a bridge that starts late never floods the phone. A local session
-a phone is attached to is skipped: the bridge already sent that card.
+Studio's fleet watcher (the hub) calls `spool` with the new rows; a local session a phone is attached to is skipped
+(the transport already carries that card). The note's `session` is the row's session id, so a transport can skip a
+session it is attached to as well.
 """
 
 from __future__ import annotations
 
-import json
-import time
-from pathlib import Path
 from typing import Optional
 
-SPOOL = "fleet-push"
-KEEP_S = 600.0
-MAX_FILES = 200
 PUSH_KINDS = ("permission", "question", "plan", "approval", "fleet_ask", "waiting", "cap", "conflict",
               "goal_plan", "goal_gate", "goal_budget", "goal_ask", "goal_replan")  # 3.1.8.0 R1/R2: the supervisor's decisions
 
 
-def _remote(home) -> Path:
+def _state(home):
     if home is not None:
-        return Path(home) / "remote"
+        return home
     from halo_harness.config.paths import bridge_home
-    return bridge_home() / "remote"
+    return bridge_home()
 
 
-def paired(home=None) -> bool:
-    try:
-        data = json.loads((_remote(home) / "peers.json").read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return False
-    peers = data.get("peers") if isinstance(data, dict) else None
-    return isinstance(peers, dict) and any(isinstance(p, dict) and not p.get("blocked_until_reverified") for p in peers.values())
+def listening(home=None) -> "list[str]":
+    from halo_harness.remote.notify import listening as names
+    return names(_state(home))
 
 
 def ready(home=None) -> bool:
-    """Enabled, running and paired: only then does a card leave the hub."""
-    from halo_harness.remote import bridge_state
+    """`remote.enabled` is not off and a transport listens: only then does a card leave the hub."""
     from halo_harness.remote.fleet_identity import remote_enabled
-    if not remote_enabled() or not paired(home):
-        return False
-    return bool(bridge_state.read(_remote(home) / "bridge.json").get("running"))
+    return remote_enabled() and bool(listening(home))
 
 
 def card(row: dict, ask: Optional[dict] = None) -> str:
-    from halo_harness.remote import bridge_cards as cards
+    from halo_harness.remote import cards
     data = (ask or {}).get("data") if isinstance((ask or {}).get("data"), dict) else None
     who = row.get("harness_name") or "a harness"
     if row.get("agent") and row.get("agent") not in ("main", ""):
@@ -76,45 +59,14 @@ def card(row: dict, ask: Optional[dict] = None) -> str:
 
 
 def spool(home, rows: list, asks: Optional[dict] = None, now: Optional[float] = None) -> int:
-    """Write the cards for `rows` (the NEW attention rows); the number written."""
-    from halo_harness.privateio import write_private_atomic
-    folder = _remote(home) / SPOOL
+    """One `asks` note per NEW attention row a transport should carry; the number written."""
+    from halo_harness.remote.notify import notify
     n = 0
-    now = now or time.time()
     for row in rows:
         if row.get("kind") not in PUSH_KINDS or (row.get("local") and row.get("remote_attached")):
             continue
         ask = (asks or {}).get((str(row.get("harness")), str(row.get("session_id")), str((row.get("target") or {}).get("request_id"))))
-        try:
-            folder.mkdir(parents=True, exist_ok=True)
-            name = f"{int(now * 1000)}-{n:03d}.json"
-            write_private_atomic(folder / name, json.dumps({"id": row["id"], "created": now, "text": card(row, ask)}))
+        if notify("asks", card(row, ask), source=str(row.get("id") or ""), session=str(row.get("session_id") or ""),
+                  state_dir=_state(home)):
             n += 1
-        except OSError:
-            break
     return n
-
-
-def drain(bridge, folder: Optional[Path] = None, now: Optional[float] = None) -> int:
-    """The bridge's side: send every waiting card to every paired phone; the number of cards sent."""
-    folder = Path(folder) if folder is not None else Path(bridge.pairing.dir) / SPOOL
-    if not folder.is_dir():
-        return 0
-    now = now or time.time()
-    sent = 0
-    for f in sorted(folder.glob("*.json"))[:MAX_FILES]:
-        try:
-            doc = json.loads(f.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            doc = {}
-        try:
-            f.unlink()
-        except OSError:
-            continue
-        if not isinstance(doc, dict) or not doc.get("text") or now - float(doc.get("created") or 0) > KEEP_S:
-            continue
-        for aci, peer in bridge.pairing.peers().items():
-            if isinstance(peer, dict) and not peer.get("blocked_until_reverified"):
-                bridge.say(aci, str(doc["text"]), card=True)
-        sent += 1
-    return sent

@@ -29,7 +29,14 @@ halo supervise --service --os linux   # write the file for another OS
 halo supervise status          # the pulse: pid, state, the goal counts, what waits on you
 halo supervise status --json   # the same, machine-readable
 halo supervise stop            # ask a running supervisor to end (a stop file it polls)
+halo supervise services [--json]                  # 3.3.13.0: the packs' services, one line each
+halo supervise service start|stop <pack>/<name>   # ask the running supervisor to start or stop one
 ```
+
+3.3.13.0 R3: the supervisor also runs the enabled packs' services (a pack's `contributes.services`, the signal pack's
+bridge for one): `services` lists each as `<pack>/<name>  running since 09:12 -- <what it does>` or `stopped:
+<line>`; `service start|stop` is applied at the supervisor's next tick, and a Stop is kept until a Start
+([SUPERVISE.md](SUPERVISE.md#pack-services)).
 
 The supervisor is the one halo process a quit leaves running (3.2.2.0):
 it was started on purpose with `halo supervise --daemon`, so `/quit`,
@@ -46,7 +53,7 @@ detached updater does the same.
 - `--service`: write the service-manager file for this OS under
   `~/.halo/supervise/` (a systemd user unit, a launchd plist or a Task
   Scheduler XML) and print the single command that enables it. Halo never
-  enables it.
+  enables it. Since 3.3.13.0 it starts the packs' services too.
 - `--os linux|macos|windows`: with `--service`, write the file for another OS.
 - `--json`: one JSON object on stdout.
 

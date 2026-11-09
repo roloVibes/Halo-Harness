@@ -59,12 +59,10 @@ SUBCOMMANDS = (
 OLLAMA_WORDS = ("discover", "calibrate", "tune", "doctor", "--lan", "--add", "--calibrate", "--json", "--timeout",
                 "--twins", "--no-twins", "--window", "--remove")
 
-# Halo 2.0.9 round 4: the words that follow `halo remote` / `halo remote
-# signal` (completion offers one flat word list after the first argument, so
-# these join the role names there). Kept equal to remote/cli.py by
-# tests/test_remote_cli_signal.py.
-REMOTE_WORDS = ("sessions", "signal", "setup", "register", "link", "run", "pair", "peers", "unpair", "reverify",
-                "status", "off", "on", "agents", "steer", "stop")  # the last three: 3.0.5.0 (cli_fleet.py)
+# Halo 2.0.9 round 4: the words that follow `halo remote` (completion offers one flat word list after the first
+# argument, so these join the role names there). 3.3.13.0 R3: the `signal` verbs left with the signal pack (`/signal`);
+# kept equal to remote/cli.py by tests/test_pack_signal.py.
+REMOTE_WORDS = ("sessions", "transports", "agents", "steer", "stop")  # agents/steer/stop: 3.0.5.0 (cli_fleet.py)
 
 
 def cached_model_refs(state_dir=None) -> "list[str]":

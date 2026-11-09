@@ -2,40 +2,31 @@
 
     halo remote sessions               live halo sessions that opened a control socket
     halo remote agents|steer|stop ...  one session's agent tree (3.0.5.0, cli_fleet.py)
-    halo remote signal <verb> [...]    the Signal bridge: setup, register, link, run,
-                                       pair, peers, unpair, reverify, status, off, on
-
-Every `signal` verb takes `--json`. The verbs live in cli_setup.py,
-cli_link.py, cli_run.py and cli_pair.py.
+    halo remote transports [--json]    3.3.13.0 R3: the transports listening here (a pack's bridge) and the notes seam
+    halo remote signal ...             3.3.13.0 R3: one line -- the Signal bridge is the signal pack now
 """
 
 from __future__ import annotations
 
+import json
 import sys
 import time
 
-SIGNAL_VERBS = ("setup", "register", "link", "run", "pair", "peers", "unpair", "reverify", "status", "off", "on")
+SIGNAL_MOVED = ("halo remote signal: the Signal bridge is the signal pack since 3.3.13.0 -- `halo pack install signal`, "
+                "`halo pack enable signal --grant-all`, then `/signal` in a session or Setup -> Signal (docs/REMOTE.md "
+                "\"Transports\")")
 USAGE = """usage: halo remote sessions
        halo remote agents <session> [--json]
        halo remote steer <session> --agent <id> [--redirect] <text> [--json]
        halo remote stop <session> --agent <id> [--reason <text>] [--json]
-       halo remote signal <verb> [--json] [...]
+       halo remote transports [--json]
 
-  sessions   list the live halo sessions that opened a control socket
-  agents     one session's agents: the main agent and every sub-agent, with state and cost
-  steer      a note one agent reads before its next model call (--redirect replaces its task)
-  stop       stop one agent and its subtree at the next tool boundary
-  signal     control halo from Signal; verbs:
-    setup      choose dedicated number or linked device; find or download signal-cli
-    register   register the dedicated number (captcha, SMS code, registration lock)
-    link       link signal-cli to your own Signal account (QR code)
-    run        run the bridge (--daemon writes a service-manager file)
-    pair       list contact requests; --approve N issues the pairing code
-    peers      list paired phones
-    unpair     remove a paired phone
-    reverify   trust a blocked phone's new safety number
-    status     bridge, signal-cli, account and phones at a glance
-    off / on   the kill switch: stop the bridge and disable it / enable it again"""
+  sessions    list the live halo sessions that opened a control socket
+  agents      one session's agents: the main agent and every sub-agent, with state and cost
+  steer       a note one agent reads before its next model call (--redirect replaces its task)
+  stop        stop one agent and its subtree at the next tool boundary
+  transports  the transports listening here (a pack's bridge, the signal pack's for one), and remote.enabled
+  (the Signal bridge is the signal pack: halo pack install signal)"""
 
 
 def _age(started) -> str:
@@ -65,20 +56,17 @@ def cmd_sessions() -> int:
     return 0
 
 
-def cmd_signal(argv: list) -> int:
-    verb, rest = (argv[0], argv[1:]) if argv else ("", [])
-    if verb in ("", "-h", "--help") or verb not in SIGNAL_VERBS:
-        print(USAGE, file=sys.stdout if verb in ("", "-h", "--help") else sys.stderr)
-        return 0 if verb in ("", "-h", "--help") else 2
-    if verb in ("setup", "register"):
-        from halo_harness.remote import cli_setup as m
-    elif verb == "link":
-        from halo_harness.remote import cli_link as m
-    elif verb in ("run", "status", "off", "on"):
-        from halo_harness.remote import cli_run as m
-    else:
-        from halo_harness.remote import cli_pair as m
-    return getattr(m, "cmd_" + verb)(rest)
+def cmd_transports(argv: list) -> int:
+    from halo_harness.remote.fleet_identity import remote_enabled
+    from halo_harness.remote.notify import listening
+    names, on = listening(), remote_enabled()
+    if "--json" in argv:
+        print(json.dumps({"ok": True, "remote_enabled": on, "listening": names}, indent=2))
+        return 0
+    print(f"remote.enabled: {'true' if on else 'false (every transport stays silent)'}")
+    print("transports listening: " + (", ".join(names) if names else
+                                      "none (a pack's bridge listens while its service runs: halo supervise services)"))
+    return 0
 
 
 def cmd_remote(argv: list) -> int:
@@ -87,8 +75,11 @@ def cmd_remote(argv: list) -> int:
         return 0
     if argv and argv[0] == "sessions" and len(argv) == 1:
         return cmd_sessions()
+    if argv and argv[0] == "transports":
+        return cmd_transports(argv[1:])
     if argv and argv[0] == "signal":
-        return cmd_signal(argv[1:])
+        print(SIGNAL_MOVED, file=sys.stderr)
+        return 2
     if argv and argv[0] in ("agents", "steer", "stop"):
         from halo_harness.remote import cli_fleet
         return getattr(cli_fleet, "cmd_" + argv[0])(argv[1:])

@@ -61,6 +61,9 @@ def _cmd_get(rest: list) -> int:
         # get_config_value raises when the sentinel default is passed and the
         # key (or a dotted path segment) is absent -- report it, never traceback.
         value = theme_mod._MISSING
+    from halo_harness.schemas.config_json import MOVED_KEYS, moved_key_line
+    if args.key in MOVED_KEYS:  # 3.3.13.0 R3: an old key of a feature that is a pack now: its new home
+        print(f"halo config: {moved_key_line(args.key)}", file=sys.stderr)
     if value is theme_mod._MISSING:
         print(f"halo config: {args.key!r} is not set", file=sys.stderr)
         return 1
@@ -84,9 +87,12 @@ def _cmd_set(rest: list) -> int:
         print(f"halo config: {refusal(value)}",
               file=sys.stderr)
         return 2
-    from halo_harness.schemas.config_json import REMOVED_KEYS, removed_key_line
+    from halo_harness.schemas.config_json import MOVED_KEYS, REMOVED_KEYS, moved_key_line, removed_key_line
     if args.key in REMOVED_KEYS:
         print(f"halo config: {removed_key_line(args.key)}", file=sys.stderr)
+        return 2
+    if args.key in MOVED_KEYS:  # 3.3.13.0 R3: the Signal bridge's keys are the signal pack's
+        print(f"halo config: {moved_key_line(args.key)}", file=sys.stderr)
         return 2
     try:
         if args.key == "theme":  # 3.3.12.0 R2: through persist_theme, which keeps a pack palette's restore record

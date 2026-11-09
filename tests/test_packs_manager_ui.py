@@ -18,7 +18,8 @@ skipped without one), over a fresh home with no pack installed:
 6. a disabled pack's row: disabled, 0/3, Enable back, its tab gone, no picker;
 7. Remove with its confirm (the command, --keep-config when ticked): the
    pack's folder goes and Sources offers Install again;
-8. 3.3.10.0 R2: a pack with a policy hook armed: its row's chip names the armed policy and the last verdict.
+8. 3.3.10.0 R2: a pack with a policy hook armed: its row's chip names the armed policy and the last verdict;
+9. 3.3.13.0 R3: a pack with a service: its row's chip says how the supervisor runs it, and Stop asks it.
 Run: python -m tests.test_packs_manager_ui
 """
 from __future__ import annotations
@@ -66,7 +67,7 @@ def test_install_from_a_source(ctx: Ctx):
 @test
 def test_the_details_block_and_a_grant_picked_for_enable(ctx: Ctx):
     got = _got(ctx)
-    ctx.check(f"the API range beside this Halo's, got {got.get('api')!r}", got.get("api") == "1.0 to 1.9; this Halo has 1.1")
+    ctx.check(f"the API range beside this Halo's, got {got.get('api')!r}", got.get("api") == "1.0 to 1.9; this Halo has 1.2")
     ctx.check(f"no dependency, got {got.get('requires')!r}", got.get("requires") == "no other pack")
     text = str(got.get("contributes"))
     ctx.check(f"inspect's contributes block, got {text!r}", "Studio section docs (Docs review)" in text
@@ -161,6 +162,18 @@ def test_a_policy_packs_row_names_what_is_armed_and_the_last_verdict(ctx: Ctx):
     ctx.check(f"the gate's verdict, got {got.get('policy_verdict')!r}", got.get("policy_verdict") == "deny")
     ctx.check(f"the chip, got {got.get('policy_chip')!r}", got.get("policy_chip")
               == "armed: fence · last: deny -- fence: outside the project (Write)" and got.get("policy_armed") == "1")
+
+
+@test
+def test_a_service_packs_row_says_how_its_service_runs(ctx: Ctx):
+    """3.3.13.0 R3: the service-pack fixture enabled with `services`, the supervisor's row for it running: the chip and
+    Stop, which asks the running supervisor."""
+    got = _got(ctx)
+    ctx.check(f"the chip, got {got.get('service_chip')!r}", str(got.get("service_chip")).startswith("service running since ")
+              and "ticking" in str(got.get("service_chip")))
+    ctx.check(f"Stop beside it, got {got.get('service_act')!r}", got.get("service_act") == "Stop")
+    ctx.check(f"Stop asks the supervisor, got {got.get('service_want')}", got.get("service_asked") is True
+              and got.get("service_want") == {"service-pack/ticker": "stop"})
 
 
 if __name__ == "__main__":

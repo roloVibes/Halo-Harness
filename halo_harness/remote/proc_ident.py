@@ -1,5 +1,5 @@
 """halo_harness.remote.proc_ident -- tell a process apart from a later one
-that was given the same PID (3.0.2.0), for the bridge's pulse file.
+that was given the same PID (3.0.2.0), for the pulse files (the supervisor's, its services').
 
     start_token(pid) -> str | None   a value fixed for the life of `pid`
     boot_time()      -> float | None the unix time the machine booted
@@ -101,3 +101,27 @@ def boot_time() -> Optional[float]:
         return None
     m = re.search(r"sec\s*=\s*(\d+)", out.stdout or "")
     return float(m.group(1)) if m else None
+
+
+BOOT_SLACK_S = 5.0
+
+
+def pulse_alive(row: dict) -> bool:
+    """A pulse row's process ({pid, pstart, started}) is running AND is the process that wrote it: the start token
+    matches, or (no token here) it was written after this boot. 3.3.13.0 R3: moved here from the Signal bridge's
+    pulse (remote/bridge_state.py, now the signal pack's); the supervisor's pulse and its services read it."""
+    pid = row.get("pid") if isinstance(row, dict) else None
+    if not isinstance(pid, int) or pid <= 0:
+        return False
+    from halo_harness.remote.registry import pid_alive
+    if not pid_alive(pid):
+        return False
+    want = row.get("pstart")
+    if want:
+        have = start_token(pid)
+        if have is not None:
+            return have == want
+    started, boot = row.get("started"), boot_time()
+    if isinstance(started, (int, float)) and boot is not None and started < boot - BOOT_SLACK_S:
+        return False  # written before this boot: the PID now belongs to something else
+    return True

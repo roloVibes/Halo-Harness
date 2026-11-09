@@ -17,8 +17,8 @@ works on, and the fleet's config switches (Halo 3.0.5.0 "Fleet" round R1).
 * `fleet_enabled()` (`fleet.enabled`, default true: every session opens its
   control socket and registers), `private_configured()` (`fleet.private` or
   `--private`, which sets HALO_FLEET_PRIVATE for its own process) and
-  `remote_enabled()` (`remote.enabled`, default false: the Signal bridge's
-  switch and nothing else).
+  `remote_enabled()` (`remote.enabled`, default true since 3.3.13.0 R3: every
+  transport's switch -- a pack's bridge answers and the core's notes go out only while it is on).
 """
 
 from __future__ import annotations
@@ -72,7 +72,7 @@ def fleet_enabled() -> bool:
 
 
 def remote_enabled() -> bool:
-    return truthy(_config("remote.enabled", False), False)
+    return truthy(_config("remote.enabled", True), True)
 
 
 def private_configured() -> bool:

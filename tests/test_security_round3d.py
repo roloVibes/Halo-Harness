@@ -3,7 +3,7 @@ credential findings 18-20 of docs/harness/SECURITY-REVIEW-2.0.10.md
 (section D).
 
 18  a redirect to another origin drops Authorization and user headers
-19  signal-cli and `${VAR}` expansion get the secret-stripped environment
+19  `${VAR}` expansion gets the secret-stripped environment (signal-cli: the signal pack's service, 3.3.13.0 R3)
 20  secret files are private from birth; the settings mode is kept
 """
 from __future__ import annotations
@@ -122,30 +122,7 @@ def test_f18_same_origin_redirect_keeps_credentials(ctx: Ctx):
 # ---- 19: the secret-stripping environment ---------------------------------------------
 
 
-@test
-def test_f19_signal_cli_gets_the_stripped_environment(ctx: Ctx):
-    import subprocess
-    from halo_harness.remote import cli_common, signal_link
-    with _env(OPENROUTER_API_KEY=OR_KEY, SAFE_VAR_R3="kept"):
-        captured: dict = {}
-        real_run = subprocess.run
-        subprocess.run = lambda argv, **kw: captured.update(kw) or subprocess.CompletedProcess(argv, 0, "", "")
-        try:
-            cli_common.run_cli({"binary": "signal-cli", "data_dir": tempfile.mkdtemp(prefix="halo-sig-")}, "listAccounts")
-        finally:
-            subprocess.run = real_run
-        env = captured.get("env") or {}
-        ctx.check("run_cli passes an explicit env", bool(env))
-        ctx.check("provider key stripped from run_cli", "OPENROUTER_API_KEY" not in env)
-        ctx.check("ordinary variables kept", env.get("SAFE_VAR_R3") == "kept")
-        spawned: dict = {}
-
-        class _P:
-            stdout = stdin = None
-
-        signal_link.open_link({"binary": "signal-cli", "data_dir": tempfile.mkdtemp(prefix="halo-sig-"), "account": "+10000000000"},
-                              popen=lambda argv, **kw: spawned.update(kw) or _P())
-        ctx.check("open_link strips the provider key", "OPENROUTER_API_KEY" not in (spawned.get("env") or {"OPENROUTER_API_KEY": 1}))
+# test_f19_signal_cli_gets_the_stripped_environment: 3.3.13.0 R3: signal-cli runs under the signal pack's service, whose environment the supervisor strips (tests/test_supervise_services.py)
 
 
 @test

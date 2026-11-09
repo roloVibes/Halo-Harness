@@ -225,12 +225,10 @@ def _cmd_offline(args: str, facade: HeadlessFacade) -> str:
 
 
 def _cmd_remote(args: str, facade: HeadlessFacade) -> str:
-    """Halo 2.0.9: `/remote [status | pair [N] | off]` as text -- the control
-    socket line, the Signal bridge state and the paired phones, contact
-    requests and the pairing code, or the kill switch. The TUI opens a dialog
-    for bare `/remote`; print mode answers with the status text."""
-    from halo_harness.remote.dialog_model import text_command
-    return text_command(args)
+    """Halo 2.0.9: `/remote` -- 3.3.13.0 R3: the control socket's status (this session's socket, the registry,
+    remote.enabled, the transports listening, the packs' services); the Signal bridge is the signal pack's `/signal`."""
+    from halo_harness.remote.status import text
+    return text(args)
 
 
 def _agents_live(session) -> str:
@@ -1869,8 +1867,8 @@ _BUILTIN_SPECS = {
     "studio": ("core", "Open Halo Studio, the browser GUI: in the TUI bare /studio watches this session (the Session dashboard)",
                "[session|roles|design|orchestra|fleet|team|packs|setup] [url]", _cmd_studio),
     "design": ("core", "Open Studio's Design GUI: artboards on your own apps (the `halo design` family)", "[url]", _cmd_design),
-    "remote": ("core", "Remote control: control socket, Signal bridge state, paired phones, pairing, kill switch",
-               "[status|pair [N]|off]", _cmd_remote),
+    "remote": ("core", "Remote control: this session's control socket, the transports listening, the packs' services",
+               "[status]", _cmd_remote),
     "private": ("core", "Private session: no control socket, no registry entry (Studio and the fleet never see it)",
                 "[on|off]", _cmd_private),
     "fleet": ("core", "The fleet: every harness, session and agent this machine sees (a live table in the TUI)",

@@ -36,6 +36,11 @@ Documentation Review reference pack). There is no marketplace.
   look `halo pack update <id>` prints in a terminal before it asks
   `Apply? [y/N]` (3.2.1.0 R4). Roll back (shown
   once an update kept the version before) runs `halo pack rollback <id>`.
+  An enabled pack with a service (3.3.13.0, `contributes.services`: the
+  signal pack's bridge) shows it as the supervisor runs it -- "service
+  running since 09:12" or "service stopped: <line>" -- with **Stop** or
+  **Start**, which asks the running supervisor (`halo supervise service
+  stop|start <pack>/<name>`; its next tick does it).
   Remove asks first: what goes (the pack's own files), what stays
   (yours, each listed after), a "keep its record and grants" box
   (`--keep-config`) and the command it runs. Under the rows, the lines the

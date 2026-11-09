@@ -70,6 +70,13 @@ def _discover_dir(commands_dir: Path, *, source: str, name_prefix: Optional[str]
         entry = (name_prefix,) if name_prefix and name == name_prefix else ()
         if name_prefix:
             name = f"{name_prefix}:{name}"
+        from halo_harness.commands.pack_run import make_run, run_of  # 3.3.13.0 R3: a pack command that runs a program
+        run = run_of(fm, commands_dir.parent) if name_prefix else None
+        if run is not None:
+            out.append(SlashCommand(name=name, description=fm.get("description", "") or "", kind="core",
+                                    argument_hint=fm.get("argument-hint"), source="custom", path=path, aliases=entry,
+                                    run=make_run(commands_dir.parent, run, name, body)))
+            continue
         out.append(SlashCommand(
             name=name, description=fm.get("description", "") or "", kind="prompt",
             argument_hint=fm.get("argument-hint"), source="custom", path=path, aliases=entry,

@@ -64,7 +64,7 @@ def live(run_dir, now: Optional[float] = None) -> Optional[dict]:
         return None
     if row.get("pid") == os.getpid():
         return row
-    from halo_harness.remote.bridge_state import alive
+    from halo_harness.remote.proc_ident import pulse_alive as alive
     return row if alive({"pid": row.get("pid"), "pstart": row.get("pstart"), "started": row.get("beat")}) else None
 
 

@@ -205,6 +205,13 @@ def setup(r) -> None:
         if e.get("kind") != "check":
             r.add("setup", "pack.yaml", f"Setup block {e.get('id')} ({e.get('kind')}) reads clean", True)
             continue
+        from halo_harness.packs.manifest_policy import script_rel  # 3.3.13.0 R3: a check a missing tool gates
+        from halo_harness.packs.manifest_requires import gated_by
+        gate = gated_by(r.manifest, script_rel(e.get("run"))[0])
+        if gate:
+            r.add("setup", "pack.yaml", f"Setup check {e.get('id')}: skipped, {gate[0][1]} (pack.yaml requires "
+                  f"{gate[0][0].get('name')})", None)
+            continue
         try:
             lines, ok = run_block(r.pack, e, ctx), True
         except CheckFailed as ex:

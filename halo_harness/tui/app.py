@@ -589,9 +589,9 @@ class BridgeApp(App):
         # `self._tick_spinner` on every tick instead.
         self.set_interval(1.0, lambda: self._tick_spinner())
         self.set_interval(5.0, self._refresh_cwd_branch)
-        # Halo 2.0.9 round 4: bridge notices (changed safety number, rate
-        # limit, captcha) become notifications; only when remote.enabled
-        # (the Signal bridge's switch).
+        # Halo 2.0.9 round 4 (3.3.13.0 R3: the transports' chip): with no phone attached,
+        # the remote chip names the transport that listens or its stopped
+        # service (tui/slash_remote.py).
         from halo_harness.tui.slash_remote import start_notice_poll
         start_notice_poll(self)
         # 3.3.4.0 R4: the Ollama steward's notes (this state dir's job, or the hub's on a member)

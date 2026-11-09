@@ -124,6 +124,10 @@ export async function act(path: string, body: Record<string, unknown>, what: str
 const grantArgs = (names: string[]) => names.map((n) => ` --grant ${n}`).join("");
 
 /** The command line each action is (its button's title): the same verb in a terminal. */
+/** 3.3.13.0 R3: Start / Stop a pack's service (the running supervisor's next tick does it). */
+export const serviceAct = (id: string, name: string, verb: "start" | "stop") =>
+  act(`pack/${id}/service`, { name, verb }, `${verb} ${id}/${name}`);
+
 export const cli = {
   enable: (id: string, names: string[]) => `halo pack enable ${id}${grantArgs(names)}`,
   disable: (id: string) => `halo pack disable ${id}`,

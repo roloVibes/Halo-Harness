@@ -30,7 +30,7 @@ def rows(home, local: dict, seen: dict, now: float) -> list:
 def _rows(home, local: dict, seen: dict, now: float) -> list:
     from halo_harness.fleet.attention import _row
     from halo_harness.ollama_steward import notes
-    from halo_harness.remote.bridge_cards import one_line
+    from halo_harness.remote.cards import one_line
     out = []
     marked = [r for r in notes.read(home, since_s=WITHIN_S, now=now) if r.get("attention")
               and r.get("stage") in ("note", "change", "finding")]

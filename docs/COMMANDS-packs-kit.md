@@ -87,10 +87,14 @@ bio or a policy of the pack names present) and stops; each event and artifact sc
 source is there with the right type and a bundle module exports `mount` (and passes `node --check` when node is here);
 each policy answers in shape for a call its `when.tools` names and is not asked about one it does not; each mode turns
 on and off, read back; each Setup check runs green; each theme meets the contrast pins; the bundle block and a fake 24
-GB card; each fleet capability; each requirement.
+GB card; each fleet capability; each requirement; (3.3.13.0) each service's command resolves and its health and log
+have a shape the supervisor reads (it is not started); and the pack's own `tests/test_*.py`, each run as `python -m
+tests.<name>` from the pack's folder in the scratch home, one check per module. An id Halo ships (`halo pack test
+signal`) is tested from the shipped folder when it is not installed.
 
 A part that needs the network (an http hook, an MCP server by url), a model (a prompt hook) or a program not on this
-machine (a hook's or a server's command, a requirement `used_by` names) is skipped with one line saying why. A doctor
+machine (a hook's or a server's command, a requirement `used_by` names, a Setup check whose file a missing
+requirement gates) is skipped with one line saying why. A doctor
 row about this machine (no catalog model with a bio's tags, a fleet capability not available here) is a skip line too.
 
 ```sh

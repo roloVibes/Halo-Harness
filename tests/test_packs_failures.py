@@ -50,8 +50,8 @@ def test_a_malformed_manifest(ctx: Ctx):
 def test_an_api_or_halo_range_outside_this_halo(ctx: Ctx):
     from halo_harness import __version__
     with PackStudio() as s:
-        _both(ctx, s, str(s.source("api-too-new")), ["pack api-too-new needs extension API 1.2 to 1.9; this Halo has 1.1"], "API too new")
-        _both(ctx, s, str(s.source("api-too-old")), ["pack api-too-old needs extension API 0.5 to 0.9; this Halo has 1.1"], "API too old")
+        _both(ctx, s, str(s.source("api-too-new")), ["pack api-too-new needs extension API 1.3 to 1.9; this Halo has 1.2"], "API too new")
+        _both(ctx, s, str(s.source("api-too-old")), ["pack api-too-old needs extension API 0.5 to 0.9; this Halo has 1.2"], "API too old")
         _both(ctx, s, str(s.source("halo-too-new")), [f"pack halo-too-new needs Halo >= 9.0; this is {__version__}"], "Halo too old")
 
 

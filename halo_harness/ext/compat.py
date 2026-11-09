@@ -3,7 +3,7 @@
 
 The policy, as this module applies it:
 
-- The API version is MAJOR.MINOR (`API_VERSION`, "1.1" since Halo 3.3.10.0). A minor version only
+- The API version is MAJOR.MINOR (`API_VERSION`, "1.2" since Halo 3.3.13.0; "1.1" since 3.3.10.0). A minor version only
   adds names: every name keeps its meaning for every later minor of the same
   major. A major version may remove a name, and only one `deprecations()` has
   listed for at least one minor version before it.
@@ -18,7 +18,7 @@ The policy, as this module applies it:
   and Policy hooks is stable: a 1.0 pack keeps everything -- `{min: "1.0"}` and `{min: "1.0", max: "1.9"}`
   take 1.1, and a pack with no `policy` or `modes` reads and runs as before (`CHANGES`).
 
-    api_version()                           "1.1"
+    api_version()                           "1.2"
     compatible({"min": "1.0", "max": "1.9"})   True on this Halo
     compatible({"min": "1.0"}, "2.0")       False: a new major
     range_words({"min": "1.2"})             "1.2 or a later 1.x"
@@ -46,6 +46,15 @@ CHANGES: "dict[str, dict]" = {
             "deprecates": [], "keeps": "everything: a 1.0 pack runs unchanged; one without policy, modes, setup or themes is untouched",
             "status": "Policy hooks: draft in 3.3.10.0 R1, stable from R2 (a session enforces each verdict)"},
 }
+# 3.3.13.0 R3: what 1.2 adds (kept as its own statement, so another round's additions to 1.2 merge beside it).
+CHANGES["1.2"] = {"halo": "3.3.13.0", "adds": [
+    "remote: the transport seam -- sessions, connect, start_session, cards, notify / listen / notes, transcribe, "
+    "qr_text, words, service, capture_studio (ext/remote.py), stable",
+    "contributes.services: programs the supervisor keeps running while the pack is enabled and granted services, stable",
+    "a pack command with `run:` in its frontmatter runs that program of the pack (no model call), stable",
+    "halo pack test runs the pack's own tests/test_*.py, one check per module"],
+    "deprecates": [], "keeps": "everything: a 1.0 or 1.1 pack runs unchanged; one without services is untouched",
+    "status": "stable"}
 
 
 def api_version() -> str:

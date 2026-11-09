@@ -112,23 +112,14 @@ closes on any key; the cloud level stays for when the session returns to a
 cloud model. Studio's session header has the same control (the effort word
 is a button). See [MODELS-cards.md](MODELS-cards.md#effort-on-this-model).
 
-### `/remote [status|pair [N]|off]`
-Halo 2.0.9. Bare `/remote` in the TUI opens the remote-control dialog: the
-Signal bridge's state (off, starting, connected, rate-limited, stopped), the
-control-socket line, the paired phones (ACI prefix, number, paired time, signed,
-blocked) and the contact requests waiting for you. `a` approves the highlighted
-request and shows the one-time code large, then the signing phrase and link once
-(`w` = "I wrote it down"); `s` turns signing on or off for a phone, `u` unpairs,
-`v` reverifies after a safety-number change, `o` is the kill switch, `r`
-refreshes, Esc closes. The bridge itself is never started in the TUI: when it is
-not running the dialog says to run `halo remote signal run`. The bridge's notices
-(changed safety number, rate limit, captcha) arrive as notifications.
-
-`/remote status`, `/remote pair` (list the requests), `/remote pair <N>`
-(approve request N, print the code) and `/remote off` do the same as text in
-the transcript, and are what print mode answers. While a phone is attached to
-this session the status bar shows a `⇄ remote` chip. See
-[REMOTE.md](REMOTE.md).
+### `/remote [status]`
+Halo 2.0.9; 3.3.13.0 R3: the control socket's status, in the transcript: this session's socket (or why it has none),
+the registry's live sessions, `remote.enabled` (every transport's switch), the transports listening and every pack
+service the supervisor runs with its state line. The Signal bridge's dialog went with the bridge to the signal pack:
+its `/signal` (status, `pair`, `phones`, `unpair`, `sign`, `home`, `off`, `on`, `url`, `test`, `link`, `register`,
+`notices`; the pack's README) and Setup -> Signal; `/remote signal ...` says so in one line. While a phone is attached
+to this session the status bar shows a `⇄ remote` chip; with none attached it names the transport that listens
+(`⇄ signal`) or the pack service that should run and does not. See [REMOTE.md](REMOTE.md).
 
 ### `/private [on|off]`
 Halo 3.0.5.0 (Fleet). `/private on` makes this session private: it closes

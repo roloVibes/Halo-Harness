@@ -16,6 +16,10 @@
 .pm-policy { max-width: 46ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pm-policy[data-armed] { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
 .pm-row-acts { display: flex; flex-wrap: wrap; gap: 6px; }
+/* 3.3.13.0 R3: a pack's service as the supervisor runs it, with Start / Stop */
+.pm-service { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
+.pm-service .og-chip { max-width: 52ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pm-service[data-state="running"] .og-chip { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, transparent); }
 .pm-last { display: grid; gap: 4px; padding-top: 6px; border-top: 1px solid var(--line); }
 .pm-last:not([data-ok]) .pm-lines { color: var(--bad); }
 .pm-lines { margin: 0; padding: 6px 8px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11.5px; background: var(--bg-2);

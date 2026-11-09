@@ -67,7 +67,7 @@ def gated(cwd, state_dir) -> list:
 
 def rows(gates: list, local: dict, seen: dict, now: float) -> list:
     from halo_harness.fleet.attention import _row
-    from halo_harness.remote.bridge_cards import one_line
+    from halo_harness.remote.cards import one_line
     out = []
     for g in gates:
         if g.get("kind") == "budget":

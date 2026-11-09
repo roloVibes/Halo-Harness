@@ -1,6 +1,6 @@
 """halo_harness.host_install -- `halo host install | uninstall` (Halo 3.3.7.0 R1; docs/HOST.md "Install").
 
-The service file goes through remote/daemon_units.write_unit, the writer `halo supervise --service` uses, under
+The service file goes through logon_units.write_unit, the writer `halo supervise --service` uses, under
 `<state>/host/`: a systemd user unit `halo-host.service` (Linux), a launchd agent `com.halo.host` (macOS), a Task
 Scheduler task `Halo Host` at logon (Windows), each running `[python, -m, halo_harness.cli, host, serve,
 --foreground, ...]`. Halo never enables it: it prints the one enable command and the user runs it; `uninstall`
@@ -44,7 +44,7 @@ def _parser(verb: str, description: str) -> argparse.ArgumentParser:
 
 def unit_path(home, os_n: str):
     from halo_harness.host.state import host_dir
-    from halo_harness.remote.daemon_units import files_for
+    from halo_harness.logon_units import files_for
     return host_dir(home) / files_for(UNIT["stem"], UNIT["label"])[os_n]
 
 
@@ -57,7 +57,7 @@ def cmd_install(argv: list) -> int:
     if a is None:
         return rc
     from halo_harness.host.state import host_dir, served_hosts
-    from halo_harness.remote.daemon_units import os_name, write_unit
+    from halo_harness.logon_units import os_name, write_unit
     if not served_hosts() and not a.anyway:
         return C.fail(a.json, "nothing_served", "halo host install: this machine serves no Ollama host (no ollama.hosts "
                                                 "entry, nor the default, is on this machine); --anyway writes it all the same")
@@ -76,7 +76,7 @@ def cmd_uninstall(argv: list) -> int:
                     argv)
     if a is None:
         return rc
-    from halo_harness.remote.daemon_units import os_name
+    from halo_harness.logon_units import os_name
     os_n = a.os or os_name()
     path = unit_path(identity.home(), os_n)
     removed = path.exists()
