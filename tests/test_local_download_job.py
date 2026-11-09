@@ -59,7 +59,9 @@ def test_a_second_ask_joins(ctx: Ctx):
         ctx.check(f"joined the same job, got {a['job']} {b['job']} {b['joined']}", b["joined"] and b["job"] == a["job"])
         ctx.check("another file is its own job", c["job"] != a["job"] and not c["joined"])
         h.hub.delay_s = 0.0
-        ctx.check("both end ok", h.wait_job(a["job"]).get("ok") and h.wait_job(c["job"]).get("ok"))
+        ra, rc = h.wait_job(a["job"]), h.wait_job(c["job"])
+        ctx.check(f"both end ok, got a: {ra.get('ok')} {ra.get('error')} {ra.get('say')!r}; c: {rc.get('ok')} {rc.get('error')} "
+                  f"{rc.get('say')!r}", ra.get("ok") and rc.get("ok"))
 
 
 @test

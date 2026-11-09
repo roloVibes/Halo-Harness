@@ -3,8 +3,8 @@ download itself is providers/hf_download.py).
 
     target(root, commit, name) -> Path   <root>/snapshots/<commit>/<name>, refused (HubError "path", one line) for a
         name or commit that would land anywhere else: a drive (`C:evil`, `D:x.gguf`, `C:/Users/...`), any `:` (a stream
-        name too), a backslash, a leading `/`, an empty / `.` / `..` part; and the resolved path must be inside the
-        model folder's snapshots
+        name too), a backslash, a leading `/`, an empty / `.` / `..` part; and the absolute path must be inside the
+        model folder's snapshots (a lexical check: no file-system resolve)
     part(root, f, final) -> Path   the `.part` file of a checked target: <root>/blobs/<hex>.part, the hex being the
         hub's sha256 or git blob id when it is hex, else the sha256 of the checked name (never a hub value as given)
 """
@@ -12,6 +12,7 @@ download itself is providers/hf_download.py).
 from __future__ import annotations
 
 import hashlib
+import os
 import re
 from pathlib import Path
 
@@ -31,11 +32,11 @@ def target(root, commit: str, name: str) -> Path:
     if not commit or any(ch in commit for ch in ":/\\") or commit in (".", ".."):
         raise _refuse(commit)
     final = Path(root) / "snapshots" / commit / name
-    try:
-        inside = final.resolve().is_relative_to((Path(root) / "snapshots").resolve())
-    except (OSError, ValueError):
-        inside = False
-    if not inside:
+    # the absolute, case-folded path must stay under <root>/snapshots: a lexical check, never the file system's
+    # resolve (realpath of a path that does not exist yet differs between hosts; the checks above already leave no
+    # `..`, drive, `:` or `\` to escape with)
+    base = os.path.normcase(os.path.abspath(Path(root) / "snapshots")) + os.sep
+    if not os.path.normcase(os.path.abspath(final)).startswith(base):
         raise _refuse(name)
     return final
 

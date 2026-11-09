@@ -1614,8 +1614,12 @@ def test_roles_edit_pick_model_set_effort_then_save_persists_to_disk(ctx: Ctx):
                 editor = app.screen
                 editor.query_one("#roles-list").highlighted = 0  # "orchestrator", the first built-in row
                 await pilot.press("enter")
-                await pilot.pause(0.1)
-                ctx.check(f"the nested ModelPicker opened, got {type(app.screen).__name__}",
+                for _ in range(40):  # the picker builds its model list first; a slow runner takes longer than one pause
+                    await pilot.pause(0.1)
+                    if isinstance(app.screen, ModelPicker):
+                        break
+                ctx.check(f"the nested ModelPicker opened, got {type(app.screen).__name__}, stack "
+                          f"{[type(s).__name__ for s in app.screen_stack]}, app error {getattr(app, '_exception', None)!r}",
                           isinstance(app.screen, ModelPicker))
                 await pilot.press("enter")  # accepts the (only) filtered model
                 await pilot.pause(0.1)
