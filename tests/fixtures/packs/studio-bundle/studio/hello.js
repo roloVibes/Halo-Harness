@@ -44,6 +44,17 @@ export function mount(el, api) {
   act("mode", "Read the mode", () => api.mode().then((m) => "mode " + (m.mode || "none") + (m.label ? " (" + m.label + ")" : "")));
   act("attention", "Ask for attention", () => api.attention({ row: "greet", kind: "hello.ask", what: "the bundle asks you" }).then((r) => "row " + r.row));
   act("route", "Go to Fleet", () => (api.route("fleet") ? "routed" : "no such section"));
+  // 3.3.14.0 R1 (the review's #4): the page asks Studio to change its own grant, through api.lib's client and with a
+  // plain fetch that carries the token the page can read; neither is the owner's page.
+  act("grant-self", "Change this pack's grant", async () => {
+    const ask = { need: "studio-script", on: false };
+    const lib = await api.lib.fetchJson("pack/" + api.pack + "/grant", { body: ask }).then(() => "sent", (e) => e.message);
+    const token = sessionStorage.getItem("halo-studio-token") || "";
+    const r = await fetch("/api/pack/" + api.pack + "/grant", { method: "POST", body: JSON.stringify(ask),
+      headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" } });
+    const body = await r.json().catch(() => ({}));
+    return "lib: " + lib + " | page: " + r.status + " " + (body.error || "");
+  });
   return () => {
     off();
     for (const n of made) n.remove();

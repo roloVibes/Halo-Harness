@@ -4,7 +4,7 @@
     home = testing.scratch_home()             # FIRST, before Halo reads its home: this process uses a fresh folder
     with testing.studio(PACK) as s:            # the pack linked into that home, enabled with every grant it asks
         status, body = s.call("GET", s.route("projects"))        # /api/packs/<id>/<prefix>/projects, with the token
-        status, headers, raw = s.raw(s.route("files/a/b.html"))  # bytes, as an iframe gets them (?t= token)
+        status, headers, raw = s.raw(s.route("files/a/b.html"))  # bytes, as an iframe gets them (?k= the pack's key)
         mod = s.module("server/store.py")      # one of the pack's modules, the same one Studio's routes import
         feed = s.listen(); feed.wait(lambda kind, frame: kind == "pack_live", 5); feed.close()
 
@@ -125,6 +125,8 @@ class studio:  # noqa: N801  (used as `with testing.studio(folder) as s`)
         threading.Thread(target=self.srv.serve_forever, daemon=True).start()
         self.base = f"http://127.0.0.1:{self.srv.server_address[1]}"
         self.token = self.srv.token
+        from halo_harness.studio.owner_proof import raw_key  # 3.3.14.0 R1: what a page embeds carries the pack's key
+        self.key = raw_key(self.token, pack.id)
         return self
 
     def __exit__(self, *exc) -> None:
@@ -140,6 +142,8 @@ class studio:  # noqa: N801  (used as `with testing.studio(folder) as s`)
         req = urllib.request.Request(self.base + path, method=method,
                                      data=json.dumps(body).encode() if body is not None else None)
         req.add_header("Authorization", "Bearer " + (self.token if token is None else token))
+        from halo_harness.studio.owner_proof import HEADER, header_for  # 3.3.14.0 R1: a test calls as the owner's page
+        req.add_header(HEADER, header_for(self.srv))
         if body is not None:
             req.add_header("Content-Type", "application/json")
         try:
@@ -153,7 +157,8 @@ class studio:  # noqa: N801  (used as `with testing.studio(folder) as s`)
                 return e.code, {"error": raw.decode("utf-8", "replace")}
 
     def raw(self, path: str, token: bool = True):
-        url = self.base + path + ((("&" if "?" in path else "?") + "t=" + self.token) if token else "")
+        """A GET as an iframe or an image makes it: no header, the pack's key in `?k=` (`token=False`: none)."""
+        url = self.base + path + ((("&" if "?" in path else "?") + "k=" + self.key) if token else "")
         try:
             with urllib.request.urlopen(url, timeout=15) as r:
                 return r.status, dict(r.headers), r.read()

@@ -1,6 +1,7 @@
 // The bundle panel's `api` (3.2.0.0 R3: pack, panel, get, config; 3.3.10.0 R3: the calls that act):
-// what PackBundle hands a pack's own module in `mount(el, api)`. Every call is the pack's own: its files,
-// its data folder, its declared event kinds and attention rows, its mode; the routes behind them answer 403
+// what PackBundle hands a pack's own module in `mount(el, api)`. Every call below is the pack's own: its files,
+// its data folder, its declared event kinds and attention rows, its mode (and `lib`'s client is scoped to the pack's
+// own routes, 3.3.14.0 R1: packlib/scoped.ts); the routes behind them answer 403
 // naming the grant until studio-script is granted (studio/packs_studio_bundle_api.py), and the module itself
 // loads only then. docs/EXTENSION_API.md "Studio contributions" has the table.
 //
@@ -20,6 +21,7 @@ import { api as http, ApiError } from "../../lib/api";
 import { onEvent, type FeedFrame } from "../../lib/events";
 import { SECTION_IDS, type CoreSectionId } from "../../lib/store";
 import { libFor, type StudioLib } from "../../packlib";
+import { packKey } from "./importPack";
 import { fetchText, openRoute } from "./nav";
 import { packs, packSectionIds } from "./store";
 import type { PackPanel } from "./types";
@@ -105,7 +107,7 @@ export function bundleApi(p: PackPanel): { api: BundleApi; close: () => void } {
       if (r) openRoute(r);
       return !!r;
     },
-    lib: libFor(p.pack),
+    lib: libFor(p.pack, packKey(p.pack)),
     routes: packs.get().reg.packs.find((x) => x.id === p.pack)?.routes?.api.replace(/^api\//, "") || "",
     section: p.section,
   };

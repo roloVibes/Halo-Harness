@@ -13,7 +13,7 @@ from __future__ import annotations
 from halo_harness.ext import host
 
 from . import render as R
-from .request import _bad
+from .request import _SLUG, _bad
 from .store import Project
 
 
@@ -23,7 +23,7 @@ def post_render(req):
     if not workflow or "/" in workflow or "\\" in workflow:
         return _bad("say which workflow: a starter or a saved name")
     sets = body.get("set") if isinstance(body.get("set"), dict) else {}
-    project = Project.open(slug, state_dir=req.state_dir) if slug else None
+    project = Project.open(slug, state_dir=req.state_dir) if _SLUG.match(slug) else None  # 3.3.14.0 R1 (#38): `../x` 404
     if project is None:
         return 404, {"error": f"no design project {slug!r}: make it in Design first"}
     artboard = str(body.get("artboard") or "render").strip() or "render"

@@ -5,6 +5,7 @@ tests/test_review3_c.py and test_review3_c2.py), over the pack's routes in a liv
   * item 34   an artboard file answers only its own Host (a rebound name, another port or no port is a 403)
   * item 35   a symlinked artboard folder is never served nor discovered
   * item 112  HTML and SVG are sandboxed, a render image is not
+  * Halo 3.3.14.0 R1 (the November review's #6, #38): every type but media is sandboxed; render checks the slug
 """
 
 from __future__ import annotations
@@ -39,7 +40,7 @@ def _project(s, name):
 def _get(s, path, host):
     port = s.srv.server_address[1]
     conn = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
-    conn.putrequest("GET", s.path(path) + "?t=" + s.token, skip_host=True)
+    conn.putrequest("GET", s.path(path) + "?k=" + s.key, skip_host=True)
     conn.putheader("Host", host.replace("PORT", str(port)))
     conn.endheaders()
     r = conn.getresponse()
@@ -92,6 +93,35 @@ def test_item112_html_and_svg_are_sandboxed_renders_are_not(ctx: Ctx):
         ctx.check("the ?edit=1 page is sandboxed too", csp("index.html?edit=1").endswith("sandbox allow-scripts"))
         ctx.check("csp_for ignores a charset suffix", files.csp_for("text/html; charset=utf-8").endswith("sandbox allow-scripts")
                   and files.csp_for("application/pdf") == files.CSP and files.csp_for("video/mp4") == files.CSP)
+
+
+@test
+def test_every_type_but_media_is_sandboxed_and_render_checks_the_slug(ctx: Ctx):
+    """Halo 3.3.14.0 R1 (the review's #6, #38): `.xhtml`, `.xml`, `.xsl`, `.svgz` (and any type nobody named) carry
+    `sandbox`, an image, a video, an audio file, a PDF and a font do not; `POST render {project: "../x"}` is a 404."""
+    files = mod("server/files.py")
+    with _Studio() as s:
+        p = _project(s, "Type Lab")
+        board = p.artboard_dir("hero")
+        script = "<script>fetch('/api/state')</script>"
+        (board / "page.xhtml").write_text(f'<html xmlns="http://www.w3.org/1999/xhtml"><body>{script}</body></html>', "utf-8")
+        for name in ("data.xml", "style.xsl", "pic.svgz", "notes.unknownext"):
+            (board / name).write_text("<x/>", encoding="utf-8")
+        base = f"/design-files/{p.slug}/hero/"
+        for name in ("page.xhtml", "data.xml", "style.xsl", "pic.svgz", "notes.unknownext"):
+            status, heads, _body = s.raw(base + name)
+            ctx.check(f"{name}: sandboxed, got {status} {heads.get('Content-Security-Policy')!r}",
+                      status == 200 and heads.get("Content-Security-Policy", "").endswith("; sandbox allow-scripts"))
+        ctx.check("a png is not sandboxed", s.raw(base + "render.png")[1].get("Content-Security-Policy") == files.CSP)
+        inert = ("image/png", "image/webp", "video/mp4", "audio/mpeg", "application/pdf", "font/woff2")
+        ctx.check("images, video, audio, pdf and fonts keep the plain policy", all(files.csp_for(t) == files.CSP for t in inert))
+        ctx.check("svg and xhtml do not", all(files.csp_for(t).endswith("sandbox allow-scripts")
+                                              for t in ("image/svg+xml", "application/xhtml+xml", "text/xml", "application/json")))
+        mod("server/store.py").Project.create("x", state_dir=s.root.parent / "decoy")  # a design.json outside projects/
+        for slug in ("../decoy/projects/x", "../x", "..", "a/b", p.slug + "/../" + p.slug):
+            status, body = s.call("POST", "/api/design/render", {"workflow": "w", "project": slug})
+            ctx.check(f"render with project {slug!r}: 404 before any ComfyUI call, got {status} {body}",
+                      status == 404 and "no design project" in body.get("error", ""))
 
 
 @test

@@ -252,6 +252,37 @@ lineup's" / "the default" answers, the Pack Manager's Templates. Studio's own
 saves come back as a frame too and change nothing: the page compares the
 file with what it holds. A pack's files are the `pack_changed` frame's.
 
+## The owner's page and a pack's key
+
+3.3.14.0 R1. A pack's page (a bundle panel, a section's view) runs in the shell's own
+page, so the launch token alone cannot tell the owner's clicks from a pack's
+script. Two values Studio derives from the token keep the two apart
+(`studio/owner_proof.py`):
+
+- **The owner proof.** The served `index.html` carries a per-launch salt as
+  `data-owner-salt` on `<html>` (only for a page the browser navigates to: a
+  `fetch("/")` or a frame of `/` gets none). `ui/src/lib/owner.ts` is the
+  first module the shell runs: it reads the salt and removes the attribute
+  before any pack module can load, and keeps it in its own closure (never on
+  `globalThis`, never in storage, never through `packlib/`). The shell's own
+  client (`lib/api.ts` `call`) sends `X-Halo-Owner: <hex HMAC-SHA256 of the
+  salt keyed by the token>`; a write to a pack's grant, enable, disable,
+  install, sources, update, rollback, remove, service, settings or config,
+  the bundles, Setup, Settings or a session (new, a command, a prompt)
+  without it answers 403 "this needs the owner's own page". A pack's page
+  gets `api.lib`'s client instead, scoped to its own routes
+  ([EXTENSION_API.md](EXTENSION_API.md#apilib)).
+- **A pack's key.** What a page embeds where no header can go (an iframe,
+  an image, a video, a module import) carries `?k=<hex HMAC-SHA256 of
+  "pack-raw:<id>" keyed by the token>`, not the token: Studio takes it on a
+  GET of that pack's own `/api/packs/<id>/...` and `/api/pack/<id>/file/...`
+  only, never on a write, another pack's path or a core route, and no longer
+  takes `?t=` there. `GET pack/registry` hands the shell each pack's `key`.
+
+The shell itself is never framed by another page (`frame-ancestors 'self'`
+in its CSP and `X-Frame-Options: SAMEORIGIN`), and `HALO_STUDIO_LOG` writes
+`t=...` / `k=...` in place of their values.
+
 ## Opening Studio on a bio, a lineup or the Team (`halo studio --edit`)
 
 3.1.1.0: Studio is the one editor of bios and lineups; the terminal shows

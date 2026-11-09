@@ -1,0 +1,13 @@
+# A test pack (3.3.14.0 R1, tests/test_packs_routes.py and tests/test_studio_owner_proof.py): Studio routes only --
+# JSON, a page with no CSP of its own, one with its own, a value read from a sibling module, and an unload() hook.
+id: routes-pack
+name: Routes pack
+version: 1.0.0
+description: a routes module for Studio's own tests
+author: Halo fixtures
+license: MIT
+halo_api: {min: "1.2", max: "1.9"}
+contributes:
+  studio:
+    routes: {module: server/routes.py, prefix: r}
+permissions: [studio-routes]

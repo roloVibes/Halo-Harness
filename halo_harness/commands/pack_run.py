@@ -14,8 +14,11 @@ transcript (stdout; with an exit other than 0, the last stderr lines and the cod
     The body is what the command says when the program cannot run (shown, never sent to the model).
 
 The program gets the environment a pack hook gets (Halo's provider keys left out) plus CLAUDE_PLUGIN_ROOT,
-CLAUDE_PROJECT_DIR (the session's folder), HALO_PACK_ID and HALO_COMMAND; it is stopped after TIMEOUT_S. A folder
-that is not a pack (a plain Claude plugin) keeps the prompt form: `run:` is read only in a pack's folder.
+CLAUDE_PROJECT_DIR (the session's folder), HALO_PACK_ID (the pack's id from its record, not its folder's name) and
+HALO_COMMAND; it is stopped after TIMEOUT_S. A folder that is not a pack (a plain Claude plugin) keeps the prompt
+form: `run:` is read only in a pack's folder. 3.3.14.0 R1 (#9): a `run:` command needs the `bash` grant
+(`packs/manifest.py needed`: "command <name> (run:)"); until the pack has it, the command keeps its prompt form and
+`halo pack doctor` names the grant.
 """
 
 from __future__ import annotations
@@ -27,17 +30,45 @@ from pathlib import Path
 
 TIMEOUT_S = 120
 MAX_CHARS = 20000
+GRANT = "bash"
 
 
-def run_of(fm: dict, root: Path):
-    """The frontmatter's `run` when `root` is a pack's folder and it names a command of the pack; else None."""
+def needs(root) -> "list[tuple[str, str]]":
+    """`[("bash", "command <name> (run:)")]` for each command of the pack folder `root` whose frontmatter says `run:`."""
+    from halo_harness.config.frontmatter import parse
+    folder = Path(root) / "commands"
+    out = []
+    for path in sorted(folder.rglob("*.md")) if folder.is_dir() else []:
+        try:
+            fm, _body = parse(path.read_text(encoding="utf-8", errors="replace"))
+        except (OSError, ValueError):
+            continue
+        if isinstance(fm, dict) and fm.get("run") is not None:
+            out.append((GRANT, f"command {':'.join(path.relative_to(folder).with_suffix('').parts)} (run:)"))
+    return out
+
+
+def pack_of(root: Path):
+    """The running pack whose folder is `root`, or None."""
+    from halo_harness.packs.contribute import _active_pack_for_root
+    try:
+        return _active_pack_for_root(root)
+    except Exception:
+        return None
+
+
+def run_of(fm: dict, root: Path, pack=None):
+    """The frontmatter's `run` when `root` is a running pack's folder, it names a command of the pack and the pack
+    is granted `bash` (3.3.14.0 R1, #9); else None, and the command keeps its prompt form."""
+    from halo_harness.packs import state as S
     from halo_harness.packs.interpreter import is_pack_root
     from halo_harness.packs.manifest_policy import script_rel
     run = fm.get("run") if isinstance(fm, dict) else None
     if run is None or not is_pack_root(root):
         return None
     _rel, why = script_rel(run)
-    return None if why else run
+    pack = pack if pack is not None else (None if why else pack_of(root))
+    return run if pack is not None and not why and GRANT in S.granted(pack.id, S.load()) else None
 
 
 def _words(args_text: str) -> "list[str]":
@@ -47,14 +78,15 @@ def _words(args_text: str) -> "list[str]":
         return (args_text or "").split()
 
 
-def make_run(root: Path, run, name: str, body: str):
+def make_run(root: Path, run, name: str, body: str, pack_id: str = ""):
+    """`pack_id` (3.3.14.0 R1, #9): the running pack's id, what HALO_PACK_ID says (the folder's name only without one)."""
     def _run(args_text: str, facade) -> str:
         from halo_harness.packs.interpreter import pack_env
         from halo_harness.packs.manifest_policy import run_argv
         from halo_harness.providers.config import tool_child_env
         cwd = str(getattr(facade, "cwd", "") or os.getcwd())
         env = tool_child_env(dict(os.environ))
-        env.update({"CLAUDE_PLUGIN_ROOT": str(root), "CLAUDE_PROJECT_DIR": cwd, "HALO_PACK_ID": root.name,
+        env.update({"CLAUDE_PLUGIN_ROOT": str(root), "CLAUDE_PROJECT_DIR": cwd, "HALO_PACK_ID": pack_id or root.name,
                     "HALO_COMMAND": name})
         argv = run_argv({"run": run}, root) + _words(args_text)
         try:

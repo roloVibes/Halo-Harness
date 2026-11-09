@@ -1,18 +1,20 @@
-// api.lib's requests (3.3.13.0 R2, extension API 1.2): Studio's own JSON client with the launch token (`api.get`,
-// `call`, ApiError), `fetchJson(path, init?)` for a path under /api/ (a pack's routes: `packs/<id>/<prefix>/...`),
-// and `authUrl(path)`: the same address with the token in `?t=`, for what sends no header (an iframe, an image, a
-// download link) -- Studio takes it there only on a GET of a pack's routes or module.
-import { api, ApiError, call, token, type Query } from "../lib/api";
+// `@halo/api` and `api.lib`'s `api`, `fetchJson`, `authUrl` (3.3.13.0 R2, extension API 1.2; 3.3.14.0 R1, the
+// review's #4 and #5: scoped to the pack, packlib/scoped.ts). A pack's page gets its own `scopedApi(pack, key)`: in
+// its `mount(el, api)` as `api.lib`, and as `@halo/api` while its module is evaluated (the shell imports pack modules
+// one at a time with the global set to that pack's lib, routes/packs/importPack.ts). This module's own exports are the
+// client scoped to no pack (the global between imports): the read-only GETs, nothing of any pack's. They also give
+// `@halo/api` its types.
+import { scopedApi } from "./scoped";
 
-export { api, ApiError, call, type Query };
+export { ApiError, type Query } from "../lib/api";
 
-/** A JSON request under /api/ with Studio's token; rejects with an ApiError carrying the server's line. */
-export function fetchJson<T = unknown>(path: string, init?: { method?: string; body?: unknown; query?: Query }): Promise<T> {
-  return call<T>(init?.method || (init?.body !== undefined ? "POST" : "GET"), path, init?.body, init?.query);
-}
+const none = scopedApi("", "");
 
-/** `/api/<path>` with the token in `?t=` (kept beside the path's own query). */
-export function authUrl(path: string): string {
-  const p = "/api/" + path.replace(/^\/+/, "").replace(/^api\//, "");
-  return p + (p.includes("?") ? "&" : "?") + "t=" + encodeURIComponent(token());
-}
+/** `api.get/post/put/del`: Studio's JSON client with the token, scoped to the pack. */
+export const api = none.api;
+/** One request (method, path under /api/, body, query), scoped the same way. */
+export const call = none.call;
+/** A JSON request under /api/; rejects with an ApiError carrying the server's line, or an Error naming the scope. */
+export const fetchJson = none.fetchJson;
+/** `/api/<path>` with the pack's key in `?k=`, for what sends no header: its own routes and files only. */
+export const authUrl = none.authUrl;

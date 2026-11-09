@@ -25,12 +25,23 @@ from halo_harness.packs import names as N
 from halo_harness.packs.names import read_only_source  # noqa: F401  (re-exported: the read-only rule)
 
 
+_LAST: dict = {}  # (cwd, state_dir) -> the packs the last good read found
+
+
 def _active(cwd=None, state_dir=None) -> list:
+    """The active packs; a read that raises (a pack folder mid-update) answers the last good read for this place, said
+    once, never "no packs" (3.3.14.0 R1, #7: Studio would unload every pack's routes on it)."""
     from halo_harness.packs.registry import active
+    key = (str(cwd or ""), str(state_dir or ""))
     try:
-        return active(cwd=cwd, state_dir=state_dir)
-    except Exception:  # an unreadable pack folder never breaks a session
-        return []
+        got = active(cwd=cwd, state_dir=state_dir)
+    except Exception as e:  # an unreadable pack folder never breaks a session
+        import warnings
+        warnings.warn(f"the packs did not read ({type(e).__name__}: {e}); the packs read before stay on", RuntimeWarning,
+                      stacklevel=2)
+        return list(_LAST.get(key, []))
+    _LAST[key] = got
+    return got
 
 
 def pack_plugin_roots(*, cwd=None, state_dir=None) -> "list[str]":

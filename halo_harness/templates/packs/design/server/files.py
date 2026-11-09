@@ -1,15 +1,16 @@
 """The design pack's server/files.py (was halo_harness.studio.design_files) -- the raw artboard file route (Halo
 3.0.1.0 round D3; 3.3.13.0 R2: the pack's `GET _files/<slug>/<artboard>/<file>`, under /api/packs/design/design/,
-the token in `?t=` as an iframe sends no header, and this module's CSP passed through by Studio; it was
-`/design-files/...` in the core): `_files/<slug>/<artboard>/<file>` serves a
-design artboard's own files (a prototype's index.html with its inline CSS and
-JS, a render, `v<n>/<file>` for the version slider) to the page's sandboxed
-iframes. It is not a JSON route and does not carry Studio's CSP: the page
-embeds it as `<iframe sandbox="allow-scripts">` (no allow-same-origin), so
-the prototype runs but cannot reach Studio's API or token; the server adds a
-`sandbox allow-scripts` CSP directive to every HTML and SVG response too, so
-the same holds when a document is framed without the attribute or opened on
-its own. The path is confined to design_root/<slug>/artboards/<artboard>/
+and this module's CSP passed through by Studio; it was `/design-files/...` in the core). An iframe sends no header,
+so the URL carries the design pack's key in `?k=` (3.3.14.0 R1, #5: a GET-only key Studio derives from its token
+for this pack's own routes, studio/owner_proof.py): a prototype that reads its own address finds that key, never
+Studio's token, and the key opens nothing but GETs of the design pack's routes. `_files/<slug>/<artboard>/<file>`
+serves a design artboard's own files (a prototype's index.html with its inline CSS and JS, a render, `v<n>/<file>`
+for the version slider) to the page's sandboxed iframes. It is not a JSON route and does not carry Studio's CSP:
+the page embeds it as `<iframe sandbox="allow-scripts">` (no allow-same-origin), so the prototype runs in an opaque
+origin and cannot reach Studio's API; the server adds a `sandbox allow-scripts` CSP directive to every response
+whose type is not an image, a video, an audio file, a PDF or a font (`csp_for`, 3.3.14.0 R1, #6: HTML, SVG, XHTML,
+XML, XSL, JS, JSON, text and any type it does not know), so the same holds when a file is framed without the
+attribute or opened on its own. The path is confined to design_root/<slug>/artboards/<artboard>/
 (an artboard folder that is a symlink is not served). 3.0.7.0 R3:
 `_files/<slug>/_assets/<name>` is a file of the project's assets/
 folder (the Assets panel's Download; `_assets` is never an artboard id).
@@ -29,7 +30,9 @@ from .store import design_root
 
 PREFIX = "_files/"  # the route's path, after the pack's prefix
 CSP = "default-src 'self' 'unsafe-inline' data: blob:"
-SANDBOXED = "text/html", "image/svg+xml"  # the types that can carry script
+INERT = ("image/", "video/", "audio/", "font/")  # 3.3.14.0 R1 (#6): no script in these (SVG aside); all else sandboxed
+INERT_TYPES = ("application/pdf", "application/font-woff", "application/font-sfnt", "application/vnd.ms-fontobject",
+               "application/x-font-ttf", "application/x-font-otf")
 # 3.0.4.0 R5: a ComfyUI video render plays in a plain <video> (no sandbox
 # needed); the type is pinned here, never left to the platform's mime table.
 MEDIA_TYPES = {".mp4": "video/mp4", ".webm": "video/webm", ".mov": "video/quicktime", ".png": "image/png",
@@ -64,8 +67,12 @@ def resolve(state_dir, url_path: str) -> Optional[Path]:
 
 
 def csp_for(ctype: str) -> str:
-    """The CSP header for a response of this content type: script-capable documents also get an opaque origin."""
-    return CSP + "; sandbox allow-scripts" if ctype.split(";")[0].strip().lower() in SANDBOXED else CSP
+    """The CSP header for a response of this content type: every type that is not an image (SVG is not), a video, an
+    audio file, a PDF or a font also gets an opaque origin (3.3.14.0 R1, #6: an allow-list, so XHTML, XML, XSL, an
+    `.svgz` and a type nobody named are sandboxed too)."""
+    kind = ctype.split(";")[0].strip().lower()
+    inert = (kind.startswith(INERT) and kind != "image/svg+xml") or kind in INERT_TYPES
+    return CSP if inert else CSP + "; sandbox allow-scripts"
 
 
 def read(state_dir, url_path: str, query: dict):

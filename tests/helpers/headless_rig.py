@@ -132,10 +132,12 @@ class HeadlessRig:
     @staticmethod
     def api(server, method: str, path: str, body=None):
         import http.client
+        from halo_harness.studio.owner_proof import HEADER, header_for  # 3.3.14.0 R1: as the owner's own page asks
         conn = http.client.HTTPConnection("127.0.0.1", server.server_address[1], timeout=30)
         try:
             conn.request(method, "/api/" + path, body=json.dumps(body).encode("utf-8") if body is not None else None,
-                         headers={"Authorization": "Bearer " + server.token, "Content-Type": "application/json"})
+                         headers={"Authorization": "Bearer " + server.token, "Content-Type": "application/json",
+                                  HEADER: header_for(server)})
             resp = conn.getresponse()
             return resp.status, json.loads(resp.read().decode("utf-8") or "{}")
         finally:

@@ -24,7 +24,7 @@ export function useRenders<S>(select: (s: State) => S): S {
 
 const text = (e: unknown) => (e instanceof ApiError ? e.problems[0] || e.message : String(e));
 
-/** An output's address: the server says `_files/<slug>/<aid>/<file>`, under the pack's routes, token in ?t=. */
+/** An output's address: the server says `_files/<slug>/<aid>/<file>`, under the pack's routes, its key in ?k=. */
 export const artUrl = (a: RenderArt) => (a.url ? rawUrl(a.url.replace(/^_files\//, "")) : "");
 
 function onFrame(f: FeedFrame): void {

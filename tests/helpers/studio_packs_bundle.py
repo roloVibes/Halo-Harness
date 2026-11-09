@@ -46,6 +46,9 @@ def bundle_api(c, url, ctx) -> dict:
     out["bundle_getdata"] = _click(c, "getdata", "{")
     out["bundle_mode"] = _click(c, "mode", "mode ")
     out["bundle_attention"] = _click(c, "attention", "row ")
+    from halo_harness.packs import state as S  # 3.3.14.0 R1 (#4): the page asks to change its own grant
+    out["bundle_grant_self"] = _click(c, "grant-self", "lib: ")
+    out["bundle_grants_after"] = S.granted("studio-bundle", S.load(ctx["state"]))
     press(c, panel(GREET, "[data-testid=bundle-route]"))
     out["bundle_route"] = c.wait(f"{CUR}.startsWith('Fleet') && {CUR}", 15)
     row = q('[data-panel="fleet-attention"] [data-testid=fleet-attn-row][data-kind="pack:studio-bundle:hello.ask"]')

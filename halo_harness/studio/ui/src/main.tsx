@@ -1,3 +1,4 @@
+import "./lib/owner"; // 3.3.14.0 R1 (#4): first of all, it takes the owner salt off the page before anything else runs
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles/tokens.css";

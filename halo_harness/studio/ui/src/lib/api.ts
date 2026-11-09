@@ -2,7 +2,11 @@
 // (`#t=...`); it is kept in sessionStorage (`halo-studio-token`), removed
 // from the address bar, and sent as a bearer header. Errors are
 // typed: an ApiError carries the HTTP status and the server's `problems`.
+// 3.3.14.0 R1 (#4): the shell's own `call` also sends `X-Halo-Owner` (lib/owner.ts), with the `fetch` this module
+// took at boot; `plainCall` is the same request without it (a pack's scoped client, packlib/scoped.ts).
+import { ownerHeader } from "./owner";
 
+const fetchOwn = window.fetch.bind(window);
 const KEY = "halo-studio-token";
 const FRAGMENT = /[#&]t=([A-Za-z0-9_-]+)/;
 let current = "";
@@ -27,6 +31,7 @@ if (!adopt(location.hash)) {
     current = "";
   }
 }
+void ownerHeader(current); // made now, before any pack module loads
 
 const listeners = new Set<() => void>();
 window.addEventListener("hashchange", () => {
@@ -59,12 +64,21 @@ export class ApiError extends Error {
 
 export type Query = Record<string, string | number | boolean | undefined | null>;
 
-export async function call<T = unknown>(method: string, path: string, body?: unknown, query?: Query): Promise<T> {
+/** `/api/<path>` with the query's set values, as a URL (the scoped client checks the path the browser will ask for). */
+export function apiUrl(path: string, query?: Query): URL {
   const url = new URL("api/" + path.replace(/^\/+/, ""), location.origin + "/");
   for (const [k, v] of Object.entries(query || {})) {
     if (v !== undefined && v !== null && v !== "") url.searchParams.set(k, String(v));
   }
-  const headers: Record<string, string> = { Authorization: "Bearer " + current, Accept: "application/json" };
+  return url;
+}
+
+async function request<T>(owner: boolean, method: string, path: string, body?: unknown, query?: Query): Promise<T> {
+  const url = apiUrl(path, query);
+  const proof = owner ? await ownerHeader(current) : "";
+  const headers: Record<string, string> = proof
+    ? { Authorization: "Bearer " + current, Accept: "application/json", "X-Halo-Owner": proof }
+    : { Authorization: "Bearer " + current, Accept: "application/json" };
   const init: RequestInit = { method, headers };
   if (body !== undefined) {
     headers["Content-Type"] = "application/json";
@@ -72,7 +86,7 @@ export async function call<T = unknown>(method: string, path: string, body?: unk
   }
   let res: Response;
   try {
-    res = await fetch(url, init);
+    res = await fetchOwn(url, init);
   } catch (e) {
     throw new ApiError(0, "Studio server unreachable: " + (e instanceof Error ? e.message : String(e)));
   }
@@ -87,6 +101,16 @@ export async function call<T = unknown>(method: string, path: string, body?: unk
   }
   if (!res.ok) throw new ApiError(res.status, String(data.error || res.statusText), data);
   return data as T;
+}
+
+/** The shell's own request: the token and the owner proof. */
+export function call<T = unknown>(method: string, path: string, body?: unknown, query?: Query): Promise<T> {
+  return request<T>(true, method, path, body, query);
+}
+
+/** The same request with the token alone (what a pack's scoped client sends). */
+export function plainCall<T = unknown>(method: string, path: string, body?: unknown, query?: Query): Promise<T> {
+  return request<T>(false, method, path, body, query);
 }
 
 export const api = {

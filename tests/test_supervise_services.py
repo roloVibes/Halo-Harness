@@ -142,7 +142,7 @@ def test_the_lines_and_the_command(ctx: Ctx):
     with PacksHome() as h:
         h.install(h.source("service-pack"))
         from halo_harness.packs.grants import enable_id
-        ok, lines = enable_id("service-pack", grant=["services"], cwd=h.repo, state_dir=h.home / ".halo")
+        ok, lines = enable_id("service-pack", grant=["services", "bash"], cwd=h.repo, state_dir=h.home / ".halo")  # bash: run:
         ctx.check(f"enable says where it starts, got {lines[-1:]}", ok and any(
             "service service-pack/ticker: starts with `halo supervise`" in ln and "running now: no" in ln for ln in lines))
         from halo_harness.supervise.cli import cmd_supervise

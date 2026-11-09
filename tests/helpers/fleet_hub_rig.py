@@ -134,10 +134,12 @@ class HubRig:
         return [f for f in self.frames if f.get("event") == kind and all(f.get(k) == v for k, v in match.items())]
 
     def api(self, method: str, path: str, body=None, timeout: float = 30.0):
+        from halo_harness.studio.owner_proof import HEADER, header_for  # 3.3.14.0 R1: as the owner's own page asks
         conn = http.client.HTTPConnection("127.0.0.1", self.server.server_address[1], timeout=timeout)
         try:
             conn.request(method, "/api/" + path, body=json.dumps(body).encode("utf-8") if body is not None else None,
-                         headers={"Authorization": "Bearer " + self.server.token, "Content-Type": "application/json"})
+                         headers={"Authorization": "Bearer " + self.server.token, "Content-Type": "application/json",
+                                  HEADER: header_for(self.server)})
             resp = conn.getresponse()
             return resp.status, json.loads(resp.read().decode("utf-8") or "{}")
         finally:

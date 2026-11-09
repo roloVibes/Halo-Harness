@@ -1,7 +1,7 @@
 """The design pack's Studio rig: a live Studio in this test's scratch home with the pack linked and granted
 (`halo_harness.ext.testing.studio`), the turn runner faked on the routes' own module (no model call), and the calls
 the tests make by the paths they used before the pack (`/api/design/...`, `/design-files/...`), sent where the pack
-answers them now (`/api/packs/design/design/...`, its `_files/` route with the token in `?t=`).
+answers them now (`/api/packs/design/design/...`, its `_files/` route with the pack's key in `?k=`).
 """
 
 from __future__ import annotations
@@ -42,6 +42,7 @@ class _Studio:
         self.state = Path(host.state_dir())
         self.root = Path(data_dir("design")) / "projects"  # the projects folder (~/.halo/design before the pack)
         self.base, self.token, self.srv = self.studio.base, self.studio.token, self.studio.srv
+        self.key = self.studio.key  # what an iframe's URL carries (Halo 3.3.14.0)
         return self
 
     def __exit__(self, *a):

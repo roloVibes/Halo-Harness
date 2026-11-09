@@ -102,8 +102,12 @@ def problems(*, cwd=None, state_dir=None) -> "list[dict]":
                           f"{pack.root} has the same id", "remove one of the two", shadow))
         if pack.id in snap.order:
             for perm, why in G.missing(pack, S.granted(pack.id, snap.state)):
-                out.append(_p(pack.id, "warns", "not-granted", f"{pack.id}: {why} does not run: {perm} is not granted",
-                              f"halo pack enable {pack.id} --grant {perm}", yaml_path))
+                asked = perm in G.MF.requested(pack.manifest)  # 3.3.14.0 R1 (#9): a run: command's bash may not be
+                out.append(_p(pack.id, "warns", "not-granted", f"{pack.id}: {why} does not run: {perm} is not granted"
+                              + ("" if asked else f", and {pack.id} does not request it"),
+                              f"halo pack enable {pack.id} --grant {perm}" if asked
+                              else f"add {perm} to permissions: in {pack.id}'s pack.yaml, then halo pack enable {pack.id} "
+                                   f"--grant {perm}", yaml_path))
             out += [_p(pack.id, "blocks", "settings", line, "halo config set packs.settings."
                        f"{pack.id}.<key> <value>") for line in ST.problems(pack)]
             from halo_harness.packs.roles import doctor_rows  # 3.2.0.0 R2: a bio's capabilities and needs

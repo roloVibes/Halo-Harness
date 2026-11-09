@@ -22,17 +22,17 @@ answered first by studio/packs_manager_api.py.
 
 A pack that is not running here (not installed, disabled, a problem) answers
 404 on every pack/<id>/ route of this module. The bundle is a module the page imports; an
-import() sends no header, so the file route also takes the token in `?t=`
-(served by `serve_module` from studio/server.py, as `/api/events` is).
+import() sends no header, so the file route also takes the pack's key in `?k=`
+(served by `serve_module` from studio/server.py; 3.3.14.0 R1, #5: the key the registry hands the shell per pack,
+studio/owner_proof.py, never the launch token).
 """
 
 from __future__ import annotations
 
-import hmac
 import json
 import re
 from pathlib import Path
-from urllib.parse import parse_qs, unquote, urlsplit
+from urllib.parse import unquote, urlsplit
 
 from halo_harness.studio.raw_body import RawBody
 
@@ -55,7 +55,11 @@ def get_registry(req):
     from halo_harness.studio.packs_studio_live import watch
     if req.server is not None:
         watch(req.server)
-    return 200, registry(cwd=req.cwd, state_dir=req.state_dir)
+    out, token = registry(cwd=req.cwd, state_dir=req.state_dir), getattr(req.server, "token", "")
+    if token:  # 3.3.14.0 R1 (#5): each pack's key for what its page embeds (studio/owner_proof.py)
+        from halo_harness.studio.owner_proof import raw_key
+        out = {**out, "packs": [{**p, "key": raw_key(token, p["id"])} for p in out.get("packs") or []]}
+    return 200, out
 
 
 def _inside(base: Path, rel: str):
@@ -170,17 +174,18 @@ def dispatch_pack(req):
 
 
 def serve_module(handler) -> None:
-    """`GET /api/pack/<id>/file/<bundle>?t=<token>`: the module an import() asks for (no Authorization header)."""
+    """`GET /api/pack/<id>/file/<bundle>?k=<the pack's key>`: the module an import() asks for (no Authorization
+    header; 3.3.14.0 R1, #5: the key of that pack, studio/owner_proof.py, never the launch token)."""
     from halo_harness.studio.api import Request
+    from halo_harness.studio.owner_proof import raw_key_ok
     if not handler._local_only():
         return
     origin = handler.headers.get("Origin")
     if origin and origin not in handler._own_origin():
         return handler._json(403, {"error": "foreign origin"})
     parts = urlsplit(handler.path)
-    presented = {k: v[-1] for k, v in parse_qs(parts.query).items()}.get("t", "")
-    if not presented or not hmac.compare_digest(presented, handler.server.token):
-        return handler._json(403, {"error": "missing or wrong studio token in ?t="})
+    if not raw_key_ok(handler.path, handler.server.token, handler.command):
+        return handler._json(403, {"error": "missing or wrong key in ?k= (the registry's key of this pack, for its own files)"})
     req = Request(method="GET", path=unquote(parts.path)[len("/api/"):], query={}, body={}, cwd=handler.server.cwd,
                   state_dir=handler.server.state_dir, server=handler.server)
     try:

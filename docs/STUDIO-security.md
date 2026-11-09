@@ -74,6 +74,13 @@ Problems; a save that fails leaves the file untouched.
   /api/fleet/commands/<id>` and `POST /api/fleet/hub {action: start|stop}`.
   Member frames reach the live feed with their `harness`. See
   [FLEET.md](FLEET.md#studio-get-apifleet-and-the-commands).
+- **The owner's page and a pack's key (3.3.14.0 R1, `studio/owner_proof.py`).** A pack's page runs in the shell's
+  own page, so the writes that change what runs here (a pack's grant, enable, install, update, rollback, remove,
+  service, settings; the bundles; Setup; Settings; a session started or typed into) also need `X-Halo-Owner`, a
+  proof only the shell's own page holds; without it they are a 403, "this needs the owner's own page". What a pack's
+  page embeds (an iframe, an image, a module) carries that pack's GET-only key in `?k=`, never the token
+  ([the owner's page and a pack's key](STUDIO-shell.md#the-owners-page-and-a-packs-key)). No other page frames the
+  shell (`frame-ancestors 'self'`, `X-Frame-Options: SAMEORIGIN`), and `HALO_STUDIO_LOG` writes `t=...` and `k=...`.
 - No CDN, no fonts fetched, no analytics: the page is a handful of static
   files served from the package, under a strict content-security policy.
   The shell (`static/dist/`) gets `default-src 'self'; connect-src 'self'`
@@ -115,7 +122,8 @@ and follows again, `s` on a focused row makes it the target.
 
 ## Files
 
-`halo_harness/studio/server.py` (the server, the guard, the command),
+`halo_harness/studio/server.py` (the server, the guard, the command), `owner_proof.py` (the owner proof and a pack's
+key, 3.3.14.0 R1; tests: `tests/test_studio_owner_proof.py`),
 `events.py` (the live feed: the registry watcher and `/api/events`),
 `ui/` (the React shell's sources; see docs/DEVELOPMENT.md "Studio UI"),
 `static/dist/` (its committed build; the only page since 3.0.7.0 R2),

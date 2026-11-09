@@ -30,6 +30,9 @@ def register(test, json_of, chrome) -> None:
                   and got.get("heading") == "Made two artboards" and got.get("code") == 1 and got.get("raw_html") == 0)
         ctx.check(f"the artboards, sandboxed, got {got.get('artboards')} {got.get('sandbox')}",
                   got.get("artboards") == ["hero", "logo-mark"] and got.get("sandbox") == ["allow-scripts"])
+        frames = got.get("frame_srcs") or []  # 3.3.14.0 R1 (#5): the pack's key in the frame's address, not the token
+        ctx.check(f"no frame's src carries the launch token, each the pack's key, got {frames}",
+                  frames and all(f["key"] and not f["token"] for f in frames))
         ctx.check(f"a turn streams with its tool chip and Cancel turn stops it, got {got}", "Write" in str(got.get("live"))
                   and got.get("cancel_button") == 1 and got.get("after_cancel") == 3 and got.get("cancelled_logged") is True)
         ctx.check("Rename renames the artboard", got.get("renamed") == "Landing hero")

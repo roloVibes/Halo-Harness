@@ -70,12 +70,13 @@ def _discover_dir(commands_dir: Path, *, source: str, name_prefix: Optional[str]
         entry = (name_prefix,) if name_prefix and name == name_prefix else ()
         if name_prefix:
             name = f"{name_prefix}:{name}"
-        from halo_harness.commands.pack_run import make_run, run_of  # 3.3.13.0 R3: a pack command that runs a program
-        run = run_of(fm, commands_dir.parent) if name_prefix else None
+        from halo_harness.commands.pack_run import make_run, pack_of, run_of  # 3.3.13.0 R3: a command runs a program
+        pack = pack_of(commands_dir.parent) if name_prefix and "run" in fm else None  # 3.3.14.0 R1 (#9): granted bash
+        run = run_of(fm, commands_dir.parent, pack) if pack is not None else None
         if run is not None:
             out.append(SlashCommand(name=name, description=fm.get("description", "") or "", kind="core",
                                     argument_hint=fm.get("argument-hint"), source="custom", path=path, aliases=entry,
-                                    run=make_run(commands_dir.parent, run, name, body)))
+                                    run=make_run(commands_dir.parent, run, name, body, pack.id)))
             continue
         studio = str(fm.get("studio") or "").strip() if name_prefix else ""  # 3.3.13.0 R2: opens the pack's section
         if studio:

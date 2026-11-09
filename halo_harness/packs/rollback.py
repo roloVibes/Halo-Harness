@@ -92,7 +92,7 @@ def rollback(pack_id: str, *, cwd=None, state_dir=None) -> "tuple[bool, list[str
     new_rec = {k: v for k, v in rec.items() if k not in ("previous", "removed")}
     new_rec["version"] = old_v
     S.replace(pack_id, new_rec, state_dir)
-    changed(state_dir)
+    changed(state_dir, unload=pack_id)  # 3.3.14.0 R1 (#8): notify_studio drops its Studio routes too
     back = "installed again, disabled" if rec.get("removed") else ("enabled" if rec.get("enabled") else "disabled")
     lines = [f"rolled back {pack_id} {cur_v} -> {old_v}: {prev.name} is {pack_id}/ again ({back}); "
              f"{cur_v} is gone (halo pack update {pack_id} brings it back)",

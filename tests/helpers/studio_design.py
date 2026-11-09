@@ -47,6 +47,10 @@ def design(c, url: str, state: Path) -> dict:
     out["raw_html"] = c.js("document.querySelectorAll('[data-testid=\"design-thread-list\"] script, [data-testid=\"design-thread-list\"] img').length")
     out["artboards"] = c.js(f"[...{tid('design-artboard')}].map((a) => a.dataset.id)")
     out["sandbox"] = c.js("[...document.querySelectorAll('[data-testid=\"design-artboard\"] iframe')].map((f) => f.getAttribute('sandbox'))")
+    # 3.3.14.0 R1 (#5): a frame's address carries the design pack's key, never Studio's launch token
+    srcs = c.js("[...document.querySelectorAll('[data-testid=\"design-artboard\"] iframe')].map((f) => f.getAttribute('src') || '')")
+    token = url.split("#t=", 1)[-1]
+    out["frame_srcs"] = [{"token": bool(token) and token in s, "key": "k=" in s} for s in srcs or []]
     # a turn sent with Enter streams in (the live feed), Cancel turn stops it
     gate = threading.Event()
 

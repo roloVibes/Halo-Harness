@@ -5,8 +5,8 @@
 // `section`. What mount returns, when a function, runs when the section goes away (the pack turned off, a reload).
 // Until the grant, the page is one line naming the command that gives it.
 import { useEffect, useRef, useState } from "react";
-import { token } from "../../lib/api";
 import { bundleApi, type BundleApi } from "./bundleApi";
+import { importPack } from "./importPack";
 import { usePacks } from "./store";
 import type { PackPanel, PackSection } from "./types";
 
@@ -30,8 +30,8 @@ export function PackView({ section }: { section: string }) {
     let live = true;
     const made = bundleApi(asPanel(s));
     setError("");
-    import(/* @vite-ignore */ new URL(`${file}?t=${encodeURIComponent(token())}`, location.origin + "/").href).then(
-      (mod: { mount?: (el: HTMLElement, a: BundleApi) => unknown }) => {
+    importPack<{ mount?: (el: HTMLElement, a: BundleApi) => unknown }>(s.pack, file).then( // 3.3.14.0 R1: ?k=, its lib
+      (mod) => {
         if (!live) return;
         if (typeof mod.mount !== "function") return setError(`${s.view?.source} exports no mount(el, api)`);
         try {
