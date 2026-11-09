@@ -110,7 +110,15 @@ def no_provider_jump(c, url, ctx) -> dict:
         end = time.time() + 5  # Esc posts start/dismiss (remembered for the home): wait for it, then forget it
         while time.time() < end and not fresh.dismissed(ctx["state"]):
             time.sleep(0.1)
-        (fresh.start_root(ctx["state"]) / fresh.DISMISSED).unlink(missing_ok=True)
+        marker, end = fresh.start_root(ctx["state"]) / fresh.DISMISSED, time.time() + 5
+        while True:  # the server may still hold the file it just wrote (Windows shard 1 on 34622336: WinError 32)
+            try:
+                marker.unlink(missing_ok=True)
+                break
+            except PermissionError:
+                if time.time() > end:
+                    raise
+                time.sleep(0.1)
         from halo_harness.theme import set_config_value
         set_config_value("team", "halo-dev-cycle")  # a custom lineup: the palette's overlay offers Run
         _palette_start(c)
