@@ -188,7 +188,10 @@ def test_the_offer_card_is_mounted_and_y_accepts(ctx: Ctx):
                 await pilot.pause(0.1)
                 seen["card"] = type(app.pending_card).__name__
                 app.pending_card.action_accept()
-                await pilot.pause(0.3)
+                for _ in range(50):  # the accept runs on a worker: wait for it, not a fixed 0.3 s (the Windows runner is 5-10x slower)
+                    await pilot.pause(0.1)
+                    if "accepted" in seen:
+                        break
             finally:
                 lane_offer_flow.accept_worker = real
     asyncio.run(body())

@@ -52,9 +52,13 @@ def test_z4_a_raising_dialog_worker_reports_and_the_app_keeps_running(ctx: Ctx):
             await pilot.pause(0.2)
             screen._apply_bulk_result = explode  # raises on the UI thread, re-raised in the worker
             screen.action_reconnect_all()
-            await pilot.pause(0.6)
+            messages = []
+            for _ in range(60):  # the worker's error becomes a notification: wait for it, not a fixed 0.6 s (the Windows runner is 5-10x slower)
+                await pilot.pause(0.1)
+                messages = [n.message for n in app._notifications]
+                if any("bulk result exploded" in m for m in messages):
+                    break
             ctx.check("the app is still running", app.is_running and app.return_code is None)
-            messages = [n.message for n in app._notifications]
             ctx.check(f"the error is a notification, got {messages}",
                       any("bulk result exploded" in m and "mcp-reconnect-all" in m for m in messages))
     asyncio.run(body())
