@@ -218,6 +218,7 @@ def served_rows(addr: str, hosts=None, servers=None) -> list:
 def server_rows(addr: str, servers) -> list:
     """3.3.9.0 R3: a speech server (runtime voice-stt / voice-tts) is `kind: speech` with its `model`, so a peer's loop
     finds `stt@<host>` / `tts@<host>` among the rows (voice/remote.py); it is reached through the host's voice routes."""
+    from halo_harness.engines.descriptors import is_engine
     from halo_harness.ollama_steward.servers_hf import port_of as sport
     out = []
     for s in servers or []:
@@ -225,5 +226,5 @@ def server_rows(addr: str, servers) -> list:
         speech = rt in ("voice-stt", "voice-tts")
         out.append({"name": s.name, "port": sport(s.url), "addr": addr, "kind": "speech" if speech else "server",
                     "runtime": rt, "pool": s.name.lower() == "pool",
-                    **({"model": s.model} if speech or rt in ("freetoken", "strata", "tensorfold") else {})})  # 3.3.9.1-3
+                    **({"model": s.model} if speech or is_engine(rt) else {})})  # 3.3.13.0 R1: an engine's model
     return out

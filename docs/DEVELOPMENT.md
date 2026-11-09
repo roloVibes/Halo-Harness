@@ -371,44 +371,20 @@ cpu,cuda` for the devices it reports. It is a test flag: never set it outside te
 `tests/helpers/fake_voice_server.py` (the real server with the fake engine), the way `huggingface.llama_server_bin`
 points at `fake_llama_server.py`, and `tests/helpers/voice_files.put` writes a speech model's files as a few bytes.
 
-### The fake FreeToken (3.3.9.1)
+### The fake engine (3.3.13.0)
 
-`huggingface.freetoken_bin` = [python, `tests/helpers/fake_ft_server.py`] (tests/helpers/ft_home.FtHome) stands in for
-FreeToken's `ft`: `--version`, `bench bw` (its report's ceilings line and one row; `FAKE_FT_GATHER` sets the GB/s) and
-`serve` (127.0.0.1 only, whatever `--host` says: `/health` loading then ok, `/v1/models` with `owned_by: FreeToken`,
-chat completions with `usage`, the scheduler's and `--moe-collect-stats`'s lines; `FAKE_FT_LOAD_S`, `FAKE_FT_HIT`,
-`FAKE_FT_CTX`, `FAKE_FT_EXIT=nvcc|pin`, `FREETOKEN_API_KEY` for a keyed server). Its log lines are
-`tests/helpers/ft_lines.py`'s, written from FreeToken's source and unverified against a live run.
-`freetoken/requirements.SEAMS` (`platform`, `which`, `run`) answers the platform, `nvidia-smi` and `nvcc` checks, so a
-test never runs the real ones; `freetoken/link.SEAMS` and `freetoken/bench.SEAMS` are the bench seams.
-
-### The fake Strata (3.3.9.2)
-
-`huggingface.strata_bin` = [python, `tests/helpers/fake_strata.py`] (tests/helpers/st_home.StHome) stands in for
-Strata's `strata`: `--version`, `launch --plan [--output json]` (`FAKE_STRATA_DOWNLOAD_GB`, `FAKE_STRATA_ENGINE_MISSING`
-say what would download), `launch --family F --model S ... --no-tui` (starts the server in a process of its own, as
-Strata's supervisor does, prints "Strata is serving." and the "Engine log" line and returns; `FAKE_STRATA_LAUNCH_S`,
-`FAKE_STRATA_NO_ENGINE`, `FAKE_STRATA_ENGINE_PCT`), `launch --status --output json`, `launch --stop --preset NAME`, and
-the server itself (127.0.0.1 only: `/health` with `"service": "strata"`, `/v1/models` with `meta.n_ctx`, chat
-completions with `usage`, the narrator's, `ready:` and `done:` lines in `<FAKE_STRATA_STATE>/runtime/launch-<name>.
-server.log`; `FAKE_STRATA_MODE`, `FAKE_STRATA_TOK_S`, `FAKE_STRATA_HIT`, `FAKE_STRATA_PARALLEL`). Its state is
-`FAKE_STRATA_STATE`, a scratch folder, never Strata's own; the rig's exit stops every server it started. Its lines are
-`tests/helpers/st_lines.py`'s, written from Strata's source and unverified against a live run.
-`strata/requirements.SEAMS` (`run`, `which`, `os`) answers `strata --version`, PATH and the OS word for a test.
-
-### The fake TensorFold (3.3.9.3)
-
-`huggingface.tensorfold_bin` = [python, `tests/helpers/fake_tensorfold_server.py`] (tests/helpers/tf_home.TfHome)
-stands in for TensorFold's `tensorfold`: `--version`, `capabilities --json` (`FAKE_TF_BACKEND` says `cuda` or `metal`)
-and `serve` (127.0.0.1 only, whatever `--host` says; it binds only after `FAKE_TF_LOAD_S`, as the real server opens
-its port once loaded; the key file's keys guard every route but `/health`, which then says only `{"status": "ok"}`;
-`/v1/models` with `owned_by: tensorfold`, `/metrics` with `tensorfold:requests_waiting`, chat completions with
-`usage`; the capacity, serving and done lines; `FAKE_TF_SM`, `FAKE_TF_STREAMS`, `FAKE_TF_WAITING`,
-`FAKE_TF_EXIT=driver|keyfile`). `TfHome` points `HF_HUB_CACHE` at a scratch folder (`h.cached(repo)` writes a
-snapshot there), never the real Hugging Face cache. Its lines are `tests/helpers/tf_lines.py`'s, written from
-TensorFold's source and unverified against a live run. `tensorfold/requirements.SEAMS` (`run`, `which`, `os`,
-`machine`) answers the binary, PATH and the platform; the archive fetch takes a `fetcher` and a `releases` list
-(tests/test_local_runtime_fetch_tensorfold.py), never the network.
+`huggingface.engine_bins.<id>` = [python, `tests/helpers/fake_engine.py`, `<id>`] (tests/helpers/engine_home.EngineHome)
+stands in for every engine of the descriptor table (halo_harness/engines/descriptors.py): `--version` (the engine's own
+line), the managed start the descriptor names (127.0.0.1 only, whatever `--host` says: `/health`, `/v1/models` with the
+descriptor's `owned_by` or `meta.n_ctx` rows (the /health-detected shape), `/metrics` with `FAKE_ENGINE_WAITING`, chat completions with
+`usage` after 30 ms, a key from the environment, `--api-key-file` or `--api-key-env` guarding every route but
+`/health`), and a supervised engine's `launch --plan` (`FAKE_ENGINE_DOWNLOAD_GB`), `launch ... --no-tui` (the server
+in a process of its own, the "Engine log" line), `launch --status` and `launch --stop --preset NAME`.
+`FAKE_ENGINE_LOAD_S`, `FAKE_ENGINE_EXIT`; every argv it is given lands in `<FAKE_ENGINE_STATE>/argv` (`h.argv()`), a
+scratch folder that also holds the supervisor's state; the rig's exit stops every server it started. Its lines are
+`tests/helpers/engine_lines.py`'s, written from each engine's source and unverified against a live run; `SAMPLES` pins
+what each descriptor's patterns make of them. `engines/adapter.SEAMS` (`run`, `which`, `os`, `machine`, `wsl`) answers
+the program, PATH and the platform for a test; `EngineHome` points `HF_HUB_CACHE` at a scratch folder (`h.cached(repo)`).
 
 ### The fake audio (3.3.9.0 R2)
 

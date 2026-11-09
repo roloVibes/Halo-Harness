@@ -4533,3 +4533,19 @@ signal, not just like a note sent to the user"):**
   six-area review on the merged tree and its fix pass with the F1 steward hotfix first, L1 the Instrument look, the
   Agents section (F3+F5), the Fleet fold (F3+F5b), mode themes (#5) and the parity audit.
 
+**3.3.13.0 R1 BUILT 2026-11-08 night (one Opus round, worktree ~/hh-3312/R3-engines-fold, hand-back v3312-R3-handback.md):
+`halo_harness/engines/` -- `descriptors.py` (three entries, each `verified: False`, ids = the old runtime words), `models.py`
+(the 64 models they name), `adapter.py`, `launch.py`, `steward.py` (every steward seam reads the table; the `loaded` / `error`
+log words come out as `load-result` / `other-error` plus a `timing` word), `fit.py` (`vram` and `paged-moe`; all 31 verdicts
+of the three old fit modules reproduced), `doctor.py`, `peer.py` (the host offers `engines: {id: offer}`), `bench.py`. 69
+files removed (the three packages, two provider modules, 3 fit + 3 doctor + 7 steward modules, 16 tests, 9 helpers, three
+docs pages), 19 added, about -5,860 lines; the largest new file 247 lines. Old configs keep working: `runtime: strata`
+entries, `strata: true`, `huggingface.strata_bin` (now one `huggingface.engine_bins` map, named by `halo doctor --local`);
+findings are `engine-*`. Dropped with nothing in their place: FreeToken's link measurement and `--bw`, Strata's `--plan` /
+`--model-path` on `halo local serve`, TensorFold's release fetcher and digest checks, serve's "fit here" line. docs/MODELS-engines.md
+renders the table; ten pages point at it. Live check (rolo): reinstall, `halo doctor --local` on the PC (no engine line unless
+one is installed); with Strata installed the doctor's "Strata: strata --version" line, `halo local serve --runtime strata
+--model <id>` (stops with the download size when Strata must download), a few turns on `hf:local/<model>@strata`, then
+`halo ollama steward findings` showing `engine-*` findings; on the Mac `brew install TensorFold`, pull a model, serve it and
+compare the startup lines with the table. Next: R2 Design out and R3 the Signal pack merge as they hand back.**
+

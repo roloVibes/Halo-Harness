@@ -151,12 +151,14 @@ def scan(state_dir, server, *, from_start: bool = False, root=None, at=None) -> 
     rules = _rules(state_dir, server, from_start)
     evs = [e for x in lines for e in rules.feed(x, at=at)] + rules.flush()
     evs += _death(server, st, lines)
-    if server.runtime == "tensorfold" and not from_start:  # 3.3.9.3: its queue from /health or /metrics (loopback)
+    from halo_harness.engines.descriptors import get as engine
+    d = engine(server.runtime)  # 3.3.13.0 R1: an engine's queue (its descriptor's `stats`), the roster's model
+    if d is not None and d.get("stats") and not from_start:
         from halo_harness.ollama_steward.servers_hf import is_local
-        evs += _tf_stats(server) if is_local(server) else []
-    if server.runtime == "strata":  # 3.3.9.2: Strata's log never names the model it serves; the roster row does
+        evs += _engine_stats(server) if is_local(server) else []
+    if d is not None and not d["log"].get("names_model", True):
         for e in evs:
-            e["model"] = e.get("model") or server.model or "strata"
+            e["model"] = e.get("model") or server.model or d["id"]
     for e in evs:
         e["data"].setdefault("runtime", server.runtime or "llama-server")
         if server.launch and e["kind"] in ("gpu-memory", "other-error", "load-failed"):
@@ -168,10 +170,10 @@ def scan(state_dir, server, *, from_start: bool = False, root=None, at=None) -> 
     return written, why
 
 
-def _tf_stats(server) -> list:
+def _engine_stats(server) -> list:
     try:
-        from halo_harness.ollama_steward.server_stats_tensorfold import read
-        return read(server)
+        from halo_harness.engines.steward import stats
+        return stats(server)
     except Exception:
         return []
 

@@ -54,39 +54,33 @@ def _mlx(change: str, value, was) -> Optional[tuple]:
     return None  # no fixed window, no layer offload on unified memory, no KV type flag
 
 
-def _ft(change: str, value, was) -> Optional[tuple]:
-    """3.3.9.1: `ft serve`'s flags (docs/cli.md, from the source, unverified); FreeToken sizes its own cache and layers."""
-    if change == "ctx-size":
-        return f"--max-seq-len-override {value}", f"--max-seq-len-override {was}" if was else "drop --max-seq-len-override"
-    if change == "n-predict":
-        return "--max-output-tokens 32768", f"--max-output-tokens {was}" if was else "drop --max-output-tokens"
-    return None
+def _engine_known(rt: str) -> bool:
+    from halo_harness.engines.descriptors import is_engine
+    return is_engine(rt)
 
 
-def _st(change: str, value, was) -> Optional[tuple]:
-    """3.3.9.2: `strata launch`'s flags (docs/TERMINAL_LAUNCH.md, from the source, unverified); a new launch applies them."""
-    if change == "ctx-size":
-        return f"--context {value}", f"--context {was}" if was else "drop --context"
-    if change == "cache-type":
-        return "--kv q4_0" if str(value).startswith("q4") else "--kv int8", f"--kv {was}" if was else "drop --kv"
-    return None
+def _engine(rt: str):
+    """3.3.13.0 R1: an engine's flags from its descriptor's `tune` (from its source, unverified until a live run)."""
+    from halo_harness.engines.descriptors import get
+    tune = (get(rt) or {}).get("tune") or {}
 
+    def lines(change: str, value, was) -> Optional[tuple]:
+        t = tune.get(change)
+        if not t:
+            return None
+        flag = t.split(" ", 1)[0]
 
-def _tf(change: str, value, was) -> Optional[tuple]:
-    """3.3.9.3: `tensorfold serve`'s flags (README "Serve flags", from the source, unverified); TensorFold places the
-    whole checkpoint itself, so there are no layers to move or a KV type to pick."""
-    if change == "ctx-size":
-        return f"--context {value}", f"--context {was}" if was else "drop --context (the model's own window)"
-    if change == "n-predict":
-        return "--max-tokens 32768", f"--max-tokens {was}" if was else "drop --max-tokens (4096, TensorFold's default)"
-    return None
+        def put(v) -> str:
+            return t.format(value=v, kv="q4_0" if str(v).startswith("q4") else "int8")
+        return put(value), (put(was) if "{" in t else f"{flag} {was}") if was else f"drop {flag}"
+    return lines
 
 
 def line(server, change: str, value, *, was=None) -> Optional[dict]:
     rt = getattr(server, "runtime", None) or "llama-server"
-    got = {"llama-server": _llama, "lmstudio": _lmstudio, "mlx": _mlx, "freetoken": _ft, "strata": _st,
-           "tensorfold": _tf}.get(
-        rt, _llama)(change, value, was)
+    got = {"llama-server": _llama, "lmstudio": _lmstudio, "mlx": _mlx}.get(rt) or (
+        _engine(rt) if rt not in ("voice-stt", "voice-tts") and _engine_known(rt) else _llama)
+    got = got(change, value, was)
     if got is None:
         return None
     set_, revert = got

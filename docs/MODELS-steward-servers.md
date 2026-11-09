@@ -1,6 +1,6 @@
 # Models: the steward and the local servers
 
-Read this when you run llama-server, LM Studio, mlx_lm.server, FreeToken, Strata or TensorFold and want to know what the steward reads in each one's log, what each log can and cannot say, what the steward changes on Halo's side and which server-side line it states.
+Read this when you run llama-server, LM Studio, mlx_lm.server or another local engine and want to know what the steward reads in each one's log, what each log can and cannot say, what the steward changes on Halo's side and which server-side line it states.
 
 Part of [Models](MODELS.md), which lists every part. The steward itself: [MODELS-ollama-steward.md](MODELS-ollama-steward.md); Ollama's own log: [MODELS-ollama-logs.md](MODELS-ollama-logs.md).
 
@@ -146,61 +146,22 @@ rows are in the knowledge's local-servers section, so the steward's guide keeps 
 (`~/.halo/voice/turns.jsonl`): a stage over its share of the budget three turns running, keyed `voice|<stage>` on the
 Ollama host served here, with its fix line ([VOICE.md](VOICE.md#the-latency-card)).
 
-## FreeToken (3.3.9.1)
+## Other local engines (3.3.13.0)
 
-A FreeToken server ([MODELS-freetoken.md](MODELS-freetoken.md)) is the runtime `freetoken`: Halo's own `halo local
-serve --runtime freetoken` (the entry `freetoken`, its log `~/.halo/local/servers/freetoken.log`), a manual entry with
-`runtime: freetoken` and its `log`, or one the loopback sweep found on 1919 (its `/v1/models` says `owned_by:
-FreeToken`). `ollama_steward/server_log_ft.py` reads its lines with patterns written from FreeToken's source,
-unverified against a live log: FreeToken's own stamp, the load block (`Resolved config: moe_strategy=...`, `MoE experts:
-<format> via <kernel>`, `--moe-cache-auto resolved moe_cache_size=N`, `API server is ready to serve on ...`) as one
-`load-result`, each `Prefill batch` / `Decode batch` line as `timing` (the verify reads its tok/s), the
-`--moe-collect-stats` line as `expert-cache` (the hit rate), the pin-budget lines as `pin-cap`, a long startup warmup
-as `kernel-jit`, the nvcc mismatch and the stopped pinned load as `load-failed`. `ollama_steward/rules_ft.py` turns
-them into **ft-expert-thrash**, **ft-pinned-cap** and **ft-kernel-jit**, keyed `<server>|<model>`, each with a stated
-line never applied (`ft ctl cache --moe N`, native Linux, the CUDA 13 toolkit); their rows are in the knowledge's
-local-servers section. The stated lines for this runtime are `ft serve`'s own: `--max-seq-len-override N` for the
-window, `--max-output-tokens N` for the reply limit; it has no layer or cache-type flag to state (it sizes its expert
-cache and KV itself).
-
-## Strata (3.3.9.2)
-
-A Strata server ([MODELS-strata.md](MODELS-strata.md)) is the runtime `strata`: Halo's own `halo local serve --runtime
-strata` (the entry `strata`; its log is the launch's output in `~/.halo/local/servers/strata.log` until `strata launch`
-returns, then the server's own `<Strata's state>/runtime/launch-<name>.server.log`), a manual entry with `runtime:
-strata` and its `log`, or one the loopback sweep found (its `/health` says `"service": "strata"`). Strata's log names no
-model, so its events carry the roster's model (`strata` for a hand-written entry with none).
-`ollama_steward/server_log_strata.py` reads its lines with patterns written from Strata's source, unverified against a
-live log: the start narrator (the experts into RAM, under a RAM budget, or mapped from the model files) through the
-`ready: http://.../v1 (... context N tokens` line as one `load-result` {strategy, window, load_s}, each `done:` line and
-the engine's `prompt P tokens = ...` summary as `timing` (tok/s, the expert cache's hit rate, the PCIe share), the
-`parallel requests: A asked, the engine runs B` and `a request has waited N s` lines as `slots`, the RAM-tight and
-RAM-budget warnings as `ram-tight`, the launch's `Downloading X of Y GB` / engine lines as `download`, no engine for
-the computer as `load-failed`. `ollama_steward/rules_strata.py` turns them into **strata-disk-bound**,
-**strata-slots** and **strata-download**, keyed `<server>|<model>`, each with a stated line never applied (the next
-set down, `--parallel` by the VRAM guide, nothing for a download); their rows are in the knowledge's local-servers
-section. The stated lines for this runtime are `strata launch`'s own: `--context N` for the window, `--kv q4_0` /
-`--kv int8` for the KV format, applied by the next launch.
-
-## TensorFold (3.3.9.3)
-
-A TensorFold server ([MODELS-tensorfold.md](MODELS-tensorfold.md)) is the runtime `tensorfold`: Halo's own `halo local
-serve --runtime tensorfold` (the entry `tensorfold`, its log `~/.halo/local/servers/tensorfold.log`, each line stamped
-with its UTC time by TENSORFOLD_LOG_TIME=1), a manual entry with `runtime: tensorfold` and its `log`, or one the
-loopback sweep found (its `/v1/models` says `owned_by: tensorfold`). `ollama_steward/server_log_tensorfold.py` reads
-its lines with patterns written from TensorFold's source, unverified against a live log: Halo's start line as
-`load-start`, the capacity line ("CUDA sm_89 device 0 (...): model ... GiB; 4 streams at once, ...", or Metal's) as
-`capacity`, the serving line ("serving <model> at http://...; context: N; loaded in S s") as one `load-result`
-{backend, sm, streams, window, load_s}, each `done ...` line as `timing` (tok/s, the queued seconds), the live status
-line (on a terminal only) as `queue`, `ended ... reason=error (...)` as `gpu-memory` or `other-error`, the
-max-tokens-while-thinking warning as `reply-cut`, a fatal `tensorfold: ...` startup line as `load-failed`. Beside the
-log, `ollama_steward/server_stats_tensorfold.py` reads the queue on each tick, loopback only: `/health`'s
-`live.waiting` on a server without keys, `tensorfold:requests_waiting` from `/metrics` with Halo's key for Halo's own
-(with keys `/health` says only `{"status": "ok"}`). `ollama_steward/rules_tensorfold.py` turns them into
-**tf-waiting**, **tf-backend-fallback** and **tf-load**, keyed `<server>|<model>`, each with a stated line never
-applied (`--parallel` or a smaller model; the MLX 4-bit checkpoint or a newer card; nothing for a load); their rows are
-in the knowledge's local-servers section. The stated lines for this runtime are `tensorfold serve`'s own: `--context
-N` for the window, `--max-tokens N` for the reply limit; it places the whole checkpoint itself (no layers, no KV type).
+A server of an engine of the descriptor table ([MODELS-engines.md](MODELS-engines.md)) is the runtime `<id>`: Halo's
+own `halo local serve --runtime <id>` (the entry `<id>`, its log `~/.halo/local/servers/<id>.log`; a supervised
+engine's own server log once its start command returns), a manual entry with `runtime: <id>` and its `log`, or one the
+loopback sweep recognised by its descriptor (`owned_by` on `/v1/models`, or its `/health` keys). `engines/steward.py`
+reads its lines with the descriptor's patterns, unverified against a live log: the first pattern that matches a line
+makes the event -- `engine-loading`, `load-result` (the window, the load seconds; Halo's start line names the model
+and times the load; over three minutes adds `slow-load`), `timing` (tok/s), `engine-slots`, `engine-waiting`,
+`engine-backend-fallback`, `engine-disk-bound`, `other-error` -- with the descriptor's sentence. A descriptor with a
+queue route is read each tick beside the log, loopback only (`/health`'s `live` block, else `/metrics` with Halo's
+key). One rule turns them into **engine-slots**, **engine-waiting**, **engine-backend-fallback**, **engine-disk-bound**
+and **engine-loading** (a loading line is quiet once the server has loaded, unless it crossed its threshold, such as a
+kernel compile of minutes), keyed `<server>|<model>`, each with the descriptor's fix line never applied; their rows are
+in the knowledge's local-servers section. The stated lines for these runtimes are the descriptor's `tune` flags (the
+window, the reply limit, the KV format where the engine has one), applied by the next start.
 
 ## What the logs cannot say
 

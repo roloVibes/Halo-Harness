@@ -102,12 +102,11 @@ def _hf_rows(state_dir, q: str, refresh: bool) -> "tuple[list, dict]":
             notes.append(got["note"])
         if got.get("at"):
             at.append(got["at"])
-    from halo_harness.freetoken.catalog import library_rows, listed  # 3.3.9.1: the MoE checkpoints FreeToken names
-    out += library_rows(q) if listed(q) else []
-    from halo_harness.strata import catalog as st  # 3.3.9.2: the sets Strata names (its download, never Halo's)
-    out += st.library_rows(q) if st.listed(q) else []
-    from halo_harness.tensorfold import catalog as tf  # 3.3.9.3: the models TensorFold names (`tensorfold pull`)
-    out += tf.library_rows(q) if tf.listed(q) else []
+    from halo_harness.engines.doctor import found  # 3.3.13.0 R1: the models each engine names, when asked or found
+    from halo_harness.engines.descriptors import ids
+    from halo_harness.engines.models import library_rows
+    for engine in ids():
+        out += library_rows(engine, q) if engine in str(q or "").lower() or found(engine, state_dir) in ("configured", "running") else []
     return out, {"source": "fixtures" if "fixtures" in src else "live", "note": "; ".join(dict.fromkeys(notes)),
                  "at": min(at) if at else None}
 

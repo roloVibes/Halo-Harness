@@ -42,49 +42,20 @@ window per slot. Then the kinds that runtime's log never prints ("its log never 
 qwen3-8b: crashed here on ...`), `--why` with the command Halo launched it with and that runtime's fixes. `halo doctor
 --local` prints one line per local server: its log's state, or a WARN saying how to make it readable.
 
-### `halo local serve --runtime freetoken --model <checkpoint dir> [--port P] [--keep] [--lan] [--json]` (3.3.9.1)
+### `halo local serve --runtime <engine id> --model M [--window N] [--parallel N] [--port P] [--keep] [--lan] [--json]` (3.3.13.0)
 
-Starts FreeToken's `ft serve` for a Mixture-of-Experts checkpoint folder ([MODELS-freetoken.md](MODELS-freetoken.md)):
-the command line first, then the URL and `hf:local/<model>@freetoken`, or "still loading (N of M GiB)" when the load
-outlasts two minutes (it goes on; exit 0). It is the server `freetoken` for `halo local servers | log | stop`; the
-stop removes the `freetoken` entry Halo wrote. `ft` is `huggingface.freetoken_bin` or the one on PATH. On a machine
-that is not Linux x86_64 with driver r580+ and `nvcc`, one line says the three requirements and the install command
-for each one missing (exit 2). `--lan` binds every address behind a generated key, for peers through `halo host`.
+Starts an engine of the descriptor table ([MODELS-engines.md](MODELS-engines.md) lists them) with its own start
+command: the command line first, then the URL and `hf:local/<model>@<id>`, or "still
+starting" when the load outlasts the descriptor's wait (it goes on; exit 0). The model is what the engine takes: a
+checkpoint folder, a `<family>/<set>`, or a repo in the Hugging Face cache. A missing program is one line with the
+owner's install line for this OS (exit 2); an engine whose own plan says its first start downloads starts nothing and
+says the GB and the command you run yourself (exit 2). It is the server `<id>` for `halo local servers | log | stop`;
+the stop is the engine's own when it has one (a supervised engine), and removes the entry and its key file. The
+program is `huggingface.engine_bins.<id>` or the engine's own on PATH. `--lan` binds every address behind Halo's key,
+for peers through `halo host`.
 
-### `halo local bench --host freetoken [--quick] [--yes] [--json]` and `halo local bench --bw [--model DIR] [--yes]`
+### `halo local bench --host <engine id | its server's name> [--quick] [--yes] [--json]` (3.3.13.0)
 
-The FreeToken server's speed card (the battery's windows and reply reserve, two calls per window), or with `--bw` the
-host link measured by `ft bench bw` (about two minutes, the GPU and the CPU busy), the GB/s the FreeToken fit reads in
-place of the extrapolated 32-64 GB/s. Both print their cost line first and ask unless `--yes`.
-
-### `halo local serve --runtime strata --model <family>/<set> | --model-path DIR [--port P] [--lan] [--plan] [--json]` (3.3.9.2)
-
-Starts Strata's `strata launch` for a set it names ([MODELS-strata.md](MODELS-strata.md)): `strata launch --plan
---output json` first, and when it says anything is to download (the set's tens to hundreds of GB, the engine, a
-drafter) one line with the GB and the `strata launch` command you run yourself (exit 2, nothing started). Otherwise
-the command line, then the URL and `hf:local/<model>@strata`, or "still starting" when the launch outlasts three
-minutes (it goes on; exit 0). It is the server `strata` for `halo local servers | log | stop`; the stop is `strata
-launch --stop` for the launch serving its port, and removes the `strata` entry. The server outlives Halo (Strata's
-supervisor runs it). `strata` is `huggingface.strata_bin` or the one on PATH; when it is missing, one line with the
-install route for this OS (exit 2). `--lan` is `--access lan` behind Halo's key; `--plan` prints Strata's own plan and
-the fit here, and starts nothing.
-
-### `halo local bench --host strata [--quick] [--yes] [--json]` (3.3.9.2)
-
-The Strata server's speed card (FreeToken's: the battery's windows and reply reserve, two calls per window, an untimed
-warm-up), with its cost line first; it asks unless `--yes`. The card is kept under the set's name too, so the Strata
-fit line says "measured".
-
-### `halo local serve --runtime tensorfold --model <hf repo | checkpoint dir> [--window N] [--parallel N] [--port P] [--keep] [--lan] [--yes] [--json]` (3.3.9.3)
-
-Starts TensorFold's `tensorfold serve` ([MODELS-tensorfold.md](MODELS-tensorfold.md)) for a repo in the Hugging Face
-cache (by its id), a repo Halo's download put in a model folder, or a checkpoint folder: the fit here, the command line
-(`--name <model> --host 127.0.0.1 --port P --context N --api-key-file <0600 file>`, `--parallel N` when given), then
-the URL and `hf:local/<model>@tensorfold`, or "still loading" when the load outlasts two minutes (it goes on; exit 0).
-A repo nowhere on disk starts nothing: one line with its size from TensorFold's table, `tensorfold pull <repo>` (yours
-to run) or `halo local download <repo>` (exit 2). No binary: one line with this OS's route -- `brew install
-ashhart/tensorfold/tensorfold` on the Mac, the native build guide on Windows, and on Linux x86_64 / aarch64 the
-release archive Halo fetches (its size, URL and destination said first; `--yes` answers yes; the `.sha256` checked;
-`~/.halo/runtimes/tensorfold-<tag>/`, never on PATH, `halo local runtime remove tensorfold-<tag>` takes it out). It is
-the server `tensorfold` for `halo local servers | log | stop`; the stop removes the entry and the key file. `--lan`
-binds every address behind the same key, for peers through `halo host`.
+The engine server's speed card through its OpenAI-compatible route (the battery's windows and reply reserve, two calls
+per window, an untimed warm-up first), its cost line first; it asks unless `--yes`. The card is kept under the model's
+own id too, so the engine's fit line says "measured".

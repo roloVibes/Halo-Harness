@@ -134,8 +134,6 @@ def _drift_steps(versions: Optional[dict], staged: Optional[Callable]) -> list:
 def id_steps(state_dir, *, role_table: Optional[dict] = None, main_ref: Optional[str] = None,
              versions: Optional[dict] = None, staged: Optional[Callable] = None) -> list:
     from halo_harness.doctor_local_servers import server_steps  # 3.3.8.0 R2: each local server's log, readable or not
-    from halo_harness.doctor_freetoken import ft_steps  # 3.3.9.1: ft --version, the driver, nvcc when configured
-    from halo_harness.doctor_strata import st_steps  # 3.3.9.2: strata --version, strata launch --status when configured
-    from halo_harness.doctor_tensorfold import tf_steps  # 3.3.9.3: tensorfold --version, capabilities --json
+    from halo_harness.engines.doctor import steps as engine_steps  # 3.3.13.0 R1: one line per engine found here
     return (_id_steps(state_dir, role_table, main_ref) + _drift_steps(versions, staged) + server_steps(state_dir)
-            + ft_steps(state_dir) + st_steps(state_dir) + tf_steps(state_dir))
+            + engine_steps(state_dir))

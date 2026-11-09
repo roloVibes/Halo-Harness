@@ -4,7 +4,10 @@ secret)."""
 
 from __future__ import annotations
 
+from halo_harness.engines.descriptors import TABLE as _ENGINES
 from halo_harness.settings_catalog import Row
+
+_PORTS = list(dict.fromkeys([8080, 8000, 1234] + [d["default_port"] for d in _ENGINES.values()]))
 
 ROWS = [
     Row("providers.<name>.enabled", "providers", "Provider on", "keyed", True, (), "Turn one provider on or off; unset, a provider whose credentials are found is on.", "now"),
@@ -23,12 +26,10 @@ ROWS = [
     Row("experiential.zdr", "providers", "Experiential zero data retention", "bool", False, (), "Ask for zero-data-retention routing on every xp: request.", "now"),
     Row("huggingface.endpoints", "providers", "Hugging Face endpoints", "list", None, (), "Dedicated endpoints, each with name, url, token_env and default; hf:endpoint/<name> picks one.", "now"),
     Row("huggingface.bill_to", "providers", "Hugging Face bill to", "string", None, (), "A Team or Enterprise org name billed for every router request.", "now"),
-    Row("huggingface.local_servers", "providers", "Hugging Face local servers", "list", None, (), "Local servers, each with name, url, api_key_env, default and offline_ok (and log, runtime: the server log the steward reads, llama-server, lmstudio or mlx; the speech server writes its own stt and tts entries, runtime voice-stt or voice-tts; halo local serve --runtime freetoken writes the freetoken entry, runtime freetoken; --runtime strata the strata entry, runtime strata; --runtime tensorfold the tensorfold entry, runtime tensorfold); hf:local/<model>@<name> picks one.", "now"),
-    Row("huggingface.local_probe_ports", "providers", "Local probe ports", "list", [8080, 8000, 1234, 1919], (), "The loopback ports the hf:local auto-detect sweep asks (1919: FreeToken's default; Strata's 8080 is the first).", "now"),
+    Row("huggingface.local_servers", "providers", "Hugging Face local servers", "list", None, (), "Local servers, each with name, url, api_key_env, default and offline_ok (and log, runtime: the server log the steward reads, llama-server, lmstudio or mlx; the speech server writes its own stt and tts entries, runtime voice-stt or voice-tts; halo local serve --runtime <engine id> writes that engine's entry, runtime <engine id>: docs/MODELS-engines.md); hf:local/<model>@<name> picks one.", "now"),
+    Row("huggingface.local_probe_ports", "providers", "Local probe ports", "list", _PORTS, (), "The loopback ports the hf:local auto-detect sweep asks (each engine's default port of docs/MODELS-engines.md is among them).", "now"),
     Row("huggingface.llama_server_bin", "providers", "llama-server program", "path", None, (), "The llama-server Serve starts (a path, or the program and its first arguments); unset, llama-server on PATH or the one Halo fetched.", "now"),
-    Row("huggingface.freetoken_bin", "providers", "FreeToken program", "list", None, (), "The ft program halo local serve --runtime freetoken starts (a path, or the program and its first arguments); unset, ft on PATH (uv pip install \"freetoken[accel]\" on Linux).", "now"),
-    Row("huggingface.strata_bin", "providers", "Strata program", "list", None, (), "The strata program halo local serve --runtime strata runs (a path, or the program and its first arguments); unset, strata on PATH (Strata's install.ps1 on Windows, install.sh on Linux and the Mac).", "now"),
-    Row("huggingface.tensorfold_bin", "providers", "TensorFold program", "list", None, (), "The tensorfold program halo local serve --runtime tensorfold runs (a path, or the program and its first arguments); unset, tensorfold or tensorfold-native on PATH (brew install ashhart/tensorfold/tensorfold on the Mac), then the Linux release archive Halo fetched into ~/.halo/runtimes/; on Windows the native build from source (its docs/WINDOWS.md).", "now"),
+    Row("huggingface.engine_bins", "providers", "Local engine programs", "mapping", None, (), "A map of an engine id of docs/MODELS-engines.md to its program (a path, or the program and its first arguments) that halo local serve --runtime <id> starts; unset, the engine's own program on PATH. The old huggingface.<id>_bin words are still read.", "now"),
     Row("huggingface.voice_server_cmd", "providers", "Speech server program", "list", None, (), "The speech server halo local serve --stt or --tts starts (the program and its first arguments); unset, Halo's own (python -m halo_harness.voice.server).", "now"),
     Row("huggingface.lmstudio_models_dir", "providers", "LM Studio model folder", "path", "~/.lmstudio/models", (), "Where LM Studio keeps its models, when its own Model Storage setting moved them.", "now"),
     Row("huggingface.model_dirs", "providers", "Model folders", "list", [], (), "Folders Halo scans for .gguf files and safetensors or MLX model folders (/local add).", "now"),

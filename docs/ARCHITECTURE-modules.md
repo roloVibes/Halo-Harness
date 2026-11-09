@@ -286,44 +286,17 @@ signed `voice/stt` / `voice/tts` routes, the link's round trip, the door's frame
 (`halo voice client`), `studio/voice_api.py` and `studio/voice_act_api.py` (Local -> Voice: the view; the servers,
 download, loop and Talk's job with its `talk` frames), `doctor_voice.py`'s CPU pair.
 
-**FreeToken** (Halo 3.3.9.1, docs/MODELS-freetoken.md): the runtime `freetoken` -- `freetoken/requirements.py` (Linux
-x86_64, the driver, nvcc, `ft --version`: the one line), `freetoken/launch.py` (`halo local serve --runtime freetoken`:
-`ft serve`, the registry row, the `freetoken` entry, `--lan` and its key), `freetoken/catalog.py` (the checkpoints
-FreeToken names, the Library's download targets), `freetoken/shape.py` (a checkpoint's dense, expert and KV bytes),
-`freetoken/link.py` (`ft bench bw` through the bench seam, the measured link), `freetoken/bench.py` and
-`freetoken/bench_cli.py` (the speed card, `halo local bench --host freetoken [--bw]`), `freetoken/peer.py` (the host's
-offer, a peer's `hf:local/<model>@<host>`), `freetoken/route.py` (a FreeToken server as a placement option, its
-loading tax), `freetoken/waits.py` (the first request's kernel JIT: the session's wait); the fit --
-`local_sched/fit_ft.py` (RAM + link, not VRAM: one line per model and host, the Library's badge); the steward --
-`ollama_steward/server_log_ft.py` (FreeToken's own lines as events) and `ollama_steward/rules_ft.py`
-(ft-expert-thrash, ft-pinned-cap, ft-kernel-jit); `doctor_freetoken.py` (`halo doctor --local`'s lines).
-
-**Strata** (Halo 3.3.9.2, docs/MODELS-strata.md): the runtime `strata` -- `strata/requirements.py` (`strata` from
-`huggingface.strata_bin` or PATH, `strata --version`, the install route for this OS in one line), `strata/catalog.py`
-(the families and sets Strata names, their download GB and memory figures, the Library's download targets),
-`strata/launch.py` (`halo local serve --runtime strata`: `strata launch --plan` first and never a download, then
-`strata launch ... --no-tui`, the registry row, the `strata` entry, Halo's key in the env file), `strata/control.py`
-(after the launch returns: `strata launch --status` and `--stop`, the server's own log, the served id),
-`strata/detect.py` (the auto-detect's `/health` "service": "strata"), `strata/bench.py` (`halo local bench --host
-strata` on FreeToken's speed card), `strata/peer.py` (the host's offer, a peer's `hf:local/<model>@<host>`),
-`strata/route.py` (a Strata server as a placement option, its loading tax); the fit -- `local_sched/fit_st.py`
-(FreeToken's RAM + link rule with Strata's figures: the VRAM slot guide, the experts against RAM, the SSD, the table's
-speed until benched); the steward -- `ollama_steward/server_log_strata.py` (Strata's server and launch lines as
-events) and `ollama_steward/rules_strata.py` (strata-disk-bound, strata-slots, strata-download); `doctor_strata.py`
-(`halo doctor --local`'s lines).
-
-**TensorFold** (Halo 3.3.9.3, docs/MODELS-tensorfold.md): the runtime `tensorfold` -- `tensorfold/requirements.py`
-(the binary from `huggingface.tensorfold_bin`, PATH or the fetched archive, `--version`, `capabilities --json`, the
-install line for this OS), `tensorfold/catalog.py` (the models TensorFold qualifies, their sizes and machines, the
-Library's download targets), `tensorfold/source.py` (what `tensorfold serve` is given: the Hub cache, Halo's download,
-a folder; the missing model's one line), `tensorfold/peer.py` (the host's offer, a peer's `hf:local/<model>@<host>`),
-`tensorfold/route.py` (a TensorFold server as a placement option, its loading tax); the launcher
-`providers/local_runtime_tensorfold.py` (`tensorfold serve`, the registry row, the entry, the 0600 key file) and the
-release table `providers/local_runtime_fetch_tf.py` (the Linux archive and its `.sha256` on the llama-server fetcher);
-the fit -- `local_sched/fit_tf.py` (the VRAM / unified-memory rule with TensorFold's sizes and reserve); the steward --
-`ollama_steward/server_log_tensorfold.py` (its `[tensorfold]` lines as events), `ollama_steward/server_stats_tensorfold.py`
-(the queue from `/health` and `/metrics`) and `ollama_steward/rules_tensorfold.py` (tf-waiting, tf-backend-fallback,
-tf-load); `doctor_tensorfold.py` (`halo doctor --local`'s lines).
+**Local engines** (Halo 3.3.13.0, docs/MODELS-engines.md; the 3.3.9.1-3.3.9.3 runtimes folded): one
+OpenAI-compatible adapter and one descriptor table -- `engines/descriptors.py` (THE table: per engine its port, routes,
+detection, program, install lines, where it runs, managed start, log patterns with sentences, fixes, fit figures,
+tuning flags, `verified: False`), `engines/models.py` (the models each engine names: the Library's download targets
+and the fit's sizes), `engines/adapter.py` (the program, the auto-detect by owned_by or /health, the
+`huggingface.local_servers` entry, Halo's key, the stop, the first request's wait), `engines/launch.py` (`halo local
+serve --runtime <id>`: the descriptor's start, a supervised engine's plan and settle), `engines/steward.py` (the
+descriptor-driven log reader, the queue read, the one rule over the events), `engines/fit.py` (the `vram` and
+`paged-moe` rules), `engines/doctor.py` (`halo doctor --local`'s line per engine found), `engines/peer.py` (the host's
+`engines` offer, a peer's `hf:local/<model>@<host>`, an engine server as a placement option) and `engines/bench.py`
+(`halo local bench --host <id>` through the OpenAI-compatible route).
 
 **Policy hooks and modes** (Halo 3.3.10.0; docs/EXTENSION_API.md "Policy hooks"; the session's gate is
 `agent/policy_gate.py`, docs/ARCHITECTURE-permissions.md):

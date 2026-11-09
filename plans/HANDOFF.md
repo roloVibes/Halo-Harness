@@ -9,8 +9,9 @@ first, then `WORKER-RULES.md`, then the round you are starting.
 **3.3.12.0 "Themes and the pack kit" SHIPPED 2026-11-08 (v3.3.12.0 = ecee432a; candidate 6d68dbc9 green on both runners):
 R1 one palette set, R2 a pack's own themes through `contributes.themes`, R4 the pack kit (`halo pack new`, `halo pack
 test`, `--link`, `requires:` tool entries, the `pack-author` lineup, docs/PACK-AUTHORING.md). 3.3.11.0 shipped 2026-11-06
-(f30b5823, with the security review fix pass 821abd77). The next version opens with R3 the engines fold (one descriptor
-table for FreeToken / Strata / TensorFold); mode themes (#5) and the parity audit follow it; after them
+(f30b5823, with the security review fix pass 821abd77). 3.3.13.0 is open: R1 the engines fold is merged (one adapter and one
+descriptor table for FreeToken / Strata / TensorFold, about -5,860 lines), R2 Design out and R3 the Signal pack are
+building in ~/hh-3313 (briefs there); mode themes (#5) and the parity audit follow them; after them
 the review (six areas, bugs in scope), its fix pass with the steward hotfix first, then L1 the Instrument look and the
 Focus rounds.** The ROADMAP's R1, R2 and R4 BUILT notes, the Focus plan and the Instrument entry (all 2026-11-08) carry the
 choices and the owner's live checks.

@@ -488,9 +488,7 @@ no -- from the host's hardware card. Per server kind:
 | Ollama | `/api/show` capabilities, details, `model_info`; the tool-call probe's cache | nothing the server knows |
 | llama-server, LM Studio, vLLM, `local:` | the name (purpose, size, quantization); the server's loaded window | tools (sent as usual), thinking, the fit |
 | mlx-lm (`hf:mlx/`) | the name; the repo's `config.json` window | tools, thinking, the fit |
-| FreeToken (`hf:local/<model>@freetoken`, 3.3.9.1) | the name; `/v1/models` `context_length`; the fit is RAM + link ([MODELS-freetoken.md](MODELS-freetoken.md)) | tools (sent as usual), thinking, the speed until benched |
-| Strata (`hf:local/<model>@strata`, 3.3.9.2) | the id `/v1/models` reports; its `meta.n_ctx` window; the fit is RAM + the SSD with Strata's figures ([MODELS-strata.md](MODELS-strata.md)) | tools (sent as usual), thinking, the speed until benched |
-| TensorFold (`hf:local/<model>@tensorfold`, 3.3.9.3) | the `--name` `/v1/models` reports; its `context_length` window; the fit is the VRAM / unified-memory rule with TensorFold's sizes ([MODELS-tensorfold.md](MODELS-tensorfold.md)) | tools (sent as usual), thinking, the speed until benched |
+| another local engine (`hf:local/<model>@<id>`, 3.3.13.0) | the id `/v1/models` reports; its window from `/v1/models`; the fit is the engine's rule, `vram` or `paged-moe` ([MODELS-engines.md](MODELS-engines.md)) | tools (sent as usual), thinking, the speed until benched |
 
 See [MODELS-cards.md](MODELS-cards.md) for the fields, the roles each model
 can hold and the coder-lane offer.
@@ -707,6 +705,4 @@ check it yourself:
 [docs/MODELS.md](MODELS.md) (exhaustive reference), [docs/CONFIG.md](CONFIG.md)
 (config keys), [docs/COMMANDS.md](COMMANDS.md)/[docs/SLASH-COMMANDS.md](SLASH-COMMANDS.md)
 (commands), [docs/ROLES.md](ROLES.md) (roles), [docs/MAC.md](MAC.md) (Apple Silicon),
-[docs/MODELS-freetoken.md](MODELS-freetoken.md) (a big Mixture-of-Experts model on one Linux box),
-[docs/MODELS-strata.md](MODELS-strata.md) (one on Windows, Linux or the Mac),
-[docs/MODELS-tensorfold.md](MODELS-tensorfold.md) (a native Metal / CUDA engine: the Mac's second beside mlx_lm.server).
+[docs/MODELS-engines.md](MODELS-engines.md) (the other local engines: one adapter, one descriptor table).

@@ -150,8 +150,9 @@ def stop(key, *, state_dir) -> dict:
     if e is None or not e.get("halo"):
         return {"ok": False, "ours": e is not None, "say": f"no server Halo started is {key!r}: a server Halo did not "
                 "start is stopped where it was started (halo local servers lists Halo's)"}
-    if e.get("kind") == "strata":  # 3.3.9.2: `strata launch --stop` for the launch serving its port (strata/control.py)
-        from halo_harness.strata.control import stop_row
+    from halo_harness.engines.descriptors import is_engine
+    if is_engine(e.get("kind")):  # 3.3.13.0 R1: the descriptor's stop, the entry and its key file (engines/adapter.py)
+        from halo_harness.engines.adapter import stop_row
         return stop_row(e, state_dir=state_dir)
     how = C.halt(e["pid"]) if R._entry_process_matches(e) else "its pid belongs to another process now: nothing signalled"
     R.drop_registry_entries(state_dir, [(e.get("model"), e.get("pid"))])
@@ -159,12 +160,6 @@ def stop(key, *, state_dir) -> dict:
     if is_voice_runtime(e.get("kind")):  # 3.3.9.0 R1: a speech server's `stt` / `tts` entry goes with it
         from halo_harness.voice.launch import forget
         forget(str(e["id"]))
-    if e.get("kind") == "freetoken":  # 3.3.9.1: the `freetoken` entry Halo wrote goes with it
-        from halo_harness.freetoken.launch import forget as forget_ft
-        forget_ft()
-    if e.get("kind") == "tensorfold":  # 3.3.9.3: the `tensorfold` entry and its key file go with it
-        from halo_harness.providers.local_runtime_tensorfold import forget as forget_tf
-        forget_tf(state_dir)
     return {"ok": True, "id": e["id"], "say": f"stopped {e['kind']} {e['id']} ({e['model']} on port {e['port']}): {how}"}
 
 
@@ -184,7 +179,7 @@ def status(key, *, state_dir) -> dict:
     from halo_harness.providers.local_server_cmd import get
     url = f"http://127.0.0.1:{e['port']}"
     code, health = get(f"{url}/health")
-    loading = isinstance(health, dict) and health.get("status") == "loading"  # 3.3.9.1: FreeToken's /health is 200 while it loads
+    loading = isinstance(health, dict) and health.get("status") == "loading"  # an engine's /health is 200 while it loads
     out = {"ok": True, "id": e.get("id"), "health": health if code else None, "status": code, "ready": code == 200 and not loading,
            "say": "ready" if code == 200 and not loading else "still loading" if loading else ("still loading" if code == 503 else f"not answering ({health})")}
     if code == 200 and e.get("kind") == "llama-server":
@@ -198,10 +193,11 @@ def status(key, *, state_dir) -> dict:
 def servers(state_dir) -> list:
     from halo_harness.bg_run import pid_alive
     from halo_harness.providers.local_runtime import load_registry
-    from halo_harness.strata.control import alive, settle  # 3.3.9.2: Strata's supervisor runs it, not Halo's child
+    from halo_harness.engines.adapter import alive  # 3.3.13.0 R1: a supervised engine's supervisor runs it, not Halo
+    from halo_harness.engines.launch import settle
     rows = load_registry(state_dir)
     settle(state_dir, rows)
-    return [{**e, "alive": alive(e) if e.get("kind") == "strata" else pid_alive(e.get("pid"))} for e in rows if e.get("halo")]
+    return [{**e, "alive": alive(e) if e.get("settled") else pid_alive(e.get("pid"))} for e in rows if e.get("halo")]
 
 
 def view(info: ServerInfo) -> dict:
