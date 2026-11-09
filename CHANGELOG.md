@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.3.14.0] - unreleased
+## [3.3.14.0] - 2026-11-09
 
 **The review's fix pass: the token and the grants, then children and keys.** The November code and security review
 (plans/REVIEW-2026-11.md) found the doors that skip Halo's own machinery; 3.3.13.1 closed the three highs, and this
