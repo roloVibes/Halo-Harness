@@ -4599,3 +4599,22 @@ disable design` (the tab leaves; `/design` and `?mode=design` say how to turn it
 folder C:\AppData on the PC by mistake (rmdir refused); rolo removes it. Next: the 3.3.13.0 release on green both, then the
 six-area review on this tree.**
 
+**3.3.13.1 BUILT 2026-11-09 (one Opus round, worktree ~/hh-review/fix-3313-1, brief FIXPASS-3313-1-brief.md, hand-back
+fixpass-3313-1-handback.md; merged onto master after a80d1f40):** the steward hotfix (F1: the reply reserve bounded by the
+measured cut, the model's own context and half the window, one proposal per model per hour, a `reserve-loop` finding; the
+steward's own calls tagged `by: steward` and skipped; quiet when idle; `halo ollama steward profiles reset` + the Local
+Reset button; a host key VALUE in config.json moves to the env file as `HALO_SECRET_OLLAMA_<NAME>`, config keeps
+`api_key_env`) and the review's round 1 (#1 `tools/skill_gate.py`: an untrusted folder's skill gets no grant and its pre-run
+commands decide the Skill call through the packs and the engine; #2 `permissions_paths.py`: `\\?\` and `\\host\C$\`
+spellings judged as the drive path, other `\\` paths asked while a path rule exists; #3 install/update stop at a symlink
+or a file resolving outside the pack; #15 the backoff exponent capped at 7 and a services fault never skips the pulse; #16
+`supervise/single.py` one supervisor per state folder; #19 `notify()` honours `remote.enabled` and the bridge re-reads both
+switches every 5 s; #18 a reaction answers only its own card's sent timestamps). Worker's choices: one num_predict proposal
+per MODEL per hour across sessions (the loop ran a new session every ten minutes); "the model's own context" = the trained
+context from the catalog; every skill's spans go through the armed packs, trusted too. INCIDENT 2026-11-08 23:45:46: a
+doctor test that called `run_checks()` with no test home (tests/test_doctor_mcp_config_cli.py, a pre-existing real-home
+read) met the new migration during the worker's fast run and rewrote the owner's real config.json (the `lan` host now has
+`api_key_env`) and env file (+`HALO_SECRET_OLLAMA_LAN`); nothing deleted, the files are in the state the hotfix intends, and
+LAN calls still authenticate. Closed twice: the migration writes nothing under the test flag without a scratch home (a test
+pins it), and the module's bare calls now run against a scratch home (`_scoped_checks`). For rolo: `halo doctor --config`
+shows no key row; the five live checks in the hand-back. Next: the 3.3.13.1 release on green both, then the R1 merge and R2.**

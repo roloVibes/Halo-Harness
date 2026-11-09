@@ -158,6 +158,53 @@ def test_the_lines_and_the_command(ctx: Ctx):
         ctx.check("it runs the pack's program with the words", "the pack's own program says: one two" in cmd.run("one two", facade))
 
 
+class _Failing:
+    """A service process that has already exited 1 (3.3.13.1, CORE-1)."""
+    def __init__(self, *_a, **_k) -> None:
+        self.pid = os.getpid()
+
+    def poll(self):
+        return 1
+
+    def wait(self, *_a):
+        return 1
+
+
+@test
+def test_two_thousand_failures_in_a_row_wait_300_s(ctx: Ctx):
+    """REVIEW #15 (CORE-1): 5.0 * 2 ** 1024 raised OverflowError at the 1025th failure and every tick after it."""
+    from halo_harness.supervise import services_rows as R
+    from halo_harness.supervise.services import Services
+    with PacksHome() as h:
+        h.install(h.source("service-pack"), enable=True, grants=["services"])
+        clock = Clock()
+        svc = Services(h.home / ".halo", clock=clock, cwd=h.repo, popen=_Failing)
+        svc.tick()
+        svc.rec["service-pack/ticker"]["restarts"] = 2000
+        clock.now += 1
+        rows = svc.tick()
+        r = svc.rec["service-pack/ticker"]
+        ctx.check(f"one tick returns the rows, got {rows}", [x["key"] for x in rows] == ["service-pack/ticker"])
+        ctx.check(f"the wait is 300 s, got {r['next_at'] - clock.now}", r["next_at"] - clock.now == 300.0)
+        saved = R.read_json(R.state_path(h.home / ".halo"))["services"]["service-pack/ticker"]
+        ctx.check(f"the state file is written, got {saved.get('restarts')}", saved.get("restarts") == 2001)
+
+
+@test
+def test_a_services_fault_never_skips_the_pulse(ctx: Ctx):
+    from halo_harness.supervise import pulse
+    from halo_harness.supervise.loop import Supervisor
+    with PacksHome() as h:
+        sup = Supervisor(h.home / ".halo")
+
+        def boom():
+            raise OverflowError("int too large to convert to float")
+        sup.services.tick = boom
+        sup.tick()
+        ctx.check("the pulse is written after a services fault",
+                  (pulse.read(h.home / ".halo") or {}).get("state") == "running")
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

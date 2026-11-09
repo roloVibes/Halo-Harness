@@ -14,14 +14,19 @@ for the reply and the session, the three bugs parked in 3.2.3.0
     session carrying it (its prompt grew by at least half the cut reply) or
     sent again unchanged and cut again -> flagged; the reserve, and the
     session no longer keeps a reply the window cut (ollama_window_steward).
+
+3.3.13.1: the reserve is bounded (rules_reply_bound.py): its target comes
+from the measured cut, never from the current value; never above the
+model's context minus the prompt; one an hour per model (any session); never
+twice for one cut; `reserve-loop` says when the old doubling was held.
 """
 
 from __future__ import annotations
 
 from halo_harness.ollama_steward.rules import finding, proposal
+from halo_harness.ollama_steward.rules_reply_bound import RESERVE_MIN, loop_finding, reserve  # noqa: F401 (3.3.13.1)
 
 PAST = 0.8
-RESERVE_MIN = 4096
 COMPACT_EARLIER = 0.7
 
 
@@ -29,11 +34,8 @@ def _at(x) -> str:
     return str(x.get("at") or "")
 
 
-def _reserve_to(g: dict) -> int:
-    current = g["profile"].get("num_predict") or 0
-    to = max(RESERVE_MIN, 2 * current)
-    window = g["profile"].get("num_ctx") or g["stats"]["window"]
-    return min(to, window // 4) if window and window // 4 >= RESERVE_MIN else to
+def _cut_id(x: dict) -> str:
+    return f"{x.get('session')}|{x.get('at')}"
 
 
 def replies_cut(g: dict, ctx: dict) -> list:
@@ -44,17 +46,23 @@ def replies_cut(g: dict, ctx: dict) -> list:
     full = [x for x in cuts if isinstance(x.get("num_ctx_sent"), int) and isinstance(x.get("prompt_eval_count"), int)
             and isinstance(x.get("eval_count"), int)
             and x["prompt_eval_count"] + x["eval_count"] >= 0.97 * x["num_ctx_sent"]]
-    to = _reserve_to(g)
+    last = max(cuts, key=_at) if cuts else {}  # 3.3.13.1: the target from the measured cut (rules_reply_bound.py)
+    to, held = reserve(g, ctx, reply=last.get("eval_count"), prompt=last.get("prompt_eval_count"),
+                       sent=last.get("num_ctx_sent"), cut=_cut_id(last) if last else None)
     current = g["profile"].get("num_predict")
-    if current and to <= current:
-        return []
+    if to is None and held.startswith("the reserve is already"):
+        return loop_finding(g, ctx, held)
     what = (f"{len(cuts)} replies cut ({len(full)} at the window's end)" if cuts
             else f"{len(events)} replies cut by the window (the server's own lines)")
-    return [finding("reply-cut", g, "warn", f"{what}: the reply had no room",
+    return [finding("reply-cut", g, "warn", f"{what}: the reply had no room"
+                    + (f" (no reserve proposed: {held})" if to is None else ""),
                     calls=cuts, events=events, numbers={"cuts": len(cuts), "at_window_end": len(full),
-                                                        "server_lines": len(events)},
-                    proposal=proposal("num_predict", current, to,
-                                      "a reply reserve: the prompt compacts before the reply's room drops under it"))]
+                                                        "server_lines": len(events),
+                                                        **({"cut": _cut_id(last)} if last else {})},
+                    proposal=None if to is None else proposal(
+                        "num_predict", current, to,
+                        "a reply reserve: the prompt compacts before the reply's room drops under it"))] \
+        + (loop_finding(g, ctx, held) if to is None else [])
 
 
 def _sessions(lines: list) -> dict:
@@ -113,12 +121,16 @@ def cut_resent(g: dict, ctx: dict) -> list:
                 continue
             how = "carried in the next call" if carried else "sent again unchanged and cut again"
             current = g["profile"].get("num_predict")
-            to = _reserve_to(g)
+            to, held = reserve(g, ctx, reply=ea, prompt=pa, sent=a.get("num_ctx_sent"), session=sid, cut=_cut_id(a))
             out.append(finding("cut-resent", g, "error",
-                               f"session {sid}: a reply cut at {pa + ea} tokens was {how}", calls=[a, b],
-                               numbers={"session": sid, "cut_prompt": pa, "cut_reply": ea, "next_prompt": pb},
-                               proposal=None if current and to <= current else
+                               f"session {sid}: a reply cut at {pa + ea} tokens was {how}"
+                               + (f" (no reserve proposed: {held})" if to is None else ""), calls=[a, b],
+                               numbers={"session": sid, "cut_prompt": pa, "cut_reply": ea, "next_prompt": pb,
+                                        "cut": _cut_id(a)},
+                               proposal=None if to is None else
                                proposal("num_predict", current, to, "room for the reply, so it is not cut and resent")))
+            if to is None:
+                out.extend(loop_finding(g, ctx, held))
             break
     return out[:3]
 

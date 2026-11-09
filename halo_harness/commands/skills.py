@@ -42,7 +42,7 @@ def _make_run(body: str, allowed_tools: list, skill_path: "Optional[Path]" = Non
         # skill:" line or sibling-file listing either. Built here from the
         # SAME inputs `SkillTool.run` uses (`skill_path`, closed over from
         # discovery time; `session.log.session_id`/`session.effort` at
-        # invocation time), so the two paths can never disagree.
+        # invocation time), so the two paths cannot disagree.
         claude_vars = None
         skill_dir_abs = None
         if skill_path is not None:
@@ -55,14 +55,16 @@ def _make_run(body: str, allowed_tools: list, skill_path: "Optional[Path]" = Non
                 "CLAUDE_PROJECT_DIR": str(facade.cwd),
                 "CLAUDE_EFFORT": getattr(session, "effort", None),
             }
+        from halo_harness.tools.skill_gate import for_slash  # 3.3.13.1 (PERMS-1): an untrusted folder's skill
+        grant, decide, dropped = for_slash(skill_path, facade.cwd, allowed_tools, session)
         result = expand_command_body(
-            body, args_text, allowed_tools=allowed_tools, cwd=facade.cwd,
+            body, args_text, allowed_tools=grant, cwd=facade.cwd,
             permission_engine=getattr(session, "permission_engine", None),
-            env=getattr(session, "tool_env", None), claude_vars=claude_vars,
+            env=getattr(session, "tool_env", None), claude_vars=claude_vars, decide=decide,
         )
         if result.error:
-            return f"halo: {result.error}"
-        text = result.text
+            return f"halo: {result.error}" + dropped
+        text = result.text + dropped
         if skill_dir_abs is not None:
             from halo_harness.tools.skill import _sibling_files
 
@@ -72,8 +74,8 @@ def _make_run(body: str, allowed_tools: list, skill_path: "Optional[Path]" = Non
                 text += ("\n\n---\nOther files in this skill's own directory (read them directly, at the "
                          "absolute paths below, if the instructions above reference them):\n")
                 text += "\n".join(f"- {p}" for p in siblings)
-            if allowed_tools:
-                text += f"\n\n(This skill's own allowed-tools: {', '.join(allowed_tools)}.)"
+            if grant:
+                text += f"\n\n(This skill's own allowed-tools: {', '.join(grant)}.)"
         return text
     return _run
 

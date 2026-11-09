@@ -210,7 +210,8 @@ goal`); 3.3.13.0 R3, the packs' services: `supervise/services.py` (start, restar
 by the rule, stop, each tick), `supervise/services_rows.py` (the state file, the
 rows other processes read, Start / Stop, the enable lines, the Pack Manager's
 block) and `supervise/services_cli.py` (`halo supervise services | service`, the
-session-request lane).
+session-request lane); 3.3.13.1: `supervise/single.py` (one supervisor per state
+folder: the lock on `supervise/supervisor.lock`, held for its life).
 
 **A pack's services and the transport seam** (Halo 3.3.13.0 R3; docs/EXTENSION_API.md "Services", "Transports"):
 `packs/manifest_services.py` (`contributes.services`: the entries, the health and log shapes, the `services` grant,

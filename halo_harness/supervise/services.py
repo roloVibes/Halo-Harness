@@ -109,7 +109,9 @@ class Services:
         _, hline = R.health(r["pack"], e, self.state_dir)
         r.update(state="stopped" if code == 0 else "failed", exit=code, pid=None,
                  line=(f"exit {code}: {hline}" if code and hline else hline or f"exit {code}"))
-        r["next_at"] = now + min(WAIT_MAX_S, WAIT_S * (2 ** int(r.get("restarts") or 0)))
+        # 3.3.13.1 (REVIEW #15, CORE-1): the exponent is capped first; 5.0 * 2 ** 1024 raised OverflowError at
+        # the 1025th failure in a row and every tick after it
+        r["next_at"] = now + min(WAIT_MAX_S, WAIT_S * 2 ** min(int(r.get("restarts") or 0), 7))
         r["restarts"] = int(r.get("restarts") or 0) + 1
 
     def _start(self, pack, e: dict, key: str, r: dict, now: float) -> None:

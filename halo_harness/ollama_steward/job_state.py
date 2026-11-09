@@ -160,7 +160,7 @@ def format_status(st: dict, *, last_note: Optional[dict] = None) -> "list[str]":
 # ---- what a pass reads ------------------------------------------------------------------------
 
 def last_call_at(state_dir) -> Optional[float]:
-    """The `at` of the ledger's newest line (its last 16 KB read), or None."""
+    """The `at` of the ledger's newest line (its last 16 KB read), or None; 3.3.13.1: never the steward's own."""
     from halo_harness.ollama_steward.ledger import parse_at, traffic_path
     try:
         with open(traffic_path(state_dir), "rb") as f:
@@ -172,7 +172,8 @@ def last_call_at(state_dir) -> Optional[float]:
         return None
     for raw in reversed(tail):
         try:
-            t = parse_at(json.loads(raw).get("at"))
+            row = json.loads(raw)
+            t = parse_at(row.get("at")) if row.get("by") != "steward" else None
         except (ValueError, AttributeError):
             continue
         if t is not None:

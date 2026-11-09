@@ -23,7 +23,7 @@ import { BenchAction, BenchStrip, SpeedCardChip } from "./BenchBits";
 import { ProbeAction, ProbedMark, ProbeStrip, TwinChips } from "./ProbeBits";
 import { ShelfHint } from "./ShelfBits";
 import { line, openAct } from "./ctl";
-import { coderLane, gib, loadModel, loadModels, unloadModel, useAsDefault, useLocal } from "./store";
+import { coderLane, gib, loadModel, loadModels, resetProfile, unloadModel, useAsDefault, useLocal } from "./store";
 import type { ModelEntry } from "./types";
 
 function Acts({ m, host }: { m: ModelEntry; host: string }) {
@@ -93,6 +93,8 @@ export function ModelRow({ m, host, score }: { m: ModelEntry; host: string; scor
         {p && (p.num_ctx || p.num_predict) ? (
           <span data-testid="local-model-profile" title={(p.note || "the steward profile (ollama.profiles)") + (card.kv_dial?.text ? ` · KV dial: ${card.kv_dial.text}` : "")}>
             {p.num_ctx ? `window ${p.num_ctx.toLocaleString("en-US")}` : ""}{p.num_predict ? ` · reserve ${p.num_predict.toLocaleString("en-US")}` : ""} (by {p.by || "you"})
+            {" "}<Button size="sm" disabled={busy} onClick={() => void resetProfile(host, m.model)} data-testid="local-profile-reset"
+                         title={`halo ollama steward profiles reset ${m.model} --host ${host}: drop the tuned window and reserve, the calls use the measured window again`}>Reset</Button>
           </span>
         ) : (
           <span data-testid="local-model-window" title={card.kv_dial?.text ? `KV dial: ${card.kv_dial.text}${card.kv_dial.crash ? " · " + card.kv_dial.crash : ""}` : undefined}>no profile: the window is {card.window?.tokens ? `${card.window.tokens.toLocaleString("en-US")} (${card.window.source})` : "the server's"}</span>

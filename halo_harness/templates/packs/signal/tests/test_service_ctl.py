@@ -76,6 +76,48 @@ def test_the_service_runs_the_bridge_until_stopped(ctx):
 
 
 @test
+def test_a_switch_turned_off_ends_the_running_bridge(ctx):
+    """3.3.13.1 (REVIEW #19, REMOTE-2): the pack's `on` and `remote.enabled` were read once, at start."""
+    from halo_signal import bridge, files, health, service, settings
+
+    def set_config_value(key: str, value) -> None:  # config.json as `halo config set` writes it (a pack test imports
+        path = files.home().parents[2] / "config.json"  # only halo_harness.ext: the file is written here directly)
+        data = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
+        cur = data
+        for part in key.split(".")[:-1]:
+            cur = cur.setdefault(part, {})
+        cur[key.split(".")[-1]] = value
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(data), encoding="utf-8")
+    offline, every = os.environ.get("HALO_OFFLINE"), bridge.SWITCH_S
+    os.environ["HALO_OFFLINE"] = "0"
+    bridge.SWITCH_S = 0.1  # read again every 0.1 s here, every 5 s in use
+    try:
+        for flip, back, word in ((lambda: set_config_value("packs.settings.signal.on", False),  # what /signal off sets
+                                  lambda: set_config_value("packs.settings.signal.on", True), "/signal on"),
+                                 (lambda: set_config_value("remote.enabled", False),
+                                  lambda: set_config_value("remote.enabled", True), "remote.enabled")):
+            home = _home()
+            settings.save_signal(account="+15550199", binary=[sys.executable, "-c", "print('signal-cli 0.14.9')"])
+            os.environ["HALO_SERVICE_STOP"] = str(Path(home) / "svc.stop")
+            done = {}
+            t = threading.Thread(target=lambda: done.setdefault("code", service.main(
+                [], transport_factory=lambda cfg: StubTransport())), daemon=True)
+            t.start()
+            wait_for(lambda: health.read().get("state") in ("starting", "connected"), 10.0)
+            flip()
+            t.join(10)
+            line = str(health.read().get("line") or "")
+            ctx.check(f"turned off ({word}): the run ends with 0 and says why, got {done} {line!r}",
+                      done.get("code") == 0 and health.read().get("state") == "off" and word in line)
+            back()
+    finally:
+        bridge.SWITCH_S = every
+        os.environ.pop("HALO_SERVICE_STOP", None)
+        os.environ.pop("HALO_OFFLINE", None) if offline is None else os.environ.__setitem__("HALO_OFFLINE", offline)
+
+
+@test
 def test_the_one_time_move(ctx):
     home = _home()
     from halo_signal import files

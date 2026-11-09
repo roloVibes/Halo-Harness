@@ -14,9 +14,11 @@ descriptor table for FreeToken / Strata / TensorFold, about -5,860 lines), R3 th
 transport seam in the core, the bridge as the shipped `signal` pack, a conversation) and R2 Design out (the page-view /
 api.lib / studio-routes seam, the shipped `design` pack, nine core sections) SHIPPED as v3.3.13.0 = e2cc31a1 (2026-11-08
 night; candidate 0c299d45 green on both runners; PC reinstalled). The complete code and security review ran on that tree
-(plans/REVIEW-2026-11.md: 47 findings, 3 H, 21 M, 23 L; the six files under ~/hh-review/) and its fix pass is running:
-3.3.13.1 (the steward hotfix + the three highs + four mediums) and 3.3.14.0 R1 "the token and the grants" in parallel
-worktrees, then R2 "children and keys"; mode themes (#5) and the parity audit follow; after them
+(plans/REVIEW-2026-11.md: 47 findings, 3 H, 21 M, 23 L; the six files under ~/hh-review/) and its fix pass is under
+way: 3.3.13.1 (the steward hotfix + the three highs #1 #2 #3 + #15 #16 #18 #19) is merged and releasing on green both;
+3.3.14.0 R1 "the token and the grants" (#4-#9, #32-#34, #38) is built in ~/hh-review/fix-3314-R1 and merges after the
+hotfix ships; R2 "children and keys" (brief ~/hh-review/FIXPASS-3314-R2-brief.md) runs after R1's merge; mode themes
+(#5) and the parity audit follow; after them
 the review (six areas, bugs in scope), its fix pass with the steward hotfix first, then L1 the Instrument look and the
 Focus rounds.** The ROADMAP's R1, R2 and R4 BUILT notes, the Focus plan and the Instrument entry (all 2026-11-08) carry the
 choices and the owner's live checks.

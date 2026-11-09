@@ -1,7 +1,8 @@
 """tests.test_remote_notify -- the transport seam (Halo 3.3.13.0 R3; remote/notify.py, remote/notify_sources.py,
 remote/session_start.py, ext/remote.py, docs/REMOTE.md "Transports"):
 
-1. a note is written only while a transport listens, read back in order after a cursor, kinds filtered, old ones gone;
+1. a note is written only while a transport listens (and never with `remote.enabled` false, 3.3.13.1), read back in
+   order after a cursor, kinds filtered, old ones gone;
 2. the core's producers: the attention queue's cards (fleet/push.spool, `asks`, `remote.enabled` the switch), a
    supervisor goal that ends (`supervisor`), the steward's attention notes (`steward`, the first tick only remembers);
 3. a session started for a transport: the request, the supervisor's answer (a fake spawn), the wait for its row;
@@ -60,6 +61,21 @@ def test_notes_only_while_a_transport_listens(ctx: Ctx):
         ctx.check("kinds filter", [r["kind"] for r in N.since(cur, kinds=("supervisor",))[0]] == ["supervisor"])
         ctx.check("a heartbeat older than LISTEN_S is not listening", N.listening(now=time.time() + N.LISTEN_S + 5) == [])
         ctx.check("a note older than KEEP_S is not read", N.since(cur, now=time.time() + N.KEEP_S + 5)[0] == [])
+
+
+@test
+def test_remote_enabled_false_writes_no_note(ctx: Ctx):
+    """3.3.13.1 (REVIEW #19, REMOTE-2): `notify()` wrote supervisor and steward notes with the switch off."""
+    from halo_harness.remote import notify as N
+    from halo_harness.theme import set_config_value
+    with _Home():
+        N.listen("signal")
+        _rows, cur = N.since("")
+        set_config_value("remote.enabled", False)
+        ctx.check("remote.enabled false: nothing is written", not N.notify("supervisor", "goal done")
+                  and not N.notify("steward", "a note") and N.since(cur)[0] == [])
+        set_config_value("remote.enabled", True)
+        ctx.check("back on: it writes again", N.notify("supervisor", "goal done") and len(N.since(cur)[0]) == 1)
 
 
 @test

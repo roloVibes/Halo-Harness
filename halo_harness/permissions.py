@@ -37,6 +37,7 @@ from halo_harness import perm_ps as _pa
 from halo_harness import perm_scan as _scan
 from halo_harness import perm_shell as _ps
 from halo_harness import perm_words as _words
+from halo_harness.permissions_paths import plain_drive, unc_ask  # 3.3.13.1 (PERMS-2)
 
 # =============================================================================
 # 1. Pattern-content helpers.
@@ -280,7 +281,7 @@ def powershell_deny_or_ask_matches(command: str, rules: list) -> Optional["Rule"
 
 def _abs_posix(path) -> str:
     p = Path(path).resolve()
-    s = str(p).replace("\\", "/")
+    s = plain_drive(str(p).replace("\\", "/"))  # 3.3.13.1 (PERMS-2): `//?/C:/`, `//localhost/C$/` -> `C:/`
     if re.match(r"^[A-Za-z]:/", s):
         s = s[0].upper() + s[1:]
     return s.rstrip("/") or "/"
@@ -2399,8 +2400,8 @@ class PermissionEngine:
             hit = self._path_rule_hit(self.ask_rules, tool_name, tool_input, tool, action="ask")
             if hit is None:
                 hit = self._match_any(self.ask_rules, tool_name, tool_input, tool, action="ask")
-            if hit is None:
-                hit = self._dir_read_ask_hit(tool_name, tool_input)
+            if hit is None:  # 3.3.13.1 (PERMS-2): a network path no rule can be matched to is asked
+                hit = self._dir_read_ask_hit(tool_name, tool_input) or unc_ask(self, tool_name, tool_input, tool)
             if hit is not None:
                 return self._resolve_ask(tool_name, tool_input, tool, hit)
 

@@ -44,7 +44,7 @@ def previous_dir(root) -> Path:
 
 def _copy_file(src: Path, dest: Path) -> None:  # one seam for the tests' copy error
     dest.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(src, dest)
+    shutil.copy2(src, dest, follow_symlinks=False)  # 3.3.13.1 (PACKS-1): a link is never read through
 
 
 def _rename(a: Path, b: Path) -> None:  # one seam for the tests' swap error
@@ -146,7 +146,7 @@ def update(pack_id: str, *, dry_run: bool = False, cwd=None, state_dir=None, con
     from halo_harness.packs import state as S
     from halo_harness.packs.discover import find
     from halo_harness.packs.fetch import fetched, rmtree
-    from halo_harness.packs.install import _checks
+    from halo_harness.packs.install import copied_checks as _checks  # 3.3.13.1 (PACKS-1): no link, nothing outside
     rec = S.entry(pack_id, state_dir)
     current = find(pack_id, cwd=cwd, state_dir=state_dir)
     if rec is None or current is None or rec.get("removed"):

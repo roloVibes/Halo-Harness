@@ -28,6 +28,7 @@ from halo_signal.ratelimit import RateLimiter
 from halo_signal.session import PeerRT, Sessions, detach
 
 BAD_PER_MINUTE = 10
+SWITCH_S = 5.0  # 3.3.13.1 (REMOTE-2): how often a running bridge reads its two off switches again
 GOODBYE = ("No one is listening on this computer now (Halo's supervisor stopped); your texts wait on Signal's server "
            "until it runs again.")
 
@@ -59,6 +60,8 @@ class Bridge:
         self.capture = capture or media.default_capture
         self.fleet_lines = fleet_lines or notes_mod.default_fleet_lines
         self.notes = notes_mod.Notes(self) if notes is None else (notes or None)  # False: none (tests)
+        self.ended, self._switch_at = "", 0.0  # 3.3.13.1 (REMOTE-2): the line when a switch turned off mid-run
+        self.last_ts = None  # 3.3.13.1 (REMOTE-1): the sent timestamp of the last message out (_send)
 
     # ---- loop ------------------------------------------------------------------------------
     def run(self, stop: threading.Event, tick: float = 0.25) -> "Bridge":
@@ -67,13 +70,30 @@ class Bridge:
             self.health.write("starting", "starting signal-cli")
         self.transport.start()
         try:
-            while not stop.is_set():
+            while not stop.is_set() and not self.ended:
                 self.step(tick)
                 if self.health is not None and self.health.stop_asked():
                     break
         finally:
             self.shutdown()
+            if self.ended and self.health is not None:
+                self.health.write("off", self.ended)
         return self
+
+    def switches(self) -> None:
+        """3.3.13.1 (plans/REVIEW-2026-11.md #19, REMOTE-2): `remote.enabled` and the pack's `on` are read again every
+        SWITCH_S (they were read once, at start); either off ends the run: `ended` holds the one line, service.main
+        prints it and exits 0, so the supervisor leaves the service stopped."""
+        now = self.clock.monotonic()
+        if now < self._switch_at:
+            return
+        self._switch_at = now + SWITCH_S
+        from halo_harness.ext import remote as R
+        from halo_signal import settings
+        if not settings.get("on"):
+            self.ended = "the bridge is off (/signal on turns it back on)"
+        elif not R.enabled():
+            self.ended = "remote.enabled is false, every transport's switch (halo config set remote.enabled true)"
 
     def step(self, timeout: float = 0.25) -> None:
         try:
@@ -89,6 +109,7 @@ class Bridge:
                 self.notes.tick()
             if self.health is not None:
                 self.health.beat(len(self.pairing.peers()))
+            self.switches()
         except Exception as e:  # one bad item never ends the service; it leaves an audit line
             try:
                 self.audit.record("-", 0, type(e).__name__, "error", "handler_exception")
@@ -172,12 +193,14 @@ class Bridge:
             self._send(aci, *part)
 
     def _send(self, aci: str, text: str, attachment=None, styles=None) -> bool:
+        self.last_ts = None  # 3.3.13.1 (REMOTE-1): signal-cli's `send` answers {timestamp, ...}; outbox keeps a card's
         try:
-            self.transport.send(aci, text, attachment=attachment, styles=styles)
+            got = self.transport.send(aci, text, attachment=attachment, styles=styles)
         except UntrustedKey:
             self.pairing.block(aci, self.safe_safety_number(aci))
         except SignalError:
             return False
+        self.last_ts = got.get("timestamp") if isinstance(got, dict) else None
         return True
 
     def safe_safety_number(self, aci: str) -> Optional[str]:

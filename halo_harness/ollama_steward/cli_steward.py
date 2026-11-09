@@ -17,6 +17,7 @@
     chat "<question>" [--bigger] [--yes] [--json]  3.3.7.0 R5: one turn of the steward's chat
                                                   (cli_steward_chat.py): the answer and its cost
     candidates [--host H] [--json]                the models that could run the steward here
+    profiles [reset [<model>]] [--host H] [--json]  3.3.13.1: the profiles; reset = back to the measured defaults
 
 Reads the ledger, the events, the hardware card and the catalog; writes
 only `ollama.profiles` in config.json and `<state>/ollama/steward.jsonl`.
@@ -71,6 +72,9 @@ def cmd_ollama_steward(argv: list) -> int:
     if argv and argv[0] in ("chat", "candidates"):  # 3.3.7.0 R5: the chat and the candidates (cli_steward_chat.py)
         from halo_harness.ollama_steward import cli_steward_chat as C
         return (C.cmd_chat if argv[0] == "chat" else C.cmd_candidates)(argv[1:])
+    if argv and argv[0] == "profiles":  # 3.3.13.1: the profiles and `profiles reset [<model>]` (profiles_reset.py)
+        from halo_harness.ollama_steward.profiles_reset import cmd_profiles
+        return cmd_profiles(argv[1:])
     from halo_harness.ollama_steward import steward
     from halo_harness.ollama_steward.fit import format_plan
     from halo_harness.ollama_steward.rules import format_finding
@@ -91,6 +95,7 @@ def cmd_ollama_steward(argv: list) -> int:
     rp.add_argument("--mode", choices=steward.MODES, default=None, help="this run only: auto, review or off")
     sub.add_parser("chat", help="one turn of the steward's chat: the answer and its cost (halo ollama steward chat -h)")
     sub.add_parser("candidates", help="the models that could run the steward here, best first, each with why")
+    sub.add_parser("profiles", help="the profiles; `profiles reset [<model>]` puts one back to the measured defaults")
     sp = sub.add_parser("status", help="whether the steward's job runs, where, since when, its last run and note")
     sp.add_argument("--json", action="store_true", help="print JSON instead of lines")
     parser.add_argument("--watch", action="store_true",

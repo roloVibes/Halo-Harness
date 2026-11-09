@@ -126,6 +126,14 @@ def _keep(item: dict, at: str, rows: list) -> None:
 
 
 def decide(session, item: dict, name, tool_input, tool):
+    d = _decide(session, item, name, tool_input, tool)
+    if name == "Skill":  # 3.3.13.1 (PERMS-1): an untrusted skill's pre-run commands decide the call
+        from halo_harness.tools.skill_gate import gate
+        return gate(session, tool_input, d)
+    return d
+
+
+def _decide(session, item: dict, name, tool_input, tool):
     from halo_harness.permissions import Decision
     engine = session.permission_engine
     pols = _armed(session.cwd)

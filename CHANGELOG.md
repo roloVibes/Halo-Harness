@@ -8,6 +8,77 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.3.13.1] - unreleased
+
+**The steward hotfix and the review's first cut.** The usage audit of the owner's own logs (plans/ROADMAP.md, the
+Focus plan's F1) found the Ollama steward tuning itself in a loop: each cut reply proposed twice the reply reserve in
+force, auto mode applied it, its own ten-minute notes were the calls it tuned, and the profiles ended at 2^160; and a
+host entry held its key as a value in config.json. This hotfix bounds the reserve, keeps the steward's own calls out of
+what it reads, keeps it quiet when nothing changed, gives a way to reset a profile, and moves a key value out of
+config.json. With it come the review's (plans/REVIEW-2026-11.md) three high findings and four of its medium ones:
+the skill of a cloned repo, the Windows path spellings, a pack's symlinks, the supervisor's backoff and its one
+instance, and the signal pack's off switches and reactions. The rest of the review is 3.3.14.0's.
+
+### The steward hotfix
+
+#### Fixed
+- **The reply reserve is bounded** (`ollama_steward/rules_reply_bound.py`, `rules_reply.py`): `reply-cut` and
+  `cut-resent` take the target from the measured cut (twice the cut reply, at least 4,096, in 1,024 steps), never from
+  the profile's current value; never above the model's own context (its trained context from the catalog, else the
+  measured cap) minus the prompt, nor above half the window in use; at most one num_predict proposal per model per hour,
+  whatever the session; never twice for one cut (the cut is named in the finding's evidence). Where the rule before
+  this would have doubled again, a `reserve-loop` finding says so and what held it. A profile's window or reserve over
+  2^21 is never written, and a reserve over the profile's window is held to it (`profiles.clean`).
+- **The steward's own calls are not its traffic** (`agent.live_call`, `ledger_call.py`, `ledger.read_calls`,
+  `job_state.last_call_at`): its note and chat calls are tagged `by: "steward"` in the ledger; the rules, the "calls
+  flow" timer and every reader of the traffic skip them (`read_calls(own=True)` shows them).
+- **Quiet when idle** (`ollama_steward/agent_quiet.py`, `agent.due`): a note (one model call) only when a finding, a
+  server or a profile changed since the last note, or a server event fired; each note keeps that signature.
+
+#### Added
+- `halo ollama steward profiles [reset [<model>]] [--host H] [--json]` (`ollama_steward/profiles_reset.py`), and a
+  Reset button on the model's profile in Local -> Models (`POST ollama/steward/profiles-reset`): the tuned fields
+  dropped, each named with its value (an absurd one by its size), the measured dialect record kept, every change in
+  force on that profile marked reverted so no rollback or session end puts a value back.
+- **A host key value moves to the env file** (`providers/ollama_key_migrate.py`): an `ollama.hosts[].api_key` that holds
+  a key (not an env-var name) is moved the first time the hosts are read: the value to the env file as
+  `HALO_SECRET_OLLAMA_<NAME>`, config.json keeps that name as `api_key_env`, one line on stderr names the host and the
+  variable (never the value). `halo doctor --config` has a `key-value` row while a value is still there.
+  The migration writes nothing while the test flag is set without a scratch home, and the doctor tests that ran
+  `run_checks()` bare now run it against a scratch home (`tests/test_doctor_mcp_config_cli.py`): a test run never
+  reads or writes the owner's own config.json or env file.
+
+### The review, round 1
+
+#### Fixed
+- **#1 (PERMS-1) A cloned repo's skill no longer grants itself Bash** (`tools/skill_gate.py`, `tools/skill.py`,
+  `agent/policy_gate.py`, `commands/registry.py`, `commands/skills.py`): a project or plugin skill in a folder that is
+  not trusted gets no `allowed-tools` grant; its pre-run `` !`cmd` `` commands decide the Skill call (a deny rule on
+  one denies the call, naming the command; an ask is the ordinary card naming the commands, and your yes runs them
+  once); `/<skill>` typed works the same, without the card; one line says the grant was dropped. Every skill's pre-run commands now go through the
+  armed pack policies before the permission engine.
+- **#2 (PERMS-2) Windows path spellings meet the deny rules** (`permissions_paths.py`, `permissions._abs_posix`):
+  `\\?\C:\...`, `\\?\UNC\localhost\C$\...` and `\\localhost\C$\...` (also `127.0.0.1` and this machine's name) are
+  judged as `C:\...`; any other `\\`-rooted path for Read, Edit, Write, Grep or Glob is asked while a deny or ask path
+  rule covers that tool.
+- **#3 (PACKS-1) A pack ships its own files only** (`packs/fetch.stray_file`, `packs/install.copied_checks`,
+  `packs/update.py`): install and update stop at a source holding a symbolic link or a file that resolves outside its
+  folder, one line naming it, nothing written; update copies with `follow_symlinks=False`. `halo pack install --link`
+  (your own folder, read in place) is unchanged.
+- **#15 (CORE-1) A service failing a thousand times in a row no longer stops the supervisor**
+  (`supervise/services.py`, `loop.py`): the backoff exponent is capped (5 s doubling to 300 s, as documented) and a
+  fault in the services tick never skips the steward's notes and the pulse.
+- **#16 (CORE-2) One supervisor per state folder** (`supervise/single.py`, `supervise/cli.py`): `halo supervise` holds
+  an exclusive lock on `supervise/supervisor.lock` for its life, taken before the pulse is read; a second start (or
+  `--daemon`) exits 1 naming the holder's pid.
+- **#19 (REMOTE-2) The off switches stop a running bridge** (`remote/notify.py`, the signal pack's `bridge.py`,
+  `service.py`): `notify()` writes nothing while `remote.enabled` is false; the bridge reads `remote.enabled` and the
+  pack's `on` again every 5 s and ends (exit 0, one line, health `off`) when either is off.
+- **#18 (REMOTE-1) A reaction answers only a card** (the signal pack's `answers.py`, `outbox.py`, `bridge.py`,
+  `inbound.py`, `session.py`): each card message's sent timestamp is kept for its phone, and a thumbs-up (or a heart or
+  a check) answers the open card only when its `targetSentTimestamp` is one of them; on any other message it does
+  nothing.
+
 ## [3.3.13.0] - 2026-11-08
 
 **The fold.** The three runtime rounds of 3.3.9.1-3.3.9.3 (FreeToken, Strata, TensorFold) were not what the owner meant:

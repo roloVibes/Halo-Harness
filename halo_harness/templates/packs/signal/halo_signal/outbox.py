@@ -10,6 +10,14 @@ an audit line (a hash, never the text)."""
 from __future__ import annotations
 
 MAX_UNDELIVERED = 12  # rendered messages kept per phone
+CARD_TS = 40  # 3.3.13.1 (REMOTE-1): the sent timestamps kept per phone, the ones a reaction may answer
+
+
+def sent_card(b, rt) -> None:
+    """A card message went out: its sent timestamp (signal-cli's `send` answer) is one a reaction may answer."""
+    ts = getattr(b, "last_ts", None)
+    if isinstance(ts, int) and not isinstance(ts, bool):
+        rt.card_ts = (rt.card_ts + [ts])[-CARD_TS:]
 
 
 def send_card(b, aci: str, parts: list) -> None:
@@ -22,6 +30,7 @@ def send_card(b, aci: str, parts: list) -> None:
         if not b._send(aci, *part):
             _keep(b, rt, parts[i:])
             return
+        sent_card(b, rt)
 
 
 def flush(b, rt) -> bool:
@@ -29,6 +38,7 @@ def flush(b, rt) -> bool:
     while rt.undelivered:
         if not b._send(rt.aci, *rt.undelivered[0]):
             return False
+        sent_card(b, rt)
         rt.undelivered.pop(0)
         if not rt.undelivered:
             b.audit.record(rt.aci, 0, "card", "card", "redelivered")

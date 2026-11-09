@@ -15,7 +15,9 @@ on purpose: the rules run, no note is written.
 When (`due`): a run that found something the last note did not name, or made
 a change, or saw a server event that passed its quiet period -- and at most
 once per `ollama.steward.note_every_s` (600 s). Never a call when nothing is
-new.
+new. 3.3.13.1 (agent_quiet.py): "new" is a finding, a server or a profile that
+changed since the last note's signature; the steward's own calls are tagged
+`by: "steward"` in the ledger (`live_call`) and never read back by its rules.
 
 The answer: at most NOTE_LINES lines (the first is the TUI status line's
 text) and an optional fenced `proposals` block, `[{key, field, to, why}]`.
@@ -107,8 +109,10 @@ def _last_agent_note(state_dir, now: float) -> Optional[dict]:
 
 
 def due(state_dir, done: dict, *, notify: int = 0, now: Optional[float] = None,
-        every_s: Optional[float] = None) -> "tuple[bool, str]":
-    """(call the model now?, why)."""
+        every_s: Optional[float] = None, ctx: Optional[dict] = None) -> "tuple[bool, str]":
+    """(call the model now?, why). 3.3.13.1: only when a finding, a server or a profile changed since the last
+    note, or a server event fired (agent_quiet.py); else nothing."""
+    from halo_harness.ollama_steward.agent_quiet import signature, what_changed
     from halo_harness.ollama_steward.ledger import parse_at
     now = time.time() if now is None else now
     every_s = note_every_s() if every_s is None else every_s
@@ -116,8 +120,11 @@ def due(state_dir, done: dict, *, notify: int = 0, now: Optional[float] = None,
     named = set(((last or {}).get("data") or {}).get("findings") or [])
     new = [f["id"] for f in done.get("findings") or [] if f["id"] not in named]
     changes = len(done.get("applied") or []) + len(done.get("rolled_back") or []) + len(done.get("proposed") or [])
+    if last is not None and not notify and "sig" in (last.get("data") or {}):
+        new = what_changed(last["data"]["sig"], signature(ctx, done))
+        changes = 0
     if not new and not changes and not notify:
-        return False, "nothing new since the last note"
+        return False, "nothing changed since the last note"
     if last is not None and now - (parse_at(last.get("at")) or 0) < every_s:
         return False, f"a note was written less than {int(every_s)} s ago"
     return True, f"{len(new)} new findings, {changes} changes, {notify} server events"
@@ -172,11 +179,13 @@ def write_note(state_dir, ctx: dict, done: dict, *, model: str, caller: Optional
         say(f"steward model {model}: the answer held no note")
         return None, outcomes
     cost = cost_line(reply or {}, model)
+    from halo_harness.ollama_steward.agent_quiet import signature  # 3.3.13.1: what the next due compares with
+    sig = signature(ctx, done)
     severe = any(f.get("severity") == "error" for f in done.get("findings") or [])
     changed = bool(done.get("applied") or done.get("rolled_back") or any(o.get("landed") for o in outcomes))
     row = notes.append(state_dir, "note", lines[0], lines=lines + [f"(steward model {model}: {cost})"], cost=cost,
                        attention=severe or changed, model=model, where=where, now=now,
-                       data={"findings": [f["id"] for f in done.get("findings") or []], "proposals": outcomes,
+                       data={"findings": [f["id"] for f in done.get("findings") or []], "proposals": outcomes, "sig": sig,
                              "usage": {k: (reply or {}).get(k) for k in ("input_tokens", "output_tokens", "cost_usd")}})
     return row, outcomes
 
@@ -190,6 +199,7 @@ def live_call(model: str, system_text: str, user_text: str, *, state_dir=None, t
     build = headless.build_session(cwd=Path(state_dir) if state_dir else Path.cwd(), model_ref_raw=model, bare=True,
                                    print_mode=True, max_turns=1)
     session = build.session
+    session.ledger_by = "steward"  # 3.3.13.1: its own call, tagged in the ledger and never read back by its rules
     usage: dict = {}
     try:
         text = session.call_small_model(system_text=system_text, user_text=user_text, max_tokens=MAX_TOKENS,
