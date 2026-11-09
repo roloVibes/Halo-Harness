@@ -113,7 +113,7 @@ def _steps(c, ctx, rig) -> dict:
     c.wait(f"{CUR}.startsWith('Roles')", 15)
     lines = qa("[data-testid=roles-models-body] [data-testid=model-outcome][data-provider=ollama]")
     out["models_panel"] = c.wait(f"{lines}.length >= 2 && {lines}.map((l) => l.textContent)", 30)
-    alt(c, 8)
+    alt(c, 7)
     c.wait(f"{CUR}.startsWith('Setup') && !!{q('[data-testid=setup-measure]')}", 20)
     out["measure_models"] = c.js(f"{qa('[data-testid=setup-measure-model]')}.map((m) => [m.dataset.ref, m.querySelector('input').checked])")
     log = qa("[data-testid=setup-measure-line]")

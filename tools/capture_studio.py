@@ -2,15 +2,13 @@
 scratch home seeded with the shipped lineups, the halo-dev-cycle lineup
 open, through headless Chrome (Halo 2.1.0 round B3). Also the smoke
 `tests/test_studio_ui.py` runs: the page boots, draws nodes, no console
-errors. Usage: python tools/capture_studio.py [--out PATH] [--dom] [--mode roles|design|shell|orchestra|fleet|team|start|packs|setup|settings|local] [--panel ollama]
+errors. Usage: python tools/capture_studio.py [--out PATH] [--dom] [--mode roles|shell|orchestra|fleet|team|start|packs|setup|settings|local] [--panel ollama]
 
 3.0.7.0 R2: `--mode roles` (the default; tools/capture_roles.py) renders the
 React Roles section: a seeded lineup with two tiers and a live card
 (docs/media/studio-roles.png), with --dom its Start view and the seeded
-lineup with a bio open, counted by data-testid; 3.0.7.0 R3: `--mode design` (tools/capture_design.py) renders
-the React Design section over a seeded design
-project (docs/media/studio-design.png; with --dom the Start
-view and the section, counted by data-testid); `--mode shell` renders the React shell at / (Orchestra and
+lineup with a bio open, counted by data-testid; 3.0.7.0 R3's `--mode design` is the design pack's
+(halo_harness/templates/packs/design/tests/capture_design.py, 3.3.13.0 R2); `--mode shell` renders the React shell at / (Orchestra and
 Roles) and, with --dom, counts its data-testid values. R4: `--mode
 orchestra` seeds a finished Orchestra run (the R2 fixture: basket.py, five
 lanes, one judged conflict, the report) in a temp git repo, opens the shell's
@@ -103,7 +101,7 @@ def main(argv: list) -> int:
     parser = argparse.ArgumentParser(description="Render docs/media/studio.png through headless Chrome")
     parser.add_argument("--out", default=str(REPO / "docs" / "media" / "studio.png"))
     parser.add_argument("--dom", action="store_true", help="print the rendered DOM's node count instead of a PNG")
-    parser.add_argument("--mode", choices=["roles", "design", "shell", "orchestra", "fleet", "team", "start", "packs", "setup", "settings", "local"], default="roles", help="design: a seeded Launch page project (tools/design_demo.py), the React section (tools/capture_design.py)")
+    parser.add_argument("--mode", choices=["roles", "shell", "orchestra", "fleet", "team", "start", "packs", "setup", "settings", "local"], default="roles", help="the section to render (the design pack's section: its tests/capture_design.py)")
     parser.add_argument("--panel", choices=["ollama"], default=None, help="with --mode fleet: one panel's capture (3.3.4.0 R5: "
                         "the Ollama steward's, tools/capture_ollama.py)")
     args = parser.parse_args(argv)
@@ -181,14 +179,6 @@ def _render(args) -> int:
             args.out = args.out[:-4] + "-local.png"
         try:
             return capture_local(args.out, args.dom, serve, state)
-        finally:
-            shutil.rmtree(state.parent, ignore_errors=True)
-    if args.mode == "design":  # 3.0.7.0 R3: the React section over a seeded project (tools/capture_design.py)
-        from capture_design import capture as capture_design
-        if args.out.endswith("studio.png"):
-            args.out = args.out[:-4] + "-design.png"
-        try:
-            return capture_design(args.out, args.dom, chrome, serve, state)
         finally:
             shutil.rmtree(state.parent, ignore_errors=True)
     if args.mode == "roles":  # 3.0.7.0 R2: the React Roles section (tools/capture_roles.py)

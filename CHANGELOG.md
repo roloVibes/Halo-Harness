@@ -8,6 +8,88 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.3.13.0] - unreleased
+
+**The Focus plan's first cuts.** The core gets smaller: what is optional becomes a pack Halo ships and the owner turns
+on, the core keeping only the seam it plugs into.
+
+### R2: Design out -- the Design section is the shipped design pack; the core keeps the seam
+
+#### Added
+- Extension API 1.2 (`halo_harness.ext.API_VERSION`): `contributes.studio.sections[].view: {bundle}` -- a pack section
+  drawn whole by one ES module of the pack, `mount(el, api)` on the section's page, behind `studio-script`
+  (`packs/studio_view_rules.py`, `ui/src/routes/packs/PackView.tsx`); the first pack section takes the tenth key, `Alt+0`.
+- `api.lib` on the bundle api (`ui/src/packlib/`): the shell's own React, ReactDOM, jsx runtime, the `lib/ui`
+  primitives, the JSON client with the token (`fetchJson`, `authUrl`), the live feed, the store helpers, the theme
+  (`tokens()`, `css(text)` as a constructed stylesheet), the panel workspace, the composite widgets (`Markdown`,
+  `ModelSelect`, `PackForm`, ...), `kbd` and palette `commands`; it follows the shell's major version. The same object
+  is `globalThis.__haloStudioLib` for a module built with `vite.pack.config.ts` (`vite.shared.ts` `shellLib`: React
+  and `@halo/<part>` taken from the shell, never bundled). The bundle api also gains `routes` and `section`, and `on`
+  hears the pack's `pack_live` frames.
+- `contributes.studio.routes: {module, prefix}` and the `studio-routes` grant ("runs this pack's Python inside Studio's
+  server"): `studio/packs_routes.py` imports the module through the pack's folder (`halo_packs.<id>`) and answers
+  `/api/packs/<id>/<prefix>/...` with `handle(ctx, method, path, body, query)`; `ctx.publish(kind, data)` is a live-only
+  `pack_live` frame; a GET also takes the token in `?t=`; a file answer keeps its own `Content-Security-Policy`; the
+  module's `MAX_BODY` raises the 4 MB body limit for its prefix; a failure is a 500 with one line and a `halo pack doctor`
+  row (`studio-routes`); disable, remove or a grant taken back unloads it.
+- `ext.host` (`ext/host.py`): what Halo does for a pack's code (`state_dir`, `models(task)`, `media_models`,
+  `mcp_servers`, `mcp_probe`, `child_env`, `fetch`, `halo_command`, `comfy()`, `HostError`); `testing.scratch_home`,
+  `testing.studio` (a live Studio with the pack linked and granted) and `testing.pack_module`.
+- `halo pack test` checks a view (the module exports `mount`), the routes (`GET ping` in shape) and runs the pack's own
+  `tests/test_*.py` (`packs/test_run_studio.py`); `halo pack new --kinds studio` writes a page view with `api.lib` and a
+  routes module with `ping` and `note` (`templates/pack-kit/kinds/studio/`).
+- A command's `studio: <section>` frontmatter: the pack command opens its section (`commands/pack_studio.py`);
+  `/studio <pack>--<section>`, `halo studio --mode <pack>--<section>` and `?mode=<pack>--<section>` open a pack's section
+  (`studio/modes.py`, `ui/src/lib/sectionStart.ts`).
+- The **design pack** (`halo_harness/templates/packs/design/`, off until enabled): `pack.yaml` (the Design section as a
+  view of `studio/design.js`, routes `server/routes.py` under prefix `design`, `/design`, a palette line, the settings
+  `model` and `budget_usd`, `requires:` for the seven ArtCraft CLIs), `server/` (the Design Python, ext-only), `studio/src/`
+  (the Design page's sources, the Render and Settings panels), `studio/design.js` (built), `docs/DESIGN.md`,
+  `docs/STUDIO-design.md`, README, HALO-PACK.md, CHANGELOG, and `tests/` (nine test modules: the eight Design modules
+  that left the core and `test_review_pins.py`, the 3.0.2.0 review's artboard-route pins from test_review3_c/_c2; a
+  runner, a rig on `testing.studio`, a fake craft app, the demo seed, the Studio capture, `pack_test.py`).
+- Core tests `tests/test_pack_design.py` (fast: install, enable, the section and its key, `/design`, the old words, a
+  route and the seam's failures, `halo pack test design`) and `tests/test_pack_design_ui.py` (full: the Design page in
+  headless Chrome); `tests/helpers/design_pack.py`; `docs/STUDIO-local-media.md`.
+- The Pack Manager and `halo pack inspect` say what each grant lets a pack do (`packs/grants.py` WHAT).
+
+#### Changed
+- Nine core sections: Session `Alt+1`, Team `Alt+2`, Roles `Alt+3`, Fleet `Alt+4`, Orchestra `Alt+5`, Packs `Alt+6`,
+  Setup `Alt+7`, Settings `Alt+8`, Local `Alt+9`; the first pack section `Alt+0`. The modes banner is nine tiles.
+- The Media panels (status, models, workflows) are Local's optional panels (its "+" menu), floating over its page;
+  the palette's Media lines open them there. A paged section with optional panels shows its "+" menu.
+- A pack panel may join Session, Team, Roles, Fleet or Orchestra (the registry's `core` is five).
+- Layout names take `<pack id>:<name>` (the design pack keeps `design:<slug>`).
+- Design's projects move from `~/.halo/design` to the pack's data folder (`~/.halo/packs/.data/design/projects/`), once,
+  with one line saying so; Design's turn steps are the pack's `pack_live` frames of kind `turn`, a render's kind
+  `render`; the raw artboard files are the pack's `_files/` route.
+- Fleet's craft-app words and `halo media`'s comfyui lookup read their own tables (the Design crafts table went to the pack).
+- The Inspector opens the panels a pack's page draws with `api.lib.workspace` (a view section's `sectionDef` reads the
+  specs its Workspace registered), so the design pack's Knobs open its Artboards settings as before.
+- The Chrome drivers' `press` waits until the control takes a press (not `disabled`): the Pack Manager's buttons stay
+  disabled until its own reload, after the `pack_changed` frame already redrew the row.
+
+#### Removed
+- `halo_harness/design/` (store, session, sync, crafts, crafts_probe, critique, export, contrast, assets, controls,
+  jsonio, cli) and `halo_harness/studio/design_*.py` (api, api_edit, artboards_api, assets_api, critique_api,
+  export_api, files, request, system_api, turns) and `studio/media_render.py`: the design pack's `server/` now.
+- `halo design ...`: one line pointing at `halo pack enable design` and `/design` (exit 2).
+- The `/design` builtin: the pack's entry command takes the name; with the pack off, `/design` says how to turn it on.
+- `halo studio --mode design`: `--mode design--design` with the pack on; the old word says how to turn the pack on.
+- `/api/design/...`, `/design-files/...` and the 22 MB special case in `studio/server.py` (the routes seam's
+  `MAX_BODY`), `POST media/render` and `GET media/renders/<id>` (the pack's `render` / `renders/<id>`), the
+  `design_turn` and `media_render` feed kinds.
+- `ui/src/routes/design/` (21 modules), `routes/help-design.ts`, `styles/design.css`, `styles/design-thread.css`,
+  `routes/media/MediaRender.tsx`, the Design dialogs in App, the Design palette group, Design in the Start story.
+- `tools/capture_studio.py --mode design`, `tools/capture_design.py` and `tools/design_demo.py` (the pack's
+  `tests/capture_design.py` and `tests/seed.py`); the banner's Design tile.
+- `tests/test_design_{contrast,crafts,session,store}.py` and `tests/test_studio_design{,_live,_more,_rest}.py` (the
+  pack's `tests/`; `_more` and `_rest` named for what they hold, `test_design_turns_assets.py` and
+  `test_design_page_routes.py`), test_review3_c's items 35 and 112 and test_review3_c2's item 7 (the pack's
+  `test_review_pins.py`), test_studio_ui's Design checks (`tests/test_pack_design_ui.py`), test_media_comfy_cli's crafts check.
+- `docs/DESIGN.md` and `docs/STUDIO-design.md` (the pack's `docs/`; the docs map and STUDIO.md point at its README;
+  the Media panels' part is `docs/STUDIO-local-media.md`).
+
 ## [3.3.12.0] - 2026-11-08
 
 **Themes and parity.** One theming system, not two. Until now the terminal had two palettes and Studio a dark/light switch

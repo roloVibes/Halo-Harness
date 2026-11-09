@@ -6,12 +6,12 @@ Part of [Halo Studio](STUDIO.md), which lists every part.
 
 ## The shell (3.0.3.0)
 
-`halo studio` opens a React shell with eight sections in the icon rail on the left (3.3.2.0; the top bar's tab strip before):
-**Session | Team | Roles | Fleet | Design | Orchestra | Packs | Setup** (`Alt+1`..`Alt+8`, or `?mode=` in
-the URL for the first six; Fleet since 3.0.5.0, Team since 3.0.8.0, Session since 3.1.4.0, Packs since 3.2.0.0, Setup since 3.3.0.0; Org and Flow are
-gone since 3.1.4.0). The order is one list, `SECTIONS` in `ui/src/routes/index.tsx`
-(3.1.6.0: Session `Alt+1`, Team `Alt+2`, Roles `Alt+3`, Fleet `Alt+4`, Design `Alt+5`,
-Orchestra `Alt+6`; 3.2.0.0 R6: Packs `Alt+7`, [STUDIO-packs.md](STUDIO-packs.md); 3.3.0.0 R1: Setup `Alt+8`): the rail's rows, the `Alt+N` keys, the palette's groups, the first key of each
+`halo studio` opens a React shell with nine sections in the icon rail on the left (3.3.2.0; the top bar's tab strip before):
+**Session | Team | Roles | Fleet | Orchestra | Packs | Setup | Settings | Local** (`Alt+1`..`Alt+9`, or `?mode=` in
+the URL; Fleet since 3.0.5.0, Team since 3.0.8.0, Session since 3.1.4.0, Packs since 3.2.0.0, Setup since 3.3.0.0, Settings since
+3.3.3.0, Local since 3.3.5.0; Org and Flow are gone since 3.1.4.0, Design is the design pack's since 3.3.13.0). The order is one list,
+`SECTIONS` in `ui/src/routes/index.tsx` (3.1.6.0: Session `Alt+1`, Team `Alt+2`, Roles `Alt+3`, Fleet `Alt+4`;
+3.3.13.0 R2: Orchestra `Alt+5`, Packs `Alt+6` ([STUDIO-packs.md](STUDIO-packs.md)), Setup `Alt+7`): the rail's rows, the `Alt+N` keys, the palette's groups, the first key of each
 section's **How this works** and the status bar's key hint all read it.
 Session is this session, live: the Fleet panels scoped to this harness (see
 [Session](STUDIO-sections.md#session)); with nothing saved for the browser Studio opens on it while a
@@ -19,9 +19,10 @@ session of this harness is live. Orchestra is the live run console (see [Orchest
 below),
 Fleet every harness and every agent, live (see [Fleet](STUDIO-fleet.md#fleet-every-harness-every-agent)),
 Team the project's team file as one board (see [Team](STUDIO-team-roles.md#team-people-blocks-and-stages-on-one-board));
-Roles and Design are React sections since 3.0.7.0 (see
-[What you see (Roles)](STUDIO-team-roles.md#what-you-see-roles) and
-[Design mode](STUDIO-design.md#design-mode-prototypes-pages-and-decks-on-your-own-apps)).
+Roles is a React section since 3.0.7.0 (see
+[What you see (Roles)](STUDIO-team-roles.md#what-you-see-roles)). A pack's own sections come after the core ones (the
+first on `Alt+0`); one may be drawn whole by the pack's own module (3.3.13.0 R2: a view, as the design pack's
+Design section is: [EXTENSION_API.md](EXTENSION_API.md#a-sections-view)).
 The classic plain-JS page (`/legacy/`, `halo studio --legacy`) is gone since
 3.0.7.0 R2: every section is part of the shell.
 
@@ -64,8 +65,8 @@ The classic plain-JS page (`/legacy/`, `halo studio --legacy`) is gone since
 - **One thing per section** (3.3.2.0). Each section opens on its main
   panel filling the stage, every other panel a strip at the foot (one or
   two rows of them, side by side): Session on **Live**, Team on the
-  **Board**, Roles on the **Canvas**, Fleet on the **Map**, Design on the
-  **Artboards**, Orchestra on the **Workflow** (the run's plan; a planned
+  **Board**, Roles on the **Canvas**, Fleet on the **Map** (the design pack's Design on its
+  **Artboards**), Orchestra on the **Workflow** (the run's plan; a planned
   run is the plan canvas), Packs on **Installed**; Setup is pages and keeps
   them. A click on a strip (or its row in the **+**) opens it in the column on
   the main panel's right (as wide as the widest panel there, at most half
@@ -131,8 +132,8 @@ The classic plain-JS page (`/legacy/`, `halo studio --legacy`) is gone since
   optional **Tree** panel, added with the **+**. While that card waits, the
   Fleet icon carries an amber dot; a click on it opens Fleet on its Tree.
 - **The inspector asks first** (3.3.2.0). The 340 px column on the right is
-  closed until something opens it: a panel's **Settings**, a Design
-  artboard's knobs. Its close button (or `Esc`) gives the width back to the
+  closed until something opens it: a panel's **Settings**, an artboard's knobs
+  (the design pack's). Its close button (or `Esc`) gives the width back to the
   stage; open or closed is remembered per browser (`halo.studio.inspector`),
   and the next selection opens it again.
 - **Focus** (3.3.2.0): `F` (outside a text field), the corners button in the
@@ -149,7 +150,7 @@ The classic plain-JS page (`/legacy/`, `halo studio --legacy`) is gone since
   per browser (`halo.studio.density`), `data-density` on `<html>`.
 - **The palette** (`Ctrl`/`Cmd`+`K`): a mono prompt with fuzzy matching and
   grouped results (Go to, Help, then the sections in the tab order: Team, Roles,
-  Fleet, Design, Orchestra; then Media, View, Layout), keyboard first: arrows,
+  Fleet, Orchestra; then Media, View, Layout, then each pack's group), keyboard first: arrows,
   `Enter`, `Esc`. Every shortcut is shown next to its command.
 - **The status bar** shows the live feed (a dot that is green when
   connected, amber while connecting or reconnecting, red when unreachable,
@@ -157,7 +158,7 @@ The classic plain-JS page (`/legacy/`, `halo studio --legacy`) is gone since
   and how many wait on you), the team (3.0.8.0: its stages running now, when
   the repo has a team file), the event count, the section's own status
   line (Roles: the open lineup, its cards and problems, saved or not;
-  Design's project) and the section's layout
+  a pack's page its own) and the section's layout
   state. `Esc` closes the palette, a menu or a help card, then the Inspector.
 
 **Visual language.** The dark theme ("holo", the default) is a near-black
@@ -335,7 +336,7 @@ dismissed, show, own_lineups, active_team, runs, starts, job, plan}`), `POST
 
 **One story.** Every section's Start view ends on a **Next** footer that
 names the next section and why, in this order: Roles -> Orchestra ->
-Team -> Design -> Fleet (Fleet's points back to Roles); the button
+Team -> Fleet (Fleet's points back to Roles; 3.3.13.0 R2: Design left the story for its pack); the button
 opens it.
 
 **The Glossary.** The **?** in the header is a menu: **How

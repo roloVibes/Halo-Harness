@@ -6,7 +6,7 @@ Read this when you want Halo to render images or video with ComfyUI on your own 
 your own GPU: still images (Qwen Image), image-to-video clips (Wan 2.2),
 upscales (SeedVR2), speech (TTS Audio Suite) and anything else a workflow
 wires up. Halo treats it as the eighth craft app: one MCP server,
-`mcp__comfyui__*`, that every session and every Design turn
+`mcp__comfyui__*`, that every session and every design turn (the design pack's)
 can call, and `halo media` to set it up and check it.
 
 The server can be another machine on your network. Halo talks to it only over
@@ -140,18 +140,20 @@ price_out_per_m: 0, size_bytes, quant, family, notes}`.
 
 `quant` is read from the file name (bf16, fp16, fp8, int8, else `unknown`);
 `family` groups the parts of one model (`qwen-image`, `wan`, `seedvr`, `sam`).
-The Design model chooser shows the generators as "Media models (ComfyUI)"
-(`GET /api/design/models?media=1`), and `halo media models` prints the same
+The design pack's model chooser shows the generators as "Media models (ComfyUI)"
+(its `GET models?media=1`), and `halo media models` prints the same
 table after a fresh scan. See [MODELS.md](MODELS.md) "Media models".
 
-## In Halo Design
+## In the design pack
 
-Once registered, ComfyUI is listed by `halo design doctor` and taught to every
-design turn. Its recipe: `comfy_workflows` -> `comfy_inspect` -> `comfy_run`
+Once registered, ComfyUI is listed by the design pack's `GET crafts` and taught to every
+design turn (3.3.13.0 R2: Design is a pack Halo ships, `halo pack install design`). Its recipe: `comfy_workflows` -> `comfy_inspect` -> `comfy_run`
 with `set` -> `comfy_fetch` into `artboards/<id>/render.png` (a still) or
 `artboards/<id>/render.mp4` (a clip) -> `artboards/<id>/source.json`
 `{"app": "comfyui", "workflow": ..., "prompt_id": ..., "set": {...}}`.
-`halo design doctor --probe` spawns the server and checks `comfy_run` is there.
+Its `GET crafts?probe=1` starts the server and checks `comfy_run` is there. Studio's Media panels (status, models,
+workflows) are Local's optional panels since 3.3.13.0 R2 (its "+" menu); a render into a design project is the
+pack's Render panel.
 
 ## Troubleshooting
 

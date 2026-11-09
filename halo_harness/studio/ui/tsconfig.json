@@ -12,7 +12,22 @@
     "isolatedModules": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "types": ["vite/client"]
+    "types": ["vite/client"],
+    "paths": {
+      "@halo/ui": ["./src/lib/ui/index.ts"],
+      "@halo/api": ["./src/packlib/api.ts"],
+      "@halo/events": ["./src/packlib/events.ts"],
+      "@halo/store": ["./src/packlib/store.ts"],
+      "@halo/theme": ["./src/packlib/theme.ts"],
+      "@halo/util": ["./src/packlib/util.ts"],
+      "@halo/widgets": ["./src/packlib/widgets.ts"],
+      "@halo/workspace": ["./src/packlib/workspace.ts"],
+      "@halo/bundle": ["./src/routes/packs/bundleApi.ts"],
+      "react": ["./node_modules/@types/react/index.d.ts"],
+      "react/jsx-runtime": ["./node_modules/@types/react/jsx-runtime.d.ts"],
+      "react-dom": ["./node_modules/@types/react-dom/index.d.ts"],
+      "react-dom/client": ["./node_modules/@types/react-dom/client.d.ts"]
+    }
   },
-  "include": ["src", "vite.config.ts"]
+  "include": ["src", "vite.config.ts", "vite.pack.config.ts", "vite.shared.ts", "../../templates/packs/design/studio/src"]
 }

@@ -1,6 +1,6 @@
 # Studio: how each section works
 
-Read this when you want the one-screen story of a section (Session, Team, Roles, Fleet, Design, Orchestra, Packs, Setup, Settings, Local).
+Read this when you want the one-screen story of a section (Session, Team, Roles, Fleet, Orchestra, Packs, Setup, Settings, Local).
 
 Part of [Halo Studio](STUDIO.md), which lists every part.
 
@@ -262,49 +262,6 @@ change; a Hugging Face local server is a host in its picker. [MODELS-ollama-stew
 
 ![Fleet with its Ollama panel: the card, the models, the traffic, the steward](media/studio-fleet-ollama.png)
 
-### Design
-
-**What it is.** Prototypes, pages, decks and logos made by your own apps and
-models. A project is a folder of artboards under `~/.halo/design/<slug>/`, and
-every turn saves a new version.
-
-**How to use it.**
-
-1. **Make or open a project**: the Start view names the first one; then
-   Projects lists them all, and New project makes another.
-2. **Say what to design**: write it in Thread and press Enter: the reply
-   streams in as the turn works; **Cancel turn** stops it. **3 directions**
-   sends it as three different artboards side by side.
-3. **Look and compare**: Artboards: drag a card by its title (the places are
-   saved with the project), slide back through its versions, Restore one;
-   the device select draws prototypes at phone, tablet or desktop size.
-4. **Change it by hand**: double-click a text in a prototype to edit it in
-   place; a card's **Knobs** move its spacing and colours; the Design system
-   panel edits the tokens or syncs them from a codebase or a web page.
-5. **Ask for notes**: pick **Comment** and click a frame to pin a comment;
-   Critique has a second model pin notes on an artboard; Contrast checks its
-   text against its background; Send comments turns the pins into a turn.
-6. **Tidy up**: Rename or Delete an artboard, or Download its file.
-7. **Hand it off**: Export writes a folder, HTML, PNG, SVG or PDF; Handoff
-   bundles it for the next Halo or Claude Code session.
-8. **Use your own files**: Assets: add or drop logos and photos; click one to
-   put its path in the message.
-9. **Render pictures**: the palette's Media commands add the ComfyUI panels
-   to the section.
-
-**Panels.** Projects: your design projects: pick one, or make a new one.
-Design system: the tokens every turn designs with. Assets: files a turn can
-use. Artboards: every artboard of the project, with its versions, pins and
-knobs. Thread: the project's turns: what you asked and what the model did.
-From the palette: Media status, Media models, Workflows and Render (see
-[Media](STUDIO-design.md#media-the-comfyui-panels)).
-
-**Keys.** `Alt+5` Design; `Enter` in the message box sends (`Shift+Enter`: a
-new line); in the text editor and the comment box `Enter` saves and `Esc`
-cancels; `Esc` puts the Comment tool down; `Mod+K`: Design: send, Design: 3
-directions, Design: pin a comment, Design: cancel turn, Design: export,
-Design: new project.
-
 ### Orchestra
 
 **What it is.** Several agents write to the same files at once and nothing is
@@ -355,21 +312,21 @@ when. Log: every claim, merge, gate decision and note, with its time.
 
 ### Packs
 
-**What it is** (3.2.0.0 R6). The Pack Manager, `Alt+7`: install, grant, enable, set up, update and remove
+**What it is** (3.2.0.0 R6). The Pack Manager, `Alt+6`: install, grant, enable, set up, update and remove
 packs from the places you trust (`packs.sources`, then the packs Halo ships); every button runs the code
 `halo pack` runs. Its panels, actions and routes, and the sections a pack you enable adds after it:
 [STUDIO-packs.md](STUDIO-packs.md) (what a pack draws in Studio: [PACKS.md](PACKS.md) "In Studio").
 
 ### Setup
 
-**What it is** (3.3.0.0; pages since 3.3.1.0). This box's setup, `Alt+8`: the wizard's step rail over one block per page
+**What it is** (3.3.0.0; pages since 3.3.1.0). This box's setup, `Alt+7`: the wizard's step rail over one block per page
 (its own Save, Back / Next, a Summary last), nothing opening on its own. `halo init` opens it (`?first=1`), `halo setup team`
 on the Team page (`?block=team`); `halo init --terminal` is the terminal wizard. **Done starts halo** (3.3.3.0): the Summary's
 "Done: start halo" goes to Session and the terminal that ran `halo init` starts halo. The pages: [STUDIO-setup.md](STUDIO-setup.md).
 
 ### Settings
 
-**What it is** (3.3.3.0). Settings (`Alt+9`) is every key of `~/.halo/config.json`: a group rail on the left (General, Agents
+**What it is** (3.3.3.0). Settings (`Alt+8`) is every key of `~/.halo/config.json`: a group rail on the left (General, Agents
 and roles ... the Local group), one group's page on the right, one row per key with its help line, its control, a **default** marker while it is unset,
 Reset to default and the exact `halo config set` line as its footer. A change saves at once and says when it takes effect (now,
 the next session, the next launch); the search box finds a row across every group, and the palette lists every row as `Settings:
@@ -386,7 +343,7 @@ Pointing at a row previews it on the page itself (the key untouched); Esc or mov
 
 ### Local
 
-**What it is** (3.3.5.0). Local (`Alt+0`, the tenth slot) holds everything about the machines that serve your local models
+**What it is** (3.3.5.0). Local (`Alt+9`, the ninth and last core section since Design left the core, 3.3.13.0 R2) holds everything about the machines that serve your local models
 and the models they serve, paged like Settings: a page rail on the left (Resources, Hosts, Models, Library, Hugging Face, Logs,
 Benchmarks, Steward, Pool and Voice), one page on the right. **Resources** is the live view: a strip per host sampled once a second while
 the page is open (GPU use, VRAM and what holds it, RAM, CPU, the temperature, each number titled with its source) and the

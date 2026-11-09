@@ -1,6 +1,6 @@
 // The palette's commands and its fuzzy matcher. Groups: Go to, Help, then
 // the sections in the registry's order (3.1.6.0 R6: Team, Roles, Fleet,
-// Design, Orchestra; Session has none of its own), Media, View, Layout. Each
+// Orchestra; Session has none of its own), Media, View, Layout. Each
 // command may show a key (the same hint the menus show; 3.3.2.0 R1: the Go to
 // entries carry each section's Alt+N, which the icon rail no longer prints; 3.3.2.0 R2: Layout's
 // "Arrange panels" and "Reset layout" name the section in the hint). 3.2.0.0 R3: the packs' sections join Go to and
@@ -18,7 +18,7 @@ import { packs } from "../routes/packs/store";
 import { mediaCommands } from "../routes/media/commands";
 import { orchestraCommands } from "../routes/orchestra/commands";
 import { fleetCommands } from "../routes/fleet/commands";
-import { designCommands } from "../routes/design/commands";
+import { packPageCommands } from "../packlib/kbd"; // 3.3.13.0 R2: a pack page's own lines (api.lib.commands)
 import { rolesCommands } from "../routes/roles/commands";
 import { teamCommands } from "../routes/team/commands";
 import { settingsCommands } from "../routes/settings/commands";
@@ -30,7 +30,7 @@ export type Command = { id: string; group: string; label: string; kbd?: string; 
 
 /** Bring a panel back (or add an optional one) and focus it, bringing the section's workspace up first. */
 export function revealPanel(def: SectionDef, p: PanelSpec): void {
-  const go = () => showPanel(def.id, p, def.id === "design");
+  const go = () => showPanel(def.id, p, !!def.paged); // 3.3.13.0 R2: over a paged section's page (Local: Media) it floats
   def.enter?.();
   if (layoutStore(def.id).get().layout) go();
   else window.setTimeout(go, 120);
@@ -107,10 +107,10 @@ export function commands(): Command[] {
     });
   }
   out.push(promptCommand()); // 3.3.11.0 R1: Session's Prompt panel, Alt+Enter
-  out.push(...teamCommands(), ...rolesCommands(), ...fleetCommands(), ...designCommands(), ...orchestraCommands(), ...mediaCommands());
+  out.push(...teamCommands(), ...rolesCommands(), ...fleetCommands(), ...orchestraCommands(), ...mediaCommands());
   out.push(...settingsCommands()); // 3.3.3.0 R2: "Settings: <title>", one per config key
   out.push(...localCommands()); // 3.3.5.0 R1: "Local: <page>", one per page
-  out.push(...packCommands(packs.get().reg));
+  out.push(...packCommands(packs.get().reg), ...packPageCommands());
   return out;
 }
 

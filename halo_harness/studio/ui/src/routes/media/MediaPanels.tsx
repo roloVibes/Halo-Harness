@@ -1,15 +1,14 @@
 // The Media panels (ComfyUI): Status (MediaStatus.tsx), Models (tabs image /
 // video / audio / upscale; the supporting files under a disclosure),
-// Workflows (starters and saved; click one for its inputs) and Render
-// (MediaRender.tsx). `mediaPanels()` is the group Design adds as optional
-// panels; every panel opens on its full face.
+// Workflows (starters and saved; click one for its inputs). `mediaPanels()` is the group Local adds as optional
+// panels, floating over its page (3.3.13.0 R2: Design hosted them before it became a pack; Render, a workflow
+// into a design project, went with Design); every panel opens on its full face.
 import { useEffect } from "react";
 import type { MotionState } from "../../lib/motion";
 import { Empty } from "../../lib/ui";
 import type { PanelSpec } from "../../lib/workspace/types";
 import { HELP } from "../help";
 import { Metric } from "../orchestra/bits";
-import { RenderDetail, RenderGlance, useRenderMotion } from "./MediaRender";
 import { StatusDetail, StatusGlance, StatusSettings, useStatusMotion } from "./MediaStatus";
 import { ago, attachMedia, gib, openInputs, setTab, SUPPORTING, TABS, useMedia, type MediaModel, type Workflow } from "./store";
 
@@ -137,7 +136,7 @@ function attached(hook: () => MotionState): () => MotionState {
   };
 }
 
-/** The Media group: optional panels at `y` the palette adds (Design). */
+/** The Media group: optional panels at `y` the "+" menu and the palette add (Local, 3.3.13.0 R2). */
 export function mediaPanels(y: number): PanelSpec[] {
   const base = { y, w: 6, h: 40, minW: 4, minH: 12, face: "detail" as const, optional: true };
   const at = (id: string) => ({ ...base, ...HELP[id], id, testid: id });
@@ -145,6 +144,5 @@ export function mediaPanels(y: number): PanelSpec[] {
     { ...at("media-status"), title: "Media status", x: 0, glance: StatusGlance, detail: StatusDetail, settings: StatusSettings, useMotion: attached(useStatusMotion) },
     { ...at("media-models"), title: "Media models", x: 6, glance: ModelsGlance, detail: ModelsDetail, useMotion: attached(() => "none") },
     { ...at("media-workflows"), title: "Workflows", x: 12, glance: WorkflowsGlance, detail: WorkflowsDetail, useMotion: attached(useWorkflowsMotion) },
-    { ...at("media-render"), title: "Render", x: 18, glance: RenderGlance, detail: RenderDetail, useMotion: attached(useRenderMotion) },
   ];
 }

@@ -38,6 +38,10 @@
 .lc-empty, .lc-why { margin: 0; font-size: 12px; }
 .lc-said { font-size: 11px; color: var(--bad); flex: 1 1 100%; }
 .lc-said[data-ok] { color: var(--ok); }
+/* 3.3.13.0 R2: the Media panels float over the page: the layer takes no click, its panels do */
+.lc-floats { position: absolute; inset: 0; pointer-events: none; z-index: 5; }
+.lc-floats .workspace, .lc-floats .ws-grid { pointer-events: none; background: none; }
+.lc-floats .ws-cell { pointer-events: auto; }
 
 @media (max-width: 760px) {
   .lc-room { flex-direction: column; }

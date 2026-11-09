@@ -86,14 +86,19 @@ def entry(pack, granted) -> dict:
     studio = R.studio_of(pack.manifest)
     script = R.SCRIPT in set(granted or [])
     sections = []
+    from halo_harness.packs.studio_view_rules import routes_of, view_of  # 3.3.13.0 R2 (API 1.2)
     for i, s in enumerate(R.sections_of(pack.manifest)):
         sid = N.qualify(pack.id, s["id"])
         raw = [p for p in s.get("panels") or [] if isinstance(p, dict)]
-        if i == 0 and studio.get("config_form") is True and not any(p.get("kind") == "form" for p in raw):
+        view = view_of(s)
+        if i == 0 and studio.get("config_form") is True and not view and not any(p.get("kind") == "form" for p in raw):
             raw = raw + [_settings(pack)]
         sections.append({"id": sid, "name": s["id"], "pack": pack.id, "title": s.get("title") or s["id"],
                          "blurb": str(s.get("blurb") or f"from pack {pack.id}"), "help": str(s.get("help") or ""),
-                         "panels": [_panel(pack, p, sid, core=False, granted=script) for p in raw]})
+                         "panels": [_panel(pack, p, sid, core=False, granted=script) for p in raw],
+                         **({"view": {"source": view, "script": "granted" if script else "not granted",
+                                      "grant": grant_line(pack.id),
+                                      **({"file": _file(pack.id, view)} if script else {})}} if view else {})})
     panels = [_panel(pack, p, p["section"], core=True, granted=script)
               for p in studio.get("panels") or [] if isinstance(p, dict) and p.get("section") in R.CORE_SECTIONS]
     forms = [p for s in sections for p in s["panels"] if p["kind"] == "form"] + [p for p in panels if p["kind"] == "form"]
@@ -113,8 +118,11 @@ def entry(pack, granted) -> dict:
     if forms and not any(p["action"].get("panel") == forms[0]["id"] for p in palette):
         palette.append({"id": N.qualify(pack.id, "settings"), "label": f"Settings: {pack.name}", "group": f"pack {pack.id}",
                         "action": {"kind": "route", "section": forms[0]["section"], "panel": forms[0]["id"]}})
-    bundles = R.bundle_ids(pack.manifest)
-    return {"id": pack.id, "name": pack.name, "version": pack.version, "scope": pack.scope,
+    bundles = R.bundle_ids(pack.manifest) + [s["id"] for s in sections if s.get("view")]
+    rt = routes_of(pack.manifest)
+    routes = {"prefix": str(rt.get("prefix")), "api": f"api/packs/{pack.id}/{rt.get('prefix')}",
+              "granted": "studio-routes" in set(granted or [])} if rt else None
+    return {"id": pack.id, "name": pack.name, "version": pack.version, "scope": pack.scope, "routes": routes,
             "script": ("granted" if script else "not granted") if bundles else "none", "grant": grant_line(pack.id),
             "sections": sections, "panels": panels, "palette": palette, "config_form": studio.get("config_form") is True,
             "events": {k: {"label": str(v.get("label") or k), "line": str(v.get("line") or ""), **_event_view(pack, k)}

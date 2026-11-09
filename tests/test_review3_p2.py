@@ -37,8 +37,9 @@ def _board(p, title, aid, html="<p>hi</p>"):
 
 @test
 def test_i114_folder_export_twice_into_the_same_out(ctx: Ctx):
-    from halo_harness.design.export import export_project
-    from halo_harness.design.store import Project
+    from tests.helpers import design_pack as _DP
+    export_project = _DP.module("server/export.py").export_project
+    Project = _DP.module("server/store.py").Project
     p = Project.create("Twice")
     _board(p, "Hero", "hero")
     out = Path(tempfile.mkdtemp(prefix="r3p-out-"))
@@ -53,8 +54,9 @@ def test_i114_folder_export_twice_into_the_same_out(ctx: Ctx):
 
 @test
 def test_i115_index_page_escapes_titles_ids_and_the_project_name(ctx: Ctx):
-    from halo_harness.design.export import export_project
-    from halo_harness.design.store import Project
+    from tests.helpers import design_pack as _DP
+    export_project = _DP.module("server/export.py").export_project
+    Project = _DP.module("server/store.py").Project
     p = Project.create("Evil</title><script>alert(1)</script>")
     _board(p, "<img src=x onerror=alert(1)>", "poster")
     _board(p, "Quote", "a'b&c")
@@ -70,7 +72,8 @@ def test_i115_index_page_escapes_titles_ids_and_the_project_name(ctx: Ctx):
 
 @test
 def test_i116_capture_url_resolves_stylesheet_links_against_the_page(ctx: Ctx):
-    from halo_harness.design.sync import capture_url
+    from tests.helpers import design_pack as _DP
+    capture_url = _DP.module("server/sync.py").capture_url
     page = ('<link rel="stylesheet" href="/static/site.css"><link rel="stylesheet" href="../theme.css">'
             '<link rel="stylesheet" href="//cdn.example/x.css?a=1&amp;b=2"><link rel="stylesheet" href="local.css">')
     asked = []
@@ -90,7 +93,9 @@ def test_i116_capture_url_resolves_stylesheet_links_against_the_page(ctx: Ctx):
 
 @test
 def test_i117_scan_codebase_under_a_root_named_build(ctx: Ctx):
-    from halo_harness.design.sync import components_in, scan_codebase
+    from tests.helpers import design_pack as _DP
+    _m = _DP.module("server/sync.py")
+    components_in, scan_codebase = _m.components_in, _m.scan_codebase
     root = Path(tempfile.mkdtemp(prefix="r3p-")) / "build" / "dist" / "myapp"
     (root / "src").mkdir(parents=True)
     (root / "src" / "app.css").write_text(":root{--brand:#336699;--space:8px}", encoding="utf-8")
@@ -110,7 +115,9 @@ def test_i117_scan_codebase_under_a_root_named_build(ctx: Ctx):
 
 @test
 def test_i118_verdicts_use_the_unrounded_ratio(ctx: Ctx):
-    from halo_harness.design.contrast import pairs_for, raw_ratio, ratio
+    from tests.helpers import design_pack as _DP
+    _m = _DP.module("server/contrast.py")
+    pairs_for, raw_ratio, ratio = _m.pairs_for, _m.raw_ratio, _m.ratio
     raw = raw_ratio("#4e6af2", "#ffffff")
     ctx.check(f"the true ratio is below 4.5 but rounds to it, got {raw}", raw < 4.5 and ratio("#4e6af2", "#ffffff") == 4.5)
     row = pairs_for({"--text": "#4e6af2", "--bg": "#ffffff"})[0]

@@ -6,15 +6,17 @@ UI copy line and the modes banner to the registry.
 
 How a key is matched to its section, nearest first:
   1. a section title (`Session`, `Roles`, ...) or an id hint (`?mode=<id>`,
-     `--mode <id>`, `/studio <id>`, `--session`, `--fleet`, `/roles`,
-     `/design`, `halo design`) on the same line, the closest one;
+     `--mode <id>`, `/studio <id>`, `--session`, `--fleet`, `/roles`) on the same line, the closest one; 3.3.13.0 R2:
+     "design pack", "first pack section", "pack's (own) section" name the tenth slot, `Alt+0`, the first pack
+     section's (PACK);
   2. else one on the line just above or below, in the same paragraph;
   3. else the nearest Markdown heading above that names exactly one section.
 A range (`Alt+1`..`Alt+9`, `Alt+1` to `Alt+7`, `Alt+1..8`, `Alt+1..0`) names no single
 section: its paragraph's run of six titles or more (`Orchestra, Roles, ...`,
 `**A** | **B**`, `A, B and C`) must be the registry's order from its start
 (3.2.0.0 R6: the six work sections, then Packs; 3.3.0.0 R1: then Setup; 3.3.3.0 R2: then Settings; 3.3.5.0 R1:
-then Local, on Alt+0: the key `0` is the tenth slot).
+then Local, on Alt+0: the key `0` is the tenth slot; 3.3.13.0 R2: Design left the core, the nine end at Local on
+Alt+9 and the tenth slot is the first pack section's).
 """
 from __future__ import annotations
 
@@ -28,9 +30,11 @@ BANNER = REPO / "tools" / "studio_modes_banner.py"
 
 _ENTRY = re.compile(r'\{ id: "(\w+)", title: "(\w+)", kbd: "(Alt\+\d)", blurb: "([^"]*)"')
 KEY = re.compile(r"Alt\+([0-9])(?!\d)")  # 3.2.0.0 R6: Packs is Alt+7; 3.3.0.0 R1: Setup is Alt+8; 3.3.3.0 R2: Settings is Alt+9; 3.3.5.0 R1: Local is Alt+0
-RANGE = re.compile(r"`?Alt\+1`?\s*(?:\.\.\.?|to|-)\s*`?(?:Alt\+)?[67890](?!\d)`?")  # 3.3.0.0 R1: ..8; 3.3.3.0 R2: ..9; 3.3.5.0 R1: ..0
+RANGE = re.compile(r"`?Alt\+1`?\s*(?:\.\.\.?|to|-)\s*`?(?:Alt\+)?[567890](?!\d)`?")  # 3.3.0.0 R1: ..8; 3.3.3.0 R2: ..9; 3.3.5.0 R1: ..0; 3.3.13.0 R2: ..5
 _SEP = re.compile(r"[\s*`,|/]*(?:and\s+)?[\s*`,|/]*")
 HEADING = re.compile(r"^#{1,6} ")
+PACK = "pack"  # 3.3.13.0 R2: the tenth slot (Alt+0) is the first pack section's
+PACK_HINT = re.compile(r"design pack|first pack section|pack's (?:own )?sections?\b", re.I)
 
 
 def registry(text: "str | None" = None) -> "list[tuple[str, str, str, str]]":
@@ -53,7 +57,7 @@ def _patterns(rows):
     titles = "|".join(t for _, t, _, _ in rows)
     ids = "|".join(i for i, _, _, _ in rows)
     title = re.compile(rf"\b({titles})\b")
-    hint = re.compile(rf"(?:\?mode=|--mode |/studio )({ids})\b|--(session|fleet)\b|(?<=[\s`(])/(roles|design)\b|halo (design)\b")
+    hint = re.compile(rf"(?:\?mode=|--mode |/studio )({ids})\b|--(session|fleet)\b|(?<=[\s`(])/(roles)\b")
     return title, hint
 
 
@@ -63,6 +67,7 @@ def _mentions(line: str, rows) -> "list[tuple[int, int, str]]":
     by_title = {t: i for i, t, _, _ in rows}
     out = [(m.start(), m.end(), by_title[m.group(1)]) for m in title.finditer(line)]
     out += [(m.start(), m.end(), next(g for g in m.groups() if g)) for m in hint.finditer(line)]
+    out += [(m.start(), m.end(), PACK) for m in PACK_HINT.finditer(line)]
     return out
 
 
@@ -138,6 +143,7 @@ def problems(path: Path, rows) -> "list[str]":
     """Every line of `path` whose Alt+N names another section than the registry's, or whose range lists
     the six sections out of order."""
     want = {n: sid for n, (sid, _, _, _) in enumerate(rows, 1)}
+    want.setdefault(len(rows) + 1, PACK)  # 3.3.13.0 R2: nine core sections: Alt+0 is the first pack section
     order = [t for _, t, _, _ in rows]
     rel = path.relative_to(REPO).as_posix()
     out = []

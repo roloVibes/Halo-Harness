@@ -60,3 +60,8 @@
 .pk-event > .pk-art-problems { margin: 0 4px 4px 106px; }
 .og-artifacts { display: grid; gap: 12px; min-width: 0; }
 .og-artifact-head { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+/* 3.3.13.0 R2: a pack section drawn whole by the pack's module (routes/packs/PackView.tsx): the host fills the page */
+.pk-view { position: absolute; inset: 0; display: flex; flex-direction: column; min-height: 0; }
+.pk-view-host { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.pk-view-host > * { flex: 1; min-height: 0; }
+.pk-view-grant { padding: 18px 20px; max-width: 640px; }

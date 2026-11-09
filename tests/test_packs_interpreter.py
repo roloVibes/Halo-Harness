@@ -161,7 +161,7 @@ def test_pythonpath_alone_lets_another_python_import_ext(ctx: Ctx):
     ctx.check("without it, a Python with no site-packages cannot import Halo", bare.returncode != 0)
     run = subprocess.run(probe, cwd=str(d), env=I.pack_env(d, base), capture_output=True, text=True, timeout=60)
     ctx.check(f"with the pack's env it can, got {run.returncode} {run.stdout!r} {run.stderr[-200:]!r}",
-              run.returncode == 0 and run.stdout.strip() == "1.1")
+              run.returncode == 0 and run.stdout.strip() == "1.2")
 
 
 if __name__ == "__main__":

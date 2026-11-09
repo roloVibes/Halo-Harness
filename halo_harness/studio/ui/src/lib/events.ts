@@ -20,7 +20,8 @@ type Handler = (frame: FeedFrame) => void;
 
 // Every kind the server forwards (studio/feed_kinds.py DEFAULT_KINDS) plus the synthesized `sessions`.
 // 3.0.5.0 Fleet: agent_state (an agent-tree row changed), agent_event (a followed agent's entry), fleet.
-// 3.0.7.0 R3: design_turn (a Design turn's steps). 3.0.8.0 R2: team (a team run's stage, gate, claim and change
+// 3.0.7.0 R3: design_turn (a Design turn's steps; 3.3.13.0 R2: the design pack's `pack_live` frames, kind `turn`,
+// now; media_render went with it, kind `render`). 3.0.8.0 R2: team (a team run's stage, gate, claim and change
 // lines, published by Studio itself: studio/team_live.py). 3.1.1.0 R1: start (the guided first run's steps,
 // studio/start_job.py). 3.1.1.0 R3: focus (`halo studio --edit` on a running Studio: open that bio, lineup or
 // the Team here, studio/focus_api.py and lib/edit.ts).
@@ -30,8 +31,9 @@ export const KNOWN_KINDS = [
   "error", "turn_done", "subagent_start", "subagent_end", "subagent_queued", "subagent_progress",
   "notification", "phase", "compaction", "governor", "remote_attached",
   "orchestra_state", "orchestra_claim", "orchestra_merge", "orchestra_gate", "orchestra_report",
-  "media_render", "turn_marker",
-  "agent_state", "agent_event", "fleet", "design_turn", "team", "start", "focus",
+  "turn_marker",
+  "agent_state", "agent_event", "fleet", "team", "start", "focus",
+  "pack_live", // 3.3.13.0 R2: a pack's routes' live frame (ctx.publish), its bundle's api.on hears it
   "dropped", // 3.2.1.0: frames fell off this browser's bounded queue; the fleet page re-reads its view
   "files_changed", // 3.2.2.0 R6: a lineup, bio, config or layout file moved on disk (lib/filesLive.ts onFilesChanged)
   "setup", // 3.3.0.0 R3: a Setup Check job's checks (studio/setup_check_job.py; routes/setup/checkStore.ts)

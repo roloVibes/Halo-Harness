@@ -141,6 +141,8 @@ class Registry:
         register_builtins(reg)
         register_custom_commands(reg, cwd=Path(cwd), home=home, plugin_roots=plugin_roots)
         register_skills(reg, cwd=Path(cwd), home=home, plugin_roots=plugin_roots)
+        from halo_harness.commands.pack_studio import register_moved  # 3.3.13.0 R2: /design with its pack off
+        register_moved(reg)
         return reg
 
 

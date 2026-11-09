@@ -26,8 +26,8 @@ Once enabled, its own section "Docs review" comes after the core sections.
 1.0 (`halo_harness.ext.API_VERSION`), and a 1.x Halo keeps every name it
 uses. `halo` is the Halo it needs (the release it ships in: `{min: "3.2"}`
 from 3.2.0.0). Install refuses a pack whose range this Halo is outside, with
-one line saying which: `pack doc-review needs extension API 1.2 to 1.9; this
-Halo has 1.1`.
+one line saying which: `pack doc-review needs extension API 1.3 to 1.9; this
+Halo has 1.2`.
 
 ## Make your own pack from this one
 

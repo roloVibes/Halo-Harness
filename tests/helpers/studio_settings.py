@@ -2,7 +2,7 @@
 through the driver base, over a fresh scratch home (capture_studio's seeded_home) with one secret saved
 (`embeddings.api_key`, a placeholder); no provider request, no model call:
 
-1. Alt+9 opens Settings with nothing open over it (no help, no Start here, no dialog after 2 s), on General;
+1. Alt+8 opens Settings with nothing open over it (no help, no Start here, no dialog after 2 s), on General;
 2. every group page: the rail's groups and each page's `data-key` rows (the test holds them to the catalog);
 3. a bool toggled (config.json has it, the flash says the effect word), an enum picked, a number set, Reset
    (the key gone, the default marker back);
@@ -86,14 +86,14 @@ def _load(c, ctx, query: str, section: str) -> None:
     c.wait(f"{CUR}.startsWith('{section}')", 40)
 
 
-def alt9(c, url, ctx) -> dict:
+def alt8(c, url, ctx) -> dict:
     _load(c, ctx, "mode=roles&tour=off", "Roles")
     time.sleep(1.0)
-    alt(c, 9)
+    alt(c, 8)
     c.wait(f"{CUR}.startsWith('Settings') && {qa('[data-testid=settings-row]')}.length > 0", 30)
     time.sleep(2.0)
-    return {"alt9_open": c.js(OPEN), "alt9_page": c.js(PAGE), "alt9_section": c.js(CUR),
-            "alt9_panels": c.js(f"{qa('[data-section=settings] [data-panel]')}.length")}
+    return {"alt8_open": c.js(OPEN), "alt8_page": c.js(PAGE), "alt8_section": c.js(CUR),
+            "alt8_panels": c.js(f"{qa('[data-section=settings] [data-panel]')}.length")}
 
 
 def every_page(c, url, ctx) -> dict:
@@ -198,7 +198,7 @@ class SettingsDriver(Driver):
         base, frag = url.split("?", 1)[0], url.split("#", 1)[1]
         ctx = {"state": state, "srv": srv, "base": base, "frag": frag}
         try:
-            yield tuple((fn, (c, url, ctx)) for fn in (alt9, every_page, edits, bad_json, search, door, secret, palette))
+            yield tuple((fn, (c, url, ctx)) for fn in (alt8, every_page, edits, bad_json, search, door, secret, palette))
         finally:
             srv.shutdown()
             srv.server_close()

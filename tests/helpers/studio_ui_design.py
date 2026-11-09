@@ -1,6 +1,6 @@
 """tests.helpers.studio_ui_design -- the Design checks of
-tests/test_studio_ui.py (Halo 3.0.7.0 round R3: a React section of the shell
-now), kept here so that file stays small. A headless Chrome run
+tests/test_pack_design_ui.py (Halo 3.0.7.0 round R3: a React section of the shell; 3.3.13.0 R2: the design pack's
+section, so tests/test_studio_ui.py no longer registers them). A headless Chrome run
 (`python -m tests.helpers.studio_design design`); the runner caches it, so
 the tests read one run. 3.0.7.0 R3b: a second run (`design-rest`,
 tests/helpers/studio_design_rest.py) drives the classic page's last features

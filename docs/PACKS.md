@@ -205,8 +205,8 @@ goes the moment you disable the pack (no reload):
 
 - **Its own sections**, after the core sections: the icon rail shows them
   after a thin divider, each with the diamond (3.3.2.0), reached by a click or the palette
-  (3.3.3.0 R2: the nine core sections hold `Alt+1` to `Alt+9`; Packs is the seventh, Setup the
-  eighth, Settings the ninth). The doc-review pack's is **Docs review**: its notes (a
+  (3.3.13.0 R2: the nine core sections hold `Alt+1` to `Alt+9`, Packs the sixth, Setup the seventh, Settings the
+  eighth, Local the ninth, and the first pack section takes `Alt+0`). The doc-review pack's is **Docs review**: its notes (a
   markdown page of the pack), its checks (a table over a JSON file), links
   (into Studio, or a page in a new tab) and Settings.
 - **Panels in a core section**, under that section's own, as strips: the
@@ -233,6 +233,13 @@ goes the moment you disable the pack (no reload):
 This panel is studio-bundle's own script (studio/hello.js). It runs once you grant it:
 halo pack enable studio-bundle --grant studio-script
 ```
+
+- **A page of its own** (3.3.13.0 R2, extension API 1.2): a section the pack draws whole with its own module (a
+  `view`), on Studio's own React and parts; it runs only once you grant `studio-script`, like a bundle panel. The
+  design pack's Design section is one.
+- **Its own routes** (3.3.13.0 R2): the pack's Python answering `/api/packs/<id>/<prefix>/...` inside Studio's
+  server, only once you grant `studio-routes` ("runs this pack's Python inside Studio's server"). A route that fails
+  is one line and a `halo pack doctor` row; disabling the pack, or taking the grant back, unloads it.
 
   Since 3.3.10.0 R3 the script can act, not only draw: publish the pack's own events (at most 20 writes in 10
   seconds), listen for them, read its data folder and its mode, raise an attention row, and take you to a section
@@ -465,8 +472,8 @@ and what to do:
 | pack.yaml is not YAML | `bad-yaml: pack.yaml: it does not read as a YAML mapping (key: value)` | fix the file (`halo pack inspect <folder>` reads it again) |
 | no id, or a bad one | `no-id: pack.yaml: id: required`; `Doc_Review: pack.yaml: id 'Doc_Review' is not a pack id: ...` | give it an id of lower-case letters, digits and single hyphens |
 | any other manifest problem | `<id>: pack.yaml: <the key and what is wrong>` (an unknown key names the closest) | fix pack.yaml; the pack installs and runs once it validates |
-| written for a newer extension API | `pack <id> needs extension API 1.2 to 1.9; this Halo has 1.1` | update Halo, or install an older version of the pack |
-| written for an older extension API | `pack <id> needs extension API 0.5 to 0.9; this Halo has 1.1` | install a newer version of the pack (its author widens `halo_api`) |
+| written for a newer extension API | `pack <id> needs extension API 1.3 to 1.9; this Halo has 1.2` | update Halo, or install an older version of the pack |
+| written for an older extension API | `pack <id> needs extension API 0.5 to 0.9; this Halo has 1.2` | install a newer version of the pack (its author widens `halo_api`) |
 | needs a newer Halo | `pack <id> needs Halo >= 9.0; this is 3.2.0.0` | update Halo |
 | a required pack is missing | `<id> requires base-docs, which is not installed` | `halo pack install base-docs`, then enable it |
 | a required pack is off or too old | `<id> requires base-docs, which is installed but not enabled (halo pack enable base-docs)`; `<id> requires base-docs 2.0 to 2.9; 1.4.0 is installed` | enable it, or update it |
@@ -522,7 +529,7 @@ another Python finds `halo_harness.ext` as well. A plain Claude-plugin folder
 
 ## The Pack Manager
 
-Studio's **Packs** section (`Alt+7`, 3.2.0.0 R6) runs the lifecycle above with
+Studio's **Packs** section (`Alt+6`, 3.2.0.0 R6) runs the lifecycle above with
 buttons, through the same code: each action runs the function `halo pack`
 runs and shows the lines it prints, and every open Studio redraws on the
 `pack_changed` it publishes ([STUDIO-packs.md](STUDIO-packs.md)).
@@ -611,7 +618,8 @@ without policies and modes is untouched.
 
 ## The reference pack
 
-Halo ships two packs: **Documentation Review**, below, and **Concord** ([The concord pack](#the-concord-pack)).
+Halo ships three packs: **Documentation Review**, below, **Concord** ([The concord pack](#the-concord-pack)) and
+**Design** ([The design pack](#the-design-pack)).
 **Documentation Review** (`doc-review`,
 `halo_harness/templates/packs/doc-review/`): a reviewer and a writer bio, the
 review lineup, the review workflow (read each Markdown file, judge the
@@ -627,6 +635,19 @@ version, installing from a folder or a git url, checking it with `halo pack
 doctor`. `tests/test_reference_pack.py` installs it in a fresh home, runs its
 workflow, finds it in Studio, Roles and the fleet catalog, removes it and
 finds nothing of it left.
+
+## The design pack
+
+**Design** (`design`, `halo_harness/templates/packs/design/`, 3.3.13.0 R2) is Studio's Design section, out of Halo's
+core: projects of artboards made by a Halo turn with your ArtCraft apps as its tools, versions, comments, knobs, a
+design system, exports and the handoff, and a ComfyUI render into a project. It ships with Halo and stays off until you
+turn it on: `halo pack install design`, `halo pack enable design --grant-all` (`studio-script` for its page,
+`studio-routes` for its routes), then the Design row of Studio's rail (`Alt+0` while it is the first pack section) or
+`/design`. Its projects live in its data folder (`~/.halo/packs/.data/design/projects/`); a `~/.halo/design` from
+before the pack is moved there once, with one line saying so. Disabling it takes the section away and leaves the
+projects. [Its README](../halo_harness/templates/packs/design/README.md) has the rest; it is the example of every
+extension API 1.2 part ([a section's view](EXTENSION_API.md#a-sections-view), [`api.lib`](EXTENSION_API.md#apilib),
+[a pack's own routes](EXTENSION_API.md#a-packs-own-routes), [the host services](EXTENSION_API.md#the-host-services)).
 
 ## The concord pack
 

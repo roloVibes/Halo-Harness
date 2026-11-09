@@ -27,7 +27,9 @@ function Grant({ p, perm }: { p: PackRow; perm: Permission }) {
         <input type="checkbox" checked={on} disabled={busy || !p.installed} onChange={(e) => flip(e.target.checked)} data-testid="pm-grant" data-name={perm.name} />
         {perm.name}
       </label>
-      <span className="muted">{perm.needed_by.length ? perm.needed_by.join(", ") : "its own code"}</span>
+      <span className="muted" data-testid="pm-perm-what">
+        {perm.what ? `${perm.what}: ` : ""}{perm.needed_by.length ? perm.needed_by.join(", ") : "its own code"}
+      </span>
       <span className="mono pm-perm-state">{perm.granted ? "granted" : p.enabled ? "not granted" : picked ? "picked" : "not granted"}</span>
     </li>
   );

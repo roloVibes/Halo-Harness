@@ -2,9 +2,9 @@
 ComfyUI routes (`/api/media/...`) over tests/helpers/fake_comfy.py -- status
 (reachable, version, GPU, cache age; an unreachable server answers within
 the wait cap), models after a scan, workflows (starters + saved), a
-workflow's inputs, a render -> 202 with `media_render` frames on
-/api/events and the artboard in the design project, `.mp4` served as
-video/mp4 without the sandbox -- and the sessions routes over a real
+workflow's inputs, a render through the design pack's route (3.3.13.0 R2) -> 202 with
+its `pack_live` frames on /api/events and the artboard in the design project, `.mp4` served
+as video/mp4 without the sandbox -- and the sessions routes over a real
 ControlServer and the fake session (tests/helpers/remote_rig.py): the list
 (public fields, a status, never a token), an approval card answered with
 `POST sessions/<sid>/command`, the 404, 422 and 502 answers.
@@ -77,39 +77,49 @@ def test_media_status_models_workflows_inputs(ctx: Ctx):
 
 
 @test
-def test_media_render_lands_an_artboard_and_streams_frames(ctx: Ctx):
-    from halo_harness.design.store import Project
+def test_the_design_packs_render_lands_an_artboard_and_streams_frames(ctx: Ctx):
+    """3.3.13.0 R2: the render route is the design pack's (`POST /api/packs/design/design/render`), over the same
+    ComfyUI client (ext.host.comfy) and its live frames are the pack's (`pack_live`, kind `render`)."""
+    from halo_harness.ext import data_dir
+    from tests.helpers import design_pack as DP
+    Project = DP.module("server/store.py").Project
     with MediaStudio() as s:
-        p = Project.create("media render test", state_dir=s.state)
+        DP.enable(s.state, cwd=s.repo)
+        p = Project.create("media render test", state_dir=Path(data_dir("design")))
         rd = Reader(f"{s.base}/api/events?t={s.srv.token}&sessions=all")
+        route = "packs/design/design/"
+        live = lambda state: (lambda k, f: k == "pack_live" and f["data"].get("kind") == "render"  # noqa: E731
+                              and (f["data"].get("data") or {}).get("state") == state)
         try:
-            ctx.check("a missing project is a 404", s.post("media/render", {"workflow": "text-to-image-qwen",
-                                                                             "project": "nope"})[0] == 404)
-            ctx.check("a path as workflow is a 422", s.post("media/render", {"workflow": "../x", "project": p.slug})[0] == 422)
+            ctx.check("a missing project is a 404", s.post(route + "render", {"workflow": "text-to-image-qwen",
+                                                                               "project": "nope"})[0] == 404)
+            ctx.check("a path as workflow is a 422", s.post(route + "render", {"workflow": "../x", "project": p.slug})[0] == 422)
             body = {"workflow": "text-to-image-qwen", "project": p.slug, "artboard": "hero", "poll_s": 0.01,
                     "set": {"prompt": "a lighthouse", "width": 64, "height": 64, "seed": 7}}
-            status, out = s.post("media/render", body)
+            status, out = s.post(route + "render", body)
             pid = out.get("prompt_id", "")
             ctx.check(f"render is a 202 with the prompt id, got {status} {out}", status == 202 and pid.startswith("fake-"))
-            done = rd.wait(lambda k, f: k == "media_render" and f["data"].get("state") == "done", 15)
-            ctx.check(f"a done media_render frame for media:<pid>, got {done}", done is not None
-                      and done["session_id"] == f"media:{pid}" and done["data"]["artboards"][0]["id"] == "hero")
+            done = rd.wait(live("done"), 15)
+            data = (done or {}).get("data", {}).get("data") or {}
+            ctx.check(f"a done render frame of the pack for the prompt, got {done}", done is not None
+                      and data.get("prompt_id") == pid and data["artboards"][0]["id"] == "hero")
             ctx.check("the prompt reached the graph", s.comfy.prompts[-1]["graph"]["4"]["inputs"]["prompt"] == "a lighthouse")
             d = p.artboard_dir("hero")
             ctx.check("render.png and source.json in the artboard", (d / "render.png").read_bytes()[:4] == b"\x89PNG"
                       and '"comfyui"' in (d / "source.json").read_text(encoding="utf-8"))
             ctx.check("the artboard is registered and versioned", any(a["id"] == "hero" and a["latest"] == 1 for a in p.artboards()))
-            status, row = s.get(f"media/renders/{pid}")
+            status, row = s.get(route + f"renders/{pid}")
             ctx.check(f"renders/<pid> keeps the last state, got {row}", status == 200 and row["state"] == "done")
-            s.post("media/render", dict(body, set=dict(body["set"], prompt="__fail__")))
-            err = rd.wait(lambda k, f: k == "media_render" and f["data"].get("state") == "error", 15)
-            ctx.check(f"a failed render publishes an error frame, got {err and err['data']['text']}", err is not None)
+            s.post(route + "render", dict(body, set=dict(body["set"], prompt="__fail__")))
+            err = rd.wait(live("error"), 15)
+            ctx.check(f"a failed render publishes an error frame, got {err}", err is not None)
+            ctx.check("the core has no render route any more", s.post("media/render", body)[0] == 404)
         finally:
             rd.close()
         vid = p.artboard_dir("clip")
         vid.mkdir(parents=True)
         (vid / "render.mp4").write_bytes(b"\x00\x00\x00\x18ftypmp42")
-        with urllib.request.urlopen(f"{s.base}/design-files/{p.slug}/clip/render.mp4", timeout=10) as r:
+        with urllib.request.urlopen(f"{s.base}/api/{route}_files/{p.slug}/clip/render.mp4?t={s.srv.token}", timeout=10) as r:
             ctx.check(f"an .mp4 is served as video/mp4 with no sandbox, got {r.headers['Content-Type']} "
                       f"{r.headers['Content-Security-Policy']}", r.headers["Content-Type"] == "video/mp4"
                       and "sandbox" not in r.headers["Content-Security-Policy"])

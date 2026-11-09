@@ -72,9 +72,11 @@ def _module_ok(pack, rel: str, state_dir) -> "tuple[bool, str]":
     from halo_harness.packs import state as S
     from halo_harness.packs import studio_rules as R
     from halo_harness.packs.studio_registry import grant_line
+    from halo_harness.packs.studio_view_rules import view_of  # 3.3.13.0 R2: a section's view is a module too
     sources = {Path(str(p.get("source") or "")).as_posix() for _k, _s, p in R.panels_of(pack.manifest) if p.get("kind") == "bundle"}
+    sources |= {Path(view_of(s)).as_posix() for s in R.sections_of(pack.manifest) if view_of(s)}
     if Path(rel).as_posix() not in sources:
-        return False, f"{rel} is not a bundle panel's source in {pack.id}'s pack.yaml"
+        return False, f"{rel} is not a bundle panel's source or a section's view in {pack.id}'s pack.yaml"
     if R.SCRIPT not in S.granted(pack.id, S.load(state_dir)):
         return False, f"{pack.id}'s Studio script runs once you grant it: {grant_line(pack.id)}"
     return True, ""

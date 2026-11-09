@@ -114,7 +114,7 @@ def test_subcommands_includes_update_and_setup(ctx: Ctx):
     from halo_harness.completion_cli import SUBCOMMANDS
     for name in ("update", "setup"):
         ctx.check(f"{name!r} is in SUBCOMMANDS, got {SUBCOMMANDS}", name in SUBCOMMANDS)
-    for name in ("org", "paperclip", "flow", "postiz"):
+    for name in ("org", "paperclip", "flow", "postiz", "design"):  # design: 3.3.13.0 R2, the design pack's
         ctx.check(f"{name!r} is not in SUBCOMMANDS", name not in SUBCOMMANDS)
 
 

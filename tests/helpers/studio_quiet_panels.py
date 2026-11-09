@@ -1,10 +1,10 @@
 """tests.helpers.studio_quiet_panels -- "Quiet Studio" round R3 (Halo 3.3.2.0): quieter panels, one thing per
 section, a density setting. Real clicks and keys in headless Chrome at 1280 x 800 over capture_studio's seeded
-home (plus tools/design_demo's project so Design draws its panels); no provider request, no model call.
+home; no provider request, no model call.
 
     python -m tests.helpers.studio_quiet_panels [--shots DIR]
 
-defaults: each of the seven panel sections (Session, Team, Roles, Fleet, Design, Orchestra, Packs) on a fresh
+defaults: each of the six panel sections (Session, Team, Roles, Fleet, Orchestra, Packs; Design is a pack's) on a fresh
 browser (localStorage cleared, `view=workspace`): the primary panel's box over the stage, the other panels'
 state (strips at the foot), the focused ornament (one `.panel.focused`, one set of HUD brackets, one mono data
 line), no about line anywhere; with --shots a PNG per section.
@@ -32,7 +32,7 @@ from tests.helpers.studio_header_menus import more  # noqa: E402
 from tests.helpers.studio_packs_steps import CUR, mod_key, q, qa  # noqa: E402
 
 PRIMARY = [("session", "Session", "session-live"), ("team", "Team", "team-board"), ("roles", "Roles", "roles-graph"),
-           ("fleet", "Fleet", "fleet-map"), ("design", "Design", "design-artboards"), ("orchestra", "Orchestra", "graph"),
+           ("fleet", "Fleet", "fleet-map"), ("orchestra", "Orchestra", "graph"),
            ("packs", "Packs", "pm-installed")]
 RECT = "((e) => { const r = e.getBoundingClientRect(); return [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height)]; })"
 COVER = ("((p) => { const a = RECT(document.querySelector('[data-panel=\"' + p + '\"] .panel')), s = RECT(document.querySelector('.stage'));"
@@ -168,9 +168,7 @@ class QuietPanelsDriver(Driver):
     @contextmanager
     def session(self, c):
         from capture_studio import seeded_home, serve
-        from design_demo import seed
         state = seeded_home()
-        seed(state)  # a Design project: the section draws its panels, not its Start view
         srv, url = serve(state, True)
         shots = self.argv[self.argv.index("--shots") + 1] if "--shots" in self.argv else ""
         ctx = {"state": state, "srv": srv, "base": url.split("?", 1)[0], "frag": url.split("#", 1)[1], "shots": shots}

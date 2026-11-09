@@ -47,16 +47,15 @@ this list against the tree.
   target: Session on a session or any section, for `/studio` and `halo studio
   --session`; this harness's live sessions; the served page's
   `data-live-session` mark)
-- Design: `studio/design_api.py` (the routes, a turn, comments, knobs, the
-  direct edit), `studio/design_artboards_api.py` (one artboard: versions,
-  restore, contrast, rename, delete), `studio/design_assets_api.py` (the
-  assets folder), `studio/design_critique_api.py` (variants and the critique),
-  `studio/design_system_api.py` (the design system and its sync),
-  `studio/design_export_api.py` (exports and the handoff),
-  `studio/design_request.py` (the lookups every route shares),
-  `studio/design_turns.py` (the live turns), `studio/design_api_edit.py` (the
-  text picker script), `studio/design_files.py` (the raw artboard files)
-- Media: `studio/media_api.py`, `studio/media_render.py`
+- a pack's own routes (3.3.13.0 R2, extension API 1.2): `studio/packs_routes.py` (imports a pack's routes module
+  through its folder as `halo_packs.<id>`, answers `/api/packs/<id>/<prefix>/...`, its body limit, the doctor row),
+  `studio/modes.py` (the words `--mode` and `/studio` take: a core section or `<pack>--<section>`),
+  `packs/studio_view_rules.py` (a section's `view` and the `routes` block), `ext/host.py` (the Halo services a
+  pack's routes call: the models a task ranks, the media models, the MCP servers and a probe of one, a fetch, the
+  `halo` command, the ComfyUI client), `ext/testing_studio.py` (`testing.studio`: a live Studio in a scratch home
+  with the pack linked and granted) and `packs/test_run_studio.py` (`halo pack test`'s views, routes ping and the
+  pack's own tests); Design's routes are the design pack's `server/` since then (halo_harness/templates/packs/design/)
+- Media: `studio/media_api.py`
 - Orchestra: `studio/orchestra_api.py`, `studio/orchestra_plan_api.py`,
   `studio/orchestra_model.py`, `studio/orchestra_live.py`
 - the supervisor's morning line (3.1.8.0 R1): `studio/supervise_api.py`

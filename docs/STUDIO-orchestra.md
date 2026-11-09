@@ -6,7 +6,7 @@ Part of [Halo Studio](STUDIO.md), which lists every part.
 
 ## Orchestra: the run console
 
-`Alt+6` (or `?mode=orchestra`) is the console for [Orchestra](ORCHESTRA.md)
+`Alt+5` (or `?mode=orchestra`) is the console for [Orchestra](ORCHESTRA.md)
 runs in the git repo that holds Studio's folder (`halo studio` started
 there, or `--cwd`). It opens on the newest run.
 

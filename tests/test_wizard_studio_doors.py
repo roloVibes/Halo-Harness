@@ -91,8 +91,8 @@ def test_launch_finds_a_running_studio_and_stop_reports_none(ctx: Ctx):
     port = srv.getsockname()[1]
     try:
         info.write_text(json.dumps({"pid": 1, "port": port, "token": "abc"}), encoding="utf-8")
-        url = existing_url(state, "design")
-        ctx.check(f"a live port gives the URL with the mode and token, got {url!r}", url == f"http://127.0.0.1:{port}/?mode=design#t=abc")
+        url = existing_url(state, "fleet")
+        ctx.check(f"a live port gives the URL with the mode and token, got {url!r}", url == f"http://127.0.0.1:{port}/?mode=fleet#t=abc")
         ctx.check("read_info reads it", read_info(state)["port"] == port)
     finally:
         srv.close()

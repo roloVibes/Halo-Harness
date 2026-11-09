@@ -6,8 +6,9 @@
     POST media/scan                         {rows, workflows, scanned}  (a rescan of the server into the cache)
     GET  media/workflows                    {workflows: [{name, source: starter|saved}], reachable}
     GET  media/workflows/<name>/inputs      {workflow, source, label, nodes}  (comfy_graph.describe_inputs)
-    POST media/render {workflow, set, project, artboard}   -> 202 {prompt_id, project, artboard}
-    GET  media/renders/<prompt id>          the render's last state (the `media_render` frames' data)
+
+(3.3.13.0 R2: a render into a design project -- `media/render`, `media/renders/<id>` -- is the design pack's route
+`render` now; ext/host.py `comfy()` queues it through this module's client and graph.)
 
 `media/status` never holds a request thread for more than `STATUS_WAIT_S`:
 a background thread refreshes the answer (`system_stats`, 2 s timeout) when
@@ -174,45 +175,9 @@ def get_inputs(req):
     return 200, {"workflow": req.params["name"], "source": source, "label": label, "nodes": nodes}
 
 
-def post_render(req):
-    from halo_harness.design.store import Project
-    from halo_harness.media import comfy_ops
-    from halo_harness.media.comfy_client import ComfyError
-    from halo_harness.studio import media_render as R
-    body = req.body
-    workflow, slug = str(body.get("workflow") or "").strip(), str(body.get("project") or "").strip()
-    if not workflow or "/" in workflow or "\\" in workflow:
-        return _bad("say which workflow: a starter or a saved name")
-    sets = body.get("set") if isinstance(body.get("set"), dict) else {}
-    project = Project.open(slug, state_dir=req.state_dir) if slug else None
-    if project is None:
-        return 404, {"error": f"no design project {slug!r}: make it in Design first"}
-    artboard = str(body.get("artboard") or "render").strip() or "render"
-    client = _client()
-    try:
-        graph, source, label = _graph(client, workflow, str(body.get("source") or ""))
-        pid = client.queue_prompt(comfy_ops.build_graph(client, graph, sets, cwd=req.cwd))
-    except ComfyError as e:
-        return (404 if e.status == 404 else 502), {"error": str(e)}
-    publish = None
-    if req.server is not None:
-        from halo_harness.studio.events import bridge_for
-        publish = bridge_for(req.server).publish_local
-    R.start(client, project, pid=pid, workflow=workflow, sets=sets, artboard=artboard, publish=publish,
-            poll_s=float(body.get("poll_s") or 1.0) if isinstance(body.get("poll_s"), (int, float)) else 1.0)
-    return 202, {"prompt_id": pid, "project": project.slug, "artboard": artboard, "workflow": workflow, "source": source}
-
-
-def get_render(req):
-    from halo_harness.studio import media_render as R
-    row = R.render_state(req.params["pid"])
-    return (200, row) if row else (404, {"error": f"no render {req.params['pid']!r} in this Studio"})
-
-
 ROUTES = [
     ("GET", r"^media/status$", get_status), ("GET", r"^media/models$", get_models), ("POST", r"^media/scan$", post_scan),
     ("GET", r"^media/workflows$", get_workflows), ("GET", r"^media/workflows/(?P<name>[^/]+)/inputs$", get_inputs),
-    ("POST", r"^media/render$", post_render), ("GET", r"^media/renders/(?P<pid>[A-Za-z0-9_.-]+)$", get_render),
 ]
 
 

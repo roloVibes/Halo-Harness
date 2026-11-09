@@ -10,7 +10,7 @@ the live feed on. No provider request, no model call:
    the Start here overlay leads with "Set up this box", its Run's 422 opens
    Setup, and a page with no `?mode=` opens on Setup whatever was saved;
 
-1. `?mode=setup` opens Setup; Alt+8 (from Roles) opens it too: Setup is the
+1. `?mode=setup` opens Setup; Alt+7 (from Roles) opens it too: Setup is the
    eighth tab, its strip names the provider, model, lineup, mode and theme,
    the rail lists the steps (3.3.1.0 R1: one page each; every step below opens
    its block's page first with `goto`, tests/helpers/studio_setup_pages.py);
@@ -116,8 +116,8 @@ def section(c, url, ctx) -> dict:
     c.wait(f"{TABS}.length >= 8 && {CUR}.startsWith('Roles')", 40)
     out = {"tabs": c.js(f"{TABS}.map((t) => t.querySelector('.tab-label').textContent)"),
            "kbds": c.js(f"{TABS}.map((t) => t.dataset.kbd || '')")}  # 3.3.2.0 R1: the icon rail keeps the key as data-kbd
-    alt(c, 8)
-    out["alt8"] = c.wait(f"{CUR}.startsWith('Setup') && {CUR}", 15)
+    alt(c, 7)
+    out["alt7"] = c.wait(f"{CUR}.startsWith('Setup') && {CUR}", 15)
     c.wait(f"!!{q('[data-testid=setup-strip-cell]')} && !!{q('[data-testid=setup-rail-step]')}", 30)
     out["strip"] = c.js(STRIP)
     out["later"] = c.js(qa("[data-testid=setup-later]") + ".map((p) => [p.dataset.block, p.textContent])")

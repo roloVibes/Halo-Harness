@@ -1,4 +1,4 @@
-// Local (Alt+0, 3.3.5.0 R1, plans/ROADMAP.md "3.3.5.0 becomes Local"): the
+// Local (Alt+9, 3.3.5.0 R1, plans/ROADMAP.md "3.3.5.0 becomes Local"): the
 // machines that serve models and the models they serve, in one tab. Paged like
 // Setup and Settings: the page rail on the left (LocalRail.tsx), one page on the
 // right (LocalPage.tsx): Resources (the live strip per host and the traffic
@@ -8,7 +8,9 @@
 // workspace, nothing to move or Arrange, and nothing opens on its own; the page
 // lands on Resources or the page last open (pages.ts), a door's `?page=` on that
 // page (door.ts). Fleet's Ollama panel stays the short form and links here.
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
+import { Workspace } from "../../lib/workspace/Workspace";
+import { mediaPanels } from "../media/MediaPanels";
 import { LocalPage } from "./LocalPage";
 import { LocalRail } from "./LocalRail";
 import { startJobs } from "./jobs";
@@ -25,11 +27,17 @@ export function LocalView() {
     adoptRemembered();
     void loadHosts();
   }, []);
+  // 3.3.13.0 R2: the Media panels (ComfyUI: status, models, workflows), Design's optional panels before; the "+" menu
+  // or the palette's Media lines add one, floating over the page (a layer that takes no click but its panels')
+  const media = useMemo(() => mediaPanels(0), []);
   return (
     <div className="lc-room" data-testid="local-room">
       <LocalRail />
       <div className="lc-scroll">
         <LocalPage />
+      </div>
+      <div className="lc-floats" data-testid="local-floats">
+        <Workspace section="local" specs={media} />
       </div>
     </div>
   );

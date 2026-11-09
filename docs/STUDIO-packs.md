@@ -6,8 +6,8 @@ Part of [Halo Studio](STUDIO.md), which lists every part.
 
 ## Packs: the Pack Manager (3.2.0.0 R6)
 
-Packs (`Alt+7`) is Studio's seventh core section, appended after the six,
-which keep their keys. It is the place to find a pack, read what it brings and
+Packs (`Alt+6`) is one of Studio's nine core sections (3.3.13.0 R2: one key up since Design
+left the core for the design pack). It is the place to find a pack, read what it brings and
 asks for, and run its whole lifecycle -- install, grant, enable, settings,
 templates, update, remove -- without a terminal. Every button runs the same
 function `halo pack` runs ([COMMANDS-packs.md](COMMANDS-packs.md)) and the

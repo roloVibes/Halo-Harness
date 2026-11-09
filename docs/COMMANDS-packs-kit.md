@@ -34,7 +34,7 @@ The parts to write, comma separated, one working example each: `agents` (two bio
 PostToolUse hook that appends a line to the pack's data folder), `mcp` (a stdio server with one tool), `events` (a kind,
 its schema and a sample), `artifacts` (a schema and a sample), `workflows` (two stages, both roles, ending in the
 artifact; it brings agents, artifacts and skills), `studio` (a section with a markdown panel, a table over
-`data:rows.json` and a bundle panel), `bundle` (a `bundle:` block), `fleet` (a capability and an inspector line),
+`data:rows.json` and a bundle panel, and a page of its own over its own routes: `studio/page.js`, `server/routes.py`), `bundle` (a `bundle:` block), `fleet` (a capability and an inspector line),
 `policy` (a policy hook and its mode), `modes`, `setup` (a form, a check and a note), `themes` (a palette of the
 pack's own; this Halo reads it from 3.3.12.0 R2) and `integration` (an open-source tool wrapped: `requires:` rg, a
 command, an MCP server and a hook that use it). A word that is no kind is a usage line naming them.
@@ -87,7 +87,10 @@ bio or a policy of the pack names present) and stops; each event and artifact sc
 source is there with the right type and a bundle module exports `mount` (and passes `node --check` when node is here);
 each policy answers in shape for a call its `when.tools` names and is not asked about one it does not; each mode turns
 on and off, read back; each Setup check runs green; each theme meets the contrast pins; the bundle block and a fake 24
-GB card; each fleet capability; each requirement.
+GB card; each fleet capability; each requirement. 3.3.13.0 R2 (extension API 1.2): a section's view is there and
+exports `mount`; the routes module imports through the pack's folder and answers `GET <prefix>/ping` in shape (a status
+below 500); and, when no `--kinds` narrows the run, each of the pack's own `tests/test_*.py` runs as `python -m
+tests.<name>` from its folder in a fresh scratch home and passes on exit 0 (the design pack's nine do).
 
 A part that needs the network (an http hook, an MCP server by url), a model (a prompt hook) or a program not on this
 machine (a hook's or a server's command, a requirement `used_by` names) is skipped with one line saying why. A doctor

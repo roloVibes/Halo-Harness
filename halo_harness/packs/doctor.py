@@ -120,6 +120,8 @@ def problems(*, cwd=None, state_dir=None) -> "list[dict]":
             out += [_p(pack.id, r["severity"], r["check"], r["text"], r["fix"], r["path"]) for r in need_rows(pack)]
             from halo_harness.packs.setup_state import doctor_rows as setup_rows  # 3.3.11.0 R3: a Setup block waiting
             out += [_p(pack.id, r["severity"], r["check"], r["text"], r["fix"], r["path"]) for r in setup_rows(pack, state_dir)]
+            from halo_harness.packs.studio_view_rules import doctor_rows as route_rows  # 3.3.13.0 R2: a route failed
+            out += [_p(pack.id, r["severity"], r["check"], r["text"], r["fix"], r["path"]) for r in route_rows(pack)]
         from halo_harness.packs.policy_views import doctor_rows as policy_rows  # 3.3.10.0 R1: mode.json vs the manifest
         out += [_p(pack.id, r["severity"], r["check"], r["text"], r["fix"], r["path"]) for r in policy_rows(pack, state_dir)]
         from halo_harness.packs.deprecations import deprecated_rows  # 3.2.0.0 R7: an ext name announced for removal

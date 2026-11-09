@@ -30,6 +30,16 @@ contributes:
             w: 24
             h: 20
             help: studio/view.js draws this panel; it runs once the owner grants studio-script.
+      - id: page
+        title: __NAME__ page
+        blurb: A whole page the pack draws itself
+        help: |-
+          studio/page.js draws this section's whole page with Studio's own React and parts (api.lib), and asks the
+          pack's own routes (server/routes.py, under /api/packs/__ID__/__ID__/) for its data. It runs once the owner
+          grants studio-script and studio-routes.
+        view: {bundle: studio/page.js}
+    routes: {module: server/routes.py, prefix: __ID__}
     palette:
       - {id: open-notes, label: "__NAME__: open the notes", action: "route:home/notes"}
-permissions: [studio-script]
+      - {id: open-page, label: "__NAME__: open its page", action: "route:page"}
+permissions: [studio-script, studio-routes]

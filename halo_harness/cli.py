@@ -283,11 +283,11 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="halo", add_help=True,
         description="halo - starts an interactive session by default, use -p/--print for non-interactive output",
-        epilog="Commands: init, start, explain, studio, design, media, orchestra, work, team, teams, agents, roles, models, mcp, proxy, "
-               "config, doctor, update, stats, review, preflight, audit, improve, export, session, "
+        epilog="Commands: init, start, explain, studio, media, orchestra, work, team, teams, agents, roles, models, mcp, proxy, "
+               "config, doctor, update, stats, review, preflight, audit, improve, export, session, pack, "
                "completion (run `halo <command> --help`; `halo init` opens Studio's Setup to set up a fresh box; `halo init --terminal` is the terminal wizard). "
-               "The GUI: `halo studio --mode roles|design` -- lineups and agent bios as a graph, "
-               "designs on artboards; in the TUI, /roles and /design.",
+               "The GUI: `halo studio --mode roles` -- lineups and agent bios as a graph; "
+               "in the TUI, /studio and /roles. Design is a pack: halo pack install design.",
     )
     try:
         parser._positionals.title = "Arguments"
@@ -589,10 +589,10 @@ def _main(argv: Optional[list] = None) -> int:
     if argv and argv[0] == "workflow":  # 3.2.0.0 R5: a pack's workflows, compiled to Orchestra runs (docs/WORKFLOWS.md)
         from halo_harness.workflows.cli import cmd_workflow
         return cmd_workflow(argv[1:])
-    if argv and argv[0] == "design":
-        # 3.0.1.0: Halo Design -- projects, turns, systems, exports, the handoff.
-        from halo_harness.design.cli import cmd_design
-        return cmd_design(argv[1:])
+    if argv and argv[0] == "design":  # 3.3.13.0 R2: Design is the design pack's (studio/modes.py MOVED)
+        from halo_harness.studio.modes import moved_line
+        print(f"halo design: {moved_line('design')}", file=sys.stderr)
+        return 2
     if argv and argv[0] == "media":
         # 3.0.4.0: ComfyUI as the eighth craft app (init, doctor, serve, inspect, models, workflows).
         from halo_harness.media.cli import cmd_media

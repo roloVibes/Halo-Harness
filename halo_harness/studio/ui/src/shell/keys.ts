@@ -1,6 +1,6 @@
-// Global keys: Alt+1..9 (and the tenth, Local Alt+0) switch sections in the registry's order (routes/index.tsx SECTIONS; 3.1.6.0 R6:
-// Session Alt+1 ... Orchestra Alt+6; 3.2.0.0 R6: Packs Alt+7; 3.3.0.0 R1: Setup Alt+8; 3.3.3.0 R2: Settings Alt+9; 3.3.5.0 R1:
-// Local Alt+0, the tenth slot; a pack's own section by its rail row), Ctrl/Cmd+K toggles the palette,
+// Global keys: Alt+1..9 switch sections in the registry's order (routes/index.tsx SECTIONS; 3.1.6.0 R6: Session Alt+1;
+// 3.3.13.0 R2: Orchestra Alt+5, Packs Alt+6, Setup Alt+7, Settings Alt+8, Local Alt+9, and the tenth slot, the design pack's
+// section when it is the first pack section, Alt+0; the other pack sections by their rail row), Ctrl/Cmd+K toggles the palette,
 // `?` (Shift+/) opens "How this works" for the section (a focused panel
 // takes `?` first for its own help), Esc closes the palette, then the
 // Inspector. A key a panel, a menu or a dialog already handled (its default

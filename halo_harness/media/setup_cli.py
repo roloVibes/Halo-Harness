@@ -29,9 +29,12 @@ def server_entry(url: str) -> dict:
 
 
 def registered_entry(cwd: Optional[Path] = None) -> Optional[dict]:
-    try:
-        from halo_harness.design.crafts_probe import craft_server_entries
-        return craft_server_entries(cwd=cwd).get(SERVER_NAME)
+    try:  # 3.3.13.0 R2: read straight from the session's MCP config (the Design crafts probe went to the design pack)
+        import os
+        from halo_harness.config.claude_json import load_claude_json, mcp_servers_for
+        servers = mcp_servers_for(Path(cwd or os.getcwd()), load_claude_json())
+        raw = next((v for k, v in servers.items() if str(k).lower() == SERVER_NAME), None)
+        return raw if isinstance(raw, dict) else None
     except Exception:
         return None
 

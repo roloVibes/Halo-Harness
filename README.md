@@ -193,34 +193,34 @@ it; Save writes the lineup's YAML and Apply makes it the lineup new sessions use
 [Roles](docs/STUDIO-sections.md#roles) and
 [the canvas](docs/STUDIO-team-roles.md#what-you-see-roles).
 
-### Ten sections, one window
+### Nine sections, one window
 
-<a href="docs/media/studio-modes.png"><img alt="Halo Studio's ten sections side by side, each under its key: Session (Alt+1), Team (Alt+2), Roles (Alt+3), Fleet (Alt+4), Design (Alt+5), Orchestra (Alt+6), Packs (Alt+7), Setup (Alt+8), Settings (Alt+9) and Local (Alt+0)" src="docs/media/studio-modes.png" width="100%"></a>
+<a href="docs/media/studio-modes.png"><img alt="Halo Studio's nine sections side by side, each under its key: Session (Alt+1), Team (Alt+2), Roles (Alt+3), Fleet (Alt+4), Orchestra (Alt+5), Packs (Alt+6), Setup (Alt+7), Settings (Alt+8) and Local (Alt+9)" src="docs/media/studio-modes.png" width="100%"></a>
 
-`Alt+1` to `Alt+6` switch between **Session**, **Team**, **Roles**, **Fleet**,
-**Design** and **Orchestra**. Each section opens on a Start view that says what it is for,
+`Alt+1` to `Alt+5` switch between **Session**, **Team**, **Roles**, **Fleet** and
+**Orchestra**. Each section opens on a Start view that says what it is for,
 its panels sit in labelled group boxes you move and resize, `Ctrl`/`Cmd`+`K` opens the
 command palette and `?` opens "How this works". `halo studio` serves it on loopback only,
 with a per-launch token: no account, no CDN, no fonts fetched, no analytics.
 
-The seventh, **Packs** (`Alt+7`), is the Pack Manager: it lists the packs in the places
-you trust (the folders and git urls of `packs.sources`, and the Documentation Review pack
-Halo ships), shows what each brings and asks for, and installs, grants, enables, sets up,
+The sixth, **Packs** (`Alt+6`), is the Pack Manager: it lists the packs in the places
+you trust (the folders and git urls of `packs.sources`, and the packs Halo ships: Documentation
+Review, Concord and Design), shows what each brings and asks for, and installs, grants, enables, sets up,
 updates and removes them through the same code as `halo pack`. An enabled pack's own
-section comes after the core sections. See [docs/STUDIO-packs.md](docs/STUDIO-packs.md) and
+section comes after the core sections (the first pack section takes `Alt+0`). See [docs/STUDIO-packs.md](docs/STUDIO-packs.md) and
 [docs/PACKS.md](docs/PACKS.md).
 
-The eighth, **Setup** (`Alt+8`, 3.3.0.0), is this box's setup on one page: the terminal wizard's blocks
+The seventh, **Setup** (`Alt+7`, 3.3.0.0), is this box's setup on one page: the terminal wizard's blocks
 (the providers, local models, the default model, the permission mode, the terminal theme, the lineup,
 the Linux fixes when a box needs them, and the five checks) as forms you fill in any order, each saving the
 key `halo init --terminal` and `halo config set` write; `halo init` opens it, and so does a home with no provider set up. See [docs/STUDIO-setup.md](docs/STUDIO-setup.md).
 
-The ninth, **Settings** (`Alt+9`, 3.3.3.0), is every key of `~/.halo/config.json` on one page per group:
+The eighth, **Settings** (`Alt+8`, 3.3.3.0), is every key of `~/.halo/config.json` on one page per group:
 each key a row with its help line, its value against its default, Reset to default and the exact
 `halo config set` line; a change saves at once and says when it takes effect, and a search finds a key
 across every group. `halo settings fleet` opens its Fleet page. See [docs/CONFIG.md](docs/CONFIG.md).
 
-The tenth, **Local** (`Alt+0`, 3.3.5.0), is the machines that serve your local models and the models they serve:
+The ninth, **Local** (`Alt+9`, 3.3.5.0), is the machines that serve your local models and the models they serve:
 this machine's GPU, VRAM, RAM and CPU live, every call to a local server as it happens, every host Halo knows with
 Load, Unload and Make it fit, and every installed model with its card, its fit meter and an intent filter (code,
 chat, long documents, images, embed). `halo local` opens it. See [docs/STUDIO-local.md](docs/STUDIO-local.md).
@@ -255,7 +255,7 @@ it cost. See [docs/FLEET.md](docs/FLEET.md) and [docs/MISSIONS.md](docs/MISSIONS
 
 ### Orchestra: agents writing the same files
 
-Press `Alt+6`. Several agents write to the same files at once and nothing is lost: a lead
+Press `Alt+5`. Several agents write to the same files at once and nothing is lost: a lead
 splits your goal into lanes, one worker per lane writes its part in its own git worktree,
 and code owns the claims, the merge order, the tests and the gate; a model judges only
 when two pieces conflict. With **Review the plan before it runs**, the lead's lanes open
@@ -275,14 +275,15 @@ underneath with who holds which part and what changed. See [docs/TEAM.md](docs/T
 
 <a href="docs/media/studio-team.png"><img alt="Studio's Team section: draft done, review waiting at its gate with the gate card open, the notes block held by a hand edit, the gate card and the change feed beside the board" src="docs/media/studio-team.png" width="100%"></a>
 
-### Design: on your own apps
+### Design: a pack Halo ships
 
-Press `Alt+5` (or run `halo design`) and the canvas holds artboards: prototypes, pages,
+Design is the **design pack** since 3.3.13.0: `halo pack install design`, then `halo pack enable design --grant-all`,
+and the design pack's section (the first pack section, `Alt+0`, or `/design`) holds artboards: prototypes, pages,
 decks and logos made by a real Halo turn, with the [ArtCraft](https://getartcraft.com/apps)
 apps on your machine as its tools when they are registered, and a new version on every
 turn. Refine by chat, pinned comments, direct text edits and knobs; export a folder,
 HTML, PNG, SVG or PDF, or hand it off to the next session. See
-[docs/DESIGN.md](docs/DESIGN.md).
+[the design pack](halo_harness/templates/packs/design/README.md).
 
 <a href="docs/media/studio-design.png"><img alt="Studio's Design section: a hero prototype and a VectorCraft logo mark as artboards, knobs and comments in the panel" src="docs/media/studio-design.png" width="100%"></a>
 
@@ -360,7 +361,7 @@ tool, so check each tool's own docs.
 | Permissions | Auto mode allows everything except your own deny/ask rules and hooks | Commonly a built-in approval policy of the tool's own |
 | MCP | stdio/HTTP/SSE from every Claude Code scope, `/mcp` with failure reasons and a deep dive, claude.ai connectors as tools | MCP support is common; diagnosis and connector bridging vary |
 | Sessions | Resume, rewind, `/tasks`, per-role cost attribution | Resume is common; the rest varies |
-| Design | `halo design` and Studio's Design section: artboards made by a Halo turn, with the ArtCraft apps as the model's tools | Not a thing most harnesses do |
+| Design | The design pack (`halo pack install design`): artboards made by a Halo turn, with the ArtCraft apps as the model's tools | Not a thing most harnesses do |
 
 ## Features
 
@@ -371,7 +372,7 @@ tool, so check each tool's own docs.
 | **The Roles glow** | Your lineup as cards in tier boxes. While a session runs, a card glows in its agent's state: working cyan, waiting amber, done green that fades over ten seconds, failed red until you click it. Hover the card and it explains its glow. |
 | **Fleet and missions** | Every harness on one map, one attention queue across all of them, and one goal split into parts by what each harness can do. |
 | **Orchestra** | Several agents write the same files at once: lanes in their own git worktrees, a plan you can review on a canvas, a gate that runs your test, and a coach that reads the run. |
-| **Packs** | An extension contract and `halo pack`: a pack adds bios, lineups, skills, commands, hooks and MCP servers through a manifest, with grants you set, and Studio's Pack Manager (`Alt+7`) installs, enables and removes them. |
+| **Packs** | An extension contract and `halo pack`: a pack adds bios, lineups, skills, commands, hooks and MCP servers through a manifest, with grants you set, and Studio's Pack Manager (`Alt+6`) installs, enables and removes them. |
 | **The Ollama steward** | A cheap model you pick watches the traffic of every local server across your halos, explains a failed call, plans what fits the card and makes Halo-side fixes only; a server change comes as the exact line to set. |
 | **Local, measured** | A probe battery per model per host, the speed card, tuning with a revert for every change, and a three-way search of the library (what a model declares, what is expected, what was verified here). |
 | **The host** | `halo host serve` on the machine that serves the models: peers read its card, models and log with no ssh and act through grants, one resident model per card, an off-hours refresh. |
@@ -381,7 +382,7 @@ tool, so check each tool's own docs.
 | **Your Claude Code setup, in place** | `~/.claude` settings, CLAUDE.md, skills, commands, agents, MCP servers and memory are read where they are. Nothing is configured twice. |
 | **Steering** | Type while a turn runs: the steer shows at once and reaches the work, a running command moves to the background instead of dying, sub-agents get your words forwarded into them. |
 | **A model per role** | YAML agent bios and lineups assign a model to each job: GLM can orchestrate while a local Qwen implements and a cheap flash model reviews. Pick one in the wizard, with `halo teams apply <lineup>`, or in Studio. |
-| **Halo Design** | `halo design` and Studio's Design section: a design project on disk, a turn with the craft apps as tools, knobs without a model call. |
+| **The design pack** | Studio's Design section as a pack Halo ships (3.3.13.0): a design project on disk, a turn with the craft apps as tools, knobs without a model call. |
 | **Per-model tool-call repairs** | Fourteen model families' quirks are repaired on the fly: Kimi's `functions.{name}:{idx}` ids, GLM's always-on thinking, Qwen's system-message rules, DeepSeek's reasoning echoes. Gateway quirks are learned once per model and remembered (`halo rules`). |
 | **Measured, not guessed** | `/stats` per model and per tool, price/context/speed columns in the picker, per-role cost attribution, and `halo preflight` canaries each lane before a long run. |
 | **Filter-aware routing** | A provider content filter is not an answer: a filtered reply never persists as one, and the request reroutes to a fallback lane you choose. |
@@ -420,7 +421,7 @@ line on when to read it. The longest docs are split by task; their entry pages b
 | [docs/VOICE.md](docs/VOICE.md) | Voice: talk to a session and hear it locally; its parts cover [the glasses](docs/VOICE-glasses.md) and [a box with no GPU](docs/VOICE-cpu.md) |
 | [docs/DATABRICKS.md](docs/DATABRICKS.md) | Databricks endpoints, API types and the work matrix |
 | [docs/AGENTS.md](docs/AGENTS.md) | Agent bios and lineups: the 90-second version, then the field reference |
-| [docs/DESIGN.md](docs/DESIGN.md) | Halo Design: the project on disk, a design turn, the craft apps, knobs, systems, exports, the handoff |
+| [the design pack](halo_harness/templates/packs/design/README.md) | Design: the project on disk, a design turn, the craft apps, knobs, systems, exports, the handoff (its docs/DESIGN.md) |
 | [docs/ROLES.md](docs/ROLES.md) | Roles and the role table |
 | [docs/PACKS.md](docs/PACKS.md) | Packs: add bios, lineups, skills, commands, hooks and MCP servers to Halo, or take them out again |
 | [docs/EXTENSION_API.md](docs/EXTENSION_API.md) | The extension API: the pack manifest, the lifecycle and what a pack may import |

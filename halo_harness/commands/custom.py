@@ -70,10 +70,15 @@ def _discover_dir(commands_dir: Path, *, source: str, name_prefix: Optional[str]
         entry = (name_prefix,) if name_prefix and name == name_prefix else ()
         if name_prefix:
             name = f"{name_prefix}:{name}"
+        studio = str(fm.get("studio") or "").strip() if name_prefix else ""  # 3.3.13.0 R2: opens the pack's section
+        if studio:
+            from halo_harness.commands.pack_studio import studio_run
+            run, kind = studio_run(name_prefix, studio), "core"
+        else:
+            run, kind = _make_run(body, _allowed_tools_list(fm)), "prompt"
         out.append(SlashCommand(
-            name=name, description=fm.get("description", "") or "", kind="prompt",
-            argument_hint=fm.get("argument-hint"), source="custom", path=path, aliases=entry,
-            run=_make_run(body, _allowed_tools_list(fm)),
+            name=name, description=fm.get("description", "") or "", kind=kind,
+            argument_hint=fm.get("argument-hint"), source="custom", path=path, aliases=entry, run=run,
         ))
     return out
 

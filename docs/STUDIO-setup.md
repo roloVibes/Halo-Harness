@@ -6,7 +6,7 @@ Part of [Halo Studio](STUDIO.md), which lists every part.
 
 ## Setup: the wizard's steps, one page at a time (3.3.0.0; pages since 3.3.1.0)
 
-**What it is.** This box's setup, `Alt+8` (`halo studio --mode setup`, `?mode=setup`, `/studio setup`): the
+**What it is.** This box's setup, `Alt+7` (`halo studio --mode setup`, `?mode=setup`, `/studio setup`): the
 terminal wizard's blocks (`halo init`) as pages, in the wizard's order. Every block writes what the wizard
 writes, through the wizard's own writers: settings in `~/.halo/config.json` (the same as `halo config set`),
 keys in the env file. The page reads the state again whenever config.json or a lineup moves on disk (a `halo

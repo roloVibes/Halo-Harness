@@ -9,8 +9,8 @@ Chrome through the driver base:
 (OpenRouter's cache shape), the role table's `main` on one of them and the
 default model on the other. Orchestra's Start view shows the select without
 opening the "who plays the parts" disclosure, its first option "the
-lineup's (<the lead's model>)"; Design's Projects panel shows the open
-project's model and changing it saves the project (`GET design/projects`);
+lineup's (<the lead's model>)"; the design pack's Projects panel (3.3.13.0 R2) shows
+the open project's model and changing it saves the project (its `GET projects` route);
 New project's dialog creates a project on the picked model.
 `team`: tests/helpers/studio_team_rig.py's team (no run): the `draft` stage
 says what it runs on (its lead member's card in the `standard` lineup) and
@@ -46,7 +46,7 @@ def seed_catalog(state: Path) -> None:
 
 
 def projects(c) -> str:
-    return f"(async () => (await (await fetch('/api/design/projects', {TOKEN})).json()).projects)()"
+    return f"(async () => (await (await fetch('/api/packs/design/design/projects', {TOKEN})).json()).projects)()"
 
 
 def forms(c, url: str, state: Path) -> dict:
@@ -58,7 +58,7 @@ def forms(c, url: str, state: Path) -> dict:
     pick(c, f"{OM}.querySelector('select')", ALPHA)
     out["orch_value"] = c.wait(f"{OM}.querySelector('select').value === {json.dumps(ALPHA)} && {OM}.dataset.value", 10)
     out["orch_summary"] = c.js("document.querySelector('details.og-more summary').textContent")
-    c.go(url.replace("mode=roles", "mode=design"))
+    c.go(url.replace("mode=roles", "mode=design--design"))  # 3.3.13.0 R2: the design pack's section
     out["design_value"] = c.wait(f"{PM} && ({PM}.dataset.value === '' ? 'default' : {PM}.dataset.value)", 25)
     # the first option names the inherited default once the catalog answer lands: on the Linux runner it still read
     # "(none resolves)" when read at once (a3a4d2e), so wait for the resolved name like `orch_first` does
@@ -104,13 +104,15 @@ class FormsDriver(Driver):
     @contextmanager
     def session(self, c):
         from capture_studio import seeded_home, serve
-        from halo_harness.design.store import Project
+        from halo_harness.ext import data_dir
         from halo_harness.theme import set_config_value
+        from tests.helpers import design_pack as DP
         state = seeded_home()
         seed_catalog(state)
         set_config_value("roles.main", BETA)
         set_config_value("model", ALPHA)
-        Project.create("Launch page", state_dir=state)
+        DP.enable(state, cwd=state.parent / "project")  # 3.3.13.0 R2: Design is the design pack's
+        DP.module("server/store.py").Project.create("Launch page", state_dir=Path(data_dir("design")))
         srv, url = serve(state, True)
         from tests.helpers.studio_full import full
         url = full(url)  # 3.3.2.0 R3: every panel open, the arrangement this driver works in

@@ -28,7 +28,8 @@ WHAT = {
     "events": "an event kind with its schema and a sample",
     "artifacts": "an artifact schema with a sample",
     "workflows": "a two-stage workflow that uses both roles and ends in the pack's artifact",
-    "studio": "a Studio section: a markdown panel, a table over data:rows.json and a bundle panel",
+    "studio": "a Studio section (a markdown panel, a table over data:rows.json, a bundle panel) and a page the pack "
+              "draws itself (a view with api.lib) over its own routes (server/routes.py)",
     "bundle": "a bundle: block -- the local model the pack keeps ready, its reservation and routing",
     "fleet": "a fleet capability with an inspector line",
     "policy": "a policy hook with its mode: it denies one sample call and allows another",

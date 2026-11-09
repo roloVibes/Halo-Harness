@@ -1,4 +1,4 @@
-// Packs (Alt+7, 3.2.0.0 R6): the Pack Manager, Studio's seventh core section.
+// Packs (Alt+6, 3.2.0.0 R6): the Pack Manager, Studio's sixth core section (3.3.13.0 R2).
 // Five panels over one store (store.ts, `GET pack/manager`, redrawn on every
 // `pack_changed`): Installed (every pack here and its actions), Sources
 // (packs.sources and the packs Halo ships, with Install), Details (the

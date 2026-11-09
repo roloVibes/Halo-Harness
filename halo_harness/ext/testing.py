@@ -27,7 +27,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-__all__ = ["Report", "run", "manifest", "ask_policy"]
+__all__ = ["Report", "run", "manifest", "ask_policy", "scratch_home", "studio", "pack_module"]  # the last 3: API 1.2
 SCRUB = ("OPENROUTER_", "DATABRICKS_", "ANTHROPIC_", "OPENAI_", "BRIDGE_", "HALO_", "CLAUDE_", "ROLO_CLAUDE_",
          "TYPESAFE_", "GEMINI_", "GOOGLE_API")
 
@@ -105,7 +105,7 @@ def run(folder, kinds=None, timeout_s: float = 10.0) -> Report:
     try:
         (home / ".halo").mkdir()
         done = subprocess.run(argv, cwd=str(home), env=_env(home), capture_output=True, text=True, encoding="utf-8",
-                              errors="replace", timeout=max(120.0, timeout_s * 30))
+                              errors="replace", timeout=max(900.0, timeout_s * 30))  # 3.3.13.0 R2: + own tests
         last = [ln for ln in done.stdout.splitlines() if ln.startswith("{")]
         data = json.loads(last[-1]) if last else None
     except (subprocess.TimeoutExpired, OSError, ValueError) as e:
@@ -152,3 +152,6 @@ def ask_policy(folder, policy_id: str, tool: str, tool_input: dict, *, mode=None
         if isinstance(got, dict) and got.get("id") == "t1":
             return got
     return {"error": f"no answer (exit {done.returncode})"}
+
+
+from halo_harness.ext.testing_studio import pack_module, scratch_home, studio  # noqa: E402,F401  (3.3.13.0 R2, API 1.2)

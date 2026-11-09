@@ -59,8 +59,9 @@ class _FakePopen:
 
 @test
 def test_z1_a_300kb_design_prompt_goes_on_stdin_not_argv(ctx: Ctx):
-    from halo_harness.design import session as S
-    from halo_harness.design.store import Project
+    from tests.helpers import design_pack as _DP
+    S = _DP.module("server/session.py")
+    Project = _DP.module("server/store.py").Project
     p = Project.create("Big Prompt", model="or:v/eyes")
     prompt = "make it bigger " + ("x" * 300_000)
     real = S.subprocess.Popen
@@ -80,8 +81,9 @@ def test_z1_a_300kb_design_prompt_goes_on_stdin_not_argv(ctx: Ctx):
 
 @test
 def test_z1_the_stdin_prompt_is_capped_in_bytes_and_a_runner_can_take_it(ctx: Ctx):
-    from halo_harness.design import session as S
-    from halo_harness.design.store import Project
+    from tests.helpers import design_pack as _DP
+    S = _DP.module("server/session.py")
+    Project = _DP.module("server/store.py").Project
     big = "é" * (S.MAX_PROMPT_BYTES)  # two bytes each: twice the cap
     capped = S._stdin_prompt(big)
     ctx.check("capped at MAX_PROMPT_BYTES on a whole character",

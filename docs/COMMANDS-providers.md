@@ -234,7 +234,7 @@ Halo 3.0.1.0: `--capabilities` adds what each model takes in (text, image,
 audio, video, files) and puts out (image), read from the catalogs, never
 guessed; `--best-for visual|audio|video|image|design` ranks the catalog for
 that job with a one-line reason per model (vision, context, tools, price,
-speed). Halo Design's model pick opens on the `design` ranking. See
+speed). The design pack's model pick opens on the `design` ranking. See
 [MODELS.md](MODELS.md) "Which model for what". Halo 3.1.9.0: each
 `--capabilities` line ends with what the model is best at (`vision+pdf in,
 tools, reasoning; no audio`), and `--best-for` also takes `pdf`, `code`,

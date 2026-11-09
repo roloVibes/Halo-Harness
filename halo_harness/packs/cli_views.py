@@ -80,7 +80,8 @@ def inspect_payload(pack, snap, *, cwd=None) -> dict:
     needed: "dict[str, list[str]]" = {}
     for perm, why in G.needs(pack):
         needed.setdefault(perm, []).append(why)
-    perms = [{"name": p, "needed_by": needed.get(p, []), "granted": p in granted} for p in MF.requested(pack.manifest)]
+    perms = [{"name": p, "needed_by": needed.get(p, []), "granted": p in granted, "what": G.what(p)}
+             for p in MF.requested(pack.manifest)]
     m = pack.manifest
     problems = [f"pack.yaml: {line}" for line in pack.problems] + list(snap.problems.get(pack.id, []))
     if pack.scope == "source" and not pack.problems:
@@ -143,7 +144,8 @@ def inspect_lines(d: dict) -> "list[str]":
     out.append("permissions it requests:")
     for p in d["permissions"]:
         uses = f" ({', '.join(p['needed_by'])})" if p["needed_by"] else ""
-        out.append(f"  {p['name']}{uses}: {'granted' if p['granted'] else 'not granted'}")
+        what = f" -- {p['what']}" if p.get("what") else ""  # 3.3.13.0 R2: what the grant lets it do
+        out.append(f"  {p['name']}{uses}: {'granted' if p['granted'] else 'not granted'}{what}")
     if not d["permissions"]:
         out.append("  none")
     if d["settings"]:

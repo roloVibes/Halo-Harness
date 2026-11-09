@@ -3,7 +3,7 @@
 
 The policy, as this module applies it:
 
-- The API version is MAJOR.MINOR (`API_VERSION`, "1.1" since Halo 3.3.10.0). A minor version only
+- The API version is MAJOR.MINOR (`API_VERSION`, "1.2" since Halo 3.3.13.0; 1.1 since 3.3.10.0). A minor version only
   adds names: every name keeps its meaning for every later minor of the same
   major. A major version may remove a name, and only one `deprecations()` has
   listed for at least one minor version before it.
@@ -12,13 +12,13 @@ The policy, as this module applies it:
   its `min`'s major only: `{min: "1.0"}` runs on every 1.x and not on 2.0.
 - A Halo whose API is outside the range does not run the pack, and says so in
   one line (`halo_harness.packs.resolve.compat_lines`):
-  "pack doc-review needs extension API 1.2 to 1.9; this Halo has 1.1".
+  "pack doc-review needs extension API 1.3 to 1.9; this Halo has 1.2".
 - 1.1 (3.3.10.0 R1) adds `set_mode` / `current_mode` and the manifest's `contributes.policy` and
   `contributes.modes`; R2 enforces a verdict and adds the post-call verdict (`after: true`: pass | redact | drop),
   and Policy hooks is stable: a 1.0 pack keeps everything -- `{min: "1.0"}` and `{min: "1.0", max: "1.9"}`
   take 1.1, and a pack with no `policy` or `modes` reads and runs as before (`CHANGES`).
 
-    api_version()                           "1.1"
+    api_version()                           "1.2"
     compatible({"min": "1.0", "max": "1.9"})   True on this Halo
     compatible({"min": "1.0"}, "2.0")       False: a new major
     range_words({"min": "1.2"})             "1.2 or a later 1.x"
@@ -45,6 +45,15 @@ CHANGES: "dict[str, dict]" = {
                                          "(Halo 3.3.12.0 R4)"],
             "deprecates": [], "keeps": "everything: a 1.0 pack runs unchanged; one without policy, modes, setup or themes is untouched",
             "status": "Policy hooks: draft in 3.3.10.0 R1, stable from R2 (a session enforces each verdict)"},
+    "1.2": {"halo": "3.3.13.0", "adds": ["host: what Halo does for a pack's code (state folder, models for a task, MCP "
+                                         "servers and a probe, the tool env, a URL fetch, ComfyUI)",
+                                         "contributes.studio.sections[].view: a section drawn whole by one bundle",
+                                         "the bundle api's lib: the shell's React, ReactDOM, lib/ui and helpers",
+                                         "contributes.studio.routes and the studio-routes grant: a pack's own Studio "
+                                         "API routes", "a command's `studio:` frontmatter: it opens the pack's section",
+                                         "testing.scratch_home, testing.studio, testing.pack_module"],
+            "deprecates": [], "keeps": "everything: a 1.0 or 1.1 pack runs unchanged",
+            "status": "stable (Halo 3.3.13.0 R2: the design pack is built on it)"},
 }
 
 

@@ -1,6 +1,6 @@
 // Wires the live feed (lib/events) into the shell's store: connection state,
 // the attached sessions, an event counter, per-section activity (agent_* and
-// fleet frames count for Fleet, design_turn frames for Design), and the
+// fleet frames count for Fleet, media_* for Local), and the
 // last 100 frames for the Orchestra feed panel. `?feed=off` keeps it shut
 // (headless captures).
 import { connectEvents, onEvent, onFeedState, type FeedFrame } from "../lib/events";
@@ -20,9 +20,10 @@ export function startFeed(): void {
   onEvent("*", (f) => {
     if (f.event === "sessions" || f.event === "start" || f.event === "focus") return; // start: its own dialog; focus: lib/edit.ts
     if (f.event === "pack_changed" || f.event === "pack_event") return; // 3.2.0.0 R3: routes/packs/store.ts reads them
+    if (f.event === "pack_live") return; // 3.3.13.0 R2: a pack's routes' live frames: its own page reads them
     if (f.event === "files_changed") return; // 3.2.2.0 R6: the pages re-read (lib/filesLive.ts); no section's activity
     const now = Date.now();
-    const section = /^media_/.test(f.event) || f.event === "design_turn" ? "design" : /^(agent_|fleet$)/.test(f.event) ? "fleet" : "orchestra";
+    const section = /^media_/.test(f.event) ? "local" : /^(agent_|fleet$)/.test(f.event) ? "fleet" : "orchestra"; // 3.3.13.0 R2: media is Local's
     studio.update((s) => ({
       feed: { ...s.feed, events: s.feed.events + 1, lastKind: f.event, lastTs: now },
       activity: { ...s.activity, [section]: now },
