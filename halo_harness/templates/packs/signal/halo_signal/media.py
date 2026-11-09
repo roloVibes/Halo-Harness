@@ -6,7 +6,7 @@ prompt names its path for the session to read; a voice note is transcribed by th
 (`halo local serve --stt`, docs/VOICE.md) and sent as the prompt with "(voice note)" in front -- with none running,
 one line says how to turn transcription on. Out: `/file <path>` sends a file of the attached session's folder;
 `/shot` sends a capture of the Halo Studio window when Studio is open on this computer. Files in inbox/ older than a
-day are deleted when the service starts.
+day are deleted when the service starts and every hour while it runs (3.3.14.0 R2: bridge.step).
 
     inbound(b, rt, text, files) -> (prompt text, image | None, line)
     send_file(b, rt, arg) -> outcome

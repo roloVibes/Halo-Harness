@@ -147,7 +147,8 @@ def _mlx(line: str, at, rt) -> Optional[dict]:
 def classify(line: str, at=None, runtime: Optional[str] = None) -> Optional[dict]:
     """One line of a local server's log -> an event, or None."""
     text = str(line or "").rstrip("\r\n")
-    if not text.strip() or text.startswith("--- halo starts:"):
+    from halo_harness.ollama_steward.body_lines import is_body_line  # 3.3.14.0 R2 (REVIEW #23): a body is no event
+    if not text.strip() or text.startswith("--- halo starts:") or is_body_line(text):
         return None
     at = at if at is not None else line_time(text)
     rt = runtime or "llama-server"

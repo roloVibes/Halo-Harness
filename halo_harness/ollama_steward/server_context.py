@@ -60,7 +60,10 @@ class Rules:
 
     def feed(self, raw: str, at=None) -> list:
         """One line -> the events it completes (possibly none)."""
+        from halo_harness.ollama_steward.body_lines import is_body_line
         self.n += 1
+        if is_body_line(raw):  # 3.3.14.0 R2 (REVIEW #23): a request's text moves no load, model or clock
+            return self._expire()
         line = strip_prefix(raw)
         t = at if at is not None else line_time(line)
         self.clock = t if t is not None else self.clock

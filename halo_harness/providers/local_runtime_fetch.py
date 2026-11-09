@@ -273,15 +273,9 @@ def unpack_archive(archive_path, dest_dir) -> "tuple[bool, str]":
         if archive_path.endswith(".zip"):
             import zipfile
             with zipfile.ZipFile(archive_path) as zf:
-                # finding 54 (3.3.11.0 security review M7): the tar
-                # branch below uses Python 3.12's `filter="data"` for
-                # path traversal protection; the zip branch here gets
-                # the same guard so a compromised release asset cannot
-                # escape `dest_dir` via a malicious zip member name.
-                try:
-                    zf.extractall(dest_dir, filter="data")
-                except TypeError:
-                    zf.extractall(dest_dir)
+                # 3.3.14.0 R2 (REVIEW #35, PERMS-14): ZipFile.extractall takes no `filter=`; what keeps a member
+                # inside dest_dir is zipfile's own name cleaning (it drops a drive, a leading slash and `..` parts)
+                zf.extractall(dest_dir)
         else:
             import tarfile
             with tarfile.open(archive_path) as tf:
@@ -327,17 +321,24 @@ def fetch_and_install_llama_server(*, state_dir, version_tag: str, assets: "list
         return False, "no assets chosen to install"
     dest_dir = runtimes_dir(state_dir) / version_tag
     work_dir = Path(tmp_dir) if tmp_dir is not None else Path(tempfile.mkdtemp(prefix="halo-runtime-dl-"))
-    for asset in assets:
-        archive_path = work_dir / asset["name"]
-        ok, msg = download_asset(asset["browser_download_url"], archive_path, fetcher=fetcher)
-        if not ok:
-            return False, msg
-        if not verify_digest(archive_path, asset.get("digest")):
-            return False, f"digest verification failed for {asset['name']}"
-        ok2, msg2 = unpack_archive(archive_path, dest_dir)
-        if not ok2:
-            return False, msg2
-    return True, f"installed into {dest_dir}"
+    try:
+        for asset in assets:
+            archive_path = work_dir / asset["name"]
+            ok, msg = download_asset(asset["browser_download_url"], archive_path, fetcher=fetcher)
+            if not ok:
+                return False, msg
+            if not verify_digest(archive_path, asset.get("digest")):
+                return False, f"digest verification failed for {asset['name']}"
+            ok2, msg2 = unpack_archive(archive_path, dest_dir)
+            if not ok2:
+                return False, msg2
+        return True, f"installed into {dest_dir}"
+    finally:  # 3.3.14.0 R2 (REVIEW #35): the downloaded archives go, whether the install worked or not
+        import shutil
+        for asset in assets:
+            (work_dir / asset["name"]).unlink(missing_ok=True)
+        if tmp_dir is None:
+            shutil.rmtree(work_dir, ignore_errors=True)
 
 
 def remove_runtime(state_dir, version_tag: Optional[str] = None) -> "tuple[bool, str]":

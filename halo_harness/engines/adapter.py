@@ -29,6 +29,7 @@ from typing import Optional
 from halo_harness.engines.descriptors import TABLE, get
 
 SEAMS: dict = {}
+_WIDENED: set = set()  # (url, server pid) whose first request was given the long wait
 
 
 def run(argv: list, timeout: float = 20.0) -> "tuple[int, str]":
@@ -67,11 +68,14 @@ def binary(engine: str) -> "tuple[Optional[list], str]":
             return list(raw), key
         if isinstance(raw, str) and raw.strip():
             return [raw.strip()], key
-    which = SEAMS.get("which") or shutil.which
+    from halo_harness.engines.launch_env import on_path  # 3.3.14.0 R2 (REVIEW #43): a PATH folder, never the cwd
+    refused = ""
     for name in get(engine)["programs"]:
-        if found := which(name):
+        found, why = (SEAMS["which"](name), "") if "which" in SEAMS else on_path(name)
+        if found:
             return [found], f"{name} on PATH"
-    return None, ""
+        refused = refused or why
+    return None, refused
 
 
 def version(engine: str, prefix: Optional[list]) -> Optional[str]:
@@ -119,8 +123,9 @@ def health(url: str, timeout: float = 1.0) -> dict:
 
 def alive(e: dict) -> bool:
     from halo_harness.bg_run import pid_alive
+    from halo_harness.providers.local_runtime import _entry_process_matches
     if isinstance(e.get("pid"), int) and pid_alive(e["pid"]):
-        return True
+        return _entry_process_matches(e)  # 3.3.14.0 R2 (REVIEW #21): a reused pid is another process: the row is gone
     return bool(e.get("port")) and health(f"http://127.0.0.1:{int(e['port'])}", timeout=0.5)["ok"]
 
 
@@ -225,12 +230,14 @@ def stop_row(e: dict, *, state_dir) -> dict:
 
 
 def widen(conn, url) -> None:
-    """A FreeToken-like engine's first request compiles for minutes: the connection's idle wait is the descriptor's."""
+    """A FreeToken-like engine's first request compiles for minutes: that connection's idle wait is the descriptor's;
+    later ones keep the normal budget (3.3.14.0 R2, REVIEW #45: once per url and server pid)."""
     try:
         from halo_harness.ollama_steward.servers_hf import for_url
         s = for_url(url) if url and getattr(conn, "sock", None) is not None else None
         wait = (get(s.runtime) or {}).get("first_wait_s") if s is not None else None
-        if wait:
+        if wait and (str(url), s.pid) not in _WIDENED:
+            _WIDENED.add((str(url), s.pid))
             conn.sock.settimeout(float(wait))
     except Exception:
         pass

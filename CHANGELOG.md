@@ -67,6 +67,77 @@ which is what `api.lib` was always meant to be.
 - **The render route checks its project** (#38: PACKS-11): the design pack's `POST render` takes only a project slug,
   so `../x` answers 404.
 
+### R2: children and keys
+
+#### Changed
+
+- **An untrusted project's bio or lineup does not pick your keys or the host** (REVIEW #10: PERMS-4). A bio or lineup
+  that came with the project (`.halo/agents`, `.halo/teams`, a project-scope pack), read in a folder Halo does not trust
+  yet, loses `secrets`, `environment.secrets`, `environment.pass_to_tools` and its isolation's `image`, `mounts`,
+  `user`, `group` and `env`; the lane's opt-in lines say what was not applied and why (`isolation/spec.py`
+  `untrusted_split`). Your own `~/.halo` files keep them; trusted, the project's do too.
+- **An `after` policy covers the live output** (#11: PERMS-5). A call's `tool_progress` frames go through the same
+  verdict as its result, taken once per call (`agent/policy_gate.progress`): pass streams them as they were, redact
+  sends the redacted text, drop sends none -- to the TUI, Studio and every control-socket client, a phone included.
+- **Read / Edit deny rules gate PowerShell** (#13: PERMS-7). `Get-Content` / `cat` / `gc` / `type`, `Select-String`,
+  `Import-Csv`, `Set-Content`, `Add-Content`, `Out-File`, `Clear-Content`, `New-Item`, `Remove-Item`, `Copy-Item` /
+  `Move-Item`, `>` / `>>` and `[IO.File]::*` on a denied path are denied the way Bash's readers and redirects are,
+  through script blocks, `powershell -Command` / `cmd /c` payloads and `cd` (`halo_harness/permissions_ps.py`); a Read
+  ask rule asks for the readers.
+- **Every managed server gets a tool child's environment** (#22: LOCAL-2). An engine, llama-server, mlx_lm and the
+  speech servers start with Halo's provider keys and the env file's keys left out (`providers.config.tool_child_env`
+  through `engines/launch_env.child_env`); an engine adds back only its own key.
+- **`--lan` is announced only when the engine checks the key** (#24: LOCAL-4). After the start, one request without
+  the key goes to the engine's loopback port; a 401 / 403 is "every address, behind Halo's key (it refused a request
+  without the key)", anything else stops it and starts it again on 127.0.0.1, the line saying the engine does not check
+  Halo's key and the registry row carrying `lan_off`.
+- **A FreeToken server's long wait is the first request's only** (#45: LOCAL-11): `engines/adapter.widen` gives the
+  30-minute wait once per url and server.
+
+#### Fixed
+
+- **Stopping a slow service ends its children** (#17: CORE-3, REMOTE-6, PERMS-13, PACKS-10). A pack service runs in
+  its own process group -- a new session on POSIX, `CREATE_NEW_PROCESS_GROUP` and a Job object with
+  KILL_ON_JOB_CLOSE on Windows (`supervise/procgroup.py`) -- and a stop signals the group (SIGTERM, then SIGKILL after
+  the wait; the Job ended on Windows), so signal-cli's JVM ends with its bridge; a service that ended on its own takes
+  what it left running with it.
+- **A Start / Stop written during a tick is not lost** (#25: CORE-7, PERMS-11, PACKS-8). The tick removes only the
+  asks it read from `services-want.json`, under the file's lock, which `want()` takes too.
+- **Engine rows carry `proc_start`** (#21: LOCAL-1). `halo local serve --runtime <engine>` records the process's start
+  time; "already running", `halo local stop` and the exit sweep compare pid and start, so a reused pid is never
+  signalled.
+- **The steward skips request text in a log** (#23: LOCAL-3). A prompt line (Ollama's `prompt="..."`, a `"content":`
+  / `"messages":` body, a pretty-printed request) is no server event in any classifier or line reader
+  (`ollama_steward/body_lines.py`, the rule the host already used for a peer's log view); the server's read state
+  counts them (`body_lines_skipped`). A tool result saying "CUDA out of memory" raises no finding, fingerprint or
+  reply-cut proposal.
+- **The policy pipe has a deadline** (#12: PERMS-6). Writing a request has the policy's budget; a process that stops
+  reading is ended there, the call says "policy did not answer in <n>s" and its `on_error` applies, and the next call
+  starts it again.
+- **A Hugging Face download stays in its model folder** (#14: PERMS-8). A file name or commit with a drive (`C:evil`),
+  any `:`, a backslash, a leading `/` or a `..` part answers one line and writes nothing; the target must resolve
+  inside the folder; the `.part` file is named from the hub's hash only when it is hex (`providers/hf_paths.py`).
+- **A phone's files land after the checks** (#20: REMOTE-3). The signal pack takes a message's files into `inbox/`
+  only after the sender, signature and rate checks; a refused message's files are deleted from signal-cli's folder; a
+  file sent with a `/command` is deleted and the phone told once; a running bridge clears `inbox/` files past a day
+  every hour.
+- **Small ones beside them:** a converted voice note leaves no temp folder (#29: REMOTE-4, PACKS-7); a sub-agent never
+  keeps a Skill's temporary grant (#36: PERMS-15); `halo local log <id>` and Studio's log route read only a registry
+  row's log, 404 otherwise (#39: LOCAL-5); a host's engine offer is reached on the paired host's address, an offer
+  whose runtime is no engine id skipped and said once (#40: LOCAL-6); a peer row with a port that is not 1-65535 is
+  dropped before placement and at the join (#41: LOCAL-7); a server's rotation set is its own files only, so
+  llama-6000 never reads llama-60001 (#42: LOCAL-8); a program only the current folder holds is not run (#43:
+  LOCAL-9); the runtime fetch's zip comment says what guards it and its downloaded archives are removed (#35:
+  PERMS-14).
+
+#### Docs
+
+- #26 `health: {url}` is out of the services docs and the manifest comment; EXTENSION_API.md says a url health is
+  accepted and not checked in this version. #27 SUPERVISE.md: the Windows at-logon task does not carry
+  `JAVA_TOOL_OPTIONS` (set it for your user) and a systemd value is written as given (quote it yourself). #37
+  COMMANDS-packs-kit.md: `halo pack test` runs a pack's own tests with your home and the network unless they set a
+  scratch home (the template's do).
+
 ## [3.3.13.1] - 2026-11-09
 
 **The steward hotfix and the review's first cut.** The usage audit of the owner's own logs (plans/ROADMAP.md, the

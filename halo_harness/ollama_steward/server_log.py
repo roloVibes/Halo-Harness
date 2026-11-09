@@ -31,7 +31,7 @@ import time
 from pathlib import Path
 from typing import Callable, Optional
 
-from halo_harness.ollama_steward import ledger
+from halo_harness.ollama_steward import body_lines, ledger
 
 STATE_FILE = "server-log-state.json"
 TAIL_S, POLL_S = 2.0, 20.0
@@ -205,7 +205,7 @@ def scan(state_dir, host, *, path=None, platform=None, runner=None, api=None,
     rules = Rules()
     evs = [e for line in lines for e in rules.feed(line)] + rules.flush()
     written = _emit(state_dir, host, evs, st, path, api, runner)
-    save_state(state_dir, st)
+    save_state(state_dir, body_lines.noted(st, lines))  # 3.3.14.0 R2 (REVIEW #23): body lines skipped
     return written, None
 
 
@@ -246,5 +246,5 @@ def watch(state_dir, host, stop, *, path=None, platform=None, runner=None, api: 
         for row in _emit(state_dir, host, evs, st, path, api, runner):
             if on_event is not None:
                 on_event(row)
-        save_state(state_dir, st)
+        save_state(state_dir, body_lines.noted(st, lines))  # 3.3.14.0 R2 (REVIEW #23): body lines skipped
         stop.wait(tail_s)

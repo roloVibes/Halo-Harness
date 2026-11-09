@@ -29,6 +29,7 @@ from halo_signal.session import PeerRT, Sessions, detach
 
 BAD_PER_MINUTE = 10
 SWITCH_S = 5.0  # 3.3.13.1 (REMOTE-2): how often a running bridge reads its two off switches again
+SWEEP_S = 3600.0  # 3.3.14.0 R2 (REVIEW #20, REMOTE-3): how often a running bridge clears inbox/ files past a day
 GOODBYE = ("No one is listening on this computer now (Halo's supervisor stopped); your texts wait on Signal's server "
            "until it runs again.")
 
@@ -61,6 +62,7 @@ class Bridge:
         self.fleet_lines = fleet_lines or notes_mod.default_fleet_lines
         self.notes = notes_mod.Notes(self) if notes is None else (notes or None)  # False: none (tests)
         self.ended, self._switch_at = "", 0.0  # 3.3.13.1 (REMOTE-2): the line when a switch turned off mid-run
+        self._sweep_at = self.clock.monotonic() + SWEEP_S  # service.py swept inbox/ at start
         self.last_ts = None  # 3.3.13.1 (REMOTE-1): the sent timestamp of the last message out (_send)
 
     # ---- loop ------------------------------------------------------------------------------
@@ -110,6 +112,9 @@ class Bridge:
             if self.health is not None:
                 self.health.beat(len(self.pairing.peers()))
             self.switches()
+            if self.clock.monotonic() >= self._sweep_at:  # a long-running bridge keeps "deleted after a day" true
+                self._sweep_at = self.clock.monotonic() + SWEEP_S
+                media.sweep(self.inbox_dir)
         except Exception as e:  # one bad item never ends the service; it leaves an audit line
             try:
                 self.audit.record("-", 0, type(e).__name__, "error", "handler_exception")

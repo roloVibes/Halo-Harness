@@ -8,7 +8,7 @@ running in the background (Halo 3.3.13.0 R3; docs/EXTENSION_API.md "Services", s
           run: ["${halo_python}", "${CLAUDE_PLUGIN_ROOT}/service/run.py"]   # a command in the pack folder, exec form
           autostart: true                # `halo supervise` starts it (false: only Start in the Pack Manager / CLI)
           restart: on-failure            # on-failure (an exit other than 0) | always | never
-          health: {file: health.json, max_age_s: 90}   # a file in the pack's data folder it rewrites, or {url: ...}
+          health: {file: health.json, max_age_s: 90}   # a file in the pack's data folder it rewrites
           log: service.log               # its stdout and stderr, in the pack's data folder
 
     services_of(manifest)          the entries (mappings only)

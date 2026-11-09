@@ -42,6 +42,7 @@ def lane_record(opt) -> dict:
     if opt.caps is not None:
         out["tools"] = {"capabilities": list(opt.caps), "by": opt.caps_by}
         lines.append(tools_line(opt.caps, opt.caps_by))
+    lines += list(getattr(opt, "dropped", None) or [])  # 3.3.14.0 R2 (REVIEW #10): what an untrusted file lost
     out["opt_ins"] = lines
     return out
 

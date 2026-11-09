@@ -30,6 +30,7 @@ from halo_harness.engines.descriptors import TABLE, get
 
 CACHE_S = 30.0
 _CACHE: dict = {}
+_SAID: set = set()
 GIB = 2 ** 30
 
 
@@ -73,13 +74,33 @@ def _ask(name: str, home=None) -> Optional[dict]:
         except HostError:
             continue
         offers = {**{k: cat.get(k) for k in TABLE if isinstance(cat.get(k), dict)}, **(cat.get("engines") or {})}
-        pick = next((offers[k] for k in TABLE if isinstance(offers.get(k), dict) and offers[k].get("url")
-                     and name in (k, str(e.get("name") or "").lower())), None)
-        if pick is not None:
-            addr = urllib.parse.urlparse(str(e.get("url") or "")).hostname or ""
-            rt = str(pick.get("runtime") or name)
-            return {**pick, "url": _on(addr, pick["url"], rt) if addr and get(rt) else pick["url"], "via": e.get("name")}
+        addr = urllib.parse.urlparse(str(e.get("url") or "")).hostname or ""
+        for k in TABLE:
+            pick = offers.get(k)
+            if not (isinstance(pick, dict) and pick.get("url") and name in (k, str(e.get("name") or "").lower())):
+                continue
+            rt = str(pick.get("runtime") or k)
+            if rt not in TABLE or not addr:  # 3.3.14.0 R2 (REVIEW #40): the url is always on the paired host's address
+                _say(f"{e.get('name')}'s {k} offer names runtime {rt!r}, not an engine id: skipped")
+                continue
+            return {**pick, "url": _on(addr, pick["url"], rt), "runtime": rt, "via": e.get("name")}
     return None
+
+
+def _say(line: str) -> None:
+    if line not in _SAID:
+        _SAID.add(line)
+        import warnings
+        warnings.warn(line, stacklevel=3)
+
+
+def port_of(raw) -> Optional[int]:
+    """A peer row's port when it is a whole number 1-65535, else None (3.3.14.0 R2, REVIEW #41)."""
+    try:
+        n = int(str(raw).strip())
+    except (TypeError, ValueError):
+        return None
+    return n if 0 < n < 65536 and not isinstance(raw, bool) else None
 
 
 def remote_entry(name: str, home=None):
@@ -99,6 +120,7 @@ def remote_entry(name: str, home=None):
 
 def reset() -> None:
     _CACHE.clear()
+    _SAID.clear()
 
 
 @dataclass(frozen=True)
@@ -131,11 +153,11 @@ def hosts(state_dir=None) -> list:
         seen = 0
         for engine in TABLE:
             for r in e.get("servers") or []:
-                if isinstance(r, dict) and r.get("runtime") == engine and r.get("addr") and r.get("port"):
+                if isinstance(r, dict) and r.get("runtime") == engine and r.get("addr") and port_of(r.get("port")):
                     name = str(e.get("name") or r.get("addr")) + (f"/{engine}" if seen else "")
                     seen += 1
                     if not any(h.name.lower() == name.lower() for h in out):
-                        out.append(EngineHost(name=name, url=f"http://{r['addr']}:{int(r['port'])}/v1",
+                        out.append(EngineHost(name=name, url=f"http://{r['addr']}:{port_of(r['port'])}/v1",
                                               model=r.get("model"), local=False, engine=engine))
     return out
 

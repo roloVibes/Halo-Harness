@@ -307,5 +307,10 @@ notes for its goals (`supervisor`) and the Ollama steward's attention notes (`st
 Scheduler XML (`halo_harness/logon_units.py`, 3.3.13.0: renamed from the Signal
 bridge's `remote/daemon_units.py`) -- and prints the single command that enables
 it. Halo never enables it; you run that one command to start the supervisor,
-and with it the packs' services, at login. `JAVA_TOOL_OPTIONS` is carried into
-the file when it is set (the proxied-VM recipe of the signal pack's signal-cli).
+and with it the packs' services, at login. `JAVA_TOOL_OPTIONS` (the proxied-VM
+recipe of the signal pack's signal-cli) is carried into the systemd unit and the
+launchd plist when it is set; the Windows task does not carry it -- set it for
+your user (System Properties -> Environment Variables) so the task's process
+inherits it. A value goes into the systemd unit as written, inside
+`Environment="..."`: quote and escape it yourself (`\"` for a quote, `%%` for a
+`%`), since systemd reads `%h`-style words as its own (3.3.14.0, REVIEW #27).

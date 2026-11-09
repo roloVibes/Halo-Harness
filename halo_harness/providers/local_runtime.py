@@ -309,7 +309,8 @@ def find_runtime_binary(runtime: str, *, state_dir=None) -> "Optional[list]":
     if runtime != "llama-server":
         return None
     import shutil
-    on_path = shutil.which("llama-server")
+    from halo_harness.engines.launch_env import vet  # 3.3.14.0 R2 (REVIEW #43): a PATH folder, never the cwd
+    on_path, _why = vet(shutil.which("llama-server"), "llama-server")
     if on_path:
         return [on_path]
     if state_dir is None:
@@ -436,10 +437,11 @@ def start_managed_server(*, model: str, runtime: str, binary_argv: list, model_p
         stderr_file = open(stderr_path, "wb")
     except OSError:
         stderr_file = None
+    from halo_harness.engines.launch_env import child_env  # 3.3.14.0 R2 (REVIEW #22): Halo's provider keys left out
     try:
         proc = subprocess.Popen(argv, stdout=subprocess.DEVNULL,
                                  stderr=(stderr_file if stderr_file is not None else subprocess.DEVNULL),
-                                 stdin=subprocess.DEVNULL)
+                                 stdin=subprocess.DEVNULL, env=child_env())
     except OSError as e:
         if stderr_file is not None:
             stderr_file.close()

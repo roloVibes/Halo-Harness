@@ -165,8 +165,9 @@ def scan(state_dir, server, *, from_start: bool = False, root=None, at=None) -> 
             e["data"].setdefault("launch", server.launch)
     quiet = st.setdefault("quiet", {})
     written = record_events(state_dir, evs, host=server.name, quiet=quiet)
+    from halo_harness.ollama_steward.body_lines import noted  # 3.3.14.0 R2 (REVIEW #23): body lines skipped
     if why is None or written:
-        save_server_state(state_dir, server.name, st)
+        save_server_state(state_dir, server.name, noted(st, lines))
     return written, why
 
 

@@ -100,7 +100,10 @@ def _gin(line: str, at) -> Optional[dict]:
 
 
 def classify(line: str, at=None) -> Optional[dict]:
-    """One line -> an event, or None for a line no rule reads."""
+    """One line -> an event, or None for a line no rule reads (a request body's line is no server event)."""
+    from halo_harness.ollama_steward.body_lines import is_body_line
+    if is_body_line(line):  # 3.3.14.0 R2 (REVIEW #23, LOCAL-3)
+        return None
     line = strip_prefix(line)
     at = at if at is not None else line_time(line)
     if "[GIN]" in line:

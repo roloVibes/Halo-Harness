@@ -14,8 +14,9 @@ single command that enables it.
     write_unit(os, argv, env, unit, out_dir) -> (path, enable command)
     enable_command(os, path, task) the one command per OS
 
-`JAVA_TOOL_OPTIONS` is carried into the unit when it is set in the environment that writes it (the proxied-VM
-recipe a service like the Signal pack's signal-cli reads).
+`JAVA_TOOL_OPTIONS` is carried into the systemd unit and the launchd plist when it is set in the environment that
+writes it (the proxied-VM recipe a service like the Signal pack's signal-cli reads); the Windows task does not carry
+it, and a systemd value is written as given (docs/SUPERVISE.md "The service files", 3.3.14.0 REVIEW #27).
 """
 
 from __future__ import annotations

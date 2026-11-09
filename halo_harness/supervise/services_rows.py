@@ -4,6 +4,7 @@ R3; the supervisor's side is supervise/services.py, docs/SUPERVISE.md "Pack serv
     rows(state_dir=None) -> [row]   what the running supervisor last wrote; with none running a `running` row reads `off`
     row(key, state_dir=None)        one row, or None
     want(key, verb, state_dir=None) "start" | "stop" asked of the running supervisor (its next tick applies it)
+    take_wants(applied, state_dir)  the tick removes the asks it applied, under the want file's lock
     state_line(row)                 "running since 09:12" | "stopped: <line>" | "off: <line>"
     declared(state_dir, cwd)        [(pack, entry, granted)] for every running pack's services
     health(pack_id, entry, state_dir, now)   (ok | stale | unknown, the line the program wrote in its health file)
@@ -115,12 +116,24 @@ def row(key: str, state_dir=None) -> Optional[dict]:
 def want(key: str, verb: str, state_dir=None) -> str:
     if verb not in ("start", "stop"):
         return f"{verb!r}: start or stop"
-    data = read_json(want_path(state_dir))
-    data[key] = verb
-    write_json(want_path(state_dir), data)
+    from halo_harness.filelock import file_lock
+    with file_lock(want_path(state_dir)):  # 3.3.14.0 R2 (REVIEW #25): the tick takes its asks under the same lock
+        data = read_json(want_path(state_dir))
+        data[key] = verb
+        write_json(want_path(state_dir), data)
     from halo_harness.supervise import pulse
     tail = "" if pulse.read(state_dir)["running"] else " (the supervisor is not running: `halo supervise` applies it)"
     return f"asked the supervisor to {verb} {key}{tail}"
+
+
+def take_wants(applied: dict, state_dir=None) -> None:
+    """The tick's side of services-want.json: remove only the asks it read (key and verb), under the file's lock, so a
+    Start / Stop written after its read stays for the next tick (3.3.14.0 R2, REVIEW #25 CORE-7 / PERMS-11 / PACKS-8)."""
+    from halo_harness.filelock import file_lock
+    path = want_path(state_dir)
+    with file_lock(path):
+        data = read_json(path)
+        write_json(path, {k: v for k, v in data.items() if applied.get(k) != v})
 
 
 def enable_lines(pack, granted, state_dir=None) -> "list[str]":

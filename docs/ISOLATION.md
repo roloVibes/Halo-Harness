@@ -23,6 +23,15 @@ A worker that cannot run as declared stops with one line ([Stop
 lines](#stop-lines)), like a worker whose harness would not start: the lane
 fails with it, the run stops with `lane <n>: <line>` (`failure.kind: worker`).
 
+**A project's own files** (3.3.14.0). A bio or lineup that came with the
+project (`.halo/agents/`, `.halo/teams/`, or a project-scope pack), read in a
+folder Halo does not trust yet, keeps everything but what reaches your keys or
+the host: its `secrets`, `environment.secrets`, `environment.pass_to_tools`
+and its isolation's `image`, `mounts`, `user`, `group` and `env` are not
+applied, and the lane's opt-in lines say so (`bio coder: secrets, ... not
+applied: this folder is not trusted yet (trust it when halo asks and they
+apply)`). Your own `~/.halo/agents` and `~/.halo/teams` files keep them.
+
 Not the same key: the older `isolation: worktree` of a `.claude/agents/*.md`
 file ([SUBAGENTS.md](SUBAGENTS.md)) is for in-process sub-agents.
 

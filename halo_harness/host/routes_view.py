@@ -18,16 +18,15 @@ the server log, nvidia-smi): no model is called, nothing is written to the serve
 
 from __future__ import annotations
 
-import re
 import time
 from pathlib import Path
 from typing import Optional
 
+from halo_harness.ollama_steward.body_lines import BODY as _BODY  # 3.3.14.0 R2: one rule, the steward's too
+
 EVENTS_MAX = 500
 CARD_TTL_S = 10.0
 GIB = 2 ** 30
-_BODY = re.compile(r'(\bprompt="|"prompt"\s*:|"messages"\s*:|"content"\s*:|\bmessages=\[|\bsystem="|'
-                   r'msg="(chat|completion|generate|embed) request")')
 
 
 def scrub_line(line: str) -> str:

@@ -744,10 +744,13 @@ def _build_child_session_inner(*, runtime: AgentRuntime, spec: AgentSpec, agent_
     _team_allow: list = []
     if team_control is not None:
         _team_deny, _team_ask, _team_allow = team_perms["deny"], team_perms["ask"], team_perms["allow"]
+    # 3.3.14.0 R2 (REVIEW #36, PERMS-15): the parent's permanent allow rules only; a Skill's temporary grant
+    # (allowed-tools, until the person's next message) stays with the parent and ends there
+    _temp = {id(r) for r in getattr(parent.permission_engine, "_temp_allow_rules", None) or []}
     child_engine = PermissionEngine(
         deny_rules=list(parent.permission_engine.deny_rules) + _team_deny,
         ask_rules=list(parent.permission_engine.ask_rules) + _team_ask,
-        allow_rules=list(parent.permission_engine.allow_rules) + _team_allow,
+        allow_rules=[r for r in parent.permission_engine.allow_rules if id(r) not in _temp] + _team_allow,
         mode=child_mode,
         cwd=child_cwd, extra_dirs=child_extra_dirs,
         print_mode=parent.permission_engine.print_mode,

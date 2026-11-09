@@ -18,7 +18,7 @@ FAKE = Path(__file__).resolve().parent / "fake_engine.py"
 LINUX = {"os": "linux", "arch": "x86_64", "wsl": False}
 _VARS = ("FAKE_ENGINE_STATE", "FAKE_ENGINE_LOAD_S", "FAKE_ENGINE_EXIT", "FAKE_ENGINE_DOWNLOAD_GB", "FAKE_ENGINE_WAITING",
          "HALO_ENV_FILE", "HF_HUB_CACHE", "FREETOKEN_API_KEY", "HALO_SECRET_FREETOKEN_API_KEY",
-         "HALO_SECRET_STRATA_API_KEY", "HALO_SECRET_TENSORFOLD_API_KEY")
+         "HALO_SECRET_STRATA_API_KEY", "HALO_SECRET_TENSORFOLD_API_KEY", "FAKE_ENGINE_NO_KEY")
 
 
 def reset_caches() -> None:
@@ -26,6 +26,7 @@ def reset_caches() -> None:
     from halo_harness.ollama_steward import server_log_hf, servers_hf
     from halo_harness.providers.huggingface_local_probe import reset_auto_detect_cache
     adapter.SEAMS.clear()
+    adapter._WIDENED.clear()
     bench.SEAMS.clear()
     peer.reset()
     servers_hf.reset()

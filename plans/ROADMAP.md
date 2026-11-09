@@ -4639,3 +4639,26 @@ studio-bundle `studio-script`, open Hello, press "Change this pack's grant": the
 owner's own page", grants unchanged; the Pack Manager's own Grant/Enable/Update still work; an artboard iframe src carries
 `k=` and never the `#t=` token; an artboard's page.xhtml opened alone gets `sandbox allow-scripts`; `halo pack update` on a
 pack with routes answers new code without a Studio restart. Next: R2 "children and keys", then the 3.3.14.0 release.**
+
+**3.3.14.0 R2 "children and keys" BUILT and MERGED 2026-11-09 (one Opus round, worktree ~/hh-review/fix-3314-R2, brief
+FIXPASS-3314-R2-brief.md, hand-back fixpass-3314-R2-handback.md; branch commit 950af4db):** a pack service runs in its own
+process group (`supervise/procgroup.py`: a POSIX session + killpg, a Windows Job object with KILL_ON_JOB_CLOSE) and the
+tick removes only the asks it read under the want file's lock (#17 #25); every managed server starts with a tool child's
+environment (`engines/launch_env.child_env`), engine rows carry `proc_start`, `--lan` is announced only after an unkeyed
+loopback request is refused (else a restart on 127.0.0.1 with `lan_off`), the long first wait once per url and pid,
+programs from a PATH folder only (#21 #22 #24 #43 #45); offers pinned to the paired host, `port_of` guards placement and
+the join (#40 #41); a server's rotation set is its own files, `tail` of an unknown id is 404 (#42 #39); request-body lines
+skipped by every classifier (`ollama_steward/body_lines.py`, #23); an untrusted project's bio or lineup loses secrets,
+pass_to_tools and isolation image/mounts/user/group/env with the line in the opt-ins (#10); `tool_progress` through the
+`after` verdict (#11); the policy write has the budget, a deaf process restarts (#12); Read/Edit deny rules gate PowerShell
+readers and writers (`permissions_ps.py`, #13); HF targets checked, `.part` from a hex hash, archives removed
+(`providers/hf_paths.py`, #14 #35); signal files into inbox/ after the checks, refused ones deleted, hourly sweep (#20);
+the voice note's temp folder removed (#29); a child agent copies permanent allow rules only (#36); docs #26 #27 #37.
+Worker's choices: body lines are detected, not prefix-gated (llama.cpp crash lines share no prefix); an unkeyed engine is
+restarted on loopback rather than exit 1; PATH searched by hand (shutil.which on Windows < 3.12 looks in the cwd first);
+hf_download keeps its `.part` to resume; "trust it when halo asks" since there is no `halo trust`. For rolo: stop
+`signal/bridge` and see no java / signal-cli left; an engine child's env has no OPENROUTER / ANTHROPIC / DATABRICKS /
+HF_TOKEN; with `Read(.env)` denied a PowerShell `Get-Content .env` is denied "a PowerShell reader reaching a Read-denied
+path"; an untrusted repo's bio with `secrets:` shows "not applied: this folder is not trusted yet" in the run report;
+`--lan` on TensorFold says "behind Halo's key (it refused a request without the key (401))". Next: the 3.3.14.0 release on
+green both, the PC reinstall, then L1 the Instrument look.**

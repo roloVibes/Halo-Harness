@@ -37,6 +37,8 @@ def _arg(argv: list, name: str, default=None):
 
 
 def _key(engine: str, argv: list) -> str:
+    if os.environ.get("FAKE_ENGINE_NO_KEY"):  # 3.3.14.0 R2 (REVIEW #24): an engine that ignores the key it is given
+        return ""
     if engine == "freetoken":
         return os.environ.get("FREETOKEN_API_KEY") or ""
     if _arg(argv, "--api-key-file"):

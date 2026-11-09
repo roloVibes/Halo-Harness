@@ -25,6 +25,7 @@ import time
 from pathlib import Path
 
 from halo_harness.packs import manifest_services as MS
+from halo_harness.supervise import procgroup as PG
 from halo_harness.supervise import services_rows as R
 
 WAIT_S, WAIT_MAX_S, CALM_S, STOP_WAIT_S = 5.0, 300.0, 600.0, 5.0
@@ -46,6 +47,7 @@ class Services:
         self.state_dir, self.clock, self.cwd = Path(state_dir), clock, cwd
         self.popen = popen or subprocess.Popen
         self.procs: dict = {}  # key -> Popen: the ones this supervisor started
+        self.groups: dict = {}  # key -> procgroup.Group: each one's children with it (REVIEW #17)
         self.rec: dict = dict(R.read_json(R.state_path(self.state_dir)).get("services") or {})
         for r in self.rec.values():  # a new supervisor starts each service afresh; a Stop the owner asked for stays
             if isinstance(r, dict) and r.get("state") != "running":
@@ -54,8 +56,8 @@ class Services:
     def tick(self) -> list:
         now = self.clock()
         wants = R.read_json(R.want_path(self.state_dir))
-        if wants:
-            R.write_json(R.want_path(self.state_dir), {})
+        if wants:  # 3.3.14.0 R2 (REVIEW #25): only the asks read here leave the file; a later one waits for the next tick
+            R.take_wants(wants, self.state_dir)
         seen = set()
         for pack, e, granted in R.declared(self.state_dir, self.cwd):
             key = MS.key_of(pack.id, e["name"])
@@ -106,6 +108,7 @@ class Services:
                 r["restarts"] = 0
             return
         self.procs.pop(key, None)
+        PG.finish(self.groups.pop(key, None))  # what it left running goes with it
         _, hline = R.health(r["pack"], e, self.state_dir)
         r.update(state="stopped" if code == 0 else "failed", exit=code, pid=None,
                  line=(f"exit {code}: {hline}" if code and hline else hline or f"exit {code}"))
@@ -127,14 +130,16 @@ class Services:
             with open(log, "ab") as out:
                 kw: dict = {"cwd": str(pack.root), "env": _env(pack, e, key, self.state_dir), "stdout": out,
                             "stderr": subprocess.STDOUT, "stdin": subprocess.DEVNULL}
+                kw.update(PG.popen_kwargs())  # its own process group (REVIEW #17)
                 if os.name == "nt":
-                    kw["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+                    kw["creationflags"] |= getattr(subprocess, "CREATE_NO_WINDOW", 0)
                 proc = self.popen(run_argv(e, pack.root), **kw)
         except OSError as ex:
             r.update(state="failed", exit=None, line=f"it did not start: {type(ex).__name__}: {ex}",
                      next_at=now + WAIT_MAX_S)
             return
         self.procs[key] = proc
+        self.groups[key] = PG.attach(proc)
         r.update(state="running", pid=proc.pid, pstart=proc_ident.start_token(proc.pid), since=now, exit=None,
                  line="started", log=str(log), started_once=True, asked_stop=False)
 
@@ -149,16 +154,17 @@ class Services:
             path.write_text("stop\n", encoding="utf-8")
         except OSError:
             pass
-        proc = self.procs.pop(key, None)
-        if proc is not None:
+        proc, group = self.procs.pop(key, None), self.groups.pop(key, None)
+        if proc is not None:  # 3.3.14.0 R2 (REVIEW #17): the group is signalled, so its children end with it
             try:
                 proc.wait(STOP_WAIT_S)
             except subprocess.TimeoutExpired:
-                proc.terminate()
+                PG.term(group) if group is not None else proc.terminate()
                 try:
                     proc.wait(STOP_WAIT_S)
                 except subprocess.TimeoutExpired:
-                    proc.kill()
+                    PG.kill(group) if group is not None else proc.kill()
+            PG.finish(group)
         elif _alive(r):
             _end_pid(int(r["pid"]))
         r.update(state="stopped", pid=None, exit=0, line=why, asked_stop=True)

@@ -91,6 +91,15 @@ own interactively-granted rules; only `deny`/`ask` rules from an *untrusted*
 project/local settings layer survive -- an untrusted layer's own `allow`
 entries are dropped before the engine is even built.
 
+A `Read(path)` / `Edit(path)` deny rule also covers the shells: Bash's file
+readers (`cat`, `grep -r`, `cp`, `< file`) and redirect-out targets, and
+(3.3.14.0, `halo_harness/permissions_ps.py`) PowerShell's readers and writers:
+`Get-Content` / `cat` / `gc` / `type`, `Select-String`, `Import-Csv`,
+`Set-Content`, `Add-Content`, `Out-File`, `Clear-Content`, `New-Item`,
+`Remove-Item`, `Copy-Item` / `Move-Item`, `>` / `>>` and `[IO.File]::*`, with
+`cd` tracked per segment and the `\\?\` / `\\host\C$\` spellings normalised; a
+`Read(path)` ask rule asks for the same readers.
+
 Seven mode **names** exist (`default`/`manual` is a display alias for the
 same mode, `acceptEdits`, `plan`, `dontAsk`, `auto`, `bypassPermissions`);
 `Shift+Tab` cycles the first four of these in the TUI.

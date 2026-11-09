@@ -17,11 +17,12 @@ night; candidate 0c299d45 green on both runners; PC reinstalled). The complete c
 (plans/REVIEW-2026-11.md: 47 findings, 3 H, 21 M, 23 L; the six files under ~/hh-review/) and its fix pass is under
 way: 3.3.13.1 (the steward hotfix + the three highs #1 #2 #3 + #15 #16 #18 #19) SHIPPED as v3.3.13.1 = cee04b5a
 (2026-11-09; candidate 883e2c49 green on both runners; the PC reinstall waits for the open halo session to /quit);
-3.3.14.0 R1 "the token and the grants" (#4-#9, #32-#34, #38) is merged onto master; R2 "children and keys" (#10-#14,
-#17, #20-#24 + the simple lows; brief ~/hh-review/FIXPASS-3314-R2-brief.md, worktree ~/hh-review/fix-3314-R2) is the
-running round and 3.3.14.0 releases after it; mode themes (#5) and the parity audit follow; after them
-the review (six areas, bugs in scope), its fix pass with the steward hotfix first, then L1 the Instrument look and the
-Focus rounds.** The ROADMAP's R1, R2 and R4 BUILT notes, the Focus plan and the Instrument entry (all 2026-11-08) carry the
+3.3.14.0 R1 "the token and the grants" (#4-#9, #32-#34, #38) and R2 "children and keys" (#10-#14, #17, #20-#25, #29,
+#35, #36, #39-#43, #45; docs #26 #27 #37; brief ~/hh-review/FIXPASS-3314-R2-brief.md, hand-back
+fixpass-3314-R2-handback.md) are both merged onto master: **3.3.14.0 IS THE RELEASE CANDIDATE** (if you read this after
+the release, the tag v3.3.14.0 exists). The review's open rows after it are the lows that need a design (#28 #30 #31
+#44 #46 #47) and R1's named Pack-trust gaps (a sandboxed frame for bundles). Then L1 the Instrument look, the Agents
+section, the Fleet fold, the remaining Focus rounds, mode themes (#5), the parity audit, Federation, Pack trust.** The ROADMAP's R1, R2 and R4 BUILT notes, the Focus plan and the Instrument entry (all 2026-11-08) carry the
 choices and the owner's live checks.
 
 ### Before it: 2026-11-02 morning

@@ -24,10 +24,14 @@ _RULES: dict = {}
 
 
 def local_tail(path, n: int = 200) -> list:
-    """The newest `n` lines across `path`'s rotation set (server.log, server-1.log, ... by mtime)."""
+    """The newest `n` lines across `path`'s rotation set (server.log, server-1.log, server.log.1, ... by mtime): that
+    server's names only, so llama-6000's tail never holds llama-60001's lines (3.3.14.0 R2, REVIEW #42)."""
+    import re
     p = Path(path)
+    own = re.compile(rf"^{re.escape(p.stem)}(-\d+)?{re.escape(p.suffix)}(\.\d+)?$")
     try:
-        files = sorted(p.parent.glob(f"{p.stem}*{p.suffix}"), key=lambda f: -f.stat().st_mtime)[:3]
+        files = sorted((f for f in p.parent.glob(f"{p.stem}*") if own.match(f.name)),
+                       key=lambda f: -f.stat().st_mtime)[:3]
     except OSError:
         return []
     lines: list = []
