@@ -14,6 +14,7 @@ No model is called.
 """
 from __future__ import annotations
 
+import json
 import time
 
 COMP = {"system": 3587, "memory": 9900, "topic_index": 6400, "tools_schema": 2100, "history": 8700, "user": 69, "total": 30756}
@@ -22,8 +23,22 @@ BAR = "document.querySelector('[data-testid=\"session-cost-composition\"]')"
 PF = "document.querySelector('[data-testid=\"session-live-preflight\"]')"
 SEGS_JS = (f"[...({BAR}?.querySelectorAll('[data-testid=\"session-cost-composition-seg\"]') || [])]"
            ".map((s) => [s.dataset.part, +(+s.style.flexGrow).toFixed(3), getComputedStyle(s).backgroundColor])")
-HOOK_JS = ("window.__pf = []; const f0 = window.fetch; window.fetch = (u, o) => { if (String(u).includes('/command'))"
-           " window.__pf.push([String(u), (o && o.body) || '']); return f0(u, o); }; 'hooked'")
+
+
+def _tap_commands():
+    """Record the session commands the page POSTs, at the server's dispatcher. The shell's client keeps the fetch it
+    was given at load (3.3.14.0 R1: a pack's script cannot hook it), so a page-side hook on window.fetch never sees
+    them; `_api` imports `dispatch` per request, so the module attribute is read each time."""
+    from halo_harness.studio import api as A
+    seen, orig = [], A.dispatch
+
+    def rec(req):
+        if req.path.endswith("/command"):
+            seen.append(["/api/" + req.path, json.dumps(req.body, separators=(",", ":"))])
+        return orig(req)
+
+    A.dispatch = rec
+    return seen, lambda: setattr(A, "dispatch", orig)
 
 
 def composition(c, rig) -> dict:
@@ -43,9 +58,15 @@ def composition(c, rig) -> dict:
     out["pf_line"] = c.wait(f"{PF}?.querySelector('[data-testid=\"preflight-line\"]')?.textContent", 15)
     out["pf_buttons"] = c.js(f"['compact', 'switch', 'send'].map((k) => {{ const b = {PF}?.querySelector(`[data-testid=\"preflight-${{k}}\"]`);"
                              " return b ? [k, b.textContent.trim(), b.disabled] : null; })")
-    c.js(HOOK_JS)
-    c.js(f"{PF}.querySelector('[data-testid=\"preflight-send\"]').click()")
-    out["pf_posted"] = c.wait("window.__pf.length > 0 && window.__pf[0]", 10)
+    seen, untap = _tap_commands()
+    try:
+        c.js(f"{PF}.querySelector('[data-testid=\"preflight-send\"]').click()")
+        deadline = time.time() + 10
+        while not seen and time.time() < deadline:
+            time.sleep(0.1)
+    finally:
+        untap()
+    out["pf_posted"] = seen[0] if seen else None
     lv.refresh(preflight={"id": "preflight-r4none", "line": LINE, "switch_to": None})
     out["pf_no_switch"] = c.wait(f"{PF}?.dataset.id === 'preflight-r4none' && "
                                  f"{PF}.querySelector('[data-testid=\"preflight-switch\"]').disabled && 'disabled'", 15)

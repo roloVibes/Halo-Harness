@@ -193,6 +193,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
         path = unquote(parts.path)[len("/api/"):]
         from halo_harness.studio.owner_proof import NEEDS_OWNER, needs_owner, owner_ok  # 3.3.14.0 R1 (#4)
         if needs_owner(method, path) and not owner_ok(self):
+            try:  # read the body first: a 403 sent with the body unread aborts the client's connection on Windows
+                self.rfile.read(min(int(self.headers.get("Content-Length") or 0), 4_000_000))
+            except Exception:
+                pass
             return self._json(403, {"error": NEEDS_OWNER})
         if method == "POST" and path == "shutdown":  # `halo studio --stop`: end serve_forever so studio.json is removed
             self._json(200, {"ok": True})
