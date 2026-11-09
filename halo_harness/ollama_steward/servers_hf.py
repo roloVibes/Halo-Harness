@@ -1,7 +1,6 @@
 """halo_harness.ollama_steward.servers_hf -- Halo 3.3.8.0 R2: the local servers the steward reads beside the Ollama
 hosts (llama-server, LM Studio, mlx_lm.server; 3.3.9.0 R1: Halo's speech servers `stt` / `tts`, runtime voice-stt /
-voice-tts; 3.3.9.1: FreeToken, runtime freetoken; 3.3.9.2: Strata, runtime strata; 3.3.9.3: TensorFold, runtime
-tensorfold), one vocabulary for all of them.
+voice-tts; 3.3.13.0 R1: each engine of the descriptor table, runtime <its id>), one vocabulary for all of them.
 
 A **server** is one of:
 
@@ -15,8 +14,7 @@ A **server** is one of:
     roster(state_dir=None) -> [Server]        manual first, then Halo's, then the probe's (one row per url)
     by_name(name, state_dir=None) / for_url(url, state_dir=None) -> Server | None
     name_for_url(url, state_dir=None) -> the server's name for a ledger line's url, or None
-    runtime_word(raw) -> "llama-server" | "lmstudio" | "mlx" | "voice-stt" | "voice-tts" | "freetoken" | "strata"
-        | "tensorfold" | None
+    runtime_word(raw) -> "llama-server" | "lmstudio" | "mlx" | "voice-stt" | "voice-tts" | an engine id | None
     is_local(server) -> its url is this machine's
 
 The roster is cached for CACHE_S and read again when the registry or config.json changed (a ledger rollup asks it
@@ -31,10 +29,12 @@ import urllib.parse
 from dataclasses import dataclass
 from typing import Optional
 
+from halo_harness.engines.descriptors import ids as _engine_ids  # 3.3.13.0 R1: the descriptor table's ids
+
 CACHE_S = 1.0
 AUTO_S = 300.0
 LMSTUDIO_PORT = 1234
-RUNTIMES = ("llama-server", "lmstudio", "mlx", "voice-stt", "voice-tts", "freetoken", "strata", "tensorfold")  # 3.3.9.1-3
+RUNTIMES = ("llama-server", "lmstudio", "mlx", "voice-stt", "voice-tts") + _engine_ids()
 _CACHE: dict = {}
 
 
@@ -59,7 +59,7 @@ def runtime_word(raw) -> Optional[str]:
         return "lmstudio"
     if r in ("mlx", "mlx-lm", "mlx-lm.server", "mlxlm"):
         return "mlx"
-    return r if r in ("voice-stt", "voice-tts", "freetoken", "strata", "tensorfold") else None
+    return r if r in ("voice-stt", "voice-tts") + _engine_ids() else None
 
 
 def base(url) -> str:
@@ -126,12 +126,11 @@ def _registry(state_dir) -> list:
         rows = load_registry(state_dir)
     except Exception:
         return []
-    if any(e.get("kind") == "strata" and not e.get("settled") for e in rows):  # 3.3.9.2: what `strata launch` said
-        try:
-            from halo_harness.strata.control import settle
-            settle(state_dir, rows)
-        except Exception:
-            pass
+    try:  # 3.3.13.0 R1: a supervised engine whose start command returned (engines/launch.settle)
+        from halo_harness.engines.launch import settle
+        settle(state_dir, rows)
+    except Exception:
+        pass
     out = []
     for e in rows:
         port = e.get("port")

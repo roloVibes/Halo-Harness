@@ -2,7 +2,7 @@
 
     View(home, readers=None).card()            {hosts: [{name, port, card, log, other_clients, footprint}], link}
     View.catalog(window)                       {window, hosts: [{name, port, models: [{model, size, digest, fit, speed,
-                                                measured, profile}]}], pool (3.3.8.0 R3: local_pool/peer.offer), freetoken (3.3.9.1: freetoken/peer.offer), strata (3.3.9.2: strata/peer.offer), tensorfold (3.3.9.3: tensorfold/peer.offer)}
+                                                measured, profile}]}], pool (3.3.8.0 R3: local_pool/peer.offer), engines (3.3.13.0 R1: engines/peer.offer, {engine id: offer})}
     View.profiles()                            {profiles: [battery profile without its evidence]}
     View.events(since, kind)                   {events: [...]} (the newest EVENTS_MAX)
     View.tail(n, host)                         {host, lines, source, why, n} (prompt sizes, never a request body)
@@ -183,11 +183,8 @@ class View:
                                "fit": self.fit_row(card, r, h, window), **self.model_facts(h, m)})
             out.append({"name": h.name, "port": port_of(h.url), "models": models})
         from halo_harness.local_pool.peer import offer  # 3.3.8.0 R3: the pool this machine runs, its entry and key
-        from halo_harness.freetoken.peer import offer as ft_offer  # 3.3.9.1: the FreeToken server, when on the LAN
-        from halo_harness.strata.peer import offer as st_offer  # 3.3.9.2: the Strata server, when on the LAN
-        from halo_harness.tensorfold.peer import offer as tf_offer  # 3.3.9.3: the TensorFold server, when on the LAN
-        return {"window": window, "hosts": out, "pool": offer(self.home), "freetoken": ft_offer(self.home),
-                "strata": st_offer(self.home), "tensorfold": tf_offer(self.home)}
+        from halo_harness.engines.peer import offer as engine_offers  # 3.3.13.0 R1: each engine's server on the LAN
+        return {"window": window, "hosts": out, "pool": offer(self.home), "engines": engine_offers(self.home)}
 
     # ---- profiles, events, tail ----------------------------------------------------------------
     def profiles(self) -> dict:

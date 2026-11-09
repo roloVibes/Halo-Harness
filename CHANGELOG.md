@@ -8,6 +8,92 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.3.13.0] - unreleased
+
+**The fold.** The three runtime rounds of 3.3.9.1-3.3.9.3 (FreeToken, Strata, TensorFold) were not what the owner meant:
+"I wanted just new info that could be helpful for us ... the intent was to research and add helpful parts", and an
+outside review found three sibling packages for engines almost nobody runs odd. This version opens by folding them into
+ONE generic OpenAI-compatible local-engine adapter whose per-engine knowledge is a short descriptor table, keeping the
+two ideas that generalised -- the paged mixture-of-experts fit (RAM and the disk link, not VRAM) and the steward
+reading a non-Ollama server's log through a per-engine descriptor -- and dropping the engine-specific packages, the
+TensorFold release fetcher and the three docs pages. llama-server and mlx_lm, the two engines the owner runs, are
+untouched, and so is a user with none of the three.
+
+### R1: one local-engine adapter -- FreeToken, Strata and TensorFold fold into a descriptor table
+
+#### Added
+- `halo_harness/engines/`: `descriptors.py` -- THE table, one entry per engine (`freetoken`, `strata`, `tensorfold`;
+  adding one is an entry, never a round): id (the old runtime word), label, url, the source it was read from, default
+  port, base path, health and queue routes, detection (owned_by, or /health keys asked only for rows of the engine's
+  shape), program and `--version` pattern, the owner's install line per OS (Halo never installs an engine), where it
+  runs, the managed start (and a supervised engine's plan, status and stop), the log patterns with the steward's
+  sentence each, the fixes, the fit rule and figures, the tuning flags, and `verified: False` until an owner's live run;
+  `models.py` (the models each engine names: 16 FreeToken checkpoints, 24 Strata sets, 24 TensorFold models with their
+  stated sizes, one row shape); `adapter.py` (the program from `huggingface.engine_bins.<id>` or PATH, the auto-detect,
+  the entry `engine: <id>`, Halo's key, the stop, the first request's wait); `launch.py` (`halo local serve --runtime
+  <id>` from the descriptor, the plan check before a supervised start, the settle after it); `steward.py` (one log
+  reader driven by the descriptor's patterns, the /health or /metrics queue read, one rule over the events);
+  `fit.py` (the two generic rules, `vram` and `paged-moe`); `doctor.py` (one `halo doctor --local` line per engine
+  found on PATH, configured or running); `peer.py` (the host's `engines: {<id>: offer}`, a peer's
+  `hf:local/<model>@<host>`, an engine server as a placement option with its loading tax); `bench.py` (`halo local
+  bench --host <id>` through the OpenAI-compatible route, the card kept under the model's own id too).
+- Steward kinds and findings `engine-loading`, `engine-slots`, `engine-waiting`, `engine-backend-fallback`,
+  `engine-disk-bound` (one rule, the descriptor's sentence and fix line, never applied); an engine's `loaded` line is a
+  `load-result`, its errors `other-error`; knowledge/local-servers.md's "Other local engines" section with the five rows.
+- `huggingface.engine_bins` (a map of engine id to its program); glossary "local engine" and "paged MoE".
+- docs/MODELS-engines.md ("Other local engines"): the table rendered, the install lines, what Halo does and does not
+  do, `verified: false` said plainly, how to add an engine.
+- Tests: `tests/test_engines_descriptors.py`, `test_engines_adapter.py`, `test_engines_steward.py`,
+  `test_engines_fit.py`, `test_engines_doctor_host.py`, over one fake engine (`tests/helpers/fake_engine.py`,
+  `engine_home.py`, `engine_lines.py`) on free loopback ports; the old fit modules' 31 verdicts reproduced.
+
+#### Changed
+- Every seam that branched per engine reads the table: `ollama_steward/server_context_hf.py`, `server_rules_hf.py`
+  (SAYS from the descriptors), `servers_hf.py` (the runtime words), `server_log_hf.py` (the queue read, the roster's
+  model), `tune_lines_hf.py` (the descriptor's `tune`), `rules.py`; `providers/huggingface_local_probe.py` (detection,
+  the default probe ports from the table), `providers/huggingface.py` (a peer's engine), `providers/local_server.py`
+  (the stop, the supervised alive), `providers/stream.py` (the first request's wait); `local_hf_serve_cli.py`
+  (`--runtime` choices from the table), `local_hf_cli.py`, `local_bench_cli.py`, `local_sched/place.py` (the host flag
+  `engine`), `place_advice.py` (`engine_tax`), `models_library/browse.py`, `rows.py`, `search_filters.py`,
+  `host/routes_view.py` (`engines` in the catalog), `host/state.py`, `doctor_local_ids.py`,
+  `settings_catalog_rows_b.py`, `glossary.py`.
+- A `local_servers` entry that says `runtime: freetoken | strata | tensorfold` keeps working (the ids are the old
+  words); an entry Halo wrote before (`freetoken: true` ...) is still Halo's; the old `huggingface.<id>_bin` words are
+  still read and `halo doctor --local` names the new one.
+- MODELS.md, MODELS-steward-servers.md, LOCAL-MODELS.md, COMMANDS-local-servers.md, CONFIG.md, MAC.md, DEVELOPMENT.md,
+  GLOSSARY.md, ARCHITECTURE-modules.md and docs/README.md point at docs/MODELS-engines.md and lose their per-engine
+  paragraphs.
+
+#### Removed
+- `halo_harness/freetoken/` (bench, bench_cli, catalog, launch, link, peer, requirements, route, shape, waits),
+  `halo_harness/strata/` (bench, catalog, control, detect, launch, peer, requirements, route) and
+  `halo_harness/tensorfold/` (catalog, peer, requirements, route, source) -> `halo_harness/engines/`.
+- `providers/local_runtime_tensorfold.py` -> `engines/launch.py`; `providers/local_runtime_fetch_tf.py` (the TensorFold
+  release fetcher) -> nothing: Halo never downloads an engine; the install line says where the archive is.
+- `local_sched/fit_ft.py`, `fit_st.py`, `fit_tf.py` -> `engines/fit.py`; `doctor_freetoken.py`, `doctor_strata.py`,
+  `doctor_tensorfold.py` -> `engines/doctor.py`.
+- `ollama_steward/server_log_ft.py`, `server_log_strata.py`, `server_log_tensorfold.py`, `server_stats_tensorfold.py`
+  -> `engines/steward.py`; `rules_ft.py`, `rules_strata.py`, `rules_tensorfold.py` and their findings `ft-expert-thrash`,
+  `ft-pinned-cap`, `ft-kernel-jit`, `strata-disk-bound`, `strata-slots`, `strata-download`, `tf-waiting`,
+  `tf-backend-fallback`, `tf-load` -> `engine-disk-bound`, `engine-backend-fallback`, `engine-loading`,
+  `engine-slots`, `engine-waiting`; the event kinds `expert-cache`, `pin-cap`, `kernel-jit`, `ram-tight`, `download`,
+  `capacity`, `queue`, `load-start` -> the five `engine-*` kinds.
+- Verbs and flags: `halo local bench --bw [--model DIR]` (`ft bench bw`, the measured host link) -> nothing (the fit
+  says the table's link figure); `halo local serve --runtime strata --plan` and `--model-path` -> the plan check runs
+  on every supervised start; `halo local serve --runtime tensorfold --yes` fetching the archive -> nothing;
+  `halo local runtime remove tensorfold-<tag>` (no archive is fetched any more).
+- Config words: `huggingface.freetoken_bin`, `huggingface.strata_bin`, `huggingface.tensorfold_bin` ->
+  `huggingface.engine_bins.<id>` (the old words still read); the entry markers `freetoken: true`, `strata: true`,
+  `tensorfold: true` -> `engine: <id>` (the old ones still recognised); the host catalog's `freetoken`, `strata`,
+  `tensorfold` keys -> `engines: {<id>: offer}` (a peer still reads an older host's keys).
+- Glossary: "expert cache", "offload", "expert set", "streams" -> "local engine", "paged MoE".
+- Docs: docs/MODELS-freetoken.md, MODELS-strata.md, MODELS-tensorfold.md -> docs/MODELS-engines.md.
+- Tests: `tests/test_doctor_{freetoken,strata,tensorfold}.py`, `test_{freetoken,strata,tensorfold}_fit.py`,
+  `test_host_{freetoken,strata,tensorfold}.py`, `test_local_serve_{freetoken,strata,tensorfold}.py`,
+  `test_server_log_{ft,strata,tensorfold}.py`, `test_local_runtime_fetch_tensorfold.py` and the helpers
+  `fake_ft_server.py`, `fake_strata.py`, `fake_tensorfold_server.py`, `{ft,st,tf}_home.py`, `{ft,st,tf}_lines.py` ->
+  the five `tests/test_engines_*.py` and `tests/helpers/fake_engine.py`, `engine_home.py`, `engine_lines.py`.
+
 ## [3.3.12.0] - 2026-11-08
 
 **Themes and parity.** One theming system, not two. Until now the terminal had two palettes and Studio a dark/light switch

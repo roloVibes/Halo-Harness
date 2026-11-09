@@ -7,9 +7,8 @@ local_cli.cmd_local; `halo models bench` is the same as `halo local bench`).
         the running pool (pool_run_cli.bench_pool -> local_pool/bench.py): its card, the measured penalty. 3.3.8.1: a
         host this machine does not serve is benched over the LAN from here: the cost line, the card's first line and
         --json's `measured_from` / `link` / `over_lan` say so (providers/local_bench_link.py), then the way to a card
-        without the link (`halo host serve` there, `halo host join` here). 3.3.9.1: `--host freetoken` benches the
-        FreeToken server (freetoken/bench_cli.py); `--bw [--model DIR]` measures the host link with `ft bench bw`;
-        3.3.9.2: `--host strata` benches the Strata server (strata/bench.py), the card the Strata fit reads
+        without the link (`halo host serve` there, `halo host join` here). 3.3.13.0 R1: `--host <engine id | its server's
+        name>` benches that engine's server through its OpenAI-compatible route (engines/bench.py)
     halo local tune [--host H] [--json] [--apply ID [--scope S] [--session SID]]
         the tuning report: the warm set, each model's windows, the reserve, the findings, every option with what it
         writes and how long it takes; --apply lands a Halo-side option (scope keep unless you name another)
@@ -68,15 +67,10 @@ def cmd_bench(argv: list) -> int:
     p.add_argument("--quick", action="store_true", help="one window: the planner's ceiling")
     p.add_argument("--yes", action="store_true", help="run without asking")
     p.add_argument("--json", action="store_true", help="the speed cards as JSON")
-    p.add_argument("--bw", action="store_true", help="with --host freetoken: measure the host link (ft bench bw)")
     args = p.parse_args(argv)
-    if args.bw or args.host.strip().lower() == "freetoken":  # 3.3.9.1: freetoken/bench_cli.py
-        from halo_harness.freetoken.bench_cli import bench_ft
-        return bench_ft(args.host, quick=args.quick, yes=args.yes, as_json=args.json, bw=args.bw,
-                        model=args.model or None, ask=_ask)
-    if args.host.strip().lower() == "strata":  # 3.3.9.2: strata/bench.py
-        from halo_harness.strata.bench import bench_st
-        return bench_st(args.host, quick=args.quick, yes=args.yes, as_json=args.json, ask=_ask)
+    from halo_harness.engines.bench import bench_cli, server_named
+    if args.host.strip() and server_named(args.host.strip()) is not None:  # 3.3.13.0 R1: an engine's server
+        return bench_cli(args.host.strip().lower(), quick=args.quick, yes=args.yes, as_json=args.json, ask=_ask)
     if args.host.strip().lower() == "pool":  # 3.3.8.0 R4: the running pool's own battery and speed card
         from halo_harness.pool_run_cli import bench_pool
         return bench_pool(quick=args.quick, yes=args.yes, as_json=args.json, ask=_ask)

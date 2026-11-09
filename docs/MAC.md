@@ -218,34 +218,23 @@ itself.
 the actual deliverable rolo asked for -- "measurements, as the roadmap
 says" -- not a guess from the worker who wrote this code.
 
-## 11. The second native engine: TensorFold (3.3.9.3)
+## 11. Other local engines (3.3.13.0)
 
-TensorFold ([MODELS-tensorfold.md](MODELS-tensorfold.md)) is a Metal engine in one binary: no Python, no MLX
-install. It sits beside mlx_lm.server as the Mac's second native engine (runtime `tensorfold`).
+An engine of the descriptor table that runs on the Mac ([MODELS-engines.md](MODELS-engines.md): its table's macOS
+column) is a second native engine beside mlx_lm.server: install it with its own line, then
 
 ```sh
-brew install ashhart/tensorfold/tensorfold
-halo doctor --local                        # two lines: tensorfold --version, capabilities --json (backends metal)
-tensorfold pull TensorFold/Qwen3.8-27B-MLX-4bit     # your download: 16 GiB per TensorFold's table
-halo local serve --runtime tensorfold --model TensorFold/Qwen3.8-27B-MLX-4bit
+halo doctor --local                        # one line per engine found here: its --version
+halo local serve --runtime <id> --model <the model it takes>
 ```
 
-**You should see**: the fit here ("fits: Qwen3.8-27B MLX 4-bit (16 GiB) on this machine: ... of unified memory for
-the GPU, less TensorFold's ... reserve, leaves ..."), the command line (`tensorfold serve <repo> --name ... --host
-127.0.0.1 --port ... --context 32768 --api-key-file ...`), then `serving Qwen3.8-27B-MLX-4bit (TensorFold) on
-http://127.0.0.1:<port> -- use it as hf:local/Qwen3.8-27B-MLX-4bit@tensorfold`. A first load of a big checkpoint
-can take minutes: Halo says "still loading" and it goes on. Then a session on that ref, `halo local servers`, and
-`halo ollama steward findings` after a few turns.
+**You should see**: the command line, then `serving <model> (<engine>) on http://127.0.0.1:<port> -- use it as
+hf:local/<model>@<id>`; a first load of a big checkpoint can take minutes ("still starting", and it goes on). From the
+PC or Kali: `--lan` here, `halo host` on this Mac, `halo host join` there, and a session on
+`hf:local/<model>@<this Mac's host name>`.
 
-Which model: TensorFold qualifies Qwen3.5-2B, Qwen3.8-27B, Nemotron 3.5 Lightning 30B-A3B and LFM2.5-24B-A2B on a Mac
-(and Gemma 4 on an M5 only). Its Qwen3.6-35B-A3B MLX checkpoint is qualified on native CUDA only, so the fit says it
-does not fit here.
-
-From the PC or Kali: `halo local serve --runtime tensorfold --model <repo> --lan` here, `halo host` on this Mac, `halo
-host join` there, and a session on `hf:local/<model>@<this Mac's host name>`.
-
-**Please confirm**: the Metal startup line's exact wording (the steward reads "N streams at once"), that `tensorfold
-serve <repo>` finds a checkpoint `tensorfold pull` put in the Hugging Face cache, and the load time of the 27B.
+**Please confirm**: the engine's startup lines against its descriptor's patterns (they are `verified: false` until
+this run), and the load time of the model you serve.
 
 ## Please confirm -- summary of every unverified claim above
 

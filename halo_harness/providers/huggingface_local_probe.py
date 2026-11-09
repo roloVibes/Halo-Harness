@@ -35,11 +35,14 @@ import urllib.parse
 from dataclasses import dataclass, field
 from typing import Optional
 
+from halo_harness.engines.descriptors import TABLE as _ENGINES  # 3.3.13.0 R1: each engine's default port
+
 log = logging.getLogger("bridge")
 
 # research doc section 8/10 -- see this module's own docstring for the
 # vLLM/transformers-serve port-8000 ambiguity note.
-DEFAULT_LOCAL_PORTS: "tuple[int, ...]" = (8080, 8000, 1234, 1919)  # 3.3.9.1: 1919, FreeToken's `ft serve` default
+DEFAULT_LOCAL_PORTS: "tuple[int, ...]" = tuple(dict.fromkeys((8080, 8000, 1234) + tuple(
+    d["default_port"] for d in _ENGINES.values())))
 
 _PROBE_TIMEOUT_S = 1.5
 _PROPS_TIMEOUT_S = 1.0
@@ -85,7 +88,7 @@ class DetectedLocalServer:
     guess here).
 
     Round 5b part 2 (brief item 6, "mlx_lm.server... tell them apart"):
-    `runtime_label` is `"llama-server"`, `"mlx"`, `"freetoken"`, `"strata"`, `"tensorfold"` or `None` (genuinely
+    `runtime_label` is `"llama-server"`, `"mlx"`, an engine id of the descriptor table or `None` (genuinely
     unknown -- every other OpenAI-compatible server this module treats
     identically on purpose, see the module docstring's port-8000 note).
     See `_runtime_label_for` for exactly how, and how little, this is
@@ -246,20 +249,17 @@ def probe_models_endpoint(base_url: str, *, name: str = "", api_key: Optional[st
             context_by_model[r["id"]] = ctx
         else:
             missing.append(r["id"])
-    from halo_harness.strata.detect import strata_rows  # 3.3.9.2: `/health` says "service": "strata" (strata/detect.py)
-    st = strata_rows(base_url, rows) if missing else None
-    context_by_model.update(st or {})
-    missing = [m for m in missing if m not in (st or {})]
-    props_ctx = probe_llama_server_props(base_url) if (missing and len(rows) == 1 and st is None) else None
+    from halo_harness.engines.adapter import identify  # 3.3.13.0 R1: an engine of the descriptor table, by its rows or /health
+    engine, windows = identify(base_url, rows)
+    context_by_model.update(windows)
+    missing = [m for m in missing if m not in windows]
+    props_ctx = probe_llama_server_props(base_url) if (missing and len(rows) == 1 and engine is None) else None
     if props_ctx is not None:
         for mid in missing:
             context_by_model[mid] = props_ctx
-    ft = any(r.get("owned_by") == "FreeToken" for r in rows)  # 3.3.9.1: FreeToken's ModelCard (from the source, unverified)
-    tf = any(r.get("owned_by") == "tensorfold" for r in rows)  # 3.3.9.3: TensorFold's modelValue (status_routes.zig)
     return DetectedLocalServer(name=name, base_url=base_url.rstrip("/"), model_ids=model_ids,
                                 context_by_model=context_by_model, manual=manual,
-                                runtime_label="freetoken" if ft else "tensorfold" if tf else "strata" if st is not None
-                                else _runtime_label_for(base_url, props_ctx=props_ctx))
+                                runtime_label=engine or _runtime_label_for(base_url, props_ctx=props_ctx))
 
 
 _AUTO_DETECT_TTL_S = 60.0

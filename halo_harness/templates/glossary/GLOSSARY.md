@@ -362,21 +362,13 @@ A post-call verdict (3.3.10.0 R2) is a policy hook's second answer, after the ca
 
 The winner (3.3.10.0 R2) is the one verdict that counts when several armed policies answer the same call: deny over ask over allow before it, drop over redact over pass after it, the packs' run order among equals (`policy.winner`). Every policy's verdict is a row in its pack's events log; the winner's row says `winner: true`, and its line is what the tool line shows (`policy: deny -- fence: outside the project`).
 
-## expert cache
+## local engine
 
-The expert cache (3.3.9.1) is FreeToken's GPU-side LRU cache of a Mixture-of-Experts model's expert slots: the experts a decode step asks for that are in it run at once, the ones that are not (its misses) are copied from host RAM over the host link. Its size comes from the free VRAM after the dense layers and the KV (`--moe-cache-auto`) and can be resized live (`ft ctl cache --moe N`); with `--moe-collect-stats`, which Halo's launch passes, each decode log line states its hit rate, and `ft-expert-thrash` says when the misses dominate.
+A local engine (3.3.13.0 R1) is an OpenAI-compatible inference server beyond llama-server and mlx_lm.server that Halo knows through one entry of the descriptor table (halo_harness/engines/descriptors.py; docs/MODELS-engines.md lists them): its port, its health and queue routes, the owner's install line, its managed start, the log lines the steward reads and the fit rule it takes. To Halo it is a local server of runtime `<id>`: `halo local serve --runtime <id>` starts it, the auto-detect names one you started, `hf:local/<model>@<id>` reaches it, a peer reaches it through the host. Halo never downloads or installs an engine, and every entry says `verified: false` until an owner's live run.
 
-## offload
+## paged moe
 
-Offload (3.3.9.1) is FreeToken's default strategy for a Mixture-of-Experts model on a discrete GPU: the dense layers and the KV stay on the GPU, the routed experts live in host RAM, and the expert cache on the GPU holds the ones in use, so a model far bigger than the card runs on one machine at the speed of the host link (PCIe, about 32-64 GB/s). Its fit is RAM + link, not VRAM (`halo local bench --host freetoken --bw` measures the link); `fused` keeps every expert on the GPU instead.
-
-## expert set
-
-An expert set (3.3.9.2) is one of the quantized builds Strata serves a Mixture-of-Experts model from (Strata calls them packs, not Halo packs): a family and a size, such as `qwen/IQ3_XXS` (Qwen3.8-Flash-Next by ISTA-DASLab) or `deepseek41/ist-das-2.00bpw`, each with its download (tens to hundreds of GB), the experts it holds in host RAM and what stays on the SSD. `halo local serve --runtime strata --model <family>/<set>` serves one once its first launch (the user's download, its GB said first) is done; the Strata fit reads the set's figures against the box's RAM, the VRAM guide for parallel requests and the SSD, and the Library lists the sets as download targets.
-
-## streams
-
-Streams (3.3.9.3) are TensorFold's word for the requests a server runs at once: Halo calls the same thing `parallel` (llama-server's `-np` slots, Ollama's `OLLAMA_NUM_PARALLEL`). `tensorfold serve --parallel auto`, its default, asks for up to eight as memory allows and the startup line says how many it accepted ("4 streams at once"); an explicit `--parallel N` that does not fit is refused. Requests past the streams wait in its queue (`/health`'s `live.waiting`, `tensorfold:requests_waiting` in `/metrics`), and the steward's `tf-waiting` says when they do; `halo local serve --runtime tensorfold --parallel N` sets it.
+A paged MoE fit (3.3.13.0 R1) is the fit rule for an engine that runs a Mixture-of-Experts model bigger than the card: the routed experts live in host RAM (with the engine's spare), the dense part on the card, and what RAM cannot hold is read from the SSD or over the host link, so the verdict is about RAM and the disk link, not VRAM. Its figures are the engine's own (the shares, the spare, whether it maps experts from disk, a WSL pin cap); the other rule, `vram`, holds a checkpoint whole in the card's memory with the engine's reserve.
 
 ## info row
 

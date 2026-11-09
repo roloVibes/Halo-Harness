@@ -18,10 +18,9 @@ in rules_window.py (a, b, h), rules_reply.py (c, d, e), rules_host.py
 (f, g), rules_card.py (3.3.5.0 R0b: `called-wrong`), rules_crash.py and rules_drift.py (3.3.7.0 R4:
 `tag-drift`, `tag-deleted`), rules_servers.py (3.3.8.0 R2: a local server's groups, `server` and `runtime` on each
 finding), rules_pool.py (3.3.8.0 R4: pool-degraded, pool-rtt, pool-spill), rules_voice.py (3.3.9.0 R1: a speech
-server's stt-slow, tts-slow, voice-cpu, voice-load-failed), rules_ft.py (3.3.9.1: a FreeToken server's
-ft-expert-thrash, ft-pinned-cap, ft-kernel-jit), rules_strata.py (3.3.9.2: a Strata server's strata-disk-bound,
-strata-slots, strata-download), rules_tensorfold.py (3.3.9.3: a TensorFold server's tf-waiting, tf-backend-fallback,
-tf-load); knowledge/symptoms.md is their spec.
+server's stt-slow, tts-slow, voice-cpu, voice-load-failed), engines/steward.findings (3.3.13.0 R1: an engine's
+engine-slots, engine-waiting, engine-backend-fallback, engine-disk-bound, engine-loading, from its descriptor);
+knowledge/symptoms.md is their spec.
 """
 
 from __future__ import annotations
@@ -189,12 +188,8 @@ def run_rules(ctx: dict) -> list:
     out = supersede(out) + pool_rules(ctx)
     from halo_harness.ollama_steward.rules_voice import voice_rules  # 3.3.9.0 R1: stt-slow, tts-slow, voice-cpu, ...
     out.extend(voice_rules(ctx))
-    from halo_harness.ollama_steward.rules_ft import ft_rules  # 3.3.9.1: ft-expert-thrash, ft-pinned-cap, ft-kernel-jit
-    out.extend(ft_rules(ctx))
-    from halo_harness.ollama_steward.rules_strata import strata_rules  # 3.3.9.2: disk-bound, slots, download
-    out.extend(strata_rules(ctx))
-    from halo_harness.ollama_steward.rules_tensorfold import tensorfold_rules  # 3.3.9.3: waiting, backend-fallback, load
-    out.extend(tensorfold_rules(ctx))
+    from halo_harness.engines.steward import findings as engine_findings  # 3.3.13.0 R1: each engine's descriptor
+    out.extend(engine_findings(ctx))
     from halo_harness.ollama_steward.steward import dismissed  # 3.3.4.0 R5: Studio's Dismiss, quiet for 24 hours
     quiet = dismissed(ctx["state_dir"], now=ctx.get("now")) if ctx.get("state_dir") else set()
     out = [f for f in out if f["id"] not in quiet]

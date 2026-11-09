@@ -28,9 +28,8 @@ RULES = ("window-asked-small", "window-small", "window-large", "two-windows", "c
          "compaction-failed", "cut-resent", "slow-box", "thrash",
          "stt-slow", "tts-slow", "voice-cpu", "voice-load-failed",  # 3.3.9.0 R1: knowledge/local-servers.md's speech rows
          "voice-slow",  # 3.3.9.0 R2: the voice loop's latency cards
-         "ft-expert-thrash", "ft-pinned-cap", "ft-kernel-jit",  # 3.3.9.1: knowledge/local-servers.md's FreeToken rows
-         "strata-disk-bound", "strata-slots", "strata-download",  # 3.3.9.2: its Strata rows
-         "tf-waiting", "tf-backend-fallback", "tf-load")  # 3.3.9.3: its TensorFold rows
+         "engine-disk-bound", "engine-slots", "engine-waiting", "engine-backend-fallback",  # 3.3.13.0 R1: the
+         "engine-loading")  # engines' rows of knowledge/local-servers.md
 
 
 def _cli(*argv) -> "tuple[int, str]":

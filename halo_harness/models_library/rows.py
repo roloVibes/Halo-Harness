@@ -14,9 +14,7 @@ qwen3.5:9b" | "ollama pull hf.co/<repo>:<quant>" | "halo local download <repo>")
     fit_for_row(row, host_card, window, *, host_name="") -> fit_meter(...) + {numbers, estimate, shape_source}
                                     at the window picked; `why` carries the numbers: weights + KV at that window
                                     against the card's free memory, the newest resources sample included;
-                                    3.3.9.1: a FreeToken row (kind freetoken) takes local_sched/fit_ft.badge
-                                    3.3.9.2: a Strata row (kind strata) takes local_sched/fit_st.badge
-                                    3.3.9.3: a TensorFold row (kind tensorfold) takes local_sched/fit_tf.badge
+                                    3.3.13.0 R1: an engine's row (kind <engine id>) takes engines/fit.badge
     window_default(host) -> int     the host's max_ctx, else 32,768
 """
 
@@ -116,15 +114,10 @@ def fit_for_row(row: dict, host_card: Optional[dict], window: int, *, host_name:
     from halo_harness.providers.fit_meter import fit_meter
     from halo_harness.providers.ollama_fit_parts import load_parts, projector_for
     window = int(window or DEFAULT_WINDOW)
-    if row.get("kind") == "freetoken":  # 3.3.9.1: RAM + link, not VRAM (local_sched/fit_ft.py)
-        from halo_harness.local_sched.fit_ft import badge
+    from halo_harness.engines.descriptors import is_engine
+    if is_engine(row.get("kind")):  # 3.3.13.0 R1: the engine's own fit rule, vram or paged-moe (engines/fit.py)
+        from halo_harness.engines.fit import badge
         return badge(row, host_card, window, host_name=host_name)
-    if row.get("kind") == "strata":  # 3.3.9.2: FreeToken's RAM + link rule with Strata's figures (local_sched/fit_st.py)
-        from halo_harness.local_sched.fit_st import badge as st_badge
-        return st_badge(row, host_card, window, host_name=host_name)
-    if row.get("kind") == "tensorfold":  # 3.3.9.3: the VRAM / unified-memory rule with TensorFold's sizes (fit_tf.py)
-        from halo_harness.local_sched.fit_tf import badge as tf_badge
-        return tf_badge(row, host_card, window, host_name=host_name)
     info, shape_src = shapes.shape_for(row.get("id"), row.get("tag_or_file") if row.get("source") == "ollama" else "",
                                        row.get("params"), row.get("shape"))
     estimate = shape_src != "the repo's config.json" or not row.get("weights_bytes")

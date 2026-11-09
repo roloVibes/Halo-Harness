@@ -62,16 +62,12 @@ class Rules:
         self.clock: Optional[float] = None
         self.devices: dict = {}
         self.assigned: dict = {}
-        self._ft = None
-        if self.runtime == "freetoken":  # 3.3.9.1: FreeToken's own lines (server_log_ft.FtRules)
-            from halo_harness.ollama_steward.server_log_ft import FtRules
-            self._ft = FtRules()
-        elif self.runtime == "strata":  # 3.3.9.2: Strata's own lines (server_log_strata.StRules)
-            from halo_harness.ollama_steward.server_log_strata import StRules
-            self._ft = StRules()
-        elif self.runtime == "tensorfold":  # 3.3.9.3: TensorFold's own lines (server_log_tensorfold.TfRules)
-            from halo_harness.ollama_steward.server_log_tensorfold import TfRules
-            self._ft = TfRules()
+        from halo_harness.engines.descriptors import is_engine  # 3.3.13.0 R1: an engine's lines, through its descriptor
+        if is_engine(self.runtime):
+            from halo_harness.engines.steward import EngineRules
+            self._ft = EngineRules(self.runtime)
+        else:
+            self._ft = None
 
     def _start(self, at) -> None:
         self.loading, self.load_at, self.layers = True, at, None
@@ -161,7 +157,7 @@ class Rules:
             out = self._ft.feed(raw, at=at)
             self.model, self.clock = self._ft.model, self._ft.clock
             return out
-        line =str(raw or "").rstrip("\r\n")
+        line = str(raw or "").rstrip("\r\n")
         ev = classify(line, runtime=self.runtime)  # the line's own time first, the read clock (`at`) else
         if ev is not None and ev.get("at") is None:
             ev["at"] = at

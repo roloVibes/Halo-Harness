@@ -224,8 +224,8 @@ def resolve_huggingface_local_server(name: Optional[str]) -> Optional[HFLocalSer
         for s in entries:
             if s.name.lower() == name.lower():
                 return s
-        from halo_harness.tensorfold.peer import remote_any  # a paired host's FreeToken, Strata, then TensorFold server
-        return remote_any(name)
+        from halo_harness.engines.peer import remote_entry as engine_entry  # 3.3.13.0 R1: a paired host's engine server
+        return engine_entry(name)
     entries = [s for s in entries if not str(s.runtime or "").startswith("voice-")]  # 3.3.9.0 R1: never a speech server
     if not entries:
         return None
