@@ -18,6 +18,15 @@ and sans for prose; four animations that carry meaning and nothing else that mov
 panel is renamed, no shortcut, route, `?mode=` word or `data-testid` changes, and the rail keeps its nine core
 sections in their order with the packs' after them.
 
+### Fixed on the way: an Orchestra worker's "STOP: none" is no stop
+
+- **A worker that says the stop condition did not apply no longer kills its lane** (rolo, Kali, during the guided
+  first run; finding f-20261109-9f7492). `stop_line` read any reply line starting with `STOP:` as a real stop, so
+  "STOP: none -- my unit is written" or "STOP: not applicable" failed the lane and every lane that depended on it, and
+  the retry path never retries a stop. A reason that only says it did not apply (none, n/a, no, not applicable, does
+  not apply, nothing, not needed) is skipped (`orchestra/worker_stop.py`); a bare `STOP:` still means the worker
+  stopped; the worker prompt now says to write no STOP line at all when STOP WHEN does not apply.
+
 ### L1: Instrument, the look
 
 #### Changed

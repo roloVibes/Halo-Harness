@@ -131,7 +131,7 @@ this list against the tree.
 
 - the run: `orchestra/goal.py`, `orchestra/workflow.py`, `orchestra/index.py`,
   `orchestra/split.py`, `orchestra/plan.py`, `orchestra/plan_check.py`,
-  `orchestra/workers.py`, `orchestra/worker_result.py`, `orchestra/lanes.py`,
+  `orchestra/workers.py`, `orchestra/worker_stop.py`, `orchestra/worker_result.py`, `orchestra/lanes.py`,
   `orchestra/handoff_spec.py`, `orchestra/handoff.py`, `orchestra/handoff_run.py`,
   `orchestra/merge.py`, `orchestra/hunks.py`, `orchestra/gate.py`,
   `orchestra/report.py`, `orchestra/run.py`, `orchestra/adapters.py`,

@@ -54,7 +54,8 @@ def worker_prompt(goal, lane: Lane, retry_text: str = "") -> str:
     )
     if goal.test:
         text += f"The run's test command is `{goal.test}` (other workers' units may still be unwritten).\n"
-    text += "If STOP WHEN applies to your job, end your reply with one line: STOP: <the reason>.\n"
+    text += ("If STOP WHEN applies to your job, end your reply with one line: STOP: <the reason>. "
+             "If it does not apply, write no STOP line at all (not even \"STOP: none\").\n")
     extra = [t for t in (getattr(lane, "stage_text", ""), getattr(lane, "handoff_text", ""), getattr(lane, "gives_text", ""),
                          getattr(lane, "knowledge_text", "")) if t]  # 3.1.8.0 R4: the findings recall ranks for the job
     if extra:  # 3.0.9.0: only a lane that declares hand-offs (orchestra/handoff.py)
@@ -64,11 +65,7 @@ def worker_prompt(goal, lane: Lane, retry_text: str = "") -> str:
     return text
 
 
-def stop_line(text: str) -> Optional[str]:
-    for line in str(text or "").splitlines():
-        if line.strip().upper().startswith("STOP:"):
-            return line.strip()[5:].strip() or "the worker stopped"
-    return None
+from halo_harness.orchestra.worker_stop import stop_line  # noqa: E402  3.3.15.0: "STOP: none" is no stop (worker_stop.py)
 
 
 def join_lane(run_dir, lane_n: int, holder: str) -> list:
