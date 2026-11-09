@@ -71,7 +71,12 @@ def mission(c, url, ctx) -> dict:
     c.wait(f"!!{btn}", 30)
     seen(c, btn)
     c.click_on(btn)
-    out["need_chip"] = c.wait(f"{_q('[data-testid=fleet-mission-pack-need]')}?.textContent", 30)
+    need = f"{_q('[data-testid=fleet-mission-pack-need]')}?.textContent"
+    try:  # the pointer click can land while the opened strip is still laying out (Windows shard 1 on 137c3e77)
+        out["need_chip"] = c.wait(need, 8)
+    except TimeoutError:
+        c.js(f"({btn})?.click(); 1")
+        out["need_chip"] = c.wait(need, 30)
     out["need_pack"] = c.js(f"{_q('[data-testid=fleet-mission-pack-need]')}?.dataset.pack")
     out["metadata"] = c.wait(f"{_q('[data-testid=fleet-mission-metadata]')}?.textContent", 15)
     out["inspector_before"] = c.js(f"!!{_q('[data-testid=fleet-pack-inspector]')}")
