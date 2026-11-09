@@ -123,7 +123,7 @@ def test_the_old_words_point_at_the_pack(ctx: Ctx):
 
 @test
 def test_a_route_answers_and_the_seam_says_what_failed(ctx: Ctx):
-    """In-process Studio with the pack linked (ext.testing.studio): `GET ping`; the token in `?t=` for a GET; a grant
+    """In-process Studio with the pack linked (ext.testing.studio): `GET ping`; the pack's key in `?k=` for a GET; a grant
     taken back is a 403 naming it; disabled is a 404; a routes module that raises is a 500 with one line and a doctor row."""
     from halo_harness.ext import testing
     from halo_harness.packs.doctor import problems
@@ -133,16 +133,13 @@ def test_a_route_answers_and_the_seam_says_what_failed(ctx: Ctx):
             ctx.check(f"GET ping answers 200 with the pack's id, got {status} {body}", status == 200 and body.get("pack") == "design")
             ctx.check("a wrong token is a 401", s.call("GET", s.route("ping"), token="wrong")[0] == 401)
             status, _h, raw = s.raw(s.route("ping"))
-            ctx.check(f"a GET takes the token in ?t= (an iframe sends no header), got {status}", status == 200 and b'"pack"' in raw)
-            import urllib.error
-            import urllib.request
-            req = urllib.request.Request(f"{s.base}{s.route('render')}?t={s.token}", method="POST", data=b"{}")
-            try:
-                urllib.request.urlopen(req, timeout=10)
-                post = 200
-            except urllib.error.HTTPError as e:
-                post = e.code
-            ctx.check(f"a POST does not take the token from ?t=: 401, got {post}", post == 401)
+            ctx.check(f"a GET takes the pack's key in ?k= (an iframe sends no header), got {status}", status == 200 and b'"pack"' in raw)
+            from tests.helpers.owner_rig import fetch
+            ctx.check("3.3.14.0 R1: the launch token in ?t= is not taken on a pack GET (401)",
+                      fetch(f"{s.base}{s.route('ping')}?t={s.token}")[0] == 401)
+            for q in (f"t={s.token}", f"k={s.key}"):
+                post = fetch(f"{s.base}{s.route('render')}?{q}", method="POST", data=b"{}")[0]
+                ctx.check(f"a POST takes neither the token nor the key from the query ({q[:2]}): 401, got {post}", post == 401)
             routes = s.module("server/routes.py")
             orig = routes.handle
             routes.handle = lambda *a: 1 / 0

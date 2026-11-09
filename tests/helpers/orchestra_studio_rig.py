@@ -75,6 +75,8 @@ class Studio:
         data = json.dumps(body).encode("utf-8") if body is not None else None
         req = urllib.request.Request(self.base + "/api/" + path, data=data, method=method)
         req.add_header("Authorization", "Bearer " + (self.srv.token if token is None else token))
+        from halo_harness.studio.owner_proof import HEADER, header_for  # 3.3.14.0 R1: as the owner's own page asks
+        req.add_header(HEADER, header_for(self.srv))
         if data is not None:
             req.add_header("Content-Type", "application/json")
         try:

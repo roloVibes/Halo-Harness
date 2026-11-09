@@ -192,7 +192,7 @@ def update(pack_id: str, *, dry_run: bool = False, cwd=None, state_dir=None, con
     S.put(pack_id, {"version": new_v, "previous": {"version": old_v, "op_id": op_id, "at": S.now(),
                                                    "requested": MF.requested(current.manifest)}}, state_dir)
     from halo_harness.packs.grants import changed
-    changed(state_dir)  # what an enabled pack offers may have changed: Fleet's catalog gathers afresh
+    changed(state_dir, unload=pack_id)  # Fleet's catalog afresh; 3.3.14.0 R1 (#8): notify_studio drops its routes
     lines = said + [f"updated {pack_id} {old_v} -> {new_v} ({p['changed']} file(s) changed); {old_v} is kept as "
                     f"{pack_id}{PREVIOUS} (halo pack rollback {pack_id})"] + moved + p["kept"]
     asked = [g for g in MF.requested(new.manifest) if g not in set(rec.get("granted") or [])

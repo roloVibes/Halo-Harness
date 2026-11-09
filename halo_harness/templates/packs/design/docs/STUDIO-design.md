@@ -75,10 +75,13 @@ kept as the panel's setting in the browser (`halo.studio.design.panel.design-art
 
 **The raw file route and its sandbox.** Artboard files are the pack's `GET _files/<slug>/<artboard>/<file>` (and
 `.../v<n>/<file>`), the project's assets `_files/<slug>/_assets/<name>`, confined to that folder (`..` is a 404), with
-Studio's token in `?t=` (an iframe sends no header). They carry their own `Content-Security-Policy: default-src 'self'
-'unsafe-inline' data: blob:`, which Studio passes through for the pack's prefix, not the shell's, because a prototype
-has inline CSS and JS. HTML and SVG responses add `; sandbox allow-scripts`, so the document gets an opaque origin even
-when it is framed without a sandbox attribute or opened on its own. The page embeds them as `<iframe
+the design pack's key in `?k=` (an iframe sends no header; Halo 3.3.14.0: a GET-only key Studio derives for this pack's
+own routes, never Studio's token, so a prototype that reads its own address finds nothing that opens Studio's API).
+They carry their own `Content-Security-Policy: default-src 'self' 'unsafe-inline' data: blob:`, which Studio passes
+through for the pack's prefix, not the shell's, because a prototype has inline CSS and JS. Every response that is not
+an image, a video, an audio file, a PDF or a font (HTML, SVG, XHTML, XML, XSL, text, a type nobody named) adds `;
+sandbox allow-scripts`, so the document gets an opaque origin even when it is framed without a sandbox attribute or
+opened on its own. The page embeds them as `<iframe
 sandbox="allow-scripts">` without `allow-same-origin`, so a prototype runs but its requests carry no origin Studio
 answers. An artboard folder that is a symlink is never served.
 

@@ -12,12 +12,12 @@
 // publish, on, getData, mode, attention and route; what mount returns, when a
 // function, runs when the panel goes away, and every on() it made stops.
 import { useEffect, useMemo, useRef, useState } from "react";
-import { token } from "../../lib/api";
 import { Empty } from "../../lib/ui";
 import { clock } from "../orchestra/format";
 import { ArtifactProblems, ArtifactView } from "./ArtifactView";
 import { bundleApi, type BundleApi } from "./bundleApi";
 import { lineOf } from "./events";
+import { importPack } from "./importPack";
 import { usePacks } from "./store";
 import type { PackPanel } from "./types";
 
@@ -63,10 +63,9 @@ export function PackBundle({ p }: { p: PackPanel }) {
     const host = el.current;
     const m: Mounted = {};
     let live = true;
-    const url = new URL(`${p.file}?t=${encodeURIComponent(token())}`, location.origin + "/").href;
     const made = bundleApi(p);
-    import(/* @vite-ignore */ url).then(
-      (mod: { mount?: (el: HTMLElement, a: BundleApi) => unknown }) => {
+    importPack<{ mount?: (el: HTMLElement, a: BundleApi) => unknown }>(p.pack, p.file || "").then( // 3.3.14.0 R1: ?k=
+      (mod) => {
         if (!live) return;
         if (typeof mod.mount !== "function") return setError(`${p.source} exports no mount(el, api)`);
         try {

@@ -18,7 +18,9 @@ export function packApi(): BundleApi | null {
   return current;
 }
 
-/** One of the pack's raw files (an artboard's, an asset) with the token in `?t=`: an iframe or a link sends no header. */
+/** One of the pack's raw files (an artboard's, an asset): an iframe or a link sends no header, so `authUrl` (api.lib's
+ *  client, scoped to this pack) adds the design pack's key in `?k=` (Halo 3.3.14.0): a GET-only key for this pack's own
+ *  routes, never Studio's token, so a prototype that reads its own address finds nothing that opens Studio. */
 export function rawUrl(rest: string, query = ""): string {
   return authUrl(`${BASE}/_files/${rest}${query ? "?" + query : ""}`);
 }

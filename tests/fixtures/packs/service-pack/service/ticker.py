@@ -13,6 +13,7 @@ from pathlib import Path
 def main() -> int:
     if sys.argv[1:2] == ["--say"]:
         print("the pack's own program says: " + " ".join(sys.argv[2:]))
+        print("HALO_PACK_ID=" + os.environ.get("HALO_PACK_ID", ""))  # 3.3.14.0 R1: the id, not the folder's name
         return 0
     health, stop = Path(os.environ["HALO_SERVICE_HEALTH"]), Path(os.environ["HALO_SERVICE_STOP"])
     flag = health.parent / "crash.flag"

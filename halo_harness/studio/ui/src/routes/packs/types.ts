@@ -57,6 +57,8 @@ export type PackEntry = {
   attention: Record<string, AttnKind>;
   /** 3.3.13.0 R2: the pack's own API routes (`api`: api/packs/<id>/<prefix>), null without them. */
   routes?: { prefix: string; api: string; granted: boolean } | null;
+  /** 3.3.14.0 R1 (#5): the pack's key, `?k=` on what its page embeds (studio/owner_proof.py raw_key). */
+  key?: string;
 };
 
 /** boot (3.2.1.0 R1): the served page's sections only (`data-pack-sections`), before `GET pack/registry` answers. */

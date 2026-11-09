@@ -4618,3 +4618,24 @@ read) met the new migration during the worker's fast run and rewrote the owner's
 LAN calls still authenticate. Closed twice: the migration writes nothing under the test flag without a scratch home (a test
 pins it), and the module's bare calls now run against a scratch home (`_scoped_checks`). For rolo: `halo doctor --config`
 shows no key row; the five live checks in the hand-back. Next: the 3.3.13.1 release on green both, then the R1 merge and R2.**
+
+**3.3.13.1 RELEASED 2026-11-09 (v3.3.13.1 = cee04b5a; candidate 883e2c49 green on both runners; PC reinstall pending on
+the open halo session). 3.3.14.0 R1 BUILT and MERGED 2026-11-09 (one Opus round, worktree ~/hh-review/fix-3314-R1, brief
+FIXPASS-3314-R1-brief.md, hand-back fixpass-3314-R1-handback.md):** the owner proof (`studio/owner_proof.py`: a per-launch
+salt the served page carries once, read and removed by the shell's first module `ui/src/lib/owner.ts`, sent as
+`X-Halo-Owner` by the shell's own `lib/api.ts` client only; the writes that change what runs here answer 403 "this needs the
+owner's own page" without it, sessions/* included), `api.lib` and `@halo/api` as a client scoped to the pack
+(`packlib/scoped.ts`, `routes/packs/importPack.ts` loads pack modules one at a time with that pack's lib in place), the pack
+key `?k=` (HMAC "pack-raw:"+id, GET-only on the pack's own prefixes, `?t=` refused there, `GET pack/registry` names each
+pack's key), the design pack sandboxing every type outside images/video/audio/pdf/fonts and a default CSP on raw pack
+answers, unload only a loaded id with a failed registry read keeping the last good set, the routes cache keyed on the install
+record (update/rollback call `changed(..., unload=)`), `run:` commands needing bash with `HALO_PACK_ID` the pack's id; lows
+#32 #33 #34 #38. Worker's choices: the owner gate covers every write under sessions/; a `run:` command without bash is a
+doctor row, not a manifest problem. Coordinator: the signal pack's manifest now asks for `[services, bash]` (its `run:`
+commands; `halo pack test signal` needed it). Gaps the worker named for later: a pack's script on the shell's page can still
+click the shell's buttons or open `/` and race for the salt; bios, lineups, orchestra/team runs, fleet, local and model
+writes still take the token alone; a sandboxed frame for bundles would close both (a Pack-trust item). For rolo: grant
+studio-bundle `studio-script`, open Hello, press "Change this pack's grant": the scope error + "page: 403 this needs the
+owner's own page", grants unchanged; the Pack Manager's own Grant/Enable/Update still work; an artboard iframe src carries
+`k=` and never the `#t=` token; an artboard's page.xhtml opened alone gets `sandbox allow-scripts`; `halo pack update` on a
+pack with routes answers new code without a Studio restart. Next: R2 "children and keys", then the 3.3.14.0 release.**

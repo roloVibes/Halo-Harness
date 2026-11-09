@@ -8,8 +8,8 @@ fleet/pack_attention.py) over a real server and a scratch home:
    folder with the shell's CSP; `..`, an absolute path, a file type it does
    not serve and a disabled pack answer 404; the data folder's route.
 3. The bundle: 403 naming the grant until studio-script is granted, then a
-   JS module; through `?t=` without a header (an import()), a wrong token 403,
-   an undeclared script 403.
+   JS module; through `?k=` (the pack's key) without a header (an import()), a wrong or another pack's key 403,
+   the launch token in `?t=` 401 (3.3.14.0 R1), an undeclared script 403.
 4. `GET/POST pack/<id>/config`: the fields from config.schema; a good value
    lands in packs.settings.<id>, a bad one is 422 and nothing is written.
 5. `pack_changed`: enable / disable in this process publish it at once; a
@@ -118,18 +118,20 @@ def test_the_bundle_needs_its_grant(ctx: Ctx):
         status, raw, _ = s.raw(path)
         ctx.check(f"not granted: 403 naming the grant, got {status} {raw!r}", status == 403
                   and b"halo pack enable studio-bundle --grant studio-script" in raw)
-        status, raw, _ = s.raw(path + "?t=" + s.token, auth=False)
-        ctx.check("through ?t= too", status == 403)
+        status, raw, _ = s.raw(path + "?k=" + s.key("studio-bundle"), auth=False)
+        ctx.check("through ?k= too", status == 403)
         from halo_harness.packs.discover import find
         from halo_harness.packs.grants import enable
         enable(find("studio-bundle", cwd=s.repo), grant=["studio-script"])
         status, raw, headers = s.raw(path)
         ctx.check(f"granted: the module, got {status} {headers.get('Content-Type')}", status == 200
                   and headers.get("Content-Type", "").startswith("text/javascript") and b"export function mount" in raw)
-        status, raw, headers = s.raw(path + "?t=" + s.token, auth=False)
-        ctx.check(f"an import() (no header, ?t=): the module with the shell's CSP, got {status}", status == 200
-                  and b"hello from" in raw and headers.get("Content-Security-Policy") == SHELL_CSP)
-        ctx.check("a wrong ?t= is 403", s.raw(path + "?t=nope", auth=False)[0] == 403)
+        status, raw, headers = s.raw(path + "?k=" + s.key("studio-bundle"), auth=False)
+        ctx.check(f"an import() (no header, ?k= the pack's key): the module with the shell's CSP, got {status}",
+                  status == 200 and b"hello from" in raw and headers.get("Content-Security-Policy") == SHELL_CSP)
+        ctx.check("a wrong ?k= is 403", s.raw(path + "?k=nope", auth=False)[0] == 403)
+        ctx.check("another pack's key is 403", s.raw(path + "?k=" + s.key("doc-review"), auth=False)[0] == 403)
+        ctx.check("3.3.14.0 R1: the launch token in ?t= is not taken (401)", s.raw(path + "?t=" + s.token, auth=False)[0] == 401)
         ctx.check("no token at all is 401", s.raw(path, auth=False)[0] == 401)
         (s.packs / "studio-bundle" / "studio" / "other.js").write_text("export const x = 1;\n", encoding="utf-8")
         status, raw, _ = s.raw("/api/pack/studio-bundle/file/studio/other.js")

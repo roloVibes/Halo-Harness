@@ -33,7 +33,8 @@ from urllib.parse import parse_qs, unquote, urlsplit
 STATIC = Path(__file__).resolve().parent / "static"
 DIST = STATIC / "dist"      # 3.0.3.0: the React shell's committed build (halo_harness/studio/ui); 3.0.7.0 R2: the only page
 SHELL_CSP = ("default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self'; "
-             "frame-src 'self' http://127.0.0.1:* http://localhost:*; media-src 'self' blob:")  # 3.3.9.0 R3: Talk's reply
+             "frame-src 'self' http://127.0.0.1:* http://localhost:*; media-src 'self' blob:; "  # 3.3.9.0 R3: Talk's reply
+             "frame-ancestors 'self'")  # 3.3.14.0 R1 (#32): no other page frames the shell (X-Frame-Options too)
 # 3.0.7.0 R2: the classic page (static/legacy) is gone; a checkout without a build gets this one line at `/`
 NO_BUILD = (b"<!doctype html><meta charset=\"utf-8\"><title>Halo Studio</title>"
             b"<p>Build the Studio UI first: <code>cd halo_harness/studio/ui &amp;&amp; npm ci &amp;&amp; npm run build</code> "
@@ -58,6 +59,7 @@ class _Server(http.server.ThreadingHTTPServer):
     def __init__(self, addr, handler, *, token: str, cwd: Path, state_dir: Path, slow_ms: int = 0):
         self.token, self.cwd, self.state_dir = token, cwd, state_dir
         self.slow_ms = max(0, int(slow_ms or 0))  # 3.3.0.0 R7: the latency flag (slow_ms_from_env)
+        self.owner_salt = secrets.token_urlsafe(18)  # 3.3.14.0 R1 (#4): the owner proof's salt (studio/owner_proof.py)
         self.events = None  # studio.events.EventBridge, made by the first /api/events
         self.fleet_hub = None  # 3.0.5.0 R2: fleet.hub.HubServer (`halo studio --fleet`, studio/fleet_hub_api.py)
         self.events_lock = threading.Lock()
@@ -106,9 +108,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
     timeout = 60
 
-    def log_message(self, fmt, *args):  # quiet unless HALO_STUDIO_LOG is set
+    def log_message(self, fmt, *args):  # quiet unless HALO_STUDIO_LOG is set; 3.3.14.0 R1 (#33): `t=...`, `k=...`
         if os.environ.get("HALO_STUDIO_LOG"):
-            sys.stderr.write("%s - %s\n" % (self.address_string(), fmt % args))
+            from halo_harness.studio.owner_proof import redact
+            sys.stderr.write("%s - %s\n" % (self.address_string(), redact(fmt % args)))
 
     # -- plumbing ---------------------------------------------------------------
     def _send(self, status: int, body: bytes, ctype: str, extra: dict | None = None) -> None:
@@ -148,7 +151,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def _guard(self, query_token: bool = False) -> bool:
         """Loopback peer and Host, own Origin (when one is sent), the launch token. `query_token` (3.3.13.0 R2, a
-        GET of a pack's routes: an iframe or an image sends no header) takes the token from `?t=` too."""
+        GET of a pack's routes: an iframe or an image sends no header) takes that pack's key from `?k=` instead
+        (3.3.14.0 R1, #5: never the launch token in a URL; studio/owner_proof.py)."""
         if not self._local_only():
             return False
         origin = self.headers.get("Origin")
@@ -158,7 +162,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
         auth = self.headers.get("Authorization", "")
         presented = auth[7:] if auth.startswith("Bearer ") else ""
         if not presented and query_token:
-            presented = (parse_qs(urlsplit(self.path).query).get("t") or [""])[-1]
+            from halo_harness.studio.owner_proof import raw_key_ok
+            if raw_key_ok(self.path, self.server.token, self.command):
+                return True
         if not presented or not hmac.compare_digest(presented, self.server.token):
             self._json(401, {"error": "missing or wrong studio token: open the URL `halo studio` printed"})
             return False
@@ -185,6 +191,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return
         parts = urlsplit(self.path)
         path = unquote(parts.path)[len("/api/"):]
+        from halo_harness.studio.owner_proof import NEEDS_OWNER, needs_owner, owner_ok  # 3.3.14.0 R1 (#4)
+        if needs_owner(method, path) and not owner_ok(self):
+            return self._json(403, {"error": NEEDS_OWNER})
         if method == "POST" and path == "shutdown":  # `halo studio --stop`: end serve_forever so studio.json is removed
             self._json(200, {"ok": True})
             threading.Thread(target=self.server.shutdown, daemon=True).start()
@@ -215,9 +224,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if not self._local_only():
             return
         rel = unquote(urlsplit(self.path).path).lstrip("/") or "index.html"
+        frame = {"X-Frame-Options": "SAMEORIGIN"}  # 3.3.14.0 R1 (#32): beside the CSP's frame-ancestors 'self'
         if not (DIST / "index.html").is_file():
             if rel == "index.html":
-                self._send(200, NO_BUILD, "text/html; charset=utf-8", {"Content-Security-Policy": SHELL_CSP})
+                self._send(200, NO_BUILD, "text/html; charset=utf-8", {"Content-Security-Policy": SHELL_CSP, **frame})
             else:
                 self._json(404, {"error": "not found: the Studio UI is not built (docs/DEVELOPMENT.md)"})
             return
@@ -238,14 +248,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
             from halo_harness.studio.theme_boot import theme_attr, theme_csp
             body = theme_attr(body)  # 3.3.12.0 R1: the first paint in the saved palette (`theme`), else "auto"
             csp = theme_csp(SHELL_CSP, body)  # 3.3.12.0 R2: a pack palette's first-paint rule, allowed by its hash
-        self._send(200, body, ctype, {"Content-Security-Policy": csp})
+            from halo_harness.studio.owner_proof import owner_attr
+            body = owner_attr(body, self)  # 3.3.14.0 R1 (#4): the owner proof's salt, read once by lib/owner.ts
+        self._send(200, body, ctype, {"Content-Security-Policy": csp, **frame})
 
     def do_GET(self):
         if urlsplit(self.path).path == "/api/events":  # streams: before the JSON dispatch
             from halo_harness.studio.events import serve_sse
             serve_sse(self)
-        elif self.path.startswith("/api/pack/") and "t=" in urlsplit(self.path).query and not self.headers.get("Authorization"):
-            # 3.2.0.0 R3: a pack's bundle module -- an import() sends no header, so its token rides in ?t= (as /api/events)
+        elif self.path.startswith("/api/pack/") and "k" in parse_qs(urlsplit(self.path).query) and not self.headers.get("Authorization"):
+            # 3.2.0.0 R3: a pack's bundle module -- an import() sends no header; 3.3.14.0 R1 (#5): its pack's key in ?k=
             from halo_harness.studio.packs_studio_api import serve_module
             serve_module(self)
         else:

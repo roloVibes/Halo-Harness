@@ -54,7 +54,10 @@ this list against the tree.
   pack's routes call: the models a task ranks, the media models, the MCP servers and a probe of one, a fetch, the
   `halo` command, the ComfyUI client), `ext/testing_studio.py` (`testing.studio`: a live Studio in a scratch home
   with the pack linked and granted) and `packs/test_run_studio.py` (`halo pack test`'s views, routes ping and the
-  pack's own tests); Design's routes are the design pack's `server/` since then (halo_harness/templates/packs/design/)
+  pack's own tests); Design's routes are the design pack's `server/` since then (halo_harness/templates/packs/design/);
+  3.3.14.0 R1: `studio/owner_proof.py` (what the launch token derives: the owner proof the shell's own page sends on
+  the writes that change grants, packs, Setup, Settings and sessions, and a pack's GET-only key for what its page
+  embeds; docs/STUDIO-shell.md "The owner's page and a pack's key")
 - Media: `studio/media_api.py`
 - Orchestra: `studio/orchestra_api.py`, `studio/orchestra_plan_api.py`,
   `studio/orchestra_model.py`, `studio/orchestra_live.py`

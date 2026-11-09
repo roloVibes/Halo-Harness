@@ -18,8 +18,10 @@ from halo_harness.packs import manifest as MF
 #: What each grant lets the pack do, one line (the Pack Manager, `halo pack inspect`, the README `halo pack new` writes).
 WHAT = {"hooks": "its hooks run (a policy's hooks too)", "bash": "its code may run commands",
         "network": "its code may reach the network", "home-write": "its code may write outside its data folder",
-        "studio-script": "its Studio script (a bundle panel, a section's page) runs in the page",
-        "studio-routes": "runs this pack's Python inside Studio's server",  # 3.3.13.0 R2 (API 1.2)
+        # 3.3.14.0 R1 (#4, #34): what each Studio grant reaches, said as it is
+        "studio-script": "its Studio script runs in the page with a client scoped to this pack's own routes",
+        "studio-routes": ("runs this pack's Python inside Studio's server, with Halo's keys and Studio's token; turning "
+                          "it off takes effect at Studio's restart for work already started"),  # 3.3.13.0 R2 (API 1.2)
         "services": "runs a program of this pack in the background while the supervisor runs"}  # 3.3.13.0 R3
 
 
@@ -159,8 +161,9 @@ def disable(pack_id: str, *, state_dir=None) -> "tuple[bool, list[str]]":
     return True, lines + on_pack_off(pack_id, verb="disabled", state_dir=state_dir)
 
 
-def changed(state_dir=None) -> None:
-    """A pack turned on or off: Fleet's capabilities catalog gathers afresh on its next read."""
+def changed(state_dir=None, unload: str = "") -> None:
+    """A pack turned on or off: Fleet's capabilities catalog gathers afresh on its next read. `unload`: a pack whose
+    files changed (an update, a rollback), whose Studio routes load afresh (notify_studio)."""
     from halo_harness.packs import registry
     registry.invalidate()
     try:
@@ -168,14 +171,17 @@ def changed(state_dir=None) -> None:
         invalidate(state_dir)
     except Exception:
         pass
-    notify_studio()
+    notify_studio(unload=unload)
 
 
-def notify_studio(why: str = "changed") -> None:
-    """3.2.0.0 R3: a Studio this process serves reloads its packs registry now (Studio is never imported here)."""
+def notify_studio(why: str = "changed", unload: str = "") -> None:
+    """3.2.0.0 R3: a Studio this process serves reloads its packs registry now (Studio is never imported here).
+    3.3.14.0 R1 (#8): `unload` names a pack updated or rolled back here: its routes module is dropped too."""
     import sys
     routes = sys.modules.get("halo_harness.studio.packs_routes")  # 3.3.13.0 R2: a pack turned off unloads its routes
     if routes is not None:
+        if unload:
+            routes.unload(unload)
         routes.drop_inactive()
     live = sys.modules.get("halo_harness.studio.packs_studio_live")
     if live is not None:

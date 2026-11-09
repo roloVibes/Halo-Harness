@@ -8,6 +8,65 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.3.14.0] - unreleased
+
+**The review's fix pass: the token and the grants, then children and keys.** The November code and security review
+(plans/REVIEW-2026-11.md) found the doors that skip Halo's own machinery; 3.3.13.1 closed the three highs, and this
+version closes the mediums, with the simple lows beside them: first what a pack's page can reach through Studio's
+token and how a pack's grants and code are loaded (R1), then the children a service or an engine leaves and the keys
+they inherit (R2). The extension API stays 1.2: the client `api.lib` hands a pack's page is now scoped to that pack,
+which is what `api.lib` was always meant to be.
+
+### R1: the token and the grants
+
+#### Changed
+
+- **A pack's page cannot grant itself more** (REVIEW #4: STUDIO-5, PACKS-2, PERMS-3). The writes that change what runs
+  here -- a pack's grant, enable, disable, install, sources, update, rollback, remove, service, settings and config,
+  the bundles, Setup, Settings and every write under `sessions/` (a new session, a command, a prompt) -- answer 403
+  "this needs the owner's own page" unless the request carries `X-Halo-Owner`, an HMAC of a per-launch salt keyed by
+  the launch token (`studio/owner_proof.py`). The served page carries the salt as `data-owner-salt` (a navigation
+  only); the shell's first module (`ui/src/lib/owner.ts`) reads it and removes it before any pack module loads and
+  keeps it in its own closure; only the shell's own client (`lib/api.ts` `call`) sends the header. `api.lib`'s
+  `api`, `fetchJson` and `authUrl` are a client scoped to the pack (`ui/src/packlib/scoped.ts`): its own routes, its
+  own `pack/<id>/` files and calls, its own canvas layouts and the read-only routes a page draws from; anything else
+  rejects with an Error naming that rule. Pack modules are imported one at a time with `__haloStudioLib` set to that
+  pack's lib while each evaluates (`routes/packs/importPack.ts`), so `@halo/api` is the pack's own client too.
+  `studio-script`'s grant line: "its Studio script runs in the page with a client scoped to this pack's own routes";
+  EXTENSION_API.md's `api.lib` section states the scope ("The client's scope").
+- **The launch token leaves pack URLs** (#5: STUDIO-1, PACKS-3). What a page embeds where no header goes (an
+  iframe, an image, a video, a module import) carries the pack's own key, `?k=<HMAC("pack-raw:" + id)>`, accepted
+  only on a GET of that pack's `/api/packs/<id>/...` and `/api/pack/<id>/file/...`; `?t=` is no longer taken there.
+  `GET pack/registry` names each pack's `key`; the design pack's frames and assets go through `authUrl` as before and
+  now carry the key; its files.py docstring says what the frame can and cannot reach.
+- **`studio-routes` says what it is** (#34: PERMS-9): "runs this pack's Python inside Studio's server, with Halo's
+  keys and Studio's token; turning it off takes effect at Studio's restart for work already started", in the grant
+  line and EXTENSION_API.md; unloading a pack's routes calls the routes module's own `unload()` when it defines one.
+- **A `run:` command needs the `bash` grant** (#9: PACKS-4, PERMS-10). `packs/manifest.needed` adds `("bash",
+  "command <name> (run:)")`, so the Pack Manager row and `halo pack enable` name it; until it is granted the command
+  keeps its prompt form and `halo pack doctor` says what is missing (and when the pack does not request `bash`, that
+  its pack.yaml needs it). `HALO_PACK_ID` is the pack's id from its record (`make_run` takes it), also for a pack linked
+  from a folder of another name.
+
+#### Fixed
+
+- **Every non-media type is sandboxed; a raw pack body gets a CSP** (#6: STUDIO-3, PACKS-6). The design pack's
+  `_files/` adds `sandbox allow-scripts` to every response that is not an image (SVG is not), a video, an audio file,
+  a PDF or a font, so `.xhtml`, `.xml`, `.xsl`, `.svgz` and an unknown type get an opaque origin; a pack route's raw
+  answer with no CSP of its own gets `sandbox; default-src 'none'`.
+- **Only a loaded pack is unloaded, never on a failed read** (#7: STUDIO-4). `packs_routes.find` unloads only an id it
+  loaded (a URL's `<id>.server` drops nothing); `packs/contribute._active` answers the last good read when a registry
+  read raises (said once), so a pack folder mid-update unloads nobody's routes; a pack package gone from
+  `sys.modules` is one fresh import.
+- **The routes cache follows the install record** (#8: PACKS-5). The cache is keyed on the record's version, install
+  time and last update as well as the file's time, and `halo pack update` / `rollback` drop the pack's routes
+  (`grants.changed(unload=)` -> `notify_studio`), so an update that changes only a sibling module answers at once.
+- **The shell is not framed by another page** (#32: STUDIO-2): `frame-ancestors 'self'` in the shell's CSP and
+  `X-Frame-Options: SAMEORIGIN` on `/` and `index.html`.
+- **The access log keeps no token** (#33: STUDIO-6): with `HALO_STUDIO_LOG` set, request lines say `t=...` and `k=...`.
+- **The render route checks its project** (#38: PACKS-11): the design pack's `POST render` takes only a project slug,
+  so `../x` answers 404.
+
 ## [3.3.13.1] - 2026-11-09
 
 **The steward hotfix and the review's first cut.** The usage audit of the owner's own logs (plans/ROADMAP.md, the

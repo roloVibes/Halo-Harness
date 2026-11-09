@@ -5,9 +5,11 @@
         s.install("doc-review", grants=["hooks"])
         status, body, headers = s.call("GET", "pack/registry")
         status, raw, headers = s.raw("/api/pack/doc-review/file/studio/notes.md")   # bytes, token header
-        status, raw, headers = s.raw("/api/pack/x/file/a.js?t=" + s.token, auth=False)
+        status, raw, headers = s.raw("/api/pack/x/file/a.js?k=" + s.key("x"), auth=False)
 
-Nothing reaches the real home (PacksHome scopes BRIDGE_TEST_HOME); no model is called.
+A call carries the owner's proof (`X-Halo-Owner`, studio/owner_proof.py) as the shell's own page does; `owner=False`
+sends the token alone, as a pack's page would (Halo 3.3.14.0 R1). Nothing reaches the real home (PacksHome scopes
+BRIDGE_TEST_HOME); no model is called.
 """
 
 from __future__ import annotations
@@ -39,11 +41,20 @@ class PackStudio(PacksHome):
     def install_pack(self, name: str = "doc-review", *, enable: bool = True, grants=()) -> None:
         self.install(self.source(name), enable=enable, grants=list(grants))
 
-    def raw(self, path: str, *, method: str = "GET", body=None, auth: bool = True, token: "str | None" = None):
+    def key(self, pack_id: str) -> str:
+        """The pack's key, what `?k=` carries (studio/owner_proof.py raw_key)."""
+        from halo_harness.studio.owner_proof import raw_key
+        return raw_key(self.token, pack_id)
+
+    def raw(self, path: str, *, method: str = "GET", body=None, auth: bool = True, token: "str | None" = None,
+            owner: bool = True):
         data = json.dumps(body).encode("utf-8") if body is not None else None
         req = urllib.request.Request(self.base + path, data=data, method=method)
         if auth:
             req.add_header("Authorization", "Bearer " + (self.token if token is None else token))
+        if auth and owner:
+            from halo_harness.studio.owner_proof import HEADER, header_for
+            req.add_header(HEADER, header_for(self.srv))
         if data is not None:
             req.add_header("Content-Type", "application/json")
         try:
@@ -52,8 +63,8 @@ class PackStudio(PacksHome):
         except urllib.error.HTTPError as e:
             return e.code, e.read(), dict(e.headers)
 
-    def call(self, method: str, path: str, body=None):
-        status, raw, headers = self.raw("/api/" + path, method=method, body=body)
+    def call(self, method: str, path: str, body=None, *, owner: bool = True):
+        status, raw, headers = self.raw("/api/" + path, method=method, body=body, owner=owner)
         try:
             return status, json.loads(raw or b"{}"), headers
         except ValueError:

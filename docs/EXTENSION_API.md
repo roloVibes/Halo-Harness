@@ -88,7 +88,8 @@ names in `__all__` are the contract.
   pack's policies about one call. A pack's `tests/pack_test.py` (written by `halo pack new`) is the example.
   API 1.2 (3.3.13.0 R2): `testing.scratch_home()` points the test's own process at a fresh home (call it first);
   `with testing.studio(folder) as s:` a live Studio in that home with the pack linked and every grant it requests
-  (`s.route(rest)`, `s.call(method, path, body)`, `s.raw(path)` with the token in `?t=`, `s.module(rel)`, `s.listen()`
+  (`s.route(rest)`, `s.call(method, path, body)` as the owner's page, `s.raw(path)` as an iframe asks: the pack's key
+  in `?k=` (3.3.14.0 R1), `s.module(rel)`, `s.listen()`
   for the live feed); `testing.pack_module(folder, rel)` imports one of the pack's modules as Studio's routes do (the
   same module object, so a fake a test sets is the one the routes use). `halo pack test` also runs each of the pack's
   own `tests/test_*.py` (`python -m tests.<name>` from the pack's folder, a fresh home each, exit 0 passes).
@@ -243,6 +244,10 @@ environment variable, get the path as it is
 call: the words after `/<pack>:<name>` (or the entry command `/<pack>`) go to the program as its arguments, and its
 output is the answer in the transcript (`halo_harness/commands/pack_run.py`; the environment a hook gets, stopped
 after 120 s). The body is what the command says when the program cannot start. The signal pack's `/signal` is one.
+3.3.14.0 R1: such a command needs the `bash` grant (the pack requests it; the Pack Manager row and `halo pack enable`
+name it as "command <name> (run:)"); until it is granted the command keeps its prompt form and `halo pack doctor`
+says what is missing. `HALO_PACK_ID` is the pack's id from its record, also for a linked pack in a folder of another
+name.
 
 A skill's `SKILL.md` body follows the same rule for its own variables
 (3.2.1.0 R5): in a `` !`sh ${CLAUDE_SKILL_DIR}/scripts/x.sh` `` span the
@@ -254,10 +259,12 @@ body gets it as it is. A skill or command body does not get
 ## Permissions and grants
 
 Status: **stable**. A pack requests `permissions:` in pack.yaml: `mcp:<server>`,
-`hooks`, `bash`, `network`, `home-write`, `studio-script` (3.2.0.0 R3: a Studio bundle panel; 3.3.13.0 R2: or a section's
-view), `studio-routes` (3.3.13.0 R2, API 1.2: "runs this pack's Python inside Studio's server", [a pack's own
-routes](#a-packs-own-routes)), `services` (3.3.13.0 R3: "runs a program of this pack in the background while the
-supervisor runs"). You grant them with `halo pack
+`hooks`, `bash` (3.3.14.0 R1: also what a `run:` command needs), `network`, `home-write`, `studio-script` (3.2.0.0 R3: a
+Studio bundle panel; 3.3.13.0 R2: or a section's view; 3.3.14.0 R1: "its Studio script runs in the page with a client
+scoped to this pack's own routes", [`api.lib`](#apilib)), `studio-routes` (3.3.13.0 R2, API 1.2; 3.3.14.0 R1: "runs this
+pack's Python inside Studio's server, with Halo's keys and Studio's token; turning it off takes effect at Studio's
+restart for work already started", [a pack's own routes](#a-packs-own-routes)), `services` (3.3.13.0 R3: "runs a
+program of this pack in the background while the supervisor runs"). You grant them with `halo pack
 enable <id> --grant NAME` (or `--grant-all`); grants add up and live in
 state.json; `disable` clears them. A contribution whose permission is not
 granted does not run, and `halo pack doctor` says so. `bash` and `network`
@@ -368,12 +375,14 @@ guard of every Studio route; a pack that does not run here answers 404):
   resolved to `{section, panel?}`, each panel with `about` ("from pack <id>"),
   `collapsed` (true in a core section) and `file` (the api path of its
   source; a bundle's only once granted); 3.3.13.0 R2: a section with a view carries `view: {source, script, grant,
-  file?}` (`file` only once granted), and `routes` is `{prefix, api, granted}` or null.
+  file?}` (`file` only once granted), and `routes` is `{prefix, api, granted}` or null; 3.3.14.0 R1: `key`, the pack's
+  key for what its page embeds (`?k=`).
 - `GET /api/pack/<id>/file/<path>`: a markdown or JSON file inside the pack's
   folder, or its bundle module (a bundle panel's `source`, only with
   `studio-script` granted, else 403 naming the grant), under the shell's CSP.
-  An `import()` sends no header, so this route also takes the token in `?t=`,
-  as `/api/events` does. `..`, an absolute path or another file type is 404.
+  An `import()` sends no header, so this route also takes the pack's key in `?k=` (3.3.14.0 R1: the registry's `key`,
+  a GET-only key Studio derives for this pack, never the launch token). `..`, an absolute path or another file type is
+  404.
 - `GET /api/pack/<id>/data/<path>`: a markdown or JSON file in the pack's data
   folder (`~/.halo/packs/.data/<id>/`, where `write_private` writes).
 - `GET /api/pack/<id>/config` and `POST /api/pack/<id>/config {values: {key:
@@ -393,8 +402,9 @@ one Studio contribution that takes your explicit grant (`halo pack enable
 ### The bundle panel's `api`
 
 3.3.10.0 R3 (`halo_harness/studio/ui/src/routes/packs/bundleApi.ts`; the routes:
-`halo_harness/studio/packs_studio_bundle_api.py`). Every call is the pack's own (its files, its data folder,
-its declared event kinds and attention rows, its mode) and rides the `studio-script` grant: the module loads only
+`halo_harness/studio/packs_studio_bundle_api.py`). The calls below reach the pack's own files, data folder, declared
+event kinds and attention rows and mode, and its `lib`'s client the pack's own routes ([`api.lib`](#apilib) says the
+scope); each rides the `studio-script` grant: the module loads only
 once it is granted, and each route behind a call answers 403 naming `halo pack enable <id> --grant studio-script`
 without it. A call the server refuses rejects its promise with an `Error` whose message is the server's line.
 
@@ -462,7 +472,7 @@ copy, so a pack's page draws like the shell and there is one React. It follows t
 |---|---|
 | `React`, `ReactDOM`, `jsxRuntime` | the shell's own React 19 (`ReactDOM` is `react-dom/client` with `createPortal`, `flushSync`) |
 | `ui` | the `lib/ui` primitives: `Button`, `Dialog`, `Toasts`, `Tabs`, `Field`, `Kbd`, `Empty`, `Skeleton`, `ErrorState`, `Surface`, `HudStrip`, `HudCell`, `Icon`, `Menu`, `WindowedRows`, `FitMeter`, `Panel` |
-| `api`, `fetchJson(path, init?)`, `authUrl(path)` | Studio's JSON client with the token (`api.get/post/put/del`, `call`, `ApiError`); `fetchJson` for a path under `/api/`; `authUrl` the same address with the token in `?t=`, for what sends no header (an iframe, an image, a link) |
+| `api`, `fetchJson(path, init?)`, `authUrl(path)` | 3.3.14.0 R1: a JSON client scoped to this pack (`api.get/post/put/del`, `call`, `ApiError`; `fetchJson` for a path under `/api/`), below; `authUrl` the address of one of the pack's own routes or files with its key in `?k=`, for what sends no header (an iframe, an image, a video, a link) |
 | `events` | the live feed the shell is connected to: `on(kind, fn)` (returns the stop), `state()`, `onState(fn)` |
 | `store` | `createStore`, `useStore`, `writeLocal`, `studio` (the shell's state), `toast(text, tone)`, `goSection(id)` |
 | `theme` | `tokens()` (the palette's colour variables as they are now), `current()`, `onChange(fn)`; `css(text)` (also `lib.css`) adds a stylesheet of the pack's own as a constructed sheet, so the shell's CSP holds, and returns the function that removes it |
@@ -472,16 +482,31 @@ copy, so a pack's page draws like the shell and there is one React. It follows t
 | `kbd(combo, run)` | a key on the page (`Mod+Enter`; the section keys and Mod+K stay the shell's); returns the stop |
 | `commands(fn)` | palette lines while the page is up (`fn` returns `[{id, label, hint?, run}]`, read each time the palette opens, grouped "pack <id>"); returns the stop |
 
-The same object (without `commands`) is `globalThis.__haloStudioLib`, set before any pack module loads, because a module
-built against it takes React at import time (hooks imported at the top, a `memo()` or a store made at module level).
-The design pack builds that way: `halo_harness/studio/ui/vite.pack.config.ts` maps `react`, `react/jsx-runtime`,
-`react-dom/client` and `@halo/<part>` to the matching part (`vite.shared.ts` `shellLib`), and tsconfig's paths type
-`@halo/<part>` against the shell's own modules. A plain ES module reads `api.lib` in `mount`, as the kit's example does.
+**The client's scope** (3.3.14.0 R1; `halo_harness/studio/ui/src/packlib/scoped.ts`). `api.lib`'s client is the pack's,
+not the shell's: it sends Studio's token and never the owner's proof (below), and it reaches any method on the pack's
+own routes (`packs/<id>/...`); GET on its own `pack/<id>/file|data|config|mode|artifact/...` and POST on its own
+`pack/<id>/publish|attention`; PUT on its own canvas layouts (`layout/<id>:<name>`); and GET on the read-only routes a
+page draws from (`pack/registry`, `state`, `session`, `tools`, `models...`, `layout/<name>`, `media/status|models|
+workflows...`, `glossary`, `field-help`). Anything else rejects with an `Error` naming that rule, and no request is
+made. Studio answers the routes that change what runs here (a pack's grant, enable, disable, install, sources, update,
+rollback, remove, service, settings and config; the bundles; Setup; Settings; a session started or typed into) only
+for a request carrying the owner's proof, `X-Halo-Owner`, which only the shell's own page holds; anything else gets 403
+"this needs the owner's own page" ([STUDIO-shell.md](STUDIO-shell.md#the-owners-page-and-a-packs-key)). This is what
+`api.lib` was always meant to be, so the extension API stays 1.2.
+
+The same parts (without `commands`) are `globalThis.__haloStudioLib`, because a module built against them takes React
+at import time (hooks imported at the top, a `memo()` or a store made at module level). 3.3.14.0 R1: Studio imports
+pack modules one at a time, and while one is evaluated the global is that pack's own lib (its scoped client); between
+imports its client is scoped to no pack (the read-only GETs). The design pack builds that way:
+`halo_harness/studio/ui/vite.pack.config.ts` maps `react`, `react/jsx-runtime`, `react-dom/client` and `@halo/<part>`
+to the matching part (`vite.shared.ts` `shellLib`), and tsconfig's paths type `@halo/<part>` against the shell's own
+modules. A plain ES module reads `api.lib` in `mount`, as the kit's example does.
 
 ### A pack's own routes
 
 3.3.13.0 R2, API 1.2 (`halo_harness/studio/packs_routes.py`). `contributes.studio.routes: {module: server/routes.py,
-prefix: design}`, granted `studio-routes` ("runs this pack's Python inside Studio's server"): Studio imports the module
+prefix: design}`, granted `studio-routes` ("runs this pack's Python inside Studio's server, with Halo's keys and
+Studio's token; turning it off takes effect at Studio's restart for work already started"): Studio imports the module
 through the pack's own folder (the package `halo_packs.<id>`, so a relative import reaches the pack's other modules;
 `${CLAUDE_PLUGIN_ROOT}` semantics: nothing is copied) and answers `/api/packs/<id>/<prefix>/<path>`, behind the token
 like every route, with
@@ -495,13 +520,19 @@ def handle(ctx, method, path, body, query):   # path: what follows the prefix
 `ctx` carries `pack_id`, `prefix`, `pack_root`, `data_dir` (the pack's data folder), `state_dir` (Halo's), `cwd`
 (Studio's project), `publish(kind, data)` (a `pack_live` frame on the live feed, which the pack's bundle hears with
 `api.on(kind)`; nothing keeps it) and `bridge` (Studio's live-feed bridge). The module is imported once and again when
-its file changes; a pack disabled, removed or no longer granted is unloaded (its next request answers 404 or 403
-naming the grant). A module that does not import, a `handle` that raises or answers out of shape: 500 with one line,
+its file changes or its install record does (3.3.14.0 R1: `halo pack update` and `rollback` load it afresh, all of its
+modules); a pack disabled, removed or no longer granted is unloaded (its next request answers 404 or 403 naming the
+grant), and only a pack this Studio loaded is: an id a URL makes up, or a registry read that fails for a moment,
+unloads nothing. The module runs in Studio's own process, so a thread or a child it started keeps going after the
+unload: a module-level `unload()`, when the module defines one, runs then to stop them (3.3.14.0 R1); anything it
+leaves running stops with Studio. A module that does not import, a `handle` that raises or answers out of shape: 500 with one line,
 kept in the pack's data folder (`.studio-routes.json`) as `halo pack doctor`'s `studio-routes` row until it imports
 clean again. The request body limit is the server's 4 MB unless the module says `MAX_BODY = <bytes>` (at most 64 MB;
-per pack and prefix, never global: the design pack's is 22 MB for a 15 MB asset). A GET also takes the token in
-`?t=` (an iframe or an image sends no header), and a file answer keeps the route's own `Content-Security-Policy` (and a
-`Content-Disposition`); every other header of the answer is Studio's.
+per pack and prefix, never global: the design pack's is 22 MB for a 15 MB asset). A GET also takes the pack's key in
+`?k=` (an iframe or an image sends no header; 3.3.14.0 R1: `api.lib.authUrl` adds it, the launch token is not taken
+from the URL), and a file answer keeps the route's own `Content-Security-Policy` (and a `Content-Disposition`); a file
+answer with no CSP of its own gets `sandbox; default-src 'none'` (3.3.14.0 R1), and every other header of the answer
+is Studio's.
 
 `halo pack test` imports the module the same way and asks `handle(ctx, "GET", "ping", {}, {})`: it must answer in
 shape with a status below 500. `halo pack new --kinds studio` writes a working example of each part (a page-view

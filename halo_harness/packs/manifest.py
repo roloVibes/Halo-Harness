@@ -82,7 +82,8 @@ def needed(data, root) -> "list[tuple[str, str]]":
         out.append((ROUTES, f"Studio routes /api/packs/<id>/{routes_of(data).get('prefix')}/"))
     from halo_harness.packs.manifest_policy import needs as policy_needs  # 3.3.10.0 R1: a policy rides on hooks
     from halo_harness.packs.manifest_services import needs as service_needs  # 3.3.13.0 R3: a service needs `services`
-    return out + policy_needs(data) + service_needs(data)
+    from halo_harness.commands.pack_run import needs as run_needs  # 3.3.14.0 R1 (#9): a `run:` command needs `bash`
+    return out + policy_needs(data) + service_needs(data) + (run_needs(root) if root is not None else [])
 
 
 def _permission_lines(data, root) -> "list[str]":
@@ -100,8 +101,8 @@ def _permission_lines(data, root) -> "list[str]":
     if root is not None:
         asked = set(requested(data))
         for perm, why in needed(data, root):
-            if perm not in asked and perm not in ("studio-script", "studio-routes"):  # studio_rules names those lines
-                out.append(f"permissions: {why} needs {perm!r}, which the pack does not request")
+            if perm not in asked and perm not in ("studio-script", "studio-routes") and not why.endswith("(run:)"):
+                out.append(f"permissions: {why} needs {perm!r}, which the pack does not request")  # #9: run: a doctor row
     return out
 
 

@@ -106,4 +106,4 @@ config:
       notify: {type: array, items: {type: string, enum: [turn_done, asks, errors, supervisor, steward]}, description: "what arrives unprompted on a newly paired phone"}
     additionalProperties: false
   defaults: {"on": true, rate_per_minute: 30, verbosity: loud, stale_window_s: 300, pair_ttl_s: 600, home_dir: "", model: "", notify: [asks, errors, supervisor]}
-permissions: [services]
+permissions: [services, bash]

@@ -119,7 +119,9 @@ def test_the_design_packs_render_lands_an_artboard_and_streams_frames(ctx: Ctx):
         vid = p.artboard_dir("clip")
         vid.mkdir(parents=True)
         (vid / "render.mp4").write_bytes(b"\x00\x00\x00\x18ftypmp42")
-        with urllib.request.urlopen(f"{s.base}/api/{route}_files/{p.slug}/clip/render.mp4?t={s.srv.token}", timeout=10) as r:
+        from halo_harness.studio.owner_proof import raw_key  # 3.3.14.0 R1: a video's address carries the pack's key
+        with urllib.request.urlopen(f"{s.base}/api/{route}_files/{p.slug}/clip/render.mp4?k={raw_key(s.srv.token, 'design')}",
+                                    timeout=10) as r:
             ctx.check(f"an .mp4 is served as video/mp4 with no sandbox, got {r.headers['Content-Type']} "
                       f"{r.headers['Content-Security-Policy']}", r.headers["Content-Type"] == "video/mp4"
                       and "sandbox" not in r.headers["Content-Security-Policy"])

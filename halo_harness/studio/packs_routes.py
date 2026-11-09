@@ -11,9 +11,11 @@ A pack that declares `contributes.studio.routes: {module: server/routes.py, pref
 `data_dir` (the pack's data folder), `state_dir` (Halo's), `cwd` (Studio's project), `publish(kind, data)` (a
 `pack_live` frame on the live feed: the pack's bundle hears it through `api.on(kind)`, nothing keeps it) and
 `bridge` (Studio's live-feed bridge). Raw bytes keep the route's own `Content-Security-Policy` (and a
-`Content-Disposition`); every other header is dropped. The module is imported through the pack's own folder as the
-package `halo_packs.<id>` (a relative import reaches the pack's other modules), once, and again when the file
-changes; a pack that is disabled, removed or no longer granted is unloaded on its next request. `MAX_BODY = <bytes>`
+`Content-Disposition`); every other header is dropped, and a raw body with no CSP of its own gets `DEFAULT_CSP`
+(3.3.14.0 R1, #6). The module is imported through the pack's own folder as the package `halo_packs.<id>` (a relative
+import reaches the pack's other modules), once, and again when the file changes or the pack's install record does
+(3.3.14.0 R1, #8: an update or a rollback); a pack that is disabled, removed or no longer granted is unloaded on its
+next request, and a module-level `unload()` in the routes module runs then (#34). `MAX_BODY = <bytes>`
 in the module raises the request body limit for this pack's prefix (the server's 4 MB otherwise; at most 64 MB).
 A module that fails to import, or a `handle` that raises, answers 500 with one line, kept in the pack's data folder
 (`.studio-routes.json`) for `halo pack doctor` to show.
@@ -33,6 +35,7 @@ PKG = "halo_packs"
 DEFAULT_MAX, HARD_MAX = 4_000_000, 64_000_000
 ERRORS = ".studio-routes.json"
 PASSED_HEADERS = ("Content-Security-Policy", "Content-Disposition")
+DEFAULT_CSP = "sandbox; default-src 'none'"  # 3.3.14.0 R1 (#6): a raw body whose route set none
 _lock = threading.RLock()
 _loaded: dict = {}  # pack id -> {"root", "stamp", "module"}
 
@@ -42,12 +45,19 @@ def _safe(pack_id: str) -> str:
 
 
 def unload(pack_id: str) -> None:
-    """Forget the pack's routes module and every module imported through its folder."""
+    """Forget the pack's routes module and every module imported through its folder; then the routes module's own
+    `unload()` runs when it defines one (3.3.14.0 R1, #34: a thread or a child it started is its to stop)."""
     name = f"{PKG}.{_safe(pack_id)}"
     with _lock:
-        _loaded.pop(pack_id, None)
+        have = _loaded.pop(pack_id, None)
         for mod in [m for m in sys.modules if m == name or m.startswith(name + ".")]:
             sys.modules.pop(mod, None)
+    hook = getattr((have or {}).get("module"), "unload", None)
+    if callable(hook):
+        try:
+            hook()
+        except Exception as e:  # the pack's own code: a line in its data folder, never Studio's failure
+            note_error(pack_id, f"{pack_id}: unload() raised {type(e).__name__}: {e}")
 
 
 def ensure_package(pack_id: str, root) -> str:
@@ -88,21 +98,29 @@ def _clear_error(pack_id: str) -> None:
         pass
 
 
-def load(pack) -> "tuple[object, str]":
+def _record(pack_id: str, state_dir) -> tuple:
+    """The install record as the cache keys it (3.3.14.0 R1, #8): an update or a rollback changes one of these."""
+    from halo_harness.packs import state as S
+    rec = S.entry(pack_id, state_dir) or {}
+    prev = rec.get("previous") if isinstance(rec.get("previous"), dict) else {}
+    return str(rec.get("version") or ""), str(rec.get("installed") or ""), str(prev.get("op_id") or "")
+
+
+def load(pack, state_dir=None) -> "tuple[object, str]":
     """`(module, '')`, or `(None, the line)` when the routes module does not import or has no handle()."""
     from halo_harness.packs.studio_view_rules import routes_of
     rel = str(routes_of(pack.manifest).get("module") or "")
     path = Path(pack.root) / rel
     try:
-        stamp = path.stat().st_mtime_ns
+        stamp = (path.stat().st_mtime_ns,) + _record(pack.id, state_dir)
     except OSError:
         return None, f"{pack.id}: {rel} is not in the pack"
     root = str(Path(pack.root).resolve())
     with _lock:
         have = _loaded.get(pack.id)
-        if have and have["root"] == root and have["stamp"] == stamp:
+        if have and have["root"] == root and have["stamp"] == stamp and f"{PKG}.{_safe(pack.id)}" in sys.modules:
             return have["module"], ""
-        if have:  # the file changed, or the pack moved: import it afresh
+        if have:  # the file or the install record changed, the pack moved, or its package is gone (#7): afresh, once
             unload(pack.id)
         name = ensure_package(pack.id, root) + "." + ".".join(Path(rel).with_suffix("").parts)
         try:
@@ -124,8 +142,8 @@ def drop_inactive() -> None:
     for pack_id, have in list(_loaded.items()):
         try:
             find(pack_id, have.get("prefix", ""), cwd=have.get("cwd"), state_dir=have.get("state_dir"))
-        except Exception:
-            unload(pack_id)
+        except Exception:  # 3.3.14.0 R1 (#7): a read that failed is not a pack gone; its next request decides
+            pass
 
 
 def _split(path: str) -> "tuple[str, str, str]":
@@ -137,11 +155,13 @@ def _split(path: str) -> "tuple[str, str, str]":
 def find(pack_id: str, prefix: str, *, cwd, state_dir) -> "tuple[object, int, str]":
     """`(pack, 200, '')` when the pack runs here, declares this prefix and is granted studio-routes."""
     from halo_harness.packs import state as S
+    from halo_harness.packs.names import PACK_ID_RE
     from halo_harness.packs.studio_registry import active_pack
     from halo_harness.packs.studio_view_rules import ROUTES, routes_of
     pack = active_pack(pack_id, cwd=cwd, state_dir=state_dir) if pack_id else None
     if pack is None:
-        unload(pack_id)
+        if pack_id in _loaded and PACK_ID_RE.fullmatch(pack_id):  # 3.3.14.0 R1 (#7): only a pack this server loaded
+            unload(pack_id)
         return None, 404, f"no pack {pack_id!r} runs here (halo pack list)"
     if str(routes_of(pack.manifest).get("prefix") or "") != prefix:
         return None, 404, f"{pack.id} declares no routes under {prefix!r}"
@@ -156,7 +176,7 @@ def max_body(url_path: str, server) -> int:
     pack_id, prefix, _rest = _split(url_path[len("/api/"):])
     try:
         pack, status, _why = find(pack_id, prefix, cwd=server.cwd, state_dir=server.state_dir)
-        mod = load(pack)[0] if status == 200 else None
+        mod = load(pack, server.state_dir)[0] if status == 200 else None
         n = getattr(mod, "MAX_BODY", None)
         return max(0, min(HARD_MAX, int(n))) if isinstance(n, int) and not isinstance(n, bool) else DEFAULT_MAX
     except Exception:
@@ -191,7 +211,8 @@ def _answer(pack_id: str, out):
     if isinstance(body, (bytes, str)) and len(out) >= 3:
         data = body.encode("utf-8") if isinstance(body, str) else body
         heads = out[3] if len(out) == 4 and isinstance(out[3], dict) else {}
-        return status, RawBody(data, str(out[2]), {k: str(v) for k, v in heads.items() if k in PASSED_HEADERS})
+        kept = {k: str(v) for k, v in heads.items() if k in PASSED_HEADERS}
+        return status, RawBody(data, str(out[2]), {"Content-Security-Policy": DEFAULT_CSP, **kept})  # #6
     return status, body
 
 
@@ -201,13 +222,13 @@ def dispatch(req):
     pack, status, why = find(pack_id, prefix, cwd=req.cwd, state_dir=req.state_dir)
     if pack is None:
         return status, {"error": why}
-    mod, why = load(pack)
+    mod, why = load(pack, req.state_dir)
     if mod is None:
         note_error(pack.id, why)
         return 500, {"error": why}
     _loaded.get(pack.id, {}).update(prefix=prefix, cwd=req.cwd, state_dir=req.state_dir)  # drop_inactive's lookup
     try:
-        query = {k: v for k, v in (req.query or {}).items() if k != "t"}  # the token a GET may carry is Studio's
+        query = {k: v for k, v in (req.query or {}).items() if k not in ("t", "k")}  # the key a GET carries is Studio's
         out = mod.handle(_ctx(pack, prefix, req), req.method, rest, req.body, query)
     except Exception as e:
         line = f"{pack.id}: {req.method} {prefix}/{rest} raised {type(e).__name__}: {e}"

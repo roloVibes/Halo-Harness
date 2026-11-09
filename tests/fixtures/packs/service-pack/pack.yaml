@@ -17,4 +17,4 @@ contributes:
       restart: on-failure
       health: {file: ticker.json, max_age_s: 5}
       log: ticker.log
-permissions: [services]
+permissions: [services, bash]  # 3.3.14.0 R1: the `run:` command needs bash

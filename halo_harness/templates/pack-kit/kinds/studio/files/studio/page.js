@@ -1,7 +1,7 @@
 // __NAME__'s page: a Studio section drawn whole by this ES module (docs/EXTENSION_API.md "A section's view").
 // mount(el, api) gets the section's page; `api.lib` is Studio's own React, ReactDOM and parts (ui.Button,
 // ui.Surface, ...), so the page looks like the rest of Studio and no second React is loaded. `api.routes` is where
-// the pack's own routes answer (server/routes.py); api.lib.fetchJson sends Studio's token with the request. What
+// the pack's own routes answer (server/routes.py); api.lib.fetchJson reaches them (a client scoped to this pack). What
 // mount returns runs when the section goes away. Studio loads it once the owner grants studio-script.
 export function mount(el, api) {
   const { React, ReactDOM, ui, fetchJson } = api.lib;
