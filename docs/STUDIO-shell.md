@@ -172,21 +172,19 @@ a title is mono caps. A state is told four ways at once: a square, a colour, a r
 - **The panel frame** (`.glass`, `lib/ui/Surface.tsx` and every workspace panel): the surface, a hairline, a 6 px
   radius and four corner ticks, 10 x 1 px in the accent at the top left and the bottom right; the panel you are on
   (the focused one) has them in the text colour. Its three faces: the **full** face (title row and body), the
-  **compact** summary and the **strip** (the collapsed title row: 3.3.15.0 R3, 44 px, 12 px apart, its bar centred), as
-  above; the title row is 40 px (`--bar-h`; 36 at the least) with the state square, the title in mono caps and the mono
-  data line; a body pads 12 px at the least.
-- **A confirmation says what it does.** A Dialog that asks before an action shows three mono lines before its buttons,
-  **DOES**, **COSTS** and **WRITES** (`lib/ui/DialogCost.tsx`, `Dialog`'s `cost`): a pack's remove and update, Roles'
-  Apply and its deletes, stopping a mission or a team run, a hand-off, a kick, deleting a local model.
-- **The text box** (3.3.15.0 R3, `lib/ui/TextBox.tsx`, `Field`'s `multiline`): every multi-line box; three lines at the least, it
-  grows with its text to 12 lines then scrolls, no resize handle; `fill` takes the free height (the composer); a placeholder is <= 2 lines.
+  **compact** summary and the **strip** (the collapsed title row: 44 px, 12 px apart, its bar centred); the title row is
+  40 px (`--bar-h`; 36 at the least) with the state square, the mono-caps title and the mono data line; a body pads 12 px.
+- **A confirmation says what it does.** A Dialog that asks before an action shows **DOES**, **COSTS** and **WRITES** as three
+  mono lines before its buttons (`lib/ui/DialogCost.tsx`, `Dialog`'s `cost`): a pack's remove and update, Roles' Apply and
+  its deletes, stopping a mission or a team run, a hand-off, a kick, deleting a local model.
+- **The text box** (`lib/ui/TextBox.tsx`, `Field`'s `multiline`): every multi-line box is three lines at the least, grows with
+  its text to 12 then scrolls, has no resize handle, takes its panel's free height with `fill`; a placeholder is two lines at most.
 - **Map nodes** (the Session Map, Roles Live, the Fleet Tree's rows): a 2 px rule across the top in the state colour,
   a 1 px outline 3 px out when the node is selected or a Live line for it is hovered, the model without its provider
   prefix (the full id in the tooltip and the Inspector).
 
-Every colour is a variable of `ui/src/styles/tokens.css` (`--bg`, `--surface`, `--border`, `--line`, `--line-soft`,
-`--accent`, `--warn`, `--bad`, `--ok`, `--text`, `--muted`, `--faint`, ...) next to the scales (`--r-panel`,
-`--s-1`..`--s-6`, `--t-title`, `--t-data`, `--dur-fast`, ...); no component file carries a colour literal.
+Every colour is a variable of `ui/src/styles/tokens.css` (`--bg`, `--surface`, `--border`, `--line`, `--line-soft`, `--accent`, `--warn`,
+`--bad`, `--ok`, `--text`, `--muted`, `--faint`, ...) beside the scales (`--r-panel`, `--s-1`..`--s-6`, `--t-title`, `--t-data`, `--dur-fast`, ...); no component file carries a colour literal.
 
 **The palette set (3.3.12.0).** The terminal and Studio draw from one palette
 set, chosen by one key: `theme` in `~/.halo/config.json`. The registry
@@ -337,11 +335,13 @@ opens on a **Start here** card over the section the page opened on (3.3.2.0:
 only there, and once per browser). Above its
 button the card shows the same lines `halo start` opens on (3.2.2.0;
 `GET /api/start` carries them as `card`): what it does in seven steps, the
-models it will call, the estimated cost, the time, what it writes, and that
-your active lineup is not touched. **Run the guided first run** runs
+lineup it rehearses (your active one, its lead and lane cards), the models
+it will call with their prices, the estimated cost, the time, what it writes,
+and that your lineup is not touched. **Run the guided first run** runs
 `halo start --yes` as a background job in Studio's
-process (`POST /api/start`): the same seven steps as in a terminal (a lineup
-copied into your scope as `my-halo-dev-cycle`, the sample repo, one
+process (`POST /api/start`; 3.3.15.0 R7: 422 `no_lineup` / `no_coder` when
+the active lineup is gone or has no card that writes code): the same seven
+steps as in a terminal (your active lineup, read as it is, the sample repo, one
 Orchestra goal with `plan: review`, the plan approved, the lanes, the report
 and the coach, where to go next), each listed with its state while the
 running one shows its command and its last lines; the outcome names the

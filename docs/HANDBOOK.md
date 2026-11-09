@@ -20,34 +20,40 @@ halo check          # the checks after setup: doctor, the model catalog, one hel
 
 `halo start` is one real Orchestra run on your models, not a test of them
 (`halo gym` measures models). Halo 3.3.15.0: it belongs to a custom lineup or
-workflow. On the Auto lineup it would rehearse one model five times, so
-`halo start` says so, offers `halo gym --quick` and exits 0 (`--lineup <name>`
-runs it anyway), and init, Setup and Start here leave it out. The test lives
-here, in `halo start`, for now; Agents -> Runs adds "Test this lineup /
+workflow, and it rehearses the lineup you picked (3.3.15.0 R7): the active
+one (Setup's Team step or `halo teams use`), or the one `--lineup <name>`
+names, read as it is -- nothing is copied. On the Auto lineup there is no
+lineup to rehearse, so `halo start` says "Your lineup is Auto: pick or build
+a lineup in Roles first, then `halo start` rehearses it", offers `halo gym
+--quick` and exits 0, and init, Setup and Start here leave it out. The test
+lives here, in `halo start`, for now; Agents -> Runs adds "Test this lineup /
 workflow" in 3.3.16.0, on the same engine. It opens on a card: the seven steps in one
-sentence each, the models it will call (the lead and the five workers, from
-your role table or your default model, and the copied lineup's cards), an
-estimated cost (one lead plan, five worker lanes, one judge pass, each with
-a stated token budget, at the catalog's prices; "free" when every model is
-local, "unknown for <model>" when the catalog has no price), the time (5-20
-minutes on cloud models, longer on local ones), what it writes (the lineup
-copy and the sample repo, by path) and that your active lineup is not
-touched. Then it walks one real piece of work through the pieces Halo is
-made of, one screen per step, each with one sentence of why and the command
-it runs:
+sentence each, the lineup it rehearses (its lead card, the cards that take
+the lanes and all its cards), the models it will call (each card's own
+model, else your role table's or your default model) with their prices, an
+estimated cost (one lead plan, one worker lane per lane card, one judge
+pass, each with a stated token budget, at the catalog's prices; "free" when
+every model is local, "unknown for <model>" when the catalog has no price),
+the time (5-20 minutes on cloud models, longer on local ones), what it
+writes (a sample repo under `~/.halo/start/<date>/`) and that your lineup
+is not touched. Then it walks one real piece of work through the pieces
+Halo is made of, one screen per step, each with one sentence of why and the
+command it runs:
 
-1. **The lineup** -- the shipped `halo-dev-cycle` copied into your scope as
-   `my-halo-dev-cycle`, its cards shown as a table with their tiers (your
-   active lineup stays what it was).
+1. **The lineup** -- your lineup by name: the lead, the cards that take the
+   sample's lanes (a card that writes code takes as many as its instances;
+   fewer than five and the functions are shared, one line says so; none and
+   the start says so and stops before writing anything), its cards as a
+   table with their tiers.
 2. **The sample repo** -- `~/.halo/start/<date>/basket/`: `basket.py` with five
    functions to write and `test_basket.py`, a git repo with one commit.
 3. **The goal** -- an Orchestra run, "Write the five functions of basket.py",
    with `plan: review`, so it pauses after the lead's split.
-4. **The plan** -- the lead's lanes as a table; Enter approves it, `s` opens
+4. **The plan** -- the lead's lanes as a table, each job with its lane card's bio; Enter approves it, `s` opens
    it on Studio's plan canvas and waits for your decision there.
 5. **The run** -- the lanes table as each worker claims, writes and merges its
    function, until the gate runs the tests.
-6. **The report and the coach** -- every check with a tick or a cross, then
+6. **The report and the coach** -- every check with a tick or a cross, the lineup that played it, then
    the coach's cards (Apply opens the bio in Studio).
 7. **Where to go next** -- Roles, Team and Fleet, each with its command.
 

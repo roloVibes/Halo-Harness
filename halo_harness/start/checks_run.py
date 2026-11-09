@@ -108,18 +108,12 @@ def gym_candidates(ctx) -> "list[str]":
         if isinstance(ref, str) and ref and ref not in ("default", "auto") and ref not in out:
             out.append(ref)
     add(ctx.model)
-    try:
-        from halo_harness.start.card import _target, part_models
-        for ref in part_models(default=ctx.model).values():
+    try:  # 3.3.15.0 R7: the lineup the start rehearses (the active one, or ctx.lineup), as the card resolves it
+        from halo_harness.start.card import lineup_parts, part_refs
+        p = lineup_parts(ctx.lineup or None, state_dir=ctx.state_dir, cwd=ctx.cwd)
+        refs = part_refs(p, default=ctx.model)
+        for ref in [refs["main"]] + refs["lanes"] + [c.get("model") for c in (p or {}).get("cards") or []]:
             add(ref)
-        from halo_harness import teams_yaml as T
-        for name in (_target(ctx.lineup), ctx.lineup):
-            template = T.resolve_team_template(name, cwd=ctx.cwd, state_dir=ctx.state_dir)
-            if template is not None:
-                table, _notes = T.resolve_role_table(template, cwd=ctx.cwd, state_dir=ctx.state_dir)
-                for value in table.values():
-                    add(value.get("model") if isinstance(value, dict) else value)
-                break
     except Exception:
         pass
     return out
@@ -169,7 +163,8 @@ def run_gym(ctx) -> "list[str]":
 # -- start --------------------------------------------------------------------
 def start_cost(ctx) -> str:
     from halo_harness.start.card import estimate
-    return estimate(fake=ctx.fake, default=ctx.model, rule=False) + " (halo start --explain shows the rule)"
+    return estimate(fake=ctx.fake, default=ctx.model, rule=False, lineup=ctx.lineup or None, state_dir=ctx.state_dir,
+                    cwd=ctx.cwd) + " (halo start --explain shows the rule)"
 
 
 def run_start(ctx) -> "list[str]":

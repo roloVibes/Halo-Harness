@@ -28,6 +28,9 @@ raises fails that step the same way: its frame is `failed` with
 (start/errors.py, re-exported here) appends the traceback to
 `<state>/start/<yyyy-mm-dd>/<run or start>-error.log`; `halo start`, Studio's
 start job and the TUI panel call it for a failure outside the walk.
+
+3.3.15.0 R7: `Options.lineup` '' is the active lineup; step 1 reads it as it
+is (nothing copied) and keeps who plays the lead and the lanes in `parts`.
 """
 
 from __future__ import annotations
@@ -51,7 +54,7 @@ class StepFailed(Exception):
 
 @dataclass
 class Options:
-    lineup: str = S.DEFAULT_LINEUP
+    lineup: str = ""                     # 3.3.15.0 R7: '' runs the active lineup (start/lineup.py `pick`)
     repo: Optional[str] = None
     files: tuple = S.GOAL_FILES
     yes: bool = False
@@ -76,6 +79,7 @@ class StartRun:
         self._cancel = threading.Event()
         self.frames: "dict[str, dict]" = {}
         self.lineup = ""
+        self.parts: dict = {}  # 3.3.15.0 R7: who plays the lead and the lanes (start/lineup.py `parts`)
         self.repo: Optional[Path] = None
         self.run_dir: Optional[Path] = None
         self.runner: Optional[threading.Thread] = None

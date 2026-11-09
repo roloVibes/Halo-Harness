@@ -43,6 +43,13 @@ def _factory(pause_after: str = ""):
     return make
 
 
+def _on_custom(drive):
+    """3.3.15.0 R7: the panel's start rehearses the active lineup, so a custom one is active while it runs."""
+    from tests.helpers.custom_lineup import custom_lineup
+    with custom_lineup():
+        return asyncio.run(drive())
+
+
 def _host(screen_factory):
     from textual.app import App
 
@@ -107,11 +114,11 @@ def test_start_panel_runs_the_seven_steps(ctx: Ctx):
             await pilot.press("escape")
             await pilot.pause()
             return done, body, states, type(app.screen).__name__, panel.summary
-    done, body, states, after, summary = asyncio.run(drive())
+    done, body, states, after, summary = _on_custom(drive)
     ctx.check(f"the start ended ok, got {summary}", done and summary and summary.get("ok") is True)
     ctx.check(f"seven steps done, got {states}", list(states.values()) == ["done"] * 7 and len(states) == 7)
     ctx.check(f"the body lists them and the outcome, got {body[-400:]!r}", "[ok] 1. The lineup" in body and "[ok] 7. Where to go next" in body
-              and "Done: lineup my-halo-dev-cycle" in body)
+              and "Done: lineup halo-dev-cycle," in body)  # 3.3.15.0 R7: the active lineup itself, no copy
     ctx.check(f"Esc closes the ended panel, got {after}", after != "StartPanel")
 
 
@@ -130,7 +137,7 @@ def test_esc_stops_a_running_start(ctx: Ctx):
             await pilot.press("escape")
             await pilot.pause()
             return stopped, still, type(app.screen).__name__, panel.summary
-    stopped, still, after, summary = asyncio.run(drive())
+    stopped, still, after, summary = _on_custom(drive)
     ctx.check(f"Esc stopped it, got {summary}", stopped and summary.get("ok") is False and summary.get("stopped_at"))
     ctx.check(f"the panel stays until a second Esc, got {still} then {after}", still == "StartPanel" and after != "StartPanel")
 
@@ -152,7 +159,7 @@ def test_a_raising_step_shows_failed_in_the_panel(ctx: Ctx):
     saved = steps_setup.repo
     steps_setup.repo = boom
     try:
-        done, body, screen, summary = asyncio.run(drive())
+        done, body, screen, summary = _on_custom(drive)
     finally:
         steps_setup.repo = saved
     ctx.check(f"the start ended on the step, got {summary}", done and summary.get("ok") is False

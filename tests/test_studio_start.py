@@ -59,12 +59,14 @@ def test_the_guided_first_run_runs_from_start_here(ctx: Ctx):
               and card.startswith("The guided first run") and "Estimated cost: free" in card and "Writes:" in card)
     keys = ["lineup", "repo", "goal", "plan", "run", "report", "next"]
     ctx.check(f"the seven steps done, in order, got {got.get('steps')}", got.get("steps") == [f"{k}:done" for k in keys])
-    ctx.check(f"the outcome names the lineup, got {got.get('done_text')!r}", got.get("done_ok") == "true"
-              and "my-halo-dev-cycle" in (got.get("done_text") or ""))
+    ctx.check(f"the outcome names the active lineup itself (3.3.15.0 R7: no copy), got {got.get('done_text')!r}",
+              got.get("done_ok") == "true" and "lineup halo-dev-cycle," in (got.get("done_text") or "")
+              and "my-" not in (got.get("done_text") or ""))
+    ctx.check("the card names the lineup it rehearses", "The lineup it rehearses: halo-dev-cycle (your active lineup)" in card)
     ctx.check(f"`start` frames for every step and the summary, one session, got {got.get('frame_keys')} {got.get('frame_session')}",
               got.get("frame_keys") == sorted(keys + ["summary"]) and got.get("frame_session") == ["start:"] and got.get("frames", 0) >= 15)
     ctx.check(f"3.3.2.0 R1: the run answers the offer for this browser, got {got.get('start_key')!r}", got.get("start_key") == "answered")
-    ctx.check(f"a reload: no overlay, the Roles Start view gone (a lineup of your own), got {got}",
+    ctx.check(f"a reload: no overlay, the Roles Start view gone (a lineup active), got {got}",
               got.get("overlay_after_reload") == 0 and got.get("roles_start_after") == 0)
 
 

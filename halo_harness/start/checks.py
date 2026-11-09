@@ -31,7 +31,6 @@ from typing import Callable, Optional
 from halo_harness.start import checks_run as R
 from halo_harness.start import checks_steward as S
 from halo_harness.start.checks_run import CheckFailed  # noqa: F401 (the one a check raises)
-from halo_harness.start.steps import DEFAULT_LINEUP
 
 
 @dataclass
@@ -43,7 +42,7 @@ class CheckCtx:
     fake: bool = False                        # the start on fake model calls (HALO_START_FAKE=1)
     no_live: bool = False                     # halo init --no-live: catalog and hello say skipped
     start_argv: list = field(default_factory=list)
-    lineup: str = DEFAULT_LINEUP
+    lineup: str = ""                          # 3.3.15.0 R7: '' is the active lineup (the one the start rehearses)
 
 
 CHECKS = (
@@ -67,10 +66,10 @@ CHECKS = (
      "cost": "free for local models; the gym does not run cloud models", "time": "a few minutes per model",
      "writes": "one card per model under ~/.halo/gym/<host>/"},
     {"key": "start", "title": "The guided first run", "default_on": False, "run": R.run_start,
-     "what": "halo start: one real Orchestra run on your models -- a lineup copy, a sample repo, the plan, the "
-             "run, the report and the coach",
+     "what": "halo start: one real Orchestra run that rehearses your lineup on your models -- a sample repo, the "
+             "plan, the run, the report and the coach",
      "cost": "the card's estimate", "time": "5-20 minutes on cloud models; longer on local ones",
-     "writes": "a lineup copy (my-halo-dev-cycle) and a sample repo under ~/.halo/start/<date>/"},
+     "writes": "a sample repo under ~/.halo/start/<date>/ (your lineup is not touched)"},
 )
 KEYS = tuple(c["key"] for c in CHECKS)
 DEFAULT_KEYS = tuple(c["key"] for c in CHECKS if c["default_on"])

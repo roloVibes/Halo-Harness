@@ -253,43 +253,41 @@ halo start                          # the guided first run: its card, then one s
 halo start --explain                # only the card: what it does, the models, the cost, the time, what it writes
 halo start --yes                    # straight through: no Enter between steps, the plan approved
 halo start --json                   # only the summary as JSON at the end (asks nothing)
-halo start --lineup balanced        # copy another shipped lineup (default halo-dev-cycle)
+halo start --lineup code-review     # rehearse another lineup this once (default: your active lineup)
 halo start --repo ~/src/mine --file basket.py   # run in a git repo of your own
 ```
 
 The guided first run: one real Orchestra run on your models (`halo gym` measures models). **3.3.15.0: it belongs to a
-custom lineup.** On the Auto lineup (or none) `halo start` prints "Your lineup is Auto: the guided first run would
-rehearse one model five times. Build a lineup or a workflow in Roles (Agents from 3.3.16.0) and test it there.", offers
-`halo gym --quick` and exits 0 without running; `--lineup <name>` or an active custom lineup runs it. `halo init`'s
-Summary and console offer, `halo check`, Setup's Check and Summary and Studio's Start here leave it out on Auto, that
-line in its place. The test stays here for a custom lineup; Agents -> Runs (3.3.16.0) adds "Test this lineup /
-workflow" on the same engine. It opens on a card (Halo 3.2.2.0, `halo_harness/start/card.py`), before step 1:
+custom lineup.** On the Auto lineup (or none) `halo start` prints "Your lineup is Auto: pick or build a lineup in
+Roles first, then `halo start` rehearses it.", offers `halo gym --quick` and exits 0 without running; `--lineup <name>`
+or an active custom lineup runs it. `halo init`'s Summary and console offer, `halo check`, Setup's Check and Summary
+and Studio's Start here leave it out on Auto, that line in its place. The test stays here for a custom lineup; Agents
+-> Runs (3.3.16.0) adds "Test this lineup / workflow" on the same engine. **3.3.15.0 R7: it rehearses the lineup you
+picked**: the active one (`team` in config.json, the one Setup's Team step or `halo teams use` applied), or the one
+`--lineup <name>` names, read as it is (nothing is copied). A name with no lineup behind it is one line and exit 1
+("no lineup named X; `halo teams` lists them"). The lead is the lineup's `main` card; each of the sample's five lanes
+goes to a card that writes code (a `coder`, `implementer` or `subagent` role or alias, or a card used for implement or
+fix), in turn, as many as its `instances`; fewer lane slots run the sample in that many lanes (one line says so), none
+says so and exits 1 before writing anything. It opens on a card (Halo 3.2.2.0, `halo_harness/start/card.py`):
 
 - what it does: the seven steps, one sentence each;
-- the models it will call: the lead (its plan, and the judge when two
-  workers' edits conflict) is your role table's `main`, each of the five
-  workers its `subagent`, `--model REF` both, your default model when the
-  role table names none; then the copied lineup's cards (alias -> bio ->
-  model);
-- the estimated cost, by a stated rule: one lead plan (15k tokens in, 3k
-  out), five worker lanes (120k in, 6k out each: a `halo -p` session of
-  about eight turns), one judge pass (8k in, 1k out), at the catalog's
-  prices; "free" when every model is local, "unknown for <model>" when the
-  catalog has no price for one;
-- the time: 5-20 minutes on cloud models, longer on local ones (the run
-  stops itself after 2 hours);
-- what it writes: the `my-<lineup>` copy's path and the sample repo's path;
-- your active lineup is not touched.
+- the lineup it rehearses: its name, the lead and the lane cards (card, bio, model), then all its cards;
+- the models it will call: the lead (its plan, and the judge when two workers' edits conflict) and each lane, on the
+  model its card pins, else your role table's `main` / `subagent`, else your default model (`--model REF` plays every
+  part); each distinct model with its price;
+- the estimated cost, by a stated rule: one lead plan (15k tokens in, 3k out), one worker lane per lane card (120k in,
+  6k out each: a `halo -p` session of about eight turns), one judge pass (8k in, 1k out), at the catalog's prices;
+  "free" when every model is local, "unknown for <model>" when the catalog has no price for one;
+- the time: 5-20 minutes on cloud models, longer on local ones (the run stops itself after 2 hours);
+- what it writes: a sample repo under `~/.halo/start/<date>/` (your lineup is not touched).
 
 `--yes` prints the card and goes on; `--json` leaves it out; `--explain`
 prints only the card and exits 0. Then seven screens, each with one
 sentence of why and the command it runs. Enter runs the step, `q` stops
 the start there.
 
-1. **The lineup**: copies the shipped lineup (`--lineup`, default
-   `halo-dev-cycle`) into your scope as `my-<name>` and shows its cards as a
-   table with their tiers. Your active lineup stays what it was
-   (`halo teams use my-<name>` makes the copy the one sessions use).
+1. **The lineup**: the lineup the run rehearses (your active one, or `--lineup`'s), who plays the lead and the
+   lanes, and its cards as a table with their tiers. Nothing is copied or written.
 2. **The sample repo**: writes `~/.halo/start/<yyyy-mm-dd>/basket/`
    (`basket-2`, ... on a second start the same day): the Orchestra sample
    `basket.py` (five functions to write) and `test_basket.py`, `git init`
@@ -298,19 +296,20 @@ the start there.
 3. **The goal**: `halo orchestra new` + `halo orchestra run --review` with
    the fixed goal "Write the five functions of basket.py" (the run pauses
    after the lead's split). The lineup preflight runs first.
-4. **The plan**: the lead's plan as `halo orchestra plan` prints it, two
+4. **The plan**: the lineup's lead and lanes, then the lead's plan as
+   `halo orchestra plan` prints it (each job with its lane card's bio), two
    sentences on layers and hand-offs, then Enter approves it, `s` opens it
    on Studio's plan canvas (`halo studio --mode orchestra` in the sample
    repo) and waits for the decision made there, `q` rejects it and stops.
 5. **The run**: the lanes table (`halo orchestra lanes`), drawn again as
    lanes change, until the run ends.
 6. **The report and the coach**: the report's checks (`halo orchestra
-   report`) and the coach's cards (`halo orchestra coach`); `halo coach
+   report`), the lineup that played it, and the coach's cards (`halo orchestra coach`); `halo coach
    --apply ID` writes a card's change after a confirm, `--undo` puts it back.
 7. **Where to go next**: Roles (`halo studio --mode roles`), Team (`halo team
    init`) and Fleet (`halo fleet pair`), each with its command.
 
-Options: `--lineup NAME`, `--repo DIR`, `--file F` (repeatable, with
+Options: `--lineup NAME` (the lineup to rehearse this once), `--repo DIR`, `--file F` (repeatable, with
 `--repo`), `--model REF` (the model every part uses; default your roles),
 `--yes`, `--json`, `--no-studio` (step 4 does not offer the plan canvas),
 `--explain` (only the card, exit 0).
@@ -319,7 +318,8 @@ It runs on the model you configured; with no provider it says so and offers `hal
 swaps every model call for a fake lead, workers and judge (`halo_harness/start/fake.py`): the tests use it. For a
 custom lineup `halo init`'s Summary offers it as its last check row, off by default (the console path shows the card
 and asks "Run the guided first run now?", No when non-interactive); `/start` in the TUI and Studio's Start here run
-the same start. Exit codes: 0 every step done (or not run on Auto), 1 a step failed or was stopped, 2 usage or no provider.
+the same start. Exit codes: 0 every step done (or not run on Auto), 1 a step failed or was stopped (or no such
+lineup, or one with no card that writes code), 2 usage or no provider.
 
 When a step fails on an error it did not expect (Halo 3.2.2.0), the step
 is `[failed]` with one line and the file that holds the full traceback,

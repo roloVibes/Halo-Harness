@@ -12,15 +12,15 @@ one model for everything) it is the same. So, while the active lineup is Auto or
     Start here (Studio)           no Run button; AUTO_LINE in its place; POST start answers 422 `auto_lineup`
 
 A custom lineup (any other `team`) keeps all of these as before. The test of a lineup or a workflow moves to Agents ->
-Runs in 3.3.16.0, on top of the same engine (halo_harness/start/engine.py).
+Runs in 3.3.16.0, on top of the same engine (halo_harness/start/engine.py). 3.3.15.0 R7: the guided first run
+rehearses that lineup (start/lineup.py `pick`), so AUTO_LINE says the real condition: pick or build one first.
 """
 
 from __future__ import annotations
 
 from typing import Optional
 
-AUTO_LINE = ("Your lineup is Auto: the guided first run would rehearse one model five times. Build a lineup or a "
-             "workflow in Roles (Agents from 3.3.16.0) and test it there.")
+AUTO_LINE = "Your lineup is Auto: pick or build a lineup in Roles first, then `halo start` rehearses it."  # 3.3.15.0 R7
 GYM_LINE = "To measure your models instead: halo gym --quick (tool calls, edits, recall and instructions, scored)."
 REASON = "auto_lineup"
 

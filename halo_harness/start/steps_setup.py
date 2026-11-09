@@ -1,5 +1,5 @@
 """halo_harness.start.steps_setup -- the steps of `halo start` around the run:
-1 the lineup, 2 the repo, 7 where to go next (Halo 3.1.1.0 R1). Each
+1 the lineup (3.3.15.0 R7: yours, read as it is), 2 the repo, 7 where to go next (Halo 3.1.1.0 R1). Each
 `<step>(run)` returns the step's lines; `<step>_command(run)` is the command
 its screen shows."""
 
@@ -10,20 +10,29 @@ from halo_harness.start.engine import StepFailed
 
 
 def lineup_command(run) -> str:
-    name = run.opts.lineup
-    from halo_harness.start.lineup import own_name
-    from halo_harness.teams_yaml import list_bundled_team_templates
-    target = own_name(name) if name in list_bundled_team_templates() else name
-    return f"halo teams new {target} --from {name}; halo teams show {target}"
+    from halo_harness.start.lineup import LineupError, pick
+    try:
+        name = pick(run.opts.lineup, state_dir=run.state_dir)
+    except LineupError:
+        name = run.opts.lineup.strip() or "<your lineup>"
+    return f"halo teams show {name}"
 
 
 def lineup(run) -> "list[str]":
-    from halo_harness.start.lineup import LineupError, card_rows, card_table, own_lineup
+    """3.3.15.0 R7: the active lineup (or `--lineup`'s), read as it is: nothing is copied or written."""
+    from halo_harness.start.lineup import LineupError, card_rows, card_table, no_coder_line, parts, pick, who_lines
     try:
-        name, lines = own_lineup(run.opts.lineup, state_dir=run.state_dir)
+        name = pick(run.opts.lineup, state_dir=run.state_dir)
     except LineupError as e:
-        raise StepFailed(f"{e}: halo start --lineup <name> picks another (halo teams list shows them)")
-    run.lineup = name
+        raise StepFailed(str(e))
+    p = parts(name, state_dir=run.state_dir)
+    if not p["lanes"]:
+        raise StepFailed(no_coder_line(name))
+    run.lineup, run.parts = name, p
+    named = run.opts.lineup.strip() and not run.opts.extra.get("active")  # Studio's job passes the active one by name
+    source = "named with --lineup" if named else "your active lineup"
+    lines = [f"the run rehearses {name} ({source}); it is read, not changed"] + who_lines(p)
+    lines += [p["short"]] if p["short"] else []
     rows = card_rows(name, state_dir=run.state_dir)
     tiers = sorted({r["tier"] for r in rows}, key=[r["tier"] for r in rows].index)
     lines += ["", f"{name}: {len(rows)} card(s) in {len(tiers)} tier(s) ({', '.join(tiers)})"]

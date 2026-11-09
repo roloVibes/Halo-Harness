@@ -20,6 +20,12 @@ model calls (tests, a dry look).
 the guided first run would say little there (one model rehearsed five times),
 offers `halo gym --quick`, and exits 0 without running (start/auto_gate.py).
 
+3.3.15.0 R7: the run rehearses the active lineup (`team` in config.json), or
+the one `--lineup` names, read as it is (nothing copied). A name with no
+lineup behind it, or a lineup with no card that writes code, is one line and
+exit 1 before anything is written (`--json`: {ok: false, reason: no_lineup |
+no_coder, message}); `--explain` on Auto prints the Auto line too.
+
 Exit codes: 0 every step done, 1 a step failed or the start was stopped,
 2 usage or no provider. 3.2.2.0 R1: any other error is one line
 (`<Type>: <message>`) and the log holding its traceback
@@ -40,8 +46,8 @@ def _parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="halo start", description="The guided first run: a lineup, a sample repo, one "
                                 "real Orchestra goal on your models with a reviewed plan, the run, the report and the "
                                 "coach. It opens on a card saying what it does, costs and writes.")
-    p.add_argument("--lineup", default=None, help=f"the shipped lineup to copy (default {S.DEFAULT_LINEUP}); naming one "
-                   "runs the start on the Auto lineup too")
+    p.add_argument("--lineup", default=None, help="the lineup the run rehearses (default: your active lineup, read "
+                   "as it is; nothing is copied); naming one runs the start on the Auto lineup too")
     p.add_argument("--repo", default=None, metavar="DIR", help="run in this git repo instead of the sample")
     p.add_argument("--file", dest="files", action="append", default=None, metavar="F",
                    help="with --repo: a file the workers share (repeatable; default basket.py)")
@@ -121,19 +127,30 @@ def _on_auto(as_json: bool) -> int:
     return 0
 
 
+def _no_lineup(line: str, reason: str, as_json: bool) -> int:
+    """3.3.15.0 R7: no lineup by that name, or one with no card that writes code: one line, exit 1, nothing written."""
+    if as_json:
+        print(json.dumps({"ok": False, "ran": False, "reason": reason, "message": line}))
+    else:
+        print(f"halo start: {line}")
+    return 1
+
+
 def cmd_start(argv) -> int:
     args = _parser().parse_args(list(argv))
-    explicit = args.lineup
-    args.lineup = args.lineup or S.DEFAULT_LINEUP
-    if args.explain:
-        for line in _card(args):
-            print(line)
-        return 0
     from halo_harness.start.auto_gate import offers_start
-    if not offers_start(explicit):
+    if not offers_start(args.lineup):  # 3.3.15.0 R7: --explain too: on Auto there is no lineup to rehearse
         return _on_auto(args.json)
     built: list = []  # the StartRun, once there is one (its state dir and run folder name the log)
     try:
+        from halo_harness.start.lineup import ready
+        line, reason = ready(args.lineup)
+        if line:
+            return _no_lineup(line, reason, args.json)
+        if args.explain:
+            for line in _card(args):
+                print(line)
+            return 0
         return _start(args, built)
     except Exception as e:
         return _crashed(e, built[0] if built else None, args.json)
@@ -143,7 +160,7 @@ def _start(args, built: list) -> int:
     from halo_harness.start.engine import Options, StartRun
     from halo_harness.start.screen import Screen, ask
     yes = bool(args.yes or args.json)
-    opts = Options(lineup=args.lineup, repo=args.repo, files=tuple(args.files or S.GOAL_FILES), yes=yes,
+    opts = Options(lineup=args.lineup or "", repo=args.repo, files=tuple(args.files or S.GOAL_FILES), yes=yes,
                    model=args.model, studio=args.studio)
     screen = None if args.json else Screen()
     run = StartRun(opts, emit=screen, ask=None if yes else ask, open_studio=_open_studio)

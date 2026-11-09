@@ -4803,3 +4803,26 @@ apply inside a square as in the parent (a child never runs more permissive).
 
 **Why.** Today a lineup is picked once per session and only Auto adapts per task, and only the model. A square makes the
 orchestration itself the unit that is picked per task, declared and tested, shippable in a pack, visible on one board.
+
+**3.3.15.0 R2-R7 BUILT and MERGED 2026-11-09 (five Opus rounds in ~/hh-3315/, briefs and hand-backs under
+~/hh-3315/briefs/; coordinator fixes between them):** R2 the picker says what a model takes (`takes=` on `/model` rows,
+the honest line on highlight, `halo models` column, one Studio ModelTakes component under every pick; the owner's
+"oval chips" photo: one line per row, 18 px tags, the ranked kinds and the line on a detail row); R3 text boxes fit
+their text (one TextBox primitive, three lines minimum, grows to twelve, placeholders that fit, field hints to `?`;
+the owner's Prompt-panel photo) and panels breathe (44 px strips, 12 px gaps and padding; the owner's Fleet photo);
+R4 instrument is the default until you change it (`theme` unset = instrument everywhere, "Follow the system" a
+choice, the TUI snapshots re-rendered); R5 the guided first run belongs to custom lineups (`start/auto_gate.py`: on
+Auto one line + `halo gym --quick`); R6 init ends with both running (`halo init` waits for Setup's Done, then starts
+the session in that terminal paired with Studio; `<state>/setup-wait.json`; the Kali cause: a busy Studio counted as
+closed after ten failed requests); R7 the guided first run runs the lineup you picked (no `my-halo-dev-cycle`, the
+plan / report / cost card name the active lineup's cards; a lineup without a coding card says so and exits 1). On the
+way: `orchestra/worker_stop.py` (a worker's "STOP: none" is no stop; rolo's Kali finding f-20261109-9f7492), the
+picker captures re-rendered twice (takes column, then the instrument default), and six test reads made precise after
+hosted-runner reds (Fleet mission tool line, roles-editor picker, scratch-folder removal, model-card row hover, Setup
+dismissed marker, packs-fleet Open, Lineup help rows). For rolo (on 3.3.15.0): Studio is instrument on any system and
+`halo config get theme` says "(unset: instrument)"; `/model` rows carry `takes=`; the Prompt box fills its panel;
+Fleet strips are 44 px; a fresh-home `halo init` ends with the terminal session and Studio both up; `halo teams use
+<lineup>` then `halo start --explain` names that lineup and its cards; on Auto `halo start` says to pick a lineup first;
+Kali's guided first run no longer dies on a worker's "STOP: none". Next: the 3.3.15.0 release on green both, the PC
+reinstall, then 3.3.16.0 Agents (R1 fold + inspector + density pass, R2 Fleet fold, R3 Workflows: squares and the
+router).**

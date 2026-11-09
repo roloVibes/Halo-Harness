@@ -7,7 +7,8 @@
 2. POST start runs `halo start --yes` on the fake (HALO_START_FAKE=1) as a
    background job: 202, a second POST while it runs is a 409, every step
    published as a `start` frame (session `start:<job>`), then the summary
-   frame; GET start shows the job's seven steps done
+   frame; GET start shows the job's seven steps done; 3.3.15.0 R7: it rehearses
+   the active lineup (no copy); a lineup with no coder / a gone one is a 422
 3. no provider (the fake off): 422 with reason no_provider, nothing started
 Run: python -m tests.test_start_studio_api
 """
@@ -62,7 +63,9 @@ def test_fresh_home_and_dismiss(ctx: Ctx):
     ctx.check("the seven steps' plan", [p["key"] for p in body["plan"]] == ["lineup", "repo", "goal", "plan", "run", "report", "next"])
     card = "\n".join(body.get("card") or [])
     ctx.check(f"the card: what, models, cost, time, writes (3.2.2.0 R2), got {card[:120]!r}", card.startswith("The guided first run")
-              and all(w in card for w in ("Models it will call:", "Estimated cost:", "Time: ", "Writes:", str(state / "teams"))))
+              and all(w in card for w in ("Models it will call:", "Estimated cost:", "Time: ", "Writes:")))
+    ctx.check("3.3.15.0 R7: on Auto the card's lineup is the Auto line; no lineup copy in what it writes",
+              f"The lineup it rehearses: {AUTO_LINE}" in card and "nothing for the lineup" in card and str(state / "teams") not in card)
     status, body = dispatch(_req("POST", "start/dismiss", state, cwd))
     ctx.check("dismiss answers", status == 200 and body == {"dismissed": True})
     _, body = dispatch(_req("GET", "start", state, cwd))
@@ -73,11 +76,11 @@ def test_fresh_home_and_dismiss(ctx: Ctx):
     ctx.check("an active lineup is not fresh", fresh.status(cwd, state)["fresh"] is False)
     set_config_value("team", "")
     ctx.check("back to fresh", fresh.status(cwd, state)["fresh"] is True)
-    from halo_harness.start.lineup import own_lineup
-    own_lineup("balanced", state_dir=state)
+    from halo_harness import teams_yaml as T
+    T.save_team_template("mine", {"name": "mine", "roles": {"main": "general"}}, state_dir=state)
     got = fresh.status(cwd, state)
-    ctx.check(f"a lineup of your own is not fresh, got {got['own_lineups']}", got["fresh"] is False and got["own_lineups"] == ["my-balanced"])
-    (state / "teams" / "my-balanced.yaml").unlink()
+    ctx.check(f"a lineup of your own is not fresh, got {got['own_lineups']}", got["fresh"] is False and got["own_lineups"] == ["mine"])
+    (state / "teams" / "mine.yaml").unlink()
     ctx.check("the shipped copies alone are fresh again", fresh.status(cwd, state)["fresh"] is True)
 
 
@@ -97,6 +100,15 @@ def test_post_start_runs_the_fake_and_streams_frames(ctx: Ctx):
         auto = dispatch(_req("POST", "start", state, cwd, server))  # 3.3.15.0 R5: the Auto lineup: a 422 with the line
         ctx.check(f"on Auto: 422 auto_lineup, nothing started, got {auto}", auto[0] == 422 and auto[1]["reason"] == "auto_lineup"
                   and auto[1]["error"] == AUTO_LINE and not start_job.running())
+        with custom_lineup("balanced"):  # 3.3.15.0 R7: a lineup with no card that writes code, and one that is gone
+            coderless = dispatch(_req("POST", "start", state, cwd, server))
+        with custom_lineup("gone"):
+            gone = dispatch(_req("POST", "start", state, cwd, server))
+        ctx.check(f"R7: 422 no_coder / no_lineup with the one line, nothing started, got {coderless} {gone}", coderless[0] == 422
+                  and coderless[1]["reason"] == "no_coder" and "no card that writes code" in coderless[1]["error"]
+                  and gone[0] == 422 and gone[1] == {"error": "no lineup named gone; `halo teams` lists them", "reason": "no_lineup",
+                                                     "problems": ["no lineup named gone; `halo teams` lists them"]}
+                  and not start_job.running())
         with custom_lineup():
             status, body = dispatch(_req("POST", "start", state, cwd, server))
             again = dispatch(_req("POST", "start", state, cwd, server))
@@ -120,7 +132,10 @@ def test_post_start_runs_the_fake_and_streams_frames(ctx: Ctx):
               {f["session_id"] for f in frames} == {f"start:{job}"} and all(d["job"] == job for d in data))
     last = data[-1] if data else {}
     ctx.check(f"the summary frame closes it, got {last}", last.get("key") == "summary" and last["summary"]["ok"] is True
-              and last["summary"]["lineup"] == "my-halo-dev-cycle" and "steps" not in last["summary"])
+              and last["summary"]["lineup"] == "halo-dev-cycle" and "steps" not in last["summary"])  # 3.3.15.0 R7: the active one
+    step1 = next((d for d in data if d["key"] == "lineup" and d["state"] == "done"), {})
+    ctx.check("its lineup step names the active lineup, read as it is", "the run rehearses halo-dev-cycle (your active lineup); it "
+              "is read, not changed" in step1.get("lines", []) and not (state / "teams" / "my-halo-dev-cycle.yaml").exists())
     ctx.check("a frame has the brief's fields", {"step", "total", "key", "title", "why", "command", "state", "lines"} <= set(data[0]))
     _, got = dispatch(_req("GET", "start", state, cwd))
     ctx.check("GET start: the job's seven steps done, its summary", got["job"]["running"] is False
