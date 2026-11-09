@@ -27,6 +27,8 @@ from tests.helpers.fake_home import build_fake_home
 from tests.helpers.mock_openai import MockUpstream, SCENARIOS, ScriptedTurns, _finish
 from tests.helpers.provider_env_defaults import ensure_default_provider_credentials
 
+_CLI_T = 90 if os.environ.get("GITHUB_ACTIONS") else 30  # a print-mode child on the Windows runner ran past 30 s once (e2cc31a1)
+
 REPO_DIR = Path(__file__).resolve().parent.parent
 _HOOK_SCRIPT_ARGV = [sys.executable, "-m", "tests.helpers.hook_scripts"]
 
@@ -127,7 +129,7 @@ def _drain(session, prompt) -> list:
     return list(session.turn(prompt))
 
 
-def _run_cli(fh, mock, prompt, extra_args=None, extra_env=None, timeout=30, model="or:mock/model"):
+def _run_cli(fh, mock, prompt, extra_args=None, extra_env=None, timeout=_CLI_T, model="or:mock/model"):
     env = _hermetic_child_env()
     env.update({
         "BRIDGE_TEST_HOME": str(fh["home"]), "BRIDGE_OPENROUTER_BASE_URL": mock.base_url,
@@ -476,7 +478,7 @@ def test_h9b_f12_session_path_survives_a_debian_profile_login_shell_reset(ctx: C
                  f"{shlex.quote('run rvtool in the foreground, then again in the background')} "
                  f"--model or:mock/h9b-f12-path --cwd {shlex.quote(str(fh['proj']))} --permission-mode auto")
         args = ["unshare", "-rm", "bash", "-c", inner]
-        result = subprocess.run(args, env=env, cwd=str(REPO_DIR), capture_output=True, text=True, timeout=30)
+        result = subprocess.run(args, env=env, cwd=str(REPO_DIR), capture_output=True, text=True, timeout=_CLI_T)
         ctx.check(f"exit 0 under the hostile Debian profile, got {result.returncode}, "
                   f"stdout={result.stdout!r} stderr={result.stderr[-800:]!r}", result.returncode == 0)
         ctx.check(f"the FOREGROUND Bash call found rvtool despite the profile's PATH reset, "
@@ -542,7 +544,7 @@ def test_h9b_f24_bin_halo_harness_runs_via_a_real_symlink_from_outside_the_check
         result = subprocess.run(
             [str(link_path), "-p", "say hi via the symlink", "--model", "or:mock/h9b-f24-symlink",
              "--cwd", str(fh["proj"]), "--permission-mode", "auto"],
-            env=env, cwd=str(outside_cwd), capture_output=True, text=True, timeout=30,
+            env=env, cwd=str(outside_cwd), capture_output=True, text=True, timeout=_CLI_T,
         )
         ctx.check(f"exit 0 when invoked via a symlink from outside the checkout, "
                   f"got {result.returncode}, stdout={result.stdout!r} stderr={result.stderr[-800:]!r}",
@@ -595,7 +597,7 @@ def test_fixpass_f07_bin_rolo_claude_symlink_resolves_to_the_real_checkout(ctx: 
             [str(link_path), "-p", "say hi via the rolo-claude symlink",
              "--model", "or:mock/fixpass-f07-rolo-claude-symlink",
              "--cwd", str(fh["proj"]), "--permission-mode", "auto"],
-            env=env, cwd=str(outside_cwd), capture_output=True, text=True, timeout=30,
+            env=env, cwd=str(outside_cwd), capture_output=True, text=True, timeout=_CLI_T,
         )
         ctx.check(f"exit 0 when invoked via a symlink from outside the checkout, "
                   f"got {result.returncode}, stdout={result.stdout!r} stderr={result.stderr[-800:]!r}",
@@ -732,7 +734,7 @@ def test_h9b_f04_cli_export_sanitize_redacts_a_quoted_export_and_json_env_block(
     result = subprocess.run(
         [sys.executable, "-m", "halo_harness", "export", "--sanitize", "--cwd", str(fh["proj"]),
          "--session", "h9b-f04-cli-export"],
-        env=env, cwd=str(REPO_DIR), capture_output=True, text=True, timeout=30,
+        env=env, cwd=str(REPO_DIR), capture_output=True, text=True, timeout=_CLI_T,
     )
     ctx.check(f"exit 0, got {result.returncode}, stderr={result.stderr!r}", result.returncode == 0)
     ctx.check("the quoted export's secret is gone", fake_key not in result.stdout)
@@ -823,7 +825,7 @@ def test_h9b_f09_background_notice_folds_into_the_one_json_result_object(ctx: Ct
         ])
         result = _run_cli(fh, mock, "start a short job then answer", model="or:mock/h9b-f09-json",
                            extra_args=["--output-format", "json", "--permission-mode", "auto"],
-                           timeout=30)
+                           timeout=_CLI_T)
         ctx.check(f"exit 0, got {result.returncode}, stderr={result.stderr[-500:]!r}", result.returncode == 0)
         stdout = result.stdout.strip()
         lines = [l for l in stdout.splitlines() if l.strip()]
@@ -863,7 +865,7 @@ def test_h9b_f09_background_notice_never_overwrites_a_failed_turns_exit_code(ctx
         ])
         result = _run_cli(fh, mock, "start a short job then hit an error", model="or:mock/h9b-f09-fail",
                            extra_args=["--output-format", "json", "--permission-mode", "auto"],
-                           timeout=30)
+                           timeout=_CLI_T)
         ctx.check(f"exit 1 on a genuinely failed turn, got {result.returncode}", result.returncode == 1)
         stdout = result.stdout.strip()
         lines = [l for l in stdout.splitlines() if l.strip()]
@@ -890,7 +892,7 @@ def test_h9b_f09_text_mode_still_shows_both_the_answer_and_the_notice(ctx: Ctx):
             _text_step("the real final answer"),
         ])
         result = _run_cli(fh, mock, "start a short job then answer", model="or:mock/h9b-f09-text",
-                           extra_args=["--permission-mode", "auto"], timeout=30)
+                           extra_args=["--permission-mode", "auto"], timeout=_CLI_T)
         ctx.check(f"exit 0, got {result.returncode}", result.returncode == 0)
         ctx.check("the real answer text is present", "the real final answer" in result.stdout)
         ctx.check("the background notice text is ALSO present", "f09-text-marker" in result.stdout)
@@ -998,7 +1000,7 @@ def test_h9b_f13_max_budget_usd_trips_on_subagent_spend_the_parent_alone_never_w
         args = [sys.executable, "-m", "halo_harness", "-p", "spend via a sub-agent then finish",
                 "--model", "or:mock/h9b-f13-cli-parent", "--cwd", str(fh["proj"]),
                 "--output-format", "json", "--permission-mode", "auto", "--max-budget-usd", "0.01"]
-        result = subprocess.run(args, env=env, cwd=str(REPO_DIR), capture_output=True, text=True, timeout=30)
+        result = subprocess.run(args, env=env, cwd=str(REPO_DIR), capture_output=True, text=True, timeout=_CLI_T)
         ctx.check(f"exit 1 (budget exceeded), got {result.returncode}, stderr={result.stderr[-500:]!r}",
                   result.returncode == 1)
         obj = json.loads(result.stdout.strip().splitlines()[-1])
@@ -1315,7 +1317,7 @@ def test_h9b_mcp_stdio_server_dies_with_the_process_normal_exit_and_sighup(ctx: 
     try:
         SCENARIOS["h9b-mcp-lifecycle-normal"] = ScriptedTurns([_text_step("done, no tool needed")])
         result = _run_cli(fh1, mock1, "just say hi", model="or:mock/h9b-mcp-lifecycle-normal",
-                           extra_args=["--permission-mode", "auto"], timeout=30)
+                           extra_args=["--permission-mode", "auto"], timeout=_CLI_T)
         ctx.check(f"normal -p exit 0, got {result.returncode}, stderr={result.stderr[-500:]!r}",
                   result.returncode == 0)
         gone = False
