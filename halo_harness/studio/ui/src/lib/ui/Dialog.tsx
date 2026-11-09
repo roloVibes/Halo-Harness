@@ -1,8 +1,12 @@
-// A modal on a scrim: glass surface, title, Esc or a scrim click closes it,
-// focus moves into it on open and back where it was on close.
+// A modal on a scrim: the panel frame with its corner ticks, the title in mono
+// caps, Esc or a scrim click closes it, focus moves into it on open and back
+// where it was on close. 3.3.15.0 L1, the Instrument look: 480 px, the one
+// shadow level, and on a confirmation (`cost`) the three mono lines DOES /
+// COSTS / WRITES before the buttons (lib/ui/DialogCost.tsx).
 import { useEffect, useRef, type ReactNode } from "react";
 import { Surface } from "./Surface";
 import { Icon } from "./Icon";
+import { DialogCost, type DialogCostLines } from "./DialogCost";
 
 type Props = {
   open: boolean;
@@ -15,9 +19,11 @@ type Props = {
   /** Above the title: a small mono line (a kicker). */
   kicker?: string;
   testid?: string;
+  /** A confirmation: what pressing its button does, what it costs and what it writes. */
+  cost?: DialogCostLines;
 };
 
-export function Dialog({ open, onClose, title, children, className, footer, kicker, testid }: Props) {
+export function Dialog({ open, onClose, title, children, className, footer, kicker, testid, cost }: Props) {
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
@@ -53,6 +59,7 @@ export function Dialog({ open, onClose, title, children, className, footer, kick
             </header>
           )}
           <div className="dialog-body">{children}</div>
+          {cost && <DialogCost cost={cost} />}
           {footer && <footer className="dialog-foot">{footer}</footer>}
         </Surface>
       </div>

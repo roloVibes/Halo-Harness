@@ -2,11 +2,11 @@
 pack `pack-theme` installed and enabled in the scratch home (in process, the Pack Manager's own route), then in
 headless Chrome:
 
-1. the header's menu lists Follow, the ten, then the pack's two palettes in a group under "pack-theme";
+1. the header's menu lists Follow, the eleven, then the pack's two palettes in a group under "pack-theme";
 2. picking `pack-theme/nightshade` writes the key and the page's computed --accent is the fixture's token;
 3. Settings -> Themes shows the pack's rows under "pack-theme", nightshade marked current;
 4. a reload with the page's scripts off: the server's inline rule alone paints it (data-theme the pack palette,
-   --accent the fixture's token, the app not run) -- the first frame is never holo;
+   --accent the fixture's token, the app not run) -- the first frame is never the default;
 5. disabling the pack through the Pack Manager's route restores the theme saved before (midnight) on the open page
    (the `files_changed` frame for config.json), the pack's variables taken off <html>.
 No provider request, no model call; every theme write lands in the scratch config.json.
@@ -85,7 +85,7 @@ def pack_themes(c, url, ctx) -> dict:
     out = {"pack_installed": ok and status == 200}
     _go(c, ctx, "mode=roles", "Roles")
     _press(c, q("[data-testid=theme-menu-btn]"), f"!!{q('[data-testid=theme-menu]')}")
-    c.wait(f"{qa('[data-testid=theme-menu] [data-testid=theme-item]')}.length === 13", 15)
+    c.wait(f"{qa('[data-testid=theme-menu] [data-testid=theme-item]')}.length === 14", 15)  # follow + eleven + the two pack palettes
     out["pack_menu_group"] = c.js(qa(GROUP + " [data-testid=theme-item]") + ".map((b) => b.dataset.themeId)")
     out["pack_menu_head"] = c.js(f"{q(GROUP + ' [data-testid=theme-group-name]')}?.textContent || ''")
     _press(c, q(f'[data-testid=theme-item][data-theme-id="{NIGHT}"]'), f"{THEME} === '{NIGHT}'")
@@ -107,5 +107,5 @@ def pack_themes(c, url, ctx) -> dict:
     out["off_accent"] = c.wait(f"{VAR.format('--accent')} === '#5b9dff' && {VAR.format('--accent')}", 10)
     out["off_inline_accent"] = c.js("document.documentElement.style.getPropertyValue('--accent')")
     # the pack's rows leave after the registry re-read that pack_changed starts; a slow runner is still drawing them
-    out["off_rows"] = c.wait(f"{qa('[data-testid=theme-row]')}.length === 11 && {qa('[data-testid=theme-row]')}.length", 20)
+    out["off_rows"] = c.wait(f"{qa('[data-testid=theme-row]')}.length === 12 && {qa('[data-testid=theme-row]')}.length", 20)
     return out

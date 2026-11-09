@@ -6,7 +6,8 @@
 // layout" badge (shell/SectionMore.tsx), the Focus button (3.3.2.0 R1: hides
 // the rail, the inspector and the status bar; F), the command palette button,
 // 3.3.2.0 R3's density toggle (comfortable / compact, lib/density.ts) and the
-// theme menu (3.3.12.0 R1: shell/ThemeMenu.tsx, the palettes of the registry).
+// theme menu (3.3.12.0 R1: shell/ThemeMenu.tsx, the palettes of the registry). 3.3.15.0 L1: restyled to the
+// Instrument look (styles/shell.css): the title in mono caps, a / and the blurb, the palette door a 300 px field.
 import { Button, Icon, Kbd } from "../lib/ui";
 import { openHelp, studio, toggleFocus, useStore, type SectionId } from "../lib/store";
 import { openGlossary } from "../lib/glossary";
@@ -94,7 +95,7 @@ export function Header() {
         <Icon name="focus" />
       </button>
       <Button variant="ghost" className="palette-btn" onClick={() => studio.update(() => ({ paletteOpen: true }))} icon={<Icon name="search" />}>
-        <span className="palette-btn-text">Command</span>
+        <span className="palette-btn-text">search or run a command</span>
         <Kbd keys="Mod+K" />
       </Button>
       <DensityToggle />

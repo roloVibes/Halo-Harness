@@ -1,11 +1,11 @@
 // One theme for the terminal and Studio (3.3.12.0 R1). `theme` in
 // ~/.halo/config.json names a palette of the registry (halo_harness/themes):
 // the server paints the first frame in it (`data-theme` on <html>,
-// studio/theme_boot.py), `GET settings/themes` gives the ten with their
+// studio/theme_boot.py), `GET settings/themes` gives the eleven with their
 // tokens, and a choice here (the header's menu, the palette, Settings ->
 // Themes) writes the key through the settings route, so `/theme`, `halo
 // config set theme`, Settings and the header all move one value. Unset is
-// "follow the system" (`auto`: holo on a dark system, paper on a light one).
+// "follow the system" (`auto`: instrument on a dark system since 3.3.15.0, paper on a light one).
 // A change made elsewhere (`files_changed` for config.json) is read again.
 // The per-browser choice of before (halo.studio.theme) is read once: written
 // to the key when the key is unset, then dropped. 3.3.12.0 R2: a pack's
@@ -29,7 +29,7 @@ export type Palette = {
   vars?: Tokens;
   daltonized_vars?: Tokens;
 };
-/** The ten, then each enabled pack's palettes under its id (3.3.12.0 R2). */
+/** The eleven, then each enabled pack's palettes under its id (3.3.12.0 R2). */
 export type PaletteGroup = { pack: string; name: string; palettes: Palette[] };
 export type ThemesInfo = {
   palettes: Palette[];

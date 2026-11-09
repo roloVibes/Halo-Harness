@@ -8,8 +8,8 @@ docs/EXTENSION_API.md "Themes", stable in API 1.1).
           posture: dark                  # dark | light
           palette: {bg: "#0d0b14", bg2: "#120f1c", ...}   # every token of halo_harness/themes/palettes.py TOKENS
 
-A palette registers like one of the ten while its pack is enabled, as `<pack-id>/<id>` (halo_harness/themes/packs.py),
-with the `-daltonized` and `-ansi` modifiers derived the same way. It must meet the same WCAG AA pins the ten meet
+A palette registers like one of the core palettes while its pack is enabled, as `<pack-id>/<id>` (halo_harness/themes/packs.py),
+with the `-daltonized` and `-ansi` modifiers derived the same way. It must meet the same WCAG AA pins the core palettes meet
 (themes/registry.py PAIRS), its -daltonized variant included.
 
     themes_of(manifest)        the entries (mappings only)
@@ -53,7 +53,7 @@ def _id_lines(entries) -> "list[str]":
         elif not THEME_ID.match(tid):
             out.append(f"{where} {tid!r} is not a palette id (lower-case letters, digits and -, a letter first)")
         elif tid in core:
-            out.append(f"{where} {tid!r} is a core palette's id; pick another (the ten: {', '.join(sorted(core))})")
+            out.append(f"{where} {tid!r} is a core palette's id; pick another (the core palettes: {', '.join(sorted(core))})")
         elif any(tid.endswith(f"-{m}") for m in MODIFIERS):
             out.append(f"{where} {tid!r} ends in a modifier (-{', -'.join(MODIFIERS)}); pick another")
         elif tid in seen:

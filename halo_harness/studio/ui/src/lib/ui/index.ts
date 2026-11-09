@@ -1,6 +1,7 @@
-// Studio's UI kit. Workspace panels (lib/workspace) share the Surface look.
+// Studio's UI kit. Workspace panels (lib/workspace) share the Surface look (3.3.15.0 L1: the Instrument look).
 export { Button } from "./Button";
 export { Dialog } from "./Dialog";
+export type { DialogCostLines } from "./DialogCost"; // 3.3.15.0 L1: a confirmation's DOES / COSTS / WRITES
 export { Toasts } from "./Toast";
 export { Tabs, type TabItem } from "./Tabs";
 export { Field } from "./Field";

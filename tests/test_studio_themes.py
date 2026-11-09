@@ -2,15 +2,15 @@
 tests/helpers/studio_themes.py (skipped without one) over a fresh scratch home; no provider request, no model call;
 every theme write lands in the scratch config.json:
 
-1. a fresh page follows the system: `data-theme="auto"`, holo on a dark system, paper on a light one;
-2. the header's menu lists Follow the system and the ten, each with a swatch row; picking ember writes `theme:
+1. a fresh page follows the system: `data-theme="auto"`, instrument on a dark system (3.3.15.0 L1; holo before), paper on a light one;
+2. the header's menu lists Follow the system and the eleven, each with a swatch row; picking ember writes `theme:
    ember` to config.json and flips the page's `data-theme`; a reload keeps it;
-3. Settings -> Themes: the ten rows (and Follow), the swatches in the colours the API gives, Preview on hover with
+3. Settings -> Themes: the eleven rows (and Follow), the swatches in the colours the API gives, Preview on hover with
    config.json untouched, Esc reverts, the current mark moves on a click, Daltonized writes `<id>-daltonized`;
 4. "Follow the system" removes the key and the page is `auto` again, across a reload;
 5. (3.3.12.0 R2) the fixture pack enabled: `pack-theme/nightshade` in the menu and on Settings -> Themes under
    "pack-theme"; picking it writes the key and the page's --accent is the fixture's token; a reload with the page's
-   scripts off is already drawn in it (the server's inline rule: no holo frame); disabling the pack through the Pack
+   scripts off is already drawn in it (the server's inline rule: no frame of the default); disabling the pack through the Pack
    Manager's route restores midnight, the theme saved before, on the open page.
 Run: python -m tests.test_studio_themes
 """
@@ -28,7 +28,7 @@ from tests.helpers.driver_got import got as driver_got  # noqa: E402
 
 test, TESTS = new_registry()
 _RUN: dict = {}
-ELEVEN = ["auto", "claude-dark", "claude-light", "holo", "paper", "midnight", "ember", "forest", "slate", "dusk", "dawn"]
+TWELVE = ["auto", "claude-dark", "claude-light", "holo", "instrument", "paper", "midnight", "ember", "forest", "slate", "dusk", "dawn"]
 
 
 def _got(ctx: Ctx) -> dict:
@@ -39,15 +39,15 @@ def _got(ctx: Ctx) -> dict:
 def test_a_fresh_page_follows_the_system(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"data-theme auto, got {got.get('fresh_theme')!r}", got.get("fresh_theme") == "auto")
-    ctx.check(f"holo on a dark system, paper on a light one, got {got.get('fresh_bg_dark')} {got.get('fresh_bg_light')}",
-              got.get("fresh_bg_dark") == "#070b14" and got.get("fresh_bg_light") == "#f7f3ea")
+    ctx.check(f"instrument on a dark system (3.3.15.0 L1), paper on a light one, got {got.get('fresh_bg_dark')} {got.get('fresh_bg_light')}",
+              got.get("fresh_bg_dark") == "#07090c" and got.get("fresh_bg_light") == "#f7f3ea")
 
 
 @test
 def test_the_header_menu_writes_the_one_key(ctx: Ctx):
     got = _got(ctx)
-    ctx.check(f"Follow the system and the ten, got {got.get('menu_ids')}", got.get("menu_ids") == ELEVEN)
-    ctx.check(f"a swatch row per palette, got {got.get('menu_swatches')}", got.get("menu_swatches") == 10)
+    ctx.check(f"Follow the system and the eleven, got {got.get('menu_ids')}", got.get("menu_ids") == TWELVE)
+    ctx.check(f"a swatch row per palette, got {got.get('menu_swatches')}", got.get("menu_swatches") == 11)
     ctx.check(f"ember: config.json theme ember, the page's data-theme ember, got {got.get('pick_saved')} {got.get('pick_theme')}",
               got.get("pick_saved") == "ember" and got.get("pick_theme") == "ember" and got.get("pick_bg") == "#140a08")
     ctx.check(f"a reload keeps it, got {got.get('reload_theme')!r}", got.get("reload_theme") == "ember")
@@ -56,10 +56,10 @@ def test_the_header_menu_writes_the_one_key(ctx: Ctx):
 @test
 def test_the_settings_themes_page(ctx: Ctx):
     got = _got(ctx)
-    ctx.check(f"Follow and the ten rows, got {got.get('page_rows')}", got.get("page_rows") == ELEVEN)
+    ctx.check(f"Follow and the eleven rows, got {got.get('page_rows')}", got.get("page_rows") == TWELVE)
     ctx.check(f"the door's page word left the address, got {got.get('page_search')!r}", "page=" not in str(got.get("page_search")))
     ctx.check(f"ember marked current, got {got.get('page_current')}", got.get("page_current") == ["ember"])
-    ctx.check(f"70 chips in the API's colours, off: {got.get('chips_off')}", got.get("chips_checked") == 70 and got.get("chips_off") == [])
+    ctx.check(f"77 chips in the API's colours, off: {got.get('chips_off')}", got.get("chips_checked") == 77 and got.get("chips_off") == [])
     ctx.check(f"the pointer on paper previews it, config.json untouched, got {got.get('hover_theme')} {got.get('hover_saved')}",
               got.get("hover_theme") == "paper" and got.get("hover_saved") == "ember")
     ctx.check(f"Esc puts ember back, got {got.get('esc_theme')!r}", got.get("esc_theme") == "ember")
@@ -94,7 +94,7 @@ def test_a_pack_palette_in_the_menu_the_page_and_the_first_paint(ctx: Ctx):
     ctx.check(f"disabled through the route: midnight back on the page, got {got.get('off_saved')} {got.get('off_theme')} {got.get('off_accent')} "
               f"inline '{got.get('off_inline_accent')}' rows {got.get('off_rows')}",
               got.get("off_saved") == "midnight" and got.get("off_theme") == "midnight" and got.get("off_accent") == "#5b9dff"
-              and got.get("off_inline_accent") == "" and got.get("off_rows") == 11)
+              and got.get("off_inline_accent") == "" and got.get("off_rows") == 12)
     ctx.check(f"and the disable said so, got {got.get('off_lines')}", any("restored midnight" in ln for ln in got.get("off_lines") or []))
 
 

@@ -1282,7 +1282,7 @@ async def _handle_exit(app, _args: str) -> None:
 
 async def _handle_theme(app, args: str) -> None:
     from halo_harness import theme as theme_mod
-    from halo_harness.themes import cli as theme_cli  # 3.3.12.0 R1: the ten palettes
+    from halo_harness.themes import cli as theme_cli  # 3.3.12.0 R1: the eleven palettes
 
     name = (args or "").strip()
     if not name:

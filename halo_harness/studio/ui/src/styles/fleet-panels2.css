@@ -38,7 +38,7 @@
    first row and the text takes the full width under them (the owner's live check: a column of single letters). */
 .fac-log { min-height: 0; overflow: auto; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 4px 6px; background: color-mix(in srgb, var(--bg) 60%, transparent); container: fac-log / inline-size; }
 .fac-none { margin: 6px; font-size: 12px; }
-.fac-line { display: grid; grid-template-columns: 58px 40px minmax(60px, 150px) minmax(160px, 1fr); gap: 0 8px; align-items: baseline; padding: 2px 4px; font-size: 12px; border-radius: 4px; cursor: pointer; animation: fade var(--t) var(--ease); }
+.fac-line { display: grid; grid-template-columns: 58px 40px minmax(60px, 150px) minmax(160px, 1fr); gap: 0 8px; align-items: baseline; padding: 2px 4px; font-size: 12px; border-radius: 4px; cursor: pointer; }
 @container fac-log (max-width: 440px) {
   .fac-line { grid-template-columns: 58px 40px minmax(0, 1fr); row-gap: 1px; padding: 3px 4px; }
   .fac-line .fac-text { grid-column: 1 / -1; }
@@ -84,7 +84,7 @@
 [data-testid="fleet-handed"] code, [data-testid="fleet-recording"] .mono { overflow-wrap: anywhere; }
 
 /* -- "While you were away" ---------------------------------------------------------------- */
-.fdg { display: grid; gap: 8px; padding: 10px 12px; margin: 0 0 10px; border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); border-radius: var(--radius-sm); box-shadow: var(--glow); animation: rise var(--t-slow) var(--ease); }
+.fdg { display: grid; gap: 8px; padding: 10px 12px; margin: 0 0 10px; border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); border-radius: var(--radius-sm); box-shadow: var(--glow); }
 .fdg[data-where="rail"] { margin: 0 6px 8px; padding: 8px 10px; }
 .fdg-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
 .fdg-head .rail-label { padding: 0; color: var(--accent); }

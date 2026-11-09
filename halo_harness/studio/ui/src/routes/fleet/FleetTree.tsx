@@ -13,6 +13,7 @@
 // chip; its `mission` link opens the Mission panel on that mission and part.
 import { useEffect, useState } from "react";
 import { Empty } from "../../lib/ui";
+import { shortModel } from "../../lib/modelName"; // 3.3.15.0 L1: an agent row shows its model without the provider prefix
 import { goSection, type SessionInfo } from "../../lib/store";
 import { layoutStore, showPanel } from "../../lib/workspace/persist";
 import type { PanelSpec } from "../../lib/workspace/types";
@@ -72,9 +73,10 @@ function Session({ h, s }: { h: Harness; s: SessionRow }) {
         const key = keyOf(h.id, s.session_id, a.agent_id);
         return (
           <button key={key} className="rail-item fr-row fr-agent" style={{ paddingLeft: 20 + depth * 12 }} data-kind="agent" data-id={a.agent_id} data-testid="fleet-tree-node"
-                  aria-current={selected === key || undefined} onClick={() => open(key, !!h.local)} title={`${a.name || a.agent_id}: ${a.state}${a.current ? " · " + a.current : ""}`}>
+                  aria-current={selected === key || undefined} onClick={() => open(key, !!h.local)} title={`${a.name || a.agent_id}${a.model ? " on " + a.model : ""}: ${a.state}${a.current ? " · " + a.current : ""}`}>
             <span className="fr-adot" data-state={a.state || "none"} data-motion={agentMotion(a, doneAt[key] || 0)} aria-hidden="true" />
             <span className="rail-item-text">{a.name || a.role || a.agent_id}</span>
+            {a.model && <span className="mono fr-model" data-testid="fleet-tree-model">{shortModel(a.model)}</span>}
             <span className="mono fr-state" data-state={a.state || "none"}>{a.state}</span>
           </button>
         );

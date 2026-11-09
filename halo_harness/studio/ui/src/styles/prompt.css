@@ -11,7 +11,7 @@
 .spp-state { font-size: 11px; margin-left: auto; white-space: nowrap; }
 .spp[data-busy] .spp-state { color: var(--warn); }
 .spp-body { min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr); background-color: var(--bg-2);
-  background-image: linear-gradient(var(--grid-line) 1px, transparent 1px), linear-gradient(90deg, var(--grid-line) 1px, transparent 1px); background-size: 24px 24px; }
+  /* 3.3.15.0 L1: no grid here (the dot grid is the map canvases' only) */ }
 .spp-feed { overflow: auto; min-height: 0; padding: 8px 10px 10px; display: grid; align-content: start; gap: 4px; }
 .spp-foot { border-top: 1px solid var(--line); padding: 8px 10px; background: var(--surface-glass); }
 

@@ -1,9 +1,14 @@
 // Roles Live's pieces (3.3.11.0 R2): a node (name, role, state, model, cost, elapsed, the pick's reason or
 // what it does now; its glow from live.ts's rules; a "steer" chip and a "..." menu as the Map's node has),
 // the "unknown parent" node, a lineup card's faint group, and the bar (Plan | Live, the session picker, the
-// density, the counts, Fit and the zoom).
+// density, the counts, Fit and the zoom). 3.3.15.0 L1, the Instrument look (styles/nodes.css): the model without
+// its provider prefix (the full id in the tooltip and the Inspector), a fade-in for a node born after the page
+// drew, a failed node's red kept until it is clicked, the selected / hovered outline.
 import type { KeyboardEvent, MouseEvent } from "react";
+import { shortModel } from "../../lib/modelName";
+import { ackFailed, failedAcked, useBorn } from "../../lib/motion/born";
 import { Button } from "../../lib/ui";
+import { useFleet } from "../fleet/store";
 import { cost, short } from "../orchestra/format";
 import type { MenuAt } from "../fleet/MapNode";
 import { steerAgent } from "../session/steer";
@@ -28,6 +33,8 @@ function nowLine(n: LiveBox["node"]): string {
 export function LiveNodeCard({ b, selected, now, onMenu }: { b: LiveBox; selected: boolean; now: number; onMenu: (m: MenuAt) => void }) {
   const n = b.node;
   const style = { left: b.x, top: b.y, width: b.w, height: b.h };
+  const [born, grown] = useBorn(); // 3.3.15.0 L1: a node that appears after the page drew fades in once
+  const hovered = useFleet((s) => !!n.key && s.hover === n.key); // a Live line hovered elsewhere: the same outline
   if (n.virtual)
     return (
       <div className="rlm-node rlm-virtual" style={style} data-testid="roles-live-unknown" title={n.task}>
@@ -35,13 +42,16 @@ export function LiveNodeCard({ b, selected, now, onMenu }: { b: LiveBox; selecte
         <div className="muted rlm-line">{n.task}</div>
       </div>
     );
-  const open = () => selectLive(n.key);
+  const failed = n.glow === "failed";
+  const open = () => (failed && ackFailed(n.key), selectLive(n.key));
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), open());
   const menu = (e: MouseEvent) => (e.stopPropagation(), onMenu({ x: e.clientX, y: e.clientY, key: n.key }));
   return (
     <div className="rlm-node" style={style} role="button" tabIndex={0} onClick={open} onKeyDown={onKey}
          data-testid="roles-live-node" data-agent={n.id} data-key={n.key} data-state={n.state} data-glow={n.glow || undefined}
-         data-card={n.card || undefined} data-selected={selected || undefined} aria-label={`${n.name}: ${n.state}`}>
+         data-card={n.card || undefined} data-selected={selected || undefined} aria-label={`${n.name}: ${n.state}`}
+         data-born={born || undefined} onAnimationEnd={(e) => e.target === e.currentTarget && grown()}
+         data-ack={(failed && failedAcked(n.key)) || undefined} data-hover={hovered || undefined}>
       <div className="rlm-head">
         <span className="rlm-dot" aria-hidden="true" />
         <b className="rlm-name">{short(n.name, 22)}</b>
@@ -50,7 +60,7 @@ export function LiveNodeCard({ b, selected, now, onMenu }: { b: LiveBox; selecte
         <span className="og-badge mono" data-live={n.activity || undefined}>{n.state || "?"}</span>
         <button className="rlm-more" onClick={menu} aria-label={`${n.name}: more`} title="Steer, pause, pin, stop..." data-testid="roles-live-more">...</button>
       </div>
-      <div className="mono muted rlm-line">{short(n.model || "model ?", 30)} · {cost(n.cost)}{n.started ? ` · ${took(n, now)}` : ""}</div>
+      <div className="mono muted rlm-line" title={n.model || undefined} data-testid="roles-live-model">{short(shortModel(n.model) || "model ?", 30)} · {cost(n.cost)}{n.started ? ` · ${took(n, now)}` : ""}</div>
       {n.pick ? (
         <div className="mono rlm-pick" title={n.pick} data-testid="roles-live-pick">{n.pick}</div>
       ) : (

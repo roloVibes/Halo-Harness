@@ -4,7 +4,7 @@
    while ComfyUI does not answer. Tokens only. */
 
 .fl-start { position: absolute; inset: 0; overflow: auto; padding: 28px 24px; display: grid; justify-items: center; align-content: start; }
-.fl-start-inner { width: min(1120px, 100%); display: grid; gap: 22px; animation: rise var(--t-slow) var(--ease); }
+.fl-start-inner { width: min(1120px, 100%); display: grid; gap: 22px; }
 .fl-start-head { display: grid; gap: 6px; max-width: 70ch; }
 .fl-start-head p { margin: 0; font-size: 14px; }
 .fl-start-title { margin: 0; font-size: 28px; font-weight: 700; letter-spacing: .01em; }

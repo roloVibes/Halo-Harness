@@ -8,6 +8,72 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.3.15.0] - unreleased
+
+**Studio wears the Instrument look.** A design session answered `docs/STUDIO-redesign-brief.md` with "Instrument"
+(`docs/design/studio-instrument/`: the proposal, the mock-ups, the prompt it was written to be applied with), and this
+version applies it as one round: an eleventh palette, `instrument`, that Studio draws on a dark system; solid surfaces,
+1 px hairlines, corner ticks on every panel, cyan for work and selection, amber for what waits on you, mono for data
+and sans for prose; four animations that carry meaning and nothing else that moves. It restyles only: no section or
+panel is renamed, no shortcut, route, `?mode=` word or `data-testid` changes, and the rail keeps its nine core
+sections in their order with the packs' after them.
+
+### L1: Instrument, the look
+
+#### Changed
+
+- **The palette.** `instrument` joins the registry (`halo_harness/themes/palettes.py`, PROPOSAL.md section 1: the
+  seventeen tokens exactly, dark; every text token over 4.5:1 on bg, surface and surface-2, the lowest faint on
+  surface-2 at 4.9; accent_ink on accent 10.5). Studio's "follow the system" draws it on a dark system (`:root`
+  alone, `data-theme="auto"` and the server's first paint did holo); `holo` stays in the theme menu and on Settings ->
+  Themes, `paper` stays the light default, the terminal's default is unchanged and `/theme` lists eleven. holo's
+  label says it was Studio's look before this version.
+- **The derived variables** (PROPOSAL.md section 2; `halo_harness/themes/studio_css.py`, the same rule for a pack's
+  palette at run time). Surfaces are solid (`--surface-glass` is the surface, `--blur` 0), the resting `--glow` is
+  no shadow and `--glow-strong` a 1 px accent ring, Studio's hairlines come from the opaque `border` token (`--line`,
+  the new `--border`; a light palette's `line` is its `border`, so a light page draws as before) with `--line-soft`
+  for row rules and `--line-strong` the border lifted toward the text, `--grid-line` is the dot of the static dot grid
+  (`--grid`, on map canvases only), one shadow level (`--shadow-1`), soft fills at 6-8 % on a dark page, and `--user`
+  / `--tool`. The static block of `styles/tokens.css` adds the scales: radii (`--r-panel` 6 ... `--r-badge` 2),
+  spacing (`--s-1`..`--s-6`: 4 8 12 16 20 28), type (`--t-title`, `--t-body` 13 px prose, `--t-data` 12 px mono,
+  `--t-caption`, `--t-node-name`), motion (`--dur-fast` 160, `--dur-base` 240, `--dur-slow` 600 ms, zero under
+  reduced motion) and the chrome sizes; comfortable density is 13 px text and a 40 px title row, compact 12 px and 32.
+  Every old variable name stays.
+- **The shell** (PROPOSAL.md section 3). The rail is 52 px of icons (176 px with titles on its chevron, kept per
+  browser as before), the selected section the accent with a 2 px bar at the left edge, its badges squares; the header
+  48 px with the section's name in mono caps, a `/` and its line, the command palette's door a 300 px field; the status
+  bar 26 px in 11 px mono; the inspector a 344 px column; the palette 560 px with 36 px rows. The rail is still
+  sections only, nothing opens on a section load, the inspector opens on a selection, Focus hides all but the page.
+- **The kit** (`lib/ui`). Buttons 30 px in mono (on = the accent, primary the accent fill), Kbd 16 px, a Field's text
+  input carries a leading `›`, Tabs are 36 px mono caps with a 1 px underline and no sliding, Menu and Dialog the one
+  shadow level, every panel frame (`.glass`) four corner ticks with the selected panel's in the text colour, Toasts
+  300 px in mono, Empty one line and a button, ErrorState one line in red, Skeleton still blocks after 300 ms, the
+  FitMeter an 8 px track. **A confirmation shows DOES / COSTS / WRITES** (`lib/ui/DialogCost.tsx`, `Dialog`'s new
+  `cost`): three mono lines before the buttons, the pack kit's offered-action rule made visible -- a pack's remove and
+  update, Roles' Apply, delete a lineup, a bio or a card, leave unsaved edits, clone over a name, stop a mission, take
+  over, hand to, kick, stop a team run, delete a local model.
+- **Map nodes and edges** (Session Map, Roles Live, the Fleet Tree; `styles/nodes.css`). A node is surface-2 with a
+  hairline and a 2 px rule across the top in its state colour (working cyan, waiting amber three pulses then steady,
+  done green fading to rest over 10 s, failed red until you click it), a state square, a 1 px outline 3 px out when it
+  is selected or a Live line for it is hovered; an edge is 1.5 px, a working child's carries a 4/8 dash moving toward
+  it, a failed one is dotted. Nodes, Roles Live's nodes, Live's tags and the Fleet Tree show the resolved model without
+  its provider prefix (`lib/modelName.ts`: `or:qwen/qwen3-coder` -> `qwen3-coder`); the Inspector, the Agent panel and
+  the tooltips keep the full id.
+- **Motion** (PROPOSAL.md section 5, `styles/motion.css`). Four animations: an agent starting (its node fades in, its
+  edge draws from the parent) and ending, a receipt ladder climbing (the Prompt panel's four marks, 160 ms apart), the
+  fit meter filling once, a toast arriving (16 px rise and fade, a 180 ms fade out; it holds 4 s, an error stays until
+  its ✕). Each plays only for a thing that appears after its page drew (`lib/motion/born.ts`), never on a section
+  load; the working state square blinks at 1.4 s. Everything else is still: no breathing, no flowing light, no sweep,
+  no fade or rise when a section, a panel, a menu, a dialog or a row appears. Under `prefers-reduced-motion` every one
+  is an instant state swap and a working edge is solid accent.
+
+#### Docs
+
+- docs/STUDIO-shell.md: the Instrument look (the rail's widths, the panel frame's ticks and faces, the Dialog's three
+  lines, the motion rule), the eleven palettes; docs/CONFIG.md `theme` and docs/GLOSSARY.md: eleven palettes,
+  `instrument` the dark default; docs/STUDIO-sections.md and docs/STUDIO-setup.md where a line counted palettes or
+  described chrome that changed; docs/STUDIO-redesign-brief.md: what shipped.
+
 ## [3.3.14.0] - 2026-11-09
 
 **The review's fix pass: the token and the grants, then children and keys.** The November code and security review

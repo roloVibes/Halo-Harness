@@ -2,11 +2,11 @@
 headless Chrome through the driver base over a fresh scratch home (no `theme` saved); no provider request, no model
 call. Every theme write lands in the scratch config.json:
 
-1. a fresh page follows the system (`data-theme="auto"`): holo's --bg on a dark system, paper's on a light one;
-2. the header's theme menu: Follow the system and the ten palettes, each with a swatch row;
+1. a fresh page follows the system (`data-theme="auto"`): instrument's --bg on a dark system (holo before 3.3.15.0), paper's on a light one;
+2. the header's theme menu: Follow the system and the eleven palettes, each with a swatch row;
 3. picking ember writes `theme: ember` to config.json and flips the page's `data-theme`; a reload keeps it (the
    server paints the first frame in it);
-4. Settings -> Themes (`?mode=settings&page=themes`): eleven rows (follow + the ten), the swatch chips in the colours
+4. Settings -> Themes (`?mode=settings&page=themes`): twelve rows (follow + the eleven), the swatch chips in the colours
    `GET settings/themes` sends, ember marked current; the pointer on paper previews it on the page, config.json
    untouched; Esc puts ember back; a click on dusk saves it and the current mark moves; Daltonized on writes
    dusk-daltonized and the page's --accent is the daltonized one;
@@ -87,7 +87,7 @@ def follow_first(c, url, ctx) -> dict:
 def header_menu(c, url, ctx) -> dict:
     btn = q("[data-testid=theme-menu-btn]")
     press(c, btn, f"!!{q('[data-testid=theme-menu]')}")
-    c.wait(f"{qa('[data-testid=theme-menu] [data-testid=theme-item]')}.length === 11", 15)
+    c.wait(f"{qa('[data-testid=theme-menu] [data-testid=theme-item]')}.length === 12", 15)
     out = {"menu_ids": c.js(qa("[data-testid=theme-menu] [data-testid=theme-item]") + ".map((b) => b.dataset.themeId)"),
            "menu_swatches": c.js(f"{qa('[data-testid=theme-menu] [data-testid=theme-swatch]')}.length")}
     press(c, q(ITEM.format("ember")), f"{THEME} === 'ember'")
@@ -103,7 +103,7 @@ def page(c, url, ctx) -> dict:
     from halo_harness.studio.api import Request, dispatch
     _status, api = dispatch(Request(method="GET", path="settings/themes", query={}, body={}, cwd=ctx["proj"], state_dir=ctx["state"]))
     _load(c, ctx, "mode=settings&page=themes", "Settings")
-    c.wait(f"{qa('[data-testid=theme-row]')}.length === 11", 30)
+    c.wait(f"{qa('[data-testid=theme-row]')}.length === 12", 30)
     out = {"page_rows": c.js(qa("[data-testid=theme-row]") + ".map((r) => r.dataset.themeId)"), "page_search": c.js("location.search"),
            "page_current": c.js(qa("[data-testid=theme-row][data-current]") + ".map((r) => r.dataset.themeId)")}
     chips = c.js(qa("[data-testid=theme-list] [data-testid=theme-row]") + ".filter((r) => r.querySelector('[data-testid=theme-swatch]'))"

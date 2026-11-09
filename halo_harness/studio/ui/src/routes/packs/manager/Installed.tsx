@@ -121,6 +121,8 @@ function RemoveDialog() {
   };
   return (
     <Dialog open onClose={close} title={`Remove ${id}?`} kicker="PACKS · REMOVE" testid="pm-remove-dialog"
+            cost={{ does: `removes ${id}: the files its install or update wrote that still hold what it wrote`, costs: "nothing: no model call",
+                    writes: keep ? "the pack's own files go; its record and grants stay for a later install" : "the pack's own files, its record and its grants go; your files stay" }}
             footer={<><Button onClick={close}>Cancel</Button><Button variant="danger" onClick={() => void yes()} data-testid="pm-remove-yes">Remove</Button></>}>
       <p>Removes the pack's own files: the ones its install or update wrote that still hold what it wrote. A file of its folder you changed stays, and so does everything of yours: your bios and lineups, your settings, the memory folders. Each one is listed after.</p>
       <label className="og-switch mono">
@@ -143,6 +145,8 @@ function UpdateDialog() {
   };
   return (
     <Dialog open onClose={close} title={`Update ${u.id}?`} kicker="PACKS · UPDATE" testid="pm-update-dialog"
+            cost={u.ok && !nothing ? { does: `replaces ${u.id} with its new version; the one now kept for Roll back`, costs: "nothing: no model call",
+                                      writes: "the pack's own files, its record; your files it keeps (listed above)" } : undefined}
             footer={<><Button onClick={close}>{u.ok && !nothing ? "Cancel" : "Close"}</Button>{u.ok && !nothing && <Button variant="primary" onClick={() => void yes()} data-testid="pm-update-yes">Update</Button>}</>}>
       <p>{u.ok ? "What the update does, before anything is replaced: the version kept for Roll back, its migration notes, the settings it renames and your files it keeps." : "The update cannot run:"}</p>
       <pre className="pm-lines mono" data-testid="pm-update-lines">{u.lines.join("\n")}</pre>

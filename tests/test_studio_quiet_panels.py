@@ -93,8 +93,8 @@ def test_the_ornament_on_one_panel(ctx: Ctx):
 def test_strips_open_beside_the_primary_and_the_saved_layout_wins(ctx: Ctx):
     got = _got(ctx)
     mb, ao, mo, back = (got.get(k) or [0, 0, 0, 0] for k in ("map_before", "att_open", "map_open", "map_back"))
-    ctx.check(f"the opened strip sits right of the map, as tall, the map narrower by its columns, got {mb} {ao} {mo}",
-              mo[3] == mb[3] and ao[3] == mb[3] and mo[2] < mb[2] and abs((mo[0] + mo[2]) - ao[0]) <= 10 and ao[1] == mb[1]
+    ctx.check(f"the opened strip sits right of the map (one gutter, 12 px since 3.3.15.0), as tall, the map narrower by its columns, got {mb} {ao} {mo}",
+              mo[3] == mb[3] and ao[3] == mb[3] and mo[2] < mb[2] and abs((mo[0] + mo[2]) - ao[0]) <= 14 and ao[1] == mb[1]
               and got.get("strips_below") is True)
     ctx.check(f"collapsed again, the map has its rows back, got {back}", back == mb)
     ctx.check(f"a layout of your own: saved, kept across a reload, the badge, got {got.get('map_mine')} {got.get('map_reload')} {got.get('badge')}",
@@ -107,9 +107,9 @@ def test_strips_open_beside_the_primary_and_the_saved_layout_wins(ctx: Ctx):
 def test_density(ctx: Ctx):
     got = _got(ctx)
     comf, comp = got.get("comfortable") or [], got.get("compact") or []
-    ctx.check(f"comfortable by default: --pad 14px, a 4 px gutter, a 36 px title line, 14 px text, got {comf}", comf == ["comfortable", "14px", "4px", 36, "14px"])
-    ctx.check(f"the toggle: compact, --pad 9px, a 2 px gutter, a 30 px title line, 13 px text, got {comp} {got.get('toggle_title')!r}",
-              comp == ["compact", "9px", "2px", 30, "13px"] and got.get("toggle_title") == "Density: comfortable (press for compact)")
+    ctx.check(f"comfortable by default (3.3.15.0 L1, the Instrument scale): --pad 12px, a 6 px gutter, a 40 px title line, 13 px text, got {comf}", comf == ["comfortable", "12px", "6px", 40, "13px"])
+    ctx.check(f"the toggle: compact, --pad 9px, a 2 px gutter, a 32 px title line, 12 px text, got {comp} {got.get('toggle_title')!r}",
+              comp == ["compact", "9px", "2px", 32, "12px"] and got.get("toggle_title") == "Density: comfortable (press for compact)")
     ctx.check(f"remembered across a reload, got {got.get('saved')} {got.get('reload')}", got.get("saved") == "compact" and got.get("reload") == comp)
     ctx.check(f"the palette's Density: comfortable, got {got.get('palette')} {got.get('saved_after')}",
               got.get("palette") == comf and got.get("saved_after") == "comfortable")

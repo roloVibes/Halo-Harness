@@ -22,7 +22,7 @@ from halo_harness.config.paths import bridge_home
 
 DEFAULT_THEME = "claude-dark"
 
-# 3.3.12.0 R1: the ten palettes of the registry (halo_harness/themes), each also with a
+# 3.3.12.0 R1: the eleven palettes of the registry (halo_harness/themes), each also with a
 # "-daltonized" or "-ansi" modifier; one `theme` key for the terminal and Studio. R2: a live
 # view (registry.LiveNames), read at each use: an enabled pack's palettes (<pack-id>/<id>) join it.
 from halo_harness.themes import registry as _registry  # noqa: E402

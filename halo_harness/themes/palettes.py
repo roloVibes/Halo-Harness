@@ -1,4 +1,5 @@
-"""halo_harness.themes.palettes -- the ten palettes as data (Halo 3.3.12.0 R1; docs/CONFIG.md `theme`).
+"""halo_harness.themes.palettes -- the eleven palettes as data (Halo 3.3.12.0 R1; 3.3.15.0 L1 added `instrument`;
+docs/CONFIG.md `theme`).
 
 One token vocabulary for the terminal and Studio; `registry.py` reads this module, `tui/theme.py` maps the tokens to
 Textual's variables and `scripts/themes_css.py` writes Studio's `[data-theme]` blocks in `styles/tokens.css` from it,
@@ -36,9 +37,9 @@ TOKEN_NAMES = tuple(name for name, _ in TOKENS)
 
 MODIFIERS = ("daltonized", "ansi")
 
-# The default when `theme` is unset: Studio follows the system (dark -> holo, light -> paper); the terminal keeps
-# its own default (theme.DEFAULT_THEME, truecolor-aware).
-FOLLOW_DARK = "holo"
+# The default when `theme` is unset: Studio follows the system (dark -> instrument since 3.3.15.0 L1, holo before;
+# light -> paper); the terminal keeps its own default (theme.DEFAULT_THEME, truecolor-aware).
+FOLLOW_DARK = "instrument"
 FOLLOW_LIGHT = "paper"
 
 
@@ -58,9 +59,13 @@ PALETTES = (
     _p("claude-light", "The terminal's classic light: Catppuccin Latte", "light",
        "#eff1f5", "#e6e9ef", "#ffffff", "#dce0e8", "#ccd0da", "#ccd0da", "#4c4f69", "#6c6f85", "#9ca0b0",
        "#1e66f5", "#8839ef", "#ffffff", "#3b9428", "#b67418", "#d20f39", "#179299", "#e45401"),
-    _p("holo", "Studio's ops console: glass, cyan and amber on near-black", "dark",
+    _p("holo", "Studio's look before 3.3.15.0: navy, cyan and amber", "dark",
        "#070b14", "#0b1222", "#0e1628", "#142038", "#2d4b64", "#78c8ff", "#dbe7ff", "#7d8fb3", "#4a5878",
        "#39d7ff", "#7c8cff", "#04121c", "#4ef0a8", "#ffb347", "#ff4d8d", "#7ce3ff", "#ffb347"),
+    # 3.3.15.0 L1: the Instrument look's palette (docs/design/studio-instrument/PROPOSAL.md section 1), Studio's dark default
+    _p("instrument", "Studio's instrument panel: solid near-black, hairlines, cyan works, amber waits", "dark",
+       "#07090c", "#0b0e12", "#0f1318", "#151a21", "#232a33", "#1a2028", "#e6edf3", "#9aa6b2", "#7d8995",
+       "#22d3ee", "#f5a524", "#031317", "#3dd68c", "#f5a524", "#ff5c6a", "#a78bfa", "#67e8f9"),
     _p("paper", "Warm paper and ink-blue, for daylight", "light",
        "#f7f3ea", "#efe9dc", "#fffdf8", "#e8e0cf", "#d9cfbb", "#d9cfbb", "#3b3024", "#6b5d4b", "#a89a85",
        "#1d5c8c", "#a04a26", "#ffffff", "#2d7236", "#8f5b00", "#b3261e", "#1d6b6b", "#9a4612"),

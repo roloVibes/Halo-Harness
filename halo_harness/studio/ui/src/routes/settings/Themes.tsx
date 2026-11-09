@@ -1,5 +1,5 @@
 // Settings -> Themes (3.3.12.0 R1, `?mode=settings&page=themes`): the `theme`
-// key of ~/.halo/config.json drawn as the ten palettes of the registry, one
+// key of ~/.halo/config.json drawn as the eleven palettes of the registry, one
 // row each with its swatch row (surface, text, accent, accent-2, ok, warn,
 // bad, in the colours `GET settings/themes` sends), its posture and its label,
 // the current one marked; "Follow the system" above them; the -daltonized and

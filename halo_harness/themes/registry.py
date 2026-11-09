@@ -1,7 +1,7 @@
-"""halo_harness.themes.registry -- the palette registry (Halo 3.3.12.0 R1): ten palettes, two modifiers, one `theme`;
+"""halo_harness.themes.registry -- the palette registry (Halo 3.3.12.0 R1): eleven palettes (3.3.15.0: + instrument), two modifiers, one `theme`;
 R2: live -- the enabled packs' palettes (`<pack-id>/<id>`) are read at call time (themes/packs.py), never at import.
 
-    ids()                  the ten palette ids, in their order (palettes.PALETTES)
+    ids()                  the eleven palette ids, in their order (palettes.PALETTES)
     pack_ids()             the enabled packs' palette names (`<pack-id>/<id>`), packs in run order
     all_ids()              ids() then pack_ids()
     names()                every valid `theme` value: each of all_ids(), then `<id>-daltonized`, `<id>-ansi`
@@ -10,7 +10,7 @@ R2: live -- the enabled packs' palettes (`<pack-id>/<id>`) are read at call time
     palette(pid)           {id, label, posture, tokens} or None
     tokens(name)           the token dict a renderer draws `name` in (modifier applied), None when unknown
     posture(name)          "dark" | "light" ("" when unknown)
-    follow(system)         what "follow the system" picks: holo on a dark system, paper on a light one
+    follow(system)         what "follow the system" picks: instrument on a dark system, paper on a light one
     contrast(a, b)         the WCAG 2 contrast ratio of two #rrggbb colours
     contrast_rows(name)    every pinned pair of `name`: (fg, bg, ratio, floor)
     as_json()              the palettes for Studio's `GET settings/themes`

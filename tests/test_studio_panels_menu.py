@@ -13,7 +13,7 @@ no provider request, no model call:
    ? reaches too;
 4. Fleet's "+" adds the optional Tree panel (the tree the expanded rail used to carry), the strips read "bring
    back"; Orchestra's "+" carries its RUNS group with New run; the rail holds the section rows and the chevron
-   only, in both widths (<= 200 px expanded); Setup and Local (paged) have no "+", no "..." and no badge.
+   only, in both widths (<= 200 px expanded; 176 since 3.3.15.0); Setup and Local (paged) have no "+", no "..." and no badge.
 Run: python -m tests.test_studio_panels_menu
 """
 from __future__ import annotations
@@ -50,7 +50,7 @@ def test_the_rail_source_holds_sections_only(ctx: Ctx):
         ctx.check(f"Rail.tsx has no {gone}", gone not in rail)
     ctx.check("the Fleet tree's old file is gone", not (UI / "routes" / "fleet" / "FleetRail.tsx").exists())
     css = (UI / "styles" / "shell.css").read_text(encoding="utf-8")
-    ctx.check("the expanded rail is 200 px", '.app[data-rail="open"] { grid-template-columns: 200px minmax(0, 1fr) 0; }' in css)
+    ctx.check("the expanded rail is 176 px (3.3.15.0 L1; 200 before)", '.app[data-rail="open"] { grid-template-columns: 176px minmax(0, 1fr) 0; }' in css)
     ctx.check("no .rail-more and no .rail-foot rule left", ".rail-more" not in css and ".rail-foot" not in css)
 
 

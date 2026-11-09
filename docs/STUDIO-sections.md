@@ -68,10 +68,12 @@ waiting on you, $X" -- and the decisions that wait are the Attention queue's
 4. **Read the map as one picture**: one card per session on this machine,
    its agents drawn as a tree under it, each agent under the one that
    spawned it and its children fanned out side by side, sized to fit the
-   panel. A node shows its model, what it has cost and, while a tool runs,
-   its name and time (`Bash 12s`). Working is a cyan pulse on the node and
-   the edge into it, waiting amber, done green that fades over ten seconds,
-   failed red that stays. Entering selects the newest working agent; click
+   panel. A node shows its model (3.3.15.0: without the provider prefix; the
+   full id in its tooltip and the Agent panel), what it has cost and, while a tool runs,
+   its name and time (`Bash 12s`). Its state is a 2 px rule across its top
+   and its edge (3.3.15.0, the Instrument look): working cyan, with a dash moving
+   along the edge toward it, waiting amber (three pulses, then steady), done green
+   that fades over ten seconds, failed red that stays until you click the node. Entering selects the newest working agent; click
    another and its session becomes the chosen one (its card is marked).
 5. **Read the cost**: the spend ticks up beside its sparkline (the spend
    since the page opened); the context bar fills with what the model holds
@@ -164,7 +166,7 @@ boxes you can arrange and edit; the files are `~/.halo/teams/<name>.yaml` and
 8. **Read the glow**: hover a glowing card's state glyph or its live badge
    and the card explains its glow (below). The tier box takes the strongest
    state of its cards, and the edges into a card take that card's colour.
-9. **See what really runs: Plan | Live** (3.3.11.0 R2; the switch first on the canvas bar, `L`, the palette's "Roles: Live", `?mode=roles&view=live[&session=<id>]`). Plan is the lineup above; **Live** is the session's actual agent tree on the whole page -- one node per agent, live or finished and still in the frames, an edge from each parent, NOTHING dropped (an agent whose parent is not in the session hangs under "unknown parent"), so every agent Auto spawns is there even when it matches no card, 1:1 with the terminal's `/agents live`. A node shows its name, role, state, model, cost and time, and an `auto` pick's reason ("picked at spawn: coder on <model> -- <why>"); the lineup card a node matches is a faint dashed group behind it. Layered layout (the Session Map's own), spread or compact, `+` / `-` and Fit (`F`; the first draw fits a tree wider than the page); a click selects the agent and the Inspector's Live tab follows it; `steer` and `...` on a node are the Map's. The session picker lists every session the fleet carries, this harness first. All of it reads the frames through one adapter, `ui/src/lib/work/record.ts`.
+9. **See what really runs: Plan | Live** (3.3.11.0 R2; the switch first on the canvas bar, `L`, the palette's "Roles: Live", `?mode=roles&view=live[&session=<id>]`). Plan is the lineup above; **Live** is the session's actual agent tree on the whole page -- one node per agent, live or finished and still in the frames, an edge from each parent, NOTHING dropped (an agent whose parent is not in the session hangs under "unknown parent"), so every agent Auto spawns is there even when it matches no card, 1:1 with the terminal's `/agents live`. A node shows its name, role, state, model (3.3.15.0: without the provider prefix, the full id in the Inspector), cost and time, its state as the Session Map's nodes show it, and an `auto` pick's reason ("picked at spawn: coder on <model> -- <why>"); the lineup card a node matches is a faint dashed group behind it. Layered layout (the Session Map's own), spread or compact, `+` / `-` and Fit (`F`; the first draw fits a tree wider than the page); a click selects the agent and the Inspector's Live tab follows it; `steer` and `...` on a node are the Map's. The session picker lists every session the fleet carries, this harness first. All of it reads the frames through one adapter, `ui/src/lib/work/record.ts`.
 
 **The glow, and when it comes and goes (3.1.5.0).**
 
@@ -338,8 +340,8 @@ page); nothing opens on its own. `halo settings fleet` opens the Fleet page (`?m
 its notes (automatic, none, or one of this machine's local models: `ollama.steward.model`), the mode (auto, review, off:
 `ollama.steward.apply`), the job switch and **Open the Ollama panel**; the thresholds stay ordinary rows below it.
 
-**The Themes page** (3.3.12.0, after General on the rail; `?mode=settings&page=themes`, `halo settings themes`) draws the `theme` key as the ten palettes of the registry: one row each with its swatch row (surface, text, accent, accent-2, ok, warn, bad, in the colours `GET settings/themes` sends, never hard-coded), its posture and its one-line label, the current one marked **CURRENT**, and **Follow the system** above them (holo on a dark system, paper on a light one; the key unset).
-Pointing at a row previews it on the page itself (the key untouched); Esc or moving away puts the saved one back, a click saves it. The modifiers are two toggles, **Daltonized** (blue and orange for the accents and the status colours, never red against green) and **ANSI** (a terminal's 16 colours; Studio stays in full colour), one at a time; the footer is the `halo config set theme <name>` line. `/theme`, `halo config set theme` and the header's theme menu move the same value. 3.3.12.0 R2: an enabled pack's palettes follow the ten in a group under the pack's id (and its name), drawn the same way (swatches, hover preview, Daltonized), each saved as `<pack-id>/<id>`; the group says that turning the pack off puts the palette before it back ([EXTENSION_API.md](EXTENSION_API.md#themes)).
+**The Themes page** (3.3.12.0, after General on the rail; `?mode=settings&page=themes`, `halo settings themes`) draws the `theme` key as the eleven palettes of the registry (3.3.15.0: + `instrument`): one row each with its swatch row (surface, text, accent, accent-2, ok, warn, bad, in the colours `GET settings/themes` sends, never hard-coded), its posture and its one-line label, the current one marked **CURRENT**, and **Follow the system** above them (instrument on a dark system since 3.3.15.0, holo before; paper on a light one; the key unset).
+Pointing at a row previews it on the page itself (the key untouched); Esc or moving away puts the saved one back, a click saves it. The modifiers are two toggles, **Daltonized** (blue and orange for the accents and the status colours, never red against green) and **ANSI** (a terminal's 16 colours; Studio stays in full colour), one at a time; the footer is the `halo config set theme <name>` line. `/theme`, `halo config set theme` and the header's theme menu move the same value. 3.3.12.0 R2: an enabled pack's palettes follow the eleven in a group under the pack's id (and its name), drawn the same way (swatches, hover preview, Daltonized), each saved as `<pack-id>/<id>`; the group says that turning the pack off puts the palette before it back ([EXTENSION_API.md](EXTENSION_API.md#themes)).
 
 ### Local
 

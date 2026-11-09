@@ -37,6 +37,7 @@ import { useFollow } from "./follow";
 import { chooseTarget, followAgain, pauseFollow, setPin, targetRow, useStripScope, useSteerTarget } from "./steer";
 import { sess, useSession } from "./store";
 import { TraceExport } from "./TraceExport";
+import { shortModel } from "../../lib/modelName";
 
 export const VIEW = 500;
 const whoCache = new Map<string, Who>();
@@ -47,9 +48,9 @@ function useWho(): Map<string, Who> {
   return useMemo(() => {
     const out = new Map<string, Who>();
     for (const r of allAgents({ ...fleet.get(), harnesses })) {
-      const w = { name: r.a.name || r.a.role || r.a.agent_id, hc: hueOf(r.key), state: String(r.a.state || "") };
+      const w = { name: r.a.name || r.a.role || r.a.agent_id, hc: hueOf(r.key), state: String(r.a.state || ""), model: shortModel(r.a.model) };
       const was = whoCache.get(r.key);
-      const keep = was && was.name === w.name && was.hc === w.hc && was.state === w.state ? was : w;
+      const keep = was && was.name === w.name && was.hc === w.hc && was.state === w.state && was.model === w.model ? was : w;
       whoCache.set(r.key, keep);
       out.set(r.key, keep);
     }

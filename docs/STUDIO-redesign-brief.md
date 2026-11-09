@@ -36,8 +36,8 @@ failures are one line and a path.
 
 A look is a **palette** plus **component CSS**. A palette is exactly these seventeen tokens, each a `#rrggbb` value, with a
 posture (dark or light): `bg`, `bg2`, `surface`, `surface2`, `border`, `line`, `text`, `muted`, `faint`, `accent`,
-`accent2`, `accent_ink`, `ok`, `warn`, `bad`, `user`, `tool`. Ten palettes ship (`halo_harness/themes/palettes.py`; `holo`
-is the Studio default and the brand look; `paper` the light default), the terminal draws from the same tokens, and Studio's
+`accent2`, `accent_ink`, `ok`, `warn`, `bad`, `user`, `tool`. Eleven palettes ship (`halo_harness/themes/palettes.py`;
+`instrument` is the Studio default and the brand look since 3.3.15.0, `holo` before; `paper` the light default), the terminal draws from the same tokens, and Studio's
 CSS variables are generated from them into `halo_harness/studio/ui/src/styles/tokens.css`. Every other colour in Studio is
 a CSS variable derived from those (glass, glow, grid, soft variants), defined once in `tokens.css`; component files may
 not carry a colour literal (a test enforces it). Text on surfaces meets WCAG AA (4.5:1 body, 3:1 large), enforced per
@@ -84,3 +84,10 @@ The palette becomes one more entry in `palettes.py` (or replaces `holo`'s values
 variables and component CSS become one round of work on `tokens.css`, `styles/*.css` and `lib/ui/*`; the generator keeps
 the terminal in step. Hand the proposal back as a folder of mock-ups (PNG or HTML), the palette table, and the component
 spec; the maintainer turns it into a round with tests that pin the contrast, the dist and the shell's rules.
+
+## What shipped
+
+3.3.15.0 L1 applied the first proposal made from this brief, "Instrument" ([design/studio-instrument/](design/studio-instrument/PROPOSAL.md)):
+the `instrument` palette as Studio's dark default, the derived variables, the shell and `lib/ui` restyled, map nodes and
+edges, and the four-animation motion rule ([STUDIO-shell.md](STUDIO-shell.md), "Visual language" and "Motion"). The rail
+order the proposal suggested was not taken.

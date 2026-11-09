@@ -1,0 +1,31 @@
+/* The Instrument look (3.3.15.0 L1, docs/design/studio-instrument/PROPOSAL.md section 3) for the pieces of the
+   kit whose CSS lived in a section's file, and the pieces the look adds: the Dialog's DOES / COSTS / WRITES block
+   (lib/ui/DialogCost.tsx: the pack kit's offered-action rule made visible on every confirmation), the fit meter
+   (lib/ui/FitMeter.tsx, model-card.css before: an 8 px track, ok under 80 %, warn to 95 %, bad past it, a mono
+   caption) and the phone width. Imported last, so these win. Tokens only. */
+
+/* -- the Dialog's three mono lines, before its buttons -- */
+.dialog-cost { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 4px 12px; margin: 0 16px 14px; padding: 10px 12px;
+  border: 1px solid var(--line-soft); border-radius: var(--r-control); background: var(--bg); font: 12px/18px var(--mono); }
+.dialog-cost dt { color: var(--faint); font-size: 10.5px; letter-spacing: .1em; }
+.dialog-cost dd { margin: 0; color: var(--text); overflow-wrap: anywhere; }
+.dialog-cost dd[data-none] { color: var(--muted); }
+
+/* -- the fit meter: an 8 px track, the level's colour, the word in mono -- */
+.fit-meter { gap: 6px; }
+.fit-meter-bar { width: 40px; height: 8px; border-radius: var(--r-badge); border: 0; background: var(--surface-2); overflow: hidden; }
+.fit-meter-fill { border-radius: 0; }
+.fit-meter[data-level="fits"] .fit-meter-fill { width: 60%; background: var(--ok); }
+.fit-meter[data-level="tight"] .fit-meter-fill { width: 88%; background: var(--warn); }
+.fit-meter[data-level="spill"] .fit-meter-fill { width: 100%; background: var(--bad); }
+.fit-meter[data-level="no"] .fit-meter-bar { box-shadow: inset 0 0 0 1px var(--bad); }
+.fit-meter[data-level="cloud"] .fit-meter-fill { width: 100%; background: var(--soft-accent); }
+.fit-meter-word { font-size: 11px; }
+
+/* -- the phone: the header keeps its controls at 390 px -- */
+@media (max-width: 520px) {
+  .topbar { gap: 6px; padding: 0 8px; }
+  .brand, .layout-badge { display: none; }
+  .topbar-section { flex: none; padding-left: 0; border-left: 0; }
+  .dialog-cost { grid-template-columns: 1fr; }
+}
