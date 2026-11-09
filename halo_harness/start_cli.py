@@ -16,6 +16,10 @@ configured does the work; with no provider configured the start says so
 and offers Setup in Studio (Enter; `n` runs the terminal wizard, 3.3.0.0 R4). `HALO_START_FAKE=1` runs the whole path on fake
 model calls (tests, a dry look).
 
+3.3.15.0 R5: on the Auto lineup (or none) with no `--lineup`, it prints why
+the guided first run would say little there (one model rehearsed five times),
+offers `halo gym --quick`, and exits 0 without running (start/auto_gate.py).
+
 Exit codes: 0 every step done, 1 a step failed or the start was stopped,
 2 usage or no provider. 3.2.2.0 R1: any other error is one line
 (`<Type>: <message>`) and the log holding its traceback
@@ -36,7 +40,8 @@ def _parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="halo start", description="The guided first run: a lineup, a sample repo, one "
                                 "real Orchestra goal on your models with a reviewed plan, the run, the report and the "
                                 "coach. It opens on a card saying what it does, costs and writes.")
-    p.add_argument("--lineup", default=S.DEFAULT_LINEUP, help=f"the shipped lineup to copy (default {S.DEFAULT_LINEUP})")
+    p.add_argument("--lineup", default=None, help=f"the shipped lineup to copy (default {S.DEFAULT_LINEUP}); naming one "
+                   "runs the start on the Auto lineup too")
     p.add_argument("--repo", default=None, metavar="DIR", help="run in this git repo instead of the sample")
     p.add_argument("--file", dest="files", action="append", default=None, metavar="F",
                    help="with --repo: a file the workers share (repeatable; default basket.py)")
@@ -105,12 +110,28 @@ def _crashed(exc: Exception, run, as_json: bool) -> int:
     return 1
 
 
+def _on_auto(as_json: bool) -> int:
+    """3.3.15.0 R5: the active lineup is Auto (or none) and no --lineup: the line, the gym, exit 0, nothing run."""
+    from halo_harness.start.auto_gate import AUTO_LINE, REASON, lines
+    if as_json:
+        print(json.dumps({"ok": True, "ran": False, "reason": REASON, "message": AUTO_LINE}))
+        return 0
+    for line in lines():
+        print(line)
+    return 0
+
+
 def cmd_start(argv) -> int:
     args = _parser().parse_args(list(argv))
+    explicit = args.lineup
+    args.lineup = args.lineup or S.DEFAULT_LINEUP
     if args.explain:
         for line in _card(args):
             print(line)
         return 0
+    from halo_harness.start.auto_gate import offers_start
+    if not offers_start(explicit):
+        return _on_auto(args.json)
     built: list = []  # the StartRun, once there is one (its state dir and run folder name the log)
     try:
         return _start(args, built)

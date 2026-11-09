@@ -57,6 +57,10 @@ export type SetupData = {
   linux_fixes: { needed: boolean; items: { id: string; line: string }[]; platform: string };
   no_provider: boolean;
   model_notes: string[];
+  /** 3.3.15.0 R5: on the Auto lineup (or none) the line shown in the guided first run's place ("" with a custom lineup). */
+  start_auto?: string;
+  /** 3.3.15.0 R6: a `halo init` terminal waits for Done (studio/init_waiting.py): it starts halo, Studio opens none. */
+  init_waiting?: boolean;
   /** 3.3.1.0 R1: a short hash of this home's state dir (the key Setup's open page is remembered under). */
   home?: string;
   /** 3.3.3.0 R1: when the Summary's Done was last pressed for this home (studio/setup_done.py), or null. */

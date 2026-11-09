@@ -1030,7 +1030,12 @@ async def _handle_orchestra(app, args: str) -> None:
 
 
 async def _handle_start(app, _args: str) -> None:
-    """`/start`: the guided first run in a panel (tui/dialogs/start_panel.py)."""
+    """`/start`: the guided first run in a panel (tui/dialogs/start_panel.py). 3.3.15.0 R5: on the Auto lineup (or
+    none) one note says why it would say little there and offers the gym instead (start/auto_gate.py)."""
+    from halo_harness.start.auto_gate import lines as auto_lines, offers_start
+    if not offers_start():
+        app.notify("\n".join(auto_lines()), title="/start", timeout=12)
+        return
     from halo_harness.tui.dialogs.start_panel import StartPanel
     app.push_screen(StartPanel())
 
@@ -1291,7 +1296,7 @@ async def _handle_theme(app, args: str) -> None:
     if not name:
         app.notify(theme_cli.listing(app.theme_name), title="/theme", timeout=12)
         return
-    if not theme_mod.is_valid_theme(name):
+    if not theme_mod.is_theme_value(name):
         line = theme_cli.refusal(name)
         app.notify(line[:1].upper() + line[1:], severity="error", title="/theme")
         return
@@ -1300,7 +1305,7 @@ async def _handle_theme(app, args: str) -> None:
     except (ValueError, theme_mod.CorruptConfigError) as exc:
         app.notify(str(exc), severity="error", title="/theme")
         return
-    app.apply_theme(name)
+    app.apply_theme(theme_mod.drawn_theme(name))  # 3.3.15.0 R4: auto draws the default in a terminal
     app.notify(f"Theme set to {name}: the terminal and Studio", title="/theme")
 
 

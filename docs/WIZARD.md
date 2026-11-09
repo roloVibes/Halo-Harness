@@ -26,16 +26,22 @@ through the same writers ([STUDIO-setup.md](STUDIO-setup.md)).
 Since 3.3.3.0 Setup ends in a running halo. The Summary's last button is
 **Done: start halo**: it writes `~/.halo/setup-done.json`, Studio goes to
 Session, and the terminal that ran `halo init` -- which has waited with one
-line on screen, "Setup is open in your browser: <url>. Press Done there and
-halo starts here (Ctrl+C stops waiting; `halo init --terminal` runs the
-terminal wizard)." -- prints the Summary's four lines (provider, default
-model, lineup, last check) and starts halo as bare `halo` does, in the
-directory `halo init` ran from. Ctrl+C stops the wait and starts nothing;
-`halo init --no-launch` (or `HALO_INIT_NO_LAUNCH=1`) opens Setup and returns
-at once, for scripts. The terminal wizard's Finish starts halo the same way
-(after the ticked checks, and after `halo start` when that row was ticked
-and it succeeded); a quit, a failed live pong or `--no-launch` starts
-nothing.
+line on screen, "Setup is open in your browser: <url>. This terminal starts
+halo when you press Done there (Ctrl+C: stop here; `halo` later starts it)."
+-- prints the Summary's four lines (provider, default model, lineup, last
+check) and starts halo as bare `halo` does, in the directory `halo init` ran
+from, paired with the running Studio: after init both the terminal halo and
+Studio run, and the session shows in Studio's Session section (3.3.15.0). The
+wait outlasts a busy Studio (a long check); Done answers "halo is starting in
+your terminal" while an init waits, and with none waiting opens a terminal
+running halo itself or says "no terminal found to start halo in; run `halo`
+yourself". Ctrl+C stops the wait and starts nothing; `halo init --no-launch`
+(or `HALO_INIT_NO_LAUNCH=1`) opens Setup and returns at once, for scripts.
+The terminal wizard's Finish starts halo the same way (after the ticked
+checks, and after `halo start` when that row was ticked and it succeeded); a
+quit, a failed live pong or `--no-launch` starts nothing, and the paths that
+start nothing end on "Start halo with `halo`; `halo studio` opens Studio
+beside it ...".
 
 | You run | What opens |
 |---|---|
@@ -248,7 +254,9 @@ costs, how long it takes and what it writes. The rows and their defaults:
 your default model (on), **Model gym, quick** (off; the models it would
 run on are listed under the rows, local ones ticked: the gym does not run
 cloud models) and **The guided first run** (off; `halo start`, one real
-Orchestra run on your models). Focus lands on the rows; Space or Enter
+Orchestra run on your models; 3.3.15.0: only for a custom lineup -- on the
+Auto lineup the row is left out and one line says it would rehearse one model
+five times, so build a lineup in Roles and test it there). Focus lands on the rows; Space or Enter
 ticks one (rule 2). Finish runs the ticked ones in order, printing each
 one's title, `[OK]` or `[!!]` and its result lines on the Summary, then the
 written-files lines; Finish again closes setup. With nothing ticked, or only

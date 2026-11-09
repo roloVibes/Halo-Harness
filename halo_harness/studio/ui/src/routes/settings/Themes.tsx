@@ -2,7 +2,8 @@
 // key of ~/.halo/config.json drawn as the eleven palettes of the registry, one
 // row each with its swatch row (surface, text, accent, accent-2, ok, warn,
 // bad, in the colours `GET settings/themes` sends), its posture and its label,
-// the current one marked; "Follow the system" above them; the -daltonized and
+// the current one marked (3.3.15.0 R4: unset marks instrument, Halo's default);
+// "Follow the system" above them, a choice that saves `theme: auto`; the -daltonized and
 // -ansi modifiers as two toggles. Pointing at a row previews it on this page,
 // Esc puts the saved one back, a click saves it (themePage.ts). 3.3.12.0 R2:
 // an enabled pack's palettes follow under the pack's id, drawn the same way.
@@ -56,7 +57,10 @@ export function ThemesPage() {
   const following = theme === FOLLOW;
   const [base, mod] = splitTheme(theme);
   const h = HELP["settings-themes"] || { about: "", help: "" };
-  const cli = following ? "theme unset in ~/.halo/config.json: following the system" : `halo config set theme ${theme}`;
+  // 3.3.15.0 R4: unset is Halo's default (instrument), Follow the system is the saved `theme: auto`
+  const cli = info && info.theme === null
+    ? `theme unset in ~/.halo/config.json: Halo's default, ${info.default || theme}`
+    : `halo config set theme ${theme} (halo config unset theme: the default)`;
   return (
     <section className="st-page-card" data-testid="settings-group-page" data-group="themes" aria-label="Settings: Themes">
       <Head title="Themes" about={h.about} help={h.help} count={`${info?.palettes.length ?? 10} PALETTES`} />

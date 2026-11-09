@@ -17,7 +17,9 @@ Each entry is `{key, title, what, cost, time, writes, default_on, run}`;
 already has and raises `CheckFailed` when the check failed. `cost_line`
 fills in the price a check's models carry (the hello call, the gym's models,
 the start's estimate). `explain(keys)` is a row per check as the wizard
-shows it; `run_one` / `run_many` run them and never raise.
+shows it; `run_one` / `run_many` run them and never raise. 3.3.15.0 R5:
+`offered()` leaves the guided first run out while the active lineup is Auto
+or none (start/auto_gate.py); `explain` and `ordered` read it.
 """
 
 from __future__ import annotations
@@ -75,6 +77,12 @@ DEFAULT_KEYS = tuple(c["key"] for c in CHECKS if c["default_on"])
 _COST: "dict[str, Callable]" = {"hello": R.hello_cost, "gym": R.gym_cost, "start": R.start_cost, "steward": S.cost}
 
 
+def offered() -> "list[dict]":
+    """3.3.15.0 R5: CHECKS without the guided first run while the active lineup is Auto or none (start/auto_gate.py)."""
+    from halo_harness.start.auto_gate import offers_start
+    return [c for c in CHECKS if c["key"] != "start" or offers_start()]
+
+
 def default_on(c: dict, ctx: Optional["CheckCtx"] = None) -> bool:
     """A row's default: its own, and (3.3.7.0 R5) the steward row when an installed candidate fits here."""
     if c["default_on"]:
@@ -122,9 +130,12 @@ def explain(keys=None, ctx: Optional[CheckCtx] = None) -> "list[str]":
     """A row per check, `[x]` for the ones in `keys` (None: the defaults), then its detail line."""
     on = set(default_keys(ctx) if keys is None else keys)
     out = []
-    for c in CHECKS:
+    for c in offered():
         out.append(f"[{'x' if c['key'] in on else ' '}] {c['title']} ({c['key']})")
         out.append(f"    {detail_line(c, ctx)}")
+    if len(offered()) < len(CHECKS):  # 3.3.15.0 R5: on Auto, the line in the guided first run's place
+        from halo_harness.start.auto_gate import AUTO_LINE
+        out.append(f"    {AUTO_LINE}")
     return out
 
 
@@ -135,11 +146,13 @@ def known_key(key) -> bool:
 
 
 def ordered(keys) -> "list[str]":
-    """`keys` in CHECKS order, unknown ones dropped; 3.3.11.0 R3: a pack's Setup checks after them, as given."""
+    """`keys` in CHECKS order, unknown ones dropped; 3.3.11.0 R3: a pack's Setup checks after them, as given.
+    3.3.15.0 R5: the guided first run dropped while it is not offered (offered())."""
     from halo_harness.start.checks_pack import known
     keys = list(keys)
     wanted = set(keys)
-    return [k for k in KEYS if k in wanted] + [k for k in dict.fromkeys(keys) if k not in KEYS and known(k)]
+    core = [c["key"] for c in (offered() if "start" in wanted else CHECKS)]  # the lineup is read only when it matters
+    return [k for k in core if k in wanted] + [k for k in dict.fromkeys(keys) if k not in KEYS and known(k)]
 
 
 def run_one(key: str, ctx: CheckCtx) -> "tuple[bool, list[str]]":

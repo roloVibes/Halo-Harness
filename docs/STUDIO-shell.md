@@ -198,11 +198,11 @@ between two marker comments of `tokens.css` by `scripts/themes_css.py`
 lines, ring, soft fills, shadow and scrim are derived from the tokens by posture
 (`halo_harness/themes/studio_css.py`).
 The server paints the first frame in the saved palette (`data-theme` on
-`<html>`); unset is `data-theme="auto"`, "follow the system": `instrument` on a
-dark system (`holo` before 3.3.15.0), `paper` on a light one. The header's **theme menu** lists
+`<html>`); 3.3.15.0 R4: unset is `instrument` on any system, Halo's default (and
+the terminal's); `theme: auto` is the choice "Follow the system": `instrument` dark, `paper` light. The header's **theme menu** lists
 "Follow the system" and the eleven, each with a swatch row (surface, text,
-accent, accent-2, ok, warn, bad), the current one checked; a pick writes the
-key through `POST settings/set` (`settings/unset` for follow), so `/theme`,
+accent, accent-2, ok, warn, bad), the current one checked (unset: instrument); a pick writes the
+key through `POST settings/set` (Follow writes `auto`; `halo config unset theme` is the default again), so `/theme`,
 `halo config set theme`, Settings -> Themes and the header move one value,
 and a change made in a terminal reaches an open page through
 `files_changed`. The palette (Mod+K) has "Theme: <id>" per palette and

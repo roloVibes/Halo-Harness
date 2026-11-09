@@ -64,7 +64,7 @@ import { App } from "./App";
 import { installLib } from "./packlib";
 
 installLib(); // 3.3.13.0 R2: a pack's bundle takes the shell's React and parts from here (packlib/index.ts)
-document.documentElement.dataset.theme = document.documentElement.dataset.theme || "auto"; // 3.3.12.0 R1: unset follows the system
+document.documentElement.dataset.theme = document.documentElement.dataset.theme || "instrument"; // 3.3.15.0 R4: unset is instrument
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <App />

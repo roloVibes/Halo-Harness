@@ -266,9 +266,9 @@ and `isolation/Dockerfile` the worker image.
   edit target, `?mode=setup&first=1` / `&block=team`; the no-browser rule; `open_setup` starting or
   reusing Studio; `cli_door`, the one line `halo init`, `halo setup` and `halo start` print before the
   terminal wizard runs as the fallback) and `ui/src/routes/setup/door.ts` (the page's side).
-  3.3.3.0 R1: `studio/setup_done.py` (the Summary's Done: `POST setup/done`, `setup-done.json`,
-  `setup_done_at` the one reader), `init_wait.py` (`halo init` waiting for it, then bare halo through
-  `cli.launch_bare`) and `ui/src/routes/setup/done.ts` (the page leaving Setup for Session).
+  3.3.3.0 R1: `studio/setup_done.py` (Done: `POST setup/done`, `setup-done.json`, `setup_done_at`), `init_wait.py`
+  (`halo init` waits, then bare halo via `cli.launch_bare`), `ui/src/routes/setup/done.ts`; 3.3.15.0 R6:
+  `studio/init_waiting.py` (`setup-wait.json`: an init waits) and `studio/halo_terminal.py` (Done opens a terminal).
 - Studio's Settings section (3.3.3.0 R2): `settings_catalog.py` (every `~/.halo/config.json` key as one row:
   key, group, title, kind, default, choices, help, effect, secret; the rows in `settings_catalog_rows_{a,b,c}.py`;
   `cli_line`, `match` for a keyed row's entry), `studio/settings_api.py` (`GET settings/catalog`,

@@ -11,6 +11,8 @@ R2: live -- the enabled packs' palettes (`<pack-id>/<id>`) are read at call time
     tokens(name)           the token dict a renderer draws `name` in (modifier applied), None when unknown
     posture(name)          "dark" | "light" ("" when unknown)
     follow(system)         what "follow the system" picks: instrument on a dark system, paper on a light one
+    DEFAULT, FOLLOW        3.3.15.0 R4: "instrument" (what an unset `theme` draws everywhere), "auto" (follow the system)
+    values()               every value the `theme` key takes: "auto", then names()
     contrast(a, b)         the WCAG 2 contrast ratio of two #rrggbb colours
     contrast_rows(name)    every pinned pair of `name`: (fg, bg, ratio, floor)
     as_json()              the palettes for Studio's `GET settings/themes`
@@ -26,8 +28,8 @@ import colorsys
 from collections.abc import Sequence
 from typing import Optional
 
-from halo_harness.themes.palettes import (ANSI, DALTONIZED_HUES, FOLLOW_DARK, FOLLOW_LIGHT, MODIFIERS, PALETTES,
-                                          TOKEN_NAMES, TOKENS)
+from halo_harness.themes.palettes import (ANSI, DALTONIZED_HUES, DEFAULT, FOLLOW, FOLLOW_DARK, FOLLOW_LIGHT, MODIFIERS,
+                                          PALETTES, TOKEN_NAMES, TOKENS)
 
 _BY_ID = {p["id"]: p for p in PALETTES}
 _REGISTERED: dict = {}  # pack id -> [palette]: register() / unregister(); the enabled packs' own come from themes/packs.py
@@ -91,25 +93,37 @@ def names() -> tuple:
     return tuple(f"{pid}{suffix}" for pid in all_ids() for suffix in ("",) + tuple(f"-{m}" for m in MODIFIERS))
 
 
+def values() -> tuple:
+    """3.3.15.0 R4: what the `theme` key takes: "auto" (follow the system, a saved choice) and every palette name."""
+    return (FOLLOW,) + names()
+
+
 class LiveNames(Sequence):
-    """`names()` read at every use: `theme.VALID_THEMES` and the Settings row's choices are this, never a frozen copy,
-    so a pack palette is valid exactly while its pack is enabled. `in` asks `is_name`; iteration, `len` and indexing
-    read `names()` now."""
+    """`names()` read at every use: `theme.VALID_THEMES` is this, never a frozen copy, so a pack palette is valid
+    exactly while its pack is enabled. `in` asks `is_name`; iteration, `len` and indexing read `names()` now.
+    3.3.15.0 R4: `LIVE_VALUES` (the Settings row's choices) leads with "auto" (`values()`)."""
+
+    def __init__(self, lead: tuple = ()):
+        self.lead = tuple(lead)
+
+    def _all(self) -> tuple:
+        return self.lead + names()
 
     def __contains__(self, name) -> bool:
-        return is_name(name)
+        return name in self.lead or is_name(name)
 
     def __getitem__(self, i):
-        return names()[i]
+        return self._all()[i]
 
     def __len__(self) -> int:
-        return len(names())
+        return len(self._all())
 
     def __repr__(self) -> str:
         return f"LiveNames({len(self)} names)"
 
 
 LIVE_NAMES = LiveNames()
+LIVE_VALUES = LiveNames((FOLLOW,))
 
 
 def split(name) -> "tuple[str, str]":
@@ -220,14 +234,14 @@ def daltonize(base: dict, posture_word: str) -> dict:
 
 def as_json() -> dict:
     """`GET settings/themes`'s palettes: each with its tokens and its -daltonized tokens, the vocabulary, the
-    modifiers and what "follow the system" picks. R2: then the pack palettes, each with `pack` and the CSS
+    modifiers, what "follow the system" picks and (3.3.15.0 R4) the default an unset `theme` draws. R2: then the pack palettes, each with `pack` and the CSS
     variables Studio draws it in (themes/packs.py rows)."""
     from halo_harness.themes.packs import json_rows
     return {"palettes": [{"id": p["id"], "label": p["label"], "posture": p["posture"], "tokens": dict(p["tokens"]),
                           "daltonized": daltonize(p["tokens"], p["posture"])} for p in PALETTES] + json_rows(),
             "tokens": [{"name": n, "about": about} for n, about in TOKENS], "modifiers": list(MODIFIERS),
-            "follow": {"dark": FOLLOW_DARK, "light": FOLLOW_LIGHT}}
+            "follow": {"dark": FOLLOW_DARK, "light": FOLLOW_LIGHT}, "default": DEFAULT}
 
 
-__all__ = ["LIVE_NAMES", "ids", "pack_ids", "all_ids", "register", "unregister", "packs", "names", "split", "is_name", "palette", "posture", "label", "follow", "tokens", "contrast",
+__all__ = ["LIVE_NAMES", "LIVE_VALUES", "DEFAULT", "FOLLOW", "values", "ids", "pack_ids", "all_ids", "register", "unregister", "packs", "names", "split", "is_name", "palette", "posture", "label", "follow", "tokens", "contrast",
            "contrast_rows", "daltonize", "as_json", "PAIRS", "TOKEN_NAMES"]

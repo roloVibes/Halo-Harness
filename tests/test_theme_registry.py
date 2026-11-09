@@ -89,17 +89,22 @@ def test_every_name_meets_wcag_aa_from_its_tokens(ctx: Ctx):
 def test_resolve_theme_unchanged_for_the_classic_names_and_the_removed_notice(ctx: Ctx):
     from halo_harness import theme as T
     tc = {"COLORTERM": "truecolor"}
-    ctx.check("the default is still claude-dark", T.DEFAULT_THEME == "claude-dark" and T.resolve_theme(env=tc) == "claude-dark")
+    # 3.3.15.0 R4: unset is instrument in the terminal too (claude-dark before); `auto` draws the default there
+    ctx.check("the default is instrument", T.DEFAULT_THEME == "instrument" and T.resolve_theme(env=tc) == "instrument")
     ctx.check("claude-light wins as before", T.resolve_theme(env=tc, persisted_theme="claude-light") == "claude-light")
-    ctx.check("no truecolor: claude-dark-ansi", T.resolve_theme(env={"TERM": "xterm"}) == "claude-dark-ansi")
+    ctx.check("no truecolor: instrument-ansi", T.resolve_theme(env={"TERM": "xterm"}) == "instrument-ansi")
+    ctx.check("a saved auto draws the default, truecolor-aware", T.resolve_theme(env=tc, persisted_theme="auto") == "instrument"
+              and T.resolve_theme(env={"TERM": "xterm"}, persisted_theme="auto") == "instrument-ansi"
+              and T.is_theme_value("auto") and not T.is_valid_theme("auto"))
     ctx.check("a new palette resolves like any name", T.resolve_theme(env=tc, persisted_theme="ember") == "ember")
-    ctx.check("the removed notice, verbatim", T.removed_theme_notice("claude-dark", persisted="doom")
-              == "theme: doom was a game theme, removed in 3.1.5.0; using claude-dark")
+    ctx.check("the removed notice, verbatim", T.removed_theme_notice("instrument", persisted="doom")
+              == "theme: doom was a game theme, removed in 3.1.5.0; using instrument")
     from halo_harness.tui.theme import variables_for
     v = variables_for("claude-dark")
     ctx.check("claude-dark draws as before", (v["bridge-bg"], v["bridge-accent"], v["bridge-tool"], v["bridge-thinking"])
               == ("#1e1e2e", "#89b4fa", "#fab387", "#585b70"))
-    ctx.check("an unknown name falls back to claude-dark", variables_for("nope") == v)
+    ctx.check("an unknown name falls back to instrument", variables_for("nope") == variables_for("instrument")
+              and variables_for("nope")["bridge-bg"] == "#07090c")
     ctx.check("-daltonized now draws differently", variables_for("claude-dark-daltonized")["bridge-success"] != v["bridge-success"])
 
 
@@ -139,7 +144,17 @@ def test_halo_config_set_theme_and_the_doctor(ctx: Ctx):
         from halo_harness.doctor_config import config_findings
         found = [f for f in config_findings(h.repo) if f.get("key") == "theme"]
         ctx.check(f"doctor --config names the unknown theme, got {[f['text'][:80] for f in found]}",
-                  len(found) == 1 and found[0]["text"].startswith("theme is one of claude-dark") and "dawn-ansi" in found[0]["text"])
+                  len(found) == 1 and found[0]["text"].startswith("theme is one of auto, claude-dark") and "dawn-ansi" in found[0]["text"])
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            follow = _cmd_set(["theme", "auto"])  # 3.3.15.0 R4: follow the system is a value the key takes
+        ctx.check(f"auto saves, got {follow} {T.load_persisted_theme()!r}", follow == 0 and T.load_persisted_theme() == "auto")
+        from halo_harness.config_cli import _cmd_get
+        T.unset_config_value("theme")
+        got = io.StringIO()
+        with contextlib.redirect_stdout(got):
+            rc = _cmd_get(["theme"])
+        ctx.check(f"config get theme unset: (unset: instrument), got {rc} {got.getvalue()!r}",
+                  rc == 0 and got.getvalue().strip() == "(unset: instrument)")
 
 
 @test
@@ -147,9 +162,10 @@ def test_schema_and_catalog_read_the_registry(ctx: Ctx):
     from halo_harness.schemas.config_json import schema
     from halo_harness.settings_catalog import rows
     from halo_harness.themes.registry import names
-    ctx.check("the config schema's enum is the registry's names", schema()["properties"]["theme"]["enum"] == list(names()))
+    # 3.3.15.0 R4: "auto" (follow the system) leads both: a value the key takes, no longer only the unset key
+    ctx.check("the config schema's enum is auto then the registry's names", schema()["properties"]["theme"]["enum"] == ["auto"] + list(names()))
     row = next(r for r in rows() if r.key == "theme")
-    ctx.check("the Settings row's choices are the registry's names", tuple(row.choices) == names())
+    ctx.check("the Settings row's choices are auto then the registry's names", tuple(row.choices) == ("auto",) + names())
     src = "\n".join((Path(__file__).resolve().parent.parent / "halo_harness" / f).read_text(encoding="utf-8")
                     for f in ("schemas/config_json.py", "settings_catalog_rows_a.py"))
     ctx.check("no literal palette list in either", '"claude-light"' not in src and '"holo"' not in src)
@@ -193,7 +209,7 @@ def test_a_pack_palette_is_valid_only_while_its_pack_is_enabled(ctx: Ctx):
                   and " * pack-theme/linen" in text and text.index("dawn") < text.index("From the pack"))
         disable("pack-theme")
         ctx.check("disabled: gone at once", not T.is_valid_theme("pack-theme/nightshade") and len(T.VALID_THEMES) == 33
-                  and T.resolve_theme(env={"COLORTERM": "truecolor"}, persisted_theme="pack-theme/linen") == "claude-dark")
+                  and T.resolve_theme(env={"COLORTERM": "truecolor"}, persisted_theme="pack-theme/linen") == "instrument")
         ctx.check("a core name never reads the packs", R.split("holo-ansi") == ("holo", "ansi") and R.split("x/y") == ("", ""))
 
 

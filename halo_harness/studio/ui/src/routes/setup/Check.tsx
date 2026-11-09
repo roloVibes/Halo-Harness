@@ -136,6 +136,7 @@ function PackRows() {
 export function CheckDetail() {
   const { ready, error } = useLoadState();
   const rows = useSetup((s) => s.data?.checks || NONE);
+  const auto = useSetup((s) => s.data?.start_auto || ""); // 3.3.15.0 R5: no guided first run row on the Auto lineup
   const running = useCheck((s) => s.running);
   const busy = useCheck((s) => s.busy);
   const any = useCheck((s) => rows.some((c) => ticked(s, setup.get().data, c.key)) || Object.entries(s.ticks).some(([k, on]) => on && k.startsWith("pack:")));
@@ -144,11 +145,16 @@ export function CheckDetail() {
   if (!ready) return <Waiting error={error} />;
   return (
     <div className="su-block" data-testid="setup-check">
-      <p className="su-lead muted">Tick the checks to run; each says what it does, costs, takes and writes. The same five as halo check in a terminal.</p>
+      <p className="su-lead muted">Tick the checks to run; each says what it does, costs, takes and writes. The same ones as halo check in a terminal.</p>
       <div className="su-checks">
         {rows.map((c) => (
           <Row key={c.key} c={c} />
         ))}
+        {auto && (
+          <p className="su-note muted" data-testid="setup-check-start-auto">
+            {auto}
+          </p>
+        )}
       </div>
       <PackRows />
       <div className="su-foot-row">

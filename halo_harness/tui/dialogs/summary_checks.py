@@ -44,7 +44,16 @@ def _config_model() -> str:
 
 
 def rows_for(state) -> "list[dict]":
-    return [c for c in C.CHECKS if c["key"] != "start" or state.offer_start]
+    """3.3.15.0 R5: C.offered() -- no guided first run on the Auto lineup (or none), whatever `offer_start`."""
+    return [c for c in C.offered() if c["key"] != "start" or state.offer_start]
+
+
+def auto_note(state) -> str:
+    """The line in the guided first run's place when an init Summary leaves it out for Auto ("" otherwise)."""
+    if not getattr(state, "offer_start", False) or any(c["key"] == "start" for c in C.offered()):
+        return ""
+    from halo_harness.start.auto_gate import AUTO_LINE
+    return AUTO_LINE
 
 
 
@@ -61,6 +70,9 @@ class SummaryChecks:
         ctx = ctx_for(self.state)
         rows = [(c["key"], c["title"], C.detail_line(c, ctx), C.default_on(c, ctx)) for c in rows_for(self.state)]
         widgets = [Static(HINT, classes="dialog-subtitle"), CheckRows(rows, id=LIST_ID)]
+        note = auto_note(self.state)  # 3.3.15.0 R5: on Auto, the line where the guided first run's row was
+        if note:
+            widgets.append(Static(note, classes="wiz-summary-muted", id="wiz-summary-auto"))
         from halo_harness.start.checks_run import gym_candidates, gym_model_cost, is_local
         models = gym_candidates(ctx)
         if models:

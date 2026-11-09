@@ -75,8 +75,18 @@ def test_slash_start_and_explain_push_their_screens(ctx: Ctx):
 
         def notify(self, *a, **k):
             self.notes.append(a)
+    from halo_harness.start.auto_gate import AUTO_LINE
+    from halo_harness.theme import set_config_value, unset_config_value
     app = _App()
-    asyncio.run(handle_slash(app, "start", ""))
+    unset_config_value("team")
+    asyncio.run(handle_slash(app, "start", ""))  # 3.3.15.0 R5: the Auto lineup: a note, no panel
+    ctx.check(f"/start on Auto: the line, no panel, got {app.pushed} {app.notes}", not app.pushed and app.notes
+              and AUTO_LINE in app.notes[-1][0] and "halo gym --quick" in app.notes[-1][0])
+    set_config_value("team", "halo-dev-cycle")  # a custom lineup
+    try:
+        asyncio.run(handle_slash(app, "start", ""))
+    finally:
+        unset_config_value("team")
     asyncio.run(handle_slash(app, "explain", "hand-offs"))
     names = [type(s).__name__ for s in app.pushed]
     ctx.check(f"/start -> StartPanel, /explain -> ExplainCard, got {names} {app.notes}", names == ["StartPanel", "ExplainCard"])
@@ -208,8 +218,9 @@ def test_summary_checks_ending_after_finish_print_no_traceback(ctx: Ctx):
     init_cli._run_live_pong = lambda *a, **k: later.append("hello") or (True, "pong")
     err = io.StringIO()
     bridge.addHandler(tap)
+    from tests.helpers.custom_lineup import custom_lineup
     try:
-        with redirect_stderr(err):
+        with redirect_stderr(err), custom_lineup():  # 3.3.15.0 R5: the start row is there for a custom lineup
             asyncio.run(drive())
             if seen.get("thread") is not None:
                 seen["thread"].join(20)

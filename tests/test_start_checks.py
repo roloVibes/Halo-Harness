@@ -57,13 +57,42 @@ def test_five_rows_in_order_with_their_defaults(ctx: Ctx):
     ctx.check("the gym is minutes per model and writes its cards", "per model" in C.check("gym")["time"]
               and "~/.halo/gym/" in C.check("gym")["writes"])
     ctx.check("the start is a real run on your models", "one real Orchestra run on your models" in C.check("start")["what"])
-    ctx.check("ordered() keeps the list's order", C.ordered(["start", "doctor", "nope", "gym"]) == ["doctor", "gym", "start"])
+    from tests.helpers.custom_lineup import custom_lineup
+    with custom_lineup():
+        ctx.check("ordered() keeps the list's order", C.ordered(["start", "doctor", "nope", "gym"]) == ["doctor", "gym", "start"])
+
+
+@test
+def test_on_auto_the_guided_first_run_is_not_offered(ctx: Ctx):
+    """3.3.15.0 R5: the Auto lineup (or none): no start row, its line in place; a custom lineup: the row is back."""
+    from halo_harness.roles import set_roles_enabled
+    from halo_harness.start import checks as C
+    from halo_harness.start.auto_gate import AUTO_LINE, offers_start, on_auto
+    from tests.helpers.custom_lineup import custom_lineup
+    with custom_lineup(None):
+        ctx.check("team unset: Auto, not offered", on_auto() and not offers_start() and offers_start("halo-dev-cycle"))
+        ctx.check("offered() leaves the start out", [c["key"] for c in C.offered()] == ["doctor", "catalog", "hello", "steward", "gym"])
+        ctx.check("ordered() drops it", C.ordered(["start", "doctor"]) == ["doctor"])
+        lines = C.explain()
+        ctx.check(f"explain: five rows, then the line, got {lines[-1]!r}", len(lines) == 11 and lines[-1].strip() == AUTO_LINE)
+    with custom_lineup("auto"):
+        ctx.check("team: auto named is Auto too", on_auto())
+    with custom_lineup(None):
+        set_roles_enabled(False)
+        try:
+            ctx.check("roles off (no lineup): not offered", on_auto() and not offers_start())
+        finally:
+            set_roles_enabled(True)
+    with custom_lineup("quality"):
+        ctx.check("a custom lineup: offered, the row last", offers_start() and C.offered()[-1]["key"] == "start")
 
 
 @test
 def test_explain_is_a_row_per_check(ctx: Ctx):
     from halo_harness.start import checks as C
-    lines = C.explain()
+    from tests.helpers.custom_lineup import custom_lineup
+    with custom_lineup():
+        lines = C.explain()
     ctx.check(f"two lines per check, got {len(lines)}", len(lines) == 12)
     ctx.check(f"the defaults ticked, got {lines[::2]}", lines[::2] == ["[x] Doctor (doctor)", "[x] Model catalog (catalog)",
                                                                        "[x] Hello (hello)", "[ ] Steward candidates (steward)",
@@ -71,7 +100,8 @@ def test_explain_is_a_row_per_check(ctx: Ctx):
                                                                        "[ ] The guided first run (start)"])
     ctx.check("each detail line: what, cost, time, writes", all(l.startswith("    ") and ". Cost: " in l and ". Time: " in l
                                                                 and ". Writes: " in l for l in lines[1::2]))
-    ctx.check("explain(keys) ticks those", C.explain(["gym"])[8].startswith("[x] Model gym"))
+    with custom_lineup():
+        ctx.check("explain(keys) ticks those", C.explain(["gym"])[8].startswith("[x] Model gym"))
 
 
 @test
@@ -150,7 +180,9 @@ def test_run_one_and_run_many(ctx: Ctx):
             c["run"] = (lambda k: (lambda _c: order.append(k) or [k + " ok"]))(c["key"])
         C.check("hello")["run"] = boom
         seen = []
-        out = C.run_many(["hello", "start", "doctor"], _ctx(), on_each=lambda k, ok, l: seen.append((k, ok)))
+        from tests.helpers.custom_lineup import custom_lineup
+        with custom_lineup():  # 3.3.15.0 R5: the start row is there for a custom lineup
+            out = C.run_many(["hello", "start", "doctor"], _ctx(), on_each=lambda k, ok, l: seen.append((k, ok)))
         ctx.check(f"in the list's order, an error is one line, got {out}", out == [("doctor", True, ["doctor ok"]),
                   ("hello", False, ["TypeError: bad value"]), ("start", True, ["start ok"])])
         ctx.check(f"on_each before and after each, got {seen}", seen == [("doctor", None), ("doctor", True), ("hello", None),

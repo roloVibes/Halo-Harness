@@ -1521,7 +1521,7 @@ def _cmd_theme(args: str, facade: HeadlessFacade) -> str:
     from halo_harness.themes import cli as theme_cli  # 3.3.12.0 R1: the ten palettes
     if not name:
         return theme_cli.listing(facade.theme or theme_mod.DEFAULT_THEME)
-    if not theme_mod.is_valid_theme(name):
+    if not theme_mod.is_theme_value(name):  # 3.3.15.0 R4: a palette, or auto (follow the system)
         return f"halo: {theme_cli.refusal(name)}"
     try:
         theme_mod.persist_theme(name)

@@ -2,12 +2,14 @@
 tests/helpers/studio_themes.py (skipped without one) over a fresh scratch home; no provider request, no model call;
 every theme write lands in the scratch config.json:
 
-1. a fresh page follows the system: `data-theme="auto"`, instrument on a dark system (3.3.15.0 L1; holo before), paper on a light one;
+1. a fresh page is instrument (3.3.15.0 R4): `data-theme="instrument"`, its --bg on a dark AND a light system, the
+   menu's and Settings -> Themes' mark on instrument (it followed the system before);
 2. the header's menu lists Follow the system and the eleven, each with a swatch row; picking ember writes `theme:
    ember` to config.json and flips the page's `data-theme`; a reload keeps it;
 3. Settings -> Themes: the eleven rows (and Follow), the swatches in the colours the API gives, Preview on hover with
    config.json untouched, Esc reverts, the current mark moves on a click, Daltonized writes `<id>-daltonized`;
-4. "Follow the system" removes the key and the page is `auto` again, across a reload;
+4. "Follow the system" writes `theme: auto` (R4; it removed the key before): the page is `auto`, instrument on a dark
+   system and paper on a light one, across a reload, the menu's mark on it;
 5. (3.3.12.0 R2) the fixture pack enabled: `pack-theme/nightshade` in the menu and on Settings -> Themes under
    "pack-theme"; picking it writes the key and the page's --accent is the fixture's token; a reload with the page's
    scripts off is already drawn in it (the server's inline rule: no frame of the default); disabling the pack through the Pack
@@ -36,11 +38,14 @@ def _got(ctx: Ctx) -> dict:
 
 
 @test
-def test_a_fresh_page_follows_the_system(ctx: Ctx):
+def test_a_fresh_page_is_instrument(ctx: Ctx):
     got = _got(ctx)
-    ctx.check(f"data-theme auto, got {got.get('fresh_theme')!r}", got.get("fresh_theme") == "auto")
-    ctx.check(f"instrument on a dark system (3.3.15.0 L1), paper on a light one, got {got.get('fresh_bg_dark')} {got.get('fresh_bg_light')}",
-              got.get("fresh_bg_dark") == "#07090c" and got.get("fresh_bg_light") == "#f7f3ea")
+    ctx.check(f"data-theme instrument (3.3.15.0 R4), got {got.get('fresh_theme')!r}", got.get("fresh_theme") == "instrument")
+    ctx.check(f"instrument on a dark AND a light system, got {got.get('fresh_bg_dark')} {got.get('fresh_bg_light')} {got.get('fresh_light_load')}",
+              got.get("fresh_bg_dark") == "#07090c" and got.get("fresh_bg_light") == "#07090c"
+              and got.get("fresh_light_load") == ["instrument", "#07090c"])
+    ctx.check(f"Settings -> Themes marks instrument and says it is the default, got {got.get('fresh_current')} {got.get('fresh_cli')!r}",
+              got.get("fresh_current") == ["instrument"] and "Halo's default, instrument" in str(got.get("fresh_cli")))
 
 
 @test
@@ -48,6 +53,7 @@ def test_the_header_menu_writes_the_one_key(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"Follow the system and the eleven, got {got.get('menu_ids')}", got.get("menu_ids") == TWELVE)
     ctx.check(f"a swatch row per palette, got {got.get('menu_swatches')}", got.get("menu_swatches") == 11)
+    ctx.check(f"nothing saved: the mark on instrument, not Follow, got {got.get('menu_checked')}", got.get("menu_checked") == ["instrument"])
     ctx.check(f"ember: config.json theme ember, the page's data-theme ember, got {got.get('pick_saved')} {got.get('pick_theme')}",
               got.get("pick_saved") == "ember" and got.get("pick_theme") == "ember" and got.get("pick_bg") == "#140a08")
     ctx.check(f"a reload keeps it, got {got.get('reload_theme')!r}", got.get("reload_theme") == "ember")
@@ -70,10 +76,13 @@ def test_the_settings_themes_page(ctx: Ctx):
 
 
 @test
-def test_follow_the_system_clears_the_key(ctx: Ctx):
+def test_follow_the_system_writes_auto(ctx: Ctx):
     got = _got(ctx)
-    ctx.check(f"the key gone, the page auto, across a reload, got {got.get('follow_saved')} {got.get('follow_theme')} {got.get('follow_reload')}",
-              got.get("follow_key_gone") is True and got.get("follow_theme") == "auto" and got.get("follow_reload") == "auto")
+    ctx.check(f"theme: auto saved, the page auto, across a reload, got {got.get('follow_saved')} {got.get('follow_theme')} {got.get('follow_reload')}",
+              got.get("follow_saved") == "auto" and got.get("follow_theme") == "auto" and got.get("follow_reload") == "auto")
+    ctx.check(f"it follows: instrument on dark, paper on light, got {got.get('follow_bg_dark')} {got.get('follow_bg_light')}",
+              got.get("follow_bg_dark") == "#07090c" and got.get("follow_bg_light") == "#f7f3ea")
+    ctx.check(f"the menu's mark on Follow the system, got {got.get('follow_checked')}", got.get("follow_checked") == ["auto"])
 
 
 @test

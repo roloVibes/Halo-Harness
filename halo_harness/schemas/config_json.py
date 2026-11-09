@@ -19,8 +19,8 @@ from halo_harness.schemas.check import BOOL, LIST, MAPPING, STRING, obj
 
 
 def _theme_names() -> list:
-    from halo_harness.themes.registry import names  # 3.3.12.0 R1: the palette registry, ten ids x the modifiers
-    return list(names())
+    from halo_harness.themes.registry import values  # 3.3.12.0 R1: the palette registry, ids x the modifiers; R4: + auto
+    return list(values())
 
 
 # Top-level keys of a removed feature (the game themes, 3.1.5.0): a config.json

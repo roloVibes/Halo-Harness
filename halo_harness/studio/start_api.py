@@ -5,8 +5,10 @@
                          (start/fresh.py; `show`: the overlay comes up; `job`: start_job.current(); `plan`: the seven steps;
                          `card`: the guided first run's card lines, start/card.py, shown above Run -- 3.2.2.0 R2;
                          3.3.0.0 R3 `no_provider`: nothing for a run to run on yet, the overlay leads with Set up this box)
+                         3.3.15.0 R5 `auto`: the line shown in place of Run on the Auto lineup ("" with a custom one)
     POST start           202 {job}: `halo start --yes` as a background job, its steps streamed as `start` frames
-                         on /api/events; 409 while one runs; 422 {error, reason: "no_provider"} with no model
+                         on /api/events; 409 while one runs; 422 {error, reason: "no_provider"} with no model;
+                         3.3.15.0 R5: 422 {error, reason: "auto_lineup"} on the Auto lineup (or none)
     POST start/dismiss   {dismissed: true} -- "Just look around", remembered for this home
     POST start/stop      {stopping}
 """
@@ -23,8 +25,9 @@ def get_start(req):
     from halo_harness.start.steps import STEPS
     data = fresh.status(req.cwd, req.state_dir)
     data["job"] = start_job.current()
-    from halo_harness.studio.setup_check_state import no_provider
+    from halo_harness.studio.setup_check_state import no_provider, start_auto
     data["no_provider"] = no_provider()
+    data["auto"] = start_auto()  # 3.3.15.0 R5: the line in place of Run on the Auto lineup ("" with a custom one)
     data["plan"] = [{"step": n, "key": k, "title": title, "why": why, "state": "pending"}
                     for n, (k, title, why) in enumerate(STEPS, 1)]
     from halo_harness.start import fake
@@ -46,6 +49,9 @@ def _publisher(req):
 def post_start(req):
     if start_job.running():
         return 409, {"error": "the guided first run is already running", "job": start_job.current()}
+    from halo_harness.start.auto_gate import AUTO_LINE, REASON, offers_start
+    if not offers_start():  # 3.3.15.0 R5: the guided first run belongs to a custom lineup
+        return 422, {"error": AUTO_LINE, "reason": REASON, "problems": [AUTO_LINE]}
     from halo_harness.start import fake
     if not fake.enabled():
         from halo_harness.start.provider import ready

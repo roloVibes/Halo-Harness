@@ -161,6 +161,7 @@ def block_and_summary(c, url, ctx) -> dict:
     out["summary_ticked"] = c.js(f"{q('[data-testid=setup-summary-check] .su-note')}?.textContent || ''")
     out["summary_last"] = c.js(f"{q('[data-testid=setup-summary-last]')}?.textContent || ''")
     out["summary_start"] = c.js(f"!!{q('[data-testid=setup-summary-run-start]')}")
+    out["summary_start_auto"] = c.js(f"{q('[data-testid=setup-summary-start-auto]')}?.textContent || ''")  # 3.3.15.0 R5
     click(c, q("[data-testid=setup-summary-change][data-step=model]"), f"{STEP} === 'model'")
     out["change_page"] = c.js(STEP)
     goto(c, "summary")

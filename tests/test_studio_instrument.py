@@ -8,7 +8,7 @@ no provider request, no model call:
 2. the derived block: the static names of section 2 (radii, spacing, type, motion 160 / 240 / 600 ms, the dot grid,
    the soft tints, the 1 px glows) and no colour literal in the files the look rewrote; each under the 250-line cap;
 3. the prefix strip (lib/modelName.ts, run under node when there is one);
-4. Chrome: a fresh dark-system page is `data-theme="auto"` drawn in instrument; the rail is 52 px, 176 px on its
+4. Chrome: a fresh dark-system page is `data-theme="instrument"` (3.3.15.0 R4; `auto` before), drawn in instrument; the rail is 52 px, 176 px on its
    chevron, kept across a reload; a panel and the palette carry their four corner ticks (the selected panel's in the
    text colour); nothing animates on any core section's load or switch;
 5. Chrome, the rig: the Session Map's and Roles Live's nodes show the model without its provider prefix, the
@@ -66,6 +66,8 @@ def test_the_palette_is_the_proposal_and_the_dark_default(ctx: Ctx):
               "instrument-ansi") for r in R.contrast_rows(n)))
     ctx.check("follow the system: instrument dark, holo still a palette", FOLLOW_DARK == "instrument" and R.follow("dark") == "instrument"
               and R.palette("holo") is not None and R.follow("light") == "paper")
+    from halo_harness.theme import DEFAULT_THEME
+    ctx.check("3.3.15.0 R4: instrument is the default everywhere", R.DEFAULT == "instrument" and DEFAULT_THEME == "instrument")
 
 
 @test
@@ -111,8 +113,8 @@ def test_the_prefix_strip(ctx: Ctx):
 @test
 def test_the_page_is_instrument_on_a_dark_system(ctx: Ctx):
     got = _got(ctx, "fresh")
-    ctx.check(f"data-theme auto, instrument's colours, got {got.get('theme')} {got.get('bg')} {got.get('accent')} {got.get('body_bg')}",
-              got.get("theme") == "auto" and got.get("bg") == "#07090c" and got.get("surface") == "#0f1318"
+    ctx.check(f"data-theme instrument (3.3.15.0 R4: the default), instrument's colours, got {got.get('theme')} {got.get('bg')} "
+              f"{got.get('accent')} {got.get('body_bg')}", got.get("theme") == "instrument" and got.get("bg") == "#07090c" and got.get("surface") == "#0f1318"
               and got.get("accent") == "#22d3ee" and got.get("body_bg") == "rgb(7, 9, 12)")
 
 

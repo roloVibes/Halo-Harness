@@ -6,9 +6,9 @@
 
 One `:root[data-theme="<name>"]` rule per palette (the palette's own id and its `-ansi` name: a browser always
 draws full colour), one override rule per `-daltonized` name (only the variables it changes), and "follow the
-system" (`data-theme="auto"`, the default): the dark default (palettes.FOLLOW_DARK, `instrument` since 3.3.15.0
-L1), or paper inside `@media (prefers-color-scheme: light)`. `:root` alone is the dark default too, so a page with no
-attribute draws it. Studio's derived variables (the surfaces, the lines, the ring, the soft fills, the shadow, the
+system" (`data-theme="auto"`, a saved choice since 3.3.15.0 R4): palettes.FOLLOW_DARK (`instrument`), or paper inside
+`@media (prefers-color-scheme: light)`. `:root` alone is Halo's default (palettes.DEFAULT, `instrument`) on any
+system, so a page with no attribute draws it. Studio's derived variables (the surfaces, the lines, the ring, the soft fills, the shadow, the
 scrim) come from the tokens by the posture's rule in
 halo_harness/themes/studio_css.py (a pack's palette gets the same at run time), so a colour lives in
 halo_harness/themes/palettes.py and nowhere else. tests/test_themes_css_drift.py runs `--check`.
@@ -51,13 +51,15 @@ def _sel(name: str) -> str:
 
 
 def render() -> str:
-    from halo_harness.themes.palettes import FOLLOW_DARK, FOLLOW_LIGHT, PALETTES
+    from halo_harness.themes.palettes import DEFAULT, FOLLOW_DARK, FOLLOW_LIGHT, PALETTES
     from halo_harness.themes.registry import daltonize
     out = [BEGIN]
     for p in PALETTES:
         sels = [_sel(p["id"]), _sel(p["id"] + "-daltonized"), _sel(p["id"] + "-ansi")]
+        if p["id"] == DEFAULT:
+            sels = [":root"] + sels
         if p["id"] == FOLLOW_DARK:
-            sels = [":root"] + sels + [_sel("auto")]
+            sels = sels + [_sel("auto")]
         out += rule(sels, studio_vars(p["tokens"], p["posture"]))
     for p in PALETTES:
         base = dict(accent_vars(p["tokens"], p["posture"]))

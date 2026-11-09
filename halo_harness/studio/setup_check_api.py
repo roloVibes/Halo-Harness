@@ -56,6 +56,9 @@ def post_check(req):
         lines = [f"{k}: not a check (one of {', '.join(offered)})" for k in unknown]
         return 422, {"error": lines[0], "problems": lines}
     if "start" in keys:
+        from halo_harness.start.auto_gate import AUTO_LINE, REASON, offers_start
+        if not offers_start():  # 3.3.15.0 R5: the guided first run belongs to a custom lineup
+            return 422, {"error": AUTO_LINE, "reason": REASON, "problems": [AUTO_LINE]}
         if start_job.running():
             return 409, {"error": "the guided first run is already running", "job": setup_check_job.current()}
         from halo_harness.start import fake

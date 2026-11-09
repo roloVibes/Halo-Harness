@@ -24,7 +24,7 @@ from pathlib import Path
 from capture_identity import checked_dump, placeholder
 
 IDS = ("start-here", "start-here-run", "start-here-dismiss", "start-step", "section-help", "section-tab", "start-next",
-       "roles-start")
+       "roles-start", "start-here-auto")  # 3.3.15.0 R5: a fresh home runs Auto: the line in place of Run
 
 
 def counts(dom: str) -> dict:

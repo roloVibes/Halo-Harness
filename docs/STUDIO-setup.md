@@ -37,6 +37,9 @@ doctor, catalog and hello until changed there) and **The Check page**; then the 
 At its foot (3.3.3.0) the primary **Done: start halo**: it marks this box set up (`POST setup/done`), the
 terminal that ran `halo init` starts halo ([WIZARD.md](WIZARD.md)), and the page goes to Session with nothing
 opened over it; the rail's "set up this box" line is gone, and stays gone on a reload, which opens Session.
+3.3.15.0: its note and toast say who starts halo -- "halo is starting in your terminal" while an init waits
+(`~/.halo/setup-wait.json`), else a terminal Studio opens running halo, else "no terminal found to start halo
+in; run `halo` yourself". On the Auto lineup the guided first run's part is one line instead of its card and Run.
 
 **Nothing opens on its own.** Loading Setup opens no help, no welcome and no Start here overlay, whether
 `halo init` opened it or not; the help stays one click away (the `?` in the header, or `?`). 3.3.2.0: no
@@ -157,6 +160,9 @@ one row each with what it does, what it costs, how long it takes and what it wri
 | Model gym, quick | `halo gym --quick` on the models listed under the row (local models only) | free for local models | minutes per model | a card per model under `~/.halo/gym/` |
 | The guided first run | `halo start`: one real Orchestra run on your models | the card's estimate | 5-20 minutes | a lineup copy and a sample repo |
 
+3.3.15.0: the guided first run's row is there only for a custom lineup; on the Auto lineup (or none) one line
+stands in its place: "Your lineup is Auto: the guided first run would rehearse one model five times. Build a
+lineup or a workflow in Roles (Agents from 3.3.16.0) and test it there."
 Doctor, Model catalog and Hello are ticked; ticking the gym lists the models it would run on (the default
 model and the start lineup's models; untick any). The guided first run's row shows **Show the card** first
 (the card `halo start` opens on: the models, the estimate, what it writes); its box can be ticked only

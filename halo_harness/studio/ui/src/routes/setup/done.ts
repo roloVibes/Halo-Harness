@@ -1,7 +1,8 @@
 // Setup's Done (3.3.3.0 R1, studio/setup_done.py): the Summary's "Done: start
 // halo" posts `setup/done`; the server writes setup-done.json and publishes a
 // `setup` frame {stage: "done", at}; the terminal that ran `halo init` is
-// waiting for it and starts halo there. This page then leaves Setup for
+// waiting for it and starts halo there. 3.3.15.0 R6: the answer's `line` says
+// who starts halo (that terminal, a terminal Studio opened, or nobody: run `halo`). This page then leaves Setup for
 // Session (its one-thing layout, nothing else opens): the door's `first`
 // cleared (the rail's "set up this box" line goes, and stays gone while the
 // state's `done_at` is set), `mode=setup` dropped from the address so a
@@ -48,9 +49,12 @@ export function leaveSetup(at: string): void {
 export async function pressDone(): Promise<boolean> {
   done.update(() => ({ busy: true, error: "" }));
   try {
-    const r = await api.post<{ ok: boolean; done_at: string }>("setup/done", {});
+    const r = await api.post<{ ok: boolean; done_at: string; starts?: string; line?: string }>("setup/done", {});
     leaveSetup(r.done_at);
-    toast("Setup is done: a halo init waiting in a terminal starts halo there", "done", 5000);
+    // 3.3.15.0 R6: the answer says who starts halo -- the waiting init terminal, a terminal Studio opened, or nobody
+    // ("no terminal found to start halo in; run `halo` yourself": an error toast, it stays until closed)
+    const line = r.line || "halo is starting in your terminal";
+    toast(`Setup is done: ${line}`, r.starts === "none" ? "error" : "done", 6000);
     return true;
   } catch (e) {
     done.update(() => ({ error: e instanceof Error ? e.message : String(e) })); // 3.3.5.0 R0 (h): its own line, no toast

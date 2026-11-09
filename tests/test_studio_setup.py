@@ -5,7 +5,8 @@ shipped lineups, halo-dev-cycle active), a stub catalog of two models and an
 env file in that home (`HALO_ENV_FILE`); no provider request, no model call:
 
 0. (R3) with no provider set up: Start here's first button is "Set up this
-   box", its Run's 422 lands on Setup with a toast; no `?mode=` opens on
+   box" (3.3.15.0 R5: on Auto the line in place of Run; with a custom lineup the
+   palette's overlay has Run), its Run's 422 lands on Setup with a toast; no `?mode=` opens on
    Setup whatever was saved;
 1. `?mode=setup` opens it, and Alt+7 from Roles (3.3.13.0 R2: the seventh tab);
    the strip names the provider, model, lineup, mode, theme and last check;
@@ -28,7 +29,9 @@ env file in that home (`HALO_ENV_FILE`); no provider request, no model call:
 6b. (R4) the doors: ?first=1 opens nothing (3.3.1.0 R1) and the strip says
    "set up this box"; ?block=team and a focus frame open that block's page
    and focus it;
-7. (R3) Check: the five rows and their defaults, the gym's models, the card
+7. (3.3.15.0 R5) on the Auto lineup Check has no guided first run row, its line in place (and on the
+   Summary, no Run); with a custom lineup:
+   (R3) Check: the six rows and their defaults, the gym's models, the card
    before the guided first run's box, a run of stub checks fills the logs,
    the summary and the strip; Linux fixes: two stubbed fixes applied.
 Run: python -m tests.test_studio_setup
@@ -77,7 +80,7 @@ def test_setup_opens_by_mode_and_by_alt_8(ctx: Ctx):
 def test_the_strip_says_what_is_set(ctx: Ctx):
     got = _got(ctx)
     want = [["provider", "no provider set"], ["model", "not set"], ["lineup", "halo-dev-cycle"], ["permissions", "not set"],
-            ["theme", "claude-dark (default)"], ["check", "not run"]]
+            ["theme", "instrument (default)"], ["check", "not run"]]  # 3.3.15.0 R4: claude-dark before
     ctx.check(f"provider, model, lineup, permissions, theme, got {got.get('strip')}", got.get("strip") == want)
     ctx.check("the strip is there on ?mode=setup too", got.get("mode_first_strip") == want)
 
@@ -93,7 +96,10 @@ def test_no_provider_lands_on_setup(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"Start here's first button, got {got.get('jump_first_button')!r} {got.get('land_first_button')!r}",
               got.get("jump_first_button") == "Set up this box" and got.get("land_first_button") == "Set up this box")
-    ctx.check(f"its Run's 422 no_provider opens Setup with a toast, got {got.get('jump_section')!r} {got.get('jump_toast')!r}",
+    from halo_harness.start.auto_gate import AUTO_LINE
+    ctx.check(f"3.3.15.0 R5: on the Auto lineup the line stands in place of Run, got {got.get('jump_auto')!r} {got.get('jump_auto_run')}",
+              str(got.get("jump_auto", "")).startswith(AUTO_LINE) and got.get("jump_auto_run") == 0)
+    ctx.check(f"a custom lineup, the palette's overlay: its Run's 422 no_provider opens Setup with a toast, got {got.get('jump_section')!r} {got.get('jump_toast')!r}",
               str(got.get("jump_section")).startswith("Setup") and got.get("jump_toast") == "no provider is set up yet: Setup")
     ctx.check(f"the strip says no provider set, got {got.get('jump_strip')!r}", got.get("jump_strip") == "no provider set")
     ctx.check(f"no ?mode=, Roles saved: the page opens on Setup, got {got.get('land_section')!r} {got.get('land_boot')!r}",
@@ -106,6 +112,11 @@ def test_no_provider_lands_on_setup(ctx: Ctx):
 @test
 def test_the_check_block(ctx: Ctx):
     got = _got(ctx)
+    from halo_harness.start.auto_gate import AUTO_LINE
+    ctx.check(f"3.3.15.0 R5: on Auto five rows and the line, the Summary's line and no Run, got {got.get('auto_rows')} "
+              f"{got.get('auto_line')!r} {got.get('auto_summary_run')}", got.get("auto_rows") == ["doctor", "catalog", "hello", "steward", "gym"]
+              and got.get("auto_line") == AUTO_LINE and got.get("auto_summary") == AUTO_LINE and got.get("auto_summary_run") == 0)
+    ctx.check(f"a custom lineup: no line, got {got.get('custom_line')}", got.get("custom_line") == 0)
     ctx.check(f"six rows, doctor / catalog / hello ticked, and the steward row (an installed local model fits here), got "
               f"{got.get('check_rows')} {got.get('check_ticks')}", got.get("check_rows") == ["doctor", "catalog", "hello",
               "steward", "gym", "start"] and got.get("check_ticks") == [True, True, True, True, False, False])

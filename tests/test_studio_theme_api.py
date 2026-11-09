@@ -2,10 +2,13 @@
 model call, no network:
 
 1. `GET settings/themes`: the eleven palettes with their tokens and -daltonized tokens (the registry's, value for
-   value), the vocabulary, the modifiers, "follow the system" (instrument / paper); `theme` null on a fresh home;
+   value), the vocabulary, the modifiers, "follow the system" (instrument / paper), the default (3.3.15.0 R4:
+   instrument); `theme` null on a fresh home;
 2. `POST settings/set {theme: ember}` lands in config.json and `GET settings/themes` says ember, dark; a name the
-   registry does not know is a 422 naming the eleven, config.json unchanged; `settings/unset` is "follow" again;
-3. the served index.html: `data-theme` on <html> is the saved theme, "auto" when unset or not a palette, and the
+   registry does not know is a 422 naming the eleven, config.json unchanged; R4: `auto` saves and reads back as
+   "auto"; `settings/unset` is the default again;
+3. the served index.html: `data-theme` on <html> is the saved theme ("auto" too), "instrument" when unset or not a
+   palette (3.3.15.0 R4; "auto" before), and the
    page carries exactly one `data-theme`;
 4. the door: `settings:themes` / `halo settings themes` opens `?mode=settings&page=themes`, `--terminal` lists the eleven;
 5. scripts/themes_css.py --check passes (the drift test proper is tests/test_themes_css_drift.py);
@@ -70,8 +73,8 @@ def test_the_registry_as_the_page_reads_it(ctx: Ctx):
         ctx.check("every palette's tokens are the registry's", all(p["tokens"] == R.tokens(p["id"]) and p["posture"] == R.posture(p["id"])
                                                                     and p["daltonized"] == R.tokens(p["id"] + "-daltonized") for p in got["palettes"]))
         ctx.check("the vocabulary, the modifiers, follow", len(got["tokens"]) == 17 and got["modifiers"] == ["daltonized", "ansi"]
-                  and got["follow"] == {"dark": "instrument", "light": "paper"})
-        ctx.check(f"a fresh home follows the system, got {got.get('theme')!r}", got["theme"] is None and got["posture"] == "" and got["saved"] is None)
+                  and got["follow"] == {"dark": "instrument", "light": "paper"} and got["default"] == "instrument")
+        ctx.check(f"a fresh home: nothing saved (the default), got {got.get('theme')!r}", got["theme"] is None and got["posture"] == "" and got["saved"] is None)
 
 
 @test
@@ -90,13 +93,17 @@ def test_set_unset_and_a_refusal(ctx: Ctx):
         _s, got = h.call("GET", "settings/themes")
         ctx.check(f"a modifier saves, light, got {got['theme']} {got['posture']}", status == 200 and got["theme"] == "paper-daltonized"
                   and got["posture"] == "light")
+        status, _ans = h.call("POST", "settings/set", {"key": "theme", "value": "auto"})
+        _s, got = h.call("GET", "settings/themes")
+        ctx.check(f"auto (follow the system) saves and reads back, got {status} {got['theme']}", status == 200
+                  and h.config().get("theme") == "auto" and got["theme"] == "auto" and got["posture"] == "")
         status, _ans = h.call("POST", "settings/unset", {"key": "theme"})
         _s, got = h.call("GET", "settings/themes")
-        ctx.check("unset: follow the system again", status == 200 and "theme" not in h.config() and got["theme"] is None)
+        ctx.check("unset: the default again", status == 200 and "theme" not in h.config() and got["theme"] is None)
         from halo_harness.theme import set_config_value
         set_config_value("theme", "doom")
         _s, got = h.call("GET", "settings/themes")
-        ctx.check(f"a saved game theme draws as follow, the saved word kept, got {got['theme']} {got['saved']}",
+        ctx.check(f"a saved game theme draws as the default, the saved word kept, got {got['theme']} {got['saved']}",
                   got["theme"] is None and got["saved"] == "doom")
 
 
@@ -106,15 +113,16 @@ def test_the_served_page_paints_the_saved_theme_first(ctx: Ctx):
     from halo_harness.studio.theme_boot import theme_attr
     from halo_harness.theme import set_config_value, unset_config_value
     with _Home() as h:
-        ctx.check("theme_attr: unset is auto", b'data-theme="auto"' in theme_attr(b'<html lang="en" data-theme="dark"><body>'))
-        ctx.check("a page with no attribute gains one", theme_attr(b"<html><body>").startswith(b'<html data-theme="auto"'))
+        ctx.check("theme_attr: unset is instrument", b'data-theme="instrument"' in theme_attr(b'<html lang="en" data-theme="dark"><body>'))
+        ctx.check("a page with no attribute gains one", theme_attr(b"<html><body>").startswith(b'<html data-theme="instrument"'))
         srv = start_server(port=0, cwd=h.cwd, state_dir=h.state_dir)
         threading.Thread(target=srv.serve_forever, daemon=True).start()
         try:
             def page() -> str:
                 with urllib.request.urlopen(f"http://127.0.0.1:{srv.server_address[1]}/", timeout=10) as r:
                     return r.read().decode("utf-8")
-            for saved, want in ((None, "auto"), ("midnight", "midnight"), ("claude-light-ansi", "claude-light-ansi"), ("not-one", "auto")):
+            for saved, want in ((None, "instrument"), ("midnight", "midnight"), ("claude-light-ansi", "claude-light-ansi"),
+                                ("not-one", "instrument"), ("auto", "auto")):
                 if saved is None:
                     unset_config_value("theme")
                 else:

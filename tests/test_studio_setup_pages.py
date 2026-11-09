@@ -115,7 +115,10 @@ def test_block_door_and_the_summary(ctx: Ctx):
               and vals.get("check", [None, "", ""])[2] == "not run")
     ctx.check(f"Run the ticked checks with the ticks named, got {got.get('summary_run')!r} {got.get('summary_ticked')!r}",
               got.get("summary_run") == "Run the ticked checks" and "doctor, catalog, hello" in str(got.get("summary_ticked")))
-    ctx.check("the last check and the guided first run's button", got.get("summary_last") == "not run" and got.get("summary_start") is True)
+    from halo_harness.start.auto_gate import AUTO_LINE  # 3.3.15.0 R5: this fresh home runs the Auto lineup
+    ctx.check(f"the last check, and on Auto the line in place of the guided first run's button, got {got.get('summary_start')} "
+              f"{got.get('summary_start_auto')!r}", got.get("summary_last") == "not run" and got.get("summary_start") is False
+              and got.get("summary_start_auto") == AUTO_LINE)
     ctx.check(f"Change jumps to the step's page, got {got.get('change_page')!r}", got.get("change_page") == "model")
     ctx.check(f"the Summary's button opens the Check page, got {got.get('to_check_page')!r}", got.get("to_check_page") == "check")
 

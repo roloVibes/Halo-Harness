@@ -9,6 +9,8 @@
 4. exit 1 when one failed (named on the last line); exit 2 on a bad flag
 5. `halo check` is a verb of the CLI; `/check` is a built-in (its `--start`
    points at /start)
+7. 3.3.15.0 R5: on the Auto lineup the guided first run is left out (its line said instead); every other test
+   runs with a custom lineup active
 6. 3.3.7.0 R5: the steward candidates row -- on by default when an installed
    model fits (running it sets ollama.steward.model), off and naming the
    download when nothing fits (running it pulls that one from the fake)
@@ -31,9 +33,13 @@ test, TESTS = new_registry()
 
 
 @contextmanager
-def _stubbed(fail=()):
-    """Every check's run replaced by a recorder; the keys in `fail` raise CheckFailed."""
+def _stubbed(fail=(), lineup="halo-dev-cycle"):
+    """Every check's run replaced by a recorder; the keys in `fail` raise CheckFailed. 3.3.15.0 R5: `lineup` the active
+    lineup for the block (a custom one by default; None: the Auto lineup, the guided first run not offered)."""
     from halo_harness.start import checks as C
+    from tests.helpers.custom_lineup import custom_lineup
+    held = custom_lineup(lineup)
+    held.__enter__()
     saved = {c["key"]: c["run"] for c in C.CHECKS}
     ran: list = []
 
@@ -51,6 +57,7 @@ def _stubbed(fail=()):
     finally:
         for c in C.CHECKS:
             c["run"] = saved[c["key"]]
+        held.__exit__(None, None, None)
 
 
 def _check(*argv):
@@ -84,6 +91,24 @@ def test_all_named_flags_and_models(ctx: Ctx):
         rc, _text, _ = _check("--gym", "--doctor", "--models", "ol:a, ol:b")
     ctx.check(f"named: those, in the list's order; --models feeds the gym, got {ran}", rc == 0
               and ran == [("doctor", ["ol:a", "ol:b"]), ("gym", ["ol:a", "ol:b"])])
+
+
+@test
+def test_on_auto_the_guided_first_run_is_left_out(ctx: Ctx):
+    """3.3.15.0 R5: the Auto lineup: --all runs five and says why; --start alone runs nothing; --explain five rows + the line."""
+    from halo_harness.start.auto_gate import AUTO_LINE
+    with _stubbed(lineup=None) as ran:
+        rc, text, _ = _check("--all")
+    ctx.check(f"--all: five, the line, got {rc} {ran}", rc == 0 and [k for k, _ in ran] == ["doctor", "catalog", "hello", "steward", "gym"]
+              and AUTO_LINE in text and "halo gym --quick" in text and text.rstrip().endswith("halo check: 5 of 5 passed"))
+    with _stubbed(lineup=None) as ran:
+        rc, text, _ = _check("--start")
+    ctx.check(f"--start: the line, nothing ran, got {rc} {ran} {text!r}", rc == 0 and ran == [] and AUTO_LINE in text)
+    with _stubbed(lineup=None) as ran:
+        rc, text, _ = _check("--explain")
+    lines = text.splitlines()
+    ctx.check(f"--explain: five rows, then the line, got {lines[::2]}", len(lines) == 11 and lines[-1].strip() == AUTO_LINE
+              and "(start)" not in text)
 
 
 @test

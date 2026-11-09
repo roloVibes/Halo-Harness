@@ -136,13 +136,13 @@ function initialSection(): SectionId {
   return bootLiveSession() ? "session" : "roles";
 }
 
-/** 3.3.12.0 R1: the theme the server painted the page in (`theme` in config.json, studio/theme_boot.py), else follow
- *  the system; lib/theme.ts reads the registry and keeps it in step with the key. */
+/** 3.3.12.0 R1: the theme the server painted the page in (`theme` in config.json, studio/theme_boot.py), else Halo's
+ *  default (3.3.15.0 R4: instrument); lib/theme.ts reads the registry and keeps it in step with the key. */
 function initialTheme(): ThemeChoice {
   try {
-    return document.documentElement.dataset.theme || "auto";
+    return document.documentElement.dataset.theme || "instrument";
   } catch {
-    return "auto";
+    return "instrument";
   }
 }
 

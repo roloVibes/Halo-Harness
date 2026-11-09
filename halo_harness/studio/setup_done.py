@@ -5,8 +5,12 @@ halo" posts `setup/done`; the terminal that ran `halo init` is waiting for it
 
     POST setup/done      writes `<state dir>/setup-done.json` {"at": <iso utc>, "home": <home_id>} (over any
                          earlier one), publishes a `setup` frame {stage: "done", at} on the live feed (another
-                         open Studio tab on Setup leaves it too) -> 200 {ok: true, done_at}
-    GET  setup/state     carries `done_at`: the marker's `at`, or null (studio/setup_state.py)
+                         open Studio tab on Setup leaves it too) -> 200 {ok: true, done_at, starts, line}
+                         3.3.15.0 R6 `starts`: "init" (a `halo init` terminal waits: "halo is starting in your
+                         terminal"), "terminal" (none waits: Studio opened a terminal running halo) or "none" (none
+                         could open: "no terminal found to start halo in; run `halo` yourself"); `line` says which
+    GET  setup/state     carries `done_at`: the marker's `at`, or null (studio/setup_state.py); 3.3.15.0 R6
+                         `init_waiting`: a `halo init` terminal waits for Done now (studio/init_waiting.py)
 
 `setup_done_at(state_dir)` is the one reader: the state, the served page's boot attributes and the waiting
 `halo init` all use it. The marker is not agent/loop.py's `.setup_done` (the Setup HOOK's marker): a different
@@ -82,11 +86,27 @@ def write_done(state_dir=None) -> str:
     return at
 
 
+def starts_halo(state_dir, cwd) -> "tuple[str, str]":
+    """3.3.15.0 R6: who starts halo after Done: `("init", line)` when a `halo init` terminal waits for it
+    (studio/init_waiting.py), `("terminal", line)` when Studio opened one (studio/halo_terminal.py), `("none", line)`
+    when neither could: the line says to run `halo`."""
+    from halo_harness.studio import halo_terminal, init_waiting
+    if init_waiting.waiting(state_dir):
+        return "init", halo_terminal.INIT_LINE
+    opened, line = halo_terminal.open_halo(cwd or Path.cwd())
+    return ("terminal" if opened else "none"), line
+
+
 def post_done(req):
     try:
         at = write_done(req.state_dir)
     except OSError as e:
         return 500, {"error": f"setup-done.json was not written: {e}"}
+    try:
+        starts, line = starts_halo(req.state_dir, req.cwd)
+    except Exception as e:  # the Done still counts; the line says what to do
+        from halo_harness.studio.halo_terminal import NO_TERMINAL
+        starts, line = "none", f"{NO_TERMINAL} ({type(e).__name__})"
     if req.server is not None:
         from halo_harness.studio.events import bridge_for
         try:
@@ -94,4 +114,4 @@ def post_done(req):
                                                   "data": {"stage": "done", "at": at}, "ts": time.time()})
         except Exception:
             pass  # the GET's done_at still says so
-    return 200, {"ok": True, "done_at": at}
+    return 200, {"ok": True, "done_at": at, "starts": starts, "line": line}

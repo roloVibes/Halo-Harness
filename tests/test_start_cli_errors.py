@@ -112,8 +112,9 @@ def test_the_wizard_hand_off_returns_the_failed_start(ctx: Ctx):
     args = SimpleNamespace(step=None, team=None, no_live=True)
     old_in = sys.stdin
     sys.stdin = io.StringIO("\n\n")  # Enter at steps 1 and 2, as the user does after the wizard
+    from tests.helpers.custom_lineup import custom_lineup  # 3.3.15.0 R5: the start runs for a custom lineup
     try:
-        with _patched(init_wizard, "run_init_wizard", lambda **_k: app), _patched(steps_setup, "repo", _boom), \
+        with custom_lineup(), _patched(init_wizard, "run_init_wizard", lambda **_k: app), _patched(steps_setup, "repo", _boom), \
                 _env(HALO_START_FAKE="1"), redirect_stdout(out), redirect_stderr(out):
             rc = init_cli._run_init_wizard_flow(args, Console(file=out, width=120), Path.cwd())
     finally:

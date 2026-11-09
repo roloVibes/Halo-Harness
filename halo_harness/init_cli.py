@@ -1089,10 +1089,17 @@ def _run_init_wizard_flow(args, console: Console, cwd: Path) -> "Optional[int]":
         rc = cmd_start([])
     # 3.3.3.0 R1: the wizard's Finish starts halo here, as Setup's Done does (not after a quit, a cancel, a failed
     # pong or a failed start; not with --no-launch / HALO_INIT_NO_LAUNCH=1; only on a terminal)
+    from halo_harness import init_wait
     if rc == 0 and finished and _launch_after_wizard(args):
-        from halo_harness import init_wait
-        return init_wait.launch_halo(cwd)
+        return init_wait.launch_halo(cwd, init_wait.studio_info(_state_dir_now()))
+    if rc == 0 and finished:  # 3.3.15.0 R6: nothing started here: the one line that says how both come up
+        _say(console, init_wait.FINAL_LINE)
     return rc
+
+
+def _state_dir_now() -> Path:
+    from halo_harness.studio.setup_door import _state_dir
+    return _state_dir()
 
 
 def _launch_after_wizard(args) -> bool:
@@ -1188,6 +1195,7 @@ def _wait_for_setup_done(args, console: Console, cwd: Path) -> int:
     the Summary's four lines and bare halo here (halo_harness/init_wait.py); Ctrl+C or Studio gone: one line, 0."""
     from halo_harness import init_wait
     if not init_wait.wanted(args):
+        _say(console, init_wait.FINAL_LINE)  # 3.3.15.0 R6: --no-launch returns, saying how both come up
         return 0
     from halo_harness.studio.setup_door import _state_dir
     return init_wait.run(lambda line: _say(console, line), cwd=cwd, state_dir=_state_dir())
@@ -1291,7 +1299,11 @@ def cmd_init(argv: list) -> int:
 
     if not args.no_live and not pong_ok:
         return 1
-    return _step_offer_start(args, console)
+    rc = _step_offer_start(args, console)
+    if rc == 0:  # 3.3.15.0 R6: the console flow starts nothing: the one line that says how both come up
+        from halo_harness.init_wait import FINAL_LINE
+        _say(console, FINAL_LINE)
+    return rc
 
 
 # ---------------------------------------------------------------------------
@@ -1307,7 +1319,13 @@ START_QUESTION = ("Run the guided first run now? (halo start: one real Orchestra
 def _step_offer_start(args, console: Console) -> int:
     """The wizard's last step: `halo start` right away, default No (and No
     in a non-interactive run). Returns init's exit code (0; the start's own
-    code when it ran)."""
+    code when it ran). 3.3.15.0 R5: on the Auto lineup (or none) it is not
+    offered; its line says why and where a lineup is tested."""
+    from halo_harness.start.auto_gate import lines as auto_lines, offers_start
+    if not offers_start():
+        for line in auto_lines():
+            console.print(f"   {line}", markup=False, highlight=False)
+        return 0
     if not _non_interactive(args):
         from rich.markup import escape
         from halo_harness.start.card import card_lines

@@ -12,6 +12,9 @@
 // box" opens). 3.3.2.0 R1: the offer shows over the section the page opened on
 // only; once answered (or left for another section) it is not drawn again in
 // this browser (lib/start.ts `halo.studio.start`); a running start still shows.
+// 3.3.15.0 R5: on the Auto lineup (or none) the offer has no Run button: one
+// line says the run would rehearse one model five times and where a lineup is
+// tested (GET start `auto`); a custom lineup gets the Run button as before.
 import { useEffect, useRef } from "react";
 import { Button, Dialog } from "../lib/ui";
 import { firstSection, goSection, studio, useStore } from "../lib/store";
@@ -40,6 +43,7 @@ function Offer() {
   const error = useStore(start, (s) => s.error);
   const card = useStore(start, (s) => s.card);
   const noProvider = useStore(start, (s) => s.noProvider);
+  const auto = useStore(start, (s) => s.auto); // 3.3.15.0 R5: on the Auto lineup the line stands in place of Run
   return (
     <div className="sh-offer">
       <p>
@@ -52,13 +56,20 @@ function Offer() {
       )}
       <p className="muted">It runs on your models. The same run in a terminal, one screen per step: <code>halo start</code> (<code>halo start --explain</code> prints this card).</p>
       {error && <p className="og-problems" data-testid="start-here-error">{error}</p>}
+      {auto && (
+        <p data-testid="start-here-auto">
+          {auto} To measure your models instead: <code>halo gym --quick</code>.
+        </p>
+      )}
       <div className="os-buttons">
-        <Button variant={noProvider ? "primary" : "default"} onClick={setUpThisBox} data-testid="start-here-setup">
+        <Button variant={noProvider || auto ? "primary" : "default"} onClick={setUpThisBox} data-testid="start-here-setup">
           Set up this box
         </Button>
-        <Button variant={noProvider ? "default" : "primary"} onClick={() => void runStart()} disabled={busy} data-testid="start-here-run">
-          Run the guided first run
-        </Button>
+        {!auto && (
+          <Button variant={noProvider ? "default" : "primary"} onClick={() => void runStart()} disabled={busy} data-testid="start-here-run">
+            Run the guided first run
+          </Button>
+        )}
         <Button variant="ghost" onClick={() => void dismissStart()} data-testid="start-here-dismiss">
           Just look around
         </Button>

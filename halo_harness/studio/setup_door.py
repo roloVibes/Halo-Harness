@@ -165,7 +165,8 @@ def cli_door(target: SetupTarget, *, terminal_cli: str, fallback: str, say: Call
     """A command's door: open Setup and print one line; True when the browser has it. False: the URL (with the
     port-forward hint) or why Studio did not start is printed, then `fallback` ("the terminal wizard runs here
     instead.") and the caller runs it. `wait` (3.3.3.0 R1, `halo init`): the one line also says the terminal
-    waits for Setup's Done (halo_harness/init_wait.py)."""
+    waits for Setup's Done (halo_harness/init_wait.py); 3.3.15.0 R6: "This terminal starts halo when you press Done
+    there (Ctrl+C: stop here; `halo` later starts it)." (init_wait.WAIT_LINE)."""
     try:
         out = open_setup(target, cwd=cwd, state_dir=state_dir)
     except Exception as e:  # Studio could not be reached or started: the terminal path runs
@@ -173,9 +174,9 @@ def cli_door(target: SetupTarget, *, terminal_cli: str, fallback: str, say: Call
     url, how = out.get("url") or "", out.get("how")
     if how in ("focused", "opened", "started") and url:
         where = "in the Studio page already open" if how == "focused" else "in your browser"
-        if wait:
-            say(f"{target.display} is open {where}: {url}. Press Done there and halo starts here (Ctrl+C stops "
-                f"waiting; `{terminal_cli}` runs the terminal {fallback}).")
+        if wait:  # 3.3.15.0 R6: the terminal stays and becomes the session (halo_harness/init_wait.py)
+            from halo_harness.init_wait import WAIT_LINE
+            say(WAIT_LINE.format(where=f"{target.display} is open {where}", url=url))
         else:
             say(f"{target.display} is open {where}: {url}. `{terminal_cli}` runs the terminal {fallback} instead.")
         if how == "started":

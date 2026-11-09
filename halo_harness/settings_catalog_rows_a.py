@@ -5,9 +5,9 @@ key, group, title, kind, default, choices, help, effect, secret)."""
 from __future__ import annotations
 
 from halo_harness.settings_catalog import Row
-from halo_harness.themes.registry import LIVE_NAMES
+from halo_harness.themes.registry import LIVE_VALUES
 
-_THEMES = LIVE_NAMES  # 3.3.12.0 R1: the palette registry's names (each id, then -daltonized, -ansi); R2: read at each use
+_THEMES = LIVE_VALUES  # 3.3.12.0 R1: the palette registry's names (each id, then -daltonized, -ansi); R2: read at each use; 3.3.15.0 R4: "auto" first
 _MODES = ("auto", "acceptEdits", "default", "plan")
 _EFFORTS = ("low", "medium", "high", "xhigh", "max")
 
@@ -17,7 +17,7 @@ ROWS = [
     Row("permission_mode", "general", "Permission mode", "enum", None, _MODES, "The permission mode new sessions start in; auto allows everything except your own deny and ask rules.", "next session"),
     Row("effort", "general", "Effort", "enum", None, _EFFORTS, "The reasoning effort a session starts with when no flag and no last-used effort says otherwise.", "next session"),
     Row("model_memory", "general", "Model memory", "enum", "cwd", ("cwd", "global"), "Whether the last-used model and effort are remembered per folder (cwd) or once for every folder (global).", "next session"),
-    Row("theme", "general", "Theme", "enum", None, _THEMES, "One palette for the terminal and Studio (the Themes page shows the ten); Studio redraws at once, a running terminal on /theme. Unset: Studio follows the system, the terminal picks from its truecolor support.", "next launch"),
+    Row("theme", "general", "Theme", "enum", None, _THEMES, "One palette for the terminal and Studio (the Themes page shows them all); Studio redraws at once, a running terminal on /theme. Unset: instrument everywhere (instrument-ansi in a terminal without truecolor); auto: Studio follows the system (instrument on dark, paper on light).", "next launch"),
     Row("intro", "general", "Launch intro", "bool", True, (), "Play the launch intro; --no-intro skips it for one run.", "next launch"),
     Row("tips", "general", "Tips", "bool", True, (), "Rotating tips in the input line; off leaves the line plain.", "next launch"),
     Row("images", "general", "Images", "enum", "inline", ("inline", "caption"), "Draw images inline in the terminal, or show a caption line; --no-inline-images overrides it for one run.", "next launch"),

@@ -725,8 +725,10 @@ def test_summary_check_rows_space_toggles_finish_runs_the_ticked(ctx: Ctx):
     from halo_harness.start import checks as C
     from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState
 
-    async def drive(offer: bool, keys_to_tick):
-        with _Env():
+    from tests.helpers.custom_lineup import custom_lineup
+
+    async def drive(offer: bool, keys_to_tick, lineup="halo-dev-cycle"):
+        with _Env(), custom_lineup(lineup):  # 3.3.15.0 R5: a custom lineup offers the start; None is the Auto lineup
             state = WizardState(cwd=REPO_DIR, step_keys=("theme", "summary"), index=1, no_live=True, offer_start=offer)
             app = InitWizardApp(state)
             out = {}
@@ -734,6 +736,8 @@ def test_summary_check_rows_space_toggles_finish_runs_the_ticked(ctx: Ctx):
                 await pilot.pause(0.3)
                 rows = app.screen.query_one("#wiz-summary-checks")
                 out["keys"] = [rows.get_option_at_index(i).id for i in range(rows.option_count)]
+                notes = app.screen.query("#wiz-summary-auto")
+                out["auto_note"] = str(notes.first().render()) if notes else ""
                 out["ticked"] = list(rows.selected)
                 out["prompt"] = str(getattr(rows.get_option_at_index(0).prompt, "plain", rows.get_option_at_index(0).prompt))
                 out["focus"] = getattr(app.focused, "id", None)
@@ -778,7 +782,13 @@ def test_summary_check_rows_space_toggles_finish_runs_the_ticked(ctx: Ctx):
                   got["screen"] != "SummaryStep" and ran == [] and got["run_start"] is True)
         got = asyncio.run(drive(False, []))
         ctx.check(f"a /setup Summary: five rows, nothing ticked runs none, got {got['keys']} {ran}",
-                  got["keys"] == ["doctor", "catalog", "hello", "steward", "gym"] and ran == [] and got["run_start"] is False)
+                  got["keys"] == ["doctor", "catalog", "hello", "steward", "gym"] and ran == [] and got["run_start"] is False
+                  and got["auto_note"] == "")
+        from halo_harness.start.auto_gate import AUTO_LINE
+        got = asyncio.run(drive(True, [], lineup=None))  # 3.3.15.0 R5: init's Summary on the Auto lineup
+        ctx.check(f"on Auto: five rows, the line in the start's place, got {got['keys']} {got['auto_note'][:60]!r}",
+                  got["keys"] == ["doctor", "catalog", "hello", "steward", "gym"] and " ".join(got["auto_note"].split()) == AUTO_LINE
+                  and got["run_start"] is False)
     finally:
         for c in C.CHECKS:
             c["run"] = saved[c["key"]]
@@ -803,7 +813,7 @@ def _finish_flow(argv=(), *, tty=True, cmd_start_rc=None, **state):
     saved = (init_wizard.run_init_wizard, init_wait.launch_halo, start_cli.cmd_start, sys.stdin, sys.stdout)
     before = os.environ.pop("HALO_INIT_NO_LAUNCH", None)
     init_wizard.run_init_wizard = lambda **_k: app
-    init_wait.launch_halo = lambda cwd: calls.append(("launch", Path(cwd))) or 5
+    init_wait.launch_halo = lambda cwd, studio=None: calls.append(("launch", Path(cwd))) or 5  # 3.3.15.0 R6: + the Studio
     start_cli.cmd_start = lambda argv: calls.append(("start", list(argv))) or cmd_start_rc
     if tty:
         sys.stdin, sys.stdout = _Tty(io.StringIO("")), _Tty(io.StringIO())

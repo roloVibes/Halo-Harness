@@ -57,6 +57,8 @@ def test_fresh_home_and_dismiss(ctx: Ctx):
     status, body = dispatch(_req("GET", "start", state, cwd))
     ctx.check(f"a fresh home shows the overlay, got {status} {body}", status == 200 and body["fresh"] is True and body["show"] is True
               and body["job"] is None)
+    from halo_harness.start.auto_gate import AUTO_LINE
+    ctx.check(f"3.3.15.0 R5: a fresh home runs Auto: the line in place of Run, got {body.get('auto')!r}", body.get("auto") == AUTO_LINE)
     ctx.check("the seven steps' plan", [p["key"] for p in body["plan"]] == ["lineup", "repo", "goal", "plan", "run", "report", "next"])
     card = "\n".join(body.get("card") or [])
     ctx.check(f"the card: what, models, cost, time, writes (3.2.2.0 R2), got {card[:120]!r}", card.startswith("The guided first run")
@@ -89,9 +91,15 @@ def test_post_start_runs_the_fake_and_streams_frames(ctx: Ctx):
     bridge_for(server).taps.append(lambda f: frames.append(f) if f.get("event") == "start" else None)
     saved_fake = os.environ.get("HALO_START_FAKE")
     os.environ["HALO_START_FAKE"] = "1"
+    from halo_harness.start.auto_gate import AUTO_LINE
+    from tests.helpers.custom_lineup import custom_lineup
     try:
-        status, body = dispatch(_req("POST", "start", state, cwd, server))
-        again = dispatch(_req("POST", "start", state, cwd, server))
+        auto = dispatch(_req("POST", "start", state, cwd, server))  # 3.3.15.0 R5: the Auto lineup: a 422 with the line
+        ctx.check(f"on Auto: 422 auto_lineup, nothing started, got {auto}", auto[0] == 422 and auto[1]["reason"] == "auto_lineup"
+                  and auto[1]["error"] == AUTO_LINE and not start_job.running())
+        with custom_lineup():
+            status, body = dispatch(_req("POST", "start", state, cwd, server))
+            again = dispatch(_req("POST", "start", state, cwd, server))
         end = time.monotonic() + 90
         while start_job.running() and time.monotonic() < end:
             time.sleep(0.1)
@@ -125,8 +133,10 @@ def _post_and_wait(state, cwd, server) -> "tuple[int, dict]":
     from halo_harness.studio.api import dispatch
     saved_fake = os.environ.get("HALO_START_FAKE")
     os.environ["HALO_START_FAKE"] = "1"
+    from tests.helpers.custom_lineup import custom_lineup
     try:
-        status, body = dispatch(_req("POST", "start", state, cwd, server))
+        with custom_lineup():  # 3.3.15.0 R5: the guided first run belongs to a custom lineup
+            status, body = dispatch(_req("POST", "start", state, cwd, server))
         end = time.monotonic() + 90
         while start_job.running() and time.monotonic() < end:
             time.sleep(0.05)
@@ -188,8 +198,10 @@ def test_no_provider_is_a_422(ctx: Ctx):
     saved = (provider.configured, provider.default_model)
     provider.configured, provider.default_model = (lambda: []), (lambda: "")
     before = start_job.current()
+    from tests.helpers.custom_lineup import custom_lineup
     try:
-        status, body = dispatch(_req("POST", "start", _state(), Path(tempfile.mkdtemp(prefix="start-api-cwd-"))))
+        with custom_lineup():  # 3.3.15.0 R5: a custom lineup, so the provider is what answers
+            status, body = dispatch(_req("POST", "start", _state(), Path(tempfile.mkdtemp(prefix="start-api-cwd-"))))
     finally:
         provider.configured, provider.default_model = saved
     ctx.check(f"422 no_provider, got {status} {body}", status == 422 and body["reason"] == "no_provider" and "halo init" in body["error"])

@@ -45,7 +45,7 @@ export type StartFrame = {
 };
 export type StartSummary = { ok?: boolean; stopped_at?: string | null; reason?: string; error_log?: string; lineup?: string; repo?: string; run?: string; coach?: number; message?: string };
 type Job = { job: string; running: boolean; fake?: boolean; steps: StartFrame[]; summary: StartSummary | null };
-type Status = { show: boolean; fresh: boolean; plan: StartFrame[]; job: Job | null; card?: string[]; no_provider?: boolean };
+type Status = { show: boolean; fresh: boolean; plan: StartFrame[]; job: Job | null; card?: string[]; no_provider?: boolean; auto?: string };
 
 type StartState = {
   open: boolean;
@@ -61,9 +61,11 @@ type StartState = {
   noProvider: boolean;
   /** 3.3.2.0 R1: the palette asked for the overlay: it shows on any section (not only the first). */
   asked: boolean;
+  /** 3.3.15.0 R5: the Auto lineup (or none): the line shown in place of Run ("" with a custom lineup; GET start `auto`). */
+  auto: string;
 };
 
-export const start = createStore<StartState>({ open: false, view: "offer", plan: [], card: [], steps: {}, summary: null, running: false, error: "", busy: false, noProvider: false, asked: false });
+export const start = createStore<StartState>({ open: false, view: "offer", plan: [], card: [], steps: {}, summary: null, running: false, error: "", busy: false, noProvider: false, asked: false, auto: "" });
 
 // 3.1.1.0 R3: a page opened on an edit (`?edit=`, `halo studio --edit`) goes straight to it, no overlay.
 const QUIET = typeof location !== "undefined" && /[?&]((tour|start)=off\b|edit=)/.test(location.search);
@@ -126,7 +128,7 @@ export async function loadStart(): Promise<void> {
   if (QUIET) return;
   try {
     const st = await api.get<Status>("start");
-    start.update(() => ({ plan: st.plan || [], card: st.card || [], noProvider: !!st.no_provider }));
+    start.update(() => ({ plan: st.plan || [], card: st.card || [], noProvider: !!st.no_provider, auto: st.auto || "" }));
     if (st.job && st.job.running) {
       adoptJob(st.job);
       start.update(() => ({ open: true, view: "run" }));
@@ -150,6 +152,10 @@ export async function runStart(): Promise<void> {
   } catch (e) {
     if (e instanceof ApiError && e.status === 422 && e.data.reason === "no_provider") {
       noProviderJump(); // 3.3.0.0 R3: Studio's "no provider" answer opens Setup
+      return;
+    }
+    if (e instanceof ApiError && e.status === 422 && e.data.reason === "auto_lineup") {
+      start.update(() => ({ auto: e.message })); // 3.3.15.0 R5: the line in place of Run
       return;
     }
     start.update(() => ({ error: e instanceof ApiError ? e.message : String(e) }));
@@ -201,9 +207,8 @@ export function openStart(): void {
   feed();
   start.update((s) => ({ open: true, asked: true, view: s.running || s.summary ? "run" : "offer" }));
   if (start.get().view === "run" && !start.get().summary) poll();
-  if (!start.get().plan.length || !start.get().card.length)
-    api
-      .get<Status>("start")
-      .then((st) => start.update(() => ({ plan: st.plan || [], card: st.card || [], noProvider: !!st.no_provider })))
-      .catch(() => undefined);
+  api // 3.3.15.0 R5: read again each time: the lineup may have changed since (Auto or a custom one)
+    .get<Status>("start")
+    .then((st) => start.update(() => ({ plan: st.plan || [], card: st.card || [], noProvider: !!st.no_provider, auto: st.auto || "" })))
+    .catch(() => undefined);
 }
