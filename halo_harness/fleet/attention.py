@@ -33,7 +33,7 @@ from __future__ import annotations
 import time
 from typing import Optional
 
-from halo_harness.remote.bridge_cards import describe_input, normalize_questions, one_line
+from halo_harness.remote.cards import describe_input, normalize_questions, one_line
 
 ASK_PREFIX = "fleet-ask:"
 OPEN = {"o": "open"}

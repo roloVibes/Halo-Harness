@@ -156,7 +156,10 @@ class FakeSession:
                         "permission_request", {"id": "perm_1", "name": "Bash", "input": {"command": "echo hi"},
                                                "reason": "needs approval", "suggested_rule": "Bash(echo:*)"}, turn=n))
                     self.permission_decisions["perm_1"] = slot.get("decision")
-                for word in ("hello ", "from ", "the ", "fake ", "session"):
+                # 3.3.13.0 R3: "paragraphs" streams an answer of three paragraphs and a code block (the signal pack)
+                words = (("First para", "graph here.\n\nSecond one", ".\n\n```\nx = 1\n", "```\n\nThe end.")
+                         if "paragraphs" in text else ("hello ", "from ", "the ", "fake ", "session"))
+                for word in words:
                     emit(events.text_delta(word, turn=n))
                 self.log.add("assistant", f"reply to: {text}")
                 emit(events.message_end(turn=n, stop_reason="end_turn"))

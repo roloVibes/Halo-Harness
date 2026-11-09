@@ -40,16 +40,20 @@ The 2.0.10 review lists where each of these is still incomplete.
 1. Since 3.0.5.0 every session opens its control socket (`fleet.enabled`;
    `--private` or `/private on` for one that should not); it is a Unix
    socket (mode 0600, directory 0700) or Windows loopback TCP plus a random
-   token, never a network address. The phone bridge is off by default
-   (`remote.enabled`).
-2. The Signal bridge answers nobody it has not paired: contact request,
-   approval on the computer, a one-time six-digit code, pinned on the ACI.
-3. Every command after pairing ends `#<counter>:<mac>` (HMAC, rising
-   counter, 5-minute window); a changed safety number blocks the peer.
-4. A paired, signed phone can do everything the keyboard can, including
-   answering permission cards: treat the phone and the signing secret like
-   the keyboard. Unpair a lost phone with `halo remote signal unpair`.
-5. Full threat model, layer by layer: [docs/REMOTE.md](docs/REMOTE.md).
+   token, never a network address. The phone bridge is a pack, off until
+   you install and enable it (3.3.13.0: the signal pack); `remote.enabled`
+   stops every transport.
+2. The signal pack answers nobody it has not paired: a six-word phrase made
+   on the computer, texted once from the phone, pinned on its ACI with the
+   safety number recorded; a changed safety number blocks it.
+3. Per-command signing (`#<counter>:<mac>`, HMAC, rising counter, 5-minute
+   window) is per phone and off by default (the Signal session authenticates
+   the channel); turn it on for a shared phone (`/signal sign on <n>`).
+4. A paired phone can do everything the keyboard can, including answering
+   permission cards: treat it like the keyboard. Unpair a lost phone with
+   `/signal unpair <n>`.
+5. Full threat model, layer by layer: the signal pack's README
+   (`halo_harness/templates/packs/signal/README.md`); the socket: [docs/REMOTE.md](docs/REMOTE.md).
 
 ## The fleet hub (3.0.5.0) in four lines
 
@@ -71,7 +75,7 @@ The 2.0.10 review lists where each of these is still incomplete.
 | What | Where | Readable by |
 |---|---|---|
 | Provider keys | `~/.config/halo/env` (0600, dir 0700) | your account, root |
-| Signal signing secrets, signal-cli keys, registration PIN | `~/.halo/remote/` (0700; files 0600) | your account, root |
+| Signal signing secrets, signal-cli keys, registration PIN | the signal pack's data folder `~/.halo/packs/.data/signal/` (files 0600; `~/.halo/remote/` before 3.3.13.0) | your account, root |
 | MCP OAuth tokens | `~/.halo/mcp/oauth/*.json` (0700 / 0600) | your account, root |
 | Fleet pair keys | `~/.halo/fleet/keys/` (joiner), `~/.halo/fleet/hub/members.json` (hub), both 0600 | your account, root |
 | Settings, prompt history | `~/.halo/config.json`, `history.jsonl` (0600) | your account, root |

@@ -370,7 +370,8 @@ schemas in its "contributes:" block.
   pack's; and each settings rename an update made (3.2.0.0 R7).
 - `~/.halo/packs/<id>.previous/`: the version the last update replaced, for
   `halo pack rollback` (3.2.0.0 R7); never discovered as a pack.
-- `~/.halo/packs/.data/<id>/`: the pack's own place to write.
+- `~/.halo/packs/.data/<id>/`: the pack's own place to write (3.3.13.0: a pack service's health file and log
+  live here; the signal pack keeps its account, phones and audit here).
 - Settings: `~/.halo/config.json` under `packs.settings.<id>`, checked
   against the schema in the pack's `pack.yaml` (`halo config set
   packs.settings.doc-review.style long`).
@@ -611,7 +612,7 @@ without policies and modes is untouched.
 
 ## The reference pack
 
-Halo ships two packs: **Documentation Review**, below, and **Concord** ([The concord pack](#the-concord-pack)).
+Halo ships three packs: **Documentation Review**, below, **Concord** ([The concord pack](#the-concord-pack)) and **Signal** ([The signal pack](#the-signal-pack)).
 **Documentation Review** (`doc-review`,
 `halo_harness/templates/packs/doc-review/`): a reviewer and a writer bio, the
 review lineup, the review workflow (read each Markdown file, judge the
@@ -657,12 +658,35 @@ policy hook. Concord's telemetry to getconcord.ai is on by default upstream; thi
 `tests/test_pack_concord.py` checks the manifest, the server's environment, the hooks and the policy against a fake
 `concord` (never the real one).
 
+## The signal pack
+
+**Signal** (`signal`, `halo_harness/templates/packs/signal/`, 3.3.13.0 R3) is Halo on your phone through Signal, as a
+conversation; until 3.3.13.0 it was the core's `halo remote signal` bridge. It ships with Halo and stays off until you
+turn it on, and it is the first pack with a service and a command that runs a program.
+
+- **Install signal-cli yourself** (GPL-3.0; Halo never installs it): the pack's `requires:` has the line for each OS,
+  and Setup -> Signal's first block checks it.
+- **Turn it on**: `halo pack install signal`, `halo pack enable signal --grant-all` (`services`), `halo setup signal`
+  (link this computer to your Signal, or register a number; pair the phone), `halo supervise`.
+- **What it adds**: the bridge as a service (`contributes.services`: `halo supervise` keeps it running, the Pack
+  Manager's row has Start / Stop); `/signal` (a `run:` command: status, pair, phones, sign, home, off, on, url, test,
+  link, register -- no model call); its Setup blocks; its settings (`packs.settings.signal.*`, the old `remote.*`
+  keys' new home).
+- **The conversation**: pairing in one six-word text; a text with no session starts one in the phone's home folder;
+  the answer paragraph by paragraph; cards answered with a number, a letter or a thumbs up; pictures, PDFs and voice
+  notes in, `/file` and `/shot` out; `/notify` for the attention queue's, the supervisor's and the steward's notes.
+- **The live check** and the threat model are in the pack's `README.md`.
+
+`tests/test_pack_signal.py` installs it in a scratch home and drives a whole conversation over real control sockets
+through a stub transport; the pack's own tests (`halo pack test signal`) drive its parts through fakes (never the real
+signal-cli, never a Signal message).
+
 ## Grants
 
 A pack asks for what its contributions need: `mcp:<server>` for each MCP
 server (and `network` for one reached by a url), `hooks` for its hooks,
-`bash`, `network` and `home-write` for its own code and its bios' `tools.needs`, and `hooks` for a policy hook
-(3.3.10.0 R1). Nothing it asks for runs
+`bash`, `network` and `home-write` for its own code and its bios' `tools.needs`, `hooks` for a policy hook
+(3.3.10.0 R1), and `services` for a program the supervisor keeps running (3.3.13.0 R3). Nothing it asks for runs
 until you grant it: an ungranted MCP server does not start, ungranted hooks
 do not load, and doctor names each one with the command that grants it.
 Grants add up across `enable` calls and live in state.json; `disable`

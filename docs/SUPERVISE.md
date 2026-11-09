@@ -283,9 +283,29 @@ that wrote the pulse (`pstart`, a start token, so a reused pid does not count).
 `~/.halo/supervise/stop` is the stop file the supervisor polls (`halo supervise
 stop` writes it; Windows has no signal for it).
 
+## Pack services
+
+Halo 3.3.13.0 R3. A pack may bring a program the supervisor keeps running: its `contributes.services`
+([EXTENSION_API.md](EXTENSION_API.md#services)). Each tick, every pack that is enabled and granted `services` has its
+autostart services started (in the pack's folder, with the environment a pack hook gets -- Halo's provider keys left
+out -- and `HALO_SERVICE`, `HALO_SERVICE_HEALTH`, `HALO_SERVICE_STOP`); one that ends is started again by its rule
+(`on-failure`, `always`, `never`) after 5 s, doubling to 300 s; one whose pack is disabled or loses the grant is
+stopped; Start and Stop (`halo supervise service start|stop <pack>/<name>`, the Pack Manager's row) are applied at the
+next tick and kept; on the supervisor's way out each one is asked to stop (its stop file), then ended after 5 s. The
+state is `~/.halo/supervise/services.json`: `halo supervise services` and `status`, the Pack Manager, `halo doctor`
+and the TUI's remote chip read it. The signal pack's Signal bridge runs this way.
+
+A pack service that needs a session (a text from a phone with none open) asks for one; the supervisor starts it
+(`halo --headless --session-for remote`) within half a second, since it holds the provider keys the pack's program
+does not (`remote/session_start.py`, [REMOTE.md](REMOTE.md#transports)). The supervisor also writes the transports'
+notes for its goals (`supervisor`) and the Ollama steward's attention notes (`steward`).
+
 ## The service files
 
 `halo supervise --service` writes the service-manager file for this OS under
 `~/.halo/supervise/` -- a systemd user unit, a launchd plist or a Task
-Scheduler XML -- and prints the single command that enables it. Halo never
-enables it; you run that one command to start the supervisor at login.
+Scheduler XML (`halo_harness/logon_units.py`, 3.3.13.0: renamed from the Signal
+bridge's `remote/daemon_units.py`) -- and prints the single command that enables
+it. Halo never enables it; you run that one command to start the supervisor,
+and with it the packs' services, at login. `JAVA_TOOL_OPTIONS` is carried into
+the file when it is set (the proxied-VM recipe of the signal pack's signal-cli).

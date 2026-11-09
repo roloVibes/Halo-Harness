@@ -9,7 +9,7 @@ read from what this harness already keeps on disk; no network, no model:
     craft_apps()     the craft-app MCP servers registered here (ArtCraft apps, ComfyUI)
     media()          ComfyUI and the media models its last scan found
     projects()       the repos this harness works in (basename, repo, branch; never a full path)
-    integrations()   the Signal bridge
+    integrations()   the transports listening here (a pack's bridge: remote/notify.py)
     packs()          3.2.0.0 R4: the running packs' fleet capabilities, each available here or not and why
                      (packs/fleet_registry.py; read after the other sections, which it checks against)
 
@@ -160,13 +160,12 @@ def projects(home: Path, cwd: Path) -> list:
 
 
 def integrations(home: Path) -> dict:
-    out = {"signal": False}
+    """3.3.13.0 R3: the transports that listen here (remote/notify.py), each `True` -- a pack's bridge, by its name."""
     try:
-        from halo_harness.fleet.push import paired
-        out["signal"] = bool(paired(home))
+        from halo_harness.fleet.push import listening
+        return {name: True for name in listening(home)}
     except Exception:
-        pass
-    return out
+        return {}
 
 
 def packs(home: Path, cwd: Path, cat: dict) -> list:

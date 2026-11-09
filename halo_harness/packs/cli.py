@@ -7,7 +7,7 @@
                                                       copy it into ~/.halo/packs/<id>/ (or .halo/packs/<id>/), disabled;
                                                       --link: the folder itself, read in place (3.3.12.0 R4, packs/link.py)
     halo pack enable <id> [--grant NAME ...] [--grant-all] [--json]
-                                                      turn it on; grant what it requests (mcp:<server>, hooks, bash, network, home-write)
+                                                      turn it on; grant what it requests (mcp:<server>, hooks, bash, network, home-write, services)
     halo pack grant <id> NAME [NAME ...] [--off] [--json]
                                                       give an enabled pack more of what it requests, or take grants back (--off)
     halo pack disable <id> [--json]                   nothing of it runs from now on; its files stay

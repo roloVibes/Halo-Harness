@@ -135,7 +135,8 @@ def readme(manifest: dict, files: dict, *, github: bool) -> str:
     perms = manifest.get("permissions") or []
     grant = {"hooks": "its hooks and its policy hooks run", "studio-script": "its Studio bundle panel's script runs in "
              "the page", "bash": "its code may run commands", "network": "its code may reach the network",
-             "home-write": "its code may write outside its data folder"}
+             "home-write": "its code may write outside its data folder",
+             "services": "runs a program of this pack in the background while the supervisor runs"}  # 3.3.13.0 R3
     out += ["## Permissions", "", "Each one runs nothing until you grant it (`halo pack enable "
             f"{pid} --grant <name>`):", ""]
     out += [f"- `{p}`: " + (f"its MCP server {p[4:]} starts" if p.startswith("mcp:") else grant.get(p, "")) for p in perms]

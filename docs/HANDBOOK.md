@@ -536,25 +536,22 @@ doctor line each.
 
 The path from phone to session, drawn: [remote control](media/diagrams/remote-control.svg).
 
-Halo 2.0.9 can be driven from a phone: message a Signal number, and the text
-becomes a prompt in a session running on your computer; permission cards, plan
-reviews and questions come back to the phone and are answered by number or
-letter. It is off until you turn it on:
+Halo can be driven from a phone: text it on Signal and the text becomes a prompt in a session on your
+computer -- one starts in the phone's home folder when none is open -- and the answer comes back paragraph by
+paragraph; permission cards, questions and plan reviews come back too and are answered with a number, a letter or a
+thumbs up. Since 3.3.13.0 it is the **signal pack**, off until you turn it on:
 
 ```sh
-halo config set remote.enabled true       # the bridge may run (sessions' sockets are on by default)
-halo remote signal setup                  # dedicated number (recommended) or linked device
-halo remote signal register +15555550123  # captcha, SMS code, registration lock (dedicated)
-halo remote signal run                    # the bridge, in its own terminal
+halo pack install signal
+halo pack enable signal --grant-all       # services: its bridge runs while the supervisor runs
+halo setup signal                         # Setup -> Signal: signal-cli, link this computer, pair the phone
+halo supervise                            # the bridge starts with it (halo supervise --service: at logon)
 ```
 
-Then message the number, approve the contact request in `/remote` (compare the
-safety number first), and send the six-digit code back; commands afterwards carry
-an HMAC signature from a secret only your phone has. A `⇄ remote` chip shows in the
-status bar while a phone is attached, `halo remote signal off` is the kill switch,
-and `halo doctor` checks signal-cli, its version pin and the folder permissions.
-The threat model, setup per OS (Kali, Windows, macOS, a proxied VM), the chat
-commands and a live checklist are in [REMOTE.md](REMOTE.md).
+Pairing is one message: `/signal pair` shows six words, the phone texts them once. Signing is optional per phone
+(`/signal sign on <n>`). The remote chip names `signal` while it listens and `⇄ remote 1` while a phone is attached
+to the session; `/signal off` stops it answering. The pack's README has the threat model, the chat commands and the
+live check; the control socket it rides on is [REMOTE.md](REMOTE.md).
 
 ## Keys: Ctrl+C copies, a second press asks before quitting
 

@@ -1,0 +1,4 @@
+{
+  "name": "signal",
+  "description": "The Claude-plugin half of the Signal pack: the /signal command (it runs the pack's program; no model call)."
+}

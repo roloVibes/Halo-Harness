@@ -25,6 +25,7 @@ serves Studio in a thread with the live feed on (no provider, no model call):
 7. Remove: the confirm names the command (and --keep-config when ticked);
    Remove deletes the pack: the row goes, Sources offers Install again;
 8. 3.3.10.0 R2: the policy-fence fixture armed, one verdict: its row's pm-policy chip (studio_pack_policy.py).
+9. 3.3.13.0 R3: the service-pack fixture with a running service: its row's pm-service chip and Stop (studio_pack_service.py).
 
 The last stdout line is the JSON of what it saw (exit 2: no Chrome)."""
 from __future__ import annotations
@@ -42,6 +43,7 @@ sys.path.insert(0, str(REPO / "tools"))
 from tests.helpers.chrome_driver import Driver  # noqa: E402
 from tests.helpers.studio_packs_steps import CUR, TABS, alt, press, q, qa  # noqa: E402
 from tests.helpers.studio_pack_policy import policy_row  # noqa: E402  (3.3.10.0 R2: the policy chip, after Remove)
+from tests.helpers.studio_pack_service import service_row  # noqa: E402  (3.3.13.0 R3: the service row, last)
 
 ROW = "[data-testid=pm-installed-row][data-id=doc-review]"
 SRC = "[data-testid=pm-source][data-kind=shipped] [data-testid=pm-source-pack][data-id=doc-review]"
@@ -304,7 +306,7 @@ class PackManagerDriver(Driver):
         ctx = {"state": state, "srv": srv}
         try:
             yield tuple((fn, (c, url, ctx)) for fn in (section, install, details, enable, update_rollback, templates, picker, disable,
-                                                remove, policy_row))
+                                                remove, policy_row, service_row))
         finally:
             bio_models.ROWS = None
             srv.shutdown()

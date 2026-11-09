@@ -417,3 +417,11 @@ A requirement (3.3.12.0) is an open-source tool a pack needs that Halo does not 
 ## entry command
 
 A pack's entry command (3.3.12.0) is `commands/<id>.md`, the slash command named like the pack itself: once the pack is enabled, `/<id>` in a session (the terminal or Studio's Prompt panel) says what the pack is, lists its commands, workflows and lineups one line each, and with text after it runs the pack's default action (its first workflow, else its first command). `halo pack new` writes one and `halo pack test` runs it in a fake session and checks the list.
+
+## pack service
+
+A pack service (3.3.13.0) is a program of a pack the supervisor keeps running while the pack is enabled and granted `services`: `contributes.services: [{name, run, autostart, restart, health, log}]` in its `pack.yaml`. `halo supervise` starts an autostart one, starts it again after a crash by its rule, and stops it on its way out; `halo supervise services`, the Pack Manager's row (with Start and Stop), `halo doctor` and the TUI's remote chip show its state. The signal pack's Signal bridge is one (docs/EXTENSION_API.md, "Services").
+
+## transport
+
+A transport (3.3.13.0) carries a session somewhere else -- a phone, a chat -- and is a pack, never the core: the signal pack is one. It uses the core's transport seam (`halo_harness.ext.remote`): the live sessions and their control sockets, a session started for it, the cards' text, and the notes the core gives every transport (`asks`, `supervisor`, `steward`, ...) while it listens. `remote.enabled` is every transport's switch; `halo remote transports` lists the ones listening (docs/REMOTE.md, "Transports").

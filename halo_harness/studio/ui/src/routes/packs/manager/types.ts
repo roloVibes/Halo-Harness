@@ -58,7 +58,11 @@ export type PackRow = {
   previous: string;
   /** 3.3.10.0 R2: a pack with policy hooks: the armed ones, its mode, the last verdict a session got and the counts. */
   policy?: PolicyBlock | null;
+  /** 3.3.13.0 R3: its services as the supervisor runs them ("running since 09:12" / "stopped: <line>"). */
+  services?: ServiceRow[];
 };
+
+export type ServiceRow = { name: string; key: string; state: string; line: string; description: string };
 
 export type PolicyBlock = { armed: string[]; mode: string | null; last: string; last_ts: number | null; counts: Record<string, number> };
 

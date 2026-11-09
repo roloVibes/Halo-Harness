@@ -16,6 +16,7 @@ Studio -- this page too -- reads the manager and the registry again.
                                                        dry_run first and shows its lines: the migration notes, the plan)
     POST pack/<id>/rollback                            halo pack rollback <id> (3.2.0.0 R7)
     POST pack/<id>/remove {keep_config?}               halo pack remove <id> [--keep-config]
+    POST pack/<id>/service {name, verb}                3.3.13.0 R3: halo supervise service start|stop <id>/<name>
     GET|POST pack/<id>/settings                        R3's settings form (studio/packs_studio_api.py
                                                        get_config / post_config) for any pack installed here,
                                                        a disabled one too
@@ -31,7 +32,8 @@ from __future__ import annotations
 
 import re
 
-VERBS = ("enable", "grant", "disable", "update", "rollback", "remove", "settings")
+VERBS = ("enable", "grant", "disable", "update", "rollback", "remove", "settings",
+         "service")  # 3.3.13.0 R3: POST pack/<id>/service {name, verb: start|stop} (halo supervise service start|stop)
 _VERB = re.compile(r"^pack/(?P<id>[a-z][a-z0-9-]*)/(?P<verb>" + "|".join(VERBS) + r")$")
 
 
@@ -104,6 +106,12 @@ def _verb(req, pack_id: str, verb: str):
         return G.grant(pack_id, [need] if need else [], on=body.get("on") is not False, cwd=req.cwd, state_dir=req.state_dir)
     if verb == "disable":
         return G.disable(pack_id, state_dir=req.state_dir)
+    if verb == "service":  # 3.3.13.0 R3: Start / Stop on the row, asked of the running supervisor
+        from halo_harness.supervise.services_rows import want
+        name, what = str(body.get("name") or ""), str(body.get("verb") or "")
+        if not name or what not in ("start", "stop"):
+            return False, [f"name a service of {pack_id} and start or stop (halo supervise service start|stop {pack_id}/<name>)"]
+        return True, [want(f"{pack_id}/{name}", what, req.state_dir)]
     if verb == "update":
         from halo_harness.packs.install import update
         return update(pack_id, dry_run=body.get("dry_run") is True, cwd=req.cwd, state_dir=req.state_dir)

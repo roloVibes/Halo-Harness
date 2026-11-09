@@ -1,0 +1,109 @@
+# Signal: the third pack Halo ships (3.3.13.0 R3), off unless you turn it on. It is Halo on your phone through
+# Signal, as a conversation: text it and a session answers, paragraph by paragraph; its cards are answered with a
+# number, a letter or a thumbs up; pictures, PDFs and voice notes go in, files come out. It was the core's
+# `halo remote signal` bridge until 3.3.13.0 and left the core for this pack; README.md beside this file is how to
+# set it up and use it, with the threat model.
+#
+# What it carries, one part of the extension API each (docs/EXTENSION_API.md):
+# - the bridge as a service the supervisor keeps running (contributes.services: bin/signal.py service);
+# - the entry command /signal (commands/signal.md: runs bin/signal.py ctl, no model call);
+# - its Setup pages (contributes.setup): Signal on this box, the account, pairing, the phones, the service;
+# - signal-cli as a requirement (Halo never installs it) and its settings (config).
+id: signal
+name: Signal
+version: 1.0.0
+description: >-
+  Halo on your phone through Signal, as a conversation: a text starts or continues a session and the answer comes
+  back paragraph by paragraph; cards are answered from the phone; pictures, PDFs and voice notes go in, files come
+  out; the supervisor's and the steward's notes arrive when you ask for them. Pair a phone with one six-word text.
+  Runs signal-cli (GPL-3.0), which you install.
+author: Halo Harness
+license: MIT
+halo_api: {min: "1.2", max: "1.9"}
+requires:
+  - kind: command
+    name: signal-cli
+    install:
+      windows: "winget install EclipseAdoptium.Temurin.25.JRE, then unpack signal-cli-<version>.tar.gz from https://github.com/AsamK/signal-cli/releases and add its bin folder to PATH"
+      linux: "unpack signal-cli-<version>-Linux-native.tar.gz from https://github.com/AsamK/signal-cli/releases into ~/.local and put its bin folder on PATH (no Java needed on x86-64)"
+      mac: brew install signal-cli
+    url: https://github.com/AsamK/signal-cli
+    license: GPL-3.0
+    why: it is how this computer speaks Signal (the bridge runs it as a child process; the JVM build needs Java 25)
+    used_by: [bin/signal.py]
+contributes:
+  commands: commands
+  services:
+    - name: bridge
+      description: answers your paired phones on Signal and carries the notes you asked for
+      run: ["${halo_python}", "${CLAUDE_PLUGIN_ROOT}/bin/signal.py", "service"]
+      autostart: true
+      restart: on-failure
+      health: {file: health.json, max_age_s: 90}
+      log: service.log
+  setup:
+    - {id: about, title: Signal on your phone, kind: note, text: setup/about.md}
+    - id: box
+      title: Signal on this box
+      kind: check
+      run: ["${halo_python}", "${CLAUDE_PLUGIN_ROOT}/bin/signal.py", "setup", "box"]
+      what: looks for signal-cli (and Java when its JVM build needs it) and says the install line for this OS
+      cost: free
+      time: seconds
+      writes: nothing
+    - id: link
+      title: Link this computer to your Signal
+      kind: check
+      run: ["${halo_python}", "${CLAUDE_PLUGIN_ROOT}/bin/signal.py", "setup", "link"]
+      what: asks signal-cli for a device link and shows its QR code (Signal on the phone, Settings, Linked devices, Link new device); a helper waits for your scan
+      cost: free
+      time: seconds, then up to 3 minutes for your scan
+      writes: link.json, then signal.json and signal-cli's account folder in the pack's data folder
+    - {id: number, title: Or a number of its own, kind: note, text: setup/number.md}
+    - id: test
+      title: A test message
+      kind: check
+      run: ["${halo_python}", "${CLAUDE_PLUGIN_ROOT}/bin/signal.py", "setup", "test"]
+      what: asks the running bridge to send a test message to each paired phone (Note to Self with a linked account)
+      cost: free (one Signal message each)
+      time: seconds
+      writes: a request file in the pack's data folder
+    - id: pair
+      title: Pair a phone
+      kind: check
+      run: ["${halo_python}", "${CLAUDE_PLUGIN_ROOT}/bin/signal.py", "setup", "pair"]
+      what: makes a six-word pairing phrase and its QR code (good for 10 minutes); run it again to see "waiting" or "paired"
+      cost: free
+      time: seconds
+      writes: invites.json (a salted hash of the phrase, never the phrase)
+    - id: phones
+      title: Phones
+      kind: check
+      run: ["${halo_python}", "${CLAUDE_PLUGIN_ROOT}/bin/signal.py", "setup", "phones"]
+      what: lists the paired phones with their signing, home folder and notes (change them with /signal)
+      cost: free
+      time: seconds
+      writes: nothing
+    - {id: prefs, title: The conversation, kind: form, fields: [home_dir, model, verbosity, notify, pair_ttl_s, rate_per_minute, stale_window_s, "on"]}
+    - id: service
+      title: The service
+      kind: check
+      run: ["${halo_python}", "${CLAUDE_PLUGIN_ROOT}/bin/signal.py", "setup", "service"]
+      what: reads the supervisor's row for the bridge and says how to start the supervisor at logon
+      cost: free
+      time: seconds
+      writes: nothing
+config:
+  schema:
+    properties:
+      "on": {type: boolean, description: "the bridge answers; false is /signal off"}
+      rate_per_minute: {type: integer, minimum: 1, description: "messages per minute per phone before they are dropped"}
+      verbosity: {type: string, enum: [loud, quiet], description: "loud: every turn of the attached session reaches the phone; quiet: only its own"}
+      stale_window_s: {type: integer, minimum: 30, description: "a signed message further than this from the clock is turned away"}
+      pair_ttl_s: {type: integer, minimum: 60, description: "seconds a pairing phrase is good for"}
+      home_dir: {type: string, description: "where a phone's new sessions start (empty: your home folder)"}
+      model: {type: string, description: "the model a phone's session starts on (empty: your default model)"}
+      notify: {type: array, items: {type: string, enum: [turn_done, asks, errors, supervisor, steward]}, description: "what arrives unprompted on a newly paired phone"}
+    additionalProperties: false
+  defaults: {"on": true, rate_per_minute: 30, verbosity: loud, stale_window_s: 300, pair_ttl_s: 600, home_dir: "", model: "", notify: [asks, errors, supervisor]}
+permissions: [services]

@@ -12,8 +12,8 @@
 import { useState } from "react";
 import { Button, Dialog, Empty } from "../../../lib/ui";
 import { BundlesGroup } from "./Bundles"; // 3.3.7.0 R5: the bundles, each a tick with its verdict
-import { cli, disablePack, enablePack, mgr, previewUpdate, removePack, rollbackPack, selectPack, updatePack, useMgr } from "./store";
-import type { PackRow, PolicyBlock } from "./types";
+import { cli, disablePack, enablePack, mgr, previewUpdate, removePack, rollbackPack, selectPack, serviceAct, updatePack, useMgr } from "./store";
+import type { PackRow, PolicyBlock, ServiceRow } from "./types";
 
 const NONE: string[] = [];
 
@@ -28,6 +28,21 @@ function PolicyChip({ b, id }: { b: PolicyBlock; id: string }) {
   return (
     <span className="og-chip mono pm-policy" title={title} data-testid="pm-policy" data-armed={b.armed.length || undefined}>
       {b.armed.length ? `armed: ${b.armed.join(", ")}` : "no policy armed"}{b.last ? ` · last: ${b.last}` : ""}
+    </span>
+  );
+}
+
+/** 3.3.13.0 R3: a service the supervisor runs for the pack: its state line, with Start or Stop. */
+function ServiceChip({ s, id, busy }: { s: ServiceRow; id: string; busy: boolean }) {
+  const running = s.state === "running";
+  const cmd = `halo supervise service ${running ? "stop" : "start"} ${s.key}`;
+  return (
+    <span className="pm-service" data-testid="pm-service" data-state={s.state} data-key={s.key}>
+      <span className={`og-chip mono${running ? "" : " pm-warn"}`} title={s.description}>service {s.line}</span>
+      <Button size="sm" variant="ghost" disabled={busy} onClick={() => void serviceAct(id, s.name, running ? "stop" : "start")}
+              title={`${cmd}: the running supervisor ${running ? "stops" : "starts"} it at its next tick`} data-testid="pm-service-act">
+        {running ? "Stop" : "Start"}
+      </Button>
     </span>
   );
 }
@@ -68,6 +83,7 @@ function Row({ p, on }: { p: PackRow; on: boolean }) {
         {warn && <span className="pm-row-warn" data-testid="pm-row-warn">{warn}</span>}
       </button>
       <span className="pm-row-acts">
+        {p.enabled && (p.services || []).map((s) => <ServiceChip key={s.key} s={s} id={p.id} busy={busy} />)}
         {!p.enabled && (
           <Button size="sm" variant="primary" disabled={busy} onClick={() => void enablePack(p.id, picks)} title={cli.enable(p.id, picks)} data-testid="pm-enable">
             Enable{picks.length ? ` (${picks.length} grant${picks.length === 1 ? "" : "s"})` : ""}

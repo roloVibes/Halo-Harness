@@ -1,13 +1,13 @@
 """halo_harness.ext -- the extension API a pack's code imports (Halo 3.2.0.0
-R1, docs/EXTENSION_API.md). `API_VERSION` 1.1 (3.3.10.0 R1: + set_mode,
-current_mode; a 1.0 pack keeps everything): a name listed in
+R1, docs/EXTENSION_API.md). `API_VERSION` 1.2 (3.3.10.0 R1, 1.1: + set_mode,
+current_mode; 3.3.13.0 R3, 1.2: + remote, contributes.services; a 1.0 or 1.1 pack keeps everything): a name listed in
 `__all__` keeps its meaning for every 1.x; a pack imports this package and
 nothing else of `halo_harness` (tests/test_ext_api.py checks the fixture
 packs for exactly that).
 
     from halo_harness.ext import API_VERSION, read_yaml, get_config, publish_event
 
-    API_VERSION / HALO_API_VERSION  "1.1": what pack.yaml's `halo_api` range is matched against
+    API_VERSION / HALO_API_VERSION  "1.2": what pack.yaml's `halo_api` range is matched against
     api_version() / compatible(range) / deprecations()
                                     3.2.0.0 R7: this API's version, whether a `halo_api` range takes it under the
                                     policy below, the names announced for removal (none in 1.0)
@@ -31,6 +31,9 @@ packs for exactly that).
                                     mode on arms the policy hooks that name it
     testing                         3.3.12.0 R4 (API 1.1): a pack's tests -- testing.run(folder) makes every check
                                     `halo pack test` makes (a scratch home, no model, no network); Report.add for its own
+    remote                          3.3.13.0 R3 (API 1.2): the transport seam -- the live sessions and their control
+                                    sockets, a session started for a transport, the cards' text, the notes, a voice
+                                    note's transcript, a pack service's row (ext/remote.py)
     Unit                            the unit of work (halo_harness.work.unit.Unit)
     is_valid_pack_id, is_valid_name, qualified_name, split_name
                                     the name rules (`<id>--<name>` for a pack's bios and lineups)
@@ -46,7 +49,7 @@ is inclusive at its own precision, and with no `max` the pack runs on its `min`'
 
 from __future__ import annotations
 
-API_VERSION = "1.1"  # 3.3.10.0 R1: 1.1 adds set_mode, current_mode. MAJOR.MINOR: a minor adds names, a major removes only names deprecations() announced
+API_VERSION = "1.2"  # 3.3.13.0 R3: 1.2 adds remote, contributes.services (1.1: set_mode, current_mode). MAJOR.MINOR: a minor adds names, a major removes only names deprecations() announced
 HALO_API_VERSION = API_VERSION
 
 from halo_harness.ext.compat import api_version, compatible, deprecations  # noqa: E402  (3.2.0.0 R7)
@@ -57,6 +60,7 @@ from halo_harness.ext.grants import is_granted  # noqa: E402
 from halo_harness.ext import memory  # noqa: E402  (3.2.0.0 R5: memory.write)
 from halo_harness.ext import testing  # noqa: E402  (3.3.12.0 R4, API 1.1: a pack's tests, halo pack test)
 from halo_harness.ext.mode import current_mode, set_mode  # noqa: E402  (3.3.10.0 R1, API 1.1)
+from halo_harness.ext import remote  # noqa: E402  (3.3.13.0 R3, API 1.2: the transport seam)
 from halo_harness.ext.names import is_valid_name, is_valid_pack_id, qualified_name, split_name  # noqa: E402
 from halo_harness.ext.schema import check_schema  # noqa: E402
 from halo_harness.ext.yamlio import read_yaml, write_yaml  # noqa: E402
@@ -67,4 +71,5 @@ __all__ = ["API_VERSION", "HALO_API_VERSION", "read_yaml", "write_yaml", "check_
            "is_valid_pack_id", "is_valid_name", "qualified_name", "split_name", "memory",
            "api_version", "compatible", "deprecations",  # 3.2.0.0 R7: the version policy
            "set_mode", "current_mode",  # 3.3.10.0 R1: API 1.1
-           "testing"]  # 3.3.12.0 R4: API 1.1, stable (testing.run, Report, manifest, ask_policy)
+           "testing",  # 3.3.12.0 R4: API 1.1, stable (testing.run, Report, manifest, ask_policy)
+           "remote"]  # 3.3.13.0 R3: API 1.2, stable (the transport seam: ext/remote.py)

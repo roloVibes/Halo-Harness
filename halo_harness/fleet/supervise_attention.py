@@ -28,7 +28,7 @@ GATE_KEYS = {"goal_gate", "goal_budget"}
 
 def rows(home, local: dict, seen: dict, now: float) -> list:
     from halo_harness.fleet.attention import _row
-    from halo_harness.remote.bridge_cards import one_line
+    from halo_harness.remote.cards import one_line
     from halo_harness.supervise import decisions
     out = []
     for d in decisions.open_rows(home):

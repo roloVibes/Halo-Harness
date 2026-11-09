@@ -180,6 +180,7 @@ PACK = {
     "contributes.modes": "3.3.10.0: its runtime modes (id, label, theme); turning one on arms the policies that name it (halo pack mode)",
     "contributes.themes": "3.3.12.0: its own palettes (id, label, posture: dark | light, palette: every token as #rrggbb); each is the theme <pack-id>/<id> while the pack is enabled (/theme, Settings -> Themes)",
     "contributes.setup": "3.3.11.0: its own Setup blocks (id, title, kind: form | check | note, after); shown in Setup while the pack is enabled (halo setup <pack>)",
+    "contributes.services": "3.3.13.0: programs the supervisor keeps running while the pack is enabled (name, run, autostart, restart, health, log); needs the services grant (halo supervise services)",
     "config.schema": "the shape of its settings (packs.settings.<id> in config.json)",
     "config.defaults": "the settings it starts with; yours win",
     "permissions": "what it asks you to grant: mcp:<server>, hooks, bash, network, home-write, studio-script",

@@ -82,7 +82,11 @@ without a model or the network: what a bio, a lineup or a workflow produces when
 an MCP server reached by url, and a tool that is not installed here -- each is a skip line, not a failure.
 
 `tests/pack_test.py` runs the same checks through `halo_harness.ext.testing` (stable in API 1.1) and then the pack's
-own: `report.add(file, what, ok, fix)`. The kit's policy example adds one, `testing.ask_policy(PACK, "guard", "Write",
+own: `report.add(file, what, ok, fix)`. Since 3.3.13.0 `halo pack test` also runs each `tests/test_*.py` of the pack
+as `python -m tests.<name>` from its folder, one check per module (exit 0 passes): the shipped signal pack's tests
+drive its whole conversation through fakes that way. A pack that keeps a program running declares it under
+`contributes.services` (EXTENSION_API.md "Services"); a command that should run a program instead of prompting the
+model says `run:` in its frontmatter. The kit's policy example adds one, `testing.ask_policy(PACK, "guard", "Write",
 {"file_path": ".git/config"})` answering deny. A schema's sample lives in `tests/samples/events/<kind>.json` or
 `tests/samples/artifacts/<name>.json`; a hooks.json entry may say `"halo_test": {"exit": 2}` (it is meant to exit 2)
 or `{"skip": "why"}`.

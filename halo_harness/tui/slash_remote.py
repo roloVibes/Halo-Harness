@@ -1,56 +1,41 @@
-"""halo_harness.tui.slash_remote -- the TUI side of `/remote` (Halo 2.0.9
-round 4): bare `/remote` opens the dialog, `/remote status|pair [N]|off` print
-their text in the transcript, and a slow poll turns the bridge's notices
-(changed safety number, rate limit, captcha) into notifications.
+"""halo_harness.tui.slash_remote -- the TUI side of `/remote` (Halo 2.0.9 round 4; 3.3.13.0 R3: the Signal dialog
+left with the Signal bridge, now the signal pack).
 
-All file work runs on worker threads; the bridge is never started here.
+`/remote` prints the control socket's status in the transcript (remote/status.text: this session's socket, the
+registry, `remote.enabled`, the transports listening, the packs' services). A slow poll keeps the remote chip on the
+transports: with no phone attached to this session it names the transport that listens ("signal"), or the pack
+service that should run and does not ("signal/bridge off"). All file work runs on worker threads.
 """
 
 from __future__ import annotations
 
-NOTICE_POLL_S = 5.0
+CHIP_POLL_S = 15.0
 
 
 async def handle_remote(app, args: str) -> None:
-    if (args or "").strip():
-        from halo_harness.tui.slash import _run_slash_worker
-        app.run_worker(lambda: _run_slash_worker(app, "remote", args), thread=True, name="remote-text",
-                       group="remote-text", exit_on_error=False)
-        return
-    app.run_worker(lambda: _open_dialog(app), thread=True, name="remote", group="remote", exit_on_error=False)
+    from halo_harness.tui.slash import _run_slash_worker
+    app.run_worker(lambda: _run_slash_worker(app, "remote", args or ""), thread=True, name="remote-text",
+                   group="remote-text", exit_on_error=False)
 
 
-def _open_dialog(app) -> None:
-    from halo_harness.remote import dialog_model
-    from halo_harness.tui.dialogs.remote_status import RemoteStatus
-    app.call_from_thread(app.push_screen, RemoteStatus(dialog_model.snapshot()))
-
-
-def poll_notices_once(app) -> int:
-    """Read and clear the bridge's notices; show each as a notification. Returns how many."""
-    from halo_harness.remote import dialog_model
-    notices = dialog_model.pop_notices()
-    for n in notices:
-        text = str(n.get("text") or n.get("kind") or "remote control notice")
-        app.call_from_thread(app.notify, text, title="Remote control", severity="warning")
-    return len(notices)
+def poll_chip_once(app) -> str:
+    from halo_harness.remote.status import chip
+    text = chip()
+    app.call_from_thread(app.status_bar.set_transport, text)
+    return text
 
 
 def start_notice_poll(app) -> None:
-    """Called from the app's mount: only when `remote.enabled` (the Signal
-    bridge's switch; its notices are the bridge's) is on."""
-    from halo_harness.remote import runtime
-    if not runtime.remote_enabled():
-        return
-
+    """Called from the app's mount: the chip's poll (only while some pack declares a service or a transport listens)."""
     def tick() -> None:
-        app.run_worker(lambda: _safe_poll(app), thread=True, name="remote-notices", group="remote-notices",
+        app.run_worker(lambda: _safe_poll(app), thread=True, name="remote-chip", group="remote-chip",
                        exit_on_error=False)
-    app.set_interval(NOTICE_POLL_S, tick)
+    app.set_interval(CHIP_POLL_S, tick)
+    tick()
 
 
 def _safe_poll(app) -> None:
     try:
-        poll_notices_once(app)
+        poll_chip_once(app)
     except Exception:
         pass

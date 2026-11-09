@@ -1685,9 +1685,8 @@ def run_work_checks_structured() -> "tuple[list, bool]":
 
 
 def _check_remote() -> "list[tuple[str, str]]":
-    """Halo 2.0.9 round 4: remote control (control sockets, the Signal bridge,
-    signal-cli's version pin, the JRE, ~/.halo/remote/ permissions, proxy egress
-    hosts) -- see remote/doctor_check.py. One quiet line when it is not in use."""
+    """Halo 2.0.9 round 4: remote control -- 3.3.13.0 R3: the control sockets, remote.enabled, the transports
+    listening, and one row per pack service (the signal pack's bridge among them); see remote/doctor_check.py."""
     try:
         from halo_harness.remote.doctor_check import entries
         return entries()

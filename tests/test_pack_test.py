@@ -138,7 +138,7 @@ def test_the_cli_and_the_json_shape(ctx: Ctx):
         with redirect_stdout(io.StringIO()), redirect_stderr(err := io.StringIO()):
             code = cmd_pack(["test", "no-such-pack"])
         ctx.check(f"a target that is neither: one line, exit 1, got {err.getvalue()}", code == 1
-                  and "is neither a pack folder nor a pack installed here" in err.getvalue())
+                  and "is neither a pack folder, a pack installed here nor one Halo ships" in err.getvalue())
 
 
 @test

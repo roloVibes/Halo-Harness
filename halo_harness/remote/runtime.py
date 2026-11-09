@@ -3,7 +3,7 @@ keep its registry entry fresh (Halo 2.0.9 round 2; Fleet 3.0.5.0). `fleet.enable
 session opens its loopback socket and lists itself in `~/.halo/run/sessions.json`: the TUI (`start_for_
 controller`), `halo -p` (`start_for_print`; Orchestra workers are `-p` children) and
 a mission worker (`start_for_session`). A private session (`--private`, `/private on`, `fleet.private`) opens
-and registers nothing; `remote.enabled` is only the Signal bridge's switch. Each open and close also tells the
+and registers nothing; `remote.enabled` is every transport's switch (remote/notify.py). Each open and close also tells the
 fleet relay (fleet/relay_runtime.py, R2). Openers return None when off or on any failure (a socket problem never
 stops a launch); `stop_one`, `stop_for` and `stop` (all of them, also at exit) are idempotent."""
 

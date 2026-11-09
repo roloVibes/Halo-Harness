@@ -4549,3 +4549,29 @@ one is installed); with Strata installed the doctor's "Strata: strata --version"
 `halo ollama steward findings` showing `engine-*` findings; on the Mac `brew install TensorFold`, pull a model, serve it and
 compare the startup lines with the table. Next: R2 Design out and R3 the Signal pack merge as they hand back.**
 
+**3.3.13.0 R3 BUILT 2026-11-08 night (one Opus round, worktree ~/hh-3313/R3-signal-pack, hand-back v3313-R3-handback.md):
+the Signal pack. The gap list from the code (why it felt like a one-way note): the bridge was a foreground run nothing started;
+pairing took four steps on two devices and every later plain text was refused unsigned; a text with no live session was
+dropped; the answer came as timer-cut chunks then "Done."; the state showed only in the TUI; the at-logon files needed hand
+steps; notes came only through Studio; pictures, PDFs and voice notes were dropped. What each became: **pack services**
+(`contributes.services`, extension API 1.2, grant `services`; `halo supervise` starts, restarts, stops and shows them; the
+Pack Manager's service row with Start / Stop; a doctor row; `halo pack test` checks them); the **transport seam**
+(`halo_harness.ext.remote`: live sessions and sockets, `start_session` through the supervisor so the pack's service never
+holds provider keys, the cards' text from `remote/cards.py`, the core's notes `asks` / `supervisor` / `steward` through
+`remote/notify.py`, `transcribe` through the local speech server, `qr_text`, `words`, `capture_studio`); the shipped
+**signal pack** (`templates/packs/signal/`, off until enabled, `requires: signal-cli`): one six-word text pairs a phone (QR
+too), signing per phone, a text with no session starts one in the phone's home folder (`/cd`, `/new`), the answer paragraph
+by paragraph with a code block whole and `reply.txt` past four messages, a status line after 20 s of silence, thumbs up /
+down answer a card, pictures / PDFs / voice notes in, `/file` and `/shot` out, `/notify on|off <kind>`, a goodbye line when
+the supervisor stops, Setup blocks for the box, the link, the number, a test message, phones and the service. Measure: core
+remote/ 7,660 -> 4,297 lines; 48 files removed, 21 added; the pack 64 files. Decisions: `remote.enabled` defaults to true
+(enabling the pack is the opt-in); the signal-cli downloader is gone (the requirement says the install line); offline mode
+keeps the bridge off; `remote/bridge_cards.py` -> `remote/cards.py`, `remote/daemon_units.py` -> `logon_units.py`;
+API 1.1 -> 1.2. Partial: the core Setup Summary has no "at logon" line (the pack's service block prints the command); the
+pair page refreshes on the next check; `/shot` captures the Studio window. Live check (rolo, eight lines): Setup -> Signal
+-> install signal-cli as the page says; link the device with the QR; text the six words ("Paired ..."); `halo supervise`
+and `halo supervise services` showing signal/bridge connected; with no session open text "hello" -> "Starting a session in
+~ on <model>." then the reply in paragraphs; answer a card with `1` or a thumbs-up; a voice note (`halo local serve --stt`)
+then `/notify asks on`; stop the supervisor -> "No one is listening on this computer now ..." and a text sent then waits.
+Next: R2 Design out merges on its hand-back; then the 3.3.13.0 release on green both.**
+

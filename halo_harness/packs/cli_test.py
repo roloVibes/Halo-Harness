@@ -37,7 +37,10 @@ def folder_of(target: str, cwd=None) -> "tuple[Path | None, str]":
     from halo_harness.packs.names import is_valid_pack_id
     pack = find(target, cwd=cwd) if is_valid_pack_id(target) else None
     if pack is None:
-        return None, f"{target!r} is neither a pack folder nor a pack installed here (halo pack list)"
+        shipped = Path(__file__).resolve().parent.parent / "templates" / "packs" / target  # 3.3.13.0 R3: `halo pack test signal`
+        if is_valid_pack_id(target) and (shipped / "pack.yaml").is_file():
+            return shipped, ""
+        return None, f"{target!r} is neither a pack folder, a pack installed here nor one Halo ships (halo pack list --available)"
     return Path(pack.root), ""
 
 

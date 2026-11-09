@@ -1,43 +1,16 @@
-"""tests.helpers.signal_rig -- shared pieces for the Signal remote-control
-tests: a scoped state home, `wait_for`, an in-process `StubTransport` (the
-transport surface the bridge and pairing use, recording everything) and a
-helper that pairs a fake peer through the real contact-request flow."""
+"""tests.helpers.signal_rig -- what Halo's own tests keep of the Signal test kit after the bridge became the signal pack
+(3.3.13.0 R3; the pack's own tests live in halo_harness/templates/packs/signal/tests/): fake ids, `wait_for`, and
+`StubTransport` -- the transport surface the pack's bridge uses, recording every send -- for tests/test_pack_signal.py,
+which drives the installed pack's bridge over real control sockets. Every id and number is fake."""
 from __future__ import annotations
 
-import os
-import tempfile
 import threading
 import time
-
-from halo_harness.remote.signal_typing import TypingKeeper
+from pathlib import Path
 
 ACI_A = "00000000-0000-4000-8000-000000000001"
 ACI_B = "00000000-0000-4000-8000-000000000002"
-ACI_X = "00000000-0000-4000-8000-0000000000ff"
 SAFETY_A = "11111 22222 33333 44444 55555 66666 77777 88888 99999 00000 11111 22222"
-SAFETY_B = "99999 88888 77777 66666 55555 44444 33333 22222 11111 00000 99999 88888"
-SENTINEL = "zebra-sentinel-4417"
-
-
-class Home:
-    """A fresh `BRIDGE_TEST_HOME` (never `BRIDGE_STATE_DIR`), restored on exit."""
-
-    def __init__(self) -> None:
-        self._saved = {k: os.environ.get(k) for k in ("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR")}
-        os.environ.pop("BRIDGE_STATE_DIR", None)
-        self.path = tempfile.mkdtemp(prefix="signal-home-")
-        os.environ["BRIDGE_TEST_HOME"] = self.path
-
-    def __enter__(self) -> "Home":
-        return self
-
-    def __exit__(self, *exc) -> bool:
-        for k, v in self._saved.items():
-            if v is None:
-                os.environ.pop(k, None)
-            else:
-                os.environ[k] = v
-        return False
 
 
 def wait_for(cond, timeout: float = 5.0, step: float = 0.02) -> bool:
@@ -53,53 +26,46 @@ def now_ms() -> int:
     return int(time.time() * 1000)
 
 
-class FakeClock:
-    def __init__(self, start: float = 1_800_000_000.0) -> None:
-        self.now = start
+class _Typing:
+    def __init__(self, tr) -> None:
+        self.tr = tr
 
-    def time(self) -> float:
-        return self.now
+    def start(self, aci) -> bool:
+        self.tr.typing_calls.append((aci, False))
+        return True
 
-    def monotonic(self) -> float:
-        return self.now
+    def stop(self, aci) -> None:
+        self.tr.typing_calls.append((aci, True))
+
+    def stop_all(self) -> None:
+        pass
 
 
 class StubTransport:
-    """Records every call; `deliver(item)` plays an inbound item to the sink."""
+    """Records every call; `deliver(params)` plays an inbound envelope; `files` maps an attachment id to (bytes, type)."""
 
     def __init__(self) -> None:
-        self.sent: list = []
-        self.receipts: list = []
-        self.trusts: list = []
-        self.typing_calls: list = []
+        self.sent, self.receipts, self.trusts, self.typing_calls = [], [], [], []
         self.identities: dict = {}
-        self.attachment_text: dict = {}
-        self.discarded: list = []
-        self.trust_error = None
-        self.send_error = None
-        self.linked = False
+        self.files: dict = {}
         self.sink = lambda item: None
-        self.started = False
-        self.typing = TypingKeeper(self, 0.05)
+        self.typing = _Typing(self)
         self._lock = threading.Lock()
 
     def set_sink(self, fn) -> None:
         self.sink = fn
 
-    def start(self) -> "StubTransport":
-        self.started = True
+    def start(self):
         return self
 
     def stop(self) -> None:
-        self.typing.stop_all()
+        pass
 
     def deliver(self, params: dict) -> None:
         self.sink({"kind": "envelope", "envelope": params["envelope"], "exception": params.get("exception"),
                    "account": params.get("account")})
 
     def send(self, recipient, text="", *, attachment=None, styles=None, note_to_self=None):
-        if self.send_error is not None:
-            raise self.send_error
         with self._lock:
             self.sent.append({"to": recipient, "text": text, "attachment": attachment, "styles": styles})
         return {}
@@ -109,8 +75,7 @@ class StubTransport:
             return [s["text"] for s in self.sent if to in (None, s["to"])]
 
     def send_typing(self, recipient, stop=False):
-        with self._lock:
-            self.typing_calls.append((recipient, stop))
+        self.typing_calls.append((recipient, stop))
 
     def send_receipt(self, recipient, timestamp, kind="read"):
         self.receipts.append((recipient, timestamp, kind))
@@ -119,52 +84,31 @@ class StubTransport:
         return self.identities.get(aci)
 
     def trust(self, recipient, safety_number):
-        if self.trust_error is not None:
-            raise self.trust_error
         self.trusts.append((recipient, safety_number))
 
-    def take_attachments(self, attachments, want_text):
-        text = None
+    def take_attachments(self, attachments, want_text, inbox=None):
+        got = []
         for a in attachments or []:
-            self.discarded.append(a.get("id"))
-            if want_text and text is None and a.get("contentType") == "text/x-signal-plain":
-                text = self.attachment_text.get(a.get("id"))
-        return text
+            data, ctype = self.files.get(a.get("id"), (b"", a.get("contentType")))
+            if want_text and inbox is not None:
+                Path(inbox).mkdir(parents=True, exist_ok=True)
+                dest = Path(inbox) / f"{a['id']}-{a.get('filename') or 'file'}"
+                dest.write_bytes(data)
+                got.append({"path": str(dest), "content_type": ctype, "filename": a.get("filename") or "file",
+                            "voice": str(ctype).startswith("audio/")})
+        return None, got
 
 
-def pair_peer(pairing, aci: str, number=None, safety=SAFETY_A, *, signed: bool = True) -> bytes:
-    """Pair `aci` through the real flow (contact request, approve, code); returns its secret."""
-    pairing.note_contact(aci, number, safety)
-    ap = pairing.approve(aci)
-    res = pairing.redeem(aci, ap.code, number)
-    assert res.status == "paired", res.status
-    if not signed:
-        pairing.set_signed(aci, False)
-    return res.secret
+def envelope(uuid: str, text, ts: int, number=None, attachments=None, reaction=None) -> dict:
+    dm = {"timestamp": ts, "message": text, "attachments": attachments or []}
+    if reaction:
+        dm["reaction"] = reaction
+    env = {"source": number or uuid, "sourceNumber": number, "sourceUuid": uuid, "sourceDevice": 1, "timestamp": ts,
+           "dataMessage": dm}
+    return {"envelope": env, "account": "+15550199"}
 
 
-class NoRegistry:
-    def list_live(self):
-        return []
-
-
-def mk_bridge(**cfg):
-    """A Bridge over a StubTransport and a FakeClock, no live sessions."""
-    from halo_harness.remote.bridge import Bridge
-    tr = StubTransport()
-    clock = FakeClock()
-    b = Bridge({"rate_per_minute": 30, **cfg}, tr, registry=NoRegistry(), clock=clock)
-    tr.set_sink(b.inbox.put)
-    return b, tr, clock
-
-
-def pump(b) -> None:
-    while not b.inbox.empty():
-        b.step(0.01)
-
-
-def say(b, tr, clock, aci, text, number=None):
-    """Deliver a message from `aci` and let the bridge handle it."""
-    from tests.helpers.fake_signal_cli import data_message
-    tr.deliver(data_message(aci, text, int(clock.now * 1000), number))
-    pump(b)
+def untrusted(uuid: str, number=None, ts: int = 0) -> dict:
+    env = {"source": number or uuid, "sourceNumber": number, "sourceUuid": uuid, "sourceDevice": 1, "timestamp": ts}
+    return {"envelope": env, "account": "+15550199",
+            "exception": {"message": f"Untrusted identity: {number or uuid}", "type": "UntrustedIdentityException"}}

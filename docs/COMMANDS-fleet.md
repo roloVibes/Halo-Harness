@@ -6,12 +6,12 @@ Part of [Commands](COMMANDS.md), which lists every part.
 
 ## `halo remote`
 
-Halo 2.0.9. Remote control of a running session, and the Signal bridge that
-lets a phone drive one. The full description (the control socket and its wire,
-the threat model, setup per OS, pairing, signing, the chat commands, a live
-checklist) is in [REMOTE.md](REMOTE.md). Every `signal` verb takes `--json`
-(one JSON object on stdout); exit codes are 0 done, 1 could not do it (the
-reason on stderr), 2 usage. A bare `halo remote signal` prints the verb list.
+Halo 2.0.9. Remote control of a running session. The full description (the
+control socket and its wire, the event feed, the registry, the transports) is in
+[REMOTE.md](REMOTE.md); exit codes are 0 done, 1 could not do it (the reason on
+stderr), 2 usage. 3.3.13.0 R3: the Signal bridge that lets a phone drive a
+session is the signal pack (`halo pack install signal`, then `/signal`; its
+README); `halo remote signal ...` prints one line that says so.
 
 ### `halo remote sessions`
 
@@ -55,68 +55,12 @@ halo remote stop 3f2a --agent 9c41d2e0 --reason "wrong folder"
 Each command goes out with `by` = `fleet.name` and `via` = `halo remote`,
 recorded in the agent's transcript. See [SUBAGENTS.md](SUBAGENTS.md).
 
-### `halo remote signal setup`
+### `halo remote transports`
 
-Asks for the identity model (`--model dedicated`, the default and the
-recommended one, or `--model linked`), then finds signal-cli 0.14.9 (an
-earlier `setup`, or on `PATH`) or offers to download it into
-`~/.halo/remote/signal-cli/dist/`. The download needs a yes (`--yes`);
-`--no-download` only looks; `--binary PATH` uses a signal-cli you already have;
-`--jvm` forces the JVM build (JRE 25) even on Linux x86-64, for a proxied host.
-Linux x86-64 gets the native build, every other OS the JVM build; the `.asc` is
-checked with `gpg` when present. Writes `~/.halo/remote/signal.json` and sets
-`remote.signal.enabled`. Never installs system-wide.
-
-### `halo remote signal register`
-
-`halo remote signal register +15555550123` registers the dedicated number: it
-prints the captcha page when Signal asks for one; pass the token with
-`--captcha`; `--voice` asks for a call (only after an SMS was requested); `--code`
-completes the registration; `--pin` supplies the registration-lock PIN of a
-number that already has one. A Signal rate limit prints `retryAfterSeconds`.
-The registration-lock PIN reaches signal-cli through its JSON-RPC stdin (`setPin`,
-and `verify` when signal-cli offers it), never on the command line; only when
-signal-cli has no such method for `verify --pin` does `--pin` go on argv, and then
-the command says so. After `--code` a registration-lock PIN is set and kept in
-`~/.halo/remote/registration-pin` (0600).
-
-### `halo remote signal link`
-
-Links signal-cli as a device of your own Signal account: prints the
-`sgnl://linkdevice` URI and draws it as a QR code (half-blocks; `--ascii` for
-`#`), waits for the scan (`--timeout` seconds, default 180), and stores the
-account with the `linked` identity model. `--name` sets the device name.
-
-### `halo remote signal run`
-
-Runs the bridge in the foreground. `--daemon` writes the service-manager file
-for this OS (a systemd user unit, a launchd plist or a Task Scheduler XML)
-under `~/.halo/remote/` and prints the one command that enables it; it never
-enables it. `--os` writes the file for another OS. Does nothing while
-`remote.signal.enabled` is false.
-
-### `halo remote signal pair`
-
-Lists the contact requests (number, ACI prefix, safety number) and clears the
-bridge's notices (a changed safety number, a rate limit). `--approve N` (a
-number from the list, or an ACI prefix) issues the six-digit code and, waiting
-up to `--wait` seconds (default 600), prints the 32-word signing phrase and the
-`halo-remote://` link as text and a QR code once the phone has sent the code.
-This screen (and the `/remote` dialog) is the only place the phrase is shown: the
-chat reply to the phone is just "Paired. Your signing phrase is on the Halo screen."
-
-### `halo remote signal peers`, `unpair`, `reverify`
-
-`peers` lists the paired phones (never their secrets). `unpair <aci-prefix>`
-removes one with its secret. `reverify <aci-prefix>` trusts a blocked phone's
-new safety number (the running bridge finishes the step).
-
-### `halo remote signal status`, `off`, `on`
-
-`status` shows the bridge (state and pid), the signal-cli version against the
-pin, the account, the phones and the last command's time. `off` is the kill
-switch: it asks a running bridge to exit (a stop file it polls) and sets
-`remote.signal.enabled` to false; `on` sets it back.
+Halo 3.3.13.0 R3. The transports listening here (a pack's bridge -- the signal
+pack's says `signal` while its service runs) and `remote.enabled`, every
+transport's switch; `--json` for the same as one object. See
+[REMOTE.md](REMOTE.md#transports).
 
 ## `halo fleet`
 

@@ -465,6 +465,13 @@ class StatusBar(Static):
             self.remote_attached = count
             self._refresh_display()
 
+    def set_transport(self, text: "str | None") -> None:
+        """3.3.13.0 R3: with no phone attached, the chip names the transport that listens (or its stopped service)."""
+        text = (text or "").strip() or None
+        if text != getattr(self, "transport_chip", None):
+            self.transport_chip = text
+            self._refresh_display()
+
     def set_voice(self, chip: "str | None") -> None:
         """3.3.9.0 R2: the mic chip beside the remote one (tui/voice_view.py); None: voice is off."""
         self.voice_chip = chip or None
@@ -477,10 +484,11 @@ class StatusBar(Static):
                 return "private"
         except Exception:
             pass
-        if not self.remote_attached:
-            return ""
         from halo_harness.theme import supports_truecolor
         ascii_mode = self.hud_ascii if self.hud_ascii is not None else not supports_truecolor()
+        if not self.remote_attached:
+            transport = getattr(self, "transport_chip", None)
+            return f"{'<>' if ascii_mode else chr(0x21C4)} {transport}" if transport else ""
         return remote_chip(self.remote_attached, ascii_mode)
 
     def set_gov_state(self, state: "tuple | None") -> None:

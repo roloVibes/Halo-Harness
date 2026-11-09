@@ -51,7 +51,7 @@ keys, peers and grants, the audit), `host/http.py` (the signed `/host/v1/` route
 `view` answers: card, catalog with fit, profiles, events, the tail without request bodies), `host/answers.py` (the
 fit simulation and the routing answer), `host/join.py` (a peer's half of pairing); `host_cli.py` (`halo host serve
 | status | stop`), `host_pair_cli.py` (`pair | join`, `status --peer`), `host_install.py` (`install | uninstall`
-through remote/daemon_units.py). The harness side: `ollama_steward/host_client.py` (`for_host`, the signed client,
+through logon_units.py, remote/daemon_units.py before 3.3.13.0). The harness side: `ollama_steward/host_client.py` (`for_host`, the signed client,
 the ladder's host rung) and `ollama_steward/host_reads.py` (the card, log, tail, events and profiles read through
 it); `fleet/hub_hosts.py` (the hub's list of announced hosts); `ui/src/routes/local/HostServedBy.tsx`.
 

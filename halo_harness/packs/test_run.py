@@ -104,11 +104,14 @@ def _doctor(r: Run) -> None:
 def run(folder: Path, kinds=(), timeout: float = 10.0) -> dict:
     from halo_harness.packs import test_run_parts as P
     from halo_harness.packs import test_run_proc as X
+    from halo_harness.packs.test_run_services import services  # 3.3.13.0 R3: contributes.services
+    from halo_harness.packs.test_run_own import own_tests  # 3.3.13.0 R3: the pack's own tests/test_*.py
     r = Run(Path(folder).resolve(), kinds, timeout)
     if _manifest(r) and _install(r):
         _doctor(r)
         for step in (P.agents, P.teams, P.skills, P.commands, X.entry, X.hooks, X.mcp, P.events, P.artifacts,
-                     P.workflows, P.studio, P.bundle, P.fleet, X.policy, P.modes, X.setup, P.themes, P.requirements):
+                     P.workflows, P.studio, P.bundle, P.fleet, X.policy, P.modes, X.setup, P.themes, P.requirements,
+                     services, own_tests):
             try:
                 step(r)
             except Exception as e:  # a check that breaks says so as a failure of its own, the rest still run

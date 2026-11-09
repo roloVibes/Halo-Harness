@@ -3,7 +3,7 @@
 
   * Z1  a design turn sends its prompt on stdin, never in argv
   * Z2  (pinned the cx: route, removed in 3.1.5.0)
-  * Z3  gpg runs with the provider keys stripped
+  * Z3  (gpg for the signal-cli download: gone with the downloader, 3.3.13.0 R3)
   * Z5  Org layouts persist under a file name NTFS accepts
   * Z6  the model-table ingest keeps every other section
 
@@ -97,36 +97,7 @@ def test_z1_the_stdin_prompt_is_capped_in_bytes_and_a_runner_can_take_it(ctx: Ct
     ctx.check("a runner that takes stdin= gets the prompt", seen["stdin"] == "a hero" and "a hero" not in seen["cmd"])
 
 
-@test
-def test_z3_gpg_runs_without_provider_keys(ctx: Ctx):
-    from halo_harness.remote import signal_install as inst
-    sig = Path(tempfile.mkdtemp(prefix="z3-")) / "a.tar.gz.asc"
-    sig.write_text("sig", encoding="utf-8")
-    seen = {}
-
-    def runner(argv, **kw):
-        seen["argv"], seen["env"] = argv, kw.get("env")
-        return SimpleNamespace(returncode=2, stdout="", stderr="")
-    saved = (inst.RELEASE_KEY_FINGERPRINT, inst.shutil.which, os.environ.get("OPENROUTER_API_KEY"),
-             os.environ.get("DATABRICKS_TOKEN"))
-    inst.RELEASE_KEY_FINGERPRINT = "A" * 40
-    inst.shutil.which = lambda name: "/usr/bin/" + name
-    os.environ["OPENROUTER_API_KEY"] = "z3-or-value"
-    os.environ["DATABRICKS_TOKEN"] = "z3-dbx-value"
-    try:
-        status, _ = inst.verify_signature(sig.with_suffix(""), sig, runner=runner)
-    finally:
-        inst.RELEASE_KEY_FINGERPRINT, inst.shutil.which = saved[0], saved[1]
-        for k, v in (("OPENROUTER_API_KEY", saved[2]), ("DATABRICKS_TOKEN", saved[3])):
-            if v is None:
-                os.environ.pop(k, None)
-            else:
-                os.environ[k] = v
-    env = seen.get("env")
-    ctx.check("gpg ran through the stubbed runner", seen.get("argv", [None])[0] == "gpg" and status == "unverified")
-    ctx.check("gpg got an explicit environment", isinstance(env, dict) and bool(env))
-    ctx.check("no provider key reaches gpg", "OPENROUTER_API_KEY" not in env and "DATABRICKS_TOKEN" not in env
-              and "z3-or-value" not in env.values())
+# test_z3_gpg_runs_without_provider_keys: gone with the Signal bridge's signal-cli downloader (3.3.13.0 R3: the signal pack never installs signal-cli)
 
 
 @test

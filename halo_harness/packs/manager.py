@@ -126,6 +126,8 @@ def row(pack, snap, *, listed: "dict | None" = None, health=(), cwd=None, state_
     out["setup_waiting"] = waiting_count(pack, state_dir) if pack.id in snap.order else 0
     from halo_harness.packs.manifest_requires import needs_words  # 3.3.12.0 R4: "needs rg" for a tool not here
     out["needs"] = needs_words(pack)
+    from halo_harness.supervise.services_rows import manager_block as services  # 3.3.13.0 R3: its services' rows
+    out["services"] = services(pack, state_dir)
     return out
 
 

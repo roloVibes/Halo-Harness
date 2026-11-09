@@ -136,33 +136,24 @@ def test_health_is_read_only_cached_and_asks_a_member_once(ctx: Ctx):
         undo()
 
 
-class _Bridge:
-    def __init__(self, folder: Path):
-        self.pairing = type("P", (), {"dir": folder.parent, "peers": lambda _self: {"aci-1": {}, "aci-2": {"blocked_until_reverified": True}}})()
-        self.sent: list = []
-
-    def say(self, aci, text, card=False):
-        self.sent.append((aci, text, card))
-
-
 @test
-def test_the_phone_push_only_when_enabled_running_and_paired(ctx: Ctx):
-    import os
+def test_the_phone_push_only_while_a_transport_listens(ctx: Ctx):
+    """3.3.13.0 R3: the attention queue's new rows are `asks` notes on the transports' seam (remote/notify.py) while a
+    transport listens and remote.enabled is on; fleet.attention.signal false keeps them in Studio."""
     from halo_harness.config.paths import bridge_home
     from halo_harness.fleet import push
+    from halo_harness.remote import notify as N
     from halo_harness.studio.fleet_watch_sources import push_ready
     from halo_harness.theme import set_config_value
     home = bridge_home()
     row = {"id": "permission:M:s2:p9", "kind": "permission", "harness": "M", "harness_name": "kali@lab", "session_id": "s2",
            "agent": "verifier", "what": "Permission: Bash", "detail": "make clean", "target": {"request_id": "p9"}}
     asks = {("M", "s2", "p9"): {"data": {"id": "p9", "name": "Bash", "input": {"command": "make clean"}}}}
-    ctx.check("off by default: nothing is ready", not push.ready(home) and not push_ready(home))
-    (home / "remote").mkdir(parents=True, exist_ok=True)
-    (home / "remote" / "peers.json").write_text(json.dumps({"peers": {"aci-1": {}}}), encoding="utf-8")
-    (home / "remote" / "bridge.json").write_text(json.dumps({"state": "connected", "pid": os.getpid(), "started": time.time()}), encoding="utf-8")
-    set_config_value("remote.enabled", True)
+    ctx.check("no transport listens: nothing is ready", not push.ready(home) and not push_ready(home))
+    N.listen("signal", home)
+    _rows, cur = N.since("", state_dir=home)
     try:
-        ctx.check("enabled, running and paired: ready", push.ready(home) and push_ready(home))
+        ctx.check("a transport listens and remote.enabled is on (its default): ready", push.ready(home) and push_ready(home))
         set_config_value("fleet.attention.signal", False)
         from halo_harness.fleet import identity
         identity.forget_cache()
@@ -170,17 +161,14 @@ def test_the_phone_push_only_when_enabled_running_and_paired(ctx: Ctx):
         set_config_value("fleet.attention.signal", True)
         identity.forget_cache()
         n = push.spool(home, [row, {**row, "id": "x", "local": True, "remote_attached": 1}], asks)
-        folder = home / "remote" / push.SPOOL
-        ctx.check(f"one card spooled (a session a phone is attached to is skipped), got {n}", n == 1 and len(list(folder.glob("*.json"))) == 1)
-        (folder / "0-old.json").write_text(json.dumps({"id": "old", "created": time.time() - push.KEEP_S - 5, "text": "stale"}), encoding="utf-8")
-        b = _Bridge(folder)
-        sent = push.drain(b)
-        ctx.check(f"the bridge sends it to the paired, unblocked phone as a card, prefixed, got {b.sent}",
-                  sent == 1 and len(b.sent) == 1 and b.sent[0][0] == "aci-1" and b.sent[0][2] is True
-                  and b.sent[0][1].startswith("[kali@lab · verifier]") and "make clean" in b.sent[0][1])
-        ctx.check("the spool is empty after, the stale card dropped unsent", not list(folder.glob("*.json")))
-    finally:
+        got, _cur = N.since(cur, state_dir=home)
+        ctx.check(f"one asks note (a session a phone is attached to is skipped), prefixed, got {got}", n == 1 and len(got) == 1
+                  and got[0]["kind"] == "asks" and got[0]["text"].startswith("[kali@lab · verifier]")
+                  and "make clean" in got[0]["text"] and got[0]["session"] == "s2")
         set_config_value("remote.enabled", False)
+        ctx.check("remote.enabled false: not ready", not push.ready(home))
+    finally:
+        set_config_value("remote.enabled", True)
 
 
 def _jline(f, **row) -> None:

@@ -130,8 +130,8 @@ async def handle_slash(app, name: str, args: str) -> None:
         # Halo 3.1.4.0 R2: bare /studio opens Studio on this session (the Session
         # dashboard), /studio <section> on that section; `... url` prints the URL.
         "studio": _handle_studio,
-        # Halo 2.0.9 round 4: bare /remote opens the Signal remote-control
-        # dialog; /remote status|pair|off print text (see tui/slash_remote.py).
+        # Halo 2.0.9 round 4 (3.3.13.0 R3): /remote prints the control socket's
+        # status; the Signal bridge is the signal pack (see tui/slash_remote.py).
         "remote": _handle_remote,
         # Halo 3.0.5.0 R2: bare /fleet opens the fleet table dialog (tui/slash_fleet.py).
         "fleet": _handle_fleet,

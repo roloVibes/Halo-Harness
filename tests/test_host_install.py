@@ -1,5 +1,5 @@
 """tests.test_host_install -- Halo 3.3.7.0 R1 deliverable 5: `halo host install | uninstall` (host_install.py)
-through remote/daemon_units.write_unit, over a scratch home (tests/helpers/host_rig.py):
+through logon_units.write_unit (remote/daemon_units.py before 3.3.13.0 R3), over a scratch home (tests/helpers/host_rig.py):
 
 1. the three service files for the host's argv ([python, -m, halo_harness.cli, host, serve, --foreground, ...]): a
    systemd user unit halo-host.service, a launchd agent com.halo.host (its own label), a Task Scheduler task "Halo
@@ -7,8 +7,8 @@ through remote/daemon_units.write_unit, over a scratch home (tests/helpers/host_
 2. --port / --bind ride the argv;
 3. a machine that serves no Ollama host: one line, nothing written; --anyway writes it;
 4. uninstall removes the file it wrote and prints the disable command; a second says there is none;
-5. no service manager is ever run (subprocess is a refusing seam for the whole module); the Signal bridge's and the
-   supervisor's plists keep their own labels.
+5. no service manager is ever run (subprocess is a refusing seam for the whole module); the supervisor's and the
+   host's plists keep their own labels.
 Run: python -m tests.test_host_install
 """
 from __future__ import annotations
@@ -131,11 +131,10 @@ def test_uninstall_removes_what_it_wrote(ctx: Ctx):
 
 @test
 def test_the_other_units_keep_their_labels(ctx: Ctx):
-    from halo_harness.remote import daemon_units as du
-    ctx.check("the Signal bridge's plist keeps dev.halo.remote",
-              "<string>dev.halo.remote</string>" in du.render_launchd(["/usr/bin/halo", "remote", "signal", "run"]))
-    ctx.check("the supervisor's plist says dev.halo.supervise",
-              "<string>dev.halo.supervise</string>" in du.render_launchd(["/usr/bin/halo"], {}, "dev.halo.supervise"))
+    from halo_harness import logon_units as du  # 3.3.13.0 R3: renamed from remote/daemon_units.py
+    ctx.check("the supervisor's plist is the default and says dev.halo.supervise",
+              "<string>dev.halo.supervise</string>" in du.render_launchd(["/usr/bin/halo", "supervise"]))
+    ctx.check("a unit's own label wins", "<string>com.halo.host</string>" in du.render_launchd(["/usr/bin/halo"], {}, "com.halo.host"))
 
 
 if __name__ == "__main__":

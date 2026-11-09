@@ -47,6 +47,10 @@ class Supervisor:
         self._lock = threading.Lock()
         self._feed = feed          # a callable returning new feed frames (loop.py's tap); tests pass one
         self._session_cwd: dict = {}
+        from halo_harness.supervise.services import Services  # 3.3.13.0 R3: the enabled packs' services
+        self.services = Services(self.state_dir, clock=clock)
+        from halo_harness.remote.notify_sources import Steward  # 3.3.13.0 R3: the steward's notes to the transports
+        self.steward_notes = Steward(self.state_dir)
 
     # ---- the whole tick --------------------------------------------------------
     def tick(self) -> dict:
@@ -60,6 +64,8 @@ class Supervisor:
         self._decisions()
         self._expire_asks()
         self._arm()
+        self.services.tick()  # 3.3.13.0 R3: start, restart and stop the packs' services (supervise/services.py)
+        self.steward_notes.tick()
         counts = queue.counts(self.state_dir)
         self.pulse.write("running", counts)
         return counts
@@ -207,6 +213,7 @@ class Supervisor:
 
     def close(self) -> None:
         self.armer.stop()
+        self.services.stop_all()
         self.pulse.write("stopped", queue.counts(self.state_dir))
 
 
