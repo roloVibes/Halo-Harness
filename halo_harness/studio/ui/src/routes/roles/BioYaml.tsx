@@ -2,10 +2,10 @@
 // file would hold (`POST yaml {raw}`), editable; "Apply this YAML" turns it
 // back into the draft (`POST yaml {yaml}`), so a key the form has no field
 // for (hooks, a per-tool limit, models.temperature ...) is edited here.
-// Nothing is saved until Save bio.
+// Nothing is saved until Save bio. 3.3.15.0 R3: the YAML is the one TextBox (grows with it to 24 lines, then scrolls).
 import { useEffect, useState } from "react";
 import { api } from "../../lib/api";
-import { Button } from "../../lib/ui";
+import { Button, TextBox } from "../../lib/ui";
 import { editBio } from "./bioActions";
 import { useRoles } from "./store";
 import { msg } from "./sync";
@@ -42,8 +42,8 @@ export function BioYaml() {
   };
   return (
     <div className="re-yaml" data-testid="bio-yaml">
-      <textarea className="input mono re-yaml-text" spellCheck={false} rows={Math.min(24, text.split("\n").length + 1)} value={text}
-                onChange={(e) => setText(e.target.value)} data-testid="bio-yaml-text" aria-label="The bio as YAML" />
+      <TextBox mono maxRows={24} className="re-yaml-text" spellCheck={false} value={text}
+               onChange={(e) => setText(e.target.value)} data-testid="bio-yaml-text" aria-label="The bio as YAML" />
       <div className="re-yaml-row">
         <Button size="sm" variant="primary" onClick={() => void apply()} data-testid="bio-yaml-apply">Apply this YAML</Button>
         {err && <span className="og-problems">{err}</span>}

@@ -29,7 +29,6 @@
 .fl-actions { flex-wrap: nowrap; align-items: center; }
 .fl-actions { position: sticky; bottom: -14px; z-index: 2; padding: 8px 0; margin-bottom: -8px; background: linear-gradient(transparent, var(--surface) 30%); }
 .fl-start-form .fl-actions { bottom: -18px; }
-.fl-start-form .og-text { min-height: 96px; }
 .fl-runline { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 11.5px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
 
 /* Media: ComfyUI does not answer */

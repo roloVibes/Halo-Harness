@@ -670,7 +670,7 @@ opens Studio's bio form on it.
 
 Studio's bio form (Roles -> Bios) and the lineup inspector (Roles ->
 Inspector: Assignment and Lineup tabs) hold every field the terminal shows,
-and each field carries the same help line: Studio reads them from
+and each field carries the same help line (the Inspector's tabs list theirs in the tab's `?`, 3.3.15.0 R3): Studio reads them from
 `GET /api/field-help`, served from `halo_harness/field_help.py`. Each form
 keeps its YAML toggle (a lineup section's raw body; the whole bio, for
 `hooks` and any key with no field); **Save to project scope** writes the

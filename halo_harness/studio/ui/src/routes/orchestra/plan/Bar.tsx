@@ -6,9 +6,9 @@
 // and the lineup's preflight findings. 3.0.9.0 R3: a coach edit staged on a
 // run that already ran shows STAGED with Copy the plan and Back to the run.
 // 3.1.2.0 R2: the header shows the forecast's total against the goal's
-// budget_usd (data-testid plan-forecast), red when over.
+// budget_usd (data-testid plan-forecast), red when over. 3.3.15.0 R3: the reason is the one TextBox.
 import { useState } from "react";
-import { Button } from "../../../lib/ui";
+import { Button, TextBox } from "../../../lib/ui";
 import { addLane, approve, redo, reject, undo } from "./actions";
 import { totalText } from "./forecast";
 import { copyPlan, unstage } from "./stage";
@@ -70,7 +70,7 @@ export function RejectCard() {
     <div className="pc-reject" data-testid="plan-reject-card" role="group" aria-label="Reject the plan">
       <b>Reject the plan</b>
       <span className="muted">The run stops with this reason; the report shows it.</span>
-      <textarea className="input" rows={2} value={reason} placeholder="e.g. one lane per file instead" onChange={(e) => setReason(e.target.value)}
+      <TextBox value={reason} placeholder="e.g. one lane per file instead" onChange={(e) => setReason(e.target.value)}
                 data-testid="plan-reject-reason" autoFocus />
       <div className="og-actions">
         <Button size="sm" variant="danger" disabled={!reason.trim() || !!busy} onClick={() => void reject(reason.trim())} data-testid="plan-reject-confirm">

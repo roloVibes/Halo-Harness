@@ -58,6 +58,5 @@
 .fa-steer-head .rail-label { padding: 0; }
 .fa-mode button { padding: 3px 10px; font-size: 11.5px; }
 .fa-steer-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: end; }
-.fa-steer-text { resize: vertical; min-height: 44px; font: inherit; font-size: 13px; }
 .fa-steer[data-disabled] { opacity: .6; }
 .fa-glance-text { font-size: 12.5px; color: var(--muted); max-height: 5.5em; overflow: hidden; }

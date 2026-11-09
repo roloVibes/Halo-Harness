@@ -5,7 +5,7 @@
    per call; waiting on you: an amber pulse; done: one sweep; failed: a
    flash) and the replay bar. Tokens only (styles/tokens.css). */
 
-.panel-body.face-detail:has(> .rc) { padding: 10px; overflow: hidden; }
+.panel-body.face-detail:has(> .rc) { padding: var(--s-3); overflow: hidden; } /* 3.3.15.0 R3: 12 px at the least */
 .rc { position: relative; height: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 8px; }
 .rc-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; }
 .rc-bar-name { font-size: 13.5px; }

@@ -9,9 +9,10 @@
 // that opens on click.
 // 3.2.1.0 R1: a Lineup select (the lineups `halo teams` lists, the active one first); its name rides in the
 // mission (`lineup`), and a pack's lineup adds the pack's mission metadata.
+// 3.3.15.0 R3: the goal box is the one TextBox (three lines at the least, grows with the goal), its example one line.
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../lib/api";
-import { Button, Icon } from "../../lib/ui";
+import { Button, Icon, TextBox } from "../../lib/ui";
 import { short } from "../orchestra/format";
 import type { LineupRow } from "../roles/types";
 import { useFleet } from "./store";
@@ -151,9 +152,9 @@ export function MissionStart() {
       <form className="fmi-form" onSubmit={(e) => (e.preventDefault(), void go())}>
         <label className="fmi-field">
           <span className="rail-label mono">WHAT SHOULD THE FLEET DO?</span>
-          <textarea ref={box} className="input fmi-goal-box" rows={2} value={goal} onChange={(e) => setGoal(e.target.value)} data-testid="fleet-mission-goal"
-                    placeholder="One goal for every harness, e.g. scan the lab network, chart what it finds and link the chart from the docs"
-                    onKeyDown={(e) => e.key === "Enter" && (e.ctrlKey || e.metaKey) && (e.preventDefault(), void go())} />
+          <TextBox ref={box} className="fmi-goal-box" value={goal} onChange={(e) => setGoal(e.target.value)} data-testid="fleet-mission-goal"
+                   placeholder="One goal for every harness, e.g. scan the lab network and chart it"
+                   onKeyDown={(e) => e.key === "Enter" && (e.ctrlKey || e.metaKey) && (e.preventDefault(), void go())} />
         </label>
         <div className="fmi-form-row">
           <label className="fmi-field fmi-grow">

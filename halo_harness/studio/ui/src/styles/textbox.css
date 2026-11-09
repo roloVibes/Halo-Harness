@@ -1,0 +1,28 @@
+/* The one text box (3.3.15.0 R3, lib/ui/TextBox.tsx): three lines at the least, grows with its text to --tb-max lines
+   (12 by default), then scrolls; no resize handle. Prose 13 px for text, mono 12 px for data (`.mono`), a line of
+   1.45; the Field look of base.css's `.input` (the hairline, the page's ground, the accent border on focus).
+   Imported after every section's sheet, so a section's own rule cannot squeeze its box back to one line.
+   `.textbox-fill` (the composer's `fill`): a hidden mirror of the text sizes the wrapper, the textarea fills it. */
+
+textarea.textbox, .textbox-fill {
+  --tb-line: 1.45em; --tb-pad: 6px;
+  --tb-min: calc(3 * var(--tb-line) + 2 * var(--tb-pad) + 2px);
+  --tb-cap: calc(var(--tb-max, 12) * var(--tb-line) + 2 * var(--tb-pad) + 2px);
+  font-family: var(--sans); font-size: 13px;
+}
+textarea.textbox.mono, .textbox-fill.mono { font-family: var(--mono); font-size: 12px; }
+textarea.textbox {
+  display: block; width: 100%; min-width: 0; height: auto; resize: none; overflow-y: auto; field-sizing: content;
+  padding: var(--tb-pad) 10px; line-height: var(--tb-line); min-height: var(--tb-min); max-height: var(--tb-cap);
+}
+textarea.textbox::placeholder { color: var(--faint); opacity: 1; }
+textarea.textbox:disabled { color: var(--muted); cursor: not-allowed; }
+
+.textbox-fill { display: grid; min-width: 0; }
+.textbox-fill > textarea.textbox, .textbox-fill::after { grid-area: 1 / 1; }
+.textbox-fill > textarea.textbox { field-sizing: fixed; max-height: none; height: auto; align-self: stretch; }
+.textbox-fill::after {
+  content: attr(data-mirror); visibility: hidden; pointer-events: none; overflow: hidden;
+  white-space: pre-wrap; overflow-wrap: break-word; padding: var(--tb-pad) 10px; border: 1px solid transparent;
+  line-height: var(--tb-line); min-height: var(--tb-min); max-height: var(--tb-cap);
+}

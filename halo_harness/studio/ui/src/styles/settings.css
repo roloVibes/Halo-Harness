@@ -55,7 +55,6 @@
 .st-input:focus, .st-select:focus { outline: 2px solid var(--accent); outline-offset: 0; }
 .st-input { flex: 1 1 260px; max-width: 520px; }
 .st-number { flex: 0 1 160px; }
-.st-area { width: 100%; max-width: none; resize: vertical; line-height: 1.45; }
 .st-list, .st-json { display: grid; gap: 6px; flex: 1 1 100%; min-width: 0; }
 .st-json-foot { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px; }
 .st-toggle { display: inline-flex; align-items: center; gap: 8px; padding: 3px 10px 3px 3px; border: 1px solid var(--line); border-radius: 999px;

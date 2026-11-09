@@ -129,7 +129,7 @@ and Send anyway (`preflight-send`), answering the same card the terminal shows. 
 the selected agent, its streams and controls. Activity (`session-activity`):
 the chosen session's timeline lanes and full live log. Attention
 (`session-attention`): what waits on you in this harness's sessions. Prompt (`session-prompt`, 3.3.11.0 R1): the
-session read like the terminal, a box to type into it (the slash list, Queue it / Steer) and each turn's receipt marks; with no session here it offers New session, and a session with no terminal (chip **no terminal**) has **Open in terminal** and **End session** in its header (3.3.11.0 R2).
+session read like the terminal, a box to type into it (the slash list, Queue it / Steer; 3.3.15.0 R3: three lines at the least, it grows with the draft and takes the panel's free height while the conversation is short) and each turn's receipt marks; with no session here it offers New session, and a session with no terminal (chip **no terminal**) has **Open in terminal** and **End session** in its header (3.3.11.0 R2).
 
 ### Team
 
@@ -165,7 +165,7 @@ boxes you can arrange and edit; the files are `~/.halo/teams/<name>.yaml` and
 4. **Fine-tune the sections**: the Inspector's Assignment edits the selected
    card's slot; Lineup has delegation, routing, budget, escalation, context,
    permissions, pipeline, acceptance and tiers, each as a form with a
-   YAML toggle.
+   YAML toggle. Each field's one-line help is in the tab's `?` (3.3.15.0 R3), not under the field.
 5. **Fix what Problems lists**: every edit is checked at once; blocks stop a
    save or a run start (a model id its catalog does not know, a bio with no
    tool), warns are worth a look. Click one to select its card.

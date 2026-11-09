@@ -3,8 +3,9 @@
 // hand-off in both transcripts), Hand to... (pick a harness; a markdown
 // hand-off note is written; then the agent stops) and what that made, Message a member's
 // owner, Kick a member (asks first), and a finished recording to download.
+// 3.3.15.0 R3: the brief and the message are the one TextBox (three lines at the least, grow with the text).
 import { useEffect, useRef, useState } from "react";
-import { Button, Dialog } from "../../lib/ui";
+import { Button, Dialog, TextBox } from "../../lib/ui";
 import { toast } from "../../lib/store";
 import { download, handoff, kickConfirmed, sendNote } from "./extras";
 import { closeDialog, usePanels, type Dialog as D } from "./pstore";
@@ -35,7 +36,7 @@ function TakeOver({ d }: { d: Extract<D, { kind: "take_over" }> }) {
                     writes: "both transcripts record the hand-off and that you made it" }}
             footer={<><Button onClick={closeDialog}>Cancel</Button><Button variant="primary" disabled={!brief.trim() || busy} onClick={() => void go()} data-testid="fleet-takeover-go">Take over</Button></>}>
       <p className="muted">Your brief replaces what it was doing: it reads it before its next step. Both transcripts record the hand-off and that you made it.</p>
-      <textarea ref={box} className="input fd-text" rows={5} value={brief} onChange={(e) => setBrief(e.target.value)} placeholder="What it does now, in your words" data-testid="fleet-takeover-brief"
+      <TextBox ref={box} className="fd-text" value={brief} onChange={(e) => setBrief(e.target.value)} placeholder="What it does now, in your words" data-testid="fleet-takeover-brief"
                 onKeyDown={(e) => e.key === "Enter" && (e.ctrlKey || e.metaKey) && void go()} />
     </Dialog>
   );
@@ -95,7 +96,7 @@ function Message({ d }: { d: Extract<D, { kind: "message" }> }) {
     <Dialog open onClose={closeDialog} title={`Message ${d.name}`} kicker="FLEET · PEOPLE" testid="fleet-message"
             footer={<><Button onClick={closeDialog}>Cancel</Button><Button variant="primary" disabled={!text.trim()} onClick={() => void sendNote(d.hid, d.sid, text)} data-testid="fleet-message-send">Send</Button></>}>
       <p className="muted">A note its owner reads in that session; the model never sees it.</p>
-      <textarea ref={box} className="input fd-text" rows={3} value={text} onChange={(e) => setText(e.target.value)} data-testid="fleet-message-text" />
+      <TextBox ref={box} className="fd-text" value={text} onChange={(e) => setText(e.target.value)} data-testid="fleet-message-text" />
     </Dialog>
   );
 }

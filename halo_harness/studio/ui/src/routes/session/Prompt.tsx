@@ -32,7 +32,7 @@ export function PromptDetail() {
     return () => window.clearInterval(t);
   }, [sid]);
   const busy = !!ss && (ss.busy || ss.status === "busy" || ss.status === "waiting");
-  const off = !ss ? "No session here yet: New session above (no terminal), or start one in a terminal (halo)." : "";
+  const off = !ss ? "No session here yet: New session above, or run halo in a terminal." : "";
   return (
     <div className="spp" data-testid="prompt-detail" data-session={sid || undefined} data-busy={busy || undefined}>
       <header className="spp-head">

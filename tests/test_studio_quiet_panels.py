@@ -108,8 +108,9 @@ def test_density(ctx: Ctx):
     got = _got(ctx)
     comf, comp = got.get("comfortable") or [], got.get("compact") or []
     ctx.check(f"comfortable by default (3.3.15.0 L1, the Instrument scale): --pad 12px, a 6 px gutter, a 40 px title line, 13 px text, got {comf}", comf == ["comfortable", "12px", "6px", 40, "13px"])
-    ctx.check(f"the toggle: compact, --pad 9px, a 2 px gutter, a 32 px title line, 12 px text, got {comp} {got.get('toggle_title')!r}",
-              comp == ["compact", "9px", "2px", 32, "12px"] and got.get("toggle_title") == "Density: comfortable (press for compact)")
+    # 3.3.15.0 R3 (owner feedback 2026-11-09, panels breathe): a title line is 36 px at the least, compact's 32 grows
+    ctx.check(f"the toggle: compact, --pad 9px, a 2 px gutter, a 36 px title line, 12 px text, got {comp} {got.get('toggle_title')!r}",
+              comp == ["compact", "9px", "2px", 36, "12px"] and got.get("toggle_title") == "Density: comfortable (press for compact)")
     ctx.check(f"remembered across a reload, got {got.get('saved')} {got.get('reload')}", got.get("saved") == "compact" and got.get("reload") == comp)
     ctx.check(f"the palette's Density: comfortable, got {got.get('palette')} {got.get('saved_after')}",
               got.get("palette") == comf and got.get("saved_after") == "comfortable")

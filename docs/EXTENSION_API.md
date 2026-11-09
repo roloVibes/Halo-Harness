@@ -471,7 +471,7 @@ copy, so a pack's page draws like the shell and there is one React. It follows t
 | Part | What it is |
 |---|---|
 | `React`, `ReactDOM`, `jsxRuntime` | the shell's own React 19 (`ReactDOM` is `react-dom/client` with `createPortal`, `flushSync`) |
-| `ui` | the `lib/ui` primitives: `Button`, `Dialog`, `Toasts`, `Tabs`, `Field`, `Kbd`, `Empty`, `Skeleton`, `ErrorState`, `Surface`, `HudStrip`, `HudCell`, `Icon`, `Menu`, `WindowedRows`, `FitMeter`, `Panel` |
+| `ui` | the `lib/ui` primitives: `Button`, `Dialog`, `Toasts`, `Tabs`, `Field`, `Kbd`, `Empty`, `Skeleton`, `ErrorState`, `Surface`, `HudStrip`, `HudCell`, `Icon`, `Menu`, `WindowedRows`, `FitMeter`, `TextBox` (3.3.15.0 R3), `Panel` |
 | `api`, `fetchJson(path, init?)`, `authUrl(path)` | 3.3.14.0 R1: a JSON client scoped to this pack (`api.get/post/put/del`, `call`, `ApiError`; `fetchJson` for a path under `/api/`), below; `authUrl` the address of one of the pack's own routes or files with its key in `?k=`, for what sends no header (an iframe, an image, a video, a link) |
 | `events` | the live feed the shell is connected to: `on(kind, fn)` (returns the stop), `state()`, `onState(fn)` |
 | `store` | `createStore`, `useStore`, `writeLocal`, `studio` (the shell's state), `toast(text, tone)`, `goSection(id)` |

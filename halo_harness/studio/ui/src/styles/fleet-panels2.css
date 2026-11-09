@@ -78,7 +78,6 @@
 .fa-history-task { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 
 /* -- the R4 dialogs --------------------------------------------------------------------- */
-.fd-text { width: 100%; resize: vertical; min-height: 72px; font: inherit; font-size: 13px; }
 .fd-field { display: grid; gap: 4px; margin-top: 10px; }
 .fd-field .rail-label { padding: 0; }
 [data-testid="fleet-handed"] code, [data-testid="fleet-recording"] .mono { overflow-wrap: anywhere; }
