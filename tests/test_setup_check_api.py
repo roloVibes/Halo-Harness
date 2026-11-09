@@ -202,7 +202,7 @@ def test_the_guided_first_run_runs_through_the_start_job(ctx: Ctx):
                   [d["key"] for d in starts if d.get("state") == "done"] == ["lineup", "repo", "goal", "plan", "run", "report", "next"])
         ctx.check(f"the Check row: running, then done with the start's outcome, got {[(d['key'], d['state'], (d.get('lines') or [])[:1]) for d in setup]}",
                   [(d["key"], d["state"]) for d in setup] == [("start", "running"), ("start", "done"), ("summary", "finished")]
-                  and setup[1]["lines"][0].startswith("done: lineup my-halo-dev-cycle") and setup[-1]["ok"] is True)
+                  and setup[1]["lines"][0].startswith("done: lineup halo-dev-cycle,") and setup[-1]["ok"] is True)  # R7: the active one
 
 
 @test

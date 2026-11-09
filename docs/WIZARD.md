@@ -254,9 +254,9 @@ costs, how long it takes and what it writes. The rows and their defaults:
 your default model (on), **Model gym, quick** (off; the models it would
 run on are listed under the rows, local ones ticked: the gym does not run
 cloud models) and **The guided first run** (off; `halo start`, one real
-Orchestra run on your models; 3.3.15.0: only for a custom lineup -- on the
-Auto lineup the row is left out and one line says it would rehearse one model
-five times, so build a lineup in Roles and test it there). Focus lands on the rows; Space or Enter
+Orchestra run that rehearses your lineup on your models; 3.3.15.0: only for
+a custom lineup -- on the Auto lineup the row is left out and one line says
+to pick or build a lineup in Roles first). Focus lands on the rows; Space or Enter
 ticks one (rule 2). Finish runs the ticked ones in order, printing each
 one's title, `[OK]` or `[!!]` and its result lines on the Summary, then the
 written-files lines; Finish again closes setup. With nothing ticked, or only

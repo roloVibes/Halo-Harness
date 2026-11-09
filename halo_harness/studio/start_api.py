@@ -8,7 +8,9 @@
                          3.3.15.0 R5 `auto`: the line shown in place of Run on the Auto lineup ("" with a custom one)
     POST start           202 {job}: `halo start --yes` as a background job, its steps streamed as `start` frames
                          on /api/events; 409 while one runs; 422 {error, reason: "no_provider"} with no model;
-                         3.3.15.0 R5: 422 {error, reason: "auto_lineup"} on the Auto lineup (or none)
+                         3.3.15.0 R5: 422 {error, reason: "auto_lineup"} on the Auto lineup (or none);
+                         3.3.15.0 R7: 422 {error, reason: "no_lineup" | "no_coder"} when the active lineup is gone
+                         or has no card that writes code (the run rehearses the active lineup, never a copy)
     POST start/dismiss   {dismissed: true} -- "Just look around", remembered for this home
     POST start/stop      {stopping}
 """
@@ -52,6 +54,10 @@ def post_start(req):
     from halo_harness.start.auto_gate import AUTO_LINE, REASON, offers_start
     if not offers_start():  # 3.3.15.0 R5: the guided first run belongs to a custom lineup
         return 422, {"error": AUTO_LINE, "reason": REASON, "problems": [AUTO_LINE]}
+    from halo_harness.start.lineup import ready
+    line, reason = ready(state_dir=req.state_dir, cwd=req.cwd)  # 3.3.15.0 R7: the active lineup must take the lanes
+    if line:
+        return 422, {"error": line, "reason": reason, "problems": [line]}
     from halo_harness.start import fake
     if not fake.enabled():
         from halo_harness.start.provider import ready

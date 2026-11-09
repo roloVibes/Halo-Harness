@@ -56,7 +56,9 @@ def test_five_rows_in_order_with_their_defaults(ctx: Ctx):
               and C.check("catalog")["cost"].startswith("free") and C.check("hello")["cost"] == "one tiny call")
     ctx.check("the gym is minutes per model and writes its cards", "per model" in C.check("gym")["time"]
               and "~/.halo/gym/" in C.check("gym")["writes"])
-    ctx.check("the start is a real run on your models", "one real Orchestra run on your models" in C.check("start")["what"])
+    ctx.check("the start is a real run of your lineup on your models (3.3.15.0 R7: no copy)", "one real Orchestra run that "
+              "rehearses your lineup on your models" in C.check("start")["what"] and C.check("start")["writes"]
+              == "a sample repo under ~/.halo/start/<date>/ (your lineup is not touched)")
     from tests.helpers.custom_lineup import custom_lineup
     with custom_lineup():
         ctx.check("ordered() keeps the list's order", C.ordered(["start", "doctor", "nope", "gym"]) == ["doctor", "gym", "start"])

@@ -9,7 +9,7 @@ page links the words it uses). `halo explain` with no word lists them all.
 
 ## lineup
 
-A lineup (a team template, `~/.halo/teams/<name>.yaml`) says which agent bio, on which model, plays each role in your sessions, and in which tier each card sits. Each entry of its `agents:` list is a card. Halo ships six (`halo teams list`); a copy of one is yours to edit (Studio's Roles section, or `halo teams new <name> --from <shipped>`), and `halo teams use <name>` makes it the one new sessions use. `halo start` begins by copying `halo-dev-cycle` to `my-halo-dev-cycle`.
+A lineup (a team template, `~/.halo/teams/<name>.yaml`) says which agent bio, on which model, plays each role in your sessions, and in which tier each card sits. Each entry of its `agents:` list is a card. Halo ships six (`halo teams list`); a copy of one is yours to edit (Studio's Roles section, or `halo teams new <name> --from <shipped>`), and `halo teams use <name>` makes it the one new sessions use. `halo start` rehearses the active lineup as it is.
 
 ## bio
 
@@ -105,7 +105,7 @@ A pack is a folder someone else maintains that adds bios, lineups, workflows, sk
 
 ## guided first run
 
-The guided first run is `halo start`: one real Orchestra run on your own models that walks the pieces Halo is made of (a copy of a shipped lineup, a sample git repo, one goal, the lead's plan for you to approve, the lanes, the report and the coach) in seven screens. It is not a test of your models (`halo gym` measures them). It opens on a card that says the models it will call, an estimated cost, the time and what it writes; `halo start --explain` prints only the card, and Studio's Start here shows it above its Run button.
+The guided first run is `halo start`: one real Orchestra run on your own models that rehearses the lineup you picked (the active one, or the one `--lineup` names, read as it is and never copied) and walks the pieces Halo is made of (your lineup's lead and lane cards, a sample git repo, one goal, the lead's plan for you to approve, the lanes, the report and the coach) in seven screens. On the Auto lineup there is nothing to rehearse: pick or build a lineup in Roles first. It is not a test of your models (`halo gym` measures them). It opens on a card that says the lineup, the models it will call with their prices, an estimated cost, the time and what it writes; `halo start --explain` prints only the card, and Studio's Start here shows it above its Run button.
 
 ## setup
 

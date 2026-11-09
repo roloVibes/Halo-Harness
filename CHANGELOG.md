@@ -181,6 +181,35 @@ ended, and Setup's Done had no terminal to start halo in and said nothing.
 #### Docs
 - COMMANDS-init.md, WIZARD.md and STUDIO-setup.md: the terminal waits, both come up, and what Done says.
 
+### R7: the guided first run runs the lineup you picked
+
+The owner, on Kali: "The whole init guided first run doesn't even use the orchestration you picked from earlier in
+init. It keeps mentioning my-halo-dev-cycle." `halo start` copied the shipped `halo-dev-cycle` to `my-halo-dev-cycle`
+and ran the Orchestra sample on that copy whatever the Team step applied, and every surface named the copy.
+
+#### Fixed
+- `halo start` (and Setup's Check row, Studio's Start here, the TUI's `/start`) rehearses the active lineup (`team` in
+  config.json), or the one `--lineup <name>` names, read as it is: nothing is copied, `my-halo-dev-cycle` is never
+  written (one left by an earlier run stays where it is), and `start.steps.DEFAULT_LINEUP` is gone
+  (`halo_harness/start/lineup.py` `pick` / `parts`).
+- A name with no lineup behind it is one line and exit 1: "no lineup named X; `halo teams` lists them" (`--json`:
+  `reason: "no_lineup"`; Studio's `POST start`: 422). On the Auto lineup the line is now "Your lineup is Auto: pick or
+  build a lineup in Roles first, then `halo start` rehearses it." (`--explain` too).
+- The lineup's own cards play the parts: the lead is its `main` card (the lead's model on a real run), and each of the
+  sample's lanes goes to a card that writes code (a `coder`, `implementer` or `subagent` role or alias, or a card used
+  for implement or fix), in turn, as many as its `instances`; each job of the plan takes that card's bio (and the model
+  it pins), and the workers run under the lineup (`--team`). Fewer lane slots run the sample in that many lanes, one
+  line says so; a lineup with no such card says so and exits 1 before writing anything (`reason: "no_coder"`, 422 in
+  Studio).
+- The lineup step, the plan, the run, the report and the summary name the lineup and its cards; the card names the
+  lineup it rehearses, its lead and lane cards, the distinct models it will call with their prices, and an estimate
+  priced lane by lane (`start/card.py`); its "writes" line and the Setup Check row's read "a sample repo under
+  ~/.halo/start/<date>/ (your lineup is not touched)". The gym row's candidates come from the same lineup.
+
+#### Docs
+- COMMANDS-init.md, HANDBOOK.md, GLOSSARY.md ("lineup", "guided first run"), STUDIO-shell.md, STUDIO-setup.md and
+  WIZARD.md: the run rehearses your lineup; no copy anywhere.
+
 ## [3.3.14.0] - 2026-11-09
 
 **The review's fix pass: the token and the grants, then children and keys.** The November code and security review

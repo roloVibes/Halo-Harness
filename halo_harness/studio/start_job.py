@@ -18,6 +18,8 @@ and when the start ends one more:
 carries `error_log`, the file holding the traceback; the reason is the one
 `<Type>: <message>` line.)
 
+3.3.15.0 R7: the job rehearses the lineup active when it started (start/lineup.py `pick`), read as it is.
+
 `current()` is the job as `GET /api/start` shows it (the latest frame per
 step, the summary once there); `stop()` asks the running start to end.
 """
@@ -63,6 +65,16 @@ def stop() -> bool:
     return False
 
 
+def _active(state_dir) -> str:
+    """3.3.15.0 R7: the lineup active when Run was pressed (the job rehearses it even if `team` changes meanwhile);
+    '' when there is none (step 1 then says why)."""
+    from halo_harness.start.lineup import LineupError, pick
+    try:
+        return pick(None, state_dir=state_dir)
+    except LineupError:
+        return ""
+
+
 def start(state_dir, publish: Optional[Callable[[dict], None]] = None) -> dict:
     """Start the job; its public view. The caller checked that none runs."""
     from halo_harness.start.engine import Options, StartRun
@@ -91,7 +103,8 @@ def start(state_dir, publish: Optional[Callable[[dict], None]] = None) -> dict:
         send({"key": "summary", "state": "finished", "summary": short})
 
     try:
-        run = StartRun(Options(yes=True, state_dir=state_dir, studio=False), emit=on_frame)
+        run = StartRun(Options(yes=True, state_dir=state_dir, studio=False, lineup=_active(state_dir),
+                               extra={"active": True}), emit=on_frame)
     except Exception as e:  # 3.2.2.0 R1: the start could not be built: the job ends at once with the one line
         job.update(run=None, fake=False, thread=None)
         with _lock:

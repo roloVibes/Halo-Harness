@@ -334,11 +334,13 @@ opens on a **Start here** card over the section the page opened on (3.3.2.0:
 only there, and once per browser). Above its
 button the card shows the same lines `halo start` opens on (3.2.2.0;
 `GET /api/start` carries them as `card`): what it does in seven steps, the
-models it will call, the estimated cost, the time, what it writes, and that
-your active lineup is not touched. **Run the guided first run** runs
+lineup it rehearses (your active one, its lead and lane cards), the models
+it will call with their prices, the estimated cost, the time, what it writes,
+and that your lineup is not touched. **Run the guided first run** runs
 `halo start --yes` as a background job in Studio's
-process (`POST /api/start`): the same seven steps as in a terminal (a lineup
-copied into your scope as `my-halo-dev-cycle`, the sample repo, one
+process (`POST /api/start`; 3.3.15.0 R7: 422 `no_lineup` / `no_coder` when
+the active lineup is gone or has no card that writes code): the same seven
+steps as in a terminal (your active lineup, read as it is, the sample repo, one
 Orchestra goal with `plan: review`, the plan approved, the lanes, the report
 and the coach, where to go next), each listed with its state while the
 running one shows its command and its last lines; the outcome names the

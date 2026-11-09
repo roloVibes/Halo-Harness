@@ -3,8 +3,11 @@ goal, 4 the plan, 5 the run, 6 the report and the coach (Halo 3.1.1.0 R1).
 
 Step 3 writes the goal (`plan: review`, the start's lineup) and starts the
 run on a daemon thread, in this process: the fake adapters with
-`HALO_START_FAKE=1`, else the real ones (`orchestra/adapters.real_adapters`,
-the same as `halo orchestra run`), after the lineup preflight. Step 4 waits
+`HALO_START_FAKE=1`, else the real ones (orchestra/adapters.py, 3.3.15.0 R7:
+the lead and judge on the lineup's lead card, the workers under the lineup),
+after the lineup preflight. 3.3.15.0 R7: the goal has as many workers as the
+lineup has lane slots, and each job of the plan takes a lane card's bio (and
+the model it pins) in turn; the plan, the run and the report name the lineup. Step 4 waits
 for the lead's plan, prints it, then approves it (Enter or --yes), opens
 Studio's plan canvas and waits for the decision made there (s), or stops (q,
 which rejects the plan). Step 5 prints the lanes table each time it changes
@@ -33,7 +36,9 @@ def goal_command(run) -> str:
 def goal(run) -> "list[str]":
     from halo_harness.orchestra import goal as G
     from halo_harness.start import sample_repo as R
-    g = G.Goal(what=S.GOAL_WHAT, done_when=S.GOAL_DONE, stop_when=S.GOAL_STOP, workers=5, return_cap=2,
+    from halo_harness.start.lineup import SAMPLE_LANES
+    lanes = len((run.parts or {}).get("lanes") or []) or SAMPLE_LANES  # 3.3.15.0 R7: as many lanes as the lineup takes
+    g = G.Goal(what=S.GOAL_WHAT, done_when=S.GOAL_DONE, stop_when=S.GOAL_STOP, workers=lanes, return_cap=2,
                test=R.test_command() if not run.opts.repo else "", files=list(run.opts.files), lineup=run.lineup,
                plan="review", test_timeout_s=120)
     problems = G.validate_goal(g.to_dict())
@@ -49,7 +54,32 @@ def goal(run) -> "list[str]":
     return [f"run {run.run_dir.name}: {run.run_dir}", f"WHAT YOU WANT  {g.what}", f"DONE WHEN      {g.done_when}",
             f"STOP WHEN      {g.stop_when}", f"files {', '.join(g.files)}; test {g.test or '(none)'}; lineup {g.lineup}",
             "plan: review -- the run pauses after the lead's split until the plan is approved",
-            "models: " + ("the fake lead and workers (HALO_START_FAKE=1)" if run.fake else "your configured roles")]
+            "models: " + ("the fake lead and workers (HALO_START_FAKE=1)" if run.fake else (
+                f"--model {run.opts.model} plays every part" if run.opts.model else f"{run.lineup}'s cards"))]
+
+
+def _adapters(run, g) -> dict:
+    """3.3.15.0 R7: the lead and the judge on the lineup's lead card, the workers under the lineup (`--team`)."""
+    from halo_harness.orchestra.adapters import fresh_judge, model_call, spawn_worker
+    lead = run.opts.model or ((run.parts or {}).get("lead") or {}).get("model") or None
+    return {"model_calls": model_call(lead, g.lead, cwd=run.run_dir),
+            "spawn": spawn_worker(run.opts.model, g.worker, run_dir=run.run_dir, team=run.lineup or None),
+            "judge": fresh_judge(lead, g.lead, cwd=run.run_dir)}
+
+
+def _with_cards(run, jobs: list) -> list:
+    """Each job a lane card's bio (and the model the card pins, unless --model plays every part), in turn."""
+    lanes = (run.parts or {}).get("lanes") or []
+    out = []
+    for i, job in enumerate(jobs):
+        job = dict(job)
+        card = lanes[i % len(lanes)] if lanes else {}
+        if card.get("bio") and not job.get("bio"):
+            job["bio"] = card["bio"]
+        if card.get("model") and not job.get("model") and not run.opts.model:
+            job["model"] = card["model"]
+        out.append(job)
+    return out
 
 
 def _start_runner(run, g) -> None:
@@ -58,8 +88,7 @@ def _start_runner(run, g) -> None:
         from halo_harness.start.fake import adapters
         kwargs = adapters()
     else:
-        from halo_harness.orchestra.adapters import real_adapters
-        kwargs = real_adapters(run.run_dir, g, run.opts.model)
+        kwargs = _adapters(run, g)
 
     def body() -> None:
         try:
@@ -68,6 +97,14 @@ def _start_runner(run, g) -> None:
             run.result = {"status": "stopped", "stop_reason": f"{type(e).__name__}: {e}"}
     run.runner = threading.Thread(target=body, name="halo-start-run", daemon=True)
     run.runner.start()
+
+
+def _who(run) -> "list[str]":
+    """The lineup and who plays the lead and the lanes (3.3.15.0 R7), as step 1 named them."""
+    if not run.parts:
+        return []
+    from halo_harness.start.lineup import who_lines
+    return who_lines(run.parts) + ([f"--model {run.opts.model} plays every part"] if run.opts.model else [])
 
 
 def plan_command(run) -> str:
@@ -99,8 +136,8 @@ def _wait_planned(run) -> list:
 
 def plan(run) -> "list[str]":
     from halo_harness.orchestra import plan as P
-    jobs = _wait_planned(run)
-    lines = _plan_text(run, jobs) + [""] + list(S.PLAN_EXPLAIN)
+    jobs = _with_cards(run, _wait_planned(run))
+    lines = _who(run) + [""] + _plan_text(run, jobs) + [""] + list(S.PLAN_EXPLAIN)
     run.emit("plan", "running", lines)
     prompt = "Enter approves the plan" + (", s opens it on Studio's plan canvas" if run.opts.studio else "") + \
         ", q stops: "
@@ -109,6 +146,7 @@ def plan(run) -> "list[str]":
         P.reject(run.run_dir, "stopped in halo start", by="start")
         raise Stopped("the plan was rejected: stopped in halo start")
     if answer == "s" and run.opts.studio:
+        P.write_draft(run.run_dir, jobs)  # the canvas opens on the plan with the lineup's cards
         return lines + _approve_in_studio(run)
     problems = P.approve(run.run_dir, jobs, by="start")
     if problems:
@@ -156,7 +194,7 @@ def run(run) -> "list[str]":
     status = run.result.get("status")
     if status != "finished":
         raise StepFailed(f"the run {status or 'ended'}: {run.result.get('stop_reason') or 'see its report'}")
-    return list(last or []) + ["", f"finished: branch {run.result.get('branch') or '?'}"]
+    return list(last or []) + ["", f"finished: branch {run.result.get('branch') or '?'}"] + _who(run)[1:]
 
 
 def report_command(run) -> str:
@@ -167,7 +205,7 @@ def report(run) -> "list[str]":
     from halo_harness.orchestra.coach import coach, format_card
     from halo_harness.orchestra.report import format_report, load_report
     data = load_report(run.run_dir) or run.result
-    lines = format_report(data).split("\n")
+    lines = format_report(data).split("\n") + _who(run)
     try:
         run.coach = coach(run.run_dir)
         lines += [""] + format_card(run.coach).split("\n")

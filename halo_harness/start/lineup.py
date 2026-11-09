@@ -1,13 +1,21 @@
-"""halo_harness.start.lineup -- step 1 of `halo start`: a lineup of your own
-and its cards as a table (Halo 3.1.1.0 R1).
+"""halo_harness.start.lineup -- step 1 of `halo start`: the lineup the guided first run rehearses
+(Halo 3.1.1.0 R1; 3.3.15.0 R7: your lineup, never a copy).
 
-`own_lineup(name, state_dir)` copies the shipped lineup `name` into your
-scope as `my-<name>` (`ensure_builtin_team_templates` first, as every lineup
-surface does); a `my-<name>` that is already there is kept as it is, and a
-name that is already one of yours is used as it is. The copy is not applied:
-your active lineup stays what it was, and the start's Orchestra run names
-the copy in its goal. `card_rows(name)` is one row per card: its tier, alias,
-role, bio and how many instances.
+`pick(explicit)` is the lineup the run uses: the one `--lineup <name>` names, else the active one (`team` in
+config.json, the one the Team step applied). Nothing is copied or written: the run reads the lineup as it is.
+On the Auto lineup (or none) it raises LineupError with auto_gate.AUTO_LINE; a name with no lineup behind it
+raises `missing_line(name)`.
+
+`parts(name)` is who plays what, from the lineup's own cards and `teams_yaml.resolve_role_table`:
+
+    {name, lead: card, lanes: [card per lane], coders: [card], cards: [card], short: str}
+    card: {card, role, bio, instances, model}   model: the ref the card pins ('' = the session model)
+
+The lead is the `main` card (else the first one). A card that writes code -- a coder-like role or alias
+(`LANE_ROLES`), or a card used for implement / fix (`LANE_USES`) -- takes lanes, as many as its instances;
+the sample needs SAMPLE_LANES (one per function of basket.py). Fewer lane slots: the sample runs in that many
+lanes and `short` says so in one line; none at all: `no_coder_line(name)`, and the start ends before it writes
+anything. `card_rows(name)` is one row per card for the step's table.
 """
 
 from __future__ import annotations
@@ -16,42 +24,124 @@ from pathlib import Path
 from typing import Optional
 
 from halo_harness import teams_yaml as T
-from halo_harness.start.steps import OWN_PREFIX
+
+SAMPLE_LANES = 5
+LANE_ROLES = ("coder", "subagent", "subagent_default", "implementer", "worker", "developer", "builder", "fixer")
+LANE_USES = ("implement", "fix", "patch", "feature", "refactor", "code", "build")
 
 
 class LineupError(ValueError):
     pass
 
 
-def own_name(name: str) -> str:
-    return name if name.startswith(OWN_PREFIX) else OWN_PREFIX + name
+def missing_line(name: str) -> str:
+    return f"no lineup named {name}; `halo teams` lists them"
 
 
-def own_lineup(name: str, *, state_dir=None, cwd=None) -> "tuple[str, list[str]]":
-    """`(the lineup the start uses, lines saying what happened)`; LineupError when it cannot."""
-    try:
+def no_coder_line(name: str) -> str:
+    return (f"{name} has no card that writes code (a coder, implementer or subagent role, or a card used for implement "
+            "or fix), so it cannot take the sample's lanes: add one in Roles (halo studio --mode roles) or name "
+            "another lineup with --lineup")
+
+
+def exists(name: str, *, state_dir=None, cwd=None) -> bool:
+    if T.find_team_template_path(name, cwd=cwd, state_dir=state_dir) is not None:
+        return True
+    try:  # a shipped lineup not yet copied on this home: every lineup surface does this first
         T.ensure_builtin_team_templates(state_dir=state_dir)
     except Exception:
-        pass
-    shipped = T.list_bundled_team_templates()
-    if name not in shipped:
-        found = T.find_team_template_path(name, cwd=cwd, state_dir=state_dir)
-        if found is None:
-            raise LineupError(f"no lineup named {name!r} (shipped: {', '.join(shipped) or 'none'})")
-        return name, [f"{name} is already one of yours ({found[1]} scope): the start uses it as it is"]
-    target = own_name(name)
-    found = T.find_team_template_path(target, cwd=cwd, state_dir=state_dir)
-    if found is not None:
-        return target, [f"{target} is already yours ({found[0]}): kept as it is"]
-    import yaml
-    data = yaml.safe_load((T.bundled_team_templates_dir() / f"{name}.yaml").read_text(encoding="utf-8")) or {}
-    data = dict(data, name=target, description=f"My copy of {name}: " + str(data.get("description") or ""))
-    ok, problems = T.save_team_template(target, data, cwd=cwd, state_dir=state_dir)
-    if not ok:
-        raise LineupError(f"could not save {target}: " + "; ".join(problems))
-    path = T.user_teams_dir(state_dir) / f"{target}.yaml"
-    return target, [f"copied the shipped {name} to {target} ({path})",
-                    "your active lineup is unchanged: halo teams use " + target + " makes it the one sessions use"]
+        return False
+    return T.find_team_template_path(name, cwd=cwd, state_dir=state_dir) is not None
+
+
+def pick(explicit: Optional[str] = None, *, state_dir=None, cwd=None) -> str:
+    """The lineup the start runs (see the module docstring); LineupError with the one line when there is none."""
+    name = (explicit or "").strip()
+    if not name:
+        from halo_harness.start.auto_gate import AUTO_LINE, lineup_now, on_auto
+        if on_auto():
+            raise LineupError(AUTO_LINE)
+        name = str(lineup_now()[0] or "")
+    if not exists(name, state_dir=state_dir, cwd=cwd):
+        raise LineupError(missing_line(name))
+    return name
+
+
+def ready(explicit: Optional[str] = None, *, state_dir=None, cwd=None) -> "tuple[str, str]":
+    """`('', '')` when the lineup the start rehearses can take the sample; else `(the one line, reason)`, reason
+    `auto_lineup` | `no_lineup` | `no_coder`. Every door asks this before it writes anything."""
+    from halo_harness.start.auto_gate import AUTO_LINE, REASON
+    try:
+        name = pick(explicit, state_dir=state_dir, cwd=cwd)
+    except LineupError as e:
+        return str(e), REASON if str(e) == AUTO_LINE else "no_lineup"
+    return ("", "") if parts(name, state_dir=state_dir, cwd=cwd)["lanes"] else (no_coder_line(name), "no_coder")
+
+
+def _ref(value) -> str:
+    from halo_harness.roles import role_value_parts
+    ref = role_value_parts(value)[0]
+    return "" if not ref or ref in ("default", "auto") else str(ref)
+
+
+def _cards(name: str, state_dir, cwd) -> "list[dict]":
+    template = T.resolve_team_template(name, cwd=cwd, state_dir=state_dir) or {}
+    table, _notes = T.resolve_role_table(template, cwd=cwd, state_dir=state_dir)
+    out = []
+    for e in template.get("agents") or []:
+        if isinstance(e, dict) and e.get("role"):
+            key = str(e.get("as") or e["role"])
+            uses = e.get("use_for") if isinstance(e.get("use_for"), list) else []
+            try:
+                n = max(1, int(e.get("instances") or 1))
+            except (TypeError, ValueError):
+                n = 1
+            out.append({"card": key, "role": str(e["role"]), "bio": str(e.get("agent") or ""), "instances": n,
+                        "model": _ref(table.get(key)), "uses": [str(u) for u in uses]})
+    return out
+
+
+def writes_code(card: dict) -> bool:
+    return (card["role"] in LANE_ROLES or card["card"] in LANE_ROLES or "implementer" in card["bio"]
+            or "coder" in card["bio"] or any(u in LANE_USES for u in card.get("uses") or []))
+
+
+def parts(name: str, *, state_dir=None, cwd=None, lanes: int = SAMPLE_LANES) -> dict:
+    """Who plays the lead and each of the sample's lanes (see the module docstring)."""
+    cards = _cards(name, state_dir, cwd)
+    lead = next((c for c in cards if c["role"] == "main"), cards[0] if cards else None)
+    coders = [c for c in cards if c is not lead and writes_code(c)]
+    slots, left = [], {id(c): c["instances"] for c in coders}
+    while len(slots) < lanes and any(left.values()):  # round robin over the coder cards, each up to its instances
+        for c in coders:
+            if left[id(c)] and len(slots) < lanes:
+                slots.append(c)
+                left[id(c)] -= 1
+    short = ""
+    if coders and len(slots) < lanes:
+        who = ", ".join(f"{c['card']} x{c['instances']}" for c in coders)
+        short = (f"{name} has {len(slots)} lane slot(s) for code ({who}): the sample runs in {len(slots)} lane(s) "
+                 f"instead of {lanes}, the functions shared between them")
+    return {"name": name, "lead": lead, "lanes": slots, "coders": coders, "cards": cards, "short": short}
+
+
+def shown(card: Optional[dict], model: str = "") -> str:
+    """`<card> (<bio>) on <model>`; `model` stands in for a card that pins none."""
+    if not card:
+        return f"the session model ({model})" if model else "the session model"
+    ref = card.get("model") or model or "the session model"
+    return f"{card['card']} ({card['bio'] or 'no bio'}) on {ref}"
+
+
+def who_lines(p: dict) -> "list[str]":
+    """The lineup in two lines: the lead, then the lanes (one entry per card with its lane count)."""
+    counts: "dict[str, int]" = {}
+    for c in p["lanes"]:
+        counts[c["card"]] = counts.get(c["card"], 0) + 1
+    by_card = {c["card"]: c for c in p["lanes"]}
+    lanes = "; ".join(f"{shown(by_card[k])} x{n}" for k, n in counts.items()) or "none"
+    return [f"lineup {p['name']}: the lead is {shown(p['lead'])}",
+            f"lineup {p['name']}: {len(p['lanes'])} lane(s): {lanes}"]
 
 
 def card_rows(name: str, *, state_dir=None, cwd=None) -> "list[dict]":

@@ -4,7 +4,7 @@ round R1).
 Seven steps, one screen each (steps.py holds their titles, the one sentence
 of why and the closing "where to go next" lines):
 
-    1 lineup   copy a shipped lineup into one of your own, its cards as a table (lineup.py)
+    1 lineup   the lineup it rehearses (the active one, read as it is; 3.3.15.0 R7), its cards as a table (lineup.py)
     2 repo     the sample repo: basket.py and its tests (sample_repo.py)
     3 goal     an Orchestra run with `plan: review` on it (run_steps.py)
     4 plan     the lead's plan, approved (or opened on Studio's plan canvas)

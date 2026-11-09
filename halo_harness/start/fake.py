@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from pathlib import Path
 
 ENV = "HALO_START_FAKE"
@@ -34,7 +35,16 @@ def enabled() -> bool:
 
 
 def lead(prompt: str) -> dict:
-    jobs = [{"title": f"write {f}", "claims": [f"basket.py#{f}"]} for f in FUNCS]
+    """One job per function; 3.3.15.0 R7: fewer workers in the prompt (a lineup with fewer lane slots) share them."""
+    found = re.search(r"Workers available: (\d+)", prompt or "")
+    n = max(1, min(len(FUNCS), int(found.group(1)))) if found else len(FUNCS)
+    size, extra = divmod(len(FUNCS), n)
+    groups, at = [], 0
+    for i in range(n):
+        take = size + (1 if i < extra else 0)
+        groups.append(FUNCS[at:at + take])
+        at += take
+    jobs = [{"title": "write " + ", ".join(g), "claims": [f"basket.py#{f}" for f in g]} for g in groups]
     return {"text": json.dumps({"jobs": jobs}), "cost_usd": 0.001, "session_id": "start-fake-lead"}
 
 

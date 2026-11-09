@@ -15,6 +15,8 @@
 // 3.3.15.0 R5: on the Auto lineup (or none) the offer has no Run button: one
 // line says the run would rehearse one model five times and where a lineup is
 // tested (GET start `auto`); a custom lineup gets the Run button as before.
+// 3.3.15.0 R7: the run rehearses the active lineup itself (the card names it
+// and its cards); nothing is copied, so the offer no longer says so.
 import { useEffect, useRef } from "react";
 import { Button, Dialog } from "../lib/ui";
 import { firstSection, goSection, studio, useStore } from "../lib/store";
@@ -47,7 +49,7 @@ function Offer() {
   return (
     <div className="sh-offer">
       <p>
-        This home has no lineup of its own and no run yet. The guided first run makes both: it copies a shipped lineup into one of yours, writes a small sample repo, gives one real Orchestra goal to your agents, approves the lead's plan, runs the lanes, and ends on the report and the coach.
+        This home has no run yet. The guided first run rehearses your active lineup as it is (nothing is copied): it writes a small sample repo, gives one real Orchestra goal to your lineup's agents, approves the lead's plan, runs the lanes, and ends on the report and the coach.
       </p>
       {card.length > 0 && (
         <pre className="sh-card mono" data-testid="start-here-card">

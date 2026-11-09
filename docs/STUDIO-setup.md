@@ -158,11 +158,11 @@ one row each with what it does, what it costs, how long it takes and what it wri
 | Hello | one one-turn call to the default model, which answers pong | one tiny call, priced from the catalog | seconds | one session log |
 | Steward candidates | 3.3.7.0 R5: sets `ollama.steward.model` to the best local candidate (with none installed, pulls the one it names); ticked by default when an installed one fits | free, or the download it names | seconds | `ollama.steward.model` |
 | Model gym, quick | `halo gym --quick` on the models listed under the row (local models only) | free for local models | minutes per model | a card per model under `~/.halo/gym/` |
-| The guided first run | `halo start`: one real Orchestra run on your models | the card's estimate | 5-20 minutes | a lineup copy and a sample repo |
+| The guided first run | `halo start`: one real Orchestra run that rehearses your lineup on your models | the card's estimate | 5-20 minutes | a sample repo under `~/.halo/start/<date>/` (your lineup is not touched) |
 
 3.3.15.0: the guided first run's row is there only for a custom lineup; on the Auto lineup (or none) one line
-stands in its place: "Your lineup is Auto: the guided first run would rehearse one model five times. Build a
-lineup or a workflow in Roles (Agents from 3.3.16.0) and test it there."
+stands in its place: "Your lineup is Auto: pick or build a lineup in Roles first, then `halo start` rehearses it."
+(R7: the run rehearses the active lineup itself; nothing is copied.)
 Doctor, Model catalog and Hello are ticked; ticking the gym lists the models it would run on (the default
 model and the start lineup's models; untick any). The guided first run's row shows **Show the card** first
 (the card `halo start` opens on: the models, the estimate, what it writes); its box can be ticked only

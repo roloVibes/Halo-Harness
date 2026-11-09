@@ -1,12 +1,13 @@
 """halo_harness.start.steps -- the seven steps of `halo start`: key, title and
 the one sentence of why each screen shows, plus the fixed goal and the
-closing lines (Halo 3.1.1.0 R1)."""
+closing lines (Halo 3.1.1.0 R1). 3.3.15.0 R7: no default lineup here: the run
+rehearses the active one, or the one `--lineup` names (start/lineup.py `pick`)."""
 
 from __future__ import annotations
 
 STEPS = (
     ("lineup", "The lineup",
-     "A lineup says which agent, on which model, plays each part; a copy of a shipped one is yours to edit."),
+     "A lineup says which agent, on which model, plays each part; the run rehearses yours as it is."),
     ("repo", "The sample repo",
      "A small git repo with five empty functions and their tests gives the agents real work that ends in minutes."),
     ("goal", "The goal",
@@ -40,9 +41,6 @@ NEXT = (
     ("Team", "put a team file in your own repo: members, blocks and stages", "halo team init"),
     ("Fleet", "join another machine and give the fleet one goal", "halo fleet pair"),
 )
-
-DEFAULT_LINEUP = "halo-dev-cycle"
-OWN_PREFIX = "my-"
 
 
 def step_info(key: str) -> tuple:
