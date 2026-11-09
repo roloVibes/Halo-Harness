@@ -6,7 +6,7 @@ import type { MotionState } from "../motion";
 
 export const COLS = 24; // grid columns
 export const ROW = 8; // px per grid row
-export const STRIP_ROWS = 5; // a collapsed panel's height in rows (its title bar)
+export const STRIP_ROWS = 7; // a collapsed panel's height in rows: 56 px, a 44 px strip inside the 12 px gutter (3.3.15.0 R3; 5 squeezed it to 28)
 export const MIN_W = 4;
 export const MIN_H = 8;
 export const MOVE_ROWS = 4; // Alt+Up/Down moves (and Alt+Shift resizes) by this many rows

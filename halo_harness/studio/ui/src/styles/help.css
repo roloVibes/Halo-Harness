@@ -37,9 +37,7 @@
 /* -- Orchestra: the Start view and the goal form --------------------------------- */
 .og-start .fl-start-form { padding: 20px; }
 .og-goal-form { gap: 9px; grid-template-columns: minmax(0, 1fr); }
-.og-goal-form .og-text { min-height: 46px; }
-.og-goal-start .og-text { min-height: 64px; }
-.og-goal-start .og-text-tall { min-height: 96px; }
+/* 3.3.15.0 R3: the goal's boxes are TextBoxes (styles/textbox.css): their size is that file's */
 .og-goal-form .og-form-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 .og-goal-form .og-form-row3 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.3fr); }
 .og-goal-form .input { min-width: 0; }

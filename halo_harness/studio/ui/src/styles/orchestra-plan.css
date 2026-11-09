@@ -4,7 +4,7 @@
    the text on a card with a problem, the inspector column, the reject card.
    Tokens only (styles/tokens.css). */
 
-.panel-body.face-detail:has(> .pc) { padding: 10px; overflow: hidden; }
+.panel-body.face-detail:has(> .pc) { padding: var(--s-3); overflow: hidden; } /* 3.3.15.0 R3: 12 px at the least */
 .pc { height: 100%; display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; gap: 8px; min-height: 0; }
 .pc-bar .spacer, .pc-insp-head .spacer, .fg-bar .spacer { flex: 1; }
 .og-badge[data-state="planned"] { color: var(--warn); border-color: var(--warn); background: var(--warn-soft); }

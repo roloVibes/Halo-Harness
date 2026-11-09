@@ -105,6 +105,52 @@ cache; now every place a model is picked says them.
 - SLASH-COMMANDS-session.md (`/model`: the column, the line, the confirmation), COMMANDS-providers.md (`halo models`'
   takes column, `halo models show`'s lines), STUDIO-sections.md (the chips wherever a model is picked).
 
+### R3: text boxes fit their text
+
+The owner, with a photo of the Session Prompt panel: "These chat prompt boxes or all boxes that have text in them need
+to be bigger ... I can't ever see the example text fully because the chat window is so small." The composer was one
+line tall under a mostly empty panel, its two-line placeholder cut mid-word; the same one-line boxes held paragraphs in
+Roles' Lineup tab, Orchestra's goal form, Fleet's Steer and Mission start and the Settings editors.
+
+#### Changed
+- One text box, `lib/ui/TextBox.tsx` (styles/textbox.css): three lines tall at the least, it grows with its text up to
+  `maxRows` lines (12 by default) and then scrolls, with no resize handle and the Field look (the hairline, the accent
+  border on focus; prose 13 px for text, mono 12 px for data). It grows by `field-sizing: content` where the browser
+  has it and by its measured height on each change elsewhere. `Field` offers it as `multiline`; `lib/ui` (and a
+  pack's `api.lib.ui`) exports it. It is now the only `<textarea` in Studio's source: the Prompt composer, Fleet's
+  Steer box, Mission start's goal, the Take over brief and the Message box, Orchestra's three goal boxes and the plan's
+  reject reason, Roles' Description and How the pieces work together (Description was a one-line field), Prompt
+  notes, Rules (mono), the schedule's Prompt, the bio and section YAML (the bio's up to 24 lines), Settings' JSON and
+  list editors, and Local -> Steward's question box (it was a one-line field; Enter asks, Shift+Enter a new line).
+- The Prompt panel: the box takes the panel's free height while the conversation is short (`fill`: a hidden mirror of
+  the text sizes it, the panel's rows are the header, the feed at what it holds, the foot with the rest); a
+  conversation taller than the panel scrolls on its own and the box is three lines again, growing with the draft.
+- Placeholders fit: at most two lines in a three-line box, the rest in the panel's `?`. The composer's is "Type a turn,
+  or / for a command" (Enter, Shift+Enter and the history are in its `?`, with how the box grows); the goal's WHAT
+  YOU WANT example, Mission start's goal, Live's Steer line for a finished agent ("pin a live agent to steer"), the
+  steward's question (its examples moved to the page's `?`), the no-session line and a Settings list's default (shown
+  only when short; the row's default line has it) are shorter.
+- Read text is text: the field hints of Roles' Assignment and Lineup tabs sit in the tab's `?` (`routes/roles/TabHelp.tsx`,
+  one label and line per field, each section's fields included; the label keeps its line as a tooltip), and a
+  lineup's description in the Lineups list wraps to its full height instead of ending in an ellipsis.
+- Panels breathe (the owner, with a photo of Fleet: the strips were "squished and too small ... the bottom is too
+  short and not enough padding"): a strip was 5 grid rows, a 28 px panel under a 40 px title bar; it is 7 rows now
+  (`STRIP_ROWS`, `lib/workspace/types.ts`), a 44 px strip 12 px from the next and 18 px from the workspace's edges,
+  its bar centred over its whole height with 12 px at its sides. A title bar is 36 px at the least (compact
+  density's 32 grows), a panel body pads 12 px at the least in either density (the plan canvas, the Roles canvas and
+  the design board's 10 px too). The quiet layout gives the strips their full height and the page above them the
+  rest. Orchestra's Goal panel is 10 rows taller for its three-line goal boxes, so every field and Run still fit.
+- `tests/test_studio_textboxes.py` (full tier; driver `tests/helpers/studio_textboxes.py`): on the Prompt panel,
+  Orchestra's goal form and Roles' Lineup tab every box is three lines empty, grows with four, stops at twelve and
+  scrolls, and its placeholder fits; the composer fills the panel over a short feed and is its own size under a long
+  one; TextBox is the only `<textarea`; on Fleet and Session with every panel collapsed each strip is >= 40 px, 12 px
+  apart, its bar centred, and an open panel's bar is >= 36 px with its body padded >= 12 px
+  (`tests/helpers/studio_strips.py`).
+
+#### Docs
+- STUDIO-shell.md (the text box rule beside the Field spec, the strip's and the body's sizes), STUDIO-sections.md (the Prompt panel's box, the Lineup and
+  Assignment tabs' `?`), EXTENSION_API.md (`TextBox` in `api.lib.ui`).
+
 ## [3.3.14.0] - 2026-11-09
 
 **The review's fix pass: the token and the grants, then children and keys.** The November code and security review

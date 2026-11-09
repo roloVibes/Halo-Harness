@@ -4,8 +4,10 @@
 // finding; may leave a button for what costs more (retire, download and verify, a bench, the battery). Each answer
 // carries its cost ("local, 4 s" or the dollars). "Ask a bigger model" says what it costs first, then sends the same
 // context once to the session's main model. `halo ollama steward chat "<question>"` is the same from a terminal.
+// 3.3.15.0 R3: the question box is the one TextBox (three lines, grows with the question); Enter asks, Shift+Enter is
+// a new line.
 import { useEffect, useState } from "react";
-import { Button } from "../../lib/ui";
+import { Button, TextBox } from "../../lib/ui";
 import { ask, chat, loadBiggerCost, loadChat, press, useChat, type ChatRow } from "./chatstore";
 
 function Row({ r }: { r: ChatRow }) {
@@ -74,8 +76,9 @@ export function StewardChat() {
         e.preventDefault();
         send(false);
       }}>
-        <input className="lc-chat-input" value={q} onChange={(e) => setQ(e.target.value)} disabled={busy}
-               placeholder="Why is the card busy? What does the refresh do tonight? Make the 27B fit." data-testid="steward-chat-input" />
+        <TextBox className="lc-chat-input" value={q} onChange={(e) => setQ(e.target.value)} disabled={busy}
+                 placeholder="Ask, e.g. why is the card busy? Can the 27B fit?" data-testid="steward-chat-input"
+                 onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), q.trim() && model && send(false))} />
         <Button size="sm" variant="primary" disabled={busy || !q.trim() || !model} data-testid="steward-chat-ask"
                 onClick={() => send(false)}>Ask</Button>
         <Button size="sm" variant="ghost" disabled={busy || !q.trim()} data-testid="steward-chat-bigger"

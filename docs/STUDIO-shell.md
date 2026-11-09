@@ -172,11 +172,14 @@ a title is mono caps. A state is told four ways at once: a square, a colour, a r
 - **The panel frame** (`.glass`, `lib/ui/Surface.tsx` and every workspace panel): the surface, a hairline, a 6 px
   radius and four corner ticks, 10 x 1 px in the accent at the top left and the bottom right; the panel you are on
   (the focused one) has them in the text colour. Its three faces: the **full** face (title row and body), the
-  **compact** summary and the **strip** (the collapsed title row), as above; the title row is 40 px (`--bar-h`,
-  32 compact) with the state square, the title in mono caps and the mono data line.
+  **compact** summary and the **strip** (the collapsed title row: 3.3.15.0 R3, 44 px, 12 px apart, its bar centred), as
+  above; the title row is 40 px (`--bar-h`; 36 at the least) with the state square, the title in mono caps and the mono
+  data line; a body pads 12 px at the least.
 - **A confirmation says what it does.** A Dialog that asks before an action shows three mono lines before its buttons,
   **DOES**, **COSTS** and **WRITES** (`lib/ui/DialogCost.tsx`, `Dialog`'s `cost`): a pack's remove and update, Roles'
   Apply and its deletes, stopping a mission or a team run, a hand-off, a kick, deleting a local model.
+- **The text box** (3.3.15.0 R3, `lib/ui/TextBox.tsx`, `Field`'s `multiline`): every multi-line box; three lines at the least, it
+  grows with its text to 12 lines then scrolls, no resize handle; `fill` takes the free height (the composer); a placeholder is <= 2 lines.
 - **Map nodes** (the Session Map, Roles Live, the Fleet Tree's rows): a 2 px rule across the top in the state colour,
   a 1 px outline 3 px out when the node is selected or a Live line for it is hovered, the model without its provider
   prefix (the full id in the tooltip and the Inspector).

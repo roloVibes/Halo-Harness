@@ -64,11 +64,11 @@ export function LiveSteer() {
   const noControl = t.ref?.h.allow_control === "none";
   const done = !a || FINISHED.includes(String(a.state));
   const why = !a
-    ? `${name} is not in this session any more: pin a live agent (its tag, its lane or the agent pick)`
+    ? `${name} is not in this session any more: pin a live agent to steer`
     : noControl
       ? `${t.ref?.h.name || "that harness"} takes no commands from here (allow_control none)`
       : done
-        ? `${name} has finished (${a.state}): nothing to steer; pin a live agent (its tag, its lane or the agent pick)`
+        ? `${name} has finished (${a.state}): pin a live agent to steer`
         : undefined;
   const paused = a?.state === "paused";
   const head = (

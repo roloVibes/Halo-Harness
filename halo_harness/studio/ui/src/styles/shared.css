@@ -4,7 +4,7 @@
    dialogs and the Roles Bios / Lineups panels, and the "where" block and
    button row of the Roles and Team Start views and Start here. Tokens only. */
 
-.panel-body.face-detail:has(> .da), .panel-body.face-detail:has(> .dt) { padding: 10px; overflow: hidden; }
+.panel-body.face-detail:has(> .da), .panel-body.face-detail:has(> .dt) { padding: var(--s-3); overflow: hidden; } /* 3.3.15.0 R3: 12 px */
 
 /* -- status rows (Roles > Models) ------------------------------------------------------ */
 .oco { display: grid; gap: 12px; font-size: 13px; }

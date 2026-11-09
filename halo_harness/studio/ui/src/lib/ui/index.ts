@@ -5,6 +5,7 @@ export type { DialogCostLines } from "./DialogCost"; // 3.3.15.0 L1: a confirmat
 export { Toasts } from "./Toast";
 export { Tabs, type TabItem } from "./Tabs";
 export { Field } from "./Field";
+export { TextBox, type TextBoxProps } from "./TextBox"; // 3.3.15.0 R3: the one text box
 export { Kbd, keyLabel } from "./Kbd";
 export { Empty } from "./Empty";
 export { Skeleton } from "./Skeleton";

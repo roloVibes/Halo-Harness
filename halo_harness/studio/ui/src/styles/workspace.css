@@ -8,7 +8,10 @@
    wears its corner ticks (base.css .glass); the focused one's go from the
    accent to the text (.hud-brackets); a 40 px title row, the title in mono
    caps; no glow, the one shadow level only on a floating panel. Sizes come
-   from the density tokens (tokens.css: comfortable / compact). */
+   from the density tokens (tokens.css: comfortable / compact). 3.3.15.0 R3, panels breathe (the owner: the strips
+   were "squished and too small"): a strip is 7 rows (types.ts STRIP_ROWS: 44 px inside the 12 px gutter) with its
+   bar centred over the whole of it and 12 px at its sides; a title bar is 36 px at the least; a body pads 12 px at
+   the least in either density. */
 
 .workspace { position: absolute; inset: 0; overflow: auto; padding: 12px; }
 .ws-grid {
@@ -36,15 +39,15 @@
 .ws-cell[data-floating] .panel { box-shadow: var(--shadow-1); }
 
 .panel-bar {
-  flex: none; display: flex; align-items: center; gap: 10px; height: var(--bar-h); padding: 0 6px 0 14px;
+  flex: none; display: flex; align-items: center; gap: 10px; height: max(var(--bar-h), calc(var(--s-6) + var(--s-2))); padding: 0 var(--s-3);
   border-bottom: 1px solid var(--line-soft); cursor: grab; user-select: none; touch-action: none;
 }
-.panel[data-collapsed] .panel-bar { border-bottom: 0; }
+.panel[data-collapsed] .panel-bar { border-bottom: 0; height: 100%; }
 .panel-title { margin: 0; font: 600 var(--fs-title)/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .panel-data { flex: none; font: 11.5px var(--mono); color: var(--muted); white-space: nowrap; }
 .panel-tools { display: inline-flex; gap: 2px; margin-left: auto; }
 
-.panel-body { flex: 1; min-height: 0; overflow: auto; padding: var(--pad); }
+.panel-body { flex: 1; min-height: 0; overflow: auto; padding: max(var(--pad), var(--s-3)); }
 .panel-body[data-overflow] { box-shadow: inset 0 -1px 0 var(--accent); }  /* more below: scroll the panel or make it taller */
 
 /* resize handles: edges 6 px, corners 12 px */

@@ -2,16 +2,23 @@
 // list box keeps what you type locally and commits it on Enter or when it
 // loses the focus, so one edit is one step in the undo history (not one per
 // key). A list is comma separated. Labels are the shell's mono field labels.
-import { useEffect, useId, useState, type ReactNode } from "react";
+// 3.3.15.0 R3: an `area` box is the one TextBox (three lines at the least, grows with its text; `mono` for data such
+// as rules). Inside `HintsInHelp` (the Inspector's Assignment and Lineup tabs) a row's one-line hint is not drawn
+// under it: the tab's `?` (TabHelp.tsx) lists them, and the label carries it as its tooltip.
+import { createContext, useContext, useEffect, useId, useState, type ReactNode } from "react";
+import { TextBox } from "../../lib/ui";
 
 type Base = { label?: string; hint?: ReactNode; testid?: string; placeholder?: string; disabled?: boolean };
 
+export const HintsInHelp = createContext(false);
+
 export function Row({ label, hint, children, id }: { label?: string; hint?: ReactNode; children: ReactNode; id?: string }) {
+  const inHelp = useContext(HintsInHelp);
   return (
     <div className="field re-field">
-      {label && <label className="field-label mono" htmlFor={id}>{label}</label>}
+      {label && <label className="field-label mono" htmlFor={id} title={inHelp && typeof hint === "string" ? hint : undefined}>{label}</label>}
       {children}
-      {hint && <div className="field-hint">{hint}</div>}
+      {hint && !inHelp && <div className="field-hint">{hint}</div>}
     </div>
   );
 }
@@ -22,21 +29,21 @@ function useDraft(value: string): [string, (v: string) => void] {
   return [draft, setDraft];
 }
 
-export function TextIn({ value, onCommit, label, hint, testid, placeholder, disabled, area }: Base & { value: string; onCommit: (v: string) => void; area?: boolean }) {
+export function TextIn({ value, onCommit, label, hint, testid, placeholder, disabled, area, mono }: Base & { value: string; onCommit: (v: string) => void; area?: boolean; mono?: boolean }) {
   const id = useId();
   const [draft, setDraft] = useDraft(value);
   const commit = () => draft !== value && onCommit(draft);
   const props = {
-    id, className: "input", value: draft, placeholder, disabled, "data-testid": testid,
+    id, value: draft, placeholder, disabled, "data-testid": testid,
     onChange: (e: { target: { value: string } }) => setDraft(e.target.value),
     onBlur: commit,
   };
   return (
     <Row label={label} hint={hint} id={id}>
       {area ? (
-        <textarea {...props} rows={3} />
+        <TextBox {...props} mono={mono} />
       ) : (
-        <input {...props} onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), commit())} />
+        <input {...props} className="input" onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), commit())} />
       )}
     </Row>
   );

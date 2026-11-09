@@ -105,7 +105,9 @@ how the cost and map modules work. I love looking at live, but that's more for s
 palette's "Prompt: type into this session", `?prompt=1` and `halo studio --session <id> --prompt` open it with the
 keyboard in its box. It talks to the chosen session (the map's, else the newest live one here).
 
-**The box** behaves like the terminal's prompt: `Enter` sends, `Shift+Enter` is a new line, `Up` / `Down` walk this
+**The box** (3.3.15.0 R3: the one text box with `fill`, three lines at the least; it grows with the draft and takes the
+panel's free height while the conversation is short, and a conversation taller than the panel scrolls on its own)
+behaves like the terminal's prompt: `Enter` sends, `Shift+Enter` is a new line, `Up` / `Down` walk this
 session's history (kept in this browser, per session; a private window keeps none) when the caret is on the first /
 last line. `/` opens the **slash list** -- the same table the TUI completes from (`commands/builtins.py`) plus the
 session's project and user commands and skills, each with its arguments and one line of help (`GET

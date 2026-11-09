@@ -7,17 +7,19 @@
 // lines above the sections. 3.1.1.0 R3: Studio is the one editor of lineups
 // (`halo studio --edit lineup:<name>` opens this tab); each section's line
 // and the header's field lines are field_help.py's; Save to project scope. 3.3.7.0 R3: a lineup with local
-// lanes shows its swap preview and a Warm button under the header (LineupSched.tsx).
+// lanes shows its swap preview and a Warm button under the header (LineupSched.tsx). 3.3.15.0 R3: Description and
+// How the pieces work together are TextBoxes; the fields' one-line hints sit in the tab's `?` (TabHelp.tsx).
 import { useEffect, useState } from "react";
 import { api } from "../../lib/api";
 import { useFieldHelp, useHelpGroup } from "../../lib/fieldHelp";
-import { Button } from "../../lib/ui";
+import { Button, TextBox } from "../../lib/ui";
 import { edit } from "./actions";
 import { TextIn } from "./controls";
 import { ScopeCheck } from "./BioForm";
 import { LineupSched } from "./LineupSched"; // 3.3.7.0 R3: the swap preview, the warm set, Warm
 import { OptInFields } from "./OptInFields";
 import { SectionForm } from "./SectionForm";
+import { InHelp, TabHelp, useLineupLines } from "./TabHelp";
 import { SECTIONS, type SectionDef } from "./sections";
 import { useRoles } from "./store";
 import { msg } from "./sync";
@@ -54,8 +56,8 @@ function YamlBox({ def }: { def: SectionDef }) {
   };
   return (
     <div className="re-yaml">
-      <textarea className="input mono re-yaml-text" spellCheck={false} rows={Math.min(14, text.split("\n").length + 1)} value={text}
-                onChange={(e) => setText(e.target.value)} data-testid={`roles-yaml-${def.name}`} aria-label={`${def.name} as YAML`} />
+      <TextBox mono className="re-yaml-text" spellCheck={false} value={text}
+               onChange={(e) => setText(e.target.value)} data-testid={`roles-yaml-${def.name}`} aria-label={`${def.name} as YAML`} />
       <div className="re-yaml-row">
         <Button size="sm" variant="primary" onClick={() => void apply()} data-testid={`roles-yaml-apply-${def.name}`}>Apply this YAML</Button>
         {err && <span className="og-problems">{err}</span>}
@@ -96,7 +98,7 @@ export function LineupHeader() {
   const put = (key: string) => (v: string) => edit((r) => (v ? (r[key] = v) : delete r[key]));
   return (
     <div className="re-form">
-      <TextIn label="Description" hint={h.description} value={String(raw.description ?? "")} onCommit={put("description")} testid="roles-description" />
+      <TextIn label="Description" area hint={h.description} value={String(raw.description ?? "")} onCommit={put("description")} testid="roles-description" />
       <TextIn label="How the pieces work together" area hint={h.about} value={String(raw.about ?? "")} onCommit={put("about")} testid="roles-about" />
       <TextIn label="Extends" hint={h.extends} placeholder="another lineup to inherit sections from" value={String(raw.extends ?? "")} onCommit={put("extends")} />
       <ScopeCheck what="teams" />
@@ -117,14 +119,18 @@ export function SaveProblems() {
 
 export function LineupTab() {
   const name = useRoles((s) => s.name);
+  const lines = useLineupLines();
   if (!name) return <p className="muted">Open a lineup in Lineups first.</p>;
   return (
+    <InHelp>
     <div className="re-lineup" data-testid="roles-lineup-tab" data-lineup={name}>
+      <TabHelp lines={lines} testid="roles-lineup-help" />
       <SaveProblems />
       <LineupHeader />
       <LineupSched name={name} />
       <OptInFields />
       {SECTIONS.map((d) => <Block key={d.name} def={d} />)}
     </div>
+    </InHelp>
   );
 }

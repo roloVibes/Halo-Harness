@@ -9,6 +9,6 @@
 .lc-chat-tool { font-size: 12px; padding-left: 8px; }
 .lc-chat-tool:not([data-ok]) { color: var(--warn); }
 .lc-chat-button { display: flex; flex-direction: column; gap: 4px; padding: 4px 8px; border-left: 2px solid var(--accent); }
-.lc-chat-form { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.lc-chat-input { flex: 1 1 320px; min-width: 0; padding: 6px 10px; border-radius: var(--radius-sm); border: 1px solid var(--line-strong); background: var(--bg-2); color: var(--text); font: inherit; }
+.lc-chat-form { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
+.lc-chat-input { flex: 1 1 320px; } /* 3.3.15.0 R3: a TextBox (styles/textbox.css) */
 .lc-chat-bigger { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 12px; }

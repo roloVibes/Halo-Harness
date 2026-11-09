@@ -4,9 +4,11 @@
 // help) filtered as you type, Up / Down move in it, Tab (or Enter on a name not yet complete) completes, Esc
 // closes it. Ctrl+V with an image, or an image file dropped on the box, becomes the chip under it (the steer
 // box's path, steerImage.ts); a dropped file path (text) lands in the text. While a turn runs the send is
-// refused first and the busy line offers Queue it and Steer (promptSend.ts).
+// refused first and the busy line offers Queue it and Steer (promptSend.ts). 3.3.15.0 R3: the box is the one TextBox
+// with `fill`: three lines at the least, it grows with the draft and takes the panel's free height while the feed is
+// short; the keys moved from its placeholder into the panel's `?`.
 import { useEffect, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent } from "react";
-import { Button, Icon } from "../../lib/ui";
+import { Button, Icon, TextBox } from "../../lib/ui";
 import { history, loadSlash, prompt, setDraft, slashMatches, usePrompt } from "./promptStore";
 import { resolveBusy, send } from "./promptSend";
 import { imageFile, kb, readImage } from "./steerImage";
@@ -120,9 +122,8 @@ export function PromptComposer({ sid, off }: { sid: string; off: string }) {
       )}
       <div className="spp-row-in">
         <span className="spp-caret mono" aria-hidden="true">›</span>
-        <textarea ref={box} className="input spp-input" rows={Math.min(6, Math.max(1, draft.split("\n").length))} value={draft} disabled={!!off}
-                  placeholder={off || "Type a turn, or / for a command (Enter sends, Shift+Enter a new line, Up for history)"}
-                  onChange={(e) => (setDraft(e.target.value), setPick(0))} onKeyDown={onKey} aria-label="Type into this session" data-testid="prompt-input" />
+        <TextBox ref={box} fill mono className="spp-input" value={draft} disabled={!!off} placeholder={off || "Type a turn, or / for a command"}
+                 onChange={(e) => (setDraft(e.target.value), setPick(0))} onKeyDown={onKey} aria-label="Type into this session" data-testid="prompt-input" />
         <Button size="sm" variant="primary" icon={<Icon name="send" />} disabled={!!off || sending || (!draft.trim() && !img)} onClick={go} data-testid="prompt-send">
           Send
         </Button>

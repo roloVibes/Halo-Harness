@@ -6,6 +6,7 @@
 // first). With no card selected: the lineup's description and about.
 // 3.1.1.0 R3: each field's help line is field_help.py's (lib/fieldHelp.ts).
 // 3.2.2.0 R5: the header carries the bio's scope chip (the card no longer does).
+// 3.3.15.0 R3: the fields' one-line hints sit in the tab's `?` (TabHelp.tsx), not under each field.
 import { focusPanel, patchPanel } from "../../lib/workspace/persist";
 import { useHelpGroup } from "../../lib/fieldHelp";
 import { Button } from "../../lib/ui";
@@ -15,6 +16,7 @@ import { ListIn, NumberIn, Pick, TextIn } from "./controls";
 import { ModelSelect } from "../shared/ModelSelect";
 import { setSlotModel } from "./modelActions";
 import { LineupHeader, SaveProblems } from "./LineupTab";
+import { InHelp, TabHelp, useHeaderLines } from "./TabHelp";
 import { agentsOf, keyOf, modelRow, nodeById, openDialog, priceText, readOnlySource, scopeLabel, useRoles } from "./store";
 import type { Entry, Raw } from "./types";
 
@@ -35,14 +37,18 @@ export function Assignment() {
   const tier = useRoles((s) => s.graph?.tiers.find((t) => t.node_ids.includes(s.sel)));
   const model = useRoles((s) => (n ? modelRow(s, n.model) : undefined));
   const h = useHelpGroup("assignment");
+  const head = useHeaderLines();
   if (!raw) return <p className="muted">Open a lineup in Lineups first.</p>;
   if (!sel || !n) {
     return (
-      <div className="re-assign">
-        <SaveProblems />
-        <p className="muted">Click a card to edit its slot, or drag a bio from the Bios panel onto the canvas to add one.</p>
-        <LineupHeader />
-      </div>
+      <InHelp>
+        <div className="re-assign">
+          <TabHelp lines={head} testid="roles-assign-help" />
+          <SaveProblems />
+          <p className="muted">Click a card to edit its slot, or drag a bio from the Bios panel onto the canvas to add one.</p>
+          <LineupHeader />
+        </div>
+      </InHelp>
     );
   }
   const entry = (agentsOf(raw)[n.index] || {}) as Entry;
@@ -56,7 +62,10 @@ export function Assignment() {
   const title = keyOf(n);
   const over = (entry.models && typeof entry.models === "object" ? entry.models : {}) as Raw;
   return (
+    <InHelp>
     <div className="re-assign" data-testid="roles-assignment">
+      <TabHelp testid="roles-assign-help" lines={[["Agent bio", h.agent], ["Role", h.role], ["Alias (as)", h.as], ["Instances", h.instances],
+                                                  ["Use for", h.use_for], ["Model override", h.models]]} />
       <SaveProblems />
       <header className="re-assign-head">
         <b>{n.agent}</b>
@@ -74,7 +83,7 @@ export function Assignment() {
       <TextIn label="Alias (as)" value={String(entry.as || "")} placeholder="worker, review, boss" onCommit={(v) => set("as", v.trim())} hint={h.as} testid="roles-assign-alias" />
       <NumberIn label="Instances" hint={h.instances} testid="roles-assign-instances" value={typeof entry.instances === "number" ? entry.instances : undefined} onCommit={(v) => set("instances", v && v > 1 ? Math.round(v) : undefined)} />
       <ListIn label="Use for" hint={h.use_for} testid="roles-assign-use-for" value={Array.isArray(entry.use_for) ? entry.use_for : []} onCommit={(v) => set("use_for", v)} />
-      <ModelSelect label="Model override" hint={h.models} value={String(over.preference || "")} testid="roles-assign-model"
+      <ModelSelect label="Model override" value={String(over.preference || "")} testid="roles-assign-model"
                    inherit={{ label: "the bio's own", model: n.bio_model ?? bios.find((b) => b.name === n.agent)?.model ?? "" }} onPick={(v) => void setSlotModel(n.index, v)} />
       <dl className="re-resolved mono">
         <div><dt>model</dt><dd>{n.model || "none resolves"}</dd></div>
@@ -93,5 +102,6 @@ export function Assignment() {
       </div>
       <p className="muted re-tip">Arrows nudge the card on the canvas, Delete removes it; Ctrl+Z undoes any edit.</p>
     </div>
+    </InHelp>
   );
 }

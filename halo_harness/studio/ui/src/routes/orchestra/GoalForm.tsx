@@ -6,7 +6,8 @@
 // model select in plain sight, its first option "the lineup's (<the lead's
 // model>)"), then who plays the parts under a disclosure. Run and Dry run
 // post it (POST orchestra/run). 3.2.2.0 R6: LINEUP offers every lineup by
-// name, the list kept current from disk (shared/LineupField.tsx).
+// name, the list kept current from disk (shared/LineupField.tsx). 3.3.15.0 R3: the three goal boxes are the one
+// text box (Field `multiline`: three lines at the least, grows with its text).
 import { useEffect, useState } from "react";
 import { useHelpGroup } from "../../lib/fieldHelp";
 import { useStore } from "../../lib/store";
@@ -24,7 +25,7 @@ import { lineupTook, startRun, stopRun, type RunForm } from "./sync";
 const EMPTY: RunForm = { what: "", done_when: "", stop_when: "", workers: 5, return_cap: 2, test: "", files: [], lineup: "", lead: "main", worker: "subagent", model: "", review: false };
 
 const EXAMPLE = {
-  what: "e.g. Add input checks to every public function in basket.py, with a clear error for each bad value.",
+  what: "e.g. Add input checks to every public function in basket.py",
   done_when: "e.g. python -m pytest tests/test_basket.py passes and every function rejects bad input.",
   stop_when: "e.g. a part fails the gate twice, or a change reaches outside basket.py.",
   files: "e.g. basket.py, prices.py",
@@ -38,11 +39,9 @@ function fromGoal(): RunForm {
 
 type Setter<K extends keyof RunForm> = (v: RunForm[K]) => void;
 
-function Text({ label, value, set, hint, example, tall }: { label: string; value: string; set: (v: string) => void; hint?: string; example: string; tall?: boolean }) {
+function Text({ label, value, set, hint, example }: { label: string; value: string; set: (v: string) => void; hint?: string; example: string }) {
   return (
-    <Field label={label} hint={hint}>
-      {(id) => <textarea id={id} className={"input og-text" + (tall ? " og-text-tall" : "")} value={value} placeholder={example} title={hint} onChange={(e) => set(e.target.value)} />}
-    </Field>
+    <Field label={label} hint={hint} multiline={{ value, placeholder: example, title: hint, onChange: (e) => set(e.target.value) }} />
   );
 }
 
@@ -126,7 +125,7 @@ export function GoalForm({ start }: { start?: boolean }) {
           copy the goal of run {runId}
         </button>
       )}
-      <Text label="WHAT YOU WANT" value={form.what} set={set("what")} example={EXAMPLE.what} tall={start} />
+      <Text label="WHAT YOU WANT" value={form.what} set={set("what")} example={EXAMPLE.what} />
       <Text label="DONE WHEN" value={form.done_when} set={set("done_when")} example={EXAMPLE.done_when} hint={start ? "what the gate checks before the result lands" : undefined} />
       <Text label="STOP WHEN" value={form.stop_when} set={set("stop_when")} example={EXAMPLE.stop_when} hint={start ? "when the run gives up" : undefined} />
       <div className="og-form-row">

@@ -8,8 +8,9 @@
 // the box of `where` ("agent": the Agent panel's, "live": the Live column's);
 // each request is taken once, so a box that mounts later does not take it again,
 // and lands after the panel that opened with it has taken its own focus.
+// 3.3.15.0 R3: the box is the one TextBox (three lines at the least, grows with the text, then scrolls).
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Button, Icon } from "../../lib/ui";
+import { Button, Icon, TextBox } from "../../lib/ui";
 import { steer } from "./actions";
 import { fleet, useFleet } from "./store";
 
@@ -68,10 +69,10 @@ export function Steer({ k, disabled, why, where = "agent", head, extra, send: se
         {extra && <div className="fa-steer-extra">{extra}</div>}
       </div>
       <div className="fa-steer-row">
-        <textarea
+        <TextBox
           ref={box}
-          className="input fa-steer-text"
-          rows={2}
+          mono
+          className="fa-steer-text"
           value={text}
           disabled={disabled}
           placeholder={disabled ? why || "It has finished: nothing to steer" : mode === "nudge" ? "Say what to change; it reads it before its next step" : "The new task it works on instead"}

@@ -96,7 +96,7 @@ export function BioFields({ d, mark }: { d: Raw; mark: (field: string) => boolea
         <Tools label="Deny" hint={h["tools.deny"]} list={arr(tl.deny)} onChange={at("tools", "deny")} known={tools} testid="bio-tools-deny" changed={mark("tools.deny")} />
         <ListIn label="MCP servers" hint={h["tools.mcp_servers"]} value={arr(tl.mcp_servers)} onCommit={at("tools", "mcp_servers")} />
         <Pick label="Permission mode" hint={h["tools.permission_mode"]} value={String(tl.permission_mode ?? "")} options={["", "auto", "manual", "plan"]} onChange={at("tools", "permission_mode")} />
-        <TextIn label="Rules (one per line)" area hint={h["tools.rules"]} placeholder="deny Bash(git push*)" value={arr(tl.rules).join("\n")}
+        <TextIn label="Rules (one per line)" area mono hint={h["tools.rules"]} placeholder="deny Bash(git push*)" value={arr(tl.rules).join("\n")}
                 onCommit={(v) => at("tools", "rules")(v.split("\n").map((x) => x.trim()).filter(Boolean))} testid="bio-rules" />
       </Sec>
       <Sec title="CONTEXT">

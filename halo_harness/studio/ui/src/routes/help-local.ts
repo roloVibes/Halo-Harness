@@ -66,7 +66,7 @@ export const LOCAL_HELP: Record<string, Help> = {
     "The tuning report: the warm set that fits together and what a pivot costs, each model's window alone, beside the warm set and with q8_0 KV, the reserve, the steward's findings. Halo-side options have Apply; server-side ones show the exact line and its revert, for you to run.",
     "Every change has a scope: keep, until halo exits, until the session ends. Revert puts one back and says what it put back; halo local changes and halo local revert do the same."),
   "local-steward": page("The steward: its status and last note, a chat with its own small model over the hosts' findings, the model it runs on, the off-hours refresh.",
-    "Ask in plain words: it reads the card, the calls, the events, the profiles, the speed cards and the findings, and answers with its cost.",
+    "Ask in plain words (Enter asks, Shift+Enter is a new line): it reads the card, the calls, the events, the profiles, the speed cards and the findings, and answers with its cost. For example: why is the card busy? what does the refresh do tonight? make the 27B fit.",
     "A change it makes is Halo-side, one per answer, citing a finding; retire, download, a bench or the battery wait for your button.",
     "Ask a bigger model says its cost first, then sends the same context once to the session's main model.",
     "halo ollama steward chat and halo ollama steward candidates say the same from a terminal."),
