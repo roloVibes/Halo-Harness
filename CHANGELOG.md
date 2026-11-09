@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.3.13.1] - unreleased
+## [3.3.13.1] - 2026-11-09
 
 **The steward hotfix and the review's first cut.** The usage audit of the owner's own logs (plans/ROADMAP.md, the
 Focus plan's F1) found the Ollama steward tuning itself in a loop: each cut reply proposed twice the reply reserve in
