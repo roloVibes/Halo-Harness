@@ -106,5 +106,6 @@ def pack_themes(c, url, ctx) -> dict:
     out["off_theme"] = c.wait(f"{THEME} === 'midnight' && {THEME}", 20)
     out["off_accent"] = c.wait(f"{VAR.format('--accent')} === '#5b9dff' && {VAR.format('--accent')}", 10)
     out["off_inline_accent"] = c.js("document.documentElement.style.getPropertyValue('--accent')")
-    out["off_rows"] = c.js(f"{qa('[data-testid=theme-row]')}.length")
+    # the pack's rows leave after the registry re-read that pack_changed starts; a slow runner is still drawing them
+    out["off_rows"] = c.wait(f"{qa('[data-testid=theme-row]')}.length === 11 && {qa('[data-testid=theme-row]')}.length", 20)
     return out

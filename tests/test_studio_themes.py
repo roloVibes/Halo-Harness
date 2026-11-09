@@ -91,7 +91,8 @@ def test_a_pack_palette_in_the_menu_the_page_and_the_first_paint(ctx: Ctx):
     ctx.check(f"the first paint, scripts off: the pack palette already, got {got.get('first_theme')} {got.get('first_accent')} "
               f"{got.get('first_bg')} app ran {got.get('first_app_ran')}", got.get("first_theme") == night and got.get("first_accent") == "#b48cff"
               and got.get("first_bg") == "#0d0b14" and got.get("first_app_ran") is False and got.get("first_inline_vars") == 0)
-    ctx.check(f"disabled through the route: midnight back on the page, got {got.get('off_saved')} {got.get('off_theme')} {got.get('off_accent')}",
+    ctx.check(f"disabled through the route: midnight back on the page, got {got.get('off_saved')} {got.get('off_theme')} {got.get('off_accent')} "
+              f"inline '{got.get('off_inline_accent')}' rows {got.get('off_rows')}",
               got.get("off_saved") == "midnight" and got.get("off_theme") == "midnight" and got.get("off_accent") == "#5b9dff"
               and got.get("off_inline_accent") == "" and got.get("off_rows") == 11)
     ctx.check(f"and the disable said so, got {got.get('off_lines')}", any("restored midnight" in ln for ln in got.get("off_lines") or []))
