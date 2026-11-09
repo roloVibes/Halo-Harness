@@ -14,6 +14,8 @@ guard as every Studio route. Never a model call; never a write to a server.
     POST ollama/steward/dismiss {id}   a `dismissed` line: the finding stays quiet for 24 hours
     POST ollama/steward/undo   the newest change in place reverted -> {ok, change | null, say}
     POST ollama/steward/run    one steward.run() pass (its profile lock keeps it from racing the job)
+    POST ollama/steward/profiles-reset {model?, host?}   3.3.13.1: a model's profile back to the measured defaults
+                               (profiles_reset.reset) -> {ok, reset [{key, dropped}], say}
 """
 
 from __future__ import annotations
@@ -148,6 +150,15 @@ def post_undo(req):
     return 200, {"ok": True, "change": row, "say": row["say"] if row else "nothing to undo: no steward change is in place"}
 
 
+def post_profiles_reset(req):
+    """3.3.13.1: Local's Reset -- a model's profile back to the measured defaults (profiles_reset.reset)."""
+    from halo_harness.ollama_steward.profiles_reset import reset
+    body = _body(req)
+    model, host = (str(body.get(k) or "").strip() or None for k in ("model", "host"))
+    lines, rows = reset(req.state_dir, model, host)
+    return 200, {"ok": True, "reset": rows, "say": "; ".join(lines)}
+
+
 def post_run(req):
     from halo_harness.ollama_steward import steward
     from halo_harness.studio.ollama_hosts_view import readers
@@ -160,7 +171,7 @@ def post_run(req):
 ROUTES = {"ollama/steward": ("GET", get_steward), "ollama/hosts": ("GET", get_hosts),
           "ollama/timeline": ("GET", get_timeline), "ollama/steward/apply": ("POST", post_apply),
           "ollama/steward/dismiss": ("POST", post_dismiss), "ollama/steward/undo": ("POST", post_undo),
-          "ollama/steward/run": ("POST", post_run)}
+          "ollama/steward/run": ("POST", post_run), "ollama/steward/profiles-reset": ("POST", post_profiles_reset)}
 
 
 def dispatch_ollama(req):

@@ -41,6 +41,7 @@ FIELDS = ("num_ctx", "num_predict", "keep_alive", "tools_max", "host_for", "comp
 CHANGEABLE = ("num_ctx", "num_predict", "keep_alive", "tools_max", "host_for", "compact_at")
 COMPACT_AT = 0.8
 CONFIG_KEY = "ollama.profiles"
+SANE_MAX = 2 ** 21  # 3.3.13.1: a window or reply reserve past 2M tokens is never written (clean)
 
 
 def short_model(model) -> str:
@@ -108,8 +109,10 @@ def clean(entry: dict) -> dict:
     """Only the known fields, each of its own type (a typo never breaks a call)."""
     out: dict = {}
     for k in ("num_ctx", "num_predict", "tools_max"):
-        if _pos(entry.get(k)):
+        if _pos(entry.get(k)) and (k == "tools_max" or entry[k] <= SANE_MAX):  # 3.3.13.1: no 2^160 window or reply
             out[k] = entry[k]
+    if out.get("num_predict") and out.get("num_ctx") and out["num_predict"] > out["num_ctx"]:
+        out["num_predict"] = out["num_ctx"]  # a reply reserve is at most the window
     ka = entry.get("keep_alive")
     if isinstance(ka, (str, int)) and not isinstance(ka, bool) and str(ka).strip():
         out["keep_alive"] = ka

@@ -349,7 +349,7 @@ def _preexec_command_permitted(command: str, allow_rules: list) -> bool:
 
 def run_preexec_commands(body: str, *, allowed_tools: Optional[list] = None, cwd: Path,
                           permission_engine: Optional[object] = None,
-                          env: Optional[dict] = None) -> ExpansionResult:
+                          env: Optional[dict] = None, decide=None) -> ExpansionResult:  # 3.3.13.1: decide
     """Replace every `` !`cmd` `` span with that command's stripped stdout.
 
     finding 9 (major, h4-h5-h3c review) -- two auto-mode leftovers fixed:
@@ -404,7 +404,7 @@ def run_preexec_commands(body: str, *, allowed_tools: Optional[list] = None, cwd
         out_parts.append(body[pos:m.start()])
 
         if permission_engine is not None:
-            decision = permission_engine.decide("Bash", {"command": command})
+            decision = (decide or permission_engine.decide)("Bash", {"command": command})  # packs too (skill_gate)
             if decision.action != "allow":
                 return ExpansionResult(text="", error=(
                     f"pre-execution command not permitted: {command!r} ({decision.reason})"))
@@ -437,7 +437,7 @@ def run_preexec_commands(body: str, *, allowed_tools: Optional[list] = None, cwd
 
 def expand_command_body(body: str, args_text: str, *, allowed_tools: Optional[list] = None, cwd: Path,
                          permission_engine: Optional[object] = None, env: Optional[dict] = None,
-                         claude_vars: Optional[dict] = None) -> ExpansionResult:
+                         claude_vars: Optional[dict] = None, decide=None) -> ExpansionResult:
     """`$ARGUMENTS`/`$N` substitution, then `${CLAUDE_...}` variable
     substitution (finding 12), then `` !`cmd` `` pre-execution -- the one
     entry point custom.py/skills.py/controller.py/tools/skill.py all
@@ -454,7 +454,7 @@ def expand_command_body(body: str, args_text: str, *, allowed_tools: Optional[li
         substituted = fill_claude_vars_in_commands(substituted, claude_vars)
     substituted = substitute_claude_vars(substituted, claude_vars)
     return run_preexec_commands(substituted, allowed_tools=allowed_tools, cwd=cwd,
-                                 permission_engine=permission_engine, env=env)
+                                 permission_engine=permission_engine, env=env, decide=decide)
 
 
 # =============================================================================

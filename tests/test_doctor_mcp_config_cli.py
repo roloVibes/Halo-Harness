@@ -22,6 +22,27 @@ def _fresh_home() -> Path:
     return Path(tempfile.mkdtemp(prefix="halo-subcmd-"))
 
 
+def _scoped_checks():
+    """Run doctor.run_checks() against a fresh scratch home -- never the owner's
+    real ~/.halo or env file (a bare call once let the Ollama key migration write
+    both; 2026-11-08)."""
+    from halo_harness.doctor import run_checks
+    keys = ("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR", "BRIDGE_ENV_FILE")
+    saved = {k: os.environ.get(k) for k in keys}
+    home = _fresh_home()
+    os.environ["BRIDGE_TEST_HOME"] = str(home)
+    os.environ["BRIDGE_STATE_DIR"] = str(home / ".halo")
+    os.environ["BRIDGE_ENV_FILE"] = str(home / "no-env-file")
+    try:
+        return run_checks()
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+
+
 def _run(argv, home: Path, timeout=30):
     env = _hermetic_child_env()
     env.update({"BRIDGE_TEST_HOME": str(home), "PYTHONPATH": str(REPO_DIR)})
@@ -105,8 +126,7 @@ def test_h5b_u5_doctor_reports_the_clipboard_backend(ctx: Ctx):
     """U5's own leftover / H8 cheap must-do: tui/clipboard.py's
     `clipboard_doctor_line()` was written ready-to-call but never actually
     wired into a real `doctor` run -- `run_checks()` must now include it."""
-    from halo_harness.doctor import run_checks
-    lines, _ok = run_checks()
+    lines, _ok = _scoped_checks()
     ctx.check(f"a clipboard backend line is present, got {lines}",
               any("Clipboard backend" in line for line in lines))
     clipboard_lines = [l for l in lines if "Clipboard backend" in l]
@@ -154,8 +174,8 @@ def test_h9_doctor_reports_ripgrep_editor_and_shell(ctx: Ctx):
     `$EDITOR` and a usable Bash shell (Git Bash on win32, `/bin/bash` on
     POSIX) -- xclip/wl-copy (clipboard), `claude` (--chrome) and npx
     (--playwright) were already covered before this milestone."""
-    from halo_harness.doctor import run_checks, _check_ripgrep, _check_editor, _check_shell
-    lines, _ok = run_checks()
+    from halo_harness.doctor import _check_ripgrep, _check_editor, _check_shell
+    lines, _ok = _scoped_checks()
     ctx.check(f"an rg/ripgrep line is present, got {lines}", any("rg" in l and "ripgrep" in l for l in lines))
     ctx.check(f"a $VISUAL/$EDITOR line is present, got {lines}", any("$VISUAL/$EDITOR" in l for l in lines))
     ctx.check(f"a shell (bash) line is present, got {lines}",

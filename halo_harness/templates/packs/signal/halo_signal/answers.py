@@ -6,7 +6,7 @@ answer), a plan by `approve` or `feedback <text>`, an approval by `accept`, `edi
 3.3.13.0 R3: a plain text while a permission, plan or approval card is open that is not an answer to it is held and
 asked about in one line ("A card waits: ... or `send` to pass it to the session"); `send` then submits it as the
 prompt (a steer while the turn runs). A thumbs-up reaction on a card answers it as `1` / `approve` / `accept`, a
-thumbs-down as `4` / `feedback` (no) / `stop`.
+thumbs-down as `4` / `feedback` (no) / `stop`; a reaction on any other message answers nothing (3.3.13.1).
 
 Before a text is taken as an answer the cards are checked against the session's `status.pending`, so a card answered
 at the keyboard is dropped and the text is routed as usual.
@@ -112,10 +112,12 @@ def held_line(rt, t: str) -> str:
     return f"A card waits: {what}, or `send` to pass \"{one_line(t, 40)}\" to the session instead."
 
 
-def react(b, rt, emoji: str) -> str:
-    """A reaction on the phone: thumbs up / down answers the oldest open card."""
+def react(b, rt, emoji: str, target=None) -> str:
+    """A reaction on the phone: thumbs up / down on a card answers the oldest open card. 3.3.13.1 (REVIEW #18,
+    REMOTE-1): only a reaction whose `targetSentTimestamp` is one of the cards' sent timestamps (outbox.sent_card);
+    a heart on yesterday's answer while a card waits does nothing."""
     up, down = emoji in UP, emoji in DOWN
-    if not (up or down):
+    if not (up or down) or not isinstance(target, int) or target not in rt.card_ts:
         return ""
     reconcile(b, rt)
     if rt.permission:

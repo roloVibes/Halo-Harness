@@ -184,7 +184,7 @@ def _observed(session, req, gen, kind, abort, target):
             "ref": getattr(own, "raw", None) if getattr(own, "model", None) == model else None,
             "dialect": target["dialect"], "kind": kind, "tools_count": len(body.get("tools") or []),
             "images": _images(body), "body_flags": body_flags(body), "session": getattr(log_, "session_id", None),
-            "turn": getattr(session, "turn_count", None)}
+            "turn": getattr(session, "turn_count", None), "by": getattr(session, "ledger_by", None)}  # 3.3.13.1
     base.update(_window(session, target["host"]["url"], body))
     from halo_harness.ollama_steward.ledger_switch import switch_fields  # 3.3.5.0 R0
     base.update(switch_fields(session, model, kind), **prompt_fields(session, kind))  # R4: the prompt budget

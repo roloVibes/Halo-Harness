@@ -21,7 +21,7 @@ A line (`blank_line` has every field, `None` when unknown):
     None when it sent none; whether it carried a tool catalog and images),
     bytes_in / bytes_out (3.3.5.0 R1: the request body's size, the reply's),
     composition, prefix_tokens, prefix_changed, preflight, warming,
-    cache_reused_pct (3.3.5.0 R4: the prompt budget, ledger_prompt.py)
+    cache_reused_pct (3.3.5.0 R4: the prompt budget, ledger_prompt.py), by ("steward" = 3.3.13.1: its own call)
 
 `from` is this machine's fleet name while it has joined a hub (None otherwise); the hub sets it to the member's
 name on the lines a member forwards (fleet/ollama_share.py). `ollama.ledger: false` turns recording off. A write
@@ -48,7 +48,7 @@ FIELDS = ("at", "host", "model", "ref", "dialect", "kind", "num_ctx_sent", "wind
           "prompt_eval_count", "eval_count", "done_reason", "total_ms", "load_ms", "prompt_eval_ms", "eval_ms",
           "eval_tok_s", "trimmed", "status", "error", "retry", "session", "turn", "tools_count", "images", "from",
           "switched_from", "fitted", "body_flags", "bytes_in", "bytes_out", "composition", "prefix_tokens",
-          "prefix_changed", "preflight", "warming", "cache_reused_pct", "log_events", "dialect_record", "loop", "ladder")  # R3, R4
+          "prefix_changed", "preflight", "warming", "cache_reused_pct", "log_events", "dialect_record", "loop", "ladder", "by")  # R3, R4
 _SINCE_RE = re.compile(r"^\s*(\d+(?:\.\d+)?)\s*([smhdw]?)\s*$", re.IGNORECASE)
 _UNIT_S = {"": 3600, "s": 1, "m": 60, "h": 3600, "d": 86400, "w": 7 * 86400}
 
@@ -209,9 +209,9 @@ def model_matches(line: dict, model: Optional[str]) -> bool:
 
 
 def read_calls(state_dir, since=None, host: Optional[str] = None, model: Optional[str] = None,
-               kind: Optional[str] = None) -> "list[dict]":
-    """Every line, oldest first; `since` is seconds back from now (or a
-    span such as "1h"), `host` a host name or url, `model` a model name."""
+               kind: Optional[str] = None, own: bool = False) -> "list[dict]":
+    """Every line, oldest first; `since` is seconds back from now (or a span such as "1h"), `host` a host name or
+    url, `model` a model name. 3.3.13.1: the steward's own calls (`by: "steward"`) only with `own=True`."""
     if isinstance(since, str):
         since = parse_since(since)
     cutoff = time.time() - since if isinstance(since, (int, float)) else None
@@ -219,11 +219,10 @@ def read_calls(state_dir, since=None, host: Optional[str] = None, model: Optiona
     out = []
     for path in (d / ROTATED_FILE, d / TRAFFIC_FILE):
         for line in _iter_file(path):
-            if cutoff is not None:
-                t = parse_at(line.get("at"))
-                if t is None or t < cutoff:
-                    continue
-            if host_matches(line, host) and model_matches(line, model) and (not kind or line.get("kind") == kind):
+            if cutoff is not None and (parse_at(line.get("at")) or 0) < cutoff:
+                continue
+            if host_matches(line, host) and model_matches(line, model) and (not kind or line.get("kind") == kind) \
+                    and (own or line.get("by") != "steward"):
                 out.append(line)
     return out
 

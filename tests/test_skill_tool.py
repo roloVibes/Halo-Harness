@@ -25,6 +25,12 @@ def _project_skills_setup(**skill_kwargs):
     (proj / ".claude").mkdir(parents=True, exist_ok=True)
     (home / ".claude").mkdir(parents=True, exist_ok=True)
     add_fake_skill(proj / ".claude" / "skills", **skill_kwargs)
+    # 3.3.13.1 (REVIEW #1, PERMS-1): these are a trusted project's skills (their allowed-tools are granted); an
+    # untrusted folder's skill is tests/test_skill_untrusted.py
+    import json
+    from halo_harness.config.paths import normalize_cwd
+    (home / ".halo").mkdir(parents=True, exist_ok=True)
+    (home / ".halo" / "trust.json").write_text(json.dumps({normalize_cwd(proj): True}), encoding="utf-8")
     return proj, home
 
 

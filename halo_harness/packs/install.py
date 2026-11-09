@@ -23,7 +23,7 @@ from pathlib import Path
 
 from halo_harness.packs import journal as J
 from halo_harness.packs.discover import project_packs_dir, read_pack, user_packs_dir
-from halo_harness.packs.fetch import fetched, files_of
+from halo_harness.packs.fetch import fetched, files_of, stray_file
 
 
 def _checks(src: Path) -> "tuple[object, list[str]]":
@@ -32,6 +32,14 @@ def _checks(src: Path) -> "tuple[object, list[str]]":
     if pack.problems:
         return pack, [f"{pack.id}: pack.yaml: {line}" for line in pack.problems]
     return pack, compat_lines(pack)
+
+
+def copied_checks(src: Path) -> "tuple[object, list[str]]":
+    """`_checks`, and (3.3.13.1, PACKS-1) for a copy -- install and update, never `--link`, whose folder is the
+    owner's own -- a link or a file outside the folder is named and nothing is written."""
+    pack, problems = _checks(src)
+    stray = "" if problems else stray_file(src)
+    return pack, ([f"{pack.id}: {stray}; nothing is written"] if stray else problems)
 
 
 def _copy(op: "J.Op", src: Path, dest: Path, rels) -> None:
@@ -51,7 +59,7 @@ def install(source: str, *, project: bool = False, cwd=None, state_dir=None, lin
     with fetched(source, state_dir=state_dir) as (src, problem):
         if src is None:
             return False, [problem]
-        pack, problems = _checks(src)
+        pack, problems = copied_checks(src)
         if problems:
             return False, problems
         base = project_packs_dir(cwd) if project else user_packs_dir(state_dir)

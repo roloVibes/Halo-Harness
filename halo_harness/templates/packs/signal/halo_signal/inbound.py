@@ -78,7 +78,7 @@ def on_reaction(b, peer: dict, reaction: dict) -> None:
         return  # a signed phone's reactions carry no signature: they are not answers
     if b.limiter.allow(aci) != OK:
         return
-    done = answers.react(b, b.rt(aci), str(reaction.get("emoji") or ""))
+    done = answers.react(b, b.rt(aci), str(reaction.get("emoji") or ""), reaction.get("targetSentTimestamp"))
     b.audit.record(aci, 0, "reaction", "reaction", done or "ignored")
 
 

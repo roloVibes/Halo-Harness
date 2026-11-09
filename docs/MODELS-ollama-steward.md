@@ -167,7 +167,7 @@ R3, the steward judges, plans the fit, adjusts:
   the plan); at most one per host and model in ten minutes, never above a
   measured cap, and a change followed by worse calls (more trims, cuts and
   errors in the next 10 calls than in the 10 before) is rolled back on its
-  own. `halo ollama steward undo` reverts the newest change.
+  own. `halo ollama steward undo` reverts the newest change; 3.3.13.1: `halo ollama steward profiles reset [<model>]` (Local's Reset) drops a profile's tuned fields, each named, and the calls use the measured window again. A reply reserve comes from the measured cut, under the model's context minus the prompt and half the window, one an hour per model; the steward's own calls are tagged `by: "steward"` in the ledger and never read back; a note is written only when a finding, a server or a profile changed.
 - **Two session fixes**: a request whose prompt passes `compact_at` of the
   most its window can be compacts before it is sent, and a reply that used
   up the room the window left it counts as cut (compacted and re-sent,

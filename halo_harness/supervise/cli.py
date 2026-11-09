@@ -120,10 +120,14 @@ def _service(state_dir, os_n: Optional[str], as_json: bool) -> int:
 
 
 def _daemon(state_dir, as_json: bool) -> int:
+    from halo_harness.supervise import single  # 3.3.13.1 (CORE-2): the lock says first; the child takes it
+    held = single.take(state_dir)
+    single.release(state_dir, held)
     live = pulse.read(state_dir)
-    if live["running"]:
-        msg = f"a supervisor is already running (pid {live['pid']})."
-        print(json.dumps({"ok": False, "error": msg, "pid": live["pid"]}) if as_json else msg, file=None if as_json else sys.stderr)
+    if held is None or live["running"]:
+        msg = single.held_line(state_dir) if held is None else f"a supervisor is already running (pid {live['pid']})."
+        print(json.dumps({"ok": False, "error": msg, "pid": live["pid"] or single.holder(state_dir)}) if as_json else msg,
+              file=None if as_json else sys.stderr)
         return 1
     import subprocess
     argv = [sys.executable, "-u", "-m", "halo_harness", "supervise"]
@@ -153,10 +157,14 @@ def _daemon(state_dir, as_json: bool) -> int:
 
 def run_foreground(state_dir, *, ticks: Optional[int] = None, popen=None, feed: Optional[callable] = None) -> int:
     """Run the loop until the stop file appears or Ctrl+C; `ticks` (tests) stops after that many."""
+    from halo_harness.supervise import single
     from halo_harness.supervise.loop import Supervisor
+    held = single.take(state_dir)  # 3.3.13.1 (CORE-2): held for this supervisor's life, before the pulse is read
     live = pulse.read(state_dir)
-    if live["running"]:
-        print(f"a supervisor is already running (pid {live['pid']}). `halo supervise stop` ends it.", file=sys.stderr)
+    if held is None or live["running"]:
+        single.release(state_dir, held)
+        print(single.held_line(state_dir) if held is None else
+              f"a supervisor is already running (pid {live['pid']}). `halo supervise stop` ends it.", file=sys.stderr)
         return 1
     pulse.clear_stop(state_dir)
     cfg = settings(state_dir)
@@ -186,6 +194,7 @@ def run_foreground(state_dir, *, ticks: Optional[int] = None, popen=None, feed: 
         if closer is not None:
             closer()
         pulse.clear_stop(state_dir)
+        single.release(state_dir, held)
     return 0
 
 

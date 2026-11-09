@@ -25,6 +25,7 @@ drive `Supervisor(...).tick()` in-process with the runner's ADAPTERS seam.
 
 from __future__ import annotations
 
+import logging
 import threading
 import time
 from pathlib import Path
@@ -32,6 +33,8 @@ from typing import Callable, Optional
 
 from halo_harness.supervise import apply, arm, asks, budget, decisions, heartbeat, pulse, queue, replan, runner
 from halo_harness.supervise.settings import ask_wait_s, settings
+
+log = logging.getLogger(__name__)
 
 
 class Supervisor:
@@ -64,7 +67,10 @@ class Supervisor:
         self._decisions()
         self._expire_asks()
         self._arm()
-        self.services.tick()  # 3.3.13.0 R3: start, restart and stop the packs' services (supervise/services.py)
+        try:  # 3.3.13.0 R3: start, restart and stop the packs' services (supervise/services.py)
+            self.services.tick()
+        except Exception as e:  # 3.3.13.1 (CORE-1): a services fault never skips the notes and the pulse
+            log.warning("supervise: the services tick failed: %s: %s", type(e).__name__, e)
         self.steward_notes.tick()
         counts = queue.counts(self.state_dir)
         self.pulse.write("running", counts)

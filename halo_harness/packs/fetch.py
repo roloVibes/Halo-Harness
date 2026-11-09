@@ -134,13 +134,39 @@ def rmtree(path: Path) -> None:
         shutil.rmtree(path, onerror=_again)
 
 
+def _skipped(rel: Path) -> bool:
+    return bool(rel.parts and rel.parts[0] in (".git",) or any(part == "__pycache__" for part in rel.parts))
+
+
 def files_of(folder: Path) -> "list[Path]":
     """Every file of a pack folder, relative, sorted; `.git` and Halo's own dot folders left out."""
     out = []
     for p in sorted(Path(folder).rglob("*")):
         rel = p.relative_to(folder)
-        if rel.parts and rel.parts[0] in (".git",) or any(part == "__pycache__" for part in rel.parts):
+        if _skipped(rel):
             continue
         if p.is_file():
             out.append(rel)
     return out
+
+
+def stray_file(folder: Path) -> str:
+    """3.3.13.1 (plans/REVIEW-2026-11.md #3, PACKS-1): the first entry of a pack's source that is a symbolic link
+    or resolves outside the folder (a junction), as one line naming it; "" when there is none. A clone keeps a link
+    as a link, and copying it copied its target: a skill file linked to `../../../.config/halo/env` installed the
+    env file. install and update check this before writing anything (install._checks)."""
+    import os
+    root = Path(folder).resolve()
+    for p in sorted(Path(folder).rglob("*")):
+        rel = p.relative_to(folder)
+        if _skipped(rel):
+            continue
+        if p.is_symlink():
+            return f"{rel.as_posix()} is a symbolic link (to {os.readlink(p)}), so it is not copied: a pack ships its own files"
+        try:
+            inside = p.resolve().is_relative_to(root)
+        except (OSError, ValueError):
+            inside = False
+        if not inside:
+            return f"{rel.as_posix()} resolves outside the pack's folder, so it is not copied: a pack ships its own files"
+    return ""

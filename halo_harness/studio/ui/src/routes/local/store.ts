@@ -192,6 +192,11 @@ export async function coderLane(ref: string): Promise<void> {
   await act(`lane|${ref}`, "models/lane", { ref });
 }
 
+/** 3.3.13.1: a model's profile back to the measured defaults (halo ollama steward profiles reset <model> --host <host>). */
+export async function resetProfile(host: string, model: string): Promise<void> {
+  if (await act(`${host}|${model}`, "ollama/steward/profiles-reset", { host, model })) void loadModels();
+}
+
 export function gib(n: number | null | undefined): string {
   return typeof n === "number" ? `${(n / 2 ** 30).toFixed(1)} GiB` : "?";
 }

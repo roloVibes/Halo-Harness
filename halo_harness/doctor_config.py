@@ -82,6 +82,8 @@ def _config_json(row: dict, state_dir: Path, cwd: Path) -> list:
         if isinstance(data, dict) and section in data:
             out.append(finding("removed-section", "warns", row, removed_line(section), key=section))
     out = _removed_theme_findings(out, data, row)
+    from halo_harness.providers.ollama_key_migrate import key_findings  # 3.3.13.1: a host api_key held as a value
+    out += key_findings(data, row, finding) if path.name == "config.json" else []
     team = data.get("team") if isinstance(data, dict) else None
     if isinstance(team, str) and team.strip():
         from halo_harness import teams_yaml as T

@@ -51,6 +51,7 @@ class PeerRT:
         self.plan: Optional[dict] = None
         self.approval: Optional[dict] = None
         self.undelivered: list = []      # card messages whose send failed (outbox.py)
+        self.card_ts: list = []          # 3.3.13.1: the sent timestamps of its cards; a reaction answers only these
         self.starting = False            # a session is being started for this phone
         self.waiting: list = []          # prompts that wait for it: [{"text", "image"?}]
         self.held: Optional[str] = None  # a text that may or may not answer an open card (answers.py)

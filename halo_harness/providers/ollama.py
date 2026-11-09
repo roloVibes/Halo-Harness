@@ -250,7 +250,8 @@ def resolve_ollama_hosts(env: Optional[dict] = None) -> "list[OllamaHost]":
     import os
     env = env if env is not None else os.environ
     from halo_harness.theme import get_config_value
-    raw_hosts = get_config_value("ollama.hosts", default=None)
+    from halo_harness.providers.ollama_key_migrate import migrate  # 3.3.13.1: a key VALUE moves to the env file
+    raw_hosts = migrate(get_config_value("ollama.hosts", default=None))
     hosts: "list[OllamaHost]" = []
     if isinstance(raw_hosts, list):
         for entry in raw_hosts:

@@ -69,8 +69,11 @@ def main(argv=None, *, transport_factory=make_transport, stop: "threading.Event 
     print(f"signal bridge: answering for the account ending {tail}; the supervisor's stop file or Ctrl+C ends it",
           flush=True)
     from halo_signal.bridge import Bridge
+    bridge = Bridge(config, transport_factory(cfg), health=h)
     try:
-        Bridge(config, transport_factory(cfg), health=h).run(stop)
+        bridge.run(stop)
     except KeyboardInterrupt:
         stop.set()
+    if bridge.ended:  # 3.3.13.1 (REMOTE-2): a switch turned off while it ran: one line, exit 0 (it stays stopped)
+        print(f"signal bridge: {bridge.ended}", flush=True)
     return 0

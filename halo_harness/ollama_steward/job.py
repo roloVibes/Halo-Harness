@@ -168,7 +168,7 @@ class StewardJob:
         model, model_why = self.model()
         note = None
         if model:
-            go, why = agent.due(self.state_dir, done, notify=notify, now=now)
+            go, why = agent.due(self.state_dir, done, notify=notify, now=now, ctx=ctx)  # 3.3.13.1: quiet if same
             if go:
                 extra: list = []
                 note, _outcomes = agent.write_note(self.state_dir, ctx, done, model=model, caller=self.caller,

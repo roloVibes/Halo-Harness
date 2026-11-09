@@ -33,8 +33,28 @@ def test_permission_with_a_thumbs_up(ctx):
         p.pair()
         p.text("please ask first")
         p.wait("echo hi")
-        p.tr.deliver(reaction(ACI_A, "\U0001F44D", now_ms()))
-        ctx.check("a thumbs up is 1 allow once", wait_for(lambda: _answers(p) and _answers(p)[0].get("action") == "allow", 3.0))
+        p.tr.deliver(reaction(ACI_A, "\U0001F44D", now_ms(), target=p.tr.sent_ts("echo hi")))
+        ctx.check("a thumbs up on the card is 1 allow once",
+                  wait_for(lambda: _answers(p) and _answers(p)[0].get("action") == "allow", 3.0))
+
+
+@test
+def test_a_reaction_on_another_message_answers_nothing(ctx):
+    """3.3.13.1 (REVIEW #18, REMOTE-1): a heart on yesterday's answer while a Bash card waited ran it."""
+    import time
+    with Phone() as p:
+        p.pair()
+        other = p.tr.sent_ts("Paired.")
+        p.text("please ask first")
+        p.wait("echo hi")
+        for emoji in ("❤️", "\U0001F44D", "✅"):
+            p.tr.deliver(reaction(ACI_A, emoji, now_ms(), target=other))
+        p.tr.deliver(reaction(ACI_A, "\U0001F44D", now_ms()))  # a target no message of Halo's has
+        time.sleep(0.5)
+        ctx.check(f"a heart, a thumbs up, a check on another message: no answer, got {_answers(p)}", not _answers(p))
+        p.text("1")
+        ctx.check("the card still waits, and 1 answers it",
+                  wait_for(lambda: _answers(p) and _answers(p)[0].get("action") == "allow", 3.0))
 
 
 @test

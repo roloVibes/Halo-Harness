@@ -156,9 +156,15 @@ class StubTransport:
     def send(self, recipient, text="", *, attachment=None, styles=None, note_to_self=None):
         if self.send_error is not None:
             raise self.send_error
+        with self._lock:  # signal-cli answers a send with its timestamp (3.3.13.1: a reaction names one)
+            ts = 1_700_000_000_000 + len(self.sent)
+            self.sent.append({"to": recipient, "text": text, "attachment": attachment, "styles": styles, "ts": ts})
+        return {"timestamp": ts}
+
+    def sent_ts(self, needle: str) -> int:
+        """The sent timestamp of the first message holding `needle` (a card's, for a reaction on it)."""
         with self._lock:
-            self.sent.append({"to": recipient, "text": text, "attachment": attachment, "styles": styles})
-        return {}
+            return next(s["ts"] for s in self.sent if needle in (s["text"] or ""))
 
     def texts(self, to=None) -> list:
         with self._lock:
@@ -207,9 +213,10 @@ def data_message(uuid: str, text, ts: int, number=None, attachments=None, group=
     return envelope(uuid, number, ts, dataMessage=dm)
 
 
-def reaction(uuid: str, emoji: str, ts: int, number=None) -> dict:
-    return data_message(uuid, None, ts, number, reaction={"emoji": emoji, "targetSentTimestamp": ts - 1000,
-                                                          "isRemove": False})
+def reaction(uuid: str, emoji: str, ts: int, number=None, target=None) -> dict:
+    """`target`: the reacted-to message's sent timestamp (a card's: StubTransport.sent_ts)."""
+    return data_message(uuid, None, ts, number, reaction={"emoji": emoji, "isRemove": False,
+                                                          "targetSentTimestamp": ts - 1000 if target is None else target})
 
 
 def untrusted(uuid: str, number=None, ts: int = 0) -> dict:

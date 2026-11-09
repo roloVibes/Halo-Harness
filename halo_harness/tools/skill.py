@@ -102,8 +102,18 @@ class SkillTool(Tool):
         # stripped tool env (ctx.env is already tool_child_env()-stripped
         # -- see agent/loop.py's ToolContext construction) instead of the
         # old strict-frontmatter-only gate + raw os.environ.
-        result = expand_command_body(body, args_text, allowed_tools=list(cmd.allowed_tools), cwd=Path(ctx.cwd),
-                                      permission_engine=ctx.permission_engine, env=ctx.env, claude_vars=claude_vars)
+        # 3.3.13.1 (PERMS-1, tools/skill_gate.py): a project or plugin skill in a folder that is not trusted gets no
+        # allowed-tools grant; every span is decided as a Bash call (the packs, then the engine), and the commands
+        # the person said yes to on this call's card run once.
+        from halo_harness.tools.skill_gate import span_decide, take_yes, untrusted
+        why = untrusted(cmd.path, ctx.cwd)
+        grant = [] if why else list(cmd.allowed_tools)
+        decide = None if ctx.permission_engine is None else span_decide(
+            ctx.permission_engine, cwd=ctx.cwd, session_id=session_id or "",
+            yes=bool(why) and take_yes(ctx.permission_engine, input))
+        result = expand_command_body(body, args_text, allowed_tools=grant, cwd=Path(ctx.cwd),
+                                      permission_engine=ctx.permission_engine, env=ctx.env, claude_vars=claude_vars,
+                                      decide=decide)
         if result.error:
             return ToolResult(f"Skill {skill_name!r}: {result.error}", is_error=True)
 
@@ -141,8 +151,8 @@ class SkillTool(Tool):
         # informational note below; `ctx.session_allow_rule` is None for
         # a bare ToolContext (every existing test), which just skips this
         # without erroring.
-        if cmd.allowed_tools and ctx.session_allow_rule is not None:
-            for rule_text in cmd.allowed_tools:
+        if grant and ctx.session_allow_rule is not None:
+            for rule_text in grant:
                 ctx.session_allow_rule(rule_text)
 
         # finding 12: "Base directory for this skill: <abs>" as the FIRST
@@ -157,7 +167,8 @@ class SkillTool(Tool):
                      "absolute paths below, if the instructions above reference them):\n")
             text += "\n".join(f"- {p}" for p in siblings)
         if cmd.allowed_tools:
-            text += f"\n\n(This skill's own allowed-tools: {', '.join(cmd.allowed_tools)}.)"
+            text += (f"\n\n({why}.)" if why else
+                     f"\n\n(This skill's own allowed-tools: {', '.join(cmd.allowed_tools)}.)")
         return ToolResult(text)
 
 

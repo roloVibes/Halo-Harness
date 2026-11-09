@@ -22,6 +22,7 @@ from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # no
 from tests.helpers.steward_seed import Home, card, event, line, rows  # noqa: E402
 
 test, TESTS = new_registry()
+TRAINED = {"pc": {"qwen3.8:27b": {"model": "qwen3.8:27b", "model_info": {"qwen35.context_length": 262144}}}}
 
 
 def _found(home, **kw) -> list:
@@ -118,7 +119,7 @@ def test_cut_replies_get_a_reply_reserve(ctx: Ctx):
     with Home() as h:
         h.calls(line(done_reason="length", prompt_eval_count=31800, eval_count=900),
                 line(session="s2"), line(kind="calibrate", done_reason="length", eval_count=1))
-        f = _one(_found(h), "reply-cut")
+        f = _one(_found(h, catalogs=TRAINED), "reply-cut")  # 3.3.13.1: the bound reads the model's own context
         p = f.get("proposal") or {}
         ctx.check(f"num_predict 4,096 (a calibration load is not a cut), got {p} {f.get('finding')}",
                   p.get("field") == "num_predict" and p.get("to") == 4096 and f["evidence"]["numbers"]["cuts"] == 1)
@@ -151,7 +152,7 @@ def test_a_truncated_reply_resent_is_flagged(ctx: Ctx):
         h.calls(line(num_ctx_sent=65536, prompt_eval_count=64829, eval_count=706, done_reason="length", ago=700),
                 line(num_ctx_sent=65536, prompt_eval_count=64829, eval_count=706, done_reason="length", ago=690,
                      retry=1))
-        found = _found(h)
+        found = _found(h, catalogs=TRAINED)
         f = _one(found, "cut-resent")
         ctx.check(f"error: sent again unchanged and cut again, got {f.get('finding')}",
                   f.get("severity") == "error" and "sent again unchanged" in f.get("finding", ""))
