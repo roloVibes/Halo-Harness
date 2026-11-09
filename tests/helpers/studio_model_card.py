@@ -82,7 +82,10 @@ def roles_picker(c, url, ctx) -> dict:
     detail = f"{picker}.querySelector('[data-testid=\"model-detail\"]')"
     c.call("Emulation.setFocusEmulationEnabled", enabled=True)  # focus events fire without window focus
     for ref in c.js(f"[...{picker}.querySelectorAll('[data-testid=\"model-row\"]')].map((r) => r.dataset.ref)") or []:
-        c.js(f"{picker}.querySelector('[data-testid=\"model-row\"][data-ref=\"{ref}\"]').focus(); 1")
+        # focus() and a pointer-over, since the row's onFocus did not fire on the hosted Linux runner (6a300007, shard 2)
+        row_js = f"{picker}.querySelector('[data-testid=\"model-row\"][data-ref=\"{ref}\"]')"
+        c.js(f"{row_js}.scrollIntoView({{block: 'nearest'}}); {row_js}.focus(); "
+             f"{row_js}.dispatchEvent(new MouseEvent('mouseover', {{bubbles: true}})); 1")
         c.wait(f"{detail}?.dataset.ref === {json.dumps(ref)}", 10)
         out["picker_chips"].append(c.js(f"[...{detail}.querySelectorAll('[data-chip]')].map((x) => x.textContent).join(' ')"))
         out["picker_eyes"].append(c.js(f"[{detail}.querySelector('[data-testid=eye-chip]')?.dataset.eye, "
