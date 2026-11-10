@@ -1,40 +1,33 @@
-// The footer every Start view ends with (3.1.1.0 R1): "Next: <section> --
-// <one line>", so the Start views read as one story in this order:
-// Roles -> Orchestra -> Team -> Fleet (Fleet's points back to Roles; 3.3.13.0 R2: Design left the story with the
-// core for the design pack). The button opens that section.
-import { goSection, type SectionId } from "../lib/store";
+// The footer every Start view ends with (3.1.1.0 R1): "Next: <where> -- <one line>", so the Start views read as one
+// story. 3.3.16.0 R1: Agents' two Start views, then Fleet, and back -- Cast -> Runs -> Fleet -> Cast (Team's Start view
+// went with its board; 3.3.13.0 R2: Design left the story with the core for the design pack). The button opens it.
+import { goSection } from "../lib/store";
 
-export const STORY: SectionId[] = ["roles", "orchestra", "team", "fleet"];
+export type StoryStep = "cast" | "runs" | "fleet";
+export const STORY: StoryStep[] = ["cast", "runs", "fleet"];
 
-// the section titles (routes/index.tsx SECTIONS has the same; kept here so the Start views need not import the registry)
-const TITLE: Record<SectionId, string> = { roles: "Roles", orchestra: "Orchestra", team: "Team", fleet: "Fleet", session: "Session", packs: "Packs", setup: "Setup", settings: "Settings", local: "Local" };
+const TITLE: Record<StoryStep, string> = { cast: "Agents: Cast", runs: "Agents: Runs", fleet: "Fleet" };
 
-/** Why the next section comes next, one line each (keyed by the NEXT section). */
-export const NEXT_LINE: Record<SectionId, string> = {
-  orchestra: "give your lineup one goal and watch its agents split it, write it and pass the gate",
-  team: "put members, blocks and stages in your own repo's team file",
+/** Why the next step comes next, one line each (keyed by the NEXT step). */
+export const NEXT_LINE: Record<StoryStep, string> = {
+  runs: "give your lineup one goal and watch its agents split it, write it and pass the gate",
   fleet: "join your other machines and give the whole fleet one goal",
-  roles: "back to the start: tune the lineup every section runs",
-  session: "watch the session you are in, live: its map, log, attention and cost", // 3.1.4.0: not in STORY; its Start view has no footer
-  packs: "install, grant and enable the packs you trust", // 3.2.0.0 R6: not in STORY; the Packs section has no Start view
-  setup: "Setup -> Session: start a session on the model you picked", // 3.3.0.0 R1: not in STORY; Setup has no Start view
-  settings: "Settings -> Session: start a session with the keys you changed", // 3.3.3.0 R2: not in STORY; Settings has no Start view
-  local: "watch the machines that serve your local models, and what they serve", // 3.3.5.0 R1: not in STORY; Local has no Start view
+  cast: "back to the start: tune the lineup every section runs",
 };
 
-export function nextOf(section: SectionId): SectionId {
-  const i = STORY.indexOf(section);
+export function nextOf(step: StoryStep): StoryStep {
+  const i = STORY.indexOf(step);
   return STORY[(i + 1) % STORY.length];
 }
 
-export function NextStep({ from }: { from: SectionId }) {
+export function NextStep({ from }: { from: StoryStep }) {
   const next = nextOf(from);
-  const title = TITLE[next];
+  const go = () => (next === "fleet" ? goSection("fleet") : goSection("agents", next));
   return (
     <footer className="start-next" data-testid="start-next" data-next={next}>
       <span className="start-next-label mono">NEXT</span>
-      <button className="start-next-btn" onClick={() => goSection(next)} data-testid="start-next-go">
-        <b>{title}</b>
+      <button className="start-next-btn" onClick={go} data-testid="start-next-go">
+        <b>{TITLE[next]}</b>
         <span className="muted"> -- {NEXT_LINE[next]}</span>
       </button>
     </footer>

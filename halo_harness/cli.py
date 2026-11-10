@@ -286,7 +286,7 @@ def _build_parser() -> argparse.ArgumentParser:
         epilog="Commands: init, start, explain, studio, media, orchestra, work, team, teams, agents, roles, models, mcp, proxy, "
                "config, doctor, update, stats, review, preflight, audit, improve, export, session, pack, "
                "completion (run `halo <command> --help`; `halo init` opens Studio's Setup to set up a fresh box; `halo init --terminal` is the terminal wizard). "
-               "The GUI: `halo studio --mode roles` -- lineups and agent bios as a graph; "
+               "The GUI: `halo studio --mode agents` -- lineups and agent bios as a graph, their runs, what runs now; "
                "in the TUI, /studio and /roles. Design is a pack: halo pack install design.",
     )
     try:

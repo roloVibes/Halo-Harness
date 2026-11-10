@@ -104,13 +104,14 @@ def test_the_attention_row_skip_and_stop(ctx: Ctx):
     rows = TA.rows(entries, {"id": "h", "name": "here", "local": True}, {}, 1000.0)
     row = next(r for r in rows if r["kind"] == "team_budget")
     ctx.check(f"a team_budget row with raise / skip / stop, got {row['keys']} {row['what']!r}",
-              row["keys"] == KEYS["team_budget"] == {"a": "raise (edit the file)", "r": "skip", "s": "stop", "o": "open Team"}
+              row["keys"] == KEYS["team_budget"] == {"a": "raise (edit the file)", "r": "skip", "s": "stop", "o": "open Agents: Runs"}
               and row["what"] == "Team launch: stage draft is held at its budget line" and "over the team's" in row["detail"])
     req = Request(method="POST", path="team/budget", query={}, body={"stage": "draft", "action": "raise"}, cwd=root,
                   state_dir=state, server=None, params={})
     status, _body, label = TA.answer(req, row, "a", "")
-    ctx.check(f"Raise opens the team file, sends nothing, got {status} {_body}", status == 200
-              and _body["open"]["section"] == "team" and _body["open"]["panel"] == "team-file" and label == "raise (edit the file)")
+    ctx.check(f"Raise says where the team file is, sends nothing (3.3.16.0 R1: the board's file panel went), got {status} {_body}",
+              status == 200 and "edit budget_usd in" in _body["answer"] and "team.yaml" in _body["answer"]
+              and "halo team run draft" in _body["answer"] and label == "raise (edit the file)")
     status, body, _ = TA.answer(req, row, "r", "")
     ctx.check(f"Skip: the stage is skipped, the hold gone, got {status} {body}", status == 200 and body["ok"]
               and runner.row("draft")["state"] == "skipped" and not TA.gated(root, state))

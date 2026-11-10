@@ -9,7 +9,7 @@ page links the words it uses). `halo explain` with no word lists them all.
 
 ## lineup
 
-A lineup (a team template, `~/.halo/teams/<name>.yaml`) says which agent bio, on which model, plays each role in your sessions, and in which tier each card sits. Each entry of its `agents:` list is a card. Halo ships six (`halo teams list`); a copy of one is yours to edit (Studio's Roles section, or `halo teams new <name> --from <shipped>`), and `halo teams use <name>` makes it the one new sessions use. `halo start` rehearses the active lineup as it is.
+A lineup (a team template, `~/.halo/teams/<name>.yaml`) says which agent bio, on which model, plays each role in your sessions, and in which tier each card sits. Each entry of its `agents:` list is a card. Halo ships six (`halo teams list`); a copy of one is yours to edit (Studio's Agents section, on Cast, or `halo teams new <name> --from <shipped>`), and `halo teams use <name>` makes it the one new sessions use. `halo start` rehearses the active lineup as it is.
 
 ## bio
 
@@ -25,7 +25,7 @@ A tier is a box of cards in a lineup's `tiers:` list: a member spawns only into 
 
 ## team
 
-A team (a team file, `<repo>/.halo/team.yaml`) is a project's people and work on one board: the brief every agent reads first, its members, the blocks their work lands in and the stages that run in order. `halo team init` writes one from the template and Studio's Team section shows it as a board. A lineup says who plays which part in a session; a team says who works on which part of a project.
+A team (a team file, `<repo>/.halo/team.yaml`) is a project's people and work on one board: the brief every agent reads first, its members, the blocks their work lands in and the stages that run in order. `halo team init` writes one from the template and `halo team` runs it from a terminal (Studio's Team board went in 3.3.16.0: who owns what is a run plan's detail in Agents -> Runs). A lineup says who plays which part in a session; a team says who works on which part of a project.
 
 ## member
 
@@ -105,7 +105,7 @@ A pack is a folder someone else maintains that adds bios, lineups, workflows, sk
 
 ## guided first run
 
-The guided first run is `halo start`: one real Orchestra run on your own models that rehearses the lineup you picked (the active one, or the one `--lineup` names, read as it is and never copied) and walks the pieces Halo is made of (your lineup's lead and lane cards, a sample git repo, one goal, the lead's plan for you to approve, the lanes, the report and the coach) in seven screens. On the Auto lineup there is nothing to rehearse: pick or build a lineup in Roles first. It is not a test of your models (`halo gym` measures them). It opens on a card that says the lineup, the models it will call with their prices, an estimated cost, the time and what it writes; `halo start --explain` prints only the card, and Studio's Start here shows it above its Run button.
+The guided first run is `halo start`: one real Orchestra run on your own models that rehearses the lineup you picked (the active one, or the one `--lineup` names, read as it is and never copied) and walks the pieces Halo is made of (your lineup's lead and lane cards, a sample git repo, one goal, the lead's plan for you to approve, the lanes, the report and the coach) in seven screens. On the Auto lineup there is nothing to rehearse: pick or build a lineup in Agents -> Cast first. It is not a test of your models (`halo gym` measures them). It opens on a card that says the lineup, the models it will call with their prices, an estimated cost, the time and what it writes; `halo start --explain` prints only the card, and Studio's Start here shows it above its Run button.
 
 ## setup
 
@@ -137,7 +137,7 @@ The fit plan is the steward's answer to "do the models the halos ask for fit thi
 
 ## host
 
-A host is a model server Halo calls -- an `ollama.hosts` entry (`ol:<model>@<host>`), a Hugging Face local server (`huggingface.local_servers`: llama-server, LM Studio, mlx), or a server Find or Scan found that is not added yet -- and, since 3.3.7.0, `halo host`: the model-free Halo process on the machine that serves it, which watches that machine's servers (the log, `/api/ps`, the events, the card) with no session open and answers paired peers on the LAN with signed, audited reads (the card, the catalog with a fit verdict, the profiles, the log). It never loads a model and never runs one. Studio's Local section (Alt+9) lists every host on its Hosts page, "served by halo host at <addr>" when one serves it; `halo local hosts` prints the same and `halo host status` the process.
+A host is a model server Halo calls -- an `ollama.hosts` entry (`ol:<model>@<host>`), a Hugging Face local server (`huggingface.local_servers`: llama-server, LM Studio, mlx), or a server Find or Scan found that is not added yet -- and, since 3.3.7.0, `halo host`: the model-free Halo process on the machine that serves it, which watches that machine's servers (the log, `/api/ps`, the events, the card) with no session open and answers paired peers on the LAN with signed, audited reads (the card, the catalog with a fit verdict, the profiles, the log). It never loads a model and never runs one. Studio's Local section (Alt+7) lists every host on its Hosts page, "served by halo host at <addr>" when one serves it; `halo local hosts` prints the same and `halo host status` the process.
 
 ## grant
 
@@ -388,7 +388,7 @@ A headless session (3.3.11.0 R2) is a whole Halo session with no terminal: `halo
 
 ## live map
 
-The live map (3.3.11.0 R2) is Roles' **Live** canvas (`L` on Roles): the session's actual agent tree on the whole page -- one node per agent, live or finished and still in the frames, parent -> child edges, nothing dropped, an `auto` pick's reason on its node, the lineup card a node matches drawn as a faint group behind it. It is 1:1 with the terminal's `/agents live`; Session's Map panel is its thumbnail ("Open in Roles Live"). Both read the frames through one adapter, the work record (`ui/src/lib/work/record.ts`).
+The live map (3.3.11.0 R2) is Agents' **Live** view (`L` in Agents; Roles' Live canvas before 3.3.16.0): the session's actual agent tree on the whole page -- one node per agent, live or finished and still in the frames, parent -> child edges, nothing dropped, an `auto` pick's reason on its node, the lineup card a node matches drawn as a faint group behind it. It is 1:1 with the terminal's `/agents live`; Session's Map panel is its thumbnail ("Open in Agents Live"). Both read the frames through one adapter, the work record (`ui/src/lib/work/record.ts`).
 
 ## setup block
 

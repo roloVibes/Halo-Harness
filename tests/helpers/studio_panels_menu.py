@@ -83,7 +83,7 @@ def palette(c, text: str) -> list:
 
 
 def menu(c, url, ctx) -> dict:
-    load(c, ctx, "mode=roles&tour=off&view=workspace", "Roles")
+    load(c, ctx, "mode=roles&tour=off&view=workspace", "Agents")
     c.wait(f"{WS} && {WS}.querySelectorAll('.ws-cell').length === 6", 40)
     out = {"default": settle(c, CELLS), "badge_fresh": c.js(f"!!{BADGE}")}
     out["rows"] = plus_rows(c)
@@ -113,7 +113,7 @@ def menu(c, url, ctx) -> dict:
 
 def arrange(c, url, ctx) -> dict:
     c.js("localStorage.removeItem('halo.studio.layout.roles'); 1")
-    load(c, ctx, "mode=roles&tour=off&view=workspace&page=2", "Roles")
+    load(c, ctx, "mode=roles&tour=off&view=workspace&page=2", "Agents")
     c.wait(f"{WS} && {WS}.querySelectorAll('.ws-cell').length === 6", 40)
     out = {"default": settle(c, CELLS), "pal_reset_fresh": palette(c, "Reset layout")}
     c.key("Escape")
@@ -125,7 +125,7 @@ def arrange(c, url, ctx) -> dict:
     out["saved_moved"] = bool(c.js(SAVED))
     out["pal_arrange"] = palette(c, "Arrange panels")
     c.key("Enter")
-    out["arrange_toast"] = c.wait(f"{TOASTS}.includes('Roles panels arranged') && 'arranged'", 10)
+    out["arrange_toast"] = c.wait(f"{TOASTS}.includes('Agents panels arranged') && 'arranged'", 10)  # 3.3.16.0 R1: Cast is Agents
     out["arranged"] = settle(c, CELLS)
     return out
 
@@ -133,7 +133,7 @@ def arrange(c, url, ctx) -> dict:
 def reset(c, url, ctx) -> dict:
     out = {"badge_before": c.js(f"{BADGE}?.textContent || ''")}
     out["reset_ran"] = more(c, "layout-reset")
-    out["reset_toast"] = c.wait(f"{TOASTS}.includes('Roles layout reset') && 'reset'", 10)
+    out["reset_toast"] = c.wait(f"{TOASTS}.includes('Agents layout reset') && 'reset'", 10)
     out["after"] = [c.js(f"!!{BADGE}"), c.js(SAVED)]
     c.click_on(q("[data-testid=section-more]"))
     c.wait(f"!!{q('[data-testid=section-more-menu]')}", 5)
@@ -172,8 +172,9 @@ def fleet(c, url, ctx) -> dict:
     out["rail_open"] = c.js(RAIL_EXTRA)
     out["rail_open_w"] = c.js(f"Math.round({q('.rail')}.getBoundingClientRect().width)")
     c.click_on(q("[data-testid=rail-toggle]"))
-    c.click_on(q(".rail [data-testid=section-tab][data-tab-id=orchestra]"))
-    c.wait(f"{CUR}.startsWith('Orchestra')", 15)
+    c.click_on(q(".rail [data-testid=section-tab][data-tab-id=agents]"))  # 3.3.16.0 R1: Orchestra is Agents -> Runs
+    c.wait(f"{CUR}.startsWith('Agents')", 15)
+    c.click_on("document.querySelector('[data-testid=\"agents-view-runs\"]')")  # 3.3.16.0 R1: Agents on Runs
     open_plus(c)
     out["orch_groups"] = c.js(f"{qa('[data-testid=panels-menu] .hdr-menu-name')}.map((e) => e.textContent)")
     out["orch_new_run"] = c.js(f"!!{q('[data-testid=panels-menu] [data-testid=orchestra-new-run]')}")

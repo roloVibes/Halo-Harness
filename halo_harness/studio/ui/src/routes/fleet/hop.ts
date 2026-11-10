@@ -11,6 +11,7 @@
 // canvas between Plan and Live, and on Live J / K hop the session tree's working agents.
 import { useEffect } from "react";
 import { studio } from "../../lib/store";
+import { onPart } from "../agents/store";
 import { focusLane, orch, setOpt } from "../orchestra/store";
 import { hopCard } from "../roles/live";
 import { hopLive } from "../roles/liveModel";
@@ -52,12 +53,12 @@ export function useHopKeys(): void {
         return;
       }
       const dir = key === "j" ? 1 : key === "k" ? -1 : 0;
-      if (s.section === "orchestra") {
+      if (onPart("orchestra")) { // 3.3.16.0 R1: Agents on Runs
         if (dir) (e.preventDefault(), hopLane(dir));
         else if (key === "f") (e.preventDefault(), setOpt("follow", !orch.get().opts.follow));
         return;
       }
-      if (s.section === "roles") {
+      if (onPart("roles")) { // Agents on Cast or Live
         const watched = roles.get().watched;
         const real = watched && !watched.startsWith("replay|") ? watched : "";
         if (dir) (roles.get().canvasView === "live" ? hopLive(dir) : hopCard(dir)); // 3.3.11.0 R2: Live hops the tree

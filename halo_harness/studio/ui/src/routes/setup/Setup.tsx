@@ -1,4 +1,4 @@
-// Setup (Alt+7): this box's setup, the terminal wizard's steps as pages
+// Setup (Alt+5): this box's setup, the terminal wizard's steps as pages
 // (3.3.1.0 R1, after the owner on 3.3.0.0's one page of eight panels: "Have it
 // go thru pages not like a huge confusing blob on one page"). On top the step
 // rail (SetupRail.tsx: the wizard's order, the current step highlighted, the

@@ -42,8 +42,8 @@ def policy_row(c, url, ctx) -> dict:
     registry.invalidate()
     c.go("about:blank")  # the same address again is a fragment hop: a blank page first, so the rows are fetched anew
     c.go(url)
-    c.wait(f"{TABS}.length >= 8", 40)
-    alt(c, 6)
+    c.wait(f"{TABS}.length >= 7", 40)  # 3.3.16.0 R1: seven core sections
+    alt(c, 4)  # 3.3.16.0 R1: Packs
     c.wait(f"{CUR}.startsWith('Packs')", 15)
     chip = f"{ROW} [data-testid=pm-policy]"
     try:

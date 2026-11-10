@@ -89,7 +89,7 @@ lineup or bio narrows it with `tools.capabilities`; see
 
 ### `/edit <bio:name|lineup:name|team>`
 Halo 3.1.1.0: opens Studio on the thing to edit -- `bio:<name>` (the bio
-form), `lineup:<name>` (the lineup's inspector), `team` (the Team section),
+form), `lineup:<name>` (the lineup's inspector), `team` (Agents on Runs, 3.3.16.0 R1),
 or a bare name (the bio of that name, else the lineup of that name) -- the
 same as `halo studio --edit`. A Studio already running for this home switches
 its open page to it; otherwise one starts in the background and opens your
@@ -105,7 +105,7 @@ under the team (`team:` in config.json or `--team <name>`) executes
 those sections through `teams_runtime.py`.
 
 ### `/roles [gui|table|on|off|templates|save <name>|load <name>|new <name>|edit <name>|show <name>|set <name> <model> [effort]]`
-Halo 3.0.2.0: in the TUI, bare `/roles` opens **Halo Studio's Roles mode** in
+Halo 3.0.2.0: in the TUI, bare `/roles` opens **Halo Studio's Roles mode** (3.3.16.0 R1: Agents, on Cast; the answer names the new door) in
 the browser (lineups and agent bios as an editable graph, see
 [STUDIO.md](STUDIO.md)); `/roles gui` says the same thing anywhere, `/roles
 gui url` prints the URL without opening a browser, and `/roles table` is the

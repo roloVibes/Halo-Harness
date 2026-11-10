@@ -104,7 +104,7 @@ in your own browser.
 
 ## Shortcuts
 
-The shell's keys: `Alt+1`..`Alt+9` sections (`Alt+1`: Session, the first row since 3.1.6.0; `Alt+6`: Packs; and Setup `Alt+7`; `Alt+0`: the first pack section, 3.3.13.0 R2; 3.3.2.0: the rail prints no key, the palette's Go to shows them), `Ctrl`/`Cmd`+`K` the palette,
+The shell's keys: `Alt+1`..`Alt+7` sections (`Alt+1`: Session, the first row since 3.1.6.0; `Alt+2`: Agents, 3.3.16.0; then the pack's own sections on `Alt+8`, `Alt+9`, `Alt+0`; 3.3.2.0: the rail prints no key, the palette's Go to shows them), `Ctrl`/`Cmd`+`K` the palette,
 `?` the focused panel's help (again, or away from a panel: How this works),
 `Alt`+arrows / `Alt+Shift`+arrows move / resize the focused panel, `Esc`
 closes. `F` (3.3.2.0) is Focus: the rail, the inspector and the status bar

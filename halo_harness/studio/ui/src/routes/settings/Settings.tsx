@@ -1,4 +1,4 @@
-// Settings (Alt+8, 3.3.3.0 R2): every key of ~/.halo/config.json, the ones
+// Settings (Alt+6, 3.3.3.0 R2): every key of ~/.halo/config.json, the ones
 // `halo config set` and a dozen features write, from one catalog
 // (halo_harness/settings_catalog.py): the group rail on the left
 // (SettingsRail.tsx), one group's page on the right (SettingsPage.tsx) with

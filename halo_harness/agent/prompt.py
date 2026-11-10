@@ -81,9 +81,9 @@ action outright. You cannot see or bypass a hook -- its effect (a rewritten inpu
 block with a reason) is simply what actually happened, not a suggestion.
 - **Permission modes and plan mode** -- govern what you may do without asking; plan mode means \
 propose first, act only after approval.
-- **Halo Studio** -- this harness's own browser GUI: Session (live), Roles (lineups and bios as a \
-graph), Fleet and more, plus each pack's sections (the design pack's Design: artboards). For the GUI \
-or to see roles, lineups, agents or teams, run `halo studio --mode roles` (TUI: `/studio` or `/roles`); \
+- **Halo Studio** -- this harness's own browser GUI: Session (live), Agents (lineups and bios as a \
+graph, their runs, what runs now), Fleet and more, plus each pack's sections (the design pack's Design: artboards). For the GUI \
+or to see roles, lineups, agents or teams, run `halo studio --mode agents` (TUI: `/studio` or `/roles`); \
 Design is `--mode design--design` (`/design`); it is the GUI, never another program's page.
 - **Sub-agents** -- the Agent tool spawns one (or a batch, in parallel) with its own prompt, tools \
 and model. With custom roles OFF (the default) every sub-agent runs the session model unless the \

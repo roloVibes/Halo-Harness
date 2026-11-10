@@ -60,7 +60,7 @@ export function fleetCommands(): FleetCommand[] {
       { id: "fleet-record", group: g, label: `Fleet: record ${name}`, hint: "one HTML file that replays anywhere", run: () => void record(sel.key, true) },
     );
     if (sel.h.local) out.push({ id: "fleet-replay", group: g, label: "Fleet: replay this session on the Roles canvas", hint: "the cards light up in the order they worked", run: () => void openReplay(sel.s.session_id, "local") });
-    if (sel.s.kind === "orchestra-worker") out.push({ id: "fleet-orchestra", group: g, label: "Fleet: open this session in Orchestra", run: () => goSection("orchestra") });
+    if (sel.s.kind === "orchestra-worker") out.push({ id: "fleet-orchestra", group: g, label: "Fleet: open this session in Agents: Runs", run: () => goSection("agents", "runs") });
   }
   for (const r of allAgents(s).filter((x) => isLive(x.a)).slice(0, 24))
     out.push({

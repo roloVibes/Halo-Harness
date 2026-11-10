@@ -14,7 +14,7 @@ Studio as well, and `halo update` stops it before installing.
 
 
 ```sh
-halo studio [--mode roles|design|orchestra|fleet|team|session|packs|setup] [--port N] [--no-open] [--cwd DIR] [--fleet]
+halo studio [--mode session|agents|fleet|packs|setup|settings|local|<pack>--<section>] [--port N] [--no-open] [--cwd DIR] [--fleet]
 halo studio --edit bio:<name> | lineup:<name> | team [--no-open]
 halo studio --session [<id>] [--prompt] [--no-open]
 ```
@@ -47,9 +47,9 @@ its **Prompt** panel up and the keyboard in its box, to type into the session as
 ### `--edit`
 
 3.1.1.0: Studio is the one editor of bios and lineups, and `--edit TARGET`
-opens it on one: `bio:<name>` (Roles, the Bios panel on that bio's form),
-`lineup:<name>` (Roles, that lineup open, the Inspector on its Lineup tab)
-or `team` (the Team section); 3.3.0.0 R4: `setup`, `setup:first` (what
+opens it on one: `bio:<name>` (Agents on Cast, the Bios panel on that bio's form),
+`lineup:<name>` (Agents on Cast, that lineup open, the Inspector on its Lineup tab)
+or `team` (Agents on Runs; 3.3.16.0 R1: the Team section went); 3.3.0.0 R4: `setup`, `setup:first` (what
 `halo init` opens: `?mode=setup&first=1`) and `setup:<block>` (`halo setup
 team`: `?mode=setup&block=team`), [STUDIO-setup.md](STUDIO-setup.md). The target rides in the URL as
 `?mode=roles&edit=bio:<name>` (the token stays in the `#t=` fragment). When
@@ -69,11 +69,13 @@ lineup views run the same thing (see
 [FLEET.md](FLEET.md).
 
 Halo 2.1.0, modes in 3.0.2.0: opens Halo Studio, the browser GUI, straight
-into `--mode roles` (lineups and agent bios as an editable graph), 3.0.4.0: `--mode orchestra`
-(the run console), 3.2.0.0 R7: `--mode packs` (the Pack Manager; `?mode=packs` in the URL);
+into a section: 3.3.16.0 R1: `--mode agents` (Team, Roles and Orchestra in one: Cast, the lineups and agent bios as an
+editable graph; Runs, the run console; Live), and `--mode roles`, `orchestra` and `team` still open Agents on Cast, Runs
+and Runs, printing the new door once ("Roles is Agents -> Cast now (Alt+2 in Studio; halo studio --mode agents)");
+3.2.0.0 R7: `--mode packs` (the Pack Manager; `?mode=packs` in the URL);
 without `--mode` it opens in the mode you used last; 3.3.13.0 R2: `--mode <pack>--<section>` opens a running pack's
 section (`--mode design--design`, the design pack's), and `--mode design` with that pack off says how to turn it on.
-The TUI's `/roles` (and, with the design pack on, `/design`) are the same doors from a live session. It Starts a loopback-only server on a free port (or
+The TUI's `/roles` (Agents on Cast) and, with the design pack on, `/design` are the same doors from a live session. It Starts a loopback-only server on a free port (or
 `--port`), prints its URL (the URL carries a per-launch token: open exactly
 that) and opens the browser unless `--no-open`; `--cwd` is the project
 directory for project-scope files (default: the current directory). Ctrl+C

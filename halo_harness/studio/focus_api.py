@@ -19,8 +19,9 @@
 
 Every open page (ui/src/shell/edit.ts) answers the frame the way it answers
 `?edit=` (or `?mode=session&session=`) in its URL: it switches to the section
-and opens the bio form, the lineup's inspector, the Team section, or the
-Session dashboard on that session.
+and opens the bio form, the lineup's inspector, Agents on Runs (`team`; 3.3.16.0 R1: the Team section went), or the
+Session dashboard on that session. `{mode: "agents", view: cast|runs|live}` opens Agents on that view; roles,
+orchestra and team as a mode land on Agents' views too.
 """
 
 from __future__ import annotations
@@ -66,6 +67,8 @@ def _post_section(req, body: dict):
         if group is None:
             return 422, {"error": why, "problems": [why]}
         data.update(group=group)
+    if mode == "agents" and str(body.get("view") or "") in ("cast", "runs", "live"):  # 3.3.16.0 R1: Agents' view
+        data.update(view=str(body["view"]))
     if mode == "local":  # 3.3.5.0 R1 (studio/local_door.py): the page that opens
         from halo_harness.studio.local_door import page_word
         page, why = page_word(str(body.get("page") or ""))

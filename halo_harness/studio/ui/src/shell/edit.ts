@@ -1,8 +1,8 @@
 // Open an edit target (3.1.1.0 R3): Studio is the one editor of bios and
 // lineups, and the terminal opens it on the thing to edit. A target is
-// bio:<name> (Roles, the Bios panel on that bio's form), lineup:<name> (Roles,
-// that lineup open, the Inspector on its Lineup tab) or team (the Team
-// section). It arrives two ways: `?edit=<target>` in the page URL (`halo
+// bio:<name> (Agents' Cast, the Bios panel on that bio's form), lineup:<name> (Cast,
+// that lineup open, the Inspector on its Lineup tab) or team (3.3.16.0 R1: Agents' Runs, with Team's one line: the
+// board went). It arrives two ways: `?edit=<target>` in the page URL (`halo
 // studio --edit`, `halo agents edit`, the TUI's `e` and `/edit`), and a
 // `focus` frame on the live feed when a second `halo studio --edit` finds this
 // Studio running (studio/focus_api.py): every open page opens the target.
@@ -12,9 +12,11 @@
 // 3.3.0.0 R4: Setup's doors (`?mode=setup&first=1`, `&block=team`, and a frame
 // `{mode: "setup", block, first}`) go to routes/setup/door.ts; 3.3.3.0 R2: Settings' (`?mode=settings&group=`, a
 // frame `{mode: "settings", group}`) to routes/settings/door.ts; 3.3.5.0 R1: Local's (`?mode=local&page=`, a frame
-// `{mode: "local", page}`) to routes/local/door.ts. 3.3.11.0 R1: `?prompt=1` (and a session frame's `prompt: true`,
+// `{mode: "local", page}`) to routes/local/door.ts. 3.3.16.0 R1: a frame's `mode` of roles, orchestra or team (and
+// `{mode: "agents", view}`) opens Agents on its view (lib/agentsDoor.ts). 3.3.11.0 R1: `?prompt=1` (and a session frame's `prompt: true`,
 // `halo studio --session <id> --prompt`) opens Session's Prompt panel, the keyboard in its box.
 import { onEvent } from "../lib/events";
+import { AGENTS_DOORS, type AgentsView } from "../lib/agentsDoor";
 import { goSection, SECTION_IDS, type SectionId } from "../lib/store";
 import { openSession } from "../routes/session/store";
 import { openPrompt, promptAsked } from "../routes/session/promptStore";
@@ -57,10 +59,10 @@ function showPanel(id: string): void {
 export async function applyEdit(target: EditTarget): Promise<void> {
   if (start.get().open && !start.get().running) start.update(() => ({ open: false })); // the overlay waits; nothing is dismissed
   if (target.kind === "team") {
-    goSection("team");
+    goSection("team"); // Agents on Runs, Team's line the first time
     return;
   }
-  goSection("roles");
+  goSection("agents", "cast");
   roles.update(() => ({ editing: target.text }));
   setView("workspace"); // the Start view would hide the panels
   startRoles();
@@ -94,7 +96,7 @@ export function installEdit(): void {
   if (localDoor) applyLocalDoor(localDoor);
   if (promptAsked()) openPrompt(); // 3.3.11.0 R1: `?mode=session&session=<sid>&prompt=1`
   onEvent("focus", (f) => {
-    const d = (f.data || {}) as { edit?: string; mode?: string; session?: string; block?: string; first?: boolean; group?: string; page?: string; prompt?: boolean };
+    const d = (f.data || {}) as { edit?: string; mode?: string; view?: AgentsView; session?: string; block?: string; first?: boolean; group?: string; page?: string; prompt?: boolean };
     const target = parseEdit(String(d.edit || ""));
     const mode = String(d.mode || "") as SectionId;
     if (target) void applyEdit(target);
@@ -102,7 +104,7 @@ export function installEdit(): void {
     else if (mode === "settings") applySettingsDoor({ group: String(d.group || "") });
     else if (mode === "local") applyLocalDoor({ page: String(d.page || "") });
     else if (mode === "session") (openSession({ session: String(d.session || "") }), d.prompt && openPrompt());
-    else if ((SECTION_IDS as string[]).includes(mode)) goSection(mode);
+    else if ((SECTION_IDS as string[]).includes(mode) || AGENTS_DOORS[mode]) goSection(mode, mode === "agents" ? d.view || "cast" : undefined);
     else return;
     try {
       window.focus();

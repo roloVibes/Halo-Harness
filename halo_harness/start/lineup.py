@@ -40,7 +40,7 @@ def missing_line(name: str) -> str:
 
 def no_coder_line(name: str) -> str:
     return (f"{name} has no card that writes code (a coder, implementer or subagent role, or a card used for implement "
-            "or fix), so it cannot take the sample's lanes: add one in Roles (halo studio --mode roles) or name "
+            "or fix), so it cannot take the sample's lanes: add one in Agents -> Cast (halo studio --mode agents) or name "
             "another lineup with --lineup")
 
 

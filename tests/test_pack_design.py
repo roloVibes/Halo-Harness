@@ -47,8 +47,8 @@ def test_the_shipped_pack_installs_and_brings_its_section_and_routes(ctx: Ctx):
                   and (sec.get("view") or {}).get("file") == "api/pack/design/file/studio/design.js")
         ctx.check(f"its routes are granted under api/packs/design/design, got {entry.get('routes')}",
                   entry.get("routes") == {"prefix": "design", "api": "api/packs/design/design", "granted": True})
-        ctx.check(f"the core a pack's panel may join is five (Design left), got {reg['core']}",
-                  reg["core"] == ["session", "team", "roles", "fleet", "orchestra"])
+        ctx.check(f"the core a pack's panel may join: agents and the words it took in (3.3.16.0 R1), got {reg['core']}",
+                  reg["core"] == ["session", "agents", "fleet", "team", "roles", "orchestra"])
         code, out, _err = h.cli("inspect", "design")
         ctx.check("inspect says what studio-routes lets it do", "runs this pack's Python inside Studio's server" in out)
         h.cli("disable", "design")
@@ -59,12 +59,12 @@ def test_the_shipped_pack_installs_and_brings_its_section_and_routes(ctx: Ctx):
 @test
 def test_the_section_takes_the_first_pack_key(ctx: Ctx):
     reg = (UI / "routes" / "packs" / "registry.ts").read_text(encoding="utf-8")
-    ctx.check("FIRST_KEY 10 and LAST_KEY 10: the first pack section is Alt+0",
-              "const FIRST_KEY = 10;" in reg and "const LAST_KEY = 10;" in reg and "`Alt+${n % 10}`" in reg)
+    ctx.check("FIRST_KEY 8 and LAST_KEY 10: the first pack section is Alt+8 (3.3.16.0 R1: seven core sections)",
+              "const FIRST_KEY = 8;" in reg and "const LAST_KEY = 10;" in reg and "`Alt+${n % 10}`" in reg)
     ctx.check("a section with a view is the pack's page (PackView), paged", "s.view ? { view: PackView, paged: true }" in reg)
     index = (UI / "routes" / "index.tsx").read_text(encoding="utf-8")
-    ctx.check("no core Design section, and Local is Alt+9 with the Media panels",
-              'id: "design"' not in index and 'id: "local", title: "Local", kbd: "Alt+9"' in index and "panels: mediaPanels(0)" in index)
+    ctx.check("no core Design section, and Local is Alt+7 with the Media panels",
+              'id: "design"' not in index and 'id: "local", title: "Local", kbd: "Alt+7"' in index and "panels: mediaPanels(0)" in index)
 
 
 @test

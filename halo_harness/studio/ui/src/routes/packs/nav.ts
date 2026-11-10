@@ -12,14 +12,18 @@ import type { PaletteEntry, Route } from "./types";
 
 const SAFE = /^(https?:|mailto:)/i;
 
+/** 3.3.16.0 R1: the workspace a route's panel lives in: Agents' Cast (`agents`, `roles`) or Runs (`orchestra`, `team`). */
+const WS: Record<string, string> = { agents: "roles", team: "orchestra" };
+
 export function openRoute(r: Route): void {
   goSection(r.section as SectionId);
   const panel = r.panel;
   if (!panel) return;
+  const ws = WS[r.section] || r.section;
   const go = (tries: number) => {
-    if (layoutStore(r.section).get().layout?.[panel]) {
-      patchPanel(r.section, panel, { collapsed: false }, false);
-      focusPanel(r.section, panel);
+    if (layoutStore(ws).get().layout?.[panel]) {
+      patchPanel(ws, panel, { collapsed: false }, false);
+      focusPanel(ws, panel);
     } else if (tries > 0) window.setTimeout(() => go(tries - 1), 120);
   };
   go(20);

@@ -1,12 +1,16 @@
-# Studio: the Orchestra console
+# Studio: Agents -> Runs (the Orchestra console)
 
-Read this when you run an Orchestra goal from Studio: the run console, the plan canvas and the coach.
+Read this when you run an Orchestra goal from Studio's Agents -> Runs: the run console, the plan canvas, the owns line and the coach.
 
 Part of [Halo Studio](STUDIO.md), which lists every part.
 
 ## Orchestra: the run console
 
-`Alt+5` (or `?mode=orchestra`) is the console for [Orchestra](ORCHESTRA.md)
+3.3.16.0 R1: the Orchestra section is Agents' **Runs** view ([STUDIO-agents.md](STUDIO-agents.md)): each lane's owns
+line and its claims ([who owns what](STUDIO-agents.md#who-owns-what-the-owns-line)) and **Test this lineup**
+([the button](STUDIO-agents.md#test-this-lineup)) are new there; the rest is as it was.
+
+Runs (`Alt+2` then `R`, `?mode=agents&view=runs`, or the old door `?mode=orchestra`) is the console for [Orchestra](ORCHESTRA.md)
 runs in the git repo that holds Studio's folder (`halo studio` started
 there, or `--cwd`). It opens on the newest run.
 

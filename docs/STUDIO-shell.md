@@ -1,27 +1,26 @@
 # Studio: the shell
 
-Read this when you find your way around Studio's header, sections, panels and Start views, or open it on a bio, a lineup or the Team.
+Read this when you find your way around Studio's header, sections, panels and Start views, or open it on a bio, a lineup or the team's door.
 
 Part of [Halo Studio](STUDIO.md), which lists every part.
 
 ## The shell (3.0.3.0)
 
-`halo studio` opens a React shell with nine sections in the icon rail on the left (3.3.2.0; the top bar's tab strip before):
-**Session | Team | Roles | Fleet | Orchestra | Packs | Setup | Settings | Local** (`Alt+1`..`Alt+9`, or `?mode=` in
-the URL; Fleet since 3.0.5.0, Team since 3.0.8.0, Session since 3.1.4.0, Packs since 3.2.0.0, Setup since 3.3.0.0, Settings since
-3.3.3.0, Local since 3.3.5.0; Org and Flow are gone since 3.1.4.0, Design is the design pack's since 3.3.13.0). The order is one list,
-`SECTIONS` in `ui/src/routes/index.tsx` (3.1.6.0: Session `Alt+1`, Team `Alt+2`, Roles `Alt+3`, Fleet `Alt+4`;
-3.3.13.0 R2: Orchestra `Alt+5`, Packs `Alt+6` ([STUDIO-packs.md](STUDIO-packs.md)), Setup `Alt+7`): the rail's rows, the `Alt+N` keys, the palette's groups, the first key of each
+`halo studio` opens a React shell with seven sections in the icon rail on the left (3.3.2.0; the top bar's tab strip before):
+**Session | Agents | Fleet | Packs | Setup | Settings | Local** (`Alt+1`..`Alt+7`, or `?mode=` in
+the URL; Fleet since 3.0.5.0, Session since 3.1.4.0, Packs since 3.2.0.0, Setup since 3.3.0.0, Settings since
+3.3.3.0, Local since 3.3.5.0; Org and Flow are gone since 3.1.4.0, Design is the design pack's since 3.3.13.0, and Agents
+took in Team, Roles and Orchestra in 3.3.16.0 -- [STUDIO-agents.md](STUDIO-agents.md): its Cast, Runs and Live views, and
+the doors `?mode=roles|orchestra|team` keep). The order is one list,
+`SECTIONS` in `ui/src/routes/index.tsx` (3.1.6.0: Session `Alt+1`; 3.3.16.0 R1: Agents `Alt+2`, Fleet `Alt+3`,
+Packs `Alt+4` ([STUDIO-packs.md](STUDIO-packs.md)), Setup `Alt+5`): the rail's rows, the `Alt+N` keys, the palette's groups, the first key of each
 section's **How this works** and the status bar's key hint all read it.
 Session is this session, live: the Fleet panels scoped to this harness (see
 [Session](STUDIO-sections.md#session)); with nothing saved for the browser Studio opens on it while a
-session of this harness is live. Orchestra is the live run console (see [Orchestra](STUDIO-orchestra.md#orchestra-the-run-console)
-below),
-Fleet every harness and every agent, live (see [Fleet](STUDIO-fleet.md#fleet-every-harness-every-agent)),
-Team the project's team file as one board (see [Team](STUDIO-team-roles.md#team-people-blocks-and-stages-on-one-board));
-Roles is a React section since 3.0.7.0 (see
-[What you see (Roles)](STUDIO-team-roles.md#what-you-see-roles)). A pack's own sections come after the core ones (the
-first on `Alt+0`); one may be drawn whole by the pack's own module (3.3.13.0 R2: a view, as the design pack's
+session of this harness is live. Agents is the cast, its runs and what runs now (Cast: [the canvas](STUDIO-agents.md#cast-the-lineup-and-its-bios),
+Runs: [the run console](STUDIO-orchestra.md#orchestra-the-run-console)), Fleet every harness and every agent, live
+(see [Fleet](STUDIO-fleet.md#fleet-every-harness-every-agent)). A pack's own sections come after the core ones (the
+first on `Alt+8`); one may be drawn whole by the pack's own module (3.3.13.0 R2: a view, as the design pack's
 Design section is: [EXTENSION_API.md](EXTENSION_API.md#a-sections-view)).
 The classic plain-JS page (`/legacy/`, `halo studio --legacy`) is gone since
 3.0.7.0 R2: every section is part of the shell.
@@ -64,14 +63,12 @@ The classic plain-JS page (`/legacy/`, `halo studio --legacy`) is gone since
   rearrange something.
 - **One thing per section** (3.3.2.0). Each section opens on its main
   panel filling the stage, every other panel a strip at the foot (one or
-  two rows of them, side by side): Session on **Live**, Team on the
-  **Board**, Roles on the **Canvas**, Fleet on the **Map** (the design pack's Design on its
-  **Artboards**), Orchestra on the **Workflow** (the run's plan; a planned
-  run is the plan canvas), Packs on **Installed**; Setup is pages and keeps
+  two rows of them, side by side): Session on **Live**, Agents on Cast's **Canvas** (Runs on the **Workflow**, the
+  run's plan; a planned run is the plan canvas), Fleet on the **Map** (the design pack's Design on its
+  **Artboards**), Packs on **Installed**; Setup is pages and keeps
   them. A click on a strip (or its row in the **+**) opens it in the column on
   the main panel's right (as wide as the widest panel there, at most half
-  the stage; the panels in it share its height); a Roles card or a Team stage
-  you select opens its Inspector strip. Your saved layout wins over the
+  the stage; the panels in it share its height); a Cast card you select opens its Inspector strip. Your saved layout wins over the
   default; **Reset layout** returns to it, and **Arrange panels** lays out
   the panels open now by the same rule. `?open=all` in the URL draws every
   panel in its own place instead (the arrangement before 3.3.2.0, for a
@@ -151,8 +148,8 @@ The classic plain-JS page (`/legacy/`, `halo studio --legacy`) is gone since
   header; comfortable since 3.3.15.0: 40 px, 12 px, 12 px, 48 px) and a type scale one step smaller; the colours stay. Remembered
   per browser (`halo.studio.density`), `data-density` on `<html>`.
 - **The palette** (`Ctrl`/`Cmd`+`K`): a mono prompt with fuzzy matching and
-  grouped results (Go to, Help, then the sections in the tab order: Team, Roles,
-  Fleet, Orchestra; then Media, View, Layout, then each pack's group), keyboard first: arrows,
+  grouped results (Go to, Help, then the sections in the tab order: Agents -- its views, then the Roles and
+  Orchestra lines -- and Fleet; then Media, View, Layout, then each pack's group), keyboard first: arrows,
   `Enter`, `Esc`. Every shortcut is shown next to its command.
 - **The status bar** (26 px, 11 px mono) shows the live feed (a square that is green when
   connected, amber while connecting or reconnecting, red when unreachable;
@@ -261,7 +258,7 @@ session's Edit tool, `halo teams apply`, `halo agents`, `halo config set`,
 another Studio. The pages subscribe through `lib/filesLive.ts`
 (`onFilesChanged`, 300 ms merge) and re-read: Roles (the lineup list, the
 open lineup, the Bios panel, the bio form, the card positions, the active
-mark and the default model), Team (`GET team` and the board), Session (`GET
+mark and the default model), Session (`GET
 fleet`, on config), Orchestra's LINEUP list, the model selects' "the
 lineup's" / "the default" answers, the Pack Manager's Templates. Studio's own
 saves come back as a frame too and change nothing: the page compares the
@@ -302,18 +299,17 @@ in its CSP and `X-Frame-Options: SAMEORIGIN`), and `HALO_STUDIO_LOG` writes
 
 3.1.1.0: Studio is the one editor of bios and lineups; the terminal shows
 them and opens Studio on the one to change. An **edit target** is
-`bio:<name>`, `lineup:<name>` or `team`, and it rides in the page URL:
+`bio:<name>`, `lineup:<name>` or `team`, and it rides in the page URL (3.3.16.0 R1: `?mode=agents&view=...`;
+`?mode=roles|team&edit=` from before still land):
 
 ```
-http://127.0.0.1:<port>/?mode=roles&edit=bio:coder#t=<token>
-http://127.0.0.1:<port>/?mode=roles&edit=lineup:halo-dev-cycle#t=<token>
-http://127.0.0.1:<port>/?mode=team&edit=team#t=<token>
+http://127.0.0.1:<port>/?mode=agents&view=cast&edit=bio:coder#t=<token>
+http://127.0.0.1:<port>/?mode=agents&view=runs&edit=team#t=<token>
 ```
 
-A page opened on `?edit=` goes straight to it (`shell/edit.ts`): `bio:` opens
-Roles with the Bios panel on that bio's form, `lineup:` opens that lineup
-with the Inspector on its Lineup tab, `team` the Team section. Start here
-stays shut on such a page.
+A page opened on `?edit=` goes straight to it (`shell/edit.ts`): `bio:` opens Agents on Cast with the Bios panel on
+that bio's form, `lineup:` that lineup with the Inspector on its Lineup tab, `team` Agents on Runs (Team's board went;
+the page says so once). Start here stays shut on such a page.
 
 `halo studio --edit <target>` (and `halo agents edit`, `halo teams edit`,
 the TUI's `/edit`, `e` in the terminal's bio and lineup views, the wizard's
@@ -345,7 +341,7 @@ steps as in a terminal (your active lineup, read as it is, the sample repo, one
 Orchestra goal with `plan: review`, the plan approved, the lanes, the report
 and the coach, where to go next), each listed with its state while the
 running one shows its command and its last lines; the outcome names the
-lineup, the run and its repo, with buttons into Roles, Team and Fleet.
+lineup, the run and its repo, with buttons into Agents (Cast, Runs) and Fleet.
 Closing the card keeps the start running (the palette's **Start: the
 guided first run** brings it back; **Stop the start** ends it). **Just look
 around** dismisses the card for this home (`~/.halo/start/dismissed.json`,
@@ -383,9 +379,8 @@ dismissed, show, own_lineups, active_team, runs, starts, job, plan}`), `POST
 `POST /api/start/dismiss`, `POST /api/start/stop`.
 
 **One story.** Every section's Start view ends on a **Next** footer that
-names the next section and why, in this order: Roles -> Orchestra ->
-Team -> Fleet (Fleet's points back to Roles; 3.3.13.0 R2: Design left the story for its pack); the button
-opens it.
+names the next section and why, in this order: Agents' Cast -> Agents' Runs -> Fleet (Fleet's points back to
+Cast; 3.3.16.0 R1: Team's Start view went with its board); the button opens it.
 
 **The Glossary.** The **?** in the header is a menu: **How
 <section> works** (also `?`) and **Glossary**, a dialog listing every word

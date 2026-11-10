@@ -1,39 +1,28 @@
-"""halo_harness.studio.team_api -- `/api/team/...`, Studio's Team backend (Halo 3.0.8.0 R1; R2 draws the
-Team tab on it). Same loopback / origin / token guard as every Studio route; the team is the one of the
-repo that holds Studio's folder (`req.cwd`), docs/TEAM.md.
+"""halo_harness.studio.team_api -- what is left of `/api/team/...` (Halo 3.0.8.0 R1; 3.3.16.0 R1 "Agents: one section").
 
-    GET  team                           {found, path, source, root, team, problems, preflight, run, live}
-    POST team/validate {yaml?}          {ok, problems, preflight, team}  (the file, or the YAML text given)
-    GET  team/board?run=                {run, board, status, live}  (no run yet: the stages, all pending)
-    POST team/run {stage?, force?, new?}  202 {run, stage, started}
-                                        422 {error, problems} on a problem in the file,
-                                        422 {error, problems, preflight: true} when the preflight blocks,
-                                        409 {error, run} while another process drives the run
-    POST team/answer {stage, action, text?, run?}  {ok, message, run, driven}
-    POST team/stop {reason?, run?}      {ok, run}
-    GET  team/blocks                    {blocks: [<block status>]}
-    GET  team/blocks/<id>/changes?since=N  {block, changes, next}
-    GET  team/events?since=N&run=       {run, events, next}
-    POST team/init                      {ok, written, path}; 409 when a file exists (R2, team_init_api.py)
-    POST team/budget {stage, action: skip|stop, run?}  a stage held at its budget line (3.1.2.0 R2)
+The Team section's board went in 3.3.16.0 R1: Team, Roles and Orchestra folded into Agents, and who owns what is a run
+plan's detail there (Agents -> Runs: each lane's owns line and its claims). Every route only the board read or wrote --
+GET team, POST team/validate, GET team/board, POST team/run, POST team/answer, POST team/stop, GET team/blocks,
+GET team/blocks/<id>/changes, GET team/events, POST team/init, POST team/budget -- answers 410 with the line `MOVED`.
+`halo team` (team/cli.py: init, validate, status, run, answer, stop, the blocks) runs the team file as before, and
+GET team/coach (studio/coach_api.py) still reads a team run's coach card.
 
-Board, gate, claim and change events go out on `/api/events` as `team` frames (studio/team_live.py). `RUNNER()`
+What stays here is what the Fleet attention queue answers through (fleet/team_attention.py): a stage at its gate
+(`post_answer`, accept / redo / stop, and the runner driven on in Studio's process when none drives the run) and a
+stage held at its budget line (studio/team_budget_api.py `post_budget`, which stops through `post_stop`). `RUNNER()`
 returns the runner's seams as keywords (spawn, orchestra, dispatch, accept); None = the real ones.
 """
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
-from halo_harness.team import blocks as B
 from halo_harness.team import board as BD
 from halo_harness.team import spec as S
-from halo_harness.studio.team_budget_api import post_budget
-from halo_harness.studio.team_init_api import post_init
 from halo_harness.studio import team_live as live
 
 RUNNER = None
+MOVED = "Team's board moved into Agents -> Runs (a run's plan shows who owns what); halo team runs the team file"
 
 
 def _bad(lines, status: int = 422):
@@ -69,98 +58,8 @@ def _seams() -> dict:
     return dict(RUNNER() or {}) if RUNNER is not None else {}
 
 
-def _findings(team, req) -> list:
-    from halo_harness.team.validate import preflight_findings
-    return preflight_findings(team, cwd=team["root"], state_dir=req.state_dir)
-
-
-def get_team(req):
-    try:
-        team = S.load_team(req.cwd, req.state_dir)
-    except ValueError as e:
-        return 200, {"found": True, "team": None, "problems": [str(e)], "preflight": [], "run": None, "live": False}
-    if team is None:
-        root = S.team_root(req.cwd)
-        return 200, {"found": False, "path": str(S.repo_team_path(root)), "source": None, "root": str(root),
-                     "team": None, "problems": [], "preflight": [], "run": None, "live": False}
-    run_dir = BD.latest_run(Path(team["root"]))
-    return 200, {"found": True, "path": team["path"], "source": team["source"], "root": team["root"], "team": team,
-                 "problems": S.validate_team(team, cwd=team["root"], state_dir=req.state_dir, preflight=False),
-                 "preflight": _findings(team, req), "run": run_dir.name if run_dir else None,
-                 "live": bool(live.live_run(team["root"]))}
-
-
-def post_validate(req):
-    text = req.body.get("yaml")
-    if isinstance(text, str):
-        try:
-            team = S.normalize(S.parse_yaml(text, "the YAML"))
-        except ValueError as e:
-            return 200, {"ok": False, "problems": [str(e)], "preflight": [], "team": None}
-        team.update(root=str(S.team_root(req.cwd)))
-        team["name"] = team["name"] or Path(team["root"]).name
-    else:
-        team, err = _team(req)
-        if err:
-            return err
-    problems = S.validate_team(team, cwd=team["root"], state_dir=req.state_dir, preflight=False)
-    findings = _findings(team, req)
-    from halo_harness.lineup_preflight import blocking
-    return 200, {"ok": not problems and not blocking(findings), "problems": problems, "preflight": findings,
-                 "team": team}
-
-
-def get_board(req):
-    from halo_harness.team.cli_run import status_of
-    from halo_harness.team.run import rows_for
-    team, err = _team(req)
-    if err:
-        return err
-    run_dir = _run_dir(req, team)
-    if run_dir is None:
-        if req.query.get("run"):
-            return 404, {"error": f"no team run {req.query['run']!r}"}
-        board = {"run": None, "team": team["name"], "state": "none", "stages": rows_for(team, state_dir=req.state_dir)}
-        return 200, {"run": None, "board": board, "status": None, "live": False}
-    return 200, {"run": run_dir.name, "status": status_of(run_dir, team), "live": live.live_run(team["root"]) == run_dir.name,
-                 "board": dict(BD.read_board(run_dir), units=BD.unit_rows(run_dir))}  # 3.1.2.0 R1: UnitRows beside the stages
-
-
-def post_run(req):
-    from halo_harness.lineup_preflight import blocking, refusal_body
-    from halo_harness.team.run import open_run
-    team, err = _team(req)
-    if err:
-        return err
-    body = req.body
-    problems = S.validate_team(team, cwd=team["root"], state_dir=req.state_dir, preflight=False)
-    if problems:
-        return _bad(problems)
-    stage = str(body.get("stage") or "") or None
-    if stage and S.stage_by_id(team, stage) is None:
-        return _bad(f"no stage {stage!r} (stages: {', '.join(s['id'] for s in team['workflow']['stages'])})")
-    if not body.get("force"):
-        findings = _findings(team, req)
-        if blocking(findings):
-            return 422, refusal_body(findings, what=f"team {team['name']}")
-    running = live.live_run(team["root"])
-    if running:
-        if stage and live.request(team["root"], stage):
-            return 202, {"run": running, "stage": stage, "started": False, "queued": True}
-        return 409, {"error": f"run {running} is live in Studio: name the stage to start", "run": running}
-    run_dir = open_run(team, new=bool(body.get("new")), cwd=team["root"], state_dir=req.state_dir)
-    board = BD.read_board(run_dir)
-    if BD.runner_live(board):
-        return 409, {"error": f"run {run_dir.name} is driven by another process (pid {board['runner'].get('pid')})",
-                     "run": run_dir.name}
-    if stage is None:
-        stage = next((r["id"] for r in board.get("stages") or [] if r.get("state") == "pending"
-                      and S.parse_trigger(r.get("trigger"))[0] == "manual"), None)
-    started = live.start(team, run_dir, stage=stage, seams=_seams(), publish=_publisher(req))
-    return 202, {"run": run_dir.name, "stage": stage, "started": started}
-
-
 def post_answer(req):
+    """A stage's gate answered (the attention row's a / r / s): accept, redo with its text, or stop."""
     from halo_harness.team.stages import write_answer
     team, err = _team(req)
     if err:
@@ -179,6 +78,7 @@ def post_answer(req):
 
 
 def post_stop(req):
+    """Stop a team run (a budget hold's s): the stop request, then one tick when nothing drives it."""
     team, err = _team(req)
     if err:
         return err
@@ -194,57 +94,6 @@ def post_stop(req):
     return 200, {"ok": True, "run": run_dir.name}
 
 
-def get_blocks(req):
-    team, err = _team(req)
-    return err or (200, {"blocks": B.all_status(team)})
-
-
-def _since(req):
-    try:
-        return max(0, int(req.query.get("since") or 0)), None
-    except ValueError:
-        return 0, _bad("since is a whole number (the count of lines already seen)")
-
-
-def get_changes(req):
-    team, err = _team(req)
-    if err:
-        return err
-    block = S.block_by_id(team, req.params["block"])
-    if block is None:
-        return 404, {"error": f"no block {req.params['block']!r}"}
-    since, err = _since(req)
-    if err:
-        return err
-    lines = B.changes(Path(team["root"]), block, since)
-    return 200, {"block": block["id"], "changes": lines, "next": since + len(lines)}
-
-
-def get_events(req):
-    team, err = _team(req)
-    since, err = (0, err) if err else _since(req)
-    if err:
-        return err
-    run_dir = _run_dir(req, team)
-    if run_dir is None:
-        return 200, {"run": None, "events": [], "next": 0}
-    events = BD.read_events(run_dir, since=since)
-    return 200, {"run": run_dir.name, "events": events, "next": since + len(events)}
-
-
-ROUTES = [
-    ("GET", r"^team$", get_team), ("POST", r"^team/validate$", post_validate), ("GET", r"^team/board$", get_board),
-    ("POST", r"^team/run$", post_run), ("POST", r"^team/answer$", post_answer), ("POST", r"^team/stop$", post_stop),
-    ("GET", r"^team/blocks$", get_blocks), ("GET", r"^team/blocks/(?P<block>[A-Za-z0-9_-]+)/changes$", get_changes),
-    ("GET", r"^team/events$", get_events), ("POST", r"^team/init$", post_init), ("POST", r"^team/budget$", post_budget)]
-
-
 def dispatch_team(req):
-    for method, pattern, fn in ROUTES:
-        m = re.match(pattern, req.path)
-        if m and method == req.method:
-            req.params = dict(m.groupdict())
-            return fn(req)
-    if any(re.match(p, req.path) for _, p, _ in ROUTES):
-        return 405, {"error": f"/api/{req.path} answers another method (docs/TEAM.md lists the routes)"}
-    return 404, {"error": f"no route for {req.method} /api/{req.path}"}
+    """Every /api/team/... route the board used: 410 and where it went (GET team/coach is coach_api's, first)."""
+    return 410, {"error": MOVED, "problems": [MOVED], "moved": "agents/runs"}

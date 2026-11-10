@@ -12,8 +12,8 @@ import { enterWorkspace, fleet, findAgent, findSession, parseKey, sessionTitle }
 import { load } from "./sync";
 import { loadAttention, loadConflicts, loadCosts } from "./pload";
 import { loadMissions, openMission, refresh as refreshMission } from "./mload";
+import { openRun } from "../orchestra/sync";
 import { closeDialog, openDialog, panels, type AttnRow, type CapKey, type HandoffOut, type OpenTarget } from "./pstore";
-import { openTeamStage } from "../team/actions";
 import { openOllama } from "./Ollama";
 
 const msg = (e: unknown) => (e instanceof ApiError ? e.message : String(e));
@@ -34,9 +34,9 @@ export function showFleetPanel(id: string): void {
 
 /** Where an `o` answer points: a section, and in Fleet the panel and the agent. */
 export function openTarget(t: OpenTarget): void {
-  if (t.section === "team") return openTeamStage(t.stage); // 3.0.8.0 R2: a team_gate row, its stage selected
   if (t.section !== "fleet") {
-    goSection(t.section as SectionId);
+    goSection(t.section as SectionId, t.view); // 3.3.16.0 R1: a team_gate row (and `orchestra`, `roles`) opens Agents on its view
+    if (t.view === "runs" && t.run && !t.stage) void openRun(t.run); // an Orchestra run's row: that run, open (a team stage's is not one)
     return;
   }
   if (t.panel === "fleet-mission" && t.mission) return openMission(t.mission, String(t.part || "")); // 3.0.6.0 R8

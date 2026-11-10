@@ -228,7 +228,7 @@ class TeamStep(StepRailMixin, TeamActionsMixin, Screen):
 
         def _done(url: str) -> None:  # stays on screen: over SSH the URL is the only way in (review 3 item 79)
             self._hint(f"Studio: {url}  (halo studio --stop ends it)" if url
-                       else "Studio did not start -- run `halo studio --mode roles` in a shell.", persist=True)
+                       else "Studio did not start -- run `halo studio --mode agents` in a shell.", persist=True)
         self.run_worker(lambda: self.app.call_from_thread(_done, work()), thread=True, name="wiz-team-studio",
                         exit_on_error=False)
 

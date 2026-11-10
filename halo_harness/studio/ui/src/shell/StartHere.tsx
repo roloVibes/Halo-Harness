@@ -111,9 +111,9 @@ function Run() {
             </p>
           )}
           <div className="os-buttons">
-            {(["roles", "team", "fleet"] as const).map((s) => (
-              <Button key={s} variant="ghost" onClick={() => (closeStart(), goSection(s))}>
-                {s === "roles" ? "Roles: your lineup" : s === "team" ? "Team: a team file" : "Fleet: more machines"}
+            {(["cast", "runs", "fleet"] as const).map((s) => ( // 3.3.16.0 R1: Agents' Cast and Runs, then Fleet
+              <Button key={s} variant="ghost" onClick={() => (closeStart(), s === "fleet" ? goSection("fleet") : goSection("agents", s))}>
+                {s === "cast" ? "Agents: your lineup" : s === "runs" ? "Agents: a run of your own" : "Fleet: more machines"}
               </Button>
             ))}
           </div>

@@ -1,6 +1,6 @@
 // The palette's commands and its fuzzy matcher. Groups: Go to, Help, then
-// the sections in the registry's order (3.1.6.0 R6: Team, Roles, Fleet,
-// Orchestra; Session has none of its own), Media, View, Layout. Each
+// the sections in the registry's order (3.3.16.0 R1: Agents -- its views, then Cast's Roles lines and Runs'
+// Orchestra lines -- and Fleet; Session has none of its own), Media, View, Layout. Each
 // command may show a key (the same hint the menus show; 3.3.2.0 R1: the Go to
 // entries carry each section's Alt+N, which the icon rail no longer prints; 3.3.2.0 R2: Layout's
 // "Arrange panels" and "Reset layout" name the section in the hint). 3.2.0.0 R3: the packs' sections join Go to and
@@ -20,7 +20,7 @@ import { orchestraCommands } from "../routes/orchestra/commands";
 import { fleetCommands } from "../routes/fleet/commands";
 import { packPageCommands } from "../packlib/kbd"; // 3.3.13.0 R2: a pack page's own lines (api.lib.commands)
 import { rolesCommands } from "../routes/roles/commands";
-import { teamCommands } from "../routes/team/commands";
+import { agentsCommands } from "../routes/agents/commands";
 import { settingsCommands } from "../routes/settings/commands";
 import { localCommands } from "../routes/local/commands";
 import { promptCommand } from "../routes/session/promptStore";
@@ -68,13 +68,14 @@ export function commands(): Command[] {
     kbd: s.kbd || undefined,
     run: () => goSection(s.id),
   }));
-  for (const s of [cur, ...all.filter((x) => x.id !== cur.id)]) {
+  const here = studio.get().section; // 3.3.16.0 R1: Agents' def is the part it draws now (its id roles or orchestra)
+  for (const s of [all.find((x) => x.id === here) ?? cur, ...all.filter((x) => x.id !== here)]) {
     out.push({
       id: "help-" + s.id,
       group: "Help",
       label: `Help: how ${s.title} works`,
-      hint: s.id === cur.id ? "the steps, the panels and the keys" : s.blurb,
-      kbd: s.id === cur.id ? "?" : undefined,
+      hint: s.id === here ? "the steps, the panels and the keys" : s.blurb,
+      kbd: s.id === here ? "?" : undefined,
       run: () => {
         goSection(s.id);
         openHelp(s.id);
@@ -107,7 +108,7 @@ export function commands(): Command[] {
     });
   }
   out.push(promptCommand()); // 3.3.11.0 R1: Session's Prompt panel, Alt+Enter
-  out.push(...teamCommands(), ...rolesCommands(), ...fleetCommands(), ...orchestraCommands(), ...mediaCommands());
+  out.push(...agentsCommands(), ...rolesCommands(), ...orchestraCommands(), ...fleetCommands(), ...mediaCommands());
   out.push(...settingsCommands()); // 3.3.3.0 R2: "Settings: <title>", one per config key
   out.push(...localCommands()); // 3.3.5.0 R1: "Local: <page>", one per page
   out.push(...packCommands(packs.get().reg), ...packPageCommands());

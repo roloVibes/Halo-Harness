@@ -158,7 +158,7 @@ def _approve_in_studio(run) -> "list[str]":
     from halo_harness.orchestra import plan as P
     url = run.open_studio(run) if run.open_studio else ""
     run.emit("plan", "running", list(run.frames["plan"]["lines"]) +
-             ["", f"Studio's plan canvas: {url or 'halo studio --mode orchestra --cwd ' + str(run.repo)}",
+             ["", f"Studio's plan canvas: {url or 'halo studio --mode agents --cwd ' + str(run.repo) + ' (Runs)'}",
               "approve or reject it there; the start waits"])
     while P.read_decision(run.run_dir) is None:
         if run.cancelled or not run.runner.is_alive():

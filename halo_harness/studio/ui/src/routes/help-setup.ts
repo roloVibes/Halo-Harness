@@ -53,7 +53,7 @@ export const SETUP_HELP: Record<string, Help> = {
     help: lines(
       "One model for everything: roles off, no lineup. auto (the default): each sub-task goes to a model picked for it.",
       "Any other lineup gives each job its own agent and model; the preview shows role -> agent -> model and the cost line.",
-      "Apply writes what the terminal wizard's Team step writes; Edit in Roles opens the lineup in Roles.",
+      "Apply writes what the terminal wizard's Team step writes; Edit in Agents opens the lineup in Agents (Cast).",
     ),
   },
   "setup-linux": {

@@ -159,10 +159,11 @@ def _cmd_cost(args: str, facade: HeadlessFacade) -> str:
     return "\n".join(lines)
 
 
-_STUDIO_MODE_LABELS = {"roles": "Roles: lineups and agent bios as a graph",
-                       "orchestra": "Orchestra: runs of your agents, live",
+_STUDIO_MODE_LABELS = {"agents": "Agents: the cast, its runs, and what runs now",  # 3.3.16.0 R1: Team, Roles, Orchestra in one
+                       "roles": "Agents -> Cast: the lineup and its bios as a graph",
+                       "orchestra": "Agents -> Runs: a goal for your lineup, its plan and lanes, live",
                        "fleet": "Fleet: every harness, every agent, live",
-                       "team": "Team: people, blocks and stages on one board",
+                       "team": "Agents -> Runs: a run's plan shows who owns what",
                        "session": "Session: this session, live",
                        "packs": "Packs: install, grant and enable packs",
                        "setup": "Setup: providers, the default model, permissions, the terminal theme and the lineup",  # 3.3.0.0 R1
@@ -173,13 +174,11 @@ _STUDIO_MODE_LABELS = {"roles": "Roles: lineups and agent bios as a graph",
 def _cmd_studio(args: str, facade: HeadlessFacade) -> str:
     """2.1.0 round B3: `/studio` opens Halo Studio in the browser, served
     from this process; `/studio url` prints the URL without opening a
-    browser (SSH: forward the port it names). 3.0.2.0: `/studio roles`
-    opens straight into that mode -- `/roles` (bare, in the TUI) and `/roles gui`
-    land here too. 3.3.13.0 R2: a running pack's section too (`/studio
-    design--design`; a pack command with `studio:` in its frontmatter lands here)."""
+    browser (SSH: forward the port it names). 3.0.2.0: `/studio <section>` opens it (`/roles`, `/roles gui` too;
+    3.3.16.0 R1: an old word lands on Agents and says the new door once). 3.3.13.0 R2: a running pack's section too."""
     from pathlib import Path
     from halo_harness.providers.config import default_state_dir
-    from halo_harness.studio.modes import check
+    from halo_harness.studio.modes import check, door_line
     from halo_harness.studio.server import ensure_background
     words = (args or "").split()
     cwd = Path(getattr(facade, "cwd", None) or Path.cwd())
@@ -193,8 +192,9 @@ def _cmd_studio(args: str, facade: HeadlessFacade) -> str:
     open_browser = "url" not in [w.lower() for w in words]
     url = ensure_background(cwd=cwd, state_dir=state_dir, open_browser=open_browser, mode=mode)
     what = _STUDIO_MODE_LABELS.get(mode or "") or (f"the {mode} section of a pack" if mode else "Session")
+    door = f"\n{door_line(mode)}" if door_line(mode) else ""  # 3.3.16.0 R1: an old word's new door, said once
     return (f"Halo Studio ({what}): {url}\n"
-            "(served from this session; it closes with it. Over SSH: forward the port and open the same URL.)")
+            "(served from this session; it closes with it. Over SSH: forward the port and open the same URL.)" + door)
 
 
 def _cmd_offline(args: str, facade: HeadlessFacade) -> str:
@@ -241,7 +241,7 @@ def _agents_live(session) -> str:
     from halo_harness.agent.agent_registry import tree_for
     rows = tree_for(session).public_rows()
     head = (f"Live agents ({len(rows)}): id, name, state, cost, model, what it is doing; an auto pick's reason under it "
-            "(3.3.11.0 R2: the tree Studio's Roles Live draws)")
+            "(3.3.11.0 R2: the tree Studio's Agents -> Live draws)")
     return "\n".join([head, *("  " + line for line in format_tree(rows))])
 
 
@@ -1849,7 +1849,7 @@ _BUILTIN_SPECS = {
     "agents": ("core", "List available sub-agents and agent bios; `live`: this session's running agents",
                "[live|schedule]", _cmd_agents),
     "teams": ("core", "Show the active lineup; apply, preview or diff lineups", "[apply|preview <name>|diff <a> <b>]", _cmd_teams),
-    "roles": ("core", "Open Studio's Roles GUI (bare, in the TUI); the role table, roles on/off, role templates",
+    "roles": ("core", "Open Studio's Agents on Cast (bare, in the TUI); the role table, roles on/off, role templates",
               "[gui|table|on|off|templates|save|load|new|edit|show <name>|set <name> <model> [effort]]", _cmd_roles),
     "role": ("core", "Set one role's model/effort for this session", "<name> <model> [effort]", _cmd_role),
     "review": ("core", "Review a diff, branch, PR or files: parallel dimension reviewers, a judge, ranked findings",
@@ -1865,7 +1865,7 @@ _BUILTIN_SPECS = {
     "effort": ("core", "Show or change the active reasoning effort level", "[level]", _cmd_effort),
     "offline": ("core", "Show or change enforced offline mode (network.offline)", "[on|off]", _cmd_offline),
     "studio": ("core", "Open Halo Studio, the browser GUI: in the TUI bare /studio watches this session (the Session dashboard)",
-               "[session|roles|orchestra|fleet|team|packs|setup|settings|local|<pack>--<section>] [url]", _cmd_studio),
+               "[session|agents|fleet|packs|setup|settings|local|<pack>--<section>] [url]", _cmd_studio),
     "remote": ("core", "Remote control: this session's control socket, the transports listening, the packs' services",
                "[status]", _cmd_remote),
     "private": ("core", "Private session: no control socket, no registry entry (Studio and the fleet never see it)",

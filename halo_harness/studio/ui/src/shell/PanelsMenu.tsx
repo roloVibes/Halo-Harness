@@ -9,7 +9,7 @@ import { Menu, type MenuGroup, type MenuRow } from "../lib/ui";
 import { studio, useStore } from "../lib/store";
 import { layoutStore } from "../lib/workspace/persist";
 import type { PanelLayout, PanelSpec } from "../lib/workspace/types";
-import { useSections, type SectionDef } from "../routes";
+import { useSectionDef, useSections, type SectionDef } from "../routes";
 import { revealPanel } from "./commands";
 
 /** The row's word and badges for one panel, from where it is now. */
@@ -43,8 +43,9 @@ function SectionPanels({ def }: { def: SectionDef }) {
 
 export function PanelsMenu() {
   const section = useStore(studio, (s) => s.section);
-  const def = useSections().find((s) => s.id === section);
+  const def = useSectionDef(section); // 3.3.16.0 R1: Agents' is the view's workspace (Cast's Roles panels, Runs' Orchestra ones and runs)
+  const known = useSections().some((s) => s.id === section); // a pack's section the registry has not named yet: no menu
   // 3.3.13.0 R2: a paged section with optional panels (Local: Media) lists them; they float over its page
-  if (!def || (def.paged && !def.panels.some((p) => p.optional)) || (!def.panels.length && !def.menu)) return null;
+  if (!known || (def.paged && !def.panels.some((p) => p.optional)) || (!def.panels.length && !def.menu)) return null;
   return <SectionPanels key={def.id} def={def} />;
 }

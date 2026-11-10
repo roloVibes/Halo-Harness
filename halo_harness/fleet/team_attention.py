@@ -3,15 +3,16 @@ row of the Fleet attention queue (Halo 3.0.8.0 round R2; fleet/attention.py
 builds the queue, studio/fleet_answer.py routes the keys).
 
     team_gate   a stage of this repo's team run waits at a required gate:
-                a accept | r redo (text: the instruction) | s stop the run | o open the Team section on it
+                a accept | r redo (text: the instruction) | s stop the run | o open Agents on Runs (3.3.16.0 R1)
     team_budget a stage was not started: over the team's or its own budget_usd (3.1.2.0 R2, team/budget.py):
-                a raise (opens the team file: edit budget_usd, then run it again) | r skip it | s stop the run
+                a raise (says where the team file is: edit budget_usd, then run it again) | r skip it | s stop the run
 
 `gated(cwd, state_dir)` reads the team of Studio's folder (docs/TEAM.md) and
 its latest run: one entry per stage whose gate is open, and (`kind: budget`)
 per stage held at a budget line. `rows(...)` makes them attention rows;
-`answer(...)` goes through `POST team/answer` (a gate, the Team tab's gate
-card's route) or `POST team/budget` (a hold).
+`answer(...)` goes through studio/team_api.py `post_answer` (a gate) or
+studio/team_budget_api.py `post_budget` (a hold); 3.3.16.0 R1: those are
+functions now, the board's /api/team routes answer 410.
 """
 
 from __future__ import annotations
@@ -91,8 +92,11 @@ def answer(req, row: dict, key: str, text: str):
     from halo_harness.studio.team_api import post_answer
     t, label = row.get("target") or {}, row["keys"][key]
     if row.get("kind") == "team_budget":
-        if key == "a":  # the budget lives in the team file: Raise opens it
-            return 200, {"open": dict(open_target(row), panel="team-file")}, label
+        if key == "a":  # the budget lives in the team file: Raise says where (3.3.16.0 R1: Team's board, and its file panel, went)
+            from halo_harness.team import spec as S
+            team = S.load_team(req.cwd, req.state_dir) or {}
+            where = team.get("path") or "the team file (.halo/team.yaml)"
+            return 200, {"answer": f"edit budget_usd in {where}, then run the stage again (halo team run {t.get('stage')})"}, label
         from halo_harness.studio.team_budget_api import post_budget
         status, got = post_budget(_sub(req, "team/budget", {"stage": t.get("stage"), "run": t.get("run"),
                                                             "action": "skip" if key == "r" else "stop"}, {}))
@@ -103,5 +107,6 @@ def answer(req, row: dict, key: str, text: str):
 
 
 def open_target(row: dict) -> dict:
+    """3.3.16.0 R1: Agents on Runs (Team's board went; the page says so once)."""
     t = row.get("target") or {}
-    return {"section": "team", "panel": "team-inspector", "run": t.get("run"), "stage": t.get("stage")}
+    return {"section": "agents", "view": "runs", "run": t.get("run"), "stage": t.get("stage")}

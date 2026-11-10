@@ -12,6 +12,7 @@ import { createStore, studio, useStore } from "../../lib/store";
 import { allAgents, DONE_MS, fleet, sessionTitle, toolOf, type FleetState } from "../fleet/store";
 import type { AgentRef } from "../fleet/types";
 import { roles } from "./store";
+import { onPart } from "../agents/store";
 import type { LiveAgent } from "./types";
 
 export type GlowState = "working" | "waiting" | "done" | "failed";
@@ -67,7 +68,7 @@ export function endedAgents(s: FleetState = fleet.get(), now = Date.now()): Live
 
 let last = "";
 function push(): void {
-  if (studio.get().section !== "roles") return; // only while the canvas shows: nothing of it runs for Fleet or Session
+  if (!onPart("roles")) return; // only while the canvas shows (Agents: Cast or Live): nothing of it runs for Fleet or Session
   const rows = endedAgents();
   const json = JSON.stringify(rows.map((r) => [r.key, r.state, r.endedAt, r.cost_usd]));
   if (json === last) return;
@@ -90,7 +91,7 @@ export function startGlow(): void {
   let was = studio.get().section;
   studio.subscribe(() => {
     const now = studio.get().section;
-    if (now !== was && (was = now) === "roles") push();
+    if (now !== was && (was = now) === "agents") push();
   });
   push();
 }

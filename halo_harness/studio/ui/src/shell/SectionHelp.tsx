@@ -46,7 +46,7 @@ export function SectionHelp() {
   const help = useStore(studio, (s) => s.help);
   if (!help) return null;
   const def = sectionDef(help.section);
-  const copy = SECTION_HELP[def.id] ?? packHelp(def); // 3.2.0.0 R3: a pack's section
+  const copy = SECTION_HELP[help.section] ?? SECTION_HELP[def.id] ?? packHelp(def); // 3.2.0.0 R3: a pack's section; 3.3.16.0 R1: Agents' own copy over its part's
   const panels = def.panels.filter((p) => p.about);
   const own: [string, string][] = def.kbd ? [[def.kbd, def.title], ...copy.keys] : copy.keys; // 3.1.6.0 R6: the section's own key from the registry
   const keys: [string, string][] = [...own, focusKey(copy.keys)];

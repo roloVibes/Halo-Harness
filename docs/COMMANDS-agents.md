@@ -19,7 +19,7 @@ halo roles template load <name>
 halo roles template edit <name>
 ```
 
-GUI: `halo studio --mode roles` shows the same roles as a graph in the browser (in the TUI, `/roles`).
+GUI: `halo studio --mode agents` shows the same roles as a graph in the browser, on Agents' Cast (in the TUI, `/roles`).
 
 Halo 2.0.5 round 2b: `on`/`off` is the ONE switch for `roles.enabled`,
 from the CLI (`/roles on|off` in the TUI/print mode, and a "Roles: on /
@@ -124,7 +124,7 @@ halo agents schedule resume <name>
 halo agents schedule rm <name>
 ```
 
-GUI: `halo studio --mode roles` edits bios and lineups as a graph in the browser (in the TUI, `/roles`).
+GUI: `halo studio --mode agents` edits bios and lineups as a graph in the browser, on Agents' Cast (in the TUI, `/roles`).
 
 **Halo 3.1.1.0: Studio is the editor.** `halo agents edit <name>` opens
 Studio's bio form on the bio (Roles -> Bios), the same as `halo studio --edit
@@ -187,7 +187,7 @@ halo teams export <name> [file]
 halo teams import <file>
 ```
 
-GUI: `halo studio --mode roles` edits lineups as a graph in the browser (in the TUI, `/roles`).
+GUI: `halo studio --mode agents` edits lineups as a graph in the browser, on Agents' Cast (in the TUI, `/roles`).
 
 **Halo 3.1.1.0: Studio is the editor.** `halo teams edit <name>` opens the
 lineup in Studio's Roles section with the Inspector on its Lineup tab (every

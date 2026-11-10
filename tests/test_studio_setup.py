@@ -52,7 +52,7 @@ from tests.helpers.driver_got import got as driver_got  # noqa: E402
 test, TESTS = new_registry()
 REPO = Path(__file__).resolve().parent.parent
 _RUN: dict = {}
-CORE = ["Session", "Team", "Roles", "Fleet", "Orchestra", "Packs", "Setup", "Settings", "Local"]  # 3.3.5.0 R1: + Local; 3.3.13.0 R2: - Design
+CORE = ["Session", "Agents", "Fleet", "Packs", "Setup", "Settings", "Local"]  # 3.3.16.0 R1: Agents took in Team, Roles, Orchestra  # 3.3.5.0 R1: + Local; 3.3.13.0 R2: - Design
 
 
 def _got(ctx: Ctx) -> dict:
@@ -65,10 +65,10 @@ def _got(ctx: Ctx) -> dict:
 def test_setup_opens_by_mode_and_by_alt_8(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"?mode=setup opens it, got {got.get('mode_section')!r}", str(got.get("mode_section")).startswith("Setup"))
-    ctx.check(f"the nine tabs, Setup then Settings last, got {got.get('tabs')}", got.get("tabs") == CORE)
-    ctx.check(f"Alt+1..9 (3.3.13.0 R2: Setup on Alt+7, Settings on Alt+8, Local on Alt+9), got {got.get('kbds')}",
-              got.get("kbds") == [f"Alt+{n}" for n in range(1, 10)])
-    ctx.check(f"Alt+7 from Roles opens it, got {got.get('alt7')!r}", str(got.get("alt7")).startswith("Setup"))
+    ctx.check(f"the seven tabs, Setup then Settings then Local, got {got.get('tabs')}", got.get("tabs") == CORE)
+    ctx.check(f"Alt+1..7 (3.3.16.0 R1: Setup on Alt+5, Settings on Alt+6, Local on Alt+7), got {got.get('kbds')}",
+              got.get("kbds") == [f"Alt+{n}" for n in range(1, 8)])
+    ctx.check(f"Alt+5 from Agents opens it, got {got.get('alt7')!r}", str(got.get("alt7")).startswith("Setup"))
     ctx.check(f"3.3.1.0 R1: no panels on Setup, got {got.get('panels')}", got.get("panels") == [])
     steps = [s for s in got.get("steps") or [] if s != "linux"]  # Linux fixes: a step only on a box that needs them
     ctx.check(f"the rail lists the steps in the wizard's order, got {got.get('steps')}",

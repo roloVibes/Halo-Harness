@@ -96,7 +96,8 @@ def test_rows_merge_into_the_attention_queue(ctx: Ctx):
 def test_open_target_points_at_the_run(ctx: Ctx):
     from halo_harness.fleet.supervise_attention import open_target
     t = open_target({"kind": "goal_gate", "target": {"run_dir": "/x/.halo/orchestra/run-9", "goal": "g-3"}})
-    ctx.check(f"open points at the Orchestra run, got {t}", t["section"] == "orchestra" and t["run"] == "run-9" and t["goal"] == "g-3")
+    ctx.check(f"open points at the Orchestra run (3.3.16.0 R1: Agents -> Runs), got {t}", t["section"] == "agents" and t["view"] == "runs"
+              and t["run"] == "run-9" and t["goal"] == "g-3")
 
 
 @test
@@ -139,7 +140,7 @@ def test_end_to_end_a_parked_plan_answered_from_attention(ctx: Ctx):
         rid = plan[0]["id"]
         # Open answers with where to open it, sends nothing
         s_open, b_open = rig.api("POST", "fleet/attention/answer", {"id": rid, "key": "o"})
-        ctx.check(f"Open points at the run, got {b_open}", s_open == 200 and (b_open.get("open") or {}).get("section") == "orchestra")
+        ctx.check(f"Open points at the run, got {b_open}", s_open == 200 and (b_open.get("open") or {}).get("section") == "agents" and (b_open.get("open") or {}).get("view") == "runs")
         ctx.check("Open did not answer the decision", not decisions.read(rig.state, row["id"]).get("answer"))
         # Approve writes the owner's answer into the decision file
         s_ans, b_ans = rig.api("POST", "fleet/attention/answer", {"id": rid, "key": "a"})

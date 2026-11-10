@@ -69,7 +69,7 @@ def run_start(c, url: str, frames: list, shot: str = "") -> dict:
     out["frame_session"] = sorted({str(f.get("session_id"))[:6] for f in frames})
     c.go("about:blank")
     c.go(url)
-    c.wait(f"{Q}('[data-testid=\"section-tab\"]').length === 9", 30)  # 3.2.0.0 R6: + Packs; 3.3.0.0 R1: + Setup; 3.3.3.0 R2: + Settings; 3.3.5.0 R1: + Local
+    c.wait(f"{Q}('[data-testid=\"section-tab\"]').length === 7", 30)  # 3.2.0.0 R6: + Packs; 3.3.0.0 R1: + Setup; 3.3.3.0 R2: + Settings; 3.3.5.0 R1: + Local
     import time
     time.sleep(2.5)  # GET /api/start has answered by now: a home with a lineup of its own and a start is not fresh
     out["roles_start_after"] = c.js(f"{Q}('[data-testid=\"roles-start\"]').length")
@@ -108,7 +108,7 @@ def glossary(c, url: str) -> dict:
     c.click_on("document.querySelector('[data-testid=\"start-next-go\"]')")
     sel = "document.querySelector('[data-testid=\"section-tab\"][aria-selected=\"true\"]')?.textContent || ''"
     try:
-        c.wait(f"({sel}).startsWith('Orchestra')", 10)
+        c.wait(f"({sel}).startsWith('Agents') && document.querySelector('[data-testid=agents]')?.dataset.view === 'runs'", 10)
     except TimeoutError:
         pass
     out["went_to"] = c.js(sel)

@@ -3,12 +3,12 @@
 the driver base (tests/helpers/chrome_driver.Driver). tests/test_studio_edit_route.py
 runs it as a subprocess with a scrubbed environment:
 
-    python -m tests.helpers.studio_edit bio     `?edit=bio:coder` opens Roles on coder's bio form: the fields the
+    python -m tests.helpers.studio_edit bio     `?edit=bio:coder` opens Agents (Cast) on coder's bio form: the fields the
                                                 terminal view shows, field_help.py's lines, the YAML toggle; typed
                                                 edits saved through the form land in ~/.halo/agents/coder.yaml
     python -m tests.helpers.studio_edit focus   a page is open; `open_edit` (what `halo studio --edit` runs) on the
                                                 running Studio focuses it: lineup:halo-dev-cycle opens its inspector's
-                                                Lineup tab (a section edited and saved through it), team the Team
+                                                Lineup tab (a section edited and saved through it), team Agents on Runs
                                                 section, bio:reviewer the bio form; no browser tab is opened
 
 The last stdout line is a JSON object of what it saw (exit 2: no Chrome).
@@ -114,7 +114,7 @@ def focus(c, url: str, state: Path, srv) -> dict:
     opened: list = []
     launch._open = lambda u: opened.append(u) or True  # a focused page needs no new tab; record any
     c.go(url)
-    c.wait(f"document.querySelectorAll('[data-testid=\"section-tab\"]').length === 9", 30)  # 3.2.0.0 R6: + Packs; 3.3.0.0 R1: + Setup; 3.3.3.0 R2: + Settings; 3.3.5.0 R1: + Local
+    c.wait(f"document.querySelectorAll('[data-testid=\"section-tab\"]').length === 7", 30)  # 3.2.0.0 R6: + Packs; 3.3.0.0 R1: + Setup; 3.3.3.0 R2: + Settings; 3.3.5.0 R1: + Local
     end = time.time() + 15
     while time.time() < end and bridge_for(srv).listeners() < 1:
         time.sleep(0.1)
@@ -140,9 +140,10 @@ def focus(c, url: str, state: Path, srv) -> dict:
     r = open_edit(parse("team")[0], cwd=cwd, state_dir=state)
     out["team_how"] = r["how"]
     end = time.time() + 10
-    while time.time() < end and not section_tab(c).startswith("Team"):
+    view = "document.querySelector('[data-testid=agents]')?.dataset.view || ''"  # 3.3.16.0 R1: team is Agents -> Runs
+    while time.time() < end and not (section_tab(c).startswith("Agents") and c.js(view) == "runs"):
         time.sleep(0.1)
-    out["team_section"] = section_tab(c)
+    out["team_section"] = section_tab(c) + ":" + str(c.js(view))
     r = open_edit(parse("bio:reviewer")[0], cwd=cwd, state_dir=state)
     out["bio_how"] = r["how"]
     out["bio_form"] = c.wait(f"{FORM}?.dataset.bio === 'reviewer' && {FORM}.dataset.bio", 20)

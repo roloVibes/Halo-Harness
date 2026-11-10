@@ -1,5 +1,5 @@
 // 3.3.2.0 R1 "the icon rail": the sections as the rail's first block, one
-// button per section (the ten core ones, then the packs' own under a thin
+// button per section (the seven core ones, then the packs' own under a thin
 // divider with the diamond), an icon each and the title as its tooltip and
 // accessible name; the label shows only while the rail is expanded. The
 // current one is lit; Session carries a dot while a session is live here,
@@ -24,16 +24,15 @@ import { startDigest, useAway } from "../routes/fleet/Digest";
 import { openTree } from "../routes/fleet/FleetTree";
 
 const ICONS: Record<string, string> = {
-  session: "session", team: "team", roles: "roles", fleet: "fleet", orchestra: "orchestra", packs: "packs", setup: "setup", settings: "settings", local: "local",
+  session: "session", agents: "team", fleet: "fleet", packs: "packs", setup: "setup", settings: "settings", local: "local", // 3.3.16.0 R1: Agents, the people icon
 };
 
 /** The sections that ran something in the last few seconds (the old tab strip's "working" breath). */
 function useBusy(): Partial<Record<SectionId, boolean>> {
   const activity = useStore(studio, (s) => s.activity);
-  const orchestra = useRecent(activity.orchestra, 3000);
+  const runs = useRecent(activity.orchestra, 3000); // 3.3.16.0 R1: a run's frames breathe on Agents
   const fleet = useRecent(activity.fleet, 3000);
-  const team = useRecent(activity.team, 3000);
-  return { orchestra, fleet, team, session: fleet };
+  return { agents: runs, fleet, session: fleet };
 }
 
 function Item({ s, on, busy, pack }: { s: SectionDef; on: boolean; busy: boolean; pack: boolean }) {

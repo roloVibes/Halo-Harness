@@ -19,6 +19,7 @@
 // hears the pack's `pack_live` frames (its routes' ctx.publish) as well as its `pack_event` ones.
 import { api as http, ApiError } from "../../lib/api";
 import { onEvent, type FeedFrame } from "../../lib/events";
+import { AGENTS_DOORS } from "../../lib/agentsDoor";
 import { SECTION_IDS, type CoreSectionId } from "../../lib/store";
 import { libFor, type StudioLib } from "../../packlib";
 import { packKey } from "./importPack";
@@ -62,7 +63,7 @@ const own = (pack: string, id: string) => (id.includes(sep) ? id : `${pack}${sep
 /** Where route(section, panel) goes: a core section as it is, a pack section only when it is this pack's own. */
 export function routeOf(pack: string, section: string, panel?: string): { section: string; panel?: string } | null {
   if (typeof section !== "string" || !section) return null;
-  if ((SECTION_IDS as string[]).includes(section)) return { section: section as CoreSectionId, ...(panel ? { panel } : {}) };
+  if ((SECTION_IDS as string[]).includes(section) || AGENTS_DOORS[section]) return { section: section as CoreSectionId, ...(panel ? { panel } : {}) }; // 3.3.16.0 R1: roles, orchestra, team land on Agents
   const sec = own(pack, section);
   if (!sec.startsWith(pack + sep) || !packSectionIds().includes(sec)) return null;
   return { section: sec, ...(panel ? { panel: own(pack, panel) } : {}) };

@@ -30,7 +30,6 @@ from tests.helpers.studio_ui_mission import register as register_mission
 from tests.helpers.studio_ui_order import register as register_order
 from tests.helpers.studio_ui_plan import register as register_plan
 from tests.helpers.studio_ui_roles import register as register_roles
-from tests.helpers.studio_ui_team import register as register_team
 
 test, TESTS = new_registry()
 REPO = Path(__file__).resolve().parent.parent
@@ -92,9 +91,9 @@ def test_shell_boots_with_its_sections_in_headless_chrome(ctx: Ctx):
         info = {}
     orch, roles = info.get("orchestra", {}), info.get("roles", {})
     # R6b: a folder with no Orchestra run opens on the Start view, not on empty panels
-    ctx.check(f"Orchestra: nine section tabs and the Start view, got {orch}", orch.get("section-tab") == 9 and orch.get("start-view") == 1 and orch.get("orchestra-root") == 0)
-    ctx.check(f"Roles: seven section tabs and its canvas, no frame, got {roles}",
-              roles == {"section-tab": 9, "orchestra-root": 0, "start-view": 0, "roles-canvas": 1, "roles-start": 0, "legacy-frame": 0})
+    ctx.check(f"Orchestra (Agents -> Runs): seven section tabs and the Start view, got {orch}", orch.get("section-tab") == 7 and orch.get("start-view") == 1 and orch.get("orchestra-root") == 0)
+    ctx.check(f"Roles (Agents -> Cast): seven section tabs and its canvas, no frame, got {roles}",
+              roles == {"section-tab": 7, "orchestra-root": 0, "start-view": 0, "roles-canvas": 1, "roles-start": 0, "legacy-frame": 0})
     ctx.check("the title names the section", "Halo Studio" in info.get("title", ""))
 
 
@@ -113,7 +112,7 @@ def test_orchestra_run_console_draws_a_finished_run_in_headless_chrome(ctx: Ctx)
     ctx.check(f"a band per claimed unit, got {info}", info.get("claim-region", 0) >= 5)
     ctx.check(f"every report check, got {info}", info.get("report-check") == 8)
     ctx.check(f"3.0.9.0: lane 2's hand-off edge and every lane's base, got {info}", info.get("lane-edge") == 1 and info.get("lane-base") == 5)
-    ctx.check(f"the shell around it, got {info}", info.get("section-tab") == 9 and info.get("orchestra-root") == 1)
+    ctx.check(f"the shell around it, got {info}", info.get("section-tab") == 7 and info.get("orchestra-root") == 1)
 
 
 @test
@@ -165,8 +164,8 @@ def test_panel_focus_on_click_and_help(ctx: Ctx):
     ctx.check("the Compact toggle", got.get("compact") == "glance")
     ctx.check(f"the ? beside the tabs is a menu: How this works and the Glossary (3.1.1.0 R1), got {got.get('help_menu')}",
               got.get("help_menu") == ["section-help-item", "glossary-item"])
-    ctx.check(f"How Orchestra works: steps and every panel, got {got}",
-              got.get("section_title") == "How Orchestra works" and got.get("section_steps") == 8 and got.get("section_panels") == 8)  # 3.0.9.0 R3: + Coach
+    ctx.check(f"How Agents works (on Runs: Orchestra's eight panels; 3.3.16.0 R1), got {got}",
+              got.get("section_title") == "How Agents works" and got.get("section_steps") == 6 and got.get("section_panels") == 8)
     ctx.check("closed; nothing remembered as seen (3.3.2.0 R1: no welcome to hold back)", got.get("section_closed") is True and got.get("seen") == 0)
     ctx.check(f"the run and New run in Orchestra's + menu (3.3.2.0 R2), got {got.get('rail_run')} {got.get('menu_new_run')}", got.get("rail_run") == 1 and got.get("menu_new_run") is True)
 
@@ -180,7 +179,7 @@ def test_roles_header_is_not_nested(ctx: Ctx):
     r, dom = _json_of(str(REPO / "tools" / "capture_studio.py"), "--mode", "orchestra", "--dom")
     roles = dom.get("roles", {})
     ctx.check(f"the Roles section: its canvas and cards, no frame, got {roles}",
-              roles.get("roles-canvas") == 1 and (roles.get("roles-card") or 0) >= 7 and roles.get("legacy-frame") == 0 and roles.get("section-tab") == 9)
+              roles.get("roles-canvas") == 1 and (roles.get("roles-card") or 0) >= 7 and roles.get("legacy-frame") == 0 and roles.get("section-tab") == 7)
 
 
 @test
@@ -201,7 +200,7 @@ register_fleet(test, _json_of, _chrome)  # the Fleet checks (R3 and R4): tests/h
 register_fleet_layout(test, _json_of, _chrome)  # 3.1.4.0 R1: the default layout, the log line, the folds: tests/helpers/studio_ui_fleet_layout.py
 register_mission(test, _json_of, _chrome)  # 3.0.6.0 R8: the Mission panel, tests/helpers/studio_ui_mission.py
 register_roles(test, _json_of, _chrome)  # 3.0.7.0 R2: Roles in React, tests/helpers/studio_ui_roles.py
-register_team(test, _json_of, _chrome)  # 3.0.8.0 R2: the Team tab, tests/helpers/studio_ui_team.py
+# 3.3.16.0 R1: the Team tab's checks (tests/helpers/studio_ui_team.py) went with its board
 register_plan(test, _json_of, _chrome)  # 3.0.9.0 R2: the plan canvas, tests/helpers/studio_ui_plan.py
 register_coach(test, _json_of, _chrome)  # 3.0.9.0 R3: the post-run coach, tests/helpers/studio_ui_coach.py
 register_order(test, _json_of, _chrome)  # 3.1.6.0 R6: the tab order and the keys, tests/helpers/studio_ui_order.py

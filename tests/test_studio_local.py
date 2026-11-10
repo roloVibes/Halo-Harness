@@ -42,7 +42,7 @@ def _got(ctx: Ctx) -> dict:
 @test
 def test_alt9_and_the_seven_pages(ctx: Ctx):
     got = _got(ctx)
-    ctx.check(f"Alt+9 opens Local with nothing over it, on Resources, got {got.get('alt9')} {got.get('alt9_open')} {got.get('alt9_page')}",
+    ctx.check(f"Alt+7 (3.3.16.0 R1) opens Local with nothing over it, on Resources, got {got.get('alt9')} {got.get('alt9_open')} {got.get('alt9_page')}",
               got.get("alt9") == "Local" and got.get("alt9_open") == [0, 0] and got.get("alt9_page") == "resources")
     ctx.check(f"the rail's ten pages in order, got {got.get('rail')}", got.get("rail") == PAGES)
     titles = got.get("titles") or {}

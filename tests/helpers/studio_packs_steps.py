@@ -70,7 +70,7 @@ def publish(ctx, kind: str, data) -> None:
 
 def events(c, url, ctx) -> dict:
     out: dict = {}
-    alt(c, 4)
+    alt(c, 3)  # 3.3.16.0 R1: Fleet is Alt+3
     c.wait(f"{CUR}.startsWith('Fleet') && !!{q('[data-testid=fleet-log]')}", 20)
     log = qa("[data-testid=fleet-log-line][data-kind=pack]")
     seen = c.js(f"{log}.length")  # 3.3.10.0 R3: the bundle step's own hello.said line came first
@@ -138,7 +138,7 @@ def _row(ctx, rid: str) -> Path:
 def attention(c, url, ctx) -> dict:
     out: dict = {}
     first = _row(ctx, "readme")
-    alt(c, 4)
+    alt(c, 3)  # 3.3.16.0 R1: Fleet
     row = q('[data-panel="fleet-attention"] [data-testid=fleet-attn-row][data-kind="pack:doc-review:review.ask"]')
     c.wait(f"!!{row}", 25)
     out["attn_chip"] = c.js(f"{row}.querySelector('.fat-kind').textContent")

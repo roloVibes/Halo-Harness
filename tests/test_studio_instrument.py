@@ -141,8 +141,8 @@ def test_a_surface_carries_its_corner_ticks(ctx: Ctx):
 def test_nothing_animates_on_a_section_load(ctx: Ctx):
     got = _got(ctx, "fresh")
     loads, keys = got.get("load_anims") or {}, got.get("key_anims") or {}
-    ctx.check(f"each core section loaded: no animation started, got {loads}", len(loads) == 9 and all(v == [] for v in loads.values()))
-    ctx.check(f"each reached by Alt+1..9: none either, got {keys}", len(keys) == 9 and all(v == [] for v in keys.values()))
+    ctx.check(f"each core section loaded: no animation started, got {loads}", len(loads) == 7 and all(v == [] for v in loads.values()))
+    ctx.check(f"each reached by Alt+1..7: none either, got {keys}", len(keys) == 7 and all(v == [] for v in keys.values()))
     ctx.check(f"the listener sees one that does start, got {got.get('listener_control')}", got.get("listener_control") == ["m-blink"])
 
 

@@ -8,10 +8,7 @@ studio_model_select.py, two runs one after the other; skipped without one):
 2. Design's Projects panel shows the open project's model (first option "the
    default (<model>)"); a pick saves the project (`GET design/projects`); New
    project's dialog creates the project on the picked model;
-3. Team: a stage has no model field of its own (team/spec.py), so the `draft`
-   stage says what it runs on -- its lead member's card in the `standard`
-   lineup, the model `GET models/resolve` names -- and its link opens that
-   card in Roles with the MODEL strip's select focused.
+(3.3.16.0 R1: Team's stage face went with its board; a run's plan in Agents -> Runs shows each lane's model.)
 Run: python -m tests.test_studio_model_select
 """
 from __future__ import annotations
@@ -55,16 +52,6 @@ def test_design_projects_and_new_project_use_the_select(ctx: Ctx):
     ctx.check(f"a pick saves the project, got {got.get('design_saved')!r}", got.get("design_saved") == "or:fakeco/beta-2")
     ctx.check(f"New project makes it on the picked model, got {got.get('new_first')!r} {got.get('new_saved')!r}",
               got.get("new_first") == "the default (fakeco/alpha-1)" and got.get("new_saved") == "or:fakeco/alpha-1")
-
-
-@test
-def test_team_stage_says_what_it_runs_on_and_links_to_the_card(ctx: Ctx):
-    got = _got(ctx, "team")
-    want = got.get("want") or {}
-    ctx.check(f"runs on its lead's lineup card, got {got.get('source')!r} {got.get('ref')!r} want {want}",
-              got.get("source") == "lineup" and got.get("ref") == want.get("ref") and "writer's card (main) in standard" in str(got.get("text")))
-    ctx.check(f"the link opens that card in Roles, its select focused, got {got.get('roles_card')!r} {got.get('roles_lineup')!r}",
-              got.get("roles_card") == want.get("card") and got.get("roles_lineup") == "standard")
 
 
 if __name__ == "__main__":

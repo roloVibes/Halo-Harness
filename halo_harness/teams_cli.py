@@ -351,7 +351,7 @@ def cmd_teams(argv: list) -> int:
               "       halo teams new <name> [--from TEMPLATE] [--project] [--studio]\n"
               "       halo teams edit <name> [--no-open] [--yaml]\n"
               "       halo teams export <name> [file]|import <file>\n"
-              "GUI:   halo studio --mode roles                    lineups and bios as an editable graph (Halo Studio; /roles in the TUI)",
+              "GUI:   halo studio --mode agents                   lineups and bios as an editable graph (Halo Studio's Agents, Cast; /roles in the TUI)",
               file=sys.stderr)
         return 0
     sub, rest = argv[0], argv[1:]

@@ -6,7 +6,7 @@ Part of [Halo Studio](STUDIO.md), which lists every part.
 
 ## Fleet: every harness, every agent
 
-`Alt+4` (or `?mode=fleet`, `halo studio --mode fleet`, `/studio fleet`) is
+`Alt+3` (or `?mode=fleet`, `halo studio --mode fleet`, `/studio fleet`) is
 every Halo harness you run or joined, live: this machine's sessions (each
 opens its control socket by default, [FLEET.md](FLEET.md)) and every harness
 joined to this machine's hub, each session with its agents at every depth.
@@ -271,8 +271,8 @@ shows it on demand.
 | Key | Where | What |
 |---|---|---|
 | `Alt+1` | everywhere | Session: this session, live (3.1.4.0; the first tab since 3.1.6.0) |
-| `Alt+2` | everywhere | Team (3.0.8.0) |
-| `Alt+4` | everywhere | Fleet |
+| `Alt+2` | everywhere | Agents (3.3.16.0: Team, Roles and Orchestra in one) |
+| `Alt+3` | everywhere | Fleet |
 | `J` / `K` | Fleet map, the Session map, the Roles canvas, Orchestra lanes | the next / previous live agent (Session: of this harness; Orchestra: the next lane at work) |
 | `F` | Fleet; Roles with the Live tab open; Orchestra | follow: the stream scrolls with the agent (Orchestra: the Log follows) |
 | `Space` | Fleet; Roles with a card's agent watched | pin the stream: a **mini stream** floats over whatever you look at, in every section |

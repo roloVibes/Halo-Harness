@@ -240,7 +240,7 @@ Each halo process with sessions runs one relay thread per joined hub.
 
 ## In Studio
 
-`halo studio --mode fleet` (or `Alt+4`, `/studio fleet`) opens the **Fleet**
+`halo studio --mode fleet` (or `Alt+3`, `/studio fleet`) opens the **Fleet**
 section; the full guide is [STUDIO-fleet.md](STUDIO-fleet.md#fleet-every-harness-every-agent).
 
 - **The map.** One box per harness (this one first), a card per session, its

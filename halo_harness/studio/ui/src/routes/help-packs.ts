@@ -30,7 +30,7 @@ export const PACKS_HELP: Record<string, Help> = {
       "The extension API and Halo ranges beside this Halo's, each pack it requires and whether that is met.",
       "What keeps it from running here is the doctor's words: an API range, a missing dependency, a fleet capability not available.",
       "Each permission it requests has a Grant toggle: on an enabled pack it grants (or takes back) at once; on a disabled one it is picked for Enable.",
-      "What it contributes is the block halo pack inspect prints; the links open its section, its lineup in Roles and each workflow's Run.",
+      "What it contributes is the block halo pack inspect prints; the links open its section, its lineup in Agents (Cast) and each workflow's Run.",
     ),
   },
   "pm-settings": {
@@ -43,7 +43,7 @@ export const PACKS_HELP: Record<string, Help> = {
   "pm-templates": {
     about: "The selected pack's lineups, bios and workflows, each with what you can do with it.",
     help: lines(
-      "Preview opens a lineup or a bio in Roles, read-only; Clone copies it into your files; Customize clones it and opens your copy.",
+      "Preview opens a lineup or a bio in Agents (Cast), read-only; Clone copies it into your files; Customize clones it and opens your copy.",
       "Apply makes a lineup the one new sessions use (it asks first and names the pack).",
       "Run <workflow> opens Orchestra's new-run form with the workflow and its inputs filled in.",
       "A pack's templates are read in place while it runs, so enable it first.",

@@ -34,11 +34,11 @@ PLAN_EXPLAIN = (
     "A hand-off (`needs`) passes what an earlier lane left, its summary, its units or a file, to the lane that takes it.",
 )
 
-COACH_APPLY = "Apply opens the bio in Studio: halo studio --mode orchestra, the report's Coach tab."
+COACH_APPLY = "Apply opens the bio in Studio: halo studio --mode agents, Runs, the report's Coach tab."
 
 NEXT = (
-    ("Roles", "edit your lineup's cards, their models and tiers", "halo studio --mode roles"),
-    ("Team", "put a team file in your own repo: members, blocks and stages", "halo team init"),
+    ("Agents: Cast", "edit your lineup's cards, their models and tiers", "halo studio --mode agents"),
+    ("Agents: Runs", "give your lineup a goal in your own repo: its plan, its lanes, the report", "halo orchestra new"),
     ("Fleet", "join another machine and give the fleet one goal", "halo fleet pair"),
 )
 

@@ -4,7 +4,7 @@
 the doc-review reference pack and studio-bundle enabled:
 
 1. the pack's section comes after Packs behind a "packs" divider and
-   opens by its rail row and by Alt+0 (3.3.13.0 R2: the first pack section's key): its markdown, table, links and Settings form render,
+   opens by its rail row and by Alt+8 (3.3.16.0 R1: the first pack section's key): its markdown, table, links and Settings form render,
    each panel names its pack and has its help; the rail lists it;
 2. Session holds the pack's Reviews panel, collapsed;
 3. the palette's pack action runs (the checks panel, focused);
@@ -38,7 +38,7 @@ from tests.helpers.driver_got import got as driver_got  # noqa: E402
 test, TESTS = new_registry()
 REPO = Path(__file__).resolve().parent.parent
 _RUN: dict = {}
-CORE = ["Session", "Team", "Roles", "Fleet", "Orchestra", "Packs", "Setup", "Settings", "Local"]  # Local: 3.3.5.0 R1; 3.3.13.0 R2: Design is a pack's
+CORE = ["Session", "Agents", "Fleet", "Packs", "Setup", "Settings", "Local"]  # 3.3.16.0 R1: Agents took in Team, Roles, Orchestra  # Local: 3.3.5.0 R1; 3.3.13.0 R2: Design is a pack's
 
 
 def _got(ctx: Ctx) -> dict:
@@ -51,12 +51,12 @@ def _got(ctx: Ctx) -> dict:
 def test_the_packs_section_after_orchestra_with_its_panels(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"the nine, then the packs' sections, got {got.get('tabs')}", got.get("tabs") == CORE + ["Docs review", "Hello"])
-    ctx.check(f"Alt+1..9 the core's, Alt+0 the first pack section's, the next none (3.3.13.0 R2), got {got.get('kbds')}",
-              got.get("kbds") == [f"Alt+{n}" for n in range(1, 10)] + ["Alt+0", ""])
+    ctx.check(f"Alt+1..7 the core's, Alt+8 and Alt+9 the pack sections' (3.3.16.0 R1), got {got.get('kbds')}",
+              got.get("kbds") == [f"Alt+{n}" for n in range(1, 8)] + ["Alt+8", "Alt+9"])
     ctx.check(f"3.3.2.0 R1: no row prints its key, got {got.get('printed')}", got.get("printed") == 0)
     ctx.check(f"a thin packs divider before the first, got {got.get('divider')}", got.get("divider") == ["packs", "Docs review"])
-    ctx.check(f"Alt+8 opens Settings, got {got.get('alt8')!r}", str(got.get("alt8")).startswith("Settings"))
-    ctx.check(f"Alt+0 opens the first pack section, got {got.get('alt0')!r}", str(got.get("alt0")).startswith("Docs review"))
+    ctx.check(f"Alt+6 opens Settings, got {got.get('alt8')!r}", str(got.get("alt8")).startswith("Settings"))
+    ctx.check(f"Alt+8 opens the first pack section (3.3.16.0 R1), got {got.get('alt0')!r}", str(got.get("alt0")).startswith("Docs review"))
     ctx.check("its rail row opens it", str(got.get("row")).startswith("Docs review"))
     ctx.check(f"the markdown panel, got {got.get('markdown')!r}", str(got.get("markdown")).startswith("Review notes"))
     ctx.check(f"the table: its columns and three rows, got {got.get('table_head')} {got.get('table_rows')}",
@@ -65,8 +65,8 @@ def test_the_packs_section_after_orchestra_with_its_panels(ctx: Ctx):
     ctx.check(f"the Settings form's fields, got {got.get('form_fields')}", got.get("form_fields") == ["style", "max_findings"])
     ctx.check(f"each panel names its pack, got {got.get('about')!r}", got.get("about") == "from pack doc-review")
     ctx.check(f"its help is the pack's, got {got.get('help')!r}", "The reviewer's notes for this repo" in str(got.get("help")))
-    ctx.check(f"the rail's pack rows, the diamond each, Alt+0 on the first (3.3.13.0 R2), got {got.get('rail')}",
-              got.get("rail") == ["Docs review|Alt+0|true", "Hello||true"])  # 3.3.2.0 R1: the icon rail
+    ctx.check(f"the rail's pack rows, the diamond each, Alt+8 and Alt+9 (3.3.16.0 R1), got {got.get('rail')}",
+              got.get("rail") == ["Docs review|Alt+8|true", "Hello|Alt+9|true"])  # 3.3.2.0 R1: the icon rail
 
 
 @test

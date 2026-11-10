@@ -68,7 +68,7 @@ export function App() {
       <Header />
       <Rail />
       <main className="stage" aria-label="Workspace">
-        {all.filter((s) => visited.includes(s.id)).map((s) => (
+        {all.filter((s) => (visited as string[]).includes(s.id)).map((s) => (
           <div key={s.id} className="section-view" hidden={s.id !== section} data-section={s.id}>
             {s.view ? <s.view section={s.id} specs={s.panels} /> : <Workspace section={s.id} specs={s.panels} />}
           </div>

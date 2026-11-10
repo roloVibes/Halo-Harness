@@ -217,7 +217,7 @@ export function NodeMenu({ at, onClose }: { at: MenuAt; onClose: () => void }) {
   if (at.session) items.push(["shutdown", "Shut the session down...", "close", () => askShutdown(h, sid)]);
   if (harnesses.find((x) => x.id === h)?.local && studio.get().section !== "session") // 3.1.4.0 R2
     items.push(["session", "Open in Session", "grid", () => openSession(at.session ? { session: sid } : { key: at.key })]);
-  if (s?.kind === "orchestra-worker") items.push(["orchestra", "Open in Orchestra", "grid", () => goSection("orchestra")]);
+  if (s?.kind === "orchestra-worker") items.push(["orchestra", "Open in Agents: Runs", "grid", () => goSection("agents", "runs")]);
   return createPortal(
     <div ref={box} className="menu glass panel-menu fm-menu" role="menu" style={{ left: Math.min(at.x, window.innerWidth - 240), top: Math.min(at.y + 6, window.innerHeight - 240), width: 228 }} data-testid="fleet-node-menu">
       {items.map(([id, label, icon, run]) => (

@@ -45,15 +45,15 @@ KEYS = {
     "fleet_ask": {"a": "allow", "r": "deny", **OPEN},
     "waiting": {"s": "stop", **OPEN},
     "paused": {"a": "resume", "s": "stop", **OPEN},
-    "orchestra_gate": {"a": "set aside", "o": "open Orchestra"},
+    "orchestra_gate": {"a": "set aside", "o": "open Agents: Runs"},  # 3.3.16.0 R1: Orchestra is Agents -> Runs
     "control_ask": {"a": "set aside", **OPEN},
     "cap": {"a": "lift for today", "o": "open Costs"},
     "conflict": {"a": "set aside", "o": "open the map"},
     "mission_plan": {"a": "approve and run", "r": "edit", "s": "drop", "o": "open the mission"},  # 3.0.6.0 R7
     "mission_claim": {"a": "set aside", "o": "open the mission"},
     "mission_ask": {"a": "allow", "r": "deny", **OPEN},
-    "team_gate": {"a": "accept", "r": "redo", "s": "stop", "o": "open Team"},  # 3.0.8.0 R2
-    "team_budget": {"a": "raise (edit the file)", "r": "skip", "s": "stop", "o": "open Team"},  # 3.1.2.0 R2
+    "team_gate": {"a": "accept", "r": "redo", "s": "stop", "o": "open Agents: Runs"},  # 3.0.8.0 R2; 3.3.16.0 R1
+    "team_budget": {"a": "raise (edit the file)", "r": "skip", "s": "stop", "o": "open Agents: Runs"},  # 3.1.2.0 R2
     # 3.1.8.0 R1 (the supervisor): the keys ride on the row itself (supervise_attention.rows), one per decision kind
     "goal_plan": {"a": "approve", "r": "reject", "o": "open the plan"},
     "goal_gate": {"a": "raise the cap by 1 and resume", "r": "raise the cap by N", "s": "stop", "o": "open the run"},

@@ -101,7 +101,7 @@ def changes(overlay: dict, f: dict) -> "tuple[list, list]":
         elif f.get("lead_bio"):
             bio(f["lead_bio"], "models.preference", lead["model"])
         else:
-            skipped.append("lead.model: the run names no lineup with a lead role: set the lead's model in Studio's Roles")
+            skipped.append("lead.model: the run names no lineup with a lead role: set the lead's model in Studio's Agents (Cast)")
     for k in ("effort", "prompt_notes"):
         if lead.get(k):
             if f.get("lead_bio"):
@@ -125,7 +125,7 @@ def changes(overlay: dict, f: dict) -> "tuple[list, list]":
     if w and not workers:
         if w.get("model") and lineup and _entry(f, role=f["worker_role"]):
             out.append({"target": "lineup", "name": lineup, "field": f"roles.{f['worker_role']}", "value": w["model"]})
-        skipped += [f"workers.{k}: the run's workers ran with no bio: give the worker role one in Studio's Roles"
+        skipped += [f"workers.{k}: the run's workers ran with no bio: give the worker role one in Studio's Agents (Cast)"
                     for k in w if k != "model" or not (lineup and _entry(f, role=f["worker_role"]))]
     for r in (overlay or {}).get("plan") or []:
         out.append({"target": "plan", "name": run_id, "field": f"{r['job']}.after", "value": list(r["after"])})

@@ -101,16 +101,17 @@ Work in the TUI and on the command line, and give agents bios, lineups, roles an
 
 ## I want to use Studio
 
-The browser console: every agent of your session live, your lineups, runs, fleet, team and designs.
+The browser console: every agent of your session live, your lineups and their runs (Agents), the fleet and designs.
 
-- [STUDIO.md](STUDIO.md) (Halo Studio): read this when you use Halo Studio, the browser console where you watch every agent work: the Session dashboard, your lineups in Roles, runs, designs, fleet and team.
-  - [STUDIO-shell.md](STUDIO-shell.md) (Studio: the shell): read this when you find your way around Studio's header, sections, panels and Start views, or open it on a bio, a lineup or the Team.
+- [STUDIO.md](STUDIO.md) (Halo Studio): read this when you use Halo Studio, the browser console where you watch every agent work: the Session dashboard, your lineups and their runs in Agents, designs and the fleet.
+  - [STUDIO-shell.md](STUDIO-shell.md) (Studio: the shell): read this when you find your way around Studio's header, sections, panels and Start views, or open it on a bio, a lineup or the team's door.
   - [STUDIO-session.md](STUDIO-session.md) (Studio: steering and exporting a session): read this when you steer an agent from Session's Live column and want to know which agent and which call it reaches, or save a session as one Markdown trace file, or ask why an answer came out as it did, or type a turn into the session from Studio with the Prompt panel, or run a session from Studio with no terminal at all.
-  - [STUDIO-sections.md](STUDIO-sections.md) (Studio: how each section works): read this when you want the one-screen story of a section (Session, Team, Roles, Fleet, Orchestra, Packs, Setup, Settings, Local).
+  - [STUDIO-sections.md](STUDIO-sections.md) (Studio: how each section works): read this when you want the one-screen story of a section (Session, Agents, Fleet, Packs, Setup, Settings, Local).
+  - [STUDIO-agents.md](STUDIO-agents.md) (Studio: Agents): read this when you work with your agents in Studio's Agents section: the lineup and its bios (Cast), a goal they run (Runs), what runs now (Live), and the doors the old Team, Roles and Orchestra sections left.
   - [STUDIO-feed.md](STUDIO-feed.md) (Studio: the live feed): read this when you want how Studio's pages get their live frames: the Server-Sent Events stream, its kinds and its catch-up.
-  - [STUDIO-orchestra.md](STUDIO-orchestra.md) (Studio: the Orchestra console): read this when you run an Orchestra goal from Studio: the run console, the plan canvas and the coach.
+  - [STUDIO-orchestra.md](STUDIO-orchestra.md) (Studio: Agents -> Runs (the Orchestra console)): read this when you run an Orchestra goal from Studio's Agents -> Runs: the run console, the plan canvas, the owns line and the coach.
   - [STUDIO-fleet.md](STUDIO-fleet.md) (Studio: Fleet): read this when you watch or steer every harness and agent from Studio's Fleet section.
-  - [STUDIO-team-roles.md](STUDIO-team-roles.md) (Studio: Team and Roles): read this when you edit a team board or a lineup on the Roles canvas.
+  - [STUDIO-team-roles.md](STUDIO-team-roles.md) (Studio: Team and Roles): read this when a link sent you to Studio's Team or Roles section: since 3.3.16.0 both are Agents (STUDIO-agents.md).
   - [STUDIO-packs.md](STUDIO-packs.md) (Studio: the Pack Manager): read this when you install, grant, enable, set up, update or remove packs from Studio's Packs section.
   - [STUDIO-local.md](STUDIO-local.md) (Studio: the Local section): read this when you watch the machines that serve your local models and what they serve: the live resources and traffic, every host with its controls, every model with its fit, the library of models you could install, and the Hugging Face models on disk with the local servers Halo starts for them.
   - [STUDIO-local-media.md](STUDIO-local-media.md) (Studio: Local -> the Media panels): read this when you check ComfyUI from Studio: whether it answers, its models and its workflows, in the Media panels Local's "+" menu adds.

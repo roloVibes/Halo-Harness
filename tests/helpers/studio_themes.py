@@ -86,17 +86,17 @@ def _bg_after(c, value: str) -> str:
 def follow_first(c, url, ctx) -> dict:
     """3.3.15.0 R4: a fresh home is instrument on a dark AND a light system; Settings -> Themes marks instrument."""
     scheme(c, "dark")
-    _load(c, ctx, "mode=roles", "Roles")
+    _load(c, ctx, "mode=roles", "Agents")
     out = {"fresh_theme": c.js(THEME), "fresh_bg_dark": c.js(VAR.format("--bg"))}
     out["fresh_bg_light"] = _bg_after(c, "light")
-    _load(c, ctx, "mode=roles", "Roles")  # a page loaded on a light system draws instrument from its first frame too
+    _load(c, ctx, "mode=roles", "Agents")  # a page loaded on a light system draws instrument from its first frame too
     out["fresh_light_load"] = [c.js(THEME), c.js(VAR.format("--bg"))]
     _load(c, ctx, "mode=settings&page=themes", "Settings")
     c.wait(f"{qa('[data-testid=theme-row][data-current]')}.length === 1", 30)
     out["fresh_current"] = c.js(qa("[data-testid=theme-row][data-current]") + ".map((r) => r.dataset.themeId)")
     out["fresh_cli"] = c.js(f"{q('[data-testid=theme-cli]')}?.textContent || ''")
     scheme(c, "dark")
-    _load(c, ctx, "mode=roles", "Roles")
+    _load(c, ctx, "mode=roles", "Agents")
     return out
 
 
@@ -111,7 +111,7 @@ def header_menu(c, url, ctx) -> dict:
     out["pick_theme"] = c.js(THEME)
     out["pick_saved"] = until_saved(ctx, "ember")
     out["pick_bg"] = c.js(VAR.format("--bg"))
-    _load(c, ctx, "mode=roles", "Roles")
+    _load(c, ctx, "mode=roles", "Agents")
     out["reload_theme"] = c.js(THEME)
     return out
 
@@ -160,7 +160,7 @@ def follow(c, url, ctx) -> dict:
     out["follow_bg_dark"] = _bg_after(c, "dark")
     out["follow_bg_light"] = _bg_after(c, "light")
     scheme(c, "dark")
-    _load(c, ctx, "mode=roles", "Roles")
+    _load(c, ctx, "mode=roles", "Agents")
     out["follow_reload"] = c.js(THEME)
     press(c, btn, f"!!{q('[data-testid=theme-menu]')}")
     out["follow_checked"] = c.js(qa("[data-testid=theme-menu] [data-testid=theme-item][aria-checked=true]") + ".map((b) => b.dataset.themeId)")

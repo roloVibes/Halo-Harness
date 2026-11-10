@@ -607,9 +607,9 @@ opens Studio on the one you want to change; it never edits a field itself.
 
 | From | What it opens |
 |---|---|
-| `halo studio --edit bio:<name>` | Roles, the Bios panel on that bio's form |
-| `halo studio --edit lineup:<name>` | Roles, that lineup open, the Inspector on its Lineup tab |
-| `halo studio --edit team` | the Team section |
+| `halo studio --edit bio:<name>` | Agents on Cast, the Bios panel on that bio's form |
+| `halo studio --edit lineup:<name>` | Agents on Cast, that lineup open, the Inspector on its Lineup tab |
+| `halo studio --edit team` | Agents on Runs (3.3.16.0 R1: Team's board went; the page says so once) |
 | `halo agents edit <bio>`, `halo teams edit <lineup>` | the same, for that bio or lineup (a name that does not exist yet gets a starter file first) |
 | `halo agents new <bio> --studio`, `halo teams new <lineup> --studio` | the starter file, then Studio on it |
 | `/edit bio:<name>`, `/edit lineup:<name>`, `/edit team`, `/edit <name>` | the same from the TUI (a bare name: the bio of that name, else the lineup) |
@@ -622,7 +622,7 @@ reused: every Studio page that is open switches to the bio or lineup, and no
 new tab opens. With no page open the browser opens the URL; when no browser
 can be opened, or with `--no-open`, the URL is printed (and over SSH that is
 the way in: forward the port as `halo studio` says). The URL carries the
-target, `http://127.0.0.1:<port>/?mode=roles&edit=bio:coder#t=<token>`; see
+target, `http://127.0.0.1:<port>/?mode=agents&view=cast&edit=bio:coder#t=<token>` (3.3.16.0 R1; `?mode=roles` before, still landed); see
 [STUDIO-shell.md](STUDIO-shell.md#opening-studio-on-a-bio-a-lineup-or-the-team-halo-studio---edit).
 
 On a box with no browser at all, `halo agents edit <bio> --yaml` and

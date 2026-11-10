@@ -6,8 +6,8 @@ Part of [Halo Studio](STUDIO.md), which lists every part.
 
 ## Local: the machines and the models (3.3.5.0)
 
-**Local** is Studio's ninth section, on `Alt+9` (3.3.13.0 R2: the last core section since Design left the core; the
-tenth slot, `Alt+0`, is the first pack section's). It holds everything Halo knows about local models in one tab, paged like Settings: a
+**Local** is Studio's seventh section, on `Alt+7` (3.3.16.0 R1: the last core section since Agents took in Team, Roles
+and Orchestra; the pack's own sections follow on `Alt+8`, `Alt+9` and `Alt+0`). It holds everything Halo knows about local models in one tab, paged like Settings: a
 page rail on the left, one page on the right, a head on each page that says what it holds, which of Local's five ideas
 it carries, and its help behind **How this page works**. Nothing opens on its own; the page last open in this browser
 comes back (`halo.studio.local.page`). The ten pages, in the rail's order (Voice's row is in [STUDIO-local-routes.md](STUDIO-local-routes.md#the-pages-index)):

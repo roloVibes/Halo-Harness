@@ -78,11 +78,12 @@ def test_glossary_word_links_and_the_next_footer(ctx: Ctx):
     from halo_harness.glossary import TERMS
     ctx.check(f"the ? menu's Glossary: {len(TERMS)} words, lineup first, got {got.get('words')} {got.get('first')}",
               got.get("words") == len(TERMS) and got.get("first") == "lineup")
-    ctx.check(f"How Roles works names its words, got {got.get('terms')}", got.get("terms") == ["lineup", "bio", "role", "tier"])
+    ctx.check(f"How Agents works names its words (3.3.16.0 R1), got {got.get('terms')}",
+              got.get("terms") == ["lineup", "bio", "tier", "orchestra run", "lane", "claim", "plan", "gate"])
     ctx.check(f"a word link opens the Glossary on it and closes the help, got {got.get('opened_on')}",
               got.get("opened_on") == "tier" and got.get("help_closed") is True)
-    ctx.check(f"Roles' Next footer goes to Orchestra, got {got.get('next')} {got.get('went_to')}",
-              got.get("next") == "orchestra" and str(got.get("went_to") or "").startswith("Orchestra"))
+    ctx.check(f"Cast's Next footer goes to Runs (3.3.16.0 R1: Agents), got {got.get('next')} {got.get('went_to')}",
+              got.get("next") == "runs" and str(got.get("went_to") or "").startswith("Agents"))
 
 
 if __name__ == "__main__":
