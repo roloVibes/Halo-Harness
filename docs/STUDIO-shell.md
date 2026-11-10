@@ -141,12 +141,15 @@ The classic plain-JS page (`/legacy/`, `halo studio --legacy`) is gone since
   they were. Where a section's own `F` follows an agent or the Log (Session,
   Fleet, Orchestra, the Roles Live tab) or fits the Roles canvas,
   `Shift+F` is Focus. Remembered per browser (`halo.studio.focus`).
-- **Density** (3.3.2.0): the header's rows button beside the theme (or
-  the palette's **Density: compact** / **Density: comfortable**) switches
-  two token sets in `ui/src/styles/tokens.css`: compact has tighter spacing
-  (a 32 px title line, 9 px inside a panel, 2 px between panels, a 42 px
-  header; comfortable since 3.3.15.0: 40 px, 12 px, 12 px, 48 px) and a type scale one step smaller; the colours stay. Remembered
-  per browser (`halo.studio.density`), `data-density` on `<html>`.
+- **Density** (3.3.2.0): the header's rows button (or the palette's **Density: compact** / **comfortable**) switches
+  two token sets in `ui/src/styles/tokens.css`: compact is tighter (a 32 px title line, 9 px inside a panel, 2 px
+  between panels, a 42 px header; comfortable since 3.3.15.0: 40, 12, 12, 48) with a type scale one step smaller;
+  the colours stay. Remembered per browser (`halo.studio.density`), `data-density` on `<html>`. **The rules
+  (comfortable, 3.3.16.0 R1b):** no control bar (a panel's title bar, Tabs, a section's bar, a form's button row)
+  under 36 px (`--ctl-h`), no row that is a target (a strip, a page rail's item, an inspector Edit row) under 40 px
+  (`--row-h`), 12 px inside every panel body and 12 px between panels, one thing open per section on load. The
+  primitives mark themselves (`data-density="bar|row|body"`) and `tests/test_studio_density.py` measures every
+  section against them; a fix changes a token or a primitive, never exempts an element.
 - **The palette** (`Ctrl`/`Cmd`+`K`): a mono prompt with fuzzy matching and
   grouped results (Go to, Help, then the sections in the tab order: Agents -- its views, then the Roles and
   Orchestra lines -- and Fleet; then Media, View, Layout, then each pack's group), keyboard first: arrows,
@@ -308,8 +311,8 @@ http://127.0.0.1:<port>/?mode=agents&view=runs&edit=team#t=<token>
 ```
 
 A page opened on `?edit=` goes straight to it (`shell/edit.ts`): `bio:` opens Agents on Cast with the Bios panel on
-that bio's form, `lineup:` that lineup with the Inspector on its Lineup tab, `team` Agents on Runs (Team's board went;
-the page says so once). Start here stays shut on such a page.
+that bio's form, `lineup:` that lineup with the Inspector on its Lineup tab's summary (`lineup:<name>:<block>`, 3.3.16.0
+R1b: that block's page), `team` Agents on Runs (the page says so once). Start here stays shut on such a page.
 
 `halo studio --edit <target>` (and `halo agents edit`, `halo teams edit`,
 the TUI's `/edit`, `e` in the terminal's bio and lineup views, the wizard's

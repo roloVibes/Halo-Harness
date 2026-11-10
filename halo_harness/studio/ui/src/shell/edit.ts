@@ -1,8 +1,8 @@
 // Open an edit target (3.1.1.0 R3): Studio is the one editor of bios and
 // lineups, and the terminal opens it on the thing to edit. A target is
 // bio:<name> (Agents' Cast, the Bios panel on that bio's form), lineup:<name> (Cast,
-// that lineup open, the Inspector on its Lineup tab) or team (3.3.16.0 R1: Agents' Runs, with Team's one line: the
-// board went). It arrives two ways: `?edit=<target>` in the page URL (`halo
+// that lineup open, the Inspector on its Lineup tab's summary; 3.3.16.0 R1b: lineup:<name>:<block> on that
+// block's page) or team (3.3.16.0 R1: Agents' Runs, with Team's one line: the board went). It arrives two ways: `?edit=<target>` in the page URL (`halo
 // studio --edit`, `halo agents edit`, the TUI's `e` and `/edit`), and a
 // `focus` frame on the live feed when a second `halo studio --edit` finds this
 // Studio running (studio/focus_api.py): every open page opens the target.
@@ -26,20 +26,22 @@ import { applyDoor as applyLocalDoor, doorFromUrl as localDoorFromUrl } from "..
 import { start } from "../lib/start";
 import { focusPanel, layoutStore, patchPanel } from "../lib/workspace/persist";
 import { openBio } from "../routes/roles/bioActions";
+import { lineupBlock } from "../routes/roles/defaults";
 import { roles, setView } from "../routes/roles/store";
 import { openLineup, startRoles } from "../routes/roles/sync";
 
-export type EditTarget = { kind: "bio" | "lineup" | "team"; name: string; text: string };
+export type EditTarget = { kind: "bio" | "lineup" | "team"; name: string; text: string; block?: string };
 
 const NAME = /^[A-Za-z0-9][A-Za-z0-9_.-]*$/;
 
-/** `bio:<name>` | `lineup:<name>` | `team`, as studio/edit_target.py writes them; null for anything else. */
+/** `bio:<name>` | `lineup:<name>[:<block>]` | `team`, as studio/edit_target.py writes them; null for anything else.
+ *  3.3.16.0 R1b: a lineup's `<block>` (description, workers, schedule or a section) opens that block's page. */
 export function parseEdit(text: string | null | undefined): EditTarget | null {
   const t = (text || "").trim();
   if (t === "team") return { kind: "team", name: "", text: t };
-  const m = /^(bio|lineup):(.+)$/.exec(t);
-  if (!m || !NAME.test(m[2])) return null;
-  return { kind: m[1] as "bio" | "lineup", name: m[2], text: t };
+  const m = /^(bio|lineup):([^:]+)(?::([a-z]+))?$/.exec(t);
+  if (!m || !NAME.test(m[2]) || (m[3] && (m[1] !== "lineup" || !lineupBlock(m[3])))) return null;
+  return { kind: m[1] as "bio" | "lineup", name: m[2], text: t, block: m[3] || "" };
 }
 
 /** Run `fn` once the section's panels are laid out (a page that just loaded mounts them a moment later). */
@@ -72,7 +74,7 @@ export async function applyEdit(target: EditTarget): Promise<void> {
       showPanel("roles-bios");
     } else {
       await openLineup(target.name);
-      roles.update(() => ({ tab: "lineup" }));
+      roles.update(() => ({ tab: "lineup", page: target.block || "", pageFor: target.block ? `lineup:${target.name}` : "" })); // R1b: the summary, or one page
       showPanel("roles-inspector");
     }
   } finally {

@@ -779,6 +779,29 @@ Price is not repeated here (that needs a parent model to fall back to,
 which this standalone command has no live session to borrow -- see
 `/roles` above for that).
 
+## A lineup section not set: what Halo does (Halo 3.3.16.0 R1b)
+
+Every top section of a lineup is optional. When one is left out, Halo does what the code that applies it does with
+nothing there; Studio's inspector shows it as "not set = Halo does ..." and the terminal's lineup view prints the same
+words under the section (`halo_harness/field_help.py` `LINEUP_DEFAULTS`, each line naming the function it is read
+from; `GET /api/field-help` serves them as `lineup_defaults`).
+
+| Section | Not set |
+|---|---|
+| `delegation` | the main agent picks who gets each task; up to 4 run at once (`agents.max_concurrent`), only main spawns (`agents.max_depth` 1), and a member's text comes back as it wrote it |
+| `routing` | a task goes to the card whose 'use for' words it names, else to the role the main agent asks for |
+| `budget` | no lineup cap: each member stops at its own bio's limits; an `auto` member's model pick uses band `mid` |
+| `escalation` | nothing happens until you set it: a stuck member stays on its model |
+| `context` | each member starts with its own bio's context only: no shared files, skills or memory |
+| `permissions` | each member runs in its bio's permission mode, else your session's, never looser than yours |
+| `pipeline` | no stages: a member's result comes back with no gate to pass |
+| `acceptance` | nothing happens until you set it: an Orchestra run on it takes the test you give and runs its plan without a pause |
+| `tiers` | one tier holds every card: any member may spawn any other, within delegation's depth |
+| `isolation` | workers run as you on this machine; an Orchestra run gives each lane its own git worktree |
+
+`delegation.mode` (manual, by-skill, round-robin) is checked when the lineup is validated; who gets a task is decided
+by `routing`, the cards' `use_for` words and the main agent, so the "not set" line names those.
+
 ## Tiers (Halo 3.0.7.0)
 
 A lineup can stack its members in tiers: an ordered list under `tiers:`,

@@ -4846,3 +4846,22 @@ release): `Alt+2` opens Agents on Cast with nothing over it; C/R/L move between 
 lands on Runs with the line once; a run's lanes read OWNS <keys> and a click lists the claims; with his lineup active,
 Runs -> Test this lineup shows the card before Run it. Next: R1b (the inspector says one thing at a time + the density
 pass + the remaining rail captures), R2 the Fleet fold, R3 Workflows, the 3.3.16.0 release on green both.**
+
+**3.3.16.0 R1b "The inspector says one thing at a time" + the density pass BUILT and MERGED 2026-11-09 night (one
+Opus round, worktree ~/hh-3316/R1b-inspector, brief and hand-back under ~/hh-3316/briefs/):** Agents -> Cast's
+inspector opens on a summary (`roles-summary`: what the lineup does, the main model with price and band, who is on it,
+where workers run, spend, "9 sections: N set, M at Halo's default") with one Edit row per block whose mono state reads
+the value or "not set = Halo does: ..."; Edit opens that block alone (`roles-page-<block>`, Back/Esc, YAML, `?` scoped,
+`roles-page-default`); `LINEUP_DEFAULTS` in field_help.py (each line's comment names the function that applies it;
+where nothing reads a key at run time the line says so: `delegation.mode` is only validated), served as
+`lineup_defaults`, printed by the TUI lineup view, tabled in docs/ROLES.md; a card opens on its summary with the
+model's takes tags and Slot / Model override pages; `halo studio --edit lineup:<name>:<block>`. A twelfth block,
+"Where workers run" (isolation / secrets / capabilities), because those fields had no block and a page shows one.
+Density: `data-density` marks on the primitives + tests/test_studio_density.py over every core section (bars >= 36,
+rows >= 40, 12 px padding and gaps, one thing open on load); offenders fixed: Settings and Local rail rows (33 px ->
+--row-h 40), the Session Live and Prompt bodies' padding exemptions; 22 captures re-rendered for the seven-icon rail.
+Left as is: the Orchestra captures (R1 rendered them), the TUI's "Open Studio (Roles)" button wording (R2 can take
+it with the Fleet fold's word pass). For rolo (on the next release): Alt+2 + his lineup shows the summary ending
+"9 sections: N set, M at Halo's default"; Edit on Budget is one page with "not set = Halo does: no lineup cap ...";
+Back returns; a card's summary shows the takes tags; no strip or rail row under 40 px in Settings / Local / Session /
+Fleet. Next: R2 the Fleet fold, R3 Workflows, the 3.3.16.0 release on green both.**

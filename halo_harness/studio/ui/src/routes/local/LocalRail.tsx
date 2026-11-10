@@ -31,7 +31,7 @@ export function LocalRail() {
           const on = p.id === page;
           return (
             <li key={p.id}>
-              <button type="button" className={"lc-rail-item" + (on ? " on" : "")} onClick={() => goto(p.id)} data-testid="local-rail-page"
+              <button type="button" className={"lc-rail-item" + (on ? " on" : "")} onClick={() => goto(p.id)} data-testid="local-rail-page" data-density="row"
                       data-page={p.id} data-built={p.built || undefined} aria-current={on ? "page" : undefined}
                       title={p.built ? p.title : `${p.title}: framed here, filled in ${p.round}`}>
                 <span className="lc-rail-title">{p.title}</span>

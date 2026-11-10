@@ -23,6 +23,7 @@ import "./styles/fleet-mission2.css";
 import "./styles/shared.css";
 import "./styles/roles.css";
 import "./styles/roles-panels.css";
+import "./styles/roles-inspector.css"; // 3.3.16.0 R1b: the inspector's summary, Edit rows and one block's page
 import "./styles/disk-note.css";
 import "./styles/coach.css";
 import "./styles/start.css";

@@ -21,9 +21,9 @@ way: 3.3.13.1 (the steward hotfix + the three highs #1 #2 #3 + #15 #16 #18 #19) 
 #35, #36, #39-#43, #45; docs #26 #27 #37; brief ~/hh-review/FIXPASS-3314-R2-brief.md, hand-back
 fixpass-3314-R2-handback.md) are both merged onto master: **3.3.14.0 IS THE RELEASE CANDIDATE** (if you read this after
 the release, the tag v3.3.14.0 exists). The review's open rows after it are the lows that need a design (#28 #30 #31
-#44 #46 #47) and R1's named Pack-trust gaps (a sandboxed frame for bundles). **3.3.15.0 RELEASED 2026-11-09 evening (v3.3.15.0 = 7a5de868); 3.3.16.0 "Agents" IS UNDER WAY: R1 the fold is MERGED
-(ROADMAP "3.3.16.0 R1 ... BUILT and MERGED"), R1b the inspector + density pass next, then R2 the Fleet fold, R3
-Workflows.** The 3.3.15.0 line, for the record:
+#44 #46 #47) and R1's named Pack-trust gaps (a sandboxed frame for bundles). **3.3.15.0 RELEASED 2026-11-09 evening (v3.3.15.0 = 7a5de868); 3.3.16.0 "Agents" IS UNDER WAY: R1 the fold and R1b the
+inspector + density pass are MERGED (ROADMAP "3.3.16.0 R1 ..." and "R1b ..." BUILT and MERGED), R2 the Fleet fold
+next, then R3 Workflows.** The 3.3.15.0 line, for the record:
 L1 the Instrument look + R2 the picker says what a model takes + R3 text boxes and panels + R4 instrument default +
 R5 the guided first run on custom lineups + R6 init ends with both running + R7 the guided first run runs the lineup
 you picked + the STOP-line fix (ROADMAP "3.3.15.0 R2-R7 BUILT"; the old line follows: ROADMAP "The Agents fold, decided 2026-11-09" carries the 3.3.16.0 design), 3.3.16.0 Agents (R1 the fold + the inspector that says one thing at a time, R2 the

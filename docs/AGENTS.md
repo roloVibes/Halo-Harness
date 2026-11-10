@@ -608,7 +608,7 @@ opens Studio on the one you want to change; it never edits a field itself.
 | From | What it opens |
 |---|---|
 | `halo studio --edit bio:<name>` | Agents on Cast, the Bios panel on that bio's form |
-| `halo studio --edit lineup:<name>` | Agents on Cast, that lineup open, the Inspector on its Lineup tab |
+| `halo studio --edit lineup:<name>[:<block>]` | Agents on Cast, that lineup open, the Inspector on its Lineup tab's summary (with a block: that block's page) |
 | `halo studio --edit team` | Agents on Runs (3.3.16.0 R1: Team's board went; the page says so once) |
 | `halo agents edit <bio>`, `halo teams edit <lineup>` | the same, for that bio or lineup (a name that does not exist yet gets a starter file first) |
 | `halo agents new <bio> --studio`, `halo teams new <lineup> --studio` | the starter file, then Studio on it |
@@ -696,8 +696,8 @@ repo's `.halo/agents/` or `.halo/teams/` instead of `~/.halo`.
 | Lineup field | Studio's lineup inspector |
 |---|---|
 | an assignment's `role`, `agent`, `as`, `instances`, `use_for`, `models.preference` | Assignment tab: Role, Agent bio, Alias, Instances, Use for, Model override |
-| `description`, `about`, `extends` | the Lineup tab's header (also the Assignment tab with no card selected) |
-| `delegation`, `routing`, `budget`, `escalation`, `context`, `permissions`, `pipeline`, `acceptance`, `tiers` | the Lineup tab: one block per section, its fields as a form, its YAML toggle |
+| `description`, `about`, `extends` | the Lineup tab's Description page (Edit on the summary's first row; also from the Assignment tab with no card selected) |
+| `delegation`, `routing`, `budget`, `escalation`, `context`, `permissions`, `pipeline`, `acceptance`, `tiers` | the Lineup tab: its summary lists each section's state or "not set = Halo does ..." ([ROLES.md](ROLES.md#a-lineup-section-not-set-what-halo-does-halo-33160-r1b)); Edit opens the section alone, its fields as a form, its YAML toggle (3.3.16.0 R1b) |
 
 ## Halo 2.0.5 round 2c: the Team step (rebuilt in 2.1.0 round B1)
 

@@ -77,6 +77,10 @@ def test_a_running_studio_is_focused_on_the_target(ctx: Ctx):
               got.get("lineup_tab") == "halo-dev-cycle" and got.get("lineup_selected") == "true")
     ctx.check(f"the section's line is field_help.py's, got {got.get('about')!r}", got.get("about") == field_help.LINEUP_SECTIONS["delegation"])
     ctx.check(f"a section edited in the inspector is saved, got {got.get('delegation_saved')}", got.get("delegation_saved") == "round-robin")
+    ctx.check(f"3.3.16.0 R1b: it opens on the summary, got {got.get('summary_policy')!r}",
+              "9 sections:" in str(got.get("summary_policy")) and "at Halo's default" in str(got.get("summary_policy")))
+    ctx.check(f"lineup:<name>:tiers opens that page with the real default, got {got.get('tiers_default')!r}",
+              got.get("tiers_default") == "not set = Halo does: " + field_help.LINEUP_DEFAULTS["tiers"])
     ctx.check(f"team opens Agents on Runs (3.3.16.0 R1: the Team section went), got {got.get('team_how')} {got.get('team_section')}",
               got.get("team_how") == "focused" and str(got.get("team_section") or "") == "Agents:runs")
     ctx.check(f"bio:<name> opens the bio form back on Agents (Cast), got {got.get('bio_form')} {got.get('bio_section')}",

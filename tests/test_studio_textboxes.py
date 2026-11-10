@@ -140,8 +140,9 @@ def test_the_lineup_tab_boxes_and_its_help(ctx: Ctx):
     _sizes(ctx, "the Lineup tab", rows)
     _placeholders(ctx, "the Lineup tab", rows)
     h = got.get("roles_help") or {}
-    ctx.check(f"the fields' hints are in the tab's ?, none under a field, got {h}", h.get("help") and h.get("help_lines", 0) > 10
-              and h.get("hints_under_fields") == 0)
+    # 3.3.16.0 R1b: the tab opens on its summary (no box); the Description page's ? lists its three fields only
+    ctx.check(f"the fields' hints are in the page's ?, none under a field, the summary has no box, got {h}", h.get("help")
+              and h.get("help_lines", 0) >= 3 and h.get("hints_under_fields") == 0 and h.get("summary_boxes") == 0)
 
 
 @test

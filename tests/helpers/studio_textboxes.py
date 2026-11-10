@@ -125,14 +125,20 @@ def roles(c, rig) -> dict:
     from halo_harness.studio.server import url_for
     c.go("about:blank")
     c.go(url_for(rig.server, edit="lineup:halo-dev-cycle").replace("#t=", "&tour=off#t="))
+    # 3.3.16.0 R1b: the tab opens on the summary (no text box); Description's Edit opens its page, the two boxes on it
     c.wait("document.querySelector('[data-testid=\"roles-lineup-tab\"]')?.dataset.lineup === 'halo-dev-cycle' && "
-           "document.querySelectorAll('[data-testid=\"roles-lineup-tab\"] textarea').length >= 2", 30)
+           "!!document.querySelector('[data-testid=\"roles-summary\"]')", 30)
+    summary_boxes = c.js("document.querySelectorAll('[data-testid=\"roles-lineup-tab\"] textarea').length")
+    c.js("document.querySelector('[data-testid=\"roles-edit-description\"]').click(); 1")
+    c.wait("!!document.querySelector('[data-testid=\"roles-page-description\"]') && "
+           "document.querySelectorAll('[data-testid=\"roles-lineup-tab\"] textarea').length >= 2", 20)
     # the tab's help block lands after the form (Linux shard 2 on 91f5d090 read it before it was there): wait for its rows
     c.wait("(document.querySelector('[data-testid=\"roles-lineup-help\"]')?.querySelectorAll('dt').length || 0) > 0", 20)
     help_ = c.js("""(() => { const h = document.querySelector('[data-testid="roles-lineup-help"]');
       return {help: !!h, help_lines: h ? h.querySelectorAll('dt').length : 0,
               hints_under_fields: document.querySelectorAll('[data-testid="roles-lineup-tab"] .field-hint').length}; })()""")
     shot(c, "roles-lineup")
+    help_["summary_boxes"] = summary_boxes
     return {"roles": boxes(c, "[data-testid=\"roles-lineup-tab\"] textarea"), "roles_help": help_}
 
 

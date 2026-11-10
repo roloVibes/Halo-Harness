@@ -47,6 +47,9 @@ export type RolesState = {
   future: Raw[];
   sel: string;
   tab: InspectorTab;
+  /** 3.3.16.0 R1b: the one block the inspector edits ("" = the summary); `pageFor` is whose it is (lineup:<n> | card:<id>). */
+  page: string;
+  pageFor: string;
   positions: Record<string, Pos>;
   collapsed: Record<string, boolean>;
   posFor: string;
@@ -122,6 +125,8 @@ export const roles = createStore<RolesState>({
   future: [],
   sel: "",
   tab: "assignment",
+  page: "",
+  pageFor: "",
   positions: {},
   collapsed: {},
   posFor: "",
@@ -163,7 +168,7 @@ export const setView = (view: RolesState["view"]) => roles.update(() => ({ view 
 /** 3.3.11.0 R2: Plan (the lineup) or Live (the session's agent tree); `sid` picks the session Live draws. */
 export const setCanvasView = (canvasView: RolesState["canvasView"], sid?: string) =>
   roles.update(() => ({ canvasView, ...(sid !== undefined ? { liveSid: sid } : {}) }));
-export const setTab = (tab: InspectorTab) => roles.update((s) => (s.tab === tab ? {} : { tab }));
+export const setTab = (tab: InspectorTab) => roles.update((s) => (s.tab === tab ? {} : { tab, page: "" })); // R1b: a tab opens on its summary
 
 /** A lineup of your own: not one Halo ships or a pack offers, nor the untouched copy of one Halo puts in ~/.halo/teams. */
 export const ownLineups = (s: RolesState) => s.lineups.filter((l) => !readOnlySource(l.scope) && !l.shipped_copy);

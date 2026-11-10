@@ -4,9 +4,10 @@ under each control. The lines are `halo_harness/field_help.py`'s, the same
 the TUI's read-only bio and lineup views show: Studio serves them, the bundle
 carries no copy.
 
-    GET field-help   {identity, bio, lineup_sections, lineup_fields, assignment, model_select}
+    GET field-help   {identity, bio, lineup_sections, lineup_fields, assignment, model_select, pack, lineup_defaults}
 
-3.1.4.0 R4: `model_select` is the one model control's lines (routes/shared/ModelSelect.tsx).
+3.1.4.0 R4: `model_select` is the one model control's lines (routes/shared/ModelSelect.tsx). 3.3.16.0 R1b:
+`lineup_defaults` is what Halo does when a lineup leaves a section out (the inspector's "not set = Halo does ...").
 """
 
 from __future__ import annotations

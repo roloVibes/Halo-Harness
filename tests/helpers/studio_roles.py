@@ -107,6 +107,11 @@ def roles(c, url: str, state: Path) -> dict:
     sx, sy, sw, sh = c.rect("document.querySelector('.rc-scroll')")
     c.click(sx + sw - 12, sy + sh - 12)  # the canvas's empty corner: no card selected, the Inspector shows the lineup's fields
     c.click_on(f"{tid('roles-tab-assignment')}[0]")
+    # 3.3.16.0 R1b: no card -> the lineup's summary; the Description row's Edit opens its page (poll for it)
+    c.wait(f"!!{tid('roles-edit-description')}[0]", 10)
+    c.js(f"{tid('roles-edit-description')}[0].scrollIntoView({{block: 'center'}}); {tid('roles-edit-description')}[0].click(); 1")
+    c.wait(f"!!{tid('roles-page-description')}[0]", 10)
+    c.js(f"{tid('roles-description')}[0].scrollIntoView({{block: 'center'}}); 1")
     field = "document.querySelector('[data-testid=\"roles-description\"]')"
     out["description_before"] = c.wait(f"{field}?.value", 10)
     c.click_on(field)

@@ -6,6 +6,7 @@
 // (ModelStrip.tsx): what the selected card runs on and the select to change it.
 // 3.2.0.0 R2: a pack's lineup says "from pack <id>, read-only" on top, with Customize.
 // 3.2.2.0 R6: over it all, "<name> changed on disk" with Reload / Keep mine when a draft is unsaved (DiskNote.tsx).
+// 3.3.16.0 R1b: Assignment and Lineup each open on a plain-words summary; Edit opens one block per page (pages.ts).
 import { Button, Tabs } from "../../lib/ui";
 import { Metric } from "../orchestra/bits";
 import { Assignment } from "./Assignment";
