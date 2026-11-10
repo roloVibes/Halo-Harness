@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.3.16.1] - unreleased
+## [3.3.16.1] - 2026-11-10
 
 **The local prompt diet.** A first turn to an unknown remote Ollama model was 16,970 tokens of Halo's own prompt
 plus a 16,384 reply's room, past its 32,768 window, so the window doubled to 65,536 and the model reloaded; it is
