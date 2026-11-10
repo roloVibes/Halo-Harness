@@ -2,7 +2,7 @@
 3.1.1.0 R3: Studio is the one editor of bios and lineups).
 
 1. an edit target (bio:<name>, lineup:<name>, team, a bare name) and the URL
-   it rides in: `?mode=roles&edit=bio:coder#t=<token>`;
+   it rides in: `?mode=agents&view=cast&edit=bio:coder#t=<token>` (3.3.16.0 R1; `?mode=roles` before);
 2. a Studio running for this home is focused, not started again: `POST
    /api/focus` puts a `focus` frame on the live feed of every open page;
    with no page open the browser opens the URL, and with no browser the URL
@@ -90,20 +90,20 @@ def test_the_edit_target_and_its_url(ctx: Ctx):
     from halo_harness.studio.edit_target import parse, resolve
     from halo_harness.studio.server import url_for
     t, _ = parse("bio:coder")
-    ctx.check(f"bio:coder opens Roles, got {t}", t is not None and (t.kind, t.name, t.mode, t.text) == ("bio", "coder", "roles", "bio:coder"))
+    ctx.check(f"bio:coder opens Agents (Cast), got {t}", t is not None and (t.kind, t.name, t.mode, t.view, t.text) == ("bio", "coder", "agents", "cast", "bio:coder"))
     t, _ = parse("lineup:halo-dev-cycle")
-    ctx.check("lineup:<name> opens Roles", t is not None and t.mode == "roles" and t.query() == "?mode=roles&edit=lineup:halo-dev-cycle")
+    ctx.check("lineup:<name> opens Agents on Cast", t is not None and t.mode == "agents" and t.query() == "?mode=agents&view=cast&edit=lineup:halo-dev-cycle")
     t, _ = parse("team")
-    ctx.check("team opens the Team section", t is not None and t.mode == "team" and t.query() == "?mode=team&edit=team")
+    ctx.check("team opens Agents on Runs (3.3.16.0 R1: the Team section went)", t is not None and t.mode == "agents" and t.query() == "?mode=agents&view=runs&edit=team")
     for bad in ("", "coder", "bio:", "bio:../etc", "org:x", "lineup:a/b"):
         got, why = parse(bad)
         ctx.check(f"{bad!r} is not a target, with a reason", got is None and why)
     fake = SimpleNamespace(server_address=("127.0.0.1", 4321), token="tok")
     ctx.check("url_for: the target in the query, the token in the fragment",
-              url_for(fake, None, "bio:coder") == "http://127.0.0.1:4321/?mode=roles&edit=bio:coder#t=tok")
+              url_for(fake, None, "bio:coder") == "http://127.0.0.1:4321/?mode=agents&view=cast&edit=bio:coder#t=tok")
     ctx.check("url_for without an edit is unchanged", url_for(fake, "fleet") == "http://127.0.0.1:4321/?mode=fleet#t=tok")
     ctx.check("the running Studio's URL carries it too",
-              launch.url_from_info({"port": 99, "token": "x"}, None, "team") == "http://127.0.0.1:99/?mode=team&edit=team#t=x")
+              launch.url_from_info({"port": 99, "token": "x"}, None, "team") == "http://127.0.0.1:99/?mode=agents&view=runs&edit=team#t=x")
     with _home() as h:
         from halo_harness.teams_yaml import ensure_builtin_team_templates
         ensure_builtin_team_templates(state_dir=h.state)
@@ -128,7 +128,7 @@ def test_a_running_studio_is_focused_not_started_again(ctx: Ctx):
         ctx.check(f"one open page: focused, got {r}", r["how"] == "focused" and r["pages"] == 1 and not opened and not started)
         ctx.check(f"the page got a focus frame naming the target, got {frame}",
                   frame and frame.get("event") == "focus" and (frame.get("data") or {}).get("edit") == "lineup:halo-dev-cycle")
-        ctx.check("the URL names the target", "?mode=roles&edit=lineup:halo-dev-cycle#t=" in r["url"])
+        ctx.check("the URL names the target", "?mode=agents&view=cast&edit=lineup:halo-dev-cycle#t=" in r["url"])
         ctx.check(f"the line says it opened in the open page, got {describe(r)!r}", describe(r).startswith("Opened lineup:halo-dev-cycle in the Studio page"))
         bridge_for(h.srv).unsubscribe(page)
         r = open_edit(parse("bio:coder")[0], cwd=h.proj, state_dir=h.state)
@@ -149,7 +149,7 @@ def test_a_running_studio_is_focused_not_started_again(ctx: Ctx):
             page = bridge_for(h.srv).subscribe("all")
             r = open_edit(parse("bio:coder")[0], cwd=h.proj, state_dir=h.state)
             ctx.check(f"the session's own Studio is focused too, got {r}", r["how"] == "focused" and r["pages"] == 1
-                      and f":{h.srv.server_address[1]}/?mode=roles&edit=bio:coder" in r["url"])
+                      and f":{h.srv.server_address[1]}/?mode=agents&view=cast&edit=bio:coder" in r["url"])
             bridge_for(h.srv).unsubscribe(page)
         finally:
             S._BACKGROUND.pop("server", None)
@@ -166,7 +166,7 @@ def test_no_studio_running_starts_one_with_the_edit(ctx: Ctx):
     try:
         with _stub(launch, "launch_detached", lambda mode, **k: calls.append((mode, k)) or "http://127.0.0.1:1/?mode=roles&edit=bio:coder#t=t"):
             r = open_edit(parse("bio:coder")[0], cwd=home, state_dir=home / ".halo")
-        ctx.check(f"started, with --edit, got {r} {calls}", r["how"] == "started" and calls and calls[0][0] == "roles"
+        ctx.check(f"started, with --edit, got {r} {calls}", r["how"] == "started" and calls and calls[0][0] == "agents"
                   and calls[0][1].get("edit") == "bio:coder" and calls[0][1].get("open_browser") is True)
         with _stub(launch, "launch_detached", lambda mode, **k: ""):
             r = open_edit(parse("team")[0], cwd=home, state_dir=home / ".halo")
@@ -197,7 +197,7 @@ def test_the_cli_verbs_open_studio_on_the_thing(ctx: Ctx):
     with _home() as h, _stub(launch, "_open", lambda url: False):
         rc, text = _out(cmd_studio, ["--edit", "bio:coder", "--no-open"])
         ctx.check(f"halo studio --edit ... --no-open on a running Studio prints the URL, got {rc} {text!r}",
-                  rc == 0 and "?mode=roles&edit=bio:coder#t=" in text and text.startswith("Studio is at"))
+                  rc == 0 and "?mode=agents&view=cast&edit=bio:coder#t=" in text and text.startswith("Studio is at"))
         rc, text = _out(agents_cli.cmd_agents, ["edit", "coder", "--no-open"])
         ctx.check(f"halo agents edit coder --no-open prints the URL, got {rc} {text!r}", rc == 0 and "edit=bio:coder" in text)
         rc, text = _out(teams_cli.cmd_teams, ["edit", "my-team", "--no-open"])

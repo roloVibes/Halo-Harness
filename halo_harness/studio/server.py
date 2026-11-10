@@ -325,15 +325,14 @@ def start_steward(server: _Server) -> None:
         server.steward_job = None
 
 
-STUDIO_MODES = ("roles", "orchestra", "fleet", "team", "session", "packs", "setup", "settings", "local")  # 3.0.4.0: the shell's sections too; 3.0.5.0: Fleet; 3.0.8.0: Team; 3.1.4.0: Session; 3.2.0.0 R7: Packs; 3.3.0.0 R1: Setup; 3.3.3.0 R2: Settings; 3.3.5.0 R1: Local; 3.3.13.0 R2: design is the design pack's (studio/modes.py)
+STUDIO_SECTIONS = ("session", "agents", "fleet", "packs", "setup", "settings", "local")  # 3.0.4.0 .. 3.3.5.0 R1; 3.3.13.0 R2: design is the design pack's (studio/modes.py); 3.3.16.0 R1: Agents took in Team, Roles and Orchestra
+STUDIO_MODES = STUDIO_SECTIONS + ("roles", "orchestra", "team")  # 3.3.16.0 R1: the old words stay doors to Agents' views (studio/agents_door.py)
 
 
 def url_for(server: _Server, mode: Optional[str] = None, edit: Optional[str] = None) -> str:
-    """The page URL with the per-launch token. `mode` (3.0.2.0: roles |
-    design; then every section of the shell) lands in the query so the
-    page opens straight into it, ahead of the saved mode; the token stays in
-    the fragment. `edit` (3.1.1.0 R3, studio/edit_target.py: bio:<name>,
-    lineup:<name>, team) adds `&edit=` and picks the mode."""
+    """The page URL with the per-launch token. `mode` (a section, or an old word Agents took in) lands in the query so
+    the page opens straight into it, ahead of the saved mode; the token stays in the fragment. `edit` (3.1.1.0 R3,
+    studio/edit_target.py: bio:<name>, lineup:<name>, team) adds `&edit=` and picks the mode."""
     from halo_harness.studio.launch import _query
     query = _query(mode, edit)
     return f"http://127.0.0.1:{server.server_address[1]}/{query}#t={server.token}"
@@ -362,13 +361,13 @@ def ensure_background(*, cwd: Path, state_dir: Path, open_browser: bool = True, 
 
 def cmd_studio(argv: list) -> int:
     parser = argparse.ArgumentParser(prog="halo studio", description="Open Halo Studio, the browser GUI: this session live, lineups and agent bios as a graph, every harness, the local models, packs, Setup and Settings.")
-    parser.add_argument("--mode", default=None, metavar="SECTION", help="open straight into session, team, roles, fleet, orchestra, packs, setup, settings, local, or a pack's section <pack id>--<section> (default: the mode you used last)")
+    parser.add_argument("--mode", default=None, metavar="SECTION", help="open straight into session, agents, fleet, packs, setup, settings, local, or a pack's section <pack id>--<section> (default: the mode you used last; roles, orchestra and team open Agents on Cast, Runs and Runs)")
     parser.add_argument("--port", type=int, default=0, help="port to listen on (default: a free one)")
     parser.add_argument("--no-open", action="store_true", help="print the URL, do not open a browser")
     parser.add_argument("--cwd", default=None, help="the project directory for project-scope files (default: the current directory)")
     parser.add_argument("--stop", action="store_true", help="stop the Studio that is running in the background (the wizard's Open Studio buttons start one)")
     parser.add_argument("--fleet", action="store_true", help="also run the fleet hub in this process: other harnesses join it with `halo fleet join` (docs/FLEET.md)")
-    parser.add_argument("--edit", default=None, metavar="TARGET", help="open Studio on bio:<name> (its form), lineup:<name> (its inspector), team, setup[:<block>], settings[:<group>] or local[:<page>]; a Studio already running for this home opens it in its open page")
+    parser.add_argument("--edit", default=None, metavar="TARGET", help="open Studio on bio:<name> (Agents -> Cast, its form), lineup:<name> (its inspector), team (Agents -> Runs), setup[:<block>], settings[:<group>] or local[:<page>]; a Studio already running for this home opens it in its open page")
     parser.add_argument("--session", nargs="?", const="", default=None, metavar="ID", help="open the Session dashboard on this harness's session ID (a prefix will do; omitted: the newest live one): its map, activity, attention, agent and cost")
     parser.add_argument("--prompt", action="store_true", help="with --session (or alone: the newest live session): open its Prompt panel with the keyboard in the box, to type into the session as in the terminal")
     args = parser.parse_args(argv)
@@ -395,11 +394,12 @@ def cmd_studio(argv: list) -> int:
     state_dir = Path(default_state_dir())
     cwd = Path(args.cwd).resolve() if args.cwd else Path.cwd()
     if args.mode and not args.edit and args.session is None:  # 3.3.13.0 R2: a core section or a running pack's own
-        from halo_harness.studio.modes import check
+        from halo_harness.studio.modes import check, door_line
         args.mode, why = check(args.mode, cwd=cwd, state_dir=state_dir)
         if args.mode is None:
             print(f"halo studio: --mode: {why}", file=sys.stderr)
             return 2
+        for line in filter(None, [door_line(args.mode)]): print(f"halo studio: {line}")  # noqa: E701  3.3.16.0 R1: an old word's new door
     from halo_harness.studio.launch import existing_url, stop
     if args.stop:
         ok, note = stop(state_dir)

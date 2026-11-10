@@ -126,7 +126,7 @@ def doctor_rows(pack, granted, *, cwd=None, state_dir=None, rows=None) -> "list[
         who = f"bio {names[0]}: it runs" if len(names) == 1 else f"bios {', '.join(names)}: they run"
         out.append({"severity": "warns", "check": "bio-model", "path": path,
                     "text": f"{pack.id}: no model in the catalog has {', '.join(caps)} ({who} on your default model)",
-                    "fix": "halo models --refresh, or Customize the bio in Studio's Roles and give it a model"})
+                    "fix": "halo models --refresh, or Customize the bio in Studio's Agents (Cast) and give it a model"})
     for need, names in sorted(needs.items()):
         who = f"bio {names[0]} uses" if len(names) == 1 else f"bios {', '.join(names)} use"
         out.append({"severity": "warns", "check": "bio-need", "path": path,

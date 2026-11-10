@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-AUTO_LINE = "Your lineup is Auto: pick or build a lineup in Roles first, then `halo start` rehearses it."  # 3.3.15.0 R7
+AUTO_LINE = "Your lineup is Auto: pick or build a lineup in Agents -> Cast first, then `halo start` rehearses it."  # 3.3.15.0 R7; 3.3.16.0 R1: Agents
 GYM_LINE = "To measure your models instead: halo gym --quick (tool calls, edits, recall and instructions, scored)."
 REASON = "auto_lineup"
 

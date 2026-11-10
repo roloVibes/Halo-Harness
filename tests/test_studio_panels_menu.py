@@ -74,12 +74,12 @@ def test_the_plus_menu_lists_and_brings_back(ctx: Ctx):
 def test_the_palette_arranges(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"Reset layout on a default layout: disabled, its words, got {got.get('pal_reset_fresh')}",
-              got.get("pal_reset_fresh") == ["Reset layout", "Roles: nothing to reset, the layout is the default", "true"])
+              got.get("pal_reset_fresh") == ["Reset layout", "Agents: nothing to reset, the layout is the default", "true"])
     moved, default = got.get("moved") or {}, got.get("default") or {}
     ctx.check(f"Alt+Left moved the Inspector and saved the layout, got {moved.get('roles-inspector')} vs {default.get('roles-inspector')}",
               moved.get("roles-inspector") != default.get("roles-inspector") and got.get("saved_moved") is True)
     ctx.check(f"Arrange panels: enabled, the section in its hint, got {got.get('pal_arrange')}",
-              got.get("pal_arrange") == ["Arrange panels", "Roles: the open panels back in their default places and sizes", None])
+              got.get("pal_arrange") == ["Arrange panels", "Agents: the open panels back in their default places and sizes", None])
     ctx.check(f"it ran: the toast, every panel in its default box, got {got.get('arrange_toast')} {got.get('arranged')}",
               got.get("arrange_toast") == "arranged" and got.get("arranged") == default)
 

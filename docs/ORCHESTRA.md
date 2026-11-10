@@ -1059,7 +1059,7 @@ never written over an entry already here
 
 ## In Studio
 
-`halo studio`, started in the repo, opens the Orchestra section: the run
+`halo studio`, started in the repo, opens Agents -> Runs (the Orchestra section before 3.3.16.0): the run
 console described in [STUDIO-orchestra.md](STUDIO-orchestra.md#orchestra-the-run-console). Its
 backend is `studio/orchestra_api.py`. The routes sit under `/api/orchestra/`
 behind the same loopback, origin and token guard as every Studio route.

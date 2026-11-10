@@ -4,11 +4,13 @@
 // title, the claims as chips, bio and model, the first problem in red), and
 // the `after` edges with R1's label chip (summary / all / an artifact's
 // name, else "after"). Cards and boxes are memoised. 3.1.2.0 R2: a card shows
-// its lane's cost forecast as a chip in its header (data-testid plan-cost).
+// its lane's cost forecast as a chip in its header (data-testid plan-cost). 3.3.16.0 R1: the claims row is the lane's
+// owns line (plan-owns, routes/agents/runs/Owns.tsx): the units it will claim, the whole list in its tooltip.
 import { memo, type PointerEvent } from "react";
 import { CARD_H, CARD_W, edgePath, type Box, type Pos } from "./layout";
 import { costText, costTitle } from "./forecast";
 import type { ForecastLine, PlanJob, PlanProblem } from "./types";
+import { OwnsLine } from "../../agents/runs/Owns";
 
 type BoxProps = { k: number; b: Box; label: string; count: number; empty: boolean; hot: boolean };
 
@@ -55,9 +57,7 @@ export const LaneCard = memo(function LaneCard({ job, n, p, layer, problems, sel
       </header>
       <div className="pc-title">{job.title || <span className="muted">(no title yet)</span>}</div>
       <div className="pc-claims">
-        {claims.slice(0, 3).map((c) => <span key={c} className="og-chip mono" title={c}>{c.split("#")[1] || c}</span>)}
-        {claims.length > 3 && <span className="og-chip mono">+{claims.length - 3}</span>}
-        {!claims.length && <span className="muted mono">no claims</span>}
+        <OwnsLine keys={claims} testid="plan-owns" />
       </div>
       <div className="rc-meta mono" title={`bio ${job.bio || "(the goal's worker role)"} · model ${job.model || "(the bio's or the role's)"}`}>
         <span>{job.bio || "worker role"}</span>

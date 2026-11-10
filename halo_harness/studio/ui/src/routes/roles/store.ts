@@ -148,8 +148,8 @@ export const roles = createStore<RolesState>({
   tierMenu: null,
   diskLineup: null,
   diskBio: null,
-  canvasView: /[?&]mode=roles(&|$)/.test(location.search) && /[?&]view=live(&|$)/.test(location.search) ? "live" : "plan",
-  liveSid: (/[?&]mode=roles(&|$)/.test(location.search) && new URLSearchParams(location.search).get("session")) || "",
+  canvasView: /[?&]mode=(roles|agents)(&|$)/.test(location.search) && /[?&]view=live(&|$)/.test(location.search) ? "live" : "plan", // 3.3.16.0 R1: Agents' Live
+  liveSid: (/[?&]mode=(roles|agents)(&|$)/.test(location.search) && new URLSearchParams(location.search).get("session")) || "",
   liveDensity: "spread",
 });
 

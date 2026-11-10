@@ -109,11 +109,11 @@ def _steps(c, ctx, rig) -> dict:
     out["hosts_config"] = [[h.get("name"), h.get("url"), h.get("default")] for h in (cfg.get("ollama") or {}).get("hosts", [])]
     names = [h[0] for h in out["hosts_config"][1:]]
     out["added_names"] = names
-    alt(c, 3)  # the Models panel in Roles: the refresh Add ran lists each new host
-    c.wait(f"{CUR}.startsWith('Roles')", 15)
+    alt(c, 2)  # the Models panel in Agents (Cast): the refresh Add ran lists each new host
+    c.wait(f"{CUR}.startsWith('Agents')", 15)
     lines = qa("[data-testid=roles-models-body] [data-testid=model-outcome][data-provider=ollama]")
     out["models_panel"] = c.wait(f"{lines}.length >= 2 && {lines}.map((l) => l.textContent)", 30)
-    alt(c, 7)
+    alt(c, 5)  # 3.3.16.0 R1: Setup
     c.wait(f"{CUR}.startsWith('Setup') && !!{q('[data-testid=setup-measure]')}", 20)
     out["measure_models"] = c.js(f"{qa('[data-testid=setup-measure-model]')}.map((m) => [m.dataset.ref, m.querySelector('input').checked])")
     log = qa("[data-testid=setup-measure-line]")

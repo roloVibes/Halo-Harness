@@ -56,7 +56,7 @@ function whenLaidOut(fn: () => void, tries = 80): void {
 
 /** From another section: Roles on `lineup`, the card `card` selected, the strip's select focused. */
 export async function openCardModel(lineup: string, card: string): Promise<void> {
-  goSection("roles");
+  goSection("agents", "cast");
   setView("workspace");
   roles.update(() => ({ editing: "card:" + lineup })); // the active lineup does not open over this one
   startRoles();

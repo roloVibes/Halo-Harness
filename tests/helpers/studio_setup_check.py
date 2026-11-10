@@ -99,7 +99,7 @@ def no_provider_jump(c, url, ctx) -> dict:
     _fresh(True)
     try:
         c.go(url.replace("tour=off&", ""))  # ?mode=roles, the overlay on
-        c.wait(f"{CUR}.startsWith('Roles') && !!{q('[data-testid=start-here-auto]')}", 40)
+        c.wait(f"{CUR}.startsWith('Agents') && !!{q('[data-testid=start-here-auto]')}", 40)
         # 3.3.15.0 R5: a fresh home runs the Auto lineup: the line in place of Run, Set up this box first
         out = {"jump_first_button": c.js(f"{q('[data-testid=start-here] .os-buttons .btn')}.textContent.trim()"),
                "jump_auto": c.js(_text("[data-testid=start-here-auto]")),
@@ -136,7 +136,7 @@ def landing(c, url, ctx) -> dict:
     _fresh(True)
     try:
         c.go(url)
-        c.wait(f"{CUR}.startsWith('Roles')", 40)
+        c.wait(f"{CUR}.startsWith('Agents')", 40)
         c.js("localStorage.setItem('halo.studio.section', 'roles'); localStorage.removeItem('halo.studio.start'); 1")  # 3.3.2.0 R1: unanswered here
         c.go(url.replace("mode=roles&tour=off&", ""))
         out = {"land_section": c.wait(f"{CUR}.startsWith('Setup') && {CUR}", 40),
@@ -144,13 +144,13 @@ def landing(c, url, ctx) -> dict:
         c.wait(f"!!{q('[data-testid=setup-rail-step]')}", 30)
         time.sleep(2.0)
         out["land_overlay_on_setup"] = c.js(f"!!{q('[data-testid=start-here]')}")
-        alt(c, 3)  # 3.3.2.0 R1: nor on the next section (Start here shows over the section the page opened on, only)
-        c.wait(f"{CUR}.startsWith('Roles')", 20)
+        alt(c, 3)  # 3.3.2.0 R1: nor on the next section (Start here shows over the section the page opened on, only); 3.3.16.0 R1: Fleet
+        c.wait(f"{CUR}.startsWith('Fleet')", 20)
         time.sleep(2.0)
         out["land_overlay_next"] = c.js(f"!!{q('[data-testid=start-here]')}")
         c.go("about:blank")
         c.go(url.replace("tour=off&", ""))  # ?mode=roles: Roles is the first section, the offer shows over it
-        out["land_first_button"] = c.wait(f"{CUR}.startsWith('Roles') && {q('[data-testid=start-here] .os-buttons .btn')}?.textContent.trim()", 30)
+        out["land_first_button"] = c.wait(f"{CUR}.startsWith('Agents') && {q('[data-testid=start-here] .os-buttons .btn')}?.textContent.trim()", 30)
         out["land_by"] = click(c, "[data-testid=start-here-setup]", f"!{q('[data-testid=start-here]')}")
         out["land_after"] = c.js(CUR)
         return out

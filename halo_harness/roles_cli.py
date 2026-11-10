@@ -340,7 +340,7 @@ def cmd_roles(argv: list) -> int:
         print("       halo roles point <role> <model>  point a role at a model (roles.<role>; nothing pulled)", file=sys.stderr)
         print("       halo roles template list|show <name>|save <name>|new <name>|load <name>|edit <name>|export <name> [file]|import <file>",
               file=sys.stderr)
-        print("GUI:   halo studio --mode roles       the same roles as a graph in the browser (Halo Studio; /roles in the TUI)",
+        print("GUI:   halo studio --mode agents      the same roles as a graph in the browser (Halo Studio's Agents, Cast; /roles in the TUI)",
               file=sys.stderr)
         return 0
     if argv[0] in ("on", "off"):

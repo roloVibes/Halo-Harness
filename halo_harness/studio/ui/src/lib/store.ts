@@ -4,6 +4,9 @@
 import { useSyncExternalStore } from "react";
 import { bootLiveSession, bootNoProvider } from "./boot";
 import { askedSection, sectionFor } from "./sectionStart";
+import { agentsDoor, doorOf, type AgentsView } from "./agentsDoor";
+import type { SessionInfo } from "./sessionInfo";
+export type { SessionInfo };
 export { bootLiveSession, bootNoProvider, bootPackSections, type BootPackSection } from "./boot";
 
 export type Store<T> = {
@@ -45,34 +48,20 @@ export function useStore<T extends object, S>(store: Store<T>, select: (s: T) =>
 
 // -- the shell's state -----------------------------------------------------------
 
-// packs: 3.2.0.0 R6; setup: 3.3.0.0 R1; settings: 3.3.3.0 R2; local: 3.3.5.0 R1; 3.3.13.0 R2: design is the design pack's
-export type CoreSectionId = "orchestra" | "roles" | "fleet" | "team" | "session" | "packs" | "setup" | "settings" | "local";
+// packs: 3.2.0.0 R6; setup: 3.3.0.0 R1; settings: 3.3.3.0 R2; local: 3.3.5.0 R1; 3.3.13.0 R2: design is the design pack's;
+// 3.3.16.0 R1: agents took in team, roles and orchestra (lib/agentsDoor.ts)
+export type CoreSectionId = "session" | "agents" | "fleet" | "packs" | "setup" | "settings" | "local";
 /** 3.2.0.0 R3: a pack's own section, `<pack id>--<section id>` (routes/packs: the registry the server builds). */
 export type PackSectionId = `${string}--${string}`;
-export type SectionId = CoreSectionId | PackSectionId;
+/** A section the rail shows (the current one, the visited ones). */
+export type ShellSectionId = CoreSectionId | PackSectionId;
+/** 3.3.16.0 R1: Agents' two workspaces keep their ids for their layouts, status lines, panels and help: roles (Cast and
+ *  Live) and orchestra (Runs). */
+export type AgentsPart = "roles" | "orchestra";
+export type SectionId = ShellSectionId | AgentsPart;
 /** 3.3.12.0 R1: a theme name of the palette registry (`holo`, `ember-daltonized`, ...) or "auto" (follow the system). */
 export type ThemeChoice = string;
 export type FeedStatus = "off" | "connecting" | "open" | "retrying" | "down";
-
-export type SessionInfo = {
-  session_id: string;
-  title?: string;
-  mode?: string;
-  kind?: string;
-  cwd?: string;
-  started?: number;
-  pid?: number;
-  /** From GET sessions (the control socket's status): waiting | busy | idle | unknown. */
-  status?: string;
-  busy?: boolean;
-  pending?: Partial<Record<"permission" | "question" | "plan" | "approval", string[]>> | null;
-  model?: string | null;
-  /** 3.0.5.0 Fleet: sub-agents queued, running, waiting or paused right now. */
-  agents?: number | null;
-  harness?: { id?: string; name?: string; host?: string; user?: string; version?: string; os?: string } | null;
-  project?: { root?: string; repo?: string | null; branch?: string | null; dirty?: boolean | null } | null;
-  parent?: string | null;
-};
 
 export type ToastItem = { id: number; text: string; tone: "done" | "error" | "info" };
 
@@ -85,8 +74,8 @@ export type HelpRef = { section: SectionId; part?: string }; // 3.3.2.0 R2: `par
 export type RailMode = "icons" | "open";
 
 export type StudioState = {
-  section: SectionId;
-  visited: SectionId[];
+  section: ShellSectionId;
+  visited: ShellSectionId[];
   theme: ThemeChoice;
   paletteOpen: boolean;
   rail: RailMode;
@@ -102,7 +91,7 @@ export type StudioState = {
 };
 
 /** Every section id, in the tab order (routes/index.tsx SECTIONS is the order; store.ts cannot import it). */
-export const SECTION_IDS: CoreSectionId[] = ["session", "team", "roles", "fleet", "orchestra", "packs", "setup", "settings", "local"];
+export const SECTION_IDS: CoreSectionId[] = ["session", "agents", "fleet", "packs", "setup", "settings", "local"];
 
 function readLocal(key: string): string {
   try {
@@ -126,14 +115,13 @@ export function writeLocal(key: string, value: string | null): void {
  *  live here, else Roles. */
 let firstNote = ""; // 3.3.13.0 R2: `?mode=design` with the design pack off (lib/sectionStart.ts)
 
-function initialSection(): SectionId {
+function initialSection(): ShellSectionId {
   const asked = askedSection(SECTION_IDS);
   firstNote = asked.note;
-  if (asked.section) return asked.section as SectionId;
+  if (asked.section) return asked.section as ShellSectionId;
   if (bootNoProvider()) return "setup";
   const saved = sectionFor(readLocal("halo.studio.section") || readLocal("halo-studio-mode"), SECTION_IDS);
-  if (saved) return saved as SectionId;
-  return bootLiveSession() ? "session" : "roles";
+  return (saved || (bootLiveSession() ? "session" : "agents")) as ShellSectionId; // 3.3.16.0 R1: Agents, on Cast
 }
 
 /** 3.3.12.0 R1: the theme the server painted the page in (`theme` in config.json, studio/theme_boot.py), else Halo's
@@ -166,7 +154,8 @@ const INSPECTOR_KEY = "halo.studio.inspector";
 function initialInspector(): PanelRef | null {
   try {
     const got = JSON.parse(readLocal(INSPECTOR_KEY) || "null") as PanelRef | null;
-    return got && got.section === first && typeof got.panel === "string" ? got : null;
+    const here = got?.section === first || (first === "agents" && (got?.section === "roles" || got?.section === "orchestra")); // 3.3.16.0 R1: its parts
+    return got && here && typeof got.panel === "string" ? got : null;
   } catch {
     return null;
   }
@@ -210,9 +199,14 @@ export function closeHelp(): void {
   studio.update(() => ({ help: null }));
 }
 
-export function goSection(section: SectionId): void {
+/** 3.3.16.0 R1: an old word (roles, orchestra, team: an attention row's `o`, a pack's route, a frame) opens Agents on its
+ *  view (lib/agentsDoor.ts); `view` puts Agents on one. */
+export function goSection(word: SectionId | "team", view?: AgentsView): void {
+  const door = doorOf(word);
+  const section = door.section as ShellSectionId;
   writeLocal("halo.studio.section", section);
   studio.update((s) => ({ section, visited: s.visited.includes(section) ? s.visited : [...s.visited, section], inspector: null }));
+  if (view || door.view) agentsDoor((view || door.view) as AgentsView, word);
 }
 
 /** 3.3.2.0 R1: the rail's chevron: icons <-> expanded (the titles; R2: nothing else). */

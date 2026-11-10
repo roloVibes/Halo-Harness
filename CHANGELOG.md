@@ -8,6 +8,64 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.3.16.0] - unreleased
+
+**Agents: one section for your agents.** The owner, 2026-11-09: "what does teams even give us? ... roles and
+orchestration are almost the same ... all rolled into the new agents". Team, Roles and Orchestra are one Studio
+section, Agents (`Alt+2`), with three views on one switch -- Cast (the lineup and its bios: Roles as it was), Runs (a
+goal for the lineup: Orchestra as it was, plus who owns what and Test this lineup) and Live (the session's agents as a
+tree, a live Orchestra run's lanes under its lead). The shell has seven core sections; every old door (`?mode=roles`,
+`orchestra`, `team`, `--mode`, `--edit`, `/roles`, `/studio`) still lands on the right view and says the new one.
+R1b (the inspector says one thing at a time, the density pass), R2 (the Fleet fold) and R3 (Workflows) follow.
+
+### R1: Agents, one section
+
+#### Changed
+
+- **One section, three views** (`routes/agents/`). `SECTIONS` is Session `Alt+1`, Agents `Alt+2`, Fleet `Alt+3`,
+  Packs `Alt+4`, Setup `Alt+5`, Settings `Alt+6`, Local `Alt+7`; the packs' own sections take `Alt+8`, `Alt+9` and
+  `Alt+0` (`FIRST_KEY = 8`). Agents' bar starts with **Cast | Runs | Live** (`?mode=agents&view=cast|runs|live`; `C`,
+  `R`, `L` outside a text field; the palette's "Agents: Cast / Runs / Live") and it opens on Cast with nothing else
+  open. Cast and Live draw Roles' workspace, Runs Orchestra's, each keeping its layout, panel ids and every
+  `data-testid`; the header's `+` and `...` menus, the palette's panel rows and the status bar follow the view.
+- **The doors.** `?mode=roles` lands on Cast (`&view=live` on Live), `?mode=orchestra` and `?mode=team` on Runs, the
+  latter with "Team's board is gone; a run's plan shows who owns what" the first time in a browser; a saved section,
+  a `focus` frame, an attention row's `o` and a pack's route that name an old word land the same way
+  (`ui/src/lib/agentsDoor.ts`). `STUDIO_MODES` is the seven sections plus `roles`, `orchestra` and `team`;
+  `halo studio --mode roles|orchestra|team`, `/studio <word>` and the TUI's bare `/roles` open Agents and print the
+  new door once (`studio/agents_door.py`). `halo studio --edit bio:|lineup:` opens `?mode=agents&view=cast&edit=...`,
+  `--edit team` `?mode=agents&view=runs&edit=team`.
+- **Who owns what** (Runs). Each lane says what it owns -- the claim ledger's keys for that lane -- on its plan card
+  (`plan-owns`) and its row in Lanes (`lane-owns`); a focused lane lists its claims with holder and state
+  (`lane-claims`), and the plan inspector shows the same rows as CLAIM LEDGER, read from `GET orchestra/<run>`'s
+  `claims` (no new field).
+- **Test this lineup** on Runs' bar: the guided first run on the active lineup (`POST start`), its card first; on Auto
+  it is disabled with the Auto line beside it.
+- **Live draws a run.** While an Orchestra run of Studio's repo is live, Live draws its lead and each lane under it,
+  the lane's number in its colour and its worktree badge (the lane's branch); a click opens Runs on that lane.
+- The Fleet attention rows of an Orchestra gate, a supervisor decision and a team stage open Agents on Runs (`o`:
+  "open Agents: Runs"); a team stage held at its budget line answers Raise with where the team file is.
+- Words that named the old sections follow: CLI help (`halo studio --mode agents`), the system prompt, the guided
+  first run's card, Auto line and next steps (Agents: Cast, Agents: Runs, Fleet), the coach's error lines, Setup's
+  **Edit in Agents**, the Session Map's **Open in Agents Live**, the Start views' Next footer (Cast -> Runs -> Fleet).
+
+#### Removed
+
+- **The Team section** (`routes/team/*`, `help-team.ts`, `styles/team*.css`, the status bar's TEAM cell, the Team
+  Chrome drivers and `tools/capture_team.py`, `docs/media/studio-team.png`). Every `/api/team/...` route the board
+  used answers 410: "Team's board moved into Agents -> Runs (a run's plan shows who owns what); halo team runs the
+  team file" (`studio/team_init_api.py` deleted). `halo team` stays, `GET team/coach` stays, and a team stage at its
+  gate is still a row of Fleet's Attention.
+
+#### Docs
+
+- New [docs/STUDIO-agents.md](docs/STUDIO-agents.md): the three views, the doors, what Team's board became, the owns
+  line, Test this lineup, Live's run lanes and Cast. STUDIO-orchestra.md is "Agents -> Runs"; STUDIO-team-roles.md
+  points to the new doc, keeping its anchors. STUDIO-sections.md has one Agents entry (Roles, Orchestra and Team folded
+  in with "moved" lines), STUDIO-shell.md, STUDIO.md, README (seven sections, the banner and its captures re-rendered),
+  TEAM.md ("the board moved to Agents -> Runs; `halo team` stays"), COMMANDS-studio.md, the glossary and every doc's
+  `Alt+N` follow.
+
 ## [3.3.15.0] - 2026-11-09
 
 **Studio wears the Instrument look.** A design session answered `docs/STUDIO-redesign-brief.md` with "Instrument"

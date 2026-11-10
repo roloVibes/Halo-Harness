@@ -39,7 +39,7 @@ def _got(ctx: Ctx) -> dict:
 @test
 def test_alt8_opens_settings_with_nothing_over_it(ctx: Ctx):
     got = _got(ctx)
-    ctx.check(f"Alt+8 is Settings, got {got.get('alt8_section')!r}", str(got.get("alt8_section")).startswith("Settings"))
+    ctx.check(f"Alt+6 is Settings (3.3.16.0 R1), got {got.get('alt8_section')!r}", str(got.get("alt8_section")).startswith("Settings"))
     ctx.check(f"no help, no Start here, no dialog after 2 s, got {got.get('alt8_open')}", got.get("alt8_open") == [False, False, 0])
     ctx.check(f"it lands on General, got {got.get('alt8_page')!r}", got.get("alt8_page") == "general")
     ctx.check(f"no panel workspace, got {got.get('alt8_panels')}", got.get("alt8_panels") == 0)
@@ -114,7 +114,7 @@ def test_the_source_keeps_the_shape(ctx: Ctx):
         p = ui / "routes" / "settings" / name
         ctx.check(f"{name} exists and is under 250 lines", p.is_file() and len(p.read_text(encoding="utf-8").splitlines()) < 250)
     routes = (ui / "routes" / "index.tsx").read_text(encoding="utf-8")
-    ctx.check("Settings' entry is paged, after Setup, on Alt+8", 'id: "settings", title: "Settings", kbd: "Alt+8", blurb: "Every config key, one page per group", '
+    ctx.check("Settings' entry is paged, after Setup, on Alt+6 (3.3.16.0 R1)", 'id: "settings", title: "Settings", kbd: "Alt+6", blurb: "Every config key, one page per group", '
               'panels: [], paged: true, view: SettingsView' in routes and routes.index('id: "setup"') < routes.index('id: "settings"'))
     pages = (ui / "routes" / "settings" / "pages.ts").read_text(encoding="utf-8")
     ctx.check("the remembered page is halo.studio.settings.page", '"halo.studio.settings.page"' in pages)

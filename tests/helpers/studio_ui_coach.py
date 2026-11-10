@@ -37,7 +37,7 @@ def register(test, json_of, chrome) -> None:
         picked, the coach's note naming models.preference and the field marked; the bio on disk is unchanged."""
         got = run(ctx)
         ctx.check(f"the bio form, got {got.get('bio_form')} in {got.get('section')}", got.get("bio_form") == "coach-cheap"
-                  and got.get("section") == "roles")
+                  and got.get("section") == "agents")  # 3.3.16.0 R1: Cast is Agents
         ctx.check(f"the model filled in and marked, got {got.get('picked')} / {got.get('note_value')} / {got.get('note_field')} "
                   f"/ {got.get('marked')}", got.get("picked") == "or:vendor/strong" and got.get("note_value") == "or:vendor/strong"
                   and got.get("note_field") == "models.preference" and got.get("marked") == 1)

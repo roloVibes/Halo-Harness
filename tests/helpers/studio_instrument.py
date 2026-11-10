@@ -35,8 +35,8 @@ from tests.helpers.studio_packs_steps import CUR, alt, q, qa  # noqa: E402
 APP = q(".app")
 VAR = "getComputedStyle(document.documentElement).getPropertyValue('{}').trim()"
 RAIL_W = f"Math.round({q('.rail')}.getBoundingClientRect().width)"
-CORE = [("session", "Session"), ("team", "Team"), ("roles", "Roles"), ("fleet", "Fleet"), ("orchestra", "Orchestra"),
-        ("packs", "Packs"), ("setup", "Setup"), ("settings", "Settings"), ("local", "Local")]
+CORE = [("session", "Session"), ("agents", "Agents"), ("fleet", "Fleet"), ("packs", "Packs"), ("setup", "Setup"),
+        ("settings", "Settings"), ("local", "Local")]  # 3.3.16.0 R1: Agents took in Team, Roles and Orchestra
 # every animation that starts with a duration, from before the page's own scripts (a zero-length swap is not motion)
 LISTEN = ("window.__anims = []; document.addEventListener('animationstart', (e) => { const d = getComputedStyle(e.target).animationDuration;"
           " if (d.split(',').some((x) => parseFloat(x) > 0)) window.__anims.push(e.animationName); }, true);")
@@ -68,19 +68,19 @@ def load(c, ctx, query: str, title: str) -> None:
 
 def theme(c, url, ctx) -> dict:
     media(c)
-    load(c, ctx, "mode=roles", "Roles")
+    load(c, ctx, "mode=roles", "Agents")
     return {"theme": c.js("document.documentElement.dataset.theme"), "bg": c.js(VAR.format("--bg")), "surface": c.js(VAR.format("--surface")),
             "accent": c.js(VAR.format("--accent")), "body_bg": c.js("getComputedStyle(document.body).backgroundColor")}
 
 
 def rail(c, url, ctx) -> dict:
-    load(c, ctx, "mode=roles", "Roles")
+    load(c, ctx, "mode=roles", "Agents")
     out = {"rail_w": c.js(RAIL_W)}
     c.click_on(q("[data-testid=rail-toggle]"))
     c.wait(f"{APP}.dataset.rail === 'open'", 5)
     time.sleep(0.3)
     out["rail_open_w"] = c.js(RAIL_W)
-    load(c, ctx, "mode=roles", "Roles")
+    load(c, ctx, "mode=roles", "Agents")
     out["rail_reload"] = [c.js(f"{APP}.dataset.rail"), c.js(RAIL_W), c.js("localStorage.getItem('halo.studio.rail')")]
     c.click_on(q("[data-testid=rail-toggle]"))
     out["rail_back"] = c.wait(f"{APP}.dataset.rail === 'icons' && {RAIL_W}", 5)
@@ -88,7 +88,7 @@ def rail(c, url, ctx) -> dict:
 
 
 def ticks(c, url, ctx) -> dict:
-    load(c, ctx, "mode=roles", "Roles")
+    load(c, ctx, "mode=roles", "Agents")
     c.wait(f"!!{q('.panel.glass')}", 30)
     out = {"panel_ticks": c.js(TICKS.format(q(".panel.glass"))),
            "selected_ticks": c.js(f"getComputedStyle({q('.panel.focused > .hud-brackets')}).backgroundImage.split('linear-gradient').length - 1")}
@@ -141,7 +141,7 @@ def labels(c, rig) -> dict:
     c.wait(f"document.querySelectorAll('[data-testid=\"session-map\"] [data-testid=\"fleet-node\"]').length >= 6 && !!{node.format(SPAWNED[0][0])}", 40)
     out = {"map_labels": [c.js(f"{node.format(a)}?.querySelector('[data-testid=fleet-node-model] text')?.textContent || ''") for a, *_ in SPAWNED],
            "map_titles": [c.js(f"{node.format(a)}?.querySelector('title')?.textContent || ''") for a, *_ in SPAWNED]}
-    alt(c, 3)
+    alt(c, 2)  # 3.3.16.0 R1: Agents, on Cast
     c.wait("document.querySelectorAll('[data-testid=\"roles-card\"]').length > 0", 40)
     l_key(c)
     live = "document.querySelector('[data-testid=\"roles-live-node\"][data-agent=\"{}\"] [data-testid=\"roles-live-model\"]')"

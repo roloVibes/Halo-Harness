@@ -97,8 +97,8 @@ def nothing_opens(c, url, ctx) -> dict:
     out["help_title"] = c.js(f"{q('[data-testid=section-help] .dialog-title')}?.textContent || ''")
     c.js(f"{q('[data-testid=section-help-ok]')}.click(); 1")
     c.wait(f"!{q('[data-testid=section-help]')}", 10)
-    alt(c, 3)  # 3.3.2.0 R1: the next section gets no offer (Start here shows over the first section only)
-    c.wait(f"{CUR}.startsWith('Roles')", 20)
+    alt(c, 3)  # 3.3.2.0 R1: the next section gets no offer (Start here shows over the first section only); 3.3.16.0 R1: Fleet
+    c.wait(f"{CUR}.startsWith('Fleet')", 20)
     time.sleep(2.0)
     out["roles_overlay"] = c.js(OPEN)
     return out

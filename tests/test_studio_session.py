@@ -73,8 +73,8 @@ def test_landing_follows_a_live_session_here(ctx: Ctx):
     _ran(ctx, r, got)
     ctx.check(f"nothing saved, a session live here: Session, got {got.get('landing_live')!r} (mark {got.get('boot_live')!r})",
               str(got.get("landing_live")).startswith("Session") and bool(got.get("boot_live")))
-    ctx.check(f"nothing saved, nothing live: Roles as before, got {got.get('landing_none')!r} (mark {got.get('boot_none')!r})",
-              str(got.get("landing_none")).startswith("Roles") and got.get("boot_none") == "")
+    ctx.check(f"nothing saved, nothing live: Agents (Roles before 3.3.16.0), got {got.get('landing_none')!r} (mark {got.get('boot_none')!r})",
+              str(got.get("landing_none")).startswith("Agents") and got.get("boot_none") == "")
 
 
 @test
@@ -130,7 +130,7 @@ def test_session_param_chooses_that_session(ctx: Ctx):
 def test_alt_keys_and_fleet_keeps_everything(ctx: Ctx):
     r, got = _driver("dash")
     _ran(ctx, r, got)
-    ctx.check(f"Alt+4 shows Fleet, got {got.get('alt4')!r}", str(got.get("alt4")).startswith("Fleet"))
+    ctx.check(f"Alt+3 shows Fleet, got {got.get('alt4')!r}", str(got.get("alt4")).startswith("Fleet"))
     ctx.check(f"Fleet still draws every harness, got {got.get('fleet_boxes')}", got.get("fleet_boxes") == ["you@studio", "kali@lab"])
     ctx.check(f"and the member's attention rows, got {got.get('fleet_attn')}", (got.get("fleet_attn") or 0) >= 2)
     ctx.check(f"Alt+1 comes back to Session, its map still one box, got {got.get('alt1')!r} {got.get('back_boxes')}",

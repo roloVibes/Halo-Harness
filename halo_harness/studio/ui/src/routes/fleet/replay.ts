@@ -37,7 +37,7 @@ export async function openReplay(session: string, harness = "local"): Promise<bo
   const t1 = Math.max(Number(meta.ended) || 0, events[events.length - 1].t, t0 + 1);
   const speed = SPEEDS.find((s) => (t1 - t0) / s <= 40) || SPEEDS[SPEEDS.length - 1];
   roles.update(() => ({ replay: { meta, events, t: t0, t0, t1, speed, playing: false } }));
-  goSection("roles");
+  goSection("agents", "cast");
   play(true);
   return true;
 }

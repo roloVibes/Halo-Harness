@@ -5,7 +5,7 @@
 // cost line). Apply writes what the wizard writes (POST setup/team,
 // lineup_choice.py): One model = roles off and no team; auto with no team set
 // = roles on, nothing else; a lineup = its roles.*, team: <name>, roles on.
-// Edit in Roles opens the lineup in the Roles section.
+// Edit in Agents opens the lineup in Agents (Cast; the Roles section before 3.3.16.0 R1).
 import { useEffect, useState } from "react";
 import { api } from "../../lib/api";
 import { goSection } from "../../lib/store";
@@ -35,7 +35,7 @@ function usePreview(name: string): string[] {
 }
 
 async function editInRoles(name: string): Promise<void> {
-  goSection("roles");
+  goSection("agents", "cast");
   setView("workspace");
   if (!roles.get().loaded) await loadLists();
   if (roles.get().name !== name) await openLineup(name);
@@ -78,8 +78,8 @@ export function TeamDetail() {
           <div className="su-group-head mono">
             PREVIEW · {shown === ONE ? "one model" : shown}
             {shown !== ONE && (
-              <Button size="sm" variant="ghost" onClick={() => void editInRoles(shown)} title="Open this lineup in the Roles section" data-testid="setup-edit-in-roles">
-                Edit in Roles
+              <Button size="sm" variant="ghost" onClick={() => void editInRoles(shown)} title="Open this lineup in Agents, on Cast" data-testid="setup-edit-in-roles">
+                Edit in Agents
               </Button>
             )}
           </div>

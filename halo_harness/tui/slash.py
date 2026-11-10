@@ -229,7 +229,7 @@ async def _handle_roles(app, args: str) -> None:
     exactly like `/effort`'s own bare case)."""
     parts = (args or "").strip().split(None, 1)
     sub = parts[0].lower() if parts else ""
-    if not sub:  # 3.0.2.0: bare /roles opens Halo Studio's Roles mode (`/roles table` is the text table)
+    if not sub:  # 3.0.2.0: bare /roles opens Halo Studio's Roles mode (3.3.16.0 R1: Agents on Cast; `/roles table` is the text table)
         args = sub = "gui"
     if sub != "edit":
         app.run_worker(lambda: _run_slash_worker(app, "roles", args), thread=True, name="run-slash", group="run-slash", exit_on_error=False)

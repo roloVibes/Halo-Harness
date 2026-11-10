@@ -1,15 +1,15 @@
-"""halo_harness.studio.team_budget_api -- `POST /api/team/budget`, the answer
+"""halo_harness.studio.team_budget_api -- the answer
 to a stage held at its budget line (Halo 3.1.2.0 R2; team/budget.py,
-docs/TEAM.md "Budgets"). studio/team_api.py routes it; the Attention
+docs/TEAM.md "Budgets"). 3.3.16.0 R1: no route reaches it any more (Team's board went; /api/team answers 410); the Attention
 queue's `team_budget` row (fleet/team_attention.py) calls it.
 
-    POST team/budget {stage, action: skip | stop, run?}
+    post_budget(req) {stage, action: skip | stop, run?}
         skip  -> {ok, message, run}   the stage is skipped in this run
-        stop  -> {ok, message, run}   the run stops (as POST team/stop)
+        stop  -> {ok, message, run}   the run stops (team_api.post_stop)
         404 no run / 409 the stage is not held / 422 an action it does not take
 
 Raise is not an action here: the budget lives in the team file, so Raise
-opens it (edit `budget_usd`, then run the stage again: the runner reads
+says where it is (edit `budget_usd`, then run the stage again: the runner reads
 the file each time).
 """
 

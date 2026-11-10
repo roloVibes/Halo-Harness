@@ -24,8 +24,6 @@ import "./styles/shared.css";
 import "./styles/roles.css";
 import "./styles/roles-panels.css";
 import "./styles/disk-note.css";
-import "./styles/team.css";
-import "./styles/team-panels.css";
 import "./styles/coach.css";
 import "./styles/start.css";
 import "./styles/session.css";
@@ -35,6 +33,7 @@ import "./styles/session-live.css";
 import "./styles/session-target.css";
 import "./styles/prompt.css"; // 3.3.11.0 R1: Session's Prompt panel
 import "./styles/roles-live.css"; // 3.3.11.0 R2: Roles Live, New session, the no-terminal line
+import "./styles/agents.css"; // 3.3.16.0 R1: Agents' bar (Cast | Runs | Live), the owns line, a lane's claims
 import "./styles/packs.css";
 import "./styles/manager.css";
 import "./styles/setup.css";

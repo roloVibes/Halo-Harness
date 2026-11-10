@@ -41,8 +41,8 @@ def service_row(c, url, ctx) -> dict:
     registry.invalidate()
     c.go("about:blank")
     c.go(url)
-    c.wait(f"{TABS}.length >= 8", 40)
-    alt(c, 6)  # 3.3.13.0 R2: Packs is the sixth section (Design is a pack now)
+    c.wait(f"{TABS}.length >= 7", 40)  # 3.3.16.0 R1: seven core sections
+    alt(c, 4)  # 3.3.16.0 R1: Packs is the fourth section
     c.wait(f"{CUR}.startsWith('Packs')", 15)
     chip = f"{ROW} [data-testid=pm-service]"
     text = c.wait(f"{_text(chip)}.includes('running since') && {_text(chip)}", 30)

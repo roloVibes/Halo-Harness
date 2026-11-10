@@ -1,6 +1,6 @@
 # Halo Studio
 
-Read this when you use Halo Studio, the browser console where you watch every agent work: the Session dashboard, your lineups in Roles, runs, designs, fleet and team.
+Read this when you use Halo Studio, the browser console where you watch every agent work: the Session dashboard, your lineups and their runs in Agents, designs and the fleet.
 
 `halo studio` opens your lineups and agent bios as an editable graph in the browser. It is the visual front door to the same files the wizard and the CLI edit: a lineup is `~/.halo/teams/<name>.yaml` (or `.halo/teams/` in a project), a bio is `~/.halo/agents/<name>.yaml`, and Studio reads and writes them through the exact functions `halo teams` and `halo agents` use. Nothing is a second source of truth.
 
@@ -12,9 +12,8 @@ your draft and offers **Reload** or **Keep mine**; a file deleted on disk leaves
 
 ```sh
 halo studio                 # starts a local server, opens the browser in the mode you used last
-halo studio --mode roles    # straight into Roles (lineups and bios), --mode design
-halo studio --mode fleet    # 3.0.5.0: every harness and agent, live (also orchestra)
-halo studio --mode team     # 3.0.8.0: the project's team on one board
+halo studio --mode agents   # 3.3.16.0: Agents on Cast (lineups and bios); roles, orchestra and team still land on its views
+halo studio --mode fleet    # 3.0.5.0: every harness and agent, live
 halo studio --session       # 3.1.4.0: the Session dashboard on this harness's newest live session (or --session <id>)
 halo studio --mode setup    # 3.3.0.0: Setup, the wizard's blocks as forms; the door: `halo init` opens it (STUDIO-setup.md)
 halo studio --no-open       # prints the URL only (SSH, a headless box)
@@ -26,9 +25,9 @@ halo studio --stop          # stop the Studio running in the background
 move on the session's own `message_end` and `status` frames, the moment the
 terminal's status bar moves (3.1.8.0); the frames the tab reads and the
 delays that remain, each with its number, are in
-[The live feed](STUDIO-feed.md#the-live-feed). **Studio without a terminal (3.3.11.0 R2):** Session's **New session** (the Start view, or the Prompt panel with no session here) starts a whole session from Studio -- pick the model and the folder; Studio's server runs `halo --headless` as a detached child, the terminal's own loop and session log with its control socket as the only door, so you type into it and answer its asks in the Prompt panel, closing the tab never ends it and **End session** does ([A session without a terminal](STUDIO-session.md#a-session-without-a-terminal-33110-r2)). And **Roles -> Live** (`L` on Roles) draws the session's real agent tree on the whole page, every agent Auto spawns 1:1 with the terminal's `/agents live`, the Session Map its thumbnail ([Roles](STUDIO-sections.md#roles)).
+[The live feed](STUDIO-feed.md#the-live-feed). **Studio without a terminal (3.3.11.0 R2):** Session's **New session** (the Start view, or the Prompt panel with no session here) starts a whole session from Studio -- pick the model and the folder; Studio's server runs `halo --headless` as a detached child, the terminal's own loop and session log with its control socket as the only door, so you type into it and answer its asks in the Prompt panel, closing the tab never ends it and **End session** does ([A session without a terminal](STUDIO-session.md#a-session-without-a-terminal-33110-r2)). And **Agents -> Live** (`L` in Agents) draws the session's real agent tree on the whole page, every agent Auto spawns 1:1 with the terminal's `/agents live`, the Session Map its thumbnail ([Agents](STUDIO-sections.md#agents)); a live Orchestra run's lanes hang under its lead there ([STUDIO-agents.md](STUDIO-agents.md#live-draws-a-run-too)).
 
-One Studio per machine (3.0.2.0): while it serves, `~/.halo/studio.json` holds its pid, port and token (private), and a second `halo studio` reuses that instance (prints its URL, opens the browser) instead of starting another. `halo init` (3.3.0.0: Setup is the door) and the wizard's **Open Studio (Roles)** button start it detached, so it outlives them; `halo studio --stop` ends it. `halo_harness/studio/launch.py` is the small module behind both.
+One Studio per machine (3.0.2.0): while it serves, `~/.halo/studio.json` holds its pid, port and token (private), and a second `halo studio` reuses that instance (prints its URL, opens the browser) instead of starting another. `halo init` (3.3.0.0: Setup is the door) and the wizard's **Open Studio (Roles)** button (Agents since 3.3.16.0) start it detached, so it outlives them; `halo studio --stop` ends it. `halo_harness/studio/launch.py` is the small module behind both.
 Since 3.2.2.0 Studio ends with the halo session that quits: a quit
 (`/quit`, Ctrl+C twice, Ctrl+D, Ctrl+Q) stops the Studio in `studio.json`
 too (its shutdown route, then the signal) and says so in its last line
@@ -36,12 +35,12 @@ too (its shutdown route, then the signal) and says so in its last line
 still open (the last one to quit ends it). `halo update` stops it before
 installing; `halo studio` afterwards starts the new version.
 
-Inside the TUI, `/roles` opens Studio straight into that mode from the live session; bare `/studio` (3.1.4.0) opens the **Session** section (`Alt+1`) on the session you are in, `/studio [session|roles|orchestra|fleet|team|packs|setup|settings|local]` opens that section (3.3.13.0 R2: or a running pack's own, `/studio <pack>--<section>`; the design pack's `/design`), and `/studio url` prints the URL without opening a browser.
-The sections' keys are `Alt+1`..`Alt+9`: Session, Team, Roles, Fleet, Orchestra, Packs, Setup, Settings, Local ([STUDIO-local.md](STUDIO-local.md): the machines that serve your local models, `halo local`); the first pack section takes `Alt+0` (3.3.13.0 R2: Design is the design pack's section, [its README](../halo_harness/templates/packs/design/README.md)). **Quiet by default (3.3.2.0):** nothing opens on its own when you open a section (the **?** in the header and each panel's help are one click away), the sections are a 56 px icon rail (its chevron expands it; it holds the sections only), a section's panels are the header's **+** and its layout the header's **...**, the inspector stays closed until something opens it, `F` is **Focus**, each section opens on one thing (its main panel filling the stage, the others strips at the foot) and the header's rows button sets the **density** ([the shell](STUDIO-shell.md#the-shell-3030)). A model running in a
+Inside the TUI, `/roles` opens Studio straight into Agents on Cast from the live session (3.3.16.0); bare `/studio` (3.1.4.0) opens the **Session** section (`Alt+1`) on the session you are in, `/studio [session|agents|fleet|packs|setup|settings|local]` opens that section (`roles`, `orchestra` and `team` land on Agents' views and say the new door) (3.3.13.0 R2: or a running pack's own, `/studio <pack>--<section>`; the design pack's `/design`), and `/studio url` prints the URL without opening a browser.
+The sections' keys are `Alt+1`..`Alt+7`: Session, Agents, Fleet, Packs, Setup, Settings, Local ([STUDIO-agents.md](STUDIO-agents.md): Team, Roles and Orchestra in one since 3.3.16.0; [STUDIO-local.md](STUDIO-local.md): the machines that serve your local models, `halo local`); the pack's own sections take `Alt+8`, `Alt+9` and `Alt+0` (3.3.13.0 R2: Design is the design pack's section, [its README](../halo_harness/templates/packs/design/README.md)). **Quiet by default (3.3.2.0):** nothing opens on its own when you open a section (the **?** in the header and each panel's help are one click away), the sections are a 56 px icon rail (its chevron expands it; it holds the sections only), a section's panels are the header's **+** and its layout the header's **...**, the inspector stays closed until something opens it, `F` is **Focus**, each section opens on one thing (its main panel filling the stage, the others strips at the foot) and the header's rows button sets the **density** ([the shell](STUDIO-shell.md#the-shell-3030)). A model running in a
 Halo session knows this too: the system prompt names Studio, its modes
-and the command, so "open the GUI for roles" runs `halo studio --mode roles`.
+and the command, so "open the GUI for roles" runs `halo studio --mode agents`.
 
-**Settings (3.3.3.0, `Alt+8`)** is every key of `~/.halo/config.json` in one place: a page per group
+**Settings (3.3.3.0, `Alt+6`)** is every key of `~/.halo/config.json` in one place: a page per group
 (General ... Local), each key a row with its help line, its value against its default, Reset to default
 and the exact `halo config set` line, a change saved at once with when it takes effect, a search across
 every group and a palette entry per row. The rows come from one catalog (`halo_harness/settings_catalog.py`)
@@ -58,12 +57,13 @@ This page is the entry point; the content lives in the parts below, one per task
 
 | Part | Read it when | What is in it |
 |---|---|---|
-| [Studio: the shell](STUDIO-shell.md) | you find your way around Studio's header, sections, panels and Start views, or open it on a bio, a lineup or the Team | The shell (3.0.3.0) · Opening Studio on a bio, a lineup or the Team (`halo studio --edit`) · The guided first run (3.1.1.0) |
+| [Studio: the shell](STUDIO-shell.md) | you find your way around Studio's header, sections, panels and Start views, or open it on a bio, a lineup or the team's door | The shell (3.0.3.0) · Opening Studio on a bio, a lineup or the Team (`halo studio --edit`) · The guided first run (3.1.1.0) |
 | [Studio: steering and exporting a session](STUDIO-session.md) | you steer an agent from Session's Live column and want to know which agent and which call it reaches, or save a session as one Markdown trace file, ask why an answer came out as it did, type into it, or run one with no terminal | The steer's target · Follow, and the view holding still · Keys · Export: the session as a trace file · The Prompt panel (3.3.11.0 R1) · A session without a terminal (3.3.11.0 R2) · Why this answer? (3.3.6.0 R4) · Files |
-| [Studio: how each section works](STUDIO-sections.md), and [the live feed](STUDIO-feed.md) | you want the one-screen story of a section (Session, Team, Roles, Fleet, Orchestra, Packs, Setup, Settings, Local), or how its pages get their live frames | How each section works · The live feed |
-| [Studio: the Orchestra console](STUDIO-orchestra.md) | you run an Orchestra goal from Studio: the run console, the plan canvas and the coach | Orchestra: the run console |
+| [Studio: how each section works](STUDIO-sections.md), and [the live feed](STUDIO-feed.md) | you want the one-screen story of a section (Session, Agents, Fleet, Packs, Setup, Settings, Local), or how its pages get their live frames | How each section works · The live feed |
+| [Studio: Agents](STUDIO-agents.md) | you work with your agents in Studio's Agents section: the lineup and its bios (Cast), a goal they run (Runs), what runs now (Live), and the doors the old Team, Roles and Orchestra sections left | One section, three views (3.3.16.0 R1) · Cast: the lineup and its bios |
+| [Studio: Agents -> Runs (the Orchestra console)](STUDIO-orchestra.md) | you run an Orchestra goal from Studio's Agents -> Runs: the run console, the plan canvas, the owns line and the coach | Orchestra: the run console |
 | [Studio: Fleet](STUDIO-fleet.md) | you watch or steer every harness and agent from Studio's Fleet section | Fleet: every harness, every agent · How this works: Attention · How this works: Costs and caps · How this works: Conflicts and project rooms · How this works: Hand-offs · How this works: Recordings · How this works: Replay · How this works: Who can do what · How this works: Missions · How this works: While you were away · Keys: hop around · Live Roles: the lineup lights up |
-| [Studio: Team and Roles](STUDIO-team-roles.md) | you edit a team board or a lineup on the Roles canvas | Team: people, blocks and stages on one board · What you see (Roles) |
+| [Studio: Team and Roles](STUDIO-team-roles.md) | a link sent you to Studio's Team or Roles section: since 3.3.16.0 both are Agents (STUDIO-agents.md) | Team: people, blocks and stages on one board · What you see (Roles) |
 | [The design pack](../halo_harness/templates/packs/design/README.md) (not a part: a pack Halo ships, 3.3.13.0 R2) | you make prototypes, pages or decks with the design pack's Design section on your own creative apps | its docs/DESIGN.md and docs/STUDIO-design.md (the Design section and its routes) |
 | [Studio: the Pack Manager](STUDIO-packs.md) | you install, grant, enable, set up, update or remove packs from Studio's Packs section | Packs: the Pack Manager (3.2.0.0 R6) |
 | [Studio: the Local section](STUDIO-local.md) | you watch the machines that serve your local models and what they serve: the live resources and traffic, every host with its controls, every model with its fit | Local: the machines and the models (3.3.5.0) · Resources · Hosts · Models · The pages still to come · Local's five ideas · The routes |

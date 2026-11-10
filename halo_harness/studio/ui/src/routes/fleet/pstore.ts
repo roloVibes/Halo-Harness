@@ -5,6 +5,7 @@
 // health, conflicts and project rooms, the digest.
 // The activity log and the timeline lanes are kept here from the feed
 // (pload.ts); `dialog` is the one Fleet dialog open (PanelDialogs.tsx).
+import type { AgentsView } from "../../lib/agentsDoor";
 import { createStore, useStore } from "../../lib/store";
 import type { AgentKey } from "./types";
 
@@ -29,7 +30,7 @@ export type AttnRow = {
   label?: string;
 };
 
-export type OpenTarget = { section: string; panel?: string; harness?: string; session_id?: string; agent_id?: string; a?: string; b?: string; file?: string; mission?: string; part?: string | null; run?: string; stage?: string };
+export type OpenTarget = { section: string; view?: AgentsView; panel?: string; harness?: string; session_id?: string; agent_id?: string; a?: string; b?: string; file?: string; mission?: string; part?: string | null; run?: string; stage?: string };
 
 export type CapKey = "per_harness_usd_per_day" | "per_project_usd_per_day" | "fleet_usd_per_day";
 export type Reached = { scope: string; key: string; label: string; spent: number; cap: number; sessions: [string, string][]; lifted: boolean };

@@ -130,6 +130,28 @@ def test_studio_section_opens_that_section(ctx: Ctx):
 
 
 @test
+def test_the_old_section_words_are_doors_to_agents(ctx: Ctx):
+    """3.3.16.0 R1: `/studio roles|orchestra|team` open Agents on Cast, Runs, Runs (the page lands the word) and say
+    the new door once; bare `/roles` is still `/roles gui` (the builtin: Agents on Cast, its door line);
+    `/orchestra` keeps its terminal panel."""
+    for word, view in (("roles", "Cast"), ("orchestra", "Runs"), ("team", "Runs")):
+        app = _App()
+        with _opener("focused") as targets:
+            _slash(app, "studio", word)
+        doors = [line for line in app.lines if f"{word.title()} is Agents -> {view} now" in line]
+        ctx.check(f"/studio {word}: the {word} door, Agents ({view}), the new door once, got {app.lines}",
+                  targets and targets[0].mode == word and len(doors) == 1
+                  and any(line.startswith(f"Opened Agents ({view}) in the Studio page") and f"?mode={word}#t=" in line for line in app.lines))
+    app = _App()
+    from halo_harness.tui import slash
+    with _stub(slash, "_run_slash_worker", lambda a, name, args: a.controller.slashes.append((name, args))):
+        _slash(app, "roles", "")
+    ctx.check(f"bare /roles is /roles gui (Agents on Cast), got {app.controller.slashes}", app.controller.slashes == [("roles", "gui")])
+    src = Path(slash.__file__).read_text(encoding="utf-8")
+    ctx.check("/orchestra keeps its terminal panel", '"orchestra": _handle_orchestra' in src and "OrchestraPanel" in src)
+
+
+@test
 def test_studio_url_stays_the_builtin(ctx: Ctx):
     app = _App()
     with _opener() as targets:

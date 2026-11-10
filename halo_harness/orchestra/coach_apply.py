@@ -90,7 +90,7 @@ def _lineup(a: dict, cwd, state_dir) -> dict:
         from halo_harness.theme import get_config_value
         name = str(get_config_value("team", "") or "")
     if not name:
-        raise ApplyError("the run names no lineup and none is active: give the role its model in Studio's Roles")
+        raise ApplyError("the run names no lineup and none is active: give the role its model in Studio's Agents (Cast)")
     raw = T.load_team_template_raw(name, cwd=cwd, state_dir=state_dir)
     if raw is None:
         raise ApplyError(f"no lineup named {name!r} here")
@@ -103,13 +103,13 @@ def _lineup(a: dict, cwd, state_dir) -> dict:
             bio = field[len("agents."):-len(".use_for")]
             entry = next((e for e in agents if e.get("agent") == bio), None)
             if entry is None:
-                raise ApplyError(f"lineup {name} has no entry for bio {bio}: add it in Studio's Roles")
+                raise ApplyError(f"lineup {name} has no entry for bio {bio}: add it in Studio's Agents (Cast)")
             entry["use_for"] = list(value or [])
             continue
         role = field.replace("roles.", "", 1)
         entry = next((e for e in agents if role in (e.get("as"), e.get("role"))), None)
         if entry is None:
-            raise ApplyError(f"lineup {name} has no {role} role: give one the model {value} in Studio's Roles")
+            raise ApplyError(f"lineup {name} has no {role} role: give one the model {value} in Studio's Agents (Cast)")
         set_path(entry, "models.preference", value)
     problems = T.validate_team_template(raw, name=name, cwd=cwd, state_dir=state_dir)
     if problems:

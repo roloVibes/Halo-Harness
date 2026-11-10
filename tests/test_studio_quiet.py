@@ -3,7 +3,7 @@ are too cluttered and the pop up is annoying when you open a tab and the left co
 Headless Chrome through tests/helpers/studio_quiet.py (skipped without one), over a seeded scratch home and a
 fresh one; no provider request, no model call:
 
-1. nothing opens on any tab: each of the nine core sections, loaded on its own (no `tour=off`) and reached
+1. nothing opens on any tab: each of the seven core sections, loaded on its own (no `tour=off`) and reached
    by Alt+1..9, shows no section help, no dialog, no Start here after 2 s, on the seeded home and the fresh one;
 2. Start here only on the fresh home's first section; "Set up this box" closes it for this browser (not on the
    next section, not on a reload); a browser without the key gets it once more, "Just look around" closes it;
@@ -36,7 +36,7 @@ test, TESTS = new_registry()
 REPO = Path(__file__).resolve().parent.parent
 UI = REPO / "halo_harness" / "studio" / "ui" / "src"
 _RUN: dict = {}
-SECTIONS = ["session", "team", "roles", "fleet", "orchestra", "packs", "setup", "settings", "local"]  # 3.3.5.0 R1: + Local; 3.3.13.0 R2: - Design (a pack's)
+SECTIONS = ["session", "agents", "fleet", "packs", "setup", "settings", "local"]  # 3.3.16.0 R1: Agents took in Team, Roles, Orchestra  # 3.3.5.0 R1: + Local; 3.3.13.0 R2: - Design (a pack's)
 NOTHING = [0, 0, 0]  # section help, dialogs, Start here
 
 
@@ -86,16 +86,16 @@ def test_the_icon_rail(ctx: Ctx):
     got = _got(ctx, "seeded")
     ctx.check(f"icons by default, <= 64 px, got {got.get('rail_default')} {got.get('rail_icons_w')}",
               got.get("rail_default") == "icons" and 0 < (got.get("rail_icons_w") or 0) <= 64)
-    titles = ["Session", "Team", "Roles", "Fleet", "Orchestra", "Packs", "Setup", "Settings", "Local"]
+    titles = ["Session", "Agents", "Fleet", "Packs", "Setup", "Settings", "Local"]  # 3.3.16.0 R1
     ctx.check(f"one rail-item per core section, title and name the section's, got {got.get('rail_items')}",
               got.get("rail_items") == [[s, t, t, True] for s, t in zip(SECTIONS, titles)])
-    ctx.check(f"the current one lit, got {got.get('rail_on')}", got.get("rail_on") == ["roles"])
-    ctx.check(f"no label while icons, all nine expanded, got {got.get('rail_labels_shown_icons')} / {got.get('rail_labels_shown_open')}",
-              got.get("rail_labels_shown_icons") == 0 and got.get("rail_labels_shown_open") == 9)
+    ctx.check(f"the current one lit, got {got.get('rail_on')}", got.get("rail_on") == ["agents"])  # 3.3.16.0 R1: Roles is Agents
+    ctx.check(f"no label while icons, all seven expanded, got {got.get('rail_labels_shown_icons')} / {got.get('rail_labels_shown_open')}",
+              got.get("rail_labels_shown_icons") == 0 and got.get("rail_labels_shown_open") == 7)
     ctx.check(f"no printed shortcut in the rail, got {got.get('rail_kbd')} / {got.get('rail_kbd_open')}",
               got.get("rail_kbd") == [0, False] and got.get("rail_kbd_open") == [0, False])
     ctx.check(f"no tab strip in the header, the section's title there, got {got.get('header_tabs')} {got.get('header_title')!r}",
-              got.get("header_tabs") == 0 and str(got.get("header_title")).startswith("Roles"))
+              got.get("header_tabs") == 0 and str(got.get("header_title")).startswith("Agents"))
     ctx.check(f"the chevron expands to <= 200 px, got {got.get('rail_open')} {got.get('rail_open_w')}",
               got.get("rail_open") == "open" and 64 < (got.get("rail_open_w") or 0) <= 200)
     sections_only = ["rail-sections,rail-toggle", 0, 0]
@@ -103,7 +103,7 @@ def test_the_icon_rail(ctx: Ctx):
               got.get("panels_icons") == sections_only and got.get("panels_open") == sections_only)
     ctx.check(f"remembered across a reload both ways, got {got.get('rail_after_reload')} / {got.get('rail_back')}",
               got.get("rail_after_reload") == ["open", 176] and got.get("rail_back") == ["icons", 52, "icons"])
-    ctx.check(f"Alt+4 and a click still switch, got {got.get('alt4')} {got.get('click_team')}", got.get("alt4") == "fleet" and got.get("click_team") == "team")
+    ctx.check(f"Alt+4 and a click still switch, got {got.get('alt4')} {got.get('click_team')}", got.get("alt4") == "fleet" and got.get("click_team") == "agents")
 
 
 @test

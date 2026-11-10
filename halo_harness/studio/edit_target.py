@@ -3,14 +3,14 @@
 Studio is the one editor of bios and lineups. An edit target names what to
 open there:
 
-    bio:<name>      Roles, the Bios panel open on that bio's form
-    lineup:<name>   Roles, that lineup open with the Inspector on its Lineup tab
-    team            Team, the Team section
+    bio:<name>      Agents on Cast, the Bios panel open on that bio's form
+    lineup:<name>   Agents on Cast, that lineup open with the Inspector on its Lineup tab
+    team            Agents on Runs (3.3.16.0 R1: Team's board went; the page says so once)
 
-It rides in the page URL as `?mode=<roles|team>&edit=<target>` (the token
-stays in the fragment):
+It rides in the page URL as `?mode=agents&view=<cast|runs>&edit=<target>` (the token
+stays in the fragment; 3.3.16.0 R1: `?mode=roles|team&edit=` before, still landed by the page):
 
-    http://127.0.0.1:<port>/?mode=roles&edit=bio:coder#t=<token>
+    http://127.0.0.1:<port>/?mode=agents&view=cast&edit=bio:coder#t=<token>
 
 `resolve` also takes a bare name (the TUI's `/edit coder`): a bio of that
 name, else a lineup of that name.
@@ -39,16 +39,21 @@ class EditTarget:
 
     @property
     def mode(self) -> str:
-        """The Studio section the target opens in."""
-        return "team" if self.kind == "team" else "roles"
+        """The Studio section the target opens in (3.3.16.0 R1: Agents; roles and team before)."""
+        return "agents"
+
+    @property
+    def view(self) -> str:
+        """Agents' view: Runs for the team, Cast for a bio or a lineup."""
+        return "runs" if self.kind == "team" else "cast"
 
     @property
     def text(self) -> str:
         return self.kind if self.kind == "team" else f"{self.kind}:{self.name}"
 
     def query(self) -> str:
-        """`?mode=roles&edit=bio:coder`: what goes in front of the URL's fragment."""
-        return f"?mode={self.mode}&edit={quote(self.text, safe=':')}"
+        """`?mode=agents&view=cast&edit=bio:coder`: what goes in front of the URL's fragment."""
+        return f"?mode={self.mode}&view={self.view}&edit={quote(self.text, safe=':')}"
 
 
 def _valid_name(kind: str, name: str) -> bool:

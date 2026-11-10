@@ -2,8 +2,7 @@
 tests/test_studio_model_select.py (Halo 3.1.4.0 R4), real clicks in headless
 Chrome through the driver base:
 
-    python -m tests.helpers.studio_model_select forms   Orchestra's goal form and Design
-    python -m tests.helpers.studio_model_select team    the Team stage face
+    python -m tests.helpers.studio_model_select forms   Orchestra's goal form (Agents -> Runs) and Design
 
 `forms`: a fresh home with the shipped lineups, a catalog of two fake models
 (OpenRouter's cache shape), the role table's `main` on one of them and the
@@ -12,9 +11,7 @@ opening the "who plays the parts" disclosure, its first option "the
 lineup's (<the lead's model>)"; the design pack's Projects panel (3.3.13.0 R2) shows
 the open project's model and changing it saves the project (its `GET projects` route);
 New project's dialog creates a project on the picked model.
-`team`: tests/helpers/studio_team_rig.py's team (no run): the `draft` stage
-says what it runs on (its lead member's card in the `standard` lineup) and
-its link opens that card in Roles with the MODEL strip's select focused.
+(3.3.16.0 R1: `team`, the Team stage face, went with Team's board.)
 The last stdout line is the JSON of what it saw (exit 2: no Chrome)."""
 from __future__ import annotations
 
@@ -78,26 +75,6 @@ def forms(c, url: str, state: Path) -> dict:
     return out
 
 
-def team(c, rig) -> dict:
-    out: dict = {}
-    face = "document.querySelector('[data-testid=\"team-stage-model\"]')"
-    c.go(rig.url("team"))
-    c.wait("document.querySelectorAll('[data-testid=\"team-stage\"]').length >= 3", 30)
-    shape = "document.querySelector('[data-testid=\"team-stage\"][data-stage=\"draft\"] .tm-stage-shape')"
-    c.js(f"{shape}.scrollIntoView({{block: 'center', inline: 'center'}}); 1")
-    time.sleep(0.2)
-    c.click_on(shape)
-    out["source"] = c.wait(f"{face}?.dataset.source", 15)
-    out["ref"] = c.js(f"{face}.dataset.ref")
-    out["text"] = c.js(f"{face}.textContent")
-    status, want = rig.api("GET", "models/resolve?role=main&lineup=standard")
-    out["want"] = want if status == 200 else {"status": status}
-    c.click_on(f"{face}.querySelector('[data-testid=\"team-stage-model-link\"]')")
-    out["roles_card"] = c.wait(f"document.activeElement === {STRIP}?.querySelector('[data-testid=\"model-select\"]') && {STRIP}.dataset.card", 20)
-    out["roles_lineup"] = c.js("document.querySelector('[data-testid=\"roles-canvas\"]')?.dataset.lineup")
-    return out
-
-
 class FormsDriver(Driver):
     no_chrome = {"skip": "no Chrome found"}
 
@@ -124,19 +101,9 @@ class FormsDriver(Driver):
             shutil.rmtree(state.parent, ignore_errors=True)
 
 
-class TeamDriver(Driver):
-    no_chrome = {"skip": "no Chrome found"}
-
-    @contextmanager
-    def session(self, c):
-        from tests.helpers.studio_team_rig import StudioTeamRig
-        with StudioTeamRig(live=False) as rig:
-            yield ((team, (c, rig)),)
-
-
 if __name__ == "__main__":
     kind = sys.argv[1:2]
-    if kind not in (["forms"], ["team"]):
-        print("usage: python -m tests.helpers.studio_model_select forms|team", file=sys.stderr)
+    if kind != ["forms"]:
+        print("usage: python -m tests.helpers.studio_model_select forms", file=sys.stderr)
         sys.exit(2)
-    sys.exit((FormsDriver if kind == ["forms"] else TeamDriver)(sys.argv[2:]).main())
+    sys.exit(FormsDriver(sys.argv[2:]).main())

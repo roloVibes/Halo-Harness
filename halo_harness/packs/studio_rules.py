@@ -40,7 +40,7 @@ from pathlib import Path
 
 from halo_harness.packs import names as N
 
-CORE_SECTIONS = ("session", "team", "roles", "fleet", "orchestra")  # 3.3.13.0 R2: design is the design pack's section now
+CORE_SECTIONS = ("session", "agents", "fleet", "team", "roles", "orchestra")  # 3.3.13.0 R2: design is the design pack's section now; 3.3.16.0 R1: agents, and the three words it took in still take a panel (Cast: agents, roles; Runs: orchestra, team)
 KINDS = ("markdown", "table", "form", "links", "events", "bundle", "artifact")  # artifact: 3.2.0.0 R5
 NEED_SOURCE = ("markdown", "table", "bundle", "artifact")
 SUFFIXES = {"markdown": (".md", ".markdown", ".txt"), "table": (".json",), "bundle": (".js", ".mjs"), "artifact": (".json",)}

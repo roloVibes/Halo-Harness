@@ -37,7 +37,7 @@ function Grant({ p, perm }: { p: PackRow; perm: Permission }) {
 
 function openRoles(name: string): void {
   if (name) void applyEdit({ kind: "lineup", name, text: `lineup:${name}` });
-  else goSection("roles");
+  else goSection("agents", "cast");
 }
 
 function Links({ p }: { p: PackRow }) {

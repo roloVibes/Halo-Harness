@@ -187,13 +187,13 @@ function Toolbar() {
   );
 }
 
-/** 3.3.11.0 R2: the thumbnail's expand: Roles, its Live canvas, on the session Session shows. */
+/** 3.3.11.0 R2: the thumbnail's expand: Roles, its Live canvas, on the session Session shows (3.3.16.0 R1: Agents' Live). */
 function ExpandToLive() {
   const sid = useFleet((s) => chosenSession(s)?.session_id || "");
-  const go = () => openRolesLive(sid, () => (goSection("roles"), startRoles()));
+  const go = () => openRolesLive(sid, () => (goSection("agents", "live"), startRoles()));
   return (
-    <button className="og-link mono fm-expand" onClick={go} disabled={!sid} title="The same tree, full size: Roles, Live (and back: Session in the rail)"
-            data-testid="session-map-expand">Open in Roles Live</button>
+    <button className="og-link mono fm-expand" onClick={go} disabled={!sid} title="The same tree, full size: Agents, Live (and back: Session in the rail)"
+            data-testid="session-map-expand">Open in Agents Live</button>
   );
 }
 

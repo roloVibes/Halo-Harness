@@ -54,8 +54,8 @@ and `roles.enabled`):
    nothing (3.1.9.0).
 2. **The command line** -- `halo teams use <name>` points the active
    lineup at one; `halo roles on|off` flips the switch.
-3. **Studio** -- `halo studio --mode roles` (or `/roles` in a session):
-   the Roles section (3.0.7.0 R2) shows the lineup as cards in tier boxes;
+3. **Studio** -- `halo studio --mode agents` (or `/roles` in a session):
+   Agents' Cast (the Roles section, 3.0.7.0 R2; Agents since 3.3.16.0) shows the lineup as cards in tier boxes;
    New, Duplicate, Delete and Apply a lineup, edit a card's slot and every
    section, drag a card into another tier, edit bios with the model picker
    table and **Test this model**, and read every problem with its fix as you

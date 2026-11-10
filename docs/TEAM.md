@@ -5,8 +5,8 @@ Read this when you set up a team file: who works on a repo, where their work lan
 A **team** is one file that says who works on a project, where their work
 lands and in which order: the brief every agent reads first, the members,
 the blocks (a file, a folder or a git tree, each with its own claim
-ledger) and the workflow's stages. `halo team` runs it; Studio's Team routes
-(`/api/team/...`) show it live.
+ledger) and the workflow's stages. `halo team` runs it (3.3.16.0 R1: Studio's Team board went; who owns what is a
+run plan's detail in Agents -> Runs, and a stage at its gate is a row of Fleet's Attention).
 
 ## Where a team, a lineup, an Orchestra run and a mission sit
 
@@ -233,15 +233,14 @@ the preflight. Full flag list: [COMMANDS-studio.md](COMMANDS-studio.md#halo-team
 
 ## Studio
 
-`halo_harness/studio/team_api.py`: `GET team`, `POST team/validate`,
-`GET team/board`, `POST team/run {stage, force}`, `POST team/answer {stage,
-action, text}`, `POST team/stop`, `GET team/blocks`,
-`GET team/blocks/<id>/changes?since=`, `GET team/events?since=`, and
-`POST team/init` (3.0.8.0 R2: what `halo team init` writes; 409 when a file
-exists). Studio runs the run on a thread of its own (with the block watchers
-armed) and sends every stage, gate, claim and change line on `/api/events`
-as a `team` frame `{action: stage|gate|change|claim, run, kind, stage, text,
-ts, data, row?}`.
+The board moved to Agents -> Runs (3.3.16.0 R1); `halo team` stays. Studio's Team section went with Team, Roles and
+Orchestra folding into one Agents section ([STUDIO-agents.md](STUDIO-agents.md#what-teams-board-became)): who owns what
+is a run plan's detail in Runs (each lane's owns line, a lane's claims), and the `/api/team/...` routes the board read
+and wrote answer 410 with "Team's board moved into Agents -> Runs (a run's plan shows who owns what); halo team runs the
+team file". What stays in Studio: a stage at its gate is a `team_gate` row of Fleet's Attention queue (`A` accept, `R`
+redo, `S` stop, `O` open Agents -> Runs; `halo_harness/studio/team_api.py` `post_answer`, Studio driving the run on
+when nothing else does), a stage held at its budget line a `team_budget` row (raise says where the team file is, skip,
+stop), and `GET team/coach` the coach's card of a team run.
 
 ## The coach
 
@@ -260,16 +259,7 @@ are the shared rules' (`coordination-<stage>-loops`,
 
 ## In Studio
 
-`halo studio --mode team` (or `Alt+2`, `/studio team`) opens the **Team**
-section: with no team file a Start view whose **Make my first team** writes
-the template; then the **Board** (members as columns, stages as boxes in
-their members' columns, blocks in a band underneath with a claim badge,
-the `stage_done:` / reads / writes / `block_change:` edges, the run bar with
-Run next, Stop and Validate), the **Inspector** (a stage's row, Run and its
-gate card with Accept, Redo and Stop; a block's holders and changes; a
-member's lineup, opening in Roles) and the **Change feed** (the run's event
-lines with kind chips). A stage at its gate is also a `team_gate` row in
-Fleet's Attention queue (`A` accept, `R` redo, `S` stop, `O` open). Details:
-[STUDIO-team-roles.md](STUDIO-team-roles.md#team-people-blocks-and-stages-on-one-board).
-
-![Team in Studio: draft done, review at its gate, notes held by a hand edit](media/studio-team.png)
+The board moved to Agents -> Runs (3.3.16.0 R1); `halo team` stays. `halo studio --mode team` (and `/studio team`)
+opens Agents on Runs with the line "Team's board is gone; a run's plan shows who owns what" the first time; a team run
+is driven from the terminal (`halo team run`, `halo team status`, `halo team answer`), and its gates wait in Fleet's
+Attention queue as above. Details: [STUDIO-team-roles.md](STUDIO-team-roles.md#team-people-blocks-and-stages-on-one-board).

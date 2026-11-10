@@ -63,7 +63,10 @@ this list against the tree.
   `studio/orchestra_model.py`, `studio/orchestra_live.py`
 - the supervisor's morning line (3.1.8.0 R1): `studio/supervise_api.py`
   (`GET /api/supervise/summary`, the Session landing's "N done, M waiting, $X")
-- Team: `studio/team_api.py`, `studio/team_init_api.py`, `studio/team_live.py`,
+- Agents (3.3.16.0 R1: Team, Roles and Orchestra in one section): `studio/agents_door.py` (the old section words as
+  doors to Agents' Cast, Runs and Live, and the line each prints once)
+- Team: `studio/team_api.py` (3.3.16.0 R1: the board's routes answer 410; the gate answer the Fleet attention row
+  uses stays), `studio/team_live.py`,
   `studio/team_budget_api.py` (3.1.2.0 R2: the answer to a stage held at its budget line)
 - Fleet: `studio/fleet_api.py` (agent commands on a live session),
   `studio/fleet_hub_api.py` (the fleet routes and their dispatch),

@@ -29,8 +29,8 @@ function editTitle(s: Suggestion): string {
   const a = s.apply;
   if (!a) return "";
   const value = Array.isArray(a.value) ? a.value.join(", ") : String(a.value);
-  if (a.target === "bio") return `Opens bio ${a.name} in Roles with ${a.field} = ${value} filled in; Save there keeps it`;
-  if (a.target === "lineup") return `Opens the Lineup tab in Roles: ${a.field} = ${value}`;
+  if (a.target === "bio") return `Opens bio ${a.name} in Agents (Cast) with ${a.field} = ${value} filled in; Save there keeps it`;
+  if (a.target === "lineup") return `Opens the Lineup tab in Agents (Cast): ${a.field} = ${value}`;
   return `Opens the plan editor on this run with ${a.field} = ${value} staged`;
 }
 

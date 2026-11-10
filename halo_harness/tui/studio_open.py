@@ -105,6 +105,9 @@ def open_section(host, word: str = "", *, cwd=None, state_dir=None, on_line: Opt
     if target is None:
         say(why)
         return False
+    from halo_harness.studio.agents_door import door_line  # 3.3.16.0 R1: roles, orchestra, team: the new door, once
+    if door_line(word):
+        say(door_line(word))
     _open_on_worker(host, target, cwd=cwd, state_dir=state_dir, say=say, cli=target.cli)
     return True
 

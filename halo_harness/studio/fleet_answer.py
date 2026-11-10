@@ -77,7 +77,7 @@ def open_target(row: dict) -> dict:
         from halo_harness.fleet.pack_attention import open_target as pack_target
         return pack_target(row)
     if kind == "orchestra_gate":
-        return {"section": "orchestra", "run": t.get("run")}
+        return {"section": "agents", "view": "runs", "run": t.get("run")}  # 3.3.16.0 R1: Orchestra is Agents -> Runs
     if kind in ("team_gate", "team_budget"):  # 3.0.8.0 R2, 3.1.2.0 R2
         from halo_harness.fleet.team_attention import open_target as team_target
         return team_target(row)

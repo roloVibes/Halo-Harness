@@ -8,6 +8,8 @@
 // shows its base (LaneEdges.tsx). 3.1.2.0 R2: a lane whose upstream the gate
 // sent back shows STALE until it is re-based, then the re-base line.
 // 3.1.8.0 R5: a lane that declared isolation, secrets or a tool list shows its lines under its title.
+// 3.3.16.0 R1 (Agents -> Runs): each lane says what it owns (the claim ledger's keys, routes/agents/runs/Owns.tsx);
+// the focused lane lists its ledger rows (key, holder, state) under it.
 import { useEffect, useRef } from "react";
 import type { MotionState } from "../../lib/motion";
 import { Metric, NoRun } from "./bits";
@@ -15,6 +17,7 @@ import { elapsed, when } from "./format";
 import { counters, focusLane, LANE_LABEL, laneColor, laneMotion, liveNow, setOpt, useOrch } from "./store";
 import { BaseLine, EdgeArcs, EdgeChips, laneEdges } from "./LaneEdges";
 import type { Lane } from "./types";
+import { LaneClaims, OwnsLine, ownsOf } from "../agents/runs/Owns";
 
 function span(lanes: Lane[], created: number, now: number): [number, number] {
   let end = now || created + 1;
@@ -86,6 +89,7 @@ export function LanesDetail() {
               <span className="og-lane-title" title={l.claims.join(", ")}>
                 {l.title || l.claims.join(", ")}
               </span>
+              <OwnsLine keys={ownsOf(l, data.claims)} testid="lane-owns" />
               <EdgeChips lane={l} edges={edges} />
               {!!l.opt_ins?.length && (
                 <span className="og-optins mono muted" data-testid="lane-optins" title={l.opt_ins.join("; ")}>{l.opt_ins.join(" · ")}</span>
@@ -106,6 +110,11 @@ export function LanesDetail() {
             {l.history.length > 0 && <span className="og-lane-when">{when(mode, l.history[l.history.length - 1].elapsed_s, l.history[l.history.length - 1].ts)}</span>}
             <BaseLine lane={l} />
           </div>
+          {focus === l.lane && (
+            <div className="ag-lane-claims" onClick={(e) => e.stopPropagation()}>
+              <LaneClaims keys={l.claims} lane={l} />
+            </div>
+          )}
         </div>
       ))}
     </div>

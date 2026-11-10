@@ -2,14 +2,14 @@
 R6). Headless Chrome through the driver base (tests/helpers/studio_pack_manager.py;
 skipped without one), over a fresh home with no pack installed:
 
-1. Packs is the sixth core tab on Alt+6 (3.3.13.0 R2: Design is a pack's; Setup is the seventh), with its
+1. Packs is the fourth core tab on Alt+4 (3.3.16.0 R1: Agents took in Team, Roles, Orchestra), with its
    five panels; Installed is empty and Sources offers the shipped doc-review;
 2. Install from a source: the row shows, disabled, with install's lines;
 3. Details: the API range beside this Halo's, no dependency, the contributes
    block `halo pack inspect` prints; a Grant toggle on a disabled pack picks
    the grant for Enable (its button names the command);
 4. Enable: the row runs with 1/3 granted, the pack's section tab follows Packs
-   on Alt+0 (3.3.13.0 R2: the first pack section's key); a Grant toggle on the enabled pack grants at once (state.json);
+   on Alt+8 (3.3.16.0 R1: the first pack section's key); a Grant toggle on the enabled pack grants at once (state.json);
 4b. 3.2.0.0 R7: Update asks first with the dry run's lines, swaps the new
    version in (Details names the grant it asks for), Roll back brings 1.0.0 back;
 5. Templates: Run review opens Orchestra's form, filled in with the workflow;
@@ -37,7 +37,7 @@ from tests.helpers.driver_got import got as driver_got  # noqa: E402
 test, TESTS = new_registry()
 REPO = Path(__file__).resolve().parent.parent
 _RUN: dict = {}
-CORE = ["Session", "Team", "Roles", "Fleet", "Orchestra", "Packs", "Setup", "Settings", "Local"]  # 3.3.5.0 R1: + Local; 3.3.13.0 R2: - Design
+CORE = ["Session", "Agents", "Fleet", "Packs", "Setup", "Settings", "Local"]  # 3.3.16.0 R1: Agents took in Team, Roles, Orchestra  # 3.3.5.0 R1: + Local; 3.3.13.0 R2: - Design
 
 
 def _got(ctx: Ctx) -> dict:
@@ -50,8 +50,8 @@ def _got(ctx: Ctx) -> dict:
 def test_packs_is_the_seventh_section_on_alt_7(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"the six, then Packs, got {got.get('tabs')}", got.get("tabs") == CORE)
-    ctx.check(f"Alt+1..9 (3.3.13.0 R2: nine core sections, Local on Alt+9), got {got.get('kbds')}", got.get("kbds") == [f"Alt+{n}" for n in range(1, 10)])
-    ctx.check(f"Alt+6 opens it, got {got.get('alt6')!r}", str(got.get("alt6")).startswith("Packs"))
+    ctx.check(f"Alt+1..7 (3.3.16.0 R1: seven core sections, Local on Alt+7), got {got.get('kbds')}", got.get("kbds") == [f"Alt+{n}" for n in range(1, 8)])
+    ctx.check(f"Alt+4 opens it, got {got.get('alt6')!r}", str(got.get("alt6")).startswith("Packs"))
     ctx.check(f"its five panels, got {got.get('panels')}", got.get("panels") == ["Installed", "Details", "Sources", "Settings", "Templates"])
     ctx.check("nothing installed yet; Sources offers the shipped pack", got.get("empty") is True and got.get("source_install") == "Install")
 
@@ -82,8 +82,8 @@ def test_the_details_block_and_a_grant_picked_for_enable(ctx: Ctx):
 def test_enable_and_grant(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"enabled with the picked grant, got {got.get('granted')!r}", got.get("granted") == "1/3 granted")
-    ctx.check(f"its section after Local, on Alt+0 (3.3.13.0 R2: the first pack section's key), got {got.get('tabs_on')} {got.get('pack_kbd')!r}",
-              got.get("tabs_on") == CORE + ["Docs review"] and got.get("pack_kbd") == "Alt+0")
+    ctx.check(f"its section after Local, on Alt+8 (3.3.16.0 R1: the first pack section's key), got {got.get('tabs_on')} {got.get('pack_kbd')!r}",
+              got.get("tabs_on") == CORE + ["Docs review"] and got.get("pack_kbd") == "Alt+8")
     ctx.check(f"a toggle on the enabled pack grants at once, got {got.get('granted_more')!r} {got.get('state_json')}",
               got.get("granted_more") == "2/3 granted" and got.get("state_json") == [True, ["bash", "hooks"]])
 
@@ -115,7 +115,7 @@ def test_run_a_workflow_fills_the_orchestra_form(ctx: Ctx):
     ctx.check(f"its lineup under Templates, got {got.get('lineups')}", got.get("lineups") == ["doc-review--review"])
     ctx.check(f"3.3.10.0 R3: its workflow resolved, got {got.get('template_workflow')}", got.get("template_workflow") ==
               ["workflow doc-review/review -- review: Review the Markdown files under a folder and write one review report."])
-    ctx.check(f"Run review goes to Orchestra, got {got.get('section_after_run')!r}", str(got.get("section_after_run")).startswith("Orchestra"))
+    ctx.check(f"Run review goes to Agents -> Runs, got {got.get('section_after_run')!r}", str(got.get("section_after_run")).startswith("Agents"))
     ctx.check(f"the form names the workflow, got {got.get('wf_ref')!r} {got.get('wf_title')!r}", got.get("wf_ref") == "doc-review/review"
               and got.get("wf_title") == "Run the workflow review")
     ctx.check(f"its inputs, style at its default, got {got.get('wf_inputs')}", got.get("wf_inputs") == [["docs", ""], ["style", "short"]])

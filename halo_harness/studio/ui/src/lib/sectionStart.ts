@@ -2,7 +2,9 @@
 // initialSection). 3.3.13.0 R2: a pack's own section is `<pack id>--<section id>` and opens while its pack runs (the
 // served page names those, lib/boot.ts); a word a core section had before it went to a pack (`design`) opens the
 // pack's section while the pack runs, else Session with one line saying how to turn the pack on (studio/modes.py
-// moved_line says the same in the terminal).
+// moved_line says the same in the terminal). 3.3.16.0 R1: `roles`, `orchestra` and `team` open Agents (lib/agentsDoor.ts
+// says which view).
+import { AGENTS_DOORS } from "./agentsDoor";
 import { bootPackSections } from "./boot";
 
 export const MOVED_SECTIONS: Record<string, { pack: string; section: `${string}--${string}` }> = {
@@ -21,6 +23,7 @@ const running = (id: string) => bootPackSections().some((s) => s.id === id);
 /** A known section id for `word` ('' for none): a core one, a running pack's, or a moved word's pack section. */
 export function sectionFor(word: string, core: readonly string[]): string {
   if (core.includes(word)) return word;
+  if (AGENTS_DOORS[word]) return "agents"; // 3.3.16.0 R1: an old word (a saved section, a link) is Agents now
   if (word.includes("--")) return running(word) ? word : "";
   const m = MOVED_SECTIONS[word];
   return m ? (running(m.section) ? m.section : "session") : "";

@@ -39,7 +39,7 @@ BUDGET = (("one lead plan", 15_000, 3_000, "main"), ("worker lane", 120_000, 6_0
 TIME = "5-20 minutes on cloud models; longer on local ones (the run stops itself after 2 hours)."
 NOT_A_TEST = "It is one real Orchestra run on your models, not a test of them (halo gym measures models)."
 FAKE = "the fake lead, workers and judge (HALO_START_FAKE=1): no model is called"
-UNTOUCHED = "Your lineup is not touched: the run reads it as it is; edit it in Roles (halo studio --mode roles)."
+UNTOUCHED = "Your lineup is not touched: the run reads it as it is; edit it in Agents -> Cast (halo studio --mode agents)."
 
 
 def _default_model() -> str:

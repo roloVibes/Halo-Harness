@@ -1,6 +1,7 @@
 // What the shell takes from the packs registry (3.2.0.0 R3), built once per
-// registry read: the packs' own sections (after the core sections; 3.3.13.0 R2: nine core sections end at Local Alt+9,
-// so the first pack section takes Alt+0 and the rest are reached by their rail row or the palette), the panels they
+// registry read: the packs' own sections (after the seven core sections, 3.3.16.0 R1;
+// the pack's own sections take Alt+8, Alt+9 and Alt+0 in turn,
+// the rest are reached by their rail row or the palette), the panels they
 // add to each core section, the palette's actions (group "pack <id>") and a
 // pack section's "How this works" copy. routes/index.tsx sections() merges
 // them with the core sections, whose order and keys never change. 3.3.13.0 R2: a section with a `view` is drawn whole
@@ -16,9 +17,9 @@ import { PackView } from "./PackView";
 import type { PanelSpec } from "../../lib/workspace/types";
 import type { Registry } from "./types";
 
-// 3.3.13.0 R2: Design left the core: Local is the last core key (Alt+9), and the tenth slot is the first pack section's
-// (the design pack's section, when it is the first, on Alt+0).
-const FIRST_KEY = 10;
+// 3.3.16.0 R1: Agents took in Team, Roles and Orchestra, Local is the last core section;
+// the eighth, ninth and tenth slots are the pack's own sections (the design pack's, when it is the first: Alt+8).
+const FIRST_KEY = 8;
 const LAST_KEY = 10;
 const keyOf = (n: number) => `Alt+${n % 10}`;
 

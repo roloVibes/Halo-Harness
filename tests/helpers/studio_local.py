@@ -4,7 +4,7 @@ through the driver base, over a scratch home (capture_studio's seeded_home) with
 the fixture's nvidia-smi and /proc answers (resources.SAMPLER_SEAMS); the live feed is on. No provider request, no
 model call:
 
-1. `alt9`: from Roles, Alt+9 opens Local with nothing over it (no help, no dialog), on Resources;
+1. `alt9`: from Agents, Alt+7 (3.3.16.0 R1; Alt+9 before) opens Local with nothing over it (no help, no dialog), on Resources;
 2. `pages`: the rail's seven pages, each with its title; the three framed ones say what they will hold and the CLI;
    Steward shows the job's status line and the last note;
 3. `resources`: a strip per sampled host; it moves on `resources` frames; every number carries its source;
@@ -50,9 +50,9 @@ def config(ctx) -> dict:
 
 def alt9(c, url, ctx) -> dict:
     c.go(f"{ctx['base']}?mode=roles&tour=off#{ctx['frag']}")
-    c.wait(f"{CUR}.startsWith('Roles')", 40)
+    c.wait(f"{CUR}.startsWith('Agents')", 40)
     c.js("document.activeElement?.blur?.(); 1")
-    alt(c, 9)
+    alt(c, 7)  # 3.3.16.0 R1: Local is Alt+7
     out = {"alt9": c.wait(f"{CUR}.startsWith('Local') && {CUR}", 15)}
     time.sleep(1.5)
     out["alt9_open"] = c.js(OPEN)

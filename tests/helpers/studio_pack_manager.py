@@ -67,10 +67,10 @@ def w(c, expr: str, timeout: float = 20):
 def section(c, url, ctx) -> dict:
     out: dict = {}
     c.go(url)
-    w(c, f"{TABS}.length >= 8", 40)
+    w(c, f"{TABS}.length >= 7", 40)  # 3.3.16.0 R1: seven core sections
     out["tabs"] = c.js(f"{TABS}.map((t) => t.querySelector('.tab-label').textContent)")
     out["kbds"] = c.js(f"{TABS}.map((t) => t.dataset.kbd || '')")  # 3.3.2.0 R1: the icon rail keeps the key as data-kbd, never printed
-    alt(c, 6)
+    alt(c, 4)  # 3.3.16.0 R1: Packs
     out["alt6"] = w(c, f"{CUR}.startsWith('Packs') && {CUR}", 10)
     out["empty"] = bool(w(c, f"!!{q('[data-testid=pm-installed-empty]')}", 30))
     out["source_install"] = w(c, _text(f"{SRC} [data-testid=pm-install]"), 20)
@@ -163,7 +163,7 @@ def update_rollback(c, url, ctx) -> dict:
         out["previous_on_disk"] = (ctx["state"] / "packs" / "doc-review.previous").exists()
         c.go("about:blank")
         c.go(url)
-        alt(c, 6)
+        alt(c, 4)  # 3.3.16.0 R1: Packs
         try:
             out["rollback_label"] = w(c, _text(f"{ROW} [data-testid=pm-rollback]"), 60)
             out["rollback_after_reopen"] = True
@@ -185,7 +185,7 @@ def update_rollback(c, url, ctx) -> dict:
         out["rollback_previous_on_disk"] = (ctx["state"] / "packs" / "doc-review.previous").exists()
         c.go("about:blank")
         c.go(url)
-        alt(c, 6)
+        alt(c, 4)  # 3.3.16.0 R1: Packs
         try:
             w(c, back, 60)
         except TimeoutError as e:
@@ -205,12 +205,12 @@ def templates(c, url, ctx) -> dict:
     out = {"lineups": c.js(f"{qa('[data-testid=pm-template][data-kind=lineup]')}.map((r) => r.dataset.name)"),
            "template_workflow": c.js(f"{qa('[data-testid=pm-template-workflow]')}.map((r) => r.textContent)")}  # 3.3.10.0 R3
     press(c, run)
-    out["section_after_run"] = w(c, f"{CUR}.startsWith('Orchestra') && {CUR}", 15)
+    out["section_after_run"] = w(c, f"{CUR}.startsWith('Agents') && document.querySelector('[data-testid=agents]')?.dataset.view === 'runs' && {CUR}", 15)
     w(c, f"!!{q('[data-testid=orchestra-workflow-form]')}", 20)
     out["wf_ref"] = c.js(_text("[data-testid=orchestra-workflow-ref]"))
     out["wf_inputs"] = c.js(f"{qa('[data-testid=orchestra-workflow-input]')}.map((i) => [i.dataset.key, i.value])")
     out["wf_title"] = c.js(_text(".fl-start-title"))
-    alt(c, 6)
+    alt(c, 4)  # 3.3.16.0 R1: Packs
     w(c, f"{CUR}.startsWith('Packs')", 10)
     return out
 
@@ -221,8 +221,8 @@ PICK = q("[data-testid=orchestra-workflow-pick]")
 def picker(c, url, ctx) -> dict:
     """3.2.1.0 R2: Orchestra's Start view with no workflow filled in: the picker under the goal form; a pick fills in
     the form Run <workflow> fills."""
-    alt(c, 5)
-    w(c, f"{CUR}.startsWith('Orchestra') && !!{q('[data-testid=orchestra-workflow-form]')}", 15)
+    alt(c, 2), c.click_on("document.querySelector('[data-testid=\"agents-view-runs\"]')")  # 3.3.16.0 R1: Agents on Runs
+    w(c, f"{CUR}.startsWith('Agents') && !!{q('[data-testid=orchestra-workflow-form]')}", 15)
     press(c, q("[data-testid=orchestra-workflow-clear]"))
     w(c, f"!!{PICK}", 20)
     out = {"pick_options": c.js(f"[...{PICK}.options].map((o) => o.value)"),
@@ -236,7 +236,7 @@ def picker(c, url, ctx) -> dict:
     out["picked_title"] = c.js(_text(".fl-start-title"))
     press(c, q("[data-testid=orchestra-workflow-clear]"))
     w(c, f"!!{PICK}", 10)
-    alt(c, 6)
+    alt(c, 4)  # 3.3.16.0 R1: Packs
     w(c, f"{CUR}.startsWith('Packs')", 10)
     return out
 
@@ -249,10 +249,10 @@ def disable(c, url, ctx) -> dict:
            "disabled_enable": c.js(f"!!{q(ROW + ' [data-testid=pm-enable]')}"),
            "tabs_off": c.js(f"{TABS}.map((t) => t.querySelector('.tab-label').textContent)"),
            "templates_off": bool(w(c, f"!!{q('[data-testid=pm-templates-off]')}", 10))}
-    alt(c, 5)  # 3.2.1.0 R2: no running pack with a workflow, no picker
-    w(c, f"{CUR}.startsWith('Orchestra') && !!{q('[data-testid=orchestra-goal-form]')}", 15)
+    alt(c, 2), c.click_on("document.querySelector('[data-testid=\"agents-view-runs\"]')")  # no workflow, no picker; Agents on Runs
+    w(c, f"{CUR}.startsWith('Agents') && !!{q('[data-testid=orchestra-goal-form]')}", 15)
     out["picker_off"] = bool(w(c, f"!{PICK}", 15))
-    alt(c, 6)
+    alt(c, 4)  # 3.3.16.0 R1: Packs
     w(c, f"{CUR}.startsWith('Packs')", 10)
     return out
 
@@ -279,7 +279,7 @@ def remove(c, url, ctx) -> dict:
         out["on_disk_at_timeout"] = (ctx["state"] / "packs" / "doc-review").exists()
         c.go("about:blank")
         c.go(url)
-        alt(c, 6)
+        alt(c, 4)  # 3.3.16.0 R1: Packs
         try:
             w(c, gone, 60)
         except TimeoutError as e:

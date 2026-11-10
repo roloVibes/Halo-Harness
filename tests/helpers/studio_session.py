@@ -90,7 +90,7 @@ def landing(c, rig) -> dict:
     try:
         c.js("localStorage.clear(); 1")
         c.go(url(rig, "again=1"))
-        out["landing_none"] = c.wait(f"{TAB}.startsWith('Roles') && {TAB}", 30) or c.js(TAB)
+        out["landing_none"] = c.wait(f"{TAB}.startsWith('Agents') && {TAB}", 30) or c.js(TAB)
         out["boot_none"] = c.js("document.documentElement.dataset.liveSession")
     finally:
         session_open.newest_live = saved
@@ -152,7 +152,7 @@ def dash(c, rig) -> dict:
     out["deep_agent"] = c.wait(f"{AGENT}?.dataset.key?.includes('|{FAKE_SID}|') && {AGENT}.dataset.key", 30)
     out["deep_cost"] = c.wait(f"{COST}?.dataset.session === '{FAKE_SID}' && {COST}.dataset.session", 15)
     out["deep_card"] = c.js(f"[...{inside('session-map', 'fleet-session')}].find((n) => n.dataset.chosen)?.dataset.sid")
-    alt(c, 4)
+    alt(c, 3)  # 3.3.16.0 R1: Fleet
     out["alt4"] = c.wait(f"{TAB}.startsWith('Fleet') && {TAB}", 10)
     c.wait(f"{inside('fleet', 'fleet-box')}.length === 2", 30)
     out["fleet_boxes"] = c.js(f"[...{inside('fleet', 'fleet-box')}].map((b) => b.querySelector('.fm-box-label').textContent)")

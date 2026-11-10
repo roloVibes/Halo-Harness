@@ -1,6 +1,6 @@
 # Studio: how each section works
 
-Read this when you want the one-screen story of a section (Session, Team, Roles, Fleet, Orchestra, Packs, Setup, Settings, Local).
+Read this when you want the one-screen story of a section (Session, Agents, Fleet, Packs, Setup, Settings, Local).
 
 Part of [Halo Studio](STUDIO.md), which lists every part.
 
@@ -131,19 +131,26 @@ the chosen session's timeline lanes and full live log. Attention
 (`session-attention`): what waits on you in this harness's sessions. Prompt (`session-prompt`, 3.3.11.0 R1): the
 session read like the terminal, a box to type into it (the slash list, Queue it / Steer; 3.3.15.0 R3: three lines at the least, it grows with the draft and takes the panel's free height while the conversation is short) and each turn's receipt marks; with no session here it offers New session, and a session with no terminal (chip **no terminal**) has **Open in terminal** and **End session** in its header (3.3.11.0 R2).
 
-### Team
+### Agents
 
-**What it is.** Your project's team file as one board: who works on it (members, each a part of a lineup, here or on a fleet
-harness), where their work lands (blocks: a file, a folder or a git tree, each with its claim ledger) and in which order
-(stages: an agent turn or an Orchestra run). The steps are those of [How this works:
-Team](STUDIO-team-roles.md#how-this-works-team).
+**What it is** (3.3.16.0 R1). Your agents in one place (`Alt+2`, "The cast, its runs, and what runs now"): Team, Roles and
+Orchestra folded into one section with three views on one switch, first on its bar -- **Cast** (`C`: the lineup and
+its bios, Roles as it was), **Runs** (`R`: Orchestra as it was -- a goal, the lead's plan, the lanes in their
+worktrees, the merge, the tests, the report and the coach -- with each lane's owns line and **Test this lineup**) and
+**Live** (`L`: the session's agents as a tree, a running Orchestra run's lanes under its lead). It opens on Cast with
+nothing else open. The old doors land on their views: `?mode=roles` on Cast (`&view=live` on Live), `?mode=orchestra`
+and `?mode=team` on Runs; `?mode=agents&view=cast|runs|live` is the door itself. The whole story:
+[STUDIO-agents.md](STUDIO-agents.md).
 
-**Panels.** Board: the team as one board, members as columns, stages as
-boxes, blocks underneath. Inspector: the selected stage (its row, Run, the
-gate card), block (holders, changes) or member. Change feed: every move of
-the run, newest last.
+**Panels.** Cast and Live draw Roles' six (Lineups, Canvas, Inspector, Problems, Bios, Models); Runs draws
+Orchestra's eight (Goal, Workflow, Run grid, Live file, Lanes, Report, Claims, Log). The header's `+` and `...` menus,
+the palette's panel rows and the status bar follow the view.
 
-### Roles
+#### Roles
+
+Moved: Roles is Agents' **Cast** (and its Plan | Live switch is Agents' Cast | Live) since 3.3.16.0 R1;
+everything below is as it was, reached by `Alt+2` then `C`, or the old door `?mode=roles`.
+
 
 **What it is.** A lineup says which agent, on which model, plays each part in
 your sessions, and in which tier it sits. Studio shows it as cards in tier
@@ -179,7 +186,7 @@ boxes you can arrange and edit; the files are `~/.halo/teams/<name>.yaml` and
 8. **Read the glow**: hover a glowing card's state glyph or its live badge
    and the card explains its glow (below). The tier box takes the strongest
    state of its cards, and the edges into a card take that card's colour.
-9. **See what really runs: Plan | Live** (3.3.11.0 R2; the switch first on the canvas bar, `L`, the palette's "Roles: Live", `?mode=roles&view=live[&session=<id>]`). Plan is the lineup above; **Live** is the session's actual agent tree on the whole page -- one node per agent, live or finished and still in the frames, an edge from each parent, NOTHING dropped (an agent whose parent is not in the session hangs under "unknown parent"), so every agent Auto spawns is there even when it matches no card, 1:1 with the terminal's `/agents live`. A node shows its name, role, state, model (3.3.15.0: without the provider prefix, the full id in the Inspector), cost and time, its state as the Session Map's nodes show it, and an `auto` pick's reason ("picked at spawn: coder on <model> -- <why>"); the lineup card a node matches is a faint dashed group behind it. Layered layout (the Session Map's own), spread or compact, `+` / `-` and Fit (`F`; the first draw fits a tree wider than the page); a click selects the agent and the Inspector's Live tab follows it; `steer` and `...` on a node are the Map's. The session picker lists every session the fleet carries, this harness first. All of it reads the frames through one adapter, `ui/src/lib/work/record.ts`.
+9. **See what really runs: Plan | Live** (3.3.11.0 R2; the switch first on the canvas bar, `L`, the palette's "Roles: Live", `?mode=roles&view=live[&session=<id>]`; 3.3.16.0 R1: Agents' Live view, `?mode=agents&view=live`). Plan is the lineup above; **Live** is the session's actual agent tree on the whole page -- one node per agent, live or finished and still in the frames, an edge from each parent, NOTHING dropped (an agent whose parent is not in the session hangs under "unknown parent"), so every agent Auto spawns is there even when it matches no card, 1:1 with the terminal's `/agents live`. A node shows its name, role, state, model (3.3.15.0: without the provider prefix, the full id in the Inspector), cost and time, its state as the Session Map's nodes show it, and an `auto` pick's reason ("picked at spawn: coder on <model> -- <why>"); the lineup card a node matches is a faint dashed group behind it. Layered layout (the Session Map's own), spread or compact, `+` / `-` and Fit (`F`; the first draw fits a tree wider than the page); a click selects the agent and the Inspector's Live tab follows it; `steer` and `...` on a node are the Map's. The session picker lists every session the fleet carries, this harness first. All of it reads the frames through one adapter, `ui/src/lib/work/record.ts`.
 
 **The glow, and when it comes and goes (3.1.5.0).**
 
@@ -203,11 +210,70 @@ lineup as you edit it, each with its fix. Bios: the agent bios: who each
 card is, on which model, with which tools. Models: the model catalog the
 pickers read, per provider, and why it is empty when it is.
 
-**Keys.** `Alt+3` Roles; `L` Plan | Live (3.3.11.0 R2); on the canvas (click it first) `A` lays out, `F` fits, `+` / `-` zoom, the arrows nudge the selected card (`Shift`: further),
+**Keys.** Agents `Alt+2`, then `C` Cast; `L` Plan | Live (3.3.11.0 R2; Agents' Live); on the canvas (click it first) `A` lays out, `F` fits, `+` / `-` zoom, the arrows nudge the selected card (`Shift`: further),
 `Del` removes it (asks first); `Ctrl+Z` / `Ctrl+Shift+Z` undo / redo a lineup edit, `Ctrl`/`Cmd`+`S` saves; `J` / `K` the next / previous card whose agent works (on Live: the next / previous working agent of the tree),
 its Live tab open; `Space` pins that agent's mini stream, with the Live tab open `F` follows and `P` pauses; `Esc` unpins (or closes a replay).
 
 ![Roles: the lineup in two declared tiers and the implicit last one, the implementer at work](media/studio-roles.png)
+
+#### Orchestra
+
+Moved: Orchestra is Agents' **Runs** since 3.3.16.0 R1 (`Alt+2` then `R`, or the old door
+`?mode=orchestra`); everything below is as it was, plus the owns line and Test this lineup
+([STUDIO-orchestra.md](STUDIO-orchestra.md#orchestra-the-run-console), [STUDIO-agents.md](STUDIO-agents.md#who-owns-what-the-owns-line)).
+
+
+**What it is.** Several agents write to the same files at once and nothing is
+lost: a lead splits your goal into lanes, one worker per lane writes its part
+in its own git worktree, and a gate checks the result before it lands.
+
+**How to use it.**
+
+1. **Write the goal**: WHAT YOU WANT, how Halo knows it is done (DONE WHEN)
+   and when to give up (STOP WHEN), plus the files the workers share and the
+   test the gate runs.
+2. **Press Run**. Dry run asks the lead for the split only: nothing is
+   claimed or written.
+3. **The lead splits it into lanes**. Each lane claims a part of the files;
+   one worker per lane builds its part in its own git worktree.
+4. **How this works: the plan** (3.0.9.0). With **Review the plan before it
+   runs** on, the lead's lanes open on the plan canvas before any worker
+   starts: one box per layer, drag a lane into another box to change what it
+   runs after, click it to edit its title, claims, bio, model and hand-offs.
+   Every edit is checked; **Approve and run** starts the lanes, **Reject**
+   stops the run with your reason
+   ([ORCHESTRA.md](ORCHESTRA.md#review-the-plan)).
+5. **Hand-offs**: a lane can wait for another (after) and take its summary,
+   its units or a file it saved (needs); it then starts from that lane's
+   finished head, and a lane that takes nothing sees only the goal. Lanes
+   draws each edge with what it carries and every lane's base
+   ([ORCHESTRA.md](ORCHESTRA.md#hand-offs)).
+6. **The gate checks DONE WHEN**. The parts merge one at a time, your test
+   runs, and a part that fails goes back to its worker (up to the return cap).
+7. **Read the report**: every check with a tick or a cross, the finished
+   branch and its sha, the tests, the cost and the time.
+8. **How this works: Coach** (3.0.9.0). The report's Coach tab reads the
+   run's files and suggests what to change: a bio's prompt, model or tools,
+   a lane's after, a gate that looped. Each card shows its evidence; Apply
+   opens the bio, the lineup or the plan with the change filled in, and you
+   save it there. Dismiss hides a card for that run
+   ([ORCHESTRA.md](ORCHESTRA.md#the-coach)).
+
+**Panels.** Goal: what you want, how it is checked and when to give up; then
+Run. Plan (only while a run waits for review): the lead's lanes in their
+layers, to edit before Approve and run. Workflow: the run's plan: goal, lead, split, one node per lane, merge,
+test, gate. Run grid: one tile per lane: writing, in review, waiting or
+merged. Live file: the shared file, each lane's claimed part a band in its
+colour. Lanes: each worker's timeline on the run's clock, from joined to
+merged. Report: the gate's verdict: every check, the finished branch, tests
+and cost. Claims: who holds which part of the files right now, and until
+when. Log: every claim, merge, gate decision and note, with its time.
+
+#### Team
+
+Moved: Team's board went in 3.3.16.0 R1. Who owns what is a run plan's detail in Agents' **Runs** (each
+lane's owns line, a lane's claims); `?mode=team` lands there with one line the first time. `halo team` still runs
+the team file from a terminal ([TEAM.md](TEAM.md)), and a team stage at its gate is still a row of Fleet's Attention.
 
 ### Fleet
 
@@ -277,71 +343,23 @@ change; a Hugging Face local server is a host in its picker. [MODELS-ollama-stew
 
 ![Fleet with its Ollama panel: the card, the models, the traffic, the steward](media/studio-fleet-ollama.png)
 
-### Orchestra
-
-**What it is.** Several agents write to the same files at once and nothing is
-lost: a lead splits your goal into lanes, one worker per lane writes its part
-in its own git worktree, and a gate checks the result before it lands.
-
-**How to use it.**
-
-1. **Write the goal**: WHAT YOU WANT, how Halo knows it is done (DONE WHEN)
-   and when to give up (STOP WHEN), plus the files the workers share and the
-   test the gate runs.
-2. **Press Run**. Dry run asks the lead for the split only: nothing is
-   claimed or written.
-3. **The lead splits it into lanes**. Each lane claims a part of the files;
-   one worker per lane builds its part in its own git worktree.
-4. **How this works: the plan** (3.0.9.0). With **Review the plan before it
-   runs** on, the lead's lanes open on the plan canvas before any worker
-   starts: one box per layer, drag a lane into another box to change what it
-   runs after, click it to edit its title, claims, bio, model and hand-offs.
-   Every edit is checked; **Approve and run** starts the lanes, **Reject**
-   stops the run with your reason
-   ([ORCHESTRA.md](ORCHESTRA.md#review-the-plan)).
-5. **Hand-offs**: a lane can wait for another (after) and take its summary,
-   its units or a file it saved (needs); it then starts from that lane's
-   finished head, and a lane that takes nothing sees only the goal. Lanes
-   draws each edge with what it carries and every lane's base
-   ([ORCHESTRA.md](ORCHESTRA.md#hand-offs)).
-6. **The gate checks DONE WHEN**. The parts merge one at a time, your test
-   runs, and a part that fails goes back to its worker (up to the return cap).
-7. **Read the report**: every check with a tick or a cross, the finished
-   branch and its sha, the tests, the cost and the time.
-8. **How this works: Coach** (3.0.9.0). The report's Coach tab reads the
-   run's files and suggests what to change: a bio's prompt, model or tools,
-   a lane's after, a gate that looped. Each card shows its evidence; Apply
-   opens the bio, the lineup or the plan with the change filled in, and you
-   save it there. Dismiss hides a card for that run
-   ([ORCHESTRA.md](ORCHESTRA.md#the-coach)).
-
-**Panels.** Goal: what you want, how it is checked and when to give up; then
-Run. Plan (only while a run waits for review): the lead's lanes in their
-layers, to edit before Approve and run. Workflow: the run's plan: goal, lead, split, one node per lane, merge,
-test, gate. Run grid: one tile per lane: writing, in review, waiting or
-merged. Live file: the shared file, each lane's claimed part a band in its
-colour. Lanes: each worker's timeline on the run's clock, from joined to
-merged. Report: the gate's verdict: every check, the finished branch, tests
-and cost. Claims: who holds which part of the files right now, and until
-when. Log: every claim, merge, gate decision and note, with its time.
-
 ### Packs
 
-**What it is** (3.2.0.0 R6). The Pack Manager, `Alt+6`: install, grant, enable, set up, update and remove
+**What it is** (3.2.0.0 R6). The Pack Manager, `Alt+4`: install, grant, enable, set up, update and remove
 packs from the places you trust (`packs.sources`, then the packs Halo ships); every button runs the code
 `halo pack` runs. Its panels, actions and routes, and the sections a pack you enable adds after it:
 [STUDIO-packs.md](STUDIO-packs.md) (what a pack draws in Studio: [PACKS.md](PACKS.md) "In Studio").
 
 ### Setup
 
-**What it is** (3.3.0.0; pages since 3.3.1.0). This box's setup, `Alt+7`: the wizard's step rail over one block per page
+**What it is** (3.3.0.0; pages since 3.3.1.0). This box's setup, `Alt+5`: the wizard's step rail over one block per page
 (its own Save, Back / Next, a Summary last), nothing opening on its own. `halo init` opens it (`?first=1`), `halo setup team`
 on the Team page (`?block=team`); `halo init --terminal` is the terminal wizard. **Done starts halo** (3.3.3.0): the Summary's
 "Done: start halo" goes to Session and the terminal that ran `halo init` starts halo. The pages: [STUDIO-setup.md](STUDIO-setup.md).
 
 ### Settings
 
-**What it is** (3.3.3.0). Settings (`Alt+8`) is every key of `~/.halo/config.json`: a group rail on the left (General, Agents
+**What it is** (3.3.3.0). Settings (`Alt+6`) is every key of `~/.halo/config.json`: a group rail on the left (General, Agents
 and roles ... the Local group), one group's page on the right, one row per key with its help line, its control, a **default** marker while it is unset,
 Reset to default and the exact `halo config set` line as its footer. A change saves at once and says when it takes effect (now,
 the next session, the next launch); the search box finds a row across every group, and the palette lists every row as `Settings:
@@ -358,7 +376,7 @@ Pointing at a row previews it on the page itself (the key untouched); Esc or mov
 
 ### Local
 
-**What it is** (3.3.5.0). Local (`Alt+9`, the ninth and last core section since Design left the core, 3.3.13.0 R2) holds everything about the machines that serve your local models
+**What it is** (3.3.5.0). Local (`Alt+7`, the seventh and last core section since Agents took in Team, Roles and Orchestra, 3.3.16.0 R1) holds everything about the machines that serve your local models
 and the models they serve, paged like Settings: a page rail on the left (Resources, Hosts, Models, Library, Hugging Face, Logs,
 Benchmarks, Steward, Pool and Voice), one page on the right. **Resources** is the live view: a strip per host sampled once a second while
 the page is open (GPU use, VRAM and what holds it, RAM, CPU, the temperature, each number titled with its source) and the

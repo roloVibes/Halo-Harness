@@ -1,5 +1,5 @@
 // The Orchestra's palette commands: new run, stop run, open run <id>, focus
-// lane N (one per run of the repo and per lane of the open run).
+// lane N (one per run of the repo and per lane of the open run). 3.3.16.0 R1: in the palette's Agents group.
 import { goSection } from "../../lib/store";
 import { openPanel } from "./bits";
 import { enterWorkspace, focusLane, orch, setView } from "./store";
@@ -9,7 +9,7 @@ export type OrchCommand = { id: string; group: string; label: string; hint?: str
 
 function inOrchestra(fn: () => void): () => void {
   return () => {
-    goSection("orchestra");
+    goSection("agents", "runs"); // 3.3.16.0 R1: Orchestra is Agents' Runs
     startOrchestra();
     window.setTimeout(fn, 60);
   };
@@ -18,14 +18,14 @@ function inOrchestra(fn: () => void): () => void {
 export function orchestraCommands(): OrchCommand[] {
   const s = orch.get();
   const out: OrchCommand[] = [
-    { id: "orch-new", group: "Orchestra", label: "Orchestra: new run", hint: "the Start view: write the goal, then Run", run: inOrchestra(() => setView("start")) },
+    { id: "orch-new", group: "Agents", label: "Orchestra: new run", hint: "the Start view: write the goal, then Run", run: inOrchestra(() => setView("start")) },
   ];
   if (s.data?.live)
-    out.push({ id: "orch-stop", group: "Orchestra", label: "Orchestra: stop run", hint: `run ${s.runId} stops at its next step`, run: () => void stopRun() });
+    out.push({ id: "orch-stop", group: "Agents", label: "Orchestra: stop run", hint: `run ${s.runId} stops at its next step`, run: () => void stopRun() });
   for (const r of s.runs.slice(0, 30)) {
     out.push({
       id: "orch-open-" + r.run_id,
-      group: "Orchestra",
+      group: "Agents",
       label: `Orchestra: open run ${r.run_id}`,
       hint: `${r.state} · ${r.goal_what.slice(0, 40)}`,
       run: inOrchestra(() => void openRun(r.run_id)),
@@ -34,7 +34,7 @@ export function orchestraCommands(): OrchCommand[] {
   for (const l of s.data?.lanes || []) {
     out.push({
       id: "orch-lane-" + l.lane,
-      group: "Orchestra",
+      group: "Agents",
       label: `Orchestra: focus lane ${l.lane}`,
       hint: `${l.state} · ${l.title}`,
       run: inOrchestra(() => {

@@ -1,6 +1,6 @@
 // pm-templates (3.2.0.0 R6): what the selected pack lets you start from -- its
 // lineups and bios with R2's Roles actions, reused (Preview opens it read-only
-// in Roles, Clone copies it into your files, Customize clones it and opens
+// in Agents (Cast), Clone copies it into your files, Customize clones it and opens
 // your copy, Apply makes a lineup the one new sessions use, asking first), and
 // its workflows with Run <name>: the Orchestra new-run form, filled in with
 // the workflow and its inputs. A pack's bios and lineups are read in place
@@ -18,7 +18,7 @@ import type { PackRow } from "./types";
 type Kind = "bio" | "lineup";
 
 function toRoles(): void {
-  goSection("roles");
+  goSection("agents", "cast");
   rolesView("workspace");
   startRoles();
 }
@@ -38,9 +38,9 @@ async function apply(name: string): Promise<void> {
 function Acts({ kind, name }: { kind: Kind; name: string }) {
   return (
     <span className="rlu-acts" data-testid="pm-template-actions">
-      <Button size="sm" variant="ghost" onClick={() => preview(kind, name)} title="Open it in Roles, read-only" data-testid="pm-preview">Preview</Button>
+      <Button size="sm" variant="ghost" onClick={() => preview(kind, name)} title="Open it in Agents (Cast), read-only" data-testid="pm-preview">Preview</Button>
       <Button size="sm" variant="ghost" onClick={() => void cloneFromPack(kind, name, false)} title={`Copy it into your ${kind}s (asks first if one has the name)`} data-testid="pm-clone">Clone</Button>
-      <Button size="sm" variant="ghost" onClick={() => void customize(kind, name)} title="Clone it and open your copy in Roles" data-testid="pm-customize">Customize</Button>
+      <Button size="sm" variant="ghost" onClick={() => void customize(kind, name)} title="Clone it and open your copy in Agents (Cast)" data-testid="pm-customize">Customize</Button>
       {kind === "lineup" && <Button size="sm" onClick={() => void apply(name)} title="Make it the lineup new sessions use (asks first)" data-testid="pm-apply">Apply</Button>}
     </span>
   );

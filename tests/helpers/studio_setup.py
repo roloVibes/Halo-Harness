@@ -106,17 +106,17 @@ def save(c, block: str, label: str = "") -> str:
 
 def by_mode(c, url, ctx) -> dict:
     c.go(url.replace("mode=roles", "mode=setup"))
-    c.wait(f"{TABS}.length >= 8 && {CUR}.startsWith('Setup')", 40)
+    c.wait(f"{TABS}.length >= 7 && {CUR}.startsWith('Setup')", 40)
     c.wait(f"!!{q('[data-testid=setup-strip-cell]')}", 30)
     return {"mode_section": c.js(CUR), "mode_first_strip": c.js(STRIP)}
 
 
 def section(c, url, ctx) -> dict:
     c.go(url)
-    c.wait(f"{TABS}.length >= 8 && {CUR}.startsWith('Roles')", 40)
+    c.wait(f"{TABS}.length >= 7 && {CUR}.startsWith('Agents')", 40)
     out = {"tabs": c.js(f"{TABS}.map((t) => t.querySelector('.tab-label').textContent)"),
            "kbds": c.js(f"{TABS}.map((t) => t.dataset.kbd || '')")}  # 3.3.2.0 R1: the icon rail keeps the key as data-kbd
-    alt(c, 7)
+    alt(c, 5)  # 3.3.16.0 R1: Setup is Alt+5
     out["alt7"] = c.wait(f"{CUR}.startsWith('Setup') && {CUR}", 15)
     c.wait(f"!!{q('[data-testid=setup-strip-cell]')} && !!{q('[data-testid=setup-rail-step]')}", 30)
     out["strip"] = c.js(STRIP)

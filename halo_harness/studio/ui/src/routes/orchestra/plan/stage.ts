@@ -17,7 +17,7 @@ function withoutLane(jobs: PlanJob[], id: string): PlanJob[] {
 }
 
 export async function stagePlan(run: string, field: string, value: unknown, text: string): Promise<void> {
-  goSection("orchestra");
+  goSection("agents", "runs");
   await openRun(run, true);
   await loadPlan(run);
   const s = plan.get();

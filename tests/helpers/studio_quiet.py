@@ -33,9 +33,8 @@ sys.path.insert(0, str(REPO / "tools"))
 from tests.helpers.chrome_driver import Driver  # noqa: E402
 from tests.helpers.studio_packs_steps import CUR, alt, mod_key, q, qa  # noqa: E402
 
-CORE = [("session", "Session"), ("team", "Team"), ("roles", "Roles"), ("fleet", "Fleet"),
-        ("orchestra", "Orchestra"), ("packs", "Packs"), ("setup", "Setup"), ("settings", "Settings"),
-        ("local", "Local")]  # 3.3.5.0 R1: + Local; 3.3.13.0 R2: Design is the design pack's, Local on Alt+9
+CORE = [("session", "Session"), ("agents", "Agents"), ("fleet", "Fleet"), ("packs", "Packs"), ("setup", "Setup"),
+        ("settings", "Settings"), ("local", "Local")]  # 3.3.16.0 R1: Agents took in Team, Roles and Orchestra
 OPEN = ("[document.querySelectorAll('[data-testid=section-help]').length, document.querySelectorAll('[role=dialog]').length, "
         "document.querySelectorAll('[data-testid=start-here]').length]")
 APP = q(".app")
@@ -84,7 +83,7 @@ def sections(c, url, ctx) -> dict:
 
 
 def rail(c, url, ctx) -> dict:
-    load(c, ctx, "roles", "Roles", "&tour=off")
+    load(c, ctx, "roles", "Agents", "&tour=off")
     out = {"rail_default": c.js(f"{APP}.dataset.rail"), "rail_icons_w": c.js(RAIL_W)}
     out["rail_items"] = c.js(f"{qa('.rail [data-testid=section-tab]')}.map((b) => [b.dataset.tabId, b.title, b.getAttribute('aria-label'), b.classList.contains('rail-item')])")
     out["rail_on"] = c.js(f"{qa('.rail [data-testid=section-tab].on')}.map((b) => b.dataset.tabId)")
@@ -100,16 +99,16 @@ def rail(c, url, ctx) -> dict:
     out["rail_labels_shown_open"] = c.js(f"{qa('.rail .tab-label')}.filter((l) => l.checkVisibility()).length")
     out["rail_kbd_open"] = c.js(f"[{qa('.rail [data-testid=section-tab] .kbd')}.length, /Alt\\+?\\d/.test({qa('.rail [data-testid=section-tab]')}.map((b) => b.textContent).join(' '))]")
     out["panels_open"] = c.js(RAIL_EXTRA)
-    load(c, ctx, "roles", "Roles", "&tour=off")
+    load(c, ctx, "roles", "Agents", "&tour=off")
     out["rail_after_reload"] = [c.js(f"{APP}.dataset.rail"), c.js(RAIL_W)]
     c.click_on(q("[data-testid=rail-toggle]"))
     c.wait(f"{APP}.dataset.rail === 'icons'", 5)
-    load(c, ctx, "roles", "Roles", "&tour=off")
+    load(c, ctx, "roles", "Agents", "&tour=off")
     out["rail_back"] = [c.js(f"{APP}.dataset.rail"), c.js(RAIL_W), c.js("localStorage.getItem('halo.studio.rail')")]
-    alt(c, 4)
+    alt(c, 3)  # 3.3.16.0 R1: Fleet is Alt+3
     out["alt4"] = c.wait(f"{CUR}.startsWith('Fleet') && {q('.rail [data-testid=section-tab].on')}.dataset.tabId", 15)
-    c.click_on(q(".rail [data-testid=section-tab][data-tab-id=team]"))
-    out["click_team"] = c.wait(f"{CUR}.startsWith('Team') && 'team'", 15)
+    c.click_on(q(".rail [data-testid=section-tab][data-tab-id=agents]"))  # 3.3.16.0 R1: Team's row went; Agents'
+    out["click_team"] = c.wait(f"{CUR}.startsWith('Agents') && 'agents'", 15)
     return out
 
 
@@ -122,7 +121,7 @@ def _settings(c, panel: str) -> None:
 
 
 def inspector(c, url, ctx) -> dict:
-    load(c, ctx, "roles", "Roles", "&tour=off")
+    load(c, ctx, "roles", "Agents", "&tour=off")
     c.wait(f"{qa('[data-testid=roles-card]')}.length >= 3", 30)
     out = {"insp_load": c.js(f"{APP}.dataset.inspector"), "insp_aside": c.js(f"!!{q('[data-testid=inspector]')}"), "stage_w": c.js(STAGE_W)}
     c.click_on(qa("[data-testid=roles-card]") + "[1]")  # the card click the Roles drivers make: its Assignment, in Roles' own panel
@@ -135,13 +134,13 @@ def inspector(c, url, ctx) -> dict:
     out["insp_w"] = c.js(f"Math.round({q('.inspector')}.getBoundingClientRect().width)")
     out["stage_w_open"] = c.js(STAGE_W)
     out["insp_saved"] = c.js("localStorage.getItem('halo.studio.inspector')")
-    load(c, ctx, "roles", "Roles", "&tour=off")
+    load(c, ctx, "roles", "Agents", "&tour=off")
     out["insp_reload_open"] = c.wait(f"{APP}.dataset.inspector === 'open' && {q('.inspector-title')}?.textContent", 20)
     c.click_on(q("[data-testid=inspector-close]"))
     out["insp_closed"] = c.wait(f"{APP}.dataset.inspector === 'closed' && !{q('[data-testid=inspector]')} && 'closed'", 10)
     time.sleep(0.4)
     out["stage_w_closed"] = c.js(STAGE_W)
-    load(c, ctx, "roles", "Roles", "&tour=off")
+    load(c, ctx, "roles", "Agents", "&tour=off")
     time.sleep(1.0)
     out["insp_reload_closed"] = [c.js(f"{APP}.dataset.inspector"), c.js("localStorage.getItem('halo.studio.inspector')")]
     _settings(c, "roles-lineups")
@@ -160,7 +159,7 @@ def focus(c, url, ctx) -> dict:
     out["f_grid"] = c.js(f"getComputedStyle({APP}).gridTemplateColumns")
     out["f_rows"] = c.js(f"getComputedStyle({APP}).gridTemplateRows")
     out["f_saved"] = c.js("localStorage.getItem('halo.studio.focus')")
-    load(c, ctx, "roles", "Roles", "&tour=off")
+    load(c, ctx, "roles", "Agents", "&tour=off")
     out["f_reload"] = c.wait(f"{APP}.dataset.focus === 'on' && {APP}.dataset.inspector === 'open' && {ATTRS}", 20)
     blur(c)
     c.key("f")
@@ -185,7 +184,7 @@ def focus(c, url, ctx) -> dict:
 
 def fresh(c, url, ctx) -> dict:
     out: dict = {}
-    load(c, ctx, "roles", "Roles")
+    load(c, ctx, "roles", "Agents")
     out["offer_first"] = c.wait(f"!!{q('[data-testid=start-here-setup]')}", 30)
     out["offer_open"] = c.js(OPEN)
     c.click_on(q("[data-testid=start-here-setup]"))
@@ -194,15 +193,15 @@ def fresh(c, url, ctx) -> dict:
     time.sleep(2.0)
     out["after_setup"] = c.js(OPEN)
     blur(c)
-    alt(c, 3)
-    c.wait(f"{CUR}.startsWith('Roles')", 15)
+    alt(c, 2)  # 3.3.16.0 R1: Agents
+    c.wait(f"{CUR}.startsWith('Agents')", 15)
     time.sleep(2.0)
     out["next_section"] = c.js(OPEN)
-    load(c, ctx, "roles", "Roles")
+    load(c, ctx, "roles", "Agents")
     time.sleep(2.5)
     out["after_reload"] = c.js(OPEN)
     c.js("localStorage.removeItem('halo.studio.start'); 1")  # a new browser: the home still has no answer, the offer is back once
-    load(c, ctx, "roles", "Roles")
+    load(c, ctx, "roles", "Agents")
     out["offer_again"] = c.wait(f"!!{q('[data-testid=start-here-dismiss]')}", 30)
     c.click_on(q("[data-testid=start-here-dismiss]"))
     out["dismissed"] = c.wait(f"!{q('[data-testid=start-here]')} && 'gone'", 10)

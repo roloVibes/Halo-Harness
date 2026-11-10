@@ -350,7 +350,7 @@ lines. The window and reply-reserve rules apply to it. The rest of Hugging
 Face moves to Local -> Hugging Face (3.3.5.0).
 
 **The panel is the short form of Local (3.3.5.0 R1).** Studio's Local
-section (`Alt+9`, [STUDIO-local.md](STUDIO-local.md)) holds the same hosts at
+section (`Alt+7`, [STUDIO-local.md](STUDIO-local.md)) holds the same hosts at
 full size: a live strip per host, every call as it happens, every host
 with Load / Unload / Make it fit, every model with its card. Each model row
 here has **open in Local**, which opens Local -> Models on that host. The

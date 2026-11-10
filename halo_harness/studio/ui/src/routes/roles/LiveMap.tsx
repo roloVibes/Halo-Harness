@@ -6,6 +6,8 @@
 // and Fit. A click selects the agent and the Inspector's Live tab follows it (as the Map's click); a node's
 // "steer" chip and "..." menu are the Map's. The session picker lists every session the fleet frames carry
 // (this harness first, the newest first). Plan | Live on the bar (L toggles it, J / K hop the working agents).
+// 3.3.16.0 R1 (Agents -> Live): a live Orchestra run joins the tree -- its lead, each lane under it with its number in
+// the lane colour and its worktree (routes/agents/live/runLanes.tsx); the counts stay the session's agents.
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Empty } from "../../lib/ui";
 import { recordRefs, useSessionRecord } from "../../lib/work/record";
@@ -16,6 +18,9 @@ import { liveLayout } from "./liveLayout";
 import { liveNodes, liveSession } from "./liveModel";
 import { LiveBar, LiveGroupBox, LiveNodeCard } from "./LiveNode";
 import { useRoles } from "./store";
+import { RunNodeCard, runNodes } from "../agents/live/runLanes";
+import { useOrch } from "../orchestra/store";
+import { startOrchestra } from "../orchestra/sync";
 
 const LIVE = ["queued", "running", "waiting", "paused"];
 
@@ -34,6 +39,8 @@ function Edges({ boxes, w, h, sel }: { boxes: ReturnType<typeof liveLayout>["box
 
 export function LiveMap() {
   useEffect(() => startFleet(), []);
+  useEffect(() => startOrchestra(), []); // the newest run of this repo: drawn while it is live
+  const run = useOrch((s) => s.data);
   const want = useRoles((s) => s.liveSid);
   const density = useRoles((s) => s.liveDensity);
   const graph = useRoles((s) => s.graph);
@@ -46,7 +53,8 @@ export function LiveMap() {
   const refs = useMemo(() => recordRefs({ harnesses } as FleetState), [harnesses]);
   const sid = useMemo(() => liveSession({ harnesses } as FleetState, want), [harnesses, want]);
   const rec = useSessionRecord(sid);
-  const nodes = useMemo(() => (rec ? liveNodes(rec, fleet.get(), graph?.nodes || [], lineup, now) : []), [rec, graph, lineup, activity, now]);
+  const lanes = useMemo(() => runNodes(run), [run]);
+  const nodes = useMemo(() => [...(rec ? liveNodes(rec, fleet.get(), graph?.nodes || [], lineup, now) : []), ...lanes], [rec, graph, lineup, activity, now, lanes]);
   const geo = useMemo(() => liveLayout(nodes, density), [nodes, density]);
   const [zoom, setZoom] = useState(1);
   const [menu, setMenu] = useState<MenuAt | null>(null);
@@ -73,14 +81,14 @@ export function LiveMap() {
     else return;
     e.preventDefault();
   };
-  const agents = nodes.filter((n) => !n.virtual);
+  const agents = nodes.filter((n) => !n.virtual && !n.run);
   return (
     <div className="rc rlm" data-testid="roles-live-map" data-session={sid || undefined} data-nodes={agents.length} data-density={density}>
       <LiveBar refs={refs} sid={sid} agents={agents.length} live={agents.filter((n) => LIVE.includes(n.state)).length} zoom={zoom} setZoom={setZoom} fit={fit} />
       <div className="rc-scroll rlm-scroll holo-grid" ref={scroll} tabIndex={0} onKeyDown={onKey} aria-label="Roles Live: the session's agent tree">
         {!loaded ? (
           <div className="og-wait mono muted">reading the sessions...</div>
-        ) : !rec ? (
+        ) : !rec && !lanes.length ? (
           <Empty title="No session to draw" testid="roles-live-empty"
                  body="Live draws a running session's agents as they spawn. Start one in a terminal (halo), or from Session: New session (no terminal needed); it appears here the moment it registers." />
         ) : (
@@ -88,7 +96,8 @@ export function LiveMap() {
             <div className="rc-inner rlm-inner" style={{ width: geo.width, height: geo.height, transform: `scale(${zoom})` }} data-testid="roles-live-world" data-zoom={zoom.toFixed(2)}>
               {geo.groups.map((g) => <LiveGroupBox key={g.card} g={g} />)}
               <Edges boxes={geo.boxes} w={geo.width} h={geo.height} sel={selected} />
-              {geo.boxes.map((b) => <LiveNodeCard key={b.node.id} b={b} selected={!!b.node.key && b.node.key === selected} now={now} onMenu={setMenu} />)}
+              {geo.boxes.map((b) => (b.node.run ? <RunNodeCard key={b.node.id} b={b} />
+                : <LiveNodeCard key={b.node.id} b={b} selected={!!b.node.key && b.node.key === selected} now={now} onMenu={setMenu} />))}
             </div>
           </div>
         )}

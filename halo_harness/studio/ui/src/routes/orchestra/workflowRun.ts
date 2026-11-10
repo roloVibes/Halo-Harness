@@ -23,7 +23,7 @@ const text = (v: unknown) => (v === null || v === undefined ? "" : String(v));
 /** Open Orchestra's Start view with `wf` filled in (each input at its default). */
 export function runWorkflow(wf: PackWorkflow): void {
   wfRun.update(() => ({ wf, values: Object.fromEntries(wf.inputs.map((i) => [i.name, text(i.default)])) }));
-  goSection("orchestra");
+  goSection("agents", "runs");
   setView("start");
 }
 

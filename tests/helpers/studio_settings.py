@@ -87,9 +87,9 @@ def _load(c, ctx, query: str, section: str) -> None:
 
 
 def alt8(c, url, ctx) -> dict:
-    _load(c, ctx, "mode=roles&tour=off", "Roles")
+    _load(c, ctx, "mode=roles&tour=off", "Agents")
     time.sleep(1.0)
-    alt(c, 8)
+    alt(c, 6)  # 3.3.16.0 R1: Settings is Alt+6
     c.wait(f"{CUR}.startsWith('Settings') && {qa('[data-testid=settings-row]')}.length > 0", 30)
     time.sleep(2.0)
     return {"alt8_open": c.js(OPEN), "alt8_page": c.js(PAGE), "alt8_section": c.js(CUR),

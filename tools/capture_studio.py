@@ -2,7 +2,7 @@
 scratch home seeded with the shipped lineups, the halo-dev-cycle lineup
 open, through headless Chrome (Halo 2.1.0 round B3). Also the smoke
 `tests/test_studio_ui.py` runs: the page boots, draws nodes, no console
-errors. Usage: python tools/capture_studio.py [--out PATH] [--dom] [--mode roles|shell|orchestra|fleet|team|start|packs|setup|settings|local] [--panel ollama]
+errors. Usage: python tools/capture_studio.py [--out PATH] [--dom] [--mode roles|agents|shell|orchestra|fleet|start|packs|setup|settings|local] [--panel ollama]
 
 3.0.7.0 R2: `--mode roles` (the default; tools/capture_roles.py) renders the
 React Roles section: a seeded lineup with two tiers and a live card
@@ -22,9 +22,9 @@ renders the Start view over a repo with no run (studio-orchestra-start.png). 3.0
 dashboard are tools/capture_session_anim.py's, with their GIFs), R4 also the panels with a conflict on the map and
 the digest in the rail (studio-fleet-panels.png), 3.0.6.0 R6 the Capabilities panel
 with Who can... gridcraft (studio-fleet-capabilities.png), 3.0.6.0 R8 a planned mission
-(studio-fleet-mission.png); --dom counts their test ids. 3.0.8.0 R2: `--mode team`
-(tools/capture_team.py) seeds team_rig's team mid-run and renders the Team section
-(studio-team.png); --dom counts its Start view and the seeded board. 3.2.0.0 R7: `--mode packs`
+(studio-fleet-mission.png); --dom counts their test ids. 3.3.16.0 R1: `--mode team` (the Team section) went with
+Team's board; `--mode roles` renders Agents on Cast and `--mode agents` the same page as studio-agents.png, the modes
+banner's Agents tile; `--mode orchestra` renders Agents on Runs. 3.2.0.0 R7: `--mode packs`
 (tools/capture_packs.py) installs and enables the shipped doc-review pack and renders the Pack Manager
 (studio-packs.png, the modes banner's seventh tile); --dom counts it. 3.3.0.0 R4: `--mode setup`
 (tools/capture_setup.py) renders Setup as `halo init` opens it, a provider set from a placeholder env file
@@ -101,7 +101,7 @@ def main(argv: list) -> int:
     parser = argparse.ArgumentParser(description="Render docs/media/studio.png through headless Chrome")
     parser.add_argument("--out", default=str(REPO / "docs" / "media" / "studio.png"))
     parser.add_argument("--dom", action="store_true", help="print the rendered DOM's node count instead of a PNG")
-    parser.add_argument("--mode", choices=["roles", "shell", "orchestra", "fleet", "team", "start", "packs", "setup", "settings", "local"], default="roles", help="the section to render (the design pack's section: its tests/capture_design.py)")
+    parser.add_argument("--mode", choices=["roles", "agents", "shell", "orchestra", "fleet", "start", "packs", "setup", "settings", "local"], default="roles", help="the section to render (the design pack's section: its tests/capture_design.py)")
     parser.add_argument("--panel", choices=["ollama"], default=None, help="with --mode fleet: one panel's capture (3.3.4.0 R5: "
                         "the Ollama steward's, tools/capture_ollama.py)")
     args = parser.parse_args(argv)
@@ -141,14 +141,6 @@ def _render(args) -> int:
             return capture_fleet(args.out, args.dom, find_chrome)
         finally:
             shutil.rmtree(state.parent, ignore_errors=True)
-    if args.mode == "team":  # 3.0.8.0 R2: the Team section over team_rig's team (tools/capture_team.py)
-        from capture_team import capture as capture_team
-        if args.out.endswith("studio.png"):
-            args.out = args.out[:-4] + "-team.png"
-        try:
-            return capture_team(args.out, args.dom, find_chrome)
-        finally:
-            shutil.rmtree(state.parent, ignore_errors=True)
     if args.mode == "packs":  # 3.2.0.0 R7: the Pack Manager over the shipped pack (tools/capture_packs.py)
         from capture_packs import capture as capture_packs
         if args.out.endswith("studio.png"):
@@ -181,10 +173,10 @@ def _render(args) -> int:
             return capture_local(args.out, args.dom, serve, state)
         finally:
             shutil.rmtree(state.parent, ignore_errors=True)
-    if args.mode == "roles":  # 3.0.7.0 R2: the React Roles section (tools/capture_roles.py)
+    if args.mode in ("roles", "agents"):  # 3.0.7.0 R2: the React Roles section (tools/capture_roles.py); 3.3.16.0 R1: Agents, Cast
         from capture_roles import capture as capture_roles
         if args.out.endswith("studio.png"):
-            args.out = args.out[:-4] + "-roles.png"
+            args.out = args.out[:-4] + f"-{args.mode}.png"
         try:
             return capture_roles(args.out, args.dom, serve, state)
         finally:

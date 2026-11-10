@@ -299,15 +299,15 @@ the start there.
 4. **The plan**: the lineup's lead and lanes, then the lead's plan as
    `halo orchestra plan` prints it (each job with its lane card's bio), two
    sentences on layers and hand-offs, then Enter approves it, `s` opens it
-   on Studio's plan canvas (`halo studio --mode orchestra` in the sample
-   repo) and waits for the decision made there, `q` rejects it and stops.
+   on Studio's plan canvas (`halo studio --mode agents` in the sample
+   repo, Runs) and waits for the decision made there, `q` rejects it and stops.
 5. **The run**: the lanes table (`halo orchestra lanes`), drawn again as
    lanes change, until the run ends.
 6. **The report and the coach**: the report's checks (`halo orchestra
    report`), the lineup that played it, and the coach's cards (`halo orchestra coach`); `halo coach
    --apply ID` writes a card's change after a confirm, `--undo` puts it back.
-7. **Where to go next**: Roles (`halo studio --mode roles`), Team (`halo team
-   init`) and Fleet (`halo fleet pair`), each with its command.
+7. **Where to go next**: Agents: Cast (`halo studio --mode agents`), Agents: Runs (`halo orchestra new`)
+   and Fleet (`halo fleet pair`), each with its command.
 
 Options: `--lineup NAME` (the lineup to rehearse this once), `--repo DIR`, `--file F` (repeatable, with
 `--repo`), `--model REF` (the model every part uses; default your roles),

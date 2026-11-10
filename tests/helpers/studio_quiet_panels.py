@@ -31,8 +31,8 @@ from tests.helpers.chrome_driver import Driver  # noqa: E402
 from tests.helpers.studio_header_menus import more  # noqa: E402
 from tests.helpers.studio_packs_steps import CUR, mod_key, q, qa  # noqa: E402
 
-PRIMARY = [("session", "Session", "session-live"), ("team", "Team", "team-board"), ("roles", "Roles", "roles-graph"),
-           ("fleet", "Fleet", "fleet-map"), ("orchestra", "Orchestra", "graph"),
+PRIMARY = [("session", "Session", "session-live"), ("roles", "Agents", "roles-graph"),  # 3.3.16.0 R1: Cast and Runs, by their doors
+           ("fleet", "Fleet", "fleet-map"), ("orchestra", "Agents", "graph"),
            ("packs", "Packs", "pm-installed")]
 RECT = "((e) => { const r = e.getBoundingClientRect(); return [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height)]; })"
 COVER = ("((p) => { const a = RECT(document.querySelector('[data-panel=\"' + p + '\"] .panel')), s = RECT(document.querySelector('.stage'));"
@@ -135,7 +135,7 @@ def _tokens(c) -> list:
 
 
 def density(c, url, ctx) -> dict:
-    fresh(c, ctx, "roles", "Roles")
+    fresh(c, ctx, "roles", "Agents")
     c.wait(f"!!{q('[data-panel=roles-graph] .panel-body')}", 40)
     time.sleep(0.6)
     out = {"comfortable": _tokens(c), "toggle_title": c.js(f"{q('[data-testid=density-toggle]')}.title")}
@@ -146,7 +146,7 @@ def density(c, url, ctx) -> dict:
     out["saved"] = c.js("localStorage.getItem('halo.studio.density')")
     if ctx.get("shots"):
         c.shot(Path(ctx["shots"]) / "q3_roles_compact.png", 1280, 800, 1)
-    load(c, ctx, "roles", "Roles")
+    load(c, ctx, "roles", "Agents")
     c.wait(f"!!{q('[data-panel=roles-graph] .panel-body')}", 40)
     out["reload"] = _tokens(c)
     mod_key(c, "KeyK", 75, 2, "k")

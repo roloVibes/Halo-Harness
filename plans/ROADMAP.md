@@ -4826,3 +4826,23 @@ Fleet strips are 44 px; a fresh-home `halo init` ends with the terminal session 
 Kali's guided first run no longer dies on a worker's "STOP: none". Next: the 3.3.15.0 release on green both, the PC
 reinstall, then 3.3.16.0 Agents (R1 fold + inspector + density pass, R2 Fleet fold, R3 Workflows: squares and the
 router).**
+
+**3.3.16.0 R1 "Agents: one section" BUILT and MERGED 2026-11-09 night (one Opus round, worktree
+~/hh-3316/R1-agents-fold, brief and hand-back under ~/hh-3316/briefs/):** Team, Roles and Orchestra are one Studio
+section, Agents (`Alt+2`), with the Cast | Runs | Live switch (`?mode=agents&view=`, the C/R/L keys, the palette rows);
+seven core sections (Session, Agents, Fleet, Packs, Setup, Settings, Local; packs from `Alt+8`). Cast is Roles'
+workspace unchanged (its ids and every `data-testid` kept); Runs is Orchestra's plus the owns line on plan cards and
+lane rows, a focused lane's claims (from `GET orchestra/<run>`'s `claims`, no new field) and Test this lineup (the card
+first, then `POST start`; disabled with the Auto line on Auto); Live is Roles Live plus a live Orchestra run's lead and
+lanes (number in the lane colour, worktree badge). Every old door lands on the right view and prints the new one once
+(`studio/agents_door.py`, `ui/src/lib/agentsDoor.ts`; `?mode=team` shows the one-line note once per browser). The Team
+section is deleted (routes/team, help-team.ts, team*.css, its drivers, tools/capture_team.py, docs/media/studio-team.png;
+the board's /api/team routes answer 410 naming where it moved; `halo team` and `GET team/coach` stay). Deviations kept:
+STUDIO-orchestra.md holds the Runs content under its old anchors retitled "Agents -> Runs" (folding it made a 470-line
+doc over the split-doc cap), STUDIO-team-roles.md is a pointer; `L` toggles Live <-> Cast; Test this lineup runs in its
+own sample repo so its lanes show in the start panel, not the Runs list; only the moved sections' captures were
+re-rendered (other screenshots still show the nine-icon rail: a density-pass item for R1b). For rolo (on the next
+release): `Alt+2` opens Agents on Cast with nothing over it; C/R/L move between the views; an old `?mode=team` link
+lands on Runs with the line once; a run's lanes read OWNS <keys> and a click lists the claims; with his lineup active,
+Runs -> Test this lineup shows the card before Run it. Next: R1b (the inspector says one thing at a time + the density
+pass + the remaining rail captures), R2 the Fleet fold, R3 Workflows, the 3.3.16.0 release on green both.**

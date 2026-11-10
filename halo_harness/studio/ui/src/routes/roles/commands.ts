@@ -1,6 +1,7 @@
 // The palette's Roles group (3.0.7.0 R2): a new lineup, apply the open one,
 // a new bio, test the open bio's model (or the selected card's), add a tier
 // (3.1.6.0 R1), save, undo, redo, and open any lineup or bio by name. 3.3.11.0 R2: Roles: Live and Roles: Plan.
+// 3.3.16.0 R1: the lines keep their words and sit in the palette's Agents group (routes/agents/commands.ts first).
 import { goSection, toast } from "../../lib/store";
 import { focusPanel } from "../../lib/workspace/persist";
 import { redo, save, undo } from "./actions";
@@ -13,7 +14,7 @@ export type RolesCommand = { id: string; group: string; label: string; hint?: st
 
 function inRoles(fn: () => void): () => void {
   return () => {
-    goSection("roles");
+    goSection("agents", "cast"); // 3.3.16.0 R1: Roles is Agents' Cast
     startRoles();
     window.setTimeout(fn, 60);
   };
@@ -28,7 +29,7 @@ function modelToTest(): string {
 
 export function rolesCommands(): RolesCommand[] {
   const s = roles.get();
-  const g = "Roles";
+  const g = "Agents";
   const open = s.name;
   const out: RolesCommand[] = [
     { id: "roles-new-lineup", group: g, label: "Roles: new lineup", hint: "your own copy of a lineup, opened on the canvas", run: inRoles(() => openDialog({ kind: "new-lineup", from: open || "balanced" })) },

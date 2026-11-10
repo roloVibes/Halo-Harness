@@ -92,7 +92,7 @@ export function Panel({ spec, p }: { spec: PanelSpec; p: PanelLayout }) {
   const set = (patch: Partial<PanelLayout>) => patchPanel(ws.section, spec.id, patch);
   const toggleFace = () => hasDetail && set({ face: face === "glance" ? "detail" : "glance", collapsed: false });
   const settings = () =>
-    studio.update((s) => ({ inspector: inspecting ? null : { section: s.section as SectionId, panel: spec.id } }));
+    studio.update(() => ({ inspector: inspecting ? null : { section: ws.section as SectionId, panel: spec.id } })); // 3.3.16.0 R1: the workspace's id (Agents: roles, orchestra)
 
   /** This panel is the one the user is on: the ring, and an open Inspector shows it. */
   const activate = () => {

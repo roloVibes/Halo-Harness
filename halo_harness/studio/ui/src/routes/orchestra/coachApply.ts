@@ -28,7 +28,7 @@ function merged(field: string, cur: unknown, value: unknown): unknown {
 
 async function toBio(s: Suggestion, run: string): Promise<void> {
   const a = s.apply!;
-  goSection("roles");
+  goSection("agents", "cast");
   setView("workspace");
   if (!roles.get().loaded) await loadLists();
   roles.update(() => ({ coachHint: { bio: a.name, field: a.field, value: a.value, run, text: s.text } }));
@@ -44,7 +44,7 @@ async function toBio(s: Suggestion, run: string): Promise<void> {
 
 async function toLineup(s: Suggestion, run: string): Promise<void> {
   const a = s.apply!;
-  goSection("roles");
+  goSection("agents", "cast");
   setView("workspace");
   if (!roles.get().loaded) await loadLists();
   const name = a.name || roles.get().info?.active_team || "";

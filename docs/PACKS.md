@@ -530,7 +530,7 @@ another Python finds `halo_harness.ext` as well. A plain Claude-plugin folder
 
 ## The Pack Manager
 
-Studio's **Packs** section (`Alt+6`, 3.2.0.0 R6) runs the lifecycle above with
+Studio's **Packs** section (`Alt+4`, 3.2.0.0 R6) runs the lifecycle above with
 buttons, through the same code: each action runs the function `halo pack`
 runs and shows the lines it prints, and every open Studio redraws on the
 `pack_changed` it publishes ([STUDIO-packs.md](STUDIO-packs.md)).

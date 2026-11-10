@@ -83,7 +83,7 @@ def pack_themes(c, url, ctx) -> dict:
     status, _ans = _call(ctx, "POST", "pack/pack-theme/enable")
     _call(ctx, "POST", "settings/set", {"key": "theme", "value": "midnight"})
     out = {"pack_installed": ok and status == 200}
-    _go(c, ctx, "mode=roles", "Roles")
+    _go(c, ctx, "mode=roles", "Agents")
     _press(c, q("[data-testid=theme-menu-btn]"), f"!!{q('[data-testid=theme-menu]')}")
     c.wait(f"{qa('[data-testid=theme-menu] [data-testid=theme-item]')}.length === 14", 15)  # follow + eleven + the two pack palettes
     out["pack_menu_group"] = c.js(qa(GROUP + " [data-testid=theme-item]") + ".map((b) => b.dataset.themeId)")

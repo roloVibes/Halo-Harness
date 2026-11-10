@@ -165,7 +165,8 @@ def section_target(word: str, session_id: str = "") -> "tuple[Optional[SectionTa
         sid = session_id if valid_session_id(session_id) else ""
         return SectionTarget("session", sid, "this session" if sid else ""), ""
     if w in STUDIO_MODES:
-        return SectionTarget(w), ""
+        from halo_harness.studio.agents_door import DOORS  # 3.3.16.0 R1: an old word lands on Agents' view
+        return SectionTarget(w, name=f"Agents ({DOORS[w].title()})" if w in DOORS else ""), ""
     from halo_harness.studio.modes import check  # 3.3.13.0 R2: a running pack's section, <pack id>--<section>
     mode, why = check((word or "").strip())
     if mode is not None:

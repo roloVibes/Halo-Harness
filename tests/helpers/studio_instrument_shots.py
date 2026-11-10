@@ -30,7 +30,7 @@ def shots(c, rig, folder: str) -> dict:
             rig_load(c, rig, sid, title)
             time.sleep(2.0)
             shot(f"{sid}@{w}.png", w, h)
-        rig_load(c, rig, "roles", "Roles", "&view=live")
+        rig_load(c, rig, "roles", "Agents", "&view=live")
         time.sleep(2.0)
         shot(f"roles-live@{w}.png", w, h)
     rig_load(c, rig, "session", "Session")

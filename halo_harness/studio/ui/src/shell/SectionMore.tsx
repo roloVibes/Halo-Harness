@@ -8,7 +8,7 @@
 import { Menu, type MenuRow } from "../lib/ui";
 import { openHelp, studio, useStore } from "../lib/store";
 import { layoutStore } from "../lib/workspace/persist";
-import { sectionDef, type SectionDef } from "../routes";
+import { useSectionDef, type SectionDef } from "../routes";
 import { arrangeSection, resetSection } from "./commands";
 
 function More({ def }: { def: SectionDef }) {
@@ -26,7 +26,7 @@ function More({ def }: { def: SectionDef }) {
       title: "Forget your arrangement of this section: its default panels come back",
       run: () => resetSection(def),
     },
-    { id: "moving", label: "How panels move", icon: "help", testid: "layout-help", title: "Drag, resize and the keys: the Moving panels part of this section's help", run: () => openHelp(def.id, "moving") },
+    { id: "moving", label: "How panels move", icon: "help", testid: "layout-help", title: "Drag, resize and the keys: the Moving panels part of this section's help", run: () => openHelp(studio.get().section, "moving") }, // 3.3.16.0 R1: Agents' help, not its part's
   ];
   return <Menu icon="more" label={`${def.title}: layout`} title="More: arrange the panels, reset the layout, how panels move" testid="section-more" menuTestid="section-more-menu" groups={[{ name: "LAYOUT", rows }]} width={260} />;
 }
@@ -43,7 +43,7 @@ function Badge({ def }: { def: SectionDef }) {
 
 export function SectionMore() {
   const section = useStore(studio, (s) => s.section);
-  const def = sectionDef(section);
+  const def = useSectionDef(section); // 3.3.16.0 R1: Agents' follows its view
   if (def.paged) return null;
   return (
     <>

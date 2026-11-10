@@ -11,12 +11,12 @@ How a key is matched to its section, nearest first:
      section's (PACK);
   2. else one on the line just above or below, in the same paragraph;
   3. else the nearest Markdown heading above that names exactly one section.
-A range (`Alt+1`..`Alt+9`, `Alt+1` to `Alt+7`, `Alt+1..8`, `Alt+1..0`) names no single
-section: its paragraph's run of six titles or more (`Orchestra, Roles, ...`,
+A range (`Alt+1`..`Alt+7`, `Alt+1` to `Alt+7`, `Alt+1..5`) names no single
+section: its paragraph's run of six titles or more (`Session, Agents, ...`,
 `**A** | **B**`, `A, B and C`) must be the registry's order from its start
-(3.2.0.0 R6: the six work sections, then Packs; 3.3.0.0 R1: then Setup; 3.3.3.0 R2: then Settings; 3.3.5.0 R1:
-then Local, on Alt+0: the key `0` is the tenth slot; 3.3.13.0 R2: Design left the core, the nine end at Local on
-Alt+9 and the tenth slot is the first pack section's).
+(3.2.0.0 R6: the work sections, then Packs; 3.3.0.0 R1: then Setup; 3.3.3.0 R2: then Settings; 3.3.5.0 R1:
+then Local; 3.3.13.0 R2: Design left the core; 3.3.16.0 R1: Agents took in Team, Roles and Orchestra, the seven end
+at Local on Alt+7 and Alt+8, Alt+9 and Alt+0 are the first three pack sections').
 """
 from __future__ import annotations
 
@@ -30,10 +30,10 @@ BANNER = REPO / "tools" / "studio_modes_banner.py"
 
 _ENTRY = re.compile(r'\{ id: "(\w+)", title: "(\w+)", kbd: "(Alt\+\d)", blurb: "([^"]*)"')
 KEY = re.compile(r"Alt\+([0-9])(?!\d)")  # 3.2.0.0 R6: Packs is Alt+7; 3.3.0.0 R1: Setup is Alt+8; 3.3.3.0 R2: Settings is Alt+9; 3.3.5.0 R1: Local is Alt+0
-RANGE = re.compile(r"`?Alt\+1`?\s*(?:\.\.\.?|to|-)\s*`?(?:Alt\+)?[567890](?!\d)`?")  # 3.3.0.0 R1: ..8; 3.3.3.0 R2: ..9; 3.3.5.0 R1: ..0; 3.3.13.0 R2: ..5
+RANGE = re.compile(r"`?Alt\+1`?\s*(?:\.\.\.?|to|-)\s*`?(?:Alt\+)?[4567890](?!\d)`?")  # 3.3.0.0 R1: ..8; 3.3.3.0 R2: ..9; 3.3.5.0 R1: ..0; 3.3.13.0 R2: ..5; 3.3.16.0 R1: ..4
 _SEP = re.compile(r"[\s*`,|/]*(?:and\s+)?[\s*`,|/]*")
 HEADING = re.compile(r"^#{1,6} ")
-PACK = "pack"  # 3.3.13.0 R2: the tenth slot (Alt+0) is the first pack section's
+PACK = "pack"  # 3.3.13.0 R2: the tenth slot (Alt+0) was the first pack section's; 3.3.16.0 R1: Alt+8, Alt+9, Alt+0 are the packs'
 PACK_HINT = re.compile(r"design pack|first pack section|pack's (?:own )?sections?\b", re.I)
 
 
@@ -57,7 +57,7 @@ def _patterns(rows):
     titles = "|".join(t for _, t, _, _ in rows)
     ids = "|".join(i for i, _, _, _ in rows)
     title = re.compile(rf"\b({titles})\b")
-    hint = re.compile(rf"(?:\?mode=|--mode |/studio )({ids})\b|--(session|fleet)\b|(?<=[\s`(])/(roles)\b")
+    hint = re.compile(rf"(?:\?mode=|--mode |/studio )({ids})\b|--(session|fleet)\b")  # 3.3.16.0 R1: /roles opens Agents (no id hint)
     return title, hint
 
 
@@ -143,7 +143,8 @@ def problems(path: Path, rows) -> "list[str]":
     """Every line of `path` whose Alt+N names another section than the registry's, or whose range lists
     the six sections out of order."""
     want = {n: sid for n, (sid, _, _, _) in enumerate(rows, 1)}
-    want.setdefault(len(rows) + 1, PACK)  # 3.3.13.0 R2: nine core sections: Alt+0 is the first pack section
+    for n in range(len(rows) + 1, 11):  # 3.3.16.0 R1: seven core sections: Alt+8, Alt+9 and Alt+0 are the pack sections'
+        want.setdefault(n, PACK)
     order = [t for _, t, _, _ in rows]
     rel = path.relative_to(REPO).as_posix()
     out = []
@@ -155,6 +156,6 @@ def problems(path: Path, rows) -> "list[str]":
             out.append(f"{rel}:{no}: Alt+{n % 10} is {want.get(n)}, the line names {sid}: {line[:120]}")
     for no, runs, line in ranges:
         for run in runs:
-            if len(set(run)) >= 6 and run != order[:len(run)]:  # 3.2.0.0 R6: the six, or the six then Packs (3.3.0.0 R1: then Setup; 3.3.3.0 R2: then Settings; 3.3.5.0 R1: then Local)
+            if len(set(run)) >= 5 and run != order[:len(run)]:  # 3.2.0.0 R6 .. 3.3.5.0 R1; 3.3.16.0 R1: five titles or more of the seven
                 out.append(f"{rel}:{no}: the sections run {', '.join(run)}, the registry {', '.join(order)}: {line[:120]}")
     return out

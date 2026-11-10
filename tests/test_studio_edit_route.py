@@ -2,7 +2,7 @@
 3.1.1.0 R3: Studio is the one editor of bios and lineups; headless Chrome
 through the driver base, tests/helpers/studio_edit.py; skipped without one).
 
-1. the URL: a page opened on `?mode=roles&edit=bio:coder` lands on Roles with
+1. the URL: a page opened on `?mode=roles&edit=bio:coder` lands on Agents (Cast) with
    coder's bio form open (no Start here, no welcome over it); the form has
    every field the terminal's bio view shows, each with field_help.py's line
    (GET /api/field-help), the efforts up to xhigh and max, and the YAML
@@ -12,7 +12,7 @@ through the driver base, tests/helpers/studio_edit.py; skipped without one).
    --edit` runs (studio/edit_open.open_edit) focuses it -- lineup:<name>
    opens that lineup with the Inspector on its Lineup tab (a section's line
    from field_help.py; a section edited there and saved lands in the file),
-   team opens the Team section, bio:<name> the bio form -- and opens no new
+   team opens Agents on Runs (3.3.16.0 R1), bio:<name> the bio form -- and opens no new
    browser tab.
 The no-browser half (the targets, the URL, the focus API, the CLI verbs) is
 tests/test_studio_edit_target.py.
@@ -54,8 +54,8 @@ def _driver(*argv: str) -> "tuple[subprocess.CompletedProcess, dict]":
 def test_the_edit_url_opens_the_bio_form_on_that_bio(ctx: Ctx):
     r, got = _driver("bio")
     ctx.check(f"the driver ran, got {r.returncode} {r.stdout[-300:]!r} {r.stderr[-400:]!r}", r.returncode == 0 and "failed" not in got)
-    ctx.check(f"Roles, coder's bio form, nothing over it, got {got.get('section')} {got.get('form')} {got.get('overlays')}",
-              got.get("form") == "coder" and str(got.get("section") or "").startswith("Roles") and got.get("overlays") == 0)
+    ctx.check(f"Agents (Cast), coder's bio form, nothing over it, got {got.get('section')} {got.get('form')} {got.get('overlays')}",
+              got.get("form") == "coder" and str(got.get("section") or "").startswith("Agents") and got.get("overlays") == 0)
     ctx.check(f"every field the terminal view shows is in the form; missing: {got.get('missing')}", got.get("missing") == [])
     ctx.check(f"the help lines are field_help.py's, got {got.get('help_from_source')}", got.get("help_from_source") == [True] * 6)
     ctx.check(f"effort offers xhigh and max, got {got.get('efforts')}", got.get("efforts") == ["", "low", "medium", "high", "xhigh", "max"])
@@ -77,12 +77,12 @@ def test_a_running_studio_is_focused_on_the_target(ctx: Ctx):
               got.get("lineup_tab") == "halo-dev-cycle" and got.get("lineup_selected") == "true")
     ctx.check(f"the section's line is field_help.py's, got {got.get('about')!r}", got.get("about") == field_help.LINEUP_SECTIONS["delegation"])
     ctx.check(f"a section edited in the inspector is saved, got {got.get('delegation_saved')}", got.get("delegation_saved") == "round-robin")
-    ctx.check(f"team opens the Team section, got {got.get('team_how')} {got.get('team_section')}",
-              got.get("team_how") == "focused" and str(got.get("team_section") or "").startswith("Team"))
-    ctx.check(f"bio:<name> opens the bio form back on Roles, got {got.get('bio_form')} {got.get('bio_section')}",
-              got.get("bio_how") == "focused" and got.get("bio_form") == "reviewer" and str(got.get("bio_section") or "").startswith("Roles"))
+    ctx.check(f"team opens Agents on Runs (3.3.16.0 R1: the Team section went), got {got.get('team_how')} {got.get('team_section')}",
+              got.get("team_how") == "focused" and str(got.get("team_section") or "") == "Agents:runs")
+    ctx.check(f"bio:<name> opens the bio form back on Agents (Cast), got {got.get('bio_form')} {got.get('bio_section')}",
+              got.get("bio_how") == "focused" and got.get("bio_form") == "reviewer" and str(got.get("bio_section") or "").startswith("Agents"))
     ctx.check(f"no browser tab was opened, got {got.get('tabs_opened')}", got.get("tabs_opened") == 0)
-    ctx.check(f"the URL it reports names the target, got {got.get('url')}", str(got.get("url") or "").endswith("/?mode=roles&edit=bio:reviewer"))
+    ctx.check(f"the URL it reports names the target, got {got.get('url')}", str(got.get("url") or "").endswith("/?mode=agents&view=cast&edit=bio:reviewer"))  # 3.3.16.0 R1
 
 
 if __name__ == "__main__":

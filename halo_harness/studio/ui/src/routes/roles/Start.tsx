@@ -59,7 +59,7 @@ export function StartView() {
             <button className="og-link mono" onClick={() => setView("workspace")} data-testid="roles-open-workspace">open the panels anyway</button>
           </aside>
         </div>
-        <NextStep from="roles" />
+        <NextStep from="cast" />
       </div>
     </div>
   );

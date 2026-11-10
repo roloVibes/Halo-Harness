@@ -1,0 +1,30 @@
+/* Agents (3.3.16.0 R1): the bar (the Cast | Runs | Live switch first, then what the view adds) over the view's
+   workspace. The bar is one 40 px band with a hairline under it; each view's room fills the rest. The owns line on a
+   lane (runs/Owns.tsx) and a lane's claims. Tokens only. */
+
+.ag { position: absolute; inset: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); }
+.ag-bar {
+  display: flex; align-items: center; gap: var(--gap); min-height: var(--bar-h); padding: 0 var(--pad);
+  background: var(--bg-2); border-bottom: 1px solid var(--line-soft); min-width: 0;
+}
+.ag-views button { height: 28px; padding: 0 14px; }
+.ag-body { position: relative; min-height: 0; }
+.ag-part { position: absolute; inset: 0; }
+.ag-part[hidden] { display: none; }
+.ag-test { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.ag-test-auto { font-size: var(--fs-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ag-note {
+  display: inline-flex; align-items: center; gap: 6px; margin-left: auto; padding: 2px 4px 2px 10px; font-size: 11.5px;
+  color: var(--accent); border: 1px solid var(--accent); border-radius: var(--r-control); background: var(--soft-accent);
+}
+.ag-note-x { width: 22px; height: 22px; }
+
+/* the owns line: what a lane writes (its claims), on a plan card and a lane of the Lanes panel */
+.ag-owns { display: block; font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.ag-owns b { color: var(--faint); font-weight: 500; letter-spacing: .06em; margin-right: 4px; }
+.og-lane > .ag-lane-claims { grid-column: 1 / -1; cursor: default; }
+.ag-claims { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 2px; }
+.ag-claims li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; font-size: 11px; }
+.ag-claims li span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ag-claims [data-state="writing"] { color: var(--accent); }
+.pc-claims .ag-owns { font-size: 10.5px; line-height: 14px; }

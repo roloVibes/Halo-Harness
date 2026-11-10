@@ -1,4 +1,4 @@
-// Local (Alt+9, 3.3.5.0 R1, plans/ROADMAP.md "3.3.5.0 becomes Local"): the
+// Local (Alt+7, 3.3.5.0 R1, plans/ROADMAP.md "3.3.5.0 becomes Local"): the
 // machines that serve models and the models they serve, in one tab. Paged like
 // Setup and Settings: the page rail on the left (LocalRail.tsx), one page on the
 // right (LocalPage.tsx): Resources (the live strip per host and the traffic

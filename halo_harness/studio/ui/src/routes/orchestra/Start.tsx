@@ -68,7 +68,7 @@ export function StartView() {
             </button>
           </aside>
         </div>
-        <NextStep from="orchestra" />
+        <NextStep from="runs" />
       </div>
     </div>
   );
