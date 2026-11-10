@@ -588,6 +588,13 @@ def test_post_connect_drop_ladders_even_with_governor_on(ctx: Ctx):
     def _serve_drop_then_ok(h, b):
         seen[0] += 1
         if seen[0] <= 2:  # hard-close AFTER the request was read: a post-connect drop
+            # shutdown first: close() alone leaves the handler's rfile/wfile holding the socket, so on Windows no
+            # FIN went out and the client sat out its whole read timeout (six minutes of this module's run)
+            import socket as _socket
+            try:
+                h.connection.shutdown(_socket.SHUT_RDWR)
+            except OSError:
+                pass
             h.connection.close()
             return
         _finish(h, [

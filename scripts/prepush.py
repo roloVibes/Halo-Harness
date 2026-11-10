@@ -1,6 +1,6 @@
 """scripts/prepush.py -- everything CI checks, on this box, before a push (Halo 3.3.16.0).
 
-    python scripts/prepush.py                 # the whole gate (about a quarter of an hour on a 24-core box)
+    python scripts/prepush.py                 # the whole gate
     python scripts/prepush.py --quick         # the static checks and the fast tier only (no Chrome, no TUI pilots)
     python scripts/prepush.py --jobs 6        # fewer parallel shards (default: half the cores, 2 to 12)
     python scripts/prepush.py --ui            # build Studio's UI even when no ui/ file differs from origin/master
@@ -15,8 +15,9 @@ What it runs, in this order (a red static check stops the run; the suites all ru
   4. The fast tier of tests/run_all.py as N shards side by side (`--fast --shard i/N`, the flag CI's matrix uses),
      with test_bridge.py beside them. Every shard is run_all itself, so each module still gets its own fresh
      BRIDGE_TEST_HOME and the run still fails when a test touches the real ~/.halo.
-  5. The full tier (`--tier full`: headless Chrome and the TUI pilots, one Chrome at a time) with test_tui.py
-     beside it; docs/harness/tui-snapshots is put back afterwards unless --keep-snapshots.
+  5. The full tier (`--tier full`: headless Chrome and the TUI pilots) as --chrome-jobs shards (default 4), each
+     with its own temp directory and so its own Chrome lock (one Chrome per shard), with test_tui.py beside them;
+     docs/harness/tui-snapshots is put back afterwards unless --keep-snapshots.
   6. A shard that went red beside the others is run once more alone. Green alone = "contended" (said in the
      summary, the gate still passes: look at it, a test that needs a quiet box is a test to fix); red alone = red.
 
@@ -54,6 +55,15 @@ def tree_state() -> dict:
 def suite_env() -> dict:
     env = {k: v for k, v in os.environ.items() if k not in ("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR")}
     env.update(PYTHONPATH=str(REPO), BRIDGE_TEST_NO_BACKGROUND_NET="1", PYTHONIOENCODING="utf-8", PYTHONUNBUFFERED="1")
+    return env
+
+
+def own_temp(name: str) -> dict:
+    """A suite environment with its own temp directory. tests/helpers/chrome_lock.py keeps the one-Chrome-at-a-time
+    lock under <temp>/halo-tests, so a shard with its own temp has its own lock: one Chrome per shard, not per box."""
+    env = suite_env()
+    tmp = Path(tempfile.mkdtemp(prefix=f"prepush-{name}-"))
+    env.update(TEMP=str(tmp), TMP=str(tmp), TMPDIR=str(tmp))
     return env
 
 
@@ -99,7 +109,7 @@ def red_lines(log: str, limit: int = 12) -> list:
     for ln in text.splitlines():
         if ln.startswith("=== "):
             module = ln.strip("= ").strip()
-        elif ln.lstrip().startswith("[FAIL]") or "Traceback (most recent call last)" in ln or "IMPORT FAILED" in ln.upper():
+        elif ln.lstrip().startswith("[FAIL]") or "IMPORT FAILED" in ln.upper():
             out.append(f"{module}: {ln.strip()}" if module else ln.strip())
     return out[:limit]
 
@@ -141,14 +151,16 @@ def suites(args, logdir: Path) -> list:
     jobs.append(start("test_bridge", [py, "test_bridge.py"], logdir))
     steps = wait(jobs)
     if not args.quick:
-        print("full tier (Chrome, TUI pilots) with test_tui beside it", flush=True)
-        steps += wait([start("full-tier", [py, "tests/run_all.py", "--tier", "full"], logdir),
-                       start("test_tui", [py, "test_tui.py"], logdir)])
+        print("full tier (Chrome, TUI pilots) as shards, each with its own Chrome lock; test_tui beside them", flush=True)
+        k = max(1, min(args.chrome_jobs, n))
+        jobs = [start(f"full-{i}of{k}", [py, "tests/run_all.py", "--tier", "full", "--shard", f"{i}/{k}"], logdir,
+                      env=own_temp(f"full-{i}")) for i in range(k)]
+        steps += wait(jobs + [start("test_tui", [py, "test_tui.py"], logdir)])
         if not args.keep_snapshots:
             git("checkout", "--", SNAPSHOTS)
     for s in [s for s in steps if not s["ok"]]:
         print(f"once more, alone: {s['name']}", flush=True)
-        again = run_step(s["name"] + "-alone", s["cmd"], logdir)
+        again = run_step(s["name"] + "-alone", s["cmd"], logdir, env=own_temp(s["name"] + "-alone"))
         s["first_log"], s["log"] = s["log"], again["log"]
         if again["ok"]:
             s["ok"], s["contended"] = True, True
@@ -176,6 +188,7 @@ def main(argv: "list | None" = None) -> int:
     p = argparse.ArgumentParser(prog="prepush.py", description="Everything CI checks, on this box, before a push.")
     p.add_argument("--quick", action="store_true", help="static checks and the fast tier only")
     p.add_argument("--jobs", type=int, default=max(2, min(12, (os.cpu_count() or 4) // 2)))
+    p.add_argument("--chrome-jobs", type=int, default=4, help="shards of the full tier, one Chrome each (default 4)")
     p.add_argument("--ui", action="store_true", help="build Studio's UI even when no ui/ file differs from origin/master")
     p.add_argument("--keep-snapshots", action="store_true", help="leave test_tui's re-rendered SVGs in the tree")
     p.add_argument("--status", action="store_true", help="print the last run's verdict and whether it is this tree's")
