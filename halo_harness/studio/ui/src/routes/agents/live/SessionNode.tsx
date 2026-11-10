@@ -3,7 +3,8 @@
 // git chips (dirty, ahead / behind, worktree, from GET fleet/conflicts' rooms), the cost counting up, a `!` chip
 // naming the file when another session edits it too, a `mission` chip on a mission part's session, and its "..." menu
 // (the session's: Record the session, Shut it down...). A click selects its main agent; in Session's Map the chosen
-// session is marked (`data-chosen`).
+// session is marked (`data-chosen`). The kind chip is drawn only for a session that is not the terminal's (the owner:
+// "no need for tui in the boxes"); the title takes two lines before it is cut.
 import type { KeyboardEvent, MouseEvent } from "react";
 import { cost, short } from "../../orchestra/format";
 import { usePanels } from "../../fleet/pstore";
@@ -47,20 +48,21 @@ export function SessionNode({ b, selected, onPick, onMenu }: Props) {
          title={`${n.name}\n${s.cwd || ""}\n${s.kind || "session"} · ${s.status || ""}`}>
       <div className="rlm-head">
         <span className="rlm-dot" aria-hidden="true" />
-        <b className="rlm-name">{short(n.name, 24)}</b>
+        <b className="rlm-name">{short(n.name, 80)}</b>
         <span className="spacer" />
         {s.mission && <span className="og-chip mono" data-testid="fleet-tree-mission" title={`mission ${s.mission}, part ${s.part ?? "?"}`}>mission</span>}
-        <span className="og-chip mono rlm-role">{n.role}</span>
+        {n.role && n.role !== "tui" && <span className="og-chip mono rlm-kind" data-testid="fleet-session-kind">{n.role}</span>}
         <button className="rlm-more" onClick={menu} aria-label="session: more" title="Record, shut down..." data-testid="fleet-session-more">...</button>
       </div>
-      <div className="mono muted rlm-line">
-        {short(projectLabel(s), 30)} · <span data-testid="fleet-session-cost">{cost(shown)}</span>
-        {clash && (
-          <span className="og-chip mono rlm-clash" data-testid="fleet-conflict-chip" title={`${clash.a.name} and ${clash.b.name} are both editing ${clash.file}`}>
-            {"! " + short(clash.file.split("/").pop(), 12)}
-          </span>
-        )}
+      <div className="mono muted rlm-meta">
+        <span className="rlm-model" title={s.cwd || undefined}>{projectLabel(s)}</span>
+        <span className="rlm-cost" data-testid="fleet-session-cost">{cost(shown)}</span>
       </div>
+      {clash && (
+        <div className="mono rlm-clash-line" data-testid="fleet-conflict-chip" title={`${clash.a.name} and ${clash.b.name} are both editing ${clash.file}`}>
+          {"! also edited elsewhere: " + clash.file.split("/").pop()}
+        </div>
+      )}
       <GitChips hid={hid} sid={sid} dirty={!!s.project?.dirty} />
     </div>
   );

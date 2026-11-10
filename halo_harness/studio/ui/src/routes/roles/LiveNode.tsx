@@ -67,25 +67,25 @@ export function LiveNodeCard({ b, selected, now, onMenu, onPick }: Props) {
       {target && <span className="rlm-target" data-testid="roles-live-target" aria-hidden="true" />}
       <div className="rlm-head">
         <span className="rlm-dot" aria-hidden="true" />
-        <b className="rlm-name">{short(n.name, 22)}</b>
-        {n.role && n.role !== n.name && <span className="og-chip mono rlm-role">{short(n.role, 14)}</span>}
+        <b className="rlm-name" title={n.name}>{n.name}</b>
         <span className="spacer" />
         {pinned && <span className="rlm-pin" data-testid="roles-live-pin" title="Pinned: its mini stream stays on screen"><Icon name="pin" size={12} /></span>}
         <span className="og-badge mono" data-live={n.activity || undefined}>{n.state || "?"}</span>
         <button className="rlm-more" onClick={menu} onDoubleClick={(e) => e.stopPropagation()} aria-label={`${n.name}: more`} title="Steer, pause, pin, stop..." data-testid="roles-live-more">...</button>
       </div>
-      <div className="mono muted rlm-line" title={n.model || undefined}>
-        <span data-testid="roles-live-model">{short(shortModel(n.model) || "model ?", 30)}</span> · <span data-testid="roles-live-cost">{cost(shown)}</span>
-        {n.started ? ` · ${took(n, now)}` : ""}
+      {n.role && n.role !== n.name && <div className="rlm-role" title={`its role: ${n.role}`} data-testid="roles-live-role">{n.role}</div>}
+      <div className="mono muted rlm-meta" title={n.model || undefined}>
+        <span className="rlm-model" data-testid="roles-live-model">{shortModel(n.model) || "model ?"}</span>
+        <span className="rlm-cost"><span data-testid="roles-live-cost">{cost(shown)}</span>{n.started ? ` · ${took(n, now)}` : ""}</span>
       </div>
       {clock.tool ? (
         <div className="mono rlm-line rlm-tool" data-testid="roles-live-tool" data-tool={clock.tool} data-secs={clock.secs ?? undefined} title={row?.current || clock.tool}>
-          <Icon name={toolIcon(clock.tool)} size={11} /><span className="rlm-tool-text">{short(clock.text + rest, 52)}</span>
+          <Icon name={toolIcon(clock.tool)} size={11} /><span className="rlm-tool-text">{short(clock.text + rest, 90)}</span>
         </div>
       ) : n.pick ? (
         <div className="mono rlm-pick" title={n.pick} data-testid="roles-live-pick">{n.pick}</div>
       ) : (
-        <div className="muted rlm-line" title={nowLine(n)}>{short(nowLine(n), 60)}</div>
+        <div className="muted rlm-now" title={nowLine(n)} data-testid="roles-live-now">{short(nowLine(n), 140)}</div>
       )}
       <button className="rlm-steer mono" onClick={(e) => (e.stopPropagation(), steerAgent(n.key))} onDoubleClick={(e) => e.stopPropagation()}
               title={`Steer ${n.name}: the Steer box, addressed to it`} data-testid="roles-live-steer">steer ▸</button>

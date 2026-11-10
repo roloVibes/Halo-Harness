@@ -165,6 +165,23 @@ own sections start on `Alt+7` (`FIRST_KEY = 7`).
   block), FLEET.md's Studio part, MISSIONS.md, README (six sections, the banner and the fleet picture re-rendered),
   COMMANDS-studio.md, the glossary and every doc's `Alt+N` follow.
 
+### The map's boxes say everything they hold
+
+The owner, from Session's Map on Kali (2026-11-10): "information gets stomped on, it's ok if the boxes elongate to fit
+the words, just don't squish them. Also no need for tui in the boxes."
+
+- An agent's box on Live and on Session's Map (`routes/roles/LiveNode.tsx`, `styles/nodes.css`) is 268 x 124 px
+  (240 x 110 compact; 228 x 92 and 180 x 70 before), and each thing it says has its own row: the name whole (the full
+  name in the tooltip when even that is cut), the role under it in the second accent colour (`roles-live-role`), the
+  model on the left of a row whose right side is the cost and the time (the model gives way, the cost never does),
+  then two lines of what it does now (`roles-live-now`) or the running tool. Nothing is cut by a character count
+  before the box is full; the badge and the menu never shrink.
+- A session's box (`routes/agents/live/SessionNode.tsx`) shows its title on two lines before it is cut, the project
+  and branch beside its cost, and the kind chip only for a session that is not the terminal's (`headless`, a mission
+  part); "tui" is no longer printed. A file another session edits too is its own line ("! also edited elsewhere:
+  basket.py") in place of a clipped chip.
+- docs/media: the Live, Session and mission captures re-rendered.
+
 ### Fixed on the way: a mission's report is there when its state says done; the Benchmarks page's stale mark
 
 - **A Fleet mission's `report.md` and `report.json` are written before its final state lands on disk**
