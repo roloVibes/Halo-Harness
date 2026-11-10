@@ -152,6 +152,17 @@ def lean_memory_block(session, text: str) -> str:
     return out
 
 
+def call_window(session) -> Optional[int]:
+    from halo_harness.agent.prompt_diet import call_window as _call_window  # 3.3.16.1: the window the call gets
+    return _call_window(session)
+
+
+def lean_system(session, system_text: str) -> str:
+    """3.3.16.1: Halo's own system text cut to what a local model needs to act (`agent/prompt_lean_system.py`)."""
+    from halo_harness.agent.prompt_lean_system import lean_system_text
+    return lean_system_text(session, system_text)
+
+
 def _builtin_names() -> list:
     try:
         from halo_harness.tools.registry import default_tools
@@ -173,8 +184,9 @@ def tools_cap(session, window: Optional[int]) -> Optional[int]:
         return None
     if window < 16384:
         return len(CORE_TOOL_NAMES)
-    if window <= 32768:
-        return max(len(CORE_TOOL_NAMES), len(_builtin_names()))
+    if window <= 32768:  # 3.3.16.1: an alias (Task) is not a tool of its own
+        from halo_harness.agent.prompt_diet import ALIASES
+        return max(len(CORE_TOOL_NAMES), len([n for n in _builtin_names() if n not in ALIASES]))
     return 64 if window < LEAN_WINDOW else None
 
 
@@ -202,24 +214,20 @@ def relevance(tool: dict, task: str) -> float:
     return sum(_term_score(t, **kw) for t in {w for w in _tokens(task) if len(w) > 2})
 
 
-def cap_tools(session, tools, task: str = "") -> "tuple[list, int]":
-    """(the tools sent, how many were not offered): the core names first, then
-    the built-in set, then the rest -- 3.3.6.0 R4: each band by its relevance to
-    the task (the newest user words), else the catalog's order -- up to the cap; the
-    kept ones go out in the catalog's own order (a stable prefix)."""
-    from halo_harness.providers.ollama_fit import CORE_TOOL_NAMES
+def cap_tools(session, tools, task: str = "", *, platform=None) -> "tuple[list, int]":
+    """(the tools sent, how many were not offered). 3.3.16.1 (`agent/prompt_diet.py`): an alias once, one
+    shell on Windows, the core tools first, then the session's needs, the built-ins, the rest by relevance
+    to the task, up to the cap and the window's token budget; the kept ones lean and in the catalog's own
+    order (a stable prefix). The names left out are on `session._diet_dropped` (the system's by-name line)."""
+    from halo_harness.agent.prompt_diet import call_window, diet
     tools = list(tools or [])
     if not tools:
         return tools, 0
     if no_tools(session):
         return [], len(tools)
-    cap = tools_cap(session, window_of(session))
-    if cap is None or len(tools) <= cap:
-        return tools, 0
-    builtin = set(_builtin_names())
-    name = lambda t: t.get("name") if isinstance(t, dict) else None  # noqa: E731
-    rank = {id(t): (0 if name(t) in CORE_TOOL_NAMES else 1 if name(t) in builtin else 2, -relevance(t, task), i)
-            for i, t in enumerate(tools)}
-    keep = {id(t) for t in sorted(tools, key=lambda t: rank[id(t)])[:cap]}
-    out = [t for t in tools if id(t) in keep]
-    return out, len(tools) - len(out)
+    out, dropped = diet(session, tools, task, tools_cap(session, call_window(session)), platform=platform)
+    try:
+        session._diet_dropped = dropped
+    except Exception:
+        pass
+    return out, len(dropped)

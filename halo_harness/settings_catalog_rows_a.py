@@ -70,5 +70,6 @@ ROWS = [
     Row("prompt.topics_max", "models", "Topic files sent", "int", 12, (), "Under the lean prompt, the newest topic files named in the memory block; the rest are one line (/memory topics lists them).", "now"),
     Row("prompt.memory_max_tokens", "models", "Memory tokens at most", "int", 4000, (), "Under the lean prompt, MEMORY.md is held to this many tokens, the newest entries kept and the cut said in one line.", "now"),
     Row("prompt.preflight", "models", "Over the window", "enum", "ask", ("ask", "compact", "send"), "A local request larger than its window: ask (compact, a bigger-window model or send anyway; compact when nobody can answer), compact, or send it to be cut.", "now"),
+    Row("prompt.shell", "models", "Lean shell (Windows)", "enum", "auto", ("auto", "bash", "powershell"), "Under the lean prompt on Windows, the one shell tool offered: auto is Bash when Git Bash is found, else PowerShell; the other stays callable by name and through ToolSearch.", "now"),
     Row("models.think.<ref>", "models", "Think on a local model", "keyed", None, ("on", "off", "default"), "Per local model ref: on or off sends Ollama's think field whatever the effort level, default sends none (the model's own); gpt-oss also takes low, medium and high; unset, the effort level decides.", "now"),
 ]

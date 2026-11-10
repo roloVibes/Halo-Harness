@@ -110,11 +110,10 @@ def _cost_figure(session) -> "tuple[str, Optional[str]]":
     return describe_cost(cost_fields_of(session.cost_meter), main)
 
 
-def _composition_text(session) -> str:
-    """3.3.5.0 R4: "prompt 30,756: system 3,587 · memory 9,900 · topics 6,400 · tools 2,100 · history 8,700 · you 69"."""
-    from halo_harness.agent.prompt_composition import composition_line
-    from halo_harness.agent.prompt_wire import composition_now
-    return composition_line(composition_now(session))
+def _composition_text(session, first: bool = False) -> str:
+    """3.3.5.0 R4: "prompt 30,756: system 3,587 · memory 9,900 · ..."; 3.3.16.1: `/status` adds Halo's own first turn."""
+    from halo_harness.agent.prompt_measure import composition_text
+    return composition_text(session, first=first)
 
 
 def _cmd_cost(args: str, facade: HeadlessFacade) -> str:
@@ -881,8 +880,8 @@ def _cmd_status(args: str, facade: HeadlessFacade) -> str:
     lines = [f"halo {__version__}", f"Model: {model_id}", f"cwd: {facade.cwd}",
              f"Permission mode: {permission_mode}", f"MCP servers: {mcp_n}",
              f"Theme: {facade.theme or '?'}", cost_line]
-    if session is not None:  # Halo 3.3.5.0 R4: the last request's composition
-        lines.append(_composition_text(session))
+    if session is not None:  # Halo 3.3.5.0 R4: the last request's composition (3.3.16.1: and the first turn's)
+        lines.append(_composition_text(session, first=True))
     # 3.1.9.0 R2: the lineup this session runs under ("auto (default)" when no team: is set)
     from halo_harness.lineup_default import lineup_line
     _team = getattr(session, "team_control", None) if session is not None else None

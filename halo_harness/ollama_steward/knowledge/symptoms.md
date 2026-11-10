@@ -31,6 +31,7 @@ Server lines are written as `NAME=value`. On Windows Ollama reads the user's env
 | `called-wrong` | think, tools or images sent against the model's card | built without the card [S41] | its card's `how` line [S41] | none [S41] |
 | `switch-without-fit` | a call to another model right after one to the previous, `fitted` false | the model changed without the switch step [S6][S40] | the switch step: compact to the new window, re-cap the tools, convert the history [S40] | none [S40] |
 | `battery-gate` | no tool call; empty content, thinking full; a cold load; a wrong id; a swap each turn | the battery's profile says which [S44] | its one line and fix: route the step, raise the reserve, pin, resolve the id, pivot [S45] | none [S44] |
+| `prompt-heavy` | Halo's own part of a request over half the window | the window too small for it, or the lean profile off [S59] | the lean profile on, a bigger window, or the core tools [S59] | none [S59] |
 
 ## Where the watcher's guide and the sources part ways
 

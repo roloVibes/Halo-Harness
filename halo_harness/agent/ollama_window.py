@@ -40,15 +40,14 @@ def prepare_window(session, *, host, ref, decision, base_num_ctx: int, base_sour
     """Returns `(estimate, factor)` for `build_ollama_request_body`'s
     `prompt_tokens`/`window_factor`; records the choice on the session for
     `pre_send_line`/`trim_recovery` when `ref` is the session's own model."""
-    from halo_harness.providers.ollama_prompt import (
-        estimate_request_tokens, reply_reserve, tool_output_tokens, window_for,
-    )
+    from halo_harness.providers.ollama_prompt import reply_reserve, tool_output_tokens, window_for
+    from halo_harness.providers.ollama_wire_estimate import wire_estimate  # 3.3.16.1: the body that is sent
     st = _state(session)
     key = (host.url, ref.model)
     reserve = reply_reserve(reply_tokens)
     if ref is session.model_ref and getattr(session, "_switch_reserve", None):  # 3.3.5.0 R0: the switch's reserve
         reserve = max(reserve, int(session._switch_reserve))
-    estimate = estimate_request_tokens(messages, tools, system_text, reply_tokens=reply_tokens) \
+    estimate = wire_estimate(system_text, messages, tools, reply_tokens=reply_tokens) \
         + max(0, reserve - reply_reserve(reply_tokens))
     factor = st["factor"].get(key, 1.0)
     profile = getattr(decision, "profile", None) or {}  # 3.3.4.0 R3: the reply's room never under its num_predict

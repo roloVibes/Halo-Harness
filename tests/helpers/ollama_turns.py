@@ -122,11 +122,20 @@ def _base_floor() -> int:
     return _BASE["v"]
 
 
+def _base_prompt() -> int:
+    """Halo's own prompt part in this fake home (the floor less the reply's room)."""
+    _base_floor()
+    return _BASE["prompt"]
+
+
 def _no_room_trained() -> int:
     """A trained context the window always lands ON (the prompt fits with
-    a smaller reply), so a trim there cannot be answered by a raise."""
+    a smaller reply), so a trim there cannot be answered by a raise.
+    3.3.16.1: the reply's room follows the window (agent/reply_room.py: 2,048
+    for a window this small), so the context leaves the prompt 1,536 -- less
+    than that room, more than the 1,024 the squeeze keeps."""
     _base_floor()
-    return _BASE["prompt"] + 4096
+    return _BASE["prompt"] + 1536
 
 
 _BASE: dict = {}

@@ -44,8 +44,9 @@ def _say(text: str = "go on"):
     return events.Command("user_input", {"text": text})
 
 
-def _session(rig, ref: str = "ol:tight:14b@lan", tokens: int = 26000):
-    """A session that already ran one turn on the 32k fake, then a history padded to a ~41k-token prompt."""
+def _session(rig, ref: str = "ol:tight:14b@lan", tokens: int = 35000):
+    """A session that already ran one turn on the 32k fake, then a history padded to a ~41k-token prompt
+    (3.3.16.1: Halo's own lean prompt is ~6k, so the history carries the rest)."""
     for m in ("tight:14b", "wide:14b"):
         rig.script(m, answer())
     s = rig.session(ref)

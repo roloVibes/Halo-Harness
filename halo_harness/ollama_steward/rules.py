@@ -173,11 +173,12 @@ def gather(state_dir, *, since=SINCE, host: Optional[str] = None, cards: Optiona
 
 def run_rules(ctx: dict) -> list:
     """Every rule over every group; one proposal per profile field (the most severe finding keeps it)."""
-    from halo_harness.ollama_steward import rules_card, rules_host, rules_reply, rules_window
+    from halo_harness.ollama_steward import rules_card, rules_host, rules_prompt, rules_reply, rules_window
     out: list = []
-    from halo_harness.ollama_steward.rules_servers import RULES as SERVER_RULES  # 3.3.8.0 R2
+    from halo_harness.ollama_steward.rules_servers import RULES as SERVER_RULES  # 3.3.8.0 R2; rules_prompt 3.3.16.1
     for g in ctx["groups"]:
-        for rule in SERVER_RULES if g.get("server") else rules_window.RULES + rules_reply.RULES + rules_card.RULES:
+        for rule in SERVER_RULES if g.get("server") else (rules_window.RULES + rules_reply.RULES + rules_card.RULES
+                                                           + rules_prompt.RULES):
             out.extend(rule(g, ctx) or [])
     out.extend(rules_host.host_rules(ctx))
     from halo_harness.ollama_steward.rules_crash import crash_rules  # 3.3.6.0 R3: a crash that repeats proposes the fix
