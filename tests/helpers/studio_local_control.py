@@ -76,7 +76,9 @@ def pull(c, url, ctx) -> dict:
     press(c, q('[data-testid=local-jobs] [data-testid=local-job][data-name="llama3.2:3b"] [data-testid=local-pull-cancel]'),
           f"{job}?.dataset.state === 'cancelled'")
     out["cancelled"] = [c.js(f"{job}.dataset.state"), c.js(f"{job}.querySelector('[data-testid=local-pull-said]').textContent")]
-    time.sleep(0.8)
+    end = time.time() + 10  # the fake sees the hang-up a moment after the row says cancelled (Linux shard 0 on 7a5de868)
+    while not mock.pull_cancelled and time.time() < end:
+        time.sleep(0.1)
     out["fake_cancelled"] = list(mock.pull_cancelled)
     return out
 
