@@ -1,0 +1,22 @@
+# Halo 3.3.16.0 R3 -- a shipped square (docs/WORKFLOWS-squares.md). The router hands it what the
+# session's model cannot read: a PDF, an image, audio or video. Its lead is the auto lineup's media
+# bio on an `auto` model, so the square makes its own Auto pick for the modality the task carries.
+name: media
+does: Reads and makes images, audio, video and PDFs for a model that cannot, and hands back what it found.
+takes: [text, files, pdf, images, audio, video]
+gives: [text]
+covers: [pdf, vision, audio, video, media]
+lineup:
+  lead: {bio: auto-media, model: auto}
+engine: session
+budget: {band: low, cap_usd: 1}
+limits: {depth: 1, turns: 30, wall_s: 900}
+inputs:
+  task: {type: text, required: true, description: what to read or make}
+  files: {type: text, default: "", description: "the files it reads, comma-separated"}
+stages:
+  - id: look
+    title: Read the media
+    role: auto-media
+    brief: "{task} Files: {files}. Hand back what you saw or heard, with page numbers or timestamps."
+done_when: the media the task names is read and what it holds is handed back

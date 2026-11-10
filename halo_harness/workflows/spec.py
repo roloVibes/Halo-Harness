@@ -9,6 +9,11 @@ which key, packs/workflow_rules.py), so a found workflow is a valid one.
 
     find(ref, cwd=..., state_dir=...)          -> (Workflow, "") or (None, why)
     all_workflows(cwd=..., state_dir=...)      -> every workflow of the packs that run here
+
+3.3.16.0 R3: a bare `<name>` is a square of yours (`~/.halo/workflows/`), the project's (`.halo/workflows/`)
+or a shipped one (`templates/workflows/`), found through workflows/registry.py; such a Workflow's `pack`
+is the place it came from (`registry.Place`: id `yours` | `project` | `shipped`, no manifest) and its
+`origin` says so; its ref is the bare name.
     stages(wf) / inputs(wf) / outputs(wf)      -> the file's parts, defaults filled
 """
 
@@ -27,14 +32,20 @@ class Workflow:
     name: str
     path: Path
     data: dict = field(default_factory=dict)
+    origin: str = "pack"    # 3.3.16.0 R3: pack | yours | project | shipped
 
     @property
     def ref(self) -> str:
-        return f"{self.pack.id}/{self.name}"
+        return f"{self.pack.id}/{self.name}" if self.origin == "pack" else self.name
 
     @property
     def description(self) -> str:
-        return str(self.data.get("description") or "")
+        return str(self.data.get("description") or self.data.get("does") or "")
+
+    @property
+    def contract(self):
+        from halo_harness.workflows.contract import read
+        return read(self.data)
 
 
 def split_ref(ref) -> "tuple[Optional[str], str]":
@@ -62,7 +73,8 @@ def find(ref, *, cwd=None, state_dir=None) -> "tuple[Optional[Workflow], str]":
     from halo_harness.packs.studio_registry import active_pack
     pack_id, name = split_ref(ref)
     if pack_id is None:
-        return None, f"{ref!r} is not a workflow name: <pack>/<name>, like doc-review/review"
+        from halo_harness.workflows.registry import find_bare  # 3.3.16.0 R3: yours > project > shipped
+        return find_bare(str(ref or "").strip(), cwd=cwd, state_dir=state_dir)
     pack = active_pack(pack_id, cwd=cwd, state_dir=state_dir)
     if pack is None:
         known = find_pack(pack_id, cwd=cwd, state_dir=state_dir)

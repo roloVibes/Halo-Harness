@@ -90,6 +90,7 @@ export function CostDetail() {
     return { a, key, hc: hueOf(key), usd: v, pct: spent > 0 ? (v / spent) * 100 : 0, noPrice: a.agent_id === noPrice };
   });
   const live = agents.filter(isLive).length;
+  const squares = agents.filter((a) => a.square); // 3.3.16.0 R3: the hand-offs to squares (workflows/receipts.py)
   const turns = turnsOf(ss);
   const perTurn = turns ? usd / turns : null;
   const last = lastTurnCost(series);
@@ -102,6 +103,11 @@ export function CostDetail() {
         <span title="since the session started"> · <span data-testid="session-cost-elapsed">{since(ss.started, now)}</span></span>
         <span> · <span data-testid="session-cost-agents">{`${live} live of ${agents.length}`}</span></span>
       </div>
+      {squares.length > 0 && (
+        <div className="sco-sub mono" data-testid="session-cost-squares" title="the squares main handed work to; their cost is in the total">
+          squares · {squares.length} hand-off{squares.length === 1 ? "" : "s"} · {cost(squares.reduce((t, a) => t + (own.get(a.agent_id) || 0), 0))}
+        </div>
+      )}
       <div className="sco-top">
         <Ticker usd={usd} partial={partial} />
         <Spark list={series} />

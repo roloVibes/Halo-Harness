@@ -17,6 +17,7 @@ import { cost, short } from "../orchestra/format";
 import type { MenuAt } from "../agents/live/NodeMenu";
 import { useTicker, useToolClock } from "../agents/live/nodeBits";
 import { steerAgent, useTargetKey } from "../session/steer";
+import { SquareRow } from "../agents/live/SquareRow"; // 3.3.16.0 R3: a square's agent
 import type { LiveBox, LiveGroup } from "./liveLayout";
 
 function took(n: LiveBox["node"], now: number): string {
@@ -78,7 +79,7 @@ export function LiveNodeCard({ b, selected, now, onMenu, onPick }: Props) {
         <span data-testid="roles-live-model">{short(shortModel(n.model) || "model ?", 30)}</span> · <span data-testid="roles-live-cost">{cost(shown)}</span>
         {n.started ? ` · ${took(n, now)}` : ""}
       </div>
-      {clock.tool ? (
+      {n.square ? <SquareRow n={n} /> : clock.tool ? (
         <div className="mono rlm-line rlm-tool" data-testid="roles-live-tool" data-tool={clock.tool} data-secs={clock.secs ?? undefined} title={row?.current || clock.tool}>
           <Icon name={toolIcon(clock.tool)} size={11} /><span className="rlm-tool-text">{short(clock.text + rest, 52)}</span>
         </div>

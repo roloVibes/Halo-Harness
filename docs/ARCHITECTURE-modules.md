@@ -347,5 +347,14 @@ settings/themes`), `themes/restore.py` (the pack's `theme.json`: the value a pac
 `halo pack disable` / `remove`; the gone-palette line) and `themes/studio_css.py` (the CSS variables Studio draws a
 palette in, run by `scripts/themes_css.py` for the ten and by the server for a pack's).
 
+**Workflow squares** (Halo 3.3.16.0 R3; docs/WORKFLOWS-squares.md): `workflows/contract.py` (a square's contract read
+from the workflow file and its meaning lines), `workflows/registry.py` (the four places a square comes from, yours >
+project > shipped for a bare name and a pack's by `<pack>/<name>`; the enabled sets per lineup), `workflows/router.py`
+(the gaps, the pick, the why line, the depth and the cap), `workflows/square_run.py` (a square's run by its engine and
+the `gives` check), `workflows/receipts.py` (the receipt node, the Live tree's square, the cost, an Orchestra run's
+squares), `workflows/squares_cli.py` (`halo workflows`, the TUI's `/workflows`), `tools/workflow.py` (the `Workflow`
+tool) and `studio/workflows_api.py` (Agents -> Workflows: the board's rows, enable / disable, the YAML, a square's
+budget and limits).
+
 The map goes on in [Architecture: the module map, part two](ARCHITECTURE-modules-two.md): the Ollama
 steward, packs, the extension API, isolation, the guided first run, Setup and Settings.

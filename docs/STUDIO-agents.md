@@ -15,14 +15,15 @@ what runs now"), with three views on one switch, first on its bar:
 | **Cast** | `C` | the lineup and its bios: the canvas with its tiers, Lineups, Bios, the Inspector (Assignment, Lineup), Problems, Models; the model picker, the glow and its legend, the coach note, replay, drop and sync | Roles |
 | **Runs** | `R` | a goal for the lineup ([STUDIO-orchestra.md](STUDIO-orchestra.md)): the goal form (its Start view), the plan canvas, the lanes, the report and the coach, the saved workflows; each lane's owns line; **Test this lineup** | Orchestra (and what Team's board gave) |
 | **Live** | `L` | what runs now: the session's agents as a tree, 1:1 with the terminal's `/agents live`; a running Orchestra run's lanes under its lead; on the **fleet** scope every machine's (3.3.16.0 R2) | Roles Live, Fleet |
+| **Workflows** | `W` | the board of squares main may hand work to, their library and contracts (3.3.16.0 R3, below) | new |
 
 Agents opens on **Cast** with nothing else open (no inspector, no dialog, no help). `C`, `R` and `L` switch the views
 outside a text field (`L` on Live goes back to Cast, as Roles' `L` toggled Plan | Live); the palette has **Agents:
 Cast**, **Agents: Runs** and **Agents: Live**, and every Roles and Orchestra line is in its Agents group. Cast and Live
 draw Roles' workspace (its layout, its panels, its status line), Runs draws Orchestra's: the header's `+` and `...`
 menus, the palette's panel rows and the status bar follow the view, and each keeps its own arrangement. A view's
-panels mount the first time it shows and stay mounted, as a visited section does. 3.3.16.0 R3's Workflows board is
-meant to be the fourth view on the same switch.
+panels mount the first time it shows and stay mounted, as a visited section does. 3.3.16.0 R3: **Workflows** is the
+fourth view on the same switch (`W`, the palette's **Agents: Workflows**, `?mode=agents&view=workflows`).
 
 ### The doors
 
@@ -102,6 +103,34 @@ closes it; the palette has **Agents: Attention**. **Activity** (the timeline and
 panel of Live, closed on load (the header's **+**, the palette). **Missions are runs**: Runs' **+** menu and Start view
 list them as rows (goal, state, parts, where they run) with **Run it across the fleet** when more than one harness is
 here; `M` opens the Mission panel there.
+
+### Workflows: the board of squares (3.3.16.0 R3)
+
+A square is a workflow with a contract that main may hand a task to ([WORKFLOWS-squares.md](WORKFLOWS-squares.md)). The
+board shows the ones the active lineup has enabled and is built by these rules (the ROADMAP's "Clean and clear"):
+
+- **Nothing opens on load.** The empty board is one sentence, "No workflows enabled: drag one from the library, or
+  `halo workflows enable media`", and a **Library** button.
+- **One square per enabled workflow**, one card size (240 x 140 px) on the 12 px grid, never overlapping: the name, then
+  four mono lines, DOES / TAKES / GIVES / COSTS, and a limits chip; nothing else. Every card states its band and limits.
+- **Hover or select shows the contract in the inspector**, summary first (a `dl`: does, takes, gives, covers, lead,
+  engine, costs, limits, from), then one Edit row per block: **Enable for this lineup**, **Budget**, **Limits**, each
+  its own page with Back, and **YAML** for the file. A shipped or a pack's square is read-only: its Budget and Limits
+  pages say how to copy it to yours (`halo workflows new my-media --from media`).
+- **The library** is a side panel (`+ Library` on Agents' bar, the board's Library button, or `/`, which focuses its
+  search): a search box and three groups, yours, packs and shipped, one row per square with its DOES line. **Dragging a
+  row onto the board is the only way a square gets on it**: one confirm card first, stating WHAT (main may hand it
+  work), COST (nothing now; each hand-off's band and cap), TIME and WRITES (config `workflows.enabled`, or the lineup's
+  file). The card's `x` is the only way off. Both say what changed in one line at the top of the board.
+- **Main's lines to the squares are the allow-list**, drawn as the Instrument's edges: still at rest; a moving dash only
+  toward the square at work, which glows; one glowing square at a time; no other motion. Main's node shows the working
+  square's cost.
+- **The router never opens a dialog**: a hand-off is a receipt; a square that cannot start says so in one line.
+
+Keys on the board: the arrows move the selection, **Enter** opens the inspector, **Delete** asks in the inspector (its
+remove page, never a pop-up), `/` focuses the library's search, **Esc** clears. In **Live**, a square's agent is a node
+with the square's name in mono and the lane colour of its engine, its cost beside the session's; the Session's Cost
+panel shows a `squares` line when any ran.
 
 ## Cast: the lineup and its bios
 

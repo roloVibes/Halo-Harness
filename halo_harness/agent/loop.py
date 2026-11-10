@@ -1411,7 +1411,7 @@ class Session:
             self.team_control = load_team_control(team_name, cwd=cwd, state_dir=state_dir,
                                                   trusted=getattr(session_context, "trusted", None))
             # 3.1.9.0 R2: the Agent tool's description says when the lineup is `auto`
-            for _tool_name in ("Agent", "Task"):
+            for _tool_name in ("Agent", "Task", "Workflow"):  # 3.3.16.0 R3: Workflow lists the lineup's squares
                 _tool = self.tool_registry.get(_tool_name) if self.tool_registry is not None else None
                 if _tool is not None:
                     _tool.lineup = getattr(self.team_control, "name", None)

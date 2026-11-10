@@ -248,6 +248,17 @@ longer need a session open at all. Its store entries are marked `owner:
 supervisor`; a session that loads a lineup the supervisor already owns does
 not arm it a second time, so nothing double-fires.
 
+## The `Workflow` tool: handing a task to a square (Halo 3.3.16.0 R3)
+
+Beside `Agent`, every session's main agent has `Workflow(need | name, task,
+files)`: it hands the task to a workflow **square** the lineup enabled
+(`workflows:` in the lineup, or `workflows.enabled` in config on the auto
+lineup), on the square's own bios and models, and answers with one receipt line
+and what came back. A bio allowed `Agent` (or `Task`) is allowed `Workflow`
+too. The square's agent runs under the session's permission engine and rules,
+and its `limits.depth` and budget cap bound it. The router's rule and the
+shipped squares: [WORKFLOWS-squares.md](WORKFLOWS-squares.md).
+
 ## Asking for a model by capability (Halo 3.2.0.0 R2)
 
 `models.capabilities: [long-context, tools]` asks for what the model must do

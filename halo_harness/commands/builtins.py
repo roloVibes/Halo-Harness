@@ -1712,6 +1712,12 @@ def _cmd_explain(args: str, facade: HeadlessFacade) -> str:
     return explain_text(thing)[1] if thing else list_text()
 
 
+def _cmd_workflows(args: str, facade: HeadlessFacade) -> str:
+    """3.3.16.0 R3: the workflow squares and their contract lines (halo workflows list | show | test)."""
+    from halo_harness.workflows.squares_cli import slash_text
+    return slash_text(args, facade.cwd)
+
+
 def _cmd_tools(args: str, facade: HeadlessFacade) -> str:
     """3.1.8.0 R5: the tools this session's agent sees, by capability, and what narrowed them."""
     from halo_harness.isolation.tools_view import tools_command
@@ -1903,6 +1909,8 @@ _BUILTIN_SPECS = {
     "tasks": ("core", "List background Bash jobs started this session", None, _cmd_tasks),
     "tools": ("core", "List the tools this session's agent sees, by capability, and what narrowed them", None,
               _cmd_tools),  # 3.1.8.0 R5 (docs/ISOLATION.md)
+    "workflows": ("core", "The workflow squares: each one's contract line, * = enabled for this lineup (halo workflows)",
+                  "[list | show <ref> | test <ref>]", _cmd_workflows),  # 3.3.16.0 R3
     "orchestra": ("core", "Show the latest Orchestra run: its steps, worker lanes and run log", "[run]",
                   _cmd_orchestra),
     "coach": ("core", "The post-run coach's card for a run: --model asks the lead, --apply ID writes, --undo puts back, "

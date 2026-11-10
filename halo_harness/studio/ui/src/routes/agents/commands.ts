@@ -9,6 +9,7 @@ const VIEWS: [AgentsView, string, string, string][] = [
   ["cast", "Cast", "C", "the lineup and its bios: cards in their tiers"],
   ["runs", "Runs", "R", "a goal for the lineup: the plan, the lanes, the report; Test this lineup"],
   ["live", "Live", "L", "what runs now: the session's agents as a tree"],
+  ["workflows", "Workflows", "W", "the squares main may hand work to: the board, the library"],
 ];
 
 export function agentsCommands(): AgentsCommand[] {

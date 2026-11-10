@@ -7,6 +7,7 @@ import { commands, fuzzy, type Command } from "./commands";
 import { sections } from "../routes";
 import { packGroups } from "../routes/packs/registry";
 import { packs } from "../routes/packs/store";
+import { settings } from "../routes/settings/store";
 
 // 3.1.6.0 R6: the section groups in the registry's order (before, Roles, Design and Team sorted above Go to);
 // 3.2.0.0 R3: the packs' groups after the sections'
@@ -15,6 +16,8 @@ const groupOrder = () => ["Go to", "Help", ...sections().map((s) => s.title), ..
 export function Palette() {
   const open = useStore(studio, (s) => s.paletteOpen);
   const section = useStore(studio, (s) => s.section);
+  // 3.3.16.0 R3: the Settings catalog arrives after the palette opened the first time: its rows join then
+  const catalog = useStore(settings, (s) => s.rows.length);
   const [q, setQ] = useState("");
   const [sel, setSel] = useState(0);
   const input = useRef<HTMLInputElement>(null);
@@ -30,7 +33,7 @@ export function Palette() {
     if (q.trim()) scored.sort((a, b) => b.s - a.s);
     else scored.sort((a, b) => order.indexOf(a.c.group) - order.indexOf(b.c.group));
     return scored.map((x) => x.c);
-  }, [open, q, section]);
+  }, [open, q, section, catalog]);
 
   useEffect(() => {
     if (open) {

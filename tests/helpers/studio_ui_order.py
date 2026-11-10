@@ -16,6 +16,7 @@ headless Chrome run on the driver base over Studio on a scratch home with NO liv
 The last stdout line is the JSON of what it saw (exit 2: no Chrome). No model is called."""
 from __future__ import annotations
 
+import json
 import sys
 from contextlib import contextmanager
 from pathlib import Path
@@ -96,6 +97,10 @@ def hint(c) -> dict:
 def palette(c) -> dict:
     c.click_on("document.querySelector('.palette-btn')")
     c.wait("document.querySelectorAll('.palette-group-name').length > 3", 15)
+    # 3.3.16.0 R3: the palette renders its first 200 rows, then the rest a chunk per frame (WindowedRows): wait for the
+    # value the test asserts -- four section groups -- not for the first chunk
+    names = json.dumps([t for t, _ in ORDER])
+    c.wait(f"[...document.querySelectorAll('.palette-group')].filter((g) => {names}.includes(g.getAttribute('aria-label'))).length >= 4", 15)
     out = {"palette_groups": c.js("[...document.querySelectorAll('.palette-group')].map((g) => g.getAttribute('aria-label'))"),
            "palette_goto": c.js("[...document.querySelectorAll('.palette-group[aria-label=\"Go to\"] .palette-label')].map((l) => l.textContent)"),
            "palette_goto_keys": c.js("[...document.querySelectorAll('.palette-group[aria-label=\"Go to\"] .palette-item')]"

@@ -34,7 +34,7 @@ NODE_TYPES = frozenset({
     "snapshot", "usage", "error", "interrupted", "compacted", "rewind",
     "prune_commit", "improve_applied",
     "model_switch",  # Halo 3.3.5.0 R0: a switch step's report (agent/model_switch.py); never read by derive
-    "preflight",  # Halo 3.3.5.0 R4: a preflight decision (agent/preflight.py); never read by derive
+    "preflight", "receipt",  # 3.3.5.0 R4: a preflight decision; 3.3.16.0 R3: a square's hand-off (workflows/receipts.py); never read by derive
 })
 
 

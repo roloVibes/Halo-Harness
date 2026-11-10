@@ -29,6 +29,8 @@ export type AgentRow = {
   /** Its own tokens: its meter's from each message_end (3.1.8.0 R6), else its transcript's usage lines (fleet/agent_tokens.py). */
   tokens_in?: number | null;
   tokens_out?: number | null;
+  /** 3.3.16.0 R3: a square's agent or node (workflows/receipts.py): its name and engine. */
+  square?: { name: string; engine: string } | null;
 };
 
 export type Pending = Partial<Record<"permission" | "question" | "plan" | "approval", string[]>> | null;

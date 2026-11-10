@@ -140,9 +140,23 @@ acceptance: {review: true, test: python -m pytest -q}
 workflows: [review]
 ```
 
+### A pack's squares
+
+Halo 3.3.16.0 R3. A pack's workflow is a **square** when its file says what it
+`gives` at its root ([WORKFLOWS-squares.md](WORKFLOWS-squares.md)): the main
+agent's `Workflow` tool can hand it a task once a lineup enables
+`<pack>/<name>`. The contract is checked with the manifest, one line per bad
+value naming the key and its line (`workflows/review.yaml line 9: covers
+'pdfs' is not a need a square covers (...)`), and `halo pack test` adds a
+`square <pack>/<name>` check for each: `gives` present, the `covers`,
+`takes` and `gives` words known. A pack's square is read-only in Studio;
+`halo workflows new <name> --from <pack>/<name>` copies it into yours.
+
 ### A lineup's workflows
 
-A lineup's `workflows:` names workflows by `<pack>/<name>`, the ref `halo
+A lineup's `workflows:` names workflows by `<pack>/<name>` (3.3.16.0 R3: or a bare
+square name of yours, the project's or shipped; the list is the lineup's enabled
+squares), the ref `halo
 workflow run` takes (`<pack>--<name>` reads the same). The rule (3.2.1.0 R2,
 `packs/lineup_run.py`):
 

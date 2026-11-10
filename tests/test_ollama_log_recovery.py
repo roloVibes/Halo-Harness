@@ -91,12 +91,20 @@ def _ledger(state) -> list:
 
 @test
 def test_a_logged_trim_drives_the_recovery(ctx: Ctx):
-    with Rig() as rig, _Log([TRIM]):
-        s = rig.session("ol:big:30b@lan")
-        evs = rig.run(s, [_say("hello")])
-        chats = rig.chats("big:30b")
-        led = _ledger(rig.state_dir)
-        kept = dict((getattr(s, "_ollama_log_trims", None) or {}).get("big:30b") or {})
+    # 3.3.16.0 R3: Halo's own prompt passed 32,768 tokens (one more tool), so the first send is already 65k; the model
+    # gets room above it (131k) so the log's cut still drives a re-send rather than a compaction
+    from tests.helpers import model_switch_rig as R
+    saved = R.MODELS["big:30b"]
+    R.MODELS["big:30b"] = (131072, saved[1])
+    try:
+        with Rig() as rig, _Log([TRIM]):
+            s = rig.session("ol:big:30b@lan")
+            evs = rig.run(s, [_say("hello")])
+            chats = rig.chats("big:30b")
+            led = _ledger(rig.state_dir)
+            kept = dict((getattr(s, "_ollama_log_trims", None) or {}).get("big:30b") or {})
+    finally:
+        R.MODELS["big:30b"] = saved
     said = [x for x in _lines(evs) if "the log shows the prompt was cut" in x]
     ctx.check(f"the exact cut is said, got {_lines(evs)}", len(said) == 1 and "2,050 of 23,536 tokens" in said[0]
               and "(the request's window 4,096)" in said[0])

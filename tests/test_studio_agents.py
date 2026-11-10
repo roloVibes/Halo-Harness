@@ -8,7 +8,7 @@ model call:
    Session Alt+1, Agents Alt+2, Local Alt+3 ... Settings Alt+6 (3.3.16.0 R2: Fleet folded in);
 2. the doors land on their views: ?mode=roles -> Cast, roles&view=live -> Live, orchestra -> Runs,
    agents&view=runs|live, agents -> Cast; ?mode=team lands on Runs with Team's one line, and not again;
-3. C, R, L switch the views;
+3. C, R, L switch the views (3.3.16.0 R3: W the fourth, Workflows; `?mode=agents&view=workflows` its door);
 4. Runs: every lane says what it owns (the claim ledger's keys), a focused lane lists its claims (holder, state);
 5. Live: the run's lead and its five lanes under it, each with its number in its lane colour and its worktree;
 6. Test this lineup: disabled on Auto with the Auto line; with a lineup of your own enabled, its card first;
@@ -67,7 +67,8 @@ def test_alt2_opens_agents_on_cast_with_nothing_else_open(ctx: Ctx):
 def test_the_doors_land_on_their_views(ctx: Ctx):
     got = _got(ctx)
     want = {"mode=roles": "cast", "mode=roles&view=live": "live", "mode=orchestra": "runs",
-            "mode=agents&view=runs": "runs", "mode=agents&view=live": "live", "mode=agents": "cast"}
+            "mode=agents&view=runs": "runs", "mode=agents&view=live": "live", "mode=agents": "cast",
+            "mode=agents&view=workflows": "workflows"}  # 3.3.16.0 R3: the fourth view
     seen = {k: got.get(k) for k in want}
     ctx.check(f"each door's view, got {seen}", seen == want)
     first = got.get("first") or ["", ""]
@@ -79,7 +80,8 @@ def test_the_doors_land_on_their_views(ctx: Ctx):
 @test
 def test_c_r_l_switch_the_views(ctx: Ctx):
     got = _got(ctx)
-    ctx.check(f"R Runs, L Live, C Cast, got {[got.get(k) for k in 'rlc']}", [got.get(k) for k in "rlc"] == ["runs", "live", "cast"])
+    ctx.check(f"R Runs, L Live, W Workflows, C Cast, got {[got.get(k) for k in 'rlwc']}",
+              [got.get(k) for k in "rlwc"] == ["runs", "live", "workflows", "cast"])  # 3.3.16.0 R3: W the board
 
 
 @test

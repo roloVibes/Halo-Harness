@@ -148,6 +148,8 @@ def write_report(run_dir, *, goal, lanes: list, merge: Optional[dict] = None, ga
         report["replans"] = [{k: r.get(k) for k in ("n", "at", "why", "by", "moves")} for r in revisions if isinstance(r, dict)]
     from halo_harness.isolation.lines import report_lanes  # 3.1.8.0 R5: `opt_ins`, only when a lane declared one
     report.update(report_lanes(lanes))
+    from halo_harness.workflows.receipts import report_part  # 3.3.16.0 R3: the squares the run used, in order
+    report.update(report_part(run_dir))
     jsonl.write_json(report_path(run_dir), report)
     _record_outcomes(run_dir, report)  # 3.1.8.0 R3: one outcomes.jsonl row per lane (outcomes/records.py)
     from halo_harness.knowledge.writers import gate_verdict  # 3.1.8.0 R4: the passing lanes as findings
@@ -219,6 +221,8 @@ def format_report(report: dict, run_dir=None) -> str:
         lines.append(f"  {replan_line(report)}")
     from halo_harness.isolation.lines import report_text  # 3.1.8.0 R5: a line per lane's isolation/secrets/tools
     lines += report_text(report)
+    from halo_harness.workflows.receipts import report_lines as square_lines  # 3.3.16.0 R3
+    lines += square_lines(report)
     lines.append("  checks:")
     for c in report.get("checks") or []:
         lines.append(f"    {mark.get(c.get('ok'), '????')}  {c['id']:<36} {c.get('detail') or ''}")

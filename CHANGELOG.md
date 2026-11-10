@@ -194,6 +194,57 @@ own sections start on `Alt+7` (`FIRST_KEY = 7`).
   `uv tool install` fails, so a box whose old `halo update` cannot get past the certificate is repaired by running
   the installer again. The "after" line reads the version under the banner, not the banner.
 
+### R3: Workflows, squares and the router
+
+The owner, 2026-11-09 evening: "have that whole entire workflow in like a square ... your main kind of orchestration
+agent can just now point to the different workflow squares ... I might be using a model that has no visualization,
+can't read PDFs, but it knows that there's a workflow that has other models that can process that information". A
+square is a workflow with a contract; the main agent hands a task to one through one tool, the router.
+
+#### Added
+- **A square's contract** in the workflow file (`workflows/contract.py`, the schema and its JSON twin): `does`
+  (`description` stays its alias), `takes`, `gives` (required for a square; checked when it returns), `covers`,
+  `lineup`, `engine` (`session` | `orchestra` | `mission`, run as orchestra while only this harness is here), `budget`
+  (`band`, `cap_usd`) and `limits` (`depth` default 1, `turns`, `wall_s`). One meaning line per bad value; a hand-off
+  written at the root says it belongs on a stage. A workflow without `gives` lists and runs as before and is never
+  picked.
+- **The registry** (`workflows/registry.py`): squares from yours (`~/.halo/workflows/`), the project's
+  (`.halo/workflows/`), the running packs' (`<pack>/<name>`) and the shipped ones; a bare name resolves yours >
+  project > shipped; `spec.find` reads it. Enabled per lineup: a lineup's `workflows:` list, or on the auto lineup the
+  new config key `workflows.enabled` (Settings -> Agents and roles; default: `media`).
+- **Five shipped squares** (`templates/workflows/`): `media` (pdf, vision, audio, video on an `auto` lead), `plan`,
+  `review`, `research` (session) and `code` (orchestra: build, then review), each with `limits.depth: 1` and a check.
+- **The `Workflow` tool** (`tools/workflow.py`, `workflows/router.py`, `workflows/square_run.py`): `Workflow(need |
+  name, task, files)` on the main agent and every bio allowed `Agent`. The gaps are the task's needs minus what the
+  model takes (the `/model` takes column), plus the asks; the enabled square covering the most gaps, nearest the
+  session's band, takes it, and one line says why ("handing the PDF to media: your model takes text only"); no square
+  is one line and the model goes on. A session square runs one agent through the Agent tool's path (the parent's
+  permission engine and rules); an orchestra square compiles and runs, bounded by `limits.wall_s`. Depth and the cap
+  (the square's or the session's remaining, the smaller) are enforced in the tool; a session square is stopped past
+  its cap, wall time or turns.
+- **Receipts** (`workflows/receipts.py`): each hand-off is a `receipt` node in the transcript (the files' names, never
+  their content), a node on Agents -> Live under the agent that called it (the agent row's new `square` field, the
+  square's name in mono and its engine's colour, its cost beside the session's), a `squares` line on the Session's
+  Cost panel, and a `squares:` line of an Orchestra run's report, in order.
+- **Agents -> Workflows**, the fourth view (`W`, `?mode=agents&view=workflows`, the palette's **Agents: Workflows**;
+  `routes/agents/workflows/`, `styles/workflows.css`, `studio/workflows_api.py`): the board of enabled squares (240 x
+  140 cards on the 12 px grid: DOES / TAKES / GIVES / COSTS and a limits chip), the library (yours, packs, shipped,
+  a search box, `/`), a drop's confirm card (what / cost / time / writes), the `x`, the summary-first inspector with
+  Enable, Budget, Limits and YAML pages, the still edges with one moving dash toward the square at work.
+- **`halo workflows list | show | enable | disable | test | new`** (`workflows/squares_cli.py`; `check` and `run`
+  reach `halo workflow`'s), the TUI's **`/workflows`**, and a `square` check per pack square in `halo pack test`.
+
+#### Changed
+- `halo workflow` keeps its verbs; `spec.find` takes a bare name (yours, the project's, shipped). A lineup of yours
+  may name a bare square in `workflows:`.
+- A bio allowed `Agent` or `Task` is allowed `Workflow` too (`config/agents_md.py`).
+
+#### Docs
+- New docs/WORKFLOWS-squares.md (the contract, the registry, the router, receipts); WORKFLOWS.md "A square";
+  COMMANDS-workflows.md `halo workflows`; STUDIO-agents.md the fourth view and the board's rules; SLASH-COMMANDS-tui.md
+  `/workflows`; PACKS.md "A pack's squares"; AGENTS.md the `Workflow` tool; CONFIG.md `workflows.enabled`; the
+  glossary's "square" and "router" (and a sentence on "receipt"); the module map.
+
 ## [3.3.15.0] - 2026-11-09
 
 **Studio wears the Instrument look.** A design session answered `docs/STUDIO-redesign-brief.md` with "Instrument"

@@ -42,7 +42,7 @@ def test_the_one_table(ctx: Ctx):
     from halo_harness.tools.registry import known_tool_names
     want = {"Read": "read", "Glob": "read", "Grep": "read", "Edit": "edit", "Write": "edit", "NotebookEdit": "edit",
             "Bash": "bash", "BashOutput": "bash", "WebFetch": "web", "WebSearch": "web", "Agent": "agent",
-            "Task": "agent", "Media": "media", "ToolSearch": "mcp", "Skill": "recall", "TodoWrite": "recall",
+            "Task": "agent", "Workflow": "agent", "Media": "media", "ToolSearch": "mcp", "Skill": "recall", "TodoWrite": "recall",
             "knowledge_add": "recall", "knowledge_search": "recall",
             "OrchestraClaim": "edit", "OrchestraRelease": "edit"}
     ctx.check("each tool's capability", all(capability_of(n) == c for n, c in want.items()))

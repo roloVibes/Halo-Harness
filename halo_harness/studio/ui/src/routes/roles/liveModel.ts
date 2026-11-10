@@ -30,6 +30,8 @@ export type LiveNode = {
   /** 3.3.16.0 R2 (the fleet scope, routes/agents/live/fleetModel.ts): a machine, a session or a mission part on the same
    *  tree, and the harness and session every node of that scope belongs to. */
   kind?: "machine" | "session" | "part"; harness?: string; sid?: string;
+  /** 3.3.16.0 R3: a square's agent or node (workflows/receipts.py): its name and its engine. */
+  square?: string; engine?: string;
 };
 
 /** "picked at spawn: <role> on <model> -- <reason>" for an agent `auto` picked a model for; "" otherwise. */
@@ -54,6 +56,7 @@ export function liveNodes(rec: WorkRecord, st: FleetState, graph: GraphNode[], l
       id: a.id, key: a.key, parent: a.orphan ? UNKNOWN : a.parent, name: a.name, role: a.role, model: a.model, state: a.state, pick: pickLine(a),
       activity, glow: glowOf(activity), card: card?.id || "", cardLabel: card ? cardKey(card) : "", task: a.task, current: a.current,
       cost: a.cost, started: a.started, ended: a.ended,
+      ...(a.row.square ? { square: a.row.square.name, engine: a.row.square.engine } : {}),
     };
   });
   if (rec.agents.some((a) => a.orphan))

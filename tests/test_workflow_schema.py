@@ -52,7 +52,7 @@ def test_the_fixture_uses_every_key_and_the_twin_has_them(ctx: Ctx):
     from halo_harness.schemas import workflow_yaml as W
     ctx.check(f"doc-review validates clean, got {_problems('doc-review')}", _problems("doc-review") == [])
     data = yaml.safe_load((DOC_REVIEW / "workflows" / "review.yaml").read_text(encoding="utf-8"))
-    ctx.check(f"every top key, got {list(data)}", set(data) == set(W.TOP_KEYS) - {"stop_when"})
+    ctx.check(f"every top key, got {list(data)}", set(data) == set(W.TOP_KEYS) - {"stop_when"} - set(W.SQUARE_KEYS))  # 3.3.16.0 R3: a square's keys: test_workflows_contract
     used = {k for s in data["stages"] for k in s}
     ctx.check(f"the stages use every stage key but after_event, got {sorted(used)}", used == set(W.STAGE_KEYS) - {"after_event"})
     schema = json.loads((REPO / "halo_harness" / "packs" / "schema" / "workflow.schema.json").read_text(encoding="utf-8"))

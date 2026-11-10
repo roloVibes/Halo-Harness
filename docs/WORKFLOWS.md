@@ -14,6 +14,18 @@ repo with no pack and no workflow file.
 The contract (every key, the tables) is [EXTENSION_API.md](EXTENSION_API.md#workflow-contracts);
 the commands are [COMMANDS-workflows.md](COMMANDS-workflows.md).
 
+## A square
+
+Halo 3.3.16.0 R3. A workflow that says what it `gives` at its root is a
+**square**: the main agent can hand it a task through the `Workflow` tool when
+the task needs something its model cannot do (a PDF, an image, audio) or asks
+for a plan, a review or research. The root gains `does`, `takes`, `gives`,
+`covers`, `lineup`, `engine` (`session` | `orchestra` | `mission`), `budget`
+and `limits`; a stage's `takes` / `gives` stay its hand-offs. Squares come from
+four places (yours, the project's, a pack's, the shipped `media`, `plan`,
+`code`, `review`, `research`) and work once the lineup enables them. The whole
+story: [WORKFLOWS-squares.md](WORKFLOWS-squares.md).
+
 ## The file
 
 `<pack>/workflows/<name>.yaml`, its name in pack.yaml's

@@ -177,6 +177,8 @@ def check_one(manifest, root, name: str, path: Path) -> "list[str]":
     _inputs(L, data, schemas)
     _outputs(L, data, stages, schemas)
     _prereqs(L, data, manifest)
+    from halo_harness.workflows.contract import contract_lines  # 3.3.16.0 R3: a square's contract
+    contract_lines(L, data)
     return L.out
 
 

@@ -9,8 +9,8 @@
 //         scope: every machine, its sessions, their agents (the Fleet section folded in: routes/agents/live/).
 // 3.3.16.0 R2: the fleet's Attention queue floats over every view (AttentionChip.tsx, closed on load, A toggles it).
 // It opens on Cast with nothing else open. A view's workspace mounts the first time it shows and stays mounted (its
-// state kept), as the shell keeps a visited section. The Workflows board of 3.3.16.0 R3 is meant to sit beside these
-// as a fourth view on the same switch.
+// state kept), as the shell keeps a visited section. 3.3.16.0 R3: Workflows, the fourth view (W) -- the board of
+// squares main may hand work to, with its library (routes/agents/workflows/Board.tsx).
 import { useEffect, useState } from "react";
 import type { PanelSpec } from "../../lib/workspace/types";
 import { OrchestraView } from "../orchestra/Start";
@@ -22,13 +22,16 @@ import { useAgentsView } from "./store";
 import { AgentsBar } from "./ViewSwitch";
 import { AttentionPanel } from "./AttentionChip";
 import { useAttentionKey } from "./attention";
+import { Board } from "./workflows/Board";
 
 export function AgentsView(_props: { section: string; specs: PanelSpec[] }) {
   const view = useAgentsView();
   const reg = usePacks((s) => s.reg);
   const runs = view === "runs";
-  const [seen, setSeen] = useState({ roles: !runs, orchestra: runs });
-  useEffect(() => setSeen((s) => (runs ? (s.orchestra ? s : { ...s, orchestra: true }) : s.roles ? s : { ...s, roles: true })), [runs]);
+  const board = view === "workflows";
+  const part = board ? "board" : runs ? "orchestra" : "roles";
+  const [seen, setSeen] = useState({ roles: part === "roles", orchestra: runs, board });
+  useEffect(() => setSeen((s) => (s[part] ? s : { ...s, [part]: true })), [part]);
   useAgentsKeys();
   useAttentionKey();
   return (
@@ -36,13 +39,18 @@ export function AgentsView(_props: { section: string; specs: PanelSpec[] }) {
       <AgentsBar view={view} />
       <div className="ag-body">
         {seen.roles && (
-          <div className="ag-part" hidden={runs} data-part="roles">
+          <div className="ag-part" hidden={runs || board} data-part="roles">
             <RolesView section="roles" specs={partPanels(reg, "roles")} />
           </div>
         )}
         {seen.orchestra && (
           <div className="ag-part" hidden={!runs} data-part="orchestra">
             <OrchestraView section="orchestra" specs={partPanels(reg, "orchestra")} />
+          </div>
+        )}
+        {seen.board && (
+          <div className="ag-part" hidden={!board} data-part="workflows">
+            <Board />
           </div>
         )}
         <AttentionPanel />

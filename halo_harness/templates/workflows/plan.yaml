@@ -1,0 +1,20 @@
+# Halo 3.3.16.0 R3 -- a shipped square (docs/WORKFLOWS-squares.md): a plan from a model that reasons.
+name: plan
+does: Turns an ask into a short plan of numbered steps, each with what it changes and how it is checked.
+takes: [text, files]
+gives: [text]
+covers: [plan]
+lineup:
+  lead: {bio: auto-planner, model: auto}
+engine: session
+budget: {band: mid, cap_usd: 1}
+limits: {depth: 1, turns: 20, wall_s: 600}
+inputs:
+  task: {type: text, required: true, description: what to plan}
+  files: {type: text, default: "", description: "the files the plan reads, comma-separated"}
+stages:
+  - id: plan
+    title: Write the plan
+    role: auto-planner
+    brief: "Plan this: {task} Files: {files}. Numbered steps; each says what it changes and how it is checked."
+done_when: the plan's steps are written and each says how it is checked

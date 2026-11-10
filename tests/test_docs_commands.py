@@ -162,6 +162,9 @@ def _gather_real_flags() -> "dict[str, set]":
     out.update({f"halo pack {v}": _flags_in(_capture(cmd_pack, [v, "--help"])) for v in PACK_VERBS})
     from halo_harness.workflows.cli import cmd_workflow  # 3.2.0.0 R5: `halo workflow`
     out.update({f"halo workflow {v}": _flags_in(_capture(cmd_workflow, [v, "--help"])) for v in ("list", "show", "check", "run")})
+    from halo_harness.workflows.squares_cli import cmd_workflows  # 3.3.16.0 R3: `halo workflows`, the squares
+    out.update({f"halo workflows {v}": _flags_in(_capture(cmd_workflows, [v, "--help"]))
+                for v in ("list", "show", "enable", "disable", "test", "new")})
     from halo_harness.isolation.cli import cmd_isolation  # 3.1.8.0 R5: `halo isolation`, `halo secrets`
     from halo_harness.isolation.secrets import cmd_secrets
     out.update({f"halo isolation {v}": _flags_in(_capture(cmd_isolation, [v, "--help"])) for v in ("image", "build", "check")})
@@ -177,7 +180,7 @@ def test_every_subcommand_is_documented(ctx: Ctx):
     text = doc_text("COMMANDS.md")
     for name in ("init", "doctor", "update", "models", "mcp", "config", "stats", "export", "improve", "proxy",
                  "work-matrix", "ollama", "review", "media", "fleet", "team", "start", "explain", "pack", "workflow",
-                 "isolation", "secrets", "session", "settings"):
+                 "isolation", "secrets", "session", "settings", "workflows"):
         label = f"halo {name}"
         ctx.check(f"COMMANDS.md documents {label!r} (as a heading)",
                   re.search(rf"^#{{1,3}}\s+.*`?{re.escape(label)}`?", text, re.MULTILINE) is not None)

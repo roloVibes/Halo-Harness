@@ -1,0 +1,21 @@
+# Halo 3.3.16.0 R3 -- a shipped square (docs/WORKFLOWS-squares.md): a second pair of eyes on a change
+# or a document, from a model picked for reviewing.
+name: review
+does: Reviews a change, a file or a plan and hands back each problem in one line with where it is.
+takes: [text, files]
+gives: [text]
+covers: [review]
+lineup:
+  lead: {bio: auto-reviewer, model: auto}
+engine: session
+budget: {band: mid, cap_usd: 1}
+limits: {depth: 1, turns: 20, wall_s: 600}
+inputs:
+  task: {type: text, required: true, description: what to review}
+  files: {type: text, default: "", description: "the files to read, comma-separated"}
+stages:
+  - id: review
+    title: Review it
+    role: auto-reviewer
+    brief: "Review: {task} Files: {files}. One line per problem with the file and line; say plainly when it is fine."
+done_when: every problem found is named with where it is

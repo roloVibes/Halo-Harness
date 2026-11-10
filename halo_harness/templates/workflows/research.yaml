@@ -1,0 +1,21 @@
+# Halo 3.3.16.0 R3 -- a shipped square (docs/WORKFLOWS-squares.md): an answer looked up and written down
+# with its sources.
+name: research
+does: Looks a question up in the repo and on the web and hands back the answer with its sources.
+takes: [text, files, urls]
+gives: [text]
+covers: [research]
+lineup:
+  lead: {bio: auto-researcher, model: auto}
+engine: session
+budget: {band: low, cap_usd: 1}
+limits: {depth: 1, turns: 30, wall_s: 900}
+inputs:
+  task: {type: text, required: true, description: the question}
+  files: {type: text, default: "", description: "files or links to start from, comma-separated"}
+stages:
+  - id: research
+    title: Find the answer
+    role: auto-researcher
+    brief: "Find out: {task} Start from: {files}. Hand back the answer first, then each source on its own line."
+done_when: the question is answered and every claim names its source

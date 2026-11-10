@@ -17,7 +17,7 @@ from __future__ import annotations
 
 #: The old section words and the Agents view each lands on.
 DOORS = {"roles": "cast", "orchestra": "runs", "team": "runs", "fleet": "live"}
-VIEWS = ("cast", "runs", "live")
+VIEWS = ("cast", "runs", "live", "workflows")  # 3.3.16.0 R3: the board of squares
 TEAM_LINE = "Team's board is gone; a run's plan shows who owns what (halo team still runs the team file)"
 FLEET_LINE = ("machines are Setup -> Machines (pairing, sharing, people), their models Local, a mission Agents -> Runs; "
               "halo fleet still runs the hub and the table")

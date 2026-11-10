@@ -37,6 +37,10 @@
       "properties": {"name": {"type": "string"}, "kind": {"enum": ["files", "summary", "artifact"]},
                      "paths": {"$ref": "#/$defs/names"}, "description": {"type": "string"}}
     },
+    "member": {
+      "type": "object", "additionalProperties": false, "required": ["bio"],
+      "properties": {"bio": {"type": "string"}, "model": {"type": "string"}}
+    },
     "take": {
       "type": "object", "additionalProperties": false, "required": ["from", "take"],
       "properties": {"from": {"type": "string"}, "take": {"type": "string"}}
@@ -79,6 +83,21 @@
     "done_when": {"type": "string"},
     "stop_when": {"type": "string"},
     "budget_usd": {"type": "number", "minimum": 0},
-    "checkpoint": {"type": "boolean"}
+    "checkpoint": {"type": "boolean"},
+    "does": {"type": "string", "description": "3.3.16.0 R3: a square's one sentence (description is its alias)"},
+    "takes": {"type": "array", "items": {"enum": ["text", "files", "pdf", "images", "audio", "video", "urls"]},
+              "description": "what the square accepts (a stage's takes are its hand-offs)"},
+    "gives": {"type": "array", "items": {"enum": ["text", "files", "report", "repo-change"]},
+              "description": "what comes back; a workflow without it is not a square"},
+    "covers": {"type": "array", "items": {"enum": ["pdf", "vision", "audio", "video", "code", "plan", "research", "media",
+                                                   "review", "work-data"]}, "description": "the needs it answers"},
+    "lineup": {"type": ["string", "object"], "additionalProperties": false,
+               "properties": {"lead": {"$ref": "#/$defs/member"}, "members": {"type": "array", "items": {"$ref": "#/$defs/member"}}}},
+    "engine": {"enum": ["session", "orchestra", "mission"]},
+    "budget": {"type": "object", "additionalProperties": false,
+               "properties": {"band": {"enum": ["low", "mid", "high"]}, "cap_usd": {"type": "number", "minimum": 0}}},
+    "limits": {"type": "object", "additionalProperties": false,
+               "properties": {"depth": {"type": "integer", "minimum": 0}, "turns": {"type": "integer", "minimum": 1},
+                              "wall_s": {"type": "integer", "minimum": 1}}}
   }
 }

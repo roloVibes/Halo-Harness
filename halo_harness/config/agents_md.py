@@ -119,6 +119,8 @@ class AgentSpec:
                 if bare and bare not in names:
                     names.append(bare)
             names = [n for n in names if n in catalog_names]
+            if {"Agent", "Task"} & set(names) and "Workflow" in catalog_names and "Workflow" not in names:
+                names.append("Workflow")  # 3.3.16.0 R3: a bio allowed to delegate may hand off to a square
         if self.disallowed_tools:
             deny = {t.split("(", 1)[0].strip() for t in self.disallowed_tools}
             names = [n for n in names if n not in deny]

@@ -128,6 +128,14 @@ Plan mode on or off from the prompt, or its status and plan file -- the
 same switch as Shift+Tab, told to the model at its next call. The full
 entry is in [Slash commands: sessions](SLASH-COMMANDS-session.md#plan-onoffstatus-tui-only-switch).
 
+### `/workflows [list | show <ref> | test <ref>]`
+Halo 3.3.16.0 R3: the workflow squares, the same lines `halo workflows`
+prints: each square's contract line (`NAME · DOES · TAKES -> GIVES · band ·
+depth`) with `*` on the ones this lineup enabled; `show` one square's contract,
+`test` its check and a dry run of the router. The router reads what the
+session's model takes from the same `takes` column `/model` shows. See
+`docs/WORKFLOWS-squares.md`.
+
 ### `/orchestra [run]`
 Halo 3.0.3.0: the latest Orchestra run of this folder's repo (or the run
 named): its workflow steps, one row per worker lane (state, pieces sent

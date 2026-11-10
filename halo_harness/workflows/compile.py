@@ -100,6 +100,8 @@ def _lineup(wf) -> str:
     from halo_harness.agents_yaml import _read_yaml_file
     from halo_harness.packs import names as N
     from halo_harness.packs.lineup_run import workflow_refs
+    if getattr(wf, "origin", "pack") != "pack":  # 3.3.16.0 R3: a square of yours / shipped names its lineup itself
+        return wf.contract.lineup_name()
     for rel in ((wf.pack.manifest.get("contributes") or {}).get("teams") or []):
         raw = _read_yaml_file(Path(wf.pack.root) / str(rel)) or {}
         if wf.ref in workflow_refs(dict(raw, _pack=wf.pack.id)):  # 3.2.1.0 R2: a bare name or <pack>/<name>

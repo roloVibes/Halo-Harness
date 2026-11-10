@@ -43,7 +43,8 @@ LIVE_STATES = ("queued", "running", "waiting", "paused")
 FIELDS = ("agent_id", "parent", "name", "role", "bio", "lineup", "model", "kind", "task", "since", "state",
           "turns", "cost_usd", "current", "last_text", "transcript", "tokens_in", "tokens_out",
           "model_reason",  # 3.1.9.0 R2: why an `auto` member runs on `model` (models_auto.py)
-          "opt_ins")  # 3.1.8.0 R5: its isolation / secrets / tool-list lines (isolation/lines.py)
+          "opt_ins",  # 3.1.8.0 R5: its isolation / secrets / tool-list lines (isolation/lines.py)
+          "square")  # 3.3.16.0 R3: {name, engine} on a square's agent or node (workflows/receipts.py)
 QUIET_FIELDS = frozenset({"last_text", "cost_usd"})
 QUIET_S = 1.0
 _make_lock = threading.Lock()

@@ -27,6 +27,7 @@ ROWS = [
     Row("compactionModel", "general", "Compaction model", "model", None, (), "The model that writes a compaction's summary; unset, the session model (billed at its own rates).", "now"),
     Row("agents.max_concurrent", "agents", "Agents at once", "int", 4, (), "How many sub-agents may run at the same time.", "next session"),
     Row("agents.max_depth", "agents", "Agent depth", "int", 1, (), "How deep sub-agents may spawn sub-agents of their own (1 to 3).", "next session"),
+    Row("workflows.enabled", "agents", "Workflow squares", "list", ["media"], (), "The squares the auto lineup may hand work to (the Workflow tool); another lineup lists its own under workflows:.", "next session"),
     Row("roles.enabled", "agents", "Roles on", "bool", True, (), "Sessions route work by role (planner, coder, reviewer ...); off, one model does everything.", "next session"),
     Row("roles.editor", "agents", "Roles editor", "enum", None, ("external",), "external opens /roles edit in your $EDITOR instead of the form.", "now"),
     Row("roles.<role>", "agents", "Role model", "keyed", None, (), "The model one role runs on (a model ref, or a mapping with model and effort); the lineup's own wins over it.", "next session"),

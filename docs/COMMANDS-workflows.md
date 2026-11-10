@@ -1,6 +1,6 @@
 # Commands: workflows
 
-Read this when you list, show, check or run a pack's workflow from the command line (`halo workflow`).
+Read this when you list, show, check or run a workflow from the command line (`halo workflow`), or list, enable and test workflow squares (`halo workflows`).
 
 Part of [Commands](COMMANDS.md), which lists every part.
 
@@ -68,3 +68,29 @@ halo workflow run doc-review/review --input docs=docs
 
 `halo orchestra new --workflow <pack>/<name> [--input K=V ...]` makes the
 compiled run without starting it (`halo orchestra run <run>` starts it).
+
+## `halo workflows`
+
+Halo 3.3.16.0 R3. The workflow squares ([WORKFLOWS-squares.md](WORKFLOWS-squares.md)):
+yours (`~/.halo/workflows/`), the project's (`.halo/workflows/`), the running
+packs' (`<pack>/<name>`) and the shipped ones. `halo workflow` stays the
+command of the old verbs; `halo workflows check | run` reach them too.
+
+| Verb | What it does |
+| --- | --- |
+| `list [--json]` | every square with its contract line, `NAME · DOES · TAKES -> GIVES · band · depth`, its group and `*` on the ones the active lineup enabled; a workflow without `gives` is listed as not a square |
+| `show <ref> [--json]` | the contract: covers, lineup, engine, costs, limits, where the file is, any problem |
+| `enable <ref> [--lineup <name>]` | on for the active lineup (or `--lineup`): the auto lineup writes config `workflows.enabled`, a lineup of yours its `workflows:` list; one line says what changed |
+| `disable <ref> [--lineup <name>]` | off again, one line |
+| `test <ref> [--task TEXT]` | the check pass (the contract words, the compile with a sample task) and a dry run of the router on a sample task for each need it covers, on a text-only model: which gaps it covers; exit 1 on a problem |
+| `new <name> --from <square>` | copy a square into yours (`~/.halo/workflows/<name>.yaml`), never over a file |
+
+Every verb takes `--repo DIR` (default: the current folder). Exit codes: 0
+done, 1 not found or a problem, 2 a bad request.
+
+```sh
+halo workflows list
+halo workflows enable media
+halo workflows test media
+halo workflows new my-media --from media
+```

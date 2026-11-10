@@ -7,7 +7,7 @@ import type { AgentsView } from "../../lib/agentsDoor";
 import { agentsView, setAgentsView } from "./store";
 
 const TYPING = "input, textarea, select, [contenteditable]";
-const KEYS: Record<string, AgentsView> = { c: "cast", r: "runs", l: "live" };
+const KEYS: Record<string, AgentsView> = { c: "cast", r: "runs", l: "live", w: "workflows" }; // 3.3.16.0 R3: W the board
 
 export function useAgentsKeys(): void {
   useEffect(() => {

@@ -67,6 +67,14 @@ A claim says who is writing which unit right now (`basket.py#total`: a function,
 
 A hand-off passes work from one lane, part or stage to the next: a job with `after` waits for another one, and with `needs` it takes that job's summary, its units or a file it saved, then starts from that job's finished head. A job that takes nothing sees only the goal. Studio labels each hand-off edge with what it carries.
 
+## square
+
+A square is a saved workflow with a contract (Halo 3.3.16.0 R3): what it does in one sentence, what it takes (text, files, a PDF, images, audio, video, links), what it gives back (text, files, a report, a repo change), the needs it covers, the bios and models it runs on, its engine (one agent, an Orchestra run, or a mission), its budget band and cap, and its limits. The main agent hands a task to a square instead of picking a model; a lineup enables the squares it may use. `halo workflows list` and Studio's Agents -> Workflows board show them.
+
+## router
+
+The router is the `Workflow` tool (Halo 3.3.16.0 R3): it works out what the task needs that the session's model does not take (a PDF on a text-only model, say), picks the enabled square that covers it, says why in one line ("handing the PDF to media: your model takes text only") and runs it within the square's depth and budget. When no square covers the need, it says what could not be read and the model carries on.
+
 ## plan
 
 The plan is the lead's split of a goal into jobs, one per lane, each with a title, its claims, an optional bio and model, `after` and its hand-offs. With `plan: review` (`halo orchestra run --review`) the run waits until you approve it (`halo orchestra approve`, or Approve and run on Studio's plan canvas) or reject it with a reason; every edit is checked before it is saved.
@@ -376,7 +384,7 @@ An info row (3.3.10.0 R3) is a `halo pack doctor` row of severity `info`: a note
 
 ## receipt
 
-A receipt (3.3.11.0 R1) is the record of one thing Studio sent a live session -- a prompt, a steer or an answer -- and how far it got: `sent` (Studio stored it, before the socket call), `delivered` (the session took it), `read` (it is in the model's input: the user node the request is built from carries the receipt's id) and `replied` (that turn ended), or `failed` with a reason (`busy`, `held`, `expired` after 24 hours unread). The rows live in the session's `receipts.jsonl`; a retry with the same `client_id` returns the stored row instead of sending again, and the Prompt panel draws the ladder as four marks beside each of your turns.
+A receipt (3.3.11.0 R1) is the record of one thing Studio sent a live session -- a prompt, a steer or an answer -- and how far it got: `sent` (Studio stored it, before the socket call), `delivered` (the session took it), `read` (it is in the model's input: the user node the request is built from carries the receipt's id) and `replied` (that turn ended), or `failed` with a reason (`busy`, `held`, `expired` after 24 hours unread). The rows live in the session's `receipts.jsonl`; a retry with the same `client_id` returns the stored row instead of sending again, and the Prompt panel draws the ladder as four marks beside each of your turns. 3.3.16.0 R3: a hand-off to a square is a receipt too: which square, what went in (the need and the files' names), what came back and the cost, one line in the transcript and a node on Agents -> Live.
 
 ## queued turn
 

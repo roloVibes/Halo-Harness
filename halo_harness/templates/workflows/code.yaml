@@ -1,0 +1,26 @@
+# Halo 3.3.16.0 R3 -- a shipped square (docs/WORKFLOWS-squares.md): a change made in a worktree by the
+# Orchestra (the compile), checked by its gate and merged, with the run's report coming back.
+name: code
+does: Makes a code change in its own worktree, runs the tests, merges it and hands back the run's report.
+takes: [text, files]
+gives: [repo-change, report]
+covers: [code]
+lineup:
+  lead: {bio: auto-coder, model: auto}
+engine: orchestra
+budget: {band: mid, cap_usd: 5}
+limits: {depth: 1, turns: 60, wall_s: 3600}
+inputs:
+  task: {type: text, required: true, description: the change to make}
+  files: {type: text, default: "", description: "the files it starts from, comma-separated"}
+stages:
+  - id: build
+    title: Make the change
+    role: auto-coder
+    brief: "{task} Start from: {files}. Keep the change small; run the tests before you hand back."
+  - id: check
+    title: Review the change
+    role: auto-reviewer
+    after: [build]
+    brief: "Review the change made for: {task}. Name what is wrong in one line each, or say it is fine."
+done_when: the change is merged, the tests pass and the review found nothing open

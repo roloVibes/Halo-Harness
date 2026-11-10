@@ -19,6 +19,7 @@ from typing import Optional
 
 from halo_harness.agent.planmode import EnterPlanModeTool, ExitPlanModeTool
 from halo_harness.tools.agent import AgentTool, TaskTool
+from halo_harness.tools.workflow import WorkflowTool  # 3.3.16.0 R3: the router (workflows/router.py)
 from halo_harness.tools.ask_user_question import AskUserQuestionTool
 from halo_harness.tools.base import Tool, ToolContext, ToolResult
 from halo_harness.tools.bash import BashTool
@@ -93,7 +94,7 @@ def default_tools() -> list:
         NotebookEditTool(), ReadTool(), SkillTool(),
         # Halo 2.0.2 round 3 (brief C item 3): the shared task board.
         TaskCreateTool(), TaskListTool(), TaskStopTool(), TaskTool(), TaskUpdateTool(), TodoWriteTool(),
-        ToolSearchTool(), WebFetchTool(), WriteTool(),
+        ToolSearchTool(), WebFetchTool(), WorkflowTool(), WriteTool(),
         KnowledgeAddTool(), KnowledgeSearchTool(),  # 3.1.8.0 R4: findings and decisions (knowledge/)
     ]
     # Halo 3.0.3.0: the Orchestra's claim tools, only inside a run

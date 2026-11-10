@@ -39,7 +39,9 @@ test, TESTS = new_registry()
 @test
 def test_tool_output_over_the_window_compacts_before_the_send(ctx: Ctx):
     base = _base_floor()
-    trained = _pow2_above(base) + 4096
+    # a window one step above Halo's own prompt (3.3.16.0 R3: the pow2 rounding jumped to 69632 once the prompt passed
+    # 32768 -- one more tool did it -- and then the Read's capped output no longer overflowed the window)
+    trained = -(-(base + 4096) // 4096) * 4096
     fh = build_fake_home()
     big = fh["proj"] / "big.txt"
     big.write_text("".join(f"line {i:05d} BIGMARKER {'x' * 60}\n" for i in range(int(trained * 3.5 / 80) + 200)),

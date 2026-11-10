@@ -10,6 +10,9 @@ key and its line. The machine-readable twin is
 keeps the two equal.
 
     name, description, stop_when, done_when, budget_usd, checkpoint
+    does, takes, gives, covers, lineup, engine, budget: {band, cap_usd}, limits: {depth, turns, wall_s}
+             (3.3.16.0 R3: a square's contract, workflows/contract.py; root `takes` / `gives` are words,
+              a stage's `takes` / `gives` are its hand-offs)
     prerequisites: {tools, grants, capabilities, files}
     inputs:  {<name>: {type: text | path | json | artifact:<schema>, required, default, description}}
     outputs: {<name>: {type: artifact:<schema> | files | summary, from: <stage id>, description}}
@@ -24,8 +27,11 @@ from halo_harness.schemas.check import BOOL, INT, NUMBER, STRING, obj
 _NAMES = {"type": "array", "items": STRING}
 ANY = {}  # a value of any type (an input's default, a condition's `equals`)
 
+SQUARE_KEYS = ("does", "takes", "gives", "covers", "lineup", "engine", "budget", "limits")  # 3.3.16.0 R3
 TOP_KEYS = ("name", "description", "prerequisites", "inputs", "outputs", "stages", "done_when", "stop_when",
-            "budget_usd", "checkpoint")
+            "budget_usd", "checkpoint") + SQUARE_KEYS
+BUDGET_KEYS = ("band", "cap_usd")
+LIMIT_KEYS = ("depth", "turns", "wall_s")
 PREREQ_KEYS = ("tools", "grants", "capabilities", "files")
 INPUT_KEYS = ("type", "required", "default", "description")
 OUTPUT_KEYS = ("type", "from", "description")
@@ -52,6 +58,15 @@ def stage() -> dict:
     return obj(props)
 
 
+def square() -> dict:
+    """3.3.16.0 R3: the contract keys at the root (their words: workflows/contract.py)."""
+    member = obj({"bio": STRING, "model": STRING})
+    lineup = {"type": ["string", "object"], "properties": {"lead": member, "members": {"type": "array", "items": member}},
+              "additionalProperties": False}
+    return {"does": STRING, "takes": _NAMES, "gives": _NAMES, "covers": _NAMES, "lineup": lineup, "engine": STRING,
+            "budget": obj({"band": STRING, "cap_usd": NUMBER}), "limits": obj({"depth": INT, "turns": INT, "wall_s": INT})}
+
+
 def workflow() -> dict:
     inp = obj({"type": STRING, "required": BOOL, "default": ANY, "description": STRING})
     out = obj({"type": STRING, "from": STRING, "description": STRING})
@@ -60,7 +75,7 @@ def workflow() -> dict:
              "inputs": {"type": "object", "properties": {}, "additionalProperties": inp},
              "outputs": {"type": "object", "properties": {}, "additionalProperties": out},
              "stages": {"type": "array", "items": stage()}, "done_when": STRING, "stop_when": STRING,
-             "budget_usd": NUMBER, "checkpoint": BOOL}
+             "budget_usd": NUMBER, "checkpoint": BOOL, **square()}
     assert tuple(props) == TOP_KEYS and tuple(props["prerequisites"]["properties"]) == PREREQ_KEYS
     assert tuple(inp["properties"]) == INPUT_KEYS and tuple(out["properties"]) == OUTPUT_KEYS
     return obj(props)

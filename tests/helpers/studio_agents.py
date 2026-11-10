@@ -69,7 +69,8 @@ def cast_first(c, page) -> dict:
 
 def doors(c, page) -> dict:
     out = {}
-    for q in ("mode=roles", "mode=roles&view=live", "mode=orchestra", "mode=agents&view=runs", "mode=agents&view=live", "mode=agents"):
+    for q in ("mode=roles", "mode=roles&view=live", "mode=orchestra", "mode=agents&view=runs", "mode=agents&view=live", "mode=agents",
+              "mode=agents&view=workflows"):  # 3.3.16.0 R3: the fourth view
         open_page(c, page, q)
         out[q] = c.wait(f"{ON} === 'agents' && {VIEW}", 30)
     return out
@@ -91,7 +92,7 @@ def view_keys(c, page) -> dict:
     c.wait(f"{VIEW} === 'cast'", 30)
     c.js("document.activeElement?.blur()")
     out = {}
-    for ch, want in (("r", "runs"), ("l", "live"), ("c", "cast")):
+    for ch, want in (("r", "runs"), ("l", "live"), ("w", "workflows"), ("c", "cast")):  # 3.3.16.0 R3: W the board
         key(c, ch)
         out[ch] = c.wait(f"{VIEW} === '{want}' && {VIEW}", 10)
     return out

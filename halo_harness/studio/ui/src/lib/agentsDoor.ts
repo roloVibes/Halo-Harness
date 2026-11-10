@@ -7,9 +7,10 @@
 // takes the view (onAgentsView); this file has no React and no store of its own, so lib/store.ts may import it.
 // 3.3.16.0 R2 "the Fleet fold": `fleet` is a door too -- Agents on Live with the fleet scope on (`?scope=fleet`: every
 // machine, its sessions, their agents), on Runs when it names a mission (`?mode=fleet&mission=<id>`); its line once.
-export type AgentsView = "cast" | "runs" | "live";
+// 3.3.16.0 R3: `workflows` -- the board of squares (`?mode=agents&view=workflows`, W).
+export type AgentsView = "cast" | "runs" | "live" | "workflows";
 export type LiveScope = "here" | "fleet";
-export const AGENTS_VIEWS: AgentsView[] = ["cast", "runs", "live"];
+export const AGENTS_VIEWS: AgentsView[] = ["cast", "runs", "live", "workflows"];
 /** The words of the sections Agents took in, and the view each one lands on. */
 export const AGENTS_DOORS: Record<string, AgentsView> = { roles: "cast", orchestra: "runs", team: "runs", fleet: "live" };
 export const TEAM_NOTE = "Team's board is gone; a run's plan shows who owns what";

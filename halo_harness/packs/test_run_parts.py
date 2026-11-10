@@ -141,6 +141,17 @@ def workflows(r) -> None:
               not done.problems, "; ".join(done.problems))
         for line in dict.fromkeys(here):
             r.add("workflows", rel, f"needs on the machine that runs it: {line}", None)
+        _square(r, wf, rel)
+
+
+def _square(r, wf, rel: str) -> None:
+    """3.3.16.0 R3: a square's contract -- `gives` present, the `covers` / `takes` / `gives` words known."""
+    from halo_harness.workflows.contract import problems
+    c = wf.contract
+    if c.square or c.covers or c.engine != "orchestra" or wf.data.get("does"):
+        bad = problems(wf.data)
+        r.add("workflows", rel, f"square {wf.ref}: gives {', '.join(c.gives) or '-'}, covers {', '.join(c.covers) or '-'}",
+              not bad, "; ".join(bad))
 
 
 def studio(r) -> None:
