@@ -21,7 +21,48 @@ A click on a square block opens its summary in the inspector -- purpose, who is 
 -- then one Edit row per page: **Purpose** (the DOES line, saved into a square of yours; a shipped or a pack's square says
 how to copy it first), **Agents** (the lead and its members, each on its model), Enable, Budget, Limits, YAML. A click
 on a card or on the canvas clears it. A tier's purpose line opens the tier's Purpose form (its `...` menu has it too).
-The Workflows view (`W`) is still the squares alone with the library open; every door, key and test id keeps working.
+The Workflows view (`W`) is still the squares alone with the same library; every door, key and test id keeps working.
+
+## Composing: the line, the library, the drags (3.3.16.3 part 2)
+
+The owner: "drag and drop those entire use cases ... add this workflow in there when this situation happens, and it
+goes through that entire perspective."
+
+**The line carries the when.** Main's line into a square block is the rule for when main hands it work, and a short
+label on its last stretch says it: `needs pdf, images, audio, video` (its covers), `needs pdf`, `says review, audit`,
+`by name only`, `always first`. Hover the label (or the line) for the rule in a sentence and where it is written; click
+it -- or the block's **When** row in the inspector -- for the When page: one page, four choices in plain words (When
+main needs: pdf / images / audio / video / code / a plan / research / a review / work data -- When the task says: words
+-- Only when asked by name -- Always first, before main answers), what it writes, Save, and **Disconnect**. A block
+with no line is drawn dashed, its footer says `not connected: main never uses it`, and Problems lists it under NOT
+CONNECTED. Draw a line by dragging main's edge handle (the ring at the right of main's card) onto the block, or with the
+keyboard from the block's `⋯` menu: **Connect to main...** (its confirm card first). The rule lives in the lineup's
+`workflows:` item, or config `workflows.when.<ref>` on the auto lineup ([WORKFLOWS-squares.md](WORKFLOWS-squares.md#when)).
+
+**The library on Cast.** `+ Library` on Agents' bar (Cast and Workflows) opens the side panel beside the canvas, closed
+on load: one search box, then three kinds -- **Workflows** (yours / packs / shipped: whole use cases), **Blocks you can
+start from** (the shipped templates: thinking, media, review panel of three, local workers; every agent on `auto`) and
+**Agents** (the bios). The search filters all three.
+
+**The four drags**, each with the real pointer (press, move, release) and each asking first where it writes -- a confirm
+card with WHAT it adds, what it COSTS, what it WRITES, then its button or Cancel -- then one line saying what changed:
+
+| Drag | What it does | Writes |
+| --- | --- | --- |
+| a workflow or a template from the library onto the canvas | the block appears, wired to main by its covers | config `workflows.enabled` or the lineup's `workflows:`; a template also a NEW square of yours, or (a tier template) its agents and tier in the lineup -- never a shipped file |
+| an agent (a library bio, a tier card, another square's agent) into a block | it joins that square's agents on `auto` (a shipped square is copied to yours as `my-<name>` first and main's line moves to the copy -- the card says so), or becomes a card in that tier | the square's file of yours, or the lineup |
+| a square's agent out onto the empty canvas | it leaves (the last one cannot: the block's `x` takes the block off) | the square's file of yours |
+| a block by its title bar | it moves; its spot is kept in the lineup's layout (`block:<ref>`) | the layout, as the cards' moves are |
+
+A tier card dropped into a square stays in its tier too (a copy into the square); a square's agent dropped into a tier
+stays in its square. A tier card dropped outside its tier box moves the box, as before: leaving a tier is a drag into
+another tier. **Undo / Redo** on the canvas's bar (Ctrl+Z, Ctrl+Shift+Z) walk back each drop, each When save and each
+connection in the order they happened, with the lineup's own edits; an Undo of a write to a file says what it put back.
+
+**Keys.** Tab reaches every block and every agent card inside one. `M` on a focused card or agent starts a move: the
+arrows pick the block it goes into (lit as a drag's target), Enter makes it (into a square: its confirm card), Esc stops.
+Delete on a focused agent asks on its block's Agents page ("Take <bio> out of <ref>?"); on a block, on its Take it off
+page -- never in a pop-up. The `⋯` menu holds Connect to main, When, Disconnect and Take it off.
 
 ## Live in groups (3.3.16.3)
 

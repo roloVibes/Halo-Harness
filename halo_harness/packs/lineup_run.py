@@ -36,10 +36,12 @@ def acceptance_problems(data, *, cwd=None, state_dir=None) -> "list[str]":
         return []
     out: "list[str]" = []
     flows = data.get("workflows")
-    if flows is not None and not (isinstance(flows, list) and all(isinstance(f, str) and f.strip() for f in flows)):
-        out.append('"workflows" must be a list of workflow names')
+    from halo_harness.workflows.when import item_ref, problems as when_problems  # 3.3.16.3: {ref, when} items
+    if flows is not None and not (isinstance(flows, list) and all(item_ref(f) for f in flows)):
+        out.append('"workflows" must be a list of workflow names (or {ref, when} mappings)')
     elif flows and not data.get("_pack"):  # 3.2.1.0 R2: a lineup of yours; a pack's is checked with its manifest
-        out += _ref_problems(flows, cwd=cwd, state_dir=state_dir)
+        out += _ref_problems([item_ref(f) for f in flows], cwd=cwd, state_dir=state_dir)
+        out += [f'"workflows" {item_ref(f)!r}: {p}' for f in flows if isinstance(f, dict) for p in when_problems(f.get("when"))]
     acc = data.get("acceptance") if isinstance(data.get("acceptance"), dict) else {}
     if acc.get("test") is not None and not isinstance(acc.get("test"), str):
         out.append('"acceptance.test" must be a command (a string), the one the Orchestra gate runs')
@@ -60,8 +62,9 @@ def workflow_refs(raw) -> "list[str]":
         return []
     own = str(raw.get("_pack") or "") or str(raw.get("from_pack") or "").partition("@")[0].strip()
     out = []
-    for item in flows:
-        if not isinstance(item, str) or not item.strip():
+    from halo_harness.workflows.when import item_ref  # 3.3.16.3: an item may be {ref, when}
+    for item in [item_ref(f) for f in flows]:
+        if not item:
             continue
         pack_id, name = _ref(item)
         if pack_id or own:
@@ -109,10 +112,12 @@ def workflow_lines(lineup: dict) -> "list[str]":
     """`halo teams show`'s lines: the refs, and a bare name of a lineup with no pack of its own."""
     refs = list(lineup.get("workflow_refs") or []) if isinstance(lineup, dict) else []
     names = {r.partition("/")[2] for r in refs}
-    loose = [f for f in (lineup.get("workflows") or []) if isinstance(f, str) and not _ref(f)[0] and f.strip() not in names]
+    from halo_harness.workflows.when import item_ref
+    loose = [f for f in (item_ref(i) for i in lineup.get("workflows") or []) if f and not _ref(f)[0] and f not in names]
     out = [f"  workflows: {', '.join(refs)} (halo workflow run {refs[0]})"] if refs else []
     out += [f"  workflows: {f} names no pack: a lineup of yours names <pack>/{f}" for f in loose]
-    return out
+    from halo_harness.workflows.blocks_show import block_lines  # 3.3.16.3: each square block with its when line
+    return out + block_lines(lineup)
 
 
 def _ref_problems(flows: list, *, cwd=None, state_dir=None) -> "list[str]":

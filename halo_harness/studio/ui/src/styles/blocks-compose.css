@@ -1,0 +1,65 @@
+/* Composing blocks on the Cast canvas (3.3.16.3 part 2, routes/agents/blocks/): a line's when label, main's edge handle,
+   a block with no line (dashed), a drop target lit, the block's menu, the library beside the canvas, the one-line result,
+   the confirm card's place, the keyboard move's hint, the label under the pointer, the When page. One fact per row, CSS
+   ellipsis only, tokens only; the only motion is the drag itself. */
+.blk-edge-hit { fill: none; stroke: transparent; stroke-width: 14; pointer-events: stroke; cursor: pointer; }
+.blk-edges .blk-edge-hit:hover + .blk-edge, .blk-edge-hit:hover { stroke: color-mix(in srgb, var(--accent) 22%, transparent); }
+.blk-when-label { position: absolute; box-sizing: border-box; height: 22px; padding: 0 8px; border: 1px solid var(--line-strong);
+  border-radius: var(--r-chip); background: var(--surface); color: var(--text); font-size: 11px; line-height: 20px; text-align: left;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; z-index: 1; }
+.blk-when-label:hover, .blk-when-label:focus-visible { border-color: var(--accent); color: var(--accent); outline: none; }
+.blk-when-label[data-mode="always"] { border-color: var(--accent-2); }
+.blk-handle { position: absolute; box-sizing: border-box; width: 14px; height: 14px; padding: 0; border: 2px solid var(--accent);
+  border-radius: 50%; background: var(--surface); cursor: crosshair; z-index: 2; }
+.blk-handle:hover, .blk-handle:focus-visible { background: var(--accent); outline: none; }
+
+.blk:not([data-connected]) { border-style: dashed; border-left-style: dashed; }
+.blk-foot-off { color: var(--warn); }
+.blk[data-drop-hot] { border-color: var(--accent); box-shadow: var(--glow-accent); }
+.blk[data-moving] { z-index: 3; box-shadow: var(--shadow-1); }
+.blk-head { cursor: grab; user-select: none; }
+.wf-row, .blk-agent, .blk-handle { user-select: none; touch-action: none; }
+.blk-more { flex: none; }
+.blk-agent { cursor: grab; outline: none; }
+.blk-agent:focus-visible { border-color: var(--accent); }
+
+.blk-menu { position: absolute; z-index: 4; width: 200px; display: grid; padding: 4px; border: 1px solid var(--line-strong);
+  border-radius: var(--r-card); background: var(--surface); box-shadow: var(--shadow-1); }
+.blk-menu-item { min-height: var(--ctl-h); padding: 0 var(--s-3); border: 0; border-radius: var(--r-control); background: transparent;
+  color: var(--text); font: inherit; font-size: 12px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+.blk-menu-item:hover, .blk-menu-item:focus-visible { background: var(--surface-2); outline: none; }
+
+.blk-lib { position: absolute; left: 0; top: var(--bar-h); bottom: 0; z-index: 5; display: flex; }
+.blk-lib:empty { display: none; }
+.blk-lib .wf-library { height: 100%; box-sizing: border-box; box-shadow: var(--shadow-1); }
+.lib-kind { display: grid; gap: var(--s-2); }
+.lib-kind-title { margin: 0; font: var(--t-title); font-size: 12.5px; color: var(--text); }
+.lib-row .wf-row-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.blk-note { position: absolute; left: var(--pad); bottom: var(--pad); z-index: 6; box-sizing: border-box;
+  display: flex; align-items: center; gap: var(--s-2); max-width: min(720px, calc(100% - 384px - 3 * var(--pad))); min-height: var(--ctl-h);
+  padding: 0 var(--s-2) 0 var(--pad); border: 1px solid var(--line-strong); border-radius: var(--r-card); background: var(--bg-2);
+  font-size: 11.5px; color: var(--accent); box-shadow: var(--shadow-1); }
+.blk-note[data-tone="error"] { color: var(--bad); border-color: var(--bad); }
+.blk-note-text { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.blk-confirm { z-index: 6; }
+.wf-board .blk-note { position: sticky; left: auto; top: 0; bottom: auto; max-width: none; margin: 0 var(--pad); }
+.rc:has(.blk-lib .wf-library) .rc-scroll { margin-left: 288px; } /* the library beside the canvas, never over main */
+.rc:has(.blk-lib .wf-library) .blk-note { left: calc(288px + var(--pad)); }
+.blk-move { position: absolute; left: 50%; bottom: calc(2 * var(--pad) + var(--ctl-h)); transform: translateX(-50%); z-index: 6; box-sizing: border-box; max-width: calc(100% - 2 * var(--pad));
+  min-height: var(--ctl-h); display: flex; align-items: center; padding: 0 var(--pad); border: 1px solid var(--accent); border-radius: var(--r-card);
+  background: var(--surface); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.blk-ghost { position: fixed; z-index: 90; max-width: 260px; padding: 3px 8px; border: 1px solid var(--accent); border-radius: var(--r-chip);
+  background: var(--surface); color: var(--text); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+
+.blk-when-modes { display: grid; gap: var(--s-2); }
+.blk-when-mode { display: grid; gap: var(--s-1); padding: var(--s-1) var(--s-2); border: 1px solid var(--line-soft); border-radius: var(--r-control); }
+.blk-when-mode[data-on] { border-color: var(--accent); }
+.blk-when-pick, .blk-when-need { display: flex; align-items: center; gap: var(--s-2); min-height: var(--row-h); font-size: 12.5px; cursor: pointer; }
+.blk-when-needs { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 0 var(--s-2); padding-left: 22px; }
+.blk-when-need { min-height: var(--row-h); font-size: 12px; }
+.blk-when-words { min-height: var(--ctl-h); margin-left: 22px; }
+.blk-when-writes { font-size: 11px; overflow-wrap: anywhere; }
+.blk-ask { display: grid; gap: var(--s-1); padding: var(--s-2) var(--s-3); border: 1px solid var(--warn); border-radius: var(--r-card); background: var(--surface); }
+.blk-ask .muted { font-size: 11.5px; overflow-wrap: anywhere; }
+.blk-page-agent .icon-btn, .blk-page-agent button { justify-self: end; }

@@ -15,6 +15,7 @@ import { Metric } from "../orchestra/bits";
 import { ConfigGroup, useConfigFindings } from "./ConfigProblems";
 import { setTab, roles, useRoles } from "./store";
 import type { Finding } from "./types";
+import { UnconnectedGroup, useUnconnected } from "../agents/blocks/BlockProblems"; // 3.3.16.3: a block with no line
 
 function pick(f: Finding): void {
   if (!f.node) return;
@@ -60,14 +61,16 @@ export function ProblemsDetail() {
   const findings = useRoles((s) => s.findings);
   const name = useRoles((s) => s.name);
   const config = useConfigFindings();
+  const loose = useUnconnected();
   if (!name) return <Empty title="No lineup open" body="Open one in Lineups: its problems show here as you edit it." />;
   const blocks = findings.filter((f) => f.severity === "blocks");
   const warns = findings.filter((f) => f.severity !== "blocks");
-  if (!findings.length && !config.length) return <Empty title="No problems" body="The lineup validates, every model is in its catalog, every bio has its tools and its files pass halo doctor --config." testid="roles-problems-none" />;
+  if (!findings.length && !config.length && !loose.length) return <Empty title="No problems" body="The lineup validates, every model is in its catalog, every bio has its tools and its files pass halo doctor --config." testid="roles-problems-none" />;
   return (
     <div className="rp" data-testid="roles-problems-list">
       <Group title="BLOCKS" rows={blocks} sev="blocks" />
       <Group title="WARNS" rows={warns} sev="warns" />
+      <UnconnectedGroup refs={loose} />
       <ConfigGroup rows={config} />
     </div>
   );

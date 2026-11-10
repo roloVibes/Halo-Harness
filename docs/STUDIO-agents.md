@@ -109,7 +109,7 @@ here; `M` opens the Mission panel there.
 A square is a workflow with a contract that main may hand a task to ([WORKFLOWS-squares.md](WORKFLOWS-squares.md)). The
 board shows the ones the active lineup has enabled and is built by these rules (the ROADMAP's "Clean and clear"):
 
-![Agents on Workflows: main with a line to the media, plan and review squares, the library open on the left, the media square's contract in the inspector](media/studio-workflows.png)
+![Agents on Cast, composed: the tiers beside three square blocks with their agents inside, main's lines labelled with their when (needs pdf, audio; always first; says review, audit), the library open with its three kinds](media/studio-workflows.png)
 
 - **Nothing opens on load.** The empty board is one sentence, "No workflows enabled: drag one from the library, or
   `halo workflows enable media`", and a **Library** button.
@@ -163,8 +163,11 @@ panel shows a `squares` line when any ran.
 
 ### Blocks and Live's groups (3.3.16.3)
 
-The tiers and the enabled squares are blocks on Cast's one canvas, and Live boxes the agents of one task: see
-[Studio: blocks and groups](STUDIO-blocks.md).
+The tiers and the enabled squares are blocks on Cast's one canvas, and Live boxes the agents of one task. Part 2:
+main's line into a block carries its **when** (a label; a click opens the When page), the library opens on Cast too with
+three kinds (Workflows, Blocks you can start from, Agents), and four drags compose the board -- a workflow or a template
+onto the canvas, an agent into a block, an agent out of one, a block by its title bar -- each asking first, saying what
+changed in one line, and walked back by Undo. See [Studio: blocks and groups](STUDIO-blocks.md).
 
 ## Cast: the lineup and its bios
 
@@ -231,7 +234,7 @@ instead)" (and "(code 5/5 here)" when the numbers confirmed it).
 | **Lineups** (`roles-lineups`) | every lineup (shipped, user, project; the active one marked, the open one highlighted); **New** and **Duplicate** ask for a name on a card, **Delete** asks first (a shipped lineup stays), **Apply** asks first, showing the role table it writes; **user / project** says where New, Save and Delete write |
 | **Canvas** (`roles-graph`, the drawn canvas `roles-canvas`) | the open lineup: one card per assignment, in one labelled column box per tier; the edges; the toolbar (scope, unsaved, Add tier, Undo, Redo, Save, Apply, Lay out, Fit, zoom); the replay bar along its bottom |
 | **Inspector** (`roles-inspector`) | **Assignment** (a card's summary: role, bio, model with what it takes, price and context, instances, the words that route to it; Edit rows for its Slot and Model override, Edit bio, Duplicate, Remove; with no card: the lineup's summary), **Lineup** (the lineup's summary, then one Edit row per block; Edit opens that block alone on its page, with its **YAML** toggle and enforcement badge), **Live** (the agents on the card now, or its last runs) |
-| **Problems** (`roles-problems`) | everything wrong with the lineup as it stands in the editor, saved or not, in **Blocks** and **Warns**, each with its fix; a click selects its card; **Config** lists what `halo doctor --config` finds in the files behind the lineup |
+| **Problems** (`roles-problems`) | everything wrong with the lineup as it stands in the editor, saved or not, in **Blocks** and **Warns**, each with its fix; a click selects its card; **Not connected** (3.3.16.3) lists each square block main never uses, a click opens its When page; **Config** lists what `halo doctor --config` finds in the files behind the lineup |
 | **Bios** (`roles-bios`) | every bio (drag one onto the canvas to add a card); a click opens the **bio form** (`bio-form`): models first (3.1.4.0: the preferred model in the **model select**, the **model picker table** folded under **more...**, fallback, effort up to xhigh and max, thinking, the context budget); description, kind, tags, extends; tools (allow and deny from the real registry, `GET /api/tools`, MCP servers, permission mode, the rules); context (files, skills, the memory namespace, prompt notes); limits; output; environment (own worktree, offline); acceptance; the schedule (cron or every, its prompt and model) and the triggers (file change, event, message); a **YAML** toggle for the whole bio (hooks and any key without a field); **Save bio** (with **Save to project scope**), New, Duplicate, Delete |
 | **Models** (`roles-models`) | the catalog: its row count, each provider (enabled, key, models cached), why it is empty when it is (every provider looked at and why it lists nothing), **Refresh** (`POST /api/models/refresh`: every provider at once, each time-boxed, one line each: `ok, N models` or the reason, and "refreshed <when>"), **Analyze** (3.1.9.0, `POST /api/models/analyze`, what `halo models analyze` does: rebuilds what each model is good at and shows how many models per kind and each kind's strongest, the cheapest beside it when it differs), and **Test a model** by any ref |
 

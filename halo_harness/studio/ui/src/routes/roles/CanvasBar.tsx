@@ -10,6 +10,7 @@ import { Button } from "../../lib/ui";
 import { redo, save, undo } from "./actions";
 import { openDialog, packOf, readOnlySource, roles, scopeLabel, setCanvasView, useRoles } from "./store";
 import { addTier } from "./tierActions";
+import { useStepsAny } from "../agents/blocks/history"; // 3.3.16.3: a block's steps share Undo / Redo
 
 type Props = { zoom: number; setZoom: (z: number) => void; fit: () => void; layout: () => void };
 
@@ -49,8 +50,9 @@ export function CanvasBar({ zoom, setZoom, fit, layout }: Props) {
   const name = useRoles((s) => s.name);
   const scope = useRoles((s) => s.current?.scope || "");
   const dirty = useRoles((s) => s.dirty);
-  const canUndo = useRoles((s) => s.past.length > 0);
-  const canRedo = useRoles((s) => s.future.length > 0);
+  const blk = useStepsAny();
+  const canUndo = useRoles((s) => s.past.length > 0) || blk.undo;
+  const canRedo = useRoles((s) => s.future.length > 0) || blk.redo;
   const busy = useRoles((s) => s.busy);
   const active = useRoles((s) => s.info?.active_team === s.name);
   const byDefault = useRoles((s) => !s.info?.active_team && !!s.info?.lineup_default && s.info?.lineup_in_use === s.name); // 3.1.9.0 R2
@@ -82,7 +84,7 @@ export function CanvasBar({ zoom, setZoom, fit, layout }: Props) {
       )}
       <span className="spacer" />
       <Button size="sm" variant="ghost" disabled={!canUndo} onClick={() => undo()} title="Undo the last edit (Ctrl+Z)" data-testid="roles-undo">Undo</Button>
-      <Button size="sm" variant="ghost" disabled={!canRedo} onClick={() => redo()} title="Redo (Ctrl+Shift+Z)">Redo</Button>
+      <Button size="sm" variant="ghost" disabled={!canRedo} onClick={() => redo()} title="Redo (Ctrl+Shift+Z)" data-testid="roles-redo">Redo</Button>
       <Button size="sm" variant={dirty ? "primary" : "default"} disabled={!dirty || busy === "save"} onClick={() => void save()} kbd="Mod+S" data-testid="roles-save">Save</Button>
       <Button size="sm" disabled={dirty || busy === "apply"} onClick={() => openDialog({ kind: "apply" })} title={dirty ? "Save first: Apply uses the saved file" : "Make it the lineup new sessions use"} data-testid="roles-apply">Apply</Button>
       <Button size="sm" variant="ghost" onClick={layout} title="Lay the cards out in their tier columns (A)">Lay out</Button>

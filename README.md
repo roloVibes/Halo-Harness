@@ -190,11 +190,15 @@ halo workflows show media                 # its contract
 halo workflows enable plan | disable plan # for the active lineup
 halo workflows test media                 # check the file
 halo workflows new my-media --from media  # a copy of yours to change
+halo workflows enable review --when words=review,audit   # when main hands it work
+halo blocks add thinking                  # a block to start from: three reasoning models
 ```
 
-<a href="docs/media/studio-workflows.png"><img alt="Studio's Agents section on Workflows: main at the top with a line to three enabled squares, media, plan and review, each card saying what it does, takes, gives and costs; the library open on the left with its shipped squares; the media square's contract in the inspector" src="docs/media/studio-workflows.png" width="100%"></a>
+Each square has a **when**: the rule for when main hands it work. By default it is what the square covers, and you can narrow it to some needs (only PDFs), to words the task says ("review", "audit"), to only when main names it, or to always first. Blocks you can start from ship as templates (`thinking`, `media`, `review-panel`, `local-workers`): each adds a square of yours or a tier, every agent on an `auto` model, so nothing names a provider you did not set up.
 
-Agents' Workflows board is `Alt+2`, then `W`: one card per enabled square, the library beside it (drag a square onto the board and a card says what it costs and writes before you confirm), and the inspector for a square's contract. See [docs/WORKFLOWS-squares.md](docs/WORKFLOWS-squares.md).
+<a href="docs/media/studio-workflows.png"><img alt="Studio's Agents section on Cast, composed: the lineup's tiers beside its square blocks, main's lines into them each labelled with its when (needs pdf; always first), a media block open with its three agents, a thinking block of three reasoning agents, and the library open on the left with its three kinds: Workflows, Blocks you can start from, Agents" src="docs/media/studio-workflows.png" width="100%"></a>
+
+In Studio you compose it on Agents -> Cast (`Alt+2`): open the library, drag a workflow or a block template onto the canvas, drag an agent into a block or out of it, and drag a block by its title bar. Each drop says what it adds, costs and writes before it happens, says what changed in one line after, and Undo walks it back. The line from main to a block carries its when as a label; click it to change the rule on one page. A block with no line is dashed, and Problems says main never uses it. The Workflows view (`W`) is the squares alone. See [docs/STUDIO-blocks.md](docs/STUDIO-blocks.md) and [docs/WORKFLOWS-squares.md](docs/WORKFLOWS-squares.md).
 
 ### Six sections, one window
 

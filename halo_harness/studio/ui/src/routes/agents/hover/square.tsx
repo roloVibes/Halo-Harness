@@ -40,7 +40,8 @@ export function SquareHover({ sqRef, row = false }: { sqRef: string; row?: boole
   const rows: HoverRow[] = [
     ["Takes", q.takes.join(", ") || "text"],
     ["Gives", q.gives.join(", ") || (q.square ? "" : "nothing: not a square, the router never picks it")],
-    ["Covers", q.covers.join(", ")],
+    // 3.3.16.3: on the board, its line's rule (which says what it covers) in place of the covers
+    q.enabled ? ["When", q.when_mode === "off" ? "not connected: main never uses it" : q.when_sentence || q.covers.join(", ")] : ["Covers", q.covers.join(", ")],
     ["Runs on", joined([lead, ENGINE[q.engine] || q.engine])],
     ["Costs", q.costs], // its band and cap, in the contract's words
     ["Limits", q.limits],

@@ -31,17 +31,52 @@ tab ... I wish I could see better groupings of these sub-agents ... here's this 
   **Purpose** and **Agents** pages (`PUT workflows/contract` takes `does`; a shipped square says how to copy it).
 - `tiers[].purpose` in a lineup: the tier block's title line on Cast (its `...` menu edits it), Live's tier group,
   `halo teams show`'s tier line; the shipped auto lineup names both of its tiers.
+- **The when** (part 2; the owner: "add this workflow in there when this situation happens"): a lineup's `workflows:`
+  item may be `{ref, when: {needs, words, mode}}` beside plain refs (which keep their meaning): `needs` narrow what the
+  square covers, `words` fire on what the task says, `mode` is `auto`, `named` (only by name), `always` (first, before
+  main answers) or `off` (not connected). `workflows/router.py` reads it (always, then words, then the needs pick;
+  `when_route.py`), the receipt's reason names the rule that fired (`handing the PDF to media: when main needs pdf`,
+  its `rule` field), the Workflow tool's description says each rule; the auto lineup keeps its rules in config
+  `workflows.when.<ref>` (a new keyed Settings row). `workflows/when.py`, `when_store.py`, `when_tool.py`.
+- **The line carries it** on Cast: main's line into a square block has a short label (`needs pdf`, `says review,
+  audit`, `always first`) with a hover card; a click on it, or the block's new **When** row in the inspector, opens the
+  When page (four choices in plain words, what it writes, Save, Disconnect). A block with no line is dashed, its footer
+  says "not connected: main never uses it", Problems lists it (NOT CONNECTED). Main's edge handle dragged onto a block,
+  or the block's `⋯` menu (Connect to main, When, Disconnect, Take it off), draws the line.
+- **The library on Cast, three kinds**: Workflows (yours / packs / shipped), Blocks you can start from, Agents (the
+  bios), one search over all three; `+ Library` on Agents' bar on Cast too, beside the canvas, closed on load.
+- **Block templates** under `halo_harness/templates/blocks/`: `thinking` (three reasoning agents), `media` (adds as
+  `media-team`), `review-panel` (three reviewers), `local-workers` (a tier); every agent on `auto`, nothing names a
+  provider. `workflows/blocks.py`, `blocks_tier.py`; `GET workflows/templates`, `POST workflows/templates/add | merge |
+  remove`.
+- **The four drags** with the real pointer, each asking first (WHAT / COSTS / WRITES) and saying what changed in one
+  line: a workflow or a template from the library onto the canvas (wired to main by its covers); an agent (a bio, a
+  tier card, another square's agent) into a block (a shipped square is copied to yours as `my-<name>` first and the
+  board swaps to it, its rule kept: `workflows/members.py`, `PUT workflows/members`, `POST workflows/swap`); a square's
+  agent out onto the canvas (the last cannot leave); a block by its title bar (its spot in the lineup's layout,
+  `block:<ref>`). Undo / Redo walk each back in order with the lineup's own edits (`blocks/history.ts`). Keys: Tab
+  reaches blocks and their agents, `M` then the arrows and Enter moves one, Delete asks in the inspector.
+- CLI and TUI: `halo workflows enable <ref> --when needs=pdf,audio | words=review,audit | named | always | off | auto`,
+  `halo workflows when <ref>`, a `when:` column in `halo workflows list` and `/workflows`; `halo blocks list | add
+  <template> [--as <name>] | show <name>` (`blocks_cli.py`); `halo teams show` prints `block <ref> (square): when ...`.
 
 ### Changed
 
 - Live's layout draws a group as one child of its parent (`liveLayout.ts` hands a tree with groups to
   `groupLayout.ts`; a tree without them is laid out as before). The glossary's **block** says the canvas meaning too;
   **group** is new.
+- A lineup's `workflows:` list keeps its `{ref, when}` items through `halo workflows enable / disable` (edited in place,
+  not rewritten as refs); `halo teams validate` checks each rule. The square inspector's summary has a **When** row; a
+  square's hover card says its when in place of its covers on the board. W keeps its own board with the same library.
 
 ### Docs
 
 - docs/STUDIO-blocks.md (a new part of STUDIO.md: "Blocks" and "Live in groups"; STUDIO-agents.md points to it), docs/ROLES.md and docs/AGENTS.md (`tiers[].purpose`),
   docs/WORKFLOWS-squares.md "A square as a block", the glossary, README's Agents part.
+- Part 2: docs/STUDIO-blocks.md "Composing: the line, the library, the drags"; docs/WORKFLOWS-squares.md "When",
+  "Block templates", "Who is inside a square"; docs/COMMANDS-workflows.md (`--when`, `when`, `halo blocks`); docs/AGENTS.md
+  (`workflows[].when`); docs/CONFIG.md (`workflows.when.<square>`); the glossary's **when**; README's Workflows part;
+  docs/media/studio-workflows.png re-rendered as the composed board.
 
 ## [3.3.16.2] - unreleased
 

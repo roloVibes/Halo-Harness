@@ -1,0 +1,29 @@
+# Halo 3.3.16.3 -- a block template (docs/WORKFLOWS-squares.md "Block templates"): a review panel of three -- a
+# reviewer leads, a planner checks the approach, a coder checks the code -- written as a square of yours and wired to
+# main for reviews. Every agent is on an `auto` model (reasoning for the review, tool calls for the code).
+name: review-panel
+title: "review panel of three"
+kind: square
+square:
+  name: review-panel
+  does: Three reviewers read a change -- the approach, the code, the whole -- and hand back each problem in one line with where it is.
+  takes: [text, files]
+  gives: [text, report]
+  covers: [review, code]
+  lineup:
+    lead: {bio: auto-reviewer, model: auto}
+    members:
+      - {bio: auto-planner, model: auto}
+      - {bio: auto-coder, model: auto}
+  engine: session
+  budget: {band: mid, cap_usd: 1.5}
+  limits: {depth: 1, turns: 30, wall_s: 900}
+  inputs:
+    task: {type: text, required: true, description: what to review}
+    files: {type: text, default: "", description: "the files to read, comma-separated"}
+  stages:
+    - id: review
+      title: Review it three ways
+      role: auto-reviewer
+      brief: "Review: {task} Files: {files}. The approach, the code, the whole: one line per problem with the file and line."
+  done_when: every problem found is named with where it is

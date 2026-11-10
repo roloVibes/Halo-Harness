@@ -28,7 +28,7 @@ def make(route, outcome, *, need: str = "", files=(), engine: str = "") -> dict:
     sq = route.square
     return {"type": "receipt", "kind": "workflow", "square": sq.ref if sq is not None else "", "engine": engine,
             "need": need or ",".join(route.gaps), "gaps": list(route.gaps), "files": [Path(str(f)).name for f in files or ()],
-            "why": route.why, "status": "not-started" if route.refused else outcome.status,
+            "why": route.why, "rule": getattr(route, "rule", ""), "status": "not-started" if route.refused else outcome.status,
             "back": ",".join(sq.contract.gives) if sq is not None and not route.refused else "",
             "gives_miss": "" if route.refused else outcome.gives_miss, "stop": "" if route.refused else outcome.stop,
             "cost_usd": 0.0 if route.refused else round(float(outcome.cost_usd or 0.0), 6),

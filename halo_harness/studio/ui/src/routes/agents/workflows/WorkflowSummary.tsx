@@ -6,10 +6,13 @@ import { Button } from "../../../lib/ui";
 import { disableSquare, enableSquare, saveContract, select, setPage, squareOf, useWf, type Page, type Square } from "./store";
 import { YamlPage } from "./YamlPage";
 import { AgentsPage, PurposePage } from "./BlockPages"; // 3.3.16.3: a block's Purpose and Agents pages
+import { WhenPage } from "./WhenPage"; // 3.3.16.3: the rule its line carries
+import { whenLabel } from "../blocks/templates";
 import { agentsOf } from "../blocks/blockLayout";
 
 const ROWS: [Page, string, (q: Square, on: boolean) => string][] = [
   ["purpose", "Purpose", (q) => q.does || "-"],
+  ["when", "When", (q, on) => (!on ? "off this lineup" : q.when_mode === "off" ? "not connected: main never uses it" : whenLabel(q))],
   ["agents", "Agents", (q) => agentsOf(q).map((a) => a.bio).join(", ")],
   ["enable", "Enable for this lineup", (_q, on) => (on ? "on: main may hand it work" : "off")],
   ["budget", "Budget", (q) => q.costs],
@@ -137,6 +140,7 @@ export function WorkflowSummary() {
       {page === "yaml" && <YamlPage q={q} />}
       {page === "purpose" && <PurposePage key={q.ref} q={q} />}
       {page === "agents" && <AgentsPage q={q} />}
+      {page === "when" && <WhenPage key={q.ref} q={q} />}
     </aside>
   );
 }

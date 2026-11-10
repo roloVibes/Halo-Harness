@@ -96,6 +96,10 @@ def workflow_needed(session) -> bool:
         squares = enabled_squares(getattr(tool, "lineup", None))
         if not squares:
             return False
+        from halo_harness.workflows.when_store import rules_for
+        from halo_harness.workflows.when_tool import has_reach
+        if has_reach(rules_for(getattr(tool, "lineup", None))):  # 3.3.16.3: an `always` or a words rule
+            return True
         covers = {str(c) for w in squares for c in (getattr(w.contract, "covers", None) or ())}
         if covers - set(READS) - {"media"}:
             return True

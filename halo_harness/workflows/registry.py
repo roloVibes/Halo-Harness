@@ -139,10 +139,11 @@ def _lineup_refs(raw: dict) -> "list[str]":
     from halo_harness.workflows.spec import split_ref
     own = str(raw.get("_pack") or "") or str(raw.get("from_pack") or "").partition("@")[0].strip()
     out = []
+    from halo_harness.workflows.when import item_ref  # 3.3.16.3: an item may be {ref, when}
     for item in raw.get("workflows") or [] if isinstance(raw.get("workflows"), list) else []:
-        if isinstance(item, str) and item.strip():
-            pack_id, name = split_ref(item.strip())
-            out.append(f"{pack_id}/{name}" if pack_id else (f"{own}/{item.strip()}" if own else item.strip()))
+        if item_ref(item):
+            pack_id, name = split_ref(item_ref(item))
+            out.append(f"{pack_id}/{name}" if pack_id else (f"{own}/{item_ref(item)}" if own else item_ref(item)))
     return list(dict.fromkeys(out))
 
 
@@ -155,20 +156,17 @@ def enabled_refs(lineup=None, *, cwd=None, state_dir=None) -> "list[str]":
     return _lineup_refs(raw)
 
 
-def _write_lineup(lineup: str, refs: list, *, cwd=None, state_dir=None) -> "tuple[bool, str]":
-    from halo_harness.agents_yaml import _read_yaml_file, _write_yaml_file
-    from halo_harness.teams_yaml import find_team_template_path
-    found = find_team_template_path(lineup, cwd=cwd, state_dir=state_dir)
-    if found is None:
-        return False, f"no lineup {lineup!r} (halo teams list)"
-    path, source = found
-    if source not in ("user", "project"):
-        return False, (f"lineup {lineup} is {source}'s and read-only: copy it to yours first "
-                       f"(halo teams new <name> --from {lineup}), or enable on the auto lineup")
-    raw = _read_yaml_file(path) or {}
-    raw["workflows"] = list(refs)
-    problems = _write_yaml_file(path, raw)
-    return (False, problems[0]) if problems else (True, str(path))
+def _write_lineup(lineup: str, ref: str, on: bool, *, cwd=None, state_dir=None) -> "tuple[bool, str]":
+    """3.3.16.3: the lineup's items change in place, so a `{ref, when}` item keeps its rule (when_store.py)."""
+    from halo_harness.workflows.when import item_ref
+    from halo_harness.workflows.when_store import edit_lineup
+
+    def flip(items: list) -> None:
+        if on:
+            items.append(ref)
+        else:
+            items[:] = [i for i in items if item_ref(i) != ref and not (item_ref(i) == ref.partition("/")[2] and "/" in ref)]
+    return edit_lineup(lineup, flip, cwd=cwd, state_dir=state_dir)
 
 
 def _set(ref: str, on: bool, lineup=None, *, cwd=None, state_dir=None) -> "tuple[bool, str]":
@@ -189,8 +187,11 @@ def _set(ref: str, on: bool, lineup=None, *, cwd=None, state_dir=None) -> "tuple
         from halo_harness.theme import set_config_value
         set_config_value(CONFIG_KEY, refs)
         ok, wrote = True, f"config {CONFIG_KEY}"
+        if not on:
+            from halo_harness.workflows.when_store import drop_config_rule
+            drop_config_rule(ref)
     else:
-        ok, wrote = _write_lineup(str(lineup), refs, cwd=cwd, state_dir=state_dir)
+        ok, wrote = _write_lineup(str(lineup), ref, on, cwd=cwd, state_dir=state_dir)
         if not ok:
             return False, wrote
     return True, f"{ref} {'enabled' if on else 'disabled'} for {where} (wrote {wrote})"

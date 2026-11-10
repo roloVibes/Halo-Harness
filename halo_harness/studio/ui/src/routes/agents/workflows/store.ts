@@ -11,9 +11,11 @@ export type Square = {
   line: string; path: string; does: string; takes: string[]; gives: string[]; covers: string[];
   lead: { bio: string; model: string } | null; lineup: unknown; engine: string; band: string; cap_usd: number | null;
   depth: number; turns: number | null; wall_s: number | null; costs: string; limits: string;
+  // 3.3.16.3: the block's "when" on this lineup (an enabled square only): the rule as written, its mode, its label, its sentence
+  when?: { needs?: string[]; words?: string[]; mode?: string }; when_mode?: string; when_label?: string; when_sentence?: string;
 };
 export type Board = { lineup: string | null; where: string; enabled: string[]; squares: Square[] };
-export type Page = "summary" | "purpose" | "agents" | "enable" | "budget" | "limits" | "yaml" | "remove"; // 3.3.16.3: purpose, agents
+export type Page = "summary" | "purpose" | "when" | "agents" | "enable" | "budget" | "limits" | "yaml" | "remove"; // 3.3.16.3: purpose, when, agents
 
 export type WfState = {
   board: Board | null; error: string; loading: boolean;
@@ -29,10 +31,13 @@ export const wf = createStore<WfState>({
 
 export const useWf = <S,>(pick: (s: WfState) => S): S => useStore(wf, pick);
 
-export async function loadBoard(): Promise<void> {
+/** GET workflows: the active lineup's board, or (3.3.16.3, Cast) the board of the lineup `lineup` names. */
+let lastLineup = "";
+export async function loadBoard(lineup?: string): Promise<void> {
+  if (lineup !== undefined) lastLineup = lineup;
   wf.update(() => ({ loading: true }));
   try {
-    const board = await api.get<Board>("workflows");
+    const board = await api.get<Board>("workflows", lastLineup ? { lineup: lastLineup } : undefined);
     wf.update(() => ({ board, error: "", loading: false }));
   } catch (e) {
     wf.update(() => ({ error: (e as Error).message || "could not read the squares", loading: false }));
@@ -40,6 +45,8 @@ export async function loadBoard(): Promise<void> {
 }
 
 export const squareOf = (s: WfState, ref: string): Square | undefined => s.board?.squares.find((q) => q.ref === ref);
+/** The lineup the board was read for ("" = the active one): every write names it (3.3.16.3). */
+export const boardLineup = (): string => lastLineup;
 export const onBoard = (s: WfState): Square[] =>
   (s.board?.enabled || []).map((ref) => squareOf(s, ref)).filter((q): q is Square => !!q && q.square);
 
@@ -78,7 +85,7 @@ export const cancelConfirm = (): void => wf.update(() => ({ confirm: "" }));
 async function flip(ref: string, on: boolean): Promise<void> {
   wf.update(() => ({ busy: true }));
   try {
-    const got = await api.post<{ ok: boolean; line: string }>(on ? "workflows/enable" : "workflows/disable", { ref });
+    const got = await api.post<{ ok: boolean; line: string }>(on ? "workflows/enable" : "workflows/disable", { ref, ...(lastLineup ? { lineup: lastLineup } : {}) });
     wf.update((s) => ({ note: got.line, confirm: "", busy: false, ...(on ? {} : s.selected === ref ? { selected: "", page: "summary" as Page } : {}) }));
   } catch (e) {
     wf.update(() => ({ note: (e as Error).message || "the change did not save", busy: false }));

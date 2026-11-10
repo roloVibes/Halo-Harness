@@ -68,7 +68,7 @@ def test_fold_is_kept(ctx: Ctx):
 def test_the_block_in_the_inspector(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"summary first, one row per page, got {got.get('summary')}",
-              got.get("summary") == ["purpose", "agents", "enable", "budget", "limits", "yaml"])
+              got.get("summary") == ["purpose", "when", "agents", "enable", "budget", "limits", "yaml"])
     ctx.check(f"the Agents page, got {got.get('agents_page')}", got.get("agents_page") == ["auto-media", "auto-researcher", "auto-reviewer"])
     ctx.check(f"the Purpose page saves and the block says it, got {got.get('saved_line')!r}", got.get("saved_line") == "saved")
     ctx.check(f"a click on the canvas clears it, got {got.get('cleared')!r}", got.get("cleared") == "clear")

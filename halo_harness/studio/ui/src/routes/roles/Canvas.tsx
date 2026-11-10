@@ -36,6 +36,7 @@ import { glowOf, hideLegend, startGlow, type GlowState } from "./glow";
 import { autoLayout, CARD_W, columns, extent, hiddenCards, PAD, placeAll, tierAt, tierBox } from "./layout";
 import { BlockLayer, useSquareBlocks } from "../agents/blocks/BlockLayer"; // 3.3.16.3: the squares as blocks, one board
 import { clearBlock } from "../agents/blocks/blockState";
+import { BlockOverlay } from "../agents/blocks/BlockOverlay"; import { targetAt } from "../agents/blocks/drag"; import { useBlockKeys, useHotTarget } from "../agents/blocks/keyMove"; import { offerJoin } from "../agents/blocks/opsSquare"; // 3.3.16.3: the composing
 import { cardActivity, selectCard, useByNode } from "./live";
 import { ReplayBar } from "./Replay";
 import { openDialog, roles, useRoles } from "./store";
@@ -59,6 +60,8 @@ export function CanvasDetail() {
   const liveView = useRoles((s) => s.canvasView === "live"); // 3.3.11.0 R2: Plan | Live (LiveMap.tsx)
   const byNode = useByNode();
   useEffect(() => startGlow(), []);
+  useBlockKeys();
+  const hotT = useHotTarget();
   const [drag, setDrag] = useState<Drag | null>(null);
   const [zoom, setZoom] = useState(1);
   const [top, setTop] = useState(""); // the last-dropped card, drawn over the others
@@ -126,6 +129,8 @@ export function CanvasDetail() {
       if (!moved) return selectCard(id);
       const s = roles.get();
       if (!s.graph) return;
+      const sq = targetAt(u.clientX, u.clientY); // 3.3.16.3: a card dropped on a square block joins it (it stays in its tier)
+      if (sq?.kind === "square") return offerJoin(sq.ref, s.graph.nodes.find((n) => n.id === id)?.agent || "");
       const all = placeAll(s.graph, s.positions);
       const p = world(u);
       setTop(id);
@@ -212,7 +217,7 @@ export function CanvasDetail() {
           <div className="rc-inner" style={{ width: ext.w, height: ext.h, transform: `scale(${zoom})` }}>
             {graph.tiers.map((t, i) => (
               <TierBox key={t.name} t={t} b={tierBox(t, xs[i], pos, !!collapsed[t.name])} count={t.node_ids.length} state={tierGlow(t.node_ids)}
-                       collapsed={!!collapsed[t.name]} hot={drag?.hot === t.name} onToggle={(n) => setCollapsed(n, !roles.get().collapsed[n])} />
+                       collapsed={!!collapsed[t.name]} hot={drag?.hot === t.name || hotT === `tier:${t.name}`} onToggle={(n) => setCollapsed(n, !roles.get().collapsed[n])} />
             ))}
             <Edges edges={graph.edges} pos={pos} hidden={hidden} w={ext.w} h={ext.h} sel={sel} lit={lit} glows={glows} />
             <BlockLayer blocks={blk} lineup={name} w={ext.w} h={ext.h} />
@@ -230,6 +235,7 @@ export function CanvasDetail() {
       <ReplayBar />
       <GlowLegend />
       <TierMenu />
+      <BlockOverlay />
     </div>
   );
 }

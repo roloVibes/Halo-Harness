@@ -18,6 +18,8 @@ import {
   cancelConfirm, dropped, enableSquare, loadBoard, onBoard, openLibrary, select, squareOf, useWf, wf, workingSquare, writesLine,
 } from "./store";
 import { WorkflowSummary } from "./WorkflowSummary";
+import { BlockConfirm, BlockNote } from "../blocks/BlockOverlay"; // 3.3.16.3: a template dropped here
+import { useAgentsView } from "../store";
 
 const TYPING = "input, textarea, select, [contenteditable]";
 
@@ -86,6 +88,7 @@ export function Board() {
   const focus = useWf((s) => s.focus);
   const inspecting = useWf((s) => !!(s.selected || s.hover));
   const library = useWf((s) => s.library);
+  const shown = useAgentsView() === "workflows"; // the library and the block cards draw once: on the view that shows
   const workingKey = useFleet(workingSquare);
   const working = workingKey ? { name: workingKey.split("|")[0], cost: Number(workingKey.split("|")[1]) || 0 } : null;
   useEffect(() => {
@@ -112,7 +115,7 @@ export function Board() {
   const clear = (e: { target: unknown; currentTarget: unknown }) => e.target === e.currentTarget && wf.update(() => ({ selected: "", hover: "" }));
   return (
     <div className="wf" data-testid="wf-board-view" data-library={library || undefined} data-inspecting={inspecting || undefined}>
-      <Library />
+      {shown && <Library />}
       <div className="wf-board" ref={ref} data-testid="wf-board" data-count={refs.length} data-working={live || undefined}
            onDragOver={over} onDrop={drop} onClick={clear}>
         {note && <div className="wf-note mono" data-testid="wf-note" role="status">{note}
@@ -137,6 +140,8 @@ export function Board() {
           </div>
         )}
         <Confirm />
+        {shown && <BlockNote />}
+        {shown && <BlockConfirm />}
       </div>
       <WorkflowSummary />
     </div>

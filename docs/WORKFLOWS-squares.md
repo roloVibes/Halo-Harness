@@ -150,8 +150,66 @@ writes `does` into a square of yours (`PUT workflows/contract {ref, does}`; a sh
 copy it: `halo workflows new <name> --from <square>`). On Agents -> Live a square's agent and the agents under it are
 one group titled `square <name>` with the DOES line under it; the agent row's `square` carries `does` for that.
 
+## When
+
+Halo 3.3.16.3. A square on a lineup's board has a **when**: the rule for when main hands it work, carried by the line
+from main to its block in Studio. A lineup's `workflows:` item is a plain ref (today's meaning: the square's `covers`
+against the gaps) or a mapping with its rule:
+
+```yaml
+workflows:
+  - media                                         # plain: its covers (pdf, vision, audio, video)
+  - {ref: review, when: {words: [review, audit]}} # when the task says review or audit
+  - {ref: thinking, when: {mode: always}}         # always first, before main answers
+  - {ref: my-media, when: {needs: [pdf]}}         # when main needs a PDF read (its covers narrowed)
+```
+
+| `mode` | When the router hands it work |
+| --- | --- |
+| `auto` (the default) | a hand-off whose gaps meet `needs` (the square's covers narrowed; none given = its covers), or whose task says one of `words` (a whole word, any case) |
+| `named` | only when main asks for it by name (`Workflow(name: ...)`) |
+| `always` | first: a hand-off that names no need goes to it before any other square, and the Workflow tool's description tells main to hand it the task before it answers |
+| `off` | not connected: it stays on the board (dashed in Studio, listed in Problems) and main never uses it, not even by name |
+
+The order for a hand-off that names no need: an `always` square, then a square whose words the task says, then the
+needs pick above. A hand-off with `need` goes by the need. The receipt's reason names the rule that fired
+(`handing the PDF to media: when main needs pdf`) and the receipt carries it as `rule`; a plain ref keeps today's
+reason. On the auto lineup (no lineup file) the rules live in config, `workflows.when.<ref>` beside
+`workflows.enabled`. `halo workflows enable <ref> --when needs=pdf,audio | words=review,audit | named | always | off |
+auto` writes it, `halo workflows when <ref>` prints it, `halo workflows list` and `/workflows` show a `when:` column, and
+`halo teams show` prints a `block <ref> (square): when ...` line per square. A tier's reach stays its `routing` words and
+its cards' `use_for`.
+
+## Block templates
+
+Halo 3.3.16.3. Blocks you can start from, shipped as small YAML under `halo_harness/templates/blocks/`; each is a square
+or a tier, and every agent in it sits on an `auto` model (a square member's `model: auto`, a bio whose
+`models.preference` is `auto` with the `models.needs` that fit the purpose), so no template names a provider you did not
+set up -- pin the models afterwards (the block's Agents page, or the file).
+
+| Template | Kind | Inside |
+| --- | --- | --- |
+| `thinking` ("thinking: three reasoning models") | square | auto-planner leads, auto-reviewer and a second auto-planner weigh the call (needs: reasoning) |
+| `media` ("media: read PDFs, images, audio and video") | square, adds as `media-team` | auto-media leads, auto-researcher for the long ones, auto-writer for the answer |
+| `review-panel` ("review panel of three") | square | auto-reviewer leads, auto-planner on the approach, auto-coder on the code |
+| `local-workers` ("local workers") | tier | local-coder, local-writer, local-ops on bios that ask for nothing, so Auto picks the cheapest model that fits (a free or local one first) |
+
+A square template writes a square of YOURS (`~/.halo/workflows/<name>.yaml`; the template file stays as shipped) and
+enables it, wired to main by its covers. A tier template adds its agents (an alias already taken gets a `-2`), a tier
+below the lineup's last one with its purpose, and the routing words the lineup does not have yet; a shipped lineup is
+copied to yours under its name first (as Studio's Save does), a pack's is never written, a lineup with no tiers says to
+add one first. `halo blocks list | add <template> [--as <name>] | show <name>`; in Studio the library's "Blocks you can
+start from" ([STUDIO-blocks.md](STUDIO-blocks.md)).
+
+## Who is inside a square
+
+An agent dragged into a square block in Studio joins its `lineup.members` on `auto` (`PUT workflows/members {ref,
+add}`); one dragged out leaves (`remove`; the last agent cannot -- the block's `x` takes the block off). A square of
+yours or the project's is written in place; a shipped or a pack's square is copied to yours first as `my-<name>`, the
+lineup's board swaps to the copy and keeps its rule, and the confirm card and the result line both say so.
+
 ## Commands
 
-`halo workflows list | show | enable | disable | test | new | check | run`
+`halo workflows list | show | enable [--when] | disable | when | test | new | check | run`, `halo blocks list | add | show`
 ([COMMANDS-workflows.md](COMMANDS-workflows.md)); the TUI's `/workflows`
 prints the same lines ([SLASH-COMMANDS-tui.md](SLASH-COMMANDS-tui.md)).

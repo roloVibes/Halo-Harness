@@ -30,7 +30,7 @@ test, TESTS = new_registry()
 
 REPO = Path(__file__).resolve().parent.parent
 BRIEF = ("lineup", "bio", "role", "tier", "team", "member", "block", "stage", "lane", "part", "step", "mission",
-         "gate", "claim", "hand-off", "square", "router", "group", "plan", "coach", "orchestra run", "fleet", "hub", "harness", "capability", "unit",
+         "gate", "claim", "hand-off", "square", "router", "group", "when", "plan", "coach", "orchestra run", "fleet", "hub", "harness", "capability", "unit",
          "pack", "guided first run", "setup", "provider", "env file",
          "config key", "steward", "profile", "fit plan",
          "host", "grant", "peer", "fix", "duty steward", "offline promise", "speed card", "library", "quant",

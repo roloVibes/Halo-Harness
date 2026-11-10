@@ -45,7 +45,7 @@ export function AgentsBar({ view }: { view: AgentsView }) {
     <div className="ag-bar" data-testid="agents-bar" data-density="bar">
       <ViewSwitch view={view} />
       {view === "runs" && <TestLineup />}
-      {view === "workflows" && <LibraryButton plus />}
+      {(view === "workflows" || view === "cast") && <LibraryButton plus />}
       <Note />
       <span className="spacer" />
       <AttentionChip />

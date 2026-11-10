@@ -80,12 +80,12 @@ class WorkflowTool(Tool):
     def description(self) -> str:
         try:
             from halo_harness.workflows.registry import enabled_squares
-            on = enabled_squares(self.lineup)
+            from halo_harness.workflows.when_store import rules_for
+            on, rules = enabled_squares(self.lineup), rules_for(self.lineup)
         except Exception:
-            on = []
-        tail = (" Enabled squares: " + "; ".join(f"{w.ref} (covers {', '.join(w.contract.covers) or '-'})" for w in on) + "."
-                if on else " No square is enabled for this lineup yet (halo workflows enable media).")
-        return DESCRIPTION + tail
+            on, rules = [], {}
+        from halo_harness.workflows.when_tool import squares_tail  # 3.3.16.3: each square's "when" in a few words
+        return DESCRIPTION + squares_tail(on, rules)
 
     lineup = None  # the session's lineup (the router reads the runtime's; this is only the description's)
 
@@ -110,9 +110,15 @@ class WorkflowTool(Tool):
         session = runtime.parent
         model_ref = ctx.model_ref or str(getattr(getattr(session, "model_ref", None), "raw", "") or "")
         squares = registry.enabled_squares(_lineup(runtime), cwd=ctx.cwd)
+        from halo_harness.workflows.when_store import rules_for  # 3.3.16.3: each block's "when"
+        try:
+            rules = rules_for(_lineup(runtime), cwd=ctx.cwd)
+        except Exception:
+            rules = {}
         r = router.route(task, files, name=str(input.get("name") or ""), need=str(input.get("need") or ""),
                          model_ref=model_ref, squares=squares, band=session_band(runtime),
-                         hops=getattr(session, "_square_hops", None), remaining=session_remaining(runtime), takes=TAKES)
+                         hops=getattr(session, "_square_hops", None), remaining=session_remaining(runtime), takes=TAKES,
+                         rules=rules)
         if r.refused:
             rec = receipts.make(r, None, need=str(input.get("need") or ""), files=files)
             receipts.write(session, rec)

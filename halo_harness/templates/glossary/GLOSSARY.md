@@ -79,6 +79,10 @@ The router is the `Workflow` tool (Halo 3.3.16.0 R3): it works out what the task
 
 A group (Halo 3.3.16.3) is how Agents -> Live boxes the agents of one task: the sub-agents one step of a parent started together (the Agent calls of one reply), titled by that task in a few words; the agents of one square, titled by the square and its DOES line; or, when nothing more specific applies, a lineup tier's agents under its purpose. The parent's line goes to the group, not to each agent; its title bar counts who is working, waiting or done, its cost and its time, and says Auto's pick in plain words. An agent started alone is not boxed.
 
+## when
+
+A block's when (Halo 3.3.16.3) is the rule for when main hands a workflow square work, carried by the line from main to its block on Studio's Cast canvas: when main needs something (pdf, images, audio, video, code, a plan, research, a review, work data -- the square's covers, narrowed), when the task says one of its words, only when main names it, or always first. A block with no line is not connected: main never uses it. A lineup writes it as `{ref, when: {needs, words, mode}}` in its `workflows:` list (the auto lineup in config `workflows.when.<ref>`); `halo workflows enable <ref> --when ...` sets it and the router's receipt names the rule that fired.
+
 ## plan
 
 The plan is the lead's split of a goal into jobs, one per lane, each with a title, its claims, an optional bio and model, `after` and its hand-offs. With `plan: review` (`halo orchestra run --review`) the run waits until you approve it (`halo orchestra approve`, or Approve and run on Studio's plan canvas) or reject it with a reason; every edit is checked before it is saved.

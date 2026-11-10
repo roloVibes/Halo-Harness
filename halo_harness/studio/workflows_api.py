@@ -17,9 +17,9 @@ from __future__ import annotations
 from pathlib import Path
 
 
-def _rows(req) -> list:
+def _rows(req, lineup=None) -> list:
     from halo_harness.workflows.squares_cli import rows
-    out = rows(Path(req.cwd))
+    out = rows(Path(req.cwd), lineup)
     for r in out:
         r["writable"] = r.get("origin") in ("yours", "project")
     return out
@@ -27,10 +27,11 @@ def _rows(req) -> list:
 
 def get_board(req):
     from halo_harness.workflows import registry
-    lineup = registry.active_lineup()
+    asked = str((req.query or {}).get("lineup") or "").strip()  # 3.3.16.3: Cast asks for the lineup it has open
+    lineup = asked or registry.active_lineup()
     where = "the auto lineup" if registry.uses_config(lineup) else f"lineup {lineup}"
     return 200, {"lineup": lineup, "where": where, "enabled": registry.enabled_refs(lineup, cwd=req.cwd),
-                 "squares": _rows(req)}
+                 "squares": _rows(req, lineup)}
 
 
 def _flip(req, on: bool):
@@ -102,6 +103,10 @@ def put_contract(req):
 
 def dispatch_workflows(req):
     path, method = req.path, req.method
+    from halo_harness.studio.blocks_api import dispatch_blocks  # 3.3.16.3: when, members, templates
+    composed = dispatch_blocks(req)
+    if composed is not None:
+        return composed
     if path == "workflows" and method == "GET":
         return get_board(req)
     if path in ("workflows/enable", "workflows/disable") and method == "POST":

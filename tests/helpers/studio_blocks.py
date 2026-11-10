@@ -91,10 +91,12 @@ def inspect(c, page) -> dict:
     insp = f"{Q}('[data-testid=\"roles-inspector-body\"][data-block=\"my-media\"] [data-testid=\"wf-inspector\"]')"
     c.click_on(mine, 0.5, 0.06)
     out = {"summary": c.wait(f"{insp} && [...{insp}.querySelectorAll('.ri-row')].map((r) => r.dataset.block)", 15)}
+    c.js(f"{insp}.querySelector('[data-testid=\"wf-edit-agents\"]').scrollIntoView({{block: 'center'}}); 1")  # part 2: the When row
     c.click_on(f"{insp}.querySelector('[data-testid=\"wf-edit-agents\"]')")
     out["agents_page"] = c.wait(f"{Q}('[data-testid=\"wf-page-agents\"]') && [...document.querySelectorAll('[data-testid=\"wf-agent\"]')].map((a) => a.dataset.bio)", 10)
     c.click_on(f"{Q}('[data-testid=\"wf-page-back\"]')")
     c.wait(f"!!{Q}('[data-testid=\"wf-edit-purpose\"]')", 10)
+    c.js(f"{Q}('[data-testid=\"wf-edit-purpose\"]').scrollIntoView({{block: 'center'}}); 1")
     c.click_on(f"{Q}('[data-testid=\"wf-edit-purpose\"]')")
     box = f"{Q}('[data-testid=\"wf-field-does\"]')"
     c.wait(f"!!{box} && !{box}.disabled", 10)

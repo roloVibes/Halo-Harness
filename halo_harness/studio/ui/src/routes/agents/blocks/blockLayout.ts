@@ -10,11 +10,13 @@ const B_GAP = 6;
 const B_PAD = 10;
 export const B_FOOT = 30;
 const B_LINE = 18; // a folded block's TAKES / GIVES / COSTS lines
-const COL_GAP = 96; // between the tiers and the blocks: room for main's lines
+const COL_GAP = 228; // between the tiers and the blocks: room for main's lines and their when labels (3.3.16.3)
+export const LABEL_W = 176; // a line's when label, on the line's last stretch into the block
+const LEG = LABEL_W + 16;
 const ROW_GAP = 22;
 
 export type BlockAgent = { bio: string; model: string; lead: boolean };
-export type BlockBox = { ref: string; x: number; y: number; w: number; h: number; open: boolean };
+export type BlockBox = { ref: string; x: number; y: number; w: number; h: number; open: boolean; placed?: boolean };
 
 /** The agents inside a square: its lead, then its members; a lineup name is one row naming it. */
 export function agentsOf(q: Square): BlockAgent[] {
@@ -36,12 +38,15 @@ export function blockHeight(q: Square, open: boolean): number {
   return B_HEAD + B_PAD + n * B_AGENT + (n - 1) * B_GAP + B_PAD + B_FOOT;
 }
 
-/** The blocks in one column from `x0`, `y0`, in the board's order. */
-export function placeBlocks(squares: Square[], folded: string[], x0: number, y0: number): BlockBox[] {
+/** The blocks in one column from `x0`, `y0`, in the board's order; 3.3.16.3: a block moved by its title bar stands
+ *  where the lineup's layout saved it (`block:<ref>`), the others keep the column. */
+export function placeBlocks(squares: Square[], folded: string[], x0: number, y0: number, saved: Record<string, { x: number; y: number }> = {}): BlockBox[] {
   let y = y0;
   return squares.map((q) => {
     const open = !folded.includes(q.ref);
     const h = blockHeight(q, open);
+    const at = saved[`block:${q.ref}`];
+    if (at) return { ref: q.ref, x: Math.max(LEG + 8, at.x), y: Math.max(0, at.y), w: BLOCK_W, h, open, placed: true };
     const b = { ref: q.ref, x: x0 + COL_GAP, y, w: BLOCK_W, h, open };
     y += h + ROW_GAP;
     return b;
@@ -51,6 +56,9 @@ export function placeBlocks(squares: Square[], folded: string[], x0: number, y0:
 /** main's line into a block, crossing no card: from the card's right edge into the gap after main's tier, down under
  *  the tiers (`below`), across to the blocks' column and up into the block's title bar -- one bus all blocks share. */
 export function blockEdge(from: { x: number; y: number }, b: BlockBox, below: number): string {
-  const gx = from.x + 36, lx = b.x - 32, ty = b.y + B_HEAD / 2;
+  const gx = from.x + 36, lx = b.x - LEG, ty = b.y + B_HEAD / 2;
   return `M${from.x} ${from.y} H${gx} V${below} H${lx} V${ty} H${b.x}`;
 }
+
+/** Where a line's when label sits: on its last stretch, just left of the block's title bar. */
+export const labelAt = (b: BlockBox): { x: number; y: number } => ({ x: b.x - LEG + 8, y: b.y + B_HEAD / 2 - 11 });

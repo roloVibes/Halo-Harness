@@ -40,6 +40,7 @@ class Route:
     refused: bool = False                # a bound said no (depth, cap) or the named square is not enabled
     cap_usd: Optional[float] = None      # the cap the run is held to
     hops: int = 0                        # the hops the square's own agent gets
+    rule: str = ""                       # 3.3.16.3: the "when" rule that fired ("when main needs pdf"), "" for today's
 
 
 def _takes_text(takes: list) -> str:
@@ -73,12 +74,13 @@ def _band_gap(band: str, session_band: str) -> int:
     return abs(a - b)
 
 
-def pick(gaps_: list, squares: list, session_band: str = "mid"):
-    """The enabled square covering the most gaps, then the nearest band, then the first enabled; None."""
+def pick(gaps_: list, squares: list, session_band: str = "mid", covers=None):
+    """The enabled square covering the most gaps, then the nearest band, then the first enabled; None.
+    `covers(wf)`: what it covers (3.3.16.3: a rule's `needs` narrow it; default its contract's)."""
     best, key = None, None
     for i, wf in enumerate(squares):
         c = wf.contract
-        hit = len(set(c.covers) & set(gaps_))
+        hit = len(set(covers(wf) if covers else c.covers) & set(gaps_))
         if not hit:
             continue
         k = (-hit, _band_gap(c.band, session_band), i)
@@ -99,9 +101,10 @@ def cap_for(contract, remaining: Optional[float]) -> Optional[float]:
 
 def route(task: str, files=(), *, name: str = "", need: str = "", model_ref: str = "", squares=(),
           band: str = "mid", hops: Optional[int] = None, remaining: Optional[float] = None, takes=None,
-          find=None) -> Route:
+          find=None, rules=None) -> Route:
     """The hand-off: a square (or none) and its one line. `squares`: the enabled ones; `find(ref)` resolves
-    `name` (defaults to workflows.spec.find); `takes`: what the model takes (default: the takes cache)."""
+    `name` (defaults to workflows.spec.find); `takes`: what the model takes (default: the takes cache);
+    `rules`: 3.3.16.3 {ref: when.Rule} -- the lineup's "when" per square (a ref with none keeps today's rule)."""
     takes = list(takes) if takes is not None else model_takes(model_ref)
     files = [str(f) for f in files or () if str(f).strip()]
     r = Route(takes=takes)
@@ -111,31 +114,47 @@ def route(task: str, files=(), *, name: str = "", need: str = "", model_ref: str
     if need and need.strip().lower() not in COVERS:
         r.refused, r.why = True, f"{need!r} is not a need a square covers ({', '.join(COVERS)})"
         return r
+    rules = dict(rules or {})
+    mode = lambda wf: rules[wf.ref].mode if wf.ref in rules else "auto"  # noqa: E731
     if name:
         enabled = {wf.ref: wf for wf in squares}
         wf = enabled.get(name.strip())
-        if wf is None:
-            r.refused, r.why = True, (f"{name} is not enabled for this lineup: halo workflows enable {name} "
+        if wf is None or mode(wf) == "off":
+            r.refused, r.why = True, (f"{name} is not connected: main never uses it (Studio: draw its line, or halo "
+                                      f"workflows enable {name} --when auto)" if wf is not None else
+                                      f"{name} is not enabled for this lineup: halo workflows enable {name} "
                                       "(or Studio: Agents -> Workflows)")
             return r
         r.square, r.gaps = wf, gaps(task, files, need=need, takes=takes)
+        r.rule = "asked for by name"
         r.why = f"handing the task to {wf.ref}: asked for by name"
     else:
-        r.gaps = gaps(task, files, need=need, takes=takes)
-        if not r.gaps:
-            r.refused, r.why = True, (f"no hand-off: nothing in the task needs more than your model takes "
-                                      f"({_takes_text(takes)})")
-            return r
-        r.square = pick(r.gaps, list(squares), band)
-        what = ", ".join(_THE.get(g, g) for g in r.gaps)
-        if r.square is None:
-            names = ", ".join(files) or "the task's media"
-            r.refused, r.why = True, (f"no enabled square covers {what} (your model takes {_takes_text(takes)}): "
-                                      f"could not read {names}; halo workflows enable media")
-            return r
-        lead = next((g for g in r.gaps if g in r.square.contract.covers), r.gaps[0])
-        reason = (f"your model takes {_takes_text(takes)}" if lead in READS else f"the ask names {lead}")
-        r.why = f"handing {_THE.get(lead, lead)} to {r.square.ref}: {reason}"
+        from halo_harness.workflows.when_route import by_rule
+        live = [wf for wf in squares if mode(wf) not in ("off", "named")]
+        if not need and by_rule(r, task, live, rules):
+            r.gaps = gaps(task, files, need=need, takes=takes)
+        else:
+            r.gaps = gaps(task, files, need=need, takes=takes)
+            if not r.gaps:
+                r.refused, r.why = True, (f"no hand-off: nothing in the task needs more than your model takes "
+                                          f"({_takes_text(takes)})")
+                return r
+            covers = lambda wf: (rules[wf.ref].needs if wf.ref in rules and rules[wf.ref].needs  # noqa: E731
+                                 else ([] if wf.ref in rules and rules[wf.ref].words else wf.contract.covers))
+            r.square = pick(r.gaps, live, band, covers)
+            what = ", ".join(_THE.get(g, g) for g in r.gaps)
+            if r.square is None:
+                names = ", ".join(files) or "the task's media"
+                r.refused, r.why = True, (f"no enabled square covers {what} (your model takes {_takes_text(takes)}): "
+                                          f"could not read {names}; halo workflows enable media")
+                return r
+            lead = next((g for g in r.gaps if g in covers(r.square)), r.gaps[0])
+            if r.square.ref in rules and rules[r.square.ref].needs:
+                r.rule = f"when main needs {lead}"
+                r.why = f"handing {_THE.get(lead, lead)} to {r.square.ref}: {r.rule}"
+            else:
+                reason = (f"your model takes {_takes_text(takes)}" if lead in READS else f"the ask names {lead}")
+                r.why = f"handing {_THE.get(lead, lead)} to {r.square.ref}: {reason}"
     c = r.square.contract
     r.cap_usd, r.hops = cap_for(c, remaining), child_hops(c, hops)
     if r.cap_usd is not None and r.cap_usd <= 0:

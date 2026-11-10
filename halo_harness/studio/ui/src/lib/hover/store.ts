@@ -7,7 +7,7 @@
 import type { ReactNode } from "react";
 import { createStore, useStore } from "../store";
 
-export type HoverKind = "cast" | "agent" | "session" | "machine" | "lane" | "part" | "square" | "group";
+export type HoverKind = "cast" | "agent" | "session" | "machine" | "lane" | "part" | "square" | "group" | "when"; // when: 3.3.16.3, a block's line
 export type Shown = { id: string; kind: HoverKind; key: string; el: HTMLElement; by: "pointer" | "focus"; render: () => ReactNode };
 
 export const HOVER_DELAY = 350;

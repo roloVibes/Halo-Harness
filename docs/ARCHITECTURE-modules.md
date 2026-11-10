@@ -356,7 +356,14 @@ project > shipped for a bare name and a pack's by `<pack>/<name>`; the enabled s
 the `gives` check), `workflows/receipts.py` (the receipt node, the Live tree's square, the cost, an Orchestra run's
 squares), `workflows/squares_cli.py` (`halo workflows`, the TUI's `/workflows`), `tools/workflow.py` (the `Workflow`
 tool) and `studio/workflows_api.py` (Agents -> Workflows: the board's rows, enable / disable, the YAML, a square's
-budget and limits).
+budget and limits). Halo 3.3.16.3 "Blocks": `workflows/when.py` (a block's when: the rule, its label and sentence, the
+CLI's `--when`), `workflows/when_store.py` (where the rules live: a lineup's `workflows:` items, config
+`workflows.when` on the auto lineup), `workflows/when_route.py` (always, then words, before the needs pick),
+`workflows/when_tool.py` (the Workflow tool's words for each rule), `workflows/squares_when_cli.py` (`halo workflows
+enable --when`, `halo workflows when`), `workflows/blocks.py` and `workflows/blocks_tier.py` (the block templates:
+load, check, add a square of yours or a tier), `workflows/members.py` (who is inside a square; a shipped one copied to
+yours first), `workflows/blocks_show.py` (a lineup's blocks in lines: `halo blocks`, `halo teams show`), `blocks_cli.py`
+(`halo blocks list | add | show`) and `studio/blocks_api.py` (the composing routes: when, members, swap, templates).
 
 The map goes on in [Architecture: the module map, part two](ARCHITECTURE-modules-two.md): the Ollama
 steward, packs, the extension API, isolation, the guided first run, Setup and Settings.

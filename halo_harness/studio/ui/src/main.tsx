@@ -63,6 +63,7 @@ import "./styles/local-voice.css"; // 3.3.9.0 R3: Local -> Voice, the speech ser
 import "./styles/nodes.css"; // 3.3.15.0 L1: the Instrument look's map nodes and edges (after fleet.css and roles-live.css)
 import "./styles/live-groups.css"; // 3.3.16.3: Live in groups, the group boxes (after nodes.css)
 import "./styles/blocks.css"; // 3.3.16.3: blocks on the Cast canvas, a tier's purpose line
+import "./styles/blocks-compose.css"; // 3.3.16.3 part 2: lines with their when, the library on Cast, the drags
 import "./styles/instrument.css"; // 3.3.15.0 L1: the kit's pieces whose CSS lived elsewhere (fit meter, the Dialog's cost block)
 import "./styles/model-takes.css"; // 3.3.15.0 R2: what a model takes, the picker's one-line rows (after model-card.css)
 import "./styles/hover-card.css"; // 3.3.16.1: the one hover card (lib/ui/HoverCard.tsx)
