@@ -22,7 +22,7 @@ import type { MotionState } from "../../lib/motion";
 import { Empty } from "../../lib/ui";
 import { Metric } from "../orchestra/bits";
 import { cost, short } from "../orchestra/format";
-import { useTicker } from "../fleet/MapNode";
+import { useTicker } from "../agents/live/nodeBits";
 import { isLive, keyOf, sessionMotion, sessionTitle, useFleet, useNow } from "../fleet/store";
 import type { SessionRow } from "../fleet/types";
 import { hueOf } from "../shared/hues";

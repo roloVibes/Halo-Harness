@@ -1,4 +1,4 @@
-// The Ollama panel's steward block (3.3.4.0 R5): the job's status line (where it runs, since when, its model,
+// The steward's block (3.3.4.0 R5 as the Fleet Ollama panel's; 3.3.16.0 R2: Local -> Steward's pieces): the job's status line (where it runs, since when, its model,
 // the last run), its last note (the cost line muted), the findings for the picked host (severity, the line, the
 // evidence numbers; in `review` mode Apply and Dismiss; Dismiss keeps one quiet for 24 hours), and in `auto`
 // mode the changes it made, Undo on the newest. Server-side hints are never applied: the plan block copies them.
@@ -78,40 +78,26 @@ function Changes() {
   );
 }
 
-export function StewardBlock({ findings }: { findings: Finding[] }) {
+/** 3.3.16.0 R2 (from the Fleet Ollama panel's steward block; the status lines, the note and the findings are Local ->
+ *  Steward's own): Run now, the hub's note when this box is a member, and in `auto` mode the changes in place with Undo. */
+export function StewardRunAndChanges() {
   const st = useOllama((s) => s.steward);
   const busy = useOllama((s) => s.busy);
   const mode = useOllama((s) => s.steward?.mode || s.hosts?.mode || "");
   return (
-    <section className="oll-block" aria-label="Steward">
+    <div className="oll-block" data-testid="local-steward-run">
       <div className="oll-head">
-        <span className="rail-label mono">STEWARD · {mode.toUpperCase()}</span>
+        <span className="rail-label mono">MODE · {mode.toUpperCase() || "?"}</span>
         <span className="spacer" />
         <Button size="sm" variant="ghost" disabled={!!busy} onClick={() => void runNow()} data-testid="ollama-run" title="one pass of the rules now (no model call)">Run now</Button>
       </div>
-      <div className="oll-status mono muted" data-testid="ollama-status">
-        {(st?.status_lines || ["reading the steward..."]).map((l) => (
-          <div key={l}>{l.trim()}</div>
-        ))}
-      </div>
-      <NoteLines note={st?.last_note || null} />
       {st?.hub_note?.line && <p className="muted oll-hub" data-testid="ollama-hub-note">steward on {st.hub_note.hub || "the hub"}: {st.hub_note.line}</p>}
-      <div className="rail-label mono">FINDINGS · THE LAST 24 HOURS</div>
-      {findings.length ? (
-        <ul className="oll-findings">
-          {findings.map((f) => (
-            <FindingRow key={f.id} f={f} review={mode === "review"} />
-          ))}
-        </ul>
-      ) : (
-        <p className="muted" data-testid="ollama-no-findings">Nothing to fix: the calls and the server's lines look right.</p>
-      )}
       {mode === "auto" && (
         <>
           <div className="rail-label mono">CHANGES IN PLACE</div>
           <Changes />
         </>
       )}
-    </section>
+    </div>
   );
 }

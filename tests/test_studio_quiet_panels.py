@@ -3,14 +3,14 @@ a density setting (rolo, 2026-10-27: "the visuals in studio are too cluttered").
 through tests/helpers/studio_quiet_panels.py (skipped without one), over a seeded scratch home; no provider
 request, no model call:
 
-1. one thing per section: on a fresh browser each of Session, Team, Roles, Fleet, Orchestra and Packs
-   opens on its primary panel (Live, Board, Canvas, Map, Workflow, Installed), its box >= 60 % of the
+1. one thing per section: on a fresh browser each of Session, Roles, Orchestra and Packs (3.3.16.0 R1/R2: Team and
+   Fleet folded into Agents) opens on its primary panel (Live, Canvas, Workflow, Installed), its box >= 60 % of the
    stage, every other panel a strip at the foot (3.3.13.0 R2: Design's Artboards is the design pack's page,
    its own primary: the pack's tests/test_studio_design_live.py and tests/test_pack_design_ui.py);
 2. the ornament on one panel at a time: one `.panel.focused` (the primary until a click), one set of HUD
    brackets, one mono data line, no about line in any panel; a click moves it; the panel's ? opens its help on
    the about line and toggles it shut;
-3. a strip that opens joins the column on the primary's right (the primary gives up those columns, as tall as
+3. (on Agents -> Live, the inspector's strip) a strip that opens joins the column on the primary's right (the primary gives up those columns, as tall as
    before, the strips stay below) and gives them back when collapsed again; a saved layout wins across a reload, Reset layout returns to the
    quiet default;
 4. density: the header toggle sets `data-density="compact"` and the measured tokens (`--pad`, the gutter
@@ -35,7 +35,7 @@ test, TESTS = new_registry()
 REPO = Path(__file__).resolve().parent.parent
 UI = REPO / "halo_harness" / "studio" / "ui" / "src"
 _RUN: dict = {}
-PRIMARY = {"session": "session-live", "roles": "roles-graph", "fleet": "fleet-map",  # 3.3.16.0 R1: roles, orchestra: Agents' doors
+PRIMARY = {"session": "session-live", "roles": "roles-graph",  # 3.3.16.0 R1: roles, orchestra: Agents' doors; R2: no Fleet
            "orchestra": "graph", "packs": "pm-installed"}
 
 
@@ -83,7 +83,7 @@ def test_the_ornament_on_one_panel(ctx: Ctx):
         orn = (got.get("ornament") or {}).get(sid)
         ctx.check(f"{sid}: one focused panel (the primary), one set of brackets, one data line, no about line, got {orn}",
                   orn == [[pid], 1, 1, 1, 0])
-    ctx.check(f"a click moves it, got {got.get('ornament_click')}", got.get("ornament_click") == [["fleet-attention"], 1, 1, 1, 0])
+    ctx.check(f"a click moves it, got {got.get('ornament_click')}", got.get("ornament_click") == [["roles-inspector"], 1, 1, 1, 0])
     ctx.check(f"the ? opens the help on the about line, got {got.get('help_first')!r} / {got.get('about_title')!r}",
               bool(got.get("help_first")) and got.get("help_first") == got.get("about_title"))
     ctx.check(f"the ? again closes it, got {got.get('help_toggled')}", got.get("help_toggled") == "closed")
@@ -93,7 +93,7 @@ def test_the_ornament_on_one_panel(ctx: Ctx):
 def test_strips_open_beside_the_primary_and_the_saved_layout_wins(ctx: Ctx):
     got = _got(ctx)
     mb, ao, mo, back = (got.get(k) or [0, 0, 0, 0] for k in ("map_before", "att_open", "map_open", "map_back"))
-    ctx.check(f"the opened strip sits right of the map (one gutter, 12 px since 3.3.15.0), as tall, the map narrower by its columns, got {mb} {ao} {mo}",
+    ctx.check(f"the opened strip sits right of the tree (one gutter, 12 px since 3.3.15.0), as tall, the map narrower by its columns, got {mb} {ao} {mo}",
               mo[3] == mb[3] and ao[3] == mb[3] and mo[2] < mb[2] and abs((mo[0] + mo[2]) - ao[0]) <= 14 and ao[1] == mb[1]
               and got.get("strips_below") is True)
     ctx.check(f"collapsed again, the map has its rows back, got {back}", back == mb)

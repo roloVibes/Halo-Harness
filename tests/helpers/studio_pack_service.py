@@ -41,7 +41,7 @@ def service_row(c, url, ctx) -> dict:
     registry.invalidate()
     c.go("about:blank")
     c.go(url)
-    c.wait(f"{TABS}.length >= 7", 40)  # 3.3.16.0 R1: seven core sections
+    c.wait(f"{TABS}.length >= 6", 40)  # 3.3.16.0 R2: six core sections
     alt(c, 4)  # 3.3.16.0 R1: Packs is the fourth section
     c.wait(f"{CUR}.startsWith('Packs')", 15)
     chip = f"{ROW} [data-testid=pm-service]"

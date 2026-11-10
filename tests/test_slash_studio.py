@@ -110,8 +110,10 @@ def test_studio_section_opens_that_section(ctx: Ctx):
         _slash(app, "studio", "fleet")
     t = targets[0] if targets else None
     ctx.check(f"/studio fleet: mode=fleet, no session, got {t}", t is not None and t.mode == "fleet" and t.text == "")
-    ctx.check(f"its line names Fleet, got {app.lines}", len(app.lines) == 1 and app.lines[0].startswith("Opened Fleet in the Studio page")
-              and "?mode=fleet#t=" in app.lines[0])
+    # 3.3.16.0 R2: Fleet folded into Agents -> Live: the door's line once, then where it opened
+    ctx.check(f"its lines name the new door and Agents (Live), got {app.lines}", len(app.lines) == 2
+              and app.lines[0].startswith("Fleet is Agents -> Live now") and app.lines[1].startswith("Opened Agents (Live) in the Studio page")
+              and "?mode=fleet#t=" in app.lines[1])
     for word in ("orchestra", "roles", "fleet", "team", "session", "local"):
         app = _App()
         with _opener("focused") as targets:
@@ -126,7 +128,7 @@ def test_studio_section_opens_that_section(ctx: Ctx):
     with _opener() as targets:
         _slash(app, "studio", "kitchen")
     ctx.check(f"an unknown section says what /studio takes and opens nothing, got {app.lines}",
-              not targets and len(app.lines) == 1 and "session" in app.lines[0] and "fleet" in app.lines[0])
+              not targets and len(app.lines) == 1 and "session" in app.lines[0] and "local" in app.lines[0])  # 3.3.16.0 R2: the six
 
 
 @test

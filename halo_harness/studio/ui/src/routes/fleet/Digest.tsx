@@ -2,13 +2,13 @@
 // (or Studio opens after that long), the digest since you last looked
 // (`GET fleet/digest?since=`, computed in code: sessions started and ended,
 // cost, decisions and who made them, files touched, errors, hand-offs, per
-// harness) shows as a card on the Fleet Start view and at the top of the Fleet
-// Tree panel (3.3.2.0 R2: the expanded rail before; the Fleet icon in the rail
-// carries a dot while it waits, and a click on it opens the Tree). When you
+// harness) shows as a block at the top of Agents -> Live's inspector, the fleet at a glance (3.3.16.0 R2; Fleet's
+// Start view and Tree panel before); the Agents icon in the rail carries a dot while it waits, and a click on it
+// opens Live on the fleet with the inspector open. When you
 // last looked is localStorage `halo.fleet.lastSeen` (ms): refreshed every
 // minute while the tab shows and when it hides; Dismiss sets it to now.
 import { useEffect } from "react";
-import { Button, Icon } from "../../lib/ui";
+import { Icon } from "../../lib/ui";
 import { cost } from "../orchestra/format";
 import { loadDigest } from "./pload";
 import { panels, usePanels, type Digest } from "./pstore";
@@ -70,7 +70,7 @@ function span(d: Digest): string {
 /** True while a digest waits to be read (the Fleet icon's dot). */
 export const useAway = (): boolean => usePanels((s) => s.digestOpen && !!s.digest);
 
-export function DigestCard({ where }: { where: "tree" | "start" }) {
+export function DigestCard({ where }: { where: "live" }) { // 3.3.16.0 R2: Live's glance (the Tree panel and the Start view before)
   useEffect(() => startDigest(), []);
   const open = usePanels((s) => s.digestOpen);
   const d = usePanels((s) => s.digest);
@@ -113,7 +113,6 @@ export function DigestCard({ where }: { where: "tree" | "start" }) {
           </ul>
         </>
       )}
-      {where === "start" && <Button size="sm" variant="ghost" onClick={dismissDigest}>Got it</Button>}
     </section>
   );
 }

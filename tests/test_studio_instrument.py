@@ -91,9 +91,9 @@ def test_the_derived_block_and_no_colour_literal(ctx: Ctx):
 def test_the_prefix_strip(ctx: Ctx):
     src = (UI / "lib" / "modelName.ts").read_text(encoding="utf-8")
     ctx.check("one rule, Halo's route words", "/^(or|ol|dbx|db|ant|oai|hf|xp):/" in src)
-    users = {f: (UI / f).read_text(encoding="utf-8") for f in ("routes/fleet/MapTreeNode.tsx", "routes/roles/LiveNode.tsx",
-                                                               "routes/session/Live.tsx", "routes/fleet/FleetTree.tsx")}
-    ctx.check(f"the nodes, Live's tags and the Fleet Tree use it, got {[f for f, t in users.items() if 'shortModel(' not in t]}",
+    # 3.3.16.0 R2: the Fleet map's and Tree's nodes went; Agents -> Live draws every agent with LiveNode on either scope
+    users = {f: (UI / f).read_text(encoding="utf-8") for f in ("routes/roles/LiveNode.tsx", "routes/session/Live.tsx")}
+    ctx.check(f"the nodes and Live's tags use it, got {[f for f, t in users.items() if 'shortModel(' not in t]}",
               all("shortModel(" in t for t in users.values()))
     node = shutil.which("node")
     if not node:
@@ -141,8 +141,8 @@ def test_a_surface_carries_its_corner_ticks(ctx: Ctx):
 def test_nothing_animates_on_a_section_load(ctx: Ctx):
     got = _got(ctx, "fresh")
     loads, keys = got.get("load_anims") or {}, got.get("key_anims") or {}
-    ctx.check(f"each core section loaded: no animation started, got {loads}", len(loads) == 7 and all(v == [] for v in loads.values()))
-    ctx.check(f"each reached by Alt+1..7: none either, got {keys}", len(keys) == 7 and all(v == [] for v in keys.values()))
+    ctx.check(f"each core section loaded: no animation started, got {loads}", len(loads) == 6 and all(v == [] for v in loads.values()))  # 3.3.16.0 R2: six
+    ctx.check(f"each reached by Alt+1..6: none either, got {keys}", len(keys) == 6 and all(v == [] for v in keys.values()))
     ctx.check(f"the listener sees one that does start, got {got.get('listener_control')}", got.get("listener_control") == ["m-blink"])
 
 
@@ -152,7 +152,7 @@ def test_a_node_shows_the_model_without_its_prefix(ctx: Ctx):
     want = ["cheap-coder", "cheap-fast", "glm-5-coder"]
     ctx.check(f"the Session Map's nodes, got {got.get('map_labels')}", got.get("map_labels") == want)
     ctx.check(f"their tooltip keeps the full id, got {got.get('map_titles')}",
-              all(f"on or:mock/{w}" in str(t) for w, t in zip(want, got.get("map_titles") or [])))
+              all(f"or:mock/{w}" in str(t) for w, t in zip(want, got.get("map_titles") or [])))  # 3.3.16.0 R2: the line's title is the full id
     ctx.check(f"Roles Live's nodes, got {got.get('live_labels')}",
               [str(x).split(" ·")[0] for x in got.get("live_labels") or []] == want)
     ctx.check(f"the Inspector's Live tab has the full id, got {got.get('inspector_meta')!r}", "or:mock/cheap-fast" in str(got.get("inspector_meta")))

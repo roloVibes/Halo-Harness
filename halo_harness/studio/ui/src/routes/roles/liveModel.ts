@@ -10,7 +10,8 @@
 import { recordRefs, sessionRecord, type RecordAgent, type WorkRecord } from "../../lib/work/record";
 import { select } from "../fleet/actions";
 import { activityOf } from "../fleet/frames";
-import { fleet, findAgent, type FleetState } from "../fleet/store";
+import { allAgents, fleet, findAgent, type FleetState } from "../fleet/store";
+import { liveScope, pickLive } from "../agents/live/scope";
 import { glowOf, type GlowState } from "./glow";
 import { matchNode, openLiveTab, watchAgent } from "./live";
 import { keyOf as cardKey, roles } from "./store";
@@ -26,6 +27,9 @@ export type LiveNode = {
   /** 3.3.16.0 R1: a live Orchestra run's node on the same tree (routes/agents/live/runLanes.tsx): its run, a lane's number
    *  and worktree (its branch). */
   run?: string; lane?: number; worktree?: string;
+  /** 3.3.16.0 R2 (the fleet scope, routes/agents/live/fleetModel.ts): a machine, a session or a mission part on the same
+   *  tree, and the harness and session every node of that scope belongs to. */
+  kind?: "machine" | "session" | "part"; harness?: string; sid?: string;
 };
 
 /** "picked at spawn: <role> on <model> -- <reason>" for an agent `auto` picked a model for; "" otherwise. */
@@ -64,19 +68,21 @@ export function liveSession(st: FleetState, want: string): string {
   return want && refs.some((r) => r.id === want) ? want : refs[0]?.id || "";
 }
 
-/** A node clicked: the agent selected (the Inspector's Live tab follows it, as the Map's click does). */
+/** A node clicked: the agent selected, and the inspector says it (3.3.16.0 R2: Live's pick, routes/agents/live/scope.ts). */
 export function selectLive(key: string): void {
   if (!key) return;
   select(key);
   watchAgent(key);
   openLiveTab();
+  pickLive("agent", key);
 }
 
-/** J / K in Live: the next / previous working agent, in tree order. */
+/** J / K in Live: the next / previous working agent, in tree order (3.3.16.0 R2: on the fleet scope, across machines). */
 export function hopLive(dir: 1 | -1): void {
   const st = fleet.get();
-  const rec = sessionRecord(st, liveSession(st, roles.get().liveSid));
-  const order = (rec?.agents || []).filter((a) => WORKING.includes(a.state)).map((a) => a.key);
+  const rec = liveScope() === "fleet" ? null : sessionRecord(st, liveSession(st, roles.get().liveSid));
+  const order = rec ? rec.agents.filter((a) => WORKING.includes(a.state)).map((a) => a.key)
+    : allAgents(st).filter((r) => WORKING.includes(String(r.a.state || ""))).map((r) => r.key);
   if (!order.length) return;
   const i = order.indexOf(roles.get().watched);
   selectLive(order[i < 0 ? (dir > 0 ? 0 : order.length - 1) : (i + dir + order.length) % order.length]);

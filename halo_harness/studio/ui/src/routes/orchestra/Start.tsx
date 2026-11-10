@@ -7,7 +7,8 @@
 // `planned` the plan panel (plan/PlanPanel.tsx) takes the console's place.
 // 3.2.0.0 R6: while the Pack Manager's Run <workflow> has filled one in, the
 // workflow's form (WorkflowForm.tsx) shows instead of the goal form; 3.2.1.0
-// R2: with none, the picker under the goal form (WorkflowPicker.tsx) fills one.
+// R2: with none, the picker under the goal form (WorkflowPicker.tsx) fills one. 3.3.16.0 R2: the fleet's missions under the
+// past runs, and "Run it across the fleet" under the goal form while another machine is paired (agents/runs/MissionRow.tsx).
 import { useEffect } from "react";
 import { Surface } from "../../lib/ui";
 import { Workspace } from "../../lib/workspace/Workspace";
@@ -18,6 +19,7 @@ import { WorkflowForm } from "./WorkflowForm";
 import { WorkflowPicker } from "./WorkflowPicker";
 import { useWfRun } from "./workflowRun";
 import { PastRuns } from "./OrchRail";
+import { AcrossTheFleet, MissionRows } from "../agents/runs/MissionRow";
 import { planPanels } from "./plan/PlanPanel";
 import { usePlan } from "./plan/store";
 import { loadingFirst, setView, showsStart, useOrch } from "./store";
@@ -43,6 +45,7 @@ export function StartView() {
             ) : (
               <>
                 <GoalForm start />
+                <AcrossTheFleet />
                 <WorkflowPicker />
               </>
             )}
@@ -63,6 +66,7 @@ export function StartView() {
             </ol>
             {error && <p className="og-problems">Studio could not read the runs: {error}</p>}
             <PastRuns />
+            <MissionRows />
             <button className="og-link mono" onClick={() => setView("workspace")} data-testid="orchestra-open-workspace">
               open the workspace anyway
             </button>

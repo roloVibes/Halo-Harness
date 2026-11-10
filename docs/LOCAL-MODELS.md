@@ -537,7 +537,7 @@ The steward probes a newly pulled model on its own while the card is idle
 
 ### All of it in one tab: Studio's Local section (3.3.5.0)
 
-Studio's **Local** section (`Alt+7`; `halo local` opens it) puts the machines
+Studio's **Local** section (`Alt+3`; `halo local` opens it) puts the machines
 that serve your local models and the models they serve on one tab:
 **Resources** (this machine's GPU, VRAM and who holds it, RAM, CPU and
 temperature, sampled once a second while you watch, and every call to a

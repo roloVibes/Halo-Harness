@@ -91,9 +91,9 @@ def test_shell_boots_with_its_sections_in_headless_chrome(ctx: Ctx):
         info = {}
     orch, roles = info.get("orchestra", {}), info.get("roles", {})
     # R6b: a folder with no Orchestra run opens on the Start view, not on empty panels
-    ctx.check(f"Orchestra (Agents -> Runs): seven section tabs and the Start view, got {orch}", orch.get("section-tab") == 7 and orch.get("start-view") == 1 and orch.get("orchestra-root") == 0)
-    ctx.check(f"Roles (Agents -> Cast): seven section tabs and its canvas, no frame, got {roles}",
-              roles == {"section-tab": 7, "orchestra-root": 0, "start-view": 0, "roles-canvas": 1, "roles-start": 0, "legacy-frame": 0})
+    ctx.check(f"Orchestra (Agents -> Runs): six section tabs and the Start view, got {orch}", orch.get("section-tab") == 6 and orch.get("start-view") == 1 and orch.get("orchestra-root") == 0)
+    ctx.check(f"Roles (Agents -> Cast): six section tabs and its canvas, no frame, got {roles}",
+              roles == {"section-tab": 6, "orchestra-root": 0, "start-view": 0, "roles-canvas": 1, "roles-start": 0, "legacy-frame": 0})
     ctx.check("the title names the section", "Halo Studio" in info.get("title", ""))
 
 
@@ -112,7 +112,7 @@ def test_orchestra_run_console_draws_a_finished_run_in_headless_chrome(ctx: Ctx)
     ctx.check(f"a band per claimed unit, got {info}", info.get("claim-region", 0) >= 5)
     ctx.check(f"every report check, got {info}", info.get("report-check") == 8)
     ctx.check(f"3.0.9.0: lane 2's hand-off edge and every lane's base, got {info}", info.get("lane-edge") == 1 and info.get("lane-base") == 5)
-    ctx.check(f"the shell around it, got {info}", info.get("section-tab") == 7 and info.get("orchestra-root") == 1)
+    ctx.check(f"the shell around it, got {info}", info.get("section-tab") == 6 and info.get("orchestra-root") == 1)
 
 
 @test
@@ -164,8 +164,8 @@ def test_panel_focus_on_click_and_help(ctx: Ctx):
     ctx.check("the Compact toggle", got.get("compact") == "glance")
     ctx.check(f"the ? beside the tabs is a menu: How this works and the Glossary (3.1.1.0 R1), got {got.get('help_menu')}",
               got.get("help_menu") == ["section-help-item", "glossary-item"])
-    ctx.check(f"How Agents works (on Runs: Orchestra's eight panels; 3.3.16.0 R1), got {got}",
-              got.get("section_title") == "How Agents works" and got.get("section_steps") == 6 and got.get("section_panels") == 8)
+    ctx.check(f"How Agents works (on Runs: Orchestra's eight panels and the Mission panel; 3.3.16.0 R1, R2: the fleet's steps), got {got}",
+              got.get("section_title") == "How Agents works" and got.get("section_steps") == 10 and got.get("section_panels") == 9)
     ctx.check("closed; nothing remembered as seen (3.3.2.0 R1: no welcome to hold back)", got.get("section_closed") is True and got.get("seen") == 0)
     ctx.check(f"the run and New run in Orchestra's + menu (3.3.2.0 R2), got {got.get('rail_run')} {got.get('menu_new_run')}", got.get("rail_run") == 1 and got.get("menu_new_run") is True)
 
@@ -179,7 +179,7 @@ def test_roles_header_is_not_nested(ctx: Ctx):
     r, dom = _json_of(str(REPO / "tools" / "capture_studio.py"), "--mode", "orchestra", "--dom")
     roles = dom.get("roles", {})
     ctx.check(f"the Roles section: its canvas and cards, no frame, got {roles}",
-              roles.get("roles-canvas") == 1 and (roles.get("roles-card") or 0) >= 7 and roles.get("legacy-frame") == 0 and roles.get("section-tab") == 7)
+              roles.get("roles-canvas") == 1 and (roles.get("roles-card") or 0) >= 7 and roles.get("legacy-frame") == 0 and roles.get("section-tab") == 6)
 
 
 @test

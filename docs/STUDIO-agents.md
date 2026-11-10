@@ -14,7 +14,7 @@ what runs now"), with three views on one switch, first on its bar:
 |---|---|---|---|
 | **Cast** | `C` | the lineup and its bios: the canvas with its tiers, Lineups, Bios, the Inspector (Assignment, Lineup), Problems, Models; the model picker, the glow and its legend, the coach note, replay, drop and sync | Roles |
 | **Runs** | `R` | a goal for the lineup ([STUDIO-orchestra.md](STUDIO-orchestra.md)): the goal form (its Start view), the plan canvas, the lanes, the report and the coach, the saved workflows; each lane's owns line; **Test this lineup** | Orchestra (and what Team's board gave) |
-| **Live** | `L` | what runs now: the session's agents as a tree, 1:1 with the terminal's `/agents live`; a running Orchestra run's lanes under its lead | Roles Live |
+| **Live** | `L` | what runs now: the session's agents as a tree, 1:1 with the terminal's `/agents live`; a running Orchestra run's lanes under its lead; on the **fleet** scope every machine's (3.3.16.0 R2) | Roles Live, Fleet |
 
 Agents opens on **Cast** with nothing else open (no inspector, no dialog, no help). `C`, `R` and `L` switch the views
 outside a text field (`L` on Live goes back to Cast, as Roles' `L` toggled Plan | Live); the palette has **Agents:
@@ -37,7 +37,9 @@ Every old door still opens, on the right view; each terminal answer names the ne
 | `?mode=orchestra`, `halo studio --mode orchestra`, `/studio orchestra` | Runs |
 | `?mode=team`, `halo studio --mode team`, `/studio team`, `halo studio --edit team` | Runs, with "Team's board is gone; a run's plan shows who owns what" the first time in this browser |
 | `halo studio --edit bio:<name>` / `lineup:<name>` (`?mode=agents&view=cast&edit=...`) | Cast, the bio's form / the lineup's inspector |
-| a Fleet Attention row's `o` (an Orchestra gate, a team stage's gate or budget, a supervisor decision) | Runs |
+| `?mode=fleet`, `halo studio --mode fleet`, `/studio fleet`, the rail's away dot (3.3.16.0 R2) | Live on the fleet, with "Fleet is in Agents -> Live now" the first time |
+| `?mode=fleet&mission=<id>`, a mission part row's `o` | Runs, the Mission panel on that mission |
+| an Attention row's `o` (an Orchestra gate, a team stage's gate or budget, a supervisor decision) | Runs |
 
 A saved section of an older Studio (`roles`, `orchestra`, `team`) opens Agents, and a pack's panel or route declared
 for those words lands on Cast (`agents`, `roles`) or Runs (`orchestra`, `team`).
@@ -47,7 +49,7 @@ for those words lands on Cast (`agents`, `roles`) or Runs (`orchestra`, `team`).
 The board (members as columns, stages as boxes, blocks underneath) is gone, and so is the TEAM cell of the status bar.
 What it showed that a run needs is a run-plan detail in **Runs**: who owns what. `halo team` (init, validate, status,
 run, answer, stop, the blocks; [TEAM.md](TEAM.md)) still runs a project's team file from a terminal, a team stage at
-its gate is still a row of Fleet's Attention (accept, redo, stop; `o` opens Runs), and `GET /api/team/coach` still
+its gate is still a row of Attention (accept, redo, stop; `o` opens Runs), and `GET /api/team/coach` still
 reads a team run's coach card. Every other `/api/team/...` route answers 410 with "Team's board moved into Agents ->
 Runs (a run's plan shows who owns what); halo team runs the team file".
 
@@ -78,6 +80,28 @@ tree beside the session's agents: the run's **lead** as a node (`agents-live-lea
 (`agents-live-lane`), its number in the lane's colour, its title, its state and its worktree badge (the lane's
 branch, `orchestra/<run>-worker-<n>`). A click opens Runs focused on that lane. The counts on Live's bar stay the
 session's agents.
+
+### Live: this halo or the fleet (3.3.16.0 R2)
+
+The Fleet section folded in here ([STUDIO-fleet.md](STUDIO-fleet.md) has the whole story). Live's bar has a scope
+switch, **this halo | fleet** (`F`, Shift+F, on the canvas; `f` still fits): **this halo** is the tree above; **fleet**
+is every machine you run or joined, one box per machine (name, Halo version chip, capability chips), its sessions as
+cards (git chips, mission and conflict chips) and each session's agents as a tree under it; a mission's parts sit in
+their machines' boxes, dashed while planned, and drag between boxes to move. `?mode=fleet` lands here on the fleet.
+
+**The inspector follows the pick**, summary first: nothing picked is the **glance** (while you were away, the machines,
+the agents working, what waits on you, today's spend against the cap, one row per machine); a machine is its
+**summary** (who, health, spend today, and an Edit row per block: Specs and who can..., Spend caps, Sharing and
+control), one block at a time with Back; an agent is the one agent inspector (its streams, Pause, Stop, Steer, Take
+over, Hand to..., Record; the same one Session's strip and Cast's Live tab draw); a mission part is its card (machine,
+owns, waits for, state, Open the part's agent).
+
+**Attention** is a chip in Agents' bar on every view: the count of decisions that wait on you across the fleet, amber
+when there are any; a click or `A` opens the queue over the page (one key per row: `A` / `R` / `S` / `O`), `A` or Esc
+closes it; the palette has **Agents: Attention**. **Activity** (the timeline and the merged live log) is an optional
+panel of Live, closed on load (the header's **+**, the palette). **Missions are runs**: Runs' **+** menu and Start view
+list them as rows (goal, state, parts, where they run) with **Run it across the fleet** when more than one harness is
+here; `M` opens the Mission panel there.
 
 ## Cast: the lineup and its bios
 
@@ -200,7 +224,7 @@ instead)" (and "(code 5/5 here)" when the numbers confirmed it).
   out in columns again when they would overlap. Drag cards in; double-click
   a box's name to rename it in place (Enter keeps it, Escape drops it). The
   palette's **Roles: add tier** opens the same field. The box head's `...`
-  opens its own menu, in the Fleet map's vocabulary:
+  opens its own menu, in Live's node vocabulary:
 
   | Item | What it does |
   |---|---|

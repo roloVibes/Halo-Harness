@@ -156,7 +156,7 @@ session's transcripts on disk (`~/.halo/sessions`), so a finished session
 records as well as a live one; a unique prefix of the session id is enough.
 `--agent <aid>` keeps that agent and its sub-agents; `--out PATH` writes
 there instead of `~/.halo/recordings/<sid>[-<aid>].html`. A member's session
-is recorded from Studio's Fleet section (`POST /api/fleet/<harness>/<sid>/recording`).
+is recorded from Studio's Agents -> Live (`POST /api/fleet/<harness>/<sid>/recording`).
 
 ### `halo fleet digest`
 
@@ -167,7 +167,7 @@ them, the files touched, the errors and the hand-offs, and (3.1.3.0) one
 coach line per run the post-run coach read ("coach    orchestra <run>: 3
 suggestions, 1 applied, top: ..."; `coach` rows in `--json`, from
 `~/.halo/coach/runs.json`). This harness is read from its own transcripts; members and decisions come from the hub's journal
-(`~/.halo/fleet/journal.jsonl`, written while Studio's Fleet watcher runs).
+(`~/.halo/fleet/journal.jsonl`, written while Studio's fleet watcher runs).
 `--json` prints the same object as `GET /api/fleet/digest`.
 
 ```sh

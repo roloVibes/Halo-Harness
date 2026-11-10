@@ -1,37 +1,49 @@
 // Agents' view (3.3.16.0 R1, lib/agentsDoor.ts): Cast, Runs or Live. Runs is a flag here; Cast and Live are the Roles
 // canvas's Plan | Live (routes/roles/store.ts canvasView), so the canvas bar's own switch, the L key and this one
 // never disagree. Cast and Live draw Roles' workspace (`roles`), Runs Orchestra's (`orchestra`): their layouts, status
-// lines and panels keep those ids. `note` is Team's one line, the first time this browser comes by `?mode=team`.
-import { onAgentsView, TEAM_NOTE, urlDoor, type AgentsView } from "../../lib/agentsDoor";
+// lines and panels keep those ids. `note` is a folded section's one line, the first time this browser comes by its old
+// door: Team's (`?mode=team`), and 3.3.16.0 R2 Fleet's (`?mode=fleet`, which also turns Live's fleet scope on and, with
+// `&mission=<id>`, opens that mission in Runs).
+import { FLEET_NOTE, onAgentsView, TEAM_NOTE, urlDoor, urlMission, type AgentsView } from "../../lib/agentsDoor";
 import { createStore, studio, useStore, writeLocal, type AgentsPart } from "../../lib/store";
 import { roles, setCanvasView, useRoles } from "../roles/store";
+import { setScope } from "./live/scope";
+import { openMission } from "../fleet/mload";
 
 export type AgentsState = { runs: boolean; note: string };
 
-const NOTE_KEY = "halo.studio.team-note";
+const NOTES: Record<string, [string, string]> = {
+  team: ["halo.studio.team-note", TEAM_NOTE],
+  fleet: ["halo.studio.fleet-note", FLEET_NOTE],
+};
 
 function noteOnce(word: string): string {
-  if (word !== "team") return "";
+  const got = NOTES[word];
+  if (!got) return "";
+  const [key, line] = got;
   try {
-    if (localStorage.getItem(NOTE_KEY)) return "";
+    if (localStorage.getItem(key)) return "";
   } catch {
-    return TEAM_NOTE; // nothing remembered in a private window: the line shows each time
+    return line; // nothing remembered in a private window: the line shows each time
   }
-  writeLocal(NOTE_KEY, "seen");
-  return TEAM_NOTE;
+  writeLocal(key, "seen");
+  return line;
 }
 
 const first = urlDoor();
 export const agents = createStore<AgentsState>({ runs: first.view === "runs", note: noteOnce(first.word) });
+if (first.view === "runs" && urlMission()) window.setTimeout(() => openMission(urlMission()), 0); // `?mode=fleet&mission=<id>`
 
-/** Agents on `view`; `word` is the door it came by (`team` shows Team's line the first time). */
+/** Agents on `view`; `word` is the door it came by (`team` and `fleet` show their line the first time; `fleet` is
+ *  Live with the fleet scope on). */
 export function setAgentsView(view: AgentsView, word = "agents"): void {
   const note = noteOnce(word);
   agents.update((s) => (s.runs === (view === "runs") && !note ? {} : { runs: view === "runs", ...(note ? { note } : {}) }));
   if (view !== "runs") setCanvasView(view === "live" ? "live" : "plan");
+  if (word === "fleet") setScope("fleet");
 }
 
-onAgentsView(setAgentsView); // goSection("roles" | "orchestra" | "team"), goSection("agents", view)
+onAgentsView(setAgentsView); // goSection("roles" | "orchestra" | "team" | "fleet"), goSection("agents", view)
 
 export function dismissNote(): void {
   agents.update((s) => (s.note ? { note: "" } : {}));

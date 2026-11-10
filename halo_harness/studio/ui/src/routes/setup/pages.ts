@@ -1,7 +1,7 @@
 // Setup's pages (3.3.1.0 R1): the terminal wizard's steps in its order, one
 // block per page -- Providers, Local models, Default model, Permissions,
 // Theme, Team, Linux fixes (a step only while this box needs them, or while
-// it is the page open), Check, Summary. Which page is open is this store:
+// it is the page open), Check, Machines (3.3.16.0 R2: pairing, sharing, the people -- Fleet folded), Summary. Which page is open is this store:
 // the rail jumps anywhere, Back / Next walk the list, `?block=<id>` (the door)
 // opens one, and the page last open is remembered for this home
 // (localStorage under the state's `home` hash; `?block=` wins). A step is
@@ -14,12 +14,23 @@ import { createStore, useStore } from "../../lib/store";
 import { lastCheckWord } from "./checkStore";
 import { blockDone, blockOf, blockWord, isPackStep, placeSteps } from "./packSetup";
 import { providersSet, setup, type SetupData } from "./store";
+import { fleet } from "../fleet/store";
 
-export type CoreStep = "providers" | "local" | "model" | "permissions" | "theme" | "team" | "linux" | "check" | "summary";
+/** 3.3.16.0 R2: the Machines line ("this machine only", "3 machines, 2 online · hub here"). */
+function machinesWord(): string {
+  const s = fleet.get();
+  const n = s.harnesses.length;
+  if (!s.loaded) return "reading the machines...";
+  const on = s.harnesses.filter((h) => h.local || h.online).length;
+  const hub = s.hub?.serving ? " · hub here" : "";
+  return n <= 1 ? `this machine only${hub}` : `${n} machines, ${on} online${hub}`;
+}
+
+export type CoreStep = "providers" | "local" | "model" | "permissions" | "theme" | "team" | "linux" | "check" | "machines" | "summary";
 export type StepId = CoreStep | `pack:${string}`;
 export type StepState = "current" | "done" | "todo";
 
-const ORDER: CoreStep[] = ["providers", "local", "model", "permissions", "theme", "team", "linux", "check", "summary"];
+const ORDER: CoreStep[] = ["providers", "local", "model", "permissions", "theme", "team", "linux", "check", "machines", "summary"];
 
 export const TITLES: Record<CoreStep, string> = {
   providers: "Providers",
@@ -30,6 +41,7 @@ export const TITLES: Record<CoreStep, string> = {
   team: "Team",
   linux: "Linux fixes",
   check: "Check",
+  machines: "Machines",
   summary: "Summary",
 };
 
@@ -43,6 +55,7 @@ export const HELP_KEY: Record<CoreStep, string> = {
   team: "setup-team",
   linux: "setup-linux",
   check: "setup-check",
+  machines: "setup-machines",
   summary: "setup-summary",
 };
 
@@ -64,8 +77,9 @@ export function stepOf(word: string): StepId | null {
 /** The steps in the rail: Linux fixes only while this box needs them (or while it is the page open); 3.3.11.0 R3:
  *  the enabled packs' blocks placed among them (packSetup.ts placeSteps). */
 export function stepsOf(d: SetupData | null, page: StepId): StepId[] {
-  const core = ORDER.filter((s) => s !== "linux" || !!d?.linux_fixes.needed || page === "linux");
-  return placeSteps(core, d) as StepId[];
+  const core = ORDER.filter((s) => s !== "machines" && (s !== "linux" || !!d?.linux_fixes.needed || page === "linux"));
+  const placed = (placeSteps(core, d) as StepId[]).filter((s) => s !== "summary");
+  return [...placed, "machines", "summary"]; // 3.3.16.0 R2: Machines, the last step before the Summary
 }
 
 export function lineupWord(d: SetupData): string {
@@ -96,6 +110,8 @@ export function isDone(d: SetupData | null, s: StepId): boolean {
       return !d.linux_fixes.needed;
     case "check":
       return !!d.last_check?.when;
+    case "machines":
+      return true; // 3.3.16.0 R2: one machine is a whole setup; pairing more is optional
     case "summary":
       return stepsOf(d, "summary").every((x) => x === "summary" || (x === "linux" && !d.linux_fixes.needed) || isDone(d, x));
   }
@@ -134,6 +150,8 @@ export function valueOf(d: SetupData | null, s: StepId): string {
       return d.linux_fixes.needed ? `${d.linux_fixes.items.length} to apply` : "nothing to fix";
     case "check":
       return lastCheckWord(d.last_check);
+    case "machines":
+      return machinesWord();
     case "summary":
       return "";
   }

@@ -1,4 +1,4 @@
-// The Ollama panel's fit plan and traffic timeline (3.3.4.0 R5). The plan (ollama_steward/fit.py) says whether
+// A host's fit plan and traffic timeline on Local -> Hosts (3.3.4.0 R5 as the Fleet Ollama panel's; 3.3.16.0 R2: here). The plan (ollama_steward/fit.py) says whether
 // the models the halos ask for fit the card together; each option says what you lose; an option with profile
 // changes has Apply (through the same guards as a finding's); a server-side hint has Copy, which copies the
 // exact line (an env line such as OLLAMA_KV_CACHE_TYPE=q8_0, or a command): nothing here changes the server.

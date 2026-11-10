@@ -104,7 +104,7 @@ in your own browser.
 
 ## Shortcuts
 
-The shell's keys: `Alt+1`..`Alt+7` sections (`Alt+1`: Session, the first row since 3.1.6.0; `Alt+2`: Agents, 3.3.16.0; then the pack's own sections on `Alt+8`, `Alt+9`, `Alt+0`; 3.3.2.0: the rail prints no key, the palette's Go to shows them), `Ctrl`/`Cmd`+`K` the palette,
+The shell's keys: `Alt+1`..`Alt+6` sections (`Alt+1`: Session, the first row since 3.1.6.0; `Alt+2`: Agents, 3.3.16.0; `Alt+3`: Local, 3.3.16.0 R2; then the pack's own sections on `Alt+7` to `Alt+0`; 3.3.2.0: the rail prints no key, the palette's Go to shows them), `Ctrl`/`Cmd`+`K` the palette,
 `?` the focused panel's help (again, or away from a panel: How this works),
 `Alt`+arrows / `Alt+Shift`+arrows move / resize the focused panel, `Esc`
 closes. `F` (3.3.2.0) is Focus: the rail, the inspector and the status bar
@@ -113,9 +113,9 @@ hide, `F` again brings them back; where a section's own `F` follows or fits
 zoom, the arrows nudge the selected card, `Del` removes it (asks first);
 `Ctrl+Z` / `Ctrl+Shift+Z` undo / redo a lineup edit, `Ctrl`/`Cmd`+`S`
 saves. The hop keys (3.0.5.0, [Fleet](STUDIO-fleet.md#keys-hop-around)): `J` / `K` the
-next / previous live agent (Fleet map, Roles cards, Orchestra lanes), `F`
+next / previous live agent (Live, Cast cards, Runs' lanes), `f`
 follow, `Space` pin the mini stream, `Esc` unpin, `P` pause or resume, `K`
-in the Agent panel stop (asks first). Session's Live column (3.3.0.0 R6,
+in Session's Agent strip stop (asks first). Session's Live column (3.3.0.0 R6,
 [steering and exporting](STUDIO-session.md#keys)): `Tab` / `Shift+Tab` in the
 Steer field cycle its target among the live agents, `Escape` leaves the field
 and follows again, `s` on a focused row makes it the target.

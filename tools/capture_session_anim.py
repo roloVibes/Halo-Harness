@@ -33,7 +33,7 @@ sys.path.insert(0, str(REPO / "tools"))
 W, H = 1500, 900
 MAX_GIF = 3 * 1024 * 1024
 LIVE_CARDS = "document.querySelectorAll('[data-testid=\"roles-card\"][data-live]')"
-COUNT_IDS = ("session-live", "session-live-line", "session-live-tag", "session-live-ask", "fleet-node", "fleet-edge", "session-cost-context",
+COUNT_IDS = ("session-live", "session-live-line", "session-live-tag", "session-live-ask", "roles-live-node", "roles-live-edge", "session-cost-context",
              "session-cost-spark", "session-cost-share-seg", "roles-card", "roles-card-glyph", "roles-live-badge", "roles-tier", "roles-glow-legend-row")
 
 
@@ -43,7 +43,7 @@ def counts(c) -> dict:
 
 def open_session(c, rig) -> None:
     c.go(rig.url("session", "&open=session-map,session-cost"))  # 3.3.2.0 R3: Live fills the stage, the map and the cost beside it
-    c.wait("!!document.querySelector('[data-testid=\"session-live-detail\"]') && document.querySelectorAll('[data-testid=\"fleet-node\"]').length >= 6", 40)
+    c.wait("!!document.querySelector('[data-testid=\"session-live-detail\"]') && document.querySelectorAll('[data-testid=\"roles-live-node\"]').length >= 6", 40)  # 3.3.16.0 R2: Live's nodes
     time.sleep(1.0)
 
 

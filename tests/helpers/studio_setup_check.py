@@ -145,7 +145,7 @@ def landing(c, url, ctx) -> dict:
         time.sleep(2.0)
         out["land_overlay_on_setup"] = c.js(f"!!{q('[data-testid=start-here]')}")
         alt(c, 3)  # 3.3.2.0 R1: nor on the next section (Start here shows over the section the page opened on, only); 3.3.16.0 R1: Fleet
-        c.wait(f"{CUR}.startsWith('Fleet')", 20)
+        c.wait(f"{CUR}.startsWith('Local')", 20)
         time.sleep(2.0)
         out["land_overlay_next"] = c.js(f"!!{q('[data-testid=start-here]')}")
         c.go("about:blank")

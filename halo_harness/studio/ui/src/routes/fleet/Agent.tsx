@@ -1,33 +1,38 @@
-// fleet-agent: the inspector for the selected agent. The header (harness,
-// session, role, model, cost, elapsed, state), what it was asked, its three
-// streams (Thinking / Working / Output, tabbed or side by side), Pause /
-// Resume, Stop (asks first), Follow (the stream scrolls with it), Pin (the
-// mini stream) and the Steer box. Opening an agent loads its backlog
-// (`agent_tail`) and follows it (`agent_follow`), so the rest is pushed.
-// R4: Take over, Hand to..., Record and Replay under the controls; with no
-// agent picked, this harness's last sessions to replay (AgentHistory.tsx).
-// 3.2.0.0 R4: a mission part's agent shows its packs' inspector lines (PackCaps.tsx).
-// 3.1.8.0 R5: an agent whose lineup or bio declared opt-ins shows their lines under the header.
-import { useEffect, useRef, type ReactNode } from "react";
+// The agent inspector, ONE for the whole shell (3.3.16.0 R2 "the Fleet fold": Fleet's Agent panel merged with Roles'
+// Live tab; Session's Agent strip, Agents -> Live's inspector on an agent and Cast's Live tab on a card's agent all draw
+// AgentView). The header (harness, session, role, model, cost, elapsed, state), why an `auto` pick runs on its model,
+// Watch in Session for an agent of this harness, its opt-in lines, what it was asked, its three streams (Thinking /
+// Working / Output, tabbed or side by side), Pause / Resume, Stop (asks first), Follow (the stream scrolls with it), Pin
+// (the mini stream), Take over, Hand to..., Record, Replay (AgentHistory.tsx), a mission part's packs' inspector lines
+// (PackCaps.tsx) and the Steer box. Opening an agent loads its backlog (`agent_tail`) and follows it (`agent_follow`),
+// so the rest is pushed. With no agent picked (Session's strip), this harness's last sessions to replay.
+import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import { Button, Empty, Icon, Kbd } from "../../lib/ui";
 import type { MotionState } from "../../lib/motion";
 import { cost, elapsed, short } from "../orchestra/format";
+import { useLocalAgent, WatchInSession } from "../session/Watch";
 import { askStop, pin, toggleFollow, togglePause } from "./actions";
 import { AgentExtras, RecentSessions } from "./AgentHistory";
-import { nowText } from "./MapNode";
+import { nowText } from "../agents/live/nodeBits";
 import { AgentPackInspector } from "./PackCaps";
 import { Steer } from "./Steer";
-import { EMPTY, outputOf, thinkingOf, workingOf } from "./streams";
+import { EMPTY, outputOf, thinkingOf, watch, workingOf } from "./streams";
 import { OutputView, ThinkingView, Typed, WorkingView } from "./StreamViews";
-import { agentMotion, fleet, isLive, saveOpts, sessionTitle, useFleet, useNow, useSelected, type StreamTab } from "./store";
+import { agentMotion, findAgent, fleet, isLive, saveOpts, sessionTitle, useFleet, useNow, useSelected, type FleetState, type StreamTab } from "./store";
+import type { AgentRef } from "./types";
 
 const FINISHED = ["done", "failed", "stopped"];
 
-function Head() {
-  const ref = useSelected();
-  const now = useNow(!!ref && isLive(ref.a));
-  if (!ref) return null;
-  const { a, s, h } = ref;
+/** The agent `key` names (live or finished, still in the frames), stable between renders. */
+export function useAgentRef(key: string): AgentRef | null {
+  const harnesses = useFleet((s) => s.harnesses);
+  return useMemo(() => (key ? findAgent({ harnesses } as FleetState, key) : null), [key, harnesses]);
+}
+
+function Head({ r }: { r: AgentRef }) {
+  const now = useNow(isLive(r.a));
+  const here = useLocalAgent(r.key);
+  const { a, s, h } = r;
   const since = Number(a.since) || 0;
   return (
     <header className="fa-head">
@@ -38,6 +43,7 @@ function Head() {
         <b className="fa-name">{a.name || a.agent_id}</b>
         {a.role && a.role !== a.name && <span className="og-chip mono">{a.role}</span>}
         <span className="spacer" />
+        {isLive(a) && here && <WatchInSession agent={r.key} testid="roles-watch-session" />}
         <span className="mono fa-cost" title="what it has cost so far">{cost(a.cost_usd)}</span>
       </div>
       <div className="fa-meta mono muted">
@@ -45,6 +51,11 @@ function Head() {
         {since > 0 && isLive(a) && ` · ${elapsed(now / 1000 - since)}`}
         {a.turns ? ` · ${a.turns} call${a.turns === 1 ? "" : "s"}` : ""}
       </div>
+      {a.model_reason && (
+        <div className="fa-meta mono muted" data-testid="roles-live-reason" title="Why this model: the auto lineup picked it for this task (docs/ROLES.md, The Auto lineup)">
+          auto: {a.model || "main"} -- {a.model_reason}
+        </div>
+      )}
       {!!a.opt_ins?.length && (
         <div className="fa-meta mono muted" data-testid="fleet-agent-optins" title={a.opt_ins.join("; ")}>{a.opt_ins.join(" · ")}</div>
       )}
@@ -75,26 +86,20 @@ function Col({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-export function AgentDetail() {
-  const ref = useSelected();
-  const st = useFleet((s) => (ref ? s.streams[ref.key] : undefined)) || EMPTY;
+/** One agent's inspector (Live's, Cast's Live tab, Session's strip). */
+export function AgentView({ r }: { r: AgentRef }) {
+  const st = useFleet((s) => s.streams[r.key]) || EMPTY;
   const tab = useFleet((s) => s.tab);
   const columns = useFleet((s) => s.columns);
   const follow = useFleet((s) => s.follow);
   const pinned = useFleet((s) => s.pinned);
   const scroller = useRef<HTMLDivElement>(null);
+  useEffect(() => watch(r.key), [r.key]); // its backlog, then followed
   useEffect(() => {
     const el = scroller.current;
     if (el && follow) el.scrollTop = el.scrollHeight;
-  }, [st.tick, follow, tab, ref?.key]);
-  if (!ref)
-    return (
-      <div className="fa-none">
-        <Empty title="Pick an agent" body="Click an agent on the map (or press J / K to hop between the live ones): what it thinks, does and writes shows here, and you can steer it." testid="fleet-agent-empty" />
-        <RecentSessions />
-      </div>
-    );
-  const { a, key, h } = ref;
+  }, [st.tick, follow, tab, r.key]);
+  const { a, key, h } = r;
   const live = isLive(a);
   const done = FINISHED.includes(String(a.state));
   const noControl = h.allow_control === "none";
@@ -107,7 +112,7 @@ export function AgentDetail() {
   };
   return (
     <div className="fa" data-state={a.state} data-key={key} data-testid="fleet-agent-detail">
-      <Head />
+      <Head r={r} />
       {task && (
         <details className="fa-task">
           <summary>What it was asked</summary>
@@ -144,11 +149,24 @@ export function AgentDetail() {
         <span className="spacer" />
         <span className="fa-keys muted"><Kbd keys="J" /> <Kbd keys="K" /> hop</span>
       </div>
-      <AgentExtras r={ref} done={done} noControl={noControl} />
-      <AgentPackInspector mission={ref.s.mission} part={ref.s.part} />
+      <AgentExtras r={r} done={done} noControl={noControl} />
+      <AgentPackInspector mission={r.s.mission} part={r.s.part} />
       <Steer key={key} k={key} disabled={done || noControl} why={why} />
     </div>
   );
+}
+
+/** Session's Agent strip: the selected agent, else the last sessions here. */
+export function AgentDetail() {
+  const ref = useSelected();
+  if (!ref)
+    return (
+      <div className="fa-none">
+        <Empty title="Pick an agent" body="Click an agent on the map (or press J / K to hop between the live ones): what it thinks, does and writes shows here, and you can steer it." testid="fleet-agent-empty" />
+        <RecentSessions />
+      </div>
+    );
+  return <AgentView r={ref} />;
 }
 
 export function AgentGlance() {

@@ -8,10 +8,9 @@ env file in that home (`HALO_ENV_FILE`); no provider request, no model call:
    box" (3.3.15.0 R5: on Auto the line in place of Run; with a custom lineup the
    palette's overlay has Run), its Run's 422 lands on Setup with a toast; no `?mode=` opens on
    Setup whatever was saved;
-1. `?mode=setup` opens it, and Alt+7 from Roles (3.3.13.0 R2: the seventh tab);
-   the strip names the provider, model, lineup, mode, theme and last check;
-   no block says it comes later; (3.3.1.0 R1) no panels: the rail lists the
-   steps, one page each (every step opens its block's page first);
+1. `?mode=setup` opens it, and Alt+5 from Agents; the strip names the provider, model, lineup, mode, theme and last
+   check; no block says it comes later; (3.3.1.0 R1) no panels: the rail lists the steps, one page each; 3.3.16.0 R2:
+   Machines last before the Summary (the pair card, share / control, the People table);
    (R2) Providers: OpenRouter's Save & test with a test key writes the env
    file, the card shows the masked tail, the strip names it; an Ollama host
    added is in the hosts table; Local models: a folder added is listed and
@@ -23,12 +22,10 @@ env file in that home (`HALO_ENV_FILE`); no provider request, no model call:
    config.json and the strip follows;
 3. Terminal theme: the ten palettes (3.3.12.0) drawn in their own colours, claude-light saved;
 4. Default model: grouped by provider, the search narrows it, saved;
-5. Team: balanced with its preview, Apply writes team and roles on; One
-   model for everything removes team and turns roles off;
+5. Team: balanced with its preview, Apply writes team and roles on; One model for everything removes team, roles off;
 6. a config.json write from outside: the strip follows the frame;
-6b. (R4) the doors: ?first=1 opens nothing (3.3.1.0 R1) and the strip says
-   "set up this box"; ?block=team and a focus frame open that block's page
-   and focus it;
+6b. (R4) the doors: ?first=1 opens nothing (3.3.1.0 R1) and the strip says "set up this box"; ?block=team and a focus
+   frame open that block's page and focus it;
 7. (3.3.15.0 R5) on the Auto lineup Check has no guided first run row, its line in place (and on the
    Summary, no Run); with a custom lineup:
    (R3) Check: the six rows and their defaults, the gym's models, the card
@@ -52,7 +49,7 @@ from tests.helpers.driver_got import got as driver_got  # noqa: E402
 test, TESTS = new_registry()
 REPO = Path(__file__).resolve().parent.parent
 _RUN: dict = {}
-CORE = ["Session", "Agents", "Fleet", "Packs", "Setup", "Settings", "Local"]  # 3.3.16.0 R1: Agents took in Team, Roles, Orchestra  # 3.3.5.0 R1: + Local; 3.3.13.0 R2: - Design
+CORE = ["Session", "Agents", "Local", "Packs", "Setup", "Settings"]  # 3.3.16.0 R1: Agents took in Team, Roles, Orchestra  # 3.3.5.0 R1: + Local; 3.3.13.0 R2: - Design
 
 
 def _got(ctx: Ctx) -> dict:
@@ -65,15 +62,17 @@ def _got(ctx: Ctx) -> dict:
 def test_setup_opens_by_mode_and_by_alt_8(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"?mode=setup opens it, got {got.get('mode_section')!r}", str(got.get("mode_section")).startswith("Setup"))
-    ctx.check(f"the seven tabs, Setup then Settings then Local, got {got.get('tabs')}", got.get("tabs") == CORE)
-    ctx.check(f"Alt+1..7 (3.3.16.0 R1: Setup on Alt+5, Settings on Alt+6, Local on Alt+7), got {got.get('kbds')}",
-              got.get("kbds") == [f"Alt+{n}" for n in range(1, 8)])
+    ctx.check(f"the six tabs, Setup then Settings last (3.3.16.0 R2), got {got.get('tabs')}", got.get("tabs") == CORE)
+    ctx.check(f"Alt+1..6 (3.3.16.0 R2: Local on Alt+3, Setup on Alt+5, Settings on Alt+6), got {got.get('kbds')}",
+              got.get("kbds") == [f"Alt+{n}" for n in range(1, 7)])
     ctx.check(f"Alt+5 from Agents opens it, got {got.get('alt7')!r}", str(got.get("alt7")).startswith("Setup"))
     ctx.check(f"3.3.1.0 R1: no panels on Setup, got {got.get('panels')}", got.get("panels") == [])
     steps = [s for s in got.get("steps") or [] if s != "linux"]  # Linux fixes: a step only on a box that needs them
     ctx.check(f"the rail lists the steps in the wizard's order, got {got.get('steps')}",
-              steps == ["providers", "local", "model", "permissions", "theme", "team", "check", "summary"])
-    ctx.check(f"each with its title, got {got.get('rail')}", (got.get("rail") or [""] * 3)[2] == "Default model")
+              steps == ["providers", "local", "model", "permissions", "theme", "team", "check", "machines", "summary"])
+    ctx.check(f"each with its title, got {got.get('rail')}", (got.get("rail") or [""] * 3)[2] == "Default model" and (got.get("rail") or [""])[-2] == "Machines")
+    ctx.check(f"3.3.16.0 R2: Machines: the lead (one harness), the pair card, share / control, the People table, got {got.get('machines')}",
+              got.get("machines") == [1, 1, 1, 1, 1, 1])
 
 
 @test

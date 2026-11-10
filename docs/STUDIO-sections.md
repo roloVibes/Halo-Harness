@@ -1,6 +1,6 @@
 # Studio: how each section works
 
-Read this when you want the one-screen story of a section (Session, Agents, Fleet, Packs, Setup, Settings, Local).
+Read this when you want the one-screen story of a section (Session, Agents, Local, Packs, Setup, Settings).
 
 Part of [Halo Studio](STUDIO.md), which lists every part.
 
@@ -28,10 +28,10 @@ their own capability chips with each one's truth (verified, declared, expected).
 live"; 3.1.5.0 made it the dashboard; 3.3.2.0 opens it on Live): one live
 column of everything every agent here does, as it happens, fills the stage;
 the map of this harness's agents and what the chosen session costs wait as strips.
-Fleet's map, timeline, log, attention queue and agent inspector, narrowed
+The fleet's agent tree, timeline, log, attention queue and agent inspector, narrowed
 to this harness and the session you chose, plus two panels of its own,
-Live and Cost; Fleet keeps everything. The Fleet panels are the same
-components (one implementation each) reading the Fleet stores through one
+Live and Cost; Agents -> Live on the fleet keeps everything (3.3.16.0 R2). They are the same
+components (one implementation each) reading the fleet stores through one
 scope, `{harness, session}`, which the section sets while it shows.
 
 Until this harness has a live session the section is its Start view, with **New session** (3.3.11.0 R2: the model, the folder, a session with no terminal at all: [A session without a terminal](STUDIO-session.md#a-session-without-a-terminal-33110-r2)); when a
@@ -47,12 +47,11 @@ waiting on you, $X" -- and the decisions that wait are the Attention queue's
 1. **Open it**: `/studio` in a terminal session opens Studio here on that
    session (`halo studio --session` from a shell); `Alt+1`, the palette,
    **Watch in Session** on the Roles Live tab or on a live Orchestra run's
-   line, **Open in Session** in a map node's `...` menu and this harness's
-   nodes in Fleet's Tree panel land here too. With nothing saved for the browser,
+   line and **Open in Session** in a node's `...` menu land here too. With nothing saved for the browser,
    Studio opens here while a session of this harness is live.
 2. **Watch everything at once (Live)**: every agent's text, each tool call
    and its result, what it hands back and what it asks you land in one
-   column in the order they happen. Each line leads with the Fleet log's
+   column in the order they happen. Each line leads with the fleet log's
    columns (3.1.7.0): the time, the kind (`TOOL`, `TEXT`, `THINK`, `OUT`,
    `ASK`, `SPAWN`, `STATE`, `YOU`, `ERR`) and the agent's tag: its own
    colour, its name and its state glyph (cyan works, amber waits, green
@@ -61,7 +60,7 @@ waiting on you, $X" -- and the decisions that wait are the Attention queue's
    row, "runs Bash", what it runs on and its time ticking while it runs,
    then the first line of its result; click the row and its whole result
    opens under it. An output or a hand-back is a block; an ask is an amber
-   card with its `A` / `R` / `S` / `O` answers. Above the lines sits Fleet's
+   card with its `A` / `R` / `S` / `O` answers. Above the lines sits Activity's
    timeline strip for this session, one lane per live agent over 5, 15 or
    60 minutes (a lane click shows only that agent); the header has an
    agent pick and a kind pick (tools, text, states, asks; your own steers
@@ -115,7 +114,7 @@ waiting on you, $X" -- and the decisions that wait are the Attention queue's
    layout you made is kept. `J` / `K` hop between this harness's live agents; `Alt+Enter` opens Prompt, the keyboard in its box ([the Prompt panel](STUDIO-session.md#the-prompt-panel-33110-r1)).
 
 **Panels.** Live (`session-live`): every agent here at once, what it types,
-runs, hands back and asks, in the Fleet log's columns under this session's
+runs, hands back and asks, in the fleet log's columns under this session's
 timeline strip, with the Steer box at its foot. Map (`session-map`): your
 sessions on this machine as cards, each one's agents as a tree -- since 3.3.11.0 R2 the thumbnail of the tree Roles Live draws full size (**Open in Roles Live** on its bar). Cost
 (`session-cost`): the chosen session's spend and sparkline, the context bar, the tokens, your turns and cost
@@ -137,7 +136,8 @@ session read like the terminal, a box to type into it (the slash list, Queue it 
 Orchestra folded into one section with three views on one switch, first on its bar -- **Cast** (`C`: the lineup and
 its bios, Roles as it was), **Runs** (`R`: Orchestra as it was -- a goal, the lead's plan, the lanes in their
 worktrees, the merge, the tests, the report and the coach -- with each lane's owns line and **Test this lineup**) and
-**Live** (`L`: the session's agents as a tree, a running Orchestra run's lanes under its lead). It opens on Cast with
+**Live** (`L`: the session's agents as a tree, a running Orchestra run's lanes under its lead; 3.3.16.0 R2: a
+**this halo | fleet** switch, the fleet being every machine you run or joined, and the Attention chip). It opens on Cast with
 nothing else open. The old doors land on their views: `?mode=roles` on Cast (`&view=live` on Live), `?mode=orchestra`
 and `?mode=team` on Runs; `?mode=agents&view=cast|runs|live` is the door itself. The whole story:
 [STUDIO-agents.md](STUDIO-agents.md).
@@ -273,75 +273,31 @@ when. Log: every claim, merge, gate decision and note, with its time.
 
 Moved: Team's board went in 3.3.16.0 R1. Who owns what is a run plan's detail in Agents' **Runs** (each
 lane's owns line, a lane's claims); `?mode=team` lands there with one line the first time. `halo team` still runs
-the team file from a terminal ([TEAM.md](TEAM.md)), and a team stage at its gate is still a row of Fleet's Attention.
+the team file from a terminal ([TEAM.md](TEAM.md)), and a team stage at its gate is still a row of Attention (the chip in Agents' bar).
 
-### Fleet
+#### Fleet
 
-**What it is.** Every Halo harness you run or joined, its sessions and every
-agent in them, live: what each one thinks, runs and writes, every decision
-that waits on you, what it all costs, and the controls to steer, pause,
-stop, take over or hand off any one agent.
+Moved: the Fleet section went in 3.3.16.0 R2; its pieces live where they belong. A machine's agents are Agents ->
+**Live** with the scope on **fleet** (`F` on the canvas, `?mode=fleet`): every machine as a box, its sessions as cards,
+each session's agents as a tree; the inspector follows the pick (the glance, a machine's summary with its specs and
+spend caps, one agent, a mission part). Attention is the chip in Agents' bar (`A`); Activity is an optional panel of
+Live; missions are runs (Agents -> Runs, `M`); pairing, sharing and the people are Setup -> **Machines**; the Ollama
+panel's card, traffic, fit plan and steward are Local -> **Hosts** and **Steward**. The whole story:
+[STUDIO-fleet.md](STUDIO-fleet.md).
 
-**How to use it.**
+### Local
 
-1. **See every harness**: this harness is the first box. Another machine
-   joins with a pair code: Make a pair code on the Start view (or the
-   palette), then `halo fleet join` on the other machine. People lists them all.
-2. **Answer what waits on you**: Attention is one queue of every card,
-   gate, paused agent, spend cap and file conflict on every harness. `A`
-   accepts, `R` denies or redoes with your text, `S` stops, `O` opens where
-   it belongs.
-3. **Read the map**: each session is a card, its agents a tree under it: a
-   flowing outline works, amber waits on you, green just finished, red
-   failed. By project shows each repo's dirty / ahead / behind; an amber
-   dashed edge joins two agents editing one file.
-4. **Open an agent**: click it (or `J` / `K`): Agent shows what it thinks as
-   it types, each tool call with its result and diff, and what it hands
-   back. Steer it with a nudge or a new task.
-5. **Pause, stop, hand off**: Pause holds it at its next step, Stop asks
-   first. Take over gives it your brief; Hand to... passes it to another
-   harness (a hand-off note in its repo) and stops it.
-6. **Know who can do what**: Capabilities has a spec card per harness:
-   hardware, models, craft apps, MCP servers and their tools, skills, tags.
-   Who can... ranks the fleet for what you need (gridcraft, a 4090, make a
-   video) and picks the best one on the map.
-7. **Give the fleet one goal**: Mission (`M`): type the goal and Plan it;
-   the hub's lead splits it into parts and gives each to the harness that
-   can do it. The plan draws on the map, drag a part to another harness to
-   move it, then Approve and Run; the report says who did what and what it
-   cost per harness.
-8. **Hand-offs**: a part that depends on another reads that part's outputs
-   and hand-back (`take: all` for everything it left), and a repo part
-   starts from the earlier part's finished branch. The map labels each edge
-   with what it carries and each repo part with its base
-   ([MISSIONS.md](MISSIONS.md#hand-offs)).
-9. **Watch the whole fleet**: Activity draws a lane per live agent (5, 15
-   or 60 minutes, tool calls as ticks) over the merged live log. Costs
-   ticks today's spend and holds the caps; Health is a doctor summary per harness.
-10. **Record and replay**: Record saves a session or one agent as a single
-   HTML file that plays anywhere. Replay plays a finished session on the
-   Roles canvas: the cards light up in the order they worked.
-11. **Come back**: after ten minutes away, While you were away sums up what
-   happened: sessions, cost, decisions and who made them, files, errors,
-   hand-offs.
-
-**Panels.** People: who is in the fleet, what each shares, what it is on,
-live or away. Costs: what the fleet spends today, and the caps. Health: a
-doctor summary per harness. Attention: every decision that waits on you,
-one key each. Map: every harness as a box, its sessions as cards, each
-session's agents as a tree. Activity: a timeline lane per live agent and
-the merged live log. Agent: the selected agent: what it thinks, what it
-runs, what it hands back; steer it, take it over, hand it on, record it.
-Capabilities (3.0.6.0): what every harness can do, and who can do what.
-Mission (3.0.6.0): one goal for the whole fleet, planned, approved, run and reported.
-Ollama (3.3.4.0, optional: the header's **+**, the steward's attention row or the palette's "Fleet: Ollama" adds it):
-the Ollama steward per host -- the card (GPUs and free memory, the server's own settings, what else holds it), the
-models (loaded now with their VRAM share, the last hour's calls, trims, cuts, reloads and errors, the p95 prompt
-against the window, the profile and who set it), the traffic sparkline, the steward's status and last note, its
-findings (Apply and Dismiss in review mode, Undo in auto) and the fit plan with a Copy line for each server-side
-change; a Hugging Face local server is a host in its picker. [MODELS-ollama-steward.md](MODELS-ollama-steward.md#in-studio).
-
-![Fleet with its Ollama panel: the card, the models, the traffic, the steward](media/studio-fleet-ollama.png)
+**What it is** (3.3.5.0). Local (`Alt+3`, the third core section since 3.3.16.0 R2; 3.3.16.0 R2 also gave it the Fleet section's Ollama panel) holds everything about the machines that serve your local models
+and the models they serve, paged like Settings: a page rail on the left (Resources, Hosts, Models, Library, Hugging Face, Logs,
+Benchmarks, Steward, Pool and Voice), one page on the right. **Resources** is the live view: a strip per host sampled once a second while
+the page is open (GPU use, VRAM and what holds it, RAM, CPU, the temperature, each number titled with its source) and the
+traffic view under it, every call to a local server as it happens with the steward's events inline. **Hosts** is every
+server Halo knows as a card with Load, Unload, keep-alive and Make it fit; **Models** is every installed model with its card,
+its fit meter and an intent filter; **Library** is what could be installed, each row with a fit badge; **Hugging Face** is
+the model folders, what is on disk, downloads and the local servers Halo starts for them. Benchmarks and Steward say what the
+next rounds put there and the commands that do it today. Nothing opens on its own; `halo local` opens it on Hugging Face,
+`halo local library` on Library. The pages:
+[STUDIO-local.md](STUDIO-local.md).
 
 ### Packs
 
@@ -353,7 +309,7 @@ packs from the places you trust (`packs.sources`, then the packs Halo ships); ev
 ### Setup
 
 **What it is** (3.3.0.0; pages since 3.3.1.0). This box's setup, `Alt+5`: the wizard's step rail over one block per page
-(its own Save, Back / Next, a Summary last), nothing opening on its own. `halo init` opens it (`?first=1`), `halo setup team`
+(its own Save, Back / Next, a Summary last; 3.3.16.0 R2: **Machines**, pairing, sharing and the people, before it), nothing opening on its own. `halo init` opens it (`?first=1`), `halo setup team`
 on the Team page (`?block=team`); `halo init --terminal` is the terminal wizard. **Done starts halo** (3.3.3.0): the Summary's
 "Done: start halo" goes to Session and the terminal that ran `halo init` starts halo. The pages: [STUDIO-setup.md](STUDIO-setup.md).
 
@@ -369,22 +325,7 @@ page); nothing opens on its own. `halo settings fleet` opens the Fleet page (`?m
 
 **The Ollama page** (3.3.4.0) carries the steward's block above its rows: the job's status line, the model that writes
 its notes (automatic, none, or one of this machine's local models: `ollama.steward.model`), the mode (auto, review, off:
-`ollama.steward.apply`), the job switch and **Open the Ollama panel**; the thresholds stay ordinary rows below it.
+`ollama.steward.apply`), the job switch and **Open Local -> Hosts**; the thresholds stay ordinary rows below it.
 
 **The Themes page** (3.3.12.0, after General on the rail; `?mode=settings&page=themes`, `halo settings themes`) draws the `theme` key as the eleven palettes of the registry (3.3.15.0: + `instrument`): one row each with its swatch row (surface, text, accent, accent-2, ok, warn, bad, in the colours `GET settings/themes` sends, never hard-coded), its posture and its one-line label, the current one marked **CURRENT** (3.3.15.0 R4: with the key unset, instrument, Halo's default), and **Follow the system** above them (instrument on a dark system, paper on a light one; since R4 a choice that writes `theme: auto`, no longer the unset key).
 Pointing at a row previews it on the page itself (the key untouched); Esc or moving away puts the saved one back, a click saves it. The modifiers are two toggles, **Daltonized** (blue and orange for the accents and the status colours, never red against green) and **ANSI** (a terminal's 16 colours; Studio stays in full colour), one at a time; the footer is the `halo config set theme <name>` line. `/theme`, `halo config set theme` and the header's theme menu move the same value. 3.3.12.0 R2: an enabled pack's palettes follow the eleven in a group under the pack's id (and its name), drawn the same way (swatches, hover preview, Daltonized), each saved as `<pack-id>/<id>`; the group says that turning the pack off puts the palette before it back ([EXTENSION_API.md](EXTENSION_API.md#themes)).
-
-### Local
-
-**What it is** (3.3.5.0). Local (`Alt+7`, the seventh and last core section since Agents took in Team, Roles and Orchestra, 3.3.16.0 R1) holds everything about the machines that serve your local models
-and the models they serve, paged like Settings: a page rail on the left (Resources, Hosts, Models, Library, Hugging Face, Logs,
-Benchmarks, Steward, Pool and Voice), one page on the right. **Resources** is the live view: a strip per host sampled once a second while
-the page is open (GPU use, VRAM and what holds it, RAM, CPU, the temperature, each number titled with its source) and the
-traffic view under it, every call to a local server as it happens with the steward's events inline. **Hosts** is every
-server Halo knows as a card with Load, Unload, keep-alive and Make it fit; **Models** is every installed model with its card,
-its fit meter and an intent filter; **Library** is what could be installed, each row with a fit badge; **Hugging Face** is
-the model folders, what is on disk, downloads and the local servers Halo starts for them. Benchmarks and Steward say what the
-next rounds put there and the commands that do it today. Nothing opens on its own; `halo local` opens it on Hugging Face,
-`halo local library` on Library. The pages:
-[STUDIO-local.md](STUDIO-local.md).
-

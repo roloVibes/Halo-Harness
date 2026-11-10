@@ -15,7 +15,7 @@ halo workflow run doc-review/review --input docs=docs
 halo pack remove doc-review                   # its own files go; what you made stays, each one listed
 ```
 
-In Studio, the Packs section (`Alt+7`) does the same: Sources lists this pack
+In Studio, the Packs section (`Alt+4`) does the same: Sources lists this pack
 with Install, Details shows what it brings with a Grant toggle per
 permission, and Templates has Run review (the Orchestra form, filled in).
 Once enabled, its own section "Docs review" comes after the core sections.

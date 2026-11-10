@@ -1,16 +1,17 @@
-"""tests.helpers.studio_fleet_layout -- the Fleet default layout in headless
+"""tests.helpers.studio_fleet_layout -- the fleet's pieces at their default in headless
 Chrome (Halo 3.1.4.0 R1, from the owner's live check of 3.1.3.0: the Activity
-log line wrapped one letter per row and the view read "really busy").
+log line wrapped one letter per row and the view read "really busy"; 3.3.16.0 R2: the Fleet section went, so the
+page is Agents -> Live on the fleet, Activity its optional panel, the Mission panel Runs').
 
 The rig is one harness `rolo@kali` with ONE live session: the remote tests'
 FakeSession behind the real Controller and control socket (the way the TUI
 opens it), its main agent marked running with a 40-character state text, so
 the Activity log's first line is `STATE rolo@kali · main` "main running: ...".
-Studio runs in-process over the scoped home. The page opens Fleet in a fresh
+Studio runs in-process over the scoped home. The page opens Agents -> Live in a fresh
 profile (no saved arrangement), at the driver's 1500 x 900 window.
 
-    python -m tests.helpers.studio_fleet_layout layout   # five panels open, four strips, one click each, Reset, an old save kept
-    python -m tests.helpers.studio_fleet_layout widths   # the log line's text column, narrow wrapped text, glance text at 12 px
+    python -m tests.helpers.studio_fleet_layout layout   # nothing extra on load, "+" adds Activity, Reset, a pick opens the inspector
+    python -m tests.helpers.studio_fleet_layout widths   # the log line's text column, narrow wrapped text, the glance at 12 px
     python -m tests.helpers.studio_fleet_layout mission  # the Mission how-it-works lines: in full, then folded, then opened
 
 The last stdout line is a JSON object of what it saw (exit 2: no Chrome).
@@ -84,8 +85,8 @@ class OneAgentRig:
 
     def url(self, extra: str = "") -> str:
         from halo_harness.studio.server import url_for
-        from tests.helpers.studio_full import full  # 3.3.2.0 R3: Fleet's full arrangement, the one these layout checks pin
-        return full(url_for(self.server, "fleet").replace("#t=", f"&tour=off{extra}#t="))  # 3.3.2.0 R2: Reset layout is the header's ... menu
+        # 3.3.16.0 R2: ?mode=fleet is Agents -> Live on the fleet, at its quiet default (no `open=all`: what opens on load is checked)
+        return url_for(self.server, "fleet").replace("#t=", f"&tour=off{extra}#t=")
 
     def close(self) -> None:
         from halo_harness.fleet import identity

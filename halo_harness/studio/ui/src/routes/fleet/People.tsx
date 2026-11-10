@@ -3,17 +3,16 @@
 // older one), what it shares and what it lets you do there, what it is on
 // (the project and its top session), live / idle / away (from when the hub
 // last heard from it), what it has spent today; Message sends its owner a
-// note in that session (never the model), Kick (this machine's hub only,
-// asks first) makes it pair again; specs opens its card in Capabilities
-// (3.0.6.0 R6). Compact face: who is online.
-import { Button, Empty, Icon } from "../../lib/ui";
-import type { MotionState } from "../../lib/motion";
-import { Metric } from "../orchestra/bits";
+// note in that session (never the model), Forget (this machine's hub only,
+// asks first; Kick before 3.3.16.0 R2) makes it pair again; specs opens its card (3.0.6.0 R6; 3.3.16.0 R2: the
+// machine's summary on Agents -> Live, its Specs page). The row is Setup -> Machines' People table and the head of a
+// machine's summary on Live.
+import { Button, Icon } from "../../lib/ui";
 import { cost, short } from "../orchestra/format";
-import { projectLabel } from "./layout";
+import { projectLabel } from "../agents/live/nodeBits";
 import { focusHarness, useCaps } from "./caps";
 import { openDialog } from "./pstore";
-import { sessionTitle, useFleet, useNow } from "./store";
+import { sessionTitle } from "./store";
 import type { Harness } from "./types";
 
 const AWAY_S = 120;
@@ -35,7 +34,7 @@ export function topSession(h: Harness) {
   return list[0] || null;
 }
 
-function Person({ h, now, hubHere }: { h: Harness; now: number; hubHere: boolean }) {
+export function Person({ h, now, hubHere }: { h: Harness; now: number; hubHere: boolean }) {
   const p = presence(h, now);
   const top = topSession(h);
   const name = h.name || h.id.slice(0, 8);
@@ -60,7 +59,7 @@ function Person({ h, now, hubHere }: { h: Harness; now: number; hubHere: boolean
         {!h.local && <span className="og-chip mono" title="what it shares with this hub">shares {h.share || "?"}</span>}
         {!h.local && <span className="og-chip mono" title="what you may do there">control {h.allow_control || "?"}</span>}
         {(capChips || []).map((c) => <span key={c} className="og-chip mono fcap-chip">{c}</span>)}
-        <button className="fpe-specs mono" data-testid="fleet-person-specs" title="what it can do: its spec card in Capabilities"
+        <button className="fpe-specs mono" data-testid="fleet-person-specs" title="what it can do: its spec card (its summary on Agents -> Live)"
                 onClick={() => focusHarness(h.id, "fleet-capabilities")}>specs</button>
       </div>
       <div className="fpe-on muted">
@@ -74,47 +73,12 @@ function Person({ h, now, hubHere }: { h: Harness; now: number; hubHere: boolean
             Message
           </Button>
           {hubHere && (
-            <Button size="sm" variant="ghost" icon={<Icon name="close" />} onClick={() => openDialog({ kind: "kick", hid: h.id, name })} data-testid="fleet-person-kick" title="it leaves this hub (asks first)">
-              Kick
+            <Button size="sm" variant="ghost" icon={<Icon name="close" />} onClick={() => openDialog({ kind: "kick", hid: h.id, name })} data-testid="fleet-person-kick" title="it leaves this hub and pairs again with a new code (asks first)">
+              Forget
             </Button>
           )}
         </div>
       )}
     </li>
   );
-}
-
-export function PeopleDetail() {
-  const harnesses = useFleet((s) => s.harnesses);
-  const hubHere = useFleet((s) => !!s.hub?.serving);
-  const loaded = useFleet((s) => s.loaded);
-  const now = useNow(true, 5000);
-  if (!loaded) return null; // 3.3.2.0 R3: the section's own wait says it while it reads (FleetView)
-  if (!harnesses.length) return <Empty title="Nobody here yet" body="This harness shows as soon as Studio reads it; another one joins with a pair code." />;
-  return (
-    <ul className="fpe" data-testid="fleet-people-list">
-      {harnesses.map((h) => <Person key={h.id} h={h} now={now} hubHere={hubHere} />)}
-    </ul>
-  );
-}
-
-export function PeopleGlance() {
-  const harnesses = useFleet((s) => s.harnesses);
-  const now = useNow(true, 10000);
-  const on = harnesses.filter((h) => presence(h, now) !== "away");
-  return (
-    <div className="glance" data-testid="fleet-people-glance">
-      <div className="glance-numbers">
-        <Metric value={on.length} label="online" tone={on.length ? "accent" : undefined} />
-        <Metric value={harnesses.length} label="harnesses" />
-      </div>
-      <div className="glance-hint mono">{on.map((h) => h.name || h.id.slice(0, 8)).join(" · ") || "nobody online"}</div>
-    </div>
-  );
-}
-
-export function usePeopleMotion(): MotionState {
-  const harnesses = useFleet((s) => s.harnesses);
-  const now = useNow(true, 10000);
-  return harnesses.some((h) => presence(h, now) === "live") ? "working" : harnesses.length ? "idle" : "none";
 }

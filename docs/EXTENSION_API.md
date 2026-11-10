@@ -290,7 +290,7 @@ token, the shell's CSP).
 | `routes` | `{module: <file>.py, prefix: <word>}` | 3.3.13.0 R2 (API 1.2): the pack's own API routes, `/api/packs/<id>/<prefix>/...`, answered by the module's `handle` ([a pack's own routes](#a-packs-own-routes)); needs `studio-routes` |
 | `palette` | `[{id, label, action}]` | a command palette line in the group "pack <id>"; `action` is `route:<section>[/<panel>]`, `url:<address>` or `config` |
 | `config_form` | `true` or `false` | a Settings panel (kind `form`) at the end of the pack's first section, and a palette line "Settings: <name>" |
-| `events` | `{<kind>: {label, line}}` | a `pack_event` of that kind (one of `contributes.events`) renders as `label` + `line`, `{field}` read from the frame's data, in Session's Live column, Fleet's Activity and the pack's `events` panels; a kind no running pack declares keeps the generic line (the pack, the kind, the data in short) |
+| `events` | `{<kind>: {label, line}}` | a `pack_event` of that kind (one of `contributes.events`) renders as `label` + `line`, `{field}` read from the frame's data, in Session's Live column, Agents' Activity and the pack's `events` panels; a kind no running pack declares keeps the generic line (the pack, the kind, the data in short) |
 | `attention` | `{<kind>: {label, keys: {a, r, s, o}}}` | a row of the attention queue, kind `pack:<id>:<kind>`, with the pack's label and its answers |
 
 A `<panel>` is `{id, title, kind, source, schema, w, h, help, columns, links}`:
@@ -424,7 +424,7 @@ without it. A call the server refuses rejects its promise with an `Error` whose 
 | `section` | | 3.3.13.0 R2: the section the module draws in (a view's own, or the panel's) | |
 
 3.3.13.0 R2: `on(kind, cb)` also hears the pack's `pack_live` frames, what its routes publish with `ctx.publish` (live
-only: not kept in the events log, not drawn in Session's Live column or Fleet's Activity).
+only: not kept in the events log, not drawn in Session's Live column or Agents' Activity).
 
 **The rate.** `publish` and `attention` share one rate per pack: **20 writes in any 10 seconds** (a sliding window,
 per Studio server); the 21st is 429 `{error, rate: {limit: 20, window_s: 10}, retry_after}` and nothing is

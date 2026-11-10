@@ -3,7 +3,7 @@
    the compact face, the plan drawn over the map (a lane per harness box,
    part nodes dashed while planned and solid once they run, depends_on
    edges, amber where claims overlap, red where nobody can run a part), the
-   map toolbar's chip and the Tree panel's mission chip. Tokens only. */
+   the session node's mission chip on Live (3.3.16.0 R2). Tokens only. */
 
 /* -- the Running face ----------------------------------------------------------------- */
 .fmi-run { display: grid; grid-template-columns: minmax(0, 1fr) 210px; gap: 10px; align-content: start; }
@@ -45,49 +45,15 @@
 .fmi-glance { display: grid; gap: 6px; align-content: start; }
 .fmi-glance-goal { text-align: left; font-size: 13px; }
 
-/* -- the plan on the map -------------------------------------------------------------- */
-.fmi-lane rect { fill: color-mix(in srgb, var(--accent-2) 5%, transparent); stroke: color-mix(in srgb, var(--accent-2) 30%, transparent); stroke-dasharray: 3 4; }
-.fmi-lane text { font: 9.5px var(--mono); letter-spacing: .08em; fill: var(--accent-2); }
-.fmi-node { cursor: pointer; outline: none; touch-action: none; }
-.fmi-node[data-editable] { cursor: grab; }
-.fmi-node[data-drag] { cursor: grabbing; }
-.fmi-node[data-drag] .fmi-node-shape { filter: drop-shadow(0 0 10px var(--accent)); stroke: var(--accent); }
-.fmi-node[data-drag="pending"] { opacity: .8; }
-.fmi-node-shape { fill: color-mix(in srgb, var(--accent-2) 8%, var(--surface)); stroke: var(--accent-2); stroke-width: 1.4; stroke-dasharray: 6 4; transition: stroke var(--t) var(--ease); }
-.fmi-node:hover .fmi-node-shape, .fmi-node:focus-visible .fmi-node-shape { stroke: var(--accent); }
-.fmi-node[data-selected] .fmi-node-shape { stroke-width: 2.2; fill: color-mix(in srgb, var(--accent) 12%, var(--surface)); }
-.fmi-node-dot { fill: var(--accent-2); }
-.fmi-node-id { font: 700 12px var(--mono); fill: var(--accent-2); }
-.fmi-node-title { font: 600 12px var(--sans); fill: var(--text); }
-.fmi-node-sub, .fmi-node-kind { font: 10px var(--mono); fill: var(--muted); }
-.fmi-node-cost { font: 10.5px var(--mono); fill: var(--text); }
-.fmi-node[data-state="running"] .fmi-node-shape { stroke: var(--accent); stroke-dasharray: none; stroke-width: 1.8; filter: drop-shadow(0 0 5px var(--accent)); }
-.fmi-node[data-state="running"] .fmi-node-dot { fill: var(--accent); }
-.fmi-node[data-state="running"] .fmi-node-sub { fill: var(--accent); }
-.fmi-node[data-state="asked"] .fmi-node-shape { stroke: var(--warn); stroke-dasharray: none; }
-.fmi-node[data-state="asked"] .fmi-node-dot, .fmi-node[data-state="asked"] .fmi-node-sub { fill: var(--warn); }
-.fmi-node[data-state="done"] .fmi-node-shape, .fmi-node[data-state="merged"] .fmi-node-shape { stroke: var(--ok); stroke-dasharray: none; }
-.fmi-node[data-state="done"] .fmi-node-dot, .fmi-node[data-state="merged"] .fmi-node-dot { fill: var(--ok); }
-.fmi-node[data-state="failed"] .fmi-node-shape { stroke: var(--bad); stroke-dasharray: none; fill: var(--bad-soft); }
-.fmi-node[data-state="stopped"], .fmi-node[data-state="skipped"] { opacity: .65; }
-@media (prefers-reduced-motion: no-preference) {
-  .fmi-node[data-state="asked"] .fmi-node-shape { animation: og-glow-warn 1.2s ease-in-out infinite; }
-  .fmi-node[data-state="running"] .fmi-node-shape { animation: fm-breathe 2.4s ease-in-out infinite; }
-}
+/* -- the plan on Live (routes/agents/live/MissionParts.tsx: the edges between part nodes) -------------- */
 .fmi-chip-bad rect { fill: var(--bad-soft); stroke: var(--bad); }
 .fmi-chip-bad text { font: 9.5px var(--mono); fill: var(--bad); }
 .fmi-edge path { fill: none; stroke: var(--accent-2); stroke-width: 1.5; }
-.fmi-arrow { fill: var(--accent-2); }
 .fmi-edge[data-kind="sequenced"] path { stroke: var(--warn); stroke-dasharray: 5 4; }
-.fmi-arrow-seq { fill: var(--warn); }
 .fmi-seq-chip rect { fill: var(--warn-soft); stroke: var(--warn); }
 .fmi-seq-chip text { font: 9.5px var(--mono); fill: var(--warn); }
-.fmi-mapchip { font-size: 10.5px; color: var(--accent-2); border: 1px solid color-mix(in srgb, var(--accent-2) 45%, transparent); border-radius: 999px; padding: 1px 8px; white-space: nowrap; }
 
-/* -- the Tree panel: a mission part's session ------------------------------------------------- */
-.fr .fr-mission { color: var(--accent-2); border-color: var(--accent-2); }
 
 /* -- hand-offs (3.0.9.0): what a depends_on edge carries, where a repo part starts -- */
 .fmi-hand-chip rect { fill: var(--surface-2); stroke: var(--accent-2); }
 .fmi-hand-chip text { font: 9.5px var(--mono); fill: var(--accent-2); }
-.fmi-node-base { font: 9.5px var(--mono); fill: var(--faint); }

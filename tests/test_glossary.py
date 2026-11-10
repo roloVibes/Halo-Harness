@@ -91,9 +91,9 @@ def test_every_word_studio_help_names_exists(ctx: Ctx):
     words = set(G.load())
     src = (REPO / "halo_harness" / "studio" / "ui" / "src" / "routes" / "sectionHelp.ts").read_text(encoding="utf-8")
     blocks = re.findall(r"terms: \[([^\]]*)\]", src)
-    ctx.check(f"nine help pages name their words: the seven core sections and Agents' two workspaces, Cast's (roles) and Runs' "
-              f"(orchestra) (3.3.16.0 R1: Team's went, Agents' came), got {len(blocks)}", len(blocks) == 9)
-    ctx.check("3.3.16.0 R1: Agents has its own page, Team none", "  agents: {" in src and "  team: {" not in src)
+    ctx.check(f"eight help pages name their words: the six core sections and Agents' two workspaces, Cast's (roles) and Runs' "
+              f"(orchestra) (3.3.16.0 R1: Team's went, Agents' came; R2: Fleet's went into Agents'), got {len(blocks)}", len(blocks) == 8)
+    ctx.check("3.3.16.0 R1: Agents has its own page, Team none; R2: Fleet none", "  agents: {" in src and "  team: {" not in src and "  fleet: {" not in src)
     named = [w for b in blocks for w in re.findall(r'"([^"]+)"', b)]
     missing = sorted({w for w in named if w not in words})
     ctx.check(f"every named word has a paragraph, missing: {missing}", named and not missing)

@@ -67,7 +67,7 @@ def w(c, expr: str, timeout: float = 20):
 def section(c, url, ctx) -> dict:
     out: dict = {}
     c.go(url)
-    w(c, f"{TABS}.length >= 7", 40)  # 3.3.16.0 R1: seven core sections
+    w(c, f"{TABS}.length >= 6", 40)  # 3.3.16.0 R2: six core sections
     out["tabs"] = c.js(f"{TABS}.map((t) => t.querySelector('.tab-label').textContent)")
     out["kbds"] = c.js(f"{TABS}.map((t) => t.dataset.kbd || '')")  # 3.3.2.0 R1: the icon rail keeps the key as data-kbd, never printed
     alt(c, 4)  # 3.3.16.0 R1: Packs

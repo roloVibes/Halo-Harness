@@ -11,7 +11,8 @@ ArrowDown / End move, Escape closes it and gives the button the focus; a panel c
 Inspector, the palette's Arrange panels puts every panel back in its default box (the toast says so).
 `reset`: the "..." menu's Reset layout clears the saved key, the badge goes, its rows then disabled with words.
 `moving`: "How panels move" opens the section help on its Moving panels part; the ? reaches it too.
-`fleet`: the "+" adds the optional Tree panel ("add", then "focus"), the strips read "bring back"; Orchestra's
+`fleet`: on Agents -> Live (3.3.16.0 R2: the Fleet section and its Tree panel went) the "+" adds the optional Activity
+panel ("add", then "focus"), the strips read "bring back"; Orchestra's
 "+" has its RUNS group with New run; the rail holds the sections only in both widths; Setup has no "+",
 no "..." and no badge.
 The last stdout line is the JSON of what it saw (exit 2: no Chrome)."""
@@ -158,12 +159,14 @@ def moving(c, url, ctx) -> dict:
 
 def fleet(c, url, ctx) -> dict:
     out: dict = {}
-    c.click_on(q(".rail [data-testid=section-tab][data-tab-id=fleet]"))
-    c.wait(f"{CUR}.startsWith('Fleet')", 15)
+    c.click_on(q(".rail [data-testid=section-tab][data-tab-id=agents]"))
+    c.wait(f"{CUR}.startsWith('Agents')", 15)
+    c.click_on(q("[data-testid=agents-view-live]"))
+    c.wait("document.querySelector('[data-testid=agents]')?.dataset.view === 'live'", 10)
     out["fleet_rows"] = plus_rows(c)
     close_menus(c)
-    plus(c, "fleet-tree")
-    out["tree"] = c.wait(f"!!{q('[data-testid=fleet-tree] [data-testid=fleet-tree-list]')}", 20)
+    plus(c, "fleet-activity")
+    out["tree"] = c.wait(f"!!{q('[data-testid=fleet-activity] [data-testid=fleet-log]')}", 20)
     out["fleet_rows_after"] = settle(c, "1") and plus_rows(c)
     close_menus(c)
     out["rail_icons"] = c.js(RAIL_EXTRA)

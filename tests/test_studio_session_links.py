@@ -3,9 +3,9 @@ real browser (Halo 3.1.4.0 R2; headless Chrome through the driver base,
 tests/helpers/studio_session.py `links` -> studio_session_links.py; skipped
 without one), over this harness's real session mid-work and a member harness:
 
-1. the Fleet rail: a click on this harness's agent opens Session with that
-   agent selected; a member's agent opens Fleet as before;
-2. the map node's `...` menu: Open in Session on this harness's nodes (it
+1. Agents -> Live on the fleet (3.3.16.0 R2: the Fleet section and its Tree panel went): this harness's agent's
+   Watch in Session opens Session with that agent selected; a member's agent stays in Live's inspector;
+2. a node's `...` menu: Open in Session on this harness's nodes (it
    opens Session on that agent), not on a member's;
 3. the Roles canvas: a working card's Live tab header has Watch in Session,
    which opens Session on that agent;
@@ -29,13 +29,13 @@ test, TESTS = new_registry()
 
 
 @test
-def test_the_rail_opens_this_harness_in_session_and_a_member_in_fleet(ctx: Ctx):
+def test_live_opens_this_harness_in_session_and_keeps_a_member_on_live(ctx: Ctx):
     r, got = _driver("links")
     _ran(ctx, r, got)
     ctx.check(f"this harness's agent: Session on it, got {got.get('rail_local_tab')!r} {got.get('rail_local_agent')}",
               str(got.get("rail_local_tab")).startswith("Session") and got.get("rail_local_agent") == "implementer")
-    ctx.check(f"a member's agent: Fleet as before, got {got.get('rail_member_tab')!r} {got.get('rail_member_agent')}",
-              str(got.get("rail_member_tab")).startswith("Fleet") and got.get("rail_member_agent") == "member")
+    ctx.check(f"a member's agent: Live's inspector, got {got.get('rail_member_tab')!r} {got.get('rail_member_agent')}",
+              str(got.get("rail_member_tab")).startswith("Agents") and got.get("rail_member_agent") == "member")
 
 
 @test

@@ -122,7 +122,7 @@ def test_the_tree_fans_out_and_no_labels_overlap(ctx: Ctx):
         rows.setdefault(k[1], []).append(k[0])
     first = rows[min(rows)] if rows else []
     ctx.check(f"a fan: at least two children side by side on one row, got rows {rows}", len(first) >= 2 and len(set(first)) == len(first))
-    ctx.check(f"each names main as its parent, got {t.get('parents')}", (t.get("parents") or []).count("main") >= 5)
+    ctx.check(f"each names main as its parent, got {t.get('parents')}", sum(str(p).endswith("|main") or p == "main" for p in t.get("parents") or []) >= 5)  # 3.3.16.0 R2: Live names the parent by its key
     ctx.check(f"no two labels touch, got {got.get('overlaps')}", got.get("overlaps") == [])
 
 
@@ -135,7 +135,7 @@ def test_state_colours_and_the_done_fade(ctx: Ctx):
     f = got.get("red") or ["", "", ""]
     ctx.check(f"failed: red on its edge, got {f}", f[0] == "error" and f[1] == _rgb(f[2]))
     d = got.get("done") or ["", ""]
-    ctx.check(f"done: green that fades (the fade animation runs), got {d}", d[0] == "done" and d[1] == "n-edge-rest")  # 3.3.15.0 L1: styles/nodes.css, the border fades to rest over 10 s
+    ctx.check(f"done: green that fades (the fade animation runs), got {d}", d[0] == "done" and d[1] == "n-node-rest")  # 3.3.15.0 L1: styles/nodes.css, the border fades to rest over 10 s (3.3.16.0 R2: Live's node)
     ctx.check(f"ten seconds on, done has settled and failed has stayed, got {got.get('done_later')} {got.get('red_later')}",
               got.get("done_later") == "idle" and got.get("red_later") == "error")
 

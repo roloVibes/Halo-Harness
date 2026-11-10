@@ -1,7 +1,7 @@
 // fleet-mission (3.0.6.0 R8): one goal for the whole fleet. Four faces:
 // Start (the goal box and every mission: MissionStart.tsx), Plan (the parts
-// as a table, the same plan drawn on the map where a part is dragged to
-// another harness: MissionPlan.tsx, MapMission.tsx), Running (parts by state
+// as a table, the same plan drawn on Agents -> Live where a part is dragged to
+// another machine: MissionPlan.tsx, agents/live/MissionParts.tsx), Running (parts by state
 // live, cost per harness, the merge queue, Stop: MissionRun.tsx) and Report
 // (MissionReport.tsx), and once it ended Coach (3.0.9.0 R3: the post-run
 // coach's cards, lib/coach). A mission opens on the face its state calls for; the
@@ -12,7 +12,7 @@ import type { MotionState } from "../../lib/motion";
 import { Button, Icon } from "../../lib/ui";
 import { Metric } from "../orchestra/bits";
 import { short } from "../orchestra/format";
-import { FINAL, LIVE, missions, useMissions, usd, type Summary } from "./mstore";
+import { FINAL, LIVE, useMissions, usd, type Summary } from "./mstore";
 import { closeMission, openMission, setFace, shownFace, startMissions } from "./mload";
 import { MissionCoach } from "./MissionCoach";
 import { MissionPlan } from "./MissionPlan";
@@ -124,10 +124,4 @@ export function useMissionMotion(): MotionState {
 /** How many missions run now (the status bar's FLEET cell). */
 export function useRunningMissions(): number {
   return useMissions((s) => (s.list || []).filter((m) => LIVE.includes(m.state)).length);
-}
-
-/** The open mission, else the newest that waits on you or runs (the palette). */
-export function currentMission(): Summary | null {
-  const s = missions.get();
-  return (s.list || []).find((m) => m.id === s.open) || pick(s.list);
 }

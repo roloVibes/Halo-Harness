@@ -5,7 +5,8 @@ harness's real session with three agents mid-work, a member harness with
 two). tests/test_studio_ui.py runs it as a subprocess with a scrubbed
 environment:
 
-    python -m tests.helpers.studio_fleet map     # boxes, nodes, the Tree panel, select + tail, J/K, steer, stop
+    python -m tests.helpers.studio_fleet map     # Agents -> Live on the fleet (3.3.16.0 R2: the Fleet map went): machine boxes,
+                                                 # nodes, the tree's order, select + tail, J/K, steer, stop
     python -m tests.helpers.studio_fleet roles   # Live Roles on the React canvas: the glow, the Live tab's text and tool rows, J, the pin
     python -m tests.helpers.studio_fleet panels  # R4: attention, timeline, digest, replay, conflict (studio_fleet_panels.py)
     python -m tests.helpers.studio_fleet caps    # 3.0.6.0 R6: the Capabilities panel and Who can... (studio_fleet_caps.py)
@@ -24,17 +25,17 @@ sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "tools"))
 
 from tests.helpers.chrome_driver import Driver  # noqa: E402
-from tests.helpers.studio_tree import open_tree  # noqa: E402
 
 DETAIL = "document.querySelector('[data-testid=\"fleet-agent-detail\"]')"
+NODE = "[data-testid=\"roles-live-node\"]"  # 3.3.16.0 R2: Live's node is the one agent node (the Fleet map's went)
 
 
 def node(name: str) -> str:
-    return f"[...document.querySelectorAll('[data-testid=\"fleet-node\"]')].find((n) => n.querySelector('.fm-name').textContent.startsWith('{name}'))"
+    return f"[...document.querySelectorAll('{NODE}')].find((n) => n.querySelector('.rlm-name').textContent.startsWith('{name}'))"
 
 
-MAP_SVG = "document.querySelector('[data-testid=\"fleet-map-svg\"]')"
-NODES_SEEN = "[...document.querySelectorAll('[data-testid=\"fleet-node\"]')].map((n) => (n.querySelector('.fm-name')?.textContent || '?') + ':' + n.dataset.state)"
+MAP_SVG = "document.querySelector('[data-testid=\"roles-live-map\"]')"
+NODES_SEEN = f"[...document.querySelectorAll('{NODE}')].map((n) => (n.querySelector('.rlm-name')?.textContent || '?') + ':' + n.dataset.state)"
 
 
 def wait_node(c, name: str, cond: str = "true", timeout: float = 60):
@@ -87,11 +88,11 @@ def fleet_map(c, rig) -> dict:
     from tests.helpers.studio_fleet_rig import STEER_SEEN, wait_for
     out = {}
     c.go(rig.url("fleet"))
-    c.wait("document.querySelectorAll('[data-testid=\"fleet-box\"]').length === 2 && document.querySelectorAll('[data-testid=\"fleet-node\"]').length === 5", 30)
+    c.wait(f"document.querySelectorAll('[data-testid=\"fleet-box\"]').length === 2 && document.querySelectorAll('{NODE}').length === 5", 30)
     out["boxes"] = c.js("document.querySelectorAll('[data-testid=\"fleet-box\"]').length")
-    out["nodes"] = c.js("document.querySelectorAll('[data-testid=\"fleet-node\"]').length")
-    out["labels"] = c.js("[...document.querySelectorAll('.fm-box-label')].map((t) => t.textContent)")
-    out["states"] = c.js("[...document.querySelectorAll('[data-testid=\"fleet-node\"]')].map((n) => n.dataset.state)")
+    out["nodes"] = c.js(f"document.querySelectorAll('{NODE}').length")
+    out["labels"] = c.js("[...document.querySelectorAll('[data-testid=\"live-machine\"] .rlm-name')].map((t) => t.textContent)")
+    out["states"] = c.js(f"[...document.querySelectorAll('{NODE}')].map((n) => n.dataset.state)")
     key_a, key_b = rig.key("Implement"), rig.key("Research")
     wait_node(c, "researcher")
     out["selected"] = select_node(c, "researcher", key_b)
@@ -100,8 +101,8 @@ def fleet_map(c, rig) -> dict:
     out["tool_rows"] = c.wait("document.querySelectorAll('[data-testid=\"fleet-tool-row\"]').length", 10)
     out["tool_label"] = c.js("document.querySelector('.fa-tool-label')?.textContent")
     c.click_on("document.querySelector('[data-testid=\"fleet-tab-thinking\"]')")
-    x, y, w, h = c.rect("document.querySelector('.fm-scroll')")
-    c.click(x + w - 30, y + h - 30)  # the map's empty corner: the panel takes the keys
+    x, y, w, h = c.rect("document.querySelector('.rlm-scroll')")
+    c.click(x + w - 30, y + h - 30)  # the canvas's empty corner (it clears the pick; J / K hop from the agent watched)
     c.key("j")
     out["after_j"] = c.wait(f"{DETAIL}?.dataset.key !== '{key_b}' && {DETAIL}.dataset.key", 30)
     c.key("k")
@@ -136,18 +137,17 @@ def fleet_map(c, rig) -> dict:
         out["node_stopped"] = False
         out["node_stopped_diag"] = {"error": str(e)[:200], "tree": {(a.get("task") or "")[:9]: a.get("state") for a in rig.agents()},
                                     "bridge_listeners": rig.server.events.listeners(),
-                                    "nodes": c.js("[...document.querySelectorAll('[data-testid=\"fleet-node\"]')].map((n) => n.dataset.key.slice(-8) + ':' + n.dataset.state)"),
+                                    "nodes": c.js(f"[...document.querySelectorAll('{NODE}')].map((n) => n.dataset.key.slice(-8) + ':' + n.dataset.state)"),
                                     "detail": c.js(f"[{DETAIL}?.dataset.key, {DETAIL}?.dataset.state]"),
                                     "feed_open": c.js("typeof window.__haloFeedState === 'string' ? window.__haloFeedState : 'n/a'")}
-    open_tree(c)  # 3.3.2.0 R2: Fleet's Tree panel, through the header's "+" (after the map's clicks: it moves nothing they aim at)
-    out["panels"] = c.js("['fleet-map', 'fleet-agent', 'fleet-tree-list'].map((k) => document.querySelectorAll(`[data-testid=\"${k}\"]`).length)")
-    out["rail"] = c.js("[...document.querySelectorAll('[data-testid=\"fleet-tree-node\"]')].map((n) => n.dataset.kind + ':' + n.dataset.id)")
+    # 3.3.16.0 R2: the Tree panel went; Live's tree is harness > session > agent in the same order (its DOM order)
+    out["panels"] = c.js("['roles-live-map', 'fleet-agent-detail', 'live-inspector'].map((k) => document.querySelectorAll(`[data-testid=\"${k}\"]`).length)")
+    out["rail"] = c.js(f"[...document.querySelectorAll('[data-testid=\"live-machine\"], [data-testid=\"fleet-session\"], {NODE}')]"
+                       ".map((n) => n.dataset.testid === 'live-machine' ? 'harness:' + n.dataset.harness : n.dataset.testid === 'fleet-session'"
+                       " ? 'session:' + n.dataset.sid : 'agent:' + n.dataset.agent)")
     out["api_tree"] = expected_tree(rig.api("GET", "fleet")[1])
-    member_main = (f"[...document.querySelectorAll('[data-testid=\"fleet-tree-node\"]')].find((n) => n.dataset.kind === 'agent' && "
-                   f"n.dataset.id === 'main' && n.closest('.fr-harness').querySelector('.fr-h').dataset.id === '{rig.member_id}')")
-    # 3.2.1.0 R5: WSL's Chromium has a 757 px viewport (Windows Chrome 805 at the same window size) and the tree's
-    # member row sat at y=755, below the fold: the click hit nothing. Scroll it into view first, as a person would
-    c.js(f"{member_main}.scrollIntoView({{block: 'center'}}); 1")
+    member_main = f"document.querySelector('{NODE}[data-key^=\"{rig.member_id}|\"][data-agent=\"main\"]')"
+    c.js(f"{member_main}.scrollIntoView({{block: 'center', inline: 'center'}}); 1")  # as a person would, before the click
     c.click_on(member_main)
     c.wait(f"{DETAIL}?.dataset.key?.startsWith('{rig.member_id}')", 30)
     c.js("document.querySelector('[data-testid=\"fleet-steer-send\"]').scrollIntoView({block: 'center'}); 1")  # 3.3.2.0 R2: the Tree panel is beside it
@@ -158,8 +158,8 @@ def fleet_map(c, rig) -> dict:
     out["member_steer"] = (got or [{}])[-1].get("fields", {}).get("text")
     out["member_tail"] = c.wait("[...document.querySelectorAll('[data-testid=\"fleet-text\"]')].map((e) => e.textContent).find((t) => t.includes('Two questions'))", 10)
     rig.member_spawn()  # D13: a new child on the member's tree, live from the feed: its node, and the edge lit for a few seconds
-    out["spawned"] = c.wait("document.querySelectorAll('[data-testid=\"fleet-node\"]').length === 6 && document.querySelectorAll('[data-testid=\"fleet-lit-edge\"]').length", 10)
-    out["spawn_tool"] = c.js(f"{node('verifier')}?.querySelector('.fm-tool')?.dataset.tool")
+    out["spawned"] = c.wait(f"document.querySelectorAll('{NODE}').length === 6 && document.querySelectorAll('[data-testid=\"fleet-lit-edge\"]').length", 10)
+    out["spawn_tool"] = c.js(f"{node('verifier')}?.querySelector('[data-testid=\"roles-live-tool\"]')?.dataset.tool")
     return out
 
 
@@ -198,8 +198,9 @@ def roles(c, rig) -> dict:
     out["clicked"] = c.wait(SELECTED, 10)
     out["live_tab"] = c.wait("document.querySelector('[data-testid=\"roles-live-tab\"]')?.getAttribute('aria-selected') === 'true' && 'on'", 10)
     out["live_text"] = c.wait("[...document.querySelectorAll('[data-testid=\"roles-live\"] [data-testid=\"fleet-text\"]')].map((e) => e.textContent).find((t) => t.includes('basket'))", 15)
-    c.js("document.querySelector('[data-testid=\"roles-live-working\"]').scrollIntoView({block: 'center'}); 1")  # 3.1.4.0 R4: below the MODEL strip
-    c.click_on("document.querySelector('[data-testid=\"roles-live-working\"]')")
+    work = "document.querySelector('[data-testid=\"roles-live\"] [data-testid=\"fleet-tab-working\"]')"  # 3.3.16.0 R2: the one agent inspector
+    c.js(f"{work}.scrollIntoView({{block: 'center'}}); 1")  # 3.1.4.0 R4: below the MODEL strip
+    c.click_on(work)
     out["live_tools"] = c.wait("document.querySelectorAll('[data-testid=\"roles-live\"] [data-testid=\"fleet-tool-row\"]').length", 10)
     out["live_tool"] = c.js("document.querySelector('[data-testid=\"roles-live\"] .fa-tool-label')?.textContent")
     out["watched"] = c.js(LIVE_AGENT)

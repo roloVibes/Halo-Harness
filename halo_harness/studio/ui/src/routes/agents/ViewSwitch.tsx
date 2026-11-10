@@ -1,15 +1,17 @@
 // Agents' bar (3.3.16.0 R1): the view switch first -- Cast | Runs | Live (C, R, L) -- then what the view adds: on Runs,
 // Test this lineup (TestLineup.tsx); Team's one line the first time `?mode=team` brought this browser here. The bar is
-// 40 px and quiet: nothing on it opens anything on its own.
+// 40 px and quiet: nothing on it opens anything on its own. 3.3.16.0 R2: the Attention chip at its right end, in every
+// view (AttentionChip.tsx: the fleet's queue, amber while anything waits on you).
 import type { AgentsView } from "../../lib/agentsDoor";
 import { useStore } from "../../lib/store";
 import { agents, dismissNote, setAgentsView } from "./store";
 import { TestLineup } from "./runs/TestLineup";
+import { AttentionChip } from "./AttentionChip";
 
 const VIEWS: [AgentsView, string, string, string][] = [
   ["cast", "Cast", "C", "The lineup and its bios: every card, its model and its tier"],
   ["runs", "Runs", "R", "Give the lineup a goal: the lead's plan, the lanes, the merge, the tests, the report"],
-  ["live", "Live", "L", "What runs now: the session's agents as a tree, and an Orchestra run's lanes under its lead"],
+  ["live", "Live", "L", "What runs now: this halo's session, or every machine of the fleet, as a tree"],
 ];
 
 export function ViewSwitch({ view }: { view: AgentsView }) {
@@ -42,6 +44,8 @@ export function AgentsBar({ view }: { view: AgentsView }) {
       <ViewSwitch view={view} />
       {view === "runs" && <TestLineup />}
       <Note />
+      <span className="spacer" />
+      <AttentionChip />
     </div>
   );
 }

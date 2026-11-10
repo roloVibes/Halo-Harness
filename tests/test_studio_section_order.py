@@ -13,7 +13,9 @@ core for the design pack: nine sections, Orchestra `Alt+5` ... Local `Alt+9`, an
 section's (routes/packs/registry.ts FIRST_KEY = LAST_KEY = 10). 3.3.16.0 R1 "Agents: one section": Team, Roles and
 Orchestra folded into Agents -- seven core sections, Session `Alt+1`, Agents `Alt+2`, Fleet `Alt+3`, Packs `Alt+4`,
 Setup `Alt+5`, Settings `Alt+6`, Local `Alt+7`, and the first three pack sections take `Alt+8`, `Alt+9` and `Alt+0`
-(FIRST_KEY = 8, LAST_KEY = 10). The reader is
+(FIRST_KEY = 8, LAST_KEY = 10). 3.3.16.0 R2 "the Fleet fold": Fleet folded into Agents (Live's fleet scope), Local
+moved up -- six core sections, Session `Alt+1`, Agents `Alt+2`, Local `Alt+3`, Packs `Alt+4`, Setup `Alt+5`, Settings
+`Alt+6`, and the first four pack sections take `Alt+7` to `Alt+0` (FIRST_KEY = 7, LAST_KEY = 10). The reader is
 tests/helpers/section_order.py; a reorder of SECTIONS fails here on every line it leaves behind.
 Run: python -m tests.test_studio_section_order
 """
@@ -39,25 +41,26 @@ def _docs() -> "list[Path]":
 
 
 @test
-def test_the_registry_runs_session_first_and_local_last(ctx: Ctx):
+def test_the_registry_runs_session_first_and_settings_last(ctx: Ctx):
     rows = so.registry()
-    ctx.check(f"seven sections (3.3.16.0 R1: Agents took in Team, Roles and Orchestra), got {[r[0] for r in rows]}", len(rows) == 7)
-    ctx.check(f"the keys follow the order, Alt+1 to Alt+7, got {[r[2] for r in rows]}", [r[2] for r in rows] == [f"Alt+{n}" for n in range(1, 8)])
-    ctx.check(f"the order is Session, Agents, Fleet, Packs, Setup, Settings, Local, got {[r[1] for r in rows]}",
-              [r[0] for r in rows] == ["session", "agents", "fleet", "packs", "setup", "settings", "local"])
+    ctx.check(f"six sections (3.3.16.0 R2: Fleet folded into Agents), got {[r[0] for r in rows]}", len(rows) == 6)
+    ctx.check(f"the keys follow the order, Alt+1 to Alt+6, got {[r[2] for r in rows]}", [r[2] for r in rows] == [f"Alt+{n}" for n in range(1, 7)])
+    ctx.check(f"the order is Session, Agents, Local, Packs, Setup, Settings, got {[r[1] for r in rows]}",
+              [r[0] for r in rows] == ["session", "agents", "local", "packs", "setup", "settings"])
     ctx.check("Session is Alt+1, This session, live", rows[0][1:] == ("Session", "Alt+1", "This session, live"))
-    ctx.check("Agents is Alt+2, the cast, its runs and what runs now", rows[1][1:] == ("Agents", "Alt+2", "The cast, its runs, and what runs now"))
-    ctx.check("Fleet is Alt+3", rows[2][1:] == ("Fleet", "Alt+3", "Every harness, every agent, live"))
+    ctx.check("Agents is Alt+2, the cast, its runs and what runs now on every machine",
+              rows[1][1:] == ("Agents", "Alt+2", "The cast, its runs, and what runs now on every machine"))
+    ctx.check("Local is Alt+3", rows[2][1:] == ("Local", "Alt+3", "The machines that serve models, and the models they serve"))
     ctx.check("Packs is Alt+4, the Pack Manager", rows[3][1:] == ("Packs", "Alt+4", "Install, grant and enable packs"))
-    ctx.check("Setup is Alt+5", rows[4][1:] == ("Setup", "Alt+5", "Providers, models, permissions, theme and lineup"))
-    ctx.check("Settings is Alt+6", rows[5][1:] == ("Settings", "Alt+6", "Every config key, one page per group"))
-    ctx.check("Local is the last, Alt+7", rows[-1][1:] == ("Local", "Alt+7", "The machines that serve models, and the models they serve"))
+    ctx.check("Setup is Alt+5", rows[4][1:] == ("Setup", "Alt+5", "Providers, models, permissions, theme, lineup and machines"))
+    ctx.check("Settings is the last, Alt+6", rows[-1][1:] == ("Settings", "Alt+6", "Every config key, one page per group"))
+    ctx.check("no Fleet section (3.3.16.0 R2: Agents -> Live, Setup -> Machines, Local)", "fleet" not in [r[0] for r in rows])
     reg = (UI / "routes" / "packs" / "registry.ts").read_text(encoding="utf-8")
-    ctx.check("3.3.16.0 R1: Alt+8, Alt+9 and Alt+0 are the first three pack sections' (FIRST_KEY = 8, LAST_KEY = 10)",
-              "const FIRST_KEY = 8;" in reg and "const LAST_KEY = 10;" in reg and "`Alt+${n % 10}`" in reg)
+    ctx.check("3.3.16.0 R2: Alt+7 to Alt+0 are the first four pack sections' (FIRST_KEY = 7, LAST_KEY = 10)",
+              "const FIRST_KEY = 7;" in reg and "const LAST_KEY = 10;" in reg and "`Alt+${n % 10}`" in reg)
     store = (UI / "lib" / "store.ts").read_text(encoding="utf-8")
-    ctx.check("lib/store.ts's SECTION_IDS are the seven, in the order",
-              'SECTION_IDS: CoreSectionId[] = ["session", "agents", "fleet", "packs", "setup", "settings", "local"]' in store)
+    ctx.check("lib/store.ts's SECTION_IDS are the six, in the order",
+              'SECTION_IDS: CoreSectionId[] = ["session", "agents", "local", "packs", "setup", "settings"]' in store)
     keys = (UI / "shell" / "keys.ts").read_text(encoding="utf-8")
     ctx.check("Alt+1..9 and Alt+0 take the registry's n-th section (3.2.0.0 R3: sections() is the core ones, then the packs'; "
               "3.3.5.0 R1: Digit0 is the tenth slot)", "sections()[slot - 1]" in keys and "(Number(e.code.slice(5)) || 10)" in keys
@@ -95,15 +98,15 @@ def test_the_ui_copy_and_comments_name_the_registry_key(ctx: Ctx):
 
 @test
 def test_the_modes_banner_draws_the_registry_order(ctx: Ctx):
-    rows = so.registry()  # 3.2.0.0 R7: the Packs tile too (tools/capture_packs.py); ...; 3.3.16.0 R1: one Agents tile, seven in all
+    rows = so.registry()  # 3.2.0.0 R7: the Packs tile too (tools/capture_packs.py); ...; 3.3.16.0 R1: one Agents tile; R2: six in all
     frames = so.banner_frames()
-    ctx.check(f"seven tiles, got {len(frames)}", len(frames) == 7)
+    ctx.check(f"six tiles, got {len(frames)}", len(frames) == 6)
     ctx.check(f"the tiles run in the registry's order, got {[f[1] for f in frames]}", [f[1] for f in frames] == [r[1] for r in rows])
     ctx.check(f"each tile's key chip is its registry key, got {[f[2] for f in frames]}",
               [f[2] for f in frames] == [r[2].replace("+", " ") for r in rows])
     ctx.check(f"each tile is its section's capture, got {[f[0] for f in frames]}", [f[0] for f in frames] == [f"studio-{r[0]}.png" for r in rows])
     readme = (REPO / "README.md").read_text(encoding="utf-8")
-    alt = re.search(r'<img alt="(Halo Studio\'s seven sections[^"]*)" src="docs/media/studio-modes.png"', readme)
+    alt = re.search(r'<img alt="(Halo Studio\'s six sections[^"]*)" src="docs/media/studio-modes.png"', readme)
     pairs = re.findall(r"(\w+) \((Alt\+\d)\)", alt.group(1)) if alt else []
     ctx.check(f"the README banner's alt text names each section with its key in that order, got {pairs}",
               pairs == [(r[1], r[2]) for r in rows])
@@ -136,18 +139,18 @@ def test_the_reader_catches_a_stale_key(ctx: Ctx):
         finally:
             tmp.unlink()
 
-    ctx.check("Fleet (`Alt+3`) passes", probe("Fleet (`Alt+3`) shows every harness.\n") == [])
-    ctx.check("Fleet (`Alt+4`) is stale", len(probe("Fleet (`Alt+4`) shows every harness.\n")) == 1)
+    ctx.check("Local (`Alt+3`) passes", probe("Local (`Alt+3`) shows every host.\n") == [])
+    ctx.check("Local (`Alt+4`) is stale", len(probe("Local (`Alt+4`) shows every host.\n")) == 1)
     ctx.check("`Alt+1` Session; passes", probe("**Keys.** `Alt+1` Session; `J` hops.\n") == [])
     ctx.check("a heading names the section", probe("### Session\n\nPress `Alt+1` and it opens.\n") == [])
-    ctx.check("a heading on another section flags it", len(probe("### Fleet\n\nPress `Alt+1` and it opens.\n")) == 1)
+    ctx.check("a heading on another section flags it", len(probe("### Local\n\nPress `Alt+1` and it opens.\n")) == 1)
     ctx.check("a key with no section is flagged", len(probe("Press `Alt+2` now.\n")) == 1)
-    ctx.check("3.3.16.0 R1: Local (`Alt+7`) passes", probe("Local (`Alt+7`) shows the card live.\n") == [])
-    ctx.check("3.3.16.0 R1: Local (`Alt+9`) is stale", len(probe("Local (`Alt+9`) shows the card live.\n")) == 1)
+    ctx.check("3.3.16.0 R2: Settings (`Alt+6`) passes", probe("Settings (`Alt+6`) holds every key.\n") == [])
+    ctx.check("3.3.16.0 R2: Local (`Alt+7`) is stale", len(probe("Local (`Alt+7`) shows the card live.\n")) == 1)
     ctx.check("3.3.16.0 R1: Agents (`Alt+2`) passes", probe("Agents (`Alt+2`) holds the cast, its runs and Live.\n") == [])
-    ctx.check("3.3.16.0 R1: the design pack's section (`Alt+8`) passes", probe("The design pack's section (`Alt+8`) holds the artboards.\n") == [])
-    good = "`Alt+1`..`Alt+6`: Session, Agents, Fleet,\nPacks, Setup, Settings.\n"
-    stale = "`Alt+1` to `Alt+6` switch between **Fleet**, **Agents**, **Packs**, **Setup**,\n**Settings** and **Session**.\n"
+    ctx.check("3.3.16.0 R2: the design pack's section (`Alt+7`) passes", probe("The design pack's section (`Alt+7`) holds the artboards.\n") == [])
+    good = "`Alt+1`..`Alt+6`: Session, Agents, Local,\nPacks, Setup, Settings.\n"
+    stale = "`Alt+1` to `Alt+6` switch between **Local**, **Agents**, **Packs**, **Setup**,\n**Settings** and **Session**.\n"
     ctx.check("a range over the registry order passes", probe(good) == [])
     ctx.check("a range over the old order is flagged", len(probe(stale)) == 1)
 

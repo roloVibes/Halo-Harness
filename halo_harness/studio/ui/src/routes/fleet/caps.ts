@@ -7,9 +7,8 @@
 import { api, ApiError } from "../../lib/api";
 import { onEvent } from "../../lib/events";
 import { createStore, useStore } from "../../lib/store";
-import { select } from "./actions";
-import { showFleetPanel } from "./extras";
-import { fleet, keyOf } from "./store";
+import { openFleetLive } from "../agents/fleetDoor";
+import { setMachinePage } from "../agents/live/scope";
 
 export type Tool = { name: string; desc: string };
 export type McpServer = { name: string; transport: string; tools: Tool[] | null; note?: string };
@@ -93,18 +92,13 @@ export async function runWho(q: string): Promise<void> {
   }
 }
 
-/** Pick a harness: its spec card opens, its map box lights, its first live session's main agent is selected. */
-export function focusHarness(hid: string, panel = ""): void {
+/** Pick a harness: its box lights on Live, its spec card opens -- 3.3.16.0 R2: the machine's summary on Agents -> Live,
+ *  on its Specs page (the Who box, the card, the recall box); `panel` is the old Fleet panel word, kept for its callers. */
+export function focusHarness(hid: string, _panel = ""): void {
   caps.update((s) => ({ focus: hid, open: { ...s.open, [hid]: true } }));
-  const h = fleet.get().harnesses.find((x) => x.id === hid);
-  const top = h?.sessions?.[0];
-  if (h && top) select(keyOf(h.id, top.session_id, "main"));
-  if (panel) showFleetPanel(panel);
+  openFleetLive(hid);
+  setMachinePage("specs");
   window.setTimeout(() => document.querySelector(`[data-testid="fleet-caps-card"][data-id="${CSS.escape(hid)}"]`)?.scrollIntoView({ block: "nearest" }), 120);
-}
-
-export function chipsFor(hid: string): string[] {
-  return caps.get().rows?.find((r) => r.harness === hid)?.chips || [];
 }
 
 export function startCaps(): void {

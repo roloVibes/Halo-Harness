@@ -4,7 +4,7 @@ builds the queue, studio/fleet_answer.py routes the keys).
 
     ollama_steward   a note of the last WITHIN_S whose findings carry severity
                      `error`, or any change (`attention: true` in steward.jsonl,
-                     ollama_steward/notes.py)      a set aside | o open Ollama
+                     ollama_steward/notes.py)      a set aside | o open Local -> Hosts
 
 One row, the newest such note: `what` is its first line, `detail` the rest
 (and the cost of the model's call); setting it aside hides that note's row,
@@ -38,7 +38,8 @@ def _rows(home, local: dict, seen: dict, now: float) -> list:
         n = marked[-1]
         rest = list((n.get("lines") or [])[1:])
         out.append(_row(KIND, str(n.get("id")), local, None, "", one_line(notes.first_line(n), 240),
-                        one_line(" ".join(rest), 240), seen, now, note=n.get("id"), stage=n.get("stage")))
+                        one_line(" ".join(rest), 240), seen, now, note=n.get("id"), stage=n.get("stage"),
+                        host=n.get("where") or (n.get("data") or {}).get("host") or ""))
     hub = notes.hub_note(home)
     if hub and hub.get("attention"):
         from halo_harness.ollama_steward.ledger import parse_at
@@ -50,7 +51,8 @@ def _rows(home, local: dict, seen: dict, now: float) -> list:
 
 def open_target(row: dict) -> dict:
     t = row.get("target") or {}
-    return {"section": "fleet", "panel": "ollama", "note": t.get("note"), "hub": t.get("hub")}
+    # 3.3.16.0 R2: the Fleet section went; the shell opens Local -> Hosts on `host` (routes/agents/fleetDoor.ts)
+    return {"section": "fleet", "panel": "ollama", "note": t.get("note"), "hub": t.get("hub"), "host": t.get("host") or ""}
 
 
 def latest_attention(home, now: float = None) -> "dict | None":

@@ -1,4 +1,4 @@
-// The Ollama panel's store (3.3.4.0 R5; studio/ollama_steward_api.py): `GET ollama/steward` (the job's status,
+// The steward's store (3.3.4.0 R5 as the Fleet Ollama panel's; 3.3.16.0 R2: Local's; studio/ollama_steward_api.py): `GET ollama/steward` (the job's status,
 // the notes, the mode, the pending proposals and the changes in place), `GET ollama/hosts` (per host the card,
 // the models, the findings, the fit plan; the Hugging Face local servers) and `GET ollama/timeline` (the
 // ledger per minute). Live through the job's `steward` frames; a job in another process (the hub, `--watch`)

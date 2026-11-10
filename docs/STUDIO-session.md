@@ -143,7 +143,7 @@ grouped by provider, the rows the Setup default-model block lists, the default f
 own by default), then **New session**. Studio's server starts `halo --headless --session-for studio` as a child: the
 same loop the terminal runs, the same session log, its control socket the only door
 ([REMOTE.md](REMOTE.md#a-session-without-a-terminal-33110-r2)). Session opens on it with the keyboard in the Prompt
-box; it registers a moment later and shows in Fleet and on the Map as a session of this harness, its chip saying
+box; it registers a moment later and shows on Agents -> Live and on the Map as a session of this harness, its chip saying
 **no terminal**.
 
 You drive it from the Prompt panel exactly as a terminal session: a turn, a `/` command, Queue it and Steer while a

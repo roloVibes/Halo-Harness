@@ -79,7 +79,7 @@ def auto(c, rig) -> dict:
 def spawn_line(c, rig, lv) -> dict:
     """A member spawned while the Session section shows: its line says what it runs on and why."""
     c.go(rig.url("session"))
-    c.wait(f"!!{COL} && document.querySelectorAll('[data-testid=\"session-map\"] [data-testid=\"fleet-node\"]').length >= 3", 40)
+    c.wait(f"!!{COL} && document.querySelectorAll('[data-testid=\"session-map\"] [data-testid=\"roles-live-node\"]').length >= 3", 40)
     time.sleep(1.0)  # the first look at the tree is silent
     lv.rows["m3d1a001"] = row("m3d1a001", "media", "media", "auto-media", "auto", "or:mock/vision-eyes", MEDIA_WHY,
                               "Describe shot.png")

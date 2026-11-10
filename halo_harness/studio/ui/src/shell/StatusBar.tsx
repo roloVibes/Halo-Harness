@@ -3,21 +3,16 @@
 // session and event counts, the section's own status line (3.0.7.0: Roles
 // and Design set theirs from their stores: the lineup and its problems,
 // the project), the section
-// and its layout, and the keys. The FLEET cell counts the agents at work and
-// the decisions waiting in the Fleet attention queue, in every section;
-// 3.0.6.0 R8: and the fleet missions running now. 3.1.6.0 R6: the section keys' hint reads the registry's first and
-// last key. 3.3.16.0 R1: the TEAM cell went with Team's board (a team run's gate still shows in Fleet: Attention);
-// in Agents the layout and the status line are the view's own workspace's (Cast's Roles, Runs' Orchestra).
+// and its layout, and the keys. 3.1.6.0 R6: the section keys' hint reads the registry's first and last key.
+// 3.3.16.0 R1: the TEAM cell went with Team's board; in Agents the layout and the status line are the view's own
+// workspace's (Cast's Roles, Runs' Orchestra). 3.3.16.0 R2 "the Fleet fold": the FLEET cell went with the section --
+// the decisions waiting are Agents' Attention chip, the agents at work the count on Agents' rail icon, the missions
+// running Runs' list.
 import { HudCell, HudStrip, Kbd } from "../lib/ui";
 import { studio, useStore } from "../lib/store";
 import { layoutStore } from "../lib/workspace/persist";
 import { FeedDot } from "../routes/orchestra/FeedPanels";
 import { SECTIONS, useSectionDef } from "../routes";
-import { useAttnCount } from "../routes/fleet/pstore";
-import { useRunningMissions } from "../routes/fleet/Mission";
-import { useCounts } from "../routes/fleet/store";
-import { startFleet } from "../routes/fleet/sync";
-import { useEffect } from "react";
 
 const FEED_TEXT = { off: "feed off", connecting: "connecting", open: "live", retrying: "reconnecting", down: "feed down" } as const;
 
@@ -29,10 +24,6 @@ export function StatusBar() {
   const line = useStore(studio, (s) => s.status[def.id] || s.status[section]);
   const title = def.title;
   const paged = !!def.paged; // 3.3.1.0 R1: Setup has pages, not a layout
-  useEffect(() => startFleet(), []); // the fleet counts in every section, rail open or not
-  const fleet = useCounts();
-  const attn = useAttnCount(fleet.attention);
-  const running = useRunningMissions();
   return (
     <HudStrip label="Status">
       <HudCell title="The live feed from every running halo session (/api/events)">
@@ -43,13 +34,6 @@ export function StatusBar() {
       </HudCell>
       <HudCell label="SESSIONS">
         <span className="mono">{feed.sessions.length}</span>
-      </HudCell>
-      <HudCell label="FLEET" title="Agents at work in every connected harness, the missions running and how many decisions wait on you (Fleet: Attention)">
-        <span className="mono" data-testid="status-fleet">
-          {fleet.live} live
-          {running > 0 && <span data-testid="status-missions"> · {running} mission{running === 1 ? "" : "s"}</span>}
-          {attn > 0 && <b className="fr-attn" data-testid="status-attention"> · {attn} need{attn === 1 ? "s" : ""} you</b>}
-        </span>
       </HudCell>
       <HudCell label="EVENTS">
         <span className="mono">

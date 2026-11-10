@@ -33,8 +33,8 @@ sys.path.insert(0, str(REPO / "tools"))
 from tests.helpers.chrome_driver import Driver  # noqa: E402
 from tests.helpers.studio_packs_steps import CUR, alt, mod_key, q, qa  # noqa: E402
 
-CORE = [("session", "Session"), ("agents", "Agents"), ("fleet", "Fleet"), ("packs", "Packs"), ("setup", "Setup"),
-        ("settings", "Settings"), ("local", "Local")]  # 3.3.16.0 R1: Agents took in Team, Roles and Orchestra
+CORE = [("session", "Session"), ("agents", "Agents"), ("local", "Local"), ("packs", "Packs"), ("setup", "Setup"),
+        ("settings", "Settings")]  # 3.3.16.0 R1: Agents took in Team, Roles and Orchestra; R2: and Fleet
 OPEN = ("[document.querySelectorAll('[data-testid=section-help]').length, document.querySelectorAll('[role=dialog]').length, "
         "document.querySelectorAll('[data-testid=start-here]').length]")
 APP = q(".app")
@@ -105,8 +105,8 @@ def rail(c, url, ctx) -> dict:
     c.wait(f"{APP}.dataset.rail === 'icons'", 5)
     load(c, ctx, "roles", "Agents", "&tour=off")
     out["rail_back"] = [c.js(f"{APP}.dataset.rail"), c.js(RAIL_W), c.js("localStorage.getItem('halo.studio.rail')")]
-    alt(c, 3)  # 3.3.16.0 R1: Fleet is Alt+3
-    out["alt4"] = c.wait(f"{CUR}.startsWith('Fleet') && {q('.rail [data-testid=section-tab].on')}.dataset.tabId", 15)
+    alt(c, 3)  # 3.3.16.0 R2: Local is Alt+3
+    out["alt4"] = c.wait(f"{CUR}.startsWith('Local') && {q('.rail [data-testid=section-tab].on')}.dataset.tabId", 15)
     c.click_on(q(".rail [data-testid=section-tab][data-tab-id=agents]"))  # 3.3.16.0 R1: Team's row went; Agents'
     out["click_team"] = c.wait(f"{CUR}.startsWith('Agents') && 'agents'", 15)
     return out

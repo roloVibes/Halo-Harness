@@ -1,29 +1,14 @@
-// The map laid out as a tree (3.1.5.0 R3, Session's scope: one harness box;
-// the owner "saw a chain where there was a fan"): each session's card across
-// the box, its agents under it top-down, every agent's children fanned out
-// side by side under it (as many to a row as the map's width holds at full
-// size, `perRow`, the next row under the first), the parent centred over its fan, an elbow edge from the parent's
-// bottom over a bus to each child's top (a later row's edges run down the
-// gaps between the first row's subtrees, never through a node). Every node has the same width, so a label is
-// fitted to it and no two labels can overlap. Pure: Map.tsx draws it.
-// 3.3.11.0 R2: the layered layout itself (`forestOf` + `placeForest`, any node size) is shared with Roles Live
-// (routes/roles/liveLayout.ts), and the Map reads each session's agents through the work record adapter
-// (lib/work/record.ts `recordOf`), the same tree Roles Live draws.
-import { recordOf } from "../../lib/work/record";
-import { keyOf } from "./store";
-import type { Box, Card, Geometry, NodeBox } from "./layout";
-import type { Harness } from "./types";
-
-export const TREE_W = 176;
-export const TREE_H = 58;
+// A tree laid out in layers (3.1.5.0 R3, the owner "saw a chain where there was a fan"): every node's children
+// fanned out side by side under it (as many to a row as `per`, the next row under the first), the parent centred over
+// its fan, an elbow edge from the parent's bottom over a bus to each child's top (a later row's edges run down the gaps
+// between the first row's subtrees, never through a node). Every node has the same size, so a label is fitted to it
+// and no two labels can overlap. Pure. 3.3.11.0 R2: shared by Roles Live (routes/roles/liveLayout.ts) and the Session
+// Map; 3.3.16.0 R2 "the Fleet fold": the Fleet Map is gone, Agents -> Live (and Session's Map, its thumbnail) is the
+// one tree that uses it.
+const TREE_W = 176;
+const TREE_H = 58;
 const HG = 12;
 const VG = 30;
-const PAD = 14;
-const HEAD = 44;
-const CARD_H = 52;
-const S_GAP = 20;
-const MARGIN = 6;
-const MIN_BOX = 340;
 
 /** A node's size and the gaps: between siblings (`hg`) and between a parent and its fan (`vg`). */
 export type Dims = { w: number; h: number; hg: number; vg: number };
@@ -105,41 +90,3 @@ export function placeForest(f: Forest, x: number, y: number, dims: Dims, out: Pl
   }
 }
 
-/** How many nodes fit side by side in `width` px of map (2 to 5; 3 when the width is not known yet). */
-export function perRowFor(width: number): number {
-  if (!width) return 3;
-  return Math.max(2, Math.min(5, Math.floor((width - 2 * (MARGIN + PAD) + HG) / (TREE_W + HG))));
-}
-
-/** One harness box (Session's scope): its sessions stacked, each card over its agents' tree. */
-export function treeLayout(h: Harness, label: string, sub: string, hc: string, local: boolean, per = 3, cardH = CARD_H): Geometry {
-  const geo: Geometry = { width: 0, height: 0, boxes: [], cards: [], nodes: [], edges: [], parts: [] };
-  const forests = (h.sessions || []).map((s) => {
-    const rec = recordOf(h, s);
-    return { s, rec, f: forestOf(rec.agents.map((a) => ({ id: a.id, parent: a.parent })), per) };
-  });
-  const inner = Math.max(MIN_BOX - 2 * PAD, ...forests.map((x) => x.f.w));
-  const ox = MARGIN + PAD;
-  let y = MARGIN + HEAD;
-  for (const { s, rec, f } of forests) {
-    const card: Card = { x: ox, y, w: inner, h: cardH, harness: h, session: s, hc };
-    geo.cards.push(card);
-    y += cardH + VG * 0.6;
-    const placed: Placed[] = [];
-    placeForest(f, ox + (inner - f.w) / 2, y, MAP_DIMS, placed, { x: card.x + card.w / 2, y: card.y + cardH });
-    const byId = new Map(rec.agents.map((a) => [a.id, a]));
-    for (const p of placed) {
-      const key = keyOf(h.id, s.session_id, p.id);
-      const n: NodeBox = { x: p.x, y: p.y, w: TREE_W, h: TREE_H, ref: { key, h, s, a: byId.get(p.id)!.row, depth: p.depth }, hc, tree: true };
-      geo.nodes.push(n);
-      geo.edges.push({ from: p.from ? keyOf(h.id, s.session_id, p.from) : null, to: key, d: p.d });
-    }
-    y += f.h + S_GAP;
-  }
-  if (!forests.length) y += 34;
-  const box: Box = { x: MARGIN, y: MARGIN, w: inner + 2 * PAD, h: y - MARGIN + PAD - (forests.length ? S_GAP : 0), key: "h:" + h.id, label, sub, online: true, local, hc, empty: !forests.length, lane: 0 };
-  geo.boxes.push(box);
-  geo.width = box.w + 2 * MARGIN;
-  geo.height = Math.max(120, box.h + 2 * MARGIN);
-  return geo;
-}

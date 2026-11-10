@@ -49,13 +49,11 @@
 .fpe-specs:hover { text-shadow: 0 0 6px var(--accent); }
 
 /* -- the map: chips on a harness box, the box Who picked -------------------------------- */
-.fm-chip rect { fill: color-mix(in srgb, var(--accent) 12%, var(--bg)); stroke: color-mix(in srgb, var(--accent) 45%, transparent); stroke-width: 1; }
-.fm-chip text { font: 10px var(--mono); fill: var(--accent); }
-.fm-box[data-who] .fm-box-shape { stroke: var(--accent); stroke-width: 2; filter: drop-shadow(0 0 8px var(--accent)); }
+.rlm-machine-box[data-who] { border-color: var(--accent); border-width: 2px; }
 @media (prefers-reduced-motion: no-preference) {
-  .fm-box[data-who] .fm-box-shape { animation: fcap-pick 1.6s var(--ease) 2; }
+  .rlm-machine-box[data-who] { animation: fcap-pick 1.6s var(--ease) 2; }
 }
-@keyframes fcap-pick { 50% { stroke-opacity: .45; } }
+@keyframes fcap-pick { 50% { opacity: .45; } }
 
 /* -- the compact face: the Who box and its best three, one line each ------------------- */
 .fcap-glance { display: grid; gap: 6px; align-content: start; }

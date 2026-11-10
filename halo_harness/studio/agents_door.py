@@ -1,9 +1,12 @@
-"""halo_harness.studio.agents_door -- the words of the sections Agents took in (Halo 3.3.16.0 R1 "Agents: one section").
+"""halo_harness.studio.agents_door -- the words of the sections Agents took in (Halo 3.3.16.0 R1 "Agents: one section";
+R2 "the Fleet fold").
 
 Team, Roles and Orchestra are one Studio section now, Agents (Alt+2), with three views: Cast (the lineup and its bios:
 Roles' canvas), Runs (Orchestra: a goal, the lead's plan, the lanes, the report; Team's board went: a run's plan shows
-who owns what) and Live (Roles Live: the session's agents as a tree). The three old words stay doors -- `halo studio
---mode roles|orchestra|team`, `/studio <word>`, `/roles`, a page's `?mode=<word>` (the page itself lands them:
+who owns what) and Live (Roles Live: the session's agents as a tree). R2 folded the Fleet section in too: a machine's
+agents are Agents -> Live with the fleet scope on (every machine, its sessions, their agents), its models are Local's,
+pairing and the people Setup -> Machines', a mission Agents -> Runs'. The old words stay doors -- `halo studio --mode
+roles|orchestra|team|fleet`, `/studio <word>`, `/roles`, a page's `?mode=<word>` (the page itself lands them:
 ui/src/lib/agentsDoor.ts) -- and each answer prints the new door once:
 
     view_of(word)    'cast' | 'runs' | 'live' for an Agents word ('' for any other)
@@ -13,9 +16,11 @@ ui/src/lib/agentsDoor.ts) -- and each answer prints the new door once:
 from __future__ import annotations
 
 #: The old section words and the Agents view each lands on.
-DOORS = {"roles": "cast", "orchestra": "runs", "team": "runs"}
+DOORS = {"roles": "cast", "orchestra": "runs", "team": "runs", "fleet": "live"}
 VIEWS = ("cast", "runs", "live")
 TEAM_LINE = "Team's board is gone; a run's plan shows who owns what (halo team still runs the team file)"
+FLEET_LINE = ("machines are Setup -> Machines (pairing, sharing, people), their models Local, a mission Agents -> Runs; "
+              "halo fleet still runs the hub and the table")
 
 
 def view_of(word) -> str:
@@ -28,5 +33,8 @@ def door_line(word) -> str:
     view = DOORS.get(w)
     if not view:
         return ""
+    if w == "fleet":
+        return f"Fleet is Agents -> Live now, the fleet scope on (Alt+2 in Studio; halo studio --mode agents). {FLEET_LINE}"
     line = f"{w.title()} is Agents -> {view.title()} now (Alt+2 in Studio; halo studio --mode agents)"
     return f"{line}. {TEAM_LINE}" if w == "team" else line
+

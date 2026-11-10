@@ -35,10 +35,10 @@ from typing import Callable, Optional
 from urllib.parse import urlsplit
 
 # The page's blocks by the word a door uses (each is a step's page, routes/setup/pages.ts stepOf); `roles` is the Team block's old name.
-BLOCKS = ("providers", "local", "model", "permissions", "theme", "team", "linux", "check")
+BLOCKS = ("providers", "local", "model", "permissions", "theme", "team", "linux", "check", "machines")  # 3.3.16.0 R2: Machines
 ALIASES = {"roles": "team"}
 BLOCK_TITLES = {"providers": "Providers", "local": "Local models", "model": "Default model", "permissions": "Permissions",
-                "theme": "Theme", "team": "Team", "linux": "Linux fixes", "check": "Check"}
+                "theme": "Theme", "team": "Team", "linux": "Linux fixes", "check": "Check", "machines": "Machines"}
 
 
 @dataclass(frozen=True)

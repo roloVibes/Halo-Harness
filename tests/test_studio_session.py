@@ -130,9 +130,9 @@ def test_session_param_chooses_that_session(ctx: Ctx):
 def test_alt_keys_and_fleet_keeps_everything(ctx: Ctx):
     r, got = _driver("dash")
     _ran(ctx, r, got)
-    ctx.check(f"Alt+3 shows Fleet, got {got.get('alt4')!r}", str(got.get("alt4")).startswith("Fleet"))
-    ctx.check(f"Fleet still draws every harness, got {got.get('fleet_boxes')}", got.get("fleet_boxes") == ["you@studio", "kali@lab"])
-    ctx.check(f"and the member's attention rows, got {got.get('fleet_attn')}", (got.get("fleet_attn") or 0) >= 2)
+    ctx.check(f"Alt+2 shows Agents (3.3.16.0 R2: Fleet folded in), got {got.get('alt4')!r}", str(got.get("alt4")).startswith("Agents"))
+    ctx.check(f"its Live still draws every harness, got {got.get('fleet_boxes')}", got.get("fleet_boxes") == ["you@studio", "kali@lab"])
+    ctx.check(f"and Attention the member's rows, got {got.get('fleet_attn')}", (got.get("fleet_attn") or 0) >= 2)
     ctx.check(f"Alt+1 comes back to Session, its map still one box, got {got.get('alt1')!r} {got.get('back_boxes')}",
               str(got.get("alt1")).startswith("Session") and got.get("back_boxes") == 1)
 

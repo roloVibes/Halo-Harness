@@ -14,7 +14,7 @@ Studio as well, and `halo update` stops it before installing.
 
 
 ```sh
-halo studio [--mode session|agents|fleet|packs|setup|settings|local|<pack>--<section>] [--port N] [--no-open] [--cwd DIR] [--fleet]
+halo studio [--mode session|agents|local|packs|setup|settings|<pack>--<section>] [--port N] [--no-open] [--cwd DIR] [--fleet]
 halo studio --edit bio:<name> | lineup:<name>[:<block>] | team [--no-open]
 halo studio --session [<id>] [--prompt] [--no-open]
 ```
@@ -22,7 +22,7 @@ halo studio --session [<id>] [--prompt] [--no-open]
 ### `--session`
 
 3.1.4.0: `--session [<id>]` opens the **Session** section (`Alt+1`, this
-session, live: the Fleet map, activity, attention and agent panels scoped to
+session, live: the fleet's agent tree, activity, attention and agent inspector scoped to
 this harness, and the session's Cost) on the session `<id>` names (a prefix
 of a live session's id will do). Without `<id>` it is the newest live
 session on this harness; with none live, Session opens on its Start view and
@@ -73,6 +73,8 @@ Halo 2.1.0, modes in 3.0.2.0: opens Halo Studio, the browser GUI, straight
 into a section: 3.3.16.0 R1: `--mode agents` (Team, Roles and Orchestra in one: Cast, the lineups and agent bios as an
 editable graph; Runs, the run console; Live), and `--mode roles`, `orchestra` and `team` still open Agents on Cast, Runs
 and Runs, printing the new door once ("Roles is Agents -> Cast now (Alt+2 in Studio; halo studio --mode agents)");
+3.3.16.0 R2: `--mode fleet` opens Agents on Live with the fleet scope, printing "Fleet is Agents -> Live now, the fleet
+scope on" once with where the rest went (machines: Setup -> Machines; their models: Local; a mission: Agents -> Runs);
 3.2.0.0 R7: `--mode packs` (the Pack Manager; `?mode=packs` in the URL);
 without `--mode` it opens in the mode you used last; 3.3.13.0 R2: `--mode <pack>--<section>` opens a running pack's
 section (`--mode design--design`, the design pack's), and `--mode design` with that pack off says how to turn it on.

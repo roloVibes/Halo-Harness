@@ -5,7 +5,7 @@ before, the fixture's hello.js buttons each call one api function and write its 
 - publish: hello.said shows in the pack's own events panel, and the bundle's on() hears its own publish;
 - an undeclared kind is refused with the server's line;
 - getData reads note.json from the pack's data folder; mode() reads the mode `halo pack mode` turned on;
-- attention raises a row; route goes to Fleet, where the attention queue shows that row, the pack named.
+- attention raises a row; route goes to the fleet (Agents -> Live), where the Attention queue shows that row, the pack named.
 """
 from __future__ import annotations
 
@@ -50,7 +50,9 @@ def bundle_api(c, url, ctx) -> dict:
     out["bundle_grant_self"] = _click(c, "grant-self", "lib: ")
     out["bundle_grants_after"] = S.granted("studio-bundle", S.load(ctx["state"]))
     press(c, panel(GREET, "[data-testid=bundle-route]"))
-    out["bundle_route"] = c.wait(f"{CUR}.startsWith('Fleet') && {CUR}", 15)
+    out["bundle_route"] = c.wait(f"{CUR}.startsWith('Agents') && {CUR}", 15)  # 3.3.16.0 R2: the fleet word is Agents -> Live
+    from tests.helpers.studio_packs_steps import fleet_queue
+    fleet_queue(c)
     row = q('[data-panel="fleet-attention"] [data-testid=fleet-attn-row][data-kind="pack:studio-bundle:hello.ask"]')
     c.wait(f"!!{row}", 25)
     out["bundle_attn_what"] = c.js(f"{row}.querySelector('.fat-what').textContent")

@@ -394,5 +394,5 @@ topics. `--sources` adds the `SOURCES.md` rows the answer cites. Exit 0; 1
 when nothing names the word (the list follows).
 
 The same views without the CLI (3.3.4.0 R5): `/ollama` (and `/ollama findings | plan | explain <kind>`) in the
-TUI and `-p`, Fleet's Ollama panel in Studio (Apply, Dismiss for 24 hours, Undo, Copy for a server line) and
+TUI and `-p`, Local -> Hosts and Steward in Studio (3.3.16.0 R2; Apply, Dismiss for 24 hours, Undo, Copy for a server line) and
 Settings -> Ollama's steward block: [MODELS-ollama-steward.md](MODELS-ollama-steward.md#in-studio).

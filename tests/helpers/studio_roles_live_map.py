@@ -61,11 +61,13 @@ def open_live(c, rig) -> dict:
     lv = rig.live_map = Live(rig, extra=())
     spawned(lv)
     c.go(rig.url("session"))
-    c.wait("document.querySelectorAll('[data-testid=\"session-map\"] [data-testid=\"fleet-node\"]').length >= 6 && 'session'", 40)
+    c.wait("document.querySelectorAll('[data-testid=\"session-map\"] [data-testid=\"roles-live-node\"]').length >= 6 && 'session'", 40)
     alt(c, 2)  # 3.3.16.0 R1: Agents, on Cast
     c.wait("document.querySelectorAll('[data-testid=\"roles-card\"]').length > 0 && 'plan'", 40)
     out = {"plan_glows": c.wait("[...document.querySelectorAll('[data-testid=\"roles-card\"][data-live]')].map((n) => n.dataset.agent).sort().join(',') || null", 15)}
     l_key(c)
+    c.wait(f"!!{MAP}", 30)  # 3.3.16.0 R2: with a member paired Live opens on the fleet; this halo is one click
+    c.click_on("document.querySelector('[data-testid=\"live-scope-here\"]')")
     out["sid"] = c.wait(f"{MAP} && +{MAP}.dataset.nodes >= 6 && {MAP}.dataset.session", 30)
     out["rig_sid"] = rig.act.session_id
     return out
@@ -109,7 +111,7 @@ def click_node(c, rig) -> dict:
     aid, name = SPAWNED[1][0], SPAWNED[1][1]
     card_click(c, node(aid))
     agent = "document.querySelector('[data-testid=\"roles-live\"][data-view=\"live\"] [data-testid=\"roles-live-agent\"]')"
-    got = c.wait(f"{agent} && [{agent}.dataset.key, {agent}.querySelector('.rl-head b')?.textContent, "
+    got = c.wait(f"{agent} && [{agent}.dataset.key, {agent}.querySelector('.fa-name')?.textContent, "
                  f"{agent}.querySelector('[data-testid=\"roles-live-reason\"]')?.textContent || '']", 15)
     return {"inspector": got, "selected": c.js(f"{node(aid)}?.dataset.selected || ''"), "want_name": name}
 
@@ -127,8 +129,8 @@ def thumb(c, rig) -> dict:
     """Session's Map is the thumbnail; its "Open in Roles Live" opens the same tree on Roles."""
     c.go(rig.url("session"))
     btn = "document.querySelector('[data-testid=\"session-map-expand\"]')"
-    c.wait(f"!!{btn} && !{btn}.disabled && document.querySelectorAll('[data-testid=\"session-map\"] [data-testid=\"fleet-node\"]').length >= 6", 40)
-    out = {"thumb_nodes": c.js("document.querySelectorAll('[data-testid=\"session-map\"] [data-testid=\"fleet-node\"]').length")}
+    c.wait(f"!!{btn} && !{btn}.disabled && document.querySelectorAll('[data-testid=\"session-map\"] [data-testid=\"roles-live-node\"]').length >= 6", 40)
+    out = {"thumb_nodes": c.js("document.querySelectorAll('[data-testid=\"session-map\"] [data-testid=\"roles-live-node\"]').length")}
     c.click_on(btn)
     out["expanded"] = c.wait(f"{MAP} && +{MAP}.dataset.nodes >= 6 && [{MAP}.dataset.session, +{MAP}.dataset.nodes, "
                              "document.querySelector('[data-testid=\"roles-view-live\"]')?.getAttribute('aria-pressed')]", 30)

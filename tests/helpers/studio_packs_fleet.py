@@ -34,10 +34,10 @@ sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "tools"))
 
 from tests.helpers.chrome_driver import Driver  # noqa: E402
-from tests.helpers.studio_full import toggle_face  # noqa: E402
+from tests.helpers.studio_fleet_mission import open_mission_panel  # noqa: E402
 
 TOOLS_ROW = {"ref": "or:anthropic/claude-sonnet-4.6", "provider": "openrouter", "tools": True}
-CAPS = "document.querySelector('[data-testid=\"fleet-capabilities\"]')"
+LOCAL = "document.querySelector('[data-testid=\"live-machine\"][data-local]')?.dataset.harness"
 MPANEL = "document.querySelector('[data-testid=\"fleet-mission\"]')"
 
 
@@ -48,10 +48,11 @@ def _q(sel: str) -> str:
 def capabilities(c, url, ctx) -> dict:
     from tests.helpers.studio_fleet_panels import open_strip, seen
     out: dict = {}
+    from tests.helpers.studio_fleet_caps import specs_of
     c.go(url)
-    c.wait(f"{CAPS}?.querySelector('.panel-title')?.title", 40)
-    open_strip(c, "fleet-capabilities")
-    toggle_face(c, '[data-testid="fleet-capabilities"]')  # 3.3.2.0 R3: Expand is a row of the ... menu
+    local = c.wait(LOCAL, 40)  # 3.3.16.0 R2: this machine's summary on Live, its Specs page (the Capabilities panel before)
+    open_strip(c, "roles-inspector")
+    specs_of(c, local)
     c.wait("document.querySelectorAll('[data-testid=\"fleet-caps-card\"]').length >= 1", 40)
     out["caps_packs"] = c.wait("document.querySelectorAll('[data-testid=\"fleet-caps-pack\"]').length === 2 && "
                                "[...document.querySelectorAll('[data-testid=\"fleet-caps-pack\"]')].map((li) => "
@@ -66,7 +67,7 @@ def mission(c, url, ctx) -> dict:
     from tests.helpers.studio_fleet_panels import open_strip, seen
     out: dict = {}
     mid = ctx["mission"]
-    open_strip(c, "fleet-mission")
+    open_mission_panel(c)  # 3.3.16.0 R2: Runs' Mission panel (M)
     btn = _q(f'[data-testid="fleet-mission-row"][data-id="{mid}"] [data-testid="fleet-mission-open"]')
     c.wait(f"!!{btn}", 30)
     seen(c, btn)
@@ -151,7 +152,7 @@ def member_inspector(c, url, ctx) -> dict:
     ctx["member_on"]["on"] = True  # the member's catalog arrives: the hub's frame tells Studio to read the catalogs again
     fleet_feed.publish(ctx["srv"], {"event": "fleet", "harness": MEMBER_ID, "data": {
         "action": "capabilities", "harness": MEMBER_ID, "name": "kali@lab", "hash": "r3member"}})
-    open_strip(c, "fleet-mission")
+    open_mission_panel(c)  # 3.3.16.0 R2: Runs' Mission panel (M)
     back = _q("[data-testid=fleet-mission-back]")
     if c.wait(f"!!{back} || !!{_q('[data-testid=fleet-mission-row]')}", 30) and c.js(f"!!{back}"):
         seen(c, back)

@@ -51,7 +51,7 @@ def _git(cwd: Path, *args: str) -> None:
 
 class StudioFleetRig:
     member_id = MEMBER
-    rail = ""  # 3.3.2.0 R2: the Fleet tree is Fleet's Tree panel now (tests/helpers/studio_tree.py), not the expanded rail's
+    rail = ""  # 3.3.2.0 R2: no expanded rail; 3.3.16.0 R2: the tree is Agents -> Live on the fleet
     full = True  # 3.3.2.0 R3: the drivers work in every panel (open=all, tests/helpers/studio_full.py); a capture sets False
     def __init__(self) -> None:
         self._saved = {k: os.environ.get(k) for k in _VARS}

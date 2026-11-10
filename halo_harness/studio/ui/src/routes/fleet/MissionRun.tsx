@@ -12,7 +12,8 @@
 import { Button, Icon } from "../../lib/ui";
 import { cost, short } from "../orchestra/format";
 import { openAgentPanel, select } from "./actions";
-import { useTicker } from "./MapNode";
+import { useTicker } from "../agents/live/nodeBits";
+import { OwnsLine } from "../agents/runs/Owns";
 import { missions, partMotion, partState, useMissions, usd, type PlanPart, type View } from "./mstore";
 import { keyOf, useFleet } from "./store";
 import type { AgentRow, Harness } from "./types";
@@ -55,11 +56,12 @@ function PartLine({ p, v }: { p: PlanPart; v: View }) {
         <div><b>{short(p.title, 56)}</b> <span className="muted mono">on {who}</span></div>
         <div className="fmi-live-now mono" data-testid="fleet-mission-now" title={now}>{short(now, 110)}</div>
         {run?.replanned && <div className="fmi-live-now mono muted" data-testid="fleet-mission-replanned" title={run.replanned}>{short(run.replanned, 140)}</div>}
+        <OwnsLine keys={p.claims} testid="mission-part-owns" />
       </div>
       <span className="fmi-pstate mono" data-state={st}>{st}</span>
       <span className="mono fmi-small">{cost(run?.cost_usd || 0)}</span>
       {live && (
-        <Button size="sm" variant="ghost" icon={<Icon name="agent" />} data-testid="fleet-mission-open-agent" title="select it on the map and open it in the Agent panel"
+        <Button size="sm" variant="ghost" icon={<Icon name="agent" />} data-testid="fleet-mission-open-agent" title="open it on Agents -> Live, in the inspector"
                 onClick={() => (select(live.key), openAgentPanel(live.key))}>Open the part's agent</Button>
       )}
     </li>

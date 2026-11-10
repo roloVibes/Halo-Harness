@@ -325,8 +325,8 @@ def start_steward(server: _Server) -> None:
         server.steward_job = None
 
 
-STUDIO_SECTIONS = ("session", "agents", "fleet", "packs", "setup", "settings", "local")  # 3.0.4.0 .. 3.3.5.0 R1; 3.3.13.0 R2: design is the design pack's (studio/modes.py); 3.3.16.0 R1: Agents took in Team, Roles and Orchestra
-STUDIO_MODES = STUDIO_SECTIONS + ("roles", "orchestra", "team")  # 3.3.16.0 R1: the old words stay doors to Agents' views (studio/agents_door.py)
+STUDIO_SECTIONS = ("session", "agents", "local", "packs", "setup", "settings")  # 3.0.4.0 .. 3.3.5.0 R1; 3.3.13.0 R2: design is the design pack's (studio/modes.py); 3.3.16.0 R1: Agents took in Team, Roles and Orchestra; R2: and Fleet (six core sections)
+STUDIO_MODES = STUDIO_SECTIONS + ("roles", "orchestra", "team", "fleet")  # 3.3.16.0 R1/R2: the old words stay doors to Agents' views (studio/agents_door.py)
 
 
 def url_for(server: _Server, mode: Optional[str] = None, edit: Optional[str] = None) -> str:
@@ -361,7 +361,7 @@ def ensure_background(*, cwd: Path, state_dir: Path, open_browser: bool = True, 
 
 def cmd_studio(argv: list) -> int:
     parser = argparse.ArgumentParser(prog="halo studio", description="Open Halo Studio, the browser GUI: this session live, lineups and agent bios as a graph, every harness, the local models, packs, Setup and Settings.")
-    parser.add_argument("--mode", default=None, metavar="SECTION", help="open straight into session, agents, fleet, packs, setup, settings, local, or a pack's section <pack id>--<section> (default: the mode you used last; roles, orchestra and team open Agents on Cast, Runs and Runs)")
+    parser.add_argument("--mode", default=None, metavar="SECTION", help="open straight into session, agents, local, packs, setup, settings, or a pack's section <pack id>--<section> (default: the mode you used last; roles, orchestra and team open Agents on Cast, Runs and Runs, fleet opens Agents on Live with the fleet scope)")
     parser.add_argument("--port", type=int, default=0, help="port to listen on (default: a free one)")
     parser.add_argument("--no-open", action="store_true", help="print the URL, do not open a browser")
     parser.add_argument("--cwd", default=None, help="the project directory for project-scope files (default: the current directory)")

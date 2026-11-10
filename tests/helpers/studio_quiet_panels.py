@@ -8,9 +8,10 @@ defaults: each of the six panel sections (Session, Team, Roles, Fleet, Orchestra
 browser (localStorage cleared, `view=workspace`): the primary panel's box over the stage, the other panels'
 state (strips at the foot), the focused ornament (one `.panel.focused`, one set of HUD brackets, one mono data
 line), no about line anywhere; with --shots a PNG per section.
-strip: in Fleet a strip opens in the column right of the map (the map gives up its columns, nothing overlaps), a
-click moves the ornament to it, its ? opens its help on the about line, collapsing it gives the rows back.
-saved: Alt+Shift+Up on the focused map saves a layout of its own; a reload keeps it (the badge); the header's
+strip: on Agents -> Live (`?mode=fleet`, 3.3.16.0 R2: the Fleet section went) the inspector's strip opens in the
+column right of the tree (the tree gives up its columns, nothing overlaps), a click moves the ornament to it, its ?
+opens its help on the about line, collapsing it gives the rows back.
+saved: Alt+Shift+Up on the focused tree saves a layout of its own; a reload keeps it (the badge); the header's
 "..." Reset layout returns to the quiet default.
 density: the header toggle switches `data-density` and the measured tokens (`--pad`, a panel's gutter, its
 title line, the body text), remembered across a reload; the palette's "Density: comfortable" switches it back.
@@ -32,7 +33,7 @@ from tests.helpers.studio_header_menus import more  # noqa: E402
 from tests.helpers.studio_packs_steps import CUR, mod_key, q, qa  # noqa: E402
 
 PRIMARY = [("session", "Session", "session-live"), ("roles", "Agents", "roles-graph"),  # 3.3.16.0 R1: Cast and Runs, by their doors
-           ("fleet", "Fleet", "fleet-map"), ("orchestra", "Agents", "graph"),
+           ("orchestra", "Agents", "graph"),  # 3.3.16.0 R2: Fleet folded into Agents -> Live (the roles workspace)
            ("packs", "Packs", "pm-installed")]
 RECT = "((e) => { const r = e.getBoundingClientRect(); return [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height)]; })"
 COVER = ("((p) => { const a = RECT(document.querySelector('[data-panel=\"' + p + '\"] .panel')), s = RECT(document.querySelector('.stage'));"
@@ -76,27 +77,27 @@ def defaults(c, url, ctx) -> dict:
 
 
 def strip(c, url, ctx) -> dict:
-    fresh(c, ctx, "fleet", "Fleet", "&view=workspace")
-    mp = q("[data-panel=fleet-map] .panel")
+    fresh(c, ctx, "fleet", "Agents")
+    mp = q("[data-panel=roles-graph] .panel")
     c.wait(f"!!{mp}", 40)
     time.sleep(1.0)
     out = {"map_before": c.js(f"{RECT}({mp})")}
-    c.click_on(q("[data-panel=fleet-attention] [data-testid=panel-strip]"))
-    att = q("[data-panel=fleet-attention] .panel")
+    c.click_on(q("[data-panel=roles-inspector] [data-testid=panel-strip]"))
+    att = q("[data-panel=roles-inspector] .panel")
     c.wait(f"{att}.dataset.collapsed !== 'true'", 10)
     time.sleep(0.6)
     out["att_open"] = c.js(f"{RECT}({att})")
     out["map_open"] = c.js(f"{RECT}({mp})")
     out["strips_below"] = c.js(f"{qa('.panel[data-collapsed]')}.every((p) => p.getBoundingClientRect().top >= {att}.getBoundingClientRect().bottom - 2)")
-    c.click_on(q("[data-panel=fleet-attention] .panel-title"))
+    c.click_on(q("[data-panel=roles-inspector] .panel-title"))
     time.sleep(0.4)
     out["ornament_click"] = c.js(ORNAMENT)
-    c.click_on(q("[data-panel=fleet-attention] [data-testid=panel-help-btn]"))
+    c.click_on(q("[data-panel=roles-inspector] [data-testid=panel-help-btn]"))
     out["help_first"] = c.wait(f"{q('[data-testid=panel-help] .panel-help-about')}?.textContent", 10)
-    out["about_title"] = c.js(f"{q('[data-panel=fleet-attention] .panel-title')}.title")
-    c.click_on(q("[data-panel=fleet-attention] [data-testid=panel-help-btn]"))
+    out["about_title"] = c.js(f"{q('[data-panel=roles-inspector] .panel-title')}.title")
+    c.click_on(q("[data-panel=roles-inspector] [data-testid=panel-help-btn]"))
     out["help_toggled"] = c.wait(f"!{q('[data-testid=panel-help]')} && 'closed'", 5)
-    c.click_on(q("[data-panel=fleet-attention] [data-testid=panel-strip]"))
+    c.click_on(q("[data-panel=roles-inspector] [data-testid=panel-strip]"))
     c.wait(f"{att}.dataset.collapsed === 'true'", 10)
     time.sleep(0.6)
     out["map_back"] = c.js(f"{RECT}({mp})")
@@ -105,16 +106,16 @@ def strip(c, url, ctx) -> dict:
 
 
 def saved(c, url, ctx) -> dict:
-    fresh(c, ctx, "fleet", "Fleet", "&view=workspace")
-    mp = q("[data-panel=fleet-map] .panel")
+    fresh(c, ctx, "fleet", "Agents")
+    mp = q("[data-panel=roles-graph] .panel")
     c.wait(f"!!{mp}", 40)
     time.sleep(1.0)
     before = c.js(f"{RECT}({mp})")
-    c.click_on(q("[data-panel=fleet-map] .panel-title"))
+    c.click_on(q("[data-panel=roles-graph] .panel-title"))
     mod_key(c, "ArrowUp", 38, 9, "ArrowUp")  # Alt+Shift+Up: four rows shorter, the user's own layout
     time.sleep(0.6)
-    out = {"map_mine": c.js(f"{RECT}({mp})"), "map_default": before, "key": c.js("!!localStorage.getItem('halo.studio.layout.fleet')")}
-    load(c, ctx, "fleet", "Fleet", "&view=workspace")
+    out = {"map_mine": c.js(f"{RECT}({mp})"), "map_default": before, "key": c.js("!!localStorage.getItem('halo.studio.layout.roles')")}
+    load(c, ctx, "fleet", "Agents")
     c.wait(f"!!{mp}", 40)
     time.sleep(1.0)
     out["map_reload"] = c.js(f"{RECT}({mp})")
@@ -122,7 +123,7 @@ def saved(c, url, ctx) -> dict:
     out["reset"] = more(c, "layout-reset")
     time.sleep(1.0)
     out["map_reset"] = c.js(f"{RECT}({mp})")
-    out["cover_reset"] = c.js(f"{COVER}('fleet-map')")
+    out["cover_reset"] = c.js(f"{COVER}('roles-graph')")
     out["badge_reset"] = c.js(f"!!{q('[data-testid=layout-badge]')}")
     return out
 

@@ -30,12 +30,13 @@ sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "tools"))
 
 from tests.helpers.chrome_driver import Driver  # noqa: E402
-from tests.helpers.studio_fleet_probe import OVERLAPS as FLEET_OVERLAPS  # noqa: E402  the Fleet layout's overlap check
 from tests.helpers.studio_header_menus import more  # noqa: E402
 
 WS = "document.querySelector('.workspace[data-section=\"roles\"]')"
-OVERLAPS = FLEET_OVERLAPS.replace('data-section="fleet"', 'data-section="roles"')
-assert OVERLAPS != FLEET_OVERLAPS
+# Every pair of cells whose boxes overlap (the Fleet probe's check until 3.3.16.0 R2 folded Fleet into Agents).
+OVERLAPS = f"""(() => {{ const cells = [...{WS}.querySelectorAll('.ws-cell')].map((c) => [c.dataset.panel, c.getBoundingClientRect()]); const out = [];
+  for (const [a, r] of cells) for (const [b, q] of cells) if (a < b && r.left < q.right - 1 && q.left < r.right - 1 && r.top < q.bottom - 1 && q.top < r.bottom - 1) out.push(a + '/' + b);
+  return out; }})()"""
 CELLS = f"""Object.fromEntries([...{WS}.querySelectorAll('.ws-cell')].map((c) => {{ const r = c.getBoundingClientRect();
   return [c.dataset.panel, {{x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height)}}]; }}))"""
 # every panel inside the workspace's visible box, and nothing below it to scroll to

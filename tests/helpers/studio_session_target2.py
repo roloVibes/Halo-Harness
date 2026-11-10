@@ -32,7 +32,7 @@ def keys(c, lv) -> dict:
     c.type_text("KEEP")
     before = c.js(TARGET_KEY)
     live = c.js(f"[...{AGENT_PICK}.options].map((o) => o.value).filter((v) => v && {list(LIVE)!r}.includes("
-                "document.querySelector(`[data-testid=\"session-map\"] [data-testid=\"fleet-node\"][data-key=\"${v}\"]`)?.dataset.state))") or []
+                "document.querySelector(`[data-testid=\"session-map\"] [data-testid=\"roles-live-node\"][data-key=\"${v}\"]`)?.dataset.state))") or []
     out["tab_live"], out["tab_before"] = live, before
     out["tab_expected"] = live[(live.index(before) + 1) % len(live)] if before in live else (live[0] if live else "")
     press(c, "Tab", "Tab", 9)

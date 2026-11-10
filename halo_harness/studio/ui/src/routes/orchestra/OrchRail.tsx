@@ -1,21 +1,26 @@
 // The Orchestra section's runs: in the header's "+" menu (3.3.2.0 R2; the
 // expanded rail before): New run, which opens the Start view, then the runs of
 // this repo, newest first (click one to open it); and on the Start view (the
-// past runs as cards).
+// past runs as cards). 3.3.16.0 R2: the fleet's missions are Runs too -- their rows follow the runs in the same
+// group, each saying it is a mission and where its parts run (routes/agents/runs/MissionRow.tsx).
 import { useEffect } from "react";
 import type { MenuGroup } from "../../lib/ui/Menu";
 import { clock, cost, short } from "./format";
 import { runMotion, setView, useOrch } from "./store";
 import { openRun, startOrchestra } from "./sync";
+import { missionMenuRows, useMissionList } from "../agents/runs/MissionRow";
+import { useMissions } from "../fleet/mstore";
 
 /** Orchestra's own group in the "+" menu (routes/index.tsx `menu`): New run, then up to 12 runs. */
 export function useOrchestraMenu(): MenuGroup {
   useEffect(() => startOrchestra(), []);
   const runs = useOrch((s) => s.runs);
   const current = useOrch((s) => s.runId);
+  const missions = useMissionList();
+  const openMission = useMissions((s) => s.open);
   const head = { id: "new-run", label: "New run", icon: "plus", word: "start", title: "The Start view: write a goal, then Run", testid: "orchestra-new-run", run: () => setView("start") };
   return {
-    name: `RUNS · ${runs.length}`,
+    name: `RUNS · ${runs.length}${missions.length ? ` · MISSIONS · ${missions.length}` : ""}`,
     rows: [head, ...runs.slice(0, 12).map((r) => ({
       id: "run-" + r.run_id,
       label: short(r.goal_what, 34) || r.run_id,
@@ -23,11 +28,11 @@ export function useOrchestraMenu(): MenuGroup {
       badges: [r.state],
       word: r.run_id === current ? "open now" : "open",
       current: r.run_id === current,
-      title: `${r.run_id} · ${r.goal_what} · ${r.workers} workers · ${cost(r.cost_usd)} · ${clock(r.created)}`,
+      title: `${r.run_id} · ${r.goal_what} · run · this machine · ${r.workers} workers · ${cost(r.cost_usd)} · ${clock(r.created)}`,
       testid: "orchestra-menu-run",
       data: { run: r.run_id },
       run: () => void openRun(r.run_id),
-    }))],
+    })), ...missionMenuRows(missions, openMission)],
   };
 }
 
@@ -42,7 +47,7 @@ export function PastRuns() {
           <span className="mono og-run-id">{r.run_id}</span>
           <span className="og-run-what">{short(r.goal_what, 60)}</span>
           <span className="mono muted">
-            {r.state} · {r.workers} workers · {cost(r.cost_usd)} · {clock(r.created)}
+            {r.state} · run · this machine · {r.workers} workers · {cost(r.cost_usd)} · {clock(r.created)}
           </span>
         </button>
       ))}

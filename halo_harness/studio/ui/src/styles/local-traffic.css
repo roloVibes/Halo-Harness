@@ -1,5 +1,6 @@
-/* fleet-ollama (3.3.4.0 R5): the Ollama steward's panel (routes/fleet/Ollama*.tsx). Colours from tokens.css only. */
-.oll { display: grid; gap: 10px; align-content: start; overflow: auto; height: 100%; padding-right: 2px; }
+/* A host's traffic and fit on Local -> Hosts (3.3.4.0 R5 as the Fleet Ollama panel; 3.3.16.0 R2: routes/local/HostSteward.tsx,
+   HostTraffic.tsx, HostPlan.tsx) and the steward's pieces on Local -> Steward (StewardBits.tsx). Colours from tokens.css only. */
+.oll { display: grid; gap: 10px; align-content: start; }
 .oll-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: var(--fs-sm); }
 .oll-picker { display: inline-flex; align-items: center; gap: 6px; }
 .oll-picker select { min-width: 140px; }

@@ -5,7 +5,7 @@
 // their fit for this card and that intent (studio/local_models_view.py scores
 // each row: the card's purpose and roles decide the band, the fit meter the
 // place in it), a model that is not for the intent left out, and one line under
-// it saying why this order. The Fleet Ollama panel's rows link here. 3.3.5.0 R3: the Loaded-now strip on top
+// it saying why this order. Hosts' traffic rows link here. 3.3.5.0 R3: the Loaded-now strip on top
 // (LoadedNow.tsx: what each host has in memory, its VRAM share, when it unloads, Unload), the Jobs list, and the
 // card a row's actions menu opens (ModelCards.tsx). 3.3.6.0 R4: the folded Shelf block at the bottom (ShelfBits.tsx).
 // 3.3.7.0 R4: the Adviser block above it (Adviser.tsx): gap, overlap, mismatch, freshness, one button each.

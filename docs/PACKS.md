@@ -220,7 +220,7 @@ goes the moment you disable the pack (no reload):
   checks the values and writes `packs.settings.<id>` in `~/.halo/config.json`,
   the same key `halo config set packs.settings.<id>.<key>` writes.
 - **Its live lines**: what the pack publishes (`publish_event`) shows in
-  Session's Live column, Fleet's Activity and the pack's events panels with the
+  Session's Live column, Agents' Activity and the pack's events panels with the
   pack's label and line, `REVIEW  README.md: 3 findings`.
 - **Its attention rows**: a row the pack raises shows in Attention with the
   pack's label and keys (`review`, A accept, R redo, S skip, O open) and is

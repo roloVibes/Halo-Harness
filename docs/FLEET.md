@@ -8,9 +8,9 @@ wrote, and the controls to steer, pause or stop any of them. **R1** is what
 one session exposes; **R2** (this page's second half) is the hub and the
 join: one machine runs a hub, others join it with a six-word code, and each
 joined harness shares what it chooses and accepts control only as its owner
-allows. **R3** is Studio's Fleet section (the map, the agent inspector,
-the Fleet rail in every section, the hop keys, Live Roles: see
-[In Studio](#in-studio) below); **R4** is the panels behind it (attention, caps,
+allows. **R3** is Studio's side (the map, the agent inspector, the hop
+keys, Live Roles; since 3.3.16.0 R2 Agents -> Live on the fleet, Setup ->
+Machines and Local: see [In Studio](#in-studio) below); **R4** is the panels behind it (attention, caps,
 conflicts, health, hand-offs, flight recordings, the replay and the digest: see
 [The panels](#the-panels-r4)). Halo 3.0.6.0 adds **R6**, what every harness
 can do and who can do something ([Capabilities](#capabilities-3060-r6)), and **R7**,
@@ -61,7 +61,7 @@ missions: one goal split into parts across every harness ([Missions](#missions-3
 A hub is one harness that others join: it keeps the merged picture of every
 member (their sessions and agent trees, live) and passes commands from its
 Studio to a member's sessions. Start one with `halo studio --fleet` (the hub
-runs inside Studio's process, and Studio's Fleet view shows the members), or
+runs inside Studio's process, and Studio's Agents -> Live on the fleet shows the members), or
 `halo fleet serve` (inside a Studio that already runs, else standalone in the
 terminal until Ctrl+C). The hub is a member of its own hub: its own sessions
 appear first, straight from the local registry. A harness may join several
@@ -119,8 +119,8 @@ member's own Fleet attention queue. The steward's job runs once per state
 dir, inside the hub or Studio, or as `halo ollama steward --watch`; the
 hub's job is the one that reads every halo's calls and the server's own
 log, a member's own Studio runs one over the member's own ledger.
-3.3.4.0 R5: the row's `O` opens Fleet's **Ollama** panel (optional, also the
-header's **+** and the palette's "Fleet: Ollama"): per host the card, the
+3.3.4.0 R5: the row's `O` opens the steward's view (3.3.16.0 R2: Local -> Hosts on
+that host, also the palette's "Local: the Ollama steward"): per host the card, the
 models this hour, the traffic, the steward's note and findings (Apply and
 Dismiss in review mode, Undo in auto) and the fit plan with a Copy line for
 each server-side change ([MODELS-ollama-steward.md](MODELS-ollama-steward.md#in-studio)).
@@ -240,17 +240,22 @@ Each halo process with sessions runs one relay thread per joined hub.
 
 ## In Studio
 
-`halo studio --mode fleet` (or `Alt+3`, `/studio fleet`) opens the **Fleet**
-section; the full guide is [STUDIO-fleet.md](STUDIO-fleet.md#fleet-every-harness-every-agent).
+3.3.16.0 R2 folded the Fleet section into Agents, Setup and Local:
+`halo studio --mode fleet` (or `/studio fleet`, `?mode=fleet`) opens Agents
+-> **Live** with the scope on **fleet** (`Alt+2`, `L`, then `F` on the
+canvas); pairing, sharing and the people are Setup -> **Machines**; each
+machine's models are **Local**. The full guide is
+[STUDIO-fleet.md](STUDIO-fleet.md#fleet-in-agents-setup-and-local).
 
-- **The map.** One box per harness (this one first), a card per session, its
-  agents as a tree under it with their state, what each one does now, its
-  model and cost; **By project** puts everyone on the same repo in one box.
+- **The map** (Live on the fleet). One box per harness (this one first), a
+  card per session with its git chips, its agents as a tree under it with
+  their state, what each one does now, its model and cost.
   The outlines move with the state: flowing while an agent works, amber while
   it waits on you, one green sweep when it finishes, a red flash when it
   fails; the edge from a parent lights for a few seconds when it spawns a
   child.
-- **The agent inspector.** Click an agent: its header, what it was asked,
+- **The agent inspector.** Click an agent (Live's inspector follows the
+  pick: nothing picked is the fleet's glance, a machine its summary): its header, what it was asked,
   and three streams, **Thinking** (its text as it types it), **Working** (one
   row per tool call with its result and the diff it writes) and **Output**
   (its hand-back); **Steer** (a nudge before its next step, or a redirect),
@@ -259,20 +264,21 @@ section; the full guide is [STUDIO-fleet.md](STUDIO-fleet.md#fleet-every-harness
   the hub for a member); every command goes to
   `POST /api/fleet/<harness>/<sid>/agents/<aid>/command`, so a member's
   `fleet.allow_control` applies exactly as it does for the CLI.
-- **The Fleet rail** in every section: the same tree in short, with the live
-  and need-you counts; a session that waits on you keeps its inline answer.
-- **Hop around.** `J` / `K` the next / previous live agent (also on the Roles
-  canvas and the Orchestra lanes), `F` follow, `Space` pin a mini
+- **The rail** in every section: the Agents icon counts the agents at work
+  across the fleet; the **Attention** chip in Agents' bar (`A`) is the queue.
+- **Hop around.** `J` / `K` the next / previous live agent (also on the Cast
+  canvas and Runs' lanes), `f` follow, `Space` pin a mini
   stream that stays on screen in every section, `Esc` unpin, `P` pause or
-  resume, `K` inside the Agent panel stop (asks first).
-- **Live Roles.** On the Roles canvas the cards whose agents work
+  resume, `K` inside Session's Agent strip stop (asks first).
+- **Live Roles.** On the Cast canvas the cards whose agents work
   glow in their band colour, by what each agent does right now (typing, a
   tool call, waiting on you, done, failed), with a count badge and a cost
   ticker; the Inspector's **Live** tab shows that agent's streams with Steer,
   Pause and Stop, or, when nobody runs the card, its last runs.
-- **The Start view.** With only this harness and nothing running: what Fleet
-  is, a pair code with its QR and the `halo fleet join` line, the share and
-  control settings, the hubs this harness joined and this hub's members.
+- **Setup -> Machines** (the Start view before 3.3.16.0 R2): what a fleet
+  is (while only this harness is here), a pair code with its QR and the
+  `halo fleet join` line, the share and control settings, the hubs this
+  harness joined and the People table, each member with **Forget**.
 
 The routes R3 adds (the same loopback + token guard as every Studio route):
 
@@ -286,11 +292,12 @@ The routes R3 adds (the same loopback + token guard as every Studio route):
 
 ## The panels (R4)
 
-Round R4 adds the panels that watch the whole fleet at once: **People**,
-**Attention**, **Activity** (the merged log and a timeline strip),
-**Costs**, **Health**, project rooms with conflict warnings on the map,
+Round R4 adds the panels that watch the whole fleet at once (3.3.16.0 R2:
+Live's glance and a machine's summary): **People**, **Attention**,
+**Activity** (the merged log and a timeline strip), **Costs**, **Health**,
+project rooms with conflict warnings on the map,
 hand-offs, flight recordings, the canvas replay and the digest. The Studio
-side is in [STUDIO-fleet.md](STUDIO-fleet.md#fleet-every-harness-every-agent); this
+side is in [STUDIO-fleet.md](STUDIO-fleet.md#fleet-in-agents-setup-and-local); this
 section is what runs behind it. Everything here is computed in code from
 what the hub already sees; nothing calls a model.
 
@@ -587,7 +594,7 @@ whose edits outside its claims are refused, the mission folder is shared
 over the signed protocol (`mission_files`) or a real mount
 (`fleet.shared_dir`), and the repo parts merge one at a time with a judge.
 `halo fleet mission new "<goal>"`, `GET /api/fleet/missions`, `/mission`;
-in Studio, Fleet's Mission panel plans, draws, approves, runs and reports it (3.0.6.0 R8).
+in Studio, the Mission panel (Agents -> Runs since 3.3.16.0 R2, its plan drawn on Live) plans, approves, runs and reports it (3.0.6.0 R8).
 The whole story, the folder, the plan contract and a worked example:
 [MISSIONS.md](MISSIONS.md).
 

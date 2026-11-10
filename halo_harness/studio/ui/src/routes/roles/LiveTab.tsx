@@ -11,21 +11,16 @@
 // in Session (the Session dashboard on its session, the agent selected).
 // 3.1.9.0 R2: an `auto` member shows why it runs on its model ("auto: <model> -- <reason>").
 // 3.3.11.0 R2: on Roles Live the tab follows the agent clicked on the tree (matched to a card or not, live or done).
-import { useEffect, useMemo, useRef } from "react";
-import { useLocalAgent, WatchInSession } from "../session/Watch";
+// 3.3.16.0 R2 "the Fleet fold": the agent itself is the one agent inspector (routes/fleet/Agent.tsx AgentView: Fleet's
+// Agent panel and this tab were two; the streams, controls, hand-offs, Record and Steer are drawn there once).
+import { useEffect } from "react";
 import { api } from "../../lib/api";
-import { Button, Icon } from "../../lib/ui";
 import { cost, short } from "../orchestra/format";
-import { askStop, pin, toggleFollow, togglePause } from "../fleet/actions";
 import { openReplay } from "../fleet/replay";
-import { Steer } from "../fleet/Steer";
-import { EMPTY } from "../fleet/streams";
-import { OutputView, ThinkingView, WorkingView } from "../fleet/StreamViews";
-import { rowOf } from "../fleet/frames";
-import { findAgent, fleet, useFleet } from "../fleet/store";
-import { isLiveAgent, useByNode, watchAgent } from "./live";
-import { nodeById, roles, useRoles, type LiveSub } from "./store";
-import type { HistoryRun, LiveAgent } from "./types";
+import { AgentView, useAgentRef } from "../fleet/Agent";
+import { useByNode, watchAgent } from "./live";
+import { nodeById, roles, useRoles } from "./store";
+import type { HistoryRun } from "./types";
 
 const ago = (ts?: number) => {
   const s = Math.max(0, Date.now() / 1000 - (Number(ts) || 0));
@@ -66,88 +61,23 @@ function History({ card, role, bio }: { card: string; role: string; bio: string 
   );
 }
 
-function Watched({ a }: { a: LiveAgent }) {
-  const st = useFleet((s) => s.streams[a.key]) || EMPTY;
-  const follow = useFleet((s) => s.follow);
-  const pinned = useFleet((s) => s.pinned);
-  const sub = useRoles((s) => s.liveSub);
-  const box = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (box.current && follow) box.current.scrollTop = box.current.scrollHeight;
-  }, [st.tick, follow, sub, a.key]);
-  const replay = a.key.startsWith("replay|");
-  const off = replay || a.control === "none" || !isLiveAgent(a);
-  const live = isLiveAgent(a);
-  const here = useLocalAgent(replay ? "" : a.key);
-  const subs: [LiveSub, string][] = [["thinking", "Thinking"], ["working", "Working"], ["output", "Output"]];
+/** The agent watched: the one agent inspector (fleet/Agent.tsx AgentView, 3.3.16.0 R2), or a replay's line. */
+export function Watched({ k }: { k: string }) {
+  const r = useAgentRef(k.startsWith("replay|") ? "" : k);
   return (
-    <div className="rl-agent" data-key={a.key} data-testid="roles-live-agent">
-      <header className="rl-head">
-        <b>{a.name}</b>
-        {a.role && a.role !== a.name && <span className="og-chip mono">{a.role}</span>}
-        <span className="spacer" />
-        {live && here && <WatchInSession agent={a.key} testid="roles-watch-session" />}
-        <span className="og-badge mono" data-live={a.activity}>{a.state.toUpperCase()}</span>
-      </header>
-      <div className="mono muted rl-meta">
-        {a.harness} · {short(a.session, 28)} · {a.model || "model ?"} · {cost(a.cost_usd)}
-        {a.since && live ? ` · ${ago(a.since)}` : ""}
-        {a.current ? ` · ${a.current}` : ""}
-      </div>
-      {a.model_reason && (
-        <div className="mono muted rl-meta rl-reason" data-testid="roles-live-reason" title="Why this model: the auto lineup picked it for this task (docs/ROLES.md, The Auto lineup)">
-          auto: {a.model || "main"} -- {a.model_reason}
-        </div>
-      )}
-      {a.task && (
-        <details className="fa-task">
-          <summary>What it was asked</summary>
-          <p>{a.task}</p>
-        </details>
-      )}
-      {replay ? (
+    <div className="rl-agent" data-key={k} data-testid="roles-live-agent">
+      {r ? <AgentView r={r} /> : k.startsWith("replay|") ? (
         <p className="muted">A replay: the cards show the session as it ran. Close the bar under the canvas to come back to what runs now.</p>
       ) : (
-        <>
-          <div className="segmented" role="tablist" aria-label="Streams">
-            {subs.map(([k, label]) => (
-              <button key={k} role="tab" aria-selected={sub === k} className={sub === k ? "on" : ""} onClick={() => roles.update(() => ({ liveSub: k }))} data-testid={`roles-live-${k}`}>{label}</button>
-            ))}
-          </div>
-          <div className="fa-stream rl-stream" ref={box} data-testid="roles-live-stream">
-            {st.loading && !st.entries.length && <div className="og-wait mono muted">reading its stream...</div>}
-            {st.error && <p className="og-problems">{st.error}</p>}
-            {sub === "thinking" ? <ThinkingView entries={st.entries} live={live} /> : sub === "working" ? <WorkingView entries={st.entries} /> : <OutputView entries={st.entries} fallback="" live={live} />}
-          </div>
-          <div className="fa-controls">
-            <Button size="sm" icon={<Icon name={a.state === "paused" ? "play" : "pause"} />} disabled={off} onClick={() => void togglePause(a.key)} title="P">{a.state === "paused" ? "Resume" : "Pause"}</Button>
-            <Button size="sm" variant="danger" icon={<Icon name="stop" />} disabled={off} onClick={() => askStop(a.key)} title="It stops at its next step (asks first)" data-testid="roles-live-stop">Stop</Button>
-            <Button size="sm" variant={follow ? "primary" : "ghost"} icon={<Icon name="follow" />} aria-pressed={follow} onClick={toggleFollow} title="F: the stream scrolls with it">Follow</Button>
-            <Button size="sm" variant={pinned === a.key ? "primary" : "ghost"} icon={<Icon name="pin" />} aria-pressed={pinned === a.key} onClick={() => pin(pinned === a.key ? "" : a.key)} title="Space: keep its mini stream on screen">
-              {pinned === a.key ? "Pinned" : "Pin"}
-            </Button>
-          </div>
-          <Steer key={a.key} k={a.key} disabled={off} why={off ? "it takes no steer now" : undefined} />
-        </>
+        <p className="muted">That agent is no longer in the frames.</p>
       )}
     </div>
   );
 }
 
-/** 3.3.11.0 R2: the agent clicked on Roles Live, from the fleet frames (finished ones too). */
-function useLiveViewAgent(on: boolean, key: string): LiveAgent | null {
-  const harnesses = useFleet((s) => s.harnesses);
-  const activity = useFleet((s) => s.activity);
-  return useMemo(() => {
-    const st = fleet.get();
-    const ref = on && key ? findAgent(st, key) : null;
-    return ref ? rowOf(ref, st) : null;
-  }, [on, key, harnesses, activity]);
-}
-
 export function LiveTab() {
   const liveView = useRoles((s) => s.canvasView === "live");
-  const viewed = useLiveViewAgent(liveView, useRoles((s) => s.watched));
+  const viewed = useRoles((s) => s.watched);
   const sel = useRoles((s) => s.sel);
   const n = useRoles((s) => nodeById(s, s.sel));
   const watched = useRoles((s) => s.watched);
@@ -160,7 +90,7 @@ export function LiveTab() {
   if (liveView && viewed)
     return (
       <div className="rl" data-testid="roles-live" data-view="live">
-        <Watched a={viewed} />
+        <Watched k={viewed} />
       </div>
     );
   if (!sel || !n) return <p className="muted" data-testid="roles-live">Select a card: the agents that run under it right now, or its last runs, show here. J / K hop between the working cards.</p>;
@@ -182,7 +112,7 @@ export function LiveTab() {
           ))}
         </div>
       )}
-      <Watched a={a} />
+      <Watched k={a.key} />
     </div>
   );
 }
