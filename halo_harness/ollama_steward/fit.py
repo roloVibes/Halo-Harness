@@ -7,7 +7,8 @@ and the windows they ask with, `plan()` finds a set that fits, in this
 order, each option saying what you lose:
 
     windows      a window per model so they fit together (never under a
-                 model's largest prompt plus its reply)
+                 model's largest prompt plus its reply, nor under Halo's
+                 own measured first turn plus a reply: `floor_window`)
     one-at-a-time  `keep_alive` 0 on the less-called model, the busier one first
     other-host   the less-called model asked on another host configured here
                  that serves it (`host_for`)
@@ -28,9 +29,16 @@ from halo_harness.providers.ollama_fit import kv_bytes_per_elem_for
 from halo_harness.providers.ollama_fit_parts import fit_window, need_bytes, projector_for
 
 STEP = 4096
-FLOOR = 8192
+FLOOR = 8192  # the floor when Halo's own first turn cannot be measured
 REPLY = 4096
 GIB = 2 ** 30
+
+
+def floor_window() -> int:
+    """3.3.16.1: the smallest window a plan may give a model: Halo's own measured leanest first turn and a reply
+    (agent/prompt_measure.first_turn_floor), FLOOR when it cannot be measured."""
+    from halo_harness.agent.prompt_measure import first_turn_floor
+    return first_turn_floor(step=STEP, reply=REPLY, fallback=FLOOR)
 
 
 def card_budget(card: dict, host_name: str = "") -> dict:
@@ -113,7 +121,8 @@ def plan(card: dict, asked: list, catalog: dict, *, host_name: str, other_hosts:
     key = lambda m: f"{host_name}|{m}"  # noqa: E731
     if len(items) > 1:
         trial = [dict(it) for it in items]
-        floors = {it["model"]: max(FLOOR, -(-int((it.get("max_prompt") or 0) * 1.25 + REPLY) // STEP) * STEP)
+        least = floor_window()
+        floors = {it["model"]: max(least, -(-int((it.get("max_prompt") or 0) * 1.25 + REPLY) // STEP) * STEP)
                   for it in trial}
         while _together(b, trial) > b["budget"]:
             room = [t for t in trial if t["window"] - STEP >= floors[t["model"]]]
@@ -149,7 +158,7 @@ def plan(card: dict, asked: list, catalog: dict, *, host_name: str, other_hosts:
     first = items[0]
     if _together(b, [first]) > b["budget"]:
         w = (first["window"] // STEP) * STEP
-        floor = max(FLOOR, -(-int((first.get("max_prompt") or 0) * 1.25 + REPLY) // STEP) * STEP)
+        floor = max(floor_window(), -(-int((first.get("max_prompt") or 0) * 1.25 + REPLY) // STEP) * STEP)
         while w - STEP >= floor and _together(b, [{**first, "window": w}]) > b["budget"]:
             w -= STEP
         ok = _together(b, [{**first, "window": w}]) <= b["budget"]

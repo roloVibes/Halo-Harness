@@ -109,11 +109,11 @@ def _task_text(messages: list) -> str:
     return ""
 
 
-def _by_name_line(offered: list, kept: list) -> str:
-    names = [t.get("name") for t in offered if isinstance(t, dict) and t not in kept and t.get("name")]
-    more = f" and {len(names) - 40} more" if len(names) > 40 else ""
-    return ("Other tools you can call by name (their schemas are left out to fit your window): "
-            + ", ".join(names[:40]) + more + ".")
+def _by_name_line(session, offered: list) -> str:  # 3.3.16.1: the names the diet left out (agent/prompt_diet.py)
+    from halo_harness.agent.prompt_diet import by_name_line
+    dropped = getattr(session, "_diet_dropped", None)
+    names = dropped if isinstance(dropped, list) else [t.get("name") for t in offered if isinstance(t, dict)]
+    return by_name_line(names)
 
 
 def _take_memory(messages: list, known: dict) -> "tuple[list, str]":
@@ -239,6 +239,7 @@ def _shape(session, system_text: str, messages: list, tools, purpose: str):
     lean = L.active(session)
     placement = placement_for(session)
     if lean:
+        system_text = L.lean_system(session, system_text)  # 3.3.16.1: the instructions, not the reference prose
         messages = _replace_memory(messages, known, lambda t: L.lean_memory_block(session, t))
         known = {**known, "memory": set(known.get("memory", ())) | {L.lean_memory_block(session, t)
                                                                      for t in known.get("memory", ())}}
@@ -252,14 +253,13 @@ def _shape(session, system_text: str, messages: list, tools, purpose: str):
         system_text, messages = _instructions_to_user(session, system_text, messages)
     if lean and tools:
         _profile_tools_max(session)
-        offered = list(tools)
         tools, dropped = L.cap_tools(session, tools, _task_text(messages))
-        if dropped and tools:  # 3.3.6.0 R4 (G3): the rest are reachable by name
-            system_text = (system_text or "").rstrip() + "\n\n" + _by_name_line(offered, tools)
+        if dropped and tools:  # 3.3.6.0 R4 (G3): the rest are reachable by name (and through ToolSearch)
+            system_text = (system_text or "").rstrip() + "\n\n" + _by_name_line(session, [])
         if dropped and purpose == "turn":
             model = getattr(getattr(session, "model_ref", None), "raw", "this model")
             _queue_line(session, (f"{dropped} tool{'s' if dropped != 1 else ''} not offered to {model} "
-                                  f"(window {L.window_of(session) or 0:,}): the core tools first, the long tail left out"
+                                  f"(window {L.call_window(session) or 0:,}): the core tools first, the rest by ToolSearch"
                                   if tools else f"no tools offered to {model}: its card says it takes none"))
     if purpose == "turn" and getattr(session, "_preflight_sent_now", False):
         messages = order_for_survival(messages, known)

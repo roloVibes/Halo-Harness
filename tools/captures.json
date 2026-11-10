@@ -3,7 +3,7 @@
     120,
     40
  ],
-  "theme": "claude-dark",
+  "theme": "instrument",
   "scale": 2,
   "captures": [
     {"name": "auto-mode", "scene": "auto" },

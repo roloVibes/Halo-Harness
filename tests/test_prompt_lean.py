@@ -9,9 +9,9 @@ never the real memory directory); the loop rig for one real request:
 2. the memory cap: MEMORY.md held to `prompt.memory_max_tokens`, its newest
    lines kept, the cut said in one line;
 3. the tool cap by window class and by card: under 16,384 the core names, a
-   32k model the built-in (core) set with the long tail dropped, under 65,536
-   sixty-four, above it none; the steward profile's `tools_max` wins; a model
-   whose card says no tools gets none;
+   32k model the built-in (core) set with the long tail dropped (3.3.16.1: Task
+   once, as Agent), under 65,536 sixty-four, above it none; the steward
+   profile's `tools_max` wins; a model whose card says no tools gets none;
 4. `prompt.lean`: auto is local or a window under 64k; a cloud model with a
    large window is untouched; off turns it off for a local model too; through
    the rig the request a local model gets holds the pointer lines.
@@ -110,10 +110,12 @@ def test_the_tool_cap_by_window_and_by_card(ctx: Ctx):
     mcp = [f"mcp__fake__t{i}" for i in range(40)]
     catalog = _tools(builtin + mcp)
     s = _session("ol:tight:14b@lan", 32768)
-    out, dropped = cap_tools(s, catalog)
-    ctx.check(f"a 32k model gets the core (built-in) set, got {len(out)} of {len(catalog)}",
-              [t["name"] for t in out] == builtin and dropped == len(mcp))
-    small, _ = cap_tools(_session("ol:tiny:3b@lan", 12288), catalog)
+    out, dropped = cap_tools(s, catalog, platform="linux")
+    names = [t["name"] for t in out]
+    # 3.3.16.1 (agent/prompt_diet.py): Task goes out as Agent only, the built-ins before the MCP tail
+    ctx.check(f"a 32k model gets the built-in set (Task once, as Agent), got {len(out)} of {len(catalog)}",
+              names == [n for n in builtin if n != "Task"] and dropped == len(mcp))
+    small, _ = cap_tools(_session("ol:tiny:3b@lan", 12288), catalog, platform="linux")
     ctx.check(f"under 16,384 the core names, got {[t['name'] for t in small]}",
               sorted(t["name"] for t in small) == sorted(n for n in CORE_TOOL_NAMES if n in builtin))
     ctx.check("under 65,536 sixty-four, above it no cap", tools_cap(_session("ol:m@lan", 49152), 49152) == 64

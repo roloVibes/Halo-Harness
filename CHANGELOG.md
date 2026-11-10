@@ -10,6 +10,67 @@ version.
 
 ## [3.3.16.1] - unreleased
 
+**The local prompt diet.** A first turn to an unknown remote Ollama model was 16,970 tokens of Halo's own prompt
+plus a 16,384 reply's room, past its 32,768 window, so the window doubled to 65,536 and the model reloaded; it is
+now 7,778 + 8,192 = 15,970 and goes out at 32,768 (16,384: 6,232 + 4,096 at 16,384; 49,152: 7,776 + 12,288; a 200k
+cloud model unchanged, byte for byte). Measured with `halo local prompt`, pinned by `tests/test_prompt_budget_pins.py`
+on Windows and Linux ([MODELS-prompt-diet.md](docs/MODELS-prompt-diet.md)).
+
+### Changed
+
+- **The reply's room follows the window** (`agent/reply_room.py`): a call to the session's own Ollama model asks for
+  at most a quarter of the window it gets, never under the window class's floor and never more than it asked; a
+  steward profile's `num_predict` and your own `max_tokens` keep their rule. A session's first call starts where
+  Halo's own prompt is half the window at most, and no later call drops under the window last asked of the model (no
+  reload). The turn says it once per session. `agent/loop.py`'s `_build_ollama_body_for_ref` calls it (no lines added).
+- **Tools, lean** (`agent/prompt_diet.py`, `tools/lean_descriptions.py`): on the lean profile an alias goes on the
+  wire once (`Task` as `Agent`; a call named `Task` still runs), a Windows session offers one shell (`prompt.shell`),
+  every built-in tool goes out with a short description, and the block is held to 2,200 tokens up to a 16,384 window
+  and 4,500 under 65,536, filled core first, then the lineup's needs (`Workflow` only when a square covers what the
+  model lacks), the built-ins, the rest. What is left out stays callable by name and through ToolSearch; the system
+  line naming it says so. The unknown-remote case: 29 tools, ~9,300 tokens -> 25 tools, 3,747.
+- **The system text, lean** (`agent/prompt_lean_system.py`): the wire copy keeps the instructions (native tool
+  calls, CLAUDE.md, read before edit, verify, plan mode, memory, hooks, delegation) and drops the per-tool list and
+  the reference prose: ~4,150 tokens of Halo's own text -> ~580; the lean system message, memory included, 3,792.
+- **The estimate is the wire's** (`providers/ollama_wire_estimate.py`): the window is picked from the estimate of
+  the Ollama-shaped body that is sent, not the Anthropic-shaped request (0.5 % apart); the strict `num_ctx >= floor`
+  check in `tests/test_ollama_trim_recovery.py` is back.
+- The steward's fit plan never shrinks a window under Halo's own measured first turn plus a reply (`fit.floor_window`,
+  8,192 when unmeasured); the steward's guide budget is 2,200 tokens (the new row).
+
+### Added
+
+- `halo local prompt [<ref>] [--window N] [--platform P] [--json]` (`agent/prompt_measure.py`): what a model's first
+  turn costs before you use it -- the composition, the reply's room, the window, a row per tool (offered or left out
+  and why). `/status` and `halo doctor`'s default-model row say "Halo's own first turn: N tokens of W (P %)" on a
+  local model; Studio's model card has the row "Halo's first turn: N tokens (P % of the window)".
+- The steward rule `prompt-heavy`: Halo's own part of the newest call over half its window, with one next step (the
+  lean profile on, a bigger window, or the core tools).
+- Config `prompt.shell` (`auto` | `bash` | `powershell`, Settings -> Models).
+- Tests: `test_prompt_diet`, `test_prompt_budget_pins`, `test_prompt_measure`.
+
+### Docs
+
+- New [MODELS-prompt-diet.md](docs/MODELS-prompt-diet.md) (the before and after, the reply's room, aliases once, one
+  shell, lean descriptions and system text, the budget test, `halo local prompt`); MODELS-prompt-budget.md gains "The
+  diet"; COMMANDS-local.md `halo local prompt`; CONFIG.md `prompt.shell`; the steward's symptoms table `prompt-heavy`.
+
+### Docs: the README and the pictures
+
+- **Update, and the certificate line.** README gets a `## Update` section (`halo update`, `/update`, and the one-line
+  repair for an install older than 3.3.16.0 that stops at `invalid peer certificate: UnknownIssuer`); docs/INSTALL.md's
+  Update section and a docs/TROUBLESHOOTING.md entry titled by the error say the same.
+- **The README as 3.3.16.0 is.** Agents' four views, `### Live on the fleet`, a `### Workflows: saved orchestrations as
+  squares` part (the square, the router, the five shipped, `halo workflows`, the board), the Features and Documentation
+  rows; its pins in tests/test_quickstart_docs.py follow.
+- **Every Studio picture re-rendered** from the 3.3.16.0 build (the stills, both GIFs, the modes banner, `hero.png`,
+  `social-preview.png`), and a new one: `docs/media/studio-workflows.png` from `tools/capture_workflows.py`
+  (`tools/capture_studio.py --mode workflows`).
+- **What it feels like, in the current look.** The README's terminal pictures were rendered in `claude-dark`; they are
+  `instrument` now (the default since 3.3.15.0: `tools/captures.json`, `scripts/capture_scenes.py`). "Steering a running
+  turn" and "Watching a model think" lead with Studio stills, `studio-steer.png` and `studio-thinking.png`
+  (`tools/capture_steer.py`), then the terminal picture.
+
 ### Added: hover says what a box is
 
 The owner, 2026-11-10: "hovering over gives a solid summary, if we click one we get that other panel with all the

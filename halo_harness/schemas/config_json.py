@@ -83,7 +83,7 @@ _SCALARS = {
 # the scheduler's minimum residency, local_sched/pivot.py); `routing`: local_hop (3.3.7.0 R3: the local -> local hop,
 # agent/local_hop.py)
 # `prompt`: lean auto|on|off, topics_max, memory_max_tokens, preflight ask|compact|send (3.3.5.0 R4, agent/prompt_lean.py,
-# agent/preflight.py)
+# agent/preflight.py), shell auto|bash|powershell (3.3.16.1, agent/prompt_diet.py)
 _SECTIONS = ("agents", "clipboard", "coach", "comfy", "connectors", "databricks", "embeddings", "experiential", "fleet",
              "governor", "host", "huggingface", "improve", "knowledge", "local", "models", "network", "ollama", "openai",
              "packs", "pool", "prompt", "providers", "recall", "remote", "roles", "routing", "steer", "studio", "supervise", "turn",

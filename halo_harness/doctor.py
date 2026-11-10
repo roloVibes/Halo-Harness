@@ -1174,10 +1174,10 @@ def _check_default_model(cwd: Optional[Path] = None, settings_flag: Optional[str
             # this SAME message, so doctor must not call it just "OK".
             return _fix(f"{WARN} Default model: {configured} -- {disabled_msg}",
                         cmd=f"halo providers enable {ref.provider}")
-        return f"{OK} Default model: {configured} ({provider_label} configured){from_note}"
-    # 1.0.1 hotfix 13 (drive-by): this suggestion still said `--preset
-    # work`/`--preset home` -- the deprecated alias still works, but every
-    # OTHER user-facing spot already moved to `--provider` at item 13.
+        from halo_harness.agent.prompt_measure import doctor_note  # 3.3.16.1: a local model's first turn
+        return f"{OK} Default model: {configured} ({provider_label} configured){from_note}{doctor_note(ref, cwd)}"
+    # 1.0.1 hotfix 13 (drive-by): this suggestion still said `--preset work`/`--preset home` -- the
+    # deprecated alias still works, but every OTHER user-facing spot already moved to `--provider`.
     from halo_harness.init_providers import init_command_for
     return _fix(f"{WARN} Default model: {configured} -- {provider_label} not configured",
                  cmd=init_command_for(ref.provider))

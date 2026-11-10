@@ -40,7 +40,7 @@ R5: `studio/ollama_steward_api.py` (the `ollama/` routes: the steward, the hosts
 chips), `providers/fit_meter.py` (fits / tight / spill / no), `agent/main_model_check.py` (the main-model line and the
 coder-lane lineup), `agent/model_card_switch.py` (the card and the check in a `/model` switch), `model_card_cli.py`
 (`halo models show`, `--cards`), `studio/model_card_api.py` (`models/card`, `models/lane`, `models/effort`,
-`models/think`), `ollama_steward/rules_card.py` (`called-wrong`), `tui/widgets/lane_offer.py` +
+`models/think`), `ollama_steward/rules_card.py` (`called-wrong`), `ollama_steward/rules_prompt.py` (3.3.16.1 `prompt-heavy`), `tui/widgets/lane_offer.py` +
 `tui/lane_offer_flow.py` (the one-key offer), `ui/src/lib/ui/FitMeter.tsx`, `ui/src/routes/shared/ModelCard.tsx`,
 `ui/src/routes/session/EffortMenu.tsx`.
 

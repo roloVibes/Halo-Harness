@@ -22,7 +22,7 @@ from __future__ import annotations
 import re
 from typing import Optional
 
-GUIDE_TOKENS = 2100  # 3.3.5.0 R4: 2,000 before the no-prompt-cache row and the preflight joined the knowledge
+GUIDE_TOKENS = 2200  # 3.3.5.0 R4: 2,000 before the no-prompt-cache row and the preflight; 3.3.16.1: prompt-heavy's row
 EVENTS = 20
 _GUIDE: dict = {}
 

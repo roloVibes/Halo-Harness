@@ -26,7 +26,7 @@ NOW = S._NOW
 MODEL = S.MODEL
 CWD = S.CWD
 
-_THEME_NAME = "claude-dark"
+_THEME_NAME = "instrument"  # 3.3.16.1: the terminal default since 3.3.15.0 R4 (claude-dark before)
 
 
 def new_app(theme: str, **kw) -> "BridgeApp":

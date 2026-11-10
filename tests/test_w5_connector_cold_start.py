@@ -82,6 +82,8 @@ def test_cold_start_is_a_noop_when_not_eligible(ctx: Ctx):
         _scoped_home()
         os.environ["HALO_CLAUDE_EXE"] = FAKE_CLAUDE
         os.environ.pop("BRIDGE_TEST_CC_AUTH_STATUS", None)  # no confirmed claude.ai login
+        from halo_harness.mcp.claude_auth import reset_cached_claude_auth_status
+        reset_cached_claude_auth_status()  # 3.3.17.0: an earlier module's cached login status must not count here
         connectors_bridge.reset_session_state()
         ran = connectors_bridge.ensure_discovered_synchronously_if_cold(timeout=15.0)
         ctx.check("no-op -- not eligible", ran is False)

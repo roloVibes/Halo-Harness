@@ -70,3 +70,4 @@ check keeps the tags and the rows in step.
 | S56 | Halo's local-engine steward: the descriptor-driven log reader, the queue read and the findings | repo:halo_harness/engines/steward.py | Halo 3.3.13.0 R1 | 2026-11-08 |
 | S57 | TensorFold's README, RUNBOOK.md, docs/api.md, docs/WINDOWS.md, packaging and source (zig/src/server/serve.zig, chat.zig, log.zig, live.zig, status_routes.zig, cli_capabilities.zig, zig/src/native/cuda_startup.zig, tools/release/package.sh) | https://github.com/ashhart/TensorFold | main (532589e4), release v1.2.1, unverified against a live run | 2026-11-02 |
 | S58 | Halo's local-engine start: the descriptor's managed start, its key and the supervised settle | repo:halo_harness/engines/launch.py | Halo 3.3.13.0 R1 | 2026-11-08 |
+| S59 | Halo's local prompt diet: the first-turn measure, the lean tool block and system text, the reply's room by window | repo:halo_harness/agent/prompt_measure.py | Halo 3.3.16.1 | 2026-11-10 |

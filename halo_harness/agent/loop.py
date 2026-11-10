@@ -88,7 +88,7 @@ from halo_harness.providers.stream import (
 )
 from halo_harness.providers.ollama import (
     get_catalog, lookup_remembered_ollama_retry_num_ctx, ollama_overflow_retry_ceiling, resolve_ollama_host,
-    trained_context_for,
+    resolve_num_ctx_and_source, trained_context_for,
 )
 from halo_harness.providers.ollama_request import build_ollama_request_body
 from halo_harness.providers.effort_on import think_choice_for as _think_choice_for
@@ -3265,12 +3265,12 @@ class Session:
         # Halo 3.2.3.0 R1: the request's own size, estimated before every
         # call -- `num_ctx` never sits below it (`agent/ollama_window.py`).
         from halo_harness.agent.ollama_window import prepare_window
-        from halo_harness.providers.ollama import resolve_num_ctx_and_source
+        from halo_harness.agent.reply_room import for_call as _reply_room  # 3.3.16.1: the room follows the window
         base_num_ctx, base_source = resolve_num_ctx_and_source(
             decision.trained_context, host.max_ctx, decision.fit_estimate, learned_cap=effective_learned_cap,
             remote=decision.remote, recorded_does_not_fit=decision.recorded_does_not_fit, cpu_only=decision.cpu_only)
-        if decision.profile and base_num_ctx == decision.profile.get("num_ctx"):
-            base_source = "steward profile"  # 3.3.4.0 R3 (ollama_steward/profiles.py)
+        base_source = "steward profile" if decision.profile and base_num_ctx == decision.profile.get("num_ctx") else base_source
+        requested_max_tokens, base_num_ctx = _reply_room(self, ref, base_num_ctx, requested_max_tokens, decision, (system_text, messages, tools), host)
         prompt_tokens, window_factor = prepare_window(
             self, host=host, ref=ref, decision=decision, base_num_ctx=base_num_ctx, base_source=base_source,
             system_text=system_text, messages=messages, tools=tools, auto_calibrate=auto_calibrate,

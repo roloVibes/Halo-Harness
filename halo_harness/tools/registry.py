@@ -80,10 +80,10 @@ def pool_wait_s(name: str, tool_input, tool: Optional[Tool] = None) -> float:
     return max(READ_ONLY_CALL_TIMEOUT_S, ms / 1000.0 + READ_ONLY_BASH_GRACE_S)
 
 
-def default_tools() -> list:
-    """Every built-in tool for this platform. PowerShell is win32-only
-    (imported lazily so a POSIX/Kali process never even imports a module
-    that assumes `powershell.exe` might exist)."""
+def default_tools(platform: Optional[str] = None) -> list:
+    """Every built-in tool for this platform (`platform`: another one's, 3.3.16.1 `halo local prompt`).
+    PowerShell is win32-only (imported lazily so a POSIX/Kali process
+    never even imports a module that assumes `powershell.exe` might exist)."""
     tools = [
         AgentTool(), AskUserQuestionTool(), BashTool(), BashOutputTool(), EditTool(), EnterPlanModeTool(),
         ExitPlanModeTool(), GlobTool(), GrepTool(),
@@ -100,7 +100,7 @@ def default_tools() -> list:
     # Halo 3.0.3.0: the Orchestra's claim tools, only inside a run
     # ($HALO_ORCHESTRA_RUN names the run folder).
     tools.extend(orchestra_tools())
-    if sys.platform == "win32":
+    if (platform or sys.platform) == "win32":
         from halo_harness.tools.powershell import PowerShellTool
         tools.append(PowerShellTool())
     return tools
