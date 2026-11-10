@@ -59,7 +59,7 @@ live feed so we see models conversing with each other and that's its own label."
   trace's new rows), the glossary (thought, agent talk), Live's and Conversations' `?` help, README "Watching a model
   think" and "Agents talking" with docs/media/studio-thinking.png re-rendered and docs/media/studio-talk.png new.
 
-## [3.3.16.1] - unreleased
+## [3.3.16.1] - 2026-11-10
 
 **The local prompt diet.** A first turn to an unknown remote Ollama model was 16,970 tokens of Halo's own prompt
 plus a 16,384 reply's room, past its 32,768 window, so the window doubled to 65,536 and the model reloaded; it is
