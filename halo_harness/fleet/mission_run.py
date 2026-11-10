@@ -78,13 +78,16 @@ class Runner(threading.Thread):
     def _end(self, state: str, why: str) -> None:
         from halo_harness.fleet import mission_report
 
+        wrote: list = []
         def apply(doc: dict) -> None:
             if doc["state"] not in M.FINAL:
                 M.move(doc, state, why, self.by)
                 doc["stop_reason"] = why if state != "done" else None
+                # report.md lands before the final state does: a reader that sees done finds it (0ec52632, Linux shard 1)
+                wrote.append(mission_report.write(self.home, self.mid, doc=doc))
         S.update(self.home, self.mid, apply)
         S.log(self.home, self.mid, state, why=why)
-        mission_report.write(self.home, self.mid)
+        wrote or mission_report.write(self.home, self.mid)  # already final (a second end): keep the files current
         self._emit(state)
 
     def run(self) -> None:

@@ -41,7 +41,8 @@ def start_box():
                         "modified_at": "2026-10-01T00:00:00Z", "details": x["details"]} for i, x in enumerate(box_rows())]}
     show = {x["model"]: {"capabilities": x["capabilities"], "model_info": x["model_info"], "details": x["details"],
                          "template": "", "parameters": "", "modelfile": ""} for x in box_rows()}
-    return MockUpstream(tags_response=tags, show_responses=show, ps_response={"models": []}).start()
+    # 3.3.16.0 R1 fix: the fake answers /api/version with the version its card says (local_bench_runs._now_version probes it)
+    return MockUpstream(tags_response=tags, show_responses=show, ps_response={"models": []}, version_response={"version": "0.40.6"}).start()
 
 
 def box_card(mock) -> dict:

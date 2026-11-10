@@ -120,10 +120,12 @@ def markdown(r: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
-def write(home, mid: str) -> dict:
+def write(home, mid: str, doc: "dict | None" = None) -> dict:
+    """`doc` given: the mission as the caller holds it (mission_run._end writes the report inside the state's
+    update, so report.md exists before anyone can read the final state; Linux shard 1 on 0ec52632)."""
     from halo_harness.fleet import journal
     from halo_harness.fleet.mission_plan import load_plan
-    doc = S.need(home, mid)
+    doc = doc if doc is not None else S.need(home, mid)
     report = build(home, doc, load_plan(home, mid) or {})
     folder = S.folder(home, mid)
     S.write_text(folder, "report.json", json.dumps(report, indent=2, default=str))

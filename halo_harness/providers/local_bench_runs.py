@@ -143,15 +143,24 @@ def view(card: dict, stale_word: str = "") -> dict:
 
 
 def _now_version(host_name: str) -> Optional[str]:
+    """The host's Ollama version now: the cached hardware card's, else one `/api/version` probe cached for the
+    rest of this process (3.3.16.0 R1 fix: the Benchmarks page loads once and never re-reads, so a page answered
+    before the hosts strip had filled the card cache showed no stale mark; the guard keeps the test flag's rule:
+    loopback fakes only)."""
     try:
         from halo_harness.providers import ollama as O
         from halo_harness.providers.fit_meter import host_card_of
+        from halo_harness.providers.ollama_guard import control_blocked
         host = O.resolve_ollama_host(host_name)
         if host is None:
             return None
         v = ((host_card_of(host) or {}).get("server") or {}).get("version")
+        if v:
+            return v
+        if control_blocked(host) is None:
+            return O.cached_ollama_version(host)
         with O._VERSION_CACHE_LOCK:
-            return v or O._version_cache.get(host.url)
+            return O._version_cache.get(host.url)
     except Exception:
         return None
 

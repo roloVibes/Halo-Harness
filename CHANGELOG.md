@@ -66,6 +66,18 @@ R1b (the inspector says one thing at a time, the density pass), R2 (the Fleet fo
   TEAM.md ("the board moved to Agents -> Runs; `halo team` stays"), COMMANDS-studio.md, the glossary and every doc's
   `Alt+N` follow.
 
+### Fixed on the way: a mission's report is there when its state says done; the Benchmarks page's stale mark
+
+- **A Fleet mission's `report.md` and `report.json` are written before its final state lands on disk**
+  (`fleet/mission_run.py` `_end` writes the report inside the state's update; `mission_report.write` takes the
+  document the caller holds). Before, the state said done a moment before the files existed, and a reader that
+  saw done could find no report (the hosted Linux runner did, on 0ec52632).
+- **The Benchmarks page's stale mark no longer depends on who loaded first.** `GET local/benches` read the host's
+  Ollama version only from in-process caches (the hosts strip's card, a provider call's cache); a page answered
+  before those were filled showed no "measured on 0.40.5" and never re-read. `local_bench_runs._now_version` now
+  probes `/api/version` once per host per process when no card holds it (the test flag's rule kept: loopback
+  fakes only). The seeded fake `box` answers `/api/version` with the version its card says.
+
 ## [3.3.15.0] - 2026-11-09
 
 **Studio wears the Instrument look.** A design session answered `docs/STUDIO-redesign-brief.md` with "Instrument"

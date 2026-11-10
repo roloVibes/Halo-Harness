@@ -54,9 +54,10 @@ def bench(c, url, ctx) -> dict:
     page(c, "benchmarks")
     rows = "[data-testid=bench-row][data-host=box]"
     out = {"blocks": c.wait(f"{qa('[data-testid=bench-block]')}.length === 3 && {qa('[data-testid=bench-block]')}.map((b) => b.dataset.block)", 20),
-           # the stale mark needs the host's version read, which lands after the rows: wait for it too (Windows runner)
+           # the stale mark needs the host's version read, which lands after the rows: wait for it too, and long
+           # (the Windows runner took past 20 s on 0ec52632)
            "rows": c.wait(f"{qa(rows)}.length >= 3 && {qa(rows)}.some((r) => !!r.dataset.stale) && "
-                          f"{qa(rows)}.map((r) => [r.dataset.model, !!r.dataset.benched, r.dataset.stale || ''])", 20)}
+                          f"{qa(rows)}.map((r) => [r.dataset.model, !!r.dataset.benched, r.dataset.stale || ''])", 60)}
     coder = q(f'{rows}[data-model="qwen3-coder:30b"]')
     out["stale"] = c.js(f"{coder}.querySelector('[data-testid=bench-stale]')?.textContent || ''")
     out["windows"] = c.js(f"[...{coder}.querySelectorAll('[data-testid=bench-window]')].map((w) => [w.textContent, w.dataset.gpu])")
