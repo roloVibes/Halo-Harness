@@ -16,7 +16,7 @@
 import { useEffect } from "react";
 import { studio, useStore } from "./lib/store";
 import { Workspace } from "./lib/workspace/Workspace";
-import { Toasts } from "./lib/ui";
+import { HoverCardHost, Toasts } from "./lib/ui";
 import { sections, useSections } from "./routes";
 import { startPacks } from "./routes/packs/store";
 import { Header } from "./shell/Header";
@@ -86,6 +86,7 @@ export function App() {
       <MissionDialogs />
       <RolesDialogs />
       <Toasts />
+      <HoverCardHost />
     </div>
   );
 }

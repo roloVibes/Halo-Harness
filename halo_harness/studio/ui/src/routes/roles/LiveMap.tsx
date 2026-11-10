@@ -9,7 +9,8 @@
 // is gone) -- with the spawn / message edges lighting and the conflict edge; a click puts what it hit in the inspector
 // (InspectorDetail: the fleet at a glance, a machine, an agent, a part), a click on the canvas itself clears it. The
 // same component is Session's Map (`thumb`): this harness's sessions and their agents, fitted to the panel, a click
-// picks the Steer box's target, "Open in Agents Live" opens the full tree.
+// picks the Steer box's target, "Open in Agents Live" opens the full tree. 3.3.16.1: each box of the full tree has its
+// hover card (routes/agents/hover); the thumbnail keeps its plain tooltips.
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type RefObject } from "react";
 import { Empty } from "../../lib/ui";
 import { useFleet } from "../fleet/store";
@@ -106,9 +107,9 @@ export function LiveMap({ thumb = false }: { thumb?: boolean }) {
                 const n = b.node;
                 if (n.run) return <RunNodeCard key={n.id} b={b} />;
                 if (n.kind === "machine") return <MachineNode key={n.id} b={b} now={now} selected={pick.kind === "machine" && pick.id === n.harness} onPick={(h) => pickLive("machine", h)} />;
-                if (n.kind === "session") return <SessionNode key={n.id} b={b} selected={!!n.key && n.key === selected} onPick={onSession} onMenu={setMenu} />;
+                if (n.kind === "session") return <SessionNode key={n.id} b={b} selected={!!n.key && n.key === selected} onPick={onSession} onMenu={setMenu} hover={!thumb} />;
                 if (n.kind === "part") return <PartNode key={n.id} b={b} machines={geo.machines} zoom={zoom} />;
-                return <LiveNodeCard key={n.id} b={b} selected={!!n.key && n.key === selected} now={now} onMenu={setMenu} onPick={onAgent} />;
+                return <LiveNodeCard key={n.id} b={b} selected={!!n.key && n.key === selected} now={now} onMenu={setMenu} onPick={onAgent} hover={!thumb} />;
               })}
             </div>
           </div>

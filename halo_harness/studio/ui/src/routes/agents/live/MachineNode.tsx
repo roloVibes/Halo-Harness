@@ -10,6 +10,8 @@ import { useCaps } from "../../fleet/caps";
 import { presence } from "../../fleet/People";
 import { isLive, useFleet } from "../../fleet/store";
 import type { LiveBox, LiveGroup } from "../../roles/liveLayout";
+import { useHover } from "../../../lib/hover/useHover";
+import { MachineHover } from "../hover/session"; // 3.3.16.1: its hover card (every capability, the spec card when loaded)
 
 /** The machine's box; `label` (Session's Map, where no machine node is drawn) names it in its corner. */
 export function MachineBox({ g, label = false }: { g: LiveGroup; label?: boolean }) {
@@ -27,6 +29,7 @@ export function MachineNode({ b, now, selected, onPick }: { b: LiveBox; now: num
   const hid = b.node.harness || "";
   const h = useFleet((s) => s.harnesses.find((x) => x.id === hid));
   const chips = useCaps((s) => s.rows?.find((r) => r.harness === hid)?.chips) || [];
+  const hv = useHover("machine", hid, () => <MachineHover hid={hid} />);
   if (!h) return null;
   const p = presence(h, now);
   const sessions = (h.sessions || []).length;
@@ -36,13 +39,14 @@ export function MachineNode({ b, now, selected, onPick }: { b: LiveBox; now: num
   return (
     <div className="rlm-node rlm-machine" style={{ left: b.x, top: b.y, width: b.w, height: b.h }} role="button" tabIndex={0} onClick={pick} onKeyDown={onKey}
          data-testid="live-machine" data-harness={hid} data-presence={p} data-local={h.local || undefined} data-selected={selected || undefined}
-         aria-label={`${h.name || hid}: ${h.local ? "this halo" : p}`} title={[h.name, h.host, h.version, h.local ? "this halo" : p].filter(Boolean).join(" · ")}>
+         aria-label={`${h.name || hid}: ${h.local ? "this halo" : p}`} {...hv.props}
+         title={hv.titles ? [h.name, h.host, h.version, h.local ? "this halo" : p].filter(Boolean).join(" · ") : undefined}>
       <div className="rlm-head">
         <span className="fpe-dot" data-presence={p} aria-hidden="true" />
         <b className="rlm-name">{short(h.name || hid.slice(0, 8), 20)}</b>
         <span className="spacer" />
         {h.version && (
-          <span className="og-chip mono" data-mismatch={h.version_mismatch || undefined} data-testid="live-machine-version"
+          <span className="og-chip mono" data-mismatch={h.version_mismatch || undefined} data-testid="live-machine-version" data-hover-skip
                 title={h.version_mismatch ? "another Halo version: run `halo update` on the older one" : "Halo version"}>{h.version}</span>
         )}
       </div>

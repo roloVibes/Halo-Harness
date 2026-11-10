@@ -14,6 +14,8 @@ import { handoffLabel, partBase } from "../../fleet/missionText";
 import { useFleet } from "../../fleet/store";
 import type { LiveBox, LiveGroup } from "../../roles/liveLayout";
 import { pickLive } from "./scope";
+import { useHover } from "../../../lib/hover/useHover";
+import { PartHover } from "../hover/lane"; // 3.3.16.1: its hover card
 
 type Held = { x: number; y: number; moved: boolean; dx: number; dy: number };
 
@@ -26,6 +28,7 @@ export function PartNode({ b, machines, zoom }: { b: LiveBox; machines: LiveGrou
   const harnesses = useFleet((s) => s.harnesses);
   const [off, setOff] = useState<{ dx: number; dy: number } | null>(null);
   const start = useRef<Held | null>(null);
+  const hv = useHover("part", pid, () => <PartHover pid={pid} />); // a press hides it until the pointer leaves (a drag)
   if (!v || !p) return null;
   const st = partState(v, p.id);
   const editable = EDITABLE.includes(v.mission.state);
@@ -70,19 +73,20 @@ export function PartNode({ b, machines, zoom }: { b: LiveBox; machines: LiveGrou
     <div className="rlm-node rlm-part" style={{ left: b.x + (o?.dx || 0), top: b.y + (o?.dy || 0), width: b.w, height: b.h }}
          data-testid="fleet-part" data-part={p.id} data-harness={p.harness || ""} data-state={st} data-motion={partMotion(st)}
          data-pinned={p.pinned || undefined} data-selected={sel || undefined} data-drag={o ? (held ? "pending" : "moving") : undefined}
-         data-editable={editable || undefined} onPointerDown={down} onPointerMove={move} onPointerUp={up}
+         data-editable={editable || undefined} {...hv.props} onPointerDown={(e) => (hv.props.onPointerDown?.(e), down(e))}
+         onPointerMove={(e) => (hv.props.onPointerMove?.(e), move(e))} onPointerUp={up}
          onPointerCancel={() => ((start.current = null), setOff(null))} role="button" tabIndex={0} aria-label={`part ${p.id}: ${p.title}, ${st}`}
-         title={`part ${p.id}: ${p.title}\n${p.harness_name ? "on " + p.harness_name + (p.reason ? ": " + p.reason : "") : "no harness"}${editable ? "\ndrag it to another machine's box to move it" : ""}`}>
+         title={hv.titles ? `part ${p.id}: ${p.title}\n${p.harness_name ? "on " + p.harness_name + (p.reason ? ": " + p.reason : "") : "no harness"}${editable ? "\ndrag it to another machine's box to move it" : ""}` : undefined}>
       <div className="rlm-head">
         <span className="rlm-dot" aria-hidden="true" />
         <b className="rlm-name mono">{p.id}</b>
         <b className="rlm-name">{short(p.title, 18)}</b>
         <span className="spacer" />
-        {p.pinned && <span className="rlm-lock" data-testid="fleet-part-lock" title={`pinned: ${p.reason}`}>lock</span>}
-        {p.unassignable && <span className="og-chip mono rlm-bad" data-testid="fleet-part-unassignable" title={p.unassignable}>unassignable</span>}
+        {p.pinned && <span className="rlm-lock" data-testid="fleet-part-lock" data-hover-skip title={`pinned: ${p.reason}`}>lock</span>}
+        {p.unassignable && <span className="og-chip mono rlm-bad" data-testid="fleet-part-unassignable" data-hover-skip title={p.unassignable}>unassignable</span>}
         <span className="og-chip mono">{p.kind}</span>
       </div>
-      <div className="muted rlm-line" title={line}>{short(line, 52)}</div>
+      <div className="muted rlm-line" title={hv.titles ? line : undefined}>{short(line, 52)}</div>
       <div className="mono muted rlm-line">
         {base && <span data-testid="part-base">{base}</span>}
         <span className="spacer" />

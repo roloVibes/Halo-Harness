@@ -16,4 +16,5 @@ export { Icon, toolIcon } from "./Icon";
 export { Menu, type MenuGroup, type MenuRow } from "./Menu";
 export { WindowedRows, WINDOW_AT } from "./WindowedRows";
 export { FitMeter, type Fit } from "./FitMeter";
+export { HoverCardHost } from "./HoverCard"; // 3.3.16.1: the one hover card (lib/hover)
 export { Panel } from "../workspace/Panel";

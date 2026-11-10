@@ -238,6 +238,16 @@ each one is an instant state swap: the dash stops and a working edge is solid ac
 section (Setup, Settings) raises none for its own blocks: a block's result
 is its own line.
 
+**The hover card** (3.3.16.1, `lib/ui/HoverCard.tsx`, `lib/hover/`): one card for the whole page, mounted by the shell. A
+box spreads `useHover(kind, key, render)` on itself; the pointer resting on it 350 ms (or the keyboard focusing it) shows
+the card beside it, measured after it draws, right, left, below or above, inside the window with an 8 px margin, never
+over its box (`lib/hover/place.ts`). It goes on leaving the box and the card, Esc, a scroll, a press, a drag, a section
+switch and the box's "..." menu. `role="tooltip"` (`hover-card`, `data-kind`, `data-for`), the box `aria-describedby`;
+no buttons on it. `lib/hover/HoverBody.tsx` is its one shape (a title, what the box is, at most eight rows, NOW, what a
+click does); each kind's rows are a file of `routes/agents/hover/`. A box with a card drops its plain `title`; a button
+or a `data-hover-skip` chip in it keeps its own. `studio.hover_cards` (Settings -> Studio) off: no card, the titles back
+([Hover and click](STUDIO-agents.md#hover-and-click-33161)).
+
 ## What is on disk, as it changes (3.2.2.0)
 
 `studio/files_live.py` is one daemon

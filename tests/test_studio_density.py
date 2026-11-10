@@ -86,6 +86,22 @@ def test_the_sizes_are_tokens_and_nothing_is_exempted(ctx: Ctx):
 
 
 @test
+def test_the_hover_card_keeps_the_rules(ctx: Ctx):
+    """3.3.16.1: the hover card (styles/hover-card.css) -- the 12 px inset, a row per fact at least 20 px tall, the labels
+    in the inspector's small mono caps, the text wrapping inside its row; tests/test_studio_hover.py measures it drawn."""
+    css = _src("styles/hover-card.css")
+    card = re.search(r"\.hover-card\s*\{([^}]*)\}", css)
+    ctx.check("the card's inset is the 12 px token", bool(card) and "padding: var(--s-3)" in card.group(1))
+    row = re.search(r"\.hc-row\s*\{([^}]*)\}", css)
+    ctx.check("a row is at least 20 px", bool(row) and "min-height: 20px" in row.group(1))
+    dt = re.search(r"\.hc-row dt\s*\{([^}]*)\}", css)
+    ctx.check("its label is mono caps", bool(dt) and "var(--font-data)" in dt.group(1) and "text-transform: uppercase" in dt.group(1))
+    dd = re.search(r"\.hc-row dd\s*\{([^}]*)\}", css)
+    ctx.check("its value wraps inside the row (never cut, never over)", bool(dd) and "overflow-wrap: anywhere" in dd.group(1) and "min-width: 0" in dd.group(1))
+    ctx.check("tokens only: no raw colour", not re.search(r"#[0-9a-fA-F]{3,8}\b|rgba?\(", css))
+
+
+@test
 def test_every_section_was_measured(ctx: Ctx):
     got = _got(ctx)
     for name in SECTIONS:

@@ -8,6 +8,27 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.3.16.1] - unreleased
+
+### Added: hover says what a box is
+
+The owner, 2026-11-10: "hovering over gives a solid summary, if we click one we get that other panel with all the
+detail about the selected box."
+
+- Every box in Agents has a hover card: a Cast card, a Live agent, a session, a machine, a run's lead and lanes, a
+  mission part, a workflow square on the board and in the library. Rest the pointer on it about 350 ms, or Tab to it
+  (the arrows on the board), and one card shows beside it, inside the window, never over the box.
+- A card is a title, one sentence of what the box is, at most eight rows of facts the page already has (a fact not
+  known is left out), a NOW block while the box works, and a line saying what a click does
+  ([STUDIO-agents.md](docs/STUDIO-agents.md#hover-and-click-33161) has each kind's rows).
+- A click still opens the inspector and hides the card; so do Esc, a scroll, a press and the box's "..." menu. One card
+  at a time, no buttons on it, no request on hover.
+- A box with a card drops its plain tooltip; a button or chip inside it keeps its own. A workflow square's contract
+  opens in the inspector on a click now, not on hover. Cast cards take the keyboard (Tab, then Enter selects).
+- `studio.hover_cards` (Settings -> Studio, a new page; on by default) turns the cards off and the tooltips back on.
+- Fixed on the way: the Workflows board drew 0 px wide while the library was closed (it fell into the library's
+  column), so its squares could not be hovered or clicked until the library opened.
+
 ## [3.3.16.0] - 2026-11-10
 
 **Agents: one section for your agents.** The owner, 2026-11-09: "what does teams even give us? ... roles and
