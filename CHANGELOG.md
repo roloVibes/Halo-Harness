@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.3.16.0] - unreleased
+## [3.3.16.0] - 2026-11-10
 
 **Agents: one section for your agents.** The owner, 2026-11-09: "what does teams even give us? ... roles and
 orchestration are almost the same ... all rolled into the new agents". Team, Roles and Orchestra are one Studio
