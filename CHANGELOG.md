@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.3.15.0] - unreleased
+## [3.3.15.0] - 2026-11-09
 
 **Studio wears the Instrument look.** A design session answered `docs/STUDIO-redesign-brief.md` with "Instrument"
 (`docs/design/studio-instrument/`: the proposal, the mock-ups, the prompt it was written to be applied with), and this
