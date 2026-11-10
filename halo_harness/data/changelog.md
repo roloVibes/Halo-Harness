@@ -1,5 +1,87 @@
 # What changed (the newest version entries of CHANGELOG.md, shipped with the package; `halo whatsnew` reads it)
 
+## [3.3.16.1] - 2026-11-10
+
+**The local prompt diet.** A first turn to an unknown remote Ollama model was 16,970 tokens of Halo's own prompt
+plus a 16,384 reply's room, past its 32,768 window, so the window doubled to 65,536 and the model reloaded; it is
+now 7,778 + 8,192 = 15,970 and goes out at 32,768 (16,384: 6,232 + 4,096 at 16,384; 49,152: 7,776 + 12,288; a 200k
+cloud model unchanged, byte for byte). Measured with `halo local prompt`, pinned by `tests/test_prompt_budget_pins.py`
+on Windows and Linux ([MODELS-prompt-diet.md](docs/MODELS-prompt-diet.md)).
+
+### Changed
+
+- **The reply's room follows the window** (`agent/reply_room.py`): a call to the session's own Ollama model asks for
+  at most a quarter of the window it gets, never under the window class's floor and never more than it asked; a
+  steward profile's `num_predict` and your own `max_tokens` keep their rule. A session's first call starts where
+  Halo's own prompt is half the window at most, and no later call drops under the window last asked of the model (no
+  reload). The turn says it once per session. `agent/loop.py`'s `_build_ollama_body_for_ref` calls it (no lines added).
+- **Tools, lean** (`agent/prompt_diet.py`, `tools/lean_descriptions.py`): on the lean profile an alias goes on the
+  wire once (`Task` as `Agent`; a call named `Task` still runs), a Windows session offers one shell (`prompt.shell`),
+  every built-in tool goes out with a short description, and the block is held to 2,200 tokens up to a 16,384 window
+  and 4,500 under 65,536, filled core first, then the lineup's needs (`Workflow` only when a square covers what the
+  model lacks), the built-ins, the rest. What is left out stays callable by name and through ToolSearch; the system
+  line naming it says so. The unknown-remote case: 29 tools, ~9,300 tokens -> 25 tools, 3,747.
+- **The system text, lean** (`agent/prompt_lean_system.py`): the wire copy keeps the instructions (native tool
+  calls, CLAUDE.md, read before edit, verify, plan mode, memory, hooks, delegation) and drops the per-tool list and
+  the reference prose: ~4,150 tokens of Halo's own text -> ~580; the lean system message, memory included, 3,792.
+- **The estimate is the wire's** (`providers/ollama_wire_estimate.py`): the window is picked from the estimate of
+  the Ollama-shaped body that is sent, not the Anthropic-shaped request (0.5 % apart); the strict `num_ctx >= floor`
+  check in `tests/test_ollama_trim_recovery.py` is back.
+- The steward's fit plan never shrinks a window under Halo's own measured first turn plus a reply (`fit.floor_window`,
+  8,192 when unmeasured); the steward's guide budget is 2,200 tokens (the new row).
+
+### Added
+
+- `halo local prompt [<ref>] [--window N] [--platform P] [--json]` (`agent/prompt_measure.py`): what a model's first
+  turn costs before you use it -- the composition, the reply's room, the window, a row per tool (offered or left out
+  and why). `/status` and `halo doctor`'s default-model row say "Halo's own first turn: N tokens of W (P %)" on a
+  local model; Studio's model card has the row "Halo's first turn: N tokens (P % of the window)".
+- The steward rule `prompt-heavy`: Halo's own part of the newest call over half its window, with one next step (the
+  lean profile on, a bigger window, or the core tools).
+- Config `prompt.shell` (`auto` | `bash` | `powershell`, Settings -> Models).
+- Tests: `test_prompt_diet`, `test_prompt_budget_pins`, `test_prompt_measure`.
+
+### Docs
+
+- New [MODELS-prompt-diet.md](docs/MODELS-prompt-diet.md) (the before and after, the reply's room, aliases once, one
+  shell, lean descriptions and system text, the budget test, `halo local prompt`); MODELS-prompt-budget.md gains "The
+  diet"; COMMANDS-local.md `halo local prompt`; CONFIG.md `prompt.shell`; the steward's symptoms table `prompt-heavy`.
+
+### Docs: the README and the pictures
+
+- **Update, and the certificate line.** README gets a `## Update` section (`halo update`, `/update`, and the one-line
+  repair for an install older than 3.3.16.0 that stops at `invalid peer certificate: UnknownIssuer`); docs/INSTALL.md's
+  Update section and a docs/TROUBLESHOOTING.md entry titled by the error say the same.
+- **The README as 3.3.16.0 is.** Agents' four views, `### Live on the fleet`, a `### Workflows: saved orchestrations as
+  squares` part (the square, the router, the five shipped, `halo workflows`, the board), the Features and Documentation
+  rows; its pins in tests/test_quickstart_docs.py follow.
+- **Every Studio picture re-rendered** from the 3.3.16.0 build (the stills, both GIFs, the modes banner, `hero.png`,
+  `social-preview.png`), and a new one: `docs/media/studio-workflows.png` from `tools/capture_workflows.py`
+  (`tools/capture_studio.py --mode workflows`).
+- **What it feels like, in the current look.** The README's terminal pictures were rendered in `claude-dark`; they are
+  `instrument` now (the default since 3.3.15.0: `tools/captures.json`, `scripts/capture_scenes.py`). "Steering a running
+  turn" and "Watching a model think" lead with Studio stills, `studio-steer.png` and `studio-thinking.png`
+  (`tools/capture_steer.py`), then the terminal picture.
+
+### Added: hover says what a box is
+
+The owner, 2026-11-10: "hovering over gives a solid summary, if we click one we get that other panel with all the
+detail about the selected box."
+
+- Every box in Agents has a hover card: a Cast card, a Live agent, a session, a machine, a run's lead and lanes, a
+  mission part, a workflow square on the board and in the library. Rest the pointer on it about 350 ms, or Tab to it
+  (the arrows on the board), and one card shows beside it, inside the window, never over the box.
+- A card is a title, one sentence of what the box is, at most eight rows of facts the page already has (a fact not
+  known is left out), a NOW block while the box works, and a line saying what a click does
+  ([STUDIO-agents.md](docs/STUDIO-agents.md#hover-and-click-33161) has each kind's rows).
+- A click still opens the inspector and hides the card; so do Esc, a scroll, a press and the box's "..." menu. One card
+  at a time, no buttons on it, no request on hover.
+- A box with a card drops its plain tooltip; a button or chip inside it keeps its own. A workflow square's contract
+  opens in the inspector on a click now, not on hover. Cast cards take the keyboard (Tab, then Enter selects).
+- `studio.hover_cards` (Settings -> Studio, a new page; on by default) turns the cards off and the tooltips back on.
+- Fixed on the way: the Workflows board drew 0 px wide while the library was closed (it fell into the library's
+  column), so its squares could not be hovered or clicked until the library opened.
+
 ## [3.3.16.0] - 2026-11-10
 
 **Agents: one section for your agents.** The owner, 2026-11-09: "what does teams even give us? ... roles and
@@ -1268,73 +1350,3 @@ shape is written from its source and marked unverified until a live run.
 - The loopback auto-detect also asks port 1919 and names a server whose `/v1/models` says `owned_by: FreeToken` by its runtime.
 - A session's first byte from a FreeToken server may take up to 30 minutes (its first request compiles kernels); every other server keeps the 5-minute wait.
 - A Halo-started server's status (Studio's Local -> Hugging Face server row) reads a `/health` that answers 200 while loading as still loading.
-
-## [3.3.9.0] - 2026-11-02
-
-**Voice.** Talk to a Halo session and hear it answer, entirely locally (plans/local-model-fit-brief.md Part K), in three
-rounds. The speech models are file-backed local models like any GGUF: a catalog of seven (faster-whisper, Parakeet,
-Kokoro, Qwen3-TTS, Silero VAD; every repo id written from memory and marked unverified until a download), `halo voice
-models | download | rm`, Halo's own OpenAI-compatible speech server (`halo local serve --stt | --tts`, the `voice-stt` /
-`voice-tts` runtimes the steward reads with `stt-slow` / `tts-slow` / `voice-cpu`), the fit that is real -- a speech need
-is present or "download N GB", never "arrives with Voice" (R1); the loop -- the microphone, Silero VAD, the stt server,
-the session through the same door as typed text (a transcript mid-turn steers), the reply stream through a sentence
-aggregator into the tts server and the speaker while the model still writes, barge-in, hands-free or press-to-talk,
-`/voice`, `halo voice`, the per-turn latency card against the bundle's budget, `halo voice stats`, the steward's
-`voice-slow`, the `voice-local` bundle (R2); the speech servers for every halo on the LAN through a paired `halo host`
-(`stt@pc`, the link stage on the card), the host's voice door (one utterance in, the reply's audio and card out, behind
-the `control` grant), `halo voice client --host`, Studio Local -> Voice with Talk from the browser's microphone, the
-Meta glasses contract as a document (the phone app is the reader's; every toolkit line to be checked against Meta's
-docs), the CPU path for a box without a GPU (R3). Nothing here has run against a real microphone or a real speech
-model yet: the engine calls and the toolkit details are written from source wording and memory, and the first live
-run is the owner's. No echo canceller: a headset or press-to-talk on open speakers.
-
-### R1: the speech servers -- speech-to-text and text-to-speech as local servers Halo installs, serves, fits and watches
-
-#### Added
-- The speech catalog: `halo voice models [--json]` lists faster-whisper large-v3-turbo / small.en / base.en and Parakeet TDT 0.6B (STT), Kokoro-82M and Qwen3-TTS 0.6B (TTS) and Silero VAD, each with its engine, Hugging Face repo ("repo unverified" until a live download confirms it), download size, footprint on a GPU and on the CPU, built or declared, and present or the download line (`halo_harness/voice/catalog.py`).
-- `halo voice download <model>` says the size, the repo and the folder first, then fetches the files the engine loads through the hub path `halo local download` uses; `halo voice rm <model>`; `halo voice serve <model>` in the foreground.
-- Halo's own speech server: `halo local serve --stt <model>` / `--tts <model>` [--device auto|cpu|cuda] starts it on a free loopback port with OpenAI's audio routes (`POST /v1/audio/transcriptions`, `POST /v1/audio/speech`, `GET /v1/models`, `GET /health`), as the managed server and the `huggingface.local_servers` entry `stt` / `tts` (runtime `voice-stt` / `voice-tts`); `halo local servers | log | stop` work on it. The device choice is said in one line ("faster-whisper:small.en on the CPU: 0.9 GB RAM, the GPU keeps its 22,000 MiB for the chat model").
-- The engines are the optional extra `uv tool install --reinstall "halo-harness[voice]"` (faster-whisper, kokoro-onnx, onnxruntime, numpy, soundfile); without it `serve` prints that one line and exits 2. Parakeet and Qwen3-TTS are declared: `serve` names the built model of their kind.
-- The steward watches a speech server like a llama-server: its load and per-request lines ("audio 4.2 s -> text in 0.31 s (13.5x realtime)"; "text 84 chars -> audio 3.9 s, first audio 92 ms"), and four findings keyed `stt|<model>` / `tts|<model>` -- `stt-slow`, `tts-slow`, `voice-cpu`, `voice-load-failed` -- each with its stated fix, never applied by itself; `halo ollama explain` answers them.
-- `halo doctor --voice`: the extra or the install line, each speech model present or its download line, CUDA visible to the engines or "CPU only (N cores)", the running speech servers.
-- Settings `voice.stt_model`, `voice.tts_model`, `voice.device`, `voice.tts_voice` and `huggingface.voice_server_cmd`; glossary `speech server`, `speech-to-text`, `text-to-speech`; docs/VOICE.md and docs/COMMANDS-voice.md.
-
-#### Changed
-- A bundle's speech needs are real: `halo pack verdict meta-glasses` says each speech model present with its footprint, or "not present -- halo voice download <model> (N GB)" as one download of the verdict (the Ollama button stays the Ollama tags'); "the speech models arrive with Voice" is gone.
-- The bundles' `VOICE_GB` / `VOICE_PREFIXES` come from the speech catalog (one source).
-- A bare `hf:local/<model>` and the `/local` model list never pick a speech server.
-
-### R2: the loop -- talk to a Halo session and hear it answer
-
-#### Added
-- `halo voice` opens a session with voice on: speak, and the session answers aloud, entirely locally -- the microphone (16 kHz) -> Silero VAD (speech ends after 250 ms of quiet) -> the speech-to-text server (partial transcripts in the status bar while you speak) -> the transcript submitted exactly as typed text (`you said: ...`; a turn that runs is steered) -> the reply cut into sentences (code blocks said once as "a code block", tool-call lines and `[...]` markup never said) -> the text-to-speech server -> the speaker, the first sentence playing while the model writes the second.
-- `/voice on | off | ptt | status` in any session, and `halo voice on | off` for a running one through its control socket; hands-free or push-to-talk (`Ctrl+Space` to talk, again to send; `voice.ptt_key`); the status bar's mic chip.
-- Barge-in: speaking over a reply stops it within ~100 ms, the rest is never spoken (`(interrupted while speaking)`), and what you say steers the turn.
-- The latency card per turn (heard, text, token, audio, last, each in ms, against `voice.latency_budget_ms` / the bundle's `latency_budget_ms` / 1,500 ms; the 750-900 ms target said): one status-bar line after each turn, `~/.halo/voice/turns.jsonl`, `halo voice stats` (median and worst per stage over the newest 50, the slow stage named).
-- The steward's `voice-slow`: a stage over its share of the budget three turns running, with its fix line (`--device cuda` or `faster-whisper:small.en`; the bundle's reservation keeps the chat model resident; `tts-slow`; `halo voice download silero-vad`); on the Steward page, in `halo ollama steward findings` and `halo ollama explain`.
-- The `voice-local` bundle: a small resident chat model (lfm3:1.7b, qwen3.8:4b or gemma4:4b at 8 k, keep_alive -1, priority high), stt on the GPU or the CPU, tts on the CPU; `halo pack on voice-local` claims it, and `/voice on` starts the speech servers with its picks, the cost line (device, memory, seconds) first, and stops on `off` what it started.
-- `halo voice devices` (the microphones and speakers, the configured ones marked), `halo voice --input-file <wav> [--output-file <wav>]` (one turn from a file, no microphone), `halo doctor --voice`'s audio line.
-- Settings `voice.input_device`, `voice.output_device`, `voice.mode`, `voice.ptt_key`, `voice.latency_budget_ms`; glossary `voice loop`, `barge-in`, `push-to-talk`.
-
-#### Changed
-- The voice extra gains `sounddevice` (on Linux: `sudo apt install libportaudio2`); without the extra `halo voice` and `/voice on` print the one install line.
-- Silero VAD is built (the loop's VAD through onnxruntime); without it on disk a level gate stands in, said with `halo voice download silero-vad`.
-- Bare `halo voice` opens a session with voice on; the catalog is `halo voice models`.
-- `meta-glasses` names its reservation's 8 k window; while it or `voice-local` is on, the loop takes its speech picks and budget. Halo ships eleven bundles.
-
-### R3: through the host, Studio and the glasses path -- the speech servers for every halo on the LAN, Local -> Voice with a Talk button, the phone-app contract, honest about its limits
-
-#### Added
-- The voice door: a paired `halo host` answers `POST /host/v1/voice/turn` -- one utterance (16-bit PCM at 8-48 kHz or a WAV, up to 30 s) runs through a session on the host machine exactly as `/voice` does, and the reply's audio streams back with the transcript, the reply text and the latency card. The `control` grant; each refusal is one line with its command; one audit line per turn (`op: voice_turn`). `GET me` lists the door, the speech servers and the sessions it reaches.
-- `halo voice client --host <host> --input-file ask.wav | --mic [--output-file reply.wav] [--json]`: one turn through a host's voice door from any halo -- the reference client for a phone app.
-- Speech servers through the host: `halo config set voice.stt_server stt@pc` (and `voice.tts_server tts@pc`) -- a box with no GPU hears and speaks with the PC's speech models through its halo host (signed, the servers stay on loopback there); `/voice on` says `stt on pc over the LAN (+1.8 ms): <model>` and every latency card adds the `link` stage.
-- Studio: **Local -> Voice**, Local's tenth page -- the speech servers (running or stopped with the cost line, Start / Stop, the steward's findings), the speech catalog with Download (the size first, then the download job), the session's own voice loop (Voice on / off, Push-to-talk), the last turns' latency cards and `halo voice stats`, this machine's devices; and **Talk**: the browser's microphone into a Halo session -- the first press says what it does and costs, then press to talk, press again to send; the transcript, the reply's audio playing as it streams, the card -- no PortAudio or voice extra on the client.
-- docs/VOICE-glasses.md: the contract a phone app for Meta's glasses builds to (the steps, the door's wire shape with a worked example, the 2-3 s latency budget, the limits, the prior art); no phone app ships with Halo.
-- docs/VOICE-cpu.md: the voice loop on a box with no GPU -- the CPU pair or another halo's GPU, and how to measure it; `halo doctor --voice` on a CPU box says the recommended pair and its commands.
-- Settings `voice.stt_server`, `voice.tts_server`; glossary `voice door`, `talk`.
-
-#### Changed
-- A host's served rows give a speech server `kind: speech` and its model.
-- The control socket offers each raw `text_delta` to a subscriber that asks for it by name (the voice door, Talk), so a voice turn's first sentence speaks without waiting for the 2 s text chunk; every other subscriber is unchanged.
-- The `meta-glasses` bundle says the phone app is yours and the host door is here.
-- Studio's shell CSP allows `media-src blob:` (Talk's reply in an `<audio>` element).
