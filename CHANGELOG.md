@@ -10,6 +10,55 @@ version.
 
 ## [3.3.16.2] - unreleased
 
+**Live: thinking you can see, agents talking.** The owner: "make watching a model think much better. In sessions
+live tab, it's really amazing to get more visualization on what the models are really thinking. There should also be
+a section that does this for model to model or agent to agent conversations. Maybe we can give that a label in the
+live feed so we see models conversing with each other and that's its own label."
+
+### Added
+
+- **THINK rows** (`fleet/think.py`, `routes/shared/liveThink.ts`, `routes/session/LiveThink.tsx`): every agent's
+  reasoning now reaches Studio as `thinking_chunk` frames from the session's agent tree (followed or not; before, the
+  control socket dropped `thinking_delta` and only a followed agent's thinking showed, folded per chunk). One row per
+  thought however many pieces it streams in: muted italic on a hairline `--think` rule, a caret while it grows, four
+  lines with show all / show less, then `thought 4.2 s · 812 tokens` (the length when it streamed, the tokens when the
+  provider reported `reasoning_tokens`). Native Anthropic thinking streams as it comes; the OpenAI-dialect reasoning
+  (DeepSeek, Kimi, GLM, OpenRouter, Ollama's thinking models) lands in one piece at the end of the call. A model with
+  no thinking shows no THINK row.
+- **Thought, then act**: a THINK row's chip says what it led to (`then ran Edit basket.py`, `then answered`) and
+  jumps there; the action row's `why?` opens that thought under the row.
+- **The Thinking view**: a toggle beside Follow (off by default) narrows Live to the thoughts and what each led to,
+  for everyone or the pinned agent. The kind pick gains think and talk.
+- **TALK rows** (`fleet/talk.py`, `routes/shared/liveTalk.ts`, `routes/session/LiveTalk.tsx`): one agent's words to
+  another as `agent_talk` frames, one shape `{id, from, to, text, why, re?, cut?}`: a parent's task to a child
+  (`task`), the child's hand-back (`hand-back`, `re` the task), another agent's steer (`agent_steer` with
+  `from_agent`), a Workflow square's hand-off and answer (`square`) and Studio's Hand to... another machine
+  (`hand-over`). The row: the speaker's tag, an arrow, the listener's tag, the reason. A hand-back is one row: the
+  agent's OUT block becomes the TALK row (an OUT after a TALK hand-back is not added). The map's edge between the
+  two lights once from the speaker to the listener, with an arrow.
+- **Conversations** (`session-conversations`, optional, the header's "+"): the pairs that have talked, newest first,
+  and the chosen pair's thread, each message on its speaker's side with its reason and time, a reply under what it
+  answers; a message's click scrolls Live to its row, "show in Live" narrows Live to the pair.
+- The trace export (`halo session export`, Live's Export) writes a `thinking` row per thought and `talk:` rows for a
+  sub-agent's task and hand-back (the hand-back in place of its last text, never both) and a square's receipt.
+
+### Changed
+
+- **The timeline shows the mix**: Live's timeline draws each lane by phase -- thinking, running a tool, writing,
+  waiting on you, idle -- in the state tokens (the legend is in Live's `?` help); hovering a segment says the phase
+  and its length, a click on a thinking segment scrolls the column to that thought.
+- **`why?`**: on a row a thought led to, its first answer is that thought, inline under the row; "what the model saw"
+  there is the turn's postmortem as before. The agent inspector's Thinking tab draws thoughts the way Live does,
+  with what each led to.
+- The kind pick's text no longer includes thinking (it has its own, think).
+
+### Docs
+
+- docs/STUDIO-sections.md (Session: THINK, TALK, the Thinking view, thought then act, the timeline's phases,
+  Conversations), docs/FLEET.md (the two frames and their shapes, the KIND column), docs/STUDIO-session.md (the
+  trace's new rows), the glossary (thought, agent talk), Live's and Conversations' `?` help, README "Watching a model
+  think" and "Agents talking" with docs/media/studio-thinking.png re-rendered and docs/media/studio-talk.png new.
+
 ### From a session's own review (Kali, 2026-11-10)
 
 The owner asked his session's own model (GLM 5.3 on Databricks, a custom lineup) what it thought of 3.3.16.0. It
@@ -56,7 +105,7 @@ named four things; each was checked against the code, all four were real.
   line, and after `halo update` installs a newer version its last lines are that version's summary and "halo
   whatsnew for the rest".
 
-## [3.3.16.1] - unreleased
+## [3.3.16.1] - 2026-11-10
 
 **The local prompt diet.** A first turn to an unknown remote Ollama model was 16,970 tokens of Halo's own prompt
 plus a 16,384 reply's room, past its 32,768 window, so the window doubled to 65,536 and the model reloaded; it is

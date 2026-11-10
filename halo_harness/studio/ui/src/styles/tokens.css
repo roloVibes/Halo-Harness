@@ -38,6 +38,8 @@
   --glow-bad: 0 0 0 1px color-mix(in srgb, var(--bad) 60%, transparent);
   --soft-accent: var(--accent-soft); --soft-warn: var(--warn-soft); --soft-ok: var(--ok-soft); --soft-bad: var(--bad-soft);
   --soft-user: color-mix(in srgb, var(--user) 8%, transparent);
+  /* 3.3.16.2: a model's thinking (inner voice: the user hue, muted) and agents talking (between accent and user) */
+  --think: color-mix(in srgb, var(--user) 60%, var(--muted)); --talk: color-mix(in srgb, var(--accent) 50%, var(--user));
   --shadow-0: none;
   /* the static dot grid, on map canvases only */
   --grid-dot: var(--grid-line); --grid-size: 16px;

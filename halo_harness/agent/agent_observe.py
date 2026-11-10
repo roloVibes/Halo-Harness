@@ -15,12 +15,14 @@ agent/agent_registry.py).
                        or stopped when Studio stopped it)
 
 A followed agent's events also become `agent_event` entries
-(agent/agent_transcript.py's `LiveText`).
+(agent/agent_transcript.py's `LiveText`). 3.3.16.2: every agent's thinking
+becomes `thinking_chunk` frames (fleet/think.py `ThinkFeed`), one id per thought.
 """
 
 from __future__ import annotations
 
 from halo_harness.agent.agent_transcript import LiveText, first_line, tool_label
+from halo_harness.fleet.think import ThinkFeed
 
 LAST_TEXT = 200
 END_STATE = {"end_turn": "done", "max_tokens": "done", "interrupted": "stopped", "error": "failed",
@@ -60,6 +62,7 @@ class ObserveMixin:
             if row is None:
                 return
             entries = self._live.setdefault(aid, LiveText()).feed(ev) if aid in self.followed else ()
+            thoughts = self._think.setdefault(aid, ThinkFeed()).feed(ev)
             before = dict(row)
             if kind == "text_delta":
                 row["last_text"] = (row.get("last_text", "") + str(data.get("text") or ""))[-LAST_TEXT:]
@@ -90,6 +93,8 @@ class ObserveMixin:
                 self._reason[aid] = data.get("reason")
             pub = self._commit(aid, row, before)
         self._publish(pub)
+        for d in thoughts:
+            self._emit("thinking_chunk", aid, d)
         for entry in entries:
             self._emit("agent_event", aid, entry)
 
@@ -105,7 +110,11 @@ class ObserveMixin:
             self._inflight.pop(aid, None)
             live = self._live.get(aid)
             entries = live.flush() if live is not None else []
+            think = self._think.get(aid)
+            thoughts = think.end() if think is not None else []
             pub = self._commit(aid, row, before, force=True)
         self._publish(pub)
+        for d in thoughts:
+            self._emit("thinking_chunk", aid, d)
         for entry in entries:
             self._emit("agent_event", aid, entry)

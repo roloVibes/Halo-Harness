@@ -181,8 +181,8 @@ def test_a_sub_agents_rows_carry_its_name_model_and_lineup(ctx: Ctx):
     heads = _headings(text)
     ctx.check("the lineup is in the header", "lineup: halo-dev-cycle" in text)
     sub_heads = [h for h in heads if " · coder (or:mock/qwen3-coder) · " in h]
-    ctx.check(f"the sub-agent's two rows, its steer named for it, got {sub_heads}",
-              len(sub_heads) == 2 and sub_heads[0].endswith("steer to coder") and sub_heads[1].endswith("assistant text"))
+    ctx.check(f"the sub-agent's two rows, its steer named for it, its last words its hand-back (3.3.16.2), got {sub_heads}",
+              len(sub_heads) == 2 and sub_heads[0].endswith("steer to coder") and sub_heads[1].endswith("talk: coder -> main (hand-back)"))
     ctx.check("they sit in time order between main's tool call and its result",
               heads.index(sub_heads[0]) == 3 and "tool result" in heads[5])
 

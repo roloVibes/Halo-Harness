@@ -95,7 +95,9 @@ this list against the tree.
 - the relay of a joined harness: `fleet/relay.py`, `fleet/relay_hub.py`,
   `fleet/relay_runtime.py`, `fleet/relay_stream.py`, `fleet/control.py`,
   `fleet/local_view.py`, `fleet/agent_tokens.py` (each agent row's own tokens,
-  from its transcript)
+  from its transcript), `fleet/think.py` (3.3.16.2: every agent's thoughts as
+  `thinking_chunk` frames), `fleet/talk.py` (3.3.16.2: one agent's words to
+  another as `agent_talk` frames)
 - the CLI: `fleet/cli.py` (the dispatcher, serve, pair), `fleet/cli_join.py`
   (join, leave, status), `fleet/cli_members.py` (members, kick),
   `fleet/cli_panels.py` (record, digest), `fleet/cli_caps.py` (capabilities,

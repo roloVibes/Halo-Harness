@@ -7,6 +7,7 @@
 // picks are the Activity log's `.fac-pick` selects. 3.3.0.0 R6: Follow shows
 // whether the column follows now (off while you compose in the Steer field),
 // and Export downloads the session's trace (TraceExport.tsx).
+// 3.3.16.2: think and talk in the kind pick; Thinking beside Follow (only thoughts and their acts).
 // 3.3.7.0 R2: the offline-promise chip (OfflineChip.tsx) for a session of this harness.
 // 3.3.6.0 R6: Screenshot captures the display of the machine the session's harness runs on and attaches it to the
 // next steer (steerImage.ts): from a Mac or Kali driving this Studio, it is this PC's screen.
@@ -23,7 +24,9 @@ import { TraceExport } from "./TraceExport";
 /** The kind pick's choices: value, label, the line kinds it keeps. */
 export const KIND_PICKS: [string, string, LiveKind[]][] = [
   ["tool", "tools", ["tool"]],
-  ["text", "text", ["text", "thinking", "output", "asked"]],
+  ["text", "text", ["text", "output", "asked"]],
+  ["think", "think", ["thinking"]], // 3.3.16.2: thoughts, and agents' words to each other
+  ["talk", "talk", ["talk"]],
   ["state", "states", ["state", "spawn", "error"]],
   ["ask", "asks", ["ask"]],
 ];
@@ -64,6 +67,30 @@ function KindPick() {
   );
 }
 
+/** 3.3.16.2: Live narrowed to one pair's talk (Conversations' "show in Live"); the chip shows everything again. */
+function PairChip() {
+  const pair = useSession((s) => s.pair);
+  if (!pair) return null;
+  const name = (k: string) => (k.startsWith("machine:") ? k.slice(8) : findAgent(fleet.get(), k)?.a.name || k.split("|")[2] || "?");
+  const [a, b] = pair.split(">");
+  return (
+    <button type="button" className="slv-pinned mono" data-testid="live-pair-chip" onClick={() => sess.update(() => ({ pair: "" }))} title="Show every row again">
+      only {short(name(a), 14)} ↔ {short(name(b), 14)} <Icon name="close" size={12} />
+    </button>
+  );
+}
+
+/** 3.3.16.2: the Thinking view -- only thoughts and what each led to, for everyone or the pinned agent. */
+function ThinkToggle() {
+  const on = useSession((s) => s.think);
+  return (
+    <Button size="sm" variant={on ? "primary" : "ghost"} icon={<Icon name="pulse" />} aria-pressed={on} data-testid="live-think-view"
+            onClick={() => sess.update((s) => ({ think: !s.think, follow: true }))} title="Only the thoughts and what each one led to (again: every row)">
+      Thinking
+    </Button>
+  );
+}
+
 function ShotButton() {
   const ss = useFleet(chosenSession);
   const hid = useFleet((s) => s.scope.harness || "local");
@@ -99,6 +126,7 @@ export function LiveHead({ working, count, onFollow, following }: { working: num
           only {short(pinned.a.name || pinned.a.agent_id, 20)} <Icon name="close" size={12} />
         </button>
       )}
+      <PairChip />
       <OfflineSlot />
       <span className="spacer" />
       <div className="fac-filters slv-picks">
@@ -108,6 +136,7 @@ export function LiveHead({ working, count, onFollow, following }: { working: num
                 onClick={onFollow} title="Keep the newest line in view; scrolling up pauses it">
           Follow
         </Button>
+        <ThinkToggle />
         <ShotButton />
         <TraceExport where="head" />
       </div>
