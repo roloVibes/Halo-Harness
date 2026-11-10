@@ -1,0 +1,80 @@
+/* The Fleet fold (3.3.16.0 R2): Agents -> Live's fleet scope -- a machine's box and head node, a session node, a
+   mission part node, the scope switch, a node's tool line, the Steer target and the pin; Session's Map bar; Live's
+   inspector (the glance, a machine's summary and pages, a part's card); the Attention chip and its panel on Agents'
+   bar; Setup -> Machines. Amber is for what waits on you only. Imported before nodes.css: the node rules are
+   `.rlm-node.<kind>`, so they win over its base. Tokens only. */
+
+/* -- the tree ------------------------------------------------------------------------------------------------ */
+.rlm-scope button { padding: 3px 12px; font-size: 12px; }
+.rlm-machine-box { position: absolute; pointer-events: none; border: 1px solid var(--line-strong); border-radius: var(--r-panel);
+  background: color-mix(in srgb, var(--accent) 3%, transparent); }
+.rlm-machine-box[data-local] { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.rlm-machine-box:not([data-online]) { border-style: dashed; opacity: .75; }
+.rlm-box-label { position: absolute; left: 10px; top: 4px; font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.rlm-node.rlm-machine { --g: color-mix(in srgb, var(--accent) 40%, var(--line)); background: var(--bg-2); }
+.rlm-node.rlm-machine .fpe-dot { flex: none; }
+.rlm-node.rlm-machine [data-mismatch] { color: var(--warn); border-color: var(--warn); }
+.rlm-chip { margin-left: 6px; font-size: 10px; }
+.rlm-node.rlm-session { --g: var(--line-strong); background: var(--surface); }
+.rlm-node.rlm-session[data-chosen] { outline: 1px solid var(--accent); outline-offset: 2px; }
+.rlm-node.rlm-session[data-status="waiting"] { --g: var(--warn); }
+.rlm-node.rlm-session[data-motion="working"] .rlm-dot { background: var(--accent); }
+.rlm-git { display: flex; gap: 4px; flex-wrap: nowrap; overflow: hidden; }
+.rlm-git .og-chip { font-size: 10px; }
+.rlm-git [data-git="dirty"][data-on] { color: var(--warn); border-color: var(--warn); }
+.rlm-git [data-git="ahead"] { color: var(--accent); }
+.rlm-git [data-git="behind"] { color: var(--accent-2); }
+.rlm-clash { margin-left: 6px; color: var(--warn); border-color: var(--warn); font-size: 10px; }
+.rlm-node.rlm-part { --g: var(--accent-2); border-style: dashed; touch-action: none; background: color-mix(in srgb, var(--accent-2) 6%, var(--surface)); }
+.rlm-node.rlm-part:not([data-state="planned"]) { border-style: solid; }
+.rlm-node.rlm-part[data-editable] { cursor: grab; }
+.rlm-node.rlm-part[data-drag] { cursor: grabbing; box-shadow: 0 0 0 1px var(--accent); }
+.rlm-node.rlm-part[data-drag="pending"] { opacity: .8; }
+.rlm-node.rlm-part[data-selected] { outline: 1px solid var(--text); outline-offset: 3px; }
+.rlm-node.rlm-part[data-state="running"] { --g: var(--accent); }
+.rlm-node.rlm-part[data-state="asked"], .rlm-node.rlm-part[data-state="waiting"] { --g: var(--warn); }
+.rlm-node.rlm-part[data-state="done"], .rlm-node.rlm-part[data-state="merged"] { --g: var(--ok); }
+.rlm-node.rlm-part[data-state="failed"] { --g: var(--bad); }
+.rlm-node.rlm-part .rlm-lock { font-size: 10px; color: var(--muted); }
+.rlm-node.rlm-part .rlm-bad { color: var(--bad); border-color: var(--bad); font-size: 10px; }
+.rlm-tool { display: flex; align-items: center; gap: 5px; color: var(--tool, var(--accent)); }
+.rlm-pin { color: var(--muted); display: inline-flex; }
+.rlm-target { position: absolute; inset: 0; border: 1px solid var(--accent); border-radius: inherit; pointer-events: none; }
+.rlm-thumb-bar { padding: 4px var(--pad); min-height: var(--ctl-h); }
+.rlm-thumb-bar .fm-expand { margin-left: 0; }
+
+/* -- Live's inspector ---------------------------------------------------------------------------------------- */
+.lv-inspector { display: grid; gap: var(--gap); align-content: start; }
+.lv-back { display: flex; align-items: center; min-height: var(--ctl-h); }
+.lv-inspector .ri-summary dt, .lv-inspector .ri-row-state, .lv-inspector .btn-label { font-size: var(--fs-sm); } /* captions >= 12 px */
+.lv-glance dl [data-tone="warn"] dd, .lv-glance dl [data-tone="warn"] dd button { color: var(--warn); }
+.lv-glance .ri-summary > div { grid-template-columns: 128px minmax(0, 1fr); } /* "waits on you" on one line at 12 px */
+.lv-glance .ri-summary dt { white-space: nowrap; }
+.lv-machine .fpe, .lv-machine .fhe-list { list-style: none; margin: 0; padding: 0; }
+.lv-spend { display: grid; gap: 2px; }
+.lv-part .og-actions { display: flex; gap: 8px; }
+
+/* -- the Attention chip and its panel ----------------------------------------------------------------------- */
+.ag-attn-chip { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px; font-size: 12px; cursor: pointer;
+  color: var(--muted); background: transparent; border: 1px solid var(--line); border-radius: var(--r-control); }
+.ag-attn-chip:hover { color: var(--text); border-color: var(--line-strong); }
+.ag-attn-chip[aria-pressed="true"] { color: var(--text); border-color: var(--line-strong); background: var(--surface-2); }
+.ag-attn-dot { width: 7px; height: 7px; border-radius: 1px; background: var(--faint); }
+.ag-attn-chip[data-tone="warn"] { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 60%, transparent); background: var(--soft-warn); }
+.ag-attn-chip[data-tone="warn"] .ag-attn-dot { background: var(--warn); }
+.ag-attn-chip[data-blink] { animation: ag-blink .9s ease-in-out 1; }
+@keyframes ag-blink { 40% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--warn) 45%, transparent); } }
+.ag-attn-panel { position: absolute; top: var(--gap); right: var(--gap); z-index: 40; width: min(520px, calc(100% - 2 * var(--gap)));
+  max-height: calc(100% - 2 * var(--gap)); display: grid; grid-template-rows: auto minmax(0, 1fr); outline: none; }
+.ag-attn-head { display: flex; align-items: center; gap: var(--gap); min-height: var(--bar-h); padding: 0 var(--pad); border-bottom: 1px solid var(--line-soft); }
+.ag-attn-head .mono { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ag-attn-body { overflow: auto; padding: var(--pad); }
+
+/* -- Setup -> Machines ---------------------------------------------------------------------------------------- */
+.su-machines { display: grid; gap: calc(2 * var(--gap)); align-content: start; }
+.su-machines-lead .fl-explain { margin: 0; }
+.su-machines .fpe { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--cell-gap); }
+
+@media (prefers-reduced-motion: reduce) {
+  .ag-attn-chip[data-blink] { animation: none; }
+}

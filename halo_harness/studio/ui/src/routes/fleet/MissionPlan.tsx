@@ -4,11 +4,12 @@
 // files it claims, what it waits for, the estimate) and Drop; 3.2.0.0 R4: a
 // need a pack capability meets names its pack and harness, and the selected
 // part's pack inspector lines show under the table (PackCaps.tsx). The same plan
-// is drawn over the Fleet map (MapMission.tsx): drag a part's node to
-// another harness box to move it. Plan again asks the lead again; Approve
+// is drawn on Agents -> Live (agents/live/MissionParts.tsx): drag a part's node to
+// another machine's box to move it. Plan again asks the lead again; Approve
 // and Run (Run approves first) list what still stops them.
 import { Button, Icon } from "../../lib/ui";
 import { short } from "../orchestra/format";
+import { OwnsLine } from "../agents/runs/Owns"; // 3.3.16.0 R2: a part's claims as the owns line R1 drew on a lane
 import { EDITABLE, missions, partState, useMissions, usd, type PlanPart, type View } from "./mstore";
 import { approve, dropPart, planAgain, runIt } from "./mload";
 import { PackNeeds, PartPackInspector } from "./PackCaps";
@@ -70,7 +71,7 @@ function PartRow({ p, v, sel, editable }: { p: PlanPart; v: View; sel: boolean; 
       </td>
       <td><Harness p={p} /></td>
       <td className="mono fmi-small"><PackNeeds p={p} /></td>
-      <td className="mono fmi-small" title={p.claims.join("\n")}>{short(p.claims.join(", "), 22) || "-"}</td>
+      <td className="fmi-small"><OwnsLine keys={p.claims} testid="mission-part-owns" /></td>
       <td><Waits p={p} /></td>
       <td className="mono">{usd(p.est_cost_usd)}</td>
       <td>{editable && <Button size="sm" variant="ghost" onClick={(e) => (e.stopPropagation(), void dropPart(p.id))} data-testid="fleet-mission-drop" title="take this part out of the plan">Drop</Button>}</td>
@@ -102,7 +103,7 @@ export function MissionPlan() {
       <div className="fmi-plan-head mono muted">
         {v.plan.parts.length} parts on {new Set(v.plan.parts.map((p) => p.harness_name).filter(Boolean)).size} harnesses · est {usd(est)}
         {v.mission.budget_usd ? ` of ${usd(v.mission.budget_usd)}` : ""} · lead {usd(v.plan.lead_cost_usd)}
-        {editable && <span className="fmi-drag-hint"> · drag a part on the map to another harness to move it</span>}
+        {editable && <span className="fmi-drag-hint"> · drag a part on Live to another machine's box to move it</span>}
       </div>
       <div className="fmi-table-wrap">
         <table className="fmi-table" data-testid="fleet-mission-table">

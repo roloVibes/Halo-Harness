@@ -1,7 +1,6 @@
 /* Map nodes and edges in the Instrument look (3.3.15.0 L1; PROPOSAL.md section 3 "Map node" and "Edges",
-   section 5 "An agent starts and ends"): the Session Map's tree (routes/fleet/MapTreeNode.tsx, TreeEdge in
-   Map.tsx), the Fleet map's nodes (MapNode.tsx), Roles Live (routes/roles/LiveNode.tsx, LiveMap.tsx) and the
-   Fleet Tree's rows (FleetTree.tsx). A node is surface-2 with a hairline; its state is an inset 2 px rule across
+   section 5 "An agent starts and ends"): Agents -> Live's tree, which is Session's Map too (routes/roles/LiveNode.tsx,
+   LiveMap.tsx; 3.3.16.0 R2: the Fleet map and its Tree panel went, and the SVG nodes with them). A node is surface-2 with a hairline; its state is an inset 2 px rule across
    the top in the state colour and its border at 55 % of it: working cyan (only the activity text changes while it
    runs), waiting amber (three pulses, then steady), done green fading to rest over 10 s, failed red until clicked
    (`data-ack`). Selected, or hovered anywhere else on the page (a Live line): a 1 px outline in the text colour 3 px
@@ -10,52 +9,11 @@
    born after the page drew fades in / draws from its parent over 240 ms, once. Imported after fleet.css and
    roles-live.css, so these win. Tokens only. */
 
-/* -- the Session Map's tree and the Fleet map (SVG) -------------------------------------------------------- */
-.fm-node .fm-shape { fill: var(--surface-2); stroke: var(--line); stroke-width: 1; filter: none; stroke-dasharray: none; animation: none; }
-.fm-node .fm-rule { fill: transparent; }
-.fm-node .fm-dot { fill: var(--faint); }
-.fm-node .fm-name { font: 600 13px var(--sans); fill: var(--text); }
-.fm-node .fm-now, .fm-node .fm-cost { font: 11px var(--mono); }
-.fm-node .fm-now { fill: var(--muted); }
-.fm-node[data-tree] .fm-pill rect { fill: transparent; stroke: none; }
-.fm-node[data-tree] .fm-pill text { font: 11px var(--mono); fill: var(--muted); text-anchor: start; }
-.fm-node:hover .fm-shape, .fm-node:focus-visible .fm-shape { stroke: var(--line-strong); }
-.fm-ring { fill: none; stroke: var(--text); stroke-width: 1; filter: none; }
-.fm-node[data-selected] .fm-shape { stroke-width: 1; fill: var(--surface-2); }
-.fm-node[data-hover] .fm-shape { stroke-width: 1; filter: none; }
-.fm-node[data-motion="working"] .fm-rule { fill: var(--accent); }
-.fm-node[data-motion="working"] .fm-shape { stroke: color-mix(in srgb, var(--accent) 55%, transparent); }
-.fm-node[data-motion="working"] .fm-dot { fill: var(--accent); animation: m-blink 1.4s ease-in-out infinite; }
-.fm-node[data-motion="working"] .fm-now, .fm-node[data-motion="working"] .fm-tool-text { fill: var(--tool); }
-.fm-node[data-motion="waiting"] .fm-rule, .fm-node[data-motion="waiting"] .fm-dot { fill: var(--warn); }
-.fm-node[data-motion="waiting"] .fm-shape { stroke: color-mix(in srgb, var(--warn) 60%, transparent); animation: n-wait 1.2s ease-in-out 3; }
-.fm-node[data-motion="waiting"] .fm-now { fill: var(--warn); }
-.fm-node[data-motion="done"] .fm-rule { fill: var(--ok); animation: n-rule-rest 10s linear 1 forwards; }
-.fm-node[data-motion="done"] .fm-shape { stroke: color-mix(in srgb, var(--ok) 50%, transparent); animation: n-edge-rest 10s linear 1 forwards; }
-.fm-node[data-state="done"] .fm-dot { fill: var(--ok); }
-.fm-node[data-motion="error"] .fm-rule, .fm-node[data-motion="error"] .fm-dot { fill: var(--bad); }
-.fm-node[data-motion="error"] .fm-shape { stroke: color-mix(in srgb, var(--bad) 60%, transparent); fill: var(--surface-2); animation: none; }
-.fm-node[data-motion="error"] .fm-now { fill: var(--bad); }
-.fm-node[data-motion="error"][data-ack] .fm-rule { fill: transparent; }
-.fm-node[data-motion="error"][data-ack] .fm-shape { stroke: var(--line); }
-.fm-node[data-born] { animation: n-in var(--dur-base) var(--ease-out) 1 both; }
-@keyframes n-in { from { opacity: 0; } }
-@keyframes n-wait { 50% { stroke: var(--warn); } }
-@keyframes n-rule-rest { to { fill: transparent; } }
-@keyframes n-edge-rest { to { stroke: var(--line); } }
-
+/* -- the passing edges (FleetEdges.tsx: a spawn or a message lighting) --------------------------------------- */
 .fm-edge { fill: none; stroke: color-mix(in srgb, var(--line) 60%, var(--surface-2)); stroke-width: 1.5; filter: none; animation: none; }
-.fm-edge[data-on] { stroke: var(--line-strong); stroke-width: 1.5; }
-.fm-edge[data-motion="working"] { stroke: color-mix(in srgb, var(--accent) 25%, transparent); stroke-dasharray: none; filter: none; animation: none; }
-.fm-edge-flow, .rlm-edge-flow { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 4 8; animation: n-flow .8s linear infinite; pointer-events: none; }
+.rlm-edge-flow { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 4 8; animation: n-flow .8s linear infinite; pointer-events: none; }
 @keyframes n-flow { to { stroke-dashoffset: -12; } }
-.fm-edge[data-motion="waiting"] { stroke: var(--warn); stroke-width: 1.5; filter: none; }
-.fm-edge[data-motion="done"] { stroke: var(--ok); animation: n-edge-rest 10s linear 1 forwards; }
-.fm-edge[data-motion="error"] { stroke: var(--bad); stroke-width: 1.5; stroke-dasharray: 2 4; }
-.fm-edge[data-born] { stroke-dasharray: 1; animation: n-draw var(--dur-base) var(--ease-out) 1 both; }
-@keyframes n-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
 .fm-edge-lit { stroke-width: 1.5; filter: none; }
-.fm-steer rect { filter: none; }
 
 /* -- Roles Live (HTML nodes) ------------------------------------------------------------------------------- */
 .rlm-node { --g: var(--line); border: 1px solid var(--g); border-radius: var(--r-card); background: var(--surface-2); box-shadow: none; }
@@ -82,15 +40,9 @@
 .rlm-edge[data-on] { stroke-width: 1.5; stroke: var(--line-strong); }
 .rlm-group { border-radius: var(--r-card); }
 
-/* -- the Fleet Tree's rows -------------------------------------------------------------------------------- */
-.fr-dot, .fr-adot { border-radius: 1px; box-shadow: none !important; }
-.fr-adot[data-state="running"] { animation: m-blink 1.4s ease-in-out infinite; }
-.fr-model { flex: none; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--muted); }
-
 /* reduced motion: an instant state swap; the dash stops and a working edge is solid accent */
 @media (prefers-reduced-motion: reduce) {
-  .fm-node, .fm-node *, .fm-edge, .rlm-node, .rlm-node *, .fr-adot { animation: none !important; }
-  .fm-edge-flow, .rlm-edge-flow { display: none; }
-  .fm-edge[data-motion="working"], .rlm-edge[data-glow="working"] { stroke: var(--accent); }
-  .fm-edge[data-born] { stroke-dasharray: none; }
+  .fm-edge, .rlm-node, .rlm-node * { animation: none !important; }
+  .rlm-edge-flow { display: none; }
+  .rlm-edge[data-glow="working"] { stroke: var(--accent); }
 }

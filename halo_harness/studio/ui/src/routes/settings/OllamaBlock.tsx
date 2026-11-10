@@ -1,12 +1,12 @@
 // Settings -> Ollama, the steward's block above the group's rows (3.3.4.0 R5): its status line (where the job
 // runs, since when, the model it uses and why), the model picker (automatic = the key unset, "none" = no notes,
 // or one of the local models this machine lists; writes ollama.steward.model), the mode (auto / review / off ->
-// ollama.steward.apply), the job switch (ollama.steward.job, next launch) and "Open the Ollama panel". The
+// ollama.steward.apply), the job switch (ollama.steward.job, next launch) and "Open Local -> Hosts" (3.3.16.0 R2). The
 // thresholds (every_s, note_every_s, slow_tok_s, ledger, fleet.ollama.share) stay generic rows below it.
 import { useEffect } from "react";
 import { Button } from "../../lib/ui";
-import { openOllama } from "../fleet/Ollama";
-import { loadSteward, useOllama } from "../fleet/ostore";
+import { openLocalHost } from "../agents/fleetDoor";
+import { loadSteward, useOllama } from "../local/ostore";
 import { resetValue, setValue, useSettings } from "./store";
 
 const MODES = [
@@ -43,7 +43,7 @@ export function OllamaBlock() {
       <div className="st-ollama-row">
         <b>The Ollama steward</b>
         <span className="spacer" />
-        <Button size="sm" onClick={openOllama} data-testid="settings-ollama-open">Open the Ollama panel</Button>
+        <Button size="sm" onClick={() => openLocalHost()} data-testid="settings-ollama-open">Open Local -&gt; Hosts</Button>
       </div>
       <div className="st-ollama-status mono muted" data-testid="settings-ollama-status">
         {(st?.status_lines || ["reading the steward..."]).map((l) => (

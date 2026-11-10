@@ -14,10 +14,10 @@ config set` in a terminal shows at once).
 
 **The rail.** Across the top, the steps as the terminal wizard's step rail names them ([WIZARD.md](WIZARD.md)
 rule 4): Providers, Local models, Default model, Permissions, Theme, Team, Linux fixes (a step only while
-this box needs them), Check, Summary. The current step is lit, a done step is ticked, a step still to do is
+this box needs them), Check, Machines (3.3.16.0 R2), Summary. The current step is lit, a done step is ticked, a step still to do is
 plain; a click opens any step's page. A step is done when its block has what it needs: a provider set;
 nothing for Local models; a model picked; a permission mode; a theme; a lineup or `auto`; the fixes
-applied; a check run at least once. Under the steps, the rail's one line says what is set now: the
+applied; a check run at least once; Machines always (one machine is a whole setup). Under the steps, the rail's one line says what is set now: the
 providers set up here ("no provider set" until one is), the default model, the lineup, the permission mode,
 the terminal theme and the last check ("ok 12:04", "2 failed 12:04", "not run").
 
@@ -189,6 +189,23 @@ the cached catalog: an Ollama host is listed with the models its last read found
 **Refresh** reads every provider's list again (`POST models/refresh`). The Local models block's detection
 lines are the one live read (kept a minute).
 
+## Machines: pairing, sharing, the people (3.3.16.0 R2)
+
+The Fleet section's Start view, pair dialog and share / control rows folded in here, as the last step before the
+Summary (`?block=machines`, the palette's **Setup: pair a machine**). While only this harness is here the page leads
+with what a fleet is in five lines. Then the **pair card**: **Make a pair code** gives a one-time six-word code, the
+`halo fleet join <url> --code "..."` line for the other machine and its QR (the hub's address and fingerprint);
+**Start the hub here** when none runs (it listens on the LAN port, so Windows asks once about its firewall). Then the
+share and control rows (`fleet.share`: status | events | full; `fleet.allow_control`: none | ask | all) and the hubs
+this harness joined. Last, the **People** table: one row per harness (name, host and OS, the Halo version chip with
+"halo update" when it differs, what it shares and lets you do, live / idle / away) with **Forget** (asks first; it
+leaves this hub and pairs again with a new code). The Summary's Machines row says "this machine only" or "3 machines,
+2 online · hub here". A machine's agents are Agents -> Live on the fleet, its models Local
+([STUDIO-fleet.md](STUDIO-fleet.md#setup---machines)); the routes are FLEET.md's (`POST /api/fleet/pair`, `GET` /
+`POST /api/fleet/settings`, `POST /api/fleet/kick`, `POST /api/fleet/hub`).
+
+![Setup -> Machines: the pair card, the share and control rows, the People table with both machines](media/studio-fleet-panels.png)
+
 ## The doors: `halo init` opens Setup (3.3.0.0 R4)
 
 Setup is where a box gets set up: `halo init` on a terminal starts Studio (or reuses the one running for this
@@ -201,7 +218,7 @@ home) and opens this page; the terminal wizard is the fallback (`halo init --ter
   here; 3.3.0.0 opened the help once).
 - `?mode=setup&block=<block>` (`halo setup team`, `/setup team`; `roles` is the same block): that block's
   page opens, focused. The blocks: `providers`, `local`, `model`, `permissions`, `theme`, `team`, `linux`,
-  `check` (and, in the address, `summary`).
+  `check`, `machines` (3.3.16.0 R2) (and, in the address, `summary`).
 
 Both words leave the address bar once read, so a reload opens the page plainly, on the page last open (the
 token in the fragment stays). A Studio page already open takes the same as a `focus` frame, `{mode: "setup", block, first}`
@@ -229,6 +246,7 @@ job (on the Check page too, under **From packs**, unticked), a **note** has **Ma
 | Local models | `huggingface.model_dirs`, `huggingface.preferred_runtime` | `halo init`'s Local models step, `/local add` |
 | Linux fixes | `~/.local/bin/rg`; the PATH line in `~/.zshenv` or `~/.profile` (only the fixes listed) | the wizard's Linux step |
 | Check | `~/.halo/studio/last-check.json`; each check writes what its row says | `halo check` |
+| Machines | `fleet.share`, `fleet.allow_control` in config.json; a pair code in the hub's state; Forget removes the member | `halo config set fleet.share <v>` / `fleet.allow_control <v>`, `halo fleet pair`, `halo fleet kick` |
 
 ## The routes
 

@@ -1,35 +1,47 @@
-// Roles Live (3.3.11.0 R2; rolo 2026-11-02: "the roles tab kept up with what's happening during sessions for
-// better map views"): the Canvas panel's Live face, the session's actual agent tree on the whole canvas -- one
-// node per agent the work record holds (lib/work/record.ts: live, or finished and still in the frames), parent
-// -> child edges, nothing dropped (liveModel.ts), each lineup card the agents match as a faint group behind them,
-// an `auto` pick's reason on its node, laid out in layers (liveLayout.ts over the Map's layoutTree.ts) with zoom
-// and Fit. A click selects the agent and the Inspector's Live tab follows it (as the Map's click); a node's
-// "steer" chip and "..." menu are the Map's. The session picker lists every session the fleet frames carry
-// (this harness first, the newest first). Plan | Live on the bar (L toggles it, J / K hop the working agents).
-// 3.3.16.0 R1 (Agents -> Live): a live Orchestra run joins the tree -- its lead, each lane under it with its number in
-// the lane colour and its worktree (routes/agents/live/runLanes.tsx); the counts stay the session's agents.
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+// Agents -> Live (3.3.11.0 R2 as Roles Live; rolo 2026-11-02: "the roles tab kept up with what's happening during
+// sessions for better map views"): the Canvas panel's Live face, the real agent tree on the whole canvas -- one node
+// per agent the work record holds (lib/work/record.ts: live, or finished and still in the frames), parent -> child
+// edges, nothing dropped (liveModel.ts), each lineup card the agents match as a faint group behind them, an `auto`
+// pick's reason on its node, laid out in layers (liveLayout.ts) with zoom and Fit. 3.3.16.0 R1: a live Orchestra run
+// joins the tree (routes/agents/live/runLanes.tsx). 3.3.16.0 R2 "the Fleet fold" (a machine's agents in Agents): the
+// bar's scope switch -- **this halo** (one session of this harness, the picker) or **fleet** (every machine, its
+// sessions, their agents, the open mission's parts under the machine each runs on; the Fleet Map drew this before and
+// is gone) -- with the spawn / message edges lighting and the conflict edge; a click puts what it hit in the inspector
+// (InspectorDetail: the fleet at a glance, a machine, an agent, a part), a click on the canvas itself clears it. The
+// same component is Session's Map (`thumb`): this harness's sessions and their agents, fitted to the panel, a click
+// picks the Steer box's target, "Open in Agents Live" opens the full tree.
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type RefObject } from "react";
 import { Empty } from "../../lib/ui";
-import { recordRefs, useSessionRecord } from "../../lib/work/record";
-import { NodeMenu, type MenuAt } from "../fleet/MapNode";
-import { fleet, useFleet, useNow, type FleetState } from "../fleet/store";
+import { useFleet } from "../fleet/store";
 import { startFleet } from "../fleet/sync";
-import { liveLayout } from "./liveLayout";
-import { liveNodes, liveSession } from "./liveModel";
-import { LiveBar, LiveGroupBox, LiveNodeCard } from "./LiveNode";
-import { useRoles } from "./store";
-import { RunNodeCard, runNodes } from "../agents/live/runLanes";
-import { useOrch } from "../orchestra/store";
+import { startMissions } from "../fleet/mload";
+import { select } from "../fleet/actions";
+import { pickNode } from "../session/steer";
 import { startOrchestra } from "../orchestra/sync";
+import { FleetEdges } from "../agents/live/FleetEdges";
+import { LiveBar } from "../agents/live/LiveBar";
+import { MachineBox, MachineNode } from "../agents/live/MachineNode";
+import { PartEdges, PartNode } from "../agents/live/MissionParts";
+import { NodeMenu, type MenuAt } from "../agents/live/NodeMenu";
+import { SessionNode } from "../agents/live/SessionNode";
+import { ThumbBar } from "../agents/live/ThumbBar";
+import { clearPick, pickLive, toggleScope, useLiveScope, useLivePick } from "../agents/live/scope";
+import { useLiveNodes } from "../agents/live/useLiveNodes";
+import { RunNodeCard } from "../agents/live/runLanes";
+import { liveLayout, type LiveBox } from "./liveLayout";
+import { selectLive } from "./liveModel";
+import { LiveGroupBox, LiveNodeCard } from "./LiveNode";
+import { useRoles } from "./store";
 
 const LIVE = ["queued", "running", "waiting", "paused"];
+const MOTION: Record<string, string> = { working: "working", waiting: "waiting", done: "done", failed: "error" }; // lib/motion's words
 
-function Edges({ boxes, w, h, sel }: { boxes: ReturnType<typeof liveLayout>["boxes"]; w: number; h: number; sel: string }) {
+function Edges({ boxes, w, h, sel }: { boxes: LiveBox[]; w: number; h: number; sel: string }) {
   return (
     <svg className="rlm-edges" width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden="true">
       {boxes.filter((b) => b.d).map((b) => [
         <path key={b.node.id} className="rlm-edge" d={b.d} data-testid="roles-live-edge" data-from={b.from || undefined} data-to={b.node.id}
-              data-glow={b.node.glow || undefined} data-on={(b.node.key && b.node.key === sel) || undefined} />,
+              data-glow={b.node.glow || undefined} data-motion={MOTION[b.node.glow] || undefined} data-on={(b.node.key && b.node.key === sel) || undefined} />,
         // 3.3.15.0 L1 (styles/nodes.css): a working child's edge carries a dash moving toward it
         b.node.glow === "working" && <path key={b.node.id + "~flow"} className="rlm-edge-flow" d={b.d} />,
       ])}
@@ -37,67 +49,67 @@ function Edges({ boxes, w, h, sel }: { boxes: ReturnType<typeof liveLayout>["box
   );
 }
 
-export function LiveMap() {
+export function LiveMap({ thumb = false }: { thumb?: boolean }) {
   useEffect(() => startFleet(), []);
-  useEffect(() => startOrchestra(), []); // the newest run of this repo: drawn while it is live
-  const run = useOrch((s) => s.data);
-  const want = useRoles((s) => s.liveSid);
+  useEffect(() => (thumb ? undefined : (startOrchestra(), startMissions())), [thumb]); // the newest run of this repo, the missions
+  const scope = useLiveScope();
+  const mode = thumb ? "thumb" : scope;
+  const { nodes, sid, refs, now } = useLiveNodes(mode);
   const density = useRoles((s) => s.liveDensity);
-  const graph = useRoles((s) => s.graph);
-  const lineup = useRoles((s) => s.name);
-  const harnesses = useFleet((s) => s.harnesses);
-  const activity = useFleet((s) => s.activity);
   const selected = useFleet((s) => s.selected);
   const loaded = useFleet((s) => s.loaded);
-  const now = useNow(true, 1000);
-  const refs = useMemo(() => recordRefs({ harnesses } as FleetState), [harnesses]);
-  const sid = useMemo(() => liveSession({ harnesses } as FleetState, want), [harnesses, want]);
-  const rec = useSessionRecord(sid);
-  const lanes = useMemo(() => runNodes(run), [run]);
-  const nodes = useMemo(() => [...(rec ? liveNodes(rec, fleet.get(), graph?.nodes || [], lineup, now) : []), ...lanes], [rec, graph, lineup, activity, now, lanes]);
-  const geo = useMemo(() => liveLayout(nodes, density), [nodes, density]);
+  const pick = useLivePick();
+  const geo = useMemo(() => liveLayout(nodes, thumb ? "compact" : density), [nodes, density, thumb]);
   const [zoom, setZoom] = useState(1);
   const [menu, setMenu] = useState<MenuAt | null>(null);
   const scroll = useRef<HTMLDivElement>(null);
   const fit = () => {
     const el = scroll.current;
-    if (el) setZoom(Math.max(0.25, Math.min(1.25, (el.clientWidth - 24) / geo.width, (el.clientHeight - 24) / geo.height)));
+    if (el) setZoom(Math.max(thumb ? 0.2 : 0.25, Math.min(thumb ? 1 : 1.25, (el.clientWidth - 24) / geo.width, (el.clientHeight - 24) / geo.height)));
   };
-  const fitted = useRef("");
-  useEffect(() => {
-    // the first draw of a session (and a density change) fits a tree bigger than the page
-    const el = scroll.current;
-    const shape = `${sid}|${density}`;
-    if (!el || !nodes.length || fitted.current === shape) return;
-    fitted.current = shape;
-    if (geo.width > el.clientWidth || geo.height > el.clientHeight) fit();
-    else setZoom(1);
-  }, [sid, density, nodes.length, geo.width, geo.height]);
+  useAutoFit(scroll, thumb, `${mode}|${sid}|${density}`, nodes.length, geo, fit, setZoom);
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
-    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.ctrlKey || e.metaKey || e.altKey || thumb) return;
     if (e.key === "f" && !e.shiftKey) fit();
+    else if (e.key === "F") toggleScope(); // 3.3.16.0 R2: this halo | fleet
     else if (e.key === "+" || e.key === "=") setZoom((z) => Math.min(2, z * 1.2));
     else if (e.key === "-") setZoom((z) => Math.max(0.25, z / 1.2));
     else return;
     e.preventDefault();
   };
-  const agents = nodes.filter((n) => !n.virtual && !n.run);
+  const onAgent = thumb ? pickNode : (key: string) => (selectLive(key), pickLive("agent", key));
+  const onSession = thumb ? select : onAgent;
+  const agents = nodes.filter((n) => !n.virtual && !n.run && !n.kind);
+  const machines = nodes.filter((n) => n.kind === "machine").length;
+  const live = agents.filter((n) => LIVE.includes(n.state)).length;
+  const empty = !nodes.length || (mode === "here" && !agents.length && !nodes.some((n) => n.run));
   return (
-    <div className="rc rlm" data-testid="roles-live-map" data-session={sid || undefined} data-nodes={agents.length} data-density={density}>
-      <LiveBar refs={refs} sid={sid} agents={agents.length} live={agents.filter((n) => LIVE.includes(n.state)).length} zoom={zoom} setZoom={setZoom} fit={fit} />
-      <div className="rc-scroll rlm-scroll holo-grid" ref={scroll} tabIndex={0} onKeyDown={onKey} aria-label="Roles Live: the session's agent tree">
+    <div className="rc rlm" data-testid="roles-live-map" data-session={mode === "here" ? sid || undefined : undefined} data-scope={mode} data-nodes={agents.length}
+         data-machines={machines} data-density={density}>
+      {thumb ? <ThumbBar sid={sid} agents={agents.length} live={live} /> : <LiveBar refs={refs} sid={sid} agents={agents.length} live={live} machines={machines} zoom={zoom} setZoom={setZoom} fit={fit} />}
+      <div className="rc-scroll rlm-scroll holo-grid" ref={scroll} tabIndex={0} onKeyDown={onKey} aria-label="Agents Live: the agent tree"
+           onClick={(e) => !thumb && e.target === e.currentTarget && clearPick()}>
         {!loaded ? (
           <div className="og-wait mono muted">reading the sessions...</div>
-        ) : !rec && !lanes.length ? (
+        ) : empty ? (
           <Empty title="No session to draw" testid="roles-live-empty"
                  body="Live draws a running session's agents as they spawn. Start one in a terminal (halo), or from Session: New session (no terminal needed); it appears here the moment it registers." />
         ) : (
-          <div className="rc-world" style={{ width: geo.width * zoom, height: geo.height * zoom }}>
+          <div className="rc-world" style={{ width: geo.width * zoom, height: geo.height * zoom }} onClick={(e) => !thumb && e.target === e.currentTarget && clearPick()}>
             <div className="rc-inner rlm-inner" style={{ width: geo.width, height: geo.height, transform: `scale(${zoom})` }} data-testid="roles-live-world" data-zoom={zoom.toFixed(2)}>
+              {geo.machines.map((g) => <MachineBox key={g.card} g={g} label={thumb} />)}
               {geo.groups.map((g) => <LiveGroupBox key={g.card} g={g} />)}
               <Edges boxes={geo.boxes} w={geo.width} h={geo.height} sel={selected} />
-              {geo.boxes.map((b) => (b.node.run ? <RunNodeCard key={b.node.id} b={b} />
-                : <LiveNodeCard key={b.node.id} b={b} selected={!!b.node.key && b.node.key === selected} now={now} onMenu={setMenu} />))}
+              {mode !== "here" && <FleetEdges boxes={geo.boxes} w={geo.width} h={geo.height} />}
+              {mode === "fleet" && <PartEdges boxes={geo.boxes} w={geo.width} h={geo.height} />}
+              {geo.boxes.map((b) => {
+                const n = b.node;
+                if (n.run) return <RunNodeCard key={n.id} b={b} />;
+                if (n.kind === "machine") return <MachineNode key={n.id} b={b} now={now} selected={pick.kind === "machine" && pick.id === n.harness} onPick={(h) => pickLive("machine", h)} />;
+                if (n.kind === "session") return <SessionNode key={n.id} b={b} selected={!!n.key && n.key === selected} onPick={onSession} onMenu={setMenu} />;
+                if (n.kind === "part") return <PartNode key={n.id} b={b} machines={geo.machines} zoom={zoom} />;
+                return <LiveNodeCard key={n.id} b={b} selected={!!n.key && n.key === selected} now={now} onMenu={setMenu} onPick={onAgent} />;
+              })}
             </div>
           </div>
         )}
@@ -105,4 +117,26 @@ export function LiveMap() {
       {menu && <NodeMenu at={menu} onClose={() => setMenu(null)} />}
     </div>
   );
+}
+
+/** The first draw of a tree (a scope, session or density change) fits one bigger than the page; the thumbnail always fits. */
+function useAutoFit(scroll: RefObject<HTMLDivElement | null>, thumb: boolean, shape: string, count: number, geo: { width: number; height: number },
+                    fit: () => void, setZoom: (z: number) => void): void {
+  const fitted = useRef("");
+  useEffect(() => {
+    const el = scroll.current;
+    if (!el || !count) return;
+    if (thumb) return fit();
+    if (fitted.current === shape) return;
+    fitted.current = shape;
+    if (geo.width > el.clientWidth || geo.height > el.clientHeight) fit();
+    else setZoom(1);
+  }, [shape, count, geo.width, geo.height]);
+  useEffect(() => {
+    const el = scroll.current;
+    if (!el || !thumb) return;
+    const ro = new ResizeObserver(() => fit());
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [thumb, geo.width, geo.height]);
 }

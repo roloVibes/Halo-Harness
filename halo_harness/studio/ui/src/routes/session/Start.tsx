@@ -8,7 +8,7 @@ import { useEffect } from "react";
 import { Surface } from "../../lib/ui";
 import { Workspace } from "../../lib/workspace/Workspace";
 import type { PanelSpec } from "../../lib/workspace/types";
-import { Explain, OpenAnyway, TryIt } from "../fleet/Start";
+import { Explain, OpenAnyway, TryIt } from "../shared/StartBits";
 import { NewSession } from "./NewSession";
 import { useFleet } from "../fleet/store";
 import { setSessionView, startSession, useSessionStart } from "./store";

@@ -15,8 +15,8 @@ A range (`Alt+1`..`Alt+7`, `Alt+1` to `Alt+7`, `Alt+1..5`) names no single
 section: its paragraph's run of six titles or more (`Session, Agents, ...`,
 `**A** | **B**`, `A, B and C`) must be the registry's order from its start
 (3.2.0.0 R6: the work sections, then Packs; 3.3.0.0 R1: then Setup; 3.3.3.0 R2: then Settings; 3.3.5.0 R1:
-then Local; 3.3.13.0 R2: Design left the core; 3.3.16.0 R1: Agents took in Team, Roles and Orchestra, the seven end
-at Local on Alt+7 and Alt+8, Alt+9 and Alt+0 are the first three pack sections').
+then Local; 3.3.13.0 R2: Design left the core; 3.3.16.0 R1: Agents took in Team, Roles and Orchestra; R2: and Fleet,
+the six end at Settings on Alt+6 and Alt+7 to Alt+0 are the first four pack sections').
 """
 from __future__ import annotations
 
@@ -33,7 +33,7 @@ KEY = re.compile(r"Alt\+([0-9])(?!\d)")  # 3.2.0.0 R6: Packs is Alt+7; 3.3.0.0 R
 RANGE = re.compile(r"`?Alt\+1`?\s*(?:\.\.\.?|to|-)\s*`?(?:Alt\+)?[4567890](?!\d)`?")  # 3.3.0.0 R1: ..8; 3.3.3.0 R2: ..9; 3.3.5.0 R1: ..0; 3.3.13.0 R2: ..5; 3.3.16.0 R1: ..4
 _SEP = re.compile(r"[\s*`,|/]*(?:and\s+)?[\s*`,|/]*")
 HEADING = re.compile(r"^#{1,6} ")
-PACK = "pack"  # 3.3.13.0 R2: the tenth slot (Alt+0) was the first pack section's; 3.3.16.0 R1: Alt+8, Alt+9, Alt+0 are the packs'
+PACK = "pack"  # 3.3.13.0 R2: the tenth slot (Alt+0) was the first pack section's; 3.3.16.0 R2: Alt+7 to Alt+0 are the packs'
 PACK_HINT = re.compile(r"design pack|first pack section|pack's (?:own )?sections?\b", re.I)
 
 
@@ -57,7 +57,7 @@ def _patterns(rows):
     titles = "|".join(t for _, t, _, _ in rows)
     ids = "|".join(i for i, _, _, _ in rows)
     title = re.compile(rf"\b({titles})\b")
-    hint = re.compile(rf"(?:\?mode=|--mode |/studio )({ids})\b|--(session|fleet)\b")  # 3.3.16.0 R1: /roles opens Agents (no id hint)
+    hint = re.compile(rf"(?:\?mode=|--mode |/studio )({ids})\b|--(session)\b")  # 3.3.16.0 R1: /roles opens Agents (no id hint); R2: --fleet runs the hub, no section
     return title, hint
 
 
@@ -143,7 +143,7 @@ def problems(path: Path, rows) -> "list[str]":
     """Every line of `path` whose Alt+N names another section than the registry's, or whose range lists
     the six sections out of order."""
     want = {n: sid for n, (sid, _, _, _) in enumerate(rows, 1)}
-    for n in range(len(rows) + 1, 11):  # 3.3.16.0 R1: seven core sections: Alt+8, Alt+9 and Alt+0 are the pack sections'
+    for n in range(len(rows) + 1, 11):  # 3.3.16.0 R2: six core sections: Alt+7 to Alt+0 are the pack sections'
         want.setdefault(n, PACK)
     order = [t for _, t, _, _ in rows]
     rel = path.relative_to(REPO).as_posix()
@@ -156,6 +156,6 @@ def problems(path: Path, rows) -> "list[str]":
             out.append(f"{rel}:{no}: Alt+{n % 10} is {want.get(n)}, the line names {sid}: {line[:120]}")
     for no, runs, line in ranges:
         for run in runs:
-            if len(set(run)) >= 5 and run != order[:len(run)]:  # 3.2.0.0 R6 .. 3.3.5.0 R1; 3.3.16.0 R1: five titles or more of the seven
+            if len(set(run)) >= 5 and run != order[:len(run)]:  # 3.2.0.0 R6 .. 3.3.5.0 R1; 3.3.16.0 R2: five titles or more of the six
                 out.append(f"{rel}:{no}: the sections run {', '.join(run)}, the registry {', '.join(order)}: {line[:120]}")
     return out

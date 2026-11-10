@@ -6,8 +6,8 @@ Part of [Halo Studio](STUDIO.md), which lists every part.
 
 ## Local: the machines and the models (3.3.5.0)
 
-**Local** is Studio's seventh section, on `Alt+7` (3.3.16.0 R1: the last core section since Agents took in Team, Roles
-and Orchestra; the pack's own sections follow on `Alt+8`, `Alt+9` and `Alt+0`). It holds everything Halo knows about local models in one tab, paged like Settings: a
+**Local** is Studio's third section, on `Alt+3` (3.3.16.0 R2: a machine's models, as Agents -> Live is its agents;
+the pack's own sections follow the six core ones on `Alt+7` to `Alt+0`). It holds everything Halo knows about local models in one tab, paged like Settings: a
 page rail on the left, one page on the right, a head on each page that says what it holds, which of Local's five ideas
 it carries, and its help behind **How this page works**. Nothing opens on its own; the page last open in this browser
 comes back (`halo.studio.local.page`). The ten pages, in the rail's order (Voice's row is in [STUDIO-local-routes.md](STUDIO-local-routes.md#the-pages-index)):
@@ -26,9 +26,9 @@ comes back (`halo.studio.local.page`). The ten pages, in the rail's order (Voice
 
 The doors: `halo local` opens Studio on Local's Hugging Face page (3.3.5.0 R5; a Studio already running for this home
 takes it in its open page), a page word opens that page (`halo local library`), `halo local hosts` on the Hosts page (`?mode=local&page=hosts`), `halo studio --edit local:models` the same from the
-studio command, `halo studio --mode local`, `/studio local` in the TUI, and the palette's **Local: <page>** rows. Fleet's
-Ollama panel stays the short form of the same data; each of its model rows has **open in Local**, which opens Models
-on that host ([MODELS-ollama-steward.md](MODELS-ollama-steward.md)).
+studio command, `halo studio --mode local`, `/studio local` in the TUI, and the palette's **Local: <page>** rows. 3.3.16.0
+R2 moved the Fleet section's Ollama panel here: Hosts' **steward block** and Steward's **Run now**, hub note and changes
+([MODELS-ollama-steward.md](MODELS-ollama-steward.md)); the `ollama_steward` attention row's `O` opens Hosts on its host.
 
 ![Local -> Resources: a live strip per host, the traffic view under it](media/studio-local.png)
 
@@ -98,9 +98,12 @@ The controls its kind allows:
 - **Unload** sends `keep_alive: 0`.
 - **Make it fit** (idea 4): when the models the halos ask for do not fit the card together, the fit planner's chosen
   option (a window per model, one model at a time, another host) is applied as steward profiles through the steward's
-  own guards (`ollama/steward/apply`), and **Undo** beside it takes them back. A server-side option is never applied:
-  Fleet's Ollama panel shows its exact line to copy.
+  own guards (`ollama/steward/apply`), **Undo** beside it takes them back; a server-side option is a line to copy.
 - **Add to hosts** on a found server writes the `ollama.hosts` entry through Setup's own Ollama writer.
+
+**The steward block** (3.3.16.0 R2, the Fleet Ollama panel's before), under the cards: a host picker (every Ollama host and
+HF local server the steward reads), the host's models table (the last hour's calls, trims, cuts, errors, the p95 prompt
+against the window, the profile and who set it, the VRAM share), its traffic timeline and its fit plan (Apply, Copy).
 
 A host this machine serves is controlled from here. A host another machine serves is controlled **through the fleet
 member that serves it** when this Studio runs the hub: the command (`ollama_load`, `ollama_unload`) goes to that member's
@@ -184,8 +187,8 @@ recipe). 3.3.7.0 R4: above it the **Adviser** -- gap, overlap, mismatch, freshne
 (Add, Retire, Point) and its CLI line ([MODELS-adviser.md](MODELS-adviser.md)).
 
 The page reads each host's catalog through one cache keyed by the catalog's mtime: `/api/tags` alone is read (at most
-every 15 seconds), and the per-model `/api/show` calls run again only when a model was pulled, deleted or changed. Fleet's
-Ollama panel reads its catalogs the same way since this round (it used to read every host's whole catalog each minute).
+every 15 seconds), and the per-model `/api/show` calls run again only when a model was pulled, deleted or changed; the
+steward block reads them the same way.
 
 ## Library
 
@@ -370,10 +373,7 @@ Library read again.
 
 ## The pages still to come
 
-None: 3.3.7.0 R5 built the last framed page, Steward -- the steward job's status and note, the chat with the
-steward's own model over the hosts' findings, its model and candidates, the off-hours refresh
-([STUDIO-local-steward.md](STUDIO-local-steward.md)). A page a later round adds before it is built is framed the same
-way: one paragraph of what it will hold and the commands that do that work today.
+None (3.3.7.0 R5 built the last, Steward); a later round's page is framed first: what it will hold, today's commands.
 
 ## Local's five ideas
 

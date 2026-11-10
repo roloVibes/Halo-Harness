@@ -15,6 +15,7 @@ import { CheckDetail } from "./Check";
 import { DefaultModelDetail } from "./DefaultModel";
 import { LinuxFixesDetail } from "./LinuxFixes";
 import { LocalModelsDetail } from "./LocalModels";
+import { MachinesDetail } from "./Machines";
 import { PackBlockPage } from "./PackBlocks";
 import { blockOf, isPackStep } from "./packSetup";
 import { HELP_KEY, step, stepsOf, titleOf, usePage, type CoreStep, type StepId } from "./pages";
@@ -34,6 +35,7 @@ const BODY: Record<CoreStep, ComponentType> = {
   team: TeamDetail,
   linux: LinuxFixesDetail,
   check: CheckDetail,
+  machines: MachinesDetail,
   summary: SummaryDetail,
 };
 

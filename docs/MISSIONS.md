@@ -292,10 +292,10 @@ else this harness alone.
 
 ## In Studio
 
-Fleet's **Mission** panel (`M` in Fleet, or the palette's **Fleet: new
+The **Mission** panel (3.3.16.0 R2: in Agents -> Runs; `M` in Agents, or the palette's **Agents: new
 mission**) is the same flow on one screen: type the goal, pick the harnesses
 to prefer, a budget and the lineup (3.2.1.0 R1: the **Lineup** select, the
-active one first; the mission's head then says `lineup <name>`), **Plan it**. The plan is drawn over the Fleet map,
+active one first; the mission's head then says `lineup <name>`), **Plan it**. The plan is drawn on Agents -> Live with the fleet scope,
 each part a node in its harness's box (a lock where it was pinned by
 capability, an amber edge and a **claims** chip where two parts were
 sequenced, a chip naming what every other edge hands on, each repo part's

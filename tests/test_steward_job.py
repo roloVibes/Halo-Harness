@@ -213,7 +213,7 @@ def test_a_note_raises_the_attention_row_and_travels_to_a_member(ctx: Ctx):
         mine = [r for r in rows if r["kind"] == "ollama_steward"]
         ctx.check(f"one steward row with the first line, got {[r['what'] for r in mine]}",
                   len(mine) == 1 and mine[0]["what"].startswith("the 30B on pc spilled"))
-        ctx.check("its keys: set aside and open", mine and mine[0]["keys"] == {"a": "set aside", "o": "open Ollama"})
+        ctx.check("its keys: set aside and open", mine and mine[0]["keys"] == {"a": "set aside", "o": "open Local"})
         ctx.check("set aside hides it like the other set-aside kinds", "ollama_steward" in SET_ASIDE)
         ctx.check("open goes to the Ollama panel", mine and open_target(mine[0])["panel"] == "ollama")
         gone = attention.build({"harnesses": []}, home=h.state, acks={mine[0]["id"]})

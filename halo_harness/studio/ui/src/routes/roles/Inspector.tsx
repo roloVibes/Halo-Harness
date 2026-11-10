@@ -7,6 +7,7 @@
 // 3.2.0.0 R2: a pack's lineup says "from pack <id>, read-only" on top, with Customize.
 // 3.2.2.0 R6: over it all, "<name> changed on disk" with Reload / Keep mine when a draft is unsaved (DiskNote.tsx).
 // 3.3.16.0 R1b: Assignment and Lineup each open on a plain-words summary; Edit opens one block per page (pages.ts).
+// 3.3.16.0 R2: on Live the inspector says what is picked on the tree instead (routes/agents/live/LiveInspector.tsx).
 import { Button, Tabs } from "../../lib/ui";
 import { Metric } from "../orchestra/bits";
 import { Assignment } from "./Assignment";
@@ -14,6 +15,7 @@ import { LineupDiskNote } from "./DiskNote";
 import { LineupTab } from "./LineupTab";
 import { useByNode } from "./live";
 import { LiveTab } from "./LiveTab";
+import { LiveInspector } from "../agents/live/LiveInspector";
 import { ModelStrip } from "./ModelStrip";
 import { cloneFromPack } from "./packActions";
 import { nodeById, packOf, setTab, useRoles, type InspectorTab } from "./store";
@@ -33,6 +35,16 @@ function ReadOnly() {
 }
 
 export function InspectorDetail() {
+  const live = useRoles((s) => s.canvasView === "live");
+  return live ? (
+    <div className="ri" data-testid="roles-inspector-body" data-view="live">
+      <LiveInspector />
+    </div>
+  ) : <CastInspector />;
+}
+
+/** 3.3.16.0 R2: Cast's inspector (Assignment, Lineup, Live); Live's says what is picked on the tree (LiveInspector.tsx). */
+function CastInspector() {
   const tab = useRoles((s) => s.tab);
   const sel = useRoles((s) => s.sel);
   const byNode = useByNode();

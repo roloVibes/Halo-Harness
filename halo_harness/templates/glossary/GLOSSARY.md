@@ -81,7 +81,7 @@ An Orchestra run is several agents writing the same files at once with nothing l
 
 ## fleet
 
-The fleet is every Halo harness you run or joined, on any machine, seen as one: their sessions, every agent in them, what waits on you and what it all costs. A machine joins with a pair code (`halo fleet pair` on the hub, `halo fleet join` on the other machine); `halo fleet` is the live table and Studio's Fleet section the map.
+The fleet is every Halo harness you run or joined, on any machine, seen as one: their sessions, every agent in them, what waits on you and what it all costs. A machine joins with a pair code (`halo fleet pair` on the hub, `halo fleet join` on the other machine); `halo fleet` is the live table and Studio's Agents -> Live on the fleet the map (3.3.16.0 R2; Setup -> Machines pairs, Local holds the machines' models).
 
 ## hub
 
@@ -125,7 +125,7 @@ A config key is one setting in `~/.halo/config.json`, named by its dotted path (
 
 ## steward
 
-The Ollama steward (3.3.4.0) watches every halo's calls to a local model server: one ledger line per call, the server's own log lines and the card it runs on. Its rules find what is wrong per host and model (a window too small, a reply cut, two windows reloading one model), it plans what fits the card, and it changes Halo's side of the calls (a profile) per `ollama.steward.apply`: `auto` applies, `review` proposes, `off` reports. It never writes to a server; a server-side change is a line for you to copy. Fleet's Ollama panel, Settings -> Ollama, `/ollama` and `halo ollama steward` show it.
+The Ollama steward (3.3.4.0) watches every halo's calls to a local model server: one ledger line per call, the server's own log lines and the card it runs on. Its rules find what is wrong per host and model (a window too small, a reply cut, two windows reloading one model), it plans what fits the card, and it changes Halo's side of the calls (a profile) per `ollama.steward.apply`: `auto` applies, `review` proposes, `off` reports. It never writes to a server; a server-side change is a line for you to copy. Local -> Hosts and Steward, Settings -> Ollama, `/ollama` and `halo ollama steward` show it.
 
 ## profile
 
@@ -133,11 +133,11 @@ A profile (Ollama) is what every halo reads before a call to one model on one ho
 
 ## fit plan
 
-The fit plan is the steward's answer to "do the models the halos ask for fit this card together?": from the hardware card, what else holds memory and the windows asked, it lists options, each with what you lose: a window per model, one model at a time, a model asked on another host, a tuned twin, a smaller quantization, or a smaller KV cache on the server. A profile change can be applied; a server-side one is only shown with the exact line. `halo ollama steward plan` prints it, and Fleet's Ollama panel shows it with Apply and Copy.
+The fit plan is the steward's answer to "do the models the halos ask for fit this card together?": from the hardware card, what else holds memory and the windows asked, it lists options, each with what you lose: a window per model, one model at a time, a model asked on another host, a tuned twin, a smaller quantization, or a smaller KV cache on the server. A profile change can be applied; a server-side one is only shown with the exact line. `halo ollama steward plan` prints it, and Local -> Hosts shows it with Apply and Copy.
 
 ## host
 
-A host is a model server Halo calls -- an `ollama.hosts` entry (`ol:<model>@<host>`), a Hugging Face local server (`huggingface.local_servers`: llama-server, LM Studio, mlx), or a server Find or Scan found that is not added yet -- and, since 3.3.7.0, `halo host`: the model-free Halo process on the machine that serves it, which watches that machine's servers (the log, `/api/ps`, the events, the card) with no session open and answers paired peers on the LAN with signed, audited reads (the card, the catalog with a fit verdict, the profiles, the log). It never loads a model and never runs one. Studio's Local section (Alt+7) lists every host on its Hosts page, "served by halo host at <addr>" when one serves it; `halo local hosts` prints the same and `halo host status` the process.
+A host is a model server Halo calls -- an `ollama.hosts` entry (`ol:<model>@<host>`), a Hugging Face local server (`huggingface.local_servers`: llama-server, LM Studio, mlx), or a server Find or Scan found that is not added yet -- and, since 3.3.7.0, `halo host`: the model-free Halo process on the machine that serves it, which watches that machine's servers (the log, `/api/ps`, the events, the card) with no session open and answers paired peers on the LAN with signed, audited reads (the card, the catalog with a fit verdict, the profiles, the log). It never loads a model and never runs one. Studio's Local section (Alt+3) lists every host on its Hosts page, "served by halo host at <addr>" when one serves it; `halo local hosts` prints the same and `halo host status` the process.
 
 ## grant
 
@@ -384,7 +384,7 @@ A queued turn (3.3.11.0 R1) is the one user turn a session holds while another r
 
 ## headless session
 
-A headless session (3.3.11.0 R2) is a whole Halo session with no terminal: `halo --headless` runs the loop the TUI runs and writes the same session log, and its control socket is its only door (registry `kind: headless`, `parent: studio:<pid>`). Studio's **New session** starts one detached from the Studio server, so closing the tab never ends it; you type into it and answer its asks in Session's Prompt panel, where an ask waits ("parks") until you answer -- with no Studio page open, the Fleet attention row says "waiting on you in Studio". **End session** (the socket's `shutdown`) ends it, and `halo --resume <id>` opens its log in a terminal afterwards.
+A headless session (3.3.11.0 R2) is a whole Halo session with no terminal: `halo --headless` runs the loop the TUI runs and writes the same session log, and its control socket is its only door (registry `kind: headless`, `parent: studio:<pid>`). Studio's **New session** starts one detached from the Studio server, so closing the tab never ends it; you type into it and answer its asks in Session's Prompt panel, where an ask waits ("parks") until you answer -- with no Studio page open, the attention row says "waiting on you in Studio". **End session** (the socket's `shutdown`) ends it, and `halo --resume <id>` opens its log in a terminal afterwards.
 
 ## live map
 

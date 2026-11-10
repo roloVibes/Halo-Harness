@@ -1,4 +1,4 @@
-// Local (Alt+7, 3.3.5.0 R1, plans/ROADMAP.md "3.3.5.0 becomes Local"): the
+// Local (Alt+3 since 3.3.16.0 R2; 3.3.5.0 R1, plans/ROADMAP.md "3.3.5.0 becomes Local"): the
 // machines that serve models and the models they serve, in one tab. Paged like
 // Setup and Settings: the page rail on the left (LocalRail.tsx), one page on the
 // right (LocalPage.tsx): Resources (the live strip per host and the traffic
@@ -7,7 +7,7 @@
 // Benchmarks and Steward, framed for the rounds that fill them. No panel
 // workspace, nothing to move or Arrange, and nothing opens on its own; the page
 // lands on Resources or the page last open (pages.ts), a door's `?page=` on that
-// page (door.ts). Fleet's Ollama panel stays the short form and links here.
+// page (door.ts). 3.3.16.0 R2: the Fleet Ollama panel went; Hosts shows its traffic table, timeline and fit plan per host (HostSteward.tsx).
 import { useEffect, useMemo } from "react";
 import { Workspace } from "../../lib/workspace/Workspace";
 import { mediaPanels } from "../media/MediaPanels";

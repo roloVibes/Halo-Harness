@@ -10,8 +10,8 @@ the live feed on. No provider request, no model call:
    the Start here overlay leads with "Set up this box", its Run's 422 opens
    Setup, and a page with no `?mode=` opens on Setup whatever was saved;
 
-1. `?mode=setup` opens Setup; Alt+7 (from Roles) opens it too: Setup is the
-   eighth tab, its strip names the provider, model, lineup, mode and theme,
+1. `?mode=setup` opens Setup; Alt+5 (from Agents) opens it too: Setup is the
+   fifth tab, its strip names the provider, model, lineup, mode and theme,
    the rail lists the steps (3.3.1.0 R1: one page each; every step below opens
    its block's page first with `goto`, tests/helpers/studio_setup_pages.py);
    (R2: tests/helpers/studio_setup_providers.py) a provider key saved, an
@@ -106,14 +106,14 @@ def save(c, block: str, label: str = "") -> str:
 
 def by_mode(c, url, ctx) -> dict:
     c.go(url.replace("mode=roles", "mode=setup"))
-    c.wait(f"{TABS}.length >= 7 && {CUR}.startsWith('Setup')", 40)
+    c.wait(f"{TABS}.length >= 6 && {CUR}.startsWith('Setup')", 40)
     c.wait(f"!!{q('[data-testid=setup-strip-cell]')}", 30)
     return {"mode_section": c.js(CUR), "mode_first_strip": c.js(STRIP)}
 
 
 def section(c, url, ctx) -> dict:
     c.go(url)
-    c.wait(f"{TABS}.length >= 7 && {CUR}.startsWith('Agents')", 40)
+    c.wait(f"{TABS}.length >= 6 && {CUR}.startsWith('Agents')", 40)
     out = {"tabs": c.js(f"{TABS}.map((t) => t.querySelector('.tab-label').textContent)"),
            "kbds": c.js(f"{TABS}.map((t) => t.dataset.kbd || '')")}  # 3.3.2.0 R1: the icon rail keeps the key as data-kbd
     alt(c, 5)  # 3.3.16.0 R1: Setup is Alt+5
@@ -128,6 +128,9 @@ def section(c, url, ctx) -> dict:
     out["modes"] = c.js(qa("[data-testid=setup-mode]") + ".map((m) => m.dataset.id)")
     goto(c, "theme")
     out["theme_note"] = c.js(_text("[data-testid=setup-theme-note]"))
+    goto(c, "machines")  # 3.3.16.0 R2: the pair card, the share / control rows, the People table; alone here: the five lines first
+    out["machines"] = c.wait(f"!!{q('[data-testid=fleet-people-list]')} && !!{q('[data-testid=fleet-settings]')} && " + "['setup-machines', 'setup-machines-lead', 'fleet-pair', 'fleet-settings',"
+                             " 'fleet-people-list', 'fleet-person'].map((k) => document.querySelectorAll(`[data-testid=\"${k}\"]`).length)", 20)
     return out
 
 

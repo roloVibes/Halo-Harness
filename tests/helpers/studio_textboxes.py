@@ -143,11 +143,12 @@ def roles(c, rig) -> dict:
 
 
 def fleet_strips(c, rig) -> dict:
-    """3.3.15.0 R3, owner feedback 2026-11-09 (the strips): Fleet with every panel collapsed, then People opened."""
+    """3.3.15.0 R3, owner feedback 2026-11-09 (the strips): Fleet with every panel collapsed, then People opened; 3.3.16.0
+    R2: the fleet is Agents -> Live (`?mode=fleet`), so Live's panels collapsed, then its inspector opened."""
     from halo_harness.studio.server import url_for
     from tests.helpers.studio_strips import strips
     url = url_for(rig.server, "fleet").replace("#t=", "&tour=off#t=")
-    return {"fleet_strips": strips(c, url, "!!document.querySelector('.workspace .ws-cell')", "fleet-people", shot, "fleet")}
+    return {"fleet_strips": strips(c, url, "!!document.querySelector('.workspace .ws-cell')", "roles-inspector", shot, "fleet")}
 
 
 def session_strips(c, rig) -> dict:

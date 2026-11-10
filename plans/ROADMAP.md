@@ -4865,3 +4865,24 @@ it with the Fleet fold's word pass). For rolo (on the next release): Alt+2 + his
 "9 sections: N set, M at Halo's default"; Edit on Budget is one page with "not set = Halo does: no lineup cap ...";
 Back returns; a card's summary shows the takes tags; no strip or rail row under 40 px in Settings / Local / Session /
 Fleet. Next: R2 the Fleet fold, R3 Workflows, the 3.3.16.0 release on green both.**
+
+**3.3.16.0 R2 "The Fleet fold" BUILT and MERGED LOCALLY 2026-11-10 morning (one Opus round, worktree
+~/hh-3316/R2-fleet-fold, branch commit f26951f6, brief and hand-back under ~/hh-3316/briefs/; NOT PUSHED at the
+hand-off -- see HANDOFF.md "WHERE THINGS STAND -- 2026-11-10 morning"):** six core sections (Session, Agents, Local
+Alt+3, Packs, Setup, Settings; packs from Alt+7); the Fleet section deleted; Agents -> Live spans the fleet (this halo |
+fleet, Shift+F on the canvas; machine > session > agent, mission parts in machine boxes, drag to reassign; Fleet's
+Map/MapNode/MapTreeNode/FleetTree deleted, Session's Map is the Live map's thumbnail); the Live inspector by what is
+picked (fleet glance, machine summary with Edit rows, one agent inspector, part card); Attention = the amber chip on
+Agents' bar (A, an overlay so nothing opens on load); missions are rows in Runs; Setup -> Machines (pair card, share /
+control, People with Forget); Local -> Hosts + Steward took Fleet's Ollama panel; Activity an optional Live panel;
+every old door (?mode=fleet, --mode fleet, /studio fleet, attention rows) lands on Agents -> Live and says so once.
+Deviations kept: routes/fleet/ stays as the shared code folder; "by project" grouping dropped; Activity also in
+Cast's "+"; three attention labels reworded. Worker's verification: run_all --fast 6301 pass / 0 fail, test_bridge
+101/101, test_tui 271 + the known worktree red, two builds identical, tsc clean, pack tests and audit clean.
+Coordinator at the hand-off: inspection clean, merge onto 6c28c85a without conflicts, two builds identical, tsc
+clean, audit / capture / themes / pack tests / test_bridge green; the 237-module covering run and test_tui were
+RUNNING (34/237, 0 red) when the owner paused the session. For rolo (on the next release): the rail is six icons;
+Alt+2 then L with Kali paired shows both machines and the scope switch; the Attention chip turns amber when Kali
+asks; Setup -> Machines shows the pair card; Local -> Hosts shows what the Fleet Ollama panel showed. Next: finish
+the covering run + test_tui on the merge, push, CI both, then R3 Workflows (brief written:
+~/hh-3316/briefs/v3316-R3-workflows-squares-brief.md), the 3.3.16.0 release on green both.**

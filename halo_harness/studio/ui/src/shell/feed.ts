@@ -23,7 +23,7 @@ export function startFeed(): void {
     if (f.event === "pack_live") return; // 3.3.13.0 R2: a pack's routes' live frames: its own page reads them
     if (f.event === "files_changed") return; // 3.2.2.0 R6: the pages re-read (lib/filesLive.ts); no section's activity
     const now = Date.now();
-    const section = /^media_/.test(f.event) ? "local" : /^(agent_|fleet$)/.test(f.event) ? "fleet" : "orchestra"; // 3.3.13.0 R2: media is Local's
+    const section = /^media_/.test(f.event) ? "local" : /^(agent_|fleet$)/.test(f.event) ? "agents" : "orchestra"; // 3.3.13.0 R2: media is Local's; 3.3.16.0 R2: an agent's frames are Agents'
     studio.update((s) => ({
       feed: { ...s.feed, events: s.feed.events + 1, lastKind: f.event, lastTs: now },
       activity: { ...s.activity, [section]: now },

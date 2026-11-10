@@ -38,7 +38,7 @@ export const SESSION_HELP: Record<string, Help> = {
       "Each agent sits under the one that spawned it; a node shows its model, what it costs and, while a tool runs, its name and time (Bash 12s).",
       "A cyan pulse works, amber waits on you, green just finished (it fades), red failed (it stays); the edge to it glows the same.",
       "Click an agent to select it (its session becomes the chosen one); double-click opens Agent expanded; hover it and click steer to steer it from Live; the ... menu has Steer, Pause, Stop, Take over, Hand to, Record.",
-      "J / K hop between this harness's live agents; Fleet (Alt+3) still shows every harness.",
+      "J / K hop between this harness's live agents; Agents (Alt+2) on Live shows every harness (its fleet scope).",
     ),
   },
   "session-agent": {

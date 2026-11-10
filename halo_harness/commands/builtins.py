@@ -162,7 +162,7 @@ def _cmd_cost(args: str, facade: HeadlessFacade) -> str:
 _STUDIO_MODE_LABELS = {"agents": "Agents: the cast, its runs, and what runs now",  # 3.3.16.0 R1: Team, Roles, Orchestra in one
                        "roles": "Agents -> Cast: the lineup and its bios as a graph",
                        "orchestra": "Agents -> Runs: a goal for your lineup, its plan and lanes, live",
-                       "fleet": "Fleet: every harness, every agent, live",
+                       "fleet": "Agents -> Live, the fleet scope: every machine, its sessions and their agents",  # 3.3.16.0 R2
                        "team": "Agents -> Runs: a run's plan shows who owns what",
                        "session": "Session: this session, live",
                        "packs": "Packs: install, grant and enable packs",

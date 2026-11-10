@@ -1,11 +1,13 @@
-// What the Fleet section does: select, pin, follow, steer, pause, stop,
+// What the fleet's pieces do (Agents -> Live, Session; the Fleet section until 3.3.16.0 R2): select, pin, follow, steer, pause, stop,
 // shut a session down, pause / resume everything, pair a harness, the
 // share/control settings, kick a member. Agent commands post to
 // `fleet/<harness>/<sid>/agents/<aid>/command` ("local" for this harness:
 // the direct path), session commands to `fleet/<harness>/<sid>/command`. A
 // member answers 200, 202 (its owner's card is open) or 403 (its owner said no, with the reason).
 import { api, ApiError } from "../../lib/api";
-import { studio, toast } from "../../lib/store";
+import { goSection, studio, toast } from "../../lib/store";
+import { pickLive } from "../agents/live/scope";
+import { roles } from "../roles/store";
 import { focusPanel, layoutStore, patchPanel } from "../../lib/workspace/persist";
 import { scopedAgents } from "./scope";
 import { append, follow, watch } from "./streams";
@@ -49,17 +51,26 @@ export function select(key: AgentKey): void {
   if (!key) return;
   fleet.update(() => ({ selected: key }));
   watch(key);
-  // 3.1.4.0 R1: Agent starts as a strip on the right edge; picking an agent opens it there (the focus stays put)
-  if (layoutStore("fleet").get().layout?.["fleet-agent"]?.collapsed) patchPanel("fleet", "fleet-agent", { collapsed: false }, false);
+  if (studio.get().section === "agents") pickLive("agent", key); // 3.3.16.0 R2: Live's inspector says it (Activity's lane, a menu)
 }
 
-/** Double-click / Enter on a node: the agent panel, expanded and focused (Session's own in Session, 3.1.4.0 R2). */
+/** Double-click / Enter on a node: the agent's inspector, expanded and focused -- Session's Agent strip in Session, else
+ *  (3.3.16.0 R2: the Fleet section went) Agents -> Live's inspector on the agent. */
 export function openAgentPanel(key?: AgentKey): void {
   if (key) select(key);
-  const sec = studio.get().section === "session" ? "session" : "fleet";
-  if (layoutStore(sec).get().layout) {
-    patchPanel(sec, `${sec}-agent`, { collapsed: false, face: "detail" }, false);
-    focusPanel(sec, `${sec}-agent`);
+  const k = key || fleet.get().selected;
+  if (studio.get().section === "session") {
+    if (layoutStore("session").get().layout) {
+      patchPanel("session", "session-agent", { collapsed: false, face: "detail" }, false);
+      focusPanel("session", "session-agent");
+    }
+    return;
+  }
+  if (k) pickLive("agent", k);
+  if (studio.get().section !== "agents" || roles.get().canvasView !== "live") goSection("agents", "live");
+  if (layoutStore("roles").get().layout) {
+    patchPanel("roles", "roles-inspector", { collapsed: false, face: "detail" }, false);
+    focusPanel("roles", "roles-inspector");
   }
 }
 
@@ -76,11 +87,6 @@ export function toggleFollow(): void {
   fleet.update((s) => ({ follow: !s.follow }));
   saveOpts();
   toast(fleet.get().follow ? "Follow on: the stream scrolls with the agent" : "Follow off", "info", 2000);
-}
-
-export function toggleByProject(): void {
-  fleet.update((s) => ({ byProject: !s.byProject }));
-  saveOpts();
 }
 
 /** J / K: the next (or previous) live agent in scope; every agent when none is live. */

@@ -1,16 +1,14 @@
-// The Fleet section's one store (the lib/store pattern): every harness with
-// its sessions and agent trees (GET fleet, then the feed: sync.ts), one
-// stream per agent (streams.ts), what each agent is doing right now, the lit
-// spawn edges, and the view's own choices: the selected agent (the Inspector
-// and fleet-agent follow it), the pinned one (the picture-in-picture mini
-// stream), follow, By project. A key is `harness|session|agent`. 3.1.4.0 R2:
-// `scope` narrows the panels to one harness and session (scope.ts; Session sets it).
+// The fleet's one store (the lib/store pattern): every harness with its sessions and agent trees (GET fleet, then the
+// feed: sync.ts), one stream per agent (streams.ts), what each agent is doing right now, the lit spawn edges, and the
+// choices: the selected agent (the agent inspector follows it), the pinned one (the picture-in-picture mini stream),
+// follow. A key is `harness|session|agent`. 3.1.4.0 R2: `scope` narrows the panels to one harness and session (scope.ts;
+// Session sets it). 3.3.16.0 R2 "the Fleet fold": the Fleet section went (its Start view, By project); Agents -> Live,
+// Session, Setup -> Machines and the shell read this store.
 import { useEffect, useMemo, useState } from "react";
 import { createStore, useStore, writeLocal } from "../../lib/store";
 import { settle, type MotionState } from "../../lib/motion";
 import { LIVE_STATES, type Activity, type AgentKey, type AgentRef, type AgentRow, type Harness, type HubInfo, type LitEdge, type SessionRow, type Stream } from "./types";
 
-export type FleetUiView = "auto" | "start" | "workspace";
 export type StreamTab = "thinking" | "working" | "output";
 export type Confirm = { what: "stop" | "shutdown"; key: AgentKey; label: string } | null;
 /** 3.1.4.0 R2: what the map, the activity, the attention rows and the costs show (scope.ts); {} = the whole fleet. */
@@ -26,8 +24,6 @@ export type FleetState = {
   selected: AgentKey;
   pinned: AgentKey;
   follow: boolean;
-  byProject: boolean;
-  view: FleetUiView;
   tab: StreamTab;
   columns: "tabs" | "columns";
   streams: Record<AgentKey, Stream>;
@@ -36,7 +32,6 @@ export type FleetState = {
   doneAt: Record<AgentKey, number>;
   /** Bumped to move the keyboard focus into the Steer box. */
   steerFocus: number;
-  pairOpen: boolean;
   confirm: Confirm;
   scope: Scope;
   /** 3.1.5.0 R3: the agent whose line the pointer is on in Session's Live column (its map node lights). */
@@ -48,7 +43,7 @@ const OPTS = "halo.studio.fleet.opts";
 function readOpts(): Partial<FleetState> {
   try {
     const raw = JSON.parse(localStorage.getItem(OPTS) || "{}");
-    return { byProject: !!raw.byProject, follow: raw.follow !== false, columns: raw.columns === "columns" ? "columns" : "tabs" };
+    return { follow: raw.follow !== false, columns: raw.columns === "columns" ? "columns" : "tabs" };
   } catch {
     return {};
   }
@@ -64,8 +59,6 @@ export const fleet = createStore<FleetState>({
   selected: "",
   pinned: "",
   follow: true,
-  byProject: false,
-  view: (/[?&]view=(start|workspace)/.exec(location.search)?.[1] as FleetUiView) || "auto",
   tab: "thinking",
   columns: "tabs",
   streams: {},
@@ -73,7 +66,6 @@ export const fleet = createStore<FleetState>({
   edges: [],
   doneAt: {},
   steerFocus: 0,
-  pairOpen: false,
   confirm: null,
   scope: {},
   hover: "",
@@ -86,7 +78,7 @@ export function useFleet<S>(select: (s: FleetState) => S): S {
 
 export function saveOpts(): void {
   const s = fleet.get();
-  writeLocal(OPTS, JSON.stringify({ byProject: s.byProject, follow: s.follow, columns: s.columns }));
+  writeLocal(OPTS, JSON.stringify({ follow: s.follow, columns: s.columns }));
 }
 
 export const NONE: never[] = [];
@@ -195,20 +187,6 @@ export function useNow(on: boolean, ms = 1000): number {
     return () => window.clearInterval(id);
   }, [on, ms]);
   return now;
-}
-
-/** The Start view: asked for, or only this harness is here and nothing runs on it. */
-export function showsStart(s: FleetState): boolean {
-  if (s.view !== "auto") return s.view === "start";
-  return s.loaded && s.harnesses.length <= 1 && !s.harnesses.some((h) => (h.sessions || []).length);
-}
-
-export function setView(view: FleetUiView): void {
-  fleet.update(() => ({ view }));
-}
-
-export function enterWorkspace(): void {
-  fleet.update((s) => (showsStart(s) ? { view: "workspace" } : {}));
 }
 
 // -- state -> motion (lib/motion's vocabulary) --------------------------------------

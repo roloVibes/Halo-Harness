@@ -2,12 +2,13 @@
 // one-time six-word code, the `halo fleet join` line to type on the other
 // machine and its QR, drawn from POST fleet/pair's matrix; Start the hub when
 // none runs here), the share / control settings as plain radio rows
-// (fleet.share, fleet.allow_control), and the hubs this harness joined and
-// the members of this machine's hub (Kick).
+// (fleet.share, fleet.allow_control), and the hubs this harness joined.
+// 3.3.16.0 R2: both are Setup -> Machines' (the members of this machine's hub
+// are its People table, with Forget).
 import { useEffect, useState } from "react";
 import { Button, Icon } from "../../lib/ui";
 import { toast } from "../../lib/store";
-import { kick, loadSettings, pairCode, saveSetting, startHub, type PairCode, type Settings } from "./actions";
+import { loadSettings, pairCode, saveSetting, startHub, type PairCode, type Settings } from "./actions";
 
 export function QR({ matrix }: { matrix: number[][] }) {
   const n = matrix.length;
@@ -131,19 +132,6 @@ export function FleetSettings() {
         </ul>
       ) : (
         <p className="muted fp-none">None yet: <code>halo fleet join &lt;url&gt; --code "..."</code> joins one.</p>
-      )}
-      <div className="rail-label mono">MEMBERS OF THIS MACHINE'S HUB · {s.members.length}</div>
-      {s.members.length ? (
-        <ul className="fp-list">
-          {s.members.map((m) => (
-            <li key={m.id}>
-              <b>{m.name || m.id.slice(0, 8)}</b> <span className="mono muted">{[m.host, m.version].filter(Boolean).join(" · ")}</span>
-              <button className="og-link mono" onClick={() => void kick(m.id, m.name || m.id).then(() => loadSettings().then(setS))}>kick</button>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="muted fp-none">Nobody yet: make a pair code for the first one.</p>
       )}
     </section>
   );

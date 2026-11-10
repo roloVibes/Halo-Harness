@@ -1,4 +1,4 @@
-// The Fleet section's shapes: GET fleet (studio/fleet_hub_api.py, R2) is
+// The fleet's shapes (the Fleet section's until 3.3.16.0 R2): GET fleet (studio/fleet_hub_api.py, R2) is
 // {harnesses: [{..., sessions: [{...row, agents: [...]}]}], hub}; an agent row
 // and a stream entry are R1's (agent/agent_registry.py, agent/agent_transcript.py).
 

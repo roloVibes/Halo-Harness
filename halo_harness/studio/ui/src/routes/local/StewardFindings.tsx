@@ -1,11 +1,11 @@
 // Local -> Steward, the findings (3.3.8.0 R2): what the rules find on every host and every local server (llama-server,
-// LM Studio, mlx_lm.server) in the last 24 hours, the Ollama panel's rows (fleet/OllamaSteward.FindingRow: Apply in
+// LM Studio, mlx_lm.server) in the last 24 hours, the steward's rows (StewardBits.FindingRow, the Fleet Ollama panel's before 3.3.16.0 R2: Apply in
 // review mode, Dismiss), a local server's runtime as a chip beside its model. GET ollama/hosts, read when the page
 // opens and on Read again; nothing opens over the page.
 import { useEffect, useMemo } from "react";
 import { Button } from "../../lib/ui";
-import { FindingRow } from "../fleet/OllamaSteward";
-import { loadHosts, useOllama } from "../fleet/ostore";
+import { FindingRow } from "./StewardBits";
+import { loadHosts, useOllama } from "./ostore";
 import { BlockHelp } from "./LogModelRows";
 
 const HELP = "Each finding names its host or local server and model, what the ledger and the server's own log showed, " +

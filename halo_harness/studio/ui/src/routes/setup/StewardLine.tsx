@@ -1,9 +1,9 @@
 // Setup -> Providers' Ollama card, its steward line (3.3.4.0 R5): one muted line, "steward: <the first line
-// of its last note>" (or "no note yet"), and a link that opens Fleet's Ollama panel. Read once from
-// `GET ollama/steward` when the card shows (routes/fleet/ostore.ts).
+// of its last note>" (or "no note yet"), and a link that opens Local -> Hosts (3.3.16.0 R2: the Fleet Ollama panel went). Read once from
+// `GET ollama/steward` when the card shows (routes/local/ostore.ts).
 import { useEffect } from "react";
-import { openOllama } from "../fleet/Ollama";
-import { loadSteward, useOllama } from "../fleet/ostore";
+import { openLocalHost } from "../agents/fleetDoor";
+import { loadSteward, useOllama } from "../local/ostore";
 
 export function StewardLine() {
   useEffect(() => {
@@ -15,7 +15,7 @@ export function StewardLine() {
   return (
     <p className="muted su-steward mono" data-testid="setup-steward-line">
       <span data-testid="setup-steward-text">{read ? (first ? `steward: ${first}` : "steward: no note yet") : "steward: reading..."}</span>{" "}
-      <button type="button" className="link-btn" onClick={openOllama} data-testid="setup-steward-open">Open the Ollama panel</button>
+      <button type="button" className="link-btn" onClick={() => openLocalHost()} data-testid="setup-steward-open">Open Local -&gt; Hosts</button>
     </p>
   );
 }

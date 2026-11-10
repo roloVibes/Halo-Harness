@@ -35,7 +35,7 @@ from tests.helpers.driver_got import got as driver_got  # noqa: E402
 test, TESTS = new_registry()
 REPO = Path(__file__).resolve().parent.parent
 _RUN: dict = {}
-ORDER = ["providers", "local", "model", "permissions", "theme", "team", "check", "summary"]
+ORDER = ["providers", "local", "model", "permissions", "theme", "team", "check", "machines", "summary"]  # 3.3.16.0 R2: Machines
 
 
 def _got(ctx: Ctx) -> dict:
@@ -72,11 +72,11 @@ def test_no_panel_machinery_on_setup(ctx: Ctx):
 def test_the_rail_and_its_states(ctx: Ctx):
     got = _got(ctx)
     want = [["providers", "current"], ["local", "done"], ["model", "todo"], ["permissions", "todo"], ["theme", "todo"],
-            ["team", "done"], ["check", "todo"], ["summary", "todo"]]
+            ["team", "done"], ["check", "todo"], ["machines", "done"], ["summary", "todo"]]
     ctx.check(f"the wizard's order and the states of a fresh home, got {got.get('rail')}", _steps(got.get("rail")) == want)
     titles = [t for t in got.get("rail_titles") or [] if t != "Linux fixes"]
     ctx.check(f"the wizard's words, got {titles}", titles == ["Providers", "Local models", "Default model", "Permissions", "Theme", "Team",
-                                                             "Check", "Summary"])
+                                                             "Check", "Machines", "Summary"])
 
 
 @test

@@ -68,10 +68,35 @@ def publish(ctx, kind: str, data) -> None:
     assert publish_event("doc-review", kind, data, bridge=bridge_for(ctx["srv"]))
 
 
+def agents_live(c) -> None:
+    """Alt+2, then Agents' Live view (3.3.16.0 R2: the Fleet section folded in)."""
+    alt(c, 2)
+    c.wait(f"{CUR}.startsWith('Agents')", 20)
+    c.click_on(q("[data-testid=agents-view-live]"))
+    c.wait("document.querySelector('[data-testid=agents]')?.dataset.view === 'live'", 10)
+
+
+def fleet_queue(c) -> None:
+    """Agents' Attention queue open (the chip; closed on load)."""
+    if not c.js(f"{CUR}.startsWith('Agents')"):
+        agents_live(c)
+    if not c.js(f"!!{q('[data-panel=fleet-attention]')}"):
+        c.click_on(q("[data-testid=agents-attention]"))
+    c.wait(f"!!{q('[data-panel=fleet-attention]')}", 10)
+
+
 def events(c, url, ctx) -> dict:
+    from tests.helpers.studio_header_menus import plus
     out: dict = {}
-    alt(c, 3)  # 3.3.16.0 R1: Fleet is Alt+3
-    c.wait(f"{CUR}.startsWith('Fleet') && !!{q('[data-testid=fleet-log]')}", 20)
+    agents_live(c)  # 3.3.16.0 R2: Activity is Live's optional panel (the "+")
+    if c.js(f"!!{q('[data-testid=agents-attention-close]')}"):  # the queue from the step before covers the page
+        c.click_on(q("[data-testid=agents-attention-close]"))
+    if not c.js(f"!!{q('[data-testid=fleet-log]')}"):
+        plus(c, "fleet-activity")
+    strip = q(".ws-cell[data-panel=fleet-activity] .panel-bar button[aria-label=Open]")
+    if c.js(f"!{q('[data-testid=fleet-log]')} && !!{strip}"):  # added as a strip: one click opens it
+        c.click_on(strip)
+    c.wait(f"!!{q('[data-testid=fleet-log]')}", 20)
     log = qa("[data-testid=fleet-log-line][data-kind=pack]")
     seen = c.js(f"{log}.length")  # 3.3.10.0 R3: the bundle step's own hello.said line came first
     publish(ctx, "review.done", {"file": "README.md", "findings": 3})
@@ -138,7 +163,7 @@ def _row(ctx, rid: str) -> Path:
 def attention(c, url, ctx) -> dict:
     out: dict = {}
     first = _row(ctx, "readme")
-    alt(c, 3)  # 3.3.16.0 R1: Fleet
+    fleet_queue(c)  # 3.3.16.0 R2: Agents' Attention chip
     row = q('[data-panel="fleet-attention"] [data-testid=fleet-attn-row][data-kind="pack:doc-review:review.ask"]')
     c.wait(f"!!{row}", 25)
     out["attn_chip"] = c.js(f"{row}.querySelector('.fat-kind').textContent")

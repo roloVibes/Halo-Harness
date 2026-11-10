@@ -113,7 +113,7 @@ export function HostCard({ h, fits }: { h: Host; fits: Record<string, Fit> }) {
              title={[h.log.why, h.log.tail_cli].filter(Boolean).join("\n") || "the server log (Local -> Logs)"}>log: {h.log.line}</div>
       )}
       <Managed h={h} />
-      {card.length > 0 && <div className="mono muted lc-host-card" title={h.card_lines.join("\n")}>{card.map((l) => <div key={l}>{l}</div>)}</div>}
+      {card.length > 0 && <div className="mono muted lc-host-card" data-testid="ollama-card" title={h.card_lines.join("\n")}>{card.map((l) => <div key={l}>{l}</div>)}</div>}
       {(h.source === "configured" || !!h.host) && <HostWarm name={h.name} loadedKey={h.loaded.map((m) => m.model).join(",")} />}
       {h.kind.toLowerCase() === "ollama" && <HostGuards name={h.name} loadedKey={h.loaded.map((m) => m.model).join(",")} />}
       {h.loaded.length > 0 && <div className="rail-label mono" data-testid="local-host-loaded-label">LOADED NOW</div>}

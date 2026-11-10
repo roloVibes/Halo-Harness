@@ -143,8 +143,8 @@ def node_steer(c, lv) -> dict:
     """The implementer's map node: "steer" on hover; the click pins it in Live, the box focused."""
     out: dict = {}
     impl = lv.key("implementer")
-    node = f"document.querySelector('[data-testid=\"session-map\"] [data-testid=\"fleet-node\"][data-key=\"{impl}\"]')"
-    chip = f"{node}.querySelector('[data-testid=\"fleet-node-steer\"]')"
+    node = f"document.querySelector('[data-testid=\"session-map\"] [data-testid=\"roles-live-node\"][data-key=\"{impl}\"]')"
+    chip = f"{node}.querySelector('[data-testid=\"roles-live-steer\"]')"
     c.mouse("mouseMoved", 4, 4)
     out["node_hidden"] = c.js(f"getComputedStyle({chip}).opacity")
     out["node_shown"], out["node_under"] = hover(c, node, chip, 0.4, 0.7)

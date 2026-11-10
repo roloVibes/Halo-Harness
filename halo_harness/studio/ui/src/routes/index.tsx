@@ -2,25 +2,27 @@
 // line blurb, the PanelSpecs of its default arrangement and, optionally, a
 // group of its own rows in the header's "+" menu (3.3.2.0 R2, Agents' Runs: New
 // run and the runs; the rail's block before) and a view
-// drawn instead of the bare Workspace (Agents: its bar and its three views; Fleet: until something runs;
+// drawn instead of the bare Workspace (Agents: its bar and its three views;
 // 3.1.4.0 R2 Session: until this harness has a live
-// session -- its panels are Fleet's, scoped to this harness). Every section is React now
+// session). Every section is React now
 // (the framed classic page is gone). The Workspace does the rest
 // (drag, resize, collapse, pop out, persistence). Each section's "How this
 // works" copy is routes/sectionHelp.ts.
-// 3.1.6.0 R6: this list IS the order: the rail's section rows (3.3.2.0 R1; the tab strip before), the Alt+1..7 keys (shell/keys.ts), the palette's
+// 3.1.6.0 R6: this list IS the order: the rail's section rows (3.3.2.0 R1; the tab strip before), the Alt+1..6 keys (shell/keys.ts), the palette's
 // Go to and section groups, the section help's key line and the status bar's key hint all read it.
 // The owner, 2026-10-20: "The session tab should be the first tab in studio".
 // 3.2.0.0 R6: Packs (the Pack Manager) was appended, 3.3.0.0 R1 Setup (the terminal wizard's blocks as forms; 3.3.1.0 R1
 // `paged`: a step rail over one page at a time, no panels), 3.3.3.0 R2 Settings (every config.json key, one page per
 // group), 3.3.5.0 R1 Local (the machines that serve models, and the models they serve), each paged too.
 // 3.3.13.0 R2: Design left the core for the design pack (its section, when the pack is on, is a pack section).
-// 3.3.16.0 R1 "Agents: one section": Team, Roles and Orchestra folded into Agents (Alt+2; routes/agents/): seven core
-// sections, Session Alt+1, Agents Alt+2, Fleet Alt+3, Packs Alt+4, Setup Alt+5, Settings Alt+6, Local Alt+7;
-// then the pack's own sections from Alt+8 (routes/packs/registry.ts FIRST_KEY). Agents draws two workspaces of its own: `roles`
-// (Cast and Live) and `orchestra` (Runs); `sectionDef("agents")` is the one it draws now (partDef), so the "+" menu,
-// the ... menu, the palette's panel rows and the status bar follow the view. Local carries the Media panels as
-// optional floating ones (its "+" menu).
+// 3.3.16.0 R1 "Agents: one section": Team, Roles and Orchestra folded into Agents (Alt+2; routes/agents/). Agents draws
+// two workspaces of its own: `roles` (Cast and Live) and `orchestra` (Runs); `sectionDef("agents")` is the one it draws
+// now (partDef), so the "+" menu, the ... menu, the palette's panel rows and the status bar follow the view. Local
+// carries the Media panels as optional floating ones (its "+" menu).
+// 3.3.16.0 R2 "the Fleet fold": the Fleet section went -- a machine's agents in Agents -> Live (the fleet scope), its
+// models in Local, pairing and the people in Setup -> Machines, missions in Agents -> Runs. Six core sections, the shell
+// the Instrument look was drawn for: Session Alt+1, Agents Alt+2, Local Alt+3, Packs Alt+4, Setup Alt+5,
+// Settings Alt+6; then the pack sections (routes/packs/registry.ts FIRST_KEY: the first pack section is Alt+7).
 import type { ComponentType } from "react";
 import type { AgentsPart, SectionId } from "../lib/store";
 import type { PanelSpec } from "../lib/workspace/types";
@@ -29,9 +31,6 @@ import type { MenuGroup } from "../lib/ui/Menu";
 import { AgentsView } from "./agents/Agents";
 import { partPanels } from "./agents/parts";
 import { agentsPart, useAgentsPart } from "./agents/store";
-import { fleetPanels } from "./fleet/Fleet";
-import { FleetView } from "./fleet/Start";
-import { enterWorkspace as enterFleet } from "./fleet/store";
 import { mediaPanels } from "./media/MediaPanels";
 import { useOrchestraMenu } from "./orchestra/OrchRail";
 import { enterWorkspace as enterOrchestra } from "./orchestra/store";
@@ -65,12 +64,11 @@ export type SectionDef = {
 
 export const SECTIONS: SectionDef[] = [
   { id: "session", title: "Session", kbd: "Alt+1", blurb: "This session, live", panels: sessionPanels, view: SessionView, enter: enterSession },
-  { id: "agents", title: "Agents", kbd: "Alt+2", blurb: "The cast, its runs, and what runs now", panels: [], view: AgentsView },
-  { id: "fleet", title: "Fleet", kbd: "Alt+3", blurb: "Every harness, every agent, live", panels: fleetPanels, view: FleetView, enter: enterFleet },
+  { id: "agents", title: "Agents", kbd: "Alt+2", blurb: "The cast, its runs, and what runs now on every machine", panels: [], view: AgentsView },
+  { id: "local", title: "Local", kbd: "Alt+3", blurb: "The machines that serve models, and the models they serve", panels: mediaPanels(0), paged: true, view: LocalView, enter: enterLocal },
   { id: "packs", title: "Packs", kbd: "Alt+4", blurb: "Install, grant and enable packs", panels: packsPanels, enter: enterPacks },
-  { id: "setup", title: "Setup", kbd: "Alt+5", blurb: "Providers, models, permissions, theme and lineup", panels: [], paged: true, view: SetupView, enter: enterSetup },
+  { id: "setup", title: "Setup", kbd: "Alt+5", blurb: "Providers, models, permissions, theme, lineup and machines", panels: [], paged: true, view: SetupView, enter: enterSetup },
   { id: "settings", title: "Settings", kbd: "Alt+6", blurb: "Every config key, one page per group", panels: [], paged: true, view: SettingsView, enter: enterSettings },
-  { id: "local", title: "Local", kbd: "Alt+7", blurb: "The machines that serve models, and the models they serve", panels: mediaPanels(0), paged: true, view: LocalView, enter: enterLocal },
 ];
 
 /** 3.3.16.0 R1: one of Agents' workspaces as a section def (its layout key is its id; the title and key are Agents'). */
@@ -87,10 +85,10 @@ export function partDef(part: AgentsPart): SectionDef {
 
 // 3.2.0.0 R3: the packs' sections come after the core ones (3.3.3.0 R2: after Settings, reached by a click or the palette;
 // 3.3.16.0 R1: then the pack's own sections, by their rail row) and their panels join the core sections' (routes/packs/registry.ts, from the
-// registry the server builds); SECTIONS stays the core seven, in their order.
+// registry the server builds); SECTIONS stays the core six, in their order.
 let merged: { reg: unknown; out: SectionDef[] } = { reg: null, out: SECTIONS };
 
-/** Every section, the seven core ones (with the packs' panels added) then the packs' own. */
+/** Every section, the six core ones (with the packs' panels added) then the packs' own. */
 export function sections(): SectionDef[] {
   const reg = packs.get().reg;
   if (merged.reg !== reg) {

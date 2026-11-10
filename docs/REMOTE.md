@@ -136,7 +136,7 @@ commands). Federation extends the ladder across halos.
 The commands above address the whole session. These address one agent:
 the main agent (`agent_id` `main`, or the session id), any sub-agent at any
 depth (its 8-character id), or a background Bash job (`job:<id>`). They are
-what Studio's Fleet views and `halo remote agents | steer | stop` send; the
+what Studio's Agents -> Live and `halo remote agents | steer | stop` send; the
 semantics are in [SUBAGENTS.md](SUBAGENTS.md#the-live-agent-tree-and-what-studio-can-do-to-an-agent).
 
 | `cmd` | Fields | Result |

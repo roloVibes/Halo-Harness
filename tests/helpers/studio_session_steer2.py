@@ -17,7 +17,7 @@ STRIP = f"{COL}.querySelector('[data-testid=\"session-live-timeline\"]')"
 
 def opened(c, rig) -> dict:
     c.go(rig.url("session"))
-    c.wait(f"!!{COL} && document.querySelectorAll('[data-testid=\"session-map\"] [data-testid=\"fleet-node\"]').length >= 6", 40)
+    c.wait(f"!!{COL} && document.querySelectorAll('[data-testid=\"session-map\"] [data-testid=\"roles-live-node\"]').length >= 6", 40)
     time.sleep(0.8)
     return {"opened": True}
 
@@ -28,7 +28,7 @@ def strip(c, lv) -> dict:
     pick(c, AGENT_PICK, "")
     c.wait(f"!{COL}.dataset.pinned", 5)
     here = f"{lv.hid}|{lv.sid}|"
-    nodes = ("[...document.querySelectorAll('[data-testid=\"session-map\"] [data-testid=\"fleet-node\"]')]"
+    nodes = ("[...document.querySelectorAll('[data-testid=\"session-map\"] [data-testid=\"roles-live-node\"]')]"
              f".filter((n) => n.dataset.key.startsWith('{here}') && {list(LIVE)!r}.includes(n.dataset.state)).map((n) => n.dataset.key).sort()")
     lanes = f"[...{STRIP}.querySelectorAll('[data-testid=\"fleet-lane\"]')].map((l) => l.dataset.key).sort()"
     c.wait(f"JSON.stringify({lanes}) === JSON.stringify({nodes})", 15)
@@ -70,7 +70,7 @@ def done_box(c, lv) -> dict:
     out: dict = {}
     docs = lv.key("docs")
     lv.state("docs", state="done", last_text="CHANGES.md: the discount applies before tax")
-    c.wait(f"document.querySelector('[data-testid=\"fleet-node\"][data-key=\"{docs}\"]')?.dataset.state === 'done'", 10)
+    c.wait(f"document.querySelector('[data-testid=\"roles-live-node\"][data-key=\"{docs}\"]')?.dataset.state === 'done'", 10)
     pick(c, AGENT_PICK, docs)
     c.wait(f"{BOX}.dataset.key === '{docs}'", 5)
     out["done_box"] = box(c)
@@ -127,11 +127,11 @@ def fleet_chip(c, rig, lv) -> dict:
     """In Fleet the same chip opens the Agent panel's Steer box on that agent, the keyboard in it."""
     out: dict = {}
     c.go(rig.url("fleet"))
-    c.wait("document.querySelectorAll('[data-testid=\"fleet-node\"]').length >= 5", 40)
+    c.wait("document.querySelectorAll('[data-testid=\"roles-live-node\"]').length >= 5", 40)
     time.sleep(1.0)
     res = lv.key("researcher")
-    node = f"document.querySelector('[data-testid=\"fleet-node\"][data-key=\"{res}\"]')"
-    chip = f"{node}.querySelector('[data-testid=\"fleet-node-steer\"]')"
+    node = f"document.querySelector('[data-testid=\"roles-live-node\"][data-key=\"{res}\"]')"
+    chip = f"{node}.querySelector('[data-testid=\"roles-live-steer\"]')"
     agent = "document.querySelector('[data-testid=\"fleet-agent-detail\"]')"
     opened = f"{agent}?.dataset.key === '{res}' && document.activeElement === {agent}.querySelector('[data-testid=\"fleet-steer\"]') && 'focused'"
     # the chip only takes the pointer while its node is hovered: the Linux runner lost the click once (the
@@ -145,7 +145,7 @@ def fleet_chip(c, rig, lv) -> dict:
         # the Linux runner's wider mono font puts the chip over a neighbouring node, so the pointer click lands on
         # that node (three tries, three runs); the chip's own handler is what this step pins, so click the chip
         # element itself and keep what the pointer click selected for the failure message
-        out["fleet_chip_pointer_hit"] = c.js(f"[{agent}?.dataset.key || null, document.querySelector('[data-testid=\"fleet-node\"][data-selected]')?.dataset.key || null]")
+        out["fleet_chip_pointer_hit"] = c.js(f"[{agent}?.dataset.key || null, document.querySelector('[data-testid=\"roles-live-node\"][data-selected]')?.dataset.key || null]")
         c.js(f"{chip}.dispatchEvent(new MouseEvent('click', {{bubbles: true, cancelable: true}})); 1")
         try:
             out["fleet_chip"] = c.wait(opened, 15)
@@ -156,7 +156,7 @@ def fleet_chip(c, rig, lv) -> dict:
             out["fleet_chip"] = "not opened"
             out["fleet_chip_diag"] = c.js(
                 f"({{detail_key: {agent}?.dataset.key || null, detail_present: !!{agent}, selected: "
-                f"document.querySelector('[data-testid=\"fleet-node\"][data-selected]')?.dataset.key || null, "
+                f"document.querySelector('[data-testid=\"roles-live-node\"][data-selected]')?.dataset.key || null, "
                 f"active: document.activeElement?.dataset?.testid || document.activeElement?.tagName || null, "
                 f"steer_box: !!{agent}?.querySelector('[data-testid=\"fleet-steer\"]'), chip: !!{chip}, "
                 f"agent_panel: document.querySelector('[data-testid=\"fleet-agent\"]')?.dataset?.collapsed || "

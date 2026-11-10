@@ -41,20 +41,21 @@ SPARK = "document.querySelector('[data-testid=\"session-cost-spark\"]')"
 
 
 def node(key: str) -> str:
-    return f"{MAP}.querySelector('[data-testid=\"fleet-node\"][data-key=\"{key}\"]')"
+    return f"{MAP}.querySelector('[data-testid=\"roles-live-node\"][data-key=\"{key}\"]')"
 
 
 def edge(key: str) -> str:
-    return f"{MAP}.querySelector('[data-testid=\"fleet-edge\"][data-to=\"{key}\"]')"
+    return f"{MAP}.querySelector('[data-testid=\"roles-live-edge\"][data-to=\"{key}\"]')"
 
 
 def xy(c, key: str) -> list:
-    return c.js(f"(({node(key)}?.getAttribute('transform') || '').match(/[-0-9.]+/g) || []).map(Number)") or []
+    # 3.3.16.0 R2: Live's HTML node, placed by its style (the Fleet map's svg transform before)
+    return c.js(f"(() => {{ const n = {node(key)}; return n ? [parseFloat(n.style.left), parseFloat(n.style.top)] : []; }})()") or []
 
 
 def labels_overlap(c) -> list:
     """Every pair of node names (or session titles) on the map whose boxes intersect."""
-    js = (f"(() => {{ const r = [...{MAP}.querySelectorAll('.fm-name, .fm-title')].map((t) => [t.textContent, t.getBoundingClientRect()]);"
+    js = (f"(() => {{ const r = [...{MAP}.querySelectorAll('.rlm-name')].map((t) => [t.textContent, t.getBoundingClientRect()]);"
           " const out = []; for (let i = 0; i < r.length; i++) for (let j = i + 1; j < r.length; j++) { const a = r[i][1], b = r[j][1];"
           " if (a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5) out.push([r[i][0], r[j][0]]); }"
           " return out; })()")
@@ -71,7 +72,7 @@ def costmap(c, rig) -> dict:
     from tests.helpers.chrome_driver import emulate_motion
     emulate_motion(c, "no-preference")  # the done fade is an animation: the same media on every runner
     c.go(rig.url("session"))
-    c.wait(f"!!{CTX} && {MAP}.querySelectorAll('[data-testid=\"fleet-node\"]').length >= 6", 40)
+    c.wait(f"!!{CTX} && {MAP}.querySelectorAll('[data-testid=\"roles-live-node\"]').length >= 6", 40)
     out["ctx"] = [[c.wait(f"{CTX}.dataset.pct === '50.0' && {CTX}.dataset.level", 10)]]
     for used, want in ((85_000, "85.0"), (97_000, "97.0")):
         lv.refresh(context_tokens=used)
@@ -89,14 +90,14 @@ def costmap(c, rig) -> dict:
                           "[...document.querySelectorAll('[data-testid=\"session-cost-share-seg\"]')].map((s) => [s.dataset.key.split('|')[2], +s.style.flexGrow])", 10)
     out["agent_tokens"] = c.js("[...document.querySelectorAll('[data-testid=\"session-cost-agent-tokens\"]')].map((t) => t.textContent)")
     lv.tool("tester", "Bash", "cm-1", "pytest -q")
-    tool = f"{node(lv.key('tester'))}?.querySelector('[data-testid=\"fleet-node-tool\"]')"
+    tool = f"{node(lv.key('tester'))}?.querySelector('[data-testid=\"roles-live-tool\"]')"
     s0 = c.wait(f"{tool}?.dataset.secs", 10)
     # 3.2.1.0 R5: wait for two ticks, not a fixed 2.2 s: on WSL the 1 s clock ticked once in 2.2 s (0 -> 1), the
     # read came early in its second or the wall clock stepped back (WSL2's does, ~1.1 s)
     s1 = _seen(c, f"+{tool}?.dataset.secs >= {int(s0) + 2 if str(s0).isdigit() else 2} && {tool}.dataset.secs", 6)
-    out["node_secs"] = [s0, s1 or c.js(f"{tool}?.dataset.secs"), c.js(f"{tool}?.querySelector('.fm-tool-text')?.textContent")]
+    out["node_secs"] = [s0, s1 or c.js(f"{tool}?.dataset.secs"), c.js(f"{tool}?.querySelector('.rlm-tool-text')?.textContent")]
     main, kids = lv.key("main"), [lv.key(n) for n in ("implementer", "researcher", "tester", "docs", "reviewer")]
-    out["tree"] = {"main": xy(c, main), "kids": [xy(c, k) for k in kids], "parents": c.js(f"[...{MAP}.querySelectorAll('[data-testid=\"fleet-node\"]')].map((n) => n.dataset.parent || '')")}
+    out["tree"] = {"main": xy(c, main), "kids": [xy(c, k) for k in kids], "parents": c.js(f"[...{MAP}.querySelectorAll('[data-testid=\"roles-live-node\"]')].map((n) => n.dataset.parent || '')")}
     out["overlaps"] = labels_overlap(c)
     out.update(states(c, lv))
     return out
@@ -117,11 +118,15 @@ def states(c, lv) -> dict:
     out["fresh_after_get"] = c.js(f"{node(lv.key('fresher'))}?.dataset.state")
     w, d, f = lv.key("docs"), lv.key("tester"), lv.key("reviewer")
     lv.state("docs", state="waiting")
+    c.wait(f"{node(w)}?.dataset.motion === 'waiting'", 10)
+    time.sleep(0.6)  # the edge's stroke eases to its colour (roles-live.css transition): read it once it has landed
     out["waiting"] = [c.wait(f"{node(w)}?.dataset.motion === 'waiting' && {edge(w)}?.dataset.motion", 10),
                       c.js(f"getComputedStyle({edge(w)}).stroke"), c.js(f"getComputedStyle(document.documentElement).getPropertyValue('--warn').trim()")]
     lv.state("tester", state="done", last_text="the basket suite passes")
     lv.state("reviewer", state="failed", last_text="the diff did not apply")
-    out["done"] = [c.wait(f"{node(d)}?.dataset.motion === 'done' && {edge(d)}?.dataset.motion", 10), c.js(f"getComputedStyle({node(d)}.querySelector('.fm-shape')).animationName")]
+    c.wait(f"{node(f)}?.dataset.motion === 'error'", 10)
+    time.sleep(0.6)  # the edge's stroke eases to red (the transition): read it once it has landed
+    out["done"] = [c.wait(f"{node(d)}?.dataset.motion === 'done' && {edge(d)}?.dataset.motion", 10), c.js(f"getComputedStyle({node(d)}).animationName")]  # 3.3.16.0 R2: the map is Live's HTML nodes
     out["red"] = [c.wait(f"{node(f)}?.dataset.motion === 'error' && {edge(f)}?.dataset.motion", 10), c.js(f"getComputedStyle({edge(f)}).stroke"),
                      c.js("getComputedStyle(document.documentElement).getPropertyValue('--bad').trim()")]
     # 3.2.1.0 R5: the page's wall clock steps back 1.5 s inside the fade (WSL2's clock steps back ~1.1 s at times):
@@ -138,8 +143,8 @@ def states(c, lv) -> dict:
     t = lv.key("tidier")
     c.wait(f"{node(t)}?.dataset.motion === 'working'", 10)
     lv.state("tidier", state="done", last_text="imports tidied")
-    out["reduced_done"] = [c.wait(f"{node(t)}?.dataset.motion === 'done' && 'done'", 10), c.js(f"getComputedStyle({node(t)}.querySelector('.fm-shape')).animationName"),
-                           c.js(f"getComputedStyle({node(t)}.querySelector('.fm-shape')).stroke"), c.js("matchMedia('(prefers-reduced-motion: reduce)').matches")]
+    out["reduced_done"] = [c.wait(f"{node(t)}?.dataset.motion === 'done' && 'done'", 10), c.js(f"getComputedStyle({node(t)}).animationName"),
+                           c.js(f"getComputedStyle({node(t)}).borderTopColor"), c.js("matchMedia('(prefers-reduced-motion: reduce)').matches")]
     emulate_motion(c, "no-preference")
     return out
 
@@ -183,7 +188,7 @@ def figures(c, rig) -> dict:
     time.sleep(0.8)
     out["fig_after_child"] = c.js(FIGS_JS + ".concat([document.querySelector('[data-testid=\"session-cost-model\"]')?.textContent])")
     lv.state("main", cost_usd=0.2468)  # main's own row figure is the session's total: it holds the finished tester's 0.012
-    out["fig_main_row"] = _seen(c, f"{node(lv.key('main'))}?.querySelector('[data-testid=\"fleet-node-cost\"]')?.textContent === '$0.2468' && 'row'", 10)
+    out["fig_main_row"] = _seen(c, f"{node(lv.key('main'))}?.querySelector('[data-testid=\"roles-live-cost\"]')?.textContent === '$0.2468' && 'row'", 10)
     out["fig_share"] = c.js(SEGS_JS)
     main = f"document.querySelector('[data-testid=\"session-cost-agent\"][data-key=\"{lv.key('main')}\"]')"
     out["fig_main_line"] = c.js(f"[{main}?.querySelector('[data-testid=\"session-cost-agent-usd\"]')?.textContent, "

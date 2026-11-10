@@ -93,7 +93,7 @@ function Message({ d }: { d: Extract<D, { kind: "message" }> }) {
   const [text, setText] = useState("");
   const box = useFocus<HTMLTextAreaElement>();
   return (
-    <Dialog open onClose={closeDialog} title={`Message ${d.name}`} kicker="FLEET · PEOPLE" testid="fleet-message"
+    <Dialog open onClose={closeDialog} title={`Message ${d.name}`} kicker="MACHINES · PEOPLE" testid="fleet-message"
             footer={<><Button onClick={closeDialog}>Cancel</Button><Button variant="primary" disabled={!text.trim()} onClick={() => void sendNote(d.hid, d.sid, text)} data-testid="fleet-message-send">Send</Button></>}>
       <p className="muted">A note its owner reads in that session; the model never sees it.</p>
       <TextBox ref={box} className="fd-text" value={text} onChange={(e) => setText(e.target.value)} data-testid="fleet-message-text" />
@@ -120,10 +120,10 @@ export function PanelDialogs() {
   if (d.kind === "message") return <Message d={d} />;
   if (d.kind === "recording") return <Recording d={d} />;
   return (
-    <Dialog open onClose={closeDialog} title={`Kick ${d.name}?`} kicker="FLEET · PEOPLE" testid="fleet-kick"
+    <Dialog open onClose={closeDialog} title={`Forget ${d.name}?`} kicker="MACHINES · PEOPLE" testid="fleet-kick"
             cost={{ does: `${d.name} leaves this hub; it pairs again with a new code to come back`, costs: "nothing: no model call",
                     writes: "the hub's member list" }}
-            footer={<><Button onClick={closeDialog}>Cancel</Button><Button variant="danger" onClick={() => void kickConfirmed(d.hid, d.name)} data-testid="fleet-kick-yes">Kick it</Button></>}>
+            footer={<><Button onClick={closeDialog}>Cancel</Button><Button variant="danger" onClick={() => void kickConfirmed(d.hid, d.name)} data-testid="fleet-kick-yes">Forget it</Button></>}>
       <p>{d.name} leaves this hub; to come back it pairs again with a new code.</p>
     </Dialog>
   );

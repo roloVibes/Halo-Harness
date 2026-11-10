@@ -83,9 +83,9 @@ def test_the_section_target_and_its_url(ctx: Ctx):
     ctx.check(f"the target names itself, got {t.display!r} {t.cli!r} {t.focus()}", t.display == "this session" and t.cli == f"halo studio --session {SID}"
               and t.focus() == {"edit": "", "mode": "session", "session": SID} and t.verb == "watch")
     f, _ = section_target("fleet", SID)
-    ctx.check(f"/studio fleet is Fleet, no session, got {f}", f is not None and f.mode == "fleet" and f.text == "" and f.query() == "?mode=fleet")
+    ctx.check(f"/studio fleet is the fleet door (3.3.16.0 R2: Agents -> Live), no session, got {f}", f is not None and f.mode == "fleet" and f.text == "" and f.query() == "?mode=fleet")
     bad, why = section_target("kitchen")
-    ctx.check(f"an unknown section says what it takes, got {why!r}", bad is None and "fleet" in why and "session" in why)
+    ctx.check(f"an unknown section says what it takes, got {why!r}", bad is None and "local" in why and "session" in why)  # 3.3.16.0 R2: the six; fleet is a door
     argv = []
 
     class _P:

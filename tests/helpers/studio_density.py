@@ -1,6 +1,7 @@
 """tests.helpers.studio_density -- Halo 3.3.16.0 R1b, the density pass ("small blocks that make it hard to use ... needs
 a review to make studio cleaner and clearer", the owner 2026-11-09): every core section opened in headless Chrome over
-the seeded homes the existing drivers use -- Session and Fleet over the Prompt rig's live session
+the seeded homes the existing drivers use -- Session and Agents -> Live on the fleet (`?mode=fleet`, 3.3.16.0 R2) over the
+Prompt rig's live session
 (tests/helpers/prompt_rig.py), the rest over tools/capture_studio.seeded_home (the edit driver's), each an in-process
 Studio -- and measured with getBoundingClientRect where the primitives mark themselves:
 
@@ -12,7 +13,8 @@ Studio -- and measured with getBoundingClientRect where the primitives mark them
                          >= 12 px on every side
 and, per section, the panels open on load (the quiet shell: one thing per section) and the gaps between the open
 workspace cells (>= 12 px). Agents is opened on Cast, Runs and Live; Cast once more with `?edit=lineup:halo-dev-cycle`
-(the inspector's summary, then one block's page).
+(the inspector's summary, then one block's page). 3.3.16.0 R2: Setup -> Machines, and Live on the fleet once more with
+the Attention queue open (the chip) and the inspector's glance.
 
     python -m tests.helpers.studio_density        the JSON of what it saw on the last stdout line (exit 2: no Chrome)
     python -m tests.helpers.studio_density DIR    the same, and a capture of each section into DIR
@@ -35,13 +37,13 @@ from tests.helpers.chrome_driver import Driver  # noqa: E402
 
 SHOTS: list = []
 
-# (name, mode, extra query) -- the seven sections, Agents on its three views
+# (name, mode, extra query) -- the six sections, Agents on its three views and on the fleet (3.3.16.0 R2), Setup -> Machines
 SECTIONS = (("session", "session", ""), ("agents-cast", "agents", "&view=cast"), ("agents-runs", "agents", "&view=runs"),
-            ("agents-live", "agents", "&view=live"), ("fleet", "fleet", ""), ("packs", "packs", ""), ("setup", "setup", ""),
-            ("settings", "settings", ""), ("local", "local", ""))
+            ("agents-live", "agents", "&view=live"), ("agents-fleet", "fleet", ""), ("packs", "packs", ""), ("setup", "setup", ""),
+            ("setup-machines", "setup", "&block=machines"), ("settings", "settings", ""), ("local", "local", ""))
 
 # what each section draws once it is there (the measure waits for it, then for two equal reads)
-READY = {"session": ".ws-cell", "fleet": ".ws-cell", "agents-cast": "[data-testid=agents-bar]", "agents-runs": "[data-testid=agents-bar]",
+READY = {"session": ".ws-cell", "agents-fleet": "[data-testid=roles-live-map]", "setup-machines": "[data-testid=setup-machines]", "agents-cast": "[data-testid=agents-bar]", "agents-runs": "[data-testid=agents-bar]",
          "agents-live": "[data-testid=agents-bar]", "packs": ".ws-cell", "setup": "[data-testid=setup-rail]",
          "settings": "[data-testid=settings-rail-group]", "local": "[data-testid=local-rail-page]"}
 
@@ -130,6 +132,20 @@ def section(c, url: str, name: str) -> dict:
     return {name: got}
 
 
+def attention(c, url: str) -> dict:
+    """3.3.16.0 R2: Live on the fleet with the Attention queue open (the chip) and the inspector's glance."""
+    c.go("about:blank")
+    c.go(url)
+    c.wait("!!document.querySelector('[data-testid=agents-attention]') && !!document.querySelector('[data-testid=roles-live-map]')", 40)
+    c.js("document.querySelector('[data-testid=agents-attention]').click(); 1")
+    c.wait("!!document.querySelector('[data-panel=fleet-attention] .panel-body')", 10)
+    c.js("document.querySelector('.ws-cell[data-panel=roles-inspector] [data-testid=panel-strip]')?.click(); 1")
+    c.wait("document.querySelectorAll('[data-testid=live-glance-machine]').length > 0", 20)  # the rows, not only the glance
+    got = settled(c)
+    shot(c, "agents-attention")
+    return {"agents-attention": got}
+
+
 def page_url(srv, mode: str, extra: str = "") -> str:
     from halo_harness.studio.server import url_for
     return url_for(srv, mode).replace(f"?mode={mode}", f"?mode={mode}{extra}&tour=off")
@@ -167,10 +183,10 @@ class DensityDriver(Driver):
         srv = start_server(port=0, cwd=proj, state_dir=state)
         threading.Thread(target=srv.serve_forever, daemon=True).start()
         try:
-            with PromptRig() as rig:  # Session and Fleet over a live session (the Prompt rig); the rest over the seeded home
-                live = (("session", rig.url(f"&session={rig.sid}")), ("fleet", page_url(rig.server, "fleet")))
-                seeded = tuple((n, page_url(srv, m, x)) for n, m, x in SECTIONS if n not in ("session", "fleet"))
-                yield tuple((section, (c, u, n)) for n, u in live + seeded) + ((inspector, (c, srv)),)
+            with PromptRig() as rig:  # Session and Live on the fleet over a live session (the Prompt rig); the rest over the seeded home
+                live = (("session", rig.url(f"&session={rig.sid}")), ("agents-fleet", page_url(rig.server, "fleet")))
+                seeded = tuple((n, page_url(srv, m, x)) for n, m, x in SECTIONS if n not in ("session", "agents-fleet"))
+                yield tuple((section, (c, u, n)) for n, u in live + seeded) + ((inspector, (c, srv)), (attention, (c, page_url(rig.server, "fleet"))))
         finally:
             srv.shutdown()
             srv.server_close()

@@ -1,16 +1,19 @@
-"""tests.helpers.studio_ollama -- Fleet's Ollama panel, Settings -> Ollama and Setup's steward line (Halo 3.3.4.0 R5),
+"""tests.helpers.studio_ollama -- the Ollama steward's views (Halo 3.3.4.0 R5 as Fleet's Ollama panel; 3.3.16.0 R2 "the Fleet
+fold": its models are Local's -- Local -> Hosts' traffic and fit block, Local -> Steward's findings), Settings -> Ollama
+and Setup's steward line,
 real clicks in headless Chrome through the driver base, over a scratch home (capture_studio's seeded_home) with the
 steward fixture of tests/helpers/ollama_panel_seed.py (two hosts, a local server, the ledger, an event, a note,
 review mode; the cards and the catalog through studio/ollama_hosts_view.READERS); no provider request, no model call:
 
-1. the quiet Fleet: nothing opens, the panel is not in the layout; the "+" menu's Ollama row adds it;
-2. `open=all`: the steward's attention row, O opens the panel;
-3. the host picker (pc, samus, the local server); the model rows' numbers, the eye, the VRAM share;
+1. Local -> Hosts: nothing opens over it; under the cards one host's traffic and fit (no Fleet panel any more);
+2. the steward's attention row on Agents (the chip's queue), O opens Local -> Hosts on its host;
+3. the host picker (pc, samus, the local server); the model rows' numbers, the eye, the VRAM share; the card line on
+   the host's card;
 4. the timeline draws (a bucket a minute, the hour's calls, a trim and a cut marked);
-5. a finding's Apply (config.json's ollama.profiles has it, the row says applied); Dismiss (gone, and still gone
-   after a reload); Copy on the KV hint (the exact env line);
+5. a finding's Apply on Local -> Steward (config.json's ollama.profiles has it, the row says applied, the host's model
+   row its profile); Dismiss (gone, and still gone after a reload); Copy on the KV hint (the exact env line);
 6. Settings -> Ollama: the block's model picker writes ollama.steward.model, its mode writes apply;
-7. Setup -> Providers: the Ollama card's steward line and its link to the panel.
+7. Setup -> Providers: the Ollama card's steward line and its link to Local -> Hosts.
 The last stdout line is the JSON of what it saw (exit 2: no Chrome)."""
 from __future__ import annotations
 
@@ -26,14 +29,13 @@ sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "tools"))
 
 from tests.helpers.chrome_driver import Driver  # noqa: E402
-from tests.helpers.studio_header_menus import close_menus, plus, plus_rows  # noqa: E402
 from tests.helpers.studio_packs_steps import CUR, q, qa  # noqa: E402
 from tests.helpers.studio_settings import press, set_field  # noqa: E402
 
-DETAIL = q("[data-testid=fleet-ollama-detail]")
+DETAIL = q("[data-testid=local-host-steward]")  # 3.3.16.0 R2: the Fleet Ollama panel's body, on Local -> Hosts
 HOST = f"({DETAIL}?.dataset.host || '')"
-ROWS = qa("[data-testid=fleet-ollama-detail] [data-testid=ollama-model-row]")
-FIND = "[data-testid=fleet-ollama-detail] [data-testid=ollama-finding]"
+ROWS = qa("[data-testid=local-host-steward] [data-testid=ollama-model-row]")
+FIND = "[data-testid=local-steward-findings] [data-testid=ollama-finding]"
 NUMS = ".map((r) => [r.dataset.model, +r.dataset.calls, +r.dataset.trims, +r.dataset.cuts, +r.dataset.errors])"
 
 
@@ -56,21 +58,18 @@ def load(c, ctx, query: str, done: str) -> None:
 
 
 def quiet_plus(c, url, ctx) -> dict:
-    load(c, ctx, "mode=fleet&view=workspace", f"{CUR}.startsWith('Fleet') && !!{q('[data-section=fleet] [data-panel]')}")
+    load(c, ctx, "mode=local&page=hosts", f"{CUR}.startsWith('Local') && !!{DETAIL}")
     time.sleep(1.5)
     out = {"quiet_open": c.js("[!!document.querySelector('[data-testid=section-help]'), document.querySelectorAll('[role=dialog]').length]"),
            "quiet_has_panel": c.js(f"!!{q('[data-panel=fleet-ollama]')}")}
-    rows = {r[0]: r[1] for r in plus_rows(c)}
-    out["plus_word"] = rows.get("fleet-ollama")
-    close_menus(c)
-    plus(c, "fleet-ollama")
+    out["plus_word"] = "hosts"  # 3.3.16.0 R2: no "+" row: the block is the Hosts page's own
     out["plus_opened"] = c.wait(f"!!{DETAIL} && {HOST}", 30)
-    c.js("localStorage.removeItem('halo.studio.layout.fleet'); 1")  # the next load starts without it again
     return out
 
 
 def attention(c, url, ctx) -> dict:
-    load(c, ctx, "mode=fleet&view=workspace&open=all", f"!!{q('[data-panel=fleet-attention]')}")
+    load(c, ctx, "mode=agents&view=live", "!!document.querySelector('[data-testid=agents-attention]')")
+    c.click_on(q("[data-testid=agents-attention]"))  # the fleet's queue (closed on load)
     row = q("[data-testid=fleet-attn-row][data-kind=ollama_steward]")
     out = {"attn_row": c.wait(f"!!{row} && {row}.querySelector('.fat-what').textContent", 40),
            "attn_before": c.js(f"!!{DETAIL}")}
@@ -89,42 +88,47 @@ def hosts(c, url, ctx) -> dict:
     out["samus_rows"] = c.wait(f"{HOST} === 'samus' && {ROWS}.length && {ROWS}{NUMS}", 15)
     set_field(c, pick, "llama-box", "change")
     out["local_rows"] = c.wait(f"{HOST} === 'llama-box' && {ROWS}.length && {ROWS}{NUMS}", 15)
-    out["local_label"] = c.js(f"!!{q('[data-testid=fleet-ollama-detail] .oll-next')}")
+    out["local_label"] = c.js(f"!!{q('[data-testid=local-host-steward] .oll-next')}")
     set_field(c, pick, "pc", "change")
     out["pc_rows"] = c.wait(f"{HOST} === 'pc' && {ROWS}.length === 2 && {ROWS}{NUMS}", 15)
     out["eye"] = c.js(f"{ROWS}.map((r) => [r.dataset.model, !!r.querySelector('[data-testid=ollama-vision]')])")
     out["vram"] = c.js(f"{ROWS}.map((r) => r.querySelector('[data-testid=ollama-vram]')?.textContent || '')")
-    out["card"] = c.js(f"{q('[data-testid=ollama-card]')}.textContent")
+    out["card"] = c.js(f"{q('[data-testid=local-host-card][data-name=pc] [data-testid=ollama-card]')}.textContent")  # the host's card
     return out
 
 
 def timeline(c, url, ctx) -> dict:
-    svg = q("[data-testid=fleet-ollama-detail] [data-testid=ollama-timeline]")
+    svg = q("[data-testid=local-host-steward] [data-testid=ollama-timeline]")
     out = {"tl": c.wait(f"!!{svg} && [+{svg}.dataset.buckets, +{svg}.dataset.calls]", 20)}
-    out["tl_marks"] = c.js(qa("[data-testid=fleet-ollama-detail] [data-testid=ollama-mark]") + ".map((m) => m.dataset.kind).sort()")
+    out["tl_marks"] = c.js(qa("[data-testid=local-host-steward] [data-testid=ollama-mark]") + ".map((m) => m.dataset.kind).sort()")
     out["tl_line"] = c.js(f"({svg}.querySelector('polyline')?.getAttribute('points') || '').split(' ').length")
     return out
 
 
 def apply_dismiss(c, url, ctx) -> dict:
+    load(c, ctx, "mode=local&page=steward", f"!!{q('[data-testid=local-steward-findings]')}")  # 3.3.16.0 R2: the findings are Steward's
     out = {"review_apply": c.wait(f"!!{finding('window-small', '[data-testid=ollama-apply]')}", 20)}
     fid = c.js(f"{finding('window-small')}.dataset.id")
     applied = q(f'{FIND}[data-applied][data-id="{fid}"]')
     press(c, finding("window-small", "[data-testid=ollama-apply]"), f"!!{applied}")
     out["applied_row"] = c.wait(f"{by_id(fid, '[data-testid=ollama-applied]')}?.textContent", 15)
     out["applied_config"] = ((config(ctx).get("ollama") or {}).get("profiles") or {}).get("pc|qwen3.8:27b")
-    out["profile_cell"] = c.wait(f"{ROWS}.find((r) => r.dataset.model === 'qwen3.8:27b')?.querySelector('[data-testid=ollama-profile]')?.textContent", 15)
     cut = c.js(f"{finding('reply-cut')}?.dataset.id")
     press(c, finding("reply-cut", "[data-testid=ollama-dismiss]"), f"!{by_id(cut)}")
     out["dismissed"] = cut
     out["dismiss_gone"] = c.js(f"!{by_id(cut)}")
-    load(c, ctx, "mode=fleet&view=workspace&open=all", f"!!{DETAIL} && {qa(FIND)}.length > 0")
+    load(c, ctx, "mode=local&page=steward", f"{qa(FIND)}.length > 0")
     out["dismiss_after_reload"] = c.js(f"!{by_id(cut)}")
+    load(c, ctx, "mode=local&page=hosts", f"!!{DETAIL} && {HOST}")  # the host's model row carries the profile now
+    pick = q("[data-testid=ollama-host]")
+    if c.js(f"!!{pick}") and c.js(f"{HOST}") != "pc":
+        set_field(c, pick, "pc", "change")
+    out["profile_cell"] = c.wait(f"{HOST} === 'pc' && {ROWS}.find((r) => r.dataset.model === 'qwen3.8:27b')?.querySelector('[data-testid=ollama-profile]')?.textContent", 15)
     return out
 
 
 def copy(c, url, ctx) -> dict:
-    kv = q("[data-testid=fleet-ollama-detail] [data-testid=ollama-option][data-kind=kv-q8_0]")
+    kv = q("[data-testid=local-host-steward] [data-testid=ollama-option][data-kind=kv-q8_0]")
     c.wait(f"!!{kv}", 20)
     out = {"hint_line": c.js(f"{kv}.querySelector('[data-testid=ollama-hint-line]').textContent")}
     press(c, f"{kv}.querySelector('[data-testid=ollama-copy-hint]')", f"!!{kv}.querySelector('[data-copied]')")
@@ -155,7 +159,7 @@ def settings(c, url, ctx) -> dict:
     out["model_says"] = c.wait(f"{q(block + ' [data-testid=settings-ollama-status]')}.textContent.includes('none') && "
                                f"{q(block + ' [data-testid=settings-ollama-status]')}.textContent", 20)
     press(c, q("[data-testid=settings-ollama-open]"), f"!!{DETAIL}")
-    out["settings_open"] = c.wait(f"{CUR}.startsWith('Fleet') && !!{DETAIL}", 20)
+    out["settings_open"] = c.wait(f"{CUR}.startsWith('Local') && !!{DETAIL}", 20)
     return out
 
 
@@ -164,7 +168,7 @@ def setup(c, url, ctx) -> dict:
     text = q("[data-testid=setup-steward-text]")
     out = {"setup_line": c.wait(f"!{text}.textContent.endsWith('reading...') && {text}.textContent", 20)}
     press(c, q("[data-testid=setup-steward-open]"), f"!!{DETAIL}")
-    out["setup_open"] = c.wait(f"{CUR}.startsWith('Fleet') && !!{DETAIL}", 20)
+    out["setup_open"] = c.wait(f"{CUR}.startsWith('Local') && !!{DETAIL}", 20)
     return out
 
 

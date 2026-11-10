@@ -118,9 +118,9 @@ session and hear it answer, all locally.
 
 ## Halo Studio
 
-`halo studio` opens Studio in your browser. It is one window with seven sections under one
+`halo studio` opens Studio in your browser. It is one window with six sections under one
 header, and two of them are where you watch your agents: **Session**, the dashboard of everything working
-right now, and **Agents**, your lineup as cards that light up as their agents work, its runs and what runs now.
+right now, and **Agents**, your lineup as cards that light up as their agents work, its runs and what runs now on every machine.
 
 ### Session: the dashboard
 
@@ -136,7 +136,7 @@ harness does, in the order it happens.
 - What an agent hands back, and its last words when it finishes.
 - What it asks you, as an amber card you answer with `A`, `R`, `S` or `O`.
 
-Each line carries Fleet's columns, the time and the kind (`TOOL`, `TEXT`, `STATE`, `ASK`,
+Each line carries the fleet log's columns, the time and the kind (`TOOL`, `TEXT`, `STATE`, `ASK`,
 `YOU`), then its agent's tag: its own colour, its name and its state; a timeline lane per
 live agent sits on top, with an agent pick and a kind pick beside Follow. Follow is on:
 scroll up and it pauses, **↓ N new** brings you back. The Steer box is always at the
@@ -146,7 +146,7 @@ everyone again.
 
 <a href="docs/media/studio-session-live.png"><img alt="The Live column up close: agent tags, Bash, Read and Edit rows with their times and results, a spawn line, an amber ask card with allow, deny, stop and open, two DONE blocks with the agents' last words" src="docs/media/studio-session-live.png" width="100%"></a>
 
-On the left, the **map** (Fleet's map, narrowed to this harness) draws its agents as a
+On the left, the **map** (Agents -> Live's tree, narrowed to this harness) draws its agents as a
 tree: each agent under the one that spawned it, its children fanned out side by side. A node shows its model, what it
 has cost and, while a tool runs, the tool and its time (`Bash 12s`). The state shows on
 the node and on the edge into it: working pulses cyan, waiting is amber, done is green
@@ -194,12 +194,14 @@ it; Save writes the lineup's YAML and Apply makes it the lineup new sessions use
 [Agents](docs/STUDIO-sections.md#agents) and
 [the canvas](docs/STUDIO-agents.md#cast-the-lineup-and-its-bios).
 
-### Seven sections, one window
+### Six sections, one window
 
-<a href="docs/media/studio-modes.png"><img alt="Halo Studio's seven sections side by side, each under its key: Session (Alt+1), Agents (Alt+2), Fleet (Alt+3), Packs (Alt+4), Setup (Alt+5), Settings (Alt+6) and Local (Alt+7)" src="docs/media/studio-modes.png" width="100%"></a>
+<a href="docs/media/studio-modes.png"><img alt="Halo Studio's six sections side by side, each under its key: Session (Alt+1), Agents (Alt+2), Local (Alt+3), Packs (Alt+4), Setup (Alt+5), Settings (Alt+6)" src="docs/media/studio-modes.png" width="100%"></a>
 
-**Session** (`Alt+1`), **Agents** (`Alt+2`) and **Fleet** (`Alt+3`) come first; Agents took in Team, Roles and
-Orchestra in 3.3.16.0 (`?mode=roles`, `orchestra` and `team` still open it). Each section opens on a Start view that says what it is for,
+**Session** (`Alt+1`), **Agents** (`Alt+2`) and **Local** (`Alt+3`) come first; Agents took in Team, Roles and
+Orchestra in 3.3.16.0 (`?mode=roles`, `orchestra` and `team` still open it), and the Fleet section's pieces went where
+they belong: a machine's agents to Agents -> Live, its pairing to Setup -> Machines, its models to Local (`?mode=fleet`
+still opens Live on the fleet). Each section opens on a Start view that says what it is for,
 its panels sit in labelled group boxes you move and resize, `Ctrl`/`Cmd`+`K` opens the
 command palette and `?` opens "How this works". `halo studio` serves it on loopback only,
 with a per-launch token: no account, no CDN, no fonts fetched, no analytics.
@@ -208,12 +210,12 @@ The fourth, **Packs** (`Alt+4`), is the Pack Manager: it lists the packs in the 
 you trust (the folders and git urls of `packs.sources`, and the packs Halo ships: Documentation
 Review, Concord and Design), shows what each brings and asks for, and installs, grants, enables, sets up,
 updates and removes them through the same code as `halo pack`. An enabled pack's own
-section comes after the core sections (the first pack section takes `Alt+8`). See [docs/STUDIO-packs.md](docs/STUDIO-packs.md) and
+section comes after the core sections (the first pack section takes `Alt+7`). See [docs/STUDIO-packs.md](docs/STUDIO-packs.md) and
 [docs/PACKS.md](docs/PACKS.md).
 
 The fifth, **Setup** (`Alt+5`, 3.3.0.0), is this box's setup on one page: the terminal wizard's blocks
 (the providers, local models, the default model, the permission mode, the terminal theme, the lineup,
-the Linux fixes when a box needs them, and the five checks) as forms you fill in any order, each saving the
+the Linux fixes when a box needs them, the five checks, and the machines you pair) as forms you fill in any order, each saving the
 key `halo init --terminal` and `halo config set` write; `halo init` opens it, and so does a home with no provider set up. See [docs/STUDIO-setup.md](docs/STUDIO-setup.md).
 
 The sixth, **Settings** (`Alt+6`, 3.3.3.0), is every key of `~/.halo/config.json` on one page per group:
@@ -221,7 +223,7 @@ each key a row with its help line, its value against its default, Reset to defau
 `halo config set` line; a change saves at once and says when it takes effect, and a search finds a key
 across every group. `halo settings fleet` opens its Fleet page. See [docs/CONFIG.md](docs/CONFIG.md).
 
-The seventh, **Local** (`Alt+7`, 3.3.5.0), is the machines that serve your local models and the models they serve:
+The third, **Local** (`Alt+3`, 3.3.5.0), is the machines that serve your local models and the models they serve:
 this machine's GPU, VRAM, RAM and CPU live, every call to a local server as it happens, every host Halo knows with
 Load, Unload and Make it fit, and every installed model with its card, its fit meter and an intent filter (code,
 chat, long documents, images, embed). `halo local` opens it. See [docs/STUDIO-local.md](docs/STUDIO-local.md).
@@ -242,17 +244,17 @@ The pictures here are headless-Chrome renders of Studio over fixture data
 
 ### Fleet: every harness, one goal
 
-Press `Alt+3` and every Halo harness you run or joined is live on one map: each session a
-card, its agents a tree under it. Another machine joins with a pair code
-(`halo fleet join`). **Attention** is one queue of everything that waits on you on any
-harness (a question, a permission, a gate, a paused agent, a spend cap, a file conflict),
-one key each. Click any agent to read what it thinks and runs, then steer, pause, stop,
-take it over or hand it to another harness. A **mission** gives the whole fleet one goal:
-the hub's lead splits it into parts by what each harness can do, you drag a part to
-another harness on the map, approve and run, and the report says who did what and what
-it cost. See [docs/FLEET.md](docs/FLEET.md) and [docs/MISSIONS.md](docs/MISSIONS.md).
+Press `Alt+2` (Agents), then `L`, and switch Live's scope to **fleet** (`F` on the canvas, or open
+`?mode=fleet`): every Halo harness you run or joined is live on one canvas, each machine a box,
+each session a card, its agents a tree under it. Another machine joins with a pair code
+(Setup -> Machines, or `halo fleet join`). The **Attention** chip (`A`) is one queue of everything
+that waits on you on any harness (a question, a permission, a gate, a paused agent, a spend cap, a
+file conflict), one key each. Click any agent to read what it thinks and runs, then steer, pause,
+stop, take it over or hand it to another harness. A **mission** is a run of the whole fleet: the
+hub's lead splits one goal into parts by what each harness can do, you drag a part into another
+machine's box, approve and run, and the report says who did what and what it cost. See [docs/FLEET.md](docs/FLEET.md) and [docs/MISSIONS.md](docs/MISSIONS.md).
 
-<a href="docs/media/studio-fleet.png"><img alt="Studio's Fleet section: two harnesses on the map with their sessions and agents, the attention queue with a question and an approval, the timeline and the live log, the implementer pinned as a mini stream" src="docs/media/studio-fleet.png" width="100%"></a>
+<a href="docs/media/studio-fleet.png"><img alt="Agents -> Live on the fleet: two machines as boxes with their sessions and agents, the glance in the inspector with the machines, what waits on you and today's spend" src="docs/media/studio-fleet.png" width="100%"></a>
 
 ### Runs: agents writing the same files
 
@@ -272,13 +274,13 @@ your lineup, its card first. See [docs/ORCHESTRA.md](docs/ORCHESTRA.md) and [doc
 ### Team files, from a terminal
 
 Team's board left Studio in 3.3.16.0: who owns what is each lane's owns line in Agents -> Runs. `halo team` still runs a
-project's team file (members, blocks and stages) from a terminal, and a stage at its gate is a row of Fleet's Attention.
+project's team file (members, blocks and stages) from a terminal, and a stage at its gate is a row of Attention.
 See [docs/TEAM.md](docs/TEAM.md).
 
 ### Design: a pack Halo ships
 
 Design is the **design pack** since 3.3.13.0: `halo pack install design`, then `halo pack enable design --grant-all`,
-and the design pack's section (the first pack section, `Alt+8`, or `/design`) holds artboards: prototypes, pages,
+and the design pack's section (the first pack section, `Alt+7`, or `/design`) holds artboards: prototypes, pages,
 decks and logos made by a real Halo turn, with the [ArtCraft](https://getartcraft.com/apps)
 apps on your machine as its tools when they are registered, and a new version on every
 turn. Refine by chat, pinned comments, direct text edits and knobs; export a folder,
@@ -351,7 +353,7 @@ tool, so check each tool's own docs.
 |---|---|---|
 | Watching agents | Studio's Session: every agent's thinking, tool calls with their time and result, hand-backs and asks in one live column, beside a tree of who spawned whom with each agent's model and cost | Commonly the terminal transcript, one agent at a time |
 | Seeing your lineup | Studio's Agents: the lineup as cards in tier boxes, each glowing in its agent's state while a session runs; drag a card to another tier | Sub-agents are common; a visual editor and a live state per role vary |
-| Every machine at once | Studio's Fleet: every harness on one map, one queue of what waits on you, missions that split one goal across harnesses | Varies |
+| Every machine at once | Studio's Agents -> Live on the fleet: every harness on one canvas, one queue of what waits on you, missions that split one goal across harnesses | Varies |
 | Config reuse | Reads your Claude Code setup in place: `~/.claude` settings, CLAUDE.md, skills, commands, agents, MCP servers, memory | Commonly their own config files and instruction files |
 | Models | DeepSeek, GLM, Kimi, Qwen, Claude and more, over OpenRouter, Databricks, the Anthropic and OpenAI APIs, Ollama, Hugging Face and local servers; `/model` swaps mid-conversation | Often one vendor's models, or one provider list per tool |
 | Local models | A steward that watches every local server and plans the fit, a host per machine, a pool across machines, voice on your own hardware, all in Studio's Local section | Commonly a base URL for a local server; fit, load and diagnosis are left to you |
@@ -367,7 +369,7 @@ tool, so check each tool's own docs.
 
 | | |
 |---|---|
-| **Halo Studio** | `halo studio`, or `/studio` in a session: the browser console, seven sections under one header. Loopback only, a per-launch token, no CDN. |
+| **Halo Studio** | `halo studio`, or `/studio` in a session: the browser console, six sections under one header. Loopback only, a per-launch token, no CDN. |
 | **The Session dashboard** | One live column of every agent's thinking, tool calls (what each runs on, its time, its result), hand-backs and asks; the map of who spawned whom with each agent's model, cost and running tool; the context bar, the spend and each agent's share. |
 | **The Agents glow** | Your lineup as cards in tier boxes. While a session runs, a card glows in its agent's state: working cyan, waiting amber, done green that fades over ten seconds, failed red until you click it. Hover the card and it explains its glow. |
 | **Fleet and missions** | Every harness on one map, one attention queue across all of them, and one goal split into parts by what each harness can do. |

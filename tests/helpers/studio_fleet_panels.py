@@ -6,32 +6,32 @@ past session PAST_SID). Run through tests/helpers/studio_fleet.py:
 
     python -m tests.helpers.studio_fleet panels
 
-* the nine panels (R6: Capabilities, R8: Mission), each with its about line; the attention queue and its
-  count in the status bar and the Tree panel (3.3.2.0 R2: the expanded rail's tree before); A on the approval row answers it on
-  the member (and the row leaves the queue);
-* the timeline draws one lane per live agent, hover says who, a click on a
-  lane selects that agent;
+* 3.3.16.0 R2 "the Fleet fold": ?mode=fleet is Agents -> Live on the fleet (the tree, the Attention chip, the
+  inspector strip; the Fleet section and its nine panels went); the attention queue is the chip's panel, its count
+  the chip's (amber) and the glance's "waits on you" line; A on the approval row answers it on the member (and the
+  row leaves the queue);
+* Activity (Live's optional panel, the header's "+") draws one lane per live agent, hover says who, a click on a
+  lane selects that agent (the inspector says it);
 * the digest card after a simulated absence (halo.fleet.lastSeen two hours
-  back, then the tab regains focus): the Fleet icon's dot, a click on it opens
-  the Tree panel with the card at its top (3.3.2.0 R2), and Dismiss;
+  back, then the tab regains focus): the Agents icon's dot, a click on it opens
+  Live on the fleet with the card at the top of the inspector's glance, and Dismiss;
 * the replay: the reviewer card's history row "replay" opens the scrub bar on
   the Roles canvas, the scrub lights the reviewer only while it worked, x
   goes back to what runs now;
-* a conflict (two harnesses editing shop/basket.py): the amber edge on the
-  map, the card chip, the attention row; By project shows the git chips;
-* Record on the agent panel and its download, Take over's dialog, People's
-  Message reaching the member's owner as a `note`.
+* a conflict (two harnesses editing shop/basket.py): the amber edge on
+  Live, the session nodes' chips, the attention row; each session node's git chips;
+* Record on the agent inspector and its download, Take over's dialog, the member machine's summary's Message
+  (People's row) reaching the member's owner as a `note`.
 """
 from __future__ import annotations
 
 import time
 
-from tests.helpers.studio_fleet import CANVAS, DETAIL, LIVE_CARDS, card, card_click
-from tests.helpers.studio_tree import open_tree
-from tests.helpers.studio_full import toggle_face  # noqa: E402
+from tests.helpers.studio_fleet import CANVAS, DETAIL, LIVE_CARDS, NODE, card, card_click
+from tests.helpers.studio_header_menus import plus
 
-PANELS = ("fleet-people", "fleet-costs", "fleet-health", "fleet-attention", "fleet-map", "fleet-activity", "fleet-agent",
-          "fleet-capabilities", "fleet-mission")  # 3.0.6.0 R6, R8
+HOMES = ("roles-live-map", "agents-attention", "roles-inspector")  # 3.3.16.0 R2: Live, the chip, the inspector strip
+CHIP = "document.querySelector('[data-testid=\"agents-attention\"]')"
 ROW = "document.querySelector('[data-testid=\"fleet-attn-row\"][data-kind=\"{}\"]')"
 LIVE = ("queued", "running", "waiting", "paused")
 
@@ -55,13 +55,15 @@ def open_strip(c, pid: str) -> None:
 def attention(c, rig, out: dict) -> None:
     from tests.helpers.studio_fleet_member import APPROVAL_ID
     from tests.helpers.studio_fleet_rig import wait_for
-    out["panels"] = c.js("[" + ",".join(f"document.querySelectorAll('[data-testid=\"{p}\"]').length" for p in PANELS) + "]")
-    out["abouts"] = c.js("[...document.querySelectorAll('.section-view[data-section=\"fleet\"] .panel-title')].filter((e) => e.title.trim()).length")  # 3.3.2.0 R3: the about line is the title's tooltip
+    out["panels"] = c.js("[" + ",".join(f"document.querySelectorAll('[data-testid=\"{p}\"]').length" for p in HOMES) + "]")
+    out["closed_on_load"] = c.js("!document.querySelector('[data-testid=\"fleet-attention\"]')")
+    c.click_on(CHIP)
+    out["abouts"] = c.wait("document.querySelector('[data-panel=\"fleet-attention\"] .panel-title')?.textContent", 10)
     out["attn_kinds"] = c.wait("document.querySelectorAll('[data-testid=\"fleet-attn-row\"][data-kind=\"approval\"]').length && [...document.querySelectorAll('[data-testid=\"fleet-attn-row\"]')].map((r) => r.dataset.kind)", 30)
     out["attn_rows"] = len(out["attn_kinds"] or [])
-    out["status_attn"] = c.wait("document.querySelector('[data-testid=\"status-attention\"]')?.textContent", 15)
-    open_tree(c)  # 3.3.2.0 R2: the count's other home is the Tree panel, through the header's "+" menu
-    out["rail_attn"] = c.wait("document.querySelector('[data-testid=\"fleet-tree-attention\"]')?.textContent", 15)
+    out["status_attn"] = c.wait(f"{CHIP}.dataset.count === '2' && [{CHIP}.textContent, {CHIP}.dataset.tone]", 15)
+    open_strip(c, "roles-inspector")  # the count's other home: the glance's line (the inspector, a strip on load)
+    out["rail_attn"] = c.wait("document.querySelector('[data-testid=\"live-glance-waiting\"] dd')?.textContent", 15)
     row = ROW.format("approval")
     seen(c, row)
     c.click_on(f"{row}.querySelector('.fat-what')")
@@ -75,7 +77,9 @@ def attention(c, rig, out: dict) -> None:
 
 def timeline(c, rig, out: dict) -> None:
     lanes = "document.querySelectorAll('[data-testid=\"fleet-lane\"]')"
-    live = "[...document.querySelectorAll('[data-testid=\"fleet-node\"]')].filter((n) => " + " || ".join(f"n.dataset.state === '{s}'" for s in LIVE) + ").length"
+    live = f"[...document.querySelectorAll('{NODE}')].filter((n) => " + " || ".join(f"n.dataset.state === '{s}'" for s in LIVE) + ").length"
+    c.key("Escape")  # the queue's panel closes (Esc in it) before Activity floats in
+    plus(c, "fleet-activity")  # 3.3.16.0 R2: Live's optional panel
     out["live_nodes"] = c.js(live)
     out["lanes"] = c.wait(f"{lanes}.length === {live} && {lanes}.length", 15)
     out["segs"] = c.js("document.querySelectorAll('[data-testid=\"fleet-lane\"] .ftl-seg').length")
@@ -107,9 +111,9 @@ def timeline(c, rig, out: dict) -> None:
 
 def digest(c, out: dict) -> None:
     c.js("localStorage.setItem('halo.fleet.lastSeen', String(Date.now() - 2 * 3600 * 1000)); window.dispatchEvent(new Event('focus')); 1")
-    out["digest_dot"] = c.wait("!!document.querySelector('.rail [data-tab-id=fleet] [data-testid=\"rail-away\"]')", 15)  # 3.3.2.0 R2: the Fleet icon's dot
-    c.click_on("document.querySelector('.rail [data-testid=section-tab][data-tab-id=fleet]')")  # opens Fleet on its Tree panel
-    out["digest"] = c.wait("document.querySelector('[data-testid=\"fleet-tree\"] [data-testid=\"fleet-digest\"]')?.textContent", 15)
+    out["digest_dot"] = c.wait("!!document.querySelector('.rail [data-tab-id=agents] [data-testid=\"rail-away\"]')", 15)  # 3.3.16.0 R2: the Agents icon's dot
+    c.click_on("document.querySelector('.rail [data-testid=section-tab][data-tab-id=agents]')")  # opens Live on the fleet, the glance open
+    out["digest"] = c.wait("document.querySelector('[data-testid=\"live-glance\"] [data-testid=\"fleet-digest\"]')?.textContent", 15)
     out["digest_where"] = c.js("document.querySelector('[data-testid=\"fleet-digest\"]')?.dataset.where")
     c.js("document.querySelector('[data-testid=\"fleet-digest-dismiss\"]').scrollIntoView({block: 'center'}); 1")
     c.click_on("document.querySelector('[data-testid=\"fleet-digest-dismiss\"]')")
@@ -147,7 +151,7 @@ def conflict(c, rig, out: dict) -> None:
     from tests.helpers.studio_fleet_member import REVIEWER
     from tests.helpers.studio_fleet_rig import MEMBER, MEMBER_SID
     c.go(rig.url("fleet"))
-    c.wait("document.querySelectorAll('[data-testid=\"fleet-node\"]').length === 5", 30)
+    c.wait(f"document.querySelectorAll('{NODE}').length === 5", 30)
     a = rig.agent("Implement")
     rig.server.events.publish({"session_id": rig.act.session_id, "harness": harness()["id"], "event": "agent_state", "agent_id": a["agent_id"],
                                "ts": time.time(), "data": {**a, "current": f"Edit: {rig.proj / 'basket.py'}"}})
@@ -155,10 +159,12 @@ def conflict(c, rig, out: dict) -> None:
                                                                  "ts": time.time(), "data": {**REVIEWER, "state": "running", "current": "Edit: /home/kali/shop/basket.py"}}]})
     out["conflict_edge"] = c.wait("document.querySelector('[data-testid=\"fleet-conflict-edge\"]')?.dataset.file", 30)
     out["conflict_chips"] = c.js("document.querySelectorAll('[data-testid=\"fleet-conflict-chip\"]').length")
+    c.click_on(CHIP)  # the queue (closed on load)
     out["conflict_row"] = c.wait(f"{ROW.format('conflict')}?.querySelector('.fat-what')?.textContent", 15)
-    c.click_on("document.querySelector('[data-testid=\"fleet-by-project\"]')")
-    out["git_chips"] = c.wait("document.querySelectorAll('[data-testid=\"fleet-git-chips\"]').length", 10)
+    out["git_chips"] = c.wait("document.querySelectorAll('[data-testid=\"fleet-git-chips\"]').length", 10)  # 3.3.16.0 R2: on every session node
     out["edge_by_project"] = c.wait("document.querySelectorAll('[data-testid=\"fleet-conflict-edge\"]').length", 10)
+    c.click_on(CHIP)  # the queue closes: it floats over the inspector the next step presses in
+    c.wait("!document.querySelector('[data-testid=\"fleet-attention\"]')", 10)
 
 
 def extras(c, rig, out: dict) -> None:
@@ -169,7 +175,11 @@ def extras(c, rig, out: dict) -> None:
     seen(c, node("researcher"))
     c.click_on(node("researcher"))
     c.wait(f"{DETAIL}?.dataset.key === '{rig.key('Research')}'", 10)
-    c.click_on("document.querySelector('[data-testid=\"fleet-record\"]')")
+    rec = "document.querySelector('[data-testid=\"fleet-record\"]')"
+    seen(c, rec)  # the agent inspector scrolls: its extras sit under the stream
+    x, y, w, h = c.rect(rec)
+    out["record_hit"] = c.js(f"document.elementFromPoint({x + w / 2}, {y + h / 2})?.closest('[data-testid]')?.dataset.testid")
+    c.click_on(rec)
     out["recording"] = c.wait("document.querySelector('[data-testid=\"fleet-recording\"] .dialog-title')?.textContent", 20)
     try:  # the file is fetched and handed to the browser; the test browser keeps no copy anywhere
         c.call("Page.setDownloadBehavior", behavior="deny")
@@ -183,8 +193,9 @@ def extras(c, rig, out: dict) -> None:
     out["takeover"] = c.wait("document.querySelector('[data-testid=\"fleet-takeover\"] .dialog-title')?.textContent", 10)
     c.key("Escape")
     c.wait("!document.querySelector('[data-testid=\"fleet-takeover\"]')", 10)
-    toggle_face(c, '[data-testid="fleet-people"]')  # 3.3.2.0 R3: Expand is a row of the ... menu
-    c.wait("!!document.querySelector('[data-testid=\"fleet-person-message\"]')", 10)
+    from tests.helpers.studio_fleet_rig import MEMBER
+    c.click_on(f"document.querySelector('[data-testid=\"live-machine\"][data-harness=\"{MEMBER}\"]')")  # its summary: People's row
+    c.wait("!!document.querySelector('[data-testid=\"machine-summary\"] [data-testid=\"fleet-person-message\"]')", 10)
     seen(c, "document.querySelector('[data-testid=\"fleet-person-message\"]')")
     c.click_on("document.querySelector('[data-testid=\"fleet-person-message\"]')")
     c.wait("!!document.querySelector('[data-testid=\"fleet-message-text\"]')", 10)
@@ -198,7 +209,7 @@ def extras(c, rig, out: dict) -> None:
 def panels(c, rig) -> dict:
     out: dict = {}
     c.go(rig.url("fleet"))
-    c.wait("document.querySelectorAll('[data-testid=\"fleet-node\"]').length === 5 && document.querySelectorAll('[data-testid=\"fleet-lane\"]').length", 30)
+    c.wait(f"document.querySelectorAll('{NODE}').length === 5 && !!document.querySelector('[data-testid=\"agents-attention\"]')", 30)
     for step in (lambda: attention(c, rig, out), lambda: timeline(c, rig, out), lambda: digest(c, out),
                  lambda: replay(c, rig, out), lambda: conflict(c, rig, out), lambda: extras(c, rig, out)):
         try:

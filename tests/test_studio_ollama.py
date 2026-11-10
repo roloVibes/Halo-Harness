@@ -1,18 +1,19 @@
-"""tests.test_studio_ollama -- Halo 3.3.4.0 R5 "the steward in Studio": Fleet's Ollama panel, Settings -> Ollama's
+"""tests.test_studio_ollama -- Halo 3.3.4.0 R5 "the steward in Studio" (3.3.16.0 R2 "the Fleet fold": Fleet's Ollama panel
+went; its models are Local's -- Local -> Hosts' traffic and fit, Local -> Steward's findings), Settings -> Ollama's
 steward block and Setup's steward line, in headless Chrome through tests/helpers/studio_ollama.py (skipped without
 one), over a scratch home with tests/helpers/ollama_panel_seed.py's fixture (a ledger, an event, the cards from
 fixtures, a steward note, review mode); no provider request, no model call:
 
-1. the quiet Fleet opens with nothing over it and without the panel; the "+" menu's Ollama row adds it;
-2. the steward's attention row (O) opens it;
+1. Local -> Hosts opens with nothing over it, one host's traffic and fit under the cards (no Fleet panel);
+2. the steward's attention row (Agents' Attention chip, O) opens Local -> Hosts on its host;
 3. the host picker: pc, samus and the local server; each model row's numbers are the fixture's hour; the eye on
    the vision model, the VRAM share of the loaded one, the card line;
 4. the timeline draws a bucket a minute with the hour's calls, the trim and the cut marked;
-5. Apply on a finding: config.json's ollama.profiles has it and the row says applied; Dismiss: gone, and gone
+5. Apply on a finding (Local -> Steward): config.json's ollama.profiles has it and the row says applied; Dismiss: gone, and gone
    after a reload; Copy on the KV hint carries the exact env line;
 6. Settings -> Ollama: the block sits above the rows; its model picker writes ollama.steward.model, its mode
-   writes ollama.steward.apply; its button opens the panel;
-7. Setup -> Providers: the Ollama card's "steward: <the note's first line>" and its link to the panel.
+   writes ollama.steward.apply; its button opens Local -> Hosts;
+7. Setup -> Providers: the Ollama card's "steward: <the note's first line>" and its link to Local -> Hosts.
 Run: python -m tests.test_studio_ollama
 """
 from __future__ import annotations
@@ -46,13 +47,13 @@ def _hour(host: str) -> list:
 @test
 def test_the_plus_menu_and_the_attention_row_open_it(ctx: Ctx):
     got = _got(ctx)
-    ctx.check(f"the quiet Fleet: nothing over it, the panel not in the layout, got {got.get('quiet_open')} {got.get('quiet_has_panel')}",
+    ctx.check(f"Local -> Hosts: nothing over it, no Fleet panel, got {got.get('quiet_open')} {got.get('quiet_has_panel')}",
               got.get("quiet_open") == [False, 0] and got.get("quiet_has_panel") is False)
-    ctx.check(f"the + menu's row adds it, got {got.get('plus_word')} {got.get('plus_opened')}",
-              got.get("plus_word") == "add" and got.get("plus_opened") == "pc")
+    ctx.check(f"the host's traffic and fit is the Hosts page's own block, got {got.get('plus_word')} {got.get('plus_opened')}",
+              got.get("plus_word") == "hosts" and got.get("plus_opened") == "pc")
     ctx.check(f"the steward's attention row names the note, got {got.get('attn_row')!r}",
               str(got.get("attn_row") or "").startswith(S.NOTE[:40]) and got.get("attn_before") is False)
-    ctx.check(f"O opens the panel, got {got.get('attn_opened')}", got.get("attn_opened") == "pc")
+    ctx.check(f"O opens Local -> Hosts on it, got {got.get('attn_opened')}", got.get("attn_opened") == "pc")
 
 
 @test
@@ -107,9 +108,9 @@ def test_settings_block_and_setup_line(ctx: Ctx):
     ctx.check(f"it writes ollama.steward.model and apply, got {got.get('model_config')!r} {got.get('mode_config')!r}",
               got.get("model_config") == "none" and got.get("mode_config") == "auto")
     ctx.check(f"the status says the model is none, got {str(got.get('model_says'))[:160]!r}", "is none" in str(got.get("model_says")))
-    ctx.check("Open the Ollama panel lands on Fleet's panel", got.get("settings_open") is True)
+    ctx.check("its button lands on Local -> Hosts", got.get("settings_open") is True)
     ctx.check(f"Setup's Ollama card: the steward's line, got {got.get('setup_line')!r}", got.get("setup_line") == f"steward: {S.NOTE}")
-    ctx.check("its link opens the panel", got.get("setup_open") is True)
+    ctx.check("its link opens Local -> Hosts", got.get("setup_open") is True)
 
 
 if __name__ == "__main__":

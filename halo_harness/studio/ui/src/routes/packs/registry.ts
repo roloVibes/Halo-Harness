@@ -17,9 +17,9 @@ import { PackView } from "./PackView";
 import type { PanelSpec } from "../../lib/workspace/types";
 import type { Registry } from "./types";
 
-// 3.3.16.0 R1: Agents took in Team, Roles and Orchestra, Local is the last core section;
-// the eighth, ninth and tenth slots are the pack's own sections (the design pack's, when it is the first: Alt+8).
-const FIRST_KEY = 8;
+// 3.3.16.0 R1: Agents took in Team, Roles and Orchestra; R2: and Fleet -- six core sections, Settings the last;
+// the seventh to tenth slots are the pack's own sections (the design pack's, when it is the first: Alt+7).
+const FIRST_KEY = 7;
 const LAST_KEY = 10;
 const keyOf = (n: number) => `Alt+${n % 10}`;
 

@@ -17,12 +17,11 @@ counts the run console's data-testid values.
 R6b: `--mode orchestra` lives in tools/capture_orchestra.py and also
 renders the Start view over a repo with no run (studio-orchestra-start.png). 3.0.5.0 R3:
 `--mode fleet` (tools/capture_fleet.py) seeds two harnesses with five agents
-(tests/helpers/studio_fleet_rig.py) and renders the Fleet section
-(studio-fleet.png; 3.1.5.0 R3: the Roles canvas glowing, studio-roles-live.png, and the Session
-dashboard are tools/capture_session_anim.py's, with their GIFs), R4 also the panels with a conflict on the map and
-the digest in the rail (studio-fleet-panels.png), 3.0.6.0 R6 the Capabilities panel
-with Who can... gridcraft (studio-fleet-capabilities.png), 3.0.6.0 R8 a planned mission
-(studio-fleet-mission.png); --dom counts their test ids. 3.3.16.0 R1: `--mode team` (the Team section) went with
+(tests/helpers/studio_fleet_rig.py); 3.3.16.0 R2 (the Fleet fold) renders Agents -> Live on the fleet with a
+conflict edge and the glance (studio-fleet.png), Setup -> Machines (studio-fleet-panels.png), a machine's Specs page
+with Who can... gridcraft (studio-fleet-capabilities.png) and a planned mission on Live (studio-fleet-mission.png);
+--dom counts their test ids (3.1.5.0 R3: studio-roles-live.png and the Session dashboard are
+tools/capture_session_anim.py's, with their GIFs). 3.3.16.0 R1: `--mode team` (the Team section) went with
 Team's board; `--mode roles` renders Agents on Cast and `--mode agents` the same page as studio-agents.png, the modes
 banner's Agents tile; `--mode orchestra` renders Agents on Runs. 3.2.0.0 R7: `--mode packs`
 (tools/capture_packs.py) installs and enables the shipped doc-review pack and renders the Pack Manager
@@ -30,8 +29,8 @@ banner's Agents tile; `--mode orchestra` renders Agents on Runs. 3.2.0.0 R7: `--
 (tools/capture_setup.py) renders Setup as `halo init` opens it, a provider set from a placeholder env file
 (studio-setup.png, the banner's eighth tile and the README's first screenshot after install); --dom counts it.
 3.3.3.0 R2: `--mode settings` (tools/capture_settings.py) renders Settings on its Fleet page (studio-settings.png, the
-banner's ninth tile); --dom counts it. 3.3.4.0 R5: `--mode fleet --panel ollama` (tools/capture_ollama.py) renders
-Fleet with its Ollama panel over the steward fixture (studio-fleet-ollama.png); --dom counts it. 3.3.5.0 R1:
+banner's ninth tile); --dom counts it. (3.3.4.0 R5's `--mode fleet --panel ollama` went with the Fleet section's
+Ollama panel in 3.3.16.0 R2: Local's capture draws the hosts.) 3.3.5.0 R1:
 `--mode local` (tools/capture_local.py) renders Local on its Resources page (studio-local.png, the banner's tenth
 tile); --dom counts it.
 """
@@ -102,8 +101,6 @@ def main(argv: list) -> int:
     parser.add_argument("--out", default=str(REPO / "docs" / "media" / "studio.png"))
     parser.add_argument("--dom", action="store_true", help="print the rendered DOM's node count instead of a PNG")
     parser.add_argument("--mode", choices=["roles", "agents", "shell", "orchestra", "fleet", "start", "packs", "setup", "settings", "local"], default="roles", help="the section to render (the design pack's section: its tests/capture_design.py)")
-    parser.add_argument("--panel", choices=["ollama"], default=None, help="with --mode fleet: one panel's capture (3.3.4.0 R5: "
-                        "the Ollama steward's, tools/capture_ollama.py)")
     args = parser.parse_args(argv)
     from capture_identity import begin
     from tests.helpers.chrome_driver import scope_home
@@ -125,15 +122,7 @@ def _render(args) -> int:
     from capture_identity import placeholder
     state = seeded_home()
     placeholder(state)  # 3.1.7.0 R2: every capture draws you@studio (exit 2 when the name would be this machine's)
-    if args.mode == "fleet" and args.panel == "ollama":  # 3.3.4.0 R5: the Ollama panel (tools/capture_ollama.py)
-        from capture_ollama import capture as capture_ollama
-        if args.out.endswith("studio.png"):
-            args.out = args.out[:-4] + "-fleet-ollama.png"
-        try:
-            return capture_ollama(args.out, args.dom, serve, state)
-        finally:
-            shutil.rmtree(state.parent, ignore_errors=True)
-    if args.mode == "fleet":  # two harnesses, five agents: the map, the agent panel, Live Roles (tools/capture_fleet.py)
+    if args.mode == "fleet":  # two harnesses, five agents: Live on the fleet, Setup -> Machines, specs, a mission (tools/capture_fleet.py)
         from capture_fleet import capture as capture_fleet
         if args.out.endswith("studio.png"):
             args.out = args.out[:-4] + "-fleet.png"

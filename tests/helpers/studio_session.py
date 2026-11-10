@@ -42,13 +42,13 @@ def inside(scope: str, testid: str) -> str:
 
 
 # 3.1.5.0 R3: Agent starts as a strip; the selected agent is the map's selected node (its key and state)
-AGENT = "document.querySelector('[data-testid=\"session-map\"] [data-testid=\"fleet-node\"][data-selected]')"
+AGENT = "document.querySelector('[data-testid=\"session-map\"] [data-testid=\"roles-live-node\"][data-selected]')"
 COST = "document.querySelector('[data-testid=\"session-cost-detail\"]')"
 
 
 def url(rig, query: str = "") -> str:
-    """The rig's Studio at `/?<query>&tour=off`, with its token (3.3.2.0 R2: the Fleet tree is Fleet's Tree panel,
-    tests/helpers/studio_tree.py, so no expanded rail is needed)."""
+    """The rig's Studio at `/?<query>&tour=off`, with its token (3.3.2.0 R2: no expanded rail is needed; 3.3.16.0 R2:
+    the fleet's tree is Agents -> Live)."""
     from tests.helpers.studio_full import full  # 3.3.2.0 R3: every panel open, the arrangement these checks read
     q = f"?{query}&tour=off" if query else "?tour=off"
     return full(f"http://127.0.0.1:{rig.server.server_address[1]}/{q}#t={rig.server.token}")
@@ -110,15 +110,15 @@ def dash(c, rig) -> dict:
     out["abouts"] = c.js("document.querySelectorAll('[data-section=\"session\"] [data-testid=\"panel-title\"][title]:not([title=\"\"])').length")  # 3.3.2.0 R3: the title's tooltip
     view = local_view(rig)
     want_nodes = sum(len(s.get("agents") or []) for s in view.get("sessions") or [])
-    c.wait(f"{inside('session-map', 'fleet-node')}.length === {want_nodes} && {inside('session-map', 'fleet-session')}.length === 2", 30)
-    out["boxes"] = c.js(f"[...{inside('session-map', 'fleet-box')}].map((b) => b.querySelector('.fm-box-label').textContent)")
-    out["nodes"], out["want_nodes"] = c.js(f"{inside('session-map', 'fleet-node')}.length"), want_nodes
+    c.wait(f"{inside('session-map', 'roles-live-node')}.length === {want_nodes} && {inside('session-map', 'fleet-session')}.length === 2", 30)
+    out["boxes"] = c.js(f"[...{inside('session-map', 'fleet-box')}].map((b) => b.querySelector('.rlm-box-label').textContent)")
+    out["nodes"], out["want_nodes"] = c.js(f"{inside('session-map', 'roles-live-node')}.length"), want_nodes
     out["cards"] = c.js(f"{inside('session-map', 'fleet-session')}.length")
-    out["foreign"] = c.js(f"[...{inside('session-map', 'fleet-node')}].filter((n) => !n.dataset.key.startsWith('{hid}|')).length")
-    out["working"] = c.js(f"[...{inside('session-map', 'fleet-node')}].filter((n) => n.dataset.motion === 'working').length")
+    out["foreign"] = c.js(f"[...{inside('session-map', 'roles-live-node')}].filter((n) => !n.dataset.key.startsWith('{hid}|')).length")
+    out["working"] = c.js(f"[...{inside('session-map', 'roles-live-node')}].filter((n) => n.dataset.motion === 'working').length")
     out["selected"] = c.wait(f"{AGENT}?.dataset.key", 20)
     out["selected_state"] = c.js(f"{AGENT}?.dataset.state")
-    out["selected_lit"] = c.js(f"[...{inside('session-map', 'fleet-node')}].find((n) => n.dataset.selected)?.dataset.motion")
+    out["selected_lit"] = c.js(f"[...{inside('session-map', 'roles-live-node')}].find((n) => n.dataset.selected)?.dataset.motion")
     out["chosen_card"] = c.wait(f"[...{inside('session-map', 'fleet-session')}].find((n) => n.dataset.chosen)?.dataset.sid", 10)
     out["sid"], out["hid"] = sid, hid
     out["cost_session"] = c.wait(f"{COST}?.dataset.session", 15)
@@ -140,7 +140,7 @@ def dash(c, rig) -> dict:
         pass  # the counts below say what was there
     out["attn_here"] = c.js(f"{inside('session-attention', 'fleet-attn-row')}.length")
     out["attn_empty"] = c.js(f"{inside('session-attention', 'fleet-attn-empty')}.length")
-    x, y, w, h = c.rect("document.querySelector('[data-testid=\"session-map\"] .fm-scroll')")
+    x, y, w, h = c.rect("document.querySelector('[data-testid=\"session-map\"] .rlm-scroll')")
     c.click(x + w - 20, y + h - 20)  # the map's empty corner: the panel takes J / K
     hops = []
     for _ in range(4):
@@ -152,11 +152,14 @@ def dash(c, rig) -> dict:
     out["deep_agent"] = c.wait(f"{AGENT}?.dataset.key?.includes('|{FAKE_SID}|') && {AGENT}.dataset.key", 30)
     out["deep_cost"] = c.wait(f"{COST}?.dataset.session === '{FAKE_SID}' && {COST}.dataset.session", 15)
     out["deep_card"] = c.js(f"[...{inside('session-map', 'fleet-session')}].find((n) => n.dataset.chosen)?.dataset.sid")
-    alt(c, 3)  # 3.3.16.0 R1: Fleet
-    out["alt4"] = c.wait(f"{TAB}.startsWith('Fleet') && {TAB}", 10)
-    c.wait(f"{inside('fleet', 'fleet-box')}.length === 2", 30)
-    out["fleet_boxes"] = c.js(f"[...{inside('fleet', 'fleet-box')}].map((b) => b.querySelector('.fm-box-label').textContent)")
-    out["fleet_attn"] = c.wait(f"{inside('fleet', 'fleet-attn-row')}.length", 20)
+    alt(c, 2)  # 3.3.16.0 R2: the Fleet section folded into Agents: Alt+2, then L (Live, on the fleet: two harnesses here)
+    out["alt4"] = c.wait(f"{TAB}.startsWith('Agents') && {TAB}", 10)
+    c.js("document.activeElement?.blur(); 1")
+    c.key("l")
+    c.wait(f"{inside('agents', 'fleet-box')}.length === 2", 30)
+    out["fleet_boxes"] = c.js(f"[...{inside('agents', 'live-machine')}].map((b) => b.querySelector('.rlm-name').textContent)")
+    c.click_on("document.querySelector('[data-testid=\"agents-attention\"]')")  # the fleet's queue, every harness
+    out["fleet_attn"] = c.wait(f"{inside('agents', 'fleet-attn-row')}.length", 20)
     alt(c, 1)  # 3.1.6.0 R6: Session is the first tab
     out["alt1"] = c.wait(f"{TAB}.startsWith('Session') && {TAB}", 10)
     out["back_boxes"] = c.js(f"{inside('session-map', 'fleet-box')}.length")
@@ -164,7 +167,8 @@ def dash(c, rig) -> dict:
 
 
 def focus(c, rig) -> dict:
-    """`/studio` (and `halo studio --session`) on a running Studio: the open page, on Fleet, switches to Session on that session."""
+    """`/studio` (and `halo studio --session`) on a running Studio: the open page, on Agents -> Live (`?mode=fleet`), switches
+    to Session on that session."""
     import json
     import time
     from halo_harness.privateio import write_private_atomic
@@ -178,13 +182,22 @@ def focus(c, rig) -> dict:
     launch._open = lambda u: opened.append(u) or True  # a focused page needs no new tab; record any
     write_private_atomic(studio_info_path(rig.state), json.dumps({"pid": 0, "port": rig.server.server_address[1], "token": rig.server.token}))
     c.go(url(rig, "mode=fleet&focus=1"))
-    c.wait(f"{TAB}.startsWith('Fleet')", 30)
+    c.wait(f"{TAB}.startsWith('Agents')", 30)
     end = time.time() + 15
     while time.time() < end and bridge_for(rig.server).listeners() < 1:
         time.sleep(0.1)
-    r = open_edit(SectionTarget("session", FAKE_SID, "this session"), cwd=rig.proj, state_dir=rig.state)
-    out["focus_how"], out["focus_line"] = r["how"], describe(r)
-    out["focus_tab"] = c.wait(f"{TAB}.startsWith('Session') && {TAB}", 30)  # 15 s timed out once on the Linux runner (41264332045)
+    # The listener counted may still be the last page's feed (its socket outlives the navigation): a frame sent before
+    # this page subscribed is missed, so the door is sent again until the page moves (3 tries, 8 s each).
+    for _ in range(3):
+        r = open_edit(SectionTarget("session", FAKE_SID, "this session"), cwd=rig.proj, state_dir=rig.state)
+        out["focus_how"], out["focus_line"] = r["how"], describe(r)
+        try:
+            out["focus_tab"] = c.wait(f"{TAB}.startsWith('Session') && {TAB}", 8)
+            break
+        except TimeoutError:
+            out["focus_tab"] = None
+    if not out["focus_tab"]:
+        raise TimeoutError(f"the page stayed on {c.js(TAB)!r} ({c.js('location.search')!r}); open_edit: {out['focus_how']!r} {out['focus_line']!r}")
     out["focus_agent"] = c.wait(f"{AGENT}?.dataset.key?.includes('|{FAKE_SID}|') && {AGENT}.dataset.key", 20)
     out["focus_tabs_opened"] = len(opened)
     return out

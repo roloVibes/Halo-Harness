@@ -9,15 +9,11 @@
 // is only as old as its age says. Compact face (the default, so the Agent
 // panel under it keeps its height): the Who box and its best three, else
 // each harness's chips; Expand for the spec cards.
-import { useEffect, type ReactNode } from "react";
-import { Button, Empty, Icon } from "../../lib/ui";
-import type { MotionState } from "../../lib/motion";
-import { loadCaps, startCaps, useCaps, type Catalog, type CapsRow } from "./caps";
+import { type ReactNode } from "react";
+import { Button, Icon } from "../../lib/ui";
+import { loadCaps, useCaps, type Catalog, type CapsRow } from "./caps";
 import { age } from "./pstore";
-import { useNow } from "./store";
 import { PackCapsLine } from "./PackCaps";
-import { RecallBox } from "./Recall";
-import { WhoBox } from "./Who";
 
 const tools = (c: Catalog | null) => (c?.mcp || []).reduce((n, s) => n + (s.tools?.length || 0), 0);
 
@@ -52,7 +48,7 @@ function Servers({ c }: { c: Catalog }) {
   );
 }
 
-function Card({ r, now }: { r: CapsRow; now: number }) {
+export function CapsCard({ r, now }: { r: CapsRow; now: number }) {
   const focus = useCaps((s) => s.focus === r.harness);
   const busy = useCaps((s) => s.busy === r.harness || (r.local && s.busy === "local"));
   const c = r.catalog;
@@ -86,49 +82,4 @@ function Card({ r, now }: { r: CapsRow; now: number }) {
       )}
     </li>
   );
-}
-
-export function CapabilitiesDetail() {
-  useEffect(() => startCaps(), []);
-  const rows = useCaps((s) => s.rows);
-  const error = useCaps((s) => s.error);
-  const now = useNow(!!rows, 15000);
-  return (
-    <div className="fcap" data-testid="fleet-caps-detail">
-      <WhoBox />
-      <RecallBox />
-      {!rows ? (error ? <Empty title="Studio could not read the catalogs" body={error} /> : <div className="og-wait mono muted">reading what every harness can do...</div>)
-        : !rows.length ? <Empty title="No harness yet" body="This harness shows as soon as its catalog is gathered." />
-        : <ul className="fcap-list">{rows.map((r) => <Card key={r.harness} r={r} now={now} />)}</ul>}
-    </div>
-  );
-}
-
-export function CapabilitiesGlance() {
-  useEffect(() => startCaps(), []);
-  const rows = useCaps((s) => s.rows);
-  const q = useCaps((s) => s.q.trim());
-  const total = (rows || []).reduce((n, r) => n + tools(r.catalog), 0);
-  return (
-    <div className="glance fcap-glance" data-testid="fleet-caps-glance">
-      <WhoBox compact />
-      {!q && (
-        <div className="glance-hint mono" title="expand for each harness's spec card">
-          {rows ? `${rows.length} harness${rows.length === 1 ? "" : "es"} · ${total} MCP tools · ` + rows.map((r) => `${r.name}: ${r.chips.join(" ") || "-"}`).join(" · ") : "reading what every harness can do..."}
-        </div>
-      )}
-    </div>
-  );
-}
-
-export function useCapabilitiesMotion(): MotionState {
-  const busy = useCaps((s) => !!s.busy || s.whoBusy);
-  const rows = useCaps((s) => s.rows);
-  return busy ? "working" : rows?.length ? "idle" : "none";
-}
-
-/** Open the panel with the Who box focused (the palette's "Fleet: who can..."). */
-export function askWho(): void {
-  startCaps();
-  window.setTimeout(() => (document.querySelector('[data-testid="fleet-who-input"]') as HTMLInputElement | null)?.focus(), 200);
 }

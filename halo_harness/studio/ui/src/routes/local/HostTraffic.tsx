@@ -1,16 +1,16 @@
-// The Ollama panel's models table (3.3.4.0 R5): one row per model a host served or was asked for (the ledger's
+// A host's traffic table on Local -> Hosts (3.3.4.0 R5 as the Fleet Ollama panel's models table; 3.3.16.0 R2: here): one row per model a host served or was asked for (the ledger's
 // last 24 h, what /api/ps has loaded now, a profile here): loaded now with its VRAM share and when it unloads,
 // the last hour's calls / trims / cuts / reloads / errors, the p95 prompt against the window sent, the
 // profile's window and reply reserve and who set them, and the eye for a vision model. A Hugging Face local
 // server's rows come from its OpenAI-dialect ledger lines, labelled "local server". 3.3.5.0 R0: each row's
 // window and its source (agent/model_window.py). 3.3.5.0 R0b: each row's card chips (think, tools, vision,
 // the purpose, the window), the fit meter on this host's card, and the card's how lines (shared/ModelCard.tsx).
-// 3.3.5.0 R1: this panel is the short form; each row's "open in Local" opens Local -> Models on the host.
+// 3.3.5.0 R1: the short form; each row's "open in Local" opens Local -> Models on the host.
 import { FitMeter, Icon } from "../../lib/ui";
 import { CardChips, CardDetail } from "../shared/ModelCard";
 import { byWho, gib, k, type HostView, type ModelRow } from "./ostore";
 import { goSection } from "../../lib/store";
-import { goto as gotoLocal } from "../local/pages";
+import { goto as gotoLocal } from "./pages";
 
 function until(iso: string | null): string {
   if (!iso) return "";

@@ -60,7 +60,7 @@ def in_view(c, expr: str) -> bool:
 
 def opened(c, rig) -> dict:
     c.go(rig.url("session"))
-    c.wait(f"!!{COL} && document.querySelectorAll('[data-testid=\"session-map\"] [data-testid=\"fleet-node\"]').length >= 6", 40)
+    c.wait(f"!!{COL} && document.querySelectorAll('[data-testid=\"session-map\"] [data-testid=\"roles-live-node\"]').length >= 6", 40)
     time.sleep(0.8)
     return {"opened": True}
 
@@ -95,9 +95,9 @@ def choose_row(c, lv) -> dict:
     out["held_n"] = c.js(f"{HELD}?.dataset.n || ''")
     out["row_n"] = c.js(f"{row}.dataset.n")
     out["outline"] = c.js(f"getComputedStyle({HELD}).outlineStyle")
-    node = f"document.querySelector('[data-testid=\"session-map\"] [data-testid=\"fleet-node\"][data-key=\"{res}\"]')"
-    out["node_target"] = c.js(f"{node}.hasAttribute('data-target') && !!{node}.querySelector('[data-testid=\"fleet-node-target\"]')")
-    chip = f"{node}.querySelector('[data-testid=\"fleet-node-steer\"]')"  # the chip fades in: wait for the transition's end, not a frame of it
+    node = f"document.querySelector('[data-testid=\"session-map\"] [data-testid=\"roles-live-node\"][data-key=\"{res}\"]')"
+    out["node_target"] = c.js(f"{node}.hasAttribute('data-target') && !!{node}.querySelector('[data-testid=\"roles-live-target\"]')")
+    chip = f"{node}.querySelector('[data-testid=\"roles-live-steer\"]')"  # the chip fades in: wait for the transition's end, not a frame of it
     out["node_chip"] = c.wait(f"(() => {{ const e = {chip}; return e && getComputedStyle(e).opacity === '1' && '1'; }})()", 10) or c.js(f"getComputedStyle({chip}).opacity")
     out["lane_lit"] = c.js(f"!!{COL}.querySelector('[data-testid=\"fleet-lane\"][data-key=\"{res}\"][data-selected]')")
     for i in range(10):  # rows arrive from two other agents: the held row stays the held row, in view

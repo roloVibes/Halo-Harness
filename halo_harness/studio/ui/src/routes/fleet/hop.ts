@@ -1,11 +1,12 @@
 // Hop around, the same habit everywhere: J / K the next / previous live
-// agent (the Fleet map; the Roles canvas, 3.0.7.0 R2: in React, its Live tab
+// agent (Session's map; the Roles canvas, 3.0.7.0 R2: in React, its Live tab
 // open on the agent; the Orchestra lanes), F follow (the stream scrolls with it;
 // Orchestra: the Log follows), Space pins the current stream (its mini
 // stream stays on screen), Esc unpins, P pauses or resumes. Inside the agent
 // panel K is Stop, with a confirm, so a stray K on the map never stops
-// anything. 3.0.6.0 R8: M (in Fleet) brings the Mission panel up and focuses
-// it. Keys typed in a box, with a modifier, or that a panel, a menu
+// anything. 3.0.6.0 R8: M brings the Mission panel up (3.3.16.0 R2: in Agents,
+// Runs' Mission panel; the Fleet section went, Live hops every machine's agents
+// on the fleet scope). Keys typed in a box, with a modifier, or that a panel, a menu
 // or a dialog already took, stay where they are. An F nothing here takes
 // (and every Shift+F) goes on to Focus (3.3.2.0 R1, shell/keys.ts). 3.3.11.0 R2: in Roles, L switches the
 // canvas between Plan and Live, and on Live J / K hop the session tree's working agents.
@@ -46,13 +47,14 @@ export function useHopKeys(): void {
       const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
       if (key === "f" && e.shiftKey) return; // 3.3.2.0 R1: Shift+F is Focus everywhere (shell/keys.ts useFocusKey)
       if (key === "Escape") {
-        if (f.pinned && !f.confirm && !f.pairOpen) {
+        if (f.pinned && !f.confirm) {
           e.preventDefault();
           pin("");
         }
         return;
       }
       const dir = key === "j" ? 1 : key === "k" ? -1 : 0;
+      if (key === "m" && !e.shiftKey && s.section === "agents") return (e.preventDefault(), showFleetPanel("fleet-mission"));
       if (onPart("orchestra")) { // 3.3.16.0 R1: Agents on Runs
         if (dir) (e.preventDefault(), hopLane(dir));
         else if (key === "f") (e.preventDefault(), setOpt("follow", !orch.get().opts.follow));
@@ -70,13 +72,12 @@ export function useHopKeys(): void {
         e.preventDefault();
         return;
       }
-      if ((s.section !== "fleet" && s.section !== "session") || f.confirm) return; // 3.1.4.0 R2: Session hops this harness's agents
-      const inAgent = !!t?.closest?.('[data-panel="fleet-agent"], [data-panel="session-agent"]');
+      if (s.section !== "session" || f.confirm) return; // 3.1.4.0 R2: Session hops this harness's agents
+      const inAgent = !!t?.closest?.('[data-panel="session-agent"]');
       if (key === "j") hop(1);
       else if (key === "k") inAgent ? askStop() : hop(-1);
       else if (key === "f") toggleFollow();
       else if (key === "p") void togglePause();
-      else if (key === "m" && s.section === "fleet") showFleetPanel("fleet-mission");
       else if (key === " " && f.selected && !t?.closest?.(PRESSABLE)) pin(f.pinned === f.selected ? "" : f.selected);
       else return;
       e.preventDefault();

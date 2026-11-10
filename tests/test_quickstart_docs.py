@@ -74,8 +74,8 @@ def test_rest_of_readme_unchanged_below_quick_start(ctx: Ctx):
     ctx.check(f"the ## sections are the brief's, in its order, got {found}", tuple(found) == headings)
     studio = text.split("\n## Halo Studio\n", 1)[-1].split("\n## ", 1)[0]
     parts = tuple(re.findall(r"^### .+$", studio, flags=re.M))
-    ctx.check(f"Studio's parts: Session and Agents first, the design pack last (3.3.16.0 R1), got {parts}",
-              parts == ("### Session: the dashboard", "### Agents: your lineup, its runs, what runs now", "### Seven sections, one window",
+    ctx.check(f"Studio's parts: Session and Agents first, the design pack last (3.3.16.0 R1; R2: six sections), got {parts}",
+              parts == ("### Session: the dashboard", "### Agents: your lineup, its runs, what runs now", "### Six sections, one window",
                         "### Fleet: every harness, one goal", "### Runs: agents writing the same files",
                         "### Team files, from a terminal", "### Design: a pack Halo ships"))
     feels = text.split("\n## What it feels like\n", 1)[-1].split("\n## ", 1)[0]

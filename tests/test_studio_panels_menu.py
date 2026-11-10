@@ -11,8 +11,8 @@ no provider request, no model call:
 3. the "..." menu's Reset layout clears the saved layout and the badge goes; its rows then say what they would
    do (Reset disabled, "already default"); "How panels move" opens the section help on Moving panels, which the
    ? reaches too;
-4. Fleet's "+" adds the optional Tree panel (the tree the expanded rail used to carry), the strips read "bring
-   back"; Orchestra's "+" carries its RUNS group with New run; the rail holds the section rows and the chevron
+4. Agents -> Live's "+" (3.3.16.0 R2: Fleet's Tree panel went with the section) adds the optional Activity panel, the other rows as Cast
+   left them; Orchestra's "+" carries its RUNS group with New run; the rail holds the section rows and the chevron
    only, in both widths (<= 200 px expanded; 176 since 3.3.15.0); Setup and Local (paged) have no "+", no "..." and no badge.
 Run: python -m tests.test_studio_panels_menu
 """
@@ -34,7 +34,7 @@ UI = REPO / "halo_harness" / "studio" / "ui" / "src"
 _RUN: dict = {}
 ROLES = [["roles-lineups", "Lineups"], ["roles-bios", "Bios"], ["roles-graph", "Canvas"], ["roles-inspector", "Inspector"],
          ["roles-problems", "Problems"], ["roles-models", "Models"]]
-STRIPS = ("fleet-health", "fleet-mission", "fleet-capabilities", "fleet-agent")
+OPEN = ("roles-lineups", "roles-bios", "roles-graph", "roles-inspector", "roles-problems", "roles-models")  # 3.3.16.0 R2: Live shares Cast's workspace
 
 
 def _got(ctx: Ctx) -> dict:
@@ -57,11 +57,11 @@ def test_the_rail_source_holds_sections_only(ctx: Ctx):
 @test
 def test_the_plus_menu_lists_and_brings_back(ctx: Ctx):
     got = _got(ctx)
-    ctx.check(f"Roles: six rows, each open panel 'focus', no badge, one PANELS group, got {got.get('rows')} {got.get('groups')}",
-              got.get("rows") == [[p, "focus", [], t] for p, t in ROLES] and got.get("groups") == ["PANELS"])
+    ctx.check(f"Roles: six rows, each open panel 'focus', no badge, then Activity to add (3.3.16.0 R2), one PANELS group, got {got.get('rows')} {got.get('groups')}",
+              got.get("rows") == [[p, "focus", [], t] for p, t in ROLES] + [["fleet-activity", "add", [], "Activity"]] and got.get("groups") == ["PANELS"])
     ctx.check(f"ArrowDown opens it on the first row, ArrowDown / End move, Escape gives the button back, got "
               f"{got.get('kbd_open')} {got.get('kbd_down')} {got.get('kbd_end')} {got.get('kbd_esc')}",
-              [got.get(k) for k in ("kbd_open", "kbd_down", "kbd_end", "kbd_esc")] == ["roles-lineups", "roles-bios", "roles-models", "panels-add"])
+              [got.get(k) for k in ("kbd_open", "kbd_down", "kbd_end", "kbd_esc")] == ["roles-lineups", "roles-bios", "fleet-activity", "panels-add"])
     strip = {r[0]: r for r in got.get("rows_strip") or []}
     ctx.check(f"a collapsed panel reads 'bring back' with the strip badge, got {strip.get('roles-problems')}",
               strip.get("roles-problems") == ["roles-problems", "bring back", ["strip"], "Problems"])
@@ -102,11 +102,11 @@ def test_fleet_tree_orchestra_runs_setup_and_the_rail(ctx: Ctx):
     got = _got(ctx)
     before = {r[0]: r[1:3] for r in got.get("fleet_rows") or []}
     after = {r[0]: r[1:3] for r in got.get("fleet_rows_after") or []}
-    ctx.check(f"Fleet: the Tree is 'add', each strip 'bring back' with its badge, got {before}",
-              before.get("fleet-tree") == ["add", []] and all(before.get(s) == ["bring back", ["strip"]] for s in STRIPS)
-              and before.get("fleet-ollama") == ["add", []] and len(before) == 11)  # 3.3.4.0 R5: + the optional Ollama panel
-    ctx.check(f"the + added the Tree panel with the tree, its row now 'focus', got {got.get('tree')} {after.get('fleet-tree')}",
-              got.get("tree") is True and after.get("fleet-tree") == ["focus", []])
+    ctx.check(f"Live: Activity is 'add', the panels as Cast left them (open: 'focus'), got {before}",
+              before.get("fleet-activity") == ["add", []] and all(before.get(s) == ["focus", []] for s in OPEN)
+              and "fleet-tree" not in before and "fleet-ollama" not in before and len(before) == 7)
+    ctx.check(f"the + added Activity with its log, its row now 'focus', got {got.get('tree')} {after.get('fleet-activity')}",
+              got.get("tree") is True and after.get("fleet-activity") == ["focus", []])
     ctx.check(f"Orchestra's + carries RUNS with New run, got {got.get('orch_groups')} {got.get('orch_new_run')}",
               (got.get("orch_groups") or [""])[0] == "PANELS" and str((got.get("orch_groups") or ["", ""])[-1]).startswith("RUNS") and got.get("orch_new_run") is True)
     only = ["rail-sections,rail-toggle", 0, 0]

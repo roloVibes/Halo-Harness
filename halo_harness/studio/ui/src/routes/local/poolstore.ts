@@ -1,7 +1,7 @@
 // Local -> Pool's store (3.3.8.0 R1; studio/pool_api.py): the members with their GPU, free / total VRAM, link, RTT
 // and share of the split (GET local/pool/members), the recommendation (GET local/pool/recommend, ?batch=1 shows the
 // batch-only models), and the last scan (POST local/pool/scan: a button, never a page load). The ostore pattern
-// (routes/fleet/ostore.ts): the page reads both on open and again every REFRESH_MS while it is open; a write (add,
+// (routes/local/ostore.ts): the page reads both on open and again every REFRESH_MS while it is open; a write (add,
 // remove, scan) reads them again at once. Each action's answer is said on its own row (`said`).
 import { api, ApiError } from "../../lib/api";
 import { createStore, useStore } from "../../lib/store";

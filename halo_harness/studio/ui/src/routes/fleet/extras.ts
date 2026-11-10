@@ -6,33 +6,22 @@
 // a note (`.../command {cmd: "note"}`), set the spend caps.
 import { api, ApiError, token } from "../../lib/api";
 import { goSection, toast, type SectionId } from "../../lib/store";
-import { focusPanel, layoutStore, patchPanel } from "../../lib/workspace/persist";
+import { openLocalHost, showFleetPanel } from "../agents/fleetDoor";
 import { kick, select } from "./actions";
-import { enterWorkspace, fleet, findAgent, findSession, parseKey, sessionTitle } from "./store";
+import { fleet, findAgent, findSession, parseKey, sessionTitle } from "./store";
 import { load } from "./sync";
 import { loadAttention, loadConflicts, loadCosts } from "./pload";
 import { loadMissions, openMission, refresh as refreshMission } from "./mload";
 import { openRun } from "../orchestra/sync";
 import { closeDialog, openDialog, panels, type AttnRow, type CapKey, type HandoffOut, type OpenTarget } from "./pstore";
-import { openOllama } from "./Ollama";
+
+export { showFleetPanel }; // 3.3.16.0 R2: an old Fleet panel's door opens its new home (routes/agents/fleetDoor.ts)
 
 const msg = (e: unknown) => (e instanceof ApiError ? e.message : String(e));
 const hidPath = (hid: string) => (fleet.get().harnesses.find((h) => h.id === hid)?.local ? "local" : encodeURIComponent(hid));
 
-/** Bring a Fleet panel up on its full face and focus it. */
-export function showFleetPanel(id: string): void {
-  goSection("fleet");
-  enterWorkspace();
-  const go = () => {
-    if (!layoutStore("fleet").get().layout) return;
-    patchPanel("fleet", id, { collapsed: false, face: "detail" }, false);
-    focusPanel("fleet", id);
-  };
-  if (layoutStore("fleet").get().layout) go();
-  else window.setTimeout(go, 150);
-}
-
-/** Where an `o` answer points: a section, and in Fleet the panel and the agent. */
+/** Where an `o` answer points: a section and view; a Fleet panel's row (3.3.16.0 R2) its new home -- a mission Runs,
+ *  the steward's note Local -> Hosts on its host, a spend cap the machine on Live, an agent or a conflict Live on it. */
 export function openTarget(t: OpenTarget): void {
   if (t.section !== "fleet") {
     goSection(t.section as SectionId, t.view); // 3.3.16.0 R1: a team_gate row (and `orchestra`, `roles`) opens Agents on its view
@@ -40,11 +29,12 @@ export function openTarget(t: OpenTarget): void {
     return;
   }
   if (t.panel === "fleet-mission" && t.mission) return openMission(t.mission, String(t.part || "")); // 3.0.6.0 R8
-  if (t.panel === "ollama" || t.panel === "fleet-ollama") return openOllama(); // 3.3.4.0 R5: the steward's attention row
+  if (t.panel === "ollama" || t.panel === "fleet-ollama") return openLocalHost(t.host || ""); // 3.3.4.0 R5: the steward's attention row
   const aid = t.a ? t.a.split("|")[2] : t.agent_id || "main";
   if (t.a) select(t.a);
   else if (t.harness && t.session_id) select(`${t.harness}|${t.session_id}|${aid}`);
-  showFleetPanel(t.panel || "fleet-agent");
+  const machine = t.panel !== "fleet-costs" ? "" : (t.scope === "harness" && t.key) || fleet.get().harnesses.find((h) => h.local)?.id || "";
+  showFleetPanel(t.a || t.session_id ? "fleet-agent" : t.panel || "fleet-agent", machine);
 }
 
 export async function answerRow(row: AttnRow, key: string, text = ""): Promise<boolean> {

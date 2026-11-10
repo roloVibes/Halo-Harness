@@ -39,4 +39,4 @@
 /* -- the target's node on the map: the outline, its steer chip lit --------------------------- */
 .fm-target { fill: none; stroke: var(--hc, var(--accent)); stroke-width: 1.5;
   filter: drop-shadow(0 0 4px color-mix(in srgb, var(--hc, var(--accent)) 60%, transparent)); pointer-events: none; }
-.fm-node[data-target] .fm-steer { opacity: 1; pointer-events: auto; }
+.fm-node[data-target] .fm-steer, .rlm-node[data-target] .rlm-steer { opacity: 1; pointer-events: auto; } /* 3.3.16.0 R2: Live's nodes */

@@ -35,8 +35,8 @@ from tests.helpers.studio_packs_steps import CUR, alt, q, qa  # noqa: E402
 APP = q(".app")
 VAR = "getComputedStyle(document.documentElement).getPropertyValue('{}').trim()"
 RAIL_W = f"Math.round({q('.rail')}.getBoundingClientRect().width)"
-CORE = [("session", "Session"), ("agents", "Agents"), ("fleet", "Fleet"), ("packs", "Packs"), ("setup", "Setup"),
-        ("settings", "Settings"), ("local", "Local")]  # 3.3.16.0 R1: Agents took in Team, Roles and Orchestra
+CORE = [("session", "Session"), ("agents", "Agents"), ("local", "Local"), ("packs", "Packs"), ("setup", "Setup"),
+        ("settings", "Settings")]  # 3.3.16.0 R1: Agents took in Team, Roles and Orchestra; R2: and Fleet
 # every animation that starts with a duration, from before the page's own scripts (a zero-length swap is not motion)
 LISTEN = ("window.__anims = []; document.addEventListener('animationstart', (e) => { const d = getComputedStyle(e.target).animationDuration;"
           " if (d.split(',').some((x) => parseFloat(x) > 0)) window.__anims.push(e.animationName); }, true);")
@@ -137,10 +137,10 @@ def labels(c, rig) -> dict:
         lv.state(name, lineup="auto", bio=role, kind="member")
     media(c)
     c.go(rig.url("session"))
-    node = "document.querySelector('[data-testid=\"session-map\"] [data-testid=\"fleet-node\"][data-key$=\"|{}\"]')"
-    c.wait(f"document.querySelectorAll('[data-testid=\"session-map\"] [data-testid=\"fleet-node\"]').length >= 6 && !!{node.format(SPAWNED[0][0])}", 40)
-    out = {"map_labels": [c.js(f"{node.format(a)}?.querySelector('[data-testid=fleet-node-model] text')?.textContent || ''") for a, *_ in SPAWNED],
-           "map_titles": [c.js(f"{node.format(a)}?.querySelector('title')?.textContent || ''") for a, *_ in SPAWNED]}
+    node = "document.querySelector('[data-testid=\"session-map\"] [data-testid=\"roles-live-node\"][data-key$=\"|{}\"]')"
+    c.wait(f"document.querySelectorAll('[data-testid=\"session-map\"] [data-testid=\"roles-live-node\"]').length >= 6 && !!{node.format(SPAWNED[0][0])}", 40)
+    out = {"map_labels": [c.js(f"{node.format(a)}?.querySelector('[data-testid=roles-live-model]')?.textContent || ''") for a, *_ in SPAWNED],
+           "map_titles": [c.js(f"{node.format(a)}?.querySelector('[data-testid=roles-live-model]')?.parentElement?.title || ''") for a, *_ in SPAWNED]}  # 3.3.16.0 R2: Live's node line
     alt(c, 2)  # 3.3.16.0 R1: Agents, on Cast
     c.wait("document.querySelectorAll('[data-testid=\"roles-card\"]').length > 0", 40)
     l_key(c)
@@ -150,7 +150,7 @@ def labels(c, rig) -> dict:
     from tests.helpers.studio_fleet import card_click
     card_click(c, f"document.querySelector('[data-testid=\"roles-live-node\"][data-agent=\"{SPAWNED[1][0]}\"]')")
     agent = "document.querySelector('[data-testid=\"roles-live\"][data-view=\"live\"] [data-testid=\"roles-live-agent\"]')"
-    out["inspector_meta"] = c.wait(f"{agent} && {agent}.querySelector('.rl-meta')?.textContent", 15)
+    out["inspector_meta"] = c.wait(f"{agent} && {agent}.querySelector('.fa-meta')?.textContent", 15)  # 3.3.16.0 R2: the one agent inspector
     c.js("document.activeElement?.blur()")
     l_key(c)
     return out
@@ -177,14 +177,14 @@ def reduced(c, rig) -> dict:
     media(c)
     c.go("about:blank")
     c.go(rig.url("session"))
-    c.wait("document.querySelectorAll('[data-testid=\"session-map\"] [data-testid=\"fleet-node\"]').length >= 6", 40)
+    c.wait("document.querySelectorAll('[data-testid=\"session-map\"] [data-testid=\"roles-live-node\"]').length >= 6", 40)
     time.sleep(0.6)
     out = {"motion_running": c.js(f"{RUNNING}.length")}
     media(c, reduce=True)
     c.go("about:blank")
     c.go(rig.url("session"))
-    c.wait("document.querySelectorAll('[data-testid=\"session-map\"] [data-testid=\"fleet-node\"]').length >= 6", 40)
-    triage, scribe = q('[data-testid=fleet-node][data-key$="|t2r1a6e0"]'), q('[data-testid=fleet-node][data-key$="|s3c2r1b0"]')
+    c.wait("document.querySelectorAll('[data-testid=\"session-map\"] [data-testid=\"roles-live-node\"]').length >= 6", 40)
+    triage, scribe = q('[data-testid=roles-live-node][data-key$="|t2r1a6e0"]'), q('[data-testid=roles-live-node][data-key$="|s3c2r1b0"]')
     lv.state("triage", state="waiting", current="waits on you")
     c.wait(f"{triage}?.dataset.state === 'waiting'", 20)
     lv.state("scribe", state="done", current="")

@@ -7,8 +7,9 @@ tests/helpers/studio_density.py (skipped without one); no provider request, no m
    page's head and a form's button row are `data-density="bar"`; a collapsed panel, an inspector Edit row and a page
    rail's item are `"row"`; a panel's body is `"body"`; the sizes are tokens (--ctl-h 36, --row-h 40) and no section
    sheet sets a panel body's padding to 0 (the 12 px is the primitive's, never exempted);
-2. Chrome, every core section on load (Session, Agents on Cast / Runs / Live, Fleet, Packs, Setup, Settings, Local) and
-   the inspector's summary and one page: every bar >= 36 px, every row >= 40 px, every body inset >= 12 px, each
+2. Chrome, every core section on load (Session, Agents on Cast / Runs / Live and on the fleet, Packs, Setup and its
+   Machines page, Settings, Local), the inspector's summary and one page, and (3.3.16.0 R2) Live on the fleet with the
+   Attention queue open and the glance: every bar >= 36 px, every row >= 40 px, every body inset >= 12 px, each
    workspace panel opened in turn (its bar and its body the same), 12 px between the panels, one panel open on load;
    the first offender fails with its section, its testid and its height.
 Run: python -m tests.test_studio_density
@@ -30,7 +31,7 @@ test, TESTS = new_registry()
 REPO = Path(__file__).resolve().parent.parent
 UI = REPO / "halo_harness" / "studio" / "ui" / "src"
 _RUN: dict = {}
-SECTIONS = ("session", "agents-cast", "agents-runs", "agents-live", "fleet", "packs", "setup", "settings", "local")
+SECTIONS = ("session", "agents-cast", "agents-runs", "agents-live", "agents-fleet", "packs", "setup", "setup-machines", "settings", "local")
 BAR, ROW, PAD, GAP = 36, 40, 12, 12
 
 
@@ -46,7 +47,7 @@ def _src(rel: str) -> str:
 def offenders(got: dict) -> list:
     """Every 'section: testid NN px (rule)' in the order the sections were opened."""
     out = []
-    for name in (*SECTIONS, "inspector-summary", "inspector-page"):
+    for name in (*SECTIONS, "inspector-summary", "inspector-page", "agents-attention"):
         m = got.get(name) or {}
         out += [f"{name}: bar {t} {h} px (< {BAR})" for t, h in m.get("bars") or [] if h < BAR]
         out += [f"{name}: row {t} {h} px (< {ROW})" for t, h in m.get("rows") or [] if h < ROW]
@@ -90,7 +91,7 @@ def test_every_section_was_measured(ctx: Ctx):
     for name in SECTIONS:
         m = got.get(name) or {}
         ctx.check(f"{name}: drawn and measured, got {len(m.get('bars') or [])} bars", len(m.get("bars") or []) >= 1)
-    for name in ("session", "fleet", "agents-cast", "agents-live", "packs"):
+    for name in ("session", "agents-fleet", "agents-cast", "agents-live", "packs"):
         m = got.get(name) or {}
         ctx.check(f"{name}: its workspace's panels each opened and measured, got {len(m.get('panels') or [])} of {m.get('cells')}",
                   m.get("cells", 0) >= 4 and len(m.get("panels") or []) == m.get("cells"))
@@ -121,6 +122,21 @@ def test_the_inspector_rows_are_targets(ctx: Ctx):
     ctx.check(f"the summary's twelve Edit rows, each >= 40 px, got {rows}", len(rows) == 12 and min(h for _t, h in rows) >= ROW)
     bars = [b for b in (got.get("inspector-page") or {}).get("bars") or [] if b[0] == "roles-page-budget"]
     ctx.check(f"a page's head is a bar >= 36 px, got {bars}", len(bars) == 1 and bars[0][1] >= BAR)
+
+
+
+@test
+def test_the_fleet_fold_pieces_pass_the_rules(ctx: Ctx):
+    """3.3.16.0 R2: the Attention chip sits in Agents' bar, its queue's head is a bar and its body an inset; the glance's
+    rows are targets; Setup -> Machines is a page of the rail."""
+    got = _got(ctx)
+    att = got.get("agents-attention") or {}
+    ctx.check(f"the queue's head is a bar >= 36 px, got {att.get('bars')}", any(t in ("agents-attention-close", "fleet-attention") or "ag-attn" in str(t) for t, _ in att.get("bars") or []))
+    ctx.check(f"the queue's body is measured, got {att.get('bodies')}", any("ag-attn" in str(t) or t == "fleet-attention" for t, _ in att.get("bodies") or []))
+    rows = [r for r in att.get("rows") or [] if str(r[0]).startswith("live-glance-machine") or "ri-row" in str(r[0])]
+    ctx.check(f"the glance's machine rows are targets >= 40 px, got {rows}", rows and all(h >= ROW for _, h in rows))
+    m = got.get("setup-machines") or {}
+    ctx.check(f"Setup -> Machines drawn and measured, got {len(m.get('bars') or [])} bars", len(m.get("bars") or []) >= 1)
 
 
 if __name__ == "__main__":

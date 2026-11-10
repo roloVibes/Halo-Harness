@@ -56,13 +56,6 @@
 
 /* -- the map: conflicts and project rooms --------------------------------------------- */
 .fm-edge-conflict { stroke: var(--warn); stroke-width: 2.2; stroke-dasharray: 5 4; filter: drop-shadow(0 0 4px var(--warn)); animation: og-dash 1.2s linear infinite; pointer-events: stroke; }
-.fm-clash rect { fill: var(--warn-soft); stroke: var(--warn); }
-.fm-clash text { font: 700 9.5px var(--mono); fill: var(--warn); }
-.fm-git .fm-chip rect { fill: var(--bg-2); stroke: var(--line); }
-.fm-git .fm-chip[data-git="dirty"][data-on] rect { stroke: var(--warn); }
-.fm-git .fm-chip[data-git="dirty"][data-on] text { fill: var(--warn); }
-.fm-git .fm-chip[data-git="ahead"] text { fill: var(--accent); }
-.fm-git .fm-chip[data-git="behind"] text { fill: var(--accent-2); }
 
 /* -- the agent panel: a column, the extras row, the history ---------------------------- */
 .fa { display: flex; flex-direction: column; }
@@ -94,8 +87,6 @@
 .fdg-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 12px; }
 .fdg-list li { display: grid; gap: 1px; }
 .fdg[data-where="start"] { max-width: 760px; }
-.fr-attn-btn { border: 0; background: none; padding: 0; font: inherit; cursor: pointer; }
-.fr-attn-btn:hover { text-decoration: underline; }
 
 @media (prefers-reduced-motion: reduce) {
   .fm-edge-conflict, .fac-line, .fdg { animation: none !important; }

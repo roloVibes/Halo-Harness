@@ -181,9 +181,10 @@ def library_fold(c, rig, url: str, out: dict) -> None:
 
 
 def mission_coach(c, rig, out: dict) -> None:
-    from tests.helpers.studio_fleet_panels import open_strip
-    c.go(rig.url("fleet").replace("#t=", "&view=workspace#t="))
-    open_strip(c, "fleet-mission")  # 3.1.4.0 R1: Mission starts as a strip on the right edge
+    from tests.helpers.studio_fleet_mission import open_mission_panel
+    c.go(rig.url("fleet"))
+    c.wait("!!document.querySelector('[data-testid=\"agents\"]')", 30)
+    open_mission_panel(c)  # 3.3.16.0 R2: M on Agents: Runs' Mission panel (the Fleet section's strip before)
     row = f"document.querySelector('[data-testid=\"fleet-mission-row\"][data-id=\"{rig.mission}\"] [data-testid=\"fleet-mission-open\"]')"
     c.wait(f"!!{row}", 30)
     click(c, row)

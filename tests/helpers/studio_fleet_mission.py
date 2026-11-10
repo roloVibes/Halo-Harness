@@ -1,42 +1,39 @@
-"""tests.helpers.studio_fleet_mission -- the Studio Fleet Mission panel of Halo
-3.0.6.0 round R8 in headless Chrome over the DevTools protocol, over
-tests/helpers/studio_fleet_rig.py with the mission fakes of
-tests/helpers/studio_fleet_mseed.py (no model call). Run through
+"""tests.helpers.studio_fleet_mission -- the Mission panel of Halo 3.0.6.0 round R8 in headless Chrome over the DevTools
+protocol, over tests/helpers/studio_fleet_rig.py with the mission fakes of tests/helpers/studio_fleet_mseed.py (no model
+call). 3.3.16.0 R2 "the Fleet fold": the Mission panel is Agents -> Runs' (M opens it), the plan draws on Agents -> Live
+(the fleet scope: a part node under the machine it runs on), the queue is Agents' Attention chip. Run through
 tests/helpers/studio_fleet.py:
 
     python -m tests.helpers.studio_fleet mission
 
-* the panel is there with its about line and, with no mission yet, its five
-  lines on how it works; a goal typed and Plan it draws the plan on the map:
-  three part nodes, each inside its harness box, one depends_on edge and one
-  sequenced edge with its chip, two locks; the table has three rows and
-  Attention a mission_plan row;
-* dragging part 3 into this harness's box posts the reassign and the node
-  moves there; dragging part 1 (it needs gridcraft) there answers 422: the
-  toast says why and the node snaps back;
-* Approve, then Run: part 1 waits on the member's owner (asked), part 2 runs
-  here; another hub's run_task on this harness opens a mission_ask row whose
-  O opens the Mission panel on that mission; R denies it; the member's owner
-  allows: part 1 runs, its agent's line shows, the Tree panel has the mission chip,
-  the status bar counts one mission; "Open the part's agent" selects it;
-* Stop asks for a reason, the mission ends stopped and the report face lists
-  the cost per harness.
+* the panel is there with its about line and, with no mission yet, its five lines on how it works; a goal typed and
+  Plan it: the table has three rows and Attention a mission_plan row; on Live three part nodes, each inside its machine
+  box, one depends_on edge and one sequenced edge with its chip, two locks;
+* dragging part 3 into this harness's box posts the reassign and the node moves there; dragging part 1 (it needs
+  gridcraft) there answers 422: the toast says why and the node snaps back;
+* Approve, then Run: part 1 waits on the member's owner (asked), part 2 runs here; another hub's run_task on this
+  harness opens a mission_ask row whose O opens the Mission panel on that mission; R denies it; the member's owner
+  allows: part 1 runs, its agent's line shows, Live's session nodes carry the mission chip, Runs' list counts one
+  mission running; "Open the part's agent" puts it in Live's inspector;
+* Stop asks for a reason, the mission ends stopped and the report face lists the cost per harness.
 """
 from __future__ import annotations
 
 import time
 
-from tests.helpers.studio_tree import open_tree
+from tests.helpers.studio_agents import key
 
-MID ="document.querySelector('[data-testid=\"fleet-mission-layer\"]')?.dataset.mission"
-PANEL = "document.querySelector('[data-testid=\"fleet-mission\"]')"
+MID = "document.querySelector('[data-testid=\"fleet-mission-layer\"]')?.dataset.mission"
+PANEL = "document.querySelector('[data-panel=\"fleet-mission\"]')"
 NODE = "document.querySelector('[data-testid=\"fleet-part\"][data-part=\"{}\"]')"
-BOX = "document.querySelector('[data-testid=\"fleet-box\"][data-key=\"h:{}\"] .fm-box-shape')"
-INSIDE = ("[...document.querySelectorAll('[data-testid=\"fleet-part\"]')].map((n) => { const b = document.querySelector(`[data-testid=\"fleet-box\"][data-key=\"h:${n.dataset.harness}\"] .fm-box-shape`);"
+BOX = "document.querySelector('[data-testid=\"fleet-box\"][data-key=\"h:{}\"]')"
+INSIDE = ("[...document.querySelectorAll('[data-testid=\"fleet-part\"]')].map((n) => { const b = document.querySelector(`[data-testid=\"fleet-box\"][data-key=\"h:${n.dataset.harness}\"]`);"
           " if (!b) return n.dataset.part + ':nobox'; const r = n.getBoundingClientRect(), q = b.getBoundingClientRect();"
           " return n.dataset.part + ':' + (r.left >= q.left && r.right <= q.right + 1 && r.top >= q.top && r.bottom <= q.bottom ? 'in' : 'out'); })")
 LIVE = "document.querySelector('[data-testid=\"fleet-mission-live\"][data-part=\"{}\"]')"
 ROW = "document.querySelector('[data-testid=\"fleet-attn-row\"][data-kind=\"{}\"]')"
+CHIP = "document.querySelector('[data-testid=\"agents-attention\"]')"
+QUEUE = "document.querySelector('[data-testid=\"fleet-attention\"]')"
 
 
 def press(c, expr: str) -> None:
@@ -44,6 +41,36 @@ def press(c, expr: str) -> None:
     from tests.helpers.studio_fleet_panels import seen
     seen(c, expr)
     c.click_on(expr)
+
+
+def view(c, v: str) -> None:
+    """Agents' view switch: cast, runs or live."""
+    c.click_on(f"document.querySelector('[data-testid=\"agents-view-{v}\"]')")
+    c.wait(f"document.querySelector('[data-testid=\"agents\"]')?.dataset.view === '{v}'", 10)
+
+
+def queue(c, on: bool) -> None:
+    """The Attention panel open (or closed) by its chip."""
+    if c.js(f"!!{QUEUE}") != on:
+        c.click_on(CHIP)
+    c.wait(f"{'!!' if on else '!'}{QUEUE}", 10)
+
+
+def running_missions(c) -> str:
+    """Runs' list (the "+" menu): the missions whose row says running; the menu closes again."""
+    from tests.helpers.studio_header_menus import close_menus, open_plus
+    open_plus(c)
+    n = c.wait("document.querySelectorAll('[data-testid=\"orchestra-menu-mission\"]').length && [...document.querySelectorAll("
+               "'[data-testid=\"orchestra-menu-mission\"]')].filter((r) => [...r.querySelectorAll('.badge')].some((b) => b.textContent === 'running')).length + ''", 15)
+    close_menus(c)
+    return "none" if n == "0" else f"{n} mission running"
+
+
+def open_mission_panel(c) -> None:
+    """M on Agents: Runs' Mission panel (3.3.16.0 R2; a strip on the Fleet section's right edge before)."""
+    c.js("document.activeElement?.blur(); 1")
+    key(c, "m")
+    c.wait(f"!!{PANEL}?.querySelector('.panel-body:not([hidden])')", 30)
 
 
 def _drag(c, part: str, hid: str) -> None:
@@ -56,9 +83,10 @@ def _drag(c, part: str, hid: str) -> None:
 
 def plan_and_drag(c, rig, out: dict) -> str:
     from tests.helpers.studio_fleet_mseed import GOAL
-    from tests.helpers.studio_fleet_panels import open_strip, seen
+    from tests.helpers.studio_fleet_panels import seen
+    c.js("document.activeElement?.blur(); 1")
+    key(c, "m")  # Agents: M brings Runs' Mission panel up
     out["about"] = c.wait(f"{PANEL}?.querySelector('.panel-title')?.title", 30)  # 3.3.2.0 R3: the title's tooltip
-    open_strip(c, "fleet-mission")  # 3.1.4.0 R1: a strip on the right edge by default
     out["how"] = c.wait("document.querySelectorAll('[data-testid=\"fleet-mission-how\"] li').length", 20)
     seen(c, "document.querySelector('[data-testid=\"fleet-mission-goal\"]')")
     c.click_on("document.querySelector('[data-testid=\"fleet-mission-goal\"]')")
@@ -66,6 +94,11 @@ def plan_and_drag(c, rig, out: dict) -> str:
     press(c, "document.querySelector('[data-testid=\"fleet-mission-prefer\"][data-name=\"you@studio\"]')")
     out["prefer_on"] = c.js("document.querySelector('[data-testid=\"fleet-mission-prefer\"][data-name=\"you@studio\"]').getAttribute('aria-pressed')")
     press(c, "document.querySelector('[data-testid=\"fleet-mission-plan-it\"]')")
+    out["table_rows"] = c.wait("document.querySelectorAll('[data-testid=\"fleet-mission-part-row\"]').length === 3 && 3", 40)
+    queue(c, True)
+    out["plan_row"] = c.wait(f"{ROW.format('mission_plan')}?.querySelector('.fat-what')?.textContent", 20)
+    queue(c, False)
+    view(c, "live")  # 3.3.16.0 R2: the plan draws on Live's fleet scope
     out["nodes"] = c.wait("document.querySelectorAll('[data-testid=\"fleet-part\"]').length === 3 && 3", 40)
     mid = c.wait(MID, 10)
     out["placed"] = c.js("Object.fromEntries([...document.querySelectorAll('[data-testid=\"fleet-part\"]')].map((n) => [n.dataset.part, n.dataset.harness]))")
@@ -76,14 +109,12 @@ def plan_and_drag(c, rig, out: dict) -> str:
     out["edge_labels"] = c.js("[...document.querySelectorAll('[data-testid=\"part-edge-label\"]')].map((e) => e.dataset.from + '>' + e.dataset.to + ':' + e.querySelector('text').textContent)")
     out["part_bases"] = c.js("Object.fromEntries([...document.querySelectorAll('[data-testid=\"fleet-part\"]')].map((n) => [n.dataset.part, n.querySelector('[data-testid=\"part-base\"]')?.textContent || '']))")
     out["mission_base"] = (rig.api("GET", f"fleet/missions/{mid}")[1]["mission"].get("repo") or {}).get("base") or ""
-    out["planned_dashed"] = c.js(f"getComputedStyle({NODE.format('1')}.querySelector('.fmi-node-shape')).strokeDasharray")
-    out["table_rows"] = c.wait("document.querySelectorAll('[data-testid=\"fleet-mission-part-row\"]').length", 10)
-    out["plan_row"] = c.wait(f"{ROW.format('mission_plan')}?.querySelector('.fat-what')?.textContent", 20)
+    out["planned_dashed"] = c.js(f"getComputedStyle({NODE.format('1')}).borderTopStyle")
     hub = rig.hub.state.identity["id"]
     _drag(c, "3", hub)
     out["moved"] = c.wait(f"{NODE.format('3')}?.dataset.harness === '{hub}' && 'moved'", 20)
     out["moved_api"] = rig.api("GET", f"fleet/missions/{mid}")[1]["plan"]["parts"][2]["harness_name"]
-    out["moved_inside"] = c.js(INSIDE)
+    out["moved_inside"] = c.wait(f"(() => {{ const r = {INSIDE}; return r.every((x) => x.endsWith(':in')) && r; }})()", 10)
     _drag(c, "1", hub)
     out["refused_toast"] = c.wait("[...document.querySelectorAll('.toast')].map((t) => t.textContent).find((t) => t.includes('stays'))", 20)
     out["snapped"] = c.wait(f"{NODE.format('1')}?.dataset.harness === '{rig.member_id}' && !{NODE.format('1')}.dataset.drag && 'back'", 10)
@@ -95,16 +126,18 @@ def run_and_ask(c, rig, fakes, mid: str, out: dict) -> None:
     from tests.helpers.studio_fleet import DETAIL
     from tests.helpers.studio_fleet_panels import seen
     from tests.helpers.studio_fleet_rig import wait_for
-    seen(c, "document.querySelector('[data-testid=\"fleet-mission-approve\"]')")
-    c.click_on("document.querySelector('[data-testid=\"fleet-mission-approve\"]')")
+    view(c, "runs")
+    press(c, "document.querySelector('[data-testid=\"fleet-mission-approve\"]')")
     out["approved"] = c.wait("document.querySelector('[data-testid=\"fleet-mission-state\"]')?.textContent === 'approved' && 'approved'", 15)
-    seen(c, "document.querySelector('[data-testid=\"fleet-mission-run\"]')")
-    c.click_on("document.querySelector('[data-testid=\"fleet-mission-run\"]')")
+    press(c, "document.querySelector('[data-testid=\"fleet-mission-run\"]')")
     out["run_face"] = c.wait("document.querySelector('[data-testid=\"fleet-mission-detail\"]')?.dataset.face === 'run' && 'run'", 15)
     out["asked"] = c.wait(f"{LIVE.format('1')}?.dataset.state === 'asked' && {LIVE.format('1')}.querySelector('[data-testid=\"fleet-mission-now\"]').textContent", 30)
     out["local_running"] = c.wait(f"{LIVE.format('2')}?.dataset.state === 'running' && 'running'", 30)
+    view(c, "live")
     out["node_states"] = c.wait(f"{NODE.format('1')}?.dataset.state === 'asked' && Object.fromEntries([...document.querySelectorAll('[data-testid=\"fleet-part\"]')].map((n) => [n.dataset.part, n.dataset.state]))", 15)
-    out["running_solid"] = c.js(f"getComputedStyle({NODE.format('2')}.querySelector('.fmi-node-shape')).strokeDasharray")
+    out["running_solid"] = c.js(f"getComputedStyle({NODE.format('2')}).borderTopStyle")
+    view(c, "runs")
+    queue(c, True)
     out["control_row"] = c.wait(f"{ROW.format('control_ask')}?.querySelector('.fat-what')?.textContent", 20)
     asked = fakes.ask_here()
     row = ROW.format("mission_ask")
@@ -117,6 +150,7 @@ def run_and_ask(c, rig, fakes, mid: str, out: dict) -> None:
     c.key("r")
     out["ask_denied"] = wait_for(lambda: asked.get("state"), 20)
     out["ask_gone"] = c.wait(f"!{row} && 'gone'", 20)
+    queue(c, False)
     press(c, "document.querySelector('.fmi-nothere button')")
     press(c, f"document.querySelector('[data-testid=\"fleet-mission-row\"][data-id=\"{mid}\"] [data-testid=\"fleet-mission-open\"]')")
     out["reopened"] = c.wait("document.querySelector('[data-testid=\"fleet-mission-detail\"]')?.dataset.face === 'run' && 'run'", 15)
@@ -125,15 +159,17 @@ def run_and_ask(c, rig, fakes, mid: str, out: dict) -> None:
     out["member_line"] = c.wait(f"{LIVE.format('1')}?.dataset.state === 'running' && "
                                 f"({LIVE.format('1')}.querySelector('[data-testid=\"fleet-mission-now\"]')?.textContent || '').includes(':') && "
                                 f"{LIVE.format('1')}.querySelector('[data-testid=\"fleet-mission-now\"]').textContent", 30)
-    open_tree(c)  # 3.3.2.0 R2: the chips are in Fleet's Tree panel (the "+" menu adds it), the expanded rail's before
-    out["rail_chips"] = c.wait("document.querySelectorAll('[data-testid=\"fleet-tree-mission\"]').length >= 2 && document.querySelectorAll('[data-testid=\"fleet-tree-mission\"]').length", 20)
-    out["status_missions"] = c.wait("document.querySelector('[data-testid=\"status-missions\"]')?.textContent", 20)
+    out["status_missions"] = running_missions(c)
     out["hcosts"] = c.js("[...document.querySelectorAll('[data-testid=\"fleet-mission-hcost\"]')].map((e) => e.dataset.name)")
+    view(c, "live")  # 3.3.16.0 R2: the mission chips are on Live's session nodes (the Tree panel's before)
+    out["rail_chips"] = c.wait("document.querySelectorAll('[data-testid=\"fleet-tree-mission\"]').length >= 2 && document.querySelectorAll('[data-testid=\"fleet-tree-mission\"]').length", 20)
+    view(c, "runs")
     btn = f"{LIVE.format('1')}.querySelector('[data-testid=\"fleet-mission-open-agent\"]')"
     seen(c, btn)
     c.click_on(btn)
     out["agent_opened"] = c.wait(f"{DETAIL}?.dataset.key", 15)
     fakes.release_local()
+    view(c, "runs")
     out["local_done"] = c.wait(f"{LIVE.format('2')}?.dataset.state === 'done' && 'done'", 30)
 
 
@@ -157,7 +193,7 @@ def stop_and_report(c, rig, out: dict) -> None:
     out["report_harnesses"] = c.wait("document.querySelectorAll('[data-testid=\"fleet-mission-report-harness\"]').length === 2 && "
                                      "[...document.querySelectorAll('[data-testid=\"fleet-mission-report-harness\"]')].map((r) => [...r.children].map((td) => td.textContent).join('|'))", 20)
     out["report_total"] = c.js("document.querySelector('[data-testid=\"fleet-mission-total\"]')?.textContent")
-    out["after_stop_status"] = c.wait("!document.querySelector('[data-testid=\"status-missions\"]') && 'none'", 20)
+    out["after_stop_status"] = running_missions(c)
     out["agent_stop_sent"] = [d.get("fields", {}).get("agent_id") for d in rig.member_cmds if d.get("cmd") == "agent_stop"]
 
 
@@ -167,7 +203,7 @@ def mission(c, rig) -> dict:
     fakes.hold_tasks()
     out: dict = {}
     c.go(rig.url("fleet"))
-    c.wait("document.querySelectorAll('[data-testid=\"fleet-node\"]').length === 5", 30)
+    c.wait("document.querySelectorAll('[data-testid=\"roles-live-node\"]').length === 5", 30)
     mid = plan_and_drag(c, rig, out)
     out["mission"] = mid
     run_and_ask(c, rig, fakes, mid, out)

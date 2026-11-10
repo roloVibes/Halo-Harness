@@ -24,7 +24,7 @@ import { HELP } from "../help";
 import { ActivityDetail, ActivityGlance, useActivityMotion } from "../fleet/Activity";
 import { AgentDetail, AgentGlance, AgentSettings, useAgentMotion } from "../fleet/Agent";
 import { AttentionDetail, AttentionGlance, useAttentionMotion } from "../fleet/Attention";
-import { MapDetail, MapGlance, useMapMotion } from "../fleet/Map";
+import { MapDetail, MapGlance, useMapMotion } from "./SessionMap";
 import { CostDetail, CostGlance, useCostMotion } from "./Cost";
 import { LiveDetail, LiveGlance, useLiveMotion } from "./Live";
 import { PromptDetail, PromptGlance, usePromptMotion } from "./Prompt";

@@ -6,24 +6,21 @@ Part of [Halo Studio](STUDIO.md), which lists every part.
 
 ## The shell (3.0.3.0)
 
-`halo studio` opens a React shell with seven sections in the icon rail on the left (3.3.2.0; the top bar's tab strip before):
-**Session | Agents | Fleet | Packs | Setup | Settings | Local** (`Alt+1`..`Alt+7`, or `?mode=` in
-the URL; Fleet since 3.0.5.0, Session since 3.1.4.0, Packs since 3.2.0.0, Setup since 3.3.0.0, Settings since
-3.3.3.0, Local since 3.3.5.0; Org and Flow are gone since 3.1.4.0, Design is the design pack's since 3.3.13.0, and Agents
-took in Team, Roles and Orchestra in 3.3.16.0 -- [STUDIO-agents.md](STUDIO-agents.md): its Cast, Runs and Live views, and
-the doors `?mode=roles|orchestra|team` keep). The order is one list,
-`SECTIONS` in `ui/src/routes/index.tsx` (3.1.6.0: Session `Alt+1`; 3.3.16.0 R1: Agents `Alt+2`, Fleet `Alt+3`,
-Packs `Alt+4` ([STUDIO-packs.md](STUDIO-packs.md)), Setup `Alt+5`): the rail's rows, the `Alt+N` keys, the palette's groups, the first key of each
-section's **How this works** and the status bar's key hint all read it.
-Session is this session, live: the Fleet panels scoped to this harness (see
-[Session](STUDIO-sections.md#session)); with nothing saved for the browser Studio opens on it while a
-session of this harness is live. Agents is the cast, its runs and what runs now (Cast: [the canvas](STUDIO-agents.md#cast-the-lineup-and-its-bios),
-Runs: [the run console](STUDIO-orchestra.md#orchestra-the-run-console)), Fleet every harness and every agent, live
-(see [Fleet](STUDIO-fleet.md#fleet-every-harness-every-agent)). A pack's own sections come after the core ones (the
-first on `Alt+8`); one may be drawn whole by the pack's own module (3.3.13.0 R2: a view, as the design pack's
-Design section is: [EXTENSION_API.md](EXTENSION_API.md#a-sections-view)).
-The classic plain-JS page (`/legacy/`, `halo studio --legacy`) is gone since
-3.0.7.0 R2: every section is part of the shell.
+`halo studio` opens a React shell with six sections in the icon rail on the left (3.3.2.0; the top bar's tab strip
+before): **Session | Agents | Local | Packs | Setup | Settings** (`Alt+1`..`Alt+6`, or `?mode=` in the URL). 3.3.16.0
+folded Team, Roles and Orchestra into Agents (R1, [STUDIO-agents.md](STUDIO-agents.md): Cast, Runs and Live; the doors
+`?mode=roles|orchestra|team` keep) and the Fleet section into Agents -> Live, Setup -> Machines and Local (R2,
+[Fleet in Agents, Setup and Local](STUDIO-fleet.md#fleet-in-agents-setup-and-local); `?mode=fleet` lands on Live on the
+fleet); Org and Flow went in 3.1.4.0, Design is the design pack's since 3.3.13.0. The order is one list, `SECTIONS` in
+`ui/src/routes/index.tsx`: the rail's rows, the `Alt+N` keys, the palette's groups, the first key of each section's
+**How this works** and the status bar's key hint all read it. Session is this session, live (the fleet's pieces scoped
+to this harness, [Session](STUDIO-sections.md#session)); with nothing saved for the browser Studio opens on it while a
+session of this harness is live. Agents is the cast, its runs and what runs now on every machine (Cast: [the
+canvas](STUDIO-agents.md#cast-the-lineup-and-its-bios), Runs: [the run
+console](STUDIO-orchestra.md#orchestra-the-run-console)); Packs is `Alt+4` ([STUDIO-packs.md](STUDIO-packs.md)). A
+pack's own sections come after the core ones (the first on `Alt+7`); one may be drawn whole by the pack's own module
+(3.3.13.0 R2: a view, as the design pack's Design section is: [EXTENSION_API.md](EXTENSION_API.md#a-sections-view)).
+The classic plain-JS page (`/legacy/`) is gone since 3.0.7.0 R2: every section is part of the shell.
 
 - **One header.** Every section is drawn by the shell itself: one top bar,
   one status bar, no page framed inside another (3.0.7.0 R2 removed the last
@@ -64,7 +61,7 @@ The classic plain-JS page (`/legacy/`, `halo studio --legacy`) is gone since
 - **One thing per section** (3.3.2.0). Each section opens on its main
   panel filling the stage, every other panel a strip at the foot (one or
   two rows of them, side by side): Session on **Live**, Agents on Cast's **Canvas** (Runs on the **Workflow**, the
-  run's plan; a planned run is the plan canvas), Fleet on the **Map** (the design pack's Design on its
+  run's plan; a planned run is the plan canvas; Live on the tree), Local on Resources (the design pack's Design on its
   **Artboards**), Packs on **Installed**; Setup is pages and keeps
   them. A click on a strip (or its row in the **+**) opens it in the column on
   the main panel's right (as wide as the widest panel there, at most half
@@ -117,19 +114,15 @@ The classic plain-JS page (`/legacy/`, `halo studio --legacy`) is gone since
   before): one 40 x 40 icon per
   section, its title as the tooltip, the current one in the accent with a
   2 px bar at its left edge, a square on Session
-  while a session is live, the number of agents at work on Fleet, the packs'
+  while a session is live, the number of agents at work across the fleet on Agents, the packs'
   own sections under a thin divider with the diamond. The rows print no key:
   `Alt+N` is in the palette's **Go to** and in **How this works**. The
   chevron at its foot expands it to 176 px (3.3.15.0; 200 px before; remembered per browser,
   `halo.studio.rail`; `?rail=open` expands it for one page): each section's
   title beside its icon, and nothing else (3.3.2.0 R2: the rail holds the
   sections only, collapsed or expanded). The panels are the header's **+**,
-  Arrange and Reset its **...**, Orchestra's runs a group in its **+**, and the
-  **Fleet tree** (every harness, its sessions and their agents with a status
-  dot each, the live and need-you counts on top, a session that waits on you
-  with its inline answer, the "While you were away" card) is Fleet's
-  optional **Tree** panel, added with the **+**. While that card waits, the
-  Fleet icon carries an amber dot; a click on it opens Fleet on its Tree.
+  Arrange and Reset its **...**, Runs' runs and missions a group in its **+**. While "While you were away" waits, the
+  Agents icon carries an amber dot; a click on it opens Live on the fleet with the card (3.3.16.0 R2).
 - **The inspector asks first** (3.3.2.0). The 344 px column on the right (340 before 3.3.15.0) is
   closed until something opens it: a panel's **Settings**, an artboard's knobs
   (the design pack's). Its close button (or `Esc`) gives the width back to the
@@ -138,9 +131,8 @@ The classic plain-JS page (`/legacy/`, `halo studio --legacy`) is gone since
 - **Focus** (3.3.2.0): `F` (outside a text field), the corners button in the
   header or the palette's **Focus** hide the rail, the inspector and the
   status bar; the stage takes the whole window. `F` again brings them back as
-  they were. Where a section's own `F` follows an agent or the Log (Session,
-  Fleet, Orchestra, the Roles Live tab) or fits the Roles canvas,
-  `Shift+F` is Focus. Remembered per browser (`halo.studio.focus`).
+  they were. Where a section's own `f` follows an agent or the Log (Session,
+  Runs, an agent watched on Agents) or fits a canvas, `Shift+F` is Focus (on Live's canvas it switches the scope). Remembered per browser (`halo.studio.focus`).
 - **Density** (3.3.2.0): the header's rows button (or the palette's **Density: compact** / **comfortable**) switches
   two token sets in `ui/src/styles/tokens.css`: compact is tighter (a 32 px title line, 9 px inside a panel, 2 px
   between panels, a 42 px header; comfortable since 3.3.15.0: 40, 12, 12, 48) with a type scale one step smaller;
@@ -152,7 +144,7 @@ The classic plain-JS page (`/legacy/`, `halo studio --legacy`) is gone since
   section against them; a fix changes a token or a primitive, never exempts an element.
 - **The palette** (`Ctrl`/`Cmd`+`K`): a mono prompt with fuzzy matching and
   grouped results (Go to, Help, then the sections in the tab order: Agents -- its views, then the Roles and
-  Orchestra lines -- and Fleet; then Media, View, Layout, then each pack's group), keyboard first: arrows,
+  Orchestra lines and the fleet's; then Local, Setup, Settings, Media, View, Layout, then each pack's group), keyboard first: arrows,
   `Enter`, `Esc`. Every shortcut is shown next to its command.
 - **The status bar** (26 px, 11 px mono) shows the live feed (a square that is green when
   connected, amber while connecting or reconnecting, red when unreachable;
@@ -179,7 +171,7 @@ a title is mono caps. A state is told four ways at once: a square, a colour, a r
   its deletes, stopping a mission or a team run, a hand-off, a kick, deleting a local model.
 - **The text box** (`lib/ui/TextBox.tsx`, `Field`'s `multiline`): every multi-line box is three lines at the least, grows with
   its text to 12 then scrolls, has no resize handle, takes its panel's free height with `fill`; a placeholder is two lines at most.
-- **Map nodes** (the Session Map, Roles Live, the Fleet Tree's rows): a 2 px rule across the top in the state colour,
+- **Map nodes** (the Session Map, Agents' Live on either scope): a 2 px rule across the top in the state colour,
   a 1 px outline 3 px out when the node is selected or a Live line for it is hovered, the model without its provider
   prefix (the full id in the tooltip and the Inspector).
 
@@ -344,7 +336,7 @@ steps as in a terminal (your active lineup, read as it is, the sample repo, one
 Orchestra goal with `plan: review`, the plan approved, the lanes, the report
 and the coach, where to go next), each listed with its state while the
 running one shows its command and its last lines; the outcome names the
-lineup, the run and its repo, with buttons into Agents (Cast, Runs) and Fleet.
+lineup, the run and its repo, with buttons into Agents (Cast, Runs) and Setup -> Machines.
 Closing the card keeps the start running (the palette's **Start: the
 guided first run** brings it back; **Stop the start** ends it). **Just look
 around** dismisses the card for this home (`~/.halo/start/dismissed.json`,
@@ -382,8 +374,8 @@ dismissed, show, own_lineups, active_team, runs, starts, job, plan}`), `POST
 `POST /api/start/dismiss`, `POST /api/start/stop`.
 
 **One story.** Every section's Start view ends on a **Next** footer that
-names the next section and why, in this order: Agents' Cast -> Agents' Runs -> Fleet (Fleet's points back to
-Cast; 3.3.16.0 R1: Team's Start view went with its board); the button opens it.
+names the next section and why, in this order: Agents' Cast -> Agents' Runs -> Setup's Machines (which points back
+to Cast; 3.3.16.0 R1: Team's Start view went with its board; R2: Fleet's is Machines' lead); the button opens it.
 
 **The Glossary.** The **?** in the header is a menu: **How
 <section> works** (also `?`) and **Glossary**, a dialog listing every word

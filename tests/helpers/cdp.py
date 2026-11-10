@@ -20,7 +20,7 @@ import urllib.request
 KEYS = {"?": ("Slash", 191, 8), "Escape": ("Escape", 27, 0), "o": ("KeyO", 79, 0), "r": ("KeyR", 82, 0), "a": ("KeyA", 65, 0),
         # 3.0.5.0 R3: the Fleet hop keys
         "j": ("KeyJ", 74, 0), "k": ("KeyK", 75, 0), "f": ("KeyF", 70, 0), "p": ("KeyP", 80, 0), " ": ("Space", 32, 0),
-        "Enter": ("Enter", 13, 0)}
+        "Enter": ("Enter", 13, 0), "l": ("KeyL", 76, 0)}  # 3.3.16.0 R2: L, Agents' Live view
 
 
 class Chrome:

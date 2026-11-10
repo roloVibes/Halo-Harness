@@ -19,7 +19,7 @@ serves them (`GET /api/fleet/attention`) and routes the answers.
                    fleet/supervise_attention.py): a goal's plan review, a gate past the cap, a budget cap, a job's ask
     goal_replan    a replan's new plan failed its check twice (3.1.8.0 R2): apply / keep the old plan / stop
     ollama_steward the Ollama steward's newest note with an `error` finding or a change (3.3.4.0 R4,
-                   fleet/steward_attention.py): set aside / open Ollama
+                   fleet/steward_attention.py): set aside / open Local
 
 Each row: {id, kind, harness, harness_name, local, session_id, session, agent_id, agent, what, detail,
 since, keys: {a|r|s|o: label}, text_for: "r" | None, target: {...}}. `keys` holds only the answers
@@ -47,8 +47,8 @@ KEYS = {
     "paused": {"a": "resume", "s": "stop", **OPEN},
     "orchestra_gate": {"a": "set aside", "o": "open Agents: Runs"},  # 3.3.16.0 R1: Orchestra is Agents -> Runs
     "control_ask": {"a": "set aside", **OPEN},
-    "cap": {"a": "lift for today", "o": "open Costs"},
-    "conflict": {"a": "set aside", "o": "open the map"},
+    "cap": {"a": "lift for today", "o": "open the spend"},  # 3.3.16.0 R2: Agents -> Live, the machine's spend
+    "conflict": {"a": "set aside", "o": "open Live"},  # 3.3.16.0 R2: the Fleet Map is Agents -> Live
     "mission_plan": {"a": "approve and run", "r": "edit", "s": "drop", "o": "open the mission"},  # 3.0.6.0 R7
     "mission_claim": {"a": "set aside", "o": "open the mission"},
     "mission_ask": {"a": "allow", "r": "deny", **OPEN},
@@ -60,7 +60,7 @@ KEYS = {
     "goal_budget": {"a": "raise by its cap and resume", "r": "raise by $N", "s": "stop", "o": "open the goal"},
     "goal_ask": {"a": "allow once", "r": "deny", "s": "stop the goal", "o": "open the session"},
     "goal_replan": {"a": "apply the new plan", "r": "keep the old plan", "s": "stop the goal", "o": "open the plan"},  # R2
-    "ollama_steward": {"a": "set aside", "o": "open Ollama"},  # 3.3.4.0 R4: the steward's note
+    "ollama_steward": {"a": "set aside", "o": "open Local"},  # 3.3.4.0 R4: the steward's note; 3.3.16.0 R2: Local -> Hosts
 }
 # 3.3.5.0 R4: a preflight card (agent/preflight.py) answers accept = compact, edit = the bigger-window model, stop
 PREFLIGHT_KEYS = {"a": "compact", "r": "bigger-window model", "s": "stop", **OPEN}

@@ -14,7 +14,8 @@ version.
 orchestration are almost the same ... all rolled into the new agents". Team, Roles and Orchestra are one Studio
 section, Agents (`Alt+2`), with three views on one switch -- Cast (the lineup and its bios: Roles as it was), Runs (a
 goal for the lineup: Orchestra as it was, plus who owns what and Test this lineup) and Live (the session's agents as a
-tree, a live Orchestra run's lanes under its lead). The shell has seven core sections; every old door (`?mode=roles`,
+tree, a live Orchestra run's lanes under its lead). R2 folds the Fleet section into Agents -> Live, Setup ->
+Machines and Local, so the shell has six core sections; every old door (and `?mode=fleet`) (`?mode=roles`,
 `orchestra`, `team`, `--mode`, `--edit`, `/roles`, `/studio`) still lands on the right view and says the new one.
 R1b (the inspector says one thing at a time, the density pass), R2 (the Fleet fold) and R3 (Workflows) follow.
 
@@ -107,6 +108,63 @@ cleaner and clearer").
 - STUDIO-agents.md (the summary, Edit, one block per page, the defaults line), STUDIO-shell.md (the density rules),
   ROLES.md (a lineup section not set: what Halo does), AGENTS.md, COMMANDS-studio.md (`--edit lineup:<n>:<block>`),
   MEDIA.md (the seven-tile banner).
+
+### R2: the Fleet fold
+
+A machine's agents are in Agents, its pairing in Setup, its models in Local; the Fleet section is gone. Six core
+sections: Session `Alt+1`, Agents `Alt+2`, Local `Alt+3`, Packs `Alt+4`, Setup `Alt+5`, Settings `Alt+6`; the packs'
+own sections start on `Alt+7` (`FIRST_KEY = 7`).
+
+#### Changed
+
+- **Live spans the fleet.** Agents -> Live has a scope switch, **this halo | fleet** (`live-scope`; `F`, Shift+F, on
+  the canvas; `f` still fits): on fleet the canvas is machine > session > agent, one box per machine (Halo version and
+  capability chips), its sessions as cards (git, mission and conflict chips, `...` menu) and their agents as the tree,
+  a mission's parts in their machines' boxes (drag a part into another box to reassign it; claims and hand-on edges,
+  conflict edges, lit spawn edges). The Session Map is the same canvas as a thumbnail (`routes/agents/live/`).
+- **The inspector follows the pick, summary first** (`LiveInspector`): nothing picked is the fleet's glance (while you
+  were away, machines, agents working, what waits on you, today's spend against the cap, the balances, the caps
+  reached with Lift, one row per machine); a machine is its summary (who, health, spend today, Message) with Edit rows
+  for Specs and who can... (the spec card, the recall box), Spend caps (`POST fleet/caps`, and a link to Settings ->
+  Fleet) and Sharing and control (Setup -> Machines), one block a page with Back; an agent is the one agent inspector
+  (the same component in Session's Agent strip, Cast's Live tab and Live); a mission part its card with its owns line.
+- **The Attention chip** in Agents' bar (`agents-attention`, amber with a count, `A` toggles it, the palette's "Agents:
+  Attention") opens the queue over the page (`fleet-attention` kept); **Activity** is an optional panel of Live, closed
+  on load (the header's **+**, the palette).
+- **Missions are runs**: Runs' **+** menu and Start view list the missions as rows (goal, state, parts, where they run)
+  and offer **Run it across the fleet** when more than one harness is here; `M` and `?mode=fleet&mission=<id>` open the
+  Mission panel in Runs; a part's row and card say what it owns.
+- **Setup -> Machines** (the step before the Summary, `?block=machines`): the pair card, the share / control rows, the
+  hubs joined and the People table with **Forget**; Fleet's Start view is its lead while only this harness is here;
+  the Summary has a Machines line; the Start views' Next footer is Cast -> Runs -> Machines.
+- **Local takes the Ollama panel**: Hosts gains the steward block (host picker, the models table, the traffic timeline,
+  the fit plan with Apply and Copy), Steward gains Run now, the hub's note and the changes with Undo; the
+  `ollama_steward` attention row's `o` opens Local -> Hosts on its host ("open Local"), a spend cap's opens the
+  machine's spend ("open the spend"), a conflict's opens Live ("open Live").
+- `?mode=fleet`, `halo studio --mode fleet` and `/studio fleet` land on Agents -> Live with the fleet scope and say
+  once "Fleet is Agents -> Live now, the fleet scope on", with where machines, models and missions went
+  (`studio/agents_door.py`); `STUDIO_SECTIONS` is the six, `STUDIO_MODES` keeps `fleet` as a door. The rail's agent
+  count and "while you were away" dot sit on Agents; the status bar's FLEET cell went. Palette rows say "Agents: ...",
+  "Setup: pair a machine", "Setup: forget <machine>", "Local: the Ollama steward".
+
+#### Removed
+
+- **The Fleet section**: `routes/fleet/Fleet.tsx`, `Start.tsx`, `Map.tsx`, `MapNode.tsx`, `MapChips.tsx`,
+  `MapMission.tsx`, `MapSteer.tsx`, `MapTreeNode.tsx`, `FleetTree.tsx`, `layout.ts`, `Ollama.tsx`, the pair dialog,
+  FleetSettings' member list (the People table has them), the People / Health / Costs / Capabilities panel faces,
+  **By project** (each session card keeps its git chips), `help-fleet.ts`'s panel entries but Attention, Activity and
+  Mission, `tests/helpers/studio_tree.py`, and `docs/media/studio-fleet-ollama.png`. Fleet's Ollama pieces moved to
+  `routes/local/` (`ostore.ts`, `StewardBits.tsx`, `HostPlan.tsx`, `HostTraffic.tsx`, `HostSteward.tsx`).
+
+#### Docs
+
+- docs/STUDIO-fleet.md is "Fleet in Agents, Setup and Local" (where each Fleet panel went, Live on the fleet, every
+  "How this works" anchor kept, Setup -> Machines); STUDIO-agents.md (Live's scope, the inspector by pick, the
+  Attention chip, missions in Runs), STUDIO-sections.md (six entries; Fleet folded into Agents with a "moved" line),
+  STUDIO-shell.md, STUDIO-setup.md (the Machines page), STUDIO-local.md and MODELS-ollama-steward.md (the steward
+  block), FLEET.md's Studio part, MISSIONS.md, README (six sections, the banner and the fleet picture re-rendered),
+  COMMANDS-studio.md, the glossary and every doc's `Alt+N` follow.
+
 ### Fixed on the way: a mission's report is there when its state says done; the Benchmarks page's stale mark
 
 - **A Fleet mission's `report.md` and `report.json` are written before its final state lands on disk**

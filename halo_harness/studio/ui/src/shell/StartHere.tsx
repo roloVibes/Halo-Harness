@@ -22,6 +22,7 @@ import { Button, Dialog } from "../lib/ui";
 import { firstSection, goSection, studio, useStore } from "../lib/store";
 import { closeStart, dismissStart, loadStart, runStart, setUpThisBox, start, stopStart, type StartFrame } from "../lib/start";
 import { loadLists } from "../routes/roles/sync";
+import { goto as gotoSetup } from "../routes/setup/pages";
 
 const MARK: Record<string, string> = { pending: "", ready: "..", running: ">>", done: "ok", failed: "!!", stopped: "--" };
 
@@ -111,9 +112,9 @@ function Run() {
             </p>
           )}
           <div className="os-buttons">
-            {(["cast", "runs", "fleet"] as const).map((s) => ( // 3.3.16.0 R1: Agents' Cast and Runs, then Fleet
-              <Button key={s} variant="ghost" onClick={() => (closeStart(), s === "fleet" ? goSection("fleet") : goSection("agents", s))}>
-                {s === "cast" ? "Agents: your lineup" : s === "runs" ? "Agents: a run of your own" : "Fleet: more machines"}
+            {(["cast", "runs", "machines"] as const).map((s) => ( // 3.3.16.0 R1: Agents' Cast and Runs; R2: then Setup's Machines
+              <Button key={s} variant="ghost" onClick={() => (closeStart(), s === "machines" ? (gotoSetup("machines"), goSection("setup")) : goSection("agents", s))}>
+                {s === "cast" ? "Agents: your lineup" : s === "runs" ? "Agents: a run of your own" : "Setup: more machines"}
               </Button>
             ))}
           </div>

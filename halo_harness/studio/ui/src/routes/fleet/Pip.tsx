@@ -2,18 +2,22 @@
 // a small floating panel over whatever you look at -- the Roles canvas, an
 // Orchestra run, another agent -- with its state, cost, what it does now and
 // the newest lines of its stream, typing as they arrive. It hides while the
-// Fleet (or Session) agent panel already shows that agent; drag it by its bar, Open goes
-// to it in Fleet, Esc (or x) unpins it.
+// agent's own inspector already shows it (Session's Agent strip, Agents -> Live's inspector); drag it by its bar, Open
+// goes to it on Agents -> Live (3.3.16.0 R2: the Fleet section went; another machine's agent opens on the fleet scope),
+// Esc (or x) unpins it.
 import { useMemo, useRef, useState, type PointerEvent } from "react";
 import { Icon, toolIcon } from "../../lib/ui";
-import { goSection, studio, useStore } from "../../lib/store";
+import { studio, useStore } from "../../lib/store";
 import { layoutStore } from "../../lib/workspace/persist";
+import { showFleetPanel } from "../agents/fleetDoor";
+import { useLivePick } from "../agents/live/scope";
+import { roles } from "../roles/store";
 import { cost, short } from "../orchestra/format";
-import { openAgentPanel, pin, select } from "./actions";
-import { nowText } from "./MapNode";
+import { pin, select } from "./actions";
+import { nowText } from "../agents/live/nodeBits";
 import { EMPTY } from "./streams";
 import { Typed } from "./StreamViews";
-import { agentMotion, enterWorkspace, findAgent, isLive, showsStart, useFleet, type FleetState } from "./store";
+import { agentMotion, findAgent, isLive, useFleet, type FleetState } from "./store";
 import { useSessionStart } from "../session/store";
 
 const LINES = 8;
@@ -22,18 +26,18 @@ export function FleetPip() {
   const pinned = useFleet((s) => s.pinned);
   const selected = useFleet((s) => s.selected);
   const harnesses = useFleet((s) => s.harnesses);
-  const start = useFleet(showsStart);
   const st = useFleet((s) => (s.pinned ? s.streams[s.pinned] : undefined)) || EMPTY;
   const doneAt = useFleet((s) => s.doneAt[s.pinned] || 0);
   const section = useStore(studio, (s) => s.section);
-  const panelShown = useStore(layoutStore("fleet"), (l) => !!l.layout?.["fleet-agent"] && !l.layout["fleet-agent"].collapsed);
+  const pick = useLivePick();
+  const liveShown = useStore(layoutStore("roles"), (l) => !!l.layout?.["roles-inspector"] && !l.layout["roles-inspector"].collapsed);
   const sessionShown = useStore(layoutStore("session"), (l) => !!l.layout?.["session-agent"] && !l.layout["session-agent"].collapsed); // 3.1.4.0 R2
   const sessionStart = useSessionStart();
   const [off, setOff] = useState({ x: 0, y: 0 });
   const drag = useRef<{ sx: number; sy: number; x: number; y: number } | null>(null);
   const ref = useMemo(() => (pinned ? findAgent({ harnesses } as FleetState, pinned) : null), [pinned, harnesses]);
   if (!pinned || !ref) return null;
-  if (section === "fleet" && !start && panelShown && selected === pinned) return null;
+  if (section === "agents" && roles.get().canvasView === "live" && liveShown && pick.kind === "agent" && pick.id === pinned) return null;
   if (section === "session" && !sessionStart && sessionShown && selected === pinned) return null;
   const { a } = ref;
   const lines = st.entries.filter((e) => e.kind === "text" || e.kind === "thinking" || e.kind === "tool_call" || e.kind === "spawn" || e.kind === "user").slice(-LINES);
@@ -47,10 +51,8 @@ export function FleetPip() {
     if (d) setOff({ x: d.x + e.clientX - d.sx, y: d.y + e.clientY - d.sy });
   };
   const goTo = () => {
-    goSection("fleet");
-    enterWorkspace();
     select(pinned);
-    window.setTimeout(() => openAgentPanel(), 80);
+    showFleetPanel("fleet-agent");
   };
   return (
     <aside className="fleet-pip glass" data-testid="fleet-pip" data-motion={agentMotion(a, doneAt)} style={{ transform: `translate(${off.x}px, ${off.y}px)` }} aria-label={`Mini stream: ${a.name || a.agent_id}`}>
@@ -59,7 +61,7 @@ export function FleetPip() {
         <span className="panel-dot" data-motion={agentMotion(a, doneAt)} aria-hidden="true" />
         <b className="pip-name">{a.name || a.agent_id}</b>
         <span className="mono muted pip-meta">{a.state} · {cost(a.cost_usd)} · {short(ref.h.name || "", 16)}</span>
-        <button className="icon-btn" onClick={goTo} title="Open it in Fleet" aria-label="Open it in Fleet">
+        <button className="icon-btn" onClick={goTo} title="Open it on Agents -> Live" aria-label="Open it on Agents Live">
           <Icon name="popout" />
         </button>
         <button className="icon-btn" onClick={() => pin("")} title="Unpin (Esc)" aria-label="Unpin">

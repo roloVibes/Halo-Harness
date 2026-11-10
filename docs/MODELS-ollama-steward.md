@@ -229,8 +229,8 @@ R4, the steward's agent, selectable and cheap, and the job that runs it:
   change | note | idle, say, lines, cost, attention, model, data, where}`).
   A TUI on that state dir shows each new note or change in its status bar
   for 30 s and as one line in the transcript. A note whose findings carry
-  an `error`, or any change, raises the Fleet attention row
-  `ollama_steward` (set aside, or open Ollama). Studio's live feed gets a
+  an `error`, or any change, raises the attention row
+  `ollama_steward` (set aside, or open Local -> Hosts). Studio's live feed gets a
   `steward` frame `{stage, say, data}` for every line. A fleet member gets
   the hub's newest note with the hub's profiles (the answer to its ledger
   push) and its TUI shows "steward on <hub>: <first line>".
@@ -306,12 +306,11 @@ first call after a load (warming). `halo local changes`, `halo local revert <id>
 
 Round R5 shows the steward in Studio, the TUI and Setup.
 
-**Fleet's Ollama panel.** An optional panel: the header's **+** adds it,
-the steward's attention row opens it with **O**, and so does the
-palette's "Fleet: Ollama". Pick a host when there is more than one; a
-Hugging Face local server is a host here too. Each host shows:
+**Local -> Hosts and Steward** (3.3.16.0 R2: the Fleet section's Ollama panel moved there). The
+steward's attention row opens Hosts on its host with **O**, and so does the palette's "Local: the
+Ollama steward". Pick a host; a Hugging Face local server is a host here too. Each host shows:
 
-- **The card line**: the GPUs and their free memory, the server's own
+- **The card line** (the host's card): the GPUs and their free memory, the server's own
   settings (how many models it keeps, parallel, keep-alive, the KV cache
   type, flash attention) and what else holds the card.
 - **The models**: one row per model with calls in the last 24 h, loaded
@@ -327,7 +326,7 @@ Hugging Face local server is a host here too. Each host shows:
   - an eye for a model that reads images.
 - **Traffic**: the last hour's calls per minute as a sparkline, with each
   trim, cut and error marked on its minute.
-- **The steward block**:
+- **The steward** (Local -> Steward, its findings beside the chat):
   - the job's status lines: where it runs, since when, its model, the last
     run;
   - the last note, its cost line muted, and on a member the hub's note;
@@ -349,14 +348,14 @@ A Hugging Face local server shows its rows from the ledger's OpenAI-dialect
 lines. The window and reply-reserve rules apply to it. The rest of Hugging
 Face moves to Local -> Hugging Face (3.3.5.0).
 
-**The panel is the short form of Local (3.3.5.0 R1).** Studio's Local
-section (`Alt+7`, [STUDIO-local.md](STUDIO-local.md)) holds the same hosts at
-full size: a live strip per host, every call as it happens, every host
-with Load / Unload / Make it fit, every model with its card. Each model row
-here has **open in Local**, which opens Local -> Models on that host. The
-panel and Local read each host's catalog through one cache keyed by its
+**One place since 3.3.16.0 R2.** Studio's Local section (`Alt+3`,
+[STUDIO-local.md](STUDIO-local.md)) holds the hosts at full size: a live
+strip per host, every call as it happens, every host with Load / Unload /
+Make it fit, every model with its card, and under the cards the steward
+block above; each of its model rows has **open in Local**, which opens
+Local -> Models on that host. Local reads each host's catalog through one cache keyed by its
 `/api/tags` (the per-model `/api/show` calls run again only when a model
-changed); before, the panel read every host's whole catalog each minute.
+changed); before 3.3.5.0 the panel read every host's whole catalog each minute.
 
 How it stays live: a refetch every 30 s while open; a `steward` frame from a job in this Studio refreshes it too (a
 job in another process, the hub or `--watch`, sends none: the refetch covers it).
@@ -397,4 +396,4 @@ and `/ollama explain <kind>` print what the CLI prints. `/ollama hosts
 [--host NAME] [--refresh]` is the per-host analysis it used to be, and in
 the TUI it opens that dialog.
 
-![Fleet with its Ollama panel](media/studio-fleet-ollama.png)
+![Local -> Resources: a live strip per host, the traffic view under it](media/studio-local.png)

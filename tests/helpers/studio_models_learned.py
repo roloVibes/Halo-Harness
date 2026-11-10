@@ -87,7 +87,7 @@ def pick_words(c, rig) -> dict:
     card_click(c, card("auto-coder"))
     out["live_tab"] = c.wait("document.querySelector('[data-testid=\"roles-live-reason\"]')?.textContent", 15)
     c.go(rig.url("session"))
-    c.wait(f"!!{COL} && document.querySelectorAll('[data-testid=\"session-map\"] [data-testid=\"fleet-node\"]').length >= 3", 40)
+    c.wait(f"!!{COL} && document.querySelectorAll('[data-testid=\"session-map\"] [data-testid=\"roles-live-node\"]').length >= 3", 40)
     time.sleep(1.0)  # the first look at the tree is silent
     lv.rows["c0d3a002"] = _row("c0d3a002", "coder-2", "auto-coder", chosen.ref, chosen.reason, "Fix the tax rounding")
     lv.state("coder-2")  # a second coder (Live finds a row by its name)

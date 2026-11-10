@@ -22,7 +22,7 @@ import { openMission, planIt } from "./mload";
 export const HOW: string[] = [
   "Say what the whole fleet should do, in one goal. The hub's lead splits it into parts.",
   "Each part goes to the harness that can do it: one that needs what only one harness has is pinned there, with the reason.",
-  "The plan draws on the map, a node per part in its harness box. Drag a part to another box to move it; Approve when it reads right.",
+  "The plan draws on Agents -> Live, a node per part in its machine's box. Drag a part to another box to move it; Approve when it reads right.",
   "Run starts the parts by their dependencies. A member's owner is asked first when it says ask; two parts that claim the same files run one after the other.",
   "The report says who did what on which harness, what it cost per harness, what was merged and what failed.",
 ];

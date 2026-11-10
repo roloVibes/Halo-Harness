@@ -4,8 +4,8 @@
 // the section titles (`data-rail="open"`, remembered as `halo.studio.rail`).
 // 3.3.2.0 R2: nothing else, expanded or not: the panels are the header's "+"
 // menu, Arrange and Reset layout its "..." menu and the palette, Orchestra's
-// runs a group in its "+" menu, and the Fleet tree (its inline answers and the
-// "While you were away" card) the Fleet section's Tree panel. Focus
+// runs a group in its "+" menu (3.3.16.0 R2: the fleet's tree is Agents -> Live, its "While you were away" card
+// the Live glance's, a waiting session's answer an Attention row). Focus
 // (`data-focus="on"`) hides the whole rail.
 import { Icon } from "../lib/ui";
 import { studio, toggleRail, useStore } from "../lib/store";

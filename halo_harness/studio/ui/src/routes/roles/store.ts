@@ -6,6 +6,7 @@
 // `layout/<name>`), the bio open in the Bios panel, the probe results, the
 // live agents on the cards (routes/fleet/frames.ts feeds them; a replay
 // stands in for them while it plays) and the one open dialog.
+import { urlDoor } from "../../lib/agentsDoor";
 import { createStore, useStore } from "../../lib/store";
 import type {
   Analysis, BioPayload, BioRow, Finding, Graph, GymScore, HistoryRun, LineupPayload, LineupRow, LiveAgent, ModelRow, ModelsStatus, Pos, Probe, Raw, Replay, RolesDialog, StateInfo,
@@ -153,8 +154,8 @@ export const roles = createStore<RolesState>({
   tierMenu: null,
   diskLineup: null,
   diskBio: null,
-  canvasView: /[?&]mode=(roles|agents)(&|$)/.test(location.search) && /[?&]view=live(&|$)/.test(location.search) ? "live" : "plan", // 3.3.16.0 R1: Agents' Live
-  liveSid: (/[?&]mode=(roles|agents)(&|$)/.test(location.search) && new URLSearchParams(location.search).get("session")) || "",
+  canvasView: urlDoor().view === "live" ? "live" : "plan", // 3.3.16.0 R1: Agents' Live; R2: `?mode=fleet` too
+  liveSid: (/[?&]mode=(roles|agents|fleet)(&|$)/.test(location.search) && new URLSearchParams(location.search).get("session")) || "",
   liveDensity: "spread",
 });
 

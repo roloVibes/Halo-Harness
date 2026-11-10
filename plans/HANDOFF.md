@@ -4,6 +4,45 @@ This folder carries the whole plan so a new session (local or cloud) can
 pick the work up without the conversation that produced it. Read this file
 first, then `WORKER-RULES.md`, then the round you are starting.
 
+## WHERE THINGS STAND -- 2026-11-10 morning (authoritative, read this first; the block below it is history)
+
+**The owner paused the previous session mid-cycle. Master's local HEAD is the R2 merge commit, NOT PUSHED; origin/master
+is 6c28c85a.** Exact state and what to do, in order:
+
+1. **Released and installed:** v3.3.15.0 = 7a5de868 (PC installed; Kali and the Mac still on 3.3.14.0 -- Kali's `halo update`
+   failed on uv's TLS, fixed in 6c28c85a; the owner was given the manual `uv tool install --reinstall --native-tls ...` line).
+2. **Pushed, green on both runners:** ab560617 = 3.3.16.0 R1 "Agents: one section" + the mission-report / Benchmarks race
+   fixes + R1b "the inspector says one thing at a time" + the density pass.
+3. **Pushed, CI RUNNING at the hand-off:** 6c28c85a = `halo update` says when its answer is the cache's + survives a network
+   uv's TLS does not trust (update_note.py, update_install.py). Runs: Linux push 42848647435, Windows dispatch
+   42848647685 (`gh run view <id> --json status,conclusion`). If either is red: fix at once, push, re-dispatch
+   (`gh workflow run suites.yml -f sha=<full sha>`), gate on `conclusion == success` for the exact sha on both.
+4. **Merged locally, not pushed:** 3.3.16.0 R2 "The Fleet fold" (branch v3316/R2-fleet-fold = f26951f6, worktree
+   ~/hh-3316/R2-fleet-fold; ROADMAP "3.3.16.0 R2 ... BUILT and MERGED LOCALLY"). Done on the merge: inspection, two
+   identical builds, tsc, audit, capture/themes checks, pack tests, test_bridge 101/101. NOT finished: the covering run
+   (237 modules, `run_modules.py` style: each module in a fresh scratch BRIDGE_TEST_HOME with
+   BRIDGE_TEST_NO_BACKGROUND_NET=1; the list is every Studio, fleet, mission, steward, update, docs, media, screenshot,
+   glossary and invariants module plus every test R2 touched) and test_tui.py (then `git checkout --
+   docs/harness/tui-snapshots/` unless a TUI word changed). **Run both before pushing**; never push a head whose
+   covering run is not green. On green: `git push origin master`, dispatch the Windows run with the FULL sha, poll both.
+5. **Next round:** R3 "Workflows: squares and the router" -- brief written at
+   ~/hh-3316/briefs/v3316-R3-workflows-squares-brief.md (it builds on the 3.2.0.0 pack-workflow model: the contract keys
+   on the workflow file, a registry of yours/project/packs/shipped, the `Workflow` tool routed by needs minus the
+   model's takes, receipts, the fourth Agents view). Cut `git worktree add -b v3316/R3-workflows ~/hh-3316/R3-workflows
+   <master sha>` after the R2 push, `npm ci` under halo_harness/studio/ui there, one Opus worker with the brief.
+6. **Then** `python scripts/release.py 3.3.16.0 --skip-windows` on green both for the exact HEAD, reinstall on the PC
+   (`uv tool install --reinstall` only while no halo.exe runs; the script's running-session check also matches
+   test-orphan headless sessions, so confirm by hand), then 3.3.17.0 Copilot at work (ROADMAP "ADDED 2026-11-09
+   midday"), 3.3.18.0 Federation, Pack trust, the remaining Focus rounds, mode themes (#5) + the parity audit.
+
+Standing rules that bit this week: a red that reproduces locally one time in three is a race in the code, not the
+runner (two were fixed on 0ec52632); a Chrome driver waits for the value it asserts; files a reader may expect once a
+state is final are written inside the state's update; the 250-line cap (no file under it may cross it, and a file at
+it may not grow); `halo audit privacy` with a scratch home before every commit; plans edits ride with code commits on a
+release candidate. The round cycle, the CI lessons and the owner's "for rolo to test" list are also in the
+coordinator's memory files (project_halo_3380_pooled.md, project_halo_rolo_todo_list.md,
+project_halo_windows_ci_flakes.md under ~/.claude/projects/C--Users-rolo/memory/).
+
 ## WHERE THINGS STAND -- 2026-11-02 evening (authoritative, read this first)
 
 **3.3.12.0 "Themes and the pack kit" SHIPPED 2026-11-08 (v3.3.12.0 = ecee432a; candidate 6d68dbc9 green on both runners):

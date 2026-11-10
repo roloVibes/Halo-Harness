@@ -87,7 +87,7 @@ two.) It offers three answers: **compact** (the default), **a bigger-window
 model** (the model on the same host with the smallest window that holds the
 request, named; none when nothing fits) and **send anyway**. The TUI shows
 them as keys (Enter or 1 compact, 2 the bigger-window model, 3 send anyway);
-Studio's Live composer shows three buttons above the steer box; Fleet's
+Studio's Live composer shows three buttons above the steer box; the
 attention row answers it too (a compact, r the bigger-window model, s stop).
 In `-p`, a run nobody can answer and a sub-agent the default applies
 (`prompt.preflight`: `ask` | `compact` | `send`; `ask` compacts when nobody
