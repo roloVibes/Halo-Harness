@@ -85,7 +85,12 @@ saves the chosen session as one Markdown file the browser downloads,
   tool's result in a fenced block (at most 40 lines, then `... (N more
   lines)`), a steer with its target, a nudge, a permission answer, the
   turn-end marker, a compaction, an error. A sub-agent's rows carry its own
-  name and model.
+  name and model. 3.3.16.2: the model's thinking is a `thinking` row before
+  the text it led to, and the talk between agents has its own rows: a
+  sub-agent's first prompt reads `talk: main -> researcher (task)`, its last
+  words `talk: researcher -> main (hand-back)` (in place of its last
+  `assistant text`, never beside it), a Workflow square's receipt
+  `talk: main -> square media (square)`.
 
 The file carries no provider key (every text passes the same redactor as
 `halo export --sanitize`) and no path under a home folder (it reads `~`).

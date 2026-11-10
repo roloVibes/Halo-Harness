@@ -13,11 +13,14 @@ import time
 
 
 def session_scene(lv) -> list:
-    """Session: six agents at work, a spawn, an ask, two finishing, the spend and the context rising."""
+    """Session: six agents at work, a thought, a spawn and its task, an ask, two finishing (one hands back), the spend
+    and the context rising."""
     def cost(usd: float, ctx: int):
         return lambda: lv.refresh(cost_usd=usd, context_tokens=ctx, context_limit=128_000, turns=3 + int(usd * 100))
     return [
         (0.0, cost(0.012, 38_000)),
+        (0.02, lambda: lv.think("implementer", "s-th1", "The coupon is taxed because the discount runs after the tax line; ")),  # 3.3.16.2: a THINK row
+        (0.06, lambda: lv.think("implementer", "s-th1", "moving it above the tax should fix the missing cent.", end=True, ms=1800, tokens=96)),
         (0.1, lambda: lv.say("implementer", "Reading basket.py: the discount runs after the tax line, so a coupon is taxed. ")),
         (0.5, lambda: lv.tool("researcher", "Read", "s-r1", "notes.md")),
         (0.9, lambda: lv.say("tester", "Waiting on the change, then the basket suite.")),
@@ -29,11 +32,13 @@ def session_scene(lv) -> list:
         (2.7, lambda: lv.result("implementer", "s-i1", "basket.py: 3 lines changed", tool="Edit")),
         (3.0, lambda: lv.tool("tester", "Bash", "s-t1", "pytest -q tests/test_basket.py")),
         (3.4, lambda: lv.spawn("v3r1f1e9", "verifier", "verifier", "or:mock/qwen3-coder", "Verify: the basket suite on the change")),
+        (3.5, lambda: lv.talk("main", "verifier", "Verify: run the basket suite on the change and tell me what fails.", "task", mid="s-k1")),
         (3.8, lambda: lv.say("verifier", "Running the suite against the new discount order.")),
         (4.2, lambda: lv.ask("reviewer", "permission_request")),
         (4.5, cost(0.034, 79_000)),
         (4.7, lambda: lv.result("tester", "s-t1", "4 passed in 0.31s")),
         (5.0, lambda: (lv.state("docs", cost_usd=0.003), lv.state("docs", state="done", last_text="CHANGES.md: the discount now applies before tax."))),
+        (5.1, lambda: lv.talk("docs", "main", "CHANGES.md: the discount now applies before tax.", "hand-back", mid="s-k2")),
         (5.4, lambda: lv.say("implementer", "Done: the discount applies before tax; the suite passes.")),
         (5.8, lambda: lv.tool("verifier", "Bash", "s-v1", "pytest -q")),
         (6.2, cost(0.046, 104_000)),

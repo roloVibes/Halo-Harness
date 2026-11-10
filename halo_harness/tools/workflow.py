@@ -55,6 +55,17 @@ def session_remaining(runtime) -> Optional[float]:
         return None
 
 
+def _talk(session, node: str, ref: str, text: str, back: bool = False, re: Optional[str] = None) -> Optional[str]:
+    """An orchestra square's hand-off or (`back`) its answer, as a talk between the caller and the square's node."""
+    try:
+        from halo_harness.agent.agent_registry import agent_key, tree_for
+        from halo_harness.fleet.talk import on_square
+        d = on_square(tree_for(session), agent_key(session), node, ref, text, back=back, re=re)
+        return d.get("id") if d else None
+    except Exception:
+        return None
+
+
 def session_band(runtime) -> str:
     tc = getattr(runtime, "team_control", None)
     band = (getattr(tc, "budget", None) or {}).get("band") if tc is not None else None
@@ -115,7 +126,9 @@ class WorkflowTool(Tool):
                                          on_child=lambda child: receipts.mark_child(session, child, wf.ref, engine))
         else:
             key = receipts.node(session, wf.ref, engine, state="running")
+            said = _talk(session, key, wf.ref, task)  # 3.3.16.2: the hand-off and what came back are talk (fleet/talk.py)
             out = square_run.run_orchestra(wf, task, files, repo=ctx.cwd, wall_s=wf.contract.wall_s, runner=RUN_ORCHESTRA)
+            _talk(session, key, wf.ref, out.text, back=True, re=said)
             receipts.node(session, wf.ref, engine, state="done" if out.status == "done" else "failed", cost_usd=out.cost_usd, key=key)
             receipts.add_cost(session, wf.ref, out.cost_usd)
         rec = receipts.make(r, out, need=str(input.get("need") or ""), files=files, engine=engine)

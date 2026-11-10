@@ -19,7 +19,10 @@ import { studio } from "../../lib/store";
 import { allAgents, findAgent, fleet, isLive, localId } from "../fleet/store";
 import { loadTail } from "../fleet/streams";
 import type { AgentKey, Entry } from "../fleet/types";
-import { addLine, addSteer, fromEntry, live, startLive } from "./liveFeed";
+import { onEvent } from "../../lib/events";
+import { addLine, addSteer, fromEntry, live, startLive, talkedBack } from "./liveFeed";
+import { onTalk } from "./liveTalk";
+import { onThink } from "./liveThink";
 
 const BACKLOG = 40;
 const states = new Map<AgentKey, string>();
@@ -55,7 +58,7 @@ function onTree(): void {
       addLine({ key: r.key, kind: "spawn", ts: now, text: `${who}${why}${r.a.task ? (r.a.model_reason ? " · " : ": ") + r.a.task : ""}` });
     } else if (st === "done" && was) {
       const said = live.get().lines.slice(-60).some((l) => l.key === r.key && l.kind === "output");
-      if (!said) addLine({ key: r.key, kind: "output", ts: now, text: String(r.a.last_text || "done"), state: "done" });
+      if (!said && !talkedBack(r.key)) addLine({ key: r.key, kind: "output", ts: now, text: String(r.a.last_text || "done"), state: "done" });
     } else if ((st === "failed" || st === "waiting" || st === "paused" || st === "stopped") && was && !(st === "waiting" && askedNow(r.key))) {
       const text = st === "waiting" ? "waits on you" : st === "paused" ? "paused: holds at its next step" : st === "stopped" ? "stopped" : `failed${r.a.last_text ? ": " + r.a.last_text : ""}`;
       addLine({ key: r.key, kind: st === "failed" ? "error" : "state", ts: now, text: text.slice(0, 300), state: st });
@@ -125,6 +128,8 @@ export function startLiveTree(seed = false): void {
   startLive();
   if (!treeOn) {
     treeOn = true;
+    onEvent("thinking_chunk", onThink); // 3.3.16.2: THINK rows (liveThink.ts) and TALK rows (liveTalk.ts)
+    onEvent("agent_talk", onTalk);
     since = Date.now() / 1000 - 1;
     fleet.subscribe(onTree);
     let was = studio.get().section;

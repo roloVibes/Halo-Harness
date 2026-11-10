@@ -41,7 +41,30 @@ missions: one goal split into parts across every harness ([Missions](#missions-3
   the agents see in [SUBAGENTS.md](SUBAGENTS.md#the-live-agent-tree-and-what-studio-can-do-to-an-agent).
 - **Feed frames.** `agent_state`, `agent_event` (followed agents), `fleet`
   (a session joined, changed or left); every frame carries `session_id` and
-  `harness`.
+  `harness`. 3.3.16.2 adds two, for every agent of the session, followed or
+  not, both content (a `full` share only):
+  - `thinking_chunk` (`fleet/think.py`): a piece of one thought,
+    `{id, text, end?, ms?, tokens?, cut?}`. One `id` per thought, the text in
+    pieces (at most every 0.6 s); `end` when the agent acts (a tool, text, an
+    ask, the turn's end) with `ms` when it streamed in more than one piece;
+    `tokens` on its own frame at `message_end` when the provider reported
+    `reasoning_tokens`. A model with no thinking sends none.
+  - `agent_talk` (`fleet/talk.py`): one agent's words to another,
+    `{id, from, to, text, why, ts, from_name?, to_name?, re?, cut?, chars?,
+    square?, machine?}`, `why` one of `task` (a child's turn starts: its
+    parent's words), `hand-back` (it ends: its last words, `re` the task),
+    `steer` (`agent_steer` with `from_agent`, another agent of the tree; a
+    person's steer is no talk), `square` (a Workflow square's hand-off and
+    answer, `square` its name) and `hand-over` (Studio's Hand to..., `to` empty
+    and `machine` named); `text` is at most 4,000 characters, `cut` and
+    `chars` say when it was longer (the transcript keeps it all). No mailbox
+    between agents exists in this harness; nothing calls a model to make one.
+
+  Session's Live column (the fleet log's columns) reads `TOOL`, `TEXT`,
+  `THINK` (a thought), `TALK` (one agent's words to another), `OUT`, `ASK`,
+  `SPAWN`, `STATE`, `YOU`, `ASKED`, `ERR` and a pack's own label;
+  `halo session export` (the trace) writes a `thinking` row per thought and
+  a `talk:` row per task, hand-back and square receipt.
 
 ## The rules every control follows
 

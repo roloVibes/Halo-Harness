@@ -153,7 +153,7 @@ export type Activity = { kind: "typing" | "tool"; tool?: string; ts: number; cal
 /** `harness|session|agent`. */
 export type AgentKey = string;
 
-export type LitEdge = { from: AgentKey; to: AgentKey; ts: number; kind: "spawn" | "message" };
+export type LitEdge = { from: AgentKey; to: AgentKey; ts: number; kind: "spawn" | "message" | "talk" }; // 3.3.16.2: talk, from the speaker
 
 export type AgentRef = { key: AgentKey; h: Harness; s: SessionRow; a: AgentRow; depth: number };
 

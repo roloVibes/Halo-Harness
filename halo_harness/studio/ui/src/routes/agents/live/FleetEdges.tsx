@@ -1,5 +1,6 @@
 // The Live tree's two passing edges (3.3.16.0 R2 "the Fleet fold": the Fleet Map's, folded in): an edge that lights
-// for LIT_MS when an agent spawns or messages another (`fleet-lit-edge`, data-kind spawn | message), and the amber
+// for LIT_MS when an agent spawns or messages another (`fleet-lit-edge`, data-kind spawn | message | talk: 3.3.16.2, one
+// agent's words to another, drawn from the speaker to the listener with an arrow at the listener), and the amber
 // dashed warning edge between two agents of different sessions editing one file (`fleet-conflict-edge`, GET
 // fleet/conflicts; its attention row's `o` opens Live on them). Both join the nodes by their fleet keys, on top of the
 // tree's own edges.
@@ -29,7 +30,8 @@ function Lit({ pos }: { pos: Pos }) {
     <g className="fm-lit-edges">
       {edges.filter((e) => now - e.ts < LIT_MS).map((e) => {
         const a = pos.get(e.from), b = pos.get(e.to);
-        return a && b ? <path key={`${e.from}>${e.to}@${e.ts}`} className="fm-edge fm-edge-lit" data-kind={e.kind} data-testid="fleet-lit-edge" d={curve(a, b)} /> : null;
+        return a && b ? <path key={`${e.from}>${e.to}@${e.ts}`} className="fm-edge fm-edge-lit" data-kind={e.kind} data-testid="fleet-lit-edge" d={curve(a, b)}
+                              data-from={e.from} data-to={e.to} markerEnd={e.kind === "talk" ? "url(#fm-talk-arrow)" : undefined} /> : null;
       })}
     </g>
   );
@@ -56,6 +58,11 @@ export function FleetEdges({ boxes, w, h }: { boxes: LiveBox[]; w: number; h: nu
   const pos: Pos = new Map(boxes.filter((b) => b.node.key && !b.node.kind).map((b) => [b.node.key, b]));
   return (
     <svg className="rlm-edges rlm-fleet-edges" width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden="true">
+      <defs>
+        <marker id="fm-talk-arrow" className="fm-talk-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0 8 4 0 8Z" />
+        </marker>
+      </defs>
       <Lit pos={pos} />
       <Conflicts pos={pos} />
     </svg>

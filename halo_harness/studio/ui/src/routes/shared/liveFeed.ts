@@ -19,36 +19,9 @@ import { createStore, useStore } from "../../lib/store";
 import { fleet, findAgent, keyOf, localId } from "../fleet/store";
 import type { AgentKey, Entry } from "../fleet/types";
 import { lineOf, packOf } from "../packs/events";
+import type { LiveKind, LiveLine } from "./liveTypes";
 
-export type LiveKind = "text" | "thinking" | "tool" | "output" | "ask" | "spawn" | "state" | "you" | "asked" | "error" | "pack";
-export type LiveLine = {
-  n: number;
-  key: AgentKey;
-  kind: LiveKind;
-  /** When it happened (unix seconds, the frame's own time). */
-  ts: number;
-  /** When it arrived here (ms): a running tool's clock. */
-  t0: number;
-  text: string;
-  tool?: string;
-  target?: string;
-  id?: string;
-  result?: string;
-  /** 3.1.7.0 R1: a tool's whole result (at most FULL_MAX characters), shown when its row is clicked. */
-  full?: string;
-  /** When its result landed (ms). */
-  ended?: number;
-  error?: boolean;
-  /** 3.3.10.0 R2: the packs' verdicts on the call, one line (`policy: deny -- fence: outside the project`). */
-  policy?: string;
-  ask?: string;
-  state?: string;
-  /** 3.2.0.0 R3: a pack line's KIND column (the pack's label). */
-  label?: string;
-  /** 3.3.0.0 R6: a steer's target name ("↳ steer to coder: ..."), and the agent's first row after it. */
-  to?: string;
-  after?: boolean;
-};
+export type { LiveKind, LiveLine, Talk } from "./liveTypes";
 export type OpenTool = { tool: string; id: string; t0: number };
 export type LiveState = { lines: LiveLine[]; open: Record<AgentKey, OpenTool>; started: boolean };
 
@@ -60,6 +33,10 @@ const JOIN_MS = 6000;
 let seq = 0;
 const ANSWERS: LiveKind[] = ["text", "thinking", "tool", "output", "error"];
 const steered = new Set<AgentKey>();
+/** 3.3.16.2: agents whose thoughts come as `thinking_chunk` frames (liveThink.ts): their followed `thinking` entries are not drawn twice. */
+export const thinkSeen = new Set<AgentKey>();
+/** 3.3.16.2: the agent's hand-back already landed as a TALK row (liveTalk.ts): its OUT would say it twice. */
+export const talkedBack = (key: AgentKey) => live.get().lines.slice(-60).some((l) => l.key === key && l.kind === "talk" && l.talk?.why === "hand-back");
 let anchorOf: (key: AgentKey) => number = () => 0;
 
 /** session/steer.ts: the row a steer to `key` lands under (0: at the end). */
@@ -162,12 +139,13 @@ export function fromEntry(key: AgentKey, e: Entry, at = false): void {
   const name = String(e.name || "?");
   const label = String(e.label || "");
   const target = label.startsWith(name + ":") ? label.slice(name.length + 1).trim() : "";
+  if (e.kind === "thinking" && !at && thinkSeen.has(key)) return;
   if ((e.kind === "text" || e.kind === "thinking") && !at) return addText(key, e.kind, String(e.text || ""), ts);
   if (e.kind === "text" || e.kind === "thinking") return addLine({ key, kind: e.kind, ts, text: clip(String(e.text || "")) }, true);
   if (e.kind === "tool_call") return at ? addLine({ key, kind: "tool", ts, text: "", tool: name, id: String(e.id || ""), target, ended: ts * 1000 }, true) : toolStart(key, String(e.id || ""), name, ts, target);
   if (e.kind === "tool_result") return at ? backlogResult(key, e) : toolEnd(key, String(e.id || ""), String(e.text || ""), !!e.is_error, String(e.policy || ""));
   if (e.kind === "spawn") return addLine({ key, kind: "spawn", ts, text: label || `${name}: ${e.task || ""}` }, at);
-  if (e.kind === "handback") return addLine({ key, kind: "output", ts, text: clip(String(e.text || "")) }, at);
+  if (e.kind === "handback") return at || !talkedBack(key) ? addLine({ key, kind: "output", ts, text: clip(String(e.text || "")) }, at) : undefined;
   if (e.kind === "user") return addLine({ key, kind: e.you ? "you" : "asked", ts, text: clip(String(e.text || "")) }, at);
   if (e.kind === "error") return addLine({ key, kind: "error", ts, text: String(e.text || e.reason || "error").slice(0, 300) }, at);
 }

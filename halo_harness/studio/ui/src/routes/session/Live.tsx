@@ -17,7 +17,9 @@
 // 3.3.0.0 R6: the steer's target row is outlined (a click on a row, or `s` on
 // a focused row, chooses it); the column stops following while you compose
 // or have scrolled up (follow.ts: the "N new rows · follow" pill); Export
-// downloads the session's trace (TraceExport.tsx).
+// downloads the session's trace (TraceExport.tsx). 3.3.16.2: THINK and TALK rows; each action row knows the thought
+// before it (liveThink.ts linkThoughts, one pass per change); Thinking (LiveHead.tsx) shows only thoughts and their
+// acts; the timeline draws each lane by phase (phases.ts) and a thinking segment's click scrolls to its thought.
 import { useCallback, useEffect, useMemo, useRef, type KeyboardEvent } from "react";
 import type { MotionState } from "../../lib/motion";
 import { Empty } from "../../lib/ui";
@@ -28,6 +30,10 @@ import { Timeline } from "../fleet/Timeline";
 import { allAgents, fleet, isLive, localId, useFleet } from "../fleet/store";
 import { focusSteer } from "../fleet/Steer";
 import { useLive, type LiveLine } from "../shared/liveFeed";
+import { linkThoughts, type Links } from "../shared/liveThink";
+import { pairOf } from "../shared/liveTalk";
+import { goRow } from "./LiveThink";
+import { phaseMap, type PhaseSeg } from "./phases";
 import { hueOf } from "../shared/hues";
 import { startLiveTree } from "../shared/liveTree";
 import { kindIn, LiveHead } from "./LiveHead";
@@ -59,6 +65,12 @@ function useWho(): Map<string, Who> {
 }
 
 const mine = (here: string) => (l: LiveLine) => l.key.startsWith(here + "|");
+/** The Thinking view: the thoughts, what each led to, and your own steers. */
+const thinkIn = (links: Links) => (l: LiveLine) => l.kind === "thinking" || l.kind === "you" || links.thoughtOf.has(l.n);
+const toThought = (p: PhaseSeg) => {
+  pauseFollow();
+  if (p.n) window.setTimeout(() => goRow(p.n!), 0);
+};
 const setHover = (key: string) => fleet.get().hover !== key && fleet.update(() => ({ hover: key }));
 
 export function LiveDetail() {
@@ -72,7 +84,12 @@ export function LiveDetail() {
   const strip = useStripScope();
   const target = useSteerTarget().key;
   const scroller = useRef<HTMLDivElement>(null);
-  const lines = useMemo(() => all.filter(pin ? (l) => l.key === pin : mine(here)).filter(kindIn(kind)), [all, pin, here, kind]);
+  const think = useSession((s) => s.think);
+  const links = useMemo(() => linkThoughts(all), [all]);
+  const phases = useMemo(() => phaseMap(all), [all]);
+  const pair = useSession((s) => s.pair);
+  const lines = useMemo(() => all.filter(pin ? (l) => l.key === pin : mine(here)).filter(kindIn(kind)).filter(think ? thinkIn(links) : () => true)
+    .filter(pair ? (l) => !!l.talk && pairOf(l.talk) === pair : () => true), [all, pin, here, kind, think, links, pair]);
   const shown = useMemo(() => (lines.length > VIEW ? lines.slice(-VIEW) : lines), [lines]);
   const targetN = useMemo(() => targetRow(shown, target, held), [shown, target, held]);
   const { following, fresh, onScroll } = useFollow(scroller, shown);
@@ -95,10 +112,12 @@ export function LiveDetail() {
   const lastN = shown[shown.length - 1]?.n;
   const onFollow = () => (sess.get().follow ? pauseFollow() : followAgain());
   return (
-    <div className="slv" data-testid="session-live-detail" data-follow={following || undefined} data-pinned={pin || undefined} data-kind={kind || undefined} data-target={target || undefined} onKeyDown={onKey}>
+    <div className="slv" data-testid="session-live-detail" data-follow={following || undefined} data-pinned={pin || undefined} data-kind={kind || undefined} data-target={target || undefined}
+         data-think={think || undefined} onKeyDown={onKey}>
       <LiveHead working={working} count={lines.length} onFollow={onFollow} following={following} />
       <div className="slv-strip">
-        <Timeline scope={strip} onPick={onPin} marked={target} verb="show only it in Live (again: everyone)" testid="session-live-timeline" extra={<TraceExport where="timeline" />} />
+        <Timeline scope={strip} onPick={onPin} marked={target} verb="show only it in Live (again: everyone)" testid="session-live-timeline" extra={<TraceExport where="timeline" />}
+                  phases={phases} onPhase={toThought} />
       </div>
       <div className="slv-rows">
         <div className="slv-scroll" ref={scroller} onScroll={onScroll} onMouseLeave={() => setHover("")} data-testid="session-live-scroll" tabIndex={-1}>
@@ -108,13 +127,17 @@ export function LiveDetail() {
             </button>
           )}
           {!shown.length && (
-            <Empty title={pin || kind ? "Nothing of that yet" : "Waiting for the agents"} testid="session-live-empty"
-                   body={kind ? "No line of that kind yet: every kind shows them all." : "Every agent's text, tool calls and output land here the moment they happen: start or steer a session in a terminal (halo)."} />
+            <Empty title={pin || kind || think || pair ? "Nothing of that yet" : "Waiting for the agents"} testid="session-live-empty"
+                   body={think ? "No thought yet: a model that thinks shows its reasoning here as it comes; a model with none shows nothing."
+                     : kind ? "No line of that kind yet: every kind shows them all." : "Every agent's text, tool calls and output land here the moment they happen: start or steer a session in a terminal (halo)."} />
           )}
-          {shown.map((l) => (
-            <LiveRow key={l.n} l={l} who={who.get(l.key) || { name: l.key.split("|")[2] || "?", hc: hueOf(l.key), state: "" }} last={l.n === lastN} target={l.n === targetN}
-                     onPin={onPin} onHover={setHover} onTarget={onTarget} />
-          ))}
+          {shown.map((l) => {
+            const led = l.kind === "thinking" ? links.led.get(l.n) : undefined;
+            return (
+              <LiveRow key={l.n} l={l} who={who.get(l.key) || { name: l.key.split("|")[2] || "?", hc: hueOf(l.key), state: "" }} last={l.n === lastN} target={l.n === targetN}
+                       onPin={onPin} onHover={setHover} onTarget={onTarget} thought={links.thoughtOf.get(l.n)} led={led?.[0]} ledN={led?.length || 0} />
+            );
+          })}
         </div>
         {fresh > 0 && (
           <button type="button" className="slv-new mono" data-testid="live-follow" onClick={followAgain} title="Follow the newest row again">

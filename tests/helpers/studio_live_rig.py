@@ -7,7 +7,8 @@ and tools/capture_session_anim.py.
 * `Live(rig)` adds extra agents to this harness's session as GET fleet
   lists it (fleet/local_view.session_row is wrapped for the rig's session,
   so a reload keeps them) and pushes the feed frames a real session sends
-  (text_chunk, tool_use_start, tool_result, agent_state, the asks) through
+  (text_chunk, tool_use_start, tool_result, agent_state, the asks; 3.3.16.2
+  thinking_chunk and agent_talk: `think`, `talk`) through
   Studio's own event bridge, so the page sees exactly what a live session
   shows. `close()` restores session_row.
 No model is called.
@@ -77,6 +78,23 @@ class Live:
 
     def say(self, name: str, text: str) -> None:
         self.frame(name, "text_chunk", {"text": text})
+
+    def think(self, name: str, tid: str, text: str, end: bool = False, ms: "int | None" = None, tokens: "int | None" = None) -> None:
+        """A piece of one thought (fleet/think.py's frame): `end` closes it, with `ms` and `tokens` when given."""
+        data: dict = {"id": tid, "text": text}
+        if end:
+            data["end"] = True
+        if ms is not None:
+            data["ms"] = ms
+        if tokens is not None:
+            data["tokens"] = tokens
+        self.frame(name, "thinking_chunk", data)
+
+    def talk(self, frm: str, to: str, text: str, why: str = "task", mid: str = "", **extra) -> None:
+        """One agent's words to another (fleet/talk.py's shape); `to` "" with machine= for a hand-over."""
+        data = {"id": mid or f"m{time.time_ns()}", "from": self.aid(frm), "to": self.aid(to) if to else "", "text": text, "why": why,
+                "from_name": frm, "to_name": to or extra.get("machine", ""), "ts": time.time(), **extra}
+        self.frame(frm, "agent_talk", data)
 
     def tool(self, name: str, tool: str, call_id: str, current: str = "") -> None:
         if current:

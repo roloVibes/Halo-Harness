@@ -28,6 +28,8 @@ type Want = { session: string; key: AgentKey };
 type SessionState = {
   view: SessionUiView; chosen: string; want: Want | null; pin: AgentKey; follow: boolean; kind: string;
   target: AgentKey; held: number; chosenAt: number; hold: boolean; composing: boolean; pausedAt: number;
+  /** 3.3.16.2: the Thinking view (LiveHead.tsx): only THINK rows and the rows they led to; `pair` only one pair's talk (Conversations). */
+  think: boolean; pair: string;
 };
 
 function urlWant(): Want | null {
@@ -49,6 +51,8 @@ export const sess = createStore<SessionState>({
   hold: false,
   composing: false,
   pausedAt: 0,
+  think: false,
+  pair: "",
 });
 
 export function useSession<S>(select: (s: SessionState) => S): S {
