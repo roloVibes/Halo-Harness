@@ -143,7 +143,7 @@ instead)" (and "(code 5/5 here)" when the numbers confirmed it).
 |---|---|
 | **Lineups** (`roles-lineups`) | every lineup (shipped, user, project; the active one marked, the open one highlighted); **New** and **Duplicate** ask for a name on a card, **Delete** asks first (a shipped lineup stays), **Apply** asks first, showing the role table it writes; **user / project** says where New, Save and Delete write |
 | **Canvas** (`roles-graph`, the drawn canvas `roles-canvas`) | the open lineup: one card per assignment, in one labelled column box per tier; the edges; the toolbar (scope, unsaved, Add tier, Undo, Redo, Save, Apply, Lay out, Fit, zoom); the replay bar along its bottom |
-| **Inspector** (`roles-inspector`) | **Assignment** (the selected card's bio, role, alias, instances, the words that route a task to it, a model override, what resolves for it; Edit bio, Duplicate, Remove; with no card: the lineup's description, about and extends), **Lineup** (every top section as a small form with a **YAML** toggle and its enforcement badge), **Live** (the agents on the card now, or its last runs) |
+| **Inspector** (`roles-inspector`) | **Assignment** (a card's summary: role, bio, model with what it takes, price and context, instances, the words that route to it; Edit rows for its Slot and Model override, Edit bio, Duplicate, Remove; with no card: the lineup's summary), **Lineup** (the lineup's summary, then one Edit row per block; Edit opens that block alone on its page, with its **YAML** toggle and enforcement badge), **Live** (the agents on the card now, or its last runs) |
 | **Problems** (`roles-problems`) | everything wrong with the lineup as it stands in the editor, saved or not, in **Blocks** and **Warns**, each with its fix; a click selects its card; **Config** lists what `halo doctor --config` finds in the files behind the lineup |
 | **Bios** (`roles-bios`) | every bio (drag one onto the canvas to add a card); a click opens the **bio form** (`bio-form`): models first (3.1.4.0: the preferred model in the **model select**, the **model picker table** folded under **more...**, fallback, effort up to xhigh and max, thinking, the context budget); description, kind, tags, extends; tools (allow and deny from the real registry, `GET /api/tools`, MCP servers, permission mode, the rules); context (files, skills, the memory namespace, prompt notes); limits; output; environment (own worktree, offline); acceptance; the schedule (cron or every, its prompt and model) and the triggers (file change, event, message); a **YAML** toggle for the whole bio (hooks and any key without a field); **Save bio** (with **Save to project scope**), New, Duplicate, Delete |
 | **Models** (`roles-models`) | the catalog: its row count, each provider (enabled, key, models cached), why it is empty when it is (every provider looked at and why it lists nothing), **Refresh** (`POST /api/models/refresh`: every provider at once, each time-boxed, one line each: `ok, N models` or the reason, and "refreshed <when>"), **Analyze** (3.1.9.0, `POST /api/models/analyze`, what `halo models analyze` does: rebuilds what each model is good at and shows how many models per kind and each kind's strongest, the cheapest beside it when it differs), and **Test a model** by any ref |
@@ -225,6 +225,21 @@ instead)" (and "(code 5/5 here)" when the numbers confirmed it).
   one-tier fan reads as a tree; the selected card's labels are placed
   first and full strength, the others dimmed, and a label that would still
   overlap another is left off: no two labels ever overlap.
+- **The inspector says one thing at a time (3.3.16.0 R1b).** With a lineup open the Lineup tab is a **summary**
+  (`roles-summary`), not a form: what the lineup does, the main model (its price and the band an `auto` pick uses),
+  who is on it ("7 cards: boss, worker, research x2 ..."), where workers run, spend ("budget $20 cap, 400 turns" or
+  "no cap: Halo stops at the bio budgets") and "9 sections: 3 set, 6 at Halo's default". Under it one **Edit** row
+  per block -- Description and how it works, Where workers run (isolation, secrets, tool capabilities), Schedule and
+  warm set, then the nine sections -- each with its state in mono ("mode by-skill, 2 at once") or "not set = Halo
+  does: ..." (`roles-block-<name>`, `roles-edit-<name>`). Edit opens that block alone (`roles-page-<name>`): Back
+  (or Esc) returns to the summary, the block's title, its enforcement badge, its YAML toggle and its `?` (that
+  block's field lines only); one sentence of what it does; when it is not set, **not set = Halo does ...**
+  (`roles-page-default`), the real default read from the code that applies the section (`field_help.py`
+  `LINEUP_DEFAULTS`, served as `lineup_defaults`; the terminal's lineup view prints the same words under each unset
+  section); then the form. Edits stay in the draft (Save / Revert as before). A selected card opens on its own
+  summary the same way: role, bio, its model with the takes tags, price and context, instances, the words that
+  route to it, then Edit rows for its **Slot** and **Model override** (one page each) and **Edit bio**.
+  `halo studio --edit lineup:<name>` opens the summary; `lineup:<name>:<block>` opens that block's page.
 - **One editor (3.1.1.0).** Studio is where bios and lineups are edited:
   every field the terminal's read-only bio and lineup views show is in the
   bio form and the Inspector (the field-by-field table is in

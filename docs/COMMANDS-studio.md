@@ -15,7 +15,7 @@ Studio as well, and `halo update` stops it before installing.
 
 ```sh
 halo studio [--mode session|agents|fleet|packs|setup|settings|local|<pack>--<section>] [--port N] [--no-open] [--cwd DIR] [--fleet]
-halo studio --edit bio:<name> | lineup:<name> | team [--no-open]
+halo studio --edit bio:<name> | lineup:<name>[:<block>] | team [--no-open]
 halo studio --session [<id>] [--prompt] [--no-open]
 ```
 
@@ -48,8 +48,9 @@ its **Prompt** panel up and the keyboard in its box, to type into the session as
 
 3.1.1.0: Studio is the one editor of bios and lineups, and `--edit TARGET`
 opens it on one: `bio:<name>` (Agents on Cast, the Bios panel on that bio's form),
-`lineup:<name>` (Agents on Cast, that lineup open, the Inspector on its Lineup tab)
-or `team` (Agents on Runs; 3.3.16.0 R1: the Team section went); 3.3.0.0 R4: `setup`, `setup:first` (what
+`lineup:<name>` (Agents on Cast, that lineup open, the Inspector on its Lineup tab's summary; 3.3.16.0 R1b:
+`lineup:<name>:<block>` opens that block's page, a block being `description`, `workers`, `schedule` or one of the
+nine sections) or `team` (Agents on Runs; 3.3.16.0 R1: the Team section went); 3.3.0.0 R4: `setup`, `setup:first` (what
 `halo init` opens: `?mode=setup&first=1`) and `setup:<block>` (`halo setup
 team`: `?mode=setup&block=team`), [STUDIO-setup.md](STUDIO-setup.md). The target rides in the URL as
 `?mode=roles&edit=bio:<name>` (the token stays in the `#t=` fragment). When

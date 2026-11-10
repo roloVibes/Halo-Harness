@@ -68,7 +68,7 @@ export function Header() {
   const focus = useStore(studio, (s) => s.focus);
   const def = sectionDef(section);
   return (
-    <header className="topbar">
+    <header className="topbar" data-density="bar">
       <div className="brand" title="Halo Studio">
         <span className="brand-ring" aria-hidden="true" />
         <span className="brand-name">HALO</span>

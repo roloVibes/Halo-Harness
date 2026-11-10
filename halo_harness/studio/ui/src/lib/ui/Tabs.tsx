@@ -20,7 +20,7 @@ export function Tabs({ items, value, onChange, label }: { items: TabItem[]; valu
     return () => ro.disconnect();
   }, [value, items.length]);
   return (
-    <div className="tabs" role="tablist" aria-label={label} ref={row}>
+    <div className="tabs" role="tablist" aria-label={label} ref={row} data-density="bar">
       {items.map((it) => [
         it.divider && (
           <span key={"div-" + it.id} className="tab-divider mono" data-testid="tab-divider" aria-hidden="true">

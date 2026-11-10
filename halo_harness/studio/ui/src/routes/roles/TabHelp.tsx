@@ -1,7 +1,7 @@
 // The `?` of the Inspector's Assignment and Lineup tabs (3.3.15.0 R3, the 3.3.2.0 rule: reference text goes in a `?`):
 // the one-line explainer of every field on the tab, field_help.py's lines (lib/fieldHelp.ts), listed by the field's
 // label. The fields themselves draw no hint line inside `HintsInHelp` (controls.tsx); the label keeps it as its
-// tooltip. The Agents round (3.3.16.0) redoes these tabs.
+// tooltip. 3.3.16.0 R1b: each block's page has its own `?`, that block's lines only (useBlockLines).
 import type { ReactNode } from "react";
 import { useHelpGroup } from "../../lib/fieldHelp";
 import { HintsInHelp } from "./controls";
@@ -39,12 +39,15 @@ export function useHeaderLines(): HelpLine[] {
   return [["Description", h.description], ["How the pieces work together", h.about], ["Extends", h.extends]];
 }
 
-/** Every line of the Lineup tab: the header, the opt-in fields, then each section's fields. */
-export function useLineupLines(): HelpLine[] {
+/** 3.3.16.0 R1b: the lines of one block's page (the page's `?` lists that block's fields only). */
+export function useBlockLines(block: string): HelpLine[] {
   const h = useHelpGroup("assignment");
   const f = useHelpGroup("lineup_fields");
   const head = useHeaderLines();
-  const optIn: HelpLine[] = [["Isolation", h.isolation], ["Secrets broker", h.secrets], ["Tool capabilities", h.capabilities]];
-  const sections: HelpLine[] = SECTIONS.flatMap((d) => d.fields.map((x): HelpLine => [`${d.title} · ${x.label}`, f[x.path ? `${d.name}.${x.path}` : d.name]]));
-  return [...head, ...optIn, ...sections];
+  if (block === "description") return head;
+  if (block === "workers") return [["Isolation", h.isolation], ["Secrets broker", h.secrets], ["Tool capabilities", h.capabilities]];
+  if (block === "schedule") return [["Swaps a pass", "one pass of the lineup: main, each local lane, back to main (the steady state)"],
+                                    ["Warm", "load the warm set now, the same as halo local warm <lineup>"]];
+  const d = SECTIONS.find((x) => x.name === block);
+  return d ? d.fields.map((x): HelpLine => [x.label, f[x.path ? `${d.name}.${x.path}` : d.name]]) : [];
 }

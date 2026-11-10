@@ -73,7 +73,7 @@ export function SetupRail() {
   const steps = JSON.parse(joined) as [StepId, string, string, string, string, string][];
   return (
     <div className="su-top">
-      <nav className="su-steps" aria-label="Setup steps" data-testid="setup-rail">
+      <nav className="su-steps" aria-label="Setup steps" data-testid="setup-rail" data-density="bar">
         <ol className="su-steps-list">
           {steps.map(([st, state, word, title, pack, placed], i) => {
             const prev = steps[i - 1];

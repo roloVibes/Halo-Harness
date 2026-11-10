@@ -1,0 +1,44 @@
+/* 3.3.16.0 R1b, "the inspector says one thing at a time": the lineup's and a card's summary (six plain-words lines in
+   a dl, then one Edit row per block: its title, its state in mono, Edit) and one block's page (Back, the title, the
+   tools and the `?` on a 36 px bar; what this does; "not set = Halo does ..."; the form). The Instrument spacing:
+   12 px inside and between, a row is a 40 px target, a bar 36. Tokens only. */
+
+.ri-sum, .ri-page { display: grid; gap: var(--s-3); align-content: start; font-size: var(--fs); }
+
+/* -- the summary's lines -- */
+.ri-summary { display: grid; gap: var(--s-2); margin: 0; padding: var(--s-3); border: 1px solid var(--line-soft);
+  border-radius: var(--r-card); background: var(--bg-2); }
+.ri-summary > div { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: var(--s-3); align-items: baseline; }
+.ri-summary dt { color: var(--faint); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; }
+.ri-summary dd { margin: 0; color: var(--text); line-height: 20px; overflow-wrap: anywhere; }
+.ri-summary dd[data-muted] { color: var(--muted); }
+.ri-model { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); }
+
+/* -- the Edit rows: a 40 px target each, the state in mono under the title -- */
+.ri-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-2); }
+.ri-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--s-2); min-height: var(--row-h);
+  padding: 0 var(--s-3) 0 0; border: 1px solid var(--line-soft); border-radius: var(--r-card); background: var(--surface); }
+.ri-row[data-set] { border-color: var(--line); }
+.ri-row:hover { border-color: var(--line-strong); }
+.ri-row-main { display: grid; gap: 2px; min-height: var(--row-h); padding: var(--s-2) var(--s-3); border: 0; background: none; color: var(--text);
+  text-align: left; cursor: pointer; font: inherit; min-width: 0; }
+.ri-row-main:disabled { cursor: default; }
+.ri-row-title { font-weight: 600; font-size: var(--fs); }
+.ri-row[data-set] .ri-row-title { color: var(--accent); }
+.ri-row-state { font-size: 11.5px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ri-row-state[data-muted] { color: var(--muted); }
+.ri-pick { margin: 0; }
+
+/* -- one block's page -- */
+.ri-page-head { display: flex; align-items: center; gap: var(--s-2); min-height: var(--ctl-h); padding-bottom: var(--s-2);
+  border-bottom: 1px solid var(--line); }
+.ri-page-title { flex: 1; min-width: 0; font-size: 14px; }
+.ri-page-head .re-tab-help { justify-self: auto; }
+.ri-page-head .re-tab-help[open] { position: relative; }
+.ri-page-head .re-tab-help[open] .re-tab-help-lines { position: absolute; right: 0; top: calc(100% + var(--s-1)); z-index: 5; width: min(320px, 80vw);
+  background: var(--surface); }
+.ri-page-what { margin: 0; color: var(--muted); line-height: 20px; }
+.ri-page-default { margin: 0; padding: var(--s-2) var(--s-3); border-left: 2px solid var(--line-strong); background: var(--bg-2); font-size: 11.5px;
+  line-height: 18px; color: var(--text); }
+.ri-page > .re-form, .ri-page > .re-yaml { gap: var(--s-3); }
+.re-actions[data-density="bar"], .re-yaml-row[data-density="bar"] { min-height: var(--ctl-h); align-items: center; }

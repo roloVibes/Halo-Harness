@@ -8,11 +8,12 @@ import { useEffect } from "react";
 import { call } from "./api";
 import { createStore, useStore } from "./store";
 
-/** 3.1.4.0 R4: `model_select` holds the lines of the one model control (routes/shared/ModelSelect.tsx). */
-export type HelpGroup = "identity" | "bio" | "lineup_sections" | "lineup_fields" | "assignment" | "model_select";
+/** 3.1.4.0 R4: `model_select` holds the lines of the one model control (routes/shared/ModelSelect.tsx); 3.3.16.0 R1b:
+ *  `lineup_defaults` what Halo does when a lineup leaves a section out (the inspector's "not set = Halo does ..."). */
+export type HelpGroup = "identity" | "bio" | "lineup_sections" | "lineup_fields" | "assignment" | "model_select" | "lineup_defaults";
 type Lines = Record<HelpGroup, Record<string, string>>;
 
-const EMPTY: Lines = { identity: {}, bio: {}, lineup_sections: {}, lineup_fields: {}, assignment: {}, model_select: {} };
+const EMPTY: Lines = { identity: {}, bio: {}, lineup_sections: {}, lineup_fields: {}, assignment: {}, model_select: {}, lineup_defaults: {} };
 export const fieldHelp = createStore<{ lines: Lines; loaded: boolean }>({ lines: EMPTY, loaded: false });
 
 let loading = false;

@@ -22,7 +22,7 @@ export function SettingsRail() {
           const n = setIn(g.id);
           return (
             <li key={g.id}>
-              <button type="button" className={"st-rail-item" + (on ? " on" : "")} onClick={() => goto(g.id)} data-testid="settings-rail-group"
+              <button type="button" className={"st-rail-item" + (on ? " on" : "")} onClick={() => goto(g.id)} data-testid="settings-rail-group" data-density="row"
                       data-group={g.id} aria-current={on ? "page" : undefined} title={`${g.title}: ${n} of ${g.count} keys set`}>
                 <span className="st-rail-title">{g.title}</span>
                 <span className="st-rail-count mono" data-set={n > 0 || undefined}>
@@ -31,7 +31,7 @@ export function SettingsRail() {
               </button>
               {g.id === "general" && (
                 <button type="button" className={"st-rail-item st-rail-themes" + (page === THEMES_PAGE && !searching ? " on" : "")}
-                        onClick={() => goto(THEMES_PAGE)} data-testid="settings-rail-themes" data-group={THEMES_PAGE}
+                        onClick={() => goto(THEMES_PAGE)} data-testid="settings-rail-themes" data-density="row" data-group={THEMES_PAGE}
                         aria-current={page === THEMES_PAGE && !searching ? "page" : undefined} title="Themes: the ten palettes, one theme key">
                   <span className="st-rail-title">Themes</span>
                   <span className="st-rail-count mono">10</span>

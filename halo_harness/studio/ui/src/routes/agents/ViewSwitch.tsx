@@ -38,7 +38,7 @@ function Note() {
 
 export function AgentsBar({ view }: { view: AgentsView }) {
   return (
-    <div className="ag-bar" data-testid="agents-bar">
+    <div className="ag-bar" data-testid="agents-bar" data-density="bar">
       <ViewSwitch view={view} />
       {view === "runs" && <TestLineup />}
       <Note />

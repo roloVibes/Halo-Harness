@@ -77,6 +77,33 @@ LINEUP_SECTIONS = {
              "a tier may name its own model and a trigger that starts it",
 }
 
+#: 3.3.16.0 R1b: what Halo does when a lineup leaves a section out, read from the code that applies it (the comment
+#: names it). Studio's inspector shows it as "not set = Halo does ..."; the TUI's lineup view prints the same words.
+LINEUP_DEFAULTS = {
+    # teams_runtime.TeamControl.delegation/handoff_text; agent/subagent.effective_max_concurrent, effective_max_depth
+    "delegation": "the main agent picks who gets each task; up to 4 run at once (agents.max_concurrent), only main "
+                  "spawns (agents.max_depth 1), and a member's text comes back as it wrote it",
+    # teams_runtime.TeamControl.route_call (no routing: a card's use_for words, else the role the call names)
+    "routing": "a task goes to the card whose 'use for' words it names, else to the role the main agent asks for",
+    # teams_runtime.TeamControl.budget_refusal (no caps: never stops); models_auto.DEFAULT_BAND
+    "budget": "no lineup cap: each member stops at its own bio's limits; an auto member's model pick uses band mid",
+    # teams_runtime.TeamControl.escalation_decision (no `to`: no switch)
+    "escalation": "nothing happens until you set it: a stuck member stays on its model",
+    # teams_runtime.TeamControl.member_context_addition, member_memory (no namespace: no shared memory)
+    "context": "each member starts with its own bio's context only: no shared files, skills or memory",
+    # agent/subagent._build_child_session (no team mode: the bio's, else the parent's, clamped to the parent's)
+    "permissions": "each member runs in its bio's permission mode, else your session's, never looser than yours",
+    # teams_runtime.TeamControl.stage_for, gate_block (no stages: no gate)
+    "pipeline": "no stages: a member's result comes back with no gate to pass",
+    # packs/lineup_run.run_defaults, goal_defaults (no acceptance: the goal's own test, plan auto)
+    "acceptance": "nothing happens until you set it: an Orchestra run on it takes the test you give and runs its "
+                  "plan without a pause",
+    # teams_tiers.effective_tiers (one implicit tier, `all`); teams_runtime.TeamControl.tier_gate (undeclared: no gate)
+    "tiers": "one tier holds every card: any member may spawn any other, within delegation's depth",
+    # isolation/spec.resolve (no isolation: none); orchestra/workers.start_workers (a worktree per lane)
+    "isolation": "workers run as you on this machine; an Orchestra run gives each lane its own git worktree",
+}
+
 #: One line per lineup section field, `section.path` (`section` alone: a section edited as one value).
 LINEUP_FIELDS = {
     "delegation.mode": "manual, by-skill (routes by the words in a task) or round-robin",
@@ -193,7 +220,7 @@ def as_json() -> dict:
     """What `GET /api/field-help` answers."""
     return {"identity": dict(IDENTITY), "bio": dict(BIO), "lineup_sections": dict(LINEUP_SECTIONS),
             "lineup_fields": dict(LINEUP_FIELDS), "assignment": dict(ASSIGNMENT), "model_select": dict(MODEL_SELECT),
-            "pack": dict(PACK)}
+            "pack": dict(PACK), "lineup_defaults": dict(LINEUP_DEFAULTS)}
 
 
 def bio_line(section: str, key: str = "") -> str:
@@ -208,3 +235,8 @@ def lineup_line(section: str, path: str = "") -> str:
     if not path:
         return LINEUP_SECTIONS.get(section, "")
     return LINEUP_FIELDS.get(f"{section}.{path}", "")
+
+
+def lineup_default(section: str) -> str:
+    """3.3.16.0 R1b: what Halo does when the lineup leaves `section` out, or ''."""
+    return LINEUP_DEFAULTS.get(section, "")

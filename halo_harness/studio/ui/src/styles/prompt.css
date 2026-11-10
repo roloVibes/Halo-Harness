@@ -4,7 +4,7 @@
    glass. Beside each of your turns the receipt's four marks: dim until reached, cyan once reached, red when the
    send failed. Tokens only (styles/tokens.css); nothing loops. */
 
-.panel-body.face-detail:has(> .spp) { padding: 0; overflow: hidden; }
+.panel-body.face-detail:has(> .spp) { overflow: hidden; } /* 3.3.16.0 R1b: the body keeps its 12 px (the density pass) */
 /* 3.3.15.0 R3: the feed takes what it holds (it scrolls past the free height), the foot the rest: a short feed leaves
    its room to the box (TextBox `fill`), never a wall of empty space over a one-line box */
 .spp { height: 100%; display: grid; grid-template-rows: auto minmax(0, max-content) minmax(auto, 1fr); min-height: 0; }

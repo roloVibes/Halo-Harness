@@ -124,6 +124,8 @@ def focus(c, url: str, state: Path, srv) -> dict:
     out["lineup_how"], out["lineup_pages"] = r["how"], r["pages"]
     out["lineup_tab"] = c.wait(f"{q('roles-lineup-tab')}?.dataset.lineup", 20)
     out["lineup_selected"] = c.js(f"{q('roles-tab-lineup')}?.getAttribute('aria-selected')")
+    # 3.3.16.0 R1b: lineup:<name> opens the summary (its policy line); the block's row opens its page
+    out["summary_policy"] = c.wait(f"{q('roles-summary')}?.querySelector('[data-line=policy] dd')?.textContent", 20)
     press(c, "roles-block-delegation")
     c.wait(f"!!{q('roles-section-delegation')}", 5)
     out["about"] = c.js(f"{q('roles-about-delegation')}?.textContent || ''")
@@ -137,6 +139,8 @@ def focus(c, url: str, state: Path, srv) -> dict:
         time.sleep(0.2)
         mode = ((yaml.safe_load(path.read_text(encoding="utf-8")) or {}).get("delegation") or {}).get("mode")
     out["delegation_saved"] = mode
+    r = open_edit(parse("lineup:halo-dev-cycle:tiers")[0], cwd=cwd, state_dir=state)  # R1b: one block's page, unset
+    out["tiers_default"] = c.wait(f"{q('roles-page-tiers')} && {q('roles-page-default')}?.textContent", 20)
     r = open_edit(parse("team")[0], cwd=cwd, state_dir=state)
     out["team_how"] = r["how"]
     end = time.time() + 10

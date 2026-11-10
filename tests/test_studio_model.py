@@ -146,7 +146,8 @@ def test_every_card_hangs_off_main(ctx: Ctx):
               and "reports" not in kinds.values())
     from pathlib import Path as _P
     roles = _P(__file__).resolve().parent.parent / "halo_harness" / "studio" / "ui" / "src" / "routes" / "roles"
-    canvas, assign, parts = ((roles / f).read_text(encoding="utf-8") for f in ("Canvas.tsx", "Assignment.tsx", "CanvasParts.tsx"))
+    canvas, assign, parts, card = ((roles / f).read_text(encoding="utf-8") for f in ("Canvas.tsx", "Assignment.tsx", "CanvasParts.tsx", "CardSummary.tsx"))
+    assign += card  # 3.3.16.0 R1b: the Assignment header is the card's summary (CardSummary.tsx)
     ctx.check("the React canvas has no drop-to-report and no Reports-to field",
               "setReportsTo" not in canvas and 'label="Reports to"' not in assign and '"reports"' not in parts)
     ctx.check("a shipped bio's badge (3.2.2.0 R5: in the Inspector's Assignment header, not on the card) says what it is and what to do",

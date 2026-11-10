@@ -66,6 +66,48 @@ R1b (the inspector says one thing at a time, the density pass), R2 (the Fleet fo
   TEAM.md ("the board moved to Agents -> Runs; `halo team` stays"), COMMANDS-studio.md, the glossary and every doc's
   `Alt+N` follow.
 
+### R1b: the inspector says one thing at a time; the density pass
+
+The owner's photo of Cast's Lineup tab (2026-11-09: "so so busy ... I can barely read ... idk what all of those
+functions and settings even are") and his standing rule ("small blocks that make it hard to use ... make studio
+cleaner and clearer").
+
+#### Changed
+
+- **The inspector opens on a summary.** With a lineup open, the Lineup tab (and the Assignment tab with no card) is six
+  plain-words lines -- what the lineup does, the main model with its price and band, who is on it, where workers run,
+  spend, "9 sections: 3 set, 6 at Halo's default" -- then one Edit row per block (Description and how it works, Where
+  workers run, Schedule and warm set, the nine sections), each with its state in mono or "not set = Halo does: ...".
+  No form, no YAML box, no help paragraph is on it.
+- **One block per page.** Edit opens that block alone: Back (or Esc) to the summary, the title, the enforcement badge,
+  the YAML toggle and a `?` with that block's field lines only; one sentence of what it does; "not set = Halo does
+  ..." when it is unset; then its form. A selected card opens on its own summary (role, bio, the model with its takes
+  tags, price and context, instances, the words that route to it) with Edit rows for its Slot and its Model override
+  and Edit bio. Every testid stays (`roles-block-<name>` is the row that opens the page).
+- **The density pass.** No control bar under 36 px, no row that is a target under 40 px, 12 px inside every panel
+  body and between panels, one thing open per section on load: Settings' and Local's page-rail rows were 33 px (now
+  `--row-h`, 40), and Session's Live and Prompt panels set their body's padding to 0 (the exemption went; the
+  primitive's 12 px applies). Every core section kept one panel open on load.
+- The Studio captures that still drew the nine-icon rail are re-rendered (Session, its Live column and GIF, Roles
+  Live, Fleet x5, Packs, Setup, Settings, Local, Design, Agents, Roles, the modes banner, the hero and the social
+  preview).
+
+#### Added
+
+- `LINEUP_DEFAULTS` in `halo_harness/field_help.py`: what Halo does when a lineup leaves each section (and
+  `isolation`) out, read from the code that applies it; `GET /api/field-help` serves it as `lineup_defaults`, and the
+  terminal's lineup view prints "(not set = Halo does: ...)" under each unset section.
+- `halo studio --edit lineup:<name>:<block>` opens one block's page (`description`, `workers`, `schedule` or a section).
+- The primitives mark themselves for the density rules (`data-density="bar|row|body"`), the tokens `--ctl-h` (36)
+  and `--row-h` (40), and `tests/test_studio_density.py` (headless Chrome over every core section, each workspace
+  panel opened in turn; the first offender fails with its section, testid and height); `tests/test_lineup_defaults.py`.
+
+#### Docs
+
+- STUDIO-agents.md (the summary, Edit, one block per page, the defaults line), STUDIO-shell.md (the density rules),
+  ROLES.md (a lineup section not set: what Halo does), AGENTS.md, COMMANDS-studio.md (`--edit lineup:<n>:<block>`),
+  MEDIA.md (the seven-tile banner).
+
 ## [3.3.15.0] - 2026-11-09
 
 **Studio wears the Instrument look.** A design session answered `docs/STUDIO-redesign-brief.md` with "Instrument"

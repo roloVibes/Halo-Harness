@@ -141,6 +141,7 @@ export function Panel({ spec, p }: { spec: PanelSpec; p: PanelLayout }) {
         className={"panel glass" + (focused ? " focused" : "")}
         data-motion={motion}
         data-collapsed={p.collapsed || undefined}
+        data-density={p.collapsed ? "row" : undefined}
         data-face={face}
         data-active={active || undefined}
         data-focused={focused || undefined}
@@ -153,7 +154,7 @@ export function Panel({ spec, p }: { spec: PanelSpec; p: PanelLayout }) {
         data-testid={spec.testid}
       >
         {focused && <span className="hud-brackets" aria-hidden="true" />}
-        <header className="panel-bar" onPointerDown={move} onDoubleClick={toggleFace} title="Drag to move. Alt+arrows move, Alt+Shift+arrows resize.">
+        <header className="panel-bar" data-density="bar" onPointerDown={move} onDoubleClick={toggleFace} title="Drag to move. Alt+arrows move, Alt+Shift+arrows resize.">
           <span className="panel-dot" data-motion={motion} aria-hidden="true" />
           <h3 className="panel-title" data-testid="panel-title" title={spec.about}>{spec.title}</h3>
           {focused && (
@@ -185,17 +186,17 @@ export function Panel({ spec, p }: { spec: PanelSpec; p: PanelLayout }) {
         {spec.keepAlive && hasDetail ? (
           <>
             {face === "glance" && !p.collapsed && (
-              <div className="panel-body face-glance" ref={bodyRef(true)} data-overflow={over || undefined}>
+              <div className="panel-body face-glance" data-density="body" ref={bodyRef(true)} data-overflow={over || undefined}>
                 <spec.glance />
               </div>
             )}
-            <div className="panel-body face-detail" hidden={p.collapsed || face !== "detail"} ref={bodyRef(face === "detail")} data-overflow={(face === "detail" && over) || undefined}>
+            <div className="panel-body face-detail" data-density="body" hidden={p.collapsed || face !== "detail"} ref={bodyRef(face === "detail")} data-overflow={(face === "detail" && over) || undefined}>
               {spec.detail && <spec.detail />}
             </div>
           </>
         ) : (
           !p.collapsed && (
-            <div className={`panel-body face-${face}`} ref={setBody} data-overflow={over || undefined}>
+            <div className={`panel-body face-${face}`} data-density="body" ref={setBody} data-overflow={over || undefined}>
               {face === "detail" && spec.detail ? <spec.detail /> : <spec.glance />}
             </div>
           )

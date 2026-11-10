@@ -27,7 +27,7 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Collapsible, OptionList, Static
 from textual.widgets.option_list import Option
 
-from halo_harness.field_help import ASSIGNMENT, lineup_line
+from halo_harness.field_help import ASSIGNMENT, lineup_default, lineup_line
 from halo_harness.teams_yaml import TOP_SECTIONS
 from halo_harness.tui.dialogs.lineup_view_text import cost_lines, draft_about_text, lineup_warnings, \
     resolved_assignment_line, roles_projection, section_yaml as _yaml
@@ -103,7 +103,8 @@ class LineupView(ModalScreen):
                 for section in TOP_SECTIONS:
                     value = self.template.get(section)
                     with Collapsible(title=f"{section}: {lineup_line(section)}", id=f"lineup-collapsible-{section}"):
-                        yield Static(_yaml(value) if value else "(not set)", id=f"lineup-section-{section}")
+                        yield Static(_yaml(value) if value else f"(not set = Halo does: {lineup_default(section)})",
+                                     id=f"lineup-section-{section}")
                 yield Static("How the pieces work together (about):", classes="bio-section-title")
                 about = str(self.template.get("about") or "").strip()
                 yield Static(about or f"(none yet; drafted from the lineup: {draft_about_text(self.template)})",

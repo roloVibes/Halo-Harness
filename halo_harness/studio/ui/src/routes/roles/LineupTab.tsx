@@ -1,136 +1,34 @@
-// The Inspector's Lineup tab (3.0.7.0 R2): the lineup's description, how the
-// pieces work together and what it extends, then one block per top section
-// (delegation, routing, budget, escalation, context, permissions,
-// pipeline, acceptance, tiers), each with its enforcement badge, its small
-// form (SectionForm) and a YAML toggle that edits the raw section body
-// (`POST yaml` both ways). A save that answers 422 lists the validator's
-// lines above the sections. 3.1.1.0 R3: Studio is the one editor of lineups
-// (`halo studio --edit lineup:<name>` opens this tab); each section's line
-// and the header's field lines are field_help.py's; Save to project scope. 3.3.7.0 R3: a lineup with local
-// lanes shows its swap preview and a Warm button under the header (LineupSched.tsx). 3.3.15.0 R3: Description and
-// How the pieces work together are TextBoxes; the fields' one-line hints sit in the tab's `?` (TabHelp.tsx).
-import { useEffect, useState } from "react";
-import { api } from "../../lib/api";
-import { useFieldHelp, useHelpGroup } from "../../lib/fieldHelp";
-import { Button, TextBox } from "../../lib/ui";
-import { edit } from "./actions";
-import { TextIn } from "./controls";
-import { ScopeCheck } from "./BioForm";
-import { LineupSched } from "./LineupSched"; // 3.3.7.0 R3: the swap preview, the warm set, Warm
-import { OptInFields } from "./OptInFields";
-import { SectionForm } from "./SectionForm";
-import { InHelp, TabHelp, useLineupLines } from "./TabHelp";
-import { SECTIONS, type SectionDef } from "./sections";
+// The Inspector's Lineup tab (3.0.7.0 R2; 3.3.16.0 R1b "one thing at a time"): it opens on the lineup's SUMMARY
+// (LineupSummary.tsx: six plain-words lines, then one Edit row per block) and Edit opens that block alone on its page
+// (LineupPage.tsx: what this does, "not set = Halo does ...", the block's form, its YAML toggle, its `?`). Studio is
+// the one editor of lineups (`halo studio --edit lineup:<name>` opens the summary, `lineup:<name>:<block>` that
+// page). A save that answers 422 lists the validator's lines above either (LineupHeader.tsx SaveProblems). Every
+// testid of the 3.0.7.0 tab stays: `roles-lineup-tab` here, `roles-block-<name>` on the summary's rows, the rest on
+// the pages.
+import { LineupPage } from "./LineupPage";
+import { SaveProblems } from "./LineupHeader";
+import { LineupSummary } from "./LineupSummary";
+import { useLineupPage } from "./pages";
 import { useRoles } from "./store";
-import { msg } from "./sync";
 
-function YamlBox({ def }: { def: SectionDef }) {
-  const body = useRoles((s) => s.raw?.[def.name]);
-  const [text, setText] = useState("");
-  const [err, setErr] = useState("");
-  useEffect(() => {
-    let live = true;
-    api.post<{ yaml: string }>("yaml", { raw: body === undefined ? {} : { [def.name]: body } })
-      .then((r) => live && setText(body === undefined ? `${def.name}:\n` : r.yaml))
-      .catch(() => live && setText(`${def.name}:\n`));
-    return () => {
-      live = false;
-    };
-  }, [body, def.name]);
-  const apply = async () => {
-    try {
-      const r = await api.post<{ raw: Record<string, unknown> }>("yaml", { yaml: text });
-      const v = r.raw[def.name];
-      if (def.list ? v !== undefined && v !== null && !Array.isArray(v) : v !== undefined && v !== null && (typeof v !== "object" || Array.isArray(v))) {
-        setErr(def.list ? `${def.name} must be a YAML list` : `${def.name} must be a YAML mapping`);
-        return;
-      }
-      setErr("");
-      edit((raw) => {
-        if (v === undefined || v === null) delete raw[def.name];
-        else raw[def.name] = v;
-      });
-    } catch (e) {
-      setErr(msg(e));
-    }
-  };
+/** The summary or one block's page (the Assignment tab with no card draws the same). */
+export function LineupBody() {
+  const page = useLineupPage();
   return (
-    <div className="re-yaml">
-      <TextBox mono className="re-yaml-text" spellCheck={false} value={text}
-               onChange={(e) => setText(e.target.value)} data-testid={`roles-yaml-${def.name}`} aria-label={`${def.name} as YAML`} />
-      <div className="re-yaml-row">
-        <Button size="sm" variant="primary" onClick={() => void apply()} data-testid={`roles-yaml-apply-${def.name}`}>Apply this YAML</Button>
-        {err && <span className="og-problems">{err}</span>}
-      </div>
-    </div>
-  );
-}
-
-function Block({ def }: { def: SectionDef }) {
-  const set = useRoles((s) => s.raw?.[def.name] !== undefined && s.raw?.[def.name] !== null);
-  const enf = useRoles((s) => s.current?.enforcement?.[def.name]);
-  const [open, setOpen] = useState(def.name === "tiers");
-  const [yaml, setYaml] = useState(false);
-  const about = useFieldHelp("lineup_sections", def.name);
-  return (
-    <section className="re-block" data-open={open || undefined} data-set={set || undefined}>
-      <header className="re-block-head">
-        <button className="re-block-title" onClick={() => setOpen(!open)} aria-expanded={open} data-testid={`roles-block-${def.name}`}>
-          <span aria-hidden="true">{open ? "▾" : "▸"}</span> {def.title}
-          {!set && <span className="muted mono re-unset"> not set</span>}
-        </button>
-        {enf?.[0] && <span className="og-chip mono" title={enf[1]}>{enf[0]}</span>}
-        {open && (
-          <button className="re-yaml-toggle mono" aria-pressed={yaml} onClick={() => setYaml(!yaml)} data-testid={`roles-yaml-toggle-${def.name}`}
-                  title="Edit this section as YAML">YAML</button>
-        )}
-      </header>
-      {open && about && <p className="muted re-about" data-testid={`roles-about-${def.name}`}>{about}</p>}
-      {open && (yaml ? <YamlBox def={def} /> : <SectionForm def={def} />)}
-    </section>
-  );
-}
-
-export function LineupHeader() {
-  const raw = useRoles((s) => s.raw);
-  const h = useHelpGroup("assignment");
-  if (!raw) return null;
-  const put = (key: string) => (v: string) => edit((r) => (v ? (r[key] = v) : delete r[key]));
-  return (
-    <div className="re-form">
-      <TextIn label="Description" area hint={h.description} value={String(raw.description ?? "")} onCommit={put("description")} testid="roles-description" />
-      <TextIn label="How the pieces work together" area hint={h.about} value={String(raw.about ?? "")} onCommit={put("about")} testid="roles-about" />
-      <TextIn label="Extends" hint={h.extends} placeholder="another lineup to inherit sections from" value={String(raw.extends ?? "")} onCommit={put("extends")} />
-      <ScopeCheck what="teams" />
-    </div>
-  );
-}
-
-export function SaveProblems() {
-  const lines = useRoles((s) => s.saveProblems);
-  if (!lines.length) return null;
-  return (
-    <div className="re-save-problems" data-testid="roles-save-problems" role="alert">
-      <b>Not saved: the validator says</b>
-      <ul>{lines.map((l) => <li key={l}>{l}</li>)}</ul>
-    </div>
+    <>
+      <SaveProblems />
+      {page ? <LineupPage id={page} /> : <LineupSummary />}
+    </>
   );
 }
 
 export function LineupTab() {
   const name = useRoles((s) => s.name);
-  const lines = useLineupLines();
+  const page = useLineupPage();
   if (!name) return <p className="muted">Open a lineup in Lineups first.</p>;
   return (
-    <InHelp>
-    <div className="re-lineup" data-testid="roles-lineup-tab" data-lineup={name}>
-      <TabHelp lines={lines} testid="roles-lineup-help" />
-      <SaveProblems />
-      <LineupHeader />
-      <LineupSched name={name} />
-      <OptInFields />
-      {SECTIONS.map((d) => <Block key={d.name} def={d} />)}
+    <div className="re-lineup" data-testid="roles-lineup-tab" data-lineup={name} data-page={page || "summary"}>
+      <LineupBody />
     </div>
-    </InHelp>
   );
 }

@@ -1,7 +1,7 @@
 """halo_harness.studio.focus_api -- `POST /api/focus`, how a second `halo studio
 --edit` reaches the Studio that already runs (Halo 3.1.1.0 R3).
 
-    POST focus {edit: "bio:<name>"|"lineup:<name>"|"team"}
+    POST focus {edit: "bio:<name>"|"lineup:<name>[:<block>]"|"team"}
          200 {edit, mode, pages}   a `focus` frame went out on the live feed;
                                    `pages`: how many Studio pages are open to take it
          422 {error, problems}     not an edit target (studio/edit_target.py)
