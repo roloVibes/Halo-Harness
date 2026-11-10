@@ -22,3 +22,4 @@ build/
 
 # Studio UI (halo_harness/studio/ui): npm installs here, never committed
 node_modules/
+.prepush/

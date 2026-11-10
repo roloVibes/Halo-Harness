@@ -50,6 +50,14 @@ PARTIAL with evidence and the pinning test names), FILES TOUCHED
 (production, tests, docs), WHAT YOU FOUND (anything beyond the brief, and
 anything left open with the reason). No commit, no push.
 
+## The pre-push gate (2026-11-10, rolo: "make the building and testing process better")
+
+`python scripts/prepush.py` is the one check before any push to master: static checks, the UI build when ui/ changed,
+the privacy audit, every suite (the fast tier as parallel shards). The coordinator commits the merge, runs it, and
+pushes only the sha it called green (`--status` says whether the last green covers the tree). A worker runs the modules
+it touched and `python scripts/prepush.py --quick` before handing back, in place of `run_all.py --fast`. A step reported
+"contended" is looked at before the release, not ignored. docs/DEVELOPMENT.md "Before you push" is the reference.
+
 ## Test cadence from 2026-10-04 evening (rolo asked why rounds take so long)
 
 - Test environment (found by fix pass C-1, 2026-10-05): export

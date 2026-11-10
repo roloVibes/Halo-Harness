@@ -129,7 +129,22 @@ def _stable_rig(spec_rev: str, checksums):
         ran.append(cmd)
         return _Proc()
     upd.run = _run
+    # 3.3.16.0: the updater fetches the lock itself; the rig answers, and FETCHED says which tag's lock was asked for
+    from halo_harness import update_install as UI
+    FETCHED.clear()
+    orig_fetch, UI.fetch_lock = UI.fetch_lock, lambda url: FETCHED.append(url) or b"textual==0.80.0"
+    orig["__fetch__"] = orig_fetch
     return orig, ran, asked
+
+
+FETCHED: list = []
+
+
+def _restore(orig: dict) -> None:
+    from halo_harness import update_install as UI
+    UI.fetch_lock = orig.pop("__fetch__", UI.fetch_lock)
+    for n, v in orig.items():
+        setattr(upd, n, v)
 
 
 def _call(fn, argv):
@@ -145,14 +160,14 @@ def test_item81_stable_update_retargets_the_pinned_tag_and_checks_the_release(ct
     try:
         code, _out, _err = _call(update_cli.cmd_update, [])
     finally:
-        for n, v in orig.items():
-            setattr(upd, n, v)
+        _restore(orig)
     ctx.check(f"exit 0, got {code}", code == 0)
     ctx.check(f"the checksums gate looked at the new tag, got {asked}", asked == ["v3.0.2.0"])
     ctx.check(f"the reinstall targets the NEW tag, got {ran}",
               len(ran) == 1 and f"{GIT_URL}@v3.0.2.0" in ran[0] and "@v3.0.1.0" not in ran[0])
-    ctx.check(f"the lock constraint moved to the new tag, got {ran}",
-              upd.constraints_url("v3.0.2.0") in ran[0] and upd.constraints_url("v3.0.1.0") not in ran[0])
+    ctx.check(f"the lock is the NEW tag's, fetched by halo and handed to the installer as a file, got {FETCHED} {ran}",
+              FETCHED == [upd.constraints_url("v3.0.2.0")] and "requirements.lock" in ran[0]
+              and "raw.githubusercontent.com" not in ran[0])
 
 
 @test
@@ -161,8 +176,7 @@ def test_item81_a_release_without_checksums_is_refused_on_the_default_path(ctx: 
     try:
         code, _out, err = _call(update_cli.cmd_update, [])
     finally:
-        for n, v in orig.items():
-            setattr(upd, n, v)
+        _restore(orig)
     ctx.check(f"refused with exit 1, got {code}", code == 1 and "no checksums.txt" in err)
     ctx.check(f"nothing was installed, got {ran}", ran == [])
 

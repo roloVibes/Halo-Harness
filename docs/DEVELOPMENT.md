@@ -41,6 +41,29 @@ docs/                     this documentation
 docs/harness/             the build history: briefs, reviews, acceptance records
 ```
 
+## Before you push
+
+One command runs what CI runs, on this box, and says whether the commit may be pushed:
+
+```sh
+python scripts/prepush.py            # the whole gate
+python scripts/prepush.py --quick    # static checks + the fast tier (while you work)
+python scripts/prepush.py --status   # the last verdict, and whether it covers this tree
+```
+
+Commit first, run it, push the sha it called green. In order it runs: the pyflakes undefined-name gate; Studio's UI
+build with the dist check, when a file under `halo_harness/studio/ui` differs from `origin/master` (or `--ui`); `halo
+audit privacy` in a scratch home; the fast tier of `tests/run_all.py` as shards side by side (`--fast --shard i/N`, the
+flag CI's matrix uses, N = half the cores up to 12; `--jobs` changes it) with `test_bridge.py` beside them; then the
+full tier (Chrome and the TUI pilots) with `test_tui.py` beside it, and `docs/harness/tui-snapshots` is put back. A red
+static check stops the run; the suites all run, so one pass lists every red with its module and test. Logs are in
+`.prepush/<sha>/`, the verdict in `.prepush/last.json` (never committed).
+
+A shard that is red beside the others is run once more alone. Green alone is reported as **contended**: the gate
+passes, and the test is one to look at (it needs a quiet box, and the runners are not quiet). Red alone is red. The
+gate replaces running the three suites one after another (about 45 minutes here); CI on both platforms stays the
+release gate (`scripts/release.py` reads `conclusion == success` for the exact sha).
+
 ## The three suites
 
 ```sh

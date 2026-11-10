@@ -33,6 +33,9 @@ def _fetch_lock(url: str) -> bytes:
         return r.read()
 
 
+fetch_lock = _fetch_lock  # the seam: tests replace this name, never the network
+
+
 def pin_locally(cmd: str, fetch: Optional[Callable[[str], bytes]] = None) -> "tuple[str, str]":
     """The command with its https `--constraints` replaced by a local copy, and a note ("" when nothing changed)."""
     m = _CONSTRAINTS_RE.search(cmd or "")
@@ -40,7 +43,7 @@ def pin_locally(cmd: str, fetch: Optional[Callable[[str], bytes]] = None) -> "tu
         return cmd, ""
     url = m.group("url")
     try:
-        data = (fetch or _fetch_lock)(url)
+        data = (fetch or fetch_lock)(url)
         if not data or b"==" not in data:
             raise ValueError("not a requirements lock")
         tmp = Path(tempfile.mkdtemp(prefix="halo-lock-")) / "requirements.lock"

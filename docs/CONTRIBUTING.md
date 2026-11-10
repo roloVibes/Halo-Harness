@@ -12,6 +12,9 @@ Halo Harness has three test suites, run from the repo root with
     python tests/run_all.py
     python test_tui.py
 
+Before a push, `python scripts/prepush.py` runs all three with the static checks, the fast tier split across the
+cores (`docs/DEVELOPMENT.md`, "Before you push").
+
 Every test scopes its own state under `BRIDGE_TEST_HOME`/`BRIDGE_STATE_DIR`
 (never the real `~/.halo`), and nothing in any suite opens a real network
 connection -- `halo_harness/providers/http.py`'s `open_upstream`/
