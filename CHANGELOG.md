@@ -55,7 +55,7 @@ on Windows and Linux ([MODELS-prompt-diet.md](docs/MODELS-prompt-diet.md)).
   shell, lean descriptions and system text, the budget test, `halo local prompt`); MODELS-prompt-budget.md gains "The
   diet"; COMMANDS-local.md `halo local prompt`; CONFIG.md `prompt.shell`; the steward's symptoms table `prompt-heavy`.
 
-## [3.3.16.0] - unreleased
+## [3.3.16.0] - 2026-11-10
 
 **Agents: one section for your agents.** The owner, 2026-11-09: "what does teams even give us? ... roles and
 orchestration are almost the same ... all rolled into the new agents". Team, Roles and Orchestra are one Studio
