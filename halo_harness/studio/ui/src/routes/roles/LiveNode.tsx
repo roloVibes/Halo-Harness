@@ -52,6 +52,7 @@ export function LiveNodeCard({ b, selected, now, onMenu, onPick }: Props) {
         <div className="muted rlm-line">{n.task}</div>
       </div>
     );
+  const lead = !!n.role && n.role !== n.name; // the owner: the role leads the box ("reviewer"), the agent's name is the line under it
   const failed = n.glow === "failed";
   const open = () => (failed && ackFailed(n.key), onPick(n.key));
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), open());
@@ -67,13 +68,13 @@ export function LiveNodeCard({ b, selected, now, onMenu, onPick }: Props) {
       {target && <span className="rlm-target" data-testid="roles-live-target" aria-hidden="true" />}
       <div className="rlm-head">
         <span className="rlm-dot" aria-hidden="true" />
-        <b className="rlm-name" title={n.name}>{n.name}</b>
+        {lead ? <b className="rlm-title" title={`its role: ${n.role}`} data-testid="roles-live-role">{n.role}</b> : <b className="rlm-name rlm-title" title={n.name}>{n.name}</b>}
         <span className="spacer" />
         {pinned && <span className="rlm-pin" data-testid="roles-live-pin" title="Pinned: its mini stream stays on screen"><Icon name="pin" size={12} /></span>}
         <span className="og-badge mono" data-live={n.activity || undefined}>{n.state || "?"}</span>
         <button className="rlm-more" onClick={menu} onDoubleClick={(e) => e.stopPropagation()} aria-label={`${n.name}: more`} title="Steer, pause, pin, stop..." data-testid="roles-live-more">...</button>
       </div>
-      {n.role && n.role !== n.name && <div className="rlm-role" title={`its role: ${n.role}`} data-testid="roles-live-role">{n.role}</div>}
+      {lead && <div className="rlm-name rlm-sub" title={`the agent: ${n.name}`}>{n.name}</div>}
       <div className="mono muted rlm-meta" title={n.model || undefined}>
         <span className="rlm-model" data-testid="roles-live-model">{shortModel(n.model) || "model ?"}</span>
         <span className="rlm-cost"><span data-testid="roles-live-cost">{cost(shown)}</span>{n.started ? ` · ${took(n, now)}` : ""}</span>

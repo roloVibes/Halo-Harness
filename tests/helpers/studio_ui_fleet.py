@@ -98,8 +98,8 @@ def register(test, json_of, chrome) -> None:
     def test_fleet_capture_dom_counts(ctx: Ctx):
         """3.0.5.0 R3: tools/capture_studio.py --mode fleet --dom (3.3.16.0 R2: the pieces' new homes): Agents -> Live on
         the fleet (six section icons, the canvas with two machines, five agents, the inspector's glance with a row per
-        machine, the Attention chip, Activity; no FLEET cell), Setup -> Machines (the lead, the pair card, the settings,
-        the People table with both machines, no canvas) and Live Roles on Cast (three glowing cards, the Live tab)."""
+        machine, the Attention chip, Activity; no FLEET cell), Setup -> Machines (the pair card, the settings, the People
+        table with both machines, no canvas; no lead: it is drawn only while this harness is alone) and Live Roles on Cast (three glowing cards, the Live tab)."""
         if not chrome():
             raise SkipTest("no Chrome found (the capture needs headless Chrome)")
         r, got = json_of(str(REPO / "tools" / "capture_studio.py"), "--mode", "fleet", "--dom")

@@ -32,13 +32,15 @@
 .rlm-node[data-glow="done"] .rlm-dot { background: var(--ok); }
 .rlm-node[data-glow="failed"] .rlm-dot { background: var(--bad); }
 .rlm-name { font: 600 13px var(--sans); min-width: 0; }
+/* the role leads an agent's box when it has one; the agent's own name is the muted line under it */
+.rlm-title { font: 600 13px var(--sans); min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rlm-name.rlm-sub { flex: none; font: 500 10.5px var(--mono); letter-spacing: .04em; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rlm-line { font: 11px var(--mono); flex: none; }
 /* every line of a node has its own row and its own room (the owner: "information gets stomped on ... don't squish
    them"): the role under the name, the model beside its cost (the model gives way, the cost never does), then two
    lines of what it does; the head's badge and menu never shrink, the name is cut last */
 .rlm-head { flex: none; }
 .rlm-head .og-badge, .rlm-head .og-chip, .rlm-more, .rlm-pin { flex: none; }
-.rlm-role { flex: none; font: 500 10.5px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rlm-meta { flex: none; display: flex; justify-content: space-between; gap: 10px; font: 11px var(--mono); min-width: 0; }
 .rlm-model { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rlm-cost { flex: none; white-space: nowrap; color: var(--text); }
@@ -53,7 +55,10 @@
 .rlm-edge { stroke: color-mix(in srgb, var(--line) 60%, var(--surface-2)); stroke-width: 1.5; }
 .rlm-edge[data-glow="working"] { stroke: color-mix(in srgb, var(--accent) 25%, transparent); stroke-dasharray: none; animation: none; }
 .rlm-edge[data-glow="failed"] { stroke-dasharray: 2 4; }
-.rlm-edge[data-on] { stroke-width: 1.5; stroke: var(--line-strong); }
+/* the selected agent's edge is the strong hairline only while it has no state: a state's colour (a failed red, a
+   waiting amber) is never covered by the selection (Session's Map may select the agent that just failed) */
+.rlm-edge[data-on] { stroke-width: 1.5; }
+.rlm-edge[data-on]:not([data-glow]) { stroke: var(--line-strong); }
 .rlm-group { border-radius: var(--r-card); }
 
 /* reduced motion: an instant state swap; the dash stops and a working edge is solid accent */

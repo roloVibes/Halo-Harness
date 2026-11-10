@@ -8,7 +8,7 @@
 //   fleet-ollama | ollama               Local -> Hosts
 //   fleet-people | -costs | -health | -capabilities | -map | -tree   Agents -> Live on the fleet, the machine picked
 import { goSection } from "../../lib/store";
-import { layoutStore, patchPanel, showPanel } from "../../lib/workspace/persist";
+import { patchPanel, showPanel, whenLaidOut } from "../../lib/workspace/persist";
 import { panels } from "../fleet/pstore";
 import { openAgentPanel } from "../fleet/actions";
 import { fleet, localId } from "../fleet/store";
@@ -18,11 +18,8 @@ import { setAttention } from "./attention";
 import { activityPanel, missionPanel } from "./fleetPanels";
 import { clearPick, pickLive, setScope } from "./live/scope";
 
-/** Run `go` once the workspace `section` has laid out (it mounts its layout first). */
-function whenLaid(section: string, go: () => void, tries = 20): void {
-  if (layoutStore(section).get().layout) go();
-  else if (tries > 0) window.setTimeout(() => whenLaid(section, go, tries - 1), 150);
-}
+/** Run `go` once the workspace `section` has laid out (it mounts its layout first; however long a slow box takes). */
+const whenLaid = whenLaidOut;
 
 /** Agents -> Runs with the Mission panel up (the mission itself: fleet/mload.ts openMission). */
 export function openMissionPanel(): void {

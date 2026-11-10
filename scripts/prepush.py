@@ -10,7 +10,7 @@ What it runs, in this order (a red static check stops the run; the suites all ru
 
   1. pyflakes: no undefined name in halo_harness/ or bridge.py (CI's gate).
   2. Studio's UI, when a file under halo_harness/studio/ui differs from origin/master or --ui is given:
-     `npm run build`, then the committed static/dist must be what the build wrote.
+     `npm run build`; the static/dist in the tree must already be what the build writes.
   3. `halo audit privacy` with a scratch home.
   4. The fast tier of tests/run_all.py as N shards side by side (`--fast --shard i/N`, the flag CI's matrix uses),
      with test_bridge.py beside them. Every shard is run_all itself, so each module still gets its own fresh
@@ -118,6 +118,15 @@ def ui_differs() -> bool:
     return bool(git("diff", "--name-only", "origin/master", "--", "halo_harness/studio/ui"))
 
 
+def dist_digest() -> str:
+    import hashlib
+    h = hashlib.sha256()
+    for f in sorted((REPO / "halo_harness" / "studio" / "static" / "dist").rglob("*")):
+        if f.is_file():
+            h.update(f.name.encode() + b"/" + f.read_bytes())
+    return h.hexdigest()
+
+
 def static_checks(args, logdir: Path) -> list:
     steps = []
     py = sys.executable
@@ -131,10 +140,10 @@ def static_checks(args, logdir: Path) -> list:
         else:
             if not (UI / "node_modules").is_dir():
                 steps.append(run_step("studio-ui-ci", ["npm", "ci"], logdir, cwd=UI, env=dict(os.environ)))
+            before = dist_digest()  # the dist in the tree (committed or not) must be what the sources build
             build = run_step("studio-ui", ["npm", "run", "build"], logdir, cwd=UI, env=dict(os.environ))
-            stale = git("status", "--porcelain", "--", "halo_harness/studio/static/dist")
-            if build["ok"] and stale:
-                build["ok"], build["note"] = False, "static/dist is not what the build writes: commit the rebuilt dist"
+            if build["ok"] and dist_digest() != before:
+                build["ok"], build["note"] = False, "static/dist was not what the build writes: it is rebuilt now, add it"
             steps.append(build)
     home = tempfile.mkdtemp(prefix="prepush-audit-")
     env = suite_env()

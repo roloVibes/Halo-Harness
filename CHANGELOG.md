@@ -180,7 +180,19 @@ the words, just don't squish them. Also no need for tui in the boxes."
   and branch beside its cost, and the kind chip only for a session that is not the terminal's (`headless`, a mission
   part); "tui" is no longer printed. A file another session edits too is its own line ("! also edited elsewhere:
   basket.py") in place of a clipped chip.
-- docs/media: the Live, Session and mission captures re-rendered.
+- The role leads an agent's box when it has one ("reviewer", "writer"), and the agent's own name is the muted line
+  under it (the owner: "do role first in the boxes"); a box with no role is titled by its name as before.
+- A node's "..." menu measures itself and opens upward when there is no room under the node: with eight items its
+  last one, Open in Session, sat below the window on a node low on the canvas, and a click there did nothing
+  (`routes/agents/live/NodeMenu.tsx`).
+- Live's auto-fit runs before the tree is painted, so a tree is never shown for a frame at the zoom of the scope you
+  just left, and a zoom pressed in that frame is no longer undone (`routes/roles/LiveMap.tsx`).
+- A panel added from the header "+" or a palette door while its section is still laying out is added when the layout
+  is there, however long that takes; it was dropped after one 120 ms retry, which a slow machine lost
+  (`lib/workspace/persist.ts` `whenLaidOut`, `shell/commands.ts`, `routes/agents/fleetDoor.ts`).
+- A failed agent's edge stays red while that agent is selected: the selection colour no longer covers a state colour
+  (`styles/nodes.css`).
+- docs/media: the Live, Session and mission captures, the modes banner and the hero re-rendered.
 
 ### Fixed on the way: a mission's report is there when its state says done; the Benchmarks page's stale mark
 

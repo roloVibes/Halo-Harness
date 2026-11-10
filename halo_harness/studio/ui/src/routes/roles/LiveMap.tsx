@@ -10,7 +10,7 @@
 // (InspectorDetail: the fleet at a glance, a machine, an agent, a part), a click on the canvas itself clears it. The
 // same component is Session's Map (`thumb`): this harness's sessions and their agents, fitted to the panel, a click
 // picks the Steer box's target, "Open in Agents Live" opens the full tree.
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type RefObject } from "react";
 import { Empty } from "../../lib/ui";
 import { useFleet } from "../fleet/store";
 import { startFleet } from "../fleet/sync";
@@ -119,11 +119,13 @@ export function LiveMap({ thumb = false }: { thumb?: boolean }) {
   );
 }
 
-/** The first draw of a tree (a scope, session or density change) fits one bigger than the page; the thumbnail always fits. */
+/** The first draw of a tree (a scope, session or density change) fits one bigger than the page; the thumbnail always fits.
+ *  A layout effect: the new tree is never painted at the old one's zoom (fleet -> this halo showed the fleet's zoom for
+ *  a frame, and a + pressed in that frame was overwritten by the late fit, so Fit seemed to do nothing). */
 function useAutoFit(scroll: RefObject<HTMLDivElement | null>, thumb: boolean, shape: string, count: number, geo: { width: number; height: number },
                     fit: () => void, setZoom: (z: number) => void): void {
   const fitted = useRef("");
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = scroll.current;
     if (!el || !count) return;
     if (thumb) return fit();
