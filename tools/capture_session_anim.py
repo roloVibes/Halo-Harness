@@ -168,7 +168,7 @@ def dom(c, rig, lv) -> dict:
     from capture_identity import guard_page
     from capture_session_scenes import play, roles_scene, session_scene
     open_session(c, rig)
-    play(session_scene(lv)[:16]).join(10)  # through the spawn and the ask
+    play(session_scene(lv)[:19]).join(10)  # through the thought, the spawn and its task, and the ask
     time.sleep(1.0)
     guard_page(c, "session")
     got = {"session": counts(c)}

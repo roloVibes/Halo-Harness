@@ -86,6 +86,7 @@ class AgentTree(ObserveMixin):
         self._sessions: dict = {}
         self._listeners: list = []
         self._live: dict = {}
+        self._think: dict = {}  # 3.3.16.2: aid -> fleet/think.py ThinkFeed (every agent's thinking_chunk frames)
         self._inflight: dict = {}
         self._last_pub: dict = {}
         self._held: dict = {}  # aid -> the timer of its trailing flush (a quiet change waiting for its window to end)

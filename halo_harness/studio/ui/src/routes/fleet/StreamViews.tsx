@@ -3,8 +3,10 @@
 // steers (yours marked "you"), notes and controls between. Working: one row
 // per tool call with its arguments, the file it touches, its result, and for
 // Edit / Write the diff as it grows. Output: its hand-back, else the text it
-// wrote after its last tool call.
+// wrote after its last tool call. 3.3.16.2: a thought is drawn as Live's THINK row draws it (session/LiveThink.tsx
+// Clamp: inner voice, four lines, show all) with what it led to ("then ran Edit basket.py", "then answered").
 import { useEffect, useRef, useState } from "react";
+import { Clamp } from "../session/LiveThink";
 import { Icon, toolIcon } from "../../lib/ui";
 import { outputOf, thinkingOf, workingOf, type ToolRow } from "./streams";
 import type { Entry } from "./types";
@@ -46,7 +48,31 @@ export function Typed({ text, live, fresh = false }: { text: string; live: boole
 
 const when = (ts?: number | null) => (ts ? new Date((ts > 1e12 ? ts : ts * 1000)).toTimeString().slice(0, 8) : "");
 
-function ThinkingRow({ e, last, live }: { e: Entry; last: boolean; live: boolean }) {
+/** Thought, then act: each thinking entry -> what the agent did next (the same words as Live's THINK chip). */
+function ledOf(entries: Entry[]): Map<Entry, string> {
+  const out = new Map<Entry, string>();
+  let open: Entry | null = null;
+  for (const e of entries) {
+    if (e.kind === "thinking") open = e;
+    else if (open && (e.kind === "tool_call" || e.kind === "spawn" || e.kind === "text" || e.kind === "handback")) {
+      const target = String(e.label || "").split(": ").slice(1).join(": ").split(/[\\/]/).pop();
+      out.set(open, e.kind === "tool_call" ? `then ran ${e.name || "a tool"}${target ? " " + target : ""}` : e.kind === "spawn" ? `then spawned ${e.name || "an agent"}`
+        : e.kind === "handback" ? "then handed back" : "then answered");
+      open = null;
+    } else if (e.kind === "user") open = null;
+  }
+  return out;
+}
+
+function ThinkingRow({ e, last, live, led }: { e: Entry; last: boolean; live: boolean; led?: string }) {
+  if (e.kind === "thinking")
+    return (
+      <div className="fa-row fa-think" data-kind="thinking" data-testid="fleet-think">
+        <span className="fa-who mono">thinking</span>
+        <Clamp text={e.text || ""} caret={last && live} className="slv-think-text" />
+        {led && <span className="fa-led mono" data-testid="fleet-think-led">{led}</span>}
+      </div>
+    );
   if (e.kind === "user")
     return (
       <div className="fa-row fa-user" data-you={e.you || undefined} data-testid={e.you ? "fleet-steer-echo" : undefined}>
@@ -71,11 +97,12 @@ function ThinkingRow({ e, last, live }: { e: Entry; last: boolean; live: boolean
 
 export function ThinkingView({ entries, live }: { entries: Entry[]; live: boolean }) {
   const rows = thinkingOf(entries);
+  const led = ledOf(entries);
   if (!rows.length) return <p className="muted fa-empty">Nothing written yet. Text and reasoning show here as they arrive.</p>;
   return (
     <div className="fa-list">
       {rows.map((e, i) => (
-        <ThinkingRow key={i} e={e} last={i === rows.length - 1} live={live && i === rows.length - 1} />
+        <ThinkingRow key={i} e={e} last={i === rows.length - 1} live={live && i === rows.length - 1} led={led.get(e)} />
       ))}
     </div>
   );

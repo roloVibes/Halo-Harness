@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/roloVibes/Halo-Harness/releases"><img alt="version 3.3.16.0" src="https://img.shields.io/badge/version-3.3.16.0-5b4bd6"></a>
+  <a href="https://github.com/roloVibes/Halo-Harness/releases"><img alt="version 3.3.16.1" src="https://img.shields.io/badge/version-3.3.16.1-5b4bd6"></a>
   <a href="https://github.com/roloVibes/Halo-Harness/actions/workflows/suites.yml"><img alt="CI" src="https://github.com/roloVibes/Halo-Harness/actions/workflows/suites.yml/badge.svg"></a>
   <img alt="python 3.10+" src="https://img.shields.io/badge/python-3.10%2B-3776ab">
   <img alt="Linux, macOS, Windows" src="https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-2b2b2b">
@@ -58,7 +58,7 @@ Assign specialized agents different models and responsibilities, coordinate para
 Install, then `halo start`:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/roloVibes/Halo-Harness/v3.3.16.0/scripts/install-halo.sh | bash
+curl -fsSL https://raw.githubusercontent.com/roloVibes/Halo-Harness/v3.3.16.1/scripts/install-halo.sh | bash
 halo init        # opens Halo Studio on Setup: provider, model, permission mode, theme, lineup, checks
 halo start       # the guided first run: its card (models, cost, time, what it writes), then one real Orchestra run
 ```
@@ -66,7 +66,7 @@ halo start       # the guided first run: its card (models, cost, time, what it w
 Windows:
 
 ```powershell
-powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/roloVibes/Halo-Harness/v3.3.16.0/scripts/install-halo.ps1 | iex"
+powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/roloVibes/Halo-Harness/v3.3.16.1/scripts/install-halo.ps1 | iex"
 ```
 
 <a href="docs/media/studio-setup.png"><img alt="Studio's Setup section as halo init opens it: the step rail across the top (Providers current, the steps already set ticked), its line saying set up this box, OpenRouter set from the env file with its last four characters, the default model, the lineup, the permission mode and the last check; the first page, Providers, one card per provider" src="docs/media/studio-setup.png" width="100%"></a>
@@ -274,9 +274,13 @@ The terminal does the same: type while the turn runs.
 
 ### Watching a model think
 
-In Studio, pick one agent in Live (its tag, or the agent pick) and the column is that agent alone: what it writes, each tool call as a row with its time ticking while it runs (`Edit basket.py 3s`), the first line of its result, and under the column the phase line, `Edit (basket.py), 3 s`, so you see what it is doing right now.
+In Studio's Live, a model's thinking is its own row, THINK, one row per thought. It grows as the model thinks, four lines at first with show all for the rest, then says how long it thought and how many tokens it took. Each thought says what it led to, `then ran Edit basket.py`, and why? on that Edit opens the thought behind it. Thinking, beside Follow, shows only the thoughts and what each one did, and the timeline above draws every agent's minutes as thinking, tools, writing, waiting and idle.
 
-<a href="docs/media/studio-thinking.png"><img alt="Studio's Session with Live narrowed to the implementer: its tool rows, a finished Read with its result, a text row, an Edit still running with its time at 3 s, and the phase line under the column reading Edit (basket.py), 3 s; the steer box targets the same agent" src="docs/media/studio-thinking.png" width="100%"></a>
+<a href="docs/media/studio-thinking.png"><img alt="Studio's Session with the Thinking view on for the implementer: two thoughts, each with how long it took and its tokens and linked to the Read and the Edit it led to, and the implementer's timeline lane drawn in thinking, tool and idle segments" src="docs/media/studio-thinking.png" width="100%"></a>
+
+When agents talk to each other, that is its own row too, TALK: main handing the researcher a task, the researcher handing back, a hand-off to a workflow square. The Conversations panel (the + menu) shows each pair as a thread.
+
+<a href="docs/media/studio-talk.png"><img alt="Studio's Session with TALK rows in Live (main hands the researcher a task, main hands the media square a PDF, the researcher hands back, the square answers) and the Conversations panel open on the main and researcher thread, the task on the left and the hand-back on the right" src="docs/media/studio-talk.png" width="100%"></a>
 
 In the terminal the line under your message counts up: *Thinking* with tenths of a second and a reasoning-token count, then *Writing*, then a *Thought for 18 s* summary. A stalled stream says so (`quiet 7 s`) instead of looking frozen.
 

@@ -3,7 +3,7 @@ commands (Halo 3.0.5.0 "Fleet" round R1). Wire shapes:
 
     agents                                 -> {agents: [row, ...]}       the session's live agent tree
     agent_tail   {agent_id, n=100, kinds?} -> {agent_id, events: [...]}  that agent's last n entries
-    agent_steer  {agent_id, text, mode?, handoff?} -> {agent_id, mode, delivered}  nudge (default) | redirect;
+    agent_steer  {agent_id, text, mode?, handoff?, from_agent?} -> {agent_id, mode, delivered}  nudge (default) | redirect;
                                            handoff: a Take over (a redirect recorded as a hand-off, 3.0.5.0 R4)
     agent_stop   {agent_id, reason?}       -> {agent_id, stopping: [...]}  the main agent: the turn interrupt
     pause        {agent_id?, reason?}      -> {paused}                   omitted: the whole session
@@ -126,13 +126,16 @@ def cmd_steer(handle, tree, req: dict) -> dict:
     head = f"[{'hand-off' if handoff else 'steer'} from {by} via {via}] "
     note = head + (text if mode == "nudge" else "Redirect: the rest of your current task is replaced. "
                    f"Your task is now: {text}")
+    from halo_harness.fleet.talk import on_steer  # 3.3.16.2: another agent's steer (`from_agent`) is a talk
     if aid == tree.root_id:
+        on_steer(tree, req, aid, text)
         result = handle.submit(note)
         _record(handle, tree, aid, "agent_steer", by, via, mode=mode, text=one_line(text, 400), **handoff)
         if handoff:
             _announce(handle, f"the main agent taken over from {via} by {by}: {one_line(text, 80)}")
         return {"agent_id": aid, "mode": mode, "delivered": "steer" if result.get("steered") else "turn", **result}
     _live_child(tree, aid)
+    on_steer(tree, req, aid, text)
     tree.controls.post(aid, note, cut_by=f"{by} from {via}" if mode == "redirect" else None)
     delivered = "inbox"
     if mode == "redirect":

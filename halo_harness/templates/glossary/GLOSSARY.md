@@ -437,3 +437,11 @@ A pack service (3.3.13.0) is a program of a pack the supervisor keeps running wh
 ## transport
 
 A transport (3.3.13.0) carries a session somewhere else -- a phone, a chat -- and is a pack, never the core: the signal pack is one. It uses the core's transport seam (`halo_harness.ext.remote`): the live sessions and their control sockets, a session started for it, the cards' text, and the notes the core gives every transport (`asks`, `supervisor`, `steward`, ...) while it listens. `remote.enabled` is every transport's switch; `halo remote transports` lists the ones listening (docs/REMOTE.md, "Transports").
+
+## thought
+
+A thought (3.3.16.2) is one stretch of a model's reasoning between two things it does, as the provider streams it: native thinking from Anthropic models as it comes, the reasoning DeepSeek, Kimi, GLM, OpenRouter and Ollama's thinking models return once at the end of a call; a model with none has no thoughts and Halo makes none up. Studio's Live shows each as one THINK row that grows, four lines and show all, then how long it thought and its tokens when the provider reports them; its chip says what it led to, why? on that next row opens it, and the Thinking view shows only the thoughts and what each led to.
+
+## agent talk
+
+Agent talk (3.3.16.2) is one agent's words to another, a TALK row in Studio's Live and a message in the Conversations panel: a parent's task to a child (TASK), the child's last words back (HAND-BACK, one row with its OUT block), a steer one agent sends another (STEER; your own steer is YOU), a Workflow square's hand-off and what came back (SQUARE) and an agent's work handed to another machine (HAND-OVER). Each carries who spoke, to whom, why and, for a reply, the message it answers; the edge between the two agents on the map lights once in the direction it went. Nothing is asked of a model to make one.

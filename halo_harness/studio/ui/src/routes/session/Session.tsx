@@ -26,6 +26,7 @@ import { AgentDetail, AgentGlance, AgentSettings, useAgentMotion } from "../flee
 import { AttentionDetail, AttentionGlance, useAttentionMotion } from "../fleet/Attention";
 import { MapDetail, MapGlance, useMapMotion } from "./SessionMap";
 import { CostDetail, CostGlance, useCostMotion } from "./Cost";
+import { ConversationsDetail, ConversationsGlance, useConversationsMotion } from "./Conversations";
 import { LiveDetail, LiveGlance, useLiveMotion } from "./Live";
 import { PromptDetail, PromptGlance, usePromptMotion } from "./Prompt";
 import { registerPromptPanel, startPrompt } from "./promptStore";
@@ -63,5 +64,7 @@ export const sessionPanels: PanelSpec[] = [
   panel("session-activity", { title: "Activity", x: 0, y: 205, w: 10, h: 0, minW: 5, minH: 24, face: "detail", collapsed: true, glance: ActivityGlance, detail: ActivityDetail, useMotion: started(useActivityMotion) }),
   panel("session-attention", { title: "Attention", x: 0, y: 210, w: 10, h: 0, minW: 4, minH: 18, face: "detail", collapsed: true, glance: AttentionGlance, detail: AttentionDetail, useMotion: started(useAttentionMotion) }),
   panel("session-prompt", { title: "Prompt", x: 0, y: 215, w: 10, h: 0, minW: 6, minH: 26, face: "detail", collapsed: true, glance: PromptGlance, detail: PromptDetail, useMotion: started(usePromptMotion) }),
+  // 3.3.16.2: agents talking, one thread per pair (Conversations.tsx); optional: the "+" menu adds it
+  panel("session-conversations", { title: "Conversations", x: 0, y: 46, w: 10, h: 40, minW: 6, minH: 20, face: "detail", optional: true, glance: ConversationsGlance, detail: ConversationsDetail, useMotion: started(useConversationsMotion) }),
 ];
 registerPromptPanel(sessionPanels.find((p) => p.id === "session-prompt"));

@@ -3,7 +3,7 @@ live agent tree (Halo 3.0.5.0 "Fleet" round R1; the tree is
 agent/agent_registry.py). Every hook swallows its own errors: the tree never
 breaks a turn or a spawn.
 
-    turn_started / observe / turn_ended   Session.turn() (agent/loop.py)
+    turn_started / observe / turn_ended   Session.turn() (agent/loop.py); a child's task and hand-back talk
     register_child                        _build_child_session (agent/subagent.py)
     register_queued                       a count/batch job waiting for a slot
     job_rows                              the background Bash jobs, as leaves under main
@@ -39,7 +39,10 @@ def job_rows(tree) -> list:
 
 def turn_started(session, text: str) -> None:
     try:
-        tree_for(session).started(agent_key(session), session, text)
+        tree = tree_for(session)
+        tree.started(agent_key(session), session, text)
+        from halo_harness.fleet.talk import on_turn_started  # 3.3.16.2: a child's task is its parent's words to it
+        on_turn_started(tree, agent_key(session), text)
     except Exception:
         pass
 
@@ -56,6 +59,11 @@ def observe(session, ev) -> None:
 def turn_ended(session) -> None:
     tree = getattr(session, "_fleet_tree", None)
     if tree is not None:
+        try:
+            from halo_harness.fleet.talk import on_turn_ended  # 3.3.16.2: a child's hand-back, its words to its parent
+            on_turn_ended(tree, agent_key(session), session)
+        except Exception:
+            pass
         try:
             tree.ended(agent_key(session))
         except Exception:

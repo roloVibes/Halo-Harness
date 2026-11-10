@@ -18,6 +18,7 @@
 // what that control does); a steer
 // reads "↳ steer to <agent>: ..." under it and the agent's next row is marked
 // "after your steer". 3.3.6.0 R4: a text or output row carries "why?" (Why.tsx: Why this answer?, in the Inspector).
+// 3.3.16.2: THINK rows (LiveThink.tsx) and TALK rows (LiveTalk.tsx); an action row after a thought: why? opens it (LiveWhy.tsx).
 import { memo, useRef, type MouseEvent } from "react";
 import { Kbd } from "../../lib/ui";
 import { clock, short } from "../orchestra/format";
@@ -26,7 +27,10 @@ import { panels, usePanels, type AttnRow } from "../fleet/pstore";
 import { parseKey } from "../fleet/store";
 import { patchPanel } from "../../lib/workspace/persist";
 import type { LiveKind, LiveLine } from "../shared/liveFeed";
+import { ThinkBody } from "./LiveThink";
+import { TalkBody } from "./LiveTalk";
 import { ToolRow } from "./LiveTool";
+import { WhyChip } from "./LiveWhy";
 import { steerAgent } from "./steer";
 import { WhyButton } from "./Why";
 
@@ -36,6 +40,7 @@ export type Who = { name: string; hc: number; state: string; model?: string }; /
 export const KIND: Record<LiveKind, string> = {
   text: "TEXT", thinking: "THINK", tool: "TOOL", output: "OUT", ask: "ASK", spawn: "SPAWN", state: "STATE", you: "YOU", asked: "ASKED", error: "ERR",
   pack: "PACK", // 3.2.0.0 R3: the pack's own label shows instead when it declares one
+  talk: "TALK", // 3.3.16.2: one agent's words to another (LiveTalk.tsx)
 };
 
 const ORDER = ["a", "r", "s", "o"];
@@ -110,8 +115,14 @@ function AskCard({ l }: { l: LiveLine }) {
   );
 }
 
-function Body({ l, live, name }: { l: LiveLine; live: boolean; name: string }) {
+type BodyProps = { l: LiveLine; live: boolean; name: string; led?: LiveLine; ledN?: number };
+
+function Body({ l, live, name, led, ledN }: BodyProps) {
   switch (l.kind) {
+    case "thinking":
+      return <ThinkBody l={l} live={live} led={led} ledN={ledN} />;
+    case "talk":
+      return <TalkBody l={l} />;
     case "tool":
       return <ToolRow l={l} />;
     case "ask":
@@ -139,9 +150,13 @@ function Body({ l, live, name }: { l: LiveLine; live: boolean; name: string }) {
   }
 }
 
-type RowProps = { l: LiveLine; who: Who; last: boolean; target: boolean; onPin: (k: string) => void; onHover: (k: string) => void; onTarget: (l: LiveLine) => void };
+/** 3.3.16.2: `thought` the THINK row before an action row, `led` / `ledN` what a THINK row led to (liveThink.ts linkThoughts). */
+type RowProps = {
+  l: LiveLine; who: Who; last: boolean; target: boolean; onPin: (k: string) => void; onHover: (k: string) => void; onTarget: (l: LiveLine) => void;
+  thought?: LiveLine; led?: LiveLine; ledN?: number;
+};
 
-export const LiveRow = memo(function LiveRow({ l, who, last, target, onPin, onHover, onTarget }: RowProps) {
+export const LiveRow = memo(function LiveRow({ l, who, last, target, onPin, onHover, onTarget, thought, led, ledN }: RowProps) {
   const pick = (e: MouseEvent) => !(e.target as HTMLElement).closest(".slv-who, .slv-ask-keys, button, a, [role=button]") && onTarget(l);
   return (
     <div className="fac-line slv-line" data-testid="session-live-line" data-hc={who.hc} data-kind={l.kind} data-key={l.key} data-n={l.n} data-target={target || undefined}
@@ -150,10 +165,10 @@ export const LiveRow = memo(function LiveRow({ l, who, last, target, onPin, onHo
       <span className="mono fac-ts" data-testid="session-live-time">{clock(l.ts)}</span>
       <span className="mono fac-kind" data-testid="session-live-kind">{l.label || KIND[l.kind] || l.kind}</span>
       <Tag k={l.key} who={who} onPin={onPin} />
-      <div className="fac-text slv-body">
+      <div className="fac-text slv-body" data-testid="live-row" data-kind={l.kind === "thinking" ? "think" : l.kind}>
         {l.after && <span className="slv-after mono" data-testid="live-after-steer">after your steer</span>}
-        <Body l={l} name={who.name} live={last && who.state === "running" && (l.kind === "text" || l.kind === "thinking")} />
-        {(l.kind === "text" || l.kind === "output") && <WhyButton l={l} />}
+        <Body l={l} name={who.name} live={last && who.state === "running" && (l.kind === "text" || l.kind === "thinking")} led={led} ledN={ledN} />
+        {thought ? <WhyChip l={l} thought={thought} /> : (l.kind === "text" || l.kind === "output") && <WhyButton l={l} />}
       </div>
     </div>
   );
