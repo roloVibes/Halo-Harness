@@ -62,8 +62,20 @@ def turn_ended(session) -> None:
             pass
 
 
+def spawn_of(tree, parent_aid: str, text: str) -> dict:
+    """3.3.16.3 (Live in groups): the step of the parent that started a child -- `step` is the parent's id and its
+    reply count at the spawn (every Agent call of one reply shares it), `description` the call's description (else the
+    first line of its prompt), `lead` the last line the parent wrote in that reply. Studio's Live groups the children
+    of one step and titles the group from these words; nothing here calls a model."""
+    with tree.lock:
+        turns = (tree.rows.get(parent_aid) or {}).get("turns") or 0
+        said = [ln.strip() for ln in str(tree._said.get(parent_aid, "")).splitlines() if ln.strip()]
+    return {"step": f"{parent_aid}#{turns}", "description": first_line(text, 80), "lead": first_line(said[-1], 120) if said else ""}
+
+
 def register_child(parent, child, *, agent_id: str, spec, model: Optional[str], role: Optional[str],
-                   background: bool = False, team_control=None, model_reason: Optional[str] = None) -> None:
+                   background: bool = False, team_control=None, model_reason: Optional[str] = None,
+                   task_text: str = "") -> None:
     try:
         tree = tree_for(parent)
         child._fleet_tree = tree
@@ -72,18 +84,21 @@ def register_child(parent, child, *, agent_id: str, spec, model: Optional[str], 
         bio = (entry.get("agent") if isinstance(entry, dict) else None) or getattr(spec, "name", None)
         # 3.1.9.0 R2: under the default lineup only a child on one of its cards is a member
         member = team_control is not None and (entry is not None or not getattr(team_control, "default", False))
+        spawn = (tree.row(agent_id) or {}).get("spawn") or spawn_of(tree, agent_key(parent), task_text)  # a queued job keeps its step
         tree.add(agent_id, session=child, parent=agent_key(parent), name=spec.name,
                  role=role, bio=bio, lineup=getattr(team_control, "name", None), model=model, state="queued",
                  kind="background" if background else ("member" if member else "subagent"), transcript=_log_path(child),
-                 model_reason=model_reason, opt_ins=getattr(child, "opt_ins", None))
+                 model_reason=model_reason, opt_ins=getattr(child, "opt_ins", None), spawn=spawn)
     except Exception:
         pass
 
 
-def register_queued(parent, agent_id: str, *, name: str, task: str, role: Optional[str] = None) -> None:
+def register_queued(parent, agent_id: str, *, name: str, task: str, role: Optional[str] = None,
+                    description: str = "") -> None:
     try:
-        tree_for(parent).add(agent_id, parent=agent_key(parent), name=name, kind="subagent", task=first_line(task),
-                             role=role, state="queued")
+        tree = tree_for(parent)
+        tree.add(agent_id, parent=agent_key(parent), name=name, kind="subagent", task=first_line(task),
+                 role=role, state="queued", spawn=spawn_of(tree, agent_key(parent), f"{description}\n{task}"))
     except Exception:
         pass
 

@@ -446,7 +446,8 @@ What each section DOES at runtime:
   paths|name|from, prompt, model?}`, the bio trigger shapes) starts the
   tier's lead (its first member) as a background job under the lineup with
   `HALO_TIER_FIRED=<tier>`, and that lead may spawn its own tier's other
-  members and the next tier down. The full rule is in
+  members and the next tier down. 3.3.16.3: `tiers[].purpose` (a few words: "thinking",
+  "the workers") titles the tier's block on Studio's Cast and its group on Agents -> Live. The full rule is in
   [ROLES.md](ROLES.md#tiers-halo-3070).
 - **isolation, secrets, tools** (Halo 3.1.8.0 R5, [ISOLATION.md](ISOLATION.md))
   -- three opt-ins, none set by default: `isolation: container | user` (or

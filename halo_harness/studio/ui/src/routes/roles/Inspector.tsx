@@ -19,6 +19,8 @@ import { LiveInspector } from "../agents/live/LiveInspector";
 import { ModelStrip } from "./ModelStrip";
 import { cloneFromPack } from "./packActions";
 import { nodeById, packOf, setTab, useRoles, type InspectorTab } from "./store";
+import { useBlockSel } from "../agents/blocks/blockState"; // 3.3.16.3: a block selected on Cast
+import { WorkflowSummary } from "../agents/workflows/WorkflowSummary";
 
 /** 3.2.0.0 R2: a pack's lineup opens read-only; Customize clones it and opens your copy. */
 function ReadOnly() {
@@ -47,9 +49,11 @@ export function InspectorDetail() {
 function CastInspector() {
   const tab = useRoles((s) => s.tab);
   const sel = useRoles((s) => s.sel);
+  const block = useBlockSel();
   const byNode = useByNode();
   const liveHere = sel ? (byNode[sel] || []).length : 0;
   const anyLive = Object.keys(byNode).length;
+  if (block && !sel) return <div className="ri blk-insp" data-testid="roles-inspector-body" data-block={block}><WorkflowSummary /></div>;
   return (
     <div className="ri" data-testid="roles-inspector-body">
       <LineupDiskNote />

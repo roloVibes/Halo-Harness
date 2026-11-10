@@ -5,8 +5,12 @@ import { useState } from "react";
 import { Button } from "../../../lib/ui";
 import { disableSquare, enableSquare, saveContract, select, setPage, squareOf, useWf, type Page, type Square } from "./store";
 import { YamlPage } from "./YamlPage";
+import { AgentsPage, PurposePage } from "./BlockPages"; // 3.3.16.3: a block's Purpose and Agents pages
+import { agentsOf } from "../blocks/blockLayout";
 
 const ROWS: [Page, string, (q: Square, on: boolean) => string][] = [
+  ["purpose", "Purpose", (q) => q.does || "-"],
+  ["agents", "Agents", (q) => agentsOf(q).map((a) => a.bio).join(", ")],
   ["enable", "Enable for this lineup", (_q, on) => (on ? "on: main may hand it work" : "off")],
   ["budget", "Budget", (q) => q.costs],
   ["limits", "Limits", (q) => q.limits],
@@ -30,7 +34,7 @@ function Lines({ q }: { q: Square }) {
   );
 }
 
-function Head({ q, title }: { q: Square; title: string }) {
+export function Head({ q, title }: { q: Square; title: string }) {
   return (
     <div className="wf-page-head" data-density="bar">
       <Button size="sm" variant="ghost" onClick={() => setPage("summary")} data-testid="wf-page-back">Back</Button>
@@ -39,7 +43,7 @@ function Head({ q, title }: { q: Square; title: string }) {
   );
 }
 
-function ReadOnly({ q }: { q: Square }) {
+export function ReadOnly({ q }: { q: Square }) {
   return q.writable ? null : (
     <p className="muted wf-ro" data-testid="wf-read-only">{q.ref} is {q.origin} and read-only: copy it to yours first
       (<span className="mono">halo workflows new my-{q.ref.split("/").pop()} --from {q.ref}</span>), then edit the copy.</p>
@@ -131,6 +135,8 @@ export function WorkflowSummary() {
       {(page === "enable" || page === "remove") && <EnablePage q={q} on={on} remove={page === "remove"} />}
       {(page === "budget" || page === "limits") && <FormPage key={`${q.ref}-${page}`} q={q} kind={page} />}
       {page === "yaml" && <YamlPage q={q} />}
+      {page === "purpose" && <PurposePage key={q.ref} q={q} />}
+      {page === "agents" && <AgentsPage q={q} />}
     </aside>
   );
 }

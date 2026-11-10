@@ -7,6 +7,7 @@
 // machine box the same way (`machines`), the box a dragged mission part is dropped into.
 import { forestOf, placeForest, type Dims, type Placed } from "../fleet/layoutTree";
 import type { LiveNode } from "./liveModel";
+import { isBoxed, placeGrouped, type GroupBox } from "../agents/live/groupLayout";
 
 export type Density = "compact" | "spread";
 export const DENSITY: Record<Density, Dims & { per: number }> = {
@@ -23,7 +24,9 @@ const MACHINE_PAD = 16;
 
 export type LiveBox = { node: LiveNode; x: number; y: number; w: number; h: number; depth: number; from: string | null; d: string };
 export type LiveGroup = { card: string; label: string; x: number; y: number; w: number; h: number; count: number };
-export type LiveGeometry = { width: number; height: number; boxes: LiveBox[]; groups: LiveGroup[]; machines: LiveGroup[] };
+/** `tasks`: 3.3.16.3's group boxes (a task's, a square's agents), drawn by routes/agents/live/GroupBox.tsx. */
+export type LiveGeometry = { width: number; height: number; boxes: LiveBox[]; groups: LiveGroup[]; machines: LiveGroup[]; tasks: GroupBox[] };
+const OPEN = new Set<string>();
 
 /** The box around every box `keyOf` puts in one group (`pad` px out from them). */
 function groupsOf(boxes: LiveBox[], keyOf: (b: LiveBox) => string, labelOf: (b: LiveBox) => string, pad: number): LiveGroup[] {
@@ -47,23 +50,31 @@ function groupsOf(boxes: LiveBox[], keyOf: (b: LiveBox) => string, labelOf: (b: 
   return [...groups.values()];
 }
 
-export function liveLayout(nodes: LiveNode[], density: Density = "spread"): LiveGeometry {
+export function liveLayout(nodes: LiveNode[], density: Density = "spread", closed: Set<string> = OPEN): LiveGeometry {
   const dims = DENSITY[density] || DENSITY.spread;
   const fleet = nodes.some((n) => n.harness);
   const gap = fleet ? 2 * MACHINE_PAD : 0; // room between two machine boxes (each root is a machine, or a session in Session's map)
+  const top = MARGIN + HEAD + (fleet ? MACHINE_PAD : 0);
+  const left = MARGIN + (fleet ? MACHINE_PAD : 0);
+  // 3.3.16.3: a task's or a square's agents are one box under their parent (routes/agents/live/groupLayout.ts)
+  const laid = nodes.some(isBoxed) ? placeGrouped(nodes, dims, density === "compact" ? 5 : 4, closed, left, top, gap) : placePlain(nodes, dims, left, top, gap);
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const boxes: LiveBox[] = laid.placed.map((p) => ({ node: byId.get(p.id)!, x: p.x, y: p.y, w: dims.w, h: dims.h, depth: p.depth, from: p.from, d: p.d }));
+  const tasks = laid.groups;
+  const groups = groupsOf(boxes.filter((b) => !isBoxed(b.node)), (b) => b.node.group?.id || b.node.card, (b) => b.node.group?.title || b.node.cardLabel, GROUP_PAD);
+  const rects = [...boxes, ...tasks.map((t) => ({ ...boxes[0], node: t.members[0], x: t.x, y: t.y, w: t.w, h: t.h }))];
+  const machines = fleet ? groupsOf(rects, (b) => b.node?.harness || "", (b) => (b.node?.kind === "machine" ? b.node.name : ""), MACHINE_PAD) : [];
+  const extra = fleet ? 2 * MACHINE_PAD : 0;
+  return { width: Math.max(320, laid.w + 2 * MARGIN + extra), height: Math.max(200, laid.h + 2 * MARGIN + HEAD + extra), boxes, groups, machines, tasks };
+}
+
+function placePlain(nodes: LiveNode[], dims: Dims & { per: number }, left: number, top: number, gap: number) {
   const forest = forestOf(nodes.map((n) => ({ id: n.id, parent: n.parent })), dims.per, dims);
   const placed: Placed[] = [];
-  const top = MARGIN + HEAD + (fleet ? MACHINE_PAD : 0);
-  let x = MARGIN + (fleet ? MACHINE_PAD : 0);
+  let x = left;
   for (const r of forest.roots) {
     placeForest({ roots: [r], w: r.w, h: r.h }, x, top, dims, placed);
     x += r.w + dims.hg + gap;
   }
-  forest.w += gap * Math.max(0, forest.roots.length - 1);
-  const byId = new Map(nodes.map((n) => [n.id, n]));
-  const boxes: LiveBox[] = placed.map((p) => ({ node: byId.get(p.id)!, x: p.x, y: p.y, w: dims.w, h: dims.h, depth: p.depth, from: p.from, d: p.d }));
-  const groups = groupsOf(boxes, (b) => b.node.card, (b) => b.node.cardLabel, GROUP_PAD);
-  const machines = fleet ? groupsOf(boxes, (b) => b.node.harness || "", (b) => (b.node.kind === "machine" ? b.node.name : ""), MACHINE_PAD) : [];
-  const extra = fleet ? 2 * MACHINE_PAD : 0;
-  return { width: Math.max(320, forest.w + 2 * MARGIN + extra), height: Math.max(200, forest.h + 2 * MARGIN + HEAD + extra), boxes, groups, machines };
+  return { placed, groups: [] as GroupBox[], w: forest.w + gap * Math.max(0, forest.roots.length - 1), h: forest.h };
 }

@@ -11,13 +11,16 @@
 // Session's Live column with its own props: `scope` (that session's lanes),
 // `onPick` (a lane click pins the agent there), `marked` (the lane lit: the
 // pinned agent, else the selected one) and `testid`. 3.3.0.0 R6: `extra` sits in
-// its bar (Session's Export button); `marked` is the steer's target there.
+// its bar (Session's Export button); `marked` is the steer's target there. 3.3.16.3: "by group" lists the lanes in
+// Live's groups (routes/agents/live/laneGroups.ts), a title row over each group's lanes.
 import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode, type RefObject } from "react";
 import { select } from "./actions";
 import { panels, usePanels, type Seg } from "./pstore";
 import { sessionsIn, useScope } from "./scope";
 import { allAgents, isLive, sessionTitle, useFleet, useNow, type Scope } from "./store";
 import type { AgentKey } from "./types";
+import { byGroup } from "../agents/live/laneGroups";
+import { toggleByGroup, useByGroup } from "../agents/live/groupStore";
 
 const LANE = 18;
 const LABEL_W = 116;
@@ -73,9 +76,11 @@ export function Timeline({ scope: only, onPick = select, marked, verb = "select 
   const scope = only || current;
   const lit = marked ?? selected;
   const live = useMemo(() => allAgents({ harnesses: sessionsIn(harnesses, scope) } as never).filter((r) => isLive(r.a)), [harnesses, scope]);
+  const grouped = useByGroup();
+  const rows = useMemo(() => byGroup(live, grouped), [live, grouped]);
   const from = now - span * 60_000;
   const x = (t: number) => LABEL_W + ((t - from) / (now - from)) * (W - LABEL_W - 4);
-  const height = Math.max(1, live.length) * LANE + 18;
+  const height = Math.max(1, rows.length) * LANE + 18;
   const hover = (e: MouseEvent, text: string) => {
     const box = (e.currentTarget as SVGElement).ownerSVGElement?.getBoundingClientRect();
     if (box) setTip({ x: e.clientX - box.left + 10, y: e.clientY - box.top + 12, text });
@@ -86,6 +91,8 @@ export function Timeline({ scope: only, onPick = select, marked, verb = "select 
         <span className="rail-label mono">TIMELINE · ONE LANE PER LIVE AGENT</span>
         <span className="spacer" />
         {extra}
+        <button className={grouped ? "on" : ""} aria-pressed={grouped} onClick={toggleByGroup} data-testid={`${testid}-by-group`}
+                title="List the lanes in Live's groups: a title row over the agents of one task or one square">by group</button>
         <div className="segmented" role="group" aria-label="How far back">
           {SPANS.map((m) => (
             <button key={m} className={span === m ? "on" : ""} aria-pressed={span === m} onClick={() => panels.update(() => ({ span: m }))} data-testid={`fleet-span-${m}`}>
@@ -106,8 +113,14 @@ export function Timeline({ scope: only, onPick = select, marked, verb = "select 
             );
           })}
           {!live.length && <text className="ftl-none" x={LABEL_W} y={13}>no agent is live: a lane appears when one starts</text>}
-          {live.map((r, i) => {
+          {rows.map((row, i) => {
             const y = i * LANE;
+            if (row.head) return (
+              <text key={"g:" + row.head.id} className="ftl-name ftl-group" x={4} y={y + 12.5} data-testid="fleet-lane-group" data-group={row.head.id}>
+                {`▾ ${row.head.title} · ${row.n}`}
+              </text>
+            );
+            const r = row.r;
             const name = r.a.name || r.a.role || r.a.agent_id;
             const label = r.h.local ? name : `${name}@${(r.h.name || r.h.id).split("@")[0]}`;
             const where = `${r.h.name || r.h.id.slice(0, 8)} · ${sessionTitle(r.s)}`;

@@ -63,7 +63,9 @@ class ObserveMixin:
             before = dict(row)
             if kind == "text_delta":
                 row["last_text"] = (row.get("last_text", "") + str(data.get("text") or ""))[-LAST_TEXT:]
+                self._said[aid] = (self._said.get(aid, "") + str(data.get("text") or ""))[-LAST_TEXT:]
             elif kind == "message_start":
+                self._said[aid] = ""  # 3.3.16.3: a spawn's `lead` is this reply's own text
                 row["current"] = "thinking"
                 _running(row)
             elif kind == "tool_use_ready":

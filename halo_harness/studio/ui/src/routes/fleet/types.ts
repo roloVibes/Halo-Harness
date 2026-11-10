@@ -30,7 +30,9 @@ export type AgentRow = {
   tokens_in?: number | null;
   tokens_out?: number | null;
   /** 3.3.16.0 R3: a square's agent or node (workflows/receipts.py): its name and engine. */
-  square?: { name: string; engine: string } | null;
+  square?: { name: string; engine: string; does?: string } | null;
+  /** 3.3.16.3: the parent's step that started it (agent_hooks.spawn_of): Live boxes the agents of one step. */
+  spawn?: { step: string; description?: string; lead?: string } | null;
 };
 
 export type Pending = Partial<Record<"permission" | "question" | "plan" | "approval", string[]>> | null;

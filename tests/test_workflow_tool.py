@@ -57,7 +57,8 @@ def test_a_session_square_the_receipt_the_live_node_and_the_cost(ctx: Ctx):
         ctx.check(f"which square, the engine, the cost, got {r}", r["square"] == "media" and r["engine"] == "session"
                   and r["cost_usd"] == 0.02 and r["status"] == "done" and r["back"] == "text" and r["line"] == first)
         sq = [row.get("square") for kind, aid, row in rt.frames if aid == "c1" and row.get("square")]
-        ctx.check(f"the Live node frame carries the square, got {sq[-1:] }", sq and sq[-1] == {"name": "media", "engine": "session"})
+        ctx.check(f"the Live node frame carries the square and its DOES line (3.3.16.3), got {sq[-1:] }",
+                  sq and {k: sq[-1].get(k) for k in ("name", "engine")} == {"name": "media", "engine": "session"} and bool(sq[-1].get("does")))
         ctx.check("no usage node of its own: the child rolls up as every sub-agent does", rt.parent.log.usage == [])
 
 
@@ -123,7 +124,7 @@ def test_an_orchestra_square_its_node_its_cost_and_the_run_report(ctx: Ctx):
                   rt.parent.log.usage == [{"cost_usd": 0.5, "agent_id": "square:code"}])
         nodes = [row for kind, aid, row in rt.frames if aid.startswith("sq-")]
         ctx.check(f"a node under main, then its state, got {nodes[-1:]}", nodes and nodes[0].get("parent") == "main"
-                  and nodes[-1].get("square") == {"name": "code", "engine": "orchestra"} and nodes[-1].get("state") == "done")
+                  and {k: (nodes[-1].get("square") or {}).get(k) for k in ("name", "engine")} == {"name": "code", "engine": "orchestra"} and nodes[-1].get("state") == "done")
         from halo_harness.workflows import receipts
         run = h.repo / "run-dir"
         run.mkdir()

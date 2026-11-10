@@ -27,9 +27,10 @@ function sessionNodes(st: FleetState, h: Harness, s: SessionRow, parent: string 
     task: String(s.cwd || ""), cost: typeof s.cost_usd === "number" ? s.cost_usd : null, started: Number(s.started) || null, role: s.kind === "headless" ? "no terminal" : String(s.kind || "session"),
   };
   const rec = recordOf(h, s, st.doneAt);
+  const up = (p: string | null) => (p && p !== UNKNOWN ? keyOf(h.id, s.session_id, p) : sid);
   const agents = liveNodes(rec, st, graph, lineup, now).filter((n) => !n.virtual).map((n) => ({
-    ...n, id: n.key, harness: h.id, sid: s.session_id,
-    parent: n.parent && n.parent !== UNKNOWN ? keyOf(h.id, s.session_id, n.parent) : sid,
+    ...n, id: n.key, harness: h.id, sid: s.session_id, parent: up(n.parent),
+    ...(n.group?.parent ? { group: { ...n.group, parent: up(n.group.parent) } } : {}), // 3.3.16.3: the box hangs under the same node
   }));
   return [head, ...agents];
 }

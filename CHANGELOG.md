@@ -8,6 +8,41 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.3.16.3] - unreleased
+
+The owner, 2026-11-10: "I still really want to see different blocks that you can almost like drag and drop in the agents
+tab ... I wish I could see better groupings of these sub-agents ... here's this one task and here's the sub-agents in there".
+
+### Added
+
+- **Live in groups** (Agents -> Live and Session's Map): the sub-agents one step of a parent started together (one
+  reply's Agent calls) are one box titled by their task -- the description they share, else the parent's own line
+  before the calls, else the words the descriptions start with, never a model call -- and the parent's line goes into
+  the box; a square's agents are one box titled `square <name>` with its DOES line; a tier's agents fall back to the
+  tier's purpose; an agent started alone is not boxed. The bar counts working / waiting / done, the cost and the time,
+  says Auto's pick in plain words ("3 readers on kimi-k3 for a pdf in the task"), folds to itself on the chevron (amber
+  while one inside waits on you), and has a hover card. Ten agents are a grid of four to a row; boxes nest one level.
+  `routes/agents/live/groups.ts`, `groupLayout.ts`, `GroupBox.tsx`; Session's timeline gains **by group**.
+- Agent rows carry `spawn: {step, description, lead}` (`agent/agent_hooks.spawn_of`: the parent's id and reply count,
+  the call's description, the parent's last line in that reply) and a square's row its `does`.
+- **Blocks on Cast**: the lineup's enabled squares are blocks beside its tiers on one canvas, main's line into each;
+  a square block opens to show the bios of its lineup on their models (folded: its TAKES / GIVES / COSTS lines; the
+  chevron kept per lineup), its footer its limits and cost band. A click opens its summary in the inspector, with new
+  **Purpose** and **Agents** pages (`PUT workflows/contract` takes `does`; a shipped square says how to copy it).
+- `tiers[].purpose` in a lineup: the tier block's title line on Cast (its `...` menu edits it), Live's tier group,
+  `halo teams show`'s tier line; the shipped auto lineup names both of its tiers.
+
+### Changed
+
+- Live's layout draws a group as one child of its parent (`liveLayout.ts` hands a tree with groups to
+  `groupLayout.ts`; a tree without them is laid out as before). The glossary's **block** says the canvas meaning too;
+  **group** is new.
+
+### Docs
+
+- docs/STUDIO-blocks.md (a new part of STUDIO.md: "Blocks" and "Live in groups"; STUDIO-agents.md points to it), docs/ROLES.md and docs/AGENTS.md (`tiers[].purpose`),
+  docs/WORKFLOWS-squares.md "A square as a block", the glossary, README's Agents part.
+
 ## [3.3.16.1] - unreleased
 
 **The local prompt diet.** A first turn to an unknown remote Ollama model was 16,970 tokens of Halo's own prompt

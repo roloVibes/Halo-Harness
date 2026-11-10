@@ -33,7 +33,7 @@ A member is one part of a lineup put to work on a team's project, on this machin
 
 ## block
 
-A block is a place a team's work lands: a file, a folder or a git tree, each with its claim ledger (who holds which part, one change line per write). Stages read and write blocks, and a block that changes and then settles can start the stage that waits on it (`block_change:<block>`).
+A block is a place a team's work lands: a file, a folder or a git tree, each with its claim ledger (who holds which part, one change line per write). Stages read and write blocks, and a block that changes and then settles can start the stage that waits on it (`block_change:<block>`). 3.3.16.3: on Studio's Agents canvas a block is also one titled box with a purpose, the agents inside it and how main reaches it: a lineup tier (its `purpose` names it, "thinking", "the workers") or a workflow square (its DOES line); main is the one card in no block, and a block opens to show its agents or folds to its lines.
 
 ## stage
 
@@ -74,6 +74,10 @@ A square is a saved workflow with a contract (Halo 3.3.16.0 R3): what it does in
 ## router
 
 The router is the `Workflow` tool (Halo 3.3.16.0 R3): it works out what the task needs that the session's model does not take (a PDF on a text-only model, say), picks the enabled square that covers it, says why in one line ("handing the PDF to media: your model takes text only") and runs it within the square's depth and budget. When no square covers the need, it says what could not be read and the model carries on.
+
+## group
+
+A group (Halo 3.3.16.3) is how Agents -> Live boxes the agents of one task: the sub-agents one step of a parent started together (the Agent calls of one reply), titled by that task in a few words; the agents of one square, titled by the square and its DOES line; or, when nothing more specific applies, a lineup tier's agents under its purpose. The parent's line goes to the group, not to each agent; its title bar counts who is working, waiting or done, its cost and its time, and says Auto's pick in plain words. An agent started alone is not boxed.
 
 ## plan
 

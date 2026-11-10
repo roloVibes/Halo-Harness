@@ -61,18 +61,18 @@ def write(session, rec: dict) -> None:
             pass
 
 
-def mark_child(session, child, ref: str, engine: str) -> None:
+def mark_child(session, child, ref: str, engine: str, does: str = "") -> None:
     """A session square's own agent: its row says it is the square (the Live tree draws it so)."""
     try:
         from halo_harness.agent.agent_registry import tree_for
         aid = getattr(child, "agent_id", None)
         if aid:
-            tree_for(session).update(aid, square={"name": ref, "engine": engine})
+            tree_for(session).update(aid, square={"name": ref, "engine": engine, "does": does})
     except Exception:
         pass
 
 
-def node(session, ref: str, engine: str, *, state: str, cost_usd: float = 0.0, key: str = "") -> str:
+def node(session, ref: str, engine: str, *, state: str, cost_usd: float = 0.0, key: str = "", does: str = "") -> str:
     """An orchestra square's node under the agent that called it; returns its key (pass it back to update)."""
     try:
         from halo_harness.agent.agent_registry import agent_key, tree_for
@@ -80,7 +80,7 @@ def node(session, ref: str, engine: str, *, state: str, cost_usd: float = 0.0, k
         if not key:
             key = f"sq-{next(_N)}"
             tree.add(key, parent=agent_key(session), name=ref, kind="square", state=state, task=f"square {ref}",
-                     square={"name": ref, "engine": engine}, since=time.time())
+                     square={"name": ref, "engine": engine, "does": does}, since=time.time())
         else:
             tree.update(key, state=state, cost_usd=round(float(cost_usd or 0.0), 6))
     except Exception:

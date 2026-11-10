@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Optional
 
 TERMS = ("lineup", "bio", "role", "tier", "team", "member", "block", "stage", "lane", "part", "step",
-         "mission", "gate", "claim", "hand-off", "square", "router", "plan", "coach", "orchestra run", "fleet", "hub", "harness",
+         "mission", "gate", "claim", "hand-off", "square", "router", "group", "plan", "coach", "orchestra run", "fleet", "hub", "harness",
          "capability", "unit", "pack", "guided first run", "setup", "provider", "env file",
          "config key", "steward", "profile", "fit plan",
          "host", "grant", "peer", "fix", "duty steward", "offline promise", "speed card", "library", "quant",

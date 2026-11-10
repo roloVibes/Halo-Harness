@@ -161,6 +161,11 @@ default) turns the cards off: the boxes keep their plain tooltips. Session's Map
 with the square's name in mono and the lane colour of its engine, its cost beside the session's; the Session's Cost
 panel shows a `squares` line when any ran.
 
+### Blocks and Live's groups (3.3.16.3)
+
+The tiers and the enabled squares are blocks on Cast's one canvas, and Live boxes the agents of one task: see
+[Studio: blocks and groups](STUDIO-blocks.md).
+
 ## Cast: the lineup and its bios
 
 **Roles follows the disk (3.2.2.0).** When a lineup's file changes (your

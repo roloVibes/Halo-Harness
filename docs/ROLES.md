@@ -821,6 +821,11 @@ delegation:
   max_depth: 2      # a three-tier stack is two spawn levels deep
 ```
 
+**A tier's purpose (3.3.16.3).** `purpose:` is a few words saying what the tier is for (`{name: pool, members: [...],
+purpose: the workers, picked per task}`): Studio's Cast titles the tier's block with it (its `...` menu edits it), Agents
+-> Live groups the tier's agents under it, `halo teams show` prints it on the tier's line. It changes no rule; a tier
+without one is drawn as before. The shipped auto lineup names both of its tiers.
+
 **The rule:** a member spawns only into the next tier down. `main` (tier 0)
 spawns `planner` or `reviewer`; a lead spawns `worker`; a worker spawns no
 lineup member (it does its work itself). A member is named by its alias:

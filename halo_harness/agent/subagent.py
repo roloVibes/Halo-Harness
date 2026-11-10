@@ -926,7 +926,7 @@ def _build_child_session_inner(*, runtime: AgentRuntime, spec: AgentSpec, agent_
     # Halo 3.0.5.0 (Fleet): the child joins the session's live agent tree.
     _agent_tree.register_child(parent, child, agent_id=agent_id, spec=spec, model=model_ref.raw,
                                role=_effective_role_name, background=background, team_control=team_control,
-                               model_reason=_model_reason)
+                               model_reason=_model_reason, task_text=task_text)
     _write_meta(meta_path, {
         "agent_id": agent_id, "type": spec.name, "description": spec.description,
         "model": model_ref.raw, "parent_tool_use_id": parent_tool_use_id,
@@ -1614,7 +1614,7 @@ def _run_agent_fanout(*, runtime: AgentRuntime, spec: AgentSpec, tool_id: str, t
         queued_ev.agent_id = agent_id
         _emit(queued_ev)
         _agent_tree.register_queued(parent, agent_id, name=spec.name, task=job["prompt"],
-                                    role=job["role"] or spec.role)
+                                    role=job["role"] or spec.role, description=job["description"])
         prepared.append((agent_id, new_task_id, job))
 
     results: list = [None] * n

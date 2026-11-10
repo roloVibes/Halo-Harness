@@ -1,0 +1,36 @@
+/* Live in groups (3.3.16.3, routes/agents/live/GroupBox.tsx): a group box -- a task's agents, a square's agents (its
+   engine's lane colour on the edge) -- and its title bar of one fact per row (the task, the counts, Auto's pick or the
+   DOES line), each cut by CSS ellipsis only; folded, the bar alone in the strongest state's colour, amber while one of
+   its agents waits on you. The box is drawn behind the agents, the bar after them. Tokens only. */
+.lg-box, .lg-bar { --g: var(--line-strong); }
+.lg-box[data-glow="working"], .lg-bar[data-glow="working"] { --g: color-mix(in srgb, var(--accent) 55%, transparent); }
+.lg-box[data-glow="done"], .lg-bar[data-glow="done"] { --g: color-mix(in srgb, var(--ok) 45%, transparent); }
+.lg-box[data-glow="failed"], .lg-bar[data-glow="failed"] { --g: color-mix(in srgb, var(--bad) 60%, transparent); }
+.lg-box[data-glow="waiting"], .lg-box[data-asks], .lg-bar[data-glow="waiting"], .lg-bar[data-asks] { --g: var(--warn); }
+
+.lg-box { position: absolute; box-sizing: border-box; border: 1px solid var(--g); border-radius: var(--r-card);
+  background: color-mix(in srgb, var(--accent-2) 4%, transparent); pointer-events: none; }
+.lg-box[data-kind="square"] { border-left: 3px solid var(--accent); background: color-mix(in srgb, var(--accent) 4%, transparent); }
+.lg-box[data-kind="square"][data-engine="orchestra"] { border-left-color: var(--accent-2); }
+.lg-bar:not([data-open])[data-asks] { box-shadow: 0 0 12px color-mix(in srgb, var(--warn) 35%, transparent); }
+
+.lg-bar { position: absolute; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; gap: 3px;
+  padding: 6px 12px 6px 8px; border: 1px solid var(--g); border-radius: var(--r-card) var(--r-card) 0 0; overflow: hidden;
+  background: var(--surface-2); outline: none; cursor: default; min-width: 0; }
+.lg-bar[data-kind="square"] { border-left: 3px solid var(--accent); }
+.lg-bar:not([data-open]) { border-radius: var(--r-card); }
+.lg-bar:focus-visible { outline: 1px solid var(--text); outline-offset: 2px; }
+.lg-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.lg-chev { flex: none; width: 20px; height: 20px; padding: 0; border: 1px solid var(--line); border-radius: 5px; background: transparent;
+  color: var(--muted); font-size: 11px; line-height: 18px; cursor: pointer; }
+.lg-chev:hover, .lg-chev:focus-visible { color: var(--text); border-color: var(--accent); }
+.lg-title { min-width: 0; font: 600 13px var(--sans); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lg-counts, .lg-why { flex: none; padding-left: 26px; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lg-counts { color: var(--muted); }
+.lg-why { color: var(--accent-2); }
+.lg-bar[data-kind="square"] .lg-why { color: var(--text); }
+.rlm-group[data-tier] .rlm-group-label { text-transform: none; letter-spacing: 0; }
+
+/* Session's timeline "by group": a group's title row over its lanes */
+.ftl-group { fill: var(--accent-2); font-weight: 600; }
+.ftl-bar > button[data-testid$="-by-group"] { font-size: 11px; padding: 2px 8px; }

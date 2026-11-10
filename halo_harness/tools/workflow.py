@@ -112,9 +112,9 @@ class WorkflowTool(Tool):
             model, _pick = square_run.lead_model(wf, task, files, r.gaps, main_ref=model_ref, state_dir=getattr(session, "state_dir", None))
             out = square_run.run_session(wf, task, files, runtime=runtime, tool_id=ctx.tool_use_id or "", model=model,
                                          cap=r.cap_usd, hops=r.hops, spawn=SPAWN,
-                                         on_child=lambda child: receipts.mark_child(session, child, wf.ref, engine))
+                                         on_child=lambda child: receipts.mark_child(session, child, wf.ref, engine, does=wf.contract.does))
         else:
-            key = receipts.node(session, wf.ref, engine, state="running")
+            key = receipts.node(session, wf.ref, engine, state="running", does=wf.contract.does)
             out = square_run.run_orchestra(wf, task, files, repo=ctx.cwd, wall_s=wf.contract.wall_s, runner=RUN_ORCHESTRA)
             receipts.node(session, wf.ref, engine, state="done" if out.status == "done" else "failed", cost_usd=out.cost_usd, key=key)
             receipts.add_cost(session, wf.ref, out.cost_usd)

@@ -29,6 +29,8 @@ import { ThumbBar } from "../agents/live/ThumbBar";
 import { clearPick, pickLive, toggleScope, useLiveScope, useLivePick } from "../agents/live/scope";
 import { useLiveNodes } from "../agents/live/useLiveNodes";
 import { RunNodeCard } from "../agents/live/runLanes";
+import { GroupBar, GroupBox, GroupEdges } from "../agents/live/GroupBox"; // 3.3.16.3: Live in groups
+import { useClosed } from "../agents/live/groupStore";
 import { liveLayout, type LiveBox } from "./liveLayout";
 import { selectLive } from "./liveModel";
 import { LiveGroupBox, LiveNodeCard } from "./LiveNode";
@@ -60,7 +62,8 @@ export function LiveMap({ thumb = false }: { thumb?: boolean }) {
   const selected = useFleet((s) => s.selected);
   const loaded = useFleet((s) => s.loaded);
   const pick = useLivePick();
-  const geo = useMemo(() => liveLayout(nodes, thumb ? "compact" : density), [nodes, density, thumb]);
+  const closed = useClosed();
+  const geo = useMemo(() => liveLayout(nodes, thumb ? "compact" : density, new Set(closed)), [nodes, density, thumb, closed]);
   const [zoom, setZoom] = useState(1);
   const [menu, setMenu] = useState<MenuAt | null>(null);
   const scroll = useRef<HTMLDivElement>(null);
@@ -100,6 +103,8 @@ export function LiveMap({ thumb = false }: { thumb?: boolean }) {
             <div className="rc-inner rlm-inner" style={{ width: geo.width, height: geo.height, transform: `scale(${zoom})` }} data-testid="roles-live-world" data-zoom={zoom.toFixed(2)}>
               {geo.machines.map((g) => <MachineBox key={g.card} g={g} label={thumb} />)}
               {geo.groups.map((g) => <LiveGroupBox key={g.card} g={g} />)}
+              {geo.tasks.map((b) => <GroupBox key={b.g.id} b={b} now={now} />)}
+              <GroupEdges boxes={geo.tasks} w={geo.width} h={geo.height} />
               <Edges boxes={geo.boxes} w={geo.width} h={geo.height} sel={selected} />
               {mode !== "here" && <FleetEdges boxes={geo.boxes} w={geo.width} h={geo.height} />}
               {mode === "fleet" && <PartEdges boxes={geo.boxes} w={geo.width} h={geo.height} />}
@@ -111,6 +116,7 @@ export function LiveMap({ thumb = false }: { thumb?: boolean }) {
                 if (n.kind === "part") return <PartNode key={n.id} b={b} machines={geo.machines} zoom={zoom} />;
                 return <LiveNodeCard key={n.id} b={b} selected={!!n.key && n.key === selected} now={now} onMenu={setMenu} onPick={onAgent} hover={!thumb} />;
               })}
+              {geo.tasks.map((b) => <GroupBar key={b.g.id} b={b} now={now} hover={!thumb} />)}
             </div>
           </div>
         )}

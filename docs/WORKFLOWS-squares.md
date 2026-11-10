@@ -142,6 +142,14 @@ Studio's Agents section has a fourth view, Workflows (`W`,
 every square beside it, the inspector on hover or select. The rules it is built
 by are in [STUDIO-agents.md](STUDIO-agents.md#workflows-the-board-of-squares-33160-r3).
 
+## A square as a block (3.3.16.3)
+
+On Studio's Cast a lineup's enabled squares are **blocks** beside its tiers ([STUDIO-blocks.md](STUDIO-blocks.md)): the title bar says the square's name and its DOES line, the block opens to show the bios of its lineup (the
+lead, then `lineup.members`) on their models, and its footer says its limits and cost band. The block's **Purpose** page
+writes `does` into a square of yours (`PUT workflows/contract {ref, does}`; a shipped or a pack's square answers how to
+copy it: `halo workflows new <name> --from <square>`). On Agents -> Live a square's agent and the agents under it are
+one group titled `square <name>` with the DOES line under it; the agent row's `square` carries `does` for that.
+
 ## Commands
 
 `halo workflows list | show | enable | disable | test | new | check | run`

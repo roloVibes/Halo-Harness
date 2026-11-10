@@ -12,6 +12,7 @@ import { select } from "../fleet/actions";
 import { activityOf } from "../fleet/frames";
 import { allAgents, fleet, findAgent, type FleetState } from "../fleet/store";
 import { liveScope, pickLive } from "../agents/live/scope";
+import { withGroups, type GroupTag } from "../agents/live/groups"; // 3.3.16.3: Live in groups
 import { glowOf, type GlowState } from "./glow";
 import { matchNode, openLiveTab, watchAgent } from "./live";
 import { keyOf as cardKey, roles } from "./store";
@@ -32,6 +33,8 @@ export type LiveNode = {
   kind?: "machine" | "session" | "part"; harness?: string; sid?: string;
   /** 3.3.16.0 R3: a square's agent or node (workflows/receipts.py): its name and its engine. */
   square?: string; engine?: string;
+  /** 3.3.16.3 (routes/agents/live/groups.ts): the box it is drawn in -- a task, a square, a lineup tier. */
+  group?: GroupTag;
 };
 
 /** "picked at spawn: <role> on <model> -- <reason>" for an agent `auto` picked a model for; "" otherwise. */
@@ -62,7 +65,7 @@ export function liveNodes(rec: WorkRecord, st: FleetState, graph: GraphNode[], l
   if (rec.agents.some((a) => a.orphan))
     out.unshift({ id: UNKNOWN, key: "", parent: null, name: "unknown parent", role: "", model: "", state: "", activity: "", glow: "", card: "", cardLabel: "",
                   task: "these agents name a parent that is not in this session's frames", current: "", cost: null, started: null, ended: null, pick: "", virtual: true });
-  return out;
+  return withGroups(out, rec, roles.get().graph?.tiers || []);
 }
 
 /** The session Live draws: the one asked for while it is listed, else this harness's newest. */

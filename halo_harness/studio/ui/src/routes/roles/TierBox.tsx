@@ -63,7 +63,7 @@ export const TierBox = memo(function TierBox({ t, b, count, collapsed, hot, stat
   };
   return (
     <div className="rc-tier holo-frame" data-testid="roles-tier" data-tier={t.name} data-index={t.index} data-implicit={t.implicit || undefined}
-         data-collapsed={collapsed || undefined} data-hot={hot || undefined} data-holo-state={state || undefined} data-chips={t.model || t.trigger ? "" : undefined}
+         data-collapsed={collapsed || undefined} data-hot={hot || undefined} data-holo-state={state || undefined} data-chips={t.model || t.trigger || t.purpose ? "" : undefined} data-purpose={t.purpose || undefined}
          style={{ left: b.x, top: b.y, width: b.w, height: b.h }}>
       <span className="holo-corners" aria-hidden="true" />
       <div className="rc-tier-head" onClick={() => !renaming && onToggle(t.name)} title={collapsed ? "Expand this tier" : "Collapse this tier to its label"}>
@@ -91,8 +91,12 @@ export const TierBox = memo(function TierBox({ t, b, count, collapsed, hot, stat
           </button>
         )}
       </div>
-      {(t.model || trig) && (
+      {(t.model || trig || t.purpose) && (
         <div className="rc-tier-chips" onClick={stop}>
+          {t.purpose && ( // 3.3.16.3: the block's purpose line; a click opens its Purpose page
+            <button type="button" className="rc-tier-purpose" data-testid="roles-tier-purpose" onClick={(e) => open(e, "purpose")}
+                    title={`${t.purpose}: what this tier is for (click to change)`}>{t.purpose}</button>
+          )}
           {t.model && (
             <button type="button" className="rc-tier-model mono" data-testid="roles-tier-model" data-ref={t.model} onClick={(e) => open(e, "model")}
                     title={`${t.model}: ${h["tiers.model"] || "what this tier's members run on"} (click to change)`}>

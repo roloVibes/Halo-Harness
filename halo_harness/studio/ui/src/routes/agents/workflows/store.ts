@@ -13,7 +13,7 @@ export type Square = {
   depth: number; turns: number | null; wall_s: number | null; costs: string; limits: string;
 };
 export type Board = { lineup: string | null; where: string; enabled: string[]; squares: Square[] };
-export type Page = "summary" | "enable" | "budget" | "limits" | "yaml" | "remove";
+export type Page = "summary" | "purpose" | "agents" | "enable" | "budget" | "limits" | "yaml" | "remove"; // 3.3.16.3: purpose, agents
 
 export type WfState = {
   board: Board | null; error: string; loading: boolean;
@@ -88,7 +88,7 @@ async function flip(ref: string, on: boolean): Promise<void> {
 export const enableSquare = (ref: string): Promise<void> => flip(ref, true);
 export const disableSquare = (ref: string): Promise<void> => flip(ref, false);
 
-export async function saveContract(ref: string, body: { budget?: object; limits?: object }): Promise<string> {
+export async function saveContract(ref: string, body: { budget?: object; limits?: object; does?: string }): Promise<string> {
   try {
     const got = await api.put<{ ok: boolean; line: string }>("workflows/contract", { ref, ...body });
     wf.update(() => ({ note: got.line }));

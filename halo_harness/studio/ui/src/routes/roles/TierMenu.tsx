@@ -11,7 +11,7 @@ import { useHelpGroup } from "../../lib/fieldHelp";
 import { Button, Icon } from "../../lib/ui";
 import { ModelSelect } from "../shared/ModelSelect";
 import { roles, useRoles, type TierMenuAt } from "./store";
-import { deleteTier, setTierMax, setTierModel, setTierTrigger } from "./tierActions";
+import { deleteTier, setTierMax, setTierModel, setTierPurpose, setTierTrigger } from "./tierActions";
 import { makeTrigger, TRIGGER_KINDS, triggerField } from "./tierText";
 import type { Tier } from "./types";
 
@@ -83,6 +83,17 @@ function MaxForm({ t }: { t: Tier }) {
   );
 }
 
+function PurposeForm({ t }: { t: Tier }) { // 3.3.16.3: the tier block's Purpose page
+  const h = useHelpGroup("lineup_fields");
+  const [v, setV] = useState(t.purpose || "");
+  return (
+    <Form title={`Tier ${t.name}: purpose`} testid="roles-tier-purpose-form" onSubmit={() => void setTierPurpose(t.name, v).then((done) => done && close())} ok>
+      <p className="rc-tier-form-line muted">{h["tiers.purpose"] || "what this tier is for, in a few words"}</p>
+      <input className="input" value={v} placeholder="thinking" onChange={(e) => setV(e.target.value)} data-testid="roles-tier-purpose-input" autoFocus />
+    </Form>
+  );
+}
+
 function ModelForm({ t }: { t: Tier }) {
   const h = useHelpGroup("lineup_fields");
   const session = useRoles((s) => s.info?.default_model || "");
@@ -122,6 +133,7 @@ export function TierMenu() {
   if (!at || !t) return null;
   const items: [string, string, string, () => void, boolean][] = [
     ["rename", "Rename", "edit", () => (close(), roles.update(() => ({ tierRename: t.name }))), false],
+    ["purpose", "Purpose...", "edit", () => face("purpose"), false],
     ["model", "Model...", "agent", () => face("model"), false],
     ["trigger", "Trigger...", "pulse", () => face("trigger"), false],
     ["max", "Max parallel...", "grid", () => face("max"), false],
@@ -141,6 +153,7 @@ export function TierMenu() {
       {at.face === "model" && <ModelForm t={t} />}
       {at.face === "trigger" && <TriggerForm key={t.name} t={t} />}
       {at.face === "max" && <MaxForm key={t.name} t={t} />}
+      {at.face === "purpose" && <PurposeForm key={t.name} t={t} />}
     </div>,
     document.body,
   );

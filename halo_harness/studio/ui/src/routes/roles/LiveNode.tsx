@@ -103,7 +103,8 @@ export function LiveNodeCard({ b, selected, now, onMenu, onPick, hover = false }
 export function LiveGroupBox({ g }: { g: LiveGroup }) {
   return (
     <div className="rlm-group" style={{ left: g.x, top: g.y, width: g.w, height: g.h }} data-testid="roles-live-group" data-card={g.card}
-         title={`lineup card ${g.label}: ${g.count} agent${g.count === 1 ? "" : "s"} here run under it`}>
+         data-tier={g.card.startsWith("tier:") || undefined} // 3.3.16.3: an explicit tier's group, titled by its purpose
+         title={`${g.card.startsWith("tier:") ? "lineup tier" : "lineup card"} ${g.label}: ${g.count} agent${g.count === 1 ? "" : "s"} here run under it`}>
       <span className="rlm-group-label mono">{g.label}</span>
     </div>
   );

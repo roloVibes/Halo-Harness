@@ -33,7 +33,9 @@ import { toast } from "../../lib/store";
 import { GlowLegend } from "./GlowLegend";
 import { LiveMap } from "./LiveMap";
 import { glowOf, hideLegend, startGlow, type GlowState } from "./glow";
-import { autoLayout, columns, extent, hiddenCards, placeAll, tierAt, tierBox } from "./layout";
+import { autoLayout, CARD_W, columns, extent, hiddenCards, PAD, placeAll, tierAt, tierBox } from "./layout";
+import { BlockLayer, useSquareBlocks } from "../agents/blocks/BlockLayer"; // 3.3.16.3: the squares as blocks, one board
+import { clearBlock } from "../agents/blocks/blockState";
 import { cardActivity, selectCard, useByNode } from "./live";
 import { ReplayBar } from "./Replay";
 import { openDialog, roles, useRoles } from "./store";
@@ -144,7 +146,9 @@ export function CanvasDetail() {
     window.addEventListener("pointerup", up);
   }, []);
 
-  const ext = graph ? extent(graph, pos) : { w: 600, h: 320 }; // grows with a live drag
+  const ext0 = graph ? extent(graph, pos) : { w: 600, h: 320 }; // grows with a live drag
+  const blk = useSquareBlocks(graph, placed, name, Math.max(0, ...Object.values(placed).map((p) => p.x + CARD_W + PAD)));
+  const ext = { w: Math.max(ext0.w, blk.w), h: Math.max(ext0.h, blk.h) };
   const fit = () => {
     const el = scroll.current;
     if (el) setZoom(Math.max(0.3, Math.min(1.25, (el.clientWidth - 24) / ext.w, (el.clientHeight - 24) / ext.h)));
@@ -203,7 +207,7 @@ export function CanvasDetail() {
     <div className="rc" data-testid="roles-canvas" data-lineup={name} data-replaying={replaying || undefined}>
       <CanvasBar zoom={zoom} setZoom={setZoom} fit={fit} layout={layout} />
       <div className="rc-scroll" ref={scroll} tabIndex={0} onKeyDown={onKey} onDragOver={onDragOver} onDrop={onDrop} onScroll={hideLegend}
-           onPointerDown={(e) => e.target === e.currentTarget && roles.update(() => ({ sel: "" }))} aria-label="Roles canvas: the lineup's cards in their tier boxes">
+           onPointerDown={(e) => (e.target === e.currentTarget || (e.target as HTMLElement).matches?.(".rc-world, .rc-inner")) && (roles.update(() => ({ sel: "" })), clearBlock())} aria-label="Roles canvas: the lineup's cards in their tier boxes">
         <div className="rc-world" style={{ width: ext.w * zoom, height: ext.h * zoom }}>
           <div className="rc-inner" style={{ width: ext.w, height: ext.h, transform: `scale(${zoom})` }}>
             {graph.tiers.map((t, i) => (
@@ -211,6 +215,7 @@ export function CanvasDetail() {
                        collapsed={!!collapsed[t.name]} hot={drag?.hot === t.name} onToggle={(n) => setCollapsed(n, !roles.get().collapsed[n])} />
             ))}
             <Edges edges={graph.edges} pos={pos} hidden={hidden} w={ext.w} h={ext.h} sel={sel} lit={lit} glows={glows} />
+            <BlockLayer blocks={blk} lineup={name} w={ext.w} h={ext.h} />
             {graph.nodes.filter((n) => !hidden.has(n.id)).map((n) => {
               const list = byNode[n.id] || [];
               return (

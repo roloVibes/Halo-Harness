@@ -89,7 +89,7 @@ def test_a_drop_asks_once_then_the_card_is_on_the_board(ctx: Ctx):
 def test_select_shows_the_summary_and_its_pages(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"the summary dl, got {got.get('summary')}", got.get("summary") == ["does", "takes", "gives", "covers", "lead", "engine", "costs", "limits", "from"])
-    ctx.check(f"the Edit rows, got {got.get('edit_rows')}", got.get("edit_rows") == ["wf-block-enable", "wf-block-budget", "wf-block-limits", "wf-block-yaml"])
+    ctx.check(f"the Edit rows, got {got.get('edit_rows')}", got.get("edit_rows") == ["wf-block-purpose", "wf-block-agents", "wf-block-enable", "wf-block-budget", "wf-block-limits", "wf-block-yaml"])  # 3.3.16.3
     ctx.check(f"Enable is a page, got {got.get('enable_page')!r}", "media is on for the auto lineup: main may hand it work." in str(got.get("enable_page")))
     ctx.check(f"Budget is a page; a shipped square says how to copy it, got {got.get('budget_page')!r}",
               "halo workflows new my-media --from media" in str(got.get("budget_page")) and got.get("budget_disabled") is True)

@@ -7,7 +7,7 @@
     POST workflows/enable  {ref, lineup?}   {ok, line}: on for the active lineup (the auto lineup: config workflows.enabled)
     POST workflows/disable {ref, lineup?}   {ok, line}
     GET  workflows/yaml?ref=<ref>      {ref, path, text, writable}
-    PUT  workflows/contract {ref, budget: {band, cap_usd}, limits: {depth, turns, wall_s}}
+    PUT  workflows/contract {ref, does?, budget: {band, cap_usd}, limits: {depth, turns, wall_s}}
                                        {ok, line}: written into a square of yours or the project's; a shipped or a
                                        pack's square answers 422 with how to copy it to yours
 """
@@ -85,6 +85,9 @@ def put_contract(req):
                 f"(halo workflows new my-{wf.name} --from {wf.ref}), then edit the copy")
         return 422, {"ok": False, "error": line, "line": line}
     data = _read_yaml_file(Path(wf.path)) or {}
+    if isinstance(body.get("does"), str) and body["does"].strip():  # 3.3.16.3: a block's Purpose page
+        data["does"] = body["does"].strip()
+        data.pop("description", None)
     _merge(data, "budget", body.get("budget"), ("band", "cap_usd"))
     _merge(data, "limits", body.get("limits"), ("depth", "turns", "wall_s"))
     bad = problems(data)
@@ -93,7 +96,8 @@ def put_contract(req):
     wrote = _write_yaml_file(Path(wf.path), data)
     if wrote:
         return 422, {"ok": False, "error": wrote[0]}
-    return 200, {"ok": True, "line": f"{wf.ref}: budget and limits saved to {wf.path}"}
+    what = "purpose" if "does" in body and not (body.get("budget") or body.get("limits")) else "budget and limits"
+    return 200, {"ok": True, "line": f"{wf.ref}: {what} saved to {wf.path}"}
 
 
 def dispatch_workflows(req):
