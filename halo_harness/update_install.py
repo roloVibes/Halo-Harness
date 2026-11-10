@@ -9,8 +9,11 @@ old version).
                                 command points at that file; when the fetch fails the pin is dropped for this run and
                                 the note says so (an update you asked for is not blocked by the lock's download).
     run_install(cmd, cwd, run_fn) -> (returncode, output): runs it, prints its output, and when it failed on a
-                                certificate runs it once more with uv's `--native-tls` (the system's certificates).
-    certificate_failure(text) -> bool    with_native_tls(cmd) -> str    last_line(text) -> str
+                                certificate runs it once more on the system's certificate store. That is asked
+                                for through the environment (SYSTEM_CERTS_ENV), not a flag: uv 0.11 renamed
+                                `--native-tls` to `--system-certs` and says the old name goes away, and a uv
+                                ignores a variable it does not know, so the one retry works on every uv.
+    certificate_failure(text) -> bool    is_uv(cmd) -> bool    by_hand(cmd) -> str    last_line(text) -> str
 """
 from __future__ import annotations
 
@@ -53,11 +56,19 @@ def certificate_failure(text: str) -> bool:
     return bool(_CERT_RE.search(text or ""))
 
 
-def with_native_tls(cmd: str) -> str:
-    """`uv tool install ...` -> `uv tool install --native-tls ...` (uv only; other installers are returned as is)."""
-    if not (cmd or "").lstrip().startswith("uv ") or "--native-tls" in cmd:
-        return cmd
-    return cmd.replace("uv tool install", "uv tool install --native-tls", 1)
+SYSTEM_CERTS_ENV = {"UV_SYSTEM_CERTS": "1", "UV_NATIVE_TLS": "1"}  # uv 0.11's name, and the one before it
+
+
+def is_uv(cmd: str) -> bool:
+    return (cmd or "").lstrip().startswith("uv ")
+
+
+def by_hand(cmd: str) -> str:
+    """The retry as a line to paste: the variables set the shell's way, then the command."""
+    import os
+    if os.name == "nt":
+        return "; ".join(f"$env:{k}='{v}'" for k, v in SYSTEM_CERTS_ENV.items()) + f"; {cmd}"
+    return " ".join(f"{k}={v}" for k, v in SYSTEM_CERTS_ENV.items()) + f" {cmd}"
 
 
 def last_line(text: str) -> str:
@@ -67,12 +78,14 @@ def last_line(text: str) -> str:
 
 
 def run_install(cmd: str, *, cwd: Optional[str], run_fn, out=print) -> "tuple[int, str]":
-    """Run `cmd`, print what it printed, and on a certificate failure run it once more with `--native-tls`."""
+    """Run `cmd`, print what it printed, and on a certificate failure run it once more on the system's store."""
+    import os
     import subprocess
 
-    def once(c: str) -> "tuple[int, str]":
+    def once(c: str, env: "Optional[dict]" = None) -> "tuple[int, str]":
+        extra = {"env": {**os.environ, **env}} if env else {}
         try:
-            r = run_fn(c, shell=True, cwd=cwd, capture_output=True, text=True, timeout=600)
+            r = run_fn(c, shell=True, cwd=cwd, capture_output=True, text=True, timeout=600, **extra)
         except (OSError, subprocess.SubprocessError) as e:
             out(f"halo update: the reinstall command failed to run: {e}")
             return 1, str(e)
@@ -83,12 +96,11 @@ def run_install(cmd: str, *, cwd: Optional[str], run_fn, out=print) -> "tuple[in
 
     code, text = once(cmd)
     if code != 0 and certificate_failure(text):
-        retry = with_native_tls(cmd)
-        if retry != cmd:
+        if is_uv(cmd):
             out("halo update: the installer did not trust a certificate on this network (a proxy or TLS inspection "
                 "between this box and GitHub or PyPI); trying once more with the system's certificate store")
-            out(f"halo update: running: {retry}")
-            code, text = once(retry)
+            out(f"halo update: running: {by_hand(cmd)}")
+            code, text = once(cmd, SYSTEM_CERTS_ENV)
         if code != 0:
             out("halo update: still refused. Check `env | grep -i proxy` on this box (an intercepting proxy such as Burp "
                 "needs its CA in the system store), then run the command above by hand")

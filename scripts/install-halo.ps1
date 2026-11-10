@@ -64,6 +64,20 @@ function Run {
     else { & $CommandParts[0] @($CommandParts[1..($CommandParts.Length - 1)]) }
 }
 
+# uv checks TLS against its own bundled roots; behind a proxy that re-signs traffic it stops at "invalid peer
+# certificate" where git goes through. A failed install is run once more on the system's certificate store:
+# UV_SYSTEM_CERTS is uv 0.11's name, UV_NATIVE_TLS the one before it.
+function UvInstall {
+    param([Parameter(ValueFromRemainingArguments = $true)][string[]]$InstallArgs)
+    if ($DryRun) { Write-Host "DRY RUN: uv tool install $($InstallArgs -join ' ')"; return }
+    uv tool install @InstallArgs
+    if ($LASTEXITCODE -eq 0) { return }
+    Say "The install failed. Trying once more with the system's certificate store"
+    $env:UV_SYSTEM_CERTS = "1"; $env:UV_NATIVE_TLS = "1"
+    try { uv tool install @InstallArgs }
+    finally { Remove-Item Env:UV_SYSTEM_CERTS, Env:UV_NATIVE_TLS -ErrorAction SilentlyContinue }
+}
+
 function Confirm($prompt) {
     if ($Yes) { return $true }
     if ($DryRun) { Write-Host "DRY RUN: would ask: $prompt [y/N]"; return $false }
@@ -155,7 +169,7 @@ Resolve-Ref
 # 4. Install halo (2.0.1+ ships exactly one executable: halo)
 if ($NoClone) {
     Say "Installing halo straight from GitHub at $Ref"
-    Run uv tool install --reinstall --constraints "$RawUrl/$Ref/requirements.lock" "git+$RepoUrlNoGit@$Ref"
+    UvInstall --reinstall --constraints "$RawUrl/$Ref/requirements.lock" "git+$RepoUrlNoGit@$Ref"
 } else {
     if (Test-Path (Join-Path $CloneDir ".git")) {
         Say "Updating the clone at $CloneDir"
@@ -178,7 +192,7 @@ if ($NoClone) {
     }
     Say "Installing halo from the clone (dependencies pinned by requirements.lock)"
     if ($DryRun) { Write-Host "DRY RUN: (cd $CloneDir && uv tool install --reinstall --constraints requirements.lock .)" }
-    else { Push-Location $CloneDir; try { uv tool install --reinstall --constraints requirements.lock . } finally { Pop-Location } }
+    else { Push-Location $CloneDir; try { UvInstall --reinstall --constraints requirements.lock . } finally { Pop-Location } }
 }
 
 # 5. PATH for the uv tools directory. `uv tool update-shell` changes the user
