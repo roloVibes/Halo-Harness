@@ -8,6 +8,24 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.3.16.1] - unreleased
+
+### Docs
+
+- **Update, and the certificate line.** README gets a `## Update` section (`halo update`, `/update`, and the one-line
+  repair for an install older than 3.3.16.0 that stops at `invalid peer certificate: UnknownIssuer`); docs/INSTALL.md's
+  Update section and a docs/TROUBLESHOOTING.md entry titled by the error say the same.
+- **The README as 3.3.16.0 is.** Agents' four views, `### Live on the fleet`, a `### Workflows: saved orchestrations as
+  squares` part (the square, the router, the five shipped, `halo workflows`, the board), the Features and Documentation
+  rows; its pins in tests/test_quickstart_docs.py follow.
+- **Every Studio picture re-rendered** from the 3.3.16.0 build (the stills, both GIFs, the modes banner, `hero.png`,
+  `social-preview.png`), and a new one: `docs/media/studio-workflows.png` from `tools/capture_workflows.py`
+  (`tools/capture_studio.py --mode workflows`).
+- **What it feels like, in the current look.** The README's terminal pictures were rendered in `claude-dark`; they are
+  `instrument` now (the default since 3.3.15.0: `tools/captures.json`, `scripts/capture_scenes.py`). "Steering a running
+  turn" and "Watching a model think" lead with Studio stills, `studio-steer.png` and `studio-thinking.png`
+  (`tools/capture_steer.py`), then the terminal picture.
+
 ## [3.3.16.0] - 2026-11-10
 
 **Agents: one section for your agents.** The owner, 2026-11-09: "what does teams even give us? ... roles and

@@ -109,6 +109,8 @@ here; `M` opens the Mission panel there.
 A square is a workflow with a contract that main may hand a task to ([WORKFLOWS-squares.md](WORKFLOWS-squares.md)). The
 board shows the ones the active lineup has enabled and is built by these rules (the ROADMAP's "Clean and clear"):
 
+![Agents on Workflows: main with a line to the media, plan and review squares, the library open on the left, the media square's contract in the inspector](media/studio-workflows.png)
+
 - **Nothing opens on load.** The empty board is one sentence, "No workflows enabled: drag one from the library, or
   `halo workflows enable media`", and a **Library** button.
 - **One square per enabled workflow**, one card size (240 x 140 px) on the 12 px grid, never overlapping: the name, then
