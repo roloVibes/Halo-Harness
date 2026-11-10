@@ -423,6 +423,11 @@ def test_latest_available_refresh_true_falls_back_to_stale_cache_on_a_failed_liv
         upd.shutil.which = old_which
     ctx.check(f"the stale cached commit wins over a bare 'unknown', got {r}",
               r["commit"] == "1111111" and r["source"] == "cache")
+    from halo_harness.update_note import cache_note
+    note = cache_note(r)
+    ctx.check(f"3.3.16.0: the answer says it is the cache's and why the live check failed, got {note!r}",
+              r.get("live_reason") and "from the cache" in note and "checked 10 s ago" in note
+              and "the live check failed" in note and "halo update --check" in note)
     saved = json.loads((state_dir / "update-check.json").read_text(encoding="utf-8"))
     ctx.check(f"the cache file is NOT overwritten with the failure, got {saved}",
               saved["main"]["commit"] == "1111111")

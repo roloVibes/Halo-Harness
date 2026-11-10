@@ -566,13 +566,13 @@ def latest_available(channel: Optional[str] = None, *, refresh: bool = False,
             reason = "update.check is off" if checking_disabled else "background network disabled"
         return {"channel": channel, "commit": None, "ref": None, "reason": reason, "source": "disabled"}
     result = _fetch_latest(channel, run_fn=run_fn, fetch_json=fetch_json)
-    if result.get("commit") is None and isinstance(cached, dict):
+    if result.get("commit") is None and isinstance(cached, dict):  # 3.3.16.0: the answer says it is the cache's (update_note.py)
         # round C: the live query (5s-capped) genuinely failed -- fall
         # back to the last known-good cached answer rather than reporting
         # "unknown" over something that WAS known moments ago. Never
         # overwrites the cache file with this failure either (the stale
         # entry is still the most recent REAL data this channel has).
-        return {**cached, "source": "cache"}
+        return {**cached, "source": "cache", "live_reason": result.get("reason") or "network unavailable"}
     result["checked_at"] = now
     _update_cache(state_dir, lambda c: c.__setitem__(channel, result))
     return {**result, "source": "live"}

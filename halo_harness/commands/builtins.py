@@ -1493,7 +1493,8 @@ def _cmd_update(args: str, facade: HeadlessFacade) -> str:
     lines = [f"installed: {upd.format_version_line(build)}"]
     if avail.get("commit"):
         ref = f", {avail['ref']}" if avail.get("ref") else ""
-        lines.append(f"available ({avail.get('channel')}): {avail['commit']}{ref}")
+        from halo_harness.update_note import cache_note
+        lines.append(f"available ({avail.get('channel')}): {avail['commit']}{ref}{cache_note(avail)}")
     else:
         lines.append(f"available ({avail.get('channel')}): unknown ({avail.get('reason') or 'no reason given'})")
     if build.get("commit") and avail.get("commit") and build["commit"] == avail["commit"]:

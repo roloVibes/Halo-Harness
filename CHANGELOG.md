@@ -118,6 +118,19 @@ cleaner and clearer").
   before those were filled showed no "measured on 0.40.5" and never re-read. `local_bench_runs._now_version` now
   probes `/api/version` once per host per process when no card holds it (the test flag's rule kept: loopback
   fakes only). The seeded fake `box` answers `/api/version` with the version its card says.
+- **An update answer that came from the cache says so** (`update_note.py`). When the live check fails (offline, a
+  short outage, a rate limit) `latest_available` answers from `~/.halo/update-check.json`; that answer printed like a
+  live one, so a box behind a dead router read "available (stable): v3.3.14.0" and `halo update` said "already up to
+  date" while v3.3.15.0 existed (the owner, 2026-11-10). `halo update --check`, `halo update` and `/update` now add
+  "(from the cache, checked 6 h ago; the live check failed: network unavailable -- run `halo update --check` again
+  when you are online)".
+- **`halo update` survives a network uv's own TLS does not trust** (`update_install.py`; the owner's Kali, 2026-11-10:
+  uv stopped at "invalid peer certificate: UnknownIssuer" on the `requirements.lock` URL while git, which trusts the
+  box's CA store, had cloned fine, and halo stayed on 3.3.14.0). The lock is now fetched by halo itself (the same TLS
+  policy as every other request: the system's store and any configured CA bundle) into a local file; when that fetch
+  fails the pin is dropped for this run with one line; a certificate failure in the installer itself is run once more
+  with uv's `--native-tls`, and a second failure says what to check (`env | grep -i proxy`, an intercepting proxy's
+  CA). The "after" line reads the version under the banner, not the banner.
 
 ## [3.3.15.0] - 2026-11-09
 

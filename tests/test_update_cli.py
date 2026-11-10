@@ -114,6 +114,28 @@ def test_cmd_update_check_exit_10_when_update_available(ctx: Ctx):
 
 
 @test
+def test_cmd_update_check_says_when_its_answer_is_the_cache(ctx: Ctx):
+    """3.3.16.0 (rolo, 2026-11-10: a box behind a dead router read "3.3.14.0 is the latest" and `halo update` said
+    up to date while v3.3.15.0 existed): an answer `latest_available` took from the cache prints the note -- from
+    the cache, its age, the live failure -- on the available line and on "already up to date"."""
+    import time
+    orig = _patch_all(installed_commit="aaaaaaa", available_commit="aaaaaaa")
+    upd.latest_available = lambda *a, **kw: {"channel": "main", "commit": "aaaaaaa", "ref": "master", "reason": None,
+                                             "source": "cache", "checked_at": time.time() - 6 * 3600,
+                                             "live_reason": "network unavailable"}
+    try:
+        code, out, _err = _capture(update_cli.cmd_update, ["--check"])
+        ctx.check(f"--check: the available line carries the cache note, got {code} {out!r}",
+                  code == 0 and "available (main): aaaaaaa, master (from the cache, checked 6 h ago; the live check failed: "
+                  "network unavailable -- run `halo update --check` again when you are online)" in out)
+        code, out, _err = _capture(update_cli.cmd_update, [])
+        ctx.check(f"apply: 'already up to date' carries it too, got {code} {out!r}",
+                  code == 0 and "already up to date" in out and "(from the cache, checked 6 h ago" in out)
+    finally:
+        _restore_all(orig)
+
+
+@test
 def test_cmd_update_check_exit_1_when_unknown(ctx: Ctx):
     orig = _patch_all(installed_commit="aaaaaaa", available_commit="bbbbbbb")
     upd.latest_available = lambda *a, **kw: {"channel": "main", "commit": None, "ref": None,
@@ -347,6 +369,54 @@ def test_apply_update_reports_before_and_after_from_a_fresh_halo_dash_dash_versi
                   "after  halo 2.0.3 (bbbbbbb, master)" in out)
     finally:
         _restore_all(orig)
+
+
+@test
+def test_apply_update_retries_once_with_native_tls_on_a_certificate_failure(ctx: Ctx):
+    """3.3.16.0 (the owner's Kali, 2026-11-10): uv stopped at "invalid peer certificate: UnknownIssuer"; the
+    updater runs the uv command once more with --native-tls and says why; a second failure names what to check."""
+    orig = _patch_all(installed_commit="aaaaaaa", available_commit="bbbbbbb")
+    ran = []
+
+    def fake_run(cmd, **kwargs):
+        if isinstance(cmd, list) and cmd[:1] == ["halo"]:
+            return _Proc(stdout="halo 2.0.3 (bbbbbbb, master)\n")
+        ran.append(cmd)
+        if "--native-tls" in cmd:
+            return _Proc(stdout="Installed 1 executable: halo", returncode=0)
+        return _Proc(stdout="error: Error while accessing remote requirements file\n  Caused by: invalid peer "
+                     "certificate: UnknownIssuer", returncode=1)
+    upd.run = fake_run
+    try:
+        code, out, _err = _capture(lambda: update_cli.apply_update(cmd="uv tool install --reinstall git+https://x/y"))
+        ctx.check(f"two runs, the second with --native-tls, got {ran}",
+                  len(ran) == 2 and ran[1].startswith("uv tool install --native-tls --reinstall "))
+        ctx.check(f"it says why and ends 0, got {code} {out!r}",
+                  code == 0 and "did not trust a certificate" in out and "after  halo 2.0.3 (bbbbbbb, master)" in out)
+    finally:
+        _restore_all(orig)
+
+
+@test
+def test_apply_update_fetches_the_lock_itself_and_drops_the_pin_when_it_cannot(ctx: Ctx):
+    """3.3.16.0: a `--constraints https://...` is fetched by halo (the system's trust) into a local file; when that
+    fetch fails the pin is dropped for this run with one line, and the install still runs."""
+    from halo_harness import update_install as UI
+    url = "https://raw.githubusercontent.com/roloVibes/Halo-Harness/master/requirements.lock"
+    cmd = f"uv tool install --reinstall --constraints {url} git+https://github.com/roloVibes/Halo-Harness"
+    local, note = UI.pin_locally(cmd, fetch=lambda u: b"textual==0.80.0\nrich==13.0.0\n")
+    ctx.check(f"fetched: the command points at a local copy and nothing is said, got {local!r} {note!r}",
+              url not in local and "--constraints " in local and local.endswith("requirements.lock\" git+https://github.com/roloVibes/Halo-Harness")
+              and note == "")
+    def boom(u):
+        raise OSError("certificate verify failed: unable to get local issuer certificate")
+    dropped, note = UI.pin_locally(cmd, fetch=boom)
+    ctx.check(f"not fetched: the pin is gone and the note says so, got {dropped!r} {note!r}",
+              dropped == "uv tool install --reinstall git+https://github.com/roloVibes/Halo-Harness"
+              and "could not be fetched" in note and "without the pin" in note)
+    ctx.check("a command without a pin is untouched", UI.pin_locally("pip install -U x", fetch=boom) == ("pip install -U x", ""))
+    ctx.check("the version is the banner's last line",
+              UI.last_line("  _  _   _   _    ___  \n |_||_| |_| |_|  | | | \n\nhalo 3.3.14.0 (28d0b24)\n") == "halo 3.3.14.0 (28d0b24)")
 
 
 @test

@@ -12,12 +12,12 @@ from __future__ import annotations
 
 import argparse
 import re
-import subprocess
 import sys
 from pathlib import Path
 from typing import Optional
 
 from halo_harness import update as upd
+from halo_harness.update_note import cache_note  # 3.3.16.0: a cached answer says so
 
 
 def _retarget_spec(spec: Optional[str], to: str) -> Optional[str]:
@@ -54,7 +54,7 @@ def _print_report(build: dict, avail: dict, lines: list, count, cmd: Optional[st
         # ancestor) both keep the plain "available" wording that already
         # implies "ahead of you", unchanged.
         label = "differs from" if ordering is False else "available"
-        print(f"{label} ({avail.get('channel', '?')}): {avail['commit']}{ref}")
+        print(f"{label} ({avail.get('channel', '?')}): {avail['commit']}{ref}{cache_note(avail)}")
     else:
         print(f"available ({avail.get('channel', '?')}): unknown ({avail.get('reason') or 'no reason given'})")
     if lines:
@@ -145,15 +145,14 @@ def apply_update(*, cmd: Optional[str] = None, force: bool = False, keep_running
     spec = kind.get("spec")
     cwd = spec if spec and Path(spec).is_dir() else None
     print(f"halo update: installed {upd.format_version_line(before)}")
-    print(f"halo update: running: {cmd}")
-    try:
-        result = upd.run(cmd, shell=True, cwd=cwd, capture_output=False, text=True, timeout=600)
-        returncode = result.returncode
-    except (OSError, subprocess.SubprocessError) as e:
-        print(f"halo update: the reinstall command failed to run: {e}", file=sys.stderr)
-        returncode = 1
+    from halo_harness import update_install as UI  # 3.3.16.0: the lock fetched by halo, --native-tls on a cert failure
+    cmd, note = UI.pin_locally(cmd)
+    if note:
+        print(note)
+    print(f"halo update: running: {cmd}  (the installer's output prints when it ends; a minute or two)")
+    returncode, _text = UI.run_install(cmd, cwd=cwd, run_fn=upd.run)
     after = upd.run(["halo", "--version"], capture_output=True, text=True, timeout=15)
-    after_line = (after.stdout or "").strip() or "(unknown -- could not run `halo --version` after the update)"
+    after_line = UI.last_line(after.stdout) or "(unknown -- could not run `halo --version` after the update)"
     print(f"halo update: before {upd.format_version_line(before)}")
     print(f"halo update: after  {after_line}")
     if supervisor:
@@ -229,7 +228,7 @@ def cmd_update(argv: "list[str]") -> int:
         return code
     if code == 0:
         where = f" ({avail.get('ref')})" if avail.get("ref") else ""
-        print(f"halo update: already up to date -- {build.get('commit') or '?'} is the newest on {channel}{where}")
+        print(f"halo update: already up to date -- {build.get('commit') or '?'} is the newest on {channel}{where}{cache_note(avail)}")
         return 0
     # 2.0.6 round 8: the target tag must carry a checksums.txt release
     # asset before we install it. Only a TAG-shaped target can be checked
