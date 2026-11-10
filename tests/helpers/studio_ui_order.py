@@ -154,8 +154,12 @@ def register(test, json_of, chrome) -> None:
         ctx.check(f"the status bar's hint: Alt+1 to Alt+6 (3.3.16.0 R2: Settings last), got {hk}", "Alt 1" in hk and "Alt 6" in hk and hk.index("Alt 1") < hk.index("Alt 6"))
         groups = got.get("palette_groups") or []
         sections = [g for g in groups if g in {t for t, _ in ORDER}]
+        # 3.3.16.0 R2: Session, Agents and Local always have a group (Fleet's went with its section); Settings' group
+        # is there once its catalog has loaded (settings/commands.ts reads it on the palette's first ask), so three
+        # is the floor and a fourth is welcome, not awaited
         ctx.check(f"the palette: Go to, Help, then the section groups in tab order, got {groups}",
-                  groups[:2] == ["Go to", "Help"] and sections == [t for t, _ in ORDER if t in sections] and len(sections) >= 4)
+                  groups[:2] == ["Go to", "Help"] and sections == [t for t, _ in ORDER if t in sections]
+                  and sections[:3] == ["Session", "Agents", "Local"])
         ctx.check(f"Go to lists the tabs in order, got {got.get('palette_goto')}", got.get("palette_goto") == [t for t, _ in ORDER])
 
 
