@@ -12,6 +12,37 @@ The owner asked for the project to live at `~/Documents/vibes/appDev/Halo-Harnes
 the home directory means the new path. Before a push: `python scripts/prepush.py` (docs/DEVELOPMENT.md "Before you
 push"; plans/WORKER-RULES.md "The pre-push gate").
 
+## WHERE THINGS STAND -- 2026-11-10 afternoon (authoritative; the morning block below is history)
+
+The owner (2026-11-10): "complete all of the remaining development ... do not wait for me. I will test when I have
+time"; standing permission to improve the build and test process.
+
+1. **3.3.16.0 is complete on master, waiting only for both runners:** R1 Agents, R1b the inspector, R2 the Fleet fold,
+   R3 Workflows (squares, the registry, the `Workflow` tool and router, receipts, the Agents -> Workflows board,
+   `halo workflows`), the map's boxes (a row per fact, the role first, no tui chip), the `halo update` certificate
+   fixes (UV_SYSTEM_CERTS through the environment; both installers retry), and four Fleet-fold defects the runners
+   found (the node menu off the window, Live's fit a frame late, a "+" panel dropped on a slow box, a failed edge's
+   colour). Release: `python scripts/release.py 3.3.16.0 --skip-windows` once `conclusion == success` on BOTH runs for
+   the exact HEAD, then reinstall on the PC (no halo.exe running) and check `halo --version`.
+2. **The gate before any push is `python scripts/prepush.py`** (about 12 minutes; docs/DEVELOPMENT.md "Before you
+   push"). It found every red CI later reported, an hour sooner. A Linux-only red can still appear (a size that sits at
+   a power of two on one platform only): `wsl` + `~/hh-repro` + `~/hh-venv` runs a module on Linux in a minute (rsync
+   the clone there first; test_ollama_log_recovery's ssh test is red in WSL only).
+3. **In flight: 3.3.17.0 "Copilot at work"** R1 the door + R2 in the harness: one Opus worker, worktree
+   `~/hh-3317/R1-copilot` (branch v3317/R1-copilot from 42b54d62), brief `~/hh-3317/briefs/v3317-R1R2-copilot-brief.md`,
+   progress and hand-back beside it. On hand-back: commit on the branch, `git merge origin/master` there, rebuild the
+   dist (`git checkout --theirs` the two dist files, `npm run build` twice), run the gate in the worktree, fast-forward
+   master to it, push, dispatch Windows (`gh workflow run suites.yml -f sha=<full sha>`). The live check needs the
+   owner's Entra app registration.
+4. **Then, in order:** 3.3.18.0 Federation (ROADMAP "ADDED 2026-11-02 morning"), Pack trust (ROADMAP "ADDED
+   2026-11-02 ... 3.3.14.0 Pack trust", renumbered after Federation), the remaining Focus rounds (ROADMAP "the Focus
+   plan"), mode themes (#5) and the parity audit. One brief and one worker per round; the coordinator reviews, merges,
+   gates and pushes.
+5. **Noted, not scheduled:** the Live inspector header squeezes an agent's name at 1500 px; a tree that grows after its
+   first draw is not refitted until Fit; a first turn to an unknown Ollama model is about 17k tokens of prompt (tools
+   9.3k, system 7.3k) beside a 16k reply room, so it sits at the 32,768 default window's edge -- a prompt diet for
+   local models is worth a round.
+
 ## WHERE THINGS STAND -- 2026-11-10 morning (authoritative, read this first; the block below it is history)
 
 **The owner paused the previous session mid-cycle. Master's local HEAD is the R2 merge commit, NOT PUSHED; origin/master
