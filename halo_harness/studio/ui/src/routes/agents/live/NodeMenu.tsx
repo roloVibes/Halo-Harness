@@ -6,6 +6,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "../../../lib/ui";
 import { goSection, studio } from "../../../lib/store";
+import { hideHover } from "../../../lib/hover/store";
 import { openSession } from "../../session/store";
 import { askShutdown, askStop, openAgentPanel, pin, select, togglePause } from "../../fleet/actions";
 import { askHandoff, record } from "../../fleet/extras";
@@ -34,6 +35,7 @@ export function NodeMenu({ at, onClose }: { at: MenuAt; onClose: () => void }) {
   const harnesses = useFleet((s) => s.harnesses);
   const pos = useFitted(box, at);
   useEffect(() => {
+    hideHover(); // 3.3.16.1: the box's hover card goes while its menu is open
     const off = (e: PointerEvent) => !box.current?.contains(e.target as Node) && onClose();
     const esc = (e: KeyboardEvent) => e.key === "Escape" && (e.preventDefault(), onClose());
     window.addEventListener("pointerdown", off, true);

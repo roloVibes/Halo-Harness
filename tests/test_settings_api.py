@@ -66,7 +66,7 @@ def test_the_catalog_and_fresh_values(ctx: Ctx):
     with _Env() as e:
         status, cat = e.call("GET", "settings/catalog")
         ctx.check(f"200, got {status}", status == 200)
-        ctx.check(f"the groups and every row, got {len(cat.get('rows', []))}", len(cat["rows"]) == len(rows()) and len(cat["groups"]) == 17)
+        ctx.check(f"the groups and every row, got {len(cat.get('rows', []))}", len(cat["rows"]) == len(rows()) and len(cat["groups"]) == 18)  # 3.3.16.1: Studio
         fe = next(r for r in cat["rows"] if r["key"] == "fleet.enabled")
         ctx.check(f"a row's shape, got {fe}", fe["kind"] == "bool" and fe["default"] is True and fe["page"] == "Settings -> Fleet"
                   and fe["effect"] == "next session" and fe["effect_words"] == "takes effect in the next session" and fe["help"])

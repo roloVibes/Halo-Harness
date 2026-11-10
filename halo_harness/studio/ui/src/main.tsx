@@ -63,6 +63,7 @@ import "./styles/local-voice.css"; // 3.3.9.0 R3: Local -> Voice, the speech ser
 import "./styles/nodes.css"; // 3.3.15.0 L1: the Instrument look's map nodes and edges (after fleet.css and roles-live.css)
 import "./styles/instrument.css"; // 3.3.15.0 L1: the kit's pieces whose CSS lived elsewhere (fit meter, the Dialog's cost block)
 import "./styles/model-takes.css"; // 3.3.15.0 R2: what a model takes, the picker's one-line rows (after model-card.css)
+import "./styles/hover-card.css"; // 3.3.16.1: the one hover card (lib/ui/HoverCard.tsx)
 import "./styles/textbox.css"; // 3.3.15.0 R3: the one text box (lib/ui/TextBox.tsx), after every section's sheet
 import { App } from "./App";
 import { installLib } from "./packlib";

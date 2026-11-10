@@ -115,7 +115,7 @@ board shows the ones the active lineup has enabled and is built by these rules (
   `halo workflows enable media`", and a **Library** button.
 - **One square per enabled workflow**, one card size (240 x 140 px) on the 12 px grid, never overlapping: the name, then
   four mono lines, DOES / TAKES / GIVES / COSTS, and a limits chip; nothing else. Every card states its band and limits.
-- **Hover or select shows the contract in the inspector**, summary first (a `dl`: does, takes, gives, covers, lead,
+- **Select shows the contract in the inspector** (3.3.16.1: hover shows the square's hover card), summary first (a `dl`: does, takes, gives, covers, lead,
   engine, costs, limits, from), then one Edit row per block: **Enable for this lineup**, **Budget**, **Limits**, each
   its own page with Back, and **YAML** for the file. A shipped or a pack's square is read-only: its Budget and Limits
   pages say how to copy it to yours (`halo workflows new my-media --from media`).
@@ -130,7 +130,34 @@ board shows the ones the active lineup has enabled and is built by these rules (
 - **The router never opens a dialog**: a hand-off is a receipt; a square that cannot start says so in one line.
 
 Keys on the board: the arrows move the selection, **Enter** opens the inspector, **Delete** asks in the inspector (its
-remove page, never a pop-up), `/` focuses the library's search, **Esc** clears. In **Live**, a square's agent is a node
+remove page, never a pop-up), `/` focuses the library's search, **Esc** clears. 3.3.16.1: hovering a square shows its
+hover card (below), and the inspector opens on a click; with `studio.hover_cards` off, hover shows the inspector as before.
+
+### Hover and click (3.3.16.1)
+
+The owner, 2026-11-10: "hovering over gives a solid summary, if we click one we get that other panel with all the
+detail about the selected box". Every box in Agents has a **hover card**: rest the pointer on it for about 350 ms, or
+give it the keyboard (Tab to a Cast card or a Live node; the arrows on the Workflows board), and one card appears beside
+it -- right of it, else left, else below, else above, wholly inside the window, never over the box. It goes when the
+pointer leaves the box and the card, on Esc, a scroll, a press on the box (it never sits over a click or a drag) and when
+the box's "..." menu opens; one card at a time on the page. The pointer may move onto it to select text; it holds no
+buttons. On a small control inside a box (the "..." button, a chip) the control's own tooltip shows instead.
+
+A card is a title, one sentence of what the box is, at most eight rows (a fact that is not known is left out), a NOW
+block while the box is doing something, and one faint line saying what a click does. What each kind says:
+
+| Box | Rows | NOW | A click |
+|---|---|---|---|
+| Cast card | bio, used for, model (where it comes from, what it takes), price and context, tools, limits, instances, tier | its agent's state, what it runs, its cost | the card's summary in the inspector (its Live tab while an agent runs) |
+| Live agent | agent and bio, state and for how long, model and what it takes, cost (tokens, turns), started by, has started, picked because, owns | the running tool and its time, else its last line | the agent in the inspector |
+| Session | where (project, branch, clean / dirty, ahead / behind, worktree), kind (when not the terminal's), model, cost, agents live of all, waits on you, started | | its main agent in the inspector |
+| Machine | host, this halo or its presence, Halo version (a mismatch in words), sessions and live agents, spent today and its cap, every capability, GPU and memory (once its spec card is loaded) | | its summary in the inspector |
+| Run lead / lane | the lead: run, state, lanes, lead and worker models, cost, done when; a lane: owns, state, machine, worker, worktree, waits for, cost | | Runs, focused on that lane (a lane has no inspector page of its own) |
+| Mission part | owns, state, machine, worker, waits for, kind, cost, why here | | its card in the inspector |
+| Workflow square | takes, gives, covers, runs on (the lead, its model, the engine in words), costs, limits, from (and its file), last run (when, cost, how it ended, how many) | who called it, the need, for how long | the board's card: its contract in the inspector; a library row: nothing (it is dragged onto the board) |
+
+The card reads what the page already has (no request on hover). `studio.hover_cards` (Settings -> Studio, on by
+default) turns the cards off: the boxes keep their plain tooltips. Session's Map keeps its tooltips either way. In **Live**, a square's agent is a node
 with the square's name in mono and the lane colour of its engine, its cost beside the session's; the Session's Cost
 panel shows a `squares` line when any ran.
 

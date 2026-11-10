@@ -145,14 +145,23 @@ def after_change() -> None:
 
 
 def _finish(job: dict, got: dict) -> None:
+    """The last frame goes out BEFORE a reader can see `done` (a poll found the job done, its final frame unsent)."""
     with _lock:
-        job.update(done=True, ok=bool(got.get("ok")), cancelled=bool(got.get("cancelled")), error=got.get("error"),
+        job.update(ok=bool(got.get("ok")), cancelled=bool(got.get("cancelled")), error=got.get("error"),
                    say=got.get("say") or job["say"], eta=None if got.get("ok") else job["eta"])
         if job["ok"]:
             job.update(percent=100.0, status="success", eta=0)
+        last = {"session_id": "local", "event": job.get("kind") or "pull", "ts": time.time(), "data": {**view(job), "done": True}}
     if job["ok"]:
         after_change()
-    _send(job, force=True)
+    try:
+        job["publish"] and job["publish"](last)
+    except Exception:
+        pass
+    with _lock:
+        job["done"], job["sent"] = True, time.monotonic()
+    if job.get("state_dir") is not None and not job.get("remote"):
+        _write(job["state_dir"])
 
 
 def start(host, name: str, publish: Optional[Callable] = None, *, state_dir=None, pull=None) -> dict:

@@ -355,8 +355,8 @@ on the Team page (`?block=team`); `halo init --terminal` is the terminal wizard.
 
 ### Settings
 
-**What it is** (3.3.3.0). Settings (`Alt+6`) is every key of `~/.halo/config.json`: a group rail on the left (General, Agents
-and roles ... the Local group), one group's page on the right, one row per key with its help line, its control, a **default** marker while it is unset,
+**What it is** (3.3.3.0). Settings (`Alt+6`) is every key of `~/.halo/config.json`: a group rail on the left (General, Studio
+(3.3.16.1: the hover cards), Agents and roles ... the Local group), one group's page on the right, one row per key with its help line, its control, a **default** marker while it is unset,
 Reset to default and the exact `halo config set` line as its footer. A change saves at once and says when it takes effect (now,
 the next session, the next launch); the search box finds a row across every group, and the palette lists every row as `Settings:
 <title>`. All of it comes from one catalog, `halo_harness/settings_catalog.py` (docs/CONFIG.md's key table names each row's

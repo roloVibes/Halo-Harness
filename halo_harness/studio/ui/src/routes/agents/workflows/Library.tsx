@@ -5,6 +5,8 @@
 import { useMemo, type DragEvent } from "react";
 import { Button, Icon } from "../../../lib/ui";
 import { closeLibrary, libraryRows, toggleLibrary, useWf, wf, type Square } from "./store";
+import { useHover } from "../../../lib/hover/useHover";
+import { SquareHover } from "../hover/square";
 
 export const DRAG_TYPE = "text/x-halo-square";
 const GROUPS: ["yours" | "packs" | "shipped", string, string][] = [
@@ -31,6 +33,8 @@ export function LibraryButton({ plus = false }: { plus?: boolean }) {
 }
 
 function Row({ sq, on }: { sq: Square; on: boolean }) {
+  const hv = useHover("square", `library:${sq.ref}`, () => <SquareHover sqRef={sq.ref} row />); // 3.3.16.1: the row's hover card
+  const t = hv.titles;
   const start = (e: DragEvent<HTMLLIElement>) => {
     e.dataTransfer.setData(DRAG_TYPE, sq.ref);
     e.dataTransfer.setData("text/plain", sq.ref);
@@ -38,10 +42,10 @@ function Row({ sq, on }: { sq: Square; on: boolean }) {
   };
   return (
     <li className="wf-row" draggable={sq.square} onDragStart={start} data-density="row" data-testid="wf-row" data-ref={sq.ref}
-        data-on={on || undefined} data-square={sq.square || undefined}
-        title={sq.square ? `Drag ${sq.ref} onto the board to enable it for this lineup` : `${sq.ref} is not a square: its file says no gives`}>
+        data-on={on || undefined} data-square={sq.square || undefined} {...hv.props}
+        title={t ? (sq.square ? `Drag ${sq.ref} onto the board to enable it for this lineup` : `${sq.ref} is not a square: its file says no gives`) : undefined}>
       <span className="wf-row-name mono">{sq.ref}{on ? " · on" : ""}</span>
-      <span className="wf-row-does" title={sq.does}>{sq.square ? sq.does || "-" : "not a square (no gives): it runs as a workflow, the router never picks it"}</span>
+      <span className="wf-row-does" title={t ? sq.does : undefined}>{sq.square ? sq.does || "-" : "not a square (no gives): it runs as a workflow, the router never picks it"}</span>
     </li>
   );
 }

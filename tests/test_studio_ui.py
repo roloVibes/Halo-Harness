@@ -164,8 +164,8 @@ def test_panel_focus_on_click_and_help(ctx: Ctx):
     ctx.check("the Compact toggle", got.get("compact") == "glance")
     ctx.check(f"the ? beside the tabs is a menu: How this works and the Glossary (3.1.1.0 R1), got {got.get('help_menu')}",
               got.get("help_menu") == ["section-help-item", "glossary-item"])
-    ctx.check(f"How Agents works (on Runs: Orchestra's eight panels and the Mission panel; 3.3.16.0 R1, R2: the fleet's steps), got {got}",
-              got.get("section_title") == "How Agents works" and got.get("section_steps") == 10 and got.get("section_panels") == 9)
+    ctx.check(f"How Agents works (on Runs: Orchestra's eight panels and the Mission panel; 3.3.16.0 R1, R2: the fleet's steps; 3.3.16.1: Hover, then click), got {got}",
+              got.get("section_title") == "How Agents works" and got.get("section_steps") == 11 and got.get("section_panels") == 9)
     ctx.check("closed; nothing remembered as seen (3.3.2.0 R1: no welcome to hold back)", got.get("section_closed") is True and got.get("seen") == 0)
     ctx.check(f"the run and New run in Orchestra's + menu (3.3.2.0 R2), got {got.get('rail_run')} {got.get('menu_new_run')}", got.get("rail_run") == 1 and got.get("menu_new_run") is True)
 

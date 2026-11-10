@@ -9,6 +9,8 @@ import type { RunPayload } from "../../orchestra/types";
 import type { LiveBox } from "../../roles/liveLayout";
 import type { LiveNode } from "../../roles/liveModel";
 import { setAgentsView } from "../store";
+import { useHover } from "../../../lib/hover/useHover";
+import { LaneHover } from "../hover/lane"; // 3.3.16.1: the lead's and a lane's hover cards
 
 const STATE: Record<string, string> = { writing: "running", in_review: "running", written: "running", joined: "queued", waiting: "waiting", merged: "done", failed: "failed" };
 const GLOW: Record<string, LiveNode["glow"]> = { running: "working", waiting: "waiting", done: "done", failed: "failed" };
@@ -36,10 +38,12 @@ export function RunNodeCard({ b }: { b: LiveBox }) {
   const n = b.node;
   const style = { left: b.x, top: b.y, width: b.w, height: b.h };
   const open = () => (setAgentsView("runs"), n.lane && focusLane(n.lane));
+  const hv = useHover("lane", n.id, () => <LaneHover run={n.run || ""} lane={n.lane} />);
+  const t = hv.titles;
   if (!n.lane)
     return (
       <div className="rlm-node ag-live-lead" style={style} role="button" tabIndex={0} onClick={open} data-testid="agents-live-lead" data-run={n.run}
-           data-glow={n.glow || undefined} title={`Orchestra run ${n.run}: ${n.task} (a click opens it in Runs)`}>
+           data-glow={n.glow || undefined} title={t ? `Orchestra run ${n.run}: ${n.task} (a click opens it in Runs)` : undefined} {...hv.props}>
         <div className="rlm-head"><span className="rlm-dot" aria-hidden="true" /><b className="rlm-name">lead</b><span className="og-chip mono rlm-role">run</span></div>
         <div className="mono muted rlm-line">{n.run}</div>
         <div className="muted rlm-line">{short(n.task, 60)}</div>
@@ -48,14 +52,14 @@ export function RunNodeCard({ b }: { b: LiveBox }) {
   return (
     <div className="rlm-node ag-live-lane" style={style} role="button" tabIndex={0} onClick={open} data-testid="agents-live-lane" data-lane={n.lane}
          data-lc={laneColor(n.lane)} data-state={n.state} data-glow={n.glow || undefined} data-worktree={n.worktree || undefined}
-         title={`lane ${n.lane} of run ${n.run}: ${n.task} (a click opens it in Runs)`}>
+         title={t ? `lane ${n.lane} of run ${n.run}: ${n.task} (a click opens it in Runs)` : undefined} {...hv.props}>
       <div className="rlm-head">
         <span className="og-lane-n mono">{n.lane}</span>
         <b className="rlm-name">{short(n.task || n.name, 22)}</b>
         <span className="spacer" />
         <span className="og-badge mono">{n.current}</span>
       </div>
-      <div className="mono muted rlm-line ag-worktree" data-testid="agents-live-worktree" title={n.worktree}>{n.worktree ? `⎇ ${short(n.worktree, 34)}` : "worktree: not yet"}</div>
+      <div className="mono muted rlm-line ag-worktree" data-testid="agents-live-worktree" title={(t && n.worktree) || undefined}>{n.worktree ? `⎇ ${short(n.worktree, 34)}` : "worktree: not yet"}</div>
       <div className="mono muted rlm-line">{n.model ? short(n.model.replace(/^[a-z]+:/, ""), 30) : "the worker role's model"}</div>
     </div>
   );
