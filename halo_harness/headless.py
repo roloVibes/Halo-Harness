@@ -202,18 +202,17 @@ def _resolve_creds(ref, settings=None) -> Optional[ProviderCreds]:
             return None
         return ProviderCreds(base_url=oai.base_url, api_key=oai.api_key)
     if ref.provider == "experiential":
-        # Halo 2.0.4 round 2: `EXPLABS_API_KEY` only. `base_url` is the
-        # bare `/v1` inference root (`ExpConfig.base_url`) -- the SAME
-        # pair serves all three dialects (openai-chat/openai-responses/
-        # anthropic-passthrough); the Anthropic dialect's own `x-api-key`
-        # header (vs. this pair's ordinary Bearer on the other two) is
-        # decided in `providers.http.call_anthropic_native`, not here.
+        # Halo 2.0.4 round 2: `EXPLABS_API_KEY` only. `base_url` is the bare
+        # `/v1` inference root (`ExpConfig.base_url`), the SAME pair for all
+        # three dialects; the Anthropic dialect's own `x-api-key` header (vs.
+        # this pair's Bearer) is decided in `providers.http.call_anthropic_native`.
         from halo_harness.providers.config import resolve_experiential
         xp = resolve_experiential(env)
         if xp is None:
             return None
         return ProviderCreds(base_url=xp.base_url, api_key=xp.api_key)
-    return None
+    from halo_harness.providers.copilot_route import creds_for  # 3.3.17.0 R2: cp:work once signed in, else None
+    return creds_for(ref)
 
 
 def _ensure_mlx_server_for_ref(ref, state_dir) -> None:

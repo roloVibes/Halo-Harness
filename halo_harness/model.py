@@ -34,6 +34,7 @@ _HF_ENDPOINT_PREFIX = "endpoint/"
 _HF_LOCAL_PREFIX = "local/"
 _OAI_PREFIX = "oai:"
 _XP_PREFIX = "xp:"
+_CP_PREFIX = "cp:"  # 3.3.17.0 R2: cp:work, your work's Copilot (providers/copilot_route.py)
 # Halo 2.0.3 round 5f: `hf:mlx/<org>/<repo>` -- a Hub repo served by a
 # Halo-managed `mlx_lm.server` (Apple Silicon only; see ModelRef.mlx).
 _HF_MLX_PREFIX = "mlx/"
@@ -222,7 +223,7 @@ def _refuse_if_disabled(provider_key: str) -> None:
 @dataclass(frozen=True)
 class ModelRef:
     raw: str
-    provider: str  # "openrouter" | "databricks" | "anthropic" | "ollama" | "huggingface" | "openai" | "local" | "experiential"
+    provider: str  # "openrouter" | "databricks" | "anthropic" | "ollama" | "huggingface" | "openai" | "local" | "experiential" | "copilot"
     model: str  # bare upstream model id/name, dbx:/or:/ant:/ol:/hf:/oai:/xp:/local: prefix (and ol:'s @host / hf:'s endpoint/<name>) stripped
     dialect: str  # "openai-chat" | "anthropic-passthrough" | "ollama" | "openai-responses"
     # Halo 2.0.3 round 2: the `@<hostname>` part of `ol:<model>@<hostname>`
@@ -400,20 +401,13 @@ def parse_model_ref(raw: str, routes: Optional[dict] = None) -> ModelRef:
         return ModelRef(raw=raw, provider="huggingface", model=bare, dialect="openai-chat")
     if resolved.startswith(_XP_PREFIX):
         # Halo 2.0.4 round 2: `xp:<slug>` against the Experiential Labs
-        # gateway (EXPLABS_API_KEY). Three dialects, decided HERE once,
-        # same reasoning the oai: branch just below gives: a Claude slug
-        # (`xp:claude-*`) goes through Halo's existing Anthropic
-        # passthrough at /v1/messages with x-api-key so thinking stays
-        # native WHILE an Anthropic-shaped rung actually serves the call
-        # (research doc section 3.3 -- a waterfall fallback onto a non-
-        # Anthropic rung can still translate/drop it; the transcript must
-        # show the gateway's own disclosure when that happens, never
-        # assume native thinking just because the ref took this dialect).
-        # Every other slug is "openai-chat" by default, or "openai-
-        # responses" per `experiential.dialect_overrides` -- no static
-        # required-id table (unlike oai:): no live-confirmed Experiential
-        # model needs the Responses dialect by default yet (research doc
-        # section 3.2).
+        # gateway (EXPLABS_API_KEY), the dialect decided HERE once: a Claude
+        # slug (`xp:claude-*`) takes the Anthropic passthrough (/v1/messages,
+        # x-api-key) so thinking stays native while an Anthropic-shaped rung
+        # serves it (research doc 3.3: a fallback rung may still drop it, and
+        # the transcript shows the gateway's disclosure); every other slug is
+        # "openai-chat", or "openai-responses" per `experiential.dialect_
+        # overrides` (no static required-id table yet, research doc 3.2).
         bare = resolved[len(_XP_PREFIX):]
         _refuse_if_disabled("experiential")
         if not bare:
@@ -422,6 +416,9 @@ def parse_model_ref(raw: str, routes: Optional[dict] = None) -> ModelRef:
         if is_claude_slug(bare):
             return ModelRef(raw=raw, provider="experiential", model=bare, dialect="anthropic-passthrough")
         return ModelRef(raw=raw, provider="experiential", model=bare, dialect=resolve_experiential_dialect(bare))
+    if resolved.startswith(_CP_PREFIX):  # 3.3.17.0 R2: one ref, a conversation with no tools
+        from halo_harness.providers.copilot_route import parse_cp
+        return parse_cp(raw, resolved[len(_CP_PREFIX):], ModelRef)
     if resolved.startswith(_OAI_PREFIX):
         # Halo 2.0.3 round 5i part 1: `oai:<model>` against the real
         # OpenAI API (`OPENAI_API_KEY`). Dialect is decided HERE, once,
@@ -515,7 +512,7 @@ def parse_model_ref(raw: str, routes: Optional[dict] = None) -> ModelRef:
     near = difflib.get_close_matches(raw, cached_names, n=3, cutoff=0.5) if cached_names else []
     hint = f" -- did you mean one of the cached Databricks endpoints: {', '.join(near)}?" if near else ""
     raise InvalidModelError(
-        f"no route: {raw!r} (accepted forms are dbx:, or:, ant:, oai:, xp:, ol:, hf:, vendor/model, "
+        f"no route: {raw!r} (accepted forms are dbx:, or:, ant:, oai:, xp:, ol:, hf:, cp:work, vendor/model, "
         f"a bare databricks-*/system.ai.* name, a Claude alias such as sonnet, or a routes.json alias){hint}"
     )
 

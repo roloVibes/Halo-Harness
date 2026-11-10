@@ -433,3 +433,7 @@ A pack service (3.3.13.0) is a program of a pack the supervisor keeps running wh
 ## transport
 
 A transport (3.3.13.0) carries a session somewhere else -- a phone, a chat -- and is a pack, never the core: the signal pack is one. It uses the core's transport seam (`halo_harness.ext.remote`): the live sessions and their control sockets, a session started for it, the cards' text, and the notes the core gives every transport (`asks`, `supervisor`, `steward`, ...) while it listens. `remote.enabled` is every transport's switch; `halo remote transports` lists the ones listening (docs/REMOTE.md, "Transports").
+
+## consult role
+
+A consult role (3.3.17.0) is a role whose model takes no tools: it answers from what it holds and hands the answer back, and the agent loop offers it no tool. A role on `cp:work`, your work's Microsoft 365 Copilot, is one: Copilot holds your mail, meetings, chats and files, so a lineup card or a bio that asks for the need `work-data` (`models.needs: [work-data]`) runs on it once you are signed in, while Auto never puts it in a role that needs tool calls. Any agent can also ask Copilot through the `copilot_ask` tool (docs/PROVIDERS-copilot.md).

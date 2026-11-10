@@ -52,6 +52,7 @@ SUBCOMMANDS = (
     "settings",  # Halo 3.3.3.0 round R2: Studio's Settings section (every config.json key)
     "pool",  # Halo 3.3.8.0 round R1: the pool (members, the fit, the recommendation, the RPC scan)
     "voice",  # Halo 3.3.9.0 round R1: the speech catalog, download, rm, serve
+    "copilot",  # Halo 3.3.17.0 round R1: your work's Copilot (signin, signout, status, ask)
 )
 
 # Halo 3.2.3.0 round R2: the words that follow `halo ollama` (and the discover flags);

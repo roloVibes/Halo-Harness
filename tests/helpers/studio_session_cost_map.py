@@ -215,6 +215,8 @@ def partial(c, rig) -> dict:
     main = f"document.querySelector('[data-testid=\"session-cost-agent\"][data-key=\"{lv.key('main')}\"]')"
     out["noprice"] = _seen(c, f"{main}?.querySelector('[data-testid=\"session-cost-noprice\"]')?.textContent", 10)
     out["partial_model"] = model.split(":", 1)[-1]
+    lv.refresh(cost_complete=False, cost_unknown=[model, "cp:work"])  # 3.3.17.0 R2: a Copilot part says its own reason
+    out["copilot_line"] = _seen(c, "document.querySelector('[data-testid=\"session-cost-copilot\"]')?.textContent", 10)
     lv.refresh(cost_complete=True, cost_unknown=[])
     out["complete_again"] = _seen(c, f"!{plus} && !{main}?.querySelector('[data-testid=\"session-cost-noprice\"]') && 'gone'", 10)
     return out

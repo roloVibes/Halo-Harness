@@ -24,6 +24,7 @@ from halo_harness.tools.ask_user_question import AskUserQuestionTool
 from halo_harness.tools.base import Tool, ToolContext, ToolResult
 from halo_harness.tools.bash import BashTool
 from halo_harness.tools.bash_output import BashOutputTool
+from halo_harness.tools.copilot_ask import copilot_tools  # 3.3.17.0 R2: your work's Copilot
 from halo_harness.tools.edit import EditTool
 from halo_harness.tools.glob_tool import GlobTool
 from halo_harness.tools.grep_tool import GrepTool
@@ -97,9 +98,8 @@ def default_tools() -> list:
         ToolSearchTool(), WebFetchTool(), WorkflowTool(), WriteTool(),
         KnowledgeAddTool(), KnowledgeSearchTool(),  # 3.1.8.0 R4: findings and decisions (knowledge/)
     ]
-    # Halo 3.0.3.0: the Orchestra's claim tools, only inside a run
-    # ($HALO_ORCHESTRA_RUN names the run folder).
-    tools.extend(orchestra_tools())
+    tools.extend(orchestra_tools())  # 3.0.3.0: the Orchestra's claim tools, only inside a run ($HALO_ORCHESTRA_RUN)
+    tools.extend(copilot_tools())  # 3.3.17.0 R2: copilot_ask, once copilot.tenant and copilot.client_id are set
     if sys.platform == "win32":
         from halo_harness.tools.powershell import PowerShellTool
         tools.append(PowerShellTool())
@@ -107,12 +107,11 @@ def default_tools() -> list:
 
 
 def known_tool_names() -> "list[str]":
-    """The harness's tool names: every `default_tools()` name plus Agent and
-    WebSearch, sorted, each once (3.0.7.0 R1: moved here from the bio
-    editor; Studio's `GET /api/tools` and the bio editor's allow/deny
-    fields both read it). Never raises: [] when the registry cannot load."""
+    """The harness's tool names: every `default_tools()` name plus Agent, WebSearch and copilot_ask (3.3.17.0),
+    sorted, each once (3.0.7.0 R1: Studio's `GET /api/tools` and the bio editor's allow/deny fields read it).
+    Never raises: [] when the registry cannot load."""
     try:
-        return sorted({t.name for t in default_tools()} | {"Agent", "WebSearch"})
+        return sorted({t.name for t in default_tools()} | {"Agent", "WebSearch", "copilot_ask"})
     except Exception:
         return []
 

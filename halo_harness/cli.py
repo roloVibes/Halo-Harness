@@ -447,17 +447,11 @@ def _main(argv: Optional[list] = None) -> int:
         signal.signal(signal.SIGTERM, lambda signum, frame: sys.exit(143))
     except (ValueError, AttributeError, OSError):
         pass
-    # H9 whole-tree review finding 3: SIGHUP -- what closing the terminal or
-    # an SSH connection drop actually sends (there is no SIGTERM involved at
-    # all) -- was never handled, so it fell through to Python's own default
-    # disposition (process dies immediately, `sys.exit(143)` above never
-    # runs, no `finally` block anywhere gets a chance to fire). Verified on
-    # WSL: SIGHUP to a `-p` run exited -1 and left its background job
-    # running. `SIGHUP` doesn't exist on Windows (`AttributeError` there,
-    # caught same as SIGTERM's own guard above); raised as a real
-    # `sys.exit()` (never the signal's own default disposition) so it
-    # unwinds through every `finally: session.job_registry.kill_all()` /
-    # `mcp_manager.close_all()` block the same way SIGTERM already does.
+    # H9 whole-tree review finding 3: SIGHUP (closing the terminal, an SSH
+    # drop) used to kill the process at once, no `finally` ran and a `-p`
+    # run's background job kept running (seen on WSL). No SIGHUP on Windows
+    # (AttributeError, caught as above); a real `sys.exit()` unwinds every
+    # `finally: job_registry.kill_all()` / `mcp_manager.close_all()`.
     try:
         signal.signal(signal.SIGHUP, lambda signum, frame: sys.exit(129))
     except (ValueError, AttributeError, OSError):
@@ -517,6 +511,9 @@ def _main(argv: Optional[list] = None) -> int:
     if argv and argv[0] == "voice":  # 3.3.9.0 R1: the speech catalog, download, rm, serve (docs/VOICE.md)
         from halo_harness.voice_cli import cmd_voice
         return cmd_voice(argv[1:])
+    if argv and argv[0] == "copilot":  # 3.3.17.0 R1: your work's Copilot -- signin, signout, status, ask
+        from halo_harness.copilot_cli import cmd_copilot
+        return cmd_copilot(argv[1:])
     if argv and argv[0] == "outcomes":
         # 3.1.8.0 R3: every agent task's outcome, per bio and model (docs/OUTCOMES.md).
         from halo_harness.outcomes.cli import cmd_outcomes

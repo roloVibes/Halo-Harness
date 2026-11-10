@@ -1736,13 +1736,10 @@ def _check_entries(cwd: Optional[Path] = None, settings_flag: Optional[str] = No
     entries.extend(zip(catalog_ids, _check_catalog_ages(), strict=False))
     telemetry_ids = ("sessions", "improve")
     entries.extend(zip(telemetry_ids, _check_telemetry_and_improve(), strict=False))
-    # U5 leftover / H8 cheap must-do: tui/clipboard.py's own
-    # clipboard_doctor_line() was written ready-to-call but never actually
-    # wired into a real doctor run. H12 Part B: that function's own WARN
-    # (no xclip/wl-copy/xsel on PATH -- a bare Linux box with neither, e.g.
-    # a fresh WSL install) gets the fix suffix HERE rather than inside
-    # tui/clipboard.py itself, since `_fix`/the WARN/MISSING vocabulary is
-    # this module's own convention, not that one's.
+    # U5 leftover / H8: tui/clipboard.py's clipboard_doctor_line(), wired here; H12 Part B: its WARN (no
+    # xclip/wl-copy/xsel on PATH, e.g. a fresh WSL) gets the fix suffix HERE (`_fix` is this module's vocabulary).
+    from halo_harness.providers.copilot_doctor import entries as _copilot_rows  # 3.3.17.0 R2: the Copilot row
+    entries.extend(_copilot_rows())
     # 3.1.6.0 R5: the row names its own fix (the apt line, the tmux
     # setting, or the troubleshooting entry when no display session is up).
     from halo_harness.tui.clipboard_doctor import clipboard_doctor_parts

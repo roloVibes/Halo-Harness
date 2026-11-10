@@ -485,12 +485,11 @@ def cmd_models(argv) -> int:
             from halo_harness.providers.databricks import format_dbx_diff
             print(f"\nDatabricks catalog diff (this refresh): {format_dbx_diff(dbx_diff)}")
 
-    # H8 scope C: models.dev's api.json is public/unauthenticated -- cached
-    # to models-dev.json for doctor's own freshness check and for future
-    # model_table.json cross-checking (see providers/models_dev.py). 1.0.1
-    # hotfix 3: only ever fetched with --refresh now (see the OpenRouter/
-    # Databricks sections above for why "the first time it's empty" no
-    # longer triggers a network call on its own).
+    from halo_harness.providers.copilot_catalog import print_rows  # 3.3.17.0 R2: cp:work, once signed in
+    print_rows(print)
+    # H8 scope C: models.dev's api.json is public/unauthenticated -- cached to models-dev.json for doctor's
+    # freshness check and model_table.json cross-checks (providers/models_dev.py); 1.0.1 hotfix 3: only ever
+    # fetched with --refresh (an empty cache never triggers a network call on its own).
     models_dev_path = models_dev_json_path(state_dir)
     if args.refresh:
         try:

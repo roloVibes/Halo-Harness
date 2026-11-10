@@ -106,7 +106,7 @@ def entry_for(row: dict, preflight: Optional[dict] = None) -> dict:
     scores = kind_scores(row, preflight)
     return {"kinds": best_at_kinds(row, scores=scores), "line": best_at_line(row, preflight, scores=scores),
             "scores": {k: s for k, (s, _r) in scores.items() if s > 0},
-            "facts": {k: row.get(k) for k in FACT_KEYS}}
+            "facts": {k: row.get(k) for k in FACT_KEYS} | ({"takes": row["takes"]} if row.get("takes") else {})}
 
 
 def best_per_kind(entries: dict) -> dict:

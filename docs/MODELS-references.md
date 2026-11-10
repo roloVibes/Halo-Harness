@@ -300,6 +300,7 @@ own tabs, `halo providers`/`/providers`, and `doctor`):
 | `hf:` | Hugging Face | `huggingface` |
 | `oai:` | OpenAI API (key) | `openai` |
 | `xp:` | Experiential Labs | `experiential` |
+| `cp:` | Copilot at work (3.3.17.0: one ref, `cp:work`) | `copilot` -- set up by `copilot.tenant` / `copilot.client_id` and `halo copilot signin`, not by `halo providers`; [PROVIDERS-copilot.md](PROVIDERS-copilot.md) |
 | *(none yet)* | TypeSafe | `typesafe` -- stores `TYPESAFE_API_KEY` only, for a later feature |
 
 Ollama (`ol:`) is deliberately NOT in this table -- see "Ollama" below,

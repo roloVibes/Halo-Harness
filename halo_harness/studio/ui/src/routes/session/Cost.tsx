@@ -28,7 +28,7 @@ import type { SessionRow } from "../fleet/types";
 import { hueOf } from "../shared/hues";
 import { AgentLine, ContextBar, ShareBar, Spark, tok, type Share } from "./CostParts";
 import { lastTurnCost, startSpend, useSpend } from "./spend";
-import { ownCosts, partialTitle, unpricedMain } from "./shares";
+import { copilotLine, ownCosts, partialTitle, unpricedMain } from "./shares";
 import { chosenSession } from "./store";
 import { EffortMenu } from "./EffortMenu"; // 3.3.5.0 R0b (c): the effort control
 import { CompositionBar } from "./CostComposition"; // 3.3.5.0 R4: what the last request was made of
@@ -51,12 +51,13 @@ function turnsOf(ss: SessionRow): number | null {
   return typeof ss.turns === "number" && ss.turns > 0 ? ss.turns : null;
 }
 
-/** The spend; `partial` (3.3.3.1: some model reports no price) adds a "+" and says so in the title. */
-function Ticker({ usd, partial = "" }: { usd: number; partial?: string }) {
+/** The spend; `partial` (3.3.3.1: some model reports no price) adds a "+" and says so in the title. 3.3.17.0 R2:
+ * nothing priced and a Copilot part (`unpriced`) reads "n/a", never $0. */
+function Ticker({ usd, partial = "", unpriced = false }: { usd: number; partial?: string; unpriced?: boolean }) {
   const shown = useTicker(usd);
   return (
     <span className="sco-ticker mono" data-testid="session-cost-usd" title={partial || undefined}>
-      {cost(shown)}
+      {unpriced && usd <= 0 ? "n/a" : cost(shown)}
       {partial && <span className="sco-partial" data-testid="session-cost-partial" title={partial}>+</span>}
     </span>
   );
@@ -82,6 +83,7 @@ export function CostDetail() {
   const own = ownCosts(ss);
   const partial = partialTitle(ss);
   const noPrice = unpricedMain(ss, own);
+  const cp = copilotLine(ss); // 3.3.17.0 R2: the Copilot part's reason, as its own line
   const agents = [...(ss.agents || [])].sort((a, b) => (own.get(b.agent_id) || 0) - (own.get(a.agent_id) || 0));
   const spent = agents.reduce((s, a) => s + (own.get(a.agent_id) || 0), 0);
   const shares: Share[] = agents.map((a) => {
@@ -109,9 +111,10 @@ export function CostDetail() {
         </div>
       )}
       <div className="sco-top">
-        <Ticker usd={usd} partial={partial} />
+        <Ticker usd={usd} partial={partial} unpriced={!!cp} />
         <Spark list={series} />
       </div>
+      {cp && <div className="sco-sub mono muted" data-testid="session-cost-copilot" title={partial}>+ {cp}</div>}
       <ContextBar used={ss.context_tokens} limit={ss.context_limit} />
       <CompositionBar c={ss.composition} />
       <div className="sco-grid">
@@ -142,7 +145,7 @@ export function CostGlance() {
   return (
     <div className="glance" data-testid="session-cost-glance">
       <div className="glance-numbers">
-        <Metric value={<Ticker usd={Number(ss.cost_usd) || 0} partial={partialTitle(ss)} />} label="this session" tone="accent" />
+        <Metric value={<Ticker usd={Number(ss.cost_usd) || 0} partial={partialTitle(ss)} unpriced={!!copilotLine(ss)} />} label="this session" tone="accent" />
         <Metric value={tok((Number(ss.tokens_in) || 0) + (Number(ss.tokens_out) || 0))} label="tokens" />
       </div>
       <div className="glance-hint mono">{modelName(ss.model)}</div>

@@ -120,6 +120,19 @@ and config.json keeps that name. Removing a host, an endpoint or a server leaves
 file (the answer names it). The env file is `HALO_ENV_FILE`, else `~/.config/halo/env`; the Providers
 block names its path.
 
+### The Copilot card (3.3.17.0 R2)
+
+Under the provider cards, **Copilot at work** takes the whole row: the status `halo copilot status` prints, one fact
+per row (cut with an ellipsis, whole in its tooltip), the form for the tenant and the app id (`copilot.tenant`,
+`copilot.client_id`), the door (`workiq` | `graph-beta`), **Sign in** and **Sign out**, the scopes an admin consents
+to with **Copy the scopes**, and "Register the app" (closed until opened: the four steps of
+[PROVIDERS-copilot.md](PROVIDERS-copilot.md#register-the-app)). Sign in runs on the machine Studio runs on: where a
+browser can open, Microsoft's page opens in a new tab and the card says "Finish in the browser tab that opened"; on a
+remote Studio (SSH, no `DISPLAY`, `HALO_NO_BROWSER`) the card shows the device code and where to type it. The card
+reads its state when it mounts and polls only while a sign-in waits; it never shows a token. Its routes are `GET
+setup/copilot`, `POST setup/copilot/config {tenant?, client_id?, api?, web?}`, `POST setup/copilot/signin {device?}`
+(202; 409 while one waits) and `POST setup/copilot/signout` (`studio/setup_copilot_api.py`).
+
 ## Every model shown, results on the page (3.3.5.0 R0)
 
 **Default model** draws every model of the providers set up here: no "N more: search to narrow" cut. A
@@ -242,7 +255,7 @@ job (on the Check page too, under **From packs**, unticked), a **note** has **Ma
 | Permissions | `permission_mode` (`auto`, `acceptEdits`, `default` or `plan`) | `halo config set permission_mode <mode>` |
 | Theme | `theme` (3.3.12.0: the palettes, eleven since 3.3.15.0, each swatch in its own colours; the one key the terminal and Studio draw from; the modifiers are on Settings -> Themes) | `/theme <name>` |
 | Team | One model for everything: `team` removed, `roles.enabled` false; `auto` with no `team` set: `roles.enabled` true only; a lineup: its `roles.*`, `team: <name>`, `roles.enabled` true | the wizard's Team step (`lineup_choice.py`, which both call) |
-| Providers | the env file: `DATABRICKS_HOST`/`DATABRICKS_TOKEN`, `OPENROUTER_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `TYPESAFE_API_KEY`, `EXPLABS_API_KEY`, `HF_TOKEN`, `HALO_SECRET_*`; config.json: `ollama.hosts`, `huggingface.endpoints`, `huggingface.local_servers`, `providers.<name>.enabled` | `halo init`'s Providers tabs |
+| Providers | the env file: `DATABRICKS_HOST`/`DATABRICKS_TOKEN`, `OPENROUTER_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `TYPESAFE_API_KEY`, `EXPLABS_API_KEY`, `HF_TOKEN`, `HALO_SECRET_*` (3.3.17.0: the Copilot card's sign-in writes `HALO_SECRET_COPILOT_REFRESH`); config.json: `ollama.hosts`, `huggingface.endpoints`, `huggingface.local_servers`, `providers.<name>.enabled`, `copilot.*` | `halo init`'s Providers tabs; `halo copilot signin`, `halo config set copilot.<key>` |
 | Local models | `huggingface.model_dirs`, `huggingface.preferred_runtime` | `halo init`'s Local models step, `/local add` |
 | Linux fixes | `~/.local/bin/rg`; the PATH line in `~/.zshenv` or `~/.profile` (only the fixes listed) | the wizard's Linux step |
 | Check | `~/.halo/studio/last-check.json`; each check writes what its row says | `halo check` |

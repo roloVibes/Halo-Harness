@@ -439,6 +439,8 @@ def build_model_rows(state_dir, *, env: "Optional[dict]" = None, routes: "Option
             **F.local_facts(row.capabilities, row.tools_probe), "open_weights": True,
         })
 
+    from halo_harness.providers.copilot_catalog import copilot_rows  # 3.3.17.0 R2: cp:work, once signed in
+    out.extend(r for r in copilot_rows() if r["ref"] not in seen)
     current = current_ref
     if current and current not in {m["ref"] for m in out}:
         out.insert(0, {"ref": current, "context_tokens": current_context_tokens,
@@ -465,13 +467,11 @@ def build_model_rows(state_dir, *, env: "Optional[dict]" = None, routes: "Option
             if entry:
                 m["speed_ttft_s"] = entry.get("ttft_s")
                 m["speed_tokens_per_second"] = entry.get("tokens_per_second")
-    # 3.1.9.0 R1: every model row carries the same optional keys
-    # (model_row_facts.ROW_KEYS), `local` from `is_local_model_ref`, and
-    # `measured` from the gym, the probes, telemetry and the canary census.
+    # 3.1.9.0 R1: every row carries the same optional keys (model_row_facts.ROW_KEYS), `local` from
+    # `is_local_model_ref`, `measured` from the gym, the probes, telemetry and the canary census.
     F.finish_rows(out, state_dir, speeds=speeds)
-    # H15 item 21.2: dim, non-selectable hint rows (no "ref" at all) go
-    # LAST -- after the `current` insertion above, which indexes `out`
-    # by `m["ref"]` and would KeyError on a hint dict otherwise.
+    # H15 item 21.2: dim, non-selectable hint rows (no "ref") go LAST, after the `current`
+    # insertion above, which indexes `out` by `m["ref"]` (a KeyError on a hint dict otherwise).
     out.extend(hints)
     return out
 

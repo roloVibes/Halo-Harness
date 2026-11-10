@@ -47,12 +47,24 @@ export function unpricedMain(ss: SessionRow, own: Map<string, number>): string |
   return (own.get(main.agent_id) || 0) > 0 ? null : main.agent_id;
 }
 
+// 3.3.17.0 R2: Copilot (`cp:work`, the `copilot_ask` tool) is billed by the tenant, never per token: its part of an
+// incomplete cost says that reason instead of "reports no price" (providers/copilot_cost.py REASON).
+export const COPILOT_REASON = "Copilot: billed by your tenant (credits or licence)";
+const isCopilot = (m: string | null | undefined) => /^cp:/.test(String(m || ""));
+
+/** The Copilot reason when the session's incomplete cost includes a Copilot part, else "". */
+export function copilotLine(ss: SessionRow): string {
+  return ss.cost_complete === false && (ss.cost_unknown || []).some(isCopilot) ? COPILOT_REASON : "";
+}
+
 /** "main's model databricks-glm-5-3 reports no price: ..." for the ticker's title, or "" when complete. */
 export function partialTitle(ss: SessionRow): string {
   if (ss.cost_complete !== false) return "";
   const main = bareModel(((ss.agents || []).find((a) => !a.parent) || {}).model || ss.model);
-  const unknown = (ss.cost_unknown || []).map(bareModel);
+  const cp = copilotLine(ss);
+  const unknown = (ss.cost_unknown || []).filter((m) => !isCopilot(m)).map(bareModel);
+  if (cp && !unknown.length) return `${cp}: this is what the priced agents spent`;
   const others = unknown.filter((m) => m !== main);
   const who = [unknown.includes(main) ? `main's model ${main}` : "", others.join(", ")].filter(Boolean).join(" and ") || "a model";
-  return `${who} ${who.includes(" and ") || others.length > 1 ? "report" : "reports"} no price: this is what the priced agents spent`;
+  return `${who} ${who.includes(" and ") || others.length > 1 ? "report" : "reports"} no price${cp ? `; ${cp}` : ""}: this is what the priced agents spent`;
 }

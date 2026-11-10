@@ -256,7 +256,7 @@ and `isolation/Dockerfile` the worker image.
   `lineup_choice.py` (the Team step's three writes, called by the wizard and by Setup alike);
   R2: `studio/setup_providers_api.py` (the Providers and Local models routes, each calling the
   wizard's writer) and `studio/setup_providers_state.py` (the provider cards' masked state, the
-  Ollama hosts, the Hugging Face entries, the model folders, the runtime, the detection lines).
+  Ollama hosts, the Hugging Face entries, the model folders, the runtime, the detection lines); 3.3.17.0 R2: `studio/setup_copilot_api.py` (the Copilot card's routes).
   R3: `studio/setup_check_api.py` (the Check and Linux fixes routes), `studio/setup_check_job.py`
   (the Check job: `start/checks.py` run in order on a thread, `setup` frames, the guided first run
   through `start_job`), `studio/setup_check_state.py` (the checks, the card, the last check, the

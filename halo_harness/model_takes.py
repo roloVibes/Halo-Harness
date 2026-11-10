@@ -44,6 +44,8 @@ def _seq(row: dict, key: str) -> Optional[set]:
 def takes_words(row: Optional[dict]) -> list:
     """The words in TAKES_ORDER (`?` first when no input list is stated)."""
     row = row if isinstance(row, dict) else {}
+    if isinstance(row.get("takes"), (list, tuple)) and row.get("takes"):  # 3.3.17.0 R2: a row that states its own (cp:work)
+        return [str(w) for w in row["takes"]]
     ins = _seq(row, "modalities_in")
     if ins is None:
         words = [UNKNOWN]

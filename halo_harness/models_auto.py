@@ -41,10 +41,10 @@ AUTO = "auto"
 MEASURED = "measured"  # 3.1.8.0 R3: picked at spawn by measured success (outcomes/routing.py), else as `auto`
 BANDS = ("low", "mid", "high")
 DEFAULT_BAND = "mid"
-NEEDS = ("vision", "audio", "video", "pdf", "reasoning", "tools", "long-context")
+NEEDS = ("vision", "audio", "video", "pdf", "reasoning", "tools", "long-context", "work-data")  # work-data: 3.3.17.0 R2
 NEED_KINDS = {"vision": "visual", "audio": "audio", "video": "video", "pdf": "pdf", "tools": "code",
-              "long-context": "research"}
-DECIDE_ORDER = ("vision", "audio", "video", "pdf", "long-context", "reasoning", "tools")
+              "long-context": "research", "work-data": "research"}
+DECIDE_ORDER = ("work-data", "vision", "audio", "video", "pdf", "long-context", "reasoning", "tools")
 MID_WINDOW = 3.0
 LONG_CONTEXT_TOKENS = 128_000
 LONG_INPUT_CHARS = 100_000
@@ -249,11 +249,11 @@ def load_rows(state_dir) -> dict:
 def pick(state_dir, *, needs=(), task_text: str = "", attachments=(), band: str = DEFAULT_BAND,
          main_ref: str = "", role: str = "", rows: Optional[dict] = None, kind: str = "",
          stats: Optional[dict] = None, learn: Optional[dict] = None, local_state: Optional[dict] = None) -> Pick:
-    """The model an `auto` agent runs on, and why (see the module docstring).
-    `role`: the words naming the agent (its alias, its bio's kind); `rows`:
-    the index's rows (default: read from `state_dir`); 3.1.9.0 R3: `kind`
-    the task's kind (default: from `role`), `stats` / `learn` what was
-    learned and the rule's settings (outcomes/learn.py; default: read)."""
+    """The model an `auto` agent runs on, and why (the module docstring). `role`: the agent's alias / bio kind; `rows`:
+    the index's (default read); 3.1.9.0 R3 `kind` (default from `role`), `stats` / `learn` (outcomes/learn.py)."""
+    from halo_harness.models_auto_work import work_pick  # 3.3.17.0 R2: a work-data need -> cp:work when signed in
+    if (got := work_pick(needs, main_ref)) is not None:
+        return got
     found = derive_needs(needs, task_text, attachments, role)
     wanted, why = [n for n, _w in found], dict(found)
     band = band if band in BANDS else DEFAULT_BAND

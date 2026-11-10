@@ -5,6 +5,7 @@
 // Save & test answers what it wrote and what the probe and the catalog found;
 // a key is never sent back: the card says "set, from the env file, ****1234".
 import { useLoadState, Waiting } from "./BlockFoot";
+import { CopilotCard } from "./CopilotCard"; // 3.3.17.0 R2: your work's Copilot
 import { HuggingFaceCard } from "./HuggingFaceCard";
 import { OllamaCard } from "./OllamaCard";
 import { ProviderCard } from "./ProviderCard";
@@ -26,6 +27,7 @@ export function ProvidersDetail() {
         {Object.entries(providers).map(([name, p]) =>
           name === "ollama" ? <OllamaCard key={name} p={p} /> : name === "huggingface" ? <HuggingFaceCard key={name} p={p} /> : <ProviderCard key={name} name={name} p={p} />,
         )}
+        <CopilotCard />
       </div>
     </div>
   );

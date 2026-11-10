@@ -136,15 +136,14 @@ def _bare_model(ref) -> str:
 
 
 def describe_cost(fields: dict, main_model=None) -> "tuple[str, str | None]":
-    """3.3.3.1: `/cost` and `/status`'s figure plus its one detail line, from
-    `CostMeter.cost_fields()`: "$3.6348" when every part is priced;
-    "$3.6348+" and "+ main's model databricks-glm-5-3 reports no price; this
-    is what the priced agents spent" when some part is not; "n/a (no priced
-    call yet)" only when nothing is priced and nothing was spent."""
+    """3.3.3.1: `/cost` and `/status`'s figure and one detail line (`CostMeter.cost_fields()`): "$3.6348" all priced;
+    "$3.6348+" and "+ main's model databricks-glm-5-3 reports no price; this is what the priced agents spent" when a
+    part is not (3.3.17.0: Copilot's part says its reason); "n/a (no priced call yet)" when nothing is priced."""
     total = float(fields.get("cost_usd") or 0.0)
     if fields.get("cost_complete", True):
         return f"${total:.4f}", None
-    unknown = [str(m) for m in fields.get("cost_unknown") or [] if m]
+    from halo_harness.providers.copilot_cost import split_unknown  # 3.3.17.0 R2: billed by the tenant, its own line
+    unknown, cp = split_unknown(fields.get("cost_unknown"))
     main = str(main_model or "")
     others = [_bare_model(m) for m in unknown if m != main and _bare_model(m) != _bare_model(main)]
     bits = []
@@ -154,9 +153,10 @@ def describe_cost(fields: dict, main_model=None) -> "tuple[str, str | None]":
         bits.append(", ".join(others))
     who = " and ".join(bits) or "a model"
     verb = "report" if len(bits) > 1 or len(others) > 1 else "reports"
+    line = "; ".join(x for x in ((f"{who} {verb} no price" if bits or not cp else ""), cp) if x)
     if total <= 0:
-        return "n/a (no priced call yet)", f"+ {who} {verb} no price"
-    return f"${total:.4f}+", f"+ {who} {verb} no price; this is what the priced agents spent"
+        return "n/a (no priced call yet)", f"+ {line}"
+    return f"${total:.4f}+", f"+ {line}; this is what the priced agents spent"
 
 
 def truncate_label_left(label: str, max_width: int) -> str:

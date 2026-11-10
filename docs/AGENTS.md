@@ -141,7 +141,7 @@ extends: coder                 # optional -- another bio to inherit from
 
 models:
   preference: ol:qwen3-coder:30b  # a model ref, `default` (the session's model) or `auto` (picked at spawn)
-  needs: []                       # with `auto`: what the pick must have -- vision | audio | video | pdf | reasoning | tools | long-context
+  needs: []                       # with `auto`: what the pick must have -- vision | audio | video | pdf | reasoning | tools | long-context | work-data
   fallback: or:deepseek/deepseek-v4.1-flash
   escalation: or:anthropic/claude-opus-5.5   # the roles.py-style escalation target
   effort: medium
@@ -197,7 +197,7 @@ secrets: {broker: 1password}     # 3.1.8.0 R5: 1password | env, account?
 
 Halo 3.1.8.0 R5 adds three opt-ins to a bio ([ISOLATION.md](ISOLATION.md)):
 `tools.capabilities` (`[read, edit, bash, web, agent, mcp:<server>, media,
-recall]`: the agent is built with only those tools; `tools.allow`/`deny`
+recall]`: the agent is built with only those tools (`web` holds WebFetch, WebSearch and, 3.3.17.0, `copilot_ask`); `tools.allow`/`deny`
 still apply inside the list), `isolation` (its Orchestra workers run in a
 container or as a scoped user; a bio's wins over its lineup's) and
 `secrets` with `environment.secrets` (the refs its workers' environment is
@@ -258,6 +258,17 @@ and what came back. A bio allowed `Agent` (or `Task`) is allowed `Workflow`
 too. The square's agent runs under the session's permission engine and rules,
 and its `limits.depth` and budget cap bound it. The router's rule and the
 shipped squares: [WORKFLOWS-squares.md](WORKFLOWS-squares.md).
+
+## The `copilot_ask` tool and `cp:work`: your work's Copilot (Halo 3.3.17.0 R2)
+
+Once `copilot.tenant` and `copilot.client_id` are set, every session's tools include `copilot_ask {prompt, files?,
+web?}`: it asks your work's Microsoft 365 Copilot (your mail, meetings, chats and files) and answers with the text and
+its citations as numbered lines, in the transcript like any tool result. It is in the `web` capability, so a bio or a
+card whose `tools.capabilities` lists `web` keeps it, and `tools.allow: [copilot_ask]` / `deny` name it like any tool.
+A bio may instead run ON Copilot: `models.preference: cp:work`, or `auto` with `models.needs: [work-data]` (Auto picks
+`cp:work` for that need once you are signed in, and never for a role that needs tool calls). Such a role is a
+**consult role**: the loop offers it no tools. Sign-in, the two doors and every error line:
+[PROVIDERS-copilot.md](PROVIDERS-copilot.md).
 
 ## Asking for a model by capability (Halo 3.2.0.0 R2)
 

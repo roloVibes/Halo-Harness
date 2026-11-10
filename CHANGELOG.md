@@ -8,6 +8,58 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.3.17.0] - unreleased
+
+**Copilot at work.** Halo signs in to your work's Microsoft 365 Copilot in the browser (or with a device code) and
+talks to it as a provider with one model, `cp:work`, over the Work IQ API or Graph's preview Copilot Chat API. A
+session or a lineup role can run on it as a consult role, any agent can ask it through the `copilot_ask` tool, and its
+cost is said as "billed by your tenant", never as dollars (docs/PROVIDERS-copilot.md).
+
+### R1: the door
+
+#### Added
+
+- **The settings** `copilot.tenant`, `copilot.client_id` (your own Entra app registration, a public client),
+  `copilot.api` (`workiq` default | `graph-beta`), `copilot.web`, `copilot.timezone` and `copilot.scopes`: Settings ->
+  Providers, docs/CONFIG.md (`providers/copilot_config.py`).
+- **Sign-in** (`providers/copilot_auth.py`, `copilot_tokens.py`): the authorization-code flow with PKCE (S256) against
+  the tenant's Entra endpoints, the redirect `http://localhost:<free port>` served once by a listener on 127.0.0.1
+  (the state checked, one request, then it closes; a 5-minute wait, said in the terminal), Halo opens the browser and
+  prints the URL; `--device` and any box with no browser (SSH, no DISPLAY, `HALO_NO_BROWSER`) use the device code.
+  The refresh token goes to the env file as `HALO_SECRET_COPILOT_REFRESH`; access tokens stay in memory, refreshed
+  60 s early; who signed in and until when is in `~/.halo/copilot/account.json` (no token).
+- **The adapter** (`providers/copilot.py`, on `providers/http.py` only): Work IQ's JSON-RPC `SendMessage` with
+  `A2A-Version: 1.0`, the `contextId` kept per conversation and the time zone in the metadata; Graph's
+  `/beta/copilot/conversations` and `.../chat` with the text, `locationHint.timeZone`, `additionalContext`, the file
+  URIs and web grounding. Both answer `{text, citations, sensitivity, conversation, api}`. Every failure is one line
+  with its next step: not set up, not signed in, the sign-in expired, consent missing (the scopes named), no licence,
+  billing not enabled, throttled after one `Retry-After` wait, offline mode.
+- **`halo copilot signin [--device]`, `signout`, `status [--json]`, `ask "<prompt>" [--file URL]... [--no-web] [--api
+  workiq|graph-beta] [--json]`** (docs/COMMANDS-copilot.md); `halo copilot` alone is `status`.
+- **The mock** (`tests/helpers/mock_copilot.py`): Entra (authorize, token with PKCE, refresh, a revoked refresh, the
+  device code), Work IQ's A2A endpoint and Graph's beta conversations, for every test here.
+
+### R2: in the harness
+
+#### Added
+
+- **`cp:work`** (`model.py`'s prefix table, `providers/copilot_route.py`): a session or a role runs on the session's
+  one Copilot conversation; the loop sends it no tools. Its catalog row (`providers/copilot_catalog.py`) says `takes:
+  text, files, web`, `tools: no`, no context window and "Copilot Credits or your licence"; `halo models` lists it once
+  you are signed in. Auto picks it for the need `work-data` ("research over your work data") when signed in, and
+  never for a role that needs tool calls (`models_auto_work.py`).
+- **The `copilot_ask` tool** (`tools/copilot_ask.py`, the `web` capability), registered once Copilot is set up: the
+  answer with its citations as numbered lines, in the transcript like any tool result.
+- **Cost**: a `cp:work` turn and a `copilot_ask` call add no dollars and mark the cost incomplete; `/cost`, `/status`
+  and Studio's Cost panel say "Copilot: billed by your tenant (credits or licence)" (`providers/copilot_cost.py`).
+- **Studio**: Setup -> Providers has a Copilot card (the status a row per fact, the tenant and app id, the door, Sign
+  in / Sign out, the scopes to consent to as a copyable list, Register the app's steps); Sign in starts the browser
+  flow on the machine Studio runs on ("finish in the browser tab that opened"), or shows the device code when there is no
+  browser (`studio/setup_copilot_api.py`, `routes/setup/CopilotCard.tsx`).
+- **`halo doctor`**: one Copilot row (not set up / signed in as ... until ... / token expired / consent missing /
+  billing not enabled / no licence), each with its next step (`providers/copilot_doctor.py`).
+- **Docs**: docs/PROVIDERS-copilot.md, docs/COMMANDS-copilot.md, the glossary's "consult role".
+
 ## [3.3.16.0] - unreleased
 
 **Agents: one section for your agents.** The owner, 2026-11-09: "what does teams even give us? ... roles and

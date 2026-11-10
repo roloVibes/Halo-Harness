@@ -2883,13 +2883,10 @@ class Session:
         # what actually reached the model must match what a later replay
         # reconstructs, independent of whether the registry's tool
         # descriptions changed between this run and a resumed one.
-        # H5 scope F item 9: `no_tools=True` (the MAX_STEPS_PROMPT wrap-up
-        # call) passes `tools=[]` explicitly -- an EMPTY list, not None, so
-        # derive_request never falls back to the frozen catalog either --
-        # backing "Tools are disabled until next user input" with an
-        # actually-empty wire `tools` field, not just prompt text the model
-        # could ignore.
-        system_text, messages, tools = derive_request(self.log, tools=([] if no_tools else None))
+        # H5 scope F item 9: `no_tools=True` (the MAX_STEPS_PROMPT wrap-up call) passes `tools=[]` -- an EMPTY
+        # list, not None, so no frozen-catalog fallback: "Tools are disabled until next user input" is backed by
+        # an actually-empty wire `tools` field. 3.3.17.0 R2: `cp:work` (a consult model) always gets [] too.
+        system_text, messages, tools = derive_request(self.log, tools=([] if no_tools or self.route.dialect == "copilot" else None))
         # Halo 2.0.3.1: the log stores an image turn as a path, never its
         # bytes (see `_turn_inner`'s own comment on this) -- every image
         # block `derive_request` just handed back is read from disk and
@@ -3461,10 +3458,11 @@ class Session:
             return stream_anthropic_completion(req, abort=eff_abort)
         if req.route.dialect == "openai-responses":
             return stream_openai_responses_completion(req, abort=eff_abort)
-        # Halo 3.3.4.0 R2: a call to a local server (an `ol:` host, an
-        # `hf:local` server) leaves one line in `<state>/ollama/traffic.jsonl`
-        # once its facts are in hand; `kind` names the caller (turn,
-        # compaction, small, repair). Every other call's stream is untouched.
+        if req.route.dialect == "copilot":  # 3.3.17.0 R2: cp:work, a turn of the session's Copilot conversation
+            from halo_harness.providers.copilot_route import stream_copilot
+            return stream_copilot(self, req, eff_abort, kind)
+        # Halo 3.3.4.0 R2: a local server's call (`ol:`, `hf:local`) leaves one line in `<state>/ollama/traffic.jsonl`
+        # (`kind`: turn, compaction, small, repair); every other call's stream is untouched.
         from halo_harness.ollama_steward.ledger_call import observe_call
         gen = (stream_ollama_completion(req, abort=eff_abort) if req.route.dialect == "ollama"
                else stream_completion(req, abort=eff_abort))

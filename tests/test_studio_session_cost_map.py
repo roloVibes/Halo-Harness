@@ -211,6 +211,7 @@ def test_v3331_an_unpriced_main_shows_a_plus_and_no_price(ctx: Ctx):
     ctx.check(f"its title names main's model, got {got.get('partial_title')!r}",
               got.get("partial_title") == f"main's model {model} reports no price: this is what the priced agents spent")
     ctx.check(f"PER TURN carries the + too, got {got.get('partial_per_turn')!r}", str(got.get("partial_per_turn") or "").endswith("+"))
+    ctx.check(f"3.3.17.0: a Copilot part says its reason, got {got.get('copilot_line')!r}", got.get("copilot_line") == "+ Copilot: billed by your tenant (credits or licence)")
     ctx.check(f"main's line says no price, never $0.0000, got {got.get('noprice')!r}", got.get("noprice") == "no price")
     ctx.check(f"a complete total drops both, got {got.get('complete_again')!r}", got.get("complete_again") == "gone")
 

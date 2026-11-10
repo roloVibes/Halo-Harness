@@ -20,6 +20,8 @@ state (studio/setup_state.py) plus the lines saying what was written.
                                         {stage: "done", at} -> {ok, done_at}; the state's `done_at` (studio/setup_done.py)
     GET setup/packs, GET|POST setup/packs/<id>/<block>
                                         3.3.11.0 R3: a pack's own Setup blocks (studio/setup_packs_api.py)
+    GET setup/copilot, POST setup/copilot/config|signin|signout
+                                        3.3.17.0 R2: the Copilot card of Providers (studio/setup_copilot_api.py)
 
 The page reads the state again on `files_changed` (config.json moved: a
 `halo config set` in a terminal, another Studio), so every open Setup page
@@ -164,3 +166,14 @@ def dispatch_setup(req):  # noqa: F811  (a pack's blocks, then the routes above)
     from halo_harness.studio.setup_packs_api import dispatch_setup_packs
     answered = dispatch_setup_packs(req)
     return answered if answered is not None else _dispatch_setup_before_packs(req)
+
+
+# 3.3.17.0 R2: `setup/copilot[/config|/signin|/signout]`, the Copilot card of Providers (studio/setup_copilot_api.py),
+# answer first; every other path goes on to the routes above.
+_dispatch_setup_before_copilot = dispatch_setup
+
+
+def dispatch_setup(req):  # noqa: F811  (the Copilot card, then the routes above)
+    from halo_harness.studio.setup_copilot_api import dispatch_setup_copilot
+    answered = dispatch_setup_copilot(req)
+    return answered if answered is not None else _dispatch_setup_before_copilot(req)
