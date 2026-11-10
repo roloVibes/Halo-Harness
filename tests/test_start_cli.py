@@ -382,10 +382,12 @@ def test_a_missing_lineup_or_one_with_no_coder_is_one_line(ctx: Ctx):
 
 @test
 def test_my_halo_dev_cycle_is_gone_from_code_and_docs(ctx: Ctx):
-    """3.3.15.0 R7: no file under halo_harness/ or docs/ names the old copy (the CHANGELOG keeps its history)."""
+    """3.3.15.0 R7: no file under halo_harness/ or docs/ names the old copy (the CHANGELOG, and since 3.3.16.2 its
+    shipped copy halo_harness/data/changelog.md, keep its history)."""
     import subprocess
     root = Path(__file__).resolve().parent.parent
-    out = subprocess.run(["git", "grep", "--untracked", "-l", "my-halo-dev-cycle", "--", "halo_harness", "docs"], cwd=str(root),
+    out = subprocess.run(["git", "grep", "--untracked", "-l", "my-halo-dev-cycle", "--", "halo_harness", "docs",
+                          ":!halo_harness/data/changelog.md"], cwd=str(root),  # 3.3.16.2: the shipped CHANGELOG copy
                          capture_output=True, text=True, encoding="utf-8", errors="replace")
     found = [line for line in out.stdout.splitlines() if "node_modules" not in line]
     ctx.check(f"none, got {found} (git grep exit {out.returncode}: 1 = no match)", out.returncode == 1 and found == [])

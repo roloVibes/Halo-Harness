@@ -2,13 +2,17 @@
 docs/COMMANDS-supervise.md "halo knowledge", docs/KNOWLEDGE.md).
 
     halo knowledge add finding|decision "<title>" [--body FILE|-] [--evidence L] [--alternative A] [--tag T] [--json]
-    halo knowledge list [finding|decision] [--all] [--json]
+    halo knowledge list [finding|decision] [--kind gate|finding|decision] [--project .|all|NAME] [--all] [--json]
     halo knowledge show <id> [--json]
-    halo knowledge search <words> [--k N] [--json]
+    halo knowledge search <words> [--k N] [--project .|all|NAME] [--json]
     halo knowledge forget <id> [--json]
+    halo knowledge prune --kind gate|finding|decision --older-than 7d [--project .|all|NAME] [--dry-run] [--yes] [--json]
     halo knowledge supersede <id> "<title>" [--body FILE|-] [--evidence L] [--alternative A] [--tag T] [--json]
     halo knowledge fetch <harness> <id> | <harness> --all finding|decision [--json]
 
+3.3.16.2: `--kind gate` is a gate's records (by: gate); `--project .` the
+folder's project (its git root's name), `all` every one; `prune` prints what
+it would remove and the count, and removes them only with `--yes`.
 `--evidence`, `--alternative` and `--tag` repeat. `add` and `supersede`
 write `by: user`; `list` leaves superseded entries out unless `--all`;
 `show` adds "reused by" (the agent tasks whose evidence cites the id,
@@ -22,7 +26,8 @@ import argparse
 import json
 import sys
 
-VERBS = ("add", "list", "show", "search", "forget", "supersede", "fetch")
+VERBS = ("add", "list", "show", "search", "forget", "supersede", "fetch", "prune")
+KIND_CHOICES = ("gate", "finding", "decision")
 
 
 def _writes(p: argparse.ArgumentParser) -> None:
@@ -42,10 +47,19 @@ def _parser() -> argparse.ArgumentParser:
     ls = sub.add_parser("list", help="the entries, newest first")
     ls.add_argument("kind", nargs="?", choices=("finding", "decision"))
     ls.add_argument("--all", action="store_true", help="superseded entries too")
+    ls.add_argument("--kind", dest="kind_opt", choices=KIND_CHOICES, help="gate: a gate's records; or a kind")
+    ls.add_argument("--project", default="all", help=". (this folder's project), all (the default) or a name")
     sub.add_parser("show", help="one entry, with what reused it").add_argument("id")
     se = sub.add_parser("search", help="the entries that rank for some words (recall, else a word match)")
     se.add_argument("words", nargs="+")
     se.add_argument("--k", type=int, default=8)
+    se.add_argument("--project", default=".", help=". (this folder's project first, the default), all, or a name")
+    pr = sub.add_parser("prune", help="remove old entries of a kind (prints them first; --yes removes)")
+    pr.add_argument("--kind", dest="kind_opt", choices=KIND_CHOICES, required=True)
+    pr.add_argument("--older-than", required=True, metavar="AGE", help="30m, 12h, 7d, 2w")
+    pr.add_argument("--project", default="all", help=". (this folder's project), all (the default) or a name")
+    pr.add_argument("--dry-run", action="store_true", help="print what it would remove, remove nothing")
+    pr.add_argument("--yes", action="store_true", help="remove them")
     sub.add_parser("forget", help="remove an entry (recall's index prunes it)").add_argument("id")
     sup = sub.add_parser("supersede", help="write a new entry that replaces an older one")
     sup.add_argument("id")
@@ -66,12 +80,6 @@ def _body(arg) -> str:
         return sys.stdin.read()
     with open(arg, encoding="utf-8") as fh:
         return fh.read()
-
-
-def _row(e: dict) -> str:
-    gone = f"  (superseded by {e['superseded_by']})" if e.get("superseded_by") else ""
-    return (f"  {e['id']}  {e['kind']:<8}  {e['by'][:18]:<18}  {e['when'][:10]}  {(e.get('confidence') or '-'):<7}  "
-            f"{e['title']}{gone}")
 
 
 def _show(e: dict, reused: list) -> str:
@@ -136,15 +144,14 @@ def cmd_knowledge(argv: list) -> int:
         return _write(a, a.verb)
     if a.verb == "fetch":
         return _fetch(a)
-    if a.verb == "list":
-        rows = store.entries(kind=a.kind) if a.all else store.current(kind=a.kind)
-        return _out(a, {"entries": rows}, "\n".join(_row(e) for e in rows) or "no findings or decisions here yet",
-                    0 if rows else 1)
+    if a.verb in ("list", "prune"):
+        from halo_harness.knowledge.curate_cli import list_or_prune
+        return list_or_prune(a, _out)
     if a.verb == "search":
         from halo_harness.knowledge.search import search
-        hits = search(" ".join(a.words), k=max(1, a.k))
+        hits = search(" ".join(a.words), k=max(1, a.k), project=a.project)
         text = "\n".join(f"  {h['score']:+.3f} [{h['kind']}] {h['id']}  {h['title']}  ({h['by']}, {h['when'][:10]})"
-                         for h in hits) or "no finding or decision matches"
+                         f" -- {h['why']}" for h in hits) or "no finding or decision matches"
         return _out(a, {"hits": hits}, text, 0 if hits else 1)
     e = store.read(a.id) if store.valid_id(a.id) else None
     if e is None:

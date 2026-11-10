@@ -75,6 +75,7 @@ Work in the TUI and on the command line, and give agents bios, lineups, roles an
   - [COMMANDS-packs.md](COMMANDS-packs.md) (Commands: packs): read this when you list, inspect, install, enable, grant, update, roll back or remove a pack, or name where packs come from, on the command line (`halo pack`).
   - [COMMANDS-packs-kit.md](COMMANDS-packs-kit.md) (Commands: the pack kit): read this when you start a pack, check one, or install your own folder so every edit shows at once (`halo pack new`, `halo pack test`, `halo pack install --link`).
   - [COMMANDS-workflows.md](COMMANDS-workflows.md) (Commands: workflows): read this when you list, show, check or run a workflow from the command line (`halo workflow`), or list, enable and test workflow squares (`halo workflows`).
+  - [COMMANDS-whatsnew.md](COMMANDS-whatsnew.md) (Commands: what changed): read this when you want to know what a Halo version changed on a box with no repo (`halo whatsnew`).
   - [COMMANDS-proxy.md](COMMANDS-proxy.md) (Commands: the proxy, exit codes and config checks): read this when you run the old proxy, read an exit code, or list and check the config files in effect.
 - [SLASH-COMMANDS.md](SLASH-COMMANDS.md) (Slash commands, keys, and prompt prefixes): read this when you want what a `/command`, a key or a prompt prefix does in the TUI.
   - [SLASH-COMMANDS-session.md](SLASH-COMMANDS-session.md) (Slash commands: sessions, models and context): read this when you manage the session, its model, memory, permissions or config from the prompt (`/clear`, `/model`, `/recall`, `/config` ...).

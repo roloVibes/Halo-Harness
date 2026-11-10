@@ -60,7 +60,7 @@ def test_each_need_and_band_picks_and_says_why(ctx: Ctx):
     p = _pick(task_text="write the release notes", band="mid", role="writer custom writer")
     ctx.check(f"no needs: cheap and fast, got {p.line()!r}",
               p.line() == "auto: or:v/cheap -- no special needs, the best cheap, fast model within 3x the cheapest "
-                          "($0.10/$0.40 per 1M)")
+                          "($0.10/$0.40 per 1M); same score as dbx:databricks-gemini-9-flash: cheaper")  # 3.3.16.2: the tie says why
     p = _pick(needs=["tools"], task_text="fix the bug", band="low", role="coder coder coder")
     ctx.check(f"tools, band low: the cheapest model that states tool calls, got {p.line()!r}",
               p.ref == "or:v/cheap" and p.reason.startswith("the bio asks for tools, the cheapest tools model"))

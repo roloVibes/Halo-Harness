@@ -64,7 +64,9 @@ class _Env:
 def _seed_index(state_dir: Path, rows: dict) -> None:
     path = state_dir / "models" / "best-at.json"
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({"schema": 1, "built": time.time(), "sources": {}, "rows": rows, "best": {}}), encoding="utf-8")
+    from halo_harness.models_best_at import SCHEMA  # 3.3.16.2: schema 2 (a literal 1 was rebuilt as stale)
+    path.write_text(json.dumps({"schema": SCHEMA, "built": time.time(), "sources": {}, "rows": rows, "best": {}}),
+                    encoding="utf-8")
 
 
 def _session(e: _Env, mock):

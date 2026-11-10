@@ -152,9 +152,20 @@ def best_for(rows: Iterable[dict], kind: str, *, limit: int = 10, preflight: Opt
         s, reason = score(row, kind, preflight=preflight)
         if s > 0:
             ranked.append({"ref": row["ref"], "score": s, "reason": reason, "chips": capability_profile(row)["chips"],
-                           "provider": row.get("provider", "")})
-    ranked.sort(key=lambda r: (-r["score"], r["ref"]))
+                           "provider": row.get("provider", ""), **_rank_facts(row, kind)})
+    from halo_harness import model_rank as R  # 3.3.16.2: an equal score by model_rank's order, never the name alone
+    key = R.strongest_key(ranked)
+    ranked = R.ranked(ranked, key)
+    for a, b in zip(ranked, ranked[1:]):
+        a["tie"] = R.why(a, b, key, R.STRONGEST)
     return ranked[:limit]
+
+
+def _rank_facts(row: dict, kind: str) -> dict:
+    from halo_harness.capabilities_strengths import blended_price
+    from halo_harness.model_rank import measured_of
+    return {"price": blended_price(row), "context": row.get("context_tokens"), "local": bool(row.get("local")),
+            "measured": measured_of(row, kind)}
 
 
 def capability_lines(rows: Iterable[dict]) -> list:

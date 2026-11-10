@@ -27,6 +27,7 @@ _N = itertools.count(1)
 def make(route, outcome, *, need: str = "", files=(), engine: str = "") -> dict:
     sq = route.square
     return {"type": "receipt", "kind": "workflow", "square": sq.ref if sq is not None else "", "engine": engine,
+            "role": getattr(route, "role", "") or "",  # 3.3.16.2: the lineup's role took it (lineup_roles.py)
             "need": need or ",".join(route.gaps), "gaps": list(route.gaps), "files": [Path(str(f)).name for f in files or ()],
             "why": route.why, "status": "not-started" if route.refused else outcome.status,
             "back": ",".join(sq.contract.gives) if sq is not None and not route.refused else "",
@@ -41,7 +42,8 @@ def line(rec: dict) -> str:
         return f"square {rec.get('square') or '-'} did not start -- {rec.get('why')}"
     files = f" ({', '.join(rec['files'])})" if rec.get("files") else ""
     tail = "; ".join(x for x in (rec.get("stop") and f"stopped: {rec['stop']}", rec.get("gives_miss")) if x)
-    return (f"square {rec['square']} · in {rec.get('need') or 'the task'}{files} · back {rec.get('back') or '-'} · "
+    who = f"role {rec['role']}" if rec.get("role") else f"square {rec['square']}"
+    return (f"{who} · in {rec.get('need') or 'the task'}{files} · back {rec.get('back') or '-'} · "
             f"${float(rec.get('cost_usd') or 0):.4f} -- {rec.get('why')}" + (f" ({tail})" if tail else ""))
 
 

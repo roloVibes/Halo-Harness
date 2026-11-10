@@ -75,10 +75,17 @@ copies a square into yours, where you can change it.
 | `research` | research | session | text |
 
 **Enabled per lineup.** A square works only when the session's lineup has it
-enabled. A lineup's `workflows:` list names the squares it may use (any ref).
-The auto lineup (and a session with no lineup) reads `workflows.enabled` in
-config ([CONFIG.md](CONFIG.md)); the default is the shipped `media` square on
-and the rest off. `halo workflows enable <ref>` writes the active lineup's
+enabled. A lineup's `workflows:` list names the squares it may use (any ref);
+`workflows: []` is none, on purpose. The auto lineup, a session with no
+lineup and (3.3.16.2) a lineup with no `workflows:` key read
+`workflows.enabled` in config ([CONFIG.md](CONFIG.md)); the default is the
+shipped `media` square on and the rest off. With no square on for the
+lineup, the `Workflow` tool is not offered at all (3.3.16.2: before, it was,
+and answered "no square is enabled for this lineup" -- a tool that could do
+nothing, in the prompt every turn). `halo doctor` says under the lineup which
+squares are on and from where (`Squares for lineup mine: media (config
+workflows.enabled: the lineup sets no `workflows:`)`), and `halo workflows
+list` ends each square's line with `-- on for <lineup>` or `-- off`. `halo workflows enable <ref>` writes the active lineup's
 list (the config key on auto); a shipped or a pack's lineup is read-only and
 the line says to copy it first.
 
@@ -95,9 +102,21 @@ bio its lineup lets delegate (a bio allowed `Agent` is allowed `Workflow`).
   known counts as text only). The enabled squares whose `covers` meet the gaps
   are the candidates; the one covering the most wins, then the one whose band
   is nearest the session's, then the first enabled.
+- **The lineup's own roles first** (3.3.16.2, `workflows/lineup_roles.py`).
+  When a role of the session's lineup covers every read the task carries (a
+  PDF, an image, audio, video) and the task names no plan, review or research,
+  the task goes to that role, the Agent tool's way (`role: <alias>`, its model,
+  rules and budget), and the receipt says `role media · in pdf (report.pdf) ·
+  ... -- handing the PDF to your media role: the lineup covers it`. A role
+  covers a read when it is media work (the alias or role `media`, or its bio's
+  `kind: media`: every read) or its bio's or card's `models.needs` /
+  `models.capabilities` name it (`files` reads as pdf). A square named with
+  `name` still goes to the square.
 - One line says why: `handing the PDF to media: your model takes text only`.
-- No square: one line says what could not be read, and the main model goes on
-  with what it can do. The router never opens a dialog.
+- Nothing covers it: one line says what would -- `no role or square reads PDFs
+  here (could not read report.pdf): `halo workflows enable media`, or give a
+  role a model that takes PDFs` -- and the main model goes on with what it can
+  do. The router never opens a dialog.
 
 The run follows the engine. `session` spawns one agent the way the Agent tool
 does, with the lead bio's prompt, the task and the files' names, on the lead's

@@ -11,6 +11,10 @@ the model goes on -- the router never opens a dialog.
 
 On the main agent and on every bio its lineup lets delegate (a bio allowed Agent is allowed Workflow,
 config/agents_md.py `resolved_tools`). Tests swap `SPAWN` / `RUN_ORCHESTRA` / `TAKES` for fakes.
+
+3.3.16.2: offered only when a square is enabled for the session's lineup (workflows/offer.py drops it from
+the tool list otherwise), and a role of the lineup that covers the reads takes the task before any square
+(workflows/lineup_roles.py; the receipt says "handing the PDF to your media role: the lineup covers it").
 """
 
 from __future__ import annotations
@@ -101,11 +105,19 @@ class WorkflowTool(Tool):
         squares = registry.enabled_squares(_lineup(runtime), cwd=ctx.cwd)
         r = router.route(task, files, name=str(input.get("name") or ""), need=str(input.get("need") or ""),
                          model_ref=model_ref, squares=squares, band=session_band(runtime),
-                         hops=getattr(session, "_square_hops", None), remaining=session_remaining(runtime), takes=TAKES)
+                         hops=getattr(session, "_square_hops", None), remaining=session_remaining(runtime), takes=TAKES,
+                         team=getattr(runtime, "team_control", None))
         if r.refused:
             rec = receipts.make(r, None, need=str(input.get("need") or ""), files=files)
             receipts.write(session, rec)
             return ToolResult(receipts.line(rec))
+        if r.role:  # 3.3.16.2: the lineup's own role covers it (workflows/lineup_roles.py)
+            from halo_harness.workflows.lineup_roles import run_role
+            out = run_role(r.role, task, files, runtime=runtime, tool_id=ctx.tool_use_id or "", spawn=SPAWN)
+            rec = receipts.make(r, out, need=str(input.get("need") or ""), files=files, engine="role")
+            receipts.write(session, rec)
+            return ToolResult(receipts.line(rec) + "\n\n" + (out.text or "(the role handed back nothing)"),
+                              is_error=out.status == "failed")
         wf = r.square
         engine = wf.contract.run_engine(fleet=False)
         if engine == "session":

@@ -8,6 +8,54 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.3.16.2] - unreleased
+
+### From a session's own review (Kali, 2026-11-10)
+
+The owner asked his session's own model (GLM 5.3 on Databricks, a custom lineup) what it thought of 3.3.16.0. It
+named four things; each was checked against the code, all four were real.
+
+- **A tie in the model pick went to the name.** `models_best_at.best_per_kind` ranked an equal score by the
+  model's ref, so `...-opus-4-1` led over `...-opus-4-6`, an older model over its successor, and price and what
+  was measured played no part (the roster, `halo models analyze`, `--best-for` and every pick behind them). Every
+  pick now breaks a tie by one order (`halo_harness/model_rank.py`): the kind's score, the measured first-time
+  success for the kind here (from 3 checked tasks), the newer version within a model family (`4.6` > `4.1`,
+  `v4.1` > `v4`, `5.3` > `5`, a newer date suffix; read across `-`, `.` and `v`), the larger context, the lower
+  price, the provider you have a key for, then the name; the cheapest per kind goes price first. The leader's
+  line names the deciding term ("same score as X: newer", "...: measured 4/5 here", "...: cheaper") in the
+  roster, `halo models analyze`, `halo models --best-for` and the Roles picker. The `auto` pick, `measured`, a
+  pack bio's capability pick, the role presets' cheapest model, `halo gym propose` and the media ranking use the
+  same order past their own rules. **The best-at index's schema is 2: every box rebuilds it once** on its first
+  read after the update. Two test pins held the alphabetical accident (`tests/test_roster_dropped.py`:
+  `ant:fable` led code over the same-scored, cheaper `ant:opus` by name alone) and were fixed.
+- **Knowledge search answered with the sample's gate records.** A search for "halo harness update new features
+  version" came back with 4 of 5 hits from the guided first run's sample repo: the gate's records carry its test
+  command, whose python sits in the tool venv (`.../uv/tools/halo-harness/bin/python`), so "halo" and "harness"
+  matched a path, there was no project scope, and equal scores went to the newest. Search now ranks by relevance
+  first (paths, commands and shas are not words a record says; no shared content word, no hit), this project's
+  records first at equal relevance and another project's marked, a routine passed gate under findings unless the
+  query names its unit, re-runs collapsed to the newest with "x N", and each hit says why it is there.
+  `halo start`'s sample records are tagged `sample` and never answer another project's search (an older one is
+  recognized by its project being a sample folder); its card says so. New: `halo knowledge list --kind
+  gate|finding|decision --project .|all|NAME`, `halo knowledge prune --kind ... --older-than 7d [--dry-run]
+  [--yes]` (prints what it would remove and the count; only `--yes` removes), and a cap of
+  `knowledge.gate_keep` (50, a Settings row) passed-gate records per project, applied when the gate writes one.
+- **The Workflow tool sat on lineups that had no square.** A custom lineup with no `workflows:` key enabled no
+  square, yet the tool was offered every turn and answered "no square is enabled for this lineup". A lineup
+  with no `workflows:` key now inherits config `workflows.enabled` (default `media`) like the auto lineup
+  (`workflows: []` is none, on purpose); the tool is offered only when a square is on for the lineup; a role of
+  the lineup that covers the read (a `media` role, or a card whose bio's `models.needs` / kind covers pdf,
+  vision, audio, video) takes the task the Agent tool's way, with the receipt "handing the PDF to your media
+  role: the lineup covers it"; when nothing covers it the line says what would ("no role or square reads PDFs
+  here: `halo workflows enable media`, or give a role a model that takes PDFs"). `halo doctor` says under the
+  lineup which squares are on and from where; `halo workflows list` marks each "on for <lineup>" or "off".
+- **No changelog on the box.** A `uv tool install` carries no CHANGELOG.md, so nobody there could see what a
+  version changed. The package now ships the newest twelve dated entries (`halo_harness/data/changelog.md`,
+  written by `scripts/release.py` when it dates a release); `halo whatsnew [<version>] [--since V] [--full]
+  [--summary]` and the TUI's `/whatsnew` show the installed version's summary and each heading with its first
+  line, and after `halo update` installs a newer version its last lines are that version's summary and "halo
+  whatsnew for the rest".
+
 ## [3.3.16.1] - unreleased
 
 **The local prompt diet.** A first turn to an unknown remote Ollama model was 16,970 tokens of Halo's own prompt

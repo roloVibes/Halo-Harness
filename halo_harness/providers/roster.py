@@ -157,8 +157,9 @@ def roster_block(state_dir, rows: Optional[list] = None, *, current_ref: str = "
     best = _without(entries, best_per_kind(entries), drops) if drops else best_per_kind(entries)
     lines = [HEADING, "Per kind, the strongest (and the cheapest when it differs):"]
     for kind, pick in best.items():
-        cheap = pick.get("cheapest")
-        lines.append(f"- {kind}: {pick['strongest']}" + (f"; cheapest {cheap}" if cheap and cheap != pick["strongest"] else ""))
+        cheap, why = pick.get("cheapest"), pick.get("strongest_why")  # 3.3.16.2: the tie it won, in a few words
+        lines.append(f"- {kind}: {pick['strongest']}" + (f" ({why})" if why else "")
+                     + (f"; cheapest {cheap}" if cheap and cheap != pick["strongest"] else ""))
     if drops:
         from halo_harness.outcomes.learn import drop_line
         lines.append(drop_line(drops))

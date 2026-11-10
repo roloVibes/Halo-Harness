@@ -1,37 +1,47 @@
 """halo_harness.knowledge.search -- findings and decisions for some words (Halo
-3.1.8.0 R4, docs/KNOWLEDGE.md "Searching").
+3.1.8.0 R4, docs/KNOWLEDGE.md "Searching"; 3.3.16.2 "knowledge that answers
+the question").
 
-`search(query, k=, kinds=, state_dir=)` ranks the current entries through
-recall (recall.search over the index, kept to the kinds finding and
-decision) when embeddings are configured; when they are not, a plain word
-match over the entries' titles, bodies, evidence and tags ranks them (the
-share of the query's words an entry holds), so `knowledge_search` and `halo
-knowledge search` answer either way. Each hit:
+`search(query, k=, kinds=, state_dir=, cwd=, project=)` ranks the current
+entries by RELEVANCE first: the share of the query's content words a record
+says (knowledge/rank.py: paths, commands and shas are not words a record says;
+"the", "of" ... are not content words), or recall's score when embeddings are
+configured and it is `RECALL_MIN` or more. A record with neither is not a hit,
+however new it is. Then:
 
-    {"id": "f-20261024-a1b2c3", "kind": "finding", "title", "score", "by", "when", "confidence", "path", "via": "recall" | "words"}
+* scope -- the project the search is made from (`project`, else `cwd`'s git
+  root): its records and the ones written with no project first at equal
+  relevance; another project's only when they match, marked with it;
+  `project="all"` drops the preference;
+* the guided first run's sample (`halo start`'s basket repo) never answers a
+  search made from another project;
+* a routine "gate passed" record counts `GATE_FACTOR` of its relevance, so it
+  ranks under findings and decisions -- unless the query names its file or
+  symbol (a gate that failed is a decision and keeps its rank);
+* near-duplicates (the same gate on the same unit, re-run) collapse to the
+  newest with "x N".
 
-`SEARCH(query, state_dir, k)` replaces recall.search (tests).
+Each hit: {"id", "kind", "title", "score", "by", "when", "confidence", "path",
+"via": "recall" | "words", "project", "n", "why"} -- `why` says in a few words
+why it is there ("2/6 words: halo, harness; project basket"). `SEARCH(query,
+state_dir, k)` replaces recall.search (tests).
 """
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 from typing import Callable, Optional
 
+from halo_harness.knowledge import rank as R
+
 SEARCH: Optional[Callable] = None
 KINDS = ("finding", "decision")
-_WORD = re.compile(r"[a-z0-9_]{2,}")
+RECALL_MIN = 0.35
+GATE_FACTOR = 0.5
 
 
-def _words(text: str) -> set:
-    return set(_WORD.findall(str(text or "").lower()))
-
-
-def _hit(entry: dict, score: float, via: str) -> dict:
-    return {"id": entry["id"], "kind": entry["kind"], "title": entry["title"], "score": round(float(score), 4),
-            "by": entry["by"], "when": entry["when"], "confidence": entry.get("confidence") or "", "path": entry["path"],
-            "via": via}
+def _words(text: str) -> set:  # kept for callers of 3.1.8.0's name
+    return R.content_words(text)
 
 
 def _recall(query: str, k: int, state_dir) -> Optional[list]:
@@ -48,22 +58,68 @@ def _recall(query: str, k: int, state_dir) -> Optional[list]:
         return None
 
 
-def by_words(query: str, rows: list, k: int) -> list:
-    want = _words(query)
+def _why(matched: list, want: set, recall: float, project: str, here: str, routine: bool, n: int) -> str:
+    bits = [f"{len(matched)}/{len(want)} words: {', '.join(sorted(matched)[:5])}" if matched
+            else f"recall {recall:.2f}"]
+    if project and project != here:
+        bits.append(f"project {project}")
+    elif project:
+        bits.append("this project")
+    if routine:
+        bits.append("a passed gate, ranked under findings")
+    if n > 1:
+        bits.append(f"x{n} (re-run)")
+    return "; ".join(bits)
+
+
+def rank(query: str, rows: list, k: int, *, recall: Optional[dict] = None, here: str = "", scope: str = ".",
+         state_dir=None) -> list:
+    """The hits for `query` among `rows` (see the module docstring); `recall`: {path: score}; `scope`: "." (the
+    project `here`), "all", or a project name (only its records and the ones with no project)."""
+    want = R.content_words(query)
     if not want:
         return []
-    scored = []
+    folders = R.sample_folders(state_dir)
+    home = here if scope == "." else scope  # the project whose sample records may answer ("all": every one)
+    cands = []
     for e in rows:
-        have = _words(" ".join([e["title"], e["body"], " ".join(e["evidence"]), " ".join(e["tags"]), e["id"]]))
-        share = len(want & have) / len(want)
-        if share > 0:
-            scored.append((share, e))
-    scored.sort(key=lambda pair: (pair[1]["when"], pair[1]["id"]), reverse=True)  # ties: the newest first
-    scored.sort(key=lambda pair: -pair[0])
-    return [_hit(e, s, "words") for s, e in scored[:k]]
+        project = R.project_of(e)
+        if scope not in (".", "all") and project not in ("", scope):
+            continue
+        if scope != "all" and project != home and R.is_sample(e, state_dir, folders):
+            continue
+        matched = sorted(want & R.entry_words(e))
+        rec = float((recall or {}).get(str(Path(e["path"])), 0.0))
+        relevance = max(len(matched) / len(want), rec if rec >= RECALL_MIN else 0.0)
+        if relevance <= 0:
+            continue
+        routine = R.is_routine_gate(e) and not R.names_unit(e, want)
+        cands.append({"e": e, "rel": relevance * (GATE_FACTOR if routine else 1.0), "rec": rec, "matched": matched,
+                      "routine": routine, "away": scope == "." and project not in ("", here), "project": project})
+    cands.sort(key=lambda c: (c["e"]["when"], c["e"]["id"]), reverse=True)  # the newest first, kept by the sorts below
+    groups: dict = {}
+    for c in cands:  # near-duplicates: the newest stands for the rest
+        groups.setdefault(R.dup_key(c["e"]), []).append(c)
+    best = [g[0] | {"n": len(g)} for g in groups.values()]
+    best.sort(key=lambda c: (c["e"]["when"], c["e"]["id"]), reverse=True)
+    best.sort(key=lambda c: (-round(c["rel"], 6), c["away"], -c["rec"]))
+    out = []
+    for c in best[:k]:
+        e = c["e"]
+        via = "recall" if c["rec"] >= RECALL_MIN else "words"
+        out.append({"id": e["id"], "kind": e["kind"], "title": e["title"],
+                    "score": round(c["rec"] if via == "recall" else c["rel"], 4), "by": e["by"], "when": e["when"],
+                    "confidence": e.get("confidence") or "", "path": e["path"], "via": via, "project": c["project"],
+                    "n": c["n"], "why": _why(c["matched"], want, c["rec"], c["project"], here, c["routine"], c["n"])})
+    return out
 
 
-def search(query: str, *, k: int = 8, kinds=KINDS, state_dir=None) -> list:
+def by_words(query: str, rows: list, k: int) -> list:
+    """3.1.8.0's word match (no recall, every project): `rank` with scope "all"."""
+    return rank(query, rows, k, scope="all")
+
+
+def search(query: str, *, k: int = 8, kinds=KINDS, state_dir=None, cwd=None, project: Optional[str] = None) -> list:
     from halo_harness.knowledge.store import current
     query = " ".join(str(query or "").split())
     if not query:
@@ -71,13 +127,9 @@ def search(query: str, *, k: int = 8, kinds=KINDS, state_dir=None) -> list:
     rows = [e for e in current(state_dir) if e["kind"] in kinds]
     if not rows:
         return []
-    by_path = {str(Path(e["path"])): e for e in rows}
     hits = _recall(query, max(50, k), state_dir)
-    if hits is None:
-        return by_words(query, rows, k)
-    out = []
-    for h in hits:
-        e = by_path.get(str(Path(str(h.get("id") or ""))))
-        if e is not None and h.get("kind") in kinds:
-            out.append(_hit(e, float(h.get("score") or 0.0), "recall"))
-    return out[:k]
+    recall = None
+    if hits is not None:
+        recall = {str(Path(str(h.get("id") or ""))): float(h.get("score") or 0.0) for h in hits if h.get("kind") in kinds}
+    scope = project if project not in (None, "", ".") else "."
+    return rank(query, rows, k, recall=recall, here=R.project_here(cwd), scope=scope, state_dir=state_dir)

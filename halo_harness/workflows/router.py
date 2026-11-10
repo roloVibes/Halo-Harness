@@ -40,6 +40,7 @@ class Route:
     refused: bool = False                # a bound said no (depth, cap) or the named square is not enabled
     cap_usd: Optional[float] = None      # the cap the run is held to
     hops: int = 0                        # the hops the square's own agent gets
+    role: str = ""                       # 3.3.16.2: the lineup's role that covers it (lineup_roles.py), no square
 
 
 def _takes_text(takes: list) -> str:
@@ -99,9 +100,11 @@ def cap_for(contract, remaining: Optional[float]) -> Optional[float]:
 
 def route(task: str, files=(), *, name: str = "", need: str = "", model_ref: str = "", squares=(),
           band: str = "mid", hops: Optional[int] = None, remaining: Optional[float] = None, takes=None,
-          find=None) -> Route:
+          find=None, team=None) -> Route:
     """The hand-off: a square (or none) and its one line. `squares`: the enabled ones; `find(ref)` resolves
-    `name` (defaults to workflows.spec.find); `takes`: what the model takes (default: the takes cache)."""
+    `name` (defaults to workflows.spec.find); `takes`: what the model takes (default: the takes cache);
+    `team`: the session's lineup (TeamControl) -- 3.3.16.2: a role of it that covers the reads takes the task
+    before any square does (`r.role`), unless a square is named."""
     takes = list(takes) if takes is not None else model_takes(model_ref)
     files = [str(f) for f in files or () if str(f).strip()]
     r = Route(takes=takes)
@@ -126,11 +129,17 @@ def route(task: str, files=(), *, name: str = "", need: str = "", model_ref: str
             r.refused, r.why = True, (f"no hand-off: nothing in the task needs more than your model takes "
                                       f"({_takes_text(takes)})")
             return r
+        from halo_harness.workflows.lineup_roles import covering_role, nothing_reads
+        r.role = covering_role(r.gaps, team)
+        if r.role:
+            r.why = f"handing {_THE.get(r.gaps[0], r.gaps[0])} to your {r.role} role: the lineup covers it"
+            return r
         r.square = pick(r.gaps, list(squares), band)
         what = ", ".join(_THE.get(g, g) for g in r.gaps)
         if r.square is None:
             names = ", ".join(files) or "the task's media"
-            r.refused, r.why = True, (f"no enabled square covers {what} (your model takes {_takes_text(takes)}): "
+            r.refused, r.why = True, (nothing_reads(r.gaps, files) or
+                                      f"no enabled square covers {what} (your model takes {_takes_text(takes)}): "
                                       f"could not read {names}; halo workflows enable media")
             return r
         lead = next((g for g in r.gaps if g in r.square.contract.covers), r.gaps[0])

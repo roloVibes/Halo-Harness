@@ -98,7 +98,12 @@ def test_a_lineup_of_yours_holds_its_list_and_a_shipped_one_is_read_only(ctx: Ct
         ctx.check(f"written to the lineup's file, got {line!r}", ok and "for lineup mine" in line and "mine.yaml" in line)
         text = (h.state / "teams" / "mine.yaml").read_text(encoding="utf-8")
         ctx.check(f"the file lists both, got {text!r}", "review" in text and "media" in text)
+        # 3.3.16.2: a lineup with no `workflows:` key (the shipped quality) inherits config's set (media), so
+        # enabling media there is already on; a square outside that set still needs a copy of the lineup
         ok, line = registry.enable("media", "quality", cwd=h.repo)
+        ctx.check(f"inherited from config, got {line!r}", ok and "already on for lineup quality" in line
+                  and "config workflows.enabled" in line)
+        ok, line = registry.enable("review", "quality", cwd=h.repo)
         ctx.check(f"a shipped lineup says to copy it, got {line!r}", not ok and "read-only" in line and "halo teams new" in line)
 
 

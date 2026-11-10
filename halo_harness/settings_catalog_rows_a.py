@@ -44,6 +44,7 @@ ROWS = [
     Row("coach.probe.budget_factor", "coach", "Probe budget factor", "float", 1.5, (), "Each probe run may spend the reference run's cost times this.", "now"),
     Row("coach.library.cite", "coach", "Cite the library", "bool", True, (), "The coach cites the improvement library entries earlier Applies left for runs like this one.", "now"),
     Row("knowledge.write", "knowledge", "Write knowledge", "bool", True, (), "The judge, the gate, the coach's Apply and the supervisor write findings and decisions to the knowledge store.", "now"),
+    Row("knowledge.gate_keep", "knowledge", "Passed-gate records kept", "int", 50, (), "How many passed-gate records each project keeps, the newest; an older one is forgotten when a new one is written (halo knowledge prune removes more).", "now"),
     Row("knowledge.brief", "knowledge", "Knowledge in briefs", "bool", True, (), "An Orchestra worker's brief carries up to three findings and decisions recall ranks for its job.", "now"),
     Row("recall.sources", "knowledge", "Recall sources", "list", [], (), "Folders of your own Markdown notes recall reads in place (an Obsidian vault is one).", "now"),
     Row("supervise.tick_s", "supervise", "Tick", "int", 5, (), "Seconds between two ticks of the supervisor.", "next launch"),

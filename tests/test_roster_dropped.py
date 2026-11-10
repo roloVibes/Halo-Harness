@@ -30,6 +30,9 @@ from tests.helpers import outcomes_rig as R  # noqa: E402
 test, TESTS = new_registry()
 DROP = ("- dropped for media: dbx:databricks-gemini-9-flash (0/5 checked tasks); dropped for research: ant:fable "
         "(0/3 checked tasks); dropped for code: or:v/ears (1/4 checked tasks) (+1 more: `halo outcomes learned`)")
+# 3.3.16.2: before, ant:fable led code only because its NAME sorted first (same score as ant:opus, at $20 vs $8 per
+# 1M); model_rank's order puts the cheaper ant:opus first, and the line says which term broke the tie
+CODE = "ant:opus (same score as ant:opus-5.5: by name); cheapest or:v/ears"
 
 
 def _block(state, env) -> str:
@@ -59,10 +62,10 @@ def test_a_dropped_model_leaves_the_leaders_and_is_named_once(ctx: Ctx):
     ctx.check("it sits after the per-kind leaders, before the model lines",
               lines.index(DROP) == lines.index("Models:") - 1)
     was, now = _leaders(before), _leaders(after)
-    ctx.check(f"R1's code line named or:v/ears the cheapest, got {was.get('code')!r}", was.get("code") == "ant:fable; cheapest or:v/ears")
+    ctx.check(f"R1's code line named or:v/ears the cheapest, got {was.get('code')!r}", was.get("code") == CODE)
     ctx.check(f"code: or:v/ears is out of the leaders, got {now.get('code')!r}",
-              "or:v/ears" not in now.get("code", "") and now.get("code", "").startswith("ant:fable"))
-    ctx.check(f"research: ant:fable is out (it stays the code leader), got {now.get('research')!r}",
+              "or:v/ears" not in now.get("code", "") and now.get("code", "").startswith("ant:opus"))
+    ctx.check(f"research: ant:fable is out, got {now.get('research')!r}",
               "ant:fable" not in now.get("research", "x") and now.get("research"))
     for kind in ("visual", "audio", "video"):
         ctx.check(f"media -> {kind}: dbx:databricks-gemini-9-flash is out, got {now.get(kind)!r}",
@@ -98,7 +101,7 @@ def test_the_block_is_byte_stable_until_a_number_moves(ctx: Ctx):
               moved != first and drop == ["- dropped for media: dbx:databricks-gemini-9-flash (0/5 checked tasks); "
                                           "dropped for research: ant:fable (0/3 checked tasks); dropped for plan: "
                                           "or:v/cheap (1/3 checked tasks)"]
-              and "- code: ant:fable; cheapest or:v/ears" in moved.splitlines())
+              and f"- code: {CODE}" in moved.splitlines())
 
 
 @test

@@ -130,7 +130,11 @@ cheapest; `mid` (the default) the best within 3x the cheapest paid one
 (free and local ones always count); `high` the strongest. "Best" is the
 mean of the index's scores for the kinds behind the needs; with no needs it
 is cheap and fast. A tie goes to the session's own model, then (band low) to
-a local one. With no candidate, main's model runs it and the reason says
+a local one, then the cheaper, then (3.3.16.2) the newer version of a family,
+the larger context and the provider you have a key for, the name last
+([MODELS-references.md](MODELS-references.md#what-each-model-is-good-at-halo-3190)
+has the order); the reason names the deciding term ("same score as X: newer").
+With no candidate, main's model runs it and the reason says
 so. The pick happens after a call's own `model`, a `--role` override, an
 agent file's `model:` and a tier's model, and before the env / settings
 fallbacks. Two examples on one catalog:

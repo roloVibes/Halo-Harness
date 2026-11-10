@@ -135,7 +135,9 @@ def test_the_old_line_is_gone(ctx: Ctx):
     hits = []
     for root in ("halo_harness", "docs", "tests"):
         for p in (REPO / root).rglob("*"):
-            if p.is_file() and p.suffix in (".py", ".md", ".yaml", ".tsx", ".ts") and p.name != Path(__file__).name:
+            shipped_changelog = p.parent.name == "data" and p.name == "changelog.md"  # 3.3.16.2: CHANGELOG's history
+            if (p.is_file() and p.suffix in (".py", ".md", ".yaml", ".tsx", ".ts") and p.name != Path(__file__).name
+                    and not shipped_changelog):
                 if "arrive with Voice" in p.read_text(encoding="utf-8", errors="replace"):
                     hits.append(str(p.relative_to(REPO)))
     ctx.check(f"'arrive with Voice' is nowhere in halo_harness/, docs/ or tests/, found {hits}", not hits)
