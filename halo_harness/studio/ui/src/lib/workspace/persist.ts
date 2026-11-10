@@ -75,6 +75,21 @@ export function layoutStore(section: string): Store<LayoutState> {
   return s;
 }
 
+/** Run `go` once the section's workspace has laid out (at once when it has): a panel added from the "+" or the
+ *  palette while the section is still mounting lands then, however long that takes (a slow box: seconds), instead of
+ *  being dropped. Gives up after `ms`. */
+export function whenLaidOut(section: string, go: () => void, ms = 30000): void {
+  const s = layoutStore(section);
+  if (s.get().layout) return go();
+  const stop = s.subscribe(() => {
+    if (!s.get().layout) return;
+    stop();
+    window.clearTimeout(timer);
+    go();
+  });
+  const timer = window.setTimeout(stop, ms);
+}
+
 /** Replace the section's layout; `save` (a user change) also persists it. */
 export function setLayout(section: string, layout: Layout, save = true): void {
   const s = layoutStore(section);

@@ -10,7 +10,7 @@ import { themeCommands } from "./themeCommands"; // 3.3.12.0 R1
 import { openGlossary } from "../lib/glossary";
 import { setDensity } from "../lib/density";
 import { openStart } from "../lib/start";
-import { arrangeLayout, layoutStore, resetLayout, showPanel } from "../lib/workspace/persist";
+import { arrangeLayout, layoutStore, resetLayout, showPanel, whenLaidOut } from "../lib/workspace/persist";
 import type { PanelSpec } from "../lib/workspace/types";
 import { sectionDef, sections, type SectionDef } from "../routes";
 import { packCommands } from "../routes/packs/registry";
@@ -32,8 +32,7 @@ export type Command = { id: string; group: string; label: string; kbd?: string; 
 export function revealPanel(def: SectionDef, p: PanelSpec): void {
   const go = () => showPanel(def.id, p, !!def.paged); // 3.3.13.0 R2: over a paged section's page (Local: Media) it floats
   def.enter?.();
-  if (layoutStore(def.id).get().layout) go();
-  else window.setTimeout(go, 120);
+  whenLaidOut(def.id, go); // the section may still be mounting (one 120 ms retry dropped the panel on a slow runner)
 }
 
 /** 3.3.2.0 R2: what Arrange and Reset layout would say when there is nothing to do ("" when there is). */

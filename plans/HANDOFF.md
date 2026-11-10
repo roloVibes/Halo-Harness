@@ -6,11 +6,11 @@ first, then `WORKER-RULES.md`, then the round you are starting.
 
 ## THE REPO MOVED -- 2026-11-10 midday (read before any path below)
 
-The owner asked for the project to live at `C:/Users/rolo/Documents/vibes/appDev/Halo-Harness`. The clone that was at
-`C:/Users/rolo/Halo-Harness` was moved there (`git worktree repair` run; the round worktrees stay under `~/hh-*`), and
-the stale 2.0.7 clone that sat at that path was removed. Every older line in this file that says
-`C:/Users/rolo/Halo-Harness` or "never cd into C:\Users\rolo\Halo-Harness" means the new path. Before a push:
-`python scripts/prepush.py` (docs/DEVELOPMENT.md "Before you push"; plans/WORKER-RULES.md "The pre-push gate").
+The owner asked for the project to live at `~/Documents/vibes/appDev/Halo-Harness`. The clone that was at
+`~/Halo-Harness` was moved there (`git worktree repair` run; the round worktrees stay under `~/hh-*`), and the stale
+2.0.7 clone that sat at that path was removed. Every older line in this file or in a brief that names the clone in
+the home directory means the new path. Before a push: `python scripts/prepush.py` (docs/DEVELOPMENT.md "Before you
+push"; plans/WORKER-RULES.md "The pre-push gate").
 
 ## WHERE THINGS STAND -- 2026-11-10 morning (authoritative, read this first; the block below it is history)
 

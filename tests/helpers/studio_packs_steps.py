@@ -94,6 +94,7 @@ def events(c, url, ctx) -> dict:
     if not c.js(f"!!{q('[data-testid=fleet-log]')}"):
         plus(c, "fleet-activity")
     strip = q(".ws-cell[data-panel=fleet-activity] .panel-bar button[aria-label=Open]")
+    c.wait(f"!!{q('[data-testid=fleet-log]')} || !!{strip}", 20)  # the panel lands once Live has laid out (a slow box: late)
     if c.js(f"!{q('[data-testid=fleet-log]')} && !!{strip}"):  # added as a strip: one click opens it
         c.click_on(strip)
     c.wait(f"!!{q('[data-testid=fleet-log]')}", 20)

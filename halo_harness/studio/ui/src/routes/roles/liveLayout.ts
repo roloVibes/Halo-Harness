@@ -10,8 +10,11 @@ import type { LiveNode } from "./liveModel";
 
 export type Density = "compact" | "spread";
 export const DENSITY: Record<Density, Dims & { per: number }> = {
-  spread: { w: 228, h: 92, hg: 22, vg: 44, per: 6 },
-  compact: { w: 180, h: 70, hg: 10, vg: 28, per: 9 },
+  // 3.3.16.0 (the owner, Session's Map on Kali: "information gets stomped on ... it's ok if the boxes elongate to fit
+  // the words, just don't squish them"): a node is wide and tall enough for its name, its role, its model beside its
+  // cost and two lines of what it does; styles/nodes.css lays the lines out so none runs into another
+  spread: { w: 268, h: 124, hg: 22, vg: 44, per: 6 },
+  compact: { w: 240, h: 110, hg: 12, vg: 28, per: 9 },
 };
 const MARGIN = 28;
 const HEAD = 22; // room over the top row for a group's name

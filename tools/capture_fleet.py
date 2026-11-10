@@ -58,7 +58,10 @@ def open_live(c, rig, extra: str = "") -> None:
 def open_machines(c, rig) -> None:
     c.go("about:blank")
     c.go(rig.url("setup", "&block=machines"))
-    c.wait("document.querySelectorAll('[data-testid=\"fleet-person\"]').length === 2 && !!document.querySelector('[data-testid=\"fleet-pair\"]')", 30)
+    # every piece the --dom counts read: the settings come from their own GET, which a slow runner answers after the
+    # people (GitHub's Linux runner at 123feae3 counted fleet-settings 0)
+    c.wait("document.querySelectorAll('[data-testid=\"fleet-person\"]').length === 2 && !!document.querySelector('[data-testid=\"fleet-pair\"]')"
+           " && !!document.querySelector('[data-testid=\"fleet-settings\"]')", 30)
 
 
 def dom(c, rig) -> dict:
