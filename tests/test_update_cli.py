@@ -372,25 +372,29 @@ def test_apply_update_reports_before_and_after_from_a_fresh_halo_dash_dash_versi
 
 
 @test
-def test_apply_update_retries_once_with_native_tls_on_a_certificate_failure(ctx: Ctx):
+def test_apply_update_retries_once_on_the_system_store_after_a_certificate_failure(ctx: Ctx):
     """3.3.16.0 (the owner's Kali, 2026-11-10): uv stopped at "invalid peer certificate: UnknownIssuer"; the
-    updater runs the uv command once more with --native-tls and says why; a second failure names what to check."""
+    updater runs the uv command once more on the system's certificate store and says why; a second failure names
+    what to check. The store is asked for through the environment (UV_SYSTEM_CERTS, and UV_NATIVE_TLS for a uv
+    before 0.11), never the flag uv renamed."""
     orig = _patch_all(installed_commit="aaaaaaa", available_commit="bbbbbbb")
     ran = []
 
     def fake_run(cmd, **kwargs):
         if isinstance(cmd, list) and cmd[:1] == ["halo"]:
             return _Proc(stdout="halo 2.0.3 (bbbbbbb, master)\n")
-        ran.append(cmd)
-        if "--native-tls" in cmd:
+        ran.append((cmd, kwargs.get("env") or {}))
+        if (kwargs.get("env") or {}).get("UV_SYSTEM_CERTS") == "1":
             return _Proc(stdout="Installed 1 executable: halo", returncode=0)
         return _Proc(stdout="error: Error while accessing remote requirements file\n  Caused by: invalid peer "
                      "certificate: UnknownIssuer", returncode=1)
     upd.run = fake_run
     try:
         code, out, _err = _capture(lambda: update_cli.apply_update(cmd="uv tool install --reinstall git+https://x/y"))
-        ctx.check(f"two runs, the second with --native-tls, got {ran}",
-                  len(ran) == 2 and ran[1].startswith("uv tool install --native-tls --reinstall "))
+        ctx.check(f"the same command twice, the second with the system store asked for, got {[c for c, _ in ran]}",
+                  len(ran) == 2 and ran[0][0] == ran[1][0] and "--native-tls" not in ran[1][0] and not ran[0][1]
+                  and ran[1][1].get("UV_NATIVE_TLS") == "1" and "PATH" in {k.upper() for k in ran[1][1]})
+        ctx.check(f"the line to paste carries the variables, got {out!r}", "UV_SYSTEM_CERTS" in out)
         ctx.check(f"it says why and ends 0, got {code} {out!r}",
                   code == 0 and "did not trust a certificate" in out and "after  halo 2.0.3 (bbbbbbb, master)" in out)
     finally:

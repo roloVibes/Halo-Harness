@@ -129,8 +129,12 @@ cleaner and clearer").
   box's CA store, had cloned fine, and halo stayed on 3.3.14.0). The lock is now fetched by halo itself (the same TLS
   policy as every other request: the system's store and any configured CA bundle) into a local file; when that fetch
   fails the pin is dropped for this run with one line; a certificate failure in the installer itself is run once more
-  with uv's `--native-tls`, and a second failure says what to check (`env | grep -i proxy`, an intercepting proxy's
-  CA). The "after" line reads the version under the banner, not the banner.
+  on the system's certificate store, and a second failure says what to check (`env | grep -i proxy`, an intercepting
+  proxy's CA). The store is asked for through the environment (`UV_SYSTEM_CERTS=1`, and `UV_NATIVE_TLS=1` for a uv
+  before 0.11), not the `--native-tls` flag, which uv 0.11 renamed and says it will remove: one retry that works on
+  every uv, printed as a line to paste. `scripts/install-halo.sh` and `install-halo.ps1` do the same when their
+  `uv tool install` fails, so a box whose old `halo update` cannot get past the certificate is repaired by running
+  the installer again. The "after" line reads the version under the banner, not the banner.
 
 ## [3.3.15.0] - 2026-11-09
 

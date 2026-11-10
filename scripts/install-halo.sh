@@ -71,6 +71,14 @@ have() { command -v "$1" >/dev/null 2>&1; }
 run() {
   if [ "$DRY_RUN" = 1 ]; then printf 'DRY RUN: %s\n' "$*"; else "$@"; fi
 }
+# uv checks TLS against its own bundled roots; behind a proxy that re-signs traffic (or a box whose CA is only in the
+# system store) it stops at "invalid peer certificate" where git and curl go through. A failed install is run once
+# more on the system's store: UV_SYSTEM_CERTS is uv 0.11's name, UV_NATIVE_TLS the one before it.
+uv_install() {
+  uv tool install "$@" && return 0
+  say "The install failed. Trying once more with the system's certificate store"
+  UV_SYSTEM_CERTS=1 UV_NATIVE_TLS=1 uv tool install "$@"
+}
 confirm() {
   [ "$YES" = 1 ] && return 0
   if [ "$DRY_RUN" = 1 ]; then
@@ -159,7 +167,8 @@ resolve_ref
 # 4. Install halo (2.0.1+ ships exactly one executable: halo)
 if [ "$NO_CLONE" = 1 ]; then
   say "Installing halo straight from GitHub at $REF"
-  run uv tool install --reinstall --constraints "${RAW_URL}/${REF}/requirements.lock" "git+${REPO_URL%.git}@${REF}"
+  if [ "$DRY_RUN" = 1 ]; then run uv tool install --reinstall --constraints "${RAW_URL}/${REF}/requirements.lock" "git+${REPO_URL%.git}@${REF}"
+  else uv_install --reinstall --constraints "${RAW_URL}/${REF}/requirements.lock" "git+${REPO_URL%.git}@${REF}"; fi
 else
   if [ -d "$CLONE_DIR/.git" ]; then
     say "Updating the clone at $CLONE_DIR"
@@ -180,7 +189,7 @@ else
   fi
   say "Installing halo from the clone (dependencies pinned by requirements.lock)"
   if [ "$DRY_RUN" = 1 ]; then printf 'DRY RUN: (cd %s && uv tool install --reinstall --constraints requirements.lock .)\n' "$CLONE_DIR"
-  else (cd "$CLONE_DIR" && uv tool install --reinstall --constraints requirements.lock .); fi
+  else (cd "$CLONE_DIR" && uv_install --reinstall --constraints requirements.lock .); fi
 fi
 
 # 5. PATH for the uv tools directory. `uv tool update-shell` edits a shell
