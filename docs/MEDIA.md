@@ -24,9 +24,7 @@ the Studio pictures keep the two rules under
 | `docs/media/<name>.png` | The same SVG rendered at 2x by headless Chrome | `tools/capture_screens.py`, when Chrome is found |
 | `docs/media/<name>.anim.svg` | Animated captures only (`turn-phase-line`, `steer-mid-turn`): the frames assembled into one looping SMIL SVG, each under 1 MB | `tools/capture_screens.py` |
 | `docs/media/hero.png` | The README's first image: the wordmark over Studio's Session dashboard (a crop of `studio-session.png` across its whole width, the Live column on the left and the Map on the right, darkened at the top edge and behind the wordmark), the block art drawn as cells, never text, and one line under it, "The Claude Code-compatible harness for any model, with Studio: every agent, live."; 2560x720, rounded corners, the holo palette | `tools/hero_png.py` (`--check` says when it is stale) |
-| `docs/media/social-preview.png` | The same picture at 1280x640, the wordmark centred, the line under it: the image for GitHub's Social preview (a hand upload, see below) | `tools/hero_png.py --social` |
 | `docs/media/hero.svg` | The vector wordmark: the block-art wordmark from `halo_harness/banner.py` drawn as vector cells, three chips (Studio · every agent, live; any model; your Claude Code setup, in place), the same line; under 60 KB, so it carries no screenshot | `tools/hero_svg.py` |
-| `docs/media/social-preview.svg` | The vector wordmark at 1280x640 with the same line, kept in step with `hero.svg` (the upload is the PNG) | `tools/hero_svg.py --social` |
 | `docs/media/studio-session.gif` | The README's first picture after the hero: the Session dashboard working (3.3.2.0: Live fills the stage, the agent tree and the cost opened beside it, the other panels strips at the foot), every agent's text, tool rows, hand-backs and an ask card scrolling in the Live column; 1500x900, 28 frames at 250 ms (7 s), looping, one shared palette that keeps the state colours | `tools/capture_session_anim.py` |
 | `docs/media/studio-session.png`, `studio-session-live.png` | The stills beside it: the whole dashboard, and the Live column up close (scale 2) | `tools/capture_session_anim.py` |
 | `docs/media/studio-roles-live.gif`, `studio-roles-live.png` | The Roles canvas while a session runs: cards lighting cyan, one waiting amber, one fading green, one failed red, the glow legend opening at the end; the still has the implementer's Live tab open | `tools/capture_session_anim.py --mode roles` |
@@ -63,7 +61,7 @@ python tools/capture_steer.py                    # studio-steer.png, studio-thin
 python tools/capture_studio.py --mode fleet       # one section's stills (orchestra, roles, design, fleet, packs, setup, settings, local, workflows, picker)
 python tools/studio_modes_banner.py               # the six-section banner, after any of the six stills changed
 python tools/hero_png.py                          # hero.png, after studio-session.png, the banner or the line changed
-python tools/hero_png.py --social                 # social-preview.png, the same picture at GitHub's size
+python tools/hero_png.py --social                 # a 1280x640 render for your own use: written locally, not tracked
 python tools/hero_png.py --check                  # both against a fresh render (exit 1 when stale)
 python tools/hero_svg.py; python tools/hero_svg.py --social   # the two vector wordmarks
 ```
@@ -110,13 +108,6 @@ Run both from a checkout with the repo on `PYTHONPATH`; no real `~/.halo` is
 touched (the scenes scope `BRIDGE_TEST_HOME` to a scratch directory before any
 import) and nothing is fetched except what Chrome itself loads for the SVG's
 font.
-
-### Uploading the social preview
-
-GitHub has no API for the social preview: the owner uploads it once, by hand,
-after `social-preview.png` changes. On github.com open the repository, then
-**Settings -> General**, scroll to **Social preview**, choose **Edit -> Upload
-an image...** and pick `docs/media/social-preview.png` (1280x640, under 1 MB).
 
 ## Chrome
 

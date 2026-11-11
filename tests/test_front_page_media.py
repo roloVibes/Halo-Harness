@@ -149,7 +149,7 @@ def test_hero_png_and_social_preview_are_tools_hero_png_renders(ctx: Ctx):
     ctx.check(f"the README's first image is docs/media/hero.png, got {first!r}", first == "docs/media/hero.png")
     ctx.check("the first image's alt text names the dashboard",
               'alt="Halo Harness: the wordmark over Studio\'s Session dashboard, every agent live"' in readme.split("\n## ", 1)[0])
-    for name, size in (("hero.png", (2560, 720)), ("social-preview.png", (1280, 640))):
+    for name, size in (("hero.png", (2560, 720)),):  # the social-size render is local, not tracked
         path = MEDIA / name
         ctx.check(f"docs/media/{name} exists", path.is_file())
         if not path.is_file():
@@ -169,8 +169,7 @@ def test_hero_png_and_social_preview_are_tools_hero_png_renders(ctx: Ctx):
     ctx.check(f"tools/hero_png.py --check rendered both without an error:{out[-800:]}",
               "hero check:" in out and "Traceback" not in out)
     if sys.platform == "win32":
-        ctx.check(f"hero.png and social-preview.png are what tools/hero_png.py renders "
-                  f"(re-run it, and with --social, then commit docs/media):{out[-800:]}",
+        ctx.check(f"hero.png is what tools/hero_png.py renders (re-run it, then commit docs/media):{out[-800:]}",
                   result.returncode == 0 and "hero check: ok" in out)
 
 

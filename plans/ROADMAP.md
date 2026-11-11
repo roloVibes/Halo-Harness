@@ -4457,7 +4457,7 @@ R4 the pack kit is merged and green on both runners, with whatever of R2 pack th
 R5 mode themes (#5) and R6 the table detail + the parity audit may move to the next version. The Studio redesign brief for
 an outside design session is `docs/STUDIO-redesign-brief.md`; a proposal lands as a round on tokens.css, styles and lib/ui.
 
-## ADDED 2026-11-08 evening (rolo: "I downloaded a new gui look for halo ... make our new plans fit into the new look and redo the social media posts with the new gui and changes we made"): the Instrument look, on the six-section shell
+## ADDED 2026-11-08 evening (rolo: "I downloaded a new gui look for halo ... make our new plans fit into the new look"): the Instrument look, on the six-section shell
 
 **What arrived.** A design session answered `docs/STUDIO-redesign-brief.md` with the "Instrument" look, now in the repo at
 `docs/design/studio-instrument/` (PROPOSAL.md, the mock-ups as HTML -- the source of truth for sizes and CSS -- and PNG at
@@ -4495,10 +4495,6 @@ action rule made visible and the Dialog's three mono lines are the same rule for
 - F3+F5 **one Agents section** and F3+F5b **Fleet's views into Agents and Local** then build in the Instrument vocabulary
   (the Roles Live mock-up as Live; Runs as WindowedRows; the Cast as the lineup canvas restyled), so the consolidation never
   redraws a surface twice.
-- **Communications.** The LinkedIn kit under `~/hh-comms` is redone against this: every graphic in the `instrument` palette
-  and on the six-section shell, every post that named ten sections or Team / Roles / Orchestra / Fleet as sections rewritten
-  for Agents and the folds (planned until shipped), the pack kit and the local-first core as pillars, the engines fold as the
-  story it is; real captures come from L1's shipped Studio and the shot list is redone for the six sections.
 
 ## ADDED 2026-11-08 night: 3.3.12.0 shipped; 3.3.13.0 opens with three rounds at once; the pack template is on GitHub
 

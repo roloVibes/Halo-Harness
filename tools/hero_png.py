@@ -181,7 +181,7 @@ def _check(spec: dict) -> bool:
 
 def main(argv: "list[str]") -> int:
     if "--check" in argv:
-        ok = all([_check(HERO), _check(SOCIAL)])
+        ok = all([_check(HERO)] + ([_check(SOCIAL)] if (MEDIA / SOCIAL["name"]).is_file() else []))  # untracked
         print("hero check: " + ("ok" if ok else "STALE"))
         return 0 if ok else 1
     spec = SOCIAL if "--social" in argv else HERO
