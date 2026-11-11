@@ -1143,9 +1143,9 @@ def _run_init_tabs(args, console: Console, cwd: Path) -> "Optional[tuple]":
     picked_per_provider: "dict[str, str]" = {}
     for provider in configured_this_run:
         if provider not in PROVIDERS:
-            # 1.0.1 part 2 fixpass finding 5: TypeSafe (TAB_PROVIDERS has it,
-            # PROVIDERS does not -- it has no default-model concept of its
-            # own, see init_providers.py's own TAB_PROVIDERS docstring) --
+            # 1.0.1 part 2 fixpass finding 5: a tab provider (TAB_PROVIDERS has it,
+            # PROVIDERS does not -- no default-model concept on this path,
+            # see init_providers.py's own TAB_PROVIDERS docstring) --
             # `PROVIDER_LABEL`/`PROVIDER_DEFAULT_MODEL` have no entry for it
             # at all, so indexing either raised a KeyError here, skipping
             # every step after it (default-model/permission-mode/summary).

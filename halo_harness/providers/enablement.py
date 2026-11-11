@@ -9,7 +9,7 @@ detection `/model`'s own hint text and `/providers`/`halo providers`
 already compute).
 
 Exact per-provider detection rule (`credentials_present` below):
-OpenRouter/Anthropic API (key)/TypeSafe are auto-enabled once their key is
+OpenRouter/Anthropic API (key) are auto-enabled once their key is
 found (env file, shell env, settings env chain); Databricks once a host
 AND token are found (same sources, plus `~/.databrickscfg`).
 
@@ -34,24 +34,23 @@ from typing import Optional
 # joins this table while "ollama" still deliberately does not. Round 5i
 # part 1: "openai" joins the same way, for the same reason (the brief:
 # "same should be... in the model list with what models they can use").
-PROVIDER_NAMES = ("databricks", "openrouter", "anthropic", "typesafe", "huggingface", "openai", "experiential")
+# 3.4.0.0: "typesafe" left the core (providers/left_core.py says so for a leftover key or row).
+PROVIDER_NAMES = ("databricks", "openrouter", "anthropic", "huggingface", "openai", "experiential")
 
 LABELS = {
     "databricks": "Databricks",
     "openrouter": "OpenRouter",
     "anthropic": "Anthropic API (key)",
-    "typesafe": "TypeSafe",
     "huggingface": "Hugging Face",
     "openai": "OpenAI API (key)",
     "experiential": "Experiential Labs",
 }
 
 # item 21.6: the `dbx:`/`or:`/`ant:`/... prefix table -- also in
-# docs/MODELS.md. TypeSafe has no routed models yet ("stores a key only,
-# for a later feature"), so it has no prefix of its own.
+# docs/MODELS.md.
 PREFIXES = {
     "databricks": "dbx:", "openrouter": "or:", "anthropic": "ant:",
-    "typesafe": None, "huggingface": "hf:",
+    "huggingface": "hf:",
     "openai": "oai:", "experiential": "xp:",
 }
 
@@ -74,6 +73,13 @@ def label_for(name: str) -> str:
     return LABELS.get(canonical(name), name)
 
 
+def gone_line(name: str) -> str:
+    """3.4.0.0: the one line for a provider that left the core (providers/left_core.py), "" for any other name."""
+    from halo_harness.providers.left_core import GONE
+    from halo_harness.providers.left_core import gone_line as line
+    return line(canonical(name)) if canonical(name) in GONE else ""
+
+
 def label_with_prefix(name: str) -> str:
     """Halo 2.0.4 round 3 (deliverable 6 / the old G5: "picker and
     `/providers` group labels are `Anthropic API key (ant:)`,
@@ -81,7 +87,7 @@ def label_with_prefix(name: str) -> str:
     prefix follows the label in parentheses everywhere a group is
     named") -- `label_for(name)` plus its own `PREFIXES` entry in
     parentheses, e.g. `"OpenRouter (or:)"`; the bare label (no trailing
-    parens) when `name` has no prefix of its own (TypeSafe) or isn't a
+    parens) when `name` has no prefix of its own or isn't a
     provider this table knows at all. This is additive: `label_for` itself
     is UNCHANGED (every non-group-header caller -- a disabled-provider
     hint, `/providers enable <name>`'s own confirmation line -- keeps its
@@ -307,19 +313,6 @@ def credentials_present(name: str, env: Optional[dict] = None) -> bool:
             return True
         from halo_harness.theme import get_config_value
         return bool(get_config_value("ollama.hosts", default=None))
-    if name == "typesafe":
-        import os
-        e = env if env is not None else os.environ
-        value = e.get("TYPESAFE_API_KEY")
-        if not value and e is os.environ:
-            # Finding 20 (2.0.1): same settings-env-chain fallback
-            # resolve_openrouter/resolve_anthropic now have -- a bare call
-            # (no env=) also checks a trusted settings.json env block.
-            from pathlib import Path
-
-            from halo_harness.providers.config import load_settings_env_chain
-            value = load_settings_env_chain(Path.cwd()).get("TYPESAFE_API_KEY")
-        return bool(value)
     return False
 
 
@@ -338,8 +331,6 @@ def credentials_source(name: str, *, detected: Optional[bool] = None) -> Optiona
     if name == "databricks":
         from halo_harness.providers.config import resolve_databricks_source
         return resolve_databricks_source() or "env"
-    if name == "typesafe":
-        return "env"
     return "env file / shell env"
 
 

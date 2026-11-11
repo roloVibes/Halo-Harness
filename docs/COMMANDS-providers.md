@@ -8,11 +8,11 @@ Part of [Commands](COMMANDS.md), which lists every part.
 
 ```
 Usage: halo providers [list|enable <name>|disable <name>|setup <name>]
-Providers: databricks, openrouter, anthropic, typesafe, huggingface, openai, experiential
+Providers: databricks, openrouter, anthropic, huggingface, openai, experiential
 ```
 
 Detected credentials AUTO-enable a provider (H15 part 2 addendum) --
-OpenRouter/Anthropic API (key)/TypeSafe/OpenAI API once their key is
+OpenRouter/Anthropic API (key)/OpenAI API once their key is
 found (env file, shell env, or the settings env chain), Databricks once a
 host AND token are found (same sources, plus `~/.databrickscfg`), Hugging
 Face (Halo 2.0.3 round 4) once `HF_TOKEN` is found OR at least one
@@ -26,6 +26,9 @@ shows. For `openai`, `huggingface` and `experiential` (which `halo init
 --provider` does not take) it opens the init wizard on a terminal, and
 otherwise says what to set (`OPENAI_API_KEY`, `HF_TOKEN` or
 `EXPLABS_API_KEY`) before `halo providers enable <name>`.
+
+TypeSafe left the core in 3.4.0.0 (it stored `TYPESAFE_API_KEY` and routed no model). `halo providers enable
+typesafe`, a `ts:` ref and a leftover key or `providers.typesafe` row each get one line saying so; nothing fails.
 
 Bare `halo providers` (or `list`) prints one row per provider --
 status (`auto (detected from <source>)` / `disabled by you` / `enabled by
@@ -47,7 +50,6 @@ provider                    status                                   reachable  
 Databricks                  not set up                               not set up                                      -
 OpenRouter                  auto (detected from env file / shell env) reachable                                     412
 Anthropic API (key)         not set up                                not set up                                      -
-TypeSafe                    not set up                                not set up                                      -
 ```
 
 ## `halo gov`
@@ -73,7 +75,7 @@ OpenRouter (`GET /key`/`/credits`), Experiential Labs (`GET /credits`),
 Databricks (always "not offered" -- DBU billing is on the workspace
 side, explicitly excluded by the owner), Anthropic (no endpoint for a
 plain key; the organisation cost report when `ANTHROPIC_ADMIN_KEY` is
-set). Every other provider (Hugging Face, OpenAI, TypeSafe) reads
+set). Every other provider (Hugging Face, OpenAI) reads
 "not offered" -- no balance concept
 exists for it at all. Bare `halo balances` never touches the network --
 reads `~/.halo/balances.json`, or "not fetched yet"; `--refresh` does
@@ -89,7 +91,6 @@ halo balances
 Databricks (dbx:): not offered (DBU billing is on the workspace side -- not available as a balance here)
 OpenRouter (or:): $12.40 left (key: my-key, as of 14:32:05)
 Anthropic API (key) (ant:): not offered (balance not exposed by this API for a plain key (set ANTHROPIC_ADMIN_KEY for organisation spend))
-TypeSafe: not offered (no balance concept for this provider)
 Hugging Face (hf:): not offered (no balance concept for this provider)
 OpenAI API (key) (oai:): not offered (no balance concept for this provider)
 Experiential Labs (xp:): $5.00 left (of $10.00 total credits)

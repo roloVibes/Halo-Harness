@@ -121,11 +121,10 @@ def test_tab_state_databricks_configured_shows_masked_source(ctx: Ctx):
 
 
 @test
-def test_tab_state_openrouter_anthropic_typesafe_shapes(ctx: Ctx):
+def test_tab_state_openrouter_anthropic_shapes(ctx: Ctx):
     from halo_harness.init_providers import tab_credential_state
-    with _Env():
-        for provider, env_key in (("openrouter", "OPENROUTER_API_KEY"), ("anthropic", "ANTHROPIC_API_KEY"),
-                                    ("typesafe", "TYPESAFE_API_KEY")):
+    with _Env():  # 3.4.0.0: typesafe left the core (tests/test_providers_left_core.py)
+        for provider, env_key in (("openrouter", "OPENROUTER_API_KEY"), ("anthropic", "ANTHROPIC_API_KEY")):
             not_set = tab_credential_state(provider)
             ctx.check(f"{provider} not set up, got {not_set}", not_set["configured"] is False)
             ctx.check(f"{provider} needs a single 'key' field, got {not_set}",
@@ -219,10 +218,10 @@ def test_refresh_tab_catalog_not_configured_is_a_clean_failure(ctx: Ctx):
 
 
 @test
-def test_refresh_tab_catalog_noop_for_typesafe(ctx: Ctx):
+def test_refresh_tab_catalog_noop_for_a_provider_with_no_catalog(ctx: Ctx):
     from halo_harness.init_providers import refresh_tab_catalog
     with _Env():
-        for provider in ("typesafe",):
+        for provider in ("anthropic", "typesafe"):  # typesafe: left the core in 3.4.0.0, still a harmless no-op
             ok, note = refresh_tab_catalog(provider)
             ctx.check(f"{provider}: a harmless no-op, got {(ok, note)}", ok is True)
 
@@ -326,8 +325,8 @@ def test_wizard_failure_falls_back_to_the_sequential_picker(ctx: Ctx):
 
 
 # ---------------------------------------------------------------------------
-# 1.0.1 part 2 fixpass finding 5 (retargeted, round 7): a TypeSafe-only
-# `configured_this_run` must never KeyError anywhere in `cmd_init`'s own
+# 1.0.1 part 2 fixpass finding 5 (retargeted, round 7): a non-PROVIDERS-only
+# `configured_this_run` (TypeSafe's then; any tab provider outside PROVIDERS now) must never KeyError anywhere in `cmd_init`'s own
 # wiring -- the round 7 wizard integration point (`_run_init_wizard_flow`)
 # no longer has a per-provider PROVIDER_LABEL/PROVIDER_DEFAULT_MODEL loop
 # of its own AT ALL (that bookkeeping now lives entirely INSIDE the

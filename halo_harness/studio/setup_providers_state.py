@@ -29,7 +29,6 @@ KEY_FIELDS = {
     "openrouter": (("key", "OPENROUTER_API_KEY", True),),
     "anthropic": (("key", "ANTHROPIC_API_KEY", True),),
     "openai": (("key", "OPENAI_API_KEY", True),),
-    "typesafe": (("key", "TYPESAFE_API_KEY", True),),
     "experiential": (("key", "EXPLABS_API_KEY", True),),
     "huggingface": (("token", "HF_TOKEN", True),),
 }
@@ -59,8 +58,6 @@ def _secret(name: str, env: dict):
         if name == "databricks":
             dbx = C.resolve_databricks(env)
             return ("DATABRICKS_TOKEN", dbx.token) if dbx is not None else (None, None)
-        if name == "typesafe":
-            return ("TYPESAFE_API_KEY", env.get("TYPESAFE_API_KEY")) if env.get("TYPESAFE_API_KEY") else (None, None)
         resolver = {"openrouter": C.resolve_openrouter, "anthropic": C.resolve_anthropic, "openai": C.resolve_openai,
                     "experiential": C.resolve_experiential, "huggingface": C.resolve_huggingface}.get(name)
         found = resolver(env) if resolver else None

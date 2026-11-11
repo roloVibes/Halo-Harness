@@ -99,12 +99,14 @@ def test_resolve_anthropic_bare_call_falls_back_to_settings_env_chain(ctx: Ctx):
 
 
 @test
-def test_credentials_present_typesafe_falls_back_to_settings_env_chain(ctx: Ctx):
+def test_a_leftover_typesafe_key_in_the_settings_env_chain_enables_nothing(ctx: Ctx):
     from halo_harness.providers.enablement import credentials_present
     with _Env() as env:
         env.write_user_settings_env({"TYPESAFE_API_KEY": "ts-from-settings"})
-        ctx.check("TypeSafe detected from the settings.json env block alone",
-                  credentials_present("typesafe") is True)
+        ctx.check("3.4.0.0: TypeSafe left the core, so its key in the settings.json env block detects nothing",
+                  credentials_present("typesafe") is False)
+        from halo_harness.providers.left_core import leftovers
+        ctx.check(f"... and left_core names it as a leftover, got {leftovers()}", leftovers() == ["typesafe"])
 
 
 @test

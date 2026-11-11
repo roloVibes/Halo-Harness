@@ -534,7 +534,7 @@ def resolve_role_table(template: dict, *, cwd=None, state_dir=None) -> "tuple[di
         # through to the session model -- never a hard failure at resolve
         # time (this function's own contract: "never a crash, never a null
         # placeholder", same as the "no model at all" case just above).
-        if isinstance(model_ref, str) and model_ref.startswith(("cc:", "cx:")):
+        if isinstance(model_ref, str) and model_ref.startswith(("cc:", "cx:", "ts:")):  # ts:: 3.4.0.0 (TypeSafe)
             from halo_harness.model import removed_route_message
             notes.append(f"{key}: {removed_route_message(model_ref)} -- left out of the role table "
                           f"(falls through to the session model)")

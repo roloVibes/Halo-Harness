@@ -1,7 +1,7 @@
 """halo_harness.tui.dialogs.init_tabs -- H15 Part A: `halo init`'s
 tabbed provider setup, one tab per `init_providers.TAB_PROVIDERS` entry
 (Databricks, OpenRouter, Anthropic API (key), Ollama, Hugging Face, OpenAI
-API (key), TypeSafe, Experiential Labs). A standalone Textual `App` (same reason `init_picker.py`'s own
+API (key), Experiential Labs). A standalone Textual `App` (same reason `init_picker.py`'s own
 pickers are standalone: a plain CLI command has no host `BridgeApp` screen
 stack to push onto) -- `init_cli.py` runs this synchronously via
 `run_init_tabs`, on a real terminal only; a piped/non-tty run never reaches
@@ -154,9 +154,6 @@ class InitTabsApp(App):
                          "automatically by /local with none of this.", classes="tab-help")
         if provider == "openai":
             yield Static("Paste OPENAI_API_KEY to use the real OpenAI API directly (oai: models).",
-                         classes="tab-help")
-        if provider == "typesafe":
-            yield Static("Stores TYPESAFE_API_KEY only -- for a later feature, no routed models yet.",
                          classes="tab-help")
         if provider == "experiential":
             yield Static("Paste EXPLABS_API_KEY (the inference key, prefix xpl_) to use the Experiential "

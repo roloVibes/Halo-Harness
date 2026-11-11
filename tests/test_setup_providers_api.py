@@ -38,8 +38,8 @@ def test_a_key_is_written_once_and_never_read_back(ctx: Ctx):
         ctx.check(f"not set before, got {orp}", status == 200 and orp["set"] is False and orp["source"] == "not set" and orp["tail"] == "")
         ctx.check(f"its field: a secret, not present, got {orp['fields']}", orp["fields"] == [
             {"id": "key", "label": "OPENROUTER_API_KEY", "secret": True, "present": False, "placeholder": ""}])
-        ctx.check(f"the eight cards with their labels, got {list(s['providers'])}",
-                  len(s["providers"]) == 8 and s["providers"]["ollama"]["label"] == "Ollama (local or LAN)")
+        ctx.check(f"the seven cards with their labels (3.4.0.0: TypeSafe left), got {list(s['providers'])}",
+                  len(s["providers"]) == 7 and s["providers"]["ollama"]["label"] == "Ollama (local or LAN)")
         ctx.check(f"the env file's path is in the state, got {s.get('env_file')!r}", s["env_file"] == str(e.env_file))
         status, s = e.call("POST", "setup/provider/openrouter", {"fields": {"key": "  " + OR_KEY + " "}})
         ctx.check(f"200, got {status} {s.get('lines')}", status == 200)

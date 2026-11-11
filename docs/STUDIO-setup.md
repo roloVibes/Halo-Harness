@@ -48,7 +48,7 @@ section opens a welcome any more (3.4.0.0: nor Start here, which left with the g
 ## Providers and Local models (3.3.0.0 R2)
 
 **Providers** is one card per provider, in the wizard's order (Databricks, OpenRouter, Anthropic,
-Ollama, Hugging Face, OpenAI, TypeSafe, Experiential Labs). Each card says whether it is set and where the
+Ollama, Hugging Face, OpenAI, Experiential Labs; TypeSafe left in 3.4.0.0). Each card says whether it is set and where the
 key comes from ("set, from the env file, ****1234", "set, from the environment", "not set"); 3.3.5.0 R0
 names the source of every prefilled field, one phrase per field: "host from Claude Code's settings.json ·
 token not set" (a host discovered in Claude Code's own `settings.json` env, with no token yet), "host from
@@ -246,7 +246,7 @@ job (on the Check page too, under **From packs**, unticked), a **note** has **Ma
 | Permissions | `permission_mode` (`auto`, `acceptEdits`, `default` or `plan`) | `halo config set permission_mode <mode>` |
 | Theme | `theme` (3.3.12.0: the palettes, eleven since 3.3.15.0, each swatch in its own colours; the one key the terminal and Studio draw from; the modifiers are on Settings -> Themes) | `/theme <name>` |
 | Team | One model for everything: `team` removed, `roles.enabled` false; `auto` with no `team` set: `roles.enabled` true only; a lineup: its `roles.*`, `team: <name>`, `roles.enabled` true | the wizard's Team step (`lineup_choice.py`, which both call) |
-| Providers | the env file: `DATABRICKS_HOST`/`DATABRICKS_TOKEN`, `OPENROUTER_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `TYPESAFE_API_KEY`, `EXPLABS_API_KEY`, `HF_TOKEN`, `HALO_SECRET_*` (3.3.17.0: the Copilot card's sign-in writes `HALO_SECRET_COPILOT_REFRESH`); config.json: `ollama.hosts`, `huggingface.endpoints`, `huggingface.local_servers`, `providers.<name>.enabled`, `copilot.*` | `halo init`'s Providers tabs; `halo copilot signin`, `halo config set copilot.<key>` |
+| Providers | the env file: `DATABRICKS_HOST`/`DATABRICKS_TOKEN`, `OPENROUTER_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `EXPLABS_API_KEY`, `HF_TOKEN`, `HALO_SECRET_*` (3.3.17.0: the Copilot card's sign-in writes `HALO_SECRET_COPILOT_REFRESH`); config.json: `ollama.hosts`, `huggingface.endpoints`, `huggingface.local_servers`, `providers.<name>.enabled`, `copilot.*` | `halo init`'s Providers tabs; `halo copilot signin`, `halo config set copilot.<key>` |
 | Local models | `huggingface.model_dirs`, `huggingface.preferred_runtime` | `halo init`'s Local models step, `/local add` |
 | Linux fixes | `~/.local/bin/rg`; the PATH line in `~/.zshenv` or `~/.profile` (only the fixes listed) | the wizard's Linux step |
 | Check | `~/.halo/studio/last-check.json`; each check writes what its row says | `halo check` |

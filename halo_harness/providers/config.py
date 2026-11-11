@@ -140,9 +140,9 @@ _HARNESS_SECRET_ENV_KEYS = frozenset({
     # N1 (1.0.1 final pass): OPENROUTER_MANAGEMENT_KEY is a SEPARATE,
     # higher-privilege OpenRouter credential (resolve_openrouter_management_
     # key, below) -- it must never reach a tool child either, same as the
-    # ordinary OPENROUTER_API_KEY. TYPESAFE_API_KEY is the TypeSafe provider's
-    # own credential (providers.enablement.credentials_present), added here
-    # for the same reason. Both are already covered by mcp.claude_process.
+    # ordinary OPENROUTER_API_KEY. TYPESAFE_API_KEY was the TypeSafe provider's
+    # credential (it left the core in 3.4.0.0; a leftover key is still a
+    # secret, so it stays stripped). Both are already covered by mcp.claude_process.
     # claude_child_env (which calls tool_child_env first) and by hooks.py's
     # own env builder (which calls tool_child_env directly) -- no separate
     # list to update there.
@@ -337,8 +337,7 @@ def _settings_fallback_value(env: dict, key: str) -> Optional[str]:
     trust-filtered chain, so re-deriving it again here would be redundant,
     not wrong -- which is why this only fires for the bare-os.environ case,
     matching Databricks exactly. Used by `resolve_openrouter`/`resolve_
-    anthropic` (and TypeSafe's own inline check in `providers.enablement.
-    credentials_present`) to give all three the fallback Databricks already
+    anthropic` to give both the fallback Databricks already
     had, so `credentials_present` stops disagreeing with what a real
     session (which always passes `effective_env` explicitly) would
     resolve."""

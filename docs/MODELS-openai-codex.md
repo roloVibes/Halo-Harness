@@ -72,7 +72,7 @@ cache -- `halo models --refresh` -- wins when fresher).
 **Balance.** The OpenAI API has no public balance endpoint for ordinary
 keys -- `/providers`/`halo providers` say so plainly and show this
 session's computed spend instead (from the catalog's own price, the
-same rule part B of the original 2.0.3 brief gives for TypeSafe), falling
+same rule part B of the original 2.0.3 brief gives for a provider with no balance endpoint), falling
 back to "see `/cost`" when no live session is attached (the standalone
 CLI).
 

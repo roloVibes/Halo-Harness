@@ -135,8 +135,8 @@ def test_the_linux_fixes_block(ctx: Ctx):
 @test
 def test_a_provider_key_saved_and_masked(ctx: Ctx):
     got = _got(ctx)
-    ctx.check(f"the eight cards in the wizard's order, got {got.get('cards')}", got.get("cards") == [
-        "databricks", "openrouter", "anthropic", "ollama", "huggingface", "openai", "typesafe", "experiential"])
+    ctx.check(f"the seven cards in the wizard's order, got {got.get('cards')}", got.get("cards") == [
+        "databricks", "openrouter", "anthropic", "ollama", "huggingface", "openai", "experiential"])
     ctx.check(f"not set before; a password field that says paste a key, got {got.get('or_before')!r} {got.get('or_field_type')!r}",
               got.get("or_before") == "not set" and got.get("or_field_type") == "password" and got.get("or_placeholder") == "paste a key")
     ctx.check(f"Save & test wrote the env file in the test home, got {got.get('env_has_key')}", got.get("env_has_key") is True)

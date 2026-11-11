@@ -1263,7 +1263,7 @@ def _cmd_providers(args: str, facade: HeadlessFacade) -> str:
     `setup <name>` needs the interactive provider picker/tabs `init` itself
     shows -- not available headless, so this just points at the real
     command instead of half-implementing it."""
-    from halo_harness.providers.enablement import PROVIDER_NAMES, canonical, disable, enable, label_for
+    from halo_harness.providers.enablement import PROVIDER_NAMES, canonical, disable, enable, gone_line, label_for
     from halo_harness.providers_cli import format_providers_table, provider_rows
     tokens = (args or "").split()
     if not tokens or tokens[0] == "list":
@@ -1294,7 +1294,7 @@ def _cmd_providers(args: str, facade: HeadlessFacade) -> str:
             return f"/providers {action}: needs a provider name ({', '.join(PROVIDER_NAMES)})"
         name = canonical(tokens[1])
         if name not in PROVIDER_NAMES:
-            return f"/providers {action}: unknown provider {tokens[1]!r} (expected one of {', '.join(PROVIDER_NAMES)})"
+            return gone_line(name) or f"/providers {action}: unknown provider {tokens[1]!r} (expected one of {', '.join(PROVIDER_NAMES)})"
         if action == "enable":
             enable(name)
             return f"{label_for(name)}: enabled"
