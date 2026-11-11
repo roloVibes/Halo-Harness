@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.3.16.2] - unreleased
+## [3.3.16.2] - 2026-11-10
 
 **Live: thinking you can see, agents talking.** The owner: "make watching a model think much better. In sessions
 live tab, it's really amazing to get more visualization on what the models are really thinking. There should also be
