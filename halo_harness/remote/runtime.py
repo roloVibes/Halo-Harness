@@ -106,9 +106,10 @@ def _open(handle, controller=None, *, kind: Optional[str] = None, reopen=None) -
     return act
 
 
-def _relay(name: str, act) -> None:  # 3.0.5.0 R2: fleet/relay_runtime.py follows these sessions
-    with contextlib.suppress(Exception):  # the relay never stands in a session's way
-        getattr(__import__("halo_harness.fleet.relay_runtime", fromlist=["_"]), name)(act)
+def _relay(name: str, act) -> None:  # 3.0.5.0 R2: the fleet pack's relay_runtime.py follows these sessions (3.4.0.0 C)
+    with contextlib.suppress(Exception):  # the relay never stands in a session's way; the pack off: no relay
+        from halo_harness.packs import fleet_door
+        fleet_door.call("fleet/relay_runtime.py", name, act)
 
 
 def _watch_status(act: Active, ev) -> None:

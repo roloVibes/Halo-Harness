@@ -22,6 +22,8 @@ import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
+_fleet_pack.on()
 
 from tests.helpers.provider_env_defaults import ensure_default_provider_credentials, ensure_scoped_state_dir_once
 
@@ -51,7 +53,7 @@ def seed(home: Path, eid: str = EID, big: int = 0, undone: bool = False) -> str:
 
 
 def _home(config: "dict | None" = None) -> Path:
-    from halo_harness.fleet import identity
+    from halo_harness.peers import identity
     home = Path(tempfile.mkdtemp(prefix="lib-ans-")) / ".halo"
     home.mkdir(parents=True)
     (home / "config.json").write_text(json.dumps({"fleet": dict({"name": "kali"}, **(config or {}))}), encoding="utf-8")
@@ -62,7 +64,8 @@ def _home(config: "dict | None" = None) -> Path:
 @test
 def test_a_members_answer_and_what_it_refuses(ctx: Ctx):
     from halo_harness import recall_fleet as RF
-    from halo_harness.fleet import identity, journal
+    from halo_harness.peers import identity
+    from halo_harness.live import journal
     from halo_harness.orchestra import coach_library_share as LS
     home = _home()
     seed(home)
@@ -102,7 +105,7 @@ def _shut_home(share: bool) -> Path:
 @test
 def test_the_hub_forwards_and_fetch_writes_under_the_same_id(ctx: Ctx):
     from halo_harness.config.paths import bridge_home
-    from halo_harness.fleet import journal
+    from halo_harness.live import journal
     from halo_harness.fleet.hub import running_call
     from halo_harness.orchestra import coach_library as L
     from halo_harness.orchestra.coach_library_share import fetch

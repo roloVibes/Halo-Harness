@@ -23,7 +23,7 @@ import os
 import sys
 import time
 
-from halo_harness.fleet import identity
+from halo_harness.peers import identity
 from halo_harness.remote import cli_common as C
 
 VERBS = ("serve", "status", "stop", "pair", "join", "install", "uninstall", "grant", "revoke", "peers", "pending",
@@ -78,7 +78,7 @@ def cmd_serve(argv: list) -> int:
     a, rc = C.parse(p, argv)
     if a is None:
         return rc
-    from halo_harness.fleet.hub import FleetOffline
+    from halo_harness.peers.net import FleetOffline
     from halo_harness.host.service import OFFLINE_LINE, HostService
     if identity.offline():
         return C.fail(a.json, "offline", f"halo host serve: {OFFLINE_LINE}")
@@ -105,7 +105,7 @@ def cmd_serve(argv: list) -> int:
     if a.json:
         C.emit_json({"ok": True, **svc.public(), "watches": svc.watches()})
     else:
-        from halo_harness.fleet import tls
+        from halo_harness.peers import tls
         how = f"TLS, fingerprint {tls.short(svc.fingerprint)}" if svc.fingerprint else "HMAC-signed HTTP, no TLS"
         print(f"halo host {svc.name} at {svc.url()} ({how}); watching {', '.join(svc.watches()) or 'no local Ollama host'}.")
         print("`halo host pair` makes a code for a peer. Ctrl+C or `halo host stop` stops it.")

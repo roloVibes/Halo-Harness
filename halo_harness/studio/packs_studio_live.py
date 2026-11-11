@@ -51,7 +51,7 @@ def publish(server, why: str = "changed") -> None:
     from halo_harness.studio.events import bridge_for
     try:
         _last[id(server)] = signature(server.cwd, server.state_dir)
-        from halo_harness.fleet.capabilities import invalidate
+        from halo_harness.peers.catalog import invalidate
         invalidate(server.state_dir)
         bridge_for(server).publish_local({"event": FRAME_KIND, "data": {"why": why}})
     except Exception:  # a frame that cannot go out never breaks the caller (a halo pack verb)

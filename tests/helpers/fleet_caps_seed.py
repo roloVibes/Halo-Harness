@@ -8,6 +8,7 @@ R6 tests, the Fleet Chrome scenarios and tools/capture_fleet.py:
                                gather lists those servers and tools without starting one
 """
 from __future__ import annotations
+import tests.helpers.fleet_pack  # noqa: F401,E402  (the fleet pack's modules under their old names)
 
 import json
 import time

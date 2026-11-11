@@ -205,12 +205,15 @@ def cmd_orchestra_coach(args, repo: Path) -> int:
 
 
 def cmd_mission_coach(argv: list) -> int:
-    from halo_harness.fleet import identity
-    from halo_harness.fleet import mission as M
-    from halo_harness.fleet import mission_store as S
+    from halo_harness.peers import identity
+    from halo_harness.packs import fleet_door  # 3.4.0.0 C: missions are the fleet pack's
+    M, S = fleet_door.module("fleet/mission.py"), fleet_door.module("fleet/mission_store.py")
     a, rc = _parse("halo fleet mission coach", argv, "the mission id (m-<yyyymmdd>-<4 hex>)", required=True)
     if a is None:
         return rc
+    if M is None or S is None:
+        print(f"halo fleet mission coach: {fleet_door.line()}", file=sys.stderr)
+        return 2
     if not M.valid_id(a.run) or not (S.folder(identity.home(), a.run) / "mission.json").is_file():
         print(f"halo fleet mission coach: no mission {a.run!r} here", file=sys.stderr)
         return 1

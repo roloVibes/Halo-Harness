@@ -12,6 +12,8 @@ role and lineup; the framed page's Live Roles files are wired and small.
 Run: python -m tests.test_fleet_studio_routes
 """
 from __future__ import annotations
+from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
+_fleet_pack.on()
 
 import http.client
 import json
@@ -59,7 +61,7 @@ class _Studio:
 
 @test
 def test_pair_makes_a_one_time_code_with_its_join_line_and_qr(ctx: Ctx):
-    from halo_harness.fleet.pairing import HubPairing
+    from halo_harness.peers.pairing import HubPairing
     with _Studio() as s:
         status, got = s.api("POST", "fleet/pair", {"ttl": 600})
         ctx.check(f"200 and six words, got {status} {got.get('code')!r}", status == 200 and len(str(got.get("code")).split()) == 6)
@@ -95,7 +97,7 @@ def test_settings_read_and_write_share_and_control(ctx: Ctx):
 
 @test
 def test_kick_removes_a_member(ctx: Ctx):
-    from halo_harness.fleet.pairing import HubPairing
+    from halo_harness.peers.pairing import HubPairing
     with _Studio() as s:
         HubPairing(s.state).add_member({"id": "abc123member", "name": "kali@lab", "host": "kali"}, b"k" * 32)
         status, got = s.api("GET", "fleet/settings")

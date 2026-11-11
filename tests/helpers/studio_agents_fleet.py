@@ -13,6 +13,7 @@ seeded in its mission store (fleet/mission_store.py: no hub, no lead, no model c
 
 The last stdout line is a JSON object of what it saw (exit 2: no Chrome)."""
 from __future__ import annotations
+import tests.helpers.fleet_pack  # noqa: F401,E402  (the fleet pack's modules under their old names)
 
 import sys
 import time

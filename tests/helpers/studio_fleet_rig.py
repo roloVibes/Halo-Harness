@@ -23,6 +23,7 @@ Five agents in three states (running, waiting, done) across two harness
 boxes. Every touched variable is restored and the home removed on close.
 """
 from __future__ import annotations
+import tests.helpers.fleet_pack  # noqa: F401,E402  (the fleet pack's modules under their old names)
 
 import json
 import os
@@ -65,7 +66,7 @@ class StudioFleetRig:
         self.seen: dict = {"a": [], "b": [], "b3": []}
         self.member_cmds: list = []
         self._stop = threading.Event()
-        from halo_harness.fleet import identity
+        from halo_harness.peers import identity
         from halo_harness.providers.config import default_state_dir
         from halo_harness.teams_yaml import ensure_builtin_team_templates
         from halo_harness.theme import set_config_value
@@ -192,7 +193,7 @@ class StudioFleetRig:
         return next((a for a in self.agents() if (a.get("task") or "").startswith(prefix)), {})
 
     def key(self, prefix: str) -> str:
-        from halo_harness.fleet.identity import harness
+        from halo_harness.peers.identity import harness
         return f"{harness()['id']}|{self.act.session_id}|{self.agent(prefix).get('agent_id')}"
 
     def release(self, which: str) -> None:
@@ -216,7 +217,7 @@ class StudioFleetRig:
             pass
 
     def close(self) -> None:
-        from halo_harness.fleet import identity
+        from halo_harness.peers import identity
         from halo_harness.remote import runtime
         self._stop.set()
         for gate in self.gates.values():

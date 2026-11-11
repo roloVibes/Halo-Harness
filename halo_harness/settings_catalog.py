@@ -76,6 +76,15 @@ def rows() -> "list[Row]":
     return list(_ROWS)
 
 
+def shown() -> "list[Row]":
+    """The rows Settings shows: every row, less the Fleet group's while the fleet pack is off (3.4.0.0 C; its keys
+    stay keys -- `halo config set` takes them -- and come back with the pack)."""
+    from halo_harness.packs import fleet_door
+    if fleet_door.running() is not None:
+        return rows()
+    return [r for r in rows() if r.group != "fleet"]
+
+
 def row(key: str) -> Optional[Row]:
     """The row whose key is exactly `key` (a keyed row by its placeholder key), or None."""
     return next((r for r in rows() if r.key == key), None)
@@ -84,9 +93,9 @@ def row(key: str) -> Optional[Row]:
 def groups() -> "list[dict]":
     """[{id, title, count}] in the rail's order."""
     counts: dict = {}
-    for r in rows():
+    for r in shown():
         counts[r.group] = counts.get(r.group, 0) + 1
-    return [{"id": g, "title": t, "count": counts.get(g, 0)} for g, t in GROUPS]
+    return [{"id": g, "title": t, "count": counts.get(g, 0)} for g, t in GROUPS if g != "fleet" or counts.get(g)]
 
 
 def studio_page(r: Row) -> str:
@@ -203,4 +212,4 @@ def effect_words(effect: str) -> str:
 
 def catalog_json() -> dict:
     """`GET settings/catalog`: the groups and the rows."""
-    return {"groups": groups(), "rows": [r.to_json() for r in rows()], "kinds": list(KINDS), "effects": list(EFFECTS)}
+    return {"groups": groups(), "rows": [r.to_json() for r in shown()], "kinds": list(KINDS), "effects": list(EFFECTS)}

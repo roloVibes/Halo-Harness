@@ -18,7 +18,6 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-from halo_harness.fleet import mission_store as S
 from halo_harness.orchestra import jsonl
 from halo_harness.work import handoff as H
 from halo_harness.work import unit as U
@@ -26,6 +25,36 @@ from halo_harness.work.ledger import line
 
 KIND = "part"
 _EXTRA = ("kind", "harness_name", "outputs", "take", "reason", "pinned", "depends_on", "files")
+
+
+class S:
+    """mission.json of a mission folder, read and updated under its lock (the fleet pack's fleet/mission_store.py
+    load_at / update_at; here so the work record reads a part with no import of the pack, 3.4.0.0 C)."""
+    DOC = "mission.json"
+
+    @staticmethod
+    def load_at(base, mid=None):
+        path, mid = Path(base) / S.DOC, mid or Path(base).name
+        for _ in range(20):  # on Windows a reader can meet the file mid-replace: try again for a moment
+            data = jsonl.read_json(path, None)
+            if isinstance(data, dict) and data.get("id") == mid:
+                return data
+            if not path.exists() and not path.parent.is_dir():
+                return None
+            time.sleep(0.02)
+        return None
+
+    @staticmethod
+    def update_at(base, fn, mid=None) -> dict:
+        path, mid = Path(base) / S.DOC, mid or Path(base).name
+        with jsonl.locked(path):
+            doc = S.load_at(base, mid)
+            if doc is None:
+                raise LookupError(f"no mission {mid!r} here")
+            fn(doc)
+            doc["updated"] = time.time()
+            jsonl.write_json(path, doc)
+        return doc
 
 
 def new_state(part: dict) -> dict:

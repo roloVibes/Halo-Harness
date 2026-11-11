@@ -62,13 +62,15 @@ class _Env:
 
 @test
 def test_the_catalog_and_fresh_values(ctx: Ctx):
-    from halo_harness.settings_catalog import rows
+    from halo_harness.settings_catalog import rows, shown
     with _Env() as e:
         status, cat = e.call("GET", "settings/catalog")
         ctx.check(f"200, got {status}", status == 200)
-        ctx.check(f"the groups and every row, got {len(cat.get('rows', []))}", len(cat["rows"]) == len(rows()) and len(cat["groups"]) == 18)  # 3.3.16.1: Studio
+        # 3.3.16.1: Studio; 3.4.0.0 C: the Fleet group (and its rows) only while the fleet pack runs
+        ctx.check(f"the groups and every row, got {len(cat.get('rows', []))}", len(cat["rows"]) == len(shown()) < len(rows())
+                  and len(cat["groups"]) == 17 and not any(r["group"] == "fleet" for r in cat["rows"]))
         fe = next(r for r in cat["rows"] if r["key"] == "fleet.enabled")
-        ctx.check(f"a row's shape, got {fe}", fe["kind"] == "bool" and fe["default"] is True and fe["page"] == "Settings -> Fleet"
+        ctx.check(f"a row's shape, got {fe}", fe["kind"] == "bool" and fe["default"] is True and fe["page"] == "Settings -> Remote"
                   and fe["effect"] == "next session" and fe["effect_words"] == "takes effect in the next session" and fe["help"])
         status, v = e.call("GET", "settings/values")
         vals = v["values"]

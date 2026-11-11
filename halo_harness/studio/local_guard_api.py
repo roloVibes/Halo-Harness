@@ -41,7 +41,7 @@ def _via_host(h) -> "dict | None":
 
 
 def _here(state_dir, h) -> dict:
-    from halo_harness.fleet.ollama_share import served_here
+    from halo_harness.peers.ollama_share import served_here
     from halo_harness.ollama_steward.idle import idle_since
     got = idle_since(state_dir, h)
     out = {"host": h.name, **{k: got[k] for k in ("line", "busy", "idle_s", "foreign", "foreign_line")}, "via": "local",

@@ -167,7 +167,7 @@ def changed(state_dir=None, unload: str = "") -> None:
     from halo_harness.packs import registry
     registry.invalidate()
     try:
-        from halo_harness.fleet.capabilities import invalidate
+        from halo_harness.peers.catalog import invalidate
         invalidate(state_dir)
     except Exception:
         pass

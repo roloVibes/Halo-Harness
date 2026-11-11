@@ -193,7 +193,7 @@ def _write_name(state: Path) -> None:
 
 def drawn(states: Iterable = ()) -> list:
     """Every name Studio would draw for this harness: its name (the process's and each state's), user and host."""
-    from halo_harness.fleet import identity
+    from halo_harness.peers import identity
     me = identity.harness()
     names = [identity.fleet_name(), me.get("name"), me.get("user"), me.get("host")]
     for s in states:
@@ -207,7 +207,7 @@ def placeholder(state=None) -> None:
     if not (os.environ.get("BRIDGE_TEST_HOME") or os.environ.get("BRIDGE_STATE_DIR")):
         raise RuntimeError("capture_identity.placeholder runs after the scratch home is scoped (chrome_driver.scope_home)")
     begin()
-    from halo_harness.fleet import identity
+    from halo_harness.peers import identity
     from halo_harness.theme import set_config_value
     set_config_value("fleet.name", NAME)
     if state is not None:

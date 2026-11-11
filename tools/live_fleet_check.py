@@ -45,9 +45,17 @@ def _state_dir() -> Path:
     return Path(default_state_dir())
 
 
+def _pack(rel: str):
+    """3.4.0.0 C: the check drives the fleet pack's modules; the pack must be on here (halo pack enable fleet)."""
+    from halo_harness.packs import fleet_door
+    mod = fleet_door.module(rel)
+    if mod is None:
+        raise SystemExit(f"live_fleet_check: {fleet_door.line()}")
+    return mod
+
+
 def cmd_hub(a) -> int:
-    from halo_harness.fleet import live_check
-    from halo_harness.studio.fleet_hub_api import start_for_flag
+    live_check, start_for_flag = _pack("fleet/live_check.py"), _pack("server/fleet_hub_api.py").start_for_flag
     from halo_harness.studio.server import start_server
     import threading
     state_dir = _state_dir()
@@ -84,15 +92,14 @@ def cmd_hub(a) -> int:
 
 
 def cmd_member(a) -> int:
-    from halo_harness.fleet import identity, relay, store
+    from halo_harness.peers import identity, relay, store
     from halo_harness.theme import set_config_value
     set_config_value("fleet.allow_control", "all")
     set_config_value("fleet.recall.share", True)
     identity.forget_cache()
     restore = None
     if a.fake:
-        from halo_harness.fleet.live_check_fakes import install
-        restore = install()
+        restore = _pack("fleet/live_check_fakes.py").install()
     try:
         got = relay.join(a.hub, a.code, identity.harness(), allow_control="all")
         store.add_hub(got, got.pop("key"))

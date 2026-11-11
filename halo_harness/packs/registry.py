@@ -49,8 +49,32 @@ def invalidate() -> None:
 def _key(cwd, state_dir) -> tuple:
     from halo_harness.packs import discover as D
     from halo_harness.packs import state as S
-    base = (str(D.project_packs_dir(cwd)), str(D.user_packs_dir(state_dir)))
+    base = (str(D.project_packs_dir(cwd)), str(D.user_packs_dir(state_dir)), _shipped_ids())
     return base + (D.signature(cwd=cwd, state_dir=state_dir), S.signature(state_dir))
+
+
+def _shipped_ids() -> tuple:
+    """PACKS_TEST_SHIPPED=fleet, only under BRIDGE_TEST_HOME (tests/helpers/fleet_pack.py sets it): those
+    shipped packs run in every home as if linked and enabled with every grant they request, so the suites of a pack
+    that left the core (3.4.0.0 C) run against it in each scratch home their rigs make, subprocesses included."""
+    import os
+    if "BRIDGE_TEST_HOME" not in os.environ:
+        return ()
+    return tuple(x.strip() for x in os.environ.get("PACKS_TEST_SHIPPED", "").split(",") if x.strip())
+
+
+def _with_shipped(packs: list, data: dict) -> "tuple[list, dict]":
+    from halo_harness.packs.discover import read_pack
+    from halo_harness.packs.sources import shipped_dir
+    have = {p.id for p in packs}
+    data = {**data, "installed": dict(data.get("installed") or {})}
+    for pid in _shipped_ids():
+        if pid not in have and (shipped_dir() / pid / "pack.yaml").is_file():
+            p = read_pack(shipped_dir() / pid, "user")
+            packs = packs + [p]
+            grants = [g for g in p.manifest.get("permissions") or [] if isinstance(g, str)]
+            data["installed"][pid] = {"enabled": True, "root": str(p.root), "granted": grants, "link": True}
+    return packs, data
 
 
 def _build(cwd, state_dir) -> Snapshot:
@@ -59,6 +83,8 @@ def _build(cwd, state_dir) -> Snapshot:
     from halo_harness.packs.resolve import resolve
     packs = D.discover(cwd=cwd, state_dir=state_dir)
     data = S.load(state_dir)
+    if _shipped_ids():
+        packs, data = _with_shipped(packs, data)
     enabled = [p.id for p in packs if S.enabled_for(p, data)]
     order, problems = resolve(packs, enabled=enabled) if enabled else ([], {})
     return Snapshot(packs=packs, state=data, enabled=enabled, order=order, problems=problems)
@@ -66,7 +92,7 @@ def _build(cwd, state_dir) -> Snapshot:
 
 def snapshot(*, cwd=None, state_dir=None) -> Snapshot:
     from halo_harness.packs import discover as D
-    if not D.project_packs_dir(cwd).is_dir() and not D.user_packs_dir(state_dir).is_dir():
+    if not D.project_packs_dir(cwd).is_dir() and not D.user_packs_dir(state_dir).is_dir() and not _shipped_ids():
         return Snapshot()
     key = _key(cwd, state_dir)
     with _lock:

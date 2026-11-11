@@ -28,8 +28,8 @@ import time
 from pathlib import Path
 from typing import Optional
 
-from halo_harness.fleet import identity
-from halo_harness.fleet.pairing import HubPairing
+from halo_harness.peers import identity
+from halo_harness.peers.pairing import HubPairing
 
 DEFAULT_PORT = 7431
 DEFAULT_BIND = "0.0.0.0"
@@ -192,7 +192,7 @@ def audit_summary(home) -> dict:
 def served_hosts() -> list:
     """The Ollama hosts this machine serves (ollama.hosts, or the synthesized default), as OllamaHost."""
     try:
-        from halo_harness.fleet.ollama_share import served_here
+        from halo_harness.peers.ollama_share import served_here
         from halo_harness.providers.ollama import resolve_ollama_hosts
         return [h for h in resolve_ollama_hosts() if served_here(h.url)]
     except Exception:

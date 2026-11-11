@@ -14,8 +14,8 @@ import secrets
 import time
 from typing import Optional
 
-from halo_harness.fleet import pair_kex, protocol, tls
-from halo_harness.fleet.relay import HubError, _connect, _decode, detect_scheme, format_url, parse_url
+from halo_harness.peers import pair_kex, protocol, tls
+from halo_harness.peers.relay import HubError, _connect, _decode, detect_scheme, format_url, parse_url
 
 JOIN_PATH = "/host/v1/join"
 

@@ -37,6 +37,7 @@ export function openActivity(): void {
 /** Agents -> Live on the fleet; with `machine`, that machine in the inspector (else the fleet at a glance, opened when
  *  "while you were away" waits there: the rail's dot, the palette). */
 export function openFleetLive(machine = ""): void {
+  if (!fleet.get().pack) return goSection("agents", "live"); // 3.4.0.0 C: the fleet pack is off: this halo's Live
   setScope("fleet");
   goSection("agents", "live");
   if (machine) return pickLive("machine", machine);

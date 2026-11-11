@@ -94,9 +94,9 @@ export function MachineSummary({ hid }: { hid: string }) {
   if (page === "caps")
     return (
       <Page title="Spend caps">
-        <p className="muted">A cap reached pauses the sessions in its scope and raises an Attention row; the same keys are Settings -&gt; Fleet (<code>fleet.caps.*</code>).</p>
+        <p className="muted">A cap reached pauses the sessions in its scope and raises an Attention row; the same keys are Settings -&gt; Remote (<code>fleet.caps.*</code>).</p>
         {costs ? <Caps c={costs} /> : <p className="muted">reading today's spend...</p>}
-        <Button size="sm" variant="ghost" onClick={() => (gotoSettings("fleet"), goSection("settings"))} data-testid="machine-caps-settings">Open Settings -&gt; Fleet</Button>
+        <Button size="sm" variant="ghost" onClick={() => (gotoSettings("remote"), goSection("settings"))} data-testid="machine-caps-settings">Open Settings -&gt; Remote</Button>
       </Page>
     );
   const capsSet = costs ? Object.values(costs.caps || {}).filter((v) => v != null).length : 0;

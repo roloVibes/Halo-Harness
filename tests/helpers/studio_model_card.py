@@ -180,7 +180,7 @@ class ModelCardDriver(Driver):
     @contextmanager
     def session(self, c):
         from capture_studio import seeded_home, serve
-        from halo_harness.fleet import local_view
+        from halo_harness.peers import local_view
         from halo_harness.providers import ollama as O
         from halo_harness.studio import model as M
         from halo_harness.studio import ollama_hosts_view as V

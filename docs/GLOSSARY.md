@@ -85,11 +85,11 @@ An Orchestra run is several agents writing the same files at once with nothing l
 
 ## fleet
 
-The fleet is every Halo harness you run or joined, on any machine, seen as one: their sessions, every agent in them, what waits on you and what it all costs. A machine joins with a pair code (`halo fleet pair` on the hub, `halo fleet join` on the other machine); `halo fleet` is the live table and Studio's Agents -> Live on the fleet the map (3.3.16.0 R2; Setup -> Machines pairs, Local holds the machines' models).
+The fleet (the shipped `fleet` pack since 3.4.0.0: `halo pack enable fleet --grant-all`) is every Halo harness you run or joined, on any machine, seen as one: their sessions, every agent in them, what waits on you and what it all costs. A machine joins with a pair code (`halo fleet pair` on the hub, `halo fleet join` on the other machine); `halo fleet` is the live table and Studio's Agents -> Live on the fleet the map (3.3.16.0 R2; Setup -> Machines pairs, Local holds the machines' models).
 
 ## hub
 
-The hub is the harness the others join (`halo studio --fleet` or `halo fleet serve`): it keeps the fleet's member list, relays commands and hand-offs between harnesses, and its lead plans missions. A joined harness talks to it over a fingerprint-pinned connection.
+The hub is the harness the others join (`halo studio --fleet` or `halo fleet serve`, the fleet pack's): it keeps the fleet's member list, relays commands and hand-offs between harnesses, and its lead plans missions. A joined harness talks to it over a fingerprint-pinned connection.
 
 ## harness
 

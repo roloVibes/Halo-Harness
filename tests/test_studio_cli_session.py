@@ -166,7 +166,7 @@ def test_halo_studio_session(ctx: Ctx):
 
 @test
 def test_the_session_row_carries_turns_and_tokens(ctx: Ctx):
-    from halo_harness.fleet.local_view import session_row
+    from halo_harness.peers.local_view import session_row
     row = session_row({"session_id": SID, "cwd": "/x", "started": 1.0},
                       {"turn": 4, "total_input_tokens": 1200, "total_output_tokens": 340, "context_tokens": 900, "context_limit": 200000,
                        "model": "or:mock/m", "cost_usd": 0.02}, [])

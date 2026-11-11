@@ -10,6 +10,8 @@ harness. The routes and CLI: tests/test_fleet_mission_api.py.
 Run: python -m tests.test_fleet_mission
 """
 from __future__ import annotations
+from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
+_fleet_pack.on()
 
 import json
 import os
@@ -37,7 +39,7 @@ class _Home:
         self.root = Path(tempfile.mkdtemp(prefix="mission-"))
         os.environ.update(BRIDGE_TEST_HOME=str(self.root), BRIDGE_TEST_NO_BACKGROUND_NET="1")
         from halo_harness.config.paths import bridge_home
-        from halo_harness.fleet import identity
+        from halo_harness.peers import identity
         identity.forget_cache()
         self.home = bridge_home()
         self.home.mkdir(parents=True, exist_ok=True)
@@ -178,7 +180,7 @@ def test_a_bad_answer_is_retried_then_edits_are_checked_in_code(ctx: Ctx):
 
 @test
 def test_a_mission_card_is_a_mission_ask_row_and_edits_read_from_text(ctx: Ctx):
-    from halo_harness.fleet import attention
+    from halo_harness.live import attention
     from halo_harness.fleet.mission_attention import edit_from_text
     from halo_harness.studio.fleet_answer import ANSWER, NEEDS_TEXT, SET_ASIDE
     view = {"harnesses": [{"id": B_ID, "name": "kali@box", "local": True, "sessions": [

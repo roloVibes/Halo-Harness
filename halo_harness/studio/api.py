@@ -314,7 +314,7 @@ ROUTES[len(ROUTES):] = _PACKS_ROLES_ROUTES
 
 _PREFIXES = (("media", "halo_harness.studio.media_api", "dispatch_media"),
              ("sessions", "halo_harness.studio.sessions_api", "dispatch_sessions"),
-             ("fleet", "halo_harness.studio.fleet_hub_api", "dispatch_fleet"),  # 3.0.5.0 R2: the hub's view
+             ("fleet", "halo_harness.studio.fleet_view_api", "dispatch_fleet"),  # 3.0.5.0 R2; 3.4.0.0 C: the fleet pack answers it when on
              ("workflows", "halo_harness.studio.workflows_api", "dispatch_workflows"),  # 3.3.16.0 R3: the squares board
              ("glossary", "halo_harness.studio.glossary_api", "dispatch_glossary"),  # 3.1.1.0 R1: docs/GLOSSARY.md
              ("field-help", "halo_harness.studio.field_help_api", "dispatch_field_help"),  # 3.1.1.0 R3: field_help.py

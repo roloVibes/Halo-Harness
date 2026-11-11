@@ -96,7 +96,7 @@ class Rig:
 
 
 def _client():
-    from halo_harness.fleet import identity, store
+    from halo_harness.peers import identity, store
     from halo_harness.ollama_steward.host_client import HostClient
     e = store.hosts()[-1]
     return HostClient(e, store.key_for(e), identity.harness()["id"])

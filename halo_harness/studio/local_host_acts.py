@@ -61,7 +61,7 @@ def host_controls(url: str, name: str) -> Optional[dict]:
 
 
 def send(ctl: dict, act: str, fields: dict) -> "tuple[int, dict]":
-    from halo_harness.fleet.hub_host_cmd import send as host_send
+    from halo_harness.peers.hub_host_cmd import send as host_send
     url = str(ctl.get("host_url") or "")
     hc = _client(url)
     if hc is None:

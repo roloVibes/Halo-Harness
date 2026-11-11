@@ -17,7 +17,8 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
+from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
+_fleet_pack.on()
 from tests.helpers.provider_env_defaults import ensure_default_provider_credentials  # noqa: E402
 ensure_default_provider_credentials()
 
@@ -235,7 +236,7 @@ def test_the_hub_hands_its_profiles_to_a_member(ctx: Ctx):
     same server by another name ("lan"); B keeps it as `lan|...` with by
     "hub", and its own "user" entry stays."""
     import json
-    from halo_harness.fleet import ollama_share
+    from halo_harness.peers import ollama_share
     from tests.helpers.fleet_hub_rig import HubRig, wait_for
     saved = (ollama_share.FLUSH_S, ollama_share.CHECK_S, dict(ollama_share._OWN))
     ollama_share.FLUSH_S, ollama_share.CHECK_S = 0.2, 0.05

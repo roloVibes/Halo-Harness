@@ -22,6 +22,8 @@ import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
+_fleet_pack.on()
 
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
 
@@ -161,7 +163,8 @@ def test_the_watch_lease_and_the_planner_share(ctx: Ctx):
 def test_the_hubs_store_through_the_fleet_rig(ctx: Ctx):
     from tests.helpers.fleet_hub_rig import HubRig, wait_for
     from tests.helpers.local_seed import member_samples
-    from halo_harness.fleet import hub as fleet_hub, ollama_share
+    from halo_harness.peers import net as fleet_hub  # 3.4.0.0 C: lan_address is core (peers/net.py)
+    from halo_harness.peers import ollama_share
     from halo_harness.ollama_steward import resources as R
     R.STORE.clear()
     saved = (ollama_share.FLUSH_S, ollama_share.CHECK_S, fleet_hub.lan_address)

@@ -67,7 +67,7 @@ def _start(h, ctype: str, extra: Optional[dict] = None) -> None:
 
 
 def _missing(svc, kind: str) -> str:
-    from halo_harness.fleet.identity import fleet_name
+    from halo_harness.peers.identity import fleet_name
     model = "faster-whisper:small.en" if kind == "stt" else "kokoro-82m"
     return f"no {kind} server runs on {fleet_name(svc.home)}: there, halo local serve --{kind} {model}"
 
@@ -130,7 +130,7 @@ def _proxy(h, base: str, kind: str, raw: bytes) -> None:
 
 
 def _turn(h, raw: bytes, hid: str) -> None:
-    from halo_harness.fleet.identity import fleet_name
+    from halo_harness.peers.identity import fleet_name
     from halo_harness.host import grants
     from halo_harness.theme import get_config_value
     from halo_harness.voice import turn as T

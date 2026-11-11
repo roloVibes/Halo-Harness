@@ -105,7 +105,7 @@ def hardware_card(host=None, *, log_path=None, api: Optional[Callable] = None, r
                   ssh_runner: Optional[Callable] = None, platform: Optional[str] = None) -> dict:
     """The card for `host` (an `OllamaHost`; None = the default host).
     `log_path`, `api`, `runner` and `ssh_runner` are the seams tests use."""
-    from halo_harness.fleet.ollama_share import served_here
+    from halo_harness.peers.ollama_share import served_here
     if host is None:
         from halo_harness.providers.ollama import resolve_ollama_host
         host = resolve_ollama_host(None)
@@ -177,7 +177,7 @@ def server_settings_for(host, *, log_path=None) -> dict:
     here; {} for any other host or when nothing was read. Cached five
     minutes per url (the fit estimate reads it before every call)."""
     import time
-    from halo_harness.fleet.ollama_share import served_here
+    from halo_harness.peers.ollama_share import served_here
     url = str(getattr(host, "url", "") or "")
     if not url or (log_path is None and not served_here(url)):
         return {}

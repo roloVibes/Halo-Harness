@@ -131,25 +131,15 @@ session. Bare `/private` prints the state and the control-socket line.
 `~/.halo/config.json` makes every session start private. A `halo -p` run
 started private stays private. See [FLEET.md](FLEET.md).
 
-### `/mission [id]`
-Halo 3.0.6.0 (Fleet Missions). The fleet's missions (id, state, parts, cost,
-harnesses, goal), or one mission's parts by harness with their state and
-cost: the same as `halo fleet mission status [id]`. Making, planning, running
-and stopping a mission is `halo fleet mission ...` (see [MISSIONS.md](MISSIONS.md)).
-
-### `/fleet [text]`
-Halo 3.0.5.0 (Fleet). Bare `/fleet` opens the fleet table as a dialog: one
-row per agent of every harness this machine sees (harness, session, agent
-indented under its parent, state, what it is doing, cost), refreshed every
-2 s. It reads Studio's `GET /api/fleet` when Studio runs (every member of
-its hub included), else the hub this machine serves, else this harness
-alone. Keys: Up/Down select, `s` steer that agent (type the note, Enter),
-`k` stop it (press `k` twice: the first press asks), `p` pause or resume
-it, `r` refresh, Esc or `q` close. A command for another harness goes
-through the hub and is applied only as that harness's owner allows
-(`fleet.allow_control`). `/fleet text` prints the same table in the
-transcript, and is what print mode answers. The terminal twin is
-`halo fleet`. See [FLEET.md](FLEET.md).
+**`/fleet [text]` and `/mission [id]`: the fleet pack's (3.4.0.0).** With the shipped `fleet` pack on (`halo pack
+enable fleet --grant-all`), `/fleet` prints the fleet table in the transcript: one row per agent of every harness
+this machine sees (harness, session, agent indented under its parent, state, what it is doing, cost), read from
+Studio's `GET /api/fleet` when Studio runs, else the hub this machine serves, else this harness alone; `/fleet who
+<query>` and `/fleet capabilities [name]` as `halo fleet who | capabilities`. The live table with its keys (steer,
+stop, pause) is `halo fleet` in a terminal of its own. `/mission` lists the fleet's missions (id, state, parts, cost,
+harnesses, goal), or one mission's parts by harness: the same as `halo fleet mission status [id]`; making, planning,
+running and stopping a mission is `halo mission ...` ([MISSIONS.md](MISSIONS.md)). With the pack off both say in one
+line that the fleet is a pack and how to turn it on. See [FLEET.md](FLEET.md).
 
 ### `/offline [on|off]`
 Halo 2.0.3 round 5e. Bare `/offline` reports whether offline mode is on and

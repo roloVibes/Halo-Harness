@@ -147,7 +147,7 @@ def replay(c, rig, out: dict) -> None:
 
 
 def conflict(c, rig, out: dict) -> None:
-    from halo_harness.fleet.identity import harness
+    from halo_harness.peers.identity import harness
     from tests.helpers.studio_fleet_member import REVIEWER
     from tests.helpers.studio_fleet_rig import MEMBER, MEMBER_SID
     c.go(rig.url("fleet"))

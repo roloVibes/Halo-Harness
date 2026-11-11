@@ -10,6 +10,8 @@ tests/test_fleet_capabilities_hub.py.
 Run: python -m tests.test_fleet_capabilities
 """
 from __future__ import annotations
+from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
+_fleet_pack.on()
 
 import json
 import os
@@ -40,14 +42,14 @@ class _Home:
         self.root = Path(tempfile.mkdtemp(prefix="caps-"))
         os.environ.update(BRIDGE_TEST_HOME=str(self.root), BRIDGE_TEST_NO_BACKGROUND_NET="1")
         from halo_harness.config.paths import bridge_home
-        from halo_harness.fleet import identity
+        from halo_harness.peers import identity
         identity.forget_cache()
         self.home = bridge_home()
         self.home.mkdir(parents=True, exist_ok=True)
         return self
 
     def config(self, data: dict) -> None:
-        from halo_harness.fleet import identity
+        from halo_harness.peers import identity
         (self.home / "config.json").write_text(json.dumps(data), encoding="utf-8")
         identity.forget_cache()
 
@@ -169,7 +171,7 @@ def test_the_cli_verbs_print_and_json_round_trips(ctx: Ctx):
     from tests.helpers.fleet_hub_rig import cli
     with _Home() as h:
         h.config({"fleet": {"name": "bob@member"}})
-        from halo_harness.fleet.identity import harness
+        from halo_harness.peers.identity import harness
         cat = seed(h.home, member_catalog(harness(h.home)))
         rc, out, err = cli(str(h.root), "capabilities", "--json")
         got = json.loads(out) if rc == 0 else {}
@@ -189,7 +191,8 @@ def test_the_cli_verbs_print_and_json_round_trips(ctx: Ctx):
         ctx.check("who --json: the ranked rows", rc == 0 and json.loads(out)["results"][0]["name"] == "bob@member")
         rc, _out, _ = cli(str(h.root), "who", "the")
         ctx.check("who with no word is exit 1", rc == 1)
-        from halo_harness.commands.builtins import _cmd_fleet
+        from tests.helpers.fleet_pack import module  # 3.4.0.0 C: /fleet is the fleet pack's slash command
+        _cmd_fleet = module("cli/slash_fleet.py").run
         text = _cmd_fleet("who gridcraft", None)
         ctx.check(f"/fleet who in the TUI answers with the ranking, got {text!r}", "1. bob@member" in text)
         ctx.check("/fleet capabilities prints the spec sheet", "gridcraft 2 tools" in _cmd_fleet("capabilities", None))

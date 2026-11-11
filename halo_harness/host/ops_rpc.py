@@ -178,7 +178,7 @@ def a_rpc(ctx, p):
 
 def refused(home, status_code: int, out: dict) -> dict:
     """One line: the grant the op needs (and, the first time on this host, the trusted-LAN line)."""
-    from halo_harness.fleet import identity
+    from halo_harness.peers import identity
     if status_code != 403:
         return out
     name = identity.fleet_name(home)

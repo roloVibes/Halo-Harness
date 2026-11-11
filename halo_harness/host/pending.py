@@ -33,7 +33,7 @@ def ask_ttl_s(home) -> float:
 
 
 def _host_name(home) -> str:
-    from halo_harness.fleet import identity
+    from halo_harness.peers import identity
     return identity.fleet_name(home)
 
 

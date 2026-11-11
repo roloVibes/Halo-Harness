@@ -15,6 +15,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
+_fleet_pack.on()
 
 from tests.helpers.provider_env_defaults import ensure_default_provider_credentials, ensure_scoped_state_dir_once
 
@@ -109,7 +111,7 @@ def test_a_local_missions_parts_replay_through_move(ctx: Ctx):
     from halo_harness.fleet import mission_api as A
     from halo_harness.fleet import mission_store as S
     from halo_harness.fleet import mission_worker as W
-    from halo_harness.fleet.identity import harness
+    from halo_harness.peers.identity import harness
     from tests.helpers.fleet_caps_seed import seed
     from tests.helpers.mission_seed import FakeLead, reset_fakes, wait_state, windows_host, worker
     home = bridge_home()

@@ -8,6 +8,7 @@ code. `cli(home_root, *args)` runs `halo fleet ...` in a child process with
 a scrubbed environment. Every touched variable and module knob is restored.
 """
 from __future__ import annotations
+import tests.helpers.fleet_pack  # noqa: F401,E402  (the fleet pack's modules under their old names)
 
 import http.client
 import json
@@ -56,7 +57,7 @@ class HubRig:
         threading.Thread(target=self.server.serve_forever, daemon=True, name="rig-studio").start()
         self.server.events = EventBridge(list_live=lambda: [])  # A's own registry: nothing (B's sessions are B's)
         self.feed = self.server.events.subscribe("all")
-        from halo_harness.fleet.local_view import harness_entry
+        from halo_harness.peers.local_view import harness_entry
         self.hub = start_hub(self.server, home=self.home_a, port=0, bind="127.0.0.1", name="hub-a", tls_on=tls_on,
                              local_view=lambda: harness_entry([], self.home_a))
         if not record:
@@ -66,7 +67,7 @@ class HubRig:
 
     # ---- config, identity ---------------------------------------------------
     def set_b(self, **values) -> None:
-        from halo_harness.fleet import identity
+        from halo_harness.peers import identity
         from halo_harness.theme import set_config_value
         for k, v in values.items():
             set_config_value(k, v)
@@ -74,7 +75,7 @@ class HubRig:
 
     @property
     def b_id(self) -> str:
-        from halo_harness.fleet.identity import harness
+        from halo_harness.peers.identity import harness
         return harness()["id"]
 
     @property
@@ -85,7 +86,7 @@ class HubRig:
         return self.hub.url("127.0.0.1")
 
     def join(self, **kw) -> dict:
-        from halo_harness.fleet import identity, relay, store
+        from halo_harness.peers import identity, relay, store
         got = relay.join(self.url(), self.hub.pairing.new_code(600)[0], identity.harness(), **kw)
         key = got.pop("key")
         return store.add_hub(got, key)
@@ -152,7 +153,8 @@ class HubRig:
 
     # ---- teardown -----------------------------------------------------------
     def close(self) -> None:
-        from halo_harness.fleet import identity, relay_hub, relay_runtime
+        from halo_harness.peers import identity
+        from halo_harness.fleet import relay_hub, relay_runtime
         from halo_harness.remote import runtime
         runtime.stop()
         relay_runtime.stop_all()

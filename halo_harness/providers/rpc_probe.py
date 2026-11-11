@@ -122,7 +122,7 @@ def probe(host: str, port: int, *, tries: int = 3, timeout: float = CONNECT_TIME
 def _own() -> Optional[str]:
     if "own" in SEAMS:
         return SEAMS["own"]()
-    from halo_harness.fleet.hub import lan_address
+    from halo_harness.peers.net import lan_address
     return lan_address()
 
 

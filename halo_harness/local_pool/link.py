@@ -134,7 +134,7 @@ def read(addr: Optional[str] = None) -> dict:
             return {**UNKNOWN, "source": "not read in tests"}
     try:
         if not addr:
-            from halo_harness.fleet.hub import lan_address
+            from halo_harness.peers.net import lan_address
             addr = lan_address()
         if not addr or not _SAFE_ADDR.match(addr) or addr.startswith("127."):
             return {**UNKNOWN, "source": "no LAN address on this machine"}

@@ -36,7 +36,7 @@ EVERY_BROWSER = frozenset({"sessions", "files_changed"})  # 3.2.2.0 R6: a one-se
 def _forget_snapshot() -> None:
     """3.1.8.0 R6: a local session's figures moved, so GET fleet's cached snapshot (fleet/local_view.py) is from before it."""
     try:
-        from halo_harness.fleet.local_view import forget
+        from halo_harness.peers.local_view import forget
         forget()
     except Exception:
         pass

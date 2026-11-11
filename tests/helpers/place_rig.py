@@ -79,7 +79,7 @@ class PlaceRig:
                 "tail": lambda h, n: ([], "fixture", None), "log": lambda h: {"state": "live", "line": "live"}}
 
     def _pair2(self) -> None:
-        from halo_harness.fleet import identity, store
+        from halo_harness.peers import identity, store
         from halo_harness.host.join import join
         from halo_harness.ollama_steward import host_client
         got = join(f"127.0.0.1:{self.svc2.port}", self.svc2.pairing.new_code(600)[0], identity.harness())

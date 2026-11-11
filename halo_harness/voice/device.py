@@ -30,7 +30,7 @@ def _asked(asked: Optional[str]) -> str:
 
 def gpu_free_mib() -> Optional[int]:
     try:
-        from halo_harness.fleet.ollama_share import served_here
+        from halo_harness.peers.ollama_share import served_here
         from halo_harness.local_sched import facts as F
         from halo_harness.providers.ollama import resolve_ollama_hosts
         host = next((h for h in resolve_ollama_hosts() if served_here(h.url)), None)

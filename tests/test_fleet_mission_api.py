@@ -11,6 +11,8 @@ waits; the `halo fleet mission` verbs print and `--json` round-trips
 Run: python -m tests.test_fleet_mission_api
 """
 from __future__ import annotations
+from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
+_fleet_pack.on()
 
 import json
 import os
@@ -141,7 +143,8 @@ def test_the_cli_verbs_print_and_json_round_trips(ctx: Ctx):
         rc, _out, err = cli(rig.root_a, "mission", "approve", "m-20200101-abcd")
         ctx.check(f"an unknown mission is exit 1, got {rc} {err!r}", rc == 1 and "no mission" in err)
         ctx.check("a verb that does not exist is usage (2)", cli(rig.root_a, "mission", "launch")[0] == 2)
-        from halo_harness.commands.builtins import _cmd_mission
+        from tests.helpers.fleet_pack import module  # 3.4.0.0 C: /mission is the fleet pack's slash command
+        _cmd_mission = module("cli/slash_mission.py").run
         os.environ["BRIDGE_TEST_HOME"], before = rig.root_a, os.environ["BRIDGE_TEST_HOME"]
         try:
             text = _cmd_mission("", None)

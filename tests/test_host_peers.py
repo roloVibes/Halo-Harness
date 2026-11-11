@@ -203,8 +203,8 @@ def test_a_terminal_sessions_own_calls_reach_the_host(ctx: Ctx):
 @test
 def test_the_hub_forwards_to_a_host_a_member_announced(ctx: Ctx):
     from types import SimpleNamespace
-    from halo_harness.fleet import hub_hosts
-    from halo_harness.fleet.hub_host_cmd import member_controls
+    from halo_harness.peers import hub_hosts
+    from halo_harness.peers.hub_host_cmd import member_controls
     with PeerRig(cap="all", grants=("control",)) as rig:
         hub = SimpleNamespace(home=rig.peer)
         who = {"member": "pc-host", "member_host": "pc"}

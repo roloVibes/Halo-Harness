@@ -2,6 +2,8 @@
 
 Read this when you watch or steer every harness and agent from Studio: Agents -> Live on the fleet, the Attention queue, missions, pairing and the machines' models.
 
+> **The fleet pack (3.4.0.0).** The fleet left Halo's core for the shipped `fleet` pack: `halo pack install fleet`, then `halo pack enable fleet --grant-all` (a halo that had a fleet gets it on its first run after the update). With it off, `halo fleet`, `halo mission`, `/fleet`, `/mission` and `halo studio --fleet` say so in one line and Studio shows no Fleet door. Another machine's models (`halo host serve`, the pool, Local -> Hosts) and this machine's own sessions live are the core's and work without it.
+
 Part of [Halo Studio](STUDIO.md), which lists every part.
 
 ## Fleet in Agents, Setup and Local

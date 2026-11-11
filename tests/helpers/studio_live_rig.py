@@ -26,8 +26,8 @@ EXTRA = (
 
 class Live:
     def __init__(self, rig, extra=EXTRA, parent: str = "main") -> None:
-        from halo_harness.fleet import local_view
-        from halo_harness.fleet.identity import harness
+        from halo_harness.peers import local_view
+        from halo_harness.peers.identity import harness
         self.rig, self.hid, self.sid = rig, harness()["id"], rig.act.session_id
         self.rows: dict = {}
         self.fields: dict = {}  # session row fields over the session's own (context_tokens, cost_usd, ...)

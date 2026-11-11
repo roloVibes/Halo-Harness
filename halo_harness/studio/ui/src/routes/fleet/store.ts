@@ -17,6 +17,8 @@ export type Scope = { harness?: string; session?: string };
 export type FleetState = {
   harnesses: Harness[];
   hub: HubInfo | null;
+  /** 3.4.0.0 C: the fleet pack runs here (GET fleet's `fleet_pack`); off, Studio shows no Fleet door. */
+  pack: boolean;
   loaded: boolean;
   error: string;
   started: boolean;
@@ -52,6 +54,7 @@ function readOpts(): Partial<FleetState> {
 export const fleet = createStore<FleetState>({
   harnesses: [],
   hub: null,
+  pack: false,
   loaded: false,
   error: "",
   started: false,
@@ -74,6 +77,15 @@ export const fleet = createStore<FleetState>({
 
 export function useFleet<S>(select: (s: FleetState) => S): S {
   return useStore(fleet, select);
+}
+
+/** 3.4.0.0 C: does the fleet pack run here (every Fleet door asks). */
+export function fleetPack(): boolean {
+  return fleet.get().pack;
+}
+
+export function useFleetPack(): boolean {
+  return useStore(fleet, (s) => s.pack);
 }
 
 export function saveOpts(): void {

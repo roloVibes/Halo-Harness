@@ -64,6 +64,8 @@ transport's switch; `--json` for the same as one object. See
 
 ## `halo fleet`
 
+> **The fleet pack (3.4.0.0).** The fleet left Halo's core for the shipped `fleet` pack: `halo pack install fleet`, then `halo pack enable fleet --grant-all` (a halo that had a fleet gets it on its first run after the update). With it off, `halo fleet`, `halo mission`, `/fleet`, `/mission` and `halo studio --fleet` say so in one line and Studio shows no Fleet door. Another machine's models (`halo host serve`, the pool, Local -> Hosts) and this machine's own sessions live are the core's and work without it.
+
 Halo 3.0.5.0 (Fleet, round R2). One machine runs a hub; other harnesses join
 it with a six-word code; each joined harness shares what it chooses
 (`fleet.share`) and accepts control only as its owner allows

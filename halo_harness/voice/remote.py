@@ -46,7 +46,7 @@ def _join_line(name: str) -> str:
 
 
 def client_for(name: str, home=None):
-    from halo_harness.fleet import identity, store
+    from halo_harness.peers import identity, store
     from halo_harness.ollama_steward.host_client import HostClient, for_host
     want = name.lower()
     for e in store.hosts(home):
@@ -128,8 +128,8 @@ def _client(url: str):
 
 def _post(c, route: str, body: bytes, ctype: str, timeout: float = 60.0):
     """(conn, response) of one signed POST to /host/v1/<route>; VoiceError with the host's line otherwise."""
-    from halo_harness.fleet import protocol, tls
-    from halo_harness.fleet.relay import HubError, _connect
+    from halo_harness.peers import protocol, tls
+    from halo_harness.peers.relay import HubError, _connect
     from halo_harness.voice.client import VoiceError
     path = "/host/v1/" + route
     headers = {**protocol.sign_headers(c.key, "POST", path, c.member, body), "Content-Type": ctype,

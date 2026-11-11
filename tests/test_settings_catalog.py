@@ -70,15 +70,17 @@ def test_the_config_doc_table_and_the_catalog_hold_the_same_keys(ctx: Ctx):
     ctx.check("every table row has four cells", all(len(r) == 4 for r in table))
     wrong = [(r[0], r[3]) for r in table if row(r[0]) is not None and r[3] != studio_page(row(r[0]))]
     ctx.check(f"the Studio column names each row's page (Settings -> <group>), wrong {wrong[:5]}", not wrong)
-    ctx.check("the table names Fleet's page for fleet.enabled", dict((r[0], r[3]) for r in table).get("fleet.enabled") == "Settings -> Fleet")
+    ctx.check("the table names Remote's page for fleet.enabled (3.4.0.0 C: a core key; Fleet's rows are the pack's)",
+              dict((r[0], r[3]) for r in table).get("fleet.enabled") == "Settings -> Remote")
 
 
 @test
 def test_every_row_is_complete(ctx: Ctx):
     from halo_harness.settings_catalog import EFFECTS, GROUP_TITLES, KINDS, groups, keyed_parts, rows
     rs = rows()
-    ctx.check(f"eighteen groups in the brief's order (3.3.16.1: Studio), got {[g['id'] for g in groups()]}", [g["id"] for g in groups()] == [
-        "general", "studio", "agents", "coach", "knowledge", "supervise", "steer", "models", "providers", "ollama", "network", "fleet",
+    ctx.check(f"seventeen groups in the brief's order (3.3.16.1: Studio; 3.4.0.0 C: Fleet only with the fleet pack), got "
+              f"{[g['id'] for g in groups()]}", [g["id"] for g in groups()] == [
+        "general", "studio", "agents", "coach", "knowledge", "supervise", "steer", "models", "providers", "ollama", "network",
         "remote", "packs", "connectors", "worktree", "update", "local"])
     ctx.check("every group holds a row", all(g["count"] > 0 for g in groups()))
     ctx.check("the keys are unique", len({r.key for r in rs}) == len(rs))
@@ -126,7 +128,7 @@ def test_cli_line_and_match(ctx: Ctx):
 
 @test
 def test_every_default_passes_its_own_check(ctx: Ctx):
-    from halo_harness.settings_catalog import catalog_json, leaf_kind, rows
+    from halo_harness.settings_catalog import catalog_json, leaf_kind, rows, shown
     from halo_harness.studio.settings_values import coerce
     for r in rows():
         if r.default is None:
@@ -136,7 +138,7 @@ def test_every_default_passes_its_own_check(ctx: Ctx):
         ctx.check(f"{r.key}: its default {r.default!r} is a good {kind}, got {problems}", not problems)
     data = catalog_json()
     ctx.check("the catalog is JSON with the groups, the rows and the kinds", json.loads(json.dumps(data)) == data and
-              len(data["rows"]) == len(rows()) and data["kinds"][-1] == "keyed")
+              len(data["rows"]) == len(shown()) and data["kinds"][-1] == "keyed")  # 3.4.0.0 C: Fleet's rows with its pack
     keyed = next(x for x in data["rows"] if x["key"] == "providers.<name>.enabled")
     ctx.check(f"a keyed row names its leaf control, section and known entries, got {keyed}",
               keyed["leaf_kind"] == "bool" and keyed["section"] == "providers" and keyed["leaf"] == "enabled" and "openrouter" in keyed["entry_names"])

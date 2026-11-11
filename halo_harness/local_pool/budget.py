@@ -61,7 +61,7 @@ def _from_card(out: dict, card: dict, usable_b: int, helper: Optional[dict], cla
 
 
 def _paired(out: dict, entry: dict, home=None, fresh: bool = False) -> None:
-    from halo_harness.fleet import identity, store
+    from halo_harness.peers import identity, store
     from halo_harness.ollama_steward.host_client import HostClient, HostError
     key = store.key_for(entry, home)
     if key is None:

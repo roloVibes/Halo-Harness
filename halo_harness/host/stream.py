@@ -45,7 +45,7 @@ def _new_notes(home, since: float) -> list:
 
 
 def serve(handler) -> None:
-    from halo_harness.fleet import protocol
+    from halo_harness.peers import protocol
     from halo_harness.host.jobs import of
     from halo_harness.ollama_steward.resources import STORE
     from halo_harness.ollama_steward.server_events import events_path

@@ -27,9 +27,9 @@ import time
 from pathlib import Path
 from typing import Callable, Optional
 
-from halo_harness.fleet import identity, protocol, tls
-from halo_harness.fleet.hub import FleetOffline, lan_address
-from halo_harness.fleet.hub_join import JoinGate
+from halo_harness.peers import identity, protocol, tls
+from halo_harness.peers.net import FleetOffline, lan_address
+from halo_harness.peers.hub_join import JoinGate
 from halo_harness.host import state as S
 from halo_harness.host.http import Handler
 from halo_harness.host.routes_view import View
@@ -212,8 +212,8 @@ class HostService:
     # ---- the hubs this machine joined: its ledger lines and its announce ---------------------------
     def forward_tick(self, now: Optional[float] = None) -> int:
         """One pass over the joined hubs; returns how many ledger lines went. Never raises."""
-        from halo_harness.fleet import ollama_share, store
-        from halo_harness.fleet.relay import HubError, HubLink
+        from halo_harness.peers import ollama_share, store
+        from halo_harness.peers.relay import HubError, HubLink
         if identity.offline():
             return 0
         now = time.monotonic() if now is None else now

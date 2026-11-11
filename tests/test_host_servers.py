@@ -65,7 +65,7 @@ def _timing(home, tok_s: float, n: int, at: float) -> None:
 
 @test
 def test_the_join_the_announce_and_the_hub_list_the_servers(ctx: Ctx):
-    from halo_harness.fleet import hub_hosts
+    from halo_harness.peers import hub_hosts
     from halo_harness.host import state as S
     with Rig() as r:
         want = {"name": "coder-srv", "port": 8095, "addr": "192.0.2.10", "kind": "server", "runtime": "llama-server",
@@ -132,7 +132,7 @@ def test_a_servers_change_lands_through_the_host_and_is_verified_in_tok_s(ctx: C
 
 @test
 def test_the_hub_gets_the_servers_events(ctx: Ctx):
-    from halo_harness.fleet import control_probes
+    from halo_harness.peers import control_probes
     from halo_harness.ollama_steward import server_log_hf, servers_hf
     from tests.helpers import pool_seed as P
     from tests.helpers.pool_rig import PoolHome

@@ -10,6 +10,7 @@ guard runs exactly as it does in a real mission-worker.
     worker(script)           a mission_worker.BUILD whose run writes files through the engine
 """
 from __future__ import annotations
+import tests.helpers.fleet_pack  # noqa: F401,E402  (the fleet pack's modules under their old names)
 
 import json
 import threading
@@ -130,7 +131,7 @@ def fleet(rig, **b_config):
     """The HubRig with both catalogs seeded (A the Windows host, B the Kali box), B joined with a live session
     and its catalog on the hub; `b_config` set on B first (fleet.allow_control, fleet.shared_dir ...)."""
     from halo_harness.config.paths import bridge_home
-    from halo_harness.fleet.identity import harness
+    from halo_harness.peers.identity import harness
     from tests.helpers.fleet_caps_seed import seed
     from tests.helpers.fleet_hub_rig import wait_for
     seed(rig.home_a, windows_host(rig.hub.state.identity))

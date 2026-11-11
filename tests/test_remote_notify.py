@@ -84,7 +84,7 @@ def test_the_cores_producers(ctx: Ctx):
     with _Home() as h:
         N.listen("signal")
         _rows, cur = N.since("")
-        from halo_harness.fleet import push
+        from halo_harness.live import push
         row = {"id": "permission:M:s2:p9", "kind": "permission", "harness": "M", "harness_name": "kali@lab",
                "session_id": "s2", "agent": "verifier", "what": "Permission: Bash", "detail": "make clean",
                "target": {"request_id": "p9"}}

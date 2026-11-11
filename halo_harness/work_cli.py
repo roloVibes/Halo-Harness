@@ -45,10 +45,10 @@ def _orchestra(ref, repo):
 
 
 def _mission(ref, repo):
-    from halo_harness.fleet import identity
-    from halo_harness.fleet import mission as M
-    from halo_harness.fleet import mission_store as S
-    if M.valid_id(ref):
+    from halo_harness.peers import identity
+    from halo_harness.packs import fleet_door  # 3.4.0.0 C: missions are the fleet pack's (none when it is off)
+    M, S = fleet_door.module("fleet/mission.py"), fleet_door.module("fleet/mission_store.py")
+    if M is not None and S is not None and M.valid_id(ref):
         folder = S.folder(identity.home(), ref)
         return folder if (folder / "mission.json").is_file() else None
     return None
@@ -60,9 +60,10 @@ def _latest_orchestra(repo):
 
 
 def _latest_mission(repo):
-    from halo_harness.fleet import identity
-    from halo_harness.fleet import mission_store as S
-    docs = S.all_docs(identity.home())
+    from halo_harness.peers import identity
+    from halo_harness.packs import fleet_door  # 3.4.0.0 C: missions are the fleet pack's (none when it is off)
+    S = fleet_door.module("fleet/mission_store.py")
+    docs = S.all_docs(identity.home()) if S is not None else []
     return S.folder(identity.home(), docs[-1]["id"]) if docs else None
 
 

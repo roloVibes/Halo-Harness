@@ -77,7 +77,7 @@ STORE = Store()
 
 def local_hosts() -> list:
     """The Ollama hosts this machine serves; none configured here: one pseudo host, "this machine"."""
-    from halo_harness.fleet.ollama_share import served_here
+    from halo_harness.peers.ollama_share import served_here
     from halo_harness.providers.ollama import resolve_ollama_hosts
     try:
         mine = [h for h in resolve_ollama_hosts() if served_here(h.url)]

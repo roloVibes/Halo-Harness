@@ -14,6 +14,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
+_fleet_pack.on()
 
 from tests.helpers.fleet_hub_rig import HubRig, wait_for
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all
@@ -27,7 +29,7 @@ def test_b_joins_a_and_its_session_shows_with_the_agent_tree(ctx: Ctx):
         entry = rig.join()
         ctx.check(f"B stored the hub in fleet.json, got {entry}", entry["url"] == rig.url() and entry["hub_id"] == rig.a_id
                   and entry["member_name"] == "bob@member" and entry["state"] == "joined")
-        from halo_harness.fleet import store
+        from halo_harness.peers import store
         ctx.check("the pair key is on disk under B's fleet/keys, never in fleet.json",
                   store.key_for(entry) is not None and "key" not in entry and "key_hex" not in str(store.load()))
         controller, act = rig.session()
@@ -110,7 +112,7 @@ def test_the_version_chip_flips_when_b_reports_another_version(ctx: Ctx):
             flipped = wait_for(lambda: (rig.member() or {}).get("version_mismatch") is True, 5)
             ctx.check("B on another version: version_mismatch is true", bool(flipped)
                       and rig.member()["version"] == "0.0.1.0")
-            from halo_harness.fleet.pairing import HubPairing
+            from halo_harness.peers.pairing import HubPairing
             ctx.check("the hub remembers the version B reported", HubPairing(rig.home_a).member(rig.b_id)["version"] == "0.0.1.0")
         finally:
             halo_harness.__version__ = real
@@ -145,7 +147,7 @@ def test_the_hub_port_serves_only_the_fleet_protocol(ctx: Ctx):
 
 @test
 def test_tls_hub_pins_its_fingerprint(ctx: Ctx):
-    from halo_harness.fleet import tls
+    from halo_harness.peers import tls
     if not tls.available():
         ctx.check("skipped: cryptography is not installed here (the hub would be HMAC-only)", True)
         return
@@ -153,7 +155,7 @@ def test_tls_hub_pins_its_fingerprint(ctx: Ctx):
         ctx.check("the hub serves TLS with a fingerprint", rig.url().startswith("https://") and len(rig.hub.fingerprint) == 64)
         entry = rig.join()
         ctx.check("the joiner pinned the hub's fingerprint", entry["tls"] is True and entry["fingerprint"] == rig.hub.fingerprint)
-        from halo_harness.fleet import identity, relay
+        from halo_harness.peers import identity, relay
         try:
             relay.join(rig.url(), rig.hub.pairing.new_code(600)[0], identity.harness(), fingerprint="ab" * 32)
             ctx.check("a join insisting on another fingerprint must fail", False)
@@ -172,8 +174,8 @@ def test_serve_starts_the_hub_inside_a_running_studio(ctx: Ctx):
     saved = {k: os.environ.get(k) for k in ("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR")}
     os.environ.pop("BRIDGE_STATE_DIR", None)
     os.environ["BRIDGE_TEST_HOME"] = tempfile.mkdtemp(prefix="fleet-studio-")
-    from halo_harness.fleet.identity import home
-    from halo_harness.fleet.pairing import hub_dir
+    from halo_harness.peers.identity import home
+    from halo_harness.peers.pairing import hub_dir
     from halo_harness.studio.server import start_server, studio_info_path
     state = home()
     state.mkdir(parents=True, exist_ok=True)

@@ -27,13 +27,13 @@ def group_lines(group: str = "") -> "list[str]":
         from halo_harness.theme import load_persisted_theme
         from halo_harness.themes.cli import listing
         return listing(load_persisted_theme()).splitlines()
-    from halo_harness.settings_catalog import GROUPS, rows
+    from halo_harness.settings_catalog import GROUPS, shown as rows  # 3.4.0.0 C: no Fleet rows while its pack is off
     from halo_harness.studio.settings_values import values
     from halo_harness.theme import load_config
     saved = values(load_config())
     out: list = []
     for gid, title in GROUPS:
-        if group and gid != group:
+        if (group and gid != group) or not any(x.group == gid for x in rows()):
             continue
         out.append(f"{title} (Settings -> {title})")
         for r in (x for x in rows() if x.group == gid):

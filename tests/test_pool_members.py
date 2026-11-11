@@ -190,7 +190,7 @@ def test_the_link_readers_per_os(ctx: Ctx):
             ctx.check(f"{label}: {kind} {speed} {word!r}, got {got} {L.word(got)!r}", got["type"] == kind
                       and got["speed_mbps"] == speed and L.word(got) == word)
         L.RUNNER.clear()
-        from halo_harness.fleet.capabilities_host import hardware
+        from halo_harness.peers.capabilities_host import hardware
         hw = hardware(Path("."), spawn=False)
         ctx.check(f"the capability catalog's hardware carries the link, got {hw.get('link')}",
                   hw.get("link") == {"type": "unknown", "speed_mbps": None})

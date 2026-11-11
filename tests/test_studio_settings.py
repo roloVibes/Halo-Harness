@@ -21,6 +21,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on: these drive its Studio doors)
+_fleet_pack.on()
 
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
 from tests.helpers.driver_got import got as driver_got  # noqa: E402

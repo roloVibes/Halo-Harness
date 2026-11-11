@@ -17,7 +17,7 @@ import os
 import sys
 import time
 
-from halo_harness.fleet import identity
+from halo_harness.peers import identity
 from halo_harness.remote import cli_common as C
 
 EVERY_S = 300.0

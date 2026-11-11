@@ -71,7 +71,7 @@ def _script(kid_costs) -> list:
 @test
 def test_an_unpriced_main_with_priced_children_counts_what_it_knows(ctx: Ctx):
     from tests.test_h9b_findings import _general_purpose_spec, _new_session
-    from halo_harness.fleet.local_view import session_row
+    from halo_harness.peers.local_view import session_row
     mock = MockUpstream().start()
     try:
         _script([1.25, 1.10])

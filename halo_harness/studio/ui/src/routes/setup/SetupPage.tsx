@@ -22,6 +22,7 @@ import { HELP_KEY, step, stepsOf, titleOf, usePage, type CoreStep, type StepId }
 import { PermissionsDetail } from "./Permissions";
 import { ProvidersDetail } from "./Providers";
 import { useSetup } from "./store";
+import { useFleetPack } from "../fleet/store";
 import { SummaryDetail } from "./Summary";
 import { TeamDetail } from "./Team";
 import { ThemeDetail } from "./Theme";
@@ -98,6 +99,7 @@ function Head({ page, n, of }: { page: StepId; n: number; of: number }) {
 
 export function SetupPage() {
   const page = usePage();
+  useFleetPack(); // 3.4.0.0 C: the Machines step follows the fleet pack's flag (GET fleet)
   const steps = useSetup((s) => stepsOf(s.data, page).join("|")).split("|") as StepId[];
   const { ready } = useLoadState();
   const ref = useRef<HTMLElement>(null);

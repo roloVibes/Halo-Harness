@@ -77,11 +77,13 @@ def parse(wf, raw: dict, *, repo) -> "tuple[dict, list]":
 
 
 def _caps(wf, *, cwd=None, state_dir=None) -> dict:
-    from halo_harness.packs import state as S
-    from halo_harness.packs.fleet_registry import host_catalog, pack_entry
+    from halo_harness.packs import fleet_door, state as S
+    reg = fleet_door.module("fleet/fleet_registry.py", cwd=cwd, state_dir=state_dir)
+    if reg is None:  # 3.4.0.0 C: a capability's `requires` are checked by the fleet pack's catalog; off, none is checked
+        return {}
     try:
         granted = S.granted(wf.pack.id, S.load(state_dir))
-        entry = pack_entry(wf.pack, granted, host_catalog(state_dir, cwd), cwd=cwd, state_dir=state_dir)
+        entry = reg.pack_entry(wf.pack, granted, reg.host_catalog(state_dir, cwd), cwd=cwd, state_dir=state_dir)
     except Exception as e:  # a host the catalog cannot read: say so instead of guessing
         return {"": {"available": False, "why": f"the capabilities catalog could not be read ({type(e).__name__})"}}
     return {c["name"]: c for c in entry.get("capabilities") or []}

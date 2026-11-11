@@ -22,6 +22,7 @@ the mission's lead is a fake):
 
 The last stdout line is the JSON of what it saw (exit 2: no Chrome)."""
 from __future__ import annotations
+import tests.helpers.fleet_pack  # noqa: F401,E402  (the fleet pack's modules under their old names)
 
 import json
 import shutil

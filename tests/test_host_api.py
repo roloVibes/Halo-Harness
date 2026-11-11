@@ -39,8 +39,8 @@ def _err(fn):
 
 @test
 def test_pairing_stores_the_host_with_the_view_grant(ctx: Ctx):
-    from halo_harness.fleet import identity, store
-    from halo_harness.fleet.relay import HubError
+    from halo_harness.peers import identity, store
+    from halo_harness.peers.relay import HubError
     from halo_harness.host.join import join
     with HostRig() as rig:
         rig.start()
@@ -121,7 +121,7 @@ def test_every_route_answers_its_shape(ctx: Ctx):
 @test
 def test_the_signature_check(ctx: Ctx):
     import http.client
-    from halo_harness.fleet import protocol
+    from halo_harness.peers import protocol
     from halo_harness.ollama_steward.host_client import HostClient
     with HostRig(tls_on=False) as rig:
         rig.start()
@@ -157,7 +157,7 @@ def test_the_tail_never_carries_a_prompt_body(ctx: Ctx):
                   "prompt=41104" in text and "the secret plan" not in text and f"({len(BODY):,} characters)" in text)
         rig.set_peer()
         (rig.home / "config.json").write_text('{"fleet": {"name": "pc-host"}, "host": {"tail_max": 2}}', encoding="utf-8")
-        from halo_harness.fleet import identity
+        from halo_harness.peers import identity
         identity.forget_cache()
         ctx.check("n is held to host.tail_max", rig.client().tail(400)["n"] == 2)
 
@@ -194,7 +194,7 @@ def test_one_audit_line_per_request(ctx: Ctx):
 
 @test
 def test_the_live_stream(ctx: Ctx):
-    from halo_harness.fleet import protocol
+    from halo_harness.peers import protocol
     from halo_harness.host import stream as H  # 3.3.7.0 R2: the stream moved out of host/http.py
     from halo_harness.ollama_steward.server_events import record_events
     from tests.helpers.steward_seed import event

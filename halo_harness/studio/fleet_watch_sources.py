@@ -18,7 +18,7 @@ def local_id(server) -> str:
     hub = getattr(server, "fleet_hub", None)
     if hub is not None and hub.state.identity.get("id"):
         return str(hub.state.identity["id"])
-    from halo_harness.fleet.identity import harness
+    from halo_harness.peers.identity import harness
     return str(harness()["id"])
 
 
@@ -27,12 +27,12 @@ def is_local(server, hid: str) -> bool:
 
 
 def view(server, home) -> dict:
-    from halo_harness.studio.fleet_hub_api import view_for
+    from halo_harness.studio.fleet_view_api import view_for
     return view_for(server, home)
 
 
 def by(home=None) -> str:
-    from halo_harness.fleet.identity import fleet_name
+    from halo_harness.peers.identity import fleet_name
     return fleet_name(Path(home) if home is not None else None)
 
 
@@ -40,7 +40,7 @@ def by(home=None) -> str:
 def packs(server) -> list:
     """The row files of the running packs' declared attention kinds (3.2.0.0 R3, fleet/pack_attention.py)."""
     try:
-        from halo_harness.fleet.pack_attention import pending
+        from halo_harness.live.pack_attention import pending
         return pending(getattr(server, "cwd", None), getattr(server, "state_dir", None))
     except Exception:
         return []
@@ -84,7 +84,7 @@ def commands(server) -> list:
 
 def claims(view_: dict, local: str) -> list:
     """The live Orchestra claims of this machine's repos and the ones members' workers announce."""
-    from halo_harness.fleet.conflicts import run_claims
+    from halo_harness.live.conflicts import run_claims
     roots, out = [], []
     for h in view_.get("harnesses") or []:
         for s in h.get("sessions") or []:
@@ -101,7 +101,8 @@ def claims(view_: dict, local: str) -> list:
 
 
 def push_ready(home) -> bool:
-    from halo_harness.fleet import identity, push
+    from halo_harness.peers import identity
+    from halo_harness.live import push
     if identity.config_value("fleet.attention.signal", True, Path(home)) is False:
         return False
     try:

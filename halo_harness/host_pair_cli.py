@@ -8,7 +8,7 @@ from __future__ import annotations
 import time
 from urllib.parse import quote
 
-from halo_harness.fleet import identity
+from halo_harness.peers import identity
 from halo_harness.remote import cli_common as C
 
 
@@ -21,8 +21,8 @@ def _parser(verb: str, description: str):
 
 def host_url(home) -> "tuple[str, str | None, bool]":
     """(the url peers reach this host at, its fingerprint, running)."""
-    from halo_harness.fleet import tls
-    from halo_harness.fleet.hub import lan_address
+    from halo_harness.peers import tls
+    from halo_harness.peers.net import lan_address
     from halo_harness.host import state as S
     info = S.read_info(home)
     if info:
@@ -39,8 +39,8 @@ def cmd_pair(argv: list) -> int:
     a, rc = C.parse(p, argv)
     if a is None:
         return rc
-    from halo_harness.fleet.cli import parse_ttl
-    from halo_harness.fleet import tls
+    from halo_harness.peers.net import parse_ttl
+    from halo_harness.peers import tls
     from halo_harness.host.state import HostPairing
     try:
         ttl = parse_ttl(a.ttl)
@@ -72,8 +72,8 @@ def cmd_join(argv: list) -> int:
     a, rc = C.parse(p, argv)
     if a is None:
         return rc
-    from halo_harness.fleet import store
-    from halo_harness.fleet.relay import HubError
+    from halo_harness.peers import store
+    from halo_harness.peers.relay import HubError
     from halo_harness.host.join import join
     try:
         got = join(a.host, a.code, identity.harness(), fingerprint=(a.fingerprint or "").replace(":", "") or None)
@@ -94,7 +94,7 @@ def cmd_join(argv: list) -> int:
 
 
 def peer_status(name: str, as_json: bool) -> int:
-    from halo_harness.fleet import store
+    from halo_harness.peers import store
     from halo_harness.ollama_steward.host_client import HostClient, HostError
     rows = store.find_host(name)
     if not rows:

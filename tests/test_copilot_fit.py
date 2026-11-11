@@ -82,7 +82,7 @@ def _tree():
 @test
 def test_live_a_cp_work_role_has_no_thoughts_and_hands_back_as_talk(ctx: Ctx):
     from halo_harness import headless
-    from halo_harness.fleet.talk import on_turn_ended, on_turn_started
+    from halo_harness.live.talk import on_turn_ended, on_turn_started
     with CopilotRig() as r:
         r.signin()
         s = headless.build_session(cwd=REPO, model_ref_raw="cp:work", bare=True, print_mode=True, max_turns=2).session

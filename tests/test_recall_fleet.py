@@ -23,6 +23,8 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
+_fleet_pack.on()
 
 from tests.helpers.provider_env_defaults import ensure_default_provider_credentials, ensure_scoped_state_dir_once
 
@@ -112,7 +114,7 @@ def test_fan_out_merges_labels_and_marks_each_members_state(ctx: Ctx):
 def test_hide_and_share_off_on_a_members_answer(ctx: Ctx):
     import tempfile
     from halo_harness import recall_fleet as RF
-    from halo_harness.fleet import identity
+    from halo_harness.peers import identity
     home = Path(tempfile.mkdtemp(prefix="recall-ans-")) / ".halo"
     home.mkdir(parents=True)
     saved = identity.home
@@ -127,7 +129,7 @@ def test_hide_and_share_off_on_a_members_answer(ctx: Ctx):
         out = RF.answer({"query": "x", "k": 8}, by="alice", hub="hub-a")
         ctx.check(f"the session and the feedback kind are hidden, got {[h['title'] for h in out['hits']]}",
                   [h["title"] for h in out["hits"]] == ["a-memory"] and out["hidden"] == 2)
-        from halo_harness.fleet import journal
+        from halo_harness.live import journal
         rows = [r for r in journal.read(home) if r.get("kind") == "recall_asked"]
         ctx.check(f"a journal line records the ask, got {rows}",
                   len(rows) == 1 and rows[0]["by"] == "alice" and rows[0]["hub"] == "hub-a"
@@ -154,7 +156,7 @@ def test_a_coach_library_hit_answers_its_lessons_and_hides(ctx: Ctx):
     import json
     import tempfile
     from halo_harness import recall_fleet as RF
-    from halo_harness.fleet import identity
+    from halo_harness.peers import identity
     from halo_harness.recall_cli import _format
     from tests.test_coach_library_fleet import seed
     home = Path(tempfile.mkdtemp(prefix="recall-lib-")) / ".halo"
@@ -186,7 +188,7 @@ def test_a_coach_library_hit_answers_its_lessons_and_hides(ctx: Ctx):
 @test
 def test_over_two_homes_the_hub_merges_the_members_own_index(ctx: Ctx):
     from halo_harness import recall_fleet as RF
-    from halo_harness.fleet import journal
+    from halo_harness.live import journal
     from halo_harness.fleet.hub_recall import merged
     from tests.helpers.fleet_hub_rig import HubRig, wait_for
     from tests.helpers.mission_seed import fleet

@@ -29,7 +29,8 @@ from pathlib import Path
 from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
+from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
+_fleet_pack.on()
 from tests.helpers.provider_env_defaults import ensure_default_provider_credentials  # noqa: E402
 
 ensure_default_provider_credentials()
@@ -154,7 +155,7 @@ def _install_on_b(root_b: str, grants=()) -> None:
 def test_a_member_refuses_the_part_and_the_mission_moves_on(ctx: Ctx):
     from halo_harness.config.paths import bridge_home
     from halo_harness.fleet import mission_store as S
-    from halo_harness.fleet.identity import harness
+    from halo_harness.peers.identity import harness
     from tests.helpers.fleet_caps_seed import seed
     from tests.helpers.fleet_hub_rig import HubRig, wait_for
     from tests.helpers.mission_seed import kali_box, mission_ctx, reset_fakes, wait_state, windows_host
@@ -215,7 +216,7 @@ def test_a_mission_started_by_the_packs_lineup_carries_its_metadata(ctx: Ctx):
             md = (S.folder(h.state, body["mission"]["id"]) / "MISSION.md").read_text(encoding="utf-8")
             ctx.check("MISSION.md says it", "**Metadata:** pack=doc-review, lineup=doc-review--review, review=docs, style=short" in md)
             set_config_value("team", "doc-review--review")
-            from halo_harness.fleet import identity
+            from halo_harness.peers import identity
             identity.forget_cache()
             status, body = A.create(ctx_, {"goal": "Review again", "repo": False})
             ctx.check("the active lineup (config team) too", (body["mission"].get("metadata") or {}).get("pack") == "doc-review")
@@ -233,7 +234,7 @@ def _cli_and_studio_send_the_lineup(ctx: Ctx, h) -> None:
     pack_mission: the mission says the lineup and carries the pack's metadata; the tables say it."""
     import contextlib
     import io
-    from halo_harness.fleet import identity
+    from halo_harness.peers import identity
     from halo_harness.fleet.cli_mission import cmd_new
     from halo_harness.studio import fleet_mission_api as SM
     identity.forget_cache()

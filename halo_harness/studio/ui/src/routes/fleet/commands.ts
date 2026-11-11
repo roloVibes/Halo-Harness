@@ -35,6 +35,7 @@ const local = () => fleet.get().harnesses.find((h) => h.local)?.id || "";
 
 export function fleetCommands(): FleetCommand[] {
   const s = fleet.get();
+  if (!s.pack) return []; // 3.4.0.0 C: the fleet is a pack; off, the palette has no fleet line
   const g = "Agents";
   const waiting = panels.get().attention.length;
   const out: FleetCommand[] = [

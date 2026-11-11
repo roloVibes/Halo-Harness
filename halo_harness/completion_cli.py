@@ -39,10 +39,8 @@ SUBCOMMANDS = (
     "review",
     # Halo 3.0.4.0 round R1: `halo media` (ComfyUI).
     "media",
-    # Halo 3.0.5.0 round R2: `halo fleet` (the hub, pairing, join, the live table).
-    "fleet",
     # Halo 3.1.1.0 round R1: `halo start` (the guided first run) and `halo explain` (the glossary).
-    "explain",  # 3.4.0.0 B: `start` is the first-run pack's verb
+    "explain",  # 3.4.0.0 B: `start` is the first-run pack's verb; C: `fleet` the fleet pack's
     "check",  # Halo 3.2.2.0 round R2: the checks Halo offers after setup
     "pack",  # Halo 3.2.0.0 round R1: capability packs
     "ollama", "local",  # Halo 3.2.3.0 round R2: the gap the round 5d note named, closed with `halo ollama discover`

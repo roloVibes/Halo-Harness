@@ -86,7 +86,7 @@ def dom(c, rig) -> dict:
 def conflict(rig) -> None:
     """Both harnesses edit shop/basket.py: the implementer here (a feed frame), the member's reviewer (its relay);
     repo-relative, so no machine's path is drawn (3.1.7.0 R2)."""
-    from halo_harness.fleet.identity import harness
+    from halo_harness.peers.identity import harness
     from tests.helpers.studio_fleet_member import REVIEWER
     from tests.helpers.studio_fleet_rig import MEMBER, MEMBER_SID
     a = rig.agent("Implement")

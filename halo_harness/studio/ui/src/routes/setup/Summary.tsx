@@ -14,9 +14,11 @@ import { pressDone, useDoneBusy, useDoneError } from "./done";
 import { lastCheckWord, runChecks, startCheck, ticked, useCheck } from "./checkStore";
 import { goto, isDone, stepsOf, titleOf, usePage, valueOf, type StepId } from "./pages";
 import { NONE, setup, useSetup } from "./store";
+import { useFleetPack } from "../fleet/store";
 
 function Rows() {
   const page = usePage();
+  useFleetPack(); // 3.4.0.0 C: the Machines step follows the fleet pack's flag (GET fleet)
   // 3.3.11.0 R3: a pack's blocks are rows too (their title, "<pack>: done | skipped | waiting"); JSON, as the rail
   const joined = useSetup((s) =>
     JSON.stringify(

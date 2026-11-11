@@ -70,7 +70,7 @@ def binary(runtime: str, *, state_dir=None) -> "tuple[Optional[list], str]":
 def this_machine_card() -> "tuple[Optional[dict], str]":
     """The hardware card of the first host this machine serves that has one (the Ollama panel's cache)."""
     try:
-        from halo_harness.fleet.ollama_share import served_here
+        from halo_harness.peers.ollama_share import served_here
         from halo_harness.ollama_steward.fit import card_budget
         from halo_harness.providers.ollama import resolve_ollama_hosts
         from halo_harness.providers.ollama_guard import skip_default

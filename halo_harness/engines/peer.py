@@ -58,7 +58,7 @@ def _on(addr: str, url: str, engine: str) -> str:
 
 def _ask(name: str, home=None) -> Optional[dict]:
     try:
-        from halo_harness.fleet import identity, store
+        from halo_harness.peers import identity, store
         from halo_harness.ollama_steward.host_client import HostClient, HostError
         hosts = [e for e in store.hosts(home) if e.get("state", "joined") == "joined"]
     except Exception:
@@ -145,7 +145,7 @@ def hosts(state_dir=None) -> list:
         if rows:
             out.append(EngineHost(name=rows[0].name, url=rows[0].url, model=rows[0].model, engine=engine))
     try:
-        from halo_harness.fleet import store
+        from halo_harness.peers import store
         peers = [e for e in store.hosts() if e.get("state", "joined") == "joined"]
     except Exception:
         peers = []

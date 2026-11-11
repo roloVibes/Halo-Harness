@@ -457,6 +457,9 @@ def _main(argv: Optional[list] = None) -> int:
     except (ValueError, AttributeError, OSError):
         pass
     argv = sys.argv[1:] if argv is None else list(argv)
+    if "PACKS_TEST_SHIPPED" not in os.environ:  # 3.4.0.0 C: a halo that had a fleet gets the fleet pack, once
+        from halo_harness.packs.fleet_migrate import say
+        say()
 
     if argv and argv[0] == "proxy":
         return _cmd_proxy(argv[1:])
@@ -632,10 +635,6 @@ def _main(argv: Optional[list] = None) -> int:
     if argv and argv[0] == "remote":
         from halo_harness.remote.cli import cmd_remote
         return cmd_remote(argv[1:])
-    if argv and argv[0] == "fleet":
-        # 3.0.5.0 R2: the fleet hub, pairing, join and the live table (halo_harness/fleet/).
-        from halo_harness.fleet.cli import cmd_fleet
-        return cmd_fleet(argv[1:])
     if argv and argv[0] == "review":
         from halo_harness.review.cli import cmd_review
         return cmd_review(argv[1:])

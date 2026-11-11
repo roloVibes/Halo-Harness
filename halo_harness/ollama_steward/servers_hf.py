@@ -91,7 +91,7 @@ def _same(a, b) -> bool:
 
 def is_local(server) -> bool:
     try:
-        from halo_harness.fleet.ollama_share import served_here
+        from halo_harness.peers.ollama_share import served_here
         return bool(served_here(base(getattr(server, "url", server))))
     except Exception:
         return _hostname(getattr(server, "url", server)) in ("127.0.0.1", "localhost", "::1")

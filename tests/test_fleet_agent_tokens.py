@@ -35,7 +35,7 @@ def _usage(tin: int, tout: int, **extra) -> str:
 
 class _Dir:
     def __enter__(self) -> Path:
-        from halo_harness.fleet import agent_tokens
+        from halo_harness.peers import agent_tokens
         agent_tokens.forget()
         self.root = Path(tempfile.mkdtemp(prefix="agent-tokens-"))
         return self.root
@@ -47,7 +47,7 @@ class _Dir:
 
 @test
 def test_the_usage_lines_sum_and_a_child_rollup_is_skipped(ctx: Ctx):
-    from halo_harness.fleet.agent_tokens import totals
+    from halo_harness.peers.agent_tokens import totals
     with _Dir() as d:
         log = d / "main.jsonl"
         log.write_text(json.dumps({"type": "message", "role": "user", "content": "hi"}) + "\n" + _usage(1200, 80) + _usage(300, 20)
@@ -58,7 +58,7 @@ def test_the_usage_lines_sum_and_a_child_rollup_is_skipped(ctx: Ctx):
 
 @test
 def test_the_read_is_incremental_and_a_half_line_waits(ctx: Ctx):
-    from halo_harness.fleet.agent_tokens import totals
+    from halo_harness.peers.agent_tokens import totals
     with _Dir() as d:
         log = d / "agent-x.jsonl"
         log.write_text(_usage(100, 10), encoding="utf-8")
@@ -77,7 +77,7 @@ def test_the_read_is_incremental_and_a_half_line_waits(ctx: Ctx):
 
 @test
 def test_session_row_puts_them_on_the_agent_rows(ctx: Ctx):
-    from halo_harness.fleet.local_view import session_row
+    from halo_harness.peers.local_view import session_row
     with _Dir() as d:
         (d / "main.jsonl").write_text(_usage(2000, 150), encoding="utf-8")
         (d / "kid.jsonl").write_text(_usage(600, 40) + _usage(400, 10), encoding="utf-8")
@@ -98,7 +98,7 @@ def test_session_row_puts_them_on_the_agent_rows(ctx: Ctx):
 
 @test
 def test_v3331_session_row_carries_the_cost_parts(ctx: Ctx):
-    from halo_harness.fleet.local_view import session_row
+    from halo_harness.peers.local_view import session_row
     status = {"turn": 2, "cost_usd": 3.6348, "cost_complete": False, "cost_unknown": ["dbx:databricks-glm-x"]}
     row = session_row({"session_id": "s3"}, status, [])
     ctx.check(f"the priced part, incomplete, the unpriced model named, got {row}",

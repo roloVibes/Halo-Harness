@@ -2,6 +2,8 @@
 
 Read this when you connect several harnesses into one fleet and watch or steer them from one place.
 
+> **The fleet pack (3.4.0.0).** The fleet left Halo's core for the shipped `fleet` pack: `halo pack install fleet`, then `halo pack enable fleet --grant-all` (a halo that had a fleet gets it on its first run after the update). With it off, `halo fleet`, `halo mission`, `/fleet`, `/mission` and `halo studio --fleet` say so in one line and Studio shows no Fleet door. Another machine's models (`halo host serve`, the pool, Local -> Hosts) and this machine's own sessions live are the core's and work without it.
+
 Halo 3.0.5.0 "Fleet" puts every harness, every session and every agent in
 one live picture: what each one is doing, what it is thinking, what it
 wrote, and the controls to steer, pause or stop any of them. **R1** is what

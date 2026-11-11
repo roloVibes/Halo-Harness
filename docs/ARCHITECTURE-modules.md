@@ -66,69 +66,48 @@ this list against the tree.
 - Agents (3.3.16.0 R1: Team, Roles and Orchestra in one section): `studio/agents_door.py` (the old section words as
   doors to Agents' Cast, Runs and Live, and the line each prints once)
 - Team: its routes left with the team file in 3.4.0.0
-- Fleet: `studio/fleet_api.py` (agent commands on a live session),
-  `studio/fleet_hub_api.py` (the fleet routes and their dispatch),
-  `studio/fleet_pair_api.py` (pair, settings, kick, history),
-  `studio/fleet_panels_api.py` (the R4 panels), `studio/fleet_answer.py` (one
-  key on an attention row), `studio/fleet_handoff_api.py` (an agent's
-  hand-off), `studio/fleet_recording_api.py` (flight recordings, the replay),
-  `studio/fleet_capabilities_api.py` (capabilities, who),
-  `studio/fleet_mission_api.py` (missions), `studio/fleet_watch.py` (the
-  watcher), `studio/fleet_watch_sources.py` (what it reads),
-  `studio/fleet_feed.py` (its tap on the live feed), `studio/fleet_send.py`
-  (a session command, this harness's or a member's)
+- Fleet, this machine's half (3.4.0.0 C: the rest is the fleet pack's server/): `studio/fleet_api.py` (agent
+  commands on a live session), `studio/fleet_view_api.py` (the `fleet/*` routes the core answers, and the door to the
+  pack's when it runs), `studio/fleet_panels_api.py` (attention, costs, caps, conflicts), `studio/fleet_answer.py`
+  (one key on an attention row), `studio/fleet_handoff_api.py` (an agent's hand-off),
+  `studio/fleet_recording_api.py` (flight recordings, the replay), `studio/fleet_watch.py` (the watcher),
+  `studio/fleet_watch_sources.py` (what it reads), `studio/fleet_feed.py` (its tap on the live feed),
+  `studio/fleet_send.py` (a session command, this harness's or a member's)
 - the one unit view (3.1.2.0): `studio/work_api.py`
   (`GET /api/work/<kind>/<run>`, the units of any run; docs/WORK.md)
 - recall (3.1.2.0 R3): `studio/recall_api.py` (`GET /api/recall?q=&fleet=1`
   for the recall box, `GET /api/fleet/recall?q=` the hub's merged view)
 
-**Fleet** (`halo_harness/fleet/`):
+**Peers** (`halo_harness/peers/`, 3.4.0.0 C: one machine reaching another, out of the old fleet/):
 
-- who and where: `fleet/identity.py`, `fleet/store.py`, `fleet/protocol.py`,
-  `fleet/tls.py`, `fleet/pair_kex.py`, `fleet/pairing.py`
-- the hub: `fleet/hub.py`, `fleet/hub_http.py`, `fleet/hub_join.py`,
-  `fleet/hub_links.py`, `fleet/hub_state.py`, `fleet/hub_commands.py`,
-  `fleet/hub_capabilities.py`, `fleet/hub_mission.py`, `fleet/hub_hosts.py` (3.3.7.0 R1: the halo hosts members
-  announce)
-- the relay of a joined harness: `fleet/relay.py`, `fleet/relay_hub.py`,
-  `fleet/relay_runtime.py`, `fleet/relay_stream.py`, `fleet/control.py`,
-  `fleet/local_view.py`, `fleet/agent_tokens.py` (each agent row's own tokens,
-  from its transcript), `fleet/think.py` (3.3.16.2: every agent's thoughts as
-  `thinking_chunk` frames), `fleet/talk.py` (3.3.16.2: one agent's words to
+- who and where: `peers/identity.py`, `peers/store.py`, `peers/protocol.py`, `peers/tls.py`, `peers/pair_kex.py`,
+  `peers/pairing.py`, `peers/hub_join.py` (the join exchange a hub and `halo host` share), `peers/net.py`
+  (`lan_address`, `FleetOffline`, `parse_ttl`)
+- the relay client: `peers/relay.py`, `peers/relay_stream.py`
+- hosts: `peers/hub_hosts.py` (3.3.7.0 R1: the halo hosts members announce), `peers/hub_host_cmd.py` (a Studio
+  command to a host)
+- Ollama on the network: `peers/ollama_share.py`, `peers/ollama_share_cards.py`, `peers/ollama_share_take.py`,
+  `peers/control_models.py`, `peers/control_pulls.py`, `peers/control_probes.py`
+- this harness: `peers/local_view.py`, `peers/agent_tokens.py` (each agent row's own tokens, from its transcript),
+  `peers/capabilities_host.py` (the hardware), `peers/catalog.py` (the capability catalog's cache)
+
+**Live** (`halo_harness/live/`, 3.4.0.0 C: this machine's sessions live, out of the old fleet/):
+
+- `live/think.py` (3.3.16.2: every agent's thoughts as `thinking_chunk` frames), `live/talk.py` (one agent's words to
   another as `agent_talk` frames)
-- the CLI: `fleet/cli.py` (the dispatcher, serve, pair), `fleet/cli_join.py`
-  (join, leave, status), `fleet/cli_members.py` (members, kick),
-  `fleet/cli_panels.py` (record, digest), `fleet/cli_caps.py` (capabilities,
-  who), `fleet/cli_mission.py` (missions), `fleet/table.py`,
-  `fleet/table_live.py`
-- the panels: `fleet/attention.py`,
-  `fleet/supervise_attention.py` (3.1.8.0 R1: the supervisor's parked decisions),
-  `fleet/pack_attention.py` (a pack's own rows, 3.2.0.0 R3),
-  `fleet/caps.py`, `fleet/conflicts.py`, `fleet/digest.py`,
-  `fleet/journal.py`, `fleet/health.py`, `fleet/push.py`, `fleet/handoff.py`,
-  `fleet/history.py`, `fleet/recording.py`, `fleet/recording_page.py`
-- capabilities: `fleet/capabilities.py`, `fleet/capabilities_host.py`,
-  `fleet/capabilities_probe.py`, `fleet/capabilities_sources.py`,
-  `fleet/capabilities_view.py`, `fleet/capabilities_who.py`
-- missions: `fleet/mission.py`, `fleet/mission_api.py`,
-  `fleet/mission_store.py`, `fleet/mission_doc.py`, `fleet/mission_plan.py`
-  (the lead's split), `fleet/mission_plan_check.py` (its answer made into a
-  checked plan), `fleet/mission_assign.py` (which harness takes which part),
-  `fleet/mission_claims.py` (claims as paths), `fleet/mission_run.py`,
-  `fleet/mission_dispatch.py`, `fleet/mission_worker.py`,
-  `fleet/mission_worker_run.py`, `fleet/mission_worker_session.py`,
-  `fleet/mission_guard.py`, `fleet/mission_files.py`,
-  `fleet/mission_handoff.py`, `fleet/mission_merge.py`,
-  `fleet/mission_report.py`, `fleet/mission_attention.py`,
-  `fleet/mission_stage_run.py` (3.1.2.0 R2: a part of kind orchestra, a delegated team stage's run),
-  `fleet/mission_hold.py` (3.2.1.0 R3: a pack capability's `capacity.parallel` held, a part refused for a
-  pack reason re-planned once)
-- recall across the fleet (3.1.2.0 R3): `fleet/hub_recall.py` (the hub fans a
-  recall query out and merges the hits; 3.1.6.0 its `local/coach-library`
-  route forwards a library fetch to one member), and the scripted two-machine check
-  `fleet/live_check.py` with its `--fake` seams `fleet/live_check_fakes.py`
-  (`tools/live_fleet_check.py` is the CLI; `halo_harness/recall_fleet.py` and
-  `halo_harness/recall_cli.py` are the member's side and `halo recall`)
+- the attention queue: `live/attention.py`, `live/supervise_attention.py` (3.1.8.0 R1: the supervisor's parked
+  decisions), `live/pack_attention.py` (a pack's own rows, 3.2.0.0 R3), `live/steward_attention.py`
+- `live/caps.py`, `live/conflicts.py`, `live/journal.py`, `live/push.py`, `live/handoff.py`, `live/history.py`,
+  `live/recording.py`, `live/recording_page.py`
+
+**The fleet pack** (`halo_harness/templates/packs/fleet/`, 3.4.0.0 C): the hub (fleet/hub*.py), the relay of a joined
+harness (relay_hub, relay_runtime, control), the CLI (cli*.py, table*.py), the capability catalog and who
+(capabilities*.py), missions (mission*.py), health, the digest, delegate, recall and knowledge across the fleet
+(hub_recall, knowledge_share), what packs bring to the catalog (fleet_registry, fleet_share), the two-machine check
+(live_check*), its Studio routes (server/: fleet_hub_api, fleet_pair_api, fleet_health_api, fleet_capabilities_api,
+fleet_mission_api) and its verbs (cli/). The core reaches it only through `packs/fleet_door.py`; `packs/fleet_migrate.py`
+turns it on once for a halo that had a fleet. (`tools/live_fleet_check.py` is the check's CLI;
+`halo_harness/recall_fleet.py` and `halo_harness/recall_cli.py` are the member's side and `halo recall`.)
 
 **Orchestra** (`halo_harness/orchestra/`, its CLI beside the package):
 
@@ -188,7 +167,7 @@ total against a budget).
 `halo_harness/work_cli.py` is `halo work` (the units of any run as a table).
 
 **Team** (`halo_harness/team/`): left in 3.4.0.0 with the team file. `orchestra/to_report.py` keeps its
-`orchestra_run` (the supervisor's and a fleet mission part's), `fleet/delegate.py` its `FleetDelegate` (the
+`orchestra_run` (the supervisor's and a fleet mission part's), the fleet pack's `fleet/delegate.py` its `FleetDelegate` (the
 two-machine check's mission step).
 
 **Supervise** (`halo_harness/supervise/`, Halo 3.1.8.0 R1, docs/SUPERVISE.md):
@@ -255,7 +234,7 @@ filters, prune by age, the passed-gate cap `knowledge.gate_keep`),
 worker's brief block, the ids a text names, "reused by"),
 `knowledge/writers.py` (the judge, the gate, the coach's Apply, the
 supervisor's answers), `knowledge/sources.py` (recall's finding / decision /
-note sources: the entries and `recall.sources`), `knowledge/share.py` (the
+note sources: the entries and `recall.sources`), the fleet pack's `fleet/knowledge_share.py` (the
 `knowledge` fleet command and `halo knowledge fetch`) and `knowledge/cli.py`
 (`halo knowledge`); the agents' tools are `tools/knowledge.py`.
 

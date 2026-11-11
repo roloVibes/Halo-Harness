@@ -58,7 +58,7 @@ def _addr_port(url: str, default_port: int = 11434) -> "tuple[str, int]":
 
 class HostClient:
     def __init__(self, entry: dict, key: bytes, member_id: str, timeout: float = 5.0) -> None:
-        from halo_harness.fleet.relay import parse_url
+        from halo_harness.peers.relay import parse_url
         self.entry, self.key, self.member, self.timeout = dict(entry), key, member_id, timeout
         scheme, self.host, self.port = parse_url(entry["url"])
         self.scheme = scheme or ("https" if entry.get("tls") else "http")
@@ -71,8 +71,8 @@ class HostClient:
         return f"halo host at {self.addr}"
 
     def _call(self, method: str, route: str, body: Optional[dict] = None) -> dict:
-        from halo_harness.fleet import protocol, tls
-        from halo_harness.fleet.relay import HubError, _connect
+        from halo_harness.peers import protocol, tls
+        from halo_harness.peers.relay import HubError, _connect
         path = "/host/v1/" + route
         raw = protocol.encode(body) if body is not None else b""
         headers = {**protocol.sign_headers(self.key, method, path, self.member, raw), "Content-Type": "application/json"}
@@ -165,9 +165,9 @@ class HostClient:
 
     def stream(self):
         """The host's SSE stream (fleet/relay_stream.Stream: `read(timeout)` returns the frames that arrived)."""
-        from halo_harness.fleet import protocol
-        from halo_harness.fleet.relay import _connect, format_url
-        from halo_harness.fleet.relay_stream import open_stream
+        from halo_harness.peers import protocol
+        from halo_harness.peers.relay import _connect, format_url
+        from halo_harness.peers.relay_stream import open_stream
         path = "/host/v1/stream"
         conn, _ = _connect(self.scheme, self.host, self.port, self.timeout, self.entry.get("fingerprint"))
         host_port = format_url("http", self.host, self.port)[len("http://"):]
@@ -192,7 +192,7 @@ def _matches(entry: dict, addr: str, port: int) -> bool:
 
 def any_paired(home=None) -> bool:
     """Cheap: does fleet.json list a paired host (re-read only when the file changes)?"""
-    from halo_harness.fleet import store
+    from halo_harness.peers import store
     p = store.path(home)
     try:
         st = p.stat()
@@ -211,8 +211,8 @@ def for_host(host, home=None) -> Optional[HostClient]:
         return None
     if "host" in SEAMS:
         return SEAMS["host"](host)
-    from halo_harness.fleet import identity, store
-    from halo_harness.fleet.ollama_share import served_here
+    from halo_harness.peers import identity, store
+    from halo_harness.peers.ollama_share import served_here
     url = str(getattr(host, "url", host) or "")
     if not url or not any_paired(home) or served_here(url):
         return None

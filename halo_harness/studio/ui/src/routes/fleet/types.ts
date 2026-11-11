@@ -114,7 +114,8 @@ export type HubInfo = {
   fingerprint?: string | null;
 };
 
-export type FleetView = { harnesses: Harness[]; hub: HubInfo | null };
+/** 3.4.0.0 C: `fleet_pack` -- the fleet pack runs here (its doors show only then). */
+export type FleetView = { harnesses: Harness[]; hub: HubInfo | null; fleet_pack?: boolean };
 
 /** One transcript entry (R1's shape) or a frame turned into one; `you` marks a steer sent from here. */
 export type Entry = {

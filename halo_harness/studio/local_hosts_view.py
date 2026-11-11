@@ -113,7 +113,7 @@ def _member_controls(host_url: str, host_name: str, hub=None) -> dict:
         return {"ok": False, "via": "", "why": f"{m.name} has fleet.allow_control: none, so a hub does not load "
                 "models there (its owner sets ask or all)", **who}
     if not m.sessions():  # 3.3.7.0 R2: a halo host that member announced takes it with no session (hub_host_cmd.py)
-        from halo_harness.fleet.hub_host_cmd import member_controls
+        from halo_harness.peers.hub_host_cmd import member_controls
         return member_controls(hub, m.name, who) or {"ok": False, "via": "", "why": f"{m.name} has no live session "
                                                      "to take the command right now", **who}
     via = f"fleet member {m.name}" + (" (its owner is asked first)" if m.allow_control == "ask" else "")

@@ -9,12 +9,15 @@ import { short } from "../../orchestra/format";
 import { PlanLive } from "../../roles/CanvasBar";
 import type { Density } from "../../roles/liveLayout";
 import { roles, useRoles } from "../../roles/store";
+import { useFleetPack } from "../../fleet/store";
 import { setScope, useLiveScope } from "./scope";
 import { HistoryButton } from "./History"; // 3.3.18.0: the past, newest first, each a replay
 import { PlanToggle } from "./PlanToggle"; // 3.3.18.0 part 2: the lineup's blocks under the agents
 
 export function ScopeSwitch() {
   const scope = useLiveScope();
+  const pack = useFleetPack(); // 3.4.0.0 C: the fleet scope is the fleet pack's door
+  if (!pack) return null;
   return (
     <span className="segmented rlm-scope" role="group" aria-label="What Live draws: this halo or the whole fleet" data-testid="live-scope" data-scope={scope}>
       {(["here", "fleet"] as const).map((s) => (

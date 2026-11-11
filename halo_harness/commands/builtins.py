@@ -245,27 +245,6 @@ def _agents_live(session) -> str:
     return "\n".join([head, *("  " + line for line in format_tree(rows))])
 
 
-def _cmd_fleet(args: str, facade: HeadlessFacade) -> str:
-    """Halo 3.0.5.0 R2: `/fleet` -- every harness, session and agent this machine
-    sees (Studio's fleet view, this machine's hub, or this harness alone), the
-    same table as `halo fleet --once`; the TUI opens it as a live dialog."""
-    from halo_harness.fleet.cli_caps import slash_text  # 3.0.6.0 R6: /fleet who <query>, /fleet capabilities [name]
-    text = slash_text(args)
-    if text is not None:
-        return text
-    from halo_harness.fleet.table import render, rows, snapshot
-    view, source = snapshot()
-    where = {"studio": "Studio's fleet view", "hub": "this machine's hub", "local": "this harness only"}
-    return f"Fleet ({where.get(source, source)}):\n" + render(rows(view))
-
-
-def _cmd_mission(args: str, facade: HeadlessFacade) -> str:
-    """Halo 3.0.6.0 R7: `/mission [id]` -- the fleet's missions, or one mission's
-    parts by harness (`halo fleet mission status`)."""
-    from halo_harness.fleet.cli_mission import slash_text
-    return slash_text(args)
-
-
 def _cmd_private(args: str, facade: HeadlessFacade) -> str:
     """Halo 3.0.5.0 (Fleet): `/private [on|off]` -- a private session closes
     its control socket and leaves the registry, so Studio, `halo remote` and
@@ -782,8 +761,9 @@ def _cmd_recall(args: str, facade: HeadlessFacade) -> str:
     from halo_harness.recall import search
     query = (args or "").strip()
     if query == "--fleet" or query.startswith("--fleet "):  # 3.1.2.0 R3: every online harness's own index
-        from halo_harness.recall_fleet import fleet_text
-        return fleet_text(query[len("--fleet"):])
+        from halo_harness.packs import fleet_door  # 3.4.0.0 C: the fleet pack's
+        got = fleet_door.call("fleet/recall_fleet.py", "fleet_text", query[len("--fleet"):])
+        return got if got is not None else f"/recall --fleet: {fleet_door.line()}"
     if not query:
         return ("/recall <query> -- semantic search over memory topics and past sessions "
                 "(set embeddings.model first, e.g. nomic-embed-text on your Ollama host)")
@@ -1869,10 +1849,6 @@ _BUILTIN_SPECS = {
                "[status]", _cmd_remote),
     "private": ("core", "Private session: no control socket, no registry entry (Studio and the fleet never see it)",
                 "[on|off]", _cmd_private),
-    "fleet": ("core", "The fleet: every harness, session and agent this machine sees (a live table in the TUI)",
-              "[text]", _cmd_fleet),
-    "mission": ("core", "Fleet missions: one goal across every harness (status; `halo fleet mission` for the rest)",
-                "[id]", _cmd_mission),
     "escalation": ("core", "Show the hybrid-escalation policy and this session's last decisions", None,
                    _cmd_escalation),
     "why": ("core", "Why this answer: what the local model saw for the newest turn (or turn N) -- cut, memory, "

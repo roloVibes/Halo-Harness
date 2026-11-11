@@ -19,6 +19,8 @@ session has a REAL PermissionEngine, so the claim guard runs as it does).
 Run: python -m tests.test_fleet_mission_run
 """
 from __future__ import annotations
+from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
+_fleet_pack.on()
 
 import json
 import sys
@@ -55,7 +57,8 @@ def _worker_row(rig, mid: str):
 
 @test
 def test_ask_cards_the_owner_then_the_part_runs_as_a_mission_worker(ctx: Ctx):
-    from halo_harness.fleet import digest, journal
+    from halo_harness.fleet import digest
+    from halo_harness.live import journal
     from halo_harness.fleet import mission_store as S
     from tests.helpers.fleet_hub_rig import HubRig, wait_for
     from tests.helpers.mission_seed import fleet, gate, mission_ctx, reset_fakes, wait_state

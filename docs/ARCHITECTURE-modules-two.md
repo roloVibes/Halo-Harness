@@ -28,12 +28,12 @@ the preflight's decision, `warming`, `cache_reused_pct`),
 `ollama_steward/server_context.py` (the rules that need the lines around a
 line and a clock), `ollama_steward/server_events.py` (`events.jsonl`, the
 quiet period, the `/api/ps` deltas) and `ollama_steward/server_log.py` (the
-read-only tail, journald, the watch loop); `fleet/ollama_share.py` sends a
+read-only tail, journald, the watch loop); `peers/ollama_share.py` sends a
 member's ledger lines to its hub and appends them there. R3: `ollama_steward/rules.py` (gather, the finding), the rules in
 `ollama_steward/rules_window.py`, `ollama_steward/rules_reply.py`, `ollama_steward/rules_host.py`, `ollama_steward/fit.py` (the planner),
 `ollama_steward/profiles.py` (`ollama.profiles`), `ollama_steward/profiles_role.py` (3.3.7.0 R3: a lane's own `<host>|<model>|<role>` key, `lane`), `ollama_steward/steward.py` (modes, journal, undo), `ollama_steward/cli_steward.py`;
 `providers/ollama_fit_parts.py` (the corrected memory arithmetic), `agent/ollama_window_steward.py` (compaction before the call).
-R4: `ollama_steward/job.py` (the one job per state dir: the tail, the timer, the frames), `ollama_steward/job_state.py` (its lock and status), `ollama_steward/notes.py` (the note lines, the hub's note on a member), `ollama_steward/agent.py` + `ollama_steward/agent_prompt.py` + `ollama_steward/agent_proposals.py` (the model, what it reads, its checked proposals), `ollama_steward/explain.py` (`halo ollama explain`); `tui/steward_notice.py` (the status bar and transcript line), `fleet/steward_attention.py` (the attention row).
+R4: `ollama_steward/job.py` (the one job per state dir: the tail, the timer, the frames), `ollama_steward/job_state.py` (its lock and status), `ollama_steward/notes.py` (the note lines, the hub's note on a member), `ollama_steward/agent.py` + `ollama_steward/agent_prompt.py` + `ollama_steward/agent_proposals.py` (the model, what it reads, its checked proposals), `ollama_steward/explain.py` (`halo ollama explain`); `tui/steward_notice.py` (the status bar and transcript line), `live/steward_attention.py` (the attention row).
 R5: `studio/ollama_steward_api.py` (the `ollama/` routes: the steward, the hosts, the timeline, apply / dismiss / undo / run), `studio/ollama_hosts_view.py` (per host the card through a 60 s cache, the rollups, the models, the findings and the fit plan; the Hugging Face local servers' rows), `ollama_steward/steward_rollback.py` (the rollback judge, out of `steward.py`, which gained the profile lock and Dismiss), `commands/ollama_slash.py` (`/ollama`) and `ui/src/routes/fleet/Ollama*.tsx` + `ostore.ts` (the Ollama panel), `ui/src/routes/settings/OllamaBlock.tsx`, `ui/src/routes/setup/StewardLine.tsx`. 3.3.13.1 (the steward hotfix): `ollama_steward/rules_reply_bound.py` (the reply reserve's bounds: from the measured cut, under the model's context minus the prompt and half the window, one an hour, never twice for a cut; the `reserve-loop` finding), `ollama_steward/agent_quiet.py` (a note only when a finding, a server or a profile changed), `ollama_steward/profiles_reset.py` (`halo ollama steward profiles reset`, Local's Reset); `providers/ollama_key_migrate.py` (a host's key value moved to the env file; the doctor row).
 3.3.5.0 R0b (the model card): `providers/model_card.py` (`card_of`: what a model is and its sources),
 `providers/model_card_purpose.py` (the family rules as code), `providers/model_card_words.py` (the `how` lines, the
@@ -53,7 +53,7 @@ fit simulation and the routing answer), `host/join.py` (a peer's half of pairing
 | status | stop`), `host_pair_cli.py` (`pair | join`, `status --peer`), `host_install.py` (`install | uninstall`
 through logon_units.py, remote/daemon_units.py before 3.3.13.0). The harness side: `ollama_steward/host_client.py` (`for_host`, the signed client,
 the ladder's host rung) and `ollama_steward/host_reads.py` (the card, log, tail, events and profiles read through
-it); `fleet/hub_hosts.py` (the hub's list of announced hosts); `ui/src/routes/local/HostServedBy.tsx`.
+it); `peers/hub_hosts.py` (the hub's list of announced hosts); `ui/src/routes/local/HostServedBy.tsx`.
 
 **The host acts** (Halo 3.3.7.0 R2, docs/HOST.md "The vocabulary"): `host/grants.py` (per-peer grants under the host
 machine's `fleet.allow_control`, `me`) and `host/pending.py` (the rows `ask` queues); `host/ops.py` (the typed
@@ -65,8 +65,8 @@ acting routes behind the grants, the guards and the preview), `host/jobs.py` (th
 rate limit), `host/verify.py` (before / after, keep or revert), `host/invariants.py` (the fit, one resident, the
 helper's footprint), `host/findings.py` (`GET findings` with where / suggest), `host/ledger_take.py` and
 `host/ledger_push.py` (a peer's calls into the host's ledger), `host/duty.py` (the duty steward's pass;
-`host_steward_cli.py` is its command); `fleet/hub_host_cmd.py` (a Studio command to a host, no member session),
-`fleet/ollama_share_cards.py` (speed cards, dialect records and the fleet's fingerprints with the ledger push);
+`host_steward_cli.py` is its command); `peers/hub_host_cmd.py` (a Studio command to a host, no member session),
+`peers/ollama_share_cards.py` (speed cards, dialect records and the fleet's fingerprints with the ledger push);
 `ollama_steward/host_land.py` (the steward lands through the host, the verdicts back), `ollama_steward/host_fold.py`
 (a host's findings in a peer's run, the ledger push tick), `ollama_steward/steward_review.py` (the review half of
 steward.py, moved for the cap); `studio/local_host_acts.py` (controls via the host, the job waiter) and
@@ -96,7 +96,7 @@ stop on a call, the stamp, the roster review), `local_refresh_cli.py` (`halo loc
 `tag-deleted`), `ollama_steward/dead_tag.py` (the one dead-tag line, `halo roles point`),
 `models_library/nearest.py` (the nearest equivalent); `models_library/advise.py`, `advise_rules.py` and
 `advise_lines.py` (the roster adviser), `local_advise_cli.py`; `agent/degrade_crash.py` (the ladder's crash
-trigger); `fleet/control_capture.py` (a hub's capture on a member's display), `providers/battery_vision_hf.py` and
+trigger); the fleet pack's `fleet/control_capture.py` (a hub's capture on a member's display), `providers/battery_vision_hf.py` and
 `models_probe_hf.py` (the vision probe on a Hugging Face local server); `studio/local_guard_api.py`,
 `studio/local_advise_api.py`, `studio/roles_point_api.py`; `ui/src/routes/local/HostGuards.tsx`,
 `StewardRefresh.tsx`, `Adviser.tsx`, `advstore.ts`.
@@ -119,7 +119,7 @@ host's `claim` / `release`, its invariants count them); `ollama_steward/chat.py`
 one model over llama.cpp RPC, known and told before anything runs. `local_pool/members.py` (`<state>/pool/pool.json`:
 the members, their checks, who answers for a member's card), `local_pool/link.py` (the adapter that carries a host's
 address: wired or Wi-Fi and its speed, per OS behind a runner seam; on the host card's `link` through
-`host/routes_view.py` and in `fleet/capabilities_host.py`), `local_pool/budget.py` (each member's free VRAM from its
+`host/routes_view.py` and in `peers/capabilities_host.py`), `local_pool/budget.py` (each member's free VRAM from its
 host card, the tensor split), `local_pool/catalog.py` (the pool's models, every estimate marked), `local_pool/fit.py`
 (single node / fits the pool / does not fit, every number said), `local_pool/recommend.py` (the ranking and the
 preview before any download), `local_pool/scan.py` (the RPC-port scan and the members' RTT), `local_pool/library.py`
@@ -174,11 +174,11 @@ routes behind a bundle panel's `api`: publish, attention, mode) and
 `files_changed` frame for the lineup, bio, config and layout files). 3.2.0.0 R4, Fleet
 capabilities: `packs/fleet_rules.py` (what `contributes.fleet` may say, with
 the manifest: names, requires, no path in a description, no secret or
-environment reference anywhere), `packs/fleet_registry.py` (each running
+environment reference anywhere), the fleet pack's `fleet/fleet_registry.py` (each running
 pack's capabilities, available here or not and why: the catalog's `packs`
 section; the worker's refusal line; a pack lineup's mission metadata) and
 `packs/contrib_views.py` (`halo pack inspect`'s contributes block, the doctor's
-fleet-capability rows), 3.4.0.0 B (draft, API 1.3): `packs/contrib_cli.py` (a pack's own `halo <verb>`), `packs/contrib_slash.py` (its `/<name>`), `packs/contrib_doctor.py` (its doctor rows), `packs/contrib_settings.py` (its Settings rows), `packs/contrib_lines.py` (their rules for the manifest) and `ext/core.py` (the core modules the shipped packs that left the core drive) and (3.2.1.0 R3) `packs/fleet_share.py` (an inspector
+fleet-capability rows), 3.4.0.0 B (draft, API 1.3): `packs/contrib_cli.py` (a pack's own `halo <verb>`), `packs/contrib_slash.py` (its `/<name>`), `packs/contrib_doctor.py` (its doctor rows), `packs/contrib_settings.py` (its Settings rows), `packs/contrib_lines.py` (their rules for the manifest) and `ext/core.py` (the core modules the shipped packs that left the core drive) and (3.2.1.0 R3) the fleet pack's `fleet/fleet_share.py` (an inspector
 line's text for the catalog, `fleet.capabilities.hide` for a pack capability,
 the pack refusal lines the hub re-plans on). 3.2.0.0 R5, workflows and artifacts (docs/WORKFLOWS.md):
 `packs/workflow_rules.py` and `packs/workflow_stages.py` (what a workflow file
@@ -285,9 +285,9 @@ and `isolation/Dockerfile` the worker image.
   side, the member that serves a host, the planner's `others_for`), `ollama_steward/ledger_tap.py` (every ledger line and
   server event published: a listener in Studio's process, else a POST to the Studio running for the home),
   `ollama_steward/ledger_bytes.py` (`bytes_in` / `bytes_out`), `providers/ollama_load.py` (Load / Unload: a generate with
-  no prompt and a keep-alive), `fleet/control_models.py` (`ollama_load` / `ollama_unload` from a hub, under
-  `fleet.allow_control`), `fleet/ollama_share_take.py` (the member's side of the push's answer, out of
-  `fleet/ollama_share.py`), `studio/local_api.py` (the `local/` routes), `studio/local_hosts_view.py` (every host as a
+  no prompt and a keep-alive), `peers/control_models.py` (`ollama_load` / `ollama_unload` from a hub, under
+  `fleet.allow_control`), `peers/ollama_share_take.py` (the member's side of the push's answer, out of
+  `peers/ollama_share.py`), `studio/local_api.py` (the `local/` routes), `studio/local_hosts_view.py` (every host as a
   card and its controls), `studio/local_models_view.py` (every model per host, its card, its meter, the intent scores),
   `studio/local_traffic.py` (the ledger as rows, the per-host minute buckets, the tap's `traffic` frames),
   `studio/local_warm.py` (3.3.5.0 R4: a model row's "warm" / "cold (~N s to load)" and "cache reused N %"),
@@ -309,8 +309,8 @@ and `isolation/Dockerfile` the worker image.
   catalog reader reads the made-up default host, and no control call leaves for anything but a loopback fake),
   `studio/local_pull_job.py` (one pull job per host and name, its `pull` frames, `current()`, the caches dropped after
   a success), `studio/local_control_api.py` (the `local/` pull / delete / show / copy / rename / twin / loaded / uses
-  routes), `studio/local_uses.py` (`uses_of`: what names a model), `fleet/control_models.py` (`ollama_pull`,
-  `ollama_delete`, `ollama_copy`, `ollama_twin` from a hub) with `fleet/control_pulls.py` (a member's jobs on its
+  routes), `studio/local_uses.py` (`uses_of`: what names a model), `peers/control_models.py` (`ollama_pull`,
+  `ollama_delete`, `ollama_copy`, `ollama_twin` from a hub) with `peers/control_pulls.py` (a member's jobs on its
   ledger push), `models_control_cli.py` (`halo models pull | rm | load | unload | copy | rename | twin | loaded`) and
   `ui/src/routes/local/` `jobs.ts`, `Pulls.tsx`, `LibraryPull.tsx`, `ctl.ts`, `ModelCards.tsx`, `LoadedNow.tsx`.
 - Hugging Face local, controlled (3.3.5.0 R5, docs/STUDIO-local.md "Hugging Face"): `providers/hf_download.py` (a repo or
@@ -330,7 +330,7 @@ and `isolation/Dockerfile` the worker image.
   verified), `agent/local_failure.py` + `ollama_steward/failure_lines.py` (the failure lines),
   `ollama_steward/probe_new.py` (the steward's job probes a new model), `studio/local_probe_job.py` +
   `studio/local_probe_api.py` (the probe jobs and routes), `studio/local_twin_verify.py` (raw tag vs twin, the verify
-  thread), `fleet/control_probes.py` (a member's profiles on its ledger push), `models_probe_cli.py`
+  thread), `peers/control_probes.py` (a member's profiles on its ledger push), `models_probe_cli.py`
   (`halo models probe`), `doctor_local_roles.py` and `ui/src/routes/local/` `probes.ts`, `ProbeBits.tsx`,
   `ui/src/routes/shared/ModelCardBlocks.tsx`.
 - The search (3.3.6.0 R2, docs/STUDIO-local.md "The search", docs/MODELS-cards.md "the three truths"):
@@ -351,7 +351,7 @@ and `isolation/Dockerfile` the worker image.
   block: `load-result` events, the load a crash died in, `crashes --why`), `ollama_steward/rules_crash.py` (a crash
   that repeats proposes the fix), `ollama_steward/cli_logs.py` (`halo ollama log`, `events`, `crashes`),
   `agent/ollama_log_recovery.py` (the log read after each call drives the recovery, the preflight's evidence),
-  `providers/fit_evidence.py` (the fit badge's evidence), `fleet/control_probes.py` `read_events` / `take_events` (a
+  `providers/fit_evidence.py` (the fit badge's evidence), `peers/control_probes.py` `read_events` / `take_events` (a
   member's server events on its ledger push), `studio/local_logs_api.py` (the Logs routes) and `ui/src/routes/local/`
   `LogsPage.tsx`, `LogTail.tsx`, `LogModelRows.tsx`, `logstore.ts`, `ui/src/routes/shared/FitEvidence.tsx`.
 - Measured cards and the dialect record (3.3.6.0 R4, docs/MODELS-cards.md "Measured", "The dialect record", "The KV

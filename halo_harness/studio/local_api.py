@@ -57,7 +57,7 @@ def get_hosts(req):
 def _remote(req, card: dict, act: str, fields: dict):
     """Through the fleet member that serves the host (fleet/control_models.py on its side); 3.3.7.0 R2: through the
     paired halo host that serves it (studio/local_host_acts.send: its typed vocabulary, no member session)."""
-    from halo_harness.fleet.identity import fleet_name
+    from halo_harness.peers.identity import fleet_name
     from halo_harness.studio.local_hosts_view import _member
     hub = _hub(req)
     c = card["controls"]

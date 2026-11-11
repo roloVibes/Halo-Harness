@@ -199,8 +199,8 @@ def test_the_job_starts_only_when_on_and_background_reads_are_on(ctx: Ctx):
 
 @test
 def test_a_note_raises_the_attention_row_and_travels_to_a_member(ctx: Ctx):
-    from halo_harness.fleet import attention
-    from halo_harness.fleet.steward_attention import latest_attention
+    from halo_harness.live import attention
+    from halo_harness.live.steward_attention import latest_attention
     from halo_harness.ollama_steward import notes
     from halo_harness.studio.fleet_answer import SET_ASIDE, open_target
     with Home() as h:

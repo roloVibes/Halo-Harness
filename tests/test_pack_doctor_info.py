@@ -16,6 +16,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on: its catalog makes these rows)
+_fleet_pack.on()
 
 from tests.helpers.packs_home import PacksHome  # noqa: E402
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
@@ -27,7 +29,7 @@ NOTE = ("doc-review: 1 fleet capability is hidden from the fleet by fleet.capabi
 
 
 def _hidden(h) -> None:
-    from halo_harness.fleet import identity
+    from halo_harness.peers import identity
     from halo_harness.theme import set_config_value
     h.catalog([TOOLS_ROW])
     h.install(h.source(), enable=True, grants=["bash", "hooks", "mcp:lint"])

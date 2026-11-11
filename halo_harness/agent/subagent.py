@@ -755,9 +755,9 @@ def _build_child_session_inner(*, runtime: AgentRuntime, spec: AgentSpec, agent_
         cwd=child_cwd, extra_dirs=child_extra_dirs,
         print_mode=parent.permission_engine.print_mode,
     )
-    # Halo 3.0.6.0 R7: a mission part's claim guard holds for its sub-agents too (fleet/mission_guard.py).
-    from halo_harness.fleet.mission_guard import inherit as _inherit_guards
-    _inherit_guards(parent.permission_engine, child_engine)
+    # Halo 3.0.6.0 R7: a guard marked `inherited` (a fleet mission part's claim guard) holds for its sub-agents too.
+    child_engine.guards.extend(g for g in getattr(parent.permission_engine, "guards", None) or []
+                               if getattr(g, "inherited", False) and g not in child_engine.guards)
 
     # Parity gap: `Session.plugin_roots` reads `cli_flags["resolved_
     # plugin_roots"]` -- a child's own `cli_flags` dict below used to

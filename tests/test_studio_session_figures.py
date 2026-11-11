@@ -64,7 +64,7 @@ class _Feed:
 
 
 def _row(sid: str) -> dict:
-    from halo_harness.fleet import local_view
+    from halo_harness.peers import local_view
     return next((r for r in local_view.snapshot().get("sessions") or [] if r.get("session_id") == sid), {})
 
 
@@ -82,7 +82,7 @@ def test_each_message_end_is_the_terminals_figure_and_the_studio_row_follows(ctx
     seen1: list = []
     seen2: list = []
     with FleetRig() as rig:
-        from halo_harness.fleet import local_view
+        from halo_harness.peers import local_view
         from halo_harness.remote import runtime
         from halo_harness.studio.events import EventBridge
         keep = local_view.CACHE_S
@@ -140,7 +140,7 @@ def test_each_message_end_is_the_terminals_figure_and_the_studio_row_follows(ctx
 
 @test
 def test_only_a_local_session_drops_the_snapshot_and_a_read_during_forget_is_not_cached(ctx: Ctx):
-    from halo_harness.fleet import local_view
+    from halo_harness.peers import local_view
     from halo_harness.studio.events import EventBridge
     bridge = EventBridge(list_live=lambda: [])
     real = local_view.sessions

@@ -22,8 +22,11 @@ def session_cmd(server, home, hid: str, sid: str, cmd: str, fields: dict, wait_s
 def member_cmd(server, home, hid: str, sid: str, cmd: str, fields: dict, wait_s: float = 5.0):
     hub = getattr(server, "fleet_hub", None)
     if hub is None:
-        from halo_harness.fleet.hub import running_call
-        got = running_call(home, "POST", "local/command", {"harness": hid, "session_id": sid, "cmd": cmd,
-                                                           "fields": fields, "wait_s": wait_s}, timeout=wait_s + 5.0)
+        from halo_harness.packs import fleet_door  # 3.4.0.0 C: a `halo fleet serve` here is the fleet pack's
+        got = fleet_door.call("fleet/hub.py", "running_call", home, "POST", "local/command",
+                              {"harness": hid, "session_id": sid, "cmd": cmd, "fields": fields, "wait_s": wait_s},
+                              timeout=wait_s + 5.0, state_dir=home)
+        if got is None and fleet_door.running(state_dir=home) is None:
+            return 409, {"error": f"{hid} is another harness: {fleet_door.line()}"}
         return got if got else (409, {"error": "no fleet hub runs here (`halo studio --fleet`, or `halo fleet serve`)"})
     return hub.state.commands.send(hid, sid, cmd, fields, by=by(hub.home), wait_s=wait_s)

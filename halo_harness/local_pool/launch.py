@@ -48,7 +48,7 @@ def addr() -> str:
     if isinstance(v, str) and v.strip():
         return v.strip()
     from halo_harness.host_rpc_cli import _addr
-    from halo_harness.fleet import identity
+    from halo_harness.peers import identity
     return _addr(identity.home())
 
 

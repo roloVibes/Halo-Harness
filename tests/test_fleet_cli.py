@@ -6,6 +6,8 @@ serve`, and terminal parity: the table rows, `/fleet` as text and the
 FleetTable dialog's keys (steer, stop asks first, pause).
 """
 from __future__ import annotations
+from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
+_fleet_pack.on()
 
 TIER = "full"  # a TUI pilot (Textual run_test): the full tier
 
@@ -74,7 +76,7 @@ def test_pair_join_members_status_kick_leave_from_the_command_line(ctx: Ctx):
         ctx.check("B's relay hears it", wait_for(lambda: getattr(rig.relay(), "state", None) == "kicked", 8))
         rc, out, err = cli(rig.root_b, "leave", "--json")
         ctx.check(f"`halo fleet leave` in B forgets the hub, got {rc} {out}", rc == 0 and len(_json(out).get("left") or []) == 1)
-        from halo_harness.fleet import store
+        from halo_harness.peers import store
         ctx.check("B's fleet.json lists no hub now and its key is gone", store.hubs() == []
                   and not any((Path(rig.root_b) / ".halo" / "fleet" / "keys").glob("*.key")))
         rc, out, err = cli(rig.root_b, "--once")
@@ -144,38 +146,11 @@ def test_table_rows_text_and_the_fleet_dialog(ctx: Ctx):
     table.send = lambda row, cmd, source, **kw: (sent.append((row["agent_id"], cmd, kw)) or (True, f"{cmd}: done"))
     table.snapshot = lambda: (_view(), "local")
     try:
-        from halo_harness.commands.builtins import _cmd_fleet
-        out = _cmd_fleet("", None)
+        from tests.helpers.fleet_pack import module
+        out = module("cli/slash_fleet.py").run("", None)  # 3.4.0.0 C: the fleet pack's /fleet (no TUI dialog now)
         ctx.check("`/fleet` as text is the same table", out.startswith("Fleet (this harness only):") and "reviewer" in out)
-
-        async def body():
-            from halo_harness.testing.fake_controller import FakeController
-            from halo_harness.tui.app import BridgeApp
-            from halo_harness.tui.dialogs.fleet_table import FleetTable
-            app = BridgeApp(FakeController(), cwd="~/project")
-            async with app.run_test(size=(140, 40)) as pilot:
-                app.push_screen(FleetTable(_view(), "local"))
-                await pilot.pause(0.3)
-                ol = app.screen.query_one("#fleet-rows")
-                ctx.check(f"the dialog lists the rows, got {ol.option_count}", ol.option_count == 3)
-                await pilot.press("down", "p")
-                await pilot.pause(0.3)
-                await pilot.press("k")
-                await pilot.pause(0.2)
-                ctx.check("one k only asks", not any(c == "stop" for _a, c, _k in sent))
-                await pilot.press("k")
-                await pilot.pause(0.3)
-                await pilot.press("s")
-                await pilot.pause(0.1)
-                await pilot.press(*"go", "enter")
-                await pilot.pause(0.4)
-                await pilot.press("escape")
-                await pilot.pause(0.1)
-                ctx.check("Esc closes it", type(app.screen).__name__ != "FleetTable")
-        asyncio.run(body())
-        ctx.check(f"p resumed the paused agent, k k stopped it, s steered it, got {sent}",
-                  ("c1", "resume", {}) in sent and any(a == "c1" and c == "stop" for a, c, _k in sent)
-                  and ("c1", "steer", {"text": "go"}) in sent)
+        ok, line = table.send({"agent_id": "c1"}, "resume", "local")
+        ctx.check(f"the table's send is the one `halo fleet` keys use, got {sent}", ok and ("c1", "resume", {}) in sent)
     finally:
         table.send, table.snapshot = real_send, real_snap
 

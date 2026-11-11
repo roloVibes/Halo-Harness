@@ -38,13 +38,14 @@ def _studio(pack) -> "dict | None":
 
 
 def _fleet(pack, granted, *, running: bool, cwd=None, state_dir=None) -> "dict | None":
-    from halo_harness.packs.fleet_registry import host_catalog, pack_entry
+    from halo_harness.packs import fleet_door  # 3.4.0.0 C: the catalog and its checks are the fleet pack's
     from halo_harness.packs.fleet_rules import fleet_of
-    from halo_harness.packs.fleet_share import hidden
-    if not fleet_of(pack.manifest):
+    reg = fleet_door.module("fleet/fleet_registry.py", cwd=cwd, state_dir=state_dir) if fleet_of(pack.manifest) else None
+    if reg is None:
         return None
+    pack_entry, hidden = reg.pack_entry, fleet_door.module("fleet/fleet_share.py", cwd=cwd, state_dir=state_dir).hidden
     try:
-        cat = host_catalog(state_dir, cwd)
+        cat = reg.host_catalog(state_dir, cwd)
     except Exception:  # an unreadable cache: every check reads as not met, never a crash
         cat = {}
     got = pack_entry(pack, granted, cat, running=running, cwd=cwd, state_dir=state_dir)
@@ -56,7 +57,7 @@ def _fleet(pack, granted, *, running: bool, cwd=None, state_dir=None) -> "dict |
 
 
 def _hide(state_dir) -> set:
-    from halo_harness.fleet.capabilities import config
+    from halo_harness.peers.catalog import config
     try:
         return config(state_dir)["hide"]
     except Exception:  # an unreadable config hides nothing here
@@ -131,7 +132,7 @@ def doctor_rows(pack, granted, *, cwd=None, state_dir=None) -> "list[dict]":
     out = []
     shut = [c["name"] for c in (fl or {}).get("capabilities") or [] if c.get("hidden")]
     if shut:  # 3.2.1.0 R3: how many fleet.capabilities.hide keeps off the catalog; 3.3.10.0 R3: on purpose, an info row
-        from halo_harness.fleet.identity import home
+        from halo_harness.peers.identity import home
         out.append({"severity": "info", "check": "fleet-hidden", "path": str(Path(state_dir or home()) / "config.json"),
                     "fix": "take it out of fleet.capabilities.hide to offer it to the fleet",
                     "text": f"{pack.id}: {len(shut)} fleet capabilit{'y is' if len(shut) == 1 else 'ies are'} hidden from "

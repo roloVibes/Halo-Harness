@@ -94,7 +94,7 @@ def _member_events(state_dir, host) -> Optional[dict]:
 
 
 def ladder(state_dir, host) -> dict:
-    from halo_harness.fleet.ollama_share import served_here
+    from halo_harness.peers.ollama_share import served_here
     if served_here(host.url):
         return {"rung": "local", "why": ""}
     from halo_harness.ollama_steward.host_client import _usable, for_host

@@ -17,6 +17,8 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
+_fleet_pack.on()
 
 from tests.helpers.fleet_hub_rig import HubRig, wait_for
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all
@@ -26,7 +28,7 @@ test, TESTS = new_registry()
 
 @test
 def test_a_wrong_code_is_refused_and_a_code_admits_one_harness(ctx: Ctx):
-    from halo_harness.fleet import identity, relay
+    from halo_harness.peers import identity, relay
     with HubRig() as rig:
         code = rig.hub.pairing.new_code(600)[0]
         wrong = " ".join(reversed(code.split()))
@@ -68,7 +70,7 @@ def _post(port: int, path: str, body: bytes, headers: dict):
 
 @test
 def test_replayed_stale_unsigned_and_forged_requests_are_refused(ctx: Ctx):
-    from halo_harness.fleet import protocol, store
+    from halo_harness.peers import protocol, store
     with HubRig(tls_on=False) as rig:
         entry = rig.join()
         key, port, path = store.key_for(entry), rig.hub.port, "/fleet/v1/announce"
@@ -99,7 +101,8 @@ def test_replayed_stale_unsigned_and_forged_requests_are_refused(ctx: Ctx):
 
 @test
 def test_kick_disconnects_b(ctx: Ctx):
-    from halo_harness.fleet import relay_runtime, store
+    from halo_harness.fleet import relay_runtime
+    from halo_harness.peers import store
     from halo_harness.fleet.cli_join import _ping
     with HubRig() as rig:
         rig.join()
@@ -141,9 +144,10 @@ def test_the_hub_down_never_slows_b(ctx: Ctx):
 @test
 def test_offline_mode_refuses_serve_and_stops_the_relay(ctx: Ctx):
     import os
-    from halo_harness.fleet import identity, relay
+    from halo_harness.peers import identity, relay
     from halo_harness.fleet.cli import cmd_serve
-    from halo_harness.fleet.hub import FleetOffline, HubServer
+    from halo_harness.peers.net import FleetOffline
+    from halo_harness.fleet.hub import HubServer
     with HubRig() as rig:
         rig.join()
         os.environ["HALO_OFFLINE"] = "1"

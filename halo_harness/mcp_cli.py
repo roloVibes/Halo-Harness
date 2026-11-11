@@ -1177,7 +1177,7 @@ def cmd_mcp(argv: list) -> int:
         rc = {"add": _cmd_add, "add-json": _cmd_add_json, "remove": _cmd_remove,
               "add-from-claude-desktop": _cmd_add_from_claude_desktop}[sub](rest)
         if rc == 0:
-            from halo_harness.fleet.capabilities import invalidate
+            from halo_harness.peers.catalog import invalidate
             invalidate()
         return rc
     if sub == "list":

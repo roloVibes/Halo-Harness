@@ -47,7 +47,7 @@ def test_nothing_of_the_team_file_is_left(ctx: Ctx):
             "halo_harness.studio.team_budget_api", "halo_harness.fleet.team_attention", "halo_harness.work.adapters.stage",
             "halo_harness.orchestra.coach_team_rules")
     ctx.check("every team-file module is gone", all(importlib.util.find_spec(m) is None for m in gone))
-    from halo_harness.fleet import attention
+    from halo_harness.live import attention
     from halo_harness.work import states, store
     ctx.check("no team_gate / team_budget attention kind", "team_gate" not in attention.KEYS and "team_budget" not in attention.KEYS)
     ctx.check("no stage unit kind, no team run kind", "stage" not in states.KINDS and "team" not in store.RUN_KINDS)

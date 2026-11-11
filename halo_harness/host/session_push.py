@@ -36,7 +36,7 @@ def wanted(state_dir, line: dict) -> bool:
 
 
 def _work(state_dir) -> None:
-    from halo_harness.fleet.ollama_share import FLUSH_S
+    from halo_harness.peers.ollama_share import FLUSH_S
     from halo_harness.host.ledger_push import push_all
     stop = threading.Event()
     try:

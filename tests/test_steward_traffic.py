@@ -68,7 +68,7 @@ def _line(**kw) -> dict:
 
 @test
 def test_the_rollup_per_host_and_model(ctx: Ctx):
-    from halo_harness.fleet import ollama_share
+    from halo_harness.peers import ollama_share
     from halo_harness.ollama_steward.traffic import format_rollups, rollup
     from halo_harness.providers.ollama import OllamaHost
     lines = [_line(prompt_eval_count=n) for n in (8000, 10000, 12000, 30000)]

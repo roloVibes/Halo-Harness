@@ -17,6 +17,7 @@ profile (no saved arrangement), at the driver's 1500 x 900 window.
 The last stdout line is a JSON object of what it saw (exit 2: no Chrome).
 The checks it reads live in tests/helpers/studio_ui_fleet_layout.py."""
 from __future__ import annotations
+import tests.helpers.fleet_pack  # noqa: F401,E402  (the fleet pack's modules under their old names)
 
 import os
 import sys
@@ -40,7 +41,7 @@ class OneAgentRig:
     def __init__(self) -> None:
         from halo_harness.config.paths import bridge_home
         from halo_harness.controller import Controller
-        from halo_harness.fleet import identity
+        from halo_harness.peers import identity
         from halo_harness.remote import runtime
         from halo_harness.studio.server import start_server
         from halo_harness.theme import set_config_value
@@ -89,7 +90,7 @@ class OneAgentRig:
         return url_for(self.server, "fleet").replace("#t=", f"&tour=off{extra}#t=")
 
     def close(self) -> None:
-        from halo_harness.fleet import identity
+        from halo_harness.peers import identity
         from halo_harness.remote import runtime
         try:
             runtime.stop()

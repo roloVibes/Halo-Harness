@@ -47,7 +47,7 @@ def test_the_status_says_via_host_and_a_host_wins_over_ssh(ctx: Ctx):
         from halo_harness.providers.ollama import resolve_ollama_host
         lad = ladder(rig.peer, resolve_ollama_host("pc"))
         ctx.check(f"with an ssh entry too, the host wins for reading, got {lad}", lad["rung"] == "host")
-        from halo_harness.fleet import store
+        from halo_harness.peers import store
         store.remove_host(store.hosts())
         ctx.check("unpaired again: ssh", ladder(rig.peer, resolve_ollama_host("pc"))["rung"] == "ssh")
 

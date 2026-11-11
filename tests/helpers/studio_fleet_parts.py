@@ -6,6 +6,7 @@ basket.py and spawned a reviewer sub-agent that handed back, with usage lines,
 so the replay, the recordings and the digest have a whole session to read.
 """
 from __future__ import annotations
+import tests.helpers.fleet_pack  # noqa: F401,E402  (the fleet pack's modules under their old names)
 
 import json
 import tempfile

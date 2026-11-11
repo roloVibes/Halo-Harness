@@ -17,6 +17,8 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
+_fleet_pack.on()
 
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
 from tests.helpers.steward_seed import Home  # noqa: E402
@@ -34,18 +36,18 @@ def _card(host: str = "box") -> dict:
 
 class _Addr:
     def __enter__(self):
-        from halo_harness.fleet import hub
+        from halo_harness.peers import net as hub  # 3.4.0.0 C: lan_address is core (peers/net.py)
         self.saved, hub.lan_address = hub.lan_address, lambda: ADDR
         return self
 
     def __exit__(self, *exc):
-        from halo_harness.fleet import hub
+        from halo_harness.peers import net as hub  # 3.4.0.0 C: lan_address is core (peers/net.py)
         hub.lan_address = self.saved
 
 
 @test
 def test_the_push_carries_speed_cards_and_dialect_records(ctx: Ctx):
-    from halo_harness.fleet import ollama_share_cards as SC
+    from halo_harness.peers import ollama_share_cards as SC
     from halo_harness.providers import dialect as D
     from halo_harness.providers.local_bench_runs import save
     with Home(hosts=(BOX,)) as member, _Addr():
@@ -78,8 +80,8 @@ def test_the_push_carries_speed_cards_and_dialect_records(ctx: Ctx):
 
 @test
 def test_the_fleets_fingerprints_come_back(ctx: Ctx):
-    from halo_harness.fleet import ollama_share_cards as SC
-    from halo_harness.fleet.ollama_share_take import take_reply
+    from halo_harness.peers import ollama_share_cards as SC
+    from halo_harness.peers.ollama_share_take import take_reply
     from halo_harness.ollama_steward import fingerprints as F
     fp = {"host": "pc", "model": MODEL, "signature": "CUDA IMA", "at": time.time() - 3600, "count": 2,
           "window_used": 65536, "kv_cache_type": "q8_0", "flash_attention": True, "spill": True}

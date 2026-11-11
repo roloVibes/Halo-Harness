@@ -131,7 +131,7 @@ class HostRig:
 
     @staticmethod
     def _reset() -> None:
-        from halo_harness.fleet import identity
+        from halo_harness.peers import identity
         from halo_harness.ollama_steward import host_client
         from halo_harness.studio import ollama_hosts_view as V
         identity.forget_cache()
@@ -139,7 +139,7 @@ class HostRig:
         V.reset_cache()
 
     def set_peer(self, **values) -> None:
-        from halo_harness.fleet import identity
+        from halo_harness.peers import identity
         from halo_harness.theme import set_config_value
         for k, v in values.items():
             set_config_value(k, v)
@@ -157,7 +157,7 @@ class HostRig:
     def pair(self, harness: "dict | None" = None) -> dict:
         """The six-word exchange; the entry lands in this process's fleet.json. With the host on this process's own
         home, a peer harness of another (scratch) home pairs instead (`self.peer_id` signs its requests)."""
-        from halo_harness.fleet import identity, store
+        from halo_harness.peers import identity, store
         from halo_harness.host.join import join
         if harness is None and self.root_h is None:
             self._other = tempfile.mkdtemp(prefix="hs_other-")
@@ -172,7 +172,7 @@ class HostRig:
         return entry
 
     def client(self):
-        from halo_harness.fleet import store
+        from halo_harness.peers import store
         from halo_harness.ollama_steward.host_client import HostClient, for_host
         if self.root_h is None:  # the peer is another home's harness: sign as it
             return HostClient(store.hosts()[-1], self.key, self.peer_id)
@@ -225,7 +225,7 @@ class HostRig:
                 os.environ.pop(k, None)
             else:
                 os.environ[k] = v
-        from halo_harness.fleet import identity
+        from halo_harness.peers import identity
         identity.forget_cache()
         for root in (self.root_p, self.root_h, getattr(self, "_other", None)):
             if root:

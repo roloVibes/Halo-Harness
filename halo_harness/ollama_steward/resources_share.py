@@ -71,7 +71,7 @@ def read_recent(state_dir, after: float = 0.0, *, lan: Optional[str] = None) -> 
             if isinstance(s, dict) and float(s.get("t") or 0) > after]
     if lan is None:
         try:
-            from halo_harness.fleet.hub import lan_address
+            from halo_harness.peers.net import lan_address
             lan = lan_address()
         except Exception:
             lan = "127.0.0.1"

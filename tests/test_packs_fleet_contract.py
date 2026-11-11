@@ -19,6 +19,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
+_fleet_pack.on()
 
 from tests.helpers.packs_home import DOC_REVIEW, FIXTURES, PacksHome, fixture  # noqa: E402
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
@@ -162,7 +164,7 @@ def test_a_hidden_capability_is_marked_counted_and_not_offered(ctx: Ctx):
     the catalog: inspect marks it, doctor counts it (a fleet-hidden row, no not-available row), the planner and
     the gathered catalog do not offer it."""
     from halo_harness.fleet import capabilities as caps
-    from halo_harness.fleet import identity
+    from halo_harness.peers import identity
     from halo_harness.fleet.mission_assign import has
     from halo_harness.fleet.mission_plan import pack_line
     from halo_harness.theme import set_config_value

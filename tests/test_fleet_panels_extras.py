@@ -11,6 +11,8 @@ ordered states of a finished session. Companion of tests/test_fleet_panels_api.p
 Run: python -m tests.test_fleet_panels_extras
 """
 from __future__ import annotations
+from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
+_fleet_pack.on()
 
 import http.client
 import json
@@ -51,7 +53,7 @@ def _raw(rig, path: str):
 
 @test
 def test_take_over_is_recorded_in_both_transcripts_and_reaches_a_member(ctx: Ctx):
-    from halo_harness.fleet import journal
+    from halo_harness.live import journal
     from tests.helpers.studio_fleet_rig import MEMBER, MEMBER_SID, StudioFleetRig
     with StudioFleetRig() as rig:
         b = rig.agent("Research")["agent_id"]
@@ -75,7 +77,7 @@ def test_take_over_is_recorded_in_both_transcripts_and_reaches_a_member(ctx: Ctx
 def _wait_listed(agent_id: str, timeout: float = 10.0) -> None:
     """The hand-off route reads the fleet local view (a cached snapshot), not the live socket tree the rig read: wait until
     that view lists the agent, or the slow runner answers 404 "no agent" (Windows shard 0, run 41578034998)."""
-    from halo_harness.fleet import local_view
+    from halo_harness.peers import local_view
     deadline = time.time() + timeout
     while time.time() < deadline and not any(a.get("agent_id") == agent_id for s in local_view.snapshot().get("sessions") or []
                                                 for a in s.get("agents") or []):
@@ -164,7 +166,7 @@ def test_the_replay_route_returns_the_ordered_states(ctx: Ctx):
 
 @test
 def test_halo_fleet_record_and_digest_from_the_command_line(ctx: Ctx):
-    from halo_harness.fleet import journal
+    from halo_harness.live import journal
     from tests.helpers.fleet_hub_rig import cli
     from tests.helpers.studio_fleet_parts import PAST_SID, seed_past
     root = Path(tempfile.mkdtemp(prefix="fleet-cli-"))

@@ -13,6 +13,8 @@ run exit code 1; `--json` writes the report in its documented shape.
 Run: python -m tests.test_live_fleet_check
 """
 from __future__ import annotations
+from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
+_fleet_pack.on()
 
 import importlib.util
 import sys
@@ -83,7 +85,7 @@ def test_every_step_passes_over_the_two_home_rig(ctx: Ctx):
 @test
 def test_a_refusing_member_fails_the_mission_step_and_the_exit_code(ctx: Ctx):
     from halo_harness.fleet import live_check as LC
-    from halo_harness.fleet import store
+    from halo_harness.peers import store
     from halo_harness.fleet.live_check_fakes import install
     from tests.helpers.fleet_hub_rig import HubRig
     with HubRig() as rig:

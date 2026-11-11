@@ -2,7 +2,7 @@
 3.0.5.0 "Fleet" round R4). One `Watcher` per Studio server (`watcher_for`),
 started lazily by the first Fleet panels route or when the hub starts in
 Studio, stopped by `server_close`. Every TICK_S it reads the fleet view
-(`fleet_hub_api.view_for`) and:
+(`fleet_view_api.view_for`) and:
 
 * keeps the ask frames (permission_request, question, plan_review,
   approval_request) per (harness, session, request id), so an attention row
@@ -29,7 +29,7 @@ import threading
 import time
 from pathlib import Path
 
-from halo_harness.fleet import attention, caps, conflicts, journal
+from halo_harness.live import attention, caps, conflicts, journal
 from halo_harness.studio import fleet_watch_sources as sources
 from halo_harness.studio import fleet_feed as feed
 from halo_harness.studio import fleet_send as send
@@ -235,7 +235,7 @@ class Watcher:
         self.pushed = {r["id"] for r in rows}
         if not new or self._first or not sources.push_ready(self.home):
             return
-        from halo_harness.fleet import push
+        from halo_harness.live import push
         push.spool(self.home, new, self.asks)
 
 

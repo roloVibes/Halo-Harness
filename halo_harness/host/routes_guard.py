@@ -10,7 +10,7 @@ Read-only: one /api/ps per served host for `idle`; nothing loads.
 
 from __future__ import annotations
 
-from halo_harness.fleet import protocol
+from halo_harness.peers import protocol
 
 ROUTES = ("residency", "idle", "refresh")
 

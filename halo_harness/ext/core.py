@@ -25,7 +25,30 @@ REACHABLE = (
     "orchestra.plan", "orchestra.report", "orchestra.run", "orchestra.view", "orchestra.workers", "orchestra_cli_plan",
     "packs.names", "roles", "studio.events", "studio.launch", "studio.model", "studio.orchestra_model",
     "studio.setup_door", "teams_tiers", "teams_yaml", "theme", "tui.dialogs.team_preview", "worktree",
+    # the fleet pack (3.4.0.0 C): the hub, missions and the relay over peers/ (the link) and live/ (the sessions)
+    "agent.agent_registry", "bg_run", "capabilities", "coach_cli", "commands.skills", "config.claude_json",
+    "events", "headless", "knowledge.store", "live.attention", "live.conflicts", "live.history", "live.journal",
+    "live.push", "live.recording", "mcp.connectors_bridge", "mcp.doctor_deep", "mcp.manager", "mcp.tools_cache",
+    "mcp_setup", "ollama_steward.job", "orchestra.coach_library_share", "orchestra.coach_record", "orchestra.gate",
+    "orchestra.gitops", "orchestra.hunks", "orchestra.jsonl", "orchestra.split", "orchestra.to_report", "output",
+    "packs.bio_models", "packs.discover", "packs.fleet_rules", "packs.policy_audit", "packs.registry",
+    "packs.state", "packs.studio_registry", "peers.capabilities_host", "peers.catalog", "peers.control_models",
+    "peers.hub_hosts", "peers.hub_join", "peers.identity", "peers.local_view", "peers.net", "peers.ollama_share",
+    "peers.pairing", "peers.protocol", "peers.relay", "peers.store", "peers.tls", "permissions", "privateio",
+    "providers.config", "providers.enablement", "providers.media_models", "providers.model_enumeration",
+    "providers.reachability", "recall_fleet", "redact", "remote.agent_control", "remote.base", "remote.cli_common",
+    "remote.fleet_frames", "remote.fleet_identity", "remote.protocol", "remote.qr", "remote.registry",
+    "remote.runtime", "studio.fleet_api", "studio.fleet_feed", "studio.fleet_handoff_api",
+    "studio.fleet_panels_api", "studio.fleet_recording_api", "studio.fleet_send", "studio.fleet_watch",
+    "studio.fleet_watch_sources", "studio.recall_api", "studio.sessions_api", "tools.screenshot",
+    "work.adapters.part", "work.report", "work.states",
 )
+
+
+def version() -> str:
+    """This Halo's version (`halo_harness.__version__`)."""
+    from halo_harness import __version__
+    return __version__
 
 
 def _check(name: str) -> str:
@@ -49,4 +72,4 @@ def get(name: str, attr: str):
     return module(f"{name}.{attr}")
 
 
-__all__ = ["REACHABLE", "module", "get"]
+__all__ = ["REACHABLE", "module", "get", "version"]

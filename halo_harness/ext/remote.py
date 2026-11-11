@@ -177,9 +177,9 @@ def logon_lines() -> "list[str]":
 
 def fleet_lines(limit: int = 8) -> "list[str]":
     """This harness's live sessions, the fleet's members and what waits on you (the Attention queue), as lines."""
-    from halo_harness.fleet import identity
-    from halo_harness.fleet.attention import build
-    from halo_harness.fleet.local_view import snapshot
+    from halo_harness.peers import identity
+    from halo_harness.live.attention import build
+    from halo_harness.peers.local_view import snapshot
     local = snapshot()
     rows = [r for r in local.get("sessions") or [] if isinstance(r, dict)]
     cost = local.get("cost_today")
@@ -189,7 +189,7 @@ def fleet_lines(limit: int = 8) -> "list[str]":
         tail = "/".join([p for p in str(r.get("cwd") or "").replace("\\", "/").split("/") if p][-2:])
         out.append(f"  {cards.one_line(r.get('title') or 'untitled', 40)} ({tail}) - {r.get('status') or '?'}")
     try:
-        from halo_harness.fleet.pairing import HubPairing
+        from halo_harness.peers.pairing import HubPairing
         members = [str(m.get("name") or m.get("id")) for m in HubPairing(identity.home()).members().values()]
     except Exception:
         members = []

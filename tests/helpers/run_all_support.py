@@ -209,10 +209,10 @@ def _call(module_name: str, fn_name: str) -> bool:
 STATE_CACHES = (
     ("halo_harness.config.paths", "_state_dir_memo", "bridge_home()'s first resolution per home()"),
     ("halo_harness.providers.databricks", "_DBX_ROUTE_CACHE", "routes-cache.json merged in memory from whichever state dir read it first"),
-    ("halo_harness.fleet.identity", "_cache", "config.json per path, one-second TTL"),
+    ("halo_harness.peers.identity", "_cache", "config.json per path, one-second TTL"),
     ("halo_harness.fleet.capabilities", "_loaded", "the capabilities catalog per path and mtime"),
     ("halo_harness.fleet.health", "_cache", "the health subset (disk of bridge_home(), providers), 60 s TTL"),
-    ("halo_harness.fleet.local_view", "_cache", "this home's registry sessions and their status"),
+    ("halo_harness.peers.local_view", "_cache", "this home's registry sessions and their status"),
     ("halo_harness.studio.sessions_api", "_cache", "the live sessions of this home's registry"),
 )
 STATE_RESETS = (

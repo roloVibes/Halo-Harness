@@ -14,6 +14,8 @@
 No model is called. Run: python -m tests.test_removed_org_flow
 """
 from __future__ import annotations
+from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
+_fleet_pack.on()
 
 import ast
 import contextlib
@@ -94,7 +96,9 @@ def test_no_org_command_no_flow_or_org_dispatch_and_no_section(ctx: Ctx):
 @test
 def test_no_flow_feed_kind_stage_kind_unit_kind_or_attention_kind(ctx: Ctx):
     from halo_harness import events
-    from halo_harness.fleet import attention, mission_stage_run, push
+    from halo_harness.live import attention
+    from halo_harness.fleet import mission_stage_run
+    from halo_harness.live import push
     from halo_harness.orchestra import coach
     from halo_harness.studio.feed_kinds import DEFAULT_KINDS
     from halo_harness.work import states, store

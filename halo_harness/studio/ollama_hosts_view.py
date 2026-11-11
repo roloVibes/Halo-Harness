@@ -197,7 +197,7 @@ def _marked(found: list, journal: list) -> list:
 
 
 def hosts_view(state_dir, *, now: Optional[float] = None) -> dict:
-    from halo_harness.fleet.ollama_share import served_here
+    from halo_harness.peers.ollama_share import served_here
     from halo_harness.ollama_steward import steward
     from halo_harness.ollama_steward.hardware import format_card
     from halo_harness.ollama_steward.ledger import parse_at, read_calls

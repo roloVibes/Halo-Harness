@@ -1,7 +1,7 @@
 """halo_harness.studio.fleet_handoff_api -- an agent's hand-off from Studio's
 Fleet section (Halo 3.0.5.0 "Fleet" round R4, D4; 3.1.0.0 R2 renamed it
 from fleet_extras_api.py and moved the recordings and the replay to
-fleet_recording_api.py), appended to studio/fleet_hub_api.py's ROUTES; the
+fleet_recording_api.py), answered through studio/fleet_view_api.py; the
 same loopback + token guard.
 
     POST fleet/<h>/<sid>/agents/<aid>/handoff {mode: take_over | hand_to, brief?, to?}
@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from halo_harness.fleet import journal
+from halo_harness.live import journal
 from halo_harness.studio import fleet_watch_sources as sources
 from halo_harness.studio import fleet_send as send
 
@@ -44,8 +44,8 @@ def _tail(req, h: dict, sid: str, aid: str) -> list:
 
 
 def post_handoff(req):
-    from halo_harness.fleet import handoff
-    from halo_harness.fleet.history import edited_files
+    from halo_harness.live import handoff
+    from halo_harness.live.history import edited_files
     hid, sid, aid = req.params["hid"], req.params["sid"], req.params["aid"]
     body = req.body if isinstance(req.body, dict) else {}
     mode, text = str(body.get("mode") or ""), str(body.get("brief") or "").strip()
@@ -99,7 +99,7 @@ def post_handoff(req):
 def _hand_over(req, h: dict, sid: str, aid: str, agent: dict, machine: str, md: str) -> None:
     """3.3.16.2: the hand-over as a talk in Live (fleet/talk.py), the brief addressed to the machine."""
     try:
-        from halo_harness.fleet.talk import hand_over_frame
+        from halo_harness.live.talk import hand_over_frame
         from halo_harness.studio.events import bridge_for
         bridge_for(req.server).publish(hand_over_frame(harness=str(h.get("id")), session_id=sid, aid=aid, machine=machine,
                                                        name=str(agent.get("name") or aid), text=md))

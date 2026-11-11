@@ -6,6 +6,7 @@ catalog (rows as coach_prices.catalog returns them) and the bios the rules
 name. No run engine, no model call.
 """
 from __future__ import annotations
+import tests.helpers.fleet_pack  # noqa: F401,E402  (the fleet pack's modules under their old names)
 
 import json
 from pathlib import Path

@@ -21,6 +21,8 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
+_fleet_pack.on()
 
 from tests.helpers.fleet_hub_rig import HubRig, wait_for  # noqa: E402
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
@@ -44,13 +46,13 @@ def _hub_lines(rig) -> list:
 
 class _Fast:
     def __enter__(self):
-        from halo_harness.fleet import ollama_share
+        from halo_harness.peers import ollama_share
         self._saved = (ollama_share.FLUSH_S, ollama_share.CHECK_S)
         ollama_share.FLUSH_S, ollama_share.CHECK_S = 0.2, 0.05
         return self
 
     def __exit__(self, *exc):
-        from halo_harness.fleet import ollama_share
+        from halo_harness.peers import ollama_share
         ollama_share.FLUSH_S, ollama_share.CHECK_S = self._saved
 
 
@@ -118,7 +120,7 @@ def test_the_scope_off_sends_none_and_true_sends_the_own_server_too(ctx: Ctx):
 
 @test
 def test_the_hub_keeps_two_members_lines_beside_its_own(ctx: Ctx):
-    from halo_harness.fleet.ollama_share import accept, served_here, wanted
+    from halo_harness.peers.ollama_share import accept, served_here, wanted
     from halo_harness.ollama_steward import ledger
     home = Path(tempfile.mkdtemp(prefix="l2_hub-")) / ".halo"
     ledger.append_lines(home, [ledger.blank_line(host=REMOTE, model="m", **{"from": None})])
@@ -149,7 +151,7 @@ class _Link:
 
 @test
 def test_the_cursor_survives_a_rotation_and_never_sends_twice(ctx: Ctx):
-    from halo_harness.fleet import ollama_share
+    from halo_harness.peers import ollama_share
     from halo_harness.ollama_steward import ledger
     home = Path(tempfile.mkdtemp(prefix="l2_fwd-")) / ".halo"
     fwd = ollama_share.Forwarder({"hub_id": "hub-1"}, home=home)

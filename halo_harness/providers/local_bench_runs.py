@@ -213,7 +213,7 @@ def _on_host(ref, host_name: str) -> bool:
 
 
 def _sessions() -> list:
-    from halo_harness.fleet.local_view import sessions
+    from halo_harness.peers.local_view import sessions
     return sessions()
 
 

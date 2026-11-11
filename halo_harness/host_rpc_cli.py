@@ -20,7 +20,7 @@ def _addr(home) -> str:
     """The address this machine's halo host serves on (its serve.json url), else its bind, else the LAN address of
     the default route's interface (127.0.0.1 under the test flag: a test never reads this machine's own address)."""
     from halo_harness.config.paths import background_net_disabled
-    from halo_harness.fleet.hub import lan_address
+    from halo_harness.peers.net import lan_address
     from halo_harness.host import state as S
     from halo_harness.ollama_steward.host_client import _addr_port
     lan = (lambda: "127.0.0.1") if background_net_disabled() else lan_address
@@ -41,7 +41,7 @@ def cmd_rpc(argv: list) -> int:
     a, rc = C.parse(p, argv)
     if a is None:
         return rc
-    from halo_harness.fleet import identity
+    from halo_harness.peers import identity
     from halo_harness.host import ops_rpc as R
     home = identity.home()
     if a.to == "status":

@@ -1275,6 +1275,14 @@ core in 3.4.0.0 (first-run, coach) use to reach the Orchestra engine, the lineup
 `core.REACHABLE` (any other raises ValueError naming the rule). These are Halo's own modules as they are in the Halo
 the pack ships with: they follow Halo's version, not the extension API's, so a third-party pack does not build on them.
 
+3.4.0.0 C adds the fleet pack's names (the hub, missions and the relay drive `peers.*` -- identity, the signed wire,
+pairing, TLS, the relay client, Ollama on the network --, `live.*` -- attention, caps, the journal, recording --, the
+session's sockets under `remote.*`, Studio's fleet route modules and the Orchestra helpers a mission part uses) and
+`core.version()`, this Halo's version. The other way, the core reaches the fleet pack only through
+`halo_harness/packs/fleet_door.py` (`module(rel)` / `call(rel, attr, ...)`: the pack's module while it runs here, else
+None), so with the pack off every core path goes on as on a machine that never joined a fleet. No manifest key is
+new, so the API version is unchanged by it.
+
 ## Compatibility and migration
 
 Status: **stable** (3.2.0.0 R7). The policy, as `halo_harness/ext/compat.py`

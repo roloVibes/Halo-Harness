@@ -22,7 +22,7 @@ def client(member: dict, home=None):
     how = resolve(member, home)
     if how["kind"] != "paired":
         return None, how["kind"], ""
-    from halo_harness.fleet import identity, store
+    from halo_harness.peers import identity, store
     from halo_harness.ollama_steward.host_client import HostClient
     key = store.key_for(how["entry"], home)
     if key is None:

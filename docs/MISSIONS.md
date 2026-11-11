@@ -2,6 +2,8 @@
 
 Read this when you give one goal to the whole fleet and want to follow its parts.
 
+> **The fleet pack (3.4.0.0).** The fleet left Halo's core for the shipped `fleet` pack: `halo pack install fleet`, then `halo pack enable fleet --grant-all` (a halo that had a fleet gets it on its first run after the update). With it off, `halo fleet`, `halo mission`, `/fleet`, `/mission` and `halo studio --fleet` say so in one line and Studio shows no Fleet door. Another machine's models (`halo host serve`, the pool, Local -> Hosts) and this machine's own sessions live are the core's and work without it.
+
 Halo 3.0.6.0 "Fleet Missions". A mission is one goal done by the whole fleet:
 the hub's lead splits it into parts, gives each part to the harness best placed
 for it (by what each harness can do, see

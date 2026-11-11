@@ -50,7 +50,7 @@ def os_of(host, card: Optional[dict]) -> Optional[str]:
     raw = str((card or {}).get("os") or "").lower()
     if not raw:
         try:
-            from halo_harness.fleet.ollama_share import served_here
+            from halo_harness.peers.ollama_share import served_here
             raw = sys.platform if served_here(getattr(host, "url", "")) else ""
         except Exception:
             raw = ""

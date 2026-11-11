@@ -172,7 +172,7 @@ class WorkflowsDriver(Driver):
     def session(self, c):
         from capture_studio import serve
         from halo_harness.config.paths import bridge_home
-        from halo_harness.fleet import local_view
+        from halo_harness.peers import local_view
         from halo_harness.studio.server import url_for
         from halo_harness.theme import set_config_value
         state = bridge_home()

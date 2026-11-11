@@ -42,7 +42,7 @@ def _asks(kind: str) -> dict:
 
 @test
 def test_a_parked_ask_with_no_page_says_waiting_on_you_in_studio(ctx: Ctx):
-    from halo_harness.fleet import attention
+    from halo_harness.live import attention
     rows = [r for r in attention.build(_view("headless"), asks=_asks("headless"), now=NOW, pages=0) if r["kind"] == "permission"]
     ctx.check(f"one permission row, got {rows}", len(rows) == 1)
     r = rows[0] if rows else {}
@@ -55,7 +55,7 @@ def test_a_parked_ask_with_no_page_says_waiting_on_you_in_studio(ctx: Ctx):
 
 @test
 def test_with_a_page_open_and_for_a_tui_session(ctx: Ctx):
-    from halo_harness.fleet import attention
+    from halo_harness.live import attention
     open_ = [r for r in attention.build(_view("headless"), asks=_asks("headless"), now=NOW, pages=1) if r["kind"] == "permission"]
     ctx.check(f"a page open: parked, the card's own line, got {open_}",
               len(open_) == 1 and open_[0].get("parked") is True and "waiting on you in Studio" not in open_[0]["what"])
@@ -66,7 +66,7 @@ def test_with_a_page_open_and_for_a_tui_session(ctx: Ctx):
 
 @test
 def test_the_fleet_row_carries_the_parked_asks(ctx: Ctx):
-    from halo_harness.fleet.local_view import session_row
+    from halo_harness.peers.local_view import session_row
     entry = {"session_id": "s1", "cwd": "/w", "kind": "headless", "pid": 1, "started": NOW}
     parked = [{"id": "perm-1", "kind": "permission", "since": NOW}]
     row = session_row(entry, {"pending": {"permission": ["perm-1"]}, "parked": parked, "busy": True}, [])

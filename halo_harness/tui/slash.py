@@ -133,8 +133,6 @@ async def handle_slash(app, name: str, args: str) -> None:
         # Halo 2.0.9 round 4 (3.3.13.0 R3): /remote prints the control socket's
         # status; the Signal bridge is the signal pack (see tui/slash_remote.py).
         "remote": _handle_remote,
-        # Halo 3.0.5.0 R2: bare /fleet opens the fleet table dialog (tui/slash_fleet.py).
-        "fleet": _handle_fleet,
         # Halo 2.0.10: /review -- parallel dimension reviewers on a worker
         # thread, finding cards in the transcript (see tui/slash_review.py).
         "review": _handle_review,
@@ -1076,11 +1074,6 @@ async def _handle_voice(app, args: str) -> None:
     await handle_voice(app, args)
 
 
-async def _handle_fleet(app, args: str) -> None:
-    from halo_harness.tui.slash_fleet import handle_fleet
-    await handle_fleet(app, args)
-
-
 async def _handle_ollama(app, args: str) -> None:
     """3.3.4.0 R5: `/ollama hosts ...` opens the per-host dialog (2.0.3 round 3); every other `/ollama` prints
     the steward's view in the transcript (commands/ollama_slash.py), off the UI thread (a card read)."""
@@ -1397,9 +1390,13 @@ async def _handle_recall(app, args: str) -> None:
             kind="command")
         return
     if query == "--fleet" or query.startswith("--fleet "):  # 3.1.2.0 R3: every online harness's own index
-        from halo_harness.recall_fleet import fleet_text
+        from halo_harness.packs import fleet_door  # 3.4.0.0 C: the fleet pack's
         rest = query[len("--fleet"):]
-        app.run_worker(lambda: app.call_from_thread(app.transcript.add_note, fleet_text(rest), kind="command"),
+
+        def _fleet_text() -> str:
+            got = fleet_door.call("fleet/recall_fleet.py", "fleet_text", rest)
+            return got if got is not None else f"/recall --fleet: {fleet_door.line()}"
+        app.run_worker(lambda: app.call_from_thread(app.transcript.add_note, _fleet_text(), kind="command"),
                        thread=True, name="recall", group="recall")
         return
     session = getattr(app.controller, "session", None)

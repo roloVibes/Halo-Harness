@@ -16,6 +16,8 @@ sessions are fakes; git is real).
 Run: python -m tests.test_fleet_mission_merge
 """
 from __future__ import annotations
+from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
+_fleet_pack.on()
 
 import json
 import sys
@@ -60,7 +62,7 @@ def test_repo_parts_run_in_sequence_each_from_the_earlier_head_and_merge_in_orde
     from halo_harness.fleet import mission_api as A
     from halo_harness.fleet import mission_store as S
     from halo_harness.fleet import mission_worker as W
-    from halo_harness.fleet.identity import harness
+    from halo_harness.peers.identity import harness
     from halo_harness.orchestra.gitops import merges_on, show
     from tests.helpers.fleet_caps_seed import seed
     from tests.helpers.mission_seed import FakeJudge, FakeLead, reset_fakes, wait_state, windows_host, worker

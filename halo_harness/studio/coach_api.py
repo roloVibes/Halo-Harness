@@ -54,7 +54,10 @@ def _orchestra_dir(req, ref):
 
 
 def _mission_dir(req, ref):
-    from halo_harness.fleet import mission_store as S
+    from halo_harness.packs import fleet_door  # 3.4.0.0 C: missions are the fleet pack's (none when it is off)
+    S = fleet_door.module("fleet/mission_store.py", cwd=req.cwd, state_dir=req.state_dir)
+    if S is None:
+        return None
     folder = S.folder(req.state_dir, ref)
     return folder if (folder / "mission.json").is_file() else None
 

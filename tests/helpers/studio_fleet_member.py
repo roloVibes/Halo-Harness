@@ -10,6 +10,7 @@ frames, and `status` / `doctor` / `answer` / `note` get answers too. 3.0.6.0 R6:
 and `seed_caps` gives the hub's own harness one and re-announces the member
 with its catalog's summary and hash, so the hub asks for it once."""
 from __future__ import annotations
+import tests.helpers.fleet_pack  # noqa: F401,E402  (the fleet pack's modules under their old names)
 
 import time
 

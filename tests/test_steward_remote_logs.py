@@ -97,7 +97,7 @@ def test_a_windows_host_and_a_linux_journal(ctx: Ctx):
 
 @test
 def test_the_ladder_three_rungs(ctx: Ctx):
-    from halo_harness.fleet.control_probes import take_events
+    from halo_harness.peers.control_probes import take_events
     from halo_harness.ollama_steward.log_status import ladder, status
     with LogsHome(hosts=[PC, MAC, {"name": "far", "url": "http://192.0.2.40:11434"}]) as h:
         h.remote("pc")

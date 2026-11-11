@@ -74,7 +74,7 @@ export async function load(): Promise<void> {
     const got = Array.isArray(v.harnesses) ? v.harnesses.map((h) => ({ ...h, sessions: h.sessions || [] })) : [];
     fleet.update((s) => {
       const harnesses = keepFresh(s.harnesses, got, asked);
-      return { harnesses, hub: v.hub || null, loaded: true, error: "", doneAt: { ...s.doneAt, ...finished(s.harnesses, harnesses) } };
+      return { harnesses, hub: v.hub || null, pack: v.fleet_pack === true, loaded: true, error: "", doneAt: { ...s.doneAt, ...finished(s.harnesses, harnesses) } };
     });
   } catch (e) {
     if (mine < landed) return;

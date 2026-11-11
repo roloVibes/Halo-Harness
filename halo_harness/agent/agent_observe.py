@@ -22,7 +22,7 @@ becomes `thinking_chunk` frames (fleet/think.py `ThinkFeed`), one id per thought
 from __future__ import annotations
 
 from halo_harness.agent.agent_transcript import LiveText, first_line, tool_label
-from halo_harness.fleet.think import ThinkFeed
+from halo_harness.live.think import ThinkFeed
 
 LAST_TEXT = 200
 END_STATE = {"end_turn": "done", "max_tokens": "done", "interrupted": "stopped", "error": "failed",

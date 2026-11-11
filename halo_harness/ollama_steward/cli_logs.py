@@ -28,7 +28,7 @@ def _state_dir():
 
 
 def _host(name: str, prog: str):
-    from halo_harness.fleet.ollama_share import served_here
+    from halo_harness.peers.ollama_share import served_here
     from halo_harness.providers.ollama import resolve_ollama_hosts
     hosts = resolve_ollama_hosts()
     named = [h for h in hosts if not name or h.name.lower() == name.lower()]

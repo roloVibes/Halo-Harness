@@ -174,7 +174,7 @@ def resolve(member: dict, home=None) -> dict:
     if _is_local(host):
         return {"kind": "local", "addr": "127.0.0.1", "entry": None}
     try:
-        from halo_harness.fleet import store
+        from halo_harness.peers import store
         hit = [e for e in store.hosts(home) if str(e.get("name") or "").lower() == host.lower()
                and e.get("state", "joined") == "joined"]
     except Exception:

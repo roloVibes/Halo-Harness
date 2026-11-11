@@ -36,7 +36,7 @@ LABEL = "measured over the LAN from mac: includes the link (RTT 1.8 ms, wired)"
 
 @test
 def test_the_label_the_link_and_the_pick(ctx: Ctx):
-    from halo_harness.fleet import ollama_share as S
+    from halo_harness.peers import ollama_share as S
     from halo_harness.providers import local_bench_link as L
     from halo_harness.providers.ollama import OllamaHost
     far = OllamaHost(name="lan", url="http://192.0.2.10:11434")

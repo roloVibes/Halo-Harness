@@ -139,7 +139,7 @@ def test_sources_add_and_remove(ctx: Ctx):
         code, out, _err = s.cli("sources")
         lines = out.splitlines()
         ctx.check(f"halo pack sources lists them in that order, got {lines}", code == 0 and lines[0].startswith("packs.sources, searched in this order")
-                  and lines[1].endswith("(folder): studio-bundle 0.1.0") and lines[2].endswith("(shipped): concord 1.0.0, design 1.0.0, doc-review 1.0.0, first-run 1.0.0, signal 1.0.0"))  # 3.3.13.0: + signal (R3), design (R2); 3.4.0.0 B: first-run
+                  and lines[1].endswith("(folder): studio-bundle 0.1.0") and lines[2].endswith("(shipped): concord 1.0.0, design 1.0.0, doc-review 1.0.0, first-run 1.0.0, fleet 1.0.0, signal 1.0.0"))  # 3.3.13.0: + signal (R3), design (R2); 3.4.0.0 B: first-run, C: fleet
         status, body, _ = s.call("POST", "pack/install", {"id": "studio-bundle"})
         ctx.check(f"installed by id from the source, got {status}", status == 201 and body["source"] == str(folder / "studio-bundle"))
         gone = str(s.home / "gone")

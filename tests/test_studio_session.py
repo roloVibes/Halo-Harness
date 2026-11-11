@@ -28,6 +28,8 @@ tests/test_studio_cli_session.py.
 Run: python -m tests.test_studio_session
 """
 from __future__ import annotations
+from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
+_fleet_pack.on()
 
 TIER = "full"  # headless Chrome: the full tier
 

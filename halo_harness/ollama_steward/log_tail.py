@@ -77,7 +77,7 @@ def remote_tail(host, n: int = 200, *, runner: Optional[Callable] = None, timeou
 def tail_lines(host, n: int = 200, *, runner: Optional[Callable] = None, ssh_runner: Optional[Callable] = None,
                platform: Optional[str] = None) -> "tuple[list, str, Optional[str]]":
     """(the newest `n` lines, where they were read, why nothing was read) for any configured host."""
-    from halo_harness.fleet.ollama_share import served_here
+    from halo_harness.peers.ollama_share import served_here
     from halo_harness.ollama_steward.hardware_readers import server_log_path
     if host is not None and not served_here(host.url):
         if ssh_runner is None:  # 3.3.7.0 R1: a paired halo host serves the tail before ssh (prompt sizes, no bodies)
@@ -120,7 +120,7 @@ def scan_remote(state_dir, host, *, runner: Optional[Callable] = None, from_star
 
 def tail_remote_hosts(state_dir, now: Optional[float] = None, *, hosts=None) -> list:
     """Every configured host with `ssh:` that this machine does not serve, read at most every REMOTE_S."""
-    from halo_harness.fleet.ollama_share import served_here
+    from halo_harness.peers.ollama_share import served_here
     now = time.time() if now is None else now
     if hosts is None:
         from halo_harness.providers.ollama import resolve_ollama_hosts

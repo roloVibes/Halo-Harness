@@ -25,7 +25,7 @@ class PromptRig:
         self._saved = {k: os.environ.get(k) for k in _VARS}
         for k in _VARS:
             os.environ.pop(k, None)
-        from halo_harness.fleet import identity
+        from halo_harness.peers import identity
         from halo_harness.providers.config import default_state_dir
         from halo_harness.theme import set_config_value
         self.state = Path(default_state_dir())

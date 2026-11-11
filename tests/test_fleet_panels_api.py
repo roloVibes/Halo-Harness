@@ -10,6 +10,8 @@ the replay and the CLI verbs: tests/test_fleet_panels_extras.py.
 Run: python -m tests.test_fleet_panels_api
 """
 from __future__ import annotations
+from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
+_fleet_pack.on()
 
 import json
 import sys
@@ -36,7 +38,7 @@ def _kinds(rows: list) -> list:
 
 @test
 def test_attention_builds_one_queue_from_every_source(ctx: Ctx):
-    from halo_harness.fleet import attention
+    from halo_harness.live import attention
     view = {"harnesses": [
         {"id": "L", "name": "me", "local": True, "sessions": [
             {"session_id": "s1", "title": "one", "pending": {"permission": ["p1"], "question": ["fleet-ask:c1", "q1"],
@@ -77,7 +79,7 @@ def test_the_stewards_note_is_a_row_that_sets_aside_and_opens_ollama(ctx: Ctx):
     `a` sets it aside (journal kind ack, as orchestra_gate), `o` opens the Ollama panel."""
     import tempfile
     from types import SimpleNamespace
-    from halo_harness.fleet import attention
+    from halo_harness.live import attention
     from halo_harness.ollama_steward import notes
     from halo_harness.studio.fleet_answer import act
     home = Path(tempfile.mkdtemp(prefix="r4_attention-"))
@@ -118,7 +120,7 @@ def _seed_gates(rig) -> Path:
 
 @test
 def test_the_queue_over_the_rig_and_answers_reach_their_handlers(ctx: Ctx):
-    from halo_harness.fleet import journal
+    from halo_harness.live import journal
     from halo_harness.fleet.hub_commands import Pending
     from tests.helpers.studio_fleet_member import APPROVAL_ID, REVIEWER
     from tests.helpers.studio_fleet_rig import MEMBER, MEMBER_SID, StudioFleetRig
@@ -175,7 +177,7 @@ def test_the_queue_over_the_rig_and_answers_reach_their_handlers(ctx: Ctx):
 
 @test
 def test_a_cap_pauses_raises_a_row_and_lifting_it_resumes(ctx: Ctx):
-    from halo_harness.fleet import journal
+    from halo_harness.live import journal
     from tests.helpers.studio_fleet_rig import MEMBER, MEMBER_SID, StudioFleetRig
     with StudioFleetRig() as rig:
         status, got = rig.api("POST", "fleet/caps", {"per_harness_usd_per_day": 0.05, "fleet_usd_per_day": 0})

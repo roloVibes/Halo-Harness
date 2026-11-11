@@ -650,8 +650,8 @@ def test_invariant_i_the_round_surface_parity(ctx: Ctx):
     ctx.check("round-surface parity: " + "; ".join(problems), not problems)
 
 
-_MAP_PACKAGES = ("studio", "fleet", "orchestra", "supervise", "packs", "ext", "outcomes", "workflows", "isolation", "knowledge", "ollama_steward", "host", "local_sched", "local_pool", "voice", "engines")  # engines: 3.3.13.0 R1 (the 3.3.9.1-3.3.9.3 runtimes folded); voice: 3.3.9.0 R1; local_pool: 3.3.8.0 R1; local_sched: 3.3.7.0 R3; host: 3.3.7.0 R1; ollama_steward: 3.3.4.0 R1; supervise: 3.1.8.0 R1; packs, ext: 3.2.0.0 R1; outcomes: 3.1.8.0 R3; workflows: 3.2.0.0 R5; knowledge: 3.1.8.0 R4
-_MAP_NAME = r"`((?:studio|fleet|orchestra|team|supervise|packs|ext|outcomes|workflows|isolation|knowledge|ollama_steward|host|local_sched|local_pool|voice|engines)/[a-z0-9_]+\.py|orchestra_cli[a-z_]*\.py|coach_cli\.py)`"  # isolation: 3.1.8.0 R5
+_MAP_PACKAGES = ("studio", "peers", "live", "orchestra", "supervise", "packs", "ext", "outcomes", "workflows", "isolation", "knowledge", "ollama_steward", "host", "local_sched", "local_pool", "voice", "engines")  # engines: 3.3.13.0 R1 (the 3.3.9.1-3.3.9.3 runtimes folded); voice: 3.3.9.0 R1; local_pool: 3.3.8.0 R1; local_sched: 3.3.7.0 R3; host: 3.3.7.0 R1; ollama_steward: 3.3.4.0 R1; supervise: 3.1.8.0 R1; packs, ext: 3.2.0.0 R1; outcomes: 3.1.8.0 R3; workflows: 3.2.0.0 R5; knowledge: 3.1.8.0 R4
+_MAP_NAME = r"`((?:studio|peers|live|orchestra|team|supervise|packs|ext|outcomes|workflows|isolation|knowledge|ollama_steward|host|local_sched|local_pool|voice|engines)/[a-z0-9_]+\.py|orchestra_cli[a-z_]*\.py|coach_cli\.py)`"  # isolation: 3.1.8.0 R5; 3.4.0.0 C: fleet/ -> peers/ + live/ (the rest is the fleet pack's)
 
 
 @test
@@ -659,7 +659,7 @@ def test_invariant_j_no_module_is_named_by_its_line_count(ctx: Ctx):
     """3.1.0.0 R2: a module is named for its one responsibility, never for
     being the overflow of another (`*_more.py`, `*2.py`, `*_extra*.py`,
     `*_rest.py`); and docs/ARCHITECTURE.md's "Module map" lists exactly the
-    modules of studio/, fleet/, orchestra/, packs/ and ext/ (3.4.0.0 B: team/ left) (plus the Orchestra CLI
+    modules of studio/, peers/, live/, orchestra/, packs/ and ext/ (3.4.0.0 B: team/ left; C: fleet/ left) (plus the Orchestra CLI
     beside them), so a rename or a split updates it."""
     import re
     pkg = REPO_DIR / "halo_harness"

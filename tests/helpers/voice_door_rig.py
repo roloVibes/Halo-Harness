@@ -57,7 +57,7 @@ class DoorRig:
 
     def start_session(self) -> None:
         from halo_harness.controller import Controller
-        from halo_harness.fleet import identity
+        from halo_harness.peers import identity
         from halo_harness.remote.control_socket import ControlServer
         from halo_harness.remote.handle import ControllerHandle
         from tests.helpers.mock_openai import SCENARIOS, MockUpstream

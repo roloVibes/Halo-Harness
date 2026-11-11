@@ -80,7 +80,7 @@ def _local_jobs(ports: tuple, env, test_mode: bool) -> list:
         for addr in ("127.0.0.1", "::1"):
             jobs.append((_confirm, (_url(addr, p), "loopback", _ported("local", p))))
     if not test_mode:
-        from halo_harness.fleet.hub import lan_address
+        from halo_harness.peers.net import lan_address
         own = lan_address()
         if own and not own.startswith("127."):
             me = net.safe_name(socket.gethostname()) or "this-machine"
@@ -92,7 +92,7 @@ def _local_jobs(ports: tuple, env, test_mode: bool) -> list:
 
 def _lan_rows(ports: tuple, budget_s: float, subnets, own_subnet: bool, notes: list, on_progress) -> "list[Found]":
     start = time.monotonic()
-    from halo_harness.fleet.hub import lan_address
+    from halo_harness.peers.net import lan_address
     networks, more = net.sweep_networks(lan_address() if own_subnet else None, subnets, own_subnet=own_subnet)
     notes.extend(more)
     if not networks:

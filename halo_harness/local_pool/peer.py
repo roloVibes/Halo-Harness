@@ -56,7 +56,7 @@ def remote_entry(home=None):
 
 def _ask(home=None) -> Optional[dict]:
     try:
-        from halo_harness.fleet import identity, store
+        from halo_harness.peers import identity, store
         from halo_harness.ollama_steward.host_client import HostClient, HostError
         hosts = [e for e in store.hosts(home) if e.get("state", "joined") == "joined"]
     except Exception:

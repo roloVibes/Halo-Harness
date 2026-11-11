@@ -99,7 +99,7 @@ def landing(c, rig) -> dict:
 
 
 def dash(c, rig) -> dict:
-    from halo_harness.fleet.identity import harness
+    from halo_harness.peers.identity import harness
     out: dict = {}
     hid, sid = harness()["id"], rig.act.session_id
     c.go(url(rig, "mode=session"))

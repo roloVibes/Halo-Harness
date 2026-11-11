@@ -63,7 +63,7 @@ def _talk(session, node: str, ref: str, text: str, back: bool = False, re: Optio
     """An orchestra square's hand-off or (`back`) its answer, as a talk between the caller and the square's node."""
     try:
         from halo_harness.agent.agent_registry import agent_key, tree_for
-        from halo_harness.fleet.talk import on_square
+        from halo_harness.live.talk import on_square
         d = on_square(tree_for(session), agent_key(session), node, ref, text, back=back, re=re)
         return d.get("id") if d else None
     except Exception:

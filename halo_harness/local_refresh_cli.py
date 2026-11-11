@@ -95,7 +95,7 @@ def cmd_host_refresh(argv: list) -> int:
     from halo_harness.host.state import read_info
     home = _home()
     if a.verb in ("off", "on"):
-        from halo_harness.fleet import identity
+        from halo_harness.peers import identity
         from halo_harness.theme import set_config_value
         set_config_value("host.refresh.enabled", a.verb == "on")
         identity.forget_cache()

@@ -55,7 +55,7 @@ def clamp_k(raw, default: int = 8) -> int:
 
 def settings(home=None) -> dict:
     """`{share, hide}` from fleet.recall.share (default true) and fleet.recall.hide."""
-    from halo_harness.fleet.identity import config_value
+    from halo_harness.peers.identity import config_value
     from halo_harness.remote.fleet_identity import truthy
     share = truthy(config_value("fleet.recall.share", True, home), True)
     hide = config_value("fleet.recall.hide", [], home)
@@ -150,7 +150,8 @@ def hits_of(raw: list, name: str, hide: set) -> "tuple[list, int]":
 
 def answer(fields: dict, *, by: str = "", hub: str = "", home=None) -> dict:
     """The member's side of `recall {query, k}`: its own index, its own settings, a journal line."""
-    from halo_harness.fleet import identity, journal
+    from halo_harness.peers import identity
+    from halo_harness.live import journal
     query, k = clean_query((fields or {}).get("query")), clamp_k((fields or {}).get("k"))
     home = Path(home) if home is not None else identity.home()
     me = identity.harness(home)
@@ -165,7 +166,7 @@ def answer(fields: dict, *, by: str = "", hub: str = "", home=None) -> dict:
 
 def local_hits(query: str, k: int, home=None, *, for_member: bool = False) -> "tuple[list, str]":
     """This harness's own hits for a merged view, and a note when there are none to give."""
-    from halo_harness.fleet import identity
+    from halo_harness.peers import identity
     home = Path(home) if home is not None else identity.home()
     cfg = settings(home)
     if for_member and not cfg["share"]:
@@ -192,18 +193,19 @@ def merge(groups: list, k: int) -> list:
 
 def ask(query: str, k: int = 8) -> "tuple[int, dict]":
     """`halo recall --fleet`: the hub this machine runs, else the first hub it joined, else 409."""
-    from halo_harness.fleet import identity, store
-    from halo_harness.fleet.hub import running_call
+    from halo_harness.packs import fleet_door  # 3.4.0.0 C: a hub on this machine is the fleet pack's
+    from halo_harness.peers import identity, store
     query, k = clean_query(query), clamp_k(k)
-    got = running_call(identity.home(), "POST", "local/recall", {"query": query, "k": k}, timeout=60.0)
+    got = fleet_door.call("fleet/hub.py", "running_call", identity.home(), "POST", "local/recall",
+                          {"query": query, "k": k}, timeout=60.0)
     if got is not None:
         return got
     hubs = [h for h in store.hubs() if h.get("state", "joined") == "joined"]
     if not hubs or identity.offline():
         return 409, {"error": "no fleet to ask: this machine runs no hub and joined none "
                               "(`halo studio --fleet` here, or `halo fleet join` to one)", "hits": [], "harnesses": []}
-    from halo_harness.fleet import protocol
-    from halo_harness.fleet.relay import HubError, HubLink
+    from halo_harness.peers import protocol
+    from halo_harness.peers.relay import HubError, HubLink
     entry = hubs[0]
     key = store.key_for(entry)
     if key is None:

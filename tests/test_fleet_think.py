@@ -33,7 +33,7 @@ def _ev(kind: str, **data):
 
 @test
 def test_chunks_of_one_thought_share_one_id_and_end_when_it_acts(ctx: Ctx):
-    from halo_harness.fleet.think import FLUSH_S, ThinkFeed
+    from halo_harness.live.think import FLUSH_S, ThinkFeed
     clock = Clock()
     f = ThinkFeed(clock)
     out = []
@@ -54,7 +54,7 @@ def test_chunks_of_one_thought_share_one_id_and_end_when_it_acts(ctx: Ctx):
 
 @test
 def test_reasoning_tokens_join_the_thought_at_message_end(ctx: Ctx):
-    from halo_harness.fleet.think import ThinkFeed
+    from halo_harness.live.think import ThinkFeed
     f = ThinkFeed(Clock())
     out = f.feed(_ev("thinking_delta", text="one lump of reasoning"))
     out += f.feed(_ev("message_end", usage={"output_tokens": 40, "reasoning_tokens": 812}))
@@ -66,7 +66,7 @@ def test_reasoning_tokens_join_the_thought_at_message_end(ctx: Ctx):
 
 @test
 def test_a_model_with_no_thinking_yields_none(ctx: Ctx):
-    from halo_harness.fleet.think import ThinkFeed
+    from halo_harness.live.think import ThinkFeed
     f = ThinkFeed(Clock())
     out = []
     for ev in (_ev("message_start"), _ev("text_delta", text="hi"), _ev("tool_use_ready", id="a", name="Bash"),
@@ -77,7 +77,7 @@ def test_a_model_with_no_thinking_yields_none(ctx: Ctx):
 
 @test
 def test_a_long_thought_is_cut_per_frame_and_flagged(ctx: Ctx):
-    from halo_harness.fleet.think import CHUNK_CAP, ThinkFeed
+    from halo_harness.live.think import CHUNK_CAP, ThinkFeed
     f = ThinkFeed(Clock())
     out = f.feed(_ev("thinking_delta", text="x" * (CHUNK_CAP + 50)))
     ctx.check(f"one frame, cut at {CHUNK_CAP} and flagged", len(out) == 1 and len(out[0]["text"]) == CHUNK_CAP and out[0].get("cut"))
@@ -111,7 +111,7 @@ def test_the_agent_tree_publishes_every_agents_thoughts(ctx: Ctx):
 
 @test
 def test_the_feed_kinds_carry_the_new_frames(ctx: Ctx):
-    from halo_harness.fleet.protocol import FULL_KINDS, frame_allowed
+    from halo_harness.peers.protocol import FULL_KINDS, frame_allowed
     from halo_harness.studio.feed_kinds import DEFAULT_KINDS
     ui = (Path(__file__).resolve().parent.parent / "halo_harness/studio/ui/src/lib/events.ts").read_text(encoding="utf-8")
     for k in ("thinking_chunk", "agent_talk"):

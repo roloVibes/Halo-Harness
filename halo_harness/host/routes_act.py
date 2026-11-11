@@ -18,7 +18,7 @@ job?}. Nothing here runs a model, changes a server setting or restarts a server.
 
 from __future__ import annotations
 
-from halo_harness.fleet import protocol
+from halo_harness.peers import protocol
 
 ADMIN_LINE = ("admin operations are not part of this version: nothing runs a shell on a host (the grant exists so an "
               "owner can see what it would mean)")

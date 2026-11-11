@@ -10,6 +10,8 @@ and an unsigned request.
 Run: python -m tests.test_fleet_mission_files
 """
 from __future__ import annotations
+from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
+_fleet_pack.on()
 
 import base64
 import http.client
@@ -53,14 +55,14 @@ def _mission(home, member: str, hub: str) -> str:
 @test
 def test_the_folder_round_trips_and_stays_confined(ctx: Ctx):
     from halo_harness.fleet import mission_store as S
-    from halo_harness.fleet import store
+    from halo_harness.peers import store
     from halo_harness.fleet.mission_files import HubFiles
-    from halo_harness.fleet.relay import HubError
+    from halo_harness.peers.relay import HubError
     from tests.helpers.fleet_hub_rig import HubRig
     with HubRig(tls_on=False) as rig:  # plain HTTP: the unsigned request below is read, not dropped by TLS
         (rig.home_a / "config.json").write_text(json.dumps({"fleet": {"name": "alice@hub", "mission": {"max_file_mb": 0.01}}}),
                                                 encoding="utf-8")
-        from halo_harness.fleet import identity
+        from halo_harness.peers import identity
         identity.forget_cache()
         rig.join()
         mid = _mission(rig.home_a, rig.b_id, rig.a_id)

@@ -71,7 +71,8 @@ def test_the_details_block_and_a_grant_picked_for_enable(ctx: Ctx):
     ctx.check(f"no dependency, got {got.get('requires')!r}", got.get("requires") == "no other pack")
     text = str(got.get("contributes"))
     ctx.check(f"inspect's contributes block, got {text!r}", "Studio section docs (Docs review)" in text
-              and "fleet capability docs.review" in text and "workflow review: stages read, judge, write" in text)
+              and "fleet capability" not in text  # 3.4.0.0 C: the fleet capability rows are the fleet pack's (off here)
+              and "workflow review: stages read, judge, write" in text)
     ctx.check(f"the permissions it requests, got {got.get('perms')}", got.get("perms") == ["mcp:lint", "hooks", "bash"])
     ctx.check(f"a toggle on a disabled pack picks it for Enable, got {got.get('enable_label')!r} {got.get('enable_title')!r}",
               got.get("picked") is True and got.get("enable_label") == "Enable (1 grant)"

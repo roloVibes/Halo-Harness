@@ -109,7 +109,7 @@ def _nudge(req) -> None:
 
 
 def post_attention(req, pack):
-    from halo_harness.fleet.pack_attention import ROWS, _folder
+    from halo_harness.live.pack_attention import ROWS, _folder
     from halo_harness.packs import names as N
     from halo_harness.packs import studio_rules as R
     from halo_harness.privateio import write_private_atomic

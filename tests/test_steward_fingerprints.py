@@ -116,7 +116,7 @@ def test_halo_ollama_crashes_and_the_models_mark(ctx: Ctx):
 
 @test
 def test_the_fingerprint_travels_with_the_ledger_push(ctx: Ctx):
-    from halo_harness.fleet.control_probes import read_crashes, take_crashes
+    from halo_harness.peers.control_probes import read_crashes, take_crashes
     with SearchHome(card=box_card()) as member:
         member.events(_load())
         member.events(_ev(IMA))

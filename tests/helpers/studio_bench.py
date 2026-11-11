@@ -113,7 +113,7 @@ def _lan_bench(host, model, *, lan=None, state_dir=None, on_line=None, **_kw) ->
 def lan(c, url, ctx) -> dict:
     """3.3.8.1: box as another machine's host with no halo host on it -- Bench on a row that has no card: the confirm says
     the via and the offer, Run, and the row's chip names where it was measured and the link (the wait reads them)."""
-    from halo_harness.fleet import ollama_share as S
+    from halo_harness.peers import ollama_share as S
     from halo_harness.providers import local_bench as LB, local_bench_link as L, local_bench_runs as R
     real, saved = S.served_here, (S.served_here, L.link_of, L.from_where, R.busy, LB.bench)
     S.served_here = lambda u: False if str(u).rstrip("/") == ctx["box"].rstrip("/") else real(u)

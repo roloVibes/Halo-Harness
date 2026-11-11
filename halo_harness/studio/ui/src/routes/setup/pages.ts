@@ -79,7 +79,8 @@ export function stepOf(word: string): StepId | null {
 export function stepsOf(d: SetupData | null, page: StepId): StepId[] {
   const core = ORDER.filter((s) => s !== "machines" && (s !== "linux" || !!d?.linux_fixes.needed || page === "linux"));
   const placed = (placeSteps(core, d) as StepId[]).filter((s) => s !== "summary");
-  return [...placed, "machines", "summary"]; // 3.3.16.0 R2: Machines, the last step before the Summary
+  // 3.3.16.0 R2: Machines, the last step before the Summary; 3.4.0.0 C: only while the fleet pack runs
+  return fleet.get().pack || page === "machines" ? [...placed, "machines", "summary"] : [...placed, "summary"];
 }
 
 export function lineupWord(d: SetupData): string {

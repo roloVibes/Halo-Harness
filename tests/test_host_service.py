@@ -22,6 +22,8 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
+_fleet_pack.on()
 
 from tests.helpers.host_rig import PC, HostRig  # noqa: E402
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
@@ -77,7 +79,7 @@ def test_it_starts_writes_serve_json_status_and_stops(ctx: Ctx):
 @test
 def test_offline_mode_refuses_it(ctx: Ctx):
     import os
-    from halo_harness.fleet.hub import FleetOffline
+    from halo_harness.peers.net import FleetOffline
     from halo_harness.host.service import HostService
     with HostRig(host_home=None) as rig:
         os.environ["HALO_OFFLINE"] = "1"
@@ -141,9 +143,9 @@ def test_the_steward_watch_runs_in_the_host(ctx: Ctx):
 @test
 def test_the_forwarder_pushes_to_a_hub_with_no_session_and_the_host_announces(ctx: Ctx):
     import tempfile
-    from halo_harness.fleet import identity, ollama_share, relay, store
+    from halo_harness.peers import identity, ollama_share, relay, store
     from halo_harness.fleet.hub import HubServer
-    from halo_harness.fleet.hub_hosts import listing
+    from halo_harness.peers.hub_hosts import listing
     from halo_harness.ollama_steward.ledger import read_calls, record_call
     saved = (ollama_share.FLUSH_S, ollama_share.CHECK_S)
     ollama_share.FLUSH_S, ollama_share.CHECK_S = 0.05, 0.0

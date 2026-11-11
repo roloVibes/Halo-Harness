@@ -121,7 +121,7 @@ def test_success_drops_the_catalog_caches(ctx: Ctx):
 
 @test
 def test_a_real_pull_through_the_fake_and_the_jobs_file(ctx: Ctx):
-    from halo_harness.fleet.control_pulls import read_pulls
+    from halo_harness.peers.control_pulls import read_pulls
     from halo_harness.studio import local_pull_job as J
     with _Jobs() as b:
         v = J.start(b.host, "qwen3.5:9b", b.frames.append, state_dir=b.state)
@@ -133,7 +133,7 @@ def test_a_real_pull_through_the_fake_and_the_jobs_file(ctx: Ctx):
 
 @test
 def test_a_members_job_followed_from_its_push(ctx: Ctx):
-    from halo_harness.fleet.control_pulls import take_pulls
+    from halo_harness.peers.control_pulls import take_pulls
     from halo_harness.studio import local_pull_job as J
     with _Jobs() as b:
         sent = []

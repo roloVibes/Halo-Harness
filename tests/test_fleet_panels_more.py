@@ -8,6 +8,8 @@ files, errors, hand-offs). Companion of tests/test_fleet_panels_api.py.
 Run: python -m tests.test_fleet_panels_more
 """
 from __future__ import annotations
+from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
+_fleet_pack.on()
 
 import json
 import sys
@@ -41,7 +43,7 @@ def _wait(fn, timeout: float = 15.0):
 
 @test
 def test_conflicts_two_sessions_of_one_harness_but_never_one_session(ctx: Ctx):
-    from halo_harness.fleet import conflicts
+    from halo_harness.live import conflicts
     proj = {"root": "/home/kali/shop", "repo": "shop"}
     view = {"harnesses": [{"id": "M", "name": "kali@lab", "sessions": [
         {"session_id": "s1", "project": proj, "agents": [{"agent_id": "main", "current": "Edit: /home/kali/shop/src/a.py"},
@@ -58,8 +60,8 @@ def test_conflicts_two_sessions_of_one_harness_but_never_one_session(ctx: Ctx):
 
 @test
 def test_a_conflict_across_two_harnesses_is_found_listed_and_raised(ctx: Ctx):
-    from halo_harness.fleet import journal
-    from halo_harness.fleet.identity import harness
+    from halo_harness.live import journal
+    from halo_harness.peers.identity import harness
     from tests.helpers.studio_fleet_member import REVIEWER
     from tests.helpers.studio_fleet_rig import MEMBER, MEMBER_SID, StudioFleetRig
     with StudioFleetRig() as rig:
@@ -105,7 +107,8 @@ def _tree(root: Path) -> dict:
 @test
 def test_health_is_read_only_cached_and_asks_a_member_once(ctx: Ctx):
     from halo_harness.config.paths import bridge_home
-    from halo_harness.fleet import control, health, protocol
+    from halo_harness.fleet import control, health
+    from halo_harness.peers import protocol
     from tests.helpers.studio_fleet_rig import StudioFleetRig
     undo = _stub_providers()
     try:
@@ -141,7 +144,7 @@ def test_the_phone_push_only_while_a_transport_listens(ctx: Ctx):
     """3.3.13.0 R3: the attention queue's new rows are `asks` notes on the transports' seam (remote/notify.py) while a
     transport listens and remote.enabled is on; fleet.attention.signal false keeps them in Studio."""
     from halo_harness.config.paths import bridge_home
-    from halo_harness.fleet import push
+    from halo_harness.live import push
     from halo_harness.remote import notify as N
     from halo_harness.studio.fleet_watch_sources import push_ready
     from halo_harness.theme import set_config_value
@@ -155,7 +158,7 @@ def test_the_phone_push_only_while_a_transport_listens(ctx: Ctx):
     try:
         ctx.check("a transport listens and remote.enabled is on (its default): ready", push.ready(home) and push_ready(home))
         set_config_value("fleet.attention.signal", False)
-        from halo_harness.fleet import identity
+        from halo_harness.peers import identity
         identity.forget_cache()
         ctx.check("fleet.attention.signal false keeps it in Studio", not push_ready(home))
         set_config_value("fleet.attention.signal", True)
@@ -177,7 +180,8 @@ def _jline(f, **row) -> None:
 
 @test
 def test_the_digest_counts_per_harness_in_code(ctx: Ctx):
-    from halo_harness.fleet import digest, journal
+    from halo_harness.fleet import digest
+    from halo_harness.live import journal
     from tests.helpers.studio_fleet_parts import PAST_SID, seed_past
     root = Path(tempfile.mkdtemp(prefix="digest-"))
     home, proj = root / ".halo", root / "shop"

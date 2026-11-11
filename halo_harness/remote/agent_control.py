@@ -126,7 +126,7 @@ def cmd_steer(handle, tree, req: dict) -> dict:
     head = f"[{'hand-off' if handoff else 'steer'} from {by} via {via}] "
     note = head + (text if mode == "nudge" else "Redirect: the rest of your current task is replaced. "
                    f"Your task is now: {text}")
-    from halo_harness.fleet.talk import on_steer  # 3.3.16.2: another agent's steer (`from_agent`) is a talk
+    from halo_harness.live.talk import on_steer  # 3.3.16.2: another agent's steer (`from_agent`) is a talk
     if aid == tree.root_id:
         on_steer(tree, req, aid, text)
         result = handle.submit(note)

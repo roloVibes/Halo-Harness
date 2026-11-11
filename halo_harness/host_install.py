@@ -14,7 +14,7 @@ import argparse
 import sys
 from typing import Optional
 
-from halo_harness.fleet import identity
+from halo_harness.peers import identity
 from halo_harness.remote import cli_common as C
 
 UNIT = {"stem": "halo-host", "label": "com.halo.host", "task": "Halo Host",

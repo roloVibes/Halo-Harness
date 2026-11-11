@@ -130,6 +130,76 @@ with what replaces it. A leftover of a removed feature is ignored, never an erro
   TROUBLESHOOTING, PACKS ("The first-run pack"), EXTENSION_API, ARCHITECTURE-modules(-two), GLOSSARY, WORK, MISSIONS,
   ORCHESTRA, ROLES, AGENTS and README say what left and where it went.
 
+### C: Fleet leaves the core
+
+The owner (2026-11-10): "Fleet doesn't really fit anymore ... it can be a pack." Halo's core is see, shape, mix, local,
+start; several halos joined to one hub serve none of them directly, so the fleet is ONE shipped pack now, `fleet`, off
+by default: `halo pack install fleet`, then `halo pack enable fleet --grant-all`, and it works as it did.
+
+#### Removed from core (now in the shipped `fleet` pack: `halo pack enable fleet`)
+
+- **Verbs**: `halo fleet` (the live table, `serve`, `pair`, `join`, `leave`, `status`, `members`, `kick`, `record`,
+  `digest`, `capabilities`, `who`, `mission ...`) and `halo mission ...` (new: the same as `halo fleet mission ...`);
+  `/fleet` (the table as text; the TUI's live table dialog is gone, `halo fleet` in a terminal is the live table) and
+  `/mission`; `halo studio --fleet`; `halo recall --fleet`, `/recall --fleet` and `halo knowledge fetch` (they ask the
+  fleet). With the pack off each says one line: what it is and `halo pack install fleet, then halo pack enable fleet
+  --grant-all`.
+- **Studio doors**: Agents -> Live's **this halo | fleet** switch and the fleet scope (the machines, their sessions and
+  agents, a mission's parts), the palette's fleet lines (who can..., the machines' specs, missions, pair, kick, while
+  you were away), Setup's **Machines** page (pairing, sharing, the people), the rail's "while you were away" dot, and
+  the routes behind them (`fleet/hub`, `fleet/pair`, `fleet/settings`, `fleet/kick`, `fleet/commands/<id>`, a member's
+  commands, `fleet/health`, `fleet/digest`, `fleet/capabilities`, `fleet/who`, `fleet/missions...`, `fleet/recall`).
+  `GET fleet` says `fleet_pack: true | false`; the UI shows a Fleet door only on true.
+- **Config keys** (Settings -> Fleet, shown only while the pack runs; `halo config set` still takes them):
+  `fleet.share`, `fleet.allow_answers`, `fleet.share_captures`, `fleet.hub.port`, `fleet.tags`,
+  `fleet.capabilities.hide`, `fleet.ollama.share`, `fleet.recall.share`, `fleet.recall.hide`, `fleet.shared_dir`,
+  `fleet.mission.prefer`, `fleet.mission.max_parallel`, `fleet.mission.max_file_mb`.
+- **Python**: the hub (hub*.py), the relay of a joined halo (relay_hub, relay_runtime), missions (mission*.py), the
+  capability catalog and who (capabilities*.py but the host's hardware), control from a hub, delegate, digest, health,
+  the table, the live check, the CLI (cli*.py), knowledge across the fleet (knowledge/share.py) and what packs bring to
+  the catalog (packs/fleet_registry.py, fleet_share.py) are the pack's fleet/; Studio's pair, capabilities, mission and
+  hub routes and its health + digest its server/.
+- With the pack off a pack workflow's capability `requires` are not checked (the catalog that checks them is the
+  pack's); a `contributes.fleet` pack shows no fleet rows in the Pack Manager.
+
+#### Stays in the core (moved out of halo_harness/fleet/, which is gone)
+
+- **halo_harness/peers/**: everything one machine needs to reach another's models, so `halo host serve`, the pool,
+  Local -> Hosts and Ollama on the network work with the pack off: identity, fleet.json and the pair keys (store), the
+  signed wire (protocol), TLS, pairing codes and the key exchange (pairing, pair_kex, hub_join), the relay client
+  (relay, relay_stream), hosts (hub_hosts, hub_host_cmd), Ollama on the network (ollama_share*, control_models,
+  control_pulls, control_probes), this harness's own sessions (local_view, agent_tokens), the host's hardware
+  (capabilities_host), the capability cache (catalog.py, new) and `lan_address` / `FleetOffline` / `parse_ttl` (net.py,
+  new).
+- **halo_harness/live/**: this machine's sessions live: thinking and talk on the feed (think, talk), the attention
+  queue and its sources, one session's timeline and flight recording (history, recording), the file-conflict edges, the
+  spend caps, the decision journal, push to the phone and hand-offs. Session, Agents -> Live, the attention chip and the
+  replay read `fleet/*` routes that the core still answers for this harness (studio/fleet_view_api.py, new: the core's
+  half; the pack answers every `fleet/*` route while it runs).
+- `halo_harness/recall_fleet.py` (Studio's recall box reads its local half), the work record's mission adapter
+  (work/adapters/part.py reads mission.json itself), `fleet.enabled`, `fleet.name`, `fleet.private`,
+  `fleet.allow_control` (the host's grants), `fleet.caps.*` and `fleet.attention.signal` (now under Settings -> Remote).
+
+#### Migration
+
+A halo that had a fleet (a joined hub in fleet.json, a hub's members, missions, or fleet keys only the pack reads in
+config.json) gets the shipped pack installed and enabled on its first run after the update, with one line that says so
+(packs/fleet_migrate.py; the marker `<state>/packs/.fleet-migrated` keeps it from asking again). Nothing is deleted.
+
+#### Seams
+
+No manifest key is new: the pack uses `contributes.cli` / `.slash` (3.4.0.0 B). The core reaches the pack only through
+`halo_harness/packs/fleet_door.py` (`module(rel)`, `call(rel, attr, ...)`: None while the pack does not run here);
+`halo_harness.ext.core` lists the core modules the pack drives and adds `core.version()`. Tests run the pack in every
+scratch home with `PACKS_TEST_SHIPPED=fleet` (packs/registry.py, honoured only under BRIDGE_TEST_HOME;
+tests/helpers/fleet_pack.py sets it and serves the moved modules under their old names).
+
+#### Not done here
+
+- Studio's fleet UI (routes/fleet/*, the Live fleet scope) is still compiled into the core bundle, gated on
+  `fleet_pack`: a React section has no pack seam yet (a pack's Studio panel is plain DOM).
+- Federation R1's contracts (branch v3318/R1-contracts, its work record included) are left unmerged.
+
 ## [3.3.18.0] - unreleased
 
 ### The living canvas

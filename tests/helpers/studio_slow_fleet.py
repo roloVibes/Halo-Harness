@@ -57,7 +57,7 @@ def _ended(c, timeout: float) -> "tuple[str, float]":
 
 
 def slow_stop(c, rig) -> dict:
-    from halo_harness.fleet.identity import harness
+    from halo_harness.peers.identity import harness
     from tests.helpers.studio_fleet_rig import wait_for
     out: dict = {"slow_ms": int(_slow_s() * 1000), "lost": {}}
     c.go(rig.url("fleet"))

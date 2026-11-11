@@ -47,7 +47,7 @@ def scan(*, port: Optional[int] = None, subnets=None, own_subnet: bool = True, s
     members = load(state_dir)
     doors = {(_door(m, home).lower(), int(m["rpc_port"])): m["name"] for m in members}
     try:
-        from halo_harness.fleet import store
+        from halo_harness.peers import store
         from halo_harness.ollama_steward.host_client import _addr_port
         paired = {_addr_port(e.get("url") or "", 7431)[0]: str(e.get("name") or "") for e in store.hosts(home)}
     except Exception:

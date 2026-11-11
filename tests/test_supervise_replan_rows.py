@@ -8,6 +8,8 @@ times" in `halo supervise status`, `halo goal show` and the run report, and
 Run: python -m tests.test_supervise_replan_rows
 """
 from __future__ import annotations
+from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
+_fleet_pack.on()
 
 import contextlib
 import io
@@ -57,9 +59,9 @@ def _out(fn, *args) -> "tuple[int, str]":
 @test
 def test_the_goal_replan_kind_and_its_attention_row(ctx: Ctx):
     with _Env() as e:
-        from halo_harness.fleet import attention
-        from halo_harness.fleet.push import PUSH_KINDS
-        from halo_harness.fleet.supervise_attention import open_target
+        from halo_harness.live import attention
+        from halo_harness.live.push import PUSH_KINDS
+        from halo_harness.live.supervise_attention import open_target
         from halo_harness.studio.fleet_answer import SUPERVISE
         from halo_harness.supervise import decisions
         row = decisions.park(e.state_dir, "goal_replan", "g-9", "replan-1", "Goal g-9: the lead's new plan failed the "

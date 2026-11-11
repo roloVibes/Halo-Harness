@@ -189,8 +189,8 @@ def _wait(fn, timeout=15.0):
 @test
 def test_a_member_probes_and_the_hub_takes_it(ctx: Ctx):
     import tempfile
-    from halo_harness.fleet import control_models
-    from halo_harness.fleet.control_probes import read_probes, take_probes
+    from halo_harness.peers import control_models
+    from halo_harness.peers.control_probes import read_probes, take_probes
     from halo_harness.providers.ollama_capability import profile_for
     with BatteryRig(["bt-coder:30b"]) as rig:
         got = control_models.run({"cmd": "ollama_probe", "host": "fake", "model": "bt-coder:30b"})

@@ -17,6 +17,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
+_fleet_pack.on()
 
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
 
@@ -52,12 +54,12 @@ class Member:
         return self
 
     def config(self, fleet: dict) -> None:
-        from halo_harness.fleet import identity
+        from halo_harness.peers import identity
         (self.state / "config.json").write_text(json.dumps({"fleet": {"name": "mac@lab", **fleet}}), encoding="utf-8")
         identity.forget_cache()
 
     def __exit__(self, *exc):
-        from halo_harness.fleet import identity
+        from halo_harness.peers import identity
         for k, v in self.saved.items():
             if v is None:
                 os.environ.pop(k, None)

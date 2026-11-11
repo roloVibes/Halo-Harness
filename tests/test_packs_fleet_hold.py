@@ -30,6 +30,8 @@ from pathlib import Path
 from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
+_fleet_pack.on()
 
 from tests.helpers.provider_env_defaults import ensure_default_provider_credentials  # noqa: E402
 
@@ -52,7 +54,8 @@ def _part(pid: str, needs: list, **kw) -> dict:
 @test
 def test_capacity_two_runs_two_then_the_third(ctx: Ctx):
     from halo_harness.fleet import capabilities as caps
-    from halo_harness.fleet import identity, mission_api as A, mission_store as S, mission_worker as W
+    from halo_harness.peers import identity
+    from halo_harness.fleet import mission_api as A, mission_store as S, mission_worker as W
     from halo_harness.fleet.mission_doc import status_table
     from halo_harness.fleet.mission_plan import pack_line
     from halo_harness.theme import set_config_value
@@ -114,7 +117,7 @@ def _install_on_a(rig, grants=("bash",)) -> None:
 @test
 def test_a_refused_part_moves_once_to_a_harness_that_has_it(ctx: Ctx):
     from halo_harness.config.paths import bridge_home
-    from halo_harness.fleet.identity import harness
+    from halo_harness.peers.identity import harness
     from tests.helpers.fleet_caps_seed import seed
     from tests.helpers.fleet_hub_rig import HubRig, wait_for
     from tests.helpers.mission_seed import kali_box, mission_ctx, reset_fakes, windows_host

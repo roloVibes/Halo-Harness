@@ -10,6 +10,8 @@ frame, for the member and for the hub's own harness.
 Run: python -m tests.test_fleet_capabilities_hub
 """
 from __future__ import annotations
+from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
+_fleet_pack.on()
 
 import json
 import sys
@@ -85,7 +87,7 @@ def test_the_members_catalog_reaches_the_hub_once_per_hash(ctx: Ctx):
 
 @test
 def test_refresh_updates_the_hash_and_emits_the_frame(ctx: Ctx):
-    from halo_harness.fleet import identity
+    from halo_harness.peers import identity
     from tests.helpers.fleet_hub_rig import HubRig, wait_for
     with HubRig() as rig:
         cat = _setup(rig) or {}

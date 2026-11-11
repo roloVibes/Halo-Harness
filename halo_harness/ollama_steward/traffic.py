@@ -46,7 +46,7 @@ def _port(url: str) -> Optional[int]:
 
 def canonical_host(host: dict, hosts: list) -> "tuple[str, Optional[object]]":
     """(the host name to show, the configured OllamaHost or None) for a line's {name, url}."""
-    from halo_harness.fleet.ollama_share import served_here
+    from halo_harness.peers.ollama_share import served_here
     name, url = str((host or {}).get("name") or "?"), str((host or {}).get("url") or "").rstrip("/")
     for h in hosts:
         if str(h.url).rstrip("/") == url:

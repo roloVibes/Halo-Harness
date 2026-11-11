@@ -1,7 +1,7 @@
 """halo_harness.studio.fleet_recording_api -- flight recordings and the canvas
 replay of Studio's Fleet section (Halo 3.0.5.0 "Fleet" round R4, D5 / D12;
 3.1.0.0 R2 cut it out of fleet_extras_api.py), appended to
-studio/fleet_hub_api.py's ROUTES; the same loopback + token guard.
+studio/fleet_view_api.py's ROUTES; the same loopback + token guard.
 
     POST fleet/<h>/<sid>/recording[?agent=<aid>]
         -> {ok, path, name, url: "fleet/recordings/<name>", bytes, agents, states}   ~/.halo/recordings/<sid>[-<aid>].html
@@ -22,7 +22,7 @@ from halo_harness.studio.fleet_handoff_api import _find, _tail
 
 def _history(req, hid: str, sid: str):
     """`(hist, harness name)` or `(None, error)`: this harness's from disk, a member's through the hub."""
-    from halo_harness.fleet import history, recording
+    from halo_harness.live import history, recording
     _view, h, s, local = _find(req, hid, sid)
     if local:
         path = history.find(req.state_dir, sid)
@@ -38,7 +38,7 @@ def _history(req, hid: str, sid: str):
 
 
 def post_recording(req):
-    from halo_harness.fleet import recording
+    from halo_harness.live import recording
     body = req.body if isinstance(req.body, dict) else {}
     agent = str(req.query.get("agent") or body.get("agent") or "").strip() or None
     hist, name = _history(req, req.params["hid"], req.params["sid"])
@@ -51,7 +51,7 @@ def post_recording(req):
 
 
 def get_recording(req):
-    from halo_harness.fleet.recording import path_for
+    from halo_harness.live.recording import path_for
     from halo_harness.studio.raw_body import html_download
     path = path_for(req.state_dir, req.params["name"])
     if path is None:

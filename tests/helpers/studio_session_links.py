@@ -52,7 +52,7 @@ def live_run(rig):
 
 
 def links(c, rig) -> dict:
-    from halo_harness.fleet.identity import harness
+    from halo_harness.peers.identity import harness
     from tests.helpers.studio_fleet import card, card_click
     out: dict = {}
     hid, sid = harness()["id"], rig.act.session_id

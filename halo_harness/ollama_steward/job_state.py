@@ -195,7 +195,7 @@ def readers() -> dict:
 def served_host():
     """The configured Ollama host this machine serves (its log is here), or None."""
     try:
-        from halo_harness.fleet.ollama_share import served_here
+        from halo_harness.peers.ollama_share import served_here
         from halo_harness.providers.ollama import resolve_ollama_hosts
         return next((h for h in resolve_ollama_hosts() if served_here(h.url)), None)
     except Exception:

@@ -15,6 +15,8 @@ LEFT = {
 }
 PACKED = {
     "start": ("first-run", "the guided first run"),
+    "fleet": ("fleet", "the fleet (a hub, its members, missions across halos)"),  # 3.4.0.0 C
+    "mission": ("fleet", "a fleet mission (one goal split across halos)"),  # 3.4.0.0 C: `halo mission` = `halo fleet mission`
 }
 
 

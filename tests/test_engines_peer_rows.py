@@ -29,7 +29,7 @@ class _Patched:
         self.hosts, self.catalog = hosts, catalog
 
     def __enter__(self):
-        from halo_harness.fleet import identity, store
+        from halo_harness.peers import identity, store
         from halo_harness.ollama_steward import host_client
         cat = self.catalog
 
@@ -48,7 +48,7 @@ class _Patched:
 
     def __exit__(self, *exc):
         from halo_harness.engines import peer
-        from halo_harness.fleet import identity, store
+        from halo_harness.peers import identity, store
         from halo_harness.ollama_steward import host_client
         store.hosts, store.key_for, identity.harness, host_client.HostClient = self.saved
         peer.reset()

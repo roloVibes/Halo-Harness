@@ -43,7 +43,7 @@ def candidates(state_dir=None) -> list:
     urls = {str(h.url).rstrip("/").lower() for h in hosts}
     names = {h.name.lower() for h in hosts}
     try:
-        from halo_harness.fleet import store
+        from halo_harness.peers import store
         entries = [e for e in store.hosts() if e.get("state", "joined") == "joined"]
     except Exception:
         entries = []
@@ -146,7 +146,7 @@ def _file(state_dir) -> Path:
 
 def _residency() -> dict:
     """{host name here: {model: at}} from every paired host's GET residency."""
-    from halo_harness.fleet import identity, store
+    from halo_harness.peers import identity, store
     from halo_harness.ollama_steward.host_client import HostClient, HostError
     out: dict = {}
     for e in store.hosts():

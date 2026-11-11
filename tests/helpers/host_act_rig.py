@@ -137,7 +137,7 @@ class PeerRig(ActRig):
         self.svc = self.rig.start().svc
         self.home, self.peer = self.svc.home, self.rig.peer
         self.entry = self.rig.pair()
-        from halo_harness.fleet import identity
+        from halo_harness.peers import identity
         from halo_harness.host import grants
         for g in self.grants_:
             grants.grant(self.home, identity.harness()["id"], g)

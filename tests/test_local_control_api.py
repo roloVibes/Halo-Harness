@@ -198,8 +198,8 @@ def test_another_machines_host(ctx: Ctx):
 
 @test
 def test_the_members_side_runs_them_on_its_own_host(ctx: Ctx):
-    from halo_harness.fleet import control_models as M
-    from halo_harness.fleet.control_pulls import read_pulls
+    from halo_harness.peers import control_models as M
+    from halo_harness.peers.control_pulls import read_pulls
     with Box() as h:
         got = M.run({"cmd": "ollama_pull", "host": "box", "model": "gemma3:4b"})
         ctx.check(f"the member's own job, answered at once, got {got}", got["ok"] and got["job"])

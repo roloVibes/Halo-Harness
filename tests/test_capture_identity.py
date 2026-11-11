@@ -79,7 +79,7 @@ def test_the_tools_never_read_the_machine_identity_themselves(ctx: Ctx):
 @contextlib.contextmanager
 def _home():
     """A fresh scratch home for one test; the environment, the caches and the helper restored after."""
-    from halo_harness.fleet import identity
+    from halo_harness.peers import identity
     saved = {k: os.environ.get(k) for k in ("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR")}
     home = Path(tempfile.mkdtemp(prefix="cap-identity-"))
     os.environ["BRIDGE_TEST_HOME"] = str(home)
@@ -102,7 +102,7 @@ def _home():
 
 @test
 def test_placeholder_draws_you_at_studio_and_restore_puts_the_readers_back(ctx: Ctx):
-    from halo_harness.fleet import identity
+    from halo_harness.peers import identity
     from halo_harness.remote import fleet_identity as FI
     tempfile.gettempdir()  # the module caches its root on first use: the baseline is that cached value
     real_user, real_host, sys_temp = FI._user, FI._host, tempfile.tempdir
@@ -125,7 +125,7 @@ def test_placeholder_draws_you_at_studio_and_restore_puts_the_readers_back(ctx: 
 
 @test
 def test_placeholder_stops_when_studio_would_draw_this_machine(ctx: Ctx):
-    from halo_harness.fleet import identity
+    from halo_harness.peers import identity
     users, host = CI.real_names()
     fakes = [f"{users[0]}@{host}"]
     if users[0].lower() not in CI._placeholders():  # on a Kali box the user `kali` is the fixtures' own name

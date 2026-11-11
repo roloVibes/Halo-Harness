@@ -122,8 +122,12 @@ def _write(a, verb: str) -> int:
 
 
 def _fetch(a) -> int:
-    from halo_harness.knowledge.share import fetch
-    rc, out = fetch(a.harness, a.id or "", kind=a.all or "", all_kind=bool(a.all and not a.id))
+    from halo_harness.packs import fleet_door  # 3.4.0.0 C: knowledge across the fleet is the fleet pack's
+    share = fleet_door.module("fleet/knowledge_share.py")
+    if share is None:
+        print(f"halo knowledge fetch: {fleet_door.line()}", file=sys.stderr)
+        return 2
+    rc, out = share.fetch(a.harness, a.id or "", kind=a.all or "", all_kind=bool(a.all and not a.id))
     if rc != 0 and not a.json:
         print(f"halo knowledge fetch: {out.get('error')}", file=sys.stderr)
         return rc

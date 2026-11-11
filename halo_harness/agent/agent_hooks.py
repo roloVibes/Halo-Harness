@@ -41,7 +41,7 @@ def turn_started(session, text: str) -> None:
     try:
         tree = tree_for(session)
         tree.started(agent_key(session), session, text)
-        from halo_harness.fleet.talk import on_turn_started  # 3.3.16.2: a child's task is its parent's words to it
+        from halo_harness.live.talk import on_turn_started  # 3.3.16.2: a child's task is its parent's words to it
         on_turn_started(tree, agent_key(session), text)
     except Exception:
         pass
@@ -60,7 +60,7 @@ def turn_ended(session) -> None:
     tree = getattr(session, "_fleet_tree", None)
     if tree is not None:
         try:
-            from halo_harness.fleet.talk import on_turn_ended  # 3.3.16.2: a child's hand-back, its words to its parent
+            from halo_harness.live.talk import on_turn_ended  # 3.3.16.2: a child's hand-back, its words to its parent
             on_turn_ended(tree, agent_key(session), session)
         except Exception:
             pass

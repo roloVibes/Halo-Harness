@@ -67,7 +67,7 @@ class BenchRig:
 def over_the_lan(frm: str = "mac", rtt=1.8, kind="wired"):
     """fleet/ollama_share.served_here -> False (every host is another machine's), providers/local_bench_link's link
     reader -> a fixed RTT and adapter, its `from` -> `frm`; all three put back after."""
-    from halo_harness.fleet import ollama_share as S
+    from halo_harness.peers import ollama_share as S
     from halo_harness.providers import local_bench_link as L
     saved = (S.served_here, L.link_of, L.from_where)
     S.served_here = lambda _url: False

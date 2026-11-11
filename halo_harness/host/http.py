@@ -25,7 +25,7 @@ import sys
 import time
 from urllib.parse import parse_qs, urlsplit
 
-from halo_harness.fleet import protocol
+from halo_harness.peers import protocol
 
 PREFIX = "/host/v1"
 MAX_BODY = 256_000
@@ -189,7 +189,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         return self._json(status, protocol.doc(**out) if status == 200 else out)
 
     def _join(self, raw: bytes) -> None:
-        from halo_harness.fleet.hub_join import handle_join
+        from halo_harness.peers.hub_join import handle_join
         from halo_harness.host.state import DEFAULT_GRANTS, server_rows, served_rows
         try:
             body = protocol.decode(raw)

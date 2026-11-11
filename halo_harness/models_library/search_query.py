@@ -54,7 +54,7 @@ def disk_free(host) -> "tuple[Optional[int], str]":
     if "free" in DISK_SEAM:
         return DISK_SEAM["free"](host)
     try:
-        from halo_harness.fleet.ollama_share import served_here
+        from halo_harness.peers.ollama_share import served_here
         if host is None or not served_here(host.url):
             return None, "on that machine (its disk is not read from here)"
         import shutil

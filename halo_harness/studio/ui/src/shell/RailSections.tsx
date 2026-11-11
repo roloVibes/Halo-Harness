@@ -20,6 +20,7 @@ import { useRecent } from "../lib/motion";
 import { useSections, type SectionDef } from "../routes";
 import { useLiveCount } from "../routes/agents/live/now"; // 3.3.18.0: live now only (an away member's last rows are not)
 import { startFleet } from "../routes/fleet/sync";
+import { useFleetPack } from "../routes/fleet/store";
 import { startDigest, useAway } from "../routes/fleet/Digest";
 import { openFleetLive } from "../routes/agents/fleetDoor";
 
@@ -38,7 +39,9 @@ function useBusy(): Partial<Record<SectionId, boolean>> {
 function Item({ s, on, busy, pack }: { s: SectionDef; on: boolean; busy: boolean; pack: boolean }) {
   const live = useStore(studio, (st) => st.feed.sessions.length);
   const count = useLiveCount();
-  const away = useAway() && s.id === "agents";
+  const awayDigest = useAway();
+  const fleetOn = useFleetPack(); // 3.4.0.0 C: the digest is the fleet pack's
+  const away = awayDigest && fleetOn && s.id === "agents";
   return (
     <button
       role="tab"

@@ -134,6 +134,8 @@ The browser console: every agent of your session live, your lineups and their ru
 
 ## I want to run a fleet
 
+The fleet is the shipped `fleet` pack since 3.4.0.0 (`halo pack enable fleet --grant-all`).
+
 Several harnesses, one picture, one goal; and control from another process or your phone.
 
 - [FLEET.md](FLEET.md) (Fleet): read this when you connect several harnesses into one fleet and watch or steer them from one place.

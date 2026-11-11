@@ -37,7 +37,7 @@ _GIN_SEEN: dict = {}  # host url -> did the last read see its call's [GIN] line 
 
 
 def _source(session, host) -> "tuple[Optional[str], object]":
-    from halo_harness.fleet.ollama_share import served_here
+    from halo_harness.peers.ollama_share import served_here
     from halo_harness.ollama_steward.hardware_readers import server_log_path
     if served_here(host.url):
         target = server_log_path()

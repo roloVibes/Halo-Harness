@@ -107,11 +107,12 @@ def every_page(c, url, ctx) -> dict:
 
 def edits(c, url, ctx) -> dict:
     out = {}
-    group(c, "fleet")
+    group(c, "remote")  # 3.4.0.0 C: fleet.enabled is a core key, under Remote; the rest below is the fleet pack's group
     press(c, row("fleet.enabled", "[data-testid=settings-toggle]"), f"!!{row('fleet.enabled', '[data-testid=settings-saved]')}")
     out["toggle_flash"] = c.js(f"{row('fleet.enabled', '[data-testid=settings-saved]')}.textContent")
     out["toggle_config"] = config(ctx).get("fleet", {}).get("enabled")
     out["toggle_default_gone"] = c.js(f"!{row('fleet.enabled', '[data-testid=settings-default]')}")
+    group(c, "fleet")
     set_field(c, row("fleet.share", "select"), "full", "change")
     out["enum_flash"] = c.wait(f"{row('fleet.share', '[data-testid=settings-saved]')}?.textContent", 15)
     out["enum_config"] = config(ctx).get("fleet", {}).get("share")
@@ -121,6 +122,7 @@ def edits(c, url, ctx) -> dict:
     out["number_flash"] = c.wait(f"{row('fleet.hub.port', '[data-testid=settings-saved]')}?.textContent", 15)
     out["number_config"] = config(ctx).get("fleet", {}).get("hub", {}).get("port")
     out["number_cli"] = c.js(f"{row('fleet.hub.port', '[data-testid=settings-cli]')}.textContent")
+    group(c, "remote")
     press(c, row("fleet.enabled", "[data-testid=settings-reset]"), f"!!{row('fleet.enabled', '[data-testid=settings-default]')}")
     out["reset_marker"] = True
     out["reset_config"] = "enabled" in config(ctx).get("fleet", {})

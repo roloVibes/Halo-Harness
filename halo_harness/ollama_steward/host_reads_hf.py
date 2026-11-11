@@ -27,7 +27,7 @@ def client_for(server):
 def _by_servers(addr: str, port: int):
     """3.3.8.0 R4: the paired host whose join (or announce) lists this server among its `servers`, else the one whose
     Ollama rows share its address (a host on that machine, whatever port its Ollama is on)."""
-    from halo_harness.fleet import identity, store
+    from halo_harness.peers import identity, store
     from halo_harness.ollama_steward.host_client import HostClient
     rows = [e for e in store.hosts() if e.get("state", "joined") == "joined"]
 

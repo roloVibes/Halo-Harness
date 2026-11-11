@@ -135,7 +135,7 @@ def tail_journal(state: dict, *, runner: Optional[Callable] = None,
 def source_for(host, *, path=None, platform: Optional[str] = None) -> "tuple[Optional[Path], Optional[str]]":
     """(the log file or None for journald, why not) for `host`'s server log."""
     from halo_harness.ollama_steward.hardware_readers import server_log_path
-    from halo_harness.fleet.ollama_share import served_here
+    from halo_harness.peers.ollama_share import served_here
     if path is not None:
         return Path(path), None
     if host is not None and not served_here(host.url):  # 3.3.6.0 R3: read over ssh in read_new (server_log_remote.py)
@@ -149,7 +149,7 @@ def source_for(host, *, path=None, platform: Optional[str] = None) -> "tuple[Opt
 
 
 def _remote(host) -> bool:
-    from halo_harness.fleet.ollama_share import served_here
+    from halo_harness.peers.ollama_share import served_here
     return host is not None and not served_here(getattr(host, "url", ""))
 
 

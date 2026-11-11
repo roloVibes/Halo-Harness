@@ -8,6 +8,8 @@ an end-to-end parked plan review answered from Studio's Attention queue
 Run: python -m tests.test_supervise_attention
 """
 from __future__ import annotations
+from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
+_fleet_pack.on()
 
 import os
 import sys
@@ -77,7 +79,7 @@ def test_a_gate_row_needs_a_number_for_r(ctx: Ctx):
 @test
 def test_rows_merge_into_the_attention_queue(ctx: Ctx):
     with _Env() as e:
-        from halo_harness.fleet import attention
+        from halo_harness.live import attention
         from halo_harness.supervise import decisions
         decisions.park(e.state_dir, "goal_plan", "g-7", "plan", "Goal g-7: the plan waits", "do the thing",
                        run_dir=str(e.state_dir / "orchestra" / "r1"))
@@ -88,13 +90,13 @@ def test_rows_merge_into_the_attention_queue(ctx: Ctx):
         ctx.check("the row carries approve/reject/open and the decision id",
                   set(plan[0]["keys"]) == {"a", "r", "o"} and plan[0]["target"].get("decision"))
         ctx.check("goal_plan is a KEYS/TEXT_FOR/push kind", "goal_plan" in attention.KEYS and attention.TEXT_FOR.get("goal_plan") == "r")
-        from halo_harness.fleet.push import PUSH_KINDS
+        from halo_harness.live.push import PUSH_KINDS
         ctx.check("the goal kinds push to the phone", all(k in PUSH_KINDS for k in ("goal_plan", "goal_gate", "goal_budget", "goal_ask")))
 
 
 @test
 def test_open_target_points_at_the_run(ctx: Ctx):
-    from halo_harness.fleet.supervise_attention import open_target
+    from halo_harness.live.supervise_attention import open_target
     t = open_target({"kind": "goal_gate", "target": {"run_dir": "/x/.halo/orchestra/run-9", "goal": "g-3"}})
     ctx.check(f"open points at the Orchestra run (3.3.16.0 R1: Agents -> Runs), got {t}", t["section"] == "agents" and t["view"] == "runs"
               and t["run"] == "run-9" and t["goal"] == "g-3")

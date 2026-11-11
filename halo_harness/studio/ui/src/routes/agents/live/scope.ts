@@ -18,19 +18,22 @@ type LiveState = { scope: LiveScope | ""; pick: LivePick; page: string };
 const NONE: LivePick = { kind: "", id: "" };
 export const live = createStore<LiveState>({ scope: urlScope(), pick: NONE, page: "" });
 
-/** The scope Live draws: the one chosen, else fleet while another harness is here. */
-export function scopeOf(chosen: LiveScope | "", harnesses: number): LiveScope {
+/** The scope Live draws: the one chosen, else fleet while another harness is here; this halo while the fleet pack
+ *  is off (3.4.0.0 C). */
+export function scopeOf(chosen: LiveScope | "", harnesses: number, pack = true): LiveScope {
+  if (!pack) return "here";
   return chosen || (harnesses > 1 ? "fleet" : "here");
 }
 
 export function useLiveScope(): LiveScope {
   const chosen = useStore(live, (s) => s.scope);
   const n = useFleet((s) => s.harnesses.length);
-  return scopeOf(chosen, n);
+  const pack = useFleet((s) => s.pack);
+  return scopeOf(chosen, n, pack);
 }
 
 export function liveScope(): LiveScope {
-  return scopeOf(live.get().scope, fleet.get().harnesses.length);
+  return scopeOf(live.get().scope, fleet.get().harnesses.length, fleet.get().pack);
 }
 
 export function setScope(scope: LiveScope): void {

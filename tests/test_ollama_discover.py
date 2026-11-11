@@ -120,7 +120,7 @@ def test_the_sweep_over_a_loopback_cidr_finds_the_mocks(ctx: Ctx):
     """The one test with the seam off: the network pass sweeps 127.0.0.0/30
     on the mock ports only (this machine's own /24 is left out, the LAN
     address is pinned to loopback, reverse DNS is stubbed), a 3 s cap."""
-    from halo_harness.fleet import hub
+    from halo_harness.peers import net as hub  # 3.4.0.0 C: lan_address is core (peers/net.py)
     from halo_harness.providers import ollama_discover_net as net
     from halo_harness.providers.ollama_discover import discover
     from halo_harness.theme import set_config_value

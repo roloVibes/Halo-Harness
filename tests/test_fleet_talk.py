@@ -72,7 +72,7 @@ def test_a_task_and_its_hand_back_over_a_real_session(ctx: Ctx):
 
 @test
 def test_the_one_shape_and_a_cut_text(ctx: Ctx):
-    from halo_harness.fleet.talk import TALK_CAP, WHYS, shape
+    from halo_harness.live.talk import TALK_CAP, WHYS, shape
     d = shape("main", "r1", "y" * (TALK_CAP + 10), "task", re="m0")
     ctx.check(f"from / to / why / text / id / ts, cut flagged with the whole length, got {sorted(d)}",
               {"id", "from", "to", "text", "why", "ts", "re", "cut", "chars"} == set(d) and len(d["text"]) == TALK_CAP
@@ -83,7 +83,7 @@ def test_the_one_shape_and_a_cut_text(ctx: Ctx):
 
 @test
 def test_a_square_hand_off_and_what_came_back(ctx: Ctx):
-    from halo_harness.fleet.talk import on_square, on_turn_ended, on_turn_started
+    from halo_harness.live.talk import on_square, on_turn_ended, on_turn_started
     tree, got = _tree()
     sent = on_square(tree, "main", "sq-1", "media", "read the PDF and list the totals")
     on_square(tree, "main", "sq-1", "media", "Totals: 3", back=True, re=sent["id"])
@@ -101,7 +101,7 @@ def test_a_square_hand_off_and_what_came_back(ctx: Ctx):
 
 @test
 def test_a_hand_over_names_the_machine(ctx: Ctx):
-    from halo_harness.fleet.talk import hand_over_frame
+    from halo_harness.live.talk import hand_over_frame
     f = hand_over_frame(harness="h1", session_id="s1", aid="r1", name="researcher", machine="kali", text="# Hand-off: the basket")
     d = f["data"]
     ctx.check(f"an agent_talk frame from the agent, to the machine, got {f}", f["event"] == "agent_talk" and f["agent_id"] == "r1"

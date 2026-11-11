@@ -61,10 +61,10 @@ def select_modules(names: list, tier: "str | None") -> list:
 # Halo 2.0.3 round 2: `OLLAMA_` added (`OLLAMA_HOST`/`OLLAMA_API_KEY`,
 # providers.ollama.resolve_ollama_hosts) -- a real one of these in the
 # developer's own shell must never leak into `ol:` host resolution tests.
-# Halo 2.0.3 round 4: `HF_` added the same way (`HF_TOKEN`,
-# providers.config.resolve_huggingface) -- a real one of these in the
-# developer's own shell must never leak into `hf:` credential tests.
-_GUARDED_ENV_PREFIXES = ("BRIDGE_", "HALO_", "OPENROUTER_", "DATABRICKS_", "ANTHROPIC_", "TYPESAFE_", "OLLAMA_", "HF_")
+# Halo 2.0.3 round 4: `HF_` added the same way (`HF_TOKEN`, providers.config.resolve_huggingface) -- a real one in the
+# developer's own shell must never leak into `hf:` credential tests. 3.4.0.0 C: `PACKS_TEST_` (fleet_pack.on()) too.
+_GUARDED_ENV_PREFIXES = ("BRIDGE_", "HALO_", "OPENROUTER_", "DATABRICKS_", "ANTHROPIC_", "TYPESAFE_", "OLLAMA_", "HF_",
+                         "PACKS_TEST_")
 
 
 def _snapshot_guarded_env() -> dict:

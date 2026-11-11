@@ -42,7 +42,8 @@ def _size(body: dict) -> int:
 def answer(fields: dict, *, by: str = "", hub: str = "", home=None) -> dict:
     """The member's side of `coach_library {entry}`: its own library, the recall switch, a journal line."""
     from halo_harness import recall_fleet as RF
-    from halo_harness.fleet import identity, journal
+    from halo_harness.peers import identity
+    from halo_harness.live import journal
     from halo_harness.orchestra import coach_library as L
     home = Path(home) if home is not None else identity.home()
     me = identity.harness(home)
@@ -72,8 +73,9 @@ def answer(fields: dict, *, by: str = "", hub: str = "", home=None) -> dict:
 def _call():
     if CALL is not None:
         return CALL
-    from halo_harness.fleet.hub import running_call
-    return running_call
+    from halo_harness.packs import fleet_door  # 3.4.0.0 C: the hub is the fleet pack's; none: no hub here
+    hub = fleet_door.module("fleet/hub.py")
+    return getattr(hub, "running_call", None) or (lambda *_a, **_k: None)
 
 
 def fetch(harness: str, entry: str, *, home=None, state_dir=None) -> "tuple[int, dict]":
@@ -87,7 +89,7 @@ def fetch(harness: str, entry: str, *, home=None, state_dir=None) -> "tuple[int,
         return 1, {"error": f"{entry} is already in this library; a fetch never overwrites it "
                             f"(halo coach library forget {entry} first)"}
     if home is None:
-        from halo_harness.fleet import identity
+        from halo_harness.peers import identity
         home = identity.home()
     got = _call()(home, "POST", "local/coach-library", {"harness": harness, "entry": entry}, 60.0)
     if got is None:

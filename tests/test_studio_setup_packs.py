@@ -27,7 +27,7 @@ test, TESTS = new_registry()
 REPO = Path(__file__).resolve().parent.parent
 _RUN: dict = {}
 P = "pack:setup-blocks:"
-CORE = ["providers", "local", "model", "permissions", "theme", "team", "check", "machines", "summary"]  # 3.3.16.0 R2: Machines
+CORE = ["providers", "local", "model", "permissions", "theme", "team", "check", "summary"]  # 3.4.0.0 C: Machines is the fleet pack's
 
 
 def _got(ctx: Ctx) -> dict:
@@ -54,7 +54,7 @@ def test_a_disabled_pack_leaves_the_rail_as_it_is(ctx: Ctx):
 @test
 def test_the_blocks_join_the_rail(ctx: Ctx):
     got = _got(ctx)
-    want = ["providers", "local", "model", P + "prefs", "permissions", "theme", "team", "check", P + "reach", P + "about", "machines", "summary"]
+    want = ["providers", "local", "model", P + "prefs", "permissions", "theme", "team", "check", P + "reach", P + "about", "summary"]
     ctx.check(f"behind Default model, then after the core steps, before the Summary, got {got.get('on_rail')}", _steps(got.get("on_rail")) == want)
     titles = [t for t in got.get("on_titles") or [] if t != "Linux fixes"]
     ctx.check(f"the pack's name on the placed one, the block titles, got {titles}", titles[3] == "Setup blocks: Review preferences"

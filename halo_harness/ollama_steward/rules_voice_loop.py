@@ -49,7 +49,7 @@ def fix(stage: str) -> "tuple[str, str, str]":
 def _here(ctx: dict) -> str:
     """The Ollama host served on this machine (the voice loop's chat model's, the Steward page's row), else words."""
     try:
-        from halo_harness.fleet.ollama_share import served_here
+        from halo_harness.peers.ollama_share import served_here
         return next((h.name for h in ctx.get("hosts") or [] if served_here(h.url)), "this machine")
     except Exception:
         return "this machine"

@@ -159,7 +159,7 @@ def test_it_never_runs_during_a_session_and_stops_on_a_call(ctx: Ctx):
             idle.idle_since = saved
         ctx.check(f"a session on the card: nothing runs, got {out!r} {f2.ran}", out == "" and f2.ran == [])
         rig.set_peer()
-        from halo_harness.fleet import identity
+        from halo_harness.peers import identity
         from halo_harness.theme import set_config_value
         import os
         os.environ["BRIDGE_STATE_DIR"] = str(rig.home)

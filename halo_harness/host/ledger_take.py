@@ -14,13 +14,13 @@ it reverts goes with it.
 
 from __future__ import annotations
 
-from halo_harness.fleet import protocol
+from halo_harness.peers import protocol
 
 MAX_LINES = 500
 
 
 def take(svc, raw: bytes, hid: str, who: str) -> "tuple[int, dict]":
-    from halo_harness.fleet.ollama_share import accept
+    from halo_harness.peers.ollama_share import accept
     from halo_harness.ollama_steward.profiles import payload_for_member
     try:
         body = protocol.decode(raw) if raw else {}

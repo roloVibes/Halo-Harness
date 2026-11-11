@@ -30,14 +30,14 @@ FIELDS = ("over_lan", "measured_from", "link")
 
 
 def _served_here(url: str) -> bool:
-    from halo_harness.fleet.ollama_share import served_here
+    from halo_harness.peers.ollama_share import served_here
     return served_here(url)
 
 
 def from_where(state_dir=None) -> str:
     """`fleet.name` (the fleet and host peer name) when this halo has one, else the machine's host name."""
     try:
-        from halo_harness.fleet import identity
+        from halo_harness.peers import identity
         name = str(identity.config_value("fleet.name", "", state_dir) or "").strip()
         if name:
             return name[:64]
@@ -143,7 +143,7 @@ def pick(own: Optional[dict], lan: Optional[dict], now: Optional[float] = None) 
 
 def _you() -> str:
     try:
-        from halo_harness.fleet import identity
+        from halo_harness.peers import identity
         return identity.fleet_name()
     except Exception:
         return "<you>"

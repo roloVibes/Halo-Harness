@@ -73,7 +73,7 @@ def enabled() -> bool:
 def this_machine() -> Optional[str]:
     """This machine's fleet name while it has joined a hub, else None."""
     try:
-        from halo_harness.fleet import identity, store
+        from halo_harness.peers import identity, store
         return identity.fleet_name() if store.has_hubs() else None
     except Exception:
         return None

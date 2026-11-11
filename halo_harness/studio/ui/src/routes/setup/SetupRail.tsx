@@ -11,6 +11,7 @@ import { useFirstRun } from "./door";
 import { blockOf, isPackStep } from "./packSetup";
 import { goto, lineupWord, stateOf, stepsOf, titleOf, usePage, valueOf, type StepId } from "./pages";
 import { providersSet, useSetup } from "./store";
+import { useFleetPack } from "../fleet/store";
 import { lastCheckWord } from "./checkStore";
 
 /** 3.3.0.0 R4: the page `halo init` opened (`?first=1`) leads the summary with what it is for; 3.3.3.0 R1: not once
@@ -60,6 +61,7 @@ function Strip() {
 
 export function SetupRail() {
   const page = usePage();
+  useFleetPack(); // 3.4.0.0 C: the Machines step follows the fleet pack's flag (GET fleet)
   // one string per read (a new array each read would redraw forever), parsed back into the steps (3.3.11.0 R3: JSON,
   // a pack's title may hold any character)
   const joined = useSetup((s) =>

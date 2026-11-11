@@ -55,7 +55,7 @@ def capabilities_of(manifest) -> "list[dict]":
 
 
 def has_path(text: str) -> bool:
-    from halo_harness.fleet.capabilities import _DRIVE, _POSIX
+    from halo_harness.peers.catalog import _DRIVE, _POSIX
     return bool(_DRIVE.search(text) or _POSIX.search(text) or TILDE_RE.search(text))
 
 

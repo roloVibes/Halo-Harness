@@ -72,7 +72,7 @@ def sub_logs(log_path) -> list:
 
 def _hosts(state_dir, session_id) -> "tuple[dict, list]":
     from types import SimpleNamespace
-    from halo_harness.fleet.ollama_share import served_here
+    from halo_harness.peers.ollama_share import served_here
     from halo_harness.ollama_steward.host_client import for_host
     from halo_harness.ollama_steward.ledger import read_calls
     ids = {session_id} if isinstance(session_id, str) else set(session_id)

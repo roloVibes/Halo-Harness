@@ -15,7 +15,7 @@ import json
 import time
 from typing import Optional
 
-from halo_harness.fleet.ollama_share import BATCH_LINES, FLUSH_S, MAX_LINES, Forwarder
+from halo_harness.peers.ollama_share import BATCH_LINES, FLUSH_S, MAX_LINES, Forwarder
 
 _PUSHERS: dict = {}  # (str(home), host url) -> HostPush
 
@@ -27,7 +27,7 @@ class HostPush(Forwarder):
         self.last_flush = 0.0  # the first pass sends what waits
 
     def serves(self, line: dict) -> bool:
-        from halo_harness.fleet import identity
+        from halo_harness.peers import identity
         from halo_harness.ollama_steward.host_client import _addr_port, _matches
         if not isinstance(line, dict) or line.get("from") not in (None, "", identity.fleet_name()):
             return False  # a line this machine took in from another is never sent on
@@ -36,7 +36,7 @@ class HostPush(Forwarder):
 
     def tick(self, client, force: bool = False) -> int:  # type: ignore[override]
         """Send what is due to this host; returns how many lines went. Never raises."""
-        from halo_harness.fleet.ollama_share_take import take_profiles
+        from halo_harness.peers.ollama_share_take import take_profiles
         from halo_harness.filelock import file_lock
         try:
             current, _rotated, cpath = self._paths()
@@ -66,7 +66,7 @@ class HostPush(Forwarder):
 
 
 def push_all(home=None, *, force: bool = False) -> int:
-    from halo_harness.fleet import identity, store
+    from halo_harness.peers import identity, store
     from halo_harness.ollama_steward.host_client import HostClient, _usable, any_paired
     if not any_paired(home) or identity.offline():
         return 0

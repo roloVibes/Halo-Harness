@@ -59,12 +59,12 @@ def _sub(req, path: str, body: dict, params: dict):
 
 
 def session_command(req, hid: str, sid: str, body: dict):
-    from halo_harness.studio.fleet_hub_api import post_session_command
+    from halo_harness.studio.fleet_view_api import post_session_command
     return post_session_command(_sub(req, f"fleet/{hid}/{sid}/command", body, {"hid": hid, "sid": sid}))
 
 
 def agent_command(req, hid: str, sid: str, aid: str, body: dict):
-    from halo_harness.studio.fleet_hub_api import post_agent_command
+    from halo_harness.studio.fleet_view_api import post_agent_command
     return post_agent_command(_sub(req, f"fleet/{hid}/{sid}/agents/{aid}/command", body,
                                    {"hid": hid, "sid": sid, "aid": aid}))
 
@@ -72,21 +72,21 @@ def agent_command(req, hid: str, sid: str, aid: str, body: dict):
 def open_target(row: dict) -> dict:
     kind, t = row["kind"], row.get("target") or {}
     if kind.startswith("pack:"):  # 3.2.0.0 R3: a pack's own row opens its section
-        from halo_harness.fleet.pack_attention import open_target as pack_target
+        from halo_harness.live.pack_attention import open_target as pack_target
         return pack_target(row)
     if kind == "orchestra_gate":
         return {"section": "agents", "view": "runs", "run": t.get("run")}  # 3.3.16.0 R1: Orchestra is Agents -> Runs
     if kind in SUPERVISE:  # 3.1.8.0 R1
-        from halo_harness.fleet.supervise_attention import open_target as supervise_target
+        from halo_harness.live.supervise_attention import open_target as supervise_target
         return supervise_target(row)
     if kind == "ollama_steward":  # 3.3.4.0 R4
-        from halo_harness.fleet.steward_attention import open_target as steward_target
+        from halo_harness.live.steward_attention import open_target as steward_target
         return steward_target(row)
     if kind == "cap":
         return {"section": "fleet", "panel": "fleet-costs", "scope": t.get("scope"), "key": t.get("key")}
     if kind.startswith("mission_") and (kind != "mission_ask" or t.get("mission")):  # R8: a run_task card names its mission
-        from halo_harness.fleet.mission_attention import open_target as mission_target
-        return mission_target(row)
+        from halo_harness.packs import fleet_door  # 3.4.0.0 C: missions are the fleet pack's
+        return fleet_door.call("fleet/mission_attention.py", "open_target", row, default={"section": "agents"})
     if kind == "conflict":
         return {"section": "fleet", "panel": "fleet-map", "file": t.get("file"), "a": t.get("a"), "b": t.get("b")}
     return {"section": "fleet", "panel": "fleet-agent", "harness": row.get("harness"), "session_id": row.get("session_id"),
@@ -115,17 +115,18 @@ def act(req, watcher, row: dict, key: str, text: str):
     if key == "o":
         return 200, {"open": open_target(row)}, label
     if kind.startswith("pack:"):  # 3.2.0.0 R3: the pack's code reads the answer file
-        from halo_harness.fleet.pack_attention import answer as pack_answer
+        from halo_harness.live.pack_attention import answer as pack_answer
         return pack_answer(req, row, key, text)
     if kind == "mission_plan":  # 3.0.6.0 R7
-        from halo_harness.fleet.mission_attention import answer
-        return answer(req, row, key, text)
+        from halo_harness.packs import fleet_door  # 3.4.0.0 C: missions are the fleet pack's
+        mod = fleet_door.module("fleet/mission_attention.py", cwd=req.cwd, state_dir=req.state_dir)
+        return mod.answer(req, row, key, text) if mod else (409, {"error": fleet_door.line()}, label)
     if kind in SUPERVISE:  # 3.1.8.0 R1: the answer goes into the decision file; the supervisor applies it
-        from halo_harness.fleet.supervise_attention import answer as supervise_answer
+        from halo_harness.live.supervise_attention import answer as supervise_answer
         return supervise_answer(req, row, key, text)
     if kind in SET_ASIDE:
         watcher.acks.add(row["id"])
-        from halo_harness.fleet import journal
+        from halo_harness.live import journal
         journal.append(watcher.home, "ack", harness=row.get("harness"), harness_name=row.get("harness_name"),
                        session_id=row.get("session_id"), row=row["id"])
         return 200, {"set_aside": True}, label

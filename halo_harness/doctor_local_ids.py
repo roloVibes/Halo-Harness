@@ -84,7 +84,7 @@ def _id_steps(state_dir, role_table, main_ref) -> list:
 def staged_update(host) -> str:
     """The version an Ollama update staged on this Windows machine waits to install, else ""."""
     try:
-        from halo_harness.fleet.ollama_share import served_here
+        from halo_harness.peers.ollama_share import served_here
         if host is None or not served_here(host.url) or os.name != "nt":
             return ""
         root = Path(os.environ.get("LOCALAPPDATA") or "") / "Ollama" / "updates"

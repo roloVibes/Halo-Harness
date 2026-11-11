@@ -18,6 +18,8 @@ are fakes; no model is called).
 Run: python -m tests.test_fleet_mission_handoffs
 """
 from __future__ import annotations
+from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
+_fleet_pack.on()
 
 import json
 import time
@@ -44,7 +46,7 @@ def test_a_part_with_two_repo_dependencies_starts_from_their_merge(ctx: Ctx):
     from halo_harness.fleet import mission_api as A
     from halo_harness.fleet import mission_store as S
     from halo_harness.fleet import mission_worker as W
-    from halo_harness.fleet.identity import harness
+    from halo_harness.peers.identity import harness
     from halo_harness.orchestra.gitops import show
     from tests.helpers.fleet_caps_seed import seed
     from tests.helpers.mission_seed import FakeJudge, FakeLead, reset_fakes, wait_state, windows_host, worker

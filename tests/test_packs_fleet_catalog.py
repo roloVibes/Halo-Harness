@@ -28,6 +28,8 @@ from pathlib import Path
 from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
+_fleet_pack.on()
 
 from tests.helpers.packs_home import PacksHome  # noqa: E402
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
@@ -152,7 +154,7 @@ def test_summary_chips_spec_and_who_count_them(ctx: Ctx):
         ctx.check(f"one not available here counts half, with why, got {m}", m.get("name") == "gpu.render" and m.get("score") == 2.5
                   and m.get("why", "").endswith("(not available here: no GPU here)"))
         caps.save(cat, h.state)
-        from halo_harness.fleet import identity
+        from halo_harness.peers import identity
         from halo_harness.fleet.cli_caps import cmd_who
         identity.forget_cache()
         out = io.StringIO()

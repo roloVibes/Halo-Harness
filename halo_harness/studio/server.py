@@ -61,7 +61,7 @@ class _Server(http.server.ThreadingHTTPServer):
         self.slow_ms = max(0, int(slow_ms or 0))  # 3.3.0.0 R7: the latency flag (slow_ms_from_env)
         self.owner_salt = secrets.token_urlsafe(18)  # 3.3.14.0 R1 (#4): the owner proof's salt (studio/owner_proof.py)
         self.events = None  # studio.events.EventBridge, made by the first /api/events
-        self.fleet_hub = None  # 3.0.5.0 R2: fleet.hub.HubServer (`halo studio --fleet`, studio/fleet_hub_api.py)
+        self.fleet_hub = None  # 3.0.5.0 R2: fleet.hub.HubServer (`halo studio --fleet`, the fleet pack's server/fleet_hub_api.py)
         self.events_lock = threading.Lock()
         self.files_watch = None  # 3.2.2.0 R6: studio/files_live.py Watcher, started by start_server
         self.steward_job = None  # 3.3.4.0 R4: ollama_steward/job.py StewardJob, started by start_server
@@ -425,9 +425,10 @@ def cmd_studio(argv: list) -> int:
         print(f"halo studio: cannot bind 127.0.0.1:{args.port or 'auto'}: {e}", file=sys.stderr)
         return 1
     url = url_for(server, args.mode, edit.text if edit is not None else None)
-    if args.fleet:  # 3.0.5.0 R2: the fleet hub inside Studio's process
-        from halo_harness.studio.fleet_hub_api import start_for_flag
-        print(start_for_flag(server, state_dir))
+    if args.fleet:  # 3.0.5.0 R2: the fleet hub inside Studio's process (3.4.0.0 C: the fleet pack's)
+        from halo_harness.packs import fleet_door
+        print(fleet_door.call("server/fleet_hub_api.py", "start_for_flag", server, state_dir, cwd=cwd, state_dir=state_dir,
+                              default=f"halo studio --fleet: {fleet_door.line()}"))
     try:
         state_dir.mkdir(parents=True, exist_ok=True)
         from halo_harness.privateio import write_private_atomic
