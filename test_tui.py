@@ -5066,8 +5066,13 @@ def test_intro_types_out_the_full_line_then_the_cursor_disappears(ctx: Ctx):
         async with app.run_test(size=(100, 40)) as pilot:
             ctx.check("an IntroLine is mounted as the first transcript child",
                       isinstance(app.transcript.children[0], IntroLine))
-            await pilot.pause(0.5)  # far more than len(line) * 0.001s at the shrunk delay
             widget = app.transcript.children[0]
+            # until done, not a fixed 0.5 s: a Windows timer tick is ~15 ms, so the art plus the line can take
+            # seconds on a slow runner even at the shrunk delay (red on the Windows runner at 6cff17b8)
+            for _ in range(60):
+                await pilot.pause(0.25)
+                if widget.done:
+                    break
             # 2.0.3: the launch line is a random pick from the pool, so the
             # check is "exactly one of the pool's lines, fully revealed".
             from halo_harness.tui.intro_lines import INTRO_LINES
