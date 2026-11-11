@@ -85,7 +85,7 @@ tab ... I wish I could see better groupings of these sub-agents ... here's this 
   (`workflows[].when`); docs/CONFIG.md (`workflows.when.<square>`); the glossary's **when**; README's Workflows part;
   docs/media/studio-workflows.png re-rendered as the composed board.
 
-## [3.3.16.2] - unreleased
+## [3.3.16.2] - 2026-11-10
 
 **Live: thinking you can see, agents talking.** The owner: "make watching a model think much better. In sessions
 live tab, it's really amazing to get more visualization on what the models are really thinking. There should also be

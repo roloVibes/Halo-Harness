@@ -1,5 +1,102 @@
 # What changed (the newest version entries of CHANGELOG.md, shipped with the package; `halo whatsnew` reads it)
 
+## [3.3.16.2] - 2026-11-10
+
+**Live: thinking you can see, agents talking.** The owner: "make watching a model think much better. In sessions
+live tab, it's really amazing to get more visualization on what the models are really thinking. There should also be
+a section that does this for model to model or agent to agent conversations. Maybe we can give that a label in the
+live feed so we see models conversing with each other and that's its own label."
+
+### Added
+
+- **THINK rows** (`fleet/think.py`, `routes/shared/liveThink.ts`, `routes/session/LiveThink.tsx`): every agent's
+  reasoning now reaches Studio as `thinking_chunk` frames from the session's agent tree (followed or not; before, the
+  control socket dropped `thinking_delta` and only a followed agent's thinking showed, folded per chunk). One row per
+  thought however many pieces it streams in: muted italic on a hairline `--think` rule, a caret while it grows, four
+  lines with show all / show less, then `thought 4.2 s · 812 tokens` (the length when it streamed, the tokens when the
+  provider reported `reasoning_tokens`). Native Anthropic thinking streams as it comes; the OpenAI-dialect reasoning
+  (DeepSeek, Kimi, GLM, OpenRouter, Ollama's thinking models) lands in one piece at the end of the call. A model with
+  no thinking shows no THINK row.
+- **Thought, then act**: a THINK row's chip says what it led to (`then ran Edit basket.py`, `then answered`) and
+  jumps there; the action row's `why?` opens that thought under the row.
+- **The Thinking view**: a toggle beside Follow (off by default) narrows Live to the thoughts and what each led to,
+  for everyone or the pinned agent. The kind pick gains think and talk.
+- **TALK rows** (`fleet/talk.py`, `routes/shared/liveTalk.ts`, `routes/session/LiveTalk.tsx`): one agent's words to
+  another as `agent_talk` frames, one shape `{id, from, to, text, why, re?, cut?}`: a parent's task to a child
+  (`task`), the child's hand-back (`hand-back`, `re` the task), another agent's steer (`agent_steer` with
+  `from_agent`), a Workflow square's hand-off and answer (`square`) and Studio's Hand to... another machine
+  (`hand-over`). The row: the speaker's tag, an arrow, the listener's tag, the reason. A hand-back is one row: the
+  agent's OUT block becomes the TALK row (an OUT after a TALK hand-back is not added). The map's edge between the
+  two lights once from the speaker to the listener, with an arrow.
+- **Conversations** (`session-conversations`, optional, the header's "+"): the pairs that have talked, newest first,
+  and the chosen pair's thread, each message on its speaker's side with its reason and time, a reply under what it
+  answers; a message's click scrolls Live to its row, "show in Live" narrows Live to the pair.
+- The trace export (`halo session export`, Live's Export) writes a `thinking` row per thought and `talk:` rows for a
+  sub-agent's task and hand-back (the hand-back in place of its last text, never both) and a square's receipt.
+
+### Changed
+
+- **The timeline shows the mix**: Live's timeline draws each lane by phase -- thinking, running a tool, writing,
+  waiting on you, idle -- in the state tokens (the legend is in Live's `?` help); hovering a segment says the phase
+  and its length, a click on a thinking segment scrolls the column to that thought.
+- **`why?`**: on a row a thought led to, its first answer is that thought, inline under the row; "what the model saw"
+  there is the turn's postmortem as before. The agent inspector's Thinking tab draws thoughts the way Live does,
+  with what each led to.
+- The kind pick's text no longer includes thinking (it has its own, think).
+
+### Docs
+
+- docs/STUDIO-sections.md (Session: THINK, TALK, the Thinking view, thought then act, the timeline's phases,
+  Conversations), docs/FLEET.md (the two frames and their shapes, the KIND column), docs/STUDIO-session.md (the
+  trace's new rows), the glossary (thought, agent talk), Live's and Conversations' `?` help, README "Watching a model
+  think" and "Agents talking" with docs/media/studio-thinking.png re-rendered and docs/media/studio-talk.png new.
+
+### From a session's own review (Kali, 2026-11-10)
+
+The owner asked his session's own model (GLM 5.3 on Databricks, a custom lineup) what it thought of 3.3.16.0. It
+named four things; each was checked against the code, all four were real.
+
+- **A tie in the model pick went to the name.** `models_best_at.best_per_kind` ranked an equal score by the
+  model's ref, so `...-opus-4-1` led over `...-opus-4-6`, an older model over its successor, and price and what
+  was measured played no part (the roster, `halo models analyze`, `--best-for` and every pick behind them). Every
+  pick now breaks a tie by one order (`halo_harness/model_rank.py`): the kind's score, the measured first-time
+  success for the kind here (from 3 checked tasks), the newer version within a model family (`4.6` > `4.1`,
+  `v4.1` > `v4`, `5.3` > `5`, a newer date suffix; read across `-`, `.` and `v`), the larger context, the lower
+  price, the provider you have a key for, then the name; the cheapest per kind goes price first. The leader's
+  line names the deciding term ("same score as X: newer", "...: measured 4/5 here", "...: cheaper") in the
+  roster, `halo models analyze`, `halo models --best-for` and the Roles picker. The `auto` pick, `measured`, a
+  pack bio's capability pick, the role presets' cheapest model, `halo gym propose` and the media ranking use the
+  same order past their own rules. **The best-at index's schema is 2: every box rebuilds it once** on its first
+  read after the update. Two test pins held the alphabetical accident (`tests/test_roster_dropped.py`:
+  `ant:fable` led code over the same-scored, cheaper `ant:opus` by name alone) and were fixed.
+- **Knowledge search answered with the sample's gate records.** A search for "halo harness update new features
+  version" came back with 4 of 5 hits from the guided first run's sample repo: the gate's records carry its test
+  command, whose python sits in the tool venv (`.../uv/tools/halo-harness/bin/python`), so "halo" and "harness"
+  matched a path, there was no project scope, and equal scores went to the newest. Search now ranks by relevance
+  first (paths, commands and shas are not words a record says; no shared content word, no hit), this project's
+  records first at equal relevance and another project's marked, a routine passed gate under findings unless the
+  query names its unit, re-runs collapsed to the newest with "x N", and each hit says why it is there.
+  `halo start`'s sample records are tagged `sample` and never answer another project's search (an older one is
+  recognized by its project being a sample folder); its card says so. New: `halo knowledge list --kind
+  gate|finding|decision --project .|all|NAME`, `halo knowledge prune --kind ... --older-than 7d [--dry-run]
+  [--yes]` (prints what it would remove and the count; only `--yes` removes), and a cap of
+  `knowledge.gate_keep` (50, a Settings row) passed-gate records per project, applied when the gate writes one.
+- **The Workflow tool sat on lineups that had no square.** A custom lineup with no `workflows:` key enabled no
+  square, yet the tool was offered every turn and answered "no square is enabled for this lineup". A lineup
+  with no `workflows:` key now inherits config `workflows.enabled` (default `media`) like the auto lineup
+  (`workflows: []` is none, on purpose); the tool is offered only when a square is on for the lineup; a role of
+  the lineup that covers the read (a `media` role, or a card whose bio's `models.needs` / kind covers pdf,
+  vision, audio, video) takes the task the Agent tool's way, with the receipt "handing the PDF to your media
+  role: the lineup covers it"; when nothing covers it the line says what would ("no role or square reads PDFs
+  here: `halo workflows enable media`, or give a role a model that takes PDFs"). `halo doctor` says under the
+  lineup which squares are on and from where; `halo workflows list` marks each "on for <lineup>" or "off".
+- **No changelog on the box.** A `uv tool install` carries no CHANGELOG.md, so nobody there could see what a
+  version changed. The package now ships the newest twelve dated entries (`halo_harness/data/changelog.md`,
+  written by `scripts/release.py` when it dates a release); `halo whatsnew [<version>] [--since V] [--full]
+  [--summary]` and the TUI's `/whatsnew` show the installed version's summary and each heading with its first
+  line, and after `halo update` installs a newer version its last lines are that version's summary and "halo
+  whatsnew for the rest".
+
 ## [3.3.16.1] - 2026-11-10
 
 **The local prompt diet.** A first turn to an unknown remote Ollama model was 16,970 tokens of Halo's own prompt
@@ -1325,28 +1422,3 @@ the owner's run on the PC.
 
 #### Changed
 - The loopback auto-detect names a server whose `/health` says `"service": "strata"` by its runtime, its window from `meta.n_ctx`.
-
-## [3.3.9.1] - 2026-11-02
-
-**FreeToken.** The owner asked whether FreeToken (github.com/FlashML-org/FreeToken) fits Halo's local use cases: it serves a
-big Mixture-of-Experts model on one consumer box out of host RAM and NVMe, the other answer to "a model bigger than my
-card" beside the pool. It lands as one more local runtime -- never a provider -- the way LM Studio and mlx_lm.server did:
-a managed `ft serve`, the steward reading its log, a fit that is RAM plus the host link rather than VRAM, host-served to
-every halo on the LAN. Linux and CUDA 13 only, so the owner's Ubuntu box is its home; every FreeToken log pattern and API
-shape is written from its source and marked unverified until a live run.
-
-### R1: FreeToken -- a serving engine for big Mixture-of-Experts models on one consumer box, as one more local runtime
-
-#### Added
-- `halo local serve --runtime freetoken --model <checkpoint dir> [--lan]` runs FreeToken's `ft serve` (from `huggingface.freetoken_bin` or PATH) on a free loopback port with `--moe-collect-stats`, as the registry row and `huggingface.local_servers` entry `freetoken` (`hf:local/<model>@freetoken`); `halo local servers | log | stop` treat it like the others; a load past two minutes goes on in the background with its progress said; `--lan` binds every address behind a generated key.
-- The requirements in one line: Linux x86_64, an NVIDIA driver r580+ (CUDA 13) and nvcc on PATH, each missing one with its install command; the WSL2 pinned-memory caveat; `halo doctor --local` checks `ft --version`, the driver and nvcc when the runtime is configured.
-- The steward reads FreeToken's log (its stamp, the load block as one load-result, prefill / decode tok/s, the expert cache's hit rate, the pin-budget lines): `ft-expert-thrash`, `ft-pinned-cap`, `ft-kernel-jit`, keyed `<server>|<model>`, each with a stated fix never applied; `halo ollama explain` knows them.
-- The FreeToken fit, RAM + link not VRAM: the dense bytes + the KV + one layer of experts against the card, the experts against RAM (the WSL pin cap at 40 %), the link measured by `ft bench bw` or the extrapolated 32-64 GB/s, one line per model and host; the Library lists the checkpoints FreeToken names as download targets with it as the badge.
-- `halo local bench --host freetoken [--quick]` (the speed card against a FreeToken server) and `halo local bench --bw [--model DIR]` (`ft bench bw`), each with its cost line first.
-- Through the host: a FreeToken server on the host is a host-served local server with its model; with `--lan` the host's catalog offers it and a peer reaches it as `hf:local/<model>@<host>`; placement and the adviser see it beside the Ollama hosts and the pool, with the loading tax said (the restart, the experts from disk, the first-install JIT).
-- Setting `huggingface.freetoken_bin`; glossary `expert cache`, `offload`; docs/MODELS-freetoken.md.
-
-#### Changed
-- The loopback auto-detect also asks port 1919 and names a server whose `/v1/models` says `owned_by: FreeToken` by its runtime.
-- A session's first byte from a FreeToken server may take up to 30 minutes (its first request compiles kernels); every other server keeps the 5-minute wait.
-- A Halo-started server's status (Studio's Local -> Hugging Face server row) reads a `/health` that answers 200 while loading as still loading.

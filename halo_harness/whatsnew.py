@@ -86,12 +86,15 @@ def headings(body: str) -> "list[tuple[str, str]]":
     for i, line in enumerate(lines):
         if not line.startswith("### "):
             continue
-        first = ""
+        item: list = []  # the first paragraph or list item under the heading, whole: its first sentence is the line
         for ln in lines[i + 1:]:
             if ln.startswith("### ") or ln.startswith("## "):
                 break
-            if ln.strip() and not ln.lstrip().startswith("#"):  # a deeper heading is passed over
-                first = _plain(re.sub(r"^\s*[-*]\s+", "", ln))
+            bullet = bool(re.match(r"\s*[-*]\s+", ln))
+            if item and (not ln.strip() or bullet):
                 break
+            if ln.strip() and not ln.lstrip().startswith("#"):  # a deeper heading is passed over
+                item.append(re.sub(r"^\s*[-*]\s+", "", ln))
+        first = _SENTENCE.split(_plain(" ".join(item)))[0] if item else ""
         out.append((line[4:].strip(), first))
     return out
