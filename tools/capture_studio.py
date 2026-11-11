@@ -100,7 +100,7 @@ def main(argv: list) -> int:
     parser = argparse.ArgumentParser(description="Render docs/media/studio.png through headless Chrome")
     parser.add_argument("--out", default=str(REPO / "docs" / "media" / "studio.png"))
     parser.add_argument("--dom", action="store_true", help="print the rendered DOM's node count instead of a PNG")
-    parser.add_argument("--mode", choices=["roles", "agents", "shell", "orchestra", "fleet", "start", "packs", "setup", "settings", "local", "workflows"], default="roles", help="the section to render (the design pack's section: its tests/capture_design.py)")
+    parser.add_argument("--mode", choices=["roles", "agents", "shell", "orchestra", "fleet", "start", "packs", "setup", "settings", "local", "workflows", "picker"], default="roles", help="the section to render (the design pack's section: its tests/capture_design.py)")
     args = parser.parse_args(argv)
     from capture_identity import begin
     from tests.helpers.chrome_driver import scope_home
@@ -168,6 +168,14 @@ def _render(args) -> int:
             args.out = args.out[:-4] + "-workflows.png"
         try:
             return capture_workflows(args.out, args.dom, serve, state)
+        finally:
+            shutil.rmtree(state.parent, ignore_errors=True)
+    if args.mode == "picker":  # 3.3.17.1: the model picker open on a role (tools/capture_picker.py)
+        from capture_picker import capture as capture_picker
+        if args.out.endswith("studio.png"):
+            args.out = args.out[:-4] + "-model-picker.png"
+        try:
+            return capture_picker(args.out, args.dom, serve, state)
         finally:
             shutil.rmtree(state.parent, ignore_errors=True)
     if args.mode in ("roles", "agents"):  # 3.0.7.0 R2: the React Roles section (tools/capture_roles.py); 3.3.16.0 R1: Agents, Cast

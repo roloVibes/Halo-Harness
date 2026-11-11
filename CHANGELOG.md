@@ -76,6 +76,12 @@ cost is said as "billed by your tenant", never as dollars (docs/PROVIDERS-copilo
 - **Live**: a `cp:work` role's turn shows as text rows with no THINK row (Copilot streams no thoughts and none is
   made up), its hand-back as a TALK row, a `copilot_ask` call as a tool row (tests/test_copilot_fit.py).
 
+### Docs: the README shows Studio
+
+- "What it feels like" leads with Studio: `docs/media/studio-model-picker.png` (new, `capture_studio.py --mode picker`) and
+  `docs/media/studio-auto.png` (new, `capture_steer.py --only auto`) replace the terminal model picker and auto-mode pictures;
+  the steer animation and the phase-line picture left the README for one sentence each. The TUI captures stay in `docs/media`.
+
 ## [3.3.16.3] - 2026-11-10
 
 The owner, 2026-11-10: "I still really want to see different blocks that you can almost like drag and drop in the agents

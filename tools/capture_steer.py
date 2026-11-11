@@ -3,7 +3,7 @@ think" and "Agents talking" (Halo 3.3.16.1 docs; 3.3.16.2 the last two), through
 extra agents of tests/helpers/studio_live_rig.py and the scripted activity of tools/capture_session_scenes.py. No model
 is called:
 
-    python tools/capture_steer.py            docs/media/studio-steer.png, studio-thinking.png and studio-talk.png
+    python tools/capture_steer.py            docs/media/studio-steer.png, studio-thinking.png, studio-talk.png and studio-auto.png
     python tools/capture_steer.py --dom      both pages, counted by data-testid (the last stdout line is the JSON)
 
     docs/media/studio-steer.png      Session: the Live column mid-run, a row clicked so its agent is the steer's target (the
@@ -12,6 +12,8 @@ is called:
     docs/media/studio-thinking.png   3.3.16.2: Live on the implementer with the Thinking view on, its thoughts linked to
                                      the Read and the Edit they led to, its timeline lane in phases (capture_talk_scene.py)
     docs/media/studio-talk.png       3.3.16.2: Live with TALK rows and the Conversations panel open on a thread
+    docs/media/studio-auto.png       3.3.17.1: Live over one auto-mode turn, an edit, a test run, a finish, no ask card
+                                     (capture_auto_scene.py)
 
 1500 x 900 CSS px at scale 2. This harness is `you@studio` (tools/capture_identity.py) and every page is guarded before it
 is counted or shot.
@@ -64,7 +66,7 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Session's steer and Cast's thinking stream, as stills for the front page")
     ap.add_argument("--dom", action="store_true")
     ap.add_argument("--out", default=str(REPO / "docs" / "media"))
-    ap.add_argument("--only", default="", help="steer, thinking, talk (comma separated); default all three")
+    ap.add_argument("--only", default="", help="steer, thinking, talk, auto (comma separated); default all four")
     a = ap.parse_args(argv)
     from capture_identity import begin, guard_page, placeholder
     from tests.helpers.chrome_driver import find_chrome, open_chrome, scope_home
@@ -91,9 +93,10 @@ def main(argv=None) -> int:
                 guard_page(c, "steer")
                 print(json.dumps({"session": counts(c)}))
                 return 0
+            from capture_auto_scene import auto
             from capture_talk_scene import talk, thinking
-            only = set(a.only.split(",")) if a.only else {"steer", "thinking", "talk"}
-            shots = (("steer", steer), ("thinking", thinking), ("talk", talk))
+            only = set(a.only.split(",")) if a.only else {"steer", "thinking", "talk", "auto"}
+            shots = (("steer", steer), ("thinking", thinking), ("talk", talk), ("auto", auto))
             wrote = [(f"studio-{name}.png", fn(c, rig, lv, out / f"studio-{name}.png")) for name, fn in shots if name in only]
         finally:
             c.close()
