@@ -88,16 +88,60 @@ explicit deny or ask rule still wins; `halo_harness/tools/knowledge.py`):
 - `knowledge_add {kind, title, body?, evidence?: [..], alternatives?: [..], tags?: [..]}` -- saves a finding or
   a decision; answers with its id and, for a finding, its confidence.
 - `knowledge_search {query, kind?, k?}` -- the entries that rank for the words, one line each (id, kind, who,
-  day, confidence, title), then the line that tells the agent to cite the id of any it reuses. Read-only.
+  day, confidence, title, and since 3.3.16.2 why it is a hit), then the line that tells the agent to cite the id
+  of any it reuses. Read-only. It searches from the session's folder: that project's records first.
 
 ## Searching
 
 `halo knowledge search <words>`, `knowledge_search` and the worker's brief
-rank the current entries through recall (`recall.search` over the index,
-kept to the two kinds) when embeddings are configured; when they are not, a
-plain word match over the titles, bodies, evidence and tags answers instead
-(the share of your words an entry holds). `halo recall` shows them among
-everything else, each with its chip ([RECALL.md](RECALL.md#kinds)).
+rank the current entries by **relevance first** (Halo 3.3.16.2,
+`halo_harness/knowledge/search.py` and `rank.py`): the share of the query's
+content words an entry says in its title, body, evidence and tags, or recall's
+score (`recall.search` over the index, kept to the two kinds, when embeddings
+are configured) when it is 0.35 or more. Paths, commands and shas are not
+words an entry says, and "the", "of" ... are not content words: an entry that
+shares no content word with the query is not a hit, however new it is. Then:
+
+- **the project.** A search is made from a folder; its project is the git
+  root's folder name. At equal relevance that project's entries (and the ones
+  written with no project) come first; another project's come only when they
+  match, marked `project <name>`. `--project all` drops the preference,
+  `--project <name>` keeps that project's.
+- **the guided first run's sample.** `halo start` runs one goal on a sample
+  repo (`~/.halo/start/<day>/basket`); what its gate and judge write is tagged
+  `sample` and never answers a search made from another project. An entry an
+  earlier version wrote there is recognized by its project being a sample
+  folder.
+- **gates.** A routine "<units> passes `<test>` at <sha>" finding counts half
+  its relevance, so it ranks under findings and decisions -- unless the query
+  names its file or symbol. A gate that sent a piece back is a decision and
+  keeps its rank.
+- **re-runs.** The same gate on the same units, run again, collapses to the
+  newest, marked `x3 (re-run)`.
+
+Each hit ends with why it is there: `2/6 words: halo, harness; this project`,
+`project basket`, `a passed gate, ranked under findings`, `x3 (re-run)`.
+
+Before 3.3.16.2 a search for "halo harness update new features version" from
+any folder came back with the sample's gate records: their titles carry the
+gate's test command, whose python sits in the tool venv
+(`.../uv/tools/halo-harness/bin/python`), so "halo" and "harness" matched a
+path, and equal scores went to the newest. `halo recall` shows the entries
+among everything else, each with its chip ([RECALL.md](RECALL.md#kinds)).
+
+## Keeping it useful
+
+```sh
+halo knowledge list --kind gate --project basket      # one line each: id, kind, by, day, confidence, project, title
+halo knowledge prune --kind gate --older-than 7d      # what it would remove, and the count; nothing removed
+halo knowledge prune --kind gate --older-than 7d --yes
+halo knowledge forget f-20261109-e415a5               # one entry
+```
+
+`--kind gate` is a gate's entries (either kind); `--project .` is this
+folder's project, `all` every one. The gate keeps the newest
+`knowledge.gate_keep` (50) passed-gate findings per project on its own: when
+it writes one, the older ones past that number are forgotten.
 
 ## Citing what was reused
 
@@ -143,6 +187,7 @@ here. See [FLEET.md](FLEET.md#recall-across-the-fleet-3120-r3).
 |---|---|---|
 | `knowledge.write` | `true` | the judge, the gate, the coach's Apply and the supervisor write findings and decisions; `false`: none of them does (yours and the agents' still do) |
 | `knowledge.brief` | `true` | an Orchestra worker's brief carries the findings and decisions recall ranks for its job; `false` leaves the block out |
+| `knowledge.gate_keep` | `50` | 3.3.16.2: the passed-gate findings a project keeps, the newest; when the gate writes one, older ones past it are forgotten |
 
 ## Two examples
 

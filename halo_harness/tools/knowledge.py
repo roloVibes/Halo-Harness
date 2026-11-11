@@ -101,5 +101,5 @@ class KnowledgeSearchTool(Tool):
             k = max(1, min(20, int(input.get("k") or 5)))
         except (TypeError, ValueError):
             k = 5
-        hits = search(query, k=k, kinds=(kind,) if kind in KINDS else KINDS)
+        hits = search(query, k=k, kinds=(kind,) if kind in KINDS else KINDS, cwd=ctx.cwd)  # 3.3.16.2: this project first
         return ToolResult(snapshot(hits) if hits else f"No finding or decision here matches \"{query}\".")

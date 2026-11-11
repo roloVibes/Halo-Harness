@@ -98,7 +98,9 @@ def test_h9_wheel_ships_the_required_runtime_data_files(ctx: Ctx):
                              "halo_harness/templates/pack-kit/base/manifest.yaml",
                              "halo_harness/templates/pack-kit/kinds/events/files/tests/samples/events/note.added.json",
                              "halo_harness/templates/pack-kit/github/files/dot-github/workflows/pack-test.yml",
-                             "halo_harness/templates/teams/pack-author.yaml"):
+                             "halo_harness/templates/teams/pack-author.yaml",
+                             # 3.3.16.2: the shipped changelog `halo whatsnew` reads
+                             "halo_harness/data/changelog.md"):
         ctx.check(f"{required_suffix} is in the wheel", any(n.endswith(required_suffix) for n in names))
 
 

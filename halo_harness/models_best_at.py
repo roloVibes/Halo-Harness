@@ -2,12 +2,15 @@
 
 `<state>/models/best-at.json`:
 
-    {"schema": 1, "built": <epoch s>,
+    {"schema": 2, "built": <epoch s>,
      "sources": {"models.json": <mtime>, ..., "gym": [<newest mtime>, <files>]},
      "rows": {ref: {"kinds": [...], "line": "...", "scores": {kind: s},
                     "facts": {provider, prices, context, modalities, tools,
                               reasoning, open_weights, local, measured}}},
-     "best": {kind: {"cheapest": ref | null, "strongest": ref}}}
+     "best": {kind: {"cheapest": ref | null, "strongest": ref, "strongest_why": "", "cheapest_why": ""}}}
+
+A tie on the score (or on the price, for the cheapest) is broken by model_rank.py's order, and the leader's
+`line` ends with the deciding term ("strongest for code: same score as X: newer"); 3.3.16.2.
 
 `index(state_dir, rows)` answers the cache while it is fresh and rebuilds it
 when any SOURCE cache's mtime moved (`SOURCE_NAMES`: every provider catalog
@@ -31,7 +34,7 @@ import time
 from pathlib import Path
 from typing import Optional
 
-SCHEMA = 1
+SCHEMA = 2  # 3.3.16.2: the tie order (model_rank.py) and `*_why`; a schema-1 file is rebuilt once
 MAX_AGE_S = 6 * 3600
 FIRST_BUILD_WAIT_S = 4.0  # how long a session start waits for a first-ever build
 SOURCE_NAMES = ("models.json", "models-dev.json", "dbx-endpoints.json", "experiential-models.json",
@@ -109,22 +112,40 @@ def entry_for(row: dict, preflight: Optional[dict] = None) -> dict:
             "facts": {k: row.get(k) for k in FACT_KEYS}}
 
 
-def best_per_kind(entries: dict) -> dict:
-    """{kind: {"cheapest", "strongest"}} over the models good at each kind;
-    the cheapest by the blended price (a model with no price never wins it)."""
+def best_per_kind(entries: dict, *, keyed=None) -> dict:
+    """{kind: {"cheapest", "strongest", "strongest_why", "cheapest_why"}} over the models good at each kind.
+    3.3.16.2: an equal score is broken by model_rank's order (measured here, the newer version of a family,
+    the larger context, the lower price, the provider you have a key for, then the name), never by the name
+    alone; the cheapest by the blended price (a model with no price never wins it). `*_why`: the deciding
+    term when a tie was broken ("same score as X: newer"), else ""."""
+    from halo_harness import model_rank as R
     from halo_harness.capabilities import KINDS
-    from halo_harness.capabilities_strengths import blended_price
     out: dict = {}
     for kind in KINDS:
-        good = [(ref, e) for ref, e in entries.items() if kind in (e.get("kinds") or [])]
+        good = [R.entry_item(ref, e, kind) for ref, e in entries.items() if kind in (e.get("kinds") or [])]
         if not good:
             continue
-        strongest = min(good, key=lambda t: (-t[1]["scores"].get(kind, 0), t[0]))[0]
-        priced = [(blended_price({**(e.get("facts") or {}), "ref": ref}), ref, e) for ref, e in good]
-        priced = [t for t in priced if t[0] is not None]
-        cheapest = min(priced, key=lambda t: (t[0], -t[2]["scores"].get(kind, 0), t[1]))[1] if priced else None
-        out[kind] = {"cheapest": cheapest, "strongest": strongest}
+        skey = R.strongest_key(good)
+        strong = R.ranked(good, skey, keyed=keyed)
+        priced = [it for it in good if it["price"] is not None]
+        ckey = R.cheapest_key(priced) if priced else None
+        cheap = R.ranked(priced, ckey, keyed=keyed) if priced else []
+        out[kind] = {"cheapest": cheap[0]["ref"] if cheap else None, "strongest": strong[0]["ref"],
+                     "strongest_why": R.why(strong[0], strong[1] if len(strong) > 1 else None, skey, R.STRONGEST,
+                                            keyed=keyed),
+                     "cheapest_why": R.why(cheap[0], cheap[1], ckey, R.CHEAPEST, keyed=keyed) if len(cheap) > 1 else ""}
     return out
+
+
+def lead_words(best: dict) -> dict:
+    """`{ref: "strongest for code: same score as X: newer"}` -- the tie a per-kind leader won, for its line."""
+    out: dict = {}
+    for kind, pick in (best or {}).items():
+        for role in ("strongest", "cheapest"):
+            ref, why = pick.get(role), pick.get(f"{role}_why")
+            if ref and why:
+                out.setdefault(ref, []).append(f"{role} for {kind}: {why}")
+    return {ref: "; ".join(words) for ref, words in out.items()}
 
 
 _WRITE_LOCK = threading.Lock()
@@ -136,8 +157,11 @@ def rebuild(state_dir, rows: list) -> dict:
         ref = row.get("ref")
         if ref and row.get("provider") != "alias" and ref not in entries:
             entries[ref] = entry_for(row)
+    best = best_per_kind(entries)
+    for ref, words in lead_words(best).items():  # 3.3.16.2: the tie a leader won shows on its line
+        entries[ref] = {**entries[ref], "line": f"{entries[ref].get('line') or ''} ({words})".strip()}
     cache = {"schema": SCHEMA, "built": time.time(), "sources": source_mtimes(state_dir), "rows": entries,
-             "best": best_per_kind(entries)}
+             "best": best}
     path = cache_path(state_dir)
     with _WRITE_LOCK:
         try:

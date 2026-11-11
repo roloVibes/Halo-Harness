@@ -74,13 +74,18 @@ def _list(v) -> list:
     return [str(x).strip() for x in v if isinstance(x, (str, int)) and str(x).strip()] if isinstance(v, list) else []
 
 
+def _mode(v) -> str:
+    """YAML reads a bare `mode: off` as false: that is `off`."""
+    return "off" if v is False else str(v or "auto").strip().lower()
+
+
 def read(raw) -> Optional[Rule]:
     """The rule of a `when:` mapping (or of a whole `{ref, when}` item); None when it has none."""
     if isinstance(raw, dict) and "ref" in raw:
         raw = raw.get("when")
     if not isinstance(raw, dict):
         return None
-    mode = str(raw.get("mode") or "auto").strip().lower()
+    mode = _mode(raw.get("mode"))
     needs = list(dict.fromkeys(_need(n) for n in _list(raw.get("needs"))))
     words = list(dict.fromkeys(w.lower() for w in _list(raw.get("words"))))
     return Rule(needs=[n for n in needs if n in COVERS], words=words, mode=mode if mode in MODES else "auto")
@@ -96,7 +101,7 @@ def problems(raw) -> "list[str]":
     for k in raw:
         if k not in ("needs", "words", "mode"):
             out.append(f'"when.{k}" is not read (needs, words, mode)')
-    if raw.get("mode") is not None and str(raw.get("mode")).strip().lower() not in MODES:
+    if raw.get("mode") is not None and _mode(raw.get("mode")) not in MODES:
         out.append(f'"when.mode" {raw.get("mode")!r} is not one of {", ".join(MODES)}')
     for n in _list(raw.get("needs")):
         if _need(n) not in COVERS:

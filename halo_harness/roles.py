@@ -888,17 +888,15 @@ def _cheapest_model_entry(state_dir=None) -> Optional[str]:
     own row shape never sets this) stays fail-open, never excluded, so
     this never gets stricter than before for a catalog with no such
     metadata."""
-    best_ref, best_price = None, None
-    for e in _configured_model_entries(state_dir):
-        price = e.get("price_in_per_m")
-        if not isinstance(price, (int, float)) or isinstance(price, bool) or price <= 0:
-            continue
-        supported = e.get("supported_parameters")
-        if isinstance(supported, list) and "tools" not in supported:
-            continue
-        if best_price is None or price < best_price:
-            best_price, best_ref = price, e.get("ref")
-    return best_ref
+    from halo_harness import model_rank as R  # 3.3.16.2: an equal price goes newer, larger context, keyed, then name
+    entries = [e for e in _configured_model_entries(state_dir) if e.get("ref")]
+    ok = [{**e, "price": e["price_in_per_m"], "context": e.get("context_tokens")} for e in entries
+          if isinstance(e.get("price_in_per_m"), (int, float)) and not isinstance(e["price_in_per_m"], bool)
+          and e["price_in_per_m"] > 0 and not (isinstance(e.get("supported_parameters"), list)
+                                               and "tools" not in e["supported_parameters"])]
+    rk = R.family_ranks([e["ref"] for e in ok])
+    order = R.ranked(ok, lambda e: (e["price"], rk.get(e["ref"], 0), R.term("context", e, rk)))
+    return order[0]["ref"] if order else None
 
 
 def _local_ol_model_entry(state_dir=None) -> Optional[str]:

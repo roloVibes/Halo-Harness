@@ -41,8 +41,10 @@ def summary_lines(cache: dict, state_dir=None) -> list:
             strong = pick.get("strongest")
             cheap = pick.get("cheapest")
             text = f"  {kind:<9} strongest {strong} ({_price((rows.get(strong) or {}).get('facts') or {})})"
+            text += f" [{pick['strongest_why']}]" if pick.get("strongest_why") else ""  # 3.3.16.2: the tie it won
             if cheap and cheap != strong:
                 text += f" · cheapest {cheap} ({_price((rows.get(cheap) or {}).get('facts') or {})})"
+                text += f" [{pick['cheapest_why']}]" if pick.get("cheapest_why") else ""
             lines.append(text)
     from halo_harness.outcomes.measured import success_by_model_kind, table_lines  # 3.1.8.0 R3
     stats = success_by_model_kind(state_dir) if state_dir is not None else {}

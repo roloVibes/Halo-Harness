@@ -135,13 +135,11 @@ def apply_update(*, cmd: Optional[str] = None, force: bool = False, keep_running
         else:
             print("halo update: could not determine how halo was installed -- nothing to run", file=sys.stderr)
         return 1
-    # Finding 3: a checkout kind's `spec` is the real checkout directory
-    # (never a bare "."  -- see update.install_kind) -- running there,
-    # not in whatever directory `halo update`/`/update` happened to be
-    # invoked from, is what makes the git pull (and the reinstall's own
-    # path argument) land on the right repo. An installed-package kind's
-    # `spec` is a URL/git+spec, not a real local directory, so `cwd` stays
-    # None there and the command runs from wherever, same as before.
+    # Finding 3: a checkout kind's `spec` is the real checkout directory (never a bare "." -- see
+    # update.install_kind) -- running there, not in whatever directory `halo update`/`/update` was invoked
+    # from, is what makes the git pull (and the reinstall's own path argument) land on the right repo. An
+    # installed-package kind's `spec` is a URL/git+spec, not a real local directory, so `cwd` stays None
+    # there and the command runs from wherever, same as before.
     spec = kind.get("spec")
     cwd = spec if spec and Path(spec).is_dir() else None
     print(f"halo update: installed {upd.format_version_line(before)}")
@@ -158,7 +156,8 @@ def apply_update(*, cmd: Optional[str] = None, force: bool = False, keep_running
     if supervisor:
         from halo_harness.update_stop import restart_supervisor
         print(restart_supervisor())
-    return 0 if returncode == 0 else 1
+    from halo_harness.whatsnew_cli import after_update  # 3.3.16.2: the new version's summary comes last
+    return after_update(returncode, before, after_line, run_fn=upd.run)
 
 
 def cmd_update(argv: "list[str]") -> int:

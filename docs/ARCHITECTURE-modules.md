@@ -256,8 +256,12 @@ window, the pick's weight, dropped for a kind, `relearn` for
 and docs/RECALL.md): findings and decisions that outlive a session --
 `knowledge/store.py` (the files: write, read, list, supersede, forget, the
 ids, `_meta.json`), `knowledge/frontmatter.py` (an entry's front matter, its
-one-line fields, the confidence rule), `knowledge/search.py` (through recall,
-else a word match), `knowledge/cite.py` (the snapshot and its cite line, the
+one-line fields, the confidence rule), `knowledge/search.py` (relevance first,
+the project's scope, gates under findings, re-runs collapsed, each hit's why;
+3.3.16.2), `knowledge/rank.py` (a record's content words, its project, the
+sample's records, a routine gate, the re-run key), `knowledge/curate.py` (list
+filters, prune by age, the passed-gate cap `knowledge.gate_keep`),
+`knowledge/curate_cli.py` (`halo knowledge list` and `prune`), `knowledge/cite.py` (the snapshot and its cite line, the
 worker's brief block, the ids a text names, "reused by"),
 `knowledge/writers.py` (the judge, the gate, the coach's Apply, the
 supervisor's answers), `knowledge/sources.py` (recall's finding / decision /
@@ -356,10 +360,13 @@ project > shipped for a bare name and a pack's by `<pack>/<name>`; the enabled s
 the `gives` check), `workflows/receipts.py` (the receipt node, the Live tree's square, the cost, an Orchestra run's
 squares), `workflows/squares_cli.py` (`halo workflows`, the TUI's `/workflows`), `tools/workflow.py` (the `Workflow`
 tool) and `studio/workflows_api.py` (Agents -> Workflows: the board's rows, enable / disable, the YAML, a square's
-budget and limits). Halo 3.3.16.3 "Blocks": `workflows/when.py` (a block's when: the rule, its label and sentence, the
-CLI's `--when`), `workflows/when_store.py` (where the rules live: a lineup's `workflows:` items, config
-`workflows.when` on the auto lineup), `workflows/when_route.py` (always, then words, before the needs pick),
-`workflows/when_tool.py` (the Workflow tool's words for each rule), `workflows/squares_when_cli.py` (`halo workflows
+budget and limits). 3.3.16.2: `workflows/offer.py` (the `Workflow` tool leaves the session's list when no square is on
+for its lineup), `workflows/lineup_roles.py` (a lineup role that covers the reads takes the task before a square; the
+"nothing reads it" line) and `workflows/doctor_rows.py` (`halo doctor`'s squares line, `halo workflows list`'s
+header). Halo 3.3.16.3 "Blocks": `workflows/when.py` (a block's when: the rule, its label and sentence, the CLI's
+`--when`), `workflows/when_store.py` (where the rules live: a lineup's `workflows:` items, config `workflows.when` on
+the auto lineup), `workflows/when_route.py` (always, then words, then needs: an explicit when comes before a covering
+role, a plain ref after it), `workflows/when_tool.py` (the Workflow tool's words for each rule), `workflows/squares_when_cli.py` (`halo workflows
 enable --when`, `halo workflows when`), `workflows/blocks.py` and `workflows/blocks_tier.py` (the block templates:
 load, check, add a square of yours or a tier), `workflows/members.py` (who is inside a square; a shipped one copied to
 yours first), `workflows/blocks_show.py` (a lineup's blocks in lines: `halo blocks`, `halo teams show`), `blocks_cli.py`

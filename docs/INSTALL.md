@@ -190,7 +190,8 @@ checkout left on a detached tag by the installer uses `git fetch --tags --force
 origin && git checkout --detach <tag>` in place of `git pull`. Every reinstall
 keeps the dependency versions pinned to `requirements.lock` (`--constraints`).
 On the stable channel a plain `halo update` moves a `git+https` install pinned
-at a tag to the newest tag.
+at a tag to the newest tag. After it installs a newer version its last lines are that version's summary;
+`halo whatsnew` (or `/whatsnew`) shows what it changed, from the changelog the package ships (3.3.16.2).
 
 **If `halo update` stops at `invalid peer certificate: UnknownIssuer`** (an install older than 3.3.16.0):
 uv checks TLS against its own bundled roots, not the system store, so a network that re-signs

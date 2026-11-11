@@ -110,9 +110,12 @@ def _list(repo: Path, as_json: bool) -> int:
         return 0
     lineup = registry.active_lineup() or "none"
     print(f"squares (lineup {lineup}; * = enabled):")
+    from halo_harness.workflows.doctor_rows import squares_line  # 3.3.16.2: which are on, and from where
+    print(f"  {squares_line(cwd=repo)}")
     for r in got:
         mark = "*" if r["enabled"] else " "
-        tail = "" if r["square"] else "  (not a square: its file says no gives)"
+        tail = (f"  -- on for {lineup}" if r["enabled"] else "  -- off") if r["square"] else \
+            "  (not a square: its file says no gives)"
         when = f"  when: {r['when_label']}" if r.get("when_label") else ""  # 3.3.16.3: the when column
         print(f" {mark} [{r['group']:<7}] {r['line']}{tail}{when}")
     return 0

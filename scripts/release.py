@@ -189,8 +189,7 @@ def unreleased_section_body(version: str, repo_dir: Path = REPO_DIR) -> str:
 
 
 def set_changelog_date(version: str, date_str: str, repo_dir: Path = REPO_DIR) -> None:
-    """Rewrites the section heading from "- unreleased" to "- <date_str>"
-    in place; everything else in CHANGELOG.md is untouched."""
+    """The heading "- unreleased" -> "- <date_str>" (nothing else); 3.3.16.2: then halo_harness/data/changelog.md."""
     changelog_path = repo_dir / "CHANGELOG.md"
     text = changelog_path.read_text(encoding="utf-8")
     old = f"## [{version}] - unreleased"
@@ -198,6 +197,7 @@ def set_changelog_date(version: str, date_str: str, repo_dir: Path = REPO_DIR) -
     if old not in text:
         raise ReleaseError(f'CHANGELOG.md has no "{old}" section -- add it before releasing')
     changelog_path.write_text(text.replace(old, new, 1), encoding="utf-8", newline="\n")
+    __import__("halo_harness.whatsnew", fromlist=["write_data"]).write_data(repo_dir)  # `halo whatsnew` reads it
 
 
 def commit_message_body(section_body: str, max_bullets: int = 5) -> str:
@@ -453,7 +453,7 @@ def main(argv: "Optional[list]" = None, *, repo_dir: Path = REPO_DIR,
         step("git push origin master")
         step(f"git push origin v{version}")
         if not args.dry_run:
-            to_add = ["halo_harness/__init__.py", "CHANGELOG.md", "README.md"]
+            to_add = ["halo_harness/__init__.py", "CHANGELOG.md", "README.md", "halo_harness/data/changelog.md"]
             if (repo_dir / "docs" / "INSTALL.md").exists():
                 to_add.append("docs/INSTALL.md")
             if (repo_dir / _SHIPPED_PACK).exists():

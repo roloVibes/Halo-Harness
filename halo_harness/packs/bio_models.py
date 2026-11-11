@@ -168,7 +168,12 @@ def pick(models, *, rows: "Optional[list]" = None, state_dir=None, cwd=None) -> 
     want = set(tags)
     fits = [r for r in rows if r.get("ref") and r.get("provider") != "alias" and want <= row_tags(r)]
     family = [r for r in fits if info["prefer"] and info["prefer"].lower() in _family(str(r["ref"]))]
-    ranked = sorted(family or fits, key=lambda r: (-_tier(r)[0], -_ctx(r), str(r["ref"])))
+    from halo_harness import model_rank as R  # 3.3.16.2: the tier, then the newer version, context, price, key, name
+    from halo_harness.capabilities_strengths import blended_price as _blended
+    pool = family or fits
+    rk = R.family_ranks([str(r["ref"]) for r in pool])
+    ranked = R.ranked([{**r, "price": _blended(r), "context": _ctx(r)} for r in pool],
+                      lambda r: (-_tier(r)[0], rk.get(str(r["ref"]), 0), -_ctx(r), R.term("cheaper", r, rk)))
     if ranked:
         return {**info, "ref": str(ranked[0]["ref"]), "how": "capabilities"}
     default = _default_ref()

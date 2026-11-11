@@ -78,6 +78,8 @@ def edit_lineup(lineup: str, fn, *, cwd=None, state_dir=None) -> "tuple[bool, st
                        f"(halo teams new <name> --from {lineup}), or enable on the auto lineup")
     raw = _read_yaml_file(path) or {}
     items = [i for i in raw.get("workflows") or [] if W.item_ref(i)] if isinstance(raw.get("workflows"), list) else []
+    if "workflows" not in raw:  # 3.3.16.2: a lineup with no key inherits config's set; an edit starts from it
+        items = list(_registry()._config_refs())
     fn(items)
     raw["workflows"] = items
     problems = _write_yaml_file(path, raw)

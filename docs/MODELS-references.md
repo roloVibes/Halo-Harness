@@ -136,8 +136,28 @@ halo models --capabilities       # in: / out: plus the best-at line
 halo models --best-for code      # rank for one kind (any of the eleven)
 ```
 
-The answer is cached in `~/.halo/models/best-at.json` (`{built, sources,
-rows: {ref: {kinds, line, scores, facts}}, best}`, sources by file name) and
+**A tie** (Halo 3.3.16.2, `halo_harness/model_rank.py`). Two models with
+the same score for a kind used to go to the one whose NAME sorted first, so
+`...-opus-4-1` led over `...-opus-4-6`. Every pick now breaks a tie by one
+order: the kind's score, then the measured first-time success for that kind
+here (from 3 checked tasks; fewer counts as 0.5, neither proven nor failed),
+then within one model family the newer version (`4.6` > `4.1`, `v4.1` > `v4`,
+`5.3` > `5`, a newer date suffix > an older one, read across `-`, `.` and `v`;
+an id with no version is the newest of its own), then the larger context,
+then the lower blended price, then the provider you have a key for, and only
+then the name. The cheapest per kind is the lower price first (a model with no
+price never wins it), then the higher score, then the same rungs. The leader's
+line says which rung decided (`code: ant:opus (same score as ant:opus-5.5: by
+name)`, "same score as X: newer", "...: measured 4/5 here", "...: cheaper"):
+the roster, `halo models analyze`, `halo models --best-for` and the Roles
+picker's best-at line. The `auto` pick keeps its band's own rule (the
+session's model, a local one on band low, the cheaper) and breaks what is
+left the same way; `measured`, a pack bio's capability pick, the role
+presets' cheapest model and `halo gym propose` use the same order.
+
+The answer is cached in `~/.halo/models/best-at.json` (`{schema: 2, built, sources,
+rows: {ref: {kinds, line, scores, facts}}, best}`, sources by file name; schema 2
+since 3.3.16.2, so an older file is rebuilt once) and
 rebuilt on the next read whenever a source cache's mtime moved --
 `models.json`, `models-dev.json`, `dbx-endpoints.json`, the Experiential,
 Hugging Face, OpenAI and Anthropic caches, `stats-cache.json`, the gym
@@ -195,7 +215,7 @@ more" when the catalog is longer. Names only: no key, URL or path.
 ```
 # Model roster (what each model in this Halo's catalog is good at; prices are USD per 1M tokens in/out; name one with the Agent tool's `model` when a sub-task needs it)
 Per kind, the strongest (and the cheapest when it differs):
-- visual: ant:fable; cheapest or:v/ears
+- visual: ant:opus (same score as ant:opus-5.5: by name); cheapest or:v/ears
 - audio: or:v/ears
 - bulk: or:v/cheap
 Models:
@@ -218,8 +238,8 @@ video -- and one line after the leaders names it with its numbers, the worst
 first, at most three models (`halo outcomes learned` lists the rest):
 
 ```
-- code: ant:fable; cheapest or:v/eyes
-- research: ant:opus; cheapest or:v/ears
+- code: ant:opus (same score as ant:opus-5.5: by name); cheapest or:v/eyes
+- research: ant:opus (same score as ant:opus-5.5: by name); cheapest or:v/ears
 - dropped for media: dbx:databricks-gemini-9-flash (0/5 checked tasks); dropped for research: ant:fable (0/3 checked tasks); dropped for code: or:v/ears (1/4 checked tasks) (+1 more: `halo outcomes learned`)
 Models:
 ```

@@ -65,7 +65,7 @@ _SCALARS = {
 # citations off, orchestra/coach_citations.py); `models`: roster (3.1.9.0 R1: false keeps the model roster out
 # of the main agent's context, providers/roster.py)
 # `supervise` (3.1.8.0, supervise/settings.py): R2 adds replan none|auto|review, replan_forecast, replan_returns, replan_block_s, replan_stall_s, replan_cooldown_s, replan_max
-# `knowledge` (3.1.8.0 R4, knowledge/): write, brief; `recall`: sources (3.1.8.0 R4, knowledge/sources.py)
+# `knowledge` (3.1.8.0 R4, knowledge/): write, brief, gate_keep (3.3.16.2); `recall`: sources (3.1.8.0 R4, knowledge/sources.py)
 # `databricks`: gateway.<endpoint>, dbu_price_usd (USD per DBU, default 0.07), prices.<endpoint> {in, out[, cache_read,
 # cache_write]} USD per 1M tokens (3.3.3.1, providers/databricks_prices.py), catalog_max_age_hours
 # `steer`: restart_when_silent, silent_restart_s (3.2.2.0 R4); `turn`: nudge_promises (3.2.2.0 R4, agent/turn_marker.py)
